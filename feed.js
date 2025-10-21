@@ -110,10 +110,12 @@
       initials: typeof App.getInitials === 'function' ? App.getInitials(pubkey) : 'AN',
     });
 
+    // אין Pool זמין – מחזירים fallback
     if (!App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
       return fallback;
     }
 
+    // הבטח הבטחה אחת ל־pubkey
     if (!App.profileFetchPromises.has(normalized)) {
       const authorFilters = Array.from(new Set([pubkey, normalized].filter((value) => typeof value === 'string' && value)));
       const fetchPromise = (async () => {
@@ -129,8 +131,7 @@
               name,
               bio,
               picture,
-              initials:
-                typeof App.getInitials === 'function' ? App.getInitials(name || pubkey) : fallback.initials,
+              initials: typeof App.getInitials === 'function' ? App.getInitials(name || pubkey) : fallback.initials,
             });
           }
         } catch (err) {
@@ -143,25 +144,17 @@
       App.profileFetchPromises.set(normalized, fetchPromise);
     }
 
+    // מחכים לסיום ההבאה מהרשת ומחזירים את הפרופיל המועשר אם קיים
     try {
       await App.profileFetchPromises.get(normalized);
-      const updatedProfile =
-        (App.profileCache instanceof Map
-          ? App.profileCache.get(normalized) || App.profileCache.get(pubkey)
-          : null) ||
+      const enriched =
+        (App.profileCache instanceof Map ? App.profileCache.get(normalized) || App.profileCache.get(pubkey) : null) ||
         (App.feedAuthorProfiles instanceof Map ? App.feedAuthorProfiles.get(normalized) : null) ||
         (App.authorProfiles instanceof Map ? App.authorProfiles.get(normalized) : null);
-      if (updatedProfile) {
-        return storeProfile(updatedProfile);
-      }
+      return enriched ? storeProfile(enriched) : fallback;
     } catch (err) {
-      console.warn('Profile promise resolution failed for', pubkey, err);
+      return fallback;
     }
-
-    return storeProfile(
-      (App.profileCache instanceof Map ? App.profileCache.get(normalized) || App.profileCache.get(pubkey) : null) ||
-        fallback
-    );
   }
 
   function getNotificationSnapshot() {
