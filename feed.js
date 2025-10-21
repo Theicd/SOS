@@ -143,7 +143,25 @@
       App.profileFetchPromises.set(normalized, fetchPromise);
     }
 
-    return fallback;
+    try {
+      await App.profileFetchPromises.get(normalized);
+      const updatedProfile =
+        (App.profileCache instanceof Map
+          ? App.profileCache.get(normalized) || App.profileCache.get(pubkey)
+          : null) ||
+        (App.feedAuthorProfiles instanceof Map ? App.feedAuthorProfiles.get(normalized) : null) ||
+        (App.authorProfiles instanceof Map ? App.authorProfiles.get(normalized) : null);
+      if (updatedProfile) {
+        return storeProfile(updatedProfile);
+      }
+    } catch (err) {
+      console.warn('Profile promise resolution failed for', pubkey, err);
+    }
+
+    return storeProfile(
+      (App.profileCache instanceof Map ? App.profileCache.get(normalized) || App.profileCache.get(pubkey) : null) ||
+        fallback
+    );
   }
 
   function getNotificationSnapshot() {
