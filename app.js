@@ -36,6 +36,17 @@
     initials: App.profile.avatarInitials,
   });
 
+  if (!Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
+    // חלק Bootstrap (app.js) – מגדיר רשימת ריליים ברירת מחדל כאשר הקונפיגורציה לא סיפקה אחת
+    App.relayUrls = [
+      'wss://relay.damus.io',
+      'wss://relay.snort.social',
+      'wss://nos.lol',
+      'wss://purplerelay.com',
+      'wss://relay.nostr.band',
+    ];
+  }
+
   App.pool = new SimplePool();
   if (typeof App.notifyPoolReady === 'function') {
     App.notifyPoolReady(App.pool);
