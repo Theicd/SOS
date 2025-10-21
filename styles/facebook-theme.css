@@ -691,26 +691,31 @@ button {
 .feed-post__header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px; /* חלק פיד (facebook-theme.css) – מצמצם את הרווח בין האווטאר לשם לאחידות עם שאר האזורים */
 }
 
 .feed-post__avatar {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: var(--card-alt);
-  display: flex;
+  overflow: hidden;
+  /* חלק פיד (facebook-theme.css) – איפוסי כפתור ואחידות עם תגובות */
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  color: var(--text);
-  overflow: hidden;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0;
+  cursor: pointer;
 }
 
 .feed-post__avatar img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: cover; /* חלק פיד (facebook-theme.css) – התמונה מכסה את כל העיגול */
+  display: block; /* חלק פיד (facebook-theme.css) – מניעת רווחים פנימיים של inline images */
+  border-radius: 50%; /* חלק פיד (facebook-theme.css) – הבטחת עיגול מלא גם אם יש עיוותים */
 }
 
 .feed-post__info {
@@ -724,9 +729,12 @@ button {
   color: var(--text);
   background: transparent;
   border: none;
-  padding: 0;
+  text-align: start;
   cursor: pointer;
+  padding: 0;
   font: inherit;
+  margin: 0; /* חלק פיד (facebook-theme.css) – ביטול מרווחי ברירת מחדל לשמירה על קירבה לתמונה */
+  line-height: 1.2; /* חלק פיד (facebook-theme.css) – גובה שורה מרוכז לאיזון אנכי עם האווטאר */
 }
 
 .feed-post__name:focus-visible,
@@ -972,6 +980,38 @@ button {
 .feed-comment {
   display: flex;
   gap: 10px;
+}
+
+/* חלק תגובות (facebook-theme.css) – איפוס כפתור שם המגיב ומניעת רקע לבן */
+.feed-comment__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.feed-comment__author {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+.feed-comment__author:hover,
+.feed-comment__author:focus-visible {
+  color: var(--primary);
+  outline: none;
+}
+
+/* חלק פרופיל (facebook-theme.css) – כל כפתור שמקשר לפרופיל (data-profile-link) ללא רקע לבן */
+button[data-profile-link] {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
 }
 
 /* חלק תגובות (facebook-theme.css) – מגדיר מראה אחיד לתמונת פרופיל של תגובות ושל מפרסם התגובה */
