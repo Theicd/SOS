@@ -26,8 +26,25 @@
     }
     const normalized = pubkey.trim().toLowerCase();
     const encoded = encodeURIComponent(normalized);
+    try {
+      window.sessionStorage?.setItem('nostr_last_profile_view', normalized);
+    } catch (err) {
+      console.warn('Failed persisting last profile view', err);
+    }
+    try {
+      window.localStorage?.setItem('nostr_last_profile_view', normalized);
+    } catch (err) {
+      console.warn('Failed persisting last profile view to localStorage', err);
+    }
     window.location.href = `./profile-viewer.html?pubkey=${encoded}`;
   };
+
+  // חלק כלי ניווט (utils.js) – תאימות מאזינים שמצפים לפונקציה גלובלית על window
+  // מודולים מסוימים (למשל profile-post.js / feed.js) בודקים window.openProfileByPubkey
+  // לכן ניצור alias ל-App.openProfileByPubkey על ה-window כדי להבטיח תאימות לאחור.
+  if (typeof window.openProfileByPubkey !== 'function') {
+    window.openProfileByPubkey = App.openProfileByPubkey;
+  }
 
   App.getInitials = function getInitials(source = '') {
     const words = source.trim().split(/\s+/).filter(Boolean);

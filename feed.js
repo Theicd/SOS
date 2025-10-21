@@ -79,6 +79,42 @@
     return [];
   }
 
+  function ensureProfileLinkNavigation() {
+    // חלק ניווט פרופיל ציבורי (feed.js) – מאזין קליק פעם אחת לכל אלמנט עם data-profile-link
+    if (App._profileLinkHandlerAttached) {
+      return;
+    }
+    const handler = (event) => {
+      // חיפוש אלמנט בעל data-profile-link גם אם היעד הוא טקסט/אייקון
+      let el = event.target;
+      // עבור צמתי טקסט/אייקון – עולים להורה עד למצוא אלמנט
+      while (el && el.nodeType !== 1 /* ELEMENT_NODE */) {
+        el = el.parentNode;
+      }
+      while (el && el !== document && !(el.matches && el.matches('[data-profile-link]'))) {
+        el = el.parentElement;
+      }
+      const target = el && el.matches ? el : null;
+      if (!target) {
+        return;
+      }
+      const pubkey = target.getAttribute('data-profile-link');
+      if (!pubkey) {
+        return;
+      }
+      event.preventDefault();
+      try { event.stopImmediatePropagation(); } catch (e) {}
+      if (typeof window.openProfileByPubkey === 'function') {
+        window.openProfileByPubkey(pubkey);
+      }
+    };
+    // capture=true כדי שהמאזין יעבוד גם אם מאזינים אחרים עצרו bubbling
+    document.addEventListener('click', handler, true);
+    // מאזין נוסף ב-window capture למקרה שמאזיני capture אחרים במסמך עוצרים את האירוע לפני document
+    window.addEventListener('click', handler, true);
+    App._profileLinkHandlerAttached = true;
+  }
+
   async function flushProfileBatch() {
     // חלק פרופילים (feed.js) – מנקה את התור, שולח list יחיד, מעדכן מטמונים ופותר הבטחות
     const authors = Array.from(App._profileBatchQueue.values());
@@ -1117,7 +1153,7 @@
       const attrBio = (commenterProfile.bio || '').replace(/"/g, '&quot;');
       const attrPicture = (commenterProfile.picture || '').replace(/"/g, '&quot;');
       const profileDataset = normalizedCommenter
-        ? `data-profile-link="${normalizedCommenter}" data-profile-name="${attrName}" data-profile-bio="${attrBio}" data-profile-picture="${attrPicture}` + `"`
+        ? `data-profile-link="${normalizedCommenter}" data-profile-name="${attrName}" data-profile-bio="${attrBio}" data-profile-picture="${attrPicture}"`
         : '';
       const commenterAvatarHtml = commenterProfile.picture
         ? `<div class="feed-comment__avatar" ${profileDataset}><img src="${commenterProfile.picture}" alt="${commenterName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${commenterProfile.initials}'; }"></div>`
@@ -1451,7 +1487,8 @@
       const attrName = (profileData.name || '').replace(/"/g, '&quot;');
       const attrBio = (profileData.bio || '').replace(/"/g, '&quot;');
       const attrPicture = (profileData.picture || '').replace(/"/g, '&quot;');
-      const profileDataset = `data-profile-link="${normalizedPubkey || event.pubkey}" data-profile-name="${attrName}" data-profile-bio="${attrBio}" data-profile-picture="${attrPicture}"`;
+      const targetPubkey = normalizedPubkey || (typeof event.pubkey === 'string' ? event.pubkey : '');
+      const profileDataset = `data-profile-link="${targetPubkey}" data-profile-name="${attrName}" data-profile-bio="${attrBio}" data-profile-picture="${attrPicture}"`;
       const viewerPubkeyLower = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
       // חלק עוקבים (feed.js) – יוצר כפתור עקוב בהאדר של פוסט עבור משתמשים אחרים בלבד
       const followButtonHtml = normalizedPubkey && normalizedPubkey !== viewerPubkeyLower
@@ -1485,15 +1522,16 @@
         ? `<img src="${viewerProfile.picture}" alt="${App.escapeHtml(viewerName)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.innerHTML='<span>${App.escapeHtml(viewerInitials)}</span>'; }">`
         : `<span>${App.escapeHtml(viewerInitials)}</span>`;
 
+      const clickOpen = `onclick="if(window.openProfileByPubkey){ window.openProfileByPubkey('${targetPubkey}'); }"`;
       const avatar = profileData.picture
-        ? `<button class="feed-post__avatar" type="button" ${profileDataset}><img src="${profileData.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${profileData.initials}'; }"></button>`
-        : `<button class="feed-post__avatar" type="button" ${profileDataset}>${profileData.initials}</button>`;
+        ? `<button class="feed-post__avatar" type="button" ${profileDataset} ${clickOpen}><img src="${profileData.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${profileData.initials}'; }"></button>`
+        : `<button class="feed-post__avatar" type="button" ${profileDataset} ${clickOpen}>${profileData.initials}</button>`;
 
       article.innerHTML = `
         <header class="feed-post__header">
           ${avatar}
           <div class="feed-post__info">
-            <button class="feed-post__name" type="button" ${profileDataset}>${safeName}</button>
+            <button class="feed-post__name" type="button" ${profileDataset} ${clickOpen}>${safeName}</button>
             ${metaHtml ? `<span class="feed-post__meta">${metaHtml}</span>` : ''}
           </div>
           ${followButtonHtml}
@@ -1603,6 +1641,8 @@
   }
 
   async function loadFeed() {
+    // ודא שהניווט לפרופיל ציבורי פעיל תמיד, גם אם ה-Pool טרם מאותחל
+    ensureProfileLinkNavigation();
     if (!App.pool) return;
 
     const feed = document.getElementById('feed');
@@ -1616,7 +1656,6 @@
       emptyState.removeAttribute('hidden');
       feed.appendChild(emptyState);
     }
-
     if (!App.notificationsRestored && typeof App.publicKey === 'string' && App.publicKey) {
       restoreNotificationsFromStorage();
       App.notificationsRestored = true;
