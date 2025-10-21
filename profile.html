@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="he">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>הפרופיל שלי – יאללה תקשורת</title>
+    <!-- חלק ראש פרופיל (profile.html) – משתמש באותו אייקון רשת כדי לשמור על מיתוג אחיד -->
+    <link rel="icon" type="image/svg+xml" href="./icons/yalla-signal.svg" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="./styles/facebook-theme.css" />
+    <link rel="stylesheet" href="./styles/profile.css" />
+    <!-- חלק סגנונות הכרויות (profile.html) – טוען התאמות עיצוב לרכיבי ההכרויות החדשים -->
+    <link rel="stylesheet" href="./styles/dating.css" />
+    <link rel="stylesheet" href="./styles/media-overrides.css" />
+    <script src="./auth-guard.js"></script>
+  </head>
+  <body class="profile-body" dir="rtl">
+    <!-- חלק חיווי חיבור (profile.html) – מציג מצב טעינת ריליים בדומה לעמוד הראשי -->
+    <div id="connection-status" class="profile-connection" hidden>מתחבר לריליים...</div>
+
+    <!-- חלק סרגל עליון (profile.html) – מאמץ את הכותרת מהדף הראשי כדי לשמור עקביות -->
+    <header class="top-bar">
+      <div class="top-bar__brand">
+        <div class="profile-header__logo">SOS</div>
+      </div>
+      <div class="top-bar__actions">
+        <button class="circle-button" id="profileTopCreateButton" aria-label="יצירת תוכן">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+        <button class="circle-button" id="profileTopNotificationsButton" aria-label="התראות">
+          <i class="fa-solid fa-bell"></i>
+        </button>
+        <button class="circle-button" id="profileTopMessagesButton" aria-label="הודעות">
+          <i class="fa-solid fa-message"></i>
+        </button>
+        <div class="top-bar__profile" id="profileTopProfile">
+          <button class="top-bar__avatar" id="profileTopAvatarButton" aria-haspopup="true" aria-expanded="false" aria-label="תפריט פרופיל">
+            <span id="profileTopAvatar">?</span>
+          </button>
+          <div class="top-bar__dropdown" id="profileTopMenu" hidden>
+            <button type="button" class="top-bar__dropdown-item" data-profile-action="view-profile">
+              <i class="fa-solid fa-id-badge"></i>
+              <span>פרופיל אישי</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" data-profile-action="show-key">
+              <i class="fa-solid fa-key"></i>
+              <span>הצגת מפתח</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" data-profile-action="logout">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              <span>התנתקות</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- חלק מעטפת פרופיל (profile.html) – מציג כיסוי, אווטר ופרטי מפתח -->
+    <main class="app-shell profile-shell">
+      <section class="profile-cover" id="profilePageCover">
+        <div class="profile-cover__inner">
+          <div class="profile-cover__avatar" id="profilePageAvatar">?</div>
+          <div class="profile-cover__info">
+            <h1 class="profile-cover__name" id="profilePageName">משתמש</h1>
+            <p class="profile-cover__bio" id="profilePageBio">מעדכנים את תיאור הפרופיל...</p>
+            <!-- חלק עוקבים (profile.html) – מציג את ספירת העוקבים האישית ליד שם המשתמש -->
+            <div class="profile-cover__stats profile-follow__summary" id="profileFollowSummary">
+              <span class="profile-follow__count" id="profileFollowersCount">0 עוקבים</span>
+            </div>
+            <div class="profile-cover__actions">
+              <button class="profile-primary-button" id="profileEditButton">
+                <i class="fa-solid fa-pen"></i>
+                עריכת פרופיל
+              </button>
+              <button class="profile-secondary-button" id="profileHomeButton">
+                <i class="fa-solid fa-house"></i>
+                מעבר לפיד
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- חלק תוכן ראשי (profile.html) – דומה לפרופיל פייסבוק עם עמודת מידע ועמודת טיימליין -->
+      <section class="profile-main">
+        <aside class="profile-sidebar">
+          <section class="profile-card">
+            <h2 class="profile-card__title">אודות</h2>
+            <p class="profile-card__text" id="profileSidebarBio">לא הוגדר עדיין תיאור קצר.</p>
+            <div class="profile-card__meta">
+              <div class="profile-card__meta-row">
+                <i class="fa-solid fa-signature"></i>
+                <span id="profileSidebarName">משתמש אנונימי</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- חלק גלריית פרופיל (profile.html) – מציג ומנהל תמונות נוספות של המשתמש -->
+          <section class="profile-card profile-card--gallery">
+            <h2 class="profile-card__title">גלריה</h2>
+            <div class="profile-gallery__uploader" id="profileGalleryDropZone">
+              <input id="profileGalleryFileInput" type="file" accept="image/*" multiple hidden />
+              <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+              <span>גררו לכאן תמונות חדשות או לחצו לבחירה</span>
+              <button type="button" id="profileGalleryAddButton">הוספת תמונות</button>
+            </div>
+            <ul class="profile-gallery" id="profileGallery"></ul>
+            <div class="profile-gallery__status" id="profileGalleryStatus"></div>
+          </section>
+
+          <!-- חלק הכרות (profile.html) – מאפשר למשתמש להצטרף לשירות ההכרויות ולהזין פרטים בסיסיים -->
+          <section class="profile-card" id="profileDatingCard">
+            <h2 class="profile-card__title">הכרויות</h2>
+            <div class="profile-dating__row">
+              <label class="profile-dating__optin" for="profileDatingOptIn">
+                <input type="checkbox" id="profileDatingOptIn" />
+                <span>הצטרפות להצגת הפרופיל בהכרויות</span>
+              </label>
+              <p class="profile-dating__note">ברגע שתאשר/י, משתמשים אחרים יוכלו לראות אותך בדף ההכרויות ולשלוח לייק.</p>
+            </div>
+            <button class="profile-secondary-button profile-dating__edit" id="profileDatingEditButton" type="button" hidden>
+              <i class="fa-solid fa-pen-to-square"></i>
+              עריכת פרטי הכרויות
+            </button>
+            <div class="profile-dating__fields" id="profileDatingFields" hidden>
+              <label class="profile-dating__label" for="profileDatingBio">תיאור קצר</label>
+              <textarea id="profileDatingBio" rows="2" maxlength="200" placeholder="כמה מילים עליך..."></textarea>
+              <label class="profile-dating__label" for="profileDatingAge">גיל</label>
+              <input id="profileDatingAge" type="number" min="18" max="120" placeholder="לדוגמה 29" />
+              <label class="profile-dating__label" for="profileDatingLocation">מיקום</label>
+              <input id="profileDatingLocation" type="text" maxlength="80" placeholder="עיר / אזור" />
+              <label class="profile-dating__label" for="profileDatingInterests">תחומי עניין (מופרדים בפסיק)</label>
+              <input id="profileDatingInterests" type="text" maxlength="160" placeholder="ים, מוזיקה, טיולים" />
+              <div class="profile-dating__actions">
+                <button class="profile-secondary-button profile-dating__save" id="profileDatingSaveButton" type="button">
+                  <i class="fa-solid fa-heart-circle-check"></i>
+                  שמירת הגדרות הכרויות
+                </button>
+                <button class="profile-secondary-button profile-dating__close" id="profileDatingCloseButton" type="button">
+                  <i class="fa-solid fa-circle-xmark"></i>
+                  סגירת הטופס
+                </button>
+              </div>
+              <div class="profile-status" id="profileDatingStatus"></div>
+            </div>
+          </section>
+
+          <section class="profile-card">
+            <h2 class="profile-card__title">נתוני פעילות</h2>
+            <ul class="profile-stats">
+              <li class="profile-stats__item">
+                <span class="profile-stats__label">פוסטים שפורסמו</span>
+                <span class="profile-stats__value" id="profileStatsPosts">0</span>
+              </li>
+              <li class="profile-stats__item">
+                <span class="profile-stats__label">ריליים מחוברים</span>
+                <span class="profile-stats__value" id="profileStatsRelays">0</span>
+              </li>
+            </ul>
+          </section>
+
+          <!-- חלק עוקבים (profile.html) – מציג את רשימת העוקבים האישית והחיווי הנוכחי -->
+          <section class="profile-card" id="profileFollowersCard">
+            <h2 class="profile-card__title">עוקבים</h2>
+            <div class="profile-followers__count" id="profileFollowersCountLabel">0 עוקבים</div>
+            <ul class="profile-followers__list" id="profileFollowersList"></ul>
+            <div class="profile-status" id="profileFollowersStatus"></div>
+          </section>
+
+          <section class="profile-card">
+            <h2 class="profile-card__title">קישורים מהירים</h2>
+            <div class="profile-quick-links">
+              <button class="profile-secondary-button profile-quick-links__button" id="profileQuickCompose">
+                <i class="fa-solid fa-square-pen"></i>
+                פוסט חדש
+              </button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="profile-timeline">
+          <header class="profile-timeline__header">
+            <h2 class="profile-timeline__title">הפוסטים שלי</h2>
+            <div class="profile-timeline__actions">
+              <button class="profile-secondary-button" id="profileRefreshPosts">
+                <i class="fa-solid fa-rotate"></i>
+                רענון
+              </button>
+            </div>
+          </header>
+          <div class="profile-status" id="profileTimelineStatus"></div>
+          <ul class="profile-timeline__list" id="profileTimeline"></ul>
+        </section>
+      </section>
+
+      <section class="profile-timeline profile-timeline--replies">
+        <header class="profile-timeline__header">
+          <h2 class="profile-timeline__title">תגובות שהגבנו</h2>
+        </header>
+        <ul class="profile-timeline__list" id="profileTimelineComments"></ul>
+      </section>
+    </main>
+
+    <!-- חלק חלון עריכת פרופיל (profile.html) – זהה למודל הראשי כדי לשמור תאימות ל-profile.js -->
+    <div class="modal" id="profileModal">
+      <div class="modal-content">
+        <h2>עריכת פרופיל</h2>
+        <label for="profileNameInput">שם משתמש</label>
+        <input id="profileNameInput" type="text" placeholder="הכנס שם מלא" />
+        <label for="profileBioInput">תיאור קצר</label>
+        <textarea id="profileBioInput" rows="3" placeholder="ספר על עצמך"></textarea>
+        <label for="profileImageUrlInput">קישור לתמונת פרופיל</label>
+        <input id="profileImageUrlInput" type="url" placeholder="https://example.com/avatar.jpg" />
+        <label for="profileImageFileInput">או העלה תמונה מהמחשב</label>
+        <input id="profileImageFileInput" type="file" accept="image/*" />
+        <div class="modal-actions">
+          <button class="icon-button" onclick="closeProfileSettings()">ביטול</button>
+          <button class="icon-button" onclick="saveProfileSettings()">שמירה</button>
+        </div>
+        <div class="profile-status" id="profileStatus"></div>
+      </div>
+    </div>
+
+    <!-- חלק מודלי מפתחות (profile.html) – מאפשר להציג ולהוריד מפתח ללא מעבר לעמוד הראשי -->
+    <div class="modal" id="keyModal" hidden>
+      <div class="modal-content key-modal">
+        <h2>המפתח הפרטי שלך</h2>
+        <textarea id="keyViewerTextarea" readonly></textarea>
+        <div class="modal-actions">
+          <button class="icon-button" id="profileCopyPrivateKeyConfirm">העתק</button>
+          <button class="button-secondary" id="profileClosePrivateKey">סגור</button>
+        </div>
+        <div class="profile-status" id="keyViewerStatus"></div>
+      </div>
+    </div>
+
+    <!-- חלק מודל גלריה (profile.html) – מציג תמונה מוגדלת כאשר לוחצים על פריט בגלריה -->
+    <div class="profile-gallery-modal" id="profileGalleryModal" hidden>
+      <button class="profile-gallery-modal__close" id="profileGalleryModalClose" type="button" aria-label="סגירת תמונת גלריה">×</button>
+      <img class="profile-gallery-modal__image" id="profileGalleryModalImage" alt="תצוגת גלריה" />
+    </div>
+
+    <!-- חלק סקריפטים (profile.html) – טוען את כל הלוגיקה הנדרשת לפרופיל אישי -->
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./config.js"></script>
+    <script src="./utils.js"></script>
+    <script src="./key-utils.js"></script>
+    <script src="./keys.js"></script>
+    <!-- חלק עוקבים (profile.html) – טוען את שירות המעקב המשותף לדפים אחרים -->
+    <script src="./follow-service.js"></script>
+    <script src="./profile.js"></script>
+    <script src="./profile-engagement.js"></script>
+    <script src="./profile-post.js"></script>
+    <script src="./profile-view.js"></script>
+  </body>
+</html>

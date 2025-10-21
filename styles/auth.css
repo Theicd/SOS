@@ -1,0 +1,349 @@
+/* קובץ auth.css – פריסת דף החיבור/הרשמה של SphereOne Social | חלק בסיסי – משתני עיצוב גלובליים */
+:root {
+  --bg: #0f121a;
+  --card-top: #1f2634;
+  --card-base: #131823;
+  --primary: #3a8bff;
+  --primary-soft: rgba(58, 139, 255, 0.18);
+  --text: #eef3ff;
+  --muted: #9aa5bd;
+  --border: rgba(82, 102, 145, 0.4);
+  --shadow: 0 18px 40px rgba(6, 12, 24, 0.48);
+  --danger: #ff5f7a;
+  --success: #38c67d;
+  --footer-bg: rgba(18, 22, 32, 0.92);
+}
+/* חלק פריסת בסיס (auth.css) – מבטיח בסיס מאוחד לכל האלמנטים */ * { box-sizing: border-box; }
+body.auth-body { margin: 0; min-height: 100vh; color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; direction: rtl; display: flex; flex-direction: column; align-items: stretch; gap: 24px; padding: 28px 16px 36px; }
+.auth-background-video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; filter: brightness(1.18) contrast(1.05); }
+.auth-body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(circle at top, rgba(27, 34, 49, 0.6) 0%, rgba(9, 12, 20, 0.7) 62%, rgba(5, 6, 11, 0.74) 100%); z-index: -1; }
+/* הדגשה והבהוב לאותיות SOS בשם הרשת */
+.sos-morse { font-weight: 900; color: #e53935; text-shadow: 0 0 4px #ffbdbd; transition: filter 0.1s; }
+.sos-morse-s, .sos-morse-o { animation: sos-morse-blink 1.4s infinite; }
+.sos-morse-s { animation-delay: 0s; }
+.sos-morse-o { animation-delay: 0.7s; }
+@keyframes sos-morse-blink {
+  0%, 20%, 100% { filter: brightness(1); }
+  10% { filter: brightness(2.2); }
+  15% { filter: brightness(0.3); }
+  70% { filter: brightness(2.2); }
+  75% { filter: brightness(0.3); }
+}
+/* חלק HEADER עליון (auth.css) – לוגו SphereOne וקישורי מידע */ .site-header {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  background: rgba(12, 16, 26, 0.92);
+  border: 1px solid rgba(74, 118, 198, 0.35);
+  border-radius: 22px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 18px 42px rgba(10, 18, 36, 0.45);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 18px;
+  z-index: 5;
+}
+
+.site-header__brand { display: flex; align-items: center; gap: 16px; }
+.site-header__logo { width: 58px; height: 58px; }
+
+.site-header__title-group { display: flex; flex-direction: column; gap: 4px; }
+/* חלק תפריט מובייל (auth.css) – כפתור המבורגר וסידור קישורים */
+.site-header__menu-toggle { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px; border: 1px solid rgba(74, 118, 198, 0.35); background: rgba(18, 24, 38, 0.9); color: rgba(205, 217, 246, 0.92); cursor: pointer; transition: background-color 0.2s ease, border-color 0.2s ease; }
+.site-header__menu-toggle:hover,
+.site-header__menu-toggle:focus-visible { background: rgba(74, 118, 198, 0.25); border-color: rgba(102, 146, 226, 0.55); outline: none; }
+.site-header__menu-toggle i { font-size: 1.1rem; }
+.site-header__brand-name { font-weight: 800; font-size: 1.35rem; }
+.site-header__tagline { font-size: 0.95rem; color: var(--muted); }
+.site-header__nav { display: flex; align-items: center; gap: 18px; }
+
+.site-header__nav-link {
+  color: rgba(188, 206, 240, 0.9);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 12px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.site-header__nav-link:hover,
+.site-header__nav-link:focus-visible {
+  background: rgba(72, 116, 220, 0.18);
+  color: #d9e7ff;
+  outline: none;
+}
+/* חלק HERO מרכזי (auth.css) – מסר פתיחה והסבר קצר */ .auth-hero {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+ .auth-hero__title {
+  margin: 0;
+  font-size: clamp(1.55rem, 3.6vw, 2.05rem);
+  font-weight: 800;
+  background: linear-gradient(120deg, #ffffff 0%, #8ec5ff 48%, #3a8bff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+}
+/* חלק HERO מרכזי (auth.css) – כיתוב משני */ .auth-hero__subtitle { margin: 0; font-size: 1rem; color: var(--muted); }
+/* חלק מעטפת מרכזית (auth.css) – סידור הכרטיסים האנכיים */ .auth-layout { width: 100%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; flex: 1; }
+/* חלק כרטיס כללי (auth.css) – עיצוב אחיד לפאנלים */ .auth-card { position: relative; border-radius: 20px; background: linear-gradient(180deg, var(--card-top) 0%, var(--card-base) 45%, #0f1420 100%); border: 1px solid var(--border); padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow); opacity: 0; transform: translateY(12px); transition: opacity 0.25s ease, transform 0.25s ease; }
+
+.auth-card.is-active,
+.auth-entry.is-active,
+.auth-card:not([hidden]) { opacity: 1; transform: translateY(0); }
+.auth-card[hidden] { display: none; }
+.auth-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  background: radial-gradient(circle at top, rgba(67, 123, 255, 0.22), transparent 62%);
+  pointer-events: none;
+}
+
+.auth-card > * { position: relative; z-index: 1; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – מצמצם נפח ויזואלי */ .auth-card--import { padding: 20px 22px; gap: 16px; border-radius: 18px; }
+/* חלק התאמות לטופס יצירה (auth.css) – פריסה קומפקטית */ .auth-card--create { padding: 20px 22px; gap: 16px; border-radius: 18px; }
+/* חלק התאמות לטופס יצירה (auth.css) – כותרת קומפקטית */ .auth-card--create .auth-card__title { font-size: 1.2rem; }
+/* חלק התאמות לטופס יצירה (auth.css) – תצוגת פעולות */ .auth-card--create .auth-actions--row { margin-top: -6px; }
+/* חלק התאמות לטופס יצירה (auth.css) – שיתוף */ .auth-card--create .auth-share { margin-top: -8px; }
+/* חלק התאמות לטופס יצירה (auth.css) – גובה קלט */ .auth-card--create .auth-textarea { min-height: 100px; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – כותרת קומפקטית */ .auth-card--import .auth-card__title-row { align-items: center; gap: 14px; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – אייקון מוקטן */ .auth-card--import .auth-card__icon { width: 42px; height: 42px; border-radius: 14px; font-size: 1.16rem; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – טיפוגרפיה מצומצמת */ .auth-card--import .auth-card__title { font-size: 1.18rem; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – תיאור קצר וקריא */ .auth-card--import .auth-card__subtitle { font-size: 0.88rem; line-height: 1.4; color: rgba(214, 224, 245, 0.78); }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – מרווחי טייטל */ .auth-card--import .auth-card__title-wrap { gap: 2px; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – שדה קומפקטי */ .auth-card--import .auth-field { padding: 16px 18px; border-radius: 14px; gap: 10px; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – תווית מצומצמת */ .auth-card--import .auth-field__label { font-size: 0.9rem; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – אייקון צמוד */ .auth-card--import .auth-field__label-icon { width: 22px; height: 22px; border-radius: 6px; font-size: 0.85rem; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – טקסט קלט מרווח */ .auth-card--import .auth-textarea { min-height: 88px; padding: 12px 14px; font-size: 0.9rem; line-height: 1.4; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – טקסט עזר קצר */ .auth-card--import .auth-field__hint { font-size: 0.78rem; line-height: 1.34; color: rgba(168, 182, 208, 0.7); }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – פעולות קומפקטיות */ .auth-card--import .auth-actions { gap: 10px; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – כפתור ראשי מוקטן */ .auth-card--import .button-primary { padding: 12px 16px; font-size: 1rem; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – חוצץ מצומצם */ .auth-card--import .auth-card__switch { margin-top: 2px; font-size: 0.85rem; }
+/* חלק כרטיס בחירה (auth.css) – מסך הכניסה הראשוני */ .auth-entry { align-items: center; text-align: center; gap: 18px; }
+.auth-entry__title { margin: 0; font-size: 1.4rem; font-weight: 700; }
+.auth-entry__subtitle { margin: 0; font-size: 0.98rem; color: var(--muted); }
+.auth-entry__actions { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+.auth-entry__action { width: 100%; }
+/* חלק כפתורי חזרה (auth.css) – מעבר קל בין המסכים */ .auth-card__back { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; border: none; background: none; color: rgba(166, 192, 255, 0.9); font-weight: 600; font-size: 0.92rem; cursor: pointer; padding: 4px 0; transition: color 0.2s ease; }
+
+.auth-card__back:hover,
+.auth-card__back:focus-visible { color: #d7e3ff; outline: none; }
+.auth-card__back i { transform: scaleX(-1); }
+/* חלק כותרות כרטיס (auth.css) – הצגת אייקון וכותרות */ .auth-card__header { display: flex; flex-direction: column; gap: 12px; }
+.auth-card__title-row { display: flex; align-items: center; gap: 16px; }
+.auth-card__icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px; background: var(--primary-soft); color: var(--primary); font-size: 1.2rem; box-shadow: inset 0 0 0 1px rgba(58, 139, 255, 0.32); }
+
+.auth-card__title-wrap { display: flex; flex-direction: column; gap: 4px; }
+/* חלק טיפוגרפיה בכרטיסים (auth.css) – כותרות ותת כותרות */ .auth-card__title { margin: 0; font-size: 1.24rem; font-weight: 700; color: #f4f7ff; }
+/* חלק טיפוגרפיה בכרטיסים (auth.css) – טקסט משני */ .auth-card__subtitle { margin: 0; color: rgba(226, 233, 255, 0.72); font-size: 0.9rem; line-height: 1.42; }
+/* חלק שדות טופס (auth.css) – קלט מפתח והסברים */ .auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(88, 110, 155, 0.35);
+  background: rgba(18, 22, 32, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(20, 25, 36, 0.6);
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-field:focus-within { border-color: rgba(58, 139, 255, 0.75); box-shadow: 0 0 0 2px rgba(58, 139, 255, 0.22); }
+.auth-field__label { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; color: rgba(234, 239, 255, 0.94); }
+.auth-field__label-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; background: rgba(58, 139, 255, 0.22); color: var(--primary); }
+.auth-textarea {
+  width: 100%;
+  min-height: 112px;
+  border: none;
+  resize: vertical;
+  background: rgba(9, 12, 20, 0.92);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: rgba(236, 240, 255, 0.95);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  direction: ltr;
+  text-align: left;
+  font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+.auth-textarea:focus { outline: none; box-shadow: 0 0 0 1px rgba(58, 139, 255, 0.38); }
+.auth-textarea::placeholder { color: rgba(168, 182, 208, 0.62); }
+/* חלק טקסטי עזר (auth.css) – מסרים קצרים */ .auth-field__hint { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: rgba(168, 182, 208, 0.74); }
+.auth-field__hint i { color: rgba(123, 162, 255, 0.85); }
+/* חלק קלטים חדשים (auth.css) – שדות אימייל, שם ותמונה בשלב ההרשמה */
+.auth-input { width: 100%; height: 48px; border-radius: 12px; border: 1px solid rgba(74, 110, 174, 0.38); background: rgba(9, 12, 20, 0.92); color: rgba(234, 240, 255, 0.92); font-size: 0.95rem; padding: 0 14px; direction: ltr; text-align: left; }
+.auth-input[type='text'] { direction: rtl; text-align: right; }
+.auth-input::placeholder { color: rgba(168, 182, 208, 0.58); }
+.auth-input:focus-visible { outline: none; border-color: rgba(94, 155, 255, 0.85); box-shadow: 0 0 0 2px rgba(58, 139, 255, 0.25); }
+/* חלק זרימת הרשמה (auth.css) – ניהול שלבי אימייל ומפתח */
+.auth-flow { display: flex; flex-direction: column; gap: 20px; }
+.auth-flow__step { display: flex; flex-direction: column; gap: 18px; min-height: 0; }
+.auth-flow__step[hidden] { display: none !important; }
+.auth-flow__step--profile, .auth-flow__step--key { gap: 20px; }
+.auth-flow__hint { margin: 0; font-size: 0.9rem; color: rgba(194, 207, 235, 0.82); background: rgba(22, 30, 48, 0.82); border: 1px solid rgba(71, 108, 178, 0.45); border-radius: 12px; padding: 16px 18px; line-height: 1.5; }
+.auth-flow__step--key .auth-field { background: rgba(16, 22, 32, 0.96); }
+.auth-flow__step--profile .auth-field--inline { margin: 0; }
+.auth-flow__step--profile .auth-field__hint { margin-top: -6px; }
+.auth-flow__step--profile .auth-actions--profile { margin-top: 6px; }
+.auth-flow__step--key .auth-actions--back { align-self: flex-end; width: 100%; }
+.auth-flow__step--key .auth-actions--back .button-secondary { width: auto; min-width: 0; }
+
+/* חלק העלאת תמונה (auth.css) – גרירת קבצים ובחירת תמונה */
+.auth-profile-media { display: flex; flex-direction: column; gap: 18px; }
+.auth-drop-zone { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; border: 1px dashed rgba(90, 132, 210, 0.55); background: rgba(15, 20, 32, 0.85); border-radius: 16px; padding: 24px; cursor: pointer; transition: border-color 0.25s ease, background-color 0.25s ease; }
+.auth-drop-zone:focus-visible { outline: none; border-color: rgba(96, 160, 255, 0.85); box-shadow: 0 0 0 2px rgba(96, 160, 255, 0.32); }
+.auth-drop-zone.is-dragging { border-color: rgba(123, 188, 255, 0.95); background: rgba(12, 52, 102, 0.58); }
+.auth-drop-zone__placeholder { display: flex; flex-direction: column; align-items: center; gap: 10px; color: rgba(188, 205, 235, 0.78); font-size: 0.92rem; text-align: center; }
+.auth-drop-zone__placeholder i { font-size: 1.5rem; color: rgba(144, 182, 255, 0.9); }
+.auth-drop-zone__preview { max-width: 100%; max-height: 180px; border-radius: 12px; border: 1px solid rgba(104, 140, 216, 0.45); object-fit: cover; box-shadow: 0 12px 28px rgba(12, 20, 36, 0.45); }
+.auth-field--url { position: relative; }
+.auth-field--url .auth-field__hint { margin-top: 0; }
+/* חלק כפתורי פעולה (auth.css) – פעולות כניסה והרשמה */ .auth-actions { display: flex; flex-direction: column; gap: 14px; }
+.auth-actions--stack { gap: 14px; }
+/* חלק פעולות עיקריות (auth.css) – כפתור יצירת מפתח */ .auth-actions--primary { gap: 0; }
+/* חלק פעולות משניות (auth.css) – העתקה והורדה בשורה אחת */ .auth-actions--row { flex-direction: row; gap: 12px; }
+/* חלק שורת שיתוף (auth.css) – מיקום קומפקטי */ .auth-share { display: flex; }
+.button-primary {
+  width: 100%;
+  border: none;
+  border-radius: 100px;
+  padding: 14px 18px;
+  background: linear-gradient(120deg, #3f91ff, #68abff 50%, #4189ff 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 16px 28px rgba(54, 120, 215, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.button-primary:hover:not(:disabled),
+.button-primary:focus-visible:not(:disabled) { transform: translateY(-2px); box-shadow: 0 20px 36px rgba(58, 139, 255, 0.45); outline: none; }
+.button-primary:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+.button-secondary {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(89, 123, 187, 0.35);
+  background: rgba(32, 36, 46, 0.9);
+  color: rgba(214, 224, 245, 0.92);
+  font-weight: 600;
+  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border 0.2s ease, background-color 0.2s ease;
+}
+
+/* חלק פעולות משניות בשורה (auth.css) – כפתורים לצד כפתור */ .auth-actions--row .button-secondary { flex: 1; padding: 10px 14px; border-radius: 14px; }
+
+.button-secondary:hover:not(:disabled),
+.button-secondary:focus-visible:not(:disabled) { border-color: rgba(110, 153, 233, 0.55); background: rgba(43, 52, 70, 0.94); outline: none; }
+.button-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+.button-secondary--whatsapp { background: rgba(56, 193, 114, 0.16); color: #7cf0b7; border-color: rgba(56, 193, 114, 0.38); }
+.button-secondary--whatsapp:hover:not(:disabled),
+.button-secondary--whatsapp:focus-visible:not(:disabled) { background: rgba(56, 193, 114, 0.28); }
+
+.button-link {
+  background: none;
+  border: none;
+  color: rgba(159, 189, 255, 0.88);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 10px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.button-link:hover,
+.button-link:focus-visible { background: rgba(89, 134, 228, 0.14); color: #d2e3ff; outline: none; }
+.button-link--accent { align-self: center; display: inline-flex; align-items: center; gap: 8px; }
+/* חלק מחלק "או" (auth.css) – חוצץ בין אופציות בחירה */
+.auth-card__switch { display: flex; align-items: center; justify-content: center; gap: 10px; color: rgba(150, 167, 196, 0.75); font-size: 0.9rem; }
+.auth-card__switch-divider { flex: 1; height: 1px; background: rgba(79, 108, 155, 0.4); }
+
+/* חלק תיבת סימון (auth.css) – אישור שמירת המפתח הפרטי */
+.auth-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(21, 25, 34, 0.82);
+  border: 1px solid rgba(64, 86, 132, 0.4);
+  color: rgba(190, 202, 224, 0.85);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.auth-checkbox input[type='checkbox'] { margin-top: 4px; }
+/* חלק הודעות סטטוס (auth.css) – משוב על פעולות משתמש */ .auth-status { min-height: 20px; font-size: 0.85rem; color: rgba(186, 197, 217, 0.72); text-align: center; }
+.auth-status.is-error { color: var(--danger); }
+/* חלק FOOTER תחתון (auth.css) – קישורים משפטיים ותמיכה */ .site-footer {
+  width: 100%;
+  max-width: 920px;
+  margin: auto auto 0;
+  background: var(--footer-bg);
+  border: 1px solid rgba(74, 110, 172, 0.28);
+  border-radius: 20px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: rgba(182, 195, 223, 0.82);
+  font-size: 0.92rem;
+}
+
+.site-footer__links { display: flex; align-items: center; gap: 18px; }
+.site-footer__links a { color: rgba(194, 206, 232, 0.86); text-decoration: none; font-weight: 600; transition: color 0.2s ease; }
+.site-footer__links a:hover,
+.site-footer__links a:focus-visible { color: #e5ecff; outline: none; }
+.site-footer__meta { display: flex; align-items: center; gap: 12px; }
+
+/* חלק רספונסיבי (auth.css) – התאמות למסכים בינוניים */ @media (max-width: 900px) {
+  .site-header { flex-direction: column; align-items: flex-start; gap: 24px; }
+  .site-header__nav { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+  .site-footer { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .site-footer__links { flex-wrap: wrap; }
+}
+/* חלק רספונסיבי (auth.css) – התאמות למסכים קטנים וניידים */ @media (max-width: 560px) {
+  body.auth-body { gap: 24px; padding: 24px 12px 32px; }
+  .site-header { padding: 16px; border-radius: 18px; flex-direction: column; align-items: stretch; gap: 12px; }
+  .site-header__brand { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .site-header__menu-toggle { display: inline-flex; }
+  .site-header__nav { display: none; position: absolute; top: calc(100% + 8px); right: 0; left: 0; flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; border-radius: 16px; border: 1px solid rgba(74, 118, 198, 0.32); background: rgba(10, 14, 24, 0.95); box-shadow: 0 18px 32px rgba(8, 14, 28, 0.5); }
+  .site-header__nav.is-open { display: flex; }
+  .site-header__nav-link { display: block; text-align: center; }
+  .site-header__logo { width: 46px; height: 46px; }
+  .auth-hero__title { font-size: 1.55rem; }
+  .auth-card { padding: 20px; border-radius: 18px; }
+  .auth-entry__actions { gap: 12px; }
+  .auth-card__icon { width: 40px; height: 40px; border-radius: 12px; }
+  .auth-textarea { min-height: 96px; }
+  .site-footer { padding: 16px; border-radius: 18px; }
+}

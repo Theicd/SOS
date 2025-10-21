@@ -1,0 +1,982 @@
+/* חלק מעטפת כללית (profile.css) – התאמות צבעים ל-facebook-theme */
+.profile-body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* חלק התאמות מובייל מתקדמות (profile.css) – מבנה קומפקטי למסכים צרים */
+@media (max-width: 768px) {
+  .profile-header {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 12px;
+  }
+
+  .profile-header__left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .profile-header__search {
+    flex: 1;
+    min-width: 0;
+    margin-inline-start: 12px;
+  }
+
+  .profile-header__nav {
+    order: 3;
+    justify-content: flex-start;
+    gap: 12px;
+    padding-top: 8px;
+    overflow-x: auto;
+  }
+
+  .profile-header__nav-item {
+    width: 38px;
+    height: 38px;
+    font-size: 1.05rem;
+  }
+
+  .profile-header__actions {
+    justify-content: flex-start;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .profile-primary-nav {
+    width: calc(100% - 16px);
+    margin: 16px auto 0;
+    overflow-x: auto;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .profile-primary-nav .nav-item {
+    font-size: 0.8rem;
+    flex: 0 0 auto;
+    min-width: 72px;
+  }
+
+  .profile-cover {
+    padding: 20px;
+  }
+
+  .profile-cover__avatar {
+    width: 90px;
+    height: 90px;
+  }
+
+  .profile-cover__actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .profile-shell {
+    padding: 0 12px 36px;
+  }
+
+  .profile-main {
+    gap: 16px;
+  }
+
+  .profile-sidebar {
+    display: grid;
+    gap: 12px;
+  }
+
+  .profile-timeline {
+    padding: 0;
+  }
+
+  .profile-timeline__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .profile-timeline__actions {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .profile-timeline__list {
+    padding: 0;
+  }
+
+  .profile-timeline__list > li,
+  .profile-timeline__list .feed-post {
+    border-radius: 14px;
+  }
+
+  .profile-timeline.profile-timeline--replies {
+    margin-top: 16px;
+  }
+
+  .modal-content {
+    width: min(360px, 92vw);
+  }
+}
+
+@media (max-width: 600px) {
+  .profile-header__search {
+    display: none;
+  }
+
+  .profile-header__left {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  .profile-header__actions {
+    justify-content: flex-end;
+  }
+
+  .profile-primary-nav {
+    margin-top: 12px;
+  }
+
+  .profile-cover__info {
+    width: 100%;
+  }
+
+  .profile-cover__actions {
+    flex-direction: column;
+  }
+}
+
+.profile-connection {
+  position: fixed;
+  top: 16px;
+  left: 12px;
+  background: rgba(36, 37, 38, 0.95);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
+  z-index: 160;
+}
+
+/* חלק סרגל עליון (profile.css) – גרסת פרופיל בסגנון פייסבוק */
+.profile-header {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.profile-header__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-header__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1877f2, #00b2ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  font-size: 1.1rem;
+  box-shadow: 0 8px 18px rgba(24, 119, 242, 0.35);
+}
+
+.profile-header__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-alt);
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  min-width: 240px;
+}
+
+.profile-header__search input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  width: 100%;
+  outline: none;
+}
+
+.profile-header__nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.profile-header__nav-item {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 44px;
+  border-radius: 10px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.profile-header__nav-item:hover,
+.profile-header__nav-item.is-active {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--primary);
+}
+
+.profile-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.profile-header__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.profile-header__icon:hover {
+  background: var(--hover);
+}
+
+.profile-header__avatar {
+  position: relative;
+}
+
+.profile-header__avatar-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.profile-header__avatar-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+#viewerTopProfile .profile-header__avatar-button {
+  border: none;
+  background: transparent;
+}
+
+#viewerTopProfile .profile-header__avatar-button img {
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-header__dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-end: 0;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 210;
+}
+
+.profile-header__dropdown[hidden] {
+  display: none;
+}
+
+.profile-header__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-size: 0.9rem;
+  text-align: start;
+}
+
+.profile-header__dropdown-item:hover {
+  background: var(--hover);
+}
+
+/* חלק ניווט פרופיל (profile.css) – מבטיח שהסרגל מסמן את לשונית הפרופיל */
+.profile-primary-nav {
+  width: calc(100% - 32px);
+  max-width: 900px;
+  margin: 24px auto 0;
+  border-radius: 16px;
+}
+
+.profile-primary-nav .nav-item {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.profile-primary-nav .nav-item.is-active,
+.profile-primary-nav .nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.profile-primary-nav .nav-item.is-active i {
+  color: var(--primary);
+}
+
+/* חלק מעטפת תוכן (profile.css) – פריסת דסקטופ בסגנון פייסבוק */
+.profile-shell {
+  max-width: 1100px;
+  margin: 36px auto 72px;
+  padding: 0 24px 64px;
+}
+
+.profile-cover {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px 32px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.profile-cover__inner {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.profile-cover__avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 2rem;
+  color: var(--text);
+  overflow: hidden;
+}
+
+.profile-cover__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profile-cover__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-cover__name {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-cover__bio {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.profile-cover__keys {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.profile-cover__key-label {
+  color: var(--muted);
+}
+
+.profile-cover__key-value {
+  font-family: 'Courier New', monospace;
+  color: var(--text);
+}
+
+.profile-cover__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* חלק עוקבים (profile.css) – מסדר את חיווי סיכום העוקבים בהאדר */
+.profile-follow__summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* חלק עוקבים (profile.css) – עיצוב רשימת העוקבים בכרטיס הצדדי */
+.profile-followers__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-followers__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.profile-followers__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-alt);
+  color: var(--text);
+  font-weight: 600;
+  text-transform: uppercase;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.profile-followers__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profile-followers__name {
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.profile-followers__empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.profile-primary-button,
+.profile-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.profile-primary-button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+
+.profile-primary-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.profile-secondary-button {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.profile-secondary-button:hover {
+  background: var(--hover);
+}
+
+/* חלק פריסת תוכן (profile.css) – מיישר את העמודות לקארד כהה אפרפר */
+.profile-main {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+  margin-top: 20px;
+}
+
+.profile-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.profile-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* חלק גלריית פרופיל (profile.css) – מציג את התמונות הנוספות של המשתמש ומאפשר עריכה */
+.profile-card--gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-gallery {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.profile-gallery__item {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  aspect-ratio: 1/1;
+}
+
+.profile-gallery__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-gallery__empty {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 14px;
+  text-align: center;
+}
+
+.profile-gallery__item--editor {
+  display: flex;
+}
+
+.profile-gallery__remove {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.profile-gallery__remove:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.profile-gallery__uploader {
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.profile-gallery__uploader.is-dragging {
+  border-color: var(--primary);
+  background: rgba(88, 130, 255, 0.08);
+}
+
+.profile-gallery__uploader i {
+  font-size: 1.4rem;
+  color: var(--primary);
+}
+
+.profile-gallery__uploader button {
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.profile-gallery__uploader button:hover {
+  background: var(--hover);
+}
+
+.profile-gallery--editor {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.profile-gallery__status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.profile-gallery__status.is-error {
+  color: #ff6b81;
+}
+
+.profile-gallery-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 280;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.profile-gallery-modal.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.profile-gallery-modal[hidden] {
+  display: none;
+}
+
+.profile-gallery-modal__image {
+  max-width: min(92vw, 1080px);
+  max-height: min(90vh, 1080px);
+  border-radius: 16px;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
+  object-fit: contain;
+}
+
+.profile-gallery-modal__close {
+  position: absolute;
+  top: 24px;
+  inset-inline-end: 24px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-gallery-modal__close:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.profile-card__title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.profile-card__text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.profile-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.profile-card__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-card__meta-row i {
+  color: var(--primary);
+}
+
+.profile-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-stats__item {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.profile-stats__label {
+  color: var(--muted);
+}
+
+.profile-quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-quick-links__button {
+  justify-content: center;
+  background: rgba(35, 116, 225, 0.12);
+  border: 1px solid rgba(35, 116, 225, 0.35);
+  color: var(--primary);
+}
+
+.profile-quick-links__button:hover {
+  background: rgba(35, 116, 225, 0.2);
+}
+
+/* חלק טיימליין (profile.css) – מבנה הפוסטים האישיים בצבעי הכרטיסים */
+.profile-timeline {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.profile-timeline__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 20px;
+}
+
+.profile-timeline__title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.profile-timeline__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-timeline__item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-timeline__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.profile-timeline__content {
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+}
+
+.profile-status {
+  font-size: 0.85rem;
+  color: var(--primary);
+}
+
+/* חלק מודלים (profile.css) – שימוש באותם צבעים כהים כמו הפיד */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 250;
+}
+
+.modal[aria-hidden="true"] {
+  display: none;
+}
+
+.modal-content {
+  background: var(--card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.icon-button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.icon-button:hover {
+  background: var(--hover);
+}
+
+#keyViewerTextarea {
+  min-height: 120px;
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+}
+
+/* חלק התאמות מובייל (profile.css) – שמירה על מבנה תואם במסכים קטנים */
+@media (max-width: 900px) {
+  .profile-shell {
+    margin-top: 16px;
+  }
+
+  .profile-main {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-cover__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-cover__avatar {
+    width: 100px;
+    height: 100px;
+  }
+}

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SphereOne Social</title>
+    <!-- חלק ראש (index.html) – מגדיר את אותו אייקון לשונית מעודכן כמו בדף ההזדהות -->
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27bg%27%20x1%3D%270%25%27%20y1%3D%270%25%27%20x2%3D%27100%25%27%20y2%3D%27100%25%27%3E%3Cstop%20offset%3D%270%25%27%20stop-color%3D%272d9cff%27/%3E%3Cstop%20offset%3D%27100%25%27%20stop-color%3D%270a2c88%27/%3E%3C/linearGradient%3E%3CradialGradient%20id%3D%27halo%27%20cx%3D%2750%25%27%20cy%3D%2735%25%27%20r%3D%2760%25%27%3E%3Cstop%20offset%3D%270%25%27%20stop-color%3D%2792e6ff%27%20stop-opacity%3D%270.55%27/%3E%3Cstop%20offset%3D%27100%25%27%20stop-color%3D%2705173f%27%20stop-opacity%3D%270%27/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect%20x%3D%272%27%20y%3D%272%27%20width%3D%2760%27%20height%3D%2760%27%20rx%3D%2716%27%20fill%3D%27url(%23bg)%27/%3E%3Crect%20x%3D%272%27%20y%3D%272%27%20width%3D%2760%27%20height%3D%2760%27%20rx%3D%2716%27%20fill%3D%27url(%23halo)%27/%3E%3Cpath%20fill%3D%27%23ffffff%27%20stroke%3D%27%23d9ecff%27%20stroke-width%3D%272.6%27%20stroke-linejoin%3D%27round%27%20d%3D%27M47.5%2012.2c-5.7-3.7-12.4-5.6-20.8-5.6-11.6%200-20.4%204.3-20.4%2012.3%200%205.8%204.3%209.6%2013.6%2011.7l9.5%202.3c3.6%200.9%205.1%201.8%205.1%203.6%200%203-3.2%204.2-7.5%204.2-5.5%200-10.9-2-15.1-5.3l-6.7%209.8c6.3%205.6%2014.7%208.8%2024.2%208.8%2012.8%200%2020.8-6%2020.8-15.6%200-6.9-4.3-10.9-13.3-13.1l-8.7-2.1c-3.6-0.9-5-1.6-5-3.3%200-2.2%202.4-3.5%206.7-3.5%204.5%200%208.7%201.3%2012.3%203.7l6.4-9.9z%27/%3E%3C/svg%3E"
+    >
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="./styles/facebook-theme.css">
+    <link rel="stylesheet" href="./styles/media-overrides.css">
+    <link rel="stylesheet" href="./styles/market-dashboard.css">
+    <link rel="stylesheet" href="./styles/contract-dashboard.css">
+    <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
+    <link rel="stylesheet" href="./styles/game-trivia.css">
+    <!-- חלק צ'אט (index.html) – טוען את עיצוב מסנג'ר הצ'אט -->
+    <link rel="stylesheet" href="./styles/chat.css">
+    <!-- חלק צ'אט (index.html) – טוען התאמות סגנון בהשראת וואטסאפ לממשק המסנג'ר -->
+    <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css">
+    <!-- חלק צ'אט (index.html) – טוען עיצוב ייעודי לרכיבי העברת קבצים בין משתמשים -->
+    <link rel="stylesheet" href="./styles/chat-file-transfer.css">
+    <link rel="stylesheet" href="./styles/logo.css">
+    <script src="./auth-guard.js"></script>
+</head>
+<body>
+    <div id="connection-status" class="connection-toast">
+        מתחבר לריליים...
+    </div>
+    <div class="app-shell">
+        <header class="top-bar">
+            <div class="app-logo">
+              <div class="sos-logo">
+                <span class="sos-char sos-s">S</span>
+                <span class="sos-char sos-o">O</span>
+                <span class="sos-char sos-s">S</span>
+              </div>
+              <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
+            </div>
+            <div class="top-bar__actions">
+                <button class="circle-button" onclick="openCompose()" aria-label="פוסט חדש">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+                <button class="circle-button" id="notificationsToggle" aria-label="התראות">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notifications-badge" id="notificationsBadge" hidden></span>
+                </button>
+                <button class="circle-button" id="messagesToggle" aria-label="הודעות">
+                    <i class="fa-solid fa-message"></i>
+                    <span class="notifications-badge" id="messagesBadge" hidden></span>
+                </button>
+                <div class="top-bar__profile" id="topBarProfile">
+                    <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
+                        <span id="topBarProfileAvatar">?</span>
+                    </button>
+                    <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
+                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
+                            <i class="fa-solid fa-chart-line"></i>
+                            <span>לוח גידול הרשת</span>
+                        </button>
+                        <button type="button" class="top-bar__dropdown-item" id="topBarProfilePage">
+                            <i class="fa-solid fa-id-card"></i>
+                            <span>הפרופיל שלי</span>
+                        </button>
+                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
+                            <i class="fa-solid fa-key"></i>
+                            <span>הצגת מפתח</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <nav class="primary-nav" aria-label="ניווט ראשי">
+            <button class="nav-item is-active" data-nav="news">
+                <i class="fa-solid fa-newspaper"></i>
+                <span>חדשות</span>
+            </button>
+            <button class="nav-item" data-nav="videos">
+                <i class="fa-solid fa-clapperboard"></i>
+                <span>וידאו</span>
+            </button>
+            <button class="nav-item" data-nav="friends">
+                <i class="fa-solid fa-user-group"></i>
+                <span>חברים</span>
+            </button>
+            <button class="nav-item" data-nav="profile">
+                <i class="fa-solid fa-id-badge"></i>
+                <span>פרופיל</span>
+            </button>
+            <button class="nav-item" data-nav="market">
+                <i class="fa-solid fa-store"></i>
+                <span>מרקט</span>
+            </button>
+            <!-- חלק ניווט חוזה (index.html) – כפתור ראשי לפתיחת לוח החוזה החכם מתוך הניווט העליון -->
+            <button class="nav-item" data-nav="contract">
+                <i class="fa-solid fa-cubes"></i>
+                <span>חוזה חכם</span>
+            </button>
+            <!-- חלק ניווט חוזה 2 (index.html) – כפתור ייעודי לפתיחת חוויית "חוזה חכם 2" החדשה -->
+            <button class="nav-item" data-nav="contract-v2">
+                <i class="fa-solid fa-chart-column"></i>
+                <span>חוזה חכם 2</span>
+            </button>
+            <button class="nav-item" data-nav="games">
+                <i class="fa-solid fa-gamepad"></i>
+                <span>משחקים</span>
+            </button>
+            <!-- חלק ניווט הכרויות (index.html) – כפתור המעבר למסך הטינדר החדש -->
+            <button class="nav-item" data-nav="dating">
+                <i class="fa-solid fa-heart"></i>
+                <span>הכרויות</span>
+            </button>
+        </nav>
+        <section class="composer-card">
+            <div class="composer-header">
+                <div class="profile-inline">
+                    <div class="profile-avatar" id="profileAvatar">?</div>
+                    <div class="profile-text">
+                        <span class="profile-name" id="profileName">משתמש</span>
+                        <span class="profile-bio" id="profileBio">ברוך הבא ליאללה תקשורת</span>
+                    </div>
+                </div>
+                <button class="link-button" onclick="openProfileSettings()">ערוך פרופיל</button>
+            </div>
+            <div class="composer-body">
+                <button class="composer-trigger" onclick="openCompose()">מה בא לך לשתף?</button>
+                <button class="composer-media" type="button" onclick="document.getElementById('composeMediaInput').click()">
+                    <i class="fa-regular fa-image"></i>
+                    <span>תמונה/וידאו</span>
+                </button>
+                <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
+            </div>
+        </section>
+        <div class="notifications-panel" id="notificationsPanel" hidden>
+            <header class="notifications-panel__header">
+                <h2>התראות</h2>
+                <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">סמן כנקראו</button>
+            </header>
+            <div class="notifications-panel__body">
+                <p class="notifications-panel__empty" id="notificationsEmpty">אין התרעות חדשות כרגע.</p>
+                <ul class="notifications-panel__list" id="notificationsList"></ul>
+            </div>
+        </div>
+        <!-- חלק צ'אט (index.html) – חלון המסנג'ר הראשי ללא כפתור משגר צף -->
+        <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי">
+            <div class="chat-panel__body">
+                <aside class="chat-contacts" aria-label="רשימת שיחות">
+                    <div class="chat-contacts__search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="search" id="chatSearchInput" placeholder="חיפוש בצ'אט" autocomplete="off">
+                        <div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט">
+                            <button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- חלק צ'אט (index.html) – סרגל פילטרים המדמה את קטגוריות הצ'אט בוואטסאפ -->
+                    <div class="chat-contacts__filters">
+                        <button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button>
+                        <button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button>
+                    </div>
+                    <div class="chat-contacts__list" id="chatContactsList"></div>
+                </aside>
+                <main class="chat-conversation" aria-live="polite">
+                    <section class="chat-notifications" id="chatNotifications" hidden>
+                        <header class="chat-notifications__header">
+                            <div class="chat-notifications__title">
+                                <i class="fa-solid fa-bell"></i>
+                                <div>
+                                    <h2>התראות</h2>
+                                    <p>לייקים ותגובות אחרונים לפוסטים שלך</p>
+                                </div>
+                            </div>
+                            <button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button>
+                        </header>
+                        <div class="chat-notifications__body">
+                            <p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p>
+                            <ul class="chat-notifications__list" id="chatNotificationsList"></ul>
+                        </div>
+                    </section>
+                    <div class="chat-conversation__empty" id="chatEmptyState">
+                        <i class="fa-regular fa-comments"></i>
+                        <p>בחר איש קשר כדי להתחיל לשוחח.</p>
+                    </div>
+                    <header class="chat-conversation__header" id="chatConversationHeader" hidden>
+                        <button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <div class="chat-conversation__avatar" id="chatConversationAvatar">?</div>
+                        <div class="chat-conversation__meta">
+                            <span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span>
+                            <span class="chat-conversation__status" id="chatConversationStatus">מחובר</span>
+                        </div>
+                        <!-- חלק צ'אט (index.html) – פעולות מהירות בשיחה בסגנון וואטסאפ (אסתטי) -->
+                        <div class="chat-conversation__actions">
+                            <button type="button" class="chat-conversation__icon" aria-label="שיחת קול">
+                                <i class="fa-solid fa-phone"></i>
+                            </button>
+                            <button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות">
+                                <i class="fa-solid fa-arrow-right-long"></i>
+                            </button>
+                        </div>
+                    </header>
+                    <div class="chat-conversation__messages" id="chatMessages"></div>
+                    <form class="chat-composer" id="chatComposer" hidden>
+                        <div class="chat-composer__field">
+                            <!-- חלק צ'אט (index.html) – כפתור בחירת קובץ משולב בשורת ההקלדה -->
+                            <button type="button" class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ">
+                                <i class="fa-solid fa-paperclip"></i>
+                            </button>
+                            <textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea>
+                            <button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden>
+                            <span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span>
+                            <button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <input type="file" id="chatComposerFileInput" hidden>
+                    </form>
+                </main>
+            </div>
+            <!-- חלק צ'אט (index.html) – סרגל ניווט תחתון בדומה לוואטסאפ -->
+            <nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט">
+                <button type="button" class="chat-footer__item is-active" data-chat-nav="contacts">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>שיחות</span>
+                </button>
+                <button type="button" class="chat-footer__item" data-chat-nav="notifications">
+                    <i class="fa-solid fa-bell"></i>
+                    <span>התראות</span>
+                    <span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span>
+                </button>
+                <button type="button" class="chat-footer__item" data-chat-nav="home">
+                    <i class="fa-solid fa-house"></i>
+                    <span>דף הבית</span>
+                </button>
+            </nav>
+        </section>
+        <main class="feed-list" id="feed">
+            <!-- חלק פיד ריק (index.html) – תבנית להצגת מצב ללא פוסטים וגם הודעות טעינה דינמיות -->
+            <div class="feed-empty" id="empty-state">
+                <div class="feed-empty__pulse" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <p id="empty-state-message" data-default-text="אין פוסטים עדיין. שתף משהו ראשון!">אין פוסטים עדיין. שתף משהו ראשון!</p>
+            </div>
+        </main>
+    </div>
+    <div class="compose-modal" id="composeModal" aria-hidden="true">
+        <div class="compose-dialog" role="dialog" aria-modal="true">
+            <div class="profile-inline">
+                <div class="profile-avatar" id="composeProfileAvatar">?</div>
+                <div class="profile-text">
+                    <span class="profile-name" id="composeProfileName">משתמש</span>
+                    <span class="profile-bio" id="composeProfileBio">שתף את המחשבות שלך</span>
+                </div>
+            </div>
+            <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
+            <div id="composeMediaPreview" class="compose-media-preview">
+                <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
+                <video id="composeMediaPreviewVideo" controls playsinline></video>
+            </div>
+            <div id="composeStatus" class="p2p-status"></div>
+            <div class="compose-dialog__actions">
+                <button class="button-secondary" onclick="closeCompose()">ביטול</button>
+                <button class="button-primary" onclick="publishPost()">פרסם</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal" id="profileModal">
+        <div class="modal-content">
+            <h2>עריכת פרופיל</h2>
+            <label for="profileNameInput">שם משתמש</label>
+            <input id="profileNameInput" type="text" placeholder="הכנס שם מלא">
+            <label for="profileBioInput">תיאור קצר</label>
+            <textarea id="profileBioInput" rows="3" placeholder="ספר על עצמך"></textarea>
+            <label for="profileImageUrlInput">קישור לתמונת פרופיל</label>
+            <input id="profileImageUrlInput" type="url" placeholder="https://example.com/avatar.jpg">
+            <label for="profileImageFileInput">או העלה תמונה מהמחשב</label>
+            <input id="profileImageFileInput" type="file" accept="image/*">
+            <div class="modal-actions">
+                <button class="icon-button" onclick="closeProfileSettings()">ביטול</button>
+                <button class="icon-button" onclick="saveProfileSettings()">שמירה</button>
+            </div>
+            <div class="p2p-status" id="profileStatus"></div>
+        </div>
+    </div>
+    <div class="modal" id="accountModal">
+        <div class="modal-content account-modal">
+            <h2>גישה ממכשירים נוספים</h2>
+            <section>
+                <h3>ייצוא</h3>
+                <p>שמור את המפתח הפרטי שלך בצורה בטוחה. תצטרך אותו כדי להתחבר ממכשיר אחר.</p>
+                <textarea id="accountExportKey" readonly></textarea>
+                <div class="modal-actions">
+                    <button class="icon-button" id="accountCopyKeyButton">העתק</button>
+                    <button class="icon-button" id="accountDownloadBackupButton">הורדת גיבוי</button>
+                </div>
+            </section>
+            <section>
+                <h3>ייבוא</h3>
+                <p>הדבק כאן מפתח פרטי כדי להתחבר למשתמש קיים.</p>
+                <textarea id="accountImportInput" placeholder="npub / hex / מפתח מגובה"></textarea>
+                <div class="modal-actions">
+                    <button class="button-secondary" onclick="closeAccount()">ביטול</button>
+                    <button class="button-primary" id="accountImportButton">ייבוא</button>
+                </div>
+                <div class="p2p-status" id="accountStatus"></div>
+            </section>
+            <section>
+                <h3>תצוגת מפתח</h3>
+                <p>לחיצה על הכפתור תציג את המפתח שלך לתצוגה בלבד.</p>
+                <div class="modal-actions">
+                    <button class="icon-button" onclick="openKeyViewer()">הצג מפתח</button>
+                </div>
+            </section>
+        </div>
+    </div>
+    <div class="modal" id="keyModal">
+        <div class="modal-content key-modal">
+            <h2>המפתח הפרטי שלך</h2>
+            <textarea id="keyViewerTextarea" readonly></textarea>
+            <div class="modal-actions">
+                <button class="icon-button" onclick="copyKeyViewer()">העתק</button>
+                <button class="button-secondary" onclick="closeKeyViewer()">סגור</button>
+            </div>
+            <div class="modal-actions">
+                <button class="button-secondary" onclick="logoutAndSwitchUser()">התנתק והחלף משתמש</button>
+            </div>
+            <div class="p2p-status" id="keyViewerStatus"></div>
+        </div>
+    </div>
+    <section class="growth-dashboard" id="growthDashboard" aria-hidden="true">
+        <div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div>
+        <article class="growth-dashboard__panel" role="dialog" aria-modal="true">
+            <header class="growth-dashboard__header">
+                <div class="growth-dashboard__title">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <div>
+                        <h2>מדד גידול הרשת</h2>
+                        <p>מעקב בזמן אמת אחרי בריאות האקו-סיסטם</p>
+                    </div>
+                </div>
+                <button class="growth-dashboard__close" type="button" onclick="closeGrowthDashboard()" aria-label="סגירת לוח הגידול">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <nav class="growth-dashboard__tabs" role="tablist">
+                <button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">סקירה</button>
+                <button class="growth-dashboard__tab" data-tab="activity" role="tab">פעילות זמן אמת</button>
+                <button class="growth-dashboard__tab" data-tab="leaders" role="tab">מובילי רשת</button>
+            </nav>
+            <div class="growth-dashboard__content">
+                <section class="growth-dashboard__section" data-pane="overview">
+                    <div class="growth-metrics" id="growthMetrics"></div>
+                    <div class="growth-chart" id="growthChartContainer">
+                        <canvas id="growthChart" aria-label="גרף מגמת פעילות"></canvas>
+                    </div>
+                </section>
+                <section class="growth-dashboard__section is-hidden" data-pane="activity">
+                    <div class="growth-activity" id="growthActivity"></div>
+                </section>
+                <section class="growth-dashboard__section is-hidden" data-pane="leaders">
+                    <div class="growth-leaders" id="growthLeaders"></div>
+                </section>
+            </div>
+            <footer class="growth-dashboard__footer">
+                <div class="growth-dashboard__status" id="growthStatus">מתחבר למדד...</div>
+                <div class="growth-dashboard__actions">
+                    <label class="growth-dashboard__toggle">
+                        <input type="checkbox" id="growthAutoRefresh">
+                        <span>רענון אוטומטי</span>
+                    </label>
+                    <button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()">
+                        <i class="fa-solid fa-rotate"></i>
+                        רענן כעת
+                    </button>
+                    <button class="growth-dashboard__contracts" type="button" onclick="openContractDashboard()">
+                        <i class="fa-solid fa-file-contract"></i>
+                        חוזה השקעה
+                    </button>
+                </div>
+            </footer>
+        </article>
+    </section>
+    <!-- חלק חוזה חכם 2 (index.html) – תצוגת השקעה גרפית חדשה המתמקדת בערך הנכס ובצמיחת הפעילות -->
+    <section class="contract-dashboard-v2" id="contractDashboardV2" aria-hidden="true">
+        <div class="contract-dashboard-v2__backdrop" onclick="closeContractDashboardV2()"></div>
+        <article class="contract-dashboard-v2__panel" role="dialog" aria-modal="true">
+            <header class="contract-dashboard-v2__header">
+                <div class="contract-dashboard-v2__identity">
+                    <i class="fa-solid fa-signal"></i>
+                    <div>
+                        <h2>חוזה חכם 2 – SPEAR ONE</h2>
+                        <p>השקעה בטכנולוגיה המבוזרת שמשנה את האינטרנט</p>
+                    </div>
+                </div>
+                <button class="contract-dashboard-v2__close" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם 2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div class="contract-dashboard-v2__body">
+                <!-- חלק פתיח (index.html) – מסר ראשי למשקיעים עם חיווי ערך בסיסי -->
+                <section class="contract-v2-hero" id="contractV2Hero">
+                    <div class="contract-v2-hero__copy">
+                        <h3>טכנולוגיה חדשנית להחזקה ותפעול של פלטפורמות אינטרנטיות ללא שרת מרכזי ועלויות תשתית.</h3>
+                        <p>
+                            SPEAR ONE היא תשתית אחת שמפעילה גם רשת חברתית מבוזרת וגם שכבת שרת סטטית – הדגמה חיה לסטארט-אפ שבונה רשתות שמחזירות את השליטה למשתמש.
+                        </p>
+                        <div class="contract-v2-hero__highlights" id="contractV2Highlights"></div>
+                        <div class="contract-v2-hero__actions">
+                            <button class="contract-v2-hero__cta" type="button" onclick="openOptionPurchase()">
+                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                                רכישת יחידה ב-$50
+                            </button>
+                            <button class="contract-v2-hero__details" type="button" id="contractV2DetailsToggle">
+                                <i class="fa-solid fa-circle-info"></i>
+                                פרטים נוספים
+                            </button>
+                        </div>
+                    </div>
+                    <aside class="contract-v2-hero__glass">
+                        <div class="contract-v2-glass__metric">
+                            <span class="contract-v2-glass__label">שווי פיתוח מצטבר</span>
+                            <span class="contract-v2-glass__value" id="contractV2DevelopmentValue">₪300,000</span>
+                        </div>
+                        <div class="contract-v2-glass__metric">
+                            <span class="contract-v2-glass__label">שווי יחידה משוער</span>
+                            <span class="contract-v2-glass__value" id="contractV2UnitValue">--</span>
+                        </div>
+                        <div class="contract-v2-glass__metric">
+                            <span class="contract-v2-glass__label">תשואת פעילות רשת</span>
+                            <span class="contract-v2-glass__value" id="contractV2NetworkYield">--</span>
+                        </div>
+                    </aside>
+                </section>
+                <!-- חלק גרף (index.html) – גרף דינמי שמצמיד את ערך הנכס לפעילות הרשת -->
+                <section class="contract-v2-chart">
+                    <header class="contract-v2-chart__header">
+                        <h3>ערך הנכס מול מדד פעילות הרשת</h3>
+                        <p>הגרף מוצג בזמן אמת וממחיש כיצד גידול בפעילות, משתמשים וקרדיטים מעלה את ערך SPEAR ONE.</p>
+                    </header>
+                    <div class="contract-v2-chart__canvas">
+                        <canvas id="contractV2Chart" aria-label="גרף נכס מול פעילות"></canvas>
+                    </div>
+                    <footer class="contract-v2-chart__legend" id="contractV2Legend"></footer>
+                </section>
+                <!-- חלק עומק (index.html) – הצגת תחומי תשתית, שימושים וקהלים -->
+                <section class="contract-v2-infra">
+                    <h3>התשתית שמחזיקה את SPEAR ONE</h3>
+                    <div class="contract-v2-infra__grid" id="contractV2InfraGrid"></div>
+                </section>
+                <!-- חלק סיפורי (index.html) – מסרים שממחישים את ערך השותפות -->
+                <section class="contract-v2-narrative">
+                    <h3>למה להצטרף עכשיו?</h3>
+                    <ul class="contract-v2-narrative__list">
+                        <li>דמיינו שהייתם משקיעים $50 בביטקוין לפני עשור – כך נראית נקודת פתיחה מוקדמת.</li>
+                        <li>רשת חברתית שבה אתם הבעלים, לא המוצר – כל פוסט, Boost ומעורבות מחזירים ערך ישירות אליכם.</li>
+                        <li>פרטיות מלאה ושליטה בנתונים: המידע שלכם נשאר אצלכם, ויחידות הערך מגובות בפעילות מוכחת.</li>
+                    </ul>
+                </section>
+                <!-- חלק פרטים מורחבים (index.html) – תיבה נפתחת עם הסברים אנליטיים -->
+                <section class="contract-v2-details" id="contractV2Details" hidden>
+                    <h3>פירוט אנליטי</h3>
+                    <div class="contract-v2-details__grid">
+                        <article>
+                            <h4>חיבור לגרף לוח גידול הרשת</h4>
+                            <p>הערך הווירטואלי מחושב על בסיס מדד הפעילות (אירועים, לייקים ותגובות) המגיע מהגרף הראשי של לוח הגידול. כל עדכון פעילות מעלה או מוריד את שווי הנכס באופן שקוף.</p>
+                        </article>
+                        <article>
+                            <h4>R&D מושקע ומינוף משתמשים</h4>
+                            <p>הושקעו מעל 300,000 ₪ בפיתוח SPEAR ONE – ערך הבסיס. כל משתמש פעיל, אינטגרציה או Relay חדש משכפל את הערך באמצעות תרחישים פיננסיים konservטיביים.</p>
+                        </article>
+                        <article>
+                            <h4>מודל Units ו-Credits</h4>
+                            <p>Units נרכשים ב-$50 ומציגים ערך דינמי. Buyback מעניק עד 80% מהערך ב-Credits פנימיים לשימוש בקידום, שירותים והעברות בתוך המערכת – ללא רגולציה חיצונית.</p>
+                        </article>
+                    </div>
+                </section>
+            </div>
+            <footer class="contract-dashboard-v2__footer">
+                <span class="contract-dashboard-v2__status" id="contractV2Status">ממתין לנתוני רשת...</span>
+                <button class="contract-dashboard-v2__cta" type="button" onclick="openOptionPurchase()">
+                    <i class="fa-solid fa-rocket"></i>
+                    הצטרפות עם יחידה אחת
+                </button>
+            </footer>
+        </article>
+    </section>
+    <section class="contract-dashboard" id="contractDashboard" aria-hidden="true">
+        <div class="contract-dashboard__backdrop" onclick="closeContractDashboard()"></div>
+        <article class="contract-dashboard__panel" role="dialog" aria-modal="true">
+            <header class="contract-dashboard__header">
+                <div class="contract-dashboard__identity">
+                    <i class="fa-solid fa-file-contract"></i>
+                    <div>
+                        <h2>חוזה חכם – השקעה ברשת המבוזרת</h2>
+                        <p>מסלול הצטרפות למשקיעים שמבינים צמיחה מבוססת נתונים בזמן אמת</p>
+                    </div>
+                </div>
+                <button class="contract-dashboard__close" type="button" onclick="closeContractDashboard()" aria-label="סגירת חוזה">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </header>
+            <div class="contract-dashboard__body">
+                <section class="contract-dashboard__section contract-hero-section" id="contractExecutive">
+                    <div class="contract-hero" id="contractHero">
+                        <div class="contract-hero__copy">
+                            <h3>Units ו-Credits שמתרגמים פעילות לערך</h3>
+                            <p id="contractHeroPitch">הנתונים נאספים מהרשת בזמן אמת כדי להציג למשקיע כמה שווה כל יחידה, מהו שווי הנכס הכולל וכיצד תרומתך מזינה את הצמיחה.</p>
+                            <div class="contract-hero__cta">
+                                <button class="contract-hero__cta-primary" type="button" onclick="openOptionPurchase()">
+                                    <i class="fa-solid fa-rocket"></i>
+                                    הצטרפות להשקעה מיידית
+                                </button>
+                                <button class="contract-hero__cta-secondary" type="button" onclick="openContractDocs()">
+                                    <i class="fa-solid fa-scale-balanced"></i>
+                                    צפייה במסמכי העמיתות
+                                </button>
+                            </div>
+                        </div>
+                        <div class="contract-hero__stats">
+                            <article class="contract-hero__stat">
+                                <span class="contract-hero__stat-label">שווי רשת נוכחי</span>
+                                <span class="contract-hero__stat-value" id="contractHeroNetwork">--</span>
+                                <small class="contract-hero__stat-note" id="contractHeroUsers">נתוני משתמשים מתעדכנים...</small>
+                            </article>
+                            <article class="contract-hero__stat">
+                                <span class="contract-hero__stat-label">ערך יחידה בזמן אמת</span>
+                                <span class="contract-hero__stat-value" id="contractHeroUnit">--</span>
+                                <small class="contract-hero__stat-note">יחס Credits↔Units מחושב אוטומטית</small>
+                            </article>
+                            <article class="contract-hero__stat">
+                                <span class="contract-hero__stat-label">רווח מצטבר למשקיעים</span>
+                                <span class="contract-hero__stat-value" id="contractHeroProfit">--</span>
+                                <small class="contract-hero__stat-note">מבוסס Buyback והון שגויס</small>
+                            </article>
+                            <article class="contract-hero__stat">
+                                <span class="contract-hero__stat-label">Credits זמינים</span>
+                                <span class="contract-hero__stat-value" id="contractHeroCredits">--</span>
+                                <small class="contract-hero__stat-note">שימוש לקידום, פרימיום והעברות</small>
+                            </article>
+                        </div>
+                        <div class="contract-hero__trust" id="contractHeroTrust">המערכת מנתחת פעילות Relay, השקעות והרחבות בזמן אמת.</div>
+                    </div>
+                    <div class="contract-metrics" id="contractMetrics"></div>
+                </section>
+                <section class="contract-dashboard__section" id="contractTerms">
+                    <h3>תנאי החוזה</h3>
+                    <ol class="contract-terms" id="contractTermsList"></ol>
+                </section>
+                <section class="contract-dashboard__section" id="contractAnalytics">
+                    <h3>אנליטיקה דינמית</h3>
+                    <div class="contract-analytics">
+                        <canvas id="contractForecastChart" aria-label="גרף תחזית"></canvas>
+                        <div class="contract-forecast__notes" id="contractForecastNotes"></div>
+                    </div>
+                </section>
+                <section class="contract-dashboard__section" id="contractUnits">
+                    <h3>יחידות למכירה</h3>
+                    <p class="contract-units__intro">בחר את גודל ההשקעה המתאים עבורך. כל יחידה מבוססת נתונים מוכחים של משתמשים פעילים, טרנזקציות וקרדיטים שנצברו ברשת.</p>
+                    <div class="contract-units" id="contractUnitsGrid"></div>
+                </section>
+                <section class="contract-dashboard__section" id="contractAssurance">
+                    <h3>ליווי משקיעים</h3>
+                    <div class="contract-assurance">
+                        <p>אנחנו מלווים את המשקיעים בתהליך מלא: עדכוני צמיחה שבועיים, דוחות שווי תקופתיים ואפשרות Buyback מובנית. לחיצה על הצטרפות תאפשר לך לבחור סכום מותאם אישית ולהשלים תשלום מאובטח.</p>
+                        <button class="contract-assurance__cta" type="button" onclick="openOptionPurchase()">
+                            <i class="fa-solid fa-credit-card"></i>
+                            אני מוכן לרכוש יחידה עכשיו
+                        </button>
+                    </div>
+                </section>
+            </div>
+            <footer class="contract-dashboard__footer">
+                <span class="contract-dashboard__status" id="contractStatus">החוזה ממתין לאימות נתוני רשת...</span>
+            </footer>
+        </article>
+    </section>
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./config.js"></script>
+    <script src="./secure-channel.js"></script>
+    <script src="./key-utils.js"></script>
+    <script src="./utils.js"></script>
+    <script src="./keys.js"></script>
+    <script src="./profile.js"></script>
+    <script src="./account.js"></script>
+    <script src="./key-viewer.js"></script>
+    <script src="./media.js"></script>
+    <script src="./post-actions.js"></script>
+    <!-- חלק צ'אט (index.html) – טוען את לוגיקת מצב, שירות וממשק המסנג'ר -->
+    <script src="./chat-state.js"></script>
+    <script src="./chat-service.js"></script>
+    <!-- חלק צ'אט (index.html) – טוען מודולי לוגיקה להרחבת העברת קבצים בצ'אט -->
+    <script src="./chat-file-transfer-state.js"></script>
+    <script src="./chat-file-transfer-service.js"></script>
+    <script src="./chat-file-transfer-ui.js"></script>
+    <script src="./chat-ui.js"></script>
+    <script src="./navigation.js"></script>
+    <script src="./compose.js"></script>
+    <script src="./follow-service.js"></script>
+    <script src="./feed.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="./market-dashboard.js"></script>
+    <script src="./contract-dashboard.js"></script>
+    <script src="./contract-dashboard-v2.js"></script>
+    <script src="./app.js"></script>
+
+</body>
+</html>

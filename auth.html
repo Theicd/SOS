@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="he">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SphereOne Social – כניסה או יצירת פרופיל</title>
+    <!-- חלק ראש (auth.html) – מגדיר את אייקון הלשונית באמצעות SVG מוטמע -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27bg%27%20x1%3D%270%25%27%20y1%3D%270%25%27%20x2%3D%27100%25%27%20y2%3D%27100%25%27%3E%3Cstop%20offset%3D%270%25%27%20stop-color%3D%272d9cff%27/%3E%3Cstop%20offset%3D%27100%25%27%20stop-color%3D%270a2c88%27/%3E%3C/linearGradient%3E%3CradialGradient%20id%3D%27halo%27%20cx%3D%2750%25%27%20cy%3D%2735%25%27%20r%3D%2760%25%27%3E%3Cstop%20offset%3D%270%25%27%20stop-color%3D%2792e6ff%27%20stop-opacity%3D%270.55%27/%3E%3Cstop%20offset%3D%27100%25%27%20stop-color%3D%2705173f%27%20stop-opacity%3D%270%27/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect%20x%3D%272%27%20y%3D%272%27%20width%3D%2760%27%20height%3D%2760%27%20rx%3D%2716%27%20fill%3D%27url(%23bg)%27/%3E%3Crect%20x%3D%272%27%20y%3D%272%27%20width%3D%2760%27%20height%3D%2760%27%20rx%3D%2716%27%20fill%3D%27url(%23halo)%27/%3E%3Cpath%20fill%3D%27%23ffffff%27%20stroke%3D%27%23d9ecff%27%20stroke-width%3D%272.6%27%20stroke-linejoin%3D%27round%27%20d%3D%27M47.5%2012.2c-5.7-3.7-12.4-5.6-20.8-5.6-11.6%200-20.4%204.3-20.4%2012.3%200%205.8%204.3%209.6%2013.6%2011.7l9.5%202.3c3.6%200.9%205.1%201.8%205.1%203.6%200%203-3.2%204.2-7.5%204.2-5.5%200-10.9-2-15.1-5.3l-6.7%209.8c6.3%205.6%2014.7%208.8%2024.2%208.8%2012.8%200%2020.8-6%2020.8-15.6%200-6.9-4.3-10.9-13.3-13.1l-8.7-2.1c-3.6-0.9-5-1.6-5-3.3%200-2.2%202.4-3.5%206.7-3.5%204.5%200%208.7%201.3%2012.3%203.7l6.4-9.9z%27/%3E%3C/svg%3E"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="./styles/auth.css" />
+  </head>
+  <body class="auth-body">
+    <!-- חלק וידאו רקע (auth.html) – מציג וידאו בלופ מאחורי התוכן -->
+    <video class="auth-background-video" autoplay muted loop playsinline>
+      <source src="https://cdn.pixabay.com/video/2019/04/27/23088-333074579_large.mp4" type="video/mp4" />
+    </video>
+    <!-- חלק HEADER עליון (auth.html) – מעטפת מותג SphereOne Social מותאמת לנייד ולדסקטופ -->
+    <header class="site-header">
+      <div class="site-header__brand" aria-label="SphereOne Social">
+        <div class="site-header__title-group">
+  <span class="site-header__brand-name">
+    <span class="sos-morse sos-morse-s">S</span>phere <span class="sos-morse sos-morse-o">O</span>ne <span class="sos-morse sos-morse-s">S</span>ocial
+  </span>
+  <span class="site-header__tagline">רשת קריפטונית מבוזרת</span>
+</div>
+      </div>
+      <nav class="site-header__nav" aria-label="קישורי עזר">
+        <a href="#" class="site-header__nav-link">מרכז העזרה</a>
+        <a href="#" class="site-header__nav-link">קהילת התמיכה</a>
+        <a href="#" class="site-header__nav-link">בטיחות ופרטיות</a>
+      </nav>
+    </header>
+
+    <!-- חלק HERO (auth.html) – מסר פתיחה כללי לרשת החברתית -->
+    <section class="auth-hero">
+      <h1 class="auth-hero__title">קהילה פתוחה לרעיונות גדולים</h1>
+      <p class="auth-hero__subtitle">בחר איך להמשיך ולהתחבר לקהילה</p>
+    </section>
+
+    <!-- חלק מעטפת מרכזית (auth.html) – שלבי בחירה, התחברות והרשמה -->
+    <main class="auth-layout">
+      <!-- כרטיס הזמנה לפעולה – בחירת התחברות או יצירה -->
+      <section class="auth-card auth-entry" id="authEntryPanel" aria-live="polite">
+        <h2 class="auth-entry__title">ברוכים הבאים ל-SphereOne Social</h2>
+        <p class="auth-entry__subtitle">בחרו בין התחברות לפרופיל קיים או יצירת פרופיל חדש</p>
+        <div class="auth-entry__actions">
+          <button class="button-primary auth-entry__action" id="authEntryLoginButton">
+            <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
+            התחברות לפרופיל קיים
+          </button>
+          <button class="button-secondary auth-entry__action" id="authEntryRegisterButton">
+            <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+            יצירת פרופיל חדש
+          </button>
+        </div>
+      </section>
+
+      <!-- כרטיס התחברות – כולל כותרת עם אייקון ושדה קלט למפתח -->
+      <section class="auth-card auth-card--import" aria-live="polite" hidden>
+        <button class="auth-card__back" id="authBackToEntryFromLogin" aria-label="חזרה למסך הבחירה">
+          <i class="fa-solid fa-arrow-right"></i>
+          חזרה למסך הראשי
+        </button>
+        <!-- כותרת כרטיס התחברות – מבליטה את פעולת ההתחברות -->
+        <header class="auth-card__header">
+          <div class="auth-card__title-row">
+            <span class="auth-card__icon" aria-hidden="true">
+              <i class="fa-solid fa-user-check"></i>
+            </span>
+            <div class="auth-card__title-wrap">
+              <h2 class="auth-card__title">התחברות לפרופיל SphereOne Social קיים</h2>
+              <p class="auth-card__subtitle">הדביקו את המפתח הקריפטוגרפי הפרטי שלכם והתחילו לגלוש</p>
+            </div>
+          </div>
+        </header>
+        <div class="auth-field auth-field--textarea">
+          <label class="auth-field__label" for="authImportInput">
+            <span class="auth-field__label-icon" aria-hidden="true">
+              <i class="fa-solid fa-key"></i>
+            </span>
+            מפתח קריפטוגרפי פרטי
+          </label>
+          <textarea
+            id="authImportInput"
+            class="auth-textarea"
+            placeholder="הדביקו כאן מפתח nsec או hex"
+          ></textarea>
+          <div class="auth-field__hint">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            זהו מפתח קריפטו אישי מסוג nsec או מחרוזת hex (64 תווים).
+          </div>
+        </div>
+        <div class="auth-actions auth-actions--stack">
+          <button class="button-primary" id="authImportButton">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            התחבר עם מפתח קריפטו
+          </button>
+        </div>
+        <div class="auth-card__switch" aria-label="מעבר ליצירת חשבון חדש">
+          <span class="auth-card__switch-divider" aria-hidden="true"></span>
+          <span class="auth-card__switch-text">או</span>
+          <span class="auth-card__switch-divider" aria-hidden="true"></span>
+        </div>
+        <button class="button-link button-link--accent" id="authGoCreateButton">
+          <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+          ליצור פרופיל חדש במקום
+        </button>
+        <div class="auth-status" id="authImportStatus"></div>
+      </section>
+
+      <!-- פאנל יצירת מפתח -->
+      <section class="auth-card auth-card--create" id="authCreatePanel" aria-live="polite" hidden>
+        <button class="auth-card__back" id="authBackToEntry" aria-label="חזרה למסך הבחירה">
+          <i class="fa-solid fa-arrow-right"></i>
+          חזרה למסך הראשי
+        </button>
+        <!-- כותרת כרטיס יצירה – מציגה את תהליך ההרשמה -->
+        <header class="auth-card__header">
+          <div class="auth-card__title-row">
+            <span class="auth-card__icon" aria-hidden="true">
+              <i class="fa-solid fa-user-plus"></i>
+            </span>
+            <div class="auth-card__title-wrap">
+              <h2 class="auth-card__title">יצירת פרופיל SphereOne Social חדש</h2>
+              <p class="auth-card__subtitle">בלחיצה אחת נוצרת עבורכם מפתח קריפטוגרפי חדש לכניסה לרשת.</p>
+            </div>
+          </div>
+        </header>
+        <div class="auth-field auth-field--textarea">
+          <label class="auth-field__label" for="authCreateKey">המפתח הקריפטוגרפי החדש שנוצר עבורך</label>
+          <textarea
+            id="authCreateKey"
+            class="auth-textarea"
+            readonly
+            placeholder="לחצו 'יצירת מפתח' לקבלת המפתח הקריפטוגרפי"
+          ></textarea>
+        </div>
+        <div class="auth-actions auth-actions--primary">
+          <button class="button-primary" id="authGenerateButton">
+            <i class="fa-solid fa-key"></i>
+            יצירת מפתח
+          </button>
+        </div>
+        <div class="auth-actions auth-actions--row">
+          <button class="button-secondary" id="authCopyCreateButton" disabled>
+            <i class="fa-solid fa-copy"></i>
+            העתקה
+          </button>
+          <button class="button-secondary" id="authDownloadCreateButton" disabled>
+            <i class="fa-solid fa-file-arrow-down"></i>
+            הורדה
+          </button>
+        </div>
+        <div class="auth-share">
+          <button class="button-secondary button-secondary--whatsapp" id="authShareWhatsappButton" disabled>
+            <i class="fa-brands fa-whatsapp"></i>
+            שלחו לעצמכם בוואטסאפ
+          </button>
+        </div>
+        <label class="auth-checkbox">
+          <input type="checkbox" id="authCreateConfirm" />
+        </label>
+        <button class="button-primary" id="authContinueButton" disabled>
+          התחברות לרשת
+        </button>
+        <div class="auth-status" id="authCreateStatus"></div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./config.js"></script>
+    <script src="./key-utils.js"></script>
+    <script src="./keys.js"></script>
+    <script src="./auth.js"></script>
+  </body>
+</html>
