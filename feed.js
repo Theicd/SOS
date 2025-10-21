@@ -18,6 +18,7 @@
   App.pendingNotificationQueue = Array.isArray(App.pendingNotificationQueue) ? App.pendingNotificationQueue : []; // חלק התרעות (feed.js) – משמר אירועי התרעה מושהים עד שהפוסט נטען
   App.pendingNotificationSet = App.pendingNotificationSet instanceof Set ? App.pendingNotificationSet : new Set(); // חלק התרעות (feed.js) – מונע כפילויות בתור ההתרעות המושהה
   const DATING_LIKE_KIND = 40001; // חלק התרעות הכרויות (feed.js) – מזהה kind ייעודי ללייקים בדף ההכרויות
+  App.profileFetchPromises = App.profileFetchPromises instanceof Map ? App.profileFetchPromises : new Map();
 
   function updateRenderedAuthorProfile(pubkey, profile) {
     // חלק פיד (feed.js) – מעדכן פוסטים קיימים כאשר נתוני הפרופיל מתעדכנים כדי לשמור על שם ותמונה עקביים
@@ -113,25 +114,33 @@
       return fallback;
     }
 
-    try {
+    if (!App.profileFetchPromises.has(normalized)) {
       const authorFilters = Array.from(new Set([pubkey, normalized].filter((value) => typeof value === 'string' && value)));
-      const metadataEvent = await App.pool.get(App.relayUrls, { kinds: [0], authors: authorFilters });
-      if (metadataEvent?.content) {
-        const parsed = JSON.parse(metadataEvent.content);
-        const nameField = typeof parsed.display_name === 'string' ? parsed.display_name.trim() : '';
-        const name = nameField || (typeof parsed.name === 'string' ? parsed.name.trim() : '') || fallback.name;
-        const bio = typeof parsed.about === 'string' ? parsed.about.trim() : '';
-        const picture = typeof parsed.picture === 'string' ? parsed.picture.trim() : '';
-        return storeProfile({
-          name,
-          bio,
-          picture,
-          initials:
-            typeof App.getInitials === 'function' ? App.getInitials(name || pubkey) : fallback.initials,
-        });
-      }
-    } catch (err) {
-      console.warn('Failed to fetch profile metadata for', pubkey, err);
+      const fetchPromise = (async () => {
+        try {
+          const metadataEvent = await App.pool.get(App.relayUrls, { kinds: [0], authors: authorFilters });
+          if (metadataEvent?.content) {
+            const parsed = JSON.parse(metadataEvent.content);
+            const nameField = typeof parsed.display_name === 'string' ? parsed.display_name.trim() : '';
+            const name = nameField || (typeof parsed.name === 'string' ? parsed.name.trim() : '') || fallback.name;
+            const bio = typeof parsed.about === 'string' ? parsed.about.trim() : '';
+            const picture = typeof parsed.picture === 'string' ? parsed.picture.trim() : '';
+            storeProfile({
+              name,
+              bio,
+              picture,
+              initials:
+                typeof App.getInitials === 'function' ? App.getInitials(name || pubkey) : fallback.initials,
+            });
+          }
+        } catch (err) {
+          console.warn('Failed to fetch profile metadata for', pubkey, err);
+        }
+      })();
+      fetchPromise.finally(() => {
+        App.profileFetchPromises.delete(normalized);
+      });
+      App.profileFetchPromises.set(normalized, fetchPromise);
     }
 
     return fallback;
@@ -1202,9 +1211,16 @@
         ? App.adminPublicKeys.has(App.publicKey.toLowerCase())
         : false;
 
-    for (const event of visibleEvents) {
+    const profileList = await Promise.all(visibleEvents.map((event) => fetchProfile(event.pubkey)));
+
+    visibleEvents.forEach((event, index) => {
       const normalizedPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
-      const profileData = await fetchProfile(event.pubkey);
+      const profileData = profileList[index] || {
+        name: `משתמש ${normalizedPubkey.slice(0, 8)}`,
+        bio: '',
+        picture: '',
+        initials: typeof App.getInitials === 'function' ? App.getInitials(normalizedPubkey) : 'AN',
+      };
       if (event?.id && normalizedPubkey) {
         App.eventAuthorById.set(event.id, normalizedPubkey);
         if (!App.feedAuthorProfiles.has(normalizedPubkey)) {
@@ -1363,7 +1379,7 @@
       if (typeof App.refreshFollowButtons === 'function') {
         App.refreshFollowButtons(article);
       }
-    }
+    });
   }
 
   async function hydrateCommentsSection(articleEl, parentId) {
