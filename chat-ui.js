@@ -339,7 +339,7 @@
     const initialsValue = profile.initials || (typeof App.getInitials === 'function' ? App.getInitials(actorNameRaw) : 'מש');
     const initials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
     const avatarHtml = profile.picture
-      ? `<img src="${profile.picture}" alt="${actorName}">`
+      ? `<img src="${profile.picture}" alt="${actorName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement && (this.parentElement.innerHTML='<span>${initials}</span>');">`
       : `<span>${initials}</span>`;
     const actionText = notification?.type === 'comment' ? 'הגיב לפוסט שלך' : 'אהב את הפוסט שלך';
     const safeAction = App.escapeHtml ? App.escapeHtml(actionText) : actionText;
@@ -477,7 +477,7 @@
       : '';
     const activeClass = state.activeContact === contact.pubkey ? ' chat-contact--active' : '';
     const avatarHtml = contact.picture
-      ? `<span class="chat-contact__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}"></span>`
+      ? `<span class="chat-contact__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-contact__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
       : `<span class="chat-contact__avatar chat-contact__avatar--initials" title="${safeName}">${safeInitials}</span>`;
 
     return `
@@ -552,7 +552,7 @@
           contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(fallbackName) : 'מש');
         const safeInitials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
         avatarHtml = contact?.picture
-          ? `<span class="chat-message__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}"></span>`
+          ? `<span class="chat-message__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-message__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
           : `<span class="chat-message__avatar chat-message__avatar--initials" title="${safeName}">${safeInitials}</span>`;
       }
 
@@ -616,7 +616,7 @@
       elements.conversationAvatar.innerHTML = '';
       elements.conversationAvatar.textContent = '';
       if (contact?.picture) {
-        elements.conversationAvatar.innerHTML = `<img src="${contact.picture}" alt="${name}" />`;
+        elements.conversationAvatar.innerHTML = `<img src="${contact.picture}" alt="${name}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent='${initials}'; this.remove();" />`;
       } else {
         elements.conversationAvatar.textContent = initials;
       }

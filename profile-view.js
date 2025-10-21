@@ -114,13 +114,21 @@
       return;
     }
     target.innerHTML = '';
+    const initials = App.profile?.avatarInitials || (typeof App.getInitials === 'function' ? App.getInitials(App.profile?.name || '') : 'AN');
     if (App.profile?.picture) {
       const img = document.createElement('img');
       img.src = App.profile.picture;
       img.alt = App.profile.name || 'הפרופיל שלי';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = function onerr() {
+        try { this.remove(); } catch (e) {}
+        target.textContent = initials;
+      };
       target.appendChild(img);
     } else {
-      target.textContent = App.profile?.avatarInitials || 'AN';
+      target.textContent = initials;
     }
   }
 
@@ -207,14 +215,22 @@
   function renderAvatar(target, profile) {
     if (!target) return;
     target.innerHTML = '';
+    const initials = profile.avatarInitials || (typeof App.getInitials === 'function' ? App.getInitials(profile.name || '') : 'AN');
     if (profile.picture) {
       const img = document.createElement('img');
       img.src = profile.picture;
-      img.alt = profile.name;
+      img.alt = profile.name || 'משתמש';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = function onerr() {
+        try { this.remove(); } catch (e) {}
+        target.textContent = initials;
+      };
       target.appendChild(img);
       return;
     }
-    target.textContent = profile.avatarInitials;
+    target.textContent = initials;
   }
 
   // חלק סנכרון נתונים (profile-view.js) – מעדכן את פרטי המשתמש בכל האזורים בדף

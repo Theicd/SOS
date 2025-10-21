@@ -19,6 +19,136 @@
   App.pendingNotificationSet = App.pendingNotificationSet instanceof Set ? App.pendingNotificationSet : new Set(); // חלק התרעות (feed.js) – מונע כפילויות בתור ההתרעות המושהה
   const DATING_LIKE_KIND = 40001; // חלק התרעות הכרויות (feed.js) – מזהה kind ייעודי ללייקים בדף ההכרויות
   App.profileFetchPromises = App.profileFetchPromises instanceof Map ? App.profileFetchPromises : new Map();
+  // חלק פרופילים – תור מאגד לשאילת מטא-דאטה kind 0 בבאטץ' כדי לצמצם עומס
+  App._profileBatchQueue = App._profileBatchQueue instanceof Set ? App._profileBatchQueue : new Set();
+  App._profileBatchResolvers = App._profileBatchResolvers instanceof Map ? App._profileBatchResolvers : new Map();
+  App._profileBatchTimer = App._profileBatchTimer || null;
+
+  async function listMetadataBatch(authors) {
+    // חלק פרופילים (feed.js) – עטיפה גמישה לקריאת Kind 0 עבור מערך מחברים, תומך בגרסאות שונות של SimplePool
+    if (!Array.isArray(authors) || authors.length === 0) {
+      return [];
+    }
+    if (!App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
+      return [];
+    }
+    const filters = [{ kinds: [0], authors }];
+    try {
+      if (typeof App.pool.list === 'function') {
+        return await App.pool.list(App.relayUrls, filters);
+      }
+      if (typeof App.pool.listMany === 'function') {
+        return await App.pool.listMany(App.relayUrls, filters);
+      }
+      if (typeof App.pool.querySync === 'function') {
+        const result = await App.pool.querySync(App.relayUrls, filters[0]);
+        if (!result) return [];
+        if (Array.isArray(result)) return result;
+        if (Array.isArray(result.events)) return result.events;
+        return [];
+      }
+      if (typeof App.pool.subscribeMany === 'function') {
+        return await new Promise((resolve) => {
+          const collected = [];
+          let sub;
+          try {
+            sub = App.pool.subscribeMany(App.relayUrls, filters, {
+              onevent: (ev) => {
+                if (ev && ev.kind === 0) {
+                  collected.push(ev);
+                }
+              },
+              oneose: () => {
+                try { sub?.close?.(); } catch (e) {}
+                resolve(collected);
+              },
+            });
+          } catch (err) {
+            resolve([]);
+            return;
+          }
+          setTimeout(() => {
+            try { sub?.close?.(); } catch (e) {}
+            resolve(collected);
+          }, 2500);
+        });
+      }
+    } catch (err) {
+      console.warn('listMetadataBatch failed', err);
+    }
+    return [];
+  }
+
+  async function flushProfileBatch() {
+    // חלק פרופילים (feed.js) – מנקה את התור, שולח list יחיד, מעדכן מטמונים ופותר הבטחות
+    const authors = Array.from(App._profileBatchQueue.values());
+    App._profileBatchQueue.clear();
+    App._profileBatchTimer = null;
+    if (!authors.length || !App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
+      authors.forEach((key) => {
+        const resolvers = App._profileBatchResolvers.get(key) || [];
+        resolvers.forEach(({ resolve, fallback }) => resolve(fallback));
+        App._profileBatchResolvers.delete(key);
+        App.profileFetchPromises.delete(key);
+      });
+      return;
+    }
+    let events = [];
+    try {
+      events = await listMetadataBatch(authors);
+    } catch (err) {
+      console.warn('flushProfileBatch list failed', err);
+    }
+    const found = new Set();
+    if (Array.isArray(events)) {
+      events.forEach((ev) => {
+        const author = typeof ev?.pubkey === 'string' ? ev.pubkey.toLowerCase() : '';
+        if (!author || !ev?.content) return;
+        try {
+          const parsed = JSON.parse(ev.content);
+          const nameField = typeof parsed.display_name === 'string' ? parsed.display_name.trim() : '';
+          const name = nameField || (typeof parsed.name === 'string' ? parsed.name.trim() : '') || `משתמש ${author.slice(0, 8)}`;
+          const bio = typeof parsed.about === 'string' ? parsed.about.trim() : '';
+          const picture = typeof parsed.picture === 'string' ? parsed.picture.trim() : '';
+          const initials = typeof App.getInitials === 'function' ? App.getInitials(name || author) : 'AN';
+          const profile = { name, bio, picture, initials };
+          // עדכון מטמונים
+          if (App.profileCache instanceof Map) App.profileCache.set(author, profile);
+          if (App.feedAuthorProfiles instanceof Map) App.feedAuthorProfiles.set(author, profile);
+          if (App.authorProfiles instanceof Map) App.authorProfiles.set(author, profile);
+          updateRenderedAuthorProfile(author, profile);
+          const resolvers = App._profileBatchResolvers.get(author) || [];
+          resolvers.forEach(({ resolve }) => resolve(profile));
+          App._profileBatchResolvers.delete(author);
+          App.profileFetchPromises.delete(author);
+          found.add(author);
+        } catch (e) {
+          // נתוני מטא פגומים – מתעלמים
+        }
+      });
+    }
+    // פתרון עבור מי שלא נמצא – החזר fallback
+    authors.forEach((author) => {
+      if (found.has(author)) return;
+      const resolvers = App._profileBatchResolvers.get(author) || [];
+      resolvers.forEach(({ resolve, fallback }) => resolve(fallback));
+      App._profileBatchResolvers.delete(author);
+      App.profileFetchPromises.delete(author);
+    });
+  }
+
+  function enqueueProfileFetch(normalized, fallbackProfile) {
+    // חלק פרופילים (feed.js) – מכניס לתור המאגד ומחזיר הבטחה שתיפתר לאחר flush
+    return new Promise((resolve) => {
+      const list = App._profileBatchResolvers.get(normalized) || [];
+      list.push({ resolve, fallback: fallbackProfile });
+      App._profileBatchResolvers.set(normalized, list);
+      App._profileBatchQueue.add(normalized);
+      if (!App._profileBatchTimer) {
+        App._profileBatchTimer = setTimeout(flushProfileBatch, 80);
+      }
+    });
+  }
 
   function updateRenderedAuthorProfile(pubkey, profile) {
     // חלק פיד (feed.js) – מעדכן פוסטים קיימים כאשר נתוני הפרופיל מתעדכנים כדי לשמור על שם ותמונה עקביים
@@ -46,13 +176,13 @@
       node.setAttribute('data-profile-name', datasetName);
       node.setAttribute('data-profile-bio', datasetBio);
       node.setAttribute('data-profile-picture', datasetPicture);
-      if (node.classList.contains('feed-post__name')) {
+      if (node.classList.contains('feed-post__name') || node.classList.contains('feed-comment__author')) {
         node.textContent = displayName;
       }
-      if (node.classList.contains('feed-post__avatar')) {
+      if (node.classList.contains('feed-post__avatar') || node.classList.contains('feed-comment__avatar')) {
         if (profile?.picture) {
           const safePicture = profile.picture.replace(/"/g, '&quot;');
-          node.innerHTML = `<img src="${safePicture}" alt="${escapedName}">`;
+          node.innerHTML = `<img src="${safePicture}" alt="${escapedName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${escapedInitials}'; }">`;
         } else {
           node.textContent = escapedInitials;
         }
@@ -115,36 +245,11 @@
       return fallback;
     }
 
-    // הבטח הבטחה אחת ל־pubkey
+    // שימוש במאגד – הבטחה יחידה לכל pubkey, פתרון לאחר flush
     if (!App.profileFetchPromises.has(normalized)) {
-      const authorFilters = Array.from(new Set([pubkey, normalized].filter((value) => typeof value === 'string' && value)));
-      const fetchPromise = (async () => {
-        try {
-          const metadataEvent = await App.pool.get(App.relayUrls, { kinds: [0], authors: authorFilters });
-          if (metadataEvent?.content) {
-            const parsed = JSON.parse(metadataEvent.content);
-            const nameField = typeof parsed.display_name === 'string' ? parsed.display_name.trim() : '';
-            const name = nameField || (typeof parsed.name === 'string' ? parsed.name.trim() : '') || fallback.name;
-            const bio = typeof parsed.about === 'string' ? parsed.about.trim() : '';
-            const picture = typeof parsed.picture === 'string' ? parsed.picture.trim() : '';
-            storeProfile({
-              name,
-              bio,
-              picture,
-              initials: typeof App.getInitials === 'function' ? App.getInitials(name || pubkey) : fallback.initials,
-            });
-          }
-        } catch (err) {
-          console.warn('Failed to fetch profile metadata for', pubkey, err);
-        }
-      })();
-      fetchPromise.finally(() => {
-        App.profileFetchPromises.delete(normalized);
-      });
-      App.profileFetchPromises.set(normalized, fetchPromise);
+      const p = enqueueProfileFetch(normalized, fallback);
+      App.profileFetchPromises.set(normalized, p);
     }
-
-    // מחכים לסיום ההבאה מהרשת ומחזירים את הפרופיל המועשר אם קיים
     try {
       await App.profileFetchPromises.get(normalized);
       const enriched =
@@ -453,9 +558,10 @@
     const actorNameRaw = profile.name || notification.actorPubkey?.slice?.(0, 8) || 'משתמש';
     const actorName = App.escapeHtml(actorNameRaw);
     const initials = profile.initials || App.getInitials(actorNameRaw);
+    const safeInitials = App.escapeHtml(initials);
     const avatar = profile.picture
-      ? `<img src="${profile.picture}" alt="${actorName}">`
-      : `<span>${App.escapeHtml(initials)}</span>`;
+      ? `<img src="${profile.picture}" alt="${actorName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement && (this.parentElement.innerHTML='<span>${safeInitials}</span>');">`
+      : `<span>${safeInitials}</span>`;
     let actionText;
     let safeSnippet = '';
     if (notification.type === 'comment') {
@@ -1005,18 +1111,25 @@
     for (const comment of comments) {
       // eslint-disable-next-line no-await-in-loop
       const commenterProfile = await fetchProfile(comment.pubkey);
+      const normalizedCommenter = typeof comment.pubkey === 'string' ? comment.pubkey.toLowerCase() : '';
       const commenterName = App.escapeHtml(commenterProfile.name || 'משתמש');
-      const commenterAvatar = commenterProfile.picture
-        ? `<img src="${commenterProfile.picture}" alt="${commenterName}">`
-        : `<span>${commenterProfile.initials}</span>`;
+      const attrName = (commenterProfile.name || '').replace(/"/g, '&quot;');
+      const attrBio = (commenterProfile.bio || '').replace(/"/g, '&quot;');
+      const attrPicture = (commenterProfile.picture || '').replace(/"/g, '&quot;');
+      const profileDataset = normalizedCommenter
+        ? `data-profile-link="${normalizedCommenter}" data-profile-name="${attrName}" data-profile-bio="${attrBio}" data-profile-picture="${attrPicture}` + `"`
+        : '';
+      const commenterAvatarHtml = commenterProfile.picture
+        ? `<div class="feed-comment__avatar" ${profileDataset}><img src="${commenterProfile.picture}" alt="${commenterName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${commenterProfile.initials}'; }"></div>`
+        : `<div class="feed-comment__avatar" ${profileDataset}>${commenterProfile.initials}</div>`;
       const safeContent = App.escapeHtml(comment.content || '').replace(/\n/g, '<br>');
       const timestamp = comment.created_at ? formatTimestamp(comment.created_at) : '';
       fragments.push(`
         <article class="feed-comment">
-          <div class="feed-comment__avatar">${commenterAvatar}</div>
+          ${commenterAvatarHtml}
           <div class="feed-comment__body">
             <header class="feed-comment__header">
-              <span class="feed-comment__author">${commenterName}</span>
+              <button class="feed-comment__author" type="button" ${profileDataset}>${commenterName}</button>
               ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
             </header>
             <div class="feed-comment__text">${safeContent}</div>
@@ -1222,6 +1335,54 @@
         ? App.adminPublicKeys.has(App.publicKey.toLowerCase())
         : false;
 
+    // ניסיון מקדים להביא מטאדאטה של פרופילים בבאטץ' כדי לצמצם עומס ובקשות כושלות
+    const uniqueAuthors = Array.from(
+      new Set(
+        visibleEvents
+          .map((e) => (typeof e.pubkey === 'string' ? e.pubkey.toLowerCase() : ''))
+          .filter(Boolean)
+      )
+    );
+    if (
+      uniqueAuthors.length > 0 &&
+      App.pool &&
+      Array.isArray(App.relayUrls) &&
+      App.relayUrls.length > 0
+    ) {
+      try {
+        const metas = await listMetadataBatch(uniqueAuthors);
+        if (Array.isArray(metas)) {
+          metas.forEach((ev) => {
+            const author = typeof ev?.pubkey === 'string' ? ev.pubkey.toLowerCase() : '';
+            if (!author || !ev?.content) return;
+            try {
+              const parsed = JSON.parse(ev.content);
+              const nameField = typeof parsed.display_name === 'string' ? parsed.display_name.trim() : '';
+              const name = nameField || (typeof parsed.name === 'string' ? parsed.name.trim() : '') || `משתמש ${author.slice(0, 8)}`;
+              const bio = typeof parsed.about === 'string' ? parsed.about.trim() : '';
+              const picture = typeof parsed.picture === 'string' ? parsed.picture.trim() : '';
+              const initials = typeof App.getInitials === 'function' ? App.getInitials(name || author) : 'AN';
+              const normalizedProfile = { name, bio, picture, initials };
+              if (App.profileCache instanceof Map) {
+                App.profileCache.set(author, normalizedProfile);
+              }
+              if (App.feedAuthorProfiles instanceof Map) {
+                App.feedAuthorProfiles.set(author, normalizedProfile);
+              }
+              if (App.authorProfiles instanceof Map) {
+                App.authorProfiles.set(author, normalizedProfile);
+              }
+              updateRenderedAuthorProfile(author, normalizedProfile);
+            } catch (e) {
+              // ignore malformed content
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Batch metadata list failed', err);
+      }
+    }
+
     const profileList = await Promise.all(visibleEvents.map((event) => fetchProfile(event.pubkey)));
 
     visibleEvents.forEach((event, index) => {
@@ -1321,11 +1482,11 @@
       const viewerName = viewerProfile.name || 'אני';
       const viewerInitials = typeof App.getInitials === 'function' ? App.getInitials(viewerName) : viewerName.slice(0, 2).toUpperCase();
       const viewerAvatar = viewerProfile.picture
-        ? `<img src="${viewerProfile.picture}" alt="${App.escapeHtml(viewerName)}">`
+        ? `<img src="${viewerProfile.picture}" alt="${App.escapeHtml(viewerName)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.innerHTML='<span>${App.escapeHtml(viewerInitials)}</span>'; }">`
         : `<span>${App.escapeHtml(viewerInitials)}</span>`;
 
       const avatar = profileData.picture
-        ? `<button class="feed-post__avatar" type="button" ${profileDataset}><img src="${profileData.picture}" alt="${safeName}"></button>`
+        ? `<button class="feed-post__avatar" type="button" ${profileDataset}><img src="${profileData.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${profileData.initials}'; }"></button>`
         : `<button class="feed-post__avatar" type="button" ${profileDataset}>${profileData.initials}</button>`;
 
       article.innerHTML = `
