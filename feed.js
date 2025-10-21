@@ -59,6 +59,46 @@
       }
     });
   }
+
+  function propagateProfileUpdate(pubkey, profile) {
+    // חלק פרופילים משותף (feed.js) – מעדכן מודולים חיצוניים (צ'אט, התרעות) עם נתוני פרופיל מעודכנים
+    if (!pubkey || !profile) {
+      return;
+    }
+    const normalized = typeof pubkey === 'string' ? pubkey.trim().toLowerCase() : '';
+    if (!normalized) {
+      return;
+    }
+    if (typeof App.ensureChatContact === 'function') {
+      App.ensureChatContact(normalized, {
+        name: profile.name || `משתמש ${normalized.slice(0, 8)}`,
+        picture: profile.picture || '',
+        initials:
+          profile.initials || (typeof App.getInitials === 'function' ? App.getInitials(profile.name || normalized) : 'AN'),
+      });
+    }
+
+    if (Array.isArray(App.notifications) && App.notifications.length) {
+      let updated = false;
+      App.notifications.forEach((notification) => {
+        const actorKey = notification?.actorPubkey?.toLowerCase?.();
+        if (actorKey && actorKey === normalized) {
+          notification.actorProfile = {
+            name: profile.name || '',
+            picture: profile.picture || '',
+            initials: profile.initials || (typeof App.getInitials === 'function' ? App.getInitials(profile.name || normalized) : 'AN'),
+          };
+          updated = true;
+        }
+      });
+      if (updated) {
+        refreshNotificationIndicators();
+        saveNotificationsToStorage();
+        renderNotificationList();
+        notifyNotificationObservers();
+      }
+    }
+  }
   async function fetchProfile(pubkey) {
     if (!pubkey || pubkey.trim() === '') {
       return {
@@ -92,6 +132,10 @@
         App.authorProfiles.set(pubkey, normalizedProfile);
       }
       updateRenderedAuthorProfile(normalized, normalizedProfile);
+      propagateProfileUpdate(normalized, normalizedProfile);
+      if (normalized !== pubkey.toLowerCase()) {
+        propagateProfileUpdate(pubkey, normalizedProfile);
+      }
       return normalizedProfile;
     };
 
@@ -111,6 +155,7 @@
     });
 
     if (!App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
+      console.warn('feed: fetchProfile skipped, pool or relays unavailable', pubkey);
       return fallback;
     }
 
@@ -134,7 +179,7 @@
             });
           }
         } catch (err) {
-          console.warn('Failed to fetch profile metadata for', pubkey, err);
+          console.error('feed: failed to fetch profile metadata', pubkey, err);
         }
       })();
       fetchPromise.finally(() => {
@@ -1433,6 +1478,11 @@
   async function loadFeed() {
     if (!App.pool) return;
 
+    console.log('feed: loadFeed start', {
+      relays: Array.isArray(App.relayUrls) ? App.relayUrls.length : 0,
+      publicKeyReady: typeof App.publicKey === 'string' && App.publicKey,
+    });
+
     const feed = document.getElementById('feed');
     const { container: emptyState, messageEl: emptyMessage } = getFeedEmptyState();
     if (feed && emptyState) {
@@ -1483,10 +1533,77 @@
       }
       filters.push(datingFilter);
     }
+    console.log('feed: filters prepared', { filtersCount: filters.length });
     const events = [];
+    const seenEventIds = new Set();
+
+    if (typeof App.pool.list === 'function') {
+      console.log('feed: querying initial list');
+      try {
+        const initialEvents = await App.pool.list(App.relayUrls, filters);
+        if (Array.isArray(initialEvents)) {
+          console.log('feed: initial list returned', initialEvents.length);
+          initialEvents.forEach((event) => {
+            if (!event || seenEventIds.has(event.id)) {
+              return;
+            }
+            seenEventIds.add(event.id);
+            if (event.kind === 1) {
+              const parentId = extractParentId(event);
+              if (parentId) {
+                registerComment(event, parentId);
+              } else {
+                events.push(event);
+              }
+              return;
+            }
+            if (event.kind === 5) {
+              registerDeletion(event);
+              return;
+            }
+            if (event.kind === 7) {
+              registerLike(event);
+              return;
+            }
+            if (event.kind === DATING_LIKE_KIND) {
+              handleNotificationForDatingLike(event);
+              return;
+            }
+            events.push(event);
+          });
+          if (events.length > 0) {
+            displayPosts(events);
+            if (emptyState && emptyMessage?.dataset?.defaultText) {
+              emptyMessage.textContent = emptyMessage.dataset.defaultText;
+              emptyState.classList.remove('feed-empty--loading');
+            }
+            if (statusEl) {
+              statusEl.textContent = `Loaded ${events.length} posts.`;
+              statusEl.style.opacity = '1';
+              setTimeout(() => {
+                statusEl.textContent = '';
+                statusEl.style.opacity = '0';
+              }, 2000);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('feed: initial list failed', err);
+      }
+    }
 
     const sub = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
+        if (!event || seenEventIds.has(event.id)) {
+          if (event?.kind === 1) {
+            const parentId = extractParentId(event);
+            if (parentId) {
+              registerComment(event, parentId);
+            }
+          }
+          return;
+        }
+        seenEventIds.add(event.id);
         if (event.kind === 1) {
           const parentId = extractParentId(event);
           if (parentId) {
