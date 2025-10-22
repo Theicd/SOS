@@ -292,8 +292,9 @@
 
     const composeNameEl = document.getElementById('composeProfileName');
     if (composeNameEl) {
-      composeNameEl.textContent = App.profile.name;
+      composeNameEl.textContent = App.profile.name || 'משתמש';
     }
+
     const composeBioEl = document.getElementById('composeProfileBio');
     if (composeBioEl) {
       composeBioEl.textContent = App.profile.bio;
@@ -309,6 +310,11 @@
       } else {
         composeAvatarEl.textContent = App.profile.avatarInitials;
       }
+    }
+
+    const profileFollowersList = document.getElementById('profileFollowersList');
+    if (profileFollowersList) {
+      profileFollowersList.innerHTML = '';
     }
 
     const galleryEl = document.getElementById('profileGallery');
@@ -952,6 +958,45 @@
   }
 
   bindButtons();
+
+  // חלק טאבים מובייל (profile.js) – ניהול ניווט אקורדיון כאשר המסך צר
+  function activateMobileTab(targetKey) {
+    const tabs = document.querySelectorAll('.profile-mobile-tab');
+    const panels = document.querySelectorAll('[data-profile-panel]');
+    tabs.forEach((tab) => {
+      tab.classList.toggle('is-active', tab.dataset.profileTab === targetKey);
+    });
+    panels.forEach((panel) => {
+      const panelKey = panel.getAttribute('data-profile-panel');
+      if (panelKey === targetKey || (targetKey === 'about' && panelKey === 'about')) {
+        panel.classList.add('is-active');
+      } else if (panelKey === 'posts' && targetKey === 'posts') {
+        panel.classList.add('is-active');
+      } else {
+        panel.classList.remove('is-active');
+      }
+    });
+  }
+
+  function bindMobileTabs() {
+    const tabs = document.querySelectorAll('.profile-mobile-tab');
+    if (!tabs.length) {
+      return;
+    }
+    tabs.forEach((tab) => {
+      if (tab.dataset.listenerAttached === 'true') {
+        return;
+      }
+      tab.dataset.listenerAttached = 'true';
+      tab.addEventListener('click', () => {
+        const key = tab.getAttribute('data-profile-tab') || 'about';
+        activateMobileTab(key);
+      });
+    });
+    activateMobileTab('about');
+  }
+
+  bindMobileTabs();
 
   // חלק מחיקת תמונות (profile.js) – לוגיקה למחיקת תמונת פרופיל ותמונת נושא והחלת השינוי בממשק ובמטא-דאטה
   function deleteProfileImage() {

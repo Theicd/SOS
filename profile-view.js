@@ -260,40 +260,66 @@
 
   // חלק עוקבים (profile-view.js) – מציג את רשימת העוקבים בתוך הכרטיס הצדדי
   function renderFollowersList() {
-    if (!refs.followersList) {
+    const coverList = document.getElementById('profileCoverFollowers');
+    const localFollowers = Array.isArray(App.followers) ? App.followers : [];
+    if (!refs.followersList && !coverList && !localFollowers.length) {
       return;
     }
-    const list = Array.isArray(followState.snapshot) ? followState.snapshot.slice(0, 20) : [];
-    refs.followersList.innerHTML = '';
-    if (list.length === 0) {
-      const empty = document.createElement('li');
-      empty.className = 'profile-followers__empty';
-      empty.textContent = 'עוד אין עוקבים להצגה.';
-      refs.followersList.appendChild(empty);
+    const networkFollowers = Array.isArray(followState.snapshot) ? followState.snapshot.slice(0, 20) : [];
+    const mergedFollowers = networkFollowers.length > 0 ? networkFollowers : localFollowers.slice(0, 20);
+    if (refs.followersList) {
+      refs.followersList.innerHTML = '';
+    }
+    if (coverList) {
+      coverList.innerHTML = '';
+    }
+    if (mergedFollowers.length === 0) {
+      if (refs.followersList) {
+        const empty = document.createElement('li');
+        empty.className = 'profile-followers__empty';
+        empty.textContent = 'עוד אין עוקבים להצגה.';
+        refs.followersList.appendChild(empty);
+      }
       return;
     }
     const escapeHtml = typeof App.escapeHtml === 'function' ? App.escapeHtml : (value) => value;
-    list.forEach((entry) => {
-      const normalized = typeof entry.pubkey === 'string' ? entry.pubkey.toLowerCase() : '';
-      const cached = App.profileCache instanceof Map ? App.profileCache.get(normalized) : null;
-      const fallbackName = entry.pubkey ? `משתמש ${entry.pubkey.slice(0, 8)}` : 'משתמש אנונימי';
-      const name = entry.name || cached?.name || fallbackName;
-      const picture = entry.picture || cached?.picture || '';
-      const initials = cached?.initials || (typeof App.getInitials === 'function' ? App.getInitials(name) : entry.pubkey?.slice?.(0, 2).toUpperCase());
+    let coverRendered = 0;
+    mergedFollowers.forEach((entry) => {
+      const pubkey = entry.pubkey || entry.npub || entry.id || '';
+      const cached = App.profileCache instanceof Map ? App.profileCache.get(pubkey) : null;
+      const fallbackName = pubkey ? `משתמש ${pubkey.slice(0, 8)}` : 'משתמש אנונימי';
+      const name = entry.name || entry.metadata?.name || cached?.name || fallbackName;
+      const picture = entry.picture || entry.metadata?.picture || cached?.picture || '';
+      const initialsSource = entry.initials || cached?.initials || (typeof App.getInitials === 'function' ? App.getInitials(name) : pubkey.slice(0, 2));
+      const initials = initialsSource ? initialsSource.toString().slice(0, 2).toUpperCase() : 'AN';
       const safeName = escapeHtml(name);
       const safePicture = picture ? escapeHtml(picture) : '';
-      const safeInitials = escapeHtml(initials || 'AN');
+      const safeInitials = escapeHtml(initials);
       const li = document.createElement('li');
       li.className = 'profile-followers__item';
       const attrName = safeName.replace(/"/g, '&quot;');
       const attrPicture = safePicture.replace(/"/g, '&quot;');
-      li.innerHTML = `
-        <button class="profile-followers__avatar" type="button" data-profile-link="${entry.pubkey}" data-profile-name="${attrName}" data-profile-picture="${attrPicture}">
-          ${safePicture ? `<img src="${safePicture}" alt="${safeName}">` : `<span>${safeInitials}</span>`}
-        </button>
-        <span class="profile-followers__name">${safeName}</span>
-      `;
-      refs.followersList.appendChild(li);
+      if (refs.followersList) {
+        li.innerHTML = `
+          <button class="profile-followers__avatar" type="button" data-profile-link="${pubkey}" data-profile-name="${attrName}" data-profile-picture="${attrPicture}">
+            ${safePicture ? `<img src="${safePicture}" alt="${safeName}">` : `<span>${safeInitials}</span>`}
+          </button>
+          <span class="profile-followers__name">${safeName}</span>
+        `;
+        refs.followersList.appendChild(li);
+      }
+
+      if (coverList && coverRendered < 5) {
+        const coverItem = document.createElement('li');
+        coverItem.className = 'profile-cover__followers-item';
+        coverItem.innerHTML = `
+          <button class="profile-cover__followers-avatar" type="button" data-profile-link="${pubkey}" data-profile-name="${attrName}" data-profile-picture="${attrPicture}">
+            ${safePicture ? `<img src="${safePicture}" alt="${safeName}" loading="lazy" decoding="async">` : `<span>${safeInitials}</span>`}
+          </button>
+        `;
+        coverList.appendChild(coverItem);
+        coverRendered += 1;
+      }
     });
   }
 

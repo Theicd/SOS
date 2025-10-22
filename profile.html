@@ -73,6 +73,7 @@
               <!-- חלק עוקבים (profile.html) – מציג את ספירת העוקבים האישית ליד שם המשתמש -->
               <div class="profile-cover__stats profile-follow__summary" id="profileFollowSummary">
                 <span class="profile-follow__count" id="profileFollowersCount">0 עוקבים</span>
+                <ul class="profile-cover__followers" id="profileCoverFollowers"></ul>
               </div>
               <div class="profile-cover__actions">
                 <button class="profile-primary-button" id="profileEditButton">
@@ -89,10 +90,26 @@
         </div>
       </section>
 
+      <!-- חלק טאבים מובייל (profile.html) – תפריט סקשנים בדומה לאפליקציות חברתיות -->
+      <nav class="profile-mobile-tabs" id="profileMobileTabs" aria-label="ניווט פרופיל במובייל">
+        <button type="button" class="profile-mobile-tab is-active" data-profile-tab="about" aria-controls="profileAboutPanel">
+          אודות
+        </button>
+        <button type="button" class="profile-mobile-tab" data-profile-tab="gallery" aria-controls="profileGalleryPanel">
+          גלריה
+        </button>
+        <button type="button" class="profile-mobile-tab" data-profile-tab="dating" aria-controls="profileDatingPanel">
+          הכרויות
+        </button>
+        <button type="button" class="profile-mobile-tab" data-profile-tab="posts" aria-controls="profilePostsPanel">
+          פוסטים
+        </button>
+      </nav>
+
       <!-- חלק תוכן ראשי (profile.html) – דומה לפרופיל פייסבוק עם עמודת מידע ועמודת טיימליין -->
       <section class="profile-main">
         <aside class="profile-sidebar">
-          <section class="profile-card">
+          <section class="profile-card" data-profile-panel="about" id="profileAboutPanel">
             <h2 class="profile-card__title">אודות</h2>
             <p class="profile-card__text" id="profileSidebarBio">לא הוגדר עדיין תיאור קצר.</p>
             <div class="profile-card__meta">
@@ -104,7 +121,7 @@
           </section>
 
           <!-- חלק גלריית פרופיל (profile.html) – מציג ומנהל תמונות נוספות של המשתמש -->
-          <section class="profile-card profile-card--gallery">
+          <section class="profile-card profile-card--gallery" data-profile-panel="gallery" id="profileGalleryPanel">
             <h2 class="profile-card__title">גלריה</h2>
             <div class="profile-gallery__uploader" id="profileGalleryDropZone">
               <input id="profileGalleryFileInput" type="file" accept="image/*" multiple hidden />
@@ -117,7 +134,7 @@
           </section>
 
           <!-- חלק הכרות (profile.html) – מאפשר למשתמש להצטרף לשירות ההכרויות ולהזין פרטים בסיסיים -->
-          <section class="profile-card" id="profileDatingCard">
+          <section class="profile-card" id="profileDatingCard" data-profile-panel="dating" aria-labelledby="profileDatingPanel">
             <h2 class="profile-card__title">הכרויות</h2>
             <div class="profile-dating__row">
               <label class="profile-dating__optin" for="profileDatingOptIn">
@@ -153,7 +170,7 @@
             </div>
           </section>
 
-          <section class="profile-card">
+          <section class="profile-card" data-profile-panel="about">
             <h2 class="profile-card__title">נתוני פעילות</h2>
             <ul class="profile-stats">
               <li class="profile-stats__item">
@@ -168,14 +185,14 @@
           </section>
 
           <!-- חלק עוקבים (profile.html) – מציג את רשימת העוקבים האישית והחיווי הנוכחי -->
-          <section class="profile-card" id="profileFollowersCard">
+          <section class="profile-card" id="profileFollowersCard" data-profile-panel="about">
             <h2 class="profile-card__title">עוקבים</h2>
             <div class="profile-followers__count" id="profileFollowersCountLabel">0 עוקבים</div>
             <ul class="profile-followers__list" id="profileFollowersList"></ul>
             <div class="profile-status" id="profileFollowersStatus"></div>
           </section>
 
-          <section class="profile-card">
+          <section class="profile-card" data-profile-panel="about">
             <h2 class="profile-card__title">קישורים מהירים</h2>
             <div class="profile-quick-links">
               <button class="profile-secondary-button profile-quick-links__button" id="profileQuickCompose">
@@ -186,7 +203,7 @@
           </section>
         </aside>
 
-        <section class="profile-timeline">
+        <section class="profile-timeline" data-profile-panel="posts" id="profilePostsPanel">
           <header class="profile-timeline__header">
             <h2 class="profile-timeline__title">הפוסטים שלי</h2>
             <div class="profile-timeline__actions">
@@ -201,7 +218,7 @@
         </section>
       </section>
 
-      <section class="profile-timeline profile-timeline--replies">
+      <section class="profile-timeline profile-timeline--replies" data-profile-panel="posts">
         <header class="profile-timeline__header">
           <h2 class="profile-timeline__title">תגובות שהגבנו</h2>
         </header>
