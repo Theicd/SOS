@@ -8,6 +8,8 @@
       bio: 'יצירת תוכן מבוזר, בלי שוטר באמצע',
       avatarInitials: 'AN',
       picture: '',
+      cover: '', // חלק תמונת נושא (profile.js) – נתיב/נתון לתמונת cover עבור באנר הכיסוי
+      coverVideo: '', // חלק וידאו נושא (profile.js) – קישור MP4/WEBM או YouTube לרקע הבאנר
       gallery: [],
       dating: {
         optIn: false,
@@ -230,6 +232,48 @@
       App.profile.gallery = [];
     }
     App.profile.avatarInitials = App.getInitials(App.profile.name || '');
+
+    // חלק תמונת נושא (profile.js) – רינדור באנר הכיסוי על בסיס App.profile.cover
+    const coverBanner = document.getElementById('profilePageCoverBanner');
+    if (coverBanner) {
+      if (App.profile.cover) {
+        coverBanner.style.backgroundImage = `url("${App.profile.cover}")`;
+      } else {
+        coverBanner.style.backgroundImage = '';
+      }
+    }
+
+    // חלק וידאו נושא (profile.js) – הצגת וידאו/YouTube בבאנר במידת הצורך עם פולבאק לתמונה
+    const coverVideoEl = document.getElementById('profilePageCoverVideo');
+    const coverYouTubeEl = document.getElementById('profilePageCoverYouTube');
+    const videoUrl = (App.profile.coverVideo || '').trim();
+    const ytIdMatch = videoUrl.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
+    if (coverVideoEl) {
+      coverVideoEl.removeAttribute('src');
+      coverVideoEl.style.display = 'none';
+    }
+    if (coverYouTubeEl) {
+      coverYouTubeEl.removeAttribute('src');
+      coverYouTubeEl.style.display = 'none';
+    }
+    if (videoUrl) {
+      if (ytIdMatch) {
+        const id = ytIdMatch[1];
+        const params = 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=' + id;
+        if (coverYouTubeEl) {
+          coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
+          coverYouTubeEl.style.display = 'block';
+        }
+      } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(videoUrl)) {
+        if (coverVideoEl) {
+          coverVideoEl.src = videoUrl;
+          coverVideoEl.style.display = 'block';
+          coverVideoEl.onerror = function () {
+            try { this.style.display = 'none'; } catch (e) {}
+          };
+        }
+      }
+    }
 
     const profileNameEl = document.getElementById('profileName');
     if (profileNameEl) {
@@ -519,6 +563,15 @@
     const name = typeof metadata.name === 'string' ? metadata.name.trim() : '';
     const about = typeof metadata.about === 'string' ? metadata.about.trim() : '';
     const picture = typeof metadata.picture === 'string' ? metadata.picture.trim() : '';
+    // חלק תאימות Cover (profile.js) – תומך גם ב-'banner' שנפוץ בלקוחות Nostr
+    const cover = typeof metadata.cover === 'string'
+      ? metadata.cover.trim()
+      : (typeof metadata.banner === 'string' ? metadata.banner.trim() : '');
+    const coverVideo = (function () {
+      const candidates = [metadata.cover_video, metadata.banner_video, metadata.header_video, metadata.wallpaper_video, metadata.coverVideo];
+      for (const c of candidates) { if (typeof c === 'string' && c.trim()) return c.trim(); }
+      return '';
+    })();
     const gallery = Array.isArray(metadata.gallery)
       ? metadata.gallery.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
       : [];
@@ -530,7 +583,7 @@
       ? metadata.dating_interests.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
       : [];
 
-    if (!name && !about && !picture && gallery.length === 0) {
+    if (!name && !about && !picture && !cover && !coverVideo && gallery.length === 0) {
       console.log(`Profile metadata: ${sourceLabel} missing relevant fields`, metadata);
       return false;
     }
@@ -543,6 +596,12 @@
     }
     if (picture) {
       App.profile.picture = picture;
+    }
+    if (cover) {
+      App.profile.cover = cover;
+    }
+    if (coverVideo) {
+      App.profile.coverVideo = coverVideo;
     }
     App.profile.gallery = gallery;
     App.profile.avatarInitials = App.getInitials(App.profile.name || '');
@@ -591,6 +650,7 @@
         name: App.profile.name,
         bio: App.profile.bio,
         picture: App.profile.picture,
+        cover: App.profile.cover,
         initials: App.profile.avatarInitials,
         gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
         dating: App.profile.dating
@@ -621,6 +681,11 @@
       name: App.profile.name,
       about: App.profile.bio,
       picture: App.profile.picture,
+      cover: App.profile.cover,
+      // חלק תאימות Cover (profile.js) – מפרסם גם banner עבור לקוחות אחרים
+      banner: App.profile.cover,
+      cover_video: App.profile.coverVideo,
+      banner_video: App.profile.coverVideo,
       gallery: Array.isArray(App.profile.gallery) ? App.profile.gallery : [],
       dating_opt_in: Boolean(App.profile.dating?.optIn),
       dating_bio: App.profile.dating?.bio || '',
@@ -631,9 +696,14 @@
 
     const content = JSON.stringify(metadata);
     const maxLength = App.MAX_METADATA_CONTENT_LENGTH;
-    if (content.length > maxLength && Array.isArray(metadata.gallery) && metadata.gallery.length > 0) {
+    // חלק מטא-דאטה (profile.js) – קיטון חכם: חל גם ללא גלריה כדי לאפשר cover תקין בפרסום
+    if (content.length > maxLength) {
       const slimMetadata = Object.assign({}, metadata, {
         picture: metadata.picture && metadata.picture.length <= App.MAX_INLINE_PICTURE_LENGTH ? metadata.picture : '',
+        cover: metadata.cover && metadata.cover.length <= App.MAX_INLINE_PICTURE_LENGTH ? metadata.cover : '',
+        banner: metadata.banner && metadata.banner.length <= App.MAX_INLINE_PICTURE_LENGTH ? metadata.banner : '',
+        cover_video: metadata.cover_video || '',
+        banner_video: metadata.banner_video || '',
         gallery: metadata.gallery
           .filter((item) => typeof item === 'string' && item.startsWith('data:'))
           .sort((a, b) => a.length - b.length)
@@ -643,10 +713,14 @@
       if (slimContent.length <= maxLength) {
         console.warn('Metadata content trimmed to fit limit');
         metadata.picture = slimMetadata.picture;
+        metadata.cover = slimMetadata.cover;
+        metadata.banner = slimMetadata.banner;
+        metadata.cover_video = slimMetadata.cover_video;
+        metadata.banner_video = slimMetadata.banner_video;
         metadata.gallery = slimMetadata.gallery;
       } else {
         const finalGallery = [];
-        let accumulated = JSON.stringify(Object.assign({}, metadata, { picture: '', gallery: [] })).length;
+        let accumulated = JSON.stringify(Object.assign({}, metadata, { picture: '', cover: '', banner: '', gallery: [] })).length;
         for (const item of slimMetadata.gallery) {
           const candidateLength = accumulated + item.length + 4;
           if (candidateLength > maxLength) {
@@ -656,11 +730,37 @@
           accumulated += item.length + 4;
         }
         metadata.picture = slimMetadata.picture;
+        metadata.cover = slimMetadata.cover;
+        metadata.banner = slimMetadata.banner;
+        metadata.cover_video = slimMetadata.cover_video;
+        metadata.banner_video = slimMetadata.banner_video;
         metadata.gallery = finalGallery;
         console.warn('Metadata content aggressively trimmed to fit limit');
       }
     }
-    if (JSON.stringify(metadata).length > maxLength) {
+    // ניסיון נוסף: אם עדיין גדול – מסירים תחילה cover, ואז picture, כדי להבטיח פרסום נתונים בסיסיים
+    let finalLength = JSON.stringify(metadata).length;
+    if (finalLength > maxLength && metadata.banner) {
+      metadata.banner = '';
+      finalLength = JSON.stringify(metadata).length;
+    }
+    if (finalLength > maxLength && metadata.cover) {
+      metadata.cover = '';
+      finalLength = JSON.stringify(metadata).length;
+    }
+    if (finalLength > maxLength && metadata.cover_video) {
+      metadata.cover_video = '';
+      finalLength = JSON.stringify(metadata).length;
+    }
+    if (finalLength > maxLength && metadata.banner_video) {
+      metadata.banner_video = '';
+      finalLength = JSON.stringify(metadata).length;
+    }
+    if (finalLength > maxLength && metadata.picture) {
+      metadata.picture = '';
+      finalLength = JSON.stringify(metadata).length;
+    }
+    if (finalLength > maxLength) {
       console.warn('Metadata content still too large after trimming, skipping publish');
       return;
     }
@@ -688,6 +788,14 @@
     document.getElementById('profileNameInput').value = App.profile.name;
     document.getElementById('profileBioInput').value = App.profile.bio;
     document.getElementById('profileImageUrlInput').value = App.profile.picture;
+    const coverUrlEl = document.getElementById('profileCoverUrlInput');
+    if (coverUrlEl) {
+      coverUrlEl.value = App.profile.cover || '';
+    }
+    const coverVideoUrlEl = document.getElementById('profileCoverVideoUrlInput');
+    if (coverVideoUrlEl) {
+      coverVideoUrlEl.value = App.profile.coverVideo || '';
+    }
     document.getElementById('profileStatus').textContent = '';
     document.getElementById('profileModal').style.display = 'flex';
   }
@@ -700,9 +808,12 @@
     const name = document.getElementById('profileNameInput').value.trim() || 'משתמש אנונימי';
     const bio = document.getElementById('profileBioInput').value.trim();
     let picture = document.getElementById('profileImageUrlInput').value.trim();
+    let cover = document.getElementById('profileCoverUrlInput')?.value?.trim?.() || '';
+    let coverVideoUrl = document.getElementById('profileCoverVideoUrlInput')?.value?.trim?.() || '';
     const gallerySelection = Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [];
 
     const fileInput = document.getElementById('profileImageFileInput');
+    const coverFileInput = document.getElementById('profileCoverFileInput');
     const status = document.getElementById('profileStatus');
 
     const applyProfile = (finalPicture) => {
@@ -719,6 +830,8 @@
       }
 
       App.profile.picture = resolvedPicture;
+      App.profile.cover = cover || App.profile.cover || '';
+      App.profile.coverVideo = coverVideoUrl || '';
       App.profile.gallery = gallerySelection;
       App.profile.avatarInitials = App.getInitials(name);
 
@@ -733,6 +846,8 @@
         name: App.profile.name,
         bio: App.profile.bio,
         picture: App.profile.picture,
+        cover: App.profile.cover,
+        coverVideo: App.profile.coverVideo,
         initials: App.profile.avatarInitials,
         gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
       });
@@ -750,6 +865,26 @@
       }
     } else {
       applyProfile(picture);
+    }
+
+    // חלק תמונת נושא (profile.js) – עיבוד קובץ cover אם הועלה
+    if (coverFileInput && coverFileInput.files && coverFileInput.files[0]) {
+      try {
+        const coverResized = await App.resizeImageToDataUrl(coverFileInput.files[0], 1280, 720, 0.82);
+        cover = coverResized;
+        // עדכון מיידי של ה-cover ב-UI והמטמון
+        App.profile.cover = cover;
+        try {
+          window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
+        } catch (e) {}
+        const coverBanner = document.getElementById('profilePageCoverBanner');
+        if (coverBanner) {
+          coverBanner.style.backgroundImage = `url("${cover}")`;
+        }
+        publishProfileMetadata();
+      } catch (e) {
+        console.error('Failed to resize cover image', e);
+      }
     }
   }
 

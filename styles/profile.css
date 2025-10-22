@@ -65,6 +65,12 @@
     padding: 20px;
   }
 
+  /* חלק תמונת נושא (profile.css) – גובה קומפקטי יותר במובייל */
+  .profile-cover__banner {
+    height: 140px;
+    border-radius: 12px;
+  }
+
   .profile-cover__avatar {
     width: 90px;
     height: 90px;
@@ -398,6 +404,51 @@
   flex-direction: column;
   gap: 20px;
 }
+
+/* חלק תמונת נושא (profile.css) – באנר עליון מתחת לכותרת הדף שמציג תמונת cover אם הוגדרה */
+.profile-cover__banner {
+  width: 100%;
+  height: 200px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(32,34,36,0.9), rgba(22,24,26,0.9));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+/* חלק תמונת נושא (profile.css) – תמונת <img> ממלאת את כל שטח הבאנר */
+.profile-cover__banner-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block; /* כמו בגלריה – מוצג כברירת מחדל */
+  border-radius: inherit;
+}
+
+/* הסתרה אוטומטית כאשר אין src – מונע אייקון שבור */
+.profile-cover__banner-image:not([src]) {
+  display: none;
+}
+
+/* חלק וידאו נושא (profile.css) – הווידאו ממלא את כל השטח ונעול לאינטראקציה */
+.profile-cover__banner-video,
+.profile-cover__banner-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.profile-cover__banner-video { background: #000; }
+.profile-cover__banner-iframe { background: transparent; }
 
 .profile-cover__inner {
   display: flex;

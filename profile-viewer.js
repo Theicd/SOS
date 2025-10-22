@@ -37,16 +37,84 @@
 
   let galleryModalListenersBound = false;
 
+  function normalizePubkeyString(input) {
+    // חלק נרמול מפתח (profile-viewer.js) – תומך גם ב-npub ומחזיר hex אם אפשר
+    if (!input || typeof input !== 'string') {
+      return '';
+    }
+    const value = input.trim();
+    if (value.startsWith('npub1') && tools?.nip19?.decode) {
+      try {
+        const decoded = tools.nip19.decode(value);
+        if (decoded?.data && typeof decoded.data === 'string') {
+          return decoded.data.toLowerCase();
+        }
+      } catch (err) {
+        console.warn('Failed to decode npub', err);
+      }
+    }
+    return value.toLowerCase();
+  }
+
+  function getOwnProfileFromStorage() {
+    // חלק פרופיל מחובר (profile-viewer.js) – שולף את פרטי המשתמש המחובר מהזיכרון המקומי כדי להציג בהדר העליון
+    try {
+      const raw = window.localStorage.getItem('nostr_profile');
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      const name = typeof parsed?.name === 'string' ? parsed.name : '';
+      const picture = typeof parsed?.picture === 'string' ? parsed.picture : '';
+      const initials = typeof App.getInitials === 'function' ? App.getInitials(name || '') : 'AN';
+      return { name, picture, initials };
+    } catch (err) {
+      console.warn('Profile viewer: failed reading own profile from storage', err);
+      return null;
+    }
+  }
+
+  function renderTopBarAvatarFromOwnProfile() {
+    // חלק אוואטר עליון (profile-viewer.js) – מציג תמיד את המשתמש המחובר בפינה העליונה, ללא קשר לבעל הכרטיס הציבורי
+    const topAvatar = document.getElementById('viewerTopAvatar');
+    if (!topAvatar) {
+      return;
+    }
+    const own = (App && App.profile) ? App.profile : getOwnProfileFromStorage();
+    topAvatar.innerHTML = '';
+    if (own && own.picture) {
+      const img = document.createElement('img');
+      img.src = own.picture;
+      img.alt = own.name || 'אני';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = function onerr() {
+        try { this.remove(); } catch (e) {}
+        const initials = (typeof App.getInitials === 'function' ? App.getInitials(own?.name || '') : (own?.initials || 'AN'));
+        topAvatar.textContent = initials;
+      };
+      topAvatar.appendChild(img);
+      return;
+    }
+    const initials = own?.initials || (typeof App.getInitials === 'function' ? App.getInitials(own?.name || '') : 'AN');
+    topAvatar.textContent = initials;
+  }
+
   function parsePubkey() {
     const params = new URLSearchParams(window.location.search);
     const pubkey = params.get('pubkey');
     if (pubkey && pubkey.length >= 10) {
-      return pubkey.toLowerCase();
+      return normalizePubkeyString(pubkey);
     }
     try {
       const stored = window.sessionStorage?.getItem('nostr_last_profile_view');
       if (stored && stored.length >= 10) {
-        return stored.toLowerCase();
+        return normalizePubkeyString(stored);
+      }
+      const storedLocal = window.localStorage?.getItem('nostr_last_profile_view');
+      if (storedLocal && storedLocal.length >= 10) {
+        return normalizePubkeyString(storedLocal);
       }
     } catch (err) {
       console.warn('Failed accessing sessionStorage for profile viewer', err);
@@ -163,22 +231,85 @@
     if (refs.meta) {
       refs.meta.innerHTML = '';
     }
+    // חלק תמונת נושא (profile-viewer.js) – מציג cover אם קיים בבאנר העליון
+    const coverBanner = document.getElementById('viewerCoverBanner');
+    if (coverBanner) {
+      // נקה קיצור רקע קודם (גרדיאנט מה-CSS)
+      coverBanner.style.background = '';
+      if (profile.cover) {
+        const safeUrl = String(profile.cover).replace(/"/g, '\\"');
+        coverBanner.style.backgroundImage = `url("${safeUrl}")`;
+        coverBanner.style.backgroundSize = 'cover';
+        coverBanner.style.backgroundPosition = 'center';
+        coverBanner.style.backgroundRepeat = 'no-repeat';
+      } else {
+        coverBanner.style.backgroundImage = '';
+      }
+    }
+    // חלק וידאו נושא (profile-viewer.js) – ניגון וידאו/YouTube ברקע אם קיים, עם פולבאק לתמונה
+    const coverVideoEl = document.getElementById('viewerCoverVideo');
+    const coverYouTubeEl = document.getElementById('viewerCoverYouTube');
+    const videoUrl = (profile.coverVideo || '').trim?.() || '';
+    const ytMatch = videoUrl.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
+    if (coverVideoEl) {
+      coverVideoEl.removeAttribute('src');
+      coverVideoEl.style.display = 'none';
+      coverVideoEl.onerror = function () { try { this.style.display = 'none'; } catch (e) {} };
+    }
+    if (coverYouTubeEl) {
+      coverYouTubeEl.removeAttribute('src');
+      coverYouTubeEl.style.display = 'none';
+    }
+    if (videoUrl) {
+      if (ytMatch) {
+        const id = ytMatch[1];
+        const params = 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=' + id;
+        if (coverYouTubeEl) {
+          coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
+          coverYouTubeEl.style.display = 'block';
+        }
+      } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(videoUrl)) {
+        if (coverVideoEl) {
+          coverVideoEl.src = videoUrl;
+          coverVideoEl.style.display = 'block';
+        }
+      }
+    }
+
+    // חלק תמונת נושא (profile-viewer.js) – הצבה גם לתג <img> למניעת חסימות referrer
+    const coverImg = document.getElementById('viewerCoverImage');
+    if (coverImg) {
+      if (profile.cover) {
+        coverImg.alt = (refs.name?.textContent || 'תמונת נושא משתמש');
+        coverImg.loading = 'lazy';
+        coverImg.decoding = 'async';
+        coverImg.onerror = function onCoverErr() {
+          try {
+            // נסה פולבאק מהגלריה אם קיים
+            if (Array.isArray(profile.gallery) && profile.gallery.length) {
+              const altUrl = profile.gallery[0];
+              if (altUrl && altUrl !== coverImg.src) {
+                coverImg.src = altUrl;
+                coverImg.style.display = 'block';
+                return;
+              }
+            }
+          } catch (e) {}
+          coverImg.style.display = 'none';
+        };
+        coverImg.style.display = 'block';
+        coverImg.src = profile.cover;
+      } else {
+        coverImg.removeAttribute('src');
+        coverImg.style.display = 'none';
+      }
+    }
     renderAvatar(refs.avatar, profile);
     renderGallery(refs.gallery, profile.gallery, profile.name);
     syncFollowButton();
     renderFollowersList();
-    const topAvatar = document.getElementById('viewerTopAvatar');
-    if (topAvatar) {
-      topAvatar.innerHTML = '';
-      if (profile.picture) {
-        const topImg = document.createElement('img');
-        topImg.src = profile.picture;
-        topImg.alt = profile.name || 'משתמש';
-        topAvatar.appendChild(topImg);
-      } else {
-        topAvatar.textContent = profile.initials || 'AN';
-      }
-    }
+    // הצגת אוואטר עליון – תמיד המשתמש המחובר, לא בעל הכרטיס הציבורי
+    renderTopBarAvatarFromOwnProfile();
   }
 
   function sortEvents(events) {
@@ -304,37 +435,82 @@
   }
 
   async function fetchProfileMetadata(pubkey) {
-    if (App.profileCache?.has(pubkey)) {
-      return App.profileCache.get(pubkey);
-    }
+    // חלק מטמון פרופיל ציבורי (profile-viewer.js) – משתמש במטמון לתצוגה ראשונית, אך תמיד מבצע רענון מהרשת
+    const cached = App.profileCache?.get?.(pubkey) || null;
+
+    // אם אין חיבור לבריכה – נחזיר מטמון אם קיים או ברירת מחדל
     if (!App.pool) {
-      return {
-        name: `משתמש ${pubkey.slice(0, 8)}`,
-        bio: '',
-        picture: '',
-        initials: App.getInitials ? App.getInitials(pubkey) : 'AN',
-        gallery: [],
-      };
-    }
-    try {
-      const event = await App.pool.get(App.relayUrls, { kinds: [0], authors: [pubkey] });
-      if (!event?.content) {
-        return {
+      return (
+        cached || {
           name: `משתמש ${pubkey.slice(0, 8)}`,
           bio: '',
           picture: '',
+          cover: '',
           initials: App.getInitials ? App.getInitials(pubkey) : 'AN',
           gallery: [],
-        };
+        }
+      );
+    }
+
+    // ניסיון למשוך מהרדיו תמיד, ולעדכן מטמון
+    try {
+      const event = await App.pool.get(App.relayUrls, { kinds: [0], authors: [pubkey] });
+      if (!event?.content) {
+        return (
+          cached || {
+            name: `משתמש ${pubkey.slice(0, 8)}`,
+            bio: '',
+            picture: '',
+            cover: '',
+            initials: App.getInitials ? App.getInitials(pubkey) : 'AN',
+            gallery: [],
+          }
+        );
       }
       const parsed = JSON.parse(event.content);
       const gallery = Array.isArray(parsed.gallery)
         ? parsed.gallery.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
         : [];
+      // חלק תאימות Cover (profile-viewer.js) – תומך גם בשדות חלופיים הנפוצים בלקוחות אחרים
+      const coverCandidates = [
+        parsed.cover,
+        parsed.banner,
+        parsed.header,
+        parsed.wallpaper,
+        parsed.cover_image,
+      ];
+      let coverValue = '';
+      for (const c of coverCandidates) {
+        if (typeof c === 'string' && c.trim()) {
+          coverValue = c.trim();
+          break;
+        }
+      }
+      if (!coverValue && gallery.length > 0) {
+        coverValue = gallery[0];
+      }
+      // חלק וידאו נושא (profile-viewer.js) – תמיכה בשמות שדה חלופיים
+      const videoCandidates = [
+        parsed.cover_video,
+        parsed.banner_video,
+        parsed.header_video,
+        parsed.wallpaper_video,
+        parsed.coverVideo,
+      ];
+      let coverVideoValue = '';
+      for (const v of videoCandidates) {
+        if (typeof v === 'string' && v.trim()) {
+          coverVideoValue = v.trim();
+          break;
+        }
+      }
       const profile = {
         name: parsed.name || `משתמש ${pubkey.slice(0, 8)}`,
         bio: parsed.about || '',
         picture: parsed.picture || '',
+        cover: coverValue,
+        banner: coverValue,
+        coverVideo: coverVideoValue,
         initials: App.getInitials ? App.getInitials(parsed.name || pubkey) : 'AN',
         gallery,
       };
@@ -344,27 +520,39 @@
       return profile;
     } catch (err) {
       console.warn('Failed to fetch metadata for viewer', err);
-      return {
-        name: `משתמש ${pubkey.slice(0, 8)}`,
-        bio: '',
-        picture: '',
-        initials: App.getInitials ? App.getInitials(pubkey) : 'AN',
-        gallery: [],
-      };
+      return (
+        cached || {
+          name: `משתמש ${pubkey.slice(0, 8)}`,
+          bio: '',
+          picture: '',
+          cover: '',
+          initials: App.getInitials ? App.getInitials(pubkey) : 'AN',
+          gallery: [],
+        }
+      );
     }
   }
 
   function extractParentId(event) {
+    // חלק סיווג פוסטים/תגובות (profile-viewer.js) – בהתאם ל-NIP-10
+    // מזהה תגובה רק אם קיימת תגית 'e' עם marker 'reply'.
+    // תמיכה ב-legacy: אם אין markers בכלל ויש לפחות שתי תגיות 'e', האחרונה תיחשב הורה.
     if (!event || !Array.isArray(event.tags)) {
       return null;
     }
-    for (const tag of event.tags) {
-      if (!Array.isArray(tag)) {
-        continue;
-      }
-      if (tag[0] === 'e' && (tag[3] === 'root' || tag[3] === 'reply' || tag.length === 2)) {
+    const eTags = event.tags.filter((t) => Array.isArray(t) && t[0] === 'e');
+    if (eTags.length === 0) {
+      return null;
+    }
+    for (const tag of eTags) {
+      if (tag[3] === 'reply') {
         return tag[1] || null;
       }
+    }
+    const hasAnyMarker = eTags.some((t) => typeof t[3] === 'string' && t[3]);
+    if (!hasAnyMarker && eTags.length >= 2) {
+      const last = eTags[eTags.length - 1];
+      return last?.[1] || null;
     }
     return null;
   }
@@ -557,6 +745,8 @@
     }
     bindViewerGalleryModal();
     bindActions();
+    // ודא שגם לפני הטעינה המלאה מוצג אוואטר מחובר בהדר העליון
+    renderTopBarAvatarFromOwnProfile();
     refreshProfile();
   }
 
