@@ -485,16 +485,26 @@
       };
 
       const extractParentId = (event) => {
+        // חלק סיווג פוסטים/תגובות (profile-view.js) – בהתאם ל-NIP-10
+        // תגובה מזוהה רק אם קיימת תגית 'e' עם marker 'reply'.
+        // תמיכה ב-legacy: אם אין marker בכלל ויש 2+ תגיות 'e', האחרונה תיחשב reply; אחרת נשאיר כפוסט.
         if (!event || !Array.isArray(event.tags)) {
           return null;
         }
-        for (const tag of event.tags) {
-          if (!Array.isArray(tag)) {
-            continue;
-          }
-          if (tag[0] === 'e' && (tag[3] === 'root' || tag[3] === 'reply' || tag[3] === undefined)) {
+        const eTags = event.tags.filter((t) => Array.isArray(t) && t[0] === 'e');
+        if (eTags.length === 0) {
+          return null;
+        }
+        for (const tag of eTags) {
+          if (tag[3] === 'reply') {
             return tag[1] || null;
           }
+        }
+        // אין marker 'reply' – אל תסווג כתגובה אלא אם legacy עם 2+ תווי e ללא marker
+        const hasAnyMarker = eTags.some((t) => typeof t[3] === 'string' && t[3]);
+        if (!hasAnyMarker && eTags.length >= 2) {
+          const last = eTags[eTags.length - 1];
+          return last?.[1] || null;
         }
         return null;
       };

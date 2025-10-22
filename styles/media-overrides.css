@@ -33,21 +33,50 @@
     gap: 16px;
   }
 
+  /* חלק כותרת פרופיל מובייל (media-overrides.css) – פריסת Grid: אוואטר ושם בשורה אחת, מידע משני מתחת */
   .profile-cover__inner {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-auto-rows: auto;
+    column-gap: 12px;
+    row-gap: 2px;
+    align-items: center;
   }
 
   .profile-cover__avatar {
-    width: 96px;
-    height: 96px;
+    width: 84px;
+    height: 84px;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .profile-cover__info {
+    display: contents; /* מאפשר לפריטי המידע להתמקם ישירות על ה-Grid */
+  }
+
+  .profile-cover__name {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .profile-cover__bio {
+    grid-column: 2;
+    grid-row: 2;
+    margin: 2px 0 0;
+  }
+
+  .profile-cover__stats {
+    grid-column: 2;
+    grid-row: 3;
   }
 
   .profile-cover__actions {
+    grid-column: 1 / span 2;
+    grid-row: 4;
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 8px;
   }
 

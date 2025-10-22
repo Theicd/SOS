@@ -63,31 +63,27 @@
     <!-- חלק מעטפת פרופיל (profile.html) – מציג כיסוי, אווטר ופרטי מפתח -->
     <main class="app-shell profile-shell">
       <section class="profile-cover" id="profilePageCover">
-        <!-- חלק תמונת נושא (profile.html) – באנר כיסוי עליון עם תמונת cover ואם מוגדר, וידאו אוטומטי ברקע -->
+        <!-- חלק תמונת נושא (profile.html) – באנר כיסוי עליון עם פרטי המשתמש מעליו -->
         <div class="profile-cover__banner" id="profilePageCoverBanner">
-          <!-- חלק וידאו נושא (profile.html) – ניגון אוטומטי בלולאה, מושתק וללא בקרי נגן -->
-          <video class="profile-cover__banner-video" id="profilePageCoverVideo" autoplay muted playsinline loop></video>
-          <!-- חלק YouTube נושא (profile.html) – הטמעה נקייה ללא בקרי נגן -->
-          <iframe class="profile-cover__banner-iframe" id="profilePageCoverYouTube" title="Cover Video" frameborder="0" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
-        </div>
-        <div class="profile-cover__inner">
-          <div class="profile-cover__avatar" id="profilePageAvatar">?</div>
-          <div class="profile-cover__info">
-            <h1 class="profile-cover__name" id="profilePageName">משתמש</h1>
-            <p class="profile-cover__bio" id="profilePageBio">מעדכנים את תיאור הפרופיל...</p>
-            <!-- חלק עוקבים (profile.html) – מציג את ספירת העוקבים האישית ליד שם המשתמש -->
-            <div class="profile-cover__stats profile-follow__summary" id="profileFollowSummary">
-              <span class="profile-follow__count" id="profileFollowersCount">0 עוקבים</span>
-            </div>
-            <div class="profile-cover__actions">
-              <button class="profile-primary-button" id="profileEditButton">
-                <i class="fa-solid fa-pen"></i>
-                עריכת פרופיל
-              </button>
-              <button class="profile-secondary-button" id="profileHomeButton">
-                <i class="fa-solid fa-house"></i>
-                מעבר לפיד
-              </button>
+          <div class="profile-cover__inner">
+            <div class="profile-cover__avatar" id="profilePageAvatar">?</div>
+            <div class="profile-cover__info">
+              <h1 class="profile-cover__name" id="profilePageName">משתמש</h1>
+              <p class="profile-cover__bio" id="profilePageBio">מעדכנים את תיאור הפרופיל...</p>
+              <!-- חלק עוקבים (profile.html) – מציג את ספירת העוקבים האישית ליד שם המשתמש -->
+              <div class="profile-cover__stats profile-follow__summary" id="profileFollowSummary">
+                <span class="profile-follow__count" id="profileFollowersCount">0 עוקבים</span>
+              </div>
+              <div class="profile-cover__actions">
+                <button class="profile-primary-button" id="profileEditButton">
+                  <i class="fa-solid fa-pen"></i>
+                  עריכת פרופיל
+                </button>
+                <button class="profile-secondary-button" id="profileHomeButton">
+                  <i class="fa-solid fa-house"></i>
+                  מעבר לפיד
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -225,16 +221,20 @@
         <input id="profileImageUrlInput" type="url" placeholder="https://example.com/avatar.jpg" />
         <label for="profileImageFileInput">או העלה תמונה מהמחשב</label>
         <input id="profileImageFileInput" type="file" accept="image/*" />
+        <button id="profileImageDeleteButton" type="button" class="icon-button">
+          <i class="fa-solid fa-trash"></i>
+          מחק תמונת פרופיל
+        </button>
 
         <!-- חלק תמונת נושא (profile.html) – שדות עריכה לתמונת cover -->
         <label for="profileCoverUrlInput">קישור לתמונת נושא</label>
         <input id="profileCoverUrlInput" type="url" placeholder="https://example.com/cover.jpg" />
         <label for="profileCoverFileInput">או העלה תמונת נושא</label>
         <input id="profileCoverFileInput" type="file" accept="image/*" />
-
-        <!-- חלק וידאו נושא (profile.html) – שדה URL לווידאו/YouTube ברקע הבאנר -->
-        <label for="profileCoverVideoUrlInput">קישור לוידאו נושא (MP4/WEBM או YouTube)</label>
-        <input id="profileCoverVideoUrlInput" type="url" placeholder="https://.../video.mp4 או https://youtube.com/watch?v=..." />
+        <button id="profileCoverDeleteButton" type="button" class="icon-button">
+          <i class="fa-solid fa-trash"></i>
+          מחק תמונת נושא
+        </button>
         <div class="modal-actions">
           <button class="icon-button" onclick="closeProfileSettings()">ביטול</button>
           <button class="icon-button" onclick="saveProfileSettings()">שמירה</button>

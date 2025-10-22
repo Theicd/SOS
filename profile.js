@@ -9,7 +9,6 @@
       avatarInitials: 'AN',
       picture: '',
       cover: '', // חלק תמונת נושא (profile.js) – נתיב/נתון לתמונת cover עבור באנר הכיסוי
-      coverVideo: '', // חלק וידאו נושא (profile.js) – קישור MP4/WEBM או YouTube לרקע הבאנר
       gallery: [],
       dating: {
         optIn: false,
@@ -241,52 +240,6 @@
       } else {
         coverBanner.style.backgroundImage = '';
       }
-    }
-
-    // חלק וידאו נושא (profile.js) – הצגת וידאו/YouTube בבאנר במידת הצורך עם פולבאק לתמונה
-    const coverVideoEl = document.getElementById('profilePageCoverVideo');
-    const coverYouTubeEl = document.getElementById('profilePageCoverYouTube');
-    const videoUrl = (App.profile.coverVideo || '').trim();
-    const candidates = videoUrl
-      ? videoUrl.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean)
-      : [];
-    if (coverVideoEl) {
-      coverVideoEl.removeAttribute('src');
-      coverVideoEl.style.display = 'none';
-    }
-    if (coverYouTubeEl) {
-      coverYouTubeEl.removeAttribute('src');
-      coverYouTubeEl.style.display = 'none';
-    }
-    const tryPlayCandidate = (list, index = 0) => {
-      if (!Array.isArray(list) || index >= list.length) {
-        return; // יישאר fallback לתמונה
-      }
-      const url = list[index];
-      const ytMatch = url.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
-      if (ytMatch && coverYouTubeEl) {
-        const id = ytMatch[1];
-        const params = 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=' + id;
-        coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
-        coverYouTubeEl.style.display = 'block';
-        return;
-      }
-      if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url) && coverVideoEl) {
-        coverVideoEl.onerror = function () {
-          try { this.style.display = 'none'; } catch (e) {}
-          tryPlayCandidate(list, index + 1);
-        };
-        coverVideoEl.onstalled = coverVideoEl.onerror;
-        coverVideoEl.onabort = coverVideoEl.onerror;
-        coverVideoEl.src = url;
-        coverVideoEl.style.display = 'block';
-        return;
-      }
-      // אם לא youtube ולא קובץ וידאו – נמשיך למועמד הבא
-      tryPlayCandidate(list, index + 1);
-    };
-    if (candidates.length) {
-      tryPlayCandidate(candidates, 0);
     }
 
     const profileNameEl = document.getElementById('profileName');
@@ -581,11 +534,6 @@
     const cover = typeof metadata.cover === 'string'
       ? metadata.cover.trim()
       : (typeof metadata.banner === 'string' ? metadata.banner.trim() : '');
-    const coverVideo = (function () {
-      const candidates = [metadata.cover_video, metadata.banner_video, metadata.header_video, metadata.wallpaper_video, metadata.coverVideo];
-      for (const c of candidates) { if (typeof c === 'string' && c.trim()) return c.trim(); }
-      return '';
-    })();
     const gallery = Array.isArray(metadata.gallery)
       ? metadata.gallery.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
       : [];
@@ -597,7 +545,7 @@
       ? metadata.dating_interests.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
       : [];
 
-    if (!name && !about && !picture && !cover && !coverVideo && gallery.length === 0) {
+    if (!name && !about && !picture && !cover && gallery.length === 0) {
       console.log(`Profile metadata: ${sourceLabel} missing relevant fields`, metadata);
       return false;
     }
@@ -613,9 +561,6 @@
     }
     if (cover) {
       App.profile.cover = cover;
-    }
-    if (coverVideo) {
-      App.profile.coverVideo = coverVideo;
     }
     App.profile.gallery = gallery;
     App.profile.avatarInitials = App.getInitials(App.profile.name || '');
@@ -698,8 +643,6 @@
       cover: App.profile.cover,
       // חלק תאימות Cover (profile.js) – מפרסם גם banner עבור לקוחות אחרים
       banner: App.profile.cover,
-      cover_video: App.profile.coverVideo,
-      banner_video: App.profile.coverVideo,
       gallery: Array.isArray(App.profile.gallery) ? App.profile.gallery : [],
       dating_opt_in: Boolean(App.profile.dating?.optIn),
       dating_bio: App.profile.dating?.bio || '',
@@ -716,8 +659,6 @@
         picture: metadata.picture && metadata.picture.length <= App.MAX_INLINE_PICTURE_LENGTH ? metadata.picture : '',
         cover: metadata.cover && metadata.cover.length <= App.MAX_INLINE_PICTURE_LENGTH ? metadata.cover : '',
         banner: metadata.banner && metadata.banner.length <= App.MAX_INLINE_PICTURE_LENGTH ? metadata.banner : '',
-        cover_video: metadata.cover_video || '',
-        banner_video: metadata.banner_video || '',
         gallery: metadata.gallery
           .filter((item) => typeof item === 'string' && item.startsWith('data:'))
           .sort((a, b) => a.length - b.length)
@@ -729,8 +670,6 @@
         metadata.picture = slimMetadata.picture;
         metadata.cover = slimMetadata.cover;
         metadata.banner = slimMetadata.banner;
-        metadata.cover_video = slimMetadata.cover_video;
-        metadata.banner_video = slimMetadata.banner_video;
         metadata.gallery = slimMetadata.gallery;
       } else {
         const finalGallery = [];
@@ -746,8 +685,6 @@
         metadata.picture = slimMetadata.picture;
         metadata.cover = slimMetadata.cover;
         metadata.banner = slimMetadata.banner;
-        metadata.cover_video = slimMetadata.cover_video;
-        metadata.banner_video = slimMetadata.banner_video;
         metadata.gallery = finalGallery;
         console.warn('Metadata content aggressively trimmed to fit limit');
       }
@@ -760,14 +697,6 @@
     }
     if (finalLength > maxLength && metadata.cover) {
       metadata.cover = '';
-      finalLength = JSON.stringify(metadata).length;
-    }
-    if (finalLength > maxLength && metadata.cover_video) {
-      metadata.cover_video = '';
-      finalLength = JSON.stringify(metadata).length;
-    }
-    if (finalLength > maxLength && metadata.banner_video) {
-      metadata.banner_video = '';
       finalLength = JSON.stringify(metadata).length;
     }
     if (finalLength > maxLength && metadata.picture) {
@@ -806,10 +735,6 @@
     if (coverUrlEl) {
       coverUrlEl.value = App.profile.cover || '';
     }
-    const coverVideoUrlEl = document.getElementById('profileCoverVideoUrlInput');
-    if (coverVideoUrlEl) {
-      coverVideoUrlEl.value = App.profile.coverVideo || '';
-    }
     document.getElementById('profileStatus').textContent = '';
     document.getElementById('profileModal').style.display = 'flex';
   }
@@ -823,7 +748,6 @@
     const bio = document.getElementById('profileBioInput').value.trim();
     let picture = document.getElementById('profileImageUrlInput').value.trim();
     let cover = document.getElementById('profileCoverUrlInput')?.value?.trim?.() || '';
-    let coverVideoUrl = document.getElementById('profileCoverVideoUrlInput')?.value?.trim?.() || '';
     const gallerySelection = Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [];
 
     const fileInput = document.getElementById('profileImageFileInput');
@@ -845,7 +769,6 @@
 
       App.profile.picture = resolvedPicture;
       App.profile.cover = cover || App.profile.cover || '';
-      App.profile.coverVideo = coverVideoUrl || '';
       App.profile.gallery = gallerySelection;
       App.profile.avatarInitials = App.getInitials(name);
 
@@ -861,7 +784,6 @@
         bio: App.profile.bio,
         picture: App.profile.picture,
         cover: App.profile.cover,
-        coverVideo: App.profile.coverVideo,
         initials: App.profile.avatarInitials,
         gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
       });
@@ -1030,6 +952,94 @@
   }
 
   bindButtons();
+
+  // חלק מחיקת תמונות (profile.js) – לוגיקה למחיקת תמונת פרופיל ותמונת נושא והחלת השינוי בממשק ובמטא-דאטה
+  function deleteProfileImage() {
+    const status = document.getElementById('profileStatus');
+    const urlInput = document.getElementById('profileImageUrlInput');
+    const fileInput = document.getElementById('profileImageFileInput');
+    App.profile.picture = '';
+    if (urlInput) urlInput.value = '';
+    if (fileInput) fileInput.value = '';
+    try {
+      window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
+    } catch (e) {}
+    if (App.profileCache instanceof Map) {
+      App.profileCache.set(App.publicKey || 'self', {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        picture: '',
+        cover: App.profile.cover,
+        initials: App.profile.avatarInitials,
+        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
+      });
+    }
+    renderProfile();
+    publishProfileMetadata();
+    if (status) {
+      status.textContent = 'תמונת הפרופיל נמחקה.';
+      window.setTimeout(() => {
+        if (status.textContent.includes('תמונת הפרופיל')) status.textContent = '';
+      }, 3000);
+    }
+  }
+
+  function deleteProfileCover() {
+    const status = document.getElementById('profileStatus');
+    const urlInput = document.getElementById('profileCoverUrlInput');
+    const fileInput = document.getElementById('profileCoverFileInput');
+    App.profile.cover = '';
+    if (urlInput) urlInput.value = '';
+    if (fileInput) fileInput.value = '';
+    try {
+      window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
+    } catch (e) {}
+    if (App.profileCache instanceof Map) {
+      App.profileCache.set(App.publicKey || 'self', {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        picture: App.profile.picture,
+        cover: '',
+        initials: App.profile.avatarInitials,
+        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
+      });
+    }
+    // ניקוי מיידי של הבאנר במסך
+    const coverBanner = document.getElementById('profilePageCoverBanner');
+    if (coverBanner) {
+      coverBanner.style.background = '';
+      coverBanner.style.backgroundImage = '';
+    }
+    renderProfile();
+    publishProfileMetadata();
+    if (status) {
+      status.textContent = 'תמונת הנושא נמחקה.';
+      window.setTimeout(() => {
+        if (status.textContent.includes('תמונת הנושא')) status.textContent = '';
+      }, 3000);
+    }
+  }
+
+  function bindDeleteButtons() {
+    const imgDel = document.getElementById('profileImageDeleteButton');
+    const coverDel = document.getElementById('profileCoverDeleteButton');
+    const homeImgDel = document.getElementById('homeProfileImageDeleteButton');
+    if (imgDel && imgDel.dataset.listenerAttached !== 'true') {
+      imgDel.dataset.listenerAttached = 'true';
+      imgDel.addEventListener('click', deleteProfileImage);
+    }
+    if (coverDel && coverDel.dataset.listenerAttached !== 'true') {
+      coverDel.dataset.listenerAttached = 'true';
+      coverDel.addEventListener('click', deleteProfileCover);
+    }
+    if (homeImgDel && homeImgDel.dataset.listenerAttached !== 'true') {
+      homeImgDel.dataset.listenerAttached = 'true';
+      homeImgDel.addEventListener('click', deleteProfileImage);
+    }
+  }
+
+  // קישור מאזינים לכפתורי מחיקה עם הטעינה
+  bindDeleteButtons();
 
   // חלק חשיפת פונקציות (profile.js) – מבטיח שגם בדפי פרופיל ללא טעינת app.js המקורי נוכל לפתוח/לסגור את המודל כמו בדף הבית
   if (typeof window.openProfileSettings !== 'function') {

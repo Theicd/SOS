@@ -246,53 +246,6 @@
         coverBanner.style.backgroundImage = '';
       }
     }
-    // חלק וידאו נושא (profile-viewer.js) – ניגון וידאו/YouTube ברקע אם קיים, עם פולבאק לתמונה
-    const coverVideoEl = document.getElementById('viewerCoverVideo');
-    const coverYouTubeEl = document.getElementById('viewerCoverYouTube');
-    const videoUrl = (profile.coverVideo || '').trim?.() || '';
-    const candidates = videoUrl
-      ? videoUrl.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean)
-      : [];
-    if (coverVideoEl) {
-      coverVideoEl.removeAttribute('src');
-      coverVideoEl.style.display = 'none';
-      coverVideoEl.onerror = function () { try { this.style.display = 'none'; } catch (e) {} };
-    }
-    if (coverYouTubeEl) {
-      coverYouTubeEl.removeAttribute('src');
-      coverYouTubeEl.style.display = 'none';
-    }
-    const tryPlayCandidate = (list, index = 0) => {
-      if (!Array.isArray(list) || index >= list.length) {
-        return; // נשארים עם התמונה כרקע
-      }
-      const url = list[index];
-      const ytMatch = url.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
-      if (ytMatch && coverYouTubeEl) {
-        const id = ytMatch[1];
-        const params = 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=' + id;
-        coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
-        coverYouTubeEl.style.display = 'block';
-        return;
-      }
-      if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url) && coverVideoEl) {
-        const onErr = function () {
-          try { this.style.display = 'none'; } catch (e) {}
-          tryPlayCandidate(list, index + 1);
-        };
-        coverVideoEl.onerror = onErr;
-        coverVideoEl.onstalled = onErr;
-        coverVideoEl.onabort = onErr;
-        coverVideoEl.src = url;
-        coverVideoEl.style.display = 'block';
-        return;
-      }
-      tryPlayCandidate(list, index + 1);
-    };
-    if (candidates.length) {
-      tryPlayCandidate(candidates, 0);
-    }
-
     // חלק תמונת נושא (profile-viewer.js) – הצבה גם לתג <img> למניעת חסימות referrer
     const coverImg = document.getElementById('viewerCoverImage');
     if (coverImg) {
@@ -316,8 +269,10 @@
         };
         coverImg.style.display = 'block';
         coverImg.src = profile.cover;
+        coverImg.setAttribute('data-loaded', 'true');
       } else {
         coverImg.removeAttribute('src');
+        coverImg.removeAttribute('data-loaded');
         coverImg.style.display = 'none';
       }
     }
@@ -506,28 +461,12 @@
       if (!coverValue && gallery.length > 0) {
         coverValue = gallery[0];
       }
-      // חלק וידאו נושא (profile-viewer.js) – תמיכה בשמות שדה חלופיים
-      const videoCandidates = [
-        parsed.cover_video,
-        parsed.banner_video,
-        parsed.header_video,
-        parsed.wallpaper_video,
-        parsed.coverVideo,
-      ];
-      let coverVideoValue = '';
-      for (const v of videoCandidates) {
-        if (typeof v === 'string' && v.trim()) {
-          coverVideoValue = v.trim();
-          break;
-        }
-      }
       const profile = {
         name: parsed.name || `משתמש ${pubkey.slice(0, 8)}`,
         bio: parsed.about || '',
         picture: parsed.picture || '',
         cover: coverValue,
         banner: coverValue,
-        coverVideo: coverVideoValue,
         initials: App.getInitials ? App.getInitials(parsed.name || pubkey) : 'AN',
         gallery,
       };

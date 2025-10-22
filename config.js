@@ -54,7 +54,9 @@
   App.EMAIL_REGISTRY_TAG = window.localStorage.getItem('nostr_email_registry_tag') || 'email-registry';
   App.EMAIL_REGISTRY_HASH_TAG = (window.localStorage.getItem('nostr_email_registry_hash_tag') || 'h').slice(0, 1);
   App.identityAdminPrivateKey = window.localStorage.getItem('nostr_identity_admin_key') || '';
-  App.MAX_INLINE_PICTURE_LENGTH = 8000;
+  // חלק קונפיגורציה (config.js) – מגבלת אורך נתוני תמונה המוטמעת (Data URL) עבור resize ב-utils
+  // יישור למגבלת המדיה הכללית כדי למנוע כיווץ יתר שגורם לתמונות "קטנות" לאחר העלאה
+  App.MAX_INLINE_PICTURE_LENGTH = 150000;
   App.MAX_METADATA_CONTENT_LENGTH = 60000;
   App.MAX_INLINE_MEDIA_LENGTH = 150000;
   // חלק קונפיגורציה (config.js) – ברירת מחדל: לא מפרסמים מטא-דאטה עד שהמשתמש יעדכן פרופיל
