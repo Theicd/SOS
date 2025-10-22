@@ -250,7 +250,9 @@
     const coverVideoEl = document.getElementById('viewerCoverVideo');
     const coverYouTubeEl = document.getElementById('viewerCoverYouTube');
     const videoUrl = (profile.coverVideo || '').trim?.() || '';
-    const ytMatch = videoUrl.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
+    const candidates = videoUrl
+      ? videoUrl.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean)
+      : [];
     if (coverVideoEl) {
       coverVideoEl.removeAttribute('src');
       coverVideoEl.style.display = 'none';
@@ -260,20 +262,35 @@
       coverYouTubeEl.removeAttribute('src');
       coverYouTubeEl.style.display = 'none';
     }
-    if (videoUrl) {
-      if (ytMatch) {
+    const tryPlayCandidate = (list, index = 0) => {
+      if (!Array.isArray(list) || index >= list.length) {
+        return; // נשארים עם התמונה כרקע
+      }
+      const url = list[index];
+      const ytMatch = url.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
+      if (ytMatch && coverYouTubeEl) {
         const id = ytMatch[1];
         const params = 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=' + id;
-        if (coverYouTubeEl) {
-          coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
-          coverYouTubeEl.style.display = 'block';
-        }
-      } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(videoUrl)) {
-        if (coverVideoEl) {
-          coverVideoEl.src = videoUrl;
-          coverVideoEl.style.display = 'block';
-        }
+        coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
+        coverYouTubeEl.style.display = 'block';
+        return;
       }
+      if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url) && coverVideoEl) {
+        const onErr = function () {
+          try { this.style.display = 'none'; } catch (e) {}
+          tryPlayCandidate(list, index + 1);
+        };
+        coverVideoEl.onerror = onErr;
+        coverVideoEl.onstalled = onErr;
+        coverVideoEl.onabort = onErr;
+        coverVideoEl.src = url;
+        coverVideoEl.style.display = 'block';
+        return;
+      }
+      tryPlayCandidate(list, index + 1);
+    };
+    if (candidates.length) {
+      tryPlayCandidate(candidates, 0);
     }
 
     // חלק תמונת נושא (profile-viewer.js) – הצבה גם לתג <img> למניעת חסימות referrer

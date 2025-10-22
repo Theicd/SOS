@@ -247,7 +247,9 @@
     const coverVideoEl = document.getElementById('profilePageCoverVideo');
     const coverYouTubeEl = document.getElementById('profilePageCoverYouTube');
     const videoUrl = (App.profile.coverVideo || '').trim();
-    const ytIdMatch = videoUrl.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
+    const candidates = videoUrl
+      ? videoUrl.split(/[\n,\s]+/).map((s) => s.trim()).filter(Boolean)
+      : [];
     if (coverVideoEl) {
       coverVideoEl.removeAttribute('src');
       coverVideoEl.style.display = 'none';
@@ -256,23 +258,35 @@
       coverYouTubeEl.removeAttribute('src');
       coverYouTubeEl.style.display = 'none';
     }
-    if (videoUrl) {
-      if (ytIdMatch) {
-        const id = ytIdMatch[1];
-        const params = 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=' + id;
-        if (coverYouTubeEl) {
-          coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
-          coverYouTubeEl.style.display = 'block';
-        }
-      } else if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(videoUrl)) {
-        if (coverVideoEl) {
-          coverVideoEl.src = videoUrl;
-          coverVideoEl.style.display = 'block';
-          coverVideoEl.onerror = function () {
-            try { this.style.display = 'none'; } catch (e) {}
-          };
-        }
+    const tryPlayCandidate = (list, index = 0) => {
+      if (!Array.isArray(list) || index >= list.length) {
+        return; // יישאר fallback לתמונה
       }
+      const url = list[index];
+      const ytMatch = url.match(/(?:https?:\/\/)?(?:www\.|m\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=|embed\/|v\/)?([\w-]{11})/);
+      if (ytMatch && coverYouTubeEl) {
+        const id = ytMatch[1];
+        const params = 'autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&loop=1&playlist=' + id;
+        coverYouTubeEl.src = `https://www.youtube.com/embed/${id}?${params}`;
+        coverYouTubeEl.style.display = 'block';
+        return;
+      }
+      if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(url) && coverVideoEl) {
+        coverVideoEl.onerror = function () {
+          try { this.style.display = 'none'; } catch (e) {}
+          tryPlayCandidate(list, index + 1);
+        };
+        coverVideoEl.onstalled = coverVideoEl.onerror;
+        coverVideoEl.onabort = coverVideoEl.onerror;
+        coverVideoEl.src = url;
+        coverVideoEl.style.display = 'block';
+        return;
+      }
+      // אם לא youtube ולא קובץ וידאו – נמשיך למועמד הבא
+      tryPlayCandidate(list, index + 1);
+    };
+    if (candidates.length) {
+      tryPlayCandidate(candidates, 0);
     }
 
     const profileNameEl = document.getElementById('profileName');
