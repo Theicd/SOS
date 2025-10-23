@@ -1083,10 +1083,15 @@
       if (!Array.isArray(tag)) continue;
       if (tag[0] === 'e' && typeof tag[1] === 'string') {
         const marker = tag[3];
+        // חלק עריכה (feed.js) – מתעלמים מתגיות 'replaces' כדי שפוסט ערוך לא ייחשב תגובה
+        if (marker === 'replaces') {
+          continue;
+        }
         if (marker === 'root') {
           return tag[1];
         }
-        if (!fallback) {
+        // נעדיף רק reply/ללא-סימון לפולבאק
+        if (!fallback && (!marker || marker === 'reply')) {
           fallback = tag[1];
         }
       }
@@ -1503,6 +1508,15 @@
       const likeCount = App.likesByEventId.get(event.id)?.size || 0;
       const ownPost = event.pubkey === App.publicKey;
       const canDelete = ownPost || isAdminUser;
+      const canEdit = ownPost;
+      const editButtonHtml = canEdit
+        ? `
+          <button class="feed-post__action feed-post__action--edit" type="button" onclick="NostrApp.openEditPost('${event.id}')">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span>ערוך</span>
+          </button>
+        `
+        : '';
       const deleteButtonHtml = canDelete
         ? `
           <button class="feed-post__action feed-post__action--delete" type="button" onclick="NostrApp.deletePost('${event.id}')">
@@ -1562,6 +1576,7 @@
             <i class="fa-solid fa-share"></i>
             <span>שתף</span>
           </button>
+          ${editButtonHtml}
           ${deleteButtonHtml}
         </div>
         <section class="feed-comments" data-comments-section="${event.id}" hidden>
@@ -1669,7 +1684,11 @@
     App.deletedEventIds = new Set();
     App.likesByEventId = new Map();
     App.commentsByParent = new Map();
+    // חלק פיד (feed.js) – מסננים: פוסטים עיקריים לפי תג רשת, ובנוסף פוסטים של המשתמש הנוכחי גם אם חסר תג
     const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 50 }];
+    if (typeof App.publicKey === 'string' && App.publicKey) {
+      filters.push({ kinds: [1], authors: [App.publicKey], limit: 50 });
+    }
     const deletionAuthors = new Set();
     if (typeof App.publicKey === 'string' && App.publicKey) {
       deletionAuthors.add(App.publicKey.toLowerCase());
@@ -1815,13 +1834,19 @@
     document.getElementById('connection-status').textContent = 'מפרסם פוסט...';
     App.setComposeStatus?.('מפרסם את הפוסט...');
 
+    // חלק פרסום (feed.js) – מבטיחים שתמיד יצורף תג רשת תקין לפוסט
+    const networkTag = typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG ? App.NETWORK_TAG : 'israel-network';
     const draft = {
       kind: 1,
       pubkey: App.publicKey,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [['t', App.NETWORK_TAG]],
+      tags: [['t', networkTag]],
       content: payload.content,
     };
+    // חלק עריכה (feed.js) – אם מדובר בעריכה, מוסיפים תג שמקשר לפוסט המקורי לצורך עקיבות
+    if (payload.originalId) {
+      draft.tags.push(['e', payload.originalId, '', 'replaces']);
+    }
     const event = App.finalizeEvent(draft, App.privateKey);
 
     try {
@@ -1836,6 +1861,14 @@
       return;
     }
 
+    // חלק עריכה (feed.js) – לאחר פרסום מוצלח, אם זה עריכה, מוחקים בשקט את המקור ומרעננים
+    if (payload.originalId) {
+      try {
+        await deletePostQuiet(payload.originalId);
+      } catch (err) {
+        console.warn('Quiet delete failed after edit', err);
+      }
+    }
     App.resetCompose?.();
     App.closeCompose?.();
     loadFeed();
@@ -1875,6 +1908,60 @@
       console.log('Shared event');
     } catch (e) {
       console.error('Share publish error', e);
+    }
+  }
+
+  async function deletePostQuiet(eventId) {
+    // חלק מחיקה שקטה (feed.js) – מוחק פוסט בלי אישור/הודעות UI לשמירה על יציבות
+    if (!eventId) {
+      return;
+    }
+    if (!App.pool || typeof App.finalizeEvent !== 'function') {
+      return;
+    }
+    const draft = {
+      kind: 5,
+      pubkey: App.publicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ['e', eventId],
+        ['t', App.NETWORK_TAG],
+      ],
+      content: '',
+    };
+    const event = App.finalizeEvent(draft, App.privateKey);
+    try {
+      await App.pool.publish(App.relayUrls, event);
+      App.deletedEventIds.add(eventId);
+      removePostElement(eventId);
+    } catch (e) {
+      // מחיקה שקטה – לא מפוצצים UI
+      console.warn('Quiet delete publish error', e);
+    }
+  }
+
+  function openEditPost(eventId) {
+    // חלק עריכה (feed.js) – פותח קומפוזר עם תוכן ומדיה קיימים ומסמן מזהה מקורי
+    try {
+      if (!eventId || typeof App.setComposeDraft !== 'function') {
+        return;
+      }
+      const ev = App.postsById?.get?.(eventId);
+      if (!ev || typeof ev.content !== 'string') {
+        return;
+      }
+      const lines = ev.content.split('\n');
+      let media = null;
+      for (const line of lines) {
+        if (typeof line === 'string' && (line.startsWith('data:image/') || line.startsWith('data:video/'))) {
+          media = line;
+          break;
+        }
+      }
+      const text = lines.filter((l) => l && l !== media).join('\n');
+      App.setComposeDraft(text, media, eventId);
+    } catch (err) {
+      console.warn('openEditPost failed', err);
     }
   }
 
@@ -1922,7 +2009,9 @@
     publishPost,
     likePost,
     sharePost,
+    openEditPost,
     deletePost,
+    deletePostQuiet,
     parseYouTube,
     createMediaHtml,
     

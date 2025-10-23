@@ -19,6 +19,8 @@
 
   const state = {
     media: null,
+    // חלק קומפוזר – מצב עריכה: מזהה פוסט מקורי אם מדובר בעריכה ולא ביצירה חדשה
+    editingOriginalId: null,
   };
 
   App.composeState = state;
@@ -182,6 +184,8 @@
     }
     clearMediaPreview();
     resetStatus();
+    // חלק קומפוזר – איפוס מצב עריכה
+    state.editingOriginalId = null;
   }
 
   function getComposePayload() {
@@ -200,8 +204,9 @@
     }
 
     const content = parts.join('\n');
-    if (App.MAX_METADATA_CONTENT_LENGTH && content.length > App.MAX_METADATA_CONTENT_LENGTH) {
-      setStatus('התוכן ארוך מדי. קיצור קטן אמור לפתור.', 'error');
+    const textLimit = typeof App.MAX_TEXT_CONTENT_LENGTH === 'number' ? App.MAX_TEXT_CONTENT_LENGTH : 8000;
+    if (text && text.length > textLimit) {
+      setStatus('הטקסט ארוך מדי. קיצור קטן אמור לפתור.', 'error');
       return null;
     }
 
@@ -209,6 +214,8 @@
       content,
       text,
       media: state.media,
+      // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
+      originalId: state.editingOriginalId || null,
     };
   }
 
@@ -227,6 +234,38 @@
     }
   }
 
+  function setComposeDraft(text, mediaDataUrl, originalId = null) {
+    // חלק קומפוזר – טוען טיוטה מוכנה (לעריכה או לשחזור), כולל מדיה
+    try {
+      if (elements.textarea) {
+        elements.textarea.value = text || '';
+      }
+      if (mediaDataUrl) {
+        if (typeof mediaDataUrl === 'string' && mediaDataUrl.startsWith('data:video/')) {
+          state.media = { type: 'video', dataUrl: mediaDataUrl };
+        } else if (typeof mediaDataUrl === 'string' && mediaDataUrl.startsWith('data:image/')) {
+          state.media = { type: 'image', dataUrl: mediaDataUrl };
+        }
+        if (state.media) {
+          showMediaPreview(state.media);
+        } else {
+          clearMediaPreview();
+        }
+      } else {
+        clearMediaPreview();
+      }
+      state.editingOriginalId = originalId || null;
+      openCompose();
+    } catch (err) {
+      console.warn('Failed setting compose draft', err);
+    }
+  }
+
+  function clearEditing() {
+    // חלק קומפוזר – ניקוי מצב העריכה בלבד (ללא מחיקת תוכן הטיוטה)
+    state.editingOriginalId = null;
+  }
+
   initListeners();
 
   Object.assign(App, {
@@ -236,5 +275,8 @@
     closeCompose,
     getComposePayload,
     clearComposeMedia: removeMedia,
+    // חלק קומפוזר – API לזרימת עריכה
+    setComposeDraft,
+    clearEditing,
   });
 })(window);

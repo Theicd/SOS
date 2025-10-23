@@ -111,12 +111,29 @@
         <aside class="profile-sidebar">
           <section class="profile-card" data-profile-panel="about" id="profileAboutPanel">
             <h2 class="profile-card__title">אודות</h2>
-            <p class="profile-card__text" id="profileSidebarBio">לא הוגדר עדיין תיאור קצר.</p>
-            <div class="profile-card__meta">
-              <div class="profile-card__meta-row">
-                <i class="fa-solid fa-signature"></i>
-                <span id="profileSidebarName">משתמש אנונימי</span>
-              </div>
+            <div class="profile-about">
+              <p class="profile-about__summary" id="profileSidebarBio">לא הוגדר עדיין תיאור קצר.</p>
+              <ul class="profile-about__list">
+                <li class="profile-about__item" id="profileAboutHeadlineRow" hidden>
+                  <i class="fa-solid fa-address-card" aria-hidden="true"></i>
+                  <span id="profileAboutHeadline">כותרת מקצועית</span>
+                </li>
+                <li class="profile-about__item" id="profileAboutRoleRow" hidden>
+                  <i class="fa-solid fa-briefcase" aria-hidden="true"></i>
+                  <div class="profile-about__item-text">
+                    <span class="profile-about__item-title" id="profileAboutRole">תפקיד</span>
+                    <span class="profile-about__item-subtitle" id="profileAboutCompany">בשם הארגון</span>
+                  </div>
+                </li>
+                <li class="profile-about__item" id="profileAboutLocationRow" hidden>
+                  <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                  <span id="profileAboutLocation">מיקום</span>
+                </li>
+                <li class="profile-about__item" id="profileAboutWebsiteRow" hidden>
+                  <i class="fa-solid fa-link" aria-hidden="true"></i>
+                  <a id="profileAboutWebsite" href="#" target="_blank" rel="noopener">לאתר אישי</a>
+                </li>
+              </ul>
             </div>
           </section>
 
@@ -172,16 +189,54 @@
 
           <section class="profile-card" data-profile-panel="about">
             <h2 class="profile-card__title">נתוני פעילות</h2>
-            <ul class="profile-stats">
-              <li class="profile-stats__item">
-                <span class="profile-stats__label">פוסטים שפורסמו</span>
-                <span class="profile-stats__value" id="profileStatsPosts">0</span>
-              </li>
-              <li class="profile-stats__item">
-                <span class="profile-stats__label">ריליים מחוברים</span>
-                <span class="profile-stats__value" id="profileStatsRelays">0</span>
-              </li>
-            </ul>
+            <!-- חלק נתוני פעילות (profile.html) – מציג גרף דינמי עם תקופות בחירה כמו בפייסבוק -->
+            <div class="profile-activity">
+              <div class="profile-activity__controls">
+                <div class="profile-activity__summary">
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">פוסטים</span>
+                      <span class="profile-activity__summary-change is-neutral" id="profileStatsPostsChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="profileStatsPosts">0</span>
+                    <span class="profile-activity__summary-note" id="profileStatsPostsNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">לייקים</span>
+                      <span class="profile-activity__summary-change is-neutral" id="profileStatsLikesChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="profileStatsLikes">0</span>
+                    <span class="profile-activity__summary-note" id="profileStatsLikesNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">תגובות שנאספו</span>
+                      <span class="profile-activity__summary-change is-neutral" id="profileStatsCommentsChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="profileStatsComments">0</span>
+                    <span class="profile-activity__summary-note" id="profileStatsCommentsNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">תגובות שנשלחו</span>
+                      <span class="profile-activity__summary-change is-neutral" id="profileStatsRepliesChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="profileStatsReplies">0</span>
+                    <span class="profile-activity__summary-note" id="profileStatsRepliesNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                </div>
+                <div class="profile-activity__periods" role="group" aria-label="בחירת טווח זמן">
+                  <button type="button" class="profile-activity__period" data-activity-period="7">7 ימים</button>
+                  <button type="button" class="profile-activity__period" data-activity-period="30">30 ימים</button>
+                  <button type="button" class="profile-activity__period is-active" data-activity-period="60">60 ימים</button>
+                </div>
+              </div>
+              <div class="profile-activity__chart" id="profileActivityChart"></div>
+              <div class="profile-activity__empty" id="profileActivityEmpty" hidden>
+                עדיין לא נרשמה פעילות בתקופה שנבחרה.
+              </div>
+            </div>
           </section>
 
           <!-- חלק עוקבים (profile.html) – מציג את רשימת העוקבים האישית והחיווי הנוכחי -->
@@ -201,6 +256,16 @@
               </button>
             </div>
           </section>
+
+          <!-- חלק תגובות שהגבנו (profile.html) – כרטיסייה מכווצת בתוך 'אודות' עם כפתור פתיחה/סגירה -->
+          <section class="profile-card" id="profileRepliesCard" data-profile-panel="about">
+            <div class="profile-card__header-row">
+              <h2 class="profile-card__title">תגובות שהגבנו</h2>
+              <button type="button" class="profile-card__toggle" id="profileRepliesToggle" aria-expanded="false" aria-controls="profileTimelineComments">הצג</button>
+            </div>
+            <div class="profile-followers__count" id="profileRepliesCountLabel">0 תגובות</div>
+            <ul class="profile-timeline__list" id="profileTimelineComments" hidden></ul>
+          </section>
         </aside>
 
         <section class="profile-timeline" data-profile-panel="posts" id="profilePostsPanel">
@@ -218,12 +283,6 @@
         </section>
       </section>
 
-      <section class="profile-timeline profile-timeline--replies" data-profile-panel="posts">
-        <header class="profile-timeline__header">
-          <h2 class="profile-timeline__title">תגובות שהגבנו</h2>
-        </header>
-        <ul class="profile-timeline__list" id="profileTimelineComments"></ul>
-      </section>
     </main>
 
     <!-- חלק חלון עריכת פרופיל (profile.html) – זהה למודל הראשי כדי לשמור תאימות ל-profile.js -->
@@ -234,6 +293,16 @@
         <input id="profileNameInput" type="text" placeholder="הכנס שם מלא" />
         <label for="profileBioInput">תיאור קצר</label>
         <textarea id="profileBioInput" rows="3" placeholder="ספר על עצמך"></textarea>
+        <label for="profileHeadlineInput">כותרת מקצועית</label>
+        <input id="profileHeadlineInput" type="text" maxlength="120" placeholder="לדוגמה: פרופיל · יוצר תוכן דיגיטלי" />
+        <label for="profileRoleInput">תפקיד נוכחי</label>
+        <input id="profileRoleInput" type="text" maxlength="80" placeholder="Owner and CEO" />
+        <label for="profileCompanyInput">חברה / ארגון</label>
+        <input id="profileCompanyInput" type="text" maxlength="80" placeholder="Hyper Core Tech" />
+        <label for="profileLocationInput">מיקום</label>
+        <input id="profileLocationInput" type="text" maxlength="80" placeholder="תל אביב, ישראל" />
+        <label for="profileWebsiteInput">אתר אינטרנט</label>
+        <input id="profileWebsiteInput" type="url" placeholder="https://example.com" />
         <label for="profileImageUrlInput">קישור לתמונת פרופיל</label>
         <input id="profileImageUrlInput" type="url" placeholder="https://example.com/avatar.jpg" />
         <label for="profileImageFileInput">או העלה תמונה מהמחשב</label>
@@ -281,6 +350,7 @@
 
     <!-- חלק סקריפטים (profile.html) – טוען את כל הלוגיקה הנדרשת לפרופיל אישי -->
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script src="./config.js"></script>
     <script src="./utils.js"></script>
     <script src="./key-utils.js"></script>

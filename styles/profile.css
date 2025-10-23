@@ -6,6 +6,11 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* כלל תשתיתי – מבטיח שכל אלמנט עם [hidden] יישאר מוסתר גם אם יש כללי display אחרים */
+[hidden] {
+  display: none !important;
+}
+
 /* חלק התאמות מובייל מתקדמות (profile.css) – מבנה קומפקטי למסכים צרים */
 @media (max-width: 768px) {
   .profile-header {
@@ -566,6 +571,72 @@
   color: var(--muted);
 }
 
+.profile-about {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-about__summary {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.profile-about__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-about__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(24, 26, 31, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: var(--text);
+  box-shadow: 0 10px 26px rgba(6, 8, 12, 0.24);
+}
+
+.profile-about__item i {
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.profile-about__item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-about__item-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.profile-about__item-subtitle {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.profile-about__item a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.profile-about__item a:hover {
+  text-decoration: underline;
+}
+
 .profile-cover__followers {
   display: flex;
   align-items: center;
@@ -729,6 +800,47 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* כותרת כרטיס + כפתור טוגל (profile.css) – לכרטיסיות משנה כמו "תגובות שהגבנו" */
+.profile-card__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-card__toggle {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 20, 26, 0.7);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.profile-card__toggle:hover {
+  background: rgba(30, 33, 40, 0.85);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.profile-card__toggle:active {
+  transform: translateY(1px);
+}
+
+.profile-card__toggle[aria-expanded="true"] {
+  background: rgba(76, 139, 253, 0.12);
+  border-color: rgba(76, 139, 253, 0.5);
+  color: #cfe0ff;
+}
+
+@media (max-width: 640px) {
+  .profile-card__header-row { gap: 8px; }
+  .profile-card__toggle { padding: 6px 12px; font-size: 0.82rem; }
 }
 
 /* חלק גלריית פרופיל (profile.css) – מציג את התמונות הנוספות של המשתמש ומאפשר עריכה */
@@ -956,6 +1068,122 @@
   color: var(--muted);
 }
 
+.profile-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-activity__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-activity__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.profile-activity__summary-item {
+  background: rgba(30, 33, 40, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 12px 28px rgba(8, 10, 16, 0.4);
+}
+
+.profile-activity__summary-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-activity__summary-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.profile-activity__summary-change {
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.profile-activity__summary-change.is-up {
+  color: #4fd1c5;
+}
+
+.profile-activity__summary-change.is-down {
+  color: #ff6b81;
+}
+
+.profile-activity__summary-change.is-neutral {
+  color: var(--muted);
+}
+
+.profile-activity__summary-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-activity__summary-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.profile-activity__periods {
+  display: inline-flex;
+  gap: 8px;
+  align-self: flex-start;
+  background: rgba(18, 20, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.profile-activity__period {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.profile-activity__period.is-active {
+  background: var(--primary);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(35, 116, 225, 0.3);
+}
+
+.profile-activity__chart {
+  min-height: 280px;
+}
+
+.profile-activity__chart.is-empty {
+  min-height: 120px;
+}
+
+.profile-activity__empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(20, 22, 28, 0.6);
+}
+
 .profile-quick-links {
   display: flex;
   flex-direction: column;
@@ -1045,6 +1273,8 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.55);
+  padding: 32px 12px;
+  overflow-y: auto;
   z-index: 250;
 }
 
@@ -1062,6 +1292,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
   color: var(--text);
 }
 

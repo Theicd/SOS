@@ -26,9 +26,30 @@
     name: document.getElementById('profilePageName'),
     bio: document.getElementById('profilePageBio'),
     sidebarBio: document.getElementById('profileSidebarBio'),
-    sidebarName: document.getElementById('profileSidebarName'),
+    aboutHeadlineRow: document.getElementById('profileAboutHeadlineRow'),
+    aboutHeadline: document.getElementById('profileAboutHeadline'),
+    aboutRoleRow: document.getElementById('profileAboutRoleRow'),
+    aboutRole: document.getElementById('profileAboutRole'),
+    aboutCompany: document.getElementById('profileAboutCompany'),
+    aboutLocationRow: document.getElementById('profileAboutLocationRow'),
+    aboutLocation: document.getElementById('profileAboutLocation'),
+    aboutWebsiteRow: document.getElementById('profileAboutWebsiteRow'),
+    aboutWebsite: document.getElementById('profileAboutWebsite'),
     statsPosts: document.getElementById('profileStatsPosts'),
-    statsRelays: document.getElementById('profileStatsRelays'),
+    statsPostsChange: document.getElementById('profileStatsPostsChange'),
+    statsPostsNote: document.getElementById('profileStatsPostsNote'),
+    statsLikes: document.getElementById('profileStatsLikes'),
+    statsLikesChange: document.getElementById('profileStatsLikesChange'),
+    statsLikesNote: document.getElementById('profileStatsLikesNote'),
+    statsComments: document.getElementById('profileStatsComments'),
+    statsCommentsChange: document.getElementById('profileStatsCommentsChange'),
+    statsCommentsNote: document.getElementById('profileStatsCommentsNote'),
+    statsReplies: document.getElementById('profileStatsReplies'),
+    statsRepliesChange: document.getElementById('profileStatsRepliesChange'),
+    statsRepliesNote: document.getElementById('profileStatsRepliesNote'),
+    activityChart: document.getElementById('profileActivityChart'),
+    activityEmpty: document.getElementById('profileActivityEmpty'),
+    activityPeriodButtons: document.querySelectorAll('[data-activity-period]'),
     timelineStatus: document.getElementById('profileTimelineStatus'),
     timelineList: document.getElementById('profileTimeline'),
     timelineComments: document.getElementById('profileTimelineComments'),
@@ -37,6 +58,9 @@
     followersSummaryCount: document.getElementById('profileFollowersCount'),
     followersList: document.getElementById('profileFollowersList'),
     followersStatus: document.getElementById('profileFollowersStatus'),
+    repliesCard: document.getElementById('profileRepliesCard'),
+    repliesToggle: document.getElementById('profileRepliesToggle'),
+    repliesCountLabel: document.getElementById('profileRepliesCountLabel'),
     topProfileButton: document.getElementById('profileTopAvatarButton'),
     topProfileMenu: document.getElementById('profileTopMenu'),
     topProfileWrapper: document.getElementById('profileTopProfile'),
@@ -240,7 +264,41 @@
     if (refs.name) refs.name.textContent = profile.name || 'משתמש אנונימי';
     if (refs.bio) refs.bio.textContent = profile.bio || 'יצירת תוכן מבוזר, בלי שוטר באמצע';
     if (refs.sidebarBio) refs.sidebarBio.textContent = profile.bio || 'לא הוגדר עדיין תיאור קצר.';
-    if (refs.sidebarName) refs.sidebarName.textContent = profile.name || 'משתמש אנונימי';
+    if (refs.aboutHeadlineRow) {
+      const value = typeof profile.headline === 'string' ? profile.headline.trim() : '';
+      refs.aboutHeadlineRow.hidden = !value;
+      if (refs.aboutHeadline) {
+        refs.aboutHeadline.textContent = value || '';
+      }
+    }
+    const roleValue = typeof profile.role === 'string' ? profile.role.trim() : '';
+    const companyValue = typeof profile.company === 'string' ? profile.company.trim() : '';
+    if (refs.aboutRoleRow) {
+      refs.aboutRoleRow.hidden = !(roleValue || companyValue);
+      if (!refs.aboutRoleRow.hidden) {
+        if (refs.aboutRole) {
+          refs.aboutRole.textContent = roleValue || 'תפקיד';
+        }
+        if (refs.aboutCompany) {
+          refs.aboutCompany.textContent = companyValue ? `ב${companyValue}` : '';
+        }
+      }
+    }
+    const locationValue = typeof profile.location === 'string' ? profile.location.trim() : '';
+    if (refs.aboutLocationRow) {
+      refs.aboutLocationRow.hidden = !locationValue;
+      if (refs.aboutLocation) {
+        refs.aboutLocation.textContent = locationValue || '';
+      }
+    }
+    const websiteValue = typeof profile.website === 'string' ? profile.website.trim() : '';
+    if (refs.aboutWebsiteRow) {
+      refs.aboutWebsiteRow.hidden = !websiteValue;
+      if (!refs.aboutWebsiteRow.hidden && refs.aboutWebsite) {
+        refs.aboutWebsite.href = websiteValue;
+        refs.aboutWebsite.textContent = websiteValue.replace(/^https?:\/\//i, '');
+      }
+    }
     if (refs.statsRelays) refs.statsRelays.textContent = Array.isArray(App.relayUrls) ? App.relayUrls.length.toString() : '0';
     renderFollowersSummary();
     renderFollowersList();
@@ -381,9 +439,14 @@
       followState.snapshot = Array.isArray(entries) ? entries : [];
       renderFollowersSummary();
       renderFollowersList();
-      ensureFollowerProfiles(followState.snapshot).catch((err) => {
-        console.warn('Profile view: follower enrichment failed', err);
-      });
+      ensureFollowerProfiles(followState.snapshot)
+        .then(() => {
+          // רינדור חוזר לאחר העשרת המטא-דאטה כדי למשוך name/picture מהמטמון
+          renderFollowersList();
+        })
+        .catch((err) => {
+          console.warn('Profile view: follower enrichment failed', err);
+        });
     });
   }
 
@@ -476,10 +539,376 @@
         }
       }
     }
-    if (refs.statsPosts) {
-      const count = Array.isArray(posts) ? posts.length : 0;
-      refs.statsPosts.textContent = count.toString();
+    if (refs.repliesCountLabel) {
+      const count = Array.isArray(replies) ? replies.length : 0;
+      refs.repliesCountLabel.textContent = `${count} תגובות`;
     }
+    updateActivityStats(posts, replies);
+  }
+
+  function bindRepliesToggle() {
+    if (!refs.repliesToggle || !refs.timelineComments) {
+      return;
+    }
+    const applyState = (expanded) => {
+      refs.timelineComments.hidden = !expanded;
+      refs.repliesToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      refs.repliesToggle.textContent = expanded ? 'הסתר' : 'הצג';
+    };
+    applyState(false);
+    refs.repliesToggle.addEventListener('click', () => {
+      const expanded = refs.repliesToggle.getAttribute('aria-expanded') === 'true';
+      applyState(!expanded);
+    });
+  }
+
+  function formatNumber(value) {
+    const number = Number(value) || 0;
+    if (number >= 1000) {
+      return `${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}K`;
+    }
+    if (number >= 100) {
+      return number.toFixed(0);
+    }
+    if (number >= 10) {
+      return number.toFixed(1);
+    }
+    return number.toFixed(2).replace(/\.0+$/, '').replace(/0+$/, '');
+  }
+
+  function applyChangeIndicator(element, value) {
+    if (!element) {
+      return;
+    }
+    const normalized = Number.isFinite(value) ? value : 0;
+    element.textContent = `${normalized > 0 ? '+' : ''}${normalized.toFixed(0)}%`;
+    element.classList.remove('is-up', 'is-down', 'is-neutral');
+    if (normalized > 0.5) {
+      element.classList.add('is-up');
+    } else if (normalized < -0.5) {
+      element.classList.add('is-down');
+    } else {
+      element.classList.add('is-neutral');
+    }
+  }
+
+  function buildPeriodStats(posts, replies, likeEvents, commentEvents, start, end, startPrev, endPrev) {
+    const postsInRange = posts.filter((event) => typeof event?.created_at === 'number' && event.created_at >= start && event.created_at <= end);
+    const postsPrev = posts.filter((event) => typeof event?.created_at === 'number' && event.created_at >= startPrev && event.created_at <= endPrev);
+    const repliesInRange = replies.filter((event) => typeof event?.created_at === 'number' && event.created_at >= start && event.created_at <= end);
+    const repliesPrev = replies.filter((event) => typeof event?.created_at === 'number' && event.created_at >= startPrev && event.created_at <= endPrev);
+
+    const likesInRange = likeEvents.filter((event) => typeof event?.created_at === 'number' && event.created_at >= start && event.created_at <= end);
+    const likesPrev = likeEvents.filter((event) => typeof event?.created_at === 'number' && event.created_at >= startPrev && event.created_at <= endPrev);
+
+    const commentsInRange = commentEvents.filter((event) => typeof event?.created_at === 'number' && event.created_at >= start && event.created_at <= end);
+    const commentsPrev = commentEvents.filter((event) => typeof event?.created_at === 'number' && event.created_at >= startPrev && event.created_at <= endPrev);
+
+    return {
+      posts: { current: postsInRange.length, previous: postsPrev.length },
+      replies: { current: repliesInRange.length, previous: repliesPrev.length },
+      likes: { current: likesInRange.length, previous: likesPrev.length },
+      comments: { current: commentsInRange.length, previous: commentsPrev.length },
+      start,
+      end,
+      startPrev,
+      endPrev,
+    };
+  }
+
+  function renderSummary(stats) {
+    const { posts, likes, comments, replies, start, end, startPrev, endPrev } = stats;
+    const rangeLabel = (rangeStart, rangeEnd) => {
+      const dateStart = new Date(rangeStart * 1000);
+      const dateEnd = new Date((rangeEnd) * 1000);
+      return `${dateStart.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} – ${dateEnd.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}`;
+    };
+    const currentLabel = rangeLabel(start, end);
+    const previousLabel = rangeLabel(startPrev, endPrev);
+
+    const applyValue = (element, value) => {
+      if (element) {
+        element.textContent = formatNumber(value);
+      }
+    };
+
+    applyValue(refs.statsPosts, posts.current);
+    applyValue(refs.statsLikes, likes.current);
+    applyValue(refs.statsComments, comments.current);
+    applyValue(refs.statsReplies, replies.current);
+
+    applyChangeIndicator(refs.statsPostsChange, computePercentChange(posts.previous, posts.current));
+    applyChangeIndicator(refs.statsLikesChange, computePercentChange(likes.previous, likes.current));
+    applyChangeIndicator(refs.statsCommentsChange, computePercentChange(comments.previous, comments.current));
+    applyChangeIndicator(refs.statsRepliesChange, computePercentChange(replies.previous, replies.current));
+
+    updateSummaryNote(refs.statsPostsNote, posts.previous, posts.current, currentLabel, previousLabel);
+    updateSummaryNote(refs.statsLikesNote, likes.previous, likes.current, currentLabel, previousLabel);
+    updateSummaryNote(refs.statsCommentsNote, comments.previous, comments.current, currentLabel, previousLabel);
+    updateSummaryNote(refs.statsRepliesNote, replies.previous, replies.current, currentLabel, previousLabel);
+  }
+
+  function computePercentChange(previous, current) {
+    const prev = Number(previous) || 0;
+    const curr = Number(current) || 0;
+    if (prev === 0) {
+      if (curr === 0) {
+        return 0;
+      }
+      return 100;
+    }
+    return ((curr - prev) / prev) * 100;
+  }
+
+  function updateSummaryNote(element, previous, current, currentLabel, previousLabel) {
+    if (!element) {
+      return;
+    }
+    if (previous === 0 && current === 0) {
+      element.textContent = `אין פעילות בתקופה ${currentLabel}.`;
+      return;
+    }
+    const change = current - previous;
+    const direction = change > 0 ? 'עלייה' : change < 0 ? 'ירידה' : 'שינוי זניח';
+    const absChange = Math.abs(change);
+    element.textContent = `${direction} של ${formatNumber(absChange)} לעומת ${previousLabel}.`;
+  }
+
+  // חלק חישוב פעילות נוכחית (profile-view.js) – שומר את הרשימות האחרונות ומפעיל רענון התצוגה
+  function updateActivityStats(posts, replies) {
+    if (Array.isArray(posts)) {
+      App.profilePostsCache = posts;
+    }
+    if (Array.isArray(replies)) {
+      App.profileRepliesCache = replies;
+    }
+    refreshActivityView();
+  }
+
+  const activityState = {
+    chart: null,
+    period: 60,
+    lastSeries: null,
+    lastStats: null,
+  };
+
+  // חלק חישוב נתוני גרף (profile-view.js) – מחזיר סדרות וסטטיסטיקות עבור הטווח הנבחר
+  function computeActivityData(posts, replies, likeEvents, commentEvents) {
+    const period = activityState.period || 60;
+    const { start, end } = getPeriodRange(period);
+    const periodSeconds = period * 24 * 60 * 60;
+    const endPrev = start - 1;
+    const startPrev = endPrev - periodSeconds + 1;
+
+    const series = buildSeriesData(posts, start, end, likeEvents, commentEvents);
+    const stats = buildPeriodStats(posts, replies, likeEvents, commentEvents, start, end, startPrev, endPrev);
+    return { series, stats };
+  }
+
+  // חלק רענון פעילות (profile-view.js) – מעדכן את הגרף והכרטיס על בסיס הנתונים שמאוחסנים ב-App
+  function refreshActivityView() {
+    const posts = Array.isArray(App.profilePostsCache) ? App.profilePostsCache : null;
+    const replies = Array.isArray(App.profileRepliesCache) ? App.profileRepliesCache : [];
+    if (!posts || !replies) {
+      return;
+    }
+    const likeEvents = App.profileLikeTimeline instanceof Map ? Array.from(App.profileLikeTimeline.values()) : [];
+    const commentEvents = App.profileCommentTimeline instanceof Map ? Array.from(App.profileCommentTimeline.values()) : [];
+    const { series, stats } = computeActivityData(posts, replies, likeEvents, commentEvents);
+    renderSummary(stats);
+    updateActivityChart(series, stats);
+    activityState.lastSeries = series;
+    activityState.lastStats = stats;
+  }
+
+  function initActivityChart() {
+    if (!refs.activityChart || typeof ApexCharts !== 'function') {
+      return;
+    }
+    if (activityState.chart) {
+      return;
+    }
+    const options = {
+      chart: {
+        type: 'area',
+        height: 280,
+        parentHeightOffset: 0,
+        toolbar: { show: false },
+        animations: {
+          enabled: true,
+          easing: 'easeinout',
+          speed: 650,
+        },
+        zoom: { enabled: false },
+        foreColor: '#c9d1d9',
+        fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+      },
+      stroke: {
+        curve: 'smooth',
+        width: 3,
+      },
+      dataLabels: { enabled: false },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shadeIntensity: 0.7,
+          opacityFrom: 0.4,
+          opacityTo: 0.1,
+          stops: [0, 85, 100],
+        },
+      },
+      colors: ['#4c8bfd', '#ff6b81', '#66d36e'],
+      grid: {
+        borderColor: 'rgba(255, 255, 255, 0.06)',
+        strokeDashArray: 4,
+      },
+      xaxis: {
+        type: 'datetime',
+        labels: {
+          datetimeUTC: false,
+          style: { colors: '#8b949e' },
+        },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+      },
+      yaxis: {
+        min: 0,
+        forceNiceScale: true,
+        labels: {
+          style: { colors: '#8b949e' },
+        },
+      },
+      tooltip: {
+        theme: 'dark',
+        x: { format: 'dd/MM/yy' },
+        shared: true,
+        intersect: false,
+      },
+      legend: {
+        markers: { offsetX: -4 },
+        labels: { colors: '#c9d1d9' },
+      },
+      series: [
+        { name: 'פוסטים', data: [] },
+        { name: 'לייקים', data: [] },
+        { name: 'תגובות', data: [] },
+      ],
+      noData: { text: 'טוען פעילות...' },
+    };
+
+    activityState.chart = new ApexCharts(refs.activityChart, options);
+    activityState.chart.render();
+  }
+
+  function getPeriodRange(periodDays) {
+    const now = new Date();
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - (periodDays - 1));
+    startDate.setHours(0, 0, 0, 0);
+    const start = Math.floor(startDate.getTime() / 1000);
+    const end = Math.floor(endDate.getTime() / 1000);
+    return { start, end };
+  }
+
+  function bucketEventsByDay(events, start, end) {
+    const buckets = new Map();
+    const day = 24 * 60 * 60;
+    const clamped = [];
+    events.forEach((event) => {
+      if (!event || typeof event.created_at !== 'number') {
+        return;
+      }
+      if (event.created_at < start || event.created_at > end) {
+        return;
+      }
+      clamped.push(event);
+      const bucketIndex = Math.floor((event.created_at - start) / day);
+      const bucketBase = start + bucketIndex * day;
+      const bucketKey = bucketBase * 1000;
+      buckets.set(bucketKey, (buckets.get(bucketKey) || 0) + 1);
+    });
+    return { buckets, clamped };
+  }
+
+  function buildSeriesData(posts, start, end, likeEvents, commentEvents) {
+    const day = 24 * 60 * 60;
+    const { buckets: postBuckets, clamped: filteredPosts } = bucketEventsByDay(posts, start, end);
+
+    const { buckets: likeBuckets } = bucketEventsByDay(likeEvents, start, end);
+    const { buckets: commentBuckets } = bucketEventsByDay(commentEvents, start, end);
+
+    const totalDays = Math.floor((end - start) / day) + 1;
+    const seriesRange = [];
+    for (let index = 0; index < totalDays; index += 1) {
+      const bucketTs = (start + index * day) * 1000;
+      seriesRange.push(bucketTs);
+    }
+
+    const postsSeries = seriesRange.map((ts) => [ts, postBuckets.get(ts) || 0]);
+    const likesSeries = seriesRange.map((ts) => [ts, likeBuckets.get(ts) || 0]);
+    const commentsSeries = seriesRange.map((ts) => [ts, commentBuckets.get(ts) || 0]);
+
+    return {
+      postsSeries,
+      likesSeries,
+      commentsSeries,
+      totalPosts: filteredPosts.length,
+      totalLikes: likeEvents.filter((evt) => evt.created_at >= start && evt.created_at <= end).length,
+      totalComments: commentEvents.filter((evt) => evt.created_at >= start && evt.created_at <= end).length,
+    };
+  }
+
+  // חלק ציור גרף פעילות (profile-view.js) – מציג את סדרות הזמן לטווח הנבחר כולל חיווי במצב ריק
+  function updateActivityChart(seriesData, rangeStats) {
+    initActivityChart();
+    if (!activityState.chart) {
+      return;
+    }
+    const { postsSeries, likesSeries, commentsSeries } = seriesData;
+
+    const hasData = postsSeries.some(([, value]) => value > 0)
+      || likesSeries.some(([, value]) => value > 0)
+      || commentsSeries.some(([, value]) => value > 0);
+
+    if (hasData) {
+      refs.activityEmpty?.setAttribute('hidden', '');
+      refs.activityChart?.classList.remove('is-empty');
+      activityState.chart.updateSeries([
+        { name: 'פוסטים', data: postsSeries },
+        { name: 'לייקים', data: likesSeries },
+        { name: 'תגובות', data: commentsSeries },
+      ]);
+    } else {
+      refs.activityEmpty?.removeAttribute('hidden');
+      refs.activityChart?.classList.add('is-empty');
+      activityState.chart.updateSeries([
+        { name: 'פוסטים', data: [] },
+        { name: 'לייקים', data: [] },
+        { name: 'תגובות', data: [] },
+      ]);
+    }
+
+  }
+
+  function bindActivityPeriodButtons() {
+    if (!refs.activityPeriodButtons?.length) {
+      return;
+    }
+    refs.activityPeriodButtons.forEach((button) => {
+      if (button.dataset.listenerAttached === 'true') {
+        return;
+      }
+      button.dataset.listenerAttached = 'true';
+      button.addEventListener('click', () => {
+        refs.activityPeriodButtons.forEach((btn) => btn.classList.toggle('is-active', btn === button));
+        const period = Number.parseInt(button.getAttribute('data-activity-period'), 10);
+        if (!Number.isNaN(period)) {
+          activityState.period = period;
+          refreshActivityView();
+        }
+      });
+    });
   }
 
   async function loadOwnPosts() {
@@ -597,6 +1026,9 @@
       const sortedPosts = posts.sort((a, b) => b.created_at - a.created_at);
       const sortedReplies = replies.sort((a, b) => b.created_at - a.created_at);
 
+      App.profilePostsCache = sortedPosts;
+      App.profileRepliesCache = sortedReplies;
+
       if (typeof App.hydrateEngagementForPosts === 'function') {
         try {
           await App.hydrateEngagementForPosts(sortedPosts, (evt) => extractParentId(evt));
@@ -658,6 +1090,7 @@
     });
     bindTopMenu();
     bindHeaderShortcuts();
+    bindRepliesToggle();
   }
 
   // חלק אתחול דף (profile-view.js) – מפעיל את השלבים הנדרשים בעת טעינת הפרופיל
@@ -676,8 +1109,10 @@
     if (typeof App.subscribeOwnProfileMetadata === 'function') {
       App.subscribeOwnProfileMetadata();
     }
+    bindActivityPeriodButtons();
     subscribeFollowers();
     bindButtons();
+    initActivityChart();
     loadOwnPosts();
   }
 

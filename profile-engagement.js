@@ -99,6 +99,13 @@
     if (!Array.isArray(events)) {
       return;
     }
+    if (!(App.profileLikeTimeline instanceof Map)) {
+      App.profileLikeTimeline = new Map();
+    }
+    if (!(App.profileLikeTimelineByParent instanceof Map)) {
+      App.profileLikeTimelineByParent = new Map();
+    }
+
     events.forEach((event) => {
       if (!event || event.kind !== 7 || !Array.isArray(event.tags)) {
         return;
@@ -119,10 +126,25 @@
         if (!liker) {
           return;
         }
+        if (!App.profileLikeTimelineByParent.has(tag[1])) {
+          App.profileLikeTimelineByParent.set(tag[1], new Map());
+        }
+        const timelineByParent = App.profileLikeTimelineByParent.get(tag[1]);
+        const likeKey = `${tag[1]}::${liker}`;
         if (isUnlike) {
           likeSet.delete(liker);
+          App.profileLikeTimeline.delete(likeKey);
+          timelineByParent.delete(liker);
         } else {
           likeSet.add(liker);
+          if (typeof event.created_at === 'number') {
+            App.profileLikeTimeline.set(likeKey, {
+              parentId: tag[1],
+              pubkey: liker,
+              created_at: event.created_at,
+            });
+            timelineByParent.set(liker, event.created_at);
+          }
         }
       });
     });
@@ -132,6 +154,9 @@
   function integrateComments(events, postIdSet, extractParentId) {
     if (!Array.isArray(events)) {
       return;
+    }
+    if (!(App.profileCommentTimeline instanceof Map)) {
+      App.profileCommentTimeline = new Map();
     }
     events.forEach((event) => {
       const parentId = extractParentId(event);
@@ -143,6 +168,9 @@
       }
       const commentMap = App.commentsByParent.get(parentId);
       commentMap.set(event.id, event);
+      if (event?.id && typeof event.created_at === 'number') {
+        App.profileCommentTimeline.set(event.id, event);
+      }
     });
   }
 
@@ -158,6 +186,10 @@
     if (!postIds.length) {
       return;
     }
+
+    App.profileLikeTimeline = new Map();
+    App.profileLikeTimelineByParent = new Map();
+    App.profileCommentTimeline = new Map();
 
     ensureEngagementMaps(postIds);
 

@@ -27,23 +27,34 @@
     <header class="site-header">
       <div class="site-header__brand" aria-label="SphereOne Social">
         <div class="site-header__title-group">
-  <span class="site-header__brand-name">
-    <span class="sos-morse sos-morse-s">S</span>phere <span class="sos-morse sos-morse-o">O</span>ne <span class="sos-morse sos-morse-s">S</span>ocial
-  </span>
-  <span class="site-header__tagline">רשת קריפטונית מבוזרת</span>
-</div>
+          <span class="site-header__brand-name">
+            <span class="sos-morse sos-morse-s">S</span>phere <span class="sos-morse sos-morse-o">O</span>ne <span class="sos-morse sos-morse-s">S</span>ocial
+          </span>
+          <span class="site-header__tagline">הדוגמה החיה לטכנולוגיית SPEAR ONE</span>
+        </div>
+        <button
+          class="site-header__menu-toggle"
+          type="button"
+          id="siteHeaderMenuToggle"
+          aria-expanded="false"
+          aria-controls="siteHeaderNav"
+        >
+          <i class="fa-solid fa-bars"></i>
+        </button>
       </div>
-      <nav class="site-header__nav" aria-label="קישורי עזר">
-        <a href="#" class="site-header__nav-link">מרכז העזרה</a>
-        <a href="#" class="site-header__nav-link">קהילת התמיכה</a>
-        <a href="#" class="site-header__nav-link">בטיחות ופרטיות</a>
+      <!-- חלק תפריט מידע (auth.html) – הצגת דפי הסבר על הטכנולוגיה והמוצר -->
+      <nav class="site-header__nav" id="siteHeaderNav" aria-label="תפריט מידע">
+        <button class="site-header__nav-link" type="button" data-info-target="authInfoTechnologyPanel">הטכנולוגיה</button>
+        <button class="site-header__nav-link" type="button" data-info-target="authInfoNetworkPanel">הרשת החברתית</button>
+        <button class="site-header__nav-link" type="button" data-info-target="authInfoOnboardingPanel">איך מתחברים</button>
+        <button class="site-header__nav-link" type="button" data-info-target="authInfoCreditsPanel">מסלולי פרימיום</button>
       </nav>
     </header>
 
     <!-- חלק HERO (auth.html) – מסר פתיחה כללי לרשת החברתית -->
     <section class="auth-hero">
-      <h1 class="auth-hero__title">קהילה פתוחה לרעיונות גדולים</h1>
-      <p class="auth-hero__subtitle">בחר איך להמשיך ולהתחבר לקהילה</p>
+      <h1 class="auth-hero__title">הבית החכם לדור החדש של הקהילות</h1>
+      <p class="auth-hero__subtitle">התחברו או צרו חשבון בכמה קליקים – בלי מילים גדולות, רק חוויה</p>
     </section>
 
     <!-- חלק מעטפת מרכזית (auth.html) – שלבי בחירה, התחברות והרשמה -->
@@ -51,15 +62,15 @@
       <!-- כרטיס הזמנה לפעולה – בחירת התחברות או יצירה -->
       <section class="auth-card auth-entry" id="authEntryPanel" aria-live="polite">
         <h2 class="auth-entry__title">ברוכים הבאים ל-SphereOne Social</h2>
-        <p class="auth-entry__subtitle">בחרו בין התחברות לפרופיל קיים או יצירת פרופיל חדש</p>
+        <p class="auth-entry__subtitle">הקליקו כדי להיכנס או להצטרף. פשוט, מהיר ומרגיש כמו בית</p>
         <div class="auth-entry__actions">
           <button class="button-primary auth-entry__action" id="authEntryLoginButton">
             <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
-            התחברות לפרופיל קיים
+            התחברות לחשבון קיים
           </button>
           <button class="button-secondary auth-entry__action" id="authEntryRegisterButton">
             <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
-            יצירת פרופיל חדש
+            יצירת חשבון חדש
           </button>
         </div>
       </section>
@@ -74,11 +85,11 @@
         <header class="auth-card__header">
           <div class="auth-card__title-row">
             <span class="auth-card__icon" aria-hidden="true">
-              <i class="fa-solid fa-user-check"></i>
+              <i class="fa-solid fa-door-open"></i>
             </span>
             <div class="auth-card__title-wrap">
-              <h2 class="auth-card__title">התחברות לפרופיל SphereOne Social קיים</h2>
-              <p class="auth-card__subtitle">הדביקו את המפתח הקריפטוגרפי הפרטי שלכם והתחילו לגלוש</p>
+              <h2 class="auth-card__title">מחכים לכם בפנים</h2>
+              <p class="auth-card__subtitle">הדביקו את הקוד האישי שקיבלתם והמשיכו בדיוק מאיפה שהפסקתם</p>
             </div>
           </div>
         </header>
@@ -87,22 +98,22 @@
             <span class="auth-field__label-icon" aria-hidden="true">
               <i class="fa-solid fa-key"></i>
             </span>
-            מפתח קריפטוגרפי פרטי
+            הקוד האישי שלכם
           </label>
           <textarea
             id="authImportInput"
             class="auth-textarea"
-            placeholder="הדביקו כאן מפתח nsec או hex"
+            placeholder="הדביקו כאן את הקוד שקיבלתם מאיתנו"
           ></textarea>
           <div class="auth-field__hint">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            זהו מפתח קריפטו אישי מסוג nsec או מחרוזת hex (64 תווים).
+            זהו הקוד שקיבלתם במייל או ששמרתם אצלכם. הדביקו אותו במלואו והתחברו מיד.
           </div>
         </div>
         <div class="auth-actions auth-actions--stack">
           <button class="button-primary" id="authImportButton">
             <i class="fa-solid fa-arrow-right-to-bracket"></i>
-            התחבר עם מפתח קריפטו
+            התחבר עם הקוד שלי
           </button>
         </div>
         <div class="auth-card__switch" aria-label="מעבר ליצירת חשבון חדש">
@@ -123,58 +134,172 @@
           <i class="fa-solid fa-arrow-right"></i>
           חזרה למסך הראשי
         </button>
-        <!-- כותרת כרטיס יצירה – מציגה את תהליך ההרשמה -->
+        <!-- כותרת כרטיס יצירה – מייצרת חוויית הרשמה קלה ונגישה -->
         <header class="auth-card__header">
           <div class="auth-card__title-row">
             <span class="auth-card__icon" aria-hidden="true">
-              <i class="fa-solid fa-user-plus"></i>
+              <i class="fa-solid fa-sparkles"></i>
             </span>
             <div class="auth-card__title-wrap">
-              <h2 class="auth-card__title">יצירת פרופיל SphereOne Social חדש</h2>
-              <p class="auth-card__subtitle">בלחיצה אחת נוצרת עבורכם מפתח קריפטוגרפי חדש לכניסה לרשת.</p>
+              <h2 class="auth-card__title">הצטרפות בכמה שניות</h2>
+              <p class="auth-card__subtitle">נכניס אימייל, נקבל קוד אישי, נאשר ששמרנו – ופנים לרשת</p>
             </div>
           </div>
         </header>
-        <div class="auth-field auth-field--textarea">
-          <label class="auth-field__label" for="authCreateKey">המפתח הקריפטוגרפי החדש שנוצר עבורך</label>
-          <textarea
-            id="authCreateKey"
-            class="auth-textarea"
-            readonly
-            placeholder="לחצו 'יצירת מפתח' לקבלת המפתח הקריפטוגרפי"
-          ></textarea>
+        <div class="auth-flow">
+          <!-- חלק שלב אימייל (auth.html) – איסוף כתובת לקבלת קוד אישי -->
+          <div class="auth-flow__step" id="authFlowEmailStep">
+            <p class="auth-flow__hint">אנחנו רק מאמתים שהכתובת פנויה ועבורכם ניצור קוד חדש במקום. אין שליחת מיילים בשלב הזה.</p>
+            <div class="auth-field">
+              <label class="auth-field__label" for="authEmailInput">
+                <span class="auth-field__label-icon" aria-hidden="true">
+                  <i class="fa-solid fa-envelope"></i>
+                </span>
+                כתובת אימייל לקבלת הקוד
+              </label>
+              <input
+                id="authEmailInput"
+                class="auth-input"
+                type="email"
+                placeholder="example@mysphere.one"
+                autocomplete="email"
+              />
+            </div>
+            <div class="auth-actions auth-actions--primary">
+              <button class="button-primary" id="authSendEmailButton">
+                <i class="fa-solid fa-paper-plane"></i>
+                בדקו שהכתובת פנויה
+              </button>
+            </div>
+          </div>
+          <!-- חלק שלב קוד (auth.html) – הצגת הקוד האישי והמשכיות התהליך -->
+          <div class="auth-flow__step auth-flow__step--key" id="authFlowKeyStep" hidden>
+            <div class="auth-actions auth-actions--back">
+              <button class="button-link" id="authKeyBackButton">
+                <i class="fa-solid fa-arrow-right"></i>
+                רוצה לערוך את האימייל
+              </button>
+            </div>
+            <p class="auth-flow__hint">קבלתם את הקוד האישי שלכם. שמרו אותו במקום בטוח – זה הכרטיס שלכם לרשת.</p>
+            <div class="auth-field auth-field--textarea">
+              <label class="auth-field__label" for="authCreateKey">
+                <span class="auth-field__label-icon" aria-hidden="true">
+                  <i class="fa-solid fa-shield"></i>
+                </span>
+                הקוד האישי שנוצר עבורכם
+              </label>
+              <textarea
+                id="authCreateKey"
+                class="auth-textarea"
+                readonly
+                placeholder="לחצו \"קבלו קוד\" כדי להציג אותו כאן"
+              ></textarea>
+            </div>
+            <div class="auth-actions auth-actions--primary">
+              <button class="button-primary" id="authGenerateButton">
+                <i class="fa-solid fa-key"></i>
+                קבלו את הקוד שלי
+              </button>
+            </div>
+            <div class="auth-actions auth-actions--row">
+              <button class="button-secondary" id="authCopyCreateButton" disabled>
+                <i class="fa-solid fa-copy"></i>
+                העתקה
+              </button>
+              <button class="button-secondary" id="authDownloadCreateButton" disabled>
+                <i class="fa-solid fa-file-arrow-down"></i>
+                שמירה לקובץ
+              </button>
+            </div>
+            <div class="auth-share">
+              <button class="button-secondary button-secondary--whatsapp" id="authShareWhatsappButton" disabled>
+                <i class="fa-brands fa-whatsapp"></i>
+                שלחו לי את הקוד בוואטסאפ
+              </button>
+            </div>
+            <label class="auth-checkbox">
+              <input type="checkbox" id="authCreateConfirm" />
+              שמרתי את הקוד שלי במקום בטוח ואני מוכן להיכנס
+            </label>
+            <button class="button-primary" id="authContinueButton" disabled>
+              כניסה לרשת החברתית
+            </button>
+          </div>
         </div>
-        <div class="auth-actions auth-actions--primary">
-          <button class="button-primary" id="authGenerateButton">
-            <i class="fa-solid fa-key"></i>
-            יצירת מפתח
-          </button>
-        </div>
-        <div class="auth-actions auth-actions--row">
-          <button class="button-secondary" id="authCopyCreateButton" disabled>
-            <i class="fa-solid fa-copy"></i>
-            העתקה
-          </button>
-          <button class="button-secondary" id="authDownloadCreateButton" disabled>
-            <i class="fa-solid fa-file-arrow-down"></i>
-            הורדה
-          </button>
-        </div>
-        <div class="auth-share">
-          <button class="button-secondary button-secondary--whatsapp" id="authShareWhatsappButton" disabled>
-            <i class="fa-brands fa-whatsapp"></i>
-            שלחו לעצמכם בוואטסאפ
-          </button>
-        </div>
-        <label class="auth-checkbox">
-          <input type="checkbox" id="authCreateConfirm" />
-        </label>
-        <button class="button-primary" id="authContinueButton" disabled>
-          התחברות לרשת
-        </button>
         <div class="auth-status" id="authCreateStatus"></div>
       </section>
     </main>
+
+    <!-- חלק דפי מידע (auth.html) – תוכן מפורט לכל כפתור בתפריט העליון -->
+    <section class="auth-layout" id="authInfoPanels">
+      <article class="auth-card auth-info-panel" id="authInfoTechnologyPanel" hidden>
+        <header class="auth-card__header">
+          <div class="auth-card__title-row">
+            <span class="auth-card__icon" aria-hidden="true">
+              <i class="fa-solid fa-microchip"></i>
+            </span>
+            <div class="auth-card__title-wrap">
+              <h2 class="auth-card__title">SPEAR ONE – מנוע הטכנולוגיה</h2>
+              <p class="auth-card__subtitle">שרת סטטי שמדגים איך רשת חברתית יכולה לפעול מבוזר, מהר ובטוח</p>
+            </div>
+          </div>
+        </header>
+        <p class="auth-flow__hint">אנו משתמשים בפרוטוקול Nostr לניהול שיחות ותוכן ללא נקודת כשל מרכזית. שכבת SPEAR ONE מחברת בין הרשת, תשלומים, ויכולות חוזה חכם כדי להציע חוויית משתמש חלקה – גם בארגונים שרוצים להפעיל את המערכת בעצמם.</p>
+        <button class="button-secondary" type="button" data-info-close>הבנתי, חזרה למסך הראשי</button>
+      </article>
+
+      <article class="auth-card auth-info-panel" id="authInfoNetworkPanel" hidden>
+        <header class="auth-card__header">
+          <div class="auth-card__title-row">
+            <span class="auth-card__icon" aria-hidden="true">
+              <i class="fa-solid fa-people-group"></i>
+            </span>
+            <div class="auth-card__title-wrap">
+              <h2 class="auth-card__title">SphereOne Social – הדגמה חיה</h2>
+              <p class="auth-card__subtitle">קהילה אחת שמראה מה אפשר לבנות עם SPEAR ONE בלחיצת כפתור</p>
+            </div>
+          </div>
+        </header>
+        <p class="auth-flow__hint">כל מה שאתם רואים כאן – פידים, הודעות, משחקים וחוזים חכמים – רץ על גבי אותו מנוע. אנחנו מציגים איך ניתן להרחיב את היכולות ולהקים קהילות חדשות עם המיתוג והתוכן שלכם.</p>
+        <button class="button-secondary" type="button" data-info-close>מעולה, סגרו את ההסבר</button>
+      </article>
+
+      <article class="auth-card auth-info-panel" id="authInfoOnboardingPanel" hidden>
+        <header class="auth-card__header">
+          <div class="auth-card__title-row">
+            <span class="auth-card__icon" aria-hidden="true">
+              <i class="fa-solid fa-person-walking"></i>
+            </span>
+            <div class="auth-card__title-wrap">
+              <h2 class="auth-card__title">שלושה צעדים ואתם בפנים</h2>
+              <p class="auth-card__subtitle">1. מזינים אימייל. 2. מקבלים קוד. 3. מאשרים ששמרתם – וזהו.</p>
+            </div>
+          </div>
+        </header>
+        <ul class="auth-flow__hint">
+          <li>לחיצה על "בדקו שהכתובת פנויה" מאמתת מול הרשת שלא השתמשו באימייל הזה בעבר. אם הוא תפוס – תקבלו התרעה ידידותית.</li>
+          <li>ברגע שהכתובת פנויה נציג מיד את הקוד האישי. אפשר להעתיק, להוריד או לשלוח לעצמכם בוואטסאפ.</li>
+          <li>אחרי שסימנתם ששמרתם את הקוד, לחיצה על "כניסה לרשת" לוקחת אתכם ישר לעמוד הראשי.</li>
+        </ul>
+        <button class="button-secondary" type="button" data-info-close>חזרה למסך הכניסה</button>
+      </article>
+
+      <article class="auth-card auth-info-panel" id="authInfoCreditsPanel" hidden>
+        <header class="auth-card__header">
+          <div class="auth-card__title-row">
+            <span class="auth-card__icon" aria-hidden="true">
+              <i class="fa-solid fa-gem"></i>
+            </span>
+            <div class="auth-card__title-wrap">
+              <h2 class="auth-card__title">מסלולי פרימיום וקרדיטים</h2>
+              <p class="auth-card__subtitle">המערכת מוכנה להרחבה – הטמעה בארגון, מיתוג פרטי וחיבור לשירותים משלימים</p>
+            </div>
+          </div>
+        </header>
+        <p class="auth-flow__hint">יחידות הערך של SPEAR ONE מאפשרות לכם לרכוש חבילות שימוש, להפעיל ריליים פרטיים ולהתרחב לקהילות חדשות. בדקת החוזה החכם באתר תמצאו סימולציות מלאות שמציגות את הפוטנציאל הכלכלי.</p>
+        <button class="button-secondary" type="button" data-info-close>מעולה, הבנתי</button>
+      </article>
+    </section>
 
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
     <script src="./config.js"></script>

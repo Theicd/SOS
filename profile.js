@@ -3,37 +3,62 @@
 
   // חלק אתחול נתוני פרופיל (profile.js) – מבטיח שמבנה הפרופיל כולל גלריה וקורא מהמטמון המקומי
   if (!App.profile || typeof App.profile !== 'object') {
-    App.profile = {
-      name: 'משתמש אנונימי',
-      bio: 'יצירת תוכן מבוזר, בלי שוטר באמצע',
-      avatarInitials: 'AN',
-      picture: '',
-      cover: '', // חלק תמונת נושא (profile.js) – נתיב/נתון לתמונת cover עבור באנר הכיסוי
-      gallery: [],
-      dating: {
-        optIn: false,
-        bio: '',
-        age: '',
-        location: '',
-        interests: [],
-      },
-    };
-    try {
-      const storedProfile = window.localStorage.getItem('nostr_profile');
-      if (storedProfile) {
-        const parsedProfile = JSON.parse(storedProfile);
-        App.profile = Object.assign(
-          {
-            gallery: [],
-            dating: { optIn: false, bio: '', age: '', location: '', interests: [] },
-          },
-          parsedProfile,
-        );
-      }
-    } catch (err) {
-      console.warn('Profile init: failed restoring cached profile', err);
-    }
+    App.profile = {};
   }
+
+  const profileDefaults = {
+    name: 'משתמש אנונימי',
+    bio: 'יצירת תוכן מבוזר, בלי שוטר באמצע',
+    headline: '',
+    role: '',
+    company: '',
+    location: '',
+    website: '',
+    avatarInitials: 'AN',
+    picture: '',
+    cover: '', // חלק תמונת נושא (profile.js) – נתיב/נתון לתמונת cover עבור באנר הכיסוי
+    gallery: [],
+    dating: {
+      optIn: false,
+      bio: '',
+      age: '',
+      location: '',
+      interests: [],
+    },
+  };
+
+  const normalizeWebsite = (value) => {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  };
+
+  try {
+    const storedProfile = window.localStorage.getItem('nostr_profile');
+    if (storedProfile) {
+      const parsedProfile = JSON.parse(storedProfile);
+      App.profile = Object.assign({}, profileDefaults, parsedProfile);
+    } else {
+      App.profile = Object.assign({}, profileDefaults, App.profile);
+    }
+  } catch (err) {
+    console.warn('Profile init: failed restoring cached profile', err);
+    App.profile = Object.assign({}, profileDefaults, App.profile);
+  }
+
+  App.profile.headline = typeof App.profile.headline === 'string' ? App.profile.headline : '';
+  App.profile.role = typeof App.profile.role === 'string' ? App.profile.role : '';
+  App.profile.company = typeof App.profile.company === 'string' ? App.profile.company : '';
+  App.profile.location = typeof App.profile.location === 'string' ? App.profile.location : '';
+  App.profile.website = normalizeWebsite(typeof App.profile.website === 'string' ? App.profile.website : '');
   if (!Array.isArray(App.profile.gallery)) {
     App.profile.gallery = [];
   }
@@ -317,6 +342,69 @@
       profileFollowersList.innerHTML = '';
     }
 
+    const aboutHeadlineRow = document.getElementById('profileAboutHeadlineRow');
+    const aboutHeadline = document.getElementById('profileAboutHeadline');
+    if (aboutHeadlineRow) {
+      const value = App.profile.headline?.trim();
+      if (value) {
+        aboutHeadlineRow.hidden = false;
+        if (aboutHeadline) {
+          aboutHeadline.textContent = value;
+        }
+      } else {
+        aboutHeadlineRow.hidden = true;
+      }
+    }
+
+    const aboutRoleRow = document.getElementById('profileAboutRoleRow');
+    const aboutRole = document.getElementById('profileAboutRole');
+    const aboutCompany = document.getElementById('profileAboutCompany');
+    const roleValue = App.profile.role?.trim();
+    const companyValue = App.profile.company?.trim();
+    if (aboutRoleRow) {
+      if (roleValue || companyValue) {
+        aboutRoleRow.hidden = false;
+        if (aboutRole) {
+          aboutRole.textContent = roleValue || 'תפקיד';
+        }
+        if (aboutCompany) {
+          aboutCompany.textContent = companyValue ? `ב${companyValue}` : '';
+        }
+      } else {
+        aboutRoleRow.hidden = true;
+      }
+    }
+
+    const aboutLocationRow = document.getElementById('profileAboutLocationRow');
+    const aboutLocation = document.getElementById('profileAboutLocation');
+    if (aboutLocationRow) {
+      const locationValue = App.profile.location?.trim();
+      if (locationValue) {
+        aboutLocationRow.hidden = false;
+        if (aboutLocation) {
+          aboutLocation.textContent = locationValue;
+        }
+      } else {
+        aboutLocationRow.hidden = true;
+      }
+    }
+
+    const aboutWebsiteRow = document.getElementById('profileAboutWebsiteRow');
+    const aboutWebsite = document.getElementById('profileAboutWebsite');
+    const websiteValue = App.profile.website?.trim();
+    if (aboutWebsiteRow) {
+      if (websiteValue) {
+        aboutWebsiteRow.hidden = false;
+        if (aboutWebsite) {
+          aboutWebsite.href = websiteValue;
+          const label = websiteValue.replace(/^https?:\/\//i, '');
+          aboutWebsite.textContent = label;
+        }
+      } else {
+        aboutWebsiteRow.hidden = true;
+      }
+    }
+
     const galleryEl = document.getElementById('profileGallery');
     if (galleryEl) {
       galleryEl.innerHTML = '';
@@ -535,6 +623,11 @@
 
     const name = typeof metadata.name === 'string' ? metadata.name.trim() : '';
     const about = typeof metadata.about === 'string' ? metadata.about.trim() : '';
+    const headline = typeof metadata.profile_headline === 'string' ? metadata.profile_headline.trim() : '';
+    const role = typeof metadata.profile_role === 'string' ? metadata.profile_role.trim() : '';
+    const company = typeof metadata.profile_company === 'string' ? metadata.profile_company.trim() : '';
+    const location = typeof metadata.profile_location === 'string' ? metadata.profile_location.trim() : '';
+    const website = normalizeWebsite(typeof metadata.profile_website === 'string' ? metadata.profile_website.trim() : '');
     const picture = typeof metadata.picture === 'string' ? metadata.picture.trim() : '';
     // חלק תאימות Cover (profile.js) – תומך גם ב-'banner' שנפוץ בלקוחות Nostr
     const cover = typeof metadata.cover === 'string'
@@ -551,7 +644,7 @@
       ? metadata.dating_interests.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
       : [];
 
-    if (!name && !about && !picture && !cover && gallery.length === 0) {
+    if (!name && !about && !headline && !role && !company && !location && !website && !picture && !cover && gallery.length === 0) {
       console.log(`Profile metadata: ${sourceLabel} missing relevant fields`, metadata);
       return false;
     }
@@ -561,6 +654,21 @@
     }
     if (about) {
       App.profile.bio = about;
+    }
+    if (headline || metadata.hasOwnProperty('profile_headline')) {
+      App.profile.headline = headline;
+    }
+    if (role || metadata.hasOwnProperty('profile_role')) {
+      App.profile.role = role;
+    }
+    if (company || metadata.hasOwnProperty('profile_company')) {
+      App.profile.company = company;
+    }
+    if (location || metadata.hasOwnProperty('profile_location')) {
+      App.profile.location = location;
+    }
+    if (website || metadata.hasOwnProperty('profile_website')) {
+      App.profile.website = website;
     }
     if (picture) {
       App.profile.picture = picture;
@@ -645,6 +753,11 @@
     const metadata = {
       name: App.profile.name,
       about: App.profile.bio,
+      profile_headline: App.profile.headline,
+      profile_role: App.profile.role,
+      profile_company: App.profile.company,
+      profile_location: App.profile.location,
+      profile_website: App.profile.website,
       picture: App.profile.picture,
       cover: App.profile.cover,
       // חלק תאימות Cover (profile.js) – מפרסם גם banner עבור לקוחות אחרים
@@ -736,6 +849,16 @@
   function openProfileSettings() {
     document.getElementById('profileNameInput').value = App.profile.name;
     document.getElementById('profileBioInput').value = App.profile.bio;
+    const headlineInput = document.getElementById('profileHeadlineInput');
+    if (headlineInput) headlineInput.value = App.profile.headline || '';
+    const roleInput = document.getElementById('profileRoleInput');
+    if (roleInput) roleInput.value = App.profile.role || '';
+    const companyInput = document.getElementById('profileCompanyInput');
+    if (companyInput) companyInput.value = App.profile.company || '';
+    const locationInput = document.getElementById('profileLocationInput');
+    if (locationInput) locationInput.value = App.profile.location || '';
+    const websiteInput = document.getElementById('profileWebsiteInput');
+    if (websiteInput) websiteInput.value = App.profile.website || '';
     document.getElementById('profileImageUrlInput').value = App.profile.picture;
     const coverUrlEl = document.getElementById('profileCoverUrlInput');
     if (coverUrlEl) {
@@ -752,6 +875,11 @@
   async function saveProfileSettings() {
     const name = document.getElementById('profileNameInput').value.trim() || 'משתמש אנונימי';
     const bio = document.getElementById('profileBioInput').value.trim();
+    const headlineInput = document.getElementById('profileHeadlineInput');
+    const roleInput = document.getElementById('profileRoleInput');
+    const companyInput = document.getElementById('profileCompanyInput');
+    const locationInput = document.getElementById('profileLocationInput');
+    const websiteInput = document.getElementById('profileWebsiteInput');
     let picture = document.getElementById('profileImageUrlInput').value.trim();
     let cover = document.getElementById('profileCoverUrlInput')?.value?.trim?.() || '';
     const gallerySelection = Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [];
@@ -763,6 +891,11 @@
     const applyProfile = (finalPicture) => {
       App.profile.name = name;
       App.profile.bio = bio || 'יוצר מבוזר Nostr';
+      App.profile.headline = headlineInput?.value?.trim() || '';
+      App.profile.role = roleInput?.value?.trim() || '';
+      App.profile.company = companyInput?.value?.trim() || '';
+      App.profile.location = locationInput?.value?.trim() || '';
+      App.profile.website = normalizeWebsite(websiteInput?.value || '');
       const resolvedPicture = finalPicture || picture;
       if (
         resolvedPicture &&

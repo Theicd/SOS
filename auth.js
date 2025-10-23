@@ -7,19 +7,23 @@
   const createCard = document.getElementById('authCreatePanel');
   const headerMenuToggle = document.getElementById('siteHeaderMenuToggle');
   const headerNav = document.getElementById('siteHeaderNav');
+  const infoPanelsContainer = document.getElementById('authInfoPanels');
+  const infoPanelButtons = Array.from(document.querySelectorAll('[data-info-target]'));
+  const infoPanelCloseButtons = Array.from(document.querySelectorAll('[data-info-close]'));
   const entryLoginButton = document.getElementById('authEntryLoginButton');
   const entryRegisterButton = document.getElementById('authEntryRegisterButton');
   const goCreateButton = document.getElementById('authGoCreateButton');
   const backToEntryFromLogin = document.getElementById('authBackToEntryFromLogin');
   const backToEntryButton = document.getElementById('authBackToEntry');
   const shareWhatsappButton = document.getElementById('authShareWhatsappButton');
+  const generateButton = document.getElementById('authGenerateButton');
   // חלק זרימת אימייל (auth.js) – שליטה ברכיבי בקשת המפתח
   const sendEmailButton = document.getElementById('authSendEmailButton');
   const emailInput = document.getElementById('authEmailInput');
   const flowEmailStep = document.getElementById('authFlowEmailStep');
   const flowProfileStep = document.getElementById('authFlowProfileStep');
   const flowKeyStep = document.getElementById('authFlowKeyStep');
-  // חלק פרטי פרופיל (auth.js) – קלטים אופציונליים לשם ותמונה
+  // חלק פרטי פרופיל (auth.js) – רכיבים רלוונטיים לזרימה מצומצמת
   const profileNameInput = document.getElementById('authProfileNameInput');
   const profileBackButton = document.getElementById('authProfileBackButton');
   const profileNextButton = document.getElementById('authProfileNextButton');
@@ -102,9 +106,37 @@
     headerMenuToggle.setAttribute('aria-expanded', String(isOpen));
   }
 
+  function hideAllInfoPanels() {
+    if (!infoPanelsContainer) {
+      return;
+    }
+    const panels = Array.from(infoPanelsContainer.querySelectorAll('.auth-info-panel'));
+    panels.forEach((panel) => {
+      panel.hidden = true;
+      panel.classList.remove('is-active');
+    });
+  }
+
+  function openInfoPanel(panelId) {
+    if (!panelId) {
+      return;
+    }
+    const target = document.getElementById(panelId);
+    if (!target) {
+      return;
+    }
+    hideAllInfoPanels();
+    target.hidden = false;
+    target.classList.add('is-active');
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   function isProfileReady() {
     const nameValid = Boolean((profileNameInput?.value || '').trim());
     const hasAvatar = Boolean(uploadedAvatarDataUrl);
+    if (!profileNameInput && !avatarDropZone) {
+      return true;
+    }
     return nameValid && hasAvatar;
   }
 
@@ -170,7 +202,7 @@
         createTextarea.value = displayValue;
       }
       validateCreateInput();
-      setCreateStatus('המפתח נוצר עבורך. שמור אותו היטב ואשר את התיבה כדי להמשיך.');
+      setCreateStatus('הקוד האישי שלכם מוכן. שמרו אותו ואשרו את התיבה כדי להמשיך.');
     } catch (err) {
       console.error('Profile step failed', err);
       setCreateStatus(err?.message || 'שגיאה בהמשך התהליך. נסו שוב לאחר רענון.', 'error');
@@ -372,14 +404,19 @@
     if (copyCreateButton) copyCreateButton.disabled = true;
     if (downloadCreateButton) downloadCreateButton.disabled = true;
     if (shareWhatsappButton) shareWhatsappButton.disabled = true;
+    if (generateButton) generateButton.disabled = false;
     setCreateStatus('');
     ensureAvatarPlaceholder();
     updateProfileNextState();
   }
 
   function switchToProfileStep() {
+    if (!flowProfileStep) {
+      switchToKeyStep();
+      return;
+    }
     if (flowEmailStep) flowEmailStep.hidden = true;
-    if (flowProfileStep) flowProfileStep.hidden = false;
+    flowProfileStep.hidden = false;
     if (profileNameInput) {
       profileNameInput.focus();
     }
@@ -388,6 +425,8 @@
   }
 
   function switchToKeyStep() {
+    // שלב קוד מחליף את המסך – אין גלילה: מחביאים אימייל ופרופיל (אם יש) ומציגים רק את הקוד
+    if (flowEmailStep) flowEmailStep.hidden = true;
     if (flowProfileStep) flowProfileStep.hidden = true;
     if (flowKeyStep) flowKeyStep.hidden = false;
     if (createTextarea) {
@@ -422,8 +461,13 @@
   }
 
   function switchBackToProfileStep() {
+    // כפתור חזרה חכם: אם אין שלב פרופיל, חוזרים ישירות למסך אימייל, אחרת חוזרים לפרופיל
+    if (!flowProfileStep) {
+      switchBackToEmailStep();
+      return;
+    }
     if (flowKeyStep) flowKeyStep.hidden = true;
-    if (flowProfileStep) flowProfileStep.hidden = false;
+    flowProfileStep.hidden = false;
     preparedPrivateKey = '';
     if (createTextarea) createTextarea.value = '';
     if (createConfirm) {
@@ -435,7 +479,7 @@
     if (shareWhatsappButton) shareWhatsappButton.disabled = true;
     ensureAvatarPlaceholder();
     updateProfileNextState();
-    setCreateStatus('ניתן לעדכן את שם הפרופיל או התמונה לפני שמירת המפתח.');
+    setCreateStatus('רוצים לשנות את הפרטים לפני שמירת הקוד? אפשר לחזור שלב אחד אחורה.');
   }
 
   function ensureRegistryPool() {
@@ -614,17 +658,19 @@
       const emailHash = await computeEmailHash(email);
       const alreadyUsed = await isEmailHashRegistered(emailHash);
       if (alreadyUsed) {
-        setCreateStatus('כתובת האימייל הזו כבר קיבלה מפתח ואינה יכולה לפתוח חדש.', 'error');
+        setCreateStatus('הכתובת הזו כבר קיבלה קוד בעבר. נסו להשתמש בו או צרו קשר עם התמיכה לקבלת סיוע.', 'error');
         if (sendEmailButton) sendEmailButton.disabled = false;
         if (emailInput) emailInput.disabled = false;
         return;
       }
       emailHashForRegistry = emailHash;
       switchToProfileStep();
-      setCreateStatus('המשיכו לשלב הפרופיל כדי להשלים את ההרשמה.');
+      if (flowProfileStep) {
+        setCreateStatus('המשיכו לשלב הפרופיל כדי להשלים את ההרשמה.');
+      }
     } catch (err) {
       console.error('Email-based key generation failed', err);
-      setCreateStatus(err.message || 'יצירת המפתח נכשלה. נסו שוב או רעננו את הדף.', 'error');
+      setCreateStatus('משהו לא עבד בשליחה. נסו שוב בעוד רגע או רעננו את הדף.', 'error');
       if (sendEmailButton) sendEmailButton.disabled = false;
       if (emailInput) emailInput.disabled = false;
       resetCreateFlow();
@@ -647,9 +693,9 @@
     if (!normalized) {
       preparedPrivateKey = '';
       if (rawValue.trim()) {
-        setCreateStatus('לא זוהה מפתח פרטי תקין. ודאו שהעתקתם את כל התווים.', 'error');
+        setCreateStatus('לא זוהה קוד תקין. ודאו שהעתקתם את הכול במדויק.', 'error');
       } else {
-        setCreateStatus('לחצו "קבלת מפתח ייחודי" כדי להפיק מפתח לרשת.');
+        setCreateStatus('לחצו "קבלו את הקוד שלי" כדי להציג אותו כאן.');
       }
       if (continueButton) continueButton.disabled = true;
       return;
@@ -670,7 +716,7 @@
     if (copyCreateButton) copyCreateButton.disabled = false;
     if (downloadCreateButton) downloadCreateButton.disabled = false;
     if (shareWhatsappButton) shareWhatsappButton.disabled = false;
-    setCreateStatus('המפתח אומת. ודאו ששמרתם אותו ואשרו את התיבה כדי להמשיך.');
+    setCreateStatus('הקוד אומת. שמרו אותו ואשרו ששמרתם כדי להמשיך.');
     if (continueButton) {
       continueButton.disabled = !canContinue();
     }
@@ -679,17 +725,17 @@
   async function copyCreateKey() {
     try {
       await navigator.clipboard.writeText(createTextarea.value);
-      setCreateStatus('המפתח הועתק ללוח הזיכרון.');
+      setCreateStatus('הקוד הועתק ללוח הזיכרון.');
     } catch (err) {
       console.error('Copy create key failed', err);
-      setCreateStatus('נכשלה ההעתקה ללוח.', 'error');
+      setCreateStatus('לא הצלחתי להעתיק ללוח. נסו שוב או העתיקו ידנית.', 'error');
     }
   }
 
   function downloadCreateKey() {
     const value = createTextarea.value.trim();
     if (!value) {
-      setCreateStatus('אין מפתח לשמור.', 'error');
+      setCreateStatus('אין קוד לשמור.', 'error');
       return;
     }
     const blob = new Blob([value], { type: 'text/plain;charset=utf-8' });
@@ -701,7 +747,7 @@
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
-    setCreateStatus('קובץ הגיבוי נשמר.');
+    setCreateStatus('קובץ הגיבוי נשמר אצלכם.');
   }
 
   function canContinue() {
@@ -710,7 +756,7 @@
 
   function handleContinue() {
     if (!canContinue()) {
-      setCreateStatus('יש לשמור את המפתח ולאשר שסימנת זאת.', 'error');
+      setCreateStatus('יש לשמור את הקוד ולאשר שסימנתם זאת.', 'error');
       return;
     }
     try {
@@ -737,13 +783,13 @@
       App.profile = nextProfile;
       window.localStorage.setItem('nostr_profile', JSON.stringify(nextProfile));
 
-      setCreateStatus('נכנסים לרשת...');
+      setCreateStatus('מתחברים לרשת...');
       setTimeout(() => {
         window.location.replace('index.html');
       }, 350);
     } catch (err) {
       console.error('Handle continue failed', err);
-      setCreateStatus('שגיאה בהשלמת ההרשמה. נסו שוב לאחר רענון.', 'error');
+      setCreateStatus('לא הצלחנו להשלים את הכניסה. נסו שוב לאחר רענון.', 'error');
     }
   }
 
@@ -753,13 +799,51 @@
     }
     const value = createTextarea.value.trim();
     if (!value) {
-      setCreateStatus('אין מפתח לשלוח.', 'error');
+      setCreateStatus('אין קוד לשלוח.', 'error');
       return;
     }
-    const message = encodeURIComponent(`המפתח הפרטי שלי ליאלה תקשורת:\n${value}`);
+    const message = encodeURIComponent(`הקוד האישי שלי ל-SphereOne Social:\n${value}`);
     const url = `https://wa.me/?text=${message}`;
     window.open(url, '_blank', 'noopener');
-    setCreateStatus('פתחתי עבורך וואטסאפ לשיתוף המפתח.');
+    setCreateStatus('פתחתי עבורך וואטסאפ לשיתוף הקוד.');
+  }
+
+  async function handleGenerateKey(event) {
+    // חלק יצירת מפתח (auth.js) – מפיק מפתח חדש ומכין את הממשק לשמירה ושיתוף
+    if (event) {
+      event.preventDefault();
+    }
+    if (!createTextarea) {
+      setCreateStatus('לא נמצא שדה להצגת המפתח החדש.', 'error');
+      return;
+    }
+
+    try {
+      if (generateButton) {
+        generateButton.disabled = true;
+      }
+
+      const privateKeyHex = generatePrivateKeyHex();
+      const displayValue = encodeKeyForDisplay(privateKeyHex);
+
+      preparedPrivateKey = privateKeyHex;
+      createTextarea.readOnly = true;
+      createTextarea.value = displayValue;
+
+      validateCreateInput();
+      setCreateStatus('המפתח נוצר בהצלחה. שמרו אותו ואשרו את התיבה להמשך.');
+      if (continueButton) {
+        continueButton.disabled = !canContinue();
+      }
+    } catch (err) {
+      console.error('Generate key failed', err);
+      preparedPrivateKey = '';
+      setCreateStatus(err?.message || 'יצירת המפתח נכשלה. נסו שוב.', 'error');
+    } finally {
+      if (generateButton) {
+        generateButton.disabled = false;
+      }
+    }
   }
 
   function decodeImportValue() {
@@ -786,7 +870,7 @@
       if (typeof App.ensureKeys === 'function') {
         App.ensureKeys();
       }
-      setImportStatus('המפתח נטען בהצלחה. מעבירים ללוח הראשי...');
+      setImportStatus('הקוד אומת. מעבירים אתכם ללוח הראשי...');
       setTimeout(() => window.location.replace('index.html'), 600);
     } catch (err) {
       console.error('Import failed', err);
@@ -873,7 +957,6 @@
     });
   }
 
-
   wireAvatarDropZone();
   ensureAvatarPlaceholder();
   updateProfileNextState();
@@ -907,6 +990,27 @@
   if (shareWhatsappButton) {
     shareWhatsappButton.addEventListener('click', shareWhatsapp);
   }
+
+  if (generateButton) {
+    generateButton.addEventListener('click', handleGenerateKey);
+  }
+
+  infoPanelButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetId = button.getAttribute('data-info-target');
+      openInfoPanel(targetId);
+      toggleHeaderNav(false);
+    });
+  });
+
+  infoPanelCloseButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      hideAllInfoPanels();
+      if (entryPanel) {
+        entryPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  });
 
   if (createConfirm) {
     createConfirm.addEventListener('change', () => {

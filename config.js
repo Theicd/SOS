@@ -59,6 +59,9 @@
   App.MAX_INLINE_PICTURE_LENGTH = 150000;
   App.MAX_METADATA_CONTENT_LENGTH = 60000;
   App.MAX_INLINE_MEDIA_LENGTH = 150000;
+  // חלק קונפיגורציה (config.js) – מגבלת אורך טקסט בלבד (ללא מדיה) עבור compose
+  // מאפשר למדיה איכותית (Data URL) להיות ארוכה בלי לחסום פרסום
+  App.MAX_TEXT_CONTENT_LENGTH = Number(window.localStorage.getItem('nostr_max_text_length')) || 8000;
   // חלק קונפיגורציה (config.js) – ברירת מחדל: לא מפרסמים מטא-דאטה עד שהמשתמש יעדכן פרופיל
   App.metadataPublishQueued = false;
   App.profile = profile;
