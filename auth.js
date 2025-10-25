@@ -10,6 +10,7 @@
   const infoPanelsContainer = document.getElementById('authInfoPanels');
   const infoPanelButtons = Array.from(document.querySelectorAll('[data-info-target]'));
   const infoPanelCloseButtons = Array.from(document.querySelectorAll('[data-info-close]'));
+  const promoOverlay = document.getElementById('authPromo');
   const entryLoginButton = document.getElementById('authEntryLoginButton');
   const entryRegisterButton = document.getElementById('authEntryRegisterButton');
   const goCreateButton = document.getElementById('authGoCreateButton');
@@ -128,7 +129,23 @@
     hideAllInfoPanels();
     target.hidden = false;
     target.classList.add('is-active');
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // שכבת פרומו – מציגה מסרים קצרים בעת עליית הדף וכבה בעדינות
+  function runPromoOverlay() {
+    if (!promoOverlay) {
+      return;
+    }
+    // הצגה
+    promoOverlay.hidden = false;
+    // העלמה אחרי ~1.6ש׳, עם דהייה 350ms
+    setTimeout(() => {
+      promoOverlay.classList.add('is-fade');
+      setTimeout(() => {
+        promoOverlay.hidden = true;
+        promoOverlay.classList.remove('is-fade');
+      }, 380);
+    }, 1600);
   }
 
   function isProfileReady() {
@@ -1037,6 +1054,9 @@
     });
     toggleHeaderNav(window.innerWidth > 560);
   }
+
+  // הפעלת פרומו קצר בעת טעינת הדף (ללא פגיעה בתהליך)
+  runPromoOverlay();
 
   showPanel('entry');
   resetCreateFlow();

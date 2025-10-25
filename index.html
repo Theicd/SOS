@@ -126,14 +126,9 @@
                 <!-- חלק ניווט לפרופיל האישי (index.html) – כפתור יחיד במקום עריכה/מחיקה בדף הבית -->
                 <button class="link-button" type="button" onclick="window.location.href='./profile.html'">הפרופיל שלי</button>
             </div>
-            <div class="composer-body">
-                <button class="composer-trigger" onclick="openCompose()">מה בא לך לשתף?</button>
-                <button class="composer-media" type="button" onclick="document.getElementById('composeMediaInput').click()">
-                    <i class="fa-regular fa-image"></i>
-                    <span>תמונה/וידאו</span>
-                </button>
-                <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
-            </div>
+          <div class="composer-body">
+            <button class="composer-trigger" onclick="openCompose()">מה בא לך לשתף?</button>
+          </div>
         </section>
         <div class="notifications-panel" id="notificationsPanel" hidden>
             <header class="notifications-panel__header">
@@ -269,10 +264,18 @@
                 </div>
             </div>
             <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
-            <div id="composeMediaPreview" class="compose-media-preview">
-                <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
-                <video id="composeMediaPreviewVideo" controls playsinline></video>
-            </div>
+          <!-- חלק חלון יצירת פוסט (index.html) – כפתור להוספת תמונה/וידאו מתוך החלון -->
+          <div class="compose-dialog__toolbar">
+            <button class="button-secondary" type="button" onclick="document.getElementById('composeMediaInput').click()">
+              <i class="fa-regular fa-image"></i>
+              <span>הוסף תמונה/וידאו</span>
+            </button>
+            <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
+          </div>
+          <div id="composeMediaPreview" class="compose-media-preview">
+            <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
+            <video id="composeMediaPreviewVideo" controls playsinline></video>
+          </div>
             <div id="composeStatus" class="p2p-status"></div>
             <div class="compose-dialog__actions">
                 <button class="button-secondary" onclick="closeCompose()">ביטול</button>

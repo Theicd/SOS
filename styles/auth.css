@@ -11,12 +11,17 @@
   --shadow: 0 18px 40px rgba(6, 12, 24, 0.48);
   --danger: #ff5f7a;
   --success: #38c67d;
-  --footer-bg: rgba(18, 22, 32, 0.92);
 }
 /* חלק פריסת בסיס (auth.css) – מבטיח בסיס מאוחד לכל האלמנטים */ * { box-sizing: border-box; }
 body.auth-body { margin: 0; min-height: 100vh; color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; direction: rtl; display: flex; flex-direction: column; align-items: stretch; gap: 24px; padding: 28px 16px 36px; }
 .auth-background-video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; filter: brightness(1.18) contrast(1.05); }
 .auth-body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(circle at top, rgba(27, 34, 49, 0.6) 0%, rgba(9, 12, 20, 0.7) 62%, rgba(5, 6, 11, 0.74) 100%); z-index: -1; }
+/* שכבת פרומו (auth.css) – מסרים קצרים בעת עליית הדף | HYPER CORE TECH */
+.auth-promo { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(8, 12, 20, 0.86); backdrop-filter: blur(8px); z-index: 20; opacity: 1; transition: opacity .35s ease; }
+.auth-promo[hidden] { display: none !important; }
+.auth-promo.is-fade { opacity: 0; pointer-events: none; }
+.auth-promo__lines { display: flex; flex-direction: column; gap: 8px; text-align: center; }
+.auth-promo__line { margin: 0; font-weight: 800; font-size: clamp(1rem, 2vw, 1.2rem); color: #eaf2ff; }
 /* הדגשה והבהוב לאותיות SOS בשם הרשת */
 .sos-morse { font-weight: 900; color: #e53935; text-shadow: 0 0 4px #ffbdbd; transition: filter 0.1s; }
 .sos-morse-s, .sos-morse-o { animation: sos-morse-blink 1.4s infinite; }
@@ -32,32 +37,57 @@ body.auth-body { margin: 0; min-height: 100vh; color: var(--text); font-family: 
 /* חלק HEADER עליון (auth.css) – לוגו SphereOne וקישורי מידע */ .site-header { width: 100%; max-width: 920px; margin: 0 auto; background: rgba(12, 16, 26, 0.92); border: 1px solid rgba(74, 118, 198, 0.35); border-radius: 16px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 18px 42px rgba(10, 18, 36, 0.45); backdrop-filter: blur(18px); position: sticky; top: 10px; z-index: 5; }
 
 .site-header__brand { display: flex; align-items: center; gap: 16px; }
-.site-header__logo { width: 58px; height: 58px; }
 
 .site-header__title-group { display: flex; flex-direction: column; gap: 4px; }
 /* חלק תפריט מובייל (auth.css) – כפתור המבורגר וסידור קישורים */
 .site-header__menu-toggle { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px; border: 1px solid rgba(74, 118, 198, 0.35); background: rgba(18, 24, 38, 0.9); color: rgba(205, 217, 246, 0.92); cursor: pointer; transition: background-color 0.2s ease, border-color 0.2s ease; }
 .site-header__menu-toggle:hover,
 .site-header__menu-toggle:focus-visible { background: rgba(74, 118, 198, 0.25); border-color: rgba(102, 146, 226, 0.55); outline: none; }
-.site-header__menu-toggle i { font-size: 1.1rem; }
 .site-header__brand-name { font-weight: 800; font-size: 1.05rem; }
 .site-header__tagline { font-size: 0.8rem; color: var(--muted); }
 .site-header__nav { display: flex; align-items: center; gap: 10px; }
 
-.site-header__nav-link { color: rgba(188, 206, 240, 0.9); font-weight: 600; font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: 10px; transition: background-color 0.2s ease, color 0.2s ease; }
+.site-header__nav-link {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid rgba(74, 118, 198, 0.35);
+  background: rgba(12, 16, 26, 0.6);
+  color: rgba(188, 206, 240, 0.92);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
 
 .site-header__nav-link:hover,
 .site-header__nav-link:focus-visible {
   background: rgba(72, 116, 220, 0.18);
   color: #d9e7ff;
+  border-color: rgba(102, 146, 226, 0.55);
   outline: none;
 }
-/* חלק HERO מרכזי (auth.css) – הוסתר לקבלת דף קומפקטי יותר */ .auth-hero { display: none; }
+/* חלק HERO מרכזי (auth.css) – מוצג ומזוקק לעיצוב פרימיום */
+.auth-hero { display: block; width: 100%; max-width: 920px; margin: 0 auto; text-align: center; }
 
- .auth-hero__title { margin: 0; font-size: clamp(1.25rem, 2.6vw, 1.6rem); font-weight: 800; background: linear-gradient(120deg, #ffffff 0%, #8ec5ff 48%, #3a8bff 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; white-space: normal; }
-/* חלק HERO מרכזי (auth.css) – כיתוב משני מצומצם */ .auth-hero__subtitle { display: none; }
+.auth-hero__title { margin: 0; font-size: clamp(1.25rem, 2.2vw, 1.5rem); font-weight: 800; background: linear-gradient(120deg, #ffffff 0%, #8ec5ff 48%, #3a8bff 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; white-space: normal; }
+/* חלק HERO מרכזי (auth.css) – כיתוב משני עדין */
+.auth-hero__subtitle { display: block; margin: 6px 0 0; font-size: 0.95rem; color: rgba(202, 214, 240, 0.82); }
 /* חלק מעטפת מרכזית (auth.css) – סידור הכרטיסים האנכיים */ .auth-layout { width: 100%; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; flex: 1; }
 /* חלק כרטיס כללי (auth.css) – עיצוב אחיד לפאנלים */ .auth-card { position: relative; border-radius: 16px; background: linear-gradient(180deg, var(--card-top) 0%, var(--card-base) 45%, #0f1420 100%); border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow); opacity: 0; transform: translateY(12px); transition: opacity 0.25s ease, transform 0.25s ease; }
+/* כרטיס סטטיסטיקות (auth.css) – מציג נתונים בקצרה עם גרף ספירקליין */
+.auth-stats .stats { display: flex; flex-direction: column; gap: 10px; }
+.auth-stats .stats__row { display: flex; gap: 10px; }
+.auth-stats .stats__item { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: rgba(16, 22, 32, 0.9); border: 1px solid rgba(74, 110, 174, 0.35); }
+.auth-stats .stats__label { font-size: 0.85rem; color: var(--muted); }
+.auth-stats .stats__value { font-weight: 800; color: #e9f1ff; }
+.auth-stats .stats__value--up { color: var(--success); }
+.auth-stats .sparkline { width: 100%; height: 32px; }
 
 .auth-card.is-active,
 .auth-entry.is-active,
@@ -73,7 +103,7 @@ body.auth-body { margin: 0; min-height: 100vh; color: var(--text); font-family: 
 }
 
 .auth-card > * { position: relative; z-index: 1; }
-/* חלק התאמות לטופס התחברות קיים (auth.css) – מצמצם נפח ויזואלי */ .auth-card--import { padding: 20px 22px; gap: 16px; border-radius: 18px; }
+/* חלק התאמות לטופס התחברות קיים (auth.css) – מצמצם נפח ויזואלי */
 /* חלק התאמות לטופס יצירה (auth.css) – פריסה קומפקטית */ .auth-card--create { padding: 16px; gap: 12px; border-radius: 16px; }
 .auth-card--import { padding: 16px; gap: 12px; border-radius: 16px; }
 /* חלק התאמות לטופס יצירה (auth.css) – כותרת קומפקטית */ .auth-card--create .auth-card__title { font-size: 1.05rem; margin: 0; }
@@ -113,8 +143,13 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
 .auth-entry__title { margin: 0; font-size: 1.4rem; font-weight: 700; }
 .auth-entry__subtitle { margin: 0; font-size: 0.98rem; color: var(--muted); }
 .auth-entry__actions { display: flex; flex-direction: column; gap: 16px; width: 100%; }
-.auth-entry__action { width: 100%; }
-/* חלק כפתורי חזרה (auth.css) – מעבר קל בין המסכים */ .auth-card__back { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; border: none; background: none; color: rgba(166, 192, 255, 0.9); font-weight: 600; font-size: 0.92rem; cursor: pointer; padding: 4px 0; transition: color 0.2s ease; }
+/* פריסת כניסה קומפקטית (auth.css) – כפתורים קטנים ושורה אחת בדסקטופ */
+.auth-entry--compact .auth-entry__actions { flex-direction: row; justify-content: center; gap: 10px; }
+.auth-entry--compact .button-primary,
+ .auth-entry--compact .button-secondary { width: auto; min-width: 0; padding: 10px 14px; font-size: 0.92rem; border-radius: 12px; }
+ .auth-key-stage__continue { width: 100%; }
+ /* חלק טקסט קומפקטי (auth.css) – גרסה מצומצמת לרמז */ .auth-flow__hint--compact { line-height: 1.6; margin: 0; }
+  /* חלק כפתורי חזרה (auth.css) – מעבר קל בין המסכים */ .auth-card__back { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; border: none; background: none; color: rgba(166, 192, 255, 0.9); font-weight: 600; font-size: 0.92rem; cursor: pointer; padding: 4px 0; transition: color 0.2s ease; }
 
 .auth-card__back:hover,
 .auth-card__back:focus-visible { color: #d7e3ff; outline: none; }
@@ -179,16 +214,6 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
 .auth-flow__step--key .auth-actions--back { align-self: flex-end; width: 100%; }
 .auth-flow__step--key .auth-actions--back .button-secondary { width: auto; min-width: 0; }
 
-/* חלק העלאת תמונה (auth.css) – גרירת קבצים ובחירת תמונה */
-.auth-profile-media { display: flex; flex-direction: column; gap: 18px; }
-.auth-drop-zone { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; border: 1px dashed rgba(90, 132, 210, 0.55); background: rgba(15, 20, 32, 0.85); border-radius: 16px; padding: 24px; cursor: pointer; transition: border-color 0.25s ease, background-color 0.25s ease; }
-.auth-drop-zone:focus-visible { outline: none; border-color: rgba(96, 160, 255, 0.85); box-shadow: 0 0 0 2px rgba(96, 160, 255, 0.32); }
-.auth-drop-zone.is-dragging { border-color: rgba(123, 188, 255, 0.95); background: rgba(12, 52, 102, 0.58); }
-.auth-drop-zone__placeholder { display: flex; flex-direction: column; align-items: center; gap: 10px; color: rgba(188, 205, 235, 0.78); font-size: 0.92rem; text-align: center; }
-.auth-drop-zone__placeholder i { font-size: 1.5rem; color: rgba(144, 182, 255, 0.9); }
-.auth-drop-zone__preview { max-width: 100%; max-height: 180px; border-radius: 12px; border: 1px solid rgba(104, 140, 216, 0.45); object-fit: cover; box-shadow: 0 12px 28px rgba(12, 20, 36, 0.45); }
-.auth-field--url { position: relative; }
-.auth-field--url .auth-field__hint { margin-top: 0; }
 /* חלק כפתורי פעולה (auth.css) – פעולות כניסה והרשמה */ .auth-actions { display: flex; flex-direction: column; gap: 14px; }
 .auth-actions--stack { gap: 14px; }
 /* חלק פעולות עיקריות (auth.css) – כפתור יצירת מפתח */ .auth-actions--primary { gap: 0; }
@@ -278,33 +303,11 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
 .auth-checkbox input[type='checkbox'] { margin-top: 4px; }
 /* חלק הודעות סטטוס (auth.css) – משוב על פעולות משתמש */ .auth-status { min-height: 20px; font-size: 0.85rem; color: rgba(186, 197, 217, 0.72); text-align: center; }
 .auth-status.is-error { color: var(--danger); }
-/* חלק FOOTER תחתון (auth.css) – קישורים משפטיים ותמיכה */ .site-footer {
-  width: 100%;
-  max-width: 920px;
-  margin: auto auto 0;
-  background: var(--footer-bg);
-  border: 1px solid rgba(74, 110, 172, 0.28);
-  border-radius: 20px;
-  padding: 18px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  color: rgba(182, 195, 223, 0.82);
-  font-size: 0.92rem;
-}
-
-.site-footer__links { display: flex; align-items: center; gap: 18px; }
-.site-footer__links a { color: rgba(194, 206, 232, 0.86); text-decoration: none; font-weight: 600; transition: color 0.2s ease; }
-.site-footer__links a:hover,
-.site-footer__links a:focus-visible { color: #e5ecff; outline: none; }
-.site-footer__meta { display: flex; align-items: center; gap: 12px; }
+/* חסכון שורות: site-footer הועבר ל-styles/marketing.css */
 
 /* חלק רספונסיבי (auth.css) – התאמות למסכים בינוניים */ @media (max-width: 900px) {
   .site-header { flex-direction: column; align-items: flex-start; gap: 24px; }
   .site-header__nav { width: 100%; justify-content: space-between; flex-wrap: wrap; }
-  .site-footer { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .site-footer__links { flex-wrap: wrap; }
 }
 /* חלק רספונסיבי (auth.css) – התאמות למסכים קטנים וניידים */ @media (max-width: 560px) {
   body.auth-body { gap: 24px; padding: 24px 12px 32px; }
@@ -318,7 +321,10 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
   .auth-hero__title { font-size: 1.55rem; }
   .auth-card { padding: 20px; border-radius: 18px; }
   .auth-entry__actions { gap: 12px; }
+  /* כניסה קומפקטית – מובייל חוזר לעמודה ורוחב מלא */
+  .auth-entry--compact .auth-entry__actions { flex-direction: column; }
+  .auth-entry--compact .button-primary,
+  .auth-entry--compact .button-secondary { width: 100%; }
   .auth-card__icon { width: 40px; height: 40px; border-radius: 12px; }
   .auth-textarea { min-height: 96px; }
-  .site-footer { padding: 16px; border-radius: 18px; }
 }

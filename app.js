@@ -85,11 +85,23 @@
   }
 
   window.openCompose = function openCompose() {
-    document.getElementById('composeModal').style.display = 'flex';
+    // חלק קומפוזר (app.js) – מפנה לפונקציית המודאל המרכזית ב-compose.js כדי למנוע מצבי תצוגה כפולים
+    if (typeof App.openCompose === 'function') {
+      App.openCompose();
+      return;
+    }
+    const m = document.getElementById('composeModal');
+    if (m) m.style.display = 'flex';
   };
 
   window.closeCompose = function closeCompose() {
-    document.getElementById('composeModal').style.display = 'none';
+    // חלק קומפוזר (app.js) – מפנה לפונקציית הסגירה המרכזית ב-compose.js
+    if (typeof App.closeCompose === 'function') {
+      App.closeCompose();
+      return;
+    }
+    const m = document.getElementById('composeModal');
+    if (m) m.style.display = 'none';
   };
 
   window.publishPost = App.publishPost || (() => {});

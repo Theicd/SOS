@@ -23,6 +23,14 @@
     <video class="auth-background-video" autoplay muted loop playsinline>
       <source src="https://cdn.pixabay.com/video/2019/04/27/23088-333074579_large.mp4" type="video/mp4" />
     </video>
+    <!-- שכבת פרומו קצרה (auth.html) – מציגה מסרים קצרים בעת עליית הדף | HYPER CORE TECH -->
+    <section class="auth-promo" id="authPromo" aria-live="polite" hidden>
+      <div class="auth-promo__lines">
+        <p class="auth-promo__line">רשת חברתית חיה – בלי שרת מרכזי</p>
+        <p class="auth-promo__line">AI מקומי לשמירה על סביבה נקייה ובטוחה</p>
+        <p class="auth-promo__line">SPEAR ONE – תשתית אינטרנט מבוזרת אמיתית</p>
+      </div>
+    </section>
     <!-- חלק HEADER עליון (auth.html) – מעטפת מותג SphereOne Social מותאמת לנייד ולדסקטופ -->
     <header class="site-header">
       <div class="site-header__brand" aria-label="SphereOne Social">
@@ -42,12 +50,11 @@
           <i class="fa-solid fa-bars"></i>
         </button>
       </div>
-      <!-- חלק תפריט מידע (auth.html) – הצגת דפי הסבר על הטכנולוגיה והמוצר -->
+      <!-- חלק תפריט מידע (auth.html) – תפריט פשוט וברור עם קישורים לעמודי הסבר -->
       <nav class="site-header__nav" id="siteHeaderNav" aria-label="תפריט מידע">
-        <button class="site-header__nav-link" type="button" data-info-target="authInfoTechnologyPanel">הטכנולוגיה</button>
-        <button class="site-header__nav-link" type="button" data-info-target="authInfoNetworkPanel">הרשת החברתית</button>
-        <button class="site-header__nav-link" type="button" data-info-target="authInfoOnboardingPanel">איך מתחברים</button>
-        <button class="site-header__nav-link" type="button" data-info-target="authInfoCreditsPanel">מסלולי פרימיום</button>
+        <a class="site-header__nav-link" href="./tech.html">מה זה SPEAR ONE?</a>
+        <a class="site-header__nav-link" href="./valuation.html">מסמך שווי</a>
+        <a class="site-header__nav-link" href="./tech.html#techContract">חוזה שותפים</a>
       </nav>
     </header>
 
@@ -60,7 +67,7 @@
     <!-- חלק מעטפת מרכזית (auth.html) – שלבי בחירה, התחברות והרשמה -->
     <main class="auth-layout">
       <!-- כרטיס הזמנה לפעולה – בחירת התחברות או יצירה -->
-      <section class="auth-card auth-entry" id="authEntryPanel" aria-live="polite">
+      <section class="auth-card auth-entry auth-entry--compact" id="authEntryPanel" aria-live="polite">
         <h2 class="auth-entry__title">ברוכים הבאים ל-SphereOne Social</h2>
         <p class="auth-entry__subtitle">הקליקו כדי להיכנס או להצטרף. פשוט, מהיר ומרגיש כמו בית</p>
         <div class="auth-entry__actions">
@@ -72,6 +79,28 @@
             <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
             יצירת חשבון חדש
           </button>
+        </div>
+      </section>
+
+      <!-- כרטיס סטטיסטיקות קטן (auth.html) – מציג מדדים קצרים וגרף ספירקליין | HYPER CORE TECH -->
+      <section class="auth-card auth-stats" id="authStatsCard" aria-live="polite">
+        <header class="auth-card__header">
+          <div class="auth-card__title-row">
+            <span class="auth-card__icon" aria-hidden="true"><i class="fa-solid fa-signal"></i></span>
+            <div class="auth-card__title-wrap">
+              <h3 class="auth-card__title">מצב הרשת</h3>
+              <p class="auth-card__subtitle">דמו חי – נתונים מעודכנים מדגמיים</p>
+            </div>
+          </div>
+        </header>
+        <div class="stats">
+          <div class="stats__row">
+            <div class="stats__item"><span class="stats__label">משתמשים פעילים</span><span class="stats__value">1,842</span></div>
+            <div class="stats__item"><span class="stats__label">גידול שבועי</span><span class="stats__value stats__value--up">+12%</span></div>
+          </div>
+          <svg class="sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
+            <polyline fill="none" stroke="#8ec5ff" stroke-width="2" points="0,22 12,20 24,21 36,18 48,16 60,14 72,12 84,13 96,9 108,8 120,6" />
+          </svg>
         </div>
       </section>
 
@@ -230,76 +259,7 @@
       </section>
     </main>
 
-    <!-- חלק דפי מידע (auth.html) – תוכן מפורט לכל כפתור בתפריט העליון -->
-    <section class="auth-layout" id="authInfoPanels">
-      <article class="auth-card auth-info-panel" id="authInfoTechnologyPanel" hidden>
-        <header class="auth-card__header">
-          <div class="auth-card__title-row">
-            <span class="auth-card__icon" aria-hidden="true">
-              <i class="fa-solid fa-microchip"></i>
-            </span>
-            <div class="auth-card__title-wrap">
-              <h2 class="auth-card__title">SPEAR ONE – מנוע הטכנולוגיה</h2>
-              <p class="auth-card__subtitle">שרת סטטי שמדגים איך רשת חברתית יכולה לפעול מבוזר, מהר ובטוח</p>
-            </div>
-          </div>
-        </header>
-        <p class="auth-flow__hint">אנו משתמשים בפרוטוקול Nostr לניהול שיחות ותוכן ללא נקודת כשל מרכזית. שכבת SPEAR ONE מחברת בין הרשת, תשלומים, ויכולות חוזה חכם כדי להציע חוויית משתמש חלקה – גם בארגונים שרוצים להפעיל את המערכת בעצמם.</p>
-        <button class="button-secondary" type="button" data-info-close>הבנתי, חזרה למסך הראשי</button>
-      </article>
-
-      <article class="auth-card auth-info-panel" id="authInfoNetworkPanel" hidden>
-        <header class="auth-card__header">
-          <div class="auth-card__title-row">
-            <span class="auth-card__icon" aria-hidden="true">
-              <i class="fa-solid fa-people-group"></i>
-            </span>
-            <div class="auth-card__title-wrap">
-              <h2 class="auth-card__title">SphereOne Social – הדגמה חיה</h2>
-              <p class="auth-card__subtitle">קהילה אחת שמראה מה אפשר לבנות עם SPEAR ONE בלחיצת כפתור</p>
-            </div>
-          </div>
-        </header>
-        <p class="auth-flow__hint">כל מה שאתם רואים כאן – פידים, הודעות, משחקים וחוזים חכמים – רץ על גבי אותו מנוע. אנחנו מציגים איך ניתן להרחיב את היכולות ולהקים קהילות חדשות עם המיתוג והתוכן שלכם.</p>
-        <button class="button-secondary" type="button" data-info-close>מעולה, סגרו את ההסבר</button>
-      </article>
-
-      <article class="auth-card auth-info-panel" id="authInfoOnboardingPanel" hidden>
-        <header class="auth-card__header">
-          <div class="auth-card__title-row">
-            <span class="auth-card__icon" aria-hidden="true">
-              <i class="fa-solid fa-person-walking"></i>
-            </span>
-            <div class="auth-card__title-wrap">
-              <h2 class="auth-card__title">שלושה צעדים ואתם בפנים</h2>
-              <p class="auth-card__subtitle">1. מזינים אימייל. 2. מקבלים קוד. 3. מאשרים ששמרתם – וזהו.</p>
-            </div>
-          </div>
-        </header>
-        <ul class="auth-flow__hint">
-          <li>לחיצה על "בדקו שהכתובת פנויה" מאמתת מול הרשת שלא השתמשו באימייל הזה בעבר. אם הוא תפוס – תקבלו התרעה ידידותית.</li>
-          <li>ברגע שהכתובת פנויה נציג מיד את הקוד האישי. אפשר להעתיק, להוריד או לשלוח לעצמכם בוואטסאפ.</li>
-          <li>אחרי שסימנתם ששמרתם את הקוד, לחיצה על "כניסה לרשת" לוקחת אתכם ישר לעמוד הראשי.</li>
-        </ul>
-        <button class="button-secondary" type="button" data-info-close>חזרה למסך הכניסה</button>
-      </article>
-
-      <article class="auth-card auth-info-panel" id="authInfoCreditsPanel" hidden>
-        <header class="auth-card__header">
-          <div class="auth-card__title-row">
-            <span class="auth-card__icon" aria-hidden="true">
-              <i class="fa-solid fa-gem"></i>
-            </span>
-            <div class="auth-card__title-wrap">
-              <h2 class="auth-card__title">מסלולי פרימיום וקרדיטים</h2>
-              <p class="auth-card__subtitle">המערכת מוכנה להרחבה – הטמעה בארגון, מיתוג פרטי וחיבור לשירותים משלימים</p>
-            </div>
-          </div>
-        </header>
-        <p class="auth-flow__hint">יחידות הערך של SPEAR ONE מאפשרות לכם לרכוש חבילות שימוש, להפעיל ריליים פרטיים ולהתרחב לקהילות חדשות. בדקת החוזה החכם באתר תמצאו סימולציות מלאות שמציגות את הפוטנציאל הכלכלי.</p>
-        <button class="button-secondary" type="button" data-info-close>מעולה, הבנתי</button>
-      </article>
-    </section>
+    
 
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
     <script src="./config.js"></script>

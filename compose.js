@@ -21,6 +21,7 @@
     media: null,
     // חלק קומפוזר – מצב עריכה: מזהה פוסט מקורי אם מדובר בעריכה ולא ביצירה חדשה
     editingOriginalId: null,
+    mediaInputBound: false,
   };
 
   App.composeState = state;
@@ -160,9 +161,27 @@
     }
   }
 
+  function ensureMediaInputBound() {
+    // חלק קומפוזר – מבטיח שמאזין change מחובר לקלט המדיה גם לאחר שינוי מיקום ב-DOM
+    const input = document.getElementById('composeMediaInput');
+    if (!input) return;
+    elements.mediaInput = input;
+    if (state.mediaInputBound) return;
+    input.addEventListener('change', (event) => {
+      handleMediaInput(event).catch((err) => {
+        console.error('Media handler error', err);
+        setStatus('שגיאה בטעינת הקובץ.', 'error');
+      });
+    });
+    state.mediaInputBound = true;
+  }
+
   function openCompose() {
     syncProfileDetails();
     resetStatus();
+    ensureMediaInputBound();
+    // חלק קומפוזר – ביטול מצבי תצוגה קודמים והבטחת הצגה עקבית
+    elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
     elements.modal.setAttribute('aria-hidden', 'false');
     if (elements.textarea) {
@@ -171,8 +190,10 @@
   }
 
   function closeCompose() {
+    // חלק קומפוזר – סגירה כפולה (class + style) כדי למנוע פתיחה מחדש בעקבות מצב ביניים
     elements.modal.classList.remove('is-visible');
     elements.modal.setAttribute('aria-hidden', 'true');
+    elements.modal.style.display = 'none';
   }
 
   function resetCompose() {
@@ -220,14 +241,7 @@
   }
 
   function initListeners() {
-    if (elements.mediaInput) {
-      elements.mediaInput.addEventListener('change', (event) => {
-        handleMediaInput(event).catch((err) => {
-          console.error('Media handler error', err);
-          setStatus('שגיאה בטעינת הקובץ.', 'error');
-        });
-      });
-    }
+    ensureMediaInputBound();
 
     if (elements.previewContainer) {
       elements.previewContainer.addEventListener('click', removeMedia);
