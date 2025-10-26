@@ -14,9 +14,9 @@
 
 /* פס כפתורים תחתון עם מימדי מגע נדיבים */
 .video-call-dialog__actions { display: flex; gap: 14px; align-items: center; }
-.vbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 56px; height: 56px; padding: 0 16px; border-radius: 999px; border: none; cursor: pointer; color: #fff; background: #2d88ff; box-shadow: 0 6px 20px rgba(0,0,0,.35); -webkit-tap-highlight-color: transparent; }
+.vbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 56px; height: 56px; padding: 0 16px; border-radius: 999px; border: none; cursor: pointer; color: #fff; background: #2d88ff; box-shadow: 0 6px 20px rgba(0,0,0,.35); -webkit-tap-highlight-color: transparent; transition: transform 0.1s; }
 .vbtn i { font-size: 20px; }
-.vbtn span { font-size: 14px; }
+.vbtn span { font-size: 13px; font-weight: 500; white-space: nowrap; }
 .vbtn--end { background: #ef4444; }
 .vbtn--accept { background: #22c55e; }
 .vbtn--mute, .vbtn--camera, .vbtn--flip { background: rgba(255,255,255,.14); }
@@ -25,18 +25,24 @@
 /* מובייל – מסך מלא, כפתורים גדולים במרכז התחתון */
 @media (max-width: 640px) {
   .video-call-dialog__content { width: 100vw; height: 100vh; border-radius: 0; }
-  .video-local { right: 12px; bottom: 96px; width: 120px; height: 80px; border-radius: 10px; }
-  .video-call-dialog__hud { padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); grid-template-columns: 1fr; gap: 10px; align-items: stretch; }
-  .video-call-dialog__actions { justify-content: center; gap: 16px; }
-  .vbtn { min-width: 60px; height: 60px; padding: 0 18px; }
-  .vbtn i { font-size: 22px; }
-  .video-call-dialog__name { font-size: 16px; }
+  .video-local { right: 12px; bottom: 140px; width: 100px; height: 140px; border-radius: 10px; }
+  .video-call-dialog__hud { padding: 16px 12px calc(20px + env(safe-area-inset-bottom)); grid-template-columns: 1fr; gap: 14px; align-items: stretch; }
+  .video-call-dialog__status { flex-direction: column; align-items: center; text-align: center; }
+  .video-call-dialog__actions { justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .vbtn { min-width: 64px; height: 64px; padding: 0; flex-direction: column; gap: 4px; }
+  .vbtn i { font-size: 24px; }
+  .vbtn span { font-size: 11px; font-weight: 600; }
+  .video-call-dialog__name { font-size: 17px; }
   .video-call-dialog__label { font-size: 14px; }
+  .video-call-dialog__avatar { width: 56px !important; height: 56px !important; }
 }
 
 /* מובייל – לרוחב (landscape): מזיזים את ה-local לפינה עליונה ומצמצמים */
-@media (max-height: 420px) and (orientation: landscape) {
-  .video-local { right: 12px; top: 12px; bottom: auto; width: 140px; height: 94px; }
-  .video-call-dialog__hud { padding: 8px 12px calc(12px + env(safe-area-inset-bottom)); }
-  .vbtn { min-width: 52px; height: 52px; }
+@media (max-height: 500px) and (orientation: landscape) {
+  .video-local { right: 12px; top: 12px; bottom: auto; width: 120px; height: 160px; }
+  .video-call-dialog__hud { padding: 10px 12px calc(14px + env(safe-area-inset-bottom)); grid-template-columns: auto 1fr; }
+  .video-call-dialog__status { flex-direction: row; text-align: right; }
+  .video-call-dialog__actions { gap: 10px; }
+  .vbtn { min-width: 56px; height: 56px; }
+  .vbtn span { display: none; }
 }

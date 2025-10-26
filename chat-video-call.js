@@ -22,7 +22,8 @@
     facingMode: 'user',
     candidateQueue: [],
     candidateTimer: null,
-    ending: false
+    ending: false,
+    lastOfferFrom: {}
   };
 
   // חלק שיחות וידאו – בדיקת תמיכה
@@ -83,6 +84,14 @@
     return pc;
   }
 
+  // חלק שיחות וידאו – חישוב מזהה חדר
+  function getRoomId(peer) {
+    const a = (App.publicKey || '').toLowerCase();
+    const b = (peer || '').toLowerCase();
+    if (!a || !b) return '';
+    return a < b ? `${a}:${b}` : `${b}:${a}`;
+  }
+
   // חלק שיחות וידאו – תור למועמדי ICE
   async function sendSignal(peer, type, data) {
     if (!App.pool || !App.publicKey || !App.privateKey) return;
@@ -92,7 +101,7 @@
       kind: 25050,
       pubkey: App.publicKey,
       created_at: Math.floor(Date.now()/1000),
-      tags: [ ['type', type], ['p', peer] ],
+      tags: [ ['type', type], ['p', peer], ['r', getRoomId(peer)] ],
       content
     };
     const signed = App.finalizeEvent(event, App.privateKey);
@@ -206,10 +215,23 @@
       data = dec ? JSON.parse(dec) : null;
     }
 
+    console.log(`Received ${type} from ${peer.slice(0,8)}`);    
     switch (type) {
       case 'v-offer': {
         // שיחה נכנסת בוידאו
-        if (!data || !data.type || !data.sdp) return;
+        if (!data || !data.type || !data.sdp) {
+          console.error('Invalid video offer received', data);
+          return;
+        }
+        // דה-דופליקציה
+        const now = Date.now();
+        const last = state.lastOfferFrom[peer] || 0;
+        state.lastOfferFrom[peer] = now;
+        if (now - last < 1500) {
+          console.log('Ignored duplicate video offer from', peer.slice(0,8));
+          return;
+        }
+        console.log('Received valid video offer:', { type: data.type, sdpLen: data.sdp?.length });
         state.isIncoming = true;
         if (typeof App.onVideoCallIncoming === 'function') App.onVideoCallIncoming(peer, data);
         break;
