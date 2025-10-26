@@ -23,7 +23,8 @@
     callStartTime: null,
     candidateQueue: [],
     candidateTimer: null,
-    lastOfferFrom: {}
+    lastOfferFrom: {},
+    ending: false
   };
 
   // חלק שיחות קול (chat-voice-call.js) – בדיקת תמיכה בדפדפן
@@ -155,6 +156,12 @@
       }
       event.streams[0].getTracks().forEach(track => {
         state.remoteStream.addTrack(track);
+        try {
+          track.onended = () => {
+            console.log('Remote track ended');
+            if (!state.ending) endCall();
+          };
+        } catch {}
       });
       
       // עדכון UI
@@ -179,8 +186,22 @@
         if (typeof App.onVoiceCallConnected === 'function') {
           App.onVoiceCallConnected(peerPubkey);
         }
-      } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-        endCall();
+      } else if (
+        pc.iceConnectionState === 'disconnected' ||
+        pc.iceConnectionState === 'failed' ||
+        pc.iceConnectionState === 'closed'
+      ) {
+        console.log('ICE state ended, closing call');
+        if (!state.ending) endCall();
+      }
+    };
+
+    // חלק שיחות קול (chat-voice-call.js) – ניטור מצב כלל החיבור
+    pc.onconnectionstatechange = () => {
+      const cs = pc.connectionState;
+      console.log('Peer connection state:', cs);
+      if (cs === 'disconnected' || cs === 'failed' || cs === 'closed') {
+        if (!state.ending) endCall();
       }
     };
 
@@ -271,7 +292,9 @@
   }
 
   // חלק שיחות קול (chat-voice-call.js) – סיום שיחה
-  function endCall() {
+  async function endCall() {
+    if (state.ending) return;
+    state.ending = true;
     console.log('Ending call');
 
     // שליחת אירוע disconnect
@@ -310,6 +333,7 @@
     state.isIncoming = false;
     state.isMuted = false;
     state.callStartTime = null;
+    setTimeout(() => { state.ending = false; }, 100);
 
     // עדכון UI
     if (typeof App.onVoiceCallEnded === 'function') {
