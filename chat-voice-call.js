@@ -22,7 +22,8 @@
     isMuted: false,
     callStartTime: null,
     candidateQueue: [],
-    candidateTimer: null
+    candidateTimer: null,
+    lastOfferFrom: {}
   };
 
   // חלק שיחות קול (chat-voice-call.js) – בדיקת תמיכה בדפדפן
@@ -57,6 +58,14 @@
     }
   }
 
+  // חלק שיחות קול (chat-voice-call.js) – חישוב מזהה חדר לפי זוג המפתחות
+  function getRoomId(peerPubkey) {
+    const a = (App.publicKey || '').toLowerCase();
+    const b = (peerPubkey || '').toLowerCase();
+    if (!a || !b) return '';
+    return a < b ? `${a}:${b}` : `${b}:${a}`;
+  }
+
   // חלק שיחות קול (chat-voice-call.js) – שליחת אירוע סינכרון דרך Nostr
   async function sendSignal(peerPubkey, type, data) {
     if (!App.pool || !App.publicKey || !App.privateKey) {
@@ -77,7 +86,8 @@
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           ['type', type],
-          ['p', peerPubkey]
+          ['p', peerPubkey],
+          ['r', getRoomId(peerPubkey)]
         ],
         content: encryptedContent
       };
@@ -362,6 +372,14 @@
               console.error('Invalid offer payload received', offerData);
               return;
             }
+            // דה-דופליקציה: מתעלם מהצעות כפולות מאותו peer בחלון קצר
+            const now = Date.now();
+            const last = state.lastOfferFrom[peerPubkey] || 0;
+            state.lastOfferFrom[peerPubkey] = now;
+            if (now - last < 1500) {
+              console.log('Ignored duplicate offer from', peerPubkey.slice(0,8));
+              return;
+            }
             console.log('Received valid offer:', offerData);
             state.isIncoming = true;
             if (typeof App.onVoiceCallIncoming === 'function') {
@@ -429,10 +447,12 @@
       return;
     }
 
+    const since = Math.floor(Date.now() / 1000) - 2; // מתעלם מאירועי עבר
     const filters = [
       {
         kinds: [25050],
-        '#p': [App.publicKey]
+        '#p': [App.publicKey],
+        since
       }
     ];
 

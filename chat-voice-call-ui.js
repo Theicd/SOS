@@ -7,6 +7,8 @@
   let remoteAudioElement = null;
   let callTimer = null;
   let timerInterval = null;
+  // חלק שיחות קול (chat-voice-call-ui.js) – שמירת offer נכנס מקומית לתהליך קבלה
+  let incomingOffer = null;
 
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת אלמנט אודיו מרוחק
   function createRemoteAudioElement() {
@@ -175,14 +177,15 @@
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בקבלת שיחה
   async function handleAcceptCall(peerPubkey) {
-    const state = App.voiceCall?.getState();
-    if (!state || !state.isIncoming) return;
-
     try {
-      // שמירת ה-offer שהתקבל
-      const offer = state.pendingOffer;
+      // אימות offer נכנס
+      const offer = incomingOffer;
+      if (!offer || !offer.type || !offer.sdp) {
+        alert('שגיאה: ההצעה לשיחה אינה תקינה. נסה שוב.');
+        return;
+      }
       await App.voiceCall.accept(peerPubkey, offer);
-      
+      incomingOffer = null;
       updateCallStatus('מתחבר...');
     } catch (err) {
       console.error('Failed to accept call', err);
@@ -193,9 +196,15 @@
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בניתוק
   function handleEndCall() {
+    // סגירה מיידית של ה-UI כדי לא להיתקע אם יש השהייה ברשת
+    closeCallDialog();
+    stopRingtone();
+    stopDialtone();
     if (App.voiceCall) {
       App.voiceCall.end();
     }
+    // בטיחות: אם מסיבה כלשהי לא נסגר – נסה שוב אחרי 1.5 שניות
+    setTimeout(() => { closeCallDialog(); }, 1500);
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בהשתקה
@@ -226,12 +235,8 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – callbacks מהמודול הראשי
   App.onVoiceCallIncoming = function(peerPubkey, offer) {
     console.log('Incoming call from', peerPubkey.slice(0, 8));
-    
-    // שמירת ה-offer למקרה של קבלה
-    const state = App.voiceCall?.getState();
-    if (state) {
-      state.pendingOffer = offer;
-    }
+    // שמירת ה-offer באופן מקומי
+    incomingOffer = offer;
 
     createCallDialog(peerPubkey, true);
     
@@ -246,8 +251,15 @@
       createCallDialog(peerPubkey, isIncoming);
     }
 
-    updateCallStatus('מתחבר...');
-    stopRingtone();
+    if (isIncoming) {
+      // מקבל – כבר היה צלצול, לאחר התחלת תהליך החיבור מחליפים סטטוס
+      updateCallStatus('מתחבר...');
+      stopRingtone();
+    } else {
+      // מחייג – הפעל חיוג עד חיבור
+      updateCallStatus('מחייג...');
+      playDialtone();
+    }
   };
 
   App.onVoiceCallConnected = function(peerPubkey) {
@@ -256,6 +268,8 @@
     updateCallStatus('מחובר');
     showMuteButton();
     startCallTimer();
+    stopRingtone();
+    stopDialtone();
   };
 
   App.onVoiceCallRemoteStream = function(stream) {
@@ -264,38 +278,81 @@
     const audio = createRemoteAudioElement();
     audio.srcObject = stream;
   };
-
-  App.onVoiceCallEnded = function(peerPubkey) {
-    console.log('Call ended');
-    
-    closeCallDialog();
-    stopRingtone();
-    
-    if (remoteAudioElement) {
-      remoteAudioElement.srcObject = null;
-    }
-  };
-
   App.onVoiceCallMuteToggle = function(isMuted) {
     console.log('Mute toggled:', isMuted);
   };
 
   // חלק שיחות קול (chat-voice-call-ui.js) – ניגון צלצול (פשוט)
-  let ringtoneAudio = null;
-  function playRingtone() {
-    // ניתן להוסיף קובץ אודיו לצלצול
-    // ringtoneAudio = new Audio('./sounds/ringtone.mp3');
-    // ringtoneAudio.loop = true;
-    // ringtoneAudio.play();
+  // חלק שיחות קול (chat-voice-call-ui.js) – צלילי חיוג/צלצול באמצעות WebAudio ללא קבצים חיצוניים
+  let audioCtx = null;
+  let toneInterval = null;
+  let activeOscillators = [];
+
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new Ctx();
+    }
+    return audioCtx;
   }
 
-  function stopRingtone() {
-    if (ringtoneAudio) {
-      ringtoneAudio.pause();
-      ringtoneAudio.currentTime = 0;
-      ringtoneAudio = null;
+  function stopAllTones() {
+    if (toneInterval) {
+      clearInterval(toneInterval);
+      toneInterval = null;
     }
+    activeOscillators.forEach(({ osc, gain }) => {
+      try { gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05); } catch {}
+      try { osc.stop(); } catch {}
+    });
+    activeOscillators = [];
   }
+
+  // צלצול נכנס: שני אוסילטורים 440Hz ו-480Hz בקאדנס 2s on / 4s off
+  function playRingtone() {
+    ensureAudioCtx();
+    stopAllTones();
+    const playBurst = () => {
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc1.frequency.value = 440;
+      osc2.frequency.value = 480;
+      gain.gain.value = 0.0001;
+      osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
+      osc1.start(); osc2.start();
+      gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+      activeOscillators.push({ osc: osc1, gain }, { osc: osc2, gain });
+      setTimeout(() => { stopAllTones(); }, 2000); // 2s on
+    };
+    playBurst();
+    toneInterval = setInterval(playBurst, 4000); // כל 4s מחדש
+  }
+
+  // חיוג יוצא: טון 425Hz בפולסים 0.4s on / 0.2s off (רצף)
+  function playDialtone() {
+    ensureAudioCtx();
+    stopAllTones();
+    const patternOn = 400, patternOff = 200;
+    const startPulse = () => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.value = 425;
+      gain.gain.value = 0.0001;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.03);
+      activeOscillators.push({ osc, gain });
+      setTimeout(() => {
+        stopAllTones();
+      }, patternOn);
+    };
+    startPulse();
+    toneInterval = setInterval(startPulse, patternOn + patternOff);
+  }
+
+  function stopRingtone() { stopAllTones(); }
+  function stopDialtone() { stopAllTones(); }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – חיבור לכפתור שיחת קול בכותרת
   function initCallButton() {
@@ -357,6 +414,12 @@
     createRemoteAudioElement();
     initCallButton();
     console.log('Voice call UI initialized');
+    // סגירת בטיחות כשעוזבים את הדף
+    window.addEventListener('beforeunload', () => {
+      stopRingtone();
+      stopDialtone();
+      closeCallDialog();
+    });
   }
 
   // אתחול כשהדף נטען
@@ -369,6 +432,7 @@
   // חשיפת פונקציות
   Object.assign(App, {
     startVoiceCall: handleStartCall,
-    endVoiceCall: handleEndCall
+    endVoiceCall: handleEndCall,
+    closeVoiceCallUI: closeCallDialog
   });
 })(window);
