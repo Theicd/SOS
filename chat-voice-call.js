@@ -189,6 +189,9 @@
 
       // יצירת offer
       const offer = await state.peerConnection.createOffer();
+      if (!offer || !offer.type || !offer.sdp) {
+        throw new Error('Offer לא תקין מהדפדפן');
+      }
       await state.peerConnection.setLocalDescription(offer);
 
       // שליחת offer
@@ -221,8 +224,13 @@
       state.currentPeer = peerPubkey;
       state.peerConnection = createPeerConnection(peerPubkey);
 
-      // קבלת offer
-      await state.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      // קבלת offer (אימות ושימוש ישיר באובייקט)
+      if (!offer || !offer.type || !offer.sdp) {
+        console.error('Invalid offer received', offer);
+        throw new Error('ה-offer שהתקבל אינו תקין');
+      }
+      console.log('Applying remote offer', { type: offer.type, sdpLen: offer.sdp?.length });
+      await state.peerConnection.setRemoteDescription(offer);
 
       // יצירת answer
       const answer = await state.peerConnection.createAnswer();
@@ -342,7 +350,12 @@
         case 'answer':
           // תשובה לשיחה יוצאת
           if (state.peerConnection && state.currentPeer === peerPubkey) {
-            await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+            if (!data || !data.type || !data.sdp) {
+              console.error('Invalid answer received', data);
+              return;
+            }
+            console.log('Applying remote answer', { type: data.type, sdpLen: data.sdp?.length });
+            await state.peerConnection.setRemoteDescription(data);
           }
           break;
 
