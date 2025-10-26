@@ -340,6 +340,31 @@
 
       switch (type) {
         case 'offer':
+          // שיחה נכנסת – ולידציה והמרה במקרה הצורך
+          try {
+            let offerData = data;
+            if (typeof offerData === 'string') {
+              offerData = JSON.parse(offerData);
+            }
+            // יש מימושים שמחזירים { offer: {type,sdp} }
+            if (offerData && offerData.offer && !offerData.type && !offerData.sdp) {
+              offerData = offerData.offer;
+            }
+            if (!offerData || !offerData.type || !offerData.sdp) {
+              console.error('Invalid offer payload received', offerData);
+              return;
+            }
+            console.log('Received valid offer:', offerData);
+            state.isIncoming = true;
+            if (typeof App.onVoiceCallIncoming === 'function') {
+              App.onVoiceCallIncoming(peerPubkey, offerData);
+            }
+          } catch (e) {
+            console.error('Failed to parse offer payload', e, data);
+          }
+          break;
+
+        case 'connect':
           // שיחה נכנסת
           state.isIncoming = true;
           if (typeof App.onVoiceCallIncoming === 'function') {
