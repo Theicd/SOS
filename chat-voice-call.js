@@ -96,25 +96,34 @@
 
   // חלק שיחות קול (chat-voice-call.js) – שליחת ICE candidates בצבירה
   function queueCandidate(peerPubkey, candidate) {
-    state.candidateQueue.push(candidate);
+    if (candidate) {
+      state.candidateQueue.push(candidate);
+    }
 
-    // ביטול טיימר קיים
+    // אם זה ה-null candidate – זה אות שהאיסוף הסתיים; שלח את כל מה שנצבר
+    if (!candidate) {
+      const batch = state.candidateQueue.splice(0);
+      if (batch.length) {
+        sendSignal(peerPubkey, 'candidates', batch);
+      }
+      if (state.candidateTimer) {
+        clearTimeout(state.candidateTimer);
+        state.candidateTimer = null;
+      }
+      return;
+    }
+
+    // fallback: אם משום מה לא הגיע null – שלח אחרי 1200ms
     if (state.candidateTimer) {
       clearTimeout(state.candidateTimer);
     }
-
-    // שליחה מצטברת אחרי 500ms או כשיש 3 candidates
     state.candidateTimer = setTimeout(() => {
-      if (state.candidateQueue.length > 0) {
-        const candidates = state.candidateQueue.splice(0, 3); // שליחת עד 3 בכל פעם
-        sendSignal(peerPubkey, 'candidates', candidates);
-        
-        // אם יש עוד, המשך
-        if (state.candidateQueue.length > 0) {
-          queueCandidate(peerPubkey, null);
-        }
+      const batch = state.candidateQueue.splice(0);
+      if (batch.length) {
+        sendSignal(peerPubkey, 'candidates', batch);
       }
-    }, 500);
+      state.candidateTimer = null;
+    }, 1200);
   }
 
   // חלק שיחות קול (chat-voice-call.js) – יצירת חיבור WebRTC חדש
@@ -146,9 +155,8 @@
 
     // חלק שיחות קול (chat-voice-call.js) – שליחת ICE candidates בצבירה
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        queueCandidate(peerPubkey, event.candidate);
-      }
+      // שולחים רק בצבירה, ובסיום (candidate=null) מבצעים flush
+      queueCandidate(peerPubkey, event.candidate || null);
     };
 
     // חלק שיחות קול (chat-voice-call.js) – מעקב אחר מצב החיבור
