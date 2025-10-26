@@ -26,7 +26,23 @@
   function initializeChatVoiceUI(config){
     const getActivePeer = typeof config?.getActivePeer === 'function' ? config.getActivePeer : ()=>null;
     const composer = config?.composerElement || doc.getElementById('chatComposer');
-    if(!composer) return;
+    if(!composer) {
+      // ניסיון חוזר במובייל
+      setTimeout(()=>initializeChatVoiceUI(config), 500);
+      return;
+    }
+
+    const inputEl = composer.querySelector('#chatMessageInput') || composer.querySelector('textarea');
+    const sendBtn = composer.querySelector('.chat-composer__send, [type="submit"]');
+    if (!sendBtn) {
+      // המתנה לכפתור במובייל
+      setTimeout(()=>initializeChatVoiceUI(config), 500);
+      return;
+    }
+
+    // מניעת אתחול כפול
+    if (sendBtn.dataset.voiceInitialized) return;
+    sendBtn.dataset.voiceInitialized = 'true';
 
     const toolbar = composer.querySelector('.chat-composer__actions') || composer;
     const timer = createTimerLabel();
@@ -41,9 +57,6 @@
     let isRecording = false;
     let tickHandle = null;
     let startedAt = 0;
-    const inputEl = composer.querySelector('#chatMessageInput') || composer.querySelector('textarea');
-    const sendBtn = composer.querySelector('.chat-composer__send, [type="submit"]');
-    if (!sendBtn) return;
 
     function setTimerVisible(v){
       if(v) timer.removeAttribute('hidden'); else timer.setAttribute('hidden','');

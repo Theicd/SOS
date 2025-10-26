@@ -578,6 +578,10 @@ body.chat-overlay-open::before {
   background: var(--card-alt);
   border: 1px solid var(--border);
   color: var(--text);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  overflow: hidden;
 }
 
 .chat-message--incoming {
@@ -643,15 +647,17 @@ body.chat-overlay-open::before {
 
 .chat-composer__field {
   display: grid;
-  grid-template-columns: 48px 1fr 48px;
+  grid-template-columns: 44px 1fr 44px;
+  gap: 8px;
   align-items: center;
-  width: 100%;
-  background: var(--card);
+  background: rgba(36, 37, 38, 0.85);
   border-radius: 999px;
   padding: 0 8px;
   border: 1px solid var(--border);
   transition: background 0.2s ease, border-color 0.2s ease;
   min-height: 56px;
+  max-height: 140px;
+  overflow: visible;
 }
 
 .chat-composer__field:focus-within {
@@ -670,6 +676,10 @@ body.chat-overlay-open::before {
   line-height: 1.5;
   padding: 0;
   margin: 0;
+  max-height: 100px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  word-wrap: break-word;
 }
 
 .chat-composer textarea:focus {

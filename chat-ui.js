@@ -707,6 +707,16 @@
       elements.messageInput.value = '';
       // חלק צ'אט (chat-ui.js) – לא מפעיל focus אוטומטי כדי שהמקלדת לא תיפתח ללא לחיצה יזומה
     }
+    // אתחול מחדש של כפתור מיקרופון במובייל כשהשיחה נפתחת
+    if (typeof App.initializeChatVoiceUI === 'function') {
+      setTimeout(() => {
+        App.initializeChatVoiceUI({
+          getActivePeer: () => state.activeContact,
+          getMessageDraft: () => elements.messageInput?.value || '',
+          composerElement: elements.composer,
+        });
+      }, 100);
+    }
     const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
     const initials = contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(name) : 'מש');
     if (elements.conversationName) {
