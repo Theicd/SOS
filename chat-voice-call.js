@@ -391,11 +391,8 @@
           break;
 
         case 'connect':
-          // שיחה נכנסת
-          state.isIncoming = true;
-          if (typeof App.onVoiceCallIncoming === 'function') {
-            App.onVoiceCallIncoming(peerPubkey, data);
-          }
+          // הודעת נוכחות/התחברות – לא מפעילים UI ולא משנים incomingOffer
+          console.log('Peer connected presence from', peerPubkey.slice(0,8));
           break;
 
         case 'answer':
