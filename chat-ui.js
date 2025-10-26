@@ -950,6 +950,11 @@
     togglePanel(false);
   };
 
+  // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לקבלת המשתמש הפעיל בשיחה
+  App.getActiveChatContact = function getActiveChatContact() {
+    return state.activeContact;
+  };
+
   initializeUI();
   togglePanel(false);
   ensureChatEnabled();
