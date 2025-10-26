@@ -257,10 +257,18 @@
 
   // חלק שיחות וידאו – הרשמה לאירועים
   function subscribe() {
-    if (!App.pool || !App.publicKey) return;
+    if (!App.pool || !App.publicKey) {
+      console.log('Video call: waiting for pool/publicKey...');
+      setTimeout(subscribe, 500);
+      return;
+    }
     const since = Math.floor(Date.now()/1000) - 2;
     const filters = [{ kinds: [25050], '#p': [App.publicKey], since }];
-    App.pool.subscribeMany(App.relayUrls, filters, { onevent: handleSignalEvent, oneose: () => console.log('Video call subscription ready') });
+    console.log('Video call: subscribing to events for', App.publicKey.slice(0,8));
+    App.pool.subscribeMany(App.relayUrls, filters, { 
+      onevent: handleSignalEvent, 
+      oneose: () => console.log('Video call subscription ready') 
+    });
   }
 
   // חלק שיחות וידאו – חשיפה ל-App
@@ -284,6 +292,10 @@
   };
 
   // אתחול מודול
-  subscribe();
   console.log('Video call module initialized');
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', subscribe);
+  } else {
+    setTimeout(subscribe, 100);
+  }
 })(window);
