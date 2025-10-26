@@ -239,9 +239,8 @@
     incomingOffer = offer;
 
     createCallDialog(peerPubkey, true);
-    
-    // ניגון צלצול (אופציונלי)
-    playRingtone();
+    // ניגון צלצול לאחר מחווה ראשונה כדי להימנע ממדיניות חסימת אודיו
+    resumeOnUserGestureOnce(() => playRingtone());
   };
 
   App.onVoiceCallStarted = function(peerPubkey, isIncoming) {
@@ -294,6 +293,28 @@
       audioCtx = new Ctx();
     }
     return audioCtx;
+  }
+
+  function resumeAudioIfNeeded() {
+    try {
+      const ctx = ensureAudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+    } catch {}
+  }
+
+  function resumeOnUserGestureOnce(next) {
+    const handler = () => {
+      resumeAudioIfNeeded();
+      try { next && next(); } catch {}
+      doc.removeEventListener('pointerdown', handler, true);
+      doc.removeEventListener('click', handler, true);
+      doc.removeEventListener('touchstart', handler, true);
+    };
+    doc.addEventListener('pointerdown', handler, true);
+    doc.addEventListener('click', handler, true);
+    doc.addEventListener('touchstart', handler, true);
   }
 
   function stopAllTones() {
@@ -399,6 +420,8 @@
           return;
         }
 
+        // הבטחת AudioContext פעיל בעקבות המחווה הזו
+        resumeAudioIfNeeded();
         console.log('Starting call to:', activePeer.slice(0, 8));
         handleStartCall(activePeer);
       });
