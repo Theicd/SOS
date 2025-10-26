@@ -10,62 +10,159 @@
   let timerEl = null;
   let timerId = null;
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – מנגנון צלילים ZzFX (ארקייד רטרו)
+  // חלק שיחות וידאו (chat-video-call-ui.js) – מנגנון צלילים
+  let audioCtx = null;
   let toneInterval = null;
-  let zzfxV = 0.3; // volume
-  
-  // ZzFX - Zuper Zmall Zound Zynth (micro sound effects library)
-  const zzfx = (...t) => {
-    let e = zzfxV, n = zzfxX.sampleRate, a = t[1] || 0, s = t[2] || 0, r = t[3] || 0, o = t[4] || 0;
-    let i = (t[5] || 0) * 2 * Math.PI / n, h = t[6] || 0, c = t[7] || 1, l = t[8] || 0, f = t[9] || 0;
-    a = n * a + 9; s *= n; r *= n; f *= n;
-    let u = h * 2 * Math.PI / n, d = [], p = 0, m = 0, g = 0;
-    for (let t = 0; t < a + s + r + f; t++) {
-      let a = m;
-      o && (a *= 1 + Math.sin(p * o * Math.PI * 2 / n));
-      i && (p += i, a *= 1 + Math.sin(p));
-      u && (g += u, a *= 1 + Math.sin(g));
-      m += 1 - l + 2e3 * l * Math.random();
-      d[t] = a * e * Math.sin(m * c * Math.PI * 2 / n) * (t < a ? t / a : t < a + s ? 1 : (a + s + r - t) / r);
-    }
-    let y = zzfxX.createBuffer(1, d.length, n), w = y.getChannelData(0);
-    d.forEach((t, e) => w[e] = t);
-    let b = zzfxX.createBufferSource();
-    return b.buffer = y, b.connect(zzfxX.destination), b.start(), b;
-  };
-  const zzfxX = new (window.AudioContext || window.webkitAudioContext)();
+  let activeOscillators = [];
 
   // חלק שיחות וידאו – פורמט זמן קצר
   function fmt(ms){ const s = Math.floor(ms/1000); const m = Math.floor(s/60); const ss = s%60; return `${m}:${String(ss).padStart(2,'0')}`; }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת צלילים
+  // חלק שיחות וידאו (chat-video-call-ui.js) – אתחול AudioContext
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new Ctx();
+    }
+    return audioCtx;
+  }
+
+  function resumeAudioIfNeeded() {
+    try {
+      const ctx = ensureAudioCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+    } catch {}
+  }
+
+  function resumeOnUserGestureOnce(next) {
+    const handler = () => {
+      resumeAudioIfNeeded();
+      try { next && next(); } catch {}
+      doc.removeEventListener('pointerdown', handler, true);
+      doc.removeEventListener('click', handler, true);
+      doc.removeEventListener('touchstart', handler, true);
+    };
+    doc.addEventListener('pointerdown', handler, true);
+    doc.addEventListener('click', handler, true);
+    doc.addEventListener('touchstart', handler, true);
+  }
+
+  // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת כל הצלילים
   function stopAllTones() {
     if (toneInterval) { clearInterval(toneInterval); toneInterval = null; }
+    activeOscillators.forEach(({ osc, gain }) => {
+      try { gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime); } catch {}
+      try { gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05); } catch {}
+      try { osc.stop(audioCtx.currentTime + 0.06); } catch {}
+    });
+    activeOscillators = [];
   }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – צלצול נכנס (צליל ארקייד עליז)
+  // חלק שיחות וידאו (chat-video-call-ui.js) – צלצול נכנס: SOS במורס
   function playRingtone() {
+    const ctx = ensureAudioCtx();
     stopAllTones();
-    console.log('Starting ringtone (arcade style)...');
-    const playBurst = () => {
-      // צליל רטרו עליז - עולה בגובה הצליל
-      zzfx(...[,,925,.04,.3,.6,1,.3,,6.27,-184,.09,.17]);
-      setTimeout(() => zzfx(...[,,1108,.03,.3,.6,1,.3,,6.27,-184,.09,.17]), 150);
+    console.log('Starting SOS ringtone...');
+    
+    // קוד מורס SOS: ··· --- ···
+    const freq = 800; // תדר גבוה וברור
+    const dotDur = 0.1; // נקודה קצרה
+    const dashDur = 0.3; // קו ארוך
+    const gap = 0.1; // רווח בין סימנים
+    const letterGap = 0.3; // רווח בין אותיות
+    
+    const playMorseSequence = () => {
+      let t = ctx.currentTime;
+      
+      // S: ··· (3 נקודות)
+      for (let i = 0; i < 3; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
+        gain.gain.setValueAtTime(0.3, t + dotDur - 0.01);
+        gain.gain.linearRampToValueAtTime(0, t + dotDur);
+        osc.start(t);
+        osc.stop(t + dotDur + 0.01);
+        t += dotDur + gap;
+      }
+      
+      t += letterGap - gap;
+      
+      // O: --- (3 קווים)
+      for (let i = 0; i < 3; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
+        gain.gain.setValueAtTime(0.3, t + dashDur - 0.01);
+        gain.gain.linearRampToValueAtTime(0, t + dashDur);
+        osc.start(t);
+        osc.stop(t + dashDur + 0.01);
+        t += dashDur + gap;
+      }
+      
+      t += letterGap - gap;
+      
+      // S: ··· (3 נקודות)
+      for (let i = 0; i < 3; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
+        gain.gain.setValueAtTime(0.3, t + dotDur - 0.01);
+        gain.gain.linearRampToValueAtTime(0, t + dotDur);
+        osc.start(t);
+        osc.stop(t + dotDur + 0.01);
+        t += dotDur + gap;
+      }
     };
-    playBurst();
-    toneInterval = setInterval(playBurst, 3000);
+    
+    playMorseSequence();
+    // חזרה כל 3 שניות
+    toneInterval = setInterval(playMorseSequence, 3000);
   }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – טון חיוג יוצא (צליל ארקייד קצבי)
+  // חלק שיחות וידאו (chat-video-call-ui.js) – טון חיוג יוצא: נקישות מורס
   function playDialtone() {
+    const ctx = ensureAudioCtx();
     stopAllTones();
-    console.log('Starting dialtone (arcade style)...');
-    const playPulse = () => {
-      // צליל "בליפ" קצר וחד
-      zzfx(...[,,261,.01,.01,.03,,.5,,,,,,.5]);
+    console.log('Starting morse dialtone...');
+    
+    const freq = 800; // תדר גבוה וברור
+    const dotDur = 0.08; // נקישה קצרה
+    const gap = 0.15; // רווח בין נקישות
+    
+    const playTap = () => {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.25, now + 0.005);
+      gain.gain.setValueAtTime(0.25, now + dotDur - 0.005);
+      gain.gain.linearRampToValueAtTime(0, now + dotDur);
+      osc.start(now);
+      osc.stop(now + dotDur + 0.01);
     };
-    playPulse();
-    toneInterval = setInterval(playPulse, 600);
+    
+    playTap();
+    toneInterval = setInterval(playTap, (dotDur + gap) * 1000);
   }
 
   function stopRingtone() { stopAllTones(); }
@@ -134,7 +231,7 @@
   function closeDialog(){ stopTimer(); stopAllTones(); if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; }
 
   // חלק שיחות וידאו – פעולות כפתורים
-  async function handleStart(peer){ try { playDialtone(); await App.videoCall.start(peer); } catch(e){ console.error(e); alert(e.message||'שגיאת וידאו'); closeDialog(); } }
+  async function handleStart(peer){ try { resumeOnUserGestureOnce(() => playDialtone()); await App.videoCall.start(peer); } catch(e){ console.error(e); alert(e.message||'שגיאת וידאו'); closeDialog(); } }
   async function handleAccept(peer){ try { stopRingtone(); const offer = App.__videoIncomingOffer || null; if (!offer) { alert('הצעת וידאו חסרה'); return; } await App.videoCall.accept(peer, offer); setStatus('מתחבר...'); } catch(e){ console.error(e); alert(e.message||'שגיאה בקבלת וידאו'); closeDialog(); } }
   function handleEnd(){ if (App.videoCall) App.videoCall.end(); closeDialog(); }
   function handleMute(){ const m = App.videoCall.toggleMute(); const btn = dialog && dialog.querySelector('[data-action="mute"]'); if (btn){ const i = btn.querySelector('i'); const t = btn.querySelector('span'); if(m){ i.className='fa-solid fa-microphone-slash'; t.textContent='בטל השתקה'; } else { i.className='fa-solid fa-microphone'; t.textContent='השתק'; } } }
@@ -142,7 +239,7 @@
   async function handleFlip(){ try { await App.videoCall.switchCamera(); } catch(e){ console.warn('flip failed', e); } }
 
   // חלק שיחות וידאו – callbacks מהמנוע
-  App.onVideoCallIncoming = function(peer, offer){ App.__videoIncomingOffer = offer; createDialog(peer, true); playRingtone(); };
+  App.onVideoCallIncoming = function(peer, offer){ App.__videoIncomingOffer = offer; createDialog(peer, true); resumeOnUserGestureOnce(() => playRingtone()); };
   App.onVideoCallStarted = function(peer, isIncoming){
     if (!dialog) createDialog(peer, isIncoming);
     setStatus(isIncoming? 'מתחבר...' : 'מחייג וידאו...');
