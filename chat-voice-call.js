@@ -20,7 +20,9 @@
     isCallActive: false,
     isIncoming: false,
     isMuted: false,
-    callStartTime: null
+    callStartTime: null,
+    candidateQueue: [],
+    candidateTimer: null
   };
 
   // חלק שיחות קול (chat-voice-call.js) – בדיקת תמיכה בדפדפן
@@ -81,12 +83,38 @@
       };
 
       const signedEvent = App.finalizeEvent(event, App.privateKey);
+      
+      // שליחה עם delay קטן כדי למנוע rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
       await App.pool.publish(App.relayUrls, signedEvent);
 
       console.log(`Sent ${type} signal to ${peerPubkey.slice(0, 8)}`);
     } catch (err) {
       console.error('Failed to send signal', err);
     }
+  }
+
+  // חלק שיחות קול (chat-voice-call.js) – שליחת ICE candidates בצבירה
+  function queueCandidate(peerPubkey, candidate) {
+    state.candidateQueue.push(candidate);
+
+    // ביטול טיימר קיים
+    if (state.candidateTimer) {
+      clearTimeout(state.candidateTimer);
+    }
+
+    // שליחה מצטברת אחרי 500ms או כשיש 3 candidates
+    state.candidateTimer = setTimeout(() => {
+      if (state.candidateQueue.length > 0) {
+        const candidates = state.candidateQueue.splice(0, 3); // שליחת עד 3 בכל פעם
+        sendSignal(peerPubkey, 'candidates', candidates);
+        
+        // אם יש עוד, המשך
+        if (state.candidateQueue.length > 0) {
+          queueCandidate(peerPubkey, null);
+        }
+      }
+    }, 500);
   }
 
   // חלק שיחות קול (chat-voice-call.js) – יצירת חיבור WebRTC חדש
@@ -116,10 +144,10 @@
       }
     };
 
-    // חלק שיחות קול (chat-voice-call.js) – שליחת ICE candidates
+    // חלק שיחות קול (chat-voice-call.js) – שליחת ICE candidates בצבירה
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        sendSignal(peerPubkey, 'candidate', event.candidate);
+        queueCandidate(peerPubkey, event.candidate);
       }
     };
 
@@ -242,6 +270,13 @@
       state.remoteStream = null;
     }
 
+    // ניקוי תור candidates
+    state.candidateQueue = [];
+    if (state.candidateTimer) {
+      clearTimeout(state.candidateTimer);
+      state.candidateTimer = null;
+    }
+
     // איפוס מצב
     const peer = state.currentPeer;
     state.currentPeer = null;
@@ -312,9 +347,20 @@
           break;
 
         case 'candidate':
-          // ICE candidate
+          // ICE candidate בודד (תאימות לאחור)
           if (state.peerConnection && state.currentPeer === peerPubkey && data) {
             await state.peerConnection.addIceCandidate(new RTCIceCandidate(data));
+          }
+          break;
+
+        case 'candidates':
+          // ICE candidates מרובים (batch)
+          if (state.peerConnection && state.currentPeer === peerPubkey && Array.isArray(data)) {
+            for (const candidate of data) {
+              if (candidate) {
+                await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+              }
+            }
           }
           break;
 
