@@ -334,7 +334,14 @@
         btn.innerHTML='<i class="fa-solid fa-video"></i>'; 
         actions.appendChild(btn);
       }
-      btn.onclick = ()=>{ playClickBeep(); const peer = App.chatState?.currentPeer; if (peer && App.videoCall) App.startVideoCall(peer); };
+      btn.onclick = ()=>{ 
+        playClickBeep(); 
+        const peer = App.chatState?.currentPeer; 
+        if (peer && App.videoCall) {
+          createDialog(peer, false);
+          handleStart(peer);
+        }
+      };
       console.log('Video call button initialized');
     };
     tryInit();
