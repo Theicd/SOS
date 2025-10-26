@@ -51,28 +51,36 @@
   function stopAllTones() {
     if (toneInterval) { clearInterval(toneInterval); toneInterval = null; }
     activeOscillators.forEach(({ osc, gain }) => {
+      try { gain.gain.setValueAtTime(gain.gain.value, audioCtx.currentTime); } catch {}
       try { gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05); } catch {}
-      try { osc.stop(); } catch {}
+      try { osc.stop(audioCtx.currentTime + 0.06); } catch {}
     });
     activeOscillators = [];
   }
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – צלצול נכנס (2s on / 4s off)
   function playRingtone() {
-    ensureAudioCtx();
+    const ctx = ensureAudioCtx();
     stopAllTones();
+    console.log('Starting ringtone...');
     const playBurst = () => {
-      const osc1 = audioCtx.createOscillator();
-      const osc2 = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc1.frequency.value = 440;
       osc2.frequency.value = 480;
+      osc1.type = 'sine';
+      osc2.type = 'sine';
       gain.gain.value = 0.0001;
-      osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
-      osc1.start(); osc2.start();
-      gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
-      activeOscillators.push({ osc: osc1, gain }, { osc: osc2, gain });
-      setTimeout(() => { stopAllTones(); }, 2000);
+      osc1.connect(gain); osc2.connect(gain); gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      osc1.start(now);
+      osc2.start(now);
+      gain.gain.exponentialRampToValueAtTime(0.2, now + 0.05);
+      gain.gain.setValueAtTime(0.2, now + 1.95);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+      osc1.stop(now + 2.05);
+      osc2.stop(now + 2.05);
     };
     playBurst();
     toneInterval = setInterval(playBurst, 4000);
@@ -80,22 +88,26 @@
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – טון חיוג יוצא (425Hz, 0.4s on / 0.2s off)
   function playDialtone() {
-    ensureAudioCtx();
+    const ctx = ensureAudioCtx();
     stopAllTones();
-    const patternOn = 400, patternOff = 200;
+    console.log('Starting dialtone...');
+    const patternOn = 0.4, patternOff = 0.2;
     const startPulse = () => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.frequency.value = 425;
+      osc.type = 'sine';
       gain.gain.value = 0.0001;
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.03);
-      activeOscillators.push({ osc, gain });
-      setTimeout(() => { stopAllTones(); }, patternOn);
+      osc.connect(gain); gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      osc.start(now);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.03);
+      gain.gain.setValueAtTime(0.18, now + patternOn - 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + patternOn);
+      osc.stop(now + patternOn + 0.01);
     };
     startPulse();
-    toneInterval = setInterval(startPulse, patternOn + patternOff);
+    toneInterval = setInterval(startPulse, (patternOn + patternOff) * 1000);
   }
 
   function stopRingtone() { stopAllTones(); }
