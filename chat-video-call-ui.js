@@ -188,6 +188,26 @@
   function stopRingtone() { stopAllTones(); }
   function stopDialtone() { stopAllTones(); }
 
+  // חלק שיחות וידאו (chat-video-call-ui.js) – פיפ קצר לחיצוץ
+  function playClickBeep() {
+    try {
+      const ctx = ensureAudioCtx();
+      resumeAudioIfNeeded();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 1000;
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.2, now + 0.01);
+      gain.gain.linearRampToValueAtTime(0, now + 0.08);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch(e) { console.warn('Click beep failed', e); }
+  }
+
   // חלק שיחות וידאו – יצירת דיאלוג
   function createDialog(peer, isIncoming){
     if (dialog) dialog.remove();
@@ -254,7 +274,8 @@
   async function handleStart(peer){ 
     try { 
       resumeAudioIfNeeded();
-      playDialtone();
+      // דיליי של שנייה לפני תחילת הסונאר
+      setTimeout(() => playDialtone(), 1000);
       await App.videoCall.start(peer); 
     } catch(e){ 
       console.error(e); 
@@ -272,8 +293,18 @@
   App.onVideoCallIncoming = function(peer, offer){ 
     App.__videoIncomingOffer = offer; 
     createDialog(peer, true); 
+    // ניסיון להתחיל מייד
     resumeAudioIfNeeded();
-    setTimeout(() => playRingtone(), 100);
+    playRingtone();
+    // fallback: אם לא עובד, נסה שוב אחרי לחיצה
+    const tryAgain = () => {
+      resumeAudioIfNeeded();
+      if (!toneInterval) playRingtone();
+      doc.removeEventListener('pointerdown', tryAgain, true);
+      doc.removeEventListener('touchstart', tryAgain, true);
+    };
+    doc.addEventListener('pointerdown', tryAgain, { once: true, capture: true });
+    doc.addEventListener('touchstart', tryAgain, { once: true, capture: true });
   };
   App.onVideoCallStarted = function(peer, isIncoming){
     if (!dialog) createDialog(peer, isIncoming);
@@ -300,16 +331,10 @@
       if (!btn){
         btn = doc.createElement('button');
         btn.type='button'; btn.className='chat-conversation__icon chat-conversation__icon--video'; btn.setAttribute('aria-label','שיחת וידאו');
-        btn.innerHTML = '<i class="fa-solid fa-video"></i>';
-        actions.insertBefore(btn, actions.firstChild);
+        btn.innerHTML='<i class="fa-solid fa-video"></i>'; 
+        actions.appendChild(btn);
       }
-      const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn);
-      newBtn.addEventListener('click', (e)=>{
-        e.preventDefault(); e.stopPropagation();
-        const peer = typeof App.getActiveChatContact === 'function' ? App.getActiveChatContact() : null;
-        if (!peer){ alert('אנא בחר שיחה תחילה'); return; }
-        createDialog(peer, false); handleStart(peer);
-      });
+      btn.onclick = ()=>{ playClickBeep(); const peer = App.chatState?.currentPeer; if (peer && App.videoCall) App.startVideoCall(peer); };
       console.log('Video call button initialized');
     };
     tryInit();
