@@ -17,6 +17,11 @@
       referrerpolicy="no-referrer"
     />
     <link rel="stylesheet" href="./styles/auth.css" />
+    <style>
+      /* סגנון מינימלי (auth.html) – פס סלווגנים קומפקטי | HYPER CORE TECH */
+      .auth-slogans { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 8px 0 0; }
+      .auth-slogans__pill { border: 1px solid rgba(74,118,198,0.32); background: rgba(12,16,26,0.6); color: rgba(205,217,246,0.92); padding: 6px 10px; border-radius: 999px; font-size: 0.86rem; }
+    </style>
   </head>
   <body class="auth-body">
     <!-- חלק וידאו רקע (auth.html) – מציג וידאו בלופ מאחורי התוכן -->
@@ -60,8 +65,8 @@
 
     <!-- חלק HERO (auth.html) – מסר פתיחה כללי לרשת החברתית -->
     <section class="auth-hero">
-      <h1 class="auth-hero__title">הבית החכם לדור החדש של הקהילות</h1>
-      <p class="auth-hero__subtitle">התחברו או צרו חשבון בכמה קליקים – בלי מילים גדולות, רק חוויה</p>
+      <h1 class="auth-hero__title">רשת חברתית בבעלות המשתמשים</h1>
+      <p class="auth-hero__subtitle">בלי Back‑End, בלי איסוף ומכירת מידע. מבוסס SPEAR ONE.</p>
     </section>
 
     <!-- חלק מעטפת מרכזית (auth.html) – שלבי בחירה, התחברות והרשמה -->
@@ -70,6 +75,11 @@
       <section class="auth-card auth-entry auth-entry--compact" id="authEntryPanel" aria-live="polite">
         <h2 class="auth-entry__title">ברוכים הבאים ל-SphereOne Social</h2>
         <p class="auth-entry__subtitle">הקליקו כדי להיכנס או להצטרף. פשוט, מהיר ומרגיש כמו בית</p>
+        <div class="auth-slogans" aria-label="סלווגנים קצרים">
+          <span class="auth-slogans__pill">בעלות אמיתית של המשתמשים</span>
+          <span class="auth-slogans__pill">אין איסוף/מכירת מידע</span>
+          <span class="auth-slogans__pill">קוד פתוח – לא רק רשת חברתית</span>
+        </div>
         <div class="auth-entry__actions">
           <button class="button-primary auth-entry__action" id="authEntryLoginButton">
             <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
@@ -79,6 +89,9 @@
             <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
             יצירת חשבון חדש
           </button>
+        </div>
+        <div class="auth-entry__actions" aria-label="קישור הסבר מהיר">
+          <a href="./tech.html" class="button-link button-link--accent"><i class="fa-solid fa-circle-info"></i> מה זה SPEAR ONE?</a>
         </div>
       </section>
 

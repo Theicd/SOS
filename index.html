@@ -23,9 +23,85 @@
     <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css">
     <!-- חלק צ'אט (index.html) – טוען עיצוב ייעודי לרכיבי העברת קבצים בין משתמשים -->
     <link rel="stylesheet" href="./styles/chat-file-transfer.css">
+    <!-- חלק דיאלוגים (index.html) – טוען עיצוב תיבות דיאלוג מותאמות לצ'אט -->
+    <link rel="stylesheet" href="./styles/chat-dialog.css">
     <link rel="stylesheet" href="./styles/logo.css">
     <script src="./auth-guard.js"></script>
-</head>
+    <style>
+      /* חלק רקעים (index.html) – סגנון גלריה ופריטים */
+      .compose-dialog__toolbar { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+      .compose-backgrounds {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0 0;
+        max-height: 220px;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      /* הסתרה קשיחה עם hidden */
+      .compose-backgrounds[hidden] { display: none !important; }
+      .compose-media-preview[hidden] { display: none !important; }
+      @media (max-width: 480px) {
+        .compose-backgrounds { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+      }
+      .compose-bg__item { flex: 0 0 96px; width: 96px; height: 96px; background-size: cover; background-position: center; border-radius: 12px; border: 2px solid transparent; position: relative; cursor: pointer; }
+      .compose-bg__item.is-selected { border-color: #2d88ff; box-shadow: 0 0 0 2px rgba(45,136,255,.25); }
+
+      /* ===== אפקטים לפוסטים חדשים בלבד (feed) – ממוקד למחלקה feed-post--fx ===== */
+      @keyframes fxZoomOut {
+        0% { transform: scale(1.08); }
+        100% { transform: scale(1); }
+      }
+      @keyframes fxZoomIn {
+        0% { transform: scale(1); }
+        100% { transform: scale(1.15); }
+      }
+      @keyframes fxTextIn {
+        0% { opacity: 0; transform: translateY(10px) rotateX(-8deg); filter: blur(6px); }
+        100% { opacity: 1; transform: none; filter: blur(0); }
+      }
+      .feed-post.feed-post--fx[data-fx="zoomout"] .feed-media img,
+      .feed-post.feed-post--fx[data-fx="zoomout"] .feed-media video {
+        animation: fxZoomOut 1000ms ease-out both;
+        transform-origin: center center;
+        will-change: transform;
+      }
+      /* לא להנפיש שם/תוכן רגיל */
+      /* Zoom-In: תמונה מגדילה, טקסט נכנס אחרי 2 שניות */
+      .feed-post.feed-post--fx .feed-media { overflow: hidden; position: relative; }
+      .feed-post.feed-post--fx[data-fx="zoomin"] .feed-media img,
+      .feed-post.feed-post--fx[data-fx="zoomin"] .feed-media video {
+        animation: fxZoomIn 4000ms ease-in-out both;
+        transform-origin: center center;
+        display: block;
+        will-change: transform;
+        backface-visibility: hidden;
+        transform: translateZ(0);
+      }
+      /* שכבת טקסט על המדיה – רק לפוסטים חדשים עם fx */
+      .feed-post.feed-post--fx .feed-media__overlay-text {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        color: #fff;
+        text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+        pointer-events: none;
+        opacity: 0;
+        animation: fxTextIn 900ms ease-out both;
+        animation-delay: 2s;
+      }
+      .feed-post.feed-post--fx .feed-media__overlay-text > span {
+        display: inline-block;
+        max-width: 90%;
+      }
+      /* לא משפיע על פוסטים ישנים כי אין להם feed-post--fx */
+    </style>
+  </head>
 <body>
     <div id="connection-status" class="connection-toast">
         מתחבר לריליים...
@@ -270,8 +346,19 @@
               <i class="fa-regular fa-image"></i>
               <span>הוסף תמונה/וידאו</span>
             </button>
+            <!-- חלק רקעים (index.html) – הפעלת מצב רקע טקסט וגלריית רקעים חינמיים -->
+            <button class="button-secondary" type="button" id="composeBgToggle">
+              <i class="fa-solid fa-palette"></i>
+              <span>רקע טקסט</span>
+            </button>
+            <button class="button-secondary" type="button" id="composeBgClear" hidden>
+              <i class="fa-solid fa-eraser"></i>
+              <span>הסר רקע</span>
+            </button>
             <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
           </div>
+          <!-- חלק רקעים (index.html) – גלריית רקעים מתחלפים מ-Picsum -->
+          <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
           <div id="composeMediaPreview" class="compose-media-preview">
             <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
             <video id="composeMediaPreviewVideo" controls playsinline></video>
@@ -611,9 +698,15 @@
     <script src="./chat-file-transfer-state.js"></script>
     <script src="./chat-file-transfer-service.js"></script>
     <script src="./chat-file-transfer-ui.js"></script>
+    <!-- חלק קול (index.html) – טעינת לקוח Blossom ושכבות הקול לצ'אט לפני אתחול ממשק הצ'אט -->
+    <script src="./blossom.js"></script>
+    <script src="./chat-voice-service.js"></script>
+    <script src="./chat-voice-ui.js"></script>
     <script src="./chat-ui.js"></script>
     <script src="./navigation.js"></script>
     <script src="./compose.js"></script>
+    <!-- חלק רקעים (index.html) – מודול בורר רקעים -->
+    <script src="./compose-backgrounds.js"></script>
     <script src="./follow-service.js"></script>
     <script src="./feed.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>

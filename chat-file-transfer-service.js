@@ -30,6 +30,8 @@
       size: attachment.size,
       type: attachment.type,
       dataUrl: attachment.dataUrl || '',
+      url: attachment.url || '',
+      duration: typeof attachment.duration === 'number' ? attachment.duration : undefined,
     };
   }
 
@@ -56,7 +58,8 @@
       console.error('Failed to serialize chat payload', err);
       return null;
     }
-    const displayText = text || (attachment ? `📎 ${attachment.name}` : '');
+    const isAudio = attachment && typeof attachment.type === 'string' && attachment.type.indexOf('audio/') === 0;
+    const displayText = text || (attachment ? (isAudio ? '' : `📎 ${attachment.name}`) : '');
     return {
       rawContent,
       displayText,

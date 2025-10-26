@@ -18,6 +18,7 @@
   App.pendingNotificationQueue = Array.isArray(App.pendingNotificationQueue) ? App.pendingNotificationQueue : []; // חלק התרעות (feed.js) – משמר אירועי התרעה מושהים עד שהפוסט נטען
   App.pendingNotificationSet = App.pendingNotificationSet instanceof Set ? App.pendingNotificationSet : new Set(); // חלק התרעות (feed.js) – מונע כפילויות בתור ההתרעות המושהה
   const DATING_LIKE_KIND = 40001; // חלק התרעות הכרויות (feed.js) – מזהה kind ייעודי ללייקים בדף ההכרויות
+  const FOLLOW_KIND = (typeof App.FOLLOW_KIND === 'number' ? App.FOLLOW_KIND : 40010);
   App.profileFetchPromises = App.profileFetchPromises instanceof Map ? App.profileFetchPromises : new Map();
   // חלק פרופילים – תור מאגד לשאילת מטא-דאטה kind 0 בבאטץ' כדי לצמצם עומס
   App._profileBatchQueue = App._profileBatchQueue instanceof Set ? App._profileBatchQueue : new Set();
@@ -411,6 +412,8 @@
             ? 'comment'
             : item.type === 'dating-like'
             ? 'dating-like'
+            : item.type === 'follow'
+            ? 'follow'
             : 'like';
         const record = {
           id: item.id,
@@ -607,6 +610,8 @@
       }
     } else if (notification.type === 'dating-like') {
       actionText = 'הראה עניין בך בדף ההכרויות';
+    } else if (notification.type === 'follow') {
+      actionText = 'התחיל/ה לעקוב אחריך';
     } else {
       actionText = 'אהב את הפוסט שלך';
     }
@@ -823,6 +828,48 @@
       return;
     }
     enqueueNotification(event, '', 'dating-like', '');
+  }
+
+  function handleNotificationForFollow(event) {
+    // חלק התרעות עוקב חדש (feed.js) – יוצר התרעה כאשר משתמש אחר מתחיל לעקוב אחרינו
+    if (!event || event.kind !== FOLLOW_KIND) {
+      return;
+    }
+    // פרשנות תוכן – אם האירוע הוא unfollow אין טעם להתריע
+    try {
+      const trimmed = typeof event.content === 'string' ? event.content.trim() : '';
+      if (trimmed) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed && typeof parsed.type === 'string' && parsed.type.toLowerCase() === 'unfollow') {
+            return;
+          }
+        } catch (e) {
+          const low = trimmed.toLowerCase();
+          if (low === 'unfollow' || low === 'remove') {
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      // לא קריטי – אם נכשל פרשנות נמשיך כאילו זה follow
+    }
+    const current = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    if (!current) {
+      return;
+    }
+    const actor = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+    if (!actor || actor === current) {
+      return;
+    }
+    if (!Array.isArray(event.tags)) {
+      return;
+    }
+    const targeted = event.tags.some((tag) => Array.isArray(tag) && tag[0] === 'p' && typeof tag[1] === 'string' && tag[1].toLowerCase() === current);
+    if (!targeted) {
+      return;
+    }
+    enqueueNotification(event, '', 'follow', '');
   }
 
   function markAllNotificationsRead(force = false) {
@@ -1451,6 +1498,14 @@
       const safeBio = profileData.bio ? App.escapeHtml(profileData.bio) : '';
       const article = document.createElement('article');
       article.className = 'feed-post';
+      // חלק אפקטים (feed.js) – אם לפוסט יש תג fx נוסיף מאפייני DOM להפעלת CSS ממוקד
+      try {
+        const fxTag = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'fx' && t[1]) : null;
+        if (fxTag && fxTag[1]) {
+          article.dataset.fx = String(fxTag[1]);
+          article.classList.add('feed-post--fx');
+        }
+      } catch (_) {}
       article.dataset.postId = event.id;
       const lines = event.content.split('\n');
       const mediaLinks = [];
@@ -1467,6 +1522,15 @@
       });
 
       const rawTextContent = textLines.join('\n');
+      // חלק אפקטים (feed.js) – אם אין תג fx אך יש media data:image, נפעיל zoomin כברירת מחדל
+      try {
+        const hasFx = article.classList.contains('feed-post--fx');
+        const hasInlineImage = mediaLinks.some((l) => typeof l === 'string' && l.startsWith('data:image'));
+        if (!hasFx && hasInlineImage) {
+          article.dataset.fx = 'zoomin';
+          article.classList.add('feed-post--fx');
+        }
+      } catch (_) {}
       const safeContent = App.escapeHtml(rawTextContent).replace(/\n/g, '<br>');
       const isLongPost = textLines.length > 6 || rawTextContent.length > 420;
       const contentClass = isLongPost
@@ -1712,6 +1776,9 @@
         datingFilter['#t'] = [App.NETWORK_TAG];
       }
       filters.push(datingFilter);
+      // אירועי Follow בדרך כלל אינם מסומנים בתג רשת, לכן לא נוסיף '#t' כדי לא לפספס התרעות
+      const followFilter = { kinds: [FOLLOW_KIND], '#p': [App.publicKey], limit: 200 };
+      filters.push(followFilter);
     }
     const events = [];
     const seenEventIds = new Set();
@@ -1744,6 +1811,10 @@
             }
             if (event.kind === DATING_LIKE_KIND) {
               handleNotificationForDatingLike(event);
+              return;
+            }
+            if (event.kind === FOLLOW_KIND) {
+              handleNotificationForFollow(event);
               return;
             }
             events.push(event);
@@ -1802,6 +1873,10 @@
           handleNotificationForDatingLike(event);
           return;
         }
+        if (event.kind === FOLLOW_KIND) {
+          handleNotificationForFollow(event);
+          return;
+        }
         events.push(event);
         console.log('Received event:', event);
         if (emptyState && emptyMessage) {
@@ -1836,6 +1911,17 @@
 
     // חלק פרסום (feed.js) – מבטיחים שתמיד יצורף תג רשת תקין לפוסט
     const networkTag = typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG ? App.NETWORK_TAG : 'israel-network';
+    // ודאות: אם יש dataUrl במדיה והוא לא נכלל ב-content, נוסיף אותו בתחילת התוכן
+    try {
+      const mediaUrl = App.composeState?.media?.dataUrl;
+      if (typeof mediaUrl === 'string' && mediaUrl.startsWith('data:')) {
+        const alreadyHas = typeof payload.content === 'string' && payload.content.includes(mediaUrl);
+        if (!alreadyHas) {
+          payload.content = mediaUrl + (payload.text ? `\n${payload.text}` : '');
+        }
+      }
+    } catch (_) {}
+
     const draft = {
       kind: 1,
       pubkey: App.publicKey,
@@ -1843,6 +1929,9 @@
       tags: [['t', networkTag]],
       content: payload.content,
     };
+    if (App.composeState && App.composeState.fx) {
+      draft.tags.push(['fx', String(App.composeState.fx)]);
+    }
     // חלק עריכה (feed.js) – אם מדובר בעריכה, מוסיפים תג שמקשר לפוסט המקורי לצורך עקיבות
     if (payload.originalId) {
       draft.tags.push(['e', payload.originalId, '', 'replaces']);

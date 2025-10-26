@@ -15,6 +15,9 @@
     profileName: document.getElementById('composeProfileName'),
     profileBio: document.getElementById('composeProfileBio'),
     profileAvatar: document.getElementById('composeProfileAvatar'),
+    bgToggle: document.getElementById('composeBgToggle'),
+    bgGallery: document.getElementById('composeBackgrounds'),
+    bgClear: document.getElementById('composeBgClear'),
   };
 
   const state = {
@@ -22,6 +25,11 @@
     // חלק קומפוזר – מצב עריכה: מזהה פוסט מקורי אם מדובר בעריכה ולא ביצירה חדשה
     editingOriginalId: null,
     mediaInputBound: false,
+    // חלק רקעים – שליטה בבורר רקעים חינמי
+    backgroundActive: false,
+    backgroundChoices: [],
+    selectedBackgroundUrl: '',
+    bgImage: null,
   };
 
   App.composeState = state;
@@ -88,6 +96,8 @@
 
     try {
       resetStatus();
+      // אם המשתמש בוחר מדיה ידנית – ביטול מצב רקע מהטקסט
+      clearTextareaBg();
       let dataUrl;
       if (file.type.startsWith('image/')) {
         dataUrl = await resizeImage(file);
@@ -140,6 +150,184 @@
     setStatus('המדיה הוסרה.');
   }
 
+  function applyTextareaBg(url) {
+    // חלק קומפוזר – מציג רקע בתוך תיבת הטקסט, מונע גלילה מיותרת
+    if (!elements.textarea) return;
+    elements.textarea.style.backgroundImage = url ? `url('${url}')` : '';
+    elements.textarea.style.backgroundSize = 'cover';
+    elements.textarea.style.backgroundPosition = 'center';
+    elements.textarea.style.backgroundRepeat = 'no-repeat';
+    elements.textarea.style.backgroundColor = 'transparent';
+    elements.textarea.style.color = '#fff';
+    elements.textarea.style.textShadow = '0 1px 2px rgba(0,0,0,0.7)';
+    elements.textarea.style.caretColor = '#fff';
+    elements.textarea.style.padding = '20px';
+  }
+
+  function clearTextareaBg() {
+    if (!elements.textarea) return;
+    elements.textarea.style.backgroundImage = '';
+    elements.textarea.style.backgroundSize = '';
+    elements.textarea.style.backgroundPosition = '';
+    elements.textarea.style.backgroundRepeat = '';
+    elements.textarea.style.backgroundColor = '';
+    elements.textarea.style.color = '';
+    elements.textarea.style.textShadow = '';
+    elements.textarea.style.caretColor = '';
+    elements.textarea.style.padding = '';
+  }
+
+  async function fetchBackgroundsFromPicsum() {
+    // חלק רקעים – מביא עד 12 רקעים רנדומליים מ-Picsum ללא צורך במפתח
+    try {
+      const page = Math.max(1, Math.floor(Math.random() * 50));
+      const res = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=12`);
+      const arr = await res.json();
+      return Array.isArray(arr)
+        ? arr.map((x) => (x && x.id ? `https://picsum.photos/id/${x.id}/1080/1080` : null)).filter(Boolean)
+        : [];
+    } catch (e) {
+      console.warn('Picsum fetch failed', e);
+      return [];
+    }
+  }
+
+  function renderBackgroundGallery(urls) {
+    if (!elements.bgGallery) return;
+    if (!Array.isArray(urls) || urls.length === 0) {
+      elements.bgGallery.innerHTML = '';
+      elements.bgGallery.setAttribute('hidden', '');
+      return;
+    }
+    const items = urls.slice(0, 12).map((u) => `<button type="button" class="compose-bg__item" data-bg="${u}" style="background-image:url('${u}')"></button>`);
+    elements.bgGallery.innerHTML = items.join('');
+    elements.bgGallery.removeAttribute('hidden');
+    Array.from(elements.bgGallery.querySelectorAll('button.compose-bg__item')).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const url = btn.getAttribute('data-bg');
+        if (url) selectBackground(url);
+      });
+    });
+  }
+
+  function setBackgroundActive(active) {
+    state.backgroundActive = !!active;
+    if (!state.backgroundActive) {
+      state.selectedBackgroundUrl = '';
+      state.bgImage = null;
+      if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
+      return;
+    }
+    // טוען גלריה טרייה בכל הפעלה
+    fetchBackgroundsFromPicsum().then((urls) => {
+      state.backgroundChoices = urls;
+      renderBackgroundGallery(urls);
+    });
+  }
+
+  function selectBackground(url) {
+    state.selectedBackgroundUrl = url;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      state.bgImage = img;
+      regenerateBackgroundMedia();
+    };
+    img.onerror = () => {
+      setStatus('טעינת הרקע נכשלה. נסה רקע אחר.', 'error');
+    };
+    img.src = url;
+  }
+
+  function wrapText(ctx, text, maxWidth, lineHeight) {
+    const words = (text || '').split(/\s+/);
+    const lines = [];
+    let line = '';
+    for (let n = 0; n < words.length; n += 1) {
+      const testLine = line ? `${line} ${words[n]}` : words[n];
+      const { width } = ctx.measureText(testLine);
+      if (width > maxWidth && line) {
+        lines.push(line);
+        line = words[n];
+      } else {
+        line = testLine;
+      }
+    }
+    if (line) lines.push(line);
+    return lines.slice(0, 10); // הגבלה סבירה
+  }
+
+  function exportCanvasUnderLimitLocal(canvas) {
+    const limit = (window.App && (App.MAX_INLINE_MEDIA_LENGTH || App.MAX_INLINE_PICTURE_LENGTH)) || 250000;
+    const qualities = [0.85, 0.75, 0.65, 0.55, 0.45, 0.35, 0.25, 0.2, 0.15];
+    const sizes = [1080, 960, 840, 720, 640, 600, 512, 448, 384, 320];
+    for (let s = 0; s < sizes.length; s += 1) {
+      const target = sizes[s];
+      if (canvas.width !== target || canvas.height !== target) {
+        const tmp = document.createElement('canvas');
+        tmp.width = target; tmp.height = target;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, target, target);
+        canvas = tmp;
+      }
+      for (let q = 0; q < qualities.length; q += 1) {
+        const url = canvas.toDataURL('image/jpeg', qualities[q]);
+        if (!limit || url.length <= limit) return url;
+      }
+    }
+    return canvas.toDataURL('image/jpeg', 0.12);
+  }
+
+  function regenerateBackgroundMedia() {
+    if (!state.backgroundActive || state.media || !state.bgImage || !elements.textarea) return;
+    const text = elements.textarea.value.trim();
+    if (!text) return;
+    const size = 1080;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // צייר רקע מכסה
+    const img = state.bgImage;
+    const ratio = Math.max(size / img.width, size / img.height);
+    const w = img.width * ratio;
+    const h = img.height * ratio;
+    const dx = (size - w) / 2;
+    const dy = (size - h) / 2;
+    ctx.drawImage(img, dx, dy, w, h);
+    // שכבת כהות קלה לשיפור ניגודיות
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, 0, size, size);
+    // טקסט
+    const padding = 80;
+    const maxWidth = size - padding * 2;
+    let fontSize = 64;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 4;
+    // התאמת גודל פונט גסה
+    ctx.font = `${fontSize}px sans-serif`;
+    let lines = wrapText(ctx, text, maxWidth, fontSize * 1.3);
+    while (lines.length > 6 && fontSize > 28) {
+      fontSize -= 4;
+      ctx.font = `${fontSize}px sans-serif`;
+      lines = wrapText(ctx, text, maxWidth, fontSize * 1.3);
+    }
+    const lineHeight = fontSize * 1.3;
+    const totalH = lines.length * lineHeight;
+    let y = size / 2 - totalH / 2 + lineHeight / 2;
+    lines.forEach((ln) => {
+      ctx.strokeText(ln, size / 2, y);
+      ctx.fillText(ln, size / 2, y);
+      y += lineHeight;
+    });
+    const dataUrl = exportCanvasUnderLimitLocal(canvas);
+    state.media = { type: 'image', dataUrl };
+    showMediaPreview(state.media);
+  }
+
   function syncProfileDetails() {
     if (!App.profile) return;
     if (elements.profileName) {
@@ -187,6 +375,25 @@
     if (elements.textarea) {
       elements.textarea.focus();
     }
+    // חלק רקעים – חיבור מאוחר למודול הרקעים בעת פתיחה אם טרם בוצע
+    if (window.NostrApp?.bg && !window.NostrApp._bgBound) {
+      window.NostrApp.bg.bind({
+        elements,
+        state,
+        setStatus,
+        showMediaPreview,
+        getText: () => (elements.textarea ? elements.textarea.value : ''),
+        applyTextareaBg,
+        clearTextareaBg,
+      });
+      window.NostrApp._bgBound = true;
+    }
+    // ניהול מצב פתיחה
+    if (window.NostrApp?.bg && typeof window.NostrApp.bg.onOpenCompose === 'function') {
+      window.NostrApp.bg.onOpenCompose();
+    } else {
+      setBackgroundActive(false);
+    }
   }
 
   function closeCompose() {
@@ -207,6 +414,13 @@
     resetStatus();
     // חלק קומפוזר – איפוס מצב עריכה
     state.editingOriginalId = null;
+    // חלק רקעים – איפוס סטייט
+    if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
+      window.NostrApp.bg.onReset();
+    } else {
+      setBackgroundActive(false);
+    }
+    clearTextareaBg();
   }
 
   function getComposePayload() {
@@ -245,6 +459,65 @@
 
     if (elements.previewContainer) {
       elements.previewContainer.addEventListener('click', removeMedia);
+    }
+
+    // חיבור מודול הרקעים המרכזי (אם נטען), מונע מאזינים כפולים
+    if (window.NostrApp?.bg && !window.NostrApp._bgBound) {
+      window.NostrApp.bg.bind({
+        elements,
+        state,
+        setStatus,
+        showMediaPreview,
+        getText: () => (elements.textarea ? elements.textarea.value : ''),
+        applyTextareaBg,
+        clearTextareaBg,
+      });
+      window.NostrApp._bgBound = true;
+    } else if (elements.bgToggle && !window.NostrApp?.bg) {
+      // fallback: רק אם המודול לא קיים – מאזין בסיסי לכפתור
+      elements.bgToggle.addEventListener('click', async () => {
+        if (state.media) {
+          setStatus('כדי להשתמש ברקע, הסר תחילה מדיה שהוספת.', 'info');
+          return;
+        }
+        const next = !state.backgroundActive;
+        setBackgroundActive(next);
+        if (next && elements.textarea) {
+          elements.textarea.dispatchEvent(new Event('input'));
+        }
+      });
+    }
+
+    if (elements.textarea) {
+      elements.textarea.addEventListener('input', () => {
+        if (!window.NostrApp?.bg) {
+          if (!state.media && state.backgroundActive && state.bgImage) {
+            regenerateBackgroundMedia();
+          }
+        }
+      });
+    }
+
+    if (elements.bgClear) {
+      elements.bgClear.addEventListener('click', () => {
+        // הסרת רקע טקסט: ניקוי state.media אם מקורו רקע, ניקוי רקע מהטקסט, והצגת הגלריה מחדש אם מצב רקע פעיל
+        clearTextareaBg();
+        if (state.media && state.media.type === 'image') {
+          // מאפשר להסיר רק את הרקע; לא נוגעים במדיה ידנית אחרת
+          state.media = null;
+        }
+        if (elements.previewContainer) {
+          elements.previewContainer.classList.remove('is-visible');
+          elements.previewContainer.setAttribute('hidden', '');
+        }
+        if (window.NostrApp?.bg) {
+          // הצג מחדש את הגלריה לבחירה חדשה
+          window.NostrApp.bg.setActive(true);
+        } else if (elements.bgGallery) {
+          elements.bgGallery.removeAttribute('hidden');
+        }
+        setStatus('הרקע הוסר.');
+      });
     }
   }
 

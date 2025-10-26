@@ -396,6 +396,111 @@
   background: var(--primary-hover, rgba(35, 116, 225, 0.85));
 }
 
+/* חלק צ'אט (chat-whatsapp-theme.css) – בועת אודיו: הנגן מותאם לרוחב הבועה ורקע אחיד כמו בוואטסאפ */
+.chat-message__audio {
+  margin-top: 6px;
+}
+.chat-message__audio-player {
+  width: 100%;
+  display: block;
+  border-radius: 12px;
+  background: transparent;
+}
+/* WebKit התאמת רקע פאנל בקרות כדי שלא ייראה כ"רקע שני" */
+.chat-message--outgoing .chat-message__audio-player::-webkit-media-controls-panel {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+}
+.chat-message--incoming .chat-message__audio-player::-webkit-media-controls-panel {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+.chat-message__audio-duration {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+/* ===== נגן מותאם בסגנון וואטסאפ ===== */
+.chat-audio {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.chat-audio__play {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+.chat-message--outgoing .chat-audio__play { background: #fff; color: var(--primary); }
+.chat-message--incoming .chat-audio__play { background: var(--card); color: var(--text); }
+
+.chat-audio__time { font-size: .82rem; opacity: .85; }
+.chat-message--outgoing .chat-audio__time { color: rgba(255,255,255,.9); }
+.chat-message--incoming .chat-audio__time { color: var(--text); }
+
+.chat-audio__bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.chat-message--outgoing .chat-audio__bar { background: rgba(255,255,255,.25); }
+.chat-message--incoming .chat-audio__bar { background: rgba(0,0,0,.18); }
+
+.chat-audio__progress {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+}
+.chat-message--outgoing .chat-audio__progress { background: #fff; }
+.chat-message--incoming .chat-audio__progress { background: var(--primary); }
+
+/* הסתרת קווי מסגרת של audio המקורי */
+.chat-message__audio-el { display: none; }
+
+/* ===== ריכוז דיאלוגים/תפריטים בתוך חלון הצ'אט ===== */
+.chat-panel dialog,
+.chat-panel .dialog,
+.chat-panel [role="dialog"] {
+  position: absolute !important;
+  inset: 0 !important;
+  margin: auto !important;
+  max-width: min(92%, 420px);
+  max-height: 82%;
+}
+
+/* חלק קול (chat-whatsapp-theme.css) – כפתור שליחה כמשנה צורה למיקרופון כשאין טקסט, ול-STOP בזמן הקלטה */
+.chat-composer__send.is-mic {
+  background: var(--primary);
+  color: #fff;
+}
+.chat-composer__send.is-mic-recording {
+  background: var(--danger, #e63946);
+  color: #fff;
+  animation: micPulse 1.2s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0% { box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.45); }
+  70% { box-shadow: 0 0 0 10px rgba(230, 57, 70, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(230, 57, 70, 0); }
+}
+.chat-composer__voice-timer {
+  margin-inline-start: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  align-self: center;
+}
+
 /* חלק צ'אג (chat-whatsapp-theme.css) – תפריט תחתון דמוי וואגסאפ */
 .chat-panel__footer {
   background: var(--card-alt);
