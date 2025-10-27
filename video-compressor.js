@@ -4,11 +4,10 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   // חלק דחיסת וידאו – הגדרות ומגבלות
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const MAX_INPUT_SIZE = 30 * 1024 * 1024; // 30MB
-  const TARGET_BITRATE = isMobile ? '800k' : '1M'; // ביטרייט נמוך יותר בטלפון
+  const TARGET_BITRATE = '1M'; // ~1Mbps לוידאו
   const AUDIO_BITRATE = '96k';
-  const TARGET_HEIGHT = isMobile ? 480 : 720; // רזולוציה נמוכה יותר בטלפון
+  const TARGET_HEIGHT = 720;
   const CRF = 32; // איכות VP9 (ערך נמוך = איכות גבוהה)
 
   let ffmpegInstance = null;
@@ -94,6 +93,20 @@
       onProgress({ stage: 'loading', percent: 0 });
     }
 
+    // בדיקה אם MediaRecorder נתמך
+    if (typeof MediaRecorder === 'undefined') {
+      console.warn('MediaRecorder לא נתמך - מחזיר קובץ מקורי');
+      const hash = await calculateHash(file);
+      return {
+        blob: file,
+        hash,
+        size: file.size,
+        type: file.type,
+        originalSize: file.size,
+        compressionRatio: '0.0',
+      };
+    }
+
     // יצירת video element
     const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
@@ -101,10 +114,25 @@
     video.volume = 0; // אבל נשתיק את הרמקולים
     video.playsInline = true;
 
-    await new Promise((resolve, reject) => {
-      video.onloadedmetadata = resolve;
-      video.onerror = () => reject(new Error('נכשלה טעינת הוידאו'));
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        video.onloadedmetadata = resolve;
+        video.onerror = () => reject(new Error('נכשלה טעינת הוידאו'));
+        setTimeout(() => reject(new Error('Timeout loading video')), 10000);
+      });
+    } catch (err) {
+      console.error('נכשלה טעינת הוידאו:', err);
+      URL.revokeObjectURL(video.src);
+      const hash = await calculateHash(file);
+      return {
+        blob: file,
+        hash,
+        size: file.size,
+        type: file.type,
+        originalSize: file.size,
+        compressionRatio: '0.0',
+      };
+    }
 
     if (typeof onProgress === 'function') {
       onProgress({ stage: 'compressing', percent: 10 });
@@ -121,10 +149,14 @@
         throw new Error('captureStream not supported');
       }
     } catch (err) {
-      console.error('לא ניתן להשתמש ב-captureStream:', err);
+      console.warn('לא ניתן להשתמש ב-captureStream (טלפון?):', err);
       URL.revokeObjectURL(video.src);
       // חזרה לקובץ המקורי
       const hash = await calculateHash(file);
+      if (typeof onProgress === 'function') {
+        onProgress({ stage: 'complete', percent: 100 });
+      }
+      console.log('משתמש בקובץ מקורי (טלפון)');
       return {
         blob: file,
         hash,
@@ -199,27 +231,15 @@
     }
 
     console.log('דחיסה הושלמה:', {
-      original: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
-      compressed: `${(compressedBlob.size / (1024 * 1024)).toFixed(2)}MB`,
-      ratio: `${(100 - (compressedBlob.size / file.size) * 100).toFixed(1)}%`,
+      original: (file.size / 1024 / 1024).toFixed(2) + 'MB',
+      compressed: (blob.size / 1024 / 1024).toFixed(2) + 'MB',
+      ratio: ((1 - blob.size / file.size) * 100).toFixed(1) + '%'
     });
-    
-    // חלק טלפון (דחיסה) – ניקוי זיכרון אגרסיבי
-    if (isMobile) {
-      try {
-        if (video) video.src = '';
-        if (stream) stream.getTracks().forEach(track => track.stop());
-        URL.revokeObjectURL(video?.src);
-        video = null;
-        stream = null;
-        if (typeof gc === 'function') gc(); // אם זמין
-      } catch (e) {}
-    }
 
     return {
-      blob: compressedBlob,
+      blob,
       hash,
-      size: compressedBlob.size,
+      size: blob.size,
       type: mimeType,
       originalSize: file.size,
       compressionRatio: ((1 - blob.size / file.size) * 100).toFixed(1),

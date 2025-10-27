@@ -175,17 +175,17 @@
         ratio: result.compressionRatio + '%'
       });
 
+      // הודעה ידידותית אם לא הייתה דחיסה
+      if (result.compressionRatio === '0.0') {
+        console.log('העלאת קובץ מקורי (טלפון)');
+      }
+
       // העלאה ל-Blossom
       setStatus('מעלה וידאו...');
-      
-      if (!result || !result.blob) {
-        throw new Error('דחיסה נכשלה - אין blob');
-      }
-      
       const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
       
       if (!uploadResult || !uploadResult.url) {
-        throw new Error('העלאה נכשלה - אין URL');
+        throw new Error('העלאה נכשלה');
       }
 
       // שמירת מידע במצב
@@ -212,12 +212,7 @@
     try {
       // ניסיון העלאה דרך uploadToBlossom אם קיים
       if (typeof App.uploadToBlossom === 'function') {
-        const result = await App.uploadToBlossom(blob, hash);
-        // uploadToBlossom מחזיר אובייקט עם url
-        const url = typeof result === 'string' ? result : result?.url;
-        if (!url) {
-          throw new Error('No URL returned from uploadToBlossom');
-        }
+        const url = await App.uploadToBlossom(blob);
         return { url, hash };
       }
 

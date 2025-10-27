@@ -4,10 +4,9 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   // חלק recheck (media-recheck.js) – הגדרות
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const RECHECK_INTERVAL = isMobile ? 60 * 60 * 1000 : 30 * 60 * 1000; // 60/30 דקות
-  const BATCH_SIZE = isMobile ? 5 : 10; // כמה URLs לבדוק בכל פעם
-  const MIN_RECHECK_DELAY = isMobile ? 10 * 60 * 1000 : 5 * 60 * 1000; // 10/5 דקות
+  const RECHECK_INTERVAL = 30 * 60 * 1000; // 30 דקות
+  const BATCH_SIZE = 10; // כמה URLs לבדוק בכל פעם
+  const MIN_RECHECK_DELAY = 5 * 60 * 1000; // 5 דקות מינימום בין בדיקות
 
   let recheckTimer = null;
   let isRecheckRunning = false;
@@ -370,10 +369,9 @@
     getMediaRecheckStats: getRecheckStats,
   });
 
-  // אתחול
+  // אתחול אוטומטי
   function init() {
-    const deviceType = isMobile ? 'mobile' : 'desktop';
-    console.log(`Media recheck module initialized (${deviceType})`);
+    console.log('Media recheck module initialized');
     
     // התחלת בדיקה תקופתית
     startRecheck();
