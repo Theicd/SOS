@@ -161,19 +161,37 @@
     try {
       // דחיסה
       setStatus('מעבד וידאו... אנא המתן');
-      const result = await App.compressVideo(file, (progress) => {
-        if (progress.stage === 'compressing') {
-          setStatus(`מעבד וידאו... ${progress.percent}%`);
-        } else if (progress.stage === 'finalizing') {
-          setStatus('משלים עיבוד...');
-        }
-      });
+    
+    // חלק טלפון (קומפוזר) – השבתת recheck זמנית למניעת בעיות זיכרון
+    const recheckWasRunning = typeof App.stopMediaRecheck === 'function';
+    if (recheckWasRunning) {
+      try {
+        App.stopMediaRecheck();
+        console.log('Recheck paused during upload');
+      } catch (e) {}
+    }
+    
+    const result = await App.compressVideo(file, (progress) => {
+      if (progress.stage === 'compressing') {
+        setStatus(`מעבד וידאו... ${progress.percent}%`);
+      } else if (progress.stage === 'finalizing') {
+        setStatus('משלים עיבוד...');
+      }
+    });
 
       console.log('Video compressed:', {
-        original: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
-        compressed: (result.size / (1024 * 1024)).toFixed(2) + 'MB',
-        ratio: result.compressionRatio + '%'
-      });
+      original: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+      compressed: `${(result.blob.size / (1024 * 1024)).toFixed(2)}MB`,
+      ratio: `${(100 - (result.blob.size / file.size) * 100).toFixed(1)}%`,
+    });
+    
+    // חלק טלפון (קומפוזר) – הפעלה מחדש של recheck אחרי דחיסה
+    if (recheckWasRunning && typeof App.startMediaRecheck === 'function') {
+      try {
+        App.startMediaRecheck();
+        console.log('Recheck resumed after upload');
+      } catch (e) {}
+    }
 
       // העלאה ל-Blossom
       setStatus('מעלה וידאו...');
@@ -199,6 +217,14 @@
       console.error('Video processing failed', err);
       setStatus(err.message || 'שגיאה בעיבוד הוידאו', 'error');
       clearMediaPreview();
+      
+      // חלק טלפון (קומפוזר) – הפעלה מחדש של recheck במקרה של שגיאה
+      if (typeof App.startMediaRecheck === 'function') {
+        try {
+          App.startMediaRecheck();
+          console.log('Recheck resumed after error');
+        } catch (e) {}
+      }
     }
   }
 

@@ -4,10 +4,11 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   // חלק דחיסת וידאו – הגדרות ומגבלות
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const MAX_INPUT_SIZE = 30 * 1024 * 1024; // 30MB
-  const TARGET_BITRATE = '1M'; // ~1Mbps לוידאו
+  const TARGET_BITRATE = isMobile ? '800k' : '1M'; // ביטרייט נמוך יותר בטלפון
   const AUDIO_BITRATE = '96k';
-  const TARGET_HEIGHT = 720;
+  const TARGET_HEIGHT = isMobile ? 480 : 720; // רזולוציה נמוכה יותר בטלפון
   const CRF = 32; // איכות VP9 (ערך נמוך = איכות גבוהה)
 
   let ffmpegInstance = null;
@@ -198,15 +199,27 @@
     }
 
     console.log('דחיסה הושלמה:', {
-      original: (file.size / 1024 / 1024).toFixed(2) + 'MB',
-      compressed: (blob.size / 1024 / 1024).toFixed(2) + 'MB',
-      ratio: ((1 - blob.size / file.size) * 100).toFixed(1) + '%'
+      original: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+      compressed: `${(compressedBlob.size / (1024 * 1024)).toFixed(2)}MB`,
+      ratio: `${(100 - (compressedBlob.size / file.size) * 100).toFixed(1)}%`,
     });
+    
+    // חלק טלפון (דחיסה) – ניקוי זיכרון אגרסיבי
+    if (isMobile) {
+      try {
+        if (video) video.src = '';
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        URL.revokeObjectURL(video?.src);
+        video = null;
+        stream = null;
+        if (typeof gc === 'function') gc(); // אם זמין
+      } catch (e) {}
+    }
 
     return {
-      blob,
+      blob: compressedBlob,
       hash,
-      size: blob.size,
+      size: compressedBlob.size,
       type: mimeType,
       originalSize: file.size,
       compressionRatio: ((1 - blob.size / file.size) * 100).toFixed(1),
