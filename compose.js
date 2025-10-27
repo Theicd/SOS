@@ -161,44 +161,31 @@
     try {
       // דחיסה
       setStatus('מעבד וידאו... אנא המתן');
-    
-    // חלק טלפון (קומפוזר) – השבתת recheck זמנית למניעת בעיות זיכרון
-    const recheckWasRunning = typeof App.stopMediaRecheck === 'function';
-    if (recheckWasRunning) {
-      try {
-        App.stopMediaRecheck();
-        console.log('Recheck paused during upload');
-      } catch (e) {}
-    }
-    
-    const result = await App.compressVideo(file, (progress) => {
-      if (progress.stage === 'compressing') {
-        setStatus(`מעבד וידאו... ${progress.percent}%`);
-      } else if (progress.stage === 'finalizing') {
-        setStatus('משלים עיבוד...');
-      }
-    });
+      const result = await App.compressVideo(file, (progress) => {
+        if (progress.stage === 'compressing') {
+          setStatus(`מעבד וידאו... ${progress.percent}%`);
+        } else if (progress.stage === 'finalizing') {
+          setStatus('משלים עיבוד...');
+        }
+      });
 
       console.log('Video compressed:', {
-      original: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
-      compressed: `${(result.blob.size / (1024 * 1024)).toFixed(2)}MB`,
-      ratio: `${(100 - (result.blob.size / file.size) * 100).toFixed(1)}%`,
-    });
-    
-    // חלק טלפון (קומפוזר) – הפעלה מחדש של recheck אחרי דחיסה
-    if (recheckWasRunning && typeof App.startMediaRecheck === 'function') {
-      try {
-        App.startMediaRecheck();
-        console.log('Recheck resumed after upload');
-      } catch (e) {}
-    }
+        original: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+        compressed: (result.size / (1024 * 1024)).toFixed(2) + 'MB',
+        ratio: result.compressionRatio + '%'
+      });
 
       // העלאה ל-Blossom
       setStatus('מעלה וידאו...');
+      
+      if (!result || !result.blob) {
+        throw new Error('דחיסה נכשלה - אין blob');
+      }
+      
       const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
       
       if (!uploadResult || !uploadResult.url) {
-        throw new Error('העלאה נכשלה');
+        throw new Error('העלאה נכשלה - אין URL');
       }
 
       // שמירת מידע במצב
@@ -217,14 +204,6 @@
       console.error('Video processing failed', err);
       setStatus(err.message || 'שגיאה בעיבוד הוידאו', 'error');
       clearMediaPreview();
-      
-      // חלק טלפון (קומפוזר) – הפעלה מחדש של recheck במקרה של שגיאה
-      if (typeof App.startMediaRecheck === 'function') {
-        try {
-          App.startMediaRecheck();
-          console.log('Recheck resumed after error');
-        } catch (e) {}
-      }
     }
   }
 
@@ -233,7 +212,12 @@
     try {
       // ניסיון העלאה דרך uploadToBlossom אם קיים
       if (typeof App.uploadToBlossom === 'function') {
-        const url = await App.uploadToBlossom(blob);
+        const result = await App.uploadToBlossom(blob, hash);
+        // uploadToBlossom מחזיר אובייקט עם url
+        const url = typeof result === 'string' ? result : result?.url;
+        if (!url) {
+          throw new Error('No URL returned from uploadToBlossom');
+        }
         return { url, hash };
       }
 
