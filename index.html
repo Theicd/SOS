@@ -103,6 +103,48 @@
         max-width: 90%;
       }
       /* לא משפיע על פוסטים ישנים כי אין להם feed-post--fx */
+
+      /* חלק וידאו (index.html) – סגנון play overlay לוידאו */
+      .feed-media--video {
+        position: relative;
+        cursor: pointer;
+        background: #000;
+      }
+      .feed-media--video video {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .feed-media__play-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.3);
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+      .feed-media__play-overlay i {
+        font-size: 64px;
+        color: #fff;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.6);
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-left: 6px;
+      }
+      @media (max-width: 768px) {
+        .feed-media__play-overlay i {
+          font-size: 48px;
+          width: 64px;
+          height: 64px;
+        }
+      }
     </style>
   </head>
 <body>
@@ -654,6 +696,15 @@
     <script src="./chat-file-transfer-ui.js"></script>
     <!-- חלק קול (index.html) – טעינת לקוח Blossom ושכבות הקול לצ'אט לפני אתחול ממשק הצ'אט -->
     <script src="./blossom.js"></script>
+    <!-- חלק וידאו (index.html) – טעינת ffmpeg.wasm לדחיסת וידאו בצד הלקוח -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    <script src="./video-compressor.js"></script>
+    <!-- חלק cache (index.html) – מערכת cache מקומית לשמירת מדיה ב-IndexedDB -->
+    <script src="./media-cache.js"></script>
+    <!-- חלק mirror (index.html) – מערכת mirrors ו-fallback לוידאו/תמונות -->
+    <script src="./media-mirror.js"></script>
+    <!-- חלק recheck (index.html) – בדיקה תקופתית של זמינות URLs ויצירת mirrors -->
+    <script src="./media-recheck.js"></script>
     <script src="./chat-voice-service.js"></script>
     <script src="./chat-voice-ui.js"></script>
     <!-- חלק שיחות קול (index.html) – טעינת מודולי WebRTC לשיחות קוליות בזמן אמת -->

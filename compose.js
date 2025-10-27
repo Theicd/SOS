@@ -98,16 +98,18 @@
       resetStatus();
       // אם המשתמש בוחר מדיה ידנית – ביטול מצב רקע מהטקסט
       clearTextareaBg();
+      
+      // חלק וידאו (compose.js) – טיפול בקבצי וידאו עם דחיסה והעלאה
+      if (file.type.startsWith('video/')) {
+        await handleVideoFile(file);
+        event.target.value = '';
+        return;
+      }
+      
+      // טיפול בתמונות (קיים)
       let dataUrl;
       if (file.type.startsWith('image/')) {
         dataUrl = await resizeImage(file);
-      } else if (file.type.startsWith('video/')) {
-        dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
       } else {
         setStatus('סוג הקובץ לא נתמך. בחר תמונה או וידאו.', 'error');
         event.target.value = '';
@@ -127,12 +129,7 @@
         return;
       }
 
-      if (file.type.startsWith('video/')) {
-        state.media = { type: 'video', dataUrl };
-      } else {
-        state.media = { type: 'image', dataUrl };
-      }
-
+      state.media = { type: 'image', dataUrl };
       showMediaPreview(state.media);
       setStatus('המדיה נוספה. לחיצה על התצוגה תסיר אותה.');
     } catch (err) {
@@ -141,6 +138,103 @@
       clearMediaPreview();
     } finally {
       event.target.value = '';
+    }
+  }
+
+  // חלק וידאו (compose.js) – טיפול בקובץ וידאו: בדיקה, דחיסה, העלאה
+  async function handleVideoFile(file) {
+    const MAX_VIDEO_SIZE = 30 * 1024 * 1024; // 30MB
+    
+    // בדיקת גודל
+    if (file.size > MAX_VIDEO_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      setStatus(`הוידאו גדול מדי (${sizeMB}MB). מקסימום 30MB.`, 'error');
+      return;
+    }
+
+    // בדיקת תמיכה בדחיסה
+    if (typeof App.compressVideo !== 'function') {
+      setStatus('מנוע דחיסת הוידאו לא זמין. רענן את הדף.', 'error');
+      return;
+    }
+
+    try {
+      // דחיסה
+      setStatus('מעבד וידאו... אנא המתן');
+      const result = await App.compressVideo(file, (progress) => {
+        if (progress.stage === 'compressing') {
+          setStatus(`מעבד וידאו... ${progress.percent}%`);
+        } else if (progress.stage === 'finalizing') {
+          setStatus('משלים עיבוד...');
+        }
+      });
+
+      console.log('Video compressed:', {
+        original: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+        compressed: (result.size / (1024 * 1024)).toFixed(2) + 'MB',
+        ratio: result.compressionRatio + '%'
+      });
+
+      // העלאה ל-Blossom
+      setStatus('מעלה וידאו...');
+      const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
+      
+      if (!uploadResult || !uploadResult.url) {
+        throw new Error('העלאה נכשלה');
+      }
+
+      // שמירת מידע במצב
+      state.media = {
+        type: 'video',
+        dataUrl: URL.createObjectURL(result.blob),
+        url: uploadResult.url,
+        hash: result.hash,
+        size: result.size,
+        mimeType: result.type || 'video/webm'
+      };
+
+      showMediaPreview(state.media);
+      setStatus(`וידאו הועלה בהצלחה (${(result.size / (1024 * 1024)).toFixed(1)}MB)`);
+    } catch (err) {
+      console.error('Video processing failed', err);
+      setStatus(err.message || 'שגיאה בעיבוד הוידאו', 'error');
+      clearMediaPreview();
+    }
+  }
+
+  // חלק וידאו (compose.js) – העלאה ל-Blossom/void.cat
+  async function uploadVideoToBlossom(blob, hash) {
+    try {
+      // ניסיון העלאה דרך uploadToBlossom אם קיים
+      if (typeof App.uploadToBlossom === 'function') {
+        const url = await App.uploadToBlossom(blob);
+        return { url, hash };
+      }
+
+      // Fallback: העלאה ישירה ל-void.cat
+      const formData = new FormData();
+      formData.append('file', blob, 'video.webm');
+
+      const response = await fetch('https://void.cat/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed: ' + response.statusText);
+      }
+
+      const data = await response.json();
+      const url = data.file?.url || data.url;
+      
+      if (!url) {
+        throw new Error('No URL in upload response');
+      }
+
+      return { url, hash };
+    } catch (err) {
+      console.error('Blossom upload failed', err);
+      throw new Error('העלאת הוידאו נכשלה. בדוק חיבור לאינטרנט.');
     }
   }
 
@@ -434,8 +528,14 @@
     if (text) {
       parts.push(text);
     }
-    if (state.media?.dataUrl) {
-      parts.push(state.media.dataUrl);
+    
+    // חלק וידאו (compose.js) – אם יש וידאו מועלה, נשתמש ב-URL במקום dataUrl
+    if (state.media) {
+      if (state.media.type === 'video' && state.media.url) {
+        parts.push(state.media.url);
+      } else if (state.media.dataUrl) {
+        parts.push(state.media.dataUrl);
+      }
     }
 
     const content = parts.join('\n');
@@ -445,10 +545,17 @@
       return null;
     }
 
+    // חלק וידאו (compose.js) – הוספת תגיות Nostr למדיה
+    const mediaTags = [];
+    if (state.media && state.media.type === 'video' && state.media.url) {
+      mediaTags.push(['media', state.media.mimeType || 'video/webm', state.media.url, state.media.hash || '']);
+    }
+
     return {
       content,
       text,
       media: state.media,
+      mediaTags,
       // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
       originalId: state.editingOriginalId || null,
     };

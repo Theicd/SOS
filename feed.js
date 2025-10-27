@@ -1146,6 +1146,65 @@
     return fallback;
   }
 
+  // חלק mirror (פיד) – טיפול בעדכון mirror לפוסט קיים
+  function handleMirrorUpdate(event, parentId) {
+    if (!event || !parentId) return;
+
+    try {
+      // חילוץ תגיות mirror מהאירוע
+      const mirrorTags = [];
+      if (Array.isArray(event.tags)) {
+        event.tags.forEach(tag => {
+          if (Array.isArray(tag) && tag[0] === 'mirror' && tag[1]) {
+            mirrorTags.push({
+              url: tag[1],
+              hash: tag[2] || '',
+            });
+          }
+        });
+      }
+
+      if (mirrorTags.length === 0) return;
+
+      console.log(`עדכון mirrors לפוסט ${parentId.slice(0, 8)}:`, mirrorTags);
+
+      // עדכון ה-DOM - חיפוש כל הוידאוים בפוסט
+      const postElement = document.querySelector(`[data-post-id="${parentId}"]`);
+      if (!postElement) return;
+
+      const videoContainers = postElement.querySelectorAll('[data-video-url]');
+      videoContainers.forEach(container => {
+        const hash = container.dataset.videoHash || '';
+        
+        // חיפוש mirrors שמתאימים ל-hash
+        const relevantMirrors = mirrorTags
+          .filter(m => !m.hash || m.hash === hash)
+          .map(m => m.url);
+        
+        if (relevantMirrors.length > 0) {
+          // עדכון data-video-mirrors
+          const existingMirrors = container.dataset.videoMirrors 
+            ? container.dataset.videoMirrors.split(',').filter(Boolean)
+            : [];
+          
+          const allMirrors = [...new Set([...existingMirrors, ...relevantMirrors])];
+          container.dataset.videoMirrors = allMirrors.join(',');
+          
+          console.log(`✓ עודכנו ${relevantMirrors.length} mirrors לווידאו`);
+          
+          // עדכון במערכת recheck
+          const url = container.dataset.videoUrl;
+          const eventId = container.closest('[data-post-id]')?.dataset?.postId || null;
+          if (url && typeof App.registerMediaUrl === 'function') {
+            App.registerMediaUrl(url, hash, eventId, allMirrors);
+          }
+        }
+      });
+    } catch (err) {
+      console.error('handleMirrorUpdate failed:', err);
+    }
+  }
+
   function registerComment(event, parentId) {
     // חלק פיד (feed.js) – מוסיף תגובה למאגר המקומי ומעדכן את ה-UI של הפוסט
     if (!event || !parentId) {
@@ -1329,7 +1388,7 @@
     return null;
   }
 
-  function createMediaHtml(links = []) {
+  function createMediaHtml(links = [], hashMap = new Map(), mirrorsMap = new Map()) {
     if (!Array.isArray(links) || links.length === 0) {
       return '';
     }
@@ -1354,12 +1413,27 @@
         }
 
         if (link.startsWith('data:video') || /\.(mp4|webm|ogg)$/i.test(link)) {
-          return `<div class="feed-media"><video src="${link}" controls playsinline></video></div>`;
+          return `<div class="feed-media feed-media--video" data-video-container>
+            <video src="${link}" playsinline preload="metadata"></video>
+            <div class="feed-media__play-overlay" data-play-overlay>
+              <i class="fa-solid fa-play"></i>
+            </div>
+          </div>`;
         }
 
         if (/^https?:\/\//i.test(link)) {
           if (link.match(/\.(mp4|webm|ogg)$/i)) {
-            return `<div class="feed-media"><video src="${link}" controls playsinline></video></div>`;
+            // חלק mirror (פיד) – וידאו עם תמיכה ב-cache, mirrors ו-fallback
+            const hash = hashMap.get(link) || '';
+            const mirrors = mirrorsMap.get(link) || [];
+            const hashAttr = hash ? ` data-video-hash="${hash}"` : '';
+            const mirrorsAttr = mirrors.length > 0 ? ` data-video-mirrors="${mirrors.join(',')}"` : '';
+            return `<div class="feed-media feed-media--video" data-video-container data-video-url="${link}"${hashAttr}${mirrorsAttr}>
+              <video playsinline preload="metadata"></video>
+              <div class="feed-media__play-overlay" data-play-overlay>
+                <i class="fa-solid fa-play"></i>
+              </div>
+            </div>`;
           }
           const pathWithoutQuery = link.split('?')[0];
           if (pathWithoutQuery.match(/\.(png|jpe?g|gif|webp|avif)$/i)) {
@@ -1511,11 +1585,57 @@
       const mediaLinks = [];
       const textLines = [];
 
+      // חלק וידאו (feed.js) – זיהוי תגיות media ו-mirror מהאירוע
+      const mediaUrlsFromTags = new Set();
+      const mediaHashMap = new Map(); // מפה בין URL ל-hash
+      const mediaMirrorsMap = new Map(); // מפה בין URL ל-mirrors
+      try {
+        if (Array.isArray(event.tags)) {
+          // איסוף media tags
+          event.tags.forEach(tag => {
+            if (Array.isArray(tag) && tag[0] === 'media' && tag[2]) {
+              // tag format: ['media', 'video/webm', url, hash]
+              const url = tag[2];
+              const hash = tag[3] || '';
+              mediaLinks.push(url);
+              mediaUrlsFromTags.add(url);
+              if (hash) {
+                mediaHashMap.set(url, hash);
+              }
+              // אתחול רשימת mirrors ריקה
+              mediaMirrorsMap.set(url, []);
+            }
+          });
+          
+          // איסוף mirror tags
+          event.tags.forEach(tag => {
+            if (Array.isArray(tag) && tag[0] === 'mirror' && tag[1]) {
+              // tag format: ['mirror', mirror_url, hash]
+              const mirrorUrl = tag[1];
+              const hash = tag[2] || '';
+              
+              // חיפוש ה-media המתאים לפי hash
+              for (const [mediaUrl, mediaHash] of mediaHashMap.entries()) {
+                if (hash && hash === mediaHash) {
+                  const mirrors = mediaMirrorsMap.get(mediaUrl) || [];
+                  mirrors.push(mirrorUrl);
+                  mediaMirrorsMap.set(mediaUrl, mirrors);
+                  break;
+                }
+              }
+            }
+          });
+        }
+      } catch (_) {}
+
       lines.forEach((line) => {
         const trimmed = line.trim();
         if (!trimmed) return;
         if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:image') || trimmed.startsWith('data:video')) {
-          mediaLinks.push(trimmed);
+          // מניעת כפילות - לא להוסיף אם כבר הוסף מתגיות
+          if (!mediaUrlsFromTags.has(trimmed)) {
+            mediaLinks.push(trimmed);
+          }
         } else {
           textLines.push(trimmed);
         }
@@ -1543,7 +1663,7 @@
           </button>
         `
         : '';
-      const mediaHtml = createMediaHtml(mediaLinks);
+      const mediaHtml = createMediaHtml(mediaLinks, mediaHashMap, mediaMirrorsMap);
       const metaParts = [];
       if (safeBio) {
         metaParts.push(safeBio);
@@ -1669,6 +1789,9 @@
         App.refreshFollowButtons(article);
       }
     });
+
+    // חלק cache (פיד) – אתחול טעינת וידאו לכל הפוסטים
+    initVideoLoading();
   }
 
   async function hydrateCommentsSection(articleEl, parentId) {
@@ -1795,7 +1918,18 @@
             if (event.kind === 1) {
               const parentId = extractParentId(event);
               if (parentId) {
-                registerComment(event, parentId);
+                // בדיקה אם זה mirror update
+                const hasMirrorTag = Array.isArray(event.tags) && event.tags.some(tag => 
+                  Array.isArray(tag) && tag[0] === 'mirror'
+                );
+                
+                if (hasMirrorTag) {
+                  // זה mirror update - נעדכן את ה-mirrors בפוסט המקורי
+                  handleMirrorUpdate(event, parentId);
+                } else {
+                  // תגובה רגילה
+                  registerComment(event, parentId);
+                }
               } else {
                 events.push(event);
               }
@@ -1932,6 +2066,10 @@
     if (App.composeState && App.composeState.fx) {
       draft.tags.push(['fx', String(App.composeState.fx)]);
     }
+    // חלק וידאו (feed.js) – הוספת תגיות media לוידאו
+    if (Array.isArray(payload.mediaTags) && payload.mediaTags.length > 0) {
+      payload.mediaTags.forEach(tag => draft.tags.push(tag));
+    }
     // חלק עריכה (feed.js) – אם מדובר בעריכה, מוסיפים תג שמקשר לפוסט המקורי לצורך עקיבות
     if (payload.originalId) {
       draft.tags.push(['e', payload.originalId, '', 'replaces']);
@@ -2054,6 +2192,131 @@
     }
   }
 
+  // חלק mirror (פיד) – טעינת וידאו עם cache, mirrors ו-fallback
+  async function loadVideoWithCache(videoElement, url, hash, mirrors = []) {
+    try {
+      // שימוש במערכת ה-fallback המלאה
+      if (typeof App.loadMediaWithFallback === 'function') {
+        const result = await App.loadMediaWithFallback(url, mirrors, hash);
+        
+        if (result.success && result.blob) {
+          const objectUrl = URL.createObjectURL(result.blob);
+          videoElement.src = objectUrl;
+          
+          console.log(`וידאו נטען מ-${result.source}:`, result.url || url);
+          return true;
+        }
+        
+        console.error('כל ה-URLs נכשלו');
+        return false;
+      }
+
+      // Fallback לשיטה הישנה אם המודול לא זמין
+      if (hash && typeof App.getCachedMedia === 'function') {
+        const cached = await App.getCachedMedia(hash);
+        if (cached && cached.blob) {
+          const objectUrl = URL.createObjectURL(cached.blob);
+          videoElement.src = objectUrl;
+          console.log('וידאו נטען מ-cache:', hash.slice(0, 16));
+          return true;
+        }
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      videoElement.src = objectUrl;
+
+      if (hash && typeof App.cacheMedia === 'function') {
+        App.cacheMedia(url, hash, blob, blob.type).catch(err => {
+          console.warn('Failed to cache video', err);
+        });
+      }
+
+      console.log('וידאו נטען מהרשת:', url);
+      return true;
+    } catch (err) {
+      console.error('נכשלה טעינת וידאו:', err);
+      return false;
+    }
+  }
+
+  // חלק recheck (פיד) – אתחול טעינת וידאו עם mirrors ורישום ל-recheck
+  function initVideoLoading() {
+    const videoContainers = document.querySelectorAll('[data-video-url]');
+    videoContainers.forEach(container => {
+      const video = container.querySelector('video');
+      const url = container.dataset.videoUrl;
+      const hash = container.dataset.videoHash || '';
+      const mirrorsStr = container.dataset.videoMirrors || '';
+      const mirrors = mirrorsStr ? mirrorsStr.split(',').filter(Boolean) : [];
+      
+      if (video && url && !video.src) {
+        // רישום ה-URL למערכת recheck
+        const eventId = container.closest('[data-post-id]')?.dataset?.postId || null;
+        if (typeof App.registerMediaUrl === 'function') {
+          App.registerMediaUrl(url, hash, eventId, mirrors);
+        }
+        
+        // טעינה lazy - רק כשהוידאו נכנס ל-viewport
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              loadVideoWithCache(video, url, hash, mirrors);
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { rootMargin: '100px' });
+        
+        observer.observe(container);
+      }
+    });
+  }
+
+  // חלק וידאו (feed.js) – טיפול בלחיצה על וידאו להפעלה/עצירה
+  function initVideoPlayHandlers() {
+    document.addEventListener('click', (e) => {
+      const container = e.target.closest('[data-video-container]');
+      if (!container) return;
+
+      const video = container.querySelector('video');
+      const overlay = container.querySelector('[data-play-overlay]');
+      if (!video) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (video.paused) {
+        video.play();
+        if (overlay) overlay.style.opacity = '0';
+      } else {
+        video.pause();
+        if (overlay) overlay.style.opacity = '1';
+      }
+    });
+
+    // הסתרת overlay בהפעלה, הצגה בעצירה
+    document.addEventListener('play', (e) => {
+      if (e.target.tagName === 'VIDEO') {
+        const container = e.target.closest('[data-video-container]');
+        const overlay = container?.querySelector('[data-play-overlay]');
+        if (overlay) overlay.style.opacity = '0';
+      }
+    }, true);
+
+    document.addEventListener('pause', (e) => {
+      if (e.target.tagName === 'VIDEO') {
+        const container = e.target.closest('[data-video-container]');
+        const overlay = container?.querySelector('[data-play-overlay]');
+        if (overlay) overlay.style.opacity = '1';
+      }
+    }, true);
+  }
+
   async function deletePost(eventId) {
     if (!eventId) {
       return;
@@ -2111,4 +2374,11 @@
     updateLikeIndicator,
     removePostElement,
   });
+
+  // חלק וידאו (feed.js) – אתחול טיפול בוידאו
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initVideoPlayHandlers);
+  } else {
+    initVideoPlayHandlers();
+  }
 })(window);
