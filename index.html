@@ -14,7 +14,6 @@
     <link rel="stylesheet" href="./styles/facebook-theme.css">
     <link rel="stylesheet" href="./styles/media-overrides.css">
     <link rel="stylesheet" href="./styles/market-dashboard.css">
-    <link rel="stylesheet" href="./styles/contract-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <!-- חלק צ'אט (index.html) – טוען את עיצוב מסנג'ר הצ'אט -->
@@ -156,33 +155,16 @@
         <nav class="primary-nav" aria-label="ניווט ראשי">
             <button class="nav-item is-active" data-nav="news">
                 <i class="fa-solid fa-newspaper"></i>
-                <span>חדשות</span>
+                <span>יאללה ניוז</span>
             </button>
             <button class="nav-item" data-nav="videos">
                 <i class="fa-solid fa-clapperboard"></i>
                 <span>וידאו</span>
             </button>
-            <button class="nav-item" data-nav="friends">
-                <i class="fa-solid fa-user-group"></i>
-                <span>חברים</span>
-            </button>
-            <button class="nav-item" data-nav="profile">
-                <i class="fa-solid fa-id-badge"></i>
-                <span>פרופיל</span>
-            </button>
+            <!-- חלק ניווט יד 2 (index.html) – מעבר לשוק יד שנייה בקונספט הפלטפורמה -->
             <button class="nav-item" data-nav="market">
-                <i class="fa-solid fa-store"></i>
-                <span>מרקט</span>
-            </button>
-            <!-- חלק ניווט חוזה (index.html) – כפתור ראשי לפתיחת לוח החוזה החכם מתוך הניווט העליון -->
-            <button class="nav-item" data-nav="contract">
-                <i class="fa-solid fa-cubes"></i>
-                <span>חוזה חכם</span>
-            </button>
-            <!-- חלק ניווט חוזה 2 (index.html) – כפתור ייעודי לפתיחת חוויית "חוזה חכם 2" החדשה -->
-            <button class="nav-item" data-nav="contract-v2">
-                <i class="fa-solid fa-chart-column"></i>
-                <span>חוזה חכם 2</span>
+                <i class="fa-solid fa-box-open"></i>
+                <span>יד 2</span>
             </button>
             <button class="nav-item" data-nav="games">
                 <i class="fa-solid fa-gamepad"></i>
@@ -192,6 +174,11 @@
             <button class="nav-item" data-nav="dating">
                 <i class="fa-solid fa-heart"></i>
                 <span>הכרויות</span>
+            </button>
+            <!-- חלק ניווט חוזה (index.html) – כפתור "חוזה חכם" בקצה השמאלי להדגשת חוויית ההשקעה -->
+            <button class="nav-item" data-nav="contract-v2">
+                <i class="fa-solid fa-handshake"></i>
+                <span>חוזה חכם</span>
             </button>
         </nav>
         <section class="composer-card">
@@ -482,10 +469,6 @@
                         <i class="fa-solid fa-rotate"></i>
                         רענן כעת
                     </button>
-                    <button class="growth-dashboard__contracts" type="button" onclick="openContractDashboard()">
-                        <i class="fa-solid fa-file-contract"></i>
-                        חוזה השקעה
-                    </button>
                 </div>
             </footer>
         </article>
@@ -498,11 +481,11 @@
                 <div class="contract-dashboard-v2__identity">
                     <i class="fa-solid fa-signal"></i>
                     <div>
-                        <h2>חוזה חכם 2 – SPEAR ONE</h2>
+                        <h2>חוזה חכם – SPEAR ONE</h2>
                         <p>השקעה בטכנולוגיה המבוזרת שמשנה את האינטרנט</p>
                     </div>
                 </div>
-                <button class="contract-dashboard-v2__close" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם 2">
+                <button class="contract-dashboard-v2__close" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </header>
@@ -523,6 +506,10 @@
                             <button class="contract-v2-hero__details" type="button" id="contractV2DetailsToggle">
                                 <i class="fa-solid fa-circle-info"></i>
                                 פרטים נוספים
+                            </button>
+                            <button class="contract-v2-hero__details" type="button" data-scroll-target="contractV2Calculator">
+                                <i class="fa-solid fa-calculator"></i>
+                                פתיחת מחשבון השקעה
                             </button>
                         </div>
                     </div>
@@ -584,6 +571,59 @@
                         </article>
                     </div>
                 </section>
+                <!-- חלק תנאי חוזה (index.html) – תנאים משפטיים ומבניים | HYPER CORE TECH -->
+                <section class="contract-v2-terms" id="contractV2Terms">
+                    <h3>תנאי החוזה</h3>
+                    <ol class="contract-v2-terms__list" id="contractV2TermsList"></ol>
+                </section>
+                <!-- חלק תחזית (index.html) – גרף תחזית צמיחה מבוסס נתונים | HYPER CORE TECH -->
+                <section class="contract-v2-forecast" id="contractV2Forecast">
+                    <header class="contract-v2-forecast__header">
+                        <div>
+                            <h3>תחזית צמיחה לשנה קדימה</h3>
+                            <p>תרחישים מבוססי פעילות Relay, משתמשים פעילים ושותפויות עתידיות.</p>
+                        </div>
+                        <div class="contract-v2-forecast__legend" id="contractV2ForecastLegend"></div>
+                    </header>
+                    <div class="contract-v2-forecast__chart">
+                        <canvas id="contractV2ForecastChart" aria-label="גרף תחזית פעילות ושווי"></canvas>
+                    </div>
+                    <footer class="contract-v2-forecast__notes" id="contractV2ForecastNotes"></footer>
+                </section>
+                <!-- חלק מחשבון השקעה (index.html) – חישוב יחידות ותשואה | HYPER CORE TECH -->
+                <section class="contract-v2-calculator" id="contractV2Calculator">
+                    <header class="contract-v2-calculator__header">
+                        <h3>מחשבון השקעה מיידי</h3>
+                        <p>הזינו סכום ובדקו את אחוז הזכות בטכנולוגיה ואת Buyback המשוער.</p>
+                    </header>
+                    <div class="contract-v2-calculator__body">
+                        <label class="contract-v2-calculator__label" for="contractV2InvestmentInput">
+                            סכום השקעה בדולר (מינימום $50)
+                        </label>
+                        <div class="contract-v2-calculator__input">
+                            <span class="contract-v2-calculator__currency">$</span>
+                            <input type="number" id="contractV2InvestmentInput" min="50" step="50" value="50" />
+                        </div>
+                        <div class="contract-v2-calculator__summary" id="contractV2CalculatorSummary">
+                            <div class="contract-v2-calculator__item">
+                                <span class="contract-v2-calculator__item-label">אחוז בטכנולוגיה</span>
+                                <strong class="contract-v2-calculator__item-value" id="contractV2Ownership">0%</strong>
+                            </div>
+                            <div class="contract-v2-calculator__item">
+                                <span class="contract-v2-calculator__item-label">Buyback בקרדיטים</span>
+                                <strong class="contract-v2-calculator__item-value" id="contractV2Buyback">$0</strong>
+                            </div>
+                            <div class="contract-v2-calculator__item">
+                                <span class="contract-v2-calculator__item-label">קיבולת משתמשים נתמכת</span>
+                                <strong class="contract-v2-calculator__item-value" id="contractV2CapacityImpact">0</strong>
+                            </div>
+                        </div>
+                        <button class="contract-v2-calculator__cta" type="button" onclick="openOptionPurchase()">
+                            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                            המשך לתהליך ההשקעה
+                        </button>
+                    </div>
+                </section>
             </div>
             <footer class="contract-dashboard-v2__footer">
                 <span class="contract-dashboard-v2__status" id="contractV2Status">ממתין לנתוני רשת...</span>
@@ -591,96 +631,6 @@
                     <i class="fa-solid fa-rocket"></i>
                     הצטרפות עם יחידה אחת
                 </button>
-            </footer>
-        </article>
-    </section>
-    <section class="contract-dashboard" id="contractDashboard" aria-hidden="true">
-        <div class="contract-dashboard__backdrop" onclick="closeContractDashboard()"></div>
-        <article class="contract-dashboard__panel" role="dialog" aria-modal="true">
-            <header class="contract-dashboard__header">
-                <div class="contract-dashboard__identity">
-                    <i class="fa-solid fa-file-contract"></i>
-                    <div>
-                        <h2>חוזה חכם – השקעה ברשת המבוזרת</h2>
-                        <p>מסלול הצטרפות למשקיעים שמבינים צמיחה מבוססת נתונים בזמן אמת</p>
-                    </div>
-                </div>
-                <button class="contract-dashboard__close" type="button" onclick="closeContractDashboard()" aria-label="סגירת חוזה">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </header>
-            <div class="contract-dashboard__body">
-                <section class="contract-dashboard__section contract-hero-section" id="contractExecutive">
-                    <div class="contract-hero" id="contractHero">
-                        <div class="contract-hero__copy">
-                            <h3>Units ו-Credits שמתרגמים פעילות לערך</h3>
-                            <p id="contractHeroPitch">הנתונים נאספים מהרשת בזמן אמת כדי להציג למשקיע כמה שווה כל יחידה, מהו שווי הנכס הכולל וכיצד תרומתך מזינה את הצמיחה.</p>
-                            <div class="contract-hero__cta">
-                                <button class="contract-hero__cta-primary" type="button" onclick="openOptionPurchase()">
-                                    <i class="fa-solid fa-rocket"></i>
-                                    הצטרפות להשקעה מיידית
-                                </button>
-                                <button class="contract-hero__cta-secondary" type="button" onclick="openContractDocs()">
-                                    <i class="fa-solid fa-scale-balanced"></i>
-                                    צפייה במסמכי העמיתות
-                                </button>
-                            </div>
-                        </div>
-                        <div class="contract-hero__stats">
-                            <article class="contract-hero__stat">
-                                <span class="contract-hero__stat-label">שווי רשת נוכחי</span>
-                                <span class="contract-hero__stat-value" id="contractHeroNetwork">--</span>
-                                <small class="contract-hero__stat-note" id="contractHeroUsers">נתוני משתמשים מתעדכנים...</small>
-                            </article>
-                            <article class="contract-hero__stat">
-                                <span class="contract-hero__stat-label">ערך יחידה בזמן אמת</span>
-                                <span class="contract-hero__stat-value" id="contractHeroUnit">--</span>
-                                <small class="contract-hero__stat-note">יחס Credits↔Units מחושב אוטומטית</small>
-                            </article>
-                            <article class="contract-hero__stat">
-                                <span class="contract-hero__stat-label">רווח מצטבר למשקיעים</span>
-                                <span class="contract-hero__stat-value" id="contractHeroProfit">--</span>
-                                <small class="contract-hero__stat-note">מבוסס Buyback והון שגויס</small>
-                            </article>
-                            <article class="contract-hero__stat">
-                                <span class="contract-hero__stat-label">Credits זמינים</span>
-                                <span class="contract-hero__stat-value" id="contractHeroCredits">--</span>
-                                <small class="contract-hero__stat-note">שימוש לקידום, פרימיום והעברות</small>
-                            </article>
-                        </div>
-                        <div class="contract-hero__trust" id="contractHeroTrust">המערכת מנתחת פעילות Relay, השקעות והרחבות בזמן אמת.</div>
-                    </div>
-                    <div class="contract-metrics" id="contractMetrics"></div>
-                </section>
-                <section class="contract-dashboard__section" id="contractTerms">
-                    <h3>תנאי החוזה</h3>
-                    <ol class="contract-terms" id="contractTermsList"></ol>
-                </section>
-                <section class="contract-dashboard__section" id="contractAnalytics">
-                    <h3>אנליטיקה דינמית</h3>
-                    <div class="contract-analytics">
-                        <canvas id="contractForecastChart" aria-label="גרף תחזית"></canvas>
-                        <div class="contract-forecast__notes" id="contractForecastNotes"></div>
-                    </div>
-                </section>
-                <section class="contract-dashboard__section" id="contractUnits">
-                    <h3>יחידות למכירה</h3>
-                    <p class="contract-units__intro">בחר את גודל ההשקעה המתאים עבורך. כל יחידה מבוססת נתונים מוכחים של משתמשים פעילים, טרנזקציות וקרדיטים שנצברו ברשת.</p>
-                    <div class="contract-units" id="contractUnitsGrid"></div>
-                </section>
-                <section class="contract-dashboard__section" id="contractAssurance">
-                    <h3>ליווי משקיעים</h3>
-                    <div class="contract-assurance">
-                        <p>אנחנו מלווים את המשקיעים בתהליך מלא: עדכוני צמיחה שבועיים, דוחות שווי תקופתיים ואפשרות Buyback מובנית. לחיצה על הצטרפות תאפשר לך לבחור סכום מותאם אישית ולהשלים תשלום מאובטח.</p>
-                        <button class="contract-assurance__cta" type="button" onclick="openOptionPurchase()">
-                            <i class="fa-solid fa-credit-card"></i>
-                            אני מוכן לרכוש יחידה עכשיו
-                        </button>
-                    </div>
-                </section>
-            </div>
-            <footer class="contract-dashboard__footer">
-                <span class="contract-dashboard__status" id="contractStatus">החוזה ממתין לאימות נתוני רשת...</span>
             </footer>
         </article>
     </section>
@@ -721,7 +671,6 @@
     <script src="./feed.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="./market-dashboard.js"></script>
-    <script src="./contract-dashboard.js"></script>
     <script src="./contract-dashboard-v2.js"></script>
     <script src="./app.js"></script>
 

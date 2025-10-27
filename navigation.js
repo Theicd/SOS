@@ -29,13 +29,7 @@
 
     updateNavSelection(key);
 
-    // חלק ניווט חוזה (navigation.js) – לחיצה על "חוזה חכם" פותחת את לוח החוזה המבוזר במקום הכפתור הצף הישן
-    if (key === 'contract' && typeof App.openContractDashboard === 'function') {
-      App.openContractDashboard();
-      return;
-    }
-
-    // חלק ניווט חוזה 2 (navigation.js) – לחיצה על "חוזה חכם 2" מפעילה את חוויית SPEAR ONE החדשה
+    // חלק ניווט חוזה (navigation.js) – לחיצה על "חוזה חכם" מפעילה את חוויית SPEAR ONE המעודכנת
     if (key === 'contract-v2' && typeof App.openContractDashboardV2 === 'function') {
       App.openContractDashboardV2();
       return;
@@ -45,11 +39,6 @@
     if (key === 'games') {
       window.location.href = './games.html';
       return;
-    }
-
-    // חלק ניווט פרופיל (navigation.js) – לחיצה על "פרופיל" מעבירה לדף הפרופיל האישי החדש
-    if (key === 'profile') {
-      window.location.href = './profile.html';
     }
 
     // חלק ניווט הכרויות (navigation.js) – לחיצה על "הכרויות" פותחת את דף הטינדר החדש

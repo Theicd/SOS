@@ -80,9 +80,6 @@
   if (typeof App.initializeGrowthDashboard === 'function') {
     App.initializeGrowthDashboard();
   }
-  if (typeof App.initializeContractDashboard === 'function') {
-    App.initializeContractDashboard();
-  }
 
   window.openCompose = function openCompose() {
     // חלק קומפוזר (app.js) – מפנה לפונקציית המודאל המרכזית ב-compose.js כדי למנוע מצבי תצוגה כפולים
@@ -113,8 +110,6 @@
   window.openGrowthDashboard = App.openGrowthDashboard || (() => {});
   window.closeGrowthDashboard = App.closeGrowthDashboard || (() => {});
   window.refreshGrowthDashboard = App.refreshGrowthDashboard || (() => {});
-  window.openContractDashboard = App.openContractDashboard || (() => {});
-  window.closeContractDashboard = App.closeContractDashboard || (() => {});
   window.openOptionPurchase = App.openOptionPurchase || (() => {});
   window.openContractDocs = App.openContractDocs || (() => {});
 

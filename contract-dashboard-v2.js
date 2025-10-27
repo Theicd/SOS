@@ -16,11 +16,20 @@
     chartCanvas: document.getElementById('contractV2Chart'),
     details: document.getElementById('contractV2Details'),
     detailsToggle: document.getElementById('contractV2DetailsToggle'),
+    termsList: document.getElementById('contractV2TermsList'),
+    forecastCanvas: document.getElementById('contractV2ForecastChart'),
+    forecastLegend: document.getElementById('contractV2ForecastLegend'),
+    forecastNotes: document.getElementById('contractV2ForecastNotes'),
+    investmentInput: document.getElementById('contractV2InvestmentInput'),
+    ownershipValue: document.getElementById('contractV2Ownership'),
+    buybackValue: document.getElementById('contractV2Buyback'),
+    capacityImpact: document.getElementById('contractV2CapacityImpact'),
   };
 
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – אחסון מצב הלוח ונתונים אחרונים
   const contractV2State = {
     chart: null,
+    forecastChart: null,
     latestStats: null,
     model: null,
     detailsOpen: false,
@@ -35,7 +44,19 @@
     relayCapacityPerNode: 23_000, // קיבולת ממוצעת לכל Relay בתצורה הנוכחית
     userValueMultiplier: 38, // הערכה שמרנית לשווי משתמש פעיל בטכנולוגיה מבוזרת
     infrastructureSavingsPerBusinessUSD: 3_600, // חיסכון שנתי לעסק קטן
+    targetNetworkValueUSD: 50_000_000, // יעד שווי לטכנולוגיה המבוזרת
+    targetMonthlyRevenueUSD: 25_000,
+    targetUserCount: 1_000_000,
   };
+
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – תנאי חוזה בסיסיים המוצגים ברשימה
+  const DEFAULT_TERMS = [
+    { title: 'זכויות בטכנולוגיה', text: 'כל יחידה מעניקה חלק יחסי בטכנולוגיית SPEAR ONE ובקניין הרוחני הנלווה לה.' },
+    { title: 'התנהלות מבוזרת', text: 'אין שרת מרכזי או בסיס נתונים – השליטה נשארת בידי המשתמשים ובעלי היחידות.' },
+    { title: 'Buyback מובנה', text: '80% מערך היחידה מומר לקרדיטים פנימיים לשימוש בפלטפורמה (קידום, אחסון, שירותים).' },
+    { title: 'שקיפות בזמן אמת', text: 'גרף השווי מחובר לפעילות הרשת (Relays, משתמשים, מעורבות) ומתעדכן אוטומטית.' },
+    { title: 'הרחבה מיידית', text: 'כל השקעה מתורגמת לפתיחת Relay או הרחבת קיבולת – ללא הוצאות ענן נוספות.' },
+  ];
 
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – כלי עזר להצגת מספרים
   function formatNumber(value) {
@@ -137,7 +158,7 @@
       },
       {
         icon: 'fa-server',
-        text: 'SPEAR ONE פועל על שרת סטטי יחיד ומדגים תפעול מלא של רשת חברתית מבוזרת ללא עלות אינפרה כבדה.',
+        text: `SPEAR ONE פועל על שרת סטטי יחיד ומדגים תפעול מלא של רשת מבוזרת בשווי של ${formatCurrencyUSD(model.networkValueUSD, 0)}.`,
       },
       {
         icon: 'fa-coins',
@@ -167,6 +188,14 @@
     if (selectors.yield) {
       selectors.yield.textContent = formatPercent(model.virtualYieldPercent);
     }
+  }
+
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – הצגת תנאי החוזה
+  function renderTerms() {
+    if (!selectors.termsList) {
+      return;
+    }
+    selectors.termsList.innerHTML = DEFAULT_TERMS.map((term) => `<li><strong>${term.title}:</strong> ${term.text}</li>`).join('');
   }
 
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – בניית טבלת מקרא לנתוני הגרף
@@ -317,6 +346,189 @@
     });
   }
 
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – בניית נתונים לתחזית צמיחה
+  function buildForecastData(stats, model) {
+    const timeline = Array.isArray(stats?.timeline) ? stats.timeline : [];
+    if (!timeline.length || typeof Chart === 'undefined') {
+      return null;
+    }
+    const baseActivity = timeline.map((bucket) => Math.max(bucket.total || 0, 0));
+    const labels = timeline.map((bucket) => bucket.date);
+    const lastActivity = baseActivity[baseActivity.length - 1] || 1;
+    const firstActivity = baseActivity[0] || lastActivity;
+    const rawGrowth = baseActivity.length > 1 ? (lastActivity - firstActivity) / Math.max(firstActivity, 1) / (baseActivity.length - 1) : 0.15;
+    const monthlyGrowth = Math.min(Math.max(rawGrowth, 0.08), 0.3);
+    const optimisticGrowth = Math.min(monthlyGrowth + 0.07, 0.38);
+    const conservativeGrowth = Math.max(monthlyGrowth - 0.04, 0.06);
+    const months = 12;
+    const activityOptimistic = [];
+    const activityConservative = [];
+    const valueOptimistic = [];
+    const valueConservative = [];
+    const baseValue = model?.networkValueUSD || 1_500_000;
+    const monthlyValueGrowth = Math.min(Math.max(monthlyGrowth + 0.04, 0.1), 0.35);
+    const optimisticValueGrowth = Math.min(monthlyValueGrowth + 0.06, 0.42);
+    const conservativeValueGrowth = Math.max(monthlyValueGrowth - 0.05, 0.08);
+
+    for (let i = 1; i <= months; i += 1) {
+      activityOptimistic.push(Math.round(lastActivity * Math.pow(1 + optimisticGrowth, i)));
+      activityConservative.push(Math.round(lastActivity * Math.pow(1 + conservativeGrowth, i)));
+      valueOptimistic.push(Math.round(baseValue * Math.pow(1 + optimisticValueGrowth, i)));
+      valueConservative.push(Math.round(baseValue * Math.pow(1 + conservativeValueGrowth, i)));
+    }
+
+    const forecastLabels = [];
+    for (let i = 1; i <= months; i += 1) {
+      const date = new Date();
+      date.setMonth(date.getMonth() + i);
+      forecastLabels.push(date.toISOString().split('T')[0]);
+    }
+
+    return {
+      labels: [...labels, ...forecastLabels],
+      activityBase: [...baseActivity, ...Array(months).fill(lastActivity)],
+      activityOptimistic: [...baseActivity.slice(-3), ...activityOptimistic],
+      activityConservative: [...baseActivity.slice(-3), ...activityConservative],
+      valueOptimistic: [...Array(baseActivity.length).fill(baseValue), ...valueOptimistic],
+      valueConservative: [...Array(baseActivity.length).fill(baseValue), ...valueConservative],
+    };
+  }
+
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – ציור גרף התחזית
+  function renderForecast(stats, model) {
+    if (!selectors.forecastCanvas) {
+      return;
+    }
+    const data = buildForecastData(stats, model);
+    if (!data) {
+      selectors.forecastNotes && (selectors.forecastNotes.textContent = 'ממתין למדדי פעילות כדי לחשב תחזית.');
+      return;
+    }
+    if (contractV2State.forecastChart?.destroy) {
+      contractV2State.forecastChart.destroy();
+    }
+    const ctx = selectors.forecastCanvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, selectors.forecastCanvas.height);
+    gradient.addColorStop(0, 'rgba(111, 125, 255, 0.28)');
+    gradient.addColorStop(1, 'rgba(111, 125, 255, 0.05)');
+    contractV2State.forecastChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [
+          { label: 'פעילות ממוצעת', data: data.activityBase, borderColor: '#6f7dff', backgroundColor: gradient, fill: true, borderWidth: 2, tension: 0.35, yAxisID: 'activity' },
+          { label: 'פעילות – תרחיש אופטימי', data: data.activityOptimistic, borderColor: '#63e6be', borderDash: [6, 4], fill: false, tension: 0.32, yAxisID: 'activity' },
+          { label: 'פעילות – תרחיש שמרני', data: data.activityConservative, borderColor: '#ffb347', borderDash: [4, 6], fill: false, tension: 0.32, yAxisID: 'activity' },
+          { label: 'שווי רשת – אופטימי (USD)', data: data.valueOptimistic, borderColor: '#f472b6', fill: false, tension: 0.28, yAxisID: 'value' },
+          { label: 'שווי רשת – שמרני (USD)', data: data.valueConservative, borderColor: '#9f7aea', fill: false, borderDash: [2, 3], tension: 0.28, yAxisID: 'value' },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#f8f9ff' } },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                if (context.dataset.yAxisID === 'value') {
+                  return `${context.dataset.label}: ${formatCurrencyUSD(context.parsed.y, 0)}`;
+                }
+                return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#9aa2c1' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          activity: { position: 'left', ticks: { color: '#9aa2c1', callback: (value) => formatNumber(value) }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          value: { position: 'right', ticks: { color: '#f8f9ff', callback: (value) => formatCurrencyUSD(value, 0) }, grid: { drawOnChartArea: false } },
+        },
+      },
+    });
+
+    if (selectors.forecastLegend) {
+      selectors.forecastLegend.innerHTML = `
+        <span><i class="fa-solid fa-circle" style="color:#6f7dff"></i> פעילות ממוצעת</span>
+        <span><i class="fa-solid fa-circle" style="color:#63e6be"></i> תרחיש פעילות אופטימי</span>
+        <span><i class="fa-solid fa-circle" style="color:#ffb347"></i> תרחיש פעילות שמרני</span>
+        <span><i class="fa-solid fa-circle" style="color:#f472b6"></i> שווי רשת אופטימי</span>
+        <span><i class="fa-solid fa-circle" style="color:#9f7aea"></i> שווי רשת שמרני</span>
+      `;
+    }
+
+    if (selectors.forecastNotes) {
+      selectors.forecastNotes.innerHTML = `
+        <span><i class="fa-solid fa-chart-line"></i> הנתונים נשענים על פעילות Relay ומעורבות בפוסטים בזמן אמת.</span>
+        <span><i class="fa-solid fa-bolt"></i> תרחיש אופטימי כולל שילוב שותפויות ושדרוגי מולטימדיה.</span>
+        <span><i class="fa-solid fa-shield"></i> תרחיש שמרני מניח צמיחה אורגנית בלבד ותחזוקת קיבולת נוכחית.</span>
+      `;
+    }
+  }
+
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – עדכון מחשבון ההשקעה
+  function updateCalculator(amount) {
+    if (!selectors.ownershipValue || !contractV2State.model) {
+      return;
+    }
+    const safeAmount = Math.max(Number(amount) || FINANCIAL_CONSTANTS.baseUnitPriceUSD, FINANCIAL_CONSTANTS.baseUnitPriceUSD);
+    const model = contractV2State.model;
+    const ownership = Math.min((safeAmount / Math.max(model.networkValueUSD, FINANCIAL_CONSTANTS.targetNetworkValueUSD)) * 100, 100);
+    const buybackUSD = safeAmount * FINANCIAL_CONSTANTS.buybackRate;
+    const addedCapacity = Math.round((safeAmount / FINANCIAL_CONSTANTS.baseUnitPriceUSD) * (FINANCIAL_CONSTANTS.relayCapacityPerNode / 50));
+    selectors.ownershipValue.textContent = `${ownership.toFixed(4)}%`;
+    selectors.buybackValue.textContent = formatCurrencyUSD(buybackUSD, 0);
+    selectors.capacityImpact.textContent = formatNumber(addedCapacity);
+  }
+
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – חיבור קלט המחשבון
+  function attachCalculator() {
+    if (!selectors.investmentInput) {
+      return;
+    }
+    selectors.investmentInput.addEventListener('input', (event) => {
+      updateCalculator(event.target.value);
+    });
+  }
+
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – חיבור כפתורי גלילה פנימיים
+  function attachScrollTargets() {
+    selectors.panel?.querySelectorAll('[data-scroll-target]')?.forEach((button) => {
+      button.addEventListener('click', () => {
+        const targetId = button.getAttribute('data-scroll-target');
+        const target = targetId ? document.getElementById(targetId) : null;
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  }
+
+  // חלק חוזה חכם 2 (contract-dashboard-v2.js) – פתיחת דף/פאנל רכישת אופציות של SPEAR ONE
+  function openOptionPurchase() {
+    if (typeof window.openOptionsLanding === 'function') {
+      window.openOptionsLanding();
+      return;
+    }
+
+    const purchaseHandler = typeof window.purchaseOption === 'function' ? window.purchaseOption : null;
+    if (typeof purchaseHandler === 'function') {
+      purchaseHandler('custom', FINANCIAL_CONSTANTS.baseUnitPriceUSD);
+      return;
+    }
+
+    const optionsPanel = document.getElementById('optionsPanel');
+    if (optionsPanel) {
+      optionsPanel.hidden = false;
+      optionsPanel.classList.add('is-open');
+      optionsPanel.setAttribute('aria-hidden', 'false');
+      return;
+    }
+
+    alert('מסך הרכישה ייפתח בגרסת הנחיתה. אם אינך מנותב אוטומטית, בקר ב-options-landing.html');
+    window.location.href = './options-landing.html';
+  }
+
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – טיפול בלחצן פרטים מורחבים
   function attachDetailsToggle() {
     if (!selectors.details || !selectors.detailsToggle) {
@@ -377,6 +589,9 @@
     renderLegend(model);
     renderInfraGrid(model);
     renderChart(model);
+    renderTerms();
+    renderForecast(stats, model);
+    updateCalculator(selectors.investmentInput?.value || FINANCIAL_CONSTANTS.baseUnitPriceUSD);
     setStatus(`עודכן לפי פעילות אחרונה – ${formatNumber(model.effectiveUsers)} משתמשים פעילים מדווחים.`);
   }
 
@@ -402,6 +617,9 @@
     closeDashboard();
   };
 
+  App.openOptionPurchase = openOptionPurchase;
+  window.openOptionPurchase = openOptionPurchase;
+
   window.closeContractDashboardV2 = App.closeContractDashboardV2;
   window.openContractDashboardV2 = App.openContractDashboardV2;
 
@@ -425,6 +643,8 @@
       return;
     }
     attachDetailsToggle();
+    attachScrollTargets();
+    attachCalculator();
     attachDismissListeners();
     registerGrowthBinding();
     if (App.getLatestGrowthStats) {
