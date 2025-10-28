@@ -23,40 +23,18 @@
     <!-- חלק חיווי חיבור (profile.html) – מציג מצב טעינת ריליים בדומה לעמוד הראשי -->
     <div id="connection-status" class="profile-connection" hidden>מתחבר לריליים...</div>
 
-    <!-- חלק סרגל עליון (profile.html) – מאמץ את הכותרת מהדף הראשי כדי לשמור עקביות -->
-    <header class="top-bar">
-      <div class="top-bar__brand">
-        <div class="profile-header__logo">SOS</div>
+    <!-- חלק סרגל עליון (profile.html) – לוגו SOS בצד שמאל וכפתור בית יחיד בצד ימין -->
+    <header class="top-bar top-bar--profile">
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__refresh" id="profileTopRefreshButton" type="button" aria-label="רענון הדף">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
       </div>
-      <div class="top-bar__actions">
-        <button class="circle-button" id="profileTopCreateButton" aria-label="יצירת תוכן">
-          <i class="fa-solid fa-plus"></i>
+      <div class="top-bar__title" id="profileTopTitle">הפרופיל שלי</div>
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__home" id="profileTopHomeButton" type="button" aria-label="חזרה לדף הבית">
+          <i class="fa-solid fa-house"></i>
         </button>
-        <button class="circle-button" id="profileTopNotificationsButton" aria-label="התראות">
-          <i class="fa-solid fa-bell"></i>
-        </button>
-        <button class="circle-button" id="profileTopMessagesButton" aria-label="הודעות">
-          <i class="fa-solid fa-message"></i>
-        </button>
-        <div class="top-bar__profile" id="profileTopProfile">
-          <button class="top-bar__avatar" id="profileTopAvatarButton" aria-haspopup="true" aria-expanded="false" aria-label="תפריט פרופיל">
-            <span id="profileTopAvatar">?</span>
-          </button>
-          <div class="top-bar__dropdown" id="profileTopMenu" hidden>
-            <button type="button" class="top-bar__dropdown-item" data-profile-action="view-profile">
-              <i class="fa-solid fa-id-badge"></i>
-              <span>פרופיל אישי</span>
-            </button>
-            <button type="button" class="top-bar__dropdown-item" data-profile-action="show-key">
-              <i class="fa-solid fa-key"></i>
-              <span>הצגת מפתח</span>
-            </button>
-            <button type="button" class="top-bar__dropdown-item" data-profile-action="logout">
-              <i class="fa-solid fa-arrow-right-from-bracket"></i>
-              <span>התנתקות</span>
-            </button>
-          </div>
-        </div>
       </div>
     </header>
 
@@ -82,7 +60,7 @@
                 </button>
                 <button class="profile-secondary-button" id="profileHomeButton">
                   <i class="fa-solid fa-house"></i>
-                  מעבר לפיד
+                  חזרה לפיד
                 </button>
               </div>
             </div>
@@ -141,7 +119,7 @@
           <section class="profile-card profile-card--gallery" data-profile-panel="gallery" id="profileGalleryPanel">
             <h2 class="profile-card__title">גלריה</h2>
             <div class="profile-gallery__uploader" id="profileGalleryDropZone">
-              <input id="profileGalleryFileInput" type="file" accept="image/*" multiple hidden />
+              <input id="profileGalleryFileInput" type="file" accept="image/*,video/*" multiple hidden />
               <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
               <span>גררו לכאן תמונות חדשות או לחצו לבחירה</span>
               <button type="button" id="profileGalleryAddButton">הוספת תמונות</button>
@@ -176,11 +154,11 @@
               <div class="profile-dating__actions">
                 <button class="profile-secondary-button profile-dating__save" id="profileDatingSaveButton" type="button">
                   <i class="fa-solid fa-heart-circle-check"></i>
-                  שמירת הגדרות הכרויות
+                  שמור
                 </button>
                 <button class="profile-secondary-button profile-dating__close" id="profileDatingCloseButton" type="button">
                   <i class="fa-solid fa-circle-xmark"></i>
-                  סגירת הטופס
+                  סגור
                 </button>
               </div>
               <div class="profile-status" id="profileDatingStatus"></div>
@@ -285,6 +263,47 @@
 
     </main>
 
+    <!-- חלק דיאלוגים (profile.html) – הודעת רענון קולנועית לאחר החלפת תמונה -->
+    <dialog class="profile-dialog profile-dialog--info" id="profileInfoDialog">
+      <div class="profile-dialog__backdrop" aria-hidden="true"></div>
+      <div class="profile-dialog__content" role="document">
+        <div class="profile-dialog__icon profile-dialog__icon--info" aria-hidden="true">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </div>
+        <h3 class="profile-dialog__title" id="profileInfoDialogTitle">רענון מומלץ</h3>
+        <p class="profile-dialog__message" id="profileInfoDialogMessage">
+          התמונה עודכנה. אם אינך רואה שינוי מידי, רענן את הדף.
+        </p>
+        <div class="profile-dialog__actions">
+          <button type="button" class="profile-dialog__button profile-dialog__button--confirm" id="profileInfoDialogClose">
+            הבנתי
+          </button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- חלק דיאלוגים (profile.html) – שאלה קולנועית לאישור מחיקת תמונת פרופיל -->
+    <dialog class="profile-dialog" id="profileAvatarDialog">
+      <div class="profile-dialog__backdrop" aria-hidden="true"></div>
+      <div class="profile-dialog__content" role="document">
+        <div class="profile-dialog__icon" aria-hidden="true">
+          <i class="fa-solid fa-camera-rotate"></i>
+        </div>
+        <h3 class="profile-dialog__title">להחליף את תמונת הפרופיל?</h3>
+        <p class="profile-dialog__message">
+          התמונה הנוכחית תימחק ונפתח עבורך חלון לבחירת תמונה חדשה מהמכשיר. האם להמשיך?
+        </p>
+        <div class="profile-dialog__actions">
+          <button type="button" class="profile-dialog__button profile-dialog__button--cancel" id="profileAvatarDialogCancel">
+            ביטול
+          </button>
+          <button type="button" class="profile-dialog__button profile-dialog__button--confirm" id="profileAvatarDialogConfirm">
+            כן, החליפו
+          </button>
+        </div>
+      </div>
+    </dialog>
+
     <!-- חלק חלון עריכת פרופיל (profile.html) – זהה למודל הראשי כדי לשמור תאימות ל-profile.js -->
     <div class="modal" id="profileModal">
       <div class="modal-content">
@@ -303,31 +322,19 @@
         <input id="profileLocationInput" type="text" maxlength="80" placeholder="תל אביב, ישראל" />
         <label for="profileWebsiteInput">אתר אינטרנט</label>
         <input id="profileWebsiteInput" type="url" placeholder="https://example.com" />
-        <label for="profileImageUrlInput">קישור לתמונת פרופיל</label>
-        <input id="profileImageUrlInput" type="url" placeholder="https://example.com/avatar.jpg" />
-        <label for="profileImageFileInput">או העלה תמונה מהמחשב</label>
-        <input id="profileImageFileInput" type="file" accept="image/*" />
-        <button id="profileImageDeleteButton" type="button" class="icon-button">
-          <i class="fa-solid fa-trash"></i>
-          מחק תמונת פרופיל
-        </button>
-
-        <!-- חלק תמונת נושא (profile.html) – שדות עריכה לתמונת cover -->
-        <label for="profileCoverUrlInput">קישור לתמונת נושא</label>
-        <input id="profileCoverUrlInput" type="url" placeholder="https://example.com/cover.jpg" />
-        <label for="profileCoverFileInput">או העלה תמונת נושא</label>
-        <input id="profileCoverFileInput" type="file" accept="image/*" />
-        <button id="profileCoverDeleteButton" type="button" class="icon-button">
-          <i class="fa-solid fa-trash"></i>
-          מחק תמונת נושא
-        </button>
         <div class="modal-actions">
-          <button class="icon-button" onclick="closeProfileSettings()">ביטול</button>
-          <button class="icon-button" onclick="saveProfileSettings()">שמירה</button>
+          <button class="profile-primary-button" id="profileSaveButton" type="button">
+            <i class="fa-solid fa-floppy-disk"></i>
+            שמור שינויים
+          </button>
+          <button class="profile-secondary-button" id="profileCancelButton" type="button">
+            <i class="fa-solid fa-circle-xmark"></i>
+            ביטול
+          </button>
         </div>
+
+        <!-- חלק סטטוס עריכת פרופיל (profile.html) – מציג חיווי בעת שמירת הנתונים או שגיאות תוקף -->
         <div class="profile-status" id="profileStatus"></div>
-      </div>
-    </div>
 
     <!-- חלק מודלי מפתחות (profile.html) – מאפשר להציג ולהוריד מפתח ללא מעבר לעמוד הראשי -->
     <div class="modal" id="keyModal" hidden>

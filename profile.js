@@ -41,6 +41,9 @@
     return `https://${trimmed}`;
   };
 
+  const AVATAR_REPLACE_PROMPT = 'האם למחוק את תמונת הפרופיל הנוכחית ולבחור תמונה חדשה?';
+  const COVER_REPLACE_PROMPT = 'האם למחוק את תמונת הנושא הנוכחית ולבחור תמונה חדשה?';
+
   try {
     const storedProfile = window.localStorage.getItem('nostr_profile');
     if (storedProfile) {
@@ -72,6 +75,222 @@
   }
 
   let datingFormOpen = false;
+  let profileAvatarClickBound = false;
+  let coverBannerClickBound = false;
+  const avatarDialogRefs = {
+    dialog: null,
+    confirm: null,
+    cancel: null,
+    title: null,
+    message: null,
+    icon: null,
+  };
+  let avatarDialogInitialized = false;
+  let avatarDialogResolver = null;
+  const avatarDialogDefaultState = {
+    title: '',
+    message: '',
+    iconClass: '',
+  };
+  let avatarDialogCurrentOverride = false;
+  const infoDialogRefs = {
+    dialog: null,
+    close: null,
+    title: null,
+    message: null,
+  };
+  let infoDialogInitialized = false;
+
+  function resolveAvatarDialog(result) {
+    if (avatarDialogResolver) {
+      const resolver = avatarDialogResolver;
+      avatarDialogResolver = null;
+      resolver(Boolean(result));
+    }
+  }
+
+  function ensureAvatarDialog() {
+    if (avatarDialogInitialized) {
+      return;
+    }
+    const dialog = document.getElementById('profileAvatarDialog');
+    const confirmButton = document.getElementById('profileAvatarDialogConfirm');
+    const cancelButton = document.getElementById('profileAvatarDialogCancel');
+    if (!dialog || !confirmButton || !cancelButton || typeof dialog.showModal !== 'function') {
+      return;
+    }
+    avatarDialogRefs.dialog = dialog;
+    avatarDialogRefs.confirm = confirmButton;
+    avatarDialogRefs.cancel = cancelButton;
+    avatarDialogRefs.title = dialog.querySelector('.profile-dialog__title');
+    avatarDialogRefs.message = dialog.querySelector('.profile-dialog__message');
+    avatarDialogRefs.icon = dialog.querySelector('.profile-dialog__icon i');
+    if (avatarDialogRefs.title && !avatarDialogDefaultState.title) {
+      avatarDialogDefaultState.title = avatarDialogRefs.title.textContent || 'להחליף את תמונת הפרופיל?';
+    }
+    if (avatarDialogRefs.message && !avatarDialogDefaultState.message) {
+      avatarDialogDefaultState.message = avatarDialogRefs.message.textContent || '';
+    }
+    if (avatarDialogRefs.icon && !avatarDialogDefaultState.iconClass) {
+      avatarDialogDefaultState.iconClass = avatarDialogRefs.icon.className || 'fa-solid fa-camera-rotate';
+    }
+    if (avatarDialogRefs.message) {
+      avatarDialogRefs.message.textContent = 'התמונה הנוכחית תימחק ונפתח עבורך חלון לבחירת תמונה חדשה מהמכשיר. האם להמשיך?';
+      avatarDialogDefaultState.message = avatarDialogRefs.message.textContent;
+    }
+
+    confirmButton.addEventListener('click', () => {
+      dialog.close('confirm');
+    });
+
+    cancelButton.addEventListener('click', () => {
+      dialog.close('cancel');
+    });
+
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      dialog.close('cancel');
+    });
+
+    dialog.addEventListener('close', () => {
+      resetAvatarDialogOverride();
+      resolveAvatarDialog(dialog.returnValue === 'confirm');
+    });
+
+    avatarDialogInitialized = true;
+  }
+
+  // חלק דיאלוג קולנועי (profile.js) – החלת התאמות תוכן לדיאלוג ההחלפה בהתאם לבקשה הנוכחית
+  function configureAvatarDialog(overrideOptions) {
+    if (!avatarDialogInitialized) {
+      ensureAvatarDialog();
+    }
+    if (!avatarDialogInitialized) {
+      return;
+    }
+    const { title, message, iconClass } = overrideOptions || {};
+    const hasOverride = Boolean(title || message || iconClass);
+    if (!hasOverride) {
+      resetAvatarDialogOverride();
+      return;
+    }
+    if (avatarDialogRefs.title) {
+      avatarDialogRefs.title.textContent = title || avatarDialogDefaultState.title;
+    }
+    if (avatarDialogRefs.message) {
+      avatarDialogRefs.message.textContent = message || avatarDialogDefaultState.message;
+    }
+    if (avatarDialogRefs.icon && avatarDialogDefaultState.iconClass) {
+      avatarDialogRefs.icon.className = iconClass || avatarDialogDefaultState.iconClass;
+    }
+    avatarDialogCurrentOverride = true;
+  }
+
+  // חלק דיאלוג קולנועי (profile.js) – איפוס תוכן הדיאלוג למצב ברירת המחדל לאחר שימוש ייעודי
+  function resetAvatarDialogOverride() {
+    if (!avatarDialogInitialized) {
+      return;
+    }
+    if (avatarDialogRefs.title && avatarDialogDefaultState.title) {
+      avatarDialogRefs.title.textContent = avatarDialogDefaultState.title;
+    }
+    if (avatarDialogRefs.message && avatarDialogDefaultState.message) {
+      avatarDialogRefs.message.textContent = avatarDialogDefaultState.message;
+    }
+    if (avatarDialogRefs.icon && avatarDialogDefaultState.iconClass) {
+      avatarDialogRefs.icon.className = avatarDialogDefaultState.iconClass;
+    }
+    avatarDialogCurrentOverride = false;
+  }
+
+  function requestAvatarReplacement(overrideOptions = null) {
+    ensureAvatarDialog();
+    const fallbackPrompt = overrideOptions?.fallbackPrompt || AVATAR_REPLACE_PROMPT;
+    const dialog = avatarDialogRefs.dialog;
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      resetAvatarDialogOverride();
+      const fallback = window.confirm(fallbackPrompt);
+      return Promise.resolve(fallback);
+    }
+
+    configureAvatarDialog(overrideOptions);
+
+    if (dialog.open) {
+      dialog.close('cancel');
+    }
+
+    if (avatarDialogResolver) {
+      resolveAvatarDialog(false);
+    }
+
+    return new Promise((resolve) => {
+      avatarDialogResolver = resolve;
+      dialog.returnValue = '';
+      try {
+        dialog.showModal();
+      } catch (err) {
+        console.warn('Profile: failed opening avatar dialog, falling back to confirm', err);
+        avatarDialogResolver = null;
+        resetAvatarDialogOverride();
+        resolve(window.confirm(fallbackPrompt));
+      }
+    });
+  }
+
+  function ensureInfoDialog() {
+    if (infoDialogInitialized) {
+      return;
+    }
+    const dialog = document.getElementById('profileInfoDialog');
+    const closeButton = document.getElementById('profileInfoDialogClose');
+    const titleEl = document.getElementById('profileInfoDialogTitle');
+    const messageEl = document.getElementById('profileInfoDialogMessage');
+    if (!dialog || !closeButton || typeof dialog.showModal !== 'function') {
+      return;
+    }
+    infoDialogRefs.dialog = dialog;
+    infoDialogRefs.close = closeButton;
+    infoDialogRefs.title = titleEl || null;
+    infoDialogRefs.message = messageEl || null;
+
+    closeButton.addEventListener('click', () => {
+      dialog.close('dismiss');
+    });
+
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      dialog.close('dismiss');
+    });
+
+    infoDialogInitialized = true;
+  }
+
+  function showProfileDialog({ title, message }) {
+    ensureInfoDialog();
+    const dialog = infoDialogRefs.dialog;
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      window.alert(message || title || '');
+      return;
+    }
+
+    if (dialog.open) {
+      dialog.close('dismiss');
+    }
+
+    if (infoDialogRefs.title) {
+      infoDialogRefs.title.textContent = title || 'הודעה';
+    }
+    if (infoDialogRefs.message) {
+      infoDialogRefs.message.textContent = message || '';
+    }
+
+    try {
+      dialog.showModal();
+    } catch (err) {
+      console.warn('Profile: failed opening info dialog, falling back to alert', err);
+      window.alert(message || title || '');
+    }
+  }
 
   function applyDatingSettingsToUI() {
     const optInCheckbox = document.getElementById('profileDatingOptIn');
@@ -248,6 +467,195 @@
   };
   let galleryModalInitialized = false;
 
+  function bindProfileAvatarClick() {
+    if (profileAvatarClickBound) {
+      return;
+    }
+    const avatarEl = document.getElementById('profilePageAvatar');
+    if (!avatarEl) {
+      return;
+    }
+    avatarEl.addEventListener('click', async () => {
+      const shouldReplace = await requestAvatarReplacement();
+      if (!shouldReplace) {
+        return;
+      }
+      deleteProfileImage();
+      const tempInput = document.createElement('input');
+      tempInput.type = 'file';
+      tempInput.accept = 'image/*';
+      tempInput.style.display = 'none';
+      tempInput.addEventListener(
+        'change',
+        async () => {
+          try {
+            const [file] = tempInput.files || [];
+            if (file) {
+              const resized = await App.resizeImageToDataUrl(file);
+              applyProfilePictureUpdate(resized);
+            }
+          } catch (err) {
+            console.error('Profile: failed replacing avatar via quick picker', err);
+          } finally {
+            tempInput.remove();
+          }
+        },
+        { once: true },
+      );
+      document.body.appendChild(tempInput);
+      tempInput.click();
+    });
+    profileAvatarClickBound = true;
+  }
+
+  // חלק תמונת נושא (profile.js) – חיבור לחיצה על באנר הכיסוי לפתיחת דיאלוג החלפה קולנועי
+  function bindCoverBannerClick() {
+    if (coverBannerClickBound) {
+      return;
+    }
+    const bannerEl = document.getElementById('profilePageCoverBanner');
+    if (!bannerEl) {
+      return;
+    }
+    const handleCoverRequest = async (event) => {
+      // חלק תמונת נושא (profile.js) – מתעלם מלחיצות/קיצורים על כפתורים פנימיים כדי לא להפריע
+      if (event?.target instanceof Element) {
+        const blockedTarget = event.target.closest('.profile-cover__actions, button, a, [data-cover-ignore="true"]');
+        if (blockedTarget && !blockedTarget.isSameNode(bannerEl)) {
+          return;
+        }
+      }
+      if (event?.type === 'keydown') {
+        const key = event.key;
+        if (key !== 'Enter' && key !== ' ') {
+          return;
+        }
+        event.preventDefault();
+      } else if (event?.type === 'click' && event.detail === 0) {
+        return;
+      }
+      await requestCoverReplacementFlow();
+    };
+    bannerEl.classList.add('profile-cover__banner--interactive');
+    bannerEl.setAttribute('role', 'button');
+    bannerEl.setAttribute('tabindex', '0');
+    bannerEl.addEventListener('click', handleCoverRequest);
+    bannerEl.addEventListener('keydown', handleCoverRequest);
+    coverBannerClickBound = true;
+  }
+
+  // חלק פרופיל (profile.js) – החלפת תמונת פרופיל בזמן אמת ללא פתיחת טופס עריכה
+  async function applyProfilePictureUpdate(pictureDataUrl) {
+    if (!pictureDataUrl || typeof pictureDataUrl !== 'string') {
+      return;
+    }
+    App.profile.picture = pictureDataUrl;
+    App.profile.avatarInitials = App.getInitials(App.profile.name || '');
+    const urlInput = document.getElementById('profileImageUrlInput');
+    if (urlInput) {
+      urlInput.value = pictureDataUrl;
+    }
+    try {
+      window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
+    } catch (err) {
+      console.error('Profile: failed persisting quick avatar change', err);
+    }
+    if (App.profileCache instanceof Map) {
+      App.profileCache.set(App.publicKey || 'self', {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        picture: App.profile.picture,
+        cover: App.profile.cover,
+        initials: App.profile.avatarInitials,
+        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
+      });
+    }
+    renderProfile();
+    try {
+      await publishProfileMetadata();
+    } catch (err) {
+      console.warn('Profile: quick avatar publish failed', err);
+    }
+    showProfileDialog({
+      title: 'רענון מומלץ',
+      message: 'התמונה עודכנה. אם אינך רואה שינוי מידי, רענן את הדף.',
+    });
+  }
+
+  // חלק תמונת נושא (profile.js) – החלת תמונת כיסוי חדשה ושמירתה במטמון ובמטא-דאטה
+  async function applyProfileCoverUpdate(coverDataUrl) {
+    if (!coverDataUrl || typeof coverDataUrl !== 'string') {
+      return;
+    }
+    App.profile.cover = coverDataUrl;
+    const coverUrlInput = document.getElementById('profileCoverUrlInput');
+    if (coverUrlInput) {
+      coverUrlInput.value = coverDataUrl;
+    }
+    try {
+      window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
+    } catch (err) {
+      console.error('Profile: failed persisting quick cover change', err);
+    }
+    if (App.profileCache instanceof Map) {
+      App.profileCache.set(App.publicKey || 'self', {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        picture: App.profile.picture,
+        cover: App.profile.cover,
+        initials: App.profile.avatarInitials,
+        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
+      });
+    }
+    renderProfile();
+    try {
+      await publishProfileMetadata();
+    } catch (err) {
+      console.warn('Profile: quick cover publish failed', err);
+    }
+    showProfileDialog({
+      title: 'רענון מומלץ',
+      message: 'תמונת הנושא עודכנה. אם אינך רואה שינוי מידי, רענן את הדף.',
+    });
+  }
+
+  // חלק תמונת נושא (profile.js) – תהליך החלפה מיידי לבאנר כולל בקשת אישור והעלאת קובץ
+  async function requestCoverReplacementFlow() {
+    const shouldReplace = await requestAvatarReplacement({
+      title: 'להחליף את תמונת הנושא?',
+      message: 'תמונת הנושא הנוכחית תימחק ונפתח עבורך חלון לבחירת תמונה חדשה מהמכשיר. האם להמשיך?',
+      iconClass: 'fa-solid fa-image',
+      fallbackPrompt: COVER_REPLACE_PROMPT,
+    });
+    if (!shouldReplace) {
+      return;
+    }
+    deleteProfileCover();
+    const tempInput = document.createElement('input');
+    tempInput.type = 'file';
+    tempInput.accept = 'image/*';
+    tempInput.style.display = 'none';
+    tempInput.addEventListener(
+      'change',
+      async () => {
+        try {
+          const [file] = tempInput.files || [];
+          if (file) {
+            const resized = await App.resizeImageToDataUrl(file, 1280, 720, 0.82);
+            await applyProfileCoverUpdate(resized);
+          }
+        } catch (err) {
+          console.error('Profile: failed replacing cover via quick picker', err);
+        } finally {
+          tempInput.remove();
+        }
+      },
+      { once: true },
+    );
+    document.body.appendChild(tempInput);
+    tempInput.click();
+  }
+
   function renderProfile() {
     // חלק פרופיל (profile.js) – מעדכן את פרטי הפרופיל בפיד הראשי
     setupGalleryManager();
@@ -271,6 +679,10 @@
     if (profileNameEl) {
       profileNameEl.textContent = App.profile.name;
     }
+    const topTitle = document.getElementById('profileTopTitle');
+    if (topTitle) {
+      topTitle.textContent = App.profile.name || 'הפרופיל שלי';
+    }
     const profileBioEl = document.getElementById('profileBio');
     if (profileBioEl) {
       profileBioEl.textContent = App.profile.bio;
@@ -288,6 +700,9 @@
         avatar.textContent = App.profile.avatarInitials;
       }
     }
+
+    bindProfileAvatarClick();
+    bindCoverBannerClick();
 
     const navAvatar = document.getElementById('navProfileAvatar');
     if (navAvatar) {
@@ -859,12 +1274,18 @@
     if (locationInput) locationInput.value = App.profile.location || '';
     const websiteInput = document.getElementById('profileWebsiteInput');
     if (websiteInput) websiteInput.value = App.profile.website || '';
-    document.getElementById('profileImageUrlInput').value = App.profile.picture;
+    const imageUrlInput = document.getElementById('profileImageUrlInput');
+    if (imageUrlInput) {
+      imageUrlInput.value = App.profile.picture || '';
+    }
     const coverUrlEl = document.getElementById('profileCoverUrlInput');
     if (coverUrlEl) {
       coverUrlEl.value = App.profile.cover || '';
     }
-    document.getElementById('profileStatus').textContent = '';
+    const statusEl = document.getElementById('profileStatus');
+    if (statusEl) {
+      statusEl.textContent = '';
+    }
     document.getElementById('profileModal').style.display = 'flex';
   }
 
@@ -880,7 +1301,8 @@
     const companyInput = document.getElementById('profileCompanyInput');
     const locationInput = document.getElementById('profileLocationInput');
     const websiteInput = document.getElementById('profileWebsiteInput');
-    let picture = document.getElementById('profileImageUrlInput').value.trim();
+    const imageUrlInput = document.getElementById('profileImageUrlInput');
+    let picture = imageUrlInput ? imageUrlInput.value.trim() : App.profile.picture || '';
     let cover = document.getElementById('profileCoverUrlInput')?.value?.trim?.() || '';
     const gallerySelection = Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [];
 
@@ -902,7 +1324,9 @@
         resolvedPicture.startsWith('data:') &&
         resolvedPicture.length > App.MAX_INLINE_PICTURE_LENGTH
       ) {
-        status.textContent = 'תמונת הפרופיל גדולה מדי. העלה קישור חיצוני קצר.';
+        if (status) {
+          status.textContent = 'תמונת הפרופיל גדולה מדי. העלה קישור חיצוני קצר.';
+        }
         return;
       }
 
@@ -929,14 +1353,16 @@
       publishProfileMetadata();
     };
 
-    if (fileInput.files && fileInput.files[0]) {
+    if (fileInput && fileInput.files && fileInput.files[0]) {
       try {
         const resized = await App.resizeImageToDataUrl(fileInput.files[0]);
         picture = resized;
         applyProfile(picture);
       } catch (e) {
         console.error('Failed to resize profile image', e);
-        status.textContent = 'שגיאה בעיבוד התמונה. נסה קובץ אחר.';
+        if (status) {
+          status.textContent = 'שגיאה בעיבוד התמונה. נסה קובץ אחר.';
+        }
       }
     } else {
       applyProfile(picture);
@@ -1050,9 +1476,21 @@
   }
 
   function bindButtons() {
-    attachClicks(['profileEditButton', 'profileTopEditButton'], () => {
+    attachClicks(['profileEditButton'], () => {
       if (typeof window.openProfileSettings === 'function') {
         window.openProfileSettings();
+      }
+    });
+
+    attachClicks(['profileSaveButton'], () => {
+      if (typeof window.saveProfileSettings === 'function') {
+        window.saveProfileSettings();
+      }
+    });
+
+    attachClicks(['profileCancelButton'], () => {
+      if (typeof window.closeProfileSettings === 'function') {
+        window.closeProfileSettings();
       }
     });
 
@@ -1060,14 +1498,8 @@
       window.location.href = 'index.html';
     });
 
-    attachClicks(['profileTopBackButton'], () => {
-      const target = document.getElementById('profileTopBackButton');
-      const href = target?.getAttribute('data-back-target') || 'index.html';
-      if (href === 'history') {
-        window.history.back();
-      } else {
-        window.location.href = href;
-      }
+    attachClicks(['profileTopRefreshButton'], () => {
+      window.location.reload();
     });
 
     attachClicks(['profileRefreshPosts'], () => {
