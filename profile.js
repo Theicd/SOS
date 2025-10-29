@@ -608,6 +608,8 @@
       console.error('Profile: failed persisting quick avatar change', err);
     }
     const normalizedPubkey = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : 'self';
+    // חלק פרופיל (profile.js) – שמירת timestamp של העדכון המקומי
+    App.profile.lastUpdateTimestamp = Math.floor(Date.now() / 1000);
     if (App.profileCache instanceof Map) {
       App.profileCache.set(normalizedPubkey, {
         name: App.profile.name,
@@ -1047,9 +1049,14 @@
     galleryManagerInitialized = true;
   }
 
-  function applyMetadataToProfile(metadata, sourceLabel = 'metadata') {
+  function applyMetadataToProfile(metadata, sourceLabel = 'metadata', eventTimestamp = 0) {
     if (!metadata || typeof metadata !== 'object') {
       return false;
+    }
+
+    // חלק פרופיל (profile.js) – שמירת timestamp של העדכון
+    if (eventTimestamp > 0) {
+      App.profile.lastUpdateTimestamp = eventTimestamp;
     }
 
     const name = typeof metadata.name === 'string' ? metadata.name.trim() : '';
@@ -1359,6 +1366,8 @@
       renderProfile();
       closeProfileSettings();
       const normalizedPubkey = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : 'self';
+      // חלק פרופיל (profile.js) – שמירת timestamp של העדכון המקומי
+      App.profile.lastUpdateTimestamp = Math.floor(Date.now() / 1000);
       App.profileCache.set(normalizedPubkey, {
         name: App.profile.name,
         bio: App.profile.bio,
@@ -1439,6 +1448,14 @@
         return;
       }
 
+      // חלק פרופיל (profile.js) – בדיקת timestamp למניעת דריסת שינויים חדשים בנתונים ישנים
+      const lastLocalUpdate = App.profile.lastUpdateTimestamp || 0;
+      const eventTimestamp = event.created_at || 0;
+      if (lastLocalUpdate > eventTimestamp) {
+        console.log('Profile metadata: skipping older relay data', { local: lastLocalUpdate, relay: eventTimestamp });
+        return;
+      }
+
       let parsed;
       try {
         parsed = JSON.parse(event.content);
@@ -1446,7 +1463,7 @@
         console.warn('Failed to parse own profile metadata', err);
         return;
       }
-      if (applyMetadataToProfile(parsed, 'initial load')) {
+      if (applyMetadataToProfile(parsed, 'initial load', eventTimestamp)) {
         console.log('Profile metadata: updated local profile for', App.publicKey, App.profile);
       }
     } catch (err) {
@@ -1469,9 +1486,16 @@
         if (!event?.content) {
           return;
         }
+        // חלק פרופיל (profile.js) – בדיקת timestamp למניעת דריסת שינויים חדשים בנתונים ישנים
+        const lastLocalUpdate = App.profile.lastUpdateTimestamp || 0;
+        const eventTimestamp = event.created_at || 0;
+        if (lastLocalUpdate > eventTimestamp) {
+          console.log('Profile metadata: skipping older subscription data', { local: lastLocalUpdate, relay: eventTimestamp });
+          return;
+        }
         try {
           const parsed = JSON.parse(event.content);
-          if (applyMetadataToProfile(parsed, 'subscription')) {
+          if (applyMetadataToProfile(parsed, 'subscription', eventTimestamp)) {
             console.log('Profile metadata: subscription update applied', parsed);
           }
         } catch (err) {
