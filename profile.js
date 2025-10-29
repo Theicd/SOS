@@ -6,6 +6,51 @@
     App.profile = {};
   }
 
+  // חלק ניקוי (profile.js) – מנקה localStorage מנתונים גדולים שגורמים ל-QuotaExceededError
+  function cleanupLocalStorage() {
+    try {
+      const stored = window.localStorage.getItem('nostr_profile');
+      if (!stored) return;
+      
+      const profile = JSON.parse(stored);
+      let needsCleanup = false;
+      
+      // בדיקה אם יש data URLs גדולים
+      if (profile.picture && profile.picture.startsWith('data:') && profile.picture.length > 50000) {
+        profile.picture = '';
+        needsCleanup = true;
+      }
+      if (profile.cover && profile.cover.startsWith('data:') && profile.cover.length > 50000) {
+        profile.cover = '';
+        needsCleanup = true;
+      }
+      if (Array.isArray(profile.gallery) && profile.gallery.length > 0) {
+        const cleanGallery = profile.gallery.filter(url => !url.startsWith('data:') || url.length < 50000);
+        if (cleanGallery.length !== profile.gallery.length) {
+          profile.gallery = cleanGallery;
+          needsCleanup = true;
+        }
+      }
+      
+      if (needsCleanup) {
+        window.localStorage.setItem('nostr_profile', JSON.stringify(profile));
+        console.log('Profile: cleaned up large data URLs from localStorage');
+      }
+    } catch (err) {
+      console.warn('Profile: failed to cleanup localStorage', err);
+      // אם הניקוי נכשל, ננסה למחוק הכל ולהתחיל מחדש
+      try {
+        window.localStorage.removeItem('nostr_profile');
+        console.log('Profile: cleared localStorage due to cleanup failure');
+      } catch (e) {
+        console.error('Profile: even localStorage clear failed', e);
+      }
+    }
+  }
+
+  // הרצת ניקוי בהתחלה
+  cleanupLocalStorage();
+
   let profileCoverClickBound = false;
   function bindProfileCoverClick() {
     if (profileCoverClickBound) {
@@ -573,8 +618,8 @@
           try {
             const [file] = tempInput.files || [];
             if (file) {
-              // חלק תמונת פרופיל (profile.js) – עיבוד בקנה מידה של תמונת הנושא לשמירה על אחידות איכות
-              const resized = await App.resizeImageToDataUrl(file, 1280, 720, 0.82);
+              // חלק תמונת פרופיל (profile.js) – עיבוד באיכות גבוהה כמו תמונת נושא להכרויות
+              const resized = await App.resizeImageToDataUrl(file, 512, 512, 0.85);
               applyProfilePictureUpdate(resized);
             }
           } catch (err) {
@@ -602,8 +647,22 @@
     if (urlInput) {
       urlInput.value = pictureDataUrl;
     }
+    // חלק פרופיל (profile.js) – שמירה קלה ללא data URLs גדולים
     try {
-      window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
+      const lightProfile = {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        headline: App.profile.headline,
+        role: App.profile.role,
+        company: App.profile.company,
+        location: App.profile.location,
+        website: App.profile.website,
+        picture: (App.profile.picture && !App.profile.picture.startsWith('data:')) ? App.profile.picture : '',
+        cover: (App.profile.cover && !App.profile.cover.startsWith('data:')) ? App.profile.cover : '',
+        avatarInitials: App.profile.avatarInitials,
+        lastUpdateTimestamp: App.profile.lastUpdateTimestamp,
+      };
+      window.localStorage.setItem('nostr_profile', JSON.stringify(lightProfile));
     } catch (err) {
       console.error('Profile: failed persisting quick avatar change', err);
     }
@@ -611,22 +670,25 @@
     // חלק פרופיל (profile.js) – שמירת timestamp של העדכון המקומי
     App.profile.lastUpdateTimestamp = Math.floor(Date.now() / 1000);
     if (App.profileCache instanceof Map) {
-      App.profileCache.set(normalizedPubkey, {
+      const profileData = {
         name: App.profile.name,
         bio: App.profile.bio,
         picture: App.profile.picture,
         cover: App.profile.cover,
         initials: App.profile.avatarInitials,
         gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
-      });
-      App.profileCache.set(App.publicKey || 'self', {
-        name: App.profile.name,
-        bio: App.profile.bio,
-        picture: App.profile.picture,
-        cover: App.profile.cover,
-        initials: App.profile.avatarInitials,
-        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
-      });
+      };
+      // עדכון כל הוריאציות של ה-pubkey
+      App.profileCache.set(normalizedPubkey, profileData);
+      App.profileCache.set(App.publicKey || 'self', profileData);
+      if (App.feedAuthorProfiles instanceof Map) {
+        App.feedAuthorProfiles.set(normalizedPubkey, profileData);
+        App.feedAuthorProfiles.set(App.publicKey || 'self', profileData);
+      }
+      if (App.authorProfiles instanceof Map) {
+        App.authorProfiles.set(normalizedPubkey, profileData);
+        App.authorProfiles.set(App.publicKey || 'self', profileData);
+      }
     }
     renderProfile();
     // חלק פרופיל (profile.js) – מעדכן את כל הפוסטים בפיד עם התמונה החדשה
@@ -1134,26 +1196,50 @@
       },
     );
 
+    // חלק פרופיל (profile.js) – שמירה רק של נתונים חיוניים ללא תמונות data: גדולות
     try {
-      window.localStorage.setItem(
-        'nostr_profile',
-        JSON.stringify(
-          Object.assign({}, App.profile, {
-            gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
-            dating: App.profile.dating
-              ? {
-                  optIn: Boolean(App.profile.dating.optIn),
-                  bio: App.profile.dating.bio || '',
-                  age: App.profile.dating.age || '',
-                  location: App.profile.dating.location || '',
-                  interests: Array.isArray(App.profile.dating.interests) ? [...App.profile.dating.interests] : [],
-                }
-              : { optIn: false, bio: '', age: '', location: '', interests: [] },
-          }),
-        ),
-      );
+      const lightProfile = {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        headline: App.profile.headline,
+        role: App.profile.role,
+        company: App.profile.company,
+        location: App.profile.location,
+        website: App.profile.website,
+        // שמירת URLs של תמונות רק אם הן לא data URLs גדולים
+        picture: (App.profile.picture && !App.profile.picture.startsWith('data:')) ? App.profile.picture : '',
+        cover: (App.profile.cover && !App.profile.cover.startsWith('data:')) ? App.profile.cover : '',
+        avatarInitials: App.profile.avatarInitials,
+        lastUpdateTimestamp: App.profile.lastUpdateTimestamp,
+        // שמירת gallery רק אם אין בו data URLs גדולים
+        gallery: Array.isArray(App.profile.gallery) 
+          ? App.profile.gallery.filter(url => !url.startsWith('data:') || url.length < 50000) 
+          : [],
+        dating: App.profile.dating
+          ? {
+              optIn: Boolean(App.profile.dating.optIn),
+              bio: App.profile.dating.bio || '',
+              age: App.profile.dating.age || '',
+              location: App.profile.dating.location || '',
+              interests: Array.isArray(App.profile.dating.interests) ? [...App.profile.dating.interests] : [],
+            }
+          : { optIn: false, bio: '', age: '', location: '', interests: [] },
+      };
+      window.localStorage.setItem('nostr_profile', JSON.stringify(lightProfile));
     } catch (err) {
       console.warn('Profile metadata: failed caching profile locally', err);
+      // ניסיון נוסף עם נתונים מינימליים בלבד
+      try {
+        const minimalProfile = {
+          name: App.profile.name,
+          bio: App.profile.bio,
+          avatarInitials: App.profile.avatarInitials,
+          lastUpdateTimestamp: App.profile.lastUpdateTimestamp,
+        };
+        window.localStorage.setItem('nostr_profile', JSON.stringify(minimalProfile));
+      } catch (e) {
+        console.error('Profile metadata: even minimal profile save failed', e);
+      }
     }
 
     if (App.profileCache instanceof Map) {
@@ -1358,8 +1444,22 @@
       App.profile.gallery = gallerySelection;
       App.profile.avatarInitials = App.getInitials(name);
 
+      // חלק פרופיל (profile.js) – שמירה קלה ללא data URLs גדולים
       try {
-        window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
+        const lightProfile = {
+          name: App.profile.name,
+          bio: App.profile.bio,
+          headline: App.profile.headline,
+          role: App.profile.role,
+          company: App.profile.company,
+          location: App.profile.location,
+          website: App.profile.website,
+          picture: (App.profile.picture && !App.profile.picture.startsWith('data:')) ? App.profile.picture : '',
+          cover: (App.profile.cover && !App.profile.cover.startsWith('data:')) ? App.profile.cover : '',
+          avatarInitials: App.profile.avatarInitials,
+          lastUpdateTimestamp: App.profile.lastUpdateTimestamp,
+        };
+        window.localStorage.setItem('nostr_profile', JSON.stringify(lightProfile));
       } catch (e) {
         console.error('Failed to save profile to local storage', e);
       }
@@ -1368,22 +1468,25 @@
       const normalizedPubkey = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : 'self';
       // חלק פרופיל (profile.js) – שמירת timestamp של העדכון המקומי
       App.profile.lastUpdateTimestamp = Math.floor(Date.now() / 1000);
-      App.profileCache.set(normalizedPubkey, {
+      const profileData = {
         name: App.profile.name,
         bio: App.profile.bio,
         picture: App.profile.picture,
         cover: App.profile.cover,
         initials: App.profile.avatarInitials,
         gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
-      });
-      App.profileCache.set(App.publicKey || 'self', {
-        name: App.profile.name,
-        bio: App.profile.bio,
-        picture: App.profile.picture,
-        cover: App.profile.cover,
-        initials: App.profile.avatarInitials,
-        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
-      });
+      };
+      // עדכון כל הוריאציות של ה-pubkey
+      App.profileCache.set(normalizedPubkey, profileData);
+      App.profileCache.set(App.publicKey || 'self', profileData);
+      if (App.feedAuthorProfiles instanceof Map) {
+        App.feedAuthorProfiles.set(normalizedPubkey, profileData);
+        App.feedAuthorProfiles.set(App.publicKey || 'self', profileData);
+      }
+      if (App.authorProfiles instanceof Map) {
+        App.authorProfiles.set(normalizedPubkey, profileData);
+        App.authorProfiles.set(App.publicKey || 'self', profileData);
+      }
       // חלק פרופיל (profile.js) – מעדכן את כל הפוסטים בפיד עם השם והתמונה החדשים
       if (typeof App.updateRenderedAuthorProfile === 'function') {
         App.updateRenderedAuthorProfile(normalizedPubkey, {
@@ -1398,8 +1501,8 @@
 
     if (fileInput && fileInput.files && fileInput.files[0]) {
       try {
-        // חלק תמונת פרופיל (profile.js) – עיבוד בקנה מידה זהה לתמונת הנושא גם במודאל העריכה
-        const resized = await App.resizeImageToDataUrl(fileInput.files[0], 1280, 720, 0.82);
+        // חלק תמונת פרופיל (profile.js) – עיבוד באיכות גבוהה כמו תמונת נושא להכרויות
+        const resized = await App.resizeImageToDataUrl(fileInput.files[0], 512, 512, 0.85);
         picture = resized;
         applyProfile(picture);
       } catch (e) {
