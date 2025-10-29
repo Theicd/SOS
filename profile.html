@@ -219,8 +219,10 @@
 
           <!-- חלק עוקבים (profile.html) – מציג את רשימת העוקבים האישית והחיווי הנוכחי -->
           <section class="profile-card" id="profileFollowersCard" data-profile-panel="about">
-            <h2 class="profile-card__title">עוקבים</h2>
-            <div class="profile-followers__count" id="profileFollowersCountLabel">0 עוקבים</div>
+            <h2 class="profile-card__title profile-card__title--with-count">
+              <span>עוקבים</span>
+              <span class="profile-card__count" id="profileFollowersCountLabel">0</span>
+            </h2>
             <ul class="profile-followers__list" id="profileFollowersList"></ul>
             <div class="profile-status" id="profileFollowersStatus"></div>
           </section>
@@ -304,6 +306,28 @@
       </div>
     </dialog>
 
+    <!-- חלק דיאלוגים (profile.html) – שאלה קולנועית לאישור מחיקת תמונת נושא -->
+    <dialog class="profile-dialog" id="profileCoverDialog">
+      <div class="profile-dialog__backdrop" aria-hidden="true"></div>
+      <div class="profile-dialog__content" role="document">
+        <div class="profile-dialog__icon" aria-hidden="true">
+          <i class="fa-solid fa-image"></i>
+        </div>
+        <h3 class="profile-dialog__title">להחליף את תמונת הנושא?</h3>
+        <p class="profile-dialog__message">
+          תמונת הנושא הנוכחית תימחק ונפתח עבורך חלון לבחירת תמונה חדשה מהמכשיר. האם להמשיך?
+        </p>
+        <div class="profile-dialog__actions">
+          <button type="button" class="profile-dialog__button profile-dialog__button--cancel" id="profileCoverDialogCancel">
+            ביטול
+          </button>
+          <button type="button" class="profile-dialog__button profile-dialog__button--confirm" id="profileCoverDialogConfirm">
+            כן, החליפו
+          </button>
+        </div>
+      </div>
+    </dialog>
+
     <!-- חלק חלון עריכת פרופיל (profile.html) – זהה למודל הראשי כדי לשמור תאימות ל-profile.js -->
     <div class="modal" id="profileModal">
       <div class="modal-content">
@@ -322,6 +346,7 @@
         <input id="profileLocationInput" type="text" maxlength="80" placeholder="תל אביב, ישראל" />
         <label for="profileWebsiteInput">אתר אינטרנט</label>
         <input id="profileWebsiteInput" type="url" placeholder="https://example.com" />
+        <!-- חלק תמונת נושא הוסר מהמודאל: שינוי/מחיקה מטופלים בלחיצה על הבאנר עצמו -->
         <div class="modal-actions">
           <button class="profile-primary-button" id="profileSaveButton" type="button">
             <i class="fa-solid fa-floppy-disk"></i>

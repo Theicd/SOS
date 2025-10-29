@@ -111,17 +111,6 @@
     width: 100%;
   }
 
-  .profile-timeline__header {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-
-  .profile-timeline__actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
   .profile-followers__list {
     gap: 8px;
   }

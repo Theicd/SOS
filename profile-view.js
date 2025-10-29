@@ -309,7 +309,7 @@
     const count = Array.isArray(followState.snapshot) ? followState.snapshot.length : 0;
     const label = `${count} עוקבים`;
     if (refs.followersCount) {
-      refs.followersCount.textContent = label;
+      refs.followersCount.textContent = count.toString();
     }
     if (refs.followersSummaryCount) {
       refs.followersSummaryCount.textContent = label;
