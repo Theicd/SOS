@@ -607,7 +607,16 @@
     } catch (err) {
       console.error('Profile: failed persisting quick avatar change', err);
     }
+    const normalizedPubkey = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : 'self';
     if (App.profileCache instanceof Map) {
+      App.profileCache.set(normalizedPubkey, {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        picture: App.profile.picture,
+        cover: App.profile.cover,
+        initials: App.profile.avatarInitials,
+        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
+      });
       App.profileCache.set(App.publicKey || 'self', {
         name: App.profile.name,
         bio: App.profile.bio,
@@ -618,6 +627,15 @@
       });
     }
     renderProfile();
+    // חלק פרופיל (profile.js) – מעדכן את כל הפוסטים בפיד עם התמונה החדשה
+    if (typeof App.updateRenderedAuthorProfile === 'function') {
+      App.updateRenderedAuthorProfile(normalizedPubkey, {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        picture: App.profile.picture,
+        initials: App.profile.avatarInitials,
+      });
+    }
     try {
       await publishProfileMetadata();
     } catch (err) {
@@ -1340,6 +1358,15 @@
       }
       renderProfile();
       closeProfileSettings();
+      const normalizedPubkey = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : 'self';
+      App.profileCache.set(normalizedPubkey, {
+        name: App.profile.name,
+        bio: App.profile.bio,
+        picture: App.profile.picture,
+        cover: App.profile.cover,
+        initials: App.profile.avatarInitials,
+        gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
+      });
       App.profileCache.set(App.publicKey || 'self', {
         name: App.profile.name,
         bio: App.profile.bio,
@@ -1348,6 +1375,15 @@
         initials: App.profile.avatarInitials,
         gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
       });
+      // חלק פרופיל (profile.js) – מעדכן את כל הפוסטים בפיד עם השם והתמונה החדשים
+      if (typeof App.updateRenderedAuthorProfile === 'function') {
+        App.updateRenderedAuthorProfile(normalizedPubkey, {
+          name: App.profile.name,
+          bio: App.profile.bio,
+          picture: App.profile.picture,
+          initials: App.profile.avatarInitials,
+        });
+      }
       publishProfileMetadata();
     };
 
