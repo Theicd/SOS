@@ -262,13 +262,11 @@
       return normalizedProfile;
     };
 
+    // חלק פרופילים (feed.js) – בדיקת cache אבל תמיד ננסה לעדכן מה-relays
     const cachedProfile =
       (App.profileCache instanceof Map ? App.profileCache.get(normalized) || App.profileCache.get(pubkey) : null) ||
       (App.feedAuthorProfiles instanceof Map ? App.feedAuthorProfiles.get(normalized) : null) ||
       (App.authorProfiles instanceof Map ? App.authorProfiles.get(normalized) : null);
-    if (cachedProfile) {
-      return storeProfile(cachedProfile);
-    }
 
     const fallback = storeProfile({
       name: `משתמש ${pubkey.slice(0, 8)}`,
@@ -1409,7 +1407,7 @@
         }
 
         if (link.startsWith('data:image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(link.split('?')[0])) {
-          return `<div class="feed-media"><img src="${link}" alt="תמונה מצורפת"></div>`;
+          return `<div class="feed-media"><img src="${link}" alt="תמונה מצורפת" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#666;\\'>התמונה נחסמה על ידי ad blocker</div>'"></div>`;
         }
 
         if (link.startsWith('data:video') || /\.(mp4|webm|ogg)$/i.test(link)) {
@@ -1461,13 +1459,23 @@
       .join('');
   }
 
-  async function displayPosts(events) {
+  // חלק infinite scroll (feed.js) – משתנים גלובליים לניהול טעינה הדרגתית
+  let allFeedEvents = [];
+  let displayedPostsCount = 0;
+  const POSTS_PER_LOAD = 10;
+  let isLoadingMore = false;
+
+  async function displayPosts(events, append = false) {
     const feed = document.getElementById('feed');
     if (!feed) return;
 
     const { container: emptyState, messageEl: emptyMessage } = getFeedEmptyState();
 
-    feed.innerHTML = '';
+    if (!append) {
+      feed.innerHTML = '';
+      allFeedEvents = events;
+      displayedPostsCount = 0;
+    }
 
     events.sort((a, b) => b.created_at - a.created_at);
 
@@ -1545,9 +1553,16 @@
       }
     }
 
-    const profileList = await Promise.all(visibleEvents.map((event) => fetchProfile(event.pubkey)));
+    // חלק infinite scroll (feed.js) – טעינת רק מספר מוגבל של פוסטים
+    const postsToDisplay = append 
+      ? visibleEvents.slice(displayedPostsCount, displayedPostsCount + POSTS_PER_LOAD)
+      : visibleEvents.slice(0, POSTS_PER_LOAD);
+    
+    displayedPostsCount = append ? displayedPostsCount + postsToDisplay.length : postsToDisplay.length;
 
-    visibleEvents.forEach((event, index) => {
+    const profileList = await Promise.all(postsToDisplay.map((event) => fetchProfile(event.pubkey)));
+
+    postsToDisplay.forEach((event, index) => {
       const normalizedPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
       const profileData = profileList[index] || {
         name: `משתמש ${normalizedPubkey.slice(0, 8)}`,
@@ -1557,14 +1572,13 @@
       };
       if (event?.id && normalizedPubkey) {
         App.eventAuthorById.set(event.id, normalizedPubkey);
-        if (!App.feedAuthorProfiles.has(normalizedPubkey)) {
-          App.feedAuthorProfiles.set(normalizedPubkey, {
-            name: profileData.name,
-            picture: profileData.picture,
-            bio: profileData.bio,
-            initials: profileData.initials,
-          });
-        }
+        // חלק פיד (feed.js) – עדכון תמידי של פרופילים כדי להציג שינויים חדשים
+        App.feedAuthorProfiles.set(normalizedPubkey, {
+          name: profileData.name,
+          picture: profileData.picture,
+          bio: profileData.bio,
+          initials: profileData.initials,
+        });
       }
       App.postsById.set(event.id, event); // חלק התרעות (feed.js) – שומר את אירוע הפוסט במפה לשימוש בהתרעות
       processPendingNotifications(event.id); // חלק התרעות (feed.js) – מנסה לשחרר התרעות מושהות עבור הפוסט הזה
@@ -1792,6 +1806,43 @@
 
     // חלק cache (פיד) – אתחול טעינת וידאו לכל הפוסטים
     initVideoLoading();
+
+    // חלק פרופילים (feed.js) – עדכון פרופילים מה-relays אחרי יצירת הפוסטים
+    if (uniqueAuthors.length > 0 && App.pool && Array.isArray(App.relayUrls) && App.relayUrls.length > 0) {
+      try {
+        const freshMetas = await listMetadataBatch(uniqueAuthors);
+        if (Array.isArray(freshMetas)) {
+          freshMetas.forEach((ev) => {
+            const author = typeof ev?.pubkey === 'string' ? ev.pubkey.toLowerCase() : '';
+            if (!author || !ev?.content) return;
+            try {
+              const parsed = JSON.parse(ev.content);
+              const nameField = typeof parsed.display_name === 'string' ? parsed.display_name.trim() : '';
+              const name = nameField || (typeof parsed.name === 'string' ? parsed.name.trim() : '') || `משתמש ${author.slice(0, 8)}`;
+              const bio = typeof parsed.about === 'string' ? parsed.about.trim() : '';
+              const picture = typeof parsed.picture === 'string' ? parsed.picture.trim() : '';
+              const initials = typeof App.getInitials === 'function' ? App.getInitials(name || author) : 'AN';
+              const normalizedProfile = { name, bio, picture, initials };
+              if (App.profileCache instanceof Map) {
+                App.profileCache.set(author, normalizedProfile);
+              }
+              if (App.feedAuthorProfiles instanceof Map) {
+                App.feedAuthorProfiles.set(author, normalizedProfile);
+              }
+              if (App.authorProfiles instanceof Map) {
+                App.authorProfiles.set(author, normalizedProfile);
+              }
+              // עדכון הפוסטים הקיימים ב-DOM
+              updateRenderedAuthorProfile(author, normalizedProfile);
+            } catch (e) {
+              // ignore malformed content
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Post-render metadata update failed', err);
+      }
+    }
   }
 
   async function hydrateCommentsSection(articleEl, parentId) {
@@ -1872,7 +1923,8 @@
     App.likesByEventId = new Map();
     App.commentsByParent = new Map();
     // חלק פיד (feed.js) – מסננים: פוסטים עיקריים לפי תג רשת, ובנוסף פוסטים של המשתמש הנוכחי גם אם חסר תג
-    const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 50 }];
+    // טעינה ראשונית: 10 פוסטים בלבד
+    const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 200 }];
     if (typeof App.publicKey === 'string' && App.publicKey) {
       filters.push({ kinds: [1], authors: [App.publicKey], limit: 50 });
     }
@@ -2023,10 +2075,52 @@
           emptyMessage.textContent = emptyMessage.dataset.defaultText;
           emptyState.classList.remove('feed-empty--loading');
         }
+        // חלק infinite scroll (feed.js) – הוספת מאזין גלילה
+        setupInfiniteScroll();
       },
     });
 
     setTimeout(() => sub.close(), 5000);
+  }
+
+  // חלק infinite scroll (feed.js) – פונקציה שמטעינה פוסטים נוספים כשמגיעים לסוף
+  function setupInfiniteScroll() {
+    let scrollTimeout;
+    const handleScroll = () => {
+      if (isLoadingMore) return;
+      
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const scrollPosition = window.innerHeight + window.scrollY;
+        const pageHeight = document.documentElement.scrollHeight;
+        
+        // כשמגיעים ל-80% מהדף, טוען עוד פוסטים
+        if (scrollPosition >= pageHeight * 0.8) {
+          loadMorePosts();
+        }
+      }, 100);
+    };
+
+    // הסרת מאזין קודם אם קיים
+    window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll);
+  }
+
+  // חלק infinite scroll (feed.js) – טעינת פוסטים נוספים
+  async function loadMorePosts() {
+    if (isLoadingMore) return;
+    if (displayedPostsCount >= allFeedEvents.length) return;
+
+    isLoadingMore = true;
+    console.log(`Loading more posts... (${displayedPostsCount}/${allFeedEvents.length})`);
+
+    try {
+      await displayPosts(allFeedEvents, true);
+    } catch (err) {
+      console.error('Failed to load more posts', err);
+    } finally {
+      isLoadingMore = false;
+    }
   }
 
   async function publishPost() {
