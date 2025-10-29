@@ -638,52 +638,6 @@
     }
     App.profile.avatarInitials = App.getInitials(App.profile.name || '');
 
-    // חלק מטמון פרופיל (profile.js) – שומר את הנתונים המעודכנים לכל המודולים המשותפים (פיד, קומפוזר, צפייה ציבורית)
-    const cacheEntry = {
-      name: App.profile.name,
-      bio: App.profile.bio,
-      picture: App.profile.picture,
-      cover: App.profile.cover,
-      initials: App.profile.avatarInitials,
-      gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
-    };
-    if (App.profileCache instanceof Map) {
-      const primaryKey = App.publicKey || 'self';
-      App.profileCache.set(primaryKey, cacheEntry);
-      if (typeof App.publicKey === 'string' && App.publicKey) {
-        App.profileCache.set(App.publicKey.toLowerCase(), cacheEntry);
-      }
-    }
-    if (App.feedAuthorProfiles instanceof Map) {
-      const primaryKey = App.publicKey || 'self';
-      App.feedAuthorProfiles.set(primaryKey, cacheEntry);
-      if (typeof App.publicKey === 'string' && App.publicKey) {
-        App.feedAuthorProfiles.set(App.publicKey.toLowerCase(), cacheEntry);
-      }
-    }
-    if (App.authorProfiles instanceof Map) {
-      const primaryKey = App.publicKey || 'self';
-      App.authorProfiles.set(primaryKey, cacheEntry);
-      if (typeof App.publicKey === 'string' && App.publicKey) {
-        App.authorProfiles.set(App.publicKey.toLowerCase(), cacheEntry);
-      }
-    }
-
-    // חלק סנכרון פיד (profile.js) – דואג שהפוסטים הקיימים בפיד יקבלו את השם והאווטאר החדשים ללא רענון עמוד
-    if (typeof App.updateRenderedAuthorProfile === 'function') {
-      const profileSnapshot = {
-        name: App.profile.name,
-        bio: App.profile.bio,
-        picture: App.profile.picture,
-        initials: App.profile.avatarInitials,
-      };
-      if (typeof App.publicKey === 'string' && App.publicKey) {
-        App.updateRenderedAuthorProfile(App.publicKey, profileSnapshot);
-      } else {
-        App.updateRenderedAuthorProfile('self', profileSnapshot);
-      }
-    }
-
     // חלק תמונת נושא (profile.js) – רינדור באנר הכיסוי על בסיס App.profile.cover
     const coverBanner = document.getElementById('profilePageCoverBanner');
     if (coverBanner) {
