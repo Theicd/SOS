@@ -758,10 +758,9 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
   justify-content: center;
   gap: 0;
   padding: 10px 0;
-  background: rgba(15, 23, 42, 0.98);
+  background: #050b1a;
   border-top: 1px solid rgba(78, 128, 218, 0.6);
   box-shadow: 0 -5px 20px rgba(4, 10, 24, 0.4);
-  backdrop-filter: blur(15px);
   z-index: 100;
 }
 
@@ -796,6 +795,7 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
 @media (max-width: 720px) {
   .auth-bottom-nav {
     padding: 8px 0;
+    background: #050b1a;
   }
   
   .auth-bottom-nav__link {
