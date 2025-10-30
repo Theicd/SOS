@@ -749,20 +749,19 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
 }
 
 .auth-bottom-nav {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
-  display: flex !important;
-  justify-content: center !important;
-  gap: 0 !important;
-  padding: 10px 0 !important;
-  background: #050b1a !important;
-  background-color: #050b1a !important;
-  border-top: 1px solid rgba(78, 128, 218, 0.6) !important;
-  box-shadow: 0 -5px 20px rgba(4, 10, 24, 0.4) !important;
-  z-index: 100 !important;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  padding: 10px 0;
+  background: #050b1a;
+  border-top: 1px solid rgba(78, 128, 218, 0.6);
+  box-shadow: 0 -5px 20px rgba(4, 10, 24, 0.4);
+  z-index: 100;
 }
 
 .auth-bottom-nav__link {
@@ -780,25 +779,11 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
   transition: all 0.2s ease;
   border-radius: 0;
   background: transparent !important;
-  background-color: transparent !important;
   border: none !important;
-  position: relative;
 }
-
-.auth-bottom-nav__link::after {
-  content: '';
-  position: absolute;
-  top: 12px;
-  bottom: 12px;
-  left: 0;
-  width: 1px;
-  background: rgba(60, 94, 170, 0.45);
-}
-
-.auth-bottom-nav__link:first-child::after { display: none; }
 
 .auth-bottom-nav__link i {
-  font-size: 1.1rem;
+  font-size: 1.4rem;
   margin-bottom: 4px;
 }
 
@@ -809,20 +794,17 @@ body.auth-body .site-header__nav-link { font-size: 0.8rem; padding: 4px 8px; bor
 
 @media (max-width: 720px) {
   .auth-bottom-nav {
-    padding: 8px 0 !important;
-    background: #050b1a !important;
-    background-color: #050b1a !important;
+    padding: 8px 0;
+    background: #050b1a;
   }
   
   .auth-bottom-nav__link {
-    font-size: 0.7rem !important;
+    font-size: 0.7rem;
   }
   
   .auth-bottom-nav__link i {
-    font-size: 1.1rem !important;
+    font-size: 1.1rem;
   }
-
-  .auth-bottom-nav__link:first-child::after { display: none !important; }
 }
 
 .auth-bottom-nav__link i {
