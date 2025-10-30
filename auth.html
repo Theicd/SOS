@@ -17,108 +17,64 @@
       referrerpolicy="no-referrer"
     />
     <link rel="stylesheet" href="./styles/auth.css" />
-    <style>
-      /* סגנון מינימלי (auth.html) – פס סלווגנים קומפקטי | HYPER CORE TECH */
-      .auth-slogans { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 8px 0 0; }
-      .auth-slogans__pill { border: 1px solid rgba(74,118,198,0.32); background: rgba(12,16,26,0.6); color: rgba(205,217,246,0.92); padding: 6px 10px; border-radius: 999px; font-size: 0.86rem; }
-    </style>
   </head>
   <body class="auth-body">
-    <!-- חלק וידאו רקע (auth.html) – מציג וידאו בלופ מאחורי התוכן -->
-    <video class="auth-background-video" autoplay muted loop playsinline>
-      <source src="https://cdn.pixabay.com/video/2019/04/27/23088-333074579_large.mp4" type="video/mp4" />
-    </video>
-    <!-- שכבת פרומו קצרה (auth.html) – מציגה מסרים קצרים בעת עליית הדף | HYPER CORE TECH -->
-    <section class="auth-promo" id="authPromo" aria-live="polite" hidden>
-      <div class="auth-promo__lines">
-        <p class="auth-promo__line">רשת חברתית חיה – בלי שרת מרכזי</p>
-        <p class="auth-promo__line">AI מקומי לשמירה על סביבה נקייה ובטוחה</p>
-        <p class="auth-promo__line">SPEAR ONE – תשתית אינטרנט מבוזרת אמיתית</p>
-      </div>
-    </section>
-    <!-- חלק HEADER עליון (auth.html) – מעטפת מותג SphereOne Social מותאמת לנייד ולדסקטופ -->
-    <header class="site-header">
-      <div class="site-header__brand" aria-label="SphereOne Social">
-        <div class="site-header__title-group">
-          <span class="site-header__brand-name">
-            <span class="sos-morse sos-morse-s">S</span>phere <span class="sos-morse sos-morse-o">O</span>ne <span class="sos-morse sos-morse-s">S</span>ocial
-          </span>
-          <span class="site-header__tagline">הדוגמה החיה לטכנולוגיית SPEAR ONE</span>
-        </div>
-        <button
-          class="site-header__menu-toggle"
-          type="button"
-          id="siteHeaderMenuToggle"
-          aria-expanded="false"
-          aria-controls="siteHeaderNav"
-        >
-          <i class="fa-solid fa-bars"></i>
-        </button>
-      </div>
-      <!-- חלק תפריט מידע (auth.html) – תפריט פשוט וברור עם קישורים לעמודי הסבר -->
-      <nav class="site-header__nav" id="siteHeaderNav" aria-label="תפריט מידע">
-        <a class="site-header__nav-link" href="./tech.html">מה זה SPEAR ONE?</a>
-        <a class="site-header__nav-link" href="./valuation.html">מסמך שווי</a>
-        <a class="site-header__nav-link" href="./tech.html#techContract">חוזה שותפים</a>
-      </nav>
-    </header>
-
-    <!-- חלק HERO (auth.html) – מסר פתיחה כללי לרשת החברתית -->
-    <section class="auth-hero">
-      <h1 class="auth-hero__title">רשת חברתית בבעלות המשתמשים</h1>
-      <p class="auth-hero__subtitle">בלי Back‑End, בלי איסוף ומכירת מידע. מבוסס SPEAR ONE.</p>
-    </section>
-
-    <!-- חלק מעטפת מרכזית (auth.html) – שלבי בחירה, התחברות והרשמה -->
-    <main class="auth-layout">
-      <!-- כרטיס הזמנה לפעולה – בחירת התחברות או יצירה -->
-      <section class="auth-card auth-entry auth-entry--compact" id="authEntryPanel" aria-live="polite">
-        <h2 class="auth-entry__title">ברוכים הבאים ל-SphereOne Social</h2>
-        <p class="auth-entry__subtitle">הקליקו כדי להיכנס או להצטרף. פשוט, מהיר ומרגיש כמו בית</p>
-        <div class="auth-slogans" aria-label="סלווגנים קצרים">
-          <span class="auth-slogans__pill">בעלות אמיתית של המשתמשים</span>
-          <span class="auth-slogans__pill">אין איסוף/מכירת מידע</span>
-          <span class="auth-slogans__pill">קוד פתוח – לא רק רשת חברתית</span>
-        </div>
-        <div class="auth-entry__actions">
-          <button class="button-primary auth-entry__action" id="authEntryLoginButton">
-            <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
-            התחברות לחשבון קיים
-          </button>
-          <button class="button-secondary auth-entry__action" id="authEntryRegisterButton">
-            <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
-            יצירת חשבון חדש
-          </button>
-        </div>
-        <div class="auth-entry__actions" aria-label="קישור הסבר מהיר">
-          <a href="./tech.html" class="button-link button-link--accent"><i class="fa-solid fa-circle-info"></i> מה זה SPEAR ONE?</a>
-        </div>
-      </section>
-
-      <!-- כרטיס סטטיסטיקות קטן (auth.html) – מציג מדדים קצרים וגרף ספירקליין | HYPER CORE TECH -->
-      <section class="auth-card auth-stats" id="authStatsCard" aria-live="polite">
-        <header class="auth-card__header">
-          <div class="auth-card__title-row">
-            <span class="auth-card__icon" aria-hidden="true"><i class="fa-solid fa-signal"></i></span>
-            <div class="auth-card__title-wrap">
-              <h3 class="auth-card__title">מצב הרשת</h3>
-              <p class="auth-card__subtitle">דמו חי – נתונים מעודכנים מדגמיים</p>
-            </div>
+    <!-- מעטפת כללית (auth.html) – מארגנת את כל חלקי הדף הראשי | HYPER CORE TECH -->
+    <div class="auth-surface">
+      <!-- פס עליון (auth.html) – לוגו וסטטיסטיקות קצרות בהתאם לעיצוב החדש | HYPER CORE TECH -->
+      <header class="auth-topbar" aria-label="סרגל עליון של SphereOne">
+        <div class="auth-topbar__brand" aria-label="SphereOne">
+          <span class="auth-topbar__logo" aria-hidden="true"></span>
+          <div class="auth-topbar__titles">
+            <span class="auth-topbar__name">SphereOne</span>
+            <span class="auth-topbar__tagline">Social Network</span>
           </div>
-        </header>
-        <div class="stats">
-          <div class="stats__row">
-            <div class="stats__item"><span class="stats__label">משתמשים פעילים</span><span class="stats__value">1,842</span></div>
-            <div class="stats__item"><span class="stats__label">גידול שבועי</span><span class="stats__value stats__value--up">+12%</span></div>
-          </div>
-          <svg class="sparkline" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
-            <polyline fill="none" stroke="#8ec5ff" stroke-width="2" points="0,22 12,20 24,21 36,18 48,16 60,14 72,12 84,13 96,9 108,8 120,6" />
-          </svg>
         </div>
-      </section>
+        <nav class="auth-topbar__nav" id="siteHeaderNav" aria-label="קישורי מידע על SphereOne"></nav>
+        <div class="auth-topbar__stats" aria-label="מדדי רשת עדכניים">
+          <div class="auth-topbar__stat">
+            <span class="auth-topbar__stat-value">+12%</span>
+            <span class="auth-topbar__stat-label">גידול שבועי</span>
+          </div>
+          <div class="auth-topbar__stat">
+            <span class="auth-topbar__stat-value">$50.42</span>
+            <span class="auth-topbar__stat-label">שווי חוזה</span>
+          </div>
+          <div class="auth-topbar__stat">
+            <span class="auth-topbar__stat-value">+5.2%</span>
+            <span class="auth-topbar__stat-label">פעילות רשת</span>
+          </div>
+        </div>
+      </header>
 
-      <!-- כרטיס התחברות – כולל כותרת עם אייקון ושדה קלט למפתח -->
-      <section class="auth-card auth-card--import" aria-live="polite" hidden>
+      <!-- אזור ראשי (auth.html) – כותרת מרכזית וכרטיס פעולות לפי הדרישה החדשה | HYPER CORE TECH -->
+      <main class="auth-main" aria-live="polite">
+        <section class="auth-welcome" aria-label="ברכת כניסה">
+          <h1 class="auth-welcome__title">SphereOne – ברוכים הבאים</h1>
+          <p class="auth-welcome__subtitle">הרשת החברתית המבוזרת שנשארת בבעלותכם</p>
+        </section>
+
+        <!-- כרטיס הזמנה לפעולה (auth.html) – מציג רק את שתי האופציות הקיימות -->
+        <section class="auth-card auth-entry" id="authEntryPanel">
+          <h2 class="auth-entry__title">בחרו את הדרך שלכם</h2>
+          <div class="auth-entry__actions">
+            <button class="button-primary auth-entry__action" id="authEntryLoginButton">
+              <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
+              כניסה לחשבון קיים
+            </button>
+            <button class="button-secondary auth-entry__action" id="authEntryRegisterButton">
+              <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+              יצירת חשבון חדש
+            </button>
+          </div>
+          <a href="./tech.html" class="button-link button-link--accent">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            מה זה SPEAR ONE?
+          </a>
+        </section>
+
+        <!-- כרטיס התחברות קיים (auth.html) – נשמר פונקציונלית ומועצב מחדש -->
+        <section class="auth-card auth-card--import" aria-live="polite" hidden>
         <button class="auth-card__back" id="authBackToEntryFromLogin" aria-label="חזרה למסך הבחירה">
           <i class="fa-solid fa-arrow-right"></i>
           חזרה למסך הראשי
@@ -272,7 +228,22 @@
       </section>
     </main>
 
-    
+      <!-- תפריט תחתון (auth.html) – יושב בתחתית גם בדסקטופ וגם במובייל עם אייקונים | HYPER CORE TECH -->
+      <nav class="auth-bottom-nav" aria-label="קישורי מידע קבועים">
+        <a class="auth-bottom-nav__link" href="./tech.html">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          מה זה SPEAR ONE?
+        </a>
+        <a class="auth-bottom-nav__link" href="./valuation.html">
+          <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+          מסמך שווי
+        </a>
+        <a class="auth-bottom-nav__link" href="./tech.html#techContract">
+          <i class="fa-solid fa-handshake" aria-hidden="true"></i>
+          חוזה שותפים
+        </a>
+      </nav>
+    </div>
 
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
     <script src="./config.js"></script>
