@@ -50,13 +50,14 @@
       <!-- אזור ראשי (auth.html) – כותרת מרכזית וכרטיס פעולות לפי הדרישה החדשה | HYPER CORE TECH -->
       <main class="auth-main" aria-live="polite">
         <section class="auth-welcome" aria-label="ברכת כניסה">
-          <h1 class="auth-welcome__title">SphereOne – ברוכים הבאים</h1>
+          <h1 class="auth-welcome__title" style="display:none;">SphereOne – ברוכים הבאים</h1>
           <p class="auth-welcome__subtitle">הרשת החברתית המבוזרת שנשארת בבעלותכם</p>
         </section>
 
         <!-- כרטיס הזמנה לפעולה (auth.html) – מציג רק את שתי האופציות הקיימות -->
         <section class="auth-card auth-entry" id="authEntryPanel">
-          <h2 class="auth-entry__title">בחרו את הדרך שלכם</h2>
+          <h1 class="auth-entry__title" style="display:none;">SphereOne – ברוכים הבאים</h1>
+          <p class="auth-entry__subtitle" style="display:none;">בחרו את הדרך שלכם</p>
           <div class="auth-entry__actions">
             <button class="button-primary auth-entry__action" id="authEntryLoginButton">
               <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
@@ -67,7 +68,7 @@
               יצירת חשבון חדש
             </button>
           </div>
-          <a href="./tech.html" class="button-link button-link--accent">
+          <a href="#" class="button-link button-link--accent" data-modal="spearInfo">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
             מה זה SPEAR ONE?
           </a>
@@ -229,20 +230,46 @@
     </main>
 
       <!-- תפריט תחתון (auth.html) – יושב בתחתית גם בדסקטופ וגם במובייל עם אייקונים | HYPER CORE TECH -->
-      <nav class="auth-bottom-nav" aria-label="קישורי מידע קבועים">
-        <a class="auth-bottom-nav__link" href="./tech.html">
-          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+      <nav class="auth-bottom-nav" aria-label="תפריט ראשי">
+        <a class="auth-bottom-nav__link" href="#" data-modal="spearInfo">
+          <i class="fa-solid fa-network-wired"></i>
           מה זה SPEAR ONE?
         </a>
-        <a class="auth-bottom-nav__link" href="./valuation.html">
-          <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-          מסמך שווי
+        <a class="auth-bottom-nav__link" href="#" data-modal="blockchainInfo">
+          <i class="fa-solid fa-link"></i>
+          טכנולוגיית Blockchain
         </a>
-        <a class="auth-bottom-nav__link" href="./tech.html#techContract">
-          <i class="fa-solid fa-handshake" aria-hidden="true"></i>
+        <a class="auth-bottom-nav__link" href="#" data-modal="partnershipInfo">
+          <i class="fa-solid fa-handshake"></i>
           חוזה שותפים
         </a>
       </nav>
+
+      <!-- הודעה קופצת (auth.html) – מודאל למידע על SPEAR ONE | HYPER CORE TECH -->
+      <div class="auth-modal" id="infoModal" aria-hidden="true">
+        <div class="auth-modal__overlay"></div>
+        <div class="auth-modal__container">
+          <div class="auth-modal__content">
+            <h2><span id="modalTitle"></span></h2>
+            <!-- אזור שקופיות מודאל (auth.html) – מציג כל חלק בנפרד | HYPER CORE TECH -->
+            <div class="auth-modal__slides" id="modalSlides"></div>
+            <!-- בקרי ניווט לשקופיות (auth.html) – שליטה על מעבר קדימה/אחורה | HYPER CORE TECH -->
+            <div class="auth-modal__controls" id="modalControls">
+              <button class="auth-modal__control" type="button" id="modalPrev" aria-label="שקופית קודמת">
+                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              </button>
+              <div class="auth-modal__dots" id="modalDots" role="tablist" aria-label="ניווט שקופיות"></div>
+              <button class="auth-modal__control" type="button" id="modalNext" aria-label="שקופית הבאה">
+                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <button class="auth-modal__close" aria-label="סגור חלון">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+      </div>
+
     </div>
 
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>

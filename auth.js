@@ -1070,4 +1070,267 @@
     authShareWhatsapp: shareWhatsapp,
     authResetCreateFlow: resetCreateFlow,
   });
+
+  // פונקציות לניהול המודאל (auth.js) – HYPER CORE TECH
+  const modals = {
+    spearInfo: {
+      title: 'SPEAR ONE – רשת חברתית חופשית',
+      sections: [
+        {
+          icon: 'fa-solid fa-flask',
+          title: 'טכנולוגיית SPEAR ONE – ניסוי חי',
+          paragraphs: [
+            'SPEAR ONE היא טכנולוגיה ניסיונית שפיתחנו להחזקת פלטפורמות אינטרנטיות ללא שרת מרכזי ועלויות תשתית כבדות.',
+            'אנחנו בודקים אותה על רשת חברתית אמיתית ומזמינים את כולם להצטרף כשותפים לחזון – לראות איך קהילה מנהלת מערכת דיגיטלית בבעלותה שלה.'
+          ]
+        },
+        {
+          icon: 'fa-solid fa-circle-info',
+          title: 'מה הופך את SPEAR ONE לשונה?',
+          paragraphs: [
+            'הפלטפורמה מחברת בין אנשים ללא פרסומות, מעקב או מתווכים. כל משתמש מחזיק בפרופיל אמיתי, משתף תוכן ומתקשר באופן מאובטח וישיר.',
+            'המערכת מבוזרת לגמרי: השירות נשען על רשת של משתמשים פעילים במקום על מרכז נתונים יחיד, מה שמייצר חיסכון תשתיתי ניכר ויציבות גבוהה.'
+          ],
+          list: [
+            'פלטפורמות מתופעלות ללא שרת מרכזי',
+            'אוטומציה לניהול קהילה ולוגיסטיקה',
+            'חיסכון בעלויות תחזוקה והפעלה'
+          ]
+        },
+        {
+          icon: 'fa-solid fa-scale-balanced',
+          title: 'איך נקבע ערך SPEAR ONE (USD)?',
+          paragraphs: [
+            'הערך של SPEAR ONE משקף את ההתקדמות של המיזם בזמן אמת ומשלב נתונים מהשטח.'
+          ],
+          list: [
+            'היקף ההשקעה שנכנס למערכת',
+            'כמות המשתמשים הפעילים ברשת',
+            'חיסכון תשתיתי שנמדד בצריכת משאבים',
+            'פעילות מאומתת ותרומה קהילתית'
+          ]
+        }
+      ]
+    },
+    blockchainInfo: {
+      title: 'הלב הטכנולוגי – Blockchain',
+      sections: [
+        {
+          icon: 'fa-solid fa-link-circle-check',
+          title: 'איך הבלוקצ׳יין פועל כאן?',
+          paragraphs: [
+            'כל פעולה ברשת – פרסום פוסט, הקלטת שיחה או הצבעה – נחתמת בשרשרת בלוקים ומבטיחה שקיפות מלאה בין המשתתפים.',
+            'החוזה החכם של SPEAR ONE מבטיח שכללים יופעלו באופן אוטומטי ושקוף, ללא אפשרות התערבות חיצונית.'
+          ]
+        },
+        {
+          icon: 'fa-solid fa-shield-halved',
+          title: 'יתרונות המודל המבוזר',
+          list: [
+            'אין גוף מרכזי שיכול לחסום או למחוק תוכן שרירותית',
+            'האמון מבוסס על קוד פתוח ותשתית שקופה',
+            'הנכס האמיתי הוא רשת התקשורת עצמה – לא מטבע ספקולטיבי'
+          ]
+        }
+      ]
+    },
+    partnershipInfo: {
+      title: 'חוזה השותפים של SPEAR ONE',
+      sections: [
+        {
+          icon: 'fa-solid fa-handshake-angle',
+          title: 'שותפים אמיתיים, לא קהל פסיבי',
+          paragraphs: [
+            'כל משתמש פעיל יכול להפוך לשותף באמצעות חוזה דיגיטלי, ולקבל חלק הוגן מהרווחים שהרשת מייצרת.',
+            'כאשר נוצרות הכנסות (כמו מפרסום שקוף או שיתופי פעולה), 50% מהן חוזרות מיד לקהילה לפי חלקם של השותפים.'
+          ]
+        },
+        {
+          icon: 'fa-solid fa-chart-line-up',
+          title: 'השקעה מתמשכת בפיתוח',
+          list: [
+            'היתרה מושקעת בהרחבת הרשת והשקת יכולות חדשות',
+            'לוח שקיפות מעדכן את הקהילה היכן מושקע כל דולר',
+            'יצירת מעגל שמתגמל את המשתמשים עצמם – ולא חברות פרסום'
+          ]
+        }
+      ]
+    }
+  };
+
+  let modalSlidesData = [];
+  let modalCurrentSlide = 0;
+  let modalSlidesContainer = null;
+  let modalDotsContainer = null;
+  let modalPrevButton = null;
+  let modalNextButton = null;
+  let modalControlsContainer = null;
+
+  function initModals() {
+    const modal = document.getElementById('infoModal');
+    const closeBtn = modal.querySelector('.auth-modal__close');
+    modalSlidesContainer = document.getElementById('modalSlides');
+    modalDotsContainer = document.getElementById('modalDots');
+    modalPrevButton = document.getElementById('modalPrev');
+    modalNextButton = document.getElementById('modalNext');
+    modalControlsContainer = document.getElementById('modalControls');
+
+    closeBtn.addEventListener('click', function() {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    });
+
+    if (modalPrevButton) {
+      modalPrevButton.addEventListener('click', () => shiftModalSlide(-1));
+    }
+
+    if (modalNextButton) {
+      modalNextButton.addEventListener('click', () => shiftModalSlide(1));
+    }
+
+    if (modalDotsContainer) {
+      modalDotsContainer.addEventListener('click', (event) => {
+        const dot = event.target.closest('.auth-modal__dot');
+        if (!dot || typeof dot.dataset.index === 'undefined') {
+          return;
+        }
+        const index = Number(dot.dataset.index);
+        setModalSlide(index);
+      });
+    }
+
+    document.querySelectorAll('[data-modal]').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const modalType = this.getAttribute('data-modal');
+        showModal(modals[modalType]);
+      });
+    });
+  }
+
+  function shiftModalSlide(delta) {
+    setModalSlide(modalCurrentSlide + delta);
+  }
+
+  function setModalSlide(targetIndex) {
+    if (!Array.isArray(modalSlidesData) || !modalSlidesContainer) {
+      return;
+    }
+
+    const clampedIndex = Math.max(0, Math.min(targetIndex, modalSlidesData.length - 1));
+    modalCurrentSlide = clampedIndex;
+
+    const slides = Array.from(modalSlidesContainer.children);
+    slides.forEach((slide, idx) => {
+      slide.classList.toggle('is-active', idx === modalCurrentSlide);
+    });
+
+    if (modalDotsContainer) {
+      const dots = Array.from(modalDotsContainer.children);
+      dots.forEach((dot, idx) => {
+        dot.classList.toggle('is-active', idx === modalCurrentSlide);
+      });
+    }
+
+    if (modalPrevButton) {
+      modalPrevButton.disabled = modalCurrentSlide === 0;
+    }
+
+    if (modalNextButton) {
+      modalNextButton.disabled = modalCurrentSlide === modalSlidesData.length - 1;
+    }
+  }
+
+  function renderModalSlides(sections) {
+    if (!modalSlidesContainer || !modalDotsContainer || !modalControlsContainer) {
+      return;
+    }
+
+    modalSlidesContainer.innerHTML = '';
+    modalDotsContainer.innerHTML = '';
+
+    if (!Array.isArray(sections) || sections.length === 0) {
+      modalControlsContainer.classList.add('is-hidden');
+      modalDotsContainer.classList.add('is-hidden');
+      return;
+    }
+
+    sections.forEach((section, index) => {
+      const slide = document.createElement('div');
+      slide.className = 'auth-modal__slide';
+      slide.dataset.index = String(index);
+
+      const sectionWrapper = document.createElement('section');
+      sectionWrapper.className = 'auth-modal__section';
+
+      const header = document.createElement('header');
+      header.className = 'auth-modal__section-title';
+      header.innerHTML = `
+        <i class="${section.icon || 'fa-solid fa-circle'}" aria-hidden="true"></i>
+        <span>${section.title || ''}</span>
+      `;
+
+      sectionWrapper.appendChild(header);
+
+      if (Array.isArray(section.paragraphs)) {
+        section.paragraphs.forEach((paragraph) => {
+          const p = document.createElement('p');
+          p.className = 'auth-modal__paragraph';
+          p.textContent = paragraph;
+          sectionWrapper.appendChild(p);
+        });
+      }
+
+      if (Array.isArray(section.list) && section.list.length > 0) {
+        const listEl = document.createElement('ul');
+        listEl.className = 'auth-modal__list';
+        section.list.forEach((item) => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          listEl.appendChild(li);
+        });
+        sectionWrapper.appendChild(listEl);
+      }
+
+      slide.appendChild(sectionWrapper);
+      modalSlidesContainer.appendChild(slide);
+
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'auth-modal__dot';
+      dot.dataset.index = String(index);
+      dot.setAttribute('aria-label', `מעבר לשקופית ${index + 1}`);
+      modalDotsContainer.appendChild(dot);
+    });
+
+    if (sections.length > 1) {
+      modalControlsContainer.classList.remove('is-hidden');
+      modalDotsContainer.classList.remove('is-hidden');
+    } else {
+      modalControlsContainer.classList.add('is-hidden');
+      modalDotsContainer.classList.add('is-hidden');
+    }
+  }
+
+  function showModal(data) {
+    const modal = document.getElementById('infoModal');
+    const title = document.getElementById('modalTitle');
+
+    if (!modal || !title || !data) {
+      return;
+    }
+
+    title.textContent = data.title || '';
+
+    modalSlidesData = Array.isArray(data.sections) ? data.sections : [];
+    modalCurrentSlide = 0;
+    renderModalSlides(modalSlidesData);
+    setModalSlide(modalCurrentSlide);
+
+    modal.style.display = 'block';
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  // קריאה לאתחול המודאלים עם טעינת הדף
+  window.addEventListener('DOMContentLoaded', initModals);
 })(window);
