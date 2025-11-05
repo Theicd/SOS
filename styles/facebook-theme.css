@@ -67,6 +67,76 @@ button {
   box-sizing: border-box;
 }
 
+/* חלק סרגל פרופיל וחדשות (facebook-theme.css) – התאמת הכותרת העליונה לשני הדפים כדי לשמר אחידות */
+.top-bar--profile {
+  background: rgba(24, 25, 35, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  padding: 10px 20px;
+  gap: 12px;
+}
+
+.top-bar__actions--profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-bar__home {
+  background: rgba(58, 59, 60, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+
+.top-bar__home:hover {
+  background: rgba(73, 74, 80, 0.88);
+}
+
+.top-bar__refresh {
+  background: rgba(58, 59, 60, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.top-bar__refresh:hover {
+  background: rgba(73, 74, 80, 0.78);
+}
+
+.top-bar__title {
+  flex: 1;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.6px;
+  text-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+.top-bar__title::after {
+  content: '';
+  display: block;
+  width: 120px;
+  height: 2px;
+  margin: 6px auto 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(64, 120, 255, 0.75), rgba(64, 120, 255, 0));
+}
+
+@media (max-width: 600px) {
+  .top-bar--profile {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .top-bar__title {
+    font-size: 1.15rem;
+    letter-spacing: 0.4px;
+  }
+
+  .top-bar__title::after {
+    width: 90px;
+  }
+}
+
 .app-name {
   font-weight: 700;
   font-size: 1.25rem;
@@ -382,14 +452,34 @@ button {
   background: var(--card);
   border-bottom: 1px solid var(--border);
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  padding: 8px 4px;
-  gap: 4px;
-  margin-top: 5px; /* חלק ניווט (facebook-theme.css) – מוסיף מרווח של 5px בין ההדר העליון לסרגל הראשי */
+  grid-template-columns: repeat(5, minmax(92px, 1fr));
+  justify-items: center;
+  padding: 8px 12px;
+  gap: 6px;
+  margin: 5px auto 0; /* חלק ניווט (facebook-theme.css) – מוסיף מרווח ומרכז את הסרגל גם בדסקטופ */
+  max-width: 620px; /* חלק ניווט (facebook-theme.css) – שומר רוחב מאוזן כדי שלא יבלוט חסרון כפתור */
   border-radius: 16px; /* חלק ניווט (facebook-theme.css) – מיישר את עיגול הפינות של התפריט עם שאר הכרטיסים */
   overflow: hidden; /* חלק ניווט (facebook-theme.css) – מונע זליגה של רקע האייקונים מעבר לפינות המעוגלות */
   transition: transform 0.35s ease, opacity 0.35s ease, box-shadow 0.35s ease; /* חלק ניווט (facebook-theme.css) – מעבר חלק לכניסה/יציאה של הסרגל */
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 600px) {
+  .primary-nav {
+    max-width: none; /* חלק ניווט מובייל (facebook-theme.css) – מאפשר לתפריט להתפרש על כל הרוחב במסכים צרים */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .nav-item {
+    padding: 4px 0;
+    font-size: 0.7rem;
+  }
+
+  .nav-item i {
+    font-size: 1rem;
+  }
 }
 
 .primary-nav--hidden {

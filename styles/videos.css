@@ -1,0 +1,517 @@
+/* חלק דף וידאו (videos.css) – עיצוב פיד סרטונים בסגנון טיקטוק | HYPER CORE TECH */
+.videos-feed {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.videos-feed__viewport {
+  position: relative;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding-top: 56px;
+}
+
+.videos-feed__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.videos-feed__stream {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+/* חלק קלף וידאו (videos.css) – כרטיס וידאו בודד עם אפקט snap וטשטוש */
+.videos-feed__card {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  height: calc(100vh - 56px);
+  min-height: calc(100vh - 56px);
+  max-height: calc(100vh - 56px);
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.4;
+  filter: blur(3px);
+  transform: scale(0.95);
+}
+
+.videos-feed__card.in-view {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+
+/* חלק מדיה (videos.css) – וידאו או YouTube iframe */
+.videos-feed__media {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.videos-feed__media video {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+}
+
+.videos-feed__media iframe {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.videos-feed__media img {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  border: none;
+}
+
+.videos-feed__media-thumb {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.videos-feed__media-iframe {
+  width: 100%;
+  height: 100%;
+}
+
+/* חלק כפתור פליי (videos.css) – כפתור הפעלה לוידאו */
+.videos-feed__play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  color: #000;
+  font-size: 2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  opacity: 1;
+}
+
+.videos-feed__card.controls-hidden .videos-feed__play-overlay {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.videos-feed__play-overlay:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.videos-feed__play-overlay i {
+  margin-left: 4px;
+}
+
+/* חלק פעולות צד (videos.css) – כפתורים בצד ימין כמו טיקטוק */
+.videos-feed__actions {
+  position: absolute;
+  left: 16px;
+  bottom: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 20;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.videos-feed__card.controls-hidden .videos-feed__actions {
+  opacity: 0;
+  transform: translateX(-20px);
+  pointer-events: none;
+}
+
+.videos-feed__action {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.3rem;
+  padding: 0;
+}
+
+.videos-feed__action:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+.videos-feed__action--liked {
+  background: rgba(255, 59, 92, 0.3);
+  border-color: rgba(255, 59, 92, 0.5);
+}
+
+.videos-feed__action--liked i {
+  color: #ff3b5c;
+}
+
+.videos-feed__action--following {
+  background: rgba(99, 230, 190, 0.3);
+  border-color: rgba(99, 230, 190, 0.5);
+}
+
+.videos-feed__action-count {
+  font-size: 0.7rem;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* חלק מידע (videos.css) – פרטי הפוסט בתחתית */
+.videos-feed__info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 32px 80px 40px 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 50%, transparent 100%);
+  color: #fff;
+  z-index: 15;
+  min-height: 140px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.videos-feed__card.controls-hidden .videos-feed__info {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+.videos-feed__author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  z-index: 20;
+  position: relative;
+}
+
+.videos-feed__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.videos-feed__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos-feed__name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.videos-feed__content {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  max-height: 4.2em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.videos-feed__status {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(36, 37, 38, 0.95), rgba(24, 25, 26, 0.98));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 230, 190, 0.2);
+  color: rgba(228, 230, 235, 0.9);
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(99, 230, 190, 0.1);
+  z-index: 90;
+  pointer-events: none;
+}
+
+/* חלק תגובתיות דסקטופ (videos.css) – התאמות למסכים גדולים */
+@media (min-width: 769px) {
+  .videos-feed__card {
+    max-width: 500px;
+    margin: 0 auto;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .videos-feed__actions {
+    left: auto;
+    right: 20px;
+    bottom: 180px;
+  }
+}
+
+/* חלק פאנל תגובות (videos.css) – עיצוב פאנל תגובות בסגנון טיקטוק */
+.videos-comments-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.videos-comments-panel {
+  background: var(--card-bg);
+  width: 100%;
+  max-width: 680px;
+  max-height: 70vh;
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.videos-comments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.videos-comments-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.videos-comments-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: none;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.videos-comments-close:hover {
+  background: var(--border-color);
+}
+
+.videos-comments-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.videos-comments-loading,
+.videos-comments-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.videos-comment-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.videos-comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.videos-comment-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos-comment-content {
+  flex: 1;
+}
+
+.videos-comment-author {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.videos-comment-text {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.videos-comments-input {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+
+.videos-comments-input input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  background: var(--card-alt);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.videos-comments-input input:focus {
+  border-color: var(--primary-color);
+}
+
+.videos-comments-input button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  border: none;
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.videos-comments-input button:hover {
+  transform: scale(1.05);
+}
+
+/* חלק תגובתיות מובייל (videos.css) – התאמות למסכים קטנים */
+@media (max-width: 768px) {
+  .videos-feed__actions {
+    gap: 16px;
+    bottom: 80px;
+  }
+
+  .videos-feed__action {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+
+  .videos-feed__info {
+    padding: 16px 70px 16px 16px;
+  }
+  
+  .videos-comments-panel {
+    max-height: 80vh;
+  }
+}

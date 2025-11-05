@@ -8,6 +8,7 @@
   const RTC_CONFIG = { iceServers: Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
     ? window.NostrRTC_ICE
     : [ { urls: 'stun:stun.l.google.com:19302' } ] };
+  const CALL_METRIC_KIND = 25060; // חלק שיחות וידאו (chat-video-call.js) – kind יעודי לרישום מדדי שיחה | HYPER CORE TECH
 
   // חלק שיחות וידאו – מצב השיחה הנוכחי
   const state = {
@@ -23,8 +24,49 @@
     candidateQueue: [],
     candidateTimer: null,
     ending: false,
-    lastOfferFrom: {}
+    lastOfferFrom: {},
+    callStartTimestamp: null
   };
+
+  // חלק שיחות וידאו (chat-video-call.js) – מפרסם אירוע מדד לריליי עם משך השיחה | HYPER CORE TECH
+  async function publishCallMetric(durationSeconds, peerPubkey) {
+    if (!App.pool || !App.publicKey || !App.privateKey) {
+      return;
+    }
+    const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? Math.round(durationSeconds) : 0;
+    const payload = {
+      mode: 'video',
+      durationSeconds: safeDuration,
+      endedAt: Math.floor(Date.now() / 1000),
+    };
+    if (peerPubkey) {
+      payload.peer = peerPubkey;
+    }
+
+    const tags = [
+      ['t', 'video-call'],
+      ['metric', 'call'],
+      ['duration', String(safeDuration)],
+    ];
+    if (App.NETWORK_TAG) {
+      tags.push(['t', App.NETWORK_TAG]);
+    }
+
+    const event = {
+      kind: CALL_METRIC_KIND,
+      pubkey: App.publicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags,
+      content: JSON.stringify(payload),
+    };
+
+    try {
+      const signed = App.finalizeEvent(event, App.privateKey);
+      await App.pool.publish(App.relayUrls, signed);
+    } catch (error) {
+      console.warn('Video call metric publish failed', error);
+    }
+  }
 
   // חלק שיחות וידאו – בדיקת תמיכה
   function isSupported() {
@@ -66,6 +108,7 @@
       console.log('VIDEO ICE:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected') {
         state.isActive = true;
+        state.callStartTimestamp = Date.now();
         if (typeof App.onVideoCallConnected === 'function') App.onVideoCallConnected(peerPubkey);
       } else if (['disconnected','failed','closed'].includes(pc.iceConnectionState)) {
         if (!state.ending) end();
@@ -158,6 +201,7 @@
     if (state.ending) return;
     state.ending = true;
     const peer = state.currentPeer;
+    const durationSeconds = state.callStartTimestamp ? (Date.now() - state.callStartTimestamp) / 1000 : 0;
     if (peer) sendSignal(peer, 'v-disconnect', null);
     try { if (state.pc) state.pc.close(); } catch {}
     state.pc = null;
@@ -165,7 +209,11 @@
     try { if (state.remoteStream) state.remoteStream.getTracks().forEach(t=>t.stop()); } catch {}
     state.localStream = null; state.remoteStream = null;
     state.currentPeer = null; state.isIncoming = false; state.isActive = false; state.isMuted = false; state.isCameraOff = false;
+    if (durationSeconds > 0) {
+      publishCallMetric(durationSeconds, peer);
+    }
     setTimeout(()=>{ state.ending=false; },100);
+    state.callStartTimestamp = null;
     if (typeof App.onVideoCallEnded === 'function') App.onVideoCallEnded(peer);
   }
 

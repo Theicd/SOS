@@ -195,18 +195,13 @@
             </div>
         </header>
         <nav class="primary-nav" aria-label="ניווט ראשי">
-            <button class="nav-item is-active" data-nav="news">
-                <i class="fa-solid fa-newspaper"></i>
-                <span>יאללה ניוז</span>
+            <button class="nav-item" data-nav="news">
+               <i class="fa-solid fa-newspaper"></i>
+                <span>חדשות</span>
             </button>
             <button class="nav-item" data-nav="videos">
                 <i class="fa-solid fa-clapperboard"></i>
-                <span>וידאו</span>
-            </button>
-            <!-- חלק ניווט יד 2 (index.html) – מעבר לשוק יד שנייה בקונספט הפלטפורמה -->
-            <button class="nav-item" data-nav="market">
-                <i class="fa-solid fa-box-open"></i>
-                <span>יד 2</span>
+                <span>וידאו פיד</span>
             </button>
             <button class="nav-item" data-nav="games">
                 <i class="fa-solid fa-gamepad"></i>
@@ -466,6 +461,20 @@
             <div class="p2p-status" id="keyViewerStatus"></div>
         </div>
     </div>
+    <!-- חלק חוזה חכם 2 (index.html) – חלון אימות סיסמה לפני פתיחת החוזה -->
+    <div class="modal contract-password-modal" id="contractPasswordModal" aria-hidden="true" hidden>
+        <div class="modal-content contract-password-modal__content" role="dialog" aria-modal="true" aria-labelledby="contractPasswordTitle">
+            <h2 id="contractPasswordTitle">גישה לחוזה החכם</h2>
+            <p>כדי להמשיך אל מודול החוזה החכם יש להזין את קוד הגישה שנמסר לך.</p>
+            <label class="contract-password-modal__label" for="contractPasswordInput">קוד גישה</label>
+            <input type="password" id="contractPasswordInput" class="contract-password-modal__input" placeholder="הקלד/י את הסיסמה" autocomplete="off" />
+            <div class="contract-password-modal__error" id="contractPasswordError" role="alert" hidden>סיסמה שגויה. נסו שוב.</div>
+            <div class="modal-actions">
+                <button class="button-secondary" type="button" id="contractPasswordCancel">ביטול</button>
+                <button class="button-primary" type="button" id="contractPasswordSubmit">אישור</button>
+            </div>
+        </div>
+    </div>
     <section class="growth-dashboard" id="growthDashboard" aria-hidden="true">
         <div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div>
         <article class="growth-dashboard__panel" role="dialog" aria-modal="true">
@@ -490,6 +499,13 @@
                 <section class="growth-dashboard__section" data-pane="overview">
                     <div class="growth-metrics" id="growthMetrics"></div>
                     <div class="growth-chart" id="growthChartContainer">
+                        <div class="growth-chart__ranges" role="group" aria-label="טווח היסטוריה">
+                            <button type="button" class="growth-chart__range-button" data-range="1d">יום</button>
+                            <button type="button" class="growth-chart__range-button" data-range="1w">שבוע</button>
+                            <button type="button" class="growth-chart__range-button is-active" data-range="1m">חודש</button>
+                            <button type="button" class="growth-chart__range-button" data-range="3m">3 חודשים</button>
+                            <button type="button" class="growth-chart__range-button" data-range="1y">שנה</button>
+                        </div>
                         <canvas id="growthChart" aria-label="גרף מגמת פעילות"></canvas>
                     </div>
                 </section>
@@ -519,17 +535,25 @@
     <section class="contract-dashboard-v2" id="contractDashboardV2" aria-hidden="true">
         <div class="contract-dashboard-v2__backdrop" onclick="closeContractDashboardV2()"></div>
         <article class="contract-dashboard-v2__panel" role="dialog" aria-modal="true">
-            <header class="contract-dashboard-v2__header">
-                <div class="contract-dashboard-v2__identity">
-                    <i class="fa-solid fa-signal"></i>
-                    <div>
-                        <h2>חוזה חכם – SPEAR ONE</h2>
-                        <p>השקעה בטכנולוגיה המבוזרת שמשנה את האינטרנט</p>
-                    </div>
+            <header class="top-bar top-bar--profile contract-dashboard-v2__header-bar">
+                <!-- חלק חוזה חכם 2 (index.html) – פס עליון מאוחד עם כפתורי רענון/סגירה -->
+                <div class="top-bar__actions top-bar__actions--profile">
+                    <button class="circle-button top-bar__refresh" id="contractV2RefreshButton" type="button" aria-label="רענון נתוני החוזה">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
                 </div>
-                <button class="contract-dashboard-v2__close" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <div class="top-bar__title">
+                    <span class="top-bar__title-inner">
+                        <i class="fa-solid fa-signal" aria-hidden="true"></i>
+                        <span>חוזה חכם – SPEAR ONE</span>
+                    </span>
+                    <p class="top-bar__subtitle">השקעה בטכנולוגיה המבוזרת שמשנה את האינטרנט</p>
+                </div>
+                <div class="top-bar__actions top-bar__actions--profile">
+                    <button class="circle-button top-bar__home" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
             </header>
             <div class="contract-dashboard-v2__body">
                 <!-- חלק פתיח (index.html) – מסר ראשי למשקיעים עם חיווי ערך בסיסי -->
@@ -721,6 +745,8 @@
     <script src="./follow-service.js"></script>
     <script src="./feed.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
     <script src="./market-dashboard.js"></script>
     <script src="./contract-dashboard-v2.js"></script>
     <script src="./app.js"></script>

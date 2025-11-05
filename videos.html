@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="he">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>וידאו – פיד סרטונים</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="./styles/facebook-theme.css">
+    <link rel="stylesheet" href="./styles/videos.css">
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./keys.js" defer></script>
+    <script src="./app.js" defer></script>
+    <script src="./feed.js" defer></script>
+    <script src="./follow-service.js" defer></script>
+    <script src="./media.js" defer></script>
+    <script src="./videos.js" defer></script>
+  </head>
+  <body>
+    <!-- חלק סרגל עליון (videos.html) – כותרת וכפתורי ניווט בסגנון אחיד | HYPER CORE TECH -->
+    <header class="top-bar top-bar--profile">
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__refresh" id="videosTopRefreshButton" type="button" aria-label="רענון הדף">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+      <div class="top-bar__title" id="videosTopTitle">וידאו</div>
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__home" id="videosTopHomeButton" type="button" aria-label="חזרה לדף הבית">
+          <i class="fa-solid fa-house"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- חלק ראשי (videos.html) – מעטפת דף הווידאו בסגנון טיקטוק | HYPER CORE TECH -->
+    <main class="videos-feed" aria-labelledby="videosTitle">
+      <section class="videos-feed__viewport" aria-live="polite">
+        <div class="videos-feed__stream" id="videosStream" role="list"></div>
+        <div class="videos-feed__status" id="videosStatus" role="status">טוען סרטונים...</div>
+      </section>
+    </main>
+  </body>
+</html>

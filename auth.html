@@ -54,6 +54,299 @@
           <p class="auth-welcome__subtitle">הרשת החברתית המבוזרת שנשארת בבעלותכם</p>
         </section>
 
+        <!-- חלק לוח CPNALE (auth.html) – מאגד את כל המדדים והגרפים תחת כפתור ייעודי | HYPER CORE TECH -->
+        <section class="auth-cpanel" id="authCpanelPanel" aria-label="לוח CPNALE מרכזי" hidden>
+          <!-- חלק לוח ערך רשת (auth.html) – מציג גרף חי ומדדי חוזה שותפים | HYPER CORE TECH -->
+          <section class="auth-card auth-credit" id="creditDashboardPanel" aria-label="לוח ערך רשת בזמן אמת">
+            <header class="auth-credit__header">
+              <h2 class="auth-credit__title">לוח ערך רשת בזמן אמת</h2>
+              <p class="auth-credit__subtitle">שווי הרשת ומחיר החוזה בדולר ארה"ב</p>
+            </header>
+            <div class="auth-credit__cards" aria-label="מדדי מערכת מסודרים לפי קטגוריות">
+              <article class="auth-stat-card auth-stat-card--network" aria-label="מידע על הרשת">
+                <header class="auth-stat-card__header">
+                  <span class="auth-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-sitemap"></i></span>
+                  <div class="auth-stat-card__titles">
+                    <h3 class="auth-stat-card__title">מידע על הרשת</h3>
+                    <p class="auth-stat-card__subtitle">מדדי משתמשים, פעילות ותוכן בזמן אמת</p>
+                  </div>
+                </header>
+                <div class="auth-stat-card__body">
+                  <section class="auth-stat-card__group" aria-label="מדדי פעילות מצטברים">
+                    <h4 class="auth-stat-card__group-title">מדדי פעילות מצטברים</h4>
+                    <div class="auth-stat-card__metrics-grid">
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">פוסטים מצטברים</span>
+                        <strong class="auth-stat-card__metric-value" id="creditPostsCount">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">תגובות מצטברות</span>
+                        <strong class="auth-stat-card__metric-value" id="creditCommentsCount">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">לייקים מצטברים</span>
+                        <strong class="auth-stat-card__metric-value" id="creditLikesCount">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">כניסות מצטברות</span>
+                        <strong class="auth-stat-card__metric-value" id="creditLogins">—</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </article>
+
+              <article class="auth-stat-card auth-stat-card--storage" aria-label="מצב אחסון שרת SOS">
+                <header class="auth-stat-card__header">
+                  <span class="auth-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-database"></i></span>
+                  <div class="auth-stat-card__titles">
+                    <h3 class="auth-stat-card__title">מצב אחסון שרת SOS</h3>
+                    <p class="auth-stat-card__subtitle">השוואה בין נפחי קבצים ותמהיל תוכן</p>
+                  </div>
+                </header>
+                <div class="auth-stat-card__body">
+                  <section class="auth-stat-card__group" aria-label="קבצים מאוחסנים">
+                    <h4 class="auth-stat-card__group-title">סה"כ קבצים</h4>
+                    <div class="auth-stat-card__metrics-grid">
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">תמונות מאוחסנות</span>
+                        <strong class="auth-stat-card__metric-value" id="creditImagesCountTotal">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">סרטוני וידאו מאוחסנים</span>
+                        <strong class="auth-stat-card__metric-value" id="creditVideosCountTotal">—</strong>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="auth-stat-card__group" aria-label="תמהיל תוכן">
+                    <h4 class="auth-stat-card__group-title">תמהיל תוכן</h4>
+                    <ul class="auth-stat-card__list">
+                      <li>תמונות: <span id="creditContentImages">—</span></li>
+                      <li>וידאו: <span id="creditContentVideos">—</span></li>
+                      <li>טקסט: <span id="creditContentText">—</span></li>
+                    </ul>
+                  </section>
+                  <section class="auth-stat-card__group" aria-label="הוספות היום">
+                    <h4 class="auth-stat-card__group-title">הוספות ב-24 שעות</h4>
+                    <div class="auth-stat-card__metrics-grid">
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">תמונות היום</span>
+                        <strong class="auth-stat-card__metric-value" id="creditImagesToday">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">וידאו היום</span>
+                        <strong class="auth-stat-card__metric-value" id="creditVideosToday">—</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </article>
+
+              <article class="auth-stat-card auth-stat-card--communications" aria-label="מצב שרת תקשורותווידיאו">
+                <header class="auth-stat-card__header">
+                  <span class="auth-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-tower-broadcast"></i></span>
+                  <div class="auth-stat-card__titles">
+                    <h3 class="auth-stat-card__title">מצב שרת תקשורות ווידיאו/קול</h3>
+                    <p class="auth-stat-card__subtitle">היקפי שיחות ומספר דקות לכל ערוץ</p>
+                  </div>
+                </header>
+                <div class="auth-stat-card__body">
+                  <section class="auth-stat-card__group" aria-label="מצטבר">
+                    <h4 class="auth-stat-card__group-title">מצטבר</h4>
+                    <div class="auth-stat-card__metrics-grid">
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שיחות וידאו</span>
+                        <strong class="auth-stat-card__metric-value" id="creditVideoCallsCount">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שיחות קול</span>
+                        <strong class="auth-stat-card__metric-value" id="creditVoiceCallsCount">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">משך כולל</span>
+                        <strong class="auth-stat-card__metric-value" id="creditTotalCallDuration">—</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </article>
+
+              <article class="auth-stat-card auth-stat-card--asset" aria-label="מידע על הנכס">
+                <header class="auth-stat-card__header">
+                  <span class="auth-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-coins"></i></span>
+                  <div class="auth-stat-card__titles">
+                    <h3 class="auth-stat-card__title">מידע על הנכס</h3>
+                    <p class="auth-stat-card__subtitle">מחיר חוזה, שווי רשת ומדדי סנטימנט</p>
+                  </div>
+                </header>
+                <div class="auth-stat-card__body">
+                  <section class="auth-stat-card__group" aria-label="ערכי שוק">
+                    <h4 class="auth-stat-card__group-title">ערכי שוק</h4>
+                    <div class="auth-stat-card__metrics-grid">
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שווי רשת נוכחי</span>
+                        <strong class="auth-stat-card__metric-value" id="creditCurrentValue">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">מחיר חוזה</span>
+                        <strong class="auth-stat-card__metric-value" id="creditContractUsd">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שיא</span>
+                        <strong class="auth-stat-card__metric-value" id="creditContractHigh">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שפל</span>
+                        <strong class="auth-stat-card__metric-value" id="creditContractLow">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שינוי יומי</span>
+                        <strong class="auth-stat-card__metric-value" id="creditDailyChange">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">סנטימנט שוק</span>
+                        <strong class="auth-stat-card__metric-value" id="creditSentiment">—</strong>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="auth-stat-card__group" aria-label="בריאות רשת">
+                    <h4 class="auth-stat-card__group-title">בריאות רשת</h4>
+                    <div class="auth-stat-card__metrics-grid">
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">מדד בריאות</span>
+                        <strong class="auth-stat-card__metric-value" id="creditHealthScore">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric auth-stat-card__metric--span">
+                        <span class="auth-stat-card__metric-label">אינדיקטורים מובילים</span>
+                        <ul class="auth-stat-card__list" id="creditIndicators">
+                          <li>ממתין לנתונים חיים...</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="auth-stat-card__group" aria-label="סטטיסטיקות נוספות">
+                    <h4 class="auth-stat-card__group-title">סטטיסטיקות נוספות</h4>
+                    <div class="auth-stat-card__metrics-grid">
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שיחות וידאו מצטברות</span>
+                        <strong class="auth-stat-card__metric-value" id="creditVideoCallsCount">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">שיחות קול מצטברות</span>
+                        <strong class="auth-stat-card__metric-value" id="creditVoiceCallsCount">—</strong>
+                      </div>
+                      <div class="auth-stat-card__metric">
+                        <span class="auth-stat-card__metric-label">פתיחות משחקים</span>
+                        <strong class="auth-stat-card__metric-value" id="creditGameOpensCount">—</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </article>
+            </div>
+            <!-- חלק גרף בורסה (auth.html) – מציג גרף נרות, נפח וטווחי זמן בסגנון מצב בריאות הרשת | HYPER CORE TECH -->
+            <section class="auth-credit__charts" aria-label="מסחר בזמן אמת">
+              <header class="auth-credit__charts-header">
+                <div>
+                  <h2 class="auth-credit__charts-title">מסחר בשווי הרשת</h2>
+                  <p class="auth-credit__charts-subtitle">נרות יומיים, נפח פעילות ואינדיקטורים טכניים</p>
+                </div>
+                <div class="auth-credit__charts-controls">
+                  <div class="auth-credit__range" role="group" aria-label="טווח תצוגה">
+                    <button class="auth-credit__range-btn is-active" type="button" data-credit-range="1D">1D</button>
+                    <button class="auth-credit__range-btn" type="button" data-credit-range="1W">1W</button>
+                    <button class="auth-credit__range-btn" type="button" data-credit-range="1M">1M</button>
+                    <button class="auth-credit__range-btn" type="button" data-credit-range="3M">3M</button>
+                    <button class="auth-credit__range-btn" type="button" data-credit-range="1Y">1Y</button>
+                  </div>
+                  <div class="auth-credit__charts-clock">
+                    <span class="auth-credit__charts-clock-label">זמן מערכת</span>
+                    <time class="auth-credit__clock" id="creditTradingClock" aria-live="polite">—:—</time>
+                  </div>
+                </div>
+              </header>
+
+              <div class="auth-credit__charts-grid">
+                <figure class="auth-credit__chart-card" aria-label="גרף מחיר חוזה">
+                  <header class="auth-credit__chart-card-header">
+                    <h3 class="auth-credit__chart-card-title">מחיר חוזה ונרות</h3>
+                    <span class="auth-credit__chart-card-hint">קו ירוק = סגירה גבוהה, אדום = ירידה</span>
+                  </header>
+                  <div class="auth-credit__chart-card-body">
+                    <canvas id="creditTradingChart" height="220"></canvas>
+                  </div>
+                </figure>
+
+                <figure class="auth-credit__chart-card auth-credit__chart-card--stacked" aria-label="נפח פעילות">
+                  <header class="auth-credit__chart-card-header">
+                    <h3 class="auth-credit__chart-card-title">נפח פעילות</h3>
+                    <span class="auth-credit__chart-card-hint">בר ירוק = עליה, בר אדום = ירידה</span>
+                  </header>
+                  <div class="auth-credit__chart-card-body">
+                    <canvas id="creditTradingVolume" height="140"></canvas>
+                  </div>
+                </figure>
+
+                <figure class="auth-credit__chart-card auth-credit__chart-card--stacked" aria-label="אינדיקטורים טכניים">
+                  <header class="auth-credit__chart-card-header">
+                    <h3 class="auth-credit__chart-card-title">אינדיקטורים טכניים</h3>
+                    <span class="auth-credit__chart-card-hint">RSI, ממוצעים וקווי תמיכה/התנגדות</span>
+                  </header>
+                  <div class="auth-credit__chart-card-body">
+                    <canvas id="creditTradingIndicatorsChart" height="160"></canvas>
+                    <p class="auth-credit__chart-empty" id="creditTradingEmpty" hidden>טוען נתוני מסחר…</p>
+                  </div>
+                </figure>
+              </div>
+            </section>
+            <div class="auth-credit__explanation" id="creditChangeReasons" aria-live="polite">
+              <p>נטען נתוני פעילות...</p>
+            </div>
+          </section>
+
+          <!-- חלק גרף גידול רשת (auth.html) – הצגת מגמות פעילות רשת וערך USD מצטבר | HYPER CORE TECH -->
+          <section class="auth-card auth-growth" id="authGrowthPanel" aria-label="גידול הרשת">
+            <header class="auth-credit__header">
+              <h2 class="auth-credit__title">מגמות גידול הרשת</h2>
+              <p class="auth-credit__subtitle">השוואת פעילות יומית, משתמשים פעילים וערך רשת בדולרים</p>
+            </header>
+            <div class="auth-growth__chart-wrap">
+              <canvas id="authGrowthChart" height="320" aria-label="גרף גידול הרשת"></canvas>
+            </div>
+            <p class="auth-growth__hint">הערכים מסונכרנים מנתוני הריליי המבוזרים ומעודכנים בזמן אמת.</p>
+          </section>
+        </section>
+
+        <!-- חלק לוח CPNALE (auth.html) – מודאל בקשת סיסמה לפני פתיחת הפאנל | HYPER CORE TECH -->
+        <div class="auth-cpanel-modal" id="authCpanelModal" hidden aria-hidden="true">
+          <div class="auth-cpanel-modal__backdrop" data-cpanel-dismiss></div>
+          <article class="auth-cpanel-modal__dialog" role="dialog" aria-modal="true">
+            <header class="auth-cpanel-modal__header">
+              <i class="fa-solid fa-gamepad" aria-hidden="true"></i>
+              <div class="auth-cpanel-modal__titles">
+                <h2>כניסה ללוח CPNALE</h2>
+                <p>הקלידו את קוד הגישה כדי לפתוח את סטטיסטיקות הניהול המלאות.</p>
+              </div>
+            </header>
+            <label class="auth-cpanel-modal__label" for="authCpanelPasswordInput">סיסמת גישה</label>
+            <input
+              id="authCpanelPasswordInput"
+              class="auth-cpanel-modal__input"
+              type="password"
+              inputmode="numeric"
+              autocomplete="off"
+              dir="ltr"
+              placeholder="הקלידו את הקוד"
+            />
+            <p class="auth-cpanel-modal__hint">טיפ: זה מרגיש כמו אתגר unlocking במשחק רטרו.</p>
+            <p class="auth-cpanel-modal__error" id="authCpanelPasswordError" hidden>הקוד שהוזן שגוי. נסו שוב או לחצו ביטול.</p>
+            <footer class="auth-cpanel-modal__actions">
+              <button type="button" class="button-secondary" id="authCpanelPasswordCancel">ביטול</button>
+              <button type="button" class="button-primary" id="authCpanelPasswordSubmit">כניסה</button>
+            </footer>
+          </article>
+        </div>
+
         <!-- כרטיס הזמנה לפעולה (auth.html) – מציג רק את שתי האופציות הקיימות -->
         <section class="auth-card auth-entry" id="authEntryPanel">
           <h1 class="auth-entry__title" style="display:none;">SphereOne – ברוכים הבאים</h1>
@@ -243,6 +536,10 @@
           <i class="fa-solid fa-handshake"></i>
           חוזה שותפים
         </a>
+        <button class="auth-bottom-nav__link auth-bottom-nav__link--cpanel" type="button" id="authCpanelToggle">
+          <i class="fa-solid fa-sliders"></i>
+          לוח CPNALE
+        </button>
       </nav>
 
       <!-- הודעה קופצת (auth.html) – מודאל למידע על SPEAR ONE | HYPER CORE TECH -->
@@ -274,8 +571,21 @@
 
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
     <script src="./config.js"></script>
+    <script src="./utils.js"></script>
+    <script src="./app.js"></script>
+    <script src="./market-dashboard.js"></script>
     <script src="./key-utils.js"></script>
     <script src="./keys.js"></script>
     <script src="./auth.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
+    <script src="./credits/credit-engine.js"></script>
+    <script src="./credits/credit-data-store.js"></script>
+    <script src="./credits/credit-dashboard-controller.js"></script>
+    <script src="./credits/credit-trading-chart.js"></script>
+    <script src="./credits/credit-dashboard.js"></script>
+    <!-- חלק סקריפט גרף גידול (auth.html) – אחראי על הצגת מגמות הרשת בדף ההתחברות | HYPER CORE TECH -->
+    <script src="./auth-network-growth.js"></script>
   </body>
 </html>

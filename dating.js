@@ -8,11 +8,11 @@
     queue: [],
     index: 0,
     current: null,
-    passes: new Set(),
     likesOut: new Set(),
     likesIn: new Set(),
     matches: new Set(),
     localKey: null,
+    viewerGender: '',
   };
   const refs = {
     card: document.getElementById('datingCard'),
@@ -28,7 +28,40 @@
     passButton: document.getElementById('datingPassButton'),
     refreshButton: document.getElementById('datingRefreshButton'),
     backButton: document.getElementById('datingBackButton'),
+    placeholder: document.getElementById('datingCardPlaceholder'),
+    introOverlay: document.getElementById('datingIntroOverlay'),
+    introStart: document.getElementById('datingIntroStartButton'),
   };
+  const showPlaceholder = () => {
+    if (refs.placeholder) {
+      refs.placeholder.hidden = false;
+    }
+    if (refs.image) {
+      refs.image.classList.add('is-loading');
+    }
+  };
+  const hidePlaceholder = () => {
+    if (refs.placeholder) {
+      refs.placeholder.hidden = true;
+    }
+    if (refs.image) {
+      refs.image.classList.remove('is-loading');
+    }
+  };
+  const closeIntroOverlay = () => {
+    if (refs.introOverlay) {
+      refs.introOverlay.hidden = true;
+    }
+  };
+  refs.image?.addEventListener('load', () => {
+    if (!refs.image) {
+      return;
+    }
+    hidePlaceholder();
+  });
+  refs.image?.addEventListener('error', () => {
+    showPlaceholder();
+  });
 
   // חלק הכרויות (dating.js) – פונקציות עזר כללי למפתחות, אחסון וטוסט
   const normalizePubkey = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
@@ -38,6 +71,10 @@
       return App.escapeHtml(safe);
     }
     return safe.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  };
+  const normalizeGender = (value) => {
+    const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return normalized === 'male' || normalized === 'female' ? normalized : '';
   };
   const showToast = (message) => {
     if (!refs.toast || !refs.toastText) {
@@ -55,7 +92,6 @@
       window.localStorage.setItem(
         state.localKey,
         JSON.stringify({
-          passes: Array.from(state.passes),
           likes: Array.from(state.likesOut),
           matches: Array.from(state.matches),
         }),
@@ -74,9 +110,6 @@
         return;
       }
       const payload = JSON.parse(raw);
-      if (Array.isArray(payload.passes)) {
-        state.passes = new Set(payload.passes.map(normalizePubkey));
-      }
       if (Array.isArray(payload.likes)) {
         state.likesOut = new Set(payload.likes.map(normalizePubkey));
       }
@@ -90,6 +123,19 @@
 
   // חלק הכרויות (dating.js) – אתחול תשתיות (Pool, Relay, פרופיל)
   function bootstrap() {
+    if (!App.profile || typeof App.profile !== 'object') {
+      try {
+        const storedProfile = window.localStorage.getItem('nostr_profile');
+        if (storedProfile) {
+          App.profile = JSON.parse(storedProfile);
+        }
+      } catch (err) {
+        console.warn('Dating: failed restoring profile for gender detection', err);
+      }
+      if (!App.profile || typeof App.profile !== 'object') {
+        App.profile = {};
+      }
+    }
     if (typeof App.ensureKeys === 'function') {
       App.ensureKeys();
     }
@@ -125,6 +171,20 @@
       App.registerDatingMatchNotification = function noop() {};
     }
     state.localKey = App.publicKey ? `${STORAGE_PREFIX}${App.publicKey.toLowerCase()}` : null;
+    state.viewerGender = normalizeGender(App.profile?.dating?.gender);
+    if (!state.viewerGender) {
+      try {
+        const storedProfile = window.localStorage.getItem('nostr_profile');
+        if (storedProfile) {
+          const parsed = JSON.parse(storedProfile);
+          state.viewerGender = normalizeGender(parsed?.dating?.gender);
+        }
+      } catch (err) {
+        console.warn('Dating: failed reading gender from local storage', err);
+      }
+    }
+    window.addEventListener('dating:viewer-gender-changed', handleViewerGenderChanged);
+    window.addEventListener('storage', handleStorageGenderSync);
   }
 
   // חלק הכרויות (dating.js) – בניית פרופיל מועמד מתוך מטא-דאטה Kind 0
@@ -145,6 +205,16 @@
     if (!pubkey || (App.publicKey && pubkey === normalizePubkey(App.publicKey))) {
       return null;
     }
+    const candidateGender = normalizeGender(parsed.dating_gender);
+    if (state.viewerGender) {
+      const desiredGender = state.viewerGender === 'male' ? 'female' : state.viewerGender === 'female' ? 'male' : '';
+      if (desiredGender && candidateGender !== desiredGender) {
+        return null;
+      }
+      if (desiredGender && !candidateGender) {
+        return null;
+      }
+    }
     const gallery = Array.isArray(parsed.gallery)
       ? parsed.gallery.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean)
       : [];
@@ -160,6 +230,7 @@
       datingAge: typeof parsed.dating_age === 'string' ? parsed.dating_age.trim() : '',
       datingLocation: typeof parsed.dating_location === 'string' ? parsed.dating_location.trim() : '',
       datingInterests: interests,
+      gender: candidateGender,
       picture: picture || gallery[0] || '',
       gallery,
       updatedAt: event.created_at || 0,
@@ -205,6 +276,46 @@
         state.queue.push(profile);
       });
     state.index = 0;
+  }
+
+  // חלק הכרויות (dating.js) – הבטחת מידע מגדרי של הצופה לפני סינון
+  async function ensureViewerGender() {
+    if (state.viewerGender === 'male' || state.viewerGender === 'female') {
+      return;
+    }
+    const current = normalizeGender(App.profile?.dating?.gender);
+    if (current) {
+      state.viewerGender = current;
+      return;
+    }
+    try {
+      const storedProfile = window.localStorage.getItem('nostr_profile');
+      if (storedProfile) {
+        const parsed = JSON.parse(storedProfile);
+        const storedGender = normalizeGender(parsed?.dating?.gender);
+        if (storedGender) {
+          state.viewerGender = storedGender;
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Dating: ensure gender local lookup failed', err);
+    }
+    if (!App.pool || !App.publicKey) {
+      return;
+    }
+    try {
+      const event = await App.pool.get(App.relayUrls, { kinds: [0], authors: [App.publicKey], limit: 1 });
+      if (event?.content) {
+        const parsed = JSON.parse(event.content);
+        const relayGender = normalizeGender(parsed?.dating_gender);
+        if (relayGender) {
+          state.viewerGender = relayGender;
+        }
+      }
+    } catch (err) {
+      console.warn('Dating: ensure gender relay lookup failed', err);
+    }
   }
 
   // חלק הכרויות (dating.js) – טעינת לייקים נכנסים ויוצאים (Kind 40001)
@@ -278,7 +389,7 @@
     while (state.index < state.queue.length) {
       const candidate = state.queue[state.index++];
       const key = candidate.pubkey;
-      if (state.matches.has(key) || state.passes.has(key) || state.likesOut.has(key)) {
+      if (state.matches.has(key) || state.likesOut.has(key)) {
         continue;
       }
       state.current = candidate;
@@ -324,11 +435,13 @@
     if (refs.image) {
       const imageSrc = candidate.picture || candidate.gallery[0] || '';
       if (imageSrc) {
+        showPlaceholder();
         refs.image.src = imageSrc;
         refs.image.alt = candidate.name;
       } else {
         refs.image.removeAttribute('src');
         refs.image.alt = 'אין תמונה זמינה';
+        showPlaceholder();
       }
     }
   }
@@ -336,8 +449,9 @@
     if (!state.current) {
       return;
     }
-    state.passes.add(state.current.pubkey);
-    persistLocalState();
+    const skipped = state.current;
+    state.current = null;
+    state.queue.push(skipped);
     renderCurrentCandidate();
   };
   async function handleLike() {
@@ -465,18 +579,58 @@
     refs.backButton?.addEventListener('click', () => {
       window.location.href = './index.html';
     });
+    const introHandler = () => closeIntroOverlay();
+    refs.introStart?.addEventListener('click', introHandler);
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeIntroOverlay();
+      }
+    });
   }
 
   // חלק הכרויות (dating.js) – תהליך אתחול כולל טעינת נתונים ופתיחת מנויים
   async function init() {
     bootstrap();
     restoreLocalState();
+    // הצג מיד את שכבת ה-placeholder כדי שמד הטעינה יופיע עד שהתמונה הראשונה נטענת
+    if (refs.placeholder) {
+      refs.placeholder.hidden = false;
+    }
+    if (refs.image) {
+      refs.image.classList.add('is-loading');
+    }
     bindActions();
     await Promise.all([fetchLikeEvents({ incoming: true }), fetchLikeEvents({ incoming: false })]);
     reconcileMatches();
+    await ensureViewerGender();
     await loadCandidates();
     renderCurrentCandidate();
     subscribeIncomingLikes();
+  }
+
+  // חלק הכרויות (dating.js) – טיפול באירועים חיצוניים שמשנים את מגדר הצופה
+  function handleViewerGenderChanged(event) {
+    const incoming = normalizeGender(event?.detail?.gender);
+    if (!incoming || incoming === state.viewerGender) {
+      return;
+    }
+    state.viewerGender = incoming;
+    reloadQueue();
+  }
+  function handleStorageGenderSync(event) {
+    if (event.key !== 'nostr_profile' || typeof event.newValue !== 'string') {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(event.newValue);
+      const nextGender = normalizeGender(parsed?.dating?.gender);
+      if (nextGender && nextGender !== state.viewerGender) {
+        state.viewerGender = nextGender;
+        reloadQueue();
+      }
+    } catch (err) {
+      console.warn('Dating: storage gender sync failed', err);
+    }
   }
 
   init();

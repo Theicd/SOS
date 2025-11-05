@@ -5,20 +5,156 @@
 /* חלק חוזה חכם (contract-dashboard-v2.css) – רקע כהה אחורי */
 .contract-dashboard-v2__backdrop { position: absolute; inset: 0; background: rgba(6, 10, 26, 0.72); }
 /* חלק חוזה חכם 2 (contract-dashboard-v2.css) – פאנל התוכן המרכזי */
-.contract-dashboard-v2__panel { position: relative; width: min(1100px, 96%); max-height: 94vh; border-radius: 32px; background: radial-gradient(circle at 20% 20%, rgba(78,118,235,0.15), rgba(7,11,31,0.92)); border: 1px solid rgba(120,134,255,0.35); box-shadow: 0 30px 80px rgba(13,20,48,0.55); overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; animation: contractV2FadeIn 0.45s ease-out; }
-/* חלק חוזה חכם 2 (contract-dashboard-v2.css) – כותרת עליונה */
-.contract-dashboard-v2__header { padding: 24px 32px; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(62,88,211,0.25), rgba(11,16,43,0.85)); border-bottom: 1px solid rgba(120,134,255,0.2); }
-/* חלק חוזה חכם 2 (contract-dashboard-v2.css) – זיהוי החוזה */
-.contract-dashboard-v2__identity { display: flex; align-items: center; gap: 18px; color: #ffffff; }
-.contract-dashboard-v2__identity i { font-size: 2.25rem; background: linear-gradient(135deg, #6f85ff, #63e6be); -webkit-text-fill-color: transparent; -webkit-background-clip: text; background-clip: text; }
-.contract-dashboard-v2__identity h2 { margin: 0; font-size: 1.6rem; letter-spacing: 0.5px; }
-.contract-dashboard-v2__identity p { margin: 4px 0 0; color: rgba(255,255,255,0.75); font-size: 0.95rem; }
-/* חלק חוזה חכם 2 (contract-dashboard-v2.css) – כפתור סגירה */
-.contract-dashboard-v2__close { border: none; background: rgba(255,255,255,0.08); color: #ffffff; width: 42px; height: 42px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; transition: transform 0.2s ease, background 0.2s ease; }
-.contract-dashboard-v2__close:hover { transform: translateY(-2px); background: rgba(111,133,255,0.35); }
-/* חלק חוזה חכם 2 (contract-dashboard-v2.css) – גוף הפאנל */
-.contract-dashboard-v2__body { overflow-y: auto; padding: 28px 32px 32px; display: grid; gap: 32px; }
-/* חלק חוזה חכם 2 (contract-dashboard-v2.css) – אזור הגיבור */
+.contract-dashboard-v2__panel {
+  position: relative;
+  width: min(1120px, 96vw);
+  height: min(94vh, 940px);
+  background: var(--card);
+  border-radius: 26px;
+  box-shadow: 0 38px 90px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.contract-dashboard-v2__header-bar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 18px 26px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  gap: 24px;
+}
+
+.contract-dashboard-v2__header-bar .top-bar__title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.contract-dashboard-v2__header-bar .top-bar__title-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contract-dashboard-v2__header-bar .top-bar__title-inner i {
+  font-size: 1.6rem;
+  color: #8ab5ff;
+}
+
+.top-bar__subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(224, 232, 255, 0.75);
+}
+
+.contract-dashboard-v2__header-bar .top-bar__actions--profile {
+  align-items: center;
+  gap: 10px;
+}
+
+.contract-dashboard-v2__header-bar .top-bar__home i {
+  font-size: 1.1rem;
+}
+
+.contract-dashboard-v2__body {
+  flex: 1;
+  overflow-y: auto;
+  padding-top: 12px;
+}
+
+/* חלק חוזה חכם 2 (contract-dashboard-v2.css) – חלון אימות סיסמה לפני פתיחת החוזה */
+.contract-password-modal[hidden] {
+  display: none;
+}
+
+.contract-password-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 18, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2250;
+}
+
+.contract-password-modal__content {
+  width: min(420px, 92vw);
+  background: linear-gradient(180deg, rgba(32, 38, 58, 0.98), rgba(16, 18, 28, 0.98));
+  border-radius: 22px;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: #f3f6ff;
+}
+
+.contract-password-modal__content h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.contract-password-modal__content p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(224, 232, 255, 0.8);
+  text-align: center;
+}
+
+.contract-password-modal__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.contract-password-modal__input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(140, 170, 240, 0.35);
+  background: rgba(18, 22, 36, 0.8);
+  color: #f3f6ff;
+  font-size: 1rem;
+  direction: ltr;
+}
+
+.contract-password-modal__input:focus {
+  outline: none;
+  border-color: rgba(140, 170, 240, 0.7);
+  box-shadow: 0 0 0 2px rgba(140, 170, 240, 0.25);
+}
+
+.contract-password-modal__error {
+  background: rgba(255, 72, 88, 0.15);
+  border: 1px solid rgba(255, 72, 88, 0.4);
+  color: #ff98a3;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.contract-password-modal .modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .contract-password-modal__content {
+    padding: 24px 22px;
+    gap: 16px;
+  }
+
+  .contract-password-modal .modal-actions {
+    flex-direction: column;
+  }
+}
+
 .contract-v2-hero { display: grid; gap: 24px; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); align-items: stretch; }
 .contract-v2-hero__copy h3 { margin: 0 0 14px; color: #ffffff; font-size: 1.45rem; line-height: 1.4; }
 .contract-v2-hero__copy p { margin: 0 0 18px; color: rgba(231,236,255,0.78); font-size: 0.98rem; line-height: 1.6; }

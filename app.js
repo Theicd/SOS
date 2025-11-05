@@ -6,7 +6,71 @@
     return;
   }
 
-  const { SimplePool } = tools;
+  const { SimplePool, finalizeEvent, getEventHash, getSignature } = tools;
+  
+  // הוספת finalizeEvent ל-App
+  if (!App.finalizeEvent && typeof finalizeEvent === 'function') {
+    App.finalizeEvent = finalizeEvent;
+  } else if (!App.finalizeEvent && typeof getEventHash === 'function' && typeof getSignature === 'function') {
+    // fallback אם finalizeEvent לא קיים
+    App.finalizeEvent = (event, privateKey) => {
+      event.id = getEventHash(event);
+      event.sig = getSignature(event, privateKey);
+      return event;
+    };
+  }
+  const LOGIN_METRIC_KIND = 1050; // חלק מדדי שימוש (app.js) – kind עבור רישום כניסות למערכת | HYPER CORE TECH
+  let loginMetricRetryHandle = null;
+
+  function scheduleLoginMetricRetry() {
+    if (loginMetricRetryHandle) {
+      return;
+    }
+    loginMetricRetryHandle = window.setTimeout(() => {
+      loginMetricRetryHandle = null;
+      publishLoginActivity();
+    }, 1200);
+  }
+
+  async function publishLoginActivity() {
+    // חלק מדדי שימוש (app.js) – שולח אירוע kind 1050 עם תג login כדי להזין את לוח הגידול | HYPER CORE TECH
+    if (App._loginMetricPublished) {
+      return;
+    }
+    if (
+      !App.pool ||
+      !Array.isArray(App.relayUrls) ||
+      App.relayUrls.length === 0 ||
+      !App.privateKey ||
+      !App.publicKey ||
+      typeof App.finalizeEvent !== 'function'
+    ) {
+      scheduleLoginMetricRetry();
+      return;
+    }
+
+    const tags = [['t', 'login']];
+    if (App.NETWORK_TAG) {
+      tags.push(['t', App.NETWORK_TAG]);
+    }
+
+    const event = {
+      kind: LOGIN_METRIC_KIND,
+      pubkey: App.publicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags,
+      content: JSON.stringify({ type: 'login', at: new Date().toISOString() }),
+    };
+
+    try {
+      const signed = App.finalizeEvent(event, App.privateKey);
+      await App.pool.publish(App.relayUrls, signed);
+      App._loginMetricPublished = true;
+    } catch (error) {
+      console.warn('Login metric publish failed', error);
+      scheduleLoginMetricRetry();
+    }
+  }
 
   if (typeof App.ensureKeys === 'function') {
     App.ensureKeys();
@@ -51,7 +115,11 @@
   if (typeof App.notifyPoolReady === 'function') {
     App.notifyPoolReady(App.pool);
   }
-  document.getElementById('connection-status').textContent = 'Pool initialized. Connecting to relays...';
+  publishLoginActivity();
+  const connectionStatus = document.getElementById('connection-status');
+  if (connectionStatus) {
+    connectionStatus.textContent = 'Pool initialized. Connecting to relays...';
+  }
   console.log('Pool initialized');
 
   if (App.metadataPublishQueued && typeof App.publishProfileMetadata === 'function') {

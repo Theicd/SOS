@@ -143,6 +143,7 @@
     gallery: [],
     dating: {
       optIn: false,
+      gender: '',
       bio: '',
       age: '',
       location: '',
@@ -188,9 +189,9 @@
     App.profile.gallery = [];
   }
   if (!App.profile.dating || typeof App.profile.dating !== 'object') {
-    App.profile.dating = { optIn: false, bio: '', age: '', location: '', interests: [] };
+    App.profile.dating = { optIn: false, gender: '', bio: '', age: '', location: '', interests: [] };
   } else {
-    App.profile.dating = Object.assign({ optIn: false, bio: '', age: '', location: '', interests: [] }, App.profile.dating);
+    App.profile.dating = Object.assign({ optIn: false, gender: '', bio: '', age: '', location: '', interests: [] }, App.profile.dating);
     if (!Array.isArray(App.profile.dating.interests)) {
       App.profile.dating.interests = [];
     }
@@ -422,6 +423,7 @@
   function applyDatingSettingsToUI() {
     const optInCheckbox = document.getElementById('profileDatingOptIn');
     const fieldsWrapper = document.getElementById('profileDatingFields');
+    const genderSelect = document.getElementById('profileDatingGender');
     const bioInput = document.getElementById('profileDatingBio');
     const ageInput = document.getElementById('profileDatingAge');
     const locationInput = document.getElementById('profileDatingLocation');
@@ -430,7 +432,11 @@
     if (!optInCheckbox || !fieldsWrapper) {
       return;
     }
-    const dating = App.profile.dating || { optIn: false, bio: '', age: '', location: '', interests: [] };
+    const dating =
+      App.profile.dating || { optIn: false, gender: '', bio: '', age: '', location: '', interests: [] };
+    if (genderSelect) {
+      genderSelect.value = dating.gender || '';
+    }
     optInCheckbox.checked = Boolean(dating.optIn);
     if (bioInput) {
       bioInput.value = dating.bio || '';
@@ -467,6 +473,7 @@
     const fieldsWrapper = document.getElementById('profileDatingFields');
     const saveButton = document.getElementById('profileDatingSaveButton');
     const status = document.getElementById('profileDatingStatus');
+    const genderSelect = document.getElementById('profileDatingGender');
     const bioInput = document.getElementById('profileDatingBio');
     const ageInput = document.getElementById('profileDatingAge');
     const locationInput = document.getElementById('profileDatingLocation');
@@ -493,12 +500,12 @@
           editButton.hidden = true;
         }
       }
-      persistDatingSettings(status, bioInput, ageInput, locationInput, interestsInput, false);
+      persistDatingSettings(status, genderSelect, bioInput, ageInput, locationInput, interestsInput, false);
     });
 
     if (saveButton) {
       saveButton.addEventListener('click', () => {
-        persistDatingSettings(status, bioInput, ageInput, locationInput, interestsInput, true);
+        persistDatingSettings(status, genderSelect, bioInput, ageInput, locationInput, interestsInput, true);
       });
     }
 
@@ -524,9 +531,11 @@
     }
   }
 
-  function persistDatingSettings(statusEl, bioInput, ageInput, locationInput, interestsInput, showMessage) {
-    const dating = App.profile.dating || { optIn: false, bio: '', age: '', location: '', interests: [] };
+  function persistDatingSettings(statusEl, genderSelect, bioInput, ageInput, locationInput, interestsInput, showMessage) {
+    const dating =
+      App.profile.dating || { optIn: false, gender: '', bio: '', age: '', location: '', interests: [] };
     dating.bio = bioInput?.value?.trim() || '';
+    dating.gender = genderSelect?.value || '';
     dating.age = ageInput?.value?.trim() || '';
     dating.location = locationInput?.value?.trim() || '';
     const interestsValue = interestsInput?.value?.trim() || '';
@@ -537,6 +546,16 @@
           .filter(Boolean)
       : [];
     App.profile.dating = dating;
+    // חלק הכרויות (profile.js) – שליחת אירוע על שינוי מגדר הצופה להכרויות
+    try {
+      window.dispatchEvent(
+        new CustomEvent('dating:viewer-gender-changed', {
+          detail: { gender: dating.gender || '' },
+        }),
+      );
+    } catch (err) {
+      console.warn('Profile dating: failed dispatching viewer gender change', err);
+    }
 
     try {
       window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
@@ -553,6 +572,7 @@
         gallery: Array.isArray(App.profile.gallery) ? [...App.profile.gallery] : [],
         dating: {
           optIn: Boolean(App.profile.dating.optIn),
+          gender: App.profile.dating.gender || '',
           bio: App.profile.dating.bio || '',
           age: App.profile.dating.age || '',
           location: App.profile.dating.location || '',
@@ -1181,6 +1201,7 @@
     App.profile.dating = Object.assign(
       {
         optIn: false,
+        gender: '',
         bio: '',
         age: '',
         location: '',
@@ -1189,6 +1210,7 @@
       App.profile.dating,
       {
         optIn: datingOptIn,
+        gender: typeof metadata.dating_gender === 'string' ? metadata.dating_gender.trim() : '',
         bio: datingBio,
         age: datingAge,
         location: datingLocation,
@@ -1218,12 +1240,13 @@
         dating: App.profile.dating
           ? {
               optIn: Boolean(App.profile.dating.optIn),
+              gender: App.profile.dating.gender || '',
               bio: App.profile.dating.bio || '',
               age: App.profile.dating.age || '',
               location: App.profile.dating.location || '',
               interests: Array.isArray(App.profile.dating.interests) ? [...App.profile.dating.interests] : [],
             }
-          : { optIn: false, bio: '', age: '', location: '', interests: [] },
+          : { optIn: false, gender: '', bio: '', age: '', location: '', interests: [] },
       };
       window.localStorage.setItem('nostr_profile', JSON.stringify(lightProfile));
     } catch (err) {
@@ -1253,12 +1276,13 @@
         dating: App.profile.dating
           ? {
               optIn: Boolean(App.profile.dating.optIn),
+              gender: App.profile.dating.gender || '',
               bio: App.profile.dating.bio || '',
               age: App.profile.dating.age || '',
               location: App.profile.dating.location || '',
               interests: Array.isArray(App.profile.dating.interests) ? [...App.profile.dating.interests] : [],
             }
-          : { optIn: false, bio: '', age: '', location: '', interests: [] },
+          : { optIn: false, gender: '', bio: '', age: '', location: '', interests: [] },
       });
     }
 
@@ -1288,6 +1312,7 @@
       banner: App.profile.cover,
       gallery: Array.isArray(App.profile.gallery) ? App.profile.gallery : [],
       dating_opt_in: Boolean(App.profile.dating?.optIn),
+      dating_gender: App.profile.dating?.gender || '',
       dating_bio: App.profile.dating?.bio || '',
       dating_age: App.profile.dating?.age || '',
       dating_location: App.profile.dating?.location || '',

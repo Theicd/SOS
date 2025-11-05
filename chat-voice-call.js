@@ -10,6 +10,7 @@
       { urls: 'stun:stun1.l.google.com:19302' }
     ]
   };
+  const CALL_METRIC_KIND = 25060; // חלק שיחות קול (chat-voice-call.js) – kind למדדי שיחות כלליות | HYPER CORE TECH
 
   // חלק שיחות קול (chat-voice-call.js) – מצב השיחה הנוכחי
   const state = {
@@ -24,8 +25,48 @@
     candidateQueue: [],
     candidateTimer: null,
     lastOfferFrom: {},
-    ending: false
+    ending: false,
+    callStartTimestamp: null
   };
+
+  async function publishCallMetric(durationSeconds, peerPubkey) {
+    if (!App.pool || !App.publicKey || !App.privateKey) {
+      return;
+    }
+    const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? Math.round(durationSeconds) : 0;
+    const payload = {
+      mode: 'voice',
+      durationSeconds: safeDuration,
+      endedAt: Math.floor(Date.now() / 1000),
+    };
+    if (peerPubkey) {
+      payload.peer = peerPubkey;
+    }
+
+    const tags = [
+      ['t', 'voice-call'],
+      ['metric', 'call'],
+      ['duration', String(safeDuration)],
+    ];
+    if (App.NETWORK_TAG) {
+      tags.push(['t', App.NETWORK_TAG]);
+    }
+
+    const event = {
+      kind: CALL_METRIC_KIND,
+      pubkey: App.publicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags,
+      content: JSON.stringify(payload),
+    };
+
+    try {
+      const signed = App.finalizeEvent(event, App.privateKey);
+      await App.pool.publish(App.relayUrls, signed);
+    } catch (error) {
+      console.warn('Voice call metric publish failed', error);
+    }
+  }
 
   // חלק שיחות קול (chat-voice-call.js) – בדיקת תמיכה בדפדפן
   function isWebRTCSupported() {
@@ -182,7 +223,7 @@
       
       if (pc.iceConnectionState === 'connected') {
         state.isCallActive = true;
-        state.callStartTime = Date.now();
+        state.callStartTimestamp = Date.now();
         if (typeof App.onVoiceCallConnected === 'function') {
           App.onVoiceCallConnected(peerPubkey);
         }
@@ -225,6 +266,7 @@
       // יצירת חיבור
       state.currentPeer = peerPubkey;
       state.peerConnection = createPeerConnection(peerPubkey);
+      state.callStartTimestamp = null;
 
       // יצירת offer
       const offer = await state.peerConnection.createOffer();
@@ -302,6 +344,8 @@
       sendSignal(state.currentPeer, 'disconnect', null);
     }
 
+    const durationSeconds = state.callStartTimestamp ? (Date.now() - state.callStartTimestamp) / 1000 : 0;
+
     // סגירת חיבור
     if (state.peerConnection) {
       state.peerConnection.close();
@@ -332,8 +376,12 @@
     state.isCallActive = false;
     state.isIncoming = false;
     state.isMuted = false;
-    state.callStartTime = null;
+    state.callStartTimestamp = null;
     setTimeout(() => { state.ending = false; }, 100);
+
+    if (durationSeconds > 0 && peer) {
+      publishCallMetric(durationSeconds, peer);
+    }
 
     // עדכון UI
     if (typeof App.onVoiceCallEnded === 'function') {

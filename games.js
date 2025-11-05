@@ -109,6 +109,8 @@ const gameModalTitle = document.getElementById('gameModalTitle');
 const gameModalExternal = document.getElementById('gameModalExternal');
 const gameModalFloatingBack = document.getElementById('gameModalFloatingBack');
 const gameModalFullscreen = document.getElementById('gameModalFullscreen');
+const gamesTopHomeButton = document.getElementById('gamesTopHomeButton');
+const gamesTopRefreshButton = document.getElementById('gamesTopRefreshButton');
 
 // חלק דף משחקים (games.js) – יצירת כרטיס משחק ב־DOM
 function createGameCard(game) {
@@ -358,6 +360,23 @@ function registerModalControls() {
   }
 }
 
+function registerTopBarControls() {
+  if (gamesTopHomeButton) {
+    gamesTopHomeButton.addEventListener('click', () => {
+      window.location.href = './index.html';
+    });
+  }
+
+  if (gamesTopRefreshButton) {
+    gamesTopRefreshButton.addEventListener('click', () => {
+      const activeButton = document.querySelector('.games-category.active');
+      const activeCategory = activeButton?.dataset.category || 'web';
+      renderGamesByCategory(activeCategory);
+    });
+  }
+
+}
+
 // חלק דף משחקים (games.js) – נקודת הכניסה לדף
 (function initGamesPage() {
   if (!gamesGridElement) {
@@ -367,4 +386,5 @@ function registerModalControls() {
   renderGamesByCategory('web');
   registerModalControls();
   registerCategoryControls();
+  registerTopBarControls();
 })();

@@ -29,6 +29,18 @@
 
     updateNavSelection(key);
 
+    // חלק ניווט חדשות (navigation.js) – לחיצה על "חדשות" עוברת לדף החדשות החדש
+    if (key === 'news') {
+      window.location.href = './news.html';
+      return;
+    }
+
+    // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
+    if (key === 'videos') {
+      window.location.href = './videos.html';
+      return;
+    }
+
     // חלק ניווט חוזה (navigation.js) – לחיצה על "חוזה חכם" מפעילה את חוויית SPEAR ONE המעודכנת
     if (key === 'contract-v2' && typeof App.openContractDashboardV2 === 'function') {
       App.openContractDashboardV2();

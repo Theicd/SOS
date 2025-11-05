@@ -13,6 +13,13 @@
   const promoOverlay = document.getElementById('authPromo');
   const entryLoginButton = document.getElementById('authEntryLoginButton');
   const entryRegisterButton = document.getElementById('authEntryRegisterButton');
+  const cpanelToggleButton = document.getElementById('authCpanelToggle');
+  const cpanelPanel = document.getElementById('authCpanelPanel');
+  const cpanelModal = document.getElementById('authCpanelModal');
+  const cpanelPasswordInput = document.getElementById('authCpanelPasswordInput');
+  const cpanelPasswordError = document.getElementById('authCpanelPasswordError');
+  const cpanelPasswordSubmit = document.getElementById('authCpanelPasswordSubmit');
+  const cpanelPasswordCancel = document.getElementById('authCpanelPasswordCancel');
   const goCreateButton = document.getElementById('authGoCreateButton');
   const backToEntryFromLogin = document.getElementById('authBackToEntryFromLogin');
   const backToEntryButton = document.getElementById('authBackToEntry');
@@ -97,6 +104,92 @@
     }
   }
 
+  const CPANEL_ACCESS_CODE = '2048';
+  let cpanelUnlocked = false;
+
+  function openCpanelModal() {
+    if (!cpanelModal) {
+      return;
+    }
+    cpanelModal.hidden = false;
+    cpanelModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    if (cpanelPasswordError) {
+      cpanelPasswordError.hidden = true;
+    }
+    if (cpanelPasswordInput) {
+      cpanelPasswordInput.value = '';
+      cpanelPasswordInput.focus();
+    }
+  }
+
+  function closeCpanelModal() {
+    if (!cpanelModal) {
+      return;
+    }
+    cpanelModal.hidden = true;
+    cpanelModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function handleCpanelPasswordSubmit() {
+    if (!cpanelPasswordInput) {
+      return;
+    }
+    const value = (cpanelPasswordInput.value || '').trim();
+    if (value === CPANEL_ACCESS_CODE) {
+      cpanelUnlocked = true;
+      closeCpanelModal();
+      toggleCpanel(true);
+      return;
+    }
+    if (cpanelPasswordError) {
+      cpanelPasswordError.hidden = false;
+    }
+    cpanelPasswordInput.focus();
+    cpanelPasswordInput.select();
+  }
+
+  function bindCpanelModalEvents() {
+    if (!cpanelModal) {
+      return;
+    }
+    cpanelPasswordSubmit?.addEventListener('click', handleCpanelPasswordSubmit);
+    cpanelPasswordCancel?.addEventListener('click', () => {
+      closeCpanelModal();
+    });
+    cpanelPasswordInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        handleCpanelPasswordSubmit();
+      }
+      if (event.key === 'Escape') {
+        closeCpanelModal();
+      }
+    });
+    cpanelModal.addEventListener('click', (event) => {
+      if (event.target === cpanelModal || event.target?.dataset?.cpanelDismiss !== undefined) {
+        closeCpanelModal();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !cpanelModal.hidden && !cpanelUnlocked) {
+        closeCpanelModal();
+      }
+    });
+  }
+
+  function bindCpanelToggle() {
+    if (!cpanelToggleButton) {
+      return;
+    }
+    cpanelToggleButton.setAttribute('aria-controls', 'authCpanelPanel');
+    cpanelToggleButton.setAttribute('aria-expanded', 'false');
+    cpanelToggleButton.addEventListener('click', () => {
+      toggleCpanel();
+    });
+  }
+
   function toggleHeaderNav(force) {
     if (!headerNav || !headerMenuToggle) {
       return;
@@ -105,6 +198,39 @@
     headerNav.classList.toggle('is-open', isOpen);
     headerNav.setAttribute('aria-hidden', String(!isOpen));
     headerMenuToggle.setAttribute('aria-expanded', String(isOpen));
+  }
+
+  function toggleCpanel(force) {
+    if (!cpanelToggleButton || !cpanelPanel) {
+      return;
+    }
+    if (!cpanelUnlocked) {
+      openCpanelModal();
+      return;
+    }
+    const shouldOpen = typeof force === 'boolean' ? force : cpanelPanel.hasAttribute('hidden');
+    if (shouldOpen) {
+      cpanelPanel.hidden = false;
+      cpanelPanel.classList.add('is-open');
+      cpanelToggleButton?.classList.add('is-active');
+      cpanelToggleButton?.setAttribute('aria-expanded', 'true');
+    } else {
+      cpanelPanel.hidden = true;
+      cpanelPanel.classList.remove('is-open');
+      cpanelToggleButton?.classList.remove('is-active');
+      cpanelToggleButton?.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function bindCpanelToggle() {
+    if (!cpanelToggleButton) {
+      return;
+    }
+    cpanelToggleButton.setAttribute('aria-controls', 'authCpanelPanel');
+    cpanelToggleButton.setAttribute('aria-expanded', 'false');
+    cpanelToggleButton.addEventListener('click', () => {
+      toggleCpanel();
+    });
   }
 
   function hideAllInfoPanels() {
@@ -976,7 +1102,10 @@
 
   wireAvatarDropZone();
   ensureAvatarPlaceholder();
+  runPromoOverlay();
   updateProfileNextState();
+  bindCpanelToggle();
+  bindCpanelModalEvents();
 
   if (emailInput) {
     emailInput.addEventListener('keydown', (event) => {

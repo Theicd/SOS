@@ -27,12 +27,21 @@
   };
 
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – אחסון מצב הלוח ונתונים אחרונים
+  const passwordModal = document.getElementById('contractPasswordModal');
+  const passwordInput = document.getElementById('contractPasswordInput');
+  const passwordError = document.getElementById('contractPasswordError');
+  const passwordSubmit = document.getElementById('contractPasswordSubmit');
+  const passwordCancel = document.getElementById('contractPasswordCancel');
+
+  const CONTRACT_ACCESS_CODE = '2048';
+
   const contractV2State = {
     chart: null,
     forecastChart: null,
     latestStats: null,
     model: null,
     detailsOpen: false,
+    contractUnlocked: false,
   };
 
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – קבועים פיננסיים בסיסיים עבור החישובים
@@ -610,7 +619,11 @@
 
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – חשיפה לפונקציות גלובליות עבור הניווט
   App.openContractDashboardV2 = function openContractDashboardV2() {
-    openDashboard(contractV2State.latestStats || (typeof App.getLatestGrowthStats === 'function' ? App.getLatestGrowthStats() : null));
+    if (contractV2State.contractUnlocked) {
+      openDashboard(contractV2State.latestStats || (typeof App.getLatestGrowthStats === 'function' ? App.getLatestGrowthStats() : null));
+      return;
+    }
+    showPasswordModal();
   };
 
   App.closeContractDashboardV2 = function closeContractDashboardV2() {
@@ -622,6 +635,76 @@
 
   window.closeContractDashboardV2 = App.closeContractDashboardV2;
   window.openContractDashboardV2 = App.openContractDashboardV2;
+
+  function showPasswordModal() {
+    if (!passwordModal) {
+      return;
+    }
+    passwordModal.hidden = false;
+    passwordModal.setAttribute('aria-hidden', 'false');
+    passwordInput?.focus();
+    passwordInput && (passwordInput.value = '');
+    if (passwordError) {
+      passwordError.hidden = true;
+    }
+    document.body.style.overflow = 'hidden';
+  }
+
+  function hidePasswordModal() {
+    if (!passwordModal) {
+      return;
+    }
+    passwordModal.hidden = true;
+    passwordModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function handlePasswordSubmit() {
+    if (!passwordInput) {
+      return;
+    }
+    const value = (passwordInput.value || '').trim();
+    if (value === CONTRACT_ACCESS_CODE) {
+      contractV2State.contractUnlocked = true;
+      hidePasswordModal();
+      openDashboard(contractV2State.latestStats || (typeof App.getLatestGrowthStats === 'function' ? App.getLatestGrowthStats() : null));
+      return;
+    }
+    if (passwordError) {
+      passwordError.hidden = false;
+    }
+    passwordInput.focus();
+    passwordInput.select();
+  }
+
+  function attachPasswordModalHandlers() {
+    if (!passwordModal) {
+      return;
+    }
+    passwordSubmit?.addEventListener('click', handlePasswordSubmit);
+    passwordCancel?.addEventListener('click', () => {
+      hidePasswordModal();
+    });
+    passwordInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        handlePasswordSubmit();
+      }
+      if (event.key === 'Escape') {
+        hidePasswordModal();
+      }
+    });
+    passwordModal.addEventListener('click', (event) => {
+      if (event.target === passwordModal) {
+        hidePasswordModal();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !passwordModal.hidden && !contractV2State.contractUnlocked) {
+        hidePasswordModal();
+      }
+    });
+  }
 
   // חלק חוזה חכם 2 (contract-dashboard-v2.js) – האזנה ל-Escape ולחיצה מחוץ לפאנל
   function attachDismissListeners() {
@@ -646,6 +729,7 @@
     attachScrollTargets();
     attachCalculator();
     attachDismissListeners();
+    attachPasswordModalHandlers();
     registerGrowthBinding();
     if (App.getLatestGrowthStats) {
       contractV2State.latestStats = App.getLatestGrowthStats();

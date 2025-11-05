@@ -12,21 +12,48 @@
     <link rel="stylesheet" href="./styles/dating.css" />
   </head>
   <body class="dating-page">
-    <!-- חלק כותרת ראשית (dating.html) – פס עליון עם לוגו SOS וכפתורי ניווט מהירים -->
-    <header class="dating-header">
-      <div class="app-logo">
-        <div class="sos-logo">
-          <span class="sos-char sos-s">S</span>
-          <span class="sos-char sos-o">O</span>
-          <span class="sos-char sos-s">S</span>
+    <!-- חלק שכבת פתיחה (dating.html) – מסך פתיחה המסביר על הממשק לפני הצגת הכרטיס -->
+    <section class="dating-intro" id="datingIntroOverlay" aria-labelledby="datingIntroTitle">
+      <div class="dating-intro__backdrop" aria-hidden="true"></div>
+      <div class="dating-intro__dialog" role="dialog" aria-modal="true">
+        <div class="dating-intro__header" aria-hidden="true">
+          <h1 class="dating-intro__title" id="datingIntroTitle">ברוכים הבאים</h1>
+        </div>
+        <p class="dating-intro__lead">
+          לפני שמתחילים, הנה תקציר קצר על חוויית ההכרויות – החלק ימינה ללייק, שמאלה לדילוג.
+        </p>
+        <ul class="dating-intro__steps" aria-label="הוראות שימוש לממשק">
+          <li>
+            <strong>לייק</strong> – אם שני הצדדים שלחו לייק תקבל/י הודעת התאמה.
+          </li>
+          <li>
+            <strong>דלג</strong> – כפתור ה-X יחזיר את המועמד לסוף הרשימה כדי שתוכל/י לפגוש אותו שוב בהמשך.
+          </li>
+          <li>
+            <strong>בטיחות</strong> – שמרו על פרטיותכם, דווחו על משתמשים חשודים, וזכרו שתמיד תוכלו לנתק קשר.
+          </li>
+        </ul>
+        <div class="dating-intro__actions">
+          <button class="dating-intro__start" type="button" id="datingIntroStartButton">יאללה, בואו נתחיל</button>
         </div>
       </div>
-      <div class="dating-header__title">הכרויות</div>
-      <div class="dating-header__actions">
-        <button class="dating-header__button" id="datingRefreshButton" aria-label="רענון רשימת ההכרויות">
-          <i class="fa-solid fa-rotate"></i>
+    </section>
+
+    <!-- חלק כותרת ראשית (dating.html) – פס עליון אחיד עם SOS והניווט -->
+    <header class="top-bar top-bar--profile">
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__refresh" id="datingRefreshButton" type="button" aria-label="רענון רשימת ההכרויות">
+          <i class="fa-solid fa-rotate-right"></i>
         </button>
-        <button class="dating-header__button" id="datingBackButton" aria-label="חזרה לדף הראשי">
+      </div>
+      <div class="top-bar__title" id="datingTopTitle">
+        <span class="top-bar__title-inner">
+          <i class="fa-solid fa-heart-pulse" aria-hidden="true"></i>
+          <span>ההכרויות של SOS</span>
+        </span>
+      </div>
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__home" id="datingBackButton" type="button" aria-label="חזרה לדף הראשי">
           <i class="fa-solid fa-house"></i>
         </button>
       </div>
@@ -36,6 +63,17 @@
     <main class="dating-content">
       <article class="dating-card" id="datingCard" hidden>
         <div class="dating-card__image">
+          <!-- שכבת Placeholder לברכת פתיחה בזמן טעינת תמונה -->
+          <div class="dating-card__placeholder" id="datingCardPlaceholder" hidden>
+            <div class="dating-card__placeholder-content">
+              <div class="dating-loader" role="status" aria-live="polite">
+                <div class="dating-loader__spinner" aria-hidden="true"></div>
+                <div class="dating-loader__text">טוען פרופיל...</div>
+              </div>
+              <h2>ברוך הבא להכרויות!</h2>
+              <p>אנא המתן/י מספר שניות עד שהתמונה תעלה</p>
+            </div>
+          </div>
           <img id="datingCardImage" alt="תמונת פרופיל" />
         </div>
         <div class="dating-card__info">
