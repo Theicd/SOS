@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="./styles/facebook-theme.css">
     <link rel="stylesheet" href="./styles/media-overrides.css">
+    <link rel="stylesheet" href="./styles/home-feed.css">
+    <link rel="stylesheet" href="./styles/splash-screen.css">
     <link rel="stylesheet" href="./styles/market-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
@@ -28,6 +30,8 @@
     <link rel="stylesheet" href="./styles/chat-voice-call.css">
     <!-- חלק שיחות וידאו (index.html) – טוען עיצוב דיאלוג שיחות וידאו -->
     <link rel="stylesheet" href="./styles/chat-video-call.css">
+    <!-- חלק שידור חי (index.html) – עיצוב דיאלוג שידור חי וכרטיס פיד -->
+    <link rel="stylesheet" href="./styles/live-stream.css">
     <link rel="stylesheet" href="./styles/logo.css">
     <script src="./auth-guard.js"></script>
     <style>
@@ -346,16 +350,55 @@
                 </button>
             </nav>
         </section>
-        <main class="feed-list" id="feed">
-            <!-- חלק פיד ריק (index.html) – תבנית להצגת מצב ללא פוסטים וגם הודעות טעינה דינמיות -->
-            <div class="feed-empty" id="empty-state">
-                <div class="feed-empty__pulse" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+        <!-- חלק מעטפת פיד (index.html) – עטיפה חדשה לפיד הראשי בסגנון טיקטוק | שייך ל-HOME FEED -->
+        <main class="home-feed" id="homeFeedWrapper">
+            <section class="home-feed__viewport" aria-live="polite">
+                <div class="home-feed__stream" id="homeFeedStream">
+                    <!-- חלק ברכה ראשונית (index.html) – כרטיס ברכה מהודר שמופיע כפוסט ראשון | שייך ל-WELCOME CARD -->
+                    <div class="home-feed__card home-feed__card--welcome in-view" id="welcomeCard">
+                        <div class="welcome-card">
+                            <div class="welcome-particles">
+                                <div class="welcome-particle"></div>
+                                <div class="welcome-particle"></div>
+                                <div class="welcome-particle"></div>
+                                <div class="welcome-particle"></div>
+                                <div class="welcome-particle"></div>
+                                <div class="welcome-particle"></div>
+                            </div>
+                            <div class="welcome-logo">
+                                <div class="sos-logo">
+                                    <span class="sos-char sos-s" data-char="S">S</span>
+                                    <span class="sos-char sos-o" data-char="O">O</span>
+                                    <span class="sos-char sos-s" data-char="S">S</span>
+                                </div>
+                            </div>
+                            <div class="welcome-content">
+                                <h1 class="welcome-title">ברוכים הבאים לרשת SOS</h1>
+                                <p class="welcome-subtitle">רשת חברתית מבוזרת קהילתית</p>
+                            </div>
+                            <!-- חלק טעינה (index.html) – מד טעינה עם אחוזים לפני הצגת החץ | שייך ל-WELCOME CARD -->
+                            <div class="welcome-loading" id="welcomeLoading">
+                                <div class="welcome-progress">
+                                    <div class="welcome-progress__bar" id="welcomeProgressBar" style="width: 0%"></div>
+                                </div>
+                                <div class="welcome-progress__label"><span id="welcomeProgressPercent">0%</span></div>
+                            </div>
+                            <div class="welcome-scroll">
+                                <span class="welcome-scroll__text">גלול למטה</span>
+                                <div class="welcome-scroll__arrow">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <p id="empty-state-message" data-default-text="אין פוסטים עדיין. שתף משהו ראשון!">אין פוסטים עדיין. שתף משהו ראשון!</p>
-            </div>
+                <div class="home-feed__status" id="homeFeedStatus" role="status">טוען פוסטים...</div>
+            </section>
+            <!-- חלק כפתור תפריטים (index.html) – כפתור צף לפתיחת תפריטים ופס עליון בעת צפייה בפוסטים | שייך ל-HOME FEED -->
+            <button class="home-feed__toggle" id="homeFeedToggleButton" type="button" aria-label="הצג תפריטים">
+                <span class="home-feed__toggle-icon" aria-hidden="true">☰</span>
+                <span class="home-feed__toggle-text">הצג תפריטים</span>
+            </button>
         </main>
     </div>
     <div class="compose-modal" id="composeModal" aria-hidden="true">
@@ -737,6 +780,9 @@
     <!-- חלק שיחות וידאו (index.html) – טעינת מודולי וידאו לאחר הקול -->
     <script src="./chat-video-call.js"></script>
     <script src="./chat-video-call-ui.js"></script>
+    <!-- חלק שידור חי (index.html) – טעינת מודולי שידור חי -->
+    <script src="./live-stream.js"></script>
+    <script src="./live-stream-ui.js"></script>
     <script src="./chat-ui.js"></script>
     <script src="./navigation.js"></script>
     <script src="./compose.js"></script>

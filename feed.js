@@ -14,6 +14,731 @@
   if (typeof App.notificationsRestored !== 'boolean') {
     App.notificationsRestored = false; // חלק התרעות (feed.js) – מבטיח שנשחזר התרעות פעם אחת לאחר התחברות
   }
+
+  // חלק תמונות (feed.js) – Lightbox להצגת תמונות בגודל מלא במסך
+  function openImageLightbox(src, alt = '') {
+    try {
+      const existing = document.querySelector('.image-lightbox');
+      if (existing) existing.remove();
+      const overlay = document.createElement('div');
+      overlay.className = 'image-lightbox';
+      overlay.innerHTML = `<img class="image-lightbox__img" src="${src}" alt="${(alt || '').replace(/"/g, '&quot;')}">`;
+      const close = () => {
+        try { document.removeEventListener('keydown', onKey); } catch (_) {}
+        if (overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay);
+      };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+      overlay.addEventListener('click', close);
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(overlay);
+    } catch (_) {}
+  }
+
+  function initImageLightbox() {
+    if (window._imageLightboxBound) return;
+    window._imageLightboxBound = true;
+    // האצלת אירועים: לחיצה על כל תמונה בתוך feed-media תפתח לייטבוקס
+    const handler = (e) => {
+      const img = e.target && e.target.tagName === 'IMG' ? e.target : null;
+      if (!img) return;
+      const wrapper = img.closest('.feed-media');
+      if (!wrapper) return; // רק לתמונות בתוך הפיד
+      // מניעת פתיחת קישורים חיצוניים (feed-media--link)
+      if (wrapper.classList.contains('feed-media--link')) return;
+      // לא נוגעים בווידאו/YouTube
+      if (wrapper.closest('[data-video-container]') || wrapper.closest('.feed-media--youtube')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const src = img.getAttribute('src');
+      const alt = img.getAttribute('alt') || '';
+      if (src) openImageLightbox(src, alt);
+    };
+    // מאזין רגיל + capture כדי לעקוף מאזינים שעוצרים bubbling בדסקטופ
+    document.addEventListener('click', handler);
+    document.addEventListener('click', handler, true);
+    // תמיכה ב-double click בדסקטופ
+    document.addEventListener('dblclick', handler, true);
+
+    // Coachmark פר-תמונה: מראה רמז קצר כשנכנסת לפריים, פעם אחת לסשן
+    setupImageCoachmarks();
+  }
+
+  // חלק Coachmark לתמונות (feed.js) – רמז "לחצו לתצוגה מלאה" עם אייקון זום מהבהב | HYPER CORE TECH
+  function setupImageCoachmarks() {
+    if (window._imageCoachmarkSetup) return;
+    window._imageCoachmarkSetup = true;
+    window._imageCoachmarkShownEls = window._imageCoachmarkShownEls || new WeakSet();
+
+    const hasShown = (img) => {
+      if (!img) return true;
+      if (window._imageCoachmarkShownEls.has(img)) return true;
+      try {
+        const key = 'imageCoachmarkShown:' + (img.currentSrc || img.src || '');
+        return sessionStorage.getItem(key) === '1';
+      } catch (_) { return false; }
+    };
+
+    const markShown = (img) => {
+      if (!img) return;
+      window._imageCoachmarkShownEls.add(img);
+      try {
+        const key = 'imageCoachmarkShown:' + (img.currentSrc || img.src || '');
+        sessionStorage.setItem(key, '1');
+      } catch (_) {}
+    };
+
+    const showFor = (img) => {
+      if (!img || hasShown(img)) return;
+      const wrapper = img.closest('.feed-media');
+      if (!wrapper) return;
+      if (wrapper.closest('[data-video-container]') || wrapper.closest('.feed-media--youtube')) return;
+      if (wrapper.classList.contains('feed-media--link')) return;
+
+      if (getComputedStyle(wrapper).position === 'static') {
+        wrapper.style.position = 'relative';
+      }
+
+      const host = document.createElement('div');
+      host.setAttribute('data-image-coachmark', '');
+      Object.assign(host.style, {
+        position: 'absolute',
+        insetInline: '0',
+        bottom: '10px',
+        display: 'flex',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        zIndex: '3'
+      });
+
+      const bubble = document.createElement('div');
+      Object.assign(bubble.style, {
+        background: 'rgba(20,20,20,0.85)',
+        color: '#fff',
+        fontSize: '12px',
+        lineHeight: '1',
+        padding: '10px 12px',
+        borderRadius: '999px',
+        boxShadow: '0 6px 20px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.2)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '8px',
+        pointerEvents: 'auto',
+        transform: 'scale(0.8)',
+        opacity: '0'
+      });
+
+      const icon = document.createElement('span');
+      icon.textContent = '🔎';
+      Object.assign(icon.style, {
+        width: '14px', height: '14px', display: 'inline-block', opacity: '0.95'
+      });
+
+      const label = document.createElement('span');
+      label.textContent = 'לחצו לתצוגה מלאה';
+
+      bubble.appendChild(icon);
+      bubble.appendChild(label);
+      host.appendChild(bubble);
+      wrapper.appendChild(host);
+
+      try {
+        bubble.animate([
+          { transform: 'scale(0.8)', opacity: 0 },
+          { transform: 'scale(1.06)', opacity: 1, offset: 0.6 },
+          { transform: 'scale(1)', opacity: 1 }
+        ], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }).finished.then(() => {
+          // פולס עדין לאייקון
+          icon.animate([
+            { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 rgba(255,255,255,0))' },
+            { transform: 'scale(1.12)', filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.35))' },
+            { transform: 'scale(1)', filter: 'drop-shadow(0 0 0 rgba(255,255,255,0))' }
+          ], { duration: 1400, iterations: 3, easing: 'ease-in-out' });
+        });
+      } catch (_) {}
+
+      const dismiss = () => {
+        markShown(img);
+        if (!host.isConnected) return;
+        try {
+          host.style.transition = 'opacity 180ms ease, transform 180ms ease, filter 180ms ease';
+          host.style.opacity = '0';
+          host.style.transform = 'scale(0.96)';
+          host.style.filter = 'blur(1px)';
+          setTimeout(() => { host.remove(); }, 200);
+        } catch (_) { host.remove(); }
+      };
+
+      bubble.addEventListener('click', () => dismiss());
+      img.addEventListener('click', () => dismiss(), { once: true, capture: true });
+      window.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') dismiss(); }, { once: true });
+    };
+
+    // צופה בכניסה לפריים לכל תמונה בפיד
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) showFor(entry.target);
+      });
+    }, { root: document.querySelector('.home-feed__viewport') || null, threshold: 0.6 });
+
+    const scan = () => {
+      document.querySelectorAll('.feed-media img').forEach((img) => io.observe(img));
+    };
+    scan();
+
+    // התעדכנות כשפוסטים/מדיה נוספים נטענים
+    const vp = document.querySelector('.home-feed__viewport') || document.body;
+    const mo = new MutationObserver(() => scan());
+    try { mo.observe(vp, { childList: true, subtree: true }); } catch (_) {}
+    window._imageCoachmarkObserver = mo;
+  }
+
+  // חלק תפריט עליון (feed.js) – חיבור כפתור 3 נקודות לפתיחה/סגירה של תפריט אפשרויות לעריכה/מחיקה
+  function wirePostMenu(articleEl, postId) {
+    if (!articleEl || !postId) return;
+    const toggle = articleEl.querySelector(`[data-post-menu-toggle="${postId}"]`);
+    const menu = articleEl.querySelector(`[data-post-menu="${postId}"]`);
+    if (!toggle || !menu) return;
+
+    const close = () => {
+      if (!menu.hasAttribute('hidden')) {
+        menu.setAttribute('hidden', '');
+        toggle.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', onOutside, true);
+        document.removeEventListener('keydown', onKey);
+      }
+    };
+    const onOutside = (ev) => {
+      if (!menu.contains(ev.target) && !toggle.contains(ev.target)) {
+        close();
+      }
+    };
+    const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+
+    toggle.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const hidden = menu.hasAttribute('hidden');
+      if (hidden) {
+        menu.removeAttribute('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', onOutside, true);
+        document.addEventListener('keydown', onKey);
+      } else {
+        close();
+      }
+    });
+  }
+
+  // חלק לייקים (feed.js) – מנוי דינמי ללייקים לפי מזהי פוסטים (#e) כדי לכלול גם לייקים ללא תג רשת
+  function subscribeLikesForPosts(postIds = []) {
+    try {
+      if (!Array.isArray(postIds) || postIds.length === 0 || !App.pool || !Array.isArray(App.relayUrls)) {
+        return;
+      }
+      if (!(App._likesSubscribedForIds instanceof Set)) {
+        App._likesSubscribedForIds = new Set();
+      }
+      const toSubscribe = postIds.filter((id) => typeof id === 'string' && id && !App._likesSubscribedForIds.has(id));
+      if (toSubscribe.length === 0) return;
+
+      // שמירה למניעת כפילות מנויים בעתיד
+      toSubscribe.forEach((id) => App._likesSubscribedForIds.add(id));
+
+      // נפרוס למנות של עד 50 מזהים כדי להימנע מפילטרים כבדים מדי
+      const chunkSize = 50;
+      for (let i = 0; i < toSubscribe.length; i += chunkSize) {
+        const chunk = toSubscribe.slice(i, i + chunkSize);
+        const filters = [{ kinds: [7], '#e': chunk, limit: 1000 }];
+        try {
+          const sub = App.pool.subscribeMany(App.relayUrls, filters, {
+            onevent: (ev) => {
+              if (ev && ev.kind === 7) {
+                registerLike(ev);
+              }
+            },
+            oneose: () => {
+              try { sub?.close?.(); } catch (_) {}
+            },
+          });
+          // פייל-סייף סגירה אחרי זמן קצר
+          setTimeout(() => { try { sub?.close?.(); } catch (_) {} }, 7000);
+        } catch (err) {
+          console.warn('subscribeLikesForPosts failed', err);
+        }
+      }
+    } catch (err) {
+      console.warn('subscribeLikesForPosts outer failed', err);
+    }
+  }
+
+  // חלק טעינה (feed.js) – להמתין שהמדיה הראשונה בפוסט הראשון מוכנה (img/video)
+  function awaitFirstPostMediaReady({ timeout = 2500 } = {}) {
+    return new Promise((resolve) => {
+      try {
+        const card = document.querySelector('.home-feed__card[data-feed-card]');
+        if (!card) { resolve(false); return; }
+        const img = card.querySelector('img');
+        const video = card.querySelector('video');
+        let finished = false;
+        const done = () => { if (finished) return; finished = true; resolve(true); };
+        const to = setTimeout(done, timeout);
+        if (img) {
+          if (img.complete && img.naturalWidth > 0) { clearTimeout(to); done(); return; }
+          img.addEventListener('load', () => { clearTimeout(to); done(); }, { once: true });
+          img.addEventListener('error', () => { /* מתעלמים ושומרים timeout כפייל-סייף */ }, { once: true });
+        }
+        if (video) {
+          if (video.readyState >= 2) { clearTimeout(to); done(); return; }
+          const onReady = () => { clearTimeout(to); done(); };
+          video.addEventListener('canplay', onReady, { once: true });
+          video.addEventListener('canplaythrough', onReady, { once: true });
+          video.addEventListener('loadeddata', onReady, { once: true });
+          video.addEventListener('error', () => { /* timeout יכריע */ }, { once: true });
+        }
+        if (!img && !video) { clearTimeout(to); done(); }
+      } catch (_) { resolve(false); }
+    });
+  }
+
+  // חלק טעינה – סיום מרוכז המגן מכפילויות
+  function finishWelcomeIfReady() {
+    if (App._homeFeedFirstBatchShown) return;
+    setWelcomeLoading(100);
+    endWelcomeLoading();
+    App._homeFeedFirstBatchShown = true;
+    App._homeFeedLoadingInProgress = false;
+  }
+
+  // חלק טעינה (feed.js) – להמתין לצביעה בפועל של הכרטיס הראשון לפני סיום טעינה
+  function waitForFirstPostPaint({ timeout = 4000 } = {}) {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const viewport = document.querySelector('.home-feed__viewport') || window;
+
+      const isPainted = () => {
+        const el = document.querySelector('.home-feed__card[data-feed-card]');
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        const vh = (viewport === window) ? window.innerHeight : viewport.clientHeight;
+        return rect.height > 0 && rect.top < vh && rect.bottom > 0;
+      };
+
+      const tick = () => {
+        if (isPainted()) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - start > timeout) {
+          resolve(false);
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  // חלק infinite scroll (feed.js) – טעינת עוד כשמתקרבים לסוף הסט
+  function setupInfiniteScroll() {
+    const viewport = document.querySelector('.home-feed__viewport');
+    if (!viewport) return;
+    const statusEl = document.getElementById('homeFeedStatus');
+
+    async function maybeLoadMore() {
+      if (isLoadingMore) return;
+      // אם אין עוד מה להציג ברשימה המלאה – אל תעשה כלום
+      if (displayedPostsCount >= allFeedEvents.length) return;
+      const lastIdx = typeof App._homeFeedLastIndex === 'number' ? App._homeFeedLastIndex : 0;
+      // כאשר המשתמש מגיע לפוסט 7/8 מתוך הסט (מרחק <=3 מהסוף) נטען את הבא
+      if (displayedPostsCount - lastIdx <= 3) {
+        isLoadingMore = true;
+        if (statusEl) {
+          statusEl.textContent = 'טוען עוד...';
+          statusEl.classList.add('is-visible');
+        }
+        try {
+          await displayPosts(allFeedEvents, true);
+        } finally {
+          isLoadingMore = false;
+          if (statusEl) {
+            statusEl.classList.remove('is-visible');
+          }
+        }
+      }
+    }
+
+    let rafId = 0;
+    function onScroll() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(maybeLoadMore);
+    }
+    viewport.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  // חלק טעינה (feed.js) – ניהול מד טעינה בכרטיס הברכה עם אחוזים
+  let _welcomeProgressTimer = null;
+  let _welcomeProgressValue = 0;
+  function setWelcomeStatus(message) {
+    try {
+      const labelWrap = document.querySelector('.welcome-progress__label');
+      if (!labelWrap) return;
+      let statusEl = labelWrap.querySelector('.welcome-progress__status');
+      if (!statusEl) {
+        statusEl = document.createElement('span');
+        statusEl.className = 'welcome-progress__status';
+        statusEl.style.marginInlineStart = '8px';
+        statusEl.style.opacity = '0.9';
+        labelWrap.appendChild(statusEl);
+      }
+      statusEl.textContent = String(message || '').trim();
+    } catch (_) {}
+  }
+  function setWelcomeLoading(percent) {
+    try {
+      const bar = document.getElementById('welcomeProgressBar');
+      const label = document.getElementById('welcomeProgressPercent');
+      // אם הסט הראשון כבר הופיע – ננעל על 100 ולא נוריד חזרה
+      if (App._homeFeedFirstBatchShown) {
+        _welcomeProgressValue = 100;
+        if (bar) bar.style.width = '100%';
+        if (label) label.textContent = '100%';
+        return;
+      }
+      const val = Math.max(0, Math.min(100, Math.floor(percent || 0)));
+      const next = Math.max(_welcomeProgressValue || 0, val); // לא לרדת אחורה
+      _welcomeProgressValue = next;
+      if (bar) bar.style.width = next + '%';
+      if (label) label.textContent = next + '%';
+    } catch (_) {}
+  }
+
+  let _loadingGuardsBound = false;
+  function bindLoadingGuards() {
+    if (_loadingGuardsBound) return;
+    _loadingGuardsBound = true;
+    const block = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+    window.addEventListener('wheel', block, { passive: false });
+    window.addEventListener('touchmove', block, { passive: false });
+    window.addEventListener('keydown', (e) => {
+      const keys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar'];
+      if (keys.includes(e.key)) block(e);
+    }, { passive: false });
+    window._hfBlockScroll = block;
+  }
+
+  function unbindLoadingGuards() {
+    if (!window._hfBlockScroll) return;
+    const block = window._hfBlockScroll;
+    window.removeEventListener('wheel', block, { passive: false });
+    window.removeEventListener('touchmove', block, { passive: false });
+    // keydown מאזין אנונימי – לא נסירו, אך הוא חסר משמעות אחרי הסרת המחלקות
+    delete window._hfBlockScroll;
+    _loadingGuardsBound = false;
+  }
+
+  function endWelcomeLoading() {
+    document.body.classList.remove('home-feed--loading');
+    document.documentElement.classList.remove('home-feed--loading');
+    setWelcomeLoading(100);
+    if (_welcomeProgressTimer) {
+      clearInterval(_welcomeProgressTimer);
+      _welcomeProgressTimer = null;
+    }
+    unbindLoadingGuards();
+  }
+
+  function setupHomeFeedObserver() {
+    if (App._homeFeedObserver) {
+      App._homeFeedObserver.disconnect();
+    }
+
+    const cards = Array.from(document.querySelectorAll('.home-feed__card'));
+    if (cards.length === 0) {
+      App._homeFeedObserver = null;
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let bestEntry = null;
+        entries.forEach((entry) => {
+          if (!entry.target) return;
+          if (!bestEntry || entry.intersectionRatio > (bestEntry?.intersectionRatio || 0)) {
+            bestEntry = entry;
+          }
+        });
+
+        entries.forEach((entry) => {
+          const card = entry.target;
+          if (!card) return;
+          
+          // חלק ברכה (feed.js) – הברכה תמיד נראית
+          if (card.id === 'welcomeCard') {
+            card.classList.add('in-view');
+            return;
+          }
+          
+          const article = card.querySelector('.feed-post');
+          if (!article) return;
+
+          const mediaContainer = article.querySelector('[data-video-container], video, iframe');
+
+          if (entry === bestEntry && entry.isIntersecting && entry.intersectionRatio > 0.35) {
+            card.classList.add('in-view');
+            const currentIndex = cards.indexOf(card);
+            if (currentIndex !== -1) {
+              const previousIndex = typeof App._homeFeedLastIndex === 'number' ? App._homeFeedLastIndex : currentIndex;
+              if (previousIndex - currentIndex >= 2) {
+                revealHomeFeedMenus();
+              }
+              App._homeFeedLastIndex = currentIndex;
+            }
+            focusFeedMedia(mediaContainer, true);
+          } else {
+            card.classList.remove('in-view');
+            focusFeedMedia(mediaContainer, false);
+          }
+        });
+      },
+      {
+        root: null,
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+        rootMargin: '-15% 0px -15% 0px',
+      }
+    );
+
+    cards.forEach((card) => observer.observe(card));
+
+    App._homeFeedObserver = observer;
+  }
+
+  function focusFeedMedia(mediaTarget, play) {
+    if (!mediaTarget) return;
+
+    const container = mediaTarget.closest('[data-video-container]');
+    if (container) {
+      const video = container.querySelector('video');
+      if (video) {
+        if (play) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      }
+      return;
+    }
+
+    if (mediaTarget.tagName === 'VIDEO') {
+      if (play) {
+        mediaTarget.play().catch(() => {});
+      } else {
+        mediaTarget.pause();
+      }
+      return;
+    }
+
+    if (mediaTarget.tagName === 'IFRAME' && mediaTarget.src?.includes('youtube.com')) {
+      try {
+        mediaTarget.contentWindow?.postMessage(
+          play
+            ? '{"event":"command","func":"playVideo","args":[]}'
+            : '{"event":"command","func":"pauseVideo","args":[]}',
+          '*'
+        );
+      } catch (_) {}
+    }
+  }
+
+  function revealHomeFeedMenus() {
+    const setter = window.NostrApp && typeof window.NostrApp.setHomeFeedMenusHidden === 'function'
+      ? window.NostrApp.setHomeFeedMenusHidden
+      : null;
+    if (setter) {
+      setter(false, { reason: 'auto' });
+      return;
+    }
+
+    const primaryNav = document.querySelector('.primary-nav');
+    if (primaryNav) {
+      primaryNav.classList.remove('primary-nav--hidden');
+      primaryNav.classList.remove('primary-nav--compact');
+    }
+    const topBar = document.querySelector('.top-bar');
+    if (topBar) {
+      topBar.classList.remove('top-bar--hidden');
+    }
+    const composerCard = document.querySelector('.composer-card');
+    if (composerCard) {
+      composerCard.classList.remove('composer-card--hidden');
+    }
+    document.body.classList.remove('home-feed--menus-hidden');
+    const toggleButton = document.getElementById('homeFeedToggleButton');
+    if (toggleButton) {
+      toggleButton.classList.remove('home-feed__toggle--pulse');
+      toggleButton.classList.remove('home-feed__toggle--visible');
+      const toggleText = toggleButton.querySelector('.home-feed__toggle-text');
+      if (toggleText) {
+        toggleText.textContent = 'החבא תפריטים';
+      }
+    }
+  }
+
+  function wireHomeFeedInteractions() {
+    const viewport = document.querySelector('.home-feed__viewport');
+    if (!viewport) return;
+
+    document.body.classList.add('home-feed-active');
+
+    const toggleButton = document.getElementById('homeFeedToggleButton');
+    const toggleText = toggleButton ? toggleButton.querySelector('.home-feed__toggle-text') : null;
+    const welcomeCard = document.getElementById('welcomeCard');
+    const composerCard = document.querySelector('.composer-card');
+
+    let menusHidden = false;
+    let scrollTimeout = null;
+    let autoHideCooldown = Date.now() + 600;
+    let hasShownTogglePulse = false;
+
+    let welcomeHeight = 0;
+    if (welcomeCard && typeof welcomeCard.offsetHeight === 'number') {
+      welcomeHeight = welcomeCard.offsetHeight;
+    }
+    const hideThreshold = Math.max(welcomeHeight - 60, 220);
+
+    function setMenusHidden(hidden, { reason = 'auto' } = {}) {
+      if (hidden === menusHidden) {
+        return;
+      }
+
+      const topBar = document.querySelector('.top-bar');
+      const primaryNav = document.querySelector('.primary-nav');
+
+      menusHidden = hidden;
+
+      if (hidden) {
+        // הסתר קודם את ה-primary-nav והקומפוזר, ואז את הפס העליון – מפחית חפיפה בזמן אנימציות
+        if (primaryNav) {
+          primaryNav.classList.add('primary-nav--hidden');
+          primaryNav.classList.remove('primary-nav--compact');
+        }
+        if (composerCard) {
+          composerCard.classList.add('composer-card--hidden');
+        }
+        if (topBar) {
+          topBar.classList.add('top-bar--hidden');
+        }
+        document.body.classList.add('home-feed--menus-hidden');
+        if (toggleButton) {
+          toggleButton.classList.add('home-feed__toggle--visible');
+          if (toggleText) {
+            toggleText.textContent = 'הצג תפריטים';
+          }
+          if (!hasShownTogglePulse) {
+            toggleButton.classList.add('home-feed__toggle--pulse');
+            hasShownTogglePulse = true;
+          }
+        }
+      } else {
+        // קודם שחרר את משתנה המרווח (מעדכן padding/scroll-margin), ואז הצג את הפס העליון, ורק אחרי רגע את הניווט והקומפוזר
+        document.body.classList.remove('home-feed--menus-hidden');
+        if (topBar) {
+          topBar.classList.remove('top-bar--hidden');
+        }
+        // המתנה קצרה כדי לתת לפס העליון להתייצב לפני הופעת הניווט
+        setTimeout(() => {
+          if (primaryNav) {
+            // מציגים במצב compact לריכוך ואז משחררים
+            primaryNav.classList.remove('primary-nav--hidden');
+            primaryNav.classList.add('primary-nav--compact');
+            setTimeout(() => primaryNav.classList.remove('primary-nav--compact'), 180);
+          }
+          if (composerCard) {
+            composerCard.classList.remove('composer-card--hidden');
+          }
+        }, 120);
+        if (toggleButton) {
+          toggleButton.classList.remove('home-feed__toggle--pulse');
+          toggleButton.classList.remove('home-feed__toggle--visible');
+          if (toggleText) {
+            toggleText.textContent = 'החבא תפריטים';
+          }
+        }
+        autoHideCooldown = Date.now() + (reason === 'manual' ? 1500 : 600);
+      }
+    }
+
+    App.setHomeFeedMenusHidden = setMenusHidden;
+
+    function handleMainScroll() {
+      const currentY = viewport.scrollTop;
+
+      if (!menusHidden && currentY > hideThreshold && Date.now() > autoHideCooldown) {
+        setMenusHidden(true, { reason: 'scroll' });
+        return;
+      }
+
+      if (menusHidden && toggleButton && !toggleButton.classList.contains('home-feed__toggle--visible')) {
+        toggleButton.classList.add('home-feed__toggle--visible');
+      }
+    }
+
+    viewport.addEventListener('scroll', () => {
+      if (scrollTimeout) {
+        window.cancelAnimationFrame(scrollTimeout);
+      }
+      scrollTimeout = window.requestAnimationFrame(handleMainScroll);
+    }, { passive: true });
+
+    if (toggleButton) {
+      toggleButton.addEventListener('click', () => {
+        if (menusHidden) {
+          setMenusHidden(false, { reason: 'manual' });
+        } else {
+          setMenusHidden(true, { reason: 'manual' });
+        }
+      });
+    }
+
+    window.addEventListener('beforeunload', () => {
+      document.body.classList.remove('home-feed-active', 'home-feed--menus-hidden');
+    });
+
+    if (viewport.scrollTop > hideThreshold) {
+      setMenusHidden(true, { reason: 'auto' });
+    }
+
+    handleMainScroll();
+  }
+
+  // חלק לחיצה על כרטיס (feed.js) – מפעיל/משהה וידאו בלחיצה על הכרטיס
+  document.addEventListener('click', (event) => {
+    const card = event.target.closest('.home-feed__card');
+    if (!card) return;
+    const article = card.querySelector('.feed-post');
+    if (!article) return;
+    if (event.target.closest('.feed-post__actions') || event.target.closest('.feed-comments')) {
+      return;
+    }
+    // אל תבצע טוגל נוסף אם הקליק היה על מכולת הווידאו – זה מנוהל ע"י מאזין ייעודי
+    if (event.target.closest('[data-video-container]')) {
+      return;
+    }
+    const mediaContainer = article.querySelector('[data-video-container]');
+    if (mediaContainer) {
+      const video = mediaContainer.querySelector('video');
+      if (video) {
+        if (video.paused) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      }
+    }
+  });
+
   App.postsById = App.postsById instanceof Map ? App.postsById : new Map(); // חלק התרעות (feed.js) – שומר את אירועי הפיד לפי מזהה להצלבת התרעות
   App.pendingNotificationQueue = Array.isArray(App.pendingNotificationQueue) ? App.pendingNotificationQueue : []; // חלק התרעות (feed.js) – משמר אירועי התרעה מושהים עד שהפוסט נטען
   App.pendingNotificationSet = App.pendingNotificationSet instanceof Set ? App.pendingNotificationSet : new Set(); // חלק התרעות (feed.js) – מונע כפילויות בתור ההתרעות המושהה
@@ -335,8 +1060,8 @@
   }
 
   function getFeedEmptyState() {
-    const feed = document.getElementById('feed');
-    if (!feed) {
+    const stream = document.getElementById('homeFeedStream') || document.getElementById('feed');
+    if (!stream) {
       return { container: null, messageEl: null };
     }
     let container = document.getElementById('empty-state');
@@ -1095,26 +1820,40 @@
   function updateLikeIndicator(eventId) {
     if (!eventId) return;
     const button = document.querySelector(`button[data-like-button][data-event-id="${eventId}"]`);
-    if (!button) return;
+    const statsCounter = document.querySelector(`.feed-post__like-counter[data-like-counter="${eventId}"]`);
 
     const likeSet = App.likesByEventId.get(eventId);
     const count = likeSet ? likeSet.size : 0;
-    const counterEl = button.querySelector('.feed-post__like-count');
-    if (counterEl) {
-      if (count > 0) {
-        counterEl.textContent = String(count);
-        counterEl.style.display = '';
+
+    // עדכון מונה בכפתור הפעולה
+    if (button) {
+      const counterEl = button.querySelector('.feed-post__like-count');
+      if (counterEl) {
+        if (count > 0) {
+          counterEl.textContent = String(count);
+          counterEl.style.display = '';
+        } else {
+          counterEl.textContent = '';
+          counterEl.style.display = 'none';
+        }
+      }
+      const currentUser = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+      if (currentUser && likeSet && likeSet.has(currentUser)) {
+        button.classList.add('feed-post__action--liked');
       } else {
-        counterEl.textContent = '';
-        counterEl.style.display = 'none';
+        button.classList.remove('feed-post__action--liked');
       }
     }
 
-    const currentUser = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
-    if (currentUser && likeSet && likeSet.has(currentUser)) {
-      button.classList.add('feed-post__action--liked');
-    } else {
-      button.classList.remove('feed-post__action--liked');
+    // עדכון מונה בשורת הסטטיסטיקות
+    if (statsCounter) {
+      if (count > 0) {
+        statsCounter.textContent = String(count);
+        statsCounter.style.display = '';
+      } else {
+        statsCounter.textContent = '';
+        statsCounter.style.display = 'none';
+      }
     }
   }
 
@@ -1466,13 +2205,24 @@
   let isLoadingMore = false;
 
   async function displayPosts(events, append = false) {
-    const feed = document.getElementById('feed');
-    if (!feed) return;
+    const stream = document.getElementById('homeFeedStream');
+    if (!stream) return;
 
     const { container: emptyState, messageEl: emptyMessage } = getFeedEmptyState();
+    const statusEl = document.getElementById('homeFeedStatus');
+
+    if (!append && statusEl) {
+      statusEl.textContent = 'טוען פוסטים...';
+      statusEl.classList.add('is-visible');
+    }
 
     if (!append) {
-      feed.innerHTML = '';
+      // חלק ברכה (feed.js) – שמירה על כרטיס הברכה בעת ניקוי הפיד
+      const welcomeCard = document.getElementById('welcomeCard');
+      stream.innerHTML = '';
+      if (welcomeCard) {
+        stream.appendChild(welcomeCard);
+      }
       allFeedEvents = events;
       displayedPostsCount = 0;
     }
@@ -1483,21 +2233,19 @@
     const visibleEvents = events.filter((event) => !deletions.has(event.id));
 
     if (!visibleEvents.length) {
-      if (emptyState) {
-        if (emptyMessage?.dataset?.defaultText) {
-          emptyMessage.textContent = emptyMessage.dataset.defaultText;
-        }
-        emptyState.classList.remove('feed-empty--loading');
-        emptyState.removeAttribute('hidden');
-        feed.appendChild(emptyState);
-      } else {
-        renderDemoPosts(feed);
+      // חלק ברכה (feed.js) – אם אין פוסטים, רק מסתירים את הסטטוס, הברכה כבר קיימת
+      if (statusEl) {
+        statusEl.classList.remove('is-visible');
       }
       return;
     }
 
     if (emptyState) {
       emptyState.classList.remove('feed-empty--loading');
+    }
+
+    if (statusEl) {
+      statusEl.classList.remove('is-visible');
     }
 
     const isAdminUser =
@@ -1562,6 +2310,7 @@
 
     const profileList = await Promise.all(postsToDisplay.map((event) => fetchProfile(event.pubkey)));
 
+    const renderedIds = [];
     postsToDisplay.forEach((event, index) => {
       const normalizedPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
       const profileData = profileList[index] || {
@@ -1723,6 +2472,21 @@
           </button>
         `
         : '';
+
+      // חלק כפתור עליון – אם זה פוסט של המשתמש, נציג כפתור 3 נקודות במקום כפתור עקוב
+      const headerActionHtml = ownPost
+        ? `
+          <div class="feed-post__menu-wrap" style="position:relative;">
+            <button class="feed-post__menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" data-post-menu-toggle="${event.id}" title="אפשרויות">
+              <i class="fa-solid fa-ellipsis"></i>
+            </button>
+            <div class="feed-post__menu" data-post-menu="${event.id}" hidden style="position:absolute; top:36px; inset-inline-end:0; min-width: 140px; background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); z-index:5;">
+              ${editButtonHtml}
+              ${deleteButtonHtml}
+            </div>
+          </div>
+        `
+        : followButtonHtml;
       if (!App.commentsByParent.has(event.id)) {
         App.commentsByParent.set(event.id, new Map());
       }
@@ -1746,38 +2510,29 @@
             <button class="feed-post__name" type="button" ${profileDataset} ${clickOpen}>${safeName}</button>
             ${metaHtml ? `<span class="feed-post__meta">${metaHtml}</span>` : ''}
           </div>
-          ${followButtonHtml}
+          ${headerActionHtml}
         </header>
         ${safeContent ? `<div class="${contentClass}" data-post-content="${event.id}">${safeContent}</div>` : ''}
         ${showMoreHtml}
         ${mediaHtml ? `<div class="feed-post__media">${mediaHtml}</div>` : ''}
-        <footer class="feed-post__stats">
-          <span class="feed-post__likes" data-like-total="${event.id}">
-            <i class="fa-solid fa-thumbs-up"></i>
-            <span class="feed-post__like-counter" data-like-counter="${event.id}">${likeCount || ''}</span>
-          </span>
-          <button class="feed-post__comments-toggle" type="button" data-comments-toggle="${event.id}">
+        <div class="feed-post__actions">
+          <button class="feed-post__action" type="button" data-comments-toggle="${event.id}">
             <i class="fa-regular fa-message"></i>
             <span>תגובות</span>
-            <span class="feed-post__comment-count" data-comment-count="${event.id}" ${commentCount ? '' : 'style="display:none;"'}>${
-              commentCount || ''
-            }</span>
+            <span class="feed-post__comment-count" data-comment-count="${event.id}" ${commentCount ? '' : 'style=\"display:none;\"'}>${commentCount || ''}</span>
           </button>
-        </footer>
-        <div class="feed-post__actions">
           <button class="feed-post__action" type="button" data-like-button data-event-id="${event.id}" onclick="NostrApp.likePost('${event.id}')">
             <i class="fa-regular fa-thumbs-up"></i>
             <span>אהבתי</span>
-            <span class="feed-post__like-count" ${likeCount ? '' : 'style="display:none;"'}>${likeCount || ''}</span>
+            <span class="feed-post__like-count" ${likeCount ? '' : 'style=\"display:none;\"'}>${likeCount || ''}</span>
           </button>
           <button class="feed-post__action" type="button" onclick="NostrApp.sharePost('${event.id}')">
             <i class="fa-solid fa-share"></i>
             <span>שתף</span>
           </button>
-          ${editButtonHtml}
-          ${deleteButtonHtml}
+          ${ownPost ? '' : `${deleteButtonHtml}`}
         </div>
-        <section class="feed-comments" data-comments-section="${event.id}" hidden>
+        <section class="feed-comments" data-comments-section="${event.id}">
           <div class="feed-comments__list" data-comments-list="${event.id}"></div>
           <form class="feed-comments__form" data-comment-form="${event.id}">
             <div class="feed-comments__composer">
@@ -1794,9 +2549,26 @@
         </section>
       `;
 
-      feed.appendChild(article);
+      const cardWrapper = document.createElement('div');
+      cardWrapper.className = 'home-feed__card';
+      cardWrapper.setAttribute('data-feed-card', event.id);
+      cardWrapper.appendChild(article);
+
+      stream.appendChild(cardWrapper);
+      renderedIds.push(event.id);
+      // חלק טעינה – עדכון אחוזים תוך כדי רינדור הסט הראשון בלבד
+      if (!append) {
+        try {
+          const total = Math.max(1, Math.min(POSTS_PER_LOAD, visibleEvents.length));
+          const progressBase = 55; // אחרי ליסטינג מהריליי
+          const progressSpan = 30; // עד 85%
+          const ratio = Math.min(1, (index + 1) / total);
+          setWelcomeLoading(Math.floor(progressBase + ratio * progressSpan));
+        } catch (_) {}
+      }
       updateLikeIndicator(event.id);
       wireCommentForm(article, event.id);
+      wirePostMenu(article, event.id);
       hydrateCommentsSection(article, event.id);
       wireShowMore(article, event.id);
       if (typeof App.refreshFollowButtons === 'function') {
@@ -1804,8 +2576,30 @@
       }
     });
 
+    // מנוי לייקים לפי מזהה פוסט (#e) עבור הסט שזה עתה רונדר – כדי להציג ספירות מלאות
+    subscribeLikesForPosts(renderedIds);
+
     // חלק cache (פיד) – אתחול טעינת וידאו לכל הפוסטים
     initVideoLoading();
+    setTimeout(() => setupHomeFeedObserver(), 50);
+    wireHomeFeedInteractions();
+
+    // סימון סיום רינדור סט ראשון
+    if (!append) {
+      App._firstBatchRenderComplete = true;
+    }
+
+    // סיום הטעינה רק לאחר הופעה/נראות בפועל של הכרטיס הראשון והמדיה בו
+    if (!App._homeFeedFirstBatchShown) {
+      setWelcomeLoading(95);
+      setWelcomeStatus('מסיים רינדור...');
+      Promise.race([
+        waitForFirstPostPaint({ timeout: 5000 }),
+        observeFirstPostVisible({ timeout: 6000 })
+      ]).then(() => {
+        awaitFirstPostMediaReady({ timeout: 2500 }).then(() => finishWelcomeIfReady());
+      });
+    }
 
     // חלק פרופילים (feed.js) – עדכון פרופילים מה-relays אחרי יצירת הפוסטים
     if (uniqueAuthors.length > 0 && App.pool && Array.isArray(App.relayUrls) && App.relayUrls.length > 0) {
@@ -1855,19 +2649,14 @@
     if (!toggle || !section) {
       return;
     }
+    // תמיד פתוח כברירת מחדל; לחיצה על toggler רק מגלגלת לאזור התגובות ומרעננת
     toggle.addEventListener('click', () => {
-      const isHidden = section.hasAttribute('hidden');
-      if (isHidden) {
-        section.removeAttribute('hidden');
-        updateCommentsForParent(parentId);
-      } else {
-        section.setAttribute('hidden', '');
-      }
-    });
-    if (App.commentsByParent.get(parentId)?.size) {
+      try { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
       updateCommentsForParent(parentId);
-      section.removeAttribute('hidden');
-    }
+    });
+    // פתיחה וטעינה ראשונית
+    section.removeAttribute('hidden');
+    updateCommentsForParent(parentId);
   }
 
   async function postComment(parentId, content) {
@@ -1894,9 +2683,47 @@
   }
 
   async function loadFeed() {
+    // מניעת כפל טעינה
+    if (App._homeFeedLoadingInProgress) {
+      return;
+    }
+    App._homeFeedLoadingInProgress = true;
+    App._homeFeedFirstBatchShown = false;
+    App._homeFeedRetryCount = typeof App._homeFeedRetryCount === 'number' ? App._homeFeedRetryCount : 0;
+    // מצב טעינה: נעל גלילה ב-viewport והצג מד טעינה בברכה
+    document.body.classList.add('home-feed--loading');
+    document.documentElement.classList.add('home-feed--loading');
+    setWelcomeLoading(1);
+    setWelcomeStatus('מתחבר לריליים...');
+    bindLoadingGuards();
+    try { const vp = document.querySelector('.home-feed__viewport'); if (vp) vp.scrollTop = 0; } catch (_) {}
+    // טיימר התקדמות מדומה עד שנקבל נתונים מהריליים (מגביל ל-85%)
+    if (_welcomeProgressTimer) {
+      clearInterval(_welcomeProgressTimer);
+    }
+    _welcomeProgressTimer = setInterval(() => {
+      const cap = App._homeFeedFirstBatchShown ? 100 : 95;
+      const target = Math.min(cap, (_welcomeProgressValue || 0) + 1);
+      setWelcomeLoading(target);
+      if (!App._homeFeedFirstBatchShown && target >= 95) {
+        clearInterval(_welcomeProgressTimer);
+        _welcomeProgressTimer = null;
+      }
+    }, 180);
     // ודא שהניווט לפרופיל ציבורי פעיל תמיד, גם אם ה-Pool טרם מאותחל
     ensureProfileLinkNavigation();
-    if (!App.pool) return;
+    if (!App.pool) {
+      // אם ה-Pool עדיין לא מאותחל – ננסה שוב בקרוב ונציג התקדמות ראשונית
+      setWelcomeLoading(10);
+      setWelcomeStatus('מאתחל חיבור...');
+      setTimeout(() => {
+        if (!App._homeFeedLoadingInProgress && typeof App.loadFeed === 'function') {
+          App.loadFeed();
+        }
+      }, 250);
+      App._homeFeedLoadingInProgress = false;
+      return;
+    }
 
     const feed = document.getElementById('feed');
     const { container: emptyState, messageEl: emptyMessage } = getFeedEmptyState();
@@ -1960,8 +2787,11 @@
 
     if (typeof App.pool.list === 'function') {
       try {
+        setWelcomeLoading(25);
+        setWelcomeStatus('מקבל אירועים...');
         const initialEvents = await App.pool.list(App.relayUrls, filters);
         if (Array.isArray(initialEvents)) {
+          setWelcomeLoading(55);
           initialEvents.forEach((event) => {
             if (!event || seenEventIds.has(event.id)) {
               return;
@@ -2005,7 +2835,9 @@
             }
             events.push(event);
           });
-          if (events.length > 0) {
+          if (events.length > 0 && !App._homeFeedFirstBatchShown) {
+            setWelcomeLoading(85);
+            setWelcomeStatus('מרנדר פוסטים...');
             displayPosts(events);
             if (emptyState && emptyMessage?.dataset?.defaultText) {
               emptyMessage.textContent = emptyMessage.dataset.defaultText;
@@ -2019,10 +2851,15 @@
                 statusEl.style.opacity = '0';
               }, 2000);
             }
+            // הסט הראשון נטען – אפשר לשחרר גלילה ולהציג את החץ
+            endWelcomeLoading();
+            App._homeFeedFirstBatchShown = true;
+            App._homeFeedLoadingInProgress = false;
           }
         }
       } catch (err) {
         console.warn('Initial feed list failed', err);
+        App._homeFeedLoadingInProgress = false;
       }
     }
 
@@ -2070,7 +2907,33 @@
         }
       },
       oneose: () => {
-        displayPosts(events);
+        // אם טרם הצגנו – הצג כעת את הסט הראשון ושחרר טעינה
+        if (!App._homeFeedFirstBatchShown && events && events.length > 0) {
+          setWelcomeLoading(95);
+          setWelcomeStatus('מרנדר פוסטים...');
+          displayPosts(events);
+          endWelcomeLoading();
+          App._homeFeedFirstBatchShown = true;
+          App._homeFeedLoadingInProgress = false;
+        } else {
+          // אין פוסטים – נשארים במצב טעינה וננסה שוב עם backoff
+          try {
+            const statusEl = document.getElementById('homeFeedStatus');
+            if (statusEl) {
+              statusEl.textContent = 'טוען פוסטים...';
+              statusEl.classList.add('is-visible');
+            }
+          } catch (_) {}
+          setWelcomeStatus('מנסה שוב להביא פוסטים...');
+          App._homeFeedLoadingInProgress = false;
+          const backoff = Math.min(3000, 500 + (App._homeFeedRetryCount || 0) * 250);
+          App._homeFeedRetryCount = (App._homeFeedRetryCount || 0) + 1;
+          setTimeout(() => {
+            if (!App._homeFeedFirstBatchShown && typeof App.loadFeed === 'function') {
+              App.loadFeed();
+            }
+          }, backoff);
+        }
         if (emptyState && emptyMessage?.dataset?.defaultText) {
           emptyMessage.textContent = emptyMessage.dataset.defaultText;
           emptyState.classList.remove('feed-empty--loading');
@@ -2083,45 +2946,7 @@
     setTimeout(() => sub.close(), 5000);
   }
 
-  // חלק infinite scroll (feed.js) – פונקציה שמטעינה פוסטים נוספים כשמגיעים לסוף
-  function setupInfiniteScroll() {
-    let scrollTimeout;
-    const handleScroll = () => {
-      if (isLoadingMore) return;
-      
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        const scrollPosition = window.innerHeight + window.scrollY;
-        const pageHeight = document.documentElement.scrollHeight;
-        
-        // כשמגיעים ל-80% מהדף, טוען עוד פוסטים
-        if (scrollPosition >= pageHeight * 0.8) {
-          loadMorePosts();
-        }
-      }, 100);
-    };
-
-    // הסרת מאזין קודם אם קיים
-    window.removeEventListener('scroll', handleScroll);
-    window.addEventListener('scroll', handleScroll);
-  }
-
-  // חלק infinite scroll (feed.js) – טעינת פוסטים נוספים
-  async function loadMorePosts() {
-    if (isLoadingMore) return;
-    if (displayedPostsCount >= allFeedEvents.length) return;
-
-    isLoadingMore = true;
-    console.log(`Loading more posts... (${displayedPostsCount}/${allFeedEvents.length})`);
-
-    try {
-      await displayPosts(allFeedEvents, true);
-    } catch (err) {
-      console.error('Failed to load more posts', err);
-    } finally {
-      isLoadingMore = false;
-    }
-  }
+  
 
   async function publishPost() {
     if (typeof App.getComposePayload !== 'function') {
@@ -2469,10 +3294,14 @@
     removePostElement,
   });
 
-  // חלק וידאו (feed.js) – אתחול טיפול בוידאו
+  // חלק וידאו/תמונות (feed.js) – אתחול טיפול בוידאו ו-Lightbox לתמונות
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initVideoPlayHandlers);
+    document.addEventListener('DOMContentLoaded', () => {
+      initVideoPlayHandlers();
+      initImageLightbox();
+    });
   } else {
     initVideoPlayHandlers();
+    initImageLightbox();
   }
 })(window);

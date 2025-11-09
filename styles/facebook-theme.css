@@ -65,6 +65,13 @@ button {
   margin-left: calc((100vw - 100%) / -2);
   margin-right: calc((100vw - 100%) / -2);
   box-sizing: border-box;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.top-bar--hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* חלק סרגל פרופיל וחדשות (facebook-theme.css) – התאמת הכותרת העליונה לשני הדפים כדי לשמר אחידות */
@@ -464,6 +471,36 @@ button {
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
 }
 
+/* חלק HOME FEED – כאשר מסתירים תפריטים, מעלימים את ה-primary-nav לחלוטין כדי שלא יישאר רקע מאחוריי הכפתור */
+body.home-feed--menus-hidden .primary-nav {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* העלמת הקומפוזר לגמרי במצב הסתרת תפריטים – שלא יישאר פס */
+body.home-feed--menus-hidden .composer-card {
+  display: none !important;
+}
+
+/* חלק HOME FEED – הסתרה כפולה של הפס העליון בעת מצב תפריטים מוסתר */
+body.home-feed--menus-hidden .top-bar {
+  transform: translateY(-100%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
 @media (max-width: 600px) {
   .primary-nav {
     max-width: none; /* חלק ניווט מובייל (facebook-theme.css) – מאפשר לתפריט להתפרש על כל הרוחב במסכים צרים */
@@ -579,6 +616,14 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* חלק קומפוזר מוסתר (facebook-theme.css) – מבטל רקע וצל כשהתפריטים מוסתרים */
+.composer-card.composer-card--hidden {
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+  padding: 0;
 }
 
 .composer-header {

@@ -141,6 +141,13 @@
     App.subscribeOwnProfileMetadata();
   }
 
+  // חלק HOME FEED – הפעלת מצב טעינה מוקדם למניעת גלילה לפני טעינת הסט הראשון
+  try {
+    if (document.querySelector('.home-feed__viewport')) {
+      document.body.classList.add('home-feed--loading');
+    }
+  } catch (_) {}
+
   if (typeof App.loadFeed === 'function') {
     App.loadFeed();
   }
