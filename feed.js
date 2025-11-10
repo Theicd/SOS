@@ -15,6 +15,77 @@
     App.notificationsRestored = false; // חלק התרעות (feed.js) – מבטיח שנשחזר התרעות פעם אחת לאחר התחברות
   }
 
+  // חלק מובייל (feed.js) – התאמות פריסת כפתורי פעולה ותגובות בסגנון פייסבוק
+  function applyMobilePostUiStyles() {
+    try {
+      const isMobile = (window.innerWidth || document.documentElement.clientWidth) <= 768;
+      const actionBars = document.querySelectorAll('.feed-post__actions');
+      actionBars.forEach((bar) => {
+        if (isMobile) {
+          bar.style.display = 'grid';
+          bar.style.gridTemplateColumns = '1fr 1fr 1fr';
+          bar.style.alignItems = 'center';
+          bar.style.gap = '0px';
+          bar.style.borderTop = '1px solid rgba(255,255,255,0.06)';
+          bar.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+          bar.style.padding = '4px 0';
+          Array.from(bar.children).forEach((btn) => {
+            if (!(btn instanceof HTMLElement)) return;
+            btn.style.justifyContent = 'center';
+            btn.style.width = '100%';
+            btn.style.borderRadius = '0';
+            btn.style.padding = '10px 0';
+            const icon = btn.querySelector('i');
+            if (icon) { icon.style.fontSize = '1.05rem'; }
+            const count = btn.querySelector('.feed-post__like-count, .feed-post__comment-count');
+            if (count) { count.style.marginInlineStart = '6px'; count.style.opacity = '0.9'; }
+          });
+        } else {
+          // ניקוי סגנונות אינליין בדסקטופ
+          bar.removeAttribute('style');
+          Array.from(bar.children).forEach((btn) => {
+            if (!(btn instanceof HTMLElement)) return;
+            btn.removeAttribute('style');
+            const icon = btn.querySelector('i');
+            if (icon) { icon.style.fontSize = ''; }
+            const count = btn.querySelector('.feed-post__like-count, .feed-post__comment-count');
+            if (count) { count.style.marginInlineStart = ''; count.style.opacity = ''; }
+          });
+        }
+      });
+
+      const commentItems = document.querySelectorAll('.feed-comment');
+      commentItems.forEach((item) => {
+        const body = item.querySelector('.feed-comment__body');
+        if (!body) return;
+        if (isMobile) {
+          body.style.background = 'rgba(255,255,255,0.06)';
+          body.style.borderRadius = '16px';
+          body.style.padding = '10px 12px';
+        } else {
+          body.style.background = '';
+          body.style.borderRadius = '';
+          body.style.padding = '';
+        }
+        const avatar = item.querySelector('.feed-comment__avatar');
+        if (avatar && isMobile) {
+          avatar.style.width = '32px';
+          avatar.style.height = '32px';
+          avatar.style.borderRadius = '999px';
+          avatar.style.overflow = 'hidden';
+        } else if (avatar) {
+          avatar.removeAttribute('style');
+        }
+      });
+    } catch (_) {}
+  }
+
+  window.addEventListener('resize', () => {
+    // Throttle קל
+    clearTimeout(window._applyMobileUiTO);
+    window._applyMobileUiTO = setTimeout(applyMobilePostUiStyles, 100);
+  });
+
   // חלק תמונות (feed.js) – Lightbox להצגת תמונות בגודל מלא במסך
   function openImageLightbox(src, alt = '') {
     try {
@@ -61,6 +132,184 @@
 
     // Coachmark פר-תמונה: מראה רמז קצר כשנכנסת לפריים, פעם אחת לסשן
     setupImageCoachmarks();
+  }
+
+  // חלק תיאטרון דסקטופ (feed.js) – טעינת נכסים ורישום פתיחה בלחיצה | HYPER CORE TECH
+  function ensureTheaterAssetsLoaded() {
+    try {
+      if (window._ptvAssetsLoaded) return Promise.resolve(true);
+      return new Promise((resolve) => {
+        let pending = 2; // css + js
+        const done = () => { if (--pending === 0) { window._ptvAssetsLoaded = true; resolve(true); } };
+
+        // CSS
+        if (!document.querySelector('link[data-ptv-css]')) {
+          const l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = 'post-theater/theater-viewer.css';
+          l.setAttribute('data-ptv-css', '');
+          l.onload = done; l.onerror = done;
+          document.head.appendChild(l);
+        } else { done(); }
+
+        // JS
+        if (!window.PostTheaterViewer && !document.querySelector('script[data-ptv-js]')) {
+          const s = document.createElement('script');
+          s.src = 'post-theater/theater-viewer.js';
+          s.defer = true;
+          s.setAttribute('data-ptv-js', '');
+          s.onload = done; s.onerror = done;
+          document.head.appendChild(s);
+        } else { done(); }
+      });
+    } catch (_) { return Promise.resolve(false); }
+  }
+
+  // בניית אובייקט פוסט בסיסי מתוך כרטיס קיים לפורמט הצופה
+  // משתמש בנתונים שמור בdata-attributes של הכרטיס (profileData, created_at)
+  function buildTheaterPostDataFromCard(card) {
+    try {
+      const article = card.querySelector('.feed-post');
+      const id = article?.getAttribute('data-post-id') || card.getAttribute('data-feed-card') || '';
+
+      // שם ואווטאר – מנתונים שמור בdata-attributes של הכרטיס
+      const name = card.getAttribute('data-author-name') || (article?.querySelector('.feed-post__name')?.textContent || '').trim();
+      const avatarUrl = card.getAttribute('data-author-picture') || '';
+
+      // טקסט – מהאלמנט התוכן הספציפי לפוסט
+      let text = '';
+      const contentEl = id ? article?.querySelector(`[data-post-content="${id}"]`) : null;
+      if (contentEl) {
+        text = contentEl.textContent || '';
+      }
+
+      // זמן יצירה – מנתונים שמור בdata-attribute של הכרטיס (created_at בשניות)
+      let timestamp = Date.now();
+      const createdAtStr = card.getAttribute('data-created-at');
+      if (createdAtStr && !Number.isNaN(Number(createdAtStr))) {
+        const n = Number(createdAtStr);
+        timestamp = n > 1e12 ? n : n * 1000; // תמיכה בשניות/מילישניות
+      }
+
+      // מדיה ראשית – יוטיוב/וידאו/תמונה אם קיימים
+      let media = [];
+      const yt = article?.querySelector('.feed-media--youtube, [data-youtube-id]');
+      const vid = article?.querySelector('[data-video-container] video, video');
+      const img = article?.querySelector('.feed-media img, img[data-feed-image]');
+      if (yt) {
+        const yid = yt.getAttribute('data-youtube-id') || '';
+        const embed = yid ? `https://www.youtube.com/embed/${yid}?autoplay=0&rel=0` : '';
+        media = [{ type: 'youtube', id: yid, src: embed }];
+      } else if (vid) {
+        media = [{ type: 'video', src: vid.currentSrc || vid.src || vid.getAttribute('data-src') || '', poster: vid.getAttribute('poster') || '' }];
+      } else if (img) {
+        media = [{ type: 'image', src: img.currentSrc || img.src || '' }];
+      }
+
+      // פונקציית עזר להוצאת מספר מתוך טקסט
+      const extractNum = (str) => {
+        const m = String(str||'').replace(/[,\s]/g,'').match(/\d+/);
+        return m ? Number(m[0]) : 0;
+      };
+
+      // מוני לייקים/תגובות/שיתופים – נתונים חיים מה-App עם פולבאקים לdata/DOM
+      let likes = 0, comments = 0, shares = 0;
+      const likesStr = card.getAttribute('data-likes-count');
+      const commentsStr = card.getAttribute('data-comments-count');
+      const sharesStr = card.getAttribute('data-shares-count');
+
+      try {
+        if (window.App?.likesByEventId?.get && id) {
+          const likeSet = window.App.likesByEventId.get(id);
+          if (likeSet) likes = likeSet.size || 0;
+        }
+        if (window.App?.commentsByParent?.get && id) {
+          const commentMap = window.App.commentsByParent.get(id);
+          if (commentMap) comments = commentMap.size || 0;
+        }
+      } catch (_) {}
+
+      if (!likes && likesStr && !Number.isNaN(Number(likesStr))) likes = Number(likesStr);
+      if (!comments && commentsStr && !Number.isNaN(Number(commentsStr))) comments = Number(commentsStr);
+      if (sharesStr && !Number.isNaN(Number(sharesStr))) shares = Number(sharesStr);
+
+      if (!likes && article) {
+        const likeAttr = article.querySelector('.feed-post__like-counter,[data-like-count]');
+        if (likeAttr) {
+          const val = likeAttr.getAttribute('data-like-count') || likeAttr.textContent;
+          likes = extractNum(val);
+        } else {
+          const likeBtn = article.querySelector('[data-like-button], button[title*="אהב"], .feed-post__action:nth-child(2)');
+          if (likeBtn) likes = extractNum(likeBtn.textContent);
+        }
+      }
+
+      // תגובות – דוגם הראשונות אם קיימות
+      const commentsEls = Array.from(article?.querySelectorAll('.feed-comments .feed-comment') || []).slice(0, 10);
+      const mapped = commentsEls.map((el, i) => ({
+        id: el.getAttribute('data-comment-id') || `${id}-c${i}`,
+        authorName: (el.querySelector('.feed-comment__author, [data-author-name]')?.textContent || '').trim(),
+        avatarUrl: el.querySelector('.feed-comment__avatar img, .feed-comment__avatar')?.getAttribute?.('src') || '',
+        text: el.querySelector('.feed-comment__body, [data-comment-text]')?.textContent || '',
+        timestamp: (()=>{
+          const t = el.querySelector('[data-timestamp], time[datetime]');
+          if (!t) return Date.now();
+          const ds = t.getAttribute('data-timestamp');
+          if (ds && !Number.isNaN(Number(ds))) {
+            const n = Number(ds); return n > 1e12 ? n : n*1000;
+          }
+          const dt = t.getAttribute('datetime');
+          const ms = Date.parse(dt||'');
+          return Number.isNaN(ms) ? Date.now() : ms;
+        })()
+      }));
+
+      return {
+        id,
+        author: { name, avatarUrl },
+        timestamp,
+        text,
+        media,
+        counts: { likes, comments, shares },
+        comments: mapped,
+      };
+    } catch (_) {
+      return { id: '', author: { name: '', avatarUrl: '' }, timestamp: Date.now(), text: '', media: [], counts: { likes:0, comments:0, shares:0 }, comments: [] };
+    }
+  }
+
+  // חלק תיאטרון (feed.js) – חשיפת בניית נתוני פוסט לצופה החיצוני
+  App.buildTheaterSnapshot = function buildTheaterSnapshot(card) {
+    return buildTheaterPostDataFromCard(card);
+  };
+
+  // רישום קליק לפתיחת התיאטרון בדסקטופ ובמובייל כאחד (capture כדי לא להתנגש במאזינים אחרים)
+  function bindTheaterOpen() {
+    if (window._ptvOpenBound) return;
+    window._ptvOpenBound = true;
+    document.addEventListener('click', async (event) => {
+      try {
+        // כפתור שמאלי בלבד וללא מקשי עזר (גם בנגיעה במובייל מתקבל button=0)
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const card = event.target.closest('.home-feed__card');
+        if (!card) return;
+        const article = card.querySelector('.feed-post');
+        if (!article) return;
+        // אל תפתח על לחיצה על פעולות/תגובות/וידאו/תמונה עם לייטבוקס/קישורים
+        if (event.target.closest('.feed-post__actions') || event.target.closest('.feed-comments') || event.target.closest('[data-video-container]') || event.target.closest('a')) return;
+        if (event.target.closest('.feed-media')) {
+          // תמונות כבר מנוהלות בלייטבוקס – לא נפתח תיאטרון כדי לא להתנגש
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        await ensureTheaterAssetsLoaded();
+        if (window.PostTheaterViewer) {
+          const data = buildTheaterPostDataFromCard(card);
+          window.PostTheaterViewer.open(data);
+        }
+      } catch (_) {}
+    }, true);
   }
 
   // חלק Coachmark לתמונות (feed.js) – רמז "לחצו לתצוגה מלאה" עם אייקון זום מהבהב | HYPER CORE TECH
@@ -420,13 +669,21 @@
       e.stopPropagation();
       return false;
     };
-    window.addEventListener('wheel', block, { passive: false });
-    window.addEventListener('touchmove', block, { passive: false });
-    window.addEventListener('keydown', (e) => {
+    const blockKey = (e) => {
+      const target = e.target;
+      const tag = target?.tagName ? target.tagName.toLowerCase() : '';
+      const isTextInput = tag === 'textarea' || tag === 'input' || tag === 'select' || target?.isContentEditable;
+      if (isTextInput) {
+        return;
+      }
       const keys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar'];
       if (keys.includes(e.key)) block(e);
-    }, { passive: false });
+    };
+    window.addEventListener('wheel', block, { passive: false });
+    window.addEventListener('touchmove', block, { passive: false });
+    window.addEventListener('keydown', blockKey, { passive: false });
     window._hfBlockScroll = block;
+    window._hfBlockKey = blockKey;
   }
 
   function unbindLoadingGuards() {
@@ -434,7 +691,10 @@
     const block = window._hfBlockScroll;
     window.removeEventListener('wheel', block, { passive: false });
     window.removeEventListener('touchmove', block, { passive: false });
-    // keydown מאזין אנונימי – לא נסירו, אך הוא חסר משמעות אחרי הסרת המחלקות
+    if (window._hfBlockKey) {
+      window.removeEventListener('keydown', window._hfBlockKey, { passive: false });
+      delete window._hfBlockKey;
+    }
     delete window._hfBlockScroll;
     _loadingGuardsBound = false;
   }
@@ -1855,6 +2115,15 @@
         statsCounter.style.display = 'none';
       }
     }
+
+    // חלק תיאטרון (feed.js) – עדכון data-likes-count בכרטיס כדי שמצב תיאטרון יקבל ערך עדכני
+    const card = document.querySelector(`.home-feed__card[data-feed-card="${eventId}"]`);
+    if (card) {
+      card.setAttribute('data-likes-count', String(count));
+    }
+    if (window.PostTheaterViewer?.isOpen?.()) {
+      try { window.PostTheaterViewer.refreshFromFeedCard?.(eventId); } catch (_) {}
+    }
   }
 
   function extractParentId(event) {
@@ -1975,6 +2244,7 @@
     const commentMap = App.commentsByParent.get(parentId);
     const comments = commentMap ? Array.from(commentMap.values()) : [];
     comments.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+    const theaterShouldRefresh = Boolean(window.PostTheaterViewer?.isOpen?.());
 
     if (counterEl) {
       if (comments.length > 0) {
@@ -1986,42 +2256,52 @@
       }
     }
 
-    if (!comments.length) {
-      listEl.innerHTML = '<p class="feed-comments__empty">אין תגובות עדיין. היה הראשון להגיב!</p>';
-      return;
+    // חלק תיאטרון (feed.js) – עדכון data-comments-count בכרטיס כדי שמצב תיאטרון יקבל ערך עדכני
+    const card = document.querySelector(`.home-feed__card[data-feed-card="${parentId}"]`);
+    if (card) {
+      card.setAttribute('data-comments-count', String(comments.length));
     }
 
-    const fragments = [];
-    for (const comment of comments) {
-      // eslint-disable-next-line no-await-in-loop
-      const commenterProfile = await fetchProfile(comment.pubkey);
-      const normalizedCommenter = typeof comment.pubkey === 'string' ? comment.pubkey.toLowerCase() : '';
-      const commenterName = App.escapeHtml(commenterProfile.name || 'משתמש');
-      const attrName = (commenterProfile.name || '').replace(/"/g, '&quot;');
-      const attrBio = (commenterProfile.bio || '').replace(/"/g, '&quot;');
-      const attrPicture = (commenterProfile.picture || '').replace(/"/g, '&quot;');
-      const profileDataset = normalizedCommenter
-        ? `data-profile-link="${normalizedCommenter}" data-profile-name="${attrName}" data-profile-bio="${attrBio}" data-profile-picture="${attrPicture}"`
-        : '';
-      const commenterAvatarHtml = commenterProfile.picture
-        ? `<div class="feed-comment__avatar" ${profileDataset}><img src="${commenterProfile.picture}" alt="${commenterName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${commenterProfile.initials}'; }"></div>`
-        : `<div class="feed-comment__avatar" ${profileDataset}>${commenterProfile.initials}</div>`;
-      const safeContent = App.escapeHtml(comment.content || '').replace(/\n/g, '<br>');
-      const timestamp = comment.created_at ? formatTimestamp(comment.created_at) : '';
-      fragments.push(`
-        <article class="feed-comment">
-          ${commenterAvatarHtml}
-          <div class="feed-comment__body">
-            <header class="feed-comment__header">
-              <button class="feed-comment__author" type="button" ${profileDataset}>${commenterName}</button>
-              ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
-            </header>
-            <div class="feed-comment__text">${safeContent}</div>
-          </div>
-        </article>
-      `);
+    if (!comments.length) {
+      listEl.innerHTML = '<p class="feed-comments__empty">אין תגובות עדיין. היה הראשון להגיב!</p>';
+    } else {
+      const fragments = [];
+      for (const comment of comments) {
+        // eslint-disable-next-line no-await-in-loop
+        const commenterProfile = await fetchProfile(comment.pubkey);
+        const normalizedCommenter = typeof comment.pubkey === 'string' ? comment.pubkey.toLowerCase() : '';
+        const commenterName = App.escapeHtml(commenterProfile.name || 'משתמש');
+        const attrName = (commenterProfile.name || '').replace(/"/g, '&quot;');
+        const attrBio = (commenterProfile.bio || '').replace(/"/g, '&quot;');
+        const attrPicture = (commenterProfile.picture || '').replace(/"/g, '&quot;');
+        const profileDataset = normalizedCommenter
+          ? `data-profile-link="${normalizedCommenter}" data-profile-name="${attrName}" data-profile-bio="${attrBio}" data-profile-picture="${attrPicture}"`
+          : '';
+        const commenterAvatarHtml = commenterProfile.picture
+          ? `<div class="feed-comment__avatar" ${profileDataset}><img src="${commenterProfile.picture}" alt="${commenterName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${commenterProfile.initials}'; }"></div>`
+          : `<div class="feed-comment__avatar" ${profileDataset}>${commenterProfile.initials}</div>`;
+        const safeContent = App.escapeHtml(comment.content || '').replace(/\n/g, '<br>');
+        const timestamp = comment.created_at ? formatTimestamp(comment.created_at) : '';
+        fragments.push(`
+          <article class="feed-comment">
+            ${commenterAvatarHtml}
+            <div class="feed-comment__body">
+              <header class="feed-comment__header">
+                <button class="feed-comment__author" type="button" ${profileDataset}>${commenterName}</button>
+                ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
+              </header>
+              <div class="feed-comment__text">${safeContent}</div>
+            </div>
+          </article>
+        `);
+      }
+      listEl.innerHTML = fragments.join('');
     }
-    listEl.innerHTML = fragments.join('');
+
+    // חלק תיאטרון (feed.js) – רענון שכבת התיאטרון רק אחרי שה-DOM מעודכן בפועל
+    if (theaterShouldRefresh) {
+      try { window.PostTheaterViewer.refreshFromFeedCard?.(parentId); } catch (_) {}
+    }
   }
 
   function wireCommentForm(articleEl, parentId) {
@@ -2099,13 +2379,27 @@
   }
 
   function formatTimestamp(seconds) {
+    // חלק זמנים (feed.js) – פורמט בסגנון פייסבוק: 1m / 1h / 1d / Nov 1[, 2024]
     if (!seconds) return '';
-    const date = new Date(seconds * 1000);
-    try {
-      return date.toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
-    } catch (err) {
-      return date.toLocaleString();
-    }
+    const now = Date.now();
+    const ts = Math.floor(seconds * 1000);
+    const diffMs = Math.max(0, now - ts);
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+
+    if (diffMin < 1) return '1m';
+    if (diffHr < 1) return `${diffMin}m`;
+    if (diffDay < 1) return `${diffHr}h`;
+    if (diffDay < 7) return `${diffDay}d`;
+
+    const d = new Date(ts);
+    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    const day = d.getDate();
+    const y = d.getFullYear();
+    const currentYear = new Date().getFullYear();
+    return y === currentYear ? `${month} ${day}` : `${month} ${day}, ${y}`;
   }
 
   function parseYouTube(link) {
@@ -2552,6 +2846,13 @@
       const cardWrapper = document.createElement('div');
       cardWrapper.className = 'home-feed__card';
       cardWrapper.setAttribute('data-feed-card', event.id);
+      // חלק תיאטרון (feed.js) – שמירת נתוני פוסט בdata-attributes לשימוש במצב תיאטרון
+      cardWrapper.setAttribute('data-author-name', profileData.name || '');
+      cardWrapper.setAttribute('data-author-picture', profileData.picture || '');
+      cardWrapper.setAttribute('data-created-at', String(event.created_at || 0));
+      cardWrapper.setAttribute('data-likes-count', String(likeCount || 0));
+      cardWrapper.setAttribute('data-comments-count', String(commentCount || 0));
+      cardWrapper.setAttribute('data-shares-count', '0');
       cardWrapper.appendChild(article);
 
       stream.appendChild(cardWrapper);
@@ -2583,6 +2884,8 @@
     initVideoLoading();
     setTimeout(() => setupHomeFeedObserver(), 50);
     wireHomeFeedInteractions();
+    // התאמות UI מובייל לפעולות ותגובות
+    applyMobilePostUiStyles();
 
     // סימון סיום רינדור סט ראשון
     if (!append) {
@@ -3280,14 +3583,16 @@
     publishPost,
     likePost,
     sharePost,
+    postComment,
     openEditPost,
     deletePost,
     deletePostQuiet,
     parseYouTube,
     createMediaHtml,
-    
-    
-    
+    buildTheaterSnapshot: App.buildTheaterSnapshot,
+
+
+
     registerDeletion,
     registerLike,
     updateLikeIndicator,
@@ -3299,9 +3604,11 @@
     document.addEventListener('DOMContentLoaded', () => {
       initVideoPlayHandlers();
       initImageLightbox();
+      bindTheaterOpen();
     });
   } else {
     initVideoPlayHandlers();
     initImageLightbox();
+    bindTheaterOpen();
   }
 })(window);
