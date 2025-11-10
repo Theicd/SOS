@@ -303,6 +303,15 @@
         }
         event.preventDefault();
         event.stopPropagation();
+        if (article) {
+          try {
+            const playing = article.querySelector('video');
+            if (playing && !playing.paused) {
+              playing.pause();
+              try { playing.currentTime = 0; } catch (_) {}
+            }
+          } catch (_) {}
+        }
         await ensureTheaterAssetsLoaded();
         if (window.PostTheaterViewer) {
           const data = buildTheaterPostDataFromCard(card);
