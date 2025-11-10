@@ -279,7 +279,13 @@
       console.warn('Follow service: failed loading following from relays', err);
     }
     if (Array.isArray(events) && events.length) {
-      events.forEach((event) => applyFollowEvent(event));
+      events.forEach((event) => {
+        const changed = applyFollowEvent(event);
+        // חלק התרעות עוקב (follow-service.js) – יצירת התרעה גם בטעינה ההתחלתית של עוקבים
+        if (changed && typeof App.handleNotificationForFollow === 'function') {
+          App.handleNotificationForFollow(event);
+        }
+      });
       refreshFollowButtons();
     }
   }
@@ -300,6 +306,10 @@
         onevent(event) {
           const changed = applyFollowEvent(event);
           if (!changed) return;
+          // חלק התרעות עוקב (follow-service.js) – יצירת התרעה כאשר משתמש חדש מתחיל לעקוב אחרינו
+          if (typeof App.handleNotificationForFollow === 'function') {
+            App.handleNotificationForFollow(event);
+          }
         },
       });
       followState.followerSubscriptions.set(target, sub);

@@ -295,8 +295,8 @@
         if (!card) return;
         const article = card.querySelector('.feed-post');
         if (!article) return;
-        // אל תפתח על לחיצה על פעולות/תגובות/וידאו/תמונה עם לייטבוקס/קישורים
-        if (event.target.closest('.feed-post__actions') || event.target.closest('.feed-comments') || event.target.closest('[data-video-container]') || event.target.closest('a')) return;
+        // אל תפתח על לחיצה על פעולות/תגובות/וידאו/תמונה עם לייטבוקס/קישורים/תפריט/עקוב (כפתור תגובות מטופל בנפרד)
+        if (event.target.closest('.feed-post__actions') || event.target.closest('.feed-comments') || event.target.closest('[data-video-container]') || event.target.closest('a') || event.target.closest('.feed-post__menu-wrap') || event.target.closest('[data-post-menu]') || event.target.closest('.feed-post__follow-button')) return;
         if (event.target.closest('.feed-media')) {
           // תמונות כבר מנוהלות בלייטבוקס – לא נפתח תיאטרון כדי לא להתנגש
           return;
@@ -2961,10 +2961,30 @@
     if (!toggle || !section) {
       return;
     }
-    // תמיד פתוח כברירת מחדל; לחיצה על toggler רק מגלגלת לאזור התגובות ומרעננת
-    toggle.addEventListener('click', () => {
-      try { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
-      updateCommentsForParent(parentId);
+    // לחיצה על כפתור תגובות תפתח את מצב התיאטרון עם פוקוס על שדה התגובה
+    toggle.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        const card = articleEl.closest('.home-feed__card');
+        if (card) {
+          // עצירת וידאו מתנגן בפוסט המקורי
+          try {
+            const playing = articleEl.querySelector('video');
+            if (playing && !playing.paused) {
+              playing.pause();
+              try { playing.currentTime = 0; } catch (_) {}
+            }
+          } catch (_) {}
+          // פתיחת התיאטרון עם סימון לפוקוס על תגובה
+          await ensureTheaterAssetsLoaded();
+          if (window.PostTheaterViewer) {
+            const data = buildTheaterPostDataFromCard(card);
+            data.focusComment = true; // סימון לפוקוס על שדה התגובה
+            window.PostTheaterViewer.open(data);
+          }
+        }
+      } catch (_) {}
     });
     // פתיחה וטעינה ראשונית
     section.removeAttribute('hidden');
@@ -3599,8 +3619,10 @@
     parseYouTube,
     createMediaHtml,
     buildTheaterSnapshot: App.buildTheaterSnapshot,
-
-
+    handleNotificationForFollow,
+    handleNotificationForDatingLike,
+    handleNotificationForComment,
+    handleNotificationForLike,
 
     registerDeletion,
     registerLike,
