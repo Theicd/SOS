@@ -22,8 +22,8 @@
 .ptv-overlay.ptv-mobile .ptv-layout {
   display: flex;
   flex-direction: column;
-  height: auto;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* פאנל שמאלי: גלילה עצמאית לטקסט ותגובות */
@@ -35,7 +35,8 @@
 }
 .ptv-overlay.ptv-mobile .ptv-side {
   height: auto;
-  max-height: 60vh;
+  flex: 1;
+  overflow-y: auto;
   border-inline-end: none;
   border-block-end: 1px solid #2a2a2a;
 }
@@ -50,8 +51,9 @@
 }
 .ptv-overlay.ptv-mobile .ptv-media {
   height: auto;
-  max-height: 60vh;
+  flex-shrink: 0;
   padding: 12px;
+  background: #000;
 }
 .ptv-media img, .ptv-media video {
   max-width: 100%;
@@ -63,6 +65,8 @@
 .ptv-overlay.ptv-mobile .ptv-media video,
 .ptv-overlay.ptv-mobile .ptv-media iframe {
   border-radius: 0;
+  width: 100%;
+  height: auto;
 }
 
 /* כפתור סגירה */
@@ -96,10 +100,12 @@
 /* סטטיסטיקות */
 .ptv-stats { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; color: #c7c7c7; font-size: 14px; border-block: 1px solid #2a2a2a; }
 .ptv-overlay.ptv-mobile .ptv-stats {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 8px 12px;
+  flex-wrap: nowrap;
 }
 
 /* פעולות: 3 טורים שווים */

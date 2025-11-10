@@ -313,9 +313,9 @@
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
         iframe.allowFullscreen = true;
         iframe.style.width = '100%';
-        iframe.style.height = '100%';
+        iframe.style.aspectRatio = '16 / 9';
+        iframe.style.height = 'auto';
         iframe.style.maxWidth = '100%';
-        iframe.style.maxHeight = '100%';
         iframe.style.border = '0';
         mediaWrap.appendChild(iframe);
       } else if(first.type==='video'){
@@ -337,6 +337,15 @@
     el.classList.add('ptv-open');
     applyResponsiveLayout();
     document.documentElement.style.overflow = 'hidden';
+    // אם סימנו focusComment, העבר פוקוס לשדה התגובה
+    if (post && post.focusComment) {
+      setTimeout(() => {
+        const input = el.querySelector('.ptv-reply input');
+        if (input) {
+          input.focus();
+        }
+      }, 100);
+    }
   }
   function close(){
     const el = document.querySelector('.ptv-overlay');
