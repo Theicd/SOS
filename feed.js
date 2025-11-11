@@ -618,15 +618,13 @@
       // אם אין עוד מה להציג ברשימה המלאה – אל תעשה כלום
       if (displayedPostsCount >= allFeedEvents.length) return;
       
-      // חלק infinite scroll (feed.js) – בדיקה אם המשתמש מגיע לקרוב לסוף הפוסטים המוצגים כרגע
-      const scrollHeight = viewport.scrollHeight;
-      const scrollTop = viewport.scrollTop;
-      const clientHeight = viewport.clientHeight;
-      const scrollBottom = scrollHeight - scrollTop - clientHeight;
+      // חלק infinite scroll (feed.js) – טעינה מראש כשמגיעים לפוסט 7-8 מתוך 10
+      // חישוב מיקום הפוסט הנוכחי בתוך הבאץ' הנוכחי (1-10)
+      const positionInBatch = ((displayedPostsCount - 1) % POSTS_PER_LOAD) + 1;
       
-      // טען עוד אם המשתמש קרוב לסוף (פחות מ-300px) ויש עוד פוסטים להטעין
-      if (scrollBottom < 300 && displayedPostsCount < allFeedEvents.length) {
-        console.log(`[INFINITE SCROLL] Loading more posts: displayed=${displayedPostsCount}, total=${allFeedEvents.length}, scrollBottom=${scrollBottom}`);
+      // טען עוד אם המשתמש הגיע לפוסט 7-8 מתוך 10 בבאץ' הנוכחי
+      if (positionInBatch >= 7 && displayedPostsCount < allFeedEvents.length) {
+        console.log(`[INFINITE SCROLL] Pre-loading more posts: displayed=${displayedPostsCount}, total=${allFeedEvents.length}, positionInBatch=${positionInBatch}`);
         isLoadingMore = true;
         // חלק infinite scroll (feed.js) – הצגת אנימציית טעינה בתחתית הפיד
         const loadingIndicator = document.getElementById('homeFeedLoadingIndicator');
