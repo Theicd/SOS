@@ -40,25 +40,27 @@ button {
   font-size: 0.8rem;
   z-index: 150;
   box-shadow: var(--shadow);
+  display: none !important; /* חלק HOME FEED – מסתיר את חיווי החיבור הישן לפי בקשת המשתמש (facebook-theme.css) */
 }
 
 .app-shell {
   max-width: 680px;
   margin: 0 auto;
-  padding-bottom: 96px;
+  padding-bottom: 0;
 }
 
 .top-bar {
-  position: sticky;
+  position: fixed;
   top: 0;
   z-index: 120;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
+  background: rgba(36, 37, 38, 0.75);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   left: 0;
   right: 0;
   width: 100vw;
@@ -160,18 +162,20 @@ button {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--card-alt);
-  border: none;
+  background: rgba(58, 59, 60, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, backdrop-filter 0.2s ease;
 }
 
 .circle-button:hover {
-  background: var(--border);
+  background: rgba(73, 74, 80, 0.7);
+  backdrop-filter: blur(10px);
 }
 
 /* חלק סרגל עליון (facebook-theme.css) – כפתור תמונת פרופיל מעוגל מחליף את אייקון ניהול החשבון */
@@ -453,33 +457,36 @@ button {
 }
 
 .primary-nav {
-  position: sticky;
-  top: 69px;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 110; /* חלק ניווט (facebook-theme.css) – z-index נמוך מהמודלים כדי שלא יכסה התראות, צ'אט ודשבורד */
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
+  background: rgba(36, 37, 38, 0.85);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   display: grid;
   grid-template-columns: repeat(5, minmax(92px, 1fr));
   justify-items: center;
   padding: 8px 12px;
   gap: 6px;
-  margin: 5px auto 0; /* חלק ניווט (facebook-theme.css) – מוסיף מרווח ומרכז את הסרגל גם בדסקטופ */
-  max-width: 620px; /* חלק ניווט (facebook-theme.css) – שומר רוחב מאוזן כדי שלא יבלוט חסרון כפתור */
-  border-radius: 16px; /* חלק ניווט (facebook-theme.css) – מיישר את עיגול הפינות של התפריט עם שאר הכרטיסים */
+  margin: 0 auto; /* חלק ניווט (facebook-theme.css) – מוסיף מרווח ומרכז את הסרגל גם בדסקטופ */
+  max-width: 100%; /* חלק ניווט (facebook-theme.css) – שומר רוחב מאוזן כדי שלא יבלוט חסרון כפתור */
+  border-radius: 0; /* חלק ניווט (facebook-theme.css) – מיישר את עיגול הפינות של התפריט עם שאר הכרטיסים */
   overflow: hidden; /* חלק ניווט (facebook-theme.css) – מונע זליגה של רקע האייקונים מעבר לפינות המעוגלות */
   transition: transform 0.35s ease, opacity 0.35s ease, box-shadow 0.35s ease; /* חלק ניווט (facebook-theme.css) – מעבר חלק לכניסה/יציאה של הסרגל */
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+  width: 100vw;
+  margin-left: calc((100vw - 100%) / -2);
+  margin-right: calc((100vw - 100%) / -2);
+  box-sizing: border-box;
 }
 
 /* חלק HOME FEED – כאשר מסתירים תפריטים, מעלימים את ה-primary-nav לחלוטין כדי שלא יישאר רקע מאחוריי הכפתור */
 body.home-feed--menus-hidden .primary-nav {
-  display: none !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
+  transform: translateY(100%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* העלמת הקומפוזר לגמרי במצב הסתרת תפריטים – שלא יישאר פס */
@@ -492,30 +499,66 @@ body.home-feed--menus-hidden .top-bar {
   transform: translateY(-100%) !important;
   opacity: 0 !important;
   pointer-events: none !important;
-  display: none !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .primary-nav {
-    max-width: none; /* חלק ניווט מובייל (facebook-theme.css) – מאפשר לתפריט להתפרש על כל הרוחב במסכים צרים */
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    padding: 6px 8px;
-    gap: 4px;
+    position: fixed !important;
+    bottom: 0 !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    max-width: 100% !important; /* חלק ניווט מובייל (facebook-theme.css) – מאפשר לתפריט להתפרש על כל הרוחב במסכים צרים */
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    padding: 8px 12px !important;
+    gap: 6px !important;
+    width: 100vw !important;
+    margin-left: calc((100vw - 100%) / -2) !important;
+    margin-right: calc((100vw - 100%) / -2) !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
   }
 
   .nav-item {
-    padding: 4px 0;
-    font-size: 0.7rem;
+    padding: 6px 0;
+    font-size: 0.75rem;
   }
 
   .nav-item i {
-    font-size: 1rem;
+    font-size: 1.1rem;
+  }
+
+  .top-bar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    margin-left: calc((100vw - 100%) / -2) !important;
+    margin-right: calc((100vw - 100%) / -2) !important;
+    box-sizing: border-box !important;
+    padding: 10px 12px !important;
+    z-index: 120 !important;
+  }
+
+  .composer-card {
+    position: fixed !important;
+    top: 56px !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    margin-left: calc((100vw - 100%) / -2) !important;
+    margin-right: calc((100vw - 100%) / -2) !important;
+    box-sizing: border-box !important;
+    z-index: 115 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .app-shell {
+    padding-top: 0 !important; /* ביטול רווח עליון קבוע – הריווח מנוהל ע"י .home-feed__viewport כדי שלא יישאר פס שחור כשהכותרת נעלמת */
   }
 }
 
@@ -825,13 +868,18 @@ body.home-feed--menus-hidden .top-bar {
 
 .feed-post__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* חלק כותרת פוסט (facebook-theme.css) – יישור האווטאר לחלק העליון */
   gap: 8px; /* חלק פיד (facebook-theme.css) – מצמצם את הרווח בין האווטאר לשם לאחידות עם שאר האזורים */
+  min-height: 46px; /* חלק כותרת פוסט (facebook-theme.css) – הבטחת גובה מינימלי לשורת הכותרת */
+  padding-top: 2px; /* חלק כותרת פוסט (facebook-theme.css) – התאמה קטנה לאיזון ויזואלי */
 }
 
 .feed-post__avatar {
   width: 46px;
   height: 46px;
+  min-width: 46px; /* חלק פיד (facebook-theme.css) – מניעת כיווץ של האווטאר */
+  min-height: 46px; /* חלק פיד (facebook-theme.css) – מניעת כיווץ של האווטאר */
+  flex-shrink: 0; /* חלק פיד (facebook-theme.css) – מניעת כיווץ של האווטאר */
   border-radius: 50%;
   overflow: hidden;
   /* חלק פיד (facebook-theme.css) – איפוסי כפתור ואחידות עם תגובות */
@@ -856,7 +904,7 @@ body.home-feed--menus-hidden .top-bar {
 .feed-post__info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 4px; /* חלק פיד (facebook-theme.css) – רווח בין השם והתאריך */
 }
 
 .feed-post__name {
@@ -881,6 +929,8 @@ body.home-feed--menus-hidden .top-bar {
 .feed-post__meta {
   font-size: 0.75rem;
   color: var(--muted);
+  margin: 0; /* חלק פיד (facebook-theme.css) – ביטול מרווחי ברירת מחדל */
+  line-height: 1.2; /* חלק פיד (facebook-theme.css) – גובה שורה מרוכז */
 }
 
 /* חלק פיד (facebook-theme.css) – טקסט הפוסט כולל תמיכה בקיפול תוכן ארוך */

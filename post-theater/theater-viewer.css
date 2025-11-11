@@ -21,7 +21,7 @@
 }
 .ptv-overlay.ptv-mobile .ptv-layout {
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   height: 100vh;
   overflow: hidden;
 }
@@ -36,9 +36,10 @@
 .ptv-overlay.ptv-mobile .ptv-side {
   height: auto;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   border-inline-end: none;
-  border-block-end: 1px solid #2a2a2a;
+  border-block-start: 1px solid #2a2a2a;
 }
 
 /* אזור מדיה ימני: תמונה/וידאו ממורכזים */
@@ -50,7 +51,7 @@
   justify-content: center;
 }
 .ptv-overlay.ptv-mobile .ptv-media {
-  height: auto;
+  height: 45vh;
   flex-shrink: 0;
   padding: 12px;
   background: #000;
@@ -67,6 +68,9 @@
   border-radius: 0;
   width: 100%;
   height: auto;
+}
+.ptv-overlay.ptv-mobile .ptv-media iframe {
+  aspect-ratio: 16 / 9;
 }
 
 /* כפתור סגירה */

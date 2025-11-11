@@ -1,6 +1,7 @@
 /* חלק משתנה מרווח עליון (home-feed.css) – ברירת מחדל כאשר התפריטים גלויים */
 :root {
   --home-feed-offset: 56px;
+  --home-feed-bottom-offset: 72px;
 }
 
 /* חלק גוף פעיל (home-feed.css) – נועל את גלילת המסמך כשהפיד פעיל */
@@ -70,6 +71,12 @@ body.home-feed--loading #welcomeCard .welcome-scroll {
   100% { background-position: -200% 0; }
 }
 
+@keyframes lux-divider-shine {
+  0% { background-position: 0% 50%; opacity: 0.85; }
+  50% { background-position: 100% 50%; opacity: 1; }
+  100% { background-position: 0% 50%; opacity: 0.85; }
+}
+
 .welcome-progress__label {
   color: #fff;
   font-weight: 700;
@@ -107,10 +114,11 @@ body.home-feed--menus-hidden {
   position: relative;
   height: 100vh;
   overflow-y: scroll;
-  scroll-snap-type: y mandatory;
+  scroll-snap-type: none;
   scroll-behavior: smooth;
   scrollbar-width: none;
   padding-top: var(--home-feed-offset);
+  padding-bottom: var(--home-feed-bottom-offset);
   /* מונע חטיפה של גלילה פנימית מהפוסט עצמו, במיוחד במובייל */
   overscroll-behavior-y: contain;
 }
@@ -178,22 +186,36 @@ body.home-feed--menus-hidden {
 
 /* חלק קלף פוסט (home-feed.css) – כרטיס פוסט מלא מסך עם אפקט התמקדות */
 .home-feed__card {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  scroll-margin-top: var(--home-feed-offset);
-  height: calc(100vh - var(--home-feed-offset));
-  min-height: calc(100vh - var(--home-feed-offset));
-  max-height: calc(100vh - var(--home-feed-offset));
+  scroll-snap-align: none;
+  scroll-snap-stop: normal;
+  scroll-margin-top: 0;
+  height: auto;
+  min-height: auto;
+  max-height: none;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   margin: 0;
   background: transparent;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 0.35;
-  filter: blur(3px);
-  transform: scale(0.94);
-  overflow: hidden;
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+  overflow: visible;
+  margin-bottom: 16px;
+  padding: 0 12px;
+}
+
+.home-feed__card:not(:last-child)::after { /* חלק הפרדה (home-feed.css) – קו מפריד עבה עם גרדיאנט יוקרתי בין כרטיסיות פיד במצב דסקטופ */
+  content: '';
+  display: block;
+  height: 3px;
+  margin: 22px 12px 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.28) 48%, rgba(255, 255, 255, 0.06) 100%);
+  background-size: 220% 100%;
+  animation: lux-divider-shine 6s ease-in-out infinite;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .home-feed__card.in-view {
@@ -207,25 +229,32 @@ body.home-feed--menus-hidden {
   opacity: 1 !important;
   filter: blur(0) !important;
   transform: scale(1) !important;
-  margin-top: -35px;
-  height: clamp(320px, 58vh, calc(100vh - var(--home-feed-offset)));
-  min-height: clamp(320px, 58vh, calc(100vh - var(--home-feed-offset)));
-  max-height: clamp(320px, 58vh, calc(100vh - var(--home-feed-offset)));
+  margin-top: 0;
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  margin-bottom: 16px;
 }
 
 /* חלק גוף פוסט אחיד (home-feed.css) – מבטיח שהפוסט ממלא את הכרטיס במלואו עם גלילה פנימית נעימה */
 .home-feed__card .feed-post {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden; /* אין גלילה פנימית – הגלילה היא של ה-viewport עבור סנאפ בין פוסטים */
+  height: auto;
+  max-height: none;
+  overflow: visible; /* גלילה רגילה – הגלילה היא של ה-viewport */
   padding: clamp(16px, 3vw, 22px);
-  padding-bottom: max(72px, env(safe-area-inset-bottom, 0px) + 72px); /* מבטיח שכפתורי התחתית נראים */
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px) + 16px); /* מבטיח שכפתורי התחתית נראים */
   scrollbar-width: none;
   background: var(--card);
   border-radius: 16px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.home-feed__card .feed-post.feed-post--liked { /* חלק הדגשה (home-feed.css) – פוסטים עם לייקים מקבלים אור מסגרת עדין */
+  box-shadow: 0 12px 40px rgba(58, 160, 255, 0.35);
+  border: 1px solid rgba(58, 160, 255, 0.45);
+  background: linear-gradient(180deg, rgba(34, 36, 39, 0.95) 0%, rgba(49, 53, 58, 0.95) 100%);
 }
 
 /* גלילה מתוך המדיה עצמה – לאלץ pan-y גם כאשר האצבע על התמונה/וידאו */
@@ -233,6 +262,26 @@ body.home-feed--menus-hidden {
 .home-feed__card .feed-post video,
 .home-feed__card .feed-post .feed-media {
   touch-action: pan-y;
+}
+
+.home-feed__card .feed-post__info { /* חלק קישוט כותרת (home-feed.css) – הכנת מקום לפס יוקרתי תחת שם המשתמש */
+  position: relative;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* חלק כותרת פוסט (home-feed.css) – רווח בין השם והתאריך */
+}
+
+.home-feed__card .feed-post__info::after { /* חלק קישוט כותרת (home-feed.css) – פס אנימטיבי מתחת לשם המשתמש */
+  content: '';
+  display: block;
+  height: 2px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0.08) 100%);
+  background-size: 200% 100%;
+  animation: lux-divider-shine 5s ease-in-out infinite;
 }
 
 /* שכבת play של הווידאו לא תחסום גלילה – הקליק נתפס ע"י העטיפה (JS) */
@@ -255,6 +304,7 @@ body.home-feed--menus-hidden {
 /* חלק קומפוזר מוסתר (home-feed.css) – מחביא את קומפוזר הפוסט כאשר התפריטים סגורים | שייך ל-COMPOSER CARD */
 .composer-card {
   transition: opacity 0.25s ease, margin 0.25s ease, padding 0.25s ease, max-height 0.25s ease;
+  display: none !important; /* בקשת משתמש – הסרת שורת השיתוף מהתצוגה ללא נגיעה בלוגיקה */
 }
 
 .composer-card--hidden {
@@ -272,7 +322,7 @@ body.home-feed--menus-hidden {
 }
 
 .home-feed__card .feed-post > * {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
 }
 
 /* חלק כותרת פוסט (home-feed.css) – מיקום קבוע של שם המשתמש ותמונת פרופיל */
@@ -284,8 +334,10 @@ body.home-feed--menus-hidden {
   padding-bottom: 8px;
   margin-bottom: 8px;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* חלק כותרת פוסט (home-feed.css) – יישור האווטאר לחלק העליון */
   gap: 10px;
+  min-height: 46px; /* חלק כותרת פוסט (home-feed.css) – הבטחת גובה מינימלי לשורת הכותרת */
+  padding-top: 2px; /* חלק כותרת פוסט (home-feed.css) – התאמה קטנה לאיזון ויזואלי */
 }
 
 /* יישור אלמנטי פעולה בכותרת לצד הנגדי של האוואטר/שם */
@@ -364,7 +416,7 @@ body.home-feed--menus-hidden {
 
 /* חלק כפתורי פעולה – יושבים ישירות מתחת לקו ההפרדה, לא מודבקים לתחתית הכרטיס */
 .home-feed__card .feed-post__actions {
-  position: static;
+  position: relative;
   bottom: auto;
   background: transparent;
   z-index: 1;
@@ -374,6 +426,20 @@ body.home-feed--menus-hidden {
   gap: 16px;
   padding-top: 8px;
   margin-top: 12px;
+}
+
+.home-feed__card .feed-post__actions::before { /* חלק פס פעולה (home-feed.css) – אנימציית מעבר לפני כפתורי הפעולה */
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: -10px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.08) 100%);
+  background-size: 220% 100%;
+  animation: lux-divider-shine 7s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .home-feed__card .feed-post__action {
@@ -448,25 +514,155 @@ body.home-feed--menus-hidden {
 
 /* חלק מובייל (home-feed.css) – התאמות למסכים קטנים */
 @media (max-width: 768px) {
+  :root {
+    --home-feed-offset: 56px;
+    --home-feed-bottom-offset: 72px;
+  }
+
   /* במובייל משתמשים באותו משתנה כדי לשמור סנכרון מלא */
   .home-feed__card {
-    border-radius: 12px;
-    scroll-margin-top: var(--home-feed-offset);
-    height: calc(100vh - var(--home-feed-offset));
-    min-height: calc(100vh - var(--home-feed-offset));
-    max-height: calc(100vh - var(--home-feed-offset));
+    border-radius: 12px !important;
+    scroll-margin-top: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    margin-bottom: 16px !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .home-feed__card:not(:last-child)::after { /* חלק הפרדה מובייל (home-feed.css) – קו גרדיאנט מלא רוחב ללא ריווח צדדים */
+    margin: 22px 0 0 !important;
   }
 
   .home-feed__card--welcome {
-    margin-top: -35px;
-    height: clamp(320px, 60vh, calc(100vh - var(--home-feed-offset)));
-    min-height: clamp(320px, 60vh, calc(100vh - var(--home-feed-offset)));
-    max-height: clamp(320px, 60vh, calc(100vh - var(--home-feed-offset)));
+    margin-top: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    margin-bottom: 16px !important;
   }
 
   .home-feed__toggle {
     top: 6px;
     font-size: 0.85rem;
     padding: 5px 12px;
+  }
+
+  .home-feed__viewport {
+    padding-top: var(--home-feed-offset) !important; /* ריווח מותאם לאחר הסרת שורת השיתוף במובייל */
+    padding-bottom: var(--home-feed-bottom-offset) !important;
+  }
+
+  .home-feed__card {
+    scroll-margin-top: 0 !important; /* התאמת scroll-margin-top בחוויית מובייל לאחר הסרת שורת השיתוף */
+  }
+
+  .home-feed__card .feed-post { /* חלק מובייל (home-feed.css) – פריסת פיד שקופה ורחבה בסגנון לינקדאין */
+    background: transparent !important;
+    box-shadow: none;
+    border-radius: 0 !important;
+    padding: 16px 18px 20px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .home-feed__card .feed-post.feed-post--liked { /* חלק מובייל (home-feed.css) – הדגשת לייקים נותרת גם במובייל */
+    box-shadow: 0 10px 30px rgba(58, 160, 255, 0.35);
+    border: 1px solid rgba(58, 160, 255, 0.45);
+    background: linear-gradient(180deg, rgba(34, 36, 39, 0.95) 0%, rgba(49, 53, 58, 0.95) 100%) !important;
+  }
+
+  .home-feed__card .feed-post__actions::before {
+    left: 18px;
+    right: 18px;
+    top: -12px;
+  }
+
+  .home-feed__card .feed-post__media { /* חלק מובייל (home-feed.css) – מדיה מתוחה לרוחב מלא כמו בלינקדאין */
+    margin: 12px -18px !important;
+  }
+
+  .home-feed__card .feed-post__media .feed-media,
+  .home-feed__card .feed-post__media img,
+  .home-feed__card .feed-post__media video { /* חלק מובייל (home-feed.css) – הסרת עיגול קצוות למדיה במובייל בסגנון לינקדאין */
+    border-radius: 0 !important;
+  }
+
+  .home-feed__card .feed-post__header { /* חלק מובייל (home-feed.css) – ביטול sticky לכותרת כדי שלא תנדוד בין כרטיסיות */
+    position: static !important;
+    background: transparent !important;
+  }
+}
+
+/* חלק infinite scroll (home-feed.css) – אנימציית טעינה בתחתית הפיד */
+.home-feed__loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  margin: 16px 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(45, 156, 255, 0.08), rgba(10, 44, 136, 0.08));
+  border: 1px solid rgba(45, 156, 255, 0.2);
+  animation: fadeInUp 400ms ease-out;
+}
+
+/* חלק infinite scroll (home-feed.css) – spinner בעל 3 נקודות */
+.loading-spinner {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2d9cff, #0a2c88);
+  animation: spinnerBounce 1.4s infinite ease-in-out;
+}
+
+.spinner-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.spinner-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.spinner-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes spinnerBounce {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
