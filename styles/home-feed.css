@@ -604,6 +604,7 @@ body.home-feed--menus-hidden {
   gap: 12px;
   padding: 24px 16px;
   margin: 16px 0;
+  margin-bottom: 80px; /* חלק infinite scroll (home-feed.css) – מרחק מהתפריט התחתון במובייל */
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(45, 156, 255, 0.08), rgba(10, 44, 136, 0.08));
   border: 1px solid rgba(45, 156, 255, 0.2);
@@ -665,5 +666,12 @@ body.home-feed--menus-hidden {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* חלק infinite scroll (home-feed.css) – התאמת מרחק loading indicator בדסקטופ */
+@media (min-width: 769px) {
+  .home-feed__loading-indicator {
+    margin-bottom: 16px; /* חלק infinite scroll (home-feed.css) – מרחק נורמלי בדסקטופ */
   }
 }
