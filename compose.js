@@ -631,6 +631,20 @@
         setStatus('הרקע הוסר.');
       });
     }
+
+    // חלק שידור חי (compose.js) – כפתור שידור חי מתוך חלון השיתוף
+    try {
+      const liveBtn = document.getElementById('composeLiveButton');
+      if (liveBtn) {
+        // מחליפים מאזין כדי למנוע כפילות אם ה-DOM נטען מחדש
+        const fresh = liveBtn.cloneNode(true);
+        liveBtn.parentNode.replaceChild(fresh, liveBtn);
+        fresh.addEventListener('click', () => {
+          try { if (typeof App.closeCompose === 'function') App.closeCompose(); } catch (_) {}
+          try { if (typeof App.openLiveBroadcast === 'function') App.openLiveBroadcast({ slug: 'live' }); } catch (_) {}
+        });
+      }
+    } catch (_) {}
   }
 
   function setComposeDraft(text, mediaDataUrl, originalId = null) {

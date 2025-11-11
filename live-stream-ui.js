@@ -53,23 +53,15 @@
   App.onLiveStarted = function(){ /* ניתן להציג סטטוס */ };
   App.onLiveEnded = function(){ closeModal(); };
 
+  // חלק שידור חי – חשיפת API גלובלי לפתיחת שידור חי ממקומות אחרים בממשק
+  App.openLiveBroadcast = function(roomMeta){
+    try { openModal('broadcast', roomMeta || { slug: 'live' }); } catch(_) {}
+  };
+
   // חלק שידור חי – כפתור בראש הדף
   function insertTopBarButton(){
-    const tryInit = () => {
-      const actions = doc.querySelector('.top-bar__actions');
-      if(!actions) return setTimeout(tryInit, 300);
-      if(actions.querySelector('#liveStartButton')) return; // כבר קיים
-      const btn = doc.createElement('button');
-      btn.className = 'circle-button';
-      btn.id = 'liveStartButton';
-      btn.setAttribute('aria-label','שידור חי');
-      btn.innerHTML = '<i class="fa-solid fa-tower-broadcast"></i>';
-      actions.insertBefore(btn, actions.firstChild.nextSibling);
-      const fresh = btn.cloneNode(true); btn.parentNode.replaceChild(fresh, btn);
-      fresh.addEventListener('click', ()=> openModal('broadcast', { slug: 'live' }));
-      console.log('Live stream button initialized');
-    };
-    tryInit();
+    // מושבת בכוונה: אין הוספת כפתור שידור חי בסרגל העליון
+    return;
   }
 
   // חלק שידור חי – מנוי לפוסטים מסוג live-post כדי לצייר כרטיס בפיד

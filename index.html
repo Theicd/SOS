@@ -166,8 +166,9 @@
               <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
             </div>
             <div class="top-bar__actions">
-                <button class="circle-button" onclick="openCompose()" aria-label="פוסט חדש">
-                    <i class="fa-solid fa-plus"></i>
+                <!-- חלק ניווט הכרויות (index.html) – אייקון לב בסרגל העליון לפתיחת מסך ההכרויות | HYPER CORE TECH -->
+                <button class="circle-button" id="datingToggleTop" aria-label="הכרויות">
+                    <i class="fa-solid fa-heart"></i>
                 </button>
                 <button class="circle-button" id="notificationsToggle" aria-label="התראות">
                     <i class="fa-solid fa-bell"></i>
@@ -207,15 +208,16 @@
                 <i class="fa-solid fa-clapperboard"></i>
                 <span>וידאו פיד</span>
             </button>
+            <!-- חלק יצירת פוסט (index.html) – כפתור פלוס בתפריט התחתון לפתיחת קומפוזר -->
+            <button class="nav-item" id="navCompose" type="button" aria-label="פוסט חדש" onclick="openCompose()">
+                <i class="fa-solid fa-plus"></i>
+                <span>פוסט חדש</span>
+            </button>
             <button class="nav-item" data-nav="games">
                 <i class="fa-solid fa-gamepad"></i>
                 <span>משחקים</span>
             </button>
             <!-- חלק ניווט הכרויות (index.html) – כפתור המעבר למסך הטינדר החדש -->
-            <button class="nav-item" data-nav="dating">
-                <i class="fa-solid fa-heart"></i>
-                <span>הכרויות</span>
-            </button>
             <!-- חלק ניווט חוזה (index.html) – כפתור "חוזה חכם" בקצה השמאלי להדגשת חוויית ההשקעה -->
             <button class="nav-item" data-nav="contract-v2">
                 <i class="fa-solid fa-handshake"></i>
@@ -421,6 +423,11 @@
             <button class="button-secondary" type="button" onclick="document.getElementById('composeMediaInput').click()">
               <i class="fa-regular fa-image"></i>
               <span>הוסף תמונה/וידאו</span>
+            </button>
+            <!-- חלק שידור חי (index.html) – כפתור לשידור חי ישירות מחלון יצירת פוסט | HYPER CORE TECH -->
+            <button class="button-primary" type="button" id="composeLiveButton" aria-label="התחלת שידור חי">
+              <i class="fa-solid fa-tower-broadcast"></i>
+              <span>שידור חי</span>
             </button>
             <!-- חלק רקעים (index.html) – הפעלת מצב רקע טקסט וגלריית רקעים חינמיים -->
             <button class="button-secondary" type="button" id="composeBgToggle">

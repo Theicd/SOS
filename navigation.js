@@ -63,6 +63,17 @@
     button.addEventListener('click', handleNavClick);
   });
 
+  // חלק ניווט הכרויות (navigation.js) – חיבור אייקון הלב בסרגל העליון לאותה התנהגות
+  try {
+    const datingTopBtn = document.getElementById('datingToggleTop');
+    if (datingTopBtn) {
+      datingTopBtn.addEventListener('click', () => {
+        updateNavSelection('dating');
+        window.location.href = './dating.html';
+      });
+    }
+  } catch (_) {}
+
   // חלק ניווט ראשי (navigation.js) – בעת טעינה מחדש, דואג שלשונית ברירת המחדל תוצג
   updateNavSelection(App.activeNav);
 
