@@ -186,7 +186,7 @@
                             <i class="fa-solid fa-chart-line"></i>
                             <span>לוח גידול הרשת</span>
                         </button>
-                        <button type="button" class="top-bar__dropdown-item" id="topBarProfilePage">
+                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileSelf">
                             <i class="fa-solid fa-id-card"></i>
                             <span>הפרופיל שלי</span>
                         </button>
@@ -393,12 +393,17 @@
                     </div>
                 </div>
                 <div class="home-feed__status" id="homeFeedStatus" role="status">טוען פוסטים...</div>
+                <!-- חלק infinite scroll (index.html) – אנימציית טעינה בתחתית הפיד כשמטענים פוסטים נוספים -->
+                <div class="home-feed__loading-indicator" id="homeFeedLoadingIndicator" hidden>
+                    <div class="loading-spinner">
+                        <div class="spinner-dot"></div>
+                        <div class="spinner-dot"></div>
+                        <div class="spinner-dot"></div>
+                    </div>
+                    <p class="loading-text">טוען פוסטים נוספים...</p>
+                </div>
             </section>
-            <!-- חלק כפתור תפריטים (index.html) – כפתור צף לפתיחת תפריטים ופס עליון בעת צפייה בפוסטים | שייך ל-HOME FEED -->
-            <button class="home-feed__toggle" id="homeFeedToggleButton" type="button" aria-label="הצג תפריטים">
-                <span class="home-feed__toggle-icon" aria-hidden="true">☰</span>
-                <span class="home-feed__toggle-text">הצג תפריטים</span>
-            </button>
+            
         </main>
     </div>
     <div class="compose-modal" id="composeModal" aria-hidden="true">

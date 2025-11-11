@@ -560,10 +560,22 @@
   // חלק טעינה – סיום מרוכז המגן מכפילויות
   function finishWelcomeIfReady() {
     if (App._homeFeedFirstBatchShown) return;
-    setWelcomeLoading(100);
+    setWelcomeLoading(95);
     endWelcomeLoading();
     App._homeFeedFirstBatchShown = true;
     App._homeFeedLoadingInProgress = false;
+  }
+
+  function scheduleWelcomeFallback() {
+    if (_welcomeFallbackTimer) {
+      clearTimeout(_welcomeFallbackTimer);
+    }
+    _welcomeFallbackTimer = setTimeout(() => {
+      if (!App._homeFeedFirstBatchShown) {
+        console.warn('[HOME FEED] Welcome fallback triggered – releasing UI.');
+        finishWelcomeIfReady();
+      }
+    }, 3500);
   }
 
   // חלק טעינה (feed.js) – להמתין לצביעה בפועל של הכרטיס הראשון לפני סיום טעינה
@@ -605,20 +617,29 @@
       if (isLoadingMore) return;
       // אם אין עוד מה להציג ברשימה המלאה – אל תעשה כלום
       if (displayedPostsCount >= allFeedEvents.length) return;
-      const lastIdx = typeof App._homeFeedLastIndex === 'number' ? App._homeFeedLastIndex : 0;
-      // כאשר המשתמש מגיע לפוסט 7/8 מתוך הסט (מרחק <=3 מהסוף) נטען את הבא
-      if (displayedPostsCount - lastIdx <= 3) {
+      
+      // חלק infinite scroll (feed.js) – בדיקה אם המשתמש מגיע לקרוב לסוף הפוסטים המוצגים כרגע
+      const scrollHeight = viewport.scrollHeight;
+      const scrollTop = viewport.scrollTop;
+      const clientHeight = viewport.clientHeight;
+      const scrollBottom = scrollHeight - scrollTop - clientHeight;
+      
+      // טען עוד אם המשתמש קרוב לסוף (פחות מ-300px) ויש עוד פוסטים להטעין
+      if (scrollBottom < 300 && displayedPostsCount < allFeedEvents.length) {
+        console.log(`[INFINITE SCROLL] Loading more posts: displayed=${displayedPostsCount}, total=${allFeedEvents.length}, scrollBottom=${scrollBottom}`);
         isLoadingMore = true;
-        if (statusEl) {
-          statusEl.textContent = 'טוען עוד...';
-          statusEl.classList.add('is-visible');
+        // חלק infinite scroll (feed.js) – הצגת אנימציית טעינה בתחתית הפיד
+        const loadingIndicator = document.getElementById('homeFeedLoadingIndicator');
+        if (loadingIndicator) {
+          loadingIndicator.removeAttribute('hidden');
         }
         try {
           await displayPosts(allFeedEvents, true);
         } finally {
           isLoadingMore = false;
-          if (statusEl) {
-            statusEl.classList.remove('is-visible');
+          // חלק infinite scroll (feed.js) – הסתרת אנימציית הטעינה לאחר סיום
+          if (loadingIndicator) {
+            loadingIndicator.setAttribute('hidden', '');
           }
         }
       }
@@ -635,6 +656,7 @@
   // חלק טעינה (feed.js) – ניהול מד טעינה בכרטיס הברכה עם אחוזים
   let _welcomeProgressTimer = null;
   let _welcomeProgressValue = 0;
+  let _welcomeFallbackTimer = null; // חלק טעינה (feed.js) – טיימר גיבוי לשחרור הכרטיס אם הרינדור נתקע
   function setWelcomeStatus(message) {
     try {
       const labelWrap = document.querySelector('.welcome-progress__label');
@@ -711,10 +733,15 @@
   function endWelcomeLoading() {
     document.body.classList.remove('home-feed--loading');
     document.documentElement.classList.remove('home-feed--loading');
-    setWelcomeLoading(100);
+    setWelcomeLoading(95);
+    console.log('[HOME FEED] Welcome loading ended – releasing UI at 95%.');
     if (_welcomeProgressTimer) {
       clearInterval(_welcomeProgressTimer);
       _welcomeProgressTimer = null;
+    }
+    if (_welcomeFallbackTimer) {
+      clearTimeout(_welcomeFallbackTimer);
+      _welcomeFallbackTimer = null;
     }
     unbindLoadingGuards();
   }
@@ -870,6 +897,7 @@
     let scrollTimeout = null;
     let autoHideCooldown = Date.now() + 600;
     let hasShownTogglePulse = false;
+    let lastScrollY = 0; // חלק גלילה (feed.js) – עקיבה אחרי כיוון הגלילה להתנהגות בסגנון אינסטגרם
 
     let welcomeHeight = 0;
     if (welcomeCard && typeof welcomeCard.offsetHeight === 'number') {
@@ -888,53 +916,21 @@
       menusHidden = hidden;
 
       if (hidden) {
-        // הסתר קודם את ה-primary-nav והקומפוזר, ואז את הפס העליון – מפחית חפיפה בזמן אנימציות
-        if (primaryNav) {
-          primaryNav.classList.add('primary-nav--hidden');
-          primaryNav.classList.remove('primary-nav--compact');
-        }
-        if (composerCard) {
-          composerCard.classList.add('composer-card--hidden');
-        }
+        // חלק גלילה (feed.js) – הסתרת הפס העליון בלבד; התפריט התחתון נשאר תמיד גלוי
         if (topBar) {
           topBar.classList.add('top-bar--hidden');
         }
-        document.body.classList.add('home-feed--menus-hidden');
-        if (toggleButton) {
-          toggleButton.classList.add('home-feed__toggle--visible');
-          if (toggleText) {
-            toggleText.textContent = 'הצג תפריטים';
-          }
-          if (!hasShownTogglePulse) {
-            toggleButton.classList.add('home-feed__toggle--pulse');
-            hasShownTogglePulse = true;
-          }
-        }
+        // עדכון ריווח עליון של ה-viewport – אין רווח כשמסתירים את הפס העליון
+        try { document.documentElement.style.setProperty('--home-feed-offset', '0px'); } catch (e) {}
+        // אין שימוש בכפתור התפריטים – הוסר מה-HTML
       } else {
-        // קודם שחרר את משתנה המרווח (מעדכן padding/scroll-margin), ואז הצג את הפס העליון, ורק אחרי רגע את הניווט והקומפוזר
-        document.body.classList.remove('home-feed--menus-hidden');
+        // חלק גלילה (feed.js) – הצגת הפס העליון בחזרה בגלילה כלפי מעלה
         if (topBar) {
           topBar.classList.remove('top-bar--hidden');
         }
-        // המתנה קצרה כדי לתת לפס העליון להתייצב לפני הופעת הניווט
-        setTimeout(() => {
-          if (primaryNav) {
-            // מציגים במצב compact לריכוך ואז משחררים
-            primaryNav.classList.remove('primary-nav--hidden');
-            primaryNav.classList.add('primary-nav--compact');
-            setTimeout(() => primaryNav.classList.remove('primary-nav--compact'), 180);
-          }
-          if (composerCard) {
-            composerCard.classList.remove('composer-card--hidden');
-          }
-        }, 120);
-        if (toggleButton) {
-          toggleButton.classList.remove('home-feed__toggle--pulse');
-          toggleButton.classList.remove('home-feed__toggle--visible');
-          if (toggleText) {
-            toggleText.textContent = 'החבא תפריטים';
-          }
-        }
+        // החזרת ריווח עליון ברירת מחדל כך שהתוכן לא ייתקע תחת הפס העליון
+        try { document.documentElement.style.setProperty('--home-feed-offset', '56px'); } catch (e) {}
+        // התפריט התחתון לא משתנה כלל
         autoHideCooldown = Date.now() + (reason === 'manual' ? 1500 : 600);
       }
     }
@@ -943,15 +939,20 @@
 
     function handleMainScroll() {
       const currentY = viewport.scrollTop;
+      const scrollDirection = currentY > lastScrollY ? 'down' : 'up'; // חלק גלילה (feed.js) – זיהוי כיוון הגלילה
+      lastScrollY = currentY;
 
-      if (!menusHidden && currentY > hideThreshold && Date.now() > autoHideCooldown) {
+      if (!menusHidden && currentY > hideThreshold && scrollDirection === 'down' && Date.now() > autoHideCooldown) {
         setMenusHidden(true, { reason: 'scroll' });
         return;
       }
 
-      if (menusHidden && toggleButton && !toggleButton.classList.contains('home-feed__toggle--visible')) {
-        toggleButton.classList.add('home-feed__toggle--visible');
+      if (menusHidden && scrollDirection === 'up' && Date.now() > autoHideCooldown) {
+        setMenusHidden(false, { reason: 'scroll' });
+        return;
       }
+
+      // אין כפתור תפריטים – אין מה להציג
     }
 
     viewport.addEventListener('scroll', () => {
@@ -961,15 +962,7 @@
       scrollTimeout = window.requestAnimationFrame(handleMainScroll);
     }, { passive: true });
 
-    if (toggleButton) {
-      toggleButton.addEventListener('click', () => {
-        if (menusHidden) {
-          setMenusHidden(false, { reason: 'manual' });
-        } else {
-          setMenusHidden(true, { reason: 'manual' });
-        }
-      });
-    }
+    // אין כפתור תפריטים – מאזין הוסר
 
     window.addEventListener('beforeunload', () => {
       document.body.classList.remove('home-feed-active', 'home-feed--menus-hidden');
@@ -2090,6 +2083,7 @@
     if (!eventId) return;
     const button = document.querySelector(`button[data-like-button][data-event-id="${eventId}"]`);
     const statsCounter = document.querySelector(`.feed-post__like-counter[data-like-counter="${eventId}"]`);
+    const postEl = document.querySelector(`.feed-post[data-post-id="${eventId}"]`);
 
     const likeSet = App.likesByEventId.get(eventId);
     const count = likeSet ? likeSet.size : 0;
@@ -2111,6 +2105,14 @@
         button.classList.add('feed-post__action--liked');
       } else {
         button.classList.remove('feed-post__action--liked');
+      }
+    }
+
+    if (postEl) {
+      if (count > 0) {
+        postEl.classList.add('feed-post--liked');
+      } else {
+        postEl.classList.remove('feed-post--liked');
       }
     }
 
@@ -2528,12 +2530,16 @@
       }
       allFeedEvents = events;
       displayedPostsCount = 0;
+      // חלק infinite scroll (feed.js) – סידור פוסטים בפעם הראשונה בלבד
+      allFeedEvents.sort((a, b) => b.created_at - a.created_at);
     }
-
-    events.sort((a, b) => b.created_at - a.created_at);
+    
+    // חלק infinite scroll (feed.js) – בעת append, אנחנו משתמשים ב-allFeedEvents שכבר מסודר
+    const eventsToUse = append ? allFeedEvents : events;
 
     const deletions = App.deletedEventIds || new Set();
-    const visibleEvents = events.filter((event) => !deletions.has(event.id));
+    // חלק infinite scroll (feed.js) – סינון מחיקות מהרשימה הנכונה (allFeedEvents בעת append, events בפעם הראשונה)
+    const visibleEvents = eventsToUse.filter((event) => !deletions.has(event.id));
 
     if (!visibleEvents.length) {
       // חלק ברכה (feed.js) – אם אין פוסטים, רק מסתירים את הסטטוס, הברכה כבר קיימת
@@ -2609,6 +2615,7 @@
       ? visibleEvents.slice(displayedPostsCount, displayedPostsCount + POSTS_PER_LOAD)
       : visibleEvents.slice(0, POSTS_PER_LOAD);
     
+    console.log(`[DISPLAY POSTS] append=${append}, displayedPostsCount=${displayedPostsCount}, postsToDisplay.length=${postsToDisplay.length}, visibleEvents.length=${visibleEvents.length}`);
     displayedPostsCount = append ? displayedPostsCount + postsToDisplay.length : postsToDisplay.length;
 
     const profileList = await Promise.all(postsToDisplay.map((event) => fetchProfile(event.pubkey)));
@@ -2851,6 +2858,9 @@
           </form>
         </section>
       `;
+      if (likeCount > 0) {
+        article.classList.add('feed-post--liked'); // חלק הדגשה (feed.js) – סימון מראש לפוסטים שכבר קיבלו לייקים
+      }
 
       const cardWrapper = document.createElement('div');
       cardWrapper.className = 'home-feed__card';
@@ -2905,12 +2915,15 @@
     if (!App._homeFeedFirstBatchShown) {
       setWelcomeLoading(95);
       setWelcomeStatus('מסיים רינדור...');
+      scheduleWelcomeFallback();
+      // חלק טעינה (feed.js) – המתנה לצביעה של הפוסט הראשון ולהכנת המדיה
       Promise.race([
-        waitForFirstPostPaint({ timeout: 5000 }),
-        observeFirstPostVisible({ timeout: 6000 })
+        waitForFirstPostPaint({ timeout: 5000 })
       ]).then(() => {
-        awaitFirstPostMediaReady({ timeout: 2500 }).then(() => finishWelcomeIfReady());
-      });
+        awaitFirstPostMediaReady({ timeout: 2500 })
+          .then(() => finishWelcomeIfReady())
+          .catch(() => finishWelcomeIfReady());
+      }).catch(() => finishWelcomeIfReady());
     }
 
     // חלק פרופילים (feed.js) – עדכון פרופילים מה-relays אחרי יצירת הפוסטים
@@ -3077,6 +3090,7 @@
     if (statusEl) {
       statusEl.textContent = '';
       statusEl.style.opacity = '0';
+      statusEl.style.display = 'none';
     }
     App.deletedEventIds = new Set();
     App.likesByEventId = new Map();
@@ -3123,7 +3137,7 @@
         setWelcomeStatus('מקבל אירועים...');
         const initialEvents = await App.pool.list(App.relayUrls, filters);
         if (Array.isArray(initialEvents)) {
-          setWelcomeLoading(55);
+          setWelcomeLoading(45);
           initialEvents.forEach((event) => {
             if (!event || seenEventIds.has(event.id)) {
               return;
@@ -3168,25 +3182,13 @@
             events.push(event);
           });
           if (events.length > 0 && !App._homeFeedFirstBatchShown) {
-            setWelcomeLoading(85);
+            setWelcomeLoading(65);
             setWelcomeStatus('מרנדר פוסטים...');
-            displayPosts(events);
+            await displayPosts(events);
             if (emptyState && emptyMessage?.dataset?.defaultText) {
               emptyMessage.textContent = emptyMessage.dataset.defaultText;
               emptyState.classList.remove('feed-empty--loading');
             }
-            if (statusEl) {
-              statusEl.textContent = `Loaded ${events.length} posts.`;
-              statusEl.style.opacity = '1';
-              setTimeout(() => {
-                statusEl.textContent = '';
-                statusEl.style.opacity = '0';
-              }, 2000);
-            }
-            // הסט הראשון נטען – אפשר לשחרר גלילה ולהציג את החץ
-            endWelcomeLoading();
-            App._homeFeedFirstBatchShown = true;
-            App._homeFeedLoadingInProgress = false;
           }
         }
       } catch (err) {
@@ -3196,7 +3198,7 @@
     }
 
     const sub = App.pool.subscribeMany(App.relayUrls, filters, {
-      onevent: (event) => {
+      onevent: async (event) => {
         if (!event || seenEventIds.has(event.id)) {
           if (event?.kind === 1) {
             const parentId = extractParentId(event);
@@ -3233,20 +3235,16 @@
           return;
         }
         events.push(event);
-        console.log('Received event:', event);
         if (emptyState && emptyMessage) {
           emptyMessage.textContent = `מעדכן פוסטים... התקבלו ${events.length} פוסטים`;
         }
       },
-      oneose: () => {
+      oneose: async () => {
         // אם טרם הצגנו – הצג כעת את הסט הראשון ושחרר טעינה
         if (!App._homeFeedFirstBatchShown && events && events.length > 0) {
-          setWelcomeLoading(95);
-          setWelcomeStatus('מרנדר פוסטים...');
-          displayPosts(events);
-          endWelcomeLoading();
-          App._homeFeedFirstBatchShown = true;
-          App._homeFeedLoadingInProgress = false;
+          setWelcomeLoading(85);
+          setWelcomeStatus('מסיים רינדור...');
+          await displayPosts(events);
         } else {
           // אין פוסטים – נשארים במצב טעינה וננסה שוב עם backoff
           try {
