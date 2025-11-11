@@ -14,6 +14,10 @@
   if (typeof App.notificationsRestored !== 'boolean') {
     App.notificationsRestored = false; // חלק התרעות (feed.js) – מבטיח שנשחזר התרעות פעם אחת לאחר התחברות
   }
+  // חלק שמירת state (feed.js) – שמירה על state של הפיד בין עמודים
+  if (typeof App._homeFeedFirstBatchShown !== 'boolean') {
+    App._homeFeedFirstBatchShown = false;
+  }
 
   // חלק מובייל (feed.js) – התאמות פריסת כפתורי פעולה ותגובות בסגנון פייסבוק
   function applyMobilePostUiStyles() {
@@ -2960,6 +2964,10 @@
         console.warn('Post-render metadata update failed', err);
       }
     }
+    
+    // חלק שמירת state (feed.js) – שמירת state לחזרה בין עמודים
+    window._allFeedEvents = allFeedEvents;
+    window._displayedPostsCount = displayedPostsCount;
   }
 
   async function hydrateCommentsSection(articleEl, parentId) {
@@ -3031,34 +3039,52 @@
       return;
     }
     App._homeFeedLoadingInProgress = true;
-    App._homeFeedFirstBatchShown = false;
+    
+    // חלק שמירת state (feed.js) – בדיקה אם הפיד כבר טוען וחוזרים אליו מעמוד אחר
+    const isReturningToFeed = App._homeFeedFirstBatchShown === true && allFeedEvents && allFeedEvents.length > 0;
+    
+    console.log(`[FEED STATE] isReturningToFeed=${isReturningToFeed}, _homeFeedFirstBatchShown=${App._homeFeedFirstBatchShown}, allFeedEvents.length=${allFeedEvents?.length || 0}`);
+    
+    if (!isReturningToFeed) {
+      App._homeFeedFirstBatchShown = false;
+    }
+    
     App._homeFeedRetryCount = typeof App._homeFeedRetryCount === 'number' ? App._homeFeedRetryCount : 0;
     // מצב טעינה: נעל גלילה ב-viewport והצג מד טעינה בברכה
-    document.body.classList.add('home-feed--loading');
-    document.documentElement.classList.add('home-feed--loading');
-    setWelcomeLoading(1);
-    setWelcomeStatus('מתחבר לריליים...');
-    bindLoadingGuards();
-    try { const vp = document.querySelector('.home-feed__viewport'); if (vp) vp.scrollTop = 0; } catch (_) {}
-    // טיימר התקדמות מדומה עד שנקבל נתונים מהריליים (מגביל ל-85%)
-    if (_welcomeProgressTimer) {
-      clearInterval(_welcomeProgressTimer);
+    if (!isReturningToFeed) {
+      document.body.classList.add('home-feed--loading');
+      document.documentElement.classList.add('home-feed--loading');
+      setWelcomeLoading(1);
+      setWelcomeStatus('מתחבר לריליים...');
+      bindLoadingGuards();
     }
-    _welcomeProgressTimer = setInterval(() => {
-      const cap = App._homeFeedFirstBatchShown ? 100 : 95;
-      const target = Math.min(cap, (_welcomeProgressValue || 0) + 1);
-      setWelcomeLoading(target);
-      if (!App._homeFeedFirstBatchShown && target >= 95) {
+    try {
+      const vp = document.querySelector('.home-feed__viewport');
+      if (vp && !isReturningToFeed) vp.scrollTop = 0;
+    } catch (_) {}
+    // טיימר התקדמות מדומה עד שנקבל נתונים מהריליים (מגביל ל-85%)
+    if (!isReturningToFeed) {
+      if (_welcomeProgressTimer) {
         clearInterval(_welcomeProgressTimer);
-        _welcomeProgressTimer = null;
       }
-    }, 180);
+      _welcomeProgressTimer = setInterval(() => {
+        const cap = App._homeFeedFirstBatchShown ? 100 : 95;
+        const target = Math.min(cap, (_welcomeProgressValue || 0) + 1);
+        setWelcomeLoading(target);
+        if (!App._homeFeedFirstBatchShown && target >= 95) {
+          clearInterval(_welcomeProgressTimer);
+          _welcomeProgressTimer = null;
+        }
+      }, 180);
+    }
     // ודא שהניווט לפרופיל ציבורי פעיל תמיד, גם אם ה-Pool טרם מאותחל
     ensureProfileLinkNavigation();
     if (!App.pool) {
       // אם ה-Pool עדיין לא מאותחל – ננסה שוב בקרוב ונציג התקדמות ראשונית
-      setWelcomeLoading(10);
-      setWelcomeStatus('מאתחל חיבור...');
+      if (!isReturningToFeed) {
+        setWelcomeLoading(10);
+        setWelcomeStatus('מאתחל חיבור...');
+      }
       setTimeout(() => {
         if (!App._homeFeedLoadingInProgress && typeof App.loadFeed === 'function') {
           App.loadFeed();
@@ -3070,7 +3096,7 @@
 
     const feed = document.getElementById('feed');
     const { container: emptyState, messageEl: emptyMessage } = getFeedEmptyState();
-    if (feed && emptyState) {
+    if (feed && emptyState && !isReturningToFeed) {
       feed.innerHTML = '';
       if (emptyMessage) {
         emptyMessage.textContent = 'מעדכן פוסטים אנא המתינו';
@@ -3090,9 +3116,37 @@
       statusEl.style.opacity = '0';
       statusEl.style.display = 'none';
     }
-    App.deletedEventIds = new Set();
-    App.likesByEventId = new Map();
-    App.commentsByParent = new Map();
+    // חלק שמירת state (feed.js) – אל תאפס את הנתונים אם חוזרים לפיד
+    if (!isReturningToFeed) {
+      App.deletedEventIds = new Set();
+      App.likesByEventId = new Map();
+      App.commentsByParent = new Map();
+    }
+
+    // חלק חזרה לפיד (feed.js) – אם יש state שמור, רנדר מיד את הפוסטים ושחרר את מסך הברכה
+    if (isReturningToFeed && Array.isArray(window._allFeedEvents) && window._allFeedEvents.length > 0) {
+      try {
+        // ודא שהברכה לא חוסמת
+        App._homeFeedFirstBatchShown = true;
+        endWelcomeLoading();
+        setWelcomeLoading(100);
+
+        // רנדר מחדש את הסטים השמורים
+        const savedCount = typeof window._displayedPostsCount === 'number' ? window._displayedPostsCount : POSTS_PER_LOAD;
+        // רענן DOM עם הסט הראשון
+        await displayPosts(window._allFeedEvents, false);
+        // הוסף עוד סטים עד שמגיעים למספר שנשמר
+        while (typeof displayedPostsCount === 'number' && displayedPostsCount < savedCount) {
+          await displayPosts(window._allFeedEvents, true);
+        }
+        // הפעל אינסוף גלילה וחזור
+        setupInfiniteScroll();
+        App._homeFeedLoadingInProgress = false;
+        return;
+      } catch (e) {
+        console.warn('Failed to restore feed state, falling back to fresh load', e);
+      }
+    }
     // חלק פיד (feed.js) – מסננים: פוסטים עיקריים לפי תג רשת, ובנוסף פוסטים של המשתמש הנוכחי גם אם חסר תג
     // טעינה ראשונית: 10 פוסטים בלבד
     const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 200 }];
@@ -3213,6 +3267,21 @@
             registerComment(event, parentId);
           } else {
             events.push(event);
+            // חלק שמירת state (feed.js) – הוספת פוסט חדש בזמן אמת ללא רענון
+            if (App._homeFeedFirstBatchShown && allFeedEvents) {
+              allFeedEvents.unshift(event);
+              // הצגת הפוסט החדש בתחילת הפיד
+              const stream = document.getElementById('homeFeedStream');
+              if (stream && stream.children.length > 1) {
+                // יש כבר פוסטים מוצגים, הוסף את החדש בתחילה (אחרי כרטיס הברכה)
+                const welcomeCard = document.getElementById('welcomeCard');
+                const insertAfter = welcomeCard || stream.children[0];
+                const newPostElement = await renderNewPost(event);
+                if (newPostElement && insertAfter) {
+                  insertAfter.parentNode.insertBefore(newPostElement, insertAfter.nextSibling);
+                }
+              }
+            }
           }
           return;
         }
@@ -3275,6 +3344,75 @@
   }
 
   
+
+  // חלק שמירת state (feed.js) – פונקציה להצגת פוסט חדש בזמן אמת
+  async function renderNewPost(event) {
+    try {
+      const profileData = await fetchProfile(event.pubkey);
+      const normalizedPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+      const safeName = profileData?.name || `משתמש ${normalizedPubkey.slice(0, 8)}`;
+      const profileDataset = `data-profile-pubkey="${normalizedPubkey}"`;
+      const clickOpen = `onclick="if(window.openProfileByPubkey){ window.openProfileByPubkey('${normalizedPubkey}'); }"`;
+      const avatar = profileData?.picture
+        ? `<button class="feed-post__avatar" type="button" ${profileDataset} ${clickOpen}><img src="${profileData.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${profileData.initials}'; }"></button>`
+        : `<button class="feed-post__avatar" type="button" ${profileDataset} ${clickOpen}>${profileData.initials}</button>`;
+      
+      const cardWrapper = document.createElement('div');
+      cardWrapper.className = 'home-feed__card in-view';
+      
+      const article = document.createElement('article');
+      article.className = 'feed-post feed-post--fx';
+      article.dataset.eventId = event.id;
+      
+      const safeContent = App.escapeHtml(event.content || '');
+      const metaHtml = formatTimestamp(event.created_at);
+      
+      article.innerHTML = `
+        <header class="feed-post__header">
+          ${avatar}
+          <div class="feed-post__info">
+            <button class="feed-post__name" type="button" ${profileDataset} ${clickOpen}>${safeName}</button>
+            ${metaHtml ? `<span class="feed-post__meta">${metaHtml}</span>` : ''}
+          </div>
+        </header>
+        ${safeContent ? `<div class="feed-post__content" data-post-content="${event.id}">${safeContent}</div>` : ''}
+        <div class="feed-post__actions">
+          <button class="feed-post__action" type="button" data-comments-toggle="${event.id}">
+            <i class="fa-regular fa-message"></i>
+            <span>תגובות</span>
+            <span class="feed-post__comment-count" data-comment-count="${event.id}" style="display:none;">0</span>
+          </button>
+          <button class="feed-post__action" type="button" data-like-button data-event-id="${event.id}" onclick="NostrApp.likePost('${event.id}')">
+            <i class="fa-regular fa-thumbs-up"></i>
+            <span>אהבתי</span>
+            <span class="feed-post__like-count" style="display:none;">0</span>
+          </button>
+          <button class="feed-post__action" type="button" onclick="NostrApp.sharePost('${event.id}')">
+            <i class="fa-solid fa-share"></i>
+            <span>שתף</span>
+          </button>
+        </div>
+        <section class="feed-comments" data-comments-section="${event.id}">
+          <div class="feed-comments__list" data-comments-list="${event.id}"></div>
+        </section>
+      `;
+      
+      cardWrapper.appendChild(article);
+      updateLikeIndicator(event.id);
+      wireCommentForm(article, event.id);
+      wirePostMenu(article, event.id);
+      hydrateCommentsSection(article, event.id);
+      wireShowMore(article, event.id);
+      if (typeof App.refreshFollowButtons === 'function') {
+        App.refreshFollowButtons(article);
+      }
+      
+      return cardWrapper;
+    } catch (err) {
+      console.warn('Failed to render new post:', err);
+      return null;
+    }
+  }
 
   async function publishPost() {
     if (typeof App.getComposePayload !== 'function') {
