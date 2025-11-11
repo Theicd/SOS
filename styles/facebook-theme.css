@@ -942,6 +942,7 @@ body.home-feed--menus-hidden .top-bar {
   overflow-wrap: anywhere;
   position: relative;
   transition: max-height 0.25s ease;
+  margin-top: 8px; /* חלק פיד (facebook-theme.css) – רווח טבעי בין כותרת הפוסט לתוכן */
 }
 .feed-post__content--collapsed {
   max-height: 6.5em;
