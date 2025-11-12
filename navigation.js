@@ -7,10 +7,12 @@
 
   const navRoot = document.querySelector('.primary-nav');
   if (!navRoot) {
+    console.warn('[NAV] primary-nav not found');
     return;
   }
 
   const navButtons = Array.from(navRoot.querySelectorAll('[data-nav]'));
+  console.log('[NAV] Navigation buttons found:', navButtons.length, navButtons.map(b => b.getAttribute('data-nav')));
 
   function updateNavSelection(targetKey) {
     navButtons.forEach((button) => {
@@ -27,22 +29,26 @@
       return;
     }
 
+    console.log('[NAV] Navigation clicked:', key);
     updateNavSelection(key);
 
     // חלק ניווט חדשות (navigation.js) – לחיצה על "חדשות" עוברת לדף החדשות החדש
     if (key === 'news') {
+      console.log('[NAV] Navigating to news.html');
       window.location.href = './news.html';
       return;
     }
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
+      console.log('[NAV] Navigating to videos.html');
       window.location.href = './videos.html';
       return;
     }
 
-    // חלק ניווט אחסון (navigation.js) – העברת המשתמש לדף "האחסון שלי"
+    // חלק ניווט אחסון (navigation.js) – העברת המשתמש לדף "האחסון שלי" | HYPER CORE TECH
     if (key === 'storage') {
+      console.log('[NAV] Navigating to storage.html');
       window.location.href = './storage.html';
       return;
     }
@@ -66,6 +72,8 @@
   }
 
   navButtons.forEach((button) => {
+    const key = button.getAttribute('data-nav');
+    console.log('[NAV] Binding click listener to button:', key);
     button.addEventListener('click', handleNavClick);
   });
 

@@ -108,6 +108,13 @@
       }
       /* לא משפיע על פוסטים ישנים כי אין להם feed-post--fx */
 
+      /* חלק אחסון (index.html) – וודא שכפתור האחסון נראה בכל הגדלים | HYPER CORE TECH */
+      .nav-item[data-nav="storage"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+
       /* חלק וידאו (index.html) – סגנון play overlay לוידאו */
       .feed-media--video {
         position: relative;
@@ -227,7 +234,7 @@
                 <span>הפרופיל שלי</span>
             </button>
             <!-- חלק אחסון (index.html) – כפתור "האחסון שלי" לפתיחת עמוד האחסון החינמי | HYPER CORE TECH -->
-            <button class="nav-item" data-nav="storage">
+            <button class="nav-item" data-nav="storage" onclick="console.log('[INDEX] Storage button clicked')">
                 <i class="fa-solid fa-box-archive"></i>
                 <span>האחסון שלי</span>
             </button>
