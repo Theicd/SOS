@@ -41,6 +41,12 @@
       return;
     }
 
+    // חלק ניווט אחסון (navigation.js) – העברת המשתמש לדף "האחסון שלי"
+    if (key === 'storage') {
+      window.location.href = './storage.html';
+      return;
+    }
+
     // חלק ניווט חוזה (navigation.js) – לחיצה על "חוזה חכם" מפעילה את חוויית SPEAR ONE המעודכנת
     if (key === 'contract-v2' && typeof App.openContractDashboardV2 === 'function') {
       App.openContractDashboardV2();
@@ -70,6 +76,13 @@
       datingTopBtn.addEventListener('click', () => {
         updateNavSelection('dating');
         window.location.href = './dating.html';
+      });
+    }
+    const gamesTopBtn = document.getElementById('gamesToggleTop');
+    if (gamesTopBtn) {
+      gamesTopBtn.addEventListener('click', () => {
+        updateNavSelection('games');
+        window.location.href = './games.html';
       });
     }
   } catch (_) {}

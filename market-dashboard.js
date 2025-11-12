@@ -1374,6 +1374,27 @@
     }
   };
 
+  // חלק לוח גידול (market-dashboard.js) – רענון growthSelectors עבור דפים שטוענים את market-dashboard.js אחרי ה-DOM | HYPER CORE TECH
+  App.refreshGrowthSelectors = function refreshGrowthSelectors() {
+    growthSelectors.root = document.getElementById('growthDashboard');
+    growthSelectors.backdrop = document.querySelector('#growthDashboard .growth-dashboard__backdrop');
+    growthSelectors.tabs = Array.from(document.querySelectorAll('#growthDashboard .growth-dashboard__tab'));
+    growthSelectors.panes = Array.from(document.querySelectorAll('#growthDashboard .growth-dashboard__section'));
+    growthSelectors.metrics = document.getElementById('growthMetrics');
+    growthSelectors.activity = document.getElementById('growthActivity');
+    growthSelectors.leaders = document.getElementById('growthLeaders');
+    growthSelectors.status = document.getElementById('growthStatus');
+    growthSelectors.autoRefresh = document.getElementById('growthAutoRefresh');
+    growthSelectors.refreshButton = document.querySelector('#growthDashboard .growth-dashboard__refresh');
+    growthSelectors.chartCanvas = document.getElementById('growthChart');
+    growthSelectors.panel = document.querySelector('#growthDashboard .growth-dashboard__panel');
+    growthSelectors.rangesContainer = document.querySelector('#growthChartContainer .growth-chart__ranges');
+    growthSelectors.rangeButtons = Array.from(
+      (growthSelectors.rangesContainer || document).querySelectorAll?.('.growth-chart__range-button') || []
+    );
+    console.log('[GROWTH] Selectors refreshed:', growthSelectors.root ? 'root found' : 'root NOT found');
+  };
+
   App.openGrowthDashboard = openGrowthDashboard;
   App.closeGrowthDashboard = closeGrowthDashboard;
   App.refreshGrowthDashboard = refreshGrowthDashboard;

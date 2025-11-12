@@ -111,16 +111,19 @@
     ];
   }
 
-  App.pool = new SimplePool();
-  if (typeof App.notifyPoolReady === 'function') {
-    App.notifyPoolReady(App.pool);
+  // חלק Bootstrap (app.js) – יצירת Pool והרצת מדדי התחברות פעם אחת בלבד בכל סשן
+  if (!App.pool) {
+    App.pool = new SimplePool();
+    if (typeof App.notifyPoolReady === 'function') {
+      App.notifyPoolReady(App.pool);
+    }
+    publishLoginActivity();
+    const connectionStatus = document.getElementById('connection-status');
+    if (connectionStatus) {
+      connectionStatus.textContent = 'Pool initialized. Connecting to relays...';
+    }
+    console.log('Pool initialized');
   }
-  publishLoginActivity();
-  const connectionStatus = document.getElementById('connection-status');
-  if (connectionStatus) {
-    connectionStatus.textContent = 'Pool initialized. Connecting to relays...';
-  }
-  console.log('Pool initialized');
 
   if (App.metadataPublishQueued && typeof App.publishProfileMetadata === 'function') {
     App.publishProfileMetadata();
@@ -148,11 +151,12 @@
     }
   } catch (_) {}
 
-  if (typeof App.loadFeed === 'function') {
+  // אל תטען את הפיד מחדש בעמודים שניים (למשל storage.html)
+  if (!App._bootstrapped && typeof App.loadFeed === 'function') {
     App.loadFeed();
   }
 
-  if (typeof App.initializeGrowthDashboard === 'function') {
+  if (!App._bootstrapped && typeof App.initializeGrowthDashboard === 'function') {
     App.initializeGrowthDashboard();
   }
 
@@ -200,8 +204,14 @@
     const selfButton = document.getElementById('topBarProfileSelf');
     const growthButton = document.getElementById('topBarProfileGrowth');
     const keyButton = document.getElementById('topBarProfileKey');
+    const contractButton = document.getElementById('topBarProfileContract');
 
     if (!profileButton || !profileMenu) {
+      return;
+    }
+
+    // מניעת חיבור כפול של מאזינים בעת טעינת עמוד נוסף
+    if (profileWrapper.dataset.bound === '1') {
       return;
     }
 
@@ -258,6 +268,20 @@
         }
       });
     }
+
+    // חלק חוזה חכם (app.js) – כפתור בתפריט הפרופיל לפתיחת לוח החוזה החכם כמו בתפריט התחתון
+    if (contractButton) {
+      contractButton.addEventListener('click', () => {
+        closeMenu();
+        if (typeof App.openContractDashboardV2 === 'function') {
+          App.openContractDashboardV2();
+        } else if (typeof window.openContractDashboardV2 === 'function') {
+          window.openContractDashboardV2();
+        }
+      });
+    }
+
+    profileWrapper.dataset.bound = '1';
   })();
 
   // חלק משחק טריוויה – מוודא שסקריפט המשחק נטען פעם אחת בלבד לאחר שהאפליקציה מוכנה
@@ -268,4 +292,6 @@
     triviaScript.defer = true;
     document.body.appendChild(triviaScript);
   }
+  // סימון שהאתחול הכבד בוצע – כדי להימנע מריצה חוזרת בדפים נוספים
+  App._bootstrapped = true;
 })(window);

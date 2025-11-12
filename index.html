@@ -170,6 +170,10 @@
                 <button class="circle-button" id="datingToggleTop" aria-label="הכרויות">
                     <i class="fa-solid fa-heart"></i>
                 </button>
+                <!-- חלק ניווט משחקים (index.html) – אייקון משחקים בסרגל העליון ליד ההכרויות | HYPER CORE TECH -->
+                <button class="circle-button" id="gamesToggleTop" aria-label="משחקים">
+                    <i class="fa-solid fa-gamepad"></i>
+                </button>
                 <button class="circle-button" id="notificationsToggle" aria-label="התראות">
                     <i class="fa-solid fa-bell"></i>
                     <span class="notifications-badge" id="notificationsBadge" hidden></span>
@@ -195,6 +199,11 @@
                             <i class="fa-solid fa-key"></i>
                             <span>הצגת מפתח</span>
                         </button>
+                        <!-- חלק חוזה חכם (index.html) – כפתור לפתיחת לוח החוזה החכם מתוך תפריט הפרופיל | HYPER CORE TECH -->
+                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileContract">
+                            <i class="fa-solid fa-handshake"></i>
+                            <span>חוזה חכם</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -213,16 +222,18 @@
                 <i class="fa-solid fa-plus"></i>
                 <span>פוסט חדש</span>
             </button>
-            <button class="nav-item" data-nav="games">
-                <i class="fa-solid fa-gamepad"></i>
-                <span>משחקים</span>
+            <button class="nav-item" type="button" aria-label="הפרופיל שלי" onclick="window.location.href='./profile.html'">
+                <i class="fa-solid fa-id-card"></i>
+                <span>הפרופיל שלי</span>
             </button>
+            <!-- חלק אחסון (index.html) – כפתור "האחסון שלי" לפתיחת עמוד האחסון החינמי | HYPER CORE TECH -->
+            <button class="nav-item" data-nav="storage">
+                <i class="fa-solid fa-box-archive"></i>
+                <span>האחסון שלי</span>
+            </button>
+            <!-- חלק ניווט משחקים (index.html) – הכפתור הוסר מכאן ועבר לסרגל העליון -->
             <!-- חלק ניווט הכרויות (index.html) – כפתור המעבר למסך הטינדר החדש -->
             <!-- חלק ניווט חוזה (index.html) – כפתור "חוזה חכם" בקצה השמאלי להדגשת חוויית ההשקעה -->
-            <button class="nav-item" data-nav="contract-v2">
-                <i class="fa-solid fa-handshake"></i>
-                <span>חוזה חכם</span>
-            </button>
         </nav>
         <section class="composer-card">
             <div class="composer-header">
