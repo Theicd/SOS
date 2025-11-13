@@ -3,7 +3,7 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   // חלק ניווט ראשי (navigation.js) – מאחסן את מצב הלשונית הפעילה
-  App.activeNav = App.activeNav || 'news';
+  App.activeNav = App.activeNav || 'home';
 
   const navRoot = document.querySelector('.primary-nav');
   if (!navRoot) {
@@ -31,6 +31,13 @@
 
     console.log('[NAV] Navigation clicked:', key);
     updateNavSelection(key);
+
+    // חלק ניווט בית (navigation.js) – לחיצה על "בית" מחזירה לפיד הראשי (index)
+    if (key === 'home') {
+      console.log('[NAV] Navigating to index.html');
+      window.location.href = './index.html';
+      return;
+    }
 
     // חלק ניווט חדשות (navigation.js) – לחיצה על "חדשות" עוברת לדף החדשות החדש
     if (key === 'news') {
@@ -79,6 +86,13 @@
 
   // חלק ניווט הכרויות (navigation.js) – חיבור אייקון הלב בסרגל העליון לאותה התנהגות
   try {
+    const newsTopBtn = document.getElementById('newsToggleTop');
+    if (newsTopBtn) {
+      newsTopBtn.addEventListener('click', () => {
+        updateNavSelection('news');
+        window.location.href = './news.html';
+      });
+    }
     const datingTopBtn = document.getElementById('datingToggleTop');
     if (datingTopBtn) {
       datingTopBtn.addEventListener('click', () => {
