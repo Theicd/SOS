@@ -36,12 +36,23 @@ function wireMediaControls() {
         event.preventDefault();
         event.stopPropagation();
         if (mediaDiv.dataset.state === 'playing') {
-          pauseMedia(mediaDiv, { resetThumb: false });
+          pauseMedia(mediaDiv, { resetThumb: false, manual: true });
         } else {
           playMedia(mediaDiv, { manual: true });
         }
       });
     }
+
+    // לחיצה על אזור המדיה תחליף בין ניגון להפסקה ידנית (ללא כפתור)
+    mediaDiv.addEventListener('click', (event) => {
+      // אם לחצו על כפתור ייעודי, לא להפעיל את הטוגל פעמיים
+      if (event.target.closest('[data-play-toggle]')) return;
+      if (mediaDiv.dataset.state === 'playing') {
+        pauseMedia(mediaDiv, { resetThumb: false, manual: true });
+      } else {
+        playMedia(mediaDiv, { manual: true });
+      }
+    });
   });
 }
 
@@ -87,11 +98,13 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
 
   mediaDiv.dataset.state = 'playing';
   updatePlayToggleIcon(mediaDiv, true);
+  // הסרת חיווי עצירה ידנית
+  mediaDiv.classList.remove('is-paused');
   activeMediaDiv = mediaDiv;
 }
 
 // חלק יאללה וידאו (videos.js) – עצירת מדיה עבור כרטיס נתון
-function pauseMedia(mediaDiv, { resetThumb = false } = {}) {
+function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   if (!mediaDiv) return;
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
@@ -116,6 +129,12 @@ function pauseMedia(mediaDiv, { resetThumb = false } = {}) {
 
   mediaDiv.dataset.state = 'paused';
   updatePlayToggleIcon(mediaDiv, false);
+  // הוספת חיווי עצירה רק אם זו עצירה ידנית; עצירות אוטומטיות (גלילה/כרטיס אחר) לא יציגו את האייקון
+  if (manual) {
+    mediaDiv.classList.add('is-paused');
+  } else {
+    mediaDiv.classList.remove('is-paused');
+  }
   if (activeMediaDiv === mediaDiv) {
     activeMediaDiv = null;
   }
@@ -368,10 +387,24 @@ function renderVideoCard(video) {
   } else {
     avatarDiv.textContent = video.authorInitials || 'AN';
   }
+  // לחיצה על האווטר תפתח פרופיל ציבורי | HYPER CORE TECH
+  avatarDiv.style.cursor = 'pointer';
+  avatarDiv.addEventListener('click', () => {
+    if (video.pubkey && typeof window.openProfileByPubkey === 'function') {
+      window.openProfileByPubkey(video.pubkey);
+    }
+  });
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'videos-feed__name';
   nameSpan.textContent = video.authorName || 'משתמש';
+  // לחיצה על השם תפתח פרופיל ציבורי | HYPER CORE TECH
+  nameSpan.style.cursor = 'pointer';
+  nameSpan.addEventListener('click', () => {
+    if (video.pubkey && typeof window.openProfileByPubkey === 'function') {
+      window.openProfileByPubkey(video.pubkey);
+    }
+  });
 
   authorDiv.appendChild(avatarDiv);
   authorDiv.appendChild(nameSpan);
@@ -383,6 +416,36 @@ function renderVideoCard(video) {
   infoDiv.appendChild(authorDiv);
   if (video.content) {
     infoDiv.appendChild(contentDiv);
+    // בדיקת גלישת טקסט והוספת כפתור "עוד" לפתיחת חלונית טקסט מלאה | HYPER CORE TECH
+    setTimeout(() => {
+      try {
+        if (contentDiv.scrollHeight > (contentDiv.clientHeight + 2)) {
+          const moreBtn = document.createElement('button');
+          moreBtn.type = 'button';
+          moreBtn.className = 'videos-feed__more';
+          moreBtn.textContent = 'עוד';
+          moreBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openPostTextPanel({
+              authorName: video.authorName || 'משתמש',
+              authorPicture: video.authorPicture || '',
+              content: video.content || ''
+            });
+          });
+          contentDiv.appendChild(moreBtn);
+
+          // גם לחיצה על הטקסט עצמו תפתח את החלונית | HYPER CORE TECH
+          contentDiv.style.cursor = 'pointer';
+          contentDiv.addEventListener('click', () => {
+            openPostTextPanel({
+              authorName: video.authorName || 'משתמש',
+              authorPicture: video.authorPicture || '',
+              content: video.content || ''
+            });
+          }, { once: false });
+        }
+      } catch (_) {}
+    }, 0);
   }
 
   article.appendChild(mediaDiv);
@@ -430,69 +493,23 @@ function showControlsForCard(card) {
     clearTimeout(card._hideTimeout);
   }
   
-  // הצגת כפתורים
+  // הצגת כפתורים - קבוע, ללא הסתרה אוטומטית
   card.classList.remove('controls-hidden');
-  
-  // הסתרה אחרי 4 שניות
-  card._hideTimeout = setTimeout(() => {
-    card.classList.add('controls-hidden');
-  }, 4000);
 }
 
-// חלק יאללה וידאו (videos.js) – העלמת כפתורים אוטומטית כמו בטיקטוק
+// חלק יאללה וידאו (videos.js) – כפתורים קבועים תמיד גלויים
 function setupAutoHideControls() {
   const cards = document.querySelectorAll('.videos-feed__card');
   
   cards.forEach(card => {
-    // הכפתורים מוצגים בהתחלה (ללא מחלקת controls-hidden)
+    // הכפתורים מוצגים תמיד (ללא מחלקת controls-hidden)
     card.classList.remove('controls-hidden');
     
-    const showControls = () => {
-      showControlsForCard(card);
-    };
-    
-    // הצגת כפתורים בתחילה ל-4 שניות
-    card._hideTimeout = setTimeout(() => {
-      card.classList.add('controls-hidden');
-    }, 4000);
-    
-    // הצגת כפתורים בלחיצה או מגע
-    card.addEventListener('click', (e) => {
-      // אם לחצו על כפתור, לא להציג/להסתיר
-      if (e.target.closest('button')) return;
-      
-      if (card.classList.contains('controls-hidden')) {
-        showControls();
-      } else {
-        card.classList.add('controls-hidden');
-        if (card._hideTimeout) {
-          clearTimeout(card._hideTimeout);
-        }
-      }
-    });
-    
-    // הצגת כפתורים במגע (למובייל)
-    card.addEventListener('touchstart', (e) => {
-      if (e.target.closest('button')) return;
-      
-      if (card.classList.contains('controls-hidden')) {
-        showControls();
-        e.preventDefault();
-      }
-    });
-    
-    // הצגת כפתורים בתנועת עכבר (לדסקטופ)
-    card.addEventListener('mousemove', showControls);
-    
-    // הסתרת כפתורים כשהעכבר עוזב (לדסקטופ)
-    card.addEventListener('mouseleave', () => {
-      if (card._hideTimeout) {
-        clearTimeout(card._hideTimeout);
-      }
-      card._hideTimeout = setTimeout(() => {
-        card.classList.add('controls-hidden');
-      }, 1000);
-    });
+    // ביטול כל timeout קיים
+    if (card._hideTimeout) {
+      clearTimeout(card._hideTimeout);
+      delete card._hideTimeout;
+    }
   });
 }
 
@@ -613,6 +630,42 @@ function openCommentsPanel(eventId) {
   input?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendComment();
   });
+}
+
+// חלק יאללה וידאו (videos.js) – פתיחת חלונית טקסט מלאה בסגנון טיקטוק
+function openPostTextPanel({ authorName, authorPicture, content }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'videos-comments-overlay';
+  overlay.innerHTML = `
+    <div class="videos-comments-panel">
+      <div class="videos-comments-header">
+        <h3>${authorName || 'פוסט'}</h3>
+        <button class="videos-comments-close" aria-label="סגור">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="videos-comments-list" style="white-space: pre-wrap; line-height:1.5;">
+        ${content ? escapeHtml(content) : ''}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.closest('.videos-comments-close')) {
+      overlay.remove();
+    }
+  });
+}
+
+// חלק יאללה וידאו (videos.js) – פונקציית עזר לאסקפינג HTML בטוח
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 // חלק יאללה וידאו (videos.js) – טעינת תגובות לפוסט

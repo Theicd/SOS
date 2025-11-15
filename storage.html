@@ -752,7 +752,30 @@
           notifPanel.style.top = (r.bottom + 8) + 'px';
         }
         
+        // פורמט זמן זהה ל-feed.js – מציג יחסי (1m, 5h, 3d) או תאריך מלא | HYPER CORE TECH
+        function formatTimestamp(ts){
+          if (!ts || typeof ts !== 'number') return '';
+          var now = Date.now();
+          var diffMs = now - ts;
+          var diffSec = Math.floor(diffMs / 1000);
+          var diffMin = Math.floor(diffSec / 60);
+          var diffHr = Math.floor(diffMin / 60);
+          var diffDay = Math.floor(diffHr / 24);
+          if (diffMin < 1) return '1m';
+          if (diffHr < 1) return diffMin + 'm';
+          if (diffDay < 1) return diffHr + 'h';
+          if (diffDay < 7) return diffDay + 'd';
+          var d = new Date(ts);
+          var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          var month = months[d.getMonth()];
+          var day = d.getDate();
+          var y = d.getFullYear();
+          var currentYear = new Date().getFullYear();
+          return y === currentYear ? month + ' ' + day : month + ' ' + day + ', ' + y;
+        }
+        
         function renderNotifList(notifications){
+          console.log('[STORAGE] renderNotifList called with', notifications?.length || 0, 'notifications');
           if (!notifList || !notifEmpty) return;
           var items = Array.isArray(notifications) ? notifications : [];
           if (!items.length){
@@ -768,11 +791,12 @@
               ? '<img src="'+n.actorProfile.picture+'" alt="'+name+'" referrerpolicy="no-referrer" onerror="this.parentElement && (this.parentElement.innerHTML=\'<span>'+initials+'</span>\');">'
               : '<span>'+initials+'</span>';
             var actionText = n?.type === 'comment' ? 'הגיב לפוסט שלך' : (n?.type === 'dating-like' ? 'הראה עניין בך' : (n?.type === 'follow' ? 'התחיל לעקוב' : 'אהב את הפוסט שלך'));
-            var time = n?.createdAt ? new Date(n.createdAt*1000).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : '';
+            var timeLabel = n?.createdAt ? formatTimestamp(n.createdAt * 1000) : '';
+            var timeHtml = timeLabel ? '<time class="notifications-item__time">'+timeLabel+'</time>' : '';
             var unreadClass = n?.read ? '' : ' notifications-item--unread';
             var postId = n?.postId ? ' data-post-id="'+n.postId+'"' : '';
             var notifId = n?.id ? ' data-notification-id="'+n.id+'"' : '';
-            return '<li class="notifications-item'+unreadClass+'"'+postId+notifId+'><div class="notifications-item__avatar">'+avatarHtml+'</div><div class="notifications-item__content"><span class="notifications-item__actor">'+name+'</span><span class="notifications-item__action">'+actionText+'</span>'+(time?'<time class="notifications-item__time">'+time+'</time>':'')+'</div></li>';
+            return '<li class="notifications-item'+unreadClass+'"'+postId+notifId+'><div class="notifications-item__avatar">'+avatarHtml+'</div><div class="notifications-item__content"><span class="notifications-item__actor">'+name+'</span><span class="notifications-item__action">'+actionText+'</span>'+timeHtml+'</div></li>';
           });
           notifList.innerHTML = html.join('');
           // קישור לחיצות על פריטים
@@ -844,10 +868,35 @@
         try{
           if (typeof NostrApp?.subscribeNotifications === 'function'){
             NostrApp.subscribeNotifications(function(snapshot){
+              console.log('[STORAGE] Notifications update received:', snapshot?.length || 0);
               renderNotifList(snapshot||[]);
             });
           }
         }catch(e){}
+        
+        // אתחול התראות: שחזור מ-localStorage ואתחול UI | HYPER CORE TECH
+        setTimeout(function(){
+          try {
+            console.log('[STORAGE] Initializing notifications system');
+            // שחזור התראות מ-localStorage אם יש מפתח ציבורי
+            if (typeof NostrApp?.publicKey === 'string' && NostrApp.publicKey && !NostrApp.notificationsRestored) {
+              console.log('[STORAGE] Restoring notifications from localStorage');
+              if (typeof NostrApp.restoreNotificationsFromStorage === 'function') {
+                NostrApp.restoreNotificationsFromStorage();
+                NostrApp.notificationsRestored = true;
+              }
+            }
+            // אתחול UI של התראות מ-feed.js
+            if (typeof NostrApp?.setupNotificationUI === 'function') {
+              console.log('[STORAGE] Calling setupNotificationUI');
+              NostrApp.setupNotificationUI();
+            }
+            // רענון מונה
+            recalcFromSnapshot();
+          } catch(e) {
+            console.warn('[STORAGE] Notification setup error:', e);
+          }
+        }, 200);
         
         // טעינת רשימת צ'אט כשמשתמש פותח את חלון ההודעות | HYPER CORE TECH
         if (chatBtn){

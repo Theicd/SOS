@@ -1986,6 +1986,8 @@
   };
   App.markAllNotificationsRead = markAllNotificationsRead;
   App.markNotificationRead = markNotificationRead;
+  App.setupNotificationUI = setupNotificationUI;
+  App.restoreNotificationsFromStorage = restoreNotificationsFromStorage;
 
   function removePostElement(eventId) {
     if (!eventId) return;
