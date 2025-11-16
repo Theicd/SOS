@@ -123,25 +123,9 @@
         <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
       </div>
       <div class="top-bar__actions">
-        <!-- חלק ניווט חדשות (videos.html) – אייקון חדשות בסרגל העליון | HYPER CORE TECH -->
-        <button class="circle-button" id="newsToggleTop" aria-label="חדשות">
-          <i class="fa-solid fa-newspaper"></i>
-        </button>
-        <!-- חלק ניווט הכרויות (videos.html) – אייקון לב בסרגל העליון | HYPER CORE TECH -->
-        <button class="circle-button" id="datingToggleTop" aria-label="הכרויות">
-          <i class="fa-solid fa-heart"></i>
-        </button>
-        <!-- חלק ניווט משחקים (videos.html) – אייקון משחקים בסרגל העליון | HYPER CORE TECH -->
-        <button class="circle-button" id="gamesToggleTop" aria-label="משחקים">
-          <i class="fa-solid fa-gamepad"></i>
-        </button>
         <button class="circle-button" id="notificationsToggle" aria-label="התראות">
           <i class="fa-solid fa-bell"></i>
           <span class="notifications-badge" id="notificationsBadge" hidden></span>
-        </button>
-        <button class="circle-button" id="messagesToggle" aria-label="הודעות">
-          <i class="fa-solid fa-message"></i>
-          <span class="notifications-badge" id="messagesBadge" hidden></span>
         </button>
         <div class="top-bar__profile" id="topBarProfile">
           <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
@@ -152,9 +136,19 @@
               <i class="fa-solid fa-chart-line"></i>
               <span>לוח גידול הרשת</span>
             </button>
+            <!-- חלק ניווט חדשות (videos.html) – כעת בתפריט הפרופיל | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="newsToggleTop">
+              <i class="fa-solid fa-newspaper"></i>
+              <span>חדשות</span>
+            </button>
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileSelf">
               <i class="fa-solid fa-id-card"></i>
               <span>הפרופיל שלי</span>
+            </button>
+            <!-- חלק ניווט הכרויות (videos.html) – כעת בתפריט הפרופיל | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="datingToggleTop">
+              <i class="fa-solid fa-heart"></i>
+              <span>הכרויות</span>
             </button>
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
               <i class="fa-solid fa-key"></i>
@@ -163,6 +157,16 @@
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileContract">
               <i class="fa-solid fa-handshake"></i>
               <span>חוזה חכם</span>
+            </button>
+            <!-- חלק אחסון (videos.html) – כעת בתפריט הפרופיל | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileStorage">
+              <i class="fa-solid fa-box-archive"></i>
+              <span>האחסון שלי</span>
+            </button>
+            <!-- חלק ניווט משחקים (videos.html) – כעת בתפריט הפרופיל | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="gamesToggleTop">
+              <i class="fa-solid fa-gamepad"></i>
+              <span>משחקים</span>
             </button>
           </div>
         </div>
@@ -195,13 +199,14 @@
         <i class="fa-solid fa-plus"></i>
         <span>פוסט חדש</span>
       </button>
+      <!-- חלק הודעות (videos.html) – כעת בסרגל התחתון עם מונה לא נקראו | HYPER CORE TECH -->
+      <button class="nav-item" id="messagesToggle" aria-label="הודעות">
+        <i class="fa-solid fa-message"></i>
+        <span class="notifications-badge" id="messagesBadge" hidden></span>
+      </button>
       <button class="nav-item" type="button" aria-label="הפרופיל שלי" onclick="window.location.href='./profile.html'">
         <i class="fa-solid fa-id-card"></i>
         <span>הפרופיל שלי</span>
-      </button>
-      <button class="nav-item" data-nav="storage">
-        <i class="fa-solid fa-box-archive"></i>
-        <span>האחסון שלי</span>
       </button>
     </nav>
 

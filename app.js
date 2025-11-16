@@ -205,6 +205,7 @@
     const growthButton = document.getElementById('topBarProfileGrowth');
     const keyButton = document.getElementById('topBarProfileKey');
     const contractButton = document.getElementById('topBarProfileContract');
+    const storageButton = document.getElementById('topBarProfileStorage');
 
     if (!profileButton || !profileMenu) {
       return;
@@ -278,6 +279,14 @@
         } else if (typeof window.openContractDashboardV2 === 'function') {
           window.openContractDashboardV2();
         }
+      });
+    }
+
+    // חלק אחסון (app.js) – ניווט מהתפריט העליון לעמוד האחסון | HYPER CORE TECH
+    if (storageButton) {
+      storageButton.addEventListener('click', () => {
+        closeMenu();
+        window.location.href = 'storage.html';
       });
     }
 
