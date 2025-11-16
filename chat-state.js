@@ -47,36 +47,60 @@
     const storageKey = getStorageKey();
     if (!storageKey) return;
     try {
-      const contactsArray = [];
-      chatState.contacts.forEach((contact) => {
-        contactsArray.push({
-          pubkey: contact.pubkey,
-          name: contact.name,
-          picture: contact.picture,
-          initials: contact.initials,
-          lastMessage: contact.lastMessage,
-          lastTimestamp: contact.lastTimestamp,
-          unreadCount: contact.unreadCount,
-          // חלק צ'אט (chat-state.js) – שומר את חותמת הזמן של הקריאה האחרונה כדי למנוע ספירה מחדש של הודעות כלא נקראו
-          lastReadTimestamp: contact.lastReadTimestamp || 0,
-        });
-      });
-      const conversationsArray = [];
-      chatState.conversations.forEach((info, key) => {
-        conversationsArray.push({
-          key,
-          peer: info.peer,
-          messages: Array.isArray(info.messages) ? info.messages : [],
-        });
-      });
-      const payload = {
-        contacts: contactsArray,
-        conversations: conversationsArray,
-        deletedIds: Array.from(App.deletedChatMessageIds || []),
+      // מגבלות התחלתיות: עד 80 אנשי קשר, עד 40 שיחות, עד MAX_MESSAGES_PER_THREAD הודעות לכל שיחה
+      let contactLimit = 80;
+      let convLimit = 40;
+      let msgLimit = MAX_MESSAGES_PER_THREAD;
+      let saved = false;
+      const serialize = () => {
+        const contactsArray = Array.from(chatState.contacts.values())
+          .sort((a,b)=> (b.lastTimestamp||0) - (a.lastTimestamp||0))
+          .slice(0, contactLimit)
+          .map((contact) => ({
+            pubkey: contact.pubkey,
+            name: contact.name,
+            picture: contact.picture,
+            initials: contact.initials,
+            lastMessage: contact.lastMessage,
+            lastTimestamp: contact.lastTimestamp,
+            unreadCount: contact.unreadCount,
+            lastReadTimestamp: contact.lastReadTimestamp || 0,
+          }));
+        const conversationsArray = Array.from(chatState.conversations.entries())
+          .sort((a,b)=> ((b[1]?.messages?.length||0) - (a[1]?.messages?.length||0)))
+          .slice(0, convLimit)
+          .map(([key, info]) => ({
+            key,
+            peer: info.peer,
+            messages: Array.isArray(info.messages) ? info.messages.slice(-msgLimit) : [],
+          }));
+        return {
+          contacts: contactsArray,
+          conversations: conversationsArray,
+          deletedIds: Array.from(App.deletedChatMessageIds || []),
+        };
       };
-      window.localStorage.setItem(storageKey, JSON.stringify(payload));
+      while (!saved && convLimit >= 5) {
+        const payload = serialize();
+        try {
+          window.localStorage.setItem(storageKey, JSON.stringify(payload));
+          saved = true;
+        } catch (e) {
+          // הקטן בהדרגה כדי להיכנס למכסה
+          if (contactLimit > 20) contactLimit = Math.floor(contactLimit * 0.75);
+          if (convLimit > 5) convLimit = Math.max(5, Math.floor(convLimit * 0.7));
+          if (msgLimit > 20) msgLimit = Math.max(20, Math.floor(msgLimit * 0.8));
+          if (!App._chatPersistWarned) {
+            App._chatPersistWarned = true;
+            console.warn('Failed to persist chat state, reducing payload');
+          }
+        }
+      }
     } catch (err) {
-      console.warn('Failed to persist chat state', err);
+      if (!App._chatPersistWarned) {
+        App._chatPersistWarned = true;
+        console.warn('Failed to persist chat state', err);
+      }
     }
   }
 

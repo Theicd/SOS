@@ -414,15 +414,84 @@ function renderVideoCard(video) {
     </button>
   `;
 
-  const isFollowing = currentApp.followingSet?.has(video.pubkey) || false;
-  const isSelf = video.pubkey === currentApp.publicKey;
+  const viewerPubkey = typeof currentApp.publicKey === 'string' ? currentApp.publicKey.toLowerCase() : '';
+  const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
+  const isSelf = viewerPubkey && videoOwnerPubkey ? viewerPubkey === videoOwnerPubkey : video.pubkey === currentApp.publicKey;
+  const isFollowing = currentApp.followingSet?.has(videoOwnerPubkey || video.pubkey) || false;
+  const isAdminUser = currentApp.adminPublicKeys instanceof Set && viewerPubkey
+    ? currentApp.adminPublicKeys.has(viewerPubkey)
+    : false;
 
-  if (!isSelf) {
+  const canEdit = isSelf;
+  const canDelete = isSelf || isAdminUser;
+
+  if (isSelf) {
+    // חלק תפריט פיד ווידאו (videos.js) – הוספת כפתור שלוש נקודות כמו בפיד הראשי לעריכה/מחיקה של המשתמש | HYPER CORE TECH
+    const menuWrap = document.createElement('div');
+    menuWrap.className = 'feed-post__menu-wrap videos-feed__menu-wrap';
+    menuWrap.setAttribute('data-video-menu-wrap', video.id);
+
+    const menuToggle = document.createElement('button');
+    menuToggle.type = 'button';
+    menuToggle.className = 'videos-feed__action feed-post__menu-toggle';
+    menuToggle.setAttribute('aria-haspopup', 'true');
+    menuToggle.setAttribute('aria-expanded', 'false');
+    menuToggle.setAttribute('data-post-menu-toggle', video.id);
+    menuToggle.setAttribute('title', 'אפשרויות');
+    menuToggle.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
+
+    const editButtonHtml = canEdit
+      ? `
+        <button class="feed-post__action feed-post__action--edit" type="button" onclick="NostrApp.openEditPost('${video.id}')">
+          <i class="fa-solid fa-pen-to-square"></i>
+          <span>ערוך</span>
+        </button>
+      `
+      : '';
+    const deleteButtonHtml = canDelete
+      ? `
+        <button class="feed-post__action feed-post__action--delete" type="button" onclick="NostrApp.deletePost('${video.id}')">
+          <i class="fa-solid fa-trash"></i>
+          <span>מחק</span>
+        </button>
+      `
+      : '';
+
+    const menu = document.createElement('div');
+    menu.className = 'feed-post__menu videos-feed__menu';
+    menu.setAttribute('data-post-menu', video.id);
+    menu.setAttribute('hidden', '');
+    menu.hidden = true;
+    menu.innerHTML = `${editButtonHtml}${deleteButtonHtml}`;
+
+    menuWrap.appendChild(menuToggle);
+    menuWrap.appendChild(menu);
+    actionsDiv.appendChild(menuWrap);
+
+    const markToggleAsWired = () => {
+      const card = menuWrap.closest('.videos-feed__card') || article;
+      const toggle = menuWrap.querySelector(`[data-post-menu-toggle="${video.id}"]`);
+      if (!card || !toggle || toggle.dataset.menuWired === '1') {
+        return;
+      }
+      const appRef = window.NostrApp;
+      toggle.dataset.menuWired = '1';
+      toggle.setAttribute('aria-expanded', 'false');
+      if (typeof appRef?.wirePostMenu === 'function') {
+        appRef.wirePostMenu(card, video.id);
+      } else {
+        wireVideoPostMenu(card, video.id);
+      }
+    };
+
+    setTimeout(markToggleAsWired, 0);
+  } else {
     // כפתור עקוב מעודכן לשימוש בשירות העוקבים הכללי | HYPER CORE TECH
     const followBtn = document.createElement('button');
     followBtn.type = 'button';
     followBtn.className = `videos-feed__action ${isFollowing ? 'is-following' : ''}`;
-    followBtn.setAttribute('data-follow-button', video.pubkey);
+    // חלק עוקבים (videos.js) – שימוש ב-lowercase pubkey כמו בפיד הראשי לריענון עקב/בטל עקב | HYPER CORE TECH
+    followBtn.setAttribute('data-follow-button', videoOwnerPubkey || video.pubkey);
     followBtn.innerHTML = `
       <i class="fa-solid ${isFollowing ? 'fa-user-minus' : 'fa-user-plus'}"></i>
       <span data-follow-label>${isFollowing ? 'עוקב/ת' : 'עקוב'}</span>
@@ -432,6 +501,24 @@ function renderVideoCard(video) {
     if (typeof currentApp.refreshFollowButtons === 'function') {
       currentApp.refreshFollowButtons(actionsDiv);
     }
+  }
+
+  if (!isSelf && canDelete) {
+    // חלק תפריט מנהל (videos.js) – מאפשר לאדמין למחוק פוסט וידאו של משתמש אחר באמצעות הפונקציה הקיימת | HYPER CORE TECH
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'videos-feed__action feed-post__action feed-post__action--delete';
+    deleteBtn.setAttribute('data-admin-delete', video.id);
+    deleteBtn.innerHTML = `
+      <i class="fa-solid fa-trash"></i>
+      <span>מחק</span>
+    `;
+    deleteBtn.addEventListener('click', () => {
+      if (typeof currentApp.deletePost === 'function') {
+        currentApp.deletePost(video.id);
+      }
+    });
+    actionsDiv.appendChild(deleteBtn);
   }
 
   const infoDiv = document.createElement('div');
@@ -516,6 +603,50 @@ function renderVideoCard(video) {
   article.appendChild(infoDiv);
 
   return article;
+}
+
+// חלק תפריט פיד ווידאו (videos.js) – חיבור fallback לפתיחה/סגירה של תפריט העריכה | HYPER CORE TECH
+function wireVideoPostMenu(rootEl, postId) {
+  if (!rootEl || !postId) {
+    return;
+  }
+  const toggle = rootEl.querySelector(`[data-post-menu-toggle="${postId}"]`);
+  const menu = rootEl.querySelector(`[data-post-menu="${postId}"]`);
+  if (!toggle || !menu) {
+    return;
+  }
+
+  const close = () => {
+    if (!menu.hasAttribute('hidden')) {
+      menu.setAttribute('hidden', '');
+      toggle.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', onOutside, true);
+      document.removeEventListener('keydown', onKey);
+    }
+  };
+  const onOutside = (event) => {
+    if (!menu.contains(event.target) && !toggle.contains(event.target)) {
+      close();
+    }
+  };
+  const onKey = (event) => {
+    if (event.key === 'Escape') {
+      close();
+    }
+  };
+
+  toggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const hidden = menu.hasAttribute('hidden');
+    if (hidden) {
+      menu.removeAttribute('hidden');
+      toggle.setAttribute('aria-expanded', 'true');
+      document.addEventListener('click', onOutside, true);
+      document.addEventListener('keydown', onKey);
+    } else {
+      close();
+    }
+  });
 }
 
 // חלק יאללה וידאו (videos.js) – רינדור כל הווידאו
