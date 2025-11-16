@@ -655,6 +655,10 @@ body:has(.videos-feed) .nav-avatar {
   font-size: 0.9rem;
   color: var(--text-primary);
   margin-bottom: 4px;
+  background: transparent; /* ביטול רקע ברירת מחדל לכפתור שם מגיב | HYPER CORE TECH */
+  border: none; /* הסרת מסגרת ברירת מחדל לכפתור | HYPER CORE TECH */
+  padding: 0; /* שמירת פריסה הדוקה סביב הטקסט | HYPER CORE TECH */
+  cursor: pointer; /* מצביע ידני לשם המגיב | HYPER CORE TECH */
 }
 
 .videos-comment-text {
