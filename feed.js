@@ -1439,41 +1439,25 @@
       return;
     }
     try {
-      let limit = 60;
-      let saved = false;
-      while (!saved && limit >= 10) {
-        const payload = App.notifications.slice(0, limit).map((notification) => ({
-          id: notification.id,
-          type: notification.type,
-          postId: notification.postId,
-          actorPubkey: notification.actorPubkey,
-          createdAt: notification.createdAt,
-          content: notification.content,
-          read: notification.read,
-          actorProfile: notification.actorProfile
-            ? {
-                name: notification.actorProfile.name || '',
-                picture: notification.actorProfile.picture || '',
-                initials: notification.actorProfile.initials || '',
-              }
-            : null,
-        }));
-        try {
-          window.localStorage.setItem(storageKey, JSON.stringify(payload));
-          saved = true;
-        } catch (e) {
-          limit = Math.floor(limit / 2);
-          if (!App._notifPersistWarned) {
-            App._notifPersistWarned = true;
-            console.warn('Failed to persist notifications, reducing payload');
-          }
-        }
-      }
+      const payload = App.notifications.slice(0, 100).map((notification) => ({
+        id: notification.id,
+        type: notification.type,
+        postId: notification.postId,
+        actorPubkey: notification.actorPubkey,
+        createdAt: notification.createdAt,
+        content: notification.content,
+        read: notification.read,
+        actorProfile: notification.actorProfile
+          ? {
+              name: notification.actorProfile.name || '',
+              picture: notification.actorProfile.picture || '',
+              initials: notification.actorProfile.initials || '',
+            }
+          : null,
+      }));
+      window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch (err) {
-      if (!App._notifPersistWarned) {
-        App._notifPersistWarned = true;
-        console.warn('Failed to persist notifications', err);
-      }
+      console.warn('Failed to persist notifications', err);
     }
     notifyNotificationObservers();
   }
@@ -3796,7 +3780,6 @@ async function loadFeed() {
     registerLike,
     updateLikeIndicator,
     removePostElement,
-    wirePostMenu,
   });
 
   // חלק וידאו/תמונות (feed.js) – אתחול טיפול בוידאו ו-Lightbox לתמונות
