@@ -50,13 +50,6 @@
   display: none !important;
 }
 
-@media (min-width: 860px) {
-  .videos-feed__menu {
-    left: auto;
-    right: calc(100% + 12px);
-  }
-}
-
 .videos-feed__menu .feed-post__action {
   width: 100%;
   justify-content: flex-start;
