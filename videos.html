@@ -15,6 +15,8 @@
     <link rel="stylesheet" href="./styles/chat-dialog.css">
     <link rel="stylesheet" href="./styles/chat-voice-call.css">
     <link rel="stylesheet" href="./styles/chat-video-call.css">
+    <link rel="stylesheet" href="./styles/market-dashboard.css">
+    <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/videos.css">
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
     <!-- חלק תלויות כלליות (videos.html) – סדר טעינה זהה לעמודים הראשיים | HYPER CORE TECH -->
@@ -24,9 +26,13 @@
     <script src="./secure-channel.js" defer></script>
     <script src="./keys.js" defer></script>
     <script src="./profile.js" defer></script>
+    <!-- חלק הצגת מפתח (videos.html) – טעינת מודול ניהול חשבון להצגת המפתח | HYPER CORE TECH -->
+    <script src="./account.js" defer></script>
+    <script src="./key-viewer.js" defer></script>
     <script src="./media-cache.js" defer></script>
     <script src="./media-mirror.js" defer></script>
     <script src="./media-recheck.js" defer></script>
+    <script src="./contract-dashboard-v2.js" defer></script>
     <script src="./app.js" defer></script>
     <!-- חלק ניווט (videos.html) – הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
     <script>
@@ -39,6 +45,10 @@
     <script src="./feed.js" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
+    <!-- חלק לוח גידול (videos.html) – טעינת ספריות הגרפים לדשבורד | HYPER CORE TECH -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js" defer></script>
     <!-- חלק Blossom (videos.html) – לקוח העלאות כדי להימנע מ-fallback ל-void.cat | HYPER CORE TECH -->
     <script src="./blossom.js" defer></script>
     <!-- חלק FFmpeg (videos.html) – טעינת ספריית ffmpeg.wasm כמו ב-index.html | HYPER CORE TECH -->
@@ -78,6 +88,28 @@
     <script src="./chat-video-call.js" defer></script>
     <script src="./chat-video-call-ui.js" defer></script>
     <script src="./chat-ui.js" defer></script>
+    <script src="./market-dashboard.js" defer></script>
+    <script>
+      // חלק לוח גידול (videos.html) – מבטיח שגלובליים מחוברים לאחר טעינת הדשבורד | HYPER CORE TECH
+      window.addEventListener('DOMContentLoaded', function () {
+        var App = window.NostrApp || (window.NostrApp = {});
+        if (typeof App.refreshGrowthSelectors === 'function') {
+          App.refreshGrowthSelectors();
+        }
+        if (typeof App.initializeGrowthDashboard === 'function') {
+          App.initializeGrowthDashboard();
+        }
+        if (typeof App.openGrowthDashboard === 'function') {
+          window.openGrowthDashboard = App.openGrowthDashboard;
+        }
+        if (typeof App.closeGrowthDashboard === 'function') {
+          window.closeGrowthDashboard = App.closeGrowthDashboard;
+        }
+        if (typeof App.refreshGrowthDashboard === 'function') {
+          window.refreshGrowthDashboard = App.refreshGrowthDashboard;
+        }
+      });
+    </script>
   </head>
   <body>
     <!-- חלק סרגל עליון (videos.html) – סרגל עליון אחיד כמו בדפים הראשיים | HYPER CORE TECH -->
@@ -180,6 +212,18 @@
         <div class="videos-feed__status" id="videosStatus" role="status">טוען סרטונים...</div>
       </section>
     </main>
+
+    <!-- חלק הצגת מפתח (videos.html) – מודל ההצגה המשותף לכל העמודים | HYPER CORE TECH -->
+    <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>המפתח הפרטי שלך</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions"><button class="icon-button" onclick="copyKeyViewer()">העתק</button><button class="button-secondary" onclick="closeKeyViewer()">סגור</button></div><div class="modal-actions"><button class="button-secondary" onclick="logoutAndSwitchUser()">התנתק והחלף משתמש</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
+
+    <!-- חלק חוזה חכם 2 (videos.html) – חלון אימות סיסמה לפני פתיחת החוזה | HYPER CORE TECH -->
+    <div class="modal contract-password-modal" id="contractPasswordModal" aria-hidden="true" hidden><div class="modal-content contract-password-modal__content" role="dialog" aria-modal="true" aria-labelledby="contractPasswordTitle"><h2 id="contractPasswordTitle">גישה לחוזה החכם</h2><p>כדי להמשיך אל מודול החוזה החכם יש להזין את קוד הגישה שנמסר לך.</p><label class="contract-password-modal__label" for="contractPasswordInput">קוד גישה</label><input type="password" id="contractPasswordInput" class="contract-password-modal__input" placeholder="הקלד/י את הסיסמה" autocomplete="off" /><div class="contract-password-modal__error" id="contractPasswordError" role="alert" hidden>סיסמה שגויה. נסו שוב.</div><div class="modal-actions"><button class="button-secondary" type="button" id="contractPasswordCancel">ביטול</button><button class="button-primary" type="button" id="contractPasswordSubmit">אישור</button></div></div></div>
+
+    <!-- חלק חוזה חכם 2 (videos.html) – פאנל השקעה ונתוני SPEAR ONE כמו בפיד הראשי | HYPER CORE TECH -->
+    <section class="contract-dashboard-v2" id="contractDashboardV2" aria-hidden="true"><div class="contract-dashboard-v2__backdrop" onclick="closeContractDashboardV2()"></div><article class="contract-dashboard-v2__panel" role="dialog" aria-modal="true"><header class="top-bar top-bar--profile contract-dashboard-v2__header-bar"><div class="top-bar__actions top-bar__actions--profile"><button class="circle-button top-bar__refresh" id="contractV2RefreshButton" type="button" aria-label="רענון נתוני החוזה"><i class="fa-solid fa-rotate-right"></i></button></div><div class="top-bar__title"><span class="top-bar__title-inner"><i class="fa-solid fa-signal" aria-hidden="true"></i><span>חוזה חכם – SPEAR ONE</span></span><p class="top-bar__subtitle">השקעה בטכנולוגיה המבוזרת שמשנה את האינטרנט</p></div><div class="top-bar__actions top-bar__actions--profile"><button class="circle-button top-bar__home" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם"><i class="fa-solid fa-xmark"></i></button></div></header><div class="contract-dashboard-v2__body"><section class="contract-v2-hero" id="contractV2Hero"><div class="contract-v2-hero__copy"><h3>טכנולוגיה חדשנית להחזקה ותפעול של פלטפורמות אינטרנטיות ללא שרת מרכזי ועלויות תשתית.</h3><p>המודל משלב רשת חברתית, מסחר ותקשורת בזמן אמת ומגובה בנתוני פעילות מהשרשרת המבוזרת.</p></div><div class="contract-v2-hero__metrics"><article class="contract-v2-hero__metric"><span class="contract-v2-hero__metric-label">השקעת R&D</span><strong id="contractV2DevelopmentValue">₪0</strong></article><article class="contract-v2-hero__metric"><span class="contract-v2-hero__metric-label">שווי יחידה נוכחי</span><strong id="contractV2UnitValue">$0</strong></article><article class="contract-v2-hero__metric"><span class="contract-v2-hero__metric-label">תשואת רשת מוערכת</span><strong id="contractV2NetworkYield">0%</strong></article></div><div class="contract-v2-hero__actions"><button class="button-primary" type="button" onclick="openOptionPurchase()"><i class="fa-solid fa-rocket"></i><span>המשך לתהליך ההשקעה</span></button><button class="button-secondary" type="button" data-scroll-target="contractV2Details"><i class="fa-solid fa-circle-info"></i><span>למד על המודל</span></button></div></section><section class="contract-v2-chart" id="contractV2ChartWrap"><header class="contract-v2-chart__header"><h3>שווי SPEAR ONE מול פעילות רשת</h3><p>הגרף משלב נתונים בזמן אמת מלוח הגידול על פעילות Relays, לייקים ותגובות.</p></header><div class="contract-v2-chart__canvas"><canvas id="contractV2Chart" aria-label="גרף נכס מול פעילות"></canvas></div><footer class="contract-v2-chart__legend" id="contractV2Legend"></footer></section><section class="contract-v2-infra"><h3>התשתית שמחזיקה את SPEAR ONE</h3><div class="contract-v2-infra__grid" id="contractV2InfraGrid"></div></section><section class="contract-v2-narrative"><h3>למה להצטרף עכשיו?</h3><ul class="contract-v2-narrative__list"><li>נקודת כניסה מוקדמת לרשת חברתית מבוזרת שמייצרת ערך למחזיקי היחידות.</li><li>בעלות מלאה על הנתונים והקניין הרוחני באמצעות מנגנון Credited Units.</li><li>תהליכי Buyback פנימיים שמחזקים את האקו-סיסטם לאורך זמן.</li></ul></section><section class="contract-v2-details" id="contractV2Details" hidden><h3>פירוט אנליטי</h3><div class="contract-v2-details__grid"><article><h4>קישור ללוח הגידול</h4><p>כל שינוי במדדי הפעילות משפיע ישירות על שווי היחידה ויוצג בגרף בזמן אמת.</p></article><article><h4>מודל מולטי-Relay</h4><p>הריליים מפזרים עומס ומאפשרים הרחבה מיידית לפי ביקוש, ללא תלות בשרתים מרכזיים.</p></article><article><h4>Units וקרדיטים</h4><p>יחידות נרכשות ב-$50 ומשרתות את האקו-סיסטם – Buyback מחזיר עד 80% בקרדיטים.</p></article></div></section><section class="contract-v2-terms" id="contractV2Terms"><h3>תנאי החוזה</h3><ol class="contract-v2-terms__list" id="contractV2TermsList"></ol></section><section class="contract-v2-forecast" id="contractV2Forecast"><header class="contract-v2-forecast__header"><div><h3>תחזית צמיחה לשנה קדימה</h3><p>תרחישים מבוססי נתוני Relay וקהילה פעילה.</p></div><div class="contract-v2-forecast__legend" id="contractV2ForecastLegend"></div></header><div class="contract-v2-forecast__chart"><canvas id="contractV2ForecastChart" aria-label="גרף תחזית פעילות ושווי"></canvas></div><footer class="contract-v2-forecast__notes" id="contractV2ForecastNotes"></footer></section><section class="contract-v2-calculator" id="contractV2Calculator"><header class="contract-v2-calculator__header"><h3>מחשבון השקעה מיידי</h3><p>הזינו סכום ובדקו את אחוז הזכות בטכנולוגיה ואת Buyback המשוער.</p></header><div class="contract-v2-calculator__body"><label class="contract-v2-calculator__label" for="contractV2InvestmentInput">סכום השקעה בדולר (מינימום $50)</label><div class="contract-v2-calculator__input"><span class="contract-v2-calculator__currency">$</span><input type="number" id="contractV2InvestmentInput" min="50" step="50" value="50" /></div><div class="contract-v2-calculator__summary" id="contractV2CalculatorSummary"><div class="contract-v2-calculator__item"><span class="contract-v2-calculator__item-label">אחוז בטכנולוגיה</span><strong class="contract-v2-calculator__item-value" id="contractV2Ownership">0%</strong></div><div class="contract-v2-calculator__item"><span class="contract-v2-calculator__item-label">Buyback בקרדיטים</span><strong class="contract-v2-calculator__item-value" id="contractV2Buyback">$0</strong></div><div class="contract-v2-calculator__item"><span class="contract-v2-calculator__item-label">קיבולת משתמשים נתמכת</span><strong class="contract-v2-calculator__item-value" id="contractV2CapacityImpact">0</strong></div></div><button class="contract-v2-calculator__cta" type="button" onclick="openOptionPurchase()"><i class="fa-solid fa-arrow-right-to-bracket"></i>המשך לתהליך ההשקעה</button></div></section></div><footer class="contract-dashboard-v2__footer"><span class="contract-dashboard-v2__status" id="contractV2Status">ממתין לנתוני רשת...</span><button class="contract-dashboard-v2__cta" type="button" onclick="openOptionPurchase()"><i class="fa-solid fa-rocket"></i>הצטרפות עם יחידה אחת</button></footer></article></section>
+
+    <!-- חלק לוח גידול (videos.html) – פאנל דשבורד נתוני רשת לשימוש כפתור הפרופיל | HYPER CORE TECH -->
+    <section class="growth-dashboard" id="growthDashboard" aria-hidden="true"><div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div><article class="growth-dashboard__panel" role="dialog" aria-modal="true"><header class="growth-dashboard__header"><div class="growth-dashboard__title"><i class="fa-solid fa-chart-line"></i><div><h2>מדד גידול הרשת</h2><p>נתוני פעילות בזמן אמת של SphereOne Social</p></div></div><button class="growth-dashboard__close" type="button" aria-label="סגירת לוח הגידול" onclick="closeGrowthDashboard()"><i class="fa-solid fa-xmark"></i></button></header><nav class="growth-dashboard__tabs" role="tablist"><button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">סקירה</button><button class="growth-dashboard__tab" data-tab="activity" role="tab">פעילות</button><button class="growth-dashboard__tab" data-tab="leaders" role="tab">מובילים</button></nav><div class="growth-dashboard__content"><section class="growth-dashboard__section" data-pane="overview"><div class="growth-metrics" id="growthMetrics"></div><div class="growth-chart" id="growthChartContainer"><div class="growth-chart__ranges" role="group" aria-label="טווח היסטוריה"><button type="button" class="growth-chart__range-button" data-range="1d">יום</button><button type="button" class="growth-chart__range-button" data-range="1w">שבוע</button><button type="button" class="growth-chart__range-button is-active" data-range="1m">חודש</button><button type="button" class="growth-chart__range-button" data-range="3m">3 חודשים</button><button type="button" class="growth-chart__range-button" data-range="1y">שנה</button></div><canvas id="growthChart" aria-label="גרף מגמת פעילות"></canvas></div></section><section class="growth-dashboard__section is-hidden" data-pane="activity"><div class="growth-activity" id="growthActivity"></div></section><section class="growth-dashboard__section is-hidden" data-pane="leaders"><div class="growth-leaders" id="growthLeaders"></div></section></div><footer class="growth-dashboard__footer"><div class="growth-dashboard__status" id="growthStatus">מתחבר למדד...</div><div class="growth-dashboard__actions"><label class="growth-dashboard__toggle"><input type="checkbox" id="growthAutoRefresh"><span>רענון אוטומטי</span></label><button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()"><i class="fa-solid fa-rotate"></i>רענן כעת</button></div></footer></article></section>
 
     <!-- חלק חלון יצירת פוסט (videos.html) – אותו קומפוזר בדיוק כמו בפיד הראשי | HYPER CORE TECH -->
     <div class="compose-modal" id="composeModal" aria-hidden="true">
