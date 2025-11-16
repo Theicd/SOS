@@ -39,6 +39,31 @@
     <script src="./feed.js" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
+    <!-- חלק Blossom (videos.html) – לקוח העלאות כדי להימנע מ-fallback ל-void.cat | HYPER CORE TECH -->
+    <script src="./blossom.js" defer></script>
+    <!-- חלק FFmpeg (videos.html) – טעינת ספריית ffmpeg.wasm כמו ב-index.html | HYPER CORE TECH -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" defer></script>
+    <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
+    <script src="./video-compressor.js" defer></script>
+    <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
+    <script src="./compose.js" defer></script>
+    <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
+    <script src="./compose-backgrounds.js" defer></script>
+    <script>
+      // חלק קומפוזר (videos.html) – הבטחת זמינות openCompose באופן מיידי עבור ה-onclick בתפריט | HYPER CORE TECH
+      (function(){
+        if (typeof window.openCompose !== 'function') {
+          window.openCompose = function(){
+            var App = window.NostrApp || {};
+            if (typeof App.openCompose === 'function') {
+              App.openCompose();
+            } else {
+              console.warn('[VIDEOS] App.openCompose not ready');
+            }
+          };
+        }
+      })();
+    </script>
     <script src="./videos.js" defer></script>
     <!-- מודולי צ'אט (videos.html) – זהים לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./chat-state.js" defer></script>
@@ -156,6 +181,49 @@
       </section>
     </main>
 
+    <!-- חלק חלון יצירת פוסט (videos.html) – אותו קומפוזר בדיוק כמו בפיד הראשי | HYPER CORE TECH -->
+    <div class="compose-modal" id="composeModal" aria-hidden="true">
+      <div class="compose-dialog" role="dialog" aria-modal="true">
+        <div class="profile-inline">
+          <div class="profile-avatar" id="composeProfileAvatar">?</div>
+          <div class="profile-text">
+            <span class="profile-name" id="composeProfileName">משתמש</span>
+            <span class="profile-bio" id="composeProfileBio">שתף את המחשבות שלך</span>
+          </div>
+        </div>
+        <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
+        <div class="compose-dialog__toolbar">
+          <button class="button-secondary" type="button" onclick="document.getElementById('composeMediaInput').click()">
+            <i class="fa-regular fa-image"></i>
+            <span>הוסף תמונה/וידאו</span>
+          </button>
+          <button class="button-primary" type="button" id="composeLiveButton" aria-label="התחלת שידור חי">
+            <i class="fa-solid fa-tower-broadcast"></i>
+            <span>שידור חי</span>
+          </button>
+          <button class="button-secondary" type="button" id="composeBgToggle">
+            <i class="fa-solid fa-palette"></i>
+            <span>רקע טקסט</span>
+          </button>
+          <button class="button-secondary" type="button" id="composeBgClear" hidden>
+            <i class="fa-solid fa-eraser"></i>
+            <span>הסר רקע</span>
+          </button>
+          <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
+        </div>
+        <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
+        <div id="composeMediaPreview" class="compose-media-preview">
+          <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
+          <video id="composeMediaPreviewVideo" controls playsinline></video>
+        </div>
+        <div id="composeStatus" class="p2p-status"></div>
+        <div class="compose-dialog__actions">
+          <button class="button-secondary" onclick="closeCompose()">ביטול</button>
+          <button class="button-primary" onclick="publishPost()">פרסם</button>
+        </div>
+      </div>
+    </div>
+
     <!-- צ'אט (videos.html) – מבנה זהה ומכווץ שורות | HYPER CORE TECH -->
     <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי"><div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-contacts__search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש בצ'אט" autocomplete="off"><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="שיחת קול"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><button type="button" class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ"><i class="fa-solid fa-paperclip"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div><input type="file" id="chatComposerFileInput" hidden></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
 
@@ -211,6 +279,22 @@
             console.error('[VIDEOS] Notification setup error:', e);
           }
         }, 300);
+
+        // חלק קומפוזר (videos.html) – פולבאק ל-openCompose גלובלי עבור כפתור התפריט המשותף | HYPER CORE TECH
+        try {
+          if (typeof window.openCompose !== 'function') {
+            window.openCompose = function(){
+              var App = window.NostrApp || {};
+              if (typeof App.openCompose === 'function') {
+                App.openCompose();
+              } else {
+                console.warn('[VIDEOS] openCompose not available');
+              }
+            };
+          }
+        } catch (e) {
+          console.warn('[VIDEOS] Failed to bind openCompose fallback', e);
+        }
       });
     </script>
   </body>

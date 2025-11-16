@@ -180,19 +180,46 @@
         console.log('העלאת קובץ מקורי (טלפון)');
       }
 
-      // העלאה ל-Blossom
-      setStatus('מעלה וידאו...');
-      const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
-      
-      if (!uploadResult || !uploadResult.url) {
-        throw new Error('העלאה נכשלה');
+      // נסיון העלאה ל-Blossom עם פולבאק ל-data URL במקרה של כשל רשת
+      let uploadedUrl = '';
+      try {
+        setStatus('מעלה וידאו...');
+        const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
+        if (uploadResult && uploadResult.url) {
+          uploadedUrl = uploadResult.url;
+        } else {
+          throw new Error('העלאה נכשלה');
+        }
+      } catch (uploadErr) {
+        console.warn('Blossom upload failed, falling back to inline data URL', uploadErr);
+        // פולבאק: שמירה כ-data:video ישירות בפוסט
+        const dataUrl = await new Promise((resolve, reject) => {
+          try {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(result.blob);
+          } catch (e) { reject(e); }
+        });
+        uploadedUrl = '';
+        state.media = {
+          type: 'video',
+          dataUrl: String(dataUrl || ''),
+          url: '',
+          hash: result.hash,
+          size: result.size,
+          mimeType: result.type || 'video/webm'
+        };
+        showMediaPreview(state.media);
+        setStatus(`הוידאו הוכן מקומית (${(result.size / (1024 * 1024)).toFixed(1)}MB).`);
+        return; // יציאה – המדיה הוגדרה כ-data URL
       }
 
-      // שמירת מידע במצב
+      // שמירת מידע במצב (מסלול העלאה מוצלח)
       state.media = {
         type: 'video',
         dataUrl: URL.createObjectURL(result.blob),
-        url: uploadResult.url,
+        url: uploadedUrl,
         hash: result.hash,
         size: result.size,
         mimeType: result.type || 'video/webm'
@@ -679,6 +706,55 @@
     state.editingOriginalId = null;
   }
 
+  // חלק קומפוזר (compose.js) – פרסום פוסט: בניית payload, חתימה ופרסום ל-relays | HYPER CORE TECH
+  async function publishPostImpl() {
+    try {
+      resetStatus();
+      const payload = getComposePayload();
+      if (!payload) return;
+
+      const app = window.NostrApp || {};
+      if (!app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
+        setStatus('אין חיבור לריליים. נסה שוב לאחר ההתחברות.', 'error');
+        return;
+      }
+      if (!app.privateKey || !app.publicKey || typeof app.finalizeEvent !== 'function') {
+        setStatus('חסר מפתח או חתימה. היכנס/י לחשבון ונסה שוב.', 'error');
+        return;
+      }
+
+      // בניית אירוע Kind 1
+      const tags = [];
+      if (Array.isArray(payload.mediaTags) && payload.mediaTags.length) {
+        payload.mediaTags.forEach((t) => { if (Array.isArray(t)) tags.push(t); });
+      }
+      if (app.NETWORK_TAG) {
+        tags.push(['t', app.NETWORK_TAG]);
+      }
+
+      const event = {
+        kind: 1,
+        pubkey: app.publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: String(payload.content || '').trim(),
+      };
+
+      setStatus('מפרסם...');
+      const signed = app.finalizeEvent(event, app.privateKey);
+      await app.pool.publish(app.relayUrls, signed);
+
+      // עדכון UI
+      setStatus('פורסם בהצלחה');
+      try { if (typeof app.onPostPublished === 'function') app.onPostPublished(signed); } catch (_) {}
+      resetCompose();
+      closeCompose();
+    } catch (err) {
+      console.error('Failed to publish post', err);
+      setStatus('שגיאה בפרסום. נסה שוב.', 'error');
+    }
+  }
+
   initListeners();
 
   Object.assign(App, {
@@ -691,5 +767,12 @@
     // חלק קומפוזר – API לזרימת עריכה
     setComposeDraft,
     clearEditing,
+    // חלק קומפוזר – פרסום פוסט גלובלי כדי לתמוך ב-videos.html גם ללא app.js
+    publishPost: publishPostImpl,
   });
+
+  // חשיפת פונקציה גלובלית – דריסה מפורשת כדי למנוע no-op שנקבע מוקדם ב-app.js
+  // במקרים שבהם app.js נטען לפני compose.js, הוא עלול להגדיר window.publishPost לפונקציה ריקה אם App.publishPost טרם הוגדר.
+  // כאן אנו מוודאים שהכפתור תמיד יקרא לפונקציה הנכונה של הקומפוזר.
+  window.publishPost = publishPostImpl;
 })(window);

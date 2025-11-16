@@ -51,29 +51,31 @@
     for(const s of servers){
       try{
         const url = new URL('/upload', s.url).toString();
-        const res = await fetch(url, {
-          method: 'PUT',
-          body: blob,
-          headers: {
-            'Content-Type': blob.type || 'application/octet-stream',
-            'Content-Length': String(blob.size||0),
-            'Accept': 'application/json',
-            'Authorization': header,
-            'Origin': window.location.origin,
-          },
-          mode: 'cors',
-          credentials: 'omit',
-        });
-        if(!res.ok){
-          // ננסה ללקט סיבת כשל אך נתקדם לשרת הבא
-          try { await res.text(); } catch {}
-          continue;
+        // חלק העלאות (blossom.js) – ניסיון עם PUT ואז POST כדי לעקוף מגבלות חלק מהדפדפנים במובייל
+        const methods = ['PUT','POST'];
+        for (const method of methods) {
+          const res = await fetch(url, {
+            method,
+            body: blob,
+            headers: {
+              // הימנעות מכותרות שמפעילות preflight/נחסמות (Origin/Content-Length)
+              'Content-Type': blob.type || 'application/octet-stream',
+              'Accept': 'application/json',
+              'Authorization': header,
+            },
+            mode: 'cors',
+            credentials: 'omit',
+          });
+          if(!res.ok){
+            try { await res.text(); } catch {}
+            continue; // נסה שיטה הבאה או שרת הבא
+          }
+          const data = await res.json();
+          if(!data?.url || (data?.sha256 && data.sha256 !== hash)){
+            continue;
+          }
+          return fixUrl(data.url);
         }
-        const data = await res.json();
-        if(!data?.url || data?.sha256 && data.sha256 !== hash){
-          continue;
-        }
-        return fixUrl(data.url);
       }catch(e){
         // נמשיך לשרת הבא
       }

@@ -1681,6 +1681,7 @@
     if (!listEl || !emptyEl) {
       return;
     }
+    sortNotificationsByCreatedAt();
     if (!Array.isArray(App.notifications) || App.notifications.length === 0) {
       emptyEl.removeAttribute('hidden');
       listEl.innerHTML = '';
@@ -1718,6 +1719,14 @@
     });
   }
 
+  // חלק התרעות (feed.js) – מיון רשימת ההתרעות כך שהחדשות יוצגו בראש | HYPER CORE TECH
+  function sortNotificationsByCreatedAt() {
+    if (!Array.isArray(App.notifications) || App.notifications.length < 2) {
+      return;
+    }
+    App.notifications.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+
   function registerNotificationRecord(record, options = {}) {
     // חלק התרעות (feed.js) – מוסיף התרעה חדשה למבנה הנתונים ומעדכן מונים
     if (!record || typeof record.id !== 'string') {
@@ -1728,6 +1737,7 @@
     }
     App.notificationsById.set(record.id, record);
     App.notifications.unshift(record);
+    sortNotificationsByCreatedAt();
     if (App.notifications.length > 100) {
       const removed = App.notifications.pop();
       if (removed?.id) {
@@ -3035,7 +3045,43 @@
     registerComment(event, parentId);
   }
 
-  async function loadFeed() {
+  // חלק פיד (feed.js) – בניית פילטרים מרכזיים לפיד ולהתרעות | HYPER CORE TECH
+function buildCoreFeedFilters() {
+  const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 200 }];
+  const viewerKey = typeof App.publicKey === 'string' ? App.publicKey : '';
+  if (viewerKey) {
+    filters.push({ kinds: [1], authors: [viewerKey], limit: 50 });
+  }
+  const deletionAuthors = new Set();
+  if (viewerKey) {
+    deletionAuthors.add(viewerKey.toLowerCase());
+  }
+  if (App.adminPublicKeys instanceof Set) {
+    App.adminPublicKeys.forEach((key) => {
+      if (typeof key === 'string' && key) {
+        deletionAuthors.add(key.toLowerCase());
+      }
+    });
+  }
+  if (deletionAuthors.size > 0) {
+    filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 200 });
+  } else {
+    filters.push({ kinds: [5], '#t': [App.NETWORK_TAG], limit: 200 });
+  }
+  filters.push({ kinds: [7], '#t': [App.NETWORK_TAG], limit: 500 });
+  if (viewerKey) {
+    const datingFilter = { kinds: [DATING_LIKE_KIND], '#p': [viewerKey], limit: 200 };
+    if (App.NETWORK_TAG) {
+      datingFilter['#t'] = [App.NETWORK_TAG];
+    }
+    filters.push(datingFilter);
+    const followFilter = { kinds: [FOLLOW_KIND], '#p': [viewerKey], limit: 200 };
+    filters.push(followFilter);
+  }
+  return filters;
+}
+
+async function loadFeed() {
     // מניעת כפל טעינה
     if (App._homeFeedLoadingInProgress) {
       return;
@@ -3151,37 +3197,7 @@
     }
     // חלק פיד (feed.js) – מסננים: פוסטים עיקריים לפי תג רשת, ובנוסף פוסטים של המשתמש הנוכחי גם אם חסר תג
     // טעינה ראשונית: 10 פוסטים בלבד
-    const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 200 }];
-    if (typeof App.publicKey === 'string' && App.publicKey) {
-      filters.push({ kinds: [1], authors: [App.publicKey], limit: 50 });
-    }
-    const deletionAuthors = new Set();
-    if (typeof App.publicKey === 'string' && App.publicKey) {
-      deletionAuthors.add(App.publicKey.toLowerCase());
-    }
-    if (App.adminPublicKeys instanceof Set) {
-      App.adminPublicKeys.forEach((key) => {
-        if (typeof key === 'string' && key) {
-          deletionAuthors.add(key.toLowerCase());
-        }
-      });
-    }
-    if (deletionAuthors.size > 0) {
-      filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 200 });
-    } else {
-      filters.push({ kinds: [5], '#t': [App.NETWORK_TAG], limit: 200 });
-    }
-    filters.push({ kinds: [7], '#t': [App.NETWORK_TAG], limit: 500 });
-    if (typeof App.publicKey === 'string' && App.publicKey) {
-      const datingFilter = { kinds: [DATING_LIKE_KIND], '#p': [App.publicKey], limit: 200 };
-      if (App.NETWORK_TAG) {
-        datingFilter['#t'] = [App.NETWORK_TAG];
-      }
-      filters.push(datingFilter);
-      // אירועי Follow בדרך כלל אינם מסומנים בתג רשת, לכן לא נוסיף '#t' כדי לא לפספס התרעות
-      const followFilter = { kinds: [FOLLOW_KIND], '#p': [App.publicKey], limit: 200 };
-      filters.push(followFilter);
-    }
+    const filters = buildCoreFeedFilters();
     const events = [];
     const seenEventIds = new Set();
 

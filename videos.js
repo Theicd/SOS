@@ -237,6 +237,60 @@ function getNetworkTag() {
   return 'israel-network';
 }
 
+// חלק יאללה וידאו (videos.js) – בניית פילטרים לשימוש משותף בין מודולים | HYPER CORE TECH
+function buildVideoFeedFilters() {
+  const app = window.NostrApp || {};
+
+  if (typeof app.buildCoreFeedFilters === 'function' && app.buildCoreFeedFilters !== buildVideoFeedFilters) {
+    try {
+      return app.buildCoreFeedFilters();
+    } catch (err) {
+      console.warn('[videos] buildCoreFeedFilters failed, using local filters', err);
+    }
+  }
+
+  const networkTag = getNetworkTag();
+  const filters = [{ kinds: [1], '#t': [networkTag], limit: 200 }];
+  const viewerKey = typeof app.publicKey === 'string' ? app.publicKey : '';
+
+  if (viewerKey) {
+    filters.push({ kinds: [1], authors: [viewerKey], limit: 50 });
+
+    const deletionAuthors = new Set();
+    deletionAuthors.add(viewerKey.toLowerCase());
+    if (app.adminPublicKeys instanceof Set) {
+      app.adminPublicKeys.forEach((key) => {
+        if (typeof key === 'string' && key) {
+          deletionAuthors.add(key.toLowerCase());
+        }
+      });
+    }
+
+    if (deletionAuthors.size > 0) {
+      filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 200 });
+    } else {
+      filters.push({ kinds: [5], '#t': [networkTag], limit: 200 });
+    }
+
+    filters.push({ kinds: [7], '#t': [networkTag], limit: 500 });
+
+    const datingKind = typeof app.DATING_LIKE_KIND === 'number' ? app.DATING_LIKE_KIND : 9000;
+    const datingFilter = { kinds: [datingKind], '#p': [viewerKey], limit: 200 };
+    if (networkTag) {
+      datingFilter['#t'] = [networkTag];
+    }
+    filters.push(datingFilter);
+
+    const followKind = typeof app.FOLLOW_KIND === 'number' ? app.FOLLOW_KIND : 40010;
+    filters.push({ kinds: [followKind], '#p': [viewerKey], limit: 200 });
+  } else {
+    filters.push({ kinds: [5], '#t': [networkTag], limit: 200 });
+    filters.push({ kinds: [7], '#t': [networkTag], limit: 500 });
+  }
+
+  return filters;
+}
+
 // חלק יאללה וידאו (videos.js) – בדיקה האם אירוע שייך לרשת שלנו
 function eventHasNetworkTag(event, networkTag) {
   if (!event || !Array.isArray(event.tags)) {
@@ -364,11 +418,20 @@ function renderVideoCard(video) {
   const isSelf = video.pubkey === currentApp.publicKey;
 
   if (!isSelf) {
+    // כפתור עקוב מעודכן לשימוש בשירות העוקבים הכללי | HYPER CORE TECH
     const followBtn = document.createElement('button');
-    followBtn.className = `videos-feed__action ${isFollowing ? 'videos-feed__action--following' : ''}`;
+    followBtn.type = 'button';
+    followBtn.className = `videos-feed__action ${isFollowing ? 'is-following' : ''}`;
     followBtn.setAttribute('data-follow-button', video.pubkey);
-    followBtn.innerHTML = `<i class="fa-solid ${isFollowing ? 'fa-user-check' : 'fa-user-plus'}"></i>`;
+    followBtn.innerHTML = `
+      <i class="fa-solid ${isFollowing ? 'fa-user-minus' : 'fa-user-plus'}"></i>
+      <span data-follow-label>${isFollowing ? 'עוקב/ת' : 'עקוב'}</span>
+    `;
     actionsDiv.appendChild(followBtn);
+
+    if (typeof currentApp.refreshFollowButtons === 'function') {
+      currentApp.refreshFollowButtons(actionsDiv);
+    }
   }
 
   const infoDiv = document.createElement('div');
@@ -613,14 +676,23 @@ function openCommentsPanel(eventId) {
   const sendBtn = overlay.querySelector('#videoCommentSend');
   const input = overlay.querySelector('#videoCommentInput');
   
+  // חלק תגובות (videos.js) – פרסום תגובה דרך postComment או publishPost כגיבוי | HYPER CORE TECH
   const sendComment = async () => {
     const text = input.value.trim();
-    if (!text || !app?.publishPost) return;
-    
+    if (!text || !app) {
+      return;
+    }
+
     try {
-      await app.publishPost({ content: text, replyTo: eventId });
+      if (typeof app.postComment === 'function') {
+        await app.postComment(eventId, text);
+      } else if (typeof app.publishPost === 'function') {
+        await app.publishPost({ content: text, replyTo: eventId });
+      } else {
+        return;
+      }
       input.value = '';
-      setTimeout(() => loadCommentsForPost(eventId), 500);
+      await loadCommentsForPost(eventId);
     } catch (err) {
       console.error('[videos] Failed to send comment:', err);
     }
@@ -672,43 +744,115 @@ function escapeHtml(str) {
 async function loadCommentsForPost(eventId) {
   const app = window.NostrApp;
   const commentsList = document.getElementById('videoCommentsList');
-  if (!commentsList) return;
-
-  commentsList.innerHTML = '<div class="videos-comments-loading">טוען תגובות...</div>';
-
-  const comments = app?.commentsByParent?.get(eventId) || [];
-  
-  if (comments.length === 0) {
-    commentsList.innerHTML = '<div class="videos-comments-empty">אין תגובות עדיין</div>';
+  if (!commentsList) {
     return;
   }
 
-  const fragment = document.createDocumentFragment();
-  
-  for (const comment of comments) {
-    const authorKey = comment.pubkey?.toLowerCase();
-    let profile = app?.profileCache?.get(authorKey);
-    
-    if (!profile && typeof app?.fetchProfile === 'function') {
-      profile = await app.fetchProfile(authorKey);
+  commentsList.innerHTML = '<div class="videos-comments-loading">טוען תגובות...</div>';
+
+  const commentMap = app?.commentsByParent?.get(eventId);
+  const comments = commentMap ? Array.from(commentMap.values()) : [];
+  comments.sort((a, b) => (a?.created_at || 0) - (b?.created_at || 0));
+
+  const commentButton = document.querySelector(`[data-comment-button][data-event-id="${eventId}"]`);
+  const counterEl = commentButton?.querySelector('.videos-feed__action-count');
+
+  if (!comments.length) {
+    commentsList.innerHTML = '<div class="videos-comments-empty">אין תגובות עדיין</div>';
+    if (counterEl) {
+      counterEl.textContent = '';
+      counterEl.style.display = 'none';
     }
-    
+    return;
+  }
+
+  const profiles = await Promise.all(
+    comments.map(async (comment) => {
+      const key = comment.pubkey?.toLowerCase?.() || comment.pubkey || '';
+      if (app?.profileCache?.has(key)) {
+        return app.profileCache.get(key);
+      }
+      if (typeof app?.fetchProfile === 'function') {
+        try {
+          return await app.fetchProfile(key);
+        } catch (_) {
+          return null;
+        }
+      }
+      return null;
+    })
+  );
+
+  const fragment = document.createDocumentFragment();
+
+  comments.forEach((comment, index) => {
+    const profile = profiles[index] || {};
+    const authorKey = comment.pubkey?.toLowerCase?.() || '';
+    const displayName = profile.name || (authorKey ? `משתמש ${authorKey.slice(0, 8)}` : 'משתמש');
+    const initials = profile.initials || displayName.slice(0, 2).toUpperCase();
+    const picture = profile.picture || '';
+    const safeName = escapeHtml(displayName);
+    const safeContent = escapeHtml(comment.content || '').replace(/\n/g, '<br>');
+
     const commentDiv = document.createElement('div');
     commentDiv.className = 'videos-comment-item';
-    commentDiv.innerHTML = `
-      <div class="videos-comment-avatar">
-        ${profile?.picture ? `<img src="${profile.picture}" alt="${profile.name || 'משתמש'}" />` : (profile?.initials || 'AN')}
-      </div>
-      <div class="videos-comment-content">
-        <div class="videos-comment-author">${profile?.name || `משתמש ${authorKey?.slice(0, 8) || ''}`}</div>
-        <div class="videos-comment-text">${comment.content || ''}</div>
-      </div>
-    `;
+
+    const avatarDiv = document.createElement('button');
+    avatarDiv.type = 'button';
+    avatarDiv.className = 'videos-comment-avatar';
+    avatarDiv.setAttribute('aria-label', `פרופיל של ${displayName}`);
+    if (picture) {
+      avatarDiv.innerHTML = `<img src="${picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+    } else {
+      avatarDiv.textContent = initials;
+    }
+    avatarDiv.addEventListener('click', () => {
+      if (authorKey && typeof window.openProfileByPubkey === 'function') {
+        window.openProfileByPubkey(authorKey);
+      }
+    });
+
+    const contentWrap = document.createElement('div');
+    contentWrap.className = 'videos-comment-content';
+
+    const nameButton = document.createElement('button');
+    nameButton.type = 'button';
+    nameButton.className = 'videos-comment-author';
+    nameButton.innerHTML = safeName;
+    nameButton.addEventListener('click', () => {
+      if (authorKey && typeof window.openProfileByPubkey === 'function') {
+        window.openProfileByPubkey(authorKey);
+      }
+    });
+
+    const textDiv = document.createElement('div');
+    textDiv.className = 'videos-comment-text';
+    textDiv.innerHTML = safeContent;
+
+    contentWrap.appendChild(nameButton);
+    contentWrap.appendChild(textDiv);
+
+    commentDiv.appendChild(avatarDiv);
+    commentDiv.appendChild(contentWrap);
+
     fragment.appendChild(commentDiv);
-  }
+  });
 
   commentsList.innerHTML = '';
   commentsList.appendChild(fragment);
+
+  if (counterEl) {
+    counterEl.textContent = String(comments.length);
+    counterEl.style.display = '';
+  }
+
+  if (typeof app?.updateCommentsForParent === 'function') {
+    try {
+      app.updateCommentsForParent(eventId);
+    } catch (err) {
+      console.warn('[videos] failed syncing comment counter', err);
+    }
+  }
 }
 
 // חלק יאללה וידאו (videos.js) – חיבור כפתורי פעולה
@@ -769,7 +913,10 @@ function wireActions() {
         await app.toggleFollow(target);
       }
       
-      setTimeout(() => loadVideos(), 500);
+      if (typeof app.refreshFollowButtons === 'function') {
+        // רענון מיידי של מצב כפתורי העוקב לאחר פעולה | HYPER CORE TECH
+        app.refreshFollowButtons(selectors.stream);
+      }
     });
   });
 }
@@ -905,7 +1052,7 @@ async function fetchRecentNotes(limit = 500) {
 // חלק יאללה וידאו (videos.js) – טעינת לייקים ותגובות לפוסטי וידאו
 async function loadLikesAndCommentsForVideos(eventIds) {
   if (!Array.isArray(eventIds) || eventIds.length === 0) return;
-  
+
   const app = window.NostrApp;
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
     console.warn('[videos] Cannot load likes/comments: pool not ready');
@@ -913,15 +1060,15 @@ async function loadLikesAndCommentsForVideos(eventIds) {
   }
 
   const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30; // 30 יום
-  
+
   // טעינת לייקים (kind 7)
   const likesFilter = { kinds: [7], '#e': eventIds, since };
   // טעינת תגובות (kind 1 עם תג e)
   const commentsFilter = { kinds: [1], '#e': eventIds, since };
-  
+
   try {
     let allEvents = [];
-    
+
     if (typeof app.pool.list === 'function') {
       const results = await app.pool.list(app.relayUrls, [likesFilter, commentsFilter]);
       if (Array.isArray(results)) allEvents = results;
@@ -935,29 +1082,140 @@ async function loadLikesAndCommentsForVideos(eventIds) {
 
     console.log('[videos] Loaded likes/comments:', { count: allEvents.length });
 
-    // עיבוד לייקים
-    allEvents.forEach(event => {
+    // עיבוד לייקים ותגובות בהתאם ללוגיקת הפיד הראשי | HYPER CORE TECH
+    allEvents.forEach((event) => {
       if (event.kind === 7 && typeof app.registerLike === 'function') {
         app.registerLike(event);
-      } else if (event.kind === 1) {
-        // עיבוד תגובות
-        if (!Array.isArray(event.tags)) return;
-        const parentTag = event.tags.find(tag => Array.isArray(tag) && tag[0] === 'e' && tag[1]);
-        if (!parentTag) return;
-        const parentId = parentTag[1];
-        
-        if (!app.commentsByParent) app.commentsByParent = new Map();
-        if (!app.commentsByParent.has(parentId)) {
-          app.commentsByParent.set(parentId, []);
-        }
-        const comments = app.commentsByParent.get(parentId);
-        if (!comments.some(c => c.id === event.id)) {
-          comments.push(event);
-        }
+        return;
       }
+      if (event.kind !== 1 || !Array.isArray(event.tags)) {
+        return;
+      }
+      const parentTag = event.tags.find((tag) => Array.isArray(tag) && tag[0] === 'e' && tag[1]);
+      if (!parentTag) {
+        return;
+      }
+      const parentId = parentTag[1];
+      registerVideoCommentRecord(app, event, parentId);
     });
   } catch (err) {
     console.warn('[videos] Failed to load likes/comments:', err);
+  }
+}
+
+// חלק יאללה וידאו (videos.js) – רישום אירועים למפות המשותפות כדי לאפשר התרעות מלאות | HYPER CORE TECH
+function registerVideoSourceEvent(event) {
+  if (!event || !event.id) return;
+  const app = window.NostrApp;
+  if (!app) return;
+
+  if (!(app.eventAuthorById instanceof Map)) {
+    app.eventAuthorById = new Map();
+  }
+  if (!(app.postsById instanceof Map)) {
+    app.postsById = new Map();
+  }
+
+  const normalizedPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+  if (normalizedPubkey) {
+    app.eventAuthorById.set(event.id, normalizedPubkey);
+  }
+  app.postsById.set(event.id, event);
+
+  if (typeof app.processPendingNotifications === 'function') {
+    try {
+      app.processPendingNotifications(event.id);
+    } catch (err) {
+      console.warn('[videos] processPendingNotifications failed', err);
+    }
+  }
+}
+
+// חלק יאללה וידאו (videos.js) – רישום לייקים/תגובות להשלמת ספירות UI | HYPER CORE TECH
+function registerVideoEngagementEvent(event) {
+  if (!event || !event.kind) return;
+  const app = window.NostrApp;
+  if (!app) return;
+
+  if (event.kind === 7 && typeof app.registerLike === 'function') {
+    app.registerLike(event);
+    return;
+  }
+
+  if (event.kind !== 1) {
+    return;
+  }
+
+  const parentTag = Array.isArray(event.tags) ? event.tags.find((tag) => Array.isArray(tag) && tag[0] === 'e' && tag[1]) : null;
+  if (!parentTag) {
+    return;
+  }
+
+  registerVideoCommentRecord(app, event, parentTag[1]);
+}
+
+// חלק יאללה וידאו (videos.js) – רישום תגובה למבני הנתונים המשותפים והפעלת ההתרעות | HYPER CORE TECH
+function registerVideoCommentRecord(app, event, parentId) {
+  if (!app || !event || !parentId) {
+    return;
+  }
+
+  if (typeof app.registerComment === 'function') {
+    try {
+      app.registerComment(event, parentId);
+      return;
+    } catch (err) {
+      console.warn('[videos] app.registerComment failed, falling back to local handler', err);
+    }
+  }
+
+  if (!(app.commentsByParent instanceof Map)) {
+    app.commentsByParent = new Map();
+  }
+
+  if (!app.commentsByParent.has(parentId)) {
+    app.commentsByParent.set(parentId, new Map());
+  } else if (Array.isArray(app.commentsByParent.get(parentId))) {
+    const legacyList = app.commentsByParent.get(parentId);
+    const normalizedMap = new Map();
+    legacyList.forEach((legacyEvent) => {
+      if (legacyEvent?.id) {
+        normalizedMap.set(legacyEvent.id, legacyEvent);
+      }
+    });
+    app.commentsByParent.set(parentId, normalizedMap);
+  }
+
+  const commentMap = app.commentsByParent.get(parentId);
+  if (!(commentMap instanceof Map)) {
+    return;
+  }
+
+  if (event.id) {
+    commentMap.set(event.id, event);
+  }
+
+  if (!(app.eventAuthorById instanceof Map)) {
+    app.eventAuthorById = new Map();
+  }
+  if (event?.id && typeof event?.pubkey === 'string') {
+    app.eventAuthorById.set(event.id, event.pubkey.toLowerCase());
+  }
+
+  if (typeof app.updateCommentsForParent === 'function') {
+    try {
+      app.updateCommentsForParent(parentId);
+    } catch (err) {
+      console.warn('[videos] updateCommentsForParent failed', err);
+    }
+  }
+
+  if (typeof app.handleNotificationForComment === 'function') {
+    try {
+      app.handleNotificationForComment(event, parentId);
+    } catch (err) {
+      console.warn('[videos] handleNotificationForComment failed', err);
+    }
   }
 }
 
@@ -1032,6 +1290,7 @@ async function loadVideos() {
     const hasVideo = youtubeId || videoUrl;
 
     if (hasVideo) {
+      registerVideoSourceEvent(event);
       videoEvents.push({
         id: event.id,
         pubkey: event.pubkey,
@@ -1052,6 +1311,14 @@ async function loadVideos() {
   // טעינת לייקים ותגובות לכל הפוסטים
   await loadLikesAndCommentsForVideos(videoEvents.map(v => v.id));
 
+  // רישום נתוני מעורבות למפות המטא | HYPER CORE TECH
+  if (Array.isArray(sourceEvents)) {
+    sourceEvents.forEach(registerVideoEngagementEvent);
+  }
+
+  // התחלת מנוי חי כדי לקבל התרעות חדשות בזמן אמת
+  setupVideoRealtimeSubscription(videoEvents.map(v => v.id));
+
   // עדכון נתוני המחברים
   videoEvents.forEach((video) => {
     const profileData = currentApp?.profileCache?.get(video.pubkey) || {};
@@ -1064,6 +1331,50 @@ async function loadVideos() {
   console.log('[videos] loadVideos: video events found', { count: videoEvents.length });
   state.videos = videoEvents;
   renderVideos();
+}
+
+// חלק יאללה וידאו (videos.js) – מנוי נתונים חי לפיד הווידאו לצורך לייקים/תגובות/התראות | HYPER CORE TECH
+let videoRealtimeSub = null;
+function setupVideoRealtimeSubscription(eventIds = []) {
+  const app = window.NostrApp;
+  if (!app || !app.pool || typeof app.pool.subscribeMany !== 'function') {
+    return;
+  }
+  if (videoRealtimeSub) {
+    try { videoRealtimeSub.close(); } catch (_) {}
+    videoRealtimeSub = null;
+  }
+  const viewerKey = typeof app.publicKey === 'string' ? app.publicKey : '';
+  const filters = buildVideoFeedFilters();
+  if (Array.isArray(eventIds) && eventIds.length > 0) {
+    filters.push({ kinds: [1], '#e': eventIds, limit: 200 });
+    filters.push({ kinds: [7], '#e': eventIds, limit: 200 });
+  }
+
+  videoRealtimeSub = app.pool.subscribeMany(app.relayUrls, filters, {
+    onevent: (event) => {
+      if (!event || !event.kind) return;
+      if (event.kind === 1) {
+        registerVideoSourceEvent(event);
+        registerVideoEngagementEvent(event);
+      } else if (event.kind === 7) {
+        registerVideoEngagementEvent(event);
+      } else if (event.kind === (app.FOLLOW_KIND || 40010)) {
+        if (typeof app.handleNotificationForFollow === 'function') {
+          app.handleNotificationForFollow(event);
+        }
+      } else if (event.kind === (app.DATING_LIKE_KIND || 9000)) {
+        if (typeof app.handleNotificationForDatingLike === 'function') {
+          app.handleNotificationForDatingLike(event);
+        }
+      }
+    },
+    oneose: () => {
+      if (typeof app.refreshFollowButtons === 'function') {
+        app.refreshFollowButtons(selectors.stream || document);
+      }
+    }
+  });
 }
 
 // חלק יאללה וידאו (videos.js) – אתחול בעת טעינת הדף
@@ -1091,6 +1402,10 @@ async function init() {
   }
 
   await waitForApp();
+  const app = window.NostrApp || {};
+  if (typeof app.buildCoreFeedFilters !== 'function') {
+    app.buildCoreFeedFilters = buildVideoFeedFilters;
+  }
   loadVideos();
 }
 

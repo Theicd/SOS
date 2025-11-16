@@ -110,8 +110,8 @@
     // יצירת video element
     const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
-    video.muted = false; // חשוב! לא muted כדי שהאודיו ייכלל ב-stream
-    video.volume = 0; // אבל נשתיק את הרמקולים
+    video.muted = true; // במובייל יש צורך ב-muted כדי לאפשר autoplay; האודיו עדיין יוקלט מהמקור ב-captureStream
+    video.volume = 0; // השתקת פלט
     video.playsInline = true;
 
     try {
@@ -224,6 +224,21 @@
     }
 
     const blob = new Blob(chunks, { type: mimeType });
+    if (!blob || blob.size === 0) {
+      console.warn('MediaRecorder produced empty blob – falling back to original file');
+      const hash = await calculateHash(file);
+      if (typeof onProgress === 'function') {
+        onProgress({ stage: 'complete', percent: 100 });
+      }
+      return {
+        blob: file,
+        hash,
+        size: file.size,
+        type: file.type,
+        originalSize: file.size,
+        compressionRatio: '0.0',
+      };
+    }
     const hash = await calculateHash(blob);
 
     if (typeof onProgress === 'function') {
