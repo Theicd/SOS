@@ -276,75 +276,7 @@
     <!-- צ'אט (videos.html) – מבנה זהה ומכווץ שורות | HYPER CORE TECH -->
     <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי"><div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-contacts__search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש בצ'אט" autocomplete="off"><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="שיחת קול"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><button type="button" class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ"><i class="fa-solid fa-paperclip"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div><input type="file" id="chatComposerFileInput" hidden></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
 
-    <!-- חיבור הודעות – טעינת אנשי קשר בעת פתיחת הצ'אט | HYPER CORE TECH -->
-    <script>
-      window.addEventListener('load', function(){
-        var chatBtn = document.getElementById('messagesToggle');
-        if (chatBtn){
-          chatBtn.addEventListener('click', function(){
-            if (typeof NostrApp?.openChatPanel === 'function') {
-              NostrApp.openChatPanel();
-            }
-            setTimeout(function(){ if (typeof NostrApp?.bootstrapChatContacts === 'function') NostrApp.bootstrapChatContacts(); }, 100);
-          });
-        }
-      });
-    </script>
-    
-    <!-- לוגיקת התראות (videos.html) – אתחול התראות מ-feed.js | HYPER CORE TECH -->
-    <script>
-      window.addEventListener('load', function(){
-        console.log('[VIDEOS] Page loaded, initializing notifications');
-        
-        // אתחול התראות: שחזור מ-localStorage ואתחול UI | HYPER CORE TECH
-        setTimeout(function(){
-          console.log('[VIDEOS] Initializing notifications system');
-          var App = window.NostrApp || (window.NostrApp = {});
-          
-          try {
-            // שחזור התראות מ-localStorage אם יש מפתח ציבורי
-            if (typeof App.publicKey === 'string' && App.publicKey && !App.notificationsRestored) {
-              console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:', App.publicKey.slice(0,8));
-              if (typeof App.restoreNotificationsFromStorage === 'function') {
-                App.restoreNotificationsFromStorage();
-                App.notificationsRestored = true;
-                console.log('[VIDEOS] Notifications restored, count:', App.notifications?.length || 0);
-              } else {
-                console.warn('[VIDEOS] restoreNotificationsFromStorage not available');
-              }
-            } else {
-              console.log('[VIDEOS] Skip restore - publicKey:', !!App.publicKey, 'notificationsRestored:', !!App.notificationsRestored);
-            }
-            
-            // אתחול UI של התראות מ-feed.js - זה מחבר את כל האירועים
-            if (typeof App.setupNotificationUI === 'function') {
-              console.log('[VIDEOS] Calling setupNotificationUI');
-              App.setupNotificationUI();
-              console.log('[VIDEOS] setupNotificationUI completed');
-            } else {
-              console.warn('[VIDEOS] setupNotificationUI not available');
-            }
-          } catch(e) {
-            console.error('[VIDEOS] Notification setup error:', e);
-          }
-        }, 300);
-
-        // חלק קומפוזר (videos.html) – פולבאק ל-openCompose גלובלי עבור כפתור התפריט המשותף | HYPER CORE TECH
-        try {
-          if (typeof window.openCompose !== 'function') {
-            window.openCompose = function(){
-              var App = window.NostrApp || {};
-              if (typeof App.openCompose === 'function') {
-                App.openCompose();
-              } else {
-                console.warn('[VIDEOS] openCompose not available');
-              }
-            };
-          }
-        } catch (e) {
-          console.warn('[VIDEOS] Failed to bind openCompose fallback', e);
-        }
-      });
-    </script>
+    <!-- חיבור הודעות ושיחות (videos.html) – מבטיח שהצ'אט יאתחל שיחות נכנסות כמו בפיד הראשי | HYPER CORE TECH -->
+    <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={}),chatBtn=document.getElementById('messagesToggle');if(chatBtn){chatBtn.addEventListener('click',function(){if(typeof App.openChatPanel==='function'){App.openChatPanel();}setTimeout(function(){if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();}},100);});}console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,200);}return;}App._videosChatBootstrapped=true;try{typeof App.restoreChatState==='function'&&App.restoreChatState();}catch(err){console.warn('[VIDEOS] restoreChatState failed',err);}try{typeof App.subscribeToChatEvents==='function'&&App.subscribeToChatEvents();}catch(err){console.warn('[VIDEOS] subscribeToChatEvents failed',err);}try{typeof App.bootstrapChatContacts==='function'&&App.bootstrapChatContacts();}catch(err){console.warn('[VIDEOS] bootstrapChatContacts failed',err);}try{App.voiceCall&&typeof App.voiceCall.subscribe==='function'&&App.voiceCall.subscribe();}catch(err){console.warn('[VIDEOS] voiceCall.subscribe failed',err);}try{App.videoCall&&typeof App.videoCall.subscribe==='function'&&App.videoCall.subscribe();}catch(err){console.warn('[VIDEOS] videoCall.subscribe failed',err);}}ensureChatReady();});</script>
   </body>
 </html>
