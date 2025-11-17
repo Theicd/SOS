@@ -1,9 +1,24 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SphereOne Social</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SOS</title>
+    <!-- חלק הפניה ראשית (index.html) – דואג שהאתר ייטען לפיד הווידאו כברירת מחדל | HYPER CORE TECH -->
+    <script>
+      (function redirectToVideosHome() {
+        try {
+          const path = (window.location.pathname || '').toLowerCase();
+          const isRoot = path === '/' || path.endsWith('/index.html') || path === '';
+          const alreadyVideos = window.location.href.toLowerCase().includes('videos.html');
+          if (isRoot && !alreadyVideos) {
+            window.location.replace('./videos.html');
+          }
+        } catch (err) {
+          console.warn('[INDEX] Redirect to videos home failed', err);
+        }
+      })();
+    </script>
     <!-- חלק ראש (index.html) – מגדיר את אותו אייקון לשונית מעודכן כמו בדף ההזדהות -->
     <link
         rel="icon"

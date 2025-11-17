@@ -1,4 +1,4 @@
-;(function bootstrapApp(window) {
+(function bootstrapApp(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const tools = window.NostrTools;
   if (!tools) {
@@ -203,6 +203,7 @@
     const profileMenu = document.getElementById('topBarProfileMenu');
     const selfButton = document.getElementById('topBarProfileSelf');
     const growthButton = document.getElementById('topBarProfileGrowth');
+    const homeButton = document.getElementById('topBarProfileHome');
     const keyButton = document.getElementById('topBarProfileKey');
     const contractButton = document.getElementById('topBarProfileContract');
     const storageButton = document.getElementById('topBarProfileStorage');
@@ -258,6 +259,13 @@
         if (typeof window.openGrowthDashboard === 'function') {
           window.openGrowthDashboard();
         }
+      });
+    }
+
+    if (homeButton) {
+      homeButton.addEventListener('click', () => {
+        closeMenu();
+        window.location.href = 'index.html';
       });
     }
 

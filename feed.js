@@ -1926,11 +1926,20 @@
       }
       const toggleRect = toggle.getBoundingClientRect();
       const panelWidth = panel.offsetWidth || 320;
+      const panelHeight = panel.offsetHeight || 360;
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
       const horizontalCenter = toggleRect.left + toggleRect.width / 2 - panelWidth / 2;
       const constrainedLeft = Math.max(8, Math.min(horizontalCenter, viewportWidth - panelWidth - 8));
+      let top = toggleRect.bottom + 8;
+      if (top + panelHeight > viewportHeight - 8) {
+        top = toggleRect.top - panelHeight - 8;
+        if (top < 8) {
+          top = Math.max(8, viewportHeight - panelHeight - 8);
+        }
+      }
       panel.style.left = `${constrainedLeft}px`;
-      panel.style.top = `${toggleRect.bottom + 8}px`;
+      panel.style.top = `${top}px`;
     };
 
     const closePanel = () => {

@@ -123,15 +123,16 @@
         <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
       </div>
       <div class="top-bar__actions">
-        <button class="circle-button" id="notificationsToggle" aria-label="התראות">
-          <i class="fa-solid fa-bell"></i>
-          <span class="notifications-badge" id="notificationsBadge" hidden></span>
-        </button>
         <div class="top-bar__profile" id="topBarProfile">
           <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
             <span id="topBarProfileAvatar">?</span>
           </button>
           <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
+            <!-- חלק פוסט פיד (videos.html) – מעבר מהיר לפיד הראשי דרך תפריט הפרופיל | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileHome">
+              <i class="fa-solid fa-house"></i>
+              <span>פוסט פיד</span>
+            </button>
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
               <i class="fa-solid fa-chart-line"></i>
               <span>לוח גידול הרשת</span>
@@ -187,26 +188,30 @@
 
     <!-- חלק תפריט תחתון (videos.html) – ניווט תחתון אחיד | HYPER CORE TECH -->
     <nav class="primary-nav" aria-label="ניווט ראשי">
-      <button class="nav-item" data-nav="home">
+      <!-- חלק בית (videos.html) – כפתור פיד הווידאו משמש כבית ללא טקסט | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="videos" aria-label="בית">
         <i class="fa-solid fa-house"></i>
-        <span>בית</span>
       </button>
-      <button class="nav-item" data-nav="videos">
-        <i class="fa-solid fa-clapperboard"></i>
-        <span>וידאו פיד</span>
+      <!-- חלק התראות (videos.html) – כעת בתפריט התחתון עם שמירת מזהים קיימים | HYPER CORE TECH -->
+      <button class="nav-item" id="notificationsToggle" aria-label="התראות">
+        <i class="fa-solid fa-bell"></i>
+        <span class="notifications-badge" id="notificationsBadge" hidden></span>
       </button>
+      <!-- חלק יצירת פוסט (videos.html) – כפתור הפלוס ממורכז בניווט התחתון | HYPER CORE TECH -->
       <button class="nav-item" id="navCompose" type="button" aria-label="פוסט חדש" onclick="openCompose()">
         <i class="fa-solid fa-plus"></i>
-        <span>פוסט חדש</span>
       </button>
-      <!-- חלק הודעות (videos.html) – כעת בסרגל התחתון עם מונה לא נקראו | HYPER CORE TECH -->
+      <!-- חלק הודעות (videos.html) – כפתור צ'אט עם אנימציית מעבר בין טלפון לבועת צ'אט | HYPER CORE TECH -->
       <button class="nav-item" id="messagesToggle" aria-label="הודעות">
-        <i class="fa-solid fa-message"></i>
+        <span class="nav-item__icon nav-item__icon--communications">
+          <i class="fa-solid fa-comment nav-comm-icon nav-comm-icon--chat" aria-hidden="true"></i>
+          <i class="fa-solid fa-phone nav-comm-icon nav-comm-icon--phone" aria-hidden="true"></i>
+        </span>
         <span class="notifications-badge" id="messagesBadge" hidden></span>
       </button>
+      <!-- חלק פרופיל תחתון (videos.html) – כפתור פרופיל עגול עם אוואטר ללא טקסט | HYPER CORE TECH -->
       <button class="nav-item" type="button" aria-label="הפרופיל שלי" onclick="window.location.href='./profile.html'">
-        <i class="fa-solid fa-id-card"></i>
-        <span>הפרופיל שלי</span>
+        <span class="nav-avatar" id="navProfileAvatar">?</span>
       </button>
     </nav>
 

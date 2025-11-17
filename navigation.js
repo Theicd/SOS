@@ -3,7 +3,7 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   // חלק ניווט ראשי (navigation.js) – מאחסן את מצב הלשונית הפעילה
-  App.activeNav = App.activeNav || 'home';
+  App.activeNav = App.activeNav || 'videos';
 
   const navRoot = document.querySelector('.primary-nav');
   if (!navRoot) {
