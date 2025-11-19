@@ -178,6 +178,73 @@ button {
   backdrop-filter: blur(10px);
 }
 
+/* חלק קומפוזר רקעים (facebook-theme.css) – גלריית רקעים ואפשרויות טקסט על התמונה | HYPER CORE TECH */
+.compose-backgrounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.compose-backgrounds[hidden] {
+  display: none !important;
+}
+
+.compose-media-preview[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 480px) {
+  .compose-backgrounds {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+}
+
+.compose-bg__item {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  position: relative;
+  cursor: pointer;
+}
+
+.compose-bg__item.is-selected {
+  border-color: #2d88ff;
+  box-shadow: 0 0 0 2px rgba(45, 136, 255, 0.25);
+}
+
+.compose-backgrounds__options {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.compose-backgrounds__options[hidden] {
+  display: none !important;
+}
+
+.compose-bg__option-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.compose-bg__option-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
 /* חלק סרגל עליון (facebook-theme.css) – כפתור תמונת פרופיל מעוגל מחליף את אייקון ניהול החשבון */
 
 .top-bar__avatar {

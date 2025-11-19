@@ -1,3 +1,14 @@
+/* חלק אפקטים (videos.css) – אנימציות zoom לפוסטים עם רקע תמונה בפיד הווידאו | HYPER CORE TECH */
+@keyframes fxZoomIn {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.15); }
+}
+
+@keyframes fxZoomOut {
+  0% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
 .videos-feed__menu-wrap {
   /* חלק תפריט פיד ווידאו (videos.css) – עטיפה לכפתור 3 הנקודות כדי למקם את התפריט הצף | HYPER CORE TECH */
   position: relative;
@@ -382,6 +393,21 @@ body:has(.videos-feed) .nav-avatar {
   height: auto;
   object-fit: contain;
   border: none;
+}
+
+/* חלק אפקטים (videos.css) – מאפשר אפקט zoom-in גם לכרטיסי תמונה בפיד הווידאו | HYPER CORE TECH */
+.videos-feed__card--fx .videos-feed__media {
+  overflow: hidden;
+  position: relative;
+}
+
+.videos-feed__card--fx[data-fx="zoomin"] .videos-feed__media img,
+.videos-feed__card--fx[data-fx="zoomin"] .videos-feed__media video {
+  animation: fxZoomIn 4000ms ease-in-out infinite both;
+  transform-origin: center center;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .videos-feed__media-thumb {

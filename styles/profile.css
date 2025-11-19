@@ -1,10 +1,5 @@
 /* חלק מעטפת כללית (profile.css) – התאמות צבעים ל-facebook-theme */
-.profile-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
+/* הגוף נשלט על ידי profile-videos-theme כדי לשמור על אחידות עם פיד הווידיאו */
 
 /* כלל תשתיתי – מבטיח שכל אלמנט עם [hidden] יישאר מוסתר גם אם יש כללי display אחרים */
 [hidden] {
@@ -194,7 +189,8 @@
     margin-top: 12px;
   }
 
-  .profile-cover__info {
+  /* חלק מעטפת כיסוי (profile.css) – מבטיח שמיכל התוכן החדש יתפס רוחב מלא במובייל */
+  .profile-cover__content {
     width: 100%;
   }
 
@@ -684,23 +680,52 @@
   display: none;
 }
 
+/* חלק גריד כיסוי (profile.css) – פריסה ממורכזת בעמודה לאווטר, שם ופעולות בדומה לטיקטוק */
 .profile-cover__inner {
   position: relative;
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
   gap: 16px;
-  align-items: center;
-  padding: 28px 32px 30px;
+  padding: 28px 24px 32px;
   color: var(--text);
   backdrop-filter: blur(10px);
   background: linear-gradient(115deg, rgba(8, 10, 14, 0.55), rgba(12, 15, 20, 0.35));
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 18px 42px rgba(9, 11, 15, 0.45);
+  text-align: center;
 }
 
+/* פריסה עליונה של כיסוי – מידע משמאל ואווטר מימין */
+.profile-cover__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.profile-cover__info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+/* חלק מידע ממורכז (profile.css) – שם וביוגרפיה ממורכזים בעמודה */
+.profile-cover__info-center {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+/* חלק אווטר ממורכז (profile.css) – תמונה קטנה וממורכזת בחלק העליון */
 .profile-cover__avatar {
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   background: var(--card-alt);
   border: 2px solid var(--border);
@@ -711,6 +736,7 @@
   font-size: 2rem;
   color: var(--text);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .profile-cover__avatar img {
@@ -720,16 +746,9 @@
   border-radius: 50%;
 }
 
-.profile-cover__info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
 .profile-cover__name {
   margin: 0;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text);
 }
@@ -757,11 +776,48 @@
   color: var(--text);
 }
 
+/* חלק סטטיסטיקה (profile.css) – שלוש תיבות צפופות לעוקבים, נעקבים, לייקים */
+.profile-cover__stats-row {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+/* חלק כרטיס סטטיסטיקה (profile.css) – תיבה קטנה לתווית ומספר */
+.profile-cover__stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 18, 26, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-width: 78px;
+}
+
+.profile-cover__stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-cover__stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+/* חלק פעולות כיסוי (profile.css) – כפתורים ממורכזים בשורה */
 .profile-cover__actions {
   display: flex;
-  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
-  margin-top: 6px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 @keyframes profileCoverPulse {
@@ -851,13 +907,16 @@
   text-decoration: underline;
 }
 
+/* חלק רשימת עוקבים מקוצרת (profile.css) – אווטרים קטנים של עוקבים אחרונים */
 .profile-cover__followers {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
+  width: 100%;
 }
 
 .profile-cover__followers-item {
