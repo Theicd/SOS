@@ -928,7 +928,18 @@
 
       setCreateStatus('מתחברים לרשת...');
       setTimeout(() => {
-        window.location.replace('index.html');
+        // חלק Redirect (auth.js) – חזרה לעמוד שממנו הגיע המשתמש או לפיד הראשי | HYPER CORE TECH
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const redirect = params.get('redirect');
+          if (redirect) {
+            window.location.href = decodeURIComponent(redirect);
+          } else {
+            window.location.replace('videos.html');
+          }
+        } catch (e) {
+          window.location.replace('videos.html');
+        }
       }, 350);
     } catch (err) {
       console.error('Handle continue failed', err);
@@ -1014,7 +1025,20 @@
         App.ensureKeys();
       }
       setImportStatus('הקוד אומת. מעבירים אתכם ללוח הראשי...');
-      setTimeout(() => window.location.replace('index.html'), 600);
+      setTimeout(() => {
+        // חלק Redirect (auth.js) – חזרה לעמוד שממנו הגיע המשתמש או לפיד הראשי | HYPER CORE TECH
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const redirect = params.get('redirect');
+          if (redirect) {
+            window.location.href = decodeURIComponent(redirect);
+          } else {
+            window.location.replace('videos.html');
+          }
+        } catch (e) {
+          window.location.replace('videos.html');
+        }
+      }, 600);
     } catch (err) {
       console.error('Import failed', err);
       setImportStatus('שגיאה בשמירת המפתח.', 'error');
@@ -1462,4 +1486,9 @@
 
   // קריאה לאתחול המודאלים עם טעינת הדף
   window.addEventListener('DOMContentLoaded', initModals);
+
+  // חשיפת פונקציות לשימוש חיצוני (guest-auth.js) | HYPER CORE TECH
+  if (typeof window.NostrApp !== 'undefined') {
+    window.NostrApp.publishEmailRegistry = publishEmailRegistry;
+  }
 })(window);

@@ -89,13 +89,14 @@
   }
 
   function logoutAndSwitchUser() {
-    const confirmed = window.confirm('האם להתנתק מהמשתמש הנוכחי ולהמשיך למסך התחברות?');
+    const confirmed = window.confirm('האם להתנתק מהמשתמש הנוכחי?');
     if (!confirmed) {
       return;
     }
     clearCredentials();
     closeKeyViewer();
-    window.location.replace('auth.html');
+    // חזרה לדף הווידאו במצב אורח | HYPER CORE TECH
+    window.location.replace('videos.html');
   }
 
   modal.addEventListener('click', (event) => {

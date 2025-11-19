@@ -72,9 +72,35 @@
     }
   }
 
-  if (typeof App.ensureKeys === 'function') {
-    App.ensureKeys();
-  }
+  // =======================
+  // מצב אורח - NostrApp (app.js) – זיהוי אם המשתמש עובד כאורח או כמשתמש מחובר | HYPER CORE TECH
+  // קוד זה אחראי לזהות האם המשתמש עובד כאורח (בלי מפתח) או כמשתמש מחובר
+  // =======================
+  (function initGuestMode() {
+    try {
+      const storedKey = window.localStorage.getItem('nostr_private_key');
+
+      if (storedKey && typeof storedKey === 'string' && storedKey.trim().length > 0) {
+        // יש מפתח שמור - מצב משתמש מחובר
+        App.guestMode = false;
+        App.privateKey = storedKey;
+        if (typeof App.ensureKeys === 'function') {
+          App.ensureKeys();
+        }
+      } else {
+        // אין מפתח שמור - מצב אורח מלא
+        App.guestMode = true;
+        App.privateKey = null;
+        App.publicKey = null;
+      }
+    } catch (e) {
+      // במקרה של שגיאה נקבע כברירת מחדל מצב אורח
+      console.error('Guest mode init failed, falling back to guest:', e);
+      App.guestMode = true;
+      App.privateKey = null;
+      App.publicKey = null;
+    }
+  })();
 
   App.profile = App.profile || {
     name: 'משתמש אנונימי',
@@ -161,6 +187,12 @@
   }
 
   window.openCompose = function openCompose() {
+    // בדיקת מצב אורח - חסימת יצירת פוסט למשתמשים לא מחוברים | HYPER CORE TECH
+    if (typeof App.requireAuth === 'function') {
+      if (!App.requireAuth('כדי ליצור פוסט חדש צריך להתחבר או להירשם.')) {
+        return;
+      }
+    }
     // חלק קומפוזר (app.js) – מפנה לפונקציית המודאל המרכזית ב-compose.js כדי למנוע מצבי תצוגה כפולים
     if (typeof App.openCompose === 'function') {
       App.openCompose();
@@ -178,6 +210,33 @@
     }
     const m = document.getElementById('composeModal');
     if (m) m.style.display = 'none';
+  };
+
+  // =======================
+  // דרישת התחברות לפעולות שכותבות לרשת (app.js) – Auth Guard | HYPER CORE TECH
+  // פונקציה זו משמשת כל הכפתורים של לייק, תגובה, עקוב, פרסום ועוד
+  // =======================
+  App.requireAuth = function(requirementText, onAuthenticated) {
+    const hasKey = !!App.privateKey && typeof App.privateKey === 'string';
+
+    if (hasKey && App.guestMode === false) {
+      // כבר מחובר - אפשר להמשיך
+      if (typeof onAuthenticated === 'function') {
+        onAuthenticated();
+      }
+      return true;
+    }
+
+    // מצב אורח - מציג חלון התחברות / הרשמה
+    if (typeof App.openAuthPrompt === 'function') {
+      App.openAuthPrompt(requirementText || 'כדי להמשיך צריך להתחבר או להירשם.');
+    } else {
+      // נפילה אחורית: מעבר למסך auth.html עם פרמטר redirect
+      const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = 'auth.html?redirect=' + redirect;
+    }
+
+    return false;
   };
 
   window.publishPost = App.publishPost || (() => {});

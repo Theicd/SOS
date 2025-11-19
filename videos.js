@@ -1042,8 +1042,14 @@ function wireActions() {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', async () => {
-      const eventId = button.getAttribute('data-event-id');
       const app = window.NostrApp;
+      // בדיקת מצב אורח - חסימת לייק למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לעשות לייק צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
+      const eventId = button.getAttribute('data-event-id');
       if (eventId && app && typeof app.likePost === 'function') {
         await app.likePost(eventId);
         // עדכון מיידי של הכפתור
@@ -1056,6 +1062,13 @@ function wireActions() {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', () => {
+      const app = window.NostrApp;
+      // בדיקת מצב אורח - חסימת תגובה למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי להגיב על פוסט צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
       const eventId = button.getAttribute('data-event-id');
       if (eventId) {
         openCommentsPanel(eventId);
@@ -1079,10 +1092,16 @@ function wireActions() {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', async () => {
+      const app = window.NostrApp;
+      // בדיקת מצב אורח - חסימת עקוב למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לעקוב אחרי משתמשים צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
       const target = button.getAttribute('data-follow-button');
       if (!target) return;
       
-      const app = window.NostrApp;
       if (!app) return;
       
       if (typeof app.followUser === 'function') {

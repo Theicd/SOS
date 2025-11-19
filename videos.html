@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="./styles/market-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/videos.css">
+    <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./guest-auth.css">
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
     <!-- חלק תלויות כלליות (videos.html) – סדר טעינה זהה לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./config.js" defer></script>
@@ -77,6 +79,9 @@
       })();
     </script>
     <script src="./videos.js" defer></script>
+    <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
+    <script src="./auth.js" defer></script>
+    <script src="./guest-auth.js" defer></script>
     <!-- מודולי צ'אט (videos.html) – זהים לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./chat-state.js" defer></script>
     <script src="./chat-service.js" defer></script>
@@ -125,6 +130,10 @@
         <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
       </div>
       <div class="top-bar__actions">
+        <!-- חלק כפתור אורח (videos.html) – כפתור התחברות/הרשמה למצב אורח | HYPER CORE TECH -->
+        <button id="guestLoginButton" class="button-primary" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;">
+          התחבר / הירשם
+        </button>
         <div class="top-bar__profile" id="topBarProfile">
           <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
             <span id="topBarProfileAvatar">?</span>
@@ -287,6 +296,109 @@
         <div class="compose-dialog__actions">
           <button class="button-secondary" onclick="closeCompose()">ביטול</button>
           <button class="button-primary" onclick="publishPost()">פרסם</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- חלק חלון התחברות / הרשמה לאורח (videos.html) – מודאל מלא כמו בטיקטוק | HYPER CORE TECH -->
+    <div id="guestAuthModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width: 450px; text-align: center; padding: 30px;">
+        <button class="modal-close" type="button" data-guest-auth-close style="position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 28px; cursor: pointer; color: #666;">&times;</button>
+        
+        <!-- שלב ראשוני: בחירה בין התחברות להרשמה -->
+        <div id="authStepInitial" class="auth-step">
+          <h2 style="margin-bottom: 15px; font-size: 24px;">הצטרפו לרשת</h2>
+          <p id="guestAuthModalReason" style="margin-bottom: 30px; color: #666; font-size: 15px;">
+            כדי להמשיך צריך להתחבר או להירשם.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button type="button" class="button-primary" id="btnStartSignup" style="width: 100%; padding: 14px; font-size: 16px;">
+              פתחו משתמש חדש
+            </button>
+            <button type="button" class="button-secondary" id="btnStartLogin" style="width: 100%; padding: 14px; font-size: 16px;">
+              יש לי כבר קוד אישי
+            </button>
+          </div>
+        </div>
+
+        <!-- שלב התחברות: הדבקת מפתח -->
+        <div id="authStepLogin" class="auth-step" style="display:none;">
+          <button type="button" id="btnBackFromLogin" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">הדבק את הקוד האישי שלך</h2>
+          <textarea id="loginKeyInput" placeholder="הדבק כאן את המפתח הפרטי שלך (nsec... או hex)" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px;"></textarea>
+          <p id="loginStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnLoginSubmit" style="width: 100%; padding: 14px; font-size: 16px;">
+            כניסה
+          </button>
+        </div>
+
+        <!-- שלב 1 הרשמה: מייל -->
+        <div id="authStepEmail" class="auth-step" style="display:none;">
+          <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">מה כתובת המייל שלך?</h2>
+          <input type="email" id="signupEmailInput" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
+          <p id="emailStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnEmailNext" style="width: 100%; padding: 14px; font-size: 16px;">
+            הבא
+          </button>
+        </div>
+
+        <!-- שלב 2 הרשמה: שם משתמש -->
+        <div id="authStepName" class="auth-step" style="display:none;">
+          <button type="button" id="btnBackFromName" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">מה השם שלך?</h2>
+          <input type="text" id="signupNameInput" placeholder="השם שלך" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
+          <p id="nameStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnNameNext" style="width: 100%; padding: 14px; font-size: 16px;">
+            הבא
+          </button>
+        </div>
+
+        <!-- שלב 3 הרשמה: תמונת פרופיל -->
+        <div id="authStepAvatar" class="auth-step" style="display:none;">
+          <button type="button" id="btnBackFromAvatar" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">בחר תמונת פרופיל</h2>
+          <div id="avatarPreview" style="width: 120px; height: 120px; border-radius: 50%; background: #f0f0f0; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #ddd;">
+            <span style="font-size: 48px; color: #999;">👤</span>
+          </div>
+          <input type="file" id="signupAvatarInput" accept="image/*" style="display: none;" />
+          <button type="button" class="button-secondary" id="btnChooseAvatar" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 10px;">
+            בחר תמונה
+          </button>
+          <button type="button" class="button-secondary" id="btnSkipAvatar" style="width: 100%; padding: 10px; font-size: 14px; margin-bottom: 15px; background: transparent; border: none; color: #666;">
+            דלג על שלב זה
+          </button>
+          <p id="avatarStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnAvatarNext" style="width: 100%; padding: 14px; font-size: 16px;">
+            הבא
+          </button>
+        </div>
+
+        <!-- שלב 4 הרשמה: הצגת מפתח -->
+        <div id="authStepKey" class="auth-step" style="display:none;">
+          <h2 style="margin-bottom: 15px; font-size: 22px; color: #ffffff;">זה המפתח האישי שלך!</h2>
+          <div style="background: rgba(255, 193, 7, 0.15); border: 2px solid #ffc107; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: right;">
+            <p style="font-size: 14px; color: #ffc107; margin: 0; line-height: 1.6;">
+              ⚠️ <strong>חשוב מאוד!</strong> שמור את המפתח הזה במקום בטוח. <strong>לא ניתן לשחזר אותו!</strong>
+            </p>
+          </div>
+          <textarea id="generatedKeyDisplay" readonly style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px; background: #0f0f1e; color: #ffffff;"></textarea>
+          <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button type="button" class="button-secondary" id="btnCopyKey" style="flex: 1; padding: 10px; font-size: 14px;">
+              📋 העתק
+            </button>
+            <button type="button" class="button-secondary" id="btnDownloadKey" style="flex: 1; padding: 10px; font-size: 14px;">
+              💾 שמור כקובץ
+            </button>
+          </div>
+          <label style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
+            <input type="checkbox" id="keyConfirmCheckbox" style="width: 18px; height: 18px; cursor: pointer;" />
+            <span style="font-size: 15px; color: #ffffff;">שמרתי את המפתח במקום בטוח</span>
+          </label>
+          <p id="keyStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnFinalConnect" disabled style="width: 100%; padding: 14px; font-size: 16px;">
+            התחבר לרשת
+          </button>
         </div>
       </div>
     </div>
