@@ -30,6 +30,7 @@
     }
 
     console.log('[NAV] Navigation clicked:', key);
+    const previousNav = App.activeNav;
     updateNavSelection(key);
 
     // חלק ניווט בית (navigation.js) – לחיצה על "בית" מחזירה לפיד הראשי (index)
@@ -48,8 +49,19 @@
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
+      if (previousNav === 'profile' && App.cameFromVideos && typeof window.history?.back === 'function') {
+        console.log('[NAV] Returning to videos via history.back()');
+        window.history.back();
+        return;
+      }
       console.log('[NAV] Navigating to videos.html');
       window.location.href = './videos.html';
+      return;
+    }
+
+    if (key === 'profile') {
+      console.log('[NAV] Navigating to profile.html');
+      window.location.href = './profile.html';
       return;
     }
 

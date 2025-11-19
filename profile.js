@@ -1682,6 +1682,10 @@
     });
 
     attachClicks(['profileHomeButton', 'profileTopHomeButton'], () => {
+      if (App.cameFromVideos && typeof window.history?.back === 'function') {
+        window.history.back();
+        return;
+      }
       window.location.href = 'index.html';
     });
 

@@ -94,7 +94,7 @@
       .feed-post.feed-post--fx .feed-media { overflow: hidden; position: relative; }
       .feed-post.feed-post--fx[data-fx="zoomin"] .feed-media img,
       .feed-post.feed-post--fx[data-fx="zoomin"] .feed-media video {
-        animation: fxZoomIn 4000ms ease-in-out both;
+        animation: fxZoomIn 4000ms ease-in-out infinite both;
         transform-origin: center center;
         display: block;
         will-change: transform;
@@ -479,6 +479,17 @@
           </div>
           <!-- חלק רקעים (index.html) – גלריית רקעים מתחלפים מ-Picsum -->
           <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
+          <!-- חלק רקעים (index.html) – שליטה אם הטקסט יוצג רק על גבי התמונה | HYPER CORE TECH -->
+          <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
+            <label class="compose-bg__option-toggle">
+              <input type="checkbox" id="composeBgTextOnlyToggle">
+              <span>הצג טקסט רק על התמונה</span>
+            </label>
+            <label class="compose-bg__option-toggle">
+              <input type="checkbox" id="composeBgZoomToggle">
+              <span>הפעל אפקט זום בלופ</span>
+            </label>
+          </div>
           <div id="composeMediaPreview" class="compose-media-preview">
             <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
             <video id="composeMediaPreviewVideo" controls playsinline></video>
@@ -821,6 +832,8 @@
     <script src="./media-mirror.js"></script>
     <!-- חלק recheck (index.html) – בדיקה תקופתית של זמינות URLs ויצירת mirrors -->
     <script src="./media-recheck.js"></script>
+    <!-- חלק P2P (index.html) – מערכת שיתוף וידאו P2P בין משתמשים -->
+    <script src="./p2p-video-sharing.js"></script>
     <script src="./chat-voice-service.js"></script>
     <script src="./chat-voice-ui.js"></script>
     <!-- חלק שיחות קול (index.html) – טעינת מודולי WebRTC לשיחות קוליות בזמן אמת -->

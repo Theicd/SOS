@@ -336,12 +336,41 @@ function isVideoLink(link) {
   return false;
 }
 
+// חלק יאללה וידאו (videos.js) – זיהוי אם קישור הוא תמונה | HYPER CORE TECH
+function isImageLink(link) {
+  if (!link) return false;
+  if (link.startsWith('data:image')) return true;
+  if (/\.(jpe?g|png|gif|webp)$/i.test(link)) return true;
+  return false;
+}
+
+// חלק אפקטים (videos.js) – חילוץ תגית fx מהאירוע במידת הצורך | HYPER CORE TECH
+function extractFxTag(event) {
+  if (!event || !Array.isArray(event.tags)) return null;
+  const fxTag = event.tags.find((tag) => Array.isArray(tag) && tag[0] === 'fx' && tag[1]);
+  return fxTag ? String(fxTag[1]) : null;
+}
+
+// חלק אפקטים (videos.js) – קביעת ערך fx ברירת מחדל לפוסטים עם data:image | HYPER CORE TECH
+function resolveFxValue(event, imageUrl) {
+  const fxValue = extractFxTag(event);
+  if (fxValue) return fxValue;
+  if (typeof imageUrl === 'string' && imageUrl.startsWith('data:image')) {
+    return 'zoomin';
+  }
+  return null;
+}
+
 // חלק יאללה וידאו (videos.js) – בניית קלף HTML לכל וידאו
 function renderVideoCard(video) {
   const article = document.createElement('article');
   article.className = 'videos-feed__card';
   article.setAttribute('role', 'listitem');
   article.setAttribute('data-event-id', video.id);
+  if (video.fx) {
+    article.dataset.fx = video.fx;
+    article.classList.add('videos-feed__card--fx');
+  }
 
   const mediaDiv = document.createElement('div');
   mediaDiv.className = 'videos-feed__media';
@@ -373,7 +402,6 @@ function renderVideoCard(video) {
     mediaDiv.dataset.videoUrl = video.videoUrl;
 
     const videoEl = document.createElement('video');
-    videoEl.src = video.videoUrl;
     videoEl.controls = false;
     videoEl.muted = false;
     videoEl.playsInline = true;
@@ -383,6 +411,16 @@ function renderVideoCard(video) {
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
 
+    // טעינת וידאו עם P2P + fallback
+    if (typeof App.loadVideoWithCache === 'function') {
+      App.loadVideoWithCache(videoEl, video.videoUrl, video.hash || '', video.mirrors || []).catch(err => {
+        console.warn('Failed to load video with P2P/cache:', err);
+        videoEl.src = video.videoUrl; // fallback ישיר
+      });
+    } else {
+      videoEl.src = video.videoUrl;
+    }
+
     const playOverlay = document.createElement('button');
     playOverlay.type = 'button';
     playOverlay.className = 'videos-feed__play-overlay';
@@ -390,6 +428,15 @@ function renderVideoCard(video) {
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
     mediaDiv.appendChild(playOverlay);
+  } else if (video.imageUrl) {
+    mediaDiv.dataset.mediaType = 'image';
+
+    const imgEl = document.createElement('img');
+    imgEl.src = video.imageUrl;
+    imgEl.alt = video.authorName || 'פוסט תמונה';
+    imgEl.className = 'videos-feed__media-image';
+    imgEl.loading = 'lazy';
+    mediaDiv.appendChild(imgEl);
   }
 
   const actionsDiv = document.createElement('div');
@@ -1418,16 +1465,40 @@ async function loadVideos() {
 
     const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
     const videoUrl = mediaLinks.find(isVideoLink);
-    const hasVideo = youtubeId || videoUrl;
+    const imageUrl = mediaLinks.find(isImageLink);
+    const hasMedia = youtubeId || videoUrl || imageUrl;
 
-    if (hasVideo) {
+    if (hasMedia) {
       registerVideoSourceEvent(event);
+      
+      // חילוץ hash ו-mirrors מתגיות media
+      let mediaHash = '';
+      const mediaMirrors = [];
+      if (Array.isArray(event.tags)) {
+        event.tags.forEach(tag => {
+          if (Array.isArray(tag) && tag[0] === 'media' && tag[2]) {
+            const tagUrl = tag[2];
+            const tagHash = tag[3] || '';
+            if (tagUrl === videoUrl && tagHash) {
+              mediaHash = tagHash;
+            }
+          }
+          if (Array.isArray(tag) && tag[0] === 'mirror' && tag[1]) {
+            mediaMirrors.push(tag[1]);
+          }
+        });
+      }
+      
       videoEvents.push({
         id: event.id,
         pubkey: event.pubkey,
         content: textLines.join(' '),
         youtubeId: youtubeId || null,
         videoUrl: videoUrl || null,
+        imageUrl: imageUrl || null,
+        hash: mediaHash || '',
+        mirrors: mediaMirrors,
+        fx: resolveFxValue(event, imageUrl),
         createdAt: event.created_at || 0,
       });
     }

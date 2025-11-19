@@ -3604,9 +3604,34 @@ async function loadFeed() {
     }
   }
 
-  // חלק mirror (פיד) – טעינת וידאו עם cache, mirrors ו-fallback
+  // חלק mirror (פיד) – טעינת וידאו עם cache, mirrors ו-fallback + P2P
   async function loadVideoWithCache(videoElement, url, hash, mirrors = []) {
     try {
+      // חלק P2P (פיד) – ניסיון הורדה דרך P2P קודם
+      if (hash && typeof App.downloadVideoWithP2P === 'function') {
+        console.log('🎬 מנסה להוריד וידאו דרך P2P...', {
+          url: url.slice(0, 50) + '...',
+          hash: hash.slice(0, 16) + '...'
+        });
+        
+        try {
+          const p2pResult = await App.downloadVideoWithP2P(url, hash, 'video/webm');
+          
+          if (p2pResult && p2pResult.blob) {
+            const objectUrl = URL.createObjectURL(p2pResult.blob);
+            videoElement.src = objectUrl;
+            
+            console.log(`✅ וידאו נטען מ-${p2pResult.source}!`, {
+              size: p2pResult.blob.size,
+              peer: p2pResult.peer ? p2pResult.peer.slice(0, 16) + '...' : 'N/A'
+            });
+            return true;
+          }
+        } catch (p2pErr) {
+          console.warn('⚠️ P2P download failed, trying fallback:', p2pErr.message);
+        }
+      }
+      
       // שימוש במערכת ה-fallback המלאה
       if (typeof App.loadMediaWithFallback === 'function') {
         const result = await App.loadMediaWithFallback(url, mirrors, hash);
@@ -3789,6 +3814,7 @@ async function loadFeed() {
     registerLike,
     updateLikeIndicator,
     removePostElement,
+    loadVideoWithCache,
   });
 
   // חלק וידאו/תמונות (feed.js) – אתחול טיפול בוידאו ו-Lightbox לתמונות

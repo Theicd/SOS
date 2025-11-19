@@ -56,6 +56,8 @@
     followersCard: document.getElementById('profileFollowersCard'),
     followersCount: document.getElementById('profileFollowersCountLabel'),
     followersSummaryCount: document.getElementById('profileFollowersCount'),
+    followingCount: document.getElementById('profileFollowingCount'),
+    likesCount: document.getElementById('profileLikesCount'),
     followersList: document.getElementById('profileFollowersList'),
     followersStatus: document.getElementById('profileFollowersStatus'),
     repliesCard: document.getElementById('profileRepliesCard'),
@@ -304,15 +306,14 @@
     renderFollowersList();
   }
 
-  // חלק עוקבים (profile-view.js) – מציג את כמות העוקבים בפרופיל האישי
+  // חלק עוקבים (profile-view.js) – מציג את כמות העוקבים בפרופיל האישי וגם נעקבים ולייקים
   function renderFollowersSummary() {
     const count = Array.isArray(followState.snapshot) ? followState.snapshot.length : 0;
-    const label = `${count} עוקבים`;
     if (refs.followersCount) {
       refs.followersCount.textContent = count.toString();
     }
     if (refs.followersSummaryCount) {
-      refs.followersSummaryCount.textContent = label;
+      refs.followersSummaryCount.textContent = count.toString();
     }
   }
 
@@ -714,6 +715,10 @@
     }
     const likeEvents = App.profileLikeTimeline instanceof Map ? Array.from(App.profileLikeTimeline.values()) : [];
     const commentEvents = App.profileCommentTimeline instanceof Map ? Array.from(App.profileCommentTimeline.values()) : [];
+    if (refs.likesCount) {
+      const totalLikes = likeEvents.length;
+      refs.likesCount.textContent = totalLikes.toString();
+    }
     const { series, stats } = computeActivityData(posts, replies, likeEvents, commentEvents);
     renderSummary(stats);
     updateActivityChart(series, stats);

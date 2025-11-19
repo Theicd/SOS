@@ -17,53 +17,187 @@
     <!-- חלק סגנונות הכרויות (profile.html) – טוען התאמות עיצוב לרכיבי ההכרויות החדשים -->
     <link rel="stylesheet" href="./styles/dating.css" />
     <link rel="stylesheet" href="./styles/media-overrides.css" />
+    <!-- חלק לוגו (profile.html) – חיבור קובץ הסגנונות המקוריים של הלוגו העליון | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./styles/logo.css" />
+    <link rel="stylesheet" href="./styles/profile-videos-theme.css" />
     <script src="./auth-guard.js"></script>
+    <!-- חלק ניווט גלובלי (profile.html) – מאפשר שימוש בתפריט העליון/תחתון האחיד | HYPER CORE TECH -->
+    <script>
+      (function ensureProfileNavDefaults() {
+        var App = window.NostrApp || (window.NostrApp = {});
+        App.activeNav = 'profile';
+        try {
+          App.cameFromVideos = /videos\.html/i.test(document.referrer || '');
+        } catch (_) {
+          App.cameFromVideos = false;
+        }
+      })();
+    </script>
+    <script src="./app.js" defer></script>
+    <script src="./navigation.js" defer></script>
+    <script>
+      // חלק קומפוזר (profile.html) – הבטחת זמינות openCompose עם נפילה חזרה לדף הראשי | HYPER CORE TECH
+      (function ensureProfileComposeShortcut() {
+        if (typeof window.openCompose !== 'function') {
+          window.openCompose = function () {
+            var App = window.NostrApp || {};
+            if (typeof App.openCompose === 'function') {
+              App.openCompose();
+              return;
+            }
+            window.location.href = './index.html#compose';
+          };
+        }
+      })();
+    </script>
   </head>
   <body class="profile-body" dir="rtl">
     <!-- חלק חיווי חיבור (profile.html) – מציג מצב טעינת ריליים בדומה לעמוד הראשי -->
     <div id="connection-status" class="profile-connection" hidden>מתחבר לריליים...</div>
 
-    <!-- חלק סרגל עליון (profile.html) – לוגו SOS בצד שמאל וכפתור בית יחיד בצד ימין -->
-    <header class="top-bar top-bar--profile">
-      <div class="top-bar__actions top-bar__actions--profile">
-        <button class="circle-button top-bar__refresh" id="profileTopRefreshButton" type="button" aria-label="רענון הדף">
-          <i class="fa-solid fa-rotate-right"></i>
-        </button>
+    <!-- חלק סרגל עליון (profile.html) – מאוחד עם פיד הווידיאו | HYPER CORE TECH -->
+    <header class="top-bar">
+      <div class="app-logo">
+        <div class="sos-logo">
+          <span class="sos-char sos-s">S</span>
+          <span class="sos-char sos-o">O</span>
+          <span class="sos-char sos-s">S</span>
+        </div>
+        <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
       </div>
-      <div class="top-bar__title" id="profileTopTitle">הפרופיל שלי</div>
-      <div class="top-bar__actions top-bar__actions--profile">
-        <button class="circle-button top-bar__home" id="profileTopHomeButton" type="button" aria-label="חזרה לדף הבית">
-          <i class="fa-solid fa-house"></i>
-        </button>
+      <div class="top-bar__actions">
+        <div class="top-bar__profile" id="topBarProfile">
+          <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
+            <span id="topBarProfileAvatar">?</span>
+          </button>
+          <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileHome">
+              <i class="fa-solid fa-house"></i>
+              <span>בית</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
+              <i class="fa-solid fa-chart-line"></i>
+              <span>לוח גידול הרשת</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="newsToggleTop">
+              <i class="fa-solid fa-newspaper"></i>
+              <span>חדשות</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileSelf">
+              <i class="fa-solid fa-id-card"></i>
+              <span>הפרופיל שלי</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="datingToggleTop">
+              <i class="fa-solid fa-heart"></i>
+              <span>הכרויות</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
+              <i class="fa-solid fa-key"></i>
+              <span>הצגת מפתח</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileContract">
+              <i class="fa-solid fa-handshake"></i>
+              <span>חוזה חכם</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileStorage">
+              <i class="fa-solid fa-box-archive"></i>
+              <span>האחסון שלי</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="gamesToggleTop">
+              <i class="fa-solid fa-gamepad"></i>
+              <span>משחקים</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
+
+    <!-- חלק חלונית התראות (profile.html) – תואם לפיד הווידיאו | HYPER CORE TECH -->
+    <div class="notifications-panel" id="notificationsPanel" hidden>
+      <header class="notifications-panel__header">
+        <h2>התראות</h2>
+        <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">סמן כנקראו</button>
+      </header>
+      <div class="notifications-panel__body">
+        <p class="notifications-panel__empty" id="notificationsEmpty">אין התרעות חדשות כרגע.</p>
+        <ul class="notifications-panel__list" id="notificationsList"></ul>
+      </div>
+    </div>
+
+    <!-- חלק תפריט תחתון (profile.html) – בדף פרופיל כפתור חזרה בלבד לפיד הווידיאו | HYPER CORE TECH -->
+    <nav class="primary-nav" aria-label="ניווט ראשי">
+      <button class="nav-item" data-nav="videos" aria-label="חזרה לפיד הווידיאו">
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
+      <button class="nav-item" id="notificationsToggle" aria-label="התראות">
+        <i class="fa-solid fa-bell"></i>
+        <span class="notifications-badge" id="notificationsBadge" hidden></span>
+      </button>
+      <button class="nav-item" id="navCompose" type="button" aria-label="פוסט חדש" onclick="openCompose()">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+      <button class="nav-item" id="messagesToggle" aria-label="הודעות">
+        <span class="nav-item__icon nav-item__icon--communications">
+          <i class="fa-solid fa-comment nav-comm-icon nav-comm-icon--chat" aria-hidden="true"></i>
+          <i class="fa-solid fa-phone nav-comm-icon nav-comm-icon--phone" aria-hidden="true"></i>
+        </span>
+        <span class="notifications-badge" id="messagesBadge" hidden></span>
+      </button>
+      <button class="nav-item" type="button" aria-label="הפרופיל שלי" data-nav="profile">
+        <span class="nav-avatar" id="navProfileAvatar">?</span>
+      </button>
+    </nav>
 
     <!-- חלק מעטפת פרופיל (profile.html) – מציג כיסוי, אווטר ופרטי מפתח -->
     <main class="app-shell profile-shell">
       <section class="profile-cover" id="profilePageCover">
         <!-- חלק תמונת נושא (profile.html) – באנר כיסוי עליון עם פרטי המשתמש מעליו -->
         <div class="profile-cover__banner" id="profilePageCoverBanner">
+          <!-- חלק מבנה ממורכז בסגנון טיקטוק (profile.html) – תמונה קטנה בחלק העליון, מידע וסטטיסטיקה מתחת | HYPER CORE TECH -->
           <div class="profile-cover__inner">
-            <div class="profile-cover__avatar" id="profilePageAvatar">?</div>
-            <div class="profile-cover__info">
-              <h1 class="profile-cover__name" id="profilePageName">משתמש</h1>
-              <p class="profile-cover__bio" id="profilePageBio">מעדכנים את תיאור הפרופיל...</p>
-              <!-- חלק עוקבים (profile.html) – מציג את ספירת העוקבים האישית ליד שם המשתמש -->
-              <div class="profile-cover__stats profile-follow__summary" id="profileFollowSummary">
-                <span class="profile-follow__count" id="profileFollowersCount">0 עוקבים</span>
-                <ul class="profile-cover__followers" id="profileCoverFollowers"></ul>
-              </div>
-              <div class="profile-cover__actions">
-                <button class="profile-primary-button" id="profileEditButton">
-                  <i class="fa-solid fa-pen"></i>
-                  עריכת פרופיל
-                </button>
-                <button class="profile-secondary-button" id="profileHomeButton">
-                  <i class="fa-solid fa-house"></i>
-                  חזרה לפיד
-                </button>
+            <div class="profile-cover__top">
+              <!-- חלק אווטר (profile.html) – תמונת פרופיל בצד ימין של הכותרת -->
+              <div class="profile-cover__avatar" id="profilePageAvatar">?</div>
+
+              <div class="profile-cover__info-block">
+                <!-- חלק מידע ממורכז (profile.html) – שם וביוגרפיה ממורכזים -->
+                <div class="profile-cover__info-center">
+                  <h1 class="profile-cover__name" id="profilePageName">משתמש</h1>
+                  <p class="profile-cover__bio" id="profilePageBio">מעדכנים את תיאור הפרופיל...</p>
+                </div>
+
+                <!-- חלק סטטיסטיקה (profile.html) – עוקבים, נעקבים, לייקים בשלוש תיבות צפופות | HYPER CORE TECH -->
+                <div class="profile-cover__stats-row">
+                  <div class="profile-cover__stat-box">
+                    <span class="profile-cover__stat-value" id="profileFollowersCount">0</span>
+                    <span class="profile-cover__stat-label">עוקבים</span>
+                  </div>
+                  <div class="profile-cover__stat-box">
+                    <span class="profile-cover__stat-value" id="profileFollowingCount">0</span>
+                    <span class="profile-cover__stat-label">נעקבים</span>
+                  </div>
+                  <div class="profile-cover__stat-box">
+                    <span class="profile-cover__stat-value" id="profileLikesCount">0</span>
+                    <span class="profile-cover__stat-label">לייקים</span>
+                  </div>
+                </div>
               </div>
             </div>
+            
+            <!-- חלק כפתורים (profile.html) – כפתורי פעולה בשורה אחת -->
+            <div class="profile-cover__actions">
+              <button class="profile-primary-button" id="profileEditButton">
+                <i class="fa-solid fa-pen"></i>
+                עריכת פרופיל
+              </button>
+              <button class="profile-secondary-button" id="profileHomeButton">
+                <i class="fa-solid fa-house"></i>
+                חזרה לפיד
+              </button>
+            </div>
+            
+            <!-- חלק עוקבים (profile.html) – רשימת אווטרים קטנה של עוקבים אחרונים -->
+            <ul class="profile-cover__followers" id="profileCoverFollowers" aria-label="עוקבים אחרונים"></ul>
           </div>
         </div>
       </section>

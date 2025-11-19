@@ -136,6 +136,7 @@
 
     renderToMedia(){
       const text = (this.ctx.getText() || '').trim();
+      const textOnlyMode = Boolean(this.ctx.state?.bgTextOnly);
       if (!this.active || !this.bgImage) return;
       const baseSize = 1080;
       const canvas = document.createElement('canvas');
@@ -149,8 +150,8 @@
       ctx.drawImage(img, dx, dy, w, h);
       // שכבת כהות קלה לשיפור ניגודיות תמידית
       ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(0,0,baseSize,baseSize);
-      // אם יש טקסט – נכין שכבת טקסט
-      if (text) {
+      // חלק טקסט-על-תמונה (compose-backgrounds.js) – מצייר טקסט על הרקע רק אם המשתמש הפעיל מצב "טקסט רק על התמונה" | HYPER CORE TECH
+      if (textOnlyMode && text) {
         const padding = 80; const maxWidth = baseSize - padding*2;
         let fontSize = 64; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillStyle = '#fff'; ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=4;

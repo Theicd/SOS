@@ -7,20 +7,68 @@
   const TIMEOUT_MS = 10000; // 10 שניות timeout לכל ניסיון
   const MAX_RETRIES = 3; // מקסימום ניסיונות לכל URL
 
+  // חלק mirror (media-mirror.js) – רשימת דומיינים מהימנים שתמיד זמינים
+  const TRUSTED_DOMAINS = [
+    'nostr.build',
+    'void.cat',
+    'nostrcheck.me',
+    'nostr.download',
+    'nostpic.com',
+  ];
+
+  // חלק mirror (media-mirror.js) – בדיקה אם URL מדומיין מהימן
+  function isTrustedDomain(url) {
+    try {
+      const urlObj = new URL(url);
+      return TRUSTED_DOMAINS.some(domain => urlObj.hostname.includes(domain));
+    } catch {
+      return false;
+    }
+  }
+
   // חלק mirror (media-mirror.js) – בדיקת זמינות URL
   async function checkUrlAvailability(url, timeout = TIMEOUT_MS) {
     try {
+      // אם זה דומיין מהימן, נחזיר true מיד בלי לבדוק
+      if (isTrustedDomain(url)) {
+        console.log('Trusted domain, skipping check:', url.slice(0, 50));
+        return true;
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+      // ניסיון ראשון עם HEAD (מהיר יותר)
+      try {
+        const headResponse = await fetch(url, {
+          method: 'HEAD',
+          signal: controller.signal,
+          cache: 'no-cache',
+        });
+
+        clearTimeout(timeoutId);
+        if (headResponse.ok) {
+          return true;
+        }
+      } catch (headErr) {
+        console.warn('HEAD request failed, trying GET:', headErr.message);
+      }
+
+      // אם HEAD נכשל, ננסה GET עם range קטן
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), timeout);
+
       const response = await fetch(url, {
-        method: 'HEAD',
-        signal: controller.signal,
+        method: 'GET',
+        signal: controller2.signal,
         cache: 'no-cache',
+        headers: {
+          'Range': 'bytes=0-1024', // רק 1KB ראשון
+        },
       });
 
-      clearTimeout(timeoutId);
-      return response.ok;
+      clearTimeout(timeoutId2);
+      return response.ok || response.status === 206; // 206 = Partial Content
     } catch (err) {
       console.warn('URL not available:', url, err.message);
       return false;

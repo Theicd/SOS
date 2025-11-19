@@ -18,6 +18,9 @@
     bgToggle: document.getElementById('composeBgToggle'),
     bgGallery: document.getElementById('composeBackgrounds'),
     bgClear: document.getElementById('composeBgClear'),
+    bgOptions: document.getElementById('composeBgOptions'),
+    bgTextOnlyToggle: document.getElementById('composeBgTextOnlyToggle'),
+    bgZoomToggle: document.getElementById('composeBgZoomToggle'),
   };
 
   const state = {
@@ -30,6 +33,9 @@
     backgroundChoices: [],
     selectedBackgroundUrl: '',
     bgImage: null,
+    bgTextOnly: false,
+    bgZoomFx: false,
+    fx: null,
   };
 
   App.composeState = state;
@@ -42,6 +48,20 @@
     } else {
       elements.status.style.color = '';
     }
+  }
+
+  function setBgTextOnly(value) {
+    state.bgTextOnly = !!value;
+    if (state.bgTextOnly) {
+      setStatus('הטקסט יוצג רק על התמונה.', 'info');
+    }
+  }
+
+  // חלק אפקטים (compose.js) – שליטה ידנית על הפעלת אפקט הזום בלופ | HYPER CORE TECH
+  function setBgZoomFx(value) {
+    const isEnabled = !!value;
+    state.bgZoomFx = isEnabled;
+    state.fx = isEnabled ? 'zoomin' : null;
   }
 
   function resetStatus() {
@@ -225,6 +245,16 @@
         mimeType: result.type || 'video/webm'
       };
 
+      // רישום הקובץ במערכת P2P
+      if (typeof App.registerFileAvailability === 'function' && result.hash && result.blob) {
+        try {
+          await App.registerFileAvailability(result.hash, result.blob, result.type || 'video/webm');
+          console.log('[COMPOSE] וידאו נרשם ב-P2P:', result.hash);
+        } catch (err) {
+          console.warn('[COMPOSE] רישום P2P נכשל:', err);
+        }
+      }
+
       showMediaPreview(state.media);
       setStatus(`וידאו הועלה בהצלחה (${(result.size / (1024 * 1024)).toFixed(1)}MB)`);
     } catch (err) {
@@ -341,7 +371,16 @@
     if (!state.backgroundActive) {
       state.selectedBackgroundUrl = '';
       state.bgImage = null;
+      state.bgTextOnly = false;
+      setBgZoomFx(false);
+      if (elements.bgTextOnlyToggle) {
+        elements.bgTextOnlyToggle.checked = false;
+      }
+      if (elements.bgZoomToggle) {
+        elements.bgZoomToggle.checked = false;
+      }
       if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
+      if (elements.bgOptions) elements.bgOptions.setAttribute('hidden', '');
       return;
     }
     // טוען גלריה טרייה בכל הפעלה
@@ -349,6 +388,9 @@
       state.backgroundChoices = urls;
       renderBackgroundGallery(urls);
     });
+    if (elements.bgOptions) {
+      elements.bgOptions.removeAttribute('hidden');
+    }
   }
 
   function selectBackground(url) {
@@ -547,18 +589,25 @@
       setBackgroundActive(false);
     }
     clearTextareaBg();
+    setBgZoomFx(false);
+    if (elements.bgZoomToggle) {
+      elements.bgZoomToggle.checked = false;
+    }
   }
 
   function getComposePayload() {
     const text = elements.textarea ? elements.textarea.value.trim() : '';
-    if (!text && !state.media) {
+    const includeTextContent = !(state.backgroundActive && state.bgTextOnly);
+    const textContent = includeTextContent ? text : '';
+
+    if (!textContent && !state.media) {
       setStatus('כתוב טקסט או הוסף מדיה לפני הפרסום.', 'error');
       return null;
     }
 
     const parts = [];
-    if (text) {
-      parts.push(text);
+    if (textContent) {
+      parts.push(textContent);
     }
     
     // חלק וידאו (compose.js) – אם יש וידאו מועלה, נשתמש ב-URL במקום dataUrl
@@ -572,7 +621,7 @@
 
     const content = parts.join('\n');
     const textLimit = typeof App.MAX_TEXT_CONTENT_LENGTH === 'number' ? App.MAX_TEXT_CONTENT_LENGTH : 8000;
-    if (text && text.length > textLimit) {
+    if (textContent && textContent.length > textLimit) {
       setStatus('הטקסט ארוך מדי. קיצור קטן אמור לפתור.', 'error');
       return null;
     }
@@ -585,7 +634,7 @@
 
     return {
       content,
-      text,
+      text: textContent,
       media: state.media,
       mediaTags,
       // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
@@ -655,7 +704,32 @@
         } else if (elements.bgGallery) {
           elements.bgGallery.removeAttribute('hidden');
         }
+        if (elements.bgOptions) {
+          elements.bgOptions.setAttribute('hidden', '');
+        }
+        if (elements.bgTextOnlyToggle) {
+          elements.bgTextOnlyToggle.checked = false;
+        }
+        state.bgTextOnly = false;
         setStatus('הרקע הוסר.');
+      });
+    }
+
+    if (elements.bgTextOnlyToggle) {
+      elements.bgTextOnlyToggle.addEventListener('change', (event) => {
+        setBgTextOnly(Boolean(event.target.checked));
+      });
+    }
+
+    if (elements.bgZoomToggle) {
+      elements.bgZoomToggle.addEventListener('change', (event) => {
+        const enabled = Boolean(event.target.checked);
+        if (!state.backgroundActive && enabled) {
+          setStatus('הפעל אפקט זום מחייב רקע פעיל.', 'info');
+          event.target.checked = false;
+          return;
+        }
+        setBgZoomFx(enabled);
       });
     }
 

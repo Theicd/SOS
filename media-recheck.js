@@ -7,6 +7,8 @@
   const RECHECK_INTERVAL = 30 * 60 * 1000; // 30 דקות
   const BATCH_SIZE = 10; // כמה URLs לבדוק בכל פעם
   const MIN_RECHECK_DELAY = 5 * 60 * 1000; // 5 דקות מינימום בין בדיקות
+  const AUTO_PUBLISH_MIRRORS = false; // כיבוי פרסום אוטומטי של mirrors (למנוע החלפת לינקים)
+  const ENABLE_AUTO_MIRROR_CREATION = false; // כיבוי יצירת mirrors אוטומטית - צריך לבקש מהמשתמש המקורי!
 
   let recheckTimer = null;
   let isRecheckRunning = false;
@@ -123,15 +125,70 @@
 
       console.log('✓ Mirror created successfully:', mirrorUrl);
 
-      // פרסום תגית mirror (TODO: צריך לממש את זה)
-      if (eventId) {
+      // פרסום תגית mirror רק אם מופעל
+      if (eventId && AUTO_PUBLISH_MIRRORS) {
         await publishMirrorUpdate(eventId, mirrorUrl, hash);
+      } else if (eventId) {
+        console.log('Mirror created but not published (AUTO_PUBLISH_MIRRORS=false)');
       }
 
       return mirrorUrl;
     } catch (err) {
       console.error('Mirror creation failed:', err);
       return null;
+    }
+  }
+
+  // חלק recheck (media-recheck.js) – בקשה מהמשתמש המקורי להעלות מחדש
+  async function requestReuploadFromAuthor(eventId, failedUrl, hash) {
+    try {
+      console.log('🔄 Requesting re-upload from original author...');
+      
+      // מציאת המשתמש המקורי של הפוסט
+      const authorPubkey = App.eventAuthorById?.get(eventId);
+      
+      if (!authorPubkey) {
+        console.warn('Cannot find original author for event:', eventId);
+        return false;
+      }
+      
+      console.log('Original author:', authorPubkey.slice(0, 16) + '...');
+      
+      // בדיקה אם זה המשתמש הנוכחי
+      if (authorPubkey === App.publicKey) {
+        console.log('⚠️ This is YOUR post! You should re-upload the media.');
+        // TODO: פתיחת דיאלוג למשתמש לבקש ממנו להעלות מחדש
+        return false;
+      }
+      
+      // שליחת kind 1 event עם בקשה להעלאה מחדש
+      if (!App.pool || !App.publicKey || typeof App.finalizeEvent !== 'function') {
+        console.warn('Cannot send re-upload request: missing pool or keys');
+        return false;
+      }
+      
+      const draft = {
+        kind: 1,
+        pubkey: App.publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['e', eventId, '', 'root'],  // קישור לפוסט המקורי
+          ['p', authorPubkey],          // תיוג המשתמש המקורי
+          ['x', hash || ''],            // hash של המדיה
+          ['request', 'reupload'],      // סוג הבקשה
+        ],
+        content: `🔄 Media unavailable: ${failedUrl.slice(0, 50)}...\nPlease re-upload if you have the original file.`,
+      };
+      
+      const event = App.finalizeEvent(draft, App.privateKey);
+      await App.pool.publish(App.relayUrls, event);
+      
+      console.log('✓ Re-upload request sent to author');
+      return true;
+      
+    } catch (err) {
+      console.error('Failed to request re-upload:', err);
+      return false;
     }
   }
 
@@ -221,14 +278,24 @@
       return true;
     }
 
-    // אם אין mirrors זמינים, ננסה ליצור חדש
-    if (info.hash && info.eventId) {
+    // אם אין mirrors זמינים ויצירה אוטומטית מופעלת
+    if (ENABLE_AUTO_MIRROR_CREATION && info.hash && info.eventId) {
       const newMirror = await attemptMirrorCreation(url, info.hash, info.eventId);
       
       if (newMirror) {
         // הוספת ה-mirror החדש לרשימה
         info.mirrors.push(newMirror);
         return true;
+      }
+    } else if (!ENABLE_AUTO_MIRROR_CREATION) {
+      console.warn('⚠️ URL unavailable but auto-mirror creation is DISABLED');
+      console.warn('   Requesting re-upload from original author...');
+      console.warn('   URL:', url);
+      console.warn('   EventID:', info.eventId);
+      
+      // שליחת בקשה למשתמש המקורי להעלות מחדש
+      if (info.eventId) {
+        await requestReuploadFromAuthor(info.eventId, url, info.hash);
       }
     }
 
@@ -371,7 +438,13 @@
 
   // אתחול אוטומטי
   function init() {
-    console.log('Media recheck module initialized');
+    console.log('=== Media Recheck Module Initialized ===');
+    console.log(`AUTO_PUBLISH_MIRRORS: ${AUTO_PUBLISH_MIRRORS} (mirrors will ${AUTO_PUBLISH_MIRRORS ? '' : 'NOT '}be published automatically)`);
+    console.log(`ENABLE_AUTO_MIRROR_CREATION: ${ENABLE_AUTO_MIRROR_CREATION} (mirrors will ${ENABLE_AUTO_MIRROR_CREATION ? '' : 'NOT '}be created automatically)`);
+    
+    if (!ENABLE_AUTO_MIRROR_CREATION) {
+      console.log('✓ System will REQUEST RE-UPLOAD from original authors instead of creating mirrors');
+    }
     
     // התחלת בדיקה תקופתית
     startRecheck();
