@@ -49,6 +49,8 @@
     <link rel="stylesheet" href="./styles/videos.css">
     <!-- חלק מצלמה (videos.html) – עיצוב מודול הקלטת וידאו | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/camera-recorder.css">
+    <!-- חלק אנימציית טעינה (videos.html) – אנימציה תלת מימדית לטעינה ראשונית | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./styles/loading-animation.css">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
@@ -262,7 +264,33 @@
     <!-- חלק ראשי (videos.html) – מעטפת דף הווידאו בסגנון טיקטוק | HYPER CORE TECH -->
     <main class="videos-feed" aria-labelledby="videosTitle">
       <section class="videos-feed__viewport" aria-live="polite">
-        <div class="videos-feed__stream" id="videosStream" role="list"></div>
+        <div class="videos-feed__stream" id="videosStream" role="list">
+          <!-- חלק אנימציית טעינה (videos.html) – טקסט SOS מרחף בתלת מימד בתוך הפיד | HYPER CORE TECH -->
+          <div id="videosLoadingOverlay" class="videos-loading-overlay">
+            <div class="videos-loading-scene">
+              <div class="videos-loading-cube">
+                <span class="videos-loading-cube__face">S</span>
+                <span class="videos-loading-cube__face">O</span>
+                <span class="videos-loading-cube__face">S</span>
+              </div>
+            </div>
+            <div class="videos-loading-text">
+              LOADING<span class="videos-loading-dots"></span>
+            </div>
+            <div class="videos-loading-particles">
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+              <div class="videos-loading-particle"></div>
+            </div>
+          </div>
+        </div>
         <div class="videos-feed__status" id="videosStatus" role="status">טוען סרטונים...</div>
       </section>
     </main>

@@ -1514,6 +1514,17 @@ function loadVideosFromCache() {
   }
 }
 
+// חלק אנימציית טעינה (videos.js) – הסתרת אנימציית הטעינה | HYPER CORE TECH
+function hideLoadingAnimation() {
+  const overlay = document.getElementById('videosLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    setTimeout(() => {
+      overlay.remove();
+    }, 500);
+  }
+}
+
 // חלק יאללה וידאו (videos.js) – טעינת סרטונים מהפיד
 async function loadVideos() {
   // ניסיון טעינה מ-cache קודם
@@ -1523,6 +1534,7 @@ async function loadVideos() {
     currentVideoIndex = cached.index || 0;
     console.log('[videos] Using cached videos, rendering...');
     renderVideos();
+    hideLoadingAnimation();
     return;
   }
   
@@ -1537,8 +1549,8 @@ async function loadVideos() {
     sourceEvents = filterEventsByNetwork(fromApp, networkTag);
     console.log('[videos] loadVideos: postsById', { total: fromApp.length, afterFilter: sourceEvents.length });
   } else {
-    // Fallback: משיכת אירועים ישירות מהרילאים - רק 50 אחרונים לטעינה מהירה
-    const fetched = await fetchRecentNotes(50);
+    // Fallback: משיכת אירועים ישירות מהרילאים - רק 20 אחרונים לטעינה מהירה
+    const fetched = await fetchRecentNotes(20);
     sourceEvents = filterEventsByNetwork(fetched, networkTag);
     console.log('[videos] loadVideos: relays fallback', { fetched: fetched.length || 0, afterFilter: sourceEvents.length });
   }
@@ -1631,14 +1643,18 @@ async function loadVideos() {
     }
   });
 
-  // משיכת פרופילים לכל המחברים
-  const uniqueAuthors = [...new Set(videoEvents.map(v => v.pubkey))];
-  if (uniqueAuthors.length > 0 && typeof currentApp?.fetchProfile === 'function') {
-    await Promise.all(uniqueAuthors.map(pubkey => currentApp.fetchProfile(pubkey)));
+  // טעינה מהירה: רק 10 פוסטים ראשונים
+  const firstBatch = videoEvents.slice(0, 10);
+  const restBatch = videoEvents.slice(10);
+  
+  // משיכת פרופילים רק ל-10 הראשונים
+  const firstAuthors = [...new Set(firstBatch.map(v => v.pubkey))];
+  if (firstAuthors.length > 0 && typeof currentApp?.fetchProfile === 'function') {
+    await Promise.all(firstAuthors.map(pubkey => currentApp.fetchProfile(pubkey)));
   }
 
-  // טעינת לייקים ותגובות לכל הפוסטים
-  await loadLikesAndCommentsForVideos(videoEvents.map(v => v.id));
+  // טעינת לייקים ותגובות רק ל-10 הראשונים
+  await loadLikesAndCommentsForVideos(firstBatch.map(v => v.id));
 
   // רישום נתוני מעורבות למפות המטא | HYPER CORE TECH
   if (Array.isArray(sourceEvents)) {
@@ -1648,8 +1664,8 @@ async function loadVideos() {
   // התחלת מנוי חי כדי לקבל התרעות חדשות בזמן אמת
   setupVideoRealtimeSubscription(videoEvents.map(v => v.id));
 
-  // עדכון נתוני המחברים
-  videoEvents.forEach((video) => {
+  // עדכון נתוני המחברים ל-10 הראשונים
+  firstBatch.forEach((video) => {
     const profileData = currentApp?.profileCache?.get(video.pubkey) || {};
     video.authorName = profileData.name || `משתמש ${String(video.pubkey || '').slice(0, 8)}`;
     video.authorPicture = profileData.picture || '';
@@ -1657,24 +1673,56 @@ async function loadVideos() {
   });
 
   // חלק מיון (videos.js) – מיון לפי תאריך יצירה (חדשים ראשון) | HYPER CORE TECH
-  videoEvents.sort((a, b) => {
+  firstBatch.sort((a, b) => {
     const timeA = a.createdAt || 0;
     const timeB = b.createdAt || 0;
     return timeB - timeA; // חדשים ראשון!
   });
   
-  console.log('[videos] loadVideos: video events found and sorted', { 
-    count: videoEvents.length,
-    newest: videoEvents[0]?.createdAt ? new Date(videoEvents[0].createdAt * 1000).toLocaleString() : 'N/A',
-    oldest: videoEvents[videoEvents.length - 1]?.createdAt ? new Date(videoEvents[videoEvents.length - 1].createdAt * 1000).toLocaleString() : 'N/A'
+  console.log('[videos] loadVideos: first batch ready', { 
+    count: firstBatch.length,
+    newest: firstBatch[0]?.createdAt ? new Date(firstBatch[0].createdAt * 1000).toLocaleString() : 'N/A'
   });
   
-  state.videos = videoEvents;
-  
-  // שמירה ל-cache
-  saveVideosToCache();
-  
+  // הצגה מיידית של 10 הראשונים
+  state.videos = firstBatch;
   renderVideos();
+  hideLoadingAnimation();
+  
+  // טעינת השאר ברקע
+  if (restBatch.length > 0) {
+    console.log('[videos] Loading remaining posts in background...', restBatch.length);
+    setTimeout(async () => {
+      // משיכת פרופילים לשאר
+      const restAuthors = [...new Set(restBatch.map(v => v.pubkey))];
+      if (restAuthors.length > 0 && typeof currentApp?.fetchProfile === 'function') {
+        await Promise.all(restAuthors.map(pubkey => currentApp.fetchProfile(pubkey)));
+      }
+      
+      // טעינת לייקים ותגובות לשאר
+      await loadLikesAndCommentsForVideos(restBatch.map(v => v.id));
+      
+      // עדכון נתוני המחברים
+      restBatch.forEach((video) => {
+        const profileData = currentApp?.profileCache?.get(video.pubkey) || {};
+        video.authorName = profileData.name || `משתמש ${String(video.pubkey || '').slice(0, 8)}`;
+        video.authorPicture = profileData.picture || '';
+        video.authorInitials = profileData.initials || 'AN';
+      });
+      
+      // מיון השאר
+      restBatch.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      
+      // הוספה ל-state
+      state.videos = [...firstBatch, ...restBatch];
+      console.log('[videos] All posts loaded', state.videos.length);
+      
+      // שמירה ל-cache
+      saveVideosToCache();
+    }, 100);
+  } else {
+    saveVideosToCache();
+  }
 }
 
 // חלק יאללה וידאו (videos.js) – מנוי נתונים חי לפיד הווידאו לצורך לייקים/תגובות/התראות | HYPER CORE TECH
