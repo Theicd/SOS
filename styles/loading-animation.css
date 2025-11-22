@@ -1,0 +1,231 @@
+/* אנימציית טעינה תלת מימדית לפיד הווידאו - בתוך הפיד | HYPER CORE TECH */
+
+.videos-loading-overlay {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  opacity: 1;
+  transition: opacity 0.5s ease-out, height 0.5s ease-out;
+}
+
+.videos-loading-overlay.hidden {
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.videos-loading-scene {
+  perspective: 1200px;
+  width: 100%;
+  height: 300px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videos-loading-cube {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: floatRotate 4s ease-in-out infinite;
+  font-size: 120px;
+  font-weight: 900;
+  letter-spacing: 20px;
+  color: #667eea;
+  text-shadow: 
+    0 0 20px rgba(102, 126, 234, 0.8),
+    0 0 40px rgba(102, 126, 234, 0.6),
+    0 0 60px rgba(102, 126, 234, 0.4),
+    5px 5px 10px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes floatRotate {
+  0%, 100% {
+    transform: translateY(0px) rotateX(0deg) rotateY(0deg);
+  }
+  25% {
+    transform: translateY(-30px) rotateX(10deg) rotateY(90deg);
+  }
+  50% {
+    transform: translateY(0px) rotateX(20deg) rotateY(180deg);
+  }
+  75% {
+    transform: translateY(-30px) rotateX(10deg) rotateY(270deg);
+  }
+}
+
+.videos-loading-cube__face {
+  display: inline-block;
+  animation: letterFloat 2s ease-in-out infinite;
+}
+
+.videos-loading-cube__face:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.videos-loading-cube__face:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.videos-loading-cube__face:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes letterFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.1);
+  }
+}
+
+.videos-loading-text {
+  margin-top: 40px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #667eea;
+  text-align: center;
+  animation: pulse 1.5s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.videos-loading-dots {
+  display: inline-block;
+  width: 60px;
+  text-align: left;
+}
+
+.videos-loading-dots::after {
+  content: '';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% {
+    content: '';
+  }
+  40% {
+    content: '.';
+  }
+  60% {
+    content: '..';
+  }
+  80%, 100% {
+    content: '...';
+  }
+}
+
+/* אנימציות נוספות */
+.videos-loading-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.videos-loading-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #667eea;
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: float 3s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.6);
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-100vh) translateX(20px);
+    opacity: 0;
+  }
+}
+
+/* חלקיקים בעמדות שונות */
+.videos-loading-particle:nth-child(1) {
+  left: 10%;
+  animation-delay: 0s;
+  animation-duration: 2.5s;
+}
+
+.videos-loading-particle:nth-child(2) {
+  left: 20%;
+  animation-delay: 0.5s;
+  animation-duration: 3s;
+}
+
+.videos-loading-particle:nth-child(3) {
+  left: 30%;
+  animation-delay: 1s;
+  animation-duration: 2.8s;
+}
+
+.videos-loading-particle:nth-child(4) {
+  left: 40%;
+  animation-delay: 0.3s;
+  animation-duration: 3.2s;
+}
+
+.videos-loading-particle:nth-child(5) {
+  left: 50%;
+  animation-delay: 0.8s;
+  animation-duration: 2.7s;
+}
+
+.videos-loading-particle:nth-child(6) {
+  left: 60%;
+  animation-delay: 0.2s;
+  animation-duration: 3.1s;
+}
+
+.videos-loading-particle:nth-child(7) {
+  left: 70%;
+  animation-delay: 0.6s;
+  animation-duration: 2.9s;
+}
+
+.videos-loading-particle:nth-child(8) {
+  left: 80%;
+  animation-delay: 0.4s;
+  animation-duration: 3.3s;
+}
+
+.videos-loading-particle:nth-child(9) {
+  left: 90%;
+  animation-delay: 0.7s;
+  animation-duration: 2.6s;
+}
+
+.videos-loading-particle:nth-child(10) {
+  left: 95%;
+  animation-delay: 0.9s;
+  animation-duration: 3.4s;
+}
