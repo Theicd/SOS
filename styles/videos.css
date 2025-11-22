@@ -458,6 +458,87 @@ body:has(.videos-feed) .nav-avatar {
   margin-left: 4px;
 }
 
+/* חלק TikTok (videos.css) – תמונת פרופיל מעל כפתור הלייק עם כפתור עוקב משולב | HYPER CORE TECH */
+.videos-feed__profile-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+}
+
+.videos-feed__avatar-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.videos-feed__avatar-image:hover {
+  transform: scale(1.1);
+  border-color: rgba(99, 230, 190, 0.8);
+  box-shadow: 0 0 12px rgba(99, 230, 190, 0.5);
+}
+
+.videos-feed__avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos-feed__avatar-initials {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* חלק TikTok (videos.css) – כפתור עוקב משולב בתמונת הפרופיל | HYPER CORE TECH */
+.videos-feed__follow-badge {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ff3b5c;
+  border: 2px solid #fff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.75rem;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.videos-feed__follow-badge:hover {
+  background: #ff1744;
+  transform: translateX(-50%) scale(1.15);
+  box-shadow: 0 4px 12px rgba(255, 59, 92, 0.5);
+}
+
+.videos-feed__follow-badge.is-following {
+  background: rgba(99, 230, 190, 1);
+}
+
+.videos-feed__follow-badge.is-following:hover {
+  background: rgba(79, 210, 170, 1);
+  box-shadow: 0 4px 12px rgba(99, 230, 190, 0.5);
+}
+
 /* חלק פעולות צד (videos.css) – כפתורים בצד ימין כמו טיקטוק */
 .videos-feed__actions {
   position: absolute;
