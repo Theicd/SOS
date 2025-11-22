@@ -21,6 +21,17 @@
     bgOptions: document.getElementById('composeBgOptions'),
     bgTextOnlyToggle: document.getElementById('composeBgTextOnlyToggle'),
     bgZoomToggle: document.getElementById('composeBgZoomToggle'),
+    // חלק מצלמה – אלמנטים של מודול המצלמה
+    cameraButton: document.getElementById('composeCameraButton'),
+    cameraRecorder: document.getElementById('cameraRecorder'),
+    cameraPreview: document.getElementById('cameraPreview'),
+    cameraSwitchBtn: document.getElementById('cameraSwitchBtn'),
+    cameraTimer: document.getElementById('cameraTimer'),
+    cameraDurationSelector: document.getElementById('cameraDurationSelector'),
+    cameraCloseBtn: document.getElementById('cameraCloseBtn'),
+    cameraRecordBtn: document.getElementById('cameraRecordBtn'),
+    cameraProgress: document.getElementById('cameraProgress'),
+    cameraProgressFill: document.getElementById('cameraProgressFill'),
   };
 
   const state = {
@@ -540,6 +551,7 @@
     elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
     elements.modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('compose-modal-open');
     if (elements.textarea) {
       elements.textarea.focus();
     }
@@ -569,6 +581,7 @@
     elements.modal.classList.remove('is-visible');
     elements.modal.setAttribute('aria-hidden', 'true');
     elements.modal.style.display = 'none';
+    document.body.classList.remove('compose-modal-open');
   }
 
   function resetCompose() {
@@ -640,6 +653,157 @@
       // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
       originalId: state.editingOriginalId || null,
     };
+  }
+
+  // חלק מצלמה (compose.js) – פונקציות לניהול מצלמת הוידאו | HYPER CORE TECH
+  let selectedDuration = 15; // ברירת מחדל
+  let isRecording = false;
+
+  function openCamera() {
+    if (!App.CameraRecorder || !App.CameraRecorder.isCameraSupported()) {
+      setStatus('המצלמה לא נתמכת בדפדפן זה', 'error');
+      return;
+    }
+
+    // הסתרת אלמנטים אחרים
+    if (elements.textarea) elements.textarea.style.display = 'none';
+    if (elements.previewContainer) elements.previewContainer.style.display = 'none';
+    if (elements.bgGallery) elements.bgGallery.style.display = 'none';
+    
+    // הצגת מצלמה
+    if (elements.cameraRecorder) {
+      elements.cameraRecorder.hidden = false;
+    }
+
+    // גלילה למרכז הכפתור הפעיל
+    setTimeout(() => {
+      const activeBtn = document.querySelector('.camera-duration-btn.is-active');
+      if (activeBtn) {
+        const container = activeBtn.parentElement;
+        const btnLeft = activeBtn.offsetLeft;
+        const btnWidth = activeBtn.offsetWidth;
+        const containerWidth = container.offsetWidth;
+        const scrollTo = btnLeft - (containerWidth / 2) + (btnWidth / 2);
+        
+        container.scrollTo({
+          left: scrollTo,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+
+    // פתיחת stream
+    App.CameraRecorder.getCameraStream('user')
+      .then(stream => {
+        if (elements.cameraPreview) {
+          elements.cameraPreview.srcObject = stream;
+        }
+        setStatus('');
+      })
+      .catch(err => {
+        console.error('Failed to open camera:', err);
+        setStatus('לא ניתן לפתוח את המצלמה. בדוק הרשאות.', 'error');
+        closeCamera();
+      });
+  }
+
+  function closeCamera() {
+    if (App.CameraRecorder) {
+      App.CameraRecorder.closeCamera();
+    }
+    
+    if (elements.cameraRecorder) {
+      elements.cameraRecorder.hidden = true;
+    }
+    if (elements.cameraPreview) {
+      elements.cameraPreview.srcObject = null;
+    }
+    
+    // החזרת אלמנטים
+    if (elements.textarea) elements.textarea.style.display = '';
+    if (elements.previewContainer) elements.previewContainer.style.display = '';
+    
+    isRecording = false;
+    if (elements.cameraProgress) elements.cameraProgress.hidden = true;
+    if (elements.cameraTimer) elements.cameraTimer.textContent = '00:00';
+  }
+
+  async function switchCamera() {
+    if (!App.CameraRecorder) return;
+    
+    try {
+      const result = await App.CameraRecorder.switchCamera();
+      if (elements.cameraPreview) {
+        elements.cameraPreview.srcObject = result.stream;
+      }
+    } catch (err) {
+      console.error('Failed to switch camera:', err);
+      setStatus('לא ניתן להחליף מצלמה', 'error');
+    }
+  }
+
+  async function startRecording() {
+    if (!App.CameraRecorder || isRecording) return;
+    
+    isRecording = true;
+    if (elements.cameraProgress) elements.cameraProgress.hidden = false;
+    if (elements.cameraDurationSelector) elements.cameraDurationSelector.style.opacity = '0.5';
+    if (elements.cameraRecordBtn) elements.cameraRecordBtn.disabled = true;
+
+    try {
+      await App.CameraRecorder.startRecording(selectedDuration, (progress) => {
+        // עדכון טיימר
+        const elapsed = Math.floor(progress.elapsed);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        if (elements.cameraTimer) {
+          elements.cameraTimer.textContent = 
+            `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+        
+        // עדכון progress bar
+        if (elements.cameraProgressFill) {
+          elements.cameraProgressFill.style.width = `${progress.percent}%`;
+        }
+        
+        // בדיקה אם הסתיים
+        if (progress.percent >= 100) {
+          finishRecording();
+        }
+      });
+    } catch (err) {
+      console.error('Recording failed:', err);
+      setStatus('ההקלטה נכשלה', 'error');
+      isRecording = false;
+      if (elements.cameraRecordBtn) elements.cameraRecordBtn.disabled = false;
+    }
+  }
+
+  async function finishRecording() {
+    if (!App.CameraRecorder) return;
+    
+    try {
+      setStatus('מעבד וידאו...');
+      const blob = await App.CameraRecorder.stopRecording();
+      
+      if (!blob || blob.size === 0) {
+        throw new Error('ההקלטה ריקה');
+      }
+
+      // סגירת המצלמה
+      closeCamera();
+
+      // יצירת File object מה-blob
+      const file = new File([blob], 'recorded-video.webm', { type: blob.type });
+      
+      // שימוש בזרימה הקיימת של handleVideoFile
+      await handleVideoFile(file);
+      
+    } catch (err) {
+      console.error('Failed to finish recording:', err);
+      setStatus('שגיאה בשמירת ההקלטה', 'error');
+      closeCamera();
+    }
   }
 
   function initListeners() {
@@ -732,6 +896,45 @@
         setBgZoomFx(enabled);
       });
     }
+
+    // חלק מצלמה (compose.js) – event listeners למצלמה | HYPER CORE TECH
+    if (elements.cameraButton) {
+      elements.cameraButton.addEventListener('click', openCamera);
+    }
+
+    if (elements.cameraCloseBtn) {
+      elements.cameraCloseBtn.addEventListener('click', closeCamera);
+    }
+
+    if (elements.cameraSwitchBtn) {
+      elements.cameraSwitchBtn.addEventListener('click', switchCamera);
+    }
+
+    if (elements.cameraRecordBtn) {
+      elements.cameraRecordBtn.addEventListener('click', startRecording);
+    }
+
+    // בחירת משך הקלטה עם גלילה אוטומטית למרכז
+    const durationButtons = document.querySelectorAll('.camera-duration-btn');
+    durationButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        durationButtons.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        selectedDuration = parseInt(btn.dataset.duration, 10);
+        
+        // גלילה חלקה למרכז הכפתור הנבחר
+        const container = btn.parentElement;
+        const btnLeft = btn.offsetLeft;
+        const btnWidth = btn.offsetWidth;
+        const containerWidth = container.offsetWidth;
+        const scrollTo = btnLeft - (containerWidth / 2) + (btnWidth / 2);
+        
+        container.scrollTo({
+          left: scrollTo,
+          behavior: 'smooth'
+        });
+      });
+    });
 
     // חלק שידור חי (compose.js) – כפתור שידור חי מתוך חלון השיתוף
     try {

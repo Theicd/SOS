@@ -181,6 +181,7 @@
   function refreshFollowButtons(root) {
     const scope = root instanceof Element ? root : document;
     const buttons = scope.querySelectorAll('[data-follow-button]');
+    console.log('[follow-service] refreshFollowButtons: found', buttons.length, 'buttons');
     buttons.forEach((button) => {
       const target = normalizePubkey(button.getAttribute('data-follow-button'));
       if (!target) {
@@ -190,13 +191,22 @@
       const isSelf = target && target === normalizePubkey(App.publicKey);
       const isFollowing = followState.followingSet.has(target);
       const isPending = followState.pendingTargets.has(target);
+      console.log('[follow-service] Updating button for', target.slice(0, 8), { isFollowing, isPending, isSelf });
       button.disabled = isSelf || isPending || !App.publicKey || !App.privateKey;
       button.classList.toggle('is-following', isFollowing);
       button.setAttribute('aria-pressed', isFollowing ? 'true' : 'false');
       const icon = button.querySelector('i');
       if (icon) {
-        icon.classList.toggle('fa-user-minus', isFollowing);
-        icon.classList.toggle('fa-user-plus', !isFollowing);
+        // חלק TikTok (follow-service.js) – תמיכה בכפתור העוקב המשולב עם fa-check/fa-plus | HYPER CORE TECH
+        const isVideoBadge = button.classList.contains('videos-feed__follow-badge');
+        console.log('[follow-service] Icon update:', { isVideoBadge, isFollowing, classes: icon.className });
+        if (isVideoBadge) {
+          icon.classList.remove('fa-check', 'fa-plus');
+          icon.classList.add(isFollowing ? 'fa-check' : 'fa-plus');
+        } else {
+          icon.classList.remove('fa-user-minus', 'fa-user-plus');
+          icon.classList.add(isFollowing ? 'fa-user-minus' : 'fa-user-plus');
+        }
       }
       const label = button.querySelector('span[data-follow-label]') || button.querySelector('span');
       if (label) {
@@ -347,6 +357,7 @@
     }
     if (target === current) return;
     const following = followState.followingSet.has(target);
+    console.log('[follow-service] Toggle follow:', { target: target.slice(0, 8), wasFollowing: following, willFollow: !following });
     let optimisticChanged = false;
     followState.pendingTargets.add(target);
     if (!following) {
@@ -356,6 +367,9 @@
       followState.followingSet.delete(target);
       optimisticChanged = true;
     }
+    // חלק TikTok (follow-service.js) – שמירה מיידית של המצב | HYPER CORE TECH
+    persistFollowingToStorage();
+    console.log('[follow-service] Updated followingSet, calling refreshFollowButtons');
     refreshFollowButtons();
     try {
       const now = Math.floor(Date.now() / 1000);
@@ -445,6 +459,12 @@
   App.subscribeFollowers = subscribeFollowers;
   App.getFollowersSnapshot = getFollowersSnapshot;
   App.refreshFollowButtons = refreshFollowButtons;
+  // חלק TikTok (follow-service.js) – חשיפת followingSet ל-App לשימוש בכפתורים | HYPER CORE TECH
+  Object.defineProperty(App, 'followingSet', {
+    get: function() {
+      return followState.followingSet;
+    }
+  });
   if (!window.__sosFollowDelegationAttached) {
     document.addEventListener('click', (event) => {
       const button = event.target.closest('[data-follow-button]');

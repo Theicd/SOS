@@ -5,8 +5,8 @@
 
   // חלק דחיסת וידאו – הגדרות ומגבלות
   const MAX_INPUT_SIZE = 30 * 1024 * 1024; // 30MB
-  const TARGET_BITRATE = '1M'; // ~1Mbps לוידאו
-  const AUDIO_BITRATE = '96k';
+  const TARGET_BITRATE = '2.5M'; // ~2.5Mbps לוידאו - איכות טובה למובייל
+  const AUDIO_BITRATE = '128k'; // 128kbps לאודיו איכותי
   const TARGET_HEIGHT = 720;
   const CRF = 32; // איכות VP9 (ערך נמוך = איכות גבוהה)
 
@@ -181,8 +181,8 @@
 
     const recorder = new MediaRecorder(stream, {
       mimeType,
-      videoBitsPerSecond: 1000000, // 1 Mbps
-      audioBitsPerSecond: 96000,   // 96 kbps
+      videoBitsPerSecond: 2500000, // 2.5 Mbps - איכות טובה למובייל
+      audioBitsPerSecond: 128000,  // 128 kbps - אודיו איכותי
     });
 
     const chunks = [];
@@ -193,7 +193,7 @@
     };
 
     // התחלת ההקלטה
-    recorder.start(100); // איסוף דאטה כל 100ms
+    recorder.start(1000); // איסוף דאטה כל 1000ms - מונע קירטועים
     video.play();
 
     // עדכון progress
