@@ -35,6 +35,7 @@ function wireMediaControls() {
       toggleBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
+        userHasInteracted = true; // סימון אינטראקציה
         if (mediaDiv.dataset.state === 'playing') {
           pauseMedia(mediaDiv, { resetThumb: false, manual: true });
         } else {
@@ -47,6 +48,7 @@ function wireMediaControls() {
     mediaDiv.addEventListener('click', (event) => {
       // אם לחצו על כפתור ייעודי, לא להפעיל את הטוגל פעמיים
       if (event.target.closest('[data-play-toggle]')) return;
+      userHasInteracted = true; // סימון אינטראקציה
       if (mediaDiv.dataset.state === 'playing') {
         pauseMedia(mediaDiv, { resetThumb: false, manual: true });
       } else {
@@ -67,6 +69,9 @@ function autoPlayFirstVideo() {
   }
 }
 
+// חלק שמע (videos.js) – מעקב אחרי אינטראקציה ראשונה | HYPER CORE TECH
+let userHasInteracted = false;
+
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (!mediaDiv) return;
@@ -82,16 +87,30 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
     if (!videoEl) return;
     mediaDiv.classList.add('videos-feed__media--ready');
     
-    // ניסיון להפעיל עם צליל
-    videoEl.muted = false;
-    videoEl.play().catch(() => {
-      // אם autoplay עם צליל נכשל, ננסה עם mute
-      videoEl.muted = true;
+    // אם המשתמש כבר אינטראקט, ננגן עם שמע
+    if (userHasInteracted || manual) {
+      videoEl.muted = false;
       videoEl.play().catch(() => {
-        // גם עם mute נכשל – להחזיר מצב נייח
+        // אם נכשל, ננסה עם mute
+        videoEl.muted = true;
+        videoEl.play().catch(() => {
+          videoEl.pause();
+        });
+      });
+    } else {
+      // אחרת, נתחיל עם mute
+      videoEl.muted = true;
+      videoEl.play().then(() => {
+        // אחרי שהצלחנו להפעיל, ננסה להפעיל שמע
+        setTimeout(() => {
+          if (videoEl && !videoEl.paused) {
+            videoEl.muted = false;
+          }
+        }, 100);
+      }).catch(() => {
         videoEl.pause();
       });
-    });
+    }
   } else if (mediaType === 'youtube') {
     ensureYouTubeIframe(mediaDiv, { autoplay: true });
   }
@@ -2324,6 +2343,24 @@ function stopAutoCheck() {
   }
 }
 
+// חלק שמע (videos.js) – מאזין גלובלי לאינטראקציה ראשונה | HYPER CORE TECH
+function setupUserInteractionListener() {
+  const events = ['click', 'touchstart', 'scroll'];
+  const markInteraction = () => {
+    if (!userHasInteracted) {
+      userHasInteracted = true;
+      console.log('[videos] User interaction detected, enabling audio');
+      // הסרת המאזינים אחרי אינטראקציה ראשונה
+      events.forEach(event => {
+        document.removeEventListener(event, markInteraction);
+      });
+    }
+  };
+  events.forEach(event => {
+    document.addEventListener(event, markInteraction, { once: true, passive: true });
+  });
+}
+
 // חלק יאללה וידאו (videos.js) – אתחול בעת טעינת הדף
 async function init() {
   selectors.stream = document.getElementById('videosStream');
@@ -2332,6 +2369,9 @@ async function init() {
   if (!selectors.stream || !selectors.status) {
     return;
   }
+  
+  // אתחול מאזין אינטראקציה
+  setupUserInteractionListener();
 
   const homeButton = document.getElementById('videosTopHomeButton');
   if (homeButton) {
