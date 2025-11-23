@@ -172,7 +172,7 @@
       audio: stream.getAudioTracks().length
     });
 
-    // הגדרות MediaRecorder
+    // הגדרות MediaRecorder משופרות לאיכות גבוהה וסנכרון טוב יותר
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') 
       ? 'video/webm;codecs=vp9,opus'
       : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
@@ -181,8 +181,8 @@
 
     const recorder = new MediaRecorder(stream, {
       mimeType,
-      videoBitsPerSecond: 1000000, // 1 Mbps
-      audioBitsPerSecond: 96000,   // 96 kbps
+      videoBitsPerSecond: 3000000, // 3 Mbps - איכות גבוהה למובייל
+      audioBitsPerSecond: 128000,   // 128 kbps - איכות אודיו טובה יותר
     });
 
     const chunks = [];
@@ -192,9 +192,12 @@
       }
     };
 
-    // התחלת ההקלטה
+    // התחלת ההקלטה עם פרמטרים משופרים
     recorder.start(100); // איסוף דאטה כל 100ms
     video.play();
+    
+    // וידוא שהווידאו מתחיל מההתחלה
+    video.currentTime = 0;
 
     // עדכון progress
     const duration = video.duration;
@@ -206,13 +209,14 @@
       }
     }, 500);
 
-    // המתנה לסיום
+    // המתנה לסיום עם סנכרון משופר
     await new Promise((resolve) => {
       video.onended = () => {
         clearInterval(progressInterval);
+        // המתנה נוספת לסנכרון אודיו-וידיאו
         setTimeout(() => {
           recorder.stop();
-        }, 100);
+        }, 200); // המתנה 200ms לסנכרון
       };
       recorder.onstop = resolve;
     });

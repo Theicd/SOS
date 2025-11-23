@@ -25,8 +25,9 @@ function waitForApp() {
 }
 
 // חלק יאללה וידאו (videos.js) – חיבור בקרי מדיה (Play/Pause)
-function wireMediaControls() {
-  document.querySelectorAll('.videos-feed__media').forEach((mediaDiv) => {
+function wireMediaControls(root = document) {
+  const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+  scope.querySelectorAll('.videos-feed__media').forEach((mediaDiv) => {
     if (mediaDiv.dataset.mediaControlsWired === 'true') return;
     mediaDiv.dataset.mediaControlsWired = 'true';
 
@@ -218,6 +219,7 @@ const App = window.NostrApp || (window.NostrApp = {});
 const state = {
   videos: [],
   currentIndex: 0,
+  incrementalRender: null,
 };
 
 const selectors = {
@@ -305,6 +307,21 @@ function filterEventsByNetwork(events, networkTag) {
     return [];
   }
   return events.filter((event) => eventHasNetworkTag(event, networkTag));
+}
+
+// חלק יאללה וידאו (videos.js) – הצגת/הסתרת אנימציית טעינה
+function showLoadingAnimation() {
+  const overlay = document.getElementById('videosLoadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+}
+
+function hideLoadingAnimation() {
+  const overlay = document.getElementById('videosLoadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
 }
 
 // חלק יאללה וידאו (videos.js) – יצירת הודעת סטטוס למשתמש
@@ -696,62 +713,128 @@ function wireVideoPostMenu(rootEl, postId) {
   });
 }
 
-// חלק יאללה וידאו (videos.js) – רינדור כל הווידאו
+// חלק יאללה וידאו (videos.js) – רינדור אינקרמנטלי של הווידאו | HYPER CORE TECH
 function renderVideos() {
   if (!selectors.stream) return;
   selectors.stream.innerHTML = '';
+  resetIncrementalRender();
 
   if (!Array.isArray(state.videos) || state.videos.length === 0) {
+    hideLoadingAnimation();
     setStatus('אין סרטונים להצגה');
     return;
   }
 
-  const fragment = document.createDocumentFragment();
-  state.videos.forEach((video) => {
-    fragment.appendChild(renderVideoCard(video));
-  });
-
-  selectors.stream.appendChild(fragment);
-  // הסתרת הסטטוס אחרי שהכל נטען
   if (selectors.status) {
-    selectors.status.style.display = 'none';
+    selectors.status.textContent = 'טוען סרטונים...';
+    selectors.status.style.display = 'block';
   }
 
-  setTimeout(() => setupIntersectionObserver(), 100);
-  wireActions();
-  wireMediaControls();
-  autoPlayFirstVideo();
+  setupIntersectionObserver();
   setupLikeUpdateListener();
-  setupAutoHideControls();
+
+  state.incrementalRender = {
+    nextIndex: 0,
+    cancelled: false,
+    timer: null,
+  };
+
+  appendNextVideoCard();
 }
 
-// חלק יאללה וידאו (videos.js) – הצגת כפתורים לכרטיס ספציפי
-function showControlsForCard(card) {
-  if (!card) return;
-  
-  // ביטול timeout קודם אם קיים
-  if (card._hideTimeout) {
-    clearTimeout(card._hideTimeout);
+// חלק יאללה וידאו (videos.js) – איפוס מנגנון הרינדור ההדרגתי | HYPER CORE TECH
+function resetIncrementalRender() {
+  if (state.incrementalRender?.timer) {
+    clearTimeout(state.incrementalRender.timer);
   }
-  
-  // הצגת כפתורים - קבוע, ללא הסתרה אוטומטית
-  card.classList.remove('controls-hidden');
+  if (state.incrementalRender) {
+    state.incrementalRender.cancelled = true;
+  }
+  state.incrementalRender = null;
 }
 
-// חלק יאללה וידאו (videos.js) – כפתורים קבועים תמיד גלויים
-function setupAutoHideControls() {
-  const cards = document.querySelectorAll('.videos-feed__card');
-  
-  cards.forEach(card => {
-    // הכפתורים מוצגים תמיד (ללא מחלקת controls-hidden)
-    card.classList.remove('controls-hidden');
-    
-    // ביטול כל timeout קיים
-    if (card._hideTimeout) {
-      clearTimeout(card._hideTimeout);
-      delete card._hideTimeout;
+// חלק יאללה וידאו (videos.js) – הוספת קלף חדש לפיד ומעבר לקלף הבא | HYPER CORE TECH
+function appendNextVideoCard() {
+  const controller = state.incrementalRender;
+  if (!controller || controller.cancelled) {
+    return;
+  }
+
+  if (controller.nextIndex >= state.videos.length) {
+    finalizeIncrementalRender();
+    return;
+  }
+
+  const video = state.videos[controller.nextIndex];
+  const card = renderVideoCard(video);
+  selectors.stream.appendChild(card);
+
+  wireActions(card);
+  wireMediaControls(card);
+  observeVideoCard(card);
+
+  if (controller.nextIndex === 0) {
+    hideLoadingAnimation();
+    if (selectors.status) {
+      selectors.status.style.display = 'none';
     }
-  });
+    autoPlayFirstVideo();
+  }
+
+  controller.nextIndex += 1;
+  preloadNextMedia(state.videos[controller.nextIndex]);
+
+  if (controller.nextIndex >= state.videos.length) {
+    finalizeIncrementalRender();
+    return;
+  }
+
+  controller.timer = setTimeout(appendNextVideoCard, 120);
+}
+
+// חלק יאללה וידאו (videos.js) – סיום סדרת הרינדור ההדרגתית | HYPER CORE TECH
+function finalizeIncrementalRender() {
+  if (!state.incrementalRender) return;
+  if (state.incrementalRender.timer) {
+    clearTimeout(state.incrementalRender.timer);
+  }
+  state.incrementalRender.cancelled = true;
+  state.incrementalRender = null;
+}
+
+// חלק יאללה וידאו (videos.js) – חיבור קלפים חדשים ל-IntersectionObserver | HYPER CORE TECH
+function observeVideoCard(card) {
+  if (!card) return;
+  if (!intersectionObserver) {
+    setupIntersectionObserver();
+  }
+  if (intersectionObserver) {
+    intersectionObserver.observe(card);
+  }
+}
+
+// חלק יאללה וידאו (videos.js) – פרילוד לווידאו/תמונה של הקלף הבא | HYPER CORE TECH
+function preloadNextMedia(video) {
+  if (!video) return;
+
+  if (video.videoUrl) {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = video.videoUrl;
+    link.as = 'video';
+    document.head.appendChild(link);
+    setTimeout(() => link.remove(), 10000);
+    return;
+  }
+
+  const previewUrl = video.imageUrl
+    ? video.imageUrl
+    : (video.youtubeId ? `https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg` : '');
+
+  if (previewUrl) {
+    const img = new Image();
+    img.src = previewUrl;
+  }
 }
 
 // חלק יאללה וידאו (videos.js) – עדכון כפתור לייק בדף הווידאו
@@ -1034,11 +1117,11 @@ async function loadCommentsForPost(eventId) {
 }
 
 // חלק יאללה וידאו (videos.js) – חיבור כפתורי פעולה
-function wireActions() {
-  const root = selectors.stream;
-  if (!root) return;
+function wireActions(root = selectors.stream) {
+  const rootEl = root && typeof root.querySelectorAll === 'function' ? root : selectors.stream;
+  if (!rootEl) return;
 
-  root.querySelectorAll('[data-like-button]').forEach((button) => {
+  rootEl.querySelectorAll('[data-like-button]').forEach((button) => {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', async () => {
@@ -1058,7 +1141,7 @@ function wireActions() {
     });
   });
 
-  root.querySelectorAll('[data-comment-button]').forEach((button) => {
+  rootEl.querySelectorAll('[data-comment-button]').forEach((button) => {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', () => {
@@ -1076,7 +1159,7 @@ function wireActions() {
     });
   });
 
-  root.querySelectorAll('[data-share-button]').forEach((button) => {
+  rootEl.querySelectorAll('[data-share-button]').forEach((button) => {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', () => {
@@ -1088,7 +1171,7 @@ function wireActions() {
     });
   });
 
-  root.querySelectorAll('[data-follow-button]').forEach((button) => {
+  rootEl.querySelectorAll('[data-follow-button]').forEach((button) => {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', async () => {
@@ -1118,7 +1201,7 @@ function wireActions() {
   });
 }
 
-// חלק יאללה וידאו (videos.js) – הגדרת Intersection Observer לאפקט טשטוש
+// חלק יאללה וידאו (videos.js) – Intersection Observer פשוט לגלילה כמו טיקטוק
 function setupIntersectionObserver() {
   const viewport = document.querySelector('.videos-feed__viewport');
   if (!viewport) return;
@@ -1127,35 +1210,26 @@ function setupIntersectionObserver() {
     intersectionObserver.disconnect();
   }
 
+  // גלילה פשוטה - רק ניגן/עצור וידאו
   intersectionObserver = new IntersectionObserver(
     (entries) => {
-      let bestEntry = null;
-      entries.forEach((entry) => {
-        if (!entry.target) return;
-        if (!bestEntry || entry.intersectionRatio > (bestEntry?.intersectionRatio || 0)) {
-          bestEntry = entry;
-        }
-      });
-
       entries.forEach((entry) => {
         const card = entry.target;
         const mediaDiv = card.querySelector('.videos-feed__media');
         if (!mediaDiv) return;
-        if (entry === bestEntry && entry.isIntersecting && entry.intersectionRatio > 0.35) {
-          card.classList.add('in-view');
+        
+        // ניגון כשהפוסט מרכזי (50%+ גלוי)
+        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           playMedia(mediaDiv, { manual: false });
-          // הצגת כפתורים כשעוברים לפוסט חדש
-          showControlsForCard(card);
         } else {
-          card.classList.remove('in-view');
           pauseMedia(mediaDiv, { resetThumb: false });
         }
       });
     },
     {
       root: viewport,
-      threshold: [0, 0.25, 0.5, 0.75, 1],
-      rootMargin: '-15% 0px -15% 0px'
+      threshold: [0, 0.5],
+      rootMargin: '-10% 0px'
     }
   );
 
@@ -1418,8 +1492,8 @@ function registerVideoCommentRecord(app, event, parentId) {
 
 // חלק יאללה וידאו (videos.js) – טעינת סרטונים מהפיד
 async function loadVideos() {
-  setStatus('טוען סרטונים...');
-
+  showLoadingAnimation(); // הצגת אנימציית טעינה
+  
   const currentApp = window.NostrApp;
   let sourceEvents = [];
   const networkTag = getNetworkTag();
@@ -1457,7 +1531,6 @@ async function loadVideos() {
   }
 
   if (!Array.isArray(sourceEvents) || sourceEvents.length === 0) {
-    setStatus('ממתין לטעינת פוסטים...');
     console.warn('[videos] loadVideos: no events after both sources');
     setTimeout(loadVideos, 1000);
     return;
