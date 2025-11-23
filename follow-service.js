@@ -195,15 +195,8 @@
       button.setAttribute('aria-pressed', isFollowing ? 'true' : 'false');
       const icon = button.querySelector('i');
       if (icon) {
-        // חלק TikTok (follow-service.js) – תמיכה בכפתור העוקב המשולב עם fa-check/fa-plus | HYPER CORE TECH
-        const isVideoBadge = button.classList.contains('videos-feed__follow-badge');
-        if (isVideoBadge) {
-          icon.classList.toggle('fa-check', isFollowing);
-          icon.classList.toggle('fa-plus', !isFollowing);
-        } else {
-          icon.classList.toggle('fa-user-minus', isFollowing);
-          icon.classList.toggle('fa-user-plus', !isFollowing);
-        }
+        icon.classList.toggle('fa-user-minus', isFollowing);
+        icon.classList.toggle('fa-user-plus', !isFollowing);
       }
       const label = button.querySelector('span[data-follow-label]') || button.querySelector('span');
       if (label) {

@@ -2036,11 +2036,6 @@
         }
         App.deletedEventIds.add(value);
         removePostElement(value);
-        
-        // חלק מחיקה (feed.js) – הסרה גם מפיד הווידאו | HYPER CORE TECH
-        if (typeof window.removePostFromFeed === 'function') {
-          window.removePostFromFeed(value);
-        }
       }
     });
   }
@@ -2484,7 +2479,7 @@
 
         if (link.startsWith('data:video') || /\.(mp4|webm|ogg)$/i.test(link)) {
           return `<div class="feed-media feed-media--video" data-video-container>
-            <video src="${link}" playsinline preload="metadata" loop></video>
+            <video src="${link}" playsinline preload="metadata"></video>
             <div class="feed-media__play-overlay" data-play-overlay>
               <i class="fa-solid fa-play"></i>
             </div>
@@ -2499,7 +2494,7 @@
             const hashAttr = hash ? ` data-video-hash="${hash}"` : '';
             const mirrorsAttr = mirrors.length > 0 ? ` data-video-mirrors="${mirrors.join(',')}"` : '';
             return `<div class="feed-media feed-media--video" data-video-container data-video-url="${link}"${hashAttr}${mirrorsAttr}>
-              <video playsinline preload="metadata" loop></video>
+              <video playsinline preload="metadata"></video>
               <div class="feed-media__play-overlay" data-play-overlay>
                 <i class="fa-solid fa-play"></i>
               </div>
@@ -2558,14 +2553,9 @@
       }
       allFeedEvents = events;
       displayedPostsCount = 0;
+      // חלק infinite scroll (feed.js) – סידור פוסטים בפעם הראשונה בלבד
+      allFeedEvents.sort((a, b) => b.created_at - a.created_at);
     }
-    
-    // חלק מיון (feed.js) – מיון תמיד לפי תאריך (חדשים ראשון) | HYPER CORE TECH
-    allFeedEvents.sort((a, b) => {
-      const timeA = a.created_at || 0;
-      const timeB = b.created_at || 0;
-      return timeB - timeA; // חדשים ראשון!
-    });
     
     // חלק infinite scroll (feed.js) – בעת append, אנחנו משתמשים ב-allFeedEvents שכבר מסודר
     const eventsToUse = append ? allFeedEvents : events;
@@ -3510,47 +3500,17 @@ async function loadFeed() {
       return;
     }
 
-    // חלק עריכה (feed.js) – לאחר פרסום מוצלח, אם זה עריכה, מוחקים בשקט את המקור ומעדכנים
+    // חלק עריכה (feed.js) – לאחר פרסום מוצלח, אם זה עריכה, מוחקים בשקט את המקור ומרעננים
     if (payload.originalId) {
       try {
         await deletePostQuiet(payload.originalId);
-        
-        // חלק עדכון (feed.js) – עדכון מיידי בפיד הווידאו במקום טעינה מחדש | HYPER CORE TECH
-        if (typeof window.updatePostInFeed === 'function') {
-          window.updatePostInFeed(event, payload.originalId);
-        }
-        
-        // עדכון הפוסט ב-postsById
-        if (App.postsById) {
-          App.postsById.delete(payload.originalId);
-          App.postsById.set(event.id, event);
-        }
-        
-        // עדכון הכרטיס בפיד הראשי
-        const oldCard = document.querySelector(`[data-feed-card="${payload.originalId}"]`);
-        if (oldCard) {
-          oldCard.setAttribute('data-feed-card', event.id);
-          const article = oldCard.querySelector('.feed-post');
-          if (article) {
-            article.setAttribute('data-post-id', event.id);
-            // עדכון התוכן
-            const contentEl = article.querySelector('[data-post-content]');
-            if (contentEl && payload.content) {
-              contentEl.innerHTML = App.escapeHtml(payload.content).replace(/\n/g, '<br>');
-            }
-          }
-        }
       } catch (err) {
         console.warn('Quiet delete failed after edit', err);
       }
     }
     App.resetCompose?.();
     App.closeCompose?.();
-    
-    // חלק עדכון (feed.js) – רק אם זה לא עריכה, טוען את הפיד מחדש | HYPER CORE TECH
-    if (!payload.originalId) {
-      loadFeed();
-    }
+    loadFeed();
   }
 
   async function likePost(eventId) {
@@ -3825,11 +3785,6 @@ async function loadFeed() {
       console.log('Deleted event');
       App.deletedEventIds.add(eventId);
       removePostElement(eventId);
-      
-      // חלק מחיקה (feed.js) – הסרה מיידית מפיד הווידאו | HYPER CORE TECH
-      if (typeof window.removePostFromFeed === 'function') {
-        window.removePostFromFeed(eventId);
-      }
     } catch (e) {
       console.error('Delete publish error', e);
     }

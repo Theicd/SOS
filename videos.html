@@ -18,8 +18,6 @@
     <link rel="stylesheet" href="./styles/market-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/videos.css">
-    <!-- חלק מצלמה (videos.html) – עיצוב מודול הקלטת וידאו | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./styles/camera-recorder.css">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
@@ -61,8 +59,6 @@
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js" defer></script>
-    <!-- חלק מצלמה (videos.html) – מודול הקלטת וידאו מהמצלמה | HYPER CORE TECH -->
-    <script src="./camera-recorder.js" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
     <script src="./compose.js" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
@@ -266,10 +262,6 @@
             <i class="fa-regular fa-image"></i>
             <span>הוסף תמונה/וידאו</span>
           </button>
-          <button class="button-camera" type="button" id="composeCameraButton" aria-label="צילום וידאו">
-            <i class="fa-solid fa-video"></i>
-            <span>צלם וידאו</span>
-          </button>
           <button class="button-primary" type="button" id="composeLiveButton" aria-label="התחלת שידור חי">
             <i class="fa-solid fa-tower-broadcast"></i>
             <span>שידור חי</span>
@@ -283,43 +275,6 @@
             <span>הסר רקע</span>
           </button>
           <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
-        </div>
-        
-        <!-- חלק מצלמה (videos.html) – UI למצלמת וידאו עם בחירת זמן | HYPER CORE TECH -->
-        <div class="camera-recorder" id="cameraRecorder" hidden>
-          <div class="camera-recorder__preview">
-            <video id="cameraPreview" autoplay playsinline muted></video>
-            <div class="camera-recorder__controls">
-              <button class="camera-recorder__switch" id="cameraSwitchBtn" type="button" aria-label="החלף מצלמה">
-                <i class="fa-solid fa-camera-rotate"></i>
-              </button>
-              <div class="camera-recorder__timer" id="cameraTimer">00:00</div>
-            </div>
-          </div>
-          <div class="camera-recorder__duration-selector" id="cameraDurationSelector">
-            <h3>בחר משך הקלטה</h3>
-            <div class="camera-recorder__duration-buttons">
-              <button class="camera-duration-btn" data-duration="5" type="button">5s</button>
-              <button class="camera-duration-btn" data-duration="10" type="button">10s</button>
-              <button class="camera-duration-btn is-active" data-duration="15" type="button">15s</button>
-              <button class="camera-duration-btn" data-duration="20" type="button">20s</button>
-              <button class="camera-duration-btn" data-duration="30" type="button">30s</button>
-              <button class="camera-duration-btn" data-duration="45" type="button">45s</button>
-              <button class="camera-duration-btn" data-duration="60" type="button">60s</button>
-            </div>
-          </div>
-          <div class="camera-recorder__actions">
-            <button class="button-secondary" id="cameraCloseBtn" type="button">סגור</button>
-            <button class="button-record" id="cameraRecordBtn" type="button">
-              <span class="record-icon"></span>
-              <span>הקלט</span>
-            </button>
-          </div>
-          <div class="camera-recorder__progress" id="cameraProgress" hidden>
-            <div class="camera-recorder__progress-bar">
-              <div class="camera-recorder__progress-fill" id="cameraProgressFill"></div>
-            </div>
-          </div>
         </div>
         <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
         <!-- חלק רקעים (videos.html) – שליטה אם הטקסט יוצג רק על גבי התמונה | HYPER CORE TECH -->
