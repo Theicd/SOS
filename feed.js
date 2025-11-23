@@ -1439,8 +1439,7 @@
       return;
     }
     try {
-      // שמירת רק 50 התרעות אחרונות כדי לחסוך מקום
-      const payload = App.notifications.slice(0, 50).map((notification) => ({
+      const payload = App.notifications.slice(0, 100).map((notification) => ({
         id: notification.id,
         type: notification.type,
         postId: notification.postId,
@@ -1458,28 +1457,7 @@
       }));
       window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch (err) {
-      console.warn('[feed] Failed to persist notifications:', err.name);
-      // אם localStorage מלא, ננסה לנקות ולשמור שוב
-      if (err.name === 'QuotaExceededError') {
-        try {
-          console.log('[feed] localStorage full, cleaning old data...');
-          // ניקוי התרעות ישנות
-          const payload = App.notifications.slice(0, 20).map((notification) => ({
-            id: notification.id,
-            type: notification.type,
-            postId: notification.postId,
-            actorPubkey: notification.actorPubkey,
-            createdAt: notification.createdAt,
-            content: notification.content,
-            read: notification.read,
-            actorProfile: null, // הסרת פרופילים לחיסכון במקום
-          }));
-          window.localStorage.setItem(storageKey, JSON.stringify(payload));
-          console.log('[feed] Saved reduced notifications:', payload.length);
-        } catch (err2) {
-          console.error('[feed] Still failed after cleanup:', err2);
-        }
-      }
+      console.warn('Failed to persist notifications', err);
     }
     notifyNotificationObservers();
   }
