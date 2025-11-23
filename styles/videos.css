@@ -1,13 +1,4 @@
-/* חלק אפקטים (videos.css) – אנימציות zoom לפוסטים עם רקע תמונה בפיד הווידאו | HYPER CORE TECH */
-@keyframes fxZoomIn {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.15); }
-}
-
-@keyframes fxZoomOut {
-  0% { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
+/* חלק אפקטים (videos.css) – הסרת כל האפקטים לגלילה פשוטה | HYPER CORE TECH */
 
 .videos-feed__menu-wrap {
   /* חלק תפריט פיד ווידאו (videos.css) – עטיפה לכפתור 3 הנקודות כדי למקם את התפריט הצף | HYPER CORE TECH */
@@ -340,16 +331,7 @@ body:has(.videos-feed) .nav-avatar {
   position: relative;
   overflow: hidden;
   background: #000;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 0.4;
-  filter: blur(3px);
-  transform: scale(0.95);
-}
-
-.videos-feed__card.in-view {
-  opacity: 1;
-  filter: blur(0);
-  transform: scale(1);
+  /* גלילה פשוטה - ללא אפקטים */
 }
 
 /* חלק מדיה (videos.css) – וידאו או YouTube iframe */
@@ -395,19 +377,18 @@ body:has(.videos-feed) .nav-avatar {
   border: none;
 }
 
-/* חלק אפקטים (videos.css) – מאפשר אפקט zoom-in גם לכרטיסי תמונה בפיד הווידאו | HYPER CORE TECH */
+/* חלק אפקטים (videos.css) – הסרת כל האפקטים לגלילה פשוטה | HYPER CORE TECH */
 .videos-feed__card--fx .videos-feed__media {
   overflow: hidden;
   position: relative;
 }
 
+/* הסרת אפקט zoom-in לגלילה פשוטה */
 .videos-feed__card--fx[data-fx="zoomin"] .videos-feed__media img,
 .videos-feed__card--fx[data-fx="zoomin"] .videos-feed__media video {
-  animation: fxZoomIn 4000ms ease-in-out infinite both;
-  transform-origin: center center;
-  will-change: transform;
-  backface-visibility: hidden;
-  transform: translateZ(0);
+  /* ללא אפקטים - גלילה פשוטה */
+  transform: none;
+  animation: none;
 }
 
 .videos-feed__media-thumb {
@@ -467,15 +448,7 @@ body:has(.videos-feed) .nav-avatar {
   flex-direction: column;
   gap: 20px;
   z-index: 20;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.videos-feed__card.controls-hidden .videos-feed__actions {
-  opacity: 0;
-  transform: translateX(-20px);
-  pointer-events: none;
+  /* גלילה פשוטה - ללא אפקטים */
 }
 
 .videos-feed__action {
@@ -532,15 +505,7 @@ body:has(.videos-feed) .nav-avatar {
   color: #fff;
   z-index: 15;
   min-height: 140px;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.videos-feed__card.controls-hidden .videos-feed__info {
-  opacity: 0;
-  transform: translateY(20px);
-  pointer-events: none;
+  /* גלילה פשוטה - ללא אפקטים */
 }
 
 .videos-feed__author {
