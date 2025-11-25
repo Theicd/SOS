@@ -7,7 +7,7 @@
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 10000; /* ערך גבוה מאוד כדי להיות מעל כל המודאלים האחרים */
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -110,6 +110,82 @@
 
 .timer-option:active {
   transform: translateY(0);
+}
+
+/* כפתור ביטול בבחירת זמן */
+.timer-cancel {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.timer-cancel-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.timer-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.timer-cancel-btn:active {
+  transform: translateY(0);
+}
+
+.timer-cancel-btn i {
+  font-size: 16px;
+}
+
+/* כפתור ביטול בממשק הקלטה */
+.record-cancel {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 15px;
+}
+
+.record-cancel-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.record-cancel-btn:hover {
+  background: rgba(244, 67, 54, 0.3);
+  border-color: rgba(244, 67, 54, 0.5);
+  transform: translateY(-1px);
+}
+
+.record-cancel-btn:active {
+  transform: translateY(0);
+}
+
+.record-cancel-btn i {
+  font-size: 14px;
 }
 
 /* ממשק הקלטה */
@@ -255,6 +331,20 @@
     font-size: 18px;
   }
   
+  .timer-cancel {
+    margin-top: 15px;
+    padding-top: 15px;
+  }
+  
+  .timer-cancel-btn {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+  
+  .timer-cancel-btn i {
+    font-size: 14px;
+  }
+  
   .video-record-interface {
     flex: 1;
     justify-content: center;
@@ -288,5 +378,19 @@
   
   .record-timer {
     font-size: 18px;
+  }
+  
+  .record-cancel {
+    margin-top: 15px;
+    padding-top: 12px;
+  }
+  
+  .record-cancel-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+  
+  .record-cancel-btn i {
+    font-size: 12px;
   }
 }
