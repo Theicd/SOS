@@ -90,19 +90,19 @@
     if (!trimmed) {
       return;
     }
-
-    let candidate = trimmed;
     // חלק קונפיגורציה (config.js) – אם התקבל מפתח פרטי, מפיקים ממנו את המפתח הציבורי לצורך הרשאות
-    if (trimmed.length === 64 && typeof App.getPublicKey === 'function') {
-      try {
-        candidate = App.getPublicKey(trimmed) || trimmed;
-      } catch (err) {
-        console.warn('Admin key derivation failed', err);
+    if (trimmed.length === 64) {
+      App.adminPublicKeys.add(trimmed);
+      if (typeof App.getPublicKey === 'function') {
+        try {
+          const derived = App.getPublicKey(trimmed);
+          if (typeof derived === 'string' && derived.length === 64) {
+            App.adminPublicKeys.add(derived.toLowerCase());
+          }
+        } catch (err) {
+          console.warn('Admin key derivation failed', err);
+        }
       }
-    }
-
-    if (typeof candidate === 'string' && candidate.length === 64) {
-      App.adminPublicKeys.add(candidate.toLowerCase());
     }
   });
 

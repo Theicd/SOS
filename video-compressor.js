@@ -110,8 +110,8 @@
     // יצירת video element
     const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
-    video.muted = true; // במובייל יש צורך ב-muted כדי לאפשר autoplay; האודיו עדיין יוקלט מהמקור ב-captureStream
-    video.volume = 0; // השתקת פלט
+    video.muted = false; // חשוב! לא muted כדי שהאודיו ייכלל ב-stream
+    video.volume = 0; // אבל נשתיק את הרמקולים
     video.playsInline = true;
 
     try {
@@ -181,8 +181,8 @@
 
     const recorder = new MediaRecorder(stream, {
       mimeType,
-      videoBitsPerSecond: 3000000, // 3 Mbps - איכות גבוהה למובייל
-      audioBitsPerSecond: 128000,   // 128 kbps - איכות אודיו טובה יותר
+      videoBitsPerSecond: 1000000, // 1 Mbps - מאוזן כמו הממשק החיצוני
+      audioBitsPerSecond: 96000,   // 96 kbps - מאוזן כמו הממשק החיצוני
     });
 
     const chunks = [];
@@ -216,7 +216,7 @@
         // המתנה נוספת לסנכרון אודיו-וידיאו
         setTimeout(() => {
           recorder.stop();
-        }, 200); // המתנה 200ms לסנכרון
+        }, 100); // התאמה לממשק החיצוני
       };
       recorder.onstop = resolve;
     });

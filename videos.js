@@ -471,7 +471,7 @@ function renderVideoCard(video) {
     </button>
     <button class="videos-feed__action" data-comment-button data-event-id="${video.id}">
       <i class="fa-solid fa-comment"></i>
-      <span class="videos-feed__action-count" style="${commentCount > 0 ? '' : 'display:none'}">${commentCount > 0 ? commentCount : ''}</span>
+      <span class="videos-feed__action-count feed-post__comment-count" data-comment-count="${video.id}" style="${commentCount > 0 ? '' : 'display:none'}">${commentCount > 0 ? commentCount : ''}</span>
     </button>
     <button class="videos-feed__action" data-share-button data-event-id="${video.id}">
       <i class="fa-solid fa-share"></i>
@@ -866,6 +866,29 @@ function updateVideoLikeButton(eventId) {
   }
 }
 
+// חלק יאללה וידאו (videos.js) – עדכון כפתור תגובות בדף הווידאו
+function updateVideoCommentButton(eventId) {
+  if (!eventId) return;
+  const button = document.querySelector(`button[data-comment-button][data-event-id="${eventId}"]`);
+  if (!button) return;
+
+  const app = window.NostrApp;
+  const commentMap = app?.commentsByParent?.get(eventId);
+  const comments = commentMap ? Array.from(commentMap.values()) : [];
+  const count = comments.length;
+  const counterEl = button.querySelector('.feed-post__comment-count');
+  
+  if (counterEl) {
+    if (count > 0) {
+      counterEl.textContent = String(count);
+      counterEl.style.display = '';
+    } else {
+      counterEl.textContent = '';
+      counterEl.style.display = 'none';
+    }
+  }
+}
+
 // חלק יאללה וידאו (videos.js) – מאזין לעדכוני לייקים גלובליים
 function setupLikeUpdateListener() {
   const app = window.NostrApp;
@@ -1113,6 +1136,13 @@ async function loadCommentsForPost(eventId) {
     } catch (err) {
       console.warn('[videos] failed syncing comment counter', err);
     }
+  }
+
+  // עדכון כפתור התגובות בדף הווידאו
+  try {
+    updateVideoCommentButton(eventId);
+  } catch (err) {
+    console.warn('[videos] failed updating video comment button', err);
   }
 }
 
@@ -1479,6 +1509,13 @@ function registerVideoCommentRecord(app, event, parentId) {
     } catch (err) {
       console.warn('[videos] updateCommentsForParent failed', err);
     }
+  }
+
+  // עדכון כפתור התגובות בדף הווידאו
+  try {
+    updateVideoCommentButton(parentId);
+  } catch (err) {
+    console.warn('[videos] updateVideoCommentButton failed', err);
   }
 
   if (typeof app.handleNotificationForComment === 'function') {

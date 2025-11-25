@@ -22,6 +22,531 @@
     <link rel="stylesheet" href="./styles/video-record.css">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
+    <!-- עיצוב כפתורי קומפוזר משופרים -->
+    <style>
+      /* ===== עיצוב כפתורי קומפוזר בסגנון רשתות חברתיות ===== */
+      .compose-toolbar-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border: none;
+        border-radius: 50%;
+        background: var(--card);
+        color: var(--muted);
+        font-size: 18px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .compose-toolbar-btn:hover {
+        background: var(--hover);
+        color: var(--text);
+        transform: scale(1.05);
+      }
+
+      .compose-toolbar-btn:active {
+        transform: scale(0.95);
+      }
+
+      .compose-toolbar-btn.active {
+        background: var(--primary);
+        color: white;
+      }
+
+      /* אפקט גלו לכפתורים פעילים */
+      .compose-toolbar-btn.active::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%) scale(0);
+        animation: ripple 0.6s ease-out;
+      }
+
+      @keyframes ripple {
+        to {
+          transform: translate(-50%, -50%) scale(2);
+          opacity: 0;
+        }
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .compose-toolbar-btn {
+          width: 40px;
+          height: 40px;
+          font-size: 16px;
+        }
+      }
+
+      /* שיפור עיצוב הקומפוזר כולו */
+      .compose-dialog {
+        background: var(--card);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+      }
+
+      .compose-dialog textarea {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        color: var(--text);
+        font-size: 16px;
+        resize: none;
+        transition: border-color 0.2s ease;
+      }
+
+      .compose-dialog textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+
+      .compose-dialog textarea::placeholder {
+        color: var(--muted);
+      }
+
+      /* שיפור תצוגת מדיה */
+      .compose-media-preview {
+        border-radius: 12px;
+        overflow: hidden;
+        margin-top: 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+      }
+
+      .compose-media-preview img,
+      .compose-media-preview video {
+        width: 100%;
+        max-height: 300px;
+        object-fit: cover;
+        display: block;
+        transition: all 0.3s ease;
+      }
+
+      /* התאמה לתמונות רוחביות */
+      .compose-media-preview img.landscape {
+        max-height: 300px;
+        object-fit: cover;
+        width: 100%;
+      }
+
+      /* התאמה לתמונות אנכיות */
+      .compose-media-preview img.portrait {
+        max-height: 400px;
+        object-fit: contain;
+        width: auto;
+        max-width: 100%;
+      }
+
+      /* התאמה לתמונות ריבועיות */
+      .compose-media-preview img.square {
+        max-height: 350px;
+        object-fit: cover;
+        width: 100%;
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .compose-media-preview img.landscape {
+          max-height: 200px;
+        }
+        
+        .compose-media-preview img.portrait {
+          max-height: 300px;
+        }
+        
+        .compose-media-preview img.square {
+          max-height: 250px;
+        }
+      }
+
+      /* שיפור כפתורי פעולה */
+      .compose-dialog__actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+      }
+
+      .compose-dialog__actions .button-primary {
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      .compose-dialog__actions .button-primary:hover {
+        background: var(--primary-hover);
+      }
+
+      .compose-dialog__actions .button-secondary {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .compose-dialog__actions .button-secondary:hover {
+        background: var(--hover);
+        color: var(--text);
+      }
+
+      /* ===== התאמה מובייל למקלדת ===== */
+      @media (max-width: 768px) {
+        .compose-modal {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          margin: 0 !important;
+          max-height: 100vh !important;
+          overflow-y: auto !important;
+          z-index: 10000 !important;
+        }
+        
+        .compose-dialog {
+          margin: 10px;
+          max-height: calc(100vh - 20px);
+          overflow-y: auto;
+        }
+        
+        .compose-dialog textarea {
+          min-height: 120px;
+          font-size: 16px; /* מונע זום אוטומטי ב-iOS */
+          line-height: 1.4;
+        }
+        
+        /* התאמה כשהמקלדת פתוחה */
+        .compose-modal.keyboard-open {
+          transform: translateY(-10vh);
+          transition: transform 0.3s ease;
+        }
+        
+        /* מניעה מהמקלדת לכסות את התוכן */
+        @supports (-webkit-touch-callout: none) {
+          .compose-dialog {
+            padding-bottom: 100px; /* שמירת מקום למקלדת ב-iOS */
+          }
+        }
+      }
+
+      /* ===== מדים התקדמות גרפיים לווידיאו ===== */
+      .progress-meter {
+        width: 100%;
+        height: 8px;
+        background: var(--bg);
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 8px 0;
+        position: relative;
+      }
+
+      .progress-meter-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary) 0%, var(--primary-hover) 100%);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .progress-meter-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.3),
+          transparent
+        );
+        animation: shimmer 2s infinite;
+      }
+
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
+      /* עיצוב התקדמות עם אייקונים */
+      .progress-with-icon {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: var(--bg);
+        border-radius: 8px;
+        margin: 8px 0;
+      }
+
+      .progress-icon {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        font-size: 14px;
+        animation: pulse 2s infinite;
+      }
+
+      .progress-text {
+        flex: 1;
+        font-size: 14px;
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .progress-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--border);
+        border-top: 2px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .progress-meter {
+          height: 6px;
+        }
+
+        .progress-with-icon {
+          padding: 10px;
+          gap: 10px;
+        }
+
+        .progress-icon {
+          width: 28px;
+          height: 28px;
+          font-size: 12px;
+        }
+
+        .progress-text {
+          font-size: 13px;
+        }
+
+        .progress-spinner {
+          width: 16px;
+          height: 16px;
+        }
+      }
+
+      /* ===== הבטחה שמודאל הקלטת וידיאו תמיד מעל ===== */
+      .video-record-modal {
+        z-index: 99999 !important;
+      }
+
+      .video-record-modal.is-visible {
+        display: flex !important;
+        opacity: 1 !important;
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .video-record-modal {
+          z-index: 99999 !important;
+        }
+      }
+
+      /* ===== כפתור ביטול בבחירת זמן ===== */
+      .timer-cancel {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .timer-cancel-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+      }
+
+      .timer-cancel-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+      }
+
+      .timer-cancel-btn:active {
+        transform: translateY(0);
+      }
+
+      .timer-cancel-btn i {
+        font-size: 16px;
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .timer-cancel {
+          margin-top: 15px;
+          padding-top: 15px;
+        }
+
+        .timer-cancel-btn {
+          padding: 10px 20px;
+          font-size: 13px;
+        }
+
+        .timer-cancel-btn i {
+          font-size: 14px;
+        }
+      }
+
+      /* ===== כפתור ביטול בממשק הקלטה ===== */
+      .record-cancel {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+        padding-top: 15px;
+      }
+
+      .record-cancel-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: rgba(244, 67, 54, 0.2);
+        color: #f44336;
+        border: 1px solid rgba(244, 67, 54, 0.3);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .record-cancel-btn:hover {
+        background: rgba(244, 67, 54, 0.3);
+        border-color: rgba(244, 67, 54, 0.5);
+        transform: translateY(-1px);
+      }
+
+      .record-cancel-btn:active {
+        transform: translateY(0);
+      }
+
+      .record-cancel-btn i {
+        font-size: 14px;
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .record-cancel {
+          margin-top: 15px;
+          padding-top: 12px;
+        }
+
+        .record-cancel-btn {
+          padding: 8px 16px;
+          font-size: 12px;
+        }
+
+        .record-cancel-btn i {
+          font-size: 12px;
+        }
+      }
+
+      /* ===== טיימר צף במהלך הקלטה ===== */
+      .floating-timer {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        z-index: 10;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+        pointer-events: none;
+      }
+
+      .floating-timer.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .floating-timer.pulse {
+        animation: floatingPulse 0.5s ease-out;
+      }
+
+      @keyframes floatingPulse {
+        0% {
+          transform: scale(1);
+          background: rgba(0, 0, 0, 0.8);
+        }
+        50% {
+          transform: scale(1.1);
+          background: rgba(244, 67, 54, 0.9);
+        }
+        100% {
+          transform: scale(1);
+          background: rgba(0, 0, 0, 0.8);
+        }
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .floating-timer {
+          top: 15px;
+          right: 15px;
+          padding: 6px 12px;
+          font-size: 12px;
+        }
+      }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
     <!-- חלק תלויות כלליות (videos.html) – סדר טעינה זהה לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./config.js" defer></script>
@@ -284,27 +809,26 @@
         </div>
         <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
         <div class="compose-dialog__toolbar">
-          <button class="button-secondary" type="button" onclick="document.getElementById('composeMediaInput').click()">
-            <i class="fa-regular fa-image"></i>
-            <span>הוסף תמונה/וידאו</span>
+          <button class="compose-toolbar-btn" type="button" onclick="document.getElementById('composeImageInput').click()" title="הוסף תמונה">
+            <i class="fa-solid fa-image"></i>
           </button>
-          <button class="button-primary" type="button" id="composeVideoRecordButton" aria-label="הקלט וידאו">
+          <button class="compose-toolbar-btn" type="button" onclick="document.getElementById('composeVideoInput').click()" title="הוסף וידיאו">
+            <i class="fa-solid fa-film"></i>
+          </button>
+          <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו" onclick="openVideoRecordModal()">
             <i class="fa-solid fa-video"></i>
-            <span>הקלט וידאו</span>
           </button>
-          <button class="button-primary" type="button" id="composeLiveButton" aria-label="התחלת שידור חי">
+          <button class="compose-toolbar-btn" type="button" id="composeLiveButton" title="שידור חי">
             <i class="fa-solid fa-tower-broadcast"></i>
-            <span>שידור חי</span>
           </button>
-          <button class="button-secondary" type="button" id="composeBgToggle">
+          <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע טקסט">
             <i class="fa-solid fa-palette"></i>
-            <span>רקע טקסט</span>
           </button>
-          <button class="button-secondary" type="button" id="composeBgClear" hidden>
+          <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
             <i class="fa-solid fa-eraser"></i>
-            <span>הסר רקע</span>
           </button>
-          <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
+          <input id="composeImageInput" type="file" accept="image/*" hidden onchange="handleImageInput(event)">
+          <input id="composeVideoInput" type="file" accept="video/*" hidden onchange="handleVideoInput(event)">
         </div>
         <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
         <!-- חלק רקעים (videos.html) – שליטה אם הטקסט יוצג רק על גבי התמונה | HYPER CORE TECH -->
@@ -342,33 +866,31 @@
         </div>
         
         <div class="video-record-content">
-          <!-- בחירת זמן הקלטה -->
-          <div class="video-record-timer-selection" id="videoRecordTimerSelection">
-            <h4>בחר משך הקלטה</h4>
-            <div class="timer-options">
-              <button class="timer-option" data-seconds="5">5 שניות</button>
-              <button class="timer-option" data-seconds="10">10 שניות</button>
-              <button class="timer-option" data-seconds="15">15 שניות</button>
-              <button class="timer-option" data-seconds="30">30 שניות</button>
-            </div>
-          </div>
-          
-          <!-- ממשק הקלטה -->
-          <div class="video-record-interface" id="videoRecordInterface" style="display: none;">
-            <div class="video-record-preview">
-              <video id="videoRecordPreview" autoplay muted playsinline></video>
-              <div class="video-record-controls">
-                <button class="camera-switch" id="cameraSwitchButton" aria-label="החלף מצלמה">
-                  <i class="fa-solid fa-camera-rotate"></i>
-                </button>
-                <button class="record-button" id="recordButton" aria-label="הקלט">
-                  <div class="record-button-inner"></div>
-                </button>
-                <div class="record-timer" id="recordTimer">00:00</div>
-              </div>
-            </div>
-          </div>
-        </div>
+  <!-- ממשק הקלטה ישיר -->
+  <div class="video-record-interface" id="videoRecordInterface">
+    <div class="video-record-preview">
+      <video id="videoRecordPreview" autoplay muted playsinline></video>
+      <!-- טיימר צף -->
+      <div class="floating-timer" id="floatingTimer">00:00</div>
+      <div class="video-record-controls">
+        <button class="camera-switch" id="cameraSwitchButton" aria-label="החלף מצלמה">
+          <i class="fa-solid fa-camera-rotate"></i>
+        </button>
+        <button class="record-button" id="recordButton" aria-label="הקלט">
+          <div class="record-button-inner"></div>
+        </button>
+        <div class="record-timer" id="recordTimer">00:00</div>
+      </div>
+    </div>
+    <!-- כפתור ביטול בממשק הקלטה -->
+    <div class="record-cancel">
+      <button class="record-cancel-btn" onclick="closeVideoRecordModal()" type="button">
+        <i class="fa-solid fa-xmark"></i>
+        ביטול הקלטה
+      </button>
+    </div>
+  </div>
+</div>
       </div>
     </div>
 

@@ -2010,7 +2010,8 @@
 
   function removePostElement(eventId) {
     if (!eventId) return;
-    const element = document.querySelector(`[data-post-id="${eventId}"]`);
+    const element = document.querySelector(`[data-post-id="${eventId}"]`) ||
+      document.querySelector(`.videos-feed__card[data-event-id="${eventId}"]`);
     if (element?.parentElement) {
       element.parentElement.removeChild(element);
     }

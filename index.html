@@ -455,30 +455,34 @@
                 </div>
             </div>
             <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
-          <!-- חלק חלון יצירת פוסט (index.html) – כפתור להוספת תמונה/וידאו מתוך החלון -->
+          <!-- חלק חלון יצירת פוסט (index.html) – כפתורים משופרים בסגנון רשתות חברתיות -->
           <div class="compose-dialog__toolbar">
-            <button class="button-secondary" type="button" onclick="document.getElementById('composeMediaInput').click()">
-              <i class="fa-regular fa-image"></i>
-              <span>הוסף תמונה/וידאו</span>
+            <button class="compose-toolbar-btn" type="button" onclick="document.getElementById('composeMediaInput').click()" title="הוסף תמונה/וידיאו">
+              <i class="fa-solid fa-photo-video"></i>
+            </button>
+            <!-- חלק הקלטת וידיאו (index.html) – כפתור הקלטה ישירות מהקומפוזר -->
+            <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו">
+              <i class="fa-solid fa-video"></i>
             </button>
             <!-- חלק שידור חי (index.html) – כפתור לשידור חי ישירות מחלון יצירת פוסט | HYPER CORE TECH -->
-            <button class="button-primary" type="button" id="composeLiveButton" aria-label="התחלת שידור חי">
+            <button class="compose-toolbar-btn" type="button" id="composeLiveButton" title="שידור חי">
               <i class="fa-solid fa-tower-broadcast"></i>
-              <span>שידור חי</span>
             </button>
             <!-- חלק רקעים (index.html) – הפעלת מצב רקע טקסט וגלריית רקעים חינמיים -->
-            <button class="button-secondary" type="button" id="composeBgToggle">
+            <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע טקסט">
               <i class="fa-solid fa-palette"></i>
-              <span>רקע טקסט</span>
             </button>
-            <button class="button-secondary" type="button" id="composeBgClear" hidden>
+            <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
               <i class="fa-solid fa-eraser"></i>
-              <span>הסר רקע</span>
             </button>
             <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
           </div>
           <!-- חלק רקעים (index.html) – גלריית רקעים מתחלפים מ-Picsum -->
           <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
+            <div id="composeMediaPreview" class="compose-media-preview">
+                <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
+                <video id="composeMediaPreviewVideo" controls playsinline></video>
+            </div>
           <!-- חלק רקעים (index.html) – שליטה אם הטקסט יוצג רק על גבי התמונה | HYPER CORE TECH -->
           <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
             <label class="compose-bg__option-toggle">

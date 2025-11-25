@@ -40,14 +40,59 @@
 
   App.composeState = state;
 
-  function setStatus(message = '', tone = 'info') {
+  function setStatus(message, type = 'info') {
     if (!elements.status) return;
     elements.status.textContent = message;
-    if (tone === 'error') {
-      elements.status.style.color = '#f02849';
-    } else {
-      elements.status.style.color = '';
+    elements.status.className = 'compose-dialog__status';
+    if (type && type !== 'info') {
+      elements.status.classList.add(`compose-dialog__status--${type}`);
     }
+  }
+
+  // פונקציות התקדמות גרפיות חדשות
+  function setProgressWithMeter(percent, stage, icon = '🎬') {
+    if (!elements.status) return;
+    
+    const progressHTML = `
+      <div class="progress-with-icon">
+        <div class="progress-icon">${icon}</div>
+        <div class="progress-text">${getProgressMessage(stage, percent)}</div>
+        <div class="progress-spinner"></div>
+      </div>
+      <div class="progress-meter">
+        <div class="progress-meter-fill" style="width: ${percent}%"></div>
+      </div>
+    `;
+    
+    elements.status.innerHTML = progressHTML;
+    elements.status.className = 'compose-dialog__status';
+  }
+
+  function setProgressWithIcon(message, icon = '📤', showSpinner = true) {
+    if (!elements.status) return;
+    
+    const progressHTML = `
+      <div class="progress-with-icon">
+        <div class="progress-icon">${icon}</div>
+        <div class="progress-text">${message}</div>
+        ${showSpinner ? '<div class="progress-spinner"></div>' : ''}
+      </div>
+    `;
+    
+    elements.status.innerHTML = progressHTML;
+    elements.status.className = 'compose-dialog__status';
+  }
+
+  function getProgressMessage(stage, percent) {
+    const messages = {
+      'compressing': `מעבד וידאו... ${percent}%`,
+      'finalizing': 'משלים עיבוד...',
+      'uploading': `מעלה וידאו... ${percent}%`,
+      'analyzing': 'מנתח וידאו...',
+      'optimizing': `מייעל... ${percent}%`
+    };
+    
+    return messages[stage] || `מעבד... ${percent}%`;
   }
 
   function setBgTextOnly(value) {
@@ -87,6 +132,44 @@
       elements.previewImage.src = media.dataUrl;
       elements.previewImage.style.display = 'block';
       elements.previewImage.alt = 'תצוגה מקדימה לתמונה';
+      
+      // זיהוי יחס רוחב-גובה והתאמת התצוגה
+      const img = new Image();
+      img.onload = function() {
+        const aspectRatio = this.width / this.height;
+        console.log('[COMPOSE] Image aspect ratio detected:', {
+          width: this.width,
+          height: this.height,
+          aspectRatio: aspectRatio.toFixed(2),
+          orientation: aspectRatio > 1.2 ? 'landscape' : aspectRatio < 0.8 ? 'portrait' : 'square'
+        });
+        
+        // התאמת סגנון התצוגה לפי יחס הרוחב-גובה
+        if (aspectRatio > 1.2) {
+          // תמונה רוחבית - הצג ברוחב מלא
+          elements.previewImage.style.objectFit = 'cover';
+          elements.previewImage.style.maxWidth = '100%';
+          elements.previewImage.style.maxHeight = '300px';
+          elements.previewImage.style.width = '100%';
+          elements.previewImage.className = 'landscape';
+        } else if (aspectRatio < 0.8) {
+          // תמונה אנכית - הגבלה ברוחב וגובה מקסימלי
+          elements.previewImage.style.objectFit = 'contain';
+          elements.previewImage.style.maxWidth = '100%';
+          elements.previewImage.style.maxHeight = '400px';
+          elements.previewImage.style.width = 'auto';
+          elements.previewImage.className = 'portrait';
+        } else {
+          // תמונה ריבועית או קרובה - תצוגה מאוזנת
+          elements.previewImage.style.objectFit = 'cover';
+          elements.previewImage.style.maxWidth = '100%';
+          elements.previewImage.style.maxHeight = '350px';
+          elements.previewImage.style.width = '100%';
+          elements.previewImage.className = 'square';
+        }
+      };
+      img.src = media.dataUrl;
+      
     } else if (media.type === 'video') {
       elements.previewVideo.src = media.dataUrl;
       elements.previewVideo.style.display = 'block';
@@ -95,9 +178,52 @@
   }
 
   async function resizeImage(file) {
+    // זיהוי יחס רוחב-גובה לפני ה-resize
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+    
+    const aspectRatio = img.width / img.height;
+    console.log('[COMPOSE] Original image dimensions:', {
+      width: img.width,
+      height: img.height,
+      aspectRatio: aspectRatio.toFixed(2),
+      orientation: aspectRatio > 1.2 ? 'landscape' : aspectRatio < 0.8 ? 'portrait' : 'square'
+    });
+    
+    // ניקוי ה-URL זמני
+    URL.revokeObjectURL(img.src);
+    
     if (typeof App.resizeImageToDataUrl === 'function') {
-      return App.resizeImageToDataUrl(file, 1080, 1080, 0.85);
+      // התאמת המימדים לפי יחס הרוחב-גובה
+      let maxWidth, maxHeight;
+      
+      if (aspectRatio > 1.2) {
+        // תמונה רוחבית - מקסימום רוחב 1080, גובה מתאים
+        maxWidth = 1080;
+        maxHeight = Math.floor(1080 / aspectRatio);
+      } else if (aspectRatio < 0.8) {
+        // תמונה אנכית - מקסימום גובה 1080, רוחב מתאים
+        maxHeight = 1080;
+        maxWidth = Math.floor(1080 * aspectRatio);
+      } else {
+        // תמונה ריבועית או קרובה - מימדים שווים
+        maxWidth = maxHeight = 1080;
+      }
+      
+      console.log('[COMPOSE] Resizing image to:', {
+        maxWidth,
+        maxHeight,
+        aspectRatio: aspectRatio.toFixed(2)
+      });
+      
+      return App.resizeImageToDataUrl(file, maxWidth, maxHeight, 0.85);
     }
+    
+    // Fallback אם הפונקציה לא זמינה
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
@@ -108,6 +234,14 @@
 
   async function handleMediaInput(event) {
     const [file] = event.target.files || [];
+    console.log('[COMPOSE] handleMediaInput called with:', {
+      file: file ? {
+        name: file.name,
+        type: file.type,
+        size: (file.size / 1024 / 1024).toFixed(2) + 'MB'
+      } : null
+    });
+    
     if (!file) {
       clearMediaPreview();
       resetStatus();
@@ -121,6 +255,7 @@
       
       // חלק וידאו (compose.js) – טיפול בקבצי וידאו עם דחיסה והעלאה
       if (file.type.startsWith('video/')) {
+        console.log('[COMPOSE] Processing video file...');
         await handleVideoFile(file);
         event.target.value = '';
         return;
@@ -129,7 +264,9 @@
       // טיפול בתמונות (קיים)
       let dataUrl;
       if (file.type.startsWith('image/')) {
+        setProgressWithIcon('מעבד תמונה...', '🖼️');
         dataUrl = await resizeImage(file);
+        setProgressWithIcon('התמונה מוכנה!', '✅');
       } else {
         setStatus('סוג הקובץ לא נתמך. בחר תמונה או וידאו.', 'error');
         event.target.value = '';
@@ -163,6 +300,12 @@
 
   // חלק וידאו (compose.js) – טיפול בקובץ וידאו: בדיקה, דחיסה, העלאה
   async function handleVideoFile(file) {
+    console.log('[COMPOSE] handleVideoFile started:', {
+      name: file.name,
+      type: file.type,
+      size: (file.size / 1024 / 1024).toFixed(2) + 'MB'
+    });
+    
     const MAX_VIDEO_SIZE = 30 * 1024 * 1024; // 30MB
     
     // בדיקת גודל
@@ -174,25 +317,30 @@
 
     // בדיקת תמיכה בדחיסה
     if (typeof App.compressVideo !== 'function') {
-      setStatus('מנוע דחיסת הוידאו לא זמין. רענן את הדף.', 'error');
+      console.error('[COMPOSE] App.compressVideo not available:', typeof App.compressVideo);
+      setStatus('מנוע דחיסת הווידאו לא זמין. רענן את הדף.', 'error');
       return;
     }
 
     try {
       // דחיסה
-      setStatus('מעבד וידאו... אנא המתן');
+      setProgressWithIcon('מכין וידאו לעיבוד...', '⚙️');
+      console.log('[COMPOSE] Starting video compression...');
       const result = await App.compressVideo(file, (progress) => {
         if (progress.stage === 'compressing') {
-          setStatus(`מעבד וידאו... ${progress.percent}%`);
+          setProgressWithMeter(progress.percent, 'compressing', '🎬');
         } else if (progress.stage === 'finalizing') {
-          setStatus('משלים עיבוד...');
+          setProgressWithIcon('משלים עיבוד...', '⚡');
+        } else if (progress.stage === 'uploading') {
+          setProgressWithMeter(progress.percent, 'uploading', '📤');
         }
       });
 
-      console.log('Video compressed:', {
+      console.log('[COMPOSE] Video compression completed:', {
         original: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
         compressed: (result.size / (1024 * 1024)).toFixed(2) + 'MB',
-        ratio: result.compressionRatio + '%'
+        ratio: result.compressionRatio + '%',
+        hash: result.hash ? result.hash.substring(0, 16) + '...' : 'none'
       });
 
       // הודעה ידידותית אם לא הייתה דחיסה
@@ -200,18 +348,20 @@
         console.log('העלאת קובץ מקורי (טלפון)');
       }
 
-      // נסיון העלאה ל-Blossom עם פולבאק ל-data URL במקרה של כשל רשת
+      // ניסיון העלאה ל-Blossom עם פולבאק ל-data URL במקרה של כשל רשת
       let uploadedUrl = '';
       try {
-        setStatus('מעלה וידאו...');
+        setProgressWithIcon('מתחבר לשרת...', '🌐');
         const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
         if (uploadResult && uploadResult.url) {
           uploadedUrl = uploadResult.url;
+          setProgressWithIcon('מעלה וידאו לשרת...', '☁️');
         } else {
           throw new Error('העלאה נכשלה');
         }
       } catch (uploadErr) {
         console.warn('Blossom upload failed, falling back to inline data URL', uploadErr);
+        setProgressWithIcon('שומר וידאו מקומית...', '💾');
         // פולבאק: שמירה כ-data:video ישירות בפוסט
         const dataUrl = await new Promise((resolve, reject) => {
           try {
@@ -540,9 +690,16 @@
     elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
     elements.modal.setAttribute('aria-hidden', 'false');
-    if (elements.textarea) {
+    
+    // לא מפעילים focus אוטומטי במובייל כדי למנוע פתיחת מקלדת
+    // המשתמש יצטרך ללחוץ על ה-textarea במפורש
+    if (elements.textarea && !isMobile()) {
       elements.textarea.focus();
     }
+    
+    // התאמת המודאל למקלדת במובייל
+    setupMobileKeyboardHandling();
+    
     // חלק רקעים – חיבור מאוחר למודול הרקעים בעת פתיחה אם טרם בוצע
     if (window.NostrApp?.bg && !window.NostrApp._bgBound) {
       window.NostrApp.bg.bind({
@@ -592,6 +749,72 @@
     setBgZoomFx(false);
     if (elements.bgZoomToggle) {
       elements.bgZoomToggle.checked = false;
+    }
+  }
+
+  // פונקציית זיהוי מובייל
+  function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (window.innerWidth <= 768 && 'ontouchstart' in window);
+  }
+
+  // התאמת המודאל למקלדת במובייל
+  function setupMobileKeyboardHandling() {
+    if (!isMobile()) return;
+    
+    const modal = elements.modal;
+    const textarea = elements.textarea;
+    
+    if (!modal || !textarea) return;
+    
+    // הגדרת התנהגות מובייל למודאל
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.right = '0';
+    modal.style.bottom = '0';
+    modal.style.margin = '0';
+    modal.style.maxHeight = '100vh';
+    modal.style.overflowY = 'auto';
+    
+    // האזנה לאירועי focus/blur של ה-textarea
+    let originalModalBottom = '0';
+    
+    textarea.addEventListener('focus', () => {
+      // כשהמקלדת נפתחת, מרימים את המודאל
+      setTimeout(() => {
+        const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const modalHeight = modal.offsetHeight;
+        
+        if (modalHeight > viewportHeight * 0.8) {
+          modal.style.transform = 'translateY(-10vh)';
+          modal.style.transition = 'transform 0.3s ease';
+        }
+      }, 300);
+    });
+    
+    textarea.addEventListener('blur', () => {
+      // מחזירים את המודאל למקומו כשהמקלדת נסגרת
+      setTimeout(() => {
+        modal.style.transform = 'translateY(0)';
+      }, 100);
+    });
+    
+    // האזנה לשינויים ב-viewport (למקרה של סיבוב מסך)
+    if (window.visualViewport) {
+      const handleViewportChange = () => {
+        const viewportHeight = window.visualViewport.height;
+        const modalHeight = modal.offsetHeight;
+        
+        if (viewportHeight < modalHeight * 0.7) {
+          modal.style.transform = `translateY(${window.visualViewport.offsetTop - 20}px) scale(0.95)`;
+        } else {
+          modal.style.transform = 'translateY(0) scale(1)';
+        }
+      };
+      
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
     }
   }
 
@@ -845,8 +1068,22 @@
     publishPost: publishPostImpl,
   });
 
-  // חשיפת פונקציה גלובלית – דריסה מפורשת כדי למנוע no-op שנקבע מוקדם ב-app.js
-  // במקרים שבהם app.js נטען לפני compose.js, הוא עלול להגדיר window.publishPost לפונקציה ריקה אם App.publishPost טרם הוגדר.
-  // כאן אנו מוודאים שהכפתור תמיד יקרא לפונקציה הנכונה של הקומפוזר.
+  // פונקציות נפרדות לתמונה ווידיאו
+  function handleImageInput(event) {
+    console.log('[COMPOSE] handleImageInput called');
+    handleMediaInput(event);
+  }
+
+  function handleVideoInput(event) {
+    console.log('[COMPOSE] handleVideoInput called');
+    handleMediaInput(event);
+  }
+
+  // חשיפת פונקציות גלובליות עבור מודולים אחרים
   window.publishPost = publishPostImpl;
+  window.handleMediaInput = handleMediaInput;
+  window.handleImageInput = handleImageInput;
+  window.handleVideoInput = handleVideoInput;
+  window.openCompose = openCompose;
+  window.closeCompose = closeCompose;
 })(window);
