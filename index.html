@@ -461,7 +461,7 @@
               <i class="fa-solid fa-photo-video"></i>
             </button>
             <!-- חלק הקלטת וידיאו (index.html) – כפתור הקלטה ישירות מהקומפוזר -->
-            <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו">
+            <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו" onclick="document.getElementById('composeVideoCameraInput').click()">
               <i class="fa-solid fa-video"></i>
             </button>
             <!-- חלק שידור חי (index.html) – כפתור לשידור חי ישירות מחלון יצירת פוסט | HYPER CORE TECH -->
@@ -476,6 +476,7 @@
               <i class="fa-solid fa-eraser"></i>
             </button>
             <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
+            <input id="composeVideoCameraInput" type="file" accept="video/*" capture="environment" hidden onchange="handleVideoInput(event)">
           </div>
           <!-- חלק רקעים (index.html) – גלריית רקעים מתחלפים מ-Picsum -->
           <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>

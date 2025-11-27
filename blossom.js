@@ -6,6 +6,17 @@
 
   const DEFAULT_SERVERS = [
     { url: 'https://blossom.band', pubkey: 'npub1blossomserver' },
+    { url: 'https://nostr.net' },
+    { url: 'https://nostr.net/' },
+    { url: 'https://github.com/nostr-protocol/nostr' },
+    { url: 'https://github.com/hzrd149/blossom' },
+    { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
+    { url: 'https://blossom.nostr.build', pubkey: 'npub1nostrbuild' },
+    { url: 'https://nostrify.dev' },
+    { url: 'https://nostr.build', pubkey: 'npub1nostrbuild' },
+    { url: 'https://gitlab.com/soapbox-pub/nostrify-docs/-/blob/main/:path' },
+    { url: 'https://gitlab.com/soapbox-pub/nostrify-docs/-/blob/main/upload/blossom.md' },
+    { url: 'https://how-nostr-works.pages.dev/' },
   ];
 
   function fixUrl(u){

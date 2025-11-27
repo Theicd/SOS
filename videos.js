@@ -220,6 +220,8 @@ const state = {
   videos: [],
   currentIndex: 0,
   incrementalRender: null,
+  firstCardRendered: false,
+  pendingOldCards: null,
 };
 
 const selectors = {
@@ -229,6 +231,167 @@ const selectors = {
 
 let activeMediaDiv = null;
 let intersectionObserver = null;
+
+const FEED_CACHE_KEY = 'videos_feed_cache_v1';
+const FEED_CACHE_LIMIT = 60;
+const FEED_CACHE_TTL = 5 * 60 * 1000;
+
+function getNetworkTag() {
+  const app = window.NostrApp;
+  if (app && typeof app.NETWORK_TAG === 'string' && app.NETWORK_TAG.trim()) {
+    return app.NETWORK_TAG.trim();
+  }
+  return 'israel-network';
+}
+
+function sanitizeCachedVideo(video) {
+  if (!video || typeof video !== 'object') {
+    return null;
+  }
+  const clone = { ...video };
+  clone.mirrors = Array.isArray(video.mirrors) ? video.mirrors.slice(0, 10) : [];
+  return clone;
+}
+
+function saveFeedCache(videos) {
+  try {
+    const trimmed = (videos || [])
+      .slice(0, FEED_CACHE_LIMIT)
+      .map((video) => sanitizeCachedVideo(video))
+      .filter(Boolean);
+    const payload = {
+      timestamp: Date.now(),
+      videos: trimmed,
+    };
+    window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn('[videos] failed saving feed cache', err);
+  }
+}
+
+function loadFeedCache() {
+  try {
+    const raw = window.localStorage.getItem(FEED_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.videos)) {
+      return null;
+    }
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > FEED_CACHE_TTL) {
+      return null;
+    }
+    return parsed.videos
+      .map((video) => sanitizeCachedVideo(video))
+      .filter(Boolean);
+  } catch (err) {
+    console.warn('[videos] failed loading feed cache', err);
+    return null;
+  }
+}
+
+function hydrateFeedFromCache() {
+  const cached = loadFeedCache();
+  if (Array.isArray(cached) && cached.length) {
+    console.log('[videos] hydrate feed from cache', { count: cached.length });
+    state.videos = cached;
+    renderVideos();
+  }
+}
+
+function removeVideoFromState(eventId) {
+  if (!eventId) return;
+  const index = state.videos.findIndex((video) => video.id === eventId);
+  if (index >= 0) {
+    state.videos.splice(index, 1);
+    saveFeedCache(state.videos);
+  }
+}
+
+function removeVideoCard(eventId) {
+  if (!eventId || !selectors.stream) return;
+  const card = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${eventId}"]`);
+  if (card) {
+    card.remove();
+  }
+}
+
+function truncateFeedLength() {
+  if (state.videos.length <= FEED_CACHE_LIMIT) {
+    return;
+  }
+  const removed = state.videos.splice(FEED_CACHE_LIMIT);
+  removed.forEach((video) => removeVideoCard(video.id));
+}
+
+function markCardMediaReady(card) {
+  if (!card) return;
+  card.dataset.mediaReady = 'ready';
+  card.style.removeProperty('display');
+}
+
+function hideCardUntilMediaReady(card) {
+  if (!card) return;
+  card.dataset.mediaReady = 'pending';
+  card.style.display = 'none';
+}
+
+function handleCardMediaFailure(card, videoId, error) {
+  if (card) {
+    card.remove();
+  }
+  if (videoId) {
+    removeVideoFromState(videoId);
+  }
+  if (error) {
+    console.warn('[videos] media failed', { videoId, error: error?.message || error });
+  }
+}
+
+function mountCard(card, { prepend = false } = {}) {
+  if (!selectors.stream || !card) return;
+  if (prepend) {
+    selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
+  } else {
+    selectors.stream.appendChild(card);
+  }
+  wireActions(card);
+  wireMediaControls(card);
+  observeVideoCard(card);
+  if (!state.firstCardRendered) {
+    hideLoadingAnimation();
+    if (selectors.status) {
+      selectors.status.style.display = 'none';
+    }
+    state.firstCardRendered = true;
+    autoPlayFirstVideo();
+  }
+}
+
+function prependVideoCard(video) {
+  if (!selectors.stream) return;
+  const existing = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`);
+  if (existing) {
+    existing.remove();
+  }
+  const { card, mediaReadyPromise } = renderVideoCard(video);
+  mediaReadyPromise
+    .then(() => {
+      mountCard(card, { prepend: true });
+    })
+    .catch((err) => handleCardMediaFailure(card, video.id, err));
+}
+
+function upsertVideoInState(video) {
+  if (!video || !video.id) return;
+  const existingIndex = state.videos.findIndex((v) => v.id === video.id);
+  if (existingIndex > -1) {
+    state.videos.splice(existingIndex, 1);
+  }
+  state.videos.unshift(video);
+  truncateFeedLength();
+  saveFeedCache(state.videos);
+  prependVideoCard(video);
+}
 
 // חלק יאללה וידאו (videos.js) – פונקציית עזר להבאת תג הרשת העיקרי
 function getNetworkTag() {
@@ -389,10 +552,26 @@ function renderVideoCard(video) {
     article.classList.add('videos-feed__card--fx');
   }
 
+  let resolveReady;
+  let rejectReady;
+  const mediaReadyPromise = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+
+  const markReady = () => {
+    markCardMediaReady(article);
+    resolveReady();
+  };
+
+  const failReady = (error) => {
+    rejectReady(error || new Error('media failed'));
+  };
+
   const mediaDiv = document.createElement('div');
   mediaDiv.className = 'videos-feed__media';
 
-  if (video.youtubeId) {
+  if (video.youtubeId && !video.videoUrl) {
     mediaDiv.dataset.mediaType = 'youtube';
     mediaDiv.dataset.youtubeId = video.youtubeId;
 
@@ -400,10 +579,9 @@ function renderVideoCard(video) {
     thumb.src = `https://i.ytimg.com/vi/${video.youtubeId}/maxresdefault.jpg`;
     thumb.alt = 'YouTube Video';
     thumb.className = 'videos-feed__media-thumb';
-    // fallback לתמונה קטנה יותר אם maxresdefault לא קיים
     thumb.onerror = () => {
       thumb.src = `https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg`;
-      thumb.onerror = null; // מונע לולאה אינסופית
+      thumb.onerror = null;
     };
     mediaDiv.appendChild(thumb);
 
@@ -414,6 +592,8 @@ function renderVideoCard(video) {
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
     mediaDiv.appendChild(playOverlay);
+
+    queueMicrotask(markReady);
   } else if (video.videoUrl) {
     mediaDiv.dataset.mediaType = 'file';
     mediaDiv.dataset.videoUrl = video.videoUrl;
@@ -428,15 +608,39 @@ function renderVideoCard(video) {
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
 
-    // טעינת וידאו עם P2P + fallback
-    if (typeof App.loadVideoWithCache === 'function') {
-      App.loadVideoWithCache(videoEl, video.videoUrl, video.hash || '', video.mirrors || []).catch(err => {
-        console.warn('Failed to load video with P2P/cache:', err);
-        videoEl.src = video.videoUrl; // fallback ישיר
-      });
-    } else {
+    const cleanup = () => {
+      videoEl.removeEventListener('loadeddata', onLoadedData);
+      videoEl.removeEventListener('error', onError);
+    };
+
+    const onLoadedData = () => {
+      cleanup();
+      markReady();
+    };
+
+    const onError = (event) => {
+      cleanup();
+      failReady(event?.error || new Error('video load error'));
+    };
+
+    videoEl.addEventListener('loadeddata', onLoadedData, { once: true });
+    videoEl.addEventListener('error', onError, { once: true });
+
+    const applyFallbackSrc = () => {
       videoEl.src = video.videoUrl;
-    }
+    };
+
+    const loader = typeof App.loadVideoWithCache === 'function'
+      ? App.loadVideoWithCache(videoEl, video.videoUrl, video.hash || '', video.mirrors || [])
+      : Promise.resolve().then(() => {
+          applyFallbackSrc();
+          return true;
+        });
+
+    loader.catch((err) => {
+      console.warn('Failed to load video with P2P/cache:', err);
+      applyFallbackSrc();
+    });
 
     const playOverlay = document.createElement('button');
     playOverlay.type = 'button';
@@ -454,6 +658,12 @@ function renderVideoCard(video) {
     imgEl.className = 'videos-feed__media-image';
     imgEl.loading = 'lazy';
     mediaDiv.appendChild(imgEl);
+
+    queueMicrotask(markReady);
+  } else {
+    queueMicrotask(() => {
+      failReady(new Error('missing media sources'));
+    });
   }
 
   const actionsDiv = document.createElement('div');
@@ -666,7 +876,7 @@ function renderVideoCard(video) {
   article.appendChild(actionsDiv);
   article.appendChild(infoDiv);
 
-  return article;
+  return { card: article, mediaReadyPromise };
 }
 
 // חלק תפריט פיד ווידאו (videos.js) – חיבור fallback לפתיחה/סגירה של תפריט העריכה | HYPER CORE TECH
@@ -718,6 +928,7 @@ function renderVideos() {
   if (!selectors.stream) return;
   selectors.stream.innerHTML = '';
   resetIncrementalRender();
+  state.firstCardRendered = false;
 
   if (!Array.isArray(state.videos) || state.videos.length === 0) {
     hideLoadingAnimation();
@@ -766,20 +977,13 @@ function appendNextVideoCard() {
   }
 
   const video = state.videos[controller.nextIndex];
-  const card = renderVideoCard(video);
-  selectors.stream.appendChild(card);
+  const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  wireActions(card);
-  wireMediaControls(card);
-  observeVideoCard(card);
-
-  if (controller.nextIndex === 0) {
-    hideLoadingAnimation();
-    if (selectors.status) {
-      selectors.status.style.display = 'none';
-    }
-    autoPlayFirstVideo();
-  }
+  mediaReadyPromise
+    .then(() => {
+      mountCard(card);
+    })
+    .catch((err) => handleCardMediaFailure(card, video.id, err));
 
   controller.nextIndex += 1;
   preloadNextMedia(state.videos[controller.nextIndex]);
@@ -1595,7 +1799,7 @@ async function loadVideos() {
     const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
     const videoUrl = mediaLinks.find(isVideoLink);
     const imageUrl = mediaLinks.find(isImageLink);
-    const hasMedia = youtubeId || videoUrl || imageUrl;
+    const hasMedia = videoUrl || imageUrl;
 
     if (hasMedia) {
       registerVideoSourceEvent(event);

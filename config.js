@@ -40,12 +40,83 @@
 
   const App = window.NostrApp || {};
   App.relayUrls = [
-    'wss://relay.damus.io',
-    'wss://relay.snort.social',
-    'wss://nos.lol',
-    'wss://purplerelay.com',
-    'wss://relay.nostr.band'
+    'wss://dm.czas.xyz',
+    'wss://cdn.czas.xyz',
+    'wss://cache2.primal.net/v1',
+    'wss://45.135.180.140',
+    'wss://nostr.1312.media',
+    'wss://trending.relays.land',
+    'wss://pyramid.fiatjaf.com',
+    'wss://nostr-verif.slothy.win',
+    'wss://cfrelay.puhcho.workers.dev',
+    'wss://relay.nostrhub.tech',
+    'wss://nostr-relay.xbytez.io',
+    'wss://echo.websocket.org',
+    'wss://relay.primal.net',
+    'wss://premium.primal.net',
+    'wss://inbox.relays.land',
+    'wss://gnostr.com',
+    'wss://fiatjaf.com',
+    'wss://nostr.dbtc.link',
+    'wss://soloco.nl',
+    'wss://relay.vertexlab.io',
+    'wss://nostr.fishingdev.com'
   ];
+
+  const BLOCKED_RELAYS_KEY = 'nostr_blocked_relays';
+  let blockedRelayList = [];
+  const storedBlockedRelays = window.localStorage.getItem(BLOCKED_RELAYS_KEY);
+  if (storedBlockedRelays) {
+    try {
+      blockedRelayList = JSON.parse(storedBlockedRelays);
+    } catch (err) {
+      console.warn('Invalid nostr_blocked_relays, resetting', err);
+      blockedRelayList = [];
+    }
+  }
+  if (!Array.isArray(blockedRelayList)) {
+    blockedRelayList = [];
+  }
+  App.blockedRelays = new Set(
+    blockedRelayList.filter((relay) => typeof relay === 'string' && relay.startsWith('wss://'))
+  );
+  App._blockedRelayStorageKey = BLOCKED_RELAYS_KEY;
+  App.persistBlockedRelays = () => {
+    try {
+      window.localStorage.setItem(
+        BLOCKED_RELAYS_KEY,
+        JSON.stringify(Array.from(App.blockedRelays || new Set()))
+      );
+    } catch (err) {
+      console.warn('Failed to persist blocked relays', err);
+    }
+  };
+  App.getWritableRelays = () => {
+    if (!Array.isArray(App.relayUrls)) {
+      return [];
+    }
+    return App.relayUrls.filter((relay) => !(App.blockedRelays || new Set()).has(relay));
+  };
+  let p2pRelayUrls = [];
+  const storedP2PRelays = window.localStorage.getItem('nostr_p2p_relays');
+  if (storedP2PRelays) {
+    try {
+      p2pRelayUrls = JSON.parse(storedP2PRelays);
+    } catch (err) {
+      console.warn('Invalid nostr_p2p_relays, using default', err);
+    }
+  }
+  if (!Array.isArray(p2pRelayUrls) || !p2pRelayUrls.length) {
+    // ריליים ייעודיים ל-P2P (רשימה שסופקה ע"י המשתמש לניטור הקבצים)
+    p2pRelayUrls = [
+      'wss://45.135.180.140',
+      'wss://adre.su',
+      'wss://aplaceinthesun.nostr1.com',
+      'wss://anchor.coracle.social',
+      'wss://assistantrelay.rodbishop.nz'
+    ];
+  }
+  App.p2pRelayUrls = p2pRelayUrls;
   App.NETWORK_TAG = 'israel-network';
   // חלק קונפיגורציה (config.js) – כתובת בסיס ל-API של כלי הסנכרון המקומי לצורך סטטיסטיקות ובקרת מנהל
   App.syncApiBase = 'http://localhost:4300';
@@ -71,6 +142,33 @@
   App.communityPassphrase =
     window.localStorage.getItem('nostr_community_passphrase') || App.COMMUNITY_CONTEXT;
   App.pool = null;
+
+  let rtcServers = [];
+  const storedIce = window.localStorage.getItem('nostr_rtc_ice');
+  if (storedIce) {
+    try {
+      rtcServers = JSON.parse(storedIce);
+    } catch (err) {
+      console.warn('Invalid nostr_rtc_ice, using default', err);
+    }
+  }
+  if (!Array.isArray(rtcServers) || !rtcServers.length) {
+    rtcServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turns:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+    ];
+  }
+  window.NostrRTC_ICE = rtcServers;
+  App.RTC_ICE_SERVERS = rtcServers;
+  const defaultP2PTimeout = Number(window.localStorage.getItem('nostr_p2p_timeout')) || 45000;
+  window.NostrP2P_DOWNLOAD_TIMEOUT = defaultP2PTimeout;
+  const defaultPeerDiscoveryTimeout =
+    Number(window.localStorage.getItem('nostr_peer_discovery_timeout')) || 15000;
+  window.NostrP2P_PEER_DISCOVERY_TIMEOUT = defaultPeerDiscoveryTimeout;
   App.bytesToHex = bytesToHex;
   App.hexToBytes = hexToBytes;
   App.finalizeEvent = window.NostrTools?.finalizeEvent;

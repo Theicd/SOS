@@ -815,7 +815,7 @@
           <button class="compose-toolbar-btn" type="button" onclick="document.getElementById('composeVideoInput').click()" title="הוסף וידיאו">
             <i class="fa-solid fa-film"></i>
           </button>
-          <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו" onclick="openVideoRecordModal()">
+          <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו" onclick="document.getElementById('composeVideoCameraInput').click()">
             <i class="fa-solid fa-video"></i>
           </button>
           <button class="compose-toolbar-btn" type="button" id="composeLiveButton" title="שידור חי">
@@ -829,6 +829,7 @@
           </button>
           <input id="composeImageInput" type="file" accept="image/*" hidden onchange="handleImageInput(event)">
           <input id="composeVideoInput" type="file" accept="video/*" hidden onchange="handleVideoInput(event)">
+          <input id="composeVideoCameraInput" type="file" accept="video/*" capture="environment" hidden onchange="handleVideoInput(event)">
         </div>
         <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
         <!-- חלק רקעים (videos.html) – שליטה אם הטקסט יוצג רק על גבי התמונה | HYPER CORE TECH -->

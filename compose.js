@@ -306,12 +306,12 @@
       size: (file.size / 1024 / 1024).toFixed(2) + 'MB'
     });
     
-    const MAX_VIDEO_SIZE = 30 * 1024 * 1024; // 30MB
+    const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
     
     // בדיקת גודל
     if (file.size > MAX_VIDEO_SIZE) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      setStatus(`הוידאו גדול מדי (${sizeMB}MB). מקסימום 30MB.`, 'error');
+      setStatus(`הוידיאו גדול מדי (${sizeMB}MB). מקסימום 100MB.`, 'error');
       return;
     }
 
@@ -372,10 +372,11 @@
           } catch (e) { reject(e); }
         });
         uploadedUrl = '';
+        const inlineUrl = String(dataUrl || '');
         state.media = {
           type: 'video',
-          dataUrl: String(dataUrl || ''),
-          url: '',
+          dataUrl: inlineUrl,
+          url: inlineUrl,
           hash: result.hash,
           size: result.size,
           mimeType: result.type || 'video/webm'
@@ -851,8 +852,11 @@
 
     // חלק וידאו (compose.js) – הוספת תגיות Nostr למדיה
     const mediaTags = [];
-    if (state.media && state.media.type === 'video' && state.media.url) {
-      mediaTags.push(['media', state.media.mimeType || 'video/webm', state.media.url, state.media.hash || '']);
+    if (state.media && state.media.type === 'video') {
+      const mediaSource = state.media.url || state.media.dataUrl || '';
+      if (mediaSource) {
+        mediaTags.push(['media', state.media.mimeType || 'video/webm', mediaSource, state.media.hash || '']);
+      }
     }
 
     return {

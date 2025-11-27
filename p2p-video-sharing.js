@@ -1,31 +1,45 @@
-// חלק P2P (p2p-video-sharing.js) – מערכת שיתוף וידאו P2P בין משתמשים
-// שייך: SOS2 מדיה, משתמש ב-WebRTC להעברת קבצים ישירה בין משתמשים
-console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B0; color: white; padding: 2px 6px; border-radius: 3px;');
-
 (function initP2PVideoSharing(window) {
   const App = window.NostrApp || (window.NostrApp = {});
+
+  function getP2PRelays() {
+    if (Array.isArray(App.p2pRelayUrls) && App.p2pRelayUrls.length) {
+      return App.p2pRelayUrls;
+    }
+    if (Array.isArray(App.relayUrls) && App.relayUrls.length) {
+      return App.relayUrls;
+    }
+    return [];
+  }
 
   // חלק P2P (p2p-video-sharing.js) – הגדרות
   const FILE_AVAILABILITY_KIND = 25070; // kind לפרסום זמינות קבצים
   const FILE_REQUEST_KIND = 25071; // kind לבקשת קובץ
   const FILE_RESPONSE_KIND = 25072; // kind לתשובה על בקשה
   const AVAILABILITY_EXPIRY = 60 * 60 * 1000; // שעה
+  const AVAILABILITY_REPUBLISH_INTERVAL = 2 * 60 * 1000; // דקהיים קירור
+  const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 15000;
+  const PEER_DISCOVERY_LOOKBACK = 3 * 60 * 60; // שלוש שעות אחורה
   const CHUNK_SIZE = 16384; // 16KB chunks
   const MAX_DOWNLOAD_TIMEOUT = 30000; // 30 שניות
+  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 20000;
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
-  const RTC_CONFIG = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-  };
+  const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
+    ? { iceServers: window.NostrRTC_ICE }
+    : {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      };
 
   // חלק P2P (p2p-video-sharing.js) – מצב המערכת
   const state = {
     availableFiles: new Map(), // hash -> { blob, mimeType, size, timestamp }
+    lastAvailabilityPublish: new Map(), // hash -> timestamp
     activePeers: new Map(), // hash -> Set(pubkeys)
     activeConnections: new Map(), // connectionId -> RTCPeerConnection
+    pendingConnections: new Map(), // connectionId -> { pc, timeout }
     downloadQueue: new Map(), // hash -> Promise
   };
 
@@ -76,6 +90,16 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
         return false;
       }
 
+      const now = Date.now();
+      const lastPublish = state.lastAvailabilityPublish.get(hash) || 0;
+      if (now - lastPublish < AVAILABILITY_REPUBLISH_INTERVAL) {
+        const waitMs = AVAILABILITY_REPUBLISH_INTERVAL - (now - lastPublish);
+        log('info', `⏳ דילוג על פרסום לריליי (קירור ${Math.ceil(waitMs / 1000)}ש׳׳)`, {
+          hash: hash.slice(0, 16) + '...'
+        });
+        return true;
+      }
+
       const event = {
         kind: FILE_AVAILABILITY_KIND,
         pubkey: App.publicKey,
@@ -90,17 +114,48 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
       };
 
       const signed = App.finalizeEvent(event, App.privateKey);
-      const publishResults = App.pool.publish(App.relayUrls, signed);
-      
-      // המתן לפרסום בכל ה-relays
+      const relays = getP2PRelays();
+      const publishResults = App.pool.publish(relays, signed);
+
+      let successCount = 0;
       if (Array.isArray(publishResults)) {
-        await Promise.allSettled(publishResults);
+        const results = await Promise.allSettled(publishResults);
+        const failures = [];
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            successCount++;
+          } else {
+            failures.push({
+              relay: App.relayUrls?.[idx] || idx,
+              error: result.reason?.message || String(result.reason || 'unknown')
+            });
+          }
+        });
+
+        if (successCount === 0) {
+          log('error', '❌ כל הריליים דחו את פרסום הזמינות', {
+            hash: hash.slice(0, 16) + '...',
+            failures
+          });
+          return false;
+        }
+
+        if (failures.length) {
+          log('info', '⚠️ חלק מהריליים דחו את הפרסום', { failures });
+        }
+      } else if (publishResults?.then) {
+        await publishResults;
+        successCount = 1;
+      } else {
+        successCount = 1;
       }
 
       log('success', `✅ קובץ נרשם בהצלחה ברשת`, {
         hash: hash.slice(0, 16) + '...',
         eventId: signed.id.slice(0, 8) + '...'
       });
+
+      state.lastAvailabilityPublish.set(hash, Date.now());
 
       return true;
     } catch (err) {
@@ -118,11 +173,34 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
       const filters = [{
         kinds: [FILE_AVAILABILITY_KIND],
         '#x': [hash],
-        since: Math.floor(Date.now() / 1000) - 3600, // שעה אחורה
+        since: Math.floor(Date.now() / 1000) - PEER_DISCOVERY_LOOKBACK,
       }];
 
+      let finished = false;
+      let timeoutHandle = null;
+      let sub;
+
+      const finalize = (peerArray) => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        if (sub && typeof sub.close === 'function') {
+          try {
+            sub.close();
+          } catch (err) {
+            console.warn('Failed closing subscription', err);
+          }
+        }
+        resolve(peerArray);
+      };
+
       try {
-        const sub = App.pool.subscribeMany(App.relayUrls, filters, {
+        const relays = getP2PRelays();
+        sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
             if (event.pubkey === App.publicKey) {
               return; // לא להוריד מעצמי
@@ -140,26 +218,24 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
             }
           },
           oneose: () => {
-            sub.close();
             const peerArray = Array.from(peers);
             log('info', `📋 סיימתי חיפוש - נמצאו ${peerArray.length} peers`, {
               peers: peerArray.map(p => p.slice(0, 16) + '...')
             });
-            resolve(peerArray);
+            finalize(peerArray);
           }
         });
 
         // timeout
-        setTimeout(() => {
-          sub.close();
+        timeoutHandle = setTimeout(() => {
           const peerArray = Array.from(peers);
           log('info', `⏱️ timeout בחיפוש - נמצאו ${peerArray.length} peers עד כה`);
-          resolve(peerArray);
-        }, 5000);
+          finalize(peerArray);
+        }, PEER_DISCOVERY_TIMEOUT);
 
       } catch (err) {
         log('error', `❌ כשלון בחיפוש peers: ${err.message}`);
-        resolve([]);
+        finalize([]);
       }
     });
   }
@@ -175,11 +251,14 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
     });
 
     return new Promise(async (resolve, reject) => {
+      const timeoutMs = typeof window.NostrP2P_DOWNLOAD_TIMEOUT === 'number'
+        ? window.NostrP2P_DOWNLOAD_TIMEOUT
+        : MAX_DOWNLOAD_TIMEOUT;
       const timeout = setTimeout(() => {
         log('error', `⏱️ timeout בהורדה מ-peer`, { peer: peerPubkey.slice(0, 16) + '...' });
         cleanup();
         reject(new Error('Download timeout'));
-      }, MAX_DOWNLOAD_TIMEOUT);
+      }, timeoutMs);
 
       let pc = null;
       let channel = null;
@@ -195,6 +274,11 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
         if (pc) {
           pc.close();
           state.activeConnections.delete(connectionId);
+        }
+        const pending = state.pendingConnections.get(connectionId);
+        if (pending) {
+          clearTimeout(pending.timeout);
+          state.pendingConnections.delete(connectionId);
         }
       }
 
@@ -313,6 +397,15 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
 
         log('request', `✅ offer נשלח בהצלחה`, { connectionId });
 
+        const answerTimeout = setTimeout(() => {
+          log('error', '❌ לא התקבל answer בזמן', { connectionId });
+          state.pendingConnections.delete(connectionId);
+          cleanup();
+          reject(new Error('Answer timeout'));
+        }, ANSWER_TIMEOUT);
+
+        state.pendingConnections.set(connectionId, { pc, timeout: answerTimeout });
+
       } catch (err) {
         log('error', `❌ כשלון ביצירת חיבור: ${err.message}`);
         cleanup();
@@ -363,58 +456,93 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
     }
   }
 
-  // חלק P2P (p2p-video-sharing.js) – האזנה לבקשות קבצים
-  function listenForFileRequests() {
+  // חלק P2P (p2p-video-sharing.js) – האזנה לסיגנלים (בקשות, תשובות ו-ICE)
+  function listenForP2PSignals() {
     if (!App.pool || !App.publicKey) {
-      log('error', '❌ לא ניתן להאזין לבקשות - חסרים pool או publicKey');
+      log('error', '❌ לא ניתן להאזין לסיגנלים - חסרים pool או publicKey');
       return;
     }
 
-    log('info', '👂 מתחיל להאזין לבקשות קבצים...');
+    log('info', '👂 מתחיל להאזין לסיגנלי P2P...');
 
     const filters = [
       {
-        kinds: [FILE_REQUEST_KIND],
+        kinds: [FILE_REQUEST_KIND, FILE_RESPONSE_KIND],
         '#p': [App.publicKey],
         since: Math.floor(Date.now() / 1000),
       }
     ];
 
     try {
-      const sub = App.pool.subscribeMany(App.relayUrls, filters, {
+      const relays = getP2PRelays();
+      const sub = App.pool.subscribeMany(relays, filters, {
         onevent: async (event) => {
-          log('request', `📬 קיבלתי בקשה לקובץ!`, {
+          log('request', `📬 התקבל סיגנל`, {
+            kind: event.kind,
             from: event.pubkey.slice(0, 16) + '...',
             eventId: event.id.slice(0, 8) + '...'
           });
 
           try {
             let content = event.content;
-            
-            // פענוח אם מוצפן
+
             if (typeof App.decryptMessage === 'function') {
               content = await App.decryptMessage(content, event.pubkey);
             }
 
             const message = JSON.parse(content);
-            
+
             if (message.type === 'file-request') {
               await handleFileRequest(event.pubkey, message.data);
+            } else if (message.type === 'file-response') {
+              await handleFileResponse(event.pubkey, message.data);
             } else if (message.type === 'ice-candidate') {
               await handleIceCandidate(event.pubkey, message.data);
             }
 
           } catch (err) {
-            log('error', `❌ כשלון בעיבוד בקשה: ${err.message}`);
+            log('error', `❌ כשלון בעיבוד סיגנל: ${err.message}`);
           }
         }
       });
 
-      App._p2pFileRequestsSub = sub;
-      log('success', '✅ מאזין לבקשות קבצים');
+      App._p2pSignalsSub = sub;
+      log('success', '✅ מאזין לסיגנלי P2P');
 
     } catch (err) {
-      log('error', `❌ כשלון בהאזנה לבקשות: ${err.message}`);
+      log('error', `❌ כשלון בהאזנה לסיגנלים: ${err.message}`);
+    }
+  }
+
+  async function handleFileResponse(peerPubkey, data) {
+    try {
+      const { answer, connectionId } = data || {};
+      if (!connectionId || !answer) {
+        log('error', '❌ תשובה חסרה connectionId או answer');
+        return;
+      }
+
+      const pc = state.activeConnections.get(connectionId);
+      if (!pc) {
+        log('error', `❌ לא נמצא חיבור פעיל עבור ${connectionId}`);
+        return;
+      }
+
+      const pending = state.pendingConnections.get(connectionId);
+      if (pending) {
+        clearTimeout(pending.timeout);
+        state.pendingConnections.delete(connectionId);
+      }
+
+      log('peer', `📥 קיבלתי answer מ-peer`, {
+        peer: peerPubkey.slice(0, 16) + '...',
+        connectionId
+      });
+
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      log('success', '✅ answer נוסף בהצלחה');
+    } catch (err) {
+      log('error', `❌ כשלון בעיבוד answer: ${err.message}`);
     }
   }
 
@@ -614,6 +742,8 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
       const cached = await App.getCachedMedia(hash);
       if (cached && cached.blob) {
         log('success', `✅ נמצא ב-cache מקומי!`, { size: cached.blob.size });
+        const cachedMime = cached.mimeType || mimeType;
+        await registerFileAvailability(hash, cached.blob, cachedMime);
         return { blob: cached.blob, source: 'cache' };
       }
     }
@@ -631,6 +761,9 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
         // שמירה ב-cache
         if (typeof App.cacheMedia === 'function') {
           await App.cacheMedia(url, hash, blob, mimeType);
+        }
+        if (hash) {
+          await registerFileAvailability(hash, blob, mimeType);
         }
         
         return { blob, source: 'url' };
@@ -683,6 +816,9 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
       if (typeof App.cacheMedia === 'function') {
         await App.cacheMedia(url, hash, blob, mimeType);
       }
+      if (hash) {
+        await registerFileAvailability(hash, blob, mimeType);
+      }
       
       return { blob, source: 'url-fallback' };
     } catch (err) {
@@ -707,10 +843,10 @@ console.log('%c[P2P] 📦 p2p-video-sharing.js נטען...', 'background: #9C27B
     // ניסיון אתחול מיידי
     function tryInit() {
       if (App.publicKey && App.pool) {
-        listenForFileRequests();
+        listenForP2PSignals();
         log('success', '✅ מערכת P2P מוכנה!', {
           publicKey: App.publicKey.slice(0, 16) + '...',
-          relays: App.relayUrls ? App.relayUrls.length : 0
+          relays: getP2PRelays().length
         });
         return true;
       }
