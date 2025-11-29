@@ -602,28 +602,57 @@ body:has(.videos-feed) .nav-avatar {
   margin-bottom: 12px;
   z-index: 20;
   position: relative;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: fit-content;
+}
+
+/* פס צבעוני מתחלף מתחת לשם המחבר */
+.videos-feed__author::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(90deg, 
+    #ff6b6b 0%, 
+    #feca57 20%, 
+    #48dbfb 40%, 
+    #1dd1a1 60%, 
+    #5f27cd 80%, 
+    #ff6b6b 100%);
+  background-size: 200% 100%;
+  animation: rainbowMove 3s linear infinite;
 }
 
 .videos-feed__avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: var(--card-alt);
-  border: 2px solid #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px solid rgba(255, 255, 255, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  color: #fff;
   overflow: hidden;
   flex-shrink: 0;
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .videos-feed__avatar:hover {
   transform: scale(1.1);
-  border-color: rgba(99, 230, 190, 0.8);
+  border-color: #48dbfb;
+  box-shadow: 0 4px 12px rgba(72, 219, 251, 0.4);
 }
 
 .videos-feed__avatar img {
@@ -634,20 +663,20 @@ body:has(.videos-feed) .nav-avatar {
 
 .videos-feed__name {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  max-width: 180px;
   cursor: pointer;
-  transition: color 0.2s ease, text-shadow 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .videos-feed__name:hover {
-  color: rgba(99, 230, 190, 1);
-  text-shadow: 0 0 8px rgba(99, 230, 190, 0.5);
+  color: #48dbfb;
+  text-shadow: 0 0 8px rgba(72, 219, 251, 0.5);
 }
 
 .videos-feed__content {
@@ -923,5 +952,284 @@ body:has(.videos-feed) .nav-avatar {
 
   body:has(.videos-feed) .nav-item span {
     font-size: 0.6rem;
+  }
+}
+
+/* ========================================
+   חלק חלונית טקסט משופרת (videos.css)
+   עיצוב מודרני לתצוגת טקסט מלא | HYPER CORE TECH
+======================================== */
+
+/* שכבת רקע */
+.videos-text-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+/* פאנל הטקסט - ממורכז */
+.videos-text-panel {
+  background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: scaleIn 0.3s ease;
+  overflow: hidden;
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* כותרת עם פרטי המחבר */
+.videos-text-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.videos-text-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.videos-text-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.videos-text-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.videos-text-avatar-fallback {
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videos-text-author-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.videos-text-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #ffffff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.videos-text-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+/* פס צבעוני מתחלף */
+.videos-text-rainbow-bar {
+  height: 3px;
+  background: linear-gradient(90deg, 
+    #ff6b6b 0%, 
+    #feca57 16%, 
+    #48dbfb 33%, 
+    #1dd1a1 50%, 
+    #5f27cd 66%, 
+    #ff6b6b 83%, 
+    #feca57 100%);
+  background-size: 200% 100%;
+  animation: rainbowMove 3s linear infinite;
+}
+
+@keyframes rainbowMove {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* תוכן הטקסט */
+.videos-text-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  direction: rtl;
+  text-align: right;
+  line-height: 1.8;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.videos-text-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.videos-text-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.videos-text-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+/* כותרות */
+.videos-text-title {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #48dbfb;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(72, 219, 251, 0.2);
+}
+
+/* פסקאות */
+.videos-text-paragraph {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  color: #e4e6eb;
+  line-height: 1.9;
+}
+
+/* רווח בין פסקאות */
+.videos-text-spacer {
+  height: 12px;
+}
+
+/* רשימות */
+.videos-text-list {
+  margin: 0 0 16px;
+  padding: 0 20px 0 0;
+  list-style: none;
+}
+
+.videos-text-list li {
+  position: relative;
+  margin-bottom: 10px;
+  padding-right: 20px;
+  color: #e4e6eb;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.videos-text-list li::before {
+  content: '•';
+  position: absolute;
+  right: 0;
+  color: #1dd1a1;
+  font-size: 1.2rem;
+}
+
+/* קישורים */
+.videos-text-link {
+  color: #48dbfb;
+  text-decoration: none;
+  word-break: break-all;
+  transition: color 0.2s ease;
+}
+
+.videos-text-link:hover {
+  color: #74e8ff;
+  text-decoration: underline;
+}
+
+/* האשטגים */
+.videos-text-hashtag {
+  color: #5f27cd;
+  font-weight: 500;
+  background: rgba(95, 39, 205, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.videos-text-hashtag:hover {
+  background: rgba(95, 39, 205, 0.25);
+}
+
+/* אימוג'י */
+.videos-text-emoji {
+  font-size: 1.3em;
+  vertical-align: middle;
+}
+
+/* רספונסיביות */
+@media (max-width: 600px) {
+  .videos-text-overlay {
+    padding: 10px;
+  }
+  
+  .videos-text-panel {
+    max-height: 85vh;
+    border-radius: 16px;
+  }
+  
+  .videos-text-header {
+    padding: 14px 16px;
+  }
+  
+  .videos-text-avatar {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .videos-text-author-name {
+    font-size: 1rem;
+  }
+  
+  .videos-text-content {
+    padding: 18px;
+  }
+  
+  .videos-text-title {
+    font-size: 1.05rem;
+  }
+  
+  .videos-text-paragraph {
+    font-size: 0.95rem;
   }
 }

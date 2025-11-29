@@ -342,10 +342,82 @@ button {
   outline: none;
 }
 
+/* חלק תת-תפריט שונות (facebook-theme.css) – סגנון לתת-תפריט | HYPER CORE TECH */
+.top-bar__dropdown-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-bar__dropdown-item--has-submenu {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.top-bar__dropdown-item--has-submenu:hover,
+.top-bar__dropdown-item--has-submenu:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.top-bar__dropdown-item--active {
+  background: var(--hover);
+  color: var(--primary);
+}
+
+.top-bar__dropdown-item--active .top-bar__submenu-arrow {
+  transform: rotate(90deg);
+}
+
+.top-bar__submenu-arrow {
+  margin-inline-start: auto;
+  font-size: 0.75rem;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.top-bar__submenu {
+  position: absolute;
+  top: -8px;
+  inset-inline-end: calc(100% + 8px);
+  min-width: 200px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 211;
+}
+
+.top-bar__submenu[hidden] {
+  display: none;
+}
+
 @media (max-width: 600px) {
   .top-bar__dropdown {
     inset-inline-end: 0;
     inset-inline-start: auto; /* מבטיח שהתפריט יישאר צמוד לימין גם במסכים צרים */
+  }
+  
+  .top-bar__submenu {
+    position: static;
+    margin-top: 6px;
+    margin-inline-start: 0;
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(36, 37, 38, 0.8);
+  }
+  
+  .top-bar__dropdown-item--has-submenu .top-bar__submenu-arrow {
+    transform: rotate(0deg);
+  }
+  
+  .top-bar__dropdown-item--active .top-bar__submenu-arrow {
+    transform: rotate(90deg);
   }
 }
 
