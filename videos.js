@@ -684,6 +684,13 @@ function renderVideoCard(video) {
     authorAction.appendChild(initialsSpan);
   }
   authorAction.addEventListener('click', () => {
+    const app = window.NostrApp;
+    // בדיקת מצב אורח - חסימת פרופיל למשתמשים לא מחוברים | HYPER CORE TECH
+    if (app && typeof app.requireAuth === 'function') {
+      if (!app.requireAuth('כדי לצפות בפרופיל משתמש צריך להתחבר או להירשם.')) {
+        return;
+      }
+    }
     if (video.pubkey && typeof window.openProfileByPubkey === 'function') {
       window.openProfileByPubkey(video.pubkey);
     }
@@ -1177,30 +1184,117 @@ function openCommentsPanel(eventId) {
   });
 }
 
-// חלק יאללה וידאו (videos.js) – פתיחת חלונית טקסט מלאה בסגנון טיקטוק
-function openPostTextPanel({ authorName, authorPicture, content }) {
+// חלק יאללה וידאו (videos.js) – פתיחת חלונית טקסט מלאה בסגנון משופר | HYPER CORE TECH
+function openPostTextPanel({ authorName, authorPicture, content, pubkey }) {
   const overlay = document.createElement('div');
-  overlay.className = 'videos-comments-overlay';
+  overlay.className = 'videos-text-overlay';
+  
+  // עיבוד הטקסט לפורמט מסודר
+  const formattedContent = formatPostContent(content || '');
+  
+  // יצירת אוואטר
+  const avatarHtml = authorPicture 
+    ? `<img src="${authorPicture}" alt="${authorName || ''}" class="videos-text-avatar-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><span class="videos-text-avatar-fallback" style="display:none;">${getInitials(authorName)}</span>`
+    : `<span class="videos-text-avatar-fallback">${getInitials(authorName)}</span>`;
+  
   overlay.innerHTML = `
-    <div class="videos-comments-panel">
-      <div class="videos-comments-header">
-        <h3>${authorName || 'פוסט'}</h3>
-        <button class="videos-comments-close" aria-label="סגור">
+    <div class="videos-text-panel">
+      <div class="videos-text-header">
+        <div class="videos-text-author">
+          <div class="videos-text-avatar">
+            ${avatarHtml}
+          </div>
+          <span class="videos-text-author-name">${authorName || 'אנונימי'}</span>
+        </div>
+        <button class="videos-text-close" aria-label="סגור">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div class="videos-comments-list" style="white-space: pre-wrap; line-height:1.5;">
-        ${content ? escapeHtml(content) : ''}
+      <div class="videos-text-rainbow-bar"></div>
+      <div class="videos-text-content">
+        ${formattedContent}
       </div>
     </div>
   `;
   document.body.appendChild(overlay);
 
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay || e.target.closest('.videos-comments-close')) {
+    if (e.target === overlay || e.target.closest('.videos-text-close')) {
       overlay.remove();
     }
   });
+}
+
+// חלק יאללה וידאו (videos.js) – עיבוד טקסט לפורמט מסודר עם כותרות וצבעים | HYPER CORE TECH
+function formatPostContent(content) {
+  if (!content) return '';
+  
+  // פיצול לשורות
+  const lines = content.split('\n');
+  let html = '';
+  let inList = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = escapeHtml(lines[i].trim());
+    
+    if (!line) {
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      html += '<div class="videos-text-spacer"></div>';
+      continue;
+    }
+    
+    // זיהוי כותרות (שורה קצרה בתחילת פסקה או עם נקודתיים)
+    const isTitle = (line.length < 60 && (line.endsWith(':') || line.endsWith('-') || /^[א-ת\s]+$/.test(line) && line.length < 30));
+    
+    // זיהוי פריטי רשימה
+    const listMatch = line.match(/^[-•*]\s*(.+)$/);
+    
+    // זיהוי קישורים
+    line = line.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="videos-text-link">$1</a>');
+    
+    // זיהוי האשטגים
+    line = line.replace(/#([א-תa-zA-Z0-9_]+)/g, '<span class="videos-text-hashtag">#$1</span>');
+    
+    // זיהוי אימוג'י מודגש
+    line = line.replace(/([\u{1F300}-\u{1F9FF}])/gu, '<span class="videos-text-emoji">$1</span>');
+    
+    if (isTitle) {
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      html += `<h4 class="videos-text-title">${line}</h4>`;
+    } else if (listMatch) {
+      if (!inList) {
+        html += '<ul class="videos-text-list">';
+        inList = true;
+      }
+      html += `<li>${listMatch[1]}</li>`;
+    } else {
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      html += `<p class="videos-text-paragraph">${line}</p>`;
+    }
+  }
+  
+  if (inList) {
+    html += '</ul>';
+  }
+  
+  return html;
+}
+
+// חלק יאללה וידאו (videos.js) – קבלת ראשי תיבות משם | HYPER CORE TECH
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
 // חלק יאללה וידאו (videos.js) – פונקציית עזר לאסקפינג HTML בטוח
@@ -1280,6 +1374,13 @@ async function loadCommentsForPost(eventId) {
       avatarDiv.textContent = initials;
     }
     avatarDiv.addEventListener('click', () => {
+      const app = window.NostrApp;
+      // בדיקת מצב אורח - חסימת פרופיל בתגובות למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לצפות בפרופיל משתמש צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
       if (authorKey && typeof window.openProfileByPubkey === 'function') {
         window.openProfileByPubkey(authorKey);
       }
@@ -1293,6 +1394,13 @@ async function loadCommentsForPost(eventId) {
     nameButton.className = 'videos-comment-author';
     nameButton.innerHTML = safeName;
     nameButton.addEventListener('click', () => {
+      const app = window.NostrApp;
+      // בדיקת מצב אורח - חסימת פרופיל בתגובות למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לצפות בפרופיל משתמש צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
       if (authorKey && typeof window.openProfileByPubkey === 'function') {
         window.openProfileByPubkey(authorKey);
       }
@@ -1382,8 +1490,14 @@ function wireActions(root = selectors.stream) {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', () => {
-      const eventId = button.getAttribute('data-event-id');
       const app = window.NostrApp;
+      // בדיקת מצב אורח - חסימת שיתוף למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לשתף פוסט צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
+      const eventId = button.getAttribute('data-event-id');
       if (eventId && app && typeof app.sharePost === 'function') {
         app.sharePost(eventId);
       }
@@ -1918,6 +2032,41 @@ async function init() {
     refreshButton.addEventListener('click', () => {
       setStatus('מרענן...');
       loadVideos();
+    });
+  }
+
+  // חלק תפריט תחתון (videos.js) - הגנה על כפתורי התראות והודעות במצב אורח | HYPER CORE TECH
+  const notificationsToggle = document.getElementById('notificationsToggle');
+  if (notificationsToggle) {
+    notificationsToggle.addEventListener('click', () => {
+      const app = window.NostrApp || {};
+      // בדיקת מצב אורח - חסימת התראות למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לצפות בהתראות צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
+      // פתיחת חלונית התראות
+      if (typeof app.openNotificationsPanel === 'function') {
+        app.openNotificationsPanel();
+      }
+    });
+  }
+
+  const messagesToggle = document.getElementById('messagesToggle');
+  if (messagesToggle) {
+    messagesToggle.addEventListener('click', () => {
+      const app = window.NostrApp || {};
+      // בדיקת מצב אורח - חסימת הודעות למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לשלוח הודעות צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
+      // פתיחת חלונית הודעות
+      if (typeof app.openChatPanel === 'function') {
+        app.openChatPanel();
+      }
     });
   }
 

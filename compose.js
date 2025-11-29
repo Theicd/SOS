@@ -684,6 +684,14 @@
   }
 
   function openCompose() {
+    const app = window.NostrApp || {};
+    // בדיקת מצב אורח - חסימת פרסום פוסט למשתמשים לא מחוברים | HYPER CORE TECH
+    if (app && typeof app.requireAuth === 'function') {
+      if (!app.requireAuth('כדי לפרסם פוסט צריך להתחבר או להירשם.')) {
+        return;
+      }
+    }
+    
     syncProfileDetails();
     resetStatus();
     ensureMediaInputBound();

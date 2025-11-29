@@ -60,6 +60,13 @@
     }
 
     if (key === 'profile') {
+      const app = window.NostrApp || {};
+      // בדיקת מצב אורח - חסימת פרופיל למשתמשים לא מחוברים | HYPER CORE TECH
+      if (app && typeof app.requireAuth === 'function') {
+        if (!app.requireAuth('כדי לצפות בפרופיל אישי צריך להתחבר או להירשם.')) {
+          return;
+        }
+      }
       console.log('[NAV] Navigating to profile.html');
       window.location.href = './profile.html';
       return;

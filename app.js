@@ -266,6 +266,8 @@
     const keyButton = document.getElementById('topBarProfileKey');
     const contractButton = document.getElementById('topBarProfileContract');
     const storageButton = document.getElementById('topBarProfileStorage');
+    const miscMenuButton = document.getElementById('topBarMiscMenu');
+    const miscSubmenu = document.getElementById('topBarMiscSubmenu');
 
     if (!profileButton || !profileMenu) {
       return;
@@ -279,6 +281,13 @@
     const closeMenu = () => {
       profileMenu.hidden = true;
       profileButton.setAttribute('aria-expanded', 'false');
+      // סגירת תת-תפריט שונות
+      if (miscSubmenu) {
+        miscSubmenu.hidden = true;
+        if (miscMenuButton) {
+          miscMenuButton.classList.remove('top-bar__dropdown-item--active');
+        }
+      }
     };
 
     const openMenu = () => {
@@ -294,6 +303,20 @@
       }
     };
 
+    // חלק תת-תפריט שונות (app.js) – ניהול פתיחה/סגירה של תת-תפריט | HYPER CORE TECH
+    const toggleMiscSubmenu = () => {
+      if (!miscSubmenu || !miscMenuButton) return;
+      
+      const wasHidden = miscSubmenu.hidden;
+      if (wasHidden) {
+        miscSubmenu.hidden = false;
+        miscMenuButton.classList.add('top-bar__dropdown-item--active');
+      } else {
+        miscSubmenu.hidden = true;
+        miscMenuButton.classList.remove('top-bar__dropdown-item--active');
+      }
+    };
+
     profileButton.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleMenu();
@@ -304,6 +327,22 @@
         closeMenu();
       }
     });
+
+    // חלק תת-תפריט שונות (app.js) – מאזין לכפתור שונות עם הגנת סיסמה | HYPER CORE TECH
+    if (miscMenuButton) {
+      miscMenuButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        // בדיקת סיסמה לפני פתיחת תת-תפריט שונות
+        if (typeof window.openMiscPasswordPrompt === 'function') {
+          window.openMiscPasswordPrompt(() => {
+            toggleMiscSubmenu();
+          });
+        } else {
+          // גיבוי - אם הפונקציה לא קיימת, פתח רגיל
+          toggleMiscSubmenu();
+        }
+      });
+    }
 
     if (selfButton) {
       selfButton.addEventListener('click', () => {
@@ -354,6 +393,45 @@
       storageButton.addEventListener('click', () => {
         closeMenu();
         window.location.href = 'storage.html';
+      });
+    }
+
+    // חלק תת-תפריט שונות (app.js) – מאזינים לכפתורים בתת-תפריט | HYPER CORE TECH
+    const newsButton = document.getElementById('newsToggleTop');
+    if (newsButton) {
+      newsButton.addEventListener('click', () => {
+        closeMenu();
+        window.location.href = 'news.html';
+      });
+    }
+
+    const gamesButton = document.getElementById('gamesToggleTop');
+    if (gamesButton) {
+      gamesButton.addEventListener('click', () => {
+        closeMenu();
+        window.location.href = 'games.html';
+      });
+    }
+
+    const datingButton = document.getElementById('datingToggleTop');
+    if (datingButton) {
+      datingButton.addEventListener('click', () => {
+        closeMenu();
+        window.location.href = 'dating.html';
+      });
+    }
+
+    // חלק סיסמת שונות (app.js) – מאזין לכפתור סיסמת שונות | HYPER CORE TECH
+    const miscPasswordButton = document.getElementById('topBarMiscPassword');
+    if (miscPasswordButton) {
+      miscPasswordButton.addEventListener('click', () => {
+        closeMenu();
+        if (typeof window.openMiscPasswordPrompt === 'function') {
+          window.openMiscPasswordPrompt(() => {
+            // אם הסיסמה נכונה, פתח חלון הגדרות סיסמה
+            console.log('סיסמה אומתה - פתיחת הגדרות סיסמה');
+          });
+        }
       });
     }
 
