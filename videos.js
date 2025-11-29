@@ -669,12 +669,33 @@ function renderVideoCard(video) {
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'videos-feed__actions';
 
+  const authorAction = document.createElement('button');
+  authorAction.type = 'button';
+  authorAction.className = 'videos-feed__action videos-feed__action--avatar';
+  authorAction.setAttribute('aria-label', video.authorName || 'משתמש');
+  if (video.authorPicture) {
+    const img = document.createElement('img');
+    img.src = video.authorPicture;
+    img.alt = video.authorName || 'משתמש';
+    authorAction.appendChild(img);
+  } else {
+    const initialsSpan = document.createElement('span');
+    initialsSpan.textContent = video.authorInitials || 'AN';
+    authorAction.appendChild(initialsSpan);
+  }
+  authorAction.addEventListener('click', () => {
+    if (video.pubkey && typeof window.openProfileByPubkey === 'function') {
+      window.openProfileByPubkey(video.pubkey);
+    }
+  });
+  actionsDiv.appendChild(authorAction);
+
   const currentApp = window.NostrApp || {};
   const likeCount = currentApp.likesByEventId?.get(video.id)?.size || 0;
   const isLiked = currentApp.likesByEventId?.get(video.id)?.has(currentApp.publicKey) || false;
   const commentCount = currentApp.commentsByParent?.get(video.id)?.length || 0;
 
-  actionsDiv.innerHTML = `
+  actionsDiv.insertAdjacentHTML('beforeend', `
     <button class="videos-feed__action ${isLiked ? 'videos-feed__action--liked' : ''}" data-like-button data-event-id="${video.id}">
       <i class="fa-solid fa-heart"></i>
       <span class="videos-feed__action-count feed-post__like-count" style="${likeCount > 0 ? '' : 'display:none'}">${likeCount > 0 ? likeCount : ''}</span>
@@ -686,7 +707,7 @@ function renderVideoCard(video) {
     <button class="videos-feed__action" data-share-button data-event-id="${video.id}">
       <i class="fa-solid fa-share"></i>
     </button>
-  `;
+  `);
 
   const viewerPubkey = typeof currentApp.publicKey === 'string' ? currentApp.publicKey.toLowerCase() : '';
   const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
@@ -798,46 +819,20 @@ function renderVideoCard(video) {
   const infoDiv = document.createElement('div');
   infoDiv.className = 'videos-feed__info';
 
-  const authorDiv = document.createElement('div');
-  authorDiv.className = 'videos-feed__author';
-
-  const avatarDiv = document.createElement('div');
-  avatarDiv.className = 'videos-feed__avatar';
-  if (video.authorPicture) {
-    const img = document.createElement('img');
-    img.src = video.authorPicture;
-    img.alt = video.authorName;
-    avatarDiv.appendChild(img);
-  } else {
-    avatarDiv.textContent = video.authorInitials || 'AN';
-  }
-  // לחיצה על האווטר תפתח פרופיל ציבורי | HYPER CORE TECH
-  avatarDiv.style.cursor = 'pointer';
-  avatarDiv.addEventListener('click', () => {
-    if (video.pubkey && typeof window.openProfileByPubkey === 'function') {
-      window.openProfileByPubkey(video.pubkey);
-    }
-  });
-
-  const nameSpan = document.createElement('span');
-  nameSpan.className = 'videos-feed__name';
-  nameSpan.textContent = video.authorName || 'משתמש';
-  // לחיצה על השם תפתח פרופיל ציבורי | HYPER CORE TECH
-  nameSpan.style.cursor = 'pointer';
-  nameSpan.addEventListener('click', () => {
-    if (video.pubkey && typeof window.openProfileByPubkey === 'function') {
-      window.openProfileByPubkey(video.pubkey);
-    }
-  });
-
-  authorDiv.appendChild(avatarDiv);
-  authorDiv.appendChild(nameSpan);
-
   const contentDiv = document.createElement('div');
   contentDiv.className = 'videos-feed__content';
   contentDiv.textContent = video.content || '';
 
-  infoDiv.appendChild(authorDiv);
+  const openFullText = () => {
+    openPostTextPanel({
+      authorName: video.authorName || 'משתמש',
+      authorPicture: video.authorPicture || '',
+      content: video.content || ''
+    });
+  };
+
+  contentDiv.addEventListener('click', openFullText);
+
   if (video.content) {
     infoDiv.appendChild(contentDiv);
     // בדיקת גלישת טקסט והוספת כפתור "עוד" לפתיחת חלונית טקסט מלאה | HYPER CORE TECH
@@ -850,23 +845,13 @@ function renderVideoCard(video) {
           moreBtn.textContent = 'עוד';
           moreBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            openPostTextPanel({
-              authorName: video.authorName || 'משתמש',
-              authorPicture: video.authorPicture || '',
-              content: video.content || ''
-            });
+            openFullText();
           });
           contentDiv.appendChild(moreBtn);
 
           // גם לחיצה על הטקסט עצמו תפתח את החלונית | HYPER CORE TECH
           contentDiv.style.cursor = 'pointer';
-          contentDiv.addEventListener('click', () => {
-            openPostTextPanel({
-              authorName: video.authorName || 'משתמש',
-              authorPicture: video.authorPicture || '',
-              content: video.content || ''
-            });
-          }, { once: false });
+          contentDiv.addEventListener('click', openFullText, { once: false });
         }
       } catch (_) {}
     }, 0);

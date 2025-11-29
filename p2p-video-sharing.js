@@ -12,13 +12,16 @@
   }
 
   // חלק P2P (p2p-video-sharing.js) – הגדרות
-  const FILE_AVAILABILITY_KIND = 25070; // kind לפרסום זמינות קבצים
-  const FILE_REQUEST_KIND = 25071; // kind לבקשת קובץ
-  const FILE_RESPONSE_KIND = 25072; // kind לתשובה על בקשה
-  const AVAILABILITY_EXPIRY = 60 * 60 * 1000; // שעה
+  // משתמשים ב-Kind 30078 (NIP-78: Application-specific data) כי רוב הריליים תומכים בו
+  // ה-d tag מזהה את סוג ההודעה: p2p-file, p2p-req, p2p-res
+  const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
+  const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
+  const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
+  const P2P_APP_TAG = 'sos-p2p'; // תג לזיהוי האפליקציה
+  const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
   const AVAILABILITY_REPUBLISH_INTERVAL = 2 * 60 * 1000; // דקהיים קירור
   const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 15000;
-  const PEER_DISCOVERY_LOOKBACK = 3 * 60 * 60; // שלוש שעות אחורה
+  const PEER_DISCOVERY_LOOKBACK = 24 * 60 * 60; // 24 שעות אחורה - כדי למצוא peers גם אם פרסמו מוקדם יותר
   const CHUNK_SIZE = 16384; // 16KB chunks
   const MAX_DOWNLOAD_TIMEOUT = 30000; // 30 שניות
   const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 20000;
@@ -100,36 +103,76 @@
         return true;
       }
 
+      const expiresAt = Date.now() + AVAILABILITY_EXPIRY;
+      const createdAt = Math.floor(Date.now() / 1000);
+      
       const event = {
         kind: FILE_AVAILABILITY_KIND,
         pubkey: App.publicKey,
-        created_at: Math.floor(Date.now() / 1000),
+        created_at: createdAt,
         tags: [
+          ['d', `${P2P_APP_TAG}:file:${hash}`], // NIP-78: מזהה ייחודי לאפליקציה
           ['x', hash],
+          ['t', 'p2p-file'], // סוג ההודעה
           ['size', String(blob.size)],
           ['mime', mimeType],
-          ['expires', String(Date.now() + AVAILABILITY_EXPIRY)],
+          ['expires', String(expiresAt)],
         ],
         content: '',
       };
 
+      log('info', `📝 יוצר event לרישום:`, {
+        kind: FILE_AVAILABILITY_KIND,
+        pubkey: App.publicKey?.slice(0, 16) + '...',
+        fullPubkey: App.publicKey,
+        created_at: new Date(createdAt * 1000).toLocaleString('he-IL'),
+        hash: hash,
+        size: blob.size,
+        mimeType: mimeType,
+        expires: expiresAt,
+        expiresDate: new Date(expiresAt).toLocaleString('he-IL'),
+        tags: event.tags
+      });
+
       const signed = App.finalizeEvent(event, App.privateKey);
       const relays = getP2PRelays();
+      
+      log('info', `📤 שולח לריליים:`, {
+        relays: relays,
+        eventId: signed.id,
+        eventIdShort: signed.id?.slice(0, 16) + '...'
+      });
+      
       const publishResults = App.pool.publish(relays, signed);
 
       let successCount = 0;
+      const successes = [];
       if (Array.isArray(publishResults)) {
         const results = await Promise.allSettled(publishResults);
         const failures = [];
         results.forEach((result, idx) => {
+          const relayUrl = relays[idx] || `relay-${idx}`;
           if (result.status === 'fulfilled') {
             successCount++;
+            successes.push(relayUrl);
+            log('success', `✅ פרסום הצליח לריליי: ${relayUrl}`);
           } else {
             failures.push({
-              relay: App.relayUrls?.[idx] || idx,
+              relay: relayUrl,
+              error: result.reason?.message || String(result.reason || 'unknown')
+            });
+            log('error', `❌ פרסום נכשל לריליי: ${relayUrl}`, {
               error: result.reason?.message || String(result.reason || 'unknown')
             });
           }
+        });
+
+        log('info', `📊 סיכום פרסום:`, {
+          total: relays.length,
+          success: successCount,
+          failed: failures.length,
+          successRelays: successes,
+          failedRelays: failures
         });
 
         if (successCount === 0) {
@@ -146,13 +189,18 @@
       } else if (publishResults?.then) {
         await publishResults;
         successCount = 1;
+        log('success', `✅ פרסום הצליח (promise)`);
       } else {
         successCount = 1;
+        log('info', `ℹ️ פרסום הושלם (לא promise)`);
       }
 
       log('success', `✅ קובץ נרשם בהצלחה ברשת`, {
         hash: hash.slice(0, 16) + '...',
-        eventId: signed.id.slice(0, 8) + '...'
+        fullHash: hash,
+        eventId: signed.id,
+        eventIdShort: signed.id.slice(0, 8) + '...',
+        successfulRelays: successes
       });
 
       state.lastAvailabilityPublish.set(hash, Date.now());
@@ -167,18 +215,35 @@
   // חלק P2P (p2p-video-sharing.js) – חיפוש peers עם קובץ
   async function findPeersWithFile(hash) {
     return new Promise((resolve) => {
-      log('download', `🔍 מחפש peers עם קובץ`, { hash: hash.slice(0, 16) + '...' });
+      const relays = getP2PRelays();
+      const sinceTimestamp = Math.floor(Date.now() / 1000) - PEER_DISCOVERY_LOOKBACK;
+      const sinceDate = new Date(sinceTimestamp * 1000).toLocaleString('he-IL');
+      
+      log('download', `🔍 מחפש peers עם קובץ`, { 
+        hash: hash.slice(0, 16) + '...',
+        fullHash: hash,
+        relays: relays,
+        kind: FILE_AVAILABILITY_KIND,
+        since: sinceDate,
+        sinceTimestamp: sinceTimestamp,
+        myPubkey: App.publicKey?.slice(0, 16) + '...'
+      });
 
       const peers = new Set();
+      const allEvents = []; // שמירת כל האירועים לדיבוג
       const filters = [{
         kinds: [FILE_AVAILABILITY_KIND],
+        '#t': ['p2p-file'], // רק events של רישום קבצים
         '#x': [hash],
-        since: Math.floor(Date.now() / 1000) - PEER_DISCOVERY_LOOKBACK,
+        since: sinceTimestamp,
       }];
+
+      log('info', `📡 פילטר חיפוש:`, { filters: JSON.stringify(filters) });
 
       let finished = false;
       let timeoutHandle = null;
       let sub;
+      let eventCount = 0;
 
       const finalize = (peerArray) => {
         if (finished) {
@@ -199,28 +264,61 @@
       };
 
       try {
-        const relays = getP2PRelays();
+        log('info', `🔌 מתחבר לריליים: ${relays.join(', ')}`);
+        
         sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
+            eventCount++;
+            const eventInfo = {
+              eventId: event.id?.slice(0, 16) + '...',
+              pubkey: event.pubkey?.slice(0, 16) + '...',
+              fullPubkey: event.pubkey,
+              created_at: new Date(event.created_at * 1000).toLocaleString('he-IL'),
+              tags: event.tags,
+              kind: event.kind
+            };
+            
+            log('info', `📨 קיבלתי event #${eventCount}`, eventInfo);
+            allEvents.push(eventInfo);
+
             if (event.pubkey === App.publicKey) {
-              return; // לא להוריד מעצמי
+              log('info', `⏭️ דילוג - זה אני (${event.pubkey.slice(0, 16)}...)`);
+              return;
             }
 
             const expiresTag = event.tags.find(t => t[0] === 'expires');
             const expires = expiresTag ? parseInt(expiresTag[1]) : 0;
+            const now = Date.now();
 
-            if (expires && expires > Date.now()) {
+            log('info', `⏰ בדיקת תוקף:`, {
+              expires: expires,
+              expiresDate: expires ? new Date(expires).toLocaleString('he-IL') : 'N/A',
+              now: now,
+              nowDate: new Date(now).toLocaleString('he-IL'),
+              isValid: expires && expires > now
+            });
+
+            if (expires && expires > now) {
               peers.add(event.pubkey);
-              log('peer', `👤 נמצא peer זמין`, {
+              log('peer', `👤 נמצא peer זמין!`, {
                 pubkey: event.pubkey.slice(0, 16) + '...',
                 expires: new Date(expires).toLocaleTimeString('he-IL')
+              });
+            } else {
+              log('info', `❌ peer פג תוקף או חסר expires`, {
+                pubkey: event.pubkey.slice(0, 16) + '...',
+                expires: expires,
+                reason: !expires ? 'חסר expires tag' : 'פג תוקף'
               });
             }
           },
           oneose: () => {
             const peerArray = Array.from(peers);
-            log('info', `📋 סיימתי חיפוש - נמצאו ${peerArray.length} peers`, {
-              peers: peerArray.map(p => p.slice(0, 16) + '...')
+            log('info', `📋 סיימתי חיפוש (EOSE)`, {
+              totalEventsReceived: eventCount,
+              validPeers: peerArray.length,
+              peers: peerArray.map(p => p.slice(0, 16) + '...'),
+              allEventsReceived: allEvents
             });
             finalize(peerArray);
           }
@@ -229,12 +327,18 @@
         // timeout
         timeoutHandle = setTimeout(() => {
           const peerArray = Array.from(peers);
-          log('info', `⏱️ timeout בחיפוש - נמצאו ${peerArray.length} peers עד כה`);
+          log('info', `⏱️ timeout בחיפוש (${PEER_DISCOVERY_TIMEOUT}ms)`, {
+            eventsReceivedSoFar: eventCount,
+            peersFound: peerArray.length
+          });
           finalize(peerArray);
         }, PEER_DISCOVERY_TIMEOUT);
 
       } catch (err) {
-        log('error', `❌ כשלון בחיפוש peers: ${err.message}`);
+        log('error', `❌ כשלון בחיפוש peers: ${err.message}`, { 
+          error: err.toString(),
+          stack: err.stack 
+        });
         finalize([]);
       }
     });
@@ -429,25 +533,30 @@
         encryptedContent = await App.encryptMessage(content, peerPubkey);
       }
 
-      const kind = type === 'file-request' ? FILE_REQUEST_KIND : FILE_RESPONSE_KIND;
+      const kind = FILE_REQUEST_KIND; // כל הסיגנלים משתמשים ב-30078
+      const signalType = type === 'file-request' ? 'req' : (type === 'file-response' ? 'res' : 'ice');
 
       const event = {
         kind,
         pubkey: App.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
+          ['d', `${P2P_APP_TAG}:signal:${Date.now()}`], // NIP-78: מזהה ייחודי
           ['p', peerPubkey],
+          ['t', `p2p-${signalType}`], // סוג הסיגנל
         ],
         content: encryptedContent,
       };
 
       const signed = App.finalizeEvent(event, App.privateKey);
-      await App.pool.publish(App.relayUrls, signed);
+      const relays = getP2PRelays(); // שימוש בריליי P2P במקום הריליים הרגילים
+      await App.pool.publish(relays, signed);
 
       log('peer', `📡 signal נשלח`, {
         type,
         to: peerPubkey.slice(0, 16) + '...',
-        kind
+        kind,
+        relays: relays
       });
 
     } catch (err) {
@@ -467,7 +576,7 @@
 
     const filters = [
       {
-        kinds: [FILE_REQUEST_KIND, FILE_RESPONSE_KIND],
+        kinds: [FILE_REQUEST_KIND], // 30078 - כל הסיגנלים
         '#p': [App.publicKey],
         since: Math.floor(Date.now() / 1000),
       }
@@ -827,13 +936,104 @@
     }
   }
 
+  // פונקציית דיבוג - בדיקה אם הריליי שומר events מסוג 30078 (NIP-78)
+  async function debugCheckRelayEvents() {
+    const relays = getP2PRelays();
+    log('info', `🔬 בדיקת דיבוג - מחפש כל events מסוג ${FILE_AVAILABILITY_KIND} בריליים`, { relays });
+    
+    return new Promise((resolve) => {
+      const allEvents = [];
+      const sinceTimestamp = Math.floor(Date.now() / 1000) - PEER_DISCOVERY_LOOKBACK;
+      
+      const filters = [{
+        kinds: [FILE_AVAILABILITY_KIND],
+        '#t': ['p2p-file'], // רק events של רישום קבצים
+        since: sinceTimestamp,
+        limit: 50
+      }];
+      
+      log('info', `🔬 פילטר דיבוג (בלי hash):`, { filters: JSON.stringify(filters) });
+      
+      let finished = false;
+      const timeout = setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          log('info', `🔬 timeout דיבוג - נמצאו ${allEvents.length} events`, { 
+            events: allEvents.map(e => ({
+              id: e.id?.slice(0, 16),
+              pubkey: e.pubkey?.slice(0, 16),
+              hash: e.tags?.find(t => t[0] === 'x')?.[1]?.slice(0, 16),
+              created: new Date(e.created_at * 1000).toLocaleString('he-IL')
+            }))
+          });
+          resolve(allEvents);
+        }
+      }, 10000);
+      
+      try {
+        const sub = App.pool.subscribeMany(relays, filters, {
+          onevent: (event) => {
+            allEvents.push(event);
+            const hashTag = event.tags?.find(t => t[0] === 'x');
+            log('info', `🔬 נמצא event:`, {
+              id: event.id?.slice(0, 16),
+              pubkey: event.pubkey?.slice(0, 16),
+              hash: hashTag?.[1]?.slice(0, 16),
+              created: new Date(event.created_at * 1000).toLocaleString('he-IL'),
+              isMe: event.pubkey === App.publicKey
+            });
+          },
+          oneose: () => {
+            if (!finished) {
+              finished = true;
+              clearTimeout(timeout);
+              log('info', `🔬 סיום דיבוג (EOSE) - נמצאו ${allEvents.length} events כולל`, {
+                total: allEvents.length,
+                myEvents: allEvents.filter(e => e.pubkey === App.publicKey).length,
+                otherEvents: allEvents.filter(e => e.pubkey !== App.publicKey).length,
+                uniquePubkeys: [...new Set(allEvents.map(e => e.pubkey))].map(p => p?.slice(0, 16))
+              });
+              if (sub && typeof sub.close === 'function') {
+                sub.close();
+              }
+              resolve(allEvents);
+            }
+          }
+        });
+      } catch (err) {
+        log('error', `🔬 שגיאת דיבוג: ${err.message}`);
+        resolve([]);
+      }
+    });
+  }
+
+  // פונקציה לפרסום מחדש של כל הקבצים הזמינים (לדיבוג)
+  async function republishAllFiles() {
+    const files = state.availableFiles;
+    log('info', `🔄 מפרסם מחדש ${files.size} קבצים...`);
+    
+    // איפוס cooldown
+    state.lastAvailabilityPublish.clear();
+    
+    for (const [hash, fileData] of files) {
+      await registerFileAvailability(hash, fileData.blob, fileData.mimeType);
+      await new Promise(r => setTimeout(r, 500)); // המתנה קצרה בין פרסומים
+    }
+    
+    log('success', `✅ פורסמו מחדש ${files.size} קבצים`);
+    return files.size;
+  }
+
   // חשיפה ל-App
   Object.assign(App, {
     registerFileAvailability,
     findPeersWithFile,
+    downloadFromPeer, // חשיפה לדיבוג
     downloadVideoWithP2P,
+    republishAllFiles, // פרסום מחדש של כל הקבצים
     p2pGetAvailableFiles: () => state.availableFiles,
     p2pGetActiveConnections: () => state.activeConnections,
+    p2pDebugCheckRelay: debugCheckRelayEvents,
   });
 
   // אתחול
@@ -878,12 +1078,11 @@
     init();
   }
 
-  // חלק P2P (p2p-video-sharing.js) – חשיפת API ל-App
+  // חלק P2P (p2p-video-sharing.js) – חשיפת API נוספת ל-App
   Object.assign(App, {
-    registerFileAvailability,
     searchForPeers: findPeersWithFile,
-    downloadVideoWithP2P,
-    availableFiles: state.availableFiles,
+    setChatFileTransferActivePeer: (peer) => { state.activeChatPeer = peer; },
+    _p2pSignalsSub: null, // יאותחל ב-listenForP2PSignals
   });
 
 })(window);

@@ -107,13 +107,11 @@
     }
   }
   if (!Array.isArray(p2pRelayUrls) || !p2pRelayUrls.length) {
-    // ריליים ייעודיים ל-P2P (רשימה שסופקה ע"י המשתמש לניטור הקבצים)
+    // ריליים ייעודיים ל-P2P - חייבים לתמוך בשמירת events מסוג 30078
     p2pRelayUrls = [
-      'wss://45.135.180.140',
-      'wss://adre.su',
-      'wss://aplaceinthesun.nostr1.com',
-      'wss://anchor.coracle.social',
-      'wss://assistantrelay.rodbishop.nz'
+      'wss://relay.snort.social',  // ריליי פתוח - תומך בכל kinds ✅
+      'wss://relay.damus.io',      // ריליי פופולרי - תומך ב-30078
+      'wss://nos.lol',             // ריליי ציבורי - תומך ב-30078
     ];
   }
   App.p2pRelayUrls = p2pRelayUrls;
