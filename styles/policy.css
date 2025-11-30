@@ -1,0 +1,95 @@
+:root {
+  color-scheme: dark;
+  font-family: 'Assistant', 'Heebo', sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #050512;
+  color: #f1f1ff;
+  font-family: 'Assistant', 'Heebo', sans-serif;
+  line-height: 1.7;
+  direction: rtl;
+  text-align: right;
+}
+
+main.policy {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+
+.policy header {
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+  padding-top: 18px;
+}
+
+.policy__label {
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  color: #8ea6ff;
+}
+
+.policy header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff7eb3, #ffce7a, #7dd3fc, #c084fc);
+  background-size: 300% 100%;
+  animation: policyAccent 4s linear infinite;
+}
+
+@keyframes policyAccent {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.policy h1 {
+  margin: 10px 0 6px;
+  font-size: 2rem;
+}
+
+.policy section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.policy section h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  color: #9bc9ff;
+}
+
+.policy ul {
+  padding-inline-start: 20px;
+  margin: 10px 0;
+}
+
+.policy li {
+  margin-bottom: 6px;
+}
+
+@media (max-width: 600px) {
+  main.policy {
+    padding: 24px 14px 48px;
+  }
+  .policy section {
+    padding: 16px;
+  }
+}
