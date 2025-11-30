@@ -8,17 +8,27 @@
     <script>
       (function redirectToVideosHome() {
         try {
-          const href = window.location.href;
-          const lowerHref = href.toLowerCase();
-          const path = (window.location.pathname || '/').toLowerCase();
-          const normalizedPath = path.endsWith('/') ? path : `${path}/`;
-          const projectRoot = '/sos/';
-          const isRootPath = normalizedPath === '/' || normalizedPath === projectRoot;
-          const isIndexFile = path.endsWith('/index.html');
-          const alreadyVideos = lowerHref.includes('/videos.html');
-          if (!alreadyVideos && (isRootPath || isIndexFile)) {
-            const targetUrl = new URL('videos.html', href);
-            window.location.replace(targetUrl.href);
+          const origin = window.location.origin || '';
+          const pathname = window.location.pathname || '/';
+          const lowerPath = pathname.toLowerCase();
+          const segments = pathname.split('/').filter(Boolean);
+          const lastSegment = segments[segments.length - 1] || '';
+          const lastLower = lastSegment.toLowerCase();
+          const isIndexFile = lastLower === 'index.html';
+          const isVideosFile = lastLower === 'videos.html';
+
+          const isGithubProject = window.location.hostname.endsWith('github.io');
+          const repoSegmentOriginal = isGithubProject ? (segments[0] || '') : '';
+          const repoSegmentLower = repoSegmentOriginal.toLowerCase();
+          const rootCandidates = new Set(
+            ['/', `/${repoSegmentLower}`, `/${repoSegmentLower}/`].filter(Boolean)
+          );
+          const isRootPath = repoSegment ? rootCandidates.has(lowerPath) : lowerPath === '/';
+
+          if (!isVideosFile && (isRootPath || isIndexFile)) {
+            const basePath = repoSegmentOriginal ? `/${repoSegmentOriginal}/` : '/';
+            const targetUrl = `${origin}${basePath}videos.html`;
+            window.location.replace(targetUrl);
           }
         } catch (err) {
           console.warn('[INDEX] Redirect to videos home failed', err);
