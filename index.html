@@ -19,14 +19,15 @@
 
           const isGithubProject = window.location.hostname.endsWith('github.io');
           const repoSegmentOriginal = isGithubProject ? (segments[0] || '') : '';
+          const hasRepoSegment = !!repoSegmentOriginal;
           const repoSegmentLower = repoSegmentOriginal.toLowerCase();
           const rootCandidates = new Set(
             ['/', `/${repoSegmentLower}`, `/${repoSegmentLower}/`].filter(Boolean)
           );
-          const isRootPath = repoSegment ? rootCandidates.has(lowerPath) : lowerPath === '/';
+          const isRootPath = hasRepoSegment ? rootCandidates.has(lowerPath) : lowerPath === '/';
 
           if (!isVideosFile && (isRootPath || isIndexFile)) {
-            const basePath = repoSegmentOriginal ? `/${repoSegmentOriginal}/` : '/';
+            const basePath = hasRepoSegment ? `/${repoSegmentOriginal}/` : '/';
             const targetUrl = `${origin}${basePath}videos.html`;
             window.location.replace(targetUrl);
           }
