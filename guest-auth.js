@@ -91,24 +91,44 @@
   }
 
   function resizeImageToDataUrl(file, maxWidth, callback) {
-    if (typeof App.resizeImageToDataUrl === 'function') {
-      return App.resizeImageToDataUrl(file, maxWidth, callback);
-    }
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var img = new Image();
-      img.onload = function() {
-        var canvas = document.createElement('canvas');
-        var scale = maxWidth / img.width;
-        canvas.width = maxWidth;
-        canvas.height = img.height * scale;
-        var ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        callback(canvas.toDataURL('image/jpeg', 0.85));
+    function fallbackResize() {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+          var canvas = document.createElement('canvas');
+          var scale = maxWidth / img.width;
+          canvas.width = maxWidth;
+          canvas.height = img.height * scale;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          callback(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.src = e.target.result;
       };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    }
+
+    if (typeof App.resizeImageToDataUrl === 'function') {
+      try {
+        var maybePromise = App.resizeImageToDataUrl(file, maxWidth, maxWidth, 0.85);
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          maybePromise.then(callback).catch(function(err) {
+            console.error('resizeImageToDataUrl async failed', err);
+            fallbackResize();
+          });
+          return;
+        }
+        if (typeof maybePromise === 'string') {
+          callback(maybePromise);
+          return;
+        }
+      } catch (err) {
+        console.error('resizeImageToDataUrl error', err);
+      }
+    }
+
+    fallbackResize();
   }
 
   // ניהול שלבים
@@ -173,6 +193,7 @@
     // שלב הרשמה - מייל
     var signupEmailInput = document.getElementById('signupEmailInput');
     var btnEmailNext = document.getElementById('btnEmailNext');
+    var signupLegalCheckbox = document.getElementById('signupLegalAgree');
 
     // שלב הרשמה - שם
     var signupNameInput = document.getElementById('signupNameInput');
@@ -191,6 +212,16 @@
     var btnDownloadKey = document.getElementById('btnDownloadKey');
     var keyConfirmCheckbox = document.getElementById('keyConfirmCheckbox');
     var btnFinalConnect = document.getElementById('btnFinalConnect');
+    var keyPolicyCheckbox = document.getElementById('keyPolicyAgree');
+    var keyRightsCheckbox = document.getElementById('keyRightsConfirm');
+
+    function updateFinalConnectState() {
+      if (!btnFinalConnect) return;
+      var confirmChecked = keyConfirmCheckbox ? keyConfirmCheckbox.checked : true;
+      var policyChecked = keyPolicyCheckbox ? keyPolicyCheckbox.checked : true;
+      var rightsChecked = keyRightsCheckbox ? keyRightsCheckbox.checked : true;
+      btnFinalConnect.disabled = !(confirmChecked && policyChecked && rightsChecked);
+    }
 
     // סגירה וחזרה
     if (closeBtn) closeBtn.addEventListener('click', App.closeAuthPrompt);
@@ -239,6 +270,10 @@
     if (btnEmailNext) {
       btnEmailNext.addEventListener('click', async function() {
         var email = signupEmailInput.value.trim();
+        if (signupLegalCheckbox && !signupLegalCheckbox.checked) {
+          setStatus('emailStatus', 'נא לאשר את תנאי השימוש לפני המשך.', true);
+          return;
+        }
         if (!email || !/\S+@\S+\.\S+/.test(email)) {
           setStatus('emailStatus', 'נא להזין כתובת מייל תקינה', true);
           return;
@@ -367,14 +402,28 @@
 
     // אישור שמירת מפתח
     if (keyConfirmCheckbox) {
-      keyConfirmCheckbox.addEventListener('change', function() {
-        btnFinalConnect.disabled = !this.checked;
-      });
+      keyConfirmCheckbox.addEventListener('change', updateFinalConnectState);
+    }
+    if (keyPolicyCheckbox) {
+      keyPolicyCheckbox.addEventListener('change', updateFinalConnectState);
+    }
+    if (keyRightsCheckbox) {
+      keyRightsCheckbox.addEventListener('change', updateFinalConnectState);
     }
 
     // התחברות סופית
     if (btnFinalConnect) {
       btnFinalConnect.addEventListener('click', async function() {
+        if (keyPolicyCheckbox && !keyPolicyCheckbox.checked) {
+          setStatus('keyStatus', 'נא לאשר את מדיניות התוכן לפני התחברות.', true);
+          updateFinalConnectState();
+          return;
+        }
+        if (keyRightsCheckbox && !keyRightsCheckbox.checked) {
+          setStatus('keyStatus', 'יש לאשר שהזכויות לתוכן הן שלך.', true);
+          updateFinalConnectState();
+          return;
+        }
         if (!signupData.privateKey) {
           setStatus('keyStatus', 'אין מפתח', true);
           return;
@@ -436,6 +485,7 @@
           btnFinalConnect.disabled = false;
         }
       });
+      updateFinalConnectState();
     }
 
     // הצגת כפתור "התחבר / הירשם" רק במצב אורח

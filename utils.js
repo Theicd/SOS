@@ -97,4 +97,106 @@
       reader.readAsDataURL(file);
     });
   };
+
+  if (typeof window.registerMyClickListener !== 'function') {
+    window.registerMyClickListener = function registerMyClickListener(selector, handler, options = {}) {
+      if (typeof handler !== 'function') {
+        console.warn('registerMyClickListener requires a handler function');
+        return () => {};
+      }
+
+      const root = options.root || document;
+      const mode = options.mode || 'delegate';
+
+      if (mode === 'direct') {
+        const targets = typeof selector === 'string' ? root.querySelectorAll(selector) : selector;
+        if (!targets || typeof targets.forEach !== 'function') {
+          console.warn('registerMyClickListener: no targets found for direct mode');
+          return () => {};
+        }
+        const listeners = [];
+        targets.forEach((el) => {
+          if (!el) return;
+          const wrapped = (event) => handler(event, el);
+          el.addEventListener('click', wrapped);
+          listeners.push({ el, wrapped });
+        });
+        return () => listeners.forEach(({ el, wrapped }) => el.removeEventListener('click', wrapped));
+      }
+
+      const clickTarget = root;
+      const wrapped = (event) => {
+        const target = event.target?.closest?.(selector);
+        if (target) {
+          handler(event, target);
+        }
+      };
+      clickTarget.addEventListener('click', wrapped);
+      return () => clickTarget.removeEventListener('click', wrapped);
+    };
+  }
+
+  const MEDIA_GUARD_BLOCK_MS = 10 * 60 * 1000; // 10 דקות חסימה
+  const MEDIA_GUARD_THRESHOLD = 3;
+  const RUNNING_VIA_CF_TUNNEL = typeof window.location?.hostname === 'string' && window.location.hostname.includes('trycloudflare.com');
+  const DEFAULT_TUNNEL_BLOCKED_HOSTS = new Set(['r2a.primal.net', 'blossom.primal.net']);
+
+  App._mediaHostFailures = App._mediaHostFailures || new Map();
+
+  App.shouldAttemptMediaFetch = function shouldAttemptMediaFetch(url) {
+    if (!url) {
+      return true;
+    }
+    try {
+      const host = new URL(url).host;
+      if (RUNNING_VIA_CF_TUNNEL && DEFAULT_TUNNEL_BLOCKED_HOSTS.has(host)) {
+        return false;
+      }
+      const entry = App._mediaHostFailures.get(host);
+      if (!entry) {
+        return true;
+      }
+      if (entry.blockedUntil && Date.now() < entry.blockedUntil) {
+        return false;
+      }
+      if (entry.blockedUntil && Date.now() >= entry.blockedUntil) {
+        App._mediaHostFailures.delete(host);
+        return true;
+      }
+      return true;
+    } catch (err) {
+      console.warn('shouldAttemptMediaFetch: invalid URL', err);
+      return true;
+    }
+  };
+
+  App.registerMediaFetchFailure = function registerMediaFetchFailure(url, reason = '') {
+    if (!url) {
+      return;
+    }
+    try {
+      const host = new URL(url).host;
+      const entry = App._mediaHostFailures.get(host) || { fails: 0 };
+      entry.fails += 1;
+      entry.lastReason = reason;
+      if (entry.fails >= MEDIA_GUARD_THRESHOLD) {
+        entry.blockedUntil = Date.now() + MEDIA_GUARD_BLOCK_MS;
+      }
+      App._mediaHostFailures.set(host, entry);
+    } catch (err) {
+      console.warn('registerMediaFetchFailure: invalid URL', err);
+    }
+  };
+
+  App.registerMediaFetchSuccess = function registerMediaFetchSuccess(url) {
+    if (!url) {
+      return;
+    }
+    try {
+      const host = new URL(url).host;
+      App._mediaHostFailures.delete(host);
+    } catch (err) {
+      console.warn('registerMediaFetchSuccess: invalid URL', err);
+    }
+  };
 })(window);

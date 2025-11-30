@@ -39,29 +39,177 @@
   }
 
   const App = window.NostrApp || {};
-  App.relayUrls = [
-    'wss://dm.czas.xyz',
-    'wss://cdn.czas.xyz',
-    'wss://cache2.primal.net/v1',
-    'wss://45.135.180.140',
-    'wss://nostr.1312.media',
-    'wss://trending.relays.land',
-    'wss://pyramid.fiatjaf.com',
-    'wss://nostr-verif.slothy.win',
-    'wss://cfrelay.puhcho.workers.dev',
-    'wss://relay.nostrhub.tech',
+  const SAFE_DEFAULT_RELAYS = [
+    'wss://relay.snort.social',
+    'wss://nos.lol',
+    'wss://purplerelay.com',
     'wss://nostr-relay.xbytez.io',
-    'wss://echo.websocket.org',
+    'wss://nostr-02.uid.ovh',
+  ];
+  const SAFE_DEFAULT_P2P_RELAYS = [
+    'wss://relay.snort.social',
+    'wss://nos.lol',
+    'wss://purplerelay.com',
+    'wss://nostr-relay.xbytez.io',
+    'wss://nostr-02.uid.ovh',
+    'wss://nostr.0x7e.xyz',
+  ];
+  const UNSAFE_RELAY_PATTERNS = new Set([
+    'wss://relay.damus.io',
+    'wss://relay.nostr.band',
     'wss://relay.primal.net',
     'wss://premium.primal.net',
+    'wss://relay.damus.io/',
     'wss://inbox.relays.land',
+    'wss://trending.relays.land',
     'wss://gnostr.com',
     'wss://fiatjaf.com',
-    'wss://nostr.dbtc.link',
-    'wss://soloco.nl',
-    'wss://relay.vertexlab.io',
-    'wss://nostr.fishingdev.com'
-  ];
+    'wss://nostr-verif.slothy.win',
+    'wss://cfrelay.puhcho.workers.dev',
+    'wss://echo.websocket.org',
+  ]);
+  const RELAY_STORAGE_KEY = 'nostr_relay_urls';
+  const P2P_RELAY_STORAGE_KEY = 'nostr_p2p_relays';
+  const pendingRelayWarnings = [];
+
+  function loadRelaysFromStorage(storageKey, fallback) {
+    if (!storageKey) {
+      return Array.isArray(fallback) ? [...fallback] : [];
+    }
+    const stored = window.localStorage.getItem(storageKey);
+    if (!stored) {
+      return Array.isArray(fallback) ? [...fallback] : [];
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length) {
+        return parsed;
+      }
+    } catch (err) {
+      console.warn('Invalid relay list in storage', storageKey, err);
+    }
+    return Array.isArray(fallback) ? [...fallback] : [];
+  }
+
+  function persistRelays(storageKey, relays) {
+    if (!storageKey) return;
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(relays));
+    } catch (err) {
+      console.warn('Failed to persist relay list', storageKey, err);
+    }
+  }
+
+  function sanitizeRelayList(relays, { storageKey, context, fallback }) {
+    const sanitized = [];
+    const flagged = [];
+    (Array.isArray(relays) ? relays : []).forEach((relay) => {
+      const trimmed = typeof relay === 'string' ? relay.trim() : '';
+      if (!trimmed || !trimmed.startsWith('wss://')) {
+        return;
+      }
+      if (UNSAFE_RELAY_PATTERNS.has(trimmed)) {
+        flagged.push(trimmed);
+      } else if (!sanitized.includes(trimmed)) {
+        sanitized.push(trimmed);
+      }
+    });
+    const finalList = sanitized.length ? sanitized : [...(fallback || SAFE_DEFAULT_RELAYS)];
+    persistRelays(storageKey, finalList);
+    if (flagged.length) {
+      queueUnsafeRelayWarning({ context, flagged, storageKey, safeList: finalList });
+    }
+    return finalList;
+  }
+
+  function queueUnsafeRelayWarning({ context, flagged, storageKey, safeList }) {
+    pendingRelayWarnings.push({ context, flagged, storageKey, safeList });
+    scheduleRelayWarningRender();
+  }
+
+  function scheduleRelayWarningRender() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const render = () => {
+      if (!pendingRelayWarnings.length) {
+        return;
+      }
+      pendingRelayWarnings.splice(0).forEach((warning) => {
+        const banner = document.createElement('div');
+        banner.style.position = 'fixed';
+        banner.style.bottom = '16px';
+        banner.style.left = '16px';
+        banner.style.right = '16px';
+        banner.style.zIndex = '9999';
+        banner.style.background = '#2b2b2b';
+        banner.style.border = '1px solid #ff9800';
+        banner.style.borderRadius = '8px';
+        banner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)';
+        banner.style.padding = '12px 16px';
+        banner.style.color = '#fff';
+        banner.style.fontFamily = 'system-ui, sans-serif';
+
+        const title = document.createElement('div');
+        title.textContent = `⚠️ נמצאו ריליים בעייתיים (${warning.context})`;
+        title.style.fontWeight = '600';
+        title.style.marginBottom = '8px';
+        banner.appendChild(title);
+
+        const list = document.createElement('div');
+        list.textContent = warning.flagged.join(', ');
+        list.style.fontSize = '13px';
+        list.style.direction = 'ltr';
+        list.style.marginBottom = '10px';
+        banner.appendChild(list);
+
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '8px';
+
+        const persistBtn = document.createElement('button');
+        persistBtn.textContent = 'נקה מהרשימה השמורה';
+        persistBtn.style.background = '#ff9800';
+        persistBtn.style.border = 'none';
+        persistBtn.style.borderRadius = '4px';
+        persistBtn.style.padding = '6px 12px';
+        persistBtn.style.cursor = 'pointer';
+        persistBtn.onclick = () => {
+          persistRelays(warning.storageKey, warning.safeList);
+          banner.remove();
+        };
+
+        const dismissBtn = document.createElement('button');
+        dismissBtn.textContent = 'סגור';
+        dismissBtn.style.background = 'transparent';
+        dismissBtn.style.color = '#fff';
+        dismissBtn.style.border = '1px solid #fff';
+        dismissBtn.style.borderRadius = '4px';
+        dismissBtn.style.padding = '6px 12px';
+        dismissBtn.style.cursor = 'pointer';
+        dismissBtn.onclick = () => banner.remove();
+
+        actions.appendChild(persistBtn);
+        actions.appendChild(dismissBtn);
+        banner.appendChild(actions);
+
+        document.body.appendChild(banner);
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', render, { once: true });
+    } else {
+      window.setTimeout(render, 0);
+    }
+  }
+
+  const initialRelayList = loadRelaysFromStorage(RELAY_STORAGE_KEY, SAFE_DEFAULT_RELAYS);
+  App.relayUrls = sanitizeRelayList(initialRelayList, {
+    storageKey: RELAY_STORAGE_KEY,
+    context: 'ריליים כלליים',
+    fallback: SAFE_DEFAULT_RELAYS,
+  });
 
   const BLOCKED_RELAYS_KEY = 'nostr_blocked_relays';
   let blockedRelayList = [];
@@ -97,24 +245,12 @@
     }
     return App.relayUrls.filter((relay) => !(App.blockedRelays || new Set()).has(relay));
   };
-  let p2pRelayUrls = [];
-  const storedP2PRelays = window.localStorage.getItem('nostr_p2p_relays');
-  if (storedP2PRelays) {
-    try {
-      p2pRelayUrls = JSON.parse(storedP2PRelays);
-    } catch (err) {
-      console.warn('Invalid nostr_p2p_relays, using default', err);
-    }
-  }
-  if (!Array.isArray(p2pRelayUrls) || !p2pRelayUrls.length) {
-    // ריליים ייעודיים ל-P2P - חייבים לתמוך בשמירת events מסוג 30078
-    p2pRelayUrls = [
-      'wss://relay.snort.social',  // ריליי פתוח - תומך בכל kinds ✅
-      'wss://relay.damus.io',      // ריליי פופולרי - תומך ב-30078
-      'wss://nos.lol',             // ריליי ציבורי - תומך ב-30078
-    ];
-  }
-  App.p2pRelayUrls = p2pRelayUrls;
+  const initialP2PRelays = loadRelaysFromStorage(P2P_RELAY_STORAGE_KEY, SAFE_DEFAULT_P2P_RELAYS);
+  App.p2pRelayUrls = sanitizeRelayList(initialP2PRelays, {
+    storageKey: P2P_RELAY_STORAGE_KEY,
+    context: 'ריליים ל-P2P',
+    fallback: SAFE_DEFAULT_P2P_RELAYS,
+  });
   App.NETWORK_TAG = 'israel-network';
   // חלק קונפיגורציה (config.js) – כתובת בסיס ל-API של כלי הסנכרון המקומי לצורך סטטיסטיקות ובקרת מנהל
   App.syncApiBase = 'http://localhost:4300';

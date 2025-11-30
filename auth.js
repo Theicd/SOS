@@ -505,11 +505,19 @@
   }
 
   function setCreateStatus(message = '', tone = 'info') {
+    if (!createStatus) {
+      console.warn('setCreateStatus called without createStatus element');
+      return;
+    }
     createStatus.textContent = message;
     createStatus.classList.toggle('is-error', tone === 'error');
   }
 
   function setImportStatus(message = '', tone = 'info') {
+    if (!importStatus) {
+      console.warn('setImportStatus called without importStatus element');
+      return;
+    }
     importStatus.textContent = message;
     importStatus.classList.toggle('is-error', tone === 'error');
   }

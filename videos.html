@@ -658,6 +658,7 @@
           <span class="sos-char sos-o">O</span>
           <span class="sos-char sos-s">S</span>
         </div>
+
         <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
       </div>
       <div class="top-bar__actions">
@@ -866,10 +867,25 @@
           <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
           <video id="composeMediaPreviewVideo" controls playsinline></video>
         </div>
+        <div class="compose-legal-warning" id="composeLegalWarning">
+          <p>
+            📜 על ידי העלאת תוכן אתה מאשר שהוא תואם את
+            <a href="terms.html" data-policy-target="terms.html">תנאי השירות</a>
+            ואת <a href="copyright.html" data-policy-target="copyright.html">מדיניות זכויות היוצרים</a>.
+          </p>
+          <label class="compose-legal-checkbox">
+            <input type="checkbox" id="composePolicyCheckbox">
+            <span>קראתי את המדיניות ואני מבין את אכיפת הרשת המבוזרת.</span>
+          </label>
+          <label class="compose-legal-checkbox">
+            <input type="checkbox" id="composeRightsCheckbox">
+            <span>התוכן שפורסם הוא בבעלותי או שיש לי רישיון לפרסמו.</span>
+          </label>
+        </div>
         <div id="composeStatus" class="p2p-status"></div>
         <div class="compose-dialog__actions">
           <button class="button-secondary" onclick="closeCompose()">ביטול</button>
-          <button class="button-primary" onclick="publishPost()">פרסם</button>
+          <button class="button-primary" id="composePublishButton" onclick="publishPost()">פרסם</button>
         </div>
       </div>
     </div>
@@ -951,6 +967,21 @@
           <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
           <h2 style="margin-bottom: 20px; font-size: 22px;">מה כתובת המייל שלך?</h2>
           <input type="email" id="signupEmailInput" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
+          <div class="auth-legal-block">
+            <label class="auth-legal-checkbox">
+              <input type="checkbox" id="signupLegalAgree" />
+              <span>
+                אני מסכים לתנאי הרשת המבוזרת ומאשר שקראתי את המסמכים:
+                <span class="legal-links">
+                  <a href="terms.html" data-policy-target="terms.html">תנאי השימוש</a>,
+                  <a href="privacy.html" data-policy-target="privacy.html">מדיניות הפרטיות</a>,
+                  <a href="community.html" data-policy-target="community.html">קוד הקהילה</a> ו-
+                  <a href="copyright.html" data-policy-target="copyright.html">מדיניות זכויות היוצרים</a>.
+                </span>
+              </span>
+            </label>
+            <p class="auth-legal-note">לא נחלוק את המייל אלא לצורך אימות והפעלת חשבונך.</p>
+          </div>
           <p id="emailStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnEmailNext" style="width: 100%; padding: 14px; font-size: 16px;">
             הבא
@@ -996,6 +1027,20 @@
               ⚠️ <strong>חשוב מאוד!</strong> שמור את המפתח הזה במקום בטוח. <strong>לא ניתן לשחזר אותו!</strong>
             </p>
           </div>
+          <div class="auth-legal-block">
+            <label class="auth-legal-checkbox">
+              <input type="checkbox" id="keyPolicyAgree" />
+              <span>
+                אני מאשר שקראתי את המסמכים לעיל ומתחייב להימנע מתוכן אסור או בלתי חוקי.
+              </span>
+            </label>
+            <label class="auth-legal-checkbox">
+              <input type="checkbox" id="keyRightsConfirm" />
+              <span>
+                אני מצהיר שכל תוכן שאעלה הוא בבעלותי או שיש לי היתר חוקי לפרסמו.
+              </span>
+            </label>
+          </div>
           <textarea id="generatedKeyDisplay" readonly style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px; background: #0f0f1e; color: #ffffff;"></textarea>
           <div style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button type="button" class="button-secondary" id="btnCopyKey" style="flex: 1; padding: 10px; font-size: 14px;">
@@ -1017,12 +1062,93 @@
       </div>
     </div>
 
+    <div class="policy-modal" id="policyModal" aria-hidden="true">
+      <div
+        class="policy-modal__dialog"
+        id="policyModalDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="policyModalTitle"
+        tabindex="-1"
+      >
+        <div class="policy-modal__header">
+          <h2 class="policy-modal__title" id="policyModalTitle">מסמך מדיניות</h2>
+          <button class="policy-modal__close" type="button" aria-label="סגור" data-policy-close>
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="policy-modal__content">
+          <iframe id="policyModalFrame" title="Policy document" loading="lazy"></iframe>
+        </div>
+      </div>
+    </div>
+
     <!-- צ'אט (videos.html) – מבנה זהה ומכווץ שורות | HYPER CORE TECH -->
     <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי"><div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-contacts__search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש בצ'אט" autocomplete="off"><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="שיחת קול"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><button type="button" class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ"><i class="fa-solid fa-paperclip"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div><input type="file" id="chatComposerFileInput" hidden></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
 
     <!-- חלק סיסמת שונות (videos.html) – סקריפט הגנת סיסמה | HYPER CORE TECH -->
     <script src="./misc-password.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const body = document.body;
+        const modal = document.getElementById('policyModal');
+        const frame = document.getElementById('policyModalFrame');
+        const title = document.getElementById('policyModalTitle');
+        const dialog = document.getElementById('policyModalDialog');
+        const closeButtons = modal ? modal.querySelectorAll('[data-policy-close]') : [];
+
+        function getPolicyTitle(path) {
+          if (!path) return 'מסמך מדיניות';
+          if (path.includes('terms')) return 'תנאי שימוש';
+          if (path.includes('privacy')) return 'מדיניות פרטיות';
+          if (path.includes('community')) return 'קוד קהילה';
+          if (path.includes('copyright')) return 'מדיניות זכויות יוצרים';
+          return 'מסמך מדיניות';
+        }
+
+        function openPolicy(docPath) {
+          if (!modal || !frame) return;
+          const safePath = docPath || 'terms.html';
+          title.textContent = getPolicyTitle(safePath);
+          frame.src = safePath;
+          modal.classList.add('is-visible');
+          modal.setAttribute('aria-hidden', 'false');
+          body.classList.add('policy-modal-open');
+          dialog?.focus();
+        }
+
+        function closePolicy() {
+          if (!modal || !frame) return;
+          modal.classList.remove('is-visible');
+          modal.setAttribute('aria-hidden', 'true');
+          frame.src = '';
+          body.classList.remove('policy-modal-open');
+        }
+
+        closeButtons.forEach((btn) => btn.addEventListener('click', closePolicy));
+
+        modal?.addEventListener('click', (event) => {
+          if (event.target === modal) {
+            closePolicy();
+          }
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && modal?.classList.contains('is-visible')) {
+            closePolicy();
+          }
+        });
+
+        document.querySelectorAll('[data-policy-target]').forEach((link) => {
+          link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const target = link.getAttribute('data-policy-target');
+            openPolicy(target);
+          });
+        });
+      });
+    </script>
     <!-- חיבור הודעות ושיחות (videos.html) – מבטיח שהצ'אט יאתחל שיחות נכנסות כמו בפיד הראשי | HYPER CORE TECH -->
-    <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={}),chatBtn=document.getElementById('messagesToggle');if(chatBtn){chatBtn.addEventListener('click',function(){if(typeof App.openChatPanel==='function'){App.openChatPanel();}setTimeout(function(){if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();}},100);});}console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,200);}return;}App._videosChatBootstrapped=true;try{typeof App.restoreChatState==='function'&&App.restoreChatState();}catch(err){console.warn('[VIDEOS] restoreChatState failed',err);}try{typeof App.subscribeToChatEvents==='function'&&App.subscribeToChatEvents();}catch(err){console.warn('[VIDEOS] subscribeToChatEvents failed',err);}try{typeof App.bootstrapChatContacts==='function'&&App.bootstrapChatContacts();}catch(err){console.warn('[VIDEOS] bootstrapChatContacts failed',err);}try{App.voiceCall&&typeof App.voiceCall.subscribe==='function'&&App.voiceCall.subscribe();}catch(err){console.warn('[VIDEOS] voiceCall.subscribe failed',err);}try{App.videoCall&&typeof App.videoCall.subscribe==='function'&&App.videoCall.subscribe();}catch(err){console.warn('[VIDEOS] videoCall.subscribe failed',err);}}ensureChatReady();});</script>
+    <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={}),chatBtn=document.getElementById('messagesToggle');if(chatBtn){chatBtn.addEventListener('click',function(){if(typeof App.openChatPanel==='function'){App.openChatPanel();}setTimeout(function(){if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();}},100);});}console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();});</script>
   </body>
 </html>

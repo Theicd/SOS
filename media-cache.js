@@ -7,8 +7,9 @@
   const DB_NAME = 'SOS2MediaCache';
   const DB_VERSION = 1;
   const STORE_NAME = 'media';
-  const MAX_CACHE_SIZE = 100 * 1024 * 1024; // 100MB
+  const MAX_CACHE_SIZE = 300 * 1024 * 1024; // 300MB
   const MAX_CACHE_AGE = 7 * 24 * 60 * 60 * 1000; // 7 ימים
+  const PIN_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // פינים פגים אחרי 30 יום
 
   let db = null;
 
@@ -46,7 +47,7 @@
   }
 
   // חלק cache (media-cache.js) – שמירת מדיה ב-cache
-  async function cacheMedia(url, hash, blob, mimeType) {
+  async function cacheMedia(url, hash, blob, mimeType, options = {}) {
     try {
       const database = await openDB();
       const transaction = database.transaction([STORE_NAME], 'readwrite');
@@ -59,6 +60,8 @@
         mimeType: mimeType || blob.type,
         size: blob.size,
         timestamp: Date.now(),
+        pinned: Boolean(options.pinned),
+        lastPinnedAt: options.pinned ? Date.now() : 0,
       };
 
       await new Promise((resolve, reject) => {
@@ -75,6 +78,38 @@
       return true;
     } catch (err) {
       console.error('Failed to cache media', err);
+      return false;
+    }
+  }
+
+  async function pinCachedMedia(hash, pinned = true) {
+    try {
+      const database = await openDB();
+      const transaction = database.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+
+      const entry = await new Promise((resolve, reject) => {
+        const request = store.get(hash);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+
+      if (!entry) {
+        return false;
+      }
+
+      entry.pinned = Boolean(pinned);
+      entry.lastPinnedAt = entry.pinned ? Date.now() : (entry.lastPinnedAt || 0);
+
+      await new Promise((resolve, reject) => {
+        const request = store.put(entry);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Failed to pin media', err);
       return false;
     }
   }
@@ -152,7 +187,13 @@
         request.onsuccess = (event) => {
           const cursor = event.target.result;
           if (cursor) {
-            results.push({ hash: cursor.value.hash, timestamp: cursor.value.timestamp, size: cursor.value.size });
+            results.push({
+              hash: cursor.value.hash,
+              timestamp: cursor.value.timestamp,
+              size: cursor.value.size,
+              pinned: Boolean(cursor.value.pinned),
+              lastPinnedAt: cursor.value.lastPinnedAt || cursor.value.timestamp,
+            });
             cursor.continue();
           } else {
             resolve(results);
@@ -171,7 +212,19 @@
 
       for (const entry of entries) {
         const age = now - entry.timestamp;
-        
+        const isPinned = Boolean(entry.pinned);
+
+        if (isPinned) {
+          const pinAge = now - (entry.lastPinnedAt || entry.timestamp);
+          if (pinAge > PIN_MAX_AGE) {
+            toDelete.push(entry.hash);
+            continue;
+          }
+          // פריטים ממודדים לא נמחקים גם אם עוברים את המכסה
+          totalSize += entry.size;
+          continue;
+        }
+
         // מחיקת רשומות ישנות מדי
         if (age > MAX_CACHE_AGE) {
           toDelete.push(entry.hash);
@@ -214,6 +267,8 @@
 
       const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
       const count = entries.length;
+      const pinnedCount = entries.filter((entry) => entry.pinned).length;
+      const pinnedSize = entries.filter((entry) => entry.pinned).reduce((sum, entry) => sum + entry.size, 0);
 
       return {
         count,
@@ -221,6 +276,8 @@
         totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
         maxSizeMB: (MAX_CACHE_SIZE / (1024 * 1024)).toFixed(0),
         usage: ((totalSize / MAX_CACHE_SIZE) * 100).toFixed(1),
+        pinnedCount,
+        pinnedSize,
       };
     } catch (err) {
       console.error('Failed to get cache stats', err);
@@ -270,6 +327,7 @@
     getCachedMedia,
     deleteCachedMedia,
     getCacheStats,
+    pinCachedMedia,
     clearMediaCache: clearAllCache,
   });
 

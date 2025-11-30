@@ -129,11 +129,22 @@
   if (!Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
     // חלק Bootstrap (app.js) – מגדיר רשימת ריליים ברירת מחדל כאשר הקונפיגורציה לא סיפקה אחת
     App.relayUrls = [
-      'wss://relay.damus.io',
       'wss://relay.snort.social',
       'wss://nos.lol',
       'wss://purplerelay.com',
-      'wss://relay.nostr.band',
+      'wss://nostr-relay.xbytez.io',
+      'wss://nostr-02.uid.ovh',
+    ];
+  }
+
+  if (!Array.isArray(App.p2pRelayUrls) || App.p2pRelayUrls.length === 0) {
+    App.p2pRelayUrls = [
+      'wss://relay.snort.social',
+      'wss://nos.lol',
+      'wss://purplerelay.com',
+      'wss://nostr-relay.xbytez.io',
+      'wss://nostr-02.uid.ovh',
+      'wss://nostr.0x7e.xyz',
     ];
   }
 

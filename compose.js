@@ -21,6 +21,9 @@
     bgOptions: document.getElementById('composeBgOptions'),
     bgTextOnlyToggle: document.getElementById('composeBgTextOnlyToggle'),
     bgZoomToggle: document.getElementById('composeBgZoomToggle'),
+    policyCheckbox: document.getElementById('composePolicyCheckbox'),
+    rightsCheckbox: document.getElementById('composeRightsCheckbox'),
+    publishButton: document.getElementById('composePublishButton'),
   };
 
   const state = {
@@ -47,6 +50,13 @@
     if (type && type !== 'info') {
       elements.status.classList.add(`compose-dialog__status--${type}`);
     }
+  }
+
+  function updateComposeLegalState() {
+    if (!elements.publishButton) return;
+    const policyOk = elements.policyCheckbox ? elements.policyCheckbox.checked : true;
+    const rightsOk = elements.rightsCheckbox ? elements.rightsCheckbox.checked : true;
+    elements.publishButton.disabled = !(policyOk && rightsOk);
   }
 
   // פונקציות התקדמות גרפיות חדשות
@@ -695,6 +705,13 @@
     syncProfileDetails();
     resetStatus();
     ensureMediaInputBound();
+    if (elements.policyCheckbox) {
+      elements.policyCheckbox.checked = false;
+    }
+    if (elements.rightsCheckbox) {
+      elements.rightsCheckbox.checked = false;
+    }
+    updateComposeLegalState();
     // חלק קומפוזר – ביטול מצבי תצוגה קודמים והבטחת הצגה עקבית
     elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
@@ -759,6 +776,13 @@
     if (elements.bgZoomToggle) {
       elements.bgZoomToggle.checked = false;
     }
+    if (elements.policyCheckbox) {
+      elements.policyCheckbox.checked = false;
+    }
+    if (elements.rightsCheckbox) {
+      elements.rightsCheckbox.checked = false;
+    }
+    updateComposeLegalState();
   }
 
   // פונקציית זיהוי מובייל
@@ -828,6 +852,14 @@
   }
 
   function getComposePayload() {
+    if (elements.policyCheckbox && !elements.policyCheckbox.checked) {
+      setStatus('יש לאשר את תנאי התוכן לפני הפרסום.', 'error');
+      return null;
+    }
+    if (elements.rightsCheckbox && !elements.rightsCheckbox.checked) {
+      setStatus('יש לאשר שהזכויות לתוכן הן שלך.', 'error');
+      return null;
+    }
     const text = elements.textarea ? elements.textarea.value.trim() : '';
     const includeTextContent = !(state.backgroundActive && state.bgTextOnly);
     const textContent = includeTextContent ? text : '';
@@ -965,6 +997,17 @@
           return;
         }
         setBgZoomFx(enabled);
+      });
+    }
+
+    if (elements.policyCheckbox) {
+      elements.policyCheckbox.addEventListener('change', () => {
+        updateComposeLegalState();
+      });
+    }
+    if (elements.rightsCheckbox) {
+      elements.rightsCheckbox.addEventListener('change', () => {
+        updateComposeLegalState();
       });
     }
 
