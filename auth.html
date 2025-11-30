@@ -4,6 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SphereOne Social – כניסה או יצירת פרופיל</title>
+    <script>
+      (function redirectAuthToVideos() {
+        try {
+          const origin = window.location.origin || '';
+          const pathname = window.location.pathname || '/';
+          const lowerPath = pathname.toLowerCase();
+          const segments = pathname.split('/').filter(Boolean);
+          const lastSegment = segments[segments.length - 1] || '';
+          const isAuthFile = lastSegment.toLowerCase() === 'auth.html';
+          const isGithubProject = window.location.hostname.endsWith('github.io');
+          const repoSegmentOriginal = isGithubProject ? (segments[0] || '') : '';
+          const repoSegmentLower = repoSegmentOriginal.toLowerCase();
+          const rootCandidates = new Set(
+            ['/', `/${repoSegmentLower}`, `/${repoSegmentLower}/`].filter(Boolean)
+          );
+          const isRootPath = repoSegmentOriginal
+            ? rootCandidates.has(lowerPath)
+            : lowerPath === '/';
+          if (isAuthFile || isRootPath) {
+            const basePath = repoSegmentOriginal ? `/${repoSegmentOriginal}/` : '/';
+            const targetUrl = `${origin}${basePath}videos.html`;
+            window.location.replace(targetUrl);
+          }
+        } catch (err) {
+          console.warn('[AUTH] Redirect to videos failed', err);
+        }
+      })();
+    </script>
     <!-- חלק ראש (auth.html) – מגדיר את אייקון הלשונית באמצעות SVG מוטמע -->
     <link
       rel="icon"
