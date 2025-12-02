@@ -38,6 +38,222 @@
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- עיצוב כפתורי קומפוזר משופרים -->
     <style>
+      /* ===== מד טעינה והודעות סטטוס ===== */
+      .videos-loading-progress {
+        position: absolute;
+        top: 55%;
+        left: 50%;
+        transform: translate(-50%, 0);
+        width: 80%;
+        max-width: 320px;
+        text-align: center;
+        z-index: 10;
+      }
+
+      .videos-loading-bar {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .videos-loading-bar__fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+        background-size: 200% 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        animation: loadingGradient 2s ease infinite;
+      }
+
+      @keyframes loadingGradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      .videos-loading-status {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        animation: statusPulse 2s ease-in-out infinite;
+      }
+
+      @keyframes statusPulse {
+        0%, 100% { opacity: 0.85; }
+        50% { opacity: 1; }
+      }
+
+      /* ===== אנימציית הבהוב לכפתור פרופיל בזמן עיבוד ===== */
+      @keyframes profileButtonBlink {
+        0%, 100% { 
+          box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+          border-color: #ff0000;
+        }
+        50% { 
+          box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.5);
+          border-color: #ff6666;
+        }
+      }
+
+      .top-bar__avatar.processing {
+        animation: profileButtonBlink 1s ease-in-out infinite;
+        border: 3px solid #ff0000 !important;
+        border-radius: 50%;
+      }
+
+      /* ===== חלון תנאים לפני פרסום ===== */
+      .terms-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+      }
+
+      .terms-modal.is-visible {
+        display: flex;
+      }
+
+      .terms-modal__content {
+        background: #1a1a2e;
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+        color: #fff;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      }
+
+      .terms-modal__title {
+        font-size: 20px;
+        margin-bottom: 16px;
+        color: #667eea;
+      }
+
+      .terms-modal__checkboxes {
+        text-align: right;
+        margin-bottom: 20px;
+      }
+
+      .terms-modal__checkbox {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 12px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      .terms-modal__checkbox input {
+        margin-top: 3px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+
+      .terms-modal__actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+
+      .terms-modal__actions button {
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+      }
+
+      .terms-modal__cancel {
+        background: #333;
+        color: #fff;
+      }
+
+      .terms-modal__publish {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+      }
+
+      .terms-modal__publish:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ===== הודעת עיבוד ברקע ===== */
+      .processing-notice {
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: #fff;
+        padding: 16px 24px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        z-index: 9999;
+        display: none;
+        text-align: center;
+        max-width: 90%;
+        border: 1px solid #667eea;
+      }
+
+      .processing-notice.is-visible {
+        display: block;
+        animation: slideDown 0.3s ease;
+      }
+
+      @keyframes slideDown {
+        from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+        to { transform: translateX(-50%) translateY(0); opacity: 1; }
+      }
+
+      .processing-notice__text {
+        margin: 0 0 8px 0;
+        font-size: 15px;
+      }
+
+      .processing-notice__hint {
+        margin: 0;
+        font-size: 13px;
+        color: #aaa;
+      }
+
+      .processing-notice__hint .blink-hint {
+        color: #ff6666;
+        font-weight: bold;
+      }
+
+      /* התאמה למובייל */
+      @media (max-width: 768px) {
+        .videos-loading-progress {
+          top: 58%;
+          width: 85%;
+          max-width: 280px;
+        }
+
+        .videos-loading-bar {
+          height: 6px;
+        }
+
+        .videos-loading-status {
+          font-size: 14px;
+        }
+      }
+
       /* ===== עיצוב כפתורי קומפוזר בסגנון רשתות חברתיות ===== */
       .compose-toolbar-btn {
         display: inline-flex;
@@ -811,6 +1027,13 @@
               <div class="videos-loading-particle"></div>
             </div>
           </div>
+          <!-- מד טעינה והודעות סטטוס | HYPER CORE TECH -->
+          <div class="videos-loading-progress">
+            <div class="videos-loading-bar">
+              <div class="videos-loading-bar__fill" id="videosLoadingBarFill"></div>
+            </div>
+            <p class="videos-loading-status" id="videosLoadingStatus">מתחבר לרשת...</p>
+          </div>
         </div>
         <div class="videos-feed__stream" id="videosStream" role="list"></div>
         <div class="videos-feed__status" id="videosStatus" role="status" style="display: none;">טוען סרטונים...</div>
@@ -879,27 +1102,42 @@
           <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
           <video id="composeMediaPreviewVideo" controls playsinline></video>
         </div>
-        <div class="compose-legal-warning" id="composeLegalWarning">
-          <p>
-            📜 על ידי העלאת תוכן אתה מאשר שהוא תואם את
-            <a href="terms.html" data-policy-target="terms.html">תנאי השירות</a>
-            ואת <a href="copyright.html" data-policy-target="copyright.html">מדיניות זכויות היוצרים</a>.
-          </p>
-          <label class="compose-legal-checkbox">
-            <input type="checkbox" id="composePolicyCheckbox">
-            <span>קראתי את המדיניות ואני מבין את אכיפת הרשת המבוזרת.</span>
-          </label>
-          <label class="compose-legal-checkbox">
-            <input type="checkbox" id="composeRightsCheckbox">
-            <span>התוכן שפורסם הוא בבעלותי או שיש לי רישיון לפרסמו.</span>
-          </label>
-        </div>
+        <!-- הועבר לחלון תנאים נפרד -->
+        <input type="hidden" id="composePolicyCheckbox" checked>
+        <input type="hidden" id="composeRightsCheckbox" checked>
         <div id="composeStatus" class="p2p-status"></div>
         <div class="compose-dialog__actions">
           <button class="button-secondary" onclick="closeCompose()">ביטול</button>
-          <button class="button-primary" id="composePublishButton" onclick="publishPost()">פרסם</button>
+          <button class="button-primary" id="composePublishButton" onclick="openTermsModal()">המשך</button>
         </div>
       </div>
+    </div>
+
+    <!-- חלון תנאים לפני פרסום | HYPER CORE TECH -->
+    <div class="terms-modal" id="termsModal" aria-hidden="true">
+      <div class="terms-modal__content">
+        <h3 class="terms-modal__title">📜 אישור תנאים</h3>
+        <div class="terms-modal__checkboxes">
+          <label class="terms-modal__checkbox">
+            <input type="checkbox" id="termsPolicyCheckbox">
+            <span>קראתי את <a href="terms.html" target="_blank">תנאי השירות</a> ו<a href="copyright.html" target="_blank">מדיניות זכויות היוצרים</a> ואני מבין את אכיפת הרשת המבוזרת.</span>
+          </label>
+          <label class="terms-modal__checkbox">
+            <input type="checkbox" id="termsRightsCheckbox">
+            <span>התוכן שפורסם הוא בבעלותי או שיש לי רישיון לפרסמו.</span>
+          </label>
+        </div>
+        <div class="terms-modal__actions">
+          <button class="terms-modal__cancel" onclick="closeTermsModal()">ביטול</button>
+          <button class="terms-modal__publish" id="termsPublishButton" onclick="confirmAndPublish()" disabled>פרסם</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- הודעת עיבוד ברקע | HYPER CORE TECH -->
+    <div class="processing-notice" id="processingNotice">
+      <p class="processing-notice__text">⏳ הפוסט שלך מעובד ומועלה...</p>
+      <p class="processing-notice__hint">אל תרענן את הדף! הכפתור <span class="blink-hint">המהבהב באדום</span> מציין שהעיבוד פעיל.</p>
     </div>
 
     <!-- חלק הקלטת וידאו (videos.html) – חלון בחירת זמן ומצלמה | HYPER CORE TECH -->
@@ -1160,6 +1398,213 @@
         });
       });
     </script>
+
+    <!-- חלון תנאים ואנימציית עיבוד | HYPER CORE TECH -->
+    <script>
+      (function() {
+        // פונקציות לניהול חלון התנאים
+        window.openTermsModal = function() {
+          // בדיקה שיש תוכן לפרסם
+          const App = window.NostrApp || {};
+          if (typeof App.getComposePayload === 'function') {
+            const payload = App.getComposePayload();
+            if (!payload) {
+              // אין תוכן - הפונקציה כבר הציגה הודעת שגיאה
+              return;
+            }
+          }
+
+          const modal = document.getElementById('termsModal');
+          const policyCheckbox = document.getElementById('termsPolicyCheckbox');
+          const rightsCheckbox = document.getElementById('termsRightsCheckbox');
+          
+          if (policyCheckbox) policyCheckbox.checked = false;
+          if (rightsCheckbox) rightsCheckbox.checked = false;
+          updateTermsPublishButton();
+          
+          if (modal) {
+            modal.classList.add('is-visible');
+            modal.setAttribute('aria-hidden', 'false');
+          }
+        };
+
+        window.closeTermsModal = function() {
+          const modal = document.getElementById('termsModal');
+          if (modal) {
+            modal.classList.remove('is-visible');
+            modal.setAttribute('aria-hidden', 'true');
+          }
+        };
+
+        function updateTermsPublishButton() {
+          const policyOk = document.getElementById('termsPolicyCheckbox')?.checked;
+          const rightsOk = document.getElementById('termsRightsCheckbox')?.checked;
+          const btn = document.getElementById('termsPublishButton');
+          if (btn) {
+            btn.disabled = !(policyOk && rightsOk);
+          }
+        }
+
+        // מאזינים לשינויים בצ'קבוקסים
+        document.addEventListener('DOMContentLoaded', function() {
+          const policyCheckbox = document.getElementById('termsPolicyCheckbox');
+          const rightsCheckbox = document.getElementById('termsRightsCheckbox');
+          
+          if (policyCheckbox) {
+            policyCheckbox.addEventListener('change', updateTermsPublishButton);
+          }
+          if (rightsCheckbox) {
+            rightsCheckbox.addEventListener('change', updateTermsPublishButton);
+          }
+        });
+
+        // פונקציה לאישור ופרסום
+        window.confirmAndPublish = async function() {
+          const policyOk = document.getElementById('termsPolicyCheckbox')?.checked;
+          const rightsOk = document.getElementById('termsRightsCheckbox')?.checked;
+          
+          if (!policyOk || !rightsOk) {
+            alert('יש לאשר את כל התנאים לפני הפרסום');
+            return;
+          }
+
+          // סגירת חלון התנאים
+          closeTermsModal();
+          
+          // סגירת חלון השיתוף
+          if (typeof closeCompose === 'function') {
+            closeCompose();
+          }
+
+          // הפעלת אנימציית הבהוב והודעת עיבוד
+          startProcessingAnimation();
+
+          // פרסום הפוסט עם עיבוד וידאו אם צריך
+          await publishPostWithAnimation();
+        };
+
+        // פונקציה לפרסום עם אנימציה ועיבוד וידאו
+        async function publishPostWithAnimation() {
+          try {
+            const App = window.NostrApp || {};
+            const composeState = App.composeState;
+            
+            // בדיקה אם יש וידאו שממתין לעיבוד
+            if (composeState && composeState.media && 
+                composeState.media.type === 'video' && 
+                composeState.media.pendingProcessing && 
+                composeState.media.originalFile) {
+              
+              console.log('[PUBLISH] Processing pending video...');
+              
+              // עיבוד הוידאו
+              if (typeof App.compressVideo === 'function') {
+                try {
+                  const file = composeState.media.originalFile;
+                  const result = await App.compressVideo(file, (progress) => {
+                    console.log('[PUBLISH] Video progress:', progress.stage, progress.percent);
+                  });
+                  
+                  // העלאה לשרת
+                  let uploadedUrl = '';
+                  if (typeof App.uploadToBlossom === 'function') {
+                    try {
+                      uploadedUrl = await App.uploadToBlossom(result.blob);
+                    } catch (uploadErr) {
+                      console.warn('Upload failed, using data URL', uploadErr);
+                    }
+                  }
+                  
+                  // אם ההעלאה נכשלה, נשתמש ב-data URL
+                  if (!uploadedUrl) {
+                    uploadedUrl = await new Promise((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onload = () => resolve(reader.result);
+                      reader.onerror = reject;
+                      reader.readAsDataURL(result.blob);
+                    });
+                  }
+                  
+                  // עדכון ה-state עם התוצאה
+                  composeState.media.url = uploadedUrl;
+                  composeState.media.dataUrl = uploadedUrl;
+                  composeState.media.hash = result.hash;
+                  composeState.media.size = result.size;
+                  composeState.media.mimeType = result.type || 'video/webm';
+                  composeState.media.pendingProcessing = false;
+                  delete composeState.media.originalFile;
+                  
+                  // רישום ב-P2P
+                  if (typeof App.registerFileAvailability === 'function' && result.hash && result.blob) {
+                    try {
+                      await App.registerFileAvailability(result.hash, result.blob, result.type || 'video/webm');
+                    } catch (err) {
+                      console.warn('P2P registration failed:', err);
+                    }
+                  }
+                  
+                  console.log('[PUBLISH] Video processed successfully');
+                } catch (videoErr) {
+                  console.error('Video processing failed:', videoErr);
+                  stopProcessingAnimation();
+                  alert('שגיאה בעיבוד הוידאו: ' + videoErr.message);
+                  return;
+                }
+              }
+            }
+            
+            // פרסום הפוסט
+            if (typeof App.publishPost === 'function') {
+              await App.publishPost();
+            } else if (typeof window.publishPost === 'function') {
+              await window.publishPost();
+            }
+          } catch (err) {
+            console.error('Publish error:', err);
+            stopProcessingAnimation();
+          }
+        }
+
+        // פונקציות לאנימציית עיבוד
+        window.startProcessingAnimation = function() {
+          // הבהוב כפתור הפרופיל
+          const profileBtn = document.getElementById('topBarProfileButton');
+          if (profileBtn) {
+            profileBtn.classList.add('processing');
+          }
+
+          // הצגת הודעת עיבוד
+          const notice = document.getElementById('processingNotice');
+          if (notice) {
+            notice.classList.add('is-visible');
+            // הסתרה אוטומטית אחרי 10 שניות
+            setTimeout(function() {
+              notice.classList.remove('is-visible');
+            }, 10000);
+          }
+        };
+
+        window.stopProcessingAnimation = function() {
+          // עצירת הבהוב
+          const profileBtn = document.getElementById('topBarProfileButton');
+          if (profileBtn) {
+            profileBtn.classList.remove('processing');
+          }
+
+          // הסתרת הודעת עיבוד
+          const notice = document.getElementById('processingNotice');
+          if (notice) {
+            notice.classList.remove('is-visible');
+          }
+        };
+
+        // חשיפה גלובלית לשימוש מקבצים אחרים
+        window.NostrApp = window.NostrApp || {};
+        window.NostrApp.startProcessingAnimation = window.startProcessingAnimation;
+        window.NostrApp.stopProcessingAnimation = window.stopProcessingAnimation;
+      })();
+    </script>
+
     <!-- חיבור הודעות ושיחות (videos.html) – מבטיח שהצ'אט יאתחל שיחות נכנסות כמו בפיד הראשי | HYPER CORE TECH -->
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={}),chatBtn=document.getElementById('messagesToggle');if(chatBtn){chatBtn.addEventListener('click',function(){if(typeof App.openChatPanel==='function'){App.openChatPanel();}setTimeout(function(){if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();}},100);});}console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();});</script>
   </body>

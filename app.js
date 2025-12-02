@@ -131,7 +131,6 @@
     App.relayUrls = [
       'wss://relay.snort.social',
       'wss://nos.lol',
-      'wss://purplerelay.com',
       'wss://nostr-relay.xbytez.io',
       'wss://nostr-02.uid.ovh',
     ];
@@ -141,7 +140,6 @@
     App.p2pRelayUrls = [
       'wss://relay.snort.social',
       'wss://nos.lol',
-      'wss://purplerelay.com',
       'wss://nostr-relay.xbytez.io',
       'wss://nostr-02.uid.ovh',
       'wss://nostr.0x7e.xyz',

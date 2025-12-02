@@ -53,10 +53,9 @@
   }
 
   function updateComposeLegalState() {
+    // הצ'קבוקסים הועברו לחלון תנאים נפרד - כפתור "המשך" תמיד פעיל
     if (!elements.publishButton) return;
-    const policyOk = elements.policyCheckbox ? elements.policyCheckbox.checked : true;
-    const rightsOk = elements.rightsCheckbox ? elements.rightsCheckbox.checked : true;
-    elements.publishButton.disabled = !(policyOk && rightsOk);
+    elements.publishButton.disabled = false;
   }
 
   // פונקציות התקדמות גרפיות חדשות
@@ -308,7 +307,7 @@
     }
   }
 
-  // חלק וידאו (compose.js) – טיפול בקובץ וידאו: בדיקה, דחיסה, העלאה
+  // חלק וידאו (compose.js) – טיפול בקובץ וידאו: תצוגה מקדימה בלבד, העיבוד יקרה בפרסום
   async function handleVideoFile(file) {
     console.log('[COMPOSE] handleVideoFile started:', {
       name: file.name,
@@ -325,104 +324,92 @@
       return;
     }
 
-    // בדיקת תמיכה בדחיסה
-    if (typeof App.compressVideo !== 'function') {
-      console.error('[COMPOSE] App.compressVideo not available:', typeof App.compressVideo);
-      setStatus('מנוע דחיסת הווידאו לא זמין. רענן את הדף.', 'error');
-      return;
-    }
-
     try {
-      // דחיסה
-      setProgressWithIcon('מכין וידאו לעיבוד...', '⚙️');
-      console.log('[COMPOSE] Starting video compression...');
-      const result = await App.compressVideo(file, (progress) => {
-        if (progress.stage === 'compressing') {
-          setProgressWithMeter(progress.percent, 'compressing', '🎬');
-        } else if (progress.stage === 'finalizing') {
-          setProgressWithIcon('משלים עיבוד...', '⚡');
-        } else if (progress.stage === 'uploading') {
-          setProgressWithMeter(progress.percent, 'uploading', '📤');
-        }
-      });
-
-      console.log('[COMPOSE] Video compression completed:', {
-        original: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
-        compressed: (result.size / (1024 * 1024)).toFixed(2) + 'MB',
-        ratio: result.compressionRatio + '%',
-        hash: result.hash ? result.hash.substring(0, 16) + '...' : 'none'
-      });
-
-      // הודעה ידידותית אם לא הייתה דחיסה
-      if (result.compressionRatio === '0.0') {
-        console.log('העלאת קובץ מקורי (טלפון)');
-      }
-
-      // ניסיון העלאה ל-Blossom עם פולבאק ל-data URL במקרה של כשל רשת
-      let uploadedUrl = '';
-      try {
-        setProgressWithIcon('מתחבר לשרת...', '🌐');
-        const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
-        if (uploadResult && uploadResult.url) {
-          uploadedUrl = uploadResult.url;
-          setProgressWithIcon('מעלה וידאו לשרת...', '☁️');
-        } else {
-          throw new Error('העלאה נכשלה');
-        }
-      } catch (uploadErr) {
-        console.warn('Blossom upload failed, falling back to inline data URL', uploadErr);
-        setProgressWithIcon('שומר וידאו מקומית...', '💾');
-        // פולבאק: שמירה כ-data:video ישירות בפוסט
-        const dataUrl = await new Promise((resolve, reject) => {
-          try {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(result.blob);
-          } catch (e) { reject(e); }
-        });
-        uploadedUrl = '';
-        const inlineUrl = String(dataUrl || '');
-        state.media = {
-          type: 'video',
-          dataUrl: inlineUrl,
-          url: inlineUrl,
-          hash: result.hash,
-          size: result.size,
-          mimeType: result.type || 'video/webm'
-        };
-        showMediaPreview(state.media);
-        setStatus(`הוידאו הוכן מקומית (${(result.size / (1024 * 1024)).toFixed(1)}MB).`);
-        return; // יציאה – המדיה הוגדרה כ-data URL
-      }
-
-      // שמירת מידע במצב (מסלול העלאה מוצלח)
+      // יצירת תצוגה מקדימה מיידית - ללא עיבוד
+      const previewUrl = URL.createObjectURL(file);
+      
+      // שמירת הקובץ המקורי לעיבוד מאוחר יותר
       state.media = {
         type: 'video',
-        dataUrl: URL.createObjectURL(result.blob),
-        url: uploadedUrl,
-        hash: result.hash,
-        size: result.size,
-        mimeType: result.type || 'video/webm'
+        dataUrl: previewUrl,
+        originalFile: file, // שומרים את הקובץ המקורי לעיבוד בפרסום
+        pendingProcessing: true, // סימון שצריך עיבוד
+        size: file.size,
+        mimeType: file.type || 'video/mp4'
       };
 
-      // רישום הקובץ במערכת P2P
-      if (typeof App.registerFileAvailability === 'function' && result.hash && result.blob) {
-        try {
-          await App.registerFileAvailability(result.hash, result.blob, result.type || 'video/webm');
-          console.log('[COMPOSE] וידאו נרשם ב-P2P:', result.hash);
-        } catch (err) {
-          console.warn('[COMPOSE] רישום P2P נכשל:', err);
-        }
-      }
-
       showMediaPreview(state.media);
-      setStatus(`וידאו הועלה בהצלחה (${(result.size / (1024 * 1024)).toFixed(1)}MB)`);
+      setStatus(`וידאו נבחר (${(file.size / (1024 * 1024)).toFixed(1)}MB) - לחץ המשך לפרסום`);
+      console.log('[COMPOSE] Video preview ready, processing will happen on publish');
     } catch (err) {
-      console.error('Video processing failed', err);
-      setStatus(err.message || 'שגיאה בעיבוד הוידאו', 'error');
+      console.error('Video preview failed', err);
+      setStatus(err.message || 'שגיאה בטעינת הוידאו', 'error');
       clearMediaPreview();
     }
+  }
+
+  // חלק וידאו (compose.js) – עיבוד והעלאת וידאו (נקרא בזמן פרסום)
+  async function processAndUploadVideo(file) {
+    console.log('[COMPOSE] processAndUploadVideo started');
+    
+    // בדיקת תמיכה בדחיסה
+    if (typeof App.compressVideo !== 'function') {
+      console.error('[COMPOSE] App.compressVideo not available');
+      throw new Error('מנוע דחיסת הווידאו לא זמין');
+    }
+
+    // דחיסה
+    const result = await App.compressVideo(file, (progress) => {
+      if (progress.stage === 'compressing') {
+        console.log('[COMPOSE] Compressing:', progress.percent + '%');
+      } else if (progress.stage === 'finalizing') {
+        console.log('[COMPOSE] Finalizing...');
+      }
+    });
+
+    console.log('[COMPOSE] Video compression completed:', {
+      original: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
+      compressed: (result.size / (1024 * 1024)).toFixed(2) + 'MB'
+    });
+
+    // ניסיון העלאה ל-Blossom
+    let uploadedUrl = '';
+    try {
+      const uploadResult = await uploadVideoToBlossom(result.blob, result.hash);
+      if (uploadResult && uploadResult.url) {
+        uploadedUrl = uploadResult.url;
+      } else {
+        throw new Error('העלאה נכשלה');
+      }
+    } catch (uploadErr) {
+      console.warn('Blossom upload failed, falling back to inline data URL', uploadErr);
+      // פולבאק: שמירה כ-data:video
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(result.blob);
+      });
+      uploadedUrl = dataUrl;
+    }
+
+    // רישום הקובץ במערכת P2P
+    if (typeof App.registerFileAvailability === 'function' && result.hash && result.blob) {
+      try {
+        await App.registerFileAvailability(result.hash, result.blob, result.type || 'video/webm');
+        console.log('[COMPOSE] וידאו נרשם ב-P2P:', result.hash);
+      } catch (err) {
+        console.warn('[COMPOSE] רישום P2P נכשל:', err);
+      }
+    }
+
+    return {
+      url: uploadedUrl,
+      hash: result.hash,
+      size: result.size,
+      mimeType: result.type || 'video/webm',
+      blob: result.blob
+    };
   }
 
   // חלק וידאו (compose.js) – העלאה ל-Blossom/void.cat
@@ -852,14 +839,7 @@
   }
 
   function getComposePayload() {
-    if (elements.policyCheckbox && !elements.policyCheckbox.checked) {
-      setStatus('יש לאשר את תנאי התוכן לפני הפרסום.', 'error');
-      return null;
-    }
-    if (elements.rightsCheckbox && !elements.rightsCheckbox.checked) {
-      setStatus('יש לאשר שהזכויות לתוכן הן שלך.', 'error');
-      return null;
-    }
+    // הצ'קבוקסים הועברו לחלון תנאים נפרד - אין צורך לבדוק כאן
     const text = elements.textarea ? elements.textarea.value.trim() : '';
     const includeTextContent = !(state.backgroundActive && state.bgTextOnly);
     const textContent = includeTextContent ? text : '';
@@ -1101,9 +1081,13 @@
       try { if (typeof app.onPostPublished === 'function') app.onPostPublished(signed); } catch (_) {}
       resetCompose();
       closeCompose();
+      // עצירת אנימציית העיבוד
+      try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
     } catch (err) {
       console.error('Failed to publish post', err);
       setStatus('שגיאה בפרסום. נסה שוב.', 'error');
+      // עצירת אנימציית העיבוד גם במקרה של שגיאה
+      try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
     }
   }
 
@@ -1121,6 +1105,8 @@
     clearEditing,
     // חלק קומפוזר – פרסום פוסט גלובלי כדי לתמוך ב-videos.html גם ללא app.js
     publishPost: publishPostImpl,
+    // חלק וידאו – עיבוד והעלאת וידאו (לשימוש מחלון התנאים)
+    processAndUploadVideo,
   });
 
   // פונקציות נפרדות לתמונה ווידיאו

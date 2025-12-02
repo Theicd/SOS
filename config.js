@@ -42,14 +42,12 @@
   const SAFE_DEFAULT_RELAYS = [
     'wss://relay.snort.social',
     'wss://nos.lol',
-    'wss://purplerelay.com',
     'wss://nostr-relay.xbytez.io',
     'wss://nostr-02.uid.ovh',
   ];
   const SAFE_DEFAULT_P2P_RELAYS = [
     'wss://relay.snort.social',
     'wss://nos.lol',
-    'wss://purplerelay.com',
     'wss://nostr-relay.xbytez.io',
     'wss://nostr-02.uid.ovh',
     'wss://nostr.0x7e.xyz',

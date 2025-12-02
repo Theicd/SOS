@@ -3494,10 +3494,14 @@ async function loadFeed() {
       console.log('Published event');
       document.getElementById('connection-status').textContent = 'הפוסט פורסם!';
       App.setComposeStatus?.('הפוסט פורסם בהצלחה.');
+      // עצירת אנימציית העיבוד
+      try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
     } catch (e) {
       console.error('Publish error', e);
       document.getElementById('connection-status').textContent = 'הפרסום נכשל. נסה שוב.';
       App.setComposeStatus?.('שגיאה בפרסום. נסה שוב מאוחר יותר.', 'error');
+      // עצירת אנימציית העיבוד גם במקרה של שגיאה
+      try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
       return;
     }
 

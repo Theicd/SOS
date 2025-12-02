@@ -187,11 +187,12 @@ function restoreYouTubeThumbnail(mediaDiv) {
 }
 
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים לפי רשת המשתמש (authors)
-async function fetchNetworkNotes(authors = [], limit = 500) {
+async function fetchNetworkNotes(authors = [], limit = 100, sinceOverride = undefined) {
   const app = window.NostrApp;
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) return [];
   if (!Array.isArray(authors) || authors.length === 0) return [];
-  const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
+  // אם יש sinceOverride (מהמטמון) - נשתמש בו, אחרת 30 יום
+  const since = sinceOverride || Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
   const networkTag = getNetworkTag();
   const filters = [{ kinds: [1], authors, since, limit, '#t': [networkTag] }];
   try {
@@ -222,7 +223,11 @@ const state = {
   incrementalRender: null,
   firstCardRendered: false,
   pendingOldCards: null,
+  downloadedBytes: 0, // מעקב אחרי כמות הנתונים שהורדו
 };
+
+// חלק טעינה (videos.js) – סף מינימלי להורדה לפני סגירת מסך הטעינה | HYPER CORE TECH
+const MIN_DOWNLOAD_BYTES = 20 * 1024 * 1024; // 20MB מינימום
 
 const selectors = {
   stream: null,
@@ -232,9 +237,10 @@ const selectors = {
 let activeMediaDiv = null;
 let intersectionObserver = null;
 
-const FEED_CACHE_KEY = 'videos_feed_cache_v1';
-const FEED_CACHE_LIMIT = 60;
-const FEED_CACHE_TTL = 5 * 60 * 1000;
+const FEED_CACHE_KEY = 'videos_feed_cache_v3';
+const FEED_CACHE_MAX_SIZE = 1024 * 1024 * 1024; // 1GB מקסימום
+const FEED_CACHE_CLEANUP_BATCH = 20; // כמה פוסטים למחוק בכל פעם
+const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפח
 
 function getNetworkTag() {
   const app = window.NostrApp;
@@ -256,16 +262,69 @@ function sanitizeCachedVideo(video) {
 function saveFeedCache(videos) {
   try {
     const trimmed = (videos || [])
-      .slice(0, FEED_CACHE_LIMIT)
       .map((video) => sanitizeCachedVideo(video))
       .filter(Boolean);
     const payload = {
       timestamp: Date.now(),
       videos: trimmed,
     };
-    window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(payload));
+    const jsonStr = JSON.stringify(payload);
+    
+    // בדיקת גודל לפני שמירה
+    const sizeBytes = new Blob([jsonStr]).size;
+    if (sizeBytes > FEED_CACHE_MAX_SIZE * FEED_CACHE_CLEANUP_THRESHOLD) {
+      // ניקוי הדרגתי - מחיקת פוסטים ישנים
+      console.log('[videos] cache approaching limit, cleaning old posts', { sizeMB: Math.round(sizeBytes / 1024 / 1024) });
+      const cleaned = cleanupOldPosts(trimmed);
+      payload.videos = cleaned;
+      window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(payload));
+    } else {
+      window.localStorage.setItem(FEED_CACHE_KEY, jsonStr);
+    }
   } catch (err) {
-    console.warn('[videos] failed saving feed cache', err);
+    if (err.name === 'QuotaExceededError') {
+      // אם נגמר המקום - נקה ונסה שוב
+      console.warn('[videos] storage quota exceeded, forcing cleanup');
+      forceCleanupCache();
+    } else {
+      console.warn('[videos] failed saving feed cache', err);
+    }
+  }
+}
+
+// חלק מטמון (videos.js) – ניקוי הדרגתי של פוסטים ישנים | HYPER CORE TECH
+function cleanupOldPosts(videos) {
+  if (!Array.isArray(videos) || videos.length <= FEED_CACHE_CLEANUP_BATCH) {
+    return videos;
+  }
+  // מיון לפי תאריך יצירה (חדש לישן)
+  const sorted = [...videos].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  // הסרת הפוסטים הישנים ביותר
+  const cleaned = sorted.slice(0, sorted.length - FEED_CACHE_CLEANUP_BATCH);
+  console.log('[videos] cleaned old posts', { before: videos.length, after: cleaned.length });
+  return cleaned;
+}
+
+// חלק מטמון (videos.js) – ניקוי כפוי כשנגמר המקום | HYPER CORE TECH
+function forceCleanupCache() {
+  try {
+    const raw = window.localStorage.getItem(FEED_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.videos)) return;
+    
+    // מחיקת 30% מהפוסטים הישנים
+    const sorted = [...parsed.videos].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const keepCount = Math.floor(sorted.length * 0.7);
+    const cleaned = sorted.slice(0, keepCount);
+    
+    const payload = { timestamp: Date.now(), videos: cleaned };
+    window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(payload));
+    console.log('[videos] force cleanup done', { before: parsed.videos.length, after: cleaned.length });
+  } catch (err) {
+    // אם גם זה נכשל - מחק הכל ותתחיל מחדש
+    console.warn('[videos] force cleanup failed, clearing cache', err);
+    window.localStorage.removeItem(FEED_CACHE_KEY);
   }
 }
 
@@ -277,9 +336,7 @@ function loadFeedCache() {
     if (!parsed || !Array.isArray(parsed.videos)) {
       return null;
     }
-    if (!parsed.timestamp || Date.now() - parsed.timestamp > FEED_CACHE_TTL) {
-      return null;
-    }
+    // אין TTL - המטמון תקף לעולם (עד שנגמר המקום)
     return parsed.videos
       .map((video) => sanitizeCachedVideo(video))
       .filter(Boolean);
@@ -289,13 +346,48 @@ function loadFeedCache() {
   }
 }
 
+// חלק מטמון (videos.js) – קבלת מידע על המטמון לצורך טעינה חכמה | HYPER CORE TECH
+function getCacheInfo() {
+  try {
+    const raw = window.localStorage.getItem(FEED_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.videos)) return null;
+    
+    // מציאת ה-timestamp של הפוסט החדש ביותר במטמון
+    let newestPostTime = 0;
+    parsed.videos.forEach(v => {
+      if (v && v.createdAt && v.createdAt > newestPostTime) {
+        newestPostTime = v.createdAt;
+      }
+    });
+    
+    return {
+      lastUpdate: parsed.timestamp || 0,
+      videoCount: parsed.videos.length,
+      newestPostTime: newestPostTime,
+      cachedIds: new Set(parsed.videos.map(v => v?.id).filter(Boolean))
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+// חלק מטמון (videos.js) – בדיקה אם צריך לרענן מהרשת | HYPER CORE TECH
+// תמיד נבדוק אם יש פוסטים חדשים, אבל נוריד רק את החדשים (since = הפוסט האחרון)
+function shouldRefreshFromNetwork() {
+  return true; // תמיד נבדוק - הסינון נעשה ב-loadVideos לפי newestPostTime
+}
+
 function hydrateFeedFromCache() {
   const cached = loadFeedCache();
   if (Array.isArray(cached) && cached.length) {
     console.log('[videos] hydrate feed from cache', { count: cached.length });
     state.videos = cached;
     renderVideos();
+    return true;
   }
+  return false;
 }
 
 function removeVideoFromState(eventId) {
@@ -478,12 +570,30 @@ function showLoadingAnimation() {
   if (overlay) {
     overlay.classList.remove('hidden');
   }
+  // איפוס מד הטעינה
+  setLoadingProgress(0);
+  setLoadingStatus('מתחבר לרשת...');
 }
 
 function hideLoadingAnimation() {
   const overlay = document.getElementById('videosLoadingOverlay');
   if (overlay) {
     overlay.classList.add('hidden');
+  }
+}
+
+// חלק יאללה וידאו (videos.js) – עדכון מד טעינה והודעות סטטוס | HYPER CORE TECH
+function setLoadingProgress(percent) {
+  const fill = document.getElementById('videosLoadingBarFill');
+  if (fill) {
+    fill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+  }
+}
+
+function setLoadingStatus(message) {
+  const status = document.getElementById('videosLoadingStatus');
+  if (status) {
+    status.textContent = message;
   }
 }
 
@@ -1573,18 +1683,19 @@ function setupIntersectionObserver() {
 }
 
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים מהרילאים (fallback ללא הפיד הראשי)
-async function fetchRecentNotes(limit = 500) {
+async function fetchRecentNotes(limit = 100, sinceOverride = undefined) {
   const app = window.NostrApp;
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
     console.warn('[videos] fetchRecentNotes: pool/relays not ready');
     return [];
   }
-  const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30; // 30 יום אחרונים
+  // אם יש sinceOverride (מהמטמון) - נשתמש בו, אחרת 30 יום
+  const since = sinceOverride || Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
   const networkTag = getNetworkTag();
   const filters = [{ kinds: [1], limit, since, '#t': [networkTag] }];
   const filtersNoSince = [{ kinds: [1], limit, '#t': [networkTag] }];
   try {
-    console.log('[videos] fetchRecentNotes: using list', { relays: app.relayUrls.length, limit, since });
+    console.log('[videos] fetchRecentNotes: using list', { relays: app.relayUrls.length, limit, since, fromCache: !!sinceOverride });
     if (typeof app.pool.list === 'function') {
       const listed = await app.pool.list(app.relayUrls, filters);
       if (Array.isArray(listed) && listed.length > 0) {
@@ -1832,37 +1943,73 @@ function registerVideoCommentRecord(app, event, parentId) {
 
 // חלק יאללה וידאו (videos.js) – טעינת סרטונים מהפיד
 async function loadVideos() {
-  showLoadingAnimation(); // הצגת אנימציית טעינה
+  // הצגת אנימציית טעינה רק אם אין תוכן מהמטמון
+  if (!state.firstCardRendered) {
+    showLoadingAnimation();
+  }
   
   const currentApp = window.NostrApp;
   let sourceEvents = [];
   const networkTag = getNetworkTag();
+  
+  // קבלת מידע על המטמון לסינון פוסטים קיימים והורדת רק החדשים
+  const cacheInfo = getCacheInfo();
+  const cachedIds = cacheInfo?.cachedIds || new Set();
+  const newestCachedTime = cacheInfo?.newestPostTime || 0;
+  
+  setLoadingProgress(10);
+  setLoadingStatus('בודק מטמון מקומי...');
+  
+  console.log('[videos] loadVideos: cache info', { 
+    cachedCount: cachedIds.size, 
+    newestPostTime: newestCachedTime ? new Date(newestCachedTime * 1000).toLocaleString() : 'none'
+  });
+
+  setLoadingProgress(20);
+  setLoadingStatus('מתחבר לשרתים...');
 
   if (currentApp && currentApp.postsById && currentApp.postsById.size > 0) {
     const fromApp = Array.from(currentApp.postsById.values());
-    sourceEvents = filterEventsByNetwork(fromApp, networkTag);
-    console.log('[videos] loadVideos: postsById', { total: fromApp.length, afterFilter: sourceEvents.length });
+    // סינון פוסטים שכבר יש במטמון
+    const newFromApp = fromApp.filter(ev => ev && !cachedIds.has(ev.id));
+    sourceEvents = filterEventsByNetwork(newFromApp, networkTag);
+    console.log('[videos] loadVideos: postsById', { total: fromApp.length, new: newFromApp.length, afterFilter: sourceEvents.length });
+    setLoadingProgress(40);
   } else {
-    // Fallback: משיכת אירועים ישירות מהרילאים
-    const fetched = await fetchRecentNotes(300);
-    sourceEvents = filterEventsByNetwork(fetched, networkTag);
-    console.log('[videos] loadVideos: relays fallback', { fetched: fetched.length || 0, afterFilter: sourceEvents.length });
+    // Fallback: משיכת אירועים חדשים בלבד מהרילאים (since = הפוסט האחרון במטמון)
+    setLoadingStatus('מוריד פוסטים מהרשת...');
+    const sinceTime = newestCachedTime > 0 ? newestCachedTime : undefined;
+    const fetched = await fetchRecentNotes(100, sinceTime);
+    setLoadingProgress(40);
+    // סינון פוסטים שכבר יש במטמון
+    const newFetched = fetched.filter(ev => ev && !cachedIds.has(ev.id));
+    sourceEvents = filterEventsByNetwork(newFetched, networkTag);
+    console.log('[videos] loadVideos: relays fallback', { fetched: fetched.length || 0, new: newFetched.length, afterFilter: sourceEvents.length, since: sinceTime });
   }
 
-  // העשרת המקור עם רשת המשתמש
+  setLoadingProgress(50);
+  setLoadingStatus('בודק עדכונים מהרשת שלך...');
+
+  // העשרת המקור עם רשת המשתמש - רק פוסטים חדשים
   const authors = [];
   if (currentApp?.followingSet && currentApp.followingSet.size) authors.push(...Array.from(currentApp.followingSet));
   if (currentApp?.publicKey) authors.push(currentApp.publicKey);
   if (authors.length) {
-    const netNotes = await fetchNetworkNotes(authors.slice(0, 500));
+    const sinceTime = newestCachedTime > 0 ? newestCachedTime : undefined;
+    const netNotes = await fetchNetworkNotes(authors.slice(0, 500), 100, sinceTime);
     if (Array.isArray(netNotes) && netNotes.length) {
-      const filteredNet = filterEventsByNetwork(netNotes, networkTag);
-      console.log('[videos] loadVideos: network authors', { fetched: netNotes.length, afterFilter: filteredNet.length });
+      // סינון פוסטים שכבר יש במטמון
+      const newNetNotes = netNotes.filter(ev => ev && !cachedIds.has(ev.id));
+      const filteredNet = filterEventsByNetwork(newNetNotes, networkTag);
+      console.log('[videos] loadVideos: network authors', { fetched: netNotes.length, new: newNetNotes.length, afterFilter: filteredNet.length });
       sourceEvents = sourceEvents.concat(filteredNet);
     } else {
       console.log('[videos] loadVideos: network authors', { fetched: netNotes.length || 0, afterFilter: 0 });
     }
   }
+
+  setLoadingProgress(60);
+  setLoadingStatus('מסנן תוכן...');
 
   // הסרת כפילויות לפי id
   if (Array.isArray(sourceEvents) && sourceEvents.length) {
@@ -1870,8 +2017,18 @@ async function loadVideos() {
     sourceEvents = sourceEvents.filter(ev => { if (!ev || !ev.id) return false; if (seen.has(ev.id)) return false; seen.add(ev.id); return true; });
   }
 
+  // אם אין פוסטים חדשים ויש כבר תוכן מהמטמון - סיים
+  if ((!Array.isArray(sourceEvents) || sourceEvents.length === 0) && state.videos.length > 0) {
+    console.log('[videos] loadVideos: no new events, keeping cached content');
+    setLoadingProgress(100);
+    setLoadingStatus('הכל מעודכן!');
+    hideLoadingAnimation();
+    return;
+  }
+
   if (!Array.isArray(sourceEvents) || sourceEvents.length === 0) {
     console.warn('[videos] loadVideos: no events after both sources');
+    setLoadingStatus('מחפש תוכן...');
     setTimeout(loadVideos, 1000);
     return;
   }
@@ -1936,11 +2093,17 @@ async function loadVideos() {
     }
   });
 
+  setLoadingProgress(70);
+  setLoadingStatus('טוען פרופילים...');
+
   // משיכת פרופילים לכל המחברים
   const uniqueAuthors = [...new Set(videoEvents.map(v => v.pubkey))];
   if (uniqueAuthors.length > 0 && typeof currentApp?.fetchProfile === 'function') {
     await Promise.all(uniqueAuthors.map(pubkey => currentApp.fetchProfile(pubkey)));
   }
+
+  setLoadingProgress(80);
+  setLoadingStatus('טוען לייקים ותגובות...');
 
   // טעינת לייקים ותגובות לכל הפוסטים
   await loadLikesAndCommentsForVideos(videoEvents.map(v => v.id));
@@ -1953,6 +2116,9 @@ async function loadVideos() {
   // התחלת מנוי חי כדי לקבל התרעות חדשות בזמן אמת
   setupVideoRealtimeSubscription(videoEvents.map(v => v.id));
 
+  setLoadingProgress(90);
+  setLoadingStatus('מכין תצוגה...');
+
   // עדכון נתוני המחברים
   videoEvents.forEach((video) => {
     const profileData = currentApp?.profileCache?.get(video.pubkey) || {};
@@ -1963,7 +2129,35 @@ async function loadVideos() {
 
   videoEvents.sort((a, b) => b.createdAt - a.createdAt);
   console.log('[videos] loadVideos: video events found', { count: videoEvents.length });
-  state.videos = videoEvents;
+  
+  setLoadingProgress(95);
+  setLoadingStatus(`נמצאו ${videoEvents.length} פוסטים!`);
+  
+  // חלק מיזוג מטמון (videos.js) – מיזוג פוסטים חדשים עם קיימים במקום החלפה מלאה | HYPER CORE TECH
+  const existingIds = new Set(state.videos.map(v => v.id));
+  const newVideos = videoEvents.filter(v => !existingIds.has(v.id));
+  
+  if (newVideos.length > 0) {
+    // הוספת פוסטים חדשים בתחילת הרשימה
+    state.videos = [...newVideos, ...state.videos];
+    // הסרת כפילויות ומיון מחדש
+    const seen = new Set();
+    state.videos = state.videos.filter(v => {
+      if (seen.has(v.id)) return false;
+      seen.add(v.id);
+      return true;
+    });
+    state.videos.sort((a, b) => b.createdAt - a.createdAt);
+    console.log('[videos] merged new videos', { newCount: newVideos.length, totalCount: state.videos.length });
+  } else if (state.videos.length === 0) {
+    // אין פוסטים קיימים – השתמש בחדשים
+    state.videos = videoEvents;
+  }
+  
+  setLoadingProgress(100);
+  setLoadingStatus('מוכן!');
+  
+  saveFeedCache(state.videos);
   renderVideos();
 }
 
@@ -2070,11 +2264,25 @@ async function init() {
     });
   }
 
+  // חלק מטמון (videos.js) – הצגת פוסטים מהמטמון מיד לפני טעינה מהרשת | HYPER CORE TECH
+  const hadCachedContent = hydrateFeedFromCache();
+  if (hadCachedContent) {
+    // יש תוכן מהמטמון – הסתר אנימציית טעינה מיד
+    hideLoadingAnimation();
+    if (selectors.status) {
+      selectors.status.style.display = 'none';
+    }
+    state.firstCardRendered = true;
+    autoPlayFirstVideo();
+    console.log('[videos] displayed cached content, loading fresh in background');
+  }
+
   await waitForApp();
   const app = window.NostrApp || {};
   if (typeof app.buildCoreFeedFilters !== 'function') {
     app.buildCoreFeedFilters = buildVideoFeedFilters;
   }
+  // טעינת תוכן חדש ברקע (גם אם יש מטמון)
   loadVideos();
 }
 

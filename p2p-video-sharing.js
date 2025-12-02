@@ -26,13 +26,13 @@
   const MAX_AVAILABILITY_EVENTS_PER_WINDOW = 5;
   const SIGNAL_RATE_WINDOW_MS = 1000;
   const MAX_SIGNALS_PER_WINDOW = 3;
-  const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 15000;
+  const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 10000; // 10 שניות לחיפוש peers
   const PEER_DISCOVERY_LOOKBACK = 24 * 60 * 60; // 24 שעות אחורה - כדי למצוא peers גם אם פרסמו מוקדם יותר
   const CHUNK_SIZE = 16384; // 16KB chunks
-  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 45000; // 45 שניות
-  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 30000;
-  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 3;
-  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000;
+  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 120000; // 2 דקות להורדה - מספיק לקבצים גדולים
+  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 30000; // 30 שניות לתשובה - מספיק לחיבור WebRTC
+  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 2; // 2 ניסיונות לכל peer
+  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000; // 2 שניות בין ניסיונות
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -40,8 +40,22 @@
     : {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          // TURN servers חינמיים לשיפור חיבוריות (במיוחד למובייל)
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
+        ],
+        iceCandidatePoolSize: 10
       };
 
   // חלק P2P (p2p-video-sharing.js) – מצב המערכת
@@ -1194,6 +1208,68 @@
     return files.size;
   }
 
+  // חלק P2P (p2p-video-sharing.js) – טעינת קבצים זמינים מ-IndexedDB בעת אתחול
+  async function loadAvailableFilesFromCache() {
+    try {
+      const DB_NAME = 'SOS2MediaCache';
+      const STORE_NAME = 'media';
+
+      return new Promise((resolve) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        
+        request.onerror = () => {
+          log('error', '❌ לא ניתן לפתוח IndexedDB לטעינת קבצים');
+          resolve(0);
+        };
+
+        request.onsuccess = () => {
+          const db = request.result;
+          
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            log('info', 'ℹ️ אין store של מדיה ב-IndexedDB');
+            resolve(0);
+            return;
+          }
+
+          const transaction = db.transaction([STORE_NAME], 'readonly');
+          const store = transaction.objectStore(STORE_NAME);
+          const getAllRequest = store.getAll();
+
+          getAllRequest.onsuccess = () => {
+            const entries = getAllRequest.result || [];
+            let loadedCount = 0;
+
+            entries.forEach((entry) => {
+              if (entry.hash && entry.blob && entry.pinned) {
+                state.availableFiles.set(entry.hash, {
+                  blob: entry.blob,
+                  mimeType: entry.mimeType || entry.blob.type,
+                  size: entry.size || entry.blob.size,
+                  timestamp: entry.timestamp || Date.now(),
+                });
+                loadedCount++;
+              }
+            });
+
+            log('success', `✅ נטענו ${loadedCount} קבצים זמינים מ-cache`, {
+              total: entries.length,
+              pinned: loadedCount
+            });
+            resolve(loadedCount);
+          };
+
+          getAllRequest.onerror = () => {
+            log('error', '❌ שגיאה בטעינת קבצים מ-IndexedDB');
+            resolve(0);
+          };
+        };
+      });
+    } catch (err) {
+      log('error', `❌ שגיאה בטעינת קבצים זמינים: ${err.message}`);
+      return 0;
+    }
+  }
+
   // חשיפה ל-App
   Object.assign(App, {
     registerFileAvailability,
@@ -1204,11 +1280,15 @@
     p2pGetAvailableFiles: () => state.availableFiles,
     p2pGetActiveConnections: () => state.activeConnections,
     p2pDebugCheckRelay: debugCheckRelayEvents,
+    p2pReloadAvailableFiles: loadAvailableFilesFromCache, // טעינה מחדש של קבצים זמינים
   });
 
   // אתחול
-  function init() {
+  async function init() {
     log('info', '🚀 מערכת P2P Video Sharing מאותחלת...');
+    
+    // טעינת קבצים זמינים מ-cache
+    await loadAvailableFilesFromCache();
     
     // ניסיון אתחול מיידי
     function tryInit() {
@@ -1216,7 +1296,8 @@
         listenForP2PSignals();
         log('success', '✅ מערכת P2P מוכנה!', {
           publicKey: App.publicKey.slice(0, 16) + '...',
-          relays: getP2PRelays().length
+          relays: getP2PRelays().length,
+          availableFiles: state.availableFiles.size
         });
         return true;
       }
