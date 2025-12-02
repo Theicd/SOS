@@ -1922,8 +1922,12 @@
         if (normalizedPeers.length) {
           try {
             const multiResult = await downloadViaMultiPeer(normalizedPeers, hash, mimeType);
+            const peersList = Array.isArray(multiResult.peers) && multiResult.peers.length
+              ? multiResult.peers
+              : normalizedPeers.map((p) => p.pubkey);
+            const primaryPeer = peersList.length ? peersList[0] : null;
             log('success', '🎉 הורדת multi-peer הושלמה!', {
-              peers: multiResult.peers?.map?.((p) => p.slice(0, 16) + '...') || normalizedPeers.map((p) => p.pubkey.slice(0, 16) + '...'),
+              peers: peersList.map((p) => p.slice(0, 16) + '...'),
               pieceCount: multiResult.pieceCount,
             });
 
@@ -1932,7 +1936,12 @@
             }
 
             await registerFileAvailability(hash, multiResult.blob, multiResult.mimeType || mimeType);
-            return { blob: multiResult.blob, source: 'p2p-multi', peer: multiResult.peers || normalizedPeers.map((p) => p.pubkey) };
+            return {
+              blob: multiResult.blob,
+              source: 'p2p-multi',
+              peer: typeof primaryPeer === 'string' ? primaryPeer : undefined,
+              peers: peersList,
+            };
           } catch (err) {
             log('error', `❌ הורדת multi-peer נכשלה: ${err.message}`, {
               throttleKey: `multi-peer-${hash.slice(0, 12)}`,
