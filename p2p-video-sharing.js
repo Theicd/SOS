@@ -1199,19 +1199,6 @@
         if (typeof releaseSlot === 'function') {
           releaseSlot();
         }
-      log('info', `ℹ️ כל ה-peers נכשלו - fallback ללינק`);
-      try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        log('success', `✅ fallback ללינק הצליח`, { size: blob.size });
-        if (typeof App.cacheMedia === 'function') {
-          await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
-        }
-        await registerFileAvailability(hash, blob, mimeType);
-        return { blob, source: 'url-fallback' };
-      } catch (err) {
-        log('error', `❌ גם fallback ללינק נכשל: ${err.message}`);
-        throw err;
       }
     });
   }
