@@ -201,18 +201,36 @@
     }
   }
 
+  // חלק אחסון זמינות (p2p-video-sharing.js) – דחיסת manifest למניעת חריגה מה-Quota | HYPER CORE TECH
+  function pruneAvailabilityManifest(limit = 250) {
+    const manifest = state.availabilityManifest || {};
+    const entries = Object.entries(manifest)
+      .sort((a, b) => (b[1]?.lastPublished || 0) - (a[1]?.lastPublished || 0))
+      .slice(0, limit);
+    const compacted = Object.fromEntries(entries);
+    state.availabilityManifest = compacted;
+    return compacted;
+  }
+
   function saveAvailabilityManifest() {
     try {
-      const manifest = state.availabilityManifest || {};
-      const entries = Object.entries(manifest)
-        .sort((a, b) => (b[1]?.lastPublished || 0) - (a[1]?.lastPublished || 0))
-        .slice(0, 400); // הגבלת גודל למניעת התנפחות
-      const compacted = Object.fromEntries(entries);
-      state.availabilityManifest = compacted;
+      const compacted = pruneAvailabilityManifest();
       window.localStorage?.setItem(AVAILABILITY_MANIFEST_KEY, JSON.stringify(compacted));
     } catch (err) {
       console.warn('P2P manifest save failed', err);
     }
+  }
+
+  // חלק איזון עומסים (p2p-video-sharing.js) – רישום זמינות ברקע עבור קבצים שנשלפו מה-cache | HYPER CORE TECH
+  function scheduleBackgroundRegistration(hash, blob, mimeType) {
+    if (!hash || !blob) {
+      return;
+    }
+    queueMicrotask(() => {
+      registerFileAvailability(hash, blob, mimeType).catch((err) => {
+        console.warn('Background registerFileAvailability failed', err);
+      });
+    });
   }
 
   // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים
@@ -1129,7 +1147,7 @@
           if (cached && cached.blob) {
             log('success', `✅ נמצא ב-cache מקומי!`, { size: cached.blob.size });
             const cachedMime = cached.mimeType || mimeType;
-            await registerFileAvailability(hash, cached.blob, cachedMime);
+            scheduleBackgroundRegistration(hash, cached.blob, cachedMime);
             return { blob: cached.blob, source: 'cache' };
           }
         }
