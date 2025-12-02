@@ -10,6 +10,104 @@
     return filtered.length > 0 ? filtered : relays;
   }
 
+  function normalizePeerInfos(rawPeers) {
+    if (!Array.isArray(rawPeers)) {
+      return [];
+    }
+    return rawPeers
+      .map((peer) => {
+        if (!peer) {
+          return null;
+        }
+        if (typeof peer === 'string') {
+          return { pubkey: peer };
+        }
+        if (typeof peer === 'object') {
+          const pubkey = peer.pubkey || peer.id || peer.key;
+          if (!pubkey) {
+            return null;
+          }
+          return {
+            pubkey,
+            expires: peer.expires,
+            pieceSize: peer.pieceSize || peer.piece_size,
+            pieceCount: peer.pieceCount || peer.piece_count,
+            totalSize: peer.totalSize || peer.size,
+            mimeType: peer.mimeType || peer.mime,
+          };
+        }
+        return null;
+      })
+      .filter((peer) => peer && typeof peer.pubkey === 'string');
+  }
+
+  async function downloadViaMultiPeer(rawPeers, hash, mimeType) {
+    const peers = normalizePeerInfos(rawPeers);
+    if (!peers.length) {
+      throw new Error('אין peers זמינים להורדה מבוזרת');
+    }
+
+    const scheduler = createPieceScheduler(hash, mimeType);
+    const localManifest = state.pieceManifests.get(hash);
+    if (localManifest) {
+      scheduler.ensureManifest(localManifest);
+    }
+
+    const maxParallel = Math.max(1, Math.min(MAX_PARALLEL_PEER_CHANNELS || peers.length, peers.length));
+    const targets = peers.slice(0, maxParallel);
+
+    log('download', '🔀 מנסה הורדה מבוזרת ממספר peers', {
+      hash: hash.slice(0, 16) + '...',
+      peers: targets.map((p) => p.pubkey.slice(0, 16) + '...'),
+      parallel: targets.length,
+    });
+
+    const connectionPromises = targets.map((peerInfo) =>
+      connectToPeer(peerInfo.pubkey, hash, {
+        purpose: 'piece-download',
+        label: 'piece-transfer',
+        timeoutMs: MAX_DOWNLOAD_TIMEOUT,
+        onChannelOpen: (channel, handlerContext) => {
+          handlerContext.peerInfo = peerInfo;
+          scheduler.registerConnection(handlerContext);
+          if (!scheduler.manifest && peerInfo.pieceSize && peerInfo.pieceCount && peerInfo.totalSize) {
+            scheduler.ensureManifest({
+              pieceSize: peerInfo.pieceSize,
+              pieceCount: peerInfo.pieceCount,
+              totalSize: peerInfo.totalSize,
+              mimeType: peerInfo.mimeType || mimeType,
+            });
+          }
+          scheduler.requestMetadata(handlerContext);
+        },
+        onMessage: (message, handlerContext) => {
+          scheduler.handleMessage(message, handlerContext);
+        },
+        onBinary: (binary, handlerContext) => {
+          scheduler.handleBinary(binary, handlerContext);
+        },
+        onChannelClose: (handlerContext) => {
+          scheduler.handlePeerClose(handlerContext);
+        },
+      }).catch((err) => {
+        log('error', `❌ חיבור peer מקבילי נכשל: ${err?.message || err}`, {
+          peer: peerInfo.pubkey.slice(0, 16) + '...'
+        });
+      })
+    );
+
+    const result = await Promise.race([
+      scheduler.promise,
+      (async () => {
+        await Promise.all(connectionPromises);
+        throw new Error('החיבורים המקביליים נסגרו ללא השלמת כל החלקים');
+      })(),
+    ]);
+
+    await Promise.allSettled(connectionPromises);
+    return result;
+  }
+
   function getP2PRelays() {
     if (Array.isArray(App.p2pRelayUrls) && App.p2pRelayUrls.length) {
       return filterBlockedRelays(App.p2pRelayUrls);
@@ -1546,7 +1644,7 @@
     }
   }
 
-  // חלק P2P (p2p-video-sharing.js) – טיפול בבקשת קובץ
+  // חלק P2P (p2p-video-sharing.js) – טיפול בבקשת קובץ עם חלוקת חלקים וגוסיפ
   async function handleFileRequest(peerPubkey, data) {
     const { offer, hash, connectionId } = data;
 
@@ -1556,17 +1654,13 @@
       connectionId
     });
 
-    // בדיקה אם יש לנו את הקובץ
     const fileData = state.availableFiles.get(hash);
     if (!fileData) {
       log('error', `❌ אין לי את הקובץ הזה`, { hash: hash.slice(0, 16) + '...' });
       return;
     }
 
-    log('success', `✅ יש לי את הקובץ! מתחיל שליחה`, {
-      size: fileData.size,
-      mimeType: fileData.mimeType
-    });
+    const manifest = await ensurePieceManifest(hash, fileData.blob, fileData.mimeType);
 
     try {
       const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -1574,71 +1668,102 @@
 
       log('peer', `🔗 יצרתי RTCPeerConnection לשליחה`, { connectionId });
 
-      // קבלת data channel מה-peer
       pc.ondatachannel = (event) => {
         const channel = event.channel;
-        
-        log('peer', `📡 קיבלתי data channel`, { connectionId });
+        channel.binaryType = 'arraybuffer';
+        let sendQueue = Promise.resolve();
+        let legacyTransferStarted = false;
 
-        channel.onopen = async () => {
-          log('success', `✅ data channel נפתח - מתחיל שליחה!`);
+        function sendMetadata(targetChannel = channel) {
+          const payload = {
+            type: 'metadata',
+            hash,
+            size: fileData.size,
+            mimeType: fileData.mimeType,
+            pieceSize: manifest.pieceSize,
+            pieceCount: manifest.pieceCount,
+            totalSize: manifest.totalSize,
+          };
+          targetChannel.send(JSON.stringify(payload));
+          log('upload', '📊 שלחתי metadata', payload);
+        }
 
-          try {
-            // שליחת metadata
-            channel.send(JSON.stringify({
-              type: 'metadata',
-              size: fileData.size,
-              mimeType: fileData.mimeType
-            }));
+        function sendPeerMap(targetChannel = channel) {
+          const files = getPeerCatalogSample(32);
+          targetChannel.send(JSON.stringify({ type: 'peer-map', files }));
+        }
 
-            log('upload', `📊 שלחתי metadata`, {
-              size: fileData.size,
-              mimeType: fileData.mimeType
-            });
-
-            // שליחת הקובץ ב-chunks
-            const blob = fileData.blob;
-            let offset = 0;
-            let chunkNum = 0;
-
-            while (offset < blob.size) {
-              const chunk = blob.slice(offset, offset + CHUNK_SIZE);
-              const arrayBuffer = await chunk.arrayBuffer();
-              
-              // המתנה אם ה-buffer מלא
-              while (channel.bufferedAmount > CHUNK_SIZE * 4) {
-                await new Promise(resolve => setTimeout(resolve, 10));
-              }
-
-              channel.send(arrayBuffer);
-              chunkNum++;
-              offset += CHUNK_SIZE;
-
-              const progress = ((offset / blob.size) * 100).toFixed(1);
-              log('upload', `📤 שלחתי chunk ${chunkNum}`, {
-                progress: `${progress}%`,
-                sent: `${offset} / ${blob.size}`
-              });
-            }
-
-            // שליחת הודעת סיום
-            channel.send(JSON.stringify({
-              type: 'complete',
-              mimeType: fileData.mimeType
-            }));
-
-            log('success', `✅ סיימתי לשלוח את כל הקובץ!`, {
-              chunks: chunkNum,
-              totalSize: blob.size
-            });
-
-          } catch (err) {
-            log('error', `❌ שגיאה בשליחת קובץ: ${err.message}`);
-            channel.send(JSON.stringify({
-              type: 'error',
-              message: err.message
-            }));
+        async function waitForBuffer() {
+          while (channel.bufferedAmount > CHUNK_SIZE * 8) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
           }
+        }
+
+        async function sendPiece(index) {
+          const pieceIndex = Number(index);
+          if (Number.isNaN(pieceIndex) || pieceIndex < 0 || pieceIndex >= manifest.pieceCount) {
+            throw new Error(`piece ${index} מחוץ לטווח`);
+          }
+          const start = pieceIndex * manifest.pieceSize;
+          const end = Math.min(start + manifest.pieceSize, fileData.size);
+          const size = end - start;
+          if (size <= 0) {
+            throw new Error(`piece ${index} ריק`);
+          }
+
+          channel.send(JSON.stringify({ type: 'piece-begin', index: pieceIndex, size }));
+
+          let offset = start;
+          let chunkCount = 0;
+          while (offset < end) {
+            const chunk = fileData.blob.slice(offset, Math.min(offset + CHUNK_SIZE, end));
+            const buffer = await chunk.arrayBuffer();
+            await waitForBuffer();
+            channel.send(buffer);
+            offset += chunk.byteLength || chunk.size || CHUNK_SIZE;
+            chunkCount += 1;
+          }
+
+          channel.send(JSON.stringify({ type: 'piece-complete', index: pieceIndex }));
+          log('upload', '📤 שלחתי חלק', { pieceIndex, size, chunks: chunkCount });
+        }
+
+        async function sendEntireFile() {
+          if (legacyTransferStarted) {
+            return;
+          }
+          legacyTransferStarted = true;
+          sendMetadata();
+          const blob = fileData.blob;
+          let offset = 0;
+          let chunkNum = 0;
+          while (offset < blob.size) {
+            const chunk = blob.slice(offset, offset + CHUNK_SIZE);
+            const buffer = await chunk.arrayBuffer();
+            await waitForBuffer();
+            channel.send(buffer);
+            offset += chunk.size || buffer.byteLength;
+            chunkNum += 1;
+            const progress = ((offset / blob.size) * 100).toFixed(1);
+            log('upload', `📤 שלחתי chunk ${chunkNum}`, {
+              progress: `${progress}%`,
+              sent: `${offset} / ${blob.size}`
+            });
+          }
+          channel.send(JSON.stringify({ type: 'complete', mimeType: fileData.mimeType }));
+        }
+
+        function enqueuePiece(index) {
+          sendQueue = sendQueue.then(() => sendPiece(index)).catch((err) => {
+            channel.send(JSON.stringify({ type: 'error', message: err?.message || 'piece failed' }));
+            log('error', `❌ שליחת חלק נכשלה: ${err?.message || err}`, { index });
+          });
+        }
+
+        channel.onopen = () => {
+          log('success', `✅ data channel נפתח - מתחיל פרוטוקול חלוקת חלקים`);
+          sendMetadata();
+          sendPeerMap();
         };
 
         channel.onerror = (err) => {
@@ -1646,18 +1771,43 @@
         };
 
         channel.onmessage = (event) => {
+          if (typeof event.data !== 'string') {
+            return;
+          }
           try {
             const msg = JSON.parse(event.data);
-            if (msg.type === 'request') {
-              log('request', `📥 peer ביקש את הקובץ`, { hash: msg.hash.slice(0, 16) + '...' });
+            switch (msg.type) {
+              case 'metadata-request': {
+                if (Array.isArray(msg.knownFiles)) {
+                  rememberPeerCatalog(peerPubkey, msg.knownFiles);
+                }
+                sendMetadata();
+                sendPeerMap();
+                break;
+              }
+              case 'piece-request': {
+                enqueuePiece(msg.index);
+                break;
+              }
+              case 'request': {
+                sendEntireFile();
+                break;
+              }
+              case 'peer-map': {
+                if (Array.isArray(msg.files)) {
+                  rememberPeerCatalog(peerPubkey, msg.files);
+                }
+                break;
+              }
+              default:
+                log('info', `ℹ️ התקבלה הודעה לא מזוהה מה-peer (${msg.type || 'unknown'})`);
             }
           } catch (err) {
-            // לא JSON, אולי binary data
+            log('error', `❌ הודעת JSON לא תקינה מה-peer: ${err.message}`);
           }
         };
       };
 
-      // ICE candidates
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           log('peer', `🧊 ICE candidate חדש (שליחה)`, {
@@ -1675,16 +1825,14 @@
         log('peer', `🔄 ICE connection state (שליחה): ${pc.iceConnectionState}`);
       };
 
-      // קבלת ה-offer ויצירת answer
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
       log('peer', `📤 שולח answer ל-peer`, { peer: peerPubkey.slice(0, 16) + '...' });
 
-      // שליחת answer
       await sendSignal(peerPubkey, 'file-response', {
-        answer: answer,
+        answer,
         hash,
         connectionId
       });
@@ -1750,9 +1898,9 @@
           }
         }
 
-        const peers = await findPeersWithFile(hash);
+        const rawPeers = await findPeersWithFile(hash);
 
-        if (peers.length === 0) {
+        if (rawPeers.length === 0) {
           log('info', `ℹ️ לא נמצאו peers - הורדה מהלינק`);
           try {
             const response = await fetch(url);
@@ -1769,8 +1917,39 @@
           }
         }
 
+        const normalizedPeers = normalizePeerInfos(rawPeers);
+
+        if (normalizedPeers.length) {
+          try {
+            const multiResult = await downloadViaMultiPeer(normalizedPeers, hash, mimeType);
+            log('success', '🎉 הורדת multi-peer הושלמה!', {
+              peers: multiResult.peers?.map?.((p) => p.slice(0, 16) + '...') || normalizedPeers.map((p) => p.pubkey.slice(0, 16) + '...'),
+              pieceCount: multiResult.pieceCount,
+            });
+
+            if (typeof App.cacheMedia === 'function') {
+              await App.cacheMedia(url, hash, multiResult.blob, multiResult.mimeType || mimeType, { pinned: true });
+            }
+
+            await registerFileAvailability(hash, multiResult.blob, multiResult.mimeType || mimeType);
+            return { blob: multiResult.blob, source: 'p2p-multi', peer: multiResult.peers || normalizedPeers.map((p) => p.pubkey) };
+          } catch (err) {
+            log('error', `❌ הורדת multi-peer נכשלה: ${err.message}`, {
+              throttleKey: `multi-peer-${hash.slice(0, 12)}`,
+              throttleMs: 2000,
+            });
+          }
+        }
+
+        const sequentialPeers = (normalizedPeers.length
+          ? normalizedPeers.map((peer) => peer.pubkey)
+          : rawPeers
+              .map((peer) => (typeof peer === 'string' ? peer : peer?.pubkey))
+              .filter(Boolean))
+          .slice(0, MAX_PEER_ATTEMPTS_PER_FILE > 0 ? MAX_PEER_ATTEMPTS_PER_FILE : undefined);
+
         let attemptCount = 0;
-        for (const peer of peers) {
+        for (const peer of sequentialPeers) {
           if (MAX_PEER_ATTEMPTS_PER_FILE > 0 && attemptCount >= MAX_PEER_ATTEMPTS_PER_FILE) {
             log('info', '🛑 הושגה מגבלת ניסיונות peer – עובר לפולבאק', {
               hash: hash.slice(0, 16) + '...',
@@ -1780,7 +1959,7 @@
           }
           attemptCount += 1;
           try {
-            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${MAX_PEER_ATTEMPTS_PER_FILE > 0 ? Math.min(peers.length, MAX_PEER_ATTEMPTS_PER_FILE) : peers.length}`, {
+            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${MAX_PEER_ATTEMPTS_PER_FILE > 0 ? Math.min(sequentialPeers.length, MAX_PEER_ATTEMPTS_PER_FILE) : sequentialPeers.length}`, {
               peer: peer.slice(0, 16) + '...'
             });
 
