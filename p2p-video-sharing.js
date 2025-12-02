@@ -1,12 +1,21 @@
 (function initP2PVideoSharing(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
+  // חלק P2P (p2p-video-sharing.js) – סינון ריליים בעייתיים כדי למנוע דרישות POW עודפות | HYPER CORE TECH
+  function filterBlockedRelays(relays) {
+    if (!Array.isArray(relays)) {
+      return [];
+    }
+    const filtered = relays.filter((relayUrl) => relayUrl && !BLOCKED_RELAY_URLS.has(relayUrl));
+    return filtered.length > 0 ? filtered : relays;
+  }
+
   function getP2PRelays() {
     if (Array.isArray(App.p2pRelayUrls) && App.p2pRelayUrls.length) {
-      return App.p2pRelayUrls;
+      return filterBlockedRelays(App.p2pRelayUrls);
     }
     if (Array.isArray(App.relayUrls) && App.relayUrls.length) {
-      return App.relayUrls;
+      return filterBlockedRelays(App.relayUrls);
     }
     return [];
   }
@@ -29,8 +38,17 @@
   const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 10000; // 10 שניות לחיפוש peers
   const PEER_DISCOVERY_LOOKBACK = 24 * 60 * 60; // 24 שעות אחורה - כדי למצוא peers גם אם פרסמו מוקדם יותר
   const CHUNK_SIZE = 16384; // 16KB chunks
-  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 120000; // 2 דקות להורדה - מספיק לקבצים גדולים
-  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 30000; // 30 שניות לתשובה - מספיק לחיבור WebRTC
+  const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || ['wss://nos.lol']));
+  const MAX_CONCURRENT_P2P_TRANSFERS =
+    typeof window.NostrP2P_MAX_CONCURRENT_TRANSFERS === 'number'
+      ? window.NostrP2P_MAX_CONCURRENT_TRANSFERS
+      : 3;
+  const MAX_PEER_ATTEMPTS_PER_FILE =
+    typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
+      ? window.NostrP2P_MAX_PEER_ATTEMPTS
+      : 3;
+  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 45000; // 45 שניות ברירת מחדל כדי לא לחסום את חוויית המשתמש | HYPER CORE TECH
+  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 8000; // 8 שניות לתשובה כדי לעבור לפולבאק מהר יותר | HYPER CORE TECH
   const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 2; // 2 ניסיונות לכל peer
   const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000; // 2 שניות בין ניסיונות
 
@@ -69,6 +87,8 @@
     availabilityManifest: loadAvailabilityManifest(),
     availabilityRateTimestamps: [],
     signalTimestamps: [],
+    activeTransferSlots: 0,
+    pendingTransferResolvers: [],
   };
 
   const logState = {
@@ -99,6 +119,54 @@
   }
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // חלק איזון עומסים (p2p-video-sharing.js) – הקצאת משבצות הורדה כדי למנוע עומס מיידי על הרשת | HYPER CORE TECH
+  async function acquireDownloadSlot(label) {
+    if (MAX_CONCURRENT_P2P_TRANSFERS <= 0) {
+      return null;
+    }
+    return new Promise((resolve) => {
+      const tryStart = () => {
+        if (state.activeTransferSlots < MAX_CONCURRENT_P2P_TRANSFERS) {
+          state.activeTransferSlots += 1;
+          log('info', '🎯 הוקצתה משבצת הורדת P2P', {
+            label: label?.slice?.(0, 16) || 'unknown',
+            activeTransfers: state.activeTransferSlots,
+          });
+          resolve(() => releaseDownloadSlot(label));
+          return true;
+        }
+        return false;
+      };
+
+      if (!tryStart()) {
+        log('info', '⌛ עומס הורדות – נכנס לתור', {
+          label: label?.slice?.(0, 16) || 'unknown',
+          queueLength: state.pendingTransferResolvers.length + 1,
+        });
+        state.pendingTransferResolvers.push(() => {
+          tryStart();
+        });
+      }
+    });
+  }
+
+  function releaseDownloadSlot(label) {
+    if (MAX_CONCURRENT_P2P_TRANSFERS <= 0) {
+      return;
+    }
+    if (state.activeTransferSlots > 0) {
+      state.activeTransferSlots -= 1;
+    }
+    log('info', '⬅️ משבצת הורדה שוחררה', {
+      label: label?.slice?.(0, 16) || 'unknown',
+      activeTransfers: state.activeTransferSlots,
+    });
+    const nextResolver = state.pendingTransferResolvers.shift();
+    if (typeof nextResolver === 'function') {
+      nextResolver();
+    }
+  }
 
   async function throttleSignals() {
     while (true) {
@@ -1027,82 +1095,110 @@
   async function downloadVideoWithP2P(url, hash, mimeType = 'video/webm') {
     const queueKey = hash || url;
     return runExclusiveDownload(queueKey, async () => {
+      const releaseSlot = await acquireDownloadSlot(hash || url);
       log('download', `🎬 מתחיל הורדת וידאו`, {
         url: url.slice(0, 50) + '...',
         hash: hash ? hash.slice(0, 16) + '...' : 'אין hash'
       });
 
-      if (!hash) {
-        log('info', `ℹ️ אין hash - הורדה רגילה מהלינק`);
+      try {
+        if (!hash) {
+          log('info', `ℹ️ אין hash - הורדה רגילה מהלינק`);
+          try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            log('success', `✅ הורדה מהלינק הצליחה`, { size: blob.size });
+            return { blob, source: 'url' };
+          } catch (err) {
+            log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
+            throw err;
+          }
+        }
+
+        if (typeof App.getCachedMedia === 'function') {
+          const cached = await App.getCachedMedia(hash);
+          if (cached && cached.blob) {
+            log('success', `✅ נמצא ב-cache מקומי!`, { size: cached.blob.size });
+            const cachedMime = cached.mimeType || mimeType;
+            await registerFileAvailability(hash, cached.blob, cachedMime);
+            return { blob: cached.blob, source: 'cache' };
+          }
+        }
+
+        const peers = await findPeersWithFile(hash);
+
+        if (peers.length === 0) {
+          log('info', `ℹ️ לא נמצאו peers - הורדה מהלינק`);
+          try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            log('success', `✅ הורדה מהלינק הצליחה`, { size: blob.size });
+            if (typeof App.cacheMedia === 'function') {
+              await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
+            }
+            await registerFileAvailability(hash, blob, mimeType);
+            return { blob, source: 'url' };
+          } catch (err) {
+            log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
+            throw err;
+          }
+        }
+
+        let attemptCount = 0;
+        for (const peer of peers) {
+          if (MAX_PEER_ATTEMPTS_PER_FILE > 0 && attemptCount >= MAX_PEER_ATTEMPTS_PER_FILE) {
+            log('info', '🛑 הושגה מגבלת ניסיונות peer – עובר לפולבאק', {
+              hash: hash.slice(0, 16) + '...',
+              attempts: attemptCount,
+            });
+            break;
+          }
+          attemptCount += 1;
+          try {
+            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${MAX_PEER_ATTEMPTS_PER_FILE > 0 ? Math.min(peers.length, MAX_PEER_ATTEMPTS_PER_FILE) : peers.length}`, {
+              peer: peer.slice(0, 16) + '...'
+            });
+
+            const result = await downloadFromPeer(peer, hash);
+
+            log('success', `🎉 הורדה מ-peer הצליחה!`, {
+              peer: peer.slice(0, 16) + '...'
+            });
+
+            if (typeof App.cacheMedia === 'function') {
+              await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
+            }
+
+            await registerFileAvailability(hash, result.blob, result.mimeType);
+
+            return { blob: result.blob, source: 'p2p', peer };
+
+          } catch (err) {
+            log('error', `❌ הורדה מ-peer נכשלה: ${err.message}`, {
+              peer: peer.slice(0, 16) + '...'
+            });
+            continue;
+          }
+        }
+
+        log('info', `ℹ️ כל ה-peers נכשלו - fallback ללינק`);
         try {
           const response = await fetch(url);
           const blob = await response.blob();
-          log('success', `✅ הורדה מהלינק הצליחה`, { size: blob.size });
-          return { blob, source: 'url' };
-        } catch (err) {
-          log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
-          throw err;
-        }
-      }
-
-      if (typeof App.getCachedMedia === 'function') {
-        const cached = await App.getCachedMedia(hash);
-        if (cached && cached.blob) {
-          log('success', `✅ נמצא ב-cache מקומי!`, { size: cached.blob.size });
-          const cachedMime = cached.mimeType || mimeType;
-          await registerFileAvailability(hash, cached.blob, cachedMime);
-          return { blob: cached.blob, source: 'cache' };
-        }
-      }
-
-      const peers = await findPeersWithFile(hash);
-
-      if (peers.length === 0) {
-        log('info', `ℹ️ לא נמצאו peers - הורדה מהלינק`);
-        try {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          log('success', `✅ הורדה מהלינק הצליחה`, { size: blob.size });
+          log('success', `✅ fallback ללינק הצליח`, { size: blob.size });
           if (typeof App.cacheMedia === 'function') {
             await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
           }
           await registerFileAvailability(hash, blob, mimeType);
-          return { blob, source: 'url' };
+          return { blob, source: 'url-fallback' };
         } catch (err) {
-          log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
+          log('error', `❌ גם fallback ללינק נכשל: ${err.message}`);
           throw err;
         }
-      }
-
-      for (const peer of peers) {
-        try {
-          log('download', `🔄 מנסה להוריד מ-peer ${peers.indexOf(peer) + 1}/${peers.length}`, {
-            peer: peer.slice(0, 16) + '...'
-          });
-
-          const result = await downloadFromPeer(peer, hash);
-
-          log('success', `🎉 הורדה מ-peer הצליחה!`, {
-            peer: peer.slice(0, 16) + '...',
-            size: result.blob.size
-          });
-
-          if (typeof App.cacheMedia === 'function') {
-            await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
-          }
-
-          await registerFileAvailability(hash, result.blob, result.mimeType);
-
-          return { blob: result.blob, source: 'p2p', peer };
-
-        } catch (err) {
-          log('error', `❌ הורדה מ-peer נכשלה: ${err.message}`, {
-            peer: peer.slice(0, 16) + '...'
-          });
-          continue;
+      } finally {
+        if (typeof releaseSlot === 'function') {
+          releaseSlot();
         }
-      }
-
       log('info', `ℹ️ כל ה-peers נכשלו - fallback ללינק`);
       try {
         const response = await fetch(url);
