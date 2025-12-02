@@ -109,13 +109,13 @@
   }
 
   function getP2PRelays() {
+    let relays = [];
     if (Array.isArray(App.p2pRelayUrls) && App.p2pRelayUrls.length) {
-      return filterBlockedRelays(App.p2pRelayUrls);
+      relays = filterBlockedRelays(App.p2pRelayUrls);
+    } else if (Array.isArray(App.relayUrls) && App.relayUrls.length) {
+      relays = filterBlockedRelays(App.relayUrls);
     }
-    if (Array.isArray(App.relayUrls) && App.relayUrls.length) {
-      return filterBlockedRelays(App.relayUrls);
-    }
-    return [];
+    return prioritizeRelays(relays);
   }
 
   // חלק P2P (p2p-video-sharing.js) – הגדרות
@@ -152,6 +152,11 @@
   const DEFAULT_PIECE_SIZE = window.NostrP2P_PIECE_SIZE || 256 * 1024; // 256KB עבור חלוקת חלקים | HYPER CORE TECH
   const MAX_PARALLEL_PEER_CHANNELS = window.NostrP2P_MAX_PARALLEL_PEERS || 4; // עד 4 חיבורים בו-זמנית | HYPER CORE TECH
   const MAX_PIECE_RETRIES = window.NostrP2P_MAX_PIECE_RETRIES || 3; // כמה פעמים מבקשים piece לפני מעבר ל-peer אחר | HYPER CORE TECH
+  const SIGNAL_RELAY_MAX_HOPS = window.NostrP2P_SIGNAL_HOPS || 2; // כמה קפיצות מותר לסיגנל דרך gossip | HYPER CORE TECH
+  const SIGNAL_RELAY_TTL_MS = window.NostrP2P_SIGNAL_TTL || 15_000; // כמה זמן סיגנל דרך gossip תקף | HYPER CORE TECH
+  const RELAY_FAILURE_THRESHOLD = window.NostrP2P_RELAY_FAIL_THRESHOLD || 3; // כמה כשלונות לפני חסימה זמנית של ריליי | HYPER CORE TECH
+  const RELAY_BLOCK_TIME_MS = window.NostrP2P_RELAY_BLOCK_MS || 30_000; // כמה זמן להשבית ריליי איטי | HYPER CORE TECH
+  const RELAY_LATENCY_DECAY = 0.5; // משקל חושי לחישוב ממוצע נע של זמן תגובה | HYPER CORE TECH
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -192,12 +197,223 @@
     pendingTransferResolvers: [],
     pieceManifests: new Map(), // hash -> { pieceSize, pieceHashes, pieceCount, totalSize, mimeType }
     peerCatalog: new Map(), // pubkey -> { lastSeen, files: Set(hash) }
+    relayStats: new Map(), // relayUrl -> { latencyAvg, failures, successes, blockedUntil }
+    livePeerChannels: new Map(), // connectionId -> handlerContext (כולל ערוץ נתונים פתוח)
+    relayedSignals: new Map(), // signalId -> timestamp
   };
 
   const logState = {
     throttle: new Map(),
     downloadProgress: new Map(),
   };
+
+  const RELAYED_SIGNAL_MEMORY_MS = SIGNAL_RELAY_TTL_MS * 2;
+
+  function getOrInitRelayStats(relayUrl) {
+    if (!relayUrl) return null;
+    if (!state.relayStats.has(relayUrl)) {
+      state.relayStats.set(relayUrl, {
+        latencyAvg: null,
+        failures: 0,
+        successes: 0,
+        blockedUntil: 0,
+      });
+    }
+    return state.relayStats.get(relayUrl);
+  }
+
+  function isRelayTemporarilyBlocked(relayUrl) {
+    const stats = state.relayStats.get(relayUrl);
+    if (!stats) return false;
+    if (stats.blockedUntil && stats.blockedUntil > Date.now()) {
+      return true;
+    }
+    if (stats.blockedUntil && stats.blockedUntil <= Date.now()) {
+      stats.blockedUntil = 0;
+      stats.failures = 0;
+    }
+    return false;
+  }
+
+  function recordRelaySuccess(relayUrl, durationMs) {
+    const stats = getOrInitRelayStats(relayUrl);
+    if (!stats) return;
+    const duration = Math.max(1, durationMs || 1);
+    stats.latencyAvg = stats.latencyAvg == null
+      ? duration
+      : stats.latencyAvg * RELAY_LATENCY_DECAY + duration * (1 - RELAY_LATENCY_DECAY);
+    stats.successes = (stats.successes || 0) + 1;
+    stats.failures = Math.max(0, (stats.failures || 0) - 1);
+  }
+
+  function recordRelayFailure(relayUrl) {
+    const stats = getOrInitRelayStats(relayUrl);
+    if (!stats) return;
+    stats.failures = (stats.failures || 0) + 1;
+    if (stats.failures >= RELAY_FAILURE_THRESHOLD) {
+      stats.blockedUntil = Date.now() + RELAY_BLOCK_TIME_MS;
+      log('info', '⚠️ ריליי הושבת זמנית בגלל כשלונות', { relay: relayUrl });
+    }
+  }
+
+  function scoreRelay(relayUrl) {
+    const stats = state.relayStats.get(relayUrl);
+    if (!stats || stats.latencyAvg == null) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    return stats.latencyAvg;
+  }
+
+  function prioritizeRelays(relays) {
+    if (!Array.isArray(relays)) return [];
+    const healthy = relays.filter((relay) => !isRelayTemporarilyBlocked(relay));
+    const listToSort = healthy.length ? healthy : relays;
+    return [...listToSort].sort((a, b) => scoreRelay(a) - scoreRelay(b));
+  }
+
+  function pruneRelayedSignals(now = Date.now()) {
+    state.relayedSignals.forEach((ts, id) => {
+      if (now - ts > RELAYED_SIGNAL_MEMORY_MS) {
+        state.relayedSignals.delete(id);
+      }
+    });
+  }
+
+  function rememberRelaySignal(signalId, now = Date.now()) {
+    if (!signalId) return;
+    pruneRelayedSignals(now);
+    state.relayedSignals.set(signalId, now);
+  }
+
+  function wasRelaySignalSeen(signalId, now = Date.now()) {
+    if (!signalId) return false;
+    const ts = state.relayedSignals.get(signalId);
+    if (!ts) return false;
+    if (now - ts > RELAYED_SIGNAL_MEMORY_MS) {
+      state.relayedSignals.delete(signalId);
+      return false;
+    }
+    return true;
+  }
+
+  function registerLiveSignalChannel(ctx) {
+    if (!ctx || !ctx.connectionId || !ctx.channel) return;
+    ctx.lastSeen = Date.now();
+    state.livePeerChannels.set(ctx.connectionId, ctx);
+  }
+
+  function unregisterLiveSignalChannel(connectionId) {
+    if (!connectionId) return;
+    state.livePeerChannels.delete(connectionId);
+  }
+
+  function getLiveChannelsForPeer(peerPubkey) {
+    const channels = [];
+    state.livePeerChannels.forEach((ctx) => {
+      if (ctx.peerPubkey === peerPubkey && ctx.channel?.readyState === 'open') {
+        channels.push(ctx);
+      }
+    });
+    return channels;
+  }
+
+  function buildRelaySignalEnvelope(target, type, data) {
+    return {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      origin: App.publicKey,
+      target,
+      hops: 0,
+      ttl: Date.now() + SIGNAL_RELAY_TTL_MS,
+      signal: { type, data },
+    };
+  }
+
+  function deliverSignalDirect(targetPubkey, envelope) {
+    if (!targetPubkey || !envelope) return false;
+    const channels = getLiveChannelsForPeer(targetPubkey);
+    if (!channels.length) return false;
+    channels.forEach((ctx) => {
+      try {
+        ctx.channel.send(JSON.stringify({ type: 'relay-signal', payload: envelope }));
+      } catch (err) {
+        console.warn('Failed sending direct relay signal', err);
+      }
+    });
+    return true;
+  }
+
+  function broadcastRelaySignal(envelope, excludeConnectionId) {
+    if (!envelope) return;
+    state.livePeerChannels.forEach((ctx) => {
+      if (ctx.connectionId === excludeConnectionId) return;
+      if (ctx.channel?.readyState !== 'open') return;
+      try {
+        ctx.channel.send(JSON.stringify({ type: 'relay-signal', payload: envelope }));
+      } catch (err) {
+        console.warn('Failed broadcasting relay signal', err);
+      }
+    });
+  }
+
+  async function processLocalRelaySignal(originPubkey, signal) {
+    if (!signal || !originPubkey) return;
+    switch (signal.type) {
+      case 'file-request':
+        await handleFileRequest(originPubkey, signal.data);
+        break;
+      case 'file-response':
+        await handleFileResponse(originPubkey, signal.data);
+        break;
+      case 'ice-candidate':
+        await handleIceCandidate(originPubkey, signal.data);
+        break;
+      default:
+        log('info', `ℹ️ relay-signal לא מוכר (${signal.type})`);
+    }
+  }
+
+  async function handleRelaySignalEnvelope(envelope, incomingConnectionId) {
+    if (!envelope || typeof envelope !== 'object') {
+      return false;
+    }
+    const now = Date.now();
+    if (envelope.ttl && envelope.ttl < now) {
+      return true;
+    }
+    if (wasRelaySignalSeen(envelope.id, now)) {
+      return true;
+    }
+    rememberRelaySignal(envelope.id, now);
+
+    if (envelope.target === App.publicKey) {
+      await processLocalRelaySignal(envelope.origin, envelope.signal);
+      return true;
+    }
+
+    const nextHops = (envelope.hops || 0) + 1;
+    if (nextHops > SIGNAL_RELAY_MAX_HOPS) {
+      return true;
+    }
+    const forwarded = { ...envelope, hops: nextHops };
+    broadcastRelaySignal(forwarded, incomingConnectionId);
+    return true;
+  }
+
+  function handleChannelControlMessage(messageStr, ctx) {
+    if (typeof messageStr !== 'string' || messageStr.indexOf('relay-signal') === -1) {
+      return false;
+    }
+    try {
+      const parsed = JSON.parse(messageStr);
+      if (parsed?.type === 'relay-signal' && parsed.payload) {
+        handleRelaySignalEnvelope(parsed.payload, ctx?.connectionId);
+        return true;
+      }
+    } catch (err) {
+      // ignore malformed control message
+    }
+    return false;
+  }
 
   // חלק טורנט (p2p-video-sharing.js) – חישוב והשכרת מניפסט חלקים ושימור קטלוג peers | HYPER CORE TECH
   const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
@@ -704,6 +920,7 @@
 
         channel.onopen = () => {
           log('success', `✅ data channel נפתח (${purpose})`, { connectionId });
+          registerLiveSignalChannel({ connectionId, peerPubkey, channel });
           if (typeof options.onChannelOpen === 'function') {
             try {
               options.onChannelOpen(channel, handlerContext);
@@ -716,6 +933,9 @@
         channel.onmessage = (event) => {
           try {
             if (typeof event.data === 'string') {
+              if (handleChannelControlMessage(event.data, handlerContext)) {
+                return;
+              }
               if (typeof options.onMessage === 'function') {
                 options.onMessage(event.data, handlerContext);
               }
@@ -734,6 +954,7 @@
 
         channel.onclose = () => {
           log('info', `🔌 data channel נסגר (${purpose})`, { connectionId });
+          unregisterLiveSignalChannel(connectionId);
           if (typeof options.onChannelClose === 'function') {
             try {
               options.onChannelClose(handlerContext);
@@ -1402,6 +1623,9 @@
         channel.onmessage = (event) => {
           try {
             if (typeof event.data === 'string') {
+              if (handleChannelControlMessage(event.data, null)) {
+                return;
+              }
               const msg = JSON.parse(event.data);
 
               if (msg.type === 'metadata') {
@@ -1507,22 +1731,57 @@
 
   // חלק P2P (p2p-video-sharing.js) – שליחת signal דרך Nostr
   async function sendSignal(peerPubkey, type, data) {
+    let relaysForSend = [];
     try {
+      if (!peerPubkey) {
+        throw new Error('חסר peerPubkey לשליחת signal');
+      }
       if (!App.pool || !App.publicKey || !App.privateKey) {
         throw new Error('Missing pool or keys');
+      }
+
+      const envelope = buildRelaySignalEnvelope(peerPubkey, type, data);
+      rememberRelaySignal(envelope.id);
+
+      if (deliverSignalDirect(peerPubkey, envelope)) {
+        log('peer', '📡 signal נשלח ישירות על גבי DataChannel', {
+          type,
+          to: peerPubkey.slice(0, 16) + '...',
+          via: 'direct-channel',
+        });
+        return;
+      }
+
+      let gossipUsed = false;
+      if (state.livePeerChannels.size > 0) {
+        broadcastRelaySignal(envelope, null);
+        gossipUsed = true;
+        log('peer', '📡 signal שודר דרך רשת ה-gossip', {
+          type,
+          to: peerPubkey.slice(0, 16) + '...',
+          via: 'gossip',
+        });
+      }
+
+      const allRelays = getP2PRelays();
+      relaysForSend = Array.isArray(allRelays) ? allRelays.slice(0, 4) : [];
+
+      if (!relaysForSend.length) {
+        if (gossipUsed) {
+          return;
+        }
+        throw new Error('אין ריליים זמינים לשליחת signal');
       }
 
       await throttleSignals();
 
       const content = JSON.stringify({ type, data });
-      
-      // הצפנה אם יש פונקציה
       let encryptedContent = content;
       if (typeof App.encryptMessage === 'function') {
         encryptedContent = await App.encryptMessage(content, peerPubkey);
       }
 
-      const kind = FILE_REQUEST_KIND; // כל הסיגנלים משתמשים ב-30078
+      const kind = FILE_REQUEST_KIND;
       const signalType = type === 'file-request' ? 'req' : (type === 'file-response' ? 'res' : 'ice');
 
       const event = {
@@ -1530,25 +1789,47 @@
         pubkey: App.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
-          ['d', `${P2P_APP_TAG}:signal:${Date.now()}`], // NIP-78: מזהה ייחודי
+          ['d', `${P2P_APP_TAG}:signal:${Date.now()}`],
           ['p', peerPubkey],
-          ['t', `p2p-${signalType}`], // סוג הסיגנל
+          ['t', `p2p-${signalType}`],
         ],
         content: encryptedContent,
       };
 
       const signed = App.finalizeEvent(event, App.privateKey);
-      const relays = getP2PRelays(); // שימוש בריליי P2P במקום הריליים הרגילים
-      await App.pool.publish(relays, signed);
+      const publishStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      const publishResults = App.pool.publish(relaysForSend, signed);
+
+      if (Array.isArray(publishResults)) {
+        const settled = await Promise.allSettled(publishResults);
+        settled.forEach((result, idx) => {
+          const relayUrl = relaysForSend[idx];
+          const duration = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - publishStart;
+          if (result.status === 'fulfilled') {
+            recordRelaySuccess(relayUrl, duration);
+          } else {
+            recordRelayFailure(relayUrl);
+          }
+        });
+      } else if (publishResults?.then) {
+        await publishResults;
+        const duration = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - publishStart;
+        relaysForSend.forEach((relayUrl) => recordRelaySuccess(relayUrl, duration));
+      } else {
+        const duration = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - publishStart;
+        relaysForSend.forEach((relayUrl) => recordRelaySuccess(relayUrl, duration));
+      }
 
       log('peer', `📡 signal נשלח`, {
         type,
         to: peerPubkey.slice(0, 16) + '...',
-        kind,
-        relays: relays
+        via: gossipUsed ? 'relay+gossip' : 'relay',
       });
 
     } catch (err) {
+      if (Array.isArray(relaysForSend)) {
+        relaysForSend.forEach((relayUrl) => recordRelayFailure(relayUrl));
+      }
       log('error', `❌ כשלון בשליחת signal: ${err.message}`);
       throw err;
     }
