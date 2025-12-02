@@ -1154,6 +1154,8 @@
 
         await ensureSlot();
         const rawPeers = await findPeersWithFile(hash);
+        const peers = Array.isArray(rawPeers) ? [...rawPeers] : [];
+        // חלק איזון עומסים (p2p-video-sharing.js) – שמירה על רשימת peers תקפה להמשך ההורדה | HYPER CORE TECH
 
         if (rawPeers.length === 0) {
           log('info', `ℹ️ לא נמצאו peers - הורדה מהלינק`);
