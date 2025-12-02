@@ -10,112 +10,14 @@
     return filtered.length > 0 ? filtered : relays;
   }
 
-  function normalizePeerInfos(rawPeers) {
-    if (!Array.isArray(rawPeers)) {
-      return [];
-    }
-    return rawPeers
-      .map((peer) => {
-        if (!peer) {
-          return null;
-        }
-        if (typeof peer === 'string') {
-          return { pubkey: peer };
-        }
-        if (typeof peer === 'object') {
-          const pubkey = peer.pubkey || peer.id || peer.key;
-          if (!pubkey) {
-            return null;
-          }
-          return {
-            pubkey,
-            expires: peer.expires,
-            pieceSize: peer.pieceSize || peer.piece_size,
-            pieceCount: peer.pieceCount || peer.piece_count,
-            totalSize: peer.totalSize || peer.size,
-            mimeType: peer.mimeType || peer.mime,
-          };
-        }
-        return null;
-      })
-      .filter((peer) => peer && typeof peer.pubkey === 'string');
-  }
-
-  async function downloadViaMultiPeer(rawPeers, hash, mimeType) {
-    const peers = normalizePeerInfos(rawPeers);
-    if (!peers.length) {
-      throw new Error('אין peers זמינים להורדה מבוזרת');
-    }
-
-    const scheduler = createPieceScheduler(hash, mimeType);
-    const localManifest = state.pieceManifests.get(hash);
-    if (localManifest) {
-      scheduler.ensureManifest(localManifest);
-    }
-
-    const maxParallel = Math.max(1, Math.min(MAX_PARALLEL_PEER_CHANNELS || peers.length, peers.length));
-    const targets = peers.slice(0, maxParallel);
-
-    log('download', '🔀 מנסה הורדה מבוזרת ממספר peers', {
-      hash: hash.slice(0, 16) + '...',
-      peers: targets.map((p) => p.pubkey.slice(0, 16) + '...'),
-      parallel: targets.length,
-    });
-
-    const connectionPromises = targets.map((peerInfo) =>
-      connectToPeer(peerInfo.pubkey, hash, {
-        purpose: 'piece-download',
-        label: 'piece-transfer',
-        timeoutMs: MAX_DOWNLOAD_TIMEOUT,
-        onChannelOpen: (channel, handlerContext) => {
-          handlerContext.peerInfo = peerInfo;
-          scheduler.registerConnection(handlerContext);
-          if (!scheduler.manifest && peerInfo.pieceSize && peerInfo.pieceCount && peerInfo.totalSize) {
-            scheduler.ensureManifest({
-              pieceSize: peerInfo.pieceSize,
-              pieceCount: peerInfo.pieceCount,
-              totalSize: peerInfo.totalSize,
-              mimeType: peerInfo.mimeType || mimeType,
-            });
-          }
-          scheduler.requestMetadata(handlerContext);
-        },
-        onMessage: (message, handlerContext) => {
-          scheduler.handleMessage(message, handlerContext);
-        },
-        onBinary: (binary, handlerContext) => {
-          scheduler.handleBinary(binary, handlerContext);
-        },
-        onChannelClose: (handlerContext) => {
-          scheduler.handlePeerClose(handlerContext);
-        },
-      }).catch((err) => {
-        log('error', `❌ חיבור peer מקבילי נכשל: ${err?.message || err}`, {
-          peer: peerInfo.pubkey.slice(0, 16) + '...'
-        });
-      })
-    );
-
-    const result = await Promise.race([
-      scheduler.promise,
-      (async () => {
-        await Promise.all(connectionPromises);
-        throw new Error('החיבורים המקביליים נסגרו ללא השלמת כל החלקים');
-      })(),
-    ]);
-
-    await Promise.allSettled(connectionPromises);
-    return result;
-  }
-
   function getP2PRelays() {
-    let relays = [];
     if (Array.isArray(App.p2pRelayUrls) && App.p2pRelayUrls.length) {
-      relays = filterBlockedRelays(App.p2pRelayUrls);
-    } else if (Array.isArray(App.relayUrls) && App.relayUrls.length) {
-      relays = filterBlockedRelays(App.relayUrls);
+      return filterBlockedRelays(App.p2pRelayUrls);
     }
-    return prioritizeRelays(relays);
+    if (Array.isArray(App.relayUrls) && App.relayUrls.length) {
+      return filterBlockedRelays(App.relayUrls);
+    }
+    return [];
   }
 
   // חלק P2P (p2p-video-sharing.js) – הגדרות
@@ -149,14 +51,6 @@
   const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 8000; // 8 שניות לתשובה כדי לעבור לפולבאק מהר יותר | HYPER CORE TECH
   const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 2; // 2 ניסיונות לכל peer
   const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000; // 2 שניות בין ניסיונות
-  const DEFAULT_PIECE_SIZE = window.NostrP2P_PIECE_SIZE || 256 * 1024; // 256KB עבור חלוקת חלקים | HYPER CORE TECH
-  const MAX_PARALLEL_PEER_CHANNELS = window.NostrP2P_MAX_PARALLEL_PEERS || 4; // עד 4 חיבורים בו-זמנית | HYPER CORE TECH
-  const MAX_PIECE_RETRIES = window.NostrP2P_MAX_PIECE_RETRIES || 3; // כמה פעמים מבקשים piece לפני מעבר ל-peer אחר | HYPER CORE TECH
-  const SIGNAL_RELAY_MAX_HOPS = window.NostrP2P_SIGNAL_HOPS || 2; // כמה קפיצות מותר לסיגנל דרך gossip | HYPER CORE TECH
-  const SIGNAL_RELAY_TTL_MS = window.NostrP2P_SIGNAL_TTL || 15_000; // כמה זמן סיגנל דרך gossip תקף | HYPER CORE TECH
-  const RELAY_FAILURE_THRESHOLD = window.NostrP2P_RELAY_FAIL_THRESHOLD || 3; // כמה כשלונות לפני חסימה זמנית של ריליי | HYPER CORE TECH
-  const RELAY_BLOCK_TIME_MS = window.NostrP2P_RELAY_BLOCK_MS || 30_000; // כמה זמן להשבית ריליי איטי | HYPER CORE TECH
-  const RELAY_LATENCY_DECAY = 0.5; // משקל חושי לחישוב ממוצע נע של זמן תגובה | HYPER CORE TECH
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -195,829 +89,12 @@
     signalTimestamps: [],
     activeTransferSlots: 0,
     pendingTransferResolvers: [],
-    pieceManifests: new Map(), // hash -> { pieceSize, pieceHashes, pieceCount, totalSize, mimeType }
-    peerCatalog: new Map(), // pubkey -> { lastSeen, files: Set(hash) }
-    relayStats: new Map(), // relayUrl -> { latencyAvg, failures, successes, blockedUntil }
-    livePeerChannels: new Map(), // connectionId -> handlerContext (כולל ערוץ נתונים פתוח)
-    relayedSignals: new Map(), // signalId -> timestamp
   };
 
   const logState = {
     throttle: new Map(),
     downloadProgress: new Map(),
   };
-
-  const RELAYED_SIGNAL_MEMORY_MS = SIGNAL_RELAY_TTL_MS * 2;
-
-  function getOrInitRelayStats(relayUrl) {
-    if (!relayUrl) return null;
-    if (!state.relayStats.has(relayUrl)) {
-      state.relayStats.set(relayUrl, {
-        latencyAvg: null,
-        failures: 0,
-        successes: 0,
-        blockedUntil: 0,
-      });
-    }
-    return state.relayStats.get(relayUrl);
-  }
-
-  function isRelayTemporarilyBlocked(relayUrl) {
-    const stats = state.relayStats.get(relayUrl);
-    if (!stats) return false;
-    if (stats.blockedUntil && stats.blockedUntil > Date.now()) {
-      return true;
-    }
-    if (stats.blockedUntil && stats.blockedUntil <= Date.now()) {
-      stats.blockedUntil = 0;
-      stats.failures = 0;
-    }
-    return false;
-  }
-
-  function recordRelaySuccess(relayUrl, durationMs) {
-    const stats = getOrInitRelayStats(relayUrl);
-    if (!stats) return;
-    const duration = Math.max(1, durationMs || 1);
-    stats.latencyAvg = stats.latencyAvg == null
-      ? duration
-      : stats.latencyAvg * RELAY_LATENCY_DECAY + duration * (1 - RELAY_LATENCY_DECAY);
-    stats.successes = (stats.successes || 0) + 1;
-    stats.failures = Math.max(0, (stats.failures || 0) - 1);
-  }
-
-  function recordRelayFailure(relayUrl) {
-    const stats = getOrInitRelayStats(relayUrl);
-    if (!stats) return;
-    stats.failures = (stats.failures || 0) + 1;
-    if (stats.failures >= RELAY_FAILURE_THRESHOLD) {
-      stats.blockedUntil = Date.now() + RELAY_BLOCK_TIME_MS;
-      log('info', '⚠️ ריליי הושבת זמנית בגלל כשלונות', { relay: relayUrl });
-    }
-  }
-
-  function scoreRelay(relayUrl) {
-    const stats = state.relayStats.get(relayUrl);
-    if (!stats || stats.latencyAvg == null) {
-      return Number.MAX_SAFE_INTEGER;
-    }
-    return stats.latencyAvg;
-  }
-
-  function prioritizeRelays(relays) {
-    if (!Array.isArray(relays)) return [];
-    const healthy = relays.filter((relay) => !isRelayTemporarilyBlocked(relay));
-    const listToSort = healthy.length ? healthy : relays;
-    return [...listToSort].sort((a, b) => scoreRelay(a) - scoreRelay(b));
-  }
-
-  function pruneRelayedSignals(now = Date.now()) {
-    state.relayedSignals.forEach((ts, id) => {
-      if (now - ts > RELAYED_SIGNAL_MEMORY_MS) {
-        state.relayedSignals.delete(id);
-      }
-    });
-  }
-
-  function rememberRelaySignal(signalId, now = Date.now()) {
-    if (!signalId) return;
-    pruneRelayedSignals(now);
-    state.relayedSignals.set(signalId, now);
-  }
-
-  function wasRelaySignalSeen(signalId, now = Date.now()) {
-    if (!signalId) return false;
-    const ts = state.relayedSignals.get(signalId);
-    if (!ts) return false;
-    if (now - ts > RELAYED_SIGNAL_MEMORY_MS) {
-      state.relayedSignals.delete(signalId);
-      return false;
-    }
-    return true;
-  }
-
-  function registerLiveSignalChannel(ctx) {
-    if (!ctx || !ctx.connectionId || !ctx.channel) return;
-    ctx.lastSeen = Date.now();
-    state.livePeerChannels.set(ctx.connectionId, ctx);
-  }
-
-  function unregisterLiveSignalChannel(connectionId) {
-    if (!connectionId) return;
-    state.livePeerChannels.delete(connectionId);
-  }
-
-  function getLiveChannelsForPeer(peerPubkey) {
-    const channels = [];
-    state.livePeerChannels.forEach((ctx) => {
-      if (ctx.peerPubkey === peerPubkey && ctx.channel?.readyState === 'open') {
-        channels.push(ctx);
-      }
-    });
-    return channels;
-  }
-
-  function buildRelaySignalEnvelope(target, type, data) {
-    return {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      origin: App.publicKey,
-      target,
-      hops: 0,
-      ttl: Date.now() + SIGNAL_RELAY_TTL_MS,
-      signal: { type, data },
-    };
-  }
-
-  function deliverSignalDirect(targetPubkey, envelope) {
-    if (!targetPubkey || !envelope) return false;
-    const channels = getLiveChannelsForPeer(targetPubkey);
-    if (!channels.length) return false;
-    channels.forEach((ctx) => {
-      try {
-        ctx.channel.send(JSON.stringify({ type: 'relay-signal', payload: envelope }));
-      } catch (err) {
-        console.warn('Failed sending direct relay signal', err);
-      }
-    });
-    return true;
-  }
-
-  function broadcastRelaySignal(envelope, excludeConnectionId) {
-    if (!envelope) return;
-    state.livePeerChannels.forEach((ctx) => {
-      if (ctx.connectionId === excludeConnectionId) return;
-      if (ctx.channel?.readyState !== 'open') return;
-      try {
-        ctx.channel.send(JSON.stringify({ type: 'relay-signal', payload: envelope }));
-      } catch (err) {
-        console.warn('Failed broadcasting relay signal', err);
-      }
-    });
-  }
-
-  async function processLocalRelaySignal(originPubkey, signal) {
-    if (!signal || !originPubkey) return;
-    switch (signal.type) {
-      case 'file-request':
-        await handleFileRequest(originPubkey, signal.data);
-        break;
-      case 'file-response':
-        await handleFileResponse(originPubkey, signal.data);
-        break;
-      case 'ice-candidate':
-        await handleIceCandidate(originPubkey, signal.data);
-        break;
-      default:
-        log('info', `ℹ️ relay-signal לא מוכר (${signal.type})`);
-    }
-  }
-
-  async function handleRelaySignalEnvelope(envelope, incomingConnectionId) {
-    if (!envelope || typeof envelope !== 'object') {
-      return false;
-    }
-    const now = Date.now();
-    if (envelope.ttl && envelope.ttl < now) {
-      return true;
-    }
-    if (wasRelaySignalSeen(envelope.id, now)) {
-      return true;
-    }
-    rememberRelaySignal(envelope.id, now);
-
-    if (envelope.target === App.publicKey) {
-      await processLocalRelaySignal(envelope.origin, envelope.signal);
-      return true;
-    }
-
-    const nextHops = (envelope.hops || 0) + 1;
-    if (nextHops > SIGNAL_RELAY_MAX_HOPS) {
-      return true;
-    }
-    const forwarded = { ...envelope, hops: nextHops };
-    broadcastRelaySignal(forwarded, incomingConnectionId);
-    return true;
-  }
-
-  function handleChannelControlMessage(messageStr, ctx) {
-    if (typeof messageStr !== 'string' || messageStr.indexOf('relay-signal') === -1) {
-      return false;
-    }
-    try {
-      const parsed = JSON.parse(messageStr);
-      if (parsed?.type === 'relay-signal' && parsed.payload) {
-        handleRelaySignalEnvelope(parsed.payload, ctx?.connectionId);
-        return true;
-      }
-    } catch (err) {
-      // ignore malformed control message
-    }
-    return false;
-  }
-
-  // חלק טורנט (p2p-video-sharing.js) – חישוב והשכרת מניפסט חלקים ושימור קטלוג peers | HYPER CORE TECH
-  const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));
-
-  function bufferToHex(buffer) {
-    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-    let hex = '';
-    for (let i = 0; i < bytes.length; i += 1) {
-      hex += HEX_TABLE[bytes[i]];
-    }
-    return hex;
-  }
-
-  async function digestArrayBuffer(buffer) {
-    if (!window.crypto?.subtle?.digest) {
-      return null;
-    }
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer);
-    return bufferToHex(hashBuffer);
-  }
-
-  async function ensurePieceManifest(hash, blob, mimeType, pieceSize = DEFAULT_PIECE_SIZE) {
-    if (state.pieceManifests.has(hash)) {
-      return state.pieceManifests.get(hash);
-    }
-
-    if (!blob) {
-      return null;
-    }
-
-    const safePieceSize = Math.max(CHUNK_SIZE, pieceSize || DEFAULT_PIECE_SIZE);
-    const pieceHashes = [];
-    for (let offset = 0; offset < blob.size; offset += safePieceSize) {
-      const slice = blob.slice(offset, Math.min(offset + safePieceSize, blob.size));
-      const buffer = await slice.arrayBuffer();
-      const digestHex = await digestArrayBuffer(buffer);
-      pieceHashes.push(digestHex || `chunk-${pieceHashes.length}`);
-    }
-
-    const manifest = {
-      pieceSize: safePieceSize,
-      pieceHashes,
-      pieceCount: pieceHashes.length,
-      totalSize: blob.size,
-      mimeType,
-    };
-
-    state.pieceManifests.set(hash, manifest);
-    return manifest;
-  }
-
-  function rememberPeerCatalog(pubkey, files = []) {
-    if (!pubkey) return;
-    const normalized = pubkey.slice(0, 64);
-    const entry = state.peerCatalog.get(normalized) || { lastSeen: 0, files: new Set() };
-    entry.lastSeen = Date.now();
-    files.forEach((fileHash) => {
-      if (typeof fileHash === 'string' && fileHash.length >= 16) {
-        entry.files.add(fileHash);
-      }
-    });
-    state.peerCatalog.set(normalized, entry);
-  }
-
-  function getPeerCatalogSample(limit = 24) {
-    const hashes = Array.from(state.availableFiles.keys());
-    return hashes.slice(0, limit);
-  }
-
-  function calculatePieceSize(totalSize, defaultSize = DEFAULT_PIECE_SIZE) {
-    if (!totalSize || totalSize <= 0) {
-      return defaultSize;
-    }
-    if (totalSize < defaultSize) {
-      return Math.max(CHUNK_SIZE, Math.floor(totalSize / 2) || defaultSize);
-    }
-    return defaultSize;
-  }
-
-  function concatArrayBuffers(buffers, totalSize) {
-    if (!buffers || buffers.length === 0) {
-      return new ArrayBuffer(0);
-    }
-    const size = typeof totalSize === 'number' && totalSize > 0
-      ? totalSize
-      : buffers.reduce((sum, chunk) => sum + (chunk.byteLength || chunk.size || 0), 0);
-    const tmp = new Uint8Array(size);
-    let offset = 0;
-    for (const chunk of buffers) {
-      const array = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
-      tmp.set(array, offset);
-      offset += array.length;
-    }
-    return tmp.buffer;
-  }
-
-  function createPieceScheduler(hash, mimeType) {
-    const scheduler = {
-      hash,
-      mimeType,
-      manifest: null,
-      pieceStatus: [],
-      pendingPieces: new Set(),
-      inflightPieces: new Map(), // connectionId -> pieceIndex
-      pieceBuffers: new Map(), // connectionId -> { index, buffers, expectedSize, received }
-      connections: new Map(),
-      resolve: null,
-      reject: null,
-      resolved: false,
-      resultBuffers: [],
-      successPeers: new Set(),
-      metadataWaiters: [],
-      closed: false,
-      pieceRetries: new Map(),
-    };
-
-    scheduler.promise = new Promise((resolve, reject) => {
-      scheduler.resolve = resolve;
-      scheduler.reject = reject;
-    });
-
-    scheduler.ensureManifest = (manifest) => {
-      if (!manifest || scheduler.manifest) {
-        return scheduler.manifest;
-      }
-      scheduler.manifest = {
-        pieceSize: manifest.pieceSize || calculatePieceSize(manifest.totalSize || 0),
-        pieceHashes: manifest.pieceHashes || [],
-        pieceCount: manifest.pieceCount || (manifest.totalSize ? Math.ceil(manifest.totalSize / (manifest.pieceSize || DEFAULT_PIECE_SIZE)) : 0),
-        totalSize: manifest.totalSize || 0,
-        mimeType: manifest.mimeType || mimeType,
-      };
-      const count = scheduler.manifest.pieceCount;
-      scheduler.resultBuffers = new Array(count);
-      scheduler.pieceStatus = new Array(count).fill('pending');
-      scheduler.pendingPieces = new Set(Array.from({ length: count }, (_, i) => i));
-      scheduler.metadataWaiters.forEach((ctx) => scheduler.assignNextPiece(ctx));
-      scheduler.metadataWaiters = [];
-      return scheduler.manifest;
-    };
-
-    scheduler.completedBytes = () => {
-      if (!scheduler.manifest) {
-        return 0;
-      }
-      return scheduler.resultBuffers.reduce((sum, buf, index) => {
-        if (!buf) return sum;
-        return sum + scheduler.getPieceSize(index);
-      }, 0);
-    };
-
-    scheduler.assignNextPiece = (ctx) => {
-      if (!scheduler.manifest) {
-        scheduler.metadataWaiters.push(ctx);
-        return false;
-      }
-      for (const index of scheduler.pendingPieces) {
-        scheduler.pendingPieces.delete(index);
-        scheduler.inflightPieces.set(ctx.connectionId, index);
-        if (!scheduler.pieceRetries.has(index)) {
-          scheduler.pieceRetries.set(index, 0);
-        }
-        scheduler.pieceBuffers.set(ctx.connectionId, {
-          index,
-          buffers: [],
-          expectedSize: scheduler.getPieceSize(index),
-          received: 0,
-        });
-        ctx.channel.send(JSON.stringify({ type: 'piece-request', index, hash: scheduler.hash }));
-        log('download', '📥 ביקשתי חלק מ-peer', {
-          connectionId: ctx.connectionId,
-          peer: ctx.peerPubkey.slice(0, 16) + '...',
-          pieceIndex: index,
-        });
-        return true;
-      }
-      return false;
-    };
-
-    scheduler.getPieceSize = (index) => {
-      if (!scheduler.manifest) return DEFAULT_PIECE_SIZE;
-      const start = index * scheduler.manifest.pieceSize;
-      return Math.min(scheduler.manifest.totalSize - start, scheduler.manifest.pieceSize);
-    };
-
-    scheduler.handleMetadata = (payload, ctx) => {
-      scheduler.ensureManifest(payload);
-      scheduler.assignNextPiece(ctx);
-    };
-
-    scheduler.handlePeerCatalog = (payload, ctx) => {
-      const files = Array.isArray(payload?.files) ? payload.files : [];
-      rememberPeerCatalog(ctx.peerPubkey, files);
-    };
-
-    scheduler.handlePieceBegin = (payload, ctx) => {
-      const buffersState = scheduler.pieceBuffers.get(ctx.connectionId);
-      if (buffersState && buffersState.index === payload.index) {
-        buffersState.expectedSize = payload.size || scheduler.getPieceSize(payload.index);
-        buffersState.buffers = [];
-        buffersState.received = 0;
-      }
-    };
-
-    scheduler.handleBinary = (data, ctx) => {
-      const buffersState = scheduler.pieceBuffers.get(ctx.connectionId);
-      if (!buffersState) {
-        return;
-      }
-      buffersState.buffers.push(data);
-      buffersState.received += data.byteLength || data.size || 0;
-      if (scheduler.manifest) {
-        const totalBytes = scheduler.completedBytes() + buffersState.received;
-        updateDownloadProgress(ctx.connectionId, totalBytes, scheduler.manifest.totalSize, {
-          piece: buffersState.index,
-          received: `${buffersState.received} / ${buffersState.expectedSize}`,
-        });
-      }
-    };
-
-    scheduler.handlePieceComplete = (payload, ctx) => {
-      const buffersState = scheduler.pieceBuffers.get(ctx.connectionId);
-      if (!buffersState || buffersState.index !== payload.index) {
-        return;
-      }
-      const arrayBuffer = concatArrayBuffers(buffersState.buffers, buffersState.received);
-      scheduler.resultBuffers[buffersState.index] = arrayBuffer;
-      scheduler.pieceStatus[buffersState.index] = 'done';
-      scheduler.pieceBuffers.delete(ctx.connectionId);
-      scheduler.inflightPieces.delete(ctx.connectionId);
-      scheduler.successPeers.add(ctx.peerPubkey);
-      ctx.currentPiece = null;
-      if (scheduler.manifest) {
-        updateDownloadProgress(ctx.connectionId, scheduler.completedBytes(), scheduler.manifest.totalSize, {
-          piece: buffersState.index,
-          chunks: buffersState.buffers.length,
-        });
-      }
-      if (!scheduler.assignNextPiece(ctx)) {
-        if (scheduler.isComplete()) {
-          ctx.resolve();
-        }
-      }
-      scheduler.tryFinalize();
-    };
-
-    scheduler.handleError = (ctx, message) => {
-      log('error', `❌ שגיאה מה-peer: ${message}`, {
-        peer: ctx.peerPubkey.slice(0, 16) + '...'
-      });
-      const inflightIndex = scheduler.inflightPieces.get(ctx.connectionId);
-      if (typeof inflightIndex === 'number') {
-        const nextRetry = (scheduler.pieceRetries.get(inflightIndex) || 0) + 1;
-        scheduler.pieceRetries.set(inflightIndex, nextRetry);
-        if (MAX_PIECE_RETRIES > 0 && nextRetry >= MAX_PIECE_RETRIES) {
-          scheduler.fail(new Error(`חריגה ממספר ניסיונות לחלק ${inflightIndex}`));
-          return;
-        }
-        scheduler.pendingPieces.add(inflightIndex);
-        scheduler.inflightPieces.delete(ctx.connectionId);
-      }
-      scheduler.pieceBuffers.delete(ctx.connectionId);
-      scheduler.assignNextPiece(ctx);
-    };
-
-    scheduler.handlePeerClose = (ctx) => {
-      const inflightIndex = scheduler.inflightPieces.get(ctx.connectionId);
-      if (typeof inflightIndex === 'number') {
-        const nextRetry = (scheduler.pieceRetries.get(inflightIndex) || 0) + 1;
-        scheduler.pieceRetries.set(inflightIndex, nextRetry);
-        if (MAX_PIECE_RETRIES > 0 && nextRetry >= MAX_PIECE_RETRIES) {
-          scheduler.fail(new Error(`חריגה ממספר ניסיונות לחלק ${inflightIndex}`));
-          return;
-        }
-        scheduler.pendingPieces.add(inflightIndex);
-        scheduler.inflightPieces.delete(ctx.connectionId);
-      }
-      scheduler.pieceBuffers.delete(ctx.connectionId);
-      scheduler.connections.delete(ctx.connectionId);
-      if (!scheduler.resolved && scheduler.connections.size === 0) {
-        scheduler.tryFinalize();
-      }
-    };
-
-    scheduler.closeAllConnections = () => {
-      if (scheduler.closed) {
-        return;
-      }
-      scheduler.closed = true;
-      scheduler.connections.forEach((ctx) => {
-        try {
-          ctx.channel?.close();
-        } catch (err) {
-          console.warn('channel close', err);
-        }
-        try {
-          ctx.resolve();
-        } catch (err) {
-          console.warn('ctx resolve err', err);
-        }
-      });
-      scheduler.connections.clear();
-    };
-
-    scheduler.tryFinalize = () => {
-      if (scheduler.resolved) {
-        return;
-      }
-      if (!scheduler.manifest) {
-        return;
-      }
-      if (scheduler.resultBuffers.every(Boolean)) {
-        scheduler.resolved = true;
-        const blob = new Blob(scheduler.resultBuffers.map((buf) => new Uint8Array(buf)), {
-          type: scheduler.manifest.mimeType || mimeType,
-        });
-        scheduler.resolve({
-          blob,
-          mimeType: scheduler.manifest.mimeType || mimeType,
-          peers: Array.from(scheduler.successPeers),
-          pieceCount: scheduler.manifest.pieceCount,
-        });
-        scheduler.closeAllConnections();
-      } else if (scheduler.connections.size === 0 && scheduler.pendingPieces.size === 0) {
-        scheduler.resolved = true;
-        scheduler.reject(new Error('לא הושלמו כל החלקים'));
-        scheduler.closeAllConnections();
-      }
-    };
-
-    scheduler.isComplete = () => scheduler.manifest && scheduler.resultBuffers.length && scheduler.resultBuffers.every(Boolean);
-
-    scheduler.fail = (err) => {
-      if (!scheduler.resolved) {
-        scheduler.resolved = true;
-        scheduler.reject(err instanceof Error ? err : new Error(String(err)));
-        scheduler.closeAllConnections();
-      }
-    };
-
-    scheduler.registerConnection = (ctx) => {
-      scheduler.connections.set(ctx.connectionId, ctx);
-      ctx.currentPiece = null;
-    };
-
-    scheduler.requestMetadata = (ctx) => {
-      const files = getPeerCatalogSample(24);
-      ctx.channel.send(JSON.stringify({
-        type: 'metadata-request',
-        hash: scheduler.hash,
-        knownFiles: files,
-      }));
-      ctx.channel.send(JSON.stringify({
-        type: 'peer-map',
-        files,
-      }));
-    };
-
-    scheduler.handleMessage = (messageStr, ctx) => {
-      let msg;
-      try {
-        msg = JSON.parse(messageStr);
-      } catch (err) {
-        log('error', `❌ הודעת JSON לא תקינה: ${err.message}`);
-        return;
-      }
-      switch (msg.type) {
-        case 'metadata':
-          scheduler.handleMetadata(msg, ctx);
-          break;
-        case 'peer-map':
-          scheduler.handlePeerCatalog(msg, ctx);
-          break;
-        case 'piece-begin':
-          scheduler.handlePieceBegin(msg, ctx);
-          break;
-        case 'piece-complete':
-          scheduler.handlePieceComplete(msg, ctx);
-          break;
-        case 'error':
-          scheduler.handleError(ctx, msg.message);
-          break;
-        default:
-          log('info', `ℹ️ התקבלה הודעה לא מזוהה (${msg.type || 'unknown'})`);
-      }
-    };
-
-    return scheduler;
-  }
-
-  // חלק טורנט (p2p-video-sharing.js) – יצירת חיבור WebRTC גנרי עבור כל שימוש | HYPER CORE TECH
-  async function connectToPeer(peerPubkey, hash, options = {}) {
-    const retryLimit = options.retryLimit || ANSWER_RETRY_LIMIT;
-    let lastError = null;
-    for (let attempt = 1; attempt <= retryLimit; attempt += 1) {
-      try {
-        return await createPeerConnectionOnce(peerPubkey, hash, attempt, options);
-      } catch (err) {
-        lastError = err;
-        const isAnswerTimeout = err && err.message === 'Answer timeout';
-        if (isAnswerTimeout && attempt < retryLimit) {
-          log('info', `🔁 Answer timeout – מנסה שוב (${attempt + 1}/${retryLimit})`, {
-            peer: peerPubkey.slice(0, 16) + '...',
-            hash: hash.slice(0, 16) + '...',
-            purpose: options.purpose || 'generic'
-          });
-          await sleep(ANSWER_RETRY_DELAY);
-          continue;
-        }
-        break;
-      }
-    }
-    throw lastError || new Error('Peer connection failed');
-  }
-
-  function createPeerConnectionOnce(peerPubkey, hash, attemptNumber, options = {}) {
-    const label = options.label || 'file-transfer';
-    const timeoutMs = typeof options.timeoutMs === 'number' ? options.timeoutMs : MAX_DOWNLOAD_TIMEOUT;
-    const purpose = options.purpose || 'generic';
-
-    return new Promise(async (resolve, reject) => {
-      const connectionId = `${peerPubkey}-${hash}-${Date.now()}-${purpose}-a${attemptNumber}`;
-      log('peer', `🔗 יצירת RTCPeerConnection (${purpose})`, {
-        connectionId,
-        peer: peerPubkey.slice(0, 16) + '...'
-      });
-
-      const timeout = setTimeout(() => {
-        log('error', `⏱️ timeout (${purpose}) בהורדה מ-peer`, {
-          peer: peerPubkey.slice(0, 16) + '...'
-        });
-        handlerContext.reject(new Error('Download timeout'));
-      }, timeoutMs);
-
-      let pc = null;
-      let channel = null;
-
-      function cleanup() {
-        clearTimeout(timeout);
-        if (channel) {
-          try {
-            channel.onmessage = null;
-            channel.onopen = null;
-            channel.onerror = null;
-            channel.onclose = null;
-            channel.close();
-          } catch (closeErr) {
-            console.warn('channel close err', closeErr);
-          }
-        }
-        if (pc) {
-          try {
-            pc.onicecandidate = null;
-            pc.oniceconnectionstatechange = null;
-            pc.close();
-          } catch (closeErr) {
-            console.warn('pc close err', closeErr);
-          }
-          state.activeConnections.delete(connectionId);
-        }
-        const pending = state.pendingConnections.get(connectionId);
-        if (pending) {
-          clearTimeout(pending.timeout);
-          state.pendingConnections.delete(connectionId);
-        }
-      }
-
-      try {
-        pc = new RTCPeerConnection(RTC_CONFIG);
-        state.activeConnections.set(connectionId, pc);
-
-        channel = pc.createDataChannel(label, {
-          ordered: true,
-        });
-        channel.binaryType = 'arraybuffer';
-
-        const handlerContext = {
-          connectionId,
-          peerPubkey,
-          hash,
-          channel,
-          purpose,
-          settled: false,
-          cleanup: () => cleanup(),
-        };
-
-        handlerContext.resolve = (value) => {
-          if (handlerContext.settled) {
-            return;
-          }
-          handlerContext.settled = true;
-          cleanup();
-          resolve(value);
-        };
-
-        handlerContext.reject = (err) => {
-          if (handlerContext.settled) {
-            return;
-          }
-          handlerContext.settled = true;
-          cleanup();
-          reject(err instanceof Error ? err : new Error(String(err)));
-        };
-
-        channel.onopen = () => {
-          log('success', `✅ data channel נפתח (${purpose})`, { connectionId });
-          registerLiveSignalChannel({ connectionId, peerPubkey, channel });
-          if (typeof options.onChannelOpen === 'function') {
-            try {
-              options.onChannelOpen(channel, handlerContext);
-            } catch (err) {
-              handlerContext.reject(err);
-            }
-          }
-        };
-
-        channel.onmessage = (event) => {
-          try {
-            if (typeof event.data === 'string') {
-              if (handleChannelControlMessage(event.data, handlerContext)) {
-                return;
-              }
-              if (typeof options.onMessage === 'function') {
-                options.onMessage(event.data, handlerContext);
-              }
-            } else if (options.onBinary) {
-              options.onBinary(event.data, handlerContext);
-            }
-          } catch (err) {
-            handlerContext.reject(err);
-          }
-        };
-
-        channel.onerror = (err) => {
-          log('error', `❌ שגיאה ב-data channel (${purpose}): ${err}`);
-          handlerContext.reject(err);
-        };
-
-        channel.onclose = () => {
-          log('info', `🔌 data channel נסגר (${purpose})`, { connectionId });
-          unregisterLiveSignalChannel(connectionId);
-          if (typeof options.onChannelClose === 'function') {
-            try {
-              options.onChannelClose(handlerContext);
-            } catch (err) {
-              console.warn('channel close handler err', err);
-            }
-          }
-          handlerContext.resolve();
-        };
-
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            log('peer', `🧊 ICE candidate חדש (${purpose})`, {
-              type: event.candidate.type,
-              protocol: event.candidate.protocol
-            });
-            sendSignal(peerPubkey, 'ice-candidate', {
-              candidate: event.candidate,
-              hash,
-              connectionId
-            }).catch((err) => {
-              log('error', `❌ כשלון בשליחת ICE candidate: ${err.message}`);
-            });
-          }
-        };
-
-        pc.oniceconnectionstatechange = () => {
-          log('peer', `🔄 ICE connection state (${purpose}): ${pc.iceConnectionState}`, { connectionId });
-          if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-            handlerContext.reject(new Error('Connection failed'));
-          }
-        };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-        log('peer', `📤 שולח offer ל-peer (${purpose})`, { peer: peerPubkey.slice(0, 16) + '...' });
-
-        await sendSignal(peerPubkey, 'file-request', {
-          offer,
-          hash,
-          connectionId,
-          purpose,
-        });
-
-        log('request', `✅ offer נשלח בהצלחה (${purpose})`, { connectionId });
-
-        const answerTimeout = setTimeout(() => {
-          log('error', '❌ לא התקבל answer בזמן', { connectionId }, {
-            throttleKey: `answer-timeout-${hash}-${purpose}`,
-            throttleMs: 5000,
-          });
-          state.pendingConnections.delete(connectionId);
-          handlerContext.reject(new Error('Answer timeout'));
-        }, ANSWER_TIMEOUT);
-
-        state.pendingConnections.set(connectionId, { pc, timeout: answerTimeout });
-
-      } catch (err) {
-        handlerContext.reject(err);
-      }
-    });
-  }
 
   function runExclusiveDownload(key, factory) {
     if (!key) {
@@ -1234,10 +311,6 @@
         timestamp: Date.now(),
       });
 
-      const manifest = await ensurePieceManifest(hash, blob, mimeType);
-      const pieceSize = manifest?.pieceSize || DEFAULT_PIECE_SIZE;
-      const pieceCount = manifest?.pieceCount || Math.ceil(blob.size / pieceSize);
-
       if (typeof App.pinCachedMedia === 'function') {
         try {
           await App.pinCachedMedia(hash, true);
@@ -1291,8 +364,6 @@
           ['size', String(blob.size)],
           ['mime', mimeType],
           ['expires', String(expiresAt)],
-          ['piece_size', String(pieceSize)],
-          ['piece_count', String(pieceCount)],
         ],
         content: '',
       };
@@ -1411,7 +482,7 @@
         myPubkey: App.publicKey?.slice(0, 16) + '...'
       });
 
-      const peers = new Map();
+      const peers = new Set();
       const allEvents = []; // שמירת כל האירועים לדיבוג
       const filters = [{
         kinds: [FILE_AVAILABILITY_KIND],
@@ -1481,25 +552,10 @@
             });
 
             if (expires && expires > now) {
-              const pieceSizeTag = event.tags.find(t => t[0] === 'piece_size');
-              const pieceCountTag = event.tags.find(t => t[0] === 'piece_count');
-              const mimeTag = event.tags.find(t => t[0] === 'mime');
-              const sizeTag = event.tags.find(t => t[0] === 'size');
-              const peerInfo = {
-                pubkey: event.pubkey,
-                expires,
-                pieceSize: pieceSizeTag ? Number(pieceSizeTag[1]) : null,
-                pieceCount: pieceCountTag ? Number(pieceCountTag[1]) : null,
-                totalSize: sizeTag ? Number(sizeTag[1]) : null,
-                mimeType: mimeTag ? mimeTag[1] : null,
-              };
-              peers.set(event.pubkey, peerInfo);
-              rememberPeerCatalog(event.pubkey, [hash]);
+              peers.add(event.pubkey);
               log('peer', `👤 נמצא peer זמין!`, {
                 pubkey: event.pubkey.slice(0, 16) + '...',
-                expires: new Date(expires).toLocaleTimeString('he-IL'),
-                pieceSize: peerInfo.pieceSize,
-                pieceCount: peerInfo.pieceCount,
+                expires: new Date(expires).toLocaleTimeString('he-IL')
               });
             } else {
               log('info', `❌ peer פג תוקף או חסר expires`, {
@@ -1510,11 +566,11 @@
             }
           },
           oneose: () => {
-            const peerArray = Array.from(peers.values());
+            const peerArray = Array.from(peers);
             log('info', `📋 סיימתי חיפוש (EOSE)`, {
               totalEventsReceived: eventCount,
               validPeers: peerArray.length,
-              peers: peerArray.map(p => p.pubkey.slice(0, 16) + '...'),
+              peers: peerArray.map(p => p.slice(0, 16) + '...'),
               allEventsReceived: allEvents
             });
             finalize(peerArray);
@@ -1523,7 +579,7 @@
 
         // timeout
         timeoutHandle = setTimeout(() => {
-          const peerArray = Array.from(peers.values());
+          const peerArray = Array.from(peers);
           log('info', `⏱️ timeout בחיפוש (${PEER_DISCOVERY_TIMEOUT}ms)`, {
             eventsReceivedSoFar: eventCount,
             peersFound: peerArray.length
@@ -1623,9 +679,6 @@
         channel.onmessage = (event) => {
           try {
             if (typeof event.data === 'string') {
-              if (handleChannelControlMessage(event.data, null)) {
-                return;
-              }
               const msg = JSON.parse(event.data);
 
               if (msg.type === 'metadata') {
@@ -1731,57 +784,22 @@
 
   // חלק P2P (p2p-video-sharing.js) – שליחת signal דרך Nostr
   async function sendSignal(peerPubkey, type, data) {
-    let relaysForSend = [];
     try {
-      if (!peerPubkey) {
-        throw new Error('חסר peerPubkey לשליחת signal');
-      }
       if (!App.pool || !App.publicKey || !App.privateKey) {
         throw new Error('Missing pool or keys');
-      }
-
-      const envelope = buildRelaySignalEnvelope(peerPubkey, type, data);
-      rememberRelaySignal(envelope.id);
-
-      if (deliverSignalDirect(peerPubkey, envelope)) {
-        log('peer', '📡 signal נשלח ישירות על גבי DataChannel', {
-          type,
-          to: peerPubkey.slice(0, 16) + '...',
-          via: 'direct-channel',
-        });
-        return;
-      }
-
-      let gossipUsed = false;
-      if (state.livePeerChannels.size > 0) {
-        broadcastRelaySignal(envelope, null);
-        gossipUsed = true;
-        log('peer', '📡 signal שודר דרך רשת ה-gossip', {
-          type,
-          to: peerPubkey.slice(0, 16) + '...',
-          via: 'gossip',
-        });
-      }
-
-      const allRelays = getP2PRelays();
-      relaysForSend = Array.isArray(allRelays) ? allRelays.slice(0, 4) : [];
-
-      if (!relaysForSend.length) {
-        if (gossipUsed) {
-          return;
-        }
-        throw new Error('אין ריליים זמינים לשליחת signal');
       }
 
       await throttleSignals();
 
       const content = JSON.stringify({ type, data });
+      
+      // הצפנה אם יש פונקציה
       let encryptedContent = content;
       if (typeof App.encryptMessage === 'function') {
         encryptedContent = await App.encryptMessage(content, peerPubkey);
       }
 
-      const kind = FILE_REQUEST_KIND;
+      const kind = FILE_REQUEST_KIND; // כל הסיגנלים משתמשים ב-30078
       const signalType = type === 'file-request' ? 'req' : (type === 'file-response' ? 'res' : 'ice');
 
       const event = {
@@ -1789,47 +807,25 @@
         pubkey: App.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
-          ['d', `${P2P_APP_TAG}:signal:${Date.now()}`],
+          ['d', `${P2P_APP_TAG}:signal:${Date.now()}`], // NIP-78: מזהה ייחודי
           ['p', peerPubkey],
-          ['t', `p2p-${signalType}`],
+          ['t', `p2p-${signalType}`], // סוג הסיגנל
         ],
         content: encryptedContent,
       };
 
       const signed = App.finalizeEvent(event, App.privateKey);
-      const publishStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-      const publishResults = App.pool.publish(relaysForSend, signed);
-
-      if (Array.isArray(publishResults)) {
-        const settled = await Promise.allSettled(publishResults);
-        settled.forEach((result, idx) => {
-          const relayUrl = relaysForSend[idx];
-          const duration = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - publishStart;
-          if (result.status === 'fulfilled') {
-            recordRelaySuccess(relayUrl, duration);
-          } else {
-            recordRelayFailure(relayUrl);
-          }
-        });
-      } else if (publishResults?.then) {
-        await publishResults;
-        const duration = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - publishStart;
-        relaysForSend.forEach((relayUrl) => recordRelaySuccess(relayUrl, duration));
-      } else {
-        const duration = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - publishStart;
-        relaysForSend.forEach((relayUrl) => recordRelaySuccess(relayUrl, duration));
-      }
+      const relays = getP2PRelays(); // שימוש בריליי P2P במקום הריליים הרגילים
+      await App.pool.publish(relays, signed);
 
       log('peer', `📡 signal נשלח`, {
         type,
         to: peerPubkey.slice(0, 16) + '...',
-        via: gossipUsed ? 'relay+gossip' : 'relay',
+        kind,
+        relays: relays
       });
 
     } catch (err) {
-      if (Array.isArray(relaysForSend)) {
-        relaysForSend.forEach((relayUrl) => recordRelayFailure(relayUrl));
-      }
       log('error', `❌ כשלון בשליחת signal: ${err.message}`);
       throw err;
     }
@@ -1925,7 +921,7 @@
     }
   }
 
-  // חלק P2P (p2p-video-sharing.js) – טיפול בבקשת קובץ עם חלוקת חלקים וגוסיפ
+  // חלק P2P (p2p-video-sharing.js) – טיפול בבקשת קובץ
   async function handleFileRequest(peerPubkey, data) {
     const { offer, hash, connectionId } = data;
 
@@ -1935,13 +931,17 @@
       connectionId
     });
 
+    // בדיקה אם יש לנו את הקובץ
     const fileData = state.availableFiles.get(hash);
     if (!fileData) {
       log('error', `❌ אין לי את הקובץ הזה`, { hash: hash.slice(0, 16) + '...' });
       return;
     }
 
-    const manifest = await ensurePieceManifest(hash, fileData.blob, fileData.mimeType);
+    log('success', `✅ יש לי את הקובץ! מתחיל שליחה`, {
+      size: fileData.size,
+      mimeType: fileData.mimeType
+    });
 
     try {
       const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -1949,102 +949,71 @@
 
       log('peer', `🔗 יצרתי RTCPeerConnection לשליחה`, { connectionId });
 
+      // קבלת data channel מה-peer
       pc.ondatachannel = (event) => {
         const channel = event.channel;
-        channel.binaryType = 'arraybuffer';
-        let sendQueue = Promise.resolve();
-        let legacyTransferStarted = false;
+        
+        log('peer', `📡 קיבלתי data channel`, { connectionId });
 
-        function sendMetadata(targetChannel = channel) {
-          const payload = {
-            type: 'metadata',
-            hash,
-            size: fileData.size,
-            mimeType: fileData.mimeType,
-            pieceSize: manifest.pieceSize,
-            pieceCount: manifest.pieceCount,
-            totalSize: manifest.totalSize,
-          };
-          targetChannel.send(JSON.stringify(payload));
-          log('upload', '📊 שלחתי metadata', payload);
-        }
+        channel.onopen = async () => {
+          log('success', `✅ data channel נפתח - מתחיל שליחה!`);
 
-        function sendPeerMap(targetChannel = channel) {
-          const files = getPeerCatalogSample(32);
-          targetChannel.send(JSON.stringify({ type: 'peer-map', files }));
-        }
+          try {
+            // שליחת metadata
+            channel.send(JSON.stringify({
+              type: 'metadata',
+              size: fileData.size,
+              mimeType: fileData.mimeType
+            }));
 
-        async function waitForBuffer() {
-          while (channel.bufferedAmount > CHUNK_SIZE * 8) {
-            await new Promise((resolve) => setTimeout(resolve, 10));
-          }
-        }
-
-        async function sendPiece(index) {
-          const pieceIndex = Number(index);
-          if (Number.isNaN(pieceIndex) || pieceIndex < 0 || pieceIndex >= manifest.pieceCount) {
-            throw new Error(`piece ${index} מחוץ לטווח`);
-          }
-          const start = pieceIndex * manifest.pieceSize;
-          const end = Math.min(start + manifest.pieceSize, fileData.size);
-          const size = end - start;
-          if (size <= 0) {
-            throw new Error(`piece ${index} ריק`);
-          }
-
-          channel.send(JSON.stringify({ type: 'piece-begin', index: pieceIndex, size }));
-
-          let offset = start;
-          let chunkCount = 0;
-          while (offset < end) {
-            const chunk = fileData.blob.slice(offset, Math.min(offset + CHUNK_SIZE, end));
-            const buffer = await chunk.arrayBuffer();
-            await waitForBuffer();
-            channel.send(buffer);
-            offset += chunk.byteLength || chunk.size || CHUNK_SIZE;
-            chunkCount += 1;
-          }
-
-          channel.send(JSON.stringify({ type: 'piece-complete', index: pieceIndex }));
-          log('upload', '📤 שלחתי חלק', { pieceIndex, size, chunks: chunkCount });
-        }
-
-        async function sendEntireFile() {
-          if (legacyTransferStarted) {
-            return;
-          }
-          legacyTransferStarted = true;
-          sendMetadata();
-          const blob = fileData.blob;
-          let offset = 0;
-          let chunkNum = 0;
-          while (offset < blob.size) {
-            const chunk = blob.slice(offset, offset + CHUNK_SIZE);
-            const buffer = await chunk.arrayBuffer();
-            await waitForBuffer();
-            channel.send(buffer);
-            offset += chunk.size || buffer.byteLength;
-            chunkNum += 1;
-            const progress = ((offset / blob.size) * 100).toFixed(1);
-            log('upload', `📤 שלחתי chunk ${chunkNum}`, {
-              progress: `${progress}%`,
-              sent: `${offset} / ${blob.size}`
+            log('upload', `📊 שלחתי metadata`, {
+              size: fileData.size,
+              mimeType: fileData.mimeType
             });
+
+            // שליחת הקובץ ב-chunks
+            const blob = fileData.blob;
+            let offset = 0;
+            let chunkNum = 0;
+
+            while (offset < blob.size) {
+              const chunk = blob.slice(offset, offset + CHUNK_SIZE);
+              const arrayBuffer = await chunk.arrayBuffer();
+              
+              // המתנה אם ה-buffer מלא
+              while (channel.bufferedAmount > CHUNK_SIZE * 4) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+              }
+
+              channel.send(arrayBuffer);
+              chunkNum++;
+              offset += CHUNK_SIZE;
+
+              const progress = ((offset / blob.size) * 100).toFixed(1);
+              log('upload', `📤 שלחתי chunk ${chunkNum}`, {
+                progress: `${progress}%`,
+                sent: `${offset} / ${blob.size}`
+              });
+            }
+
+            // שליחת הודעת סיום
+            channel.send(JSON.stringify({
+              type: 'complete',
+              mimeType: fileData.mimeType
+            }));
+
+            log('success', `✅ סיימתי לשלוח את כל הקובץ!`, {
+              chunks: chunkNum,
+              totalSize: blob.size
+            });
+
+          } catch (err) {
+            log('error', `❌ שגיאה בשליחת קובץ: ${err.message}`);
+            channel.send(JSON.stringify({
+              type: 'error',
+              message: err.message
+            }));
           }
-          channel.send(JSON.stringify({ type: 'complete', mimeType: fileData.mimeType }));
-        }
-
-        function enqueuePiece(index) {
-          sendQueue = sendQueue.then(() => sendPiece(index)).catch((err) => {
-            channel.send(JSON.stringify({ type: 'error', message: err?.message || 'piece failed' }));
-            log('error', `❌ שליחת חלק נכשלה: ${err?.message || err}`, { index });
-          });
-        }
-
-        channel.onopen = () => {
-          log('success', `✅ data channel נפתח - מתחיל פרוטוקול חלוקת חלקים`);
-          sendMetadata();
-          sendPeerMap();
         };
 
         channel.onerror = (err) => {
@@ -2052,43 +1021,18 @@
         };
 
         channel.onmessage = (event) => {
-          if (typeof event.data !== 'string') {
-            return;
-          }
           try {
             const msg = JSON.parse(event.data);
-            switch (msg.type) {
-              case 'metadata-request': {
-                if (Array.isArray(msg.knownFiles)) {
-                  rememberPeerCatalog(peerPubkey, msg.knownFiles);
-                }
-                sendMetadata();
-                sendPeerMap();
-                break;
-              }
-              case 'piece-request': {
-                enqueuePiece(msg.index);
-                break;
-              }
-              case 'request': {
-                sendEntireFile();
-                break;
-              }
-              case 'peer-map': {
-                if (Array.isArray(msg.files)) {
-                  rememberPeerCatalog(peerPubkey, msg.files);
-                }
-                break;
-              }
-              default:
-                log('info', `ℹ️ התקבלה הודעה לא מזוהה מה-peer (${msg.type || 'unknown'})`);
+            if (msg.type === 'request') {
+              log('request', `📥 peer ביקש את הקובץ`, { hash: msg.hash.slice(0, 16) + '...' });
             }
           } catch (err) {
-            log('error', `❌ הודעת JSON לא תקינה מה-peer: ${err.message}`);
+            // לא JSON, אולי binary data
           }
         };
       };
 
+      // ICE candidates
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           log('peer', `🧊 ICE candidate חדש (שליחה)`, {
@@ -2106,14 +1050,16 @@
         log('peer', `🔄 ICE connection state (שליחה): ${pc.iceConnectionState}`);
       };
 
+      // קבלת ה-offer ויצירת answer
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
       log('peer', `📤 שולח answer ל-peer`, { peer: peerPubkey.slice(0, 16) + '...' });
 
+      // שליחת answer
       await sendSignal(peerPubkey, 'file-response', {
-        answer,
+        answer: answer,
         hash,
         connectionId
       });
@@ -2149,7 +1095,15 @@
   async function downloadVideoWithP2P(url, hash, mimeType = 'video/webm') {
     const queueKey = hash || url;
     return runExclusiveDownload(queueKey, async () => {
-      const releaseSlot = await acquireDownloadSlot(hash || url);
+      let releaseSlot;
+      // חלק איזון עומסים (p2p-video-sharing.js) – הקצאת משבצת רק כשעוברים לרשת | HYPER CORE TECH
+      const ensureSlot = async () => {
+        if (!releaseSlot) {
+          releaseSlot = await acquireDownloadSlot(hash || url);
+        }
+        return releaseSlot;
+      };
+
       log('download', `🎬 מתחיל הורדת וידאו`, {
         url: url.slice(0, 50) + '...',
         hash: hash ? hash.slice(0, 16) + '...' : 'אין hash'
@@ -2157,6 +1111,7 @@
 
       try {
         if (!hash) {
+          await ensureSlot();
           log('info', `ℹ️ אין hash - הורדה רגילה מהלינק`);
           try {
             const response = await fetch(url);
@@ -2179,6 +1134,7 @@
           }
         }
 
+        await ensureSlot();
         const rawPeers = await findPeersWithFile(hash);
 
         if (rawPeers.length === 0) {
@@ -2198,48 +1154,8 @@
           }
         }
 
-        const normalizedPeers = normalizePeerInfos(rawPeers);
-
-        if (normalizedPeers.length) {
-          try {
-            const multiResult = await downloadViaMultiPeer(normalizedPeers, hash, mimeType);
-            const peersList = Array.isArray(multiResult.peers) && multiResult.peers.length
-              ? multiResult.peers
-              : normalizedPeers.map((p) => p.pubkey);
-            const primaryPeer = peersList.length ? peersList[0] : null;
-            log('success', '🎉 הורדת multi-peer הושלמה!', {
-              peers: peersList.map((p) => p.slice(0, 16) + '...'),
-              pieceCount: multiResult.pieceCount,
-            });
-
-            if (typeof App.cacheMedia === 'function') {
-              await App.cacheMedia(url, hash, multiResult.blob, multiResult.mimeType || mimeType, { pinned: true });
-            }
-
-            await registerFileAvailability(hash, multiResult.blob, multiResult.mimeType || mimeType);
-            return {
-              blob: multiResult.blob,
-              source: 'p2p-multi',
-              peer: typeof primaryPeer === 'string' ? primaryPeer : undefined,
-              peers: peersList,
-            };
-          } catch (err) {
-            log('error', `❌ הורדת multi-peer נכשלה: ${err.message}`, {
-              throttleKey: `multi-peer-${hash.slice(0, 12)}`,
-              throttleMs: 2000,
-            });
-          }
-        }
-
-        const sequentialPeers = (normalizedPeers.length
-          ? normalizedPeers.map((peer) => peer.pubkey)
-          : rawPeers
-              .map((peer) => (typeof peer === 'string' ? peer : peer?.pubkey))
-              .filter(Boolean))
-          .slice(0, MAX_PEER_ATTEMPTS_PER_FILE > 0 ? MAX_PEER_ATTEMPTS_PER_FILE : undefined);
-
         let attemptCount = 0;
-        for (const peer of sequentialPeers) {
+        for (const peer of peers) {
           if (MAX_PEER_ATTEMPTS_PER_FILE > 0 && attemptCount >= MAX_PEER_ATTEMPTS_PER_FILE) {
             log('info', '🛑 הושגה מגבלת ניסיונות peer – עובר לפולבאק', {
               hash: hash.slice(0, 16) + '...',
@@ -2249,7 +1165,7 @@
           }
           attemptCount += 1;
           try {
-            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${MAX_PEER_ATTEMPTS_PER_FILE > 0 ? Math.min(sequentialPeers.length, MAX_PEER_ATTEMPTS_PER_FILE) : sequentialPeers.length}`, {
+            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${MAX_PEER_ATTEMPTS_PER_FILE > 0 ? Math.min(peers.length, MAX_PEER_ATTEMPTS_PER_FILE) : peers.length}`, {
               peer: peer.slice(0, 16) + '...'
             });
 
