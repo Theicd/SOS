@@ -53,6 +53,15 @@
   const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 2; // 2 ניסיונות לכל peer
   const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000; // 2 שניות בין ניסיונות
 
+  // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
+  const NETWORK_TIER_BOOTSTRAP_MAX = 3;   // משתמשים 1-3: כל הפוסטים מ-Blossom
+  const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: 3 אחרונים מ-Blossom, שאר P2P
+  const HYBRID_BLOSSOM_POSTS = 3;         // כמות פוסטים לטעון מ-Blossom במצב Hybrid
+  const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
+  const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
+  const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
+  const CONSECUTIVE_FAILURES_THRESHOLD = 2; // כמות כשלונות ברצף לפני fallback
+
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
     ? { iceServers: window.NostrRTC_ICE }
@@ -92,6 +101,11 @@
     signalTimestamps: [],
     activeTransferSlots: 0,
     pendingTransferResolvers: [],
+    // חלק Network Tiers (p2p-video-sharing.js) – מצב רשת ומטמון peers | HYPER CORE TECH
+    networkTier: 'UNKNOWN',           // BOOTSTRAP | HYBRID | P2P_FULL | UNKNOWN
+    lastPeerCount: 0,                 // ספירת peers אחרונה
+    lastPeerCountTime: 0,             // זמן ספירה אחרונה
+    consecutiveP2PFailures: 0,        // כשלונות P2P ברצף
   };
 
   const logState = {
@@ -274,6 +288,170 @@
         console.warn('Background registerFileAvailability failed', err);
       });
     });
+  }
+
+  // חלק Network Tiers (p2p-video-sharing.js) – ספירת peers פעילים ברשת | HYPER CORE TECH
+  async function countActivePeers() {
+    // בדיקת cache
+    const now = Date.now();
+    if (state.lastPeerCountTime && (now - state.lastPeerCountTime) < PEER_COUNT_CACHE_TTL) {
+      log('info', '📊 משתמש בספירת peers מ-cache', { count: state.lastPeerCount });
+      return state.lastPeerCount;
+    }
+
+    const relays = getP2PRelays();
+    if (!relays.length || !App.pool) {
+      log('info', 'ℹ️ אין ריליים או pool - מחזיר 0 peers');
+      return 0;
+    }
+
+    const sinceTimestamp = Math.floor(Date.now() / 1000) - 300; // 5 דקות אחורה
+
+    return new Promise((resolve) => {
+      const uniquePeers = new Set();
+      let finished = false;
+
+      const filters = [{
+        kinds: [FILE_AVAILABILITY_KIND],
+        '#t': ['p2p-file'],
+        since: sinceTimestamp,
+        limit: 100
+      }];
+
+      const timeout = setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          finalize();
+        }
+      }, 3000);
+
+      const finalize = () => {
+        const count = uniquePeers.size;
+        state.lastPeerCount = count;
+        state.lastPeerCountTime = Date.now();
+        log('info', '📊 ספירת peers הושלמה', { count, peers: [...uniquePeers].map(p => p.slice(0, 8)) });
+        resolve(count);
+      };
+
+      try {
+        const sub = App.pool.subscribeMany(relays, filters, {
+          onevent: (event) => {
+            if (event.pubkey && event.pubkey !== App.publicKey) {
+              // בדיקת תוקף
+              const expiresTag = event.tags?.find(t => t[0] === 'expires');
+              const expires = expiresTag ? parseInt(expiresTag[1]) : 0;
+              if (!expires || expires > Date.now()) {
+                uniquePeers.add(event.pubkey);
+              }
+            }
+          },
+          oneose: () => {
+            if (!finished) {
+              finished = true;
+              clearTimeout(timeout);
+              sub?.close?.();
+              finalize();
+            }
+          }
+        });
+      } catch (err) {
+        log('error', '❌ שגיאה בספירת peers', { error: err.message });
+        if (!finished) {
+          finished = true;
+          clearTimeout(timeout);
+          resolve(0);
+        }
+      }
+    });
+  }
+
+  // חלק Network Tiers (p2p-video-sharing.js) – זיהוי מצב הרשת לפי כמות peers | HYPER CORE TECH
+  function getNetworkTier(peerCount) {
+    if (peerCount <= NETWORK_TIER_BOOTSTRAP_MAX) {
+      return 'BOOTSTRAP';
+    }
+    if (peerCount <= NETWORK_TIER_HYBRID_MAX) {
+      return 'HYBRID';
+    }
+    return 'P2P_FULL';
+  }
+
+  // חלק Network Tiers (p2p-video-sharing.js) – עדכון מצב הרשת | HYPER CORE TECH
+  async function updateNetworkTier() {
+    const peerCount = await countActivePeers();
+    const tier = getNetworkTier(peerCount);
+    const prevTier = state.networkTier;
+    state.networkTier = tier;
+
+    if (prevTier !== tier) {
+      log('info', `🌐 מצב רשת השתנה: ${prevTier} → ${tier}`, { peers: peerCount });
+    }
+
+    return { tier, peerCount };
+  }
+
+  // חלק Network Tiers (p2p-video-sharing.js) – פרסום קבצים עם השהייה למניעת הצפה | HYPER CORE TECH
+  async function registerFilesSequentially(files) {
+    if (!Array.isArray(files) || files.length === 0) {
+      return { registered: 0, failed: 0 };
+    }
+
+    log('info', `📤 מתחיל פרסום ${files.length} קבצים עם השהייה...`);
+    let registered = 0;
+    let failed = 0;
+
+    for (const file of files) {
+      if (!file.hash || !file.blob) {
+        failed++;
+        continue;
+      }
+
+      try {
+        await registerFileAvailability(file.hash, file.blob, file.mimeType || 'video/webm');
+        registered++;
+        log('success', `✅ פורסם קובץ ${registered}/${files.length}`, { hash: file.hash.slice(0, 16) });
+
+        // המתנה בין פרסומים
+        if (registered < files.length) {
+          await sleep(AVAILABILITY_PUBLISH_DELAY);
+        }
+      } catch (err) {
+        failed++;
+        log('error', `❌ כשלון בפרסום קובץ`, { hash: file.hash?.slice(0, 16), error: err.message });
+      }
+    }
+
+    log('info', `📊 סיכום פרסום: ${registered} הצליחו, ${failed} נכשלו`);
+    return { registered, failed };
+  }
+
+  // חלק Network Tiers (p2p-video-sharing.js) – בדיקה אם להשתמש ב-Blossom לפי מצב הרשת | HYPER CORE TECH
+  function shouldUseBlossom(postIndex, tier) {
+    switch (tier) {
+      case 'BOOTSTRAP':
+        // משתמשים 1-3: כל הפוסטים מ-Blossom
+        return true;
+      case 'HYBRID':
+        // משתמשים 4-10: רק 3 פוסטים ראשונים מ-Blossom
+        return postIndex < HYBRID_BLOSSOM_POSTS;
+      case 'P2P_FULL':
+        // משתמש 11+: P2P בלבד (עם fallback אוטומטי)
+        return false;
+      default:
+        // לא ידוע - נשתמש ב-Blossom לבטיחות
+        return true;
+    }
+  }
+
+  // חלק Network Tiers (p2p-video-sharing.js) – איפוס מונה כשלונות | HYPER CORE TECH
+  function resetConsecutiveFailures() {
+    state.consecutiveP2PFailures = 0;
+  }
+
+  // חלק Network Tiers (p2p-video-sharing.js) – הגדלת מונה כשלונות ובדיקה אם צריך fallback | HYPER CORE TECH
+  function incrementFailuresAndCheckFallback() {
+    state.consecutiveP2PFailures++;
+    return state.consecutiveP2PFailures >= CONSECUTIVE_FAILURES_THRESHOLD;
   }
 
   // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים
@@ -1183,8 +1361,8 @@
     }
   }
 
-  // חלק P2P (p2p-video-sharing.js) – הורדת וידאו עם fallback
-  async function downloadVideoWithP2P(url, hash, mimeType = 'video/webm') {
+  // חלק P2P (p2p-video-sharing.js) – הורדת וידאו עם fallback ואסטרטגיית Network Tiers | HYPER CORE TECH
+  async function downloadVideoWithP2P(url, hash, mimeType = 'video/webm', options = {}) {
     const queueKey = hash || url;
     return runExclusiveDownload(queueKey, async () => {
       let releaseSlot;
@@ -1196,12 +1374,21 @@
         return releaseSlot;
       };
 
+      // חלק Network Tiers (p2p-video-sharing.js) – קבלת מצב רשת ואינדקס פוסט | HYPER CORE TECH
+      const postIndex = typeof options.postIndex === 'number' ? options.postIndex : 0;
+      const { tier } = await updateNetworkTier();
+      const forceBlossom = shouldUseBlossom(postIndex, tier);
+
       log('download', `🎬 מתחיל הורדת וידאו`, {
         url: url.slice(0, 50) + '...',
-        hash: hash ? hash.slice(0, 16) + '...' : 'אין hash'
+        hash: hash ? hash.slice(0, 16) + '...' : 'אין hash',
+        tier,
+        postIndex,
+        forceBlossom
       });
 
       try {
+        // אם אין hash - הורדה רגילה
         if (!hash) {
           await ensureSlot();
           log('info', `ℹ️ אין hash - הורדה רגילה מהלינק`);
@@ -1216,31 +1403,59 @@
           }
         }
 
+        // בדיקת cache מקומי
         if (typeof App.getCachedMedia === 'function') {
           const cached = await App.getCachedMedia(hash);
           if (cached && cached.blob) {
             log('success', `✅ נמצא ב-cache מקומי!`, { size: cached.blob.size });
             const cachedMime = cached.mimeType || mimeType;
             scheduleBackgroundRegistration(hash, cached.blob, cachedMime);
+            resetConsecutiveFailures();
             return { blob: cached.blob, source: 'cache' };
           }
         }
 
         await ensureSlot();
+
+        // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה לפי מצב הרשת | HYPER CORE TECH
+        // BOOTSTRAP (1-3 משתמשים): הכל מ-Blossom
+        // HYBRID (4-10 משתמשים): 3 ראשונים מ-Blossom, שאר P2P
+        // P2P_FULL (11+ משתמשים): P2P עם fallback חכם
+
+        if (forceBlossom) {
+          log('info', `🌐 מצב ${tier} - טוען מ-Blossom (פוסט ${postIndex + 1})`);
+          try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            log('success', `✅ הורדה מ-Blossom הצליחה`, { size: blob.size, tier });
+            if (typeof App.cacheMedia === 'function') {
+              await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
+            }
+            // פרסום זמינות ברקע (לא חוסם)
+            scheduleBackgroundRegistration(hash, blob, mimeType);
+            resetConsecutiveFailures();
+            return { blob, source: 'blossom', tier };
+          } catch (err) {
+            log('error', `❌ הורדה מ-Blossom נכשלה: ${err.message}`);
+            throw err;
+          }
+        }
+
+        // P2P_FULL או HYBRID לפוסטים מעבר ל-3 הראשונים
         const rawPeers = await findPeersWithFile(hash);
         const peers = Array.isArray(rawPeers) ? [...rawPeers] : [];
-        // חלק איזון עומסים (p2p-video-sharing.js) – שמירה על רשימת peers תקפה להמשך ההורדה | HYPER CORE TECH
 
-        if (rawPeers.length === 0) {
+        if (peers.length === 0) {
           log('info', `ℹ️ לא נמצאו peers - הורדה מהלינק`);
           try {
             const response = await fetch(url);
             const blob = await response.blob();
-            log('success', `✅ הורדה מהלינק הצליחה`, { size: blob.size });
+            log('success', `✅ הורדה מהלינק הצליחה (אין peers)`, { size: blob.size });
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
             }
             await registerFileAvailability(hash, blob, mimeType);
+            resetConsecutiveFailures();
             return { blob, source: 'url' };
           } catch (err) {
             log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
@@ -1248,6 +1463,7 @@
           }
         }
 
+        // חלק Network Tiers (p2p-video-sharing.js) – ניסיון P2P עם timeout ו-fallback חכם | HYPER CORE TECH
         let attemptCount = 0;
         for (const peer of peers) {
           if (MAX_PEER_ATTEMPTS_PER_FILE > 0 && attemptCount >= MAX_PEER_ATTEMPTS_PER_FILE) {
@@ -1259,11 +1475,17 @@
           }
           attemptCount += 1;
           try {
-            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${MAX_PEER_ATTEMPTS_PER_FILE > 0 ? Math.min(peers.length, MAX_PEER_ATTEMPTS_PER_FILE) : peers.length}`, {
+            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${Math.min(peers.length, MAX_PEER_ATTEMPTS_PER_FILE || peers.length)}`, {
               peer: peer.slice(0, 16) + '...'
             });
 
-            const result = await downloadFromPeer(peer, hash);
+            // ניסיון P2P עם timeout לטעינה ראשונית
+            const downloadPromise = downloadFromPeer(peer, hash);
+            const timeoutPromise = sleep(INITIAL_LOAD_TIMEOUT).then(() => {
+              throw new Error('P2P initial load timeout');
+            });
+
+            const result = await Promise.race([downloadPromise, timeoutPromise]);
 
             log('success', `🎉 הורדה מ-peer הצליחה!`, {
               peer: peer.slice(0, 16) + '...'
@@ -1274,29 +1496,37 @@
             }
 
             await registerFileAvailability(hash, result.blob, result.mimeType);
+            resetConsecutiveFailures();
 
-            return { blob: result.blob, source: 'p2p', peer };
+            return { blob: result.blob, source: 'p2p', peer, tier };
 
           } catch (err) {
             log('error', `❌ הורדה מ-peer נכשלה: ${err.message}`, {
               peer: peer.slice(0, 16) + '...'
             });
+
+            // בדיקת כשלונות ברצף - אם יותר מדי, עובר ל-Blossom
+            if (incrementFailuresAndCheckFallback()) {
+              log('info', `⚠️ ${CONSECUTIVE_FAILURES_THRESHOLD} כשלונות ברצף - עובר ל-Blossom`);
+              break;
+            }
             continue;
           }
         }
 
-        log('info', `ℹ️ כל ה-peers נכשלו - fallback ללינק`);
+        // Fallback ל-Blossom
+        log('info', `ℹ️ P2P נכשל - fallback ל-Blossom`);
         try {
           const response = await fetch(url);
           const blob = await response.blob();
-          log('success', `✅ fallback ללינק הצליח`, { size: blob.size });
+          log('success', `✅ fallback ל-Blossom הצליח`, { size: blob.size });
           if (typeof App.cacheMedia === 'function') {
             await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
           }
           await registerFileAvailability(hash, blob, mimeType);
-          return { blob, source: 'url-fallback' };
+          return { blob, source: 'blossom-fallback', tier };
         } catch (err) {
-          log('error', `❌ גם fallback ללינק נכשל: ${err.message}`);
+          log('error', `❌ גם fallback ל-Blossom נכשל: ${err.message}`);
           throw err;
         }
       } finally {
@@ -1468,6 +1698,18 @@
     p2pGetActiveConnections: () => state.activeConnections,
     p2pDebugCheckRelay: debugCheckRelayEvents,
     p2pReloadAvailableFiles: loadAvailableFilesFromCache, // טעינה מחדש של קבצים זמינים
+    // חלק Network Tiers (p2p-video-sharing.js) – API חדש לניהול מצב רשת | HYPER CORE TECH
+    countActivePeers,                    // ספירת peers פעילים
+    getNetworkTier,                      // קבלת tier לפי מספר peers
+    updateNetworkTier,                   // עדכון מצב הרשת
+    registerFilesSequentially,           // פרסום קבצים עם השהייה
+    shouldUseBlossom,                    // בדיקה אם להשתמש ב-Blossom
+    p2pGetNetworkState: () => ({         // קבלת מצב רשת נוכחי
+      tier: state.networkTier,
+      peerCount: state.lastPeerCount,
+      lastUpdate: state.lastPeerCountTime,
+      consecutiveFailures: state.consecutiveP2PFailures,
+    }),
   });
 
   // אתחול
