@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.1.2-fix-tag'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.1.3-heartbeat-fix'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -344,13 +344,14 @@
   // חלק Network Tiers (p2p-video-sharing.js) – שליחת heartbeat להודעה על נוכחות ברשת | HYPER CORE TECH
   async function sendHeartbeat() {
     const relays = getP2PRelays();
-    if (!relays.length || !App.pool || !App.publicKey) {
+    if (!relays.length || !App.pool || !App.publicKey || !App.privateKey) {
       return;
     }
 
     try {
       const event = {
         kind: FILE_AVAILABILITY_KIND,
+        pubkey: App.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           ['d', 'p2p-heartbeat'],
@@ -361,7 +362,8 @@
         content: JSON.stringify({ online: true, files: state.availableFiles.size })
       };
 
-      const signedEvent = await window.nostrSignEvent(event);
+      // שימוש ב-App.finalizeEvent כמו ב-registerFileAvailability
+      const signedEvent = App.finalizeEvent(event, App.privateKey);
       if (signedEvent) {
         const results = await Promise.allSettled(relays.map(relay => 
           App.pool.publish([relay], signedEvent)
@@ -1784,6 +1786,7 @@
 
   // אתחול
   async function init() {
+    console.log(`%c🔧 P2P.js גרסה: ${P2P_VERSION}`, 'color: #9C27B0; font-weight: bold');
     log('info', '🚀 מערכת P2P Video Sharing מאותחלת...');
     
     // טעינת קבצים זמינים מ-cache

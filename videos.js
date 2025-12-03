@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.1.2-fix-tag';
+const VIDEOS_CODE_VERSION = '2.1.3-heartbeat-fix';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // תור טעינה סדרתית לוידאו
