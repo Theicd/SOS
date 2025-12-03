@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.1.7-fast-skip'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.1.8-p2p-fix'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -55,7 +55,7 @@
   const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000; // 2 שניות בין ניסיונות
 
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
-  const NETWORK_TIER_BOOTSTRAP_MAX = 3;   // משתמשים 1-3: כל הפוסטים מ-Blossom
+  const NETWORK_TIER_BOOTSTRAP_MAX = 2;   // משתמשים 1-2: כל הפוסטים מ-Blossom, משתמש 3+ מנסה P2P
   const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: 3 אחרונים מ-Blossom, שאר P2P
   const HYBRID_BLOSSOM_POSTS = 3;         // כמות פוסטים לטעון מ-Blossom במצב Hybrid
   const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
@@ -620,7 +620,7 @@
   function shouldUseBlossom(postIndex, tier) {
     switch (tier) {
       case 'BOOTSTRAP':
-        // משתמשים 1-3: כל הפוסטים מ-Blossom
+        // משתמשים 1-2: כל הפוסטים מ-Blossom, משתמש 3+ מנסה P2P
         return true;
       case 'HYBRID':
         // משתמשים 4-10: רק 3 פוסטים ראשונים מ-Blossom
@@ -935,57 +935,25 @@
         sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
             eventCount++;
-            const eventInfo = {
-              eventId: event.id?.slice(0, 16) + '...',
-              pubkey: event.pubkey?.slice(0, 16) + '...',
-              fullPubkey: event.pubkey,
-              created_at: new Date(event.created_at * 1000).toLocaleString('he-IL'),
-              tags: event.tags,
-              kind: event.kind
-            };
             
-            log('info', `📨 קיבלתי event #${eventCount}`, eventInfo);
-            allEvents.push(eventInfo);
-
+            // דילוג על events שלי
             if (event.pubkey === App.publicKey) {
-              log('info', `⏭️ דילוג - זה אני (${event.pubkey.slice(0, 16)}...)`);
               return;
             }
 
+            // בדיקת expires
             const expiresTag = event.tags.find(t => t[0] === 'expires');
             const expires = expiresTag ? parseInt(expiresTag[1]) : 0;
             const now = Date.now();
 
-            log('info', `⏰ בדיקת תוקף:`, {
-              expires: expires,
-              expiresDate: expires ? new Date(expires).toLocaleString('he-IL') : 'N/A',
-              now: now,
-              nowDate: new Date(now).toLocaleString('he-IL'),
-              isValid: expires && expires > now
-            });
-
             if (expires && expires > now) {
               peers.add(event.pubkey);
-              log('peer', `👤 נמצא peer זמין!`, {
-                pubkey: event.pubkey.slice(0, 16) + '...',
-                expires: new Date(expires).toLocaleTimeString('he-IL')
-              });
-            } else {
-              log('info', `❌ peer פג תוקף או חסר expires`, {
-                pubkey: event.pubkey.slice(0, 16) + '...',
-                expires: expires,
-                reason: !expires ? 'חסר expires tag' : 'פג תוקף'
-              });
+              log('peer', `👤 peer #${peers.size}`, { pubkey: event.pubkey.slice(0, 8) });
             }
           },
           oneose: () => {
             const peerArray = Array.from(peers);
-            log('info', `📋 סיימתי חיפוש (EOSE)`, {
-              totalEventsReceived: eventCount,
-              validPeers: peerArray.length,
-              peers: peerArray.map(p => p.slice(0, 16) + '...'),
-              allEventsReceived: allEvents
-            });
+            log('info', `📋 חיפוש peers הושלם`, { events: eventCount, peers: peerArray.length });
             finalize(peerArray);
           }
         });
