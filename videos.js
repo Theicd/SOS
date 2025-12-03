@@ -1,8 +1,147 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.1.5-skip-reshare';
+const VIDEOS_CODE_VERSION = '2.1.7-fast-skip';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
+
+// חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
+const p2pStatsUI = {
+  p2p: 0,
+  blossom: 0,
+  cache: 0,
+  total: 0,
+  
+  // עדכון הסטטיסטיקות
+  update(source) {
+    if (source === 'p2p') this.p2p++;
+    else if (source === 'blossom') this.blossom++;
+    else if (source === 'cache') this.cache++;
+    this.total = this.p2p + this.blossom + this.cache;
+    this.render();
+  },
+  
+  // עדכון מ-App.getP2PStats אם זמין
+  sync() {
+    const App = window.NostrApp || {};
+    if (typeof App.getP2PStats === 'function') {
+      const stats = App.getP2PStats();
+      if (stats && stats.downloads) {
+        this.p2p = stats.downloads.fromP2P || 0;
+        this.blossom = stats.downloads.fromBlossom || 0;
+        this.cache = stats.downloads.fromCache || 0;
+        this.total = stats.downloads.total || (this.p2p + this.blossom + this.cache);
+        this.render();
+      }
+    }
+  },
+  
+  // רינדור העיגול
+  render() {
+    const circle = document.getElementById('p2pStatsCircle');
+    const textEl = document.getElementById('p2pStatsText');
+    if (!circle || !textEl) return;
+    
+    const p2pCircle = circle.querySelector('.p2p-stats-p2p');
+    const blossomCircle = circle.querySelector('.p2p-stats-blossom');
+    
+    if (!p2pCircle || !blossomCircle) return;
+    
+    // חישוב אחוזים
+    const total = this.total || 1;
+    const p2pPercent = (this.p2p / total) * 100;
+    const blossomPercent = (this.blossom / total) * 100;
+    const cachePercent = (this.cache / total) * 100;
+    
+    // עדכון ה-SVG - עיגול עוגה
+    // P2P מתחיל מ-0
+    p2pCircle.setAttribute('stroke-dasharray', `${p2pPercent} ${100 - p2pPercent}`);
+    p2pCircle.setAttribute('stroke-dashoffset', '0');
+    
+    // Blossom מתחיל אחרי P2P
+    blossomCircle.setAttribute('stroke-dasharray', `${blossomPercent} ${100 - blossomPercent}`);
+    blossomCircle.setAttribute('stroke-dashoffset', `-${p2pPercent}`);
+    
+    // עדכון הטקסט
+    textEl.textContent = this.total;
+    
+    // עדכון title
+    circle.title = `P2P: ${this.p2p} | Blossom: ${this.blossom} | Cache: ${this.cache}`;
+  },
+  
+  // יצירת טולטיפ מפורט
+  createTooltip() {
+    const circle = document.getElementById('p2pStatsCircle');
+    if (!circle || circle.querySelector('.p2p-stats-tooltip')) return;
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'p2p-stats-tooltip';
+    tooltip.innerHTML = `
+      <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות הורדה</div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">
+          <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
+          P2P (רשת)
+        </span>
+        <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">
+          <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--blossom"></span>
+          Blossom (שרת)
+        </span>
+        <span class="p2p-stats-tooltip__value" id="tooltipBlossom">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">
+          <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--cache"></span>
+          Cache (מקומי)
+        </span>
+        <span class="p2p-stats-tooltip__value" id="tooltipCache">0</span>
+      </div>
+    `;
+    circle.appendChild(tooltip);
+    
+    // לחיצה להצגת/הסתרת טולטיפ
+    circle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.sync(); // עדכון מהסטטיסטיקות האמיתיות
+      this.updateTooltip();
+      tooltip.classList.toggle('visible');
+    });
+    
+    // סגירה בלחיצה מחוץ
+    document.addEventListener('click', () => {
+      tooltip.classList.remove('visible');
+    });
+  },
+  
+  // עדכון הטולטיפ
+  updateTooltip() {
+    const p2pEl = document.getElementById('tooltipP2P');
+    const blossomEl = document.getElementById('tooltipBlossom');
+    const cacheEl = document.getElementById('tooltipCache');
+    
+    if (p2pEl) p2pEl.textContent = this.p2p;
+    if (blossomEl) blossomEl.textContent = this.blossom;
+    if (cacheEl) cacheEl.textContent = this.cache;
+  },
+  
+  // אתחול
+  init() {
+    this.createTooltip();
+    this.sync();
+    // עדכון כל 5 שניות
+    setInterval(() => this.sync(), 5000);
+  }
+};
+
+// אתחול עיגול הסטטיסטיקות כשהדף נטען
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => p2pStatsUI.init(), 1000);
+});
+
+// חשיפה גלובלית לעדכון מקבצים אחרים
+window.updateP2PStatsUI = (source) => p2pStatsUI.update(source);
 
 // תור טעינה סדרתית לוידאו
 let videoDownloadQueue = [];

@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.1.5-skip-reshare'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.1.7-fast-skip'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -763,14 +763,14 @@
       const { hash, blob, mimeType, resolve, reject } = shareQueue.shift();
       try {
         const result = await doRegisterFileAvailability(hash, blob, mimeType);
-        resolve(result);
+        resolve(result.success);
+        
+        // השהייה רק אם באמת פורסם ל-relay (לא אם דולג)
+        if (result.published && shareQueue.length > 0) {
+          await new Promise(r => setTimeout(r, SHARE_DELAY));
+        }
       } catch (err) {
         reject(err);
-      }
-      
-      // השהייה של 2 שניות לפני השיתוף הבא
-      if (shareQueue.length > 0) {
-        await new Promise(r => setTimeout(r, SHARE_DELAY));
       }
     }
     
@@ -803,7 +803,7 @@
       // פרסום לרשת
       if (!App.pool || !App.publicKey || !App.privateKey) {
         p2pStats.shares.failed++;
-        return false;
+        return { success: false, published: false };
       }
 
       const now = Date.now();
@@ -818,14 +818,14 @@
             state.skippedSharesLogged.add(hash);
             log('info', '⏭️ קובץ כבר שותף', { hash: hash.slice(0,12), daysAgo: Math.round((now - manifestEntry.lastPublished) / (24*60*60*1000) * 10) / 10 });
           }
-          return true;
+          return { success: true, published: false }; // דולג - בלי השהייה
         }
       }
 
       const lastPublish = state.lastAvailabilityPublish.get(hash) || 0;
       if (now - lastPublish < AVAILABILITY_REPUBLISH_INTERVAL) {
         p2pStats.shares.success++;
-        return true;
+        return { success: true, published: false }; // דולג - בלי השהייה
       }
 
       await ensureAvailabilityRateCapacity();
@@ -865,7 +865,7 @@
 
         if (successCount === 0) {
           p2pStats.shares.failed++;
-          return false;
+          return { success: false, published: true }; // ניסינו לפרסם אבל נכשל
         }
       } else if (publishResults?.then) {
         await publishResults;
@@ -884,11 +884,11 @@
       saveAvailabilityManifest();
       p2pStats.shares.success++;
 
-      return true;
+      return { success: true, published: true }; // פורסם בהצלחה - צריך השהייה
     } catch (err) {
       p2pStats.shares.failed++;
       log('error', `שיתוף נכשל`, { hash: hash.slice(0,12), error: err.message });
-      return false;
+      return { success: false, published: false };
     }
   }
 
