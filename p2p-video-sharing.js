@@ -115,6 +115,7 @@
     // מעקב מהירויות בזמן אמת
     activeDownload: null,             // { hash, peers, startTime, bytesReceived, speed }
     activeUpload: null,               // { hash, startTime, bytesSent, speed }
+    activeUploadCount: 0,             // כמה העלאות פעילות כרגע
   };
 
   const logState = {
@@ -1427,6 +1428,7 @@
             let lastBytesSent = 0;
             
             // עדכון state להעלאה פעילה
+            state.activeUploadCount++;
             state.activeUpload = {
               hash: hash,
               startTime: uploadStartTime,
@@ -1494,11 +1496,13 @@
             });
             
             // ניקוי state העלאה
-            state.activeUpload = null;
+            state.activeUploadCount = Math.max(0, state.activeUploadCount - 1);
+            if (state.activeUploadCount === 0) state.activeUpload = null;
 
           } catch (err) {
             log('error', `❌ שגיאה בשליחת קובץ: ${err.message}`);
-            state.activeUpload = null;
+            state.activeUploadCount = Math.max(0, state.activeUploadCount - 1);
+            if (state.activeUploadCount === 0) state.activeUpload = null;
             channel.send(JSON.stringify({
               type: 'error',
               message: err.message
@@ -2022,6 +2026,7 @@
       networkTier: state.networkTier,
       availableFiles: state.availableFiles.size,
       activeTransfers: state.activeTransferSlots,
+      activeUploadCount: state.activeUploadCount,
       activeDownload: state.activeDownload ? { ...state.activeDownload } : null,
       activeUpload: state.activeUpload ? { ...state.activeUpload } : null,
     }),

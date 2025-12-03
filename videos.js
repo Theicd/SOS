@@ -231,14 +231,13 @@ const uploadIndicatorUI = {
     if (typeof App.getP2PStats !== 'function') return;
     
     const stats = App.getP2PStats();
-    const activeTransfers = stats?.activeTransfers || 0;
-    const isUploading = stats?.activeUpload !== null;
+    const activeUploads = stats?.activeUploadCount || 0;
     
     if (this.element) {
-      if (activeTransfers > 0 || isUploading) {
+      if (activeUploads > 0) {
         this.element.classList.add('is-active');
         if (this.countElement) {
-          this.countElement.textContent = activeTransfers || 1;
+          this.countElement.textContent = activeUploads;
         }
       } else {
         this.element.classList.remove('is-active');
