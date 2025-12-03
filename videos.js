@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.2.4-progress-bar';
+const VIDEOS_CODE_VERSION = '2.2.6-mobile-limits';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
@@ -76,7 +76,8 @@ const p2pStatsUI = {
     const tooltip = document.createElement('div');
     tooltip.className = 'p2p-stats-tooltip';
     tooltip.innerHTML = `
-      <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות הורדה</div>
+      <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות P2P</div>
+      <div class="p2p-stats-tooltip__section">📥 הורדות</div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
@@ -97,6 +98,20 @@ const p2pStatsUI = {
           Cache (מקומי)
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipCache">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__section">📤 שיתופים</div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">קבצים ששותפו</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipShares">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">בתור שיתוף</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipQueue">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__section">👥 רשת</div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">Peers פעילים</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipPeers">0</span>
       </div>
     `;
     circle.appendChild(tooltip);
@@ -120,10 +135,24 @@ const p2pStatsUI = {
     const p2pEl = document.getElementById('tooltipP2P');
     const blossomEl = document.getElementById('tooltipBlossom');
     const cacheEl = document.getElementById('tooltipCache');
+    const sharesEl = document.getElementById('tooltipShares');
+    const queueEl = document.getElementById('tooltipQueue');
+    const peersEl = document.getElementById('tooltipPeers');
     
     if (p2pEl) p2pEl.textContent = this.p2p;
     if (blossomEl) blossomEl.textContent = this.blossom;
     if (cacheEl) cacheEl.textContent = this.cache;
+    
+    // קבלת נתונים נוספים מ-App
+    const App = window.NostrApp || {};
+    if (typeof App.getP2PStats === 'function') {
+      const stats = App.getP2PStats();
+      if (stats) {
+        if (sharesEl) sharesEl.textContent = stats.shares?.success || 0;
+        if (queueEl) queueEl.textContent = stats.shareQueueLength || 0;
+        if (peersEl) peersEl.textContent = stats.peerCount || 0;
+      }
+    }
   },
   
   // אתחול

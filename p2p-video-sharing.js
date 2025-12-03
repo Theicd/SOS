@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.2.4-progress-bar'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.2.6-mobile-limits'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -41,10 +41,13 @@
   const PEER_DISCOVERY_LOOKBACK = 24 * 60 * 60; // 24 שעות אחורה - כדי למצוא peers גם אם פרסמו מוקדם יותר
   const CHUNK_SIZE = 16384; // 16KB chunks
   const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || ['wss://nos.lol']));
+  // זיהוי מובייל להתאמת משאבים
+  const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   const MAX_CONCURRENT_P2P_TRANSFERS =
     typeof window.NostrP2P_MAX_CONCURRENT_TRANSFERS === 'number'
       ? window.NostrP2P_MAX_CONCURRENT_TRANSFERS
-      : 3;
+      : (IS_MOBILE ? 2 : 3); // מובייל: 2, דסקטופ: 3
   const MAX_PEER_ATTEMPTS_PER_FILE =
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
@@ -289,6 +292,17 @@
       };
 
       if (!tryStart()) {
+        // הגבלת גודל התור - מותאם למכשיר
+        const MAX_PENDING_TRANSFERS = IS_MOBILE ? 10 : 30;
+        if (state.pendingTransferResolvers.length >= MAX_PENDING_TRANSFERS) {
+          log('warn', '⚠️ תור הורדות מלא - דוחה בקשה', {
+            label: label?.slice?.(0, 16) || 'unknown',
+            queueLength: state.pendingTransferResolvers.length,
+          });
+          resolve(null); // מחזיר null במקום פונקציית שחרור
+          return;
+        }
+        
         log('info', '⌛ עומס הורדות – נכנס לתור', {
           label: label?.slice?.(0, 16) || 'unknown',
           queueLength: state.pendingTransferResolvers.length + 1,
@@ -783,6 +797,13 @@
   }
 
   async function registerFileAvailability(hash, blob, mimeType) {
+    // הגבלת גודל תור השיתופים - מותאם למכשיר
+    const MAX_SHARE_QUEUE = IS_MOBILE ? 20 : 50;
+    if (shareQueue.length >= MAX_SHARE_QUEUE) {
+      log('warn', '⚠️ תור שיתופים מלא - דוחה בקשה', { hash: hash.slice(0, 12) });
+      return false;
+    }
+    
     // הוספה לתור במקום ביצוע מיידי
     return new Promise((resolve, reject) => {
       shareQueue.push({ hash, blob, mimeType, resolve, reject });
@@ -1924,7 +1945,14 @@
     setChatFileTransferActivePeer: (peer) => { state.activeChatPeer = peer; },
     _p2pSignalsSub: null,
     // חלק Network Tiers - API לסטטיסטיקות | HYPER CORE TECH
-    getP2PStats: () => ({ ...p2pStats }),
+    getP2PStats: () => ({ 
+      ...p2pStats,
+      shareQueueLength: shareQueue.length,
+      peerCount: state.lastPeerCount,
+      networkTier: state.networkTier,
+      availableFiles: state.availableFiles.size,
+      activeTransfers: state.activeTransferSlots,
+    }),
     printP2PStats,
   });
 

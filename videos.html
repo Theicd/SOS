@@ -652,7 +652,7 @@
       .p2p-stats-tooltip {
         position: absolute;
         top: 100%;
-        right: 0;
+        left: 0;
         margin-top: 8px;
         background: rgba(26, 26, 46, 0.95);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -726,6 +726,21 @@
         color: #fff;
       }
 
+      .p2p-stats-tooltip__section {
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.6);
+        margin: 10px 0 6px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .p2p-stats-tooltip__section:first-of-type {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+      }
+
       /* התאמה למובייל */
       @media (max-width: 768px) {
         .p2p-stats-circle {
@@ -738,7 +753,8 @@
         }
 
         .p2p-stats-tooltip {
-          right: -50px;
+          left: 0;
+          right: auto;
           min-width: 160px;
         }
       }
