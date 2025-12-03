@@ -26,13 +26,13 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.1.3-heartbeat-fix'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.1.5-skip-reshare'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
   const AVAILABILITY_REPUBLISH_INTERVAL = 2 * 60 * 1000; // דקהיים קירור
   const AVAILABILITY_MANIFEST_KEY = 'p2pAvailabilityManifest';
-  const AVAILABILITY_MANIFEST_TTL = 6 * 60 * 60 * 1000; // לא לפרסם מחדש את אותו hash במשך 6 שעות כברירת מחדל
+  const AVAILABILITY_MANIFEST_TTL = 7 * 24 * 60 * 60 * 1000; // לא לפרסם מחדש את אותו hash במשך 7 ימים
   const AVAILABILITY_RATE_WINDOW_MS = 5000;
   const MAX_AVAILABILITY_EVENTS_PER_WINDOW = 5;
   const SIGNAL_RATE_WINDOW_MS = 1000;
@@ -115,6 +115,87 @@
     throttle: new Map(),
     downloadProgress: new Map(),
   };
+
+  // חלק Background (p2p-video-sharing.js) – מנגנון לשמירה על פעילות ברקע | HYPER CORE TECH
+  // כשהדף ברקע, הדפדפן מאט את setInterval. נשתמש ב-Web Worker לשמירה על heartbeat
+  let backgroundWorker = null;
+  let isPageVisible = true;
+  
+  // יצירת Web Worker inline לשמירה על פעילות ברקע
+  function createBackgroundWorker() {
+    const workerCode = `
+      let heartbeatInterval = null;
+      
+      self.onmessage = function(e) {
+        if (e.data.type === 'start') {
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
+          heartbeatInterval = setInterval(() => {
+            self.postMessage({ type: 'heartbeat' });
+          }, e.data.interval || 60000);
+        } else if (e.data.type === 'stop') {
+          if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+          }
+        }
+      };
+    `;
+    
+    try {
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      const worker = new Worker(URL.createObjectURL(blob));
+      
+      worker.onmessage = function(e) {
+        if (e.data.type === 'heartbeat' && !isPageVisible) {
+          // שליחת heartbeat כשהדף ברקע
+          sendHeartbeat();
+        }
+      };
+      
+      return worker;
+    } catch (err) {
+      console.warn('P2P: לא ניתן ליצור Web Worker לרקע', err);
+      return null;
+    }
+  }
+  
+  // מעקב אחרי מצב הדף (visible/hidden)
+  function setupVisibilityTracking() {
+    document.addEventListener('visibilitychange', () => {
+      isPageVisible = document.visibilityState === 'visible';
+      
+      if (isPageVisible) {
+        // הדף חזר לפוקוס - נשלח heartbeat מיידי ונעצור את ה-worker
+        log('info', '👁️ הדף חזר לפוקוס - שולח heartbeat');
+        sendHeartbeat();
+        if (backgroundWorker) {
+          backgroundWorker.postMessage({ type: 'stop' });
+        }
+      } else {
+        // הדף עבר לרקע - נפעיל את ה-worker
+        log('info', '🌙 הדף ברקע - מפעיל heartbeat ברקע');
+        if (!backgroundWorker) {
+          backgroundWorker = createBackgroundWorker();
+        }
+        if (backgroundWorker) {
+          backgroundWorker.postMessage({ type: 'start', interval: HEARTBEAT_INTERVAL });
+        }
+      }
+    });
+    
+    // ניסיון להשתמש ב-Page Lifecycle API אם זמין
+    if ('onfreeze' in document) {
+      document.addEventListener('freeze', () => {
+        log('info', '❄️ הדף הוקפא - שולח heartbeat אחרון');
+        sendHeartbeat();
+      });
+      
+      document.addEventListener('resume', () => {
+        log('info', '🔥 הדף התעורר - שולח heartbeat');
+        sendHeartbeat();
+      });
+    }
+  }
 
   function runExclusiveDownload(key, factory) {
     if (!key) {
@@ -731,6 +812,12 @@
         if (now - manifestEntry.lastPublished < AVAILABILITY_MANIFEST_TTL) {
           state.lastAvailabilityPublish.set(hash, now);
           p2pStats.shares.success++;
+          // לוג רק פעם ראשונה בסשן לכל hash
+          if (!state.skippedSharesLogged) state.skippedSharesLogged = new Set();
+          if (!state.skippedSharesLogged.has(hash)) {
+            state.skippedSharesLogged.add(hash);
+            log('info', '⏭️ קובץ כבר שותף', { hash: hash.slice(0,12), daysAgo: Math.round((now - manifestEntry.lastPublished) / (24*60*60*1000) * 10) / 10 });
+          }
           return true;
         }
       }
@@ -1803,6 +1890,9 @@
         
         // הפעלת polling לבדיקת peers חדשים
         startPeerPolling();
+        
+        // הפעלת מעקב visibility לעבודה ברקע
+        setupVisibilityTracking();
         
         log('success', '✅ מערכת P2P מוכנה!', {
           publicKey: App.publicKey.slice(0, 16) + '...',
