@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.2.1-signal-fix'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.2.4-progress-bar'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -719,16 +719,21 @@
     }
     const percent = Math.min(100, Math.floor((receivedSize / totalSize) * 100));
     const prev = logState.downloadProgress.get(connectionId);
+    
+    // הדפסה רק כל 10% או בסיום
+    const shouldLog = !prev || (percent >= 100) || (Math.floor(percent / 10) > Math.floor(prev.percent / 10));
+    
     if (prev && percent <= prev.percent) {
       return;
     }
     logState.downloadProgress.set(connectionId, { percent, receivedSize, totalSize });
-    log('download', '📦 התקדמות הורדה', {
-      connectionId,
-      progress: `${percent}%`,
-      received: `${receivedSize} / ${totalSize}`,
-      ...extra,
-    });
+    
+    if (shouldLog) {
+      const filled = Math.round(percent / 5);
+      const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
+      const sizeMB = (totalSize / 1024 / 1024).toFixed(1);
+      console.log(`%c📥 [${bar}] ${percent}% (${sizeMB}MB)`, 'color: #FF9800');
+    }
 
     if (percent >= 100) {
       logState.downloadProgress.delete(connectionId);
@@ -1366,6 +1371,11 @@
             const blob = fileData.blob;
             let offset = 0;
             let chunkNum = 0;
+            const totalChunks = Math.ceil(blob.size / CHUNK_SIZE);
+
+            const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
+            let lastLoggedPercent = -1;
+            console.log(`%c📤 שליחת קובץ: ${sizeMB}MB`, 'color: #4CAF50; font-weight: bold');
 
             while (offset < blob.size) {
               const chunk = blob.slice(offset, offset + CHUNK_SIZE);
@@ -1380,11 +1390,19 @@
               chunkNum++;
               offset += CHUNK_SIZE;
 
-              const progress = ((offset / blob.size) * 100).toFixed(1);
-              log('upload', `📤 שלחתי chunk ${chunkNum}`, {
-                progress: `${progress}%`,
-                sent: `${offset} / ${blob.size}`
-              });
+              // מד התקדמות - רק כל 10%
+              const percent = Math.round((offset / blob.size) * 100);
+              if (percent % 10 === 0 && percent !== lastLoggedPercent) {
+                lastLoggedPercent = percent;
+                const filled = Math.round(percent / 5);
+                const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
+                console.log(`%c📤 [${bar}] ${percent}%`, 'color: #2196F3');
+              }
+            }
+
+            // המתנה שה-buffer יתרוקן לפני שליחת הודעת סיום
+            while (channel.bufferedAmount > 0) {
+              await new Promise(resolve => setTimeout(resolve, 50));
             }
 
             // שליחת הודעת סיום
@@ -1392,6 +1410,9 @@
               type: 'complete',
               mimeType: fileData.mimeType
             }));
+
+            // המתנה נוספת לוודא שהודעת הסיום נשלחה
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             log('success', `✅ סיימתי לשלוח את כל הקובץ!`, {
               chunks: chunkNum,
@@ -1634,7 +1655,7 @@
             return { blob: result.blob, source: 'p2p', peer, tier };
 
           } catch (err) {
-            if (incrementFailuresAndCheckFallback()) break;
+            // ממשיכים לנסות peers נוספים - לא יוצאים מהלולאה
             continue;
           }
         }

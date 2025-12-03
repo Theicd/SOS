@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.2.1-signal-fix';
+const VIDEOS_CODE_VERSION = '2.2.4-progress-bar';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
