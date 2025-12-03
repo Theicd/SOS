@@ -12,17 +12,29 @@
   const PIN_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // פינים פגים אחרי 30 יום
 
   let db = null;
+  let dbDisabled = false; // חלק cache (media-cache.js) – דגל משותק כש-IndexedDB אינו זמין | HYPER CORE TECH
 
   // חלק cache (media-cache.js) – פתיחת/יצירת database
   async function openDB() {
+    if (dbDisabled) {
+      return null;
+    }
+
     if (db) return db;
 
-    return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      console.warn('IndexedDB is not available in this environment – media cache disabled');
+      dbDisabled = true;
+      return null;
+    }
+
+    return new Promise((resolve) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
         console.error('Failed to open IndexedDB', request.error);
-        reject(request.error);
+        dbDisabled = true;
+        resolve(null);
       };
 
       request.onsuccess = () => {
@@ -50,6 +62,9 @@
   async function cacheMedia(url, hash, blob, mimeType, options = {}) {
     try {
       const database = await openDB();
+      if (!database) {
+        return false;
+      }
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
@@ -85,6 +100,9 @@
   async function pinCachedMedia(hash, pinned = true) {
     try {
       const database = await openDB();
+      if (!database) {
+        return false;
+      }
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
@@ -118,6 +136,9 @@
   async function getCachedMedia(hash) {
     try {
       const database = await openDB();
+      if (!database) {
+        return null;
+      }
       const transaction = database.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
 
@@ -155,6 +176,9 @@
   async function deleteCachedMedia(hash) {
     try {
       const database = await openDB();
+      if (!database) {
+        return false;
+      }
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
@@ -176,6 +200,9 @@
   async function cleanupOldCache() {
     try {
       const database = await openDB();
+      if (!database) {
+        return;
+      }
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('timestamp');
@@ -256,6 +283,9 @@
   async function getCacheStats() {
     try {
       const database = await openDB();
+      if (!database) {
+        return null;
+      }
       const transaction = database.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
 
@@ -289,6 +319,9 @@
   async function clearAllCache() {
     try {
       const database = await openDB();
+      if (!database) {
+        return false;
+      }
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
 
@@ -309,9 +342,12 @@
   // חלק cache (media-cache.js) – אתחול אוטומטי
   async function init() {
     try {
-      await openDB();
+      const database = await openDB();
+      if (!database) {
+        console.warn('Media cache disabled – skipping initialization');
+        return;
+      }
       await cleanupOldCache();
-      
       const stats = await getCacheStats();
       if (stats) {
         console.log('Media cache initialized:', stats);
