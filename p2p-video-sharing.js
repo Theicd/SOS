@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.1.9-multi-peer'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.2.0-p2p-threshold'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -55,7 +55,7 @@
   const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000; // 2 שניות בין ניסיונות
 
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
-  const NETWORK_TIER_BOOTSTRAP_MAX = 2;   // משתמשים 1-2: כל הפוסטים מ-Blossom, משתמש 3+ מנסה P2P
+  const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
   const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: 3 אחרונים מ-Blossom, שאר P2P
   const HYBRID_BLOSSOM_POSTS = 3;         // כמות פוסטים לטעון מ-Blossom במצב Hybrid
   const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
@@ -620,7 +620,7 @@
   function shouldUseBlossom(postIndex, tier) {
     switch (tier) {
       case 'BOOTSTRAP':
-        // משתמשים 1-2: כל הפוסטים מ-Blossom, משתמש 3+ מנסה P2P
+        // משתמש 1 בלבד: כל הפוסטים מ-Blossom
         return true;
       case 'HYBRID':
         // משתמשים 4-10: רק 3 פוסטים ראשונים מ-Blossom
