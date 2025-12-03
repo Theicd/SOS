@@ -454,25 +454,30 @@
     return state.consecutiveP2PFailures >= CONSECUTIVE_FAILURES_THRESHOLD;
   }
 
-  // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים
+  // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים ומסודרים | HYPER CORE TECH
+  // סטטיסטיקות גלובליות לסיכום
+  const p2pStats = {
+    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, failed: 0 },
+    shares: { total: 0, success: 0, failed: 0 },
+    lastSummaryTime: 0
+  };
+
   function log(type, message, data = null, options = {}) {
     const timestamp = new Date().toLocaleTimeString('he-IL');
-    const styles = {
-      upload: 'background: #4CAF50; color: white; padding: 2px 6px; border-radius: 3px;',
-      download: 'background: #2196F3; color: white; padding: 2px 6px; border-radius: 3px;',
-      request: 'background: #FF9800; color: white; padding: 2px 6px; border-radius: 3px;',
-      peer: 'background: #9C27B0; color: white; padding: 2px 6px; border-radius: 3px;',
-      success: 'background: #8BC34A; color: white; padding: 2px 6px; border-radius: 3px;',
-      error: 'background: #F44336; color: white; padding: 2px 6px; border-radius: 3px;',
-      info: 'background: #607D8B; color: white; padding: 2px 6px; border-radius: 3px;',
+    const icons = {
+      upload: '📤', download: '📥', request: '📡', 
+      peer: '👥', success: '✅', error: '❌', info: 'ℹ️'
+    };
+    const colors = {
+      upload: '#4CAF50', download: '#2196F3', request: '#FF9800',
+      peer: '#9C27B0', success: '#8BC34A', error: '#F44336', info: '#607D8B'
     };
 
-    const { throttleKey, throttleMs = 3000 } = options;
+    const { throttleKey, throttleMs = 3000, silent = false } = options;
+    
+    // Throttling
     if (throttleKey) {
-      const entry = logState.throttle.get(throttleKey) || {
-        lastLoggedAt: 0,
-        suppressed: 0,
-      };
+      const entry = logState.throttle.get(throttleKey) || { lastLoggedAt: 0, suppressed: 0 };
       const now = Date.now();
       if (entry.lastLoggedAt && now - entry.lastLoggedAt < throttleMs) {
         entry.suppressed += 1;
@@ -487,15 +492,34 @@
       logState.throttle.set(throttleKey, entry);
     }
 
-    console.log(
-      `%c[P2P ${type.toUpperCase()}]%c ${timestamp} - ${message}`,
-      styles[type] || styles.info,
-      'color: inherit;'
-    );
+    if (silent) return;
 
+    const icon = icons[type] || 'ℹ️';
+    const color = colors[type] || '#607D8B';
+    
+    // פורמט מקוצר ומסודר
+    let logLine = `${icon} ${message}`;
     if (data) {
-      console.log('   📊 Data:', data);
+      const shortData = Object.entries(data)
+        .map(([k, v]) => `${k}:${typeof v === 'string' && v.length > 20 ? v.slice(0,16)+'...' : v}`)
+        .join(' | ');
+      logLine += ` [${shortData}]`;
     }
+    
+    console.log(`%c${timestamp} ${logLine}`, `color: ${color}`);
+  }
+
+  // חלק P2P (p2p-video-sharing.js) – הדפסת סיכום סטטיסטיקות | HYPER CORE TECH
+  function printP2PStats() {
+    const { downloads, shares } = p2pStats;
+    console.log('%c┌──────────────────────────────────────────────────┐', 'color: #673AB7; font-weight: bold');
+    console.log('%c│           📊 סיכום מערכת P2P                     │', 'color: #673AB7; font-weight: bold');
+    console.log('%c├──────────────────────────────────────────────────┤', 'color: #673AB7');
+    console.log(`%c│ 📥 הורדות: ${downloads.total} סה"כ                              │`, 'color: #2196F3');
+    console.log(`%c│    └─ Cache: ${downloads.fromCache} | Blossom: ${downloads.fromBlossom} | P2P: ${downloads.fromP2P} | נכשל: ${downloads.failed}`, 'color: #2196F3');
+    console.log(`%c│ 📤 שיתופים: ${shares.total} סה"כ (${shares.success} הצליחו)       │`, 'color: #4CAF50');
+    console.log('%c└──────────────────────────────────────────────────┘', 'color: #673AB7; font-weight: bold');
+    p2pStats.lastSummaryTime = Date.now();
   }
 
   function updateDownloadProgress(connectionId, receivedSize, totalSize, extra = {}) {
@@ -533,35 +557,61 @@
     }
   }
 
-  // חלק P2P (p2p-video-sharing.js) – רישום קובץ כזמין
-  async function registerFileAvailability(hash, blob, mimeType) {
-    try {
-      log('upload', `📤 רישום קובץ כזמין`, {
-        hash: hash.slice(0, 16) + '...',
-        size: blob.size,
-        mimeType
-      });
+  // חלק P2P (p2p-video-sharing.js) – רישום קובץ כזמין עם השהייה | HYPER CORE TECH
+  // תור רישום שיתופים - למניעת הצפה
+  let shareQueue = [];
+  let isProcessingShares = false;
+  const SHARE_DELAY = 2000; // 2 שניות בין שיתופים
 
+  async function processShareQueue() {
+    if (isProcessingShares || shareQueue.length === 0) return;
+    
+    isProcessingShares = true;
+    
+    while (shareQueue.length > 0) {
+      const { hash, blob, mimeType, resolve, reject } = shareQueue.shift();
+      try {
+        const result = await doRegisterFileAvailability(hash, blob, mimeType);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+      
+      // השהייה של 2 שניות לפני השיתוף הבא
+      if (shareQueue.length > 0) {
+        await new Promise(r => setTimeout(r, SHARE_DELAY));
+      }
+    }
+    
+    isProcessingShares = false;
+  }
+
+  async function registerFileAvailability(hash, blob, mimeType) {
+    // הוספה לתור במקום ביצוע מיידי
+    return new Promise((resolve, reject) => {
+      shareQueue.push({ hash, blob, mimeType, resolve, reject });
+      processShareQueue();
+    });
+  }
+
+  async function doRegisterFileAvailability(hash, blob, mimeType) {
+    p2pStats.shares.total++;
+    
+    try {
       // שמירה מקומית
       state.availableFiles.set(hash, {
-        blob,
-        mimeType,
-        size: blob.size,
-        timestamp: Date.now(),
+        blob, mimeType, size: blob.size, timestamp: Date.now(),
       });
 
       if (typeof App.pinCachedMedia === 'function') {
         try {
           await App.pinCachedMedia(hash, true);
-          log('info', '📌 קובץ סומן כ-pinned ב-cache', { hash: hash.slice(0, 16) + '...' });
-        } catch (pinErr) {
-          console.warn('Failed to pin cached media', pinErr);
-        }
+        } catch (pinErr) { /* ignore */ }
       }
 
       // פרסום לרשת
       if (!App.pool || !App.publicKey || !App.privateKey) {
-        log('error', '❌ לא ניתן לפרסם - חסרים pool או keys');
+        p2pStats.shares.failed++;
         return false;
       }
 
@@ -569,21 +619,15 @@
       const manifestEntry = state.availabilityManifest?.[hash];
       if (manifestEntry && typeof manifestEntry.lastPublished === 'number') {
         if (now - manifestEntry.lastPublished < AVAILABILITY_MANIFEST_TTL) {
-          log('info', '⏳ דילוג על פרסום – כבר פורסם לאחרונה לפי manifest', {
-            hash: hash.slice(0, 16) + '...',
-            lastPublishedAgoSec: Math.round((now - manifestEntry.lastPublished) / 1000),
-          });
           state.lastAvailabilityPublish.set(hash, now);
+          p2pStats.shares.success++;
           return true;
         }
       }
 
       const lastPublish = state.lastAvailabilityPublish.get(hash) || 0;
       if (now - lastPublish < AVAILABILITY_REPUBLISH_INTERVAL) {
-        const waitMs = AVAILABILITY_REPUBLISH_INTERVAL - (now - lastPublish);
-        log('info', `⏳ דילוג על פרסום לריליי (קירור ${Math.ceil(waitMs / 1000)}ש׳׳)`, {
-          hash: hash.slice(0, 16) + '...'
-        });
+        p2pStats.shares.success++;
         return true;
       }
 
@@ -597,9 +641,9 @@
         pubkey: App.publicKey,
         created_at: createdAt,
         tags: [
-          ['d', `${P2P_APP_TAG}:file:${hash}`], // NIP-78: מזהה ייחודי לאפליקציה
+          ['d', `${P2P_APP_TAG}:file:${hash}`],
           ['x', hash],
-          ['t', 'p2p-file'], // סוג ההודעה
+          ['t', 'p2p-file'],
           ['size', String(blob.size)],
           ['mime', mimeType],
           ['expires', String(expiresAt)],
@@ -607,87 +651,32 @@
         content: '',
       };
 
-      log('info', `📝 יוצר event לרישום:`, {
-        kind: FILE_AVAILABILITY_KIND,
-        pubkey: App.publicKey?.slice(0, 16) + '...',
-        fullPubkey: App.publicKey,
-        created_at: new Date(createdAt * 1000).toLocaleString('he-IL'),
-        hash: hash,
-        size: blob.size,
-        mimeType: mimeType,
-        expires: expiresAt,
-        expiresDate: new Date(expiresAt).toLocaleString('he-IL'),
-        tags: event.tags
-      });
-
       const signed = App.finalizeEvent(event, App.privateKey);
       const relays = getP2PRelays();
-      
-      log('info', `📤 שולח לריליים:`, {
-        relays: relays,
-        eventId: signed.id,
-        eventIdShort: signed.id?.slice(0, 16) + '...'
-      });
-      
       const publishResults = App.pool.publish(relays, signed);
 
       let successCount = 0;
-      const successes = [];
       if (Array.isArray(publishResults)) {
         const results = await Promise.allSettled(publishResults);
-        const failures = [];
-        results.forEach((result, idx) => {
-          const relayUrl = relays[idx] || `relay-${idx}`;
-          if (result.status === 'fulfilled') {
-            successCount++;
-            successes.push(relayUrl);
-            log('success', `✅ פרסום הצליח לריליי: ${relayUrl}`);
-          } else {
-            failures.push({
-              relay: relayUrl,
-              error: result.reason?.message || String(result.reason || 'unknown')
-            });
-            log('error', `❌ פרסום נכשל לריליי: ${relayUrl}`, {
-              error: result.reason?.message || String(result.reason || 'unknown')
-            });
-          }
-        });
-
-        log('info', `📊 סיכום פרסום:`, {
-          total: relays.length,
-          success: successCount,
-          failed: failures.length,
-          successRelays: successes,
-          failedRelays: failures
+        successCount = results.filter(r => r.status === 'fulfilled').length;
+        
+        // לוג מקוצר - שורה אחת לשיתוף
+        log('upload', `שיתוף קובץ`, { 
+          hash: hash.slice(0,12), 
+          relays: `${successCount}/${relays.length}` 
         });
 
         if (successCount === 0) {
-          log('error', '❌ כל הריליים דחו את פרסום הזמינות', {
-            hash: hash.slice(0, 16) + '...',
-            failures
-          });
+          p2pStats.shares.failed++;
           return false;
-        }
-
-        if (failures.length) {
-          log('info', '⚠️ חלק מהריליים דחו את הפרסום', { failures });
         }
       } else if (publishResults?.then) {
         await publishResults;
         successCount = 1;
-        log('success', `✅ פרסום הצליח (promise)`);
+        log('upload', `שיתוף קובץ`, { hash: hash.slice(0,12), relays: '1/1' });
       } else {
         successCount = 1;
-        log('info', `ℹ️ פרסום הושלם (לא promise)`);
       }
-
-      log('success', `✅ קובץ נרשם בהצלחה ברשת`, {
-        hash: hash.slice(0, 16) + '...',
-        fullHash: hash,
-        eventId: signed.id,
-        eventIdShort: signed.id.slice(0, 8) + '...',
-        successfulRelays: successes
-      });
 
       state.lastAvailabilityPublish.set(hash, Date.now());
       state.availabilityManifest[hash] = {
@@ -696,10 +685,12 @@
         mimeType,
       };
       saveAvailabilityManifest();
+      p2pStats.shares.success++;
 
       return true;
     } catch (err) {
-      log('error', `❌ כשלון ברישום קובץ: ${err.message}`);
+      p2pStats.shares.failed++;
+      log('error', `שיתוף נכשל`, { hash: hash.slice(0,12), error: err.message });
       return false;
     }
   }
@@ -709,28 +700,14 @@
     return new Promise((resolve) => {
       const relays = getP2PRelays();
       const sinceTimestamp = Math.floor(Date.now() / 1000) - PEER_DISCOVERY_LOOKBACK;
-      const sinceDate = new Date(sinceTimestamp * 1000).toLocaleString('he-IL');
-      
-      log('download', `🔍 מחפש peers עם קובץ`, { 
-        hash: hash.slice(0, 16) + '...',
-        fullHash: hash,
-        relays: relays,
-        kind: FILE_AVAILABILITY_KIND,
-        since: sinceDate,
-        sinceTimestamp: sinceTimestamp,
-        myPubkey: App.publicKey?.slice(0, 16) + '...'
-      });
 
       const peers = new Set();
-      const allEvents = []; // שמירת כל האירועים לדיבוג
       const filters = [{
         kinds: [FILE_AVAILABILITY_KIND],
-        '#t': ['p2p-file'], // רק events של רישום קבצים
+        '#t': ['p2p-file'],
         '#x': [hash],
         since: sinceTimestamp,
       }];
-
-      log('info', `📡 פילטר חיפוש:`, { filters: JSON.stringify(filters) });
 
       let finished = false;
       let timeoutHandle = null;
@@ -1404,12 +1381,13 @@
         }
 
         // בדיקת cache מקומי
+        p2pStats.downloads.total++;
         if (typeof App.getCachedMedia === 'function') {
           const cached = await App.getCachedMedia(hash);
           if (cached && cached.blob) {
-            log('success', `✅ נמצא ב-cache מקומי!`, { size: cached.blob.size });
-            const cachedMime = cached.mimeType || mimeType;
-            scheduleBackgroundRegistration(hash, cached.blob, cachedMime);
+            p2pStats.downloads.fromCache++;
+            log('success', `מ-Cache`, { hash: hash.slice(0,12), size: Math.round(cached.blob.size/1024)+'KB' });
+            scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType);
             resetConsecutiveFailures();
             return { blob: cached.blob, source: 'cache' };
           }
@@ -1417,40 +1395,36 @@
 
         await ensureSlot();
 
-        // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה לפי מצב הרשת | HYPER CORE TECH
-        // BOOTSTRAP (1-3 משתמשים): הכל מ-Blossom
-        // HYBRID (4-10 משתמשים): 3 ראשונים מ-Blossom, שאר P2P
-        // P2P_FULL (11+ משתמשים): P2P עם fallback חכם
-
+        // חלק Network Tiers - אסטרטגיית טעינה לפי מצב הרשת
         if (forceBlossom) {
-          log('info', `🌐 מצב ${tier} - טוען מ-Blossom (פוסט ${postIndex + 1})`);
           try {
             const response = await fetch(url);
             const blob = await response.blob();
-            log('success', `✅ הורדה מ-Blossom הצליחה`, { size: blob.size, tier });
+            p2pStats.downloads.fromBlossom++;
+            log('success', `מ-Blossom [${tier}]`, { post: postIndex+1, size: Math.round(blob.size/1024)+'KB' });
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
             }
-            // פרסום זמינות ברקע (לא חוסם)
             scheduleBackgroundRegistration(hash, blob, mimeType);
             resetConsecutiveFailures();
             return { blob, source: 'blossom', tier };
           } catch (err) {
-            log('error', `❌ הורדה מ-Blossom נכשלה: ${err.message}`);
+            p2pStats.downloads.failed++;
+            log('error', `Blossom נכשל`, { error: err.message });
             throw err;
           }
         }
 
-        // P2P_FULL או HYBRID לפוסטים מעבר ל-3 הראשונים
+        // P2P_FULL או HYBRID
         const rawPeers = await findPeersWithFile(hash);
         const peers = Array.isArray(rawPeers) ? [...rawPeers] : [];
 
         if (peers.length === 0) {
-          log('info', `ℹ️ לא נמצאו peers - הורדה מהלינק`);
           try {
             const response = await fetch(url);
             const blob = await response.blob();
-            log('success', `✅ הורדה מהלינק הצליחה (אין peers)`, { size: blob.size });
+            p2pStats.downloads.fromBlossom++;
+            log('success', `מ-URL (0 peers)`, { size: Math.round(blob.size/1024)+'KB' });
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
             }
@@ -1458,75 +1432,53 @@
             resetConsecutiveFailures();
             return { blob, source: 'url' };
           } catch (err) {
-            log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
+            p2pStats.downloads.failed++;
             throw err;
           }
         }
 
-        // חלק Network Tiers (p2p-video-sharing.js) – ניסיון P2P עם timeout ו-fallback חכם | HYPER CORE TECH
+        // ניסיון P2P
         let attemptCount = 0;
         for (const peer of peers) {
-          if (MAX_PEER_ATTEMPTS_PER_FILE > 0 && attemptCount >= MAX_PEER_ATTEMPTS_PER_FILE) {
-            log('info', '🛑 הושגה מגבלת ניסיונות peer – עובר לפולבאק', {
-              hash: hash.slice(0, 16) + '...',
-              attempts: attemptCount,
-            });
-            break;
-          }
-          attemptCount += 1;
+          if (MAX_PEER_ATTEMPTS_PER_FILE > 0 && attemptCount >= MAX_PEER_ATTEMPTS_PER_FILE) break;
+          attemptCount++;
+          
           try {
-            log('download', `🔄 מנסה להוריד מ-peer ${attemptCount}/${Math.min(peers.length, MAX_PEER_ATTEMPTS_PER_FILE || peers.length)}`, {
-              peer: peer.slice(0, 16) + '...'
-            });
-
-            // ניסיון P2P עם timeout לטעינה ראשונית
             const downloadPromise = downloadFromPeer(peer, hash);
             const timeoutPromise = sleep(INITIAL_LOAD_TIMEOUT).then(() => {
-              throw new Error('P2P initial load timeout');
+              throw new Error('timeout');
             });
-
             const result = await Promise.race([downloadPromise, timeoutPromise]);
 
-            log('success', `🎉 הורדה מ-peer הצליחה!`, {
-              peer: peer.slice(0, 16) + '...'
-            });
+            p2pStats.downloads.fromP2P++;
+            log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB' });
 
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
             }
-
             await registerFileAvailability(hash, result.blob, result.mimeType);
             resetConsecutiveFailures();
-
             return { blob: result.blob, source: 'p2p', peer, tier };
 
           } catch (err) {
-            log('error', `❌ הורדה מ-peer נכשלה: ${err.message}`, {
-              peer: peer.slice(0, 16) + '...'
-            });
-
-            // בדיקת כשלונות ברצף - אם יותר מדי, עובר ל-Blossom
-            if (incrementFailuresAndCheckFallback()) {
-              log('info', `⚠️ ${CONSECUTIVE_FAILURES_THRESHOLD} כשלונות ברצף - עובר ל-Blossom`);
-              break;
-            }
+            if (incrementFailuresAndCheckFallback()) break;
             continue;
           }
         }
 
         // Fallback ל-Blossom
-        log('info', `ℹ️ P2P נכשל - fallback ל-Blossom`);
         try {
           const response = await fetch(url);
           const blob = await response.blob();
-          log('success', `✅ fallback ל-Blossom הצליח`, { size: blob.size });
+          p2pStats.downloads.fromBlossom++;
+          log('success', `Fallback Blossom`, { size: Math.round(blob.size/1024)+'KB' });
           if (typeof App.cacheMedia === 'function') {
             await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
           }
           await registerFileAvailability(hash, blob, mimeType);
           return { blob, source: 'blossom-fallback', tier };
         } catch (err) {
-          log('error', `❌ גם fallback ל-Blossom נכשל: ${err.message}`);
+          p2pStats.downloads.failed++;
           throw err;
         }
       } finally {
@@ -1762,7 +1714,10 @@
   Object.assign(App, {
     searchForPeers: findPeersWithFile,
     setChatFileTransferActivePeer: (peer) => { state.activeChatPeer = peer; },
-    _p2pSignalsSub: null, // יאותחל ב-listenForP2PSignals
+    _p2pSignalsSub: null,
+    // חלק Network Tiers - API לסטטיסטיקות | HYPER CORE TECH
+    getP2PStats: () => ({ ...p2pStats }),
+    printP2PStats,
   });
 
 })(window);

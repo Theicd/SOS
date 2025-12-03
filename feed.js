@@ -3610,30 +3610,26 @@ async function loadFeed() {
   }
 
   // חלק mirror (פיד) – טעינת וידאו עם cache, mirrors ו-fallback + P2P
+  // חלק Network Tiers (פיד) – מונה גלובלי לאינדקס פוסטים בטעינה | HYPER CORE TECH
+  let globalVideoLoadIndex = 0;
+
   async function loadVideoWithCache(videoElement, url, hash, mirrors = []) {
+    // חלק Network Tiers (פיד) – קבלת אינדקס פוסט נוכחי | HYPER CORE TECH
+    const currentPostIndex = globalVideoLoadIndex++;
+    
     try {
-      // חלק P2P (פיד) – ניסיון הורדה דרך P2P קודם
+      // חלק P2P (פיד) – ניסיון הורדה דרך P2P
       if (hash && typeof App.downloadVideoWithP2P === 'function') {
-        console.log('🎬 מנסה להוריד וידאו דרך P2P...', {
-          url: url.slice(0, 50) + '...',
-          hash: hash.slice(0, 16) + '...'
-        });
-        
         try {
-          const p2pResult = await App.downloadVideoWithP2P(url, hash, 'video/webm');
+          const p2pResult = await App.downloadVideoWithP2P(url, hash, 'video/webm', { postIndex: currentPostIndex });
           
           if (p2pResult && p2pResult.blob) {
             const objectUrl = URL.createObjectURL(p2pResult.blob);
             videoElement.src = objectUrl;
-            
-            console.log(`✅ וידאו נטען מ-${p2pResult.source}!`, {
-              size: p2pResult.blob.size,
-              peer: p2pResult.peer ? p2pResult.peer.slice(0, 16) + '...' : 'N/A'
-            });
             return true;
           }
         } catch (p2pErr) {
-          console.warn('⚠️ P2P download failed, trying fallback:', p2pErr.message);
+          // fallback יטופל למטה
         }
       }
       
@@ -3688,35 +3684,136 @@ async function loadFeed() {
   }
 
   // חלק recheck (פיד) – אתחול טעינת וידאו עם mirrors ורישום ל-recheck
-  function initVideoLoading() {
-    const videoContainers = document.querySelectorAll('[data-video-url]');
-    videoContainers.forEach(container => {
-      const video = container.querySelector('video');
-      const url = container.dataset.videoUrl;
-      const hash = container.dataset.videoHash || '';
-      const mirrorsStr = container.dataset.videoMirrors || '';
-      const mirrors = mirrorsStr ? mirrorsStr.split(',').filter(Boolean) : [];
+  // חלק Network Tiers (פיד) – תור טעינה סדרתית במצב BOOTSTRAP | HYPER CORE TECH
+  let videoLoadQueue = [];
+  let isLoadingSequentially = false;
+
+  // חלק Network Tiers (פיד) – השהייה בין טעינות במצב BOOTSTRAP | HYPER CORE TECH
+  const BOOTSTRAP_LOAD_DELAY = 2000; // 2 שניות בין טעינות
+
+  async function processVideoLoadQueue() {
+    if (isLoadingSequentially || videoLoadQueue.length === 0) return;
+    
+    isLoadingSequentially = true;
+    const totalVideos = videoLoadQueue.length;
+    let loadedCount = 0;
+    
+    console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c║  🎬 התחלת טעינה סדרתית - ${totalVideos} וידאו      ║`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
+    
+    while (videoLoadQueue.length > 0) {
+      const { video, url, hash, mirrors } = videoLoadQueue.shift();
+      loadedCount++;
       
-      if (video && url && !video.src) {
-        // רישום ה-URL למערכת recheck
-        const eventId = container.closest('[data-post-id]')?.dataset?.postId || null;
-        if (typeof App.registerMediaUrl === 'function') {
-          App.registerMediaUrl(url, hash, eventId, mirrors);
-        }
-        
-        // טעינה lazy - רק כשהוידאו נכנס ל-viewport
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              loadVideoWithCache(video, url, hash, mirrors);
-              observer.unobserve(entry.target);
-            }
-          });
-        }, { rootMargin: '100px' });
-        
-        observer.observe(container);
+      console.log(`%c┌─ וידאו ${loadedCount}/${totalVideos} ─────────────────────────┐`, 'color: #2196F3');
+      
+      try {
+        await loadVideoWithCache(video, url, hash, mirrors);
+        console.log(`%c└─ ✅ הושלם ──────────────────────────────┘`, 'color: #4CAF50');
+      } catch (err) {
+        console.log(`%c└─ ❌ נכשל: ${err.message} ─────────────────┘`, 'color: #f44336');
       }
-    });
+      
+      // השהייה של 2 שניות לפני הוידאו הבא (אם יש עוד)
+      if (videoLoadQueue.length > 0) {
+        console.log(`%c   ⏳ ממתין 2 שניות...`, 'color: #9E9E9E; font-style: italic');
+        await new Promise(resolve => setTimeout(resolve, BOOTSTRAP_LOAD_DELAY));
+      }
+    }
+    
+    console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c║  ✅ טעינה סדרתית הושלמה - ${loadedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
+    
+    // הדפסת סיכום סטטיסטיקות P2P
+    if (typeof App.printP2PStats === 'function') {
+      App.printP2PStats();
+    }
+    
+    isLoadingSequentially = false;
+  }
+
+  function initVideoLoading() {
+    // חלק Network Tiers (פיד) – איפוס מונה פוסטים בכל טעינה מחדש | HYPER CORE TECH
+    globalVideoLoadIndex = 0;
+    videoLoadQueue = [];
+    isLoadingSequentially = false;
+    
+    const videoContainers = document.querySelectorAll('[data-video-url]');
+    
+    // חלק Network Tiers (פיד) – בדיקת מצב רשת לקביעת אסטרטגיית טעינה | HYPER CORE TECH
+    const checkTierAndLoad = async () => {
+      let currentTier = 'UNKNOWN';
+      
+      // בדיקת מצב רשת אם הפונקציה זמינה
+      if (typeof App.getNetworkTier === 'function') {
+        try {
+          const peerCount = typeof App.countActivePeers === 'function' 
+            ? await App.countActivePeers() 
+            : 0;
+          currentTier = App.getNetworkTier(peerCount);
+        } catch (err) {
+          console.warn('שגיאה בבדיקת מצב רשת:', err);
+        }
+      }
+      
+      console.log(`🌐 מצב רשת לטעינה: ${currentTier}`);
+      
+      // במצב BOOTSTRAP - טעינה סדרתית (אחד אחרי השני)
+      const useSequentialLoading = currentTier === 'BOOTSTRAP' || currentTier === 'UNKNOWN';
+      
+      videoContainers.forEach(container => {
+        const video = container.querySelector('video');
+        const url = container.dataset.videoUrl;
+        const hash = container.dataset.videoHash || '';
+        const mirrorsStr = container.dataset.videoMirrors || '';
+        const mirrors = mirrorsStr ? mirrorsStr.split(',').filter(Boolean) : [];
+        
+        if (video && url && !video.src) {
+          // רישום ה-URL למערכת recheck
+          const eventId = container.closest('[data-post-id]')?.dataset?.postId || null;
+          if (typeof App.registerMediaUrl === 'function') {
+            App.registerMediaUrl(url, hash, eventId, mirrors);
+          }
+          
+          if (useSequentialLoading) {
+            // חלק Network Tiers (פיד) – טעינה סדרתית במצב BOOTSTRAP | HYPER CORE TECH
+            const observer = new IntersectionObserver((entries) => {
+              entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                  // הוספה לתור במקום טעינה מיידית
+                  videoLoadQueue.push({ video, url, hash, mirrors });
+                  processVideoLoadQueue();
+                  observer.unobserve(entry.target);
+                }
+              });
+            }, { rootMargin: '100px' });
+            
+            observer.observe(container);
+          } else {
+            // חלק Network Tiers (פיד) – טעינה מקבילית במצב HYBRID/P2P_FULL | HYPER CORE TECH
+            const observer = new IntersectionObserver((entries) => {
+              entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                  loadVideoWithCache(video, url, hash, mirrors);
+                  observer.unobserve(entry.target);
+                }
+              });
+            }, { rootMargin: '100px' });
+            
+            observer.observe(container);
+          }
+        }
+      });
+    };
+    
+    checkTierAndLoad();
+  }
+
+  // חלק Network Tiers (פיד) – איפוס מונה פוסטים (לשימוש חיצוני) | HYPER CORE TECH
+  function resetVideoLoadIndex() {
+    globalVideoLoadIndex = 0;
   }
 
   // חלק וידאו (feed.js) – טיפול בלחיצה על וידאו להפעלה/עצירה
@@ -3820,6 +3917,7 @@ async function loadFeed() {
     updateLikeIndicator,
     removePostElement,
     loadVideoWithCache,
+    resetVideoLoadIndex, // חלק Network Tiers (פיד) – איפוס מונה פוסטים | HYPER CORE TECH
   });
 
   // חלק וידאו/תמונות (feed.js) – אתחול טיפול בוידאו ו-Lightbox לתמונות
