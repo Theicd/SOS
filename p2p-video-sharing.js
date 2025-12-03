@@ -314,13 +314,16 @@
 
       const signedEvent = await window.nostrSignEvent(event);
       if (signedEvent) {
-        await Promise.allSettled(relays.map(relay => 
-          App.pool.publish([relay], signedEvent).catch(() => {})
+        const results = await Promise.allSettled(relays.map(relay => 
+          App.pool.publish([relay], signedEvent)
         ));
-        log('info', '💓 Heartbeat נשלח', { relays: relays.length });
+        const success = results.filter(r => r.status === 'fulfilled').length;
+        log('info', '💓 Heartbeat נשלח', { success, total: relays.length, files: state.availableFiles.size });
+      } else {
+        log('warn', '⚠️ Heartbeat: חתימה נכשלה');
       }
     } catch (err) {
-      // שקט - לא קריטי
+      log('warn', '⚠️ Heartbeat נכשל', { error: err.message });
     }
   }
 
