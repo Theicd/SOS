@@ -1,5 +1,90 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
+// גרסת קוד לזיהוי עדכונים
+const VIDEOS_CODE_VERSION = '2.1.0-sequential';
+console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
+
+// תור טעינה סדרתית לוידאו
+let videoDownloadQueue = [];
+let isProcessingVideoQueue = false;
+const BOOTSTRAP_VIDEO_DELAY = 2000; // 2 שניות בין הורדות במצב BOOTSTRAP
+
+// הוספת וידאו לתור ההורדה הסדרתי
+function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
+  videoDownloadQueue.push({ videoEl, url, hash, mirrors, fallbackFn });
+  processVideoDownloadQueue();
+}
+
+// עיבוד תור ההורדות הסדרתי
+async function processVideoDownloadQueue() {
+  if (isProcessingVideoQueue || videoDownloadQueue.length === 0) return;
+  
+  isProcessingVideoQueue = true;
+  
+  // בדיקת מצב רשת
+  let currentTier = 'BOOTSTRAP';
+  if (typeof App.getNetworkTier === 'function') {
+    try {
+      const peerCount = typeof App.countActivePeers === 'function' 
+        ? await App.countActivePeers() 
+        : 0;
+      currentTier = App.getNetworkTier(peerCount);
+    } catch (err) {
+      // ברירת מחדל BOOTSTRAP
+    }
+  }
+  
+  const useDelay = currentTier === 'BOOTSTRAP' || currentTier === 'UNKNOWN';
+  const totalInQueue = videoDownloadQueue.length;
+  let processedCount = 0;
+  
+  if (useDelay) {
+    console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c║  🎬 טעינה סדרתית - ${totalInQueue} וידאו בתור      ║`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
+  }
+  
+  while (videoDownloadQueue.length > 0) {
+    const { videoEl, url, hash, mirrors, fallbackFn } = videoDownloadQueue.shift();
+    processedCount++;
+    
+    if (useDelay) {
+      console.log(`%c┌─ וידאו ${processedCount}/${totalInQueue} ─────────────────────────┐`, 'color: #2196F3');
+    }
+    
+    try {
+      if (typeof App.loadVideoWithCache === 'function') {
+        await App.loadVideoWithCache(videoEl, url, hash, mirrors);
+        if (useDelay) {
+          console.log(`%c└─ ✅ הושלם ──────────────────────────────┘`, 'color: #4CAF50');
+        }
+      } else {
+        fallbackFn();
+      }
+    } catch (err) {
+      console.warn('Failed to load video with P2P/cache:', err);
+      fallbackFn();
+      if (useDelay) {
+        console.log(`%c└─ ⚠️ fallback ─────────────────────────────┘`, 'color: #FF9800');
+      }
+    }
+    
+    // השהייה רק במצב BOOTSTRAP ואם יש עוד בתור
+    if (useDelay && videoDownloadQueue.length > 0) {
+      console.log(`%c   ⏳ ממתין 2 שניות...`, 'color: #9E9E9E; font-style: italic');
+      await new Promise(resolve => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
+    }
+  }
+  
+  if (useDelay) {
+    console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c║  ✅ טעינה סדרתית הושלמה - ${processedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
+  }
+  
+  isProcessingVideoQueue = false;
+}
+
 // המתנה לטעינת App והפיד
 function waitForApp() {
   return new Promise((resolve) => {
@@ -740,17 +825,8 @@ function renderVideoCard(video) {
       videoEl.src = video.videoUrl;
     };
 
-    const loader = typeof App.loadVideoWithCache === 'function'
-      ? App.loadVideoWithCache(videoEl, video.videoUrl, video.hash || '', video.mirrors || [])
-      : Promise.resolve().then(() => {
-          applyFallbackSrc();
-          return true;
-        });
-
-    loader.catch((err) => {
-      console.warn('Failed to load video with P2P/cache:', err);
-      applyFallbackSrc();
-    });
+    // הוספה לתור הסדרתי במקום טעינה ישירה
+    addToVideoDownloadQueue(videoEl, video.videoUrl, video.hash || '', video.mirrors || [], applyFallbackSrc);
 
     const playOverlay = document.createElement('button');
     playOverlay.type = 'button';

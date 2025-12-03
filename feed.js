@@ -3691,6 +3691,10 @@ async function loadFeed() {
   // חלק Network Tiers (פיד) – השהייה בין טעינות במצב BOOTSTRAP | HYPER CORE TECH
   const BOOTSTRAP_LOAD_DELAY = 2000; // 2 שניות בין טעינות
 
+  // גרסת קוד לזיהוי עדכונים
+  const FEED_CODE_VERSION = '2.1.0-sequential';
+  console.log(`%c🔧 Feed.js גרסה: ${FEED_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
+
   async function processVideoLoadQueue() {
     if (isLoadingSequentially || videoLoadQueue.length === 0) return;
     
