@@ -61,6 +61,8 @@
   const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
   const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
   const CONSECUTIVE_FAILURES_THRESHOLD = 2; // כמות כשלונות ברצף לפני fallback
+  const HEARTBEAT_INTERVAL = 60000;       // שליחת heartbeat כל דקה
+  const HEARTBEAT_LOOKBACK = 120;         // חיפוש heartbeats מ-2 דקות אחורה
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -290,6 +292,38 @@
     });
   }
 
+  // חלק Network Tiers (p2p-video-sharing.js) – שליחת heartbeat להודעה על נוכחות ברשת | HYPER CORE TECH
+  async function sendHeartbeat() {
+    const relays = getP2PRelays();
+    if (!relays.length || !App.pool || !App.publicKey) {
+      return;
+    }
+
+    try {
+      const event = {
+        kind: FILE_AVAILABILITY_KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['d', 'p2p-heartbeat'],
+          ['t', 'p2p-heartbeat'],
+          ['app', P2P_APP_TAG],
+          ['expires', String(Date.now() + HEARTBEAT_INTERVAL * 3)] // תוקף ל-3 דקות
+        ],
+        content: JSON.stringify({ online: true, files: state.availableFiles.size })
+      };
+
+      const signedEvent = await window.nostrSignEvent(event);
+      if (signedEvent) {
+        await Promise.allSettled(relays.map(relay => 
+          App.pool.publish([relay], signedEvent).catch(() => {})
+        ));
+        log('info', '💓 Heartbeat נשלח', { relays: relays.length });
+      }
+    } catch (err) {
+      // שקט - לא קריטי
+    }
+  }
+
   // חלק Network Tiers (p2p-video-sharing.js) – ספירת peers פעילים ברשת | HYPER CORE TECH
   async function countActivePeers() {
     // בדיקת cache
@@ -305,18 +339,27 @@
       return 0;
     }
 
-    const sinceTimestamp = Math.floor(Date.now() / 1000) - 300; // 5 דקות אחורה
+    const sinceTimestamp = Math.floor(Date.now() / 1000) - HEARTBEAT_LOOKBACK; // 2 דקות אחורה
 
     return new Promise((resolve) => {
       const uniquePeers = new Set();
       let finished = false;
 
-      const filters = [{
-        kinds: [FILE_AVAILABILITY_KIND],
-        '#t': ['p2p-file'],
-        since: sinceTimestamp,
-        limit: 100
-      }];
+      // חיפוש גם heartbeats וגם שיתופי קבצים
+      const filters = [
+        {
+          kinds: [FILE_AVAILABILITY_KIND],
+          '#t': ['p2p-heartbeat'],
+          since: sinceTimestamp,
+          limit: 50
+        },
+        {
+          kinds: [FILE_AVAILABILITY_KIND],
+          '#t': ['p2p-file'],
+          since: sinceTimestamp,
+          limit: 50
+        }
+      ];
 
       const timeout = setTimeout(() => {
         if (!finished) {
@@ -337,12 +380,7 @@
         const sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
             if (event.pubkey && event.pubkey !== App.publicKey) {
-              // בדיקת תוקף
-              const expiresTag = event.tags?.find(t => t[0] === 'expires');
-              const expires = expiresTag ? parseInt(expiresTag[1]) : 0;
-              if (!expires || expires > Date.now()) {
-                uniquePeers.add(event.pubkey);
-              }
+              uniquePeers.add(event.pubkey);
             }
           },
           oneose: () => {
@@ -1675,6 +1713,11 @@
     function tryInit() {
       if (App.publicKey && App.pool) {
         listenForP2PSignals();
+        
+        // שליחת heartbeat ראשון והפעלת interval
+        sendHeartbeat();
+        setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+        
         log('success', '✅ מערכת P2P מוכנה!', {
           publicKey: App.publicKey.slice(0, 16) + '...',
           relays: getP2PRelays().length,
