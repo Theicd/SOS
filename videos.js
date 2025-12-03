@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.2.6-mobile-limits';
+const VIDEOS_CODE_VERSION = '2.2.8-upload-lamp';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
@@ -76,19 +76,19 @@ const p2pStatsUI = {
     const tooltip = document.createElement('div');
     tooltip.className = 'p2p-stats-tooltip';
     tooltip.innerHTML = `
-      <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות P2P</div>
+      <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות SOS</div>
       <div class="p2p-stats-tooltip__section">📥 הורדות</div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
-          P2P (רשת)
+          SOS (רשת)
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
       </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--blossom"></span>
-          Blossom (שרת)
+          Public (שרת)
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipBlossom">0</span>
       </div>
@@ -99,19 +99,36 @@ const p2pStatsUI = {
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipCache">0</span>
       </div>
-      <div class="p2p-stats-tooltip__section">📤 שיתופים</div>
+      <div class="p2p-stats-tooltip__section">⬇️ הורדה פעילה</div>
       <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">קבצים ששותפו</span>
-        <span class="p2p-stats-tooltip__value" id="tooltipShares">0</span>
+        <span class="p2p-stats-tooltip__label">מקורות זמינים</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipDownloadPeers">-</span>
       </div>
       <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">בתור שיתוף</span>
-        <span class="p2p-stats-tooltip__value" id="tooltipQueue">0</span>
+        <span class="p2p-stats-tooltip__label">התקדמות</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipDownloadProgress">-</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">מהירות</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipDownloadSpeed">-</span>
+      </div>
+      <div class="p2p-stats-tooltip__section">⬆️ העלאה פעילה</div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">קבצים</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipUploadFiles">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">מהירות</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipUploadSpeed">-</span>
       </div>
       <div class="p2p-stats-tooltip__section">👥 רשת</div>
       <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">Peers פעילים</span>
+        <span class="p2p-stats-tooltip__label">עמיתים פעילים</span>
         <span class="p2p-stats-tooltip__value" id="tooltipPeers">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">בתור</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipQueue">0</span>
       </div>
     `;
     circle.appendChild(tooltip);
@@ -135,9 +152,12 @@ const p2pStatsUI = {
     const p2pEl = document.getElementById('tooltipP2P');
     const blossomEl = document.getElementById('tooltipBlossom');
     const cacheEl = document.getElementById('tooltipCache');
-    const sharesEl = document.getElementById('tooltipShares');
     const queueEl = document.getElementById('tooltipQueue');
     const peersEl = document.getElementById('tooltipPeers');
+    const downloadPeersEl = document.getElementById('tooltipDownloadPeers');
+    const downloadSpeedEl = document.getElementById('tooltipDownloadSpeed');
+    const uploadFilesEl = document.getElementById('tooltipUploadFiles');
+    const uploadSpeedEl = document.getElementById('tooltipUploadSpeed');
     
     if (p2pEl) p2pEl.textContent = this.p2p;
     if (blossomEl) blossomEl.textContent = this.blossom;
@@ -148,11 +168,40 @@ const p2pStatsUI = {
     if (typeof App.getP2PStats === 'function') {
       const stats = App.getP2PStats();
       if (stats) {
-        if (sharesEl) sharesEl.textContent = stats.shares?.success || 0;
         if (queueEl) queueEl.textContent = stats.shareQueueLength || 0;
         if (peersEl) peersEl.textContent = stats.peerCount || 0;
+        
+        // הורדות פעילות
+        const download = stats.activeDownload;
+        if (downloadPeersEl) {
+          downloadPeersEl.textContent = download?.peers || '-';
+        }
+        const downloadProgressEl = document.getElementById('tooltipDownloadProgress');
+        if (downloadProgressEl) {
+          downloadProgressEl.textContent = download?.percent ? `${download.percent}%` : '-';
+        }
+        if (downloadSpeedEl) {
+          const speed = download?.speed;
+          downloadSpeedEl.textContent = speed ? this.formatSpeed(speed) : '-';
+        }
+        
+        // העלאות פעילות
+        if (uploadFilesEl) {
+          uploadFilesEl.textContent = stats.activeTransfers || 0;
+        }
+        if (uploadSpeedEl) {
+          const speed = stats.activeUpload?.speed;
+          uploadSpeedEl.textContent = speed ? this.formatSpeed(speed) : '-';
+        }
       }
     }
+  },
+  
+  // פורמט מהירות
+  formatSpeed(bytesPerSec) {
+    if (bytesPerSec < 1024) return `${bytesPerSec} B/s`;
+    if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+    return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
   },
   
   // אתחול
@@ -164,9 +213,46 @@ const p2pStatsUI = {
   }
 };
 
+// מנורת העלאה - מהבהבת כשמשרתים קבצים
+const uploadIndicatorUI = {
+  element: null,
+  countElement: null,
+  
+  init() {
+    this.element = document.getElementById('uploadIndicator');
+    this.countElement = document.getElementById('uploadIndicatorCount');
+    
+    // עדכון כל שנייה
+    setInterval(() => this.update(), 1000);
+  },
+  
+  update() {
+    const App = window.NostrApp || {};
+    if (typeof App.getP2PStats !== 'function') return;
+    
+    const stats = App.getP2PStats();
+    const activeTransfers = stats?.activeTransfers || 0;
+    const isUploading = stats?.activeUpload !== null;
+    
+    if (this.element) {
+      if (activeTransfers > 0 || isUploading) {
+        this.element.classList.add('is-active');
+        if (this.countElement) {
+          this.countElement.textContent = activeTransfers || 1;
+        }
+      } else {
+        this.element.classList.remove('is-active');
+      }
+    }
+  }
+};
+
 // אתחול עיגול הסטטיסטיקות כשהדף נטען
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => p2pStatsUI.init(), 1000);
+  setTimeout(() => {
+    p2pStatsUI.init();
+    uploadIndicatorUI.init();
+  }, 1000);
 });
 
 // חשיפה גלובלית לעדכון מקבצים אחרים

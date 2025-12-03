@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.2.6-mobile-limits'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.2.8-upload-lamp'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -112,6 +112,9 @@
     lastPeerCount: 0,                 // ספירת peers אחרונה
     lastPeerCountTime: 0,             // זמן ספירה אחרונה
     consecutiveP2PFailures: 0,        // כשלונות P2P ברצף
+    // מעקב מהירויות בזמן אמת
+    activeDownload: null,             // { hash, peers, startTime, bytesReceived, speed }
+    activeUpload: null,               // { hash, startTime, bytesSent, speed }
   };
 
   const logState = {
@@ -733,6 +736,28 @@
     }
     const percent = Math.min(100, Math.floor((receivedSize / totalSize) * 100));
     const prev = logState.downloadProgress.get(connectionId);
+    const now = Date.now();
+    
+    // חישוב מהירות
+    let speed = 0;
+    if (prev && prev.timestamp) {
+      const timeDiff = (now - prev.timestamp) / 1000;
+      const bytesDiff = receivedSize - prev.receivedSize;
+      if (timeDiff > 0) {
+        speed = bytesDiff / timeDiff;
+      }
+    }
+    
+    // עדכון state להצגה בטולטיפ
+    state.activeDownload = {
+      hash: extra.hash || connectionId,
+      peers: extra.peers || 1,
+      startTime: prev?.startTime || now,
+      bytesReceived: receivedSize,
+      totalSize,
+      speed,
+      percent,
+    };
     
     // הדפסה רק כל 10% או בסיום
     const shouldLog = !prev || (percent >= 100) || (Math.floor(percent / 10) > Math.floor(prev.percent / 10));
@@ -740,7 +765,7 @@
     if (prev && percent <= prev.percent) {
       return;
     }
-    logState.downloadProgress.set(connectionId, { percent, receivedSize, totalSize });
+    logState.downloadProgress.set(connectionId, { percent, receivedSize, totalSize, timestamp: now, startTime: prev?.startTime || now });
     
     if (shouldLog) {
       const filled = Math.round(percent / 5);
@@ -751,6 +776,7 @@
 
     if (percent >= 100) {
       logState.downloadProgress.delete(connectionId);
+      state.activeDownload = null;
     }
   }
 
@@ -1396,6 +1422,19 @@
 
             const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
             let lastLoggedPercent = -1;
+            let uploadStartTime = Date.now();
+            let lastSpeedCheck = uploadStartTime;
+            let lastBytesSent = 0;
+            
+            // עדכון state להעלאה פעילה
+            state.activeUpload = {
+              hash: hash,
+              startTime: uploadStartTime,
+              bytesSent: 0,
+              totalSize: blob.size,
+              speed: 0,
+            };
+            
             console.log(`%c📤 שליחת קובץ: ${sizeMB}MB`, 'color: #4CAF50; font-weight: bold');
 
             while (offset < blob.size) {
@@ -1410,6 +1449,20 @@
               channel.send(arrayBuffer);
               chunkNum++;
               offset += CHUNK_SIZE;
+
+              // עדכון מהירות כל 500ms
+              const now = Date.now();
+              if (now - lastSpeedCheck > 500) {
+                const timeDiff = (now - lastSpeedCheck) / 1000;
+                const bytesDiff = offset - lastBytesSent;
+                state.activeUpload = {
+                  ...state.activeUpload,
+                  bytesSent: offset,
+                  speed: bytesDiff / timeDiff,
+                };
+                lastSpeedCheck = now;
+                lastBytesSent = offset;
+              }
 
               // מד התקדמות - רק כל 10%
               const percent = Math.round((offset / blob.size) * 100);
@@ -1439,9 +1492,13 @@
               chunks: chunkNum,
               totalSize: blob.size
             });
+            
+            // ניקוי state העלאה
+            state.activeUpload = null;
 
           } catch (err) {
             log('error', `❌ שגיאה בשליחת קובץ: ${err.message}`);
+            state.activeUpload = null;
             channel.send(JSON.stringify({
               type: 'error',
               message: err.message
@@ -1633,6 +1690,17 @@
         // P2P_FULL או HYBRID
         const rawPeers = await findPeersWithFile(hash);
         const peers = Array.isArray(rawPeers) ? [...rawPeers] : [];
+        
+        // עדכון מספר מקורות זמינים
+        state.activeDownload = {
+          hash,
+          peers: peers.length,
+          startTime: Date.now(),
+          bytesReceived: 0,
+          totalSize: 0,
+          speed: 0,
+          percent: 0,
+        };
 
         if (peers.length === 0) {
           try {
@@ -1697,6 +1765,8 @@
           throw err;
         }
       } finally {
+        // ניקוי state הורדה
+        state.activeDownload = null;
         if (typeof releaseSlot === 'function') {
           releaseSlot();
         }
@@ -1952,6 +2022,8 @@
       networkTier: state.networkTier,
       availableFiles: state.availableFiles.size,
       activeTransfers: state.activeTransferSlots,
+      activeDownload: state.activeDownload ? { ...state.activeDownload } : null,
+      activeUpload: state.activeUpload ? { ...state.activeUpload } : null,
     }),
     printP2PStats,
   });
