@@ -83,6 +83,8 @@
     activePeers: new Map(), // hash -> Set(pubkeys)
     activeConnections: new Map(), // connectionId -> RTCPeerConnection
     pendingConnections: new Map(), // connectionId -> { pc, timeout }
+    // חלק WebRTC (p2p-video-sharing.js) – ניהול תור ל-ICE candidates עד שה-remote description מוכן | HYPER CORE TECH
+    pendingIceCandidates: new Map(), // connectionId -> RTCIceCandidate[]
     downloadQueue: new Map(), // hash -> Promise
     availabilityManifest: loadAvailabilityManifest(),
     availabilityRateTimestamps: [],
@@ -674,6 +676,7 @@
           clearTimeout(pending.timeout);
           state.pendingConnections.delete(connectionId);
         }
+        state.pendingIceCandidates.delete(connectionId);
       }
 
       try {
@@ -934,6 +937,20 @@
 
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
       log('success', '✅ answer נוסף בהצלחה');
+
+      // חלק WebRTC (p2p-video-sharing.js) – הוספת ICE candidates שנשמרו עד לקבלת answer | HYPER CORE TECH
+      const bufferedCandidates = state.pendingIceCandidates.get(connectionId);
+      if (Array.isArray(bufferedCandidates) && bufferedCandidates.length) {
+        for (const buffered of bufferedCandidates) {
+          try {
+            await pc.addIceCandidate(buffered);
+            log('success', '✅ ICE candidate שנשמר נוסף לאחר קבלת answer');
+          } catch (candidateErr) {
+            log('error', `❌ כשלון בהוספת ICE candidate מה-buffer: ${candidateErr.message}`);
+          }
+        }
+        state.pendingIceCandidates.delete(connectionId);
+      }
     } catch (err) {
       log('error', `❌ כשלון בעיבוד answer: ${err.message}`);
     }
@@ -1099,13 +1116,34 @@
     });
 
     const pc = state.activeConnections.get(connectionId);
-    if (pc && candidate) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        log('success', `✅ ICE candidate נוסף בהצלחה`);
-      } catch (err) {
-        log('error', `❌ כשלון בהוספת ICE candidate: ${err.message}`);
-      }
+    if (!pc || !candidate) {
+      log('info', 'ℹ️ אין חיבור פעיל עבור ה-candidate – מתעלם');
+      return;
+    }
+
+    if (pc.connectionState === 'closed' || pc.iceConnectionState === 'closed') {
+      log('info', 'ℹ️ החיבור כבר נסגר – מתעלם מה-candidate', { connectionId });
+      return;
+    }
+
+    const rtcCandidate = new RTCIceCandidate(candidate);
+
+    if (!pc.currentRemoteDescription) {
+      const queue = state.pendingIceCandidates.get(connectionId) || [];
+      queue.push(rtcCandidate);
+      state.pendingIceCandidates.set(connectionId, queue);
+      log('info', '🧊 ICE candidate נשמר בהמתנה עד לקבלת answer', {
+        bufferedCount: queue.length,
+        connectionId
+      });
+      return;
+    }
+
+    try {
+      await pc.addIceCandidate(rtcCandidate);
+      log('success', `✅ ICE candidate נוסף בהצלחה`);
+    } catch (err) {
+      log('error', `❌ כשלון בהוספת ICE candidate: ${err.message}`);
     }
   }
 
