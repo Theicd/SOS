@@ -3758,11 +3758,40 @@ async function loadFeed() {
         }
       }
       
-      console.log(`🌐 מצב רשת לטעינה: ${currentTier}`);
+      console.log(`%c🌐 מצב רשת לטעינה: ${currentTier}`, 'color: #9C27B0; font-weight: bold');
       
       // במצב BOOTSTRAP - טעינה סדרתית (אחד אחרי השני)
       const useSequentialLoading = currentTier === 'BOOTSTRAP' || currentTier === 'UNKNOWN';
       
+      // חלק Network Tiers (פיד) – במצב BOOTSTRAP, טוענים את כל הוידאו לתור מראש | HYPER CORE TECH
+      if (useSequentialLoading) {
+        const videosToLoad = [];
+        videoContainers.forEach(container => {
+          const video = container.querySelector('video');
+          const url = container.dataset.videoUrl;
+          const hash = container.dataset.videoHash || '';
+          const mirrorsStr = container.dataset.videoMirrors || '';
+          const mirrors = mirrorsStr ? mirrorsStr.split(',').filter(Boolean) : [];
+          
+          if (video && url && !video.src) {
+            const eventId = container.closest('[data-post-id]')?.dataset?.postId || null;
+            if (typeof App.registerMediaUrl === 'function') {
+              App.registerMediaUrl(url, hash, eventId, mirrors);
+            }
+            videosToLoad.push({ video, url, hash, mirrors });
+          }
+        });
+        
+        // הוספת כל הוידאו לתור והתחלת עיבוד סדרתי
+        videoLoadQueue = videosToLoad;
+        if (videosToLoad.length > 0) {
+          console.log(`%c📋 נוספו ${videosToLoad.length} וידאו לתור טעינה סדרתית`, 'color: #2196F3');
+          processVideoLoadQueue();
+        }
+        return;
+      }
+      
+      // מצב HYBRID/P2P_FULL - טעינה מקבילית עם IntersectionObserver
       videoContainers.forEach(container => {
         const video = container.querySelector('video');
         const url = container.dataset.videoUrl;
@@ -3771,39 +3800,21 @@ async function loadFeed() {
         const mirrors = mirrorsStr ? mirrorsStr.split(',').filter(Boolean) : [];
         
         if (video && url && !video.src) {
-          // רישום ה-URL למערכת recheck
           const eventId = container.closest('[data-post-id]')?.dataset?.postId || null;
           if (typeof App.registerMediaUrl === 'function') {
             App.registerMediaUrl(url, hash, eventId, mirrors);
           }
           
-          if (useSequentialLoading) {
-            // חלק Network Tiers (פיד) – טעינה סדרתית במצב BOOTSTRAP | HYPER CORE TECH
-            const observer = new IntersectionObserver((entries) => {
-              entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                  // הוספה לתור במקום טעינה מיידית
-                  videoLoadQueue.push({ video, url, hash, mirrors });
-                  processVideoLoadQueue();
-                  observer.unobserve(entry.target);
-                }
-              });
-            }, { rootMargin: '100px' });
-            
-            observer.observe(container);
-          } else {
-            // חלק Network Tiers (פיד) – טעינה מקבילית במצב HYBRID/P2P_FULL | HYPER CORE TECH
-            const observer = new IntersectionObserver((entries) => {
-              entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                  loadVideoWithCache(video, url, hash, mirrors);
-                  observer.unobserve(entry.target);
-                }
-              });
-            }, { rootMargin: '100px' });
-            
-            observer.observe(container);
-          }
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                loadVideoWithCache(video, url, hash, mirrors);
+                observer.unobserve(entry.target);
+              }
+            });
+          }, { rootMargin: '100px' });
+          
+          observer.observe(container);
         }
       });
     };
