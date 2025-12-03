@@ -3624,8 +3624,13 @@ async function loadFeed() {
           const p2pResult = await App.downloadVideoWithP2P(url, hash, 'video/webm', { postIndex: currentPostIndex });
           
           if (p2pResult && p2pResult.blob) {
-            const objectUrl = URL.createObjectURL(p2pResult.blob);
-            videoElement.src = objectUrl;
+            // אם זה URL ישיר (עקיפת CORS), נשתמש בו ישירות
+            if (p2pResult.blob._directUrl) {
+              videoElement.src = p2pResult.blob._directUrl;
+            } else {
+              const objectUrl = URL.createObjectURL(p2pResult.blob);
+              videoElement.src = objectUrl;
+            }
             return true;
           }
         } catch (p2pErr) {

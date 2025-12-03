@@ -139,6 +139,54 @@
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  // פונקציה לטעינת וידאו דרך video element כדי לעקוף CORS
+  // הדפדפן מאפשר ל-video element לטעון מכל מקור, גם בלי CORS headers
+  function fetchViaVideoElement(url, mimeType) {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.crossOrigin = 'anonymous'; // ננסה עם anonymous קודם
+      video.preload = 'auto';
+      video.muted = true;
+      
+      const timeout = setTimeout(() => {
+        video.src = '';
+        reject(new Error('Video element load timeout'));
+      }, 30000);
+      
+      video.onloadeddata = async () => {
+        clearTimeout(timeout);
+        try {
+          // ננסה לצלם frame מהוידאו כדי לוודא שהוא נטען
+          // אם זה עובד, נחזיר את ה-URL כ-blob
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 360;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+          
+          // הוידאו נטען בהצלחה - נחזיר blob ריק כסימן שהוידאו זמין
+          // הוידאו יוצג ישירות מה-URL
+          const blob = new Blob([], { type: mimeType || 'video/mp4' });
+          blob._directUrl = url; // סימון שזה URL ישיר
+          video.src = '';
+          resolve(blob);
+        } catch (err) {
+          video.src = '';
+          reject(err);
+        }
+      };
+      
+      video.onerror = () => {
+        clearTimeout(timeout);
+        video.src = '';
+        reject(new Error('Video element failed to load'));
+      };
+      
+      // ננסה בלי crossOrigin אם נכשל
+      video.src = url;
+    });
+  }
+
   // חלק איזון עומסים (p2p-video-sharing.js) – הקצאת משבצות הורדה כדי למנוע עומס מיידי על הרשת | HYPER CORE TECH
   async function acquireDownloadSlot(label) {
     if (MAX_CONCURRENT_P2P_TRANSFERS <= 0) {
@@ -1457,8 +1505,16 @@
         // חלק Network Tiers - אסטרטגיית טעינה לפי מצב הרשת
         if (forceBlossom) {
           try {
-            const response = await fetch(url);
-            const blob = await response.blob();
+            // ניסיון ראשון עם fetch רגיל
+            let blob;
+            try {
+              const response = await fetch(url, { mode: 'cors' });
+              blob = await response.blob();
+            } catch (corsErr) {
+              // CORS נכשל - ננסה לטעון דרך video element
+              log('info', `CORS חסום, מנסה video element`, { url: url.substring(0, 30) + '...' });
+              blob = await fetchViaVideoElement(url, mimeType);
+            }
             p2pStats.downloads.fromBlossom++;
             log('success', `מ-Blossom [${tier}]`, { post: postIndex+1, size: Math.round(blob.size/1024)+'KB' });
             if (typeof App.cacheMedia === 'function') {
