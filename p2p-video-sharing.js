@@ -27,6 +27,7 @@
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
   const P2P_APP_TAG = 'sos-p2p'; // תג לזיהוי האפליקציה
+  const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
   const AVAILABILITY_REPUBLISH_INTERVAL = 2 * 60 * 1000; // דקהיים קירור
   const AVAILABILITY_MANIFEST_KEY = 'p2pAvailabilityManifest';
@@ -167,6 +168,46 @@
     const nextResolver = state.pendingTransferResolvers.shift();
     if (typeof nextResolver === 'function') {
       nextResolver();
+    }
+  }
+
+  // חלק סיגנלים (p2p-video-sharing.js) – עטיפת הצפנה/פענוח עבור תאימות רחבה | HYPER CORE TECH
+  async function prepareSignalContent(payload, peerPubkey) {
+    if (!SIGNAL_ENCRYPTION_ENABLED || typeof App.encryptMessage !== 'function') {
+      return { content: payload, encrypted: false };
+    }
+
+    try {
+      const encrypted = await App.encryptMessage(payload, peerPubkey);
+      return { content: encrypted, encrypted: true };
+    } catch (err) {
+      log('info', 'ℹ️ כשל בהצפנת signal – שולח כטקסט גלוי להבטחת תאימות', {
+        peer: peerPubkey?.slice?.(0, 16) + '...',
+        error: err?.message || String(err),
+      }, {
+        throttleKey: `signal-encrypt-${peerPubkey}`,
+        throttleMs: 15000,
+      });
+      return { content: payload, encrypted: false };
+    }
+  }
+
+  async function extractSignalContent(rawContent, senderPubkey) {
+    if (!rawContent || typeof App.decryptMessage !== 'function') {
+      return rawContent;
+    }
+
+    try {
+      return await App.decryptMessage(rawContent, senderPubkey);
+    } catch (err) {
+      log('info', 'ℹ️ לא הצלחתי לפענח signal – משתמש בתוכן המקורי', {
+        sender: senderPubkey?.slice?.(0, 16) + '...',
+        error: err?.message || String(err),
+      }, {
+        throttleKey: `signal-decrypt-${senderPubkey}`,
+        throttleMs: 15000,
+      });
+      return rawContent;
     }
   }
 
@@ -813,12 +854,8 @@
       await throttleSignals();
 
       const content = JSON.stringify({ type, data });
-      
-      // הצפנה אם יש פונקציה
-      let encryptedContent = content;
-      if (typeof App.encryptMessage === 'function') {
-        encryptedContent = await App.encryptMessage(content, peerPubkey);
-      }
+
+      const { content: wireContent, encrypted } = await prepareSignalContent(content, peerPubkey);
 
       const kind = FILE_REQUEST_KIND; // כל הסיגנלים משתמשים ב-30078
       const signalType = type === 'file-request' ? 'req' : (type === 'file-response' ? 'res' : 'ice');
@@ -832,8 +869,12 @@
           ['p', peerPubkey],
           ['t', `p2p-${signalType}`], // סוג הסיגנל
         ],
-        content: encryptedContent,
+        content: wireContent,
       };
+
+      if (encrypted) {
+        event.tags.push(['enc', 'nip04']);
+      }
 
       const signed = App.finalizeEvent(event, App.privateKey);
       const relays = getP2PRelays(); // שימוש בריליי P2P במקום הריליים הרגילים
@@ -880,13 +921,8 @@
           });
 
           try {
-            let content = event.content;
-
-            if (typeof App.decryptMessage === 'function') {
-              content = await App.decryptMessage(content, event.pubkey);
-            }
-
-            const message = JSON.parse(content);
+            const decodedContent = await extractSignalContent(event.content, event.pubkey);
+            const message = JSON.parse(decodedContent);
 
             if (message.type === 'file-request') {
               await handleFileRequest(event.pubkey, message.data);
