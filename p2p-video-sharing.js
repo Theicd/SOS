@@ -428,6 +428,24 @@
     return { tier, peerCount };
   }
 
+  // חלק Network Tiers (p2p-video-sharing.js) – Polling לבדיקת peers חדשים | HYPER CORE TECH
+  const PEER_POLLING_INTERVAL = 30000; // בדיקה כל 30 שניות
+  let peerPollingActive = false;
+
+  function startPeerPolling() {
+    if (peerPollingActive) return;
+    peerPollingActive = true;
+    
+    log('info', '🔄 מתחיל polling לבדיקת peers חדשים כל 30 שניות');
+    
+    setInterval(async () => {
+      // אפס את ה-cache כדי לקבל ספירה חדשה
+      state.lastPeerCountTime = 0;
+      const { tier, peerCount } = await updateNetworkTier();
+      log('info', '🔄 Polling peers', { count: peerCount, tier });
+    }, PEER_POLLING_INTERVAL);
+  }
+
   // חלק Network Tiers (p2p-video-sharing.js) – פרסום קבצים עם השהייה למניעת הצפה | HYPER CORE TECH
   async function registerFilesSequentially(files) {
     if (!Array.isArray(files) || files.length === 0) {
@@ -1694,6 +1712,8 @@
     updateNetworkTier,                   // עדכון מצב הרשת
     registerFilesSequentially,           // פרסום קבצים עם השהייה
     shouldUseBlossom,                    // בדיקה אם להשתמש ב-Blossom
+    startPeerPolling,                    // הפעלת polling לבדיקת peers
+    sendHeartbeat,                       // שליחת heartbeat ידנית
     p2pGetNetworkState: () => ({         // קבלת מצב רשת נוכחי
       tier: state.networkTier,
       peerCount: state.lastPeerCount,
@@ -1717,6 +1737,9 @@
         // שליחת heartbeat ראשון והפעלת interval
         sendHeartbeat();
         setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+        
+        // הפעלת polling לבדיקת peers חדשים
+        startPeerPolling();
         
         log('success', '✅ מערכת P2P מוכנה!', {
           publicKey: App.publicKey.slice(0, 16) + '...',
