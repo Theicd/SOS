@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.2.0-p2p-threshold';
+const VIDEOS_CODE_VERSION = '2.2.1-loop-feed';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
@@ -1868,7 +1868,7 @@ function setupIntersectionObserver() {
     intersectionObserver.disconnect();
   }
 
-  // גלילה פשוטה - רק ניגן/עצור וידאו
+  // גלילה פשוטה - רק ניגן/עצור וידאו + חזרה להתחלה בסוף
   intersectionObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -1879,8 +1879,24 @@ function setupIntersectionObserver() {
         // ניגון כשהפוסט מרכזי (50%+ גלוי)
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           playMedia(mediaDiv, { manual: false });
+          
+          // בדיקה אם זה הפוסט האחרון - חזרה להתחלה
+          const cards = document.querySelectorAll('.videos-feed__card');
+          const lastCard = cards[cards.length - 1];
+          if (card === lastCard && cards.length > 1) {
+            // מחכים שהמשתמש יגלול עוד קצת ואז חוזרים להתחלה
+            clearTimeout(window._loopToStartTimer);
+            window._loopToStartTimer = setTimeout(() => {
+              const firstCard = cards[0];
+              if (firstCard) {
+                firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 1500); // 1.5 שניות אחרי שהגיע לסוף
+          }
         } else {
           pauseMedia(mediaDiv, { resetThumb: false });
+          // ביטול הטיימר אם המשתמש גלל אחורה
+          clearTimeout(window._loopToStartTimer);
         }
       });
     },
