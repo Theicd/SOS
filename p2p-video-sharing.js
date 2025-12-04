@@ -1875,11 +1875,26 @@
   // חלק P2P (p2p-video-sharing.js) – טעינת קבצים זמינים מ-IndexedDB בעת אתחול
   async function loadAvailableFilesFromCache() {
     try {
+      // ממתינים ל-media-cache להתאתחל קודם
+      if (typeof App.getCachedMedia !== 'function') {
+        log('info', 'ℹ️ ממתין ל-media-cache להתאתחל...');
+        await new Promise(r => setTimeout(r, 500));
+      }
+      
+      // משתמשים ב-API של media-cache אם זמין
+      if (typeof App.getCacheStats === 'function') {
+        const stats = await App.getCacheStats();
+        if (!stats) {
+          log('info', 'ℹ️ media-cache לא זמין');
+          return 0;
+        }
+      }
+
       const DB_NAME = 'SOS2MediaCache';
       const STORE_NAME = 'media';
 
       return new Promise((resolve) => {
-        const request = indexedDB.open(DB_NAME, 1);
+        const request = indexedDB.open(DB_NAME);
         
         request.onerror = () => {
           log('error', '❌ לא ניתן לפתוח IndexedDB לטעינת קבצים');
@@ -1891,6 +1906,7 @@
           
           if (!db.objectStoreNames.contains(STORE_NAME)) {
             log('info', 'ℹ️ אין store של מדיה ב-IndexedDB');
+            db.close();
             resolve(0);
             return;
           }
@@ -1915,6 +1931,7 @@
               }
             });
 
+            db.close();
             log('success', `✅ נטענו ${loadedCount} קבצים זמינים מ-cache`, {
               total: entries.length,
               pinned: loadedCount
@@ -1924,6 +1941,7 @@
 
           getAllRequest.onerror = () => {
             log('error', '❌ שגיאה בטעינת קבצים מ-IndexedDB');
+            db.close();
             resolve(0);
           };
         };
