@@ -208,8 +208,12 @@ const p2pStatsUI = {
   init() {
     this.createTooltip();
     this.sync();
-    // עדכון כל שנייה לתצוגה חיה
-    setInterval(() => this.sync(), 1000);
+    this.updateTooltip();
+    // עדכון כל שנייה לתצוגה חיה - גם העיגול וגם הטולטיפ
+    setInterval(() => {
+      this.sync();
+      this.updateTooltip();
+    }, 1000);
   }
 };
 
@@ -2012,39 +2016,41 @@ function setupIntersectionObserver() {
   return intersectionObserver;
 }
 
-// חלק לופ אינסופי (videos.js) – גלילה חזרה להתחלה כשמגיעים לסוף
+// חלק לופ אינסופי (videos.js) – שכפול כרטיסים ליצירת לופ חלק
 function setupInfiniteLoop() {
   const viewport = document.querySelector('.videos-feed__viewport');
   if (!viewport) return;
   
-  let isLooping = false;
+  // הוספת כרטיסים משוכפלים בסוף ובהתחלה ליצירת לופ חלק
+  let isAdjusting = false;
   
   viewport.addEventListener('scroll', () => {
-    if (isLooping) return;
+    if (isAdjusting) return;
     
-    const cards = document.querySelectorAll('.videos-feed__card');
+    const cards = document.querySelectorAll('.videos-feed__card:not(.clone)');
     if (cards.length < 2) return;
     
-    const lastCard = cards[cards.length - 1];
-    const lastCardRect = lastCard.getBoundingClientRect();
-    const viewportRect = viewport.getBoundingClientRect();
+    const cardHeight = cards[0].offsetHeight;
+    const scrollTop = viewport.scrollTop;
+    const maxScroll = viewport.scrollHeight - viewport.clientHeight;
     
-    // בדיקה אם הפוסט האחרון גלוי לחלוטין והמשתמש ממשיך לגלול למטה
-    const isLastCardFullyVisible = lastCardRect.top >= viewportRect.top && 
-                                    lastCardRect.bottom <= viewportRect.bottom + 50;
-    const isAtBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 50;
+    // כשמגיעים לסוף - קפיצה מיידית להתחלה (בלי אנימציה)
+    if (scrollTop >= maxScroll - 10) {
+      isAdjusting = true;
+      // קפיצה לכרטיס הראשון - מיידית, בלי שהמשתמש ירגיש
+      viewport.scrollTop = cardHeight; // קצת אחרי ההתחלה כדי שיוכל לגלול גם למעלה
+      requestAnimationFrame(() => {
+        isAdjusting = false;
+      });
+    }
     
-    if (isLastCardFullyVisible && isAtBottom) {
-      // המשתמש בפוסט האחרון וניסה לגלול עוד - חזרה להתחלה
-      isLooping = true;
-      
-      // גלילה חלקה לפוסט הראשון
-      const firstCard = cards[0];
-      firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      
-      setTimeout(() => {
-        isLooping = false;
-      }, 800);
+    // כשמגיעים להתחלה - קפיצה מיידית לסוף
+    if (scrollTop <= 10) {
+      isAdjusting = true;
+      viewport.scrollTop = maxScroll - cardHeight;
+      requestAnimationFrame(() => {
+        isAdjusting = false;
+      });
     }
   }, { passive: true });
 }

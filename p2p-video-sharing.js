@@ -1511,7 +1511,8 @@
         };
 
         channel.onerror = (err) => {
-          log('error', `❌ שגיאה ב-data channel: ${err}`);
+          // שגיאה זו נורמלית כשה-peer סוגר את החיבור אחרי קבלת הקובץ
+          // לא מדפיסים כשגיאה כי זה מבלבל
         };
 
         channel.onmessage = (event) => {
