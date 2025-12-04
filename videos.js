@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.2.8-upload-lamp';
+const VIDEOS_CODE_VERSION = '2.2.9-fast-hybrid';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
@@ -208,8 +208,8 @@ const p2pStatsUI = {
   init() {
     this.createTooltip();
     this.sync();
-    // עדכון כל 5 שניות
-    setInterval(() => this.sync(), 5000);
+    // עדכון כל שנייה לתצוגה חיה
+    setInterval(() => this.sync(), 1000);
   }
 };
 
@@ -1373,6 +1373,7 @@ function renderVideos() {
   }
 
   setupIntersectionObserver();
+  setupInfiniteLoop();
   setupLikeUpdateListener();
 
   state.incrementalRender = {
@@ -2009,6 +2010,43 @@ function setupIntersectionObserver() {
   cards.forEach((card) => intersectionObserver.observe(card));
 
   return intersectionObserver;
+}
+
+// חלק לופ אינסופי (videos.js) – גלילה חזרה להתחלה כשמגיעים לסוף
+function setupInfiniteLoop() {
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (!viewport) return;
+  
+  let isLooping = false;
+  
+  viewport.addEventListener('scroll', () => {
+    if (isLooping) return;
+    
+    const cards = document.querySelectorAll('.videos-feed__card');
+    if (cards.length < 2) return;
+    
+    const lastCard = cards[cards.length - 1];
+    const lastCardRect = lastCard.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+    
+    // בדיקה אם הפוסט האחרון גלוי לחלוטין והמשתמש ממשיך לגלול למטה
+    const isLastCardFullyVisible = lastCardRect.top >= viewportRect.top && 
+                                    lastCardRect.bottom <= viewportRect.bottom + 50;
+    const isAtBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 50;
+    
+    if (isLastCardFullyVisible && isAtBottom) {
+      // המשתמש בפוסט האחרון וניסה לגלול עוד - חזרה להתחלה
+      isLooping = true;
+      
+      // גלילה חלקה לפוסט הראשון
+      const firstCard = cards[0];
+      firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      setTimeout(() => {
+        isLooping = false;
+      }, 800);
+    }
+  }, { passive: true });
 }
 
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים מהרילאים (fallback ללא הפיד הראשי)

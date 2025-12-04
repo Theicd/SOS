@@ -26,7 +26,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.2.8-upload-lamp'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.2.9-fast-hybrid'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -641,8 +641,8 @@
         // משתמש 1 בלבד: כל הפוסטים מ-Blossom
         return true;
       case 'HYBRID':
-        // משתמשים 4-10: רק 3 פוסטים ראשונים מ-Blossom
-        return postIndex < HYBRID_BLOSSOM_POSTS;
+        // יש peers - ננסה P2P קודם (fallback ל-Blossom אוטומטי)
+        return false;
       case 'P2P_FULL':
         // משתמש 11+: P2P בלבד (עם fallback אוטומטי)
         return false;
