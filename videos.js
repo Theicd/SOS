@@ -2016,42 +2016,49 @@ function setupIntersectionObserver() {
   return intersectionObserver;
 }
 
-// חלק לופ אינסופי (videos.js) – שכפול כרטיסים ליצירת לופ חלק
+// חלק לופ אינסופי (videos.js) – כמו טיקטוק: גלילה רגילה, ובסוף מעבר חלק להתחלה
 function setupInfiniteLoop() {
   const viewport = document.querySelector('.videos-feed__viewport');
   if (!viewport) return;
   
-  // הוספת כרטיסים משוכפלים בסוף ובהתחלה ליצירת לופ חלק
-  let isAdjusting = false;
+  let lastScrollTop = 0;
+  let atLastCard = false;
+  let atFirstCard = false;
   
   viewport.addEventListener('scroll', () => {
-    if (isAdjusting) return;
-    
-    const cards = document.querySelectorAll('.videos-feed__card:not(.clone)');
+    const cards = document.querySelectorAll('.videos-feed__card');
     if (cards.length < 2) return;
     
-    const cardHeight = cards[0].offsetHeight;
     const scrollTop = viewport.scrollTop;
     const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+    const scrollingDown = scrollTop > lastScrollTop;
+    const scrollingUp = scrollTop < lastScrollTop;
     
-    // כשמגיעים לסוף - קפיצה מיידית להתחלה (בלי אנימציה)
-    if (scrollTop >= maxScroll - 10) {
-      isAdjusting = true;
-      // קפיצה לכרטיס הראשון - מיידית, בלי שהמשתמש ירגיש
-      viewport.scrollTop = cardHeight; // קצת אחרי ההתחלה כדי שיוכל לגלול גם למעלה
-      requestAnimationFrame(() => {
-        isAdjusting = false;
-      });
+    // בדיקה אם אנחנו בכרטיס האחרון
+    const isAtBottom = scrollTop >= maxScroll - 5;
+    // בדיקה אם אנחנו בכרטיס הראשון
+    const isAtTop = scrollTop <= 5;
+    
+    // אם היינו בסוף וגללנו למטה שוב - קפיצה מיידית להתחלה
+    if (atLastCard && isAtBottom && scrollingDown) {
+      viewport.style.scrollBehavior = 'auto';
+      viewport.scrollTop = 0;
+      viewport.style.scrollBehavior = '';
+      atLastCard = false;
     }
     
-    // כשמגיעים להתחלה - קפיצה מיידית לסוף
-    if (scrollTop <= 10) {
-      isAdjusting = true;
-      viewport.scrollTop = maxScroll - cardHeight;
-      requestAnimationFrame(() => {
-        isAdjusting = false;
-      });
+    // אם היינו בהתחלה וגללנו למעלה שוב - קפיצה מיידית לסוף
+    if (atFirstCard && isAtTop && scrollingUp) {
+      viewport.style.scrollBehavior = 'auto';
+      viewport.scrollTop = maxScroll;
+      viewport.style.scrollBehavior = '';
+      atFirstCard = false;
     }
+    
+    // עדכון מצב
+    atLastCard = isAtBottom;
+    atFirstCard = isAtTop;
+    lastScrollTop = scrollTop;
   }, { passive: true });
 }
 
