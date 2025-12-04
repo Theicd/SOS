@@ -52,10 +52,10 @@
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
       : 5; // ננסה עד 5 peers לפני fallback
-  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 45000; // 45 שניות ברירת מחדל כדי לא לחסום את חוויית המשתמש | HYPER CORE TECH
-  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 8000; // 8 שניות לתשובה כדי לעבור לפולבאק מהר יותר | HYPER CORE TECH
-  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 2; // 2 ניסיונות לכל peer
-  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 2000; // 2 שניות בין ניסיונות
+  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 15000; // 15 שניות - מהיר יותר לעבור ל-fallback | HYPER CORE TECH
+  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 4000; // 4 שניות לתשובה - מהיר יותר | HYPER CORE TECH
+  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 1; // ניסיון אחד בלבד - עוברים ל-peer הבא מהר
+  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 500; // חצי שנייה בין ניסיונות
 
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
@@ -311,13 +311,12 @@
           label: label?.slice?.(0, 16) || 'unknown',
           queueLength: state.pendingTransferResolvers.length + 1,
         });
-        state.pendingTransferResolvers.push(() => {
-          tryStart();
-        });
+        // שמירת ה-resolve כדי לקרוא לו כשמשתחררת משבצת
+        state.pendingTransferResolvers.push(resolve);
       }
     });
   }
-
+  
   function releaseDownloadSlot(label) {
     if (MAX_CONCURRENT_P2P_TRANSFERS <= 0) {
       return;
@@ -329,9 +328,15 @@
       label: label?.slice?.(0, 16) || 'unknown',
       activeTransfers: state.activeTransferSlots,
     });
-    const nextResolver = state.pendingTransferResolvers.shift();
-    if (typeof nextResolver === 'function') {
-      nextResolver();
+    // הפעלת הבא בתור
+    const nextResolve = state.pendingTransferResolvers.shift();
+    if (typeof nextResolve === 'function') {
+      state.activeTransferSlots += 1;
+      log('info', '🎯 הוקצתה משבצת מהתור', {
+        activeTransfers: state.activeTransferSlots,
+        queueRemaining: state.pendingTransferResolvers.length,
+      });
+      nextResolve(() => releaseDownloadSlot(label));
     }
   }
 
