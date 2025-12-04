@@ -2016,50 +2016,61 @@ function setupIntersectionObserver() {
   return intersectionObserver;
 }
 
-// חלק לופ אינסופי (videos.js) – כמו טיקטוק: גלילה רגילה, ובסוף מעבר חלק להתחלה
+// חלק לופ אינסופי (videos.js) – כמו טיקטוק: שכפול כרטיסים ליצירת לופ חלק
 function setupInfiniteLoop() {
   const viewport = document.querySelector('.videos-feed__viewport');
-  if (!viewport) return;
+  const stream = document.querySelector('.videos-feed__stream');
+  if (!viewport || !stream) return;
   
-  let lastScrollTop = 0;
-  let atLastCard = false;
-  let atFirstCard = false;
+  // שכפול הכרטיס הראשון לסוף והאחרון להתחלה
+  const cards = Array.from(document.querySelectorAll('.videos-feed__card'));
+  if (cards.length < 2) return;
   
-  viewport.addEventListener('scroll', () => {
-    const cards = document.querySelectorAll('.videos-feed__card');
-    if (cards.length < 2) return;
+  const firstCard = cards[0];
+  const lastCard = cards[cards.length - 1];
+  
+  // יצירת עותקים
+  const firstClone = firstCard.cloneNode(true);
+  const lastClone = lastCard.cloneNode(true);
+  firstClone.classList.add('clone');
+  lastClone.classList.add('clone');
+  
+  // הוספה לסוף ולהתחלה
+  stream.appendChild(firstClone);
+  stream.insertBefore(lastClone, firstCard);
+  
+  // התחלה מהכרטיס הראשון האמיתי (אחרי הקלון של האחרון)
+  const cardHeight = firstCard.offsetHeight + 10; // כולל gap
+  viewport.scrollTop = cardHeight;
+  
+  let isAdjusting = false;
+  
+  viewport.addEventListener('scrollend', () => {
+    if (isAdjusting) return;
     
     const scrollTop = viewport.scrollTop;
-    const maxScroll = viewport.scrollHeight - viewport.clientHeight;
-    const scrollingDown = scrollTop > lastScrollTop;
-    const scrollingUp = scrollTop < lastScrollTop;
+    const allCards = document.querySelectorAll('.videos-feed__card');
+    const totalHeight = stream.scrollHeight;
+    const viewportHeight = viewport.clientHeight;
     
-    // בדיקה אם אנחנו בכרטיס האחרון
-    const isAtBottom = scrollTop >= maxScroll - 5;
-    // בדיקה אם אנחנו בכרטיס הראשון
-    const isAtTop = scrollTop <= 5;
-    
-    // אם היינו בסוף וגללנו למטה שוב - קפיצה מיידית להתחלה
-    if (atLastCard && isAtBottom && scrollingDown) {
+    // אם הגענו לקלון הראשון (בסוף) - קפיצה לכרטיס הראשון האמיתי
+    if (scrollTop >= totalHeight - viewportHeight - 20) {
+      isAdjusting = true;
       viewport.style.scrollBehavior = 'auto';
-      viewport.scrollTop = 0;
+      viewport.scrollTop = cardHeight;
       viewport.style.scrollBehavior = '';
-      atLastCard = false;
+      requestAnimationFrame(() => { isAdjusting = false; });
     }
     
-    // אם היינו בהתחלה וגללנו למעלה שוב - קפיצה מיידית לסוף
-    if (atFirstCard && isAtTop && scrollingUp) {
+    // אם הגענו לקלון האחרון (בהתחלה) - קפיצה לכרטיס האחרון האמיתי
+    if (scrollTop <= 20) {
+      isAdjusting = true;
       viewport.style.scrollBehavior = 'auto';
-      viewport.scrollTop = maxScroll;
+      viewport.scrollTop = totalHeight - viewportHeight - cardHeight;
       viewport.style.scrollBehavior = '';
-      atFirstCard = false;
+      requestAnimationFrame(() => { isAdjusting = false; });
     }
-    
-    // עדכון מצב
-    atLastCard = isAtBottom;
-    atFirstCard = isAtTop;
-    lastScrollTop = scrollTop;
-  }, { passive: true });
+  });
 }
 
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים מהרילאים (fallback ללא הפיד הראשי)
