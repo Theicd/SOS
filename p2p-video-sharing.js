@@ -311,12 +311,13 @@
           label: label?.slice?.(0, 16) || 'unknown',
           queueLength: state.pendingTransferResolvers.length + 1,
         });
-        // שמירת ה-resolve כדי לקרוא לו כשמשתחררת משבצת
-        state.pendingTransferResolvers.push(resolve);
+        state.pendingTransferResolvers.push(() => {
+          tryStart();
+        });
       }
     });
   }
-  
+
   function releaseDownloadSlot(label) {
     if (MAX_CONCURRENT_P2P_TRANSFERS <= 0) {
       return;
@@ -328,15 +329,9 @@
       label: label?.slice?.(0, 16) || 'unknown',
       activeTransfers: state.activeTransferSlots,
     });
-    // הפעלת הבא בתור
-    const nextResolve = state.pendingTransferResolvers.shift();
-    if (typeof nextResolve === 'function') {
-      state.activeTransferSlots += 1;
-      log('info', '🎯 הוקצתה משבצת מהתור', {
-        activeTransfers: state.activeTransferSlots,
-        queueRemaining: state.pendingTransferResolvers.length,
-      });
-      nextResolve(() => releaseDownloadSlot(label));
+    const nextResolver = state.pendingTransferResolvers.shift();
+    if (typeof nextResolver === 'function') {
+      nextResolver();
     }
   }
 
@@ -1875,26 +1870,11 @@
   // חלק P2P (p2p-video-sharing.js) – טעינת קבצים זמינים מ-IndexedDB בעת אתחול
   async function loadAvailableFilesFromCache() {
     try {
-      // ממתינים ל-media-cache להתאתחל קודם
-      if (typeof App.getCachedMedia !== 'function') {
-        log('info', 'ℹ️ ממתין ל-media-cache להתאתחל...');
-        await new Promise(r => setTimeout(r, 500));
-      }
-      
-      // משתמשים ב-API של media-cache אם זמין
-      if (typeof App.getCacheStats === 'function') {
-        const stats = await App.getCacheStats();
-        if (!stats) {
-          log('info', 'ℹ️ media-cache לא זמין');
-          return 0;
-        }
-      }
-
       const DB_NAME = 'SOS2MediaCache';
       const STORE_NAME = 'media';
 
       return new Promise((resolve) => {
-        const request = indexedDB.open(DB_NAME);
+        const request = indexedDB.open(DB_NAME, 1);
         
         request.onerror = () => {
           log('error', '❌ לא ניתן לפתוח IndexedDB לטעינת קבצים');
@@ -1906,7 +1886,6 @@
           
           if (!db.objectStoreNames.contains(STORE_NAME)) {
             log('info', 'ℹ️ אין store של מדיה ב-IndexedDB');
-            db.close();
             resolve(0);
             return;
           }
@@ -1931,7 +1910,6 @@
               }
             });
 
-            db.close();
             log('success', `✅ נטענו ${loadedCount} קבצים זמינים מ-cache`, {
               total: entries.length,
               pinned: loadedCount
@@ -1941,7 +1919,6 @@
 
           getAllRequest.onerror = () => {
             log('error', '❌ שגיאה בטעינת קבצים מ-IndexedDB');
-            db.close();
             resolve(0);
           };
         };
