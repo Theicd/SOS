@@ -60,7 +60,7 @@
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
   const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: 3 אחרונים מ-Blossom, שאר P2P
-  const HYBRID_BLOSSOM_POSTS = 3;         // כמות פוסטים לטעון מ-Blossom במצב Hybrid
+  const HYBRID_BLOSSOM_POSTS = 5;         // כמות פוסטים לטעון מ-Blossom במצב Hybrid
   const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
   const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
   const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
@@ -641,8 +641,8 @@
         // משתמש 1 בלבד: כל הפוסטים מ-Blossom
         return true;
       case 'HYBRID':
-        // יש peers - ננסה P2P קודם (fallback ל-Blossom אוטומטי)
-        return false;
+        // משתמשים 3-10: 5 פוסטים ראשונים מ-Blossom לחוויה חלקה, השאר P2P
+        return postIndex < HYBRID_BLOSSOM_POSTS;
       case 'P2P_FULL':
         // משתמש 11+: P2P בלבד (עם fallback אוטומטי)
         return false;
