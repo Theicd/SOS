@@ -67,6 +67,25 @@ body:has(.videos-feed) .primary-nav::before {
   }
 }
 
+/* כפתור התחבר/הירשם בפס העליון - עיצוב מותאם לפיד וידאו */
+body:has(.videos-feed) #guestLoginButton {
+  width: auto !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: none !important;
+  white-space: nowrap;
+  margin-left: 6px !important;
+  backdrop-filter: blur(4px);
+}
+
+body:has(.videos-feed) #guestLoginButton:active {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
 .videos-feed__menu-wrap {
   /* חלק תפריט פיד ווידאו (videos.css) – עטיפה לכפתור 3 הנקודות כדי למקם את התפריט הצף | HYPER CORE TECH */
   position: relative;
@@ -366,10 +385,10 @@ body:has(.videos-feed) .nav-avatar {
   height: 100%;
   overflow-y: scroll;
   scroll-snap-type: y mandatory;
-  scroll-behavior: smooth;
+  /* ללא scroll-behavior: smooth - מעבר מיידי כמו טיקטוק */
   scrollbar-width: none;
   padding-top: 56px;
-  padding-bottom: 0; /* אין צורך במרווח נוסף */
+  padding-bottom: 0;
 }
 
 .videos-feed__viewport::-webkit-scrollbar {
@@ -397,9 +416,8 @@ body:has(.videos-feed) .nav-avatar {
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* שינוי מ-hidden כדי שפס ההתקדמות יהיה נראה */
   background: #000;
-  /* גלילה פשוטה - ללא אפקטים */
 }
 
 /* חלק מדיה (videos.css) – וידאו או YouTube iframe */
@@ -410,7 +428,7 @@ body:has(.videos-feed) .nav-avatar {
   background: #000;
   display: grid;
   place-items: center;
-  overflow: hidden;
+  overflow: visible; /* שינוי מ-hidden כדי שפס ההתקדמות יהיה נראה */
   flex: 1 1 auto;
 }
 
@@ -421,6 +439,81 @@ body:has(.videos-feed) .nav-avatar {
   height: 100%;
   object-fit: contain;
   border: none;
+}
+
+/* כפתורי דילוג 5 שניות - מובייל בלבד */
+.video-skip-btn {
+  display: none;
+  position: absolute;
+  bottom: 50px;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  z-index: 100;
+}
+
+.video-skip-btn--back {
+  left: 15px;
+}
+
+.video-skip-btn--forward {
+  right: 15px;
+}
+
+.video-skip-btn:active {
+  background: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .video-skip-btn {
+    display: flex;
+  }
+}
+
+/* אנימציית דילוג - מספר במרכז המסך */
+.video-skip-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 72px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: none;
+}
+
+.video-skip-indicator.show {
+  animation: skipIndicatorPop 0.6s ease-out forwards;
+}
+
+@keyframes skipIndicatorPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
 }
 
 .videos-feed__media iframe {
@@ -1382,4 +1475,35 @@ body.policy-modal-open {
   .videos-text-paragraph {
     font-size: 0.95rem;
   }
+}
+
+/* חלק מנורת העלאה (videos.css) – סגנונות להעלאות ממתינות ואישור | HYPER CORE TECH */
+
+/* מנורה מהבהבת לאט - ממתין לאישור שמישהו הוריד */
+#uploadIndicator.is-pending {
+  animation: pendingBlink 2s ease-in-out infinite;
+}
+
+@keyframes pendingBlink {
+  0%, 100% { 
+    opacity: 0.4;
+    box-shadow: 0 0 5px rgba(255, 193, 7, 0.3);
+  }
+  50% { 
+    opacity: 1;
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.8);
+  }
+}
+
+/* מנורה ירוקה - קובץ אושר! מישהו הוריד */
+#uploadIndicator.is-confirmed {
+  animation: confirmedPulse 0.5s ease-out;
+  background: linear-gradient(135deg, #00c853, #69f0ae) !important;
+  box-shadow: 0 0 20px rgba(0, 200, 83, 0.8);
+}
+
+@keyframes confirmedPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
 }
