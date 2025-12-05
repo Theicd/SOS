@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.3.0-leader-election'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.5.0-guest-optimized'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -133,6 +133,12 @@
   const CONSECUTIVE_FAILURES_THRESHOLD = 5; // כמות כשלונות ברצף לפני fallback - מאפשר לנסות יותר peers
   const HEARTBEAT_INTERVAL = 60000;       // שליחת heartbeat כל דקה
   const HEARTBEAT_LOOKBACK = 120;         // חיפוש heartbeats מ-2 דקות אחורה
+  
+  // חלק Guest P2P (p2p-video-sharing.js) – הגדרות אופטימיזציה לאורחים | HYPER CORE TECH
+  const GUEST_BLOSSOM_FIRST_POSTS = 10;   // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
+  const GUEST_P2P_TIMEOUT = 2000;         // timeout קצר ל-P2P לאורחים (2 שניות)
+  const GUEST_MAX_PEER_SEARCH_TIME = 1500; // זמן מקסימלי לחיפוש peers לאורחים (1.5 שניות)
+  const GUEST_MAX_PEERS_TO_TRY = 2;       // אורחים ינסו רק 2 peers לפני fallback
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -626,32 +632,41 @@
     }
     
     const relays = getP2PRelays();
-    if (!relays.length || !App.pool || !App.publicKey || !App.privateKey) {
+    const keys = getEffectiveKeys();
+    
+    if (!relays.length || !App.pool || !keys.publicKey || !keys.privateKey) {
       return;
     }
 
     try {
       const event = {
         kind: FILE_AVAILABILITY_KIND,
-        pubkey: App.publicKey,
+        pubkey: keys.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           ['d', 'p2p-heartbeat'],
           ['t', 'p2p-heartbeat'],
           ['app', P2P_APP_TAG],
-          ['expires', String(Date.now() + HEARTBEAT_INTERVAL * 3)] // תוקף ל-3 דקות
-        ],
-        content: JSON.stringify({ online: true, files: state.availableFiles.size })
+          ['expires', String(Date.now() + HEARTBEAT_INTERVAL * 3)], // תוקף ל-3 דקות
+          keys.isGuest ? ['guest', 'true'] : null // סימון אורח
+        ].filter(Boolean),
+        content: JSON.stringify({ online: true, files: state.availableFiles.size, isGuest: keys.isGuest })
       };
 
-      // שימוש ב-App.finalizeEvent כמו ב-registerFileAvailability
-      const signedEvent = App.finalizeEvent(event, App.privateKey);
+      // שימוש ב-App.finalizeEvent או חתימה ידנית לאורחים
+      let signedEvent;
+      if (App.finalizeEvent) {
+        signedEvent = App.finalizeEvent(event, keys.privateKey);
+      } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
+        signedEvent = window.NostrTools.finalizeEvent(event, keys.privateKey);
+      }
+      
       if (signedEvent) {
         const results = await Promise.allSettled(relays.map(relay => 
           App.pool.publish([relay], signedEvent)
         ));
         const success = results.filter(r => r.status === 'fulfilled').length;
-        log('info', '💓 Heartbeat נשלח', { success, total: relays.length, files: state.availableFiles.size });
+        log('info', '💓 Heartbeat נשלח', { success, total: relays.length, files: state.availableFiles.size, isGuest: keys.isGuest });
       } else {
         log('warn', '⚠️ Heartbeat: חתימה נכשלה');
       }
@@ -1032,6 +1047,7 @@
 
   async function doRegisterFileAvailability(hash, blob, mimeType) {
     p2pStats.shares.total++;
+    const keys = getEffectiveKeys();
     
     try {
       // שמירה מקומית
@@ -1045,8 +1061,8 @@
         } catch (pinErr) { /* ignore */ }
       }
 
-      // פרסום לרשת
-      if (!App.pool || !App.publicKey || !App.privateKey) {
+      // פרסום לרשת - תומך גם באורחים
+      if (!App.pool || !keys.publicKey || !keys.privateKey) {
         p2pStats.shares.failed++;
         return { success: false, published: false };
       }
@@ -1080,7 +1096,7 @@
       
       const event = {
         kind: FILE_AVAILABILITY_KIND,
-        pubkey: App.publicKey,
+        pubkey: keys.publicKey,
         created_at: createdAt,
         tags: [
           ['d', `${P2P_APP_TAG}:file:${hash}`],
@@ -1089,11 +1105,18 @@
           ['size', String(blob.size)],
           ['mime', mimeType],
           ['expires', String(expiresAt)],
-        ],
+          keys.isGuest ? ['guest', 'true'] : null // סימון אורח
+        ].filter(Boolean),
         content: '',
       };
 
-      const signed = App.finalizeEvent(event, App.privateKey);
+      // תמיכה בחתימה גם לאורחים
+      let signed;
+      if (App.finalizeEvent) {
+        signed = App.finalizeEvent(event, keys.privateKey);
+      } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
+        signed = window.NostrTools.finalizeEvent(event, keys.privateKey);
+      }
       const relays = getP2PRelays();
       const publishResults = App.pool.publish(relays, signed);
 
@@ -1415,7 +1438,8 @@
   // חלק P2P (p2p-video-sharing.js) – שליחת signal דרך Nostr
   async function sendSignal(peerPubkey, type, data) {
     try {
-      if (!App.pool || !App.publicKey || !App.privateKey) {
+      const keys = getEffectiveKeys();
+      if (!App.pool || !keys.publicKey || !keys.privateKey) {
         throw new Error('Missing pool or keys');
       }
 
@@ -1430,13 +1454,14 @@
 
       const event = {
         kind,
-        pubkey: App.publicKey,
+        pubkey: keys.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
           ['d', `${P2P_APP_TAG}:signal:${Date.now()}`], // NIP-78: מזהה ייחודי
           ['p', peerPubkey],
           ['t', `p2p-${signalType}`], // סוג הסיגנל
-        ],
+          keys.isGuest ? ['guest', 'true'] : null
+        ].filter(Boolean),
         content: wireContent,
       };
 
@@ -1444,8 +1469,14 @@
         event.tags.push(['enc', 'nip04']);
       }
 
-      const signed = App.finalizeEvent(event, App.privateKey);
-      const relays = getP2PRelays(); // שימוש בריליי P2P במקום הריליים הרגילים
+      let signed;
+      if (App.finalizeEvent) {
+        signed = App.finalizeEvent(event, keys.privateKey);
+      } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
+        signed = window.NostrTools.finalizeEvent(event, keys.privateKey);
+      }
+      
+      const relays = getP2PRelays();
       await App.pool.publish(relays, signed);
 
       log('peer', `📡 signal נשלח`, {
@@ -1463,17 +1494,18 @@
 
   // חלק P2P (p2p-video-sharing.js) – האזנה לסיגנלים (בקשות, תשובות ו-ICE)
   function listenForP2PSignals() {
-    if (!App.pool || !App.publicKey) {
+    const keys = getEffectiveKeys();
+    if (!App.pool || !keys.publicKey) {
       log('error', '❌ לא ניתן להאזין לסיגנלים - חסרים pool או publicKey');
       return;
     }
 
-    log('info', '👂 מתחיל להאזין לסיגנלי P2P...');
+    log('info', '👂 מתחיל להאזין לסיגנלי P2P...', { isGuest: keys.isGuest });
 
     const filters = [
       {
         kinds: [FILE_REQUEST_KIND], // 30078 - כל הסיגנלים
-        '#p': [App.publicKey],
+        '#p': [keys.publicKey],
         since: Math.floor(Date.now() / 1000) - 60, // 60 שניות אחורה כדי לתפוס סיגנלים שנשלחו בזמן טעינה
       }
     ];
@@ -1821,14 +1853,20 @@
       // חלק Network Tiers (p2p-video-sharing.js) – קבלת מצב רשת ואינדקס פוסט | HYPER CORE TECH
       const postIndex = typeof options.postIndex === 'number' ? options.postIndex : 0;
       const { tier } = await updateNetworkTier();
-      const forceBlossom = shouldUseBlossom(postIndex, tier);
+      const keys = getEffectiveKeys();
+      const isGuest = keys.isGuest;
+      
+      // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom לחוויה מהירה
+      const guestForceBlossom = isGuest && postIndex < GUEST_BLOSSOM_FIRST_POSTS;
+      const forceBlossom = guestForceBlossom || shouldUseBlossom(postIndex, tier);
 
       log('download', `🎬 מתחיל הורדת וידאו`, {
         url: url.slice(0, 50) + '...',
         hash: hash ? hash.slice(0, 16) + '...' : 'אין hash',
         tier,
         postIndex,
-        forceBlossom
+        forceBlossom,
+        isGuest
       });
 
       try {
@@ -1918,8 +1956,21 @@
           }
         }
 
-        // P2P_FULL או HYBRID
-        const rawPeers = await findPeersWithFile(hash);
+        // P2P_FULL או HYBRID - עם אופטימיזציות לאורחים
+        const peerSearchTimeout = isGuest ? GUEST_MAX_PEER_SEARCH_TIME : 4000;
+        const maxPeersToTry = isGuest ? GUEST_MAX_PEERS_TO_TRY : MAX_PEER_ATTEMPTS_PER_FILE;
+        const p2pTimeout = isGuest ? GUEST_P2P_TIMEOUT : INITIAL_LOAD_TIMEOUT;
+        
+        // חיפוש peers עם timeout
+        let rawPeers = [];
+        try {
+          rawPeers = await Promise.race([
+            findPeersWithFile(hash),
+            sleep(peerSearchTimeout).then(() => [])
+          ]);
+        } catch (e) {
+          rawPeers = [];
+        }
         const peers = Array.isArray(rawPeers) ? [...rawPeers] : [];
         
         // עדכון מספר מקורות זמינים
@@ -1951,21 +2002,21 @@
           }
         }
 
-        // ניסיון P2P
+        // ניסיון P2P - עם הגבלות לאורחים
         let attemptCount = 0;
         for (const peer of peers) {
-          if (MAX_PEER_ATTEMPTS_PER_FILE > 0 && attemptCount >= MAX_PEER_ATTEMPTS_PER_FILE) break;
+          if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
           attemptCount++;
           
           try {
             const downloadPromise = downloadFromPeer(peer, hash);
-            const timeoutPromise = sleep(INITIAL_LOAD_TIMEOUT).then(() => {
+            const timeoutPromise = sleep(p2pTimeout).then(() => {
               throw new Error('timeout');
             });
             const result = await Promise.race([downloadPromise, timeoutPromise]);
 
             p2pStats.downloads.fromP2P++;
-            log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB' });
+            log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
 
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
@@ -2232,6 +2283,9 @@
     // חלק Leader Election – API לבדיקת מצב מנהיגות | HYPER CORE TECH
     isP2PLeader: () => state.isLeader,   // האם הלשונית הזו מנהיגה
     getTabId: () => state.tabId,         // מזהה הלשונית
+    // חלק Guest P2P – API לבדיקת מצב אורח | HYPER CORE TECH
+    isGuestP2P: isGuestMode,             // האם במצב אורח
+    getGuestKeys: () => state.guestKeys, // קבלת מפתחות אורח
   });
 
   // אתחול
@@ -2247,7 +2301,18 @@
     
     // ניסיון אתחול מיידי
     function tryInit() {
-      if (App.publicKey && App.pool) {
+      const keys = getEffectiveKeys();
+      const hasPool = App.pool;
+      const hasKeys = keys.publicKey && keys.privateKey;
+      
+      if (hasPool && hasKeys) {
+        // אם אורח - נשתמש במפתחות הזמניים
+        if (keys.isGuest) {
+          log('info', '👤 מצב אורח - משתמש במפתח זמני לשיתוף P2P');
+          // שמירת המפתחות הזמניים ב-App לשימוש בפונקציות אחרות
+          state.guestKeys = keys;
+        }
+        
         listenForP2PSignals();
         
         // שליחת heartbeat ראשון והפעלת interval (רק אם מנהיג)
@@ -2260,16 +2325,53 @@
         // הפעלת מעקב visibility לעבודה ברקע
         setupVisibilityTracking();
         
+        const displayKey = keys.isGuest ? 'guest_' + keys.publicKey.slice(0, 8) : App.publicKey.slice(0, 16);
         log('success', '✅ מערכת P2P מוכנה!', {
-          publicKey: App.publicKey.slice(0, 16) + '...',
+          publicKey: displayKey + '...',
           relays: getP2PRelays().length,
           availableFiles: state.availableFiles.size,
           isLeader: state.isLeader,
-          tabId: state.tabId
+          tabId: state.tabId,
+          isGuest: keys.isGuest
         });
         return true;
       }
+      
+      // אם אין pool אבל יש מפתחות אורח - ננסה ליצור pool בסיסי
+      if (!hasPool && hasKeys && keys.isGuest) {
+        return tryInitGuestPool();
+      }
+      
       return false;
+    }
+    
+    // ניסיון ליצור pool בסיסי לאורחים
+    function tryInitGuestPool() {
+      if (!window.NostrTools || !window.NostrTools.SimplePool) {
+        return false;
+      }
+      
+      try {
+        // יצירת pool בסיסי לאורחים
+        if (!App.pool) {
+          App.pool = new window.NostrTools.SimplePool();
+        }
+        
+        // הגדרת ריליים בסיסיים אם אין
+        if (!App.relayUrls || App.relayUrls.length === 0) {
+          App.relayUrls = [
+            'wss://relay.snort.social',
+            'wss://relay.damus.io',
+            'wss://nos.lol'
+          ];
+        }
+        
+        log('info', '🌐 נוצר pool בסיסי לאורח');
+        return tryInit();
+      } catch (e) {
+        log('warn', '⚠️ לא ניתן ליצור pool לאורח', { error: e.message });
+        return false;
+      }
     }
     
     // ניסיון ראשון
@@ -2286,7 +2388,14 @@
         clearInterval(interval);
       } else if (attempts >= maxAttempts) {
         clearInterval(interval);
-        log('error', '❌ חסרים publicKey או pool - מערכת P2P לא פעילה');
+        // ניסיון אחרון - אתחול כאורח
+        const keys = getEffectiveKeys();
+        if (keys.isGuest && keys.publicKey) {
+          log('info', '👤 מנסה אתחול במצב אורח מוגבל...');
+          tryInitGuestPool();
+        } else {
+          log('error', '❌ חסרים publicKey או pool - מערכת P2P לא פעילה');
+        }
       }
     }, 1000);
   }
