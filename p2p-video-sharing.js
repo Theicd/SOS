@@ -1,6 +1,72 @@
 (function initP2PVideoSharing(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
+  // חלק Guest P2P (p2p-video-sharing.js) – יצירת מפתח זמני לאורחים | HYPER CORE TECH
+  const GUEST_KEY_STORAGE = 'p2p_guest_keys';
+  let guestKeys = null;
+  
+  function getOrCreateGuestKeys() {
+    if (guestKeys) return guestKeys;
+    
+    // ניסיון לטעון מפתח קיים מ-localStorage
+    try {
+      const stored = localStorage.getItem(GUEST_KEY_STORAGE);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // בדיקה שהמפתח לא פג תוקף (7 ימים)
+        if (parsed.created && Date.now() - parsed.created < 7 * 24 * 60 * 60 * 1000) {
+          guestKeys = parsed;
+          return guestKeys;
+        }
+      }
+    } catch (e) {}
+    
+    // יצירת מפתח חדש
+    try {
+      // שימוש ב-nostr-tools אם זמין
+      if (window.NostrTools && window.NostrTools.generateSecretKey) {
+        const sk = window.NostrTools.generateSecretKey();
+        const pk = window.NostrTools.getPublicKey(sk);
+        guestKeys = {
+          privateKey: Array.from(sk).map(b => b.toString(16).padStart(2, '0')).join(''),
+          publicKey: pk,
+          created: Date.now(),
+          isGuest: true
+        };
+      } else {
+        // Fallback - יצירת מפתח פשוט
+        const randomBytes = new Uint8Array(32);
+        crypto.getRandomValues(randomBytes);
+        guestKeys = {
+          privateKey: Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join(''),
+          publicKey: 'guest_' + Array.from(randomBytes.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(''),
+          created: Date.now(),
+          isGuest: true
+        };
+      }
+      
+      // שמירה ב-localStorage
+      localStorage.setItem(GUEST_KEY_STORAGE, JSON.stringify(guestKeys));
+      console.log('%c🔑 P2P: נוצר מפתח אורח זמני', 'color: #FF9800');
+      return guestKeys;
+    } catch (e) {
+      console.warn('P2P: לא ניתן ליצור מפתח אורח', e);
+      return null;
+    }
+  }
+  
+  function isGuestMode() {
+    return !App.publicKey || !App.privateKey;
+  }
+  
+  function getEffectiveKeys() {
+    if (App.publicKey && App.privateKey) {
+      return { publicKey: App.publicKey, privateKey: App.privateKey, isGuest: false };
+    }
+    const guest = getOrCreateGuestKeys();
+    return guest || { publicKey: null, privateKey: null, isGuest: true };
+  }
+
   // חלק P2P (p2p-video-sharing.js) – סינון ריליים בעייתיים כדי למנוע דרישות POW עודפות | HYPER CORE TECH
   function filterBlockedRelays(relays) {
     if (!Array.isArray(relays)) {
@@ -26,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.2.9-fast-hybrid'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.3.0-leader-election'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -116,7 +182,119 @@
     activeDownload: null,             // { hash, peers, startTime, bytesReceived, speed }
     activeUpload: null,               // { hash, startTime, bytesSent, speed }
     activeUploadCount: 0,             // כמה העלאות פעילות כרגע
+    // מעקב העלאות ממתינות לאישור - מנורה מהבהבת עד שמישהו הוריד
+    pendingUploads: new Map(),        // hash -> { timestamp, confirmed: false }
+    uploadListeners: new Set(),       // callbacks לעדכון UI כשהעלאה אושרה
+    // חלק Leader Election (p2p-video-sharing.js) – מניעת כפילויות בין לשוניות | HYPER CORE TECH
+    isLeader: false,                  // האם הלשונית הזו היא המנהיגה
+    tabId: Math.random().toString(36).substr(2, 9), // מזהה ייחודי ללשונית
   };
+  
+  // חלק Leader Election (p2p-video-sharing.js) – BroadcastChannel לתקשורת בין לשוניות | HYPER CORE TECH
+  const LEADER_CHANNEL_NAME = 'sos-p2p-leader';
+  const LEADER_HEARTBEAT_INTERVAL = 2000; // 2 שניות
+  const LEADER_TIMEOUT = 5000; // 5 שניות בלי heartbeat = המנהיג מת
+  let leaderChannel = null;
+  let lastLeaderHeartbeat = 0;
+  let leaderHeartbeatTimer = null;
+  let leaderCheckTimer = null;
+  
+  function setupLeaderElection() {
+    try {
+      leaderChannel = new BroadcastChannel(LEADER_CHANNEL_NAME);
+      
+      leaderChannel.onmessage = (event) => {
+        const { type, tabId, timestamp } = event.data;
+        
+        if (type === 'leader-heartbeat' && tabId !== state.tabId) {
+          // יש מנהיג אחר - אנחנו לא המנהיג
+          lastLeaderHeartbeat = timestamp;
+          if (state.isLeader) {
+            // היינו מנהיגים אבל מישהו אחר לקח - נוותר
+            state.isLeader = false;
+            log('info', '👑➡️ ויתרנו על מנהיגות ללשונית אחרת');
+            stopLeaderDuties();
+          }
+        } else if (type === 'leader-claim' && tabId !== state.tabId) {
+          // מישהו מנסה להיות מנהיג
+          if (state.isLeader) {
+            // אנחנו כבר מנהיגים - נשלח heartbeat מיידי
+            sendLeaderHeartbeat();
+          }
+        } else if (type === 'leader-resign' && tabId !== state.tabId) {
+          // המנהיג התפטר - ננסה לקחת
+          setTimeout(() => tryBecomeLeader(), Math.random() * 500);
+        }
+      };
+      
+      // ניסיון ראשון להיות מנהיג
+      setTimeout(() => tryBecomeLeader(), Math.random() * 1000);
+      
+      // בדיקה תקופתית אם המנהיג עדיין חי
+      leaderCheckTimer = setInterval(() => {
+        if (!state.isLeader && Date.now() - lastLeaderHeartbeat > LEADER_TIMEOUT) {
+          // המנהיג מת - ננסה לקחת
+          log('info', '💀 המנהיג לא מגיב - מנסה לקחת מנהיגות');
+          tryBecomeLeader();
+        }
+      }, LEADER_TIMEOUT / 2);
+      
+      // כשהלשונית נסגרת - נתפטר
+      window.addEventListener('beforeunload', () => {
+        if (state.isLeader && leaderChannel) {
+          leaderChannel.postMessage({ type: 'leader-resign', tabId: state.tabId, timestamp: Date.now() });
+        }
+      });
+      
+      log('info', '📡 Leader Election מופעל', { tabId: state.tabId });
+    } catch (err) {
+      // BroadcastChannel לא נתמך - נהיה מנהיג אוטומטית
+      log('warn', '⚠️ BroadcastChannel לא נתמך - מפעיל P2P ללא תיאום');
+      state.isLeader = true;
+    }
+  }
+  
+  function tryBecomeLeader() {
+    if (state.isLeader) return;
+    
+    // שולחים הודעת claim
+    if (leaderChannel) {
+      leaderChannel.postMessage({ type: 'leader-claim', tabId: state.tabId, timestamp: Date.now() });
+    }
+    
+    // ממתינים קצת לראות אם מישהו מתנגד
+    setTimeout(() => {
+      if (!state.isLeader && Date.now() - lastLeaderHeartbeat > LEADER_TIMEOUT) {
+        // אף אחד לא מנהיג - אנחנו לוקחים
+        state.isLeader = true;
+        log('success', '👑 הלשונית הזו היא המנהיגה!', { tabId: state.tabId });
+        startLeaderDuties();
+      }
+    }, 500);
+  }
+  
+  function sendLeaderHeartbeat() {
+    if (!state.isLeader || !leaderChannel) return;
+    leaderChannel.postMessage({ type: 'leader-heartbeat', tabId: state.tabId, timestamp: Date.now() });
+  }
+  
+  function startLeaderDuties() {
+    // שליחת heartbeat תקופתי
+    sendLeaderHeartbeat();
+    leaderHeartbeatTimer = setInterval(sendLeaderHeartbeat, LEADER_HEARTBEAT_INTERVAL);
+  }
+  
+  function stopLeaderDuties() {
+    if (leaderHeartbeatTimer) {
+      clearInterval(leaderHeartbeatTimer);
+      leaderHeartbeatTimer = null;
+    }
+  }
+  
+  // בדיקה אם מותר לבצע פעולות P2P (רק למנהיג)
+  function isP2PAllowed() {
+    return state.isLeader;
+  }
 
   const logState = {
     throttle: new Map(),
@@ -442,6 +620,11 @@
 
   // חלק Network Tiers (p2p-video-sharing.js) – שליחת heartbeat להודעה על נוכחות ברשת | HYPER CORE TECH
   async function sendHeartbeat() {
+    // רק המנהיג שולח heartbeats לרשת
+    if (!isP2PAllowed()) {
+      return;
+    }
+    
     const relays = getP2PRelays();
     if (!relays.length || !App.pool || !App.publicKey || !App.privateKey) {
       return;
@@ -824,6 +1007,15 @@
   }
 
   async function registerFileAvailability(hash, blob, mimeType) {
+    // רק המנהיג מפרסם קבצים לרשת
+    if (!isP2PAllowed()) {
+      // שמירה מקומית בלבד - בלי פרסום לרשת
+      state.availableFiles.set(hash, {
+        blob, mimeType, size: blob.size, timestamp: Date.now(),
+      });
+      return true;
+    }
+    
     // הגבלת גודל תור השיתופים - מותאם למכשיר
     const MAX_SHARE_QUEUE = IS_MOBILE ? 20 : 50;
     if (shareQueue.length >= MAX_SHARE_QUEUE) {
@@ -936,6 +1128,9 @@
       };
       saveAvailabilityManifest();
       p2pStats.shares.success++;
+      
+      // סימון ההעלאה כממתינה - מנורה מהבהבת עד שמישהו יוריד
+      markUploadPending(hash);
 
       return { success: true, published: true }; // פורסם בהצלחה - צריך השהייה
     } catch (err) {
@@ -1495,6 +1690,9 @@
               totalSize: blob.size
             });
             
+            // אישור שהקובץ הועבר למשתמש אחר - מכבה את המנורה המהבהבת
+            confirmUpload(hash);
+            
             // ניקוי state העלאה
             state.activeUploadCount = Math.max(0, state.activeUploadCount - 1);
             if (state.activeUploadCount === 0) state.activeUpload = null;
@@ -1685,10 +1883,38 @@
             scheduleBackgroundRegistration(hash, blob, mimeType);
             resetConsecutiveFailures();
             return { blob, source: 'blossom', tier };
-          } catch (err) {
+          } catch (blossomErr) {
+            // Blossom נכשל - ננסה P2P כ-fallback
+            log('info', `Blossom נכשל, מנסה P2P`, { error: blossomErr.message });
+            
+            const fallbackPeers = await findPeersWithFile(hash);
+            if (fallbackPeers && fallbackPeers.length > 0) {
+              for (const peer of fallbackPeers.slice(0, MAX_PEER_ATTEMPTS_PER_FILE)) {
+                try {
+                  const result = await Promise.race([
+                    downloadFromPeer(peer, hash),
+                    sleep(INITIAL_LOAD_TIMEOUT).then(() => { throw new Error('timeout'); })
+                  ]);
+                  
+                  p2pStats.downloads.fromP2P++;
+                  log('success', `מ-P2P (fallback מ-Blossom)`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB' });
+                  
+                  if (typeof App.cacheMedia === 'function') {
+                    await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
+                  }
+                  await registerFileAvailability(hash, result.blob, result.mimeType);
+                  resetConsecutiveFailures();
+                  return { blob: result.blob, source: 'p2p-fallback', peer, tier };
+                } catch (peerErr) {
+                  continue;
+                }
+              }
+            }
+            
+            // גם P2P נכשל
             p2pStats.downloads.failed++;
-            log('error', `Blossom נכשל`, { error: err.message });
-            throw err;
+            log('error', `Blossom ו-P2P נכשלו`, { error: blossomErr.message });
+            throw blossomErr;
           }
         }
 
@@ -1929,6 +2155,50 @@
     }
   }
 
+  // חלק העלאות ממתינות (p2p-video-sharing.js) – מנורה מהבהבת עד שמישהו הוריד | HYPER CORE TECH
+  function markUploadPending(hash) {
+    state.pendingUploads.set(hash, { timestamp: Date.now(), confirmed: false });
+    notifyUploadListeners();
+  }
+  
+  function confirmUpload(hash) {
+    const pending = state.pendingUploads.get(hash);
+    if (pending && !pending.confirmed) {
+      pending.confirmed = true;
+      log('success', `🎉 הקובץ הועבר למשתמש אחר!`, { hash: hash.slice(0, 12) });
+      notifyUploadListeners();
+      // הסרה אחרי 3 שניות
+      setTimeout(() => {
+        state.pendingUploads.delete(hash);
+        notifyUploadListeners();
+      }, 3000);
+    }
+  }
+  
+  function notifyUploadListeners() {
+    state.uploadListeners.forEach(callback => {
+      try { callback(getPendingUploadsStatus()); } catch (e) {}
+    });
+  }
+  
+  function getPendingUploadsStatus() {
+    const pending = [];
+    const confirmed = [];
+    state.pendingUploads.forEach((data, hash) => {
+      if (data.confirmed) {
+        confirmed.push(hash);
+      } else {
+        pending.push(hash);
+      }
+    });
+    return { pending, confirmed, hasPending: pending.length > 0 };
+  }
+  
+  function onUploadStatusChange(callback) {
+    state.uploadListeners.add(callback);
+    return () => state.uploadListeners.delete(callback);
+  }
+
   // חשיפה ל-App
   Object.assign(App, {
     registerFileAvailability,
@@ -1954,12 +2224,23 @@
       lastUpdate: state.lastPeerCountTime,
       consecutiveFailures: state.consecutiveP2PFailures,
     }),
+    // חלק העלאות ממתינות – API למעקב אחרי העלאות | HYPER CORE TECH
+    markUploadPending,                   // סימון העלאה כממתינה
+    confirmUpload,                       // אישור שהקובץ הועבר
+    getPendingUploadsStatus,             // קבלת סטטוס העלאות
+    onUploadStatusChange,                // הרשמה לעדכונים
+    // חלק Leader Election – API לבדיקת מצב מנהיגות | HYPER CORE TECH
+    isP2PLeader: () => state.isLeader,   // האם הלשונית הזו מנהיגה
+    getTabId: () => state.tabId,         // מזהה הלשונית
   });
 
   // אתחול
   async function init() {
     console.log(`%c🔧 P2P.js גרסה: ${P2P_VERSION}`, 'color: #9C27B0; font-weight: bold');
     log('info', '🚀 מערכת P2P Video Sharing מאותחלת...');
+    
+    // הפעלת Leader Election למניעת כפילויות בין לשוניות
+    setupLeaderElection();
     
     // טעינת קבצים זמינים מ-cache
     await loadAvailableFilesFromCache();
@@ -1969,7 +2250,7 @@
       if (App.publicKey && App.pool) {
         listenForP2PSignals();
         
-        // שליחת heartbeat ראשון והפעלת interval
+        // שליחת heartbeat ראשון והפעלת interval (רק אם מנהיג)
         sendHeartbeat();
         setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
         
@@ -1982,7 +2263,9 @@
         log('success', '✅ מערכת P2P מוכנה!', {
           publicKey: App.publicKey.slice(0, 16) + '...',
           relays: getP2PRelays().length,
-          availableFiles: state.availableFiles.size
+          availableFiles: state.availableFiles.size,
+          isLeader: state.isLeader,
+          tabId: state.tabId
         });
         return true;
       }

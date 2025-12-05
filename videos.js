@@ -217,14 +217,23 @@ const p2pStatsUI = {
   }
 };
 
-// מנורת העלאה - מהבהבת כשמשרתים קבצים
+// מנורת העלאה - מהבהבת כשמשרתים קבצים או ממתינים לאישור
 const uploadIndicatorUI = {
   element: null,
   countElement: null,
+  unsubscribe: null,
   
   init() {
     this.element = document.getElementById('uploadIndicator');
     this.countElement = document.getElementById('uploadIndicatorCount');
+    
+    // הרשמה לעדכוני העלאות ממתינות
+    const App = window.NostrApp || {};
+    if (typeof App.onUploadStatusChange === 'function') {
+      this.unsubscribe = App.onUploadStatusChange((status) => {
+        this.updatePendingStatus(status);
+      });
+    }
     
     // עדכון כל שנייה
     setInterval(() => this.update(), 1000);
@@ -237,16 +246,128 @@ const uploadIndicatorUI = {
     const stats = App.getP2PStats();
     const activeUploads = stats?.activeUploadCount || 0;
     
+    // בדיקת העלאות ממתינות
+    let pendingCount = 0;
+    if (typeof App.getPendingUploadsStatus === 'function') {
+      const pendingStatus = App.getPendingUploadsStatus();
+      pendingCount = pendingStatus.pending?.length || 0;
+    }
+    
     if (this.element) {
       if (activeUploads > 0) {
+        // העלאה פעילה - מהבהב מהר
         this.element.classList.add('is-active');
+        this.element.classList.remove('is-pending', 'is-confirmed');
         if (this.countElement) {
           this.countElement.textContent = activeUploads;
         }
+      } else if (pendingCount > 0) {
+        // ממתין לאישור - מהבהב לאט
+        this.element.classList.add('is-pending');
+        this.element.classList.remove('is-active', 'is-confirmed');
+        if (this.countElement) {
+          this.countElement.textContent = pendingCount;
+        }
       } else {
-        this.element.classList.remove('is-active');
+        this.element.classList.remove('is-active', 'is-pending', 'is-confirmed');
       }
     }
+  },
+  
+  updatePendingStatus(status) {
+    if (!this.element) return;
+    
+    if (status.confirmed?.length > 0) {
+      // קובץ אושר! הראה אישור
+      this.element.classList.add('is-confirmed');
+      this.element.classList.remove('is-pending');
+      // הסר אחרי 2 שניות
+      setTimeout(() => {
+        this.element.classList.remove('is-confirmed');
+      }, 2000);
+    }
+    
+    this.update();
+  }
+};
+
+// כפתור מיוט גלובלי - מהבהב כשמושתק
+const muteIndicatorUI = {
+  element: null,
+  isMuted: true,
+  
+  init() {
+    this.element = document.getElementById('muteIndicator');
+    if (!this.element) return;
+    
+    // התחלה במצב מושתק
+    this.isMuted = true;
+    this.updateUI();
+    
+    // לחיצה על הכפתור
+    this.element.addEventListener('click', () => this.toggle());
+    
+    // מעקב אחרי שינויים בווידאו - סנכרון עם הכפתור
+    this.startVideoSync();
+  },
+  
+  toggle() {
+    this.isMuted = !this.isMuted;
+    this.updateUI();
+    this.applyToAllVideos();
+  },
+  
+  // סנכרון מצב הכפתור עם הווידאו הפעיל
+  startVideoSync() {
+    // בדיקה כל 200ms אם יש וידאו שמצבו שונה מהכפתור
+    setInterval(() => {
+      const videos = document.querySelectorAll('.videos-feed__media-video');
+      for (const video of videos) {
+        if (!video.paused && video.muted !== this.isMuted) {
+          // וידאו פעיל עם מצב שונה - סנכרן
+          this.isMuted = video.muted;
+          this.updateUI();
+          // עדכן את כל שאר הווידאו
+          videos.forEach(v => { if (v !== video) v.muted = this.isMuted; });
+          break;
+        }
+      }
+    }, 200);
+  },
+  
+  // עדכון מצב מווידאו ספציפי
+  syncFromVideo(video) {
+    if (video && video.muted !== this.isMuted) {
+      this.isMuted = video.muted;
+      this.updateUI();
+    }
+  },
+  
+  updateUI() {
+    if (!this.element) return;
+    const icon = this.element.querySelector('i');
+    
+    if (this.isMuted) {
+      this.element.classList.add('is-muted');
+      this.element.title = 'לחץ להפעלת קול';
+      if (icon) icon.className = 'fa-solid fa-volume-xmark';
+    } else {
+      this.element.classList.remove('is-muted');
+      this.element.title = 'לחץ להשתקה';
+      if (icon) icon.className = 'fa-solid fa-volume-high';
+    }
+  },
+  
+  applyToAllVideos() {
+    const videos = document.querySelectorAll('.videos-feed__media-video');
+    videos.forEach(video => {
+      video.muted = this.isMuted;
+    });
+  },
+  
+  // קריאה מבחוץ לקבלת מצב המיוט
+  getMuted() {
+    return this.isMuted;
   }
 };
 
@@ -255,11 +376,13 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     p2pStatsUI.init();
     uploadIndicatorUI.init();
+    muteIndicatorUI.init();
   }, 1000);
 });
 
 // חשיפה גלובלית לעדכון מקבצים אחרים
 window.updateP2PStatsUI = (source) => p2pStatsUI.update(source);
+window.getMuteState = () => muteIndicatorUI.getMuted();
 
 // תור טעינה סדרתית לוידאו
 let videoDownloadQueue = [];
@@ -305,30 +428,23 @@ async function processVideoDownloadQueue() {
     const { videoEl, url, hash, mirrors, fallbackFn } = videoDownloadQueue.shift();
     processedCount++;
     
-    if (useDelay) {
-      console.log(`%c┌─ וידאו ${processedCount}/${totalInQueue} ─────────────────────────┐`, 'color: #2196F3');
-    }
+    let loadedFromCache = false;
     
     try {
       if (typeof App.loadVideoWithCache === 'function') {
-        await App.loadVideoWithCache(videoEl, url, hash, mirrors);
-        if (useDelay) {
-          console.log(`%c└─ ✅ הושלם ──────────────────────────────┘`, 'color: #4CAF50');
-        }
+        const result = await App.loadVideoWithCache(videoEl, url, hash, mirrors);
+        // בדיקה אם נטען מ-cache
+        loadedFromCache = result?.source === 'cache';
       } else {
         fallbackFn();
       }
     } catch (err) {
       console.warn('Failed to load video with P2P/cache:', err);
       fallbackFn();
-      if (useDelay) {
-        console.log(`%c└─ ⚠️ fallback ─────────────────────────────┘`, 'color: #FF9800');
-      }
     }
     
-    // השהייה רק במצב BOOTSTRAP ואם יש עוד בתור
-    if (useDelay && videoDownloadQueue.length > 0) {
-      console.log(`%c   ⏳ ממתין 2 שניות...`, 'color: #9E9E9E; font-style: italic');
+    // השהייה רק במצב BOOTSTRAP, רק אם לא נטען מ-cache, ואם יש עוד בתור
+    if (useDelay && !loadedFromCache && videoDownloadQueue.length > 0) {
       await new Promise(resolve => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
     }
   }
@@ -1052,13 +1168,21 @@ function renderVideoCard(video) {
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
-    videoEl.muted = false;
+    videoEl.muted = typeof window.getMuteState === 'function' ? window.getMuteState() : true;
+    videoEl.loop = true; // לופ כמו טיקטוק
     videoEl.playsInline = true;
     videoEl.setAttribute('playsinline', 'true');
     videoEl.setAttribute('webkit-playsinline', 'true');
     videoEl.preload = 'metadata';
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
+    
+    // סנכרון מצב מיוט עם הכפתור הגלובלי
+    videoEl.addEventListener('volumechange', () => {
+      if (typeof muteIndicatorUI !== 'undefined' && muteIndicatorUI.syncFromVideo) {
+        muteIndicatorUI.syncFromVideo(videoEl);
+      }
+    });
 
     const cleanup = () => {
       videoEl.removeEventListener('loadeddata', onLoadedData);
@@ -1092,6 +1216,55 @@ function renderVideoCard(video) {
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
     mediaDiv.appendChild(playOverlay);
+    
+    // כפתור דילוג אחורה - שמאל למטה (שפיץ כלפי חוץ - שמאלה)
+    const skipBackBtn = document.createElement('button');
+    skipBackBtn.className = 'video-skip-btn video-skip-btn--back';
+    skipBackBtn.innerHTML = '<i class="fa-solid fa-backward"></i>';
+    mediaDiv.appendChild(skipBackBtn);
+    
+    // כפתור דילוג קדימה - ימין למטה (שפיץ כלפי חוץ - ימינה)
+    const skipForwardBtn = document.createElement('button');
+    skipForwardBtn.className = 'video-skip-btn video-skip-btn--forward';
+    skipForwardBtn.innerHTML = '<i class="fa-solid fa-forward"></i>';
+    mediaDiv.appendChild(skipForwardBtn);
+    
+    // אינדיקטור דילוג במרכז המסך
+    const skipIndicator = document.createElement('div');
+    skipIndicator.className = 'video-skip-indicator';
+    mediaDiv.appendChild(skipIndicator);
+    
+    // פונקציה להצגת אינדיקטור דילוג
+    const showSkipIndicator = (seconds) => {
+      skipIndicator.textContent = seconds > 0 ? `+${seconds}` : `${seconds}`;
+      skipIndicator.classList.remove('show');
+      void skipIndicator.offsetWidth; // force reflow
+      skipIndicator.classList.add('show');
+    };
+    
+    // דילוג 5 שניות - עובד תמיד
+    const skip = (seconds) => {
+      const newTime = videoEl.currentTime + seconds;
+      if (newTime < 0) {
+        videoEl.currentTime = 0;
+      } else if (videoEl.duration && isFinite(videoEl.duration) && newTime > videoEl.duration) {
+        videoEl.currentTime = videoEl.duration;
+      } else {
+        videoEl.currentTime = Math.max(0, newTime);
+      }
+      showSkipIndicator(seconds);
+    };
+    
+    skipBackBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      skip(-5);
+    });
+    
+    skipForwardBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      skip(5);
+    });
+    
   } else if (video.imageUrl) {
     mediaDiv.dataset.mediaType = 'image';
 
@@ -2016,61 +2189,125 @@ function setupIntersectionObserver() {
   return intersectionObserver;
 }
 
-// חלק לופ אינסופי (videos.js) – כמו טיקטוק: שכפול כרטיסים ליצירת לופ חלק
+// חלק לופ אינסופי (videos.js) – לולאה אינסופית כמו טיקטוק
+// הגלילה הטבעית של CSS snap עובדת, רק מוסיפים חזרה להתחלה בסוף
 function setupInfiniteLoop() {
   const viewport = document.querySelector('.videos-feed__viewport');
   const stream = document.querySelector('.videos-feed__stream');
   if (!viewport || !stream) return;
   
-  // שכפול הכרטיס הראשון לסוף והאחרון להתחלה
-  const cards = Array.from(document.querySelectorAll('.videos-feed__card'));
-  if (cards.length < 2) return;
+  let currentIndex = 0;
   
-  const firstCard = cards[0];
-  const lastCard = cards[cards.length - 1];
+  const getCards = () => document.querySelectorAll('.videos-feed__card:not(.clone)');
+  const getCardCount = () => getCards().length;
   
-  // יצירת עותקים
-  const firstClone = firstCard.cloneNode(true);
-  const lastClone = lastCard.cloneNode(true);
-  firstClone.classList.add('clone');
-  lastClone.classList.add('clone');
+  // מעקב אחרי גלילה לזיהוי הכרטיס הנוכחי ולולאה אינסופית
+  let scrollTimeout = null;
+  let lastScrollTop = 0;
+  let isJumping = false;
   
-  // הוספה לסוף ולהתחלה
-  stream.appendChild(firstClone);
-  stream.insertBefore(lastClone, firstCard);
+  const jumpToEnd = () => {
+    if (isJumping) return;
+    isJumping = true;
+    const cards = getCards();
+    const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+    viewport.style.scrollBehavior = 'auto';
+    viewport.scrollTop = maxScroll;
+    viewport.style.scrollBehavior = '';
+    currentIndex = cards.length - 1;
+    lastScrollTop = maxScroll;
+    setTimeout(() => { isJumping = false; }, 200);
+  };
   
-  // התחלה מהכרטיס הראשון האמיתי (אחרי הקלון של האחרון)
-  const cardHeight = firstCard.offsetHeight + 10; // כולל gap
-  viewport.scrollTop = cardHeight;
+  const jumpToStart = () => {
+    if (isJumping) return;
+    isJumping = true;
+    viewport.style.scrollBehavior = 'auto';
+    viewport.scrollTop = 0;
+    viewport.style.scrollBehavior = '';
+    currentIndex = 0;
+    lastScrollTop = 0;
+    setTimeout(() => { isJumping = false; }, 200);
+  };
   
-  let isAdjusting = false;
-  
-  viewport.addEventListener('scrollend', () => {
-    if (isAdjusting) return;
-    
-    const scrollTop = viewport.scrollTop;
-    const allCards = document.querySelectorAll('.videos-feed__card');
-    const totalHeight = stream.scrollHeight;
-    const viewportHeight = viewport.clientHeight;
-    
-    // אם הגענו לקלון הראשון (בסוף) - קפיצה לכרטיס הראשון האמיתי
-    if (scrollTop >= totalHeight - viewportHeight - 20) {
-      isAdjusting = true;
-      viewport.style.scrollBehavior = 'auto';
-      viewport.scrollTop = cardHeight;
-      viewport.style.scrollBehavior = '';
-      requestAnimationFrame(() => { isAdjusting = false; });
+  // זיהוי גלילה למעלה כשאנחנו בהתחלה (wheel)
+  viewport.addEventListener('wheel', (e) => {
+    if (viewport.scrollTop <= 5 && e.deltaY < 0) {
+      // בהתחלה וגוללים למעלה - קופצים לסוף
+      e.preventDefault();
+      jumpToEnd();
     }
+  }, { passive: false });
+  
+  // זיהוי swipe למעלה כשאנחנו בהתחלה (touch)
+  let touchStartY = 0;
+  viewport.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  
+  viewport.addEventListener('touchend', (e) => {
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY - touchEndY;
     
-    // אם הגענו לקלון האחרון (בהתחלה) - קפיצה לכרטיס האחרון האמיתי
-    if (scrollTop <= 20) {
-      isAdjusting = true;
-      viewport.style.scrollBehavior = 'auto';
-      viewport.scrollTop = totalHeight - viewportHeight - cardHeight;
-      viewport.style.scrollBehavior = '';
-      requestAnimationFrame(() => { isAdjusting = false; });
+    // swipe למטה (אצבע למטה = רוצה לחזור אחורה) כשבהתחלה
+    if (viewport.scrollTop <= 5 && deltaY < -30) {
+      jumpToEnd();
+    }
+  }, { passive: true });
+  
+  viewport.addEventListener('scroll', () => {
+    if (scrollTimeout) clearTimeout(scrollTimeout);
+    if (isJumping) return;
+    
+    scrollTimeout = setTimeout(() => {
+      const cards = getCards();
+      const cardCount = cards.length;
+      if (cardCount === 0) return;
+      
+      const viewportTop = viewport.scrollTop;
+      const viewportHeight = viewport.clientHeight;
+      const maxScroll = viewport.scrollHeight - viewportHeight;
+      const scrollingDown = viewportTop > lastScrollTop;
+      lastScrollTop = viewportTop;
+      
+      // מציאת הכרטיס הנוכחי
+      for (let i = 0; i < cardCount; i++) {
+        const card = cards[i];
+        const cardTop = card.offsetTop - 56;
+        if (cardTop >= viewportTop - 50 && cardTop <= viewportTop + 50) {
+          currentIndex = i;
+          break;
+        }
+      }
+      
+      // לולאה אינסופית - כשמגיעים לסוף, חוזרים להתחלה
+      if (scrollingDown && viewportTop >= maxScroll - 5) {
+        setTimeout(jumpToStart, 150);
+      }
+    }, 100);
+  }, { passive: true });
+  
+  // תמיכה במקשי חצים
+  document.addEventListener('keydown', (e) => {
+    if (!document.querySelector('.videos-feed')) return;
+    
+    const cards = getCards();
+    const cardCount = cards.length;
+    if (cardCount === 0) return;
+    
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      e.preventDefault();
+      currentIndex = (currentIndex + 1) % cardCount;
+      cards[currentIndex]?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    } else if (e.key === 'ArrowUp' || e.key === 'k') {
+      e.preventDefault();
+      currentIndex = (currentIndex - 1 + cardCount) % cardCount;
+      cards[currentIndex]?.scrollIntoView({ behavior: 'auto', block: 'start' });
     }
   });
+  
+  // חשיפה גלובלית
+  window.videoFeedNav = { getCurrentIndex: () => currentIndex, getCardCount };
 }
 
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים מהרילאים (fallback ללא הפיד הראשי)

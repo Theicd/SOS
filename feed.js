@@ -3631,7 +3631,8 @@ async function loadFeed() {
               const objectUrl = URL.createObjectURL(p2pResult.blob);
               videoElement.src = objectUrl;
             }
-            return true;
+            // מחזיר אובייקט עם source כדי שהקורא ידע אם נטען מ-cache
+            return { success: true, source: p2pResult.source || 'network' };
           }
         } catch (p2pErr) {
           // fallback יטופל למטה
@@ -3647,11 +3648,11 @@ async function loadFeed() {
           videoElement.src = objectUrl;
           
           console.log(`וידאו נטען מ-${result.source}:`, result.url || url);
-          return true;
+          return { success: true, source: result.source || 'network' };
         }
         
         console.error('כל ה-URLs נכשלו');
-        return false;
+        return { success: false, source: 'none' };
       }
 
       // Fallback לשיטה הישנה אם המודול לא זמין
@@ -3661,7 +3662,7 @@ async function loadFeed() {
           const objectUrl = URL.createObjectURL(cached.blob);
           videoElement.src = objectUrl;
           console.log('וידאו נטען מ-cache:', hash.slice(0, 16));
-          return true;
+          return { success: true, source: 'cache' };
         }
       }
 
@@ -3681,10 +3682,10 @@ async function loadFeed() {
       }
 
       console.log('וידאו נטען מהרשת:', url);
-      return true;
+      return { success: true, source: 'network' };
     } catch (err) {
       console.error('נכשלה טעינת וידאו:', err);
-      return false;
+      return { success: false, source: 'none' };
     }
   }
 
