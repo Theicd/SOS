@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.5.0-guest-optimized'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.6.0-stats-api'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -1722,6 +1722,10 @@
               totalSize: blob.size
             });
             
+            // עדכון סטטיסטיקות העלאות
+            p2pStats.shares.total++;
+            p2pStats.shares.success++;
+            
             // אישור שהקובץ הועבר למשתמש אחר - מכבה את המנורה המהבהבת
             confirmUpload(hash);
             
@@ -1731,6 +1735,8 @@
 
           } catch (err) {
             log('error', `❌ שגיאה בשליחת קובץ: ${err.message}`);
+            p2pStats.shares.total++;
+            p2pStats.shares.failed++;
             state.activeUploadCount = Math.max(0, state.activeUploadCount - 1);
             if (state.activeUploadCount === 0) state.activeUpload = null;
             channel.send(JSON.stringify({
@@ -2250,6 +2256,23 @@
     return () => state.uploadListeners.delete(callback);
   }
 
+  // חלק סטטיסטיקות (p2p-video-sharing.js) – API לקבלת סטטיסטיקות P2P לממשק | HYPER CORE TECH
+  function getP2PStats() {
+    return {
+      downloads: { ...p2pStats.downloads },
+      shares: { ...p2pStats.shares },
+      peerCount: state.lastPeerCount,
+      tier: state.networkTier,
+      activeTransfers: state.activeUploadCount,
+      activeDownload: state.activeDownload ? { ...state.activeDownload } : null,
+      activeUpload: state.activeUpload ? { ...state.activeUpload } : null,
+      shareQueueLength: state.pendingTransferResolvers.length,
+      availableFiles: state.availableFiles.size,
+      isLeader: state.isLeader,
+      isGuest: isGuestMode(),
+    };
+  }
+
   // חשיפה ל-App
   Object.assign(App, {
     registerFileAvailability,
@@ -2286,6 +2309,8 @@
     // חלק Guest P2P – API לבדיקת מצב אורח | HYPER CORE TECH
     isGuestP2P: isGuestMode,             // האם במצב אורח
     getGuestKeys: () => state.guestKeys, // קבלת מפתחות אורח
+    // חלק סטטיסטיקות – API לקבלת סטטיסטיקות P2P | HYPER CORE TECH
+    getP2PStats,                         // קבלת כל הסטטיסטיקות לממשק
   });
 
   // אתחול
