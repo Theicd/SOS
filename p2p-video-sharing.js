@@ -119,9 +119,9 @@
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
       : 5; // ננסה עד 5 peers לפני fallback
   const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 15000; // 15 שניות - מהיר יותר לעבור ל-fallback | HYPER CORE TECH
-  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 4000; // 4 שניות לתשובה - מהיר יותר | HYPER CORE TECH
-  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 1; // ניסיון אחד בלבד - עוברים ל-peer הבא מהר
-  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 500; // חצי שנייה בין ניסיונות
+  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 6000; // 6 שניות לתשובה - מספיק זמן לריליים איטיים | HYPER CORE TECH
+  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 2; // 2 ניסיונות - נותן הזדמנות שנייה
+  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 1000; // שנייה בין ניסיונות
 
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
@@ -135,10 +135,16 @@
   const HEARTBEAT_LOOKBACK = 120;         // חיפוש heartbeats מ-2 דקות אחורה
   
   // חלק Guest P2P (p2p-video-sharing.js) – הגדרות אופטימיזציה לאורחים | HYPER CORE TECH
-  const GUEST_BLOSSOM_FIRST_POSTS = 10;   // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
-  const GUEST_P2P_TIMEOUT = 2000;         // timeout קצר ל-P2P לאורחים (2 שניות)
-  const GUEST_MAX_PEER_SEARCH_TIME = 1500; // זמן מקסימלי לחיפוש peers לאורחים (1.5 שניות)
-  const GUEST_MAX_PEERS_TO_TRY = 2;       // אורחים ינסו רק 2 peers לפני fallback
+  const GUEST_BLOSSOM_FIRST_POSTS = 5;    // אורחים: 5 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
+  const GUEST_P2P_TIMEOUT = 4000;         // timeout ל-P2P לאורחים (4 שניות - מספיק לחיבור)
+  const GUEST_MAX_PEER_SEARCH_TIME = 3000; // זמן מקסימלי לחיפוש peers לאורחים (3 שניות - מספיק למצוא peers)
+  const GUEST_MAX_PEERS_TO_TRY = 3;       // אורחים ינסו 3 peers לפני fallback
+  
+  // חלק Multi-Source (p2p-video-sharing.js) – הורדה מקבילית ממספר מקורות | HYPER CORE TECH
+  const MULTI_SOURCE_ENABLED = true;      // הפעלת הורדה מקבילית
+  const MULTI_SOURCE_MAX_PEERS = 2;       // מקסימום 2 peers במקביל (איזון בין מהירות לעומס)
+  const MULTI_SOURCE_MIN_FILE_SIZE = 500 * 1024; // רק לקבצים מעל 500KB (לא שווה לקבצים קטנים)
+  const MULTI_SOURCE_MOBILE_ENABLED = false; // מושבת במובייל (חסכון במשאבים)
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -864,7 +870,7 @@
   // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים ומסודרים | HYPER CORE TECH
   // סטטיסטיקות גלובליות לסיכום
   const p2pStats = {
-    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, failed: 0 },
+    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, fromMultiSource: 0, failed: 0 },
     shares: { total: 0, success: 0, failed: 0 },
     lastSummaryTime: 0
   };
@@ -919,11 +925,13 @@
   // חלק P2P (p2p-video-sharing.js) – הדפסת סיכום סטטיסטיקות | HYPER CORE TECH
   function printP2PStats() {
     const { downloads, shares } = p2pStats;
+    const multiSourcePct = downloads.fromP2P > 0 ? Math.round((downloads.fromMultiSource / downloads.fromP2P) * 100) : 0;
     console.log('%c┌──────────────────────────────────────────────────┐', 'color: #673AB7; font-weight: bold');
     console.log('%c│           📊 סיכום מערכת P2P                     │', 'color: #673AB7; font-weight: bold');
     console.log('%c├──────────────────────────────────────────────────┤', 'color: #673AB7');
     console.log(`%c│ 📥 הורדות: ${downloads.total} סה"כ                              │`, 'color: #2196F3');
     console.log(`%c│    └─ Cache: ${downloads.fromCache} | Blossom: ${downloads.fromBlossom} | P2P: ${downloads.fromP2P} | נכשל: ${downloads.failed}`, 'color: #2196F3');
+    console.log(`%c│    └─ Multi-Source: ${downloads.fromMultiSource} (${multiSourcePct}% מ-P2P)`, 'color: #FF9800');
     console.log(`%c│ 📤 שיתופים: ${shares.total} סה"כ (${shares.success} הצליחו)       │`, 'color: #4CAF50');
     console.log('%c└──────────────────────────────────────────────────┘', 'color: #673AB7; font-weight: bold');
     p2pStats.lastSummaryTime = Date.now();
@@ -1247,6 +1255,62 @@
         finalize([]);
       }
     });
+  }
+
+  // חלק Multi-Source (p2p-video-sharing.js) – הורדה מקבילית מכמה peers | HYPER CORE TECH
+  async function downloadFromMultiplePeers(peers, hash, timeout) {
+    const peersToUse = peers.slice(0, MULTI_SOURCE_MAX_PEERS);
+    log('download', `🚀 Multi-Source: מנסה ${peersToUse.length} peers במקביל`, {
+      peers: peersToUse.map(p => p.slice(0, 8)),
+      hash: hash.slice(0, 12)
+    });
+
+    // יוצרים Promise לכל peer
+    const downloadPromises = peersToUse.map((peer, index) => {
+      return new Promise(async (resolve, reject) => {
+        try {
+          const result = await Promise.race([
+            downloadFromPeer(peer, hash),
+            sleep(timeout).then(() => { throw new Error('timeout'); })
+          ]);
+          resolve({ success: true, peer, result, index });
+        } catch (err) {
+          resolve({ success: false, peer, error: err.message, index });
+        }
+      });
+    });
+
+    // מחכים לראשון שמצליח (Promise.any-like behavior)
+    const results = [];
+    let winner = null;
+
+    // מריצים במקביל ומחכים לכולם
+    const allResults = await Promise.all(downloadPromises);
+    
+    // מוצאים את הראשון שהצליח
+    for (const result of allResults) {
+      if (result.success && !winner) {
+        winner = result;
+        log('success', `🏆 Multi-Source: peer ${result.peer.slice(0, 8)} סיים ראשון!`);
+      } else if (!result.success) {
+        log('info', `⚠️ Multi-Source: peer ${result.peer.slice(0, 8)} נכשל: ${result.error}`);
+      }
+    }
+
+    if (winner) {
+      return winner.result;
+    }
+
+    throw new Error('All peers failed in multi-source download');
+  }
+
+  // בדיקה אם להשתמש ב-Multi-Source
+  function shouldUseMultiSource(peers, isGuest) {
+    if (!MULTI_SOURCE_ENABLED) return false;
+    if (IS_MOBILE && !MULTI_SOURCE_MOBILE_ENABLED) return false;
+    if (peers.length < 2) return false;
+    if (isGuest && IS_MOBILE) return false; // אורחים במובייל - לא multi-source
+    return true;
   }
 
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
@@ -2008,32 +2072,59 @@
           }
         }
 
-        // ניסיון P2P - עם הגבלות לאורחים
-        let attemptCount = 0;
-        for (const peer of peers) {
-          if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
-          attemptCount++;
-          
+        // ניסיון P2P - עם Multi-Source אם זמין | HYPER CORE TECH
+        const useMultiSource = shouldUseMultiSource(peers, isGuest);
+        
+        if (useMultiSource) {
+          // Multi-Source: מנסים 2 peers במקביל
           try {
-            const downloadPromise = downloadFromPeer(peer, hash);
-            const timeoutPromise = sleep(p2pTimeout).then(() => {
-              throw new Error('timeout');
-            });
-            const result = await Promise.race([downloadPromise, timeoutPromise]);
-
+            const result = await downloadFromMultiplePeers(peers, hash, p2pTimeout);
+            
             p2pStats.downloads.fromP2P++;
-            log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
+            p2pStats.downloads.fromMultiSource++;
+            log('success', `מ-P2P (Multi-Source)`, { 
+              peers: peers.slice(0, MULTI_SOURCE_MAX_PEERS).map(p => p.slice(0,8)).join(','),
+              size: Math.round(result.blob.size/1024)+'KB'
+            });
 
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
             }
             await registerFileAvailability(hash, result.blob, result.mimeType);
             resetConsecutiveFailures();
-            return { blob: result.blob, source: 'p2p', peer, tier };
+            return { blob: result.blob, source: 'p2p-multi', tier };
+          } catch (multiErr) {
+            log('info', `Multi-Source נכשל, עובר ל-fallback`, { error: multiErr.message });
+            // ממשיכים ל-fallback
+          }
+        } else {
+          // Single-Source: מנסים peer אחד בכל פעם
+          let attemptCount = 0;
+          for (const peer of peers) {
+            if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
+            attemptCount++;
+            
+            try {
+              const downloadPromise = downloadFromPeer(peer, hash);
+              const timeoutPromise = sleep(p2pTimeout).then(() => {
+                throw new Error('timeout');
+              });
+              const result = await Promise.race([downloadPromise, timeoutPromise]);
 
-          } catch (err) {
-            // ממשיכים לנסות peers נוספים - לא יוצאים מהלולאה
-            continue;
+              p2pStats.downloads.fromP2P++;
+              log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
+
+              if (typeof App.cacheMedia === 'function') {
+                await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
+              }
+              await registerFileAvailability(hash, result.blob, result.mimeType);
+              resetConsecutiveFailures();
+              return { blob: result.blob, source: 'p2p', peer, tier };
+
+            } catch (err) {
+              // ממשיכים לנסות peers נוספים - לא יוצאים מהלולאה
+              continue;
+            }
           }
         }
 

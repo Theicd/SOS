@@ -43,6 +43,7 @@
       NETWORK: '#00BCD4',   // טורקיז - מצב רשת
       HEARTBEAT: '#8BC34A', // ירוק בהיר - heartbeat
       WEBRTC: '#673AB7',    // סגול כהה - WebRTC
+      MULTISOURCE: '#E91E63', // ורוד - Multi-Source
     },
 
     // אייקונים לפי קטגוריה
@@ -59,6 +60,7 @@
       NETWORK: '🌐',
       HEARTBEAT: '💓',
       WEBRTC: '🔗',
+      MULTISOURCE: '🚀',
     },
 
     /**
@@ -168,12 +170,16 @@
       // סטטיסטיקות P2P
       if (typeof App.getP2PStats === 'function') {
         const stats = App.getP2PStats();
+        const multiSourcePct = stats.downloads?.fromP2P > 0 
+          ? Math.round((stats.downloads?.fromMultiSource || 0) / stats.downloads.fromP2P * 100) 
+          : 0;
         console.log('%c╠══════════════════════════════════════════════════════════════╣', 'color: #4CAF50');
         console.log('%c║  P2P Statistics:                                             ║', 'color: #4CAF50; font-weight: bold');
         console.log(`%c║    Downloads: ${String(stats.downloads?.total || 0).padEnd(46)}║`, 'color: #4CAF50');
         console.log(`%c║      - Cache: ${String(stats.downloads?.fromCache || 0).padEnd(46)}║`, 'color: #795548');
         console.log(`%c║      - Blossom: ${String(stats.downloads?.fromBlossom || 0).padEnd(44)}║`, 'color: #FF9800');
         console.log(`%c║      - P2P: ${String(stats.downloads?.fromP2P || 0).padEnd(48)}║`, 'color: #2196F3');
+        console.log(`%c║      - Multi-Source: ${String((stats.downloads?.fromMultiSource || 0) + ' (' + multiSourcePct + '%)').padEnd(39)}║`, 'color: #E91E63');
         console.log(`%c║      - Failed: ${String(stats.downloads?.failed || 0).padEnd(45)}║`, 'color: #F44336');
         console.log(`%c║    Network Tier: ${String(stats.networkTier || 'UNKNOWN').padEnd(43)}║`, 'color: #00BCD4');
         console.log(`%c║    Peer Count: ${String(stats.peerCount || 0).padEnd(45)}║`, 'color: #2196F3');
