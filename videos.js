@@ -1244,35 +1244,9 @@ function renderVideoCard(video) {
     videoEl.addEventListener('error', onError, { once: true });
 
     const applyFallbackSrc = () => {
-      // חלק תאימות iOS 17.4+ (videos.js) – שימוש ב-source element במקום src ישירות | HYPER CORE TECH
-      // באג ידוע: Blob URLs לא עובדים עם src ישירות ב-iOS 17.4+
-      // https://developer.apple.com/forums/thread/751063
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      
-      if (isIOS) {
-        // הסרת source קיימים
-        while (videoEl.firstChild) {
-          videoEl.removeChild(videoEl.firstChild);
-        }
-        // יצירת source element
-        const sourceEl = document.createElement('source');
-        sourceEl.src = video.videoUrl;
-        // ניחוש MIME type לפי סיומת
-        const url = video.videoUrl.toLowerCase();
-        if (url.includes('.webm')) {
-          sourceEl.type = 'video/webm';
-        } else if (url.includes('.mp4') || url.includes('.m4v')) {
-          sourceEl.type = 'video/mp4';
-        } else if (url.includes('.mov')) {
-          sourceEl.type = 'video/quicktime';
-        } else {
-          sourceEl.type = 'video/mp4'; // ברירת מחדל
-        }
-        videoEl.appendChild(sourceEl);
-      } else {
-        videoEl.src = video.videoUrl;
-      }
-      // קריאה ל-load() הכרחית לספארי
+      // חלק תאימות iOS (videos.js) – טעינה ישירה מ-URL ללא Blob | HYPER CORE TECH
+      // באייפון, Blob URLs גורמים לבעיות מסך שחור - נטען ישירות מה-URL
+      videoEl.src = video.videoUrl;
       videoEl.load();
     };
 

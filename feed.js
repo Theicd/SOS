@@ -3617,6 +3617,9 @@ async function loadFeed() {
     // חלק Network Tiers (פיד) – קבלת אינדקס פוסט נוכחי | HYPER CORE TECH
     const currentPostIndex = globalVideoLoadIndex++;
     
+    // חלק תאימות iOS (feed.js) – זיהוי אייפון לעקיפת באג Blob URL | HYPER CORE TECH
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    
     try {
       // חלק P2P (פיד) – ניסיון הורדה דרך P2P
       if (hash && typeof App.downloadVideoWithP2P === 'function') {
@@ -3624,8 +3627,13 @@ async function loadFeed() {
           const p2pResult = await App.downloadVideoWithP2P(url, hash, 'video/webm', { postIndex: currentPostIndex });
           
           if (p2pResult && p2pResult.blob) {
-            // אם זה URL ישיר (עקיפת CORS), נשתמש בו ישירות
-            if (p2pResult.blob._directUrl) {
+            // חלק תאימות iOS (feed.js) – באייפון Blob URLs גורמים למסך שחור, נשתמש ב-URL ישיר | HYPER CORE TECH
+            if (isIOS) {
+              // באייפון - תמיד נשתמש ב-URL הישיר
+              videoElement.src = url;
+              videoElement.load();
+            } else if (p2pResult.blob._directUrl) {
+              // אם זה URL ישיר (עקיפת CORS), נשתמש בו ישירות
               videoElement.src = p2pResult.blob._directUrl;
             } else {
               const objectUrl = URL.createObjectURL(p2pResult.blob);
@@ -3644,8 +3652,14 @@ async function loadFeed() {
         const result = await App.loadMediaWithFallback(url, mirrors, hash);
         
         if (result.success && result.blob) {
-          const objectUrl = URL.createObjectURL(result.blob);
-          videoElement.src = objectUrl;
+          // חלק תאימות iOS (feed.js) – באייפון נשתמש ב-URL ישיר | HYPER CORE TECH
+          if (isIOS) {
+            videoElement.src = result.url || url;
+            videoElement.load();
+          } else {
+            const objectUrl = URL.createObjectURL(result.blob);
+            videoElement.src = objectUrl;
+          }
           
           console.log(`וידאו נטען מ-${result.source}:`, result.url || url);
           return { success: true, source: result.source || 'network' };
@@ -3659,30 +3673,44 @@ async function loadFeed() {
       if (hash && typeof App.getCachedMedia === 'function') {
         const cached = await App.getCachedMedia(hash);
         if (cached && cached.blob) {
-          const objectUrl = URL.createObjectURL(cached.blob);
-          videoElement.src = objectUrl;
+          // חלק תאימות iOS (feed.js) – באייפון נשתמש ב-URL ישיר | HYPER CORE TECH
+          if (isIOS) {
+            videoElement.src = cached.url || url;
+            videoElement.load();
+          } else {
+            const objectUrl = URL.createObjectURL(cached.blob);
+            videoElement.src = objectUrl;
+          }
           console.log('וידאו נטען מ-cache:', hash.slice(0, 16));
           return { success: true, source: 'cache' };
         }
       }
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      // חלק תאימות iOS (feed.js) – באייפון נשתמש ב-URL ישיר ללא Blob | HYPER CORE TECH
+      if (isIOS) {
+        videoElement.src = url;
+        videoElement.load();
+        console.log('וידאו נטען מהרשת (iOS direct):', url);
+        return { success: true, source: 'network' };
+      } else {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        videoElement.src = objectUrl;
+
+        if (hash && typeof App.cacheMedia === 'function') {
+          App.cacheMedia(url, hash, blob, blob.type).catch(err => {
+            console.warn('Failed to cache video', err);
+          });
+        }
+
+        console.log('וידאו נטען מהרשת:', url);
+        return { success: true, source: 'network' };
       }
-
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      videoElement.src = objectUrl;
-
-      if (hash && typeof App.cacheMedia === 'function') {
-        App.cacheMedia(url, hash, blob, blob.type).catch(err => {
-          console.warn('Failed to cache video', err);
-        });
-      }
-
-      console.log('וידאו נטען מהרשת:', url);
-      return { success: true, source: 'network' };
     } catch (err) {
       console.error('נכשלה טעינת וידאו:', err);
       return { success: false, source: 'none' };
