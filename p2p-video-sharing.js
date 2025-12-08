@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.9.0-persistent-connections'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.10.0-active-peer-filter'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -1165,7 +1165,7 @@
     }
   }
 
-  // חלק P2P (p2p-video-sharing.js) – חיפוש peers עם קובץ
+  // חלק P2P (p2p-video-sharing.js) – חיפוש peers עם קובץ (עם סינון לפי heartbeat) | HYPER CORE TECH
   async function findPeersWithFile(hash) {
     // חלק Peer Exchange – בדיקה ב-cache מקומי קודם | HYPER CORE TECH
     if (App.PeerExchange && typeof App.PeerExchange.findPeersWithFileLocally === 'function') {
@@ -1179,21 +1179,33 @@
     return new Promise((resolve) => {
       const relays = getP2PRelays();
       const sinceTimestamp = Math.floor(Date.now() / 1000) - PEER_DISCOVERY_LOOKBACK;
+      const heartbeatSince = Math.floor(Date.now() / 1000) - HEARTBEAT_LOOKBACK; // 2 דקות אחורה
 
-      const peers = new Set();
-      const filters = [{
-        kinds: [FILE_AVAILABILITY_KIND],
-        '#t': ['p2p-file'],
-        '#x': [hash],
-        since: sinceTimestamp,
-      }];
+      const peersWithFile = new Set(); // peers שיש להם את הקובץ
+      const activePeers = new Set();   // peers עם heartbeat אחרון (אונליין)
+      
+      // חיפוש מקבילי: קבצים + heartbeats
+      const filters = [
+        {
+          kinds: [FILE_AVAILABILITY_KIND],
+          '#t': ['p2p-file'],
+          '#x': [hash],
+          since: sinceTimestamp,
+        },
+        {
+          kinds: [FILE_AVAILABILITY_KIND],
+          '#t': ['p2p-heartbeat'],
+          since: heartbeatSince,
+          limit: 50
+        }
+      ];
 
       let finished = false;
       let timeoutHandle = null;
       let sub;
       let eventCount = 0;
 
-      const finalize = (peerArray) => {
+      const finalize = () => {
         if (finished) {
           return;
         }
@@ -1208,7 +1220,33 @@
             console.warn('Failed closing subscription', err);
           }
         }
-        resolve(peerArray);
+        
+        // סינון: רק peers שיש להם את הקובץ וגם שלחו heartbeat לאחרונה
+        let filteredPeers = Array.from(peersWithFile).filter(p => activePeers.has(p));
+        
+        // אם אין peers אקטיביים עם הקובץ, ננסה את כל מי שיש לו את הקובץ (fallback)
+        if (filteredPeers.length === 0 && peersWithFile.size > 0) {
+          log('warn', `⚠️ אין peers אקטיביים עם הקובץ, מנסה את כולם`, { 
+            withFile: peersWithFile.size, 
+            active: activePeers.size 
+          });
+          filteredPeers = Array.from(peersWithFile);
+        }
+        
+        // מיון: peers אקטיביים קודם
+        filteredPeers.sort((a, b) => {
+          const aActive = activePeers.has(a) ? 0 : 1;
+          const bActive = activePeers.has(b) ? 0 : 1;
+          return aActive - bActive;
+        });
+        
+        log('info', `📋 חיפוש peers הושלם`, { 
+          events: eventCount, 
+          withFile: peersWithFile.size,
+          active: activePeers.size,
+          filtered: filteredPeers.length
+        });
+        resolve(filteredPeers);
       };
 
       try {
@@ -1223,31 +1261,40 @@
               return;
             }
 
-            // בדיקת expires
-            const expiresTag = event.tags.find(t => t[0] === 'expires');
-            const expires = expiresTag ? parseInt(expiresTag[1]) : 0;
-            const now = Date.now();
+            const tTag = event.tags.find(t => t[0] === 't');
+            const tagType = tTag ? tTag[1] : '';
+            
+            if (tagType === 'p2p-heartbeat') {
+              // heartbeat - peer אקטיבי
+              activePeers.add(event.pubkey);
+            } else if (tagType === 'p2p-file') {
+              // זמינות קובץ - בדיקת expires
+              const expiresTag = event.tags.find(t => t[0] === 'expires');
+              const expires = expiresTag ? parseInt(expiresTag[1]) : 0;
+              const now = Date.now();
 
-            if (expires && expires > now) {
-              peers.add(event.pubkey);
-              log('peer', `👤 peer #${peers.size}`, { pubkey: event.pubkey.slice(0, 8) });
+              if (expires && expires > now) {
+                const isNew = !peersWithFile.has(event.pubkey);
+                peersWithFile.add(event.pubkey);
+                if (isNew) {
+                  log('peer', `👤 peer #${peersWithFile.size}`, { pubkey: event.pubkey.slice(0, 8) });
+                }
+              }
             }
           },
           oneose: () => {
-            const peerArray = Array.from(peers);
-            log('info', `📋 חיפוש peers הושלם`, { events: eventCount, peers: peerArray.length });
-            finalize(peerArray);
+            finalize();
           }
         });
 
         // timeout
         timeoutHandle = setTimeout(() => {
-          const peerArray = Array.from(peers);
           log('info', `⏱️ timeout בחיפוש (${PEER_DISCOVERY_TIMEOUT}ms)`, {
             eventsReceivedSoFar: eventCount,
-            peersFound: peerArray.length
+            peersWithFile: peersWithFile.size,
+            activePeers: activePeers.size
           });
-          finalize(peerArray);
+          finalize();
         }, PEER_DISCOVERY_TIMEOUT);
 
       } catch (err) {
@@ -1255,7 +1302,7 @@
           error: err.toString(),
           stack: err.stack 
         });
-        finalize([]);
+        resolve([]);
       }
     });
   }
