@@ -1076,6 +1076,98 @@
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
+    
+    <!-- חלק Debug Console (videos.html) – הצגת לוגים על המסך לדיבוג באייפון | HYPER CORE TECH -->
+    <script>
+    (function() {
+      // יצירת חלון debug צף
+      var debugPanel = document.createElement('div');
+      debugPanel.id = 'mobileDebugPanel';
+      debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
+      
+      var style = document.createElement('style');
+      style.textContent = '#mobileDebugPanel{position:fixed;bottom:0;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:999999;border-top:2px solid #0f0;display:flex;flex-direction:column;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}#debugContent.collapsed{display:none;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#0ff;}';
+      
+      document.addEventListener('DOMContentLoaded', function() {
+        document.head.appendChild(style);
+        document.body.appendChild(debugPanel);
+        
+        var content = document.getElementById('debugContent');
+        var toggle = document.getElementById('debugToggle');
+        var copy = document.getElementById('debugCopy');
+        var clear = document.getElementById('debugClear');
+        var maxLines = 100;
+        
+        toggle.onclick = function() {
+          content.classList.toggle('collapsed');
+          toggle.textContent = content.classList.contains('collapsed') ? '▲' : '▼';
+        };
+        
+        copy.onclick = function() {
+          var text = content.innerText;
+          navigator.clipboard.writeText(text).then(function() {
+            copy.textContent = '✅ הועתק!';
+            setTimeout(function() { copy.textContent = '📋 העתק'; }, 2000);
+          }).catch(function() {
+            // fallback לאייפון ישן
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            copy.textContent = '✅ הועתק!';
+            setTimeout(function() { copy.textContent = '📋 העתק'; }, 2000);
+          });
+        };
+        
+        clear.onclick = function() {
+          content.innerHTML = '';
+        };
+        
+        function addLine(type, args) {
+          var line = document.createElement('div');
+          line.className = 'debug-line debug-' + type;
+          var time = new Date().toLocaleTimeString('he-IL');
+          var msg = Array.from(args).map(function(a) {
+            if (typeof a === 'object') {
+              try { return JSON.stringify(a, null, 0).slice(0, 200); } catch(e) { return String(a); }
+            }
+            return String(a);
+          }).join(' ');
+          line.textContent = '[' + time + '] ' + msg;
+          content.appendChild(line);
+          if (content.children.length > maxLines) content.removeChild(content.firstChild);
+          content.scrollTop = content.scrollHeight;
+        }
+        
+        // Override console methods
+        var origLog = console.log;
+        var origWarn = console.warn;
+        var origError = console.error;
+        var origInfo = console.info;
+        
+        console.log = function() { origLog.apply(console, arguments); addLine('log', arguments); };
+        console.warn = function() { origWarn.apply(console, arguments); addLine('warn', arguments); };
+        console.error = function() { origError.apply(console, arguments); addLine('error', arguments); };
+        console.info = function() { origInfo.apply(console, arguments); addLine('info', arguments); };
+        
+        // Catch errors
+        window.onerror = function(msg, url, line, col, error) {
+          addLine('error', ['UNCAUGHT:', msg, 'at', url + ':' + line]);
+        };
+        
+        window.onunhandledrejection = function(e) {
+          addLine('error', ['PROMISE REJECTED:', e.reason]);
+        };
+        
+        console.log('📱 Debug Console Ready - iOS Debug Mode');
+      });
+    })();
+    </script>
+    
     <!-- חלק תלויות כלליות (videos.html) – סדר טעינה זהה לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./config.js" defer></script>
     <script src="./key-utils.js" defer></script>
