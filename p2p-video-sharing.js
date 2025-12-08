@@ -136,7 +136,7 @@
   
   // חלק Guest P2P (p2p-video-sharing.js) – הגדרות אופטימיזציה לאורחים | HYPER CORE TECH
   const GUEST_BLOSSOM_FIRST_POSTS = 10;   // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
-  const GUEST_P2P_TIMEOUT = 2000;         // timeout קצר ל-P2P לאורחים (2 שניות)
+  const GUEST_P2P_TIMEOUT = 8000;         // timeout ל-P2P לאורחים (8 שניות - מספיק ל-WebRTC handshake)
   const GUEST_MAX_PEER_SEARCH_TIME = 5000; // זמן מקסימלי לחיפוש peers לאורחים (5 שניות)
   const GUEST_MAX_PEERS_TO_TRY = 2;       // אורחים ינסו רק 2 peers לפני fallback
 
