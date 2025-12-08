@@ -49,7 +49,6 @@
     'wss://relay.snort.social',
     'wss://nos.lol',
     'wss://nostr-relay.xbytez.io',
-    'wss://nostr-02.uid.ovh',
     'wss://nostr.0x7e.xyz',
   ];
   const UNSAFE_RELAY_PATTERNS = new Set([

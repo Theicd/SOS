@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.7.0-peer-scoring'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.8.0-peer-exchange'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -106,7 +106,7 @@
   const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 10000; // 10 שניות לחיפוש peers
   const PEER_DISCOVERY_LOOKBACK = 24 * 60 * 60; // 24 שעות אחורה - כדי למצוא peers גם אם פרסמו מוקדם יותר
   const CHUNK_SIZE = 16384; // 16KB chunks
-  const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || ['wss://nos.lol']));
+  const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || ['wss://nos.lol', 'wss://nostr-02.uid.ovh']));
   // זיהוי מובייל להתאמת משאבים
   const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
@@ -119,9 +119,9 @@
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
       : 5; // ננסה עד 5 peers לפני fallback
   const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 15000; // 15 שניות - מהיר יותר לעבור ל-fallback | HYPER CORE TECH
-  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 6000; // 6 שניות לתשובה - מספיק זמן לריליים איטיים | HYPER CORE TECH
-  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 2; // 2 ניסיונות - נותן הזדמנות שנייה
-  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 1000; // שנייה בין ניסיונות
+  const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 4000; // 4 שניות לתשובה - מהיר יותר | HYPER CORE TECH
+  const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 1; // ניסיון אחד בלבד - עוברים ל-peer הבא מהר
+  const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 500; // חצי שנייה בין ניסיונות
 
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
@@ -134,28 +134,11 @@
   const HEARTBEAT_INTERVAL = 60000;       // שליחת heartbeat כל דקה
   const HEARTBEAT_LOOKBACK = 120;         // חיפוש heartbeats מ-2 דקות אחורה
   
-  // חלק Peer Scoring (p2p-video-sharing.js) – מערכת ניקוד peers לסקייל גדול | HYPER CORE TECH
-  const PEER_SCORE_SUCCESS = 20;           // ניקוד להצלחה
-  const PEER_SCORE_FAILURE = -15;          // ניקוד לכישלון
-  const PEER_SCORE_TIMEOUT = -10;          // ניקוד ל-timeout
-  const PEER_SCORE_MAX = 100;              // ניקוד מקסימלי
-  const PEER_SCORE_MIN = -50;              // ניקוד מינימלי (מתחת לזה - לא מנסים)
-  const PEER_SCORE_TTL = 5 * 60 * 1000;    // TTL לניקוד - 5 דקות
-  const PEER_CACHE_MAX_SIZE = 100;         // מקסימום peers ב-cache
-  const PEER_DISCOVERY_LIMIT = 15;         // מקסימום peers לחפש מ-relay
-  const PEER_HEARTBEAT_MAX_AGE = 3 * 60 * 1000; // heartbeat תקף עד 3 דקות
-  
   // חלק Guest P2P (p2p-video-sharing.js) – הגדרות אופטימיזציה לאורחים | HYPER CORE TECH
-  const GUEST_BLOSSOM_FIRST_POSTS = 5;    // אורחים: 5 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
-  const GUEST_P2P_TIMEOUT = 4000;         // timeout ל-P2P לאורחים (4 שניות - מספיק לחיבור)
-  const GUEST_MAX_PEER_SEARCH_TIME = 3000; // זמן מקסימלי לחיפוש peers לאורחים (3 שניות - מספיק למצוא peers)
-  const GUEST_MAX_PEERS_TO_TRY = 3;       // אורחים ינסו 3 peers לפני fallback
-  
-  // חלק Multi-Source (p2p-video-sharing.js) – הורדה מקבילית ממספר מקורות | HYPER CORE TECH
-  const MULTI_SOURCE_ENABLED = true;      // הפעלת הורדה מקבילית
-  const MULTI_SOURCE_MAX_PEERS = 2;       // מקסימום 2 peers במקביל (איזון בין מהירות לעומס)
-  const MULTI_SOURCE_MIN_FILE_SIZE = 500 * 1024; // רק לקבצים מעל 500KB (לא שווה לקבצים קטנים)
-  const MULTI_SOURCE_MOBILE_ENABLED = false; // מושבת במובייל (חסכון במשאבים)
+  const GUEST_BLOSSOM_FIRST_POSTS = 10;   // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
+  const GUEST_P2P_TIMEOUT = 2000;         // timeout קצר ל-P2P לאורחים (2 שניות)
+  const GUEST_MAX_PEER_SEARCH_TIME = 1500; // זמן מקסימלי לחיפוש peers לאורחים (1.5 שניות)
+  const GUEST_MAX_PEERS_TO_TRY = 2;       // אורחים ינסו רק 2 peers לפני fallback
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -211,9 +194,6 @@
     // חלק Leader Election (p2p-video-sharing.js) – מניעת כפילויות בין לשוניות | HYPER CORE TECH
     isLeader: false,                  // האם הלשונית הזו היא המנהיגה
     tabId: Math.random().toString(36).substr(2, 9), // מזהה ייחודי ללשונית
-    // חלק Peer Scoring (p2p-video-sharing.js) – מטמון ניקוד peers | HYPER CORE TECH
-    peerScores: new Map(),            // pubkey -> { score, lastSeen, successCount, failCount, lastHeartbeat }
-    peerHeartbeats: new Map(),        // pubkey -> timestamp (מתי נראה אחרונה)
   };
   
   // חלק Leader Election (p2p-video-sharing.js) – BroadcastChannel לתקשורת בין לשוניות | HYPER CORE TECH
@@ -752,8 +732,6 @@
           onevent: (event) => {
             if (event.pubkey && event.pubkey !== App.publicKey) {
               uniquePeers.add(event.pubkey);
-              // עדכון heartbeat ל-peer scoring
-              updatePeerHeartbeat(event.pubkey, event.created_at * 1000);
             }
           },
           oneose: () => {
@@ -877,179 +855,6 @@
     state.consecutiveP2PFailures = 0;
   }
 
-  // חלק Peer Scoring (p2p-video-sharing.js) – מערכת ניקוד peers לסקייל גדול | HYPER CORE TECH
-  
-  // ניקוי ה-cache מ-peers ישנים
-  function cleanupPeerScores() {
-    const now = Date.now();
-    const toDelete = [];
-    
-    state.peerScores.forEach((data, pubkey) => {
-      // מחיקה לפי TTL
-      if (now - data.lastSeen > PEER_SCORE_TTL) {
-        toDelete.push(pubkey);
-      }
-    });
-    
-    toDelete.forEach(pubkey => state.peerScores.delete(pubkey));
-    
-    // הגבלת גודל - שומרים רק את ה-peers הכי טובים
-    if (state.peerScores.size > PEER_CACHE_MAX_SIZE) {
-      const sorted = [...state.peerScores.entries()]
-        .sort((a, b) => b[1].score - a[1].score)
-        .slice(0, PEER_CACHE_MAX_SIZE);
-      state.peerScores = new Map(sorted);
-    }
-  }
-  
-  // עדכון ניקוד peer
-  function updatePeerScore(pubkey, delta, reason = '') {
-    if (!pubkey) return;
-    
-    const existing = state.peerScores.get(pubkey) || {
-      score: 0,
-      lastSeen: Date.now(),
-      successCount: 0,
-      failCount: 0,
-      lastHeartbeat: 0
-    };
-    
-    existing.score = Math.max(PEER_SCORE_MIN, Math.min(PEER_SCORE_MAX, existing.score + delta));
-    existing.lastSeen = Date.now();
-    
-    if (delta > 0) {
-      existing.successCount++;
-    } else if (delta < 0) {
-      existing.failCount++;
-    }
-    
-    state.peerScores.set(pubkey, existing);
-    
-    log('peer', `🎯 Peer score: ${delta > 0 ? '+' : ''}${delta}`, {
-      peer: pubkey.slice(0, 8),
-      score: existing.score,
-      reason
-    });
-    
-    // ניקוי תקופתי
-    if (state.peerScores.size > PEER_CACHE_MAX_SIZE * 1.5) {
-      cleanupPeerScores();
-    }
-  }
-  
-  // רישום הצלחה
-  function recordPeerSuccess(pubkey) {
-    updatePeerScore(pubkey, PEER_SCORE_SUCCESS, 'success');
-  }
-  
-  // רישום כישלון
-  function recordPeerFailure(pubkey) {
-    updatePeerScore(pubkey, PEER_SCORE_FAILURE, 'failure');
-  }
-  
-  // רישום timeout
-  function recordPeerTimeout(pubkey) {
-    updatePeerScore(pubkey, PEER_SCORE_TIMEOUT, 'timeout');
-  }
-  
-  // עדכון heartbeat של peer
-  function updatePeerHeartbeat(pubkey, timestamp) {
-    if (!pubkey) return;
-    state.peerHeartbeats.set(pubkey, timestamp || Date.now());
-    
-    // עדכון גם ב-peerScores
-    const existing = state.peerScores.get(pubkey);
-    if (existing) {
-      existing.lastHeartbeat = timestamp || Date.now();
-      existing.lastSeen = Date.now();
-    }
-  }
-  
-  // בדיקה אם peer פעיל (לפי heartbeat)
-  function isPeerActive(pubkey) {
-    const heartbeat = state.peerHeartbeats.get(pubkey);
-    if (!heartbeat) return true; // אם אין מידע - נניח שפעיל
-    return Date.now() - heartbeat < PEER_HEARTBEAT_MAX_AGE;
-  }
-  
-  // בדיקה אם כדאי לנסות peer (לפי ניקוד)
-  function shouldTryPeer(pubkey) {
-    const data = state.peerScores.get(pubkey);
-    if (!data) return true; // אין מידע - ננסה
-    
-    // אם הניקוד נמוך מדי - לא מנסים
-    if (data.score <= PEER_SCORE_MIN) {
-      log('info', `⛔ דולג על peer עם ניקוד נמוך`, { peer: pubkey.slice(0, 8), score: data.score });
-      return false;
-    }
-    
-    return true;
-  }
-  
-  // מיון peers לפי ניקוד (הכי טובים ראשונים)
-  function sortPeersByScore(peers) {
-    if (!Array.isArray(peers) || peers.length === 0) return peers;
-    
-    return [...peers].sort((a, b) => {
-      const scoreA = state.peerScores.get(a)?.score || 0;
-      const scoreB = state.peerScores.get(b)?.score || 0;
-      
-      // ניקוד גבוה יותר = ראשון
-      if (scoreB !== scoreA) return scoreB - scoreA;
-      
-      // אם אותו ניקוד - לפי heartbeat אחרון
-      const heartbeatA = state.peerHeartbeats.get(a) || 0;
-      const heartbeatB = state.peerHeartbeats.get(b) || 0;
-      return heartbeatB - heartbeatA;
-    });
-  }
-  
-  // סינון peers לא פעילים ועם ניקוד נמוך
-  function filterAndSortPeers(peers) {
-    if (!Array.isArray(peers) || peers.length === 0) return peers;
-    
-    // סינון peers לא פעילים ועם ניקוד נמוך
-    const filtered = peers.filter(peer => {
-      // בדיקת ניקוד
-      if (!shouldTryPeer(peer)) return false;
-      
-      // בדיקת heartbeat (אם יש מידע)
-      if (!isPeerActive(peer)) {
-        log('info', `⏰ דולג על peer לא פעיל`, { peer: peer.slice(0, 8) });
-        return false;
-      }
-      
-      return true;
-    });
-    
-    // מיון לפי ניקוד
-    return sortPeersByScore(filtered);
-  }
-  
-  // קבלת סטטיסטיקות peer scoring
-  function getPeerScoringStats() {
-    const scores = [...state.peerScores.entries()];
-    const active = scores.filter(([_, d]) => d.score > 0).length;
-    const inactive = scores.filter(([_, d]) => d.score <= 0).length;
-    const blocked = scores.filter(([_, d]) => d.score <= PEER_SCORE_MIN).length;
-    
-    return {
-      total: scores.length,
-      active,
-      inactive,
-      blocked,
-      topPeers: scores
-        .sort((a, b) => b[1].score - a[1].score)
-        .slice(0, 5)
-        .map(([pubkey, data]) => ({
-          peer: pubkey.slice(0, 8),
-          score: data.score,
-          success: data.successCount,
-          fail: data.failCount
-        }))
-    };
-  }
-
   // חלק Network Tiers (p2p-video-sharing.js) – הגדלת מונה כשלונות ובדיקה אם צריך fallback | HYPER CORE TECH
   function incrementFailuresAndCheckFallback() {
     state.consecutiveP2PFailures++;
@@ -1059,7 +864,7 @@
   // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים ומסודרים | HYPER CORE TECH
   // סטטיסטיקות גלובליות לסיכום
   const p2pStats = {
-    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, fromMultiSource: 0, failed: 0 },
+    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, failed: 0 },
     shares: { total: 0, success: 0, failed: 0 },
     lastSummaryTime: 0
   };
@@ -1114,13 +919,11 @@
   // חלק P2P (p2p-video-sharing.js) – הדפסת סיכום סטטיסטיקות | HYPER CORE TECH
   function printP2PStats() {
     const { downloads, shares } = p2pStats;
-    const multiSourcePct = downloads.fromP2P > 0 ? Math.round((downloads.fromMultiSource / downloads.fromP2P) * 100) : 0;
     console.log('%c┌──────────────────────────────────────────────────┐', 'color: #673AB7; font-weight: bold');
     console.log('%c│           📊 סיכום מערכת P2P                     │', 'color: #673AB7; font-weight: bold');
     console.log('%c├──────────────────────────────────────────────────┤', 'color: #673AB7');
     console.log(`%c│ 📥 הורדות: ${downloads.total} סה"כ                              │`, 'color: #2196F3');
     console.log(`%c│    └─ Cache: ${downloads.fromCache} | Blossom: ${downloads.fromBlossom} | P2P: ${downloads.fromP2P} | נכשל: ${downloads.failed}`, 'color: #2196F3');
-    console.log(`%c│    └─ Multi-Source: ${downloads.fromMultiSource} (${multiSourcePct}% מ-P2P)`, 'color: #FF9800');
     console.log(`%c│ 📤 שיתופים: ${shares.total} סה"כ (${shares.success} הצליחו)       │`, 'color: #4CAF50');
     console.log('%c└──────────────────────────────────────────────────┘', 'color: #673AB7; font-weight: bold');
     p2pStats.lastSummaryTime = Date.now();
@@ -1360,19 +1163,27 @@
     }
   }
 
-  // חלק P2P (p2p-video-sharing.js) – חיפוש peers עם קובץ + Peer Scoring | HYPER CORE TECH
+  // חלק P2P (p2p-video-sharing.js) – חיפוש peers עם קובץ
   async function findPeersWithFile(hash) {
+    // חלק Peer Exchange – בדיקה ב-cache מקומי קודם | HYPER CORE TECH
+    if (App.PeerExchange && typeof App.PeerExchange.findPeersWithFileLocally === 'function') {
+      const localPeers = App.PeerExchange.findPeersWithFileLocally(hash);
+      if (localPeers && localPeers.length > 0) {
+        log('info', `📋 נמצאו peers ב-cache מקומי`, { count: localPeers.length, hash: hash.slice(0, 12) });
+        return localPeers;
+      }
+    }
+    
     return new Promise((resolve) => {
       const relays = getP2PRelays();
       const sinceTimestamp = Math.floor(Date.now() / 1000) - PEER_DISCOVERY_LOOKBACK;
 
-      const peerData = new Map(); // pubkey -> { created_at, expires }
+      const peers = new Set();
       const filters = [{
         kinds: [FILE_AVAILABILITY_KIND],
         '#t': ['p2p-file'],
         '#x': [hash],
         since: sinceTimestamp,
-        limit: PEER_DISCOVERY_LIMIT * 2, // מבקשים יותר כי נסנן אחרי כך
       }];
 
       let finished = false;
@@ -1380,34 +1191,22 @@
       let sub;
       let eventCount = 0;
 
-      const finalize = () => {
-        if (finished) return;
-        finished = true;
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        if (sub && typeof sub.close === 'function') {
-          try { sub.close(); } catch (err) {}
+      const finalize = (peerArray) => {
+        if (finished) {
+          return;
         }
-        
-        // עדכון heartbeats לכל ה-peers שמצאנו
-        peerData.forEach((data, pubkey) => {
-          updatePeerHeartbeat(pubkey, data.created_at * 1000);
-        });
-        
-        // סינון ומיון לפי peer scoring
-        const rawPeers = Array.from(peerData.keys());
-        const sortedPeers = filterAndSortPeers(rawPeers);
-        
-        // הגבלת תוצאות
-        const limitedPeers = sortedPeers.slice(0, PEER_DISCOVERY_LIMIT);
-        
-        log('info', `📋 חיפוש peers הושלם`, { 
-          events: eventCount, 
-          found: rawPeers.length,
-          filtered: sortedPeers.length,
-          returned: limitedPeers.length
-        });
-        
-        resolve(limitedPeers);
+        finished = true;
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+        }
+        if (sub && typeof sub.close === 'function') {
+          try {
+            sub.close();
+          } catch (err) {
+            console.warn('Failed closing subscription', err);
+          }
+        }
+        resolve(peerArray);
       };
 
       try {
@@ -1418,11 +1217,9 @@
             eventCount++;
             
             // דילוג על events שלי
-            if (event.pubkey === App.publicKey) return;
-            
-            // דילוג על מפתחות אורחים
-            const keys = getEffectiveKeys();
-            if (keys.publicKey && event.pubkey === keys.publicKey) return;
+            if (event.pubkey === App.publicKey) {
+              return;
+            }
 
             // בדיקת expires
             const expiresTag = event.tags.find(t => t[0] === 'expires');
@@ -1430,130 +1227,52 @@
             const now = Date.now();
 
             if (expires && expires > now) {
-              // שומרים רק את ה-event האחרון לכל peer
-              const existing = peerData.get(event.pubkey);
-              if (!existing || event.created_at > existing.created_at) {
-                peerData.set(event.pubkey, { 
-                  created_at: event.created_at, 
-                  expires 
-                });
-              }
-              
-              // לוג רק ל-peers חדשים
-              if (!existing) {
-                log('peer', `👤 peer #${peerData.size}`, { pubkey: event.pubkey.slice(0, 8) });
-              }
+              peers.add(event.pubkey);
+              log('peer', `👤 peer #${peers.size}`, { pubkey: event.pubkey.slice(0, 8) });
             }
           },
-          oneose: () => finalize()
+          oneose: () => {
+            const peerArray = Array.from(peers);
+            log('info', `📋 חיפוש peers הושלם`, { events: eventCount, peers: peerArray.length });
+            finalize(peerArray);
+          }
         });
 
         // timeout
         timeoutHandle = setTimeout(() => {
+          const peerArray = Array.from(peers);
           log('info', `⏱️ timeout בחיפוש (${PEER_DISCOVERY_TIMEOUT}ms)`, {
             eventsReceivedSoFar: eventCount,
-            peersFound: peerData.size
+            peersFound: peerArray.length
           });
-          finalize();
+          finalize(peerArray);
         }, PEER_DISCOVERY_TIMEOUT);
 
       } catch (err) {
         log('error', `❌ כשלון בחיפוש peers: ${err.message}`, { 
-          error: err.toString()
+          error: err.toString(),
+          stack: err.stack 
         });
-        resolve([]);
+        finalize([]);
       }
     });
   }
 
-  // חלק Multi-Source (p2p-video-sharing.js) – הורדה מקבילית מכמה peers | HYPER CORE TECH
-  async function downloadFromMultiplePeers(peers, hash, timeout) {
-    const peersToUse = peers.slice(0, MULTI_SOURCE_MAX_PEERS);
-    log('download', `🚀 Multi-Source: מנסה ${peersToUse.length} peers במקביל`, {
-      peers: peersToUse.map(p => p.slice(0, 8)),
-      hash: hash.slice(0, 12)
-    });
-
-    // יוצרים Promise לכל peer
-    const downloadPromises = peersToUse.map((peer, index) => {
-      return new Promise(async (resolve, reject) => {
-        try {
-          const result = await Promise.race([
-            downloadFromPeer(peer, hash),
-            sleep(timeout).then(() => { throw new Error('timeout'); })
-          ]);
-          resolve({ success: true, peer, result, index });
-        } catch (err) {
-          resolve({ success: false, peer, error: err.message, index });
-        }
-      });
-    });
-
-    // מחכים לראשון שמצליח (Promise.any-like behavior)
-    const results = [];
-    let winner = null;
-
-    // מריצים במקביל ומחכים לכולם
-    const allResults = await Promise.all(downloadPromises);
-    
-    // מוצאים את הראשון שהצליח
-    for (const result of allResults) {
-      if (result.success && !winner) {
-        winner = result;
-        log('success', `🏆 Multi-Source: peer ${result.peer.slice(0, 8)} סיים ראשון!`);
-      } else if (!result.success) {
-        log('info', `⚠️ Multi-Source: peer ${result.peer.slice(0, 8)} נכשל: ${result.error}`);
-      }
-    }
-
-    if (winner) {
-      return winner.result;
-    }
-
-    throw new Error('All peers failed in multi-source download');
-  }
-
-  // בדיקה אם להשתמש ב-Multi-Source
-  function shouldUseMultiSource(peers, isGuest) {
-    if (!MULTI_SOURCE_ENABLED) return false;
-    if (IS_MOBILE && !MULTI_SOURCE_MOBILE_ENABLED) return false;
-    if (peers.length < 2) return false;
-    if (isGuest && IS_MOBILE) return false; // אורחים במובייל - לא multi-source
-    return true;
-  }
-
-  // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer + Peer Scoring | HYPER CORE TECH
+  // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
   async function downloadFromPeer(peerPubkey, hash) {
     for (let attempt = 1; attempt <= ANSWER_RETRY_LIMIT; attempt++) {
       try {
-        const result = await attemptPeerDownload(peerPubkey, hash, attempt);
-        // הצלחה! רושמים ניקוד חיובי
-        recordPeerSuccess(peerPubkey);
-        return result;
+        return await attemptPeerDownload(peerPubkey, hash, attempt);
       } catch (err) {
         const isAnswerTimeout = err && err.message === 'Answer timeout';
-        const isDownloadTimeout = err && err.message === 'Download timeout';
-        
-        if (isAnswerTimeout) {
-          // Answer timeout - ניקוד שלילי
-          recordPeerTimeout(peerPubkey);
-          
-          if (attempt < ANSWER_RETRY_LIMIT) {
-            log('info', `🔁 Answer timeout – מנסה שוב (${attempt + 1}/${ANSWER_RETRY_LIMIT})`, {
-              peer: peerPubkey.slice(0, 16) + '...',
-              hash: hash.slice(0, 16) + '...'
-            });
-            await sleep(ANSWER_RETRY_DELAY);
-            continue;
-          }
-        } else if (isDownloadTimeout) {
-          // Download timeout - ניקוד שלילי
-          recordPeerTimeout(peerPubkey);
-        } else {
-          // כישלון אחר - ניקוד שלילי יותר
-          recordPeerFailure(peerPubkey);
+        if (isAnswerTimeout && attempt < ANSWER_RETRY_LIMIT) {
+          log('info', `🔁 Answer timeout – מנסה שוב (${attempt + 1}/${ANSWER_RETRY_LIMIT})`, {
+            peer: peerPubkey.slice(0, 16) + '...',
+            hash: hash.slice(0, 16) + '...'
+          });
+          await sleep(ANSWER_RETRY_DELAY);
+          continue;
         }
-        
         throw err;
       }
     }
@@ -1626,9 +1345,16 @@
 
               if (msg.type === 'metadata') {
                 totalSize = msg.size;
+                
+                // חלק P2P Metadata – עיבוד metadata מורחב | HYPER CORE TECH
+                if (App.MetadataTransfer && typeof App.MetadataTransfer.processReceivedMetadata === 'function') {
+                  App.MetadataTransfer.processReceivedMetadata(msg, hash);
+                }
+                
                 log('info', `📊 קיבלתי metadata`, {
                   size: totalSize,
-                  mimeType: msg.mimeType
+                  mimeType: msg.mimeType,
+                  extended: !!msg.postMetadata
                 });
               } else if (msg.type === 'complete') {
                 log('success', `✅ קיבלתי את כל הקובץ!`, {
@@ -1643,6 +1369,11 @@
                 log('error', `❌ שגיאה מהשרת: ${msg.message}`);
                 cleanup();
                 reject(new Error(msg.message));
+              } else {
+                // חלק Peer Exchange – טיפול בהודעות נוספות | HYPER CORE TECH
+                if (App.PeerExchange && typeof App.PeerExchange.handleIncomingMessage === 'function') {
+                  App.PeerExchange.handleIncomingMessage(msg, peerPubkey, channel);
+                }
               }
             } else {
               const chunkSize = event.data.byteLength || event.data.size;
@@ -1920,16 +1651,24 @@
           log('success', `✅ data channel נפתח - מתחיל שליחה!`);
 
           try {
-            // שליחת metadata
-            channel.send(JSON.stringify({
+            // שליחת metadata - עם הרחבה אם המודול זמין
+            let metadataMsg = {
               type: 'metadata',
               size: fileData.size,
               mimeType: fileData.mimeType
-            }));
+            };
+            
+            // חלק P2P Metadata – הרחבת הודעה עם מידע נוסף | HYPER CORE TECH
+            if (App.MetadataTransfer && typeof App.MetadataTransfer.extendMetadataMessage === 'function') {
+              metadataMsg = App.MetadataTransfer.extendMetadataMessage(metadataMsg, hash, fileData.eventId);
+            }
+            
+            channel.send(JSON.stringify(metadataMsg));
 
             log('upload', `📊 שלחתי metadata`, {
               size: fileData.size,
-              mimeType: fileData.mimeType
+              mimeType: fileData.mimeType,
+              extended: !!metadataMsg.postMetadata
             });
 
             // שליחת הקובץ ב-chunks
@@ -2298,59 +2037,32 @@
           }
         }
 
-        // ניסיון P2P - עם Multi-Source אם זמין | HYPER CORE TECH
-        const useMultiSource = shouldUseMultiSource(peers, isGuest);
-        
-        if (useMultiSource) {
-          // Multi-Source: מנסים 2 peers במקביל
+        // ניסיון P2P - עם הגבלות לאורחים
+        let attemptCount = 0;
+        for (const peer of peers) {
+          if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
+          attemptCount++;
+          
           try {
-            const result = await downloadFromMultiplePeers(peers, hash, p2pTimeout);
-            
-            p2pStats.downloads.fromP2P++;
-            p2pStats.downloads.fromMultiSource++;
-            log('success', `מ-P2P (Multi-Source)`, { 
-              peers: peers.slice(0, MULTI_SOURCE_MAX_PEERS).map(p => p.slice(0,8)).join(','),
-              size: Math.round(result.blob.size/1024)+'KB'
+            const downloadPromise = downloadFromPeer(peer, hash);
+            const timeoutPromise = sleep(p2pTimeout).then(() => {
+              throw new Error('timeout');
             });
+            const result = await Promise.race([downloadPromise, timeoutPromise]);
+
+            p2pStats.downloads.fromP2P++;
+            log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
 
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
             }
             await registerFileAvailability(hash, result.blob, result.mimeType);
             resetConsecutiveFailures();
-            return { blob: result.blob, source: 'p2p-multi', tier };
-          } catch (multiErr) {
-            log('info', `Multi-Source נכשל, עובר ל-fallback`, { error: multiErr.message });
-            // ממשיכים ל-fallback
-          }
-        } else {
-          // Single-Source: מנסים peer אחד בכל פעם
-          let attemptCount = 0;
-          for (const peer of peers) {
-            if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
-            attemptCount++;
-            
-            try {
-              const downloadPromise = downloadFromPeer(peer, hash);
-              const timeoutPromise = sleep(p2pTimeout).then(() => {
-                throw new Error('timeout');
-              });
-              const result = await Promise.race([downloadPromise, timeoutPromise]);
+            return { blob: result.blob, source: 'p2p', peer, tier };
 
-              p2pStats.downloads.fromP2P++;
-              log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
-
-              if (typeof App.cacheMedia === 'function') {
-                await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
-              }
-              await registerFileAvailability(hash, result.blob, result.mimeType);
-              resetConsecutiveFailures();
-              return { blob: result.blob, source: 'p2p', peer, tier };
-
-            } catch (err) {
-              // ממשיכים לנסות peers נוספים - לא יוצאים מהלולאה
-              continue;
-            }
+          } catch (err) {
+            // ממשיכים לנסות peers נוספים - לא יוצאים מהלולאה
+            continue;
           }
         }
 
@@ -2575,7 +2287,6 @@
 
   // חלק סטטיסטיקות (p2p-video-sharing.js) – API לקבלת סטטיסטיקות P2P לממשק | HYPER CORE TECH
   function getP2PStats() {
-    const peerScoring = getPeerScoringStats();
     return {
       downloads: { ...p2pStats.downloads },
       shares: { ...p2pStats.shares },
@@ -2588,12 +2299,6 @@
       availableFiles: state.availableFiles.size,
       isLeader: state.isLeader,
       isGuest: isGuestMode(),
-      // חלק Peer Scoring – סטטיסטיקות ניקוד | HYPER CORE TECH
-      peerScoring: {
-        total: peerScoring.total,
-        active: peerScoring.active,
-        blocked: peerScoring.blocked,
-      },
     };
   }
 
@@ -2635,10 +2340,6 @@
     getGuestKeys: () => state.guestKeys, // קבלת מפתחות אורח
     // חלק סטטיסטיקות – API לקבלת סטטיסטיקות P2P | HYPER CORE TECH
     getP2PStats,                         // קבלת כל הסטטיסטיקות לממשק
-    // חלק Peer Scoring – API לניהול ניקוד peers | HYPER CORE TECH
-    getPeerScoringStats,                 // קבלת סטטיסטיקות ניקוד
-    getPeerScores: () => [...state.peerScores.entries()].map(([k, v]) => ({ peer: k.slice(0, 8), ...v })),
-    cleanupPeerScores,                   // ניקוי ידני של ה-cache
   });
 
   // אתחול
@@ -2764,6 +2465,8 @@
     searchForPeers: findPeersWithFile,
     setChatFileTransferActivePeer: (peer) => { state.activeChatPeer = peer; },
     _p2pSignalsSub: null,
+    // חלק Peer Exchange – חשיפת קבצים זמינים | HYPER CORE TECH
+    getAvailableFiles: () => state.availableFiles,
     // חלק Network Tiers - API לסטטיסטיקות | HYPER CORE TECH
     getP2PStats: () => ({ 
       ...p2pStats,
@@ -2775,6 +2478,9 @@
       activeUploadCount: state.activeUploadCount,
       activeDownload: state.activeDownload ? { ...state.activeDownload } : null,
       activeUpload: state.activeUpload ? { ...state.activeUpload } : null,
+      // חלק Peer Exchange – סטטיסטיקות נוספות | HYPER CORE TECH
+      peerExchange: App.PeerExchange ? App.PeerExchange.getStats() : null,
+      metadataTransfer: App.MetadataTransfer ? App.MetadataTransfer.getStats() : null,
     }),
     printP2PStats,
   });
