@@ -1086,11 +1086,18 @@
       debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
       
       var style = document.createElement('style');
-      style.textContent = '#mobileDebugPanel{position:fixed;bottom:0;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:999999;border-top:2px solid #0f0;display:flex;flex-direction:column;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}#debugContent.collapsed{display:none;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#0ff;}';
+      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#0ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:40px;height:40px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:16px;z-index:9998;cursor:pointer;}';
       
       document.addEventListener('DOMContentLoaded', function() {
         document.head.appendChild(style);
         document.body.appendChild(debugPanel);
+        
+        // כפתור פתיחה צף
+        var openBtn = document.createElement('button');
+        openBtn.id = 'debugOpenBtn';
+        openBtn.textContent = '🔧';
+        openBtn.title = 'פתח Debug Console';
+        document.body.appendChild(openBtn);
         
         var content = document.getElementById('debugContent');
         var toggle = document.getElementById('debugToggle');
@@ -1098,9 +1105,14 @@
         var clear = document.getElementById('debugClear');
         var maxLines = 100;
         
+        openBtn.onclick = function() {
+          debugPanel.classList.add('open');
+          openBtn.style.display = 'none';
+        };
+        
         toggle.onclick = function() {
-          content.classList.toggle('collapsed');
-          toggle.textContent = content.classList.contains('collapsed') ? '▲' : '▼';
+          debugPanel.classList.remove('open');
+          openBtn.style.display = 'block';
         };
         
         copy.onclick = function() {
