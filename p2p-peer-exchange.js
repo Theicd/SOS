@@ -9,7 +9,7 @@
  * - Signal Relay: העברת WebRTC signals דרך peers מתווכים (Mesh Network)
  * - Persistent Connections: שימוש חוזר בחיבורים קיימים
  * 
- * גרסה: 2.0.0-mesh-network
+ * גרסה: 2.1.0-auto-exchange
  * תאריך: 8 בדצמבר 2025
  */
 

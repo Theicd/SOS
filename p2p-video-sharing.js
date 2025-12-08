@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.13.0-ios-compat'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.14.0-persistent-priority'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -1186,12 +1186,20 @@
 
   // חלק P2P (p2p-video-sharing.js) – חיפוש peers עם קובץ (עם סינון לפי heartbeat) | HYPER CORE TECH
   async function findPeersWithFile(hash) {
+    // חלק Persistent Connections – בדיקה אם יש חיבור קיים לפני חיפוש ב-Relay | HYPER CORE TECH
+    const connectedPeers = getConnectedPeersWithFile(hash);
+    if (connectedPeers.length > 0) {
+      log('info', `🔗 נמצאו peers מחוברים עם הקובץ`, { count: connectedPeers.length, hash: hash.slice(0, 12) });
+      return connectedPeers;
+    }
+    
     // חלק Peer Exchange – בדיקה ב-cache מקומי קודם | HYPER CORE TECH
     if (App.PeerExchange && typeof App.PeerExchange.findPeersWithFileLocally === 'function') {
       const localPeers = App.PeerExchange.findPeersWithFileLocally(hash);
       if (localPeers && localPeers.length > 0) {
         log('info', `📋 נמצאו peers ב-cache מקומי`, { count: localPeers.length, hash: hash.slice(0, 12) });
-        return localPeers;
+        // העדפת peers מחוברים בראש הרשימה
+        return prioritizeConnectedPeers(localPeers);
       }
     }
     
@@ -1362,6 +1370,17 @@
       peer: peerPubkey.slice(0, 8),
       totalPersistent: state.persistentPeers.size
     });
+    
+    // חלק Peer Exchange – שליחת Exchange מיד אחרי חיבור מוצלח | HYPER CORE TECH
+    if (App.PeerExchange && typeof App.PeerExchange.sendPeerExchangeRequest === 'function') {
+      try {
+        App.PeerExchange.markPeerConnected(peerPubkey, channel);
+        App.PeerExchange.sendPeerExchangeRequest(channel);
+        log('info', `🔄 שלחתי Exchange request ל-peer חדש`, { peer: peerPubkey.slice(0, 8) });
+      } catch (e) {
+        // לא קריטי
+      }
+    }
   }
   
   // חלק Persistent Connections (p2p-video-sharing.js) – ניקוי חיבורים ישנים | HYPER CORE TECH
@@ -1389,6 +1408,50 @@
   
   // ניקוי כל דקה
   setInterval(cleanupPersistentConnections, 60000);
+
+  // חלק Persistent Connections (p2p-video-sharing.js) – מציאת peers מחוברים שיש להם קובץ | HYPER CORE TECH
+  function getConnectedPeersWithFile(hash) {
+    const connectedPeers = [];
+    
+    // בדיקה ב-PeerExchange אם יש מידע על הקובץ
+    if (App.PeerExchange && typeof App.PeerExchange.findPeersWithFileLocally === 'function') {
+      const peersWithFile = App.PeerExchange.findPeersWithFileLocally(hash);
+      
+      for (const pubkey of peersWithFile) {
+        const conn = state.persistentPeers.get(pubkey);
+        if (conn && conn.pc.connectionState === 'connected' && 
+            conn.channel && conn.channel.readyState === 'open') {
+          connectedPeers.push(pubkey);
+        }
+      }
+    }
+    
+    return connectedPeers;
+  }
+  
+  // חלק Persistent Connections (p2p-video-sharing.js) – העדפת peers מחוברים בראש הרשימה | HYPER CORE TECH
+  function prioritizeConnectedPeers(peers) {
+    if (!Array.isArray(peers) || peers.length === 0) return peers;
+    
+    const connected = [];
+    const notConnected = [];
+    
+    for (const pubkey of peers) {
+      const conn = state.persistentPeers.get(pubkey);
+      if (conn && conn.pc.connectionState === 'connected' && 
+          conn.channel && conn.channel.readyState === 'open') {
+        connected.push(pubkey);
+      } else {
+        notConnected.push(pubkey);
+      }
+    }
+    
+    if (connected.length > 0) {
+      log('info', `🔗 העדפת ${connected.length} peers מחוברים`, { total: peers.length });
+    }
+    
+    return [...connected, ...notConnected];
+  }
 
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
   async function downloadFromPeer(peerPubkey, hash) {
@@ -2271,15 +2334,23 @@
           }
         }
 
+        // חלק Persistent Connections – ניסיון ראשון עם peers מחוברים | HYPER CORE TECH
+        // מיון: peers מחוברים קודם
+        const sortedPeers = prioritizeConnectedPeers(peers);
+        
         // ניסיון P2P - עם הגבלות לאורחים
         let attemptCount = 0;
-        for (const peer of peers) {
+        for (const peer of sortedPeers) {
           if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
           attemptCount++;
           
+          // timeout קצר יותר ל-peers מחוברים (כבר יש חיבור)
+          const isConnected = state.persistentPeers.has(peer);
+          const effectiveTimeout = isConnected ? Math.min(p2pTimeout, 5000) : p2pTimeout;
+          
           try {
             const downloadPromise = downloadFromPeer(peer, hash);
-            const timeoutPromise = sleep(p2pTimeout).then(() => {
+            const timeoutPromise = sleep(effectiveTimeout).then(() => {
               throw new Error('timeout');
             });
             const result = await Promise.race([downloadPromise, timeoutPromise]);
