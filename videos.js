@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.2.9-fast-hybrid';
+const VIDEOS_CODE_VERSION = '2.3.0-ios-compat';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
@@ -885,15 +885,47 @@ function hideCardUntilMediaReady(card) {
   card.style.display = 'none';
 }
 
+// חלק תאימות מכשירים (videos.js) – הצגת placeholder במקום מחיקת כרטיסיה כשהמדיה נכשלת | HYPER CORE TECH
 function handleCardMediaFailure(card, videoId, error) {
-  if (card) {
-    card.remove();
-  }
-  if (videoId) {
-    removeVideoFromState(videoId);
-  }
   if (error) {
     console.warn('[videos] media failed', { videoId, error: error?.message || error });
+  }
+  
+  // במקום למחוק את הכרטיסיה, נציג placeholder עם אפשרות לנסות שוב
+  if (card) {
+    const mediaDiv = card.querySelector('.videos-feed__media');
+    if (mediaDiv) {
+      // הסרת אלמנט הווידאו הכושל
+      const videoEl = mediaDiv.querySelector('video');
+      if (videoEl) videoEl.remove();
+      
+      // הוספת placeholder
+      const placeholder = document.createElement('div');
+      placeholder.className = 'videos-feed__media-placeholder';
+      placeholder.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.6);text-align:center;padding:20px;">
+          <i class="fa-solid fa-video-slash" style="font-size:48px;margin-bottom:16px;opacity:0.5;"></i>
+          <p style="margin:0 0 12px 0;font-size:14px;">לא ניתן לטעון את הסרטון</p>
+          <button class="videos-feed__retry-btn" style="padding:8px 16px;border-radius:20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-size:13px;">
+            <i class="fa-solid fa-rotate-right" style="margin-left:6px;"></i>
+            נסה שוב
+          </button>
+        </div>
+      `;
+      mediaDiv.appendChild(placeholder);
+      
+      // כפתור נסה שוב
+      const retryBtn = placeholder.querySelector('.videos-feed__retry-btn');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          // רענון הדף לניסיון חוזר
+          window.location.reload();
+        });
+      }
+      
+      // סימון הכרטיסיה כמוכנה כדי שתוצג
+      markCardMediaReady(card);
+    }
   }
 }
 
@@ -1169,10 +1201,18 @@ function renderVideoCard(video) {
     const videoEl = document.createElement('video');
     videoEl.controls = false;
     videoEl.muted = typeof window.getMuteState === 'function' ? window.getMuteState() : true;
+    videoEl.defaultMuted = true; // חלק תאימות iOS (videos.js) – מצב השתקה ברירת מחדל | HYPER CORE TECH
     videoEl.loop = true; // לופ כמו טיקטוק
     videoEl.playsInline = true;
+    videoEl.autoplay = false; // חלק תאימות iOS (videos.js) – נשלט ידנית | HYPER CORE TECH
+    
+    // חלק תאימות iOS (videos.js) – תכונות HTML5 נדרשות לספארי | HYPER CORE TECH
     videoEl.setAttribute('playsinline', 'true');
     videoEl.setAttribute('webkit-playsinline', 'true');
+    videoEl.setAttribute('x-webkit-airplay', 'deny');
+    videoEl.setAttribute('disableRemotePlayback', '');
+    videoEl.setAttribute('disablePictureInPicture', '');
+    
     videoEl.preload = 'metadata';
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);

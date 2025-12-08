@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.12.0-delayed-count'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.13.0-ios-compat'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -140,16 +140,16 @@
   const GUEST_MAX_PEER_SEARCH_TIME = 5000; // זמן מקסימלי לחיפוש peers לאורחים (5 שניות)
   const GUEST_MAX_PEERS_TO_TRY = 2;       // אורחים ינסו רק 2 peers לפני fallback
 
-  // חלק P2P (p2p-video-sharing.js) – WebRTC config
+  // חלק P2P (p2p-video-sharing.js) – WebRTC config עם תמיכה מלאה ב-Safari/iOS | HYPER CORE TECH
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
-    ? { iceServers: window.NostrRTC_ICE }
+    ? { iceServers: window.NostrRTC_ICE, bundlePolicy: 'max-bundle', rtcpMuxPolicy: 'require' }
     : {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun2.l.google.com:19302' },
           { urls: 'stun:stun3.l.google.com:19302' },
-          // TURN servers חינמיים לשיפור חיבוריות (במיוחד למובייל)
+          // TURN servers חינמיים לשיפור חיבוריות (במיוחד למובייל ו-Safari)
           {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -159,9 +159,17 @@
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
+          },
+          // TURN עם TCP עבור רשתות מוגבלות (Safari/iOS)
+          {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
           }
         ],
-        iceCandidatePoolSize: 10
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'max-bundle', // חלק תאימות Safari – מאחד את כל ה-streams לחיבור אחד | HYPER CORE TECH
+        rtcpMuxPolicy: 'require'    // חלק תאימות Safari – דורש RTCP multiplexing | HYPER CORE TECH
       };
 
   // חלק P2P (p2p-video-sharing.js) – מצב המערכת
