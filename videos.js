@@ -1213,7 +1213,8 @@ function renderVideoCard(video) {
     videoEl.setAttribute('disableRemotePlayback', '');
     videoEl.setAttribute('disablePictureInPicture', '');
     
-    videoEl.preload = 'metadata';
+    // חלק תאימות iOS (videos.js) – preload=auto נדרש לספארי כדי ש-loadeddata יירה | HYPER CORE TECH
+    videoEl.preload = 'auto';
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
     
@@ -1244,6 +1245,8 @@ function renderVideoCard(video) {
 
     const applyFallbackSrc = () => {
       videoEl.src = video.videoUrl;
+      // חלק תאימות iOS (videos.js) – קריאה ל-load() הכרחית לספארי | HYPER CORE TECH
+      videoEl.load();
     };
 
     // הוספה לתור הסדרתי במקום טעינה ישירה
