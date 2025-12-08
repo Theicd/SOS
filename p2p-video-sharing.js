@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.8.0-peer-exchange'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.9.0-persistent-connections'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -171,6 +171,8 @@
     activePeers: new Map(), // hash -> Set(pubkeys)
     activeConnections: new Map(), // connectionId -> RTCPeerConnection
     pendingConnections: new Map(), // connectionId -> { pc, timeout }
+    // חלק Persistent Connections (p2p-video-sharing.js) – שמירת חיבורים פעילים לשימוש חוזר | HYPER CORE TECH
+    persistentPeers: new Map(), // peerPubkey -> { pc, channel, lastUsed, filesTransferred }
     // חלק WebRTC (p2p-video-sharing.js) – ניהול תור ל-ICE candidates עד שה-remote description מוכן | HYPER CORE TECH
     pendingIceCandidates: new Map(), // connectionId -> RTCIceCandidate[]
     downloadQueue: new Map(), // hash -> Promise
@@ -1258,8 +1260,85 @@
     });
   }
 
+  // חלק Persistent Connections (p2p-video-sharing.js) – בדיקה אם יש חיבור פעיל לשימוש חוזר | HYPER CORE TECH
+  function getPersistentConnection(peerPubkey) {
+    const conn = state.persistentPeers.get(peerPubkey);
+    if (!conn) return null;
+    
+    // בדיקה שהחיבור עדיין פעיל
+    if (conn.pc.connectionState === 'connected' && 
+        conn.channel && conn.channel.readyState === 'open') {
+      conn.lastUsed = Date.now();
+      log('info', `🔄 משתמש בחיבור קיים`, { 
+        peer: peerPubkey.slice(0, 8), 
+        filesTransferred: conn.filesTransferred 
+      });
+      return conn;
+    }
+    
+    // החיבור לא פעיל - מנקים אותו
+    log('info', `🧹 מנקה חיבור לא פעיל`, { peer: peerPubkey.slice(0, 8) });
+    try { conn.channel?.close(); } catch (e) {}
+    try { conn.pc?.close(); } catch (e) {}
+    state.persistentPeers.delete(peerPubkey);
+    return null;
+  }
+  
+  // חלק Persistent Connections (p2p-video-sharing.js) – שמירת חיבור לשימוש חוזר | HYPER CORE TECH
+  function savePersistentConnection(peerPubkey, pc, channel) {
+    state.persistentPeers.set(peerPubkey, {
+      pc,
+      channel,
+      lastUsed: Date.now(),
+      filesTransferred: 1
+    });
+    log('success', `💾 חיבור נשמר לשימוש חוזר`, { 
+      peer: peerPubkey.slice(0, 8),
+      totalPersistent: state.persistentPeers.size
+    });
+  }
+  
+  // חלק Persistent Connections (p2p-video-sharing.js) – ניקוי חיבורים ישנים | HYPER CORE TECH
+  const PERSISTENT_CONNECTION_TTL = 5 * 60 * 1000; // 5 דקות
+  function cleanupPersistentConnections() {
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [pubkey, conn] of state.persistentPeers) {
+      const age = now - conn.lastUsed;
+      const isStale = age > PERSISTENT_CONNECTION_TTL;
+      const isDisconnected = conn.pc.connectionState !== 'connected' || 
+                             !conn.channel || conn.channel.readyState !== 'open';
+      
+      if (isStale || isDisconnected) {
+        try { conn.channel?.close(); } catch (e) {}
+        try { conn.pc?.close(); } catch (e) {}
+        state.persistentPeers.delete(pubkey);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) {
+      log('info', `🧹 נוקו ${cleaned} חיבורים ישנים`, { remaining: state.persistentPeers.size });
+    }
+  }
+  
+  // ניקוי כל דקה
+  setInterval(cleanupPersistentConnections, 60000);
+
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
   async function downloadFromPeer(peerPubkey, hash) {
+    // חלק Persistent Connections – בדיקה אם יש חיבור קיים | HYPER CORE TECH
+    const existingConn = getPersistentConnection(peerPubkey);
+    if (existingConn) {
+      try {
+        const result = await downloadViaPersistentConnection(existingConn, hash, peerPubkey);
+        existingConn.filesTransferred++;
+        return result;
+      } catch (err) {
+        log('info', `⚠️ חיבור קיים נכשל, יוצר חדש`, { error: err.message });
+        state.persistentPeers.delete(peerPubkey);
+      }
+    }
+    
     for (let attempt = 1; attempt <= ANSWER_RETRY_LIMIT; attempt++) {
       try {
         return await attemptPeerDownload(peerPubkey, hash, attempt);
@@ -1276,6 +1355,54 @@
         throw err;
       }
     }
+  }
+  
+  // חלק Persistent Connections (p2p-video-sharing.js) – הורדה דרך חיבור קיים | HYPER CORE TECH
+  function downloadViaPersistentConnection(conn, hash, peerPubkey) {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Persistent download timeout'));
+      }, MAX_DOWNLOAD_TIMEOUT);
+      
+      const chunks = [];
+      let receivedSize = 0;
+      let totalSize = 0;
+      
+      const originalOnMessage = conn.channel.onmessage;
+      
+      conn.channel.onmessage = (event) => {
+        try {
+          if (typeof event.data === 'string') {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'metadata') {
+              totalSize = msg.size;
+              log('info', `📊 [Persistent] קיבלתי metadata`, { size: totalSize });
+            } else if (msg.type === 'complete') {
+              clearTimeout(timeout);
+              conn.channel.onmessage = originalOnMessage;
+              const blob = new Blob(chunks, { type: msg.mimeType });
+              log('success', `✅ [Persistent] הורדה הושלמה`, { size: receivedSize });
+              resolve({ blob, mimeType: msg.mimeType });
+            } else if (msg.type === 'error') {
+              clearTimeout(timeout);
+              conn.channel.onmessage = originalOnMessage;
+              reject(new Error(msg.message));
+            }
+          } else {
+            chunks.push(event.data);
+            receivedSize += event.data.byteLength || event.data.size;
+          }
+        } catch (err) {
+          clearTimeout(timeout);
+          conn.channel.onmessage = originalOnMessage;
+          reject(err);
+        }
+      };
+      
+      // שליחת בקשה לקובץ
+      conn.channel.send(JSON.stringify({ type: 'request', hash }));
+      log('request', `📤 [Persistent] שלחתי בקשה לקובץ`, { hash: hash.slice(0, 12) });
+    });
   }
 
   function attemptPeerDownload(peerPubkey, hash, attemptNumber) {
@@ -1363,7 +1490,19 @@
                 });
 
                 const blob = new Blob(chunks, { type: msg.mimeType });
-                cleanup();
+                
+                // חלק Persistent Connections – שמירת חיבור לשימוש חוזר במקום סגירה | HYPER CORE TECH
+                clearTimeout(timeout);
+                state.pendingConnections.delete(connectionId);
+                state.pendingIceCandidates.delete(connectionId);
+                
+                // שמירת החיבור לשימוש חוזר אם הוא עדיין פעיל
+                if (pc && pc.connectionState === 'connected' && channel && channel.readyState === 'open') {
+                  savePersistentConnection(peerPubkey, pc, channel);
+                } else {
+                  cleanup();
+                }
+                
                 resolve({ blob, mimeType: msg.mimeType });
               } else if (msg.type === 'error') {
                 log('error', `❌ שגיאה מהשרת: ${msg.message}`);
@@ -1498,6 +1637,17 @@
       }
       
       const relays = getP2PRelays();
+      
+      // לוג מפורט לדיבוג שליחת signal
+      log('info', `📤 [DEBUG] שולח signal`, {
+        type,
+        to: peerPubkey.slice(0, 16) + '...',
+        from: keys.publicKey.slice(0, 16) + '...',
+        isGuest: keys.isGuest,
+        encrypted,
+        relays: relays.join(', ')
+      });
+      
       await App.pool.publish(relays, signed);
 
       log('peer', `📡 signal נשלח`, {
@@ -1527,23 +1677,38 @@
       {
         kinds: [FILE_REQUEST_KIND], // 30078 - כל הסיגנלים
         '#p': [keys.publicKey],
-        since: Math.floor(Date.now() / 1000) - 60, // 60 שניות אחורה כדי לתפוס סיגנלים שנשלחו בזמן טעינה
+        since: Math.floor(Date.now() / 1000) - 120, // 120 שניות אחורה (הוגדל מ-60)
       }
     ];
+    
+    // לוג מפורט לדיבוג
+    const relays = getP2PRelays();
+    log('info', '🔍 [DEBUG] פרטי האזנה לסיגנלים', {
+      myPubkey: keys.publicKey.slice(0, 16) + '...',
+      relays: relays.join(', '),
+      filterKind: FILE_REQUEST_KIND,
+      since: filters[0].since,
+      isGuest: keys.isGuest
+    });
 
     try {
-      const relays = getP2PRelays();
       const sub = App.pool.subscribeMany(relays, filters, {
         onevent: async (event) => {
           log('request', `📬 התקבל סיגנל`, {
             kind: event.kind,
             from: event.pubkey.slice(0, 16) + '...',
-            eventId: event.id.slice(0, 8) + '...'
+            eventId: event.id.slice(0, 8) + '...',
+            createdAt: new Date(event.created_at * 1000).toLocaleTimeString()
           });
 
           try {
             const decodedContent = await extractSignalContent(event.content, event.pubkey);
             const message = JSON.parse(decodedContent);
+            
+            log('info', `📨 [DEBUG] סוג סיגנל: ${message.type}`, {
+              from: event.pubkey.slice(0, 8),
+              hasData: !!message.data
+            });
 
             if (message.type === 'file-request') {
               await handleFileRequest(event.pubkey, message.data);
@@ -1554,13 +1719,16 @@
             }
 
           } catch (err) {
-            log('error', `❌ כשלון בעיבוד סיגנל: ${err.message}`);
+            log('error', `❌ כשלון בעיבוד סיגנל: ${err.message}`, { stack: err.stack?.slice(0, 200) });
           }
+        },
+        oneose: () => {
+          log('info', '📭 [DEBUG] סיום קבלת events ישנים (EOSE)');
         }
       });
 
       App._p2pSignalsSub = sub;
-      log('success', '✅ מאזין לסיגנלי P2P');
+      log('success', '✅ מאזין לסיגנלי P2P', { relays: relays.length });
 
     } catch (err) {
       log('error', `❌ כשלון בהאזנה לסיגנלים: ${err.message}`);

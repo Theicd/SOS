@@ -4,7 +4,12 @@
  * מודול זה מרחיב את מערכת ה-P2P עם יכולת שיתוף מידע על peers
  * בין משתמשים, מה שמפחית את העומס על ה-Relays ומאפשר סקייל למיליון משתמשים.
  * 
- * גרסה: 1.0.0
+ * תכונות:
+ * - Peer Exchange Protocol: שיתוף רשימות peers וקבצים בין משתמשים
+ * - Signal Relay: העברת WebRTC signals דרך peers מתווכים (Mesh Network)
+ * - Persistent Connections: שימוש חוזר בחיבורים קיימים
+ * 
+ * גרסה: 2.0.0-mesh-network
  * תאריך: 8 בדצמבר 2025
  */
 
@@ -38,6 +43,9 @@
   const MESSAGE_TYPES = {
     PEER_EXCHANGE_REQUEST: 'peer-exchange-request',
     PEER_EXCHANGE_RESPONSE: 'peer-exchange-response',
+    // חלק Signal Relay (p2p-peer-exchange.js) – הודעות להעברת signals דרך peers | HYPER CORE TECH
+    RELAY_SIGNAL: 'relay-signal',
+    RELAY_SIGNAL_FORWARD: 'relay-signal-forward',
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -57,17 +65,30 @@
     // pubkey -> RTCDataChannel
     activeChannels: new Map(),
     
+    // חלק Signal Relay (p2p-peer-exchange.js) – בקשות signal שממתינות להעברה | HYPER CORE TECH
+    // targetPubkey -> [{ signal, originalSender, timestamp, hops }]
+    pendingRelaySignals: new Map(),
+    
     // סטטיסטיקות
     stats: {
       exchangesSent: 0,
       exchangesReceived: 0,
       peersLearned: 0,
       filesLearned: 0,
+      signalsRelayed: 0,
+      signalsForwarded: 0,
     },
     
     // intervals
     cleanupInterval: null,
     exchangeInterval: null,
+  };
+  
+  // חלק Signal Relay (p2p-peer-exchange.js) – הגדרות Mesh Network | HYPER CORE TECH
+  const RELAY_CONFIG = {
+    MAX_RELAY_HOPS: 2,           // מקסימום 2 קפיצות בין peers
+    SIGNAL_TTL: 30 * 1000,       // 30 שניות - אחרי זה signal פג תוקף
+    MAX_PENDING_SIGNALS: 50,     // מקסימום signals בהמתנה
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -154,6 +175,9 @@
     
     if (channel) {
       state.activeChannels.set(pubkey, channel);
+      
+      // חלק Signal Relay (p2p-peer-exchange.js) – שליחת signals שהמתינו | HYPER CORE TECH
+      flushPendingSignals(pubkey, channel);
     }
     
     log('info', 'Peer מחובר', { peer: pubkey.slice(0, 8) });
@@ -344,10 +368,213 @@
       case MESSAGE_TYPES.PEER_EXCHANGE_RESPONSE:
         handlePeerExchangeResponse(msg, senderPubkey);
         return true;
+      
+      // חלק Signal Relay (p2p-peer-exchange.js) – טיפול בהודעות relay | HYPER CORE TECH
+      case MESSAGE_TYPES.RELAY_SIGNAL:
+        handleRelaySignal(msg, senderPubkey, channel);
+        return true;
+        
+      case MESSAGE_TYPES.RELAY_SIGNAL_FORWARD:
+        handleRelaySignalForward(msg, senderPubkey);
+        return true;
         
       default:
         return false; // לא טיפלנו - תן ל-handler אחר
     }
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Signal Relay - העברת signals דרך peers (Mesh Network)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  /**
+   * שליחת signal דרך peer מתווך
+   * A רוצה להתחבר ל-C אבל לא מחובר אליו → שולח דרך B
+   */
+  function sendRelaySignal(targetPubkey, signal, viaPubkey) {
+    const channel = state.activeChannels.get(viaPubkey);
+    if (!channel || channel.readyState !== 'open') {
+      log('error', 'לא ניתן לשלוח relay signal - אין חיבור למתווך', { via: viaPubkey?.slice(0, 8) });
+      return false;
+    }
+    
+    const myPubkey = App.publicKey || App.getEffectiveKeys?.()?.publicKey;
+    
+    try {
+      channel.send(JSON.stringify({
+        type: MESSAGE_TYPES.RELAY_SIGNAL,
+        targetPubkey,
+        signal,
+        originalSender: myPubkey,
+        timestamp: Date.now(),
+        hops: 1,
+      }));
+      
+      state.stats.signalsRelayed++;
+      log('info', '📡 שלחתי Relay Signal', { 
+        target: targetPubkey.slice(0, 8), 
+        via: viaPubkey.slice(0, 8) 
+      });
+      return true;
+    } catch (err) {
+      log('error', 'שגיאה בשליחת Relay Signal', { error: err.message });
+      return false;
+    }
+  }
+  
+  /**
+   * טיפול ב-Relay Signal שהתקבל - העברה ליעד או שמירה
+   */
+  function handleRelaySignal(msg, senderPubkey, senderChannel) {
+    const { targetPubkey, signal, originalSender, timestamp, hops } = msg;
+    
+    // בדיקת תוקף
+    if (Date.now() - timestamp > RELAY_CONFIG.SIGNAL_TTL) {
+      log('info', 'Relay Signal פג תוקף', { age: Date.now() - timestamp });
+      return;
+    }
+    
+    // בדיקת מקסימום hops
+    if (hops >= RELAY_CONFIG.MAX_RELAY_HOPS) {
+      log('info', 'Relay Signal הגיע למקסימום hops', { hops });
+      return;
+    }
+    
+    const myPubkey = App.publicKey || App.getEffectiveKeys?.()?.publicKey;
+    
+    // האם ה-signal מיועד לי?
+    if (targetPubkey === myPubkey) {
+      log('success', '📬 קיבלתי Relay Signal שמיועד לי', { from: originalSender.slice(0, 8) });
+      // מעביר ל-handler הראשי של P2P
+      if (App.handleRelayedSignal) {
+        App.handleRelayedSignal(signal, originalSender, senderChannel);
+      }
+      return;
+    }
+    
+    // האם אני מחובר ליעד?
+    const targetChannel = state.activeChannels.get(targetPubkey);
+    if (targetChannel && targetChannel.readyState === 'open') {
+      // מעביר את ה-signal ליעד
+      try {
+        targetChannel.send(JSON.stringify({
+          type: MESSAGE_TYPES.RELAY_SIGNAL,
+          targetPubkey,
+          signal,
+          originalSender,
+          timestamp,
+          hops: hops + 1,
+        }));
+        
+        state.stats.signalsForwarded++;
+        log('info', '🔀 העברתי Relay Signal', { 
+          from: originalSender.slice(0, 8), 
+          to: targetPubkey.slice(0, 8),
+          hops: hops + 1
+        });
+      } catch (err) {
+        log('error', 'שגיאה בהעברת Relay Signal', { error: err.message });
+      }
+      return;
+    }
+    
+    // לא מחובר ליעד - שומר בהמתנה
+    if (!state.pendingRelaySignals.has(targetPubkey)) {
+      state.pendingRelaySignals.set(targetPubkey, []);
+    }
+    
+    const pending = state.pendingRelaySignals.get(targetPubkey);
+    if (pending.length < RELAY_CONFIG.MAX_PENDING_SIGNALS) {
+      pending.push({ signal, originalSender, timestamp, hops, senderPubkey });
+      log('info', '💾 שמרתי Relay Signal בהמתנה', { 
+        target: targetPubkey.slice(0, 8),
+        pending: pending.length
+      });
+    }
+  }
+  
+  /**
+   * טיפול בתשובה שהגיעה דרך relay
+   */
+  function handleRelaySignalForward(msg, senderPubkey) {
+    const { signal, originalTarget, timestamp } = msg;
+    
+    // בדיקת תוקף
+    if (Date.now() - timestamp > RELAY_CONFIG.SIGNAL_TTL) {
+      return;
+    }
+    
+    log('success', '📨 קיבלתי תשובת Relay', { from: originalTarget?.slice(0, 8) });
+    
+    // מעביר ל-handler הראשי
+    if (App.handleRelayedSignal) {
+      App.handleRelayedSignal(signal, originalTarget, null);
+    }
+  }
+  
+  /**
+   * כשמתחברים ל-peer חדש - בודקים אם יש signals בהמתנה עבורו
+   */
+  function flushPendingSignals(pubkey, channel) {
+    const pending = state.pendingRelaySignals.get(pubkey);
+    if (!pending || pending.length === 0) return;
+    
+    log('info', '📤 שולח signals שהמתינו', { target: pubkey.slice(0, 8), count: pending.length });
+    
+    pending.forEach(({ signal, originalSender, timestamp, hops }) => {
+      if (Date.now() - timestamp > RELAY_CONFIG.SIGNAL_TTL) return;
+      
+      try {
+        channel.send(JSON.stringify({
+          type: MESSAGE_TYPES.RELAY_SIGNAL,
+          targetPubkey: pubkey,
+          signal,
+          originalSender,
+          timestamp,
+          hops: hops + 1,
+        }));
+        state.stats.signalsForwarded++;
+      } catch (err) {
+        log('error', 'שגיאה בשליחת signal ממתין', { error: err.message });
+      }
+    });
+    
+    state.pendingRelaySignals.delete(pubkey);
+  }
+  
+  /**
+   * מציאת peer מתווך להגעה ליעד
+   */
+  function findRelayPeer(targetPubkey) {
+    // מחפש peer מחובר שמכיר את היעד
+    for (const [pubkey, channel] of state.activeChannels) {
+      if (channel.readyState !== 'open') continue;
+      
+      const peerData = state.knownPeers.get(pubkey);
+      if (!peerData) continue;
+      
+      // בודק אם ה-peer הזה מכיר את היעד (דרך peer exchange)
+      // לעת עתה - מחזיר את ה-peer הראשון המחובר
+      return pubkey;
+    }
+    
+    return null;
+  }
+  
+  /**
+   * ניקוי signals ישנים
+   */
+  function cleanupPendingSignals() {
+    const now = Date.now();
+    
+    state.pendingRelaySignals.forEach((signals, targetPubkey) => {
+      const valid = signals.filter(s => now - s.timestamp < RELAY_CONFIG.SIGNAL_TTL);
+      if (valid.length === 0) {
+        state.pendingRelaySignals.delete(targetPubkey);
+      } else if (valid.length < signals.length) {
+        state.pendingRelaySignals.set(targetPubkey, valid);
+      }
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -443,6 +670,8 @@
     
     state.cleanupInterval = setInterval(() => {
       cleanupOldPeers();
+      // חלק Signal Relay (p2p-peer-exchange.js) – ניקוי signals ישנים | HYPER CORE TECH
+      cleanupPendingSignals();
     }, CONFIG.CLEANUP_INTERVAL);
   }
 
@@ -471,6 +700,10 @@
     console.log(`%c│ 📥 Exchanges Received: ${stats.exchangesReceived}`, 'color: #607D8B');
     console.log(`%c│ 🎓 Peers Learned: ${stats.peersLearned}`, 'color: #607D8B');
     console.log(`%c│ 📚 Files Learned: ${stats.filesLearned}`, 'color: #607D8B');
+    console.log('%c├──────────────────────────────────────────────────┤', 'color: #9C27B0');
+    console.log(`%c│ 📡 Signals Relayed: ${stats.signalsRelayed}`, 'color: #E91E63');
+    console.log(`%c│ 🔀 Signals Forwarded: ${stats.signalsForwarded}`, 'color: #E91E63');
+    console.log(`%c│ 💾 Pending Signals: ${state.pendingRelaySignals.size}`, 'color: #E91E63');
     console.log('%c└──────────────────────────────────────────────────┘', 'color: #9C27B0; font-weight: bold');
   }
 
@@ -509,6 +742,11 @@
     handleIncomingMessage,
     broadcastExchangeRequest,
     
+    // חלק Signal Relay (p2p-peer-exchange.js) – API להעברת signals | HYPER CORE TECH
+    sendRelaySignal,
+    findRelayPeer,
+    flushPendingSignals,
+    
     // חיפוש
     findPeersWithFileLocally,
     hasFileInfo,
@@ -520,6 +758,7 @@
     // קונפיגורציה
     CONFIG,
     MESSAGE_TYPES,
+    RELAY_CONFIG,
   };
 
   // פקודות קונסול
