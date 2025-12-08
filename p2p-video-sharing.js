@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.10.0-active-peer-filter'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.11.0-publish-fix'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -730,9 +730,13 @@
       };
 
       try {
+        const keys = getEffectiveKeys();
+        const myPubkey = keys.publicKey;
+        
         const sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
-            if (event.pubkey && event.pubkey !== App.publicKey) {
+            // סינון: לא לספור את עצמי (גם אם אני אורח)
+            if (event.pubkey && event.pubkey !== myPubkey) {
               uniquePeers.add(event.pubkey);
             }
           },
@@ -1119,30 +1123,30 @@
       } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
         signed = window.NostrTools.finalizeEvent(event, keys.privateKey);
       }
+      
+      if (!signed) {
+        log('warn', '⚠️ שיתוף קובץ: חתימה נכשלה', { hash: hash.slice(0,12) });
+        p2pStats.shares.failed++;
+        return { success: false, published: false };
+      }
+      
       const relays = getP2PRelays();
-      const publishResults = App.pool.publish(relays, signed);
+      
+      // שליחה לכל relay בנפרד (כמו ב-heartbeat) - יותר אמין
+      const results = await Promise.allSettled(relays.map(relay => 
+        App.pool.publish([relay], signed)
+      ));
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      
+      // לוג מקוצר - שורה אחת לשיתוף
+      log('upload', `שיתוף קובץ`, { 
+        hash: hash.slice(0,12), 
+        relays: `${successCount}/${relays.length}` 
+      });
 
-      let successCount = 0;
-      if (Array.isArray(publishResults)) {
-        const results = await Promise.allSettled(publishResults);
-        successCount = results.filter(r => r.status === 'fulfilled').length;
-        
-        // לוג מקוצר - שורה אחת לשיתוף
-        log('upload', `שיתוף קובץ`, { 
-          hash: hash.slice(0,12), 
-          relays: `${successCount}/${relays.length}` 
-        });
-
-        if (successCount === 0) {
-          p2pStats.shares.failed++;
-          return { success: false, published: true }; // ניסינו לפרסם אבל נכשל
-        }
-      } else if (publishResults?.then) {
-        await publishResults;
-        successCount = 1;
-        log('upload', `שיתוף קובץ`, { hash: hash.slice(0,12), relays: '1/1' });
-      } else {
-        successCount = 1;
+      if (successCount === 0) {
+        p2pStats.shares.failed++;
+        return { success: false, published: true }; // ניסינו לפרסם אבל נכשל
       }
 
       state.lastAvailabilityPublish.set(hash, Date.now());
