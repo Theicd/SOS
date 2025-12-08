@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.11.0-publish-fix'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.12.0-delayed-count'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -794,6 +794,13 @@
     peerPollingActive = true;
     
     log('info', '🔄 מתחיל polling לבדיקת peers חדשים כל 30 שניות');
+    
+    // ספירה ראשונה אחרי 3 שניות - נותן לריליים זמן להתחבר
+    setTimeout(async () => {
+      state.lastPeerCountTime = 0;
+      const { tier, peerCount } = await updateNetworkTier();
+      log('info', '🔄 ספירת peers ראשונה', { count: peerCount, tier });
+    }, 3000);
     
     setInterval(async () => {
       // אפס את ה-cache כדי לקבל ספירה חדשה

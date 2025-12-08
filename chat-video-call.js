@@ -305,6 +305,11 @@
 
   // חלק שיחות וידאו – הרשמה לאירועים
   function subscribe() {
+    // אורחים לא יכולים להשתמש בשיחות וידאו - לא לחכות לנצח
+    if (App.guestMode) {
+      console.log('Video call: disabled for guest users');
+      return;
+    }
     if (!App.pool || !App.publicKey) {
       console.log('Video call: waiting for pool/publicKey...');
       setTimeout(subscribe, 500);
