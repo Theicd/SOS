@@ -44,6 +44,7 @@
       HEARTBEAT: '#8BC34A', // ירוק בהיר - heartbeat
       WEBRTC: '#673AB7',    // סגול כהה - WebRTC
       MULTISOURCE: '#E91E63', // ורוד - Multi-Source
+      SCORING: '#FF5722',    // כתום - Peer Scoring
     },
 
     // אייקונים לפי קטגוריה
@@ -61,6 +62,7 @@
       HEARTBEAT: '💓',
       WEBRTC: '🔗',
       MULTISOURCE: '🚀',
+      SCORING: '🎯',
     },
 
     /**
@@ -186,6 +188,15 @@
         console.log(`%c║    Available Files: ${String(stats.availableFiles || 0).padEnd(40)}║`, 'color: #8BC34A');
         console.log(`%c║    Is Leader: ${String(stats.isLeader || false).padEnd(46)}║`, 'color: #9C27B0');
         console.log(`%c║    Is Guest: ${String(stats.isGuest || false).padEnd(47)}║`, 'color: #607D8B');
+        
+        // Peer Scoring סטטיסטיקות
+        if (stats.peerScoring) {
+          console.log('%c╠══════════════════════════════════════════════════════════════╣', 'color: #FF5722');
+          console.log('%c║  🎯 Peer Scoring:                                            ║', 'color: #FF5722; font-weight: bold');
+          console.log(`%c║    Total Peers Tracked: ${String(stats.peerScoring.total || 0).padEnd(36)}║`, 'color: #FF5722');
+          console.log(`%c║    Active (score > 0): ${String(stats.peerScoring.active || 0).padEnd(37)}║`, 'color: #4CAF50');
+          console.log(`%c║    Blocked (score <= -50): ${String(stats.peerScoring.blocked || 0).padEnd(33)}║`, 'color: #F44336');
+        }
       }
 
       console.log('%c╚══════════════════════════════════════════════════════════════╝', 'color: #9C27B0; font-weight: bold');
@@ -248,6 +259,39 @@
         action: e.action.slice(0, 50)
       })));
       return recent;
+    },
+
+    /**
+     * הצגת ניקוד peers
+     */
+    peerScores() {
+      if (typeof App.getPeerScoringStats !== 'function') {
+        console.log('%c⚠️ Peer Scoring לא זמין', 'color: #FF9800');
+        return;
+      }
+      
+      const stats = App.getPeerScoringStats();
+      console.log('%c╔══════════════════════════════════════════════════════════════╗', 'color: #FF5722; font-weight: bold');
+      console.log('%c║                    🎯 PEER SCORING                          ║', 'color: #FF5722; font-weight: bold');
+      console.log('%c╠══════════════════════════════════════════════════════════════╣', 'color: #FF5722');
+      console.log(`%c║  Total: ${String(stats.total).padEnd(52)}║`, 'color: #FF5722');
+      console.log(`%c║  Active (score > 0): ${String(stats.active).padEnd(39)}║`, 'color: #4CAF50');
+      console.log(`%c║  Inactive (score <= 0): ${String(stats.inactive).padEnd(36)}║`, 'color: #FF9800');
+      console.log(`%c║  Blocked (score <= -50): ${String(stats.blocked).padEnd(35)}║`, 'color: #F44336');
+      
+      if (stats.topPeers && stats.topPeers.length > 0) {
+        console.log('%c╠══════════════════════════════════════════════════════════════╣', 'color: #FF5722');
+        console.log('%c║  Top 5 Peers:                                               ║', 'color: #FF5722; font-weight: bold');
+        stats.topPeers.forEach((p, i) => {
+          const line = `${i + 1}. ${p.peer} | score: ${p.score} | ✔${p.success} ✖${p.fail}`;
+          const color = p.score > 0 ? '#4CAF50' : (p.score < 0 ? '#F44336' : '#FF9800');
+          console.log(`%c║    ${line.padEnd(57)}║`, `color: ${color}`);
+        });
+      }
+      
+      console.log('%c╚══════════════════════════════════════════════════════════════╝', 'color: #FF5722; font-weight: bold');
+      
+      return stats;
     }
   };
 
@@ -615,6 +659,9 @@
         return null;
       },
       
+      // ניקוד peers
+      peerScores: () => P2P_DEBUG.peerScores(),
+      
       // עזרה
       help: () => {
         console.log('%c═══════════════════════════════════════════════════════════', 'color: #9C27B0');
@@ -622,6 +669,7 @@
         console.log('%c═══════════════════════════════════════════════════════════', 'color: #9C27B0');
         console.log('%cp2p.summary()    %c- הצגת סיכום הסשן', 'color: #4CAF50; font-weight: bold', 'color: #666');
         console.log('%cp2p.stats()      %c- סטטיסטיקות P2P', 'color: #4CAF50; font-weight: bold', 'color: #666');
+        console.log('%cp2p.peerScores() %c- 🎯 ניקוד peers', 'color: #FF5722; font-weight: bold', 'color: #666');
         console.log('%cp2p.network()    %c- מצב רשת נוכחי', 'color: #4CAF50; font-weight: bold', 'color: #666');
         console.log('%cp2p.files()      %c- קבצים זמינים לשיתוף', 'color: #4CAF50; font-weight: bold', 'color: #666');
         console.log('%cp2p.logs()       %c- כל הלוגים', 'color: #4CAF50; font-weight: bold', 'color: #666');
