@@ -430,6 +430,9 @@ body:has(.videos-feed) .nav-avatar {
   place-items: center;
   overflow: visible; /* שינוי מ-hidden כדי שפס ההתקדמות יהיה נראה */
   flex: 1 1 auto;
+  /* חלק תאימות iOS (videos.css) – תיקון מסך שחור ב-Safari iOS 15+ | HYPER CORE TECH */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .videos-feed__media video {
@@ -439,6 +442,11 @@ body:has(.videos-feed) .nav-avatar {
   height: 100%;
   object-fit: contain;
   border: none;
+  /* חלק תאימות iOS (videos.css) – תיקון מסך שחור ב-Safari iOS 15+ | HYPER CORE TECH */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* כפתורי דילוג 5 שניות - מובייל בלבד */
