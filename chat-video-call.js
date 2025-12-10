@@ -150,6 +150,24 @@
     const signed = App.finalizeEvent(event, App.privateKey);
     await new Promise(r => setTimeout(r, 80));
     await App.pool.publish(App.relayUrls, signed);
+    
+    // שלח גם דרך רשת החירום אם פעילה
+    if (App.AndroidBridge && App.AndroidBridge.shouldUseEmergencyNetwork && 
+        App.AndroidBridge.shouldUseEmergencyNetwork()) {
+      try {
+        App.AndroidBridge.sendSignal(peer, {
+          type: type,
+          data: data,
+          from: App.publicKey,
+          roomId: getRoomId(peer),
+          isVideo: true
+        });
+        console.log(`📡 Video signal ${type} sent via emergency network`);
+      } catch (e) {
+        console.warn('Failed to send video signal via emergency network:', e);
+      }
+    }
+    
     console.log(`Sent ${type} (video) to ${peer.slice(0,8)}`);
   }
 

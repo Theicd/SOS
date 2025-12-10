@@ -139,6 +139,22 @@
       // שליחה עם delay קטן כדי למנוע rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
       await App.pool.publish(App.relayUrls, signedEvent);
+      
+      // שלח גם דרך רשת החירום אם פעילה
+      if (App.AndroidBridge && App.AndroidBridge.shouldUseEmergencyNetwork && 
+          App.AndroidBridge.shouldUseEmergencyNetwork()) {
+        try {
+          App.AndroidBridge.sendSignal(peerPubkey, {
+            type: type,
+            data: data,
+            from: App.publicKey,
+            roomId: getRoomId(peerPubkey)
+          });
+          console.log(`📡 Signal ${type} sent via emergency network`);
+        } catch (e) {
+          console.warn('Failed to send signal via emergency network:', e);
+        }
+      }
 
       console.log(`Sent ${type} signal to ${peerPubkey.slice(0, 8)}`);
     } catch (err) {

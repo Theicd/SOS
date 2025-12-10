@@ -3941,6 +3941,44 @@ async function loadFeed() {
     }
   }
 
+  // === תמיכה ברשת חירום - קבלת פוסטים מקומיים ===
+  function addLocalPost(postData) {
+    if (!postData) return;
+    
+    try {
+      // אם זה אירוע Nostr מלא
+      if (postData.event && postData.event.kind === 1) {
+        const event = postData.event;
+        // הוסף לפיד
+        displayPosts([event], { prepend: true });
+        console.log('📥 Added local post from emergency network');
+        return;
+      }
+      
+      // אם זה פוסט פשוט
+      if (postData.content) {
+        const fakeEvent = {
+          id: postData.id || 'local-' + Date.now(),
+          kind: 1,
+          pubkey: postData.pubkey || 'local-peer',
+          created_at: postData.timestamp || Math.floor(Date.now() / 1000),
+          content: postData.content,
+          tags: postData.tags || [],
+          sig: '',
+          _isLocal: true
+        };
+        displayPosts([fakeEvent], { prepend: true });
+        console.log('📥 Added simple local post');
+      }
+    } catch (e) {
+      console.error('Failed to add local post:', e);
+    }
+  }
+  
+  // רישום הפונקציה ב-App.feed לשימוש מ-android-bridge
+  App.feed = App.feed || {};
+  App.feed.addLocalPost = addLocalPost;
+
   window.NostrApp = Object.assign(App, {
     fetchProfile,
     renderDemoPosts,
@@ -3967,6 +4005,7 @@ async function loadFeed() {
     removePostElement,
     loadVideoWithCache,
     resetVideoLoadIndex, // חלק Network Tiers (פיד) – איפוס מונה פוסטים | HYPER CORE TECH
+    addLocalPost, // רשת חירום - הוספת פוסט מקומי
   });
 
   // חלק וידאו/תמונות (feed.js) – אתחול טיפול בוידאו ו-Lightbox לתמונות

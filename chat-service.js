@@ -98,6 +98,25 @@
       if (typeof App.afterChatMessagePublished === 'function') {
         App.afterChatMessagePublished(peerPubkey, outgoingMessage);
       }
+      
+      // שלח גם לרשת החירום אם פעילה
+      if (App.AndroidBridge && App.AndroidBridge.shouldUseEmergencyNetwork && 
+          App.AndroidBridge.shouldUseEmergencyNetwork()) {
+        try {
+          App.AndroidBridge.broadcast({
+            type: 'chat',
+            event: event,
+            from: App.publicKey,
+            to: peerPubkey,
+            content: serialization.displayText || '',
+            timestamp: event.created_at
+          });
+          console.log('📡 Chat sent to emergency network');
+        } catch (e) {
+          console.warn('Failed to send chat to emergency network:', e);
+        }
+      }
+      
       return { ok: true };
     } catch (err) {
       console.error('Chat publish failed', err);
