@@ -1191,8 +1191,6 @@
     <script src="./account.js" defer></script>
     <script src="./key-viewer.js" defer></script>
     <script src="./media-cache.js" defer></script>
-    <!-- חלק אחסון מקומי (videos.html) – שמירת נתונים למצב חירום | HYPER CORE TECH -->
-    <script src="./offline-storage.js" defer></script>
     <script src="./media-mirror.js" defer></script>
     <script src="./media-recheck.js" defer></script>
     <!-- חלק דיבוג iOS (videos.html) – מודול דיבוג מעמיק לבעיות וידאו באייפון | HYPER CORE TECH -->
@@ -2033,7 +2031,5 @@
 
     <!-- חיבור הודעות ושיחות (videos.html) – מבטיח שהצ'אט יאתחל שיחות נכנסות כמו בפיד הראשי | HYPER CORE TECH -->
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={}),chatBtn=document.getElementById('messagesToggle');if(chatBtn){chatBtn.addEventListener('click',function(){if(typeof App.openChatPanel==='function'){App.openChatPanel();}setTimeout(function(){if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();}},100);});}console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();});</script>
-    <!-- עטיפת חירום ל-P2P (נטענת אחרונה כדי לעטוף publish/onMessage) -->
-    <script src="./emergency-wrapper.js"></script>
   </body>
 </html>

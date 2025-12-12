@@ -1075,23 +1075,6 @@
       setStatus('מפרסם...');
       const signed = app.finalizeEvent(event, app.privateKey);
       await app.pool.publish(app.relayUrls, signed);
-      
-      // שלח גם לרשת החירום אם פעילה
-      if (app.AndroidBridge && app.AndroidBridge.shouldUseEmergencyNetwork && 
-          app.AndroidBridge.shouldUseEmergencyNetwork()) {
-        try {
-          app.AndroidBridge.broadcast({
-            type: 'post',
-            event: signed,
-            content: signed.content,
-            pubkey: signed.pubkey,
-            timestamp: signed.created_at
-          });
-          console.log('📡 Post sent to emergency network');
-        } catch (e) {
-          console.warn('Failed to send to emergency network:', e);
-        }
-      }
 
       // עדכון UI
       setStatus('פורסם בהצלחה');

@@ -578,81 +578,6 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // תמיכה ברשת חירום (Emergency Relay Network)
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  /**
-   * בדיקה האם רשת חירום פעילה
-   */
-  function isEmergencyNetworkActive() {
-    return App.AndroidBridge && App.AndroidBridge.shouldUseEmergencyNetwork && 
-           App.AndroidBridge.shouldUseEmergencyNetwork();
-  }
-  
-  /**
-   * קבלת peers מרשת החירום
-   */
-  function getEmergencyPeers() {
-    if (!App.AndroidBridge || !App.AndroidBridge.getPeers) return [];
-    
-    try {
-      const peers = App.AndroidBridge.getPeers();
-      return Array.isArray(peers) ? peers : [];
-    } catch (e) {
-      return [];
-    }
-  }
-  
-  /**
-   * קבלת כל ה-peers הזמינים (כולל מרשת חירום)
-   */
-  function getAllAvailablePeers() {
-    const peers = new Set();
-    
-    // peers מרשת החירום
-    if (isEmergencyNetworkActive()) {
-      getEmergencyPeers().forEach(ip => peers.add(ip));
-    }
-    
-    // peers מהמערכת הרגילה
-    const now = Date.now();
-    state.knownPeers.forEach((data, pubkey) => {
-      if (now - data.lastSeen < CONFIG.PEER_TTL) {
-        peers.add(pubkey);
-      }
-    });
-    
-    return Array.from(peers);
-  }
-  
-  /**
-   * שליחת הודעה לכל ה-peers (כולל רשת חירום)
-   */
-  function broadcastToAllPeers(message) {
-    let sent = 0;
-    
-    // שלח דרך רשת חירום אם פעילה
-    if (isEmergencyNetworkActive() && App.AndroidBridge.broadcast) {
-      if (App.AndroidBridge.broadcast(message)) {
-        sent++;
-        log('info', 'שלחתי דרך רשת חירום');
-      }
-    }
-    
-    // שלח גם דרך WebRTC channels
-    state.activeChannels.forEach((channel, pubkey) => {
-      if (channel.readyState === 'open') {
-        try {
-          channel.send(JSON.stringify(message));
-          sent++;
-        } catch (e) {}
-      }
-    });
-    
-    return sent;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // חיפוש קבצים
   // ═══════════════════════════════════════════════════════════════════════════
   
@@ -825,12 +750,6 @@
     // חיפוש
     findPeersWithFileLocally,
     hasFileInfo,
-    
-    // רשת חירום (Emergency Network)
-    isEmergencyNetworkActive,
-    getEmergencyPeers,
-    getAllAvailablePeers,
-    broadcastToAllPeers,
     
     // סטטיסטיקות
     getStats,
