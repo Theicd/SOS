@@ -3273,6 +3273,11 @@ async function loadFeed() {
               return;
             }
             if (event.kind === 5) {
+              logDeletionDebug('initial load deletion event', {
+                id: event.id,
+                pubkey: event.pubkey,
+                tags: event.tags
+              });
               registerDeletion(event);
               return;
             }
@@ -3343,6 +3348,12 @@ async function loadFeed() {
           return;
         }
         if (event.kind === 5) {
+          logDeletionDebug('realtime deletion received via subscription', {
+            id: event.id,
+            pubkey: event.pubkey,
+            tags: event.tags,
+            created_at: event.created_at
+          });
           registerDeletion(event);
           return;
         }
@@ -3941,14 +3952,21 @@ async function loadFeed() {
     const event = App.finalizeEvent(draft, App.privateKey);
 
     try {
-      logDeletionPublish('publishing delete', { eventId, relays: App.relayUrls });
+      logDeletionPublish('publishing delete', { 
+        eventId, 
+        relays: App.relayUrls,
+        fullEvent: event,
+        tags: event.tags,
+        pubkey: event.pubkey
+      });
       await App.pool.publish(App.relayUrls, event);
-      console.log('Deleted event');
+      console.log('Deleted event published to relays:', App.relayUrls);
       App.deletedEventIds.add(eventId);
       removePostElement(eventId);
-      logDeletionPublish('delete published', { eventId });
+      logDeletionPublish('delete published successfully', { eventId, deletionEventId: event.id });
     } catch (e) {
       console.error('Delete publish error', e);
+      logDeletionPublish('delete publish FAILED', { eventId, error: e.message });
     }
   }
 
