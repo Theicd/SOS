@@ -2017,13 +2017,26 @@
     }
   }
 
+  function logDeletionDebug(msg, extra = {}) {
+    try {
+      console.debug('[DELETE_DEBUG]', msg, extra);
+    } catch (err) {}
+  }
+
   function registerDeletion(event) {
     if (!event || !Array.isArray(event.tags)) {
+      logDeletionDebug('skip deletion event: missing tags', { event });
       return;
     }
     const adminKeys = App.adminPublicKeys || new Set();
     const eventPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
     const isAdmin = eventPubkey && adminKeys.has(eventPubkey);
+    logDeletionDebug('incoming deletion event', {
+      id: event.id,
+      from: eventPubkey,
+      isAdmin,
+      tags: event.tags,
+    });
     event.tags.forEach((tag) => {
       if (!Array.isArray(tag)) return;
       const [type, value] = tag;
@@ -2032,10 +2045,20 @@
         if (!isAdmin) {
           // חלק פיד (feed.js) – מאפשר מחיקה רק למפרסם המקורי או למנהל מורשה
           if (!author || author !== eventPubkey) {
+            logDeletionDebug('rejected deletion (not admin/not author)', {
+              eventId: value,
+              eventPubkey,
+              author,
+            });
             return;
           }
         }
         App.deletedEventIds.add(value);
+        logDeletionDebug('accepted deletion', {
+          eventId: value,
+          byAdmin: isAdmin,
+          author,
+        });
         removePostElement(value);
       }
     });
@@ -3555,6 +3578,12 @@ async function loadFeed() {
     }
   }
 
+  function logDeletionPublish(msg, extra = {}) {
+    try {
+      console.debug('[DELETE_PUBLISH]', msg, extra);
+    } catch (err) {}
+  }
+
   async function deletePostQuiet(eventId) {
     // חלק מחיקה שקטה (feed.js) – מוחק פוסט בלי אישור/הודעות UI לשמירה על יציבות
     if (!eventId) {
@@ -3575,9 +3604,11 @@ async function loadFeed() {
     };
     const event = App.finalizeEvent(draft, App.privateKey);
     try {
+      logDeletionPublish('publishing delete (quiet)', { eventId, relays: App.relayUrls });
       await App.pool.publish(App.relayUrls, event);
       App.deletedEventIds.add(eventId);
       removePostElement(eventId);
+      logDeletionPublish('delete published (quiet)', { eventId });
     } catch (e) {
       // מחיקה שקטה – לא מפוצצים UI
       console.warn('Quiet delete publish error', e);
@@ -3904,10 +3935,12 @@ async function loadFeed() {
     const event = App.finalizeEvent(draft, App.privateKey);
 
     try {
+      logDeletionPublish('publishing delete', { eventId, relays: App.relayUrls });
       await App.pool.publish(App.relayUrls, event);
       console.log('Deleted event');
       App.deletedEventIds.add(eventId);
       removePostElement(eventId);
+      logDeletionPublish('delete published', { eventId });
     } catch (e) {
       console.error('Delete publish error', e);
     }
