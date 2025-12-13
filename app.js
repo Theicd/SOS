@@ -7,6 +7,70 @@
   }
 
   const { SimplePool, finalizeEvent, getEventHash, getSignature } = tools;
+
+  function tracePool(pool, label) {
+    if (!pool || pool.__nostrTraceWrapped) {
+      return pool;
+    }
+
+    const isEnabled = () => {
+      try {
+        return window.localStorage.getItem('nostr_trace_relays') === '1';
+      } catch (_) {
+        return false;
+      }
+    };
+
+    const summarizeRelays = (relays) => {
+      if (!Array.isArray(relays)) return relays;
+      return relays.length > 6 ? [...relays.slice(0, 6), `...(+${relays.length - 6})`] : relays;
+    };
+
+    const summarizeKinds = (filtersOrEvent) => {
+      try {
+        if (Array.isArray(filtersOrEvent)) {
+          const all = [];
+          filtersOrEvent.forEach((f) => {
+            if (f && Array.isArray(f.kinds)) {
+              all.push(...f.kinds);
+            }
+          });
+          return Array.from(new Set(all));
+        }
+        if (filtersOrEvent && typeof filtersOrEvent.kind === 'number') {
+          return [filtersOrEvent.kind];
+        }
+      } catch (_) {}
+      return [];
+    };
+
+    const wrap = (method, mapper) => {
+      if (typeof pool[method] !== 'function') return;
+      const original = pool[method].bind(pool);
+      pool[method] = (...args) => {
+        if (isEnabled()) {
+          try {
+            const info = mapper ? mapper(...args) : {};
+            console.log(`[TRACE:${label}] ${method}`, info);
+          } catch (err) {
+            console.log(`[TRACE:${label}] ${method} (log-failed)`, err);
+          }
+        }
+        return original(...args);
+      };
+    };
+
+    wrap('publish', (relays, event) => ({ relays: summarizeRelays(relays), kinds: summarizeKinds(event), id: event?.id }));
+    wrap('subscribeMany', (relays, filters) => ({ relays: summarizeRelays(relays), kinds: summarizeKinds(filters) }));
+    wrap('list', (relays, filters) => ({ relays: summarizeRelays(relays), kinds: summarizeKinds(filters) }));
+    wrap('listMany', (relays, filters) => ({ relays: summarizeRelays(relays), kinds: summarizeKinds(filters) }));
+    wrap('get', (relays, filter) => ({ relays: summarizeRelays(relays), kinds: summarizeKinds([filter]) }));
+
+    pool.__nostrTraceWrapped = true;
+    return pool;
+  }
+
+  App.tracePool = tracePool;
   
   // הוספת finalizeEvent ל-App
   if (!App.finalizeEvent && typeof finalizeEvent === 'function') {
@@ -147,7 +211,7 @@
 
   // חלק Bootstrap (app.js) – יצירת Pool והרצת מדדי התחברות פעם אחת בלבד בכל סשן
   if (!App.pool) {
-    App.pool = new SimplePool();
+    App.pool = tracePool(new SimplePool(), 'main');
     if (typeof App.notifyPoolReady === 'function') {
       App.notifyPoolReady(App.pool);
     }

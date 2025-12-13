@@ -643,7 +643,7 @@
     if (!Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
       throw new Error('No relay URLs configured עבור רישום אימיילים.');
     }
-    registryPool = new SimplePool();
+    registryPool = typeof App.tracePool === 'function' ? App.tracePool(new SimplePool(), 'registry') : new SimplePool();
     return registryPool;
   }
 
