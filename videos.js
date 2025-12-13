@@ -2895,6 +2895,27 @@ function setupVideoRealtimeSubscription(eventIds = []) {
       if (event.kind === 1) {
         registerVideoSourceEvent(event);
         registerVideoEngagementEvent(event);
+      } else if (event.kind === 5) {
+        // טיפול במחיקות בזמן אמת
+        console.log('%c[DELETE_DEBUG] videos realtime deletion received', 'color: #FF5722; font-weight: bold', {
+          id: event.id,
+          pubkey: event.pubkey,
+          tags: event.tags
+        });
+        if (typeof app.registerDeletion === 'function') {
+          app.registerDeletion(event);
+        }
+        // הסרת הפוסט מהפיד המקומי
+        if (Array.isArray(event.tags)) {
+          event.tags.forEach(tag => {
+            if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) {
+              const deletedId = tag[1];
+              removeVideoFromState(deletedId);
+              removeVideoCard(deletedId);
+              console.log('%c[DELETE_DEBUG] videos removed card', 'color: #FF5722; font-weight: bold', { deletedId });
+            }
+          });
+        }
       } else if (event.kind === 7) {
         registerVideoEngagementEvent(event);
       } else if (event.kind === (app.FOLLOW_KIND || 40010)) {
