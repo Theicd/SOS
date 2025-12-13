@@ -324,7 +324,7 @@
       App.adminPublicKeys.add(trimmed);
       if (typeof App.getPublicKey === 'function') {
         try {
-          const derived = App.getPublicKey(trimmed);
+          const derived = App.getPublicKey(hexToBytes(trimmed));
           if (typeof derived === 'string' && derived.length === 64) {
             App.adminPublicKeys.add(derived.toLowerCase());
           }
@@ -334,6 +334,7 @@
       }
     }
   });
+  console.log('[CONFIG] adminPublicKeys:', Array.from(App.adminPublicKeys));
 
   window.NostrApp = App;
 })(window);

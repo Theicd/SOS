@@ -1013,10 +1013,11 @@ function buildVideoFeedFilters() {
       });
     }
 
+    // תמיד מביאים מחיקות לפי תגית רשת כדי לקבל מחיקות מכל המשתמשים
+    filters.push({ kinds: [5], '#t': [networkTag], limit: 200 });
+    // בנוסף, מביאים מחיקות ספציפיות מאדמינים (גם אם אין להם תגית רשת)
     if (deletionAuthors.size > 0) {
-      filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 200 });
-    } else {
-      filters.push({ kinds: [5], '#t': [networkTag], limit: 200 });
+      filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 100 });
     }
     // לוג לבדיקת פילטרי מחיקה
     console.log('%c[DELETE_DEBUG] videos deletion filter', 'color: #FF5722; font-weight: bold', {

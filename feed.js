@@ -2042,22 +2042,24 @@
       const [type, value] = tag;
       if ((type === 'e' || type === 'a') && value) {
         const author = App.eventAuthorById?.get(value)?.toLowerCase?.();
-        if (!isAdmin) {
-          // חלק פיד (feed.js) – מאפשר מחיקה רק למפרסם המקורי או למנהל מורשה
-          if (!author || author !== eventPubkey) {
-            logDeletionDebug('rejected deletion (not admin/not author)', {
-              eventId: value,
-              eventPubkey,
-              author,
-            });
-            return;
-          }
+        // חלק פיד (feed.js) – מאפשר מחיקה אם:
+        // 1. המוחק הוא אדמין, או
+        // 2. המוחק הוא המחבר המקורי, או
+        // 3. לא מכירים את המחבר (הפוסט לא נטען עדיין - נסמוך על הרילי)
+        if (!isAdmin && author && author !== eventPubkey) {
+          logDeletionDebug('rejected deletion (not admin/not author)', {
+            eventId: value,
+            eventPubkey,
+            author,
+          });
+          return;
         }
         App.deletedEventIds.add(value);
         logDeletionDebug('accepted deletion', {
           eventId: value,
           byAdmin: isAdmin,
-          author,
+          author: author || '(unknown)',
+          reason: isAdmin ? 'admin' : (author ? 'author' : 'unknown-trust'),
         });
         removePostElement(value);
       }
@@ -3096,10 +3098,11 @@ function buildCoreFeedFilters() {
       }
     });
   }
+  // תמיד מביאים מחיקות לפי תגית רשת כדי לקבל מחיקות מכל המשתמשים
+  filters.push({ kinds: [5], '#t': [App.NETWORK_TAG], limit: 200 });
+  // בנוסף, מביאים מחיקות ספציפיות מאדמינים (גם אם אין להם תגית רשת)
   if (deletionAuthors.size > 0) {
-    filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 200 });
-  } else {
-    filters.push({ kinds: [5], '#t': [App.NETWORK_TAG], limit: 200 });
+    filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 100 });
   }
   filters.push({ kinds: [7], '#t': [App.NETWORK_TAG], limit: 500 });
   if (viewerKey) {
