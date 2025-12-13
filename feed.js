@@ -3233,6 +3233,9 @@ async function loadFeed() {
     const filters = buildCoreFeedFilters();
     const events = [];
     const seenEventIds = new Set();
+    try {
+      console.debug('[DELETE_DEBUG] feed filters', filters);
+    } catch (_) {}
 
     if (typeof App.pool.list === 'function') {
       try {

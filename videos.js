@@ -2734,7 +2734,12 @@ async function loadVideos() {
   const videoEvents = [];
   sourceEvents.forEach((event) => {
     if (!event || event.kind !== 1) return;
-    if (currentApp?.deletedEventIds?.has(event.id)) return;
+    if (currentApp?.deletedEventIds?.has(event.id)) {
+      try {
+        console.debug('[DELETE_DEBUG] videos skip deleted', { id: event.id });
+      } catch (_) {}
+      return;
+    }
 
     const lines = String(event.content || '').split('\n');
     const mediaLinks = [];
