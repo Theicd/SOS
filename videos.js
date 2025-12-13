@@ -840,8 +840,16 @@ function shouldRefreshFromNetwork() {
 function hydrateFeedFromCache() {
   const cached = loadFeedCache();
   if (Array.isArray(cached) && cached.length) {
-    console.log('[videos] hydrate feed from cache', { count: cached.length });
-    state.videos = cached;
+    // סינון פוסטים מחוקים מהמטמון
+    const app = window.NostrApp;
+    const deletedIds = app?.deletedEventIds || new Set();
+    const filtered = cached.filter(video => !deletedIds.has(video.id));
+    console.log('[videos] hydrate feed from cache', { 
+      total: cached.length, 
+      afterFilter: filtered.length,
+      deletedCount: cached.length - filtered.length
+    });
+    state.videos = filtered;
     renderVideos();
     return true;
   }
@@ -982,6 +990,50 @@ function getNetworkTag() {
     return app.NETWORK_TAG.trim();
   }
   return 'israel-network';
+}
+
+// חלק יאללה וידאו (videos.js) – טעינת מחיקות לפני הצגת המטמון | HYPER CORE TECH
+async function loadDeletionsFirst() {
+  const app = window.NostrApp;
+  if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
+    console.log('[videos] loadDeletionsFirst: pool not ready');
+    return;
+  }
+
+  const networkTag = getNetworkTag();
+  const deletionFilters = [{ kinds: [5], '#t': [networkTag], limit: 300 }];
+  
+  // הוספת פילטר לפי אדמינים
+  if (app.adminPublicKeys instanceof Set && app.adminPublicKeys.size > 0) {
+    deletionFilters.push({ kinds: [5], authors: Array.from(app.adminPublicKeys), limit: 200 });
+  }
+
+  console.log('%c[DELETE_DEBUG] loadDeletionsFirst starting', 'color: #FF5722; font-weight: bold', { filters: deletionFilters });
+
+  try {
+    let deletionEvents = [];
+    if (typeof app.pool.list === 'function') {
+      deletionEvents = await app.pool.list(app.relayUrls, deletionFilters);
+    } else if (typeof app.pool.querySync === 'function') {
+      const res = await app.pool.querySync(app.relayUrls, deletionFilters[0]);
+      deletionEvents = Array.isArray(res) ? res : (Array.isArray(res?.events) ? res.events : []);
+    }
+
+    console.log('%c[DELETE_DEBUG] loadDeletionsFirst received', 'color: #FF5722; font-weight: bold', { count: deletionEvents?.length || 0 });
+
+    if (Array.isArray(deletionEvents) && deletionEvents.length > 0) {
+      deletionEvents.forEach(event => {
+        if (event && event.kind === 5 && typeof app.registerDeletion === 'function') {
+          app.registerDeletion(event);
+        }
+      });
+      console.log('%c[DELETE_DEBUG] loadDeletionsFirst processed', 'color: #FF5722; font-weight: bold', { 
+        deletedIds: app.deletedEventIds?.size || 0 
+      });
+    }
+  } catch (err) {
+    console.warn('[videos] loadDeletionsFirst failed', err);
+  }
 }
 
 // חלק יאללה וידאו (videos.js) – בניית פילטרים לשימוש משותף בין מודולים | HYPER CORE TECH
@@ -2995,6 +3047,15 @@ async function init() {
     });
   }
 
+  await waitForApp();
+  const app = window.NostrApp || {};
+  if (typeof app.buildCoreFeedFilters !== 'function') {
+    app.buildCoreFeedFilters = buildVideoFeedFilters;
+  }
+
+  // טעינת מחיקות לפני הצגת המטמון כדי לסנן פוסטים מחוקים
+  await loadDeletionsFirst();
+
   // חלק מטמון (videos.js) – הצגת פוסטים מהמטמון מיד לפני טעינה מהרשת | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();
   if (hadCachedContent) {
@@ -3008,11 +3069,6 @@ async function init() {
     console.log('[videos] displayed cached content, loading fresh in background');
   }
 
-  await waitForApp();
-  const app = window.NostrApp || {};
-  if (typeof app.buildCoreFeedFilters !== 'function') {
-    app.buildCoreFeedFilters = buildVideoFeedFilters;
-  }
   // טעינת תוכן חדש ברקע (גם אם יש מטמון)
   loadVideos();
 }
