@@ -4,15 +4,13 @@
   // חלק העלאות (blossom.js) – לקוח Blossom קל משקל עם נפילות חן ורב-שרתים, נכתב עבור פרויקט SOS2
   // מבוסס רעיונית על yakbak/src/lib/blossom.ts אך מותאם JS פשוט וללא תלות חיצונית
 
-  // חלק העלאות (blossom.js) – שרתי Blossom אמיתיים שתומכים ב-NIP-96/Blossom
+  // חלק העלאות (blossom.js) – שרתי Blossom עם תמיכה ב-CORS
   const DEFAULT_SERVERS = [
-    { url: 'https://nostr.build' },
-    { url: 'https://void.cat' },
-    { url: 'https://files.sovbit.host' },
-    { url: 'https://blossom.primal.net' },
-    { url: 'https://media.nostr.band' },
-    { url: 'https://nostpic.com' },
-    { url: 'https://nostrcheck.me' },
+    { url: 'https://files.sovbit.host' },  // עובד! תומך CORS - נבדק
+    { url: 'https://blossom.band', pubkey: 'npub1blossomserver' },  // 56ms - דורש auth
+    { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
+    { url: 'https://blossom.nostr.build', pubkey: 'npub1nostrbuild' },
+    { url: 'https://nostr.build', pubkey: 'npub1nostrbuild' },
   ];
 
   function fixUrl(u){
