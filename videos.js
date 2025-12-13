@@ -2736,7 +2736,7 @@ async function loadVideos() {
     if (!event || event.kind !== 1) return;
     if (currentApp?.deletedEventIds?.has(event.id)) {
       try {
-        console.debug('[DELETE_DEBUG] videos skip deleted', { id: event.id });
+        console.log('%c[DELETE_DEBUG] videos skip deleted', 'color: #FF5722; font-weight: bold', { id: event.id });
       } catch (_) {}
       return;
     }

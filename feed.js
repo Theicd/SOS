@@ -2019,7 +2019,7 @@
 
   function logDeletionDebug(msg, extra = {}) {
     try {
-      console.debug('[DELETE_DEBUG]', msg, extra);
+      console.log('%c[DELETE_DEBUG] ' + msg, 'color: #FF5722; font-weight: bold', extra);
     } catch (err) {}
   }
 
@@ -3234,7 +3234,7 @@ async function loadFeed() {
     const events = [];
     const seenEventIds = new Set();
     try {
-      console.debug('[DELETE_DEBUG] feed filters', filters);
+      console.log('%c[DELETE_DEBUG] feed filters', 'color: #FF5722; font-weight: bold', filters);
     } catch (_) {}
 
     if (typeof App.pool.list === 'function') {
@@ -3583,7 +3583,7 @@ async function loadFeed() {
 
   function logDeletionPublish(msg, extra = {}) {
     try {
-      console.debug('[DELETE_PUBLISH]', msg, extra);
+      console.log('%c[DELETE_PUBLISH] ' + msg, 'color: #E91E63; font-weight: bold', extra);
     } catch (err) {}
   }
 
