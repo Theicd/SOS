@@ -4,19 +4,15 @@
   // חלק העלאות (blossom.js) – לקוח Blossom קל משקל עם נפילות חן ורב-שרתים, נכתב עבור פרויקט SOS2
   // מבוסס רעיונית על yakbak/src/lib/blossom.ts אך מותאם JS פשוט וללא תלות חיצונית
 
+  // חלק העלאות (blossom.js) – שרתי Blossom אמיתיים שתומכים ב-NIP-96/Blossom
   const DEFAULT_SERVERS = [
-    { url: 'https://blossom.band', pubkey: 'npub1blossomserver' },
-    { url: 'https://nostr.net' },
-    { url: 'https://nostr.net/' },
-    { url: 'https://github.com/nostr-protocol/nostr' },
-    { url: 'https://github.com/hzrd149/blossom' },
-    { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
-    { url: 'https://blossom.nostr.build', pubkey: 'npub1nostrbuild' },
-    { url: 'https://nostrify.dev' },
-    { url: 'https://nostr.build', pubkey: 'npub1nostrbuild' },
-    { url: 'https://gitlab.com/soapbox-pub/nostrify-docs/-/blob/main/:path' },
-    { url: 'https://gitlab.com/soapbox-pub/nostrify-docs/-/blob/main/upload/blossom.md' },
-    { url: 'https://how-nostr-works.pages.dev/' },
+    { url: 'https://nostr.build' },
+    { url: 'https://void.cat' },
+    { url: 'https://files.sovbit.host' },
+    { url: 'https://blossom.primal.net' },
+    { url: 'https://media.nostr.band' },
+    { url: 'https://nostpic.com' },
+    { url: 'https://nostrcheck.me' },
   ];
 
   function fixUrl(u){
@@ -52,45 +48,71 @@
     return list.length ? list : DEFAULT_SERVERS;
   }
 
-  // חלק העלאות (blossom.js) – ניסיון העלאה לכמה שרתים עד הצלחה. במקרה כישלון – נזרוק שגיאה וניתן לשכבות גבוהות לבצע fallback
+  // חלק העלאות (blossom.js) – ניסיון העלאה לכמה שרתים עד הצלחה
   async function uploadToBlossom(blob){
     const servers = await getServers();
     const hash = await sha256Hex(blob);
-    const auth = await createAuthEvent('upload', 'Upload voice-message.webm', hash);
+    const auth = await createAuthEvent('upload', 'Upload media file', hash);
     const header = 'Nostr ' + btoa(JSON.stringify(auth));
+    const errors = [];
+    
+    console.log('[BLOSSOM] Starting upload:', {
+      size: (blob.size / 1024 / 1024).toFixed(2) + 'MB',
+      type: blob.type,
+      hash: hash.slice(0, 16) + '...',
+      servers: servers.length
+    });
 
     for(const s of servers){
-      try{
-        const url = new URL('/upload', s.url).toString();
-        // חלק העלאות (blossom.js) – ניסיון עם PUT ואז POST כדי לעקוף מגבלות חלק מהדפדפנים במובייל
-        const methods = ['PUT','POST'];
-        for (const method of methods) {
-          const res = await fetch(url, {
-            method,
-            body: blob,
-            headers: {
-              // הימנעות מכותרות שמפעילות preflight/נחסמות (Origin/Content-Length)
-              'Content-Type': blob.type || 'application/octet-stream',
-              'Accept': 'application/json',
-              'Authorization': header,
-            },
-            mode: 'cors',
-            credentials: 'omit',
-          });
-          if(!res.ok){
-            try { await res.text(); } catch {}
-            continue; // נסה שיטה הבאה או שרת הבא
+      // נסה נתיבי העלאה שונים לפי סוג השרת
+      const uploadPaths = ['/upload', '/api/v1/upload', '/api/upload', '/media'];
+      
+      for(const path of uploadPaths){
+        try{
+          const url = new URL(path, s.url).toString();
+          console.log('[BLOSSOM] Trying:', url);
+          
+          // ניסיון עם PUT ואז POST
+          for (const method of ['PUT', 'POST']) {
+            try {
+              const res = await fetch(url, {
+                method,
+                body: blob,
+                headers: {
+                  'Content-Type': blob.type || 'application/octet-stream',
+                  'Accept': 'application/json',
+                  'Authorization': header,
+                },
+                mode: 'cors',
+                credentials: 'omit',
+              });
+              
+              if(!res.ok){
+                const errText = await res.text().catch(() => '');
+                console.log('[BLOSSOM] Failed:', method, res.status, errText.slice(0, 100));
+                continue;
+              }
+              
+              const data = await res.json();
+              console.log('[BLOSSOM] Response:', data);
+              
+              // תמיכה בפורמטים שונים של תשובה
+              const resultUrl = data?.url || data?.data?.url || data?.nip94_event?.tags?.find(t => t[0] === 'url')?.[1];
+              if(resultUrl){
+                console.log('[BLOSSOM] Success! URL:', resultUrl);
+                return fixUrl(resultUrl);
+              }
+            } catch(fetchErr) {
+              errors.push(`${s.url}${path} ${method}: ${fetchErr.message}`);
+            }
           }
-          const data = await res.json();
-          if(!data?.url || (data?.sha256 && data.sha256 !== hash)){
-            continue;
-          }
-          return fixUrl(data.url);
+        }catch(e){
+          errors.push(`${s.url}: ${e.message}`);
         }
-      }catch(e){
-        // נמשיך לשרת הבא
       }
     }
+    
+    console.error('[BLOSSOM] All servers failed:', errors);
     throw new Error('blossom-upload-failed');
   }
 
