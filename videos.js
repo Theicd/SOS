@@ -1018,6 +1018,12 @@ function buildVideoFeedFilters() {
     } else {
       filters.push({ kinds: [5], '#t': [networkTag], limit: 200 });
     }
+    // לוג לבדיקת פילטרי מחיקה
+    console.log('%c[DELETE_DEBUG] videos deletion filter', 'color: #FF5722; font-weight: bold', {
+      deletionAuthors: Array.from(deletionAuthors),
+      adminKeys: app.adminPublicKeys instanceof Set ? Array.from(app.adminPublicKeys) : [],
+      viewerKey,
+    });
 
     filters.push({ kinds: [7], '#t': [networkTag], limit: 500 });
 

@@ -1143,12 +1143,24 @@
           var line = document.createElement('div');
           line.className = 'debug-line debug-' + type;
           var time = new Date().toLocaleTimeString('he-IL');
-          var msg = Array.from(args).map(function(a) {
+          // סינון פרמטרי %c style
+          var filteredArgs = Array.from(args).filter(function(a, i, arr) {
+            if (typeof a === 'string' && a.startsWith('%c')) return true;
+            if (i > 0 && typeof arr[i-1] === 'string' && arr[i-1].includes('%c') && typeof a === 'string' && a.includes('color:')) return false;
+            return true;
+          });
+          var msg = filteredArgs.map(function(a) {
+            if (typeof a === 'string' && a.startsWith('%c')) return a.replace(/%c/g, '');
             if (typeof a === 'object') {
-              try { return JSON.stringify(a, null, 0).slice(0, 200); } catch(e) { return String(a); }
+              try { return JSON.stringify(a, null, 0).slice(0, 500); } catch(e) { return String(a); }
             }
             return String(a);
           }).join(' ');
+          // הדגשת לוגי מחיקה
+          if (msg.includes('[DELETE_DEBUG]') || msg.includes('[DELETE_PUBLISH]')) {
+            line.style.color = '#FF5722';
+            line.style.fontWeight = 'bold';
+          }
           line.textContent = '[' + time + '] ' + msg;
           content.appendChild(line);
           if (content.children.length > maxLines) content.removeChild(content.firstChild);
