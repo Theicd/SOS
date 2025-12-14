@@ -22,36 +22,39 @@
   function getDeviceInfo() {
     const ua = navigator.userAgent || '';
     const isIOS = /iphone|ipad|ipod/i.test(ua);
+    const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
     const isAndroid = /android/i.test(ua);
-    const isSafari = /safari/i.test(ua) && !/chrome|chromium|crios/i.test(ua);
-    const isMobile = isIOS || isAndroid || /mobile/i.test(ua);
-    return { isIOS, isAndroid, isSafari, isMobile };
+    const isSafari = /safari/i.test(ua) && !/chrome|chromium|crios|fxios|edgios|opios/i.test(ua);
+    const finalIsIOS = isIOS || isIPadOS;
+    const isMobile = finalIsIOS || isAndroid || /mobile/i.test(ua);
+    return { isIOS: finalIsIOS, isAndroid, isSafari, isMobile };
   }
 
   // חלק דחיסת וידאו – בחירת codec מתאים למכשיר
   function getBestCodec() {
     const { isIOS, isSafari } = getDeviceInfo();
+    const canCheck = typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function';
     
     // iOS/Safari לא תומכים ב-VP9 - נשתמש ב-H.264
     if (isIOS || isSafari) {
-      if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')) {
+      if (canCheck && MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')) {
         return { mimeType: 'video/mp4;codecs=avc1,mp4a.40.2', container: 'mp4' };
       }
-      if (MediaRecorder.isTypeSupported('video/mp4')) {
+      if (canCheck && MediaRecorder.isTypeSupported('video/mp4')) {
         return { mimeType: 'video/mp4', container: 'mp4' };
       }
     }
     
     // VP9 עם Opus - הכי טוב לדחיסה
-    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+    if (canCheck && MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
       return { mimeType: 'video/webm;codecs=vp9,opus', container: 'webm' };
     }
     // VP8 עם Opus - fallback
-    if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+    if (canCheck && MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
       return { mimeType: 'video/webm;codecs=vp8,opus', container: 'webm' };
     }
     // H.264 עם AAC
-    if (MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')) {
+    if (canCheck && MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')) {
       return { mimeType: 'video/webm;codecs=h264,opus', container: 'webm' };
     }
     // ברירת מחדל
@@ -476,7 +479,13 @@
     
     console.log('[COMPRESS] MediaRecorder options:', recorderOptions);
     
-    const recorder = new MediaRecorder(canvasStream, recorderOptions);
+    let recorder;
+    try {
+      recorder = new MediaRecorder(canvasStream, recorderOptions);
+    } catch (recorderErr) {
+      console.warn('[COMPRESS] MediaRecorder init failed, retrying with defaults:', recorderErr);
+      recorder = new MediaRecorder(canvasStream);
+    }
 
     const chunks = [];
     recorder.ondataavailable = (e) => {
@@ -560,28 +569,44 @@
       180000
     );
 
+    let stopRequested = false;
+    const safeStopRecorder = () => {
+      if (stopRequested) return;
+      stopRequested = true;
+      try {
+        if (recorder.state !== 'inactive') recorder.stop();
+      } catch (_) {
+        try { recorder.stop(); } catch (_) {}
+      }
+    };
+
+    let safetyTimerId = 0;
+
     await Promise.race([
       new Promise((resolve) => {
         video.onended = () => {
           stopDrawingLoop();
+          if (safetyTimerId) clearTimeout(safetyTimerId);
           // פריים אחרון
           ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
           frameCount++;
           setTimeout(() => {
-            recorder.stop();
+            safeStopRecorder();
           }, 200);
         };
         recorder.onstop = resolve;
       }),
       new Promise((resolve) => {
-        setTimeout(() => {
+        safetyTimerId = setTimeout(() => {
           console.warn('[COMPRESS] טיימאאוט - מפסיק אחרי', safetyTimeout, 'ms');
           stopDrawingLoop();
-          recorder.stop();
+          safeStopRecorder();
           resolve();
         }, safetyTimeout);
       })
     ]);
+
+    if (safetyTimerId) clearTimeout(safetyTimerId);
 
     // ניקוי משאבים
     stopDrawingLoop();

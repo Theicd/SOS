@@ -968,7 +968,10 @@ function prependVideoCard(video) {
     .then(() => {
       mountCard(card, { prepend: true });
     })
-    .catch((err) => handleCardMediaFailure(card, video.id, err));
+    .catch((err) => {
+      mountCard(card, { prepend: true });
+      handleCardMediaFailure(card, video.id, err);
+    });
 }
 
 function upsertVideoInState(video) {
@@ -1284,31 +1287,52 @@ function renderVideoCard(video) {
       }
     });
 
+    let readyTimer = 0;
+    let readyDone = false;
     const cleanup = () => {
+      if (readyTimer) clearTimeout(readyTimer);
       videoEl.removeEventListener('loadeddata', onLoadedData);
+      videoEl.removeEventListener('loadedmetadata', onLoadedData);
+      videoEl.removeEventListener('canplay', onLoadedData);
+      videoEl.removeEventListener('canplaythrough', onLoadedData);
       videoEl.removeEventListener('error', onError);
     };
 
     const onLoadedData = () => {
+      if (readyDone) return;
+      readyDone = true;
       cleanup();
       markReady();
     };
 
     const onError = (event) => {
+      if (readyDone) return;
+      readyDone = true;
       cleanup();
       failReady(event?.error || new Error('video load error'));
     };
 
     videoEl.addEventListener('loadeddata', onLoadedData, { once: true });
+    videoEl.addEventListener('loadedmetadata', onLoadedData, { once: true });
+    videoEl.addEventListener('canplay', onLoadedData, { once: true });
+    videoEl.addEventListener('canplaythrough', onLoadedData, { once: true });
     videoEl.addEventListener('error', onError, { once: true });
+
+    readyTimer = setTimeout(() => {
+      if (readyDone) return;
+      readyDone = true;
+      cleanup();
+      markReady();
+    }, 4500);
 
     const applyFallbackSrc = () => {
       // חלק תאימות iOS 17.4+ (videos.js) – שימוש ב-source element במקום src ישירות | HYPER CORE TECH
       // באג ידוע: Blob URLs לא עובדים עם src ישירות ב-iOS 17.4+
       // https://developer.apple.com/forums/thread/751063
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
       
-      if (isIOS) {
+      if (isIOS || isIPadOS) {
         // הסרת source קיימים
         while (videoEl.firstChild) {
           videoEl.removeChild(videoEl.firstChild);
@@ -1721,7 +1745,10 @@ function appendNextVideoCard() {
     .then(() => {
       mountCard(card);
     })
-    .catch((err) => handleCardMediaFailure(card, video.id, err));
+    .catch((err) => {
+      mountCard(card);
+      handleCardMediaFailure(card, video.id, err);
+    });
 
   controller.nextIndex += 1;
   preloadNextMedia(state.videos[controller.nextIndex]);
