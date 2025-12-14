@@ -9,10 +9,10 @@
   const TARGET_FPS = 30;
   
   // הגדרות bitrate דינמיות - מותאמות לאיכות טובה
-  const MIN_VIDEO_BITRATE = 800_000;   // 800kbps מינימום
-  const MAX_VIDEO_BITRATE = 2_500_000; // 2.5Mbps מקסימום
-  const MIN_AUDIO_BITRATE = 96_000;    // 96kbps מינימום
-  const MAX_AUDIO_BITRATE = 192_000;   // 192kbps מקסימום
+  const MIN_VIDEO_BITRATE = 350_000;   // 350kbps מינימום
+  const MAX_VIDEO_BITRATE = 1_600_000; // 1.6Mbps מקסימום
+  const MIN_AUDIO_BITRATE = 64_000;    // 64kbps מינימום
+  const MAX_AUDIO_BITRATE = 128_000;   // 128kbps מקסימום
 
   let ffmpegInstance = null;
   let isLoading = false;
@@ -447,7 +447,7 @@
     // אם לא מצאנו אודיו מקורי, נשתמש ב-Web Audio API
     if (!audioAdded) {
       try {
-        const audioContext = new AudioContext();
+        audioContext = new AudioContext();
         const source = audioContext.createMediaElementSource(video);
         const destination = audioContext.createMediaStreamDestination();
         source.connect(destination);
@@ -485,38 +485,72 @@
       }
     };
 
-    // ציור פריימים מסונכרן עם setInterval - יותר עקבי מ-requestAnimationFrame
-    const frameInterval = 1000 / TARGET_FPS;
+    const frameIntervalSec = 1 / TARGET_FPS;
     let frameCount = 0;
-    let drawInterval = null;
-    
-    function startDrawing() {
-      // ציור ראשוני
+    let stopDrawing = false;
+    let lastMediaTime = -Infinity;
+    let rafId = 0;
+    const canvasVideoTrack = canvasStream.getVideoTracks()[0];
+
+    function drawIfDue(mediaTime) {
+      const safeMediaTime = typeof mediaTime === 'number' ? mediaTime : (video.currentTime || 0);
+      if (safeMediaTime - lastMediaTime < frameIntervalSec * 0.85) return;
       ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
       frameCount++;
-      
-      // ציור מתוזמן בקצב קבוע
-      drawInterval = setInterval(() => {
-        if (video.ended || video.paused) {
-          if (drawInterval) clearInterval(drawInterval);
-          return;
-        }
-        
-        ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
-        frameCount++;
-        
-        if (typeof onProgress === 'function') {
-          const progress = Math.min(90, 20 + (video.currentTime / video.duration) * 70);
-          onProgress({ stage: 'compressing', percent: Math.round(progress) });
-        }
-      }, frameInterval);
+      lastMediaTime = safeMediaTime;
+
+      if (canvasVideoTrack && typeof canvasVideoTrack.requestFrame === 'function') {
+        try { canvasVideoTrack.requestFrame(); } catch (_) {}
+      }
+
+      if (typeof onProgress === 'function') {
+        const progress = Math.min(90, 20 + (video.currentTime / video.duration) * 70);
+        onProgress({ stage: 'compressing', percent: Math.round(progress) });
+      }
     }
 
-    // התחלת הקלטה והפעלת וידיאו מיד
-    recorder.start(100);
-    video.currentTime = 0;
+    function startDrawing() {
+      if (typeof video.requestVideoFrameCallback === 'function') {
+        const onFrame = (_now, meta) => {
+          if (stopDrawing || video.ended || video.paused) return;
+          drawIfDue(meta && typeof meta.mediaTime === 'number' ? meta.mediaTime : video.currentTime);
+          video.requestVideoFrameCallback(onFrame);
+        };
+        video.requestVideoFrameCallback(onFrame);
+        return;
+      }
+
+      const tick = () => {
+        if (stopDrawing || video.ended || video.paused) return;
+        drawIfDue(video.currentTime);
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function stopDrawingLoop() {
+      stopDrawing = true;
+      if (rafId) cancelAnimationFrame(rafId);
+    }
+
+    try { video.pause(); } catch (_) {}
+    try {
+      if (video.currentTime > 0.01) {
+        await new Promise((resolve) => {
+          const cleanup = () => {
+            video.onseeked = null;
+            resolve();
+          };
+          video.onseeked = cleanup;
+          video.currentTime = 0;
+          setTimeout(cleanup, 1500);
+        });
+      }
+    } catch (_) {}
+
     await video.play();
     startDrawing();
+    recorder.start(500);
     
     console.log('[COMPRESS] התחלתי הקלטה ווידיאו במקביל, FPS:', TARGET_FPS);
 
@@ -529,8 +563,7 @@
     await Promise.race([
       new Promise((resolve) => {
         video.onended = () => {
-          // עצירת ציור
-          if (drawInterval) clearInterval(drawInterval);
+          stopDrawingLoop();
           // פריים אחרון
           ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
           frameCount++;
@@ -543,7 +576,7 @@
       new Promise((resolve) => {
         setTimeout(() => {
           console.warn('[COMPRESS] טיימאאוט - מפסיק אחרי', safetyTimeout, 'ms');
-          if (drawInterval) clearInterval(drawInterval);
+          stopDrawingLoop();
           recorder.stop();
           resolve();
         }, safetyTimeout);
@@ -551,7 +584,7 @@
     ]);
 
     // ניקוי משאבים
-    if (drawInterval) clearInterval(drawInterval);
+    stopDrawingLoop();
     if (audioContext) {
       try { audioContext.close(); } catch (_) {}
     }
