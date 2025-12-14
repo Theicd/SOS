@@ -175,6 +175,8 @@
   // חלק P2P (p2p-video-sharing.js) – מצב המערכת
   const state = {
     availableFiles: new Map(), // hash -> { blob, mimeType, size, timestamp }
+    // חלק P2P Metadata (p2p-video-sharing.js) – מיפוי hash -> eventId כדי לצרף postMetadata לקובץ | HYPER CORE TECH
+    hashToEventId: new Map(),
     lastAvailabilityPublish: new Map(), // hash -> timestamp
     activePeers: new Map(), // hash -> Set(pubkeys)
     activeConnections: new Map(), // connectionId -> RTCPeerConnection
@@ -622,6 +624,19 @@
     }
   }
 
+  // חלק P2P Metadata (p2p-video-sharing.js) – רישום eventId עבור hash כדי שיישלח metadata מלא ב-P2P | HYPER CORE TECH
+  function registerFileEventId(hash, eventId) {
+    if (!hash || !eventId) {
+      return false;
+    }
+    state.hashToEventId.set(hash, eventId);
+    const existing = state.availableFiles.get(hash);
+    if (existing && !existing.eventId) {
+      existing.eventId = eventId;
+    }
+    return true;
+  }
+
   // חלק איזון עומסים (p2p-video-sharing.js) – רישום זמינות ברקע עבור קבצים שנשלפו מה-cache | HYPER CORE TECH
   function scheduleBackgroundRegistration(hash, blob, mimeType) {
     if (!hash || !blob) {
@@ -1048,6 +1063,7 @@
       // שמירה מקומית בלבד - בלי פרסום לרשת
       state.availableFiles.set(hash, {
         blob, mimeType, size: blob.size, timestamp: Date.now(),
+        eventId: state.hashToEventId.get(hash) || null,
       });
       return true;
     }
@@ -1074,6 +1090,7 @@
       // שמירה מקומית
       state.availableFiles.set(hash, {
         blob, mimeType, size: blob.size, timestamp: Date.now(),
+        eventId: state.hashToEventId.get(hash) || null,
       });
 
       if (typeof App.pinCachedMedia === 'function') {
@@ -2522,6 +2539,7 @@
                   mimeType: entry.mimeType || entry.blob.type,
                   size: entry.size || entry.blob.size,
                   timestamp: entry.timestamp || Date.now(),
+                  eventId: state.hashToEventId.get(entry.hash) || null,
                 });
                 loadedCount++;
               }
@@ -2645,6 +2663,8 @@
     getGuestKeys: () => state.guestKeys, // קבלת מפתחות אורח
     // חלק סטטיסטיקות – API לקבלת סטטיסטיקות P2P | HYPER CORE TECH
     getP2PStats,                         // קבלת כל הסטטיסטיקות לממשק
+    // חלק P2P Metadata – API לרישום eventId עבור hash | HYPER CORE TECH
+    registerFileEventId,
   });
 
   // אתחול
