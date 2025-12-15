@@ -1329,7 +1329,9 @@
 
   function initModals() {
     const modal = document.getElementById('infoModal');
+    if (!modal) return; // אין מודאל בדף הזה - יוצאים בשקט
     const closeBtn = modal.querySelector('.auth-modal__close');
+    if (!closeBtn) return;
     modalSlidesContainer = document.getElementById('modalSlides');
     modalDotsContainer = document.getElementById('modalDots');
     modalPrevButton = document.getElementById('modalPrev');
