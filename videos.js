@@ -948,10 +948,16 @@ function mountCard(card, { prepend = false } = {}) {
   wireMediaControls(card);
   observeVideoCard(card);
   if (!state.firstCardRendered) {
-    hideLoadingAnimation();
-    if (selectors.status) {
-      selectors.status.style.display = 'none';
-    }
+    // עדכון מד הטעינה ל-100% והצגת "מוכן!" רק כשהפוסט הראשון מוצג בפועל
+    setLoadingProgress(100);
+    setLoadingStatus('מוכן!');
+    // השהייה קצרה כדי שהמשתמש יראה את "מוכן!" לפני שהאנימציה נעלמת
+    setTimeout(() => {
+      hideLoadingAnimation();
+      if (selectors.status) {
+        selectors.status.style.display = 'none';
+      }
+    }, 500);
     state.firstCardRendered = true;
     autoPlayFirstVideo();
   }
@@ -2916,8 +2922,8 @@ async function loadVideos() {
     state.videos = videoEvents;
   }
   
-  setLoadingProgress(100);
-  setLoadingStatus('מוכן!');
+  setLoadingProgress(95);
+  setLoadingStatus('מציג פוסטים...');
   
   saveFeedCache(state.videos);
   renderVideos();
