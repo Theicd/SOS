@@ -2625,13 +2625,9 @@
       Array.isArray(App.relayUrls) &&
       App.relayUrls.length > 0
     ) {
-      // חלק infinite scroll (feed.js) – מטאדאטה של פרופילים נטען ברקע כדי לא לחסום רינדור | HYPER CORE TECH
-      Promise.resolve()
-        .then(() => listMetadataBatch(uniqueAuthors))
-        .then((metas) => {
-          if (!Array.isArray(metas)) {
-            return;
-          }
+      try {
+        const metas = await listMetadataBatch(uniqueAuthors);
+        if (Array.isArray(metas)) {
           metas.forEach((ev) => {
             const author = typeof ev?.pubkey === 'string' ? ev.pubkey.toLowerCase() : '';
             if (!author || !ev?.content) return;
@@ -2657,10 +2653,10 @@
               // ignore malformed content
             }
           });
-        })
-        .catch((err) => {
-          console.warn('Batch metadata list failed', err);
-        });
+        }
+      } catch (err) {
+        console.warn('Batch metadata list failed', err);
+      }
     }
 
     // חלק infinite scroll (feed.js) – טעינת רק מספר מוגבל של פוסטים
@@ -2671,27 +2667,12 @@
     console.log(`[DISPLAY POSTS] append=${append}, displayedPostsCount=${displayedPostsCount}, postsToDisplay.length=${postsToDisplay.length}, visibleEvents.length=${visibleEvents.length}`);
     displayedPostsCount = append ? displayedPostsCount + postsToDisplay.length : postsToDisplay.length;
 
-    // חלק infinite scroll (feed.js) – טעינת פרופילים ברקע כדי לא לחסום רינדור | HYPER CORE TECH
-    const pendingProfileLoads = postsToDisplay.map((event) => {
-      const pubkey = typeof event?.pubkey === 'string' ? event.pubkey : '';
-      return Promise.resolve()
-        .then(() => fetchProfile(pubkey))
-        .then((profile) => ({ pubkey, profile }))
-        .catch(() => null);
-    });
-    pendingProfileLoads.forEach((promise) => {
-      promise.then((res) => {
-        if (!res || !res.pubkey || !res.profile) return;
-        const author = res.pubkey.toLowerCase();
-        updateRenderedAuthorProfile(author, res.profile);
-      });
-    });
+    const profileList = await Promise.all(postsToDisplay.map((event) => fetchProfile(event.pubkey)));
 
     const renderedIds = [];
     postsToDisplay.forEach((event, index) => {
       const normalizedPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
-      const cachedProfile = App.profileCache instanceof Map ? App.profileCache.get(normalizedPubkey) : null;
-      const profileData = cachedProfile || {
+      const profileData = profileList[index] || {
         name: `משתמש ${normalizedPubkey.slice(0, 8)}`,
         bio: '',
         picture: '',

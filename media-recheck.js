@@ -29,11 +29,6 @@
       failCount: 0,
     });
 
-    // חלק P2P Metadata (media-recheck.js) – חיבור hash -> eventId למערכת ה-P2P כדי לאפשר שליחת postMetadata יחד עם הקובץ | HYPER CORE TECH
-    if (hash && eventId && typeof App.registerFileEventId === 'function') {
-      App.registerFileEventId(hash, eventId);
-    }
-
     console.log(`Registered media URL: ${url.slice(0, 50)}...`);
   }
 

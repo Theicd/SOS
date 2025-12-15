@@ -1329,10 +1329,6 @@
 
   function initModals() {
     const modal = document.getElementById('infoModal');
-    if (!modal) {
-      return;
-    }
-
     const closeBtn = modal.querySelector('.auth-modal__close');
     modalSlidesContainer = document.getElementById('modalSlides');
     modalDotsContainer = document.getElementById('modalDots');
@@ -1340,12 +1336,10 @@
     modalNextButton = document.getElementById('modalNext');
     modalControlsContainer = document.getElementById('modalControls');
 
-    if (closeBtn) {
-      closeBtn.addEventListener('click', function() {
-        modal.style.display = 'none';
-        modal.setAttribute('aria-hidden', 'true');
-      });
-    }
+    closeBtn.addEventListener('click', function() {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    });
 
     if (modalPrevButton) {
       modalPrevButton.addEventListener('click', () => shiftModalSlide(-1));

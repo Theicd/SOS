@@ -1025,19 +1025,6 @@ async function loadDeletionsFirst() {
       deletionEvents.forEach(event => {
         if (event && event.kind === 5 && typeof app.registerDeletion === 'function') {
           app.registerDeletion(event);
-
-          // חלק מחיקות (videos.js) – הסרת כרטיסיות וידאו שכבר הוצגו מהמטמון (videos-feed__card) | HYPER CORE TECH
-          if (Array.isArray(event.tags)) {
-            event.tags.forEach((tag) => {
-              if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) {
-                const deletedId = tag[1];
-                try {
-                  removeVideoFromState(deletedId);
-                  removeVideoCard(deletedId);
-                } catch (_) {}
-              }
-            });
-          }
         }
       });
       console.log('%c[DELETE_DEBUG] loadDeletionsFirst processed', 'color: #FF5722; font-weight: bold', { 
@@ -3066,10 +3053,8 @@ async function init() {
     app.buildCoreFeedFilters = buildVideoFeedFilters;
   }
 
-  // טעינת מחיקות ברקע – לא לחסום הצגת מטמון/כרטיסיות כדי למנוע מסך שחור | HYPER CORE TECH
-  loadDeletionsFirst().catch((err) => {
-    console.warn('[videos] loadDeletionsFirst background failed', err);
-  });
+  // טעינת מחיקות לפני הצגת המטמון כדי לסנן פוסטים מחוקים
+  await loadDeletionsFirst();
 
   // חלק מטמון (videos.js) – הצגת פוסטים מהמטמון מיד לפני טעינה מהרשת | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();
