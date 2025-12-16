@@ -1365,7 +1365,8 @@
       pc,
       channel,
       lastUsed: Date.now(),
-      filesTransferred: 1
+      filesTransferred: 1,
+      busy: false
     });
     log('success', `💾 חיבור נשמר לשימוש חוזר`, { 
       peer: peerPubkey.slice(0, 8),
@@ -1461,7 +1462,8 @@
   async function downloadFromPeer(peerPubkey, hash) {
     // חלק Persistent Connections – בדיקה אם יש חיבור קיים | HYPER CORE TECH
     const existingConn = getPersistentConnection(peerPubkey);
-    if (existingConn) {
+    if (existingConn && !existingConn.busy) {
+      existingConn.busy = true;
       try {
         const result = await downloadViaPersistentConnection(existingConn, hash, peerPubkey);
         existingConn.filesTransferred++;
@@ -1469,6 +1471,8 @@
       } catch (err) {
         log('info', `⚠️ חיבור קיים נכשל, יוצר חדש`, { error: err.message });
         state.persistentPeers.delete(peerPubkey);
+      } finally {
+        existingConn.busy = false;
       }
     }
     
@@ -1493,15 +1497,16 @@
   // חלק Persistent Connections (p2p-video-sharing.js) – הורדה דרך חיבור קיים | HYPER CORE TECH
   function downloadViaPersistentConnection(conn, hash, peerPubkey) {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Persistent download timeout'));
-      }, MAX_DOWNLOAD_TIMEOUT);
-      
       const chunks = [];
       let receivedSize = 0;
       let totalSize = 0;
       
       const originalOnMessage = conn.channel.onmessage;
+
+      const timeout = setTimeout(() => {
+        try { conn.channel.onmessage = originalOnMessage; } catch (e) {}
+        reject(new Error('Persistent download timeout'));
+      }, MAX_DOWNLOAD_TIMEOUT);
       
       conn.channel.onmessage = async (event) => {
         try {
@@ -2014,9 +2019,21 @@
         
         log('peer', `📡 קיבלתי data channel`, { connectionId });
 
-        channel.onopen = async () => {
-          log('success', `✅ data channel נפתח - מתחיל שליחה!`);
+        let isSending = false;
+        const sendFileToChannel = async (requestedHash) => {
+          if (!requestedHash || isSending) return;
+          const hash = requestedHash;
+          const fileData = state.availableFiles.get(hash);
+          if (!fileData) {
+            if (channel && channel.readyState === 'open') {
+              try {
+                channel.send(JSON.stringify({ type: 'error', message: 'File not available' }));
+              } catch (e) {}
+            }
+            return;
+          }
 
+          isSending = true;
           try {
             // שליחת metadata - עם הרחבה אם המודול זמין
             let metadataMsg = {
@@ -2143,7 +2160,14 @@
                 }));
               } catch (e) {}
             }
+          } finally {
+            isSending = false;
           }
+        };
+
+        channel.onopen = async () => {
+          log('success', `✅ data channel נפתח - מתחיל שליחה!`);
+          await sendFileToChannel(hash);
         };
 
         channel.onerror = (err) => {
@@ -2155,6 +2179,12 @@
           try {
             const msg = JSON.parse(event.data);
 
+            if (msg.type === 'request' && msg.hash) {
+              log('request', `📥 peer ביקש את הקובץ`, { hash: msg.hash.slice(0, 16) + '...' });
+              await sendFileToChannel(msg.hash);
+              return;
+            }
+
             if (App.EventSync && typeof App.EventSync.handleIncomingMessage === 'function') {
               const handled = await App.EventSync.handleIncomingMessage(msg, peerPubkey, channel);
               if (handled) return;
@@ -2165,9 +2195,6 @@
               if (handled) return;
             }
 
-            if (msg.type === 'request') {
-              log('request', `📥 peer ביקש את הקובץ`, { hash: msg.hash.slice(0, 16) + '...' });
-            }
           } catch (err) {
             // לא JSON, אולי binary data
           }
