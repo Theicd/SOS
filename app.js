@@ -19,6 +19,27 @@
       return event;
     };
   }
+
+  function hookPoolForEventSync(pool) {
+    if (!pool || App._eventSyncPoolHooked || typeof pool.subscribeMany !== 'function') {
+      return;
+    }
+
+    const originalSubscribeMany = pool.subscribeMany.bind(pool);
+    pool.subscribeMany = (relays, filters, handlers = {}) => {
+      const originalOnevent = handlers.onevent;
+      return originalSubscribeMany(relays, filters, Object.assign({}, handlers, {
+        onevent: (event) => {
+          try { App.EventSync?.ingestEvent?.(event, { source: 'relay' }); } catch (_) {}
+          if (typeof originalOnevent === 'function') {
+            return originalOnevent(event);
+          }
+        },
+      }));
+    };
+
+    App._eventSyncPoolHooked = true;
+  }
   const LOGIN_METRIC_KIND = 1050; // חלק מדדי שימוש (app.js) – kind עבור רישום כניסות למערכת | HYPER CORE TECH
   let loginMetricRetryHandle = null;
 
@@ -148,6 +169,7 @@
   // חלק Bootstrap (app.js) – יצירת Pool והרצת מדדי התחברות פעם אחת בלבד בכל סשן
   if (!App.pool) {
     App.pool = new SimplePool();
+    hookPoolForEventSync(App.pool);
     if (typeof App.notifyPoolReady === 'function') {
       App.notifyPoolReady(App.pool);
     }
@@ -158,6 +180,8 @@
     }
     console.log('Pool initialized');
   }
+
+  hookPoolForEventSync(App.pool);
 
   if (App.metadataPublishQueued && typeof App.publishProfileMetadata === 'function') {
     App.publishProfileMetadata();

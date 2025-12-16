@@ -1355,6 +1355,7 @@
     try { conn.channel?.close(); } catch (e) {}
     try { conn.pc?.close(); } catch (e) {}
     state.persistentPeers.delete(peerPubkey);
+    try { App.EventSync?.detachChannel?.(peerPubkey); } catch (e) {}
     return null;
   }
   
@@ -1381,6 +1382,8 @@
         // לא קריטי
       }
     }
+
+    try { App.EventSync?.attachChannel?.(peerPubkey, channel); } catch (e) {}
   }
   
   // חלק Persistent Connections (p2p-video-sharing.js) – ניקוי חיבורים ישנים | HYPER CORE TECH
@@ -1398,6 +1401,7 @@
         try { conn.channel?.close(); } catch (e) {}
         try { conn.pc?.close(); } catch (e) {}
         state.persistentPeers.delete(pubkey);
+        try { App.EventSync?.detachChannel?.(pubkey); } catch (e) {}
         cleaned++;
       }
     }
@@ -1499,7 +1503,7 @@
       
       const originalOnMessage = conn.channel.onmessage;
       
-      conn.channel.onmessage = (event) => {
+      conn.channel.onmessage = async (event) => {
         try {
           if (typeof event.data === 'string') {
             const msg = JSON.parse(event.data);
@@ -1516,6 +1520,14 @@
               clearTimeout(timeout);
               conn.channel.onmessage = originalOnMessage;
               reject(new Error(msg.message));
+            } else {
+              if (App.EventSync && typeof App.EventSync.handleIncomingMessage === 'function') {
+                const handled = await App.EventSync.handleIncomingMessage(msg, peerPubkey, conn.channel);
+                if (handled) return;
+              }
+              if (App.PeerExchange && typeof App.PeerExchange.handleIncomingMessage === 'function') {
+                App.PeerExchange.handleIncomingMessage(msg, peerPubkey, conn.channel);
+              }
             }
           } else {
             chunks.push(event.data);
@@ -1594,7 +1606,7 @@
           log('request', `📤 שלחתי בקשה לקובץ`, { hash: hash.slice(0, 16) + '...' });
         };
 
-        channel.onmessage = (event) => {
+        channel.onmessage = async (event) => {
           try {
             if (typeof event.data === 'string') {
               const msg = JSON.parse(event.data);
@@ -1638,6 +1650,11 @@
                 cleanup();
                 reject(new Error(msg.message));
               } else {
+                if (App.EventSync && typeof App.EventSync.handleIncomingMessage === 'function') {
+                  const handled = await App.EventSync.handleIncomingMessage(msg, peerPubkey, channel);
+                  if (handled) return;
+                }
+
                 // חלק Peer Exchange – טיפול בהודעות נוספות | HYPER CORE TECH
                 if (App.PeerExchange && typeof App.PeerExchange.handleIncomingMessage === 'function') {
                   App.PeerExchange.handleIncomingMessage(msg, peerPubkey, channel);
@@ -1728,7 +1745,23 @@
   async function sendSignal(peerPubkey, type, data) {
     try {
       const keys = getEffectiveKeys();
+      const tryRelay = () => {
+        if (!App.PeerExchange || typeof App.PeerExchange.sendRelaySignal !== 'function') return false;
+        const via = typeof App.PeerExchange.findRelayPeer === 'function' ? App.PeerExchange.findRelayPeer(peerPubkey) : null;
+        if (!via) return false;
+        const ok = App.PeerExchange.sendRelaySignal(peerPubkey, { type, data }, via);
+        if (ok) {
+          log('peer', `📡 signal נשלח דרך Relay Peer`, {
+            type,
+            to: peerPubkey.slice(0, 16) + '...',
+            via: via.slice(0, 16) + '...'
+          });
+        }
+        return ok;
+      };
+
       if (!App.pool || !keys.publicKey || !keys.privateKey) {
+        if (tryRelay()) return;
         throw new Error('Missing pool or keys');
       }
 
@@ -1777,7 +1810,12 @@
         relays: relays.join(', ')
       });
       
-      await App.pool.publish(relays, signed);
+      try {
+        await App.pool.publish(relays, signed);
+      } catch (publishErr) {
+        if (tryRelay()) return;
+        throw publishErr;
+      }
 
       log('peer', `📡 signal נשלח`, {
         type,
@@ -1791,6 +1829,30 @@
       throw err;
     }
   }
+
+  async function handleRelayedSignal(signal, senderPubkey) {
+    try {
+      const msg = typeof signal === 'string' ? JSON.parse(signal) : signal;
+      if (!msg || !msg.type) return;
+
+      log('request', `📬 התקבל Relay Signal`, {
+        type: msg.type,
+        from: senderPubkey?.slice?.(0, 16) + '...'
+      });
+
+      if (msg.type === 'file-request') {
+        await handleFileRequest(senderPubkey, msg.data);
+      } else if (msg.type === 'file-response') {
+        await handleFileResponse(senderPubkey, msg.data);
+      } else if (msg.type === 'ice-candidate') {
+        await handleIceCandidate(senderPubkey, msg.data);
+      }
+    } catch (err) {
+      log('error', `❌ כשלון בעיבוד Relay Signal: ${err.message}`);
+    }
+  }
+
+  App.handleRelayedSignal = handleRelayedSignal;
 
   // חלק P2P (p2p-video-sharing.js) – האזנה לסיגנלים (בקשות, תשובות ו-ICE)
   function listenForP2PSignals() {
@@ -2077,9 +2139,20 @@
           // לא מדפיסים כשגיאה כי זה מבלבל
         };
 
-        channel.onmessage = (event) => {
+        channel.onmessage = async (event) => {
           try {
             const msg = JSON.parse(event.data);
+
+            if (App.EventSync && typeof App.EventSync.handleIncomingMessage === 'function') {
+              const handled = await App.EventSync.handleIncomingMessage(msg, peerPubkey, channel);
+              if (handled) return;
+            }
+
+            if (App.PeerExchange && typeof App.PeerExchange.handleIncomingMessage === 'function') {
+              const handled = App.PeerExchange.handleIncomingMessage(msg, peerPubkey, channel);
+              if (handled) return;
+            }
+
             if (msg.type === 'request') {
               log('request', `📥 peer ביקש את הקובץ`, { hash: msg.hash.slice(0, 16) + '...' });
             }
