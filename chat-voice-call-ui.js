@@ -174,11 +174,22 @@
       return;
     }
 
+    // חלק שיחות קול (chat-voice-call-ui.js) – שיחה יוצאת: יצירת UI והתחלת טון חיוג בתוך מחוות המשתמש (autoplay) | HYPER CORE TECH
+    if (!callDialog) {
+      createCallDialog(peerPubkey, false);
+    }
+
+    updateCallStatus('מחייג...');
+    resumeAudioIfNeeded();
+    playDialtone();
+
     try {
       await App.voiceCall.start(peerPubkey);
     } catch (err) {
       console.error('Failed to start call', err);
       alert(err.message || 'שגיאה בהתחלת השיחה');
+      stopRingtone();
+      stopDialtone();
       closeCallDialog();
     }
   }
@@ -247,8 +258,12 @@
     incomingOffer = offer;
 
     createCallDialog(peerPubkey, true);
-    // ניגון צלצול לאחר מחווה ראשונה כדי להימנע ממדיניות חסימת אודיו
-    resumeOnUserGestureOnce(() => playRingtone());
+    // ניגון צלצול: אם כבר היה user-gesture (AudioContext פעיל) ננגן מיד, אחרת נחכה למחווה ראשונה
+    if (audioCtx && audioCtx.state === 'running') {
+      playRingtone();
+    } else {
+      resumeOnUserGestureOnce(() => playRingtone());
+    }
   };
 
   App.onVoiceCallStarted = function(peerPubkey, isIncoming) {
@@ -336,8 +351,9 @@
     doc.addEventListener('touchstart', handler, true);
   }
 
-  function stopAllTones() {
-    if (toneInterval) {
+  function stopAllTones(options) {
+    const keepInterval = !!options?.keepInterval;
+    if (!keepInterval && toneInterval) {
       clearInterval(toneInterval);
       toneInterval = null;
     }
@@ -363,7 +379,7 @@
       osc1.start(); osc2.start();
       gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
       activeOscillators.push({ osc: osc1, gain }, { osc: osc2, gain });
-      setTimeout(() => { stopAllTones(); }, 2000); // 2s on
+      setTimeout(() => { stopAllTones({ keepInterval: true }); }, 2000); // 2s on
     };
     playBurst();
     toneInterval = setInterval(playBurst, 4000); // כל 4s מחדש
@@ -384,7 +400,7 @@
       gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.03);
       activeOscillators.push({ osc, gain });
       setTimeout(() => {
-        stopAllTones();
+        stopAllTones({ keepInterval: true });
       }, patternOn);
     };
     startPulse();
@@ -456,6 +472,8 @@
     createRemoteAudioElement();
     initCallButton();
     console.log('Voice call UI initialized');
+    // חלק שיחות קול (chat-voice-call-ui.js) – priming ל-AudioContext אחרי מחווה ראשונה כדי לאפשר צלצול נכנס מיידי בהמשך | HYPER CORE TECH
+    resumeOnUserGestureOnce();
     // סגירת בטיחות כשעוזבים את הדף
     window.addEventListener('beforeunload', () => {
       stopRingtone();
