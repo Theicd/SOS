@@ -26,7 +26,9 @@
     candidateTimer: null,
     lastOfferFrom: {},
     ending: false,
-    callStartTimestamp: null
+    callStartTimestamp: null,
+    // חלק שיחות קול (chat-voice-call.js) – מנגנון הרשמה לסיגנלים: שמירת subscription כדי למנוע כפילות | HYPER CORE TECH
+    signalSubscription: null
   };
 
   async function publishCallMetric(durationSeconds, peerPubkey) {
@@ -511,9 +513,13 @@
 
   // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון
   function subscribeToSignals() {
+    // חלק שיחות קול (chat-voice-call.js) – מניעת הרשמה כפולה (חשוב בעמודים שטוענים מודולים מחדש) | HYPER CORE TECH
+    if (state.signalSubscription) {
+      return state.signalSubscription;
+    }
     if (!App.pool || !App.publicKey) {
       console.warn('Cannot subscribe to voice call signals - pool or keys missing');
-      return;
+      return null;
     }
 
     const since = Math.floor(Date.now() / 1000) - 2; // מתעלם מאירועי עבר
@@ -525,14 +531,35 @@
       }
     ];
 
-    const sub = App.pool.subscribeMany(App.relayUrls, filters, {
-      onevent: handleSignalEvent,
-      oneose: () => {
-        console.log('Voice call subscription ready');
-      }
-    });
+    try {
+      const sub = App.pool.subscribeMany(App.relayUrls, filters, {
+        onevent: handleSignalEvent,
+        oneose: () => {
+          console.log('Voice call subscription ready');
+        }
+      });
+      state.signalSubscription = sub;
+      return sub;
+    } catch (err) {
+      console.warn('Voice call subscribe failed', err);
+      return null;
+    }
+  }
 
-    return sub;
+  // חלק שיחות קול (chat-voice-call.js) – אתחול הרשמה אוטומטית לסיגנלים גם כש-notifyPoolReady לא נקרא (למשל videos.html) | HYPER CORE TECH
+  function autoSubscribeSignals() {
+    // אורחים: לא מפעילים שיחות קול כדי למנוע UX תקול
+    if (App.guestMode) {
+      return;
+    }
+    if (state.signalSubscription) {
+      return;
+    }
+    if (!App.pool || !App.publicKey) {
+      setTimeout(autoSubscribeSignals, 500);
+      return;
+    }
+    subscribeToSignals();
   }
 
   // חלק שיחות קול (chat-voice-call.js) – חשיפת API
@@ -556,6 +583,15 @@
       subscribeToSignals();
     };
   }
+
+  // חלק שיחות קול (chat-voice-call.js) – ניסיון הרשמה ראשון + retry עד שה-pool והמפתחות זמינים
+  try {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(autoSubscribeSignals, 100));
+    } else {
+      setTimeout(autoSubscribeSignals, 100);
+    }
+  } catch (_) {}
 
   console.log('Voice call module initialized');
 })(window);
