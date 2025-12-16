@@ -459,6 +459,21 @@ body.chat-overlay-open::before {
   text-overflow: ellipsis;
 }
 
+ .chat-contact__time {
+  font-size: 0.72rem;
+  color: var(--muted);
+  flex-shrink: 0;
+ }
+
+ .chat-contact__row--sub {
+  gap: 10px;
+ }
+
+ .chat-contact__row--sub .chat-contact__last-message {
+  flex: 1;
+  min-width: 0;
+ }
+
 .chat-contact__last-message {
   font-size: 0.78rem;
   color: var(--muted);
