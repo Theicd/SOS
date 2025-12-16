@@ -465,6 +465,12 @@
               return;
             }
             console.log('Received valid offer:', offerData);
+            // חלק שיחות קול (chat-voice-call.js) – קיבוע peer עבור שיחה נכנסת כדי שאירוע disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
+            if (state.currentPeer && state.currentPeer !== peerPubkey) {
+              console.log('Ignored incoming offer while another call context exists');
+              return;
+            }
+            state.currentPeer = peerPubkey;
             state.isIncoming = true;
             if (typeof App.onVoiceCallIncoming === 'function') {
               App.onVoiceCallIncoming(peerPubkey, offerData);
@@ -511,6 +517,7 @@
 
         case 'disconnect':
           // ניתוק מהצד השני
+          // חלק שיחות קול (chat-voice-call.js) – ביטול/ניתוק: סוגרים רק אם זה ה-peer הנוכחי (כולל לפני קבלה) | HYPER CORE TECH
           if (state.currentPeer === peerPubkey) {
             endCall();
           }

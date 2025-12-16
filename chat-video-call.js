@@ -280,6 +280,12 @@
           return;
         }
         console.log('Received valid video offer:', { type: data.type, sdpLen: data.sdp?.length });
+        // חלק שיחות וידאו (chat-video-call.js) – קיבוע peer עבור שיחה נכנסת כדי שאירוע v-disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
+        if (state.currentPeer && state.currentPeer !== peer) {
+          console.log('Ignored incoming video offer while another call context exists');
+          return;
+        }
+        state.currentPeer = peer;
         state.isIncoming = true;
         if (typeof App.onVideoCallIncoming === 'function') App.onVideoCallIncoming(peer, data);
         break;

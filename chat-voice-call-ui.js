@@ -9,6 +9,8 @@
   let timerInterval = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – שמירת offer נכנס מקומית לתהליך קבלה
   let incomingOffer = null;
+  // חלק שיחות קול (chat-voice-call-ui.js) – שומר את ה-peer הפעיל כדי לסגור UI בצורה מדויקת בעת ניתוק/ביטול | HYPER CORE TECH
+  let activePeerPubkey = null;
 
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת אלמנט אודיו מרוחק
   function createRemoteAudioElement() {
@@ -37,6 +39,8 @@
     if (callDialog) {
       callDialog.remove();
     }
+
+    activePeerPubkey = peerPubkey;
 
     const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
     const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
@@ -150,6 +154,10 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – סגירת דיאלוג
   function closeCallDialog() {
     stopCallTimer();
+
+    // חלק שיחות קול (chat-voice-call-ui.js) – ניקוי offer ו-peer כדי למנוע קבלה של הצעה ישנה לאחר סגירה | HYPER CORE TECH
+    incomingOffer = null;
+    activePeerPubkey = null;
 
     if (callDialog) {
       callDialog.remove();
@@ -279,6 +287,17 @@
   };
   App.onVoiceCallMuteToggle = function(isMuted) {
     console.log('Mute toggled:', isMuted);
+  };
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – סגירת UI בעת ניתוק/ביטול מהצד השני (כולל שיחה שלא נענתה) | HYPER CORE TECH
+  App.onVoiceCallEnded = function(peerPubkey) {
+    const peer = peerPubkey || activePeerPubkey;
+    if (peer && activePeerPubkey && peer !== activePeerPubkey) {
+      return;
+    }
+    stopRingtone();
+    stopDialtone();
+    closeCallDialog();
   };
 
   // חלק שיחות קול (chat-voice-call-ui.js) – ניגון צלצול (פשוט)
