@@ -225,7 +225,9 @@
       
       if (pc.iceConnectionState === 'connected') {
         state.isCallActive = true;
+        // חלק שיחות קול (chat-voice-call.js) – מסנכרן זמן התחלת שיחה עבור UI (callStartTime) וגם עבור מדדים (callStartTimestamp) | HYPER CORE TECH
         state.callStartTimestamp = Date.now();
+        state.callStartTime = state.callStartTimestamp;
         if (typeof App.onVoiceCallConnected === 'function') {
           App.onVoiceCallConnected(peerPubkey);
         }
@@ -268,7 +270,9 @@
       // יצירת חיבור
       state.currentPeer = peerPubkey;
       state.peerConnection = createPeerConnection(peerPubkey);
+      // חלק שיחות קול (chat-voice-call.js) – איפוס זמן התחלה עד לחיבור בפועל (connected)
       state.callStartTimestamp = null;
+      state.callStartTime = null;
 
       // יצירת offer
       const offer = await state.peerConnection.createOffer();
@@ -306,6 +310,9 @@
       // יצירת חיבור
       state.currentPeer = peerPubkey;
       state.peerConnection = createPeerConnection(peerPubkey);
+      // חלק שיחות קול (chat-voice-call.js) – איפוס זמן התחלה עד לחיבור בפועל (connected)
+      state.callStartTimestamp = null;
+      state.callStartTime = null;
 
       // קבלת offer (אימות ושימוש ישיר באובייקט)
       if (!offer || !offer.type || !offer.sdp) {
@@ -346,7 +353,9 @@
       sendSignal(state.currentPeer, 'disconnect', null);
     }
 
-    const durationSeconds = state.callStartTimestamp ? (Date.now() - state.callStartTimestamp) / 1000 : 0;
+    // חלק שיחות קול (chat-voice-call.js) – חישוב משך שיחה לפי timestamp זמין (תאימות ל-UI ולמדדים) | HYPER CORE TECH
+    const startMs = state.callStartTimestamp || state.callStartTime;
+    const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
 
     // סגירת חיבור
     if (state.peerConnection) {
@@ -379,6 +388,7 @@
     state.isIncoming = false;
     state.isMuted = false;
     state.callStartTimestamp = null;
+    state.callStartTime = null;
     setTimeout(() => { state.ending = false; }, 100);
 
     if (durationSeconds > 0 && peer) {

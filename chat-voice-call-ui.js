@@ -45,7 +45,7 @@
 
     callDialog = doc.createElement('div');
     callDialog.id = 'voiceCallDialog';
-    callDialog.className = 'voice-call-dialog';
+    callDialog.className = isIncoming ? 'voice-call-dialog voice-call-dialog--incoming' : 'voice-call-dialog';
     callDialog.innerHTML = `
       <div class="voice-call-dialog__backdrop"></div>
       <div class="voice-call-dialog__content">

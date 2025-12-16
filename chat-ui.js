@@ -499,6 +499,9 @@
     const safeInitials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
     const previewSource = contact.lastMessage ? contact.lastMessage.replace(/\s+/g, ' ').trim().slice(0, 60) : 'אין הודעות עדיין';
     const safePreview = App.escapeHtml ? App.escapeHtml(previewSource) : previewSource;
+    // חלק צ'אט (chat-ui.js) – תצוגת זמן הודעה אחרונה ברשימת אנשי קשר בסגנון WhatsApp | HYPER CORE TECH
+    const timeLabel = contact.lastTimestamp ? formatTimestamp(contact.lastTimestamp) : '';
+    const timeHtml = timeLabel ? `<span class="chat-contact__time">${timeLabel}</span>` : '';
     const badgeHtml = contact.unreadCount
       ? `<span class="chat-contact__badge">${contact.unreadCount > 99 ? '99+' : contact.unreadCount}</span>`
       : '';
@@ -513,9 +516,12 @@
         <div class="chat-contact__body">
           <div class="chat-contact__row">
             <span class="chat-contact__name">${safeName}</span>
+            ${timeHtml}
+          </div>
+          <div class="chat-contact__row chat-contact__row--sub">
+            <span class="chat-contact__last-message">${safePreview}</span>
             ${badgeHtml}
           </div>
-          <span class="chat-contact__last-message">${safePreview}</span>
         </div>
       </article>
     `;
@@ -567,6 +573,7 @@
         message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
       const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
       const safeContent = App.escapeHtml ? App.escapeHtml(message.content) : message.content;
+      const rawMessageContent = typeof message.content === 'string' ? message.content.trim() : '';
 
       // חלק צ'אט (chat-ui.js) – משחזר אוואטר לשיחות נכנסות על בסיס נתוני איש הקשר
       let avatarHtml = '';
@@ -613,11 +620,14 @@
               </div>
             </div>
           `;
-        } else if (a.dataUrl) {
+        } else if (src) {
+          const fileName = a.name || 'קובץ מצורף';
+          const safeFileName = App.escapeHtml ? App.escapeHtml(fileName) : fileName;
+          const extraAttrs = a.url ? 'target="_blank" rel="noopener noreferrer"' : '';
           attachmentHtml = `
-            <a class="chat-message__attachment" href="${a.dataUrl}" download="${a.name || 'file'}">
+            <a class="chat-message__attachment" href="${src}" ${extraAttrs} download="${fileName}">
               <i class="fa-solid fa-paperclip"></i>
-              <span>${App.escapeHtml ? App.escapeHtml(a.name || 'קובץ מצורף') : a.name || 'קובץ מצורף'}</span>
+              <span>${safeFileName}</span>
             </a>
           `;
         }
@@ -631,7 +641,10 @@
             </button>
           `
         : '';
-      const textHtml = safeContent && !isAudioAttachment
+      // חלק צ'אט (chat-ui.js) – כאשר מצורף קובץ בלבד, לא מציגים שוב את הטקסט "📎 filename" כי הלינק מציג את השם
+      const fileOnlyLabel = a && !isAudioAttachment ? `📎 ${a.name || 'קובץ מצורף'}` : '';
+      const hideTextForFileOnly = !isAudioAttachment && !!attachmentHtml && rawMessageContent === fileOnlyLabel;
+      const textHtml = safeContent && !isAudioAttachment && !hideTextForFileOnly
         ? `<span class="chat-message__text">${safeContent.replace(/\n/g, '<br>')}</span>`
         : '';
       item.innerHTML = `

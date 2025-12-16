@@ -191,13 +191,14 @@
     return contact;
   }
 
-  function updateContactMeta(pubkey, { lastMessage, timestamp, incrementUnread }) {
+  function updateContactMeta(pubkey, { lastMessage, timestamp, incrementUnread, forceTimestamp }) {
     const contact = ensureContact(pubkey);
     if (!contact) return;
     if (lastMessage !== undefined) {
       contact.lastMessage = lastMessage;
     }
-    if (typeof timestamp === 'number' && timestamp > (contact.lastTimestamp || 0)) {
+    // חלק צ'אט (chat-state.js) – מאפשר עדכון lastTimestamp גם לאחור (forceTimestamp) למשל אחרי מחיקה | HYPER CORE TECH
+    if (typeof timestamp === 'number' && (forceTimestamp || timestamp > (contact.lastTimestamp || 0))) {
       contact.lastTimestamp = timestamp;
     }
     if (incrementUnread && (!contact.lastReadTimestamp || (typeof timestamp === 'number' && timestamp > contact.lastReadTimestamp))) {
@@ -289,9 +290,13 @@
     chatState.messageIndex.delete(messageId);
     App.deletedChatMessageIds?.add?.(messageId);
     const lastMessage = entry.messages[entry.messages.length - 1];
+    const attachmentPreview = lastMessage?.attachment?.name ? `📎 ${lastMessage.attachment.name}` : '';
+    const messagePreview = (lastMessage?.content || '') || attachmentPreview;
+    // חלק צ'אט (chat-state.js) – אחרי מחיקה נעדכן lastTimestamp גם אם ירד כדי שהשעה/מיון יהיו נכונים | HYPER CORE TECH
     updateContactMeta(normalizedPeer, {
-      lastMessage: lastMessage?.content || '',
+      lastMessage: messagePreview,
       timestamp: lastMessage?.createdAt || lastMessage?.created_at || 0,
+      forceTimestamp: true,
     });
     recalculateUnreadTotal();
     persistState();
