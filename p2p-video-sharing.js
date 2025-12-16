@@ -1541,7 +1541,15 @@
       };
       
       // שליחת בקשה לקובץ
-      conn.channel.send(JSON.stringify({ type: 'request', hash }));
+      try {
+        if (!conn.channel || conn.channel.readyState !== 'open') throw new Error('Persistent channel not open');
+        conn.channel.send(JSON.stringify({ type: 'request', hash }));
+      } catch (err) {
+        clearTimeout(timeout);
+        try { conn.channel.onmessage = originalOnMessage; } catch (_) {}
+        reject(err);
+        return;
+      }
       log('request', `📤 [Persistent] שלחתי בקשה לקובץ`, { hash: hash.slice(0, 12) });
     });
   }
@@ -2127,10 +2135,14 @@
             p2pStats.shares.failed++;
             state.activeUploadCount = Math.max(0, state.activeUploadCount - 1);
             if (state.activeUploadCount === 0) state.activeUpload = null;
-            channel.send(JSON.stringify({
-              type: 'error',
-              message: err.message
-            }));
+            if (channel && channel.readyState === 'open') {
+              try {
+                channel.send(JSON.stringify({
+                  type: 'error',
+                  message: err.message
+                }));
+              } catch (e) {}
+            }
           }
         };
 
