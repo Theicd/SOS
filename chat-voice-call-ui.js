@@ -7,6 +7,19 @@
   let remoteAudioElement = null;
   let callTimer = null;
   let timerInterval = null;
+  // חלק שיחות קול (chat-voice-call-ui.js) – קבצי צלילי שיחה (MP3): חיוג למחייג + צלצול למקבל | HYPER CORE TECH
+  const DIALTONE_MP3_URL = 'https://npub1hwja2gw0m3kmehwp22rtfu7larrt8tnx4lyqhxp4nzu7jxzzj3wqwl9uc9.blossom.band/61924ef011f5b03e4ec49f0f9c9ac32361419607bd5c52f879bc8d0dd4938107.mp3';
+  const RINGTONE_MP3_URL = 'https://npub1hwja2gw0m3kmehwp22rtfu7larrt8tnx4lyqhxp4nzu7jxzzj3wqwl9uc9.blossom.band/2c9aa92402a15e51f2a9dc542f5ce6a7c11e36065eb223f343e0d0bfe07de34d.mp3';
+  // חלק שיחות קול (chat-voice-call-ui.js) – אובייקטי אודיו לצלילים + priming ל-autoplay | HYPER CORE TECH
+  let dialtoneAudio = null;
+  let ringtoneAudio = null;
+  let tonePrimerAudio = null;
+  let toneAudioPrimed = false;
+  // חלק שיחות קול (chat-voice-call-ui.js) – התראות מערכת לשיחה נכנסת (Notification API) | HYPER CORE TECH
+  let incomingCallNotification = null;
+  let notificationPermissionLastRequestedAt = 0;
+  // חלק שיחות קול (chat-voice-call-ui.js) – בחירת התקן פלט לשיחת קול (setSinkId/selectAudioOutput) | HYPER CORE TECH
+  let selectedOutputDeviceId = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – שמירת offer נכנס מקומית לתהליך קבלה
   let incomingOffer = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – שומר את ה-peer הפעיל כדי לסגור UI בצורה מדויקת בעת ניתוק/ביטול | HYPER CORE TECH
@@ -19,6 +32,9 @@
     const audio = doc.createElement('audio');
     audio.id = 'voiceCallRemoteAudio';
     audio.autoplay = true;
+    // חלק שיחות קול (chat-voice-call-ui.js) – playsinline לתאימות מובייל/‏PWA | HYPER CORE TECH
+    audio.playsInline = true;
+    audio.setAttribute('playsinline', '');
     audio.style.display = 'none';
     doc.body.appendChild(audio);
     remoteAudioElement = audio;
@@ -72,6 +88,10 @@
             <i class="fa-solid fa-microphone"></i>
             <span>השתק</span>
           </button>
+          <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--speaker" data-action="speaker" hidden>
+            <i class="fa-solid fa-volume-high"></i>
+            <span>רמקול</span>
+          </button>
           <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--end" data-action="end">
             <i class="fa-solid fa-phone-slash"></i>
             <span>נתק</span>
@@ -85,6 +105,7 @@
     // חיבור אירועים
     const acceptBtn = callDialog.querySelector('[data-action="accept"]');
     const muteBtn = callDialog.querySelector('[data-action="mute"]');
+    const speakerBtn = callDialog.querySelector('[data-action="speaker"]');
     const endBtn = callDialog.querySelector('[data-action="end"]');
 
     if (acceptBtn) {
@@ -93,6 +114,10 @@
 
     if (muteBtn) {
       muteBtn.addEventListener('click', handleToggleMute);
+    }
+
+    if (speakerBtn) {
+      speakerBtn.addEventListener('click', handleSelectOutputDevice);
     }
 
     if (endBtn) {
@@ -151,9 +176,121 @@
     }
   }
 
+  // חלק שיחות קול (chat-voice-call-ui.js) – הצגת כפתור רמקול/בחירת פלט רק כשנתמך (בלי הפעלה אוטומטית) | HYPER CORE TECH
+  function isOutputDeviceSelectionSupported() {
+    const audio = remoteAudioElement || createRemoteAudioElement();
+    const canSetSinkId = !!(audio && typeof audio.setSinkId === 'function');
+    const canSelectOutput = !!(navigator.mediaDevices && typeof navigator.mediaDevices.selectAudioOutput === 'function');
+    const canEnumerate = !!(navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function');
+    return canSetSinkId && (canSelectOutput || canEnumerate);
+  }
+
+  function showSpeakerButton() {
+    if (!callDialog) return;
+    const speakerBtn = callDialog.querySelector('[data-action="speaker"]');
+    if (!speakerBtn) return;
+    speakerBtn.removeAttribute('hidden');
+    updateSpeakerButtonUI();
+  }
+
+  function updateSpeakerButtonUI() {
+    if (!callDialog) return;
+    const speakerBtn = callDialog.querySelector('[data-action="speaker"]');
+    if (!speakerBtn) return;
+
+    const text = speakerBtn.querySelector('span');
+    if (!text) return;
+
+    text.textContent = selectedOutputDeviceId ? 'פלט נבחר' : 'רמקול';
+  }
+
+  function applyOutputDeviceIdToMediaElement(el, deviceId) {
+    if (!el || typeof el.setSinkId !== 'function') return;
+    try {
+      const targetId = deviceId || 'default';
+      const p = el.setSinkId(targetId);
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
+  }
+
+  function applySelectedOutputDeviceToAllMediaElements() {
+    const audioEls = [
+      remoteAudioElement,
+      dialtoneAudio,
+      ringtoneAudio,
+      tonePrimerAudio
+    ].filter(Boolean);
+
+    audioEls.forEach((el) => applyOutputDeviceIdToMediaElement(el, selectedOutputDeviceId));
+  }
+
+  function resetOutputDeviceSelection() {
+    if (!selectedOutputDeviceId) return;
+    selectedOutputDeviceId = null;
+    applySelectedOutputDeviceToAllMediaElements();
+    updateSpeakerButtonUI();
+  }
+
+  async function handleSelectOutputDevice() {
+    if (!isOutputDeviceSelectionSupported()) {
+      alert('הדפדפן לא תומך בבחירת התקן פלט לשיחה');
+      return;
+    }
+
+    try {
+      const audio = remoteAudioElement || createRemoteAudioElement();
+      if (!audio || typeof audio.setSinkId !== 'function') {
+        alert('הדפדפן לא תומך בבחירת התקן פלט לשיחה');
+        return;
+      }
+
+      let newDeviceId = null;
+
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.selectAudioOutput === 'function') {
+        const device = await navigator.mediaDevices.selectAudioOutput();
+        newDeviceId = device && device.deviceId ? device.deviceId : null;
+      } else if (navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outputs = (devices || []).filter(d => d && d.kind === 'audiooutput');
+        if (!outputs.length) {
+          alert('לא נמצאו התקני פלט זמינים');
+          return;
+        }
+
+        const list = ['0. ברירת מחדל']
+          .concat(outputs.map((d, i) => `${i + 1}. ${d.label || `התקן ${i + 1}`}`))
+          .join('\n');
+        const chosen = window.prompt(`בחר התקן פלט לשיחה:\n${list}\n\nהכנס מספר:`);
+        if (chosen === null) return;
+
+        const idx = parseInt(String(chosen).trim(), 10);
+        if (!Number.isFinite(idx) || idx < 0 || idx > outputs.length) return;
+
+        if (idx === 0) {
+          newDeviceId = null;
+        } else {
+          newDeviceId = outputs[idx - 1].deviceId;
+        }
+      }
+
+      selectedOutputDeviceId = newDeviceId;
+      applySelectedOutputDeviceToAllMediaElements();
+      updateSpeakerButtonUI();
+    } catch (err) {
+      console.warn('Failed to select output device', err);
+      alert('לא ניתן לבחור התקן פלט בדפדפן זה');
+    }
+  }
+
   // חלק שיחות קול (chat-voice-call-ui.js) – סגירת דיאלוג
   function closeCallDialog() {
     stopCallTimer();
+
+    // חלק שיחות קול (chat-voice-call-ui.js) – סגירת התראת מערכת (אם קיימת) בעת סגירת ה-UI | HYPER CORE TECH
+    closeIncomingCallNotification();
+
+    // חלק שיחות קול (chat-voice-call-ui.js) – איפוס בחירת פלט כדי ששיחה הבאה תתחיל בברירת מחדל (לא רמקול אוטומטי) | HYPER CORE TECH
+    resetOutputDeviceSelection();
 
     // חלק שיחות קול (chat-voice-call-ui.js) – ניקוי offer ו-peer כדי למנוע קבלה של הצעה ישנה לאחר סגירה | HYPER CORE TECH
     incomingOffer = null;
@@ -165,6 +302,61 @@
     }
 
     callTimer = null;
+  }
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – התראות מערכת לשיחה נכנסת (Notification API) | HYPER CORE TECH
+  function requestNotificationPermissionIfNeeded() {
+    if (!('Notification' in window)) return;
+    try {
+      if (window.Notification.permission !== 'default') return;
+
+      const now = Date.now();
+      if (notificationPermissionLastRequestedAt && (now - notificationPermissionLastRequestedAt) < 60000) return;
+      notificationPermissionLastRequestedAt = now;
+
+      if (window.Notification.permission === 'default') {
+        const p = window.Notification.requestPermission();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
+    } catch {}
+  }
+
+  function closeIncomingCallNotification() {
+    if (!incomingCallNotification) return;
+    try { incomingCallNotification.close(); } catch {}
+    incomingCallNotification = null;
+  }
+
+  function showIncomingCallNotification(peerPubkey) {
+    try {
+      if (!('Notification' in window)) return;
+      if (window.Notification.permission !== 'granted') return;
+
+      const isHidden = !!doc.hidden || doc.visibilityState === 'hidden';
+      const hasFocus = typeof doc.hasFocus === 'function' ? doc.hasFocus() : true;
+      if (!isHidden && hasFocus) return;
+
+      closeIncomingCallNotification();
+
+      const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
+      const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
+      const picture = contact?.picture || '';
+      const options = {
+        body: name,
+        tag: 'voice-call-incoming',
+        renotify: true
+      };
+      if (picture) options.icon = picture;
+      try { options.requireInteraction = true; } catch {}
+
+      incomingCallNotification = new window.Notification('שיחה נכנסת', options);
+      incomingCallNotification.onclick = () => {
+        try { window.focus(); } catch {}
+        closeIncomingCallNotification();
+      };
+    } catch (err) {
+      console.warn('Failed to show incoming call notification', err);
+    }
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בלחיצה על כפתור שיחה
@@ -197,6 +389,8 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בקבלת שיחה
   async function handleAcceptCall(peerPubkey) {
     try {
+      // חלק שיחות קול (chat-voice-call-ui.js) – סגירת התראת מערכת מיד עם לחיצת "קבל" | HYPER CORE TECH
+      closeIncomingCallNotification();
       // אימות offer נכנס
       const offer = incomingOffer;
       if (!offer || !offer.type || !offer.sdp) {
@@ -258,12 +452,10 @@
     incomingOffer = offer;
 
     createCallDialog(peerPubkey, true);
-    // ניגון צלצול: אם כבר היה user-gesture (AudioContext פעיל) ננגן מיד, אחרת נחכה למחווה ראשונה
-    if (audioCtx && audioCtx.state === 'running') {
-      playRingtone();
-    } else {
-      resumeOnUserGestureOnce(() => playRingtone());
-    }
+    // חלק שיחות קול (chat-voice-call-ui.js) – התראת מערכת לשיחה נכנסת כשהטאב/דפדפן ברקע | HYPER CORE TECH
+    showIncomingCallNotification(peerPubkey);
+    // חלק שיחות קול (chat-voice-call-ui.js) – ניגון צלצול בצורה autoplay-safe (מחווה ראשונה אם צריך) | HYPER CORE TECH
+    resumeOnUserGestureOnce(() => playRingtone());
   };
 
   App.onVoiceCallStarted = function(peerPubkey, isIncoming) {
@@ -277,6 +469,7 @@
       // מקבל – כבר היה צלצול, לאחר התחלת תהליך החיבור מחליפים סטטוס
       updateCallStatus('מתחבר...');
       stopRingtone();
+      closeIncomingCallNotification();
     } else {
       // מחייג – הפעל חיוג עד חיבור
       updateCallStatus('מחייג...');
@@ -289,9 +482,11 @@
     
     updateCallStatus('מחובר');
     showMuteButton();
+    showSpeakerButton();
     startCallTimer();
     stopRingtone();
     stopDialtone();
+    closeIncomingCallNotification();
   };
 
   App.onVoiceCallRemoteStream = function(stream) {
@@ -315,32 +510,71 @@
     closeCallDialog();
   };
 
-  // חלק שיחות קול (chat-voice-call-ui.js) – ניגון צלצול (פשוט)
-  // חלק שיחות קול (chat-voice-call-ui.js) – צלילי חיוג/צלצול באמצעות WebAudio ללא קבצים חיצוניים
-  let audioCtx = null;
-  let toneInterval = null;
-  let activeOscillators = [];
-
-  function ensureAudioCtx() {
-    if (!audioCtx) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new Ctx();
+  // חלק שיחות קול (chat-voice-call-ui.js) – צלילי חיוג/צלצול באמצעות קבצי MP3 | HYPER CORE TECH
+  function ensureToneAudioElements() {
+    if (!dialtoneAudio) {
+      dialtoneAudio = new window.Audio(DIALTONE_MP3_URL);
+      dialtoneAudio.loop = true;
+      dialtoneAudio.preload = 'auto';
+      dialtoneAudio.playsInline = true;
+      try { dialtoneAudio.setAttribute('playsinline', ''); } catch {}
     }
-    return audioCtx;
+    if (!ringtoneAudio) {
+      ringtoneAudio = new window.Audio(RINGTONE_MP3_URL);
+      ringtoneAudio.loop = true;
+      ringtoneAudio.preload = 'auto';
+      ringtoneAudio.playsInline = true;
+      try { ringtoneAudio.setAttribute('playsinline', ''); } catch {}
+    }
+    if (!tonePrimerAudio) {
+      tonePrimerAudio = new window.Audio(RINGTONE_MP3_URL);
+      tonePrimerAudio.loop = false;
+      tonePrimerAudio.preload = 'auto';
+      tonePrimerAudio.playsInline = true;
+      try { tonePrimerAudio.setAttribute('playsinline', ''); } catch {}
+    }
+  }
+
+  function primeToneAudioOnce() {
+    if (toneAudioPrimed) return;
+    ensureToneAudioElements();
+
+    try {
+      tonePrimerAudio.muted = true;
+      const p = tonePrimerAudio.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          try { tonePrimerAudio.pause(); } catch {}
+          try { tonePrimerAudio.currentTime = 0; } catch {}
+          tonePrimerAudio.muted = false;
+          toneAudioPrimed = true;
+        }).catch(() => {
+          try { tonePrimerAudio.muted = false; } catch {}
+        });
+      } else {
+        try { tonePrimerAudio.pause(); } catch {}
+        try { tonePrimerAudio.currentTime = 0; } catch {}
+        tonePrimerAudio.muted = false;
+        toneAudioPrimed = true;
+      }
+    } catch {
+      try { tonePrimerAudio.muted = false; } catch {}
+    }
   }
 
   function resumeAudioIfNeeded() {
-    try {
-      const ctx = ensureAudioCtx();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-    } catch {}
+    requestNotificationPermissionIfNeeded();
+    primeToneAudioOnce();
   }
 
   function resumeOnUserGestureOnce(next) {
+    if (toneAudioPrimed) {
+      try { next && next(); } catch {}
+      return;
+    }
     const handler = () => {
-      resumeAudioIfNeeded();
+      requestNotificationPermissionIfNeeded();
+      primeToneAudioOnce();
       try { next && next(); } catch {}
       doc.removeEventListener('pointerdown', handler, true);
       doc.removeEventListener('click', handler, true);
@@ -351,64 +585,39 @@
     doc.addEventListener('touchstart', handler, true);
   }
 
-  function stopAllTones(options) {
-    const keepInterval = !!options?.keepInterval;
-    if (!keepInterval && toneInterval) {
-      clearInterval(toneInterval);
-      toneInterval = null;
-    }
-    activeOscillators.forEach(({ osc, gain }) => {
-      try { gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05); } catch {}
-      try { osc.stop(); } catch {}
-    });
-    activeOscillators = [];
+  function stopRingtone() {
+    if (!ringtoneAudio) return;
+    try { ringtoneAudio.pause(); } catch {}
+    try { ringtoneAudio.currentTime = 0; } catch {}
   }
 
-  // צלצול נכנס: שני אוסילטורים 440Hz ו-480Hz בקאדנס 2s on / 4s off
+  function stopDialtone() {
+    if (!dialtoneAudio) return;
+    try { dialtoneAudio.pause(); } catch {}
+    try { dialtoneAudio.currentTime = 0; } catch {}
+  }
+
   function playRingtone() {
-    ensureAudioCtx();
-    stopAllTones();
-    const playBurst = () => {
-      const osc1 = audioCtx.createOscillator();
-      const osc2 = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc1.frequency.value = 440;
-      osc2.frequency.value = 480;
-      gain.gain.value = 0.0001;
-      osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
-      osc1.start(); osc2.start();
-      gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
-      activeOscillators.push({ osc: osc1, gain }, { osc: osc2, gain });
-      setTimeout(() => { stopAllTones({ keepInterval: true }); }, 2000); // 2s on
-    };
-    playBurst();
-    toneInterval = setInterval(playBurst, 4000); // כל 4s מחדש
+    ensureToneAudioElements();
+    stopDialtone();
+    if (ringtoneAudio && !ringtoneAudio.paused) return;
+    try { ringtoneAudio.currentTime = 0; } catch {}
+    try {
+      const p = ringtoneAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
   }
 
-  // חיוג יוצא: טון 425Hz בפולסים 0.4s on / 0.2s off (רצף)
   function playDialtone() {
-    ensureAudioCtx();
-    stopAllTones();
-    const patternOn = 400, patternOff = 200;
-    const startPulse = () => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.frequency.value = 425;
-      gain.gain.value = 0.0001;
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.03);
-      activeOscillators.push({ osc, gain });
-      setTimeout(() => {
-        stopAllTones({ keepInterval: true });
-      }, patternOn);
-    };
-    startPulse();
-    toneInterval = setInterval(startPulse, patternOn + patternOff);
+    ensureToneAudioElements();
+    stopRingtone();
+    if (dialtoneAudio && !dialtoneAudio.paused) return;
+    try { dialtoneAudio.currentTime = 0; } catch {}
+    try {
+      const p = dialtoneAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
   }
-
-  function stopRingtone() { stopAllTones(); }
-  function stopDialtone() { stopAllTones(); }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – חיבור לכפתור שיחת קול בכותרת
   function initCallButton() {
@@ -455,7 +664,7 @@
           return;
         }
 
-        // הבטחת AudioContext פעיל בעקבות המחווה הזו
+        // חלק שיחות קול (chat-voice-call-ui.js) – priming לצלילי MP3 + בקשת הרשאת Notification בעקבות המחווה הזו | HYPER CORE TECH
         resumeAudioIfNeeded();
         console.log('Starting call to:', activePeer.slice(0, 8));
         handleStartCall(activePeer);
@@ -472,7 +681,7 @@
     createRemoteAudioElement();
     initCallButton();
     console.log('Voice call UI initialized');
-    // חלק שיחות קול (chat-voice-call-ui.js) – priming ל-AudioContext אחרי מחווה ראשונה כדי לאפשר צלצול נכנס מיידי בהמשך | HYPER CORE TECH
+    // חלק שיחות קול (chat-voice-call-ui.js) – priming לצלילי MP3 + בקשת הרשאת Notification אחרי מחווה ראשונה | HYPER CORE TECH
     resumeOnUserGestureOnce();
     // סגירת בטיחות כשעוזבים את הדף
     window.addEventListener('beforeunload', () => {
