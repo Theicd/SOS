@@ -213,10 +213,26 @@
     } catch {}
   }
 
-  function toggleAudioSessionSpeakerMode() {
-    const current = getAudioSessionTypeSafely();
-    const next = current === 'playback' ? 'play-and-record' : 'playback';
-    setAudioSessionTypeSafely(next);
+  // חלק שיחות קול (chat-voice-call-ui.js) – החלפת מצב רמקול/אפרכסת עם AudioSession (iOS) או setSinkId (Desktop) | HYPER CORE TECH
+  function toggleSpeakerMode() {
+    speakerModeActive = !speakerModeActive;
+    const audio = remoteAudioElement || createRemoteAudioElement();
+
+    // ניסיון עם AudioSession (iOS Safari)
+    if (isAudioSessionTypeSupported()) {
+      const next = speakerModeActive ? 'playback' : 'play-and-record';
+      setAudioSessionTypeSafely(next);
+      return;
+    }
+
+    // ניסיון עם setSinkId (Chrome/Edge Desktop)
+    if (audio && typeof audio.setSinkId === 'function') {
+      try {
+        const targetId = speakerModeActive ? 'default' : 'communications';
+        const p = audio.setSinkId(targetId);
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch {}
+    }
   }
 
   function showSpeakerButton() {
@@ -227,11 +243,13 @@
     updateSpeakerButtonUI();
   }
 
+  // חלק שיחות קול (chat-voice-call-ui.js) – עדכון UI כפתור רמקול לפי מצב נוכחי | HYPER CORE TECH
   function updateSpeakerButtonUI() {
     if (!callDialog) return;
     const speakerBtn = callDialog.querySelector('[data-action="speaker"]');
     if (!speakerBtn) return;
 
+    const icon = speakerBtn.querySelector('i');
     const text = speakerBtn.querySelector('span');
     if (!text) return;
 
@@ -240,15 +258,20 @@
       return;
     }
 
-    if (isAudioSessionTypeSupported()) {
-      const type = getAudioSessionTypeSafely();
-      // אם אנחנו במצב playback (רמקול) – הכפתור צריך להחזיר לאפרכסת; אחרת – להעביר לרמקול | HYPER CORE TECH
-      text.textContent = type === 'playback' ? 'אפרכסת' : 'רמקול';
-      return;
+    // עדכון טקסט ואייקון לפי מצב רמקול
+    if (speakerModeActive) {
+      text.textContent = 'אפרכסת';
+      if (icon) icon.className = 'fa-solid fa-volume-high';
+      speakerBtn.classList.add('is-speaker-on');
+    } else {
+      text.textContent = 'רמקול';
+      if (icon) icon.className = 'fa-solid fa-volume-low';
+      speakerBtn.classList.remove('is-speaker-on');
     }
-
-    text.textContent = 'רמקול';
   }
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – מצב רמקול פעיל (true = רמקול, false = אפרכסת) | HYPER CORE TECH
+  let speakerModeActive = false;
 
   function applyOutputDeviceIdToMediaElement(el, deviceId) {
     if (!el || typeof el.setSinkId !== 'function') return;
@@ -257,6 +280,24 @@
       const p = el.setSinkId(targetId);
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch {}
+  }
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – הגדרת ברירת מחדל לאפרכסת בתחילת שיחה (setSinkId או AudioSession) | HYPER CORE TECH
+  function setDefaultEarpieceOutput() {
+    speakerModeActive = false;
+    const audio = remoteAudioElement || createRemoteAudioElement();
+    // ניסיון להגדיר communications (אפרכסת) בדפדפנים שתומכים
+    if (audio && typeof audio.setSinkId === 'function') {
+      try {
+        const p = audio.setSinkId('communications');
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {
+            // אם communications לא נתמך, נשאר ב-default
+            try { audio.setSinkId('default'); } catch {}
+          });
+        }
+      } catch {}
+    }
   }
 
   function applySelectedOutputDeviceToAllMediaElements() {
@@ -270,67 +311,17 @@
     audioEls.forEach((el) => applyOutputDeviceIdToMediaElement(el, selectedOutputDeviceId));
   }
 
+  // חלק שיחות קול (chat-voice-call-ui.js) – איפוס בחירת פלט ומצב רמקול בסיום שיחה | HYPER CORE TECH
   function resetOutputDeviceSelection() {
-    if (!selectedOutputDeviceId) return;
     selectedOutputDeviceId = null;
+    speakerModeActive = false;
     applySelectedOutputDeviceToAllMediaElements();
-    updateSpeakerButtonUI();
   }
 
-  async function handleSelectOutputDevice() {
-    if (!isOutputDeviceSelectionSupported()) {
-      if (isAudioSessionTypeSupported()) {
-        toggleAudioSessionSpeakerMode();
-        updateSpeakerButtonUI();
-        return;
-      }
-      alert('בדפדפן זה לא ניתן לבחור או להחליף התקן פלט לשיחה');
-      return;
-    }
-
-    try {
-      const audio = remoteAudioElement || createRemoteAudioElement();
-      if (!audio || typeof audio.setSinkId !== 'function') {
-        alert('הדפדפן לא תומך בבחירת התקן פלט לשיחה');
-        return;
-      }
-
-      let newDeviceId = null;
-
-      if (navigator.mediaDevices && typeof navigator.mediaDevices.selectAudioOutput === 'function') {
-        const device = await navigator.mediaDevices.selectAudioOutput();
-        newDeviceId = device && device.deviceId ? device.deviceId : null;
-      } else if (navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const outputs = (devices || []).filter(d => d && d.kind === 'audiooutput');
-        if (!outputs.length) {
-          alert('לא נמצאו התקני פלט זמינים');
-          return;
-        }
-
-        const list = ['0. ברירת מחדל']
-          .concat(outputs.map((d, i) => `${i + 1}. ${d.label || `התקן ${i + 1}`}`))
-          .join('\n');
-        const chosen = window.prompt(`בחר התקן פלט לשיחה:\n${list}\n\nהכנס מספר:`);
-        if (chosen === null) return;
-
-        const idx = parseInt(String(chosen).trim(), 10);
-        if (!Number.isFinite(idx) || idx < 0 || idx > outputs.length) return;
-
-        if (idx === 0) {
-          newDeviceId = null;
-        } else {
-          newDeviceId = outputs[idx - 1].deviceId;
-        }
-      }
-
-      selectedOutputDeviceId = newDeviceId;
-      applySelectedOutputDeviceToAllMediaElements();
-      updateSpeakerButtonUI();
-    } catch (err) {
-      console.warn('Failed to select output device', err);
-      alert('לא ניתן לבחור התקן פלט בדפדפן זה');
-    }
+  // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בלחיצה על כפתור רמקול: החלפת מצב פשוטה | HYPER CORE TECH
+  function handleSelectOutputDevice() {
+    toggleSpeakerMode();
+    updateSpeakerButtonUI();
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – סגירת דיאלוג
@@ -356,7 +347,7 @@
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – התראות מערכת לשיחה נכנסת (Notification API) | HYPER CORE TECH
-  // חלק שיחות קול (chat-voice-call-ui.js) – רישום Service Worker כדי לאפשר פעולות "ענה/דחה" מתוך ההתראה | HYPER CORE TECH
+  // חלק שיחות קול (chat-voice-call-ui.js) – רישום Service Worker כדי לאפשר פתיחת מסך שיחה מתוך ההתראה (ללא מענה אוטומטי) | HYPER CORE TECH
   function registerVoiceCallServiceWorkerIfSupported() {
     if (!('serviceWorker' in navigator)) return;
     if (!window.isSecureContext) return;
@@ -437,8 +428,7 @@
 
       const swOptions = Object.assign({}, baseOptions, {
         actions: [
-          { action: 'answer', title: 'ענה' },
-          { action: 'decline', title: 'דחה' }
+          { action: 'open', title: 'פתח מסך שיחה (לא עונה)' }
         ],
         data: {
           type: 'voice-call-incoming',
@@ -475,32 +465,15 @@
     }
   }
 
-  // חלק שיחות קול (chat-voice-call-ui.js) – קבלת פעולות מהתראת Service Worker (ענה/דחה) | HYPER CORE TECH
+  // חלק שיחות קול (chat-voice-call-ui.js) – קבלת פעולה מהתראת Service Worker (פתיחת מסך שיחה ללא מענה אוטומטי) | HYPER CORE TECH
   function handleVoiceCallServiceWorkerMessage(event) {
     const data = event && event.data ? event.data : null;
     if (!data || data.type !== 'voice-call-notification-action') return;
 
-    const action = data.action || 'open';
     const peerPubkey = data.peerPubkey || activePeerPubkey;
     if (!peerPubkey) return;
 
-    if (action === 'answer') {
-      if (!callDialog) {
-        createCallDialog(peerPubkey, true);
-      }
-      resumeAudioIfNeeded();
-      try {
-        const p = handleAcceptCall(peerPubkey);
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      } catch {}
-      return;
-    }
-
-    if (action === 'decline') {
-      handleEndCall();
-      return;
-    }
-
+    closeIncomingCallNotification();
     try { window.focus(); } catch {}
     if (!callDialog) {
       createCallDialog(peerPubkey, true);
@@ -635,6 +608,8 @@
   App.onVoiceCallConnected = function(peerPubkey) {
     console.log('Call connected');
     
+    // חלק שיחות קול (chat-voice-call-ui.js) – הגדרת ברירת מחדל לאפרכסת בעת חיבור השיחה | HYPER CORE TECH
+    setDefaultEarpieceOutput();
     updateCallStatus('מחובר');
     showMuteButton();
     showSpeakerButton();

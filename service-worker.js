@@ -1,4 +1,4 @@
-// חלק Service Worker (service-worker.js) – התראות שיחה נכנסת עם פעולות ענה/דחה ותקשורת עם חלון האפליקציה | HYPER CORE TECH
+// חלק Service Worker (service-worker.js) – התראות שיחה נכנסת עם פעולת פתיחה אחת (ללא מענה אוטומטי) ותקשורת עם חלון האפליקציה | HYPER CORE TECH
 (function initServiceWorker(self) {
   self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());
@@ -43,7 +43,6 @@
 
   self.addEventListener('notificationclick', (event) => {
     const notification = event.notification;
-    const action = event.action || '';
     const data = notification && notification.data ? notification.data : {};
     const type = data.type || '';
     const peerPubkey = data.peerPubkey || null;
@@ -58,18 +57,11 @@
     }
 
     event.waitUntil((async () => {
-      const effectiveAction = action || 'open';
       const message = {
         type: 'voice-call-notification-action',
-        action: effectiveAction,
+        action: 'open',
         peerPubkey
       };
-
-      // חלק Service Worker (service-worker.js) – בדחיית שיחה לא מעבירים פוקוס/לא פותחים חלון, רק מודיעים לחלונות קיימים | HYPER CORE TECH
-      if (effectiveAction === 'decline') {
-        await postMessageToAllClients(message);
-        return;
-      }
 
       const client = await focusOrOpenClient(url);
       if (client) {
