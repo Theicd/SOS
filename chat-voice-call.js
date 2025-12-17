@@ -415,6 +415,11 @@
     const startMs = state.callStartTimestamp || state.callStartTime;
     const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
 
+    // חלק שיחות קול (chat-voice-call.js) – זיהוי שיחה נכנסת שלא נענתה (לפני איפוס state) | HYPER CORE TECH
+    const wasIncoming = state.isIncoming;
+    const wasAnswered = !!startMs;
+    const peer = state.currentPeer;
+
     // סגירת חיבור
     if (state.peerConnection) {
       state.peerConnection.close();
@@ -440,7 +445,6 @@
     }
 
     // איפוס מצב
-    const peer = state.currentPeer;
     state.currentPeer = null;
     state.isCallActive = false;
     state.isIncoming = false;
@@ -453,6 +457,13 @@
 
     if (durationSeconds > 0 && peer) {
       publishCallMetric(durationSeconds, peer);
+    }
+
+    // חלק שיחות קול (chat-voice-call.js) – התראה על שיחה שלא נענתה (נכנסת + לא נענתה) | HYPER CORE TECH
+    if (wasIncoming && !wasAnswered && peer) {
+      if (typeof App.onVoiceCallMissed === 'function') {
+        App.onVoiceCallMissed(peer);
+      }
     }
 
     // עדכון UI

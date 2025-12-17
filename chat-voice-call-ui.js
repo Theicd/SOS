@@ -26,6 +26,8 @@
   let incomingOffer = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – שומר את ה-peer הפעיל כדי לסגור UI בצורה מדויקת בעת ניתוק/ביטול | HYPER CORE TECH
   let activePeerPubkey = null;
+  // חלק שיחות קול (chat-voice-call-ui.js) – דגל: המשתמש דחה את השיחה באופן יזום (לא לרשום כ-missed) | HYPER CORE TECH
+  let userDeclinedCall = false;
 
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת אלמנט אודיו מרוחק
   function createRemoteAudioElement() {
@@ -334,9 +336,10 @@
     // חלק שיחות קול (chat-voice-call-ui.js) – איפוס בחירת פלט כדי ששיחה הבאה תתחיל בברירת מחדל (לא רמקול אוטומטי) | HYPER CORE TECH
     resetOutputDeviceSelection();
 
-    // חלק שיחות קול (chat-voice-call-ui.js) – ניקוי offer ו-peer כדי למנוע קבלה של הצעה ישנה לאחר סגירה | HYPER CORE TECH
+    // חלק שיחות קול (chat-voice-call-ui.js) – ניקוי offer ו-peer ודגל דחייה כדי למנוע קבלה של הצעה ישנה לאחר סגירה | HYPER CORE TECH
     incomingOffer = null;
     activePeerPubkey = null;
+    userDeclinedCall = false;
 
     if (callDialog) {
       callDialog.remove();
@@ -535,8 +538,12 @@
     }
   }
 
-  // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בניתוק
+  // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בניתוק/דחייה | HYPER CORE TECH
   function handleEndCall() {
+    // סימון שהמשתמש דחה את השיחה באופן יזום (אם זו שיחה נכנסת שעדיין לא נענתה)
+    if (incomingOffer) {
+      userDeclinedCall = true;
+    }
     // סגירה מיידית של ה-UI כדי לא להיתקע אם יש השהייה ברשת
     closeCallDialog();
     stopRingtone();
@@ -629,7 +636,7 @@
     console.log('Mute toggled:', isMuted);
   };
 
-  // חלק שיחות קול (chat-voice-call-ui.js) – סגירת UI בעת ניתוק/ביטול מהצד השני (כולל שיחה שלא נענתה) | HYPER CORE TECH
+  // חלק שיחות קול (chat-voice-call-ui.js) – סגירת UI בעת ניתוק/ביטול מהצד השני | HYPER CORE TECH
   App.onVoiceCallEnded = function(peerPubkey) {
     const peer = peerPubkey || activePeerPubkey;
     if (peer && activePeerPubkey && peer !== activePeerPubkey) {
@@ -638,6 +645,35 @@
     stopRingtone();
     stopDialtone();
     closeCallDialog();
+  };
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – רישום שיחה שלא נענתה בהיסטוריית הצ'אט ועדכון מונה לא נקראו | HYPER CORE TECH
+  App.onVoiceCallMissed = function(peerPubkey) {
+    // אם המשתמש דחה את השיחה באופן יזום – לא לרשום כ-missed
+    if (userDeclinedCall) {
+      userDeclinedCall = false;
+      return;
+    }
+
+    if (!peerPubkey) return;
+    console.log('Missed call from', peerPubkey.slice(0, 8));
+
+    // יצירת הודעת "שיחה שלא נענתה" מיוחדת
+    const missedCallMessage = {
+      id: 'missed-call-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      from: peerPubkey,
+      to: App.publicKey,
+      content: '📞 שיחה שלא נענתה',
+      createdAt: Math.floor(Date.now() / 1000),
+      created_at: Math.floor(Date.now() / 1000),
+      direction: 'incoming',
+      type: 'missed_call'
+    };
+
+    // הוספה להיסטוריית השיחה דרך chat-state (משתמש ב-API הנכון)
+    if (typeof App.appendChatMessage === 'function') {
+      App.appendChatMessage(missedCallMessage);
+    }
   };
 
   // חלק שיחות קול (chat-voice-call-ui.js) – צלילי חיוג/צלצול באמצעות קבצי MP3 | HYPER CORE TECH
