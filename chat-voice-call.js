@@ -27,6 +27,10 @@
     lastOfferFrom: {},
     ending: false,
     callStartTimestamp: null,
+    // חלק שיחות קול (chat-voice-call.js) – שמירת audioSession.type כדי להחזיר אותו בסיום השיחה (מובייל) | HYPER CORE TECH
+    previousAudioSessionType: null,
+    // חלק שיחות קול (chat-voice-call.js) – דגל: האם שינינו AudioSession עבור שיחה (כדי לא לשנות כשדוחים לפני קבלה) | HYPER CORE TECH
+    audioSessionTypeApplied: false,
     // חלק שיחות קול (chat-voice-call.js) – מנגנון הרשמה לסיגנלים: שמירת subscription כדי למנוע כפילות | HYPER CORE TECH
     signalSubscription: null
   };
@@ -77,6 +81,56 @@
       navigator.mediaDevices.getUserMedia &&
       window.RTCPeerConnection
     );
+  }
+
+  // חלק שיחות קול (chat-voice-call.js) – AudioSession (play-and-record) לשיפור ניתוב אודיו במכשירים תומכים | HYPER CORE TECH
+  function isAudioSessionTypeSupported() {
+    try {
+      const session = navigator && navigator.audioSession ? navigator.audioSession : null;
+      return !!(session && ('type' in session));
+    } catch {
+      return false;
+    }
+  }
+
+  function getAudioSessionTypeSafely() {
+    try {
+      if (!isAudioSessionTypeSupported()) return null;
+      return navigator.audioSession.type || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function setAudioSessionTypeSafely(type) {
+    try {
+      if (!isAudioSessionTypeSupported()) return;
+      navigator.audioSession.type = type;
+    } catch {}
+  }
+
+  function setCallAudioSessionType() {
+    if (!isAudioSessionTypeSupported()) return;
+    if (state.audioSessionTypeApplied) return;
+
+    state.audioSessionTypeApplied = true;
+    state.previousAudioSessionType = getAudioSessionTypeSafely();
+    setAudioSessionTypeSafely('play-and-record');
+  }
+
+  function restoreAudioSessionType() {
+    if (!isAudioSessionTypeSupported()) return;
+    if (!state.audioSessionTypeApplied) return;
+
+    state.audioSessionTypeApplied = false;
+    const prev = state.previousAudioSessionType;
+    state.previousAudioSessionType = null;
+
+    if (typeof prev === 'string' && prev) {
+      setAudioSessionTypeSafely(prev);
+    } else {
+      setAudioSessionTypeSafely('auto');
+    }
   }
 
   // חלק שיחות קול (chat-voice-call.js) – קבלת הרשאות מיקרופון
@@ -264,6 +318,8 @@
     }
 
     try {
+      // חלק שיחות קול (chat-voice-call.js) – הגדרת AudioSession לשיחה לפני בקשת מיקרופון (Best Effort) | HYPER CORE TECH
+      setCallAudioSessionType();
       // קבלת הרשאות מיקרופון
       await getLocalStream();
 
@@ -304,6 +360,8 @@
     }
 
     try {
+      // חלק שיחות קול (chat-voice-call.js) – הגדרת AudioSession לשיחה לפני בקשת מיקרופון (Best Effort) | HYPER CORE TECH
+      setCallAudioSessionType();
       // קבלת הרשאות מיקרופון
       await getLocalStream();
 
@@ -389,6 +447,8 @@
     state.isMuted = false;
     state.callStartTimestamp = null;
     state.callStartTime = null;
+    // חלק שיחות קול (chat-voice-call.js) – שחזור AudioSession לסוג שהיה לפני השיחה | HYPER CORE TECH
+    restoreAudioSessionType();
     setTimeout(() => { state.ending = false; }, 100);
 
     if (durationSeconds > 0 && peer) {

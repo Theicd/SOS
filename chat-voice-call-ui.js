@@ -18,6 +18,8 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – התראות מערכת לשיחה נכנסת (Notification API) | HYPER CORE TECH
   let incomingCallNotification = null;
   let notificationPermissionLastRequestedAt = 0;
+  // חלק שיחות קול (chat-voice-call-ui.js) – רישום Service Worker להתראות שיחה נכנסת עם פעולות | HYPER CORE TECH
+  let voiceCallServiceWorkerRegisterAttempted = false;
   // חלק שיחות קול (chat-voice-call-ui.js) – בחירת התקן פלט לשיחת קול (setSinkId/selectAudioOutput) | HYPER CORE TECH
   let selectedOutputDeviceId = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – שמירת offer נכנס מקומית לתהליך קבלה
@@ -185,6 +187,38 @@
     return canSetSinkId && (canSelectOutput || canEnumerate);
   }
 
+  // חלק שיחות קול (chat-voice-call-ui.js) – AudioSession (בעיקר iOS Safari) להחלפת רמקול/אפרכסת כשאין setSinkId | HYPER CORE TECH
+  function isAudioSessionTypeSupported() {
+    try {
+      const session = navigator && navigator.audioSession ? navigator.audioSession : null;
+      return !!(session && ('type' in session));
+    } catch {
+      return false;
+    }
+  }
+
+  function getAudioSessionTypeSafely() {
+    try {
+      if (!isAudioSessionTypeSupported()) return null;
+      return navigator.audioSession.type || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function setAudioSessionTypeSafely(type) {
+    try {
+      if (!isAudioSessionTypeSupported()) return;
+      navigator.audioSession.type = type;
+    } catch {}
+  }
+
+  function toggleAudioSessionSpeakerMode() {
+    const current = getAudioSessionTypeSafely();
+    const next = current === 'playback' ? 'play-and-record' : 'playback';
+    setAudioSessionTypeSafely(next);
+  }
+
   function showSpeakerButton() {
     if (!callDialog) return;
     const speakerBtn = callDialog.querySelector('[data-action="speaker"]');
@@ -201,7 +235,19 @@
     const text = speakerBtn.querySelector('span');
     if (!text) return;
 
-    text.textContent = selectedOutputDeviceId ? 'פלט נבחר' : 'רמקול';
+    if (selectedOutputDeviceId) {
+      text.textContent = 'פלט נבחר';
+      return;
+    }
+
+    if (isAudioSessionTypeSupported()) {
+      const type = getAudioSessionTypeSafely();
+      // אם אנחנו במצב playback (רמקול) – הכפתור צריך להחזיר לאפרכסת; אחרת – להעביר לרמקול | HYPER CORE TECH
+      text.textContent = type === 'playback' ? 'אפרכסת' : 'רמקול';
+      return;
+    }
+
+    text.textContent = 'רמקול';
   }
 
   function applyOutputDeviceIdToMediaElement(el, deviceId) {
@@ -233,7 +279,12 @@
 
   async function handleSelectOutputDevice() {
     if (!isOutputDeviceSelectionSupported()) {
-      alert('הדפדפן לא תומך בבחירת התקן פלט לשיחה');
+      if (isAudioSessionTypeSupported()) {
+        toggleAudioSessionSpeakerMode();
+        updateSpeakerButtonUI();
+        return;
+      }
+      alert('בדפדפן זה לא ניתן לבחור או להחליף התקן פלט לשיחה');
       return;
     }
 
@@ -305,8 +356,31 @@
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – התראות מערכת לשיחה נכנסת (Notification API) | HYPER CORE TECH
+  // חלק שיחות קול (chat-voice-call-ui.js) – רישום Service Worker כדי לאפשר פעולות "ענה/דחה" מתוך ההתראה | HYPER CORE TECH
+  function registerVoiceCallServiceWorkerIfSupported() {
+    if (!('serviceWorker' in navigator)) return;
+    if (!window.isSecureContext) return;
+    if (voiceCallServiceWorkerRegisterAttempted) return;
+    voiceCallServiceWorkerRegisterAttempted = true;
+    try {
+      const p = navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
+  }
+
+  function getVoiceCallServiceWorkerRegistration() {
+    if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+    if (!window.isSecureContext) return Promise.resolve(null);
+    try {
+      return navigator.serviceWorker.getRegistration().catch(() => null);
+    } catch {
+      return Promise.resolve(null);
+    }
+  }
+
   function requestNotificationPermissionIfNeeded() {
     if (!('Notification' in window)) return;
+    registerVoiceCallServiceWorkerIfSupported();
     try {
       if (window.Notification.permission !== 'default') return;
 
@@ -322,9 +396,19 @@
   }
 
   function closeIncomingCallNotification() {
-    if (!incomingCallNotification) return;
-    try { incomingCallNotification.close(); } catch {}
-    incomingCallNotification = null;
+    if (incomingCallNotification) {
+      try { incomingCallNotification.close(); } catch {}
+      incomingCallNotification = null;
+    }
+
+    getVoiceCallServiceWorkerRegistration().then((reg) => {
+      if (!reg || typeof reg.getNotifications !== 'function') return;
+      return reg.getNotifications({ tag: 'voice-call-incoming' }).then((items) => {
+        (items || []).forEach((n) => {
+          try { n.close(); } catch {}
+        });
+      }).catch(() => {});
+    }).catch(() => {});
   }
 
   function showIncomingCallNotification(peerPubkey) {
@@ -337,26 +421,97 @@
       if (!isHidden && hasFocus) return;
 
       closeIncomingCallNotification();
+      registerVoiceCallServiceWorkerIfSupported();
 
       const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
       const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
       const picture = contact?.picture || '';
-      const options = {
+
+      const baseOptions = {
         body: name,
         tag: 'voice-call-incoming',
         renotify: true
       };
-      if (picture) options.icon = picture;
-      try { options.requireInteraction = true; } catch {}
+      if (picture) baseOptions.icon = picture;
+      try { baseOptions.requireInteraction = true; } catch {}
 
-      incomingCallNotification = new window.Notification('שיחה נכנסת', options);
-      incomingCallNotification.onclick = () => {
-        try { window.focus(); } catch {}
-        closeIncomingCallNotification();
-      };
+      const swOptions = Object.assign({}, baseOptions, {
+        actions: [
+          { action: 'answer', title: 'ענה' },
+          { action: 'decline', title: 'דחה' }
+        ],
+        data: {
+          type: 'voice-call-incoming',
+          peerPubkey: peerPubkey,
+          url: window.location.href
+        }
+      });
+
+      getVoiceCallServiceWorkerRegistration().then((reg) => {
+        if (reg && typeof reg.showNotification === 'function') {
+          try {
+            const p = reg.showNotification('שיחה נכנסת', swOptions);
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          } catch {}
+          return;
+        }
+
+        incomingCallNotification = new window.Notification('שיחה נכנסת', baseOptions);
+        incomingCallNotification.onclick = () => {
+          try { window.focus(); } catch {}
+          closeIncomingCallNotification();
+        };
+      }).catch(() => {
+        try {
+          incomingCallNotification = new window.Notification('שיחה נכנסת', baseOptions);
+          incomingCallNotification.onclick = () => {
+            try { window.focus(); } catch {}
+            closeIncomingCallNotification();
+          };
+        } catch {}
+      });
     } catch (err) {
       console.warn('Failed to show incoming call notification', err);
     }
+  }
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – קבלת פעולות מהתראת Service Worker (ענה/דחה) | HYPER CORE TECH
+  function handleVoiceCallServiceWorkerMessage(event) {
+    const data = event && event.data ? event.data : null;
+    if (!data || data.type !== 'voice-call-notification-action') return;
+
+    const action = data.action || 'open';
+    const peerPubkey = data.peerPubkey || activePeerPubkey;
+    if (!peerPubkey) return;
+
+    if (action === 'answer') {
+      if (!callDialog) {
+        createCallDialog(peerPubkey, true);
+      }
+      resumeAudioIfNeeded();
+      try {
+        const p = handleAcceptCall(peerPubkey);
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch {}
+      return;
+    }
+
+    if (action === 'decline') {
+      handleEndCall();
+      return;
+    }
+
+    try { window.focus(); } catch {}
+    if (!callDialog) {
+      createCallDialog(peerPubkey, true);
+    }
+  }
+
+  function initVoiceCallServiceWorkerMessageHandling() {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      navigator.serviceWorker.addEventListener('message', handleVoiceCallServiceWorkerMessage);
+    } catch {}
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בלחיצה על כפתור שיחה
@@ -679,6 +834,9 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – אתחול
   function init() {
     createRemoteAudioElement();
+    // חלק שיחות קול (chat-voice-call-ui.js) – רישום Service Worker להתראות שיחה נכנסת + האזנה לפעולות מהתראה | HYPER CORE TECH
+    registerVoiceCallServiceWorkerIfSupported();
+    initVoiceCallServiceWorkerMessageHandling();
     initCallButton();
     console.log('Voice call UI initialized');
     // חלק שיחות קול (chat-voice-call-ui.js) – priming לצלילי MP3 + בקשת הרשאת Notification אחרי מחווה ראשונה | HYPER CORE TECH
