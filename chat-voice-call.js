@@ -599,7 +599,10 @@
     }
   }
 
-  // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון
+  // חלק שיחות קול (chat-voice-call.js) – זמן התחלת ניסיון הרשמה לתפוס שיחות שנכנסו בזמן טעינה | HYPER CORE TECH
+  let voiceSubscribeStartTime = Date.now();
+
+  // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון עם since מורחב | HYPER CORE TECH
   function subscribeToSignals() {
     // חלק שיחות קול (chat-voice-call.js) – מניעת הרשמה כפולה (חשוב בעמודים שטוענים מודולים מחדש) | HYPER CORE TECH
     if (state.signalSubscription) {
@@ -610,7 +613,9 @@
       return null;
     }
 
-    const since = Math.floor(Date.now() / 1000) - 2; // מתעלם מאירועי עבר
+    // since מורחב: מתחילת ניסיון ההרשמה או 30 שניות אחורה (הגדול מביניהם) לתפוס שיחות שנכנסו בזמן טעינה
+    const timeSinceStart = Math.floor((Date.now() - voiceSubscribeStartTime) / 1000);
+    const since = Math.floor(Date.now() / 1000) - Math.max(timeSinceStart + 5, 30);
     const filters = [
       {
         kinds: [25050],
@@ -620,6 +625,7 @@
     ];
 
     try {
+      console.log('Voice call: subscribing to events for', App.publicKey.slice(0,8), 'since', since);
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
         onevent: handleSignalEvent,
         oneose: () => {
@@ -634,7 +640,7 @@
     }
   }
 
-  // חלק שיחות קול (chat-voice-call.js) – אתחול הרשמה אוטומטית לסיגנלים גם כש-notifyPoolReady לא נקרא (למשל videos.html) | HYPER CORE TECH
+  // חלק שיחות קול (chat-voice-call.js) – אתחול הרשמה אוטומטית לסיגנלים עם retry מהיר | HYPER CORE TECH
   function autoSubscribeSignals() {
     // אורחים: לא מפעילים שיחות קול כדי למנוע UX תקול
     if (App.guestMode) {
@@ -644,7 +650,7 @@
       return;
     }
     if (!App.pool || !App.publicKey) {
-      setTimeout(autoSubscribeSignals, 500);
+      setTimeout(autoSubscribeSignals, 300); // מהיר יותר - 300ms במקום 500ms
       return;
     }
     subscribeToSignals();

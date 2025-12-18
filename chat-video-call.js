@@ -202,6 +202,11 @@
     state.ending = true;
     const peer = state.currentPeer;
     const durationSeconds = state.callStartTimestamp ? (Date.now() - state.callStartTimestamp) / 1000 : 0;
+    
+    // חלק שיחות וידאו (chat-video-call.js) – זיהוי שיחה נכנסת שלא נענתה (לפני איפוס state) | HYPER CORE TECH
+    const wasIncoming = state.isIncoming;
+    const wasAnswered = !!state.callStartTimestamp;
+    
     if (peer) sendSignal(peer, 'v-disconnect', null);
     try { if (state.pc) state.pc.close(); } catch {}
     state.pc = null;
@@ -214,6 +219,14 @@
     }
     setTimeout(()=>{ state.ending=false; },100);
     state.callStartTimestamp = null;
+    
+    // חלק שיחות וידאו (chat-video-call.js) – התראה על שיחה שלא נענתה (נכנסת + לא נענתה) | HYPER CORE TECH
+    if (wasIncoming && !wasAnswered && peer) {
+      if (typeof App.onVideoCallMissed === 'function') {
+        App.onVideoCallMissed(peer);
+      }
+    }
+    
     if (typeof App.onVideoCallEnded === 'function') App.onVideoCallEnded(peer);
   }
 
@@ -232,20 +245,61 @@
     if (typeof App.onVideoCallCameraToggle === 'function') App.onVideoCallCameraToggle(state.isCameraOff);
     return state.isCameraOff;
   }
+  // חלק שיחות וידאו (chat-video-call.js) – החלפת מצלמה קדמית/אחורית עם תמיכה במובייל | HYPER CORE TECH
   async function switchCamera() {
-    // ניסיון להחליף בין קדמית/אחורית
-    state.facingMode = state.facingMode === 'user' ? 'environment' : 'user';
-    if (!state.pc) return;
-    const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: state.facingMode }, audio: true });
-    const newTrack = newStream.getVideoTracks()[0];
-    const sender = state.pc.getSenders().find(s => s.track && s.track.kind === 'video');
-    if (sender && newTrack) {
-      await sender.replaceTrack(newTrack);
-      // עצירת המסלולים הישנים והחלפה מקומית
-      state.localStream.getVideoTracks().forEach(t => t.stop());
-      state.localStream.removeTrack(state.localStream.getVideoTracks()[0] || null);
-      state.localStream.addTrack(newTrack);
-      if (typeof App.onVideoCallLocalStreamChanged === 'function') App.onVideoCallLocalStreamChanged(state.localStream);
+    if (!state.pc || !state.localStream) return;
+    
+    // החלפת facingMode
+    const newFacingMode = state.facingMode === 'user' ? 'environment' : 'user';
+    
+    try {
+      // ניסיון עם exact facingMode (מבטיח החלפה אמיתית)
+      let newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: newFacingMode } },
+          audio: false // לא צריך אודיו חדש
+        });
+      } catch (exactErr) {
+        // fallback ללא exact (חלק מהמכשירים לא תומכים)
+        console.warn('exact facingMode failed, trying ideal:', exactErr);
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: newFacingMode } },
+          audio: false
+        });
+      }
+      
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (!newVideoTrack) {
+        console.warn('No video track from new stream');
+        return;
+      }
+      
+      // החלפת ה-track ב-sender
+      const sender = state.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) {
+        await sender.replaceTrack(newVideoTrack);
+      }
+      
+      // עצירת ה-track הישן והחלפה ב-localStream
+      const oldVideoTrack = state.localStream.getVideoTracks()[0];
+      if (oldVideoTrack) {
+        oldVideoTrack.stop();
+        state.localStream.removeTrack(oldVideoTrack);
+      }
+      state.localStream.addTrack(newVideoTrack);
+      
+      // עדכון state רק אחרי הצלחה
+      state.facingMode = newFacingMode;
+      
+      if (typeof App.onVideoCallLocalStreamChanged === 'function') {
+        App.onVideoCallLocalStreamChanged(state.localStream);
+      }
+      
+      console.log('Camera switched to:', newFacingMode);
+    } catch (err) {
+      console.error('Failed to switch camera:', err);
+      // לא משנים את state.facingMode אם נכשל
     }
   }
 
@@ -309,25 +363,39 @@
     }
   }
 
-  // חלק שיחות וידאו – הרשמה לאירועים
+  // חלק שיחות וידאו (chat-video-call.js) – הרשמה לאירועים עם since מורחב לתפוס שיחות שנכנסו בזמן טעינה | HYPER CORE TECH
+  let videoCallSubscription = null;
+  let subscribeStartTime = Date.now(); // זמן התחלת ניסיון ההרשמה
+  
   function subscribe() {
     // אורחים לא יכולים להשתמש בשיחות וידאו - לא לחכות לנצח
     if (App.guestMode) {
       console.log('Video call: disabled for guest users');
       return;
     }
-    if (!App.pool || !App.publicKey) {
-      console.log('Video call: waiting for pool/publicKey...');
-      setTimeout(subscribe, 500);
+    // מניעת הרשמה כפולה
+    if (videoCallSubscription) {
       return;
     }
-    const since = Math.floor(Date.now()/1000) - 2;
+    if (!App.pool || !App.publicKey) {
+      console.log('Video call: waiting for pool/publicKey...');
+      setTimeout(subscribe, 300); // מהיר יותר - 300ms במקום 500ms
+      return;
+    }
+    // since מורחב: מתחילת ניסיון ההרשמה או 30 שניות אחורה (הגדול מביניהם)
+    const timeSinceStart = Math.floor((Date.now() - subscribeStartTime) / 1000);
+    const since = Math.floor(Date.now()/1000) - Math.max(timeSinceStart + 5, 30);
     const filters = [{ kinds: [25050], '#p': [App.publicKey], since }];
-    console.log('Video call: subscribing to events for', App.publicKey.slice(0,8));
-    App.pool.subscribeMany(App.relayUrls, filters, { 
-      onevent: handleSignalEvent, 
-      oneose: () => console.log('Video call subscription ready') 
-    });
+    console.log('Video call: subscribing to events for', App.publicKey.slice(0,8), 'since', since);
+    try {
+      videoCallSubscription = App.pool.subscribeMany(App.relayUrls, filters, { 
+        onevent: handleSignalEvent, 
+        oneose: () => console.log('Video call subscription ready') 
+      });
+    } catch (err) {
+      console.warn('Video call subscribe failed', err);
+      videoCallSubscription = null;
+    }
   }
 
   // חלק שיחות וידאו – חשיפה ל-App
