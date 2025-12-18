@@ -11,7 +11,7 @@
 .video-call-dialog.video-call-dialog--local-only .video-local { left: 0; right: 0; top: 0; bottom: 0; width: 100%; height: 100%; border-radius: 0; border: none; box-shadow: none; }
 
 /* חלק שיחות וידאו (chat-video-call.css) – רקע אנימציה לשיחת וידאו נכנסת (לפני קבלה) | HYPER CORE TECH */
-.video-call-dialog__incomingfx { position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; pointer-events: none; }
+.video-call-dialog__incomingfx { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .video-call-dialog__incomingfx[hidden] { display: none !important; }
 .video-call-dialog__incomingfx::before {
   content: "";
@@ -38,8 +38,11 @@
   animation: vcallFxScan 3.6s linear infinite;
 }
 .video-call-dialog__incomingfx-text {
-  position: relative;
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
   z-index: 3;
+  max-width: calc(100% - 32px);
   padding: 18px 22px;
   border-radius: 16px;
   border: 1px solid rgba(34, 211, 238, .25);

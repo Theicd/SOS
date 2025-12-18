@@ -400,24 +400,9 @@
     const previousFacingMode = state.facingMode;
     const previousVideoDeviceId = state.videoDeviceId;
 
-    // חלק שיחות וידאו (chat-video-call.js) – ניסיון מהיר: החלפה עם applyConstraints (אם נתמך) לפני getUserMedia | HYPER CORE TECH
-    try {
-      if (currentTrack && typeof currentTrack.applyConstraints === 'function') {
-        await currentTrack.applyConstraints({ facingMode: newFacingMode });
-        try {
-          const st = typeof currentTrack.getSettings === 'function' ? currentTrack.getSettings() : null;
-          state.videoDeviceId = (st && st.deviceId) ? st.deviceId : null;
-        } catch {}
-        state.facingMode = newFacingMode;
-        if (typeof App.onVideoCallLocalStreamChanged === 'function') App.onVideoCallLocalStreamChanged(state.localStream);
-        return;
-      }
-    } catch (err) {
-      console.warn('switchCamera applyConstraints failed', err);
-    }
-
+    const hasCurrentDeviceId = !!currentDeviceId;
     let nextDevice = null;
-    if (videoInputs.length >= 2) {
+    if (hasCurrentDeviceId && videoInputs.length >= 2) {
       const wantEnv = desiredFacing === 'environment';
       const re = wantEnv ? /(back|rear|environment)/i : /(front|user)/i;
       nextDevice = videoInputs.find(d => d.deviceId && d.deviceId !== currentDeviceId && re.test(d.label || '')) || null;
@@ -473,11 +458,12 @@
     try { state.localStream.addTrack(newTrack); } catch {}
 
     // עדכון מטא-דאטה
+    let st = null;
     try {
-      const st = typeof newTrack.getSettings === 'function' ? newTrack.getSettings() : null;
+      st = typeof newTrack.getSettings === 'function' ? newTrack.getSettings() : null;
       state.videoDeviceId = (st && st.deviceId) ? st.deviceId : (nextDevice && nextDevice.deviceId) || null;
     } catch {}
-    state.facingMode = newFacingMode;
+    state.facingMode = (st && st.facingMode) ? st.facingMode : newFacingMode;
 
     if (typeof App.onVideoCallLocalStreamChanged === 'function') App.onVideoCallLocalStreamChanged(state.localStream);
   }
