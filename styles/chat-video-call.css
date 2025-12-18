@@ -10,6 +10,68 @@
 .video-call-dialog.video-call-dialog--local-only .video-remote { display: none; }
 .video-call-dialog.video-call-dialog--local-only .video-local { left: 0; right: 0; top: 0; bottom: 0; width: 100%; height: 100%; border-radius: 0; border: none; box-shadow: none; }
 
+/* חלק שיחות וידאו (chat-video-call.css) – רקע אנימציה לשיחת וידאו נכנסת (לפני קבלה) | HYPER CORE TECH */
+.video-call-dialog__incomingfx { position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; pointer-events: none; }
+.video-call-dialog__incomingfx::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(closest-side at 50% 50%, rgba(34, 211, 238, .25), rgba(0,0,0,0) 65%),
+    radial-gradient(closest-side at 20% 35%, rgba(168, 85, 247, .18), rgba(0,0,0,0) 60%),
+    radial-gradient(closest-side at 75% 70%, rgba(34, 197, 94, .14), rgba(0,0,0,0) 60%);
+  filter: blur(0px) saturate(1.25);
+  opacity: .95;
+  transform: translate3d(0,0,0) rotate(0deg);
+  animation: vcallFxOrb 7s linear infinite;
+}
+.video-call-dialog__incomingfx::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0, rgba(255,255,255,.10) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 8px),
+    repeating-linear-gradient(90deg, rgba(34, 211, 238, .10) 0, rgba(34, 211, 238, .10) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 14px);
+  mix-blend-mode: screen;
+  opacity: .18;
+  animation: vcallFxScan 3.6s linear infinite;
+}
+.video-call-dialog__incomingfx-text {
+  position: relative;
+  z-index: 3;
+  padding: 18px 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(34, 211, 238, .25);
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 24px 80px rgba(0,0,0,.65);
+}
+.video-call-dialog__incomingfx-title {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(34, 211, 238, .95);
+  text-shadow: 0 0 18px rgba(34, 211, 238, .35);
+}
+.video-call-dialog__incomingfx-sub {
+  margin-top: 8px;
+  font-size: 14px;
+  opacity: .9;
+  color: rgba(255,255,255,.85);
+}
+
+@keyframes vcallFxOrb {
+  0% { transform: translate3d(2%, -1%, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(-2%, 2%, 0) rotate(180deg) scale(1.03); }
+  100% { transform: translate3d(2%, -1%, 0) rotate(360deg) scale(1); }
+}
+
+@keyframes vcallFxScan {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 0 160px, 220px 0; }
+}
+
 /* HUD תחתון בסגנון וואטסאפ – שכבת בקרות חופפת לווידאו */
 .video-call-dialog__hud { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.65) 40%); color: #fff; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
 .video-call-dialog__name { font-weight: 700; margin-inline-end: 8px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
@@ -39,6 +101,8 @@
   .video-call-dialog__name { font-size: 17px; }
   .video-call-dialog__label { font-size: 14px; }
   .video-call-dialog__avatar { width: 56px !important; height: 56px !important; }
+  .video-call-dialog__incomingfx-title { font-size: 18px; letter-spacing: .10em; }
+  .video-call-dialog__incomingfx-sub { font-size: 13px; }
 }
 
 /* מובייל – לרוחב (landscape): מזיזים את ה-local לפינה עליונה ומצמצמים */
