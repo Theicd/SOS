@@ -10,6 +10,32 @@
   let timerEl = null;
   let timerId = null;
 
+  // חלק שיחות וידאו (chat-video-call-ui.js) – דגל: דחייה ידנית של שיחה נכנסת כדי למנוע רישום missed | HYPER CORE TECH
+  let userDeclinedVideoCall = false;
+
+  // חלק שיחות וידאו (chat-video-call-ui.js) – מצב תצוגה: מציגים מקומי במסך מלא עד שמגיע וידאו מרוחק | HYPER CORE TECH
+  function setLocalOnlyMode(enabled) {
+    if (!dialog) return;
+    if (enabled) {
+      dialog.classList.add('video-call-dialog--local-only');
+    } else {
+      dialog.classList.remove('video-call-dialog--local-only');
+    }
+  }
+
+  function showRemoteWhenReady() {
+    if (!dialog || !remoteVideo) return;
+    try {
+      if (remoteVideo.readyState >= 2) {
+        setLocalOnlyMode(false);
+        return;
+      }
+    } catch {}
+    const onReady = () => setLocalOnlyMode(false);
+    try { remoteVideo.addEventListener('playing', onReady, { once: true }); } catch {}
+    try { remoteVideo.addEventListener('loadeddata', onReady, { once: true }); } catch {}
+  }
+
   // חלק שיחות וידאו (chat-video-call-ui.js) – מנגנון צלילים
   let audioCtx = null;
   let toneInterval = null;
@@ -143,6 +169,9 @@
     localVideo = dialog.querySelector('#videoLocal');
     timerEl = dialog.querySelector('.video-call-dialog__timer');
 
+    // חלק שיחות וידאו (chat-video-call-ui.js) – ברירת מחדל: לא local-only עד שיש וידאו מקומי | HYPER CORE TECH
+    setLocalOnlyMode(false);
+
     const acc = dialog.querySelector('[data-action="accept"]');
     const end = dialog.querySelector('[data-action="end"]');
     const mute = dialog.querySelector('[data-action="mute"]');
@@ -158,15 +187,52 @@
 
   // חלק שיחות וידאו – עדכון סטטוס
   function setStatus(text){ if (!dialog) return; const el = dialog.querySelector('.video-call-dialog__label'); if (el) el.textContent = text; }
-  function showControls(){ if (!dialog) return; ['mute','camera','flip'].forEach(a=>{ const b=dialog.querySelector(`[data-action="${a}"]`); if(b) b.removeAttribute('hidden'); }); }
+  function showControls(){
+    if (!dialog) return;
+    // חלק שיחות וידאו (chat-video-call-ui.js) – לאחר התחלה/חיבור מסתירים את כפתור "קבל" כדי למנוע לחיצות כפולות | HYPER CORE TECH
+    const acceptBtn = dialog.querySelector('[data-action="accept"]');
+    if (acceptBtn) acceptBtn.setAttribute('hidden', '');
+    ['mute','camera','flip'].forEach(a=>{ const b=dialog.querySelector(`[data-action="${a}"]`); if(b) b.removeAttribute('hidden'); });
+  }
   function startTimer(){ if (!timerEl) return; timerEl.removeAttribute('hidden'); const start = Date.now(); if (timerId) clearInterval(timerId); timerId = setInterval(()=>{ timerEl.textContent = fmt(Date.now()-start); },1000); }
   function stopTimer(){ if (timerId) { clearInterval(timerId); timerId=null; } }
-  function closeDialog(){ stopTimer(); stopAllTones(); if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; }
+  function closeDialog(){ stopTimer(); stopAllTones(); App.__videoIncomingOffer = null; userDeclinedVideoCall = false; if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; }
 
   // חלק שיחות וידאו – פעולות כפתורים
   async function handleStart(peer){ try { resumeOnUserGestureOnce(() => playDialtone()); await App.videoCall.start(peer); } catch(e){ console.error(e); alert(e.message||'שגיאת וידאו'); closeDialog(); } }
-  async function handleAccept(peer){ try { stopRingtone(); const offer = App.__videoIncomingOffer || null; if (!offer) { alert('הצעת וידאו חסרה'); return; } await App.videoCall.accept(peer, offer); setStatus('מתחבר...'); } catch(e){ console.error(e); alert(e.message||'שגיאה בקבלת וידאו'); closeDialog(); } }
-  function handleEnd(){ if (App.videoCall) App.videoCall.end(); closeDialog(); }
+  async function handleAccept(peer){
+    try {
+      stopRingtone();
+      // חלק שיחות וידאו (chat-video-call-ui.js) – נטרול כפתור קבלה מיידית כדי למנוע לחיצות כפולות | HYPER CORE TECH
+      const acceptBtn = dialog && dialog.querySelector('[data-action="accept"]');
+      if (acceptBtn) {
+        acceptBtn.disabled = true;
+        acceptBtn.setAttribute('hidden', '');
+      }
+      const offer = App.__videoIncomingOffer || null;
+      if (!offer) {
+        alert('הצעת וידאו חסרה');
+        closeDialog();
+        return;
+      }
+      await App.videoCall.accept(peer, offer);
+      App.__videoIncomingOffer = null;
+      setStatus('מתחבר...');
+    } catch(e){ console.error(e); alert(e.message||'שגיאה בקבלת וידאו'); closeDialog(); }
+  }
+  function handleEnd(){
+    // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת סימון דחייה ידנית גם אחרי closeDialog (שמאפס דגלים) | HYPER CORE TECH
+    let shouldMarkDeclined = false;
+    try {
+      const st = App.videoCall?.getState && App.videoCall.getState();
+      shouldMarkDeclined = !!(App.__videoIncomingOffer && st?.isIncoming && !st?.isActive);
+    } catch {}
+    closeDialog();
+    if (shouldMarkDeclined) {
+      userDeclinedVideoCall = true;
+    }
+    if (App.videoCall) App.videoCall.end();
+  }
   function handleMute(){ const m = App.videoCall.toggleMute(); const btn = dialog && dialog.querySelector('[data-action="mute"]'); if (btn){ const i = btn.querySelector('i'); const t = btn.querySelector('span'); if(m){ i.className='fa-solid fa-microphone-slash'; t.textContent='בטל השתקה'; } else { i.className='fa-solid fa-microphone'; t.textContent='השתק'; } } }
   async function handleCamera(){ const off = await App.videoCall.toggleCamera(); const btn = dialog && dialog.querySelector('[data-action="camera"]'); if(btn){ const i = btn.querySelector('i'); const t = btn.querySelector('span'); if(off){ i.className='fa-solid fa-video-slash'; t.textContent='הפעל מצלמה'; } else { i.className='fa-solid fa-camera'; t.textContent='כבה מצלמה'; } } }
   async function handleFlip(){ try { await App.videoCall.switchCamera(); } catch(e){ console.warn('flip failed', e); } }
@@ -176,16 +242,59 @@
   App.onVideoCallStarted = function(peer, isIncoming){
     if (!dialog) createDialog(peer, isIncoming);
     setStatus(isIncoming? 'מתחבר...' : 'מחייג וידאו...');
+    // חלק שיחות וידאו (chat-video-call-ui.js) – אם השיחה כבר התחילה, לא מציגים כפתור קבלה | HYPER CORE TECH
+    try {
+      const acceptBtn = dialog && dialog.querySelector('[data-action="accept"]');
+      if (acceptBtn) acceptBtn.setAttribute('hidden', '');
+    } catch {}
     // הצגת הווידאו המקומי אם כבר זמין
     try {
       const st = App.videoCall?.getState && App.videoCall.getState();
-      if (st?.localStream && localVideo) localVideo.srcObject = st.localStream;
+      if (st?.localStream && localVideo) {
+        localVideo.srcObject = st.localStream;
+        setLocalOnlyMode(true);
+      }
     } catch {}
   };
   App.onVideoCallConnected = function(peer){ stopDialtone(); stopRingtone(); setStatus('מחובר'); showControls(); startTimer(); };
-  App.onVideoCallRemoteStream = function(stream){ if (!remoteVideo) return; remoteVideo.srcObject = stream; };
-  App.onVideoCallLocalStreamChanged = function(stream){ if (!localVideo) return; localVideo.srcObject = stream; };
+  App.onVideoCallRemoteStream = function(stream){ if (!remoteVideo) return; remoteVideo.srcObject = stream; showRemoteWhenReady(); };
+  App.onVideoCallLocalStreamChanged = function(stream){
+    if (!localVideo) return;
+    localVideo.srcObject = stream;
+    // חלק שיחות וידאו (chat-video-call-ui.js) – בהחלפת מצלמה לא מסתירים remote אם כבר קיים | HYPER CORE TECH
+    if (!remoteVideo || !remoteVideo.srcObject) {
+      setLocalOnlyMode(true);
+    } else {
+      showRemoteWhenReady();
+    }
+  };
   App.onVideoCallEnded = function(){ closeDialog(); };
+
+  // חלק שיחות וידאו (chat-video-call-ui.js) – רישום שיחה שלא נענתה בהיסטוריית הצ'אט ועדכון מונה לא נקראו | HYPER CORE TECH
+  App.onVideoCallMissed = function(peerPubkey) {
+    if (userDeclinedVideoCall) {
+      userDeclinedVideoCall = false;
+      return;
+    }
+
+    if (!peerPubkey) return;
+    console.log('Missed video call from', peerPubkey.slice(0, 8));
+
+    const missedCallMessage = {
+      id: 'missed-video-call-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+      from: peerPubkey,
+      to: App.publicKey,
+      content: '📹 שיחת וידאו שלא נענתה',
+      createdAt: Math.floor(Date.now() / 1000),
+      created_at: Math.floor(Date.now() / 1000),
+      direction: 'incoming',
+      type: 'missed_call'
+    };
+
+    if (typeof App.appendChatMessage === 'function') {
+      App.appendChatMessage(missedCallMessage);
+    }
+  };
   App.onVideoCallMuteToggle = function(){};
   App.onVideoCallCameraToggle = function(){};
 
