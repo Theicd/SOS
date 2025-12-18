@@ -1,6 +1,7 @@
 /* חלק שיחות וידאו (chat-video-call.css) – עיצוב דיאלוג וידאו בסגנון וואטסאפ */
 .video-call-dialog { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; }
 .video-call-dialog__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
+.video-call-dialog [hidden] { display: none !important; }
 .video-call-dialog__content { position: relative; width: min(920px, 96vw); height: min(640px, 86vh); background: #000; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
 .video-call-dialog__videos { position: absolute; inset: 0; background: #000; }
 .video-remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
@@ -43,6 +44,8 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
+  box-sizing: border-box;
+  width: max-content;
   max-width: calc(100% - 32px);
   text-align: center;
   padding: 18px 22px;
@@ -57,6 +60,9 @@
   font-size: 22px;
   letter-spacing: .12em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: rgba(34, 211, 238, .95);
   text-shadow: 0 0 18px rgba(34, 211, 238, .35);
 }
@@ -81,7 +87,7 @@
 /* HUD תחתון בסגנון וואטסאפ – שכבת בקרות חופפת לווידאו */
 .video-call-dialog__hud { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.65) 40%); color: #fff; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
 .video-call-dialog__name { font-weight: 700; margin-inline-end: 8px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
-.video-call-dialog__label { opacity: .9; margin-inline-start: 8px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.video-call-dialog__label { opacity: .9; margin-inline-start: 8px; text-shadow: 0 1px 2px rgba(0,0,0,.5); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .video-call-dialog__timer { margin-inline-start: 12px; font-variant-numeric: tabular-nums; }
 
 /* פס כפתורים תחתון עם מימדי מגע נדיבים */
@@ -100,14 +106,14 @@
   .video-local { right: 12px; bottom: 270px; width: 100px; height: 140px; border-radius: 10px; }
   .video-call-dialog__hud { padding: 20px 12px calc(max(130px, 20px + env(safe-area-inset-bottom))); grid-template-columns: 1fr; gap: 14px; align-items: stretch; }
   .video-call-dialog__status { flex-direction: column; align-items: center; text-align: center; }
-  .video-call-dialog__actions { justify-content: center; gap: 12px; flex-wrap: wrap; }
-  .vbtn { min-width: 64px; height: 64px; padding: 0; flex-direction: column; gap: 4px; }
+  .video-call-dialog__actions { justify-content: center; gap: 10px; flex-wrap: nowrap; width: 100%; }
+  .vbtn { min-width: 0; width: clamp(48px, 16vw, 64px); height: 64px; padding: 0; flex-direction: column; gap: 4px; }
   .vbtn i { font-size: 24px; }
-  .vbtn span { font-size: 11px; font-weight: 600; }
+  .vbtn span { font-size: 11px; font-weight: 600; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: block; }
   .video-call-dialog__name { font-size: 17px; }
   .video-call-dialog__label { font-size: 14px; }
   .video-call-dialog__avatar { width: 56px !important; height: 56px !important; }
-  .video-call-dialog__incomingfx-title { font-size: 18px; letter-spacing: .10em; }
+  .video-call-dialog__incomingfx-title { font-size: 18px; letter-spacing: 0; }
   .video-call-dialog__incomingfx-sub { font-size: 13px; }
 }
 
