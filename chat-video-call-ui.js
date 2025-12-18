@@ -36,10 +36,13 @@
     try { remoteVideo.addEventListener('loadeddata', onReady, { once: true }); } catch {}
   }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – מנגנון צלילים
-  let audioCtx = null;
-  let toneInterval = null;
-  let activeOscillators = [];
+  // חלק שיחות וידאו (chat-video-call-ui.js) – קבצי צלילי שיחה (MP3) כמו בשיחות קוליות | HYPER CORE TECH
+  const DIALTONE_MP3_URL = 'https://npub1hwja2gw0m3kmehwp22rtfu7larrt8tnx4lyqhxp4nzu7jxzzj3wqwl9uc9.blossom.band/61924ef011f5b03e4ec49f0f9c9ac32361419607bd5c52f879bc8d0dd4938107.mp3';
+  const RINGTONE_MP3_URL = 'https://npub1hwja2gw0m3kmehwp22rtfu7larrt8tnx4lyqhxp4nzu7jxzzj3wqwl9uc9.blossom.band/2c9aa92402a15e51f2a9dc542f5ce6a7c11e36065eb223f343e0d0bfe07de34d.mp3';
+  // חלק שיחות וידאו (chat-video-call-ui.js) – אובייקטי אודיו לצלילים | HYPER CORE TECH
+  let dialtoneAudio = null;
+  let ringtoneAudio = null;
+  let toneAudioPrimed = false;
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – טוקן/ביטול טריגר צלילים כדי למנוע צלצול מאוחר אחרי סגירת שיחה | HYPER CORE TECH
   let toneSessionId = 0;
@@ -58,63 +61,65 @@
     clearPendingGestureHandler();
   }
 
-  function scheduleToneOnGesture(sessionId, playFn) {
-    resumeOnUserGestureOnce(() => {
-      if (sessionId !== toneSessionId) return;
-      playFn();
-    }, sessionId);
-  }
-
-  function startToneWithPolicy(playFn) {
-    invalidateToneSession();
-    const sessionId = toneSessionId;
-    try {
-      const ctx = ensureAudioCtx();
-      if (ctx.state === 'running') {
-        playFn();
-        return;
-      }
-      const p = ctx.resume();
-      if (p && typeof p.then === 'function') {
-        p.then(() => {
-          if (sessionId !== toneSessionId) return;
-          playFn();
-        }).catch(() => {
-          if (sessionId !== toneSessionId) return;
-          scheduleToneOnGesture(sessionId, playFn);
-        });
-        return;
-      }
-    } catch {}
-    scheduleToneOnGesture(sessionId, playFn);
-  }
-
   // חלק שיחות וידאו – פורמט זמן קצר
   function fmt(ms){ const s = Math.floor(ms/1000); const m = Math.floor(s/60); const ss = s%60; return `${m}:${String(ss).padStart(2,'0')}`; }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – אתחול AudioContext
-  function ensureAudioCtx() {
-    if (!audioCtx) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new Ctx();
+  // חלק שיחות וידאו (chat-video-call-ui.js) – יצירת אלמנטי אודיו לצלילים (MP3) | HYPER CORE TECH
+  function ensureToneAudioElements() {
+    if (!dialtoneAudio) {
+      dialtoneAudio = new window.Audio(DIALTONE_MP3_URL);
+      dialtoneAudio.loop = true;
+      dialtoneAudio.preload = 'auto';
+      dialtoneAudio.playsInline = true;
+      try { dialtoneAudio.setAttribute('playsinline', ''); } catch {}
     }
-    return audioCtx;
+    if (!ringtoneAudio) {
+      ringtoneAudio = new window.Audio(RINGTONE_MP3_URL);
+      ringtoneAudio.loop = true;
+      ringtoneAudio.preload = 'auto';
+      ringtoneAudio.playsInline = true;
+      try { ringtoneAudio.setAttribute('playsinline', ''); } catch {}
+    }
   }
 
-  function resumeAudioIfNeeded() {
+  // חלק שיחות וידאו (chat-video-call-ui.js) – priming לאודיו כדי לעקוף מדיניות autoplay | HYPER CORE TECH
+  function primeToneAudioOnce() {
+    if (toneAudioPrimed) return;
+    ensureToneAudioElements();
     try {
-      const ctx = ensureAudioCtx();
-      if (ctx.state === 'suspended') ctx.resume();
-    } catch {}
+      dialtoneAudio.muted = true;
+      const p = dialtoneAudio.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          try { dialtoneAudio.pause(); } catch {}
+          try { dialtoneAudio.currentTime = 0; } catch {}
+          dialtoneAudio.muted = false;
+          toneAudioPrimed = true;
+        }).catch(() => {
+          try { dialtoneAudio.muted = false; } catch {}
+        });
+      } else {
+        try { dialtoneAudio.pause(); } catch {}
+        try { dialtoneAudio.currentTime = 0; } catch {}
+        dialtoneAudio.muted = false;
+        toneAudioPrimed = true;
+      }
+    } catch {
+      try { dialtoneAudio.muted = false; } catch {}
+    }
   }
 
   function resumeOnUserGestureOnce(next) {
+    if (toneAudioPrimed) {
+      try { next && next(); } catch {}
+      return;
+    }
     clearPendingGestureHandler();
     const sessionId = toneSessionId;
     const handler = () => {
       clearPendingGestureHandler();
       if (sessionId !== toneSessionId) return;
-      resumeAudioIfNeeded();
+      primeToneAudioOnce();
       try { next && next(); } catch {}
     };
     pendingGestureHandler = handler;
@@ -123,60 +128,65 @@
     doc.addEventListener('touchstart', handler, true);
   }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת כל הצלילים
-  function stopAllTones(opts) {
-    const keepInterval = !!(opts && opts.keepInterval);
-    if (!keepInterval && toneInterval) { clearInterval(toneInterval); toneInterval = null; }
-    activeOscillators.forEach(({ osc, gain }) => {
-      try { gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05); } catch {}
-      try { osc.stop(); } catch {}
-    });
-    activeOscillators = [];
+  // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת צלצול (MP3) | HYPER CORE TECH
+  function stopRingtone() {
+    if (!ringtoneAudio) return;
+    try { ringtoneAudio.pause(); } catch {}
+    try { ringtoneAudio.currentTime = 0; } catch {}
   }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – צלצול נכנס (2s on / 4s off)
+  // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת טון חיוג (MP3) | HYPER CORE TECH
+  function stopDialtone() {
+    if (!dialtoneAudio) return;
+    try { dialtoneAudio.pause(); } catch {}
+    try { dialtoneAudio.currentTime = 0; } catch {}
+  }
+
+  // חלק שיחות וידאו (chat-video-call-ui.js) – ניגון צלצול נכנס (MP3) | HYPER CORE TECH
   function playRingtone() {
-    ensureAudioCtx();
-    stopAllTones();
-    const playBurst = () => {
-      const osc1 = audioCtx.createOscillator();
-      const osc2 = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc1.frequency.value = 440;
-      osc2.frequency.value = 480;
-      gain.gain.value = 0.0001;
-      osc1.connect(gain); osc2.connect(gain); gain.connect(audioCtx.destination);
-      osc1.start(); osc2.start();
-      gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
-      activeOscillators.push({ osc: osc1, gain }, { osc: osc2, gain });
-      setTimeout(() => { stopAllTones({ keepInterval: true }); }, 2000);
-    };
-    playBurst();
-    toneInterval = setInterval(playBurst, 4000);
+    ensureToneAudioElements();
+    stopDialtone();
+    if (ringtoneAudio && !ringtoneAudio.paused) return;
+    try { ringtoneAudio.currentTime = 0; } catch {}
+    try {
+      const p = ringtoneAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
   }
 
-  // חלק שיחות וידאו (chat-video-call-ui.js) – טון חיוג יוצא (425Hz, 0.4s on / 0.2s off)
+  // חלק שיחות וידאו (chat-video-call-ui.js) – ניגון טון חיוג יוצא (MP3) | HYPER CORE TECH
   function playDialtone() {
-    ensureAudioCtx();
-    stopAllTones();
-    const patternOn = 400, patternOff = 200;
-    const startPulse = () => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.frequency.value = 425;
-      gain.gain.value = 0.0001;
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.03);
-      activeOscillators.push({ osc, gain });
-      setTimeout(() => { stopAllTones({ keepInterval: true }); }, patternOn);
-    };
-    startPulse();
-    toneInterval = setInterval(startPulse, patternOn + patternOff);
+    ensureToneAudioElements();
+    stopRingtone();
+    if (dialtoneAudio && !dialtoneAudio.paused) return;
+    try { dialtoneAudio.currentTime = 0; } catch {}
+    try {
+      const p = dialtoneAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
   }
 
-  function stopRingtone() { stopAllTones(); }
-  function stopDialtone() { stopAllTones(); }
+  // חלק שיחות וידאו (chat-video-call-ui.js) – התחלת צליל עם מדיניות autoplay | HYPER CORE TECH
+  function startToneWithPolicy(playFn) {
+    invalidateToneSession();
+    const sessionId = toneSessionId;
+    ensureToneAudioElements();
+    if (toneAudioPrimed) {
+      playFn();
+      return;
+    }
+    // ניסיון ישיר
+    try {
+      playFn();
+      toneAudioPrimed = true;
+      return;
+    } catch {}
+    // אם נכשל, ממתינים למחווה
+    resumeOnUserGestureOnce(() => {
+      if (sessionId !== toneSessionId) return;
+      playFn();
+    });
+  }
 
   // חלק שיחות וידאו – יצירת דיאלוג
   function createDialog(peer, isIncoming){
@@ -192,10 +202,10 @@
       <div class="video-call-dialog__backdrop"></div>
       <div class="video-call-dialog__content">
         <div class="video-call-dialog__videos">
-          <div class="video-call-dialog__incomingfx" ${isIncoming ? '' : 'hidden'}>
+          <div class="video-call-dialog__incomingfx">
             <div class="video-call-dialog__incomingfx-text">
-              <div class="video-call-dialog__incomingfx-title">שיחת וידאו נכנסת</div>
-              <div class="video-call-dialog__incomingfx-sub">מאתחל קישור מוצפן...</div>
+              <div class="video-call-dialog__incomingfx-title">${isIncoming ? 'שיחת וידאו נכנסת' : 'מתחיל שיחת וידאו'}</div>
+              <div class="video-call-dialog__incomingfx-sub">${isIncoming ? 'מאתחל קישור מוצפן...' : 'ממתין לתשובה...'}</div>
             </div>
           </div>
           <video id="videoRemote" class="video-remote" autoplay playsinline></video>
@@ -253,7 +263,16 @@
   }
   function startTimer(){ if (!timerEl) return; timerEl.removeAttribute('hidden'); const start = Date.now(); if (timerId) clearInterval(timerId); timerId = setInterval(()=>{ timerEl.textContent = fmt(Date.now()-start); },1000); }
   function stopTimer(){ if (timerId) { clearInterval(timerId); timerId=null; } }
-  function closeDialog(){ stopTimer(); invalidateToneSession(); stopAllTones(); App.__videoIncomingOffer = null; userDeclinedVideoCall = false; if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; }
+  // חלק שיחות וידאו (chat-video-call-ui.js) – הסתרת אנימציה incomingfx | HYPER CORE TECH
+  function hideIncomingFx() {
+    if (!dialog) return;
+    try {
+      const fx = dialog.querySelector('.video-call-dialog__incomingfx');
+      if (fx) fx.setAttribute('hidden', '');
+    } catch {}
+  }
+
+  function closeDialog(){ stopTimer(); invalidateToneSession(); stopRingtone(); stopDialtone(); App.__videoIncomingOffer = null; userDeclinedVideoCall = false; if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; }
 
   // חלק שיחות וידאו – פעולות כפתורים
   async function handleStart(peer){ try { startToneWithPolicy(playDialtone); await App.videoCall.start(peer); } catch(e){ console.error(e); alert(e.message||'שגיאת וידאו'); closeDialog(); } }
@@ -261,6 +280,7 @@
     try {
       stopRingtone();
       invalidateToneSession();
+      hideIncomingFx();
       // חלק שיחות וידאו (chat-video-call-ui.js) – נטרול כפתור קבלה מיידית כדי למנוע לחיצות כפולות | HYPER CORE TECH
       const acceptBtn = dialog && dialog.querySelector('[data-action="accept"]');
       if (acceptBtn) {
@@ -300,11 +320,6 @@
   App.onVideoCallStarted = function(peer, isIncoming){
     if (!dialog) createDialog(peer, isIncoming);
     setStatus(isIncoming? 'מתחבר...' : 'מחייג וידאו...');
-    // חלק שיחות וידאו (chat-video-call-ui.js) – הסתרת רקע אנימציה כשמתחילים שיחה (יש כבר וידאו מקומי/חיבור) | HYPER CORE TECH
-    try {
-      const fx = dialog && dialog.querySelector('.video-call-dialog__incomingfx');
-      if (fx) fx.setAttribute('hidden', '');
-    } catch {}
     // חלק שיחות וידאו (chat-video-call-ui.js) – אם השיחה כבר התחילה, לא מציגים כפתור קבלה | HYPER CORE TECH
     try {
       const acceptBtn = dialog && dialog.querySelector('[data-action="accept"]');
@@ -316,11 +331,13 @@
       if (st?.localStream && localVideo) {
         localVideo.srcObject = st.localStream;
         setLocalOnlyMode(true);
+        // חלק שיחות וידאו (chat-video-call-ui.js) – הסתרת אנימציה כשיש וידאו מקומי | HYPER CORE TECH
+        hideIncomingFx();
       }
     } catch {}
   };
-  App.onVideoCallConnected = function(peer){ stopDialtone(); stopRingtone(); invalidateToneSession(); setStatus('מחובר'); showControls(); startTimer(); };
-  App.onVideoCallRemoteStream = function(stream){ if (!remoteVideo) return; remoteVideo.srcObject = stream; showRemoteWhenReady(); };
+  App.onVideoCallConnected = function(peer){ stopDialtone(); stopRingtone(); invalidateToneSession(); hideIncomingFx(); setStatus('מחובר'); showControls(); startTimer(); };
+  App.onVideoCallRemoteStream = function(stream){ if (!remoteVideo) return; remoteVideo.srcObject = stream; hideIncomingFx(); showRemoteWhenReady(); };
   App.onVideoCallLocalStreamChanged = function(stream){
     if (!localVideo) return;
     localVideo.srcObject = stream;
