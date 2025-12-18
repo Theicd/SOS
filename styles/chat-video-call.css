@@ -40,9 +40,11 @@
 .video-call-dialog__incomingfx-text {
   position: absolute;
   top: calc(16px + env(safe-area-inset-top));
-  left: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 3;
   max-width: calc(100% - 32px);
+  text-align: center;
   padding: 18px 22px;
   border-radius: 16px;
   border: 1px solid rgba(34, 211, 238, .25);
@@ -105,7 +107,6 @@
   .video-call-dialog__name { font-size: 17px; }
   .video-call-dialog__label { font-size: 14px; }
   .video-call-dialog__avatar { width: 56px !important; height: 56px !important; }
-  .video-call-dialog__incomingfx-text { top: 50%; left: 50%; transform: translate(-50%, -50%); }
   .video-call-dialog__incomingfx-title { font-size: 18px; letter-spacing: .10em; }
   .video-call-dialog__incomingfx-sub { font-size: 13px; }
 }
