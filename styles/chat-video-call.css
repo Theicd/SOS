@@ -12,6 +12,7 @@
 
 /* חלק שיחות וידאו (chat-video-call.css) – רקע אנימציה לשיחת וידאו נכנסת (לפני קבלה) | HYPER CORE TECH */
 .video-call-dialog__incomingfx { position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; pointer-events: none; }
+.video-call-dialog__incomingfx[hidden] { display: none !important; }
 .video-call-dialog__incomingfx::before {
   content: "";
   position: absolute;
