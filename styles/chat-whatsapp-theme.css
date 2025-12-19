@@ -12,26 +12,128 @@
   --chat-whatsapp-attachment: var(--card);
 }
 
-/* חלק צ'אט (chat-whatsapp-theme.css) – התאמת כפתור המשגר לצבע ירוק תוך שמירה על טקסט ומונה */
+/* חלק צ'אט (chat-whatsapp-theme.css) – התאמת כפתור המשגר/הודעות לעיצוב Glassmorphism עם רקע דינמי (launcher / messagesToggle) */
+.chat-launcher__button,
+#messagesToggle {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 18px 44px rgba(0, 0, 0, 0.55);
+  isolation: isolate;
+  position: relative;
+}
+
 .chat-launcher__button {
-  background: var(--chat-whatsapp-highlight);
-  box-shadow: 0 12px 28px rgba(37, 211, 102, 0.35);
-  color: #042c13;
+  color: var(--chat-whatsapp-text);
+}
+
+.chat-launcher__button::before,
+#messagesToggle::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(closest-side at 50% 50%, rgba(34, 211, 238, 0.25), rgba(0, 0, 0, 0) 65%),
+    radial-gradient(closest-side at 20% 35%, rgba(168, 85, 247, 0.18), rgba(0, 0, 0, 0) 60%),
+    radial-gradient(closest-side at 75% 70%, rgba(34, 197, 94, 0.14), rgba(0, 0, 0, 0) 60%);
+  opacity: 0.95;
+  transform: translate3d(0, 0, 0) rotate(0deg);
+  animation: chatLauncherFxOrb 7s linear infinite;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+.chat-launcher__button::after,
+#messagesToggle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.10) 0, rgba(255, 255, 255, 0.10) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 8px),
+    repeating-linear-gradient(90deg, rgba(34, 211, 238, 0.10) 0, rgba(34, 211, 238, 0.10) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 14px);
+  mix-blend-mode: screen;
+  opacity: 0.16;
+  animation: chatLauncherFxScan 3.6s linear infinite;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+.chat-launcher__button:hover,
+#messagesToggle:hover {
+  border-color: rgba(34, 211, 238, 0.32);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 22px 56px rgba(0, 0, 0, 0.65);
+}
+
+.chat-launcher__button:focus-visible,
+#messagesToggle:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(34, 211, 238, 0.28),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 22px 56px rgba(0, 0, 0, 0.65);
 }
 
 .chat-launcher__button i {
   font-size: 1.05rem;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-launcher__button span {
   display: inline;
   font-weight: 600;
+  position: relative;
+  z-index: 1;
+}
+
+#messagesToggle i,
+#messagesToggle .nav-item__icon {
+  position: relative;
+  z-index: 1;
+}
+
+#messagesToggle .notifications-badge {
+  z-index: 2;
 }
 
 .chat-launcher__badge {
-  background: #1fa855;
+  background: var(--danger);
   border: none;
-  color: #042c13;
+  color: #fff;
+}
+
+@keyframes chatLauncherFxOrb {
+  0% {
+    transform: translate3d(2%, -1%, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(-2%, 2%, 0) rotate(180deg) scale(1.03);
+  }
+  100% {
+    transform: translate3d(2%, -1%, 0) rotate(360deg) scale(1);
+  }
+}
+
+@keyframes chatLauncherFxScan {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 0 160px, 220px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-launcher__button::before,
+  .chat-launcher__button::after,
+  .chat-panel::before,
+  .chat-panel::after,
+  #messagesToggle::before,
+  #messagesToggle::after {
+    animation: none;
+  }
 }
 
 .chat-panel {
@@ -40,20 +142,57 @@
   height: 640px;
   max-height: calc(100vh - 80px);
   border-radius: 18px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 24px 80px rgba(0, 0, 0, 0.65);
   color: var(--text);
+  isolation: isolate;
+}
+
+/* חלק צ'אט (chat-whatsapp-theme.css) – רקע דינמי עדין לחלון הצ'אט (כמו שיחות קול/וידאו) */
+.chat-panel::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(closest-side at 50% 50%, rgba(34, 211, 238, 0.18), rgba(0, 0, 0, 0) 65%),
+    radial-gradient(closest-side at 20% 35%, rgba(168, 85, 247, 0.14), rgba(0, 0, 0, 0) 60%),
+    radial-gradient(closest-side at 75% 70%, rgba(34, 197, 94, 0.10), rgba(0, 0, 0, 0) 60%);
+  opacity: 0.85;
+  transform: translate3d(0, 0, 0) rotate(0deg);
+  animation: chatLauncherFxOrb 9s linear infinite;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+.chat-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 10px),
+    repeating-linear-gradient(90deg, rgba(34, 211, 238, 0.08) 0, rgba(34, 211, 238, 0.08) 1px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 18px);
+  mix-blend-mode: screen;
+  opacity: 0.12;
+  animation: chatLauncherFxScan 4.4s linear infinite;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
 }
 
 .chat-panel__header {
-  background: var(--card-alt);
-  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-panel--conversation .chat-panel__header {
@@ -99,18 +238,76 @@
 }
 
 .chat-panel__body {
-  background: var(--card);
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+/* חלק צ'אט (chat-whatsapp-theme.css) – התאמת רכיבים פנימיים לרקע Glass אחיד */
+.chat-conversation {
+  background: transparent;
+}
+
+/* חלק צ'אט (chat-whatsapp-theme.css) – מסך התראות בתוך הצ'אט ב-Glass כדי לשמור אחידות */
+.chat-notifications {
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-notifications__header {
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.chat-notifications__mark {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 12px 34px rgba(0, 0, 0, 0.45);
+  color: var(--text);
+}
+
+.chat-notifications__mark:hover {
+  border-color: rgba(34, 211, 238, 0.32);
+  transform: translateY(-1px);
+}
+
+.chat-notifications__mark:active {
+  transform: translateY(0);
+}
+
+.chat-notifications__mark:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(34, 211, 238, 0.28),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 12px 34px rgba(0, 0, 0, 0.45);
+}
+
+.chat-notifications__item {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chat-notifications__item:hover {
+  border-color: rgba(34, 211, 238, 0.22);
 }
 
 /* חלק צ'אט (chat-whatsapp-theme.css) – סגנון תפריט אנשי קשר */
 .chat-contacts {
-  background: var(--card-alt);
-  border-right: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-contacts__top {
-  background: var(--card-alt);
-  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--muted);
   padding: 14px 16px;
 }
@@ -132,8 +329,9 @@
 }
 
 .chat-contacts__search {
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 10px 16px;
 }
 
@@ -146,8 +344,9 @@
   display: flex;
   gap: 8px;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--card-alt);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
 }
 
 .chat-filter-chip {
@@ -182,9 +381,9 @@
 }
 
 .chat-contact {
-  background: var(--card);
+  background: rgba(0, 0, 0, 0.18);
   border-radius: 12px;
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
   padding: 10px;
 }
@@ -221,8 +420,9 @@
 
 /* חלק צ'אט (chat-whatsapp-theme.css) – כותרת השיחה ומטא-נתונים */
 .chat-conversation__header {
-  background: var(--card-alt);
-  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -281,33 +481,31 @@
 
 /* חלק צ'אט (chat-whatsapp-theme.css) – אזור ההודעות עם רקע מדורג מעודן */
 .chat-conversation__messages {
-  background: var(--card);
+  background: transparent;
   padding: 18px;
   gap: 8px;
 }
 
 .chat-message {
-  font-size: 0.9rem;
-  border-radius: 14px;
-  padding: 10px 12px 8px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
   max-width: 75%;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  word-break: break-word;
 }
 
 .chat-message--incoming {
-  background: var(--card-alt);
+  background: transparent;
+  border: none;
+  color: inherit;
+}
+
+.chat-message--incoming .chat-message__content {
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
-  border: 1px solid var(--border);
-  border-bottom-left-radius: 4px;
 }
 
 .chat-message--outgoing {
-  background: var(--primary);
-  color: #fff;
-  border-bottom-right-radius: 4px;
+  background: transparent;
+  color: inherit;
 }
 
 .chat-message__text {
@@ -334,24 +532,25 @@
 .chat-composer {
   grid-template-columns: auto 1fr auto;
   padding: 10px 12px;
-  background: var(--card-alt);
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(12px);
   gap: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-panel--conversation .chat-composer {
-  background: var(--card-alt);
-  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-composer textarea {
-  background: var(--card);
+  background: rgba(0, 0, 0, 0.16);
   border: none;
   border-radius: 20px;
   padding: 12px 16px;
   font-size: 0.92rem;
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   resize: none;
   overflow-y: auto;
   max-height: 120px;
@@ -516,8 +715,11 @@
 
 /* חלק צ'אג (chat-whatsapp-theme.css) – תפריט תחתון דמוי וואגסאפ */
 .chat-panel__footer {
-  background: var(--card-alt);
-  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 1;
 }
 
 .chat-footer__item {
@@ -539,6 +741,9 @@
     width: calc(100vw - 24px);
     height: calc(100vh - 140px);
     bottom: 72px;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
   }
 
   .chat-launcher__button {

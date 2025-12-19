@@ -20,14 +20,15 @@
 .chat-dialog__content {
   position: relative;
   z-index: 1;
-  background: var(--card);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
   border-radius: 16px;
   padding: 24px;
   max-width: 90%;
   width: 340px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 24px 80px rgba(0, 0, 0, 0.65);
   pointer-events: all;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(34, 211, 238, 0.22);
 }
 
 .chat-dialog__title {
