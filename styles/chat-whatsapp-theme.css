@@ -508,6 +508,23 @@
   color: inherit;
 }
 
+/* חלק צ'אט (chat-whatsapp-theme.css) – בועות יוצאות (כחול) ב-Glass שקוף כדי לשמור בידול ברור מול incoming */
+.chat-message--outgoing .chat-message__content {
+  background: linear-gradient(
+    135deg,
+    rgba(35, 116, 225, 0.34),
+    rgba(34, 211, 238, 0.18)
+  );
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 18px 46px rgba(0, 0, 0, 0.35);
+  color: #eef6ff;
+}
+
+.chat-message--outgoing .chat-message__meta {
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .chat-message__text {
   white-space: pre-wrap;
   word-wrap: break-word;
