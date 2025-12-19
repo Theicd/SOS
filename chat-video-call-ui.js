@@ -331,8 +331,10 @@
       if (st?.localStream && localVideo) {
         localVideo.srcObject = st.localStream;
         setLocalOnlyMode(true);
-        // חלק שיחות וידאו (chat-video-call-ui.js) – הסתרת אנימציה כשיש וידאו מקומי | HYPER CORE TECH
-        hideIncomingFx();
+        // חלק שיחות וידאו (chat-video-call-ui.js) – בצד היוזם משאירים את ההודעה "מתחיל שיחת וידאו" עד שהצד השני עונה | HYPER CORE TECH
+        if (isIncoming) {
+          hideIncomingFx();
+        }
       }
     } catch {}
   };
