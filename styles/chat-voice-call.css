@@ -10,6 +10,9 @@
   animation: voiceCallFadeIn 0.3s ease;
 }
 
+/* חלק שיחות קול (chat-voice-call.css) – כיבוד hidden כדי למנוע שבירת פריסה ע"י אלמנטים מוסתרים | HYPER CORE TECH */
+.voice-call-dialog [hidden] { display: none !important; }
+
 @keyframes voiceCallFadeIn {
   from {
     opacity: 0;
@@ -22,20 +25,61 @@
 .voice-call-dialog__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+}
+
+/* חלק שיחות קול (chat-voice-call.css) – רקע דינמי לשיחת קול בהשראת שיחות הווידיאו | HYPER CORE TECH */
+.voice-call-dialog__backdrop::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(closest-side at 50% 50%, rgba(34, 211, 238, .25), rgba(0,0,0,0) 65%),
+    radial-gradient(closest-side at 20% 35%, rgba(168, 85, 247, .18), rgba(0,0,0,0) 60%),
+    radial-gradient(closest-side at 75% 70%, rgba(34, 197, 94, .14), rgba(0,0,0,0) 60%);
+  filter: blur(0px) saturate(1.25);
+  opacity: .95;
+  transform: translate3d(0,0,0) rotate(0deg);
+  animation: vcallFxOrb 7s linear infinite;
+}
+
+.voice-call-dialog__backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0, rgba(255,255,255,.10) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 8px),
+    repeating-linear-gradient(90deg, rgba(34, 211, 238, .10) 0, rgba(34, 211, 238, .10) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 14px);
+  mix-blend-mode: screen;
+  opacity: .18;
+  animation: vcallFxScan 3.6s linear infinite;
+}
+
+/* חלק שיחות קול (chat-voice-call.css) – אנימציות רקע דינמי (orb+scan) בהשראת שיחות וידאו | HYPER CORE TECH */
+@keyframes vcallFxOrb {
+  0% { transform: translate3d(2%, -1%, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(-2%, 2%, 0) rotate(180deg) scale(1.03); }
+  100% { transform: translate3d(2%, -1%, 0) rotate(360deg) scale(1); }
+}
+
+@keyframes vcallFxScan {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 0 160px, 220px 0; }
 }
 
 .voice-call-dialog__content {
   position: relative;
   z-index: 1;
-  background: linear-gradient(135deg, var(--card), var(--card-alt));
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
   border-radius: 24px;
   padding: 48px 32px 32px;
   max-width: 90%;
   width: 380px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--border);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 24px 80px rgba(0,0,0,.65);
+  border: 1px solid rgba(34, 211, 238, .25);
   display: flex;
   flex-direction: column;
   align-items: center;
