@@ -507,11 +507,27 @@
   max-width: 88%;
 }
 
-/* חלק צ'אט (chat-whatsapp-theme.css) – שורת זמן/מחיקה בסגנון וואטסאפ: צפה בתוך הבועה כדי לא ליצור "כרטיסיה עבה" */
-.chat-message__content {
+ /* חלק צ'אט (chat-whatsapp-theme.css) – שורת זמן/מחיקה בסגנון וואטסאפ: צפה בתוך הבועה כדי לא ליצור "כרטיסיה עבה" */
+ .chat-message__content {
   position: relative;
   padding-bottom: 26px;
-}
+ }
+
+ /* חלק צ'אט (chat-whatsapp-theme.css) – מצב קומפקטי: הודעות קצרות עם שעה+פח באותה שורה | HYPER CORE TECH */
+ .chat-message__content.chat-message__content--compact-meta {
+  padding-bottom: 12px;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 6px;
+ }
+
+ .chat-message__content.chat-message__content--compact-meta .chat-message__meta-row {
+  position: static;
+  inset-inline-start: auto;
+  inset-inline-end: auto;
+  bottom: auto;
+ }
 
 .chat-message__meta-row {
   position: absolute;
