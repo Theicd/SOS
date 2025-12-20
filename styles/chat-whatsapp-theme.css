@@ -482,38 +482,64 @@
 /* חלק צ'אט (chat-whatsapp-theme.css) – אזור ההודעות עם רקע מדורג מעודן */
 .chat-conversation__messages {
   background: transparent;
-  padding: 18px;
+  padding: 14px;
   gap: 8px;
 }
 
+/* חלק צ'אט (chat-whatsapp-theme.css) – כותרת תאריך דביקה (היום/אתמול/יום בשבוע/תאריך) בסגנון וואטסאפ */
+.chat-date-header {
+  position: sticky;
+  top: 10px;
+  z-index: 5;
+  align-self: center;
+  margin: 6px 0 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
 .chat-message {
-  max-width: 82%;
+  max-width: 88%;
 }
 
 /* חלק צ'אט (chat-whatsapp-theme.css) – שורת זמן/מחיקה בסגנון וואטסאפ: צפה בתוך הבועה כדי לא ליצור "כרטיסיה עבה" */
 .chat-message__content {
   position: relative;
-  padding-bottom: 30px;
+  padding-bottom: 26px;
 }
 
 .chat-message__meta-row {
   position: absolute;
-  inset-inline-start: 12px;
-  inset-inline-end: 12px;
+  inset-inline-start: auto;
+  inset-inline-end: 10px;
   bottom: 8px;
-  gap: 10px;
+  display: inline-flex;
+  gap: 6px;
   align-items: center;
+  justify-content: flex-end;
   z-index: 1;
 }
 
 .chat-message__delete {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  opacity: 0.35;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.chat-message__delete:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .chat-message--incoming {
