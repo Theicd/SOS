@@ -743,9 +743,20 @@
       const textHtml = safeContent && !isAudioAttachment && !hideTextForFileOnly
         ? `<span class="chat-message__text">${safeContent.replace(/\n/g, '<br>')}</span>`
         : '';
+
+      // חלק צ'אט (chat-ui.js) – מצב קומפקטי בסגנון WhatsApp: הודעות קצרות עם שעה+פח על אותה שורה | HYPER CORE TECH
+      const shouldCompactMeta =
+        !a &&
+        rawMessageContent &&
+        rawMessageContent.length <= 60 &&
+        !rawMessageContent.includes('\n') &&
+        Boolean(textHtml);
+      const contentClassName = `chat-message__content${a ? ' chat-message__content--has-attachment' : ''}${
+        shouldCompactMeta ? ' chat-message__content--compact-meta' : ''
+      }`;
       item.innerHTML = `
         ${avatarHtml}
-        <div class="chat-message__content" data-chat-message="${message.id}">
+        <div class="${contentClassName}" data-chat-message="${message.id}">
           ${textHtml}
           ${attachmentHtml}
           <div class="chat-message__meta-row">
