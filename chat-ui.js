@@ -192,6 +192,39 @@
     return `${datePart} ${timePart}`;
   }
 
+  // חלק צ'אט (chat-ui.js) – פורמט זמן להצגה בתוך בועת הודעה (רק שעה:דקה כמו וואטסאפ)
+  function formatMessageTime(ts) {
+    if (!ts) return '';
+    const date = new Date(ts * 1000);
+    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // חלק צ'אט (chat-ui.js) – מפתח יום (YYYY-MM-DD) לקיבוץ הודעות והצגת כותרות תאריך דביקות
+  function getMessageDayKey(ts) {
+    if (!ts) return '';
+    const date = new Date(ts * 1000);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // חלק צ'אט (chat-ui.js) – כותרת יום בסגנון וואטסאפ: היום/אתמול/יום בשבוע/תאריך מלא
+  function formatMessageDayHeader(ts) {
+    if (!ts) return '';
+    const date = new Date(ts * 1000);
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.round((startOfToday - startOfDate) / 86400000);
+    if (diffDays === 0) return 'היום';
+    if (diffDays === 1) return 'אתמול';
+    if (diffDays >= 2 && diffDays <= 6) {
+      return date.toLocaleDateString('he-IL', { weekday: 'long' });
+    }
+    return date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
   let chatEnableRetryHandle = null;
   function ensureChatEnabled() {
     if (!App.pool) {
@@ -567,7 +600,18 @@
       return;
     }
     const fragment = doc.createDocumentFragment();
+    // חלק צ'אט (chat-ui.js) – קיבוץ הודעות לפי יום והוספת כותרות תאריך דביקות בסגנון וואטסאפ
+    let lastDayKey = '';
     messages.forEach((message) => {
+      const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
+      const dayKey = getMessageDayKey(messageTimestamp);
+      if (dayKey && dayKey !== lastDayKey) {
+        lastDayKey = dayKey;
+        const header = doc.createElement('div');
+        header.className = 'chat-date-header';
+        header.textContent = formatMessageDayHeader(messageTimestamp);
+        fragment.appendChild(header);
+      }
       const item = doc.createElement('div');
       const isOutgoing =
         message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
@@ -653,7 +697,7 @@
           ${textHtml}
           ${attachmentHtml}
           <div class="chat-message__meta-row">
-            <span class="chat-message__meta">${formatTimestamp(message.createdAt || Math.floor(Date.now() / 1000))}</span>
+            <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
             ${deleteButtonHtml}
           </div>
         </div>
