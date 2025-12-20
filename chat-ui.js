@@ -225,6 +225,55 @@
     return date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
+  // חלק צ'אט (chat-ui.js) – פורמט זמן לרשימת אנשי קשר בסגנון WhatsApp: היום=שעה, אחרת=אתמול/יום/תאריך
+  function formatContactListTimestamp(ts) {
+    if (!ts) return '';
+    const dayHeader = formatMessageDayHeader(ts);
+    if (dayHeader === 'היום') {
+      return formatMessageTime(ts);
+    }
+    return dayHeader;
+  }
+
+  // חלק צ'אט (chat-ui.js) – שולף את ההודעה האחרונה האמיתית לצורך תצוגה מקדימה ברשימת אנשי קשר
+  function resolveContactLastMessageInfo(contact) {
+    const fallbackText = typeof contact?.lastMessage === 'string' ? contact.lastMessage : '';
+    const fallbackTs = Number(contact?.lastTimestamp) || 0;
+    const pubkey = contact?.pubkey;
+    if (!pubkey || typeof App.getChatMessages !== 'function') {
+      return { text: fallbackText, ts: fallbackTs };
+    }
+    const messages = App.getChatMessages(pubkey) || [];
+    if (!Array.isArray(messages) || !messages.length) {
+      return { text: fallbackText, ts: fallbackTs };
+    }
+    let last = null;
+    let lastTs = -1;
+    messages.forEach((m) => {
+      const ts = Number(m?.createdAt) || 0;
+      if (ts >= lastTs) {
+        lastTs = ts;
+        last = m;
+      }
+    });
+    if (!last) {
+      return { text: fallbackText, ts: fallbackTs };
+    }
+    let text = '';
+    if (typeof last.content === 'string' && last.content.trim()) {
+      text = last.content;
+    } else if (last.attachment) {
+      const name = typeof last.attachment.name === 'string' ? last.attachment.name : '';
+      if (name) {
+        text = name;
+      } else {
+        const mime = String(last.attachment.type || '').toLowerCase();
+        text = mime.startsWith('audio/') ? 'הודעת קול' : 'קובץ מצורף';
+      }
+    }
+    return { text: text || fallbackText, ts: lastTs || fallbackTs };
+  }
+
   let chatEnableRetryHandle = null;
   function ensureChatEnabled() {
     if (!App.pool) {
@@ -530,10 +579,13 @@
     const safeName = App.escapeHtml ? App.escapeHtml(rawName) : rawName;
     const initialsValue = contact.initials || (typeof App.getInitials === 'function' ? App.getInitials(rawName) : 'מש');
     const safeInitials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
-    const previewSource = contact.lastMessage ? contact.lastMessage.replace(/\s+/g, ' ').trim().slice(0, 60) : 'אין הודעות עדיין';
+    const lastInfo = resolveContactLastMessageInfo(contact);
+    const previewSource = lastInfo.text
+      ? lastInfo.text.replace(/\s+/g, ' ').trim().slice(0, 60)
+      : 'אין הודעות עדיין';
     const safePreview = App.escapeHtml ? App.escapeHtml(previewSource) : previewSource;
     // חלק צ'אט (chat-ui.js) – תצוגת זמן הודעה אחרונה ברשימת אנשי קשר בסגנון WhatsApp | HYPER CORE TECH
-    const timeLabel = contact.lastTimestamp ? formatTimestamp(contact.lastTimestamp) : '';
+    const timeLabel = lastInfo.ts ? formatContactListTimestamp(lastInfo.ts) : '';
     const timeHtml = timeLabel ? `<span class="chat-contact__time">${timeLabel}</span>` : '';
     const badgeHtml = contact.unreadCount
       ? `<span class="chat-contact__badge">${contact.unreadCount > 99 ? '99+' : contact.unreadCount}</span>`
