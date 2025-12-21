@@ -52,13 +52,17 @@
       notification.close();
     } catch {}
 
-    if (type !== 'voice-call-incoming') {
-      return;
-    }
+    const messageType =
+      type === 'voice-call-incoming'
+        ? 'voice-call-notification-action'
+        : type === 'video-call-incoming'
+        ? 'video-call-notification-action'
+        : '';
+    if (!messageType) return;
 
     event.waitUntil((async () => {
       const message = {
-        type: 'voice-call-notification-action',
+        type: messageType,
         action: 'open',
         peerPubkey
       };

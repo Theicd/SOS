@@ -48,6 +48,10 @@
   let toneSessionId = 0;
   let pendingGestureHandler = null;
 
+  // חלק שיחות וידאו (chat-video-call-ui.js) – רישום Service Worker + ניהול התראות מערכת לשיחת וידאו נכנסת | HYPER CORE TECH
+  let videoCallServiceWorkerRegisterAttempted = false;
+  let incomingVideoCallNotification = null;
+
   function clearPendingGestureHandler() {
     if (!pendingGestureHandler) return;
     doc.removeEventListener('pointerdown', pendingGestureHandler, true);
@@ -126,6 +130,128 @@
     doc.addEventListener('pointerdown', handler, true);
     doc.addEventListener('click', handler, true);
     doc.addEventListener('touchstart', handler, true);
+  }
+
+  // חלק שיחות וידאו (chat-video-call-ui.js) – רישום Service Worker + ניהול התראות מערכת לשיחת וידאו נכנסת | HYPER CORE TECH
+  function registerVideoCallServiceWorkerIfSupported() {
+    if (!('serviceWorker' in navigator)) return;
+    if (!window.isSecureContext) return;
+    if (videoCallServiceWorkerRegisterAttempted) return;
+    videoCallServiceWorkerRegisterAttempted = true;
+    try {
+      const p = navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
+  }
+
+  function getVideoCallServiceWorkerRegistration() {
+    if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+    if (!window.isSecureContext) return Promise.resolve(null);
+    try {
+      return navigator.serviceWorker.getRegistration().catch(() => null);
+    } catch {
+      return Promise.resolve(null);
+    }
+  }
+
+  function closeIncomingVideoCallNotification() {
+    if (incomingVideoCallNotification) {
+      try { incomingVideoCallNotification.close(); } catch {}
+      incomingVideoCallNotification = null;
+    }
+
+    getVideoCallServiceWorkerRegistration().then((reg) => {
+      if (!reg || typeof reg.getNotifications !== 'function') return;
+      return reg.getNotifications({ tag: 'video-call-incoming' }).then((items) => {
+        (items || []).forEach((n) => {
+          try { n.close(); } catch {}
+        });
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
+  function showIncomingVideoCallNotification(peerPubkey) {
+    try {
+      if (!('Notification' in window)) return;
+      if (window.Notification.permission !== 'granted') return;
+
+      const isHidden = !!doc.hidden || doc.visibilityState === 'hidden';
+      const hasFocus = typeof doc.hasFocus === 'function' ? doc.hasFocus() : true;
+      if (!isHidden && hasFocus) return;
+
+      closeIncomingVideoCallNotification();
+      registerVideoCallServiceWorkerIfSupported();
+
+      const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
+      const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
+      const picture = contact?.picture || '';
+
+      const baseOptions = {
+        body: name,
+        tag: 'video-call-incoming',
+        renotify: true
+      };
+      if (picture) baseOptions.icon = picture;
+      try { baseOptions.requireInteraction = true; } catch {}
+
+      const swOptions = Object.assign({}, baseOptions, {
+        actions: [
+          { action: 'open', title: 'פתח מסך שיחה (לא עונה)' }
+        ],
+        data: {
+          type: 'video-call-incoming',
+          peerPubkey: peerPubkey,
+          url: window.location.href
+        }
+      });
+
+      getVideoCallServiceWorkerRegistration().then((reg) => {
+        if (reg && typeof reg.showNotification === 'function') {
+          try {
+            const p = reg.showNotification('שיחת וידאו נכנסת', swOptions);
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          } catch {}
+          return;
+        }
+
+        incomingVideoCallNotification = new window.Notification('שיחת וידאו נכנסת', baseOptions);
+        incomingVideoCallNotification.onclick = () => {
+          try { window.focus(); } catch {}
+          closeIncomingVideoCallNotification();
+        };
+      }).catch(() => {
+        try {
+          incomingVideoCallNotification = new window.Notification('שיחת וידאו נכנסת', baseOptions);
+          incomingVideoCallNotification.onclick = () => {
+            try { window.focus(); } catch {}
+            closeIncomingVideoCallNotification();
+          };
+        } catch {}
+      });
+    } catch (err) {
+      console.warn('Failed to show incoming video call notification', err);
+    }
+  }
+
+  function handleVideoCallServiceWorkerMessage(event) {
+    const data = event && event.data ? event.data : null;
+    if (!data || data.type !== 'video-call-notification-action') return;
+
+    const peerPubkey = data.peerPubkey || null;
+    if (!peerPubkey) return;
+
+    closeIncomingVideoCallNotification();
+    try { window.focus(); } catch {}
+    if (!dialog) {
+      createDialog(peerPubkey, true);
+    }
+  }
+
+  function initVideoCallServiceWorkerMessageHandling() {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      navigator.serviceWorker.addEventListener('message', handleVideoCallServiceWorkerMessage);
+    } catch {}
   }
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת צלצול (MP3) | HYPER CORE TECH
