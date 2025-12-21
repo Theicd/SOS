@@ -13,9 +13,8 @@
   const CALL_METRIC_KIND = 25060; // חלק שיחות קול (chat-voice-call.js) – kind למדדי שיחות כלליות | HYPER CORE TECH
 
   // חלק שיחות קול (chat-voice-call.js) – מצב השיחה הנוכחי
-  const state = {
-    localStream: null,
-    remoteStream: null,
+  let state = {
+    currentPeer: null,
     peerConnection: null,
     currentPeer: null,
     isCallActive: false,
@@ -25,14 +24,15 @@
     candidateQueue: [],
     candidateTimer: null,
     lastOfferFrom: {},
+    lastSignalReceivedAt: 0,
+    signalLastResubscribeAt: 0,
+    signalKeepaliveTimer: null,
     ending: false,
     callStartTimestamp: null,
     // חלק שיחות קול (chat-voice-call.js) – שמירת audioSession.type כדי להחזיר אותו בסיום השיחה (מובייל) | HYPER CORE TECH
     previousAudioSessionType: null,
     // חלק שיחות קול (chat-voice-call.js) – דגל: האם שינינו AudioSession עבור שיחה (כדי לא לשנות כשדוחים לפני קבלה) | HYPER CORE TECH
     audioSessionTypeApplied: false,
-    // חלק שיחות קול (chat-voice-call.js) – מנגנון הרשמה לסיגנלים: שמירת subscription כדי למנוע כפילות | HYPER CORE TECH
-    signalSubscription: null
   };
 
   async function publishCallMetric(durationSeconds, peerPubkey) {
@@ -603,13 +603,12 @@
   let voiceSubscribeStartTime = Date.now();
 
   // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון עם since מורחב | HYPER CORE TECH
-  function subscribeToSignals() {
-    // חלק שיחות קול (chat-voice-call.js) – מניעת הרשמה כפולה (חשוב בעמודים שטוענים מודולים מחדש) | HYPER CORE TECH
-    if (state.signalSubscription) {
-      return state.signalSubscription;
-    }
+  function subscribeToSignals(options) {
+    options = options || {};
+    ensureSignalKeepaliveStarted();
+    if (state.signalSubscription) return state.signalSubscription;
     if (!App.pool || !App.publicKey) {
-      console.warn('Cannot subscribe to voice call signals - pool or keys missing');
+      console.log('Voice call: waiting for pool/publicKey...');
       return null;
     }
 
@@ -627,17 +626,77 @@
     try {
       console.log('Voice call: subscribing to events for', App.publicKey.slice(0,8), 'since', since);
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
-        onevent: handleSignalEvent,
+        onevent: (ev) => {
+          state.lastSignalReceivedAt = Date.now();
+          handleSignalEvent(ev);
+        },
         oneose: () => {
+          state.lastSignalReceivedAt = Date.now();
           console.log('Voice call subscription ready');
         }
       });
       state.signalSubscription = sub;
+      state.lastSignalReceivedAt = Date.now();
       return sub;
     } catch (err) {
       console.warn('Voice call subscribe failed', err);
       return null;
     }
+  }
+
+  // חלק שיחות קול (chat-voice-call.js) – רענון subscription לאחר idle/חזרה מפוקוס | HYPER CORE TECH
+  function forceResubscribeSignals(reason, options) {
+    if (App.guestMode) return;
+    if (!App.pool || !App.publicKey) return;
+    try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
+
+    const now = Date.now();
+    if (now - (state.signalLastResubscribeAt || 0) < 5000) return;
+    state.signalLastResubscribeAt = now;
+
+    const opts = options && typeof options === 'object' ? options : null;
+    const requestedSince = opts && Number.isFinite(Number(opts.since)) ? Number(opts.since) : null;
+    const since = requestedSince !== null ? Math.max(0, Math.floor(requestedSince)) : Math.max(0, Math.floor(Date.now() / 1000) - 2);
+    console.log('Voice call: re-subscribing signals', reason || '', { since });
+
+    closeSubscriptionSafely(state.signalSubscription);
+    state.signalSubscription = null;
+    state.lastSignalReceivedAt = now;
+    subscribeToSignals({ since });
+  }
+
+  // חלק שיחות קול (chat-voice-call.js) – keepalive: רענון אחרי idle, האזנה לפוקוס/רשת | HYPER CORE TECH
+  function ensureSignalKeepaliveStarted() {
+    if (state.signalKeepaliveTimer) return;
+    try {
+      document.addEventListener('visibilitychange', () => {
+        try { if (!document.hidden) forceResubscribeSignals('visibilitychange'); } catch {}
+      });
+    } catch {}
+    try { window.addEventListener('online', () => forceResubscribeSignals('online')); } catch {}
+    try { window.addEventListener('focus', () => forceResubscribeSignals('focus')); } catch {}
+    try { window.addEventListener('pageshow', () => forceResubscribeSignals('pageshow')); } catch {}
+
+    state.signalKeepaliveTimer = setInterval(() => {
+      try {
+        if (App.guestMode) return;
+        if (!App.pool || !App.publicKey) return;
+        try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
+        if (document.hidden) return;
+
+        const now = Date.now();
+        const last = state.lastSignalReceivedAt || 0;
+        if (!state.signalSubscription) {
+          subscribeToSignals();
+          return;
+        }
+        if (last && (now - last) > 90000) {
+          forceResubscribeSignals('keepalive');
+        }
+      } catch (err) {
+        console.warn('Voice call keepalive error', err);
+      }
+    }, 30000);
   }
 
   // חלק שיחות קול (chat-voice-call.js) – אתחול הרשמה אוטומטית לסיגנלים עם retry מהיר | HYPER CORE TECH

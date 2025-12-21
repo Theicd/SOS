@@ -15,6 +15,8 @@
   }
 
   let activeSubscription = null;
+  let chatSignalKeepaliveTimer = null;
+  let chatLastSignalAt = 0;
   function ensurePoolReady() {
     if (isServiceReady) {
       return App.pool;
@@ -299,12 +301,53 @@
 
     activeSubscription = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
+        chatLastSignalAt = Date.now();
         handleIncomingChatEvent(event);
       },
       oneose: () => {
-        // אין פעולת EOSE מיוחדת כרגע
+        chatLastSignalAt = Date.now();
       },
     });
+  }
+
+  // חלק צ'אט (chat-service.js) – רענון חיבור לאחר חזרה מפוקוס/רשת או idle | HYPER CORE TECH
+  function forceResubscribeChat(reason) {
+    if (!ensurePoolReady()) return;
+    try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
+    if (activeSubscription && typeof activeSubscription.close === 'function') {
+      try { activeSubscription.close(); } catch {}
+    }
+    activeSubscription = null;
+    chatLastSignalAt = Date.now();
+    subscribeToChatEvents();
+    console.log('Chat: resubscribed', reason || '');
+  }
+
+  function ensureChatKeepaliveStarted() {
+    if (chatSignalKeepaliveTimer) return;
+    try { document.addEventListener('visibilitychange', () => { if (!document.hidden) forceResubscribeChat('visibilitychange'); }); } catch {}
+    try { window.addEventListener('online', () => forceResubscribeChat('online')); } catch {}
+    try { window.addEventListener('focus', () => forceResubscribeChat('focus')); } catch {}
+    try { window.addEventListener('pageshow', () => forceResubscribeChat('pageshow')); } catch {}
+
+    chatSignalKeepaliveTimer = setInterval(() => {
+      try {
+        if (!ensurePoolReady()) return;
+        try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
+        if (document.hidden) return;
+        const now = Date.now();
+        const last = chatLastSignalAt || 0;
+        if (!activeSubscription) {
+          subscribeToChatEvents();
+          return;
+        }
+        if (last && (now - last) > 90000) {
+          forceResubscribeChat('keepalive');
+        }
+      } catch (err) {
+        console.warn('Chat keepalive error', err);
+      }
+    }, 30000);
   }
 
   async function bootstrapContactsFromFeed() {
@@ -364,6 +407,7 @@
     if (!pool) {
       return;
     }
+    ensureChatKeepaliveStarted();
     subscribeToChatEvents();
     bootstrapContactsFromFeed();
   }
