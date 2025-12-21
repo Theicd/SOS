@@ -52,14 +52,19 @@
       notification.close();
     } catch {}
 
-    // חלק Service Worker – תומך גם בשיחות קול (voice) וגם וידאו (video) | HYPER CORE TECH
+    // חלק Service Worker – תומך גם בשיחות קול (voice), וידאו (video) וגם הודעות טקסט | HYPER CORE TECH
     const isVoice = type === 'voice-call-incoming';
     const isVideo = type === 'video-call-incoming';
-    if (!isVoice && !isVideo) return;
+    const isChat = type === 'chat-message';
+    if (!isVoice && !isVideo && !isChat) return;
 
     event.waitUntil((async () => {
       const message = {
-        type: isVoice ? 'voice-call-notification-action' : 'video-call-notification-action',
+        type: isVoice
+          ? 'voice-call-notification-action'
+          : isVideo
+            ? 'video-call-notification-action'
+            : 'chat-message-notification-action',
         action: 'open',
         peerPubkey
       };

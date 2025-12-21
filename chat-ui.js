@@ -1,6 +1,10 @@
 (function initChatUI(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const doc = window.document;
+  // חלק צ'אט (chat-ui.js) – צליל והתרעות להודעות נכנסות | HYPER CORE TECH
+  const CHAT_MESSAGE_SOUND_URL = 'https://npub1jqzsts0fz6ufkgxdhna99rqwnn0ptrg9tvmy62m7ytffy4w0ncnsm7rac0.blossom.band/f0a73d1b6550d6a140a63fa91ec906f89dcbc2fdece317dbaa81e5093a319629.mp3';
+  let chatMessageAudio = null;
+  let chatNotificationPermissionLastRequestedAt = 0;
 
   // חלק צ'אט (chat-ui.js) – מוודא שקיימת סביבת צ'אט
   if (!App.chatState) {
@@ -233,6 +237,152 @@
       return formatMessageTime(ts);
     }
     return dayHeader;
+  }
+
+  // חלק צ'אט (chat-ui.js) – צליל התרעה להודעות נכנסות
+  function ensureChatMessageAudio() {
+    if (chatMessageAudio) return;
+    try {
+      chatMessageAudio = new window.Audio(CHAT_MESSAGE_SOUND_URL);
+      chatMessageAudio.preload = 'auto';
+      chatMessageAudio.playsInline = true;
+      chatMessageAudio.setAttribute('playsinline', '');
+    } catch (err) {
+      console.warn('Failed to init chat message audio', err);
+    }
+  }
+
+  function playChatMessageSound() {
+    ensureChatMessageAudio();
+    if (!chatMessageAudio) return;
+    try {
+      chatMessageAudio.currentTime = 0;
+      const p = chatMessageAudio.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
+  }
+
+  // חלק צ'אט (chat-ui.js) – בקשת הרשאת התרעות (חסכון בבקשות) | HYPER CORE TECH
+  function requestChatNotificationPermissionIfNeeded() {
+    if (!('Notification' in window)) return;
+    try {
+      if (window.Notification.permission !== 'default') return;
+      const now = Date.now();
+      if (chatNotificationPermissionLastRequestedAt && (now - chatNotificationPermissionLastRequestedAt) < 60000) return;
+      chatNotificationPermissionLastRequestedAt = now;
+      const p = window.Notification.requestPermission();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
+  }
+
+  // חלק צ'אט (chat-ui.js) – רישום SW לקבלת התראות במצב ברקע | HYPER CORE TECH
+  function registerChatServiceWorkerIfSupported() {
+    if (!('serviceWorker' in navigator)) return;
+    if (!window.isSecureContext) return;
+    try {
+      const p = navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch {}
+  }
+
+  function getChatServiceWorkerRegistration() {
+    if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+    if (!window.isSecureContext) return Promise.resolve(null);
+    try {
+      return navigator.serviceWorker.getRegistration().catch(() => null);
+    } catch {
+      return Promise.resolve(null);
+    }
+  }
+
+  // חלק צ'אט (chat-ui.js) – התראת מערכת על הודעה נכנסת כאשר החלון ברקע/לא בשיחה הפעילה | HYPER CORE TECH
+  function showIncomingChatNotification(peerPubkey, message) {
+    try {
+      if (!peerPubkey || !message) return;
+      if (!('Notification' in window)) return;
+      if (window.Notification.permission !== 'granted') return;
+
+      const isHidden = !!doc.hidden || doc.visibilityState === 'hidden';
+      const hasFocus = typeof doc.hasFocus === 'function' ? doc.hasFocus() : true;
+      const activePeer = state.activeContact ? state.activeContact.toLowerCase() : null;
+      const normalizedPeer = peerPubkey.toLowerCase();
+      const isActivePeer = activePeer && activePeer === normalizedPeer && state.isOpen && hasFocus && !isHidden;
+      if (isActivePeer) return;
+
+      registerChatServiceWorkerIfSupported();
+      const contact = App.chatState?.contacts?.get(normalizedPeer);
+      const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
+      const picture = contact?.picture || '';
+      const snippet = typeof message === 'string' ? message : (message?.content || '');
+      const safeSnippet = snippet ? snippet.replace(/\s+/g, ' ').trim().slice(0, 120) : 'הודעה חדשה';
+
+      const baseOptions = {
+        body: safeSnippet,
+        tag: `chat-message-${normalizedPeer}`,
+        renotify: true
+      };
+      if (picture) baseOptions.icon = picture;
+      try { baseOptions.requireInteraction = true; } catch {}
+
+      const swOptions = Object.assign({}, baseOptions, {
+        actions: [{ action: 'open', title: 'פתח צ\'אט' }],
+        data: {
+          type: 'chat-message',
+          peerPubkey: normalizedPeer,
+          url: window.location.href
+        }
+      });
+
+      getChatServiceWorkerRegistration().then((reg) => {
+        if (reg && typeof reg.showNotification === 'function') {
+          try {
+            const p = reg.showNotification(name, swOptions);
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          } catch {}
+          return;
+        }
+        const n = new window.Notification(name, baseOptions);
+        n.onclick = () => {
+          try { window.focus(); } catch {}
+        };
+      }).catch(() => {
+        try {
+          const n = new window.Notification(name, baseOptions);
+          n.onclick = () => { try { window.focus(); } catch {} };
+        } catch {}
+      });
+    } catch (err) {
+      console.warn('Failed to show chat message notification', err);
+    }
+  }
+
+  // חלק צ'אט (chat-ui.js) – פתיחת שיחה מתוך הודעת SW | HYPER CORE TECH
+  function openConversationFromNotification(peerPubkey) {
+    if (!peerPubkey) return;
+    const normalized = peerPubkey.toLowerCase();
+    state.activeContact = normalized;
+    togglePanel(true);
+    renderContacts();
+    renderMessages(normalized);
+    updatePanelMode(PANEL_MODES.CONVERSATION);
+    App.markChatConversationRead(normalized);
+  }
+
+  // חלק צ'אט (chat-ui.js) – טיפול בהודעות מה-SW עבור התראות צ'אט | HYPER CORE TECH
+  function handleChatServiceWorkerMessage(event) {
+    const data = event && event.data ? event.data : null;
+    if (!data || data.type !== 'chat-message-notification-action') return;
+    const peerPubkey = data.peerPubkey || null;
+    if (!peerPubkey) return;
+    try { window.focus(); } catch {}
+    openConversationFromNotification(peerPubkey);
+  }
+
+  function initChatServiceWorkerMessageHandling() {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      navigator.serviceWorker.addEventListener('message', handleChatServiceWorkerMessage);
+    } catch {}
   }
 
   // חלק צ'אט (chat-ui.js) – שולף את ההודעה האחרונה האמיתית לצורך תצוגה מקדימה ברשימת אנשי קשר
@@ -1020,9 +1170,27 @@
     App.subscribeChat?.('contacts', () => {
       renderContacts();
     });
-    App.subscribeChat?.('message', ({ peer }) => {
+    App.subscribeChat?.('message', ({ peer, message }) => {
       if (!peer) return;
-      if (peer === state.activeContact) {
+      const normalizedPeer = peer.toLowerCase();
+      const isIncoming = message?.direction === 'incoming'
+        || (message?.from && typeof App.publicKey === 'string' && message.from.toLowerCase() !== App.publicKey.toLowerCase());
+      const isActivePeer = normalizedPeer === (state.activeContact || '').toLowerCase();
+
+      // התרעה + צליל רק אם זה נכנס ולא בשיחה הפעילה/פוקוס
+      if (isIncoming) {
+        if (!isActivePeer || !state.isOpen) {
+          playChatMessageSound();
+          const snippetSource = (message?.content && message.content.trim()) ||
+            (message?.attachment?.name ? `📎 ${message.attachment.name}` :
+              (message?.attachment
+                ? (String(message.attachment.type || '').toLowerCase().startsWith('audio/') ? 'הודעת קול' : 'קובץ מצורף')
+                : 'הודעה חדשה'));
+          showIncomingChatNotification(normalizedPeer, snippetSource);
+        }
+      }
+
+      if (isActivePeer) {
         renderMessages(peer);
         App.markChatConversationRead(peer);
       } else {
@@ -1062,6 +1230,10 @@
         composerElement: elements.composer,
       });
     }
+    // בקשת הרשאות התרעה לצ'אט + רישום SW והאזנה להודעות ממנו
+    requestChatNotificationPermissionIfNeeded();
+    registerChatServiceWorkerIfSupported();
+    initChatServiceWorkerMessageHandling();
     updatePanelMode(PANEL_MODES.LIST);
   }
 
