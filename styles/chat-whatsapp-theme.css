@@ -538,6 +538,7 @@
   gap: 6px;
   align-items: center;
   justify-content: flex-end;
+  white-space: nowrap; /* מונע שבירת שעה/אייקונים לשתי שורות */
   z-index: 1;
 }
 
