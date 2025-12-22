@@ -7,6 +7,7 @@
   const LIKE_KIND = 7;
   const COMMENT_KIND = 1;
   const FOLLOW_KIND = App.FOLLOW_KIND || 40010;
+  const COMMENT_EVENT_KIND = 1;
   const PROFILE_TTL_SECONDS = 86400;
   const AVATAR_CACHE_TTL_SECONDS = 86400;
 
@@ -110,17 +111,33 @@
     if (event.kind === COMMENT_KIND) type = 'comment';
     if (event.kind === FOLLOW_KIND) type = 'follow';
 
-    // basic check: require #p tag to me (for likes/comments); for follow, skip tag check
-    if (event.kind !== FOLLOW_KIND) {
-      const targeted = Array.isArray(event.tags) && event.tags.some((tag) => Array.isArray(tag) && tag[0] === 'p' && tag[1]?.toLowerCase?.() === me);
-      if (!targeted) return;
+    let targetId = '';
+    let targetKind = '';
+    let targeted = false;
+    if (Array.isArray(event.tags)) {
+      event.tags.forEach((tag) => {
+        if (Array.isArray(tag)) {
+          if (tag[0] === 'e' && typeof tag[1] === 'string' && !targetId) {
+            targetId = tag[1];
+          }
+          if (tag[0] === 'k' && typeof tag[1] === 'string') {
+            targetKind = tag[1];
+          }
+          if (tag[0] === 'p' && typeof tag[1] === 'string' && tag[1].toLowerCase() === me) {
+            targeted = true;
+          }
+        }
+      });
+    }
+    if (event.kind !== FOLLOW_KIND && !targeted) {
+      return;
     }
 
     const profile = await resolveProfile(actorPubkey);
     const notification = {
       id: event.id,
       type,
-      postId: '',
+      postId: targetId || '',
       actorPubkey,
       createdAt: ts,
       content: typeof event.content === 'string' ? event.content.trim().slice(0, 140) : '',
@@ -129,6 +146,12 @@
         ? { name: profile.name || '', picture: profile.picture || '', initials: profile.initials || '' }
         : null,
     };
+
+    // סוג מיוחד: לייק/ריאקציה על תגובה (kind 7 עם k=1 או ללא k אך ההורה הוא תגובה kind 1) | HYPER CORE TECH
+    if (event.kind === LIKE_KIND && (targetKind === String(COMMENT_EVENT_KIND) || targetKind === '' )) {
+      notification.type = 'comment-reaction';
+    }
+
     App.upsertNotification(notification);
     const currentSync = App.getNotificationsLastSyncTs?.() || 0;
     if (ts > currentSync) {

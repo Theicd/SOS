@@ -5,6 +5,8 @@
   App.eventAuthorById = App.eventAuthorById || new Map(); // חלק פיד (feed.js) – מאפשר לשייך אירועים למחבר שלהם למטרות הרשאות
   App.likesByEventId = App.likesByEventId || new Map(); // חלק פיד (feed.js) – סופר לייקים לכל פוסט לפי מזהה האירוע
   App.commentsByParent = App.commentsByParent || new Map(); // חלק פיד (feed.js) – מרכז את כל תגובות kind 1 לכל פוסט כדי שכל המשתמשים יראו אותן
+  App.commentParentById = App.commentParentById || new Map(); // חלק תגובות (feed.js) – מפה הפוכה תגובה->פוסט לצורך ריאקציות/התראות | HYPER CORE TECH
+  App.likeLastSyncTs = typeof App.likeLastSyncTs === 'number' ? App.likeLastSyncTs : 0; // חלק לייקים (feed.js) – חותמת סנכרון ללייקים | HYPER CORE TECH
   App.notifications = Array.isArray(App.notifications) ? App.notifications : []; // חלק התרעות (feed.js) – מאחסן את רשימת ההתרעות לפי סדר יורד
   App.notificationsById = App.notificationsById instanceof Map ? App.notificationsById : new Map(); // חלק התרעות (feed.js) – מאפשר למנוע כפילויות התרעה לפי מזהה האירוע
   App.unreadNotificationCount = typeof App.unreadNotificationCount === 'number' ? App.unreadNotificationCount : 0; // חלק התרעות (feed.js) – סופר כמה התרעות לא נקראו להדלקת הכפתור
@@ -95,6 +97,7 @@
         arr.forEach((c) => {
           if (c?.id) {
             map.set(c.id, c);
+            App.commentParentById.set(c.id, parentId);
             if (typeof c.created_at === 'number' && c.created_at > App.commentLastSyncTs) {
               App.commentLastSyncTs = c.created_at;
             }
@@ -125,6 +128,81 @@
       console.warn('Persist comments cache failed', err);
     }
   }
+
+  // חלק לייקים (feed.js) – קאש לייקים לפוסטים להפחתת פניות לריליי | HYPER CORE TECH
+  function getLikeStorageKey() {
+    const pk = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    return pk ? `nostr_likes_${pk}` : null;
+  }
+  function restoreLikesFromStorage() {
+    const key = getLikeStorageKey();
+    if (!key) return;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const syncTs = parsed?.lastSyncTs || 0;
+      const likes = parsed?.likesByEventId || {};
+      Object.keys(likes).forEach((eventId) => {
+        const arr = Array.isArray(likes[eventId]) ? likes[eventId] : [];
+        const set = new Set(arr.map((p) => (typeof p === 'string' ? p.toLowerCase() : null)).filter(Boolean));
+        App.likesByEventId.set(eventId, set);
+      });
+      if (typeof syncTs === 'number' && syncTs > App.likeLastSyncTs) {
+        App.likeLastSyncTs = syncTs;
+      }
+      // רענון מונים מיידי על סמך הקאש
+      App.likesByEventId.forEach((_set, eventId) => {
+        updateLikeIndicator(eventId);
+      });
+    } catch (err) {
+      console.warn('Restore likes cache failed', err);
+    }
+  }
+  function saveLikesToStorage() {
+    const key = getLikeStorageKey();
+    if (!key) return;
+    const payload = { likesByEventId: {}, lastSyncTs: App.likeLastSyncTs || 0 };
+    App.likesByEventId.forEach((set, eventId) => {
+      if (!eventId || !(set instanceof Set)) return;
+      payload.likesByEventId[eventId] = Array.from(set.values());
+    });
+    try {
+      window.localStorage.setItem(key, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('Persist likes cache failed', err);
+    }
+  }
+
+  restoreCommentsFromStorage();
+  restoreLikesFromStorage();
+
+  // חלק ריענון מהקאש (feed.js) – מבטיח שמונים יוצגו מיד גם כשכרטיסים מתווספים אחרי השחזור | HYPER CORE TECH
+  function refreshEngagementForNode(node) {
+    if (!node || !(node instanceof HTMLElement)) return;
+    const postId = node.dataset?.feedCard ||
+      node.querySelector?.('[data-post-id]')?.dataset?.postId ||
+      node.getAttribute?.('data-post-id');
+    if (!postId) return;
+    try { updateLikeIndicator(postId); } catch (_) {}
+    if (App.commentsByParent?.has?.(postId)) {
+      try { updateCommentsForParent(postId); } catch (_) {}
+    }
+  }
+
+  function setupEngagementObserver() {
+    const stream = document.querySelector('.home-feed__stream');
+    if (!stream || stream._engagementObserverAttached) return;
+    const obs = new MutationObserver((mutations) => {
+      mutations.forEach((m) => {
+        m.addedNodes?.forEach((n) => refreshEngagementForNode(n));
+      });
+    });
+    try { obs.observe(stream, { childList: true }); stream._engagementObserverAttached = true; } catch (_) {}
+    // רענון ראשוני למקרים שכבר קיימים כרטיסים
+    stream.querySelectorAll('[data-feed-card]').forEach((card) => refreshEngagementForNode(card));
+  }
+  setupEngagementObserver();
 
   // חלק התרעות (feed.js) – גשר ל-notifications-state.js כדי להשתמש בקאש + lastSyncTs | HYPER CORE TECH
   function syncNotificationsFromState(snapshot) {
@@ -655,7 +733,10 @@
       const chunkSize = 50;
       for (let i = 0; i < toSubscribe.length; i += chunkSize) {
         const chunk = toSubscribe.slice(i, i + chunkSize);
-        const filters = [{ kinds: [7], '#e': chunk, limit: 1000 }];
+        const filter = { kinds: [7], '#e': chunk, limit: 1000 };
+        const sinceTs = typeof App.likeLastSyncTs === 'number' && App.likeLastSyncTs > 0 ? App.likeLastSyncTs : undefined;
+        if (sinceTs) filter.since = sinceTs;
+        const filters = [filter];
         try {
           const sub = App.pool.subscribeMany(App.relayUrls, filters, {
             onevent: (ev) => {
@@ -2330,6 +2411,11 @@
       }
       updateLikeIndicator(eventId);
       handleNotificationForLike(event, eventId, liker, isUnlike);
+      const ts = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);
+      if (ts > (App.likeLastSyncTs || 0)) {
+        App.likeLastSyncTs = ts;
+      }
+      saveLikesToStorage();
     });
   }
 
@@ -2370,7 +2456,6 @@
       }
     }
 
-    // עדכון מונה בשורת הסטטיסטיקות
     if (statsCounter) {
       if (count > 0) {
         statsCounter.textContent = String(count);
@@ -2490,6 +2575,7 @@
     } else {
       commentMap.set(event.id, event);
     }
+    App.commentParentById.set(event.id, parentId);
     if (event?.id && event?.pubkey) {
       App.eventAuthorById.set(event.id, event.pubkey.toLowerCase());
     }
@@ -2499,6 +2585,13 @@
     saveCommentsToStorage();
     updateCommentsForParent(parentId);
     handleNotificationForComment(event, parentId);
+  }
+
+  // חלק תגובות (feed.js) – חשיפה לרענון תגובות כדי ש-comment-engagement יוכל להזרים עדכונים | HYPER CORE TECH
+  if (typeof App.refreshCommentsForParent !== 'function') {
+    App.refreshCommentsForParent = function refreshCommentsForParent(parentId) {
+      updateCommentsForParent(parentId);
+    };
   }
 
   async function updateCommentsForParent(parentId) {
@@ -2535,6 +2628,7 @@
       listEl.innerHTML = '<p class="feed-comments__empty">אין תגובות עדיין. היה הראשון להגיב!</p>';
     } else {
       const fragments = [];
+      const commentIds = [];
       for (const comment of comments) {
         // eslint-disable-next-line no-await-in-loop
         const commenterProfile = await fetchProfileWithAvatarCache(comment.pubkey);
@@ -2551,6 +2645,28 @@
           : `<div class="feed-comment__avatar" ${profileDataset}>${commenterProfile.initials}</div>`;
         const safeContent = App.escapeHtml(comment.content || '').replace(/\n/g, '<br>');
         const timestamp = comment.created_at ? formatTimestamp(comment.created_at) : '';
+        const reactionState = typeof App.getCommentReactionState === 'function'
+          ? App.getCommentReactionState(comment.id)
+          : { counts: {}, myReaction: '' };
+        const counts = reactionState.counts || {};
+        const myReaction = reactionState.myReaction || '';
+        const reactionButtons = [
+          { type: 'like', label: '👍' },
+          { type: 'love', label: '❤️' },
+          { type: 'laugh', label: '😂' },
+          { type: 'angry', label: '😡' },
+          { type: 'sad', label: '😢' },
+        ];
+        const reactionHtml = reactionButtons.map((btn) => {
+          const count = counts[btn.type] || 0;
+          const active = myReaction === btn.type ? ' data-active="1"' : '';
+          const badge = count > 0 ? `<span class="feed-comment__reaction-count">${count}</span>` : '';
+          return `
+            <button class="feed-comment__reaction-btn" type="button" data-comment-reaction="${btn.type}" data-comment-id="${comment.id}"${active}>
+              <span>${btn.label}</span>${badge}
+            </button>
+          `;
+        }).join('');
         fragments.push(`
           <article class="feed-comment">
             ${commenterAvatarHtml}
@@ -2560,11 +2676,31 @@
                 ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
               </header>
               <div class="feed-comment__text">${safeContent}</div>
+              <div class="feed-comment__reactions" dir="ltr">
+                ${reactionHtml}
+              </div>
             </div>
           </article>
         `);
+        commentIds.push(comment.id);
       }
       listEl.innerHTML = fragments.join('');
+      // חיבור לחצן ריאקציות
+      const buttons = listEl.querySelectorAll('[data-comment-reaction]');
+      buttons.forEach((btn) => {
+        const reaction = btn.getAttribute('data-comment-reaction');
+        const cid = btn.getAttribute('data-comment-id');
+        btn.addEventListener('click', () => {
+          if (typeof App.toggleCommentReaction === 'function') {
+            const author = commentMap.get(cid)?.pubkey || '';
+            App.toggleCommentReaction(cid, author, reaction);
+          }
+        });
+      });
+      // מנוי לריאקציות על התגובות בפוסט
+      if (typeof App.subscribeCommentReactions === 'function' && commentIds.length) {
+        App.subscribeCommentReactions(commentIds);
+      }
     }
 
     // חלק תיאטרון (feed.js) – רענון שכבת התיאטרון רק אחרי שה-DOM מעודכן בפועל
@@ -3148,6 +3284,7 @@
       wireCommentForm(article, event.id);
       wirePostMenu(article, event.id);
       hydrateCommentsSection(article, event.id);
+      try { updateCommentsForParent(event.id); } catch (_) {}
       wireShowMore(article, event.id);
       if (typeof App.refreshFollowButtons === 'function') {
         App.refreshFollowButtons(article);
