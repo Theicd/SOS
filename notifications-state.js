@@ -14,12 +14,27 @@
     return `nostr_notifications_${pubkey}`;
   }
 
+  function sanitizeNotification(notification) {
+    // חלק התרעות (notifications-state.js) – הגנה על localStorage מפני DataURL ענקיים | HYPER CORE TECH
+    if (!notification) return null;
+    const clone = { ...notification };
+    if (clone.actorProfile && typeof clone.actorProfile === 'object') {
+      const ap = { ...clone.actorProfile };
+      if (typeof ap.picture === 'string' && ap.picture.length > 100000) {
+        // אם התמונה היא DataURL ענקית, לא נPersist כדי לא לקרוס על quota
+        ap.picture = '';
+      }
+      clone.actorProfile = ap;
+    }
+    return clone;
+  }
+
   function persistState() {
     const key = getStorageKey();
     if (!key) return;
     try {
       const payload = {
-        items: notificationsState.items,
+        items: notificationsState.items.map((n) => sanitizeNotification(n)).filter(Boolean),
         lastSyncTs: notificationsState.lastSyncTs || 0,
       };
       window.localStorage.setItem(key, JSON.stringify(payload));
@@ -54,7 +69,7 @@
   }
 
   function setNotifications(items) {
-    notificationsState.items = Array.isArray(items) ? items : [];
+    notificationsState.items = Array.isArray(items) ? items.map((n) => sanitizeNotification(n)).filter(Boolean) : [];
     recomputeUnread();
     persistState();
     notify();
@@ -62,11 +77,13 @@
 
   function upsertNotification(notification) {
     if (!notification || !notification.id) return;
-    const existingIndex = notificationsState.items.findIndex((n) => n.id === notification.id);
+    const safeNotification = sanitizeNotification(notification);
+    if (!safeNotification) return;
+    const existingIndex = notificationsState.items.findIndex((n) => n.id === safeNotification.id);
     if (existingIndex !== -1) {
-      notificationsState.items[existingIndex] = Object.assign({}, notificationsState.items[existingIndex], notification);
+      notificationsState.items[existingIndex] = Object.assign({}, notificationsState.items[existingIndex], safeNotification);
     } else {
-      notificationsState.items.push(notification);
+      notificationsState.items.push(safeNotification);
     }
     notificationsState.items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     recomputeUnread();

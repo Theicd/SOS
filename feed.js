@@ -1632,6 +1632,21 @@
 
   function restoreNotificationsFromStorage() {
     // חלק התרעות (feed.js) – משחזר התרעות מהדפדפן כדי לשמור רציפות בין סשנים
+    // אם קיים notifications-state המוביל, נשתמש בו ונמנע כפילות בפורמט אחסון
+    if (typeof App.getNotificationsSnapshot === 'function' && App.notificationsState) {
+      try {
+        const snap = App.getNotificationsSnapshot();
+        if (Array.isArray(snap)) {
+          App.notifications = snap.slice();
+          App.notificationsById = new Map(snap.map((n) => [n.id, n]));
+          App.unreadNotificationCount = snap.reduce((sum, n) => (!n.read ? sum + 1 : sum), 0);
+          refreshNotificationIndicators();
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to hydrate notifications from state', err);
+      }
+    }
     try {
       const storageKey = getNotificationStorageKey();
       if (!storageKey) {
@@ -1704,6 +1719,12 @@
 
   function saveNotificationsToStorage() {
     // חלק התרעות (feed.js) – שומר את מצב ההתרעות ל-localStorage עבור טעינה עתידית
+    // אם notifications-state מטפל בפרסיסט, לא נכתוב פעמיים כדי למנוע קריסות פורמט/Quota
+    if (App.notificationsState && typeof App.setNotificationsSnapshot === 'function') {
+      try { App.setNotificationsSnapshot(App.notifications || []); } catch (err) { console.warn('Failed to sync notifications to state', err); }
+      notifyNotificationObservers();
+      return;
+    }
     const storageKey = getNotificationStorageKey();
     if (!storageKey) {
       return;
