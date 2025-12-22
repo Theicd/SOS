@@ -9,6 +9,17 @@
   
   // חלק מצב העברות (chat-p2p-file.js) – מעקב אחר העברות פעילות | HYPER CORE TECH
   const activeTransfers = new Map(); // fileId -> transfer state
+  const progressListeners = new Set(); // UI listeners for progress
+
+  function notifyProgress(payload) {
+    progressListeners.forEach((cb) => {
+      try {
+        cb(payload);
+      } catch (err) {
+        console.warn('P2P progress listener failed', err);
+      }
+    });
+  }
   const dataChannels = new Map(); // peerPubkey -> RTCDataChannel
   
   // חלק הצפנה (chat-p2p-file.js) – הצפנת/פענוח צ'אנק עם AES-GCM | HYPER CORE TECH
@@ -170,6 +181,7 @@
       console.log('File transfer complete:', fileId);
       activeTransfers.delete(fileId);
       if (onProgress) onProgress({ fileId, progress: 1, status: 'complete' });
+      notifyProgress({ fileId, progress: 1, status: 'complete', direction: 'send' });
       return;
     }
     
@@ -211,16 +223,20 @@
         
         transfer.currentChunk++;
         
+        const progressPayload = {
+          fileId,
+          progress: transfer.currentChunk / totalChunks,
+          status: 'sending',
+          direction: 'send',
+          name: transfer.file?.name,
+          size: transfer.file?.size,
+          mimeType: transfer.file?.type,
+          peerPubkey
+        };
         if (onProgress) {
-          onProgress({
-            fileId,
-            progress: transfer.currentChunk / totalChunks,
-            status: 'sending'
-          });
+          onProgress(progressPayload);
         }
-        
-        // Continue sending
-        setTimeout(() => sendNextChunk(fileId, onProgress), 10);
+        notifyProgress(progressPayload);
       } catch (err) {
         console.error('Failed to send chunk', err);
         await fallbackToBlossom(transfer, onProgress);
@@ -229,7 +245,9 @@
     
     reader.readAsArrayBuffer(chunk);
   }
-  
+
+  // חלק קבלה (chat-p2p-file.js) – קבלת צ'אנקים והרכבת קובץ | HYPER CORE TECH
+
   // חלק קבלה (chat-p2p-file.js) – קבלת צ'אנקים והרכבת קובץ | HYPER CORE TECH
   function handleIncomingMessage(peerPubkey, data) {
     try {
@@ -261,7 +279,7 @@
       console.error('handleIncomingMessage failed', err);
     }
   }
-  
+
   async function handleChunkData(peerPubkey, encryptedData) {
     // Find active receive transfer
     for (const [fileId, transfer] of activeTransfers.entries()) {
@@ -274,6 +292,18 @@
         
         transfer.chunks.push(decrypted);
         transfer.receivedChunks++;
+
+        // התקדמות לקבלה
+        notifyProgress({
+          fileId,
+          progress: transfer.receivedChunks / transfer.totalChunks,
+          status: 'receiving',
+          direction: 'receive',
+          name: transfer.name,
+          size: transfer.size,
+          mimeType: transfer.mimeType,
+          peerPubkey
+        });
         
         // Send ACK every N chunks
         if (transfer.receivedChunks % ACK_INTERVAL === 0) {
@@ -300,173 +330,18 @@
       }
     }
   }
-  
-  async function finalizeReceive(fileId, transfer) {
-    console.log('Finalizing receive for', fileId);
-    
-    // Combine all chunks
-    const totalSize = transfer.chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const combined = new Uint8Array(totalSize);
-    let offset = 0;
-    
-    for (const chunk of transfer.chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
-    }
-    
-    // Create blob and save to IndexedDB
-    const blob = new Blob([combined], { type: transfer.mimeType });
-    await saveFileToStorage(fileId, blob, transfer.name);
-    
-    // Notify UI
-    if (typeof App.onP2PFileReceived === 'function') {
-      App.onP2PFileReceived({
-        fileId,
-        name: transfer.name,
-        size: blob.size,
-        mimeType: transfer.mimeType
-      });
-    }
-    
-    activeTransfers.delete(fileId);
-    await clearTransferState(fileId);
-  }
-  
-  // חלק IndexedDB (chat-p2p-file.js) – שמירת קבצים וסטייט להמשך | HYPER CORE TECH
-  async function saveFileToStorage(fileId, blob, name) {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('ChatP2PFiles', 1);
-      
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('files')) {
-          db.createObjectStore('files', { keyPath: 'fileId' });
-        }
-      };
-      
-      request.onsuccess = (e) => {
-        const db = e.target.result;
-        const tx = db.transaction('files', 'readwrite');
-        const store = tx.objectStore('files');
-        
-        store.put({
-          fileId,
-          name,
-          blob,
-          savedAt: Date.now()
-        });
-        
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      };
-      
-      request.onerror = () => reject(request.error);
-    });
-  }
-  
-  async function saveTransferState(fileId, transfer) {
-    // Save partial transfer state for resume
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('ChatP2PFiles', 1);
-      
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('transfers')) {
-          db.createObjectStore('transfers', { keyPath: 'fileId' });
-        }
-      };
-      
-      request.onsuccess = (e) => {
-        const db = e.target.result;
-        const tx = db.transaction('transfers', 'readwrite');
-        const store = tx.objectStore('transfers');
-        
-        store.put({
-          fileId,
-          receivedChunks: transfer.receivedChunks,
-          totalChunks: transfer.totalChunks,
-          savedAt: Date.now()
-        });
-        
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      };
-      
-      request.onerror = () => reject(request.error);
-    });
-  }
-  
-  async function clearTransferState(fileId) {
-    return new Promise((resolve) => {
-      const request = indexedDB.open('ChatP2PFiles', 1);
-      
-      request.onsuccess = (e) => {
-        const db = e.target.result;
-        const tx = db.transaction('transfers', 'readwrite');
-        const store = tx.objectStore('transfers');
-        
-        store.delete(fileId);
-        
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve(); // Don't fail on cleanup
-      };
-      
-      request.onerror = () => resolve();
-    });
-  }
-  
-  // חלק Fallback (chat-p2p-file.js) – העלאה ל-Blossom אם P2P נכשל | HYPER CORE TECH
-  async function fallbackToBlossom(transfer, onProgress) {
-    console.log('Falling back to Blossom for', transfer.fileId);
-    
-    if (typeof App.uploadToBlossom !== 'function') {
-      console.error('Blossom upload not available');
-      if (onProgress) onProgress({ fileId: transfer.fileId, status: 'failed' });
-      return;
-    }
-    
-    try {
-      // Encrypt file before upload
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const encrypted = await encryptChunk(new Uint8Array(e.target.result), transfer.key);
-        const blob = new Blob([encrypted], { type: 'application/octet-stream' });
-        
-        const url = await App.uploadToBlossom(blob);
-        
-        // Send encrypted URL + key via relay
-        const metadata = {
-          type: 'file-blossom',
-          fileId: transfer.fileId,
-          url,
-          keyStr: await exportFileKey(transfer.key),
-          name: transfer.file.name,
-          size: transfer.file.size,
-          mimeType: transfer.file.type
-        };
-        
-        if (typeof App.sendP2PSignal === 'function') {
-          await App.sendP2PSignal(transfer.peerPubkey, metadata);
-        }
-        
-        if (onProgress) {
-          onProgress({ fileId: transfer.fileId, progress: 1, status: 'complete-blossom' });
-        }
-        
-        activeTransfers.delete(transfer.fileId);
-      };
-      
-      reader.readAsArrayBuffer(transfer.file);
-    } catch (err) {
-      console.error('Blossom fallback failed', err);
-      if (onProgress) onProgress({ fileId: transfer.fileId, status: 'failed' });
-    }
-  }
-  
+
   // חלק API ציבורי (chat-p2p-file.js) – חשיפת פונקציות להעברת קבצים | HYPER CORE TECH
   Object.assign(App, {
     sendP2PFile: sendFile,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
-    activeP2PTransfers: activeTransfers
+    activeP2PTransfers: activeTransfers,
+    subscribeP2PFileProgress: (cb) => {
+      if (typeof cb === 'function') {
+        progressListeners.add(cb);
+        return () => progressListeners.delete(cb);
+      }
+      return () => {};
+    }
   });
 })(window);

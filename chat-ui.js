@@ -12,6 +12,71 @@
     return;
   }
 
+  // חלק בועת התקדמות העברה (chat-ui.js) – מציג אחוזים + אייקון קובץ/מדיה בתוך השיחה | HYPER CORE TECH
+  function renderTransferProgress(progress) {
+    if (!elements.messagesContainer || !progress?.fileId) return;
+    const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
+    const bubble = existing || doc.createElement('div');
+    bubble.className = `chat-transfer-bubble chat-transfer-bubble--${progress.direction || 'send'}`;
+    bubble.setAttribute('data-transfer-id', progress.fileId);
+
+    const pct = Math.round((progress.progress || 0) * 100);
+    const label = progress.name || 'קובץ מצורף';
+    const sizeMb = progress.size ? (progress.size / (1024 * 1024)).toFixed(2) : '';
+    const statusText = progress.status === 'complete' || progress.status === 'complete-blossom'
+      ? 'הועלה'
+      : progress.status === 'failed'
+      ? 'נכשל'
+      : `מעלה... ${pct}%`;
+
+    bubble.innerHTML = `
+      <div class="chat-transfer-bubble__header">
+        <div class="chat-transfer-bubble__icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+        <div class="chat-transfer-bubble__meta">
+          <div class="chat-transfer-bubble__name">${label}</div>
+          <div class="chat-transfer-bubble__size">${sizeMb ? sizeMb + 'MB' : ''}</div>
+        </div>
+      </div>
+      <div class="chat-transfer-bubble__progress">
+        <div class="chat-transfer-bubble__bar" style="width:${Math.min(100, pct)}%"></div>
+      </div>
+      <div class="chat-transfer-bubble__status">${statusText}</div>
+    `;
+
+    if (!existing) {
+      elements.messagesContainer.appendChild(bubble);
+    }
+
+    // scroll עם כל עדכון
+    elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+
+    // אם הסתיים – להסיר את בועת הפרוגרס אחרי דיליי קצר (ההודעה המלאה כבר תירנדר) | HYPER CORE TECH
+    if (progress.status === 'complete' || progress.status === 'complete-blossom') {
+      setTimeout(() => {
+        bubble.remove();
+        state.transferProgress.delete(progress.fileId);
+      }, 800);
+    }
+  }
+
+  function subscribeTransferProgress() {
+    if (typeof App.subscribeP2PFileProgress === 'function') {
+      App.subscribeP2PFileProgress((evt) => {
+        const activePeer = (state.activeContact || '').toLowerCase();
+        if (evt?.peerPubkey && activePeer && evt.peerPubkey.toLowerCase() !== activePeer) return;
+        state.transferProgress.set(evt.fileId, evt);
+        renderTransferProgress(evt);
+      });
+    }
+    // פונקציית callback לשימוש ב-chat-file-transfer-ui בעת שליחה | HYPER CORE TECH
+    App.handleP2PProgressUpdate = (evt) => {
+      const activePeer = (state.activeContact || '').toLowerCase();
+      if (evt?.peerPubkey && activePeer && evt.peerPubkey.toLowerCase() !== activePeer) return;
+      state.transferProgress.set(evt.fileId, evt);
+      renderTransferProgress(evt);
+    };
+  }
+
   function handleMessageActions(event) {
     const deleteTarget = event.target.closest('[data-chat-delete]');
     if (!deleteTarget || !state.activeContact) {
@@ -108,6 +173,8 @@
     notifications: [],
     // חלק צ'אט (chat-ui.js) – עוקב אחרי שאילתות פרופיל ממתינות כדי לא לבצע בקשות כפולות
     pendingProfileFetches: new Set(),
+    // חלק צ'אט (chat-ui.js) – ניטור העברות P2P לצורך רינדור בועת התקדמות | HYPER CORE TECH
+    transferProgress: new Map(),
   };
 
   let unsubscribeNotifications = null; // חלק צ'אט (chat-ui.js) – מחזיק ביטול הרשמה לעדכוני התרעות עבור ניקוי משאבים
@@ -883,25 +950,6 @@
             </a>
           `;
         }
-
-        // חלק פרוגרס הורדה/העלאה (chat-ui.js) – טבעת אחוזים בסגנון וואטסאפ | HYPER CORE TECH
-        const progressValue =
-          typeof a.progress === 'number'
-            ? a.progress
-            : typeof a.downloadProgress === 'number'
-              ? a.downloadProgress
-              : null;
-        const showProgress = progressValue !== null && progressValue < 1;
-        const progressPercent = showProgress ? Math.max(4, Math.round(progressValue * 100)) : 100;
-        const progressHtml = showProgress
-          ? `<div class="chat-attachment__progress" aria-label="התקדמות הורדה ${progressPercent}%">
-              <div class="chat-attachment__progress-ring" style="--p:${progressPercent}%"></div>
-              <span class="chat-attachment__progress-label">${progressPercent}%</span>
-            </div>`
-          : '';
-        if (attachmentHtml) {
-          attachmentHtml = `<div class="chat-attachment__wrap">${attachmentHtml}${progressHtml}</div>`;
-        }
       }
       
       // חלק YouTube (chat-ui.js) – זיהוי לינק YouTube בטקסט ההודעה | HYPER CORE TECH
@@ -1252,6 +1300,8 @@
         composerElement: elements.composer,
       });
     }
+    // מנוי פרוגרס להעברות P2P כדי לרנדר בועות התקדמות בתוך השיחה | HYPER CORE TECH
+    subscribeTransferProgress();
     // בקשת הרשאות התרעה לצ'אט + רישום SW והאזנה להודעות ממנו
     requestChatNotificationPermissionIfNeeded();
     registerChatServiceWorkerIfSupported();

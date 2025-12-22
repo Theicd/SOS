@@ -85,6 +85,8 @@
     // חלק קבצים גדולים (chat-file-transfer-ui.js) – שימוש ב-P2P לקבצים מעל 90KB | HYPER CORE TECH
     if (file.size > MAX_INLINE_SIZE_BYTES) {
       if (typeof App.sendP2PFile === 'function') {
+        const previewUrl = URL.createObjectURL(file);
+        const fileId = await App.sendP2PFile(peer, file, App.handleP2PProgressUpdate || undefined);
         const attachment = {
           id: `${peer}-${Date.now()}`,
           name: file.name,
@@ -92,6 +94,8 @@
           type: file.type,
           isP2P: true,
           file: file,
+          fileId,
+          previewUrl,
           caption: uiRefs.getMessageDraft() || '',
         };
         App.setChatFileAttachment?.(peer, attachment);

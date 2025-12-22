@@ -78,6 +78,95 @@
   z-index: 1;
 }
 
+/* חלק בועת העברה (chat-enhanced-styles.css) – פרוגרס שקוף/קריסטל בסגנון וואטסאפ | HYPER CORE TECH */
+.chat-transfer-bubble {
+  margin: 8px 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  backdrop-filter: blur(10px);
+  color: #e9edef;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 16px 38px rgba(0, 0, 0, 0.45);
+}
+
+.chat-transfer-bubble__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.chat-transfer-bubble__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(34, 211, 238, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8ce4ff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.chat-transfer-bubble__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat-transfer-bubble__name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #f5f7fb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-transfer-bubble__size {
+  font-size: 12px;
+  color: #c8d4dd;
+}
+
+.chat-transfer-bubble__progress {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.chat-transfer-bubble__bar {
+  height: 100%;
+  background: linear-gradient(90deg, #22d3ee, #22c55e);
+  border-radius: inherit;
+  transition: width 0.15s ease;
+}
+
+.chat-transfer-bubble__status {
+  font-size: 12px;
+  color: #c8d4dd;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-transfer-bubble--receive .chat-transfer-bubble__icon {
+  background: rgba(34, 197, 94, 0.15);
+  color: #a9f0c4;
+}
+
+@media (max-width: 768px) {
+  .chat-transfer-bubble {
+    padding: 10px 12px;
+  }
+}
+
 /* חלק Emoji Picker (chat-enhanced-styles.css) – בורר אימוג'ים */
 .chat-emoji-picker {
   position: absolute;
