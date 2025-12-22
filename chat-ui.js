@@ -839,6 +839,8 @@
       // תמיכה בהצגת אודיו: זיהוי אמין לפי MIME/נתיב/סיומת
       let attachmentHtml = '';
       let isAudioAttachment = false;
+      let isImageAttachment = false;
+      let isVideoAttachment = false;
       const a = message.attachment || null;
       if (a) {
         const src = a.url || a.dataUrl || '';
@@ -846,26 +848,30 @@
         const fromSrc = /^data:audio\//i.test(src);
         const byExt = /\.(webm|mp3|m4a|ogg|wav)(\?|$)/i.test(src || a.name || '');
         isAudioAttachment = (mime.startsWith('audio/') || fromSrc || byExt) && !!src;
+        
+        // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
+        if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {
+          isImageAttachment = App.isImageAttachment(a);
+        }
+        if (!isAudioAttachment && !isImageAttachment && typeof App.isVideoAttachment === 'function') {
+          isVideoAttachment = App.isVideoAttachment(a);
+        }
+        
         if (isAudioAttachment) {
-          const dur = typeof a.duration === 'number' && a.duration > 0 ? a.duration : null;
-          const mm = dur !== null ? Math.floor(dur / 60) : null;
-          const ss = dur !== null ? String(dur % 60).padStart(2, '0') : null;
-          const durationLabel = dur !== null ? `${mm}:${ss}` : '';
-          attachmentHtml = `
-            <div class="chat-message__audio" data-audio>
-              <audio preload="metadata" class="chat-message__audio-el" src="${src}" type="${a.type || 'audio/webm'}"></audio>
-              <div class="chat-audio">
-                <button type="button" class="chat-audio__play" aria-label="נגן">
-                  <i class="fa-solid fa-play"></i>
-                </button>
-                <span class="chat-audio__time chat-audio__time--current">0:00</span>
-                <div class="chat-audio__bar">
-                  <div class="chat-audio__progress" style="width:0%"></div>
-                </div>
-                <span class="chat-audio__time chat-audio__time--total">${durationLabel}</span>
-              </div>
-            </div>
-          `;
+          // חלק נגן אודיו (chat-ui.js) – שימוש בנגן משודרג מ-chat-audio-player.js | HYPER CORE TECH
+          attachmentHtml = typeof App.createEnhancedAudioPlayer === 'function'
+            ? App.createEnhancedAudioPlayer(a)
+            : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${src}" type="${a.type || 'audio/webm'}"></audio></div>`;
+        } else if (isImageAttachment) {
+          // חלק תמונות (chat-ui.js) – הצגת תמונה inline | HYPER CORE TECH
+          attachmentHtml = typeof App.renderImageAttachment === 'function'
+            ? App.renderImageAttachment(a)
+            : `<img src="${src}" alt="${a.name || 'תמונה'}" class="chat-message__image" loading="lazy">`;
+        } else if (isVideoAttachment) {
+          // חלק וידאו (chat-ui.js) – נגן וידאו מוטמע | HYPER CORE TECH
+          attachmentHtml = typeof App.renderVideoAttachment === 'function'
+            ? App.renderVideoAttachment(a)
+            : `<video src="${src}" controls class="chat-message__video"></video>`;
         } else if (src) {
           const fileName = a.name || 'קובץ מצורף';
           const safeFileName = App.escapeHtml ? App.escapeHtml(fileName) : fileName;
@@ -875,6 +881,27 @@
               <i class="fa-solid fa-paperclip"></i>
               <span>${safeFileName}</span>
             </a>
+          `;
+        }
+      }
+      
+      // חלק YouTube (chat-ui.js) – זיהוי לינק YouTube בטקסט ההודעה | HYPER CORE TECH
+      let youtubeHtml = '';
+      if (!a && rawMessageContent && typeof App.extractYouTubeId === 'function') {
+        const videoId = App.extractYouTubeId(rawMessageContent);
+        if (videoId) {
+          youtubeHtml = `
+            <div class="chat-message__youtube-container">
+              <iframe
+                class="chat-message__youtube-iframe"
+                src="https://www.youtube.com/embed/${videoId}"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+                loading="lazy"
+                title="YouTube video"
+              ></iframe>
+            </div>
           `;
         }
       }
@@ -909,50 +936,19 @@
         <div class="${contentClassName}" data-chat-message="${message.id}">
           ${textHtml}
           ${attachmentHtml}
+          ${youtubeHtml}
           <div class="chat-message__meta-row">
             <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
             ${deleteButtonHtml}
           </div>
         </div>
       `;
-      // חיבור לוגיקת נגן מותאם בסגנון וואטסאפ
+      // חיבור לוגיקת נגן משודרג (chat-ui.js) – חיבור אירועים לנגן אודיו מ-chat-audio-player.js | HYPER CORE TECH
       if (isAudioAttachment) {
         const contentEl = item.querySelector('[data-chat-message]');
         const wrap = contentEl?.querySelector('[data-audio]');
-        const audio = wrap?.querySelector('.chat-message__audio-el');
-        const btn = wrap?.querySelector('.chat-audio__play');
-        const bar = wrap?.querySelector('.chat-audio__bar');
-        const progress = wrap?.querySelector('.chat-audio__progress');
-        const curEl = wrap?.querySelector('.chat-audio__time--current');
-        const totalEl = wrap?.querySelector('.chat-audio__time--total');
-        const format = (sec)=>{
-          const s = Math.max(0, Math.round(sec||0));
-          return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
-        };
-        if (audio && btn && bar && progress && curEl && totalEl) {
-          audio.addEventListener('loadedmetadata', ()=>{
-            if (!totalEl.textContent) totalEl.textContent = format(audio.duration||0);
-          });
-          const toggle = ()=>{
-            if (audio.paused) { audio.play(); btn.innerHTML = '<i class="fa-solid fa-pause"></i>'; }
-            else { audio.pause(); btn.innerHTML = '<i class="fa-solid fa-play"></i>'; }
-          };
-          btn.addEventListener('click', toggle);
-          audio.addEventListener('timeupdate', ()=>{
-            const d = Math.max(1, audio.duration||1);
-            const p = Math.min(100, (audio.currentTime/d)*100);
-            progress.style.width = p + '%';
-            curEl.textContent = format(audio.currentTime);
-          });
-          audio.addEventListener('ended', ()=>{
-            btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-          });
-          // קפיצה בפס
-          bar.addEventListener('click', (e)=>{
-            const rect = bar.getBoundingClientRect();
-            const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-            audio.currentTime = ratio * (audio.duration||0);
-          });
+        if (wrap && typeof App.wireEnhancedAudioPlayer === 'function') {
+          App.wireEnhancedAudioPlayer(wrap);
         }
       }
       fragment.appendChild(item);
