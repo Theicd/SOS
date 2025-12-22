@@ -55,6 +55,7 @@
       setTimeout(() => {
         bubble.remove();
         state.transferProgress.delete(progress.fileId);
+        console.log('[CHAT/UI] transfer bubble removed', progress.fileId);
       }, 800);
     }
   }

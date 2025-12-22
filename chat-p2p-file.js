@@ -129,6 +129,7 @@
   
   // חלק שליחה (chat-p2p-file.js) – שליחת קובץ בצ'אנקים מוצפנים | HYPER CORE TECH
   async function sendFile(peerPubkey, file, onProgress) {
+    console.log('[CHAT/P2P] sendFile start', peerPubkey?.slice?.(0,8), file?.name, file?.size);
     const fileId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const key = await generateFileKey();
     const keyStr = await exportFileKey(key);
@@ -146,6 +147,7 @@
     
     // TODO: Send metadata via NIP-04 encrypted message to peer
     if (typeof App.sendP2PSignal === 'function') {
+      console.log('[CHAT/P2P] send metadata', metadata);
       await App.sendP2PSignal(peerPubkey, metadata);
     }
     
@@ -178,7 +180,7 @@
     
     if (currentChunk >= totalChunks) {
       // Transfer complete
-      console.log('File transfer complete:', fileId);
+      console.log('[CHAT/P2P] Finalizing receive', fileId);
       activeTransfers.delete(fileId);
       if (onProgress) onProgress({ fileId, progress: 1, status: 'complete' });
       notifyProgress({ fileId, progress: 1, status: 'complete', direction: 'send' });
@@ -187,7 +189,7 @@
     
     const channel = dataChannels.get(peerPubkey);
     if (!channel || channel.readyState !== 'open') {
-      console.warn('DataChannel not ready, falling back to Blossom');
+      console.warn('[CHAT/P2P] DataChannel not ready, fallback to Blossom');
       await fallbackToBlossom(transfer, onProgress);
       return;
     }
@@ -206,7 +208,7 @@
     reader.onload = async (e) => {
       const encrypted = await encryptChunk(new Uint8Array(e.target.result), key);
       if (!encrypted) {
-        console.error('Encryption failed for chunk', currentChunk);
+        console.error('[CHAT/P2P] Encryption failed for chunk', currentChunk);
         return;
       }
       
@@ -238,7 +240,7 @@
         }
         notifyProgress(progressPayload);
       } catch (err) {
-        console.error('Failed to send chunk', err);
+        console.error('[CHAT/P2P] Failed to send chunk', err);
         await fallbackToBlossom(transfer, onProgress);
       }
     };
@@ -286,7 +288,7 @@
       if (transfer.peerPubkey === peerPubkey && transfer.direction === 'receive') {
         const decrypted = await decryptChunk(encryptedData, transfer.key);
         if (!decrypted) {
-          console.error('Decryption failed for chunk');
+          console.error('[CHAT/P2P] Decryption failed for chunk');
           return;
         }
         

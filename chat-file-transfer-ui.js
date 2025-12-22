@@ -33,6 +33,12 @@
     };
   }
 
+  function log(...args) {
+    try {
+      console.log('[CHAT/FILE-UI]', ...args);
+    } catch (_) {}
+  }
+
   function renderPreview(attachment) {
     currentAttachment = attachment;
     if (!uiRefs.filePreview || !uiRefs.fileNameLabel) {
@@ -81,12 +87,14 @@
     if (!peer || !validateFile(file)) {
       return;
     }
+    log('בחר קובץ', { name: file.name, size: file.size, type: file.type });
     
     // חלק קבצים גדולים (chat-file-transfer-ui.js) – שימוש ב-P2P לקבצים מעל 90KB | HYPER CORE TECH
     if (file.size > MAX_INLINE_SIZE_BYTES) {
       if (typeof App.sendP2PFile === 'function') {
         const previewUrl = URL.createObjectURL(file);
         const fileId = await App.sendP2PFile(peer, file, App.handleP2PProgressUpdate || undefined);
+        log('שולח P2P', { peer, fileId, name: file.name, size: file.size });
         const attachment = {
           id: `${peer}-${Date.now()}`,
           name: file.name,
