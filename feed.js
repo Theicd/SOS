@@ -651,6 +651,28 @@
       // חלק תגובות (feed.js) – מפעיל גם מנוי תגובות דלתא לאותם פוסטים | HYPER CORE TECH
       try { subscribeCommentsForPosts(toSubscribe); } catch (err) { console.warn('subscribeCommentsForPosts hook failed', err); }
 
+      // חלק לייקים (feed.js) – שאיבה מיידית של לייקים קיימים כדי להציג מונים גם לפני אינטראקציה | HYPER CORE TECH
+      (async () => {
+        const chunkSize = 50;
+        for (let i = 0; i < toSubscribe.length; i += chunkSize) {
+          const chunk = toSubscribe.slice(i, i + chunkSize);
+          const filters = [{ kinds: [7], '#e': chunk, limit: 800 }];
+          try {
+            let events = [];
+            if (typeof App.pool.list === 'function') {
+              events = await App.pool.list(App.relayUrls, filters);
+            } else if (typeof App.pool.listMany === 'function') {
+              events = await App.pool.listMany(App.relayUrls, filters);
+            }
+            if (Array.isArray(events)) {
+              events.forEach((ev) => { if (ev?.kind === 7) registerLike(ev); });
+            }
+          } catch (err) {
+            console.warn('prefetch likes chunk failed', err);
+          }
+        }
+      })();
+
       // נפרוס למנות של עד 50 מזהים כדי להימנע מפילטרים כבדים מדי
       const chunkSize = 50;
       for (let i = 0; i < toSubscribe.length; i += chunkSize) {
