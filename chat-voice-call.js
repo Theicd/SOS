@@ -24,6 +24,7 @@
     candidateQueue: [],
     candidateTimer: null,
     lastOfferFrom: {},
+    waitingOffer: null,
     lastSignalReceivedAt: 0,
     signalLastResubscribeAt: 0,
     signalKeepaliveTimer: null,
@@ -536,7 +537,15 @@
               return;
             }
             console.log('Received valid offer:', offerData);
-            // חלק שיחות קול (chat-voice-call.js) – קיבוע peer עבור שיחה נכנסת כדי שאירוע disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
+            // חלק שיחות קול (chat-voice-call.js) – שיחה ממתינה: אם יש שיחה פעילה מפיר אחר, לא מצלצלים אלא מתריעים בלבד | HYPER CORE TECH
+            if (state.isCallActive && state.currentPeer && state.currentPeer !== peerPubkey) {
+              state.waitingOffer = { peer: peerPubkey, offer: offerData, ts: now };
+              if (typeof App.onVoiceCallWaiting === 'function') {
+                App.onVoiceCallWaiting(peerPubkey, offerData);
+              }
+              return;
+            }
+            // קיבוע peer עבור שיחה נכנסת כדי שאירוע disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
             if (state.currentPeer && state.currentPeer !== peerPubkey) {
               console.log('Ignored incoming offer while another call context exists');
               return;

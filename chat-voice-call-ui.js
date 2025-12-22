@@ -10,11 +10,13 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – קבצי צלילי שיחה (MP3): חיוג למחייג + צלצול למקבל | HYPER CORE TECH
   const DIALTONE_MP3_URL = 'https://npub1hwja2gw0m3kmehwp22rtfu7larrt8tnx4lyqhxp4nzu7jxzzj3wqwl9uc9.blossom.band/61924ef011f5b03e4ec49f0f9c9ac32361419607bd5c52f879bc8d0dd4938107.mp3';
   const RINGTONE_MP3_URL = 'https://npub1hwja2gw0m3kmehwp22rtfu7larrt8tnx4lyqhxp4nzu7jxzzj3wqwl9uc9.blossom.band/2c9aa92402a15e51f2a9dc542f5ce6a7c11e36065eb223f343e0d0bfe07de34d.mp3';
+  const WAITING_TONE_MP3_URL = 'https://assets.mixkit.co/sfx/download/mixkit-correct-answer-tone-2870.wav'; // צליל קצר לשיחה ממתינה
   // חלק שיחות קול (chat-voice-call-ui.js) – אובייקטי אודיו לצלילים + priming ל-autoplay | HYPER CORE TECH
   let dialtoneAudio = null;
   let ringtoneAudio = null;
   let tonePrimerAudio = null;
   let toneAudioPrimed = false;
+  let waitingToneAudio = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – התראות מערכת לשיחה נכנסת (Notification API) | HYPER CORE TECH
   let incomingCallNotification = null;
   let notificationPermissionLastRequestedAt = 0;
@@ -43,6 +45,27 @@
     doc.body.appendChild(audio);
     remoteAudioElement = audio;
     return audio;
+  }
+
+  // חלק שיחה ממתינה (chat-voice-call-ui.js) – צליל קצר במקום צלצול בעת שיחה פעילה | HYPER CORE TECH
+  function playWaitingTone() {
+    try {
+      if (!waitingToneAudio) {
+        waitingToneAudio = new Audio(WAITING_TONE_MP3_URL);
+        waitingToneAudio.preload = 'auto';
+        waitingToneAudio.volume = 0.55;
+      }
+      waitingToneAudio.currentTime = 0;
+      waitingToneAudio.play()?.catch(() => {});
+    } catch (_) {}
+  }
+  function stopWaitingTone() {
+    try {
+      if (waitingToneAudio) {
+        waitingToneAudio.pause();
+        waitingToneAudio.currentTime = 0;
+      }
+    } catch (_) {}
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – פורמט זמן שיחה
@@ -591,6 +614,42 @@
     showIncomingCallNotification(peerPubkey);
     // חלק שיחות קול (chat-voice-call-ui.js) – ניגון צלצול בצורה autoplay-safe (מחווה ראשונה אם צריך) | HYPER CORE TECH
     resumeOnUserGestureOnce(() => playRingtone());
+  };
+
+  // חלק שיחה ממתינה (chat-voice-call-ui.js) – התראה קצרה ללא צלצול מלא בזמן שיחה פעילה | HYPER CORE TECH
+  App.onVoiceCallWaiting = function(peerPubkey, offer) {
+    console.log('Call waiting from', peerPubkey.slice(0, 8));
+    const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
+    const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
+    const initials = contact?.initials || 'מש';
+    const picture = contact?.picture || '';
+
+    // צליל קצר
+    playWaitingTone();
+
+    // בנר/טוסט – הודעה קצרה
+    try {
+      const container = document.body;
+      const toast = document.createElement('div');
+      toast.className = 'voice-call-waiting-toast';
+      toast.innerHTML = `
+        <div class="voice-call-waiting-toast__avatar">
+          ${picture ? `<img src="${picture}" alt="${name}">` : `<span>${initials}</span>`}
+        </div>
+        <div class="voice-call-waiting-toast__text">
+          <strong>שיחה ממתינה</strong>
+          <span>${name}</span>
+        </div>
+      `;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('is-visible'));
+      setTimeout(() => {
+        toast.classList.remove('is-visible');
+        setTimeout(() => toast.remove(), 250);
+      }, 3200);
+    } catch (err) {
+      console.warn('call waiting toast failed', err);
+    }
   };
 
   App.onVoiceCallStarted = function(peerPubkey, isIncoming) {
