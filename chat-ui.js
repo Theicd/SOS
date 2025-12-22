@@ -883,6 +883,25 @@
             </a>
           `;
         }
+
+        // חלק פרוגרס הורדה/העלאה (chat-ui.js) – טבעת אחוזים בסגנון וואטסאפ | HYPER CORE TECH
+        const progressValue =
+          typeof a.progress === 'number'
+            ? a.progress
+            : typeof a.downloadProgress === 'number'
+              ? a.downloadProgress
+              : null;
+        const showProgress = progressValue !== null && progressValue < 1;
+        const progressPercent = showProgress ? Math.max(4, Math.round(progressValue * 100)) : 100;
+        const progressHtml = showProgress
+          ? `<div class="chat-attachment__progress" aria-label="התקדמות הורדה ${progressPercent}%">
+              <div class="chat-attachment__progress-ring" style="--p:${progressPercent}%"></div>
+              <span class="chat-attachment__progress-label">${progressPercent}%</span>
+            </div>`
+          : '';
+        if (attachmentHtml) {
+          attachmentHtml = `<div class="chat-attachment__wrap">${attachmentHtml}${progressHtml}</div>`;
+        }
       }
       
       // חלק YouTube (chat-ui.js) – זיהוי לינק YouTube בטקסט ההודעה | HYPER CORE TECH
