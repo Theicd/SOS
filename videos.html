@@ -27,6 +27,8 @@
     <link rel="stylesheet" href="./styles/chat-dialog.css">
     <link rel="stylesheet" href="./styles/chat-voice-call.css">
     <link rel="stylesheet" href="./styles/chat-video-call.css">
+    <!-- חלק עיצוב צ'אט משופר (videos.html) – נגן אודיו/מדיה וקומפוזר בסגנון וואטסאפ | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./chat-enhanced-styles.css">
     <link rel="stylesheet" href="./styles/market-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/videos.css">
@@ -1272,6 +1274,12 @@
     <script src="./chat-voice-call-ui.js" defer></script>
     <script src="./chat-video-call.js" defer></script>
     <script src="./chat-video-call-ui.js" defer></script>
+    <!-- חלק צ'אט משופר (videos.html) – העברת קבצים P2P, נגן אודיו, מדיה inline, אופטימיזציות וקומפוזר משופר | HYPER CORE TECH -->
+    <script src="./chat-p2p-file.js" defer></script>
+    <script src="./chat-audio-player.js" defer></script>
+    <script src="./chat-media-renderer.js" defer></script>
+    <script src="./chat-ui-optimizations.js" defer></script>
+    <script src="./chat-composer-enhanced.js" defer></script>
     <script src="./chat-ui.js" defer></script>
     <script src="./market-dashboard.js" defer></script>
     <script>
@@ -1292,6 +1300,28 @@
         }
         if (typeof App.refreshGrowthDashboard === 'function') {
           window.refreshGrowthDashboard = App.refreshGrowthDashboard;
+        }
+      });
+    </script>
+    <!-- חלק אתחול צ'אט משופר (videos.html) – קומפוזר, אירועים יעילים וטעינת תמונות עצלה | HYPER CORE TECH -->
+    <script>
+      window.addEventListener('DOMContentLoaded', function () {
+        const App = window.NostrApp || (window.NostrApp = {});
+        const composerEl = document.getElementById('chatComposer');
+        const messagesEl = document.getElementById('chatMessages');
+        const inputEl = document.getElementById('chatMessageInput');
+
+        if (composerEl && typeof App.createEnhancedComposer === 'function') {
+          App.createEnhancedComposer(composerEl);
+        }
+        if (messagesEl && typeof App.setupEfficientEventHandlers === 'function') {
+          App.setupEfficientEventHandlers(messagesEl);
+        }
+        if (typeof App.setupLazyLoading === 'function') {
+          window.chatImageObserver = App.setupLazyLoading();
+        }
+        if (inputEl && typeof App.optimizeMessageInput === 'function') {
+          App.optimizeMessageInput(inputEl);
         }
       });
     </script>

@@ -6,7 +6,8 @@
     return;
   }
 
-  const MAX_FILE_SIZE_BYTES = 60 * 1024;
+  const MAX_INLINE_SIZE_BYTES = 90 * 1024; // 90KB inline בהודעה
+  const MAX_P2P_SIZE_BYTES = 100 * 1024 * 1024; // 100MB דרך P2P
 
   let uiRefs = {
     fileButton: null,
@@ -43,7 +44,10 @@
       return;
     }
     uiRefs.filePreview.removeAttribute('hidden');
-    uiRefs.fileNameLabel.textContent = attachment.name || 'קובץ מצורף';
+    const sizeStr = attachment.size > 1024 * 1024 
+      ? `${(attachment.size / (1024 * 1024)).toFixed(1)}MB`
+      : `${(attachment.size / 1024).toFixed(0)}KB`;
+    uiRefs.fileNameLabel.textContent = `${attachment.name || 'קובץ מצורף'} (${sizeStr})`;
   }
 
   function ensurePeer() {
@@ -62,21 +66,47 @@
     if (!file) {
       return false;
     }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    if (file.size > MAX_P2P_SIZE_BYTES) {
       App.notifyChatFileTransferError?.({
         code: 'file-too-large',
-        message: 'הקובץ גדול מדי לשליחה בהודעה אחת (מעל ‎90KB‎).',
+        message: `הקובץ גדול מדי (מעל ${MAX_P2P_SIZE_BYTES / (1024 * 1024)}MB).`,
       });
       return false;
     }
     return true;
   }
 
-  function handleFileSelection(file) {
+  async function handleFileSelection(file) {
     const peer = ensurePeer();
     if (!peer || !validateFile(file)) {
       return;
     }
+    
+    // חלק קבצים גדולים (chat-file-transfer-ui.js) – שימוש ב-P2P לקבצים מעל 90KB | HYPER CORE TECH
+    if (file.size > MAX_INLINE_SIZE_BYTES) {
+      if (typeof App.sendP2PFile === 'function') {
+        const attachment = {
+          id: `${peer}-${Date.now()}`,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          isP2P: true,
+          file: file,
+          caption: uiRefs.getMessageDraft() || '',
+        };
+        App.setChatFileAttachment?.(peer, attachment);
+        renderPreview(attachment);
+        return;
+      } else {
+        App.notifyChatFileTransferError?.({
+          code: 'p2p-unavailable',
+          message: 'מערכת P2P לא זמינה. נסה קובץ קטן יותר.',
+        });
+        return;
+      }
+    }
+    
+    // חלק קבצים קטנים (chat-file-transfer-ui.js) – inline DataURL לקבצים עד 90KB | HYPER CORE TECH
     const reader = new FileReader();
     reader.onload = () => {
       const attachment = {
