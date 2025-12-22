@@ -71,6 +71,10 @@
       return [];
     }
 
+    const sinceTs = typeof App.commentLastSyncTs === 'number' && App.commentLastSyncTs > 0 && kind === 1
+      ? App.commentLastSyncTs
+      : undefined;
+
     const results = [];
     const batches = chunkArray(postIds, 40);
     for (const batch of batches) {
@@ -82,6 +86,9 @@
         },
         baseFilter,
       );
+      if (sinceTs) {
+        filter.since = sinceTs;
+      }
       try {
         const events = await listEventsThroughPool([filter]);
         if (Array.isArray(events) && events.length) {
@@ -170,6 +177,9 @@
       commentMap.set(event.id, event);
       if (event?.id && typeof event.created_at === 'number') {
         App.profileCommentTimeline.set(event.id, event);
+        if (event.created_at > (App.commentLastSyncTs || 0)) {
+          App.commentLastSyncTs = event.created_at;
+        }
       }
     });
   }

@@ -11,12 +11,119 @@
   App.notificationListeners = App.notificationListeners instanceof Set ? App.notificationListeners : new Set(); // חלק התרעות (feed.js) – מאזין ברמת ה-App לשינויים עבור ממשקים אחרים (למשל הצ'אט)
   App.feedAuthorProfiles = App.feedAuthorProfiles instanceof Map ? App.feedAuthorProfiles : new Map(); // חלק פרופילים משותף (feed.js) – מטמון קליל לשימוש חוזר בדפי צפייה בפרופיל
   App.authorProfiles = App.authorProfiles instanceof Map ? App.authorProfiles : new Map();
+  App.commentLastSyncTs = typeof App.commentLastSyncTs === 'number' ? App.commentLastSyncTs : 0; // חלק תגובות (feed.js) – חותמת סנכרון אחרונה לדלתא | HYPER CORE TECH
   if (typeof App.notificationsRestored !== 'boolean') {
     App.notificationsRestored = false; // חלק התרעות (feed.js) – מבטיח שנשחזר התרעות פעם אחת לאחר התחברות
   }
   // חלק שמירת state (feed.js) – שמירה על state של הפיד בין עמודים
   if (typeof App._homeFeedFirstBatchShown !== 'boolean') {
     App._homeFeedFirstBatchShown = false;
+  }
+
+  // חלק פרופילי מגיבים (feed.js) – TTL לאווטארים ופרופילים למניעת פניות חוזרות לריליי | HYPER CORE TECH
+  const AVATAR_CACHE_TTL_SECONDS = 86400;
+  function profileCacheKey(url) {
+    return url ? `avatar_cache_${btoa(url)}` : null;
+  }
+  function getCachedAvatar(url) {
+    const key = profileCacheKey(url);
+    if (!key) return '';
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return '';
+      const parsed = JSON.parse(raw);
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (!parsed?.dataUrl || !parsed?.ts || (nowSec - parsed.ts) > AVATAR_CACHE_TTL_SECONDS) {
+        return '';
+      }
+      return parsed.dataUrl;
+    } catch (_e) {
+      return '';
+    }
+  }
+  async function cacheAvatar(url) {
+    const key = profileCacheKey(url);
+    if (!key) return '';
+    const cached = getCachedAvatar(url);
+    if (cached) return cached;
+    try {
+      const res = await fetch(url, { credentials: 'omit' });
+      if (!res.ok) return '';
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result || '');
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      if (dataUrl) {
+        window.localStorage.setItem(key, JSON.stringify({ dataUrl, ts: Math.floor(Date.now() / 1000) }));
+      }
+      return dataUrl;
+    } catch (_e) {
+      return '';
+    }
+  }
+  async function fetchProfileWithAvatarCache(pubkey) {
+    const profile = await fetchProfile(pubkey);
+    if (profile?.picture) {
+      const cached = await cacheAvatar(profile.picture);
+      if (cached) {
+        profile.picture = cached;
+      }
+    }
+    return profile;
+  }
+
+  // חלק תגובות (feed.js) – קאש תגובות + lastSyncTs ב-localStorage | HYPER CORE TECH
+  function getCommentStorageKey() {
+    const pk = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    return pk ? `nostr_comments_${pk}` : null;
+  }
+  function restoreCommentsFromStorage() {
+    const key = getCommentStorageKey();
+    if (!key) return;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const byParent = parsed?.commentsByParent || {};
+      const syncTs = parsed?.lastSyncTs || 0;
+      Object.keys(byParent).forEach((parentId) => {
+        const arr = Array.isArray(byParent[parentId]) ? byParent[parentId] : [];
+        const map = new Map();
+        arr.forEach((c) => {
+          if (c?.id) {
+            map.set(c.id, c);
+            if (typeof c.created_at === 'number' && c.created_at > App.commentLastSyncTs) {
+              App.commentLastSyncTs = c.created_at;
+            }
+          }
+        });
+        App.commentsByParent.set(parentId, map);
+      });
+      if (typeof syncTs === 'number' && syncTs > App.commentLastSyncTs) {
+        App.commentLastSyncTs = syncTs;
+      }
+    } catch (err) {
+      console.warn('Restore comments cache failed', err);
+    }
+  }
+  function saveCommentsToStorage() {
+    const key = getCommentStorageKey();
+    if (!key) return;
+    const payload = { commentsByParent: {}, lastSyncTs: App.commentLastSyncTs || 0 };
+    App.commentsByParent.forEach((map, parentId) => {
+      if (!parentId || !(map instanceof Map)) return;
+      const arr = Array.from(map.values())
+        .sort((a, b) => (a.created_at || 0) - (b.created_at || 0)); // חלק תגובות – אין חיתוך היסטוריה, שומרים הכול לפי זמן
+      payload.commentsByParent[parentId] = arr;
+    });
+    try {
+      window.localStorage.setItem(key, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('Persist comments cache failed', err);
+    }
   }
 
   // חלק התרעות (feed.js) – גשר ל-notifications-state.js כדי להשתמש בקאש + lastSyncTs | HYPER CORE TECH
@@ -541,6 +648,9 @@
       // שמירה למניעת כפילות מנויים בעתיד
       toSubscribe.forEach((id) => App._likesSubscribedForIds.add(id));
 
+      // חלק תגובות (feed.js) – מפעיל גם מנוי תגובות דלתא לאותם פוסטים | HYPER CORE TECH
+      try { subscribeCommentsForPosts(toSubscribe); } catch (err) { console.warn('subscribeCommentsForPosts hook failed', err); }
+
       // נפרוס למנות של עד 50 מזהים כדי להימנע מפילטרים כבדים מדי
       const chunkSize = 50;
       for (let i = 0; i < toSubscribe.length; i += chunkSize) {
@@ -565,6 +675,49 @@
       }
     } catch (err) {
       console.warn('subscribeLikesForPosts outer failed', err);
+    }
+  }
+
+  // חלק תגובות (feed.js) – מנוי דלתא לתגובות לפי since=commentLastSyncTs | HYPER CORE TECH
+  function subscribeCommentsForPosts(postIds = []) {
+    try {
+      if (!Array.isArray(postIds) || postIds.length === 0 || !App.pool || !Array.isArray(App.relayUrls)) {
+        return;
+      }
+      if (!(App._commentsSubscribedForIds instanceof Set)) {
+        App._commentsSubscribedForIds = new Set();
+      }
+      const toSubscribe = postIds.filter((id) => typeof id === 'string' && id && !App._commentsSubscribedForIds.has(id));
+      if (toSubscribe.length === 0) return;
+      toSubscribe.forEach((id) => App._commentsSubscribedForIds.add(id));
+
+      const sinceTs = typeof App.commentLastSyncTs === 'number' && App.commentLastSyncTs > 0 ? App.commentLastSyncTs : undefined;
+      const chunkSize = 50;
+      for (let i = 0; i < toSubscribe.length; i += chunkSize) {
+        const chunk = toSubscribe.slice(i, i + chunkSize);
+        const filter = { kinds: [1], '#e': chunk, limit: 500 };
+        if (sinceTs) filter.since = sinceTs;
+        try {
+          const sub = App.pool.subscribeMany(App.relayUrls, [filter], {
+            onevent: (ev) => {
+              if (ev && ev.kind === 1) {
+                const parent = extractParentId(ev);
+                if (parent && chunk.includes(parent)) {
+                  registerComment(ev, parent);
+                }
+              }
+            },
+            oneose: () => {
+              try { sub?.close?.(); } catch (_) {}
+            },
+          });
+          setTimeout(() => { try { sub?.close?.(); } catch (_) {} }, 8000);
+        } catch (err) {
+          console.warn('subscribeCommentsForPosts chunk failed', err);
+        }
+      }
+    } catch (err) {
+      console.warn('subscribeCommentsForPosts outer failed', err);
     }
   }
 
@@ -2340,6 +2493,10 @@
     if (event?.id && event?.pubkey) {
       App.eventAuthorById.set(event.id, event.pubkey.toLowerCase());
     }
+    if (typeof event.created_at === 'number' && event.created_at > App.commentLastSyncTs) {
+      App.commentLastSyncTs = event.created_at;
+    }
+    saveCommentsToStorage();
     updateCommentsForParent(parentId);
     handleNotificationForComment(event, parentId);
   }
@@ -2380,7 +2537,7 @@
       const fragments = [];
       for (const comment of comments) {
         // eslint-disable-next-line no-await-in-loop
-        const commenterProfile = await fetchProfile(comment.pubkey);
+        const commenterProfile = await fetchProfileWithAvatarCache(comment.pubkey);
         const normalizedCommenter = typeof comment.pubkey === 'string' ? comment.pubkey.toLowerCase() : '';
         const commenterName = App.escapeHtml(commenterProfile.name || 'משתמש');
         const attrName = (commenterProfile.name || '').replace(/"/g, '&quot;');
