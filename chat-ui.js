@@ -959,6 +959,13 @@
     });
     elements.messagesContainer.appendChild(fragment);
     elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+
+    // חלק צ'אט (chat-ui.js) – הבטחת איפוס מונה לא נקראים כשצופים בשיחה בפועל | HYPER CORE TECH
+    const activeNormalized = (state.activeContact || '').toLowerCase();
+    const normalized = (peerPubkey || '').toLowerCase();
+    if (activeNormalized && normalized && activeNormalized === normalized && typeof App.markChatConversationRead === 'function') {
+      App.markChatConversationRead(normalized);
+    }
   }
 
   function showConversation(peerPubkey, contact) {
