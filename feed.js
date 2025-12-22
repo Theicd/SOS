@@ -19,6 +19,42 @@
     App._homeFeedFirstBatchShown = false;
   }
 
+  // חלק התרעות (feed.js) – גשר ל-notifications-state.js כדי להשתמש בקאש + lastSyncTs | HYPER CORE TECH
+  function syncNotificationsFromState(snapshot) {
+    const records = Array.isArray(snapshot) ? snapshot.slice() : [];
+    const map = new Map();
+    let unread = 0;
+    records.forEach((item) => {
+      if (!item?.id) return;
+      map.set(item.id, item);
+      if (!item.read) unread += 1;
+    });
+    App.notifications = records;
+    App.notificationsById = map;
+    App.unreadNotificationCount = unread;
+    refreshNotificationIndicators();
+  }
+
+  (function initNotificationsStateBridge() {
+    if (typeof App.getNotificationsSnapshot !== 'function' || typeof App.subscribeNotifications !== 'function') {
+      return;
+    }
+    try {
+      const snap = App.getNotificationsSnapshot();
+      syncNotificationsFromState(snap);
+    } catch (err) {
+      console.warn('Notifications bridge init failed (snapshot)', err);
+    }
+    try {
+      App._notificationsStateUnsub = App.subscribeNotifications((snapshot) => {
+        syncNotificationsFromState(snapshot);
+        renderNotificationList();
+      });
+    } catch (err) {
+      console.warn('Notifications bridge subscribe failed', err);
+    }
+  })();
+
   // חלק מובייל (feed.js) – התאמות פריסת כפתורי פעולה ותגובות בסגנון פייסבוק
   function applyMobilePostUiStyles() {
     try {
@@ -1870,7 +1906,11 @@
   }
 
   function markAllNotificationsRead(force = false) {
-    // חלק התרעות (feed.js) – מסמן את כל ההתרעות כנקראו ומעדכן את המונה והאחסון
+    // חלק התרעות (feed.js) – מפנה ל-notifications-state אם קיים, אחרת לוגיקה מקומית | HYPER CORE TECH
+    if (typeof App.markAllNotificationsRead === 'function' && App.markAllNotificationsRead !== markAllNotificationsRead) {
+      App.markAllNotificationsRead(force);
+      return;
+    }
     if (!Array.isArray(App.notifications) || App.notifications.length === 0) {
       App.unreadNotificationCount = 0;
       renderNotificationBadge();
@@ -1892,7 +1932,11 @@
   }
 
   function markNotificationRead(notificationId) {
-    // חלק התרעות (feed.js) – מסמן התרעה אחת כנקראה לצורך אינטראקציות נקודתיות (למשל מתוך הצ'אט)
+    // חלק התרעות (feed.js) – מפנה ל-notifications-state אם קיים, אחרת לוגיקה מקומית | HYPER CORE TECH
+    if (typeof App.markNotificationRead === 'function' && App.markNotificationRead !== markNotificationRead) {
+      App.markNotificationRead(notificationId);
+      return;
+    }
     if (!notificationId || !App.notificationsById?.has(notificationId)) {
       return;
     }
@@ -1990,21 +2034,29 @@
     renderNotificationList();
   }
 
-  App.getNotificationsSnapshot = getNotificationSnapshot;
-  App.subscribeNotifications = function subscribeNotifications(callback) {
-    if (typeof callback !== 'function') {
-      return () => {};
-    }
-    App.notificationListeners.add(callback);
-    try {
-      callback(getNotificationSnapshot());
-    } catch (err) {
-      console.warn('Notification immediate dispatch failed', err);
-    }
-    return () => App.notificationListeners.delete(callback);
-  };
-  App.markAllNotificationsRead = markAllNotificationsRead;
-  App.markNotificationRead = markNotificationRead;
+  if (typeof App.getNotificationsSnapshot !== 'function') {
+    App.getNotificationsSnapshot = getNotificationSnapshot;
+  }
+  if (typeof App.subscribeNotifications !== 'function') {
+    App.subscribeNotifications = function subscribeNotifications(callback) {
+      if (typeof callback !== 'function') {
+        return () => {};
+      }
+      App.notificationListeners.add(callback);
+      try {
+        callback(getNotificationSnapshot());
+      } catch (err) {
+        console.warn('Notification immediate dispatch failed', err);
+      }
+      return () => App.notificationListeners.delete(callback);
+    };
+  }
+  if (typeof App.markAllNotificationsRead !== 'function') {
+    App.markAllNotificationsRead = markAllNotificationsRead;
+  }
+  if (typeof App.markNotificationRead !== 'function') {
+    App.markNotificationRead = markNotificationRead;
+  }
   App.setupNotificationUI = setupNotificationUI;
   App.restoreNotificationsFromStorage = restoreNotificationsFromStorage;
 
