@@ -14,9 +14,10 @@
       unread: new Set(),
     },
     messageIndex: new Map(), // חלק צ'אט (chat-state.js) – שומר מפה מהירה מהודעה לשיחה לצורך מחיקה וניקוי כפילויות
+    lastSyncTs: 0, // חלק צ'אט (chat-state.js) – חותמת סנכרון אחרונה כדי לצמצם משיכה מריליי | HYPER CORE TECH
   };
 
-  const MAX_MESSAGES_PER_THREAD = 50;
+  const MAX_MESSAGES_PER_THREAD = null; // חלק צ'אט (chat-state.js) – מבטל קיצוץ הודעות (שומרים היסטוריה מלאה) | HYPER CORE TECH
 
   function getConversationKey(a, b) {
     if (!a || !b) return null;
@@ -59,6 +60,7 @@
           unreadCount: contact.unreadCount,
           // חלק צ'אט (chat-state.js) – שומר את חותמת הזמן של הקריאה האחרונה כדי למנוע ספירה מחדש של הודעות כלא נקראו
           lastReadTimestamp: contact.lastReadTimestamp || 0,
+          profileFetchedAt: contact.profileFetchedAt || 0,
         });
       });
       const conversationsArray = [];
@@ -73,6 +75,7 @@
         contacts: contactsArray,
         conversations: conversationsArray,
         deletedIds: Array.from(App.deletedChatMessageIds || []),
+        lastSyncTs: chatState.lastSyncTs || 0,
       };
       window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch (err) {
@@ -103,6 +106,7 @@
             lastMessage: contact.lastMessage || '',
             lastTimestamp: typeof contact.lastTimestamp === 'number' ? contact.lastTimestamp : 0,
             lastReadTimestamp: typeof contact.lastReadTimestamp === 'number' ? contact.lastReadTimestamp : 0,
+            profileFetchedAt: typeof contact.profileFetchedAt === 'number' ? contact.profileFetchedAt : 0,
           };
           chatState.contacts.set(key, restoredContact);
         });
@@ -112,7 +116,11 @@
           if (!entry || !entry.key || !entry.peer) {
             return;
           }
-          const messages = Array.isArray(entry.messages) ? entry.messages.slice(-MAX_MESSAGES_PER_THREAD) : [];
+          const messages = Array.isArray(entry.messages)
+            ? MAX_MESSAGES_PER_THREAD
+              ? entry.messages.slice(-MAX_MESSAGES_PER_THREAD)
+              : entry.messages
+            : [];
           chatState.conversations.set(entry.key, {
             peer: entry.peer.toLowerCase(),
             messages,
@@ -130,6 +138,9 @@
       }
       if (Array.isArray(parsed.deletedIds)) {
         App.deletedChatMessageIds = new Set(parsed.deletedIds.filter((id) => typeof id === 'string'));
+      }
+      if (typeof parsed.lastSyncTs === 'number') {
+        chatState.lastSyncTs = parsed.lastSyncTs;
       }
     } catch (err) {
       console.warn('Failed to restore chat state', err);
@@ -171,6 +182,9 @@
       if (profile.name) existing.name = profile.name;
       if (profile.picture) existing.picture = profile.picture;
       if (profile.initials) existing.initials = profile.initials;
+      if (profile.profileFetchedAt) existing.profileFetchedAt = profile.profileFetchedAt;
+      notify('contacts', getContactsSnapshot());
+      persistState();
       return existing;
     }
     const fallbackName = profile.name || 'משתמש';
@@ -184,6 +198,7 @@
       lastTimestamp: 0,
       unreadCount: 0,
       lastReadTimestamp: profile.lastReadTimestamp || 0,
+      profileFetchedAt: profile.profileFetchedAt || Math.floor(Date.now() / 1000),
     };
     chatState.contacts.set(normalized, contact);
     notify('contacts', getContactsSnapshot());
@@ -239,9 +254,6 @@
     }
     entry.messages.push(message);
     entry.messages.sort((a, b) => a.createdAt - b.createdAt);
-    if (entry.messages.length > MAX_MESSAGES_PER_THREAD) {
-      entry.messages.splice(0, entry.messages.length - MAX_MESSAGES_PER_THREAD);
-    }
     if (message?.id) {
       chatState.messageIndex.set(message.id, {
         peer: entry.peer,
@@ -352,6 +364,16 @@
     restoreState();
   }
 
+  function setLastSyncTs(ts) {
+    if (typeof ts !== 'number') return;
+    chatState.lastSyncTs = ts;
+    persistState();
+  }
+
+  function getLastSyncTs() {
+    return chatState.lastSyncTs || 0;
+  }
+
   Object.assign(App, {
     chatState,
     getConversationKey,
@@ -365,6 +387,8 @@
     getChatMessages: getConversationMessages,
     subscribeChat: subscribe,
     chatStorageKey: getStorageKey,
+    setChatLastSyncTs: setLastSyncTs,
+    getChatLastSyncTs: getLastSyncTs,
   });
 
   if (!App._chatStateBootstrapped) {

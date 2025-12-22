@@ -1,3 +1,59 @@
+  // חלק קאש תמונות (chat-service.js) – שמירת תמונות פרופיל ב-localStorage כ-DataURL כדי להימנע ממשיכות חוזרות | HYPER CORE TECH
+  function avatarCacheKey(url) {
+    return url ? `avatar_cache_${btoa(url)}` : null;
+  }
+
+  async function fetchAvatarAsDataUrl(url) {
+    if (!url) return '';
+    try {
+      const res = await fetch(url, { credentials: 'omit' });
+      if (!res.ok) return '';
+      const blob = await res.blob();
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result || '');
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn('avatar fetch failed', err);
+      return '';
+    }
+  }
+
+  async function getCachedAvatar(url) {
+    const key = avatarCacheKey(url);
+    if (!key) return '';
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return '';
+      const parsed = JSON.parse(raw);
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (!parsed?.dataUrl || !parsed?.ts || (nowSec - parsed.ts) > AVATAR_CACHE_TTL_SECONDS) {
+        return '';
+      }
+      return parsed.dataUrl;
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  async function cacheAvatar(url) {
+    const key = avatarCacheKey(url);
+    if (!key) return '';
+    const cached = await getCachedAvatar(url);
+    if (cached) return cached;
+    const dataUrl = await fetchAvatarAsDataUrl(url);
+    if (dataUrl) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify({ dataUrl, ts: Math.floor(Date.now() / 1000) }));
+      } catch (err) {
+        console.warn('avatar cache store failed', err);
+      }
+    }
+    return dataUrl;
+  }
+
 (function initChatService(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
@@ -5,6 +61,8 @@
   const CHAT_KIND = 1050;
   const CHAT_TAG = 'yalachat';
   const CONTACT_FETCH_LIMIT = 20;
+  const PROFILE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לפרופילים/תמונות כדי לצמצם פניות לריליי | HYPER CORE TECH
+  const AVATAR_CACHE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לקאש תמונות פרופיל | HYPER CORE TECH
 
   let poolReadyWarningShown = false;
   let isServiceReady = false;
@@ -157,20 +215,47 @@
   }
 
   async function resolveProfile(pubkey) {
+    const normalized = pubkey?.toLowerCase?.() || '';
+    const nowSec = Math.floor(Date.now() / 1000);
+    const ttl = PROFILE_TTL_SECONDS;
+
+    // חלק קאש פרופילים (chat-service.js) – מנסה להשתמש בפרופיל שמור עם TTL לפני פנייה לריליי | HYPER CORE TECH
+    const existing = App.chatState?.contacts?.get?.(normalized);
+    if (existing?.profileFetchedAt && (nowSec - existing.profileFetchedAt) < ttl) {
+      return { name: existing.name, picture: existing.picture, initials: existing.initials, profileFetchedAt: existing.profileFetchedAt };
+    }
+
     if (typeof App.fetchProfile === 'function') {
       try {
-        return await App.fetchProfile(pubkey);
+        const profile = await App.fetchProfile(pubkey);
+        if (profile) {
+          profile.profileFetchedAt = nowSec;
+          if (profile.picture) {
+            const cachedAvatar = await cacheAvatar(profile.picture);
+            if (cachedAvatar) {
+              profile.picture = cachedAvatar;
+            }
+          }
+        }
+        return profile;
       } catch (err) {
         console.warn('Chat profile fetch failed', err);
       }
     }
-    return null;
+    if (existing?.picture) {
+      const cachedAvatar = await cacheAvatar(existing.picture);
+      if (cachedAvatar) {
+        return { ...existing, picture: cachedAvatar };
+      }
+    }
+    return existing || null;
   }
 
   async function handleIncomingChatEvent(event) {
     if (!event || !event.pubkey) {
       return;
     }
+    const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);
     if (event.kind === 5) {
       handleIncomingDeletion(event);
       return;
@@ -199,7 +284,7 @@
     }
 
     const profile = normalizeProfileData(await resolveProfile(peerPubkey), peerPubkey);
-    App.ensureChatContact(peerPubkey, profile);
+    App.ensureChatContact(peerPubkey, { ...profile, profileFetchedAt: eventTs });
 
     const parsedPayload =
       typeof App.deserializeChatMessageContent === 'function'
@@ -216,11 +301,17 @@
       to: conversationTarget,
       content: parsedPayload.displayText || event.content,
       attachment: parsedPayload.attachment || null,
-      createdAt: event.created_at || Math.floor(Date.now() / 1000),
+      createdAt: eventTs,
       direction: isSelfMessage ? 'outgoing' : 'incoming',
     };
 
     App.appendChatMessage(normalizedMessage);
+    if (typeof App.setChatLastSyncTs === 'function') {
+      const currentSync = App.getChatLastSyncTs?.() || 0;
+      if (eventTs > currentSync) {
+        App.setChatLastSyncTs(eventTs);
+      }
+    }
   }
 
   function handleIncomingDeletion(event) {
@@ -249,6 +340,13 @@
     targets.forEach((messageId) => {
       App.removeChatMessage(peerPubkey, messageId);
     });
+    const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);
+    if (typeof App.setChatLastSyncTs === 'function') {
+      const currentSync = App.getChatLastSyncTs?.() || 0;
+      if (eventTs > currentSync) {
+        App.setChatLastSyncTs(eventTs);
+      }
+    }
     if (!isSelf && peerPubkey && actor) {
       App.deletedChatMessageIds?.forEach?.((id) => id);
     }
@@ -263,39 +361,28 @@
       return;
     }
 
+    const sinceTs = typeof App.getChatLastSyncTs === 'function' ? App.getChatLastSyncTs() : 0;
+    const baseFilter = (kinds, extra = {}) => {
+      const f = { kinds, limit: 200, ...extra };
+      if (sinceTs && Number.isFinite(sinceTs)) {
+        f.since = sinceTs;
+      }
+      return f;
+    };
+
     const filters = [
-      {
-        kinds: [CHAT_KIND],
-        '#p': [normalizedSelf],
-        '#t': [CHAT_TAG],
-        limit: 200,
-      },
-      {
-        kinds: [CHAT_KIND],
-        authors: [normalizedSelf],
-        '#t': [CHAT_TAG],
-        limit: 200,
-      },
-      {
-        kinds: [5],
-        authors: [normalizedSelf],
-        '#t': [CHAT_TAG],
-        limit: 200,
-      },
-      {
-        kinds: [5],
-        '#p': [normalizedSelf],
-        '#t': [CHAT_TAG],
-        limit: 200,
-      },
+      baseFilter([CHAT_KIND], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
+      baseFilter([CHAT_KIND], { authors: [normalizedSelf], '#t': [CHAT_TAG] }),
+      baseFilter([5], { authors: [normalizedSelf], '#t': [CHAT_TAG] }),
+      baseFilter([5], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
     ];
 
     if (App.NETWORK_TAG) {
       filters.push(
-        { kinds: [CHAT_KIND], '#t': [App.NETWORK_TAG], authors: [normalizedSelf], limit: 200 },
-        { kinds: [CHAT_KIND], '#t': [App.NETWORK_TAG], '#p': [normalizedSelf], limit: 200 },
-        { kinds: [5], '#t': [App.NETWORK_TAG], authors: [normalizedSelf], limit: 200 },
-        { kinds: [5], '#t': [App.NETWORK_TAG], '#p': [normalizedSelf], limit: 200 },
+        baseFilter([CHAT_KIND], { '#t': [App.NETWORK_TAG], authors: [normalizedSelf] }),
+        baseFilter([CHAT_KIND], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
+        baseFilter([5], { '#t': [App.NETWORK_TAG], authors: [normalizedSelf] }),
+        baseFilter([5], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
       );
     }
 
