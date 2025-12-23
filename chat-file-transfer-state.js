@@ -55,6 +55,10 @@
       addedAt: attachment.addedAt || Date.now(),
     });
     notify('change', { peer: normalized, attachment: cloneAttachment(attachments.get(normalized)) });
+    // חלק צ'אט (chat-file-transfer-state.js) – עדכון אייקון כפתור שליחה כשמצרפים קובץ | HYPER CORE TECH
+    if (typeof App.updateChatSendIcon === 'function') {
+      App.updateChatSendIcon();
+    }
   }
 
   function clearAttachment(peerPubkey) {
@@ -65,6 +69,10 @@
     const hadAttachment = attachments.delete(normalized);
     if (hadAttachment) {
       notify('change', { peer: normalized, attachment: null });
+      // חלק צ'אט (chat-file-transfer-state.js) – עדכון אייקון כפתור שליחה כשמסירים קובץ | HYPER CORE TECH
+      if (typeof App.updateChatSendIcon === 'function') {
+        App.updateChatSendIcon();
+      }
     }
   }
 

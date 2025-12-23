@@ -105,10 +105,18 @@
       }
     }
 
+    // חלק קול (chat-voice-ui.js) – בדיקת קובץ מצורף בנוסף לטקסט | HYPER CORE TECH
+    function hasFileAttachment(){
+      const peer = getActivePeer();
+      if (!peer) return false;
+      return typeof App.hasChatFileAttachment === 'function' && App.hasChatFileAttachment(peer);
+    }
+
     function updateSendIcon(){
       const hasText = !!(inputEl && inputEl.value.trim());
+      const hasFile = hasFileAttachment();
       if (isRecording) return; // נשלט ע"י מצב הקלטה
-      if (hasText){
+      if (hasText || hasFile){
         sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
         sendBtn.classList.remove('is-mic');
       } else {
@@ -120,16 +128,20 @@
     // שליטה בהתנהגות לחיצה על כפתור שליחה/מיקרופון
     sendBtn.addEventListener('click', (ev)=>{
       const hasText = !!(inputEl && inputEl.value.trim());
-      if (!hasText){
+      const hasFile = hasFileAttachment();
+      if (!hasText && !hasFile){
         ev.preventDefault();
         ev.stopPropagation();
         onMicClick();
       }
-      // אחרת – לתת לטופס לשלוח כרגיל
+      // אחרת – לתת לטופס לשלוח כרגיל (טקסט או קובץ)
     });
 
     inputEl?.addEventListener('input', updateSendIcon);
     updateSendIcon();
+    
+    // חלק קול (chat-voice-ui.js) – חשיפת עדכון אייקון לשימוש חיצוני | HYPER CORE TECH
+    App.updateChatSendIcon = updateSendIcon;
   }
 
   Object.assign(App, { initializeChatVoiceUI });

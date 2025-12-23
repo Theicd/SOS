@@ -95,6 +95,9 @@
         const previewUrl = URL.createObjectURL(file);
         const fileId = await App.sendP2PFile(peer, file, App.handleP2PProgressUpdate || undefined);
         log('שולח P2P', { peer, fileId, name: file.name, size: file.size });
+        // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview תחתון לקבצי P2P כי ההעברה כבר מתחילה | HYPER CORE TECH
+        // ה-progress bubble מוצג ב-messages container, אין צורך ב-preview נוסף
+        // נשמור את ה-attachment ב-state אבל לא נציג preview כפול
         const attachment = {
           id: `${peer}-${Date.now()}`,
           name: file.name,
@@ -105,9 +108,10 @@
           fileId,
           previewUrl,
           caption: uiRefs.getMessageDraft() || '',
+          transferStarted: true, // סימון שההעברה כבר התחילה
         };
         App.setChatFileAttachment?.(peer, attachment);
-        renderPreview(attachment);
+        // לא קוראים ל-renderPreview עבור P2P - ה-transfer bubble כבר מוצג
         return;
       } else {
         App.notifyChatFileTransferError?.({
