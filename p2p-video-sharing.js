@@ -1859,6 +1859,18 @@
         await handleFileResponse(senderPubkey, msg.data);
       } else if (msg.type === 'ice-candidate') {
         await handleIceCandidate(senderPubkey, msg.data);
+      } else if (msg.type === 'file-offer') {
+        // חלק P2P File Transfer (p2p-video-sharing.js) – ניתוב file-offer ל-chat-p2p-file.js | HYPER CORE TECH
+        log('info', `[P2P-FILE] 📥 התקבל file-offer מ-Relay`, {
+          from: senderPubkey?.slice?.(0, 12) + '...',
+          fileId: msg.data?.fileId || msg.fileId,
+          name: msg.data?.name || msg.name
+        });
+        if (typeof App.handleP2PFileOffer === 'function') {
+          await App.handleP2PFileOffer(senderPubkey, msg.data || msg);
+        } else {
+          log('warn', '[P2P-FILE] ⚠️ App.handleP2PFileOffer לא זמין');
+        }
       }
     } catch (err) {
       log('error', `❌ כשלון בעיבוד Relay Signal: ${err.message}`);
@@ -1866,6 +1878,33 @@
   }
 
   App.handleRelayedSignal = handleRelayedSignal;
+
+  // חלק P2P File Transfer (p2p-video-sharing.js) – עטיפה מאוחדת ל-sendP2PSignal שתומכת בשתי חתימות | HYPER CORE TECH
+  // חתימה 1: sendP2PSignal(peerPubkey, payload) – payload הוא אובייקט עם type בפנים
+  // חתימה 2: sendP2PSignal(peerPubkey, type, data) – type ו-data נפרדים
+  async function sendP2PSignal(peerPubkey, typeOrPayload, data) {
+    let type, payload;
+    if (typeof typeOrPayload === 'object' && typeOrPayload !== null) {
+      // חתימה 1: (peer, payload)
+      payload = typeOrPayload;
+      type = payload.type;
+      data = payload;
+    } else {
+      // חתימה 2: (peer, type, data)
+      type = typeOrPayload;
+      payload = { type, ...data };
+    }
+    
+    log('info', `[P2P-FILE] 📤 sendP2PSignal`, {
+      to: peerPubkey?.slice?.(0, 12) + '...',
+      type,
+      hasData: !!data
+    });
+    
+    return sendSignal(peerPubkey, type, data);
+  }
+  
+  App.sendP2PSignal = sendP2PSignal;
 
   // חלק P2P (p2p-video-sharing.js) – האזנה לסיגנלים (בקשות, תשובות ו-ICE)
   function listenForP2PSignals() {
@@ -1920,6 +1959,18 @@
               await handleFileResponse(event.pubkey, message.data);
             } else if (message.type === 'ice-candidate') {
               await handleIceCandidate(event.pubkey, message.data);
+            } else if (message.type === 'file-offer') {
+              // חלק P2P File Transfer (p2p-video-sharing.js) – ניתוב file-offer ל-chat-p2p-file.js | HYPER CORE TECH
+              log('info', `[P2P-FILE] 📥 התקבל file-offer מ-Nostr subscribe`, {
+                from: event.pubkey?.slice?.(0, 12) + '...',
+                fileId: message.data?.fileId || message.fileId,
+                name: message.data?.name || message.name
+              });
+              if (typeof App.handleP2PFileOffer === 'function') {
+                await App.handleP2PFileOffer(event.pubkey, message.data || message);
+              } else {
+                log('warn', '[P2P-FILE] ⚠️ App.handleP2PFileOffer לא זמין');
+              }
             }
 
           } catch (err) {
@@ -2884,6 +2935,9 @@
     _p2pSignalsSub: null,
     // חלק Peer Exchange – חשיפת קבצים זמינים | HYPER CORE TECH
     getAvailableFiles: () => state.availableFiles,
+    // חלק P2P File Transfer – חשיפת persistent connections לשימוש ב-chat-p2p-file.js | HYPER CORE TECH
+    getPersistentConnection: getPersistentConnection,
+    savePersistentConnection: savePersistentConnection,
     // חלק Network Tiers - API לסטטיסטיקות | HYPER CORE TECH
     getP2PStats: () => ({ 
       ...p2pStats,

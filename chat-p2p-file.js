@@ -129,10 +129,27 @@
   
   // חלק שליחה (chat-p2p-file.js) – שליחת קובץ בצ'אנקים מוצפנים | HYPER CORE TECH
   async function sendFile(peerPubkey, file, onProgress) {
-    console.log('[CHAT/P2P] sendFile start', peerPubkey?.slice?.(0,8), file?.name, file?.size);
+    console.log('[CHAT/P2P] 📤 sendFile start', {
+      peer: peerPubkey?.slice?.(0, 12) + '...',
+      name: file?.name,
+      size: file?.size,
+      type: file?.type
+    });
+    
     const fileId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const key = await generateFileKey();
     const keyStr = await exportFileKey(key);
+    
+    // בדיקת זמינות DataChannel לפני שליחה
+    const conn = typeof App.getPersistentConnection === 'function' 
+      ? App.getPersistentConnection(peerPubkey) 
+      : null;
+    const hasConnection = conn && conn.channel && conn.channel.readyState === 'open';
+    
+    console.log('[CHAT/P2P] 🔍 בדיקת חיבור', {
+      hasPersistentConnection: hasConnection,
+      channelState: conn?.channel?.readyState || 'none'
+    });
     
     // Send metadata first via encrypted relay message
     const metadata = {
@@ -145,16 +162,23 @@
       totalChunks: Math.ceil(file.size / CHUNK_SIZE)
     };
     
-    // TODO: Send metadata via NIP-04 encrypted message to peer
+    // שליחת metadata דרך signaling
     if (typeof App.sendP2PSignal === 'function') {
-      console.log('[CHAT/P2P] send metadata', metadata);
+      console.log('[CHAT/P2P] 📡 שולח file-offer metadata', {
+        fileId,
+        name: metadata.name,
+        totalChunks: metadata.totalChunks
+      });
       await App.sendP2PSignal(peerPubkey, metadata);
+    } else {
+      console.warn('[CHAT/P2P] ⚠️ App.sendP2PSignal לא זמין!');
     }
     
     const transfer = {
       fileId,
       file,
       key,
+      keyStr,
       peerPubkey,
       direction: 'send',
       currentChunk: 0,
@@ -165,6 +189,18 @@
     };
     
     activeTransfers.set(fileId, transfer);
+    
+    // עדכון UI על התחלת שליחה
+    notifyProgress({
+      fileId,
+      progress: 0,
+      status: 'starting',
+      direction: 'send',
+      name: file.name,
+      size: file.size,
+      mimeType: file.type,
+      peerPubkey
+    });
     
     // Start sending chunks
     await sendNextChunk(fileId, onProgress);
@@ -180,16 +216,39 @@
     
     if (currentChunk >= totalChunks) {
       // Transfer complete
-      console.log('[CHAT/P2P] Finalizing receive', fileId);
+      console.log('[CHAT/P2P] ✅ שליחת קובץ הושלמה', fileId);
       activeTransfers.delete(fileId);
       if (onProgress) onProgress({ fileId, progress: 1, status: 'complete' });
       notifyProgress({ fileId, progress: 1, status: 'complete', direction: 'send' });
       return;
     }
     
-    const channel = dataChannels.get(peerPubkey);
+    // חלק DataChannel (chat-p2p-file.js) – ניסיון להשתמש ב-persistent connection מ-p2p-video-sharing.js | HYPER CORE TECH
+    let channel = dataChannels.get(peerPubkey);
+    
+    // אם אין channel מקומי, ננסה לקבל מ-persistent connections
     if (!channel || channel.readyState !== 'open') {
-      console.warn('[CHAT/P2P] DataChannel not ready, fallback to Blossom');
+      const conn = typeof App.getPersistentConnection === 'function' 
+        ? App.getPersistentConnection(peerPubkey) 
+        : null;
+      
+      if (conn && conn.channel && conn.channel.readyState === 'open') {
+        console.log('[CHAT/P2P] 🔗 משתמש ב-persistent DataChannel לשליחה');
+        channel = conn.channel;
+        dataChannels.set(peerPubkey, channel);
+        
+        // הוספת handler להודעות נכנסות אם אין
+        if (!channel._p2pFileHandler) {
+          channel._p2pFileHandler = true;
+          channel.addEventListener('message', (event) => {
+            handleIncomingMessage(peerPubkey, event.data);
+          });
+        }
+      }
+    }
+    
+    if (!channel || channel.readyState !== 'open') {
+      console.warn('[CHAT/P2P] ⚠️ DataChannel not ready, fallback to Blossom');
       await fallbackToBlossom(transfer, onProgress);
       return;
     }
@@ -333,11 +392,278 @@
     }
   }
 
+  // חלק קבלת file-offer (chat-p2p-file.js) – טיפול בהצעת קובץ נכנסת מ-peer | HYPER CORE TECH
+  async function handleP2PFileOffer(senderPubkey, offerData) {
+    try {
+      const { fileId, name, size, mimeType, keyStr, totalChunks } = offerData || {};
+      
+      console.log('[CHAT/P2P] 📥 handleP2PFileOffer', {
+        from: senderPubkey?.slice?.(0, 12) + '...',
+        fileId,
+        name,
+        size,
+        totalChunks
+      });
+      
+      if (!fileId || !keyStr) {
+        console.warn('[CHAT/P2P] ⚠️ file-offer חסר fileId או keyStr');
+        return;
+      }
+      
+      // בדיקה אם כבר יש העברה פעילה עבור fileId זה
+      if (activeTransfers.has(fileId)) {
+        console.log('[CHAT/P2P] העברה כבר קיימת עבור fileId:', fileId);
+        return;
+      }
+      
+      // ייבוא מפתח ההצפנה
+      const key = await importFileKey(keyStr);
+      
+      // יצירת transfer state לקבלה
+      const transfer = {
+        fileId,
+        name,
+        size,
+        mimeType,
+        key,
+        keyStr,
+        peerPubkey: senderPubkey,
+        direction: 'receive',
+        totalChunks: totalChunks || Math.ceil(size / CHUNK_SIZE),
+        receivedChunks: 0,
+        chunks: [],
+        startTime: Date.now()
+      };
+      
+      activeTransfers.set(fileId, transfer);
+      
+      console.log('[CHAT/P2P] ✅ transfer state נוצר לקבלה', {
+        fileId,
+        name,
+        totalChunks: transfer.totalChunks
+      });
+      
+      // עדכון UI על התחלת קבלה
+      notifyProgress({
+        fileId,
+        progress: 0,
+        status: 'waiting',
+        direction: 'receive',
+        name,
+        size,
+        mimeType,
+        peerPubkey: senderPubkey
+      });
+      
+      // ניסיון להשיג DataChannel מ-p2p-video-sharing.js
+      const conn = typeof App.getPersistentConnection === 'function' 
+        ? App.getPersistentConnection(senderPubkey) 
+        : null;
+      
+      if (conn && conn.channel && conn.channel.readyState === 'open') {
+        console.log('[CHAT/P2P] 🔗 משתמש ב-persistent DataChannel לקבלת צ\'אנקים');
+        // שמירת ה-channel המקושר
+        dataChannels.set(senderPubkey, conn.channel);
+        
+        // הוספת handler להודעות נכנסות אם אין
+        if (!conn.channel._p2pFileHandler) {
+          conn.channel._p2pFileHandler = true;
+          conn.channel.addEventListener('message', (event) => {
+            handleIncomingMessage(senderPubkey, event.data);
+          });
+        }
+      } else {
+        console.log('[CHAT/P2P] ⚠️ אין persistent connection, מחכה לחיבור DataChannel');
+      }
+      
+    } catch (err) {
+      console.error('[CHAT/P2P] ❌ כשלון ב-handleP2PFileOffer:', err);
+    }
+  }
+
+  // חלק שמירת מצב (chat-p2p-file.js) – שמירת מצב העברה ל-IndexedDB לצורך resume | HYPER CORE TECH
+  async function saveTransferState(fileId, transfer) {
+    try {
+      // בדיקה אם יש SOS2MediaCache זמין
+      if (typeof App.SOS2MediaCache === 'undefined' || !App.SOS2MediaCache) {
+        console.log('[CHAT/P2P] IndexedDB cache לא זמין, דילוג על שמירה');
+        return;
+      }
+      
+      const stateToSave = {
+        fileId,
+        name: transfer.name,
+        size: transfer.size,
+        mimeType: transfer.mimeType,
+        keyStr: transfer.keyStr,
+        peerPubkey: transfer.peerPubkey,
+        direction: transfer.direction,
+        totalChunks: transfer.totalChunks,
+        receivedChunks: transfer.receivedChunks,
+        startTime: transfer.startTime,
+        lastUpdate: Date.now()
+      };
+      
+      console.log('[CHAT/P2P] 💾 שומר מצב העברה', { fileId, receivedChunks: transfer.receivedChunks });
+      
+      // שמירה ל-IndexedDB דרך media-cache אם זמין
+      if (typeof App.SOS2MediaCache.saveTransferState === 'function') {
+        await App.SOS2MediaCache.saveTransferState(fileId, stateToSave);
+      }
+    } catch (err) {
+      console.warn('[CHAT/P2P] ⚠️ כשלון בשמירת מצב העברה:', err);
+    }
+  }
+
+  // חלק סיום קבלה (chat-p2p-file.js) – הרכבת הקובץ ושמירה ל-cache | HYPER CORE TECH
+  async function finalizeReceive(fileId, transfer) {
+    try {
+      console.log('[CHAT/P2P] 🎉 מסיים קבלת קובץ', {
+        fileId,
+        name: transfer.name,
+        chunks: transfer.chunks.length,
+        totalSize: transfer.size
+      });
+      
+      // הרכבת כל הצ'אנקים ל-Blob
+      const blob = new Blob(transfer.chunks, { type: transfer.mimeType || 'application/octet-stream' });
+      
+      // שמירה ל-cache אם זמין
+      if (typeof App.SOS2MediaCache !== 'undefined' && App.SOS2MediaCache) {
+        try {
+          const url = URL.createObjectURL(blob);
+          const cacheKey = `p2p-file-${fileId}`;
+          
+          if (typeof App.SOS2MediaCache.put === 'function') {
+            await App.SOS2MediaCache.put(cacheKey, blob, {
+              name: transfer.name,
+              size: transfer.size,
+              mimeType: transfer.mimeType,
+              fileId,
+              peerPubkey: transfer.peerPubkey,
+              receivedAt: Date.now()
+            });
+            console.log('[CHAT/P2P] 💾 קובץ נשמר ב-cache', { cacheKey });
+          }
+          
+          // ניקוי transfer state מה-cache
+          if (typeof App.SOS2MediaCache.deleteTransferState === 'function') {
+            await App.SOS2MediaCache.deleteTransferState(fileId);
+          }
+        } catch (cacheErr) {
+          console.warn('[CHAT/P2P] ⚠️ כשלון בשמירה ל-cache:', cacheErr);
+        }
+      }
+      
+      // הסרת ההעברה מהרשימה הפעילה
+      activeTransfers.delete(fileId);
+      
+      // עדכון UI על סיום
+      notifyProgress({
+        fileId,
+        progress: 1,
+        status: 'complete',
+        direction: 'receive',
+        name: transfer.name,
+        size: transfer.size,
+        mimeType: transfer.mimeType,
+        peerPubkey: transfer.peerPubkey,
+        blob
+      });
+      
+      console.log('[CHAT/P2P] ✅ קבלת קובץ הושלמה בהצלחה!', { fileId, name: transfer.name });
+      
+    } catch (err) {
+      console.error('[CHAT/P2P] ❌ כשלון בסיום קבלה:', err);
+      notifyProgress({
+        fileId,
+        progress: 0,
+        status: 'failed',
+        direction: 'receive',
+        error: err.message
+      });
+    }
+  }
+
+  // חלק fallback (chat-p2p-file.js) – העלאה ל-Blossom כאשר P2P לא זמין | HYPER CORE TECH
+  async function fallbackToBlossom(transfer, onProgress) {
+    try {
+      console.log('[CHAT/P2P] 🔄 Fallback to Blossom upload', {
+        fileId: transfer.fileId,
+        name: transfer.file?.name,
+        size: transfer.file?.size
+      });
+      
+      // בדיקה אם יש פונקציית העלאה ל-Blossom
+      if (typeof App.uploadToBlossom !== 'function') {
+        console.warn('[CHAT/P2P] ⚠️ App.uploadToBlossom לא זמין');
+        notifyProgress({
+          fileId: transfer.fileId,
+          progress: 0,
+          status: 'failed',
+          direction: 'send',
+          error: 'Blossom upload not available'
+        });
+        return;
+      }
+      
+      // העלאה ל-Blossom
+      const result = await App.uploadToBlossom(transfer.file, (progress) => {
+        const progressPayload = {
+          fileId: transfer.fileId,
+          progress: progress,
+          status: 'uploading-blossom',
+          direction: 'send',
+          name: transfer.file?.name,
+          size: transfer.file?.size,
+          mimeType: transfer.file?.type,
+          peerPubkey: transfer.peerPubkey
+        };
+        if (onProgress) onProgress(progressPayload);
+        notifyProgress(progressPayload);
+      });
+      
+      if (result && result.url) {
+        console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { url: result.url });
+        
+        // עדכון סטטוס סיום
+        const completePayload = {
+          fileId: transfer.fileId,
+          progress: 1,
+          status: 'complete-blossom',
+          direction: 'send',
+          name: transfer.file?.name,
+          size: transfer.file?.size,
+          mimeType: transfer.file?.type,
+          peerPubkey: transfer.peerPubkey,
+          blossomUrl: result.url
+        };
+        if (onProgress) onProgress(completePayload);
+        notifyProgress(completePayload);
+      }
+      
+      // הסרת ההעברה מהרשימה
+      activeTransfers.delete(transfer.fileId);
+      
+    } catch (err) {
+      console.error('[CHAT/P2P] ❌ Blossom fallback failed:', err);
+      notifyProgress({
+        fileId: transfer.fileId,
+        progress: 0,
+        status: 'failed',
+        direction: 'send',
+        error: err.message
+      });
+      activeTransfers.delete(transfer.fileId);
+    }
+  }
+
   // חלק API ציבורי (chat-p2p-file.js) – חשיפת פונקציות להעברת קבצים | HYPER CORE TECH
   Object.assign(App, {
     sendP2PFile: sendFile,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
     activeP2PTransfers: activeTransfers,
+    handleP2PFileOffer: handleP2PFileOffer,
     subscribeP2PFileProgress: (cb) => {
       if (typeof cb === 'function') {
         progressListeners.add(cb);
