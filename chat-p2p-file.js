@@ -626,6 +626,32 @@
       if (result && result.url) {
         console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { url: result.url });
         
+        // חלק fallback (chat-p2p-file.js) – שליחת הודעת צ'אט עם קישור Blossom | HYPER CORE TECH
+        // שולחים את ה-URL כהודעת צ'אט לצד השני
+        try {
+          if (typeof App.publishChatMessage === 'function') {
+            // בניית הודעה עם קישור למדיה - פורמט שה-chat-media-renderer יודע לזהות
+            const mediaType = transfer.file?.type?.startsWith('video/') ? 'video' 
+              : transfer.file?.type?.startsWith('audio/') ? 'audio'
+              : transfer.file?.type?.startsWith('image/') ? 'image' 
+              : 'file';
+            
+            // שולחים את ה-URL כטקסט פשוט - ה-renderer יזהה אותו אוטומטית
+            const messageText = result.url;
+            
+            const publishResult = await App.publishChatMessage(transfer.peerPubkey, messageText);
+            if (publishResult?.ok) {
+              console.log('[CHAT/P2P] 📨 הודעת צ\'אט עם URL נשלחה', { peer: transfer.peerPubkey?.slice(0, 8), url: result.url });
+            } else {
+              console.warn('[CHAT/P2P] ⚠️ שליחת הודעה נכשלה:', publishResult?.error);
+            }
+          } else {
+            console.warn('[CHAT/P2P] ⚠️ App.publishChatMessage לא זמין');
+          }
+        } catch (msgErr) {
+          console.error('[CHAT/P2P] ❌ כשלון בשליחת הודעת צ\'אט:', msgErr);
+        }
+        
         // עדכון סטטוס סיום
         const completePayload = {
           fileId: transfer.fileId,
@@ -640,6 +666,12 @@
         };
         if (onProgress) onProgress(completePayload);
         notifyProgress(completePayload);
+        
+        // חלק fallback (chat-p2p-file.js) – ניקוי ה-attachment מה-state לאחר העלאה מוצלחת | HYPER CORE TECH
+        if (typeof App.clearChatFileAttachment === 'function') {
+          App.clearChatFileAttachment(transfer.peerPubkey);
+          console.log('[CHAT/P2P] 🧹 Attachment נוקה מה-state');
+        }
       }
       
       // הסרת ההעברה מהרשימה
