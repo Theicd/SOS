@@ -973,6 +973,62 @@
           `;
         }
       }
+      
+      // חלק זיהוי מדיה מ-URL (chat-ui.js) – זיהוי לינקי תמונה/וידאו בטקסט ההודעה כמו Blossom | HYPER CORE TECH
+      let mediaUrlHtml = '';
+      let isMediaUrl = false;
+      if (!a && !youtubeHtml && rawMessageContent) {
+        // בדיקה אם ההודעה היא URL בלבד (ללא טקסט נוסף)
+        const urlMatch = rawMessageContent.match(/^(https?:\/\/[^\s]+)$/i);
+        if (urlMatch) {
+          const mediaUrl = urlMatch[1];
+          const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
+          const VIDEO_EXTS = /\.(mp4|webm|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+          const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|webm|aac)(\?|$)/i;
+          
+          if (IMAGE_EXTS.test(mediaUrl)) {
+            // תמונה - מציג כתמונה עם lightbox
+            isMediaUrl = true;
+            mediaUrlHtml = `
+              <div class="chat-message__image-container">
+                <img 
+                  src="${mediaUrl}" 
+                  alt="תמונה" 
+                  class="chat-message__image"
+                  loading="lazy"
+                  decoding="async"
+                  referrerpolicy="no-referrer"
+                  onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox('${mediaUrl.replace(/'/g, "\\'")}','תמונה')"
+                />
+              </div>
+            `;
+          } else if (VIDEO_EXTS.test(mediaUrl)) {
+            // וידאו - מציג כנגן וידאו
+            isMediaUrl = true;
+            mediaUrlHtml = `
+              <div class="chat-message__video-container">
+                <video 
+                  class="chat-message__video"
+                  controls
+                  preload="metadata"
+                  playsinline
+                  aria-label="וידאו"
+                >
+                  <source src="${mediaUrl}" type="video/mp4">
+                  הדפדפן שלך לא תומך בהצגת וידאו.
+                </video>
+              </div>
+            `;
+          } else if (AUDIO_EXTS.test(mediaUrl)) {
+            // אודיו - נגן אודיו
+            isMediaUrl = true;
+            const fakeAttachment = { url: mediaUrl, type: 'audio/mpeg', name: 'הודעת קול' };
+            mediaUrlHtml = typeof App.createEnhancedAudioPlayer === 'function'
+              ? App.createEnhancedAudioPlayer(fakeAttachment)
+              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${mediaUrl}" type="audio/mpeg"></audio></div>`;
+          }
+        }
+      }
 
       item.className = `chat-message ${directionClass}`;
       const deleteButtonHtml = isOutgoing
@@ -985,9 +1041,29 @@
       // חלק צ'אט (chat-ui.js) – כאשר מצורף קובץ בלבד, לא מציגים שוב את הטקסט "📎 filename" כי הלינק מציג את השם
       const fileOnlyLabel = a && !isAudioAttachment ? `📎 ${a.name || 'קובץ מצורף'}` : '';
       const hideTextForFileOnly = !isAudioAttachment && !!attachmentHtml && rawMessageContent === fileOnlyLabel;
-      const textHtml = safeContent && !isAudioAttachment && !hideTextForFileOnly
-        ? `<span class="chat-message__text">${safeContent.replace(/\n/g, '<br>')}</span>`
-        : '';
+      // חלק מדיה URL (chat-ui.js) – מסתיר את הטקסט כשיש מדיה מ-URL | HYPER CORE TECH
+      const hideTextForMediaUrl = isMediaUrl && mediaUrlHtml;
+      
+      // חלק "המשך קריאה" (chat-ui.js) – קיצור הודעות ארוכות ל-10 שורות עם כפתור הרחבה | HYPER CORE TECH
+      let textHtml = '';
+      if (safeContent && !isAudioAttachment && !hideTextForFileOnly && !hideTextForMediaUrl) {
+        const lines = safeContent.split('\n');
+        const MAX_LINES = 10;
+        const isLongText = lines.length > MAX_LINES;
+        const truncatedContent = isLongText ? lines.slice(0, MAX_LINES).join('\n') : safeContent;
+        const fullContentEscaped = safeContent.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+        
+        if (isLongText) {
+          textHtml = `
+            <span class="chat-message__text chat-message__text--truncated" data-full-text="${fullContentEscaped}" onclick="App.copyMessageToClipboard && App.copyMessageToClipboard(this)">
+              ${truncatedContent.replace(/\n/g, '<br>')}
+              <span class="chat-message__read-more" onclick="event.stopPropagation(); App.expandMessageText && App.expandMessageText(this.parentElement)">להמשך קריאה...</span>
+            </span>
+          `;
+        } else {
+          textHtml = `<span class="chat-message__text" onclick="App.copyMessageToClipboard && App.copyMessageToClipboard(this)">${safeContent.replace(/\n/g, '<br>')}</span>`;
+        }
+      }
 
       // חלק צ'אט (chat-ui.js) – מצב קומפקטי בסגנון WhatsApp: הודעות קצרות עם שעה+פח על אותה שורה | HYPER CORE TECH
       const shouldCompactMeta =
@@ -1005,6 +1081,7 @@
           ${textHtml}
           ${attachmentHtml}
           ${youtubeHtml}
+          ${mediaUrlHtml}
           <div class="chat-message__meta-row">
             <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
             ${deleteButtonHtml}
@@ -1318,6 +1395,39 @@
   // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לקבלת המשתמש הפעיל בשיחה
   App.getActiveChatContact = function getActiveChatContact() {
     return state.activeContact;
+  };
+
+  // חלק העתקה ללוח (chat-ui.js) – העתקת טקסט הודעה ללוח בלחיצה | HYPER CORE TECH
+  App.copyMessageToClipboard = function copyMessageToClipboard(element) {
+    if (!element) return;
+    const fullText = element.getAttribute('data-full-text');
+    const textToCopy = fullText 
+      ? fullText.replace(/\\n/g, '\n').replace(/\\'/g, "'")
+      : element.innerText.replace('להמשך קריאה...', '').trim();
+    
+    if (!textToCopy) return;
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      // הצגת הודעה למשתמש
+      const toast = doc.createElement('div');
+      toast.className = 'chat-toast';
+      toast.textContent = 'הועתק ללוח!';
+      toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;z-index:10000;animation:fadeInOut 2s forwards;';
+      doc.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    }).catch(() => {});
+  };
+
+  // חלק הרחבת טקסט (chat-ui.js) – הרחבת הודעה ארוכה שנחתכה | HYPER CORE TECH
+  App.expandMessageText = function expandMessageText(element) {
+    if (!element) return;
+    const fullText = element.getAttribute('data-full-text');
+    if (!fullText) return;
+    
+    const expandedText = fullText.replace(/\\n/g, '<br>').replace(/\\'/g, "'");
+    element.innerHTML = expandedText;
+    element.classList.remove('chat-message__text--truncated');
+    element.onclick = function() { App.copyMessageToClipboard(this); };
   };
 
   initializeUI();

@@ -164,6 +164,24 @@
 @media (max-width: 768px) {
   .chat-transfer-bubble {
     padding: 10px 12px;
+    max-width: calc(100vw - 32px);
+    margin: 8px auto;
+    box-sizing: border-box;
+  }
+  
+  .chat-transfer-bubble__name {
+    max-width: 150px;
+    font-size: 13px;
+  }
+  
+  .chat-transfer-bubble__header {
+    gap: 8px;
+  }
+  
+  .chat-transfer-bubble__icon {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
   }
 }
 
@@ -588,5 +606,102 @@
   
   .chat-audio-enhanced {
     background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* חלק מדיה בהודעות (chat-enhanced-styles.css) – סגנון תמונות ווידאו בצ'אט כמו וואטסאפ | HYPER CORE TECH */
+.chat-message__image-container {
+  max-width: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 4px 0;
+}
+
+.chat-message__image {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.chat-message__video-container {
+  max-width: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 4px 0;
+  background: #000;
+}
+
+.chat-message__video {
+  width: 100%;
+  max-height: 300px;
+  display: block;
+  border-radius: 8px;
+}
+
+/* חלק YouTube (chat-enhanced-styles.css) – סגנון iframe YouTube | HYPER CORE TECH */
+.chat-message__youtube-container {
+  max-width: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 4px 0;
+  aspect-ratio: 16/9;
+}
+
+.chat-message__youtube-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+}
+
+/* חלק "המשך קריאה" (chat-enhanced-styles.css) – סגנון לינק הרחבה | HYPER CORE TECH */
+.chat-message__text {
+  cursor: pointer;
+}
+
+.chat-message__text--truncated {
+  position: relative;
+}
+
+.chat-message__read-more {
+  display: block;
+  color: #25D366;
+  font-weight: 500;
+  margin-top: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.chat-message__read-more:hover {
+  text-decoration: underline;
+}
+
+/* חלק toast (chat-enhanced-styles.css) – הודעת העתקה | HYPER CORE TECH */
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+
+.chat-toast {
+  pointer-events: none;
+}
+
+/* חלק מובייל מדיה (chat-enhanced-styles.css) – התאמת גדלי מדיה למובייל | HYPER CORE TECH */
+@media (max-width: 768px) {
+  .chat-message__image-container,
+  .chat-message__video-container,
+  .chat-message__youtube-container {
+    max-width: calc(100vw - 80px);
+  }
+  
+  .chat-message__image,
+  .chat-message__video {
+    max-height: 250px;
   }
 }
