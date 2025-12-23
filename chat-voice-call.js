@@ -36,6 +36,14 @@
     audioSessionTypeApplied: false,
   };
 
+  // חלק שיחות קול (chat-voice-call.js) – סגירה בטוחה של subscription (מוגדר מוקדם כדי להיות זמין לכל הפונקציות) | HYPER CORE TECH
+  function closeSubscriptionSafely(sub) {
+    if (!sub) return;
+    try { if (typeof sub.close === 'function') { sub.close(); return; } } catch {}
+    try { if (typeof sub.unsub === 'function') { sub.unsub(); return; } } catch {}
+    try { if (typeof sub.unsubscribe === 'function') { sub.unsubscribe(); } } catch {}
+  }
+
   async function publishCallMetric(durationSeconds, peerPubkey) {
     if (!App.pool || !App.publicKey || !App.privateKey) {
       return;

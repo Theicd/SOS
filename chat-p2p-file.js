@@ -607,24 +607,50 @@
         return;
       }
       
-      // העלאה ל-Blossom
-      const result = await App.uploadToBlossom(transfer.file, (progress) => {
-        const progressPayload = {
-          fileId: transfer.fileId,
-          progress: progress,
-          status: 'uploading-blossom',
-          direction: 'send',
-          name: transfer.file?.name,
-          size: transfer.file?.size,
-          mimeType: transfer.file?.type,
-          peerPubkey: transfer.peerPubkey
-        };
-        if (onProgress) onProgress(progressPayload);
-        notifyProgress(progressPayload);
+      // חלק fallback (chat-p2p-file.js) – עדכון progress לפני התחלת העלאה | HYPER CORE TECH
+      const uploadingPayload = {
+        fileId: transfer.fileId,
+        progress: 0.1,
+        status: 'uploading-blossom',
+        direction: 'send',
+        name: transfer.file?.name,
+        size: transfer.file?.size,
+        mimeType: transfer.file?.type,
+        peerPubkey: transfer.peerPubkey
+      };
+      if (onProgress) onProgress(uploadingPayload);
+      notifyProgress(uploadingPayload);
+      
+      // בדיקת תנאים נדרשים להעלאה
+      console.log('[CHAT/P2P] 🔍 בדיקת תנאים להעלאה:', {
+        hasPublicKey: !!App.publicKey,
+        hasPrivateKey: !!App.privateKey,
+        hasFinalizeEvent: typeof App.finalizeEvent === 'function',
+        fileSize: transfer.file?.size,
+        fileType: transfer.file?.type
       });
       
-      if (result && result.url) {
-        console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { url: result.url });
+      // העלאה ל-Blossom - הפונקציה מחזירה URL ישירות (לא object)
+      console.log('[CHAT/P2P] 📤 מתחיל העלאה ל-Blossom...');
+      let resultUrl;
+      try {
+        resultUrl = await App.uploadToBlossom(transfer.file);
+        console.log('[CHAT/P2P] 📤 תוצאת העלאה:', resultUrl);
+      } catch (uploadErr) {
+        console.error('[CHAT/P2P] ❌ שגיאה בהעלאה ל-Blossom:', uploadErr);
+        notifyProgress({
+          fileId: transfer.fileId,
+          progress: 0,
+          status: 'failed',
+          direction: 'send',
+          error: uploadErr.message || 'Upload failed'
+        });
+        activeTransfers.delete(transfer.fileId);
+        return;
+      }
+      
+      if (resultUrl && typeof resultUrl === 'string') {
+        console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { url: resultUrl });
         
         // חלק fallback (chat-p2p-file.js) – שליחת הודעת צ'אט עם קישור Blossom | HYPER CORE TECH
         // שולחים את ה-URL כהודעת צ'אט לצד השני
@@ -637,11 +663,11 @@
               : 'file';
             
             // שולחים את ה-URL כטקסט פשוט - ה-renderer יזהה אותו אוטומטית
-            const messageText = result.url;
+            const messageText = resultUrl;
             
             const publishResult = await App.publishChatMessage(transfer.peerPubkey, messageText);
             if (publishResult?.ok) {
-              console.log('[CHAT/P2P] 📨 הודעת צ\'אט עם URL נשלחה', { peer: transfer.peerPubkey?.slice(0, 8), url: result.url });
+              console.log('[CHAT/P2P] 📨 הודעת צ\'אט עם URL נשלחה', { peer: transfer.peerPubkey?.slice(0, 8), url: resultUrl });
             } else {
               console.warn('[CHAT/P2P] ⚠️ שליחת הודעה נכשלה:', publishResult?.error);
             }
@@ -662,7 +688,7 @@
           size: transfer.file?.size,
           mimeType: transfer.file?.type,
           peerPubkey: transfer.peerPubkey,
-          blossomUrl: result.url
+          blossomUrl: resultUrl
         };
         if (onProgress) onProgress(completePayload);
         notifyProgress(completePayload);

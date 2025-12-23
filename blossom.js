@@ -48,9 +48,48 @@
 
   // חלק העלאות (blossom.js) – ניסיון העלאה לכמה שרתים עד הצלחה
   async function uploadToBlossom(blob){
+    console.log('[BLOSSOM] uploadToBlossom called:', {
+      blobType: blob?.type,
+      blobSize: blob?.size,
+      isBlob: blob instanceof Blob,
+      isFile: blob instanceof File
+    });
+    
+    // בדיקת תנאים מוקדמת
+    if (!App.publicKey) {
+      console.error('[BLOSSOM] ❌ חסר publicKey');
+      throw new Error('missing-publicKey');
+    }
+    if (!App.privateKey) {
+      console.error('[BLOSSOM] ❌ חסר privateKey');
+      throw new Error('missing-privateKey');
+    }
+    if (typeof App.finalizeEvent !== 'function') {
+      console.error('[BLOSSOM] ❌ חסר finalizeEvent');
+      throw new Error('missing-finalizeEvent');
+    }
+    
     const servers = await getServers();
-    const hash = await sha256Hex(blob);
-    const auth = await createAuthEvent('upload', 'Upload media file', hash);
+    console.log('[BLOSSOM] servers:', servers.map(s => s.url));
+    
+    let hash;
+    try {
+      hash = await sha256Hex(blob);
+      console.log('[BLOSSOM] hash:', hash.slice(0, 16) + '...');
+    } catch (hashErr) {
+      console.error('[BLOSSOM] ❌ שגיאה בחישוב hash:', hashErr);
+      throw hashErr;
+    }
+    
+    let auth;
+    try {
+      auth = await createAuthEvent('upload', 'Upload media file', hash);
+      console.log('[BLOSSOM] auth event created');
+    } catch (authErr) {
+      console.error('[BLOSSOM] ❌ שגיאה ביצירת auth event:', authErr);
+      throw authErr;
+    }
+    
     const header = 'Nostr ' + btoa(JSON.stringify(auth));
     const errors = [];
     
