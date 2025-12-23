@@ -184,6 +184,11 @@
       return;
     }
     const attachment = App.getChatFileAttachment?.(normalized) || null;
+    // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview עבור קבצי P2P שההעברה כבר התחילה | HYPER CORE TECH
+    if (attachment?.isP2P && attachment?.transferStarted) {
+      renderPreview(null); // מסתיר preview כי ה-transfer bubble מוצג
+      return;
+    }
     renderPreview(attachment);
   }
 
@@ -208,6 +213,10 @@
       const activePeer = uiRefs.getActivePeer();
       if (peer !== activePeer) {
         return;
+      }
+      // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview עבור קבצי P2P שההעברה כבר התחילה | HYPER CORE TECH
+      if (attachment?.isP2P && attachment?.transferStarted) {
+        return; // ה-transfer bubble מוצג במקום
       }
       renderPreview(attachment);
     });
