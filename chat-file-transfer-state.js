@@ -20,6 +20,7 @@
     if (!attachment) {
       return null;
     }
+    // חלק צ'אט (chat-file-transfer-state.js) – כולל שדות P2P בהעתקה | HYPER CORE TECH
     return {
       id: attachment.id,
       name: attachment.name,
@@ -28,6 +29,9 @@
       dataUrl: attachment.dataUrl,
       addedAt: attachment.addedAt,
       caption: attachment.caption || '',
+      isP2P: attachment.isP2P || false,
+      transferStarted: attachment.transferStarted || false,
+      fileId: attachment.fileId || null,
     };
   }
 
