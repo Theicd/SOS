@@ -70,6 +70,11 @@
   function wireAudioPlayer(container) {
     if (!container) return;
     
+    // מניעת propagation על כל הקונטיינר כדי שלחיצות לא יסגרו את הצ'אט | HYPER CORE TECH
+    container.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
     const audio = container.querySelector('.chat-message__audio-el');
     const btn = container.querySelector('.chat-audio__play');
     const waveformCanvas = container.querySelector('.chat-audio__waveform');
@@ -154,7 +159,12 @@
       }
     };
     
-    btn.addEventListener('click', toggle);
+    // חלק לחיצה (chat-audio-player.js) – מניעת propagation כדי שלא יסגור את הצ'אט | HYPER CORE TECH
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      toggle();
+    });
     
     // חלק התקדמות (chat-audio-player.js) – עדכון פס התקדמות וזמן | HYPER CORE TECH
     audio.addEventListener('timeupdate', () => {
@@ -183,6 +193,8 @@
     // חלק seek (chat-audio-player.js) – קפיצה בפס התקדמות | HYPER CORE TECH
     if (waveformContainer) {
       waveformContainer.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         if (hasError) return;
         
         const rect = waveformContainer.getBoundingClientRect();

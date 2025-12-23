@@ -977,35 +977,38 @@
       // חלק זיהוי מדיה מ-URL (chat-ui.js) – זיהוי לינקי תמונה/וידאו בטקסט ההודעה כמו Blossom | HYPER CORE TECH
       let mediaUrlHtml = '';
       let isMediaUrl = false;
+      let remainingText = rawMessageContent;
       if (!a && !youtubeHtml && rawMessageContent) {
-        // בדיקה אם ההודעה היא URL בלבד (ללא טקסט נוסף)
-        const urlMatch = rawMessageContent.match(/^(https?:\/\/[^\s]+)$/i);
-        if (urlMatch) {
-          const mediaUrl = urlMatch[1];
-          const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-          const VIDEO_EXTS = /\.(mp4|webm|ogv|mov|avi|mkv|m4v)(\?|$)/i;
-          const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|webm|aac)(\?|$)/i;
-          
-          if (IMAGE_EXTS.test(mediaUrl)) {
-            // תמונה - מציג כתמונה עם lightbox
-            isMediaUrl = true;
-            mediaUrlHtml = `
+        const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
+        const VIDEO_EXTS = /\.(mp4|webm|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac)(\?|$)/i;
+        
+        // חיפוש כל ה-URLs בהודעה
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        const urls = rawMessageContent.match(urlRegex) || [];
+        const mediaItems = [];
+        
+        urls.forEach(url => {
+          if (IMAGE_EXTS.test(url)) {
+            // תמונה
+            mediaItems.push(`
               <div class="chat-message__image-container">
                 <img 
-                  src="${mediaUrl}" 
+                  src="${url}" 
                   alt="תמונה" 
                   class="chat-message__image"
                   loading="lazy"
                   decoding="async"
                   referrerpolicy="no-referrer"
-                  onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox('${mediaUrl.replace(/'/g, "\\'")}','תמונה')"
+                  onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox('${url.replace(/'/g, "\\'")}','תמונה')"
                 />
               </div>
-            `;
-          } else if (VIDEO_EXTS.test(mediaUrl)) {
-            // וידאו - מציג כנגן וידאו
+            `);
+            remainingText = remainingText.replace(url, '').trim();
             isMediaUrl = true;
-            mediaUrlHtml = `
+          } else if (VIDEO_EXTS.test(url)) {
+            // וידאו
+            mediaItems.push(`
               <div class="chat-message__video-container">
                 <video 
                   class="chat-message__video"
@@ -1014,20 +1017,24 @@
                   playsinline
                   aria-label="וידאו"
                 >
-                  <source src="${mediaUrl}" type="video/mp4">
-                  הדפדפן שלך לא תומך בהצגת וידאו.
+                  <source src="${url}" type="video/mp4">
                 </video>
               </div>
-            `;
-          } else if (AUDIO_EXTS.test(mediaUrl)) {
-            // אודיו - נגן אודיו
+            `);
+            remainingText = remainingText.replace(url, '').trim();
             isMediaUrl = true;
-            const fakeAttachment = { url: mediaUrl, type: 'audio/mpeg', name: 'הודעת קול' };
-            mediaUrlHtml = typeof App.createEnhancedAudioPlayer === 'function'
+          } else if (AUDIO_EXTS.test(url)) {
+            // אודיו
+            const fakeAttachment = { url: url, type: 'audio/mpeg', name: 'הודעת קול' };
+            mediaItems.push(typeof App.createEnhancedAudioPlayer === 'function'
               ? App.createEnhancedAudioPlayer(fakeAttachment)
-              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${mediaUrl}" type="audio/mpeg"></audio></div>`;
+              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${url}" type="audio/mpeg"></audio></div>`);
+            remainingText = remainingText.replace(url, '').trim();
+            isMediaUrl = true;
           }
-        }
+        });
+        
+        mediaUrlHtml = mediaItems.join('');
       }
 
       item.className = `chat-message ${directionClass}`;
@@ -1042,16 +1049,19 @@
       const fileOnlyLabel = a && !isAudioAttachment ? `📎 ${a.name || 'קובץ מצורף'}` : '';
       const hideTextForFileOnly = !isAudioAttachment && !!attachmentHtml && rawMessageContent === fileOnlyLabel;
       // חלק מדיה URL (chat-ui.js) – מסתיר את הטקסט כשיש מדיה מ-URL | HYPER CORE TECH
-      const hideTextForMediaUrl = isMediaUrl && mediaUrlHtml;
+      // אם יש URLs של מדיה, נציג רק את הטקסט הנותר (ללא ה-URLs)
+      const textToShow = isMediaUrl ? remainingText : rawMessageContent;
+      const safeTextToShow = App.escapeHtml ? App.escapeHtml(textToShow) : textToShow;
+      const hideTextForMediaUrl = isMediaUrl && !remainingText;
       
       // חלק "המשך קריאה" (chat-ui.js) – קיצור הודעות ארוכות ל-10 שורות עם כפתור הרחבה | HYPER CORE TECH
       let textHtml = '';
-      if (safeContent && !isAudioAttachment && !hideTextForFileOnly && !hideTextForMediaUrl) {
-        const lines = safeContent.split('\n');
+      if (safeTextToShow && !isAudioAttachment && !hideTextForFileOnly && !hideTextForMediaUrl) {
+        const lines = safeTextToShow.split('\n');
         const MAX_LINES = 10;
         const isLongText = lines.length > MAX_LINES;
-        const truncatedContent = isLongText ? lines.slice(0, MAX_LINES).join('\n') : safeContent;
-        const fullContentEscaped = safeContent.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+        const truncatedContent = isLongText ? lines.slice(0, MAX_LINES).join('\n') : safeTextToShow;
+        const fullContentEscaped = safeTextToShow.replace(/'/g, "\\'").replace(/\n/g, '\\n');
         
         if (isLongText) {
           textHtml = `
@@ -1061,7 +1071,7 @@
             </span>
           `;
         } else {
-          textHtml = `<span class="chat-message__text" onclick="App.copyMessageToClipboard && App.copyMessageToClipboard(this)">${safeContent.replace(/\n/g, '<br>')}</span>`;
+          textHtml = `<span class="chat-message__text" onclick="App.copyMessageToClipboard && App.copyMessageToClipboard(this)">${safeTextToShow.replace(/\n/g, '<br>')}</span>`;
         }
       }
 
