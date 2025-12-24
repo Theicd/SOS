@@ -478,18 +478,47 @@
       return { text: fallbackText, ts: fallbackTs };
     }
     let text = '';
-    if (typeof last.content === 'string' && last.content.trim()) {
-      text = last.content;
-    } else if (last.attachment) {
-      const name = typeof last.attachment.name === 'string' ? last.attachment.name : '';
-      if (name) {
-        text = name;
+    let isVoiceMessage = false;
+    
+    // חלק זיהוי הודעה קולית (chat-ui.js) – זיהוי הודעות קוליות לתצוגה בסגנון וואטסאפ | HYPER CORE TECH
+    if (last.attachment) {
+      const a = last.attachment;
+      const mime = String(a.type || '').toLowerCase();
+      const name = String(a.name || '').toLowerCase();
+      const url = String(a.url || a.dataUrl || '').toLowerCase();
+      const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
+      
+      // בדיקה אם זו הודעה קולית
+      isVoiceMessage = mime.startsWith('audio/') || 
+                       AUDIO_EXTS.test(name) || 
+                       AUDIO_EXTS.test(url) ||
+                       name.includes('voice') ||
+                       url.includes('voice');
+      
+      if (isVoiceMessage) {
+        // הודעה קולית בסגנון וואטסאפ: 🎤 הודעה קולית (0:15)
+        const dur = typeof a.duration === 'number' && a.duration > 0 ? a.duration : null;
+        const durationText = dur !== null 
+          ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})`
+          : '';
+        text = `🎤 הודעה קולית${durationText}`;
       } else {
-        const mime = String(last.attachment.type || '').toLowerCase();
-        text = mime.startsWith('audio/') ? 'הודעת קול' : 'קובץ מצורף';
+        // קובץ רגיל
+        text = typeof a.name === 'string' && a.name ? a.name : 'קובץ מצורף';
+      }
+    } else if (typeof last.content === 'string' && last.content.trim()) {
+      // בדיקה אם התוכן הוא URL של קובץ אודיו
+      const content = last.content.trim();
+      const AUDIO_URL = /https?:\/\/[^\s]+\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
+      if (AUDIO_URL.test(content)) {
+        text = '🎤 הודעה קולית';
+        isVoiceMessage = true;
+      } else {
+        text = content;
       }
     }
-    return { text: text || fallbackText, ts: lastTs || fallbackTs };
+    
+    return { text: text || fallbackText, ts: lastTs || fallbackTs, isVoiceMessage };
   }
 
   let chatEnableRetryHandle = null;
@@ -980,8 +1009,9 @@
       let remainingText = rawMessageContent;
       if (!a && !youtubeHtml && rawMessageContent) {
         const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-        const VIDEO_EXTS = /\.(mp4|webm|ogv|mov|avi|mkv|m4v)(\?|$)/i;
-        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac)(\?|$)/i;
+        // חלק זיהוי אודיו (chat-ui.js) – webm נחשב אודיו אם יש voice/audio בשם | HYPER CORE TECH
+        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac|webm)(\?|$)/i;
+        const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
         
         // חיפוש כל ה-URLs בהודעה
         const urlRegex = /(https?:\/\/[^\s]+)/gi;

@@ -150,77 +150,7 @@
         const rect = track.getBoundingClientRect();
         const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
         audio.currentTime = ratio * (audio.duration || 0);
-      }
-      audio.currentTime = 0;
-    });
-    
-    // חלק seek (chat-audio-player.js) – קפיצה בפס התקדמות | HYPER CORE TECH
-    if (waveformContainer) {
-      waveformContainer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (hasError) return;
-        
-        const rect = waveformContainer.getBoundingClientRect();
-        const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-        audio.currentTime = ratio * (audio.duration || 0);
       });
-      
-      // נגישות מקלדת
-      waveformContainer.setAttribute('role', 'slider');
-      waveformContainer.setAttribute('aria-label', 'מיקום בהודעה קולית');
-      waveformContainer.setAttribute('aria-valuemin', '0');
-      waveformContainer.setAttribute('aria-valuemax', '100');
-      waveformContainer.setAttribute('tabindex', '0');
-      
-      waveformContainer.addEventListener('keydown', (e) => {
-        if (hasError) return;
-        
-        let delta = 0;
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-          delta = 5; // 5 seconds forward
-          e.preventDefault();
-        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-          delta = -5; // 5 seconds backward
-          e.preventDefault();
-        } else if (e.key === 'Home') {
-          audio.currentTime = 0;
-          e.preventDefault();
-          return;
-        } else if (e.key === 'End') {
-          audio.currentTime = audio.duration || 0;
-          e.preventDefault();
-          return;
-        }
-        
-        if (delta !== 0) {
-          audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + delta));
-        }
-      });
-      
-      audio.addEventListener('timeupdate', () => {
-        const d = Math.max(1, audio.duration || 1);
-        const p = Math.round((audio.currentTime / d) * 100);
-        waveformContainer.setAttribute('aria-valuenow', String(p));
-      });
-    }
-    
-    // חלק ניקוי (chat-audio-player.js) – עצירה בעת הסרת אלמנט | HYPER CORE TECH
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.removedNodes.forEach((node) => {
-          if (node === container || node.contains(container)) {
-            if (!audio.paused) {
-              audio.pause();
-            }
-            observer.disconnect();
-          }
-        });
-      });
-    });
-    
-    if (container.parentElement) {
-      observer.observe(container.parentElement, { childList: true, subtree: true });
     }
   }
   
