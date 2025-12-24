@@ -381,7 +381,51 @@
       const contact = App.chatState?.contacts?.get(normalizedPeer);
       const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
       const picture = contact?.picture || '';
-      const snippet = typeof message === 'string' ? message : (message?.content || '');
+      
+      // חלק התראות מדיה (chat-ui.js) – עיצוב הודעת התראה לפי סוג מדיה בסגנון וואטסאפ | HYPER CORE TECH
+      const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
+      const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+      const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
+      
+      let snippet = '';
+      const content = typeof message === 'string' ? message : (message?.content || '');
+      const attachment = message?.attachment || null;
+      
+      if (attachment) {
+        const mime = String(attachment.type || '').toLowerCase();
+        const aName = String(attachment.name || '').toLowerCase();
+        const aUrl = String(attachment.url || attachment.dataUrl || '').toLowerCase();
+        
+        if (mime.startsWith('audio/') || AUDIO_EXTS.test(aName) || AUDIO_EXTS.test(aUrl) || aName.includes('voice') || aUrl.includes('voice')) {
+          const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
+          const durationText = dur !== null ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})` : '';
+          snippet = `🎤 הודעה קולית${durationText}`;
+        } else if (mime.startsWith('video/') || VIDEO_EXTS.test(aName) || VIDEO_EXTS.test(aUrl)) {
+          snippet = content ? `📹 ${content}` : '📹 וידאו';
+        } else if (mime.startsWith('image/') || IMAGE_EXTS.test(aName) || IMAGE_EXTS.test(aUrl)) {
+          snippet = content ? `📷 ${content}` : '📷 תמונה';
+        } else {
+          snippet = `📎 ${attachment.name || 'קובץ מצורף'}`;
+        }
+      } else if (content) {
+        const urlMatch = content.match(/(https?:\/\/[^\s]+)/i);
+        if (urlMatch) {
+          const url = urlMatch[0];
+          const remainingText = content.replace(url, '').trim();
+          if (AUDIO_EXTS.test(url)) {
+            snippet = '🎤 הודעה קולית';
+          } else if (VIDEO_EXTS.test(url)) {
+            snippet = remainingText ? `📹 ${remainingText}` : '📹 וידאו';
+          } else if (IMAGE_EXTS.test(url)) {
+            snippet = remainingText ? `📷 ${remainingText}` : '📷 תמונה';
+          } else {
+            snippet = content;
+          }
+        } else {
+          snippet = content;
+        }
+      }
+      
       const safeSnippet = snippet ? snippet.replace(/\s+/g, ' ').trim().slice(0, 120) : 'הודעה חדשה';
 
       const baseOptions = {
