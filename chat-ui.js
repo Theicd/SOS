@@ -477,48 +477,93 @@
     if (!last) {
       return { text: fallbackText, ts: fallbackTs };
     }
-    let text = '';
-    let isVoiceMessage = false;
     
-    // חלק זיהוי הודעה קולית (chat-ui.js) – זיהוי הודעות קוליות לתצוגה בסגנון וואטסאפ | HYPER CORE TECH
+    // חלק זיהוי מדיה (chat-ui.js) – זיהוי סוגי מדיה לתצוגה בסגנון וואטסאפ | HYPER CORE TECH
+    const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
+    const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+    const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
+    
+    // פונקציית עזר לזיהוי סוג מדיה
+    function detectMediaType(mime, name, url) {
+      mime = String(mime || '').toLowerCase();
+      name = String(name || '').toLowerCase();
+      url = String(url || '').toLowerCase();
+      
+      // אודיו/הודעה קולית
+      if (mime.startsWith('audio/') || AUDIO_EXTS.test(name) || AUDIO_EXTS.test(url) || 
+          name.includes('voice') || url.includes('voice')) {
+        return 'audio';
+      }
+      // וידאו
+      if (mime.startsWith('video/') || VIDEO_EXTS.test(name) || VIDEO_EXTS.test(url)) {
+        return 'video';
+      }
+      // תמונה
+      if (mime.startsWith('image/') || IMAGE_EXTS.test(name) || IMAGE_EXTS.test(url)) {
+        return 'image';
+      }
+      return 'file';
+    }
+    
+    // פונקציית עזר לזיהוי מדיה מ-URL בטקסט
+    function detectMediaFromUrl(url) {
+      if (AUDIO_EXTS.test(url)) return 'audio';
+      if (VIDEO_EXTS.test(url)) return 'video';
+      if (IMAGE_EXTS.test(url)) return 'image';
+      return null;
+    }
+    
+    let text = '';
+    let mediaIcon = '';
+    const content = typeof last.content === 'string' ? last.content.trim() : '';
+    
+    // בדיקת attachment
     if (last.attachment) {
       const a = last.attachment;
-      const mime = String(a.type || '').toLowerCase();
-      const name = String(a.name || '').toLowerCase();
-      const url = String(a.url || a.dataUrl || '').toLowerCase();
-      const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
+      const mediaType = detectMediaType(a.type, a.name, a.url || a.dataUrl);
       
-      // בדיקה אם זו הודעה קולית
-      isVoiceMessage = mime.startsWith('audio/') || 
-                       AUDIO_EXTS.test(name) || 
-                       AUDIO_EXTS.test(url) ||
-                       name.includes('voice') ||
-                       url.includes('voice');
-      
-      if (isVoiceMessage) {
-        // הודעה קולית בסגנון וואטסאפ: 🎤 הודעה קולית (0:15)
+      if (mediaType === 'audio') {
+        // הודעה קולית: 🎤 הודעה קולית (0:15)
         const dur = typeof a.duration === 'number' && a.duration > 0 ? a.duration : null;
         const durationText = dur !== null 
           ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})`
           : '';
         text = `🎤 הודעה קולית${durationText}`;
+      } else if (mediaType === 'video') {
+        // וידאו: 📹 וידאו או 📹 + טקסט
+        mediaIcon = '📹 ';
+        text = content ? mediaIcon + content : mediaIcon + 'וידאו';
+      } else if (mediaType === 'image') {
+        // תמונה: 📷 תמונה או 📷 + טקסט
+        mediaIcon = '📷 ';
+        text = content ? mediaIcon + content : mediaIcon + 'תמונה';
       } else {
-        // קובץ רגיל
-        text = typeof a.name === 'string' && a.name ? a.name : 'קובץ מצורף';
+        // קובץ רגיל: 📎 + שם קובץ
+        const fileName = typeof a.name === 'string' && a.name ? a.name : 'קובץ מצורף';
+        text = '📎 ' + fileName;
       }
-    } else if (typeof last.content === 'string' && last.content.trim()) {
-      // בדיקה אם התוכן הוא URL של קובץ אודיו
-      const content = last.content.trim();
-      const AUDIO_URL = /https?:\/\/[^\s]+\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
-      if (AUDIO_URL.test(content)) {
-        text = '🎤 הודעה קולית';
-        isVoiceMessage = true;
+    } else if (content) {
+      // בדיקה אם יש URL של מדיה בטקסט
+      const urlMatch = content.match(/(https?:\/\/[^\s]+)/i);
+      if (urlMatch) {
+        const mediaType = detectMediaFromUrl(urlMatch[0]);
+        const remainingText = content.replace(urlMatch[0], '').trim();
+        
+        if (mediaType === 'audio') {
+          text = '🎤 הודעה קולית';
+        } else if (mediaType === 'video') {
+          text = remainingText ? '📹 ' + remainingText : '📹 וידאו';
+        } else if (mediaType === 'image') {
+          text = remainingText ? '📷 ' + remainingText : '📷 תמונה';
+        } else {
+          text = content;
+        }
       } else {
         text = content;
       }
     }
     
-    return { text: text || fallbackText, ts: lastTs || fallbackTs, isVoiceMessage };
+    return { text: text || fallbackText, ts: lastTs || fallbackTs };
   }
 
   let chatEnableRetryHandle = null;
