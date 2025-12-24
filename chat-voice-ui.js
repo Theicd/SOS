@@ -57,6 +57,7 @@
     let isRecording = false;
     let tickHandle = null;
     let startedAt = 0;
+    let recordingBar = null;
 
     function setTimerVisible(v){
       if(v) timer.removeAttribute('hidden'); else timer.setAttribute('hidden','');
@@ -76,15 +77,29 @@
           tickHandle = setInterval(()=>{
             const sec = Math.round((Date.now()-startedAt)/1000);
             timer.textContent = formatTime(sec);
+            if (recordingBar?.setTime) recordingBar.setTime(sec);
           }, 500);
+          // פס הקלטה בסגנון וואטסאפ
+          recordingBar = typeof App.showRecordingIndicator === 'function'
+            ? App.showRecordingIndicator({
+                onStop: () => finalizeRecording(peer),
+                onCancel: () => cancelRecording()
+              })
+            : null;
         }catch(err){
           console.warn('voice start failed', err);
         }
         return;
       }
       // stop & attach
+      await finalizeRecording(peer);
+    }
+
+    async function finalizeRecording(peer){
       try{
         clearInterval(tickHandle); tickHandle = null;
+        recordingBar?.stop?.();
+        recordingBar = null;
         const result = await App.finalizeVoiceToChat?.(peer);
         isRecording = false;
         sendBtn.classList.remove('is-mic-recording');
@@ -103,6 +118,19 @@
         setTimerVisible(false);
         timer.textContent = '0:00';
       }
+    }
+
+    function cancelRecording(){
+      try{ clearInterval(tickHandle); }catch{}
+      tickHandle = null;
+      recordingBar?.stop?.();
+      recordingBar = null;
+      try{ App.cancelVoiceRecording?.(); }catch{}
+      isRecording = false;
+      sendBtn.classList.remove('is-mic-recording');
+      updateSendIcon();
+      setTimerVisible(false);
+      timer.textContent = '0:00';
     }
 
     // חלק קול (chat-voice-ui.js) – בדיקת קובץ מצורף בנוסף לטקסט | HYPER CORE TECH

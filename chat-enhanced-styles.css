@@ -277,64 +277,97 @@
   transform: scale(0.95);
 }
 
-/* חלק Recording Indicator (chat-enhanced-styles.css) – אינדיקטור הקלטה */
-.chat-recording-indicator {
+/* חלק Recording Bar (chat-enhanced-styles.css) – פס הקלטה בסגנון וואטסאפ עם כפתורי ביטול/עצירה/טיימר | HYPER CORE TECH */
+.chat-recording-bar {
   position: absolute;
-  top: -40px;
   left: 0;
   right: 0;
-  background: #fff3cd;
-  padding: 8px 16px;
+  bottom: 100%;
+  margin-bottom: 6px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  animation: slideDown 0.3s ease-out;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+  z-index: 20;
+  animation: slideDown 0.2s ease-out;
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.chat-recording-indicator__dot {
-  width: 8px;
-  height: 8px;
+.chat-recording-bar__center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-recording-bar__dot {
+  width: 10px;
+  height: 10px;
   background: #dc3545;
   border-radius: 50%;
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: pulseDot 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(220,53,69,0.35);
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.2);
-  }
+@keyframes pulseDot {
+  0% { box-shadow: 0 0 0 0 rgba(220,53,69,0.45); }
+  70% { box-shadow: 0 0 0 12px rgba(220,53,69,0); }
+  100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
 }
 
-.chat-recording-indicator__text {
-  font-size: 14px;
-  color: #856404;
-  font-weight: 500;
+.chat-recording-bar__label {
+  font-size: 13px;
+  color: #111b21;
+  font-weight: 600;
 }
 
-.chat-recording-indicator__time {
-  margin-right: auto;
-  font-size: 14px;
-  color: #856404;
+.chat-recording-bar__time {
   font-family: monospace;
+  font-size: 13px;
+  color: #111b21;
 }
+
+.chat-recording-bar__btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+}
+
+.chat-recording-bar__btn--cancel {
+  background: #f0f2f5;
+  color: #d32f2f;
+}
+
+.chat-recording-bar__btn--cancel:hover { background: #e6e8eb; }
+
+.chat-recording-bar__btn--stop {
+  background: #25d366;
+  color: #fff;
+}
+
+.chat-recording-bar__btn--stop:hover { background: #20bd5a; }
+
+.chat-recording-bar__btn:active { transform: scale(0.95); }
+
+.chat-recording-bar__btn i { pointer-events: none; }
 
 /* חלק Media Display (chat-enhanced-styles.css) – תצוגת מדיה משופרת */
 .chat-message__image-container {
