@@ -1,5 +1,139 @@
 /* חלק עיצוב משופר (chat-enhanced-styles.css) – סטיילים לצ'אט מתקדם בסגנון WhatsApp | HYPER CORE TECH */
 
+/* חלק ממשק הקלטה (chat-enhanced-styles.css) – ממשק הקלטת הודעה קולית בסגנון וואטסאפ | HYPER CORE TECH */
+.chat-voice-recording {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: linear-gradient(135deg, #075e54 0%, #128c7e 100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  z-index: 100;
+  border-radius: 0 0 12px 12px;
+}
+
+.chat-voice-recording[hidden] {
+  display: none !important;
+}
+
+.chat-voice-recording__delete {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ff6b6b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.chat-voice-recording__delete:hover {
+  background: rgba(255, 107, 107, 0.3);
+}
+
+.chat-voice-recording__delete:active {
+  transform: scale(0.95);
+}
+
+.chat-voice-recording__waveform {
+  flex: 1;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 0 12px;
+}
+
+.chat-voice-recording__bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+}
+
+.chat-voice-recording__bars span {
+  width: 3px;
+  height: 30%;
+  background: #25D366;
+  border-radius: 2px;
+  transition: height 0.1s ease;
+}
+
+.chat-voice-recording__timer {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  font-family: monospace;
+  min-width: 45px;
+  text-align: center;
+}
+
+.chat-voice-recording__send {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: #25D366;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.chat-voice-recording__send:hover {
+  background: #20bd5a;
+}
+
+.chat-voice-recording__send:active {
+  transform: scale(0.95);
+}
+
+/* חלק אינדיקטור שליחה (chat-enhanced-styles.css) – סימן טעינה בזמן שליחת הודעה קולית | HYPER CORE TECH */
+.chat-message--sending {
+  opacity: 0.7;
+}
+
+.chat-message__sending-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+}
+
+.chat-message__sending-indicator i {
+  font-size: 16px;
+  color: #25D366;
+}
+
+/* חלק מצב הקלטה (chat-enhanced-styles.css) – הסתרת שאר האלמנטים בזמן הקלטה | HYPER CORE TECH */
+.chat-composer--recording .chat-composer__field,
+.chat-composer--recording .chat-composer__actions,
+.chat-composer--recording form > *:not(.chat-voice-recording) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-composer--recording {
+  position: relative;
+}
+
 /* חלק Composer Actions (chat-enhanced-styles.css) – כפתורי פעולה בפס התחתון */
 .chat-composer__actions {
   display: flex;
@@ -277,97 +411,64 @@
   transform: scale(0.95);
 }
 
-/* חלק Recording Bar (chat-enhanced-styles.css) – פס הקלטה בסגנון וואטסאפ עם כפתורי ביטול/עצירה/טיימר | HYPER CORE TECH */
-.chat-recording-bar {
+/* חלק Recording Indicator (chat-enhanced-styles.css) – אינדיקטור הקלטה */
+.chat-recording-indicator {
   position: absolute;
+  top: -40px;
   left: 0;
   right: 0;
-  bottom: 100%;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 14px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
-  z-index: 20;
-  animation: slideDown 0.2s ease-out;
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.chat-recording-bar__center {
+  background: #fff3cd;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  min-width: 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.3s ease-out;
 }
 
-.chat-recording-bar__dot {
-  width: 10px;
-  height: 10px;
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-recording-indicator__dot {
+  width: 8px;
+  height: 8px;
   background: #dc3545;
   border-radius: 50%;
-  animation: pulseDot 1.4s ease-in-out infinite;
-  box-shadow: 0 0 0 0 rgba(220,53,69,0.35);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulseDot {
-  0% { box-shadow: 0 0 0 0 rgba(220,53,69,0.45); }
-  70% { box-shadow: 0 0 0 12px rgba(220,53,69,0); }
-  100% { box-shadow: 0 0 0 0 rgba(220,53,69,0); }
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
 }
 
-.chat-recording-bar__label {
-  font-size: 13px;
-  color: #111b21;
-  font-weight: 600;
+.chat-recording-indicator__text {
+  font-size: 14px;
+  color: #856404;
+  font-weight: 500;
 }
 
-.chat-recording-bar__time {
+.chat-recording-indicator__time {
+  margin-right: auto;
+  font-size: 14px;
+  color: #856404;
   font-family: monospace;
-  font-size: 13px;
-  color: #111b21;
 }
-
-.chat-recording-bar__btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  cursor: pointer;
-  transition: transform 0.1s, background 0.2s;
-}
-
-.chat-recording-bar__btn--cancel {
-  background: #f0f2f5;
-  color: #d32f2f;
-}
-
-.chat-recording-bar__btn--cancel:hover { background: #e6e8eb; }
-
-.chat-recording-bar__btn--stop {
-  background: #25d366;
-  color: #fff;
-}
-
-.chat-recording-bar__btn--stop:hover { background: #20bd5a; }
-
-.chat-recording-bar__btn:active { transform: scale(0.95); }
-
-.chat-recording-bar__btn i { pointer-events: none; }
 
 /* חלק Media Display (chat-enhanced-styles.css) – תצוגת מדיה משופרת */
 .chat-message__image-container {
@@ -503,11 +604,95 @@
 /* חלק Audio Player Enhanced (chat-enhanced-styles.css) – נגן אודיו משופר כמו וואטסאפ | HYPER CORE TECH */
 .chat-audio-enhanced {
   background: transparent;
-  border-radius: 8px;
-  padding: 4px 0;
+  padding: 0;
   margin: 2px 0;
 }
 
+/* חלק נגן וואטסאפ (chat-enhanced-styles.css) – עיצוב נגן הודעות קוליות כמו וואטסאפ | HYPER CORE TECH */
+.chat-audio-whatsapp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  min-width: 180px;
+  max-width: 260px;
+}
+
+.chat-audio-whatsapp__play {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #25D366;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: transform 0.1s, background 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.chat-audio-whatsapp__play:hover {
+  background: #20bd5a;
+  transform: scale(1.05);
+}
+
+.chat-audio-whatsapp__play:active {
+  transform: scale(0.95);
+}
+
+.chat-audio-whatsapp__play i {
+  pointer-events: none;
+}
+
+.chat-audio-whatsapp__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-audio-whatsapp__track {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.chat-audio-whatsapp__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #25D366;
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+.chat-audio-whatsapp__seeker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.chat-audio-whatsapp__time {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: monospace;
+}
+
+/* תמיכה בנגן ישן לתאימות אחורה */
 .chat-audio {
   display: flex;
   align-items: center;

@@ -4,7 +4,7 @@
   // חלק קול (chat-voice-service.js) – הקלטת קול בדפדפן, דחיסה ל-webm, העלאה ל-Blossom עם Fallback, ושילוב כמצורף בצ'אט
   // הערות: הקובץ קצר (<350 שורות) ומסביר לעצמו. שייך למודול SOS2 צ'אט קול.
 
-  const MAX_INLINE_BYTES = 48 * 1024; // שמרני עוד יותר כדי לא לעבור מגבלת event (נמוך מ-65KB של Nostr) | HYPER CORE TECH
+  const MAX_INLINE_BYTES = 90 * 1024; // שמרני כדי לא לעבור מגבלות הודעה
   const MAX_SECONDS = 60; // בדומה ל-yakbak
 
   let recorder = null;
@@ -29,16 +29,6 @@
 
   function stopTracks(){
     try{ recorder?.stream?.getTracks?.().forEach(t=>t.stop()); }catch{}
-  }
-
-  // חלק ביטול הקלטה (chat-voice-service.js) – עצירת הקלטה בלי שליחה | HYPER CORE TECH
-  function cancelVoiceRecording(){
-    if(!recorder){ return; }
-    try{ recorder.stop(); }catch{}
-    stopTracks();
-    recorder = null;
-    chunks = [];
-    startedAt = 0;
   }
 
   async function stopVoiceRecording(){

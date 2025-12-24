@@ -1440,6 +1440,41 @@
     element.onclick = function() { App.copyMessageToClipboard(this); };
   };
 
+  // חלק אינדיקטור שליחה (chat-ui.js) – הצגת סימן טעינה בזמן שליחת הודעה קולית | HYPER CORE TECH
+  const voiceSendingIndicators = new Map();
+  
+  App.showVoiceSendingIndicator = function showVoiceSendingIndicator(peer, loadingId) {
+    if (!elements.messagesContainer || !peer) return;
+    
+    const indicator = doc.createElement('div');
+    indicator.className = 'chat-message chat-message--outgoing chat-message--sending';
+    indicator.id = loadingId;
+    indicator.innerHTML = `
+      <div class="chat-message__content">
+        <div class="chat-message__sending-indicator">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <span>שולח הודעה קולית...</span>
+        </div>
+        <div class="chat-message__meta-row">
+          <span class="chat-message__meta">
+            <i class="fa-solid fa-clock"></i>
+          </span>
+        </div>
+      </div>
+    `;
+    elements.messagesContainer.appendChild(indicator);
+    elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+    voiceSendingIndicators.set(loadingId, indicator);
+  };
+  
+  App.hideVoiceSendingIndicator = function hideVoiceSendingIndicator(loadingId) {
+    const indicator = voiceSendingIndicators.get(loadingId);
+    if (indicator && indicator.parentElement) {
+      indicator.remove();
+    }
+    voiceSendingIndicators.delete(loadingId);
+  };
+
   initializeUI();
   togglePanel(false);
   ensureChatEnabled();

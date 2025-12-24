@@ -192,40 +192,24 @@
   }
   
   // חלק הקלטה (chat-composer-enhanced.js) – אינדיקטור הקלטה | HYPER CORE TECH
-  // חלק אינדיקציית הקלטה משודרגת (chat-composer-enhanced.js) – פס תחתון בסגנון וואטסאפ עם כפתורי ביטול/עצירה/שליחה | HYPER CORE TECH
-  function showRecordingIndicator(options = {}) {
-    if (!composerState.composerElement) return null;
-    const { onStop, onCancel } = options;
+  function showRecordingIndicator() {
+    if (!composerState.composerElement) return;
     
-    // אם יש כבר פס הקלטה קיים – להסירו
-    composerState.composerElement.querySelector('.chat-recording-bar')?.remove();
-    
-    const bar = doc.createElement('div');
-    bar.className = 'chat-recording-bar';
-    bar.innerHTML = `
-      <button type="button" class="chat-recording-bar__btn chat-recording-bar__btn--cancel" aria-label="בטל הקלטה">
-        <i class="fa-solid fa-trash"></i>
-      </button>
-      <div class="chat-recording-bar__center">
-        <div class="chat-recording-bar__dot"></div>
-        <span class="chat-recording-bar__label">מקליט...</span>
-        <span class="chat-recording-bar__time">0:00</span>
-      </div>
-      <button type="button" class="chat-recording-bar__btn chat-recording-bar__btn--stop" aria-label="עצור ושלח">
-        <i class="fa-solid fa-stop"></i>
-      </button>
+    const indicator = doc.createElement('div');
+    indicator.className = 'chat-recording-indicator';
+    indicator.innerHTML = `
+      <div class="chat-recording-indicator__dot"></div>
+      <span class="chat-recording-indicator__text">מקליט...</span>
+      <span class="chat-recording-indicator__time">0:00</span>
     `;
     
-    composerState.composerElement.appendChild(bar);
+    composerState.composerElement.appendChild(indicator);
     composerState.isRecording = true;
-    
-    const timeEl = bar.querySelector('.chat-recording-bar__time');
-    const stopBtn = bar.querySelector('.chat-recording-bar__btn--stop');
-    const cancelBtn = bar.querySelector('.chat-recording-bar__btn--cancel');
     
     let seconds = 0;
     const timer = setInterval(() => {
       seconds++;
+      const timeEl = indicator.querySelector('.chat-recording-indicator__time');
       if (timeEl) {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -233,33 +217,11 @@
       }
     }, 1000);
     
-    const stopAll = () => {
-      clearInterval(timer);
-      bar.remove();
-      composerState.isRecording = false;
-    };
-    
-    stopBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      if (typeof onStop === 'function') onStop();
-    });
-    
-    cancelBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      if (typeof onCancel === 'function') onCancel();
-    });
-    
     return {
-      stop: stopAll,
-      setTime: (sec) => {
-        seconds = Math.max(0, Math.floor(sec));
-        if (timeEl) {
-          const mins = Math.floor(seconds / 60);
-          const secs = seconds % 60;
-          timeEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
-        }
+      stop: () => {
+        clearInterval(timer);
+        indicator.remove();
+        composerState.isRecording = false;
       }
     };
   }

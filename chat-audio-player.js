@@ -2,7 +2,7 @@
 (function initChatAudioPlayer(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   
-  // חלק עיצוב (chat-audio-player.js) – HTML משודרג לנגן אודיו | HYPER CORE TECH
+  // חלק עיצוב (chat-audio-player.js) – HTML משודרג לנגן אודיו בסגנון וואטסאפ | HYPER CORE TECH
   function createEnhancedAudioPlayer(attachment) {
     const src = attachment.url || attachment.dataUrl || '';
     const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
@@ -13,25 +13,16 @@
     return `
       <div class="chat-message__audio chat-audio-enhanced" data-audio>
         <audio preload="metadata" class="chat-message__audio-el" src="${src}" type="${attachment.type || 'audio/webm'}"></audio>
-        <div class="chat-audio">
-          <button type="button" class="chat-audio__play" aria-label="נגן הודעה קולית" role="button">
+        <div class="chat-audio-whatsapp">
+          <button type="button" class="chat-audio-whatsapp__play" aria-label="נגן הודעה קולית">
             <i class="fa-solid fa-play"></i>
           </button>
-          <div class="chat-audio__waveform-container">
-            <canvas class="chat-audio__waveform" width="200" height="40" aria-hidden="true"></canvas>
-            <div class="chat-audio__progress-overlay" style="width:0%"></div>
-          </div>
-          <div class="chat-audio__time-group">
-            <span class="chat-audio__time chat-audio__time--current" aria-live="off">0:00</span>
-            <span class="chat-audio__time-separator">/</span>
-            <span class="chat-audio__time chat-audio__time--total">${durationLabel}</span>
-          </div>
-          <div class="chat-audio__loading" hidden aria-label="טוען...">
-            <i class="fa-solid fa-spinner fa-spin"></i>
-          </div>
-          <div class="chat-audio__error" hidden aria-live="polite">
-            <i class="fa-solid fa-exclamation-triangle"></i>
-            <span>שגיאה בטעינה</span>
+          <div class="chat-audio-whatsapp__content">
+            <div class="chat-audio-whatsapp__track">
+              <div class="chat-audio-whatsapp__progress" style="width:0%"></div>
+              <div class="chat-audio-whatsapp__seeker" style="left:0%"></div>
+            </div>
+            <span class="chat-audio-whatsapp__time">${durationLabel}</span>
           </div>
         </div>
       </div>
@@ -66,24 +57,22 @@
     }
   }
   
-  // חלק אינטראקציה (chat-audio-player.js) – חיבור אירועים לנגן | HYPER CORE TECH
+  // חלק אינטראקציה (chat-audio-player.js) – חיבור אירועים לנגן בסגנון וואטסאפ | HYPER CORE TECH
   function wireAudioPlayer(container) {
     if (!container) return;
     
-    // מניעת propagation על כל הקונטיינר כדי שלחיצות לא יסגרו את הצ'אט | HYPER CORE TECH
+    // מניעת propagation על כל הקונטיינר | HYPER CORE TECH
     container.addEventListener('click', (e) => {
       e.stopPropagation();
     });
     
     const audio = container.querySelector('.chat-message__audio-el');
-    const btn = container.querySelector('.chat-audio__play');
-    const waveformCanvas = container.querySelector('.chat-audio__waveform');
-    const progressOverlay = container.querySelector('.chat-audio__progress-overlay');
-    const curEl = container.querySelector('.chat-audio__time--current');
-    const totalEl = container.querySelector('.chat-audio__time--total');
-    const loadingEl = container.querySelector('.chat-audio__loading');
-    const errorEl = container.querySelector('.chat-audio__error');
-    const waveformContainer = container.querySelector('.chat-audio__waveform-container');
+    // תמיכה בשני סוגי נגנים - ישן וחדש
+    const btn = container.querySelector('.chat-audio-whatsapp__play') || container.querySelector('.chat-audio__play');
+    const progressBar = container.querySelector('.chat-audio-whatsapp__progress');
+    const seeker = container.querySelector('.chat-audio-whatsapp__seeker');
+    const timeEl = container.querySelector('.chat-audio-whatsapp__time');
+    const track = container.querySelector('.chat-audio-whatsapp__track');
     
     if (!audio || !btn) return;
     
@@ -93,99 +82,74 @@
     };
     
     let isPlaying = false;
-    let hasError = false;
     
-    // חלק טעינה (chat-audio-player.js) – הצגת מטא-דאטה וציור waveform | HYPER CORE TECH
+    // חלק טעינה (chat-audio-player.js) – עדכון זמן בטעינת מטאדאטה | HYPER CORE TECH
     audio.addEventListener('loadedmetadata', () => {
-      if (totalEl && !totalEl.textContent.includes(':')) {
-        totalEl.textContent = format(audio.duration || 0);
-      }
-      if (waveformCanvas) {
-        drawWaveform(waveformCanvas, audio);
-      }
-      if (loadingEl) {
-        loadingEl.setAttribute('hidden', '');
-      }
-    });
-    
-    // חלק buffering (chat-audio-player.js) – הצגת אינדיקטור טעינה | HYPER CORE TECH
-    audio.addEventListener('waiting', () => {
-      if (loadingEl) {
-        loadingEl.removeAttribute('hidden');
-      }
-    });
-    
-    audio.addEventListener('canplay', () => {
-      if (loadingEl) {
-        loadingEl.setAttribute('hidden', '');
-      }
-    });
-    
-    // חלק שגיאות (chat-audio-player.js) – טיפול בכשלון טעינה | HYPER CORE TECH
-    audio.addEventListener('error', () => {
-      hasError = true;
-      if (errorEl) {
-        errorEl.removeAttribute('hidden');
-      }
-      if (loadingEl) {
-        loadingEl.setAttribute('hidden', '');
-      }
-      if (btn) {
-        btn.disabled = true;
-        btn.setAttribute('aria-label', 'שגיאה בטעינת הודעה קולית');
+      if (timeEl) {
+        timeEl.textContent = format(audio.duration || 0);
       }
     });
     
     // חלק ניגון (chat-audio-player.js) – toggle play/pause | HYPER CORE TECH
     const toggle = () => {
-      if (hasError) return;
-      
       if (audio.paused) {
         audio.play().catch((err) => {
           console.warn('Audio play failed', err);
-          hasError = true;
-          if (errorEl) {
-            errorEl.removeAttribute('hidden');
-          }
         });
         btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-        btn.setAttribute('aria-label', 'השהה הודעה קולית');
         isPlaying = true;
       } else {
         audio.pause();
         btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        btn.setAttribute('aria-label', 'נגן הודעה קולית');
         isPlaying = false;
       }
     };
     
-    // חלק לחיצה (chat-audio-player.js) – מניעת propagation כדי שלא יסגור את הצ'אט | HYPER CORE TECH
+    // חלק לחיצה (chat-audio-player.js) – מניעת propagation | HYPER CORE TECH
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
       toggle();
     });
     
-    // חלק התקדמות (chat-audio-player.js) – עדכון פס התקדמות וזמן | HYPER CORE TECH
+    // חלק התקדמות (chat-audio-player.js) – עדכון פס התקדמות והזמן | HYPER CORE TECH
     audio.addEventListener('timeupdate', () => {
       const d = Math.max(1, audio.duration || 1);
       const p = Math.min(100, (audio.currentTime / d) * 100);
       
-      if (progressOverlay) {
-        progressOverlay.style.width = p + '%';
+      if (progressBar) {
+        progressBar.style.width = p + '%';
       }
-      if (curEl) {
-        curEl.textContent = format(audio.currentTime);
+      if (seeker) {
+        seeker.style.left = p + '%';
+      }
+      if (timeEl && isPlaying) {
+        timeEl.textContent = format(audio.currentTime);
       }
     });
     
     // חלק סיום (chat-audio-player.js) – איפוס כפתור בסיום | HYPER CORE TECH
     audio.addEventListener('ended', () => {
       btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-      btn.setAttribute('aria-label', 'נגן הודעה קולית');
       isPlaying = false;
-      if (progressOverlay) {
-        progressOverlay.style.width = '0%';
+      if (progressBar) {
+        progressBar.style.width = '0%';
+      }
+      if (seeker) {
+        seeker.style.left = '0%';
+      }
+      if (timeEl) {
+        timeEl.textContent = format(audio.duration || 0);
+      }
+    });
+    
+    // חלק seek (chat-audio-player.js) – קפיצה בפס התקדמות בלחיצה | HYPER CORE TECH
+    if (track) {
+      track.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = track.getBoundingClientRect();
+        const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+        audio.currentTime = ratio * (audio.duration || 0);
       }
       audio.currentTime = 0;
     });
