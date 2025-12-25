@@ -618,15 +618,15 @@
     const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
     const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
     
-    // פונקציית עזר לזיהוי סוג מדיה
-    function detectMediaType(mime, name, url) {
+    // חלק זיהוי מדיה משופר (chat-ui.js) – תומך ב-Blossom URLs שלא מכילים סיומת | HYPER CORE TECH
+    function detectMediaType(mime, name, url, attachment) {
       mime = String(mime || '').toLowerCase();
       name = String(name || '').toLowerCase();
       url = String(url || '').toLowerCase();
       
-      // אודיו/הודעה קולית
-      if (mime.startsWith('audio/') || AUDIO_EXTS.test(name) || AUDIO_EXTS.test(url) || 
-          name.includes('voice') || url.includes('voice')) {
+      // אודיו/הודעה קולית - עדיפות: MIME > שם > duration > URL
+      const hasDuration = attachment && typeof attachment.duration === 'number' && attachment.duration > 0;
+      if (mime.startsWith('audio/') || AUDIO_EXTS.test(name) || name.includes('voice') || hasDuration || AUDIO_EXTS.test(url)) {
         return 'audio';
       }
       // וידאו
@@ -655,7 +655,7 @@
     // בדיקת attachment
     if (last.attachment) {
       const a = last.attachment;
-      const mediaType = detectMediaType(a.type, a.name, a.url || a.dataUrl);
+      const mediaType = detectMediaType(a.type, a.name, a.url || a.dataUrl, a);
       
       if (mediaType === 'audio') {
         // הודעה קולית: 🎤 הודעה קולית (0:15)
@@ -1133,7 +1133,7 @@
           : `<span class="chat-message__avatar chat-message__avatar--initials" title="${safeName}">${safeInitials}</span>`;
       }
 
-      // תמיכה בהצגת אודיו: זיהוי אמין לפי MIME/נתיב/סיומת
+      // חלק זיהוי אודיו משופר (chat-ui.js) – זיהוי אמין לפי MIME/שם/סיומת - תומך ב-Blossom URLs | HYPER CORE TECH
       let attachmentHtml = '';
       let isAudioAttachment = false;
       let isImageAttachment = false;
@@ -1144,17 +1144,30 @@
         const mime = (a.type || '').toLowerCase();
         const fileName = (a.name || '').toLowerCase();
         const srcLower = src.toLowerCase();
-        const fromSrc = /^data:audio\//i.test(src);
-        // חלק זיהוי אודיו (chat-ui.js) – זיהוי הודעות קוליות משופר - כל webm בצ'אט נחשב אודיו! | HYPER CORE TECH
-        const isVoiceByName = fileName.includes('voice') || srcLower.includes('voice');
-        const byExt = /\.(mp3|m4a|ogg|wav|aac)(\?|$)/i.test(src || fileName);
-        const isWebm = /\.webm(\?|$)/i.test(src || fileName);
-        // webm בצ'אט תמיד נחשב הודעה קולית - זה השימוש העיקרי שלו כאן
-        // רק אם יש סימון מפורש a.isVideo === true נתייחס אליו כווידאו
-        const isWebmAudio = isWebm && (a.isVideo !== true);
-        // בודקים גם לפי duration - אם יש duration זה כנראה הודעה קולית
+        
+        // בדיקת MIME type - הכי אמין!
+        const isAudioMime = mime.startsWith('audio/');
+        // בדיקת data URL
+        const fromDataUrl = /^data:audio\//i.test(src);
+        // בדיקת סיומת בשם הקובץ (חשוב! Blossom URLs לא מכילים סיומת)
+        const audioExtInName = /\.(webm|mp3|m4a|ogg|wav|aac)$/i.test(fileName);
+        // בדיקת סיומת ב-URL
+        const audioExtInUrl = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i.test(srcLower);
+        // בדיקת שם קובץ מכיל "voice"
+        const isVoiceByName = fileName.includes('voice');
+        // בדיקת duration - אם יש duration זה הודעה קולית
         const hasDuration = typeof a.duration === 'number' && a.duration > 0;
-        isAudioAttachment = (mime.startsWith('audio/') || fromSrc || byExt || isWebmAudio || isVoiceByName || (isWebm && hasDuration)) && !!src;
+        
+        // זיהוי אודיו: מספיק שאחד מהתנאים מתקיים
+        // עדיפות: MIME > שם קובץ > duration > URL
+        isAudioAttachment = !!(src && (
+          isAudioMime ||           // type: audio/*
+          fromDataUrl ||           // data:audio/*
+          audioExtInName ||        // voice-message.webm
+          isVoiceByName ||         // שם מכיל "voice"
+          hasDuration ||           // יש duration
+          audioExtInUrl            // URL מסתיים ב-.webm וכו'
+        ));
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
         if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {
