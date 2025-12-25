@@ -1226,29 +1226,30 @@
         }
       }
       
-      // חלק זיהוי מדיה מ-URL (chat-ui.js) – זיהוי לינקי תמונה/וידאו בטקסט ההודעה כמו Blossom | HYPER CORE TECH
+      // חלק זיהוי מדיה מ-URL (chat-ui.js) – זיהוי לינקי תמונה/וידאו/אודיו בטקסט ההודעה | HYPER CORE TECH
       let mediaUrlHtml = '';
       let isMediaUrl = false;
       let remainingText = rawMessageContent;
-      if (!a && !youtubeHtml && rawMessageContent) {
-        const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-        // חלק זיהוי אודיו (chat-ui.js) – סיומות אודיו ללא webm | HYPER CORE TECH
-        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac)(\?|$)/i;
-        const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
-        const WEBM_EXT = /\.webm(\?|$)/i;
+      // חלק זיהוי URL (chat-ui.js) – גם אם יש attachment, נבדוק URLs בטקסט | HYPER CORE TECH
+      if (!youtubeHtml && rawMessageContent) {
+        const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|#|$)/i;
+        // חלק זיהוי אודיו משופר (chat-ui.js) – כולל webm וכל סיומות האודיו | HYPER CORE TECH
+        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac|webm|flac|wma)(\?|#|$)/i;
+        const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|#|$)/i;
         
-        // חיפוש כל ה-URLs בהודעה
-        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        // חיפוש כל ה-URLs בהודעה - משופר לתמוך ב-URLs עם תווים מיוחדים
+        const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
         const urls = rawMessageContent.match(urlRegex) || [];
         const mediaItems = [];
         
-        urls.forEach(url => {
-          // חלק זיהוי אודיו (chat-ui.js) – webm בצ'אט נחשב כהודעה קולית כברירת מחדל | HYPER CORE TECH
-          // בצ'אט, webm בד"כ הם הודעות קוליות ולא וידאו
-          const isWebmUrl = WEBM_EXT.test(url);
-          const isAudioUrl = AUDIO_EXTS.test(url) || isWebmUrl;
+        urls.forEach(originalUrl => {
+          // ניקוי URL מתווי סיום לא רצויים
+          const url = originalUrl.replace(/[.,;:!?)}\]]+$/, '');
           
-          if (IMAGE_EXTS.test(url)) {
+          // חלק זיהוי אודיו (chat-ui.js) – בדיקה אם זה קובץ אודיו | HYPER CORE TECH
+          const isAudioUrl = AUDIO_EXTS.test(url);
+          
+          if (IMAGE_EXTS.test(url) && !a) {
             // תמונה
             mediaItems.push(`
               <div class="chat-message__image-container">
@@ -1263,17 +1264,22 @@
                 />
               </div>
             `);
-            remainingText = remainingText.replace(url, '').trim();
+            remainingText = remainingText.replace(originalUrl, '').trim();
             isMediaUrl = true;
           } else if (isAudioUrl) {
-            // אודיו / הודעה קולית - כל webm בצ'אט נחשב הודעה קולית
-            const fakeAttachment = { url: url, type: 'audio/webm', name: 'הודעת קול' };
+            // חלק נגן אודיו מ-URL (chat-ui.js) – יוצר נגן אודיו לכל קובץ קול | HYPER CORE TECH
+            // זיהוי סוג הקובץ לפי הסיומת
+            const ext = (url.match(/\.(\w+)(?:\?|#|$)/i) || [])[1]?.toLowerCase() || 'mp3';
+            const mimeMap = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', aac: 'audio/aac', webm: 'audio/webm', flac: 'audio/flac', wma: 'audio/x-ms-wma' };
+            const mimeType = mimeMap[ext] || 'audio/mpeg';
+            const fileName = url.split('/').pop()?.split('?')[0] || 'קובץ שמע';
+            const fakeAttachment = { url: url, type: mimeType, name: fileName };
             mediaItems.push(typeof App.createEnhancedAudioPlayer === 'function'
               ? App.createEnhancedAudioPlayer(fakeAttachment)
-              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${url}" type="audio/webm"></audio></div>`);
-            remainingText = remainingText.replace(url, '').trim();
+              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${url}" type="${mimeType}"></audio></div>`);
+            remainingText = remainingText.replace(originalUrl, '').trim();
             isMediaUrl = true;
-          } else if (VIDEO_EXTS.test(url)) {
+          } else if (VIDEO_EXTS.test(url) && !a) {
             // וידאו - רק סיומות וידאו מפורשות (לא webm)
             mediaItems.push(`
               <div class="chat-message__video-container">
@@ -1288,7 +1294,7 @@
                 </video>
               </div>
             `);
-            remainingText = remainingText.replace(url, '').trim();
+            remainingText = remainingText.replace(originalUrl, '').trim();
             isMediaUrl = true;
           }
         });
