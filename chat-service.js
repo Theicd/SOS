@@ -38,6 +38,31 @@
     }
   }
 
+  // חלק ניקוי קאש (chat-service.js) – מנקה ערכי קאש אווטר ישנים כשנגמר המקום | HYPER CORE TECH
+  function cleanupOldAvatarCache() {
+    try {
+      const keysToRemove = [];
+      const nowSec = Math.floor(Date.now() / 1000);
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('avatar_cache_')) {
+          try {
+            const raw = localStorage.getItem(key);
+            const parsed = raw ? JSON.parse(raw) : null;
+            // מסיר קאש ישן מ-24 שעות או פריטים פגומים
+            if (!parsed?.ts || (nowSec - parsed.ts) > 86400) {
+              keysToRemove.push(key);
+            }
+          } catch {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+      return keysToRemove.length;
+    } catch { return 0; }
+  }
+
   async function cacheAvatar(url) {
     const key = avatarCacheKey(url);
     if (!key) return '';
@@ -48,10 +73,20 @@
       try {
         window.localStorage.setItem(key, JSON.stringify({ dataUrl, ts: Math.floor(Date.now() / 1000) }));
       } catch (err) {
-        console.warn('avatar cache store failed', err);
+        // חלק טיפול בשגיאות (chat-service.js) – ניקוי קאש ישן כשנגמר המקום | HYPER CORE TECH
+        if (err.name === 'QuotaExceededError') {
+          const cleaned = cleanupOldAvatarCache();
+          console.log('Avatar cache cleanup removed', cleaned, 'old entries');
+          // נסיון נוסף אחרי הניקוי
+          try {
+            window.localStorage.setItem(key, JSON.stringify({ dataUrl, ts: Math.floor(Date.now() / 1000) }));
+          } catch {
+            // אם עדיין נכשל, פשוט נחזיר את ה-URL המקורי
+          }
+        }
       }
     }
-    return dataUrl;
+    return dataUrl || url;
   }
 
 (function initChatService(window) {
@@ -149,18 +184,30 @@
       attachment: serialization.attachment || null,
       createdAt: event.created_at,
       direction: 'outgoing',
+      // חלק סטטוס הודעות (chat-service.js) – סטטוס שליחה: sending -> sent | HYPER CORE TECH
+      status: 'sending',
     };
+
+    // חלק סטטוס הודעות (chat-service.js) – מוסיף הודעה במצב "שולח" לפני הפרסום | HYPER CORE TECH
+    App.appendChatMessage(outgoingMessage);
 
     try {
       await pool.publish(App.relayUrls, event);
-      App.appendChatMessage(outgoingMessage);
+      // חלק סטטוס הודעות (chat-service.js) – עדכון סטטוס ל"נשלח" אחרי הצלחה | HYPER CORE TECH
+      if (typeof App.updateChatMessageStatus === 'function') {
+        App.updateChatMessageStatus(event.id, 'sent');
+      }
       App.markChatConversationRead(peerPubkey);
       if (typeof App.afterChatMessagePublished === 'function') {
         App.afterChatMessagePublished(peerPubkey, outgoingMessage);
       }
-      return { ok: true };
+      return { ok: true, messageId: event.id };
     } catch (err) {
       console.error('Chat publish failed', err);
+      // חלק סטטוס הודעות (chat-service.js) – עדכון סטטוס ל"נכשל" אם השליחה נכשלה | HYPER CORE TECH
+      if (typeof App.updateChatMessageStatus === 'function') {
+        App.updateChatMessageStatus(event.id, 'failed');
+      }
       return { ok: false, error: err?.message || 'publish-failed' };
     }
   }
@@ -514,12 +561,38 @@
     handlePoolReady();
   };
 
+  // חלק רענון שיחות (chat-service.js) – פונקציה לסנכרון מחדש של כל היסטוריית הצ'אט | HYPER CORE TECH
+  async function syncChatHistory() {
+    // איפוס חותמת הזמן כדי לטעון את כל ההיסטוריה
+    if (typeof App.setChatLastSyncTs === 'function') {
+      App.setChatLastSyncTs(0);
+    }
+    
+    // סגירת ההרשמה הקיימת
+    if (activeSubscription && typeof activeSubscription.close === 'function') {
+      try { activeSubscription.close(); } catch {}
+    }
+    activeSubscription = null;
+    
+    // המתנה קצרה לפני התחברות מחדש
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // הרשמה מחדש לאירועי צ'אט - יטען את כל ההיסטוריה
+    subscribeToChatEvents();
+    
+    // טעינת אנשי קשר מהפיד
+    bootstrapContactsFromFeed();
+    
+    console.log('[CHAT/SERVICE] Full chat history sync initiated');
+  }
+
   Object.assign(App, {
     publishChatMessage,
     deleteChatMessage,
     subscribeToChatEvents,
     bootstrapChatContacts: bootstrapContactsFromFeed,
     addChatContact,
+    syncChatHistory,
   });
 
   if (!App._chatServiceBootstrapped) {

@@ -468,6 +468,21 @@
     return chatState.lastSyncTs || 0;
   }
 
+  // חלק סטטוס הודעות (chat-state.js) – עדכון סטטוס הודעה (sending, sent, read, failed) | HYPER CORE TECH
+  function updateMessageStatus(messageId, newStatus) {
+    if (!messageId || !newStatus) return false;
+    const indexEntry = chatState.messageIndex.get(messageId);
+    if (!indexEntry) return false;
+    const entry = chatState.conversations.get(indexEntry.key);
+    if (!entry || !Array.isArray(entry.messages)) return false;
+    const message = entry.messages.find(m => m.id === messageId);
+    if (!message) return false;
+    message.status = newStatus;
+    persistState();
+    notify('message', { peer: indexEntry.peer, message, statusUpdate: true });
+    return true;
+  }
+
   Object.assign(App, {
     chatState,
     getConversationKey,
@@ -483,6 +498,7 @@
     chatStorageKey: getStorageKey,
     setChatLastSyncTs: setLastSyncTs,
     getChatLastSyncTs: getLastSyncTs,
+    updateChatMessageStatus: updateMessageStatus,
   });
 
   if (!App._chatStateBootstrapped) {

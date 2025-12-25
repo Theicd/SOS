@@ -974,3 +974,37 @@
     max-height: 250px;
   }
 }
+
+/* חלק סטטוס הודעות (chat-enhanced-styles.css) – אייקוני סטטוס שליחה כמו וואטסאפ | HYPER CORE TECH */
+.chat-message__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  margin-left: 4px;
+  margin-right: 2px;
+}
+
+.chat-message__status--sending {
+  color: #8696a0;
+}
+
+.chat-message__status--sent {
+  color: #8696a0;
+}
+
+.chat-message__status--read {
+  color: #e74c3c;
+}
+
+.chat-message__status--failed {
+  color: #e74c3c;
+}
+
+.chat-message__status i {
+  font-size: 10px;
+}
+
+.chat-message__status--sending i {
+  font-size: 9px;
+}

@@ -180,6 +180,54 @@
 
   let unsubscribeNotifications = null; // חלק צ'אט (chat-ui.js) – מחזיק ביטול הרשמה לעדכוני התרעות עבור ניקוי משאבים
   let notificationSubscribeTimer = null; // חלק צ'אט (chat-ui.js) – טיימר לגיבוי כאשר feed.js נטען מאוחר יותר
+  let isRefreshing = false; // חלק רענון (chat-ui.js) – מונע רענון כפול | HYPER CORE TECH
+
+  // חלק רענון שיחות (chat-ui.js) – פונקציה לרענון כל השיחות וההודעות מחדש | HYPER CORE TECH
+  async function handleRefreshAllConversations() {
+    if (isRefreshing) return;
+    isRefreshing = true;
+    
+    // הצגת אינדיקטור טעינה על כפתור הרענון
+    const refreshBtn = elements.refreshContacts;
+    if (refreshBtn) {
+      refreshBtn.classList.add('is-loading');
+      const icon = refreshBtn.querySelector('i');
+      if (icon) icon.classList.add('fa-spin');
+    }
+    
+    try {
+      // איפוס חותמת הזמן של הסנכרון האחרון כדי לטעון מההתחלה
+      if (typeof App.setChatLastSyncTs === 'function') {
+        App.setChatLastSyncTs(0);
+      }
+      
+      // קריאה לפונקציית הסנכרון מחדש
+      if (typeof App.syncChatHistory === 'function') {
+        await App.syncChatHistory();
+      } else if (typeof App.ensureChatEnabled === 'function') {
+        App.ensureChatEnabled();
+      }
+      
+      // רענון רשימת אנשי הקשר
+      renderContacts();
+      
+      // אם יש שיחה פעילה, רענן גם אותה
+      if (state.activeContact) {
+        renderMessages(state.activeContact);
+      }
+      
+      console.log('[CHAT/UI] Refreshed all conversations');
+    } catch (err) {
+      console.warn('[CHAT/UI] Failed to refresh conversations', err);
+    } finally {
+      isRefreshing = false;
+      if (refreshBtn) {
+        refreshBtn.classList.remove('is-loading');
+        const icon = refreshBtn.querySelector('i');
+        if (icon) icon.classList.remove('fa-spin');
+      }
+    }
+  }
 
   const PANEL_MODES = {
     LIST: 'list',
@@ -415,12 +463,44 @@
     return content || 'הודעה חדשה';
   }
 
+  // חלק דה-דופליקציה (chat-ui.js) – מניעת התראות כפולות על אותה הודעה | HYPER CORE TECH
+  const NOTIFIED_MSG_KEY = 'nostr_notified_chat_messages';
+  const MAX_NOTIFIED_IDS = 200;
+  
+  function getNotifiedMessageIds() {
+    try {
+      const raw = sessionStorage.getItem(NOTIFIED_MSG_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  
+  function markMessageNotified(messageId) {
+    if (!messageId) return;
+    try {
+      const ids = getNotifiedMessageIds();
+      if (!ids.includes(messageId)) {
+        ids.push(messageId);
+        while (ids.length > MAX_NOTIFIED_IDS) ids.shift();
+        sessionStorage.setItem(NOTIFIED_MSG_KEY, JSON.stringify(ids));
+      }
+    } catch {}
+  }
+  
+  function wasMessageNotified(messageId) {
+    return messageId && getNotifiedMessageIds().includes(messageId);
+  }
+
   // חלק צ'אט (chat-ui.js) – התראת מערכת על הודעה נכנסת כאשר החלון ברקע/לא בשיחה הפעילה | HYPER CORE TECH
-  function showIncomingChatNotification(peerPubkey, message) {
+  function showIncomingChatNotification(peerPubkey, message, messageId) {
     try {
       if (!peerPubkey || !message) return;
       if (!('Notification' in window)) return;
       if (window.Notification.permission !== 'granted') return;
+      
+      // חלק דה-דופליקציה (chat-ui.js) – מניעת התראה כפולה על אותה הודעה | HYPER CORE TECH
+      if (messageId && wasMessageNotified(messageId)) {
+        return;
+      }
 
       const isHidden = !!doc.hidden || doc.visibilityState === 'hidden';
       const hasFocus = typeof doc.hasFocus === 'function' ? doc.hasFocus() : true;
@@ -428,6 +508,9 @@
       const normalizedPeer = peerPubkey.toLowerCase();
       const isActivePeer = activePeer && activePeer === normalizedPeer && state.isOpen && hasFocus && !isHidden;
       if (isActivePeer) return;
+      
+      // סימון ההודעה כ"הותרעה" כדי שלא תופיע שוב
+      if (messageId) markMessageNotified(messageId);
 
       registerChatServiceWorkerIfSupported();
       const contact = App.chatState?.contacts?.get(normalizedPeer);
@@ -1042,11 +1125,15 @@
         const fileName = (a.name || '').toLowerCase();
         const srcLower = src.toLowerCase();
         const fromSrc = /^data:audio\//i.test(src);
-        // חלק זיהוי אודיו (chat-ui.js) – זיהוי הודעות קוליות לפי שם/URL שמכיל voice או סיומת אודיו | HYPER CORE TECH
+        // חלק זיהוי אודיו (chat-ui.js) – זיהוי הודעות קוליות משופר | HYPER CORE TECH
         const isVoiceByName = fileName.includes('voice') || srcLower.includes('voice');
         const byExt = /\.(mp3|m4a|ogg|wav|aac)(\?|$)/i.test(src || fileName);
-        const isWebmAudio = /\.webm(\?|$)/i.test(src || fileName) && (isVoiceByName || mime.startsWith('audio/'));
-        isAudioAttachment = (mime.startsWith('audio/') || fromSrc || byExt || isWebmAudio || isVoiceByName) && !!src;
+        const isWebm = /\.webm(\?|$)/i.test(src || fileName);
+        // webm נחשב אודיו אם: יש voice בשם/URL, או mime הוא audio, או אין mime של video מפורש
+        const isWebmAudio = isWebm && (isVoiceByName || mime.startsWith('audio/') || !mime.startsWith('video/'));
+        // בודקים גם לפי duration - אם יש duration זה כנראה הודעה קולית
+        const hasDuration = typeof a.duration === 'number' && a.duration > 0;
+        isAudioAttachment = (mime.startsWith('audio/') || fromSrc || byExt || isWebmAudio || isVoiceByName || (isWebm && hasDuration)) && !!src;
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
         if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {
@@ -1116,20 +1203,16 @@
         const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
         const WEBM_EXT = /\.webm(\?|$)/i;
         
-        // פונקציית עזר לזיהוי האם URL הוא הודעה קולית
-        function isVoiceUrl(url) {
-          const urlLower = url.toLowerCase();
-          return urlLower.includes('voice') || urlLower.includes('audio');
-        }
-        
         // חיפוש כל ה-URLs בהודעה
         const urlRegex = /(https?:\/\/[^\s]+)/gi;
         const urls = rawMessageContent.match(urlRegex) || [];
         const mediaItems = [];
         
         urls.forEach(url => {
-          // חלק זיהוי אודיו (chat-ui.js) – בדיקת אודיו קודם לווידאו כדי לזהות הודעות קוליות | HYPER CORE TECH
-          const isAudioUrl = AUDIO_EXTS.test(url) || (WEBM_EXT.test(url) && isVoiceUrl(url));
+          // חלק זיהוי אודיו (chat-ui.js) – webm בצ'אט נחשב כהודעה קולית כברירת מחדל | HYPER CORE TECH
+          // בצ'אט, webm בד"כ הם הודעות קוליות ולא וידאו
+          const isWebmUrl = WEBM_EXT.test(url);
+          const isAudioUrl = AUDIO_EXTS.test(url) || isWebmUrl;
           
           if (IMAGE_EXTS.test(url)) {
             // תמונה
@@ -1149,15 +1232,15 @@
             remainingText = remainingText.replace(url, '').trim();
             isMediaUrl = true;
           } else if (isAudioUrl) {
-            // אודיו / הודעה קולית
+            // אודיו / הודעה קולית - כל webm בצ'אט נחשב הודעה קולית
             const fakeAttachment = { url: url, type: 'audio/webm', name: 'הודעת קול' };
             mediaItems.push(typeof App.createEnhancedAudioPlayer === 'function'
               ? App.createEnhancedAudioPlayer(fakeAttachment)
               : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${url}" type="audio/webm"></audio></div>`);
             remainingText = remainingText.replace(url, '').trim();
             isMediaUrl = true;
-          } else if (VIDEO_EXTS.test(url) || WEBM_EXT.test(url)) {
-            // וידאו (webm שאינו הודעה קולית)
+          } else if (VIDEO_EXTS.test(url)) {
+            // וידאו - רק סיומות וידאו מפורשות (לא webm)
             mediaItems.push(`
               <div class="chat-message__video-container">
                 <video 
@@ -1227,6 +1310,22 @@
       const contentClassName = `chat-message__content${a ? ' chat-message__content--has-attachment' : ''}${
         shouldCompactMeta ? ' chat-message__content--compact-meta' : ''
       }`;
+      
+      // חלק סטטוס הודעות (chat-ui.js) – אייקון סטטוס להודעות יוצאות (טעינה, נשלח, נקרא) | HYPER CORE TECH
+      let statusHtml = '';
+      if (isOutgoing) {
+        const status = message.status || 'sent';
+        if (status === 'sending') {
+          statusHtml = '<span class="chat-message__status chat-message__status--sending" title="שולח..."><i class="fa-solid fa-circle-notch fa-spin"></i></span>';
+        } else if (status === 'sent') {
+          statusHtml = '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check"></i></span>';
+        } else if (status === 'read') {
+          statusHtml = '<span class="chat-message__status chat-message__status--read" title="נקרא"><i class="fa-solid fa-check-double"></i></span>';
+        } else if (status === 'failed') {
+          statusHtml = '<span class="chat-message__status chat-message__status--failed" title="שליחה נכשלה"><i class="fa-solid fa-exclamation-circle"></i></span>';
+        }
+      }
+      
       item.innerHTML = `
         ${avatarHtml}
         <div class="${contentClassName}" data-chat-message="${message.id}">
@@ -1236,6 +1335,7 @@
           ${mediaUrlHtml}
           <div class="chat-message__meta-row">
             <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
+            ${statusHtml}
             ${deleteButtonHtml}
           </div>
         </div>
@@ -1424,8 +1524,8 @@
     }
     if (elements.refreshContacts) {
       elements.refreshContacts.addEventListener('click', () => {
-        renderContacts();
-        ensureChatEnabled();
+        // חלק רענון שיחות (chat-ui.js) – איפוס חותמת זמן וטעינה מחדש של כל השיחות | HYPER CORE TECH
+        handleRefreshAllConversations();
       });
     }
     if (elements.searchInput) {
@@ -1476,9 +1576,11 @@
       const isIncoming = message?.direction === 'incoming'
         || (message?.from && typeof App.publicKey === 'string' && message.from.toLowerCase() !== App.publicKey.toLowerCase());
       const isActivePeer = normalizedPeer === (state.activeContact || '').toLowerCase();
+      const messageId = message?.id || null;
 
       // התרעה + צליל רק אם זה נכנס ולא בשיחה הפעילה/פוקוס
-      if (isIncoming) {
+      // חלק דה-דופליקציה (chat-ui.js) – בודק גם אם ההודעה כבר הותרעה | HYPER CORE TECH
+      if (isIncoming && !wasMessageNotified(messageId)) {
         if (!isActivePeer || !state.isOpen) {
           playChatMessageSound();
           const snippetSource = (message?.content && message.content.trim()) ||
@@ -1486,7 +1588,7 @@
               (message?.attachment
                 ? (String(message.attachment.type || '').toLowerCase().startsWith('audio/') ? 'הודעת קול' : 'קובץ מצורף')
                 : 'הודעה חדשה'));
-          showIncomingChatNotification(normalizedPeer, snippetSource);
+          showIncomingChatNotification(normalizedPeer, snippetSource, messageId);
         }
       }
 
@@ -1496,6 +1598,9 @@
       } else {
         renderContacts();
       }
+      
+      // חלק סטטוס הודעות (chat-ui.js) – עדכון DOM ישיר כשמשתנה סטטוס הודעה | HYPER CORE TECH
+      // מונע רינדור מלא רק לעדכון סטטוס
     });
     App.subscribeChat?.('unread', (total) => {
       renderChatBadge(total);

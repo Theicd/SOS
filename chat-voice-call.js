@@ -500,6 +500,12 @@
   // חלק שיחות קול (chat-voice-call.js) – טיפול באירועי סינכרון נכנסים
   async function handleSignalEvent(event) {
     if (event.pubkey === App.publicKey) return;
+    
+    // חלק דה-דופליקציה (chat-voice-call.js) – דילוג על אירועים שכבר עובדו (מונע שיחות כפולות אחרי רענון) | HYPER CORE TECH
+    if (event.id && isCallEventProcessed(event.id)) {
+      console.log('Skipping already processed call event:', event.id.slice(0, 8));
+      return;
+    }
 
     const typeTag = event.tags.find(t => t[0] === 'type');
     if (!typeTag) return;
@@ -544,6 +550,8 @@
               console.log('Ignored duplicate offer from', peerPubkey.slice(0,8));
               return;
             }
+            // חלק דה-דופליקציה (chat-voice-call.js) – סימון האירוע כמעובד כדי שלא יופיע שוב אחרי רענון | HYPER CORE TECH
+            if (event.id) markCallEventProcessed(event.id);
             console.log('Received valid offer:', offerData);
             // חלק שיחות קול (chat-voice-call.js) – שיחה ממתינה: אם יש שיחה פעילה מפיר אחר, לא מצלצלים אלא מתריעים בלבד | HYPER CORE TECH
             if (state.isCallActive && state.currentPeer && state.currentPeer !== peerPubkey) {
@@ -618,6 +626,33 @@
 
   // חלק שיחות קול (chat-voice-call.js) – זמן התחלת ניסיון הרשמה לתפוס שיחות שנכנסו בזמן טעינה | HYPER CORE TECH
   let voiceSubscribeStartTime = Date.now();
+  
+  // חלק דה-דופליקציה (chat-voice-call.js) – מניעת עיבוד כפול של אירועי שיחה אחרי רענון | HYPER CORE TECH
+  const PROCESSED_CALLS_KEY = 'nostr_processed_call_events';
+  const MAX_PROCESSED_IDS = 100;
+  
+  function getProcessedCallIds() {
+    try {
+      const raw = sessionStorage.getItem(PROCESSED_CALLS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  
+  function markCallEventProcessed(eventId) {
+    try {
+      const ids = getProcessedCallIds();
+      if (!ids.includes(eventId)) {
+        ids.push(eventId);
+        // שומרים רק את ה-100 האחרונים
+        while (ids.length > MAX_PROCESSED_IDS) ids.shift();
+        sessionStorage.setItem(PROCESSED_CALLS_KEY, JSON.stringify(ids));
+      }
+    } catch {}
+  }
+  
+  function isCallEventProcessed(eventId) {
+    return getProcessedCallIds().includes(eventId);
+  }
 
   // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון עם since מורחב | HYPER CORE TECH
   function subscribeToSignals(options) {
