@@ -4,7 +4,8 @@
   // חלק קול (chat-voice-service.js) – הקלטת קול בדפדפן, דחיסה ל-webm, העלאה ל-Blossom עם Fallback, ושילוב כמצורף בצ'אט
   // הערות: הקובץ קצר (<350 שורות) ומסביר לעצמו. שייך למודול SOS2 צ'אט קול.
 
-  const MAX_INLINE_BYTES = 90 * 1024; // שמרני כדי לא לעבור מגבלות הודעה
+  // חלק תיקון קול ארוך (chat-voice-service.js) – הגדלת סף inline ל-200KB כדי שהודעות קוליות ארוכות יעברו | HYPER CORE TECH
+  const MAX_INLINE_BYTES = 200 * 1024; // הוגדל מ-90KB כדי לתמוך בהודעות קוליות ארוכות יותר
   const MAX_SECONDS = 60; // בדומה ל-yakbak
 
   let recorder = null;
@@ -59,11 +60,14 @@
       const url = await App.uploadToBlossom(new Blob([blob], { type: 'audio/webm' }));
       return { id: 'audio-'+Date.now(), name: 'voice-message.webm', size: blob.size, type: 'audio/webm', dataUrl: '', url, duration };
     }catch(err){
-      // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר, אחרת נדווח שגיאה
-      if (blob.size <= MAX_INLINE_BYTES * 1.2){
+      // חלק fallback (chat-voice-service.js) – תמיד להחזיר dataUrl אם הקובץ בגודל סביר, לא לשלוח בלי src | HYPER CORE TECH
+      // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר (עד 250KB), אחרת נדווח שגיאה
+      if (blob.size <= MAX_INLINE_BYTES * 1.25){
+        console.warn('[VOICE] Blossom upload failed, using dataUrl fallback', err);
         const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
         return { id: 'audio-'+Date.now(), name: 'voice-message.webm', size: blob.size, type: 'audio/webm', dataUrl, url: '', duration };
       }
+      console.error('[VOICE] Voice message too large and Blossom upload failed', err);
       throw err;
     }
   }

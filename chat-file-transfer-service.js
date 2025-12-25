@@ -6,7 +6,8 @@
     return;
   }
 
-  const MAX_INLINE_SIZE = 128 * 1024;
+  // חלק תיקון קול ארוך (chat-file-transfer-service.js) – הגדלת סף inline ל-256KB לתמיכה בהודעות קוליות ארוכות | HYPER CORE TECH
+  const MAX_INLINE_SIZE = 256 * 1024;
 
   function getActiveAttachment(peerPubkey) {
     if (typeof App.getChatFileAttachment !== 'function') {

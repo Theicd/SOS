@@ -1650,19 +1650,19 @@
       return;
     }
     try {
-      // חלק תיקון quota (feed.js) – מגביל ל-50 התרעות אחרונות למניעת QuotaExceeded | HYPER CORE TECH
-      const payload = App.notifications.slice(0, 50).map((notification) => ({
+      // חלק התראות (feed.js) – שמירת כל ההתראות ללא הגבלת כמות, עם תמונות פרופיל מלאות | HYPER CORE TECH
+      const payload = App.notifications.map((notification) => ({
         id: notification.id,
         type: notification.type,
         postId: notification.postId,
         actorPubkey: notification.actorPubkey,
         createdAt: notification.createdAt,
-        content: (notification.content || '').slice(0, 200), // חיתוך תוכן ארוך
+        content: notification.content || '',
         read: notification.read,
         actorProfile: notification.actorProfile
           ? {
-              name: (notification.actorProfile.name || '').slice(0, 50),
-              picture: '', // לא שומרים תמונות - חוסכים מקום
+              name: notification.actorProfile.name || '',
+              picture: notification.actorProfile.picture || '',
               initials: notification.actorProfile.initials || '',
             }
           : null,
@@ -1672,29 +1672,21 @@
       // חלק תיקון quota (feed.js) – ניסיון לפנות מקום ולשמור שוב | HYPER CORE TECH
       if (err.name === 'QuotaExceededError') {
         try {
-          // ניקוי קאש ישן של התראות ואווטרים
+          // ניקוי קאש ישן של אווטרים בלבד (לא התראות ולא צ'אט!)
           const keysToRemove = [];
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && (key.startsWith('avatar_cache_') || key.startsWith('nostr_notifications_'))) {
-              if (key !== storageKey) keysToRemove.push(key);
+            if (key && key.startsWith('avatar_cache_')) {
+              keysToRemove.push(key);
             }
           }
           keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
           
-          // ניסיון שני עם פחות התראות
-          const minPayload = App.notifications.slice(0, 20).map((n) => ({
-            id: n.id,
-            type: n.type,
-            postId: n.postId,
-            actorPubkey: n.actorPubkey,
-            createdAt: n.createdAt,
-            read: n.read,
-          }));
-          window.localStorage.setItem(storageKey, JSON.stringify(minPayload));
+          // ניסיון שני לשמור את כל ההתראות
+          window.localStorage.setItem(storageKey, JSON.stringify(payload));
         } catch {
-          // אם עדיין נכשל, מוחקים את המפתח ומדלגים
-          try { localStorage.removeItem(storageKey); } catch {}
+          // אם עדיין נכשל, הודעה בלבד - לא מוחקים התראות
+          console.warn('Failed to persist notifications after cleanup');
         }
       } else {
         console.warn('Failed to persist notifications', err);
