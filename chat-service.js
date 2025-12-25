@@ -361,6 +361,7 @@
     }
   }
 
+  // חלק מחיקה דו-צדדית (chat-service.js) – טיפול באירוע מחיקה kind 5 מכל צד | HYPER CORE TECH
   function handleIncomingDeletion(event) {
     if (!Array.isArray(event?.tags)) {
       return;
@@ -369,7 +370,7 @@
     const self = App.publicKey?.toLowerCase?.() || '';
     const isSelf = actor === self;
     const targets = [];
-    let peerPubkey = null;
+    let pTagPubkey = null;
     event.tags.forEach((tag) => {
       if (!Array.isArray(tag)) {
         return;
@@ -378,15 +379,25 @@
         targets.push(tag[1]);
       }
       if (tag[0] === 'p' && typeof tag[1] === 'string') {
-        peerPubkey = tag[1].toLowerCase();
+        pTagPubkey = tag[1].toLowerCase();
       }
     });
     if (!targets.length) {
       return;
     }
+    
+    // חלק מחיקה דו-צדדית (chat-service.js) – קביעת הפיר הנכון לפי מי שלח את אירוע המחיקה | HYPER CORE TECH
+    // אם אני מחקתי - הפיר הוא מי שב-p tag
+    // אם מישהו אחר מחק - הפיר הוא מי ששלח את אירוע המחיקה (actor)
+    const conversationPeer = isSelf ? pTagPubkey : actor;
+    
     targets.forEach((messageId) => {
-      App.removeChatMessage(peerPubkey, messageId);
+      // מנסים למחוק מהשיחה עם הפיר הנכון
+      App.removeChatMessage(conversationPeer, messageId);
+      // גם מוסיפים לרשימת המחוקים כדי לא להציג שוב
+      App.deletedChatMessageIds?.add?.(messageId);
     });
+    
     const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);
     if (typeof App.setChatLastSyncTs === 'function') {
       const currentSync = App.getChatLastSyncTs?.() || 0;
@@ -394,9 +405,8 @@
         App.setChatLastSyncTs(eventTs);
       }
     }
-    if (!isSelf && peerPubkey && actor) {
-      App.deletedChatMessageIds?.forEach?.((id) => id);
-    }
+    
+    console.log('[CHAT] Deletion processed:', targets.length, 'messages from', conversationPeer?.slice(0, 8));
   }
 
   function subscribeToChatEvents() {
@@ -422,6 +432,8 @@
       baseFilter([CHAT_KIND], { authors: [normalizedSelf], '#t': [CHAT_TAG] }),
       baseFilter([5], { authors: [normalizedSelf], '#t': [CHAT_TAG] }),
       baseFilter([5], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
+      // חלק אישורי קריאה (chat-service.js) – האזנה לאישורי קריאה נכנסים | HYPER CORE TECH
+      baseFilter([READ_RECEIPT_KIND], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
     ];
 
     if (App.NETWORK_TAG) {
@@ -430,12 +442,18 @@
         baseFilter([CHAT_KIND], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
         baseFilter([5], { '#t': [App.NETWORK_TAG], authors: [normalizedSelf] }),
         baseFilter([5], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
+        baseFilter([READ_RECEIPT_KIND], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
       );
     }
 
     activeSubscription = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
         chatLastSignalAt = Date.now();
+        // חלק אישורי קריאה (chat-service.js) – טיפול באישורי קריאה נכנסים | HYPER CORE TECH
+        if (event.kind === READ_RECEIPT_KIND) {
+          handleIncomingReadReceipt(event);
+          return;
+        }
         handleIncomingChatEvent(event);
       },
       oneose: () => {
@@ -561,6 +579,76 @@
     handlePoolReady();
   };
 
+  // חלק אישורי קריאה (chat-service.js) – שליחת אישור קריאה לצד השני כשפותחים שיחה | HYPER CORE TECH
+  const READ_RECEIPT_KIND = 1051; // kind מיוחד לאישורי קריאה
+  
+  async function sendReadReceipt(peerPubkey, lastReadTs) {
+    const pool = ensurePoolReady();
+    if (!pool || !peerPubkey || App.guestMode) return;
+    if (typeof App.finalizeEvent !== 'function' || !App.privateKey) return;
+    
+    const normalizedPeer = peerPubkey.toLowerCase();
+    const content = JSON.stringify({ lastReadAt: lastReadTs || Math.floor(Date.now() / 1000) });
+    
+    const tags = [
+      ['p', normalizedPeer],
+      ['t', CHAT_TAG],
+    ];
+    if (App.NETWORK_TAG) {
+      tags.push(['t', App.NETWORK_TAG]);
+    }
+    
+    const event = {
+      kind: READ_RECEIPT_KIND,
+      pubkey: App.publicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags,
+      content,
+    };
+    
+    try {
+      const signed = App.finalizeEvent(event, App.privateKey);
+      await pool.publish(App.relayUrls, signed);
+      console.log('[CHAT] Read receipt sent to', normalizedPeer.slice(0, 8));
+    } catch (err) {
+      console.warn('[CHAT] Failed to send read receipt', err);
+    }
+  }
+  
+  // חלק אישורי קריאה (chat-service.js) – טיפול באישור קריאה נכנס - מעדכן סטטוס הודעות ל"נקרא" | HYPER CORE TECH
+  function handleIncomingReadReceipt(event) {
+    if (!event || event.kind !== READ_RECEIPT_KIND) return;
+    
+    const sender = event.pubkey?.toLowerCase?.();
+    const self = App.publicKey?.toLowerCase?.() || '';
+    if (sender === self) return; // התעלם מאישורים שלנו
+    
+    // בדוק שהאישור מיועד אלינו
+    const pTag = event.tags?.find?.(t => Array.isArray(t) && t[0] === 'p');
+    const recipient = pTag?.[1]?.toLowerCase?.();
+    if (recipient !== self) return;
+    
+    let lastReadAt = 0;
+    try {
+      const data = JSON.parse(event.content || '{}');
+      lastReadAt = data.lastReadAt || 0;
+    } catch {}
+    
+    if (!lastReadAt) return;
+    
+    // עדכן כל ההודעות היוצאות לאותו peer עם createdAt <= lastReadAt לסטטוס "read"
+    const messages = typeof App.getChatMessages === 'function' ? App.getChatMessages(sender) : [];
+    messages.forEach(msg => {
+      if (msg.direction === 'outgoing' && msg.createdAt <= lastReadAt && msg.status !== 'read') {
+        if (typeof App.updateChatMessageStatus === 'function') {
+          App.updateChatMessageStatus(msg.id, 'read');
+        }
+      }
+    });
+    
+    console.log('[CHAT] Read receipt received from', sender.slice(0, 8), 'up to', lastReadAt);
+  }
+
   // חלק רענון שיחות (chat-service.js) – פונקציה לסנכרון מחדש של כל היסטוריית הצ'אט | HYPER CORE TECH
   async function syncChatHistory() {
     // איפוס חותמת הזמן כדי לטעון את כל ההיסטוריה
@@ -593,6 +681,7 @@
     bootstrapChatContacts: bootstrapContactsFromFeed,
     addChatContact,
     syncChatHistory,
+    sendReadReceipt,
   });
 
   if (!App._chatServiceBootstrapped) {

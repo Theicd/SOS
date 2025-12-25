@@ -55,7 +55,8 @@
     // העלאה ל-Blossom
     try{
       if(typeof App.uploadToBlossom !== 'function') throw new Error('blossom-missing');
-      const url = await App.uploadToBlossom(new Blob([blob], { type: 'video/webm' })); // yakbak שולח video/webm לשרתי blossom
+      // חלק תיקון MIME (chat-voice-service.js) – שליחה כ-audio/webm במקום video/webm כדי שהצד המקבל יזהה כהודעה קולית | HYPER CORE TECH
+      const url = await App.uploadToBlossom(new Blob([blob], { type: 'audio/webm' }));
       return { id: 'audio-'+Date.now(), name: 'voice-message.webm', size: blob.size, type: 'audio/webm', dataUrl: '', url, duration };
     }catch(err){
       // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר, אחרת נדווח שגיאה

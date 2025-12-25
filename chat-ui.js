@@ -1125,12 +1125,13 @@
         const fileName = (a.name || '').toLowerCase();
         const srcLower = src.toLowerCase();
         const fromSrc = /^data:audio\//i.test(src);
-        // חלק זיהוי אודיו (chat-ui.js) – זיהוי הודעות קוליות משופר | HYPER CORE TECH
+        // חלק זיהוי אודיו (chat-ui.js) – זיהוי הודעות קוליות משופר - כל webm בצ'אט נחשב אודיו! | HYPER CORE TECH
         const isVoiceByName = fileName.includes('voice') || srcLower.includes('voice');
         const byExt = /\.(mp3|m4a|ogg|wav|aac)(\?|$)/i.test(src || fileName);
         const isWebm = /\.webm(\?|$)/i.test(src || fileName);
-        // webm נחשב אודיו אם: יש voice בשם/URL, או mime הוא audio, או אין mime של video מפורש
-        const isWebmAudio = isWebm && (isVoiceByName || mime.startsWith('audio/') || !mime.startsWith('video/'));
+        // webm בצ'אט תמיד נחשב הודעה קולית - זה השימוש העיקרי שלו כאן
+        // רק אם יש סימון מפורש a.isVideo === true נתייחס אליו כווידאו
+        const isWebmAudio = isWebm && (a.isVideo !== true);
         // בודקים גם לפי duration - אם יש duration זה כנראה הודעה קולית
         const hasDuration = typeof a.duration === 'number' && a.duration > 0;
         isAudioAttachment = (mime.startsWith('audio/') || fromSrc || byExt || isWebmAudio || isVoiceByName || (isWebm && hasDuration)) && !!src;

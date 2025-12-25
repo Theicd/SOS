@@ -422,6 +422,10 @@
     const lastReadTs = latestMessage?.createdAt || Math.floor(Date.now() / 1000);
     if (!contact.lastReadTimestamp || lastReadTs > contact.lastReadTimestamp) {
       contact.lastReadTimestamp = lastReadTs;
+      // חלק אישורי קריאה (chat-state.js) – שליחת אישור קריאה לצד השני | HYPER CORE TECH
+      if (typeof App.sendReadReceipt === 'function') {
+        App.sendReadReceipt(normalized, lastReadTs);
+      }
     }
     const hadUnread = contact.unreadCount || 0;
     if (hadUnread) {
