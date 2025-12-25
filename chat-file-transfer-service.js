@@ -6,8 +6,8 @@
     return;
   }
 
-  // חלק תיקון קול ארוך (chat-file-transfer-service.js) – הגדלת סף inline ל-256KB לתמיכה בהודעות קוליות ארוכות | HYPER CORE TECH
-  const MAX_INLINE_SIZE = 256 * 1024;
+  // חלק תיקון קול ארוך (chat-file-transfer-service.js) – הגדלת סף inline ל-512KB ותיעדוף אודיו | HYPER CORE TECH
+  const MAX_INLINE_SIZE = 512 * 1024;
 
   function getActiveAttachment(peerPubkey) {
     if (typeof App.getChatFileAttachment !== 'function') {
@@ -46,7 +46,9 @@
     };
     try {
       const packed = JSON.stringify(payload);
-      if (payload.a && payload.a.dataUrl && payload.a.dataUrl.length > MAX_INLINE_SIZE) {
+      // חלק קול (chat-file-transfer-service.js) – לא חוסמים dataUrl של audio/webm גם אם חורג מעט | HYPER CORE TECH
+      const isAudioWebm = payload.a && typeof payload.a.type === 'string' && payload.a.type.toLowerCase() === 'audio/webm';
+      if (payload.a && payload.a.dataUrl && payload.a.dataUrl.length > MAX_INLINE_SIZE && !isAudioWebm) {
         App.notifyChatFileTransferError?.({
           peer: peerPubkey,
           code: 'attachment-too-large',
