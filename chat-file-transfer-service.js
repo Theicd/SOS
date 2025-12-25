@@ -46,9 +46,7 @@
     };
     try {
       const packed = JSON.stringify(payload);
-      // חלק קול (chat-file-transfer-service.js) – בדיקת גודל רק כשיש dataUrl אמיתי; אם עובדים עם URL (Blossom) אין הגבלת אורך | HYPER CORE TECH
-      const hasDataUrl = Boolean(payload.a && payload.a.dataUrl);
-      if (hasDataUrl && payload.a.dataUrl.length > MAX_INLINE_SIZE) {
+      if (payload.a && payload.a.dataUrl && payload.a.dataUrl.length > MAX_INLINE_SIZE) {
         App.notifyChatFileTransferError?.({
           peer: peerPubkey,
           code: 'attachment-too-large',
