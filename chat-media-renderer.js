@@ -4,9 +4,11 @@
   
   // חלק זיהוי (chat-media-renderer.js) – זיהוי סוג קובץ לפי MIME/extension | HYPER CORE TECH
   const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/svg+xml'];
-  const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
+  // חלק תיקון וידאו (chat-media-renderer.js) – הסרת webm מוידאו כי בצ'אט זה בד"כ הודעה קולית | HYPER CORE TECH
+  const VIDEO_TYPES = ['video/mp4', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
   const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-  const VIDEO_EXTS = /\.(mp4|webm|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+  // חלק תיקון וידאו (chat-media-renderer.js) – הסרת webm מסיומות וידאו | HYPER CORE TECH
+  const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
   
   function isImageAttachment(attachment) {
     if (!attachment) return false;
@@ -16,11 +18,20 @@
     return IMAGE_TYPES.includes(mime) || IMAGE_EXTS.test(name) || IMAGE_EXTS.test(url);
   }
   
+  // חלק זיהוי וידאו (chat-media-renderer.js) – webm לא נחשב וידאו בצ'אט אלא אם סומן מפורשות | HYPER CORE TECH
   function isVideoAttachment(attachment) {
     if (!attachment) return false;
+    // אם סומן מפורשות כווידאו, זה וידאו
+    if (attachment.isVideo === true) return true;
+    
     const mime = (attachment.type || '').toLowerCase();
-    const name = attachment.name || '';
-    const url = attachment.url || attachment.dataUrl || '';
+    const name = (attachment.name || '').toLowerCase();
+    const url = (attachment.url || attachment.dataUrl || '').toLowerCase();
+    
+    // webm בצ'אט נחשב הודעה קולית - לא וידאו!
+    const isWebm = mime === 'video/webm' || /\.webm(\?|$)/i.test(name) || /\.webm(\?|$)/i.test(url);
+    if (isWebm) return false;
+    
     return VIDEO_TYPES.includes(mime) || VIDEO_EXTS.test(name) || VIDEO_EXTS.test(url);
   }
   

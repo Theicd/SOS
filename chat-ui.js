@@ -698,7 +698,7 @@
       }
     }
     
-    return { text: text || fallbackText, ts: lastTs || fallbackTs };
+    return { text: text || fallbackText, ts: lastTs || fallbackTs, lastMessage: last };
   }
 
   let chatEnableRetryHandle = null;
@@ -1022,6 +1022,22 @@
       ? `<span class="chat-contact__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-contact__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
       : `<span class="chat-contact__avatar chat-contact__avatar--initials" title="${safeName}">${safeInitials}</span>`;
 
+    // חלק סטטוס הודעות (chat-ui.js) – הצגת סטטוס הודעה אחרונה ברשימת השיחות כמו וואטסאפ | HYPER CORE TECH
+    let statusIconHtml = '';
+    if (lastInfo.lastMessage && lastInfo.lastMessage.direction === 'outgoing') {
+      const msgStatus = lastInfo.lastMessage.status || 'sent';
+      if (msgStatus === 'sending') {
+        statusIconHtml = '<span class="chat-contact__status chat-contact__status--sending"><i class="fa-solid fa-clock"></i></span>';
+      } else if (msgStatus === 'read') {
+        statusIconHtml = '<span class="chat-contact__status chat-contact__status--read"><i class="fa-solid fa-check-double"></i></span>';
+      } else if (msgStatus === 'failed') {
+        statusIconHtml = '<span class="chat-contact__status chat-contact__status--failed"><i class="fa-solid fa-exclamation"></i></span>';
+      } else {
+        // sent - וי אחד
+        statusIconHtml = '<span class="chat-contact__status chat-contact__status--sent"><i class="fa-solid fa-check"></i></span>';
+      }
+    }
+
     return `
       <article class="chat-contact${activeClass}" data-chat-contact="${contact.pubkey}">
         ${avatarHtml}
@@ -1031,7 +1047,7 @@
             ${timeHtml}
           </div>
           <div class="chat-contact__row chat-contact__row--sub">
-            <span class="chat-contact__last-message">${safePreview}</span>
+            <span class="chat-contact__last-message">${statusIconHtml}${safePreview}</span>
             ${badgeHtml}
           </div>
         </div>

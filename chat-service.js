@@ -342,12 +342,26 @@
             hasAttachment: false,
           };
 
+    // חלק תיקון webm (chat-service.js) – כפיית webm להיות אודיו בקבלה | HYPER CORE TECH
+    let attachment = parsedPayload.attachment || null;
+    if (attachment) {
+      const attType = (attachment.type || '').toLowerCase();
+      const attName = (attachment.name || '').toLowerCase();
+      const attUrl = (attachment.url || attachment.dataUrl || '').toLowerCase();
+      const isWebm = attType === 'video/webm' || /\.webm(\?|$)/i.test(attName) || /\.webm(\?|$)/i.test(attUrl);
+      // אם זה webm ולא סומן מפורשות כווידאו, נתייחס אליו כאודיו
+      if (isWebm && attachment.isVideo !== true) {
+        attachment.type = 'audio/webm';
+        attachment.isVideo = false;
+      }
+    }
+
     const normalizedMessage = {
       id: event.id,
       from: sender,
       to: conversationTarget,
       content: parsedPayload.displayText || event.content,
-      attachment: parsedPayload.attachment || null,
+      attachment: attachment,
       createdAt: eventTs,
       direction: isSelfMessage ? 'outgoing' : 'incoming',
     };

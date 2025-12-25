@@ -1650,25 +1650,55 @@
       return;
     }
     try {
-      const payload = App.notifications.slice(0, 100).map((notification) => ({
+      // חלק תיקון quota (feed.js) – מגביל ל-50 התרעות אחרונות למניעת QuotaExceeded | HYPER CORE TECH
+      const payload = App.notifications.slice(0, 50).map((notification) => ({
         id: notification.id,
         type: notification.type,
         postId: notification.postId,
         actorPubkey: notification.actorPubkey,
         createdAt: notification.createdAt,
-        content: notification.content,
+        content: (notification.content || '').slice(0, 200), // חיתוך תוכן ארוך
         read: notification.read,
         actorProfile: notification.actorProfile
           ? {
-              name: notification.actorProfile.name || '',
-              picture: notification.actorProfile.picture || '',
+              name: (notification.actorProfile.name || '').slice(0, 50),
+              picture: '', // לא שומרים תמונות - חוסכים מקום
               initials: notification.actorProfile.initials || '',
             }
           : null,
       }));
       window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch (err) {
-      console.warn('Failed to persist notifications', err);
+      // חלק תיקון quota (feed.js) – ניסיון לפנות מקום ולשמור שוב | HYPER CORE TECH
+      if (err.name === 'QuotaExceededError') {
+        try {
+          // ניקוי קאש ישן של התראות ואווטרים
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('avatar_cache_') || key.startsWith('nostr_notifications_'))) {
+              if (key !== storageKey) keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+          
+          // ניסיון שני עם פחות התראות
+          const minPayload = App.notifications.slice(0, 20).map((n) => ({
+            id: n.id,
+            type: n.type,
+            postId: n.postId,
+            actorPubkey: n.actorPubkey,
+            createdAt: n.createdAt,
+            read: n.read,
+          }));
+          window.localStorage.setItem(storageKey, JSON.stringify(minPayload));
+        } catch {
+          // אם עדיין נכשל, מוחקים את המפתח ומדלגים
+          try { localStorage.removeItem(storageKey); } catch {}
+        }
+      } else {
+        console.warn('Failed to persist notifications', err);
+      }
     }
     notifyNotificationObservers();
   }

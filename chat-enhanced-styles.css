@@ -1008,3 +1008,33 @@
 .chat-message__status--sending i {
   font-size: 9px;
 }
+
+/* חלק סטטוס ברשימת שיחות (chat-enhanced-styles.css) – אייקוני סטטוס ברשימת אנשי קשר כמו וואטסאפ | HYPER CORE TECH */
+.chat-contact__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.chat-contact__status--sending {
+  color: #8696a0;
+}
+
+.chat-contact__status--sent {
+  color: #8696a0;
+}
+
+.chat-contact__status--read {
+  color: #53bdeb;
+}
+
+.chat-contact__status--failed {
+  color: #e74c3c;
+}
+
+.chat-contact__status i {
+  font-size: 12px;
+}
