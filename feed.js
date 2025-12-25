@@ -1650,14 +1650,13 @@
       return;
     }
     try {
-      // חלק התראות (feed.js) – שמירת כל ההתראות ללא הגבלת כמות, עם תמונות פרופיל מלאות | HYPER CORE TECH
-      const payload = App.notifications.map((notification) => ({
+      const payload = App.notifications.slice(0, 100).map((notification) => ({
         id: notification.id,
         type: notification.type,
         postId: notification.postId,
         actorPubkey: notification.actorPubkey,
         createdAt: notification.createdAt,
-        content: notification.content || '',
+        content: notification.content,
         read: notification.read,
         actorProfile: notification.actorProfile
           ? {
@@ -1669,28 +1668,7 @@
       }));
       window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch (err) {
-      // חלק תיקון quota (feed.js) – ניסיון לפנות מקום ולשמור שוב | HYPER CORE TECH
-      if (err.name === 'QuotaExceededError') {
-        try {
-          // ניקוי קאש ישן של אווטרים בלבד (לא התראות ולא צ'אט!)
-          const keysToRemove = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('avatar_cache_')) {
-              keysToRemove.push(key);
-            }
-          }
-          keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
-          
-          // ניסיון שני לשמור את כל ההתראות
-          window.localStorage.setItem(storageKey, JSON.stringify(payload));
-        } catch {
-          // אם עדיין נכשל, הודעה בלבד - לא מוחקים התראות
-          console.warn('Failed to persist notifications after cleanup');
-        }
-      } else {
-        console.warn('Failed to persist notifications', err);
-      }
+      console.warn('Failed to persist notifications', err);
     }
     notifyNotificationObservers();
   }

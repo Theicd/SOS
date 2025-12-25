@@ -4,11 +4,9 @@
   
   // חלק זיהוי (chat-media-renderer.js) – זיהוי סוג קובץ לפי MIME/extension | HYPER CORE TECH
   const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/svg+xml'];
-  // חלק תיקון וידאו (chat-media-renderer.js) – הסרת webm מוידאו כי בצ'אט זה בד"כ הודעה קולית | HYPER CORE TECH
-  const VIDEO_TYPES = ['video/mp4', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
+  const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
   const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-  // חלק תיקון וידאו (chat-media-renderer.js) – הסרת webm מסיומות וידאו | HYPER CORE TECH
-  const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+  const VIDEO_EXTS = /\.(mp4|webm|ogv|mov|avi|mkv|m4v)(\?|$)/i;
   
   function isImageAttachment(attachment) {
     if (!attachment) return false;
@@ -18,19 +16,30 @@
     return IMAGE_TYPES.includes(mime) || IMAGE_EXTS.test(name) || IMAGE_EXTS.test(url);
   }
   
-  // חלק זיהוי וידאו (chat-media-renderer.js) – webm לא נחשב וידאו בצ'אט אלא אם סומן מפורשות | HYPER CORE TECH
+  // חלק זיהוי וידאו (chat-media-renderer.js) – משופר לא לזהות הודעות קוליות כווידאו | HYPER CORE TECH
   function isVideoAttachment(attachment) {
     if (!attachment) return false;
-    // אם סומן מפורשות כווידאו, זה וידאו
-    if (attachment.isVideo === true) return true;
-    
     const mime = (attachment.type || '').toLowerCase();
     const name = (attachment.name || '').toLowerCase();
     const url = (attachment.url || attachment.dataUrl || '').toLowerCase();
     
-    // webm בצ'אט נחשב הודעה קולית - לא וידאו!
-    const isWebm = mime === 'video/webm' || /\.webm(\?|$)/i.test(name) || /\.webm(\?|$)/i.test(url);
-    if (isWebm) return false;
+    // חלק הדרה (chat-media-renderer.js) – הודעות קוליות לא נחשבות וידאו! | HYPER CORE TECH
+    // אם יש duration או שם/mime מצביעים על אודיו - זה לא וידאו
+    const hasDuration = typeof attachment.duration === 'number' && attachment.duration > 0;
+    const isAudioMime = mime.startsWith('audio/');
+    const isVoiceByName = name.includes('voice') || url.includes('voice');
+    const hasAudioDataUrl = url.startsWith('data:audio/');
+    
+    // אם זה אודיו - לא נחשיב כווידאו
+    if (isAudioMime || isVoiceByName || hasDuration || hasAudioDataUrl) {
+      return false;
+    }
+    
+    // webm בצ'אט הוא בד"כ הודעה קולית - נחשיב כווידאו רק אם מסומן מפורשות
+    const isWebm = /\.webm(\?|$)/i.test(name) || /\.webm(\?|$)/i.test(url) || mime === 'video/webm';
+    if (isWebm && attachment.isVideo !== true) {
+      return false;
+    }
     
     return VIDEO_TYPES.includes(mime) || VIDEO_EXTS.test(name) || VIDEO_EXTS.test(url);
   }
