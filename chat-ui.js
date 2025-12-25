@@ -363,6 +363,58 @@
     }
   }
 
+  // חלק פורמט מדיה להתראות (chat-ui.js) – פורמט הודעות מדיה בעברית להתראות | HYPER CORE TECH
+  function formatMessageForNotification(message) {
+    const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
+    const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+    const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
+    
+    const content = typeof message === 'string' ? message : (message?.content || '');
+    const attachment = typeof message === 'object' ? message?.attachment : null;
+    
+    // בדיקת attachment
+    if (attachment) {
+      const mime = String(attachment.type || '').toLowerCase();
+      const name = String(attachment.name || '').toLowerCase();
+      const url = String(attachment.url || attachment.dataUrl || '').toLowerCase();
+      
+      // הודעה קולית
+      if (mime.startsWith('audio/') || AUDIO_EXTS.test(name) || AUDIO_EXTS.test(url) || 
+          name.includes('voice') || url.includes('voice')) {
+        const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
+        const durationText = dur !== null 
+          ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})`
+          : '';
+        return `🎤 הודעה קולית${durationText}`;
+      }
+      // וידאו
+      if (mime.startsWith('video/') || VIDEO_EXTS.test(name) || VIDEO_EXTS.test(url)) {
+        return content ? `📹 ${content}` : '📹 וידאו';
+      }
+      // תמונה
+      if (mime.startsWith('image/') || IMAGE_EXTS.test(name) || IMAGE_EXTS.test(url)) {
+        return content ? `📷 ${content}` : '📷 תמונה';
+      }
+      // קובץ רגיל
+      return `📎 ${attachment.name || 'קובץ מצורף'}`;
+    }
+    
+    // בדיקת URL בתוכן
+    if (content) {
+      const urlMatch = content.match(/(https?:\/\/[^\s]+)/i);
+      if (urlMatch) {
+        const url = urlMatch[0];
+        const remainingText = content.replace(url, '').trim();
+        
+        if (AUDIO_EXTS.test(url)) return '🎤 הודעה קולית';
+        if (VIDEO_EXTS.test(url)) return remainingText ? `📹 ${remainingText}` : '📹 וידאו';
+        if (IMAGE_EXTS.test(url)) return remainingText ? `📷 ${remainingText}` : '📷 תמונה';
+      }
+    }
+    
+    return content || 'הודעה חדשה';
+  }
+
   // חלק צ'אט (chat-ui.js) – התראת מערכת על הודעה נכנסת כאשר החלון ברקע/לא בשיחה הפעילה | HYPER CORE TECH
   function showIncomingChatNotification(peerPubkey, message) {
     try {
@@ -381,52 +433,8 @@
       const contact = App.chatState?.contacts?.get(normalizedPeer);
       const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
       const picture = contact?.picture || '';
-      
-      // חלק התראות מדיה (chat-ui.js) – עיצוב הודעת התראה לפי סוג מדיה בסגנון וואטסאפ | HYPER CORE TECH
-      const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
-      const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
-      const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-      
-      let snippet = '';
-      const content = typeof message === 'string' ? message : (message?.content || '');
-      const attachment = message?.attachment || null;
-      
-      if (attachment) {
-        const mime = String(attachment.type || '').toLowerCase();
-        const aName = String(attachment.name || '').toLowerCase();
-        const aUrl = String(attachment.url || attachment.dataUrl || '').toLowerCase();
-        
-        if (mime.startsWith('audio/') || AUDIO_EXTS.test(aName) || AUDIO_EXTS.test(aUrl) || aName.includes('voice') || aUrl.includes('voice')) {
-          const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
-          const durationText = dur !== null ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})` : '';
-          snippet = `🎤 הודעה קולית${durationText}`;
-        } else if (mime.startsWith('video/') || VIDEO_EXTS.test(aName) || VIDEO_EXTS.test(aUrl)) {
-          snippet = content ? `📹 ${content}` : '📹 וידאו';
-        } else if (mime.startsWith('image/') || IMAGE_EXTS.test(aName) || IMAGE_EXTS.test(aUrl)) {
-          snippet = content ? `📷 ${content}` : '📷 תמונה';
-        } else {
-          snippet = `📎 ${attachment.name || 'קובץ מצורף'}`;
-        }
-      } else if (content) {
-        const urlMatch = content.match(/(https?:\/\/[^\s]+)/i);
-        if (urlMatch) {
-          const url = urlMatch[0];
-          const remainingText = content.replace(url, '').trim();
-          if (AUDIO_EXTS.test(url)) {
-            snippet = '🎤 הודעה קולית';
-          } else if (VIDEO_EXTS.test(url)) {
-            snippet = remainingText ? `📹 ${remainingText}` : '📹 וידאו';
-          } else if (IMAGE_EXTS.test(url)) {
-            snippet = remainingText ? `📷 ${remainingText}` : '📷 תמונה';
-          } else {
-            snippet = content;
-          }
-        } else {
-          snippet = content;
-        }
-      }
-      
-      const safeSnippet = snippet ? snippet.replace(/\s+/g, ' ').trim().slice(0, 120) : 'הודעה חדשה';
+      // חלק התראות מדיה (chat-ui.js) – שימוש בפורמט מדיה בעברית להתראות | HYPER CORE TECH
+      const safeSnippet = formatMessageForNotification(message).slice(0, 120);
 
       const baseOptions = {
         body: safeSnippet,
@@ -1031,9 +1039,14 @@
       if (a) {
         const src = a.url || a.dataUrl || '';
         const mime = (a.type || '').toLowerCase();
+        const fileName = (a.name || '').toLowerCase();
+        const srcLower = src.toLowerCase();
         const fromSrc = /^data:audio\//i.test(src);
-        const byExt = /\.(webm|mp3|m4a|ogg|wav)(\?|$)/i.test(src || a.name || '');
-        isAudioAttachment = (mime.startsWith('audio/') || fromSrc || byExt) && !!src;
+        // חלק זיהוי אודיו (chat-ui.js) – זיהוי הודעות קוליות לפי שם/URL שמכיל voice או סיומת אודיו | HYPER CORE TECH
+        const isVoiceByName = fileName.includes('voice') || srcLower.includes('voice');
+        const byExt = /\.(mp3|m4a|ogg|wav|aac)(\?|$)/i.test(src || fileName);
+        const isWebmAudio = /\.webm(\?|$)/i.test(src || fileName) && (isVoiceByName || mime.startsWith('audio/'));
+        isAudioAttachment = (mime.startsWith('audio/') || fromSrc || byExt || isWebmAudio || isVoiceByName) && !!src;
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
         if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {
@@ -1098,9 +1111,16 @@
       let remainingText = rawMessageContent;
       if (!a && !youtubeHtml && rawMessageContent) {
         const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-        // חלק זיהוי אודיו (chat-ui.js) – webm נחשב אודיו אם יש voice/audio בשם | HYPER CORE TECH
-        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac|webm)(\?|$)/i;
+        // חלק זיהוי אודיו (chat-ui.js) – סיומות אודיו ללא webm | HYPER CORE TECH
+        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac)(\?|$)/i;
         const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+        const WEBM_EXT = /\.webm(\?|$)/i;
+        
+        // פונקציית עזר לזיהוי האם URL הוא הודעה קולית
+        function isVoiceUrl(url) {
+          const urlLower = url.toLowerCase();
+          return urlLower.includes('voice') || urlLower.includes('audio');
+        }
         
         // חיפוש כל ה-URLs בהודעה
         const urlRegex = /(https?:\/\/[^\s]+)/gi;
@@ -1108,6 +1128,9 @@
         const mediaItems = [];
         
         urls.forEach(url => {
+          // חלק זיהוי אודיו (chat-ui.js) – בדיקת אודיו קודם לווידאו כדי לזהות הודעות קוליות | HYPER CORE TECH
+          const isAudioUrl = AUDIO_EXTS.test(url) || (WEBM_EXT.test(url) && isVoiceUrl(url));
+          
           if (IMAGE_EXTS.test(url)) {
             // תמונה
             mediaItems.push(`
@@ -1125,8 +1148,16 @@
             `);
             remainingText = remainingText.replace(url, '').trim();
             isMediaUrl = true;
-          } else if (VIDEO_EXTS.test(url)) {
-            // וידאו
+          } else if (isAudioUrl) {
+            // אודיו / הודעה קולית
+            const fakeAttachment = { url: url, type: 'audio/webm', name: 'הודעת קול' };
+            mediaItems.push(typeof App.createEnhancedAudioPlayer === 'function'
+              ? App.createEnhancedAudioPlayer(fakeAttachment)
+              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${url}" type="audio/webm"></audio></div>`);
+            remainingText = remainingText.replace(url, '').trim();
+            isMediaUrl = true;
+          } else if (VIDEO_EXTS.test(url) || WEBM_EXT.test(url)) {
+            // וידאו (webm שאינו הודעה קולית)
             mediaItems.push(`
               <div class="chat-message__video-container">
                 <video 
@@ -1140,14 +1171,6 @@
                 </video>
               </div>
             `);
-            remainingText = remainingText.replace(url, '').trim();
-            isMediaUrl = true;
-          } else if (AUDIO_EXTS.test(url)) {
-            // אודיו
-            const fakeAttachment = { url: url, type: 'audio/mpeg', name: 'הודעת קול' };
-            mediaItems.push(typeof App.createEnhancedAudioPlayer === 'function'
-              ? App.createEnhancedAudioPlayer(fakeAttachment)
-              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${url}" type="audio/mpeg"></audio></div>`);
             remainingText = remainingText.replace(url, '').trim();
             isMediaUrl = true;
           }

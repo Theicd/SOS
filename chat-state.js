@@ -18,6 +18,39 @@
   };
 
   const MAX_MESSAGES_PER_THREAD = null; // חלק צ'אט (chat-state.js) – מבטל קיצוץ הודעות (שומרים היסטוריה מלאה) | HYPER CORE TECH
+  
+  // חלק IndexedDB (chat-state.js) – אחסון ללא הגבלה עם IndexedDB | HYPER CORE TECH
+  const DB_NAME = 'NostrChatDB';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'chatState';
+  let dbInstance = null;
+  let dbReady = false;
+  let pendingPersist = false;
+  
+  function openDatabase() {
+    return new Promise((resolve, reject) => {
+      if (dbInstance && dbReady) {
+        resolve(dbInstance);
+        return;
+      }
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onerror = () => {
+        console.warn('IndexedDB open failed, falling back to localStorage');
+        reject(request.error);
+      };
+      request.onsuccess = () => {
+        dbInstance = request.result;
+        dbReady = true;
+        resolve(dbInstance);
+      };
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+      };
+    });
+  }
 
   function getConversationKey(a, b) {
     if (!a || !b) return null;
@@ -44,52 +77,113 @@
     });
   }
 
-  function persistState() {
+  // חלק שמירה IndexedDB (chat-state.js) – שמירה ל-IndexedDB עם fallback ל-localStorage | HYPER CORE TECH
+  async function persistStateToIndexedDB() {
     const storageKey = getStorageKey();
     if (!storageKey) return;
+    
+    const contactsArray = [];
+    chatState.contacts.forEach((contact) => {
+      contactsArray.push({
+        pubkey: contact.pubkey,
+        name: contact.name,
+        picture: contact.picture,
+        initials: contact.initials,
+        lastMessage: contact.lastMessage,
+        lastTimestamp: contact.lastTimestamp,
+        unreadCount: contact.unreadCount,
+        lastReadTimestamp: contact.lastReadTimestamp || 0,
+        profileFetchedAt: contact.profileFetchedAt || 0,
+      });
+    });
+    const conversationsArray = [];
+    chatState.conversations.forEach((info, key) => {
+      conversationsArray.push({
+        key,
+        peer: info.peer,
+        messages: Array.isArray(info.messages) ? info.messages : [],
+      });
+    });
+    const payload = {
+      id: storageKey,
+      contacts: contactsArray,
+      conversations: conversationsArray,
+      deletedIds: Array.from(App.deletedChatMessageIds || []),
+      lastSyncTs: chatState.lastSyncTs || 0,
+    };
+    
     try {
-      const contactsArray = [];
-      chatState.contacts.forEach((contact) => {
-        contactsArray.push({
-          pubkey: contact.pubkey,
-          name: contact.name,
-          picture: contact.picture,
-          initials: contact.initials,
-          lastMessage: contact.lastMessage,
-          lastTimestamp: contact.lastTimestamp,
-          unreadCount: contact.unreadCount,
-          // חלק צ'אט (chat-state.js) – שומר את חותמת הזמן של הקריאה האחרונה כדי למנוע ספירה מחדש של הודעות כלא נקראו
-          lastReadTimestamp: contact.lastReadTimestamp || 0,
-          profileFetchedAt: contact.profileFetchedAt || 0,
-        });
+      const db = await openDatabase();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put(payload);
+      await new Promise((resolve, reject) => {
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
       });
-      const conversationsArray = [];
-      chatState.conversations.forEach((info, key) => {
-        conversationsArray.push({
-          key,
-          peer: info.peer,
-          messages: Array.isArray(info.messages) ? info.messages : [],
-        });
-      });
-      const payload = {
-        contacts: contactsArray,
-        conversations: conversationsArray,
-        deletedIds: Array.from(App.deletedChatMessageIds || []),
-        lastSyncTs: chatState.lastSyncTs || 0,
-      };
-      window.localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch (err) {
-      console.warn('Failed to persist chat state', err);
+      // Fallback to localStorage if IndexedDB fails
+      try {
+        const smallPayload = JSON.stringify(payload);
+        window.localStorage.setItem(storageKey, smallPayload);
+      } catch (lsErr) {
+        console.warn('Failed to persist chat state to both IndexedDB and localStorage', lsErr);
+      }
+    }
+  }
+  
+  // חלק debounce (chat-state.js) – מונע שמירות רבות מדי בזמן קצר | HYPER CORE TECH
+  let persistTimeout = null;
+  function persistState() {
+    if (persistTimeout) return;
+    persistTimeout = setTimeout(() => {
+      persistTimeout = null;
+      persistStateToIndexedDB();
+    }, 500);
+  }
+
+  // חלק שחזור IndexedDB (chat-state.js) – שחזור מ-IndexedDB עם fallback ל-localStorage | HYPER CORE TECH
+  async function restoreStateFromIndexedDB() {
+    const storageKey = getStorageKey();
+    if (!storageKey) return null;
+    
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.get(storageKey);
+      return new Promise((resolve) => {
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => resolve(null);
+      });
+    } catch (err) {
+      return null;
     }
   }
 
-  function restoreState() {
+  async function restoreState() {
     const storageKey = getStorageKey();
     if (!storageKey) return;
     try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
+      // נסה קודם IndexedDB
+      let parsed = await restoreStateFromIndexedDB();
+      
+      // אם אין ב-IndexedDB, נסה localStorage
+      if (!parsed) {
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw) {
+          parsed = JSON.parse(raw);
+          // מיגרציה: מעביר נתונים מ-localStorage ל-IndexedDB
+          if (parsed) {
+            setTimeout(() => {
+              persistStateToIndexedDB();
+              // מנקה את localStorage אחרי מיגרציה מוצלחת
+              try { window.localStorage.removeItem(storageKey); } catch {}
+            }, 1000);
+          }
+        }
+      }
+      
       if (!parsed || typeof parsed !== 'object') return;
       if (Array.isArray(parsed.contacts)) {
         parsed.contacts.forEach((contact) => {
