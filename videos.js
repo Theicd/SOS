@@ -291,98 +291,16 @@ const uploadIndicatorUI = {
   }
 };
 
-// כפתור מיוט גלובלי - מהבהב כשמושתק
-const muteIndicatorUI = {
-  element: null,
-  isMuted: true,
-  
-  init() {
-    this.element = document.getElementById('muteIndicator');
-    if (!this.element) return;
-    
-    // התחלה במצב מושתק
-    this.isMuted = true;
-    this.updateUI();
-    
-    // לחיצה על הכפתור
-    this.element.addEventListener('click', () => this.toggle());
-    
-    // מעקב אחרי שינויים בווידאו - סנכרון עם הכפתור
-    this.startVideoSync();
-  },
-  
-  toggle() {
-    this.isMuted = !this.isMuted;
-    this.updateUI();
-    this.applyToAllVideos();
-  },
-  
-  // סנכרון מצב הכפתור עם הווידאו הפעיל
-  startVideoSync() {
-    // בדיקה כל 200ms אם יש וידאו שמצבו שונה מהכפתור
-    setInterval(() => {
-      const videos = document.querySelectorAll('.videos-feed__media-video');
-      for (const video of videos) {
-        if (!video.paused && video.muted !== this.isMuted) {
-          // וידאו פעיל עם מצב שונה - סנכרן
-          this.isMuted = video.muted;
-          this.updateUI();
-          // עדכן את כל שאר הווידאו
-          videos.forEach(v => { if (v !== video) v.muted = this.isMuted; });
-          break;
-        }
-      }
-    }, 200);
-  },
-  
-  // עדכון מצב מווידאו ספציפי
-  syncFromVideo(video) {
-    if (video && video.muted !== this.isMuted) {
-      this.isMuted = video.muted;
-      this.updateUI();
-    }
-  },
-  
-  updateUI() {
-    if (!this.element) return;
-    const icon = this.element.querySelector('i');
-    
-    if (this.isMuted) {
-      this.element.classList.add('is-muted');
-      this.element.title = 'לחץ להפעלת קול';
-      if (icon) icon.className = 'fa-solid fa-volume-xmark';
-    } else {
-      this.element.classList.remove('is-muted');
-      this.element.title = 'לחץ להשתקה';
-      if (icon) icon.className = 'fa-solid fa-volume-high';
-    }
-  },
-  
-  applyToAllVideos() {
-    const videos = document.querySelectorAll('.videos-feed__media-video');
-    videos.forEach(video => {
-      video.muted = this.isMuted;
-    });
-  },
-  
-  // קריאה מבחוץ לקבלת מצב המיוט
-  getMuted() {
-    return this.isMuted;
-  }
-};
-
 // אתחול עיגול הסטטיסטיקות כשהדף נטען
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     p2pStatsUI.init();
     uploadIndicatorUI.init();
-    muteIndicatorUI.init();
   }, 1000);
 });
 
 // חשיפה גלובלית לעדכון מקבצים אחרים
 window.updateP2PStatsUI = (source) => p2pStatsUI.update(source);
-window.getMuteState = () => muteIndicatorUI.getMuted();
 
 // תור טעינה סדרתית לוידאו
 let videoDownloadQueue = [];
@@ -541,15 +459,11 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
     if (!videoEl) return;
     mediaDiv.classList.add('videos-feed__media--ready');
     
-    // ניסיון להפעיל עם צליל
+    // ניסיון להפעיל עם צליל (ללא כפיית mute). אם נכשל, לא כופים mute.
     videoEl.muted = false;
     videoEl.play().catch(() => {
-      // אם autoplay עם צליל נכשל, ננסה עם mute
-      videoEl.muted = true;
-      videoEl.play().catch(() => {
-        // גם עם mute נכשל – להחזיר מצב נייח
-        videoEl.pause();
-      });
+      // אם autoplay נכשל עם צליל, נשאיר pause (המשתמש ילחץ play)
+      videoEl.pause();
     });
   } else if (mediaType === 'youtube') {
     ensureYouTubeIframe(mediaDiv, { autoplay: true });
@@ -1259,8 +1173,8 @@ function renderVideoCard(video) {
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
-    videoEl.muted = typeof window.getMuteState === 'function' ? window.getMuteState() : true;
-    videoEl.defaultMuted = true; // חלק תאימות iOS (videos.js) – מצב השתקה ברירת מחדל | HYPER CORE TECH
+    videoEl.muted = false;
+    videoEl.defaultMuted = false;
     videoEl.loop = true; // לופ כמו טיקטוק
     videoEl.playsInline = true;
     videoEl.autoplay = false; // חלק תאימות iOS (videos.js) – נשלט ידנית | HYPER CORE TECH
