@@ -115,6 +115,67 @@
 
 /* אופטימיזציה: אנימציות ::before של sos-o בוטלו - יורשים מ-.sos-char::before הסטטי */
 
+/* אנימציית Slot Machine - החלפת טקסט כמו במכונת קזינו | HYPER CORE TECH */
+/* סדר: SOS → 010 → COM (כתובת האתר: SOS010.COM) */
+@keyframes slotSpin {
+  0% { 
+    transform: translateY(0) rotateX(0);
+    opacity: 1;
+  }
+  25% { 
+    transform: translateY(-100%) rotateX(90deg);
+    opacity: 0;
+  }
+  50% { 
+    transform: translateY(100%) rotateX(-90deg);
+    opacity: 0;
+  }
+  75% { 
+    transform: translateY(0) rotateX(0);
+    opacity: 1;
+  }
+  100% { 
+    transform: translateY(0) rotateX(0);
+    opacity: 1;
+  }
+}
+
+/* אפקט הבהוב קצר בעת החלפה */
+@keyframes slotGlow {
+  0%, 100% { 
+    box-shadow: 0 0 8px currentColor;
+  }
+  50% { 
+    box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+}
+
+/* מחלקה להפעלת אנימציית Slot */
+.sos-char.slot-spinning {
+  animation: slotSpin 0.4s ease-in-out, slotGlow 0.4s ease-in-out !important;
+}
+
+/* עיצוב לתו מספרי (0, 1) */
+.sos-char.sos-num {
+  background: linear-gradient(145deg, #1a4a1a, #0a2a0a);
+  color: #4caf50;
+  text-shadow: 0 0 12px #4caf50;
+}
+
+/* עיצוב לתו C */
+.sos-char.sos-c {
+  background: linear-gradient(145deg, #4a1a4a, #2a0a2a);
+  color: #e040fb;
+  text-shadow: 0 0 12px #e040fb;
+}
+
+/* עיצוב לתו M */
+.sos-char.sos-m {
+  background: linear-gradient(145deg, #4a4a1a, #2a2a0a);
+  color: #ffeb3b;
+  text-shadow: 0 0 12px #ffeb3b;
+}
+
 /* הסלוגן מוסתר */
 .sos-tagline {
   display: none;
