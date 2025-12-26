@@ -7,23 +7,14 @@
   50% { opacity: 0.9; }
 }
 
-/* החלת עיצוב על התפריט התחתון | HYPER CORE TECH */
-/* אופטימיזציה: הסרת animation כבדה, הפחתת blur מ-8px ל-4px */
+/* מיקום קבוע לתפריט התחתון | HYPER CORE TECH */
 body:has(.videos-feed) .primary-nav {
-  background: linear-gradient(90deg, 
-    #0a0a14 0%, 
-    #1a1a2e 25%, 
-    #16213e 50%, 
-    #1a1a2e 75%, 
-    #0a0a14 100%);
-  backdrop-filter: blur(4px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
   position: fixed !important;
   bottom: 0 !important;
   top: auto !important;
   left: 0 !important;
   right: 0 !important;
-  overflow: hidden;
+  height: 80px; /* גובה קבוע לתפריט */
 }
 
 /* קו דק זוהר בחלק העליון | HYPER CORE TECH */
@@ -272,18 +263,19 @@ body:has(.videos-feed) .top-bar__dropdown {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* חלק תפריט תחתון צף (videos.css) – תפריט תחתון שקוף עם כפתורים צפים כמו כפתורי הצד | HYPER CORE TECH */
+/* חלק תפריט תחתון (videos.css) – תפריט תחתון עם רקע ברור כמו בטיקטוק | HYPER CORE TECH */
 body:has(.videos-feed) .primary-nav {
-  background: transparent;
-  backdrop-filter: none;
-  border-top: none;
-  box-shadow: none;
-  padding: 16px 12px 20px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%) !important;
+  backdrop-filter: blur(12px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5) !important;
+  padding: 12px 12px 16px;
   gap: 8px;
   display: flex;
   justify-content: space-evenly;
   align-items: center;
   width: 100%;
+  z-index: 100;
 }
 
 body:has(.videos-feed) .nav-item {
@@ -364,7 +356,7 @@ body:has(.videos-feed) .nav-avatar {
   /* ללא scroll-behavior: smooth - מעבר מיידי כמו טיקטוק */
   scrollbar-width: none;
   padding-top: 56px;
-  padding-bottom: 0;
+  padding-bottom: 80px; /* מרווח לתפריט התחתון */
 }
 
 .videos-feed__viewport::-webkit-scrollbar {
@@ -374,26 +366,27 @@ body:has(.videos-feed) .nav-avatar {
 .videos-feed__stream {
   display: flex;
   flex-direction: column;
-  gap: 10px; /* מרחק קטן בין פוסטים */
+  gap: 0; /* ללא מרחק בין פוסטים - כמו בטיקטוק */
   padding: 0;
   min-height: 100%;
 }
 
-/* חלק קלף וידאו (videos.css) – כרטיס וידאו בודד עם אפקט snap וטשטוש */
+/* חלק קלף וידאו (videos.css) – כרטיס וידאו בודד עם אפקט snap וטשטוש | HYPER CORE TECH */
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* גובה מלא עד לתפריט התחתון */
-  height: calc(100vh - 56px - 60px);
-  min-height: calc(100vh - 56px - 60px);
-  max-height: calc(100vh - 56px - 60px);
+  /* גובה מלא: 100vh פחות top-bar (56px) פחות תפריט תחתון (80px) */
+  height: calc(100vh - 56px - 80px);
+  min-height: calc(100vh - 56px - 80px);
+  max-height: calc(100vh - 56px - 80px);
   width: 100%;
   max-width: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: visible; /* שינוי מ-hidden כדי שפס ההתקדמות יהיה נראה */
+  overflow: hidden; /* מסתיר תוכן שחורג מהכרטיסייה */
   background: #000;
+  flex-shrink: 0; /* מונע כיווץ של הכרטיסייה */
 }
 
 /* חלק מדיה (videos.css) – וידאו או YouTube iframe */
