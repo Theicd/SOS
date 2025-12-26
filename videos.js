@@ -424,19 +424,14 @@ function wireMediaControls(root = document) {
   });
 }
 
-// חלק יאללה וידאו (videos.js) – הפעלה אוטומטית של הווידאו הראשון
-function autoPlayFirstVideo() {
-  if (!selectors.stream) return;
-  const firstCard = selectors.stream.querySelector('.videos-feed__card');
-  if (!firstCard) return;
-  const mediaDiv = firstCard.querySelector('.videos-feed__media');
-  if (mediaDiv) {
-    playMedia(mediaDiv, { manual: false, priority: true });
-  }
-}
+// מציין אם המשתמש הפעיל ניגון ידנית (לאפשר autoplay רק אחרי לחיצה ראשונה)
+let userHasPlayedVideo = false;
 
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
+  if (manual) {
+    userHasPlayedVideo = true; // לאחר לחיצה ראשונה ניתן autoplay בהמשך
+  }
   if (!mediaDiv) return;
   if (activeMediaDiv && activeMediaDiv !== mediaDiv) {
     pauseMedia(activeMediaDiv, { resetThumb: false });
@@ -445,20 +440,21 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
 
+  // לפני לחיצה ראשונה: אין ניגון אוטומטי
+  if (!manual && !userHasPlayedVideo) {
+    return;
+  }
+
   if (mediaType === 'file') {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return;
     mediaDiv.classList.add('videos-feed__media--ready');
     
-    // ניסיון להפעיל עם צליל
+    // ניסיון להפעיל עם צליל בלבד (ללא מעבר למיוט)
     videoEl.muted = false;
     videoEl.play().catch(() => {
-      // אם autoplay עם צליל נכשל, ננסה עם mute
-      videoEl.muted = true;
-      videoEl.play().catch(() => {
-        // גם עם mute נכשל – להחזיר מצב נייח
-        videoEl.pause();
-      });
+      // אם דפדפן חסם autoplay עם קול, לא עוברים למיוט; משאירים Paused
+      console.warn('[videos] Autoplay with sound blocked; user interaction required');
     });
   } else if (mediaType === 'youtube') {
     ensureYouTubeIframe(mediaDiv, { autoplay: true });
