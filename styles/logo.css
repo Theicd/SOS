@@ -23,7 +23,7 @@
   position: relative;
   padding: 2px 8px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.25); /* שקיפות עדינה יותר */
   /* אופטימיזציה: הורדת blur כבד, שימוש ב-box-shadow קל יותר */
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
@@ -104,6 +104,13 @@
   will-change: transform;
 }
 
+.sos-char.sos-s-alt {
+  /* וריאנט כתום עבור S (להחלפה דינמית) */
+  background: linear-gradient(145deg, #6b1a1a, #3a0a0a);
+  color: #ff6d00;
+  text-shadow: 0 0 12px #ff6d00;
+}
+
 .sos-char.sos-o {
   /* אופטימיזציה: האטת pulseO ל-4s, צמצום text-shadow לשכבה אחת */
   background: linear-gradient(145deg, #6b1a1a, #3a0a0a);
@@ -112,6 +119,13 @@
   animation: pulseO 4s ease-in-out infinite alternate;
   position: relative;
   will-change: transform, box-shadow;
+}
+
+.sos-char.sos-o-alt {
+  /* וריאנט כחול עבור O (להחלפה דינמית) */
+  background: linear-gradient(145deg, #1a1a6b, #0a0a3a);
+  color: #4fc3f7;
+  text-shadow: 0 0 12px #4fc3f7;
 }
 
 /* אופטימיזציה: אנימציות ::before של sos-o בוטלו - יורשים מ-.sos-char::before הסטטי */
@@ -153,7 +167,7 @@
 
 /* מחלקה להפעלת אנימציית Slot */
 .sos-char.slot-spinning {
-  animation: slotSpin 0.4s ease-in-out, slotGlow 0.4s ease-in-out !important;
+  animation: slotSpin 0.6s ease-in-out, slotGlow 0.6s ease-in-out !important;
 }
 
 /* עיצוב לתו מספרי (0, 1) */
