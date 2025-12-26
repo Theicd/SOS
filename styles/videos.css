@@ -1,32 +1,14 @@
 /* חלק אפקטים (videos.css) – הסרת כל האפקטים לגלילה פשוטה | HYPER CORE TECH */
+/* אופטימיזציה: ביטול אנימציות כבדות, שמירה על מראה דומה סטטי */
 
-/* חלק אנימציית קו מחשב דק בחלק העליון של התפריט | HYPER CORE TECH */
-@keyframes computerLine {
-  0% {
-    background: linear-gradient(90deg, 
-      #0a0a14 0%, 
-      #1a1a2e 25%, 
-      #16213e 50%, 
-      #1a1a2e 75%, 
-      #0a0a14 100%);
-  }
-  100% {
-    background: linear-gradient(90deg, 
-      #0a0a14 0%, 
-      #1a1a2e 25%, 
-      #16213e 50%, 
-      #1a1a2e 75%, 
-      #0a0a14 100%);
-  }
+/* אופטימיזציה: אנימציית topLineGlow קלה במקום topLineMove (opacity במקום transform) */
+@keyframes topLineGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
 }
 
-/* אנימציית קו דק נע בחלק העליון */
-@keyframes topLineMove {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-/* החלת אנימציית הקו על התפריט התחתון */
+/* החלת עיצוב על התפריט התחתון | HYPER CORE TECH */
+/* אופטימיזציה: הסרת animation כבדה, הפחתת blur מ-8px ל-4px */
 body:has(.videos-feed) .primary-nav {
   background: linear-gradient(90deg, 
     #0a0a14 0%, 
@@ -34,8 +16,7 @@ body:has(.videos-feed) .primary-nav {
     #16213e 50%, 
     #1a1a2e 75%, 
     #0a0a14 100%);
-  backdrop-filter: blur(8px);
-  animation: computerLine 4s ease-in-out infinite;
+  backdrop-filter: blur(4px);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   position: fixed !important;
   bottom: 0 !important;
@@ -45,7 +26,8 @@ body:has(.videos-feed) .primary-nav {
   overflow: hidden;
 }
 
-/* קו דק נע בחלק העליון */
+/* קו דק זוהר בחלק העליון | HYPER CORE TECH */
+/* אופטימיזציה: אנימציית opacity קלה במקום translateX כבד */
 body:has(.videos-feed) .primary-nav::before {
   content: '';
   position: absolute;
@@ -57,14 +39,8 @@ body:has(.videos-feed) .primary-nav::before {
     transparent 0%, 
     rgba(0, 255, 255, 0.6) 50%, 
     transparent 100%);
-  animation: topLineMove 3s linear infinite;
-}
-
-/* התאמת אנימציה גם למובייל */
-@media (max-width: 768px) {
-  body:has(.videos-feed) .primary-nav {
-    animation: computerLine 3s ease-in-out infinite;
-  }
+  animation: topLineGlow 4s ease-in-out infinite;
+  will-change: opacity;
 }
 
 /* כפתור התחבר/הירשם בפס העליון - עיצוב מותאם לפיד וידאו */
@@ -1514,4 +1490,13 @@ body.policy-modal-open {
   0% { transform: scale(1); }
   50% { transform: scale(1.3); }
   100% { transform: scale(1); }
+}
+
+/* תמיכה בנגישות: כיבוי אנימציות למשתמשים שמעדיפים פחות תנועה | HYPER CORE TECH */
+@media (prefers-reduced-motion: reduce) {
+  body:has(.videos-feed) .primary-nav::before,
+  #uploadIndicator,
+  #uploadIndicator.is-confirmed {
+    animation: none !important;
+  }
 }
