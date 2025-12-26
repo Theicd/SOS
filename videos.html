@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SOS – רשת חברתית על סטרואידים</title>
     <meta name="description" content="SOS רשת חברתית על סטרואידים – הרשת החברתית מבוזרת קהילתית הראשונה בישראל." />
+    <!-- חלק PWA (videos.html) – קישור ל-manifest והגדרות iOS | HYPER CORE TECH -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/sos-logo.jpg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SOS" />
+    <meta name="theme-color" content="#4a90d9" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="SOS" />
     <meta property="og:title" content="SOS – רשת חברתית על סטרואידים" />
@@ -38,6 +46,8 @@
     <link rel="stylesheet" href="./styles/video-record.css">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
+    <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./styles/pwa-install.css">
     <!-- עיצוב כפתורי קומפוזר משופרים -->
     <style>
       /* ===== מד טעינה והודעות סטטוס ===== */
@@ -1281,6 +1291,9 @@
     <script src="./chat-ui-optimizations.js" defer></script>
     <script src="./chat-composer-enhanced.js" defer></script>
     <script src="./chat-ui.js" defer></script>
+    <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
+    <script src="./pwa-installer.js" defer></script>
+    <script src="./push-client.js" defer></script>
     <script src="./market-dashboard.js" defer></script>
     <script>
       // חלק לוח גידול (videos.html) – מבטיח שגלובליים מחוברים לאחר טעינת הדשבורד | HYPER CORE TECH

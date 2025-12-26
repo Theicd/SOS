@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SOS – רשת חברתית על סטרואידים</title>
     <meta name="description" content="SOS רשת חברתית על סטרואידים – הרשת החברתית מבוזרת קהילתית הראשונה בישראל." />
+    <!-- חלק PWA (index.html) – קישור ל-manifest והגדרות iOS | HYPER CORE TECH -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/sos-logo.jpg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SOS" />
+    <meta name="theme-color" content="#4a90d9" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="SOS" />
     <meta property="og:title" content="SOS – רשת חברתית על סטרואידים" />
@@ -75,6 +83,8 @@
     <link rel="stylesheet" href="./styles/chat-video-call.css">
     <!-- חלק שידור חי (index.html) – עיצוב דיאלוג שידור חי וכרטיס פיד -->
     <link rel="stylesheet" href="./styles/live-stream.css">
+    <!-- חלק PWA (index.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./styles/pwa-install.css">
     <link rel="stylesheet" href="./styles/logo.css">
     <script src="./auth-guard.js"></script>
     <style>
@@ -879,6 +889,9 @@
     <script src="./live-stream.js"></script>
     <script src="./live-stream-ui.js"></script>
     <script src="./chat-ui.js"></script>
+    <!-- חלק PWA (index.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
+    <script src="./pwa-installer.js"></script>
+    <script src="./push-client.js"></script>
     <script src="./navigation.js"></script>
     <script src="./compose.js"></script>
     <!-- חלק רקעים (index.html) – מודול בורר רקעים -->
