@@ -217,77 +217,68 @@ const p2pStatsUI = {
   }
 };
 
-// מנורת העלאה - מהבהבת כשמשרתים קבצים או ממתינים לאישור
+// מנורת העלאה - בוטלה והועברה לעיגול P2P (פועלת דרך המחלקות is-active/is-pending על p2pStatsCircle)
 const uploadIndicatorUI = {
-  element: null,
-  countElement: null,
   unsubscribe: null,
   
   init() {
-    this.element = document.getElementById('uploadIndicator');
-    this.countElement = document.getElementById('uploadIndicatorCount');
-    
-    // הרשמה לעדכוני העלאות ממתינות
+    // אין אלמנט נפרד; משתמשים ב-p2pStatsCircle
     const App = window.NostrApp || {};
     if (typeof App.onUploadStatusChange === 'function') {
       this.unsubscribe = App.onUploadStatusChange((status) => {
         this.updatePendingStatus(status);
       });
     }
-    
-    // עדכון כל שנייה
     setInterval(() => this.update(), 1000);
   },
   
+  getCircle() {
+    return document.getElementById('p2pStatsCircle');
+  },
+  
   update() {
+    const circle = this.getCircle();
+    if (!circle) return;
     const App = window.NostrApp || {};
     if (typeof App.getP2PStats !== 'function') return;
     
     const stats = App.getP2PStats();
     const activeUploads = stats?.activeUploadCount || 0;
-    
-    // בדיקת העלאות ממתינות
     let pendingCount = 0;
     if (typeof App.getPendingUploadsStatus === 'function') {
       const pendingStatus = App.getPendingUploadsStatus();
       pendingCount = pendingStatus.pending?.length || 0;
     }
     
-    if (this.element) {
-      if (activeUploads > 0) {
-        // העלאה פעילה - מהבהב מהר
-        this.element.classList.add('is-active');
-        this.element.classList.remove('is-pending', 'is-confirmed');
-        if (this.countElement) {
-          this.countElement.textContent = activeUploads;
-        }
-      } else if (pendingCount > 0) {
-        // ממתין לאישור - מהבהב לאט
-        this.element.classList.add('is-pending');
-        this.element.classList.remove('is-active', 'is-confirmed');
-        if (this.countElement) {
-          this.countElement.textContent = pendingCount;
-        }
-      } else {
-        this.element.classList.remove('is-active', 'is-pending', 'is-confirmed');
-      }
+    circle.classList.remove('is-active', 'is-pending', 'is-confirmed');
+    if (activeUploads > 0) {
+      circle.classList.add('is-active');
+      circle.title = `סטטוס P2P: העלאות פעילות (${activeUploads})`;
+    } else if (pendingCount > 0) {
+      circle.classList.add('is-pending');
+      circle.title = `סטטוס P2P: ממתין לאישור (${pendingCount})`;
     }
   },
   
   updatePendingStatus(status) {
-    if (!this.element) return;
-    
-    if (status.confirmed?.length > 0) {
-      // קובץ אושר! הראה אישור
-      this.element.classList.add('is-confirmed');
-      this.element.classList.remove('is-pending');
-      // הסר אחרי 2 שניות
-      setTimeout(() => {
-        this.element.classList.remove('is-confirmed');
-      }, 2000);
+    const circle = this.getCircle();
+    if (!circle || !status) return;
+    circle.classList.remove('is-active', 'is-pending', 'is-confirmed');
+    if (status.state === 'waiting') {
+      circle.classList.add('is-pending');
+    } else if (status.state === 'uploading') {
+      circle.classList.add('is-active');
+    } else if (status.state === 'complete') {
+      circle.classList.add('is-confirmed');
+      setTimeout(() => circle.classList.remove('is-confirmed'), 2000);
     }
-    
-    this.update();
+  },
+  
+  destroy() {
+    if (this.unsubscribe) {
+      try { this.unsubscribe(); } catch (e) {}
+      this.unsubscribe = null;
+    }
   }
 };
 
