@@ -349,14 +349,16 @@ body:has(.videos-feed) .nav-avatar {
 }
 
 .videos-feed__viewport {
-  position: relative;
-  height: 100%;
+  position: fixed;
+  top: 56px; /* מתחת ל-top-bar */
+  bottom: 80px; /* מעל התפריט התחתון */
+  left: 0;
+  right: 0;
   overflow-y: scroll;
   scroll-snap-type: y mandatory;
   /* ללא scroll-behavior: smooth - מעבר מיידי כמו טיקטוק */
   scrollbar-width: none;
-  padding-top: 56px;
-  padding-bottom: 80px; /* מרווח לתפריט התחתון */
+  padding: 0;
 }
 
 .videos-feed__viewport::-webkit-scrollbar {
@@ -375,17 +377,17 @@ body:has(.videos-feed) .nav-avatar {
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* גובה דינמי: נקבע ע"י JS לפי מיקום התפריט התחתון בפועל */
-  height: var(--card-height, calc(100vh - 56px - 80px));
-  min-height: var(--card-height, calc(100vh - 56px - 80px));
-  max-height: var(--card-height, calc(100vh - 56px - 80px));
-  margin: 0 auto;
+  width: 100%;
+  /* גובה 100% של ה-viewport שכבר מוגדר בגבולות נכונים */
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  margin: 0;
   border-radius: 0;
-  background: rgba(0,0,0,0.25);
+  background: #000;
   flex-direction: column;
   position: relative;
   overflow: hidden; /* מסתיר תוכן שחורג מהכרטיסייה */
-  background: #000;
   flex-shrink: 0; /* מונע כיווץ של הכרטיסייה */
 }
 
