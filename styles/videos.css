@@ -349,14 +349,14 @@ body:has(.videos-feed) .nav-avatar {
 }
 
 .videos-feed__viewport {
-  position: fixed;
-  top: 56px; /* מתחת ל-top-bar */
+  /* פתרון פשוט: position absolute מהתפריט העליון עד התחתון */
+  position: absolute;
+  top: 56px; /* מתחת לתפריט העליון */
   bottom: 80px; /* מעל התפריט התחתון */
   left: 0;
   right: 0;
   overflow-y: scroll;
   scroll-snap-type: y mandatory;
-  /* ללא scroll-behavior: smooth - מעבר מיידי כמו טיקטוק */
   scrollbar-width: none;
   padding: 0;
 }
@@ -377,18 +377,17 @@ body:has(.videos-feed) .nav-avatar {
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  width: 100%;
-  /* גובה 100% של ה-viewport שכבר מוגדר בגבולות נכונים */
+  /* גובה 100% מהviewport - שתמיד יהיה בדיוק בין התפריטים */
   height: 100%;
   min-height: 100%;
   max-height: 100%;
+  width: 100%;
   margin: 0;
   border-radius: 0;
-  background: #000;
-  flex-direction: column;
   position: relative;
-  overflow: hidden; /* מסתיר תוכן שחורג מהכרטיסייה */
-  flex-shrink: 0; /* מונע כיווץ של הכרטיסייה */
+  overflow: hidden;
+  background: #000;
+  flex-shrink: 0;
 }
 
 /* חלק מדיה (videos.css) – וידאו או YouTube iframe */
@@ -1127,28 +1126,48 @@ body.policy-modal-open {
 
 /* חלק תגובתיות מובייל (videos.css) – התאמות למסכים קטנים */
 @media (max-width: 480px) {
-  .videos-feed__stream {
-    padding-bottom: 0;
+  .videos-feed__viewport {
+    bottom: 60px; /* תפריט תחתון קטן יותר במובייל */
   }
-}
 
-.videos-feed__actions {
-  gap: 16px;
-  left: 12px; /* התאמה למובייל */
-}
+  .videos-feed__actions {
+    gap: 16px;
+    left: 12px;
+  }
 
-.videos-feed__action {
-  width: 44px;
-  height: 44px;
-  font-size: 1.2rem;
-}
+  .videos-feed__action {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
 
-.videos-feed__info {
-  padding: 16px 70px 70px 16px; /* מרחק בטוח מהתפריט התחתון */
-}
+  .videos-feed__info {
+    padding: 16px 70px 70px 16px;
+  }
+  
+  .videos-comments-panel {
+    max-height: 80vh;
+  }
 
-.videos-comments-panel {
-  max-height: 80vh;
+  body:has(.videos-feed) .primary-nav {
+    padding: 12px 8px 16px;
+    gap: 4px;
+    height: 60px;
+  }
+
+  body:has(.videos-feed) .nav-item {
+    width: 52px;
+    height: 52px;
+    font-size: 0.65rem;
+  }
+
+  body:has(.videos-feed) .nav-item i {
+    font-size: 1.2rem;
+  }
+
+  body:has(.videos-feed) .nav-item span {
+    font-size: 0.6rem;
+  }
 }
 
 /* ========================================
