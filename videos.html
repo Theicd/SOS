@@ -2091,15 +2091,17 @@
         'use strict';
         
         // הגדרות הסיבובים: SOS010.COM
-        const logoStates = [
-          { chars: ['S', 'O', 'S'], classes: ['sos-s', 'sos-o', 'sos-s'] },
-          { chars: ['0', '1', '0'], classes: ['sos-num', 'sos-num', 'sos-num'] },
-          { chars: ['C', 'O', 'M'], classes: ['sos-c', 'sos-o', 'sos-m'] }
+        const baseStates = [
+          { key: 'SOS', chars: ['S', 'O', 'S'] },
+          { key: '010', chars: ['0', '1', '0'] },
+          { key: 'COM', chars: ['C', 'O', 'M'] }
         ];
         
+        // מצב צבעים מתחלף עבור SOS: פעם מרכז כחול, פעם מרכז כתום
+        let sosColorFlip = false;
         let currentStateIndex = 0;
-        const DISPLAY_TIME = 3000; // זמן הצגה בין החלפות (3 שניות להפחתת עומס)
-        const SPIN_DELAY = 100; // עיכוב בין סיבובי תווים (אפקט קזינו)
+        const DISPLAY_TIME = 5000; // זמן הצגה בין החלפות (5 שניות כדי שלא יציק בעין)
+        const SPIN_DELAY = 120; // עיכוב בין סיבובי תווים (אפקט קזינו)
         
         // פונקציה להחלפת תו בודד עם אנימציה
         function spinChar(charEl, newChar, newClass, oldClasses) {
@@ -2131,8 +2133,25 @@
           if (charElements.length !== 3) return;
           
           // מעבר למצב הבא
-          currentStateIndex = (currentStateIndex + 1) % logoStates.length;
-          const nextState = logoStates[currentStateIndex];
+          currentStateIndex = (currentStateIndex + 1) % baseStates.length;
+          const baseState = baseStates[currentStateIndex];
+          
+          // קביעת מחלקות בהתאם למצב ולפליפ הצבעים
+          let classes;
+          if (baseState.key === 'SOS') {
+            if (sosColorFlip) {
+              classes = ['sos-s', 'sos-o-alt', 'sos-s']; // אמצעי כחול, הצדדים כתומים
+            } else {
+              classes = ['sos-s-alt', 'sos-o', 'sos-s-alt']; // אמצעי כתום, הצדדים כחולים
+            }
+            sosColorFlip = !sosColorFlip;
+          } else if (baseState.key === '010') {
+            classes = ['sos-num', 'sos-num', 'sos-num'];
+          } else if (baseState.key === 'COM') {
+            classes = ['sos-c', 'sos-o', 'sos-m'];
+          }
+          
+          const nextState = { chars: baseState.chars, classes };
           
           // סיבוב כל תו בנפרד עם עיכוב (אפקט קזינו)
           for (let i = 0; i < 3; i++) {
