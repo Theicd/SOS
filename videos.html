@@ -1340,6 +1340,18 @@
     </script>
   </head>
   <body>
+    <script>
+      // החלפת ה-URL המוצג לשורש הדומיין (ללא videos.html) | HYPER CORE TECH
+      (function() {
+        if (typeof history.replaceState === 'function') {
+          var base = window.location.origin || '';
+          var search = window.location.search || '';
+          var hash = window.location.hash || '';
+          // מציג https://sos010.com/ במקום https://sos010.com/videos.html
+          history.replaceState(null, '', base + '/' + search + hash);
+        }
+      })();
+    </script>
     <!-- חלק סרגל עליון (videos.html) – סרגל עליון אחיד כמו בדפים הראשיים | HYPER CORE TECH -->
     <header class="top-bar">
       <div class="app-logo">
