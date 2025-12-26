@@ -401,6 +401,7 @@ function wireMediaControls(root = document) {
     // מצב התחלתי: עצור, להציג כפתור Play
     if (!mediaDiv.dataset.state) {
       mediaDiv.dataset.state = 'paused';
+      mediaDiv.dataset.userStopped = 'true'; // נחשב כעצירה ידנית עד שהמשתמש יפעיל
       updatePlayToggleIcon(mediaDiv, false);
       mediaDiv.classList.add('is-paused');
     }
