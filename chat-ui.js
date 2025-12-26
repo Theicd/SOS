@@ -1133,7 +1133,7 @@
           : `<span class="chat-message__avatar chat-message__avatar--initials" title="${safeName}">${safeInitials}</span>`;
       }
 
-      // חלק זיהוי אודיו משופר (chat-ui.js) – זיהוי אמין לפי MIME/שם/סיומת - תומך ב-Blossom URLs | HYPER CORE TECH
+      // חלק זיהוי אודיו מקיף (chat-ui.js) – תמיכה בכל פורמטי האודיו הנפוצים PC/Android/iPhone/Apple | HYPER CORE TECH
       let attachmentHtml = '';
       let isAudioAttachment = false;
       let isImageAttachment = false;
@@ -1145,29 +1145,37 @@
         const fileName = (a.name || '').toLowerCase();
         const srcLower = src.toLowerCase();
         
+        // רשימת כל סיומות האודיו הנפוצות - PC, Android, iPhone, Apple | HYPER CORE TECH
+        const AUDIO_EXTENSIONS = /\.(mp3|m4a|aac|ogg|oga|opus|wav|wave|webm|flac|wma|aiff|aif|caf|amr|3gp|3gpp|mp4a|m4b|m4p|m4r|alac)$/i;
+        const AUDIO_EXTENSIONS_URL = /\.(mp3|m4a|aac|ogg|oga|opus|wav|wave|webm|flac|wma|aiff|aif|caf|amr|3gp|3gpp|mp4a|m4b|m4p|m4r|alac)(\?|#|$)/i;
+        
         // בדיקת MIME type - הכי אמין!
-        const isAudioMime = mime.startsWith('audio/');
+        const isAudioMime = mime.startsWith('audio/') || mime === 'application/ogg';
         // בדיקת data URL
         const fromDataUrl = /^data:audio\//i.test(src);
         // בדיקת סיומת בשם הקובץ (חשוב! Blossom URLs לא מכילים סיומת)
-        const audioExtInName = /\.(webm|mp3|m4a|ogg|wav|aac)$/i.test(fileName);
+        const audioExtInName = AUDIO_EXTENSIONS.test(fileName);
         // בדיקת סיומת ב-URL
-        const audioExtInUrl = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i.test(srcLower);
-        // בדיקת שם קובץ מכיל "voice"
-        const isVoiceByName = fileName.includes('voice');
+        const audioExtInUrl = AUDIO_EXTENSIONS_URL.test(srcLower);
+        // בדיקת שם קובץ מכיל "voice" או "audio" או "sound"
+        const isVoiceByName = fileName.includes('voice') || fileName.includes('audio') || fileName.includes('sound');
         // בדיקת duration - אם יש duration זה הודעה קולית
         const hasDuration = typeof a.duration === 'number' && a.duration > 0;
         
         // זיהוי אודיו: מספיק שאחד מהתנאים מתקיים
-        // עדיפות: MIME > שם קובץ > duration > URL
         isAudioAttachment = !!(src && (
           isAudioMime ||           // type: audio/*
           fromDataUrl ||           // data:audio/*
-          audioExtInName ||        // voice-message.webm
-          isVoiceByName ||         // שם מכיל "voice"
+          audioExtInName ||        // song.mp3, voice.m4a, etc.
+          isVoiceByName ||         // שם מכיל "voice"/"audio"/"sound"
           hasDuration ||           // יש duration
-          audioExtInUrl            // URL מסתיים ב-.webm וכו'
+          audioExtInUrl            // URL מסתיים בסיומת אודיו
         ));
+        
+        // לוג לדיבאג
+        if (audioExtInName || isAudioMime) {
+          console.log('[AUDIO] Detected audio attachment:', { fileName, mime, isAudioAttachment });
+        }
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
         if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {
@@ -1233,9 +1241,9 @@
       // חלק זיהוי URL (chat-ui.js) – גם אם יש attachment, נבדוק URLs בטקסט | HYPER CORE TECH
       if (!youtubeHtml && rawMessageContent) {
         const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|#|$)/i;
-        // חלק זיהוי אודיו משופר (chat-ui.js) – כולל webm וכל סיומות האודיו | HYPER CORE TECH
-        const AUDIO_EXTS = /\.(mp3|wav|ogg|m4a|aac|webm|flac|wma)(\?|#|$)/i;
-        const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|#|$)/i;
+        // חלק זיהוי אודיו מקיף (chat-ui.js) – כל פורמטי האודיו PC/Android/iPhone/Apple | HYPER CORE TECH
+        const AUDIO_EXTS = /\.(mp3|m4a|aac|ogg|oga|opus|wav|wave|webm|flac|wma|aiff|aif|caf|amr|3gp|3gpp|mp4a|m4b|m4p|m4r|alac)(\?|#|$)/i;
+        const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v|wmv|flv|3gp)(\?|#|$)/i;
         
         // חיפוש כל ה-URLs בהודעה - משופר לתמוך ב-URLs עם תווים מיוחדים
         const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
@@ -1267,16 +1275,21 @@
             remainingText = remainingText.replace(originalUrl, '').trim();
             isMediaUrl = true;
           } else if (isAudioUrl) {
-            // חלק נגן אודיו מ-URL (chat-ui.js) – יוצר נגן אודיו לכל קובץ קול | HYPER CORE TECH
-            // זיהוי סוג הקובץ לפי הסיומת
+            // חלק נגן אודיו מקיף (chat-ui.js) – יוצר נגן לכל פורמטי האודיו PC/Android/iPhone/Apple | HYPER CORE TECH
             const ext = (url.match(/\.(\w+)(?:\?|#|$)/i) || [])[1]?.toLowerCase() || 'mp3';
-            const mimeMap = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', aac: 'audio/aac', webm: 'audio/webm', flac: 'audio/flac', wma: 'audio/x-ms-wma' };
+            const mimeMap = {
+              mp3: 'audio/mpeg', wav: 'audio/wav', wave: 'audio/wav', ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/ogg',
+              m4a: 'audio/mp4', m4b: 'audio/mp4', m4p: 'audio/mp4', m4r: 'audio/mp4', mp4a: 'audio/mp4', alac: 'audio/mp4',
+              aac: 'audio/aac', webm: 'audio/webm', flac: 'audio/flac', wma: 'audio/x-ms-wma',
+              aiff: 'audio/aiff', aif: 'audio/aiff', caf: 'audio/x-caf', amr: 'audio/amr', '3gp': 'audio/3gpp', '3gpp': 'audio/3gpp'
+            };
             const mimeType = mimeMap[ext] || 'audio/mpeg';
-            const fileName = url.split('/').pop()?.split('?')[0] || 'קובץ שמע';
+            const fileName = decodeURIComponent(url.split('/').pop()?.split('?')[0] || 'קובץ שמע');
             const fakeAttachment = { url: url, type: mimeType, name: fileName };
+            console.log('[AUDIO] Creating player for URL:', { url, ext, mimeType, fileName });
             mediaItems.push(typeof App.createEnhancedAudioPlayer === 'function'
               ? App.createEnhancedAudioPlayer(fakeAttachment)
-              : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${url}" type="${mimeType}"></audio></div>`);
+              : `<div class="chat-message__audio" data-audio data-src="${url}"><audio preload="auto" class="chat-message__audio-el" src="${url}" type="${mimeType}"></audio></div>`);
             remainingText = remainingText.replace(originalUrl, '').trim();
             isMediaUrl = true;
           } else if (VIDEO_EXTS.test(url) && !a) {
@@ -1380,13 +1393,14 @@
           </div>
         </div>
       `;
-      // חיבור לוגיקת נגן משודרג (chat-ui.js) – חיבור אירועים לנגן אודיו מ-chat-audio-player.js | HYPER CORE TECH
-      if (isAudioAttachment) {
-        const contentEl = item.querySelector('[data-chat-message]');
-        const wrap = contentEl?.querySelector('[data-audio]');
-        if (wrap && typeof App.wireEnhancedAudioPlayer === 'function') {
+      // חלק חיבור נגנים (chat-ui.js) – חיבור כל נגני האודיו (attachment + URL) | HYPER CORE TECH
+      const contentEl = item.querySelector('[data-chat-message]');
+      if (contentEl && typeof App.wireEnhancedAudioPlayer === 'function') {
+        // חיבור כל נגני האודיו בהודעה
+        const audioWraps = contentEl.querySelectorAll('[data-audio]');
+        audioWraps.forEach(wrap => {
           App.wireEnhancedAudioPlayer(wrap);
-        }
+        });
       }
       fragment.appendChild(item);
     });

@@ -10,9 +10,36 @@
     const ss = dur !== null ? String(dur % 60).padStart(2, '0') : null;
     const durationLabel = dur !== null ? `${mm}:${ss}` : '0:00';
     
+    // חלק MIME מקיף (chat-audio-player.js) – זיהוי MIME לכל פורמטי האודיו PC/Android/iPhone/Apple | HYPER CORE TECH
+    let mimeType = attachment.type || 'audio/mpeg';
+    const srcLower = src.toLowerCase();
+    const nameLower = (attachment.name || '').toLowerCase();
+    const checkStr = srcLower + '|' + nameLower;
+    
+    // מיפוי סיומות ל-MIME types
+    if (checkStr.includes('.mp3')) mimeType = 'audio/mpeg';
+    else if (checkStr.includes('.m4a') || checkStr.includes('.m4b') || checkStr.includes('.m4p') || checkStr.includes('.m4r')) mimeType = 'audio/mp4';
+    else if (checkStr.includes('.aac')) mimeType = 'audio/aac';
+    else if (checkStr.includes('.ogg') || checkStr.includes('.oga') || checkStr.includes('.opus')) mimeType = 'audio/ogg';
+    else if (checkStr.includes('.wav') || checkStr.includes('.wave')) mimeType = 'audio/wav';
+    else if (checkStr.includes('.webm')) mimeType = 'audio/webm';
+    else if (checkStr.includes('.flac')) mimeType = 'audio/flac';
+    else if (checkStr.includes('.wma')) mimeType = 'audio/x-ms-wma';
+    else if (checkStr.includes('.aiff') || checkStr.includes('.aif')) mimeType = 'audio/aiff';
+    else if (checkStr.includes('.caf')) mimeType = 'audio/x-caf';
+    else if (checkStr.includes('.amr')) mimeType = 'audio/amr';
+    else if (checkStr.includes('.3gp') || checkStr.includes('.3gpp')) mimeType = 'audio/3gpp';
+    else if (checkStr.includes('.alac')) mimeType = 'audio/mp4';
+    
+    // חלק נגן (chat-audio-player.js) – תמיכה בריבוי sources לתאימות מקסימלית | HYPER CORE TECH
     return `
-      <div class="chat-message__audio chat-audio-enhanced" data-audio>
-        <audio preload="metadata" class="chat-message__audio-el" src="${src}" type="${attachment.type || 'audio/webm'}"></audio>
+      <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${src}">
+        <audio preload="auto" class="chat-message__audio-el" crossorigin="anonymous">
+          <source src="${src}" type="${mimeType}">
+          <source src="${src}" type="audio/mpeg">
+          <source src="${src}" type="audio/ogg">
+          <source src="${src}" type="audio/webm">
+        </audio>
         <div class="chat-audio-whatsapp">
           <button type="button" class="chat-audio-whatsapp__play" aria-label="נגן הודעה קולית">
             <i class="fa-solid fa-play"></i>
@@ -60,6 +87,8 @@
   // חלק אינטראקציה (chat-audio-player.js) – חיבור אירועים לנגן בסגנון וואטסאפ | HYPER CORE TECH
   function wireAudioPlayer(container) {
     if (!container) return;
+    if (container.dataset.wired === 'true') return; // מניעת חיווט כפול
+    container.dataset.wired = 'true';
     
     // מניעת propagation על כל הקונטיינר | HYPER CORE TECH
     container.addEventListener('click', (e) => {
@@ -74,7 +103,16 @@
     const timeEl = container.querySelector('.chat-audio-whatsapp__time');
     const track = container.querySelector('.chat-audio-whatsapp__track');
     
-    if (!audio || !btn) return;
+    if (!audio || !btn) {
+      console.warn('[AUDIO] Missing audio element or button in container');
+      return;
+    }
+    
+    // חלק טעינת מקור (chat-audio-player.js) – טעינה ידנית של המקור | HYPER CORE TECH
+    const srcFromData = container.dataset.src;
+    if (srcFromData && !audio.src) {
+      audio.src = srcFromData;
+    }
     
     const format = (sec) => {
       const s = Math.max(0, Math.round(sec || 0));
@@ -82,22 +120,50 @@
     };
     
     let isPlaying = false;
+    let loadAttempted = false;
     
     // חלק טעינה (chat-audio-player.js) – עדכון זמן בטעינת מטאדאטה | HYPER CORE TECH
     audio.addEventListener('loadedmetadata', () => {
-      if (timeEl) {
-        timeEl.textContent = format(audio.duration || 0);
+      console.log('[AUDIO] Metadata loaded, duration:', audio.duration);
+      if (timeEl && audio.duration && isFinite(audio.duration)) {
+        timeEl.textContent = format(audio.duration);
       }
+    });
+    
+    // חלק שגיאות (chat-audio-player.js) – טיפול בשגיאות טעינה | HYPER CORE TECH
+    audio.addEventListener('error', (e) => {
+      console.error('[AUDIO] Load error:', e, audio.error);
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i>';
+    });
+    
+    // חלק canplay (chat-audio-player.js) – מוכן לניגון | HYPER CORE TECH
+    audio.addEventListener('canplay', () => {
+      console.log('[AUDIO] Can play');
     });
     
     // חלק ניגון (chat-audio-player.js) – toggle play/pause | HYPER CORE TECH
     const toggle = () => {
+      // טעינה ראשונית אם לא נטען
+      if (!loadAttempted) {
+        loadAttempted = true;
+        audio.load();
+      }
+      
       if (audio.paused) {
-        audio.play().catch((err) => {
-          console.warn('Audio play failed', err);
-        });
-        btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-        isPlaying = true;
+        const playPromise = audio.play();
+        if (playPromise) {
+          playPromise.then(() => {
+            btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            isPlaying = true;
+          }).catch((err) => {
+            console.error('[AUDIO] Play failed:', err);
+            // ניסיון נוסף אחרי טעינה
+            audio.load();
+            setTimeout(() => {
+              audio.play().catch(e => console.error('[AUDIO] Retry play failed:', e));
+            }, 100);
+          });
+        }
       } else {
         audio.pause();
         btn.innerHTML = '<i class="fa-solid fa-play"></i>';
