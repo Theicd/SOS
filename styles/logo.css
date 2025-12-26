@@ -29,6 +29,7 @@
   overflow: hidden;
   height: 36px;
   align-items: center;
+  direction: ltr; /* מבטיח סדר תווים משמאל לימין גם בסביבת RTL */
 }
 
 .sos-logo::before {
