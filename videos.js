@@ -459,11 +459,15 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
     if (!videoEl) return;
     mediaDiv.classList.add('videos-feed__media--ready');
     
-    // ניסיון להפעיל עם צליל (ללא כפיית mute). אם נכשל, לא כופים mute.
+    // ניסיון להפעיל עם צליל
     videoEl.muted = false;
     videoEl.play().catch(() => {
-      // אם autoplay נכשל עם צליל, נשאיר pause (המשתמש ילחץ play)
-      videoEl.pause();
+      // אם autoplay עם צליל נכשל, ננסה עם mute
+      videoEl.muted = true;
+      videoEl.play().catch(() => {
+        // גם עם mute נכשל – להחזיר מצב נייח
+        videoEl.pause();
+      });
     });
   } else if (mediaType === 'youtube') {
     ensureYouTubeIframe(mediaDiv, { autoplay: true });
@@ -1173,8 +1177,7 @@ function renderVideoCard(video) {
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
-    videoEl.muted = false;
-    videoEl.defaultMuted = false;
+    videoEl.muted = false; // וידאו מתחיל עם קול (ללא מיוט)
     videoEl.loop = true; // לופ כמו טיקטוק
     videoEl.playsInline = true;
     videoEl.autoplay = false; // חלק תאימות iOS (videos.js) – נשלט ידנית | HYPER CORE TECH
@@ -1190,13 +1193,6 @@ function renderVideoCard(video) {
     videoEl.preload = 'auto';
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
-    
-    // סנכרון מצב מיוט עם הכפתור הגלובלי
-    videoEl.addEventListener('volumechange', () => {
-      if (typeof muteIndicatorUI !== 'undefined' && muteIndicatorUI.syncFromVideo) {
-        muteIndicatorUI.syncFromVideo(videoEl);
-      }
-    });
 
     const cleanup = () => {
       videoEl.removeEventListener('loadeddata', onLoadedData);
