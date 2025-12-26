@@ -4,9 +4,9 @@
 
   // חלק הגדרות (push-client.js) – קונפיגורציה של התראות Push | HYPER CORE TECH
   const PUSH_CONFIG = {
-    // מפתח VAPID ציבורי (נוצר ב-npx web-push generate-vapid-keys) | HYPER CORE TECH
-    // חשוב: אל לשים את ה-private key בצד לקוח. ה-private נשאר בשרת בלבד.
-    vapidPublicKey: 'BK7G0X9VUXNqX4TMVS3FRqrchinXAIsKj2Wmj4MItdpGXvR23xlsY5CloGJypBBeuaCWxMJbxPOhxoiznzSSFH8',
+    // מפתח VAPID ציבורי - יש להחליף במפתח אמיתי מהשרת
+    // ניתן לייצר עם: npx web-push generate-vapid-keys
+    vapidPublicKey: null, // יוגדר דינמית מהשרת או מ-config
     notificationDefaults: {
       icon: './icons/sos-logo.jpg',
       badge: './icons/sos-logo.jpg',
