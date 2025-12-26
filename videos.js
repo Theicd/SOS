@@ -4,6 +4,26 @@
 const VIDEOS_CODE_VERSION = '2.3.0-ios-compat';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
+// חלק גובה דינמי (videos.js) – חישוב גובה כרטיסים לפי מיקום התפריט התחתון בפועל | HYPER CORE TECH
+function updateCardHeight() {
+  const topBar = document.querySelector('.top-bar');
+  const nav = document.querySelector('.primary-nav');
+  if (!topBar || !nav) return;
+  
+  const topBarHeight = topBar.getBoundingClientRect().height;
+  const navRect = nav.getBoundingClientRect();
+  const availableHeight = navRect.top - topBarHeight;
+  
+  document.documentElement.style.setProperty('--card-height', `${availableHeight}px`);
+}
+
+// הפעלה בטעינה ובשינוי גודל חלון
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(updateCardHeight, 100);
+});
+window.addEventListener('resize', updateCardHeight);
+window.addEventListener('orientationchange', () => setTimeout(updateCardHeight, 200));
+
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
 const p2pStatsUI = {
   p2p: 0,
