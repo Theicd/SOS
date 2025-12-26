@@ -398,6 +398,13 @@ function wireMediaControls(root = document) {
     if (mediaDiv.dataset.mediaControlsWired === 'true') return;
     mediaDiv.dataset.mediaControlsWired = 'true';
 
+    // מצב התחלתי: עצור, להציג כפתור Play
+    if (!mediaDiv.dataset.state) {
+      mediaDiv.dataset.state = 'paused';
+      updatePlayToggleIcon(mediaDiv, false);
+      mediaDiv.classList.add('is-paused');
+    }
+
     const toggleBtn = mediaDiv.querySelector('[data-play-toggle]');
     if (toggleBtn) {
       toggleBtn.addEventListener('click', (event) => {
@@ -431,6 +438,8 @@ let userHasPlayedVideo = false;
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (manual) {
     userHasPlayedVideo = true; // לאחר לחיצה ראשונה ניתן autoplay בהמשך
+    // ביטול חסימה ידנית על הכרטיס (אם הופעלה בעבר)
+    mediaDiv.dataset.userStopped = 'false';
   }
   if (!mediaDiv) return;
   if (activeMediaDiv && activeMediaDiv !== mediaDiv) {
@@ -496,6 +505,7 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   // הוספת חיווי עצירה רק אם זו עצירה ידנית; עצירות אוטומטיות (גלילה/כרטיס אחר) לא יציגו את האייקון
   if (manual) {
     mediaDiv.classList.add('is-paused');
+    mediaDiv.dataset.userStopped = 'true'; // חסימה ידנית – אל תופעל אוטומטית בגלילה
   } else {
     mediaDiv.classList.remove('is-paused');
   }
@@ -2194,9 +2204,11 @@ function setupIntersectionObserver() {
         const mediaDiv = card.querySelector('.videos-feed__media');
         if (!mediaDiv) return;
         
-        // ניגון כשהפוסט מרכזי (50%+ גלוי)
+        // ניגון כשהפוסט מרכזי (50%+ גלוי) רק אם לא נעצר ידנית
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-          playMedia(mediaDiv, { manual: false });
+          if (mediaDiv.dataset.userStopped !== 'true') {
+            playMedia(mediaDiv, { manual: false });
+          }
         } else {
           pauseMedia(mediaDiv, { resetThumb: false });
         }
