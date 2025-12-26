@@ -4,25 +4,31 @@
 const VIDEOS_CODE_VERSION = '2.3.0-ios-compat';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
-// חלק גובה דינמי (videos.js) – חישוב גובה כרטיסים לפי מיקום התפריט התחתון בפועל | HYPER CORE TECH
-function updateCardHeight() {
+// חלק גובה דינמי (videos.js) – עדכון מיקום ה-viewport לפי top-bar ותפריט תחתון בפועל | HYPER CORE TECH
+function updateViewportBounds() {
   const topBar = document.querySelector('.top-bar');
   const nav = document.querySelector('.primary-nav');
-  if (!topBar || !nav) return;
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (!topBar || !nav || !viewport) return;
   
-  const topBarHeight = topBar.getBoundingClientRect().height;
-  const navRect = nav.getBoundingClientRect();
-  const availableHeight = navRect.top - topBarHeight;
+  const topBarHeight = topBar.offsetHeight;
+  const navHeight = nav.offsetHeight;
   
-  document.documentElement.style.setProperty('--card-height', `${availableHeight}px`);
+  // עדכון מיקום ה-viewport בהתאם לאלמנטים בפועל
+  viewport.style.top = `${topBarHeight}px`;
+  viewport.style.bottom = `${navHeight}px`;
+  
+  console.log(`📐 Viewport bounds: top=${topBarHeight}px, bottom=${navHeight}px`);
 }
 
 // הפעלה בטעינה ובשינוי גודל חלון
 window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(updateCardHeight, 100);
+  setTimeout(updateViewportBounds, 100);
+  setTimeout(updateViewportBounds, 500);
 });
-window.addEventListener('resize', updateCardHeight);
-window.addEventListener('orientationchange', () => setTimeout(updateCardHeight, 200));
+window.addEventListener('load', updateViewportBounds);
+window.addEventListener('resize', updateViewportBounds);
+window.addEventListener('orientationchange', () => setTimeout(updateViewportBounds, 300));
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
 const p2pStatsUI = {
