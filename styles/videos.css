@@ -375,13 +375,13 @@ body:has(.videos-feed) .nav-avatar {
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* גובה מלא: 100vh פחות top-bar (56px) פחות תפריט תחתון (80px) */
-  height: calc(100vh - 56px - 80px);
-  min-height: calc(100vh - 56px - 80px);
-  max-height: calc(100vh - 56px - 80px);
-  width: 100%;
-  max-width: 100%;
-  display: flex;
+  /* גובה דינמי: 100vh פחות top-bar (56px) פחות תפריט תחתון (80px) פחות safe-area תחתון (env) */
+  height: calc(100vh - 56px - 80px - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100vh - 56px - 80px - env(safe-area-inset-bottom, 0px));
+  max-height: calc(100vh - 56px - 80px - env(safe-area-inset-bottom, 0px));
+  margin: 0 auto;
+  border-radius: 0;
+  background: rgba(0,0,0,0.25);
   flex-direction: column;
   position: relative;
   overflow: hidden; /* מסתיר תוכן שחורג מהכרטיסייה */
@@ -1124,28 +1124,28 @@ body.policy-modal-open {
 }
 
 /* חלק תגובתיות מובייל (videos.css) – התאמות למסכים קטנים */
-@media (max-width: 768px) {
-  .videos-feed__viewport {
-    padding-bottom: 0; /* אין צורך במרווח נוסף */
+@media (max-width: 480px) {
+  .videos-feed__stream {
+    padding-bottom: env(safe-area-inset-bottom, 0px); /* מרווח דינמי לתחתית המכשיר */
   }
 
   .videos-feed__card {
-    height: calc(100vh - 56px - 60px);
-    min-height: calc(100vh - 56px - 60px);
-    max-height: calc(100vh - 56px - 60px);
+    height: calc(100vh - 56px - 60px - env(safe-area-inset-bottom, 0px));
+    min-height: calc(100vh - 56px - 60px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100vh - 56px - 60px - env(safe-area-inset-bottom, 0px));
   }
+}
 
-  .videos-feed__actions {
-    gap: 16px;
-    left: 12px; /* התאמה למובייל */
-  }
+.videos-feed__actions {
+  gap: 16px;
+  left: 12px; /* התאמה למובייל */
+}
 
-  .videos-feed__action {
-    width: 44px;
-    height: 44px;
-    font-size: 1.2rem;
-  }
-
+.videos-feed__action {
+  width: 44px;
+  height: 44px;
+  font-size: 1.2rem;
+}
   .videos-feed__info {
     padding: 16px 70px 70px 16px; /* מרחק בטוח מהתפריט התחתון */
   }
