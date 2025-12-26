@@ -1126,13 +1126,17 @@ body.policy-modal-open {
 /* חלק תגובתיות מובייל (videos.css) – התאמות למסכים קטנים */
 @media (max-width: 768px) {
   .videos-feed__viewport {
-    padding-bottom: 0; /* אין צורך במרווח נוסף */
+    /* התאמה ל-PWA עם safe area ופסי מערכת */
+    padding-top: calc(56px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+    height: 100dvh; /* גובה דינמי אמיתי במסכים ניידים */
   }
 
   .videos-feed__card {
-    height: calc(100vh - 56px - 60px);
-    min-height: calc(100vh - 56px - 60px);
-    max-height: calc(100vh - 56px - 60px);
+    /* מניעת הצצה של כרטיס הבא: גובה מלא פחות הבר העליון והתחתון כולל safe area */
+    height: calc(100dvh - 56px - 60px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    min-height: calc(100dvh - 56px - 60px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 56px - 60px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
 
   .videos-feed__actions {
