@@ -375,10 +375,10 @@ body:has(.videos-feed) .nav-avatar {
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* גובה דינמי: 100vh פחות top-bar (56px) פחות תפריט תחתון (80px) פחות safe-area תחתון (env) */
-  height: calc(100vh - 56px - 80px - env(safe-area-inset-bottom, 0px));
-  min-height: calc(100vh - 56px - 80px - env(safe-area-inset-bottom, 0px));
-  max-height: calc(100vh - 56px - 80px - env(safe-area-inset-bottom, 0px));
+  /* גובה דינמי: נקבע ע"י JS לפי מיקום התפריט התחתון בפועל */
+  height: var(--card-height, calc(100vh - 56px - 80px));
+  min-height: var(--card-height, calc(100vh - 56px - 80px));
+  max-height: var(--card-height, calc(100vh - 56px - 80px));
   margin: 0 auto;
   border-radius: 0;
   background: rgba(0,0,0,0.25);
@@ -1126,13 +1126,7 @@ body.policy-modal-open {
 /* חלק תגובתיות מובייל (videos.css) – התאמות למסכים קטנים */
 @media (max-width: 480px) {
   .videos-feed__stream {
-    padding-bottom: env(safe-area-inset-bottom, 0px); /* מרווח דינמי לתחתית המכשיר */
-  }
-
-  .videos-feed__card {
-    height: calc(100vh - 56px - 60px - env(safe-area-inset-bottom, 0px));
-    min-height: calc(100vh - 56px - 60px - env(safe-area-inset-bottom, 0px));
-    max-height: calc(100vh - 56px - 60px - env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
   }
 }
 
@@ -1146,33 +1140,13 @@ body.policy-modal-open {
   height: 44px;
   font-size: 1.2rem;
 }
-  .videos-feed__info {
-    padding: 16px 70px 70px 16px; /* מרחק בטוח מהתפריט התחתון */
-  }
-  
-  .videos-comments-panel {
-    max-height: 80vh;
-  }
 
-  /* התאמת התפריט התחתון למובייל */
-  body:has(.videos-feed) .primary-nav {
-    padding: 12px 8px 16px;
-    gap: 4px;
-  }
+.videos-feed__info {
+  padding: 16px 70px 70px 16px; /* מרחק בטוח מהתפריט התחתון */
+}
 
-  body:has(.videos-feed) .nav-item {
-    width: 52px;
-    height: 52px;
-    font-size: 0.65rem;
-  }
-
-  body:has(.videos-feed) .nav-item i {
-    font-size: 1.2rem;
-  }
-
-  body:has(.videos-feed) .nav-item span {
-    font-size: 0.6rem;
-  }
+.videos-comments-panel {
+  max-height: 80vh;
 }
 
 /* ========================================
