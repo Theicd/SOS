@@ -1,8 +1,26 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.3.0-ios-compat';
+const VIDEOS_CODE_VERSION = '2.4.0-manual-play';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
+
+// חלק מצב גלובלי (videos.js) – מצב STOP/PLAY גלובלי לשליטה בהפעלה אוטומטית | HYPER CORE TECH
+// הממשק מתחיל במצב STOP - וידאו לא רץ אוטומטית עד שהמשתמש לוחץ פליי
+let globalAutoplayEnabled = false;
+
+// עדכון מחלקה על הגוף לפי מצב STOP/PLAY
+function updateGlobalStopClass() {
+  if (globalAutoplayEnabled) {
+    document.body.classList.remove('global-stop');
+  } else {
+    document.body.classList.add('global-stop');
+  }
+}
+
+// הפעלה ראשונית - הממשק מתחיל במצב STOP
+document.addEventListener('DOMContentLoaded', () => {
+  updateGlobalStopClass();
+});
 
 // חלק עיגול סטטיסטיקות (videos.js) – עדכון עיגול P2P/Blossom בזמן אמת | HYPER CORE TECH
 const p2pStatsUI = {
@@ -438,6 +456,18 @@ function autoPlayFirstVideo() {
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (!mediaDiv) return;
+  
+  // אם זו לחיצה ידנית - מפעילים מצב PLAY גלובלי
+  if (manual) {
+    globalAutoplayEnabled = true;
+    updateGlobalStopClass();
+  }
+  
+  // אם לא במצב PLAY גלובלי ולא לחיצה ידנית - לא מפעילים
+  if (!globalAutoplayEnabled && !manual) {
+    return;
+  }
+  
   if (activeMediaDiv && activeMediaDiv !== mediaDiv) {
     pauseMedia(activeMediaDiv, { resetThumb: false });
   }
@@ -474,6 +504,13 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
 // חלק יאללה וידאו (videos.js) – עצירת מדיה עבור כרטיס נתון
 function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   if (!mediaDiv) return;
+  
+  // אם זו עצירה ידנית - מכבים מצב PLAY גלובלי (חוזרים ל-STOP)
+  if (manual) {
+    globalAutoplayEnabled = false;
+    updateGlobalStopClass();
+  }
+  
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
 
