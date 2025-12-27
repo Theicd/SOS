@@ -263,74 +263,73 @@ body:has(.videos-feed) .top-bar__dropdown {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* חלק תפריט תחתון (videos.css) – תפריט תחתון עם רקע ברור כמו בטיקטוק | HYPER CORE TECH */
+/* חלק תפריט תחתון (videos.css) – תפריט תחתון בסגנון דף ההודעות (וואטסאפ) | HYPER CORE TECH */
 body:has(.videos-feed) .primary-nav {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%) !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important;
+  background: rgba(0, 0, 0, 0.22) !important;
   backdrop-filter: blur(12px) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5) !important;
-  padding: 12px 12px 16px;
-  gap: 8px;
-  display: flex;
-  justify-content: space-evenly;
-  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 0 !important;
+  gap: 0 !important;
   width: 100%;
   z-index: 100;
 }
 
 body:has(.videos-feed) .nav-item {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  padding: 10px 0;
+  font-size: 0.75rem;
+  color: var(--muted, rgba(255, 255, 255, 0.6));
+  background: transparent;
+  border: none;
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.7rem;
-  padding: 0;
-  gap: 2px;
-  flex-shrink: 0;
+  position: relative;
+  width: auto;
+  height: auto;
+  transition: color 0.2s ease;
 }
 
 body:has(.videos-feed) .nav-item:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: scale(1.1);
+  color: #fff;
+  background: transparent;
+  transform: none;
 }
 
 body:has(.videos-feed) .nav-item.is-active {
-  background: rgba(99, 230, 190, 0.3);
-  border-color: rgba(99, 230, 190, 0.5);
-  color: #63e6be;
+  color: var(--primary, #63e6be);
+  background: transparent;
+  border: none;
 }
 
 body:has(.videos-feed) .nav-item i {
-  font-size: 1.3rem;
+  font-size: 1.05rem;
   margin: 0;
 }
 
 body:has(.videos-feed) .nav-item span {
-  font-size: 0.65rem;
-  font-weight: 600;
-  margin-top: 2px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  margin-top: 0;
 }
 
 body:has(.videos-feed) .nav-item__badge {
   position: absolute;
-  top: -4px;
-  left: -4px;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ff3b5c, #ff1744);
+  top: 6px;
+  left: 50%;
+  transform: translateX(-10px);
+  padding: 2px 6px;
+  background: var(--danger, #ff3b5c);
+  border-radius: 999px;
   color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  min-width: auto;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1161,24 +1160,23 @@ body.policy-modal-open {
     max-height: 80vh;
   }
 
-  /* התאמת התפריט התחתון למובייל */
+  /* התאמת התפריט התחתון למובייל - בסגנון דף ההודעות */
   body:has(.videos-feed) .primary-nav {
-    padding: 12px 8px 16px;
-    gap: 4px;
+    padding: 0;
+    gap: 0;
   }
 
   body:has(.videos-feed) .nav-item {
-    width: 52px;
-    height: 52px;
-    font-size: 0.65rem;
+    padding: 8px 0;
+    gap: 4px;
   }
 
   body:has(.videos-feed) .nav-item i {
-    font-size: 1.2rem;
+    font-size: 1rem;
   }
 
   body:has(.videos-feed) .nav-item span {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
   }
 }
 
