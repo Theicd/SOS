@@ -1357,37 +1357,34 @@
       </div>
     </div>
 
-    <!-- חלק תפריט תחתון (videos.html) – ניווט תחתון אחיד | HYPER CORE TECH -->
+    <!-- חלק תפריט תחתון (videos.html) – ניווט תחתון בסגנון דף ההודעות | HYPER CORE TECH -->
     <nav class="primary-nav" aria-label="ניווט ראשי">
-      <!-- חלק בית (videos.html) – כפתור פיד הווידאו משמש כבית ללא טקסט | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="videos" aria-label="בית">
+      <!-- חלק בית (videos.html) – כפתור פיד הווידאו עם טקסט | HYPER CORE TECH -->
+      <button class="nav-item is-active" data-nav="videos" aria-label="בית">
         <i class="fa-solid fa-house"></i>
-        <span class="nav-item__label">בית</span>
+        <span>בית</span>
       </button>
-      <!-- חלק התראות (videos.html) – כעת בתפריט התחתון עם שמירת מזהים קיימים | HYPER CORE TECH -->
+      <!-- חלק התראות (videos.html) – כפתור התראות עם טקסט ובאדג' | HYPER CORE TECH -->
       <button class="nav-item" id="notificationsToggle" aria-label="התראות">
         <i class="fa-solid fa-bell"></i>
-        <span class="notifications-badge" id="notificationsBadge" hidden></span>
-        <span class="nav-item__label">התראות</span>
+        <span>התראות</span>
+        <span class="nav-item__badge" id="notificationsBadge" hidden></span>
       </button>
-      <!-- חלק יצירת פוסט (videos.html) – כפתור הפלוס ממורכז בניווט התחתון | HYPER CORE TECH -->
+      <!-- חלק יצירת פוסט (videos.html) – כפתור פוסט חדש עם טקסט | HYPER CORE TECH -->
       <button class="nav-item" id="navCompose" type="button" aria-label="פוסט חדש" onclick="openCompose()">
         <i class="fa-solid fa-plus"></i>
-        <span class="nav-item__label">פוסט</span>
+        <span>פרסם</span>
       </button>
-      <!-- חלק הודעות (videos.html) – כפתור צ'אט עם אנימציית מעבר בין טלפון לבועת צ'אט | HYPER CORE TECH -->
+      <!-- חלק הודעות (videos.html) – כפתור צ'אט עם טקסט | HYPER CORE TECH -->
       <button class="nav-item" id="messagesToggle" aria-label="הודעות">
-        <span class="nav-item__icon nav-item__icon--communications">
-          <i class="fa-solid fa-comment nav-comm-icon nav-comm-icon--chat" aria-hidden="true"></i>
-          <i class="fa-solid fa-phone nav-comm-icon nav-comm-icon--phone" aria-hidden="true"></i>
-        </span>
-        <span class="notifications-badge" id="messagesBadge" hidden></span>
-        <span class="nav-item__label">הודעות</span>
+        <i class="fa-solid fa-comments"></i>
+        <span>שיחות</span>
+        <span class="nav-item__badge" id="messagesBadge" hidden></span>
       </button>
-      <!-- חלק פרופיל תחתון (videos.html) – כפתור פרופיל עגול עם אוואטר ללא טקסט | HYPER CORE TECH -->
+      <!-- חלק פרופיל תחתון (videos.html) – כפתור פרופיל עם טקסט | HYPER CORE TECH -->
       <button class="nav-item" type="button" aria-label="הפרופיל שלי" data-nav="profile">
-        <span class="nav-avatar" id="navProfileAvatar">?</span>
-        <span class="nav-item__label">פרופיל</span>
+        <i class="fa-solid fa-user"></i>
+        <span>פרופיל</span>
       </button>
     </nav>
 
