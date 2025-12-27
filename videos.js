@@ -401,7 +401,6 @@ function wireMediaControls(root = document) {
     // מצב התחלתי: עצור, להציג כפתור Play
     if (!mediaDiv.dataset.state) {
       mediaDiv.dataset.state = 'paused';
-      mediaDiv.dataset.userStopped = 'true'; // נחשב כעצירה ידנית עד שהמשתמש יפעיל
       updatePlayToggleIcon(mediaDiv, false);
       mediaDiv.classList.add('is-paused');
     }
@@ -507,9 +506,6 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   if (manual) {
     mediaDiv.classList.add('is-paused');
     mediaDiv.dataset.userStopped = 'true'; // חסימה ידנית – אל תופעל אוטומטית בגלילה
-  } else if (!userHasPlayedVideo) {
-    // לפני לחיצה ראשונה – להשאיר חיווי פליי גלוי על כל הכרטיסים
-    mediaDiv.classList.add('is-paused');
   } else {
     mediaDiv.classList.remove('is-paused');
   }
