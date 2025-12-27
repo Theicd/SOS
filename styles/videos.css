@@ -563,7 +563,14 @@ body:has(.videos-feed) .nav-avatar {
   pointer-events: none;
 }
 
+/* כפתור פליי מוצג כשהסרטון מושהה ידנית */
 .videos-feed__media.is-paused .videos-feed__play-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* חלק מצב STOP גלובלי (videos.css) – כפתור פליי מוצג על כל סרטון במצב STOP | HYPER CORE TECH */
+body.global-stop .videos-feed__play-overlay {
   opacity: 1;
   pointer-events: auto;
 }
