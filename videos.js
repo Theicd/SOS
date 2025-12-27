@@ -398,13 +398,6 @@ function wireMediaControls(root = document) {
     if (mediaDiv.dataset.mediaControlsWired === 'true') return;
     mediaDiv.dataset.mediaControlsWired = 'true';
 
-    // מצב התחלתי: עצור, להציג כפתור Play
-    if (!mediaDiv.dataset.state) {
-      mediaDiv.dataset.state = 'paused';
-      updatePlayToggleIcon(mediaDiv, false);
-      mediaDiv.classList.add('is-paused');
-    }
-
     const toggleBtn = mediaDiv.querySelector('[data-play-toggle]');
     if (toggleBtn) {
       toggleBtn.addEventListener('click', (event) => {
@@ -431,16 +424,19 @@ function wireMediaControls(root = document) {
   });
 }
 
-// מציין אם המשתמש הפעיל ניגון ידנית (לאפשר autoplay רק אחרי לחיצה ראשונה)
-let userHasPlayedVideo = false;
+// חלק יאללה וידאו (videos.js) – הפעלה אוטומטית של הווידאו הראשון
+function autoPlayFirstVideo() {
+  if (!selectors.stream) return;
+  const firstCard = selectors.stream.querySelector('.videos-feed__card');
+  if (!firstCard) return;
+  const mediaDiv = firstCard.querySelector('.videos-feed__media');
+  if (mediaDiv) {
+    playMedia(mediaDiv, { manual: false, priority: true });
+  }
+}
 
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
-  if (manual) {
-    userHasPlayedVideo = true; // לאחר לחיצה ראשונה ניתן autoplay בהמשך
-    // ביטול חסימה ידנית על הכרטיס (אם הופעלה בעבר)
-    mediaDiv.dataset.userStopped = 'false';
-  }
   if (!mediaDiv) return;
   if (activeMediaDiv && activeMediaDiv !== mediaDiv) {
     pauseMedia(activeMediaDiv, { resetThumb: false });
@@ -449,21 +445,20 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
 
-  // לפני לחיצה ראשונה: אין ניגון אוטומטי
-  if (!manual && !userHasPlayedVideo) {
-    return;
-  }
-
   if (mediaType === 'file') {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return;
     mediaDiv.classList.add('videos-feed__media--ready');
     
-    // ניסיון להפעיל עם צליל בלבד (ללא מעבר למיוט)
+    // ניסיון להפעיל עם צליל
     videoEl.muted = false;
     videoEl.play().catch(() => {
-      // אם דפדפן חסם autoplay עם קול, לא עוברים למיוט; משאירים Paused
-      console.warn('[videos] Autoplay with sound blocked; user interaction required');
+      // אם autoplay עם צליל נכשל, ננסה עם mute
+      videoEl.muted = true;
+      videoEl.play().catch(() => {
+        // גם עם mute נכשל – להחזיר מצב נייח
+        videoEl.pause();
+      });
     });
   } else if (mediaType === 'youtube') {
     ensureYouTubeIframe(mediaDiv, { autoplay: true });
@@ -505,7 +500,6 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   // הוספת חיווי עצירה רק אם זו עצירה ידנית; עצירות אוטומטיות (גלילה/כרטיס אחר) לא יציגו את האייקון
   if (manual) {
     mediaDiv.classList.add('is-paused');
-    mediaDiv.dataset.userStopped = 'true'; // חסימה ידנית – אל תופעל אוטומטית בגלילה
   } else {
     mediaDiv.classList.remove('is-paused');
   }
@@ -2204,11 +2198,9 @@ function setupIntersectionObserver() {
         const mediaDiv = card.querySelector('.videos-feed__media');
         if (!mediaDiv) return;
         
-        // ניגון כשהפוסט מרכזי (50%+ גלוי) רק אם לא נעצר ידנית
+        // ניגון כשהפוסט מרכזי (50%+ גלוי)
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-          if (mediaDiv.dataset.userStopped !== 'true') {
-            playMedia(mediaDiv, { manual: false });
-          }
+          playMedia(mediaDiv, { manual: false });
         } else {
           pauseMedia(mediaDiv, { resetThumb: false });
         }
