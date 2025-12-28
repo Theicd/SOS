@@ -1774,9 +1774,23 @@ body.policy-modal-open {
     border: none !important;
     border-top: none !important;
     background: #14161a !important; /* רקע אטום מלא */
-    padding-top: env(safe-area-inset-top) !important; /* התחשבות ב-Notch */
+    padding-top: calc(env(safe-area-inset-top) + 12px) !important; /* התחשבות ב-Notch + מרווח קטן */
     padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important; /* מרווח לתפריט התחתון + Safe Area */
-    z-index: 1500 !important; /* מעל הכל חוץ מהתפריט התחתון (2001) */
+    z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
+    box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
+  }
+
+  /* כשאנחנו בתוך שיחה (conversation active):
+     1. מסתירים את התפריט התחתון הראשי (.primary-nav)
+     2. מבטלים את המרווח התחתון של הפאנל כדי שינצל את כל הגובה (משאירים רק safe-area)
+  */
+  body:has(.chat-panel--conversation:not([hidden])) .primary-nav {
+    display: none !important;
+  }
+
+  body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    z-index: 2005 !important; /* וידוא שנשאר עליון */
   }
 
   /* הסתרת התפריט התחתון של הצ'אט כדי למנוע כפילות עם התפריט הראשי */

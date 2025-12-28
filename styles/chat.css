@@ -801,6 +801,11 @@ body.chat-overlay-open::before {
     z-index: 270; /* חלק צ'אט (chat.css) – שומר את הכותרת מעל רשימת ההודעות גם כשהמקלדת פתוחה */
   }
 
+  /* הצגת כפתור חזרה במובייל */
+  .chat-conversation__back {
+    display: flex !important;
+  }
+
   .chat-conversation__messages {
     padding-top: 12px;
   }
