@@ -1527,7 +1527,7 @@ body.policy-modal-open {
   transform: translateX(-50%) scale(0.95);
   width: clamp(340px, 90vw, 420px) !important;
   height: clamp(400px, 65vh, 600px) !important;
-  max-height: calc(100vh - 100px) !important;
+  max-height: calc(100vh - 95px) !important;
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1542,6 +1542,53 @@ body.policy-modal-open {
   pointer-events: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: bottom center;
+}
+
+/* חלק צ'אט (videos.css) – עיצוב תואם לפאנל ההתראות | HYPER CORE TECH */
+.chat-panel {
+  position: fixed !important;
+  top: auto !important;
+  bottom: 85px !important;
+  left: 50% !important;
+  transform: translateX(-50%) scale(0.95);
+  width: clamp(340px, 90vw, 420px) !important;
+  height: clamp(400px, 65vh, 600px) !important;
+  max-height: calc(100vh - 95px) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 24px 80px rgba(0, 0, 0, 0.65) !important;
+  border: 1px solid rgba(34, 211, 238, 0.22) !important;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1000 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: bottom center;
+}
+
+/* התאמת כותרת הצ'אט לעיצוב החדש */
+.chat-panel__header {
+  background: rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 20px 24px !important;
+}
+
+.chat-panel:not([hidden]) {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) scale(1) !important;
+}
+
+.chat-panel[hidden] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(-50%) scale(0.95) !important;
+  display: flex !important; /* Keep display flex for animation but hide via opacity */
+  visibility: hidden;
 }
 
 .notifications-panel:not([hidden]) {
@@ -1703,15 +1750,127 @@ body.policy-modal-open {
   .notifications-panel {
     width: calc(100vw - 24px) !important;
     height: auto !important;
-    max-height: calc(100vh - 140px) !important;
+    max-height: calc(100vh - 95px) !important;
     bottom: 85px !important;
     left: 12px !important;
     transform: none !important;
     border-radius: 18px !important;
   }
+
+  /* חלק צ'אט (videos.css) – התאמת פאנל הצ'אט להיות זהה לפאנל ההתראות במובייל | HYPER CORE TECH */
+  .chat-panel {
+    width: calc(100vw - 24px) !important;
+    height: auto !important;
+    max-height: calc(100vh - 95px) !important;
+    bottom: 85px !important;
+    left: 12px !important;
+    top: auto !important; /* ביטול top: 0 שנקבע ע"י chat.css או JS */
+    right: auto !important;
+    transform: none !important;
+    border-radius: 18px !important;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.4) !important;
+    border: 1px solid rgba(34, 211, 238, 0.22) !important;
+    background: rgba(20, 22, 26, 0.95) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+  }
+
+  /* הסתרת התפריט התחתון של הצ'אט כדי למנוע כפילות עם התפריט הראשי */
+  .chat-panel__footer {
+    display: none !important;
+  }
   
-  .notifications-panel:not([hidden]) {
+  .notifications-panel:not([hidden]),
+  .chat-panel:not([hidden]) {
     transform: none !important;
     scale: 1 !important;
+  }
+
+  /* איפוס רקעים פנימיים בצ'אט כדי לאפשר לשקיפות לעבוד */
+  .chat-panel__body,
+  .chat-contacts,
+  .chat-contacts__filters,
+  .chat-contacts__search,
+  .chat-contacts__list,
+  .chat-conversation,
+  .chat-conversation__header,
+  .chat-conversation__messages,
+  .chat-composer,
+  .chat-notifications,
+  .chat-notifications__body,
+  .chat-notifications__list {
+    background: transparent !important;
+  }
+
+  /* התאמת פריטי רשימת צ'אט (אנשי קשר) לעיצוב החדש */
+  .chat-contact {
+    background: rgba(0, 0, 0, 0.18) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 18px !important;
+    margin-bottom: 8px;
+    color: #fff !important;
+  }
+  
+  .chat-contact:hover {
+    background: rgba(35, 116, 225, 0.15) !important;
+    border-color: rgba(34, 211, 238, 0.22) !important;
+  }
+
+  .chat-contact__name {
+    color: #fff !important;
+    font-weight: 700 !important;
+  }
+
+  .chat-contact__last-message,
+  .chat-contact__time {
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+
+  /* התאמת שדות חיפוש ופילטרים */
+  .chat-contacts__search {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+  
+  .chat-contacts__search input {
+    color: #fff !important;
+  }
+  
+  .chat-contacts__search input::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+  }
+
+  .chat-contacts__filters {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* התאמת כותרת שיחה */
+  .chat-conversation__header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .chat-conversation__name {
+    color: #fff !important;
+  }
+
+  .chat-conversation__status {
+    color: rgba(255, 255, 255, 0.6) !important;
+  }
+  
+  /* התאמת אזור כתיבת הודעה */
+  .chat-composer {
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .chat-composer__input {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border-radius: 20px !important;
+  }
+
+  .chat-composer__input::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
   }
 }
