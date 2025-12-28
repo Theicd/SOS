@@ -2950,40 +2950,9 @@ async function init() {
     });
   }
 
-  // חלק תפריט תחתון (videos.js) - הגנה על כפתורי התראות והודעות במצב אורח | HYPER CORE TECH
-  const notificationsToggle = document.getElementById('notificationsToggle');
-  if (notificationsToggle) {
-    notificationsToggle.addEventListener('click', () => {
-      const app = window.NostrApp || {};
-      // בדיקת מצב אורח - חסימת התראות למשתמשים לא מחוברים | HYPER CORE TECH
-      if (app && typeof app.requireAuth === 'function') {
-        if (!app.requireAuth('כדי לצפות בהתראות צריך להתחבר או להירשם.')) {
-          return;
-        }
-      }
-      // פתיחת חלונית התראות
-      if (typeof app.openNotificationsPanel === 'function') {
-        app.openNotificationsPanel();
-      }
-    });
-  }
 
-  const messagesToggle = document.getElementById('messagesToggle');
-  if (messagesToggle) {
-    messagesToggle.addEventListener('click', () => {
-      const app = window.NostrApp || {};
-      // בדיקת מצב אורח - חסימת הודעות למשתמשים לא מחוברים | HYPER CORE TECH
-      if (app && typeof app.requireAuth === 'function') {
-        if (!app.requireAuth('כדי לשלוח הודעות צריך להתחבר או להירשם.')) {
-          return;
-        }
-      }
-      // פתיחת חלונית הודעות
-      if (typeof app.openChatPanel === 'function') {
-        app.openChatPanel();
-      }
-    });
-  }
+
+
 
   await waitForApp();
   const app = window.NostrApp || {};
