@@ -1784,6 +1784,25 @@ body.policy-modal-open {
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
   }
 
+  /* אופטימיזציה אגרסיבית למובייל - ביטול כל אפקטי הזכוכית והמעברים הפנימיים */
+  .chat-panel *,
+  .chat-panel__header,
+  .chat-contacts,
+  .chat-conversation__header,
+  .chat-composer,
+  .chat-message__media-download {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: none !important;
+  }
+
+  /* ביטול השהיית תצוגה במובייל - הסתרה מוחלטת כשהצ'אט סגור */
+  .chat-panel[hidden] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
   /* כשאנחנו בתוך שיחה (conversation active):
      1. מסתירים את התפריט התחתון הראשי (.primary-nav)
      2. מבטלים את המרווח התחתון של הפאנל כדי שינצל את כל הגובה (משאירים רק safe-area)

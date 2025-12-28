@@ -48,6 +48,15 @@ body.chat-overlay-open::before {
   z-index: 200; /* חלק צ'אט (chat.css) – שכבת כהות מאחורי חלון הצ'אט במובייל */
 }
 
+@media (max-width: 768px) {
+  body.chat-overlay-open::before {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 .chat-conversation__empty[hidden],
 .chat-panel--conversation .chat-conversation__empty {
   display: none !important;
