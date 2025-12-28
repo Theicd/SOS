@@ -267,14 +267,14 @@ body:has(.videos-feed) .top-bar__dropdown {
 body:has(.videos-feed) .primary-nav {
   display: grid !important;
   grid-template-columns: repeat(5, 1fr) !important;
-  background: rgba(0, 0, 0, 0.35) !important;
+  background: rgba(0, 0, 0, 0.75) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border-top: 1px solid rgba(34, 211, 238, 0.22) !important;
   padding: 6px 0 !important;
   gap: 0 !important;
   width: 100%;
-  z-index: 100;
+  z-index: 2001 !important; /* הועלה מעל שכבת הרקע של הצ'אט (200) ושל הפאנל עצמו (1000) */
   height: 80px !important;
   min-height: 80px !important;
 }
