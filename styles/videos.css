@@ -1761,7 +1761,7 @@ body.policy-modal-open {
   .chat-panel {
     position: fixed !important;
     width: 100% !important;
-    height: 100% !important; /* גובה מלא */
+    height: 100dvh !important; /* גובה דינמי לדפדפנים ניידים */
     max-height: none !important; /* ביטול הגבלת גובה */
     top: 0 !important; /* הצמדה למעלה */
     bottom: 0 !important; /* הצמדה למטה */
@@ -1769,13 +1769,17 @@ body.policy-modal-open {
     right: 0 !important;
     margin: 0 !important;
     transform: none !important;
+    transition: none !important; /* ביטול אנימציות פתיחה */
+    animation: none !important; /* ביטול אנימציות פתיחה */
+    backdrop-filter: none !important; /* ביטול אפקט זכוכית כבד */
+    -webkit-backdrop-filter: none !important;
     border-radius: 0 !important; /* ביטול פינות עגולות למסך מלא */
     box-shadow: none !important;
     border: none !important;
     border-top: none !important;
     background: #14161a !important; /* רקע אטום מלא */
-    padding-top: calc(env(safe-area-inset-top) + 12px) !important; /* התחשבות ב-Notch + מרווח קטן */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important; /* מרווח לתפריט התחתון + Safe Area */
+    padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; /* התחשבות ב-Notch + מרווח קטן */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; /* מרווח לתפריט התחתון + Safe Area */
     z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
   }
@@ -1789,7 +1793,7 @@ body.policy-modal-open {
   }
 
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
-    padding-bottom: env(safe-area-inset-bottom) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     z-index: 2005 !important; /* וידוא שנשאר עליון */
   }
 
