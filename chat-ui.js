@@ -1548,8 +1548,53 @@
 
   function subscribeToEvents() {
     if (elements.navButton) {
-      elements.navButton.addEventListener('click', () => togglePanel());
+      elements.navButton.addEventListener('click', () => {
+        // בדיקת מצב אורח - חסימת הודעות למשתמשים לא מחוברים | HYPER CORE TECH
+        if (App && typeof App.requireAuth === 'function') {
+          if (!App.requireAuth('כדי לשלוח הודעות צריך להתחבר או להירשם.')) {
+            return;
+          }
+        }
+        // סגירת התראות אם פתוחות
+        if (typeof App.closeNotificationsPanel === 'function') {
+          App.closeNotificationsPanel();
+        }
+        togglePanel();
+      });
     }
+
+    // חלק התראות (chat-ui.js) – מאזין לכפתור ההתראות מהתפריט הראשי | HYPER CORE TECH
+    if (elements.notificationsToggle) {
+      elements.notificationsToggle.addEventListener('click', () => {
+        // בדיקת מצב אורח
+        if (App && typeof App.requireAuth === 'function') {
+          if (!App.requireAuth('כדי לצפות בהתראות צריך להתחבר או להירשם.')) {
+            return;
+          }
+        }
+        
+        // אם הצ'אט פתוח, נסגור אותו קודם
+        if (state.isOpen && state.footerMode !== 'notifications') {
+          togglePanel(false);
+        }
+
+        // אם הפאנל כבר פתוח במצב התראות, נסגור אותו (Toggle behavior)
+        if (state.isOpen && state.footerMode === 'notifications') {
+          if (typeof App.closeNotificationsPanel === 'function') {
+            App.closeNotificationsPanel();
+          } else {
+            togglePanel(false);
+          }
+          return;
+        }
+
+        // פתיחת פאנל ההתראות
+        if (typeof App.openNotificationsPanel === 'function') {
+          App.openNotificationsPanel();
+        }
+      });
+    }
+
     if (elements.launcherButton) {
       elements.launcherButton.addEventListener('click', () => togglePanel());
     }
@@ -1701,6 +1746,36 @@
   // חלק צ'אט (chat-ui.js) – מאפשר למודולים חיצוניים (למשל התרעות) לסגור את חלון הצ'אט במעבר בין פאנלים
   App.closeChatPanel = function closeChatPanel() {
     togglePanel(false);
+  };
+
+  App.toggleChatPanel = togglePanel;
+
+  // חלק התראות (chat-ui.js) – חשיפת פונקציות שליטה בפאנל ההתראות | HYPER CORE TECH
+  App.openNotificationsPanel = function openNotificationsPanel() {
+    // וידוא שהפאנל פתוח
+    if (!state.isOpen) {
+      togglePanel(true);
+    }
+    // מעבר למצב התראות
+    setFooterMode('notifications');
+    // הצגת התצוגה
+    showNotificationsView();
+    // עדכון כפתור הניווט הראשי
+    if (elements.notificationsToggle) {
+      elements.notificationsToggle.setAttribute('aria-pressed', 'true');
+      elements.notificationsToggle.classList.add('is-active');
+    }
+  };
+
+  App.closeNotificationsPanel = function closeNotificationsPanel() {
+    if (elements.notificationsToggle) {
+      elements.notificationsToggle.setAttribute('aria-pressed', 'false');
+      elements.notificationsToggle.classList.remove('is-active');
+    }
+    // אם אנחנו במצב התראות, סגור את הפאנל
+    if (state.isOpen && state.footerMode === 'notifications') {
+      togglePanel(false);
+    }
   };
 
   // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לקבלת המשתמש הפעיל בשיחה
