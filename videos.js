@@ -1656,7 +1656,8 @@ function renderVideos() {
   }
 
   setupIntersectionObserver();
-  setupInfiniteLoop();
+  // חלק ביטול לופ אינסופי (videos.js) – הוסר setupInfiniteLoop כדי למנוע תקיעת ממשק באייפון | HYPER CORE TECH
+  // setupInfiniteLoop(); // DISABLED - causes iOS performance issues
   setupLikeUpdateListener();
 
   state.incrementalRender = {
