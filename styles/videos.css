@@ -1597,6 +1597,28 @@ body.policy-modal-open {
   transform: translateX(-50%) scale(1);
 }
 
+/* חלק פאנל פרופיל (videos.css) – עיצוב פאנל פרופיל כ-overlay מלא מסך במובייל | HYPER CORE TECH */
+.profile-panel {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 80px !important;
+  width: 100% !important;
+  height: calc(100dvh - 80px) !important;
+  background: #14161a !important;
+  z-index: 1500 !important;
+  overflow: hidden;
+}
+
+.profile-panel[hidden] {
+  display: none !important;
+}
+
+.profile-panel:not([hidden]) {
+  display: block !important;
+}
+
 .notifications-panel__header {
   display: flex;
   align-items: center;

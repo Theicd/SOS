@@ -959,6 +959,7 @@
 
 .profile-cover__followers-avatar span {
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 /* חלק עוקבים (profile.css) – עיצוב רשימת העוקבים בכרטיס הצדדי */
@@ -1798,4 +1799,116 @@
   .profile-timeline.profile-timeline--replies.is-active {
     display: block;
   }
+}
+
+/* ========== TikTok-style Grid Layout for Profile Posts ========== */
+.profile-timeline.grid-layout .profile-timeline__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.profile-timeline.grid-layout .profile-timeline__list > li {
+  aspect-ratio: 3 / 4; /* Vertical aspect ratio like TikTok */
+  padding: 0;
+  border: none;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+
+/* Override feed-post styles within the grid */
+.profile-timeline.grid-layout .feed-post {
+  height: 100%;
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide feed-post elements irrelevant to grid view */
+.profile-timeline.grid-layout .feed-post__header,
+.profile-timeline.grid-layout .feed-post__content,
+.profile-timeline.grid-layout .feed-post__stats,
+.profile-timeline.grid-layout .feed-post__actions,
+.profile-timeline.grid-layout .feed-post__show-more,
+.profile-timeline.grid-layout .feed-post__comments-toggle,
+.profile-timeline.grid-layout .feed-comments {
+  display: none !important;
+}
+
+/* Ensure media takes full space */
+.profile-timeline.grid-layout .feed-post__media {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-timeline.grid-layout .feed-post__media img,
+.profile-timeline.grid-layout .feed-post__media video {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+/* Text-only posts in grid */
+.profile-timeline.grid-layout .feed-post--text-only {
+  background: linear-gradient(135deg, #2a2d35, #1a1d24);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.profile-timeline.grid-layout .feed-post--text-only::after {
+  content: "📝";
+  font-size: 2rem;
+}
+
+/* Hover effect */
+.profile-timeline.grid-layout .profile-timeline__list > li::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.2);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.profile-timeline.grid-layout .profile-timeline__list > li:hover::after {
+  opacity: 1;
+}
+
+/* Activity Modal Styles */
+.activity-modal .profile-activity {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.activity-modal .profile-activity__summary {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+@media (max-width: 600px) {
+  .profile-timeline.grid-layout .profile-timeline__list {
+    gap: 1px;
+  }
+}
+
+/* חלק הסתרת תפריט תחתון (profile.css) – מסתיר את התפריט התחתון בדף הפרופיל | HYPER CORE TECH */
+.profile-body .primary-nav {
+  display: none !important;
 }
