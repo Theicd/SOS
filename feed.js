@@ -4219,6 +4219,53 @@ async function loadFeed() {
     }
   }
 
+  // חלק עדכון בזמן אמת (feed.js) – פונקציה להוספת פוסט חדש לפיד מיד אחרי פרסום | HYPER CORE TECH
+  function onPostPublished(signedEvent) {
+    if (!signedEvent || !signedEvent.id) {
+      console.warn('[feed] onPostPublished: invalid event');
+      return;
+    }
+    
+    console.log('[feed] onPostPublished: adding new post to feed', { id: signedEvent.id });
+    
+    // הוספת הפוסט ל-postsById
+    if (!(App.postsById instanceof Map)) {
+      App.postsById = new Map();
+    }
+    App.postsById.set(signedEvent.id, signedEvent);
+    
+    // הוספת מיפוי מחבר
+    if (!(App.eventAuthorById instanceof Map)) {
+      App.eventAuthorById = new Map();
+    }
+    const authorKey = typeof signedEvent.pubkey === 'string' ? signedEvent.pubkey.toLowerCase() : '';
+    if (authorKey) {
+      App.eventAuthorById.set(signedEvent.id, authorKey);
+    }
+    
+    // רינדור הפוסט החדש בראש הפיד
+    const feedContainer = document.getElementById('feedPosts') || document.querySelector('.feed-posts');
+    if (feedContainer && typeof displayPosts === 'function') {
+      // רינדור רק הפוסט החדש בראש הרשימה
+      const tempContainer = document.createElement('div');
+      displayPosts([signedEvent], tempContainer, { prepend: false });
+      
+      // הוספת הפוסט בראש הפיד
+      if (tempContainer.firstChild) {
+        feedContainer.insertBefore(tempContainer.firstChild, feedContainer.firstChild);
+      }
+    }
+    
+    // עדכון המטמון
+    try {
+      if (typeof App.saveFeedCache === 'function') {
+        App.saveFeedCache();
+      }
+    } catch (err) {
+      console.warn('[feed] Failed to save cache after publish', err);
+    }
+  }
+
   window.NostrApp = Object.assign(App, {
     fetchProfile,
     renderDemoPosts,
@@ -4245,6 +4292,7 @@ async function loadFeed() {
     removePostElement,
     loadVideoWithCache,
     resetVideoLoadIndex, // חלק Network Tiers (פיד) – איפוס מונה פוסטים | HYPER CORE TECH
+    onPostPublished, // חלק עדכון בזמן אמת (feed.js) – הוספת פוסט חדש לפיד מיד | HYPER CORE TECH
   });
 
   // חלק וידאו/תמונות (feed.js) – אתחול טיפול בוידאו ו-Lightbox לתמונות

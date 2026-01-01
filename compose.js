@@ -1083,7 +1083,9 @@
 
       // עדכון UI
       setStatus('פורסם בהצלחה');
+      // חלק עדכון בזמן אמת (compose.js) – קריאה לעדכון הפיד הראשי והפיד הווידאו מיד אחרי פרסום | HYPER CORE TECH
       try { if (typeof app.onPostPublished === 'function') app.onPostPublished(signed); } catch (_) {}
+      try { if (typeof app.onVideoPostPublished === 'function') app.onVideoPostPublished(signed); } catch (_) {}
       resetCompose();
       closeCompose();
       // עצירת אנימציית העיבוד

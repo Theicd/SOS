@@ -2870,9 +2870,6 @@ async function loadVideos() {
   videoEvents.sort((a, b) => b.createdAt - a.createdAt);
   console.log('[videos] loadVideos: video events found', { count: videoEvents.length });
   
-  setLoadingProgress(95);
-  setLoadingStatus(`נמצאו ${videoEvents.length} פוסטים!`);
-  
   // חלק מיזוג מטמון (videos.js) – מיזוג פוסטים חדשים עם קיימים במקום החלפה מלאה | HYPER CORE TECH
   const existingIds = new Set(state.videos.map(v => v.id));
   const newVideos = videoEvents.filter(v => !existingIds.has(v.id));
@@ -2894,8 +2891,24 @@ async function loadVideos() {
     state.videos = videoEvents;
   }
   
-  setLoadingProgress(100);
-  setLoadingStatus('מוכן!');
+  // חלק מד טעינה חכם (videos.js) – שחרור הפיד מוקדם כשיש לפחות 5 פוסטים | HYPER CORE TECH
+  const MIN_POSTS_FOR_RELEASE = 5;
+  const totalPosts = state.videos.length;
+  
+  if (totalPosts >= MIN_POSTS_FOR_RELEASE) {
+    // יש מספיק פוסטים - שחרור מיידי של הפיד
+    setLoadingProgress(100);
+    setLoadingStatus(`נמצאו ${totalPosts} פוסטים!`);
+    console.log('[videos] Early release: enough posts ready', { count: totalPosts });
+  } else if (totalPosts > 0) {
+    // יש פוסטים אבל פחות מ-5 - עדכון מד לפי כמות
+    const progress = Math.min(95, 60 + (totalPosts / MIN_POSTS_FOR_RELEASE) * 35);
+    setLoadingProgress(progress);
+    setLoadingStatus(`נמצאו ${totalPosts} פוסטים, מחפש עוד...`);
+  } else {
+    setLoadingProgress(95);
+    setLoadingStatus('מחפש תוכן...');
+  }
   
   saveFeedCache(state.videos);
   renderVideos();
