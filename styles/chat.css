@@ -43,19 +43,10 @@ body.chat-overlay-open::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.65);
   z-index: 200; /* חלק צ'אט (chat.css) – שכבת כהות מאחורי חלון הצ'אט במובייל */
 }
 
-@media (max-width: 768px) {
-  body.chat-overlay-open::before {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    transition: none !important;
-    animation: none !important;
-  }
-}
 
 .chat-conversation__empty[hidden],
 .chat-panel--conversation .chat-conversation__empty {
@@ -92,7 +83,7 @@ body.chat-overlay-open::before {
   max-height: calc(100vh - 110px);
   background: var(--card);
   border-radius: 20px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -339,7 +330,6 @@ body.chat-overlay-open::before {
   flex-direction: column;
   border-right: 1px solid var(--border);
   background: var(--card-alt);
-  backdrop-filter: blur(12px);
 }
 
 
@@ -413,7 +403,7 @@ body.chat-overlay-open::before {
   border: 1px solid transparent;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .chat-contact:hover,
@@ -526,7 +516,6 @@ body.chat-overlay-open::before {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--card-alt);
-  backdrop-filter: blur(16px);
   min-height: 76px;
   position: relative;
   z-index: 1;
@@ -598,7 +587,7 @@ body.chat-overlay-open::before {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   background: var(--card-alt);
   border: 1px solid var(--border);
   color: var(--text);
@@ -665,7 +654,6 @@ body.chat-overlay-open::before {
   padding: 12px;
   border-top: 1px solid var(--border);
   background: var(--card-alt);
-  backdrop-filter: blur(12px);
   box-sizing: border-box;
 }
 
@@ -769,7 +757,7 @@ body.chat-overlay-open::before {
   background-repeat: no-repeat;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .chat-composer__file-preview.chat-composer__file-preview--image .chat-composer__file-name {
@@ -857,7 +845,7 @@ body.chat-overlay-open::before {
   position: relative;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
 .chat-message__media-open {
@@ -882,9 +870,8 @@ body.chat-overlay-open::before {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  backdrop-filter: blur(4px);
   transition: background 0.2s ease;
 }
 
@@ -916,8 +903,7 @@ body.chat-overlay-open::before {
 .chat-media-modal__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(10, 12, 24, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(10, 12, 24, 0.88);
 }
 
 .chat-media-modal__content {
@@ -933,7 +919,7 @@ body.chat-overlay-open::before {
   overflow: hidden;
   background: rgba(12, 15, 32, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
   padding: 22px;
   box-sizing: border-box;
 }
@@ -967,7 +953,7 @@ body.chat-overlay-open::before {
 
 .chat-media-modal__download:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(34, 60, 200, 0.35);
+  box-shadow: 0 6px 14px rgba(34, 60, 200, 0.25);
 }
 
 .chat-media-modal__close {
