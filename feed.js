@@ -2173,8 +2173,26 @@
         closePanel();
       }
     };
+    // חלק התראות (feed.js) – מאזין לכפתור ההתראות מפנה ל-chat-ui.js שמטפל בפאנל המשולב | HYPER CORE TECH
     toggle.addEventListener('click', (event) => {
       event.stopPropagation();
+      // סגירת פאנל פרופיל אם פתוח | HYPER CORE TECH
+      if (typeof App.closeProfilePanel === 'function') {
+        App.closeProfilePanel();
+      }
+      // אם chat-ui.js טיפל בהתראות דרך openNotificationsPanel, נפנה לשם
+      if (typeof App.openNotificationsPanel === 'function') {
+        // בדיקה אם הפאנל כבר פתוח במצב התראות - toggle behavior
+        if (App.chatState?.isOpen && App.chatState?.footerMode === 'notifications') {
+          if (typeof App.closeNotificationsPanel === 'function') {
+            App.closeNotificationsPanel();
+          }
+        } else {
+          App.openNotificationsPanel();
+        }
+        return;
+      }
+      // fallback - פתיחת הפאנל העצמאי אם chat-ui.js לא זמין
       const isHidden = panel.hasAttribute('hidden');
       if (isHidden) {
         if (typeof App.closeChatPanel === 'function') {

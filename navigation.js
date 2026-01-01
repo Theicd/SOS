@@ -23,6 +23,22 @@
     App.activeNav = targetKey;
   }
 
+  // חלק פאנל פרופיל (navigation.js) – פונקציה לסגירת פאנל הפרופיל | HYPER CORE TECH
+  function closeProfilePanel() {
+    const profilePanel = document.getElementById('profilePanel');
+    const profileFrame = document.getElementById('profilePanelFrame');
+    if (profilePanel && !profilePanel.hidden) {
+      profilePanel.hidden = true;
+      if (profileFrame) profileFrame.src = '';
+      console.log('[NAV] Profile panel closed');
+      return true;
+    }
+    return false;
+  }
+
+  // חשיפה גלובלית לסגירת פאנל הפרופיל | HYPER CORE TECH
+  App.closeProfilePanel = closeProfilePanel;
+
   function handleNavClick(event) {
     const key = event.currentTarget.getAttribute('data-nav');
     if (!key) {
@@ -31,10 +47,26 @@
 
     console.log('[NAV] Navigation clicked:', key);
     const previousNav = App.activeNav;
+    
+    // חלק פאנל פרופיל (navigation.js) – סגירת פאנל הפרופיל בכל לחיצה על כפתור שאינו פרופיל | HYPER CORE TECH
+    // אם הפאנל נסגר, לא מנווטים לדף אחר - רק סוגרים ונשארים במקום
+    if (key !== 'profile') {
+      const wasClosed = closeProfilePanel();
+      if (wasClosed) {
+        console.log('[NAV] Profile panel was closed, staying on current page');
+        return;
+      }
+    }
+    
     updateNavSelection(key);
 
     // חלק ניווט בית (navigation.js) – לחיצה על "בית" מחזירה לפיד הראשי (index)
     if (key === 'home') {
+      // אם כבר בדף index.html - לא לרענן | HYPER CORE TECH
+      if (window.location.pathname.includes('index.html') || window.location.pathname === '/' || window.location.pathname.endsWith('/')) {
+        console.log('[NAV] Already on home page, staying here');
+        return;
+      }
       console.log('[NAV] Navigating to index.html');
       window.location.href = './index.html';
       return;
@@ -49,6 +81,11 @@
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
+      // אם כבר בדף videos.html - לא לרענן, פשוט להישאר | HYPER CORE TECH
+      if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos')) {
+        console.log('[NAV] Already on videos page, staying here');
+        return;
+      }
       if (previousNav === 'profile' && App.cameFromVideos && typeof window.history?.back === 'function') {
         console.log('[NAV] Returning to videos via history.back()');
         window.history.back();
@@ -67,6 +104,24 @@
           return;
         }
       }
+      // חלק פאנל פרופיל (navigation.js) – פתיחת פרופיל כ-overlay במקום ניווט לדף | HYPER CORE TECH
+      const profilePanel = document.getElementById('profilePanel');
+      const profileFrame = document.getElementById('profilePanelFrame');
+      if (profilePanel && profileFrame) {
+        // Toggle - אם פתוח, סגור; אם סגור, פתח
+        if (!profilePanel.hidden) {
+          profilePanel.hidden = true;
+          profileFrame.src = '';
+          console.log('[NAV] Profile panel closed');
+        } else {
+          // טעינת הפרופיל ב-iframe
+          profileFrame.src = './profile.html?embedded=1';
+          profilePanel.hidden = false;
+          console.log('[NAV] Profile panel opened');
+        }
+        return;
+      }
+      // Fallback - אם אין פאנל, נווט לדף
       console.log('[NAV] Navigating to profile.html');
       window.location.href = './profile.html';
       return;

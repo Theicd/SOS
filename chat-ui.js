@@ -1555,6 +1555,10 @@
             return;
           }
         }
+        // סגירת פאנל פרופיל אם פתוח | HYPER CORE TECH
+        if (typeof App.closeProfilePanel === 'function') {
+          App.closeProfilePanel();
+        }
         // סגירת התראות אם פתוחות
         if (typeof App.closeNotificationsPanel === 'function') {
           App.closeNotificationsPanel();
@@ -1563,37 +1567,8 @@
       });
     }
 
-    // חלק התראות (chat-ui.js) – מאזין לכפתור ההתראות מהתפריט הראשי | HYPER CORE TECH
-    if (elements.notificationsToggle) {
-      elements.notificationsToggle.addEventListener('click', () => {
-        // בדיקת מצב אורח
-        if (App && typeof App.requireAuth === 'function') {
-          if (!App.requireAuth('כדי לצפות בהתראות צריך להתחבר או להירשם.')) {
-            return;
-          }
-        }
-        
-        // אם הצ'אט פתוח, נסגור אותו קודם
-        if (state.isOpen && state.footerMode !== 'notifications') {
-          togglePanel(false);
-        }
-
-        // אם הפאנל כבר פתוח במצב התראות, נסגור אותו (Toggle behavior)
-        if (state.isOpen && state.footerMode === 'notifications') {
-          if (typeof App.closeNotificationsPanel === 'function') {
-            App.closeNotificationsPanel();
-          } else {
-            togglePanel(false);
-          }
-          return;
-        }
-
-        // פתיחת פאנל ההתראות
-        if (typeof App.openNotificationsPanel === 'function') {
-          App.openNotificationsPanel();
-        }
-      });
-    }
+    // חלק התראות (chat-ui.js) – המאזין לכפתור ההתראות מטופל על ידי feed.js שמפנה ל-openNotificationsPanel | HYPER CORE TECH
+    // המאזין הוסר כדי למנוע כפילות - feed.js מטפל בלחיצה ומפנה לכאן דרך App.openNotificationsPanel
 
     if (elements.launcherButton) {
       elements.launcherButton.addEventListener('click', () => togglePanel());

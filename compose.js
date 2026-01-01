@@ -689,6 +689,11 @@
       }
     }
     
+    // סגירת פאנל פרופיל אם פתוח | HYPER CORE TECH
+    if (typeof app.closeProfilePanel === 'function') {
+      app.closeProfilePanel();
+    }
+    
     syncProfileDetails();
     resetStatus();
     ensureMediaInputBound();
