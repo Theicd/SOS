@@ -1937,3 +1937,59 @@ body.policy-modal-open {
     color: rgba(255, 255, 255, 0.5) !important;
   }
 }
+
+/* חלק אופטימיזציה למכשירים חלשים (videos.css) – ביטול אנימציות כבדות | HYPER CORE TECH */
+@media (prefers-reduced-motion: reduce) {
+  /* ביטול כל האנימציות למי שמבקש הפחתה */
+  .videos-feed__author::after {
+    animation: none !important;
+  }
+  
+  body:has(.videos-feed) .primary-nav::before {
+    animation: none !important;
+  }
+  
+  .videos-feed__action,
+  .videos-feed__avatar,
+  .videos-feed__name,
+  .videos-feed__play-overlay {
+    transition: none !important;
+  }
+}
+
+/* אופטימיזציה נוספת למובייל (videos.css) – הפחתת אנימציות וטשטושים | HYPER CORE TECH */
+@media (max-width: 768px) {
+  /* הפחתת backdrop-filter כבד */
+  .videos-feed__action {
+    backdrop-filter: blur(4px);
+  }
+  
+  body:has(.videos-feed) .top-bar__logo,
+  body:has(.videos-feed) .top-bar__icon-btn {
+    backdrop-filter: blur(4px);
+  }
+  
+  /* הפחתת צללים כבדים */
+  .videos-feed__status {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* ביטול אנימציית קשת בפס התחתי של שם המחבר */
+  .videos-feed__author::after {
+    animation: none;
+    background: linear-gradient(90deg, #48dbfb, #1dd1a1);
+  }
+  
+  /* מעברים מהירים יותר */
+  .videos-feed__action,
+  .videos-feed__avatar,
+  .videos-feed__name {
+    transition: all 0.15s ease;
+  }
+  
+  /* ביטול אפקט hover עם scale במובייל */
+  .videos-feed__action:hover,
+  .videos-feed__avatar:hover {
+    transform: none;
+  }
+}

@@ -250,3 +250,74 @@
     height: 300px;
   }
 }
+
+/* חלק אופטימיזציה למכשירים חלשים (loading-animation.css) – ביטול אנימציות 3D כבדות | HYPER CORE TECH */
+/* מכשירים שמבקשים הפחתת אנימציות */
+@media (prefers-reduced-motion: reduce) {
+  .videos-loading-cube {
+    animation: none !important;
+    transform: none !important;
+  }
+  
+  .videos-loading-cube__face {
+    animation: none !important;
+  }
+  
+  .videos-loading-text {
+    animation: none !important;
+  }
+  
+  .videos-loading-particle {
+    display: none !important;
+  }
+}
+
+/* אופטימיזציה למובייל - אנימציות קלות יותר | HYPER CORE TECH */
+@media (max-width: 768px) {
+  /* ביטול perspective 3D כבד - שימוש בתצוגה שטוחה */
+  .videos-loading-scene {
+    perspective: none;
+  }
+  
+  /* אנימציה פשוטה יותר במקום 3D מורכב */
+  .videos-loading-cube {
+    animation: simpleGlow 2s ease-in-out infinite;
+    transform: none;
+  }
+  
+  /* ביטול אנימציות אותיות נפרדות */
+  .videos-loading-cube__face {
+    animation: none;
+  }
+  
+  /* הסתרת חלקיקים במובייל לחיסכון בביצועים */
+  .videos-loading-particle {
+    display: none;
+  }
+  
+  /* אנימציית pulse פשוטה יותר */
+  .videos-loading-text {
+    animation: simplePulse 2s ease-in-out infinite;
+  }
+}
+
+/* אנימציה פשוטה וקלה - רק opacity ו-scale קטן | HYPER CORE TECH */
+@keyframes simpleGlow {
+  0%, 100% {
+    opacity: 0.9;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes simplePulse {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+  }
+}
