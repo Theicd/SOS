@@ -30,6 +30,9 @@
   let activePeerPubkey = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – דגל: המשתמש דחה את השיחה באופן יזום (לא לרשום כ-missed) | HYPER CORE TECH
   let userDeclinedCall = false;
+  // חלק שיחות קול (chat-voice-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה כדי להחזיר אותו בסיום | HYPER CORE TECH
+  let chatPanelWasOpen = false;
+  let chatActiveContactBeforeCall = null;
 
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת אלמנט אודיו מרוחק
   function createRemoteAudioElement() {
@@ -90,18 +93,23 @@
     const initials = contact?.initials || 'מש';
     const picture = contact?.picture || '';
 
+    // חלק שיחות קול (chat-voice-call-ui.js) – עיצוב מסך מלא כמו שיחת וידיאו עם כותרת עליונה | HYPER CORE TECH
     callDialog = doc.createElement('div');
     callDialog.id = 'voiceCallDialog';
     callDialog.className = isIncoming ? 'voice-call-dialog voice-call-dialog--incoming' : 'voice-call-dialog';
     callDialog.innerHTML = `
       <div class="voice-call-dialog__backdrop"></div>
       <div class="voice-call-dialog__content">
+        <div class="voice-call-dialog__topbar">
+          <h2 class="voice-call-dialog__topbar-title">${isIncoming ? 'שיחה נכנסת' : 'מתחיל שיחת קול'}</h2>
+          <p class="voice-call-dialog__topbar-sub">ממתין לתשובה...</p>
+        </div>
         <div class="voice-call-dialog__header">
           <div class="voice-call-dialog__avatar">
             ${picture ? `<img src="${picture}" alt="${name}">` : `<span>${initials}</span>`}
           </div>
           <h3 class="voice-call-dialog__name">${name}</h3>
-          <p class="voice-call-dialog__status">${isIncoming ? 'שיחה נכנסת...' : 'מתקשר...'}</p>
+          <p class="voice-call-dialog__status">${isIncoming ? 'מחייג קול...' : 'מחייג...'}</p>
           <p class="voice-call-dialog__timer" hidden>0:00</p>
         </div>
         <div class="voice-call-dialog__actions">
@@ -148,7 +156,11 @@
     }
 
     if (endBtn) {
-      endBtn.addEventListener('click', handleEndCall);
+      endBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleEndCall();
+      });
     }
 
     callTimer = callDialog.querySelector('.voice-call-dialog__timer');
@@ -156,13 +168,32 @@
     return callDialog;
   }
 
-  // חלק שיחות קול (chat-voice-call-ui.js) – עדכון סטטוס שיחה
+  // חלק שיחות קול (chat-voice-call-ui.js) – עדכון סטטוס שיחה והסתרת כותרת עליונה בעת חיבור | HYPER CORE TECH
   function updateCallStatus(status) {
     if (!callDialog) return;
 
     const statusEl = callDialog.querySelector('.voice-call-dialog__status');
     if (statusEl) {
       statusEl.textContent = status;
+    }
+
+    // הסתרת הכותרת העליונה כשהשיחה מתחברת
+    const topbar = callDialog.querySelector('.voice-call-dialog__topbar');
+    if (topbar) {
+      if (status === 'מחובר') {
+        topbar.setAttribute('hidden', '');
+      } else {
+        topbar.removeAttribute('hidden');
+        // עדכון טקסט הכותרת בהתאם לסטטוס
+        const topbarSub = topbar.querySelector('.voice-call-dialog__topbar-sub');
+        if (topbarSub) {
+          if (status === 'מתחבר...') {
+            topbarSub.textContent = 'מתחבר...';
+          } else if (status === 'מחייג...') {
+            topbarSub.textContent = 'ממתין לתשובה...';
+          }
+        }
+      }
     }
   }
 
@@ -370,6 +401,54 @@
     }
 
     callTimer = null;
+
+    // חלק שיחות קול (chat-voice-call-ui.js) – החזרת מצב פאנל הצ'אט לאחר סיום השיחה | HYPER CORE TECH
+    restoreChatPanelState();
+  }
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה | HYPER CORE TECH
+  function saveChatPanelState() {
+    const chatPanel = doc.getElementById('chatPanel');
+    chatPanelWasOpen = chatPanel && !chatPanel.hasAttribute('hidden');
+    chatActiveContactBeforeCall = App.chatState?.activeContact || App.getActiveChatContact?.() || null;
+    console.log('[VOICE] Saved chat panel state:', { open: chatPanelWasOpen, contact: chatActiveContactBeforeCall?.slice?.(0, 8) });
+  }
+
+  // חלק שיחות קול (chat-voice-call-ui.js) – החזרת מצב פאנל הצ'אט לאחר סיום השיחה | HYPER CORE TECH
+  function restoreChatPanelState() {
+    console.log('[VOICE] restoreChatPanelState called:', { 
+      chatPanelWasOpen, 
+      contact: chatActiveContactBeforeCall?.slice?.(0, 8) 
+    });
+
+    if (!chatPanelWasOpen && !chatActiveContactBeforeCall) {
+      console.log('[VOICE] No chat state to restore');
+      return;
+    }
+
+    // תמיד לנסות לפתוח את פאנל הצ'אט ולחזור לשיחה
+    setTimeout(() => {
+      const chatPanel = doc.getElementById('chatPanel');
+      console.log('[VOICE] Restoring - chatPanel hidden?', chatPanel?.hasAttribute('hidden'));
+
+      // פתיחת פאנל הצ'אט
+      if (typeof App.toggleChatPanel === 'function') {
+        App.toggleChatPanel(true);
+      } else if (chatPanel) {
+        chatPanel.removeAttribute('hidden');
+        doc.body.classList.add('chat-overlay-open');
+      }
+
+      // חזרה לשיחה הפעילה
+      if (chatActiveContactBeforeCall && typeof App.showChatConversation === 'function') {
+        console.log('[VOICE] Showing conversation:', chatActiveContactBeforeCall.slice(0, 8));
+        App.showChatConversation(chatActiveContactBeforeCall);
+      }
+
+      // איפוס המשתנים
+      chatPanelWasOpen = false;
+      chatActiveContactBeforeCall = null;
+    }, 150);
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – התראות מערכת לשיחה נכנסת (Notification API) | HYPER CORE TECH
@@ -520,6 +599,14 @@
       return;
     }
 
+    // חלק שיחות קול (chat-voice-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה | HYPER CORE TECH
+    saveChatPanelState();
+
+    // חלק שיחות קול (chat-voice-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה | HYPER CORE TECH
+    if (typeof App.pauseAllFeedVideos === 'function') {
+      App.pauseAllFeedVideos();
+    }
+
     // חלק שיחות קול (chat-voice-call-ui.js) – שיחה יוצאת: יצירת UI והתחלת טון חיוג בתוך מחוות המשתמש (autoplay) | HYPER CORE TECH
     if (!callDialog) {
       createCallDialog(peerPubkey, false);
@@ -608,6 +695,14 @@
     console.log('Incoming call from', peerPubkey.slice(0, 8));
     // שמירת ה-offer באופן מקומי
     incomingOffer = offer;
+
+    // חלק שיחות קול (chat-voice-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
+    saveChatPanelState();
+
+    // חלק שיחות קול (chat-voice-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה נכנסת | HYPER CORE TECH
+    if (typeof App.pauseAllFeedVideos === 'function') {
+      App.pauseAllFeedVideos();
+    }
 
     createCallDialog(peerPubkey, true);
     // חלק שיחות קול (chat-voice-call-ui.js) – התראת מערכת לשיחה נכנסת כשהטאב/דפדפן ברקע | HYPER CORE TECH

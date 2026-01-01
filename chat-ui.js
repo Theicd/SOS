@@ -1578,6 +1578,11 @@
     }
     doc.addEventListener('click', (event) => {
       if (!state.isOpen) return;
+      // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
+      const voiceCallDialog = doc.getElementById('voiceCallDialog');
+      const videoCallDialog = doc.getElementById('videoCallDialog');
+      if (voiceCallDialog && voiceCallDialog.contains(event.target)) return;
+      if (videoCallDialog && videoCallDialog.contains(event.target)) return;
       if (
         elements.panel.contains(event.target) ||
         (elements.navButton && elements.navButton.contains(event.target)) ||
@@ -1756,6 +1761,13 @@
   // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לקבלת המשתמש הפעיל בשיחה
   App.getActiveChatContact = function getActiveChatContact() {
     return state.activeContact;
+  };
+
+  // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לפתיחת שיחה ספציפית (לשימוש בסיום שיחת קול) | HYPER CORE TECH
+  App.showChatConversation = function showChatConversationExternal(peerPubkey) {
+    if (!peerPubkey) return;
+    const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
+    showConversation(peerPubkey, contact);
   };
 
   // חלק העתקה ללוח (chat-ui.js) – העתקת טקסט הודעה ללוח בלחיצה | HYPER CORE TECH

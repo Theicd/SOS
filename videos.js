@@ -552,6 +552,42 @@ function updatePlayToggleIcon(mediaDiv, isPlaying) {
   toggleBtn.setAttribute('aria-label', isPlaying ? 'Pause video' : 'Play video');
 }
 
+// חלק שיחות (videos.js) – עצירת כל הווידיאו בפיד כשמתחילה שיחת קול/וידיאו | HYPER CORE TECH
+function pauseAllFeedVideos() {
+  console.log('[VIDEOS] Pausing all feed videos for call');
+  
+  // עצירת הווידיאו הפעיל אם יש
+  if (activeMediaDiv) {
+    pauseMedia(activeMediaDiv, { manual: false });
+  }
+  
+  // עצירת כל הווידיאו בפיד
+  const allVideos = document.querySelectorAll('video');
+  allVideos.forEach(video => {
+    try {
+      if (!video.paused) {
+        video.pause();
+      }
+    } catch (e) {
+      console.warn('[VIDEOS] Failed to pause video', e);
+    }
+  });
+  
+  // עצירת כל ה-YouTube iframes
+  const allIframes = document.querySelectorAll('iframe[src*="youtube"]');
+  allIframes.forEach(iframe => {
+    try {
+      iframe.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":[]}', '*');
+    } catch (e) {
+      console.warn('[VIDEOS] Failed to pause YouTube iframe', e);
+    }
+  });
+  
+  // כיבוי מצב autoplay גלובלי
+  globalAutoplayEnabled = false;
+  updateGlobalStopClass();
+}
+
 function ensureYouTubeIframe(mediaDiv, { autoplay = false } = {}) {
   let iframe = mediaDiv.querySelector('iframe');
   if (!iframe) {
@@ -620,6 +656,9 @@ async function fetchNetworkNotes(authors = [], limit = 100, sinceOverride = unde
 }
 
 const App = window.NostrApp || (window.NostrApp = {});
+
+// חלק שיחות (videos.js) – חשיפת פונקציה לעצירת וידיאו בפיד | HYPER CORE TECH
+App.pauseAllFeedVideos = pauseAllFeedVideos;
 
 const state = {
   videos: [],

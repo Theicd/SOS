@@ -13,6 +13,10 @@
   // חלק שיחות וידאו (chat-video-call-ui.js) – דגל: דחייה ידנית של שיחה נכנסת כדי למנוע רישום missed | HYPER CORE TECH
   let userDeclinedVideoCall = false;
 
+  // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה כדי להחזיר אותו בסיום | HYPER CORE TECH
+  let chatPanelWasOpen = false;
+  let chatActiveContactBeforeCall = null;
+
   // חלק שיחות וידאו (chat-video-call-ui.js) – מצב תצוגה: מציגים מקומי במסך מלא עד שמגיע וידאו מרוחק | HYPER CORE TECH
   function setLocalOnlyMode(enabled) {
     if (!dialog) return;
@@ -381,7 +385,11 @@
     const flip = dialog.querySelector('[data-action="flip"]');
 
     if (acc) acc.addEventListener('click', ()=> handleAccept(peer));
-    if (end) end.addEventListener('click', handleEnd);
+    if (end) end.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleEnd();
+    });
     if (mute) mute.addEventListener('click', handleMute);
     if (cam) cam.addEventListener('click', handleCamera);
     if (flip) flip.addEventListener('click', handleFlip);
@@ -407,7 +415,48 @@
     } catch {}
   }
 
-  function closeDialog(){ stopTimer(); invalidateToneSession(); stopRingtone(); stopDialtone(); App.__videoIncomingOffer = null; userDeclinedVideoCall = false; if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; }
+  // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה | HYPER CORE TECH
+  function saveChatPanelState() {
+    const chatPanel = doc.getElementById('chatPanel');
+    chatPanelWasOpen = chatPanel && !chatPanel.hasAttribute('hidden');
+    chatActiveContactBeforeCall = App.chatState?.activeContact || (typeof App.getActiveChatContact === 'function' ? App.getActiveChatContact() : null);
+    console.log('[VIDEO] Saved chat panel state:', { open: chatPanelWasOpen, contact: chatActiveContactBeforeCall?.slice?.(0, 8) });
+  }
+
+  // חלק שיחות וידאו (chat-video-call-ui.js) – החזרת מצב פאנל הצ'אט לאחר סיום השיחה | HYPER CORE TECH
+  function restoreChatPanelState() {
+    console.log('[VIDEO] restoreChatPanelState called:', { 
+      chatPanelWasOpen, 
+      contact: chatActiveContactBeforeCall?.slice?.(0, 8) 
+    });
+
+    if (!chatPanelWasOpen && !chatActiveContactBeforeCall) {
+      console.log('[VIDEO] No chat state to restore');
+      return;
+    }
+
+    setTimeout(() => {
+      const chatPanel = doc.getElementById('chatPanel');
+      console.log('[VIDEO] Restoring - chatPanel hidden?', chatPanel?.hasAttribute('hidden'));
+
+      if (typeof App.toggleChatPanel === 'function') {
+        App.toggleChatPanel(true);
+      } else if (chatPanel) {
+        chatPanel.removeAttribute('hidden');
+        doc.body.classList.add('chat-overlay-open');
+      }
+
+      if (chatActiveContactBeforeCall && typeof App.showChatConversation === 'function') {
+        console.log('[VIDEO] Showing conversation:', chatActiveContactBeforeCall.slice(0, 8));
+        App.showChatConversation(chatActiveContactBeforeCall);
+      }
+
+      chatPanelWasOpen = false;
+      chatActiveContactBeforeCall = null;
+    }, 150);
+  }
+
+  function closeDialog(){ stopTimer(); invalidateToneSession(); stopRingtone(); stopDialtone(); App.__videoIncomingOffer = null; userDeclinedVideoCall = false; if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; restoreChatPanelState(); }
 
   // חלק שיחות וידאו – פעולות כפתורים
   async function handleStart(peer){ try { startToneWithPolicy(playDialtone); await App.videoCall.start(peer); } catch(e){ console.error(e); alert(e.message||'שגיאת וידאו'); closeDialog(); } }
@@ -453,6 +502,12 @@
   // חלק שיחות וידאו – callbacks מהמנוע
   App.onVideoCallIncoming = function(peer, offer){
     App.__videoIncomingOffer = offer;
+    // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
+    saveChatPanelState();
+    // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה נכנסת | HYPER CORE TECH
+    if (typeof App.pauseAllFeedVideos === 'function') {
+      App.pauseAllFeedVideos();
+    }
     createDialog(peer, true);
     // חלק שיחות וידאו – התרעת מערכת כמו בשיחות קול | HYPER CORE TECH
     showIncomingVideoNotification(peer);
@@ -550,6 +605,10 @@
         e.preventDefault(); e.stopPropagation();
         const peer = typeof App.getActiveChatContact === 'function' ? App.getActiveChatContact() : null;
         if (!peer){ alert('אנא בחר שיחה תחילה'); return; }
+        // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה יוצאת | HYPER CORE TECH
+        saveChatPanelState();
+        // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה יוצאת | HYPER CORE TECH
+        if (typeof App.pauseAllFeedVideos === 'function') { App.pauseAllFeedVideos(); }
         createDialog(peer, false); handleStart(peer);
       });
       console.log('Video call button initialized');
@@ -562,5 +621,5 @@
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
 
   // חשיפה מוגבלת
-  Object.assign(App, { startVideoCall: (peer)=>{ createDialog(peer,false); handleStart(peer); }, endVideoCall: handleEnd });
+  Object.assign(App, { startVideoCall: (peer)=>{ saveChatPanelState(); if (typeof App.pauseAllFeedVideos === 'function') { App.pauseAllFeedVideos(); } createDialog(peer,false); handleStart(peer); }, endVideoCall: handleEnd });
 })(window);
