@@ -470,6 +470,10 @@
 
     // חלק שיחות קול (chat-voice-call.js) – התראה על שיחה שלא נענתה (נכנסת + לא נענתה) | HYPER CORE TECH
     if (wasIncoming && !wasAnswered && peer) {
+      // חלק Push (chat-voice-call.js) – שליחת Push על שיחה שהוחמצה | HYPER CORE TECH
+      if (typeof App.triggerMissedCallPush === 'function') {
+        App.triggerMissedCallPush(peer, 'voice');
+      }
       if (typeof App.onVoiceCallMissed === 'function') {
         App.onVoiceCallMissed(peer);
       }
@@ -568,6 +572,10 @@
             }
             state.currentPeer = peerPubkey;
             state.isIncoming = true;
+            // חלק Push (chat-voice-call.js) – שליחת התראת Push על שיחה נכנסת | HYPER CORE TECH
+            if (typeof App.triggerIncomingCallPush === 'function') {
+              App.triggerIncomingCallPush(peerPubkey, 'voice');
+            }
             if (typeof App.onVoiceCallIncoming === 'function') {
               App.onVoiceCallIncoming(peerPubkey, offerData);
             }

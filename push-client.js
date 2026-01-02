@@ -4,9 +4,10 @@
 
   // חלק הגדרות (push-client.js) – קונפיגורציה של התראות Push | HYPER CORE TECH
   const PUSH_CONFIG = {
-    // מפתח VAPID ציבורי - יש להחליף במפתח אמיתי מהשרת
-    // ניתן לייצר עם: npx web-push generate-vapid-keys
-    vapidPublicKey: null, // יוגדר דינמית מהשרת או מ-config
+    // כתובת שרת Push - Vercel | HYPER CORE TECH
+    serverUrl: localStorage.getItem('push_server_url') || 'https://sos-push-server.vercel.app',
+    // מפתח VAPID ציבורי - נטען דינמית מהשרת
+    vapidPublicKey: null,
     notificationDefaults: {
       icon: './icons/sos-logo.jpg',
       badge: './icons/sos-logo.jpg',
@@ -14,6 +15,42 @@
       requireInteraction: false,
     },
   };
+
+  // חלק קבלת הגדרות מהשרת (push-client.js) – קבלת VAPID key מהשרת | HYPER CORE TECH
+  async function fetchPushConfig() {
+    if (!PUSH_CONFIG.serverUrl) {
+      console.warn('[PUSH] לא הוגדר שרת Push - serverUrl ריק');
+      return null;
+    }
+    
+    try {
+      const response = await fetch(`${PUSH_CONFIG.serverUrl}/api/push/config`);
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.ok && data.publicKey) {
+        PUSH_CONFIG.vapidPublicKey = data.publicKey;
+        console.log('[PUSH] התקבל מפתח VAPID מהשרת');
+        return data.publicKey;
+      }
+      
+      console.warn('[PUSH] השרת לא מוגדר כראוי:', data);
+      return null;
+    } catch (err) {
+      console.error('[PUSH] שגיאה בקבלת הגדרות מהשרת:', err);
+      return null;
+    }
+  }
+
+  // חלק הגדרת שרת (push-client.js) – הגדרת כתובת שרת Push | HYPER CORE TECH
+  function setPushServerUrl(url) {
+    if (!url) return;
+    PUSH_CONFIG.serverUrl = url.replace(/\/$/, ''); // הסרת / בסוף
+    localStorage.setItem('push_server_url', PUSH_CONFIG.serverUrl);
+    console.log('[PUSH] כתובת שרת נשמרה:', PUSH_CONFIG.serverUrl);
+  }
 
   // חלק בדיקת תמיכה (push-client.js) – בודק תמיכה בהתראות Push | HYPER CORE TECH
   function isPushSupported() {
@@ -136,19 +173,60 @@
 
   // חלק שמירה בשרת (push-client.js) – שמירת המנוי בשרת | HYPER CORE TECH
   async function saveSubscriptionToServer(subscription) {
-    // כרגע אין שרת Push - שומרים לוקלית
-    // בעתיד: לשלוח לשרת לשמירה במסד נתונים
+    // שמירה לוקלית תמיד
     try {
       const subscriptionData = JSON.stringify(subscription);
       localStorage.setItem('push_subscription', subscriptionData);
       console.log('[PUSH] מנוי נשמר לוקלית');
+    } catch (err) {
+      console.warn('[PUSH] שגיאה בשמירה לוקלית:', err);
+    }
+    
+    // שליחה לשרת Push (אם מוגדר)
+    if (!PUSH_CONFIG.serverUrl) {
+      console.log('[PUSH] אין שרת Push - מנוי נשמר רק לוקלית');
+      return;
+    }
+    
+    try {
+      // קבלת pubkey של המשתמש (Nostr)
+      const pubkey = App.publicKey || localStorage.getItem('nostr_pubkey') || null;
       
-      // אם יש פונקציית שליחה לשרת
-      if (typeof App.sendPushSubscriptionToServer === 'function') {
-        await App.sendPushSubscriptionToServer(subscription);
+      const response = await fetch(`${PUSH_CONFIG.serverUrl}/api/push/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+          pubkey,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.ok) {
+        console.log('[PUSH] מנוי נשמר בשרת, ID:', data.subscriptionId);
+      } else {
+        console.warn('[PUSH] שגיאה בשמירה בשרת:', data.error);
       }
     } catch (err) {
-      console.warn('[PUSH] שגיאה בשמירת מנוי:', err);
+      console.error('[PUSH] שגיאה בשליחה לשרת:', err);
+    }
+  }
+
+  // חלק הסרה מהשרת (push-client.js) – הסרת מנוי מהשרת | HYPER CORE TECH
+  async function removeSubscriptionFromServer(endpoint) {
+    if (!PUSH_CONFIG.serverUrl || !endpoint) return;
+    
+    try {
+      const response = await fetch(`${PUSH_CONFIG.serverUrl}/api/push/subscribe`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint }),
+      });
+      
+      const data = await response.json();
+      console.log('[PUSH] מנוי הוסר מהשרת:', data.ok);
+    } catch (err) {
+      console.error('[PUSH] שגיאה בהסרה מהשרת:', err);
     }
   }
 
@@ -176,6 +254,9 @@
       if (!subscription) {
         return { success: true, message: 'לא היה מנוי פעיל' };
       }
+      
+      // הסרה מהשרת
+      await removeSubscriptionFromServer(subscription.endpoint);
       
       await subscription.unsubscribe();
       localStorage.removeItem('push_subscription');
@@ -274,21 +355,32 @@
     
     modal.querySelector('.push-permission-modal__later').addEventListener('click', () => {
       modal.close?.() || (modal.style.display = 'none');
+      // שמירת זמן דחייה - מונע הצגה חוזרת ל-7 ימים
       localStorage.setItem('push_modal_dismissed', Date.now().toString());
+      console.log('[PUSH] המשתמש דחה את המודאל');
     });
     
     modal.querySelector('.push-permission-modal__enable').addEventListener('click', async () => {
-      const result = await subscribeToPush(vapidPublicKey);
       modal.close?.() || (modal.style.display = 'none');
       
+      const result = await subscribeToPush(vapidPublicKey);
+      
       if (result.success) {
+        // שמירת דגל שהמשתמש נרשם - מונע הצגה חוזרת של המודאל
+        localStorage.setItem('push_subscribed', 'true');
+        localStorage.removeItem('push_modal_dismissed');
         if (typeof App.showToast === 'function') {
           App.showToast('התראות הופעלו בהצלחה! 🔔');
         }
       } else if (result.error === 'denied') {
+        // המשתמש חסם - לא מציגים שוב
+        localStorage.setItem('push_modal_dismissed', Date.now().toString());
         if (typeof App.showToast === 'function') {
           App.showToast('ההתראות נחסמו. ניתן לשנות בהגדרות הדפדפן.');
         }
+      } else {
+        // שגיאה אחרת - ננסה שוב אחרי 7 ימים
+        localStorage.setItem('push_modal_dismissed', Date.now().toString());
       }
     });
     
@@ -297,20 +389,53 @@
   }
 
   // חלק אתחול (push-client.js) – אתחול מערכת ההתראות | HYPER CORE TECH
-  async function initPushNotifications() {
+  async function initPushNotifications(serverUrl) {
     if (!isPushSupported()) {
       console.log('[PUSH] Push לא נתמך');
       return;
     }
     
-    // בדיקה אם כבר יש מנוי פעיל
+    // הגדרת שרת Push (אם סופק)
+    if (serverUrl) {
+      setPushServerUrl(serverUrl);
+    }
+    
+    // קבלת מפתח VAPID מהשרת
+    if (PUSH_CONFIG.serverUrl && !PUSH_CONFIG.vapidPublicKey) {
+      await fetchPushConfig();
+    }
+    
+    // בדיקה 1: אם כבר יש מנוי פעיל - לא מציגים מודאל
     const hasSubscription = await hasActiveSubscription();
     if (hasSubscription) {
       console.log('[PUSH] מנוי פעיל קיים');
+      localStorage.setItem('push_subscribed', 'true');
       return;
     }
     
-    // בדיקה אם המשתמש דחה את המודאל לאחרונה
+    // בדיקה 2: אם המשתמש כבר נתן הרשאה - ננסה להירשם אוטומטית בשקט
+    if (Notification.permission === 'granted') {
+      console.log('[PUSH] הרשאה כבר ניתנה - מנסה להירשם אוטומטית');
+      const result = await subscribeToPush();
+      if (result.success) {
+        localStorage.setItem('push_subscribed', 'true');
+      }
+      return;
+    }
+    
+    // בדיקה 3: אם המשתמש חסם התראות - לא מציגים מודאל
+    if (Notification.permission === 'denied') {
+      console.log('[PUSH] המשתמש חסם התראות - לא מציגים מודאל');
+      return;
+    }
+    
+    // בדיקה 4: אם המשתמש כבר נרשם בהצלחה בעבר - לא מציגים מודאל
+    if (localStorage.getItem('push_subscribed') === 'true') {
+      console.log('[PUSH] המשתמש כבר נרשם בעבר');
+      return;
+    }
+    
+    // בדיקה 5: אם המשתמש דחה את המודאל לאחרונה (7 ימים)
     const dismissed = localStorage.getItem('push_modal_dismissed');
     if (dismissed) {
       const daysSinceDismissed = (Date.now() - parseInt(dismissed, 10)) / (1000 * 60 * 60 * 24);
@@ -320,8 +445,12 @@
       }
     }
     
-    // הצגת מודאל בקשת הרשאה (אחרי השהייה)
+    // הצגת מודאל בקשת הרשאה (אחרי השהייה) - רק למשתמש מחובר
     setTimeout(() => {
+      // בדיקה נוספת - וודא שלא נרשמו בינתיים
+      if (localStorage.getItem('push_subscribed') === 'true') return;
+      if (Notification.permission !== 'default') return;
+      
       // רק אם המשתמש מחובר
       if (App.publicKey || App.isLoggedIn) {
         showPushPermissionModal();
@@ -341,6 +470,9 @@
     showCallNotification,
     showPushPermissionModal,
     initPushNotifications,
+    setPushServerUrl,
+    fetchPushConfig,
+    PUSH_CONFIG, // חשיפת הקונפיג לצורך בדיקה/עדכון
   });
 
   // אתחול כשהדף מוכן

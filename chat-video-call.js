@@ -357,6 +357,10 @@
     state.callStartTimestamp = null;
     // חלק שיחות וידאו (chat-video-call.js) – התראה על שיחה נכנסת שלא נענתה (missed) | HYPER CORE TECH
     if (wasIncoming && !wasAnswered && peer) {
+      // חלק Push (chat-video-call.js) – שליחת Push על שיחת וידאו שהוחמצה | HYPER CORE TECH
+      if (typeof App.triggerMissedCallPush === 'function') {
+        App.triggerMissedCallPush(peer, 'video');
+      }
       if (typeof App.onVideoCallMissed === 'function') {
         App.onVideoCallMissed(peer);
       }
@@ -539,6 +543,10 @@
         }
         state.currentPeer = peer;
         state.isIncoming = true;
+        // חלק Push (chat-video-call.js) – שליחת התראת Push על שיחת וידאו נכנסת | HYPER CORE TECH
+        if (typeof App.triggerIncomingCallPush === 'function') {
+          App.triggerIncomingCallPush(peer, 'video');
+        }
         if (typeof App.onVideoCallIncoming === 'function') App.onVideoCallIncoming(peer, offerData);
         break;
       }

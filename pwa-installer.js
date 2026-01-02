@@ -101,7 +101,7 @@
       // שמירת האירוע לשימוש מאוחר יותר
       deferredInstallPrompt = event;
       window.deferredPwaPrompt = event;
-      console.log('[PWA] אירוע beforeinstallprompt נתפס');
+      console.log('[PWA] אירוע beforeinstallprompt נתפס - הדפדפן תומך בהתקנה!');
       
       // הצגת כפתור התקנה אם קיים
       showInstallButton();
@@ -260,17 +260,27 @@
 
   // חלק באנר התקנה (pwa-installer.js) – יצירת באנר התקנה בתחתית המסך | HYPER CORE TECH
   function createInstallBanner() {
-    // לא מציגים אם כבר מותקן
+    // בדיקה 1: לא מציגים אם כבר מותקן
     if (isInstalled || checkIfInstalled()) {
+      console.log('[PWA] האפליקציה כבר מותקנת - לא מציגים באנר');
       return;
     }
     
-    // לא מציגים אם המשתמש כבר סגר את הבאנר
+    // בדיקה 2: לא מציגים אם המשתמש כבר סגר את הבאנר (ב-7 ימים האחרונים)
     const dismissed = localStorage.getItem('pwa_banner_dismissed');
     if (dismissed) {
       const dismissedAt = parseInt(dismissed, 10);
       const daysSinceDismissed = (Date.now() - dismissedAt) / (1000 * 60 * 60 * 24);
-      if (daysSinceDismissed < 7) return; // לא מציגים שוב 7 ימים
+      if (daysSinceDismissed < 7) {
+        console.log('[PWA] המשתמש סגר את הבאנר לאחרונה');
+        return;
+      }
+    }
+    
+    // בדיקה 3: לא מציגים אם המשתמש כבר התקין בעבר
+    if (localStorage.getItem('pwa_installed') === 'true') {
+      console.log('[PWA] המשתמש כבר התקין בעבר');
+      return;
     }
     
     const platform = getPlatformInfo();
@@ -319,6 +329,8 @@
     
     if (isInstalled) {
       console.log('[PWA] האפליקציה כבר מותקנת');
+      localStorage.setItem('pwa_installed', 'true');
+      return; // לא ממשיכים אם כבר מותקן
     }
     
     // רישום Service Worker
@@ -327,19 +339,43 @@
     // הגדרת מאזיני התקנה
     setupInstallPromptListener();
     
-    // יצירת באנר התקנה (רק אם לא מותקן ויש תמיכה)
-    if (!isInstalled) {
-      // המתנה קצרה לפני הצגת הבאנר
+    console.log('[PWA] מערכת PWA אותחלה');
+    
+    // יצירת באנר התקנה - עם השהייה לתת beforeinstallprompt זמן להגיע
+    scheduleInstallBanner();
+  }
+
+  // חלק תזמון באנר (pwa-installer.js) – הצגת באנר התקנה בתזמון נכון | HYPER CORE TECH
+  function scheduleInstallBanner() {
+    const platform = getPlatformInfo();
+    
+    // iOS - מציגים באנר מיד (אין beforeinstallprompt)
+    if (platform.isIOS) {
       setTimeout(() => {
-        const platform = getPlatformInfo();
-        // ב-iOS מציגים באנר תמיד (ללא beforeinstallprompt)
-        if (platform.isIOS || deferredInstallPrompt) {
+        if (!isInstalled && !checkIfInstalled()) {
           createInstallBanner();
         }
-      }, 3000);
+      }, 5000);
+      return;
     }
     
-    console.log('[PWA] מערכת PWA אותחלה');
+    // Android/Desktop - ממתינים ל-beforeinstallprompt או מציגים אחרי זמן
+    let bannerTimeout = setTimeout(() => {
+      // אם אין beforeinstallprompt אחרי 8 שניות, הדפדפן לא תומך בהתקנה
+      if (!deferredInstallPrompt) {
+        console.log('[PWA] beforeinstallprompt לא התקבל - הדפדפן לא תומך בהתקנה');
+        // אם זה Firefox, מציגים מדריך
+        if (platform.isFirefox) {
+          createInstallBanner();
+        }
+      }
+    }, 8000);
+    
+    // אם beforeinstallprompt מגיע לפני הטיימאוט, מציגים באנר
+    window.addEventListener('beforeinstallprompt', () => {
+      clearTimeout(bannerTimeout);
+      setTimeout(createInstallBanner, 3000);
+    }, { once: true });
   }
 
   // חשיפת API ציבורי
