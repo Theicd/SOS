@@ -1,0 +1,535 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIKTOK.CSS - TikTok-Style Full Screen Video Feed
+   100% Mobile Compatible with Safe Areas & Touch Support
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CSS RESET & BASE
+   ───────────────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    height: var(--app-height, 100vh);
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   APP CONTAINER
+   ───────────────────────────────────────────────────────────────────────────── */
+.tiktok-app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    height: var(--app-height, 100vh);
+    overflow: hidden;
+    background: #000;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HEADER (Floating)
+   ───────────────────────────────────────────────────────────────────────────── */
+.tiktok-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(12px + var(--safe-top, 0px)) 16px 12px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%);
+    pointer-events: auto;
+}
+
+.header-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 12px;
+    cursor: pointer;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.feed-tabs {
+    display: flex;
+    gap: 20px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 17px;
+    font-weight: 600;
+    padding: 8px 4px;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+}
+
+.tab-btn.active {
+    color: #fff;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 3px;
+    background: #fff;
+    border-radius: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VIDEO FEED (Full Screen Swipe Container)
+   ───────────────────────────────────────────────────────────────────────────── */
+.video-feed {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    scroll-snap-type: y mandatory;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.video-feed::-webkit-scrollbar {
+    display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VIDEO ITEM (Each Full-Screen Video)
+   ───────────────────────────────────────────────────────────────────────────── */
+.video-item {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    height: var(--app-height, 100vh);
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    flex-shrink: 0;
+}
+
+.video-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+}
+
+.video-player {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SIDE ACTIONS (Like, Comment, Share, Music)
+   ───────────────────────────────────────────────────────────────────────────── */
+.side-actions {
+    position: absolute;
+    left: 8px;
+    bottom: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    z-index: 50;
+}
+
+.user-avatar {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 8px;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    object-fit: cover;
+}
+
+.follow-btn {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 22px;
+    height: 22px;
+    background: #fe2c55;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.action-btn svg {
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+    transition: transform 0.2s;
+}
+
+.action-btn:active svg {
+    transform: scale(1.2);
+}
+
+.action-btn.liked svg {
+    fill: #fe2c55;
+}
+
+.action-btn span {
+    font-size: 12px;
+    font-weight: 600;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.music-disc {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #333 0%, #000 100%);
+    padding: 10px;
+    animation: spin 4s linear infinite;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.music-disc img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VIDEO INFO (Bottom - Username, Description, Music)
+   ───────────────────────────────────────────────────────────────────────────── */
+.video-info {
+    position: absolute;
+    right: 12px;
+    bottom: 100px;
+    left: 70px;
+    z-index: 50;
+    text-align: right;
+}
+
+.user-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.video-desc {
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.music-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    direction: rtl;
+}
+
+.music-info svg {
+    flex-shrink: 0;
+}
+
+.marquee {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BOTTOM NAVIGATION (TikTok Style)
+   ───────────────────────────────────────────────────────────────────────────── */
+.tiktok-nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    height: calc(50px + var(--safe-bottom, 0px));
+    padding-bottom: var(--safe-bottom, 0px);
+    background: #000;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.tiktok-nav .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 16px;
+    text-decoration: none;
+    color: rgba(255,255,255,0.6);
+    min-width: 44px;
+    min-height: 44px;
+    transition: color 0.2s;
+}
+
+.tiktok-nav .nav-item.active {
+    color: #fff;
+}
+
+.tiktok-nav .nav-item span {
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.tiktok-nav .nav-item.create-btn {
+    padding: 4px;
+}
+
+.create-icon {
+    width: 44px;
+    height: 28px;
+    background: linear-gradient(135deg, #25f4ee 0%, #fe2c55 100%);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.create-icon::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: #000;
+    border-radius: 6px;
+}
+
+.create-icon svg {
+    position: relative;
+    z-index: 1;
+    fill: #fff;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────────── */
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    15% { transform: scale(1.3); }
+    30% { transform: scale(1); }
+    45% { transform: scale(1.2); }
+    60% { transform: scale(1); }
+}
+
+.action-btn.liked svg {
+    animation: heartBeat 0.6s ease-in-out;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   REDUCED MOTION
+   ───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .music-disc {
+        animation: none;
+    }
+    
+    .action-btn.liked svg {
+        animation: none;
+    }
+    
+    * {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RESPONSIVE - Small Devices
+   ───────────────────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 359px) {
+    .side-actions {
+        gap: 16px;
+    }
+    
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .action-btn svg {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .video-info {
+        left: 60px;
+    }
+    
+    .user-name {
+        font-size: 14px;
+    }
+    
+    .video-desc {
+        font-size: 13px;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RESPONSIVE - Landscape
+   ───────────────────────────────────────────────────────────────────────────── */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+    .side-actions {
+        bottom: 80px;
+        gap: 12px;
+    }
+    
+    .video-info {
+        bottom: 60px;
+    }
+    
+    .tiktok-nav {
+        height: calc(40px + var(--safe-bottom, 0px));
+    }
+    
+    .tiktok-header {
+        padding-top: calc(8px + var(--safe-top, 0px));
+        padding-bottom: 8px;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RESPONSIVE - Tablet & Desktop (Shows centered feed)
+   ───────────────────────────────────────────────────────────────────────────── */
+@media screen and (min-width: 768px) {
+    .video-feed {
+        max-width: 420px;
+        margin: 0 auto;
+        border-radius: 0;
+        box-shadow: 0 0 60px rgba(0,0,0,0.5);
+    }
+    
+    .tiktok-header {
+        max-width: 420px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
+    .tiktok-nav {
+        max-width: 420px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 0;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TOUCH FEEDBACK
+   ───────────────────────────────────────────────────────────────────────────── */
+.action-btn:active,
+.nav-item:active,
+.header-btn:active,
+.tab-btn:active {
+    opacity: 0.7;
+}
+
+/* Double-tap like animation overlay */
+.like-animation {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 120px;
+    height: 120px;
+    pointer-events: none;
+    z-index: 200;
+}
+
+.like-animation.show {
+    animation: likePopup 0.8s ease-out forwards;
+}
+
+@keyframes likePopup {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+.like-animation svg {
+    width: 100%;
+    height: 100%;
+    fill: #fe2c55;
+    filter: drop-shadow(0 4px 20px rgba(254, 44, 85, 0.5));
+}

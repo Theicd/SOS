@@ -1,0 +1,565 @@
+/* חלק דף משחקים (games.css) – בסיס צבעים ומבנה עבור SOS Play */
+:root {
+  --games-hero-glow: linear-gradient(135deg, rgba(35, 116, 225, 0.65), rgba(86, 204, 242, 0.35));
+  --games-card-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  --games-card-hover: 0 22px 48px rgba(35, 116, 225, 0.45);
+}
+
+/* חלק דף משחקים (games.css) – מעטפת כללי לדף חדר המשחקים של SOS */
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  direction: rtl;
+}
+
+/* חלק דף משחקים (games.css) – מעטפת התוכן הראשי */
+.games-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+}
+
+/* חלק דף משחקים (games.css) – מקטע מידע תחת הסרגל העליון החדש */
+.games-header {
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+  margin: 18px auto 0;
+}
+
+.games-header__container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.games-header__left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.games-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(58, 59, 60, 0.62);
+  color: #dfe7ff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid rgba(120, 150, 220, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.games-header__back:hover {
+  background: rgba(73, 74, 80, 0.78);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+.games-header__back svg {
+  flex-shrink: 0;
+}
+
+.games-header__title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  text-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+}
+
+.games-header__nav {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* חלק דף משחקים (games.css) – כרטיסיות קטגוריות */
+.games-category {
+  padding: 9px 18px;
+  border: 1px solid rgba(130, 160, 230, 0.35);
+  background: rgba(38, 42, 58, 0.65);
+  color: #dfe7ff;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  white-space: nowrap;
+}
+
+.games-category:hover {
+  background: rgba(73, 74, 80, 0.78);
+  border-color: rgba(150, 190, 255, 0.55);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+.games-category.active {
+  background: linear-gradient(135deg, rgba(64, 120, 255, 0.92), rgba(120, 180, 255, 0.78));
+  border-color: rgba(120, 180, 255, 0.68);
+  color: #0e1424;
+  box-shadow: 0 12px 26px rgba(35, 116, 225, 0.45);
+  transform: translateY(-2px);
+}
+
+/* חלק דף משחקים (games.css) – מעטפת הגריד */
+.games-grid-wrapper {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  width: 100%;
+}
+
+/* חלק דף משחקים (games.css) – גריד הכרטיסיות */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+/* חלק דף משחקים (games.css) – מבנה הכרטיסיה הבודדת */
+.game-card {
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: var(--games-card-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+}
+
+/* חלק דף משחקים (games.css) – אפקט ריחוף לזוהר עדין */
+.game-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--games-card-hover);
+}
+
+/* חלק דף משחקים (games.css) – תמונת קאבר ביחס 16:9 */
+.game-card__art {
+  position: relative;
+  padding-top: 56.25%;
+  overflow: hidden;
+}
+
+/* חלק דף משחקים (games.css) – נטרול גלילה ורקע בעת פתיחת מודל */
+body.games-modal-open {
+  overflow: hidden;
+  touch-action: none;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* חלק דף משחקים (games.css) – שמירת שליטה מלאה בתוך חלון המשחק */
+body.games-modal-open .game-modal__player {
+  touch-action: auto;
+}
+
+body.games-modal-open .game-modal__player iframe {
+  touch-action: auto;
+  pointer-events: auto;
+}
+
+/* חלק דף משחקים (games.css) – תמונת קאבר פנימית */
+.game-card__art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+/* חלק דף משחקים (games.css) – הגדלה קלה בריחוף */
+.game-card:hover .game-card__art img {
+  transform: scale(1.05);
+}
+
+/* חלק דף משחקים (games.css) – כותרת ושאר המידע בכרטיס */
+.game-card__body {
+  padding: 20px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* חלק דף משחקים (games.css) – כותרת המשחק */
+.game-card__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* חלק דף משחקים (games.css) – כוכב דירוג אופציונלי */
+.game-card__title i {
+  color: #f5b642;
+  font-size: 0.95rem;
+}
+
+/* חלק דף משחקים (games.css) – תגיות קטגוריה */
+.game-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* חלק דף משחקים (games.css) – תג בודד */
+.game-card__tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(35, 116, 225, 0.15);
+  color: #8bc5ff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* חלק דף משחקים (games.css) – תקציר המשחק */
+.game-card__summary {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* חלק דף משחקים (games.css) – אזור לחצנים */
+.game-card__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+}
+
+/* חלק דף משחקים (games.css) – כפתור הפעלה */
+.game-card__play {
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  padding: 12px 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+/* חלק דף משחקים (games.css) – ריחוף על כפתור הפעלה */
+.game-card__play:hover {
+  transform: translateY(-2px);
+  background: var(--primary-hover);
+  box-shadow: 0 10px 24px rgba(35, 116, 225, 0.45);
+}
+
+/* חלק דף משחקים (games.css) – קישור לקוד מקור */
+.game-card__source {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+/* חלק דף משחקים (games.css) – ריחוף קישור מקור */
+.game-card__source:hover {
+  color: #8bc5ff;
+  border-color: rgba(139, 197, 255, 0.6);
+}
+
+/* חלק דף משחקים (games.css) – מודל משחק פעיל */
+.game-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 260;
+}
+
+/* חלק דף משחקים (games.css) – מודל פעיל */
+.game-modal.is-open {
+  display: flex;
+}
+
+/* חלק דף משחקים (games.css) – רקע כהה מאחורי המשחק */
+.game-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 13, 14, 0.88);
+}
+
+/* חלק דף משחקים (games.css) – מעטפת פאנל המשחק */
+.game-modal__panel {
+  position: relative;
+  width: min(1080px, 96vw);
+  height: min(780px, 94vh);
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow: var(--games-card-hover);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* חלק דף משחקים (games.css) – מסך מלא במובייל */
+@media (max-width: 768px) {
+  .game-modal__panel {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+    border-radius: 0;
+    max-width: 100vw;
+    max-height: 100vh;
+  }
+
+  .game-modal__header {
+    padding: 12px 16px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .game-modal__title {
+    font-size: 0.95rem;
+  }
+
+  .game-modal__status {
+    display: none;
+  }
+}
+
+/* חלק דף משחקים (games.css) – כותרת המודל */
+.game-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px clamp(16px, 4vw, 22px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 16px;
+}
+
+/* חלק דף משחקים (games.css) – כפתור חזרה לרשימת המשחקים */
+.game-modal__back {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+/* חלק דף משחקים (games.css) – כפתור מסך מלא */
+.game-modal__fullscreen {
+  border: 1px solid rgba(139, 197, 255, 0.3);
+  background: transparent;
+  color: var(--text);
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-modal__fullscreen:hover {
+  background: rgba(35, 116, 225, 0.2);
+  color: #8bc5ff;
+  border-color: rgba(139, 197, 255, 0.6);
+}
+
+.game-modal__fullscreen svg {
+  display: block;
+}
+
+/* חלק דף משחקים (games.css) – כפתור פתיחה חיצוני במקרה של חסימה */
+.game-modal__external {
+  border: 1px solid rgba(139, 197, 255, 0.45);
+  background: transparent;
+  color: #8bc5ff;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border 0.2s ease;
+}
+
+.game-modal__external:hover {
+  background: rgba(35, 116, 225, 0.25);
+  color: #e6f3ff;
+  border-color: rgba(230, 243, 255, 0.65);
+}
+
+/* חלק דף משחקים (games.css) – כותרת המשחק במודל */
+.game-modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  flex: 1;
+  text-align: center;
+  color: #e7f0ff;
+  letter-spacing: 0.02em;
+}
+
+/* חלק דף משחקים (games.css) – טקסט מצב טעינת משחק */
+.game-modal__status {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* חלק דף משחקים (games.css) – אזור הצגת המשחק */
+.game-modal__player {
+  flex: 1;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* חלק דף שחקים (games.css) – אייפריים המשחק */
+.game-modal__player iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* חלק דף משחקים (games.css) – כפתור צף לחזרה לרשימת המשחקים */
+.game-modal__floating-back {
+  position: absolute;
+  top: clamp(16px, 4vw, 28px);
+  right: clamp(16px, 4vw, 28px);
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: rgba(14, 65, 120, 0.9);
+  color: #e8f3ff;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(12, 20, 32, 0.6);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s ease, background 0.2s ease;
+  z-index: 10;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.game-modal__floating-back:hover {
+  transform: translateY(-2px);
+  background: rgba(35, 116, 225, 0.9);
+}
+
+.game-modal__floating-back:active {
+  transform: translateY(0);
+  background: rgba(35, 116, 225, 1);
+}
+
+@media (max-width: 768px) {
+  .game-modal__floating-back {
+    top: 16px;
+    right: 16px;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+}
+
+/* חלק דף משחקים (games.css) – התאמות למסכים צרים */
+@media (max-width: 640px) {
+  .games-grid-wrapper {
+    padding: 24px 14px 48px;
+  }
+
+  .games-header__container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .games-header__left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .games-header__nav {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .games-header__title {
+    font-size: 1.25rem;
+  }
+
+  .game-card__body {
+    padding: 18px 18px 22px;
+  }
+
+  .game-card__actions {
+    flex-direction: column;
+  }
+
+  .game-card__source {
+    justify-content: center;
+  }
+
+  .game-modal__panel {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .game-modal__header {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .game-modal__title {
+    font-size: 1rem;
+  }
+
+  .game-modal__external {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .games-category {
+    padding: 7px 14px;
+    font-size: 0.8rem;
+  }
+}
+

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOS Play · חדר משחקים מבוזר</title>
+    <!-- חלק דף משחקים (games.html) – טעינת בסיס העיצוב הכללי של האפליקציה -->
+    <link rel="stylesheet" href="./styles/facebook-theme.css">
+    <!-- חלק דף משחקים (games.html) – טעינת עיצוב ייעודי לחלל המשחקים -->
+    <link rel="stylesheet" href="./styles/games.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <header class="top-bar top-bar--profile">
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__refresh" id="gamesTopRefreshButton" type="button" aria-label="רענון הספרייה">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+      <div class="top-bar__title" id="gamesTopTitle">חדר המשחקים של SOS</div>
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__home" id="gamesTopHomeButton" type="button" aria-label="חזרה לדף הבית">
+          <i class="fa-solid fa-house"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- חלק דף משחקים (games.html) – מעטפת ראשית לדף המשחקים -->
+    <div class="games-shell">
+        <!-- חלק דף משחקים (games.html) – רשת הכרטיסיות הדינמית של המשחקים -->
+        <main class="games-grid-wrapper">
+            <section class="games-grid" id="gamesGrid" aria-label="ספריית משחקים מבוזרת"></section>
+        </main>
+    </div>
+
+    <!-- חלק דף משחקים (games.html) – מודל פתיחת משחק במסך מלא -->
+    <section class="game-modal" id="gameModal" aria-hidden="true" aria-label="חלון משחק פעיל">
+        <div class="game-modal__backdrop" id="gameModalBackdrop" tabindex="-1"></div>
+        <article class="game-modal__panel" role="dialog" aria-modal="true">
+            <header class="game-modal__header">
+                <button type="button" class="game-modal__back" id="gameModalBack" aria-label="חזרה לרשימת המשחקים">⟵ Back to Games</button>
+                <!-- חלק דף משחקים (games.html) – כותרת שם המשחק במודל המלא -->
+                <h2 class="game-modal__title" id="gameModalTitle">Game Title</h2>
+                <div class="game-modal__status" id="gameModalStatus">מתחבר למשחק…</div>
+                <button type="button" class="game-modal__fullscreen" id="gameModalFullscreen" title="מסך מלא">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                    </svg>
+                </button>
+                <button type="button" class="game-modal__external" id="gameModalExternal" hidden>פתח בלשונית חדשה</button>
+            </header>
+            <div class="game-modal__player">
+                <iframe id="gameModalFrame" title="חלון משחק" loading="lazy" allow="autoplay; fullscreen; gamepad; pointer-lock; accelerometer; gyroscope" sandbox="allow-forms allow-same-origin allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-modals" allowfullscreen></iframe>
+                <!-- חלק דף משחקים (games.html) – כפתור צף לחזרה לרשימת המשחקים -->
+                <button type="button" class="game-modal__floating-back" id="gameModalFloatingBack" aria-label="חזרה לרשימת המשחקים">תפריט המשחקים</button>
+            </div>
+        </article>
+    </section>
+
+    <!-- חלק דף משחקים (games.html) – טעינת סקריפט הלוגיקה של הדף -->
+    <script src="./games.js"></script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+/* חלק PWA (pwa-install.css) – עיצוב באנרים ומודאלים להתקנה והתראות | HYPER CORE TECH */
+
+/* ===== באנר התקנה בתחתית המסך ===== */
+.pwa-install-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 99999;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(100%);
+  transition: transform 0.3s ease-out;
+  direction: rtl;
+}
+
+.pwa-install-banner--visible {
+  transform: translateY(0);
+}
+
+.pwa-install-banner__content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pwa-install-banner__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.pwa-install-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pwa-install-banner__text strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pwa-install-banner__text span {
+  font-size: 13px;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pwa-install-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pwa-install-banner__dismiss {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 8px;
+  line-height: 1;
+}
+
+.pwa-install-banner__dismiss:hover {
+  color: #fff;
+}
+
+.pwa-install-banner__install {
+  background: #4a90d9;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.pwa-install-banner__install:hover {
+  background: #3a7fc8;
+}
+
+/* ===== מודאל הנחיות התקנה (iOS/Firefox) ===== */
+.pwa-install-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 20px;
+  direction: rtl;
+}
+
+.pwa-install-dialog[open] {
+  display: flex;
+}
+
+.pwa-install-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.pwa-install-dialog__content {
+  background: #1a1a2e;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  color: #fff;
+  text-align: center;
+}
+
+.pwa-install-dialog__content h2 {
+  margin: 0 0 20px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.pwa-install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 20px 0;
+  text-align: right;
+}
+
+.pwa-install-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.pwa-install-step__number {
+  width: 28px;
+  height: 28px;
+  background: #4a90d9;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.pwa-install-step span:last-child {
+  font-size: 14px;
+  line-height: 1.5;
+  padding-top: 4px;
+}
+
+.pwa-install-note {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 20px 0;
+  padding: 12px;
+  background: rgba(74, 144, 217, 0.15);
+  border-radius: 8px;
+}
+
+.pwa-install-dialog__close {
+  background: #4a90d9;
+  color: #fff;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.pwa-install-dialog__close:hover {
+  background: #3a7fc8;
+}
+
+/* ===== מודאל בקשת הרשאות Push ===== */
+.push-permission-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 20px;
+  direction: rtl;
+}
+
+.push-permission-modal[open] {
+  display: flex;
+}
+
+.push-permission-modal::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.push-permission-modal__content {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  padding: 32px 24px;
+  max-width: 380px;
+  width: 100%;
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.push-permission-modal__icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.push-permission-modal__content h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.push-permission-modal__content p {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+}
+
+.push-permission-modal__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.push-permission-modal__later {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.push-permission-modal__later:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.push-permission-modal__enable {
+  background: #25D366;
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.push-permission-modal__enable:hover {
+  background: #20bd5a;
+}
+
+/* ===== התאמות מובייל ===== */
+@media (max-width: 480px) {
+  .pwa-install-banner {
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  
+  .pwa-install-banner__icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .pwa-install-banner__text strong {
+    font-size: 14px;
+  }
+  
+  .pwa-install-banner__text span {
+    font-size: 12px;
+  }
+  
+  .pwa-install-banner__install {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+  
+  .push-permission-modal__actions {
+    flex-direction: column;
+  }
+  
+  .push-permission-modal__later,
+  .push-permission-modal__enable {
+    width: 100%;
+  }
+}

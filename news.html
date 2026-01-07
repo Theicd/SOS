@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="he">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>יאללה ניוז – פיד חדשות מרובה מקורות</title>
+    <link rel="stylesheet" href="./styles/facebook-theme.css">
+    <link rel="stylesheet" href="./styles/news-wave.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="./news-wave.js" type="module" defer></script>
+  </head>
+  <body>
+    <!-- חלק סרגל עליון (news.html) – כותרת וכפתורי ניווט בסגנון אחיד עם דף הפרופיל -->
+    <header class="top-bar top-bar--profile">
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__refresh" id="newsTopRefreshButton" type="button" aria-label="רענון הדף">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+      <div class="top-bar__title" id="newsTopTitle">חדשות מהארץ והעולם</div>
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__home" id="newsTopHomeButton" type="button" aria-label="חזרה לדף הבית">
+          <i class="fa-solid fa-house"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- חלק ראשי (news.html) – מעטפת דף החדשות החדש של יאללה ניוז -->
+    <main class="news-wave" aria-labelledby="newsWaveTitle">
+      <!-- חלק תצוגה (news.html) – אזור הגלילה בסגנון טיקטוק שמציג כרטיס חדשות בכל מסך -->
+      <section class="news-wave__viewport" aria-live="polite">
+        <div class="news-wave__stream" id="newsWaveStream" role="list"></div>
+        <div class="news-wave__status" id="newsWaveStatus" role="status">טוען את הפיד...</div>
+      </section>
+    </main>
+
+    <!-- חלק תפריט תחתון (news.html) – קטגוריות חדשות בסגנון ניווט תחתון -->
+    <nav class="news-bottom-nav" aria-label="קטגוריות חדשות">
+      <button class="news-bottom-nav__item is-active" data-category="חדשות" type="button">
+        <i class="fa-solid fa-newspaper"></i>
+        <span>חדשות</span>
+      </button>
+      <button class="news-bottom-nav__item" data-category="ספורט" type="button">
+        <i class="fa-solid fa-futbol"></i>
+        <span>ספורט</span>
+      </button>
+      <button class="news-bottom-nav__item" data-category="כלכלה" type="button">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>כלכלה</span>
+      </button>
+    </nav>
+  </body>
+</html>

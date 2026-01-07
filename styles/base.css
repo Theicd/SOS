@@ -1,0 +1,84 @@
+/* חלק עיצוב בסיסי (base.css) – Mobile-First Reset + נגישות | HYPER CORE TECH */
+
+/* Box-sizing reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: 'Assistant', 'Rubik', 'Heebo', sans-serif;
+  background-color: #0b1024;
+  color: #f4f7ff;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* חלק הגדרות גוף (base.css) – מחיל רקע גראדיאנטי וניקוי ברירת מחדל */
+body {
+  margin: 0;
+  min-height: var(--app-height, 100vh);
+  background: radial-gradient(circle at 20% 20%, rgba(66, 89, 202, 0.28), transparent 60%),
+    radial-gradient(circle at 80% 0%, rgba(99, 230, 190, 0.18), transparent 55%),
+    #070b19;
+  color: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* חלק קישורים (base.css) – התאמת צבע ומעברי hover אחידים */
+a {
+  color: #8bb4ff;
+  transition: color 0.18s ease;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:hover {
+  color: #cbe2ff;
+}
+
+/* חלק כפתורים (base.css) – איפוס סגנון והדגשת אינטראקציה */
+button {
+  font: inherit;
+  border: none;
+  cursor: pointer;
+  background: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: var(--tap-min, 44px);
+  min-width: var(--tap-min, 44px);
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(139, 180, 255, 0.85);
+  outline-offset: 3px;
+}
+
+/* חלק אייקונים קטנים (base.css) – אייקונים ללא מגבלת גודל מינימלי */
+button.btn-icon-only,
+.icon-btn {
+  min-height: 32px;
+  min-width: 32px;
+}
+
+/* חלק גלילה (base.css) – גלילה חלקה במובייל */
+.scroll-container,
+.feed-list,
+.chat-messages,
+[data-scroll] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* חלק reduced motion (base.css) – ביטול אנימציות למשתמשים רגישים */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

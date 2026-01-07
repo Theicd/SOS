@@ -1,0 +1,1517 @@
+/* חלק אפקטים (videos.css) – הסרת כל האפקטים לגלילה פשוטה | HYPER CORE TECH */
+
+/* חלק אנימציית קו מחשב דק בחלק העליון של התפריט | HYPER CORE TECH */
+@keyframes computerLine {
+  0% {
+    background: linear-gradient(90deg, 
+      #0a0a14 0%, 
+      #1a1a2e 25%, 
+      #16213e 50%, 
+      #1a1a2e 75%, 
+      #0a0a14 100%);
+  }
+  100% {
+    background: linear-gradient(90deg, 
+      #0a0a14 0%, 
+      #1a1a2e 25%, 
+      #16213e 50%, 
+      #1a1a2e 75%, 
+      #0a0a14 100%);
+  }
+}
+
+/* אנימציית קו דק נע בחלק העליון */
+@keyframes topLineMove {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* החלת אנימציית הקו על התפריט התחתון */
+body:has(.videos-feed) .primary-nav {
+  background: linear-gradient(90deg, 
+    #0a0a14 0%, 
+    #1a1a2e 25%, 
+    #16213e 50%, 
+    #1a1a2e 75%, 
+    #0a0a14 100%);
+  backdrop-filter: blur(8px);
+  animation: computerLine 4s ease-in-out infinite;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: fixed !important;
+  bottom: 0 !important;
+  top: auto !important;
+  left: 0 !important;
+  right: 0 !important;
+  overflow: hidden;
+}
+
+/* קו דק נע בחלק העליון */
+body:has(.videos-feed) .primary-nav::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(0, 255, 255, 0.6) 50%, 
+    transparent 100%);
+  animation: topLineMove 3s linear infinite;
+}
+
+/* התאמת אנימציה גם למובייל */
+@media (max-width: 768px) {
+  body:has(.videos-feed) .primary-nav {
+    animation: computerLine 3s ease-in-out infinite;
+  }
+}
+
+/* כפתור התחבר/הירשם בפס העליון - עיצוב מותאם לפיד וידאו */
+body:has(.videos-feed) #guestLoginButton {
+  width: auto !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: none !important;
+  white-space: nowrap;
+  margin-left: 6px !important;
+  backdrop-filter: blur(4px);
+}
+
+body:has(.videos-feed) #guestLoginButton:active {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.videos-feed__menu-wrap {
+  /* חלק תפריט פיד ווידאו (videos.css) – עטיפה לכפתור 3 הנקודות כדי למקם את התפריט הצף | HYPER CORE TECH */
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.videos-feed__menu-wrap .feed-post__menu-toggle {
+  /* החלת אותו עיצוב עגול כמו שאר כפתורי הצד */
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.3rem;
+}
+
+.videos-feed__menu-wrap .feed-post__menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+.videos-feed__menu {
+  /* חלק תפריט פיד ווידאו (videos.css) – פופאובר תואם לעיצוב הפיד הראשי אך מתאים למיקום צדדי | HYPER CORE TECH */
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+  min-width: 168px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(20, 22, 26, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px);
+  z-index: 50;
+}
+
+.videos-feed__menu[hidden] {
+  display: none !important;
+}
+
+.videos-feed__menu .feed-post__action {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #e4e6eb;
+  font-size: 0.95rem;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.videos-feed__menu .feed-post__action i {
+  font-size: 1rem;
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.videos-feed__menu .feed-post__action:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.videos-feed__menu .feed-post__action--delete {
+  color: #ff7b7b;
+}
+
+.videos-feed__menu .feed-post__action--delete:hover {
+  background: rgba(255, 123, 123, 0.12);
+  color: #ff9b9b;
+}
+
+/* חלק דף וידאו (videos.css) – עיצוב פיד סרטונים בסגנון טיקטוק | HYPER CORE TECH */
+.videos-feed {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+
+/* כפתור "עוד" לטקסט הפוסט (videos.css) – סגנון תואם לכפתורי הצד */
+.videos-feed__more {
+  position: absolute;
+  inset-inline-end: 0; /* סוף השורה בהתאם לכיוון (RTL/LTR) */
+  bottom: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.videos-feed__more:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* חלק תפריט עליון צף (videos.css) – תפריט עליון שקוף עם כפתורים צפים כמו כפתורי הצד | HYPER CORE TECH */
+body:has(.videos-feed) .top-bar {
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom: none;
+  box-shadow: none;
+  padding: 16px;
+  gap: 12px;
+}
+
+body:has(.videos-feed) .top-bar__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.3s ease;
+}
+
+body:has(.videos-feed) .top-bar__logo:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+body:has(.videos-feed) .top-bar__logo img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+body:has(.videos-feed) .top-bar__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+body:has(.videos-feed) .top-bar__icon-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.2rem;
+  padding: 0;
+  position: relative;
+}
+
+body:has(.videos-feed) .top-bar__icon-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+body:has(.videos-feed) .top-bar__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff3b5c, #ff1744);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  box-shadow: 0 2px 8px rgba(255, 59, 92, 0.4);
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+body:has(.videos-feed) .top-bar__dropdown {
+  background: rgba(36, 37, 38, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* חלק תפריט תחתון צף (videos.css) – תפריט תחתון שקוף עם כפתורים צפים כמו כפתורי הצד | HYPER CORE TECH */
+body:has(.videos-feed) .primary-nav {
+  background: transparent;
+  backdrop-filter: none;
+  border-top: none;
+  box-shadow: none;
+  padding: 16px 12px 20px;
+  gap: 8px;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  width: 100%;
+}
+
+body:has(.videos-feed) .nav-item {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.7rem;
+  padding: 0;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+body:has(.videos-feed) .nav-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+body:has(.videos-feed) .nav-item.is-active {
+  background: rgba(99, 230, 190, 0.3);
+  border-color: rgba(99, 230, 190, 0.5);
+  color: #63e6be;
+}
+
+body:has(.videos-feed) .nav-item i {
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+body:has(.videos-feed) .nav-item span {
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+body:has(.videos-feed) .nav-item__badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff3b5c, #ff1744);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  box-shadow: 0 2px 8px rgba(255, 59, 92, 0.4);
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  transform: none;
+}
+
+body:has(.videos-feed) .nav-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.videos-feed__viewport {
+  position: relative;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  /* ללא scroll-behavior: smooth - מעבר מיידי כמו טיקטוק */
+  scrollbar-width: none;
+  padding-top: 56px;
+  padding-bottom: 0;
+}
+
+.videos-feed__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.videos-feed__stream {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* מרחק קטן בין פוסטים */
+  padding: 0;
+  min-height: 100%;
+}
+
+/* חלק קלף וידאו (videos.css) – כרטיס וידאו בודד עם אפקט snap וטשטוש */
+.videos-feed__card {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  /* גובה מלא עד לתפריט התחתון */
+  height: calc(100vh - 56px - 60px);
+  min-height: calc(100vh - 56px - 60px);
+  max-height: calc(100vh - 56px - 60px);
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: visible; /* שינוי מ-hidden כדי שפס ההתקדמות יהיה נראה */
+  background: #000;
+}
+
+/* חלק מדיה (videos.css) – וידאו או YouTube iframe */
+.videos-feed__media {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #000;
+  display: grid;
+  place-items: center;
+  overflow: visible; /* שינוי מ-hidden כדי שפס ההתקדמות יהיה נראה */
+  flex: 1 1 auto;
+  /* חלק תאימות iOS (videos.css) – תיקון מסך שחור ב-Safari iOS 15+ | HYPER CORE TECH */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.videos-feed__media video {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+  /* חלק תאימות iOS (videos.css) – תיקון מסך שחור ב-Safari iOS 15+ | HYPER CORE TECH */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* כפתורי דילוג 5 שניות - מובייל בלבד */
+.video-skip-btn {
+  display: none;
+  position: absolute;
+  bottom: 50px;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  z-index: 100;
+}
+
+.video-skip-btn--back {
+  left: 15px;
+}
+
+.video-skip-btn--forward {
+  right: 15px;
+}
+
+.video-skip-btn:active {
+  background: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.9);
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .video-skip-btn {
+    display: flex;
+  }
+}
+
+/* אנימציית דילוג - מספר במרכז המסך */
+.video-skip-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 72px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  transition: none;
+}
+
+.video-skip-indicator.show {
+  animation: skipIndicatorPop 0.6s ease-out forwards;
+}
+
+@keyframes skipIndicatorPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+.videos-feed__media iframe {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.videos-feed__media img {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  border: none;
+}
+
+/* חלק אפקטים (videos.css) – הסרת כל האפקטים לגלילה פשוטה | HYPER CORE TECH */
+.videos-feed__card--fx .videos-feed__media {
+  overflow: hidden;
+  position: relative;
+}
+
+/* הסרת אפקט zoom-in לגלילה פשוטה */
+.videos-feed__card--fx[data-fx="zoomin"] .videos-feed__media img,
+.videos-feed__card--fx[data-fx="zoomin"] .videos-feed__media video {
+  /* ללא אפקטים - גלילה פשוטה */
+  transform: none;
+  animation: none;
+}
+
+.videos-feed__media-thumb {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.videos-feed__media-iframe {
+  width: 100%;
+  height: 100%;
+}
+
+/* חלק כפתור פליי (videos.css) – כפתור הפעלה לוידאו */
+.videos-feed__play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  color: #000;
+  font-size: 2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.videos-feed__media.is-paused .videos-feed__play-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.videos-feed__play-overlay:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.videos-feed__play-overlay i {
+  margin-left: 4px;
+}
+
+/* חלק פעולות צד (videos.css) – כפתורים בצד ימין כמו טיקטוק */
+.videos-feed__actions {
+  position: absolute;
+  left: 16px;
+  bottom: 50%; /* ממורכז אנכית */
+  transform: translateY(50%); /* הזזה למרכז */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 20;
+  /* גלילה פשוטה - ללא אפקטים */
+}
+
+.videos-feed__action {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.3rem;
+  padding: 0;
+}
+
+.videos-feed__action--avatar {
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.videos-feed__action--avatar img,
+.videos-feed__action--avatar span {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.videos-feed__action:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+}
+
+.videos-feed__action--liked {
+  background: rgba(255, 59, 92, 0.3);
+  border-color: rgba(255, 59, 92, 0.5);
+}
+
+.videos-feed__action--liked i {
+  color: #ff3b5c;
+}
+
+.videos-feed__action--following {
+  background: rgba(99, 230, 190, 0.3);
+  border-color: rgba(99, 230, 190, 0.5);
+}
+
+.videos-feed__action-count {
+  font-size: 0.7rem;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* חלק מידע (videos.css) – פרטי הפוסט בתחתית */
+.videos-feed__info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 32px 80px 80px 20px; /* מרחק בטוח מהתפריט התחתון */
+  background: none;
+  color: #fff;
+  z-index: 15;
+  min-height: 140px;
+  /* גלילה פשוטה - ללא אפקטים */
+}
+
+.videos-feed__author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  z-index: 20;
+  position: relative;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: fit-content;
+}
+
+/* פס צבעוני מתחלף מתחת לשם המחבר */
+.videos-feed__author::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 0 0 12px 12px;
+  background: linear-gradient(90deg, 
+    #ff6b6b 0%, 
+    #feca57 20%, 
+    #48dbfb 40%, 
+    #1dd1a1 60%, 
+    #5f27cd 80%, 
+    #ff6b6b 100%);
+  background-size: 200% 100%;
+  animation: rainbowMove 3s linear infinite;
+}
+
+.videos-feed__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.videos-feed__avatar:hover {
+  transform: scale(1.1);
+  border-color: #48dbfb;
+  box-shadow: 0 4px 12px rgba(72, 219, 251, 0.4);
+}
+
+.videos-feed__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos-feed__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.videos-feed__name:hover {
+  color: #48dbfb;
+  text-shadow: 0 0 8px rgba(72, 219, 251, 0.5);
+}
+
+.videos-feed__content {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  max-height: 4.2em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  position: relative; /* עבור מיקום כפתור עוד בתוך הטקסט */
+  padding-inline-end: 56px; /* מרחב לכפתור עוד בסוף השורה */
+}
+
+.videos-feed__status {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(36, 37, 38, 0.95), rgba(24, 25, 26, 0.98));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 230, 190, 0.2);
+  color: rgba(228, 230, 235, 0.9);
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(99, 230, 190, 0.1);
+  z-index: 90;
+  pointer-events: none;
+}
+
+/* חלק תגובתיות דסקטופ (videos.css) – התאמות למסכים גדולים */
+@media (min-width: 769px) {
+  .videos-feed__card {
+    max-width: 500px;
+    margin: 0 auto;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .videos-feed__actions {
+    left: auto;
+    right: 20px;
+    bottom: 330px;
+  }
+}
+
+/* חלק פאנל תגובות (videos.css) – עיצוב פאנל תגובות בסגנון טיקטוק */
+.videos-comments-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.videos-comments-panel {
+  background: var(--card-bg);
+  width: 100%;
+  max-width: 680px;
+  max-height: 70vh;
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.videos-comments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.videos-comments-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.videos-comments-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: none;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.videos-comments-close:hover {
+  background: var(--border-color);
+}
+
+.videos-comments-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.videos-comments-loading,
+.videos-comments-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.videos-comment-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.videos-comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.videos-comment-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos-comment-content {
+  flex: 1;
+}
+
+.videos-comment-author {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  background: transparent; /* ביטול רקע ברירת מחדל לכפתור שם מגיב | HYPER CORE TECH */
+  border: none; /* הסרת מסגרת ברירת מחדל לכפתור | HYPER CORE TECH */
+  padding: 0; /* שמירת פריסה הדוקה סביב הטקסט | HYPER CORE TECH */
+  cursor: pointer; /* מצביע ידני לשם המגיב | HYPER CORE TECH */
+}
+
+.videos-comment-text {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.videos-comments-input {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+
+.videos-comments-input input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  background: var(--card-alt);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.videos-comments-input input:focus {
+  border-color: var(--primary-color);
+}
+
+.videos-comments-input button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  border: none;
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.videos-comments-input button:hover {
+  transform: scale(1.05);
+}
+
+.compose-legal-warning {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
+  margin: 12px 0;
+  color: #f5f5ff;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.compose-legal-warning a {
+  color: #7dd3fc;
+  text-decoration: underline;
+}
+
+.compose-legal-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 0.85rem;
+  direction: rtl;
+  text-align: right;
+}
+
+.compose-legal-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  accent-color: var(--primary-color, #6c63ff);
+}
+
+.compose-legal-warning p {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.compose-legal-checkbox span {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.policy-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+  z-index: 14000;
+  padding: 20px;
+  overflow: hidden;
+}
+
+body.policy-modal-open {
+  overflow: hidden;
+}
+
+.policy-modal.is-visible {
+  display: flex;
+}
+
+.policy-modal__dialog {
+  width: min(720px, 94vw);
+  height: min(90vh, 640px);
+  background: rgba(15, 15, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.policy-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.policy-modal__title {
+  font-size: 1.1rem;
+  margin: 0;
+  color: #fff;
+}
+
+.policy-modal__close {
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s ease;
+}
+
+.policy-modal__close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.policy-modal__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  background: #050510;
+}
+
+.policy-modal__content iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.policy-modal__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9bc9ff;
+  gap: 8px;
+}
+
+.policy-modal__error {
+  padding: 20px;
+  text-align: center;
+  color: #ff9b9b;
+}
+
+@media (max-width: 600px) {
+  .policy-modal__dialog {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+  .policy-modal__header {
+    padding: 14px 16px;
+  }
+}
+
+/* חלק תגובתיות מובייל (videos.css) – התאמות למסכים קטנים */
+@media (max-width: 768px) {
+  .videos-feed__viewport {
+    padding-bottom: 0; /* אין צורך במרווח נוסף */
+  }
+
+  .videos-feed__card {
+    height: calc(100vh - 56px - 60px);
+    min-height: calc(100vh - 56px - 60px);
+    max-height: calc(100vh - 56px - 60px);
+  }
+
+  .videos-feed__actions {
+    gap: 16px;
+    left: 12px; /* התאמה למובייל */
+  }
+
+  .videos-feed__action {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+
+  .videos-feed__info {
+    padding: 16px 70px 70px 16px; /* מרחק בטוח מהתפריט התחתון */
+  }
+  
+  .videos-comments-panel {
+    max-height: 80vh;
+  }
+
+  /* התאמת התפריט התחתון למובייל */
+  body:has(.videos-feed) .primary-nav {
+    padding: 12px 8px 16px;
+    gap: 4px;
+  }
+
+  body:has(.videos-feed) .nav-item {
+    width: 52px;
+    height: 52px;
+    font-size: 0.65rem;
+  }
+
+  body:has(.videos-feed) .nav-item i {
+    font-size: 1.2rem;
+  }
+
+  body:has(.videos-feed) .nav-item span {
+    font-size: 0.6rem;
+  }
+}
+
+/* ========================================
+   חלק חלונית טקסט משופרת (videos.css)
+   עיצוב מודרני לתצוגת טקסט מלא | HYPER CORE TECH
+======================================== */
+
+/* שכבת רקע */
+.videos-text-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+/* פאנל הטקסט - ממורכז */
+.videos-text-panel {
+  background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: scaleIn 0.3s ease;
+  overflow: hidden;
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* כותרת עם פרטי המחבר */
+.videos-text-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.videos-text-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.videos-text-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.videos-text-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.videos-text-avatar-fallback {
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videos-text-author-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.videos-text-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #ffffff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.videos-text-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+/* פס צבעוני מתחלף */
+.videos-text-rainbow-bar {
+  height: 3px;
+  background: linear-gradient(90deg, 
+    #ff6b6b 0%, 
+    #feca57 16%, 
+    #48dbfb 33%, 
+    #1dd1a1 50%, 
+    #5f27cd 66%, 
+    #ff6b6b 83%, 
+    #feca57 100%);
+  background-size: 200% 100%;
+  animation: rainbowMove 3s linear infinite;
+}
+
+@keyframes rainbowMove {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* תוכן הטקסט */
+.videos-text-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  direction: rtl;
+  text-align: right;
+  line-height: 1.8;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.videos-text-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.videos-text-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.videos-text-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+/* כותרות */
+.videos-text-title {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #48dbfb;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(72, 219, 251, 0.2);
+}
+
+/* פסקאות */
+.videos-text-paragraph {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  color: #e4e6eb;
+  line-height: 1.9;
+}
+
+/* רווח בין פסקאות */
+.videos-text-spacer {
+  height: 12px;
+}
+
+/* רשימות */
+.videos-text-list {
+  margin: 0 0 16px;
+  padding: 0 20px 0 0;
+  list-style: none;
+}
+
+.videos-text-list li {
+  position: relative;
+  margin-bottom: 10px;
+  padding-right: 20px;
+  color: #e4e6eb;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.videos-text-list li::before {
+  content: '•';
+  position: absolute;
+  right: 0;
+  color: #1dd1a1;
+  font-size: 1.2rem;
+}
+
+/* קישורים */
+.videos-text-link {
+  color: #48dbfb;
+  text-decoration: none;
+  word-break: break-all;
+  transition: color 0.2s ease;
+}
+
+.videos-text-link:hover {
+  color: #74e8ff;
+  text-decoration: underline;
+}
+
+/* האשטגים */
+.videos-text-hashtag {
+  color: #5f27cd;
+  font-weight: 500;
+  background: rgba(95, 39, 205, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.videos-text-hashtag:hover {
+  background: rgba(95, 39, 205, 0.25);
+}
+
+/* אימוג'י */
+.videos-text-emoji {
+  font-size: 1.3em;
+  vertical-align: middle;
+}
+
+/* רספונסיביות */
+@media (max-width: 600px) {
+  .videos-text-overlay {
+    padding: 10px;
+  }
+  
+  .videos-text-panel {
+    max-height: 85vh;
+    border-radius: 16px;
+  }
+  
+  .videos-text-header {
+    padding: 14px 16px;
+  }
+  
+  .videos-text-avatar {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .videos-text-author-name {
+    font-size: 1rem;
+  }
+  
+  .videos-text-content {
+    padding: 18px;
+  }
+  
+  .videos-text-title {
+    font-size: 1.05rem;
+  }
+  
+  .videos-text-paragraph {
+    font-size: 0.95rem;
+  }
+}
+
+/* חלק מנורת העלאה (videos.css) – סגנונות להעלאות ממתינות ואישור | HYPER CORE TECH */
+
+/* מנורה מהבהבת לאט - ממתין לאישור שמישהו הוריד */
+#uploadIndicator.is-pending {
+  animation: pendingBlink 2s ease-in-out infinite;
+}
+
+@keyframes pendingBlink {
+  0%, 100% { 
+    opacity: 0.4;
+    box-shadow: 0 0 5px rgba(255, 193, 7, 0.3);
+  }
+  50% { 
+    opacity: 1;
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.8);
+  }
+}
+
+/* מנורה ירוקה - קובץ אושר! מישהו הוריד */
+#uploadIndicator.is-confirmed {
+  animation: confirmedPulse 0.5s ease-out;
+  background: linear-gradient(135deg, #00c853, #69f0ae) !important;
+  box-shadow: 0 0 20px rgba(0, 200, 83, 0.8);
+}
+
+@keyframes confirmedPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}

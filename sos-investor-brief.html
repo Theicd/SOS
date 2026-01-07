@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOS - רשת חברתית מבוזרת חדשנית</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind CSS - הסרת אזהרת פרודקשן
+        tailwind.config = {
+            mode: 'jit'
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/ScrollTrigger.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            scroll-behavior: smooth;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .card {
+            backdrop-filter: blur(10px);
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            margin-bottom: 1rem;
+        }
+        
+        .scroll-section {
+            opacity: 0;
+            transform: translateY(50px);
+            transition: all 0.8s ease-out;
+        }
+        
+        .scroll-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .network-node {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.8);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+            transition: all 0.5s ease;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .privacy-score {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .privacy-score-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease-out;
+        }
+        
+        /* Mobile menu styles */
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 100;
+            flex-direction: column;
+            padding: 2rem;
+        }
+        
+        .mobile-menu.active {
+            display: flex;
+        }
+        
+        .mobile-menu a {
+            padding: 1rem 0;
+            font-size: 1.25rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Responsive table */
+        .responsive-table {
+            display: block;
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        /* Mobile timeline */
+        .timeline-item {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .timeline-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+        }
+        
+        /* Cost comparison mobile */
+        .cost-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- כותרת ראשית עם אנימציה -->
+    <header class="relative h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 z-0">
+            <div class="network-node w-4 h-4" style="top: 20%; left: 15%"></div>
+            <div class="network-node w-6 h-6" style="top: 40%; left: 85%"></div>
+            <div class="network-node w-8 h-8" style="top: 70%; left: 10%"></div>
+            <div class="network-node w-5 h-5" style="top: 30%; left: 50%"></div>
+            <div class="network-node w-7 h-7" style="top: 80%; left: 70%"></div>
+        </div>
+        
+        <div class="container mx-auto px-6 relative z-10 text-center">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 gradient-text">SOS</h1>
+            <p class="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+                הרשת החברתית המבוזרת הראשונה שמשלבת את כל מה שאתה אוהב - ללא פשרות
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#features" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full text-lg font-medium transition-colors">
+                    גלה עוד
+                </a>
+                <a href="https://theicd.github.io/SOS/videos.html" target="_blank" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full text-lg font-medium transition-colors">
+                    הרשת החיה
+                </a>
+            </div>
+        </div>
+        
+        <div class="absolute bottom-10 left-0 right-0 text-center animate-bounce">
+            <i class="fas fa-chevron-down text-2xl text-indigo-400"></i>
+        </div>
+    </header>
+
+    <!-- תפריט ניווט צף -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-md shadow-lg">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="text-xl font-bold gradient-text">SOS</div>
+                <div class="hidden md:flex space-x-6">
+                    <a href="#features" class="text-gray-300 hover:text-white transition-colors text-sm">פיצ'רים</a>
+                    <a href="#privacy" class="text-gray-300 hover:text-white transition-colors text-sm">פרטיות</a>
+                    <a href="#comparison" class="text-gray-300 hover:text-white transition-colors text-sm">השוואה</a>
+                    <a href="#technology" class="text-gray-300 hover:text-white transition-colors text-sm">טכנולוגיה</a>
+                    <a href="#economics" class="text-gray-300 hover:text-white transition-colors text-sm">כלכלה</a>
+                    <a href="#roadmap" class="text-gray-300 hover:text-white transition-colors text-sm">חזון</a>
+                </div>
+                <button id="menu-toggle" class="md:hidden text-gray-300 hover:text-white">
+                    <i class="fas fa-bars text-2xl"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- תפריט מובייל -->
+    <div id="mobile-menu" class="mobile-menu">
+        <div class="flex justify-end mb-8">
+            <button id="menu-close" class="text-gray-300 hover:text-white">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+        <a href="#features">פיצ'רים</a>
+        <a href="#privacy">פרטיות</a>
+        <a href="#comparison">השוואה</a>
+        <a href="#technology">טכנולוגיה</a>
+        <a href="#economics">כלכלה</a>
+        <a href="#roadmap">חזון</a>
+    </div>
+
+    <!-- סקציית פיצ'רים -->
+    <section id="features" class="py-16 scroll-mt-20">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12 gradient-text">הכל באפליקציה אחת</h2>
+            
+            <div class="grid md:grid-cols-3 gap-6 mb-12">
+                <!-- כרטיס טיקטוק -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="feature-icon bg-pink-500/20 text-pink-400 mx-auto">
+                        <i class="fas fa-play text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-center mb-3">פיד וידאו כמו טיקטוק</h3>
+                    <p class="text-gray-300 text-center text-sm">
+                        גלול בין סרטונים קצרים, עקוב אחר יוצרים אהובים וגלה תוכן חדש - ללא אלגוריתם מרכזי שמחליט עבורך מה לראות.
+                    </p>
+                </div>
+                
+                <!-- כרטיס וואטסאפ -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="feature-icon bg-green-500/20 text-green-400 mx-auto">
+                        <i class="fas fa-comment-dots text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-center mb-3">הודעות כמו בוואטסאפ</h3>
+                    <p class="text-gray-300 text-center text-sm">
+                        שלח הודעות טקסט, קוליות, תמונות וסרטונים עד 50MB. שיחות אודיו ווידאו באיכות גבוהה - מוצפנות מקצה לקצה.
+                    </p>
+                </div>
+                
+                <!-- כרטיס טינדר -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="feature-icon bg-red-500/20 text-red-400 mx-auto">
+                        <i class="fas fa-heart text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-center mb-3">היכרויות כמו בטינדר</h3>
+                    <p class="text-gray-300 text-center text-sm">
+                        התאמה חכמה עם אנשים חדשים לפי תחומי עניין משותפים, מיקום והעדפות אישיות - בצורה בטוחה ומכובדת.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- שורה שנייה של פיצ'רים -->
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- מודראציה אוטומטית -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="feature-icon bg-purple-500/20 text-purple-400 mx-auto">
+                        <i class="fas fa-robot text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-center mb-3">מודראציה חכמה</h3>
+                    <p class="text-gray-300 text-center text-sm">
+                        מערכת מודראציה מבוססת AI שפועלת ישירות במכשיר שלך - שומרת על הקהילה נקייה מתוכן פוגעני בלי לפגוע בפרטיות.
+                    </p>
+                </div>
+                
+                <!-- רשת מבוזרת -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="feature-icon bg-blue-500/20 text-blue-400 mx-auto">
+                        <i class="fas fa-network-wired text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-center mb-3">רשת בלתי ניתנת לעצירה</h3>
+                    <p class="text-gray-300 text-center text-sm">
+                        ככל שיותר אנשים משתמשים ב-SOS, הרשת הופכת למהירה ואמינה יותר. אין נקודת כשל מרכזית אחת.
+                    </p>
+                </div>
+                
+                <!-- כלכלה -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="feature-icon bg-yellow-500/20 text-yellow-400 mx-auto">
+                        <i class="fas fa-coins text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-center mb-3">חסכון בעלויות</h3>
+                    <p class="text-gray-300 text-center text-sm">
+                        טכנולוגיה חכמה חוסכת עד 90% מעלויות התפעול בהשוואה לרשתות חברתיות מסורתיות.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- סקציית פרטיות ואבטחה -->
+    <section id="privacy" class="py-16 bg-gray-900 scroll-mt-20">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12 gradient-text">פרטיות היא זכות, לא מוצר</h2>
+            
+            <div class="text-center mb-8">
+                <p class="text-base md:text-lg text-gray-300 max-w-2xl mx-auto">
+                    בעולם שבו המידע שלך הוא המוצר, SOS מחזירה לך את השליטה. בדקנו מי באמת מגן על הפרטיות שלך.
+                </p>
+            </div>
+            
+            <!-- טבלת השוואת פרטיות - גרסה מובייל -->
+            <div class="responsive-table mb-12">
+                <table class="min-w-full bg-gray-800 rounded-xl overflow-hidden text-sm">
+                    <thead>
+                        <tr class="bg-gray-700">
+                            <th class="px-3 py-2 text-right">תכונת פרטיות</th>
+                            <th class="px-3 py-2 text-center">SOS</th>
+                            <th class="px-3 py-2 text-center">פייסבוק</th>
+                            <th class="px-3 py-2 text-center">טיקטוק</th>
+                            <th class="px-3 py-2 text-center">וואטסאפ</th>
+                            <th class="px-3 py-2 text-center">טלגרם</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        <tr>
+                            <td class="px-3 py-2 font-medium">הצפנה מקצה לקצה</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                        </tr>
+                        <tr class="bg-gray-800/50">
+                            <td class="px-3 py-2 font-medium">אחסון מבוזר של מידע</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-yellow-400"><i class="fas fa-minus-circle"></i></td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-medium">אין איסוף נתונים לפרסום</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-yellow-400"><i class="fas fa-minus-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                        </tr>
+                        <tr class="bg-gray-800/50">
+                            <td class="px-3 py-2 font-medium">שליטה מלאה על המידע</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-yellow-400"><i class="fas fa-minus-circle"></i></td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-medium">מיקום נתונים גלובלי</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-yellow-400"><i class="fas fa-minus-circle"></i></td>
+                        </tr>
+                        <tr class="bg-gray-800/50">
+                            <td class="px-3 py-2 font-medium">קוד פתוח לבדיקה</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- דירוג פרטיות - גרסה מובייל -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="card p-6 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-4">דירוג פרטיות כללי</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-sm">SOS</span>
+                                <span class="text-green-400 font-bold text-sm">95/100</span>
+                            </div>
+                            <div class="privacy-score">
+                                <div class="privacy-score-fill bg-green-500" style="width: 95%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-sm">טלגרם</span>
+                                <span class="text-yellow-400 font-bold text-sm">75/100</span>
+                            </div>
+                            <div class="privacy-score">
+                                <div class="privacy-score-fill bg-yellow-500" style="width: 75%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-sm">וואטסאפ</span>
+                                <span class="text-yellow-400 font-bold text-sm">65/100</span>
+                            </div>
+                            <div class="privacy-score">
+                                <div class="privacy-score-fill bg-yellow-500" style="width: 65%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-sm">טיקטוק</span>
+                                <span class="text-orange-400 font-bold text-sm">35/100</span>
+                            </div>
+                            <div class="privacy-score">
+                                <div class="privacy-score-fill bg-orange-500" style="width: 35%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="font-medium text-sm">פייסבוק</span>
+                                <span class="text-red-400 font-bold text-sm">25/100</span>
+                            </div>
+                            <div class="privacy-score">
+                                <div class="privacy-score-fill bg-red-500" style="width: 25%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-4">איפה נמצא המידע שלך?</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-start">
+                            <div class="w-2 h-2 bg-green-400 rounded-full mt-1 mr-2"></div>
+                            <div>
+                                <div class="font-medium text-sm">SOS</div>
+                                <div class="text-xs text-gray-400">מבוזר במכשירים של משתמשים ברחבי העולם. אין מאגר מרכזי.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="w-2 h-2 bg-yellow-400 rounded-full mt-1 mr-2"></div>
+                            <div>
+                                <div class="font-medium text-sm">טלגרם</div>
+                                <div class="text-xs text-gray-400">שרתים פרטיים במקומות שונים, אך עדיין מרכזיים.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="w-2 h-2 bg-yellow-400 rounded-full mt-1 mr-2"></div>
+                            <div>
+                                <div class="font-medium text-sm">וואטסאפ</div>
+                                <div class="text-xs text-gray-400">שרתים של פייסבוק/מטא. נגיש לממשלות.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="w-2 h-2 bg-orange-400 rounded-full mt-1 mr-2"></div>
+                            <div>
+                                <div class="font-medium text-sm">טיקטוק</div>
+                                <div class="text-xs text-gray-400">שרתים בסין. נתונים זמינים לממשל הסיני.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="w-2 h-2 bg-red-400 rounded-full mt-1 mr-2"></div>
+                            <div>
+                                <div class="font-medium text-sm">פייסבוק</div>
+                                <div class="text-xs text-gray-400">שרתים מרכזיים בארה"ב. נמכר לפרסומאים.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- סקציית השוואה -->
+    <section id="comparison" class="py-16 scroll-mt-20">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12 gradient-text">איך אנחנו משווים לאחרים?</h2>
+            
+            <!-- טבלת השוואה - גרסה מובייל -->
+            <div class="responsive-table mb-8">
+                <table class="min-w-full bg-gray-800 rounded-xl overflow-hidden text-sm">
+                    <thead>
+                        <tr class="bg-gray-700">
+                            <th class="px-3 py-2 text-right">פיצ'ר</th>
+                            <th class="px-3 py-2 text-center">SOS</th>
+                            <th class="px-3 py-2 text-center">פייסבוק</th>
+                            <th class="px-3 py-2 text-center">טיקטוק</th>
+                            <th class="px-3 py-2 text-center">דיסקורד</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        <tr>
+                            <td class="px-3 py-2 font-medium">וידאו קצר</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                        </tr>
+                        <tr class="bg-gray-800/50">
+                            <td class="px-3 py-2 font-medium">הודעות פרטיות</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-medium">שיחות וידאו</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                        </tr>
+                        <tr class="bg-gray-800/50">
+                            <td class="px-3 py-2 font-medium">היכרויות</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-medium">מודל מבוזר</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                        </tr>
+                        <tr class="bg-gray-800/50">
+                            <td class="px-3 py-2 font-medium">ללא צנזורה</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-medium">ללא פרסומות</td>
+                            <td class="px-3 py-2 text-center text-green-400"><i class="fas fa-check-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-red-400"><i class="fas fa-times-circle"></i></td>
+                            <td class="px-3 py-2 text-center text-yellow-400"><i class="fas fa-minus-circle"></i></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <p class="text-base md:text-lg text-gray-300 max-w-2xl mx-auto">
+                    SOS היא הפלטפורמה היחידה שמשלבת את כל הפיצ'רים שאתה אוהב, בלי החסרונות של הרשתות החברתיות המסורתיות.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- סקציית טכנולוגיה -->
+    <section id="technology" class="py-16 bg-gray-900 scroll-mt-20">
+        <div class="container mx-auto px-4">
+            <h2 class="text-3xl md:text-4xl font-bold text-center mb-12 gradient-text">איך זה עובד?</h2>
+            
+            <div class="grid md:grid-cols-2 gap-8 items-center mb-12">
+                <div>
+                    <h3 class="text-xl md:text-2xl font-bold mb-4">רשת חכמה שמשתפרת עם הזמן</h3>
+                    <p class="text-gray-300 mb-4 text-sm">
+                        בניגוד לרשתות חברתיות רגילות, ב-SOS כל משתמש תורם לרשת. ככל שיותר אנשים משתמשים בפלטפורמה, התוכן נטען מהר יותר והרשת הופכת לאמינה יותר.
+                    </p>
+                    <ul class="space-y-3">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-400 mt-1 mr-2 text-sm"></i>
+                            <span class="text-sm">וידיאו נטען ממשתמשים קרובים אליך - לא משרתים מרוחקים</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-400 mt-1 mr-2 text-sm"></i>
+                            <span class="text-sm">אחסון מבוזר - התוכן נשמר בעשרות אלפי מכשירים ברחבי העולם</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-400 mt-1 mr-2 text-sm"></i>
+                            <span class="text-sm">ללא נקודת כשל מרכזית - הרשת ממשיכה לעבוד גם אם חלק מהשרתים נופלים</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="relative h-64">
+                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl transform rotate-3"></div>
+                    <div class="relative bg-gray-900 p-4 rounded-2xl h-full flex flex-col justify-center">
+                        <div class="flex justify-between mb-4">
+                            <div class="w-1/4 h-1 bg-indigo-400 rounded-full"></div>
+                            <div class="w-1/4 h-1 bg-indigo-400 rounded-full opacity-75"></div>
+                            <div class="w-1/4 h-1 bg-indigo-400 rounded-full opacity-50"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 mb-4">
+                            <div class="bg-indigo-900/50 rounded-lg p-2 text-center">
+                                <div class="text-lg font-bold text-indigo-300">P2P</div>
+                                <div class="text-xs text-indigo-400">רשת עמיתים</div>
+                            </div>
+                            <div class="bg-indigo-900/50 rounded-lg p-2 text-center">
+                                <div class="text-lg font-bold text-indigo-300">CDN</div>
+                                <div class="text-xs text-indigo-400">שרתי אחסון</div>
+                            </div>
+                            <div class="bg-indigo-900/50 rounded-lg p-2 text-center">
+                                <div class="text-lg font-bold text-indigo-300">AI</div>
+                                <div class="text-xs text-indigo-400">מודראציה</div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-800/50 rounded-lg p-3">
+                            <div class="flex items-center mb-1">
+                                <div class="w-1.5 h-1.5 bg-green-400 rounded-full mr-1"></div>
+                                <div class="text-xs text-gray-300">מחובר ל-1,284 צמתים</div>
+                            </div>
+                            <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-green-400 to-blue-500" style="width: 75%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- סקציית כלכלה מעודכנת -->
+    <section id="economics" class="py-20 scroll-mt-20 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 relative overflow-hidden">
+        <!-- רקע דינמי -->
+        <div class="absolute inset-0 opacity-20">
+            <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNGRkYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djJoLTR2LTJoNHptLTYgMHYyaC00di0yaDR6bS0yLTJ2LTJoNHYyaC00eiIvPjwvZz48L2c+PC9zdmc+')]"></div>
+        </div>
+
+        <div class="container mx-auto px-4 relative z-10">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
+                    הכלכלה המהפכנית של SOS
+                </h2>
+                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                    ניתוח עלויות חודשיות מדויק לשנה הראשונה (0 → 150K משתמשים)
+                </p>
+            </div>
+            
+            <!-- כרטיסי השוואה עם אנימציות -->
+            <div class="grid md:grid-cols-2 gap-8 mb-16">
+                <!-- כרטיס SOS -->
+                <div class="relative group">
+                    <div class="absolute -inset-1 bg-gradient-to-r from-green-500 to-blue-600 rounded-2xl opacity-70 group-hover:opacity-100 blur transition duration-500"></div>
+                    <div class="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 h-full border border-gray-700 group-hover:border-green-400/30 transition-all duration-300">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-2xl font-bold text-green-400">מודל SOS</h3>
+                            <div class="bg-green-900/50 text-green-400 text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+                                חסכון של 100%
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <div class="relative">
+                                <div class="text-5xl font-extrabold text-white mb-1">$30<span class="text-lg text-gray-400">/חודש</span></div>
+                                <div class="text-sm text-gray-400">עלות קבועה ללא תלות במשתמשים</div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-gray-800/30 p-3 rounded-xl border border-gray-700/50 group-hover:border-green-500/30 transition-colors">
+                                    <div class="text-green-400 text-2xl mb-2">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <div class="text-sm text-gray-300 mb-1">אחסון בשרת</div>
+                                    <div class="text-xl font-bold text-white">0GB</div>
+                                    <div class="text-xs text-green-400 mt-1">אין עלויות אחסון</div>
+                                </div>
+                                <div class="bg-gray-800/30 p-3 rounded-xl border border-gray-700/50 group-hover:border-green-500/30 transition-colors">
+                                    <div class="text-green-400 text-2xl mb-2">
+                                        <i class="fas fa-network-wired"></i>
+                                    </div>
+                                    <div class="text-sm text-gray-300 mb-1">תעבורת צפיות</div>
+                                    <div class="text-xl font-bold text-white">0GB</div>
+                                    <div class="text-xs text-green-400 mt-1">אין עלויות תעבורה</div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 p-4 rounded-xl border border-green-500/20">
+                                <h4 class="font-bold text-green-300 mb-2 text-sm">איך זה עובד?</h4>
+                                <ul class="space-y-2 text-xs text-gray-300">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-check-circle text-green-400 mt-0.5 mr-2 text-xs"></i>
+                                        <span>התוכן נשמר במכשירי המשתמשים</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-check-circle text-green-400 mt-0.5 mr-2 text-xs"></i>
+                                        <span>צפיות עוברות ישירות בין המשתמשים</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-check-circle text-green-400 mt-0.5 mr-2 text-xs"></i>
+                                        <span>אין עלויות נוספות עם גידול בכמות המשתמשים</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- כרטיס רשתות מסורתיות -->
+                <div class="relative group">
+                    <div class="absolute -inset-1 bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl opacity-70 group-hover:opacity-100 blur transition duration-500"></div>
+                    <div class="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 h-full border border-gray-700 group-hover:border-red-400/30 transition-all duration-300">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-2xl font-bold text-red-400">רשתות מסורתיות</h3>
+                            <div class="bg-red-900/50 text-red-400 text-xs font-bold px-3 py-1 rounded-full">
+                                עלויות מתפוצצות
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <div class="relative">
+                                <div class="text-5xl font-extrabold text-white mb-1">$10,125<span class="text-lg text-gray-400">/חודש</span></div>
+                                <div class="text-sm text-gray-400">אחרי 12 חודשים (150K משתמשים)</div>
+                            </div>
+                            
+                            <!-- עלויות אחסון -->
+                            <div class="bg-gray-800/30 p-4 rounded-xl border border-red-500/20">
+                                <h4 class="font-bold text-red-300 mb-3 flex items-center">
+                                    <i class="fas fa-database mr-2"></i>
+                                    עלויות אחסון חודשיות
+                                </h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-gray-300">אחסון חודשי אחרי שנה:</span>
+                                            <span class="font-bold">270TB</span>
+                                        </div>
+                                        <div class="w-full bg-gray-700 rounded-full h-2.5">
+                                            <div class="bg-red-500 h-2.5 rounded-full" style="width: 85%"></div>
+                                        </div>
+                                        <div class="text-xs text-gray-400 mt-1">עלות: $0.023/GB = $6,210/חודש</div>
+                                    </div>
+                                    <div class="text-xs text-gray-300">
+                                        <div class="flex justify-between">
+                                            <span>סרטון 1 דקה = 50MB</span>
+                                            <span>4,500 דקות/יום = 225GB/יום</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>6,750GB/חודש = 81TB/שנה</span>
+                                            <span class="text-red-300">מצטבר ל-270TB סה"כ</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- עלויות תעבורה -->
+                            <div class="bg-gray-800/30 p-4 rounded-xl border border-red-500/20">
+                                <h4 class="font-bold text-red-300 mb-3 flex items-center">
+                                    <i class="fas fa-tv mr-2"></i>
+                                    עלויות תעבורת צפיות
+                                </h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span class="text-gray-300">תעבורה חודשית:</span>
+                                            <span class="font-bold">20,250GB</span>
+                                        </div>
+                                        <div class="w-full bg-gray-700 rounded-full h-2.5">
+                                            <div class="bg-orange-500 h-2.5 rounded-full" style="width: 80%"></div>
+                                        </div>
+                                        <div class="text-xs text-gray-400 mt-1">עלות: $0.09/GB = $1,822/חודש</div>
+                                    </div>
+                                    <div class="text-xs text-gray-300">
+                                        <div class="flex justify-between">
+                                            <span>10 צפיות לכל דקת וידאו</span>
+                                            <span>45K דקות צפייה/יום</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>1.35M דקות/חודש = 20,250GB תעבורה</span>
+                                            <span class="text-red-300">$1,822/חודש</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center text-sm text-red-300 p-2 bg-red-900/20 rounded-lg border border-red-500/20">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                סה"כ הוצאות חודשיות אחרי שנה: <span class="font-bold text-white">$6,750/חודש</span>
+                            </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- טבלת חישובים חודשיים -->
+            <div class="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 mb-16">
+                <h3 class="text-xl font-bold text-center mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    חישוב עלויות חודשיות - השנה הראשונה (מפורט)
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b border-gray-700">
+                                <th class="text-right p-2 text-gray-300">חודש</th>
+                                <th class="text-right p-2 text-gray-300">משתמשים</th>
+                                <th class="text-right p-2 text-gray-300">דקות וידיאו/יום</th>
+                                <th class="text-right p-2 text-gray-300">דקות צפייה/יום</th>
+                                <th class="text-right p-2 text-gray-300">אחסון מצטבר (GB)</th>
+                                <th class="text-right p-2 text-gray-300">עלות אחסון ($)</th>
+                                <th class="text-right p-2 text-gray-300">תעבורה חודשית (GB)</th>
+                                <th class="text-right p-2 text-gray-300">עלות תעבורה ($)</th>
+                                <th class="text-right p-2 text-gray-300">סה"כ עלות ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyCostTable">
+                            <!-- יתמלא על ידי JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-6 grid md:grid-cols-3 gap-4">
+                    <div class="bg-green-900/20 p-4 rounded-lg border border-green-500/20">
+                        <div class="text-green-400 text-sm mb-1">עלות SOS חודשית</div>
+                        <div class="text-2xl font-bold text-green-400">$30</div>
+                        <div class="text-xs text-gray-400">קבוע לכל השנה</div>
+                    </div>
+                    <div class="bg-red-900/20 p-4 rounded-lg border border-red-500/20">
+                        <div class="text-red-400 text-sm mb-1">עלות ממוצעת חודשית</div>
+                        <div class="text-2xl font-bold text-red-400">$3,375</div>
+                        <div class="text-xs text-gray-400">מתחיל מ-$1,350 ועולה ל-$6,750</div>
+                    </div>
+                    <div class="bg-blue-900/20 p-4 rounded-lg border border-blue-500/20">
+                        <div class="text-blue-400 text-sm mb-1">חיסכון שנתי</div>
+                        <div class="text-2xl font-bold text-blue-400">$40,170</div>
+                        <div class="text-xs text-gray-400">99.1% חיסכון בעלויות</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- גרפים -->
+            <div class="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 mb-16">
+                <h3 class="text-xl font-bold text-center mb-8 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    גרף עליית עלויות חודשיות
+                </h3>
+                <div class="chart-container" style="position: relative; height:400px;">
+                    <canvas id="monthlyCostChart"></canvas>
+                </div>
+                <p class="text-center text-sm text-gray-400 mt-4">
+                    * העלויות מבוססות על מחירי AWS S3 ($0.023/GB) ו-Data Transfer ($0.09/GB)
+                </p>
+            </div>
+            
+            <!-- כרטיס מידע נוסף -->
+            <div class="bg-gradient-to-r from-indigo-900/30 to-blue-900/30 rounded-2xl p-8 border border-indigo-500/20 relative overflow-hidden">
+                <div class="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full filter blur-3xl"></div>
+                <div class="relative z-10">
+                    <h3 class="text-2xl font-bold text-white mb-6">איך SOS פותר את הבעיה?</h3>
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <div class="bg-gray-800/30 p-5 rounded-xl border border-indigo-500/20 hover:border-indigo-400/40 transition-colors">
+                            <div class="text-indigo-400 text-2xl mb-3">
+                                <i class="fas fa-server"></i>
+                            </div>
+                            <h4 class="font-bold text-white mb-2">ללא שרתי אחסון</h4>
+                            <p class="text-sm text-gray-300">
+                                התוכן נשמר במכשירי המשתמשים במקום בשרתים מרכזיים. כל משתמש תורם משאבי אחסון מהמכשיר שלו.
+                            </p>
+                        </div>
+                        <div class="bg-gray-800/30 p-5 rounded-xl border border-indigo-500/20 hover:border-indigo-400/40 transition-colors">
+                            <div class="text-indigo-400 text-2xl mb-3">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                            <h4 class="font-bold text-white mb-2">תעבורת עמית-לעמית</h4>
+                            <p class="text-sm text-gray-300">
+                                צפייה בתוכן מתבצעת ישירות בין המשתמשים, ללא תיווך שרתים. כך נחסכות עלויות התעבורה הגבוהות.
+                            </p>
+                        </div>
+                        <div class="bg-gray-800/30 p-5 rounded-xl border border-indigo-500/20 hover:border-indigo-400/40 transition-colors">
+                            <div class="text-indigo-400 text-2xl mb-3">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h4 class="font-bold text-white mb-2">קנה מידה בלתי מוגבל</h4>
+                            <p class="text-sm text-gray-300">
+                                ככל שיותר משתמשים מצטרפים לרשת - היא הופכת ליעילה ומהירה יותר, ללא עלויות נוספות.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8 p-5 bg-black/20 rounded-xl border border-indigo-500/30">
+                        <h4 class="font-bold text-white mb-3">החיסכון האמיתי:</h4>
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <div class="text-3xl font-bold text-green-400 mb-2">$40,170</div>
+                                <div class="text-sm text-gray-300">חיסכון בעלויות שנתיות</div>
+                            </div>
+                            <div>
+                                <div class="text-3xl font-bold text-green-400 mb-2">99.1%</div>
+                                <div class="text-sm text-gray-300">הפחתה בעלויות התפעול בהשוואה לרשתות מסורתיות</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- אנימציות רקע -->
+        <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+            <div class="absolute top-1/4 -left-20 w-40 h-40 bg-blue-500/10 rounded-full filter blur-3xl animate-float"></div>
+            <div class="absolute top-2/3 -right-20 w-60 h-60 bg-green-500/10 rounded-full filter blur-3xl animate-float animation-delay-2000"></div>
+            <div class="absolute top-1/3 right-1/4 w-32 h-32 bg-purple-500/10 rounded-full filter blur-3xl animate-float animation-delay-4000"></div>
+    </section>
+
+    <!-- סקציית חזון ומפת דרכים -->
+    <section id="roadmap" class="py-20 scroll-mt-20 bg-gradient-to-br from-indigo-900/20 via-purple-900/20 to-pink-900/20 relative overflow-hidden">
+        <div class="container mx-auto px-4 relative z-10">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+                    הדרך קדימה
+                </h2>
+                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                    מפת דרכים מפורטת לפיתוח SOS - מהקמת תשתית ועד השקה עולמית
+                </p>
+            </div>
+
+            <div class="space-y-6">
+                <!-- ינואר 2025 - הקמת תשתית -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-blue-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-blue-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">ינואר 2025</div>
+                        <h3 class="text-xl font-bold mb-2">הקמת תשתית בסיסית</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ הקמת NostrApp core framework</p>
+                            <p class="mb-2">✅ מערכת אימות וניהול מפתחות (auth.js)</p>
+                            <p class="mb-2">✅ חיבור לרשת Nostr ו-SimplePool</p>
+                            <p class="mb-2">✅ תשתית אחסון מקומי ו-cache</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- פברואר 2025 - מערכת פרופילים -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-indigo-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-indigo-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">פברואר 2025</div>
+                        <h3 class="text-xl font-bold mb-2">מערכת פרופילים</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ עיצוב דפי פרופיל (profile.html)</p>
+                            <p class="mb-2">✅ פרופיל ציבורי ופרטי</p>
+                            <p class="mb-2">✅ גלריית תמונות ו-cover</p>
+                            <p class="mb-2">✅ מערכת עריכת פרופיל (profile.js)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- מרץ 2025 - מערכת פוסטים -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-purple-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-purple-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">מרץ 2025</div>
+                        <h3 class="text-xl font-bold mb-2">מערכת פוסטים ופיד</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ הפיד הראשי (feed.js)</p>
+                            <p class="mb-2">✅ יצירת פוסטים עם טקסט ותמונות</p>
+                            <p class="mb-2">✅ מערכת לייקים ותגובות</p>
+                            <p class="mb-2">✅ ניווט מובייל ודסקטופ</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- אפריל 2025 - מערכת וידיאו -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-pink-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-pink-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">אפריל 2025</div>
+                        <h3 class="text-xl font-bold mb-2">מערכת וידיאו</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ דף וידיאו ראשי (videos.html)</p>
+                            <p class="mb-2">✅ הקלטת וידיאו (video-record.js)</p>
+                            <p class="mb-2">✅ דחיסת וידיאו (video-compressor.js)</p>
+                            <p class="mb-2">✅ שיתוף P2P (p2p-video-sharing.js)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- מאי 2025 - מערכת צ'אט -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-red-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">מאי 2025</div>
+                        <h3 class="text-xl font-bold mb-2">מערכת צ'אט</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ ממשק צ'אט ראשי (chat-ui.js)</p>
+                            <p class="mb-2">✅ הודעות פרטיות וקבוצתיות</p>
+                            <p class="mb-2">✅ העברת קבצים (chat-file-transfer.js)</p>
+                            <p class="mb-2">✅ שיחות קוליות ווידאו</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- יוני 2025 - מערכת היכרויות -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-orange-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-orange-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">יוני 2025</div>
+                        <h3 class="text-xl font-bold mb-2">מערכת היכרויות</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ דף היכרויות (dating.html)</p>
+                            <p class="mb-2">✅ התאמות ו-swipe</p>
+                            <p class="mb-2">✅ חיבורים והתעניינות הדדית</p>
+                            <p class="mb-2">✅ צ'אט אינטגרטיבי</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- יולי-אוגוסט 2025 - שיפורים ואופטימיזציה -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-yellow-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-yellow-500 text-gray-900 text-xs font-semibold px-2 py-1 rounded-full mb-2">יולי-אוגוסט 2025</div>
+                        <h3 class="text-xl font-bold mb-2">שיפורים ואופטימיזציה</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ אופטימיזציית ביצועים</p>
+                            <p class="mb-2">✅ שיפור חוויית משתמש</p>
+                            <p class="mb-2">✅ תיקוני באגים ובדיקות</p>
+                            <p class="mb-2">✅ התאמות מובייל מתקדמות</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ספטמבר-אוקטובר 2025 - תכונות מתקדמות -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-green-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">ספטמבר-אוקטובר 2025</div>
+                        <h3 class="text-xl font-bold mb-2">תכונות מתקדמות</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">✅ שידורים חיים (live-stream.js)</p>
+                            <p class="mb-2">✅ משחקים וטריוויה (game-trivia.js)</p>
+                            <p class="mb-2">✅ מערכת פרסומות פנימית</p>
+                            <p class="mb-2">✅ ניתוח ומדדים</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- נובמבר 2025 - השקת בטא פרטית -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-teal-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-teal-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">נובמבר 2025</div>
+                        <h3 class="text-xl font-bold mb-2">השקת בטא פרטית</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">🚀 הזמנת 100 משתמשים ראשונים</p>
+                            <p class="mb-2">🚀 איסוף דיווחים ומשוב</p>
+                            <p class="mb-2">🚀 תיקונים אחרונים והתאמות</p>
+                            <p class="mb-2">🚀 הכנות לפתיחה ציבורית</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- דצמבר 2025 - השקה ציבורית -->
+                <div class="timeline-item">
+                    <div class="timeline-dot bg-emerald-500 mx-auto"></div>
+                    <div class="text-center">
+                        <div class="inline-block bg-emerald-500 text-white text-xs font-semibold px-2 py-1 rounded-full mb-2">דצמבר 2025</div>
+                        <h3 class="text-xl font-bold mb-2">השקה ציבורית</h3>
+                        <div class="text-gray-300 text-sm text-right max-w-md mx-auto">
+                            <p class="mb-2">🎯 פתיחה לקהל הרחב</p>
+                            <p class="mb-2">🎯 קמפיין שיווקי ראשוני</p>
+                            <p class="mb-2">🎯 תמיכה והדרכה</p>
+                            <p class="mb-2">🎯 ניטור ומעקב ביצועים</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- סקציית קריאה לפעולה -->
+    <section class="py-20 bg-gradient-to-r from-indigo-600 to-purple-600 relative overflow-hidden">
+        <div class="absolute inset-0 bg-black/20"></div>
+        <div class="container mx-auto px-4 relative z-10">
+            <div class="text-center max-w-4xl mx-auto">
+                <h2 class="text-4xl md:text-5xl font-extrabold mb-6 text-white">
+                    הצטרף למהפכה
+                </h2>
+                <p class="text-xl text-gray-200 mb-8">
+                    SOS היא לא רק עוד רשת חברתית - זו קהילה גלובלית ששולטת בתוכן שלה, בנתוניה שלה, ובעתידה שלה.
+                </p>
+                <a href="#contact" class="bg-white text-indigo-600 hover:bg-gray-100 px-8 py-4 rounded-full text-lg font-bold inline-flex items-center transition-all transform hover:scale-105">
+                    צור קשר להזדמנות השקעה
+                    <i class="fas fa-arrow-left mr-2"></i>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- פוטר -->
+    <footer class="bg-gray-900 border-t border-gray-800 py-12">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="text-xl font-bold gradient-text mb-3">SOS</div>
+                    <p class="text-gray-400 text-sm">
+                        הרשת החברתית המבוזרת של העתיד - משלבת את כל מה שאתה אוהב, בלי החסרונות.
+                    </p>
+                    <div class="flex space-x-4 mt-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-twitter text-lg"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-telegram text-lg"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fab fa-github text-lg"></i>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold mb-3">גלה</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">תכונות</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">מחירים</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">בלוג</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">מדריך למתחילים</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold mb-3">חברה</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">אודותינו</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">קריירה</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">מדיניות פרטיות</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">תנאי שימוש</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold mb-3">תמיכה</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">עזרה</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">שאלות נפוצות</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">צור קשר</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">מדיניות החזרים</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 mt-8 pt-6 text-center text-gray-500 text-xs">
+                <p> 2024 SOS. כל הזכויות שמורות.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- סקריפטים -->
+    <script>
+        // Mobile menu toggle
+        document.getElementById('menu-toggle').addEventListener('click', function() {
+            document.getElementById('mobile-menu').classList.add('active');
+        });
+        
+        document.getElementById('menu-close').addEventListener('click', function() {
+            document.getElementById('mobile-menu').classList.remove('active');
+        });
+        
+        // Close mobile menu when clicking on links
+        document.querySelectorAll('#mobile-menu a').forEach(link => {
+            link.addEventListener('click', function() {
+                document.getElementById('mobile-menu').classList.remove('active');
+            });
+        });
+        
+        // אתחול GSAP ScrollTrigger
+        gsap.registerPlugin(ScrollTrigger);
+        
+        // אנימציה לעיגולים ברקע
+        document.addEventListener('DOMContentLoaded', () => {
+            const nodes = document.querySelectorAll('.network-node');
+            nodes.forEach((node, i) => {
+                const size = 5 + Math.random() * 10;
+                node.style.width = `${size}px`;
+                node.style.height = `${size}px`;
+                node.style.left = `${Math.random() * 100}%`;
+                node.style.top = `${Math.random() * 100}%`;
+                
+                // אנימציה צפה
+                gsap.to(node, {
+                    y: (Math.random() - 0.5) * 40,
+                    duration: 3 + Math.random() * 4,
+                    repeat: -1,
+                    yoyo: true,
+                    ease: "sine.inOut"
+                });
+            });
+            
+            // אנימציה לסקציות
+            gsap.utils.toArray('.scroll-section').forEach(section => {
+                gsap.fromTo(section,
+                    { opacity: 0, y: 50 },
+                    {
+                        opacity: 1,
+                        y: 0,
+                        duration: 0.8,
+                        scrollTrigger: {
+                            trigger: section,
+                            start: "top 80%",
+                            toggleActions: "play none none none"
+                        }
+                    }
+                );
+            });
+            
+            // אנימציה לכרטיסים
+            gsap.utils.toArray('.card').forEach((card, i) => {
+                gsap.fromTo(card,
+                    { opacity: 0, y: 30 },
+                    {
+                        opacity: 1,
+                        y: 0,
+                        duration: 0.5,
+                        delay: i * 0.1,
+                        scrollTrigger: {
+                            trigger: card,
+                            start: "top 90%",
+                            toggleActions: "play none none none"
+                        }
+                    }
+                );
+            });
+            
+            // אנימציה לכותרת ראשית
+            const tl = gsap.timeline();
+            tl.from('h1', { 
+                opacity: 0, 
+                y: -50, 
+                duration: 1,
+                ease: "power3.out"
+            })
+            .from('header p', { 
+                opacity: 0, 
+                y: 20, 
+                duration: 0.8 
+            }, "-=0.5")
+            .from('header .flex', { 
+                opacity: 0, 
+                y: 20, 
+                duration: 0.8 
+            }, "-=0.3");
+            
+            // אנימציה לרשת
+            const networkNodes = document.querySelectorAll('.network-node');
+            networkNodes.forEach((node, i) => {
+                gsap.fromTo(node,
+                    { scale: 0, opacity: 0 },
+                    {
+                        scale: 1,
+                        opacity: 0.8,
+                        duration: 0.5,
+                        delay: 0.5 + (i * 0.1),
+                        ease: "back.out(1.7)"
+                    }
+                );
+            });
+            
+            // גרף השוואת עלויות
+            const ctx = document.getElementById('costChart');
+            if (ctx) {
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['התחלה', 'חודש 1', 'שנה 1', 'שנה 2', 'שנה 3'],
+                        datasets: [{
+                            label: 'SOS (עלות קבועה)',
+                            data: [30, 30, 30, 30, 30],
+                            borderColor: 'rgb(34, 197, 94)',
+                            borderWidth: 2,
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            fill: true,
+                            tension: 0,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }, {
+                            label: 'רשתות מסורתיות (עלות מצטברת)',
+                            data: [0, 1600, 19440, 38880, 58320],
+                            borderColor: 'rgb(239, 68, 68)',
+                            borderWidth: 2,
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#fff',
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'עלות אחסון מצטברת לאורך זמן (ל-100K משתמשים)',
+                                color: '#fff',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#fff',
+                                    font: {
+                                        size: 10
+                                    },
+                                    callback: function(value) {
+                                        if (value >= 1000000) {
+                                            return '$' + value / 1000000 + 'M';
+                                        } else if (value >= 1000) {
+                                            return '$' + value / 1000 + 'K';
+                                        }
+                                        return '$' + value;
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#fff',
+                                    font: {
+                                        size: 10
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // גרף עלויות אחסון
+            const storageCtx = document.getElementById('storageCostChart');
+            if (storageCtx) {
+                new Chart(storageCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['התחלה', 'שנה 1', 'שנה 2', 'שנה 3'],
+                        datasets: [{
+                            label: 'אחסון מצטבר (TB)',
+                            data: [0, 324, 648, 1000],
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'גידול בנפח האחסון',
+                                color: '#fff',
+                                font: { size: 14 }
+                            },
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.raw.toLocaleString() + 'TB';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255,255,255,0.1)' },
+                                ticks: { color: '#9CA3AF' }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: '#9CA3AF' }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // גרף עלויות תעבורה
+            const bandwidthCtx = document.getElementById('bandwidthCostChart');
+            if (bandwidthCtx) {
+                new Chart(bandwidthCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['חודש 1', 'שנה 1', 'שנה 2', 'שנה 3'],
+                        datasets: [{
+                            label: 'עלות תעבורה חודשית',
+                            data: [4500, 4500, 4500, 4500],
+                            backgroundColor: 'rgba(249, 115, 22, 0.7)',
+                            borderColor: 'rgba(249, 115, 22, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'עלויות תעבורת צפיות',
+                                color: '#fff',
+                                font: { size: 14 }
+                            },
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'עלות: $' + context.raw.toLocaleString() + '/חודש';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255,255,255,0.1)' },
+                                ticks: { 
+                                    color: '#9CA3AF',
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: '#9CA3AF' }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // חישוב והצגת טבלת עלויות חודשיות
+            function generateMonthlyData() {
+                const months = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+                const startUsers = 0;
+                const endUsers = 150000;
+                const userGrowthPerMonth = endUsers / 12; // צמיחה ליניארית מ-0 ל-150K
+                
+                const monthlyData = [];
+                let cumulativeStorage = 0;
+                
+                for (let i = 0; i < 12; i++) {
+                    const currentUsers = Math.round(userGrowthPerMonth * (i + 1)); // חודש 1 = 12.5K, חודש 12 = 150K
+                    const dailyVideoMinutes = Math.round(currentUsers * 0.03 * 1); // 3% משתמשים מעלים סרטון ביום
+                    const dailyStorageGB = dailyVideoMinutes * 50 / 1024; // 50MB מקסימום לדקה
+                    const monthlyStorageGB = dailyStorageGB * 30;
+                    cumulativeStorage += monthlyStorageGB;
+                    
+                    // תעבורה: 10 צפיות לכל דקת וידאו
+                    const dailyViewMinutes = dailyVideoMinutes * 10;
+                    const monthlyViewGB = dailyViewMinutes * 50 / 1024 * 30;
+                    
+                    const storageCost = cumulativeStorage * 0.023; // $0.023 ל-GB
+                    const bandwidthCost = monthlyViewGB * 0.09; // $0.09 ל-GB
+                    const totalCost = storageCost + bandwidthCost;
+                    
+                    monthlyData.push({
+                        month: months[i],
+                        users: currentUsers.toLocaleString(),
+                        storageGB: Math.round(cumulativeStorage),
+                        storageCost: Math.round(storageCost),
+                        bandwidthGB: Math.round(monthlyViewGB),
+                        bandwidthCost: Math.round(bandwidthCost),
+                        totalCost: Math.round(totalCost)
+                    });
+                }
+                
+                return monthlyData;
+            }
+            
+            // מילוי הטבלה המפורטת
+            const monthlyData = generateMonthlyData();
+            const tableBody = document.getElementById('monthlyCostTable');
+            if (tableBody) {
+                let totalAnnualCost = 0;
+                monthlyData.forEach((data, index) => {
+                    const row = document.createElement('tr');
+                    row.className = index % 2 === 0 ? 'bg-gray-800/30' : 'bg-gray-800/10';
+                    
+                    // חישוב נתונים מפורטים
+                    const currentUsers = parseInt(data.users.replace(',', ''));
+                    const dailyVideoMinutes = Math.round(currentUsers * 0.03);
+                    const dailyViewMinutes = dailyVideoMinutes * 10;
+                    
+                    row.innerHTML = `
+                        <td class="p-2 text-gray-300">${data.month}</td>
+                        <td class="p-2 text-gray-300">${data.users}</td>
+                        <td class="p-2 text-blue-400">${dailyVideoMinutes.toLocaleString()}</td>
+                        <td class="p-2 text-purple-400">${dailyViewMinutes.toLocaleString()}</td>
+                        <td class="p-2 text-gray-300">${data.storageGB.toLocaleString()}</td>
+                        <td class="p-2 text-red-400 font-semibold">$${data.storageCost.toLocaleString()}</td>
+                        <td class="p-2 text-gray-300">${data.bandwidthGB.toLocaleString()}</td>
+                        <td class="p-2 text-orange-400 font-semibold">$${data.bandwidthCost.toLocaleString()}</td>
+                        <td class="p-2 text-red-300 font-bold">$${data.totalCost.toLocaleString()}</td>
+                    `;
+                    tableBody.appendChild(row);
+                    totalAnnualCost += data.totalCost;
+                });
+                
+                // הוספת שורת סיכום שנתי
+                const summaryRow = document.createElement('tr');
+                summaryRow.className = 'bg-gray-700/50 font-bold';
+                summaryRow.innerHTML = `
+                    <td class="p-2 text-yellow-400" colspan="8">סה"כ שנתי:</td>
+                    <td class="p-2 text-yellow-400">$${Math.round(totalAnnualCost).toLocaleString()}</td>
+                `;
+                tableBody.appendChild(summaryRow);
+                
+                // עדכון הכרטיסים עם הסיכום השנתי
+                const avgMonthlyCost = Math.round(totalAnnualCost / 12);
+                const annualSavings = totalAnnualCost - (30 * 12);
+                const savingsPercent = ((annualSavings / totalAnnualCost) * 100).toFixed(1);
+                
+                // עדכון כרטיס עלות ממוצעת
+                const avgCostElement = document.querySelector('.bg-red-900\\20 .text-2xl');
+                if (avgCostElement) {
+                    avgCostElement.textContent = `$${avgMonthlyCost.toLocaleString()}`;
+                }
+                
+                // עדכון כרטיס חיסכון שנתי
+                const savingsElement = document.querySelector('.bg-blue-900\\20 .text-2xl');
+                if (savingsElement) {
+                    savingsElement.textContent = `$${Math.abs(annualSavings).toLocaleString()}`;
+                }
+                
+                // עדכון אחוז חיסכון
+                const percentElement = savingsElement?.parentElement?.nextElementSibling;
+                if (percentElement) {
+                    percentElement.textContent = `${savingsPercent}% חיסכון בעלויות`;
+                }
+            }
+            
+            // גרף עלויות חודשיות
+            const monthlyCtx = document.getElementById('monthlyCostChart');
+            if (monthlyCtx) {
+                new Chart(monthlyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: monthlyData.map(d => d.month),
+                        datasets: [{
+                            label: 'SOS (עלות קבועה)',
+                            data: Array(12).fill(30),
+                            borderColor: 'rgb(34, 197, 94)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }, {
+                            label: 'עלות אחסון',
+                            data: monthlyData.map(d => d.storageCost),
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }, {
+                            label: 'עלות תעבורה',
+                            data: monthlyData.map(d => d.bandwidthCost),
+                            borderColor: 'rgb(249, 115, 22)',
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }, {
+                            label: 'סה"כ עלות רשת מסורתית',
+                            data: monthlyData.map(d => d.totalCost),
+                            borderColor: 'rgb(168, 85, 247)',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: '#fff',
+                                    font: { size: 12 },
+                                    padding: 15,
+                                    usePointStyle: true
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                borderColor: 'rgba(255, 255, 255, 0.2)',
+                                borderWidth: 1,
+                                padding: 12,
+                                displayColors: true,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': $' + context.raw.toLocaleString();
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#9CA3AF',
+                                    font: { size: 11 },
+                                    callback: function(value) {
+                                        return '$' + (value / 1000).toFixed(0) + 'K';
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    color: '#9CA3AF',
+                                    font: { size: 11 }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // אנימציה לפסי פרטיות
+            const privacyBars = document.querySelectorAll('.privacy-score-fill');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const bar = entry.target;
+                        const width = bar.style.width;
+                        bar.style.width = '0';
+                        setTimeout(() => {
+                            bar.style.width = width;
+                        }, 100);
+                    }
+                });
+            });
+            
+            privacyBars.forEach(bar => observer.observe(bar));
+        });
+        
+        // מעקב אחר גלילה לתפריט
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                header.classList.add('shadow-lg', 'bg-gray-900');
+            } else {
+                header.classList.remove('shadow-lg', 'bg-gray-900');
+            }
+        });
+        
+        // חיבור כפתורי הניווט
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+    
+    <!-- הוספת אנימציות CSS -->
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-10px) translateX(5px); }
+        }
+        .animate-float {
+            animation: float 12s ease-in-out infinite;
+        }
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+            animation-delay: 4s;
+        }
+        
+        /* אנימציה לכרטיסים */
+        .group:hover .group-hover\:animate-float {
+            animation: float 0.3s ease-out forwards;
+        }
+        
+        /* אנימציה לטקסט דולק */
+        .gradient-text {
+            background-size: 200% auto;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradient 3s linear infinite;
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* אנימציה לסרגל התקדמות */
+        @keyframes progress {
+            0% { width: 0; opacity: 0.5; }
+            100% { width: 100%; opacity: 1; }
+        }
+        .progress-bar {
+            animation: progress 1.5s ease-out forwards;
+        }
+    </style>
+</body>
+</html>

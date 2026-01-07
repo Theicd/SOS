@@ -1,0 +1,297 @@
+/* סגנונות לוגו SOS - גרסה משודרגת עם אנימציות אש וכוחל | HYPER CORE TECH */
+/* אופטימיזציה: צמצום אנימציות כבדות לשיפור ביצועים */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+
+.app-logo {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0;
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+.sos-logo {
+  display: flex;
+  gap: 1px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.2rem;
+  line-height: 1;
+  position: relative;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25); /* שקיפות עדינה יותר */
+  /* אופטימיזציה: הורדת blur כבד, שימוש ב-box-shadow קל יותר */
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  height: 36px;
+  align-items: center;
+  direction: ltr; /* מבטיח סדר תווים משמאל לימין גם בסביבת RTL */
+}
+
+.sos-logo::before {
+  /* אופטימיזציה: ביטול אנימציית rotate כבדה, שמירה על גרדיאנט סטטי */
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(0,100,255,0.15) 0%, rgba(0,0,0,0) 60%);
+  z-index: -1;
+}
+
+.sos-char {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 30px;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  z-index: 1;
+  font-size: 1em;
+}
+
+.sos-char::before {
+  /* אופטימיזציה: ביטול אנימציית shine כבדה, שמירה על אפקט סטטי עדין */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.08), transparent);
+  z-index: -1;
+}
+
+.sos-char::after {
+  /* אופטימיזציה: האטת borderGlow ל-8s במקום 4s, פחות עומס */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  padding: 2px;
+  background: linear-gradient(45deg, #00f, #0ff, #f0f, #00f);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: borderGlow 8s linear infinite;
+  background-size: 200% 200%;
+  will-change: background-position;
+}
+
+.sos-char:hover {
+  transform: translateY(-3px) scale(1.05);
+  z-index: 2;
+}
+
+.sos-char.sos-s {
+  /* אופטימיזציה: האטת floatS ל-6s, צמצום text-shadow לשכבה אחת */
+  background: linear-gradient(145deg, #1a1a6b, #0a0a3a);
+  color: #4fc3f7;
+  text-shadow: 0 0 12px #4fc3f7;
+  animation: floatS 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.sos-char.sos-s-alt {
+  /* וריאנט כתום עבור S (להחלפה דינמית) */
+  background: linear-gradient(145deg, #6b1a1a, #3a0a0a);
+  color: #ff6d00;
+  text-shadow: 0 0 12px #ff6d00;
+}
+
+.sos-char.sos-o {
+  /* אופטימיזציה: האטת pulseO ל-4s, צמצום text-shadow לשכבה אחת */
+  background: linear-gradient(145deg, #6b1a1a, #3a0a0a);
+  color: #ff6d00;
+  text-shadow: 0 0 12px #ff6d00;
+  animation: pulseO 4s ease-in-out infinite alternate;
+  position: relative;
+  will-change: transform, box-shadow;
+}
+
+.sos-char.sos-o-alt {
+  /* וריאנט כחול עבור O (להחלפה דינמית) */
+  background: linear-gradient(145deg, #1a1a6b, #0a0a3a);
+  color: #4fc3f7;
+  text-shadow: 0 0 12px #4fc3f7;
+}
+
+/* אופטימיזציה: אנימציות ::before של sos-o בוטלו - יורשים מ-.sos-char::before הסטטי */
+
+/* אנימציית Slot Machine - החלפת טקסט כמו במכונת קזינו | HYPER CORE TECH */
+/* סדר: SOS → 010 → COM (כתובת האתר: SOS010.COM) */
+@keyframes slotSpin {
+  0% { 
+    transform: translateY(0) rotateX(0);
+    opacity: 1;
+  }
+  25% { 
+    transform: translateY(-100%) rotateX(90deg);
+    opacity: 0;
+  }
+  50% { 
+    transform: translateY(100%) rotateX(-90deg);
+    opacity: 0;
+  }
+  75% { 
+    transform: translateY(0) rotateX(0);
+    opacity: 1;
+  }
+  100% { 
+    transform: translateY(0) rotateX(0);
+    opacity: 1;
+  }
+}
+
+/* אפקט הבהוב קצר בעת החלפה */
+@keyframes slotGlow {
+  0%, 100% { 
+    box-shadow: 0 0 8px currentColor;
+  }
+  50% { 
+    box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+  }
+}
+
+/* מחלקה להפעלת אנימציית Slot */
+.sos-char.slot-spinning {
+  animation: slotSpin 0.6s ease-in-out, slotGlow 0.6s ease-in-out !important;
+}
+
+/* עיצוב לתו מספרי (0, 1) */
+.sos-char.sos-num {
+  background: linear-gradient(145deg, #1a4a1a, #0a2a0a);
+  color: #4caf50;
+  text-shadow: 0 0 12px #4caf50;
+}
+
+/* עיצוב לתו C */
+.sos-char.sos-c {
+  background: linear-gradient(145deg, #4a1a4a, #2a0a2a);
+  color: #e040fb;
+  text-shadow: 0 0 12px #e040fb;
+}
+
+/* עיצוב לתו M */
+.sos-char.sos-m {
+  background: linear-gradient(145deg, #4a4a1a, #2a2a0a);
+  color: #ffeb3b;
+  text-shadow: 0 0 12px #ffeb3b;
+}
+
+/* הסלוגן מוסתר */
+.sos-tagline {
+  display: none;
+}
+
+/* אנימציות */
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shine {
+  to {
+    transform: translateX(100%) rotate(45deg);
+  }
+}
+
+@keyframes borderGlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes floatS {
+  /* אופטימיזציה: צמצום תזוזה לאנימציה עדינה יותר */
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes pulseO {
+  /* אופטימיזציה: צמצום שינוי scale וירידה לשכבת shadow אחת */
+  from { 
+    transform: scale(1);
+    box-shadow: 0 0 8px #ff6d00;
+  }
+  to { 
+    transform: scale(1.05);
+    box-shadow: 0 0 18px #ff6d00;
+  }
+}
+
+@keyframes fire {
+  0%, 100% { 
+    background: linear-gradient(45deg, transparent, rgba(255, 150, 50, 0.5), transparent);
+    transform: translateX(-100%) rotate(45deg);
+  }
+  50% { 
+    background: linear-gradient(45deg, transparent, rgba(255, 200, 0, 0.7), transparent);
+    transform: translateX(100%) rotate(45deg);
+  }
+}
+
+@keyframes taglineGlow {
+  from { 
+    box-shadow: 0 0 5px rgba(79, 195, 247, 0.5), 0 0 10px rgba(79, 195, 247, 0.3);
+  }
+  to { 
+    box-shadow: 0 0 15px rgba(255, 109, 0, 0.5), 0 0 25px rgba(255, 109, 0, 0.3);
+  }
+}
+
+/* התאמות למובייל */
+@media (max-width: 768px) {
+  .sos-logo {
+    font-size: 1rem;
+    padding: 2px 4px;
+    gap: 1px;
+    height: 32px;
+  }
+  
+  .sos-char {
+    width: 20px;
+    height: 24px;
+    font-size: 0.8em;
+  }
+}
+
+@media (max-width: 480px) {
+  .sos-logo {
+    font-size: 1.4rem;
+  }
+  
+  .sos-char {
+    width: 28px;
+    height: 38px;
+    font-size: 0.8em;
+  }
+  
+  .sos-tagline {
+    font-size: 0.6rem;
+    padding: 1px 6px;
+  }
+}
+
+/* תמיכה בנגישות: כיבוי אנימציות למשתמשים שמעדיפים פחות תנועה | HYPER CORE TECH */
+@media (prefers-reduced-motion: reduce) {
+  .sos-logo::before,
+  .sos-char::before,
+  .sos-char::after,
+  .sos-char.sos-s,
+  .sos-char.sos-o {
+    animation: none !important;
+  }
+}

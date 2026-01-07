@@ -1,0 +1,84 @@
+
+/* חלק פאנל פרופיל (profile.css) – חלונית צפה כמו צ'אט | HYPER CORE TECH */
+.profile-panel {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-color, #0f111a);
+  z-index: 2000; /* Below primary-nav (2001) so menu is accessible */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.profile-panel[hidden] {
+  display: flex !important;
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.profile-panel.is-open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.profile-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--card-alt, rgba(20, 24, 38, 0.95));
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  backdrop-filter: blur(10px);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.profile-panel__title h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text, #fff);
+}
+
+.profile-panel__close {
+  background: transparent;
+  border: none;
+  color: var(--text, #fff);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.profile-panel__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.profile-panel__content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0; /* Let profile-shell handle padding */
+  width: 100%;
+}
+
+/* Ensure inner shell behaves well in panel */
+.profile-panel .profile-shell {
+  margin-top: 20px;
+  margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+  .profile-panel .profile-shell {
+    padding: 0 12px 80px; /* Extra bottom padding for mobile */
+    margin-top: 0;
+  }
+}

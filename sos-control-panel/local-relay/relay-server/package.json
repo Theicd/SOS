@@ -1,0 +1,14 @@
+{
+  "name": "sos-local-relay",
+  "version": "1.0.0",
+  "description": "SOS Local Nostr Relay Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2",
+    "better-sqlite3": "^9.2.2"
+  }
+}

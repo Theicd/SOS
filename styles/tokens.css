@@ -1,0 +1,106 @@
+/* חלק משתני עיצוב (tokens.css) – CSS Tokens למובייל ו-Safe Area | HYPER CORE TECH */
+
+:root {
+  /* Safe Area tokens - תמיכה ב-Notch ו-Home Indicator */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Touch target - גודל מינימלי לכפתורים */
+  --tap-min: 44px;
+
+  /* App height - פתרון לבעיית 100vh באייפון */
+  --app-height: 100vh;
+
+  /* Spacing tokens */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Font sizes - Mobile first */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+
+  /* Z-index layers */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 110;
+  --z-fixed: 120;
+  --z-modal: 200;
+  --z-toast: 300;
+
+  /* Bottom nav height */
+  --nav-height: 72px;
+}
+
+/* תמיכה ב-dvh לדפדפנים מודרניים */
+@supports (height: 100dvh) {
+  :root {
+    --app-height: 100dvh;
+  }
+}
+
+/* Breakpoints - Mobile First */
+/* xs: 320-359px - default styles */
+/* sm: 360-479px */
+@media (min-width: 360px) {
+  :root {
+    --space-3: 14px;
+    --space-4: 18px;
+  }
+}
+
+/* md: 480-767px */
+@media (min-width: 480px) {
+  :root {
+    --space-4: 20px;
+    --space-5: 28px;
+    --text-base: 1.0625rem;
+  }
+}
+
+/* lg: 768-1023px (tablet) */
+@media (min-width: 768px) {
+  :root {
+    --space-5: 32px;
+    --space-6: 40px;
+    --text-lg: 1.25rem;
+  }
+}
+
+/* xl: 1024+ (desktop) */
+@media (min-width: 1024px) {
+  :root {
+    --nav-height: 0px; /* ניווט בצד בדסקטופ */
+  }
+}
+
+/* חלק מובייל (tokens.css) – Touch-first utilities | HYPER CORE TECH */
+.touch-target {
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+}
+
+.no-tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scroll-smooth {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}

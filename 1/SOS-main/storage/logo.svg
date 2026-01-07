@@ -1,0 +1,18 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- חלק אחסון (logo.svg) – לוגו קומפקטי לממשק האחסון | HYPER CORE TECH -->
+  <defs>
+    <linearGradient id="storage-grad" x1="12" y1="6" x2="84" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4AD2FF" />
+      <stop offset="1" stop-color="#8547FF" />
+    </linearGradient>
+    <radialGradient id="storage-glow" cx="0.5" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#4AD2FF" stop-opacity="0.6" />
+      <stop offset="1" stop-color="#0D1629" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="80" height="80" rx="24" fill="url(#storage-grad)" />
+  <rect x="8" y="8" width="80" height="80" rx="24" fill="url(#storage-glow)" />
+  <path d="M26 30C26 26.6863 28.6863 24 32 24H64C67.3137 24 70 26.6863 70 30V48C70 51.3137 67.3137 54 64 54H60C58.3431 54 57 55.3431 57 57V58C57 60.7614 59.2386 63 62 63H64C67.3137 63 70 65.6863 70 69C70 72.3137 67.3137 75 64 75H34C30.6863 75 28 72.3137 28 69C28 65.6863 30.6863 63 34 63H36C38.7614 63 41 60.7614 41 58V57C41 55.3431 39.6569 54 38 54H32C28.6863 54 26 51.3137 26 48V30Z" fill="#050B16" fill-opacity="0.86" />
+  <path d="M41 43H55" stroke="#4AD2FF" stroke-width="4" stroke-linecap="round" />
+  <path d="M34 33H62" stroke="white" stroke-opacity="0.65" stroke-width="4" stroke-linecap="round" />
+</svg>

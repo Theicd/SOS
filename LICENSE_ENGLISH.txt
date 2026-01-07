@@ -1,0 +1,246 @@
+SOS SOFTWARE LICENSE
+Version 1.0, September 25, 2025
+
+**Note: This is a Source Available License, not an Open Source License. Modification and distribution of modified versions are prohibited. See terms below for details.**
+
+Copyright (c) 2025 HYPER CORE TECH
+All rights reserved.
+
+================================================================================
+                         SOFTWARE LICENSE AGREEMENT
+================================================================================
+
+1. DEFINITIONS
+
+"Software" - The SOS source code, all files, documentation, and associated materials.
+"Developer" - HYPER CORE TECH, the creator of the Software and copyright holder.
+"Operator" - Any entity that installs and operates the Software on their own infrastructure.
+"Site" - Any installation of the Software operated by an Operator.
+"End User" - Any individual who uses a Site operated by an Operator.
+
+================================================================================
+
+2. NATURE OF THE LICENSE
+
+   a) The Software is provided for free use.
+   b) The Developer provides only Software code - not a service or platform.
+   c) The Developer has no users - the users belong to the Operators.
+   d) Each Operator is the full owner of their Site.
+   e) Each Operator is fully responsible for their Site and its users.
+   f) The Developer is not a party to any relationship between an Operator and their End Users.
+
+================================================================================
+
+3. DEVELOPER'S RIGHTS
+
+   a) Full ownership of the source code and copyrights.
+   b) Right to sell, transfer, or assign the Software.
+   c) Right to discontinue providing updates at any time.
+   d) Right to modify the license terms in future versions.
+   e) Changes to license terms will apply only to new versions of the Software, and existing Operators may continue using the version under the original terms they agreed to, unless they choose to update to a new version.
+
+================================================================================
+
+4. OPERATOR'S RIGHTS AND OBLIGATIONS
+
+The Operator is granted:
+
+   a) The right to install and operate the Software.
+   b) Full ownership of the Site they establish.
+   c) Ownership of their domain, hosting, and infrastructure.
+   d) Full responsibility for their users.
+
+The Operator agrees and undertakes:
+
+   e) They are the sole owner and responsible party for their Site.
+   f) They are responsible for all content on their Site.
+   g) They are responsible for all users on their Site.
+   h) They are responsible for compliance with all relevant laws.
+   i) They are responsible for copyright, DMCA, and reporting to authorities.
+   j) The Developer bears no responsibility for their Site.
+
+================================================================================
+
+5. CODE RESTRICTIONS
+
+Prohibited actions:
+
+   a) Modifying the source code.
+   b) Distributing modified versions.
+   c) Removing credit or attribution.
+   d) Claiming ownership of the code.
+   e) Copying the code to another project.
+
+================================================================================
+
+6. ABSOLUTE DISCLAIMER
+
+   a) The Developer provides only Software code.
+   b) The Developer does not operate any Site, service, or platform.
+   c) The Developer is not responsible for any content on any Site using the Software.
+   d) The Developer is not a party to any relationship between an Operator and their End Users.
+   e) The Software is provided AS-IS without any warranty of any kind.
+   f) The Developer does not know the Operators, their Sites, or their users.
+
+================================================================================
+
+7. RESPONSIBILITY FOR CONTENT AND USERS
+
+   a) Each Operator is solely responsible for their Site.
+   b) Each Operator is solely responsible for their users.
+   c) Each Operator is solely responsible for the content on their Site.
+   d) The Developer is not responsible for offensive, illegal, or harmful content.
+   e) The Developer is not responsible for copyright infringements.
+   f) The Developer is not responsible for actions or omissions of Operators.
+
+================================================================================
+
+8. COPYRIGHT AND INFRINGEMENTS - DMCA
+
+   a) Complaints about copyright infringement should be directed to the relevant Site Operator.
+   b) The Developer is not responsible for copyright infringements on Sites.
+   c) Operators are responsible for handling DMCA complaints on their Sites.
+   d) Operators are responsible for removing infringing content from their Sites.
+   e) The Developer is not obligated to act on copyright matters.
+
+================================================================================
+
+9. ILLEGAL CONTENT AND REPORTING TO AUTHORITIES
+
+   a) Operators are responsible for identifying and removing illegal content on their Sites.
+   b) Operators are responsible for reporting to authorities as required by law.
+   c) The Developer does not monitor content and is not obligated to report.
+   d) The Developer is not responsible for criminal content on Sites using the Software.
+   e) The Developer has no access to Operators' Sites.
+
+================================================================================
+
+10. DECENTRALIZED NETWORK - NOSTR PROTOCOL
+
+   a) The Software is based on the decentralized and open Nostr protocol.
+   b) The Developer did not create the Nostr protocol and is not responsible for it.
+   c) Content is stored on a decentralized network not controlled by the Developer.
+   d) Deletion of content is not guaranteed on a decentralized network.
+   e) The Operator understands the nature of the decentralized network and accepts responsibility.
+
+================================================================================
+
+11. PRIVACY & COMPLIANCE
+
+   a) The Operator is solely responsible for compliance with all privacy laws.
+   b) The Operator is responsible for compliance with GDPR (European Union).
+   c) The Operator is responsible for compliance with CCPA (California) and any other regulations.
+   d) The Operator is responsible for creating and publishing a privacy policy for their Site.
+   e) The Operator is responsible for obtaining consents from their users.
+   f) The Operator is responsible for handling data deletion/update requests.
+   g) The Developer does not collect data on End Users and is not responsible for such collection.
+
+================================================================================
+
+12. DATA COLLECTION
+
+   a) The Operator is responsible for all data collection on their Site.
+   b) The Operator is responsible for securing the data of their users.
+   c) The Operator is responsible for notifying users about the type of data collected.
+   d) The Operator is responsible for reporting data breaches to authorities.
+   e) The Developer does not collect, store, or process personal data.
+   f) The Developer is not a party to any privacy agreement between an Operator and their users.
+   g) The Developer has no access to user data on Operators' Sites.
+
+================================================================================
+
+13. SOFTWARE VALUE AND COMMERCIAL USE
+
+   a) The Software is provided for free despite its high value.
+   b) The Operator is permitted to use the Software for commercial purposes.
+   c) The Operator may profit from their Site without payment to the Developer.
+   d) The Operator may sell services, advertising, or subscriptions on their Site.
+   e) The Operator acknowledges that the Software is worth hundreds of thousands of dollars.
+   f) Free use does not grant the Operator any rights over the Software.
+   g) The Operator is responsible for paying taxes on their revenues.
+
+================================================================================
+
+14. OPERATOR INDEPENDENCE
+
+   a) Each Operator is completely independent and manages their own Site.
+   b) The Operator is responsible for their server, hosting, and infrastructure.
+   c) The Operator is responsible for updating the Software on their server.
+   d) The Operator is responsible for backups and security.
+   e) The Operator is responsible for their domain and SSL certificates.
+   f) There is no legal relationship between different Operators.
+   g) There is no legal relationship between the Developer and Operators.
+   h) The Developer does not provide a service - only Software code.
+
+================================================================================
+
+15. LIMITATION OF LIABILITY
+
+   a) Under no circumstances shall the Developer be liable for direct damages in any country or jurisdiction.
+   b) Under no circumstances shall the Developer be liable for indirect damages in any country or jurisdiction.
+   c) Under no circumstances shall the Developer be liable for loss of profits.
+   d) Under no circumstances shall the Developer be liable for loss of data.
+   e) Under no circumstances shall the Developer be liable for damage to reputation.
+   f) Use of the Software is at the Operator's sole risk.
+
+================================================================================
+
+16. INDEMNIFICATION
+
+   a) The Operator agrees to indemnify the Developer against any claims in any country or jurisdiction.
+   b) Indemnification includes claims from the Operator's End Users.
+   c) Indemnification includes claims related to privacy violations and regulatory issues.
+   d) Indemnification includes legal expenses, damages, and defense costs.
+   e) Indemnification applies even after cessation of Software use.
+
+================================================================================
+
+17. WAIVER OF CLAIMS
+
+   a) By installing the Software, the Operator waives the right to sue the Developer.
+   b) The Operator waives the right to class action lawsuits.
+   c) The waiver applies to all types of claims and damages.
+   d) The waiver applies even if the Developer was aware of the possibility of damage.
+
+================================================================================
+
+18. FREE SOFTWARE
+
+   a) The Software is provided free of charge to any user worldwide, regardless of geographic location.
+   b) There is no commitment to updates or fixes.
+   c) There is no commitment to technical support.
+   d) There is no commitment to compatibility or quality.
+   e) The Developer may cease development at any time.
+   f) There is no right to compensation for bugs or issues.
+
+================================================================================
+
+19. TERMINATION
+
+   a) The license terminates automatically upon violation of the terms.
+   b) Upon termination, the Operator must cease using the Software.
+   c) The Developer reserves the right to revoke the license for a specific Operator.
+   d) Termination of the license does not affect existing data or Sites of the Operator, but continued use of the Software code is prohibited.
+   e) The Operator is responsible for backing up their data before ceasing use of the Software.
+
+================================================================================
+
+20. APPLICABLE LAW
+
+This license is subject to relevant international laws.
+Jurisdiction shall be determined based on the Operator's place of residence or by agreement between the parties.
+
+================================================================================
+
+21. PATENT CLAIMS
+
+   a) The Developer grants a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Software.
+   b) This patent license applies to all patents owned or controlled by the Developer that are necessarily infringed by the Software.
+   c) If any entity institutes patent litigation against the Operator for using the Software, then any patent licenses granted to that entity under this agreement shall terminate as of the date such litigation is filed.
+
+================================================================================
+
+For contact, commercial licensing, or inquiries:
+GitHub: https://github.com/THEICD
+
+HYPER CORE TECH 2025

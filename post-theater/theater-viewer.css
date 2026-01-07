@@ -1,0 +1,150 @@
+/* מודול: Theater Viewer - עיצוב מסך תיאטרון לפוסט (עצמאי) */
+/* שכבת מסך מלאה */
+.ptv-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  display: none;
+  z-index: 9999;
+  color: #e6e6e6;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+.ptv-overlay.ptv-open { display: grid; }
+.ptv-overlay.ptv-open.ptv-mobile { display: flex; flex-direction: column; }
+
+/* פריסת שתי עמודות: טקסט/פעולות/תגובות משמאל, מדיה מימין (ב-RTL זה הפוך ויזואלית) */
+.ptv-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 480px) 1fr;
+  gap: 0;
+  height: 100vh;
+}
+.ptv-overlay.ptv-mobile .ptv-layout {
+  display: flex;
+  flex-direction: column-reverse;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* פאנל שמאלי: גלילה עצמאית לטקסט ותגובות */
+.ptv-side {
+  background: #1f1f1f;
+  height: 100vh;
+  overflow: auto;
+  border-inline-end: 1px solid #2a2a2a;
+}
+.ptv-overlay.ptv-mobile .ptv-side {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-inline-end: none;
+  border-block-start: 1px solid #2a2a2a;
+}
+
+/* אזור מדיה ימני: תמונה/וידאו ממורכזים */
+.ptv-media {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ptv-overlay.ptv-mobile .ptv-media {
+  height: 45vh;
+  flex-shrink: 0;
+  padding: 12px;
+  background: #000;
+}
+.ptv-media img, .ptv-media video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.ptv-overlay.ptv-mobile .ptv-media img,
+.ptv-overlay.ptv-mobile .ptv-media video,
+.ptv-overlay.ptv-mobile .ptv-media iframe {
+  border-radius: 0;
+  width: 100%;
+  height: auto;
+}
+.ptv-overlay.ptv-mobile .ptv-media iframe {
+  aspect-ratio: 16 / 9;
+}
+
+/* כפתור סגירה */
+.ptv-close {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  display: grid; place-items: center;
+  cursor: pointer;
+}
+.ptv-overlay.ptv-mobile .ptv-close {
+  top: 8px;
+  inset-inline-end: 8px;
+}
+.ptv-close:hover { background: rgba(0,0,0,0.75); }
+
+/* תוכן הפאנל */
+.ptv-header { display: flex; align-items: center; gap: 10px; padding: 16px; }
+.ptv-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.ptv-name { font-weight: 600; color: #fff; }
+.ptv-time { color: #aaa; font-size: 12px; }
+
+.ptv-text { white-space: pre-wrap; padding: 0 16px 12px; line-height: 1.55; color: #e6e6e6; }
+.ptv-overlay.ptv-mobile .ptv-text { padding-inline: 12px; }
+
+/* סטטיסטיקות */
+.ptv-stats { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; color: #c7c7c7; font-size: 14px; border-block: 1px solid #2a2a2a; }
+.ptv-overlay.ptv-mobile .ptv-stats {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  flex-wrap: nowrap;
+}
+
+/* פעולות: 3 טורים שווים */
+.ptv-actions { display: grid; grid-template-columns: repeat(3, 1fr); border-block-end: 1px solid #2a2a2a; }
+.ptv-overlay.ptv-mobile .ptv-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ptv-action { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 6px; color: #d5d5d5; cursor: pointer; background: transparent; border: none; }
+.ptv-overlay.ptv-mobile .ptv-action { padding-block: 12px; font-size: 14px; }
+.ptv-action:hover { background: #2a2a2a; }
+.ptv-overlay.ptv-mobile .ptv-action:hover { background: #2d2d2d; }
+
+/* תגובות */
+.ptv-comments { padding: 12px 12px 80px; display: grid; gap: 10px; }
+.ptv-overlay.ptv-mobile .ptv-comments { padding: 12px; max-height: none; }
+.ptv-comment { display: grid; grid-template-columns: 36px 1fr; gap: 8px; }
+.ptv-comment .ptv-comment-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.ptv-comment .ptv-comment-bubble { background: #2a2a2a; border-radius: 12px; padding: 10px 12px; }
+.ptv-comment .ptv-comment-name { font-weight: 600; color: #fff; font-size: 13px; }
+.ptv-comment .ptv-comment-text { color: #e3e3e3; font-size: 14px; margin-top: 2px; }
+.ptv-comment .ptv-comment-time { color: #a5a5a5; font-size: 12px; margin-top: 4px; }
+
+/* שורת הוספת תגובה */
+.ptv-reply { position: sticky; bottom: 0; background: #1f1f1f; padding: 12px; border-top: 1px solid #2a2a2a; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.ptv-overlay.ptv-mobile .ptv-reply {
+  position: sticky;
+  bottom: 0;
+  border-top: 1px solid #2a2a2a;
+  padding: 10px 12px;
+  grid-template-columns: 1fr 64px;
+}
+.ptv-reply input { background: #2a2a2a; border: 1px solid #3a3a3a; color: #fff; border-radius: 20px; padding: 10px 12px; }
+.ptv-overlay.ptv-mobile .ptv-reply input { font-size: 15px; }
+.ptv-reply button { background: #3b82f6; color: #fff; border: none; border-radius: 20px; padding: 10px 16px; cursor: pointer; }
+.ptv-overlay.ptv-mobile .ptv-reply button { border-radius: 16px; padding: 10px 12px; font-weight: 600; }
+.ptv-reply button:hover { background: #2563eb; }
+
+/* כפתור דמו */
+.demo-btn { position: fixed; top: 16px; inset-inline-start: 16px; z-index: 10; padding: 10px 14px; border-radius: 8px; border: 1px solid #2a2a2a; background: #1f1f1f; color: #e6e6e6; cursor: pointer; }
+.demo-btn:hover { background: #2a2a2a; }

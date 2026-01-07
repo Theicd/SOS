@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SOS Dating</title>
+    <!-- חלק משאבי עיצוב (dating.html) – נטען ספריות בסיסיות כמו בפיד הראשי כדי לשמור על אחידות גרפית -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="./styles/facebook-theme.css" />
+    <link rel="stylesheet" href="./styles/logo.css" />
+    <link rel="stylesheet" href="./styles/dating.css" />
+  </head>
+  <body class="dating-page">
+    <!-- חלק שכבת פתיחה (dating.html) – מסך פתיחה המסביר על הממשק לפני הצגת הכרטיס -->
+    <section class="dating-intro" id="datingIntroOverlay" aria-labelledby="datingIntroTitle">
+      <div class="dating-intro__backdrop" aria-hidden="true"></div>
+      <div class="dating-intro__dialog" role="dialog" aria-modal="true">
+        <div class="dating-intro__header" aria-hidden="true">
+          <h1 class="dating-intro__title" id="datingIntroTitle">ברוכים הבאים</h1>
+        </div>
+        <p class="dating-intro__lead">
+          לפני שמתחילים, הנה תקציר קצר על חוויית ההכרויות – החלק ימינה ללייק, שמאלה לדילוג.
+        </p>
+        <ul class="dating-intro__steps" aria-label="הוראות שימוש לממשק">
+          <li>
+            <strong>לייק</strong> – אם שני הצדדים שלחו לייק תקבל/י הודעת התאמה.
+          </li>
+          <li>
+            <strong>דלג</strong> – כפתור ה-X יחזיר את המועמד לסוף הרשימה כדי שתוכל/י לפגוש אותו שוב בהמשך.
+          </li>
+          <li>
+            <strong>בטיחות</strong> – שמרו על פרטיותכם, דווחו על משתמשים חשודים, וזכרו שתמיד תוכלו לנתק קשר.
+          </li>
+        </ul>
+        <div class="dating-intro__actions">
+          <button class="dating-intro__start" type="button" id="datingIntroStartButton">יאללה, בואו נתחיל</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- חלק כותרת ראשית (dating.html) – פס עליון אחיד עם SOS והניווט -->
+    <header class="top-bar top-bar--profile">
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__refresh" id="datingRefreshButton" type="button" aria-label="רענון רשימת ההכרויות">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+      <div class="top-bar__title" id="datingTopTitle">
+        <span class="top-bar__title-inner">
+          <i class="fa-solid fa-heart-pulse" aria-hidden="true"></i>
+          <span>ההכרויות של SOS</span>
+        </span>
+      </div>
+      <div class="top-bar__actions top-bar__actions--profile">
+        <button class="circle-button top-bar__home" id="datingBackButton" type="button" aria-label="חזרה לדף הראשי">
+          <i class="fa-solid fa-house"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- חלק גוף הדף (dating.html) – מעטפת שמחזיקה את כרטיס ההכרויות או הודעת הריקון -->
+    <main class="dating-content">
+      <article class="dating-card" id="datingCard" hidden>
+        <div class="dating-card__image">
+          <!-- שכבת Placeholder לברכת פתיחה בזמן טעינת תמונה -->
+          <div class="dating-card__placeholder" id="datingCardPlaceholder" hidden>
+            <div class="dating-card__placeholder-content">
+              <div class="dating-loader" role="status" aria-live="polite">
+                <div class="dating-loader__spinner" aria-hidden="true"></div>
+                <div class="dating-loader__text">טוען פרופיל...</div>
+              </div>
+              <h2>ברוך הבא להכרויות!</h2>
+              <p>אנא המתן/י מספר שניות עד שהתמונה תעלה</p>
+            </div>
+          </div>
+          <img id="datingCardImage" alt="תמונת פרופיל" />
+        </div>
+        <div class="dating-card__info">
+          <div class="dating-card__name" id="datingCardName">משתמש</div>
+          <div class="dating-card__bio" id="datingCardBio">ביוגרפיה קצרה של המשתמש תופיע כאן.</div>
+          <div class="dating-card__meta" id="datingCardMeta"></div>
+          <div class="dating-card__tags" id="datingCardTags"></div>
+        </div>
+        <div class="dating-actions">
+          <button class="dating-action dating-action--pass" id="datingPassButton" type="button">
+            <i class="fa-solid fa-xmark"></i>
+            דילוג
+          </button>
+          <button class="dating-action dating-action--like" id="datingLikeButton" type="button">
+            <i class="fa-solid fa-heart"></i>
+            לייק
+          </button>
+        </div>
+      </article>
+
+      <div class="dating-empty" id="datingEmpty">
+        <i class="fa-solid fa-heart-crack"></i>
+        <p>לא נמצאו כרגע מועמדים חדשים. נסה לרענן בעוד מספר דקות.</p>
+      </div>
+    </main>
+
+    <!-- חלק טוסטים (dating.html) – הודעה צפה עבור התאמה חדשה או סטטוס משמעותי -->
+    <div class="dating-toast" id="datingToast">
+      <i class="fa-solid fa-heart-circle-check" aria-hidden="true"></i>
+      <div class="dating-toast__text" id="datingToastText">יש התאמה!</div>
+    </div>
+
+    <!-- חלק סקריפטים (dating.html) – טוען את תשתית הנוסטר וכלי העזר הדרושים לדף ההכרויות -->
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./config.js"></script>
+    <script src="./utils.js"></script>
+    <script src="./key-utils.js"></script>
+    <script src="./keys.js"></script>
+    <script src="./dating.js"></script>
+  </body>
+</html>

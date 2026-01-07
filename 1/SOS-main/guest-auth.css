@@ -1,0 +1,282 @@
+/* =======================
+   עיצוב חלון התחברות / הרשמה למצב אורח (guest-auth.css) – Guest Auth Styling | HYPER CORE TECH
+   קובץ CSS זה מעצב את המודאל בסגנון טיקטוק - נקי, מודרני ונעים לעין
+   ======================= */
+
+/* רקע המודאל */
+#guestAuthModal.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(8px);
+  direction: rtl;
+}
+
+/* תוכן המודאל */
+#guestAuthModal .modal-content {
+  background: #1a1a2e;
+  color: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* כפתור סגירה */
+#guestAuthModal .modal-close {
+  transition: transform 0.2s, color 0.2s;
+  color: #ffffff;
+}
+
+#guestAuthModal .modal-close:hover {
+  transform: scale(1.1);
+  color: #ff6b6b;
+}
+
+/* כותרות */
+#guestAuthModal h2 {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* פסקאות */
+#guestAuthModal p {
+  color: #b0b0b0;
+}
+
+/* שלבים */
+.auth-step {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* שדות קלט */
+#guestAuthModal input[type="email"],
+#guestAuthModal input[type="text"],
+#guestAuthModal textarea {
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #0f0f1e;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  direction: rtl;
+  text-align: right;
+}
+
+.auth-legal-block {
+  text-align: right;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.auth-legal-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  color: #e5e5f7;
+  font-size: 14px;
+  line-height: 1.5;
+  direction: rtl;
+  text-align: right;
+}
+
+.auth-legal-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: #667eea;
+}
+
+.auth-legal-checkbox a {
+  color: #8ec5ff;
+  text-decoration: underline;
+}
+
+.auth-legal-note {
+  font-size: 13px;
+  color: #a0a0c5;
+  margin: 8px 0 0;
+}
+
+#guestAuthModal input[type="email"]::placeholder,
+#guestAuthModal input[type="text"]::placeholder,
+#guestAuthModal textarea::placeholder {
+  color: #666;
+}
+
+#guestAuthModal input[type="email"]:focus,
+#guestAuthModal input[type="text"]:focus,
+#guestAuthModal textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+  background: #16162a;
+}
+
+/* כפתורים */
+#guestAuthModal .button-primary,
+#guestAuthModal .button-secondary {
+  transition: all 0.2s;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-size: 15px;
+}
+
+#guestAuthModal .button-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+#guestAuthModal .button-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+#guestAuthModal .button-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#guestAuthModal .button-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#guestAuthModal .button-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* תצוגת אווטר */
+#avatarPreview {
+  transition: border-color 0.3s;
+}
+
+#avatarPreview:hover {
+  border-color: #667eea !important;
+}
+
+/* תיבת אישור */
+#keyConfirmCheckbox {
+  accent-color: #667eea;
+}
+
+/* הודעות סטטוס */
+#loginStatus,
+#emailStatus,
+#nameStatus,
+#avatarStatus,
+#keyStatus {
+  min-height: 20px;
+  font-size: 14px;
+  transition: color 0.2s;
+  text-align: center;
+}
+
+/* צבעי סטטוס */
+.status-error {
+  color: #ff6b6b !important;
+}
+
+.status-success {
+  color: #51cf66 !important;
+}
+
+/* כפתורי חזרה */
+#btnBackFromLogin,
+#btnBackFromEmail,
+#btnBackFromName,
+#btnBackFromAvatar {
+  transition: transform 0.2s, color 0.2s;
+  color: #ffffff;
+  opacity: 0.8;
+}
+
+#btnBackFromLogin:hover,
+#btnBackFromEmail:hover,
+#btnBackFromName:hover,
+#btnBackFromAvatar:hover {
+  transform: translateX(3px);
+  opacity: 1;
+  color: #667eea;
+}
+
+/* Responsive */
+@media (max-width: 500px) {
+  #guestAuthModal .modal-content {
+    max-width: 95% !important;
+    padding: 20px !important;
+    margin: 10px;
+  }
+  
+  #guestAuthModal h2 {
+    font-size: 20px !important;
+  }
+  
+  #avatarPreview {
+    width: 100px !important;
+    height: 100px !important;
+  }
+}
+
+/* אנימציה לכפתורים */
+#guestAuthModal button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Scrollbar styling */
+#guestAuthModal .modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+#guestAuthModal .modal-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+#guestAuthModal .modal-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+#guestAuthModal .modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

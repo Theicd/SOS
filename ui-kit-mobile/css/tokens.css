@@ -1,0 +1,246 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOKENS.CSS - Design Tokens for Mobile-First UI Kit
+   Safe Areas, Touch Targets, Dynamic Viewport, Colors, Typography, Spacing
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ─────────────────────────────────────────────────────────────────────────
+       SAFE AREA INSETS (iOS Notch, Android Cutouts, Home Indicator)
+       ───────────────────────────────────────────────────────────────────────── */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       TOUCH TARGETS (WCAG 2.1 AAA: 44px minimum)
+       ───────────────────────────────────────────────────────────────────────── */
+    --tap-min: 44px;
+    --tap-comfortable: 48px;
+    --tap-large: 56px;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       DYNAMIC VIEWPORT HEIGHT (iOS Safari 100vh bug fix)
+       Will be updated by JavaScript to actual viewport height
+       ───────────────────────────────────────────────────────────────────────── */
+    --app-height: 100vh;
+    --app-height-dynamic: 100dvh;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       SPACING SCALE (8px base grid)
+       ───────────────────────────────────────────────────────────────────────── */
+    --space-0: 0;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 32px;
+    --space-8: 40px;
+    --space-9: 48px;
+    --space-10: 64px;
+    --space-11: 80px;
+    --space-12: 96px;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       TYPOGRAPHY SCALE (Mobile-optimized)
+       ───────────────────────────────────────────────────────────────────────── */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    --font-family-hebrew: 'Heebo', 'Rubik', 'Assistant', var(--font-family);
+    --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+
+    /* Font Sizes - Mobile First */
+    --text-xs: 0.6875rem;    /* 11px */
+    --text-sm: 0.75rem;      /* 12px */
+    --text-base: 0.875rem;   /* 14px */
+    --text-md: 1rem;         /* 16px */
+    --text-lg: 1.125rem;     /* 18px */
+    --text-xl: 1.25rem;      /* 20px */
+    --text-2xl: 1.5rem;      /* 24px */
+    --text-3xl: 1.875rem;    /* 30px */
+    --text-4xl: 2.25rem;     /* 36px */
+
+    /* Line Heights */
+    --leading-none: 1;
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
+    --leading-loose: 2;
+
+    /* Font Weights */
+    --weight-light: 300;
+    --weight-normal: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       BORDER RADIUS
+       ───────────────────────────────────────────────────────────────────────── */
+    --radius-none: 0;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-2xl: 24px;
+    --radius-full: 9999px;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       SHADOWS (Optimized for mobile performance)
+       ───────────────────────────────────────────────────────────────────────── */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.25);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       Z-INDEX SCALE
+       ───────────────────────────────────────────────────────────────────────── */
+    --z-below: -1;
+    --z-base: 0;
+    --z-raised: 10;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-fixed: 300;
+    --z-header: 400;
+    --z-nav: 500;
+    --z-overlay: 600;
+    --z-modal: 700;
+    --z-popover: 800;
+    --z-toast: 900;
+    --z-tooltip: 1000;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       TRANSITIONS (Respect reduced motion)
+       ───────────────────────────────────────────────────────────────────────── */
+    --duration-instant: 0ms;
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 400ms;
+
+    --ease-linear: linear;
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       LAYOUT CONSTANTS
+       ───────────────────────────────────────────────────────────────────────── */
+    --header-height: 56px;
+    --bottom-nav-height: 56px;
+    --sidebar-width: 280px;
+    --content-max-width: 1200px;
+    --card-max-width: 400px;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       ASPECT RATIOS
+       ───────────────────────────────────────────────────────────────────────── */
+    --ratio-square: 1 / 1;
+    --ratio-video: 16 / 9;
+    --ratio-portrait: 3 / 4;
+    --ratio-story: 9 / 16;
+    --ratio-golden: 1.618 / 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK THEME (Default)
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+    /* Background Colors */
+    --bg-app: #0a0a0f;
+    --bg-surface: #12121a;
+    --bg-elevated: #1a1a25;
+    --bg-overlay: rgba(0, 0, 0, 0.7);
+    --bg-hover: rgba(255, 255, 255, 0.05);
+    --bg-active: rgba(255, 255, 255, 0.1);
+
+    /* Text Colors */
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-tertiary: rgba(255, 255, 255, 0.5);
+    --text-disabled: rgba(255, 255, 255, 0.3);
+    --text-inverse: #0a0a0f;
+
+    /* Border Colors */
+    --border-default: rgba(255, 255, 255, 0.1);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --border-strong: rgba(255, 255, 255, 0.2);
+
+    /* Accent Colors */
+    --accent-primary: #6366f1;
+    --accent-primary-hover: #818cf8;
+    --accent-primary-active: #4f46e5;
+    --accent-secondary: #a855f7;
+    --accent-success: #22c55e;
+    --accent-warning: #f59e0b;
+    --accent-error: #ef4444;
+    --accent-info: #3b82f6;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-accent: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+    /* Background Colors */
+    --bg-app: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-overlay: rgba(0, 0, 0, 0.5);
+    --bg-hover: rgba(0, 0, 0, 0.04);
+    --bg-active: rgba(0, 0, 0, 0.08);
+
+    /* Text Colors */
+    --text-primary: #0f172a;
+    --text-secondary: rgba(15, 23, 42, 0.7);
+    --text-tertiary: rgba(15, 23, 42, 0.5);
+    --text-disabled: rgba(15, 23, 42, 0.3);
+    --text-inverse: #ffffff;
+
+    /* Border Colors */
+    --border-default: rgba(0, 0, 0, 0.1);
+    --border-subtle: rgba(0, 0, 0, 0.05);
+    --border-strong: rgba(0, 0, 0, 0.2);
+
+    /* Accent Colors */
+    --accent-primary: #4f46e5;
+    --accent-primary-hover: #6366f1;
+    --accent-primary-active: #4338ca;
+    --accent-secondary: #9333ea;
+    --accent-success: #16a34a;
+    --accent-warning: #d97706;
+    --accent-error: #dc2626;
+    --accent-info: #2563eb;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-accent: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DYNAMIC VIEWPORT FALLBACKS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Modern browsers that support dvh */
+@supports (height: 100dvh) {
+    :root {
+        --app-height: 100dvh;
+    }
+}
+
+/* Fallback for browsers that support svh */
+@supports (height: 100svh) {
+    :root {
+        --app-height-small: 100svh;
+        --app-height-large: 100lvh;
+    }
+}

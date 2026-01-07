@@ -1,0 +1,545 @@
+/* חלק עיצוב (market-dashboard.css) – מגדיר את שכבת גידול הרשת בסגנון לוח מסחר */
+:root {
+  --growth-bg: rgba(16, 18, 27, 0.92);
+  --growth-panel: rgba(30, 33, 45, 0.96);
+  --growth-border: rgba(255, 255, 255, 0.08);
+  --growth-primary: #4fd1c5;
+  --growth-primary-glow: rgba(79, 209, 197, 0.3);
+  --growth-danger: #ff6b6b;
+  --growth-success: #63e6be;
+  --growth-text: #f8fafc;
+  --growth-muted: #9ba3be;
+  --growth-accent: #8f9bff;
+}
+
+/* חלק עיצוב (market-dashboard.css) – מעטפת כללית של חלון הגידול */
+.growth-dashboard {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: none;
+  direction: rtl;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.growth-dashboard.is-open {
+  display: block;
+}
+
+/* חלק עיצוב (market-dashboard.css) – רקע כהה עם טשטוש לסגירה */
+.growth-dashboard__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--growth-bg);
+  backdrop-filter: blur(12px);
+  animation: growthFadeIn 320ms ease forwards;
+}
+
+/* חלק עיצוב (market-dashboard.css) – פאנל מרכזי מעוגל */
+.growth-dashboard__panel {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  width: min(940px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--growth-panel-bg);
+  border-radius: 26px;
+  box-shadow: 0 40px 90px rgba(14, 18, 34, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  animation: growthSlideUp 360ms ease forwards;
+}
+
+/* חלק עיצוב (market-dashboard.css) – כותרת עליונה עם תצוגה חיה */
+.growth-dashboard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--growth-border);
+}
+
+.growth-dashboard__title {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  color: var(--growth-text);
+}
+
+.growth-dashboard__title i {
+  font-size: 1.8rem;
+  color: var(--growth-primary);
+  filter: drop-shadow(0 0 18px var(--growth-primary-glow));
+}
+
+.growth-dashboard__title h2 {
+  margin: 0;
+  font-size: 1.26rem;
+  letter-spacing: 0.3px;
+}
+
+.growth-dashboard__title p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--growth-muted);
+}
+
+.growth-dashboard__close {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: var(--growth-text);
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.growth-dashboard__close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(1.06);
+}
+
+/* חלק עיצוב (market-dashboard.css) – לשוניות ניווט */
+.growth-dashboard__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 16px 24px 12px;
+  background: rgba(15, 15, 24, 0.35);
+}
+
+.growth-dashboard__tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: var(--growth-muted);
+  font-size: 0.85rem;
+  padding: 10px 0;
+  cursor: pointer;
+  transition: color 0.25s ease, border 0.25s ease, background 0.25s ease;
+}
+
+.growth-dashboard__tab.is-active {
+  color: var(--growth-text);
+  border: 1px solid var(--growth-primary);
+  background: rgba(79, 209, 197, 0.12);
+  box-shadow: 0 0 24px rgba(79, 209, 197, 0.25);
+}
+
+/* חלק עיצוב (market-dashboard.css) – אזור תוכן ראשי */
+.growth-dashboard__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 28px;
+  display: grid;
+  gap: 22px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(79, 209, 197, 0.4) rgba(23, 27, 38, 0.6);
+}
+
+/* חלק עיצוב (market-dashboard.css) – התאמת פס גלילה תואם מותג */
+.growth-dashboard__content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.growth-dashboard__content::-webkit-scrollbar-track {
+  background: rgba(15, 17, 26, 0.55);
+  border-radius: 12px;
+}
+
+.growth-dashboard__content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(79, 209, 197, 0.75), rgba(143, 155, 255, 0.65));
+  border-radius: 12px;
+}
+
+.growth-dashboard__content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(79, 209, 197, 0.95), rgba(143, 155, 255, 0.85));
+}
+
+.growth-dashboard__section {
+  display: grid;
+  gap: 18px;
+}
+
+.growth-dashboard__section.is-hidden {
+  display: none;
+}
+
+/* חלק עיצוב (market-dashboard.css) – מדדי סקירה עם כרטיסים זוהרים */
+.growth-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.growth-metric {
+  position: relative;
+  padding: 18px 16px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(35, 40, 55, 0.9), rgba(19, 22, 33, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--growth-text);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.growth-metric::after {
+  content: "";
+  position: absolute;
+  inset: auto -30% -50% auto;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79, 209, 197, 0.28) 0%, transparent 70%);
+  transform: translate(30%, 20%);
+}
+
+.growth-metric:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 45px rgba(29, 92, 120, 0.35);
+}
+
+.growth-metric__label {
+  font-size: 0.82rem;
+  color: var(--growth-muted);
+}
+
+.growth-metric__value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.growth-metric__trend {
+  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--growth-muted);
+}
+
+.growth-metric__trend[data-trend="up"] {
+  color: var(--growth-success);
+  background: rgba(99, 230, 190, 0.12);
+}
+
+.growth-metric__trend[data-trend="down"] {
+  color: var(--growth-danger);
+  background: rgba(255, 107, 107, 0.12);
+}
+
+/* חלק עיצוב (market-dashboard.css) – גרף מגמה דומה למנייה */
+.growth-chart {
+  position: relative;
+  padding: 22px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(27, 32, 45, 0.95), rgba(16, 18, 27, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(79, 209, 197, 0.1);
+}
+
+.growth-chart__ranges {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(14, 18, 34, 0.72);
+  border: 1px solid rgba(79, 209, 197, 0.18);
+  position: absolute;
+  top: 16px;
+  inset-inline-end: 16px;
+  z-index: 2;
+  box-shadow: 0 12px 24px rgba(20, 30, 45, 0.35);
+}
+
+.growth-chart__range-button {
+  border: none;
+  background: transparent;
+  color: var(--growth-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.growth-chart__range-button:hover,
+.growth-chart__range-button:focus-visible {
+  color: var(--growth-text);
+  background: rgba(79, 209, 197, 0.16);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.growth-chart__range-button.is-active {
+  color: var(--growth-text);
+  background: rgba(79, 209, 197, 0.32);
+  box-shadow: 0 0 16px rgba(79, 209, 197, 0.35);
+}
+
+.growth-chart__range-button.is-active::after {
+  content: '';
+  display: block;
+  height: 2px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(79, 209, 197, 0.75), rgba(143, 155, 255, 0.6));
+}
+
+.growth-chart::before {
+  content: "";
+  position: absolute;
+  inset: 12px 16px auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(79, 209, 197, 0.3), transparent);
+}
+
+/* חלק עיצוב (market-dashboard.css) – פעילות זמן אמת */
+.growth-activity {
+  display: grid;
+  gap: 12px;
+}
+
+.growth-activity__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(20, 24, 36, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--growth-text);
+  animation: growthPulse 1.6s ease infinite;
+}
+
+.growth-activity__item:nth-child(even) {
+  animation-delay: 0.25s;
+}
+
+.growth-activity__label {
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.growth-activity__value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--growth-accent);
+}
+
+/* חלק עיצוב (market-dashboard.css) – מובילי רשת */
+.growth-leaders {
+  display: grid;
+  gap: 12px;
+}
+
+.growth-leader {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, rgba(23, 27, 38, 0.92), rgba(18, 20, 30, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--growth-text);
+}
+
+.growth-leader__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.growth-leader__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.growth-leader__avatar-fallback {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--growth-muted);
+}
+
+.growth-leader__badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(79, 209, 197, 0.18);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  color: var(--growth-primary);
+}
+
+.growth-leader__meta h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.growth-leader__meta span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--growth-muted);
+}
+
+.growth-leader__stat {
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--growth-accent);
+}
+
+/* חלק עיצוב (market-dashboard.css) – סרגל תחתון */
+.growth-dashboard__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid var(--growth-border);
+  background: rgba(15, 17, 26, 0.9);
+}
+
+.growth-dashboard__status {
+  font-size: 0.82rem;
+  color: var(--growth-muted);
+}
+
+.growth-dashboard__actions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.growth-dashboard__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--growth-muted);
+}
+
+.growth-dashboard__toggle input {
+  accent-color: var(--growth-primary);
+  transform: scale(1.1);
+}
+
+.growth-dashboard__refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, rgba(79, 209, 197, 0.18), rgba(143, 155, 255, 0.22));
+  color: var(--growth-text);
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.growth-dashboard__refresh:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(111, 125, 255, 0.3);
+}
+
+.growth-dashboard__contracts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(111, 125, 255, 0.32);
+  background: linear-gradient(140deg, rgba(35, 40, 55, 0.92), rgba(17, 20, 32, 0.9));
+  color: var(--growth-text);
+  cursor: pointer;
+  box-shadow: 0 14px 26px rgba(17, 22, 36, 0.45);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.growth-dashboard__contracts i {
+  color: var(--growth-primary);
+}
+
+.growth-dashboard__contracts:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 36px rgba(17, 22, 36, 0.55);
+}
+
+/* חלק עיצוב (market-dashboard.css) – התאמות מובייל */
+@media (max-width: 540px) {
+  .growth-dashboard__panel {
+    width: 100vw;
+    height: 100vh;
+    max-height: none;
+    border-radius: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .growth-dashboard__header {
+    padding: 16px 18px;
+  }
+
+  .growth-dashboard__tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px 16px 10px;
+  }
+
+  .growth-dashboard__content {
+    padding: 16px;
+  }
+
+  .growth-chart {
+    padding: 18px 14px;
+  }
+
+  .growth-metric {
+    padding: 16px 14px;
+  }
+}
+
+/* חלק עיצוב (market-dashboard.css) – אנימציות */
+@keyframes growthFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes growthSlideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes growthPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 209, 197, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(79, 209, 197, 0);
+  }
+}

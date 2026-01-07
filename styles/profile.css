@@ -1,0 +1,2244 @@
+/* חלק מעטפת כללית (profile.css) – התאמות צבעים ל-facebook-theme */
+/* הגוף נשלט על ידי profile-videos-theme כדי לשמור על אחידות עם פיד הווידיאו */
+
+/* כלל תשתיתי – מבטיח שכל אלמנט עם [hidden] יישאר מוסתר גם אם יש כללי display אחרים */
+[hidden] {
+  display: none !important;
+}
+
+/* חלק התאמות מובייל מתקדמות (profile.css) – מבנה קומפקטי למסכים צרים */
+@media (max-width: 768px) {
+  .profile-header {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 12px;
+  }
+
+  .profile-header__left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .profile-header__search {
+    flex: 1;
+    min-width: 0;
+    margin-inline-start: 12px;
+  }
+
+  .profile-header__nav {
+    order: 3;
+    justify-content: flex-start;
+    gap: 12px;
+    padding-top: 8px;
+    overflow-x: auto;
+  }
+
+  .profile-header__nav-item {
+    width: 38px;
+    height: 38px;
+    font-size: 1.05rem;
+  }
+
+  .profile-header__actions {
+    justify-content: flex-start;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .profile-primary-nav {
+    width: calc(100% - 16px);
+    margin: 16px auto 0;
+    overflow-x: auto;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .profile-primary-nav .nav-item {
+    font-size: 0.8rem;
+    flex: 0 0 auto;
+    min-width: 72px;
+  }
+
+  .profile-cover {
+    padding: 20px;
+  }
+
+  /* חלק תמונת נושא (profile.css) – במובייל הבאנר נמתח מקצה לקצה לרוחב המסך */
+  .profile-shell .profile-cover {
+    margin-inline: -12px;
+  }
+
+  /* חלק תמונת נושא (profile.css) – התאמת גובה ודיספוזיציה במובייל */
+  .profile-cover__banner {
+    min-height: 220px;
+    border-radius: 0;
+  }
+
+  /* חלק מעטפת כיסוי (profile.css) – פריסת עמודה וטקסט ממורכז במסכים צרים */
+  .profile-cover__inner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px 18px;
+    gap: 14px;
+  }
+
+  /* חלק פעולות כיסוי (profile.css) – פריסה מלאה ורווחים במובייל */
+  .profile-cover__actions {
+    width: 100%;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .profile-cover__actions .profile-primary-button,
+  .profile-cover__actions .profile-secondary-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .profile-cover__avatar {
+    width: 90px;
+    height: 90px;
+  }
+
+  .profile-cover__actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  /* מרכוז טקסט ואייקון בכפתור סטטיסטיקה במובייל */
+  .profile-cover__actions .profile-secondary-button#profileStatsButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .profile-shell {
+    padding: 0 !important;
+  }
+
+  .profile-main {
+    gap: 0 !important;
+    background: #000 !important;
+  }
+
+  .profile-sidebar {
+    display: grid;
+    gap: 12px;
+  }
+
+  .profile-timeline {
+    padding: 0;
+  }
+
+  .profile-timeline__header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .profile-timeline__actions {
+    width: auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .profile-timeline__list {
+    padding: 0;
+  }
+
+  .profile-timeline__list > li,
+  .profile-timeline__list .feed-post {
+    border-radius: 14px;
+  }
+
+  .profile-timeline.profile-timeline--replies {
+    margin-top: 16px;
+  }
+
+  .modal-content {
+    width: min(360px, 92vw);
+  }
+}
+
+@media (max-width: 600px) {
+  .profile-header__search {
+    display: none;
+  }
+
+  .profile-header__left {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  .profile-header__actions {
+    justify-content: flex-end;
+  }
+
+  .profile-primary-nav {
+    margin-top: 12px;
+  }
+
+  /* חלק מעטפת כיסוי (profile.css) – מבטיח שמיכל התוכן החדש יתפס רוחב מלא במובייל */
+  .profile-cover__content {
+    width: 100%;
+  }
+
+  .profile-cover__actions {
+    flex-direction: column;
+  }
+}
+
+.profile-connection {
+  position: fixed;
+  top: 16px;
+  left: 12px;
+  background: rgba(36, 37, 38, 0.95);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
+  z-index: 160;
+}
+
+
+.profile-dialog {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+  max-width: 520px;
+  color: var(--text);
+}
+
+.profile-dialog::backdrop {
+  background: rgba(8, 10, 16, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.profile-dialog[open] {
+  animation: profile-dialog-pop 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.profile-dialog__content {
+  position: relative;
+  background: linear-gradient(135deg, rgba(20, 24, 38, 0.98), rgba(15, 18, 30, 0.92));
+  border-radius: 22px;
+  padding: 26px 32px;
+  box-shadow: 0 32px 68px rgba(0, 0, 0, 0.55), 0 0 32px rgba(76, 132, 255, 0.45);
+  border: 1px solid rgba(82, 140, 255, 0.4);
+  overflow: hidden;
+}
+
+.profile-dialog__backdrop {
+  position: absolute;
+  inset: -60% -60% auto;
+  height: 260px;
+  background: radial-gradient(circle at center, rgba(66, 126, 255, 0.35), transparent 65%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.profile-dialog__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+  border-radius: 18px;
+  background: rgba(58, 92, 180, 0.32);
+  border: 1px solid rgba(98, 158, 255, 0.45);
+  color: #a9c7ff;
+  font-size: 1.9rem;
+  box-shadow: inset 0 0 18px rgba(70, 120, 255, 0.45);
+}
+
+.profile-dialog__icon--info {
+  background: rgba(64, 120, 255, 0.28);
+  border: 1px solid rgba(120, 180, 255, 0.55);
+  color: rgba(210, 228, 255, 0.95);
+}
+
+.profile-dialog__title {
+  font-size: 1.4rem;
+  margin: 0 0 12px;
+  letter-spacing: 0.6px;
+  text-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+}
+
+.profile-dialog__message {
+  margin: 0 0 26px;
+  color: rgba(233, 239, 255, 0.82);
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.profile-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.profile-dialog__button {
+  min-width: 120px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 150, 220, 0.4);
+  background: rgba(34, 40, 62, 0.6);
+  color: #e7ecff;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.profile-dialog__button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.45);
+}
+
+.profile-dialog__button--confirm {
+  background: linear-gradient(135deg, rgba(64, 120, 255, 0.92), rgba(130, 170, 255, 0.82));
+  border: 1px solid rgba(140, 184, 255, 0.68);
+  color: #0e1424;
+}
+
+.profile-dialog__button--cancel {
+  background: rgba(34, 40, 62, 0.35);
+}
+
+@keyframes profile-dialog-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 600px) {
+  .profile-toast {
+    width: calc(100% - 48px);
+    max-width: 420px;
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .profile-dialog {
+    max-width: min(92vw, 420px);
+  }
+
+  .profile-dialog__content {
+    padding: 22px 22px 24px;
+    border-radius: 20px;
+  }
+
+  .profile-dialog__icon {
+    width: 64px;
+    height: 64px;
+    font-size: 1.7rem;
+  }
+
+  .profile-dialog__title {
+    font-size: 1.25rem;
+  }
+
+  .profile-dialog__message {
+    font-size: 0.95rem;
+  }
+
+  .profile-dialog__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .profile-dialog__button {
+    width: 100%;
+  }
+
+  .top-bar--profile {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .top-bar__title {
+    font-size: 1.15rem;
+    letter-spacing: 0.4px;
+  }
+
+  .top-bar__title::after {
+    width: 90px;
+  }
+
+  .top-bar__spacer {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.profile-header__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-header__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1877f2, #00b2ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  font-size: 1.1rem;
+  box-shadow: 0 8px 18px rgba(24, 119, 242, 0.35);
+}
+
+.profile-header__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-alt);
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  min-width: 240px;
+}
+
+.profile-header__search input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  width: 100%;
+  outline: none;
+}
+
+.profile-header__nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.profile-header__nav-item {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 44px;
+  border-radius: 10px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.profile-header__nav-item:hover,
+.profile-header__nav-item.is-active {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--primary);
+}
+
+.profile-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.profile-header__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.profile-header__icon:hover {
+  background: var(--hover);
+}
+
+.profile-header__avatar {
+  position: relative;
+}
+
+.profile-header__avatar-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.profile-header__avatar-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+#viewerTopProfile .profile-header__avatar-button {
+  border: none;
+  background: transparent;
+}
+
+#viewerTopProfile .profile-header__avatar-button img {
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-header__dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-end: 0;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 210;
+}
+
+.profile-header__dropdown[hidden] {
+  display: none;
+}
+
+.profile-header__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-size: 0.9rem;
+  text-align: start;
+}
+
+.profile-header__dropdown-item:hover {
+  background: var(--hover);
+}
+
+/* חלק ניווט פרופיל (profile.css) – מבטיח שהסרגל מסמן את לשונית הפרופיל */
+.profile-primary-nav {
+  width: calc(100% - 32px);
+  max-width: 900px;
+  margin: 24px auto 0;
+  border-radius: 16px;
+}
+
+.profile-primary-nav .nav-item {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.profile-primary-nav .nav-item.is-active,
+.profile-primary-nav .nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.profile-primary-nav .nav-item.is-active i {
+  color: var(--primary);
+}
+
+/* חלק מעטפת תוכן (profile.css) – פריסת דסקטופ בסגנון פייסבוק */
+.profile-shell {
+  max-width: 1100px;
+  margin: 36px auto 72px;
+  padding: 0 24px 64px;
+}
+
+.profile-cover {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 0;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* חלק תמונת נושא (profile.css) – באנר עליון מתחת לכותרת הדף שמציג תמונת cover אם הוגדרה */
+.profile-cover__banner {
+  position: relative;
+  cursor: pointer;
+  width: 100%;
+  min-height: 200px;
+  background: radial-gradient(circle at 20% 20%, rgba(66, 135, 245, 0.25), transparent 55%),
+    radial-gradient(circle at 80% 20%, rgba(88, 214, 255, 0.2), transparent 50%),
+    linear-gradient(135deg, rgba(25, 28, 33, 0.95), rgba(10, 12, 15, 0.85));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* לאפשר רמז לחיצות על הבאנר אך למנוע על הכפתורים והאווטאר */
+.profile-cover__actions,
+.profile-cover__avatar {
+  cursor: default;
+}
+
+/* חלק תמונת נושא (profile.css) – תמונת <img> ממלאת את כל שטח הבאנר */
+.profile-cover__banner-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block; /* כמו בגלריה – מוצג כברירת מחדל */
+  border-radius: inherit;
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity 0.6s ease, transform 1.2s ease;
+}
+
+.profile-cover__banner-image[data-loaded="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.profile-cover__banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 7, 12, 0.05), rgba(4, 7, 12, 0.85));
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+.profile-cover__banner::after {
+  content: '';
+  position: absolute;
+  inset: -40% -20%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.18), transparent 65%);
+  filter: blur(60px);
+  opacity: 0.45;
+  animation: profileCoverPulse 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* הסתרה אוטומטית כאשר אין src – מונע אייקון שבור */
+.profile-cover__banner-image:not([src]) {
+  display: none;
+}
+
+/* חלק גריד כיסוי (profile.css) – פריסה ממורכזת בעמודה לאווטר, שם ופעולות בדומה לטיקטוק */
+.profile-cover__inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 16px;
+  padding: 28px 24px 32px;
+  color: var(--text);
+  backdrop-filter: blur(10px);
+  background: linear-gradient(115deg, rgba(8, 10, 14, 0.55), rgba(12, 15, 20, 0.35));
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 42px rgba(9, 11, 15, 0.45);
+  text-align: center;
+}
+
+/* פריסה עליונה של כיסוי – מידע משמאל ואווטר מימין */
+.profile-cover__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.profile-cover__info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+/* חלק מידע ממורכז (profile.css) – שם וביוגרפיה ממורכזים בעמודה */
+.profile-cover__info-center {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+/* חלק אווטר ממורכז (profile.css) – תמונה קטנה וממורכזת בחלק העליון */
+.profile-cover__avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 2rem;
+  color: var(--text);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.profile-cover__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profile-cover__name {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-cover__bio {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.profile-cover__keys {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.profile-cover__key-label {
+  color: var(--muted);
+}
+
+.profile-cover__key-value {
+  font-family: 'Courier New', monospace;
+  color: var(--text);
+}
+
+/* חלק סטטיסטיקה (profile.css) – שלוש תיבות צפופות לעוקבים, נעקבים, לייקים */
+.profile-cover__stats-row {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+/* חלק כרטיס סטטיסטיקה (profile.css) – תיבה קטנה לתווית ומספר */
+.profile-cover__stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 18, 26, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-width: 78px;
+}
+
+.profile-cover__stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-cover__stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+/* חלק פעולות כיסוי (profile.css) – כפתורים ממורכזים בשורה */
+.profile-cover__actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+@keyframes profileCoverPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.65;
+  }
+}
+
+/* חלק עוקבים (profile.css) – מסדר את חיווי סיכום העוקבים בהאדר */
+.profile-follow__summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.profile-about {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-about__summary {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.profile-about__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-about__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(24, 26, 31, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: var(--text);
+  box-shadow: 0 10px 26px rgba(6, 8, 12, 0.24);
+}
+
+.profile-about__item i {
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.profile-about__item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-about__item-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.profile-about__item-subtitle {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.profile-about__item a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.profile-about__item a:hover {
+  text-decoration: underline;
+}
+
+/* חלק רשימת עוקבים מקוצרת (profile.css) – אווטרים קטנים של עוקבים אחרונים */
+.profile-cover__followers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+}
+
+.profile-cover__followers-item {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+
+.profile-cover__followers-item:not(:first-child) {
+  margin-inline-start: -12px;
+}
+
+.profile-cover__followers-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 25, 30, 0.85);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.profile-cover__followers-avatar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(12, 14, 18, 0.45);
+}
+
+.profile-cover__followers-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-cover__followers-avatar span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* חלק עוקבים (profile.css) – עיצוב רשימת העוקבים בכרטיס הצדדי */
+.profile-followers__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-followers__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.profile-followers__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-alt);
+  color: var(--text);
+  font-weight: 600;
+  text-transform: uppercase;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.profile-followers__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profile-followers__name {
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.profile-followers__empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.profile-primary-button,
+.profile-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.profile-primary-button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+
+.profile-primary-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.profile-secondary-button {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.profile-secondary-button:hover {
+  background: var(--hover);
+}
+
+/* חלק פריסת תוכן (profile.css) – מיישר את העמודות לקארד כהה אפרפר */
+.profile-main {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+  margin-top: 20px;
+}
+
+.profile-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.profile-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* כותרת כרטיס + כפתור טוגל (profile.css) – לכרטיסיות משנה כמו "תגובות שהגבנו" */
+.profile-card__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-card__toggle {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 20, 26, 0.7);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.profile-card__toggle:hover {
+  background: rgba(30, 33, 40, 0.85);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.profile-card__toggle:active {
+  transform: translateY(1px);
+}
+
+.profile-card__toggle[aria-expanded="true"] {
+  background: rgba(76, 139, 253, 0.12);
+  border-color: rgba(76, 139, 253, 0.5);
+  color: #cfe0ff;
+}
+
+@media (max-width: 640px) {
+  .profile-card__header-row { gap: 8px; }
+  .profile-card__toggle { padding: 6px 12px; font-size: 0.82rem; }
+}
+
+/* חלק גלריית פרופיל (profile.css) – מציג את התמונות הנוספות של המשתמש ומאפשר עריכה */
+.profile-card--gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-gallery {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.profile-gallery__item {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  aspect-ratio: 1/1;
+}
+
+.profile-gallery__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-gallery__empty {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 14px;
+  text-align: center;
+}
+
+.profile-gallery__item--editor {
+  display: flex;
+}
+
+.profile-gallery__remove {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.profile-gallery__remove:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.profile-gallery__uploader {
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.profile-gallery__uploader.is-dragging {
+  border-color: var(--primary);
+  background: rgba(88, 130, 255, 0.08);
+}
+
+.profile-gallery__uploader i {
+  font-size: 1.4rem;
+  color: var(--primary);
+}
+
+.profile-gallery__uploader button {
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.profile-gallery__uploader button:hover {
+  background: var(--hover);
+}
+
+.profile-gallery--editor {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.profile-gallery__status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.profile-gallery__status.is-error {
+  color: #ff6b81;
+}
+
+.profile-gallery-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 280;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.profile-gallery-modal.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.profile-gallery-modal[hidden] {
+  display: none;
+}
+
+.profile-gallery-modal__image {
+  max-width: min(92vw, 1080px);
+  max-height: min(90vh, 1080px);
+  border-radius: 16px;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
+  object-fit: contain;
+}
+
+.profile-gallery-modal__close {
+  position: absolute;
+  top: 24px;
+  inset-inline-end: 24px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-gallery-modal__close:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.profile-card__title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.profile-card__text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.profile-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.profile-card__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-card__meta-row i {
+  color: var(--primary);
+}
+
+.profile-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-stats__item {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.profile-stats__label {
+  color: var(--muted);
+}
+
+.profile-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-activity__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-activity__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.profile-activity__summary-item {
+  background: rgba(30, 33, 40, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 12px 28px rgba(8, 10, 16, 0.4);
+}
+
+.profile-activity__summary-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-activity__summary-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.profile-activity__summary-change {
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.profile-activity__summary-change.is-up {
+  color: #4fd1c5;
+}
+
+.profile-activity__summary-change.is-down {
+  color: #ff6b81;
+}
+
+.profile-activity__summary-change.is-neutral {
+  color: var(--muted);
+}
+
+.profile-activity__summary-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-activity__summary-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.profile-activity__periods {
+  display: inline-flex;
+  gap: 8px;
+  align-self: flex-start;
+  background: rgba(18, 20, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.profile-activity__period {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.profile-activity__period.is-active {
+  background: var(--primary);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(35, 116, 225, 0.3);
+}
+
+.profile-activity__chart {
+  min-height: 280px;
+}
+
+.profile-activity__chart.is-empty {
+  min-height: 120px;
+}
+
+.profile-activity__empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(20, 22, 28, 0.6);
+}
+
+.profile-quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-quick-links__button {
+  justify-content: center;
+  background: rgba(35, 116, 225, 0.12);
+  border: 1px solid rgba(35, 116, 225, 0.35);
+  color: var(--primary);
+}
+
+.profile-quick-links__button:hover {
+  background: rgba(35, 116, 225, 0.2);
+}
+
+/* חלק הכרויות בפרופיל (profile.css) – סגנון לשדות ותצוגה בתוך כרטיס 'הכרויות' */
+.profile-dating__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-dating__optin {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.profile-dating__optin input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.profile-dating__note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.profile-dating__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(18, 20, 26, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.profile-dating__label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+#profileDatingBio,
+#profileDatingAge,
+#profileDatingLocation,
+#profileDatingInterests {
+  width: 100%;
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+#profileDatingBio {
+  min-height: 64px;
+  resize: vertical;
+}
+
+#profileDatingBio::placeholder,
+#profileDatingAge::placeholder,
+#profileDatingLocation::placeholder,
+#profileDatingInterests::placeholder {
+  color: var(--muted);
+}
+
+#profileDatingAge {
+  max-width: 200px;
+}
+
+#profileDatingBio:focus,
+#profileDatingAge:focus,
+#profileDatingLocation:focus,
+#profileDatingInterests:focus {
+  border-color: rgba(76, 139, 253, 0.55);
+  box-shadow: 0 0 0 2px rgba(76, 139, 253, 0.18);
+  background: rgba(26, 29, 33, 0.7);
+}
+
+.profile-dating__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  justify-content: center;
+  align-items: center;
+  direction: rtl;
+}
+
+.profile-dating__save i,
+.profile-dating__close i {
+  margin-inline-start: 4px;
+}
+
+.profile-dating__actions .profile-secondary-button {
+  flex: 0 0 auto;
+  min-width: 128px;
+  justify-content: center;
+}
+
+/* פרימיום: כותרת הכרויות + מרווחים */
+#profileDatingCard .profile-card__title {
+  font-size: 1.22rem;
+  letter-spacing: 0.2px;
+  margin-bottom: 4px;
+}
+
+#profileDatingCard .profile-card__title::after {
+  content: '';
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  margin-top: 6px;
+  background: linear-gradient(90deg, rgba(76,139,253,.55), rgba(76,139,253,0));
+}
+
+@media (max-width: 640px) {
+  .profile-dating__fields { padding: 10px; gap: 10px; }
+  #profileDatingAge { max-width: 100%; }
+  #profileDatingBio, #profileDatingAge, #profileDatingLocation, #profileDatingInterests { font-size: 1rem; }
+  .profile-dating__actions { gap: 12px; justify-content: center; }
+  .profile-dating__row { margin-top: 10px; margin-bottom: 10px; gap: 8px; }
+  .profile-dating__note { margin-top: 4px; margin-bottom: 8px; }
+  .profile-dating__fields { gap: 12px; }
+  .profile-dating__edit { margin-top: 8px; align-self: flex-start; }
+  .profile-dating__actions { justify-content: center; }
+}
+
+.profile-timeline {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.profile-timeline__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 20px;
+}
+
+.profile-timeline__title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.profile-timeline__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-timeline__item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-timeline__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.profile-timeline__content {
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+}
+
+.profile-status {
+  font-size: 0.85rem;
+  color: var(--primary);
+}
+
+/* חלק מודלים (profile.css) – שימוש באותם צבעים כהים כמו הפיד */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 32px 12px;
+  overflow-y: auto;
+  z-index: 250;
+}
+
+.modal[aria-hidden="true"] {
+  display: none;
+}
+
+.modal-content {
+  background: var(--card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.icon-button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.icon-button:hover {
+  background: var(--hover);
+}
+
+#keyViewerTextarea {
+  min-height: 120px;
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+}
+
+/* חלק התאמות מובייל (profile.css) – שמירה על מבנה תואם במסכים קטנים */
+.profile-mobile-tabs {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* דף פרופיל ממלא את כל המסך עד התפריט התחתון */
+  .profile-body {
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    background: #000 !important;
+    padding-bottom: 60px !important;
+  }
+  
+  .profile-shell {
+    margin-top: 0 !important;
+    padding: 0 !important;
+    background: #000 !important;
+    min-height: calc(100vh - 60px) !important;
+    min-height: calc(100dvh - 60px) !important;
+  }
+
+  .profile-main {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+    background: #000 !important;
+    min-height: 100% !important;
+  }
+  
+  /* sidebar מוסתר אבל הפאנלים הפעילים מוצגים */
+  .profile-sidebar {
+    display: block !important;
+    background: #000 !important;
+  }
+  
+  .profile-sidebar [data-profile-panel] {
+    display: none !important;
+  }
+  
+  .profile-sidebar [data-profile-panel].is-active {
+    display: block !important;
+    background: #000 !important;
+  }
+
+  .profile-cover__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-cover__avatar {
+    width: 100px;
+    height: 100px;
+  }
+
+  .profile-mobile-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+    padding: 0 24px;
+    overflow-x: auto;
+  }
+
+  .profile-mobile-tab {
+    flex: 0 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(26, 29, 33, 0.7);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  .profile-mobile-tab.is-active {
+    color: var(--text);
+    background: var(--primary);
+    border-color: rgba(35, 116, 225, 0.55);
+    box-shadow: 0 10px 24px rgba(35, 116, 225, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .profile-sidebar > [data-profile-panel],
+  [data-profile-panel="posts"],
+  .profile-timeline.profile-timeline--replies {
+    display: none;
+  }
+
+  .profile-sidebar > [data-profile-panel].is-active,
+  [data-profile-panel="posts"].is-active,
+  .profile-timeline.profile-timeline--replies.is-active {
+    display: block;
+  }
+}
+
+/* ========== TikTok-style Grid Layout for Profile Posts ========== */
+/* רוחב מלא בלי שטח מת - פוסטים מקצה לקצה */
+@media (max-width: 900px) {
+  .profile-timeline {
+    background: #000 !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
+    max-height: none !important;
+  }
+  
+  .profile-timeline .profile-timeline__list {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+  
+  /* ללא שטח מת - הרשימה מסתיימת עם הפוסטים */
+  .profile-timeline .profile-timeline__list::after {
+    display: none !important;
+  }
+}
+
+.profile-timeline .profile-timeline__list {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  background: #000 !important;
+}
+
+.profile-timeline .profile-timeline__list > li {
+  aspect-ratio: 9 / 16 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: #000 !important;
+  overflow: hidden !important;
+  position: relative !important;
+  cursor: pointer !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  list-style: none !important;
+}
+
+.profile-timeline .feed-post {
+  height: 100% !important;
+  width: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.profile-timeline .feed-post__header,
+.profile-timeline .feed-post__content,
+.profile-timeline .feed-post__stats,
+.profile-timeline .feed-post__actions,
+.profile-timeline .feed-post__show-more,
+.profile-timeline .feed-post__comments-toggle,
+.profile-timeline .feed-comments {
+  display: none !important;
+}
+
+.profile-timeline .feed-post__media {
+  margin: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.profile-timeline .feed-post__media img,
+.profile-timeline .feed-post__media video {
+  height: 100% !important;
+  width: 100% !important;
+  object-fit: cover !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* פוסטים ללא מדיה */
+.profile-timeline .feed-post:not(:has(.feed-post__media)) {
+  background: linear-gradient(135deg, #1a1d24, #2a2d35) !important;
+}
+
+.profile-timeline .feed-post:not(:has(.feed-post__media))::after {
+  content: "📝" !important;
+  font-size: 1.5rem !important;
+}
+
+/* הסתרת הכותרת במובייל */
+@media (max-width: 900px) {
+  .profile-timeline__header {
+    display: none !important;
+  }
+}
+
+.profile-timeline.grid-layout .profile-timeline__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.profile-timeline.grid-layout .profile-timeline__list > li {
+  aspect-ratio: 3 / 4; /* Vertical aspect ratio like TikTok */
+  padding: 0;
+  border: none;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+
+/* Override feed-post styles within the grid */
+.profile-timeline.grid-layout .feed-post {
+  height: 100%;
+  width: 100%;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide feed-post elements irrelevant to grid view */
+.profile-timeline.grid-layout .feed-post__header,
+.profile-timeline.grid-layout .feed-post__content,
+.profile-timeline.grid-layout .feed-post__stats,
+.profile-timeline.grid-layout .feed-post__actions,
+.profile-timeline.grid-layout .feed-post__show-more,
+.profile-timeline.grid-layout .feed-post__comments-toggle,
+.profile-timeline.grid-layout .feed-comments {
+  display: none !important;
+}
+
+/* Ensure media takes full space */
+.profile-timeline.grid-layout .feed-post__media {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-timeline.grid-layout .feed-post__media img,
+.profile-timeline.grid-layout .feed-post__media video {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+/* Text-only posts in grid */
+.profile-timeline.grid-layout .feed-post--text-only {
+  background: linear-gradient(135deg, #2a2d35, #1a1d24);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.profile-timeline.grid-layout .feed-post--text-only::after {
+  content: "📝";
+  font-size: 2rem;
+}
+
+/* Hover effect */
+.profile-timeline.grid-layout .profile-timeline__list > li::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.2);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.profile-timeline.grid-layout .profile-timeline__list > li:hover::after {
+  opacity: 1;
+}
+
+/* Activity Modal Styles */
+.activity-modal .profile-activity {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.activity-modal .profile-activity__summary {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+@media (max-width: 600px) {
+  .profile-timeline.grid-layout .profile-timeline__list {
+    gap: 1px;
+  }
+}
+
+/* חלק תפריט תחתון (profile.css) – מסתיר את התפריט התחתון בדף הפרופיל | HYPER CORE TECH */
+.profile-body .primary-nav {
+  display: none !important;
+}
+
+/* התאמת צבעים לכפתורי הטאבים בסגנון TikTok */
+.profile-mobile-tab {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+  flex: 0 0 auto !important;
+  min-width: auto !important;
+  max-width: none !important;
+  width: auto !important;
+  padding: 8px 16px !important;
+  font-size: 0.9rem !important;
+  border-radius: 999px !important;
+}
+
+.profile-mobile-tab:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+
+.profile-mobile-tab.is-active {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(35, 116, 225, 0.3) !important;
+  flex: 0 0 auto !important;
+  min-width: auto !important;
+  max-width: none !important;
+  width: auto !important;
+  padding: 8px 16px !important;
+  font-size: 0.9rem !important;
+  border-radius: 999px !important;
+  transform: none !important;
+}
+
+/* תפריט עם 2 כפתורים גדולים */
+.profile-mobile-tabs--dual {
+  display: flex !important;
+  gap: 0 !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 8px 0 !important;
+  overflow: hidden !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  align-items: center !important;
+  background: transparent !important;
+  width: 100% !important;
+}
+
+/* כפתורים גדולים - חצי מסך כל אחד */
+.profile-mobile-tab--large {
+  flex: 1 !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 12px 24px !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+.profile-mobile-tab--large:first-child {
+  border-radius: 22px 0 0 22px !important;
+}
+
+.profile-mobile-tab--large:last-child {
+  border-radius: 0 22px 22px 0 !important;
+}
+
+.profile-mobile-tab--large:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+
+.profile-mobile-tab--large.is-active {
+  background: var(--primary) !important;
+  color: #fff !important;
+}
+
+/* כפתור לב מהבהב להכרויות */
+.profile-dating-heart {
+  position: fixed !important;
+  bottom: 100px !important;
+  left: 20px !important;
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: linear-gradient(135deg, #fe2c55, #ff6b81) !important;
+  color: #fff !important;
+  font-size: 1.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 20px rgba(254, 44, 85, 0.5) !important;
+  z-index: 1000 !important;
+  animation: heartPulse 1.5s ease-in-out infinite !important;
+}
+
+.profile-dating-heart:hover {
+  transform: scale(1.1) !important;
+}
+
+@keyframes heartPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(254, 44, 85, 0.5);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 6px 30px rgba(254, 44, 85, 0.7);
+  }
+}
+
+/* התאמת כפתורים ראשיים בסגנון TikTok */
+.profile-primary-button {
+  background: linear-gradient(135deg, #fe2c55, #ff6b81) !important;
+  border: none !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  transition: all 0.2s ease !important;
+}
+
+.profile-primary-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 20px rgba(254, 44, 85, 0.35) !important;
+}
+
+.profile-secondary-button {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  backdrop-filter: blur(10px) !important;
+  transition: all 0.2s ease !important;
+}
+
+.profile-secondary-button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* חלק אלמנט טעינה (profile.css) – נראה במובייל | HYPER CORE TECH */
+.profile-posts-loading {
+  grid-column: 1 / -1 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  padding: 20px !important;
+  background: rgba(254, 44, 85, 0.1) !important;
+  color: #fff !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  height: auto !important;
+  min-height: 50px !important;
+  border: none !important;
+  list-style: none !important;
+  margin: 0 !important;
+  aspect-ratio: auto !important;
+  position: relative !important;
+}
+
+.profile-posts-loading__spinner {
+  width: 20px !important;
+  height: 20px !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  border-top-color: #fe2c55 !important;
+  border-radius: 50% !important;
+  animation: spinLoader 0.6s linear infinite !important;
+}
+
+@keyframes spinLoader {
+  to { transform: rotate(360deg); }
+}

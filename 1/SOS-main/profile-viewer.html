@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="he">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SOS – רשת חברתית על סטרואידים</title>
+    <meta name="description" content="SOS רשת חברתית על סטרואידים – הרשת החברתית מבוזרת קהילתית הראשונה בישראל." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SOS" />
+    <meta property="og:title" content="SOS – רשת חברתית על סטרואידים" />
+    <meta property="og:description" content="רשת החברתית מבוזרת קהילתית הראשונה בישראל." />
+    <meta property="og:image" content="https://image.nostr.build/dc0494760b1968f29370a53213ac34711c0392509dbc935e0bf2ca9fa386ef0f.png" />
+    <meta property="og:url" content="https://theicd.github.io/SOS/profile-viewer.html" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SOS – רשת חברתית על סטרואידים" />
+    <meta name="twitter:description" content="רשת החברתית מבוזרת קהילתית הראשונה בישראל." />
+    <meta name="twitter:image" content="https://image.nostr.build/dc0494760b1968f29370a53213ac34711c0392509dbc935e0bf2ca9fa386ef0f.png" />
+    <!-- חלק ראש פרופיל ציבורי (profile-viewer.html) – שומר על אותו עיצוב כמו הפרופיל האישי -->
+    <link rel="icon" type="image/png" href="https://image.nostr.build/dc0494760b1968f29370a53213ac34711c0392509dbc935e0bf2ca9fa386ef0f.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="./styles/facebook-theme.css" />
+    <link rel="stylesheet" href="./styles/profile.css" />
+    <link rel="stylesheet" href="./styles/media-overrides.css" />
+    <script src="./auth-guard.js"></script>
+  </head>
+  <body class="profile-body" dir="rtl">
+    <!-- חלק חיווי חיבור (profile-viewer.html) – מציג מצב טעינת ריליים -->
+    <div id="connection-status" class="profile-connection" hidden>מתחבר לריליים...</div>
+
+    <!-- חלק סרגל עליון (profile-viewer.html) – מאמץ את הכותרת מהדף הראשי לצורך עקביות -->
+    <header class="top-bar">
+      <div class="top-bar__brand">
+        <div class="profile-header__logo">SOS</div>
+      </div>
+      <div class="top-bar__actions">
+        <button class="circle-button" id="viewerTopCreateButton" aria-label="יצירת תוכן">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+        <button class="circle-button" id="viewerTopNotificationsButton" aria-label="התראות">
+          <i class="fa-solid fa-bell"></i>
+        </button>
+        <button class="circle-button" id="viewerTopMessagesButton" aria-label="הודעות">
+          <i class="fa-solid fa-message"></i>
+        </button>
+        <div class="top-bar__profile" id="viewerTopProfile">
+          <button class="top-bar__avatar" id="viewerTopAvatar" aria-label="פרופיל משתמש" disabled>
+            <span>?</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- חלק מעטפת פרופיל (profile-viewer.html) – מעצב את הכיסוי והמידע הבסיסי של המשתמש -->
+    <main class="app-shell profile-shell">
+      <section class="profile-cover" id="viewerCover">
+        <!-- חלק תמונת נושא (profile-viewer.html) – באנר עליון לתצוגת cover של הכרטיס הציבורי -->
+        <div class="profile-cover__banner" id="viewerCoverBanner">
+          <img class="profile-cover__banner-image" id="viewerCoverImage" alt="תמונת נושא משתמש" />
+        </div>
+        <div class="profile-cover__inner">
+          <div class="profile-cover__avatar" id="viewerAvatar">?</div>
+          <div class="profile-cover__info">
+            <h1 class="profile-cover__name" id="viewerName">טוען משתמש...</h1>
+            <p class="profile-cover__bio" id="viewerBio">אוספים פרטי פרופיל מהריליים.</p>
+            <div class="profile-cover__actions">
+              <button
+                class="profile-primary-button profile-follow__button"
+                id="viewerFollowButton"
+                type="button"
+                data-follow-button=""
+                data-follow-label
+              >
+                <i class="fa-solid fa-user-plus"></i>
+                <span data-follow-label>עקוב</span>
+              </button>
+              <button class="profile-secondary-button" id="viewerBackButton">
+                <i class="fa-solid fa-arrow-right"></i>
+                חזרה
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- חלק פריסת תוכן (profile-viewer.html) – מציג נתונים וסטטיסטיקות בסיסיות -->
+      <section class="profile-main">
+        <aside class="profile-sidebar">
+          <section class="profile-card">
+            <h2 class="profile-card__title">אודות</h2>
+            <p class="profile-card__text" id="viewerSidebarBio">נתוני המשתמש ייטענו בקרוב.</p>
+            <div class="profile-card__meta" id="viewerMeta"></div>
+          </section>
+
+          <!-- חלק גלריית פרופיל ציבורי (profile-viewer.html) – מציג תמונות נוספות שהמשתמש שיתף -->
+          <section class="profile-card profile-card--gallery">
+            <h2 class="profile-card__title">גלריה</h2>
+            <ul class="profile-gallery" id="viewerGallery"></ul>
+          </section>
+
+          <section class="profile-card">
+            <h2 class="profile-card__title">נתוני פעילות</h2>
+            <ul class="profile-stats">
+              <li class="profile-stats__item">
+                <span class="profile-stats__label">פוסטים שפורסמו</span>
+                <span class="profile-stats__value" id="viewerStatsPosts">0</span>
+              </li>
+              <li class="profile-stats__item">
+                <span class="profile-stats__label">תגובות שפורסמו</span>
+                <span class="profile-stats__value" id="viewerStatsReplies">0</span>
+              </li>
+            </ul>
+          </section>
+
+          <!-- חלק עוקבים (profile-viewer.html) – מציג רק את ספירת העוקבים לפרופיל הציבורי ללא רשימה מלאה -->
+          <section class="profile-card" id="viewerFollowersCard">
+            <h2 class="profile-card__title">עוקבים</h2>
+            <div class="profile-followers__count" id="viewerFollowersCount">0 עוקבים</div>
+          </section>
+        </aside>
+
+        <section class="profile-timeline">
+          <header class="profile-timeline__header">
+            <h2 class="profile-timeline__title">פוסטים</h2>
+            <div class="profile-timeline__actions">
+              <button class="profile-secondary-button" id="viewerRefreshButton">
+                <i class="fa-solid fa-rotate"></i>
+                רענון
+              </button>
+            </div>
+          </header>
+          <div class="profile-status" id="viewerTimelineStatus"></div>
+          <ul class="profile-timeline__list" id="viewerTimeline"></ul>
+        </section>
+      </section>
+
+      <section class="profile-timeline profile-timeline--replies">
+        <header class="profile-timeline__header">
+          <h2 class="profile-timeline__title">תגובות שהגיב המשתמש</h2>
+        </header>
+        <ul class="profile-timeline__list" id="viewerReplies"></ul>
+      </section>
+    </main>
+
+    <!-- חלק סקריפטים (profile-viewer.html) – טוען את כל הלוגיקה הדרושה -->
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./config.js"></script>
+    <script src="./utils.js"></script>
+    <script src="./key-utils.js"></script>
+    <script src="./keys.js"></script>
+    <script src="./follow-service.js"></script>
+    <script src="./profile-engagement.js"></script>
+    <script src="./profile-post.js"></script>
+    <script src="./profile-viewer.js"></script>
+
+    <!-- חלק מודל גלריה צופים (profile-viewer.html) – מציג תמונה מוגדלת בלחיצה בצד הצופה -->
+    <div class="profile-gallery-modal" id="viewerGalleryModal" hidden>
+      <button class="profile-gallery-modal__close" id="viewerGalleryModalClose" type="button" aria-label="סגירת תמונת גלריה">×</button>
+      <img class="profile-gallery-modal__image" id="viewerGalleryModalImage" alt="תצוגת גלריה ציבורית" />
+    </div>
+  </body>
+</html>
