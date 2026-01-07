@@ -564,44 +564,79 @@ body:has(.videos-feed) .nav-avatar {
   backface-visibility: hidden;
 }
 
-/* כפתורי דילוג 5 שניות - מובייל בלבד */
+/* כפתורי דילוג - בצדדים */
 .video-skip-btn {
-  display: none;
   position: absolute;
-  bottom: 50px;
+  bottom: 8px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.5);
   border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 18px;
+  color: #fff;
+  font-size: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
-  z-index: 100;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
+  z-index: 500;
 }
 
-.video-skip-btn--back {
+.video-skip-btn--left {
   left: 15px;
 }
 
-.video-skip-btn--forward {
+.video-skip-btn--right {
   right: 15px;
 }
 
 .video-skip-btn:active {
-  background: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.9);
-  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(0.9);
 }
 
-@media (max-width: 768px) {
-  .video-skip-btn {
-    display: flex;
-  }
+/* פס התקדמות כמו טיקטוק */
+.video-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  z-index: 50;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.video-progress-bar.visible {
+  opacity: 1;
+}
+
+.video-progress-bar__fill {
+  height: 100%;
+  background: #fff;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+/* תצוגת זמן - מרכז תחתון */
+.video-time-display {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 10px;
+  border-radius: 12px;
+  z-index: 500;
 }
 
 /* אנימציית דילוג - מספר במרכז המסך */
