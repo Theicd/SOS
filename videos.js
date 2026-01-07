@@ -440,8 +440,8 @@ function wireMediaControls(root = document) {
 
     // לחיצה על אזור המדיה תחליף בין ניגון להפסקה ידנית (ללא כפתור)
     mediaDiv.addEventListener('click', (event) => {
-      // אם לחצו על כפתור ייעודי, לא להפעיל את הטוגל פעמיים
-      if (event.target.closest('[data-play-toggle]')) return;
+      // אם לחצו על כפתור ייעודי או דילוג או זמן, לא להפעיל את הטוגל
+      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display')) return;
       if (mediaDiv.dataset.state === 'playing') {
         pauseMedia(mediaDiv, { resetThumb: false, manual: true });
       } else {
@@ -1390,53 +1390,96 @@ function renderVideoCard(video) {
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
     mediaDiv.appendChild(playOverlay);
     
-    // כפתור דילוג אחורה - שמאל למטה (שפיץ כלפי חוץ - שמאלה)
-    const skipBackBtn = document.createElement('button');
-    skipBackBtn.className = 'video-skip-btn video-skip-btn--back';
-    skipBackBtn.innerHTML = '<i class="fa-solid fa-backward"></i>';
-    mediaDiv.appendChild(skipBackBtn);
-    
-    // כפתור דילוג קדימה - ימין למטה (שפיץ כלפי חוץ - ימינה)
-    const skipForwardBtn = document.createElement('button');
-    skipForwardBtn.className = 'video-skip-btn video-skip-btn--forward';
-    skipForwardBtn.innerHTML = '<i class="fa-solid fa-forward"></i>';
-    mediaDiv.appendChild(skipForwardBtn);
-    
     // אינדיקטור דילוג במרכז המסך
     const skipIndicator = document.createElement('div');
     skipIndicator.className = 'video-skip-indicator';
     mediaDiv.appendChild(skipIndicator);
     
-    // פונקציה להצגת אינדיקטור דילוג
-    const showSkipIndicator = (seconds) => {
+    // פס התקדמות כמו טיקטוק
+    const progressBar = document.createElement('div');
+    progressBar.className = 'video-progress-bar';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'video-progress-bar__fill';
+    progressBar.appendChild(progressFill);
+    mediaDiv.appendChild(progressBar);
+    
+    // פורמט זמן mm:ss
+    const formatTime = (sec) => {
+      if (!isFinite(sec) || sec < 0) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+    
+    // דילוג 5 שניות
+    const doSkip = (seconds) => {
+      console.log('[VIDEO] Skip:', seconds);
+      const current = isFinite(videoEl.currentTime) ? videoEl.currentTime : 0;
+      const duration = isFinite(videoEl.duration) ? videoEl.duration : null;
+      const target = current + seconds;
+      const newTime = duration ? Math.min(Math.max(0, target), duration) : Math.max(0, target);
+      if (typeof videoEl.fastSeek === 'function') {
+        try { videoEl.fastSeek(newTime); } catch (e) { videoEl.currentTime = newTime; }
+      } else {
+        videoEl.currentTime = newTime;
+      }
+      // אינדיקטור
       skipIndicator.textContent = seconds > 0 ? `+${seconds}` : `${seconds}`;
       skipIndicator.classList.remove('show');
-      void skipIndicator.offsetWidth; // force reflow
+      void skipIndicator.offsetWidth;
       skipIndicator.classList.add('show');
+      updateProgress();
     };
     
-    // דילוג 5 שניות - עובד תמיד
-    const skip = (seconds) => {
-      const newTime = videoEl.currentTime + seconds;
-      if (newTime < 0) {
-        videoEl.currentTime = 0;
-      } else if (videoEl.duration && isFinite(videoEl.duration) && newTime > videoEl.duration) {
-        videoEl.currentTime = videoEl.duration;
-      } else {
-        videoEl.currentTime = Math.max(0, newTime);
-      }
-      showSkipIndicator(seconds);
+    // כפתור אחורה - צד שמאל, חץ שמאלה
+    const skipBackBtn = document.createElement('button');
+    skipBackBtn.type = 'button';
+    skipBackBtn.className = 'video-skip-btn video-skip-btn--left';
+    skipBackBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+    skipBackBtn.addEventListener('click', (e) => { 
+      e.preventDefault(); 
+      e.stopPropagation(); 
+      doSkip(-5); 
+    }, true);
+    mediaDiv.appendChild(skipBackBtn);
+    
+    // תצוגת זמן - מרכז תחתון
+    const timeDisplay = document.createElement('div');
+    timeDisplay.className = 'video-time-display';
+    mediaDiv.appendChild(timeDisplay);
+    
+    // כפתור קדימה - צד ימין, חץ ימינה
+    const skipForwardBtn = document.createElement('button');
+    skipForwardBtn.type = 'button';
+    skipForwardBtn.className = 'video-skip-btn video-skip-btn--right';
+    skipForwardBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+    skipForwardBtn.addEventListener('click', (e) => { 
+      e.preventDefault(); 
+      e.stopPropagation(); 
+      doSkip(5); 
+    }, true);
+    mediaDiv.appendChild(skipForwardBtn);
+    
+    // עדכון פס התקדמות וזמן
+    let progressTimeout = null;
+    const updateProgress = () => {
+      if (!videoEl.duration || !isFinite(videoEl.duration)) return;
+      const pct = (videoEl.currentTime / videoEl.duration) * 100;
+      progressFill.style.width = `${pct}%`;
+      timeDisplay.textContent = `${formatTime(videoEl.currentTime)} / ${formatTime(videoEl.duration)}`;
+      
+      // הצגת פס התקדמות זמנית
+      progressBar.classList.add('visible');
+      clearTimeout(progressTimeout);
+      progressTimeout = setTimeout(() => {
+        progressBar.classList.remove('visible');
+      }, 2000);
     };
     
-    skipBackBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      skip(-5);
-    });
-    
-    skipForwardBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      skip(5);
-    });
+    videoEl.addEventListener('loadedmetadata', updateProgress);
+    videoEl.addEventListener('timeupdate', updateProgress);
+    videoEl.addEventListener('seeking', updateProgress);
+    videoEl.addEventListener('play', updateProgress);
     
   } else if (video.imageUrl) {
     mediaDiv.dataset.mediaType = 'image';
