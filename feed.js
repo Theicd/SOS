@@ -3487,9 +3487,56 @@ async function loadFeed() {
         console.warn('Failed to restore feed state, falling back to fresh load', e);
       }
     }
+    
+    // חלק First Paint (feed.js) – טעינה מהירה מ-EventSync לפני פנייה לריליי | HYPER CORE TECH
+    if (App.EventSync && typeof App.EventSync.loadCachedPosts === 'function') {
+      try {
+        setWelcomeLoading(15);
+        setWelcomeStatus('טוען מהמטמון...');
+        const cachedPosts = await App.EventSync.loadCachedPosts({
+          kinds: [1],
+          limit: 50,
+          networkTag: App.NETWORK_TAG || null,
+        });
+        if (cachedPosts && cachedPosts.length > 0) {
+          console.log(`[FEED] First Paint: ${cachedPosts.length} פוסטים מהמטמון`);
+          // סינון פוסטים ראשיים (לא תגובות)
+          const mainPosts = cachedPosts.filter(e => !extractParentId(e));
+          if (mainPosts.length > 0) {
+            setWelcomeLoading(30);
+            await displayPosts(mainPosts);
+            // טעינת לייקים מהמטמון
+            const postIds = mainPosts.map(e => e.id);
+            const cachedLikes = await App.EventSync.loadCachedLikes(postIds);
+            cachedLikes.forEach(like => registerLike(like));
+            mainPosts.forEach(e => {
+              if (typeof App.updateLikeIndicator === 'function') App.updateLikeIndicator(e.id);
+            });
+          }
+        }
+      } catch (cacheErr) {
+        console.warn('[FEED] Failed to load from cache, continuing with relays', cacheErr);
+      }
+    }
+    
     // חלק פיד (feed.js) – מסננים: פוסטים עיקריים לפי תג רשת, ובנוסף פוסטים של המשתמש הנוכחי גם אם חסר תג
     // טעינה ראשונית: 10 פוסטים בלבד
     const filters = buildCoreFeedFilters();
+    
+    // חלק Delta Sync (feed.js) – הוספת since לפילטר אם יש timestamp אחרון | HYPER CORE TECH
+    let lastTimestamp = 0;
+    if (App.EventSync && typeof App.EventSync.getLastEventTimestamp === 'function') {
+      try {
+        lastTimestamp = await App.EventSync.getLastEventTimestamp();
+        if (lastTimestamp > 0) {
+          // מבקשים רק אירועים חדשים מהזמן האחרון (מינוס 5 דקות לביטחון)
+          const sinceTime = lastTimestamp - 300;
+          filters.forEach(f => { f.since = sinceTime; });
+          console.log(`[FEED] Delta sync: since=${new Date(sinceTime * 1000).toLocaleTimeString()}`);
+        }
+      } catch (_) {}
+    }
+    
     const events = [];
     const seenEventIds = new Set();
     try {
@@ -3498,8 +3545,8 @@ async function loadFeed() {
 
     if (typeof App.pool.list === 'function') {
       try {
-        setWelcomeLoading(25);
-        setWelcomeStatus('מקבל אירועים...');
+        setWelcomeLoading(45);
+        setWelcomeStatus('מעדכן מהריליים...');
         const initialEvents = await App.pool.list(App.relayUrls, filters);
         if (Array.isArray(initialEvents)) {
           setWelcomeLoading(45);
