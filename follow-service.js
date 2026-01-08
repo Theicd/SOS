@@ -438,6 +438,8 @@
   if (App.pool) {
     initializeFollowService();
   }
+  // חלק אתחול מוקדם (follow-service.js) – טעינת סטייט Follow מ-localStorage מיד | HYPER CORE TECH
+  restoreFollowingFromStorage();
   App.toggleFollow = toggleFollow;
   App.isFollowing = function isFollowing(targetPubkey) {
     return followState.followingSet.has(normalizePubkey(targetPubkey));

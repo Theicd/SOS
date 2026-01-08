@@ -359,18 +359,20 @@
     return Object.assign({ channels: state.channels.size, dbDisabled }, state.stats);
   }
 
-  // חלק קריאה מהירה (p2p-event-sync.js) – טעינת פוסטים מה-DB לתצוגה מיידית | HYPER CORE TECH
-  async function loadCachedPosts(options = {}) {
-    const { kinds = [1], limit = 50, networkTag = null } = options;
+  // חלק cache (p2p-event-sync.js) – טעינת פוסטים מה-DB לפי kind | HYPER CORE TECH
+  async function loadCachedEvents(options = {}) {
     const database = await openDB();
     if (!database) return [];
 
-    const tx = database.transaction([STORE_NAME], 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index('created_at');
+    const { kinds = [1], limit = 100, since = 0 } = options;
+    const kindsSet = new Set(kinds);
 
     return new Promise((resolve) => {
       const results = [];
+      const tx = database.transaction([STORE_NAME], 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const index = store.index('created_at');
+
       const request = index.openCursor(null, 'prev');
       request.onsuccess = (event) => {
         const cursor = event.target.result;
@@ -378,17 +380,17 @@
           resolve(results);
           return;
         }
-        const record = cursor.value;
-        // סינון לפי kind
-        if (kinds.includes(record.kind)) {
-          // סינון לפי תג רשת אם נדרש
-          if (networkTag) {
-            const hasTag = Array.isArray(record.tags) && 
-              record.tags.some(t => t[0] === 't' && t[1] === networkTag);
-            if (hasTag) results.push(record);
-          } else {
-            results.push(record);
-          }
+        const rec = cursor.value;
+        if (rec && kindsSet.has(rec.kind) && rec.created_at >= since) {
+          results.push({
+            id: rec.id,
+            pubkey: rec.pubkey,
+            created_at: rec.created_at,
+            kind: rec.kind,
+            tags: rec.tags,
+            content: rec.content,
+            sig: rec.sig,
+          });
         }
         cursor.continue();
       };
@@ -396,54 +398,44 @@
     });
   }
 
-  // חלק קריאת לייקים (p2p-event-sync.js) – טעינת לייקים מה-DB | HYPER CORE TECH
-  async function loadCachedLikes(eventIds = []) {
-    if (!eventIds.length) return [];
+  // חלק cache (p2p-event-sync.js) – טעינת לייקים/תגובות לפוסטים ספציפיים | HYPER CORE TECH
+  async function loadEngagementForPosts(postIds = []) {
+    if (!postIds.length) return { likes: [], comments: [] };
     const database = await openDB();
-    if (!database) return [];
+    if (!database) return { likes: [], comments: [] };
 
-    const tx = database.transaction([STORE_NAME], 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-
-    const results = [];
-    for (const id of eventIds.slice(0, 200)) {
-      try {
-        const allRecords = await new Promise((resolve) => {
-          const req = store.openCursor();
-          const matches = [];
-          req.onsuccess = (e) => {
-            const cursor = e.target.result;
-            if (!cursor) { resolve(matches); return; }
-            const r = cursor.value;
-            if (r.kind === 7 && Array.isArray(r.tags) && r.tags.some(t => t[0] === 'e' && t[1] === id)) {
-              matches.push(r);
-            }
-            cursor.continue();
-          };
-          req.onerror = () => resolve(matches);
-        });
-        results.push(...allRecords);
-      } catch (_) {}
-    }
-    return results;
-  }
-
-  // חלק timestamp אחרון (p2p-event-sync.js) – החזרת הזמן האחרון לצורך delta sync | HYPER CORE TECH
-  async function getLastEventTimestamp() {
-    const database = await openDB();
-    if (!database) return 0;
-
-    const tx = database.transaction([STORE_NAME], 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const index = store.index('created_at');
+    const postIdSet = new Set(postIds);
+    const likes = [];
+    const comments = [];
 
     return new Promise((resolve) => {
-      const request = index.openCursor(null, 'prev');
+      const tx = database.transaction([STORE_NAME], 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+
+      const request = store.openCursor();
       request.onsuccess = (event) => {
         const cursor = event.target.result;
-        resolve(cursor?.value?.created_at || 0);
+        if (!cursor) {
+          resolve({ likes, comments });
+          return;
+        }
+        const rec = cursor.value;
+        if (rec) {
+          if (rec.kind === 7 && Array.isArray(rec.tags)) {
+            const eTag = rec.tags.find(t => t[0] === 'e');
+            if (eTag && postIdSet.has(eTag[1])) {
+              likes.push(rec);
+            }
+          } else if (rec.kind === 1 && Array.isArray(rec.tags)) {
+            const eTag = rec.tags.find(t => t[0] === 'e');
+            if (eTag && postIdSet.has(eTag[1])) {
+              comments.push(rec);
+            }
+          }
+        }
+        cursor.continue();
       };
-      request.onerror = () => resolve(0);
+      request.onerror = () => resolve({ likes, comments });
     });
   }
 
@@ -458,9 +450,8 @@
       return sendInventory(peerPubkey, ch);
     },
     getStats,
-    loadCachedPosts,
-    loadCachedLikes,
-    getLastEventTimestamp,
+    loadCachedEvents,
+    loadEngagementForPosts,
   });
 
   if (!App._p2pEventSyncBootstrapped) {

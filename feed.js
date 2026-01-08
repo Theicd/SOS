@@ -3337,8 +3337,10 @@
   }
 
   // חלק פיד (feed.js) – בניית פילטרים מרכזיים לפיד ולהתרעות | HYPER CORE TECH
-function buildCoreFeedFilters() {
-  const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 200 }];
+function buildCoreFeedFilters(sinceTimestamp = 0) {
+  const baseFilter = { kinds: [1], '#t': [App.NETWORK_TAG], limit: 200 };
+  if (sinceTimestamp > 0) baseFilter.since = sinceTimestamp;
+  const filters = [baseFilter];
   const viewerKey = typeof App.publicKey === 'string' ? App.publicKey : '';
   if (viewerKey) {
     filters.push({ kinds: [1], authors: [viewerKey], limit: 50 });
@@ -3488,65 +3490,57 @@ async function loadFeed() {
       }
     }
     
-    // חלק First Paint (feed.js) – טעינה מהירה מ-EventSync לפני פנייה לריליי | HYPER CORE TECH
-    if (App.EventSync && typeof App.EventSync.loadCachedPosts === 'function') {
+    // חלק First Paint (feed.js) – טעינה מהירה מ-EventSync cache לפני פנייה לריליי | HYPER CORE TECH
+    let cachedFirstPaint = false;
+    if (!App._homeFeedFirstBatchShown && App.EventSync?.loadCachedEvents) {
       try {
-        setWelcomeLoading(15);
-        setWelcomeStatus('טוען מהמטמון...');
-        const cachedPosts = await App.EventSync.loadCachedPosts({
-          kinds: [1],
-          limit: 50,
-          networkTag: App.NETWORK_TAG || null,
-        });
-        if (cachedPosts && cachedPosts.length > 0) {
-          console.log(`[FEED] First Paint: ${cachedPosts.length} פוסטים מהמטמון`);
-          // סינון פוסטים ראשיים (לא תגובות)
-          const mainPosts = cachedPosts.filter(e => !extractParentId(e));
-          if (mainPosts.length > 0) {
-            setWelcomeLoading(30);
-            await displayPosts(mainPosts);
-            // טעינת לייקים מהמטמון
-            const postIds = mainPosts.map(e => e.id);
-            const cachedLikes = await App.EventSync.loadCachedLikes(postIds);
-            cachedLikes.forEach(like => registerLike(like));
-            mainPosts.forEach(e => {
-              if (typeof App.updateLikeIndicator === 'function') App.updateLikeIndicator(e.id);
+        const cachedPosts = await App.EventSync.loadCachedEvents({ kinds: [1], limit: 30 });
+        const validPosts = cachedPosts.filter(e => !extractParentId(e));
+        if (validPosts.length >= 5) {
+          console.log('[FEED CACHE] First paint from cache:', validPosts.length, 'posts');
+          setWelcomeLoading(50);
+          setWelcomeStatus('טוען מהמטמון...');
+          await displayPosts(validPosts);
+          cachedFirstPaint = true;
+          // טעינת לייקים/תגובות מהקאש ברקע
+          const postIds = validPosts.map(p => p.id);
+          App.EventSync.loadEngagementForPosts(postIds).then(({ likes, comments }) => {
+            likes.forEach(like => registerLike(like));
+            comments.forEach(comment => {
+              const parentId = extractParentId(comment);
+              if (parentId) registerComment(comment, parentId);
             });
-          }
+            validPosts.forEach(p => {
+              if (typeof App.updateLikeIndicator === 'function') App.updateLikeIndicator(p.id);
+              if (typeof App.updateCommentsForParent === 'function') App.updateCommentsForParent(p.id);
+            });
+          }).catch(() => {});
         }
       } catch (cacheErr) {
-        console.warn('[FEED] Failed to load from cache, continuing with relays', cacheErr);
+        console.warn('[FEED CACHE] Failed to load from cache', cacheErr);
       }
     }
     
     // חלק פיד (feed.js) – מסננים: פוסטים עיקריים לפי תג רשת, ובנוסף פוסטים של המשתמש הנוכחי גם אם חסר תג
-    // טעינה ראשונית: 10 פוסטים בלבד
-    const filters = buildCoreFeedFilters();
-    
-    // חלק Delta Sync (feed.js) – הוספת since לפילטר אם יש timestamp אחרון | HYPER CORE TECH
-    let lastTimestamp = 0;
-    if (App.EventSync && typeof App.EventSync.getLastEventTimestamp === 'function') {
-      try {
-        lastTimestamp = await App.EventSync.getLastEventTimestamp();
-        if (lastTimestamp > 0) {
-          // מבקשים רק אירועים חדשים מהזמן האחרון (מינוס 5 דקות לביטחון)
-          const sinceTime = lastTimestamp - 300;
-          filters.forEach(f => { f.since = sinceTime; });
-          console.log(`[FEED] Delta sync: since=${new Date(sinceTime * 1000).toLocaleTimeString()}`);
-        }
-      } catch (_) {}
-    }
-    
+    // אם יש כבר פוסטים מהקאש, נבקש רק חדשים (delta sync)
+    const sinceTime = cachedFirstPaint && allFeedEvents?.length > 0 
+      ? Math.max(...allFeedEvents.map(e => e.created_at || 0)) - 60 
+      : 0;
+    const filters = buildCoreFeedFilters(sinceTime);
     const events = [];
     const seenEventIds = new Set();
+    // אם יש כבר פוסטים מהקאש, נוסיף אותם ל-seen כדי לא לכפול
+    if (cachedFirstPaint && allFeedEvents) {
+      allFeedEvents.forEach(e => seenEventIds.add(e.id));
+    }
     try {
       console.log('%c[DELETE_DEBUG] feed filters', 'color: #FF5722; font-weight: bold', filters);
     } catch (_) {}
 
     if (typeof App.pool.list === 'function') {
       try {
-        setWelcomeLoading(45);
-        setWelcomeStatus('מעדכן מהריליים...');
+        setWelcomeLoading(25);
+        setWelcomeStatus('מקבל אירועים...');
         const initialEvents = await App.pool.list(App.relayUrls, filters);
         if (Array.isArray(initialEvents)) {
           setWelcomeLoading(45);
@@ -3555,6 +3549,10 @@ async function loadFeed() {
               return;
             }
             seenEventIds.add(event.id);
+            // חלק cache (feed.js) – שמירת אירועים ב-EventSync לשימוש חוזר | HYPER CORE TECH
+            if (App.EventSync?.ingestEvent) {
+              App.EventSync.ingestEvent(event, { source: 'feed-initial' });
+            }
             if (event.kind === 1) {
               const parentId = extractParentId(event);
               if (parentId) {
@@ -3602,6 +3600,23 @@ async function loadFeed() {
             setWelcomeLoading(65);
             setWelcomeStatus('מרנדר פוסטים...');
             await displayPosts(events);
+            // חלק הידרציה (feed.js) – טעינת לייקים ותגובות מיד אחרי רינדור | HYPER CORE TECH
+            if (typeof App.hydrateEngagementForPosts === 'function') {
+              App.hydrateEngagementForPosts(events, extractParentId).then(() => {
+                events.forEach(e => {
+                  if (e?.id) {
+                    updateLikeIndicator(e.id);
+                    if (typeof App.updateCommentsForParent === 'function') {
+                      App.updateCommentsForParent(e.id);
+                    }
+                  }
+                });
+              }).catch(() => {});
+            }
+            // חלק Follow (feed.js) – רענון כפתורי Follow מיד אחרי רינדור | HYPER CORE TECH
+            if (typeof App.refreshFollowButtons === 'function') {
+              App.refreshFollowButtons();
+            }
             if (emptyState && emptyMessage?.dataset?.defaultText) {
               emptyMessage.textContent = emptyMessage.dataset.defaultText;
               emptyState.classList.remove('feed-empty--loading');
@@ -3626,6 +3641,10 @@ async function loadFeed() {
           return;
         }
         seenEventIds.add(event.id);
+        // חלק cache (feed.js) – שמירת אירועים מ-subscription ב-EventSync | HYPER CORE TECH
+        if (App.EventSync?.ingestEvent) {
+          App.EventSync.ingestEvent(event, { source: 'feed-subscription' });
+        }
         if (event.kind === 1) {
           const parentId = extractParentId(event);
           if (parentId) {
