@@ -509,7 +509,6 @@
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
-  display: block;
 }
 
 #viewerTopProfile .profile-header__avatar-button {
@@ -689,7 +688,7 @@
   align-items: stretch;
   justify-content: center;
   gap: 16px;
-  padding: 28px 24px 32px;
+  padding: 28px 24px;
   color: var(--text);
   backdrop-filter: blur(10px);
   background: linear-gradient(115deg, rgba(8, 10, 14, 0.55), rgba(12, 15, 20, 0.35));
@@ -749,15 +748,18 @@
 
 .profile-cover__name {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .profile-cover__bio {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+  font-size: 0.9rem;
+  max-width: 90%;
 }
 
 .profile-cover__keys {
@@ -792,23 +794,28 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  background: rgba(15, 18, 26, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
   border-radius: 12px;
-  padding: 8px 12px;
-  min-width: 78px;
+  padding: 6px 12px;
+  min-width: 60px;
+  transition: background 0.2s ease;
+}
+
+.profile-cover__stat-box:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .profile-cover__stat-value {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
 }
 
 .profile-cover__stat-label {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.7);
   text-transform: capitalize;
 }
 
@@ -912,12 +919,19 @@
 .profile-cover__followers {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
   width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+
+.profile-cover__followers::-webkit-scrollbar {
+  display: none;
 }
 
 .profile-cover__followers-item {
@@ -1418,28 +1432,31 @@
   display: inline-flex;
   gap: 8px;
   align-self: flex-start;
-  background: rgba(18, 20, 26, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 0;
 }
 
 .profile-activity__period {
-  border: none;
-  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
   background: transparent;
-  color: var(--muted);
-  padding: 6px 16px;
-  font-size: 0.85rem;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+.profile-activity__period:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .profile-activity__period.is-active {
-  background: var(--primary);
-  color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(35, 116, 225, 0.3);
+  color: #fe2c55;
+  background: rgba(254, 44, 85, 0.15);
+  font-weight: 600;
 }
 
 .profile-activity__chart {
@@ -1744,6 +1761,27 @@
 }
 
 @media (max-width: 900px) {
+  /* מבנה פרופיל מלא מסך */
+  .profile-body {
+    background: #000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 100dvh !important;
+  }
+
+  .app-shell.profile-shell,
+  .profile-shell {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #000 !important;
+  }
+
+  .profile-main {
+    width: 100vw !important;
+  }
+
   /* דף פרופיל ממלא את כל המסך עד התפריט התחתון */
   .profile-body {
     min-height: 100vh !important;
@@ -1784,40 +1822,71 @@
 
   .profile-cover__inner {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
+    padding: 16px 12px !important;
+    gap: 12px !important;
   }
 
   .profile-cover__avatar {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+  }
+  
+  .profile-cover__info-block {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .profile-cover__stats-row {
+    justify-content: center !important;
+    gap: 24px !important;
+  }
+  
+  .profile-cover__actions {
+    justify-content: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
   }
 
   .profile-mobile-tabs {
     display: flex;
-    gap: 8px;
-    margin: 16px 0;
-    padding: 0 24px;
-    overflow-x: auto;
+    gap: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-x: hidden;
+    width: 100%;
+    background: rgba(0,0,0,0.5);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
   }
 
   .profile-mobile-tab {
-    flex: 0 0 auto;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(26, 29, 33, 0.7);
-    color: var(--muted);
-    border-radius: 999px;
-    padding: 8px 18px;
-    font-size: 0.9rem;
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    border-radius: 0;
+    padding: 14px 18px;
+    font-size: 0.95rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    border-bottom: 2px solid transparent;
+    position: relative;
   }
 
   .profile-mobile-tab.is-active {
-    color: var(--text);
-    background: var(--primary);
-    border-color: rgba(35, 116, 225, 0.55);
-    box-shadow: 0 10px 24px rgba(35, 116, 225, 0.25);
-    transform: translateY(-1px);
+    color: #fff;
+    background: transparent;
+    border-bottom: 2px solid #fe2c55;
+    box-shadow: none;
+    transform: none;
+  }
+  
+  .profile-mobile-tab:hover:not(.is-active) {
+    color: rgba(255, 255, 255, 0.8);
   }
 
   .profile-sidebar > [data-profile-panel],
@@ -2051,6 +2120,163 @@
   }
 }
 
+/* שיפור עיצוב בורר תקופה */
+.profile-activity__periods {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 8px 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.profile-activity__period {
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-activity__period:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.profile-activity__period.is-active {
+  color: #fe2c55;
+  background: rgba(254, 44, 85, 0.15);
+  font-weight: 600;
+}
+
+/* חלק אלמנט טעינה (profile.css) – נראה במובייל | HYPER CORE TECH */
+.profile-posts-loading {
+  grid-column: 1 / -1 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  padding: 20px !important;
+  background: rgba(254, 44, 85, 0.1) !important;
+  color: #fff !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  height: auto !important;
+  min-height: 50px !important;
+  border: none !important;
+  list-style: none !important;
+  margin: 0 !important;
+  aspect-ratio: auto !important;
+  position: relative !important;
+}
+
+.profile-posts-loading__spinner {
+  width: 20px !important;
+  height: 20px !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  border-top-color: #fe2c55 !important;
+  border-radius: 50% !important;
+  animation: spinLoader 0.6s linear infinite !important;
+}
+
+@keyframes spinLoader {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== הודעת טעינה פרימיום באזור הפוסטים ========== */
+.profile-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 20px;
+  grid-column: 1 / -1;
+  min-height: 200px;
+  background: transparent;
+  list-style: none;
+}
+
+.profile-loading-state__spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #fe2c55;
+  border-radius: 50%;
+  animation: spinLoader 0.8s ease-in-out infinite;
+}
+
+.profile-loading-state__text {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* ========== מצב טעינה יציב - סקלטונים ואנימציה ========== */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.profile-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* סקלטון לפוסטים בזמן טעינה */
+.profile-timeline__list:empty::before {
+  content: '';
+  display: block;
+  grid-column: 1 / -1;
+  height: 300px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0;
+}
+
+/* רקע שחור יציב תמיד */
+@media (max-width: 900px) {
+  .profile-timeline__list:empty {
+    min-height: calc(100dvh - 300px) !important;
+    background: #000 !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  
+  .profile-timeline__list:empty::before,
+  .profile-timeline__list:empty::after {
+    content: '';
+    aspect-ratio: 9/16;
+    background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  /* מונע קפיצות בזמן טעינה */
+  .profile-cover {
+    min-height: 200px !important;
+  }
+  
+  .profile-cover__avatar {
+    min-width: 80px !important;
+    min-height: 80px !important;
+  }
+  
+  .profile-cover__name:empty::before {
+    content: 'טוען...';
+    color: rgba(255,255,255,0.5);
+  }
+}
+
 /* חלק תפריט תחתון (profile.css) – מסתיר את התפריט התחתון בדף הפרופיל | HYPER CORE TECH */
 .profile-body .primary-nav {
   display: none !important;
@@ -2206,39 +2432,4 @@
 .profile-secondary-button:hover {
   background: rgba(255, 255, 255, 0.2) !important;
   transform: translateY(-1px) !important;
-}
-
-/* חלק אלמנט טעינה (profile.css) – נראה במובייל | HYPER CORE TECH */
-.profile-posts-loading {
-  grid-column: 1 / -1 !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  padding: 20px !important;
-  background: rgba(254, 44, 85, 0.1) !important;
-  color: #fff !important;
-  font-size: 0.9rem !important;
-  font-weight: 500 !important;
-  height: auto !important;
-  min-height: 50px !important;
-  border: none !important;
-  list-style: none !important;
-  margin: 0 !important;
-  aspect-ratio: auto !important;
-  position: relative !important;
-}
-
-.profile-posts-loading__spinner {
-  width: 20px !important;
-  height: 20px !important;
-  border: 2px solid rgba(255, 255, 255, 0.3) !important;
-  border-top-color: #fe2c55 !important;
-  border-radius: 50% !important;
-  animation: spinLoader 0.6s linear infinite !important;
-}
-
-@keyframes spinLoader {
-  to { transform: rotate(360deg); }
 }
