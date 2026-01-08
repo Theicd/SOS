@@ -317,13 +317,41 @@
     if (!Array.isArray(msg.events) || msg.events.length === 0) return true;
 
     let stored = 0;
+    const newPosts = [];
+    const newLikes = [];
+    const newComments = [];
+    
     for (const ev of msg.events) {
       if (await ingestEvent(ev, { source: 'p2p:' + senderPubkey.slice(0, 8) })) {
         stored++;
+        // חלק P2P לייב (p2p-event-sync.js) – איסוף אירועים חדשים לעדכון הפיד | HYPER CORE TECH
+        if (ev.kind === 1) {
+          const hasETag = Array.isArray(ev.tags) && ev.tags.some(t => t[0] === 'e');
+          if (hasETag) {
+            newComments.push(ev);
+          } else {
+            newPosts.push(ev);
+          }
+        } else if (ev.kind === 7) {
+          newLikes.push(ev);
+        }
       }
     }
 
-    log('info', '📥 RES received', { from: senderPubkey.slice(0, 8), events: msg.events.length, stored });
+    // חלק P2P לייב (p2p-event-sync.js) – עדכון הפיד עם אירועים שהגיעו מ-P2P | HYPER CORE TECH
+    if (newLikes.length > 0 && typeof App.registerLike === 'function') {
+      newLikes.forEach(like => App.registerLike(like));
+    }
+    if (newComments.length > 0 && typeof App.registerComment === 'function') {
+      newComments.forEach(comment => {
+        const eTag = Array.isArray(comment.tags) && comment.tags.find(t => t[0] === 'e');
+        if (eTag && eTag[1]) {
+          App.registerComment(comment, eTag[1]);
+        }
+      });
+    }
+
+    log('info', '📥 RES received', { from: senderPubkey.slice(0, 8), events: msg.events.length, stored, newPosts: newPosts.length, newLikes: newLikes.length });
     return true;
   }
 
