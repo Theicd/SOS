@@ -506,10 +506,28 @@
 
   // חלק רנדר טיימליין (profile-view.js) – מציב את הפוסטים ואת התגובות המצטברות
   function renderTimeline(posts, replies) {
+    // הסרת סקלטונים קיימים
+    if (refs.timelineList) {
+      const skeletons = refs.timelineList.querySelectorAll('.profile-skeleton');
+      skeletons.forEach(s => s.remove());
+    }
+    
     if (typeof App.renderProfilePosts === 'function') {
       const safePosts = Array.isArray(posts) ? posts : [];
       const safeReplies = Array.isArray(replies) ? replies : [];
-      App.renderProfilePosts(safePosts, 'profileTimeline');
+      
+      // אם אין פוסטים, מציג סקלטונים
+      if (safePosts.length === 0 && refs.timelineList) {
+        for (let i = 0; i < 6; i++) {
+          const skeleton = document.createElement('li');
+          skeleton.className = 'profile-skeleton';
+          skeleton.style.aspectRatio = '9/16';
+          refs.timelineList.appendChild(skeleton);
+        }
+      } else {
+        App.renderProfilePosts(safePosts, 'profileTimeline');
+      }
+      
       App.renderProfilePosts(safeReplies, 'profileTimelineComments');
       if (typeof App.updateLikeIndicator === 'function') {
         safePosts.forEach((event) => {
@@ -523,10 +541,13 @@
       if (Array.isArray(posts) && posts.length) {
         posts.forEach((event) => refs.timelineList.appendChild(buildTimelineItem(event)));
       } else {
-        const empty = document.createElement('li');
-        empty.className = 'profile-timeline__item';
-        empty.textContent = 'לא נמצאו פוסטים בפרופיל.';
-        refs.timelineList.appendChild(empty);
+        // סקלטונים במקום הודעה ריקה
+        for (let i = 0; i < 6; i++) {
+          const skeleton = document.createElement('li');
+          skeleton.className = 'profile-skeleton';
+          skeleton.style.aspectRatio = '9/16';
+          refs.timelineList.appendChild(skeleton);
+        }
       }
       if (refs.timelineComments) {
         refs.timelineComments.innerHTML = '';

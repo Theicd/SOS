@@ -2180,14 +2180,21 @@
       if (typeof App.closeProfilePanel === 'function') {
         App.closeProfilePanel();
       }
-      // אם chat-ui.js טיפל בהתראות דרך openNotificationsPanel, נפנה לשם
+      // לוגיקה הגיונית: פתוח בהתראות→סגור, פתוח בשיחות→עבור להתראות, סגור→פתח התראות
       if (typeof App.openNotificationsPanel === 'function') {
-        // בדיקה אם הפאנל כבר פתוח במצב התראות - toggle behavior
-        if (App.chatState?.isOpen && App.chatState?.footerMode === 'notifications') {
-          if (typeof App.closeNotificationsPanel === 'function') {
-            App.closeNotificationsPanel();
+        const chatState = App.chatState || {};
+        if (chatState.isOpen) {
+          if (chatState.footerMode === 'notifications') {
+            // כבר בטאב התראות - סגור
+            if (typeof App.closeNotificationsPanel === 'function') {
+              App.closeNotificationsPanel();
+            }
+          } else {
+            // בטאב אחר (שיחות) - עבור להתראות
+            App.openNotificationsPanel();
           }
         } else {
+          // הפאנל סגור - פתח בטאב התראות
           App.openNotificationsPanel();
         }
         return;

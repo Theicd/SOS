@@ -13,6 +13,21 @@
     gallery: document.getElementById('viewerGallery'),
     statsPosts: document.getElementById('viewerStatsPosts'),
     statsReplies: document.getElementById('viewerStatsReplies'),
+    statsLikes: document.getElementById('viewerStatsLikes'),
+    statsComments: document.getElementById('viewerStatsComments'),
+    statsPostsChange: document.getElementById('viewerStatsPostsChange'),
+    statsRepliesChange: document.getElementById('viewerStatsRepliesChange'),
+    statsLikesChange: document.getElementById('viewerStatsLikesChange'),
+    statsCommentsChange: document.getElementById('viewerStatsCommentsChange'),
+    statsPostsNote: document.getElementById('viewerStatsPostsNote'),
+    statsRepliesNote: document.getElementById('viewerStatsRepliesNote'),
+    statsLikesNote: document.getElementById('viewerStatsLikesNote'),
+    statsCommentsNote: document.getElementById('viewerStatsCommentsNote'),
+    activityChart: document.getElementById('viewerActivityChart'),
+    activityEmpty: document.getElementById('viewerActivityEmpty'),
+    followersCountHeader: document.getElementById('viewerFollowersCount'),
+    followingCount: document.getElementById('viewerFollowingCount'),
+    likesCount: document.getElementById('viewerLikesCount'),
     timelineStatus: document.getElementById('viewerTimelineStatus'),
     timelineList: document.getElementById('viewerTimeline'),
     repliesList: document.getElementById('viewerReplies'),
@@ -20,6 +35,10 @@
     back: document.getElementById('viewerBackButton'),
     followButton: document.getElementById('viewerFollowButton'),
     followersCount: document.getElementById('viewerFollowersCount'),
+    mobileTabs: document.getElementById('viewerMobileTabs'),
+    statsPanel: document.getElementById('viewerStatsPanel'),
+    postsPanel: document.getElementById('viewerPostsPanel'),
+    activityPeriods: document.getElementById('viewerActivityPeriods'),
     galleryModal: null,
     galleryModalImage: null,
     galleryModalClose: null,
@@ -33,6 +52,12 @@
     followerUnsubscribe: null,
     followersSnapshot: [],
     followerProfilePromises: new Map(),
+    activityPeriod: 60,
+  };
+
+  const activityState = {
+    chart: null,
+    period: 60,
   };
 
   let galleryModalListenersBound = false;
@@ -204,9 +229,14 @@
   }
 
   function showStatus(message) {
-    if (refs.connectionStatus) {
-      refs.connectionStatus.hidden = false;
-      refs.connectionStatus.textContent = message;
+    // הודעת טעינה באזור הפוסטים עם עיצוב פרימיום
+    if (refs.timelineList && message) {
+      refs.timelineList.innerHTML = `
+        <li class="profile-loading-state">
+          <div class="profile-loading-state__spinner"></div>
+          <span class="profile-loading-state__text">טוען...</span>
+        </li>
+      `;
     }
   }
 
@@ -569,17 +599,20 @@
     state.posts = posts;
     state.replies = replies;
     renderTimeline(posts, replies);
+    updateActivityStats(posts, replies);
+    updateActivityChart(posts);
     subscribeFollowers();
     initializeFollowSection();
     syncFollowButton();
   }
 
   function initializeFollowSection() {
-    if (!refs.followersCount || !refs.followersList) {
-      return;
+    if (refs.followersCount) {
+      refs.followersCount.textContent = '0';
     }
-    refs.followersCount.textContent = '0 עוקבים';
-    refs.followersList.innerHTML = '';
+    if (refs.followersList) {
+      refs.followersList.innerHTML = '';
+    }
     if (refs.followersStatus) {
       refs.followersStatus.textContent = '';
     }
@@ -657,7 +690,7 @@
     state.followerUnsubscribe = App.subscribeFollowers(state.targetPubkey, (entries) => {
       state.followersSnapshot = Array.isArray(entries) ? entries : [];
       if (refs.followersCount) {
-        refs.followersCount.textContent = `${state.followersSnapshot.length} עוקבים`;
+        refs.followersCount.textContent = state.followersSnapshot.length.toString();
       }
       if (refs.followersStatus) {
         refs.followersStatus.textContent = state.followersSnapshot.length ? '' : 'אין עוקבים להצגה כרגע.';
@@ -698,6 +731,232 @@
     }
   }
 
+  // לוגיקת טאבים
+  function bindMobileTabs() {
+    if (!refs.mobileTabs) return;
+    const tabs = refs.mobileTabs.querySelectorAll('[data-profile-tab]');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.profileTab;
+        tabs.forEach(t => t.classList.remove('is-active'));
+        tab.classList.add('is-active');
+        
+        // הצגת הפאנל המתאים
+        if (refs.statsPanel) {
+          refs.statsPanel.classList.toggle('is-active', target === 'stats');
+        }
+        if (refs.postsPanel) {
+          refs.postsPanel.classList.toggle('is-active', target === 'posts');
+        }
+      });
+    });
+  }
+
+  // לוגיקת כפתורי טווח זמן
+  function bindActivityPeriods() {
+    if (!refs.activityPeriods) return;
+    const buttons = refs.activityPeriods.querySelectorAll('[data-activity-period]');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const period = parseInt(btn.dataset.activityPeriod, 10);
+        if (isNaN(period)) return;
+        
+        // עדכון כפתור פעיל
+        buttons.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        
+        // עדכון state וסטטיסטיקות וגרף
+        state.activityPeriod = period;
+        activityState.period = period;
+        updateActivityStats(state.posts, state.replies);
+        updateActivityChart(state.posts);
+      });
+    });
+  }
+
+  function sumLikesForPosts(posts = []) {
+    if (!(App.likesByEventId instanceof Map)) {
+      return 0;
+    }
+    return posts.reduce((sum, post) => {
+      if (!post?.id) {
+        return sum;
+      }
+      const likeSet = App.likesByEventId.get(post.id);
+      if (likeSet instanceof Set) {
+        return sum + likeSet.size;
+      }
+      if (Array.isArray(likeSet)) {
+        return sum + likeSet.length;
+      }
+      if (typeof likeSet === 'number') {
+        return sum + likeSet;
+      }
+      if (likeSet && typeof likeSet.size === 'number') {
+        return sum + likeSet.size;
+      }
+      return sum;
+    }, 0);
+  }
+
+  function sumCommentsForPosts(posts = []) {
+    if (!(App.commentsByParent instanceof Map)) {
+      return 0;
+    }
+    return posts.reduce((sum, post) => {
+      if (!post?.id) {
+        return sum;
+      }
+      const commentsMap = App.commentsByParent.get(post.id);
+      if (commentsMap instanceof Map) {
+        return sum + commentsMap.size;
+      }
+      if (Array.isArray(commentsMap)) {
+        return sum + commentsMap.length;
+      }
+      if (typeof commentsMap === 'number') {
+        return sum + commentsMap;
+      }
+      return sum;
+    }, 0);
+  }
+
+  // אתחול גרף פעילות
+  function initActivityChart() {
+    if (!refs.activityChart || typeof ApexCharts !== 'function') {
+      return;
+    }
+    if (activityState.chart) {
+      return;
+    }
+    const options = {
+      chart: {
+        type: 'area',
+        height: 280,
+        parentHeightOffset: 0,
+        toolbar: { show: false },
+        animations: { enabled: true, easing: 'easeinout', speed: 650 },
+        zoom: { enabled: false },
+        foreColor: '#c9d1d9',
+        fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif',
+      },
+      stroke: { curve: 'smooth', width: 3 },
+      dataLabels: { enabled: false },
+      fill: {
+        type: 'gradient',
+        gradient: { shadeIntensity: 0.7, opacityFrom: 0.4, opacityTo: 0.1, stops: [0, 85, 100] },
+      },
+      colors: ['#4c8bfd', '#ff6b81', '#66d36e'],
+      grid: { borderColor: 'rgba(255, 255, 255, 0.06)', strokeDashArray: 4 },
+      xaxis: {
+        type: 'datetime',
+        labels: { datetimeUTC: false, style: { colors: '#8b949e' } },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+      },
+      yaxis: { min: 0, forceNiceScale: true, labels: { style: { colors: '#8b949e' } } },
+      tooltip: { theme: 'dark', x: { format: 'dd/MM/yy' }, shared: true, intersect: false },
+      legend: { markers: { offsetX: -4 }, labels: { colors: '#c9d1d9' } },
+      series: [
+        { name: 'פוסטים', data: [] },
+        { name: 'לייקים', data: [] },
+        { name: 'תגובות', data: [] },
+      ],
+      noData: { text: 'טוען פעילות...' },
+    };
+    activityState.chart = new ApexCharts(refs.activityChart, options);
+    activityState.chart.render();
+  }
+
+  function getPeriodRange(periodDays) {
+    const now = new Date();
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - (periodDays - 1));
+    startDate.setHours(0, 0, 0, 0);
+    return { start: Math.floor(startDate.getTime() / 1000), end: Math.floor(endDate.getTime() / 1000) };
+  }
+
+  function bucketEventsByDay(events, start, end) {
+    const buckets = new Map();
+    const day = 24 * 60 * 60;
+    events.forEach((event) => {
+      if (!event || typeof event.created_at !== 'number') return;
+      if (event.created_at < start || event.created_at > end) return;
+      const bucketIndex = Math.floor((event.created_at - start) / day);
+      const bucketKey = (start + bucketIndex * day) * 1000;
+      buckets.set(bucketKey, (buckets.get(bucketKey) || 0) + 1);
+    });
+    return buckets;
+  }
+
+  function buildSeriesData(posts, start, end) {
+    const day = 24 * 60 * 60;
+    const postBuckets = bucketEventsByDay(posts, start, end);
+    const totalDays = Math.floor((end - start) / day) + 1;
+    const seriesRange = [];
+    for (let i = 0; i < totalDays; i++) {
+      seriesRange.push((start + i * day) * 1000);
+    }
+    return {
+      postsSeries: seriesRange.map((ts) => [ts, postBuckets.get(ts) || 0]),
+      likesSeries: seriesRange.map(() => [0, 0]),
+      commentsSeries: seriesRange.map(() => [0, 0]),
+    };
+  }
+
+  function updateActivityChart(posts) {
+    initActivityChart();
+    if (!activityState.chart) return;
+    const period = activityState.period || 60;
+    const { start, end } = getPeriodRange(period);
+    const { postsSeries } = buildSeriesData(posts, start, end);
+    const hasData = postsSeries.some(([, v]) => v > 0);
+    if (hasData) {
+      refs.activityEmpty?.setAttribute('hidden', '');
+      refs.activityChart?.classList.remove('is-empty');
+      activityState.chart.updateSeries([
+        { name: 'פוסטים', data: postsSeries },
+        { name: 'לייקים', data: [] },
+        { name: 'תגובות', data: [] },
+      ]);
+    } else {
+      refs.activityEmpty?.removeAttribute('hidden');
+      refs.activityChart?.classList.add('is-empty');
+      activityState.chart.updateSeries([
+        { name: 'פוסטים', data: [] },
+        { name: 'לייקים', data: [] },
+        { name: 'תגובות', data: [] },
+      ]);
+    }
+  }
+
+  // סינון לפי טווח זמן
+  function filterByPeriod(events, periodDays) {
+    const now = Math.floor(Date.now() / 1000);
+    const periodStart = now - (periodDays * 24 * 60 * 60);
+    return events.filter(e => e && typeof e.created_at === 'number' && e.created_at >= periodStart);
+  }
+
+  // עדכון סטטיסטיקות פעילות
+  function updateActivityStats(posts, replies) {
+    const period = state.activityPeriod || 60;
+    const filteredPosts = filterByPeriod(posts, period);
+    const filteredReplies = filterByPeriod(replies, period);
+    
+    if (refs.statsPosts) {
+      refs.statsPosts.textContent = filteredPosts.length.toString();
+    }
+    if (refs.statsReplies) {
+      refs.statsReplies.textContent = filteredReplies.length.toString();
+    }
+    const totalLikes = sumLikesForPosts(filteredPosts);
+    const totalComments = sumCommentsForPosts(filteredPosts);
+    if (refs.statsLikes) refs.statsLikes.textContent = totalLikes.toString();
+    if (refs.statsComments) refs.statsComments.textContent = totalComments.toString();
+    if (refs.likesCount) refs.likesCount.textContent = totalLikes.toString();
+  }
+
   function init() {
     state.targetPubkey = parsePubkey();
     if (!state.targetPubkey) {
@@ -708,6 +967,9 @@
     }
     bindViewerGalleryModal();
     bindActions();
+    bindMobileTabs();
+    bindActivityPeriods();
+    initActivityChart();
     // ודא שגם לפני הטעינה המלאה מוצג אוואטר מחובר בהדר העליון
     renderTopBarAvatarFromOwnProfile();
     refreshProfile();

@@ -26,12 +26,53 @@
     <link rel="stylesheet" href="./styles/facebook-theme.css" />
     <link rel="stylesheet" href="./styles/profile.css" />
     <link rel="stylesheet" href="./styles/media-overrides.css" />
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <style>
       /* פרופיל ציבורי - ללא חלל ריק למעלה */
       .profile-body { padding-top: 0 !important; margin-top: 0 !important; }
       .profile-shell { margin-top: 0 !important; padding-top: 0 !important; }
       .profile-cover { margin-top: 0 !important; }
       .profile-cover__banner { min-height: 120px; }
+
+      /* יישור מלא למסכים צרים */
+      @media (max-width: 900px) {
+        .profile-viewer-body {
+          background: #000 !important;
+        }
+        .profile-viewer-body .profile-shell {
+          width: 100vw !important;
+          max-width: 100vw !important;
+          margin: 0 auto !important;
+          padding: 0 !important;
+        }
+        .profile-viewer-body .profile-cover,
+        .profile-viewer-body .profile-main {
+          width: min(420px, 100vw) !important;
+          margin: 0 auto !important;
+          padding: 0 0 24px !important;
+        }
+        .profile-viewer-body .profile-main {
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 16px !important;
+        }
+        .profile-viewer-body .profile-mobile-tabs {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          background: rgba(0, 0, 0, 0.85);
+          backdrop-filter: blur(12px);
+        }
+        .profile-viewer-body .profile-timeline {
+          padding: 0 !important;
+          background: transparent !important;
+        }
+        .profile-viewer-body .profile-timeline__list {
+          display: grid !important;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 2px;
+        }
+      }
     </style>
     <script src="./auth-guard.js"></script>
   </head>
@@ -43,67 +84,118 @@
     <main class="app-shell profile-shell">
       <section class="profile-cover" id="viewerCover">
         <div class="profile-cover__inner">
-          <div class="profile-cover__avatar" id="viewerAvatar">?</div>
-          <div class="profile-cover__info">
-            <h1 class="profile-cover__name" id="viewerName">טוען משתמש...</h1>
-            <p class="profile-cover__bio" id="viewerBio">אוספים פרטי פרופיל מהריליים.</p>
-            <div class="profile-cover__actions">
-              <button
-                class="profile-primary-button profile-follow__button"
-                id="viewerFollowButton"
-                type="button"
-                data-follow-button=""
-                data-follow-label
-              >
-                <i class="fa-solid fa-user-plus"></i>
-                <span data-follow-label>עקוב</span>
-              </button>
-              <button class="profile-secondary-button" id="viewerBackButton">
-                <i class="fa-solid fa-arrow-right"></i>
-                חזרה
-              </button>
+          <div class="profile-cover__top">
+            <div class="profile-cover__avatar" id="viewerAvatar">?</div>
+            <div class="profile-cover__info-block">
+              <div class="profile-cover__info-center">
+                <h1 class="profile-cover__name" id="viewerName">טוען משתמש...</h1>
+                <p class="profile-cover__bio" id="viewerBio">אוספים פרטי פרופיל מהריליים.</p>
+              </div>
+              
+              <!-- סטטיסטיקות בכותרת כמו בפרופיל אישי -->
+              <div class="profile-cover__stats-row">
+                <div class="profile-cover__stat-box">
+                  <span class="profile-cover__stat-value" id="viewerFollowersCount">0</span>
+                  <span class="profile-cover__stat-label">עוקבים</span>
+                </div>
+                <div class="profile-cover__stat-box">
+                  <span class="profile-cover__stat-value" id="viewerFollowingCount">0</span>
+                  <span class="profile-cover__stat-label">נעקבים</span>
+                </div>
+                <div class="profile-cover__stat-box">
+                  <span class="profile-cover__stat-value" id="viewerLikesCount">0</span>
+                  <span class="profile-cover__stat-label">לייקים</span>
+                </div>
+              </div>
             </div>
+          </div>
+          
+          <div class="profile-cover__actions">
+            <button
+              class="profile-primary-button profile-follow__button"
+              id="viewerFollowButton"
+              type="button"
+              data-follow-button=""
+              data-follow-label
+            >
+              <i class="fa-solid fa-user-plus"></i>
+              <span data-follow-label>עקוב</span>
+            </button>
+            <button class="profile-secondary-button" id="viewerBackButton">
+              <i class="fa-solid fa-arrow-right"></i>
+              חזרה
+            </button>
           </div>
         </div>
       </section>
+      
+      <!-- טאבים כמו בפרופיל אישי -->
+      <nav class="profile-mobile-tabs profile-mobile-tabs--dual" id="viewerMobileTabs" aria-label="ניווט פרופיל">
+        <button type="button" class="profile-mobile-tab profile-mobile-tab--large" data-profile-tab="stats" aria-controls="viewerStatsPanel">
+          סטטיסטיקות
+        </button>
+        <button type="button" class="profile-mobile-tab profile-mobile-tab--large is-active" data-profile-tab="posts" aria-controls="viewerPostsPanel">
+          פוסטים
+        </button>
+      </nav>
 
-      <!-- חלק פריסת תוכן (profile-viewer.html) – מציג נתונים וסטטיסטיקות בסיסיות -->
+      <!-- חלק פריסת תוכן (profile-viewer.html) – מציג נתונים וסטטיסטיקות -->
       <section class="profile-main">
         <aside class="profile-sidebar">
-          <section class="profile-card">
-            <h2 class="profile-card__title">אודות</h2>
-            <p class="profile-card__text" id="viewerSidebarBio">נתוני המשתמש ייטענו בקרוב.</p>
-            <div class="profile-card__meta" id="viewerMeta"></div>
-          </section>
-
-          <!-- חלק גלריית פרופיל ציבורי (profile-viewer.html) – מציג תמונות נוספות שהמשתמש שיתף -->
-          <section class="profile-card profile-card--gallery">
-            <h2 class="profile-card__title">גלריה</h2>
-            <ul class="profile-gallery" id="viewerGallery"></ul>
-          </section>
-
-          <section class="profile-card">
+          <!-- פאנל סטטיסטיקות עם גרף - כמו בפרופיל אישי -->
+          <section class="profile-card profile-card--activity" data-profile-panel="stats" id="viewerStatsPanel">
             <h2 class="profile-card__title">נתוני פעילות</h2>
-            <ul class="profile-stats">
-              <li class="profile-stats__item">
-                <span class="profile-stats__label">פוסטים שפורסמו</span>
-                <span class="profile-stats__value" id="viewerStatsPosts">0</span>
-              </li>
-              <li class="profile-stats__item">
-                <span class="profile-stats__label">תגובות שפורסמו</span>
-                <span class="profile-stats__value" id="viewerStatsReplies">0</span>
-              </li>
-            </ul>
-          </section>
-
-          <!-- חלק עוקבים (profile-viewer.html) – מציג רק את ספירת העוקבים לפרופיל הציבורי ללא רשימה מלאה -->
-          <section class="profile-card" id="viewerFollowersCard">
-            <h2 class="profile-card__title">עוקבים</h2>
-            <div class="profile-followers__count" id="viewerFollowersCount">0 עוקבים</div>
+            <div class="profile-activity">
+              <div class="profile-activity__controls">
+                <div class="profile-activity__summary">
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">פוסטים</span>
+                      <span class="profile-activity__summary-change is-neutral" id="viewerStatsPostsChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="viewerStatsPosts">0</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsPostsNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">לייקים</span>
+                      <span class="profile-activity__summary-change is-neutral" id="viewerStatsLikesChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="viewerStatsLikes">0</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsLikesNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">תגובות שנאספו</span>
+                      <span class="profile-activity__summary-change is-neutral" id="viewerStatsCommentsChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="viewerStatsComments">0</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsCommentsNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                  <div class="profile-activity__summary-item">
+                    <div class="profile-activity__summary-heading">
+                      <span class="profile-activity__summary-label">תגובות שנשלחו</span>
+                      <span class="profile-activity__summary-change is-neutral" id="viewerStatsRepliesChange">0%</span>
+                    </div>
+                    <span class="profile-activity__summary-value" id="viewerStatsReplies">0</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsRepliesNote">אין שינוי לעומת התקופה הקודמת</span>
+                  </div>
+                </div>
+                <div class="profile-activity__periods" role="group" aria-label="בחירת טווח זמן" id="viewerActivityPeriods">
+                  <button type="button" class="profile-activity__period" data-activity-period="7">7 ימים</button>
+                  <button type="button" class="profile-activity__period" data-activity-period="30">30 ימים</button>
+                  <button type="button" class="profile-activity__period is-active" data-activity-period="60">60 ימים</button>
+                </div>
+              </div>
+              <div class="profile-activity__chart" id="viewerActivityChart"></div>
+              <div class="profile-activity__empty" id="viewerActivityEmpty" hidden>
+                עדיין לא נרשמה פעילות בתקופה שנבחרה.
+              </div>
+            </div>
           </section>
         </aside>
 
-        <section class="profile-timeline">
+        <section class="profile-timeline is-active" data-profile-panel="posts" id="viewerPostsPanel">
           <header class="profile-timeline__header">
             <h2 class="profile-timeline__title">פוסטים</h2>
             <div class="profile-timeline__actions">
@@ -113,16 +205,9 @@
               </button>
             </div>
           </header>
-          <div class="profile-status" id="viewerTimelineStatus"></div>
+          <div class="profile-status" id="viewerTimelineStatus" style="display: none;"></div>
           <ul class="profile-timeline__list" id="viewerTimeline"></ul>
         </section>
-      </section>
-
-      <section class="profile-timeline profile-timeline--replies">
-        <header class="profile-timeline__header">
-          <h2 class="profile-timeline__title">תגובות שהגיב המשתמש</h2>
-        </header>
-        <ul class="profile-timeline__list" id="viewerReplies"></ul>
       </section>
     </main>
 

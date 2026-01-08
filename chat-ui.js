@@ -1707,11 +1707,29 @@
         if (typeof App.closeProfilePanel === 'function') {
           App.closeProfilePanel();
         }
-        // סגירת התראות אם פתוחות
-        if (typeof App.closeNotificationsPanel === 'function') {
-          App.closeNotificationsPanel();
+        
+        // לוגיקה הגיונית: פתוח בשיחות→סגור, פתוח בהתראות→עבור לשיחות, סגור→פתח שיחות
+        if (state.isOpen) {
+          if (state.footerMode === 'contacts' || state.footerMode === 'home') {
+            // כבר בטאב שיחות - סגור
+            togglePanel(false);
+          } else {
+            // בטאב אחר (התראות) - עבור לשיחות
+            setFooterMode('contacts');
+            state.activeContact = null;
+            resetConversationView();
+            renderContacts();
+            updatePanelMode(PANEL_MODES.LIST);
+            // עדכון כפתור התראות
+            if (elements.notificationsToggle) {
+              elements.notificationsToggle.classList.remove('is-active');
+            }
+          }
+        } else {
+          // הפאנל סגור - פתח בטאב שיחות
+          setFooterMode('contacts');
+          togglePanel(true);
         }
-        togglePanel();
       });
     }
 
@@ -1987,6 +2005,16 @@
     }
     voiceSendingIndicators.delete(loadingId);
   };
+
+  // חשיפת מצב הפאנל ל-feed.js עבור לוגיקת התראות | HYPER CORE TECH
+  Object.defineProperty(App.chatState, 'isOpen', {
+    get: () => state.isOpen,
+    enumerable: true
+  });
+  Object.defineProperty(App.chatState, 'footerMode', {
+    get: () => state.footerMode,
+    enumerable: true
+  });
 
   initializeUI();
   togglePanel(false);
