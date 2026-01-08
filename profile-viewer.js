@@ -558,6 +558,12 @@
         filter['#t'] = [App.NETWORK_TAG];
       }
       const events = await listEventsThroughPool([filter]);
+      // חלק P2P (profile-viewer.js) – הזנת אירועים ל-EventSync כדי שיהיו חלק מפול ה-P2P | HYPER CORE TECH
+      events.forEach((event) => {
+        if (App.EventSync && typeof App.EventSync.ingestEvent === 'function') {
+          App.EventSync.ingestEvent(event, { source: 'profile-viewer' });
+        }
+      });
       const posts = [];
       const replies = [];
       events.forEach((event) => {
@@ -598,6 +604,22 @@
     const { posts, replies } = await loadEvents(state.targetPubkey);
     state.posts = posts;
     state.replies = replies;
+    
+    // חלק UX (profile-viewer.js) – טעינת פרופילים של מחברי הפוסטים לפני רינדור למניעת תמונות חסרות | HYPER CORE TECH
+    const allEvents = [...posts, ...replies];
+    const uniqueAuthors = [...new Set(allEvents.map(e => e.pubkey).filter(Boolean))];
+    if (uniqueAuthors.length > 0 && typeof App.fetchProfile === 'function') {
+      await Promise.all(uniqueAuthors.map(async (pubkey) => {
+        if (!App.profileCache?.get?.(pubkey)) {
+          try {
+            await App.fetchProfile(pubkey);
+          } catch (err) {
+            // ממשיכים גם אם פרופיל אחד נכשל
+          }
+        }
+      }));
+    }
+    
     renderTimeline(posts, replies);
     updateActivityStats(posts, replies);
     updateActivityChart(posts);
@@ -711,11 +733,15 @@
     }
     if (refs.back) {
       refs.back.addEventListener('click', () => {
-        // סגירה פשוטה - חזרה אחורה בלי טעינות נוספות
+        // אם נפתח כ-embedded (בתוך iframe), שלח הודעה לדף ההורה לסגור את הפאנל
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('embedded') === '1' && window.parent !== window) {
+          window.parent.postMessage({ type: 'closePublicProfile' }, '*');
+          return;
+        }
+        // Fallback - אם נפתח בחלון נפרד
         if (window.opener) {
           window.close();
-        } else if (document.referrer) {
-          window.location.replace(document.referrer);
         } else {
           window.history.back();
         }

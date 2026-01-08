@@ -29,12 +29,18 @@
         }
 
         if (link.startsWith('data:video') || link.match(/\.(mp4|webm|ogg)$/i)) {
-          return `<div class="feed-media"><video src="${link}" controls playsinline></video></div>`;
+          // חלק P2P (profile-post.js) – חילוץ hash מ-URL לצורך P2P | HYPER CORE TECH
+          const hashMatch = link.match(/\/([a-f0-9]{64})\./i);
+          const hash = hashMatch ? hashMatch[1] : '';
+          return `<div class="feed-media"><video controls playsinline data-p2p-url="${link}" data-p2p-hash="${hash}" data-p2p-pending="true"></video></div>`;
         }
 
         if (/^https?:\/\//i.test(link)) {
           if (link.match(/\.(mp4|webm|ogg)$/i)) {
-            return `<div class="feed-media"><video src="${link}" controls playsinline></video></div>`;
+            // חלק P2P (profile-post.js) – חילוץ hash מ-URL לצורך P2P | HYPER CORE TECH
+            const hashMatch = link.match(/\/([a-f0-9]{64})\./i);
+            const hash = hashMatch ? hashMatch[1] : '';
+            return `<div class="feed-media"><video controls playsinline data-p2p-url="${link}" data-p2p-hash="${hash}" data-p2p-pending="true"></video></div>`;
           }
           const pathWithoutQuery = link.split('?')[0];
           if (pathWithoutQuery.match(/\.(png|jpe?g|gif|webp|avif)$/i)) {
@@ -243,6 +249,7 @@
     wireDeleteButtons(container);
     wireComments(container);
     tidyCounters(container);
+    wireP2PVideos(container);
     App.enhanceYouTubePlayers?.(container);
   }
 
@@ -312,6 +319,37 @@
         el.innerHTML = '';
         el.appendChild(iframe);
       });
+    });
+  }
+
+  // חלק P2P (profile-post.js) – טעינת וידאו דרך P2P עם fallback ל-URL ישיר | HYPER CORE TECH
+  function wireP2PVideos(root) {
+    if (!root) return;
+    root.querySelectorAll('video[data-p2p-pending="true"]').forEach(async (video) => {
+      const url = video.dataset.p2pUrl;
+      const hash = video.dataset.p2pHash;
+      video.removeAttribute('data-p2p-pending');
+      
+      // ניסיון P2P אם יש hash ופונקציית הורדה
+      if (hash && typeof App.downloadVideoWithP2P === 'function') {
+        try {
+          const result = await App.downloadVideoWithP2P(url, hash, 'video/webm');
+          if (result && result.blob) {
+            if (result.blob._directUrl) {
+              video.src = result.blob._directUrl;
+            } else {
+              video.src = URL.createObjectURL(result.blob);
+            }
+            console.log(`[Profile P2P] וידאו נטען מ-${result.source}:`, hash.slice(0, 16));
+            return;
+          }
+        } catch (err) {
+          console.warn('[Profile P2P] P2P נכשל, עובר ל-fallback:', err.message);
+        }
+      }
+      
+      // Fallback לטעינה רגילה
+      video.src = url;
     });
   }
 

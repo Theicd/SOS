@@ -1108,6 +1108,15 @@
         throw new Error('Pool instance missing list compatibility');
       }
 
+      // חלק P2P (profile-view.js) – הזנת אירועים ל-EventSync כדי שיהיו חלק מפול ה-P2P | HYPER CORE TECH
+      if (events && Array.isArray(events)) {
+        events.forEach((event) => {
+          if (App.EventSync && typeof App.EventSync.ingestEvent === 'function') {
+            App.EventSync.ingestEvent(event, { source: 'profile-view' });
+          }
+        });
+      }
+
       // מפריד פוסטים מתגובות
       const posts = [];
       const replies = [];
@@ -1135,6 +1144,21 @@
         } catch (err) {
           console.warn('hydrateEngagementForPosts failed', err);
         }
+      }
+
+      // חלק UX (profile-view.js) – טעינת פרופילים של מחברי הפוסטים לפני רינדור למניעת תמונות חסרות | HYPER CORE TECH
+      const allEvents = [...sortedPosts, ...sortedReplies];
+      const uniqueAuthors = [...new Set(allEvents.map(e => e.pubkey).filter(Boolean))];
+      if (uniqueAuthors.length > 0 && typeof App.fetchProfile === 'function') {
+        await Promise.all(uniqueAuthors.map(async (pubkey) => {
+          if (!App.profileCache?.get?.(pubkey)) {
+            try {
+              await App.fetchProfile(pubkey);
+            } catch (err) {
+              // ממשיכים גם אם פרופיל אחד נכשל
+            }
+          }
+        }));
       }
 
       renderTimelineWithLazyLoad(sortedPosts, sortedReplies);
