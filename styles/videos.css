@@ -2186,3 +2186,68 @@ body.policy-modal-open {
     transform: none;
   }
 }
+
+/* Wrapper לכפתור פרופיל + פלוס עוקב */
+.videos-feed__avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* אנימציית pulse קלה לכפתור עוקב */
+@keyframes followPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.1); }
+}
+
+/* כפתור עקוב בפיד וידאו - עיגול קטן כמו TikTok */
+.videos-follow-button {
+  position: absolute !important;
+  bottom: -8px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  max-width: 22px !important;
+  max-height: 22px !important;
+  padding: 0 !important;
+  border: none !important;
+  background: #fe2c55 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.videos-follow-button .videos-follow-icon {
+  font-size: 14px !important;
+  font-weight: bold;
+  color: #fff !important;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videos-follow-button:hover {
+  transform: translateX(-50%) scale(1.15) !important;
+}
+
+.videos-follow-button:active {
+  transform: translateX(-50%) scale(0.95) !important;
+}
+
+.videos-follow-button.is-following {
+  background: #22c55e !important;
+}
+
+.videos-follow-button.is-following:hover {
+  transform: translateX(-50%) scale(1.15) !important;
+}

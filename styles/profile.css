@@ -2433,3 +2433,18 @@
   background: rgba(255, 255, 255, 0.2) !important;
   transform: translateY(-1px) !important;
 }
+
+/* כפתור עקוב במצב עוקב/ת - שינוי צבע לירוק */
+.profile-follow__button.is-following {
+  background: linear-gradient(135deg, #4caf50, #66bb6a) !important;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+}
+
+.profile-follow__button.is-following:hover {
+  background: linear-gradient(135deg, #43a047, #5cb860) !important;
+  box-shadow: 0 8px 20px rgba(76, 175, 80, 0.35) !important;
+}
+
+.profile-follow__button.is-following i {
+  color: #fff !important;
+}
