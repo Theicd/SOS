@@ -194,9 +194,15 @@
       button.classList.toggle('is-following', isFollowing);
       button.setAttribute('aria-pressed', isFollowing ? 'true' : 'false');
       const icon = button.querySelector('i');
-      if (icon) {
+      // לא לשנות אייקון לכפתור videos-follow-button - הוא תמיד פלוס בלבד
+      if (icon && !button.classList.contains('videos-follow-button')) {
         icon.classList.toggle('fa-user-minus', isFollowing);
         icon.classList.toggle('fa-user-plus', !isFollowing);
+      }
+      // עדכון אייקון וי/פלוס לכפתור וידאו
+      const videoIcon = button.querySelector('.videos-follow-icon');
+      if (videoIcon) {
+        videoIcon.textContent = isFollowing ? '✓' : '+';
       }
       const label = button.querySelector('span[data-follow-label]') || button.querySelector('span');
       if (label) {

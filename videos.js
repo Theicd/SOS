@@ -1501,6 +1501,10 @@ function renderVideoCard(video) {
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'videos-feed__actions';
 
+  // Wrapper לכפתור פרופיל + פלוס עוקב
+  const avatarWrap = document.createElement('div');
+  avatarWrap.className = 'videos-feed__avatar-wrap';
+
   const authorAction = document.createElement('button');
   authorAction.type = 'button';
   authorAction.className = 'videos-feed__action videos-feed__action--avatar';
@@ -1529,7 +1533,8 @@ function renderVideoCard(video) {
       window.openProfileByPubkey(video.pubkey);
     }
   });
-  actionsDiv.appendChild(authorAction);
+  avatarWrap.appendChild(authorAction);
+  actionsDiv.appendChild(avatarWrap);
 
   const currentApp = window.NostrApp || {};
   const likeCount = currentApp.likesByEventId?.get(video.id)?.size || 0;
@@ -1622,20 +1627,20 @@ function renderVideoCard(video) {
 
     setTimeout(markToggleAsWired, 0);
   } else {
-    // כפתור עקוב מעודכן לשימוש בשירות העוקבים הכללי | HYPER CORE TECH
+    // כפתור עקוב מעודכן - ממוקם בשליש התחתון של כפתור הפרופיל | HYPER CORE TECH
     const followBtn = document.createElement('button');
     followBtn.type = 'button';
-    followBtn.className = `videos-feed__action ${isFollowing ? 'is-following' : ''}`;
+    followBtn.className = `videos-follow-button ${isFollowing ? 'is-following' : ''}`;
     // חלק עוקבים (videos.js) – שימוש ב-lowercase pubkey כמו בפיד הראשי לריענון עקב/בטל עקב | HYPER CORE TECH
     followBtn.setAttribute('data-follow-button', videoOwnerPubkey || video.pubkey);
     followBtn.innerHTML = `
-      <i class="fa-solid ${isFollowing ? 'fa-user-minus' : 'fa-user-plus'}"></i>
-      <span data-follow-label>${isFollowing ? 'עוקב/ת' : 'עקוב'}</span>
+      <span class="videos-follow-icon" aria-hidden="true">${isFollowing ? '✓' : '+'}</span>
+      <span data-follow-label style="display:none;">${isFollowing ? 'עוקב/ת' : 'עקוב'}</span>
     `;
-    actionsDiv.appendChild(followBtn);
+    avatarWrap.appendChild(followBtn);
 
     if (typeof currentApp.refreshFollowButtons === 'function') {
-      currentApp.refreshFollowButtons(actionsDiv);
+      currentApp.refreshFollowButtons(avatarWrap);
     }
   }
 
@@ -2377,34 +2382,8 @@ function wireActions(root = selectors.stream) {
     });
   });
 
-  rootEl.querySelectorAll('[data-follow-button]').forEach((button) => {
-    if (button.dataset.listenerAttached === 'true') return;
-    button.dataset.listenerAttached = 'true';
-    button.addEventListener('click', async () => {
-      const app = window.NostrApp;
-      // בדיקת מצב אורח - חסימת עקוב למשתמשים לא מחוברים | HYPER CORE TECH
-      if (app && typeof app.requireAuth === 'function') {
-        if (!app.requireAuth('כדי לעקוב אחרי משתמשים צריך להתחבר או להירשם.')) {
-          return;
-        }
-      }
-      const target = button.getAttribute('data-follow-button');
-      if (!target) return;
-      
-      if (!app) return;
-      
-      if (typeof app.followUser === 'function') {
-        await app.followUser(target);
-      } else if (typeof app.toggleFollow === 'function') {
-        await app.toggleFollow(target);
-      }
-      
-      if (typeof app.refreshFollowButtons === 'function') {
-        // רענון מיידי של מצב כפתורי העוקב לאחר פעולה | HYPER CORE TECH
-        app.refreshFollowButtons(selectors.stream);
-      }
-    });
-  });
+  // כפתורי עקוב מטופלים על ידי המאזין הגלובלי ב-follow-service.js
+  // לא צריך מאזין נוסף כאן - זה יגרום ל-toggleFollow להיקרא פעמיים
 }
 
 // חלק יאללה וידאו (videos.js) – Intersection Observer פשוט לגלילה כמו טיקטוק

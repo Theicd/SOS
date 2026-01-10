@@ -747,14 +747,8 @@
         }
       });
     }
-    if (refs.followButton) {
-      refs.followButton.addEventListener('click', () => {
-        if (!state.targetPubkey || typeof App.toggleFollow !== 'function') {
-          return;
-        }
-        App.toggleFollow(state.targetPubkey, { name: refs.name?.textContent || '' });
-      });
-    }
+    // כפתור עקוב מטופל על ידי המאזין הגלובלי ב-follow-service.js
+    // רק צריך לוודא ש-data-follow-button מוגדר (נעשה ב-syncFollowButton)
   }
 
   // לוגיקת טאבים
@@ -984,6 +978,19 @@
   }
 
   function init() {
+    // Bootstrap למפתחות ו-Pool - נדרש כדי שכפתור העוקב יעבוד
+    if (typeof App.ensureKeys === 'function') {
+      try {
+        App.ensureKeys();
+      } catch (err) {
+        console.warn('[VIEWER] ensureKeys failed', err);
+      }
+    }
+    if (!App.privateKey) {
+      App.privateKey = window.localStorage.getItem('nostr_private_key') || '';
+    }
+    ensurePool();
+
     state.targetPubkey = parsePubkey();
     if (!state.targetPubkey) {
       if (refs.timelineStatus) {

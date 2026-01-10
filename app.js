@@ -360,19 +360,11 @@
       }
     });
 
-    // חלק תת-תפריט שונות (app.js) – מאזין לכפתור שונות עם הגנת סיסמה | HYPER CORE TECH
+    // חלק תת-תפריט שונות (app.js) – כעת נפתח מיד ללא סיסמה | HYPER CORE TECH
     if (miscMenuButton) {
       miscMenuButton.addEventListener('click', (event) => {
         event.stopPropagation();
-        // בדיקת סיסמה לפני פתיחת תת-תפריט שונות
-        if (typeof window.openMiscPasswordPrompt === 'function') {
-          window.openMiscPasswordPrompt(() => {
-            toggleMiscSubmenu();
-          });
-        } else {
-          // גיבוי - אם הפונקציה לא קיימת, פתח רגיל
-          toggleMiscSubmenu();
-        }
+        toggleMiscSubmenu();
       });
     }
 
@@ -450,20 +442,6 @@
       datingButton.addEventListener('click', () => {
         closeMenu();
         window.location.href = 'dating.html';
-      });
-    }
-
-    // חלק סיסמת שונות (app.js) – מאזין לכפתור סיסמת שונות | HYPER CORE TECH
-    const miscPasswordButton = document.getElementById('topBarMiscPassword');
-    if (miscPasswordButton) {
-      miscPasswordButton.addEventListener('click', () => {
-        closeMenu();
-        if (typeof window.openMiscPasswordPrompt === 'function') {
-          window.openMiscPasswordPrompt(() => {
-            // אם הסיסמה נכונה, פתח חלון הגדרות סיסמה
-            console.log('סיסמה אומתה - פתיחת הגדרות סיסמה');
-          });
-        }
       });
     }
 
