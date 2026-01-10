@@ -278,6 +278,46 @@
     });
   }
 
+  // חלק P2P Sync (push-trigger.js) – שליחת Push שקט לסנכרון P2P כשיש פוסטים חדשים | HYPER CORE TECH
+  async function triggerP2PSyncPush(targetPubkeys, syncData) {
+    if (!Array.isArray(targetPubkeys) || targetPubkeys.length === 0) return;
+    
+    const payload = {
+      type: 'p2p-sync',
+      silent: true, // לא מציגים notification
+      data: {
+        syncType: syncData?.type || 'posts',
+        count: syncData?.count || 0,
+        timestamp: Date.now(),
+        ...syncData
+      }
+    };
+    
+    // שליחה לכל הנמענים (בד"כ עוקבים או peers פעילים)
+    for (const pubkey of targetPubkeys.slice(0, 50)) { // מקסימום 50 לפעם
+      await sendPushToServer(pubkey, payload);
+    }
+    
+    console.log('[PUSH-TRIGGER] P2P Sync sent to', Math.min(targetPubkeys.length, 50), 'peers');
+  }
+
+  // חלק Wake-up (push-trigger.js) – שליחת Push להערת המכשיר שלי | HYPER CORE TECH
+  async function triggerSelfWakeupPush(reason) {
+    const myPubkey = App.publicKey;
+    if (!myPubkey) return;
+    
+    await sendPushToServer(myPubkey, {
+      type: 'p2p-wakeup',
+      silent: true,
+      data: {
+        reason: reason || 'sync',
+        timestamp: Date.now()
+      }
+    });
+    
+    console.log('[PUSH-TRIGGER] Self wakeup sent:', reason);
+  }
+
   // חשיפת API
   Object.assign(App, {
     triggerOutgoingMessagePush, // שליחת Push לנמען כשאני שולח הודעה
@@ -285,6 +325,8 @@
     triggerIncomingCallPush,
     triggerMissedCallPush,
     getCachedContactInfo,
+    triggerP2PSyncPush,      // שליחת Push לסנכרון P2P
+    triggerSelfWakeupPush,   // שליחת Push להערת המכשיר שלי
   });
 
   console.log('[PUSH-TRIGGER] מודול Push Trigger נטען');

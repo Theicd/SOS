@@ -90,6 +90,15 @@
       }
     }
     
+    // חלק P2P Wake-up (service-worker.js) – הערת הממשק כשמגיע Push | HYPER CORE TECH
+    const pushType = payload.type || payload.data?.type || 'general';
+    
+    // אם זה סנכרון P2P שקט - לא מציגים notification אבל מעירים את הקליינטים
+    if (pushType === 'p2p-sync' || pushType === 'p2p-wakeup') {
+      event.waitUntil(handleP2PSyncPush(payload));
+      return;
+    }
+    
     const title = payload.title || 'SOS';
     const options = {
       body: payload.body || 'יש לך עדכון חדש',
@@ -103,17 +112,65 @@
       silent: false,
       data: {
         url: payload.url || payload.data?.url || './',
-        type: payload.type || payload.data?.type || 'general',
+        type: pushType,
         peerPubkey: payload.peerPubkey || payload.data?.peerPubkey || null,
         timestamp: Date.now(),
         ...payload.data,
       },
     };
     
+    // חלק P2P Wake-up – גם בהתרעות רגילות, מעירים את הקליינטים לסנכרון | HYPER CORE TECH
     event.waitUntil(
-      self.registration.showNotification(title, options)
+      Promise.all([
+        self.registration.showNotification(title, options),
+        wakeUpClientsForSync(pushType, payload)
+      ])
     );
   });
+
+  // חלק P2P Wake-up (service-worker.js) – טיפול בסנכרון P2P שקט | HYPER CORE TECH
+  async function handleP2PSyncPush(payload) {
+    console.log('[SW] P2P Sync Push received', payload);
+    
+    // עדכון timestamp של סנכרון אחרון
+    p2pCoordinator.lastSyncTime = Date.now();
+    
+    // הערת כל הקליינטים הפתוחים
+    await wakeUpClientsForSync('p2p-sync', payload);
+    
+    // אם אין קליינטים פתוחים, שמירת הנתונים ל-IndexedDB (אופציונלי)
+    const clients = await self.clients.matchAll({ type: 'window' });
+    if (clients.length === 0) {
+      console.log('[SW] אין קליינטים פתוחים - שומר נתוני sync');
+      // כאן אפשר לשמור ב-IndexedDB לטעינה מאוחרת
+    }
+  }
+
+  // חלק P2P Wake-up (service-worker.js) – הערת קליינטים לסנכרון | HYPER CORE TECH
+  async function wakeUpClientsForSync(type, payload) {
+    try {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      
+      if (clients.length > 0) {
+        const message = {
+          type: 'sw-wakeup',
+          reason: type,
+          timestamp: Date.now(),
+          data: payload?.data || payload || {}
+        };
+        
+        clients.forEach(client => {
+          try {
+            client.postMessage(message);
+          } catch {}
+        });
+        
+        console.log('[SW] Woke up', clients.length, 'clients for', type);
+      }
+    } catch (err) {
+      console.warn('[SW] Failed to wake up clients:', err);
+    }
+  }
 
   // חלק Keep-Alive (service-worker.js) – שמירה על SW פעיל למניעת הירדמות | HYPER CORE TECH
   // הערה: זה עובד רק כשהאפליקציה פתוחה ברקע, לא במסך כבוי לגמרי

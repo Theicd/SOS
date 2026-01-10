@@ -3008,10 +3008,60 @@
     }, 1000);
   }
 
+  // חלק SW Wake-up (p2p-video-sharing.js) – האזנה להודעות מ-Service Worker | HYPER CORE TECH
+  function setupSWWakeupListener() {
+    if (!navigator.serviceWorker) return;
+    
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const { type, reason, data } = event.data || {};
+      
+      // התעוררות מ-Push
+      if (type === 'sw-wakeup') {
+        log('info', '🔔 התעוררות מ-SW Push', { reason });
+        
+        // הפעלת P2P מחדש אם צריך
+        if (!state.isLeader) {
+          tryBecomeLeader();
+        }
+        
+        // שליחת heartbeat מיידי
+        if (isP2PAllowed()) {
+          sendHeartbeat();
+        }
+        
+        // עדכון מצב רשת
+        updateNetworkTier();
+        
+        // אם יש נתוני sync, נעביר לפיד
+        if (data && (reason === 'p2p-sync' || reason === 'chat-message')) {
+          if (typeof App.onP2PSyncReceived === 'function') {
+            App.onP2PSyncReceived(data);
+          }
+        }
+      }
+      
+      // Keep-alive מה-SW
+      if (type === 'sw-keepalive') {
+        // שליחת heartbeat אם עבר זמן
+        const now = Date.now();
+        if (isP2PAllowed() && now - (state.lastHeartbeatSent || 0) > HEARTBEAT_INTERVAL * 0.8) {
+          state.lastHeartbeatSent = now;
+          sendHeartbeat();
+        }
+      }
+    });
+    
+    log('info', '📡 SW Wake-up listener מופעל');
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+      setupSWWakeupListener();
+    });
   } else {
     init();
+    setupSWWakeupListener();
   }
 
   // חלק P2P (p2p-video-sharing.js) – חשיפת API נוספת ל-App

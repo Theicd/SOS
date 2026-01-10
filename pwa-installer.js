@@ -324,17 +324,22 @@
   }
 
   // חלק אתחול (pwa-installer.js) – אתחול מערכת ה-PWA | HYPER CORE TECH
-  function initPwa() {
+  // חלק תיקון PWA ברקע – רישום SW תמיד כדי לאפשר Push והתרעות גם אחרי התקנה | HYPER CORE TECH
+  async function initPwa() {
+    // **תמיד** לרשום SW - קריטי לקבלת Push והתרעות גם ב-PWA מותקנת!
+    await registerServiceWorker();
+    
     isInstalled = checkIfInstalled();
     
     if (isInstalled) {
-      console.log('[PWA] האפליקציה כבר מותקנת');
+      console.log('[PWA] האפליקציה מותקנת - SW רשום לקבלת Push והתרעות ברקע');
       localStorage.setItem('pwa_installed', 'true');
-      return; // לא ממשיכים אם כבר מותקן
+      // ממשיכים לאתחל push גם אחרי התקנה
+      if (typeof App.initPushSubscription === 'function') {
+        setTimeout(() => App.initPushSubscription(), 1000);
+      }
+      return;
     }
-    
-    // רישום Service Worker
-    registerServiceWorker();
     
     // הגדרת מאזיני התקנה
     setupInstallPromptListener();
