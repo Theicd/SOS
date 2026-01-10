@@ -208,14 +208,16 @@
     }
 
     const postIdSet = new Set(postIds);
-    const baseFilter = {};
+    // חלק פילטרים (profile-engagement.js) – תגובות עם תגית רשת, לייקים בלי (כי kind=7 לא תמיד נושא #t) | HYPER CORE TECH
+    const commentFilter = {};
     if (App.NETWORK_TAG) {
-      baseFilter['#t'] = [App.NETWORK_TAG];
+      commentFilter['#t'] = [App.NETWORK_TAG];
     }
+    const likeFilter = {}; // לייקים לא מסוננים לפי תגית רשת
 
     const [commentEvents, likeEvents] = await Promise.all([
-      fetchEngagementEvents(1, postIds, baseFilter, 40),
-      fetchEngagementEvents(7, postIds, baseFilter, 25),
+      fetchEngagementEvents(1, postIds, commentFilter, 40),
+      fetchEngagementEvents(7, postIds, likeFilter, 25),
     ]);
 
     const parentResolver =

@@ -851,6 +851,14 @@ function hydrateFeedFromCache() {
     });
     state.videos = filtered;
     renderVideos();
+    // חלק לייקים מהקאש (videos.js) – טעינת לייקים ותגובות ברקע לפוסטים מהמטמון | HYPER CORE TECH
+    const eventIds = filtered.map(v => v.id);
+    if (eventIds.length > 0) {
+      loadLikesAndCommentsForVideos(eventIds).then(() => {
+        // עדכון כפתורי הלייק אחרי שהנתונים נטענו
+        eventIds.forEach(id => updateVideoLikeButton(id));
+      }).catch(err => console.warn('[videos] Failed to load likes for cached videos', err));
+    }
     return true;
   }
   return false;
@@ -3074,6 +3082,13 @@ async function loadVideos() {
   // אם אין פוסטים חדשים ויש כבר תוכן מהמטמון - סיים
   if ((!Array.isArray(sourceEvents) || sourceEvents.length === 0) && state.videos.length > 0) {
     console.log('[videos] loadVideos: no new events, keeping cached content');
+    // חלק לייקים (videos.js) – טעינת לייקים גם כשאין פוסטים חדשים | HYPER CORE TECH
+    const cachedIds = state.videos.map(v => v.id);
+    if (cachedIds.length > 0) {
+      loadLikesAndCommentsForVideos(cachedIds).then(() => {
+        cachedIds.forEach(id => updateVideoLikeButton(id));
+      }).catch(() => {});
+    }
     setLoadingProgress(100);
     setLoadingStatus('הכל מעודכן!');
     hideLoadingAnimation();
