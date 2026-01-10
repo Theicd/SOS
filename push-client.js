@@ -330,62 +330,126 @@
     });
   }
 
-  // חלק מודאל הרשמה (push-client.js) – מודאל לבקשת הרשאה להתראות | HYPER CORE TECH
+  // חלק מודאל הרשמה (push-client.js) – מודאל משופר לבקשת הרשאה להתראות | HYPER CORE TECH
+  // בהשראת VIPO – עם steps, הודעות iOS ברורות, ועיצוב מודרני
   function showPushPermissionModal(vapidPublicKey) {
-    const existingModal = document.getElementById('push-permission-modal');
-    if (existingModal) {
-      existingModal.showModal?.() || (existingModal.style.display = 'flex');
-      return;
-    }
+    if (document.getElementById('push-permission-modal')) return;
     
-    const modal = document.createElement('dialog');
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    
+    const modal = document.createElement('div');
     modal.id = 'push-permission-modal';
-    modal.className = 'push-permission-modal';
     modal.innerHTML = `
-      <div class="push-permission-modal__content">
-        <div class="push-permission-modal__icon">🔔</div>
-        <h2>קבל התראות על הודעות חדשות</h2>
-        <p>הפעל התראות כדי לדעת מיד כשמישהו שולח לך הודעה, גם כשהאפליקציה סגורה.</p>
-        <div class="push-permission-modal__actions">
-          <button type="button" class="push-permission-modal__later">אולי אחר כך</button>
-          <button type="button" class="push-permission-modal__enable">הפעל התראות</button>
+      <div class="ppm-overlay"></div>
+      <div class="ppm-content">
+        <div class="ppm-step ppm-step--ask">
+          <div class="ppm-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
+          <h3>התראות חכמות ל-SOS</h3>
+          <p class="ppm-lead">קבל עדכונים חשובים ישירות למכשיר</p>
+          <ul class="ppm-bullets">
+            <li>🔔 הודעות צ'אט חדשות</li>
+            <li>📞 שיחות נכנסות</li>
+            <li>📰 פוסטים חדשים מאנשים שאתה עוקב</li>
+          </ul>
+          <div class="ppm-actions">
+            <button type="button" class="ppm-btn ppm-btn--later">לא עכשיו</button>
+            <button type="button" class="ppm-btn ppm-btn--enable">הפעל</button>
+          </div>
+        </div>
+        <div class="ppm-step ppm-step--success" style="display:none">
+          <div class="ppm-icon ppm-icon--success">✓</div>
+          <p>מעולה! תקבל התראות לנייד</p>
+        </div>
+        <div class="ppm-step ppm-step--error" style="display:none">
+          <div class="ppm-icon ppm-icon--error">⚠</div>
+          <p class="ppm-error-msg"></p>
         </div>
       </div>
     `;
     
-    modal.querySelector('.push-permission-modal__later').addEventListener('click', () => {
-      modal.close?.() || (modal.style.display = 'none');
-      // שמירת זמן דחייה - מונע הצגה חוזרת ל-7 ימים
-      localStorage.setItem('push_modal_dismissed', Date.now().toString());
-      console.log('[PUSH] המשתמש דחה את המודאל');
-    });
+    // סגנונות inline
+    const style = document.createElement('style');
+    style.textContent = `
+      #push-permission-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:12px}
+      .ppm-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5)}
+      .ppm-content{position:relative;background:#fff;border-radius:16px;padding:20px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.3);direction:rtl;text-align:center}
+      .ppm-icon{width:56px;height:56px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a2e,#4a90d9);color:#fff}
+      .ppm-icon--success{background:#22c55e;font-size:28px}
+      .ppm-icon--error{background:#ef4444;font-size:24px}
+      .ppm-content h3{margin:0 0 8px;font-size:18px;color:#1a1a2e}
+      .ppm-lead{color:#666;font-size:14px;margin:0 0 16px}
+      .ppm-bullets{list-style:none;padding:0;margin:0 0 20px;text-align:right}
+      .ppm-bullets li{padding:6px 0;font-size:13px;color:#444}
+      .ppm-actions{display:flex;gap:10px}
+      .ppm-btn{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:transform 0.1s}
+      .ppm-btn:active{transform:scale(0.97)}
+      .ppm-btn--later{background:#f1f5f9;color:#64748b}
+      .ppm-btn--enable{background:linear-gradient(135deg,#1a1a2e,#4a90d9);color:#fff}
+      .ppm-step p{font-size:14px;color:#333}
+      .ppm-error-msg{color:#ef4444}
+    `;
+    document.head.appendChild(style);
     
-    modal.querySelector('.push-permission-modal__enable').addEventListener('click', async () => {
-      modal.close?.() || (modal.style.display = 'none');
+    const closeModal = () => modal.remove();
+    
+    modal.querySelector('.ppm-overlay').onclick = closeModal;
+    modal.querySelector('.ppm-btn--later').onclick = () => {
+      localStorage.setItem('push_modal_dismissed', Date.now().toString());
+      closeModal();
+    };
+    
+    modal.querySelector('.ppm-btn--enable').onclick = async () => {
+      const askStep = modal.querySelector('.ppm-step--ask');
+      const successStep = modal.querySelector('.ppm-step--success');
+      const errorStep = modal.querySelector('.ppm-step--error');
+      const errorMsg = modal.querySelector('.ppm-error-msg');
+      
+      // בדיקת iOS ללא התקנה
+      if (isIOS && !isStandalone) {
+        askStep.style.display = 'none';
+        errorStep.style.display = 'block';
+        errorMsg.textContent = 'ב-iPhone יש להוסיף את האתר למסך הבית תחילה (לחץ על כפתור השיתוף ← "הוסף למסך הבית")';
+        setTimeout(closeModal, 5000);
+        return;
+      }
+      
+      const btn = modal.querySelector('.ppm-btn--enable');
+      btn.textContent = '...';
+      btn.disabled = true;
       
       const result = await subscribeToPush(vapidPublicKey);
       
       if (result.success) {
-        // שמירת דגל שהמשתמש נרשם - מונע הצגה חוזרת של המודאל
+        askStep.style.display = 'none';
+        successStep.style.display = 'block';
         localStorage.setItem('push_subscribed', 'true');
         localStorage.removeItem('push_modal_dismissed');
-        if (typeof App.showToast === 'function') {
-          App.showToast('התראות הופעלו בהצלחה! 🔔');
-        }
-      } else if (result.error === 'denied') {
-        // המשתמש חסם - לא מציגים שוב
-        localStorage.setItem('push_modal_dismissed', Date.now().toString());
-        if (typeof App.showToast === 'function') {
-          App.showToast('ההתראות נחסמו. ניתן לשנות בהגדרות הדפדפן.');
-        }
+        window.dispatchEvent(new CustomEvent('push-subscription-changed', { detail: { subscribed: true } }));
+        setTimeout(closeModal, 1500);
       } else {
-        // שגיאה אחרת - ננסה שוב אחרי 7 ימים
+        askStep.style.display = 'none';
+        errorStep.style.display = 'block';
+        
+        if (result.error === 'denied') {
+          errorMsg.textContent = 'ההרשאה נדחתה. ניתן לשנות בהגדרות הדפדפן';
+        } else if (result.error === 'unsupported') {
+          errorMsg.textContent = 'התראות לא נתמכות במכשיר זה';
+        } else {
+          errorMsg.textContent = 'שגיאה בהפעלת התראות. נסה שוב מאוחר יותר';
+        }
+        
         localStorage.setItem('push_modal_dismissed', Date.now().toString());
+        setTimeout(closeModal, 4000);
       }
-    });
+    };
     
     document.body.appendChild(modal);
-    modal.showModal?.() || (modal.style.display = 'flex');
   }
 
   // חלק אתחול (push-client.js) – אתחול מערכת ההתראות | HYPER CORE TECH

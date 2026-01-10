@@ -40,36 +40,46 @@
           .map(name => caches.delete(name))
       );
       await self.clients.claim();
-      console.log('[SW] Activated and claimed clients');
+      
+      // חלק הודעת עדכון (service-worker.js) – הודעה לקליינטים על גרסה חדשה | HYPER CORE TECH
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach(client => {
+        client.postMessage({ type: 'NEW_VERSION_ACTIVATED' });
+      });
+      
+      console.log('[SW] Activated and notified', clients.length, 'clients');
     })());
   });
 
   // חלק Fetch (service-worker.js) – טיפול בבקשות רשת עם fallback ל-cache | HYPER CORE TECH
+  // חלק excludePaths (service-worker.js) – נתיבים שלא לשמור בקאש | HYPER CORE TECH
+  const EXCLUDE_PATHS = ['/api', '/auth', '/login', '/register', '/admin'];
+  
   self.addEventListener('fetch', (event) => {
-    // לא מטפלים בבקשות שאינן GET או בקשות חיצוניות
     if (event.request.method !== 'GET') return;
     const url = new URL(event.request.url);
     if (url.origin !== self.location.origin) return;
     
+    // לא לשמור בקאש נתיבים דינמיים
+    if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
+    
     event.respondWith((async () => {
       try {
-        // ניסיון לקבל מהרשת
         const networkResponse = await fetch(event.request);
-        // שמירה ב-cache
         if (networkResponse.ok) {
           const cache = await caches.open(CACHE_NAME);
           cache.put(event.request, networkResponse.clone()).catch(() => {});
         }
         return networkResponse;
       } catch (err) {
-        // Fallback ל-cache
         const cachedResponse = await caches.match(event.request);
         if (cachedResponse) return cachedResponse;
-        // Fallback לדף הראשי
         if (event.request.mode === 'navigate') {
-          return caches.match('./') || caches.match('./videos.html');
+          const home = await caches.match('./');
+          if (home) return home;
+          return caches.match('./videos.html');
         }
-        throw err;
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       }
     })());
   });
@@ -99,16 +109,23 @@
       return;
     }
     
+    // חלק עדכון גרסה (service-worker.js) – טיפול בהודעת עדכון אפליקציה | HYPER CORE TECH
+    if (pushType === 'app-update') {
+      event.waitUntil(handleAppUpdatePush(payload));
+      return;
+    }
+    
+    // חלק זיהוי iOS (service-worker.js) – התאמת options לפי פלטפורמה | HYPER CORE TECH
+    let isIOS = false;
+    try { isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent); } catch (e) {}
+    
     const title = payload.title || 'SOS';
     const options = {
       body: payload.body || 'יש לך עדכון חדש',
       icon: payload.icon || './icons/sos-logo.jpg',
       badge: payload.badge || './icons/sos-logo.jpg',
       tag: payload.tag || 'sos-notification',
-      renotify: payload.renotify !== false,
-      vibrate: payload.vibrate || [200, 100, 200],
-      // חלק התרעות מתמידות (service-worker.js) – הגדרות לשמירת התרעה פעילה | HYPER CORE TECH
-      requireInteraction: true,
+      renotify: true,
       silent: false,
       data: {
         url: payload.url || payload.data?.url || './',
@@ -119,6 +136,16 @@
       },
     };
     
+    // חלק תאימות iOS (service-worker.js) – iOS לא תומך ב-actions, vibrate, requireInteraction | HYPER CORE TECH
+    if (!isIOS) {
+      options.requireInteraction = true;
+      options.vibrate = payload.vibrate || [200, 100, 200];
+      options.actions = [
+        { action: 'open', title: 'פתח', icon: './icons/sos-logo.jpg' },
+        { action: 'dismiss', title: 'סגור' }
+      ];
+    }
+    
     // חלק P2P Wake-up – גם בהתרעות רגילות, מעירים את הקליינטים לסנכרון | HYPER CORE TECH
     event.waitUntil(
       Promise.all([
@@ -127,6 +154,30 @@
       ])
     );
   });
+
+  // חלק עדכון גרסה (service-worker.js) – טיפול בעדכון אפליקציה | HYPER CORE TECH
+  async function handleAppUpdatePush(payload) {
+    console.log('[SW] App Update Push received', payload);
+    
+    // הודעת הקליינטים על עדכון זמין
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    
+    if (clients.length > 0) {
+      clients.forEach(client => {
+        client.postMessage({ type: 'app-update-available', version: payload.version || 'new' });
+      });
+    } else {
+      // אם אין קליינטים פתוחים - הצגת notification
+      await self.registration.showNotification('עדכון זמין ל-SOS', {
+        body: payload.body || 'גרסה חדשה זמינה! לחץ לעדכון',
+        icon: './icons/sos-logo.jpg',
+        badge: './icons/sos-logo.jpg',
+        tag: 'app-update',
+        requireInteraction: true,
+        data: { type: 'app-update', url: './' }
+      });
+    }
+  }
 
   // חלק P2P Wake-up (service-worker.js) – טיפול בסנכרון P2P שקט | HYPER CORE TECH
   async function handleP2PSyncPush(payload) {
@@ -193,20 +244,50 @@
   // הפעלה אוטומטית
   startKeepAlive();
 
-  // חלק pushsubscriptionchange (service-worker.js) – חידוש מנוי Push | HYPER CORE TECH
+  // חלק pushsubscriptionchange (service-worker.js) – חידוש מנוי Push אוטומטי | HYPER CORE TECH
   self.addEventListener('pushsubscriptionchange', (event) => {
     event.waitUntil((async () => {
       try {
-        // ניסיון להירשם מחדש
-        const subscription = await self.registration.pushManager.subscribe(event.oldSubscription.options);
-        console.log('[SW] Push subscription renewed');
-        // שליחה לשרת (אם יש)
-        // await fetch('/api/push/subscribe', { method: 'POST', body: JSON.stringify(subscription) });
+        // קבלת VAPID key מהשרת
+        const configRes = await fetch('https://sos-push-server.vercel.app/api/push/config', { cache: 'no-store' });
+        const config = configRes.ok ? await configRes.json() : null;
+        
+        if (!config?.publicKey) {
+          console.warn('[SW] No VAPID key available for re-subscription');
+          return;
+        }
+        
+        // רישום מחדש
+        const newSubscription = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(config.publicKey)
+        });
+        
+        // שליחה לשרת
+        await fetch('https://sos-push-server.vercel.app/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: newSubscription.toJSON() })
+        });
+        
+        console.log('[SW] Push subscription renewed and sent to server');
       } catch (err) {
         console.error('[SW] Failed to renew push subscription:', err);
       }
     })());
   });
+  
+  // חלק המרת Base64 (service-worker.js) – המרת VAPID key | HYPER CORE TECH
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
 
   // חלק Message (service-worker.js) – קבלת הודעות מהלקוח | HYPER CORE TECH
   self.addEventListener('message', (event) => {

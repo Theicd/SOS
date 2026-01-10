@@ -383,6 +383,79 @@
     }, { once: true });
   }
 
+  // חלק עדכון גרסה (pwa-installer.js) – הצגת הודעה כשיש גרסה חדשה | HYPER CORE TECH
+  function showUpdateAvailableToast() {
+    if (document.getElementById('pwa-update-toast')) return;
+    
+    const toast = document.createElement('div');
+    toast.id = 'pwa-update-toast';
+    toast.innerHTML = `
+      <div class="pwa-update-content">
+        <i class="fa-solid fa-arrow-rotate-right"></i>
+        <span>גרסה חדשה זמינה!</span>
+      </div>
+      <div class="pwa-update-actions">
+        <button type="button" class="pwa-update-later">אח״כ</button>
+        <button type="button" class="pwa-update-now">עדכן עכשיו</button>
+      </div>
+    `;
+    
+    toast.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:12px 16px;border-radius:12px;display:flex;align-items:center;gap:16px;z-index:100001;box-shadow:0 4px 20px rgba(0,0,0,0.4);direction:rtl;transition:transform 0.3s ease-out;max-width:90vw;`;
+    toast.querySelector('.pwa-update-content').style.cssText = 'display:flex;align-items:center;gap:10px;font-size:14px;';
+    toast.querySelector('.pwa-update-actions').style.cssText = 'display:flex;gap:8px;';
+    toast.querySelector('.pwa-update-later').style.cssText = 'background:transparent;border:1px solid rgba(255,255,255,0.3);color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;';
+    toast.querySelector('.pwa-update-now').style.cssText = 'background:#4a90d9;border:none;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;';
+    
+    toast.querySelector('.pwa-update-later').onclick = () => {
+      toast.style.transform = 'translateX(-50%) translateY(100px)';
+      setTimeout(() => toast.remove(), 300);
+    };
+    
+    toast.querySelector('.pwa-update-now').onclick = () => {
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+      }
+      setTimeout(() => window.location.reload(true), 500);
+    };
+    
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.transform = 'translateX(-50%) translateY(0)'; }, 100);
+    console.log('[PWA] הוצגה הודעת עדכון גרסה');
+  }
+
+  // חלק עדכון גרסה (pwa-installer.js) – בדיקת עדכונים תקופתית | HYPER CORE TECH
+  function setupUpdateChecker() {
+    if (!navigator.serviceWorker) return;
+    
+    setInterval(async () => {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) await reg.update();
+      } catch {}
+    }, 5 * 60 * 1000);
+    
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('[PWA] Service Worker עודכן');
+    });
+    
+    // האזנה להודעות עדכון מה-SW (Push)
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data?.type === 'app-update-available') {
+        console.log('[PWA] התקבלה הודעת עדכון מה-SW', event.data.version);
+        showUpdateAvailableToast();
+      }
+      
+      // חלק עדכון גרסה (pwa-installer.js) – גרסה חדשה הופעלה | HYPER CORE TECH
+      if (event.data?.type === 'NEW_VERSION_ACTIVATED') {
+        console.log('[PWA] גרסה חדשה הופעלה!');
+        // אפשר להציג הודעה או לרענן
+        if (typeof App.showToast === 'function') {
+          App.showToast('האפליקציה עודכנה לגרסה החדשה ✓');
+        }
+      }
+    });
+  }
+
   // חשיפת API ציבורי
   Object.assign(App, {
     getPlatformInfo,
@@ -391,10 +464,12 @@
     showIOSInstallGuide,
     showInstallBanner: createInstallBanner,
     isPwaInstalled: () => isInstalled || checkIfInstalled(),
+    showUpdateAvailableToast,
   });
   
   // פונקציה גלובלית להפעלת התקנה
   window.requestPwaInstallPrompt = promptInstall;
+  setupUpdateChecker();
 
   // אתחול כשהדף מוכן
   if (document.readyState === 'loading') {

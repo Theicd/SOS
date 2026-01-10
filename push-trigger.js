@@ -318,6 +318,25 @@
     console.log('[PUSH-TRIGGER] Self wakeup sent:', reason);
   }
 
+  // חלק עדכון גרסה (push-trigger.js) – שליחת Push על עדכון אפליקציה | HYPER CORE TECH
+  async function triggerAppUpdatePush(targetPubkeys, version) {
+    if (!Array.isArray(targetPubkeys) || targetPubkeys.length === 0) return;
+    
+    const payload = {
+      type: 'app-update',
+      title: 'עדכון זמין ל-SOS',
+      body: `גרסה ${version || 'חדשה'} זמינה! לחץ לעדכון`,
+      version: version || 'new',
+      tag: 'app-update'
+    };
+    
+    for (const pubkey of targetPubkeys.slice(0, 100)) {
+      await sendPushToServer(pubkey, payload);
+    }
+    
+    console.log('[PUSH-TRIGGER] App Update sent to', Math.min(targetPubkeys.length, 100), 'users');
+  }
+
   // חשיפת API
   Object.assign(App, {
     triggerOutgoingMessagePush, // שליחת Push לנמען כשאני שולח הודעה
@@ -327,6 +346,7 @@
     getCachedContactInfo,
     triggerP2PSyncPush,      // שליחת Push לסנכרון P2P
     triggerSelfWakeupPush,   // שליחת Push להערת המכשיר שלי
+    triggerAppUpdatePush,    // שליחת Push על עדכון גרסה
   });
 
   console.log('[PUSH-TRIGGER] מודול Push Trigger נטען');
