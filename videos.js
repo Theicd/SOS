@@ -2818,6 +2818,9 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined) {
 }
 
 // חלק יאללה וידאו (videos.js) – טעינת לייקים ותגובות לפוסטי וידאו
+// חלק באצ'ים (videos.js) – פיצול שאילתות לבאצ'ים קטנים למניעת עומס על relays | HYPER CORE TECH
+const ENGAGEMENT_BATCH_SIZE = 15; // גודל באצ' לשאילתות לייקים/תגובות
+
 async function loadLikesAndCommentsForVideos(eventIds) {
   if (!Array.isArray(eventIds) || eventIds.length === 0) return;
 
@@ -2829,46 +2832,64 @@ async function loadLikesAndCommentsForVideos(eventIds) {
 
   const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30; // 30 יום
 
-  // טעינת לייקים (kind 7)
-  const likesFilter = { kinds: [7], '#e': eventIds, since };
-  // טעינת תגובות (kind 1 עם תג e)
-  const commentsFilter = { kinds: [1], '#e': eventIds, since };
-
-  try {
-    let allEvents = [];
-
-    if (typeof app.pool.list === 'function') {
-      const results = await app.pool.list(app.relayUrls, [likesFilter, commentsFilter]);
-      if (Array.isArray(results)) allEvents = results;
-    } else if (typeof app.pool.querySync === 'function') {
-      const likesRes = await app.pool.querySync(app.relayUrls, likesFilter);
-      const commentsRes = await app.pool.querySync(app.relayUrls, commentsFilter);
-      const likes = Array.isArray(likesRes) ? likesRes : (Array.isArray(likesRes?.events) ? likesRes.events : []);
-      const comments = Array.isArray(commentsRes) ? commentsRes : (Array.isArray(commentsRes?.events) ? commentsRes.events : []);
-      allEvents = [...likes, ...comments];
-    }
-
-    console.log('[videos] Loaded likes/comments:', { count: allEvents.length });
-
-    // עיבוד לייקים ותגובות בהתאם ללוגיקת הפיד הראשי | HYPER CORE TECH
-    allEvents.forEach((event) => {
-      if (event.kind === 7 && typeof app.registerLike === 'function') {
-        app.registerLike(event);
-        return;
-      }
-      if (event.kind !== 1 || !Array.isArray(event.tags)) {
-        return;
-      }
-      const parentTag = event.tags.find((tag) => Array.isArray(tag) && tag[0] === 'e' && tag[1]);
-      if (!parentTag) {
-        return;
-      }
-      const parentId = parentTag[1];
-      registerVideoCommentRecord(app, event, parentId);
-    });
-  } catch (err) {
-    console.warn('[videos] Failed to load likes/comments:', err);
+  // חלק באצ'ים (videos.js) – פיצול ה-eventIds לבאצ'ים קטנים | HYPER CORE TECH
+  const batches = [];
+  for (let i = 0; i < eventIds.length; i += ENGAGEMENT_BATCH_SIZE) {
+    batches.push(eventIds.slice(i, i + ENGAGEMENT_BATCH_SIZE));
   }
+
+  console.log('[videos] Loading likes/comments in batches:', { total: eventIds.length, batches: batches.length });
+
+  let totalLoaded = 0;
+
+  for (const batch of batches) {
+    try {
+      // טעינת לייקים (kind 7)
+      const likesFilter = { kinds: [7], '#e': batch, since };
+      // טעינת תגובות (kind 1 עם תג e)
+      const commentsFilter = { kinds: [1], '#e': batch, since };
+
+      let allEvents = [];
+
+      if (typeof app.pool.list === 'function') {
+        const results = await app.pool.list(app.relayUrls, [likesFilter, commentsFilter]);
+        if (Array.isArray(results)) allEvents = results;
+      } else if (typeof app.pool.querySync === 'function') {
+        const likesRes = await app.pool.querySync(app.relayUrls, likesFilter);
+        const commentsRes = await app.pool.querySync(app.relayUrls, commentsFilter);
+        const likes = Array.isArray(likesRes) ? likesRes : (Array.isArray(likesRes?.events) ? likesRes.events : []);
+        const comments = Array.isArray(commentsRes) ? commentsRes : (Array.isArray(commentsRes?.events) ? commentsRes.events : []);
+        allEvents = [...likes, ...comments];
+      }
+
+      totalLoaded += allEvents.length;
+
+      // עיבוד לייקים ותגובות בהתאם ללוגיקת הפיד הראשי | HYPER CORE TECH
+      allEvents.forEach((event) => {
+        if (event.kind === 7 && typeof app.registerLike === 'function') {
+          app.registerLike(event);
+          return;
+        }
+        if (event.kind !== 1 || !Array.isArray(event.tags)) {
+          return;
+        }
+        const parentTag = event.tags.find((tag) => Array.isArray(tag) && tag[0] === 'e' && tag[1]);
+        if (!parentTag) {
+          return;
+        }
+        const parentId = parentTag[1];
+        registerVideoCommentRecord(app, event, parentId);
+      });
+
+      // עדכון UI אחרי כל באצ' | HYPER CORE TECH
+      batch.forEach(id => updateVideoLikeButton(id));
+
+    } catch (err) {
+      console.warn('[videos] Failed to load likes/comments batch:', err);
+    }
+  }
+
+  console.log('[videos] Loaded likes/comments:', { count: totalLoaded });
 }
 
 // חלק יאללה וידאו (videos.js) – רישום אירועים למפות המשותפות כדי לאפשר התרעות מלאות | HYPER CORE TECH

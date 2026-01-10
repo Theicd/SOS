@@ -131,8 +131,14 @@
   const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
   const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
   const CONSECUTIVE_FAILURES_THRESHOLD = 5; // כמות כשלונות ברצף לפני fallback - מאפשר לנסות יותר peers
-  const HEARTBEAT_INTERVAL = 60000;       // שליחת heartbeat כל דקה
-  const HEARTBEAT_LOOKBACK = 120;         // חיפוש heartbeats מ-2 דקות אחורה
+  // חלק Adaptive Heartbeat (p2p-video-sharing.js) – תדירות דינמית לפי גודל רשת | HYPER CORE TECH
+  const HEARTBEAT_INTERVALS = {
+    BOOTSTRAP: 30000,   // רשת קטנה (1-3 peers): כל 30 שניות - צריך גילוי מהיר
+    HYBRID: 60000,      // רשת בינונית (4-10 peers): כל דקה
+    P2P_FULL: 120000    // רשת גדולה (10+ peers): כל 2 דקות - פחות עומס
+  };
+  let HEARTBEAT_INTERVAL = 60000;         // ברירת מחדל - יתעדכן דינמית
+  const HEARTBEAT_LOOKBACK = 180;         // חיפוש heartbeats מ-3 דקות אחורה (מותאם ל-P2P_FULL)
   
   // חלק Guest P2P (p2p-video-sharing.js) – הגדרות אופטימיזציה לאורחים | HYPER CORE TECH
   const GUEST_BLOSSOM_FIRST_POSTS = 10;   // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
@@ -634,11 +640,58 @@
     });
   }
 
+  // חלק Service Worker Coordinator (p2p-video-sharing.js) – תיאום heartbeat דרך SW | HYPER CORE TECH
+  let swCoordinatorEnabled = false;
+  
+  async function requestHeartbeatFromSW() {
+    if (!navigator.serviceWorker?.controller) return { shouldSend: true };
+    
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve({ shouldSend: true }), 2000);
+      
+      const handler = (event) => {
+        if (event.data?.type === 'p2p-heartbeat-approved') {
+          clearTimeout(timeout);
+          navigator.serviceWorker.removeEventListener('message', handler);
+          resolve(event.data);
+        }
+      };
+      
+      navigator.serviceWorker.addEventListener('message', handler);
+      navigator.serviceWorker.controller.postMessage({
+        type: 'p2p-heartbeat-request',
+        networkTier: state.networkTier,
+        heartbeatInterval: HEARTBEAT_INTERVAL,
+        peerCount: state.lastPeerCount
+      });
+    });
+  }
+
+  function notifyHeartbeatDone(success, peerCount) {
+    if (!navigator.serviceWorker?.controller) return;
+    try {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'p2p-heartbeat-done',
+        success,
+        peerCount
+      });
+    } catch {}
+  }
+
   // חלק Network Tiers (p2p-video-sharing.js) – שליחת heartbeat להודעה על נוכחות ברשת | HYPER CORE TECH
   async function sendHeartbeat() {
     // רק המנהיג שולח heartbeats לרשת
     if (!isP2PAllowed()) {
       return;
+    }
+    
+    // חלק SW Coordinator – בדיקה מול Service Worker אם צריך לשלוח | HYPER CORE TECH
+    if (swCoordinatorEnabled && navigator.serviceWorker?.controller) {
+      const approval = await requestHeartbeatFromSW();
+      if (!approval.shouldSend) {
+        log('info', '💓 Heartbeat דולג (SW coordinator)', { waitMs: approval.waitMs });
+        return;
+      }
     }
     
     const relays = getP2PRelays();
@@ -677,48 +730,55 @@
         ));
         const success = results.filter(r => r.status === 'fulfilled').length;
         log('info', '💓 Heartbeat נשלח', { success, total: relays.length, files: state.availableFiles.size, isGuest: keys.isGuest });
+        // חלק SW Coordinator – עדכון ה-SW שהשליחה הושלמה | HYPER CORE TECH
+        notifyHeartbeatDone(true, state.lastPeerCount);
       } else {
         log('warn', '⚠️ Heartbeat: חתימה נכשלה');
+        notifyHeartbeatDone(false, state.lastPeerCount);
       }
     } catch (err) {
       log('warn', '⚠️ Heartbeat נכשל', { error: err.message });
+      notifyHeartbeatDone(false, state.lastPeerCount);
     }
   }
 
   // חלק Network Tiers (p2p-video-sharing.js) – ספירת peers פעילים ברשת | HYPER CORE TECH
+  // חלק Peer Sampling – דגימה חכמה במקום ספירה מלאה לחיסכון בעומס | HYPER CORE TECH
+  const PEER_SAMPLE_SIZE = 30; // דגימה של עד 30 peers - מספיק להערכה
+  const PEER_COUNT_ESTIMATION_THRESHOLD = 25; // אם יש יותר מ-25 - נעריך במקום לספור
+  
   async function countActivePeers() {
     // בדיקת cache
     const now = Date.now();
     if (state.lastPeerCountTime && (now - state.lastPeerCountTime) < PEER_COUNT_CACHE_TTL) {
-      log('info', '📊 משתמש בספירת peers מ-cache', { count: state.lastPeerCount });
       return state.lastPeerCount;
     }
 
     const relays = getP2PRelays();
     if (!relays.length || !App.pool) {
-      log('info', 'ℹ️ אין ריליים או pool - מחזיר 0 peers');
       return 0;
     }
 
-    const sinceTimestamp = Math.floor(Date.now() / 1000) - HEARTBEAT_LOOKBACK; // 2 דקות אחורה
+    const sinceTimestamp = Math.floor(Date.now() / 1000) - HEARTBEAT_LOOKBACK;
 
     return new Promise((resolve) => {
       const uniquePeers = new Set();
       let finished = false;
+      let totalEventsReceived = 0;
 
-      // חיפוש גם heartbeats וגם שיתופי קבצים
+      // חלק Peer Sampling – הגבלת limit לדגימה | HYPER CORE TECH
       const filters = [
         {
           kinds: [FILE_AVAILABILITY_KIND],
           '#t': ['p2p-heartbeat'],
           since: sinceTimestamp,
-          limit: 50
+          limit: PEER_SAMPLE_SIZE
         },
         {
           kinds: [FILE_AVAILABILITY_KIND],
           '#t': ['p2p-file'],
           since: sinceTimestamp,
-          limit: 50
+          limit: PEER_SAMPLE_SIZE
         }
       ];
 
@@ -727,13 +787,23 @@
           finished = true;
           finalize();
         }
-      }, 3000);
+      }, 2500); // timeout קצר יותר
 
       const finalize = () => {
-        const count = uniquePeers.size;
+        let count = uniquePeers.size;
+        
+        // חלק Peer Estimation – אם קיבלנו הרבה אירועים, נעריך שיש יותר peers | HYPER CORE TECH
+        if (count >= PEER_COUNT_ESTIMATION_THRESHOLD && totalEventsReceived >= PEER_SAMPLE_SIZE * 1.5) {
+          // אקסטרפולציה: אם בדגימה של 30 מצאנו 25 ייחודיים, כנראה יש יותר
+          const estimatedMultiplier = Math.min(2, totalEventsReceived / PEER_SAMPLE_SIZE);
+          count = Math.round(count * estimatedMultiplier);
+          log('info', '📊 הערכת peers (sampling)', { sampled: uniquePeers.size, estimated: count, events: totalEventsReceived });
+        } else {
+          log('info', '📊 ספירת peers', { count, events: totalEventsReceived });
+        }
+        
         state.lastPeerCount = count;
         state.lastPeerCountTime = Date.now();
-        log('info', '📊 ספירת peers הושלמה', { count, peers: [...uniquePeers].map(p => p.slice(0, 8)) });
         resolve(count);
       };
 
@@ -743,7 +813,7 @@
         
         const sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
-            // סינון: לא לספור את עצמי (גם אם אני אורח)
+            totalEventsReceived++;
             if (event.pubkey && event.pubkey !== myPubkey) {
               uniquePeers.add(event.pubkey);
             }
@@ -788,6 +858,16 @@
 
     if (prevTier !== tier) {
       log('info', `🌐 מצב רשת השתנה: ${prevTier} → ${tier}`, { peers: peerCount });
+      // חלק Adaptive Heartbeat – עדכון תדירות heartbeat לפי הטייר | HYPER CORE TECH
+      const newInterval = HEARTBEAT_INTERVALS[tier] || 60000;
+      if (HEARTBEAT_INTERVAL !== newInterval) {
+        HEARTBEAT_INTERVAL = newInterval;
+        log('info', `💓 תדירות heartbeat עודכנה: ${newInterval / 1000} שניות`, { tier });
+        // עדכון ה-background worker אם פעיל
+        if (backgroundWorker && !isPageVisible) {
+          backgroundWorker.postMessage({ type: 'start', interval: HEARTBEAT_INTERVAL });
+        }
+      }
     }
 
     return { tier, peerCount };
@@ -2817,6 +2897,12 @@
     
     // הפעלת Leader Election למניעת כפילויות בין לשוניות
     setupLeaderElection();
+    
+    // חלק SW Coordinator (p2p-video-sharing.js) – הפעלת תיאום heartbeat דרך Service Worker | HYPER CORE TECH
+    if (navigator.serviceWorker?.controller) {
+      swCoordinatorEnabled = true;
+      log('info', '📡 SW Coordinator מופעל - תיאום heartbeat בין טאבים');
+    }
     
     // טעינת קבצים זמינים מ-cache
     await loadAvailableFilesFromCache();

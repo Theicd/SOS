@@ -748,12 +748,33 @@
     };
   }
 
-  // חלק שיחות וידאו (chat-video-call.js) – ניסיון הרשמה ראשון + retry
+  // חלק Lazy Init (chat-video-call.js) – דחיית האזנה לסיגנלים עד שהמשתמש פותח צ'אט | HYPER CORE TECH
+  let lazyInitDone = false;
+  function lazyInitVideoCall() {
+    if (lazyInitDone) return;
+    lazyInitDone = true;
+    autoSubscribeSignals();
+    console.log('Video call: lazy init completed');
+  }
+
+  function setupLazyTrigger() {
+    const chatButton = document.getElementById('chatToggle') || document.querySelector('[data-chat-toggle]');
+    if (chatButton) {
+      chatButton.addEventListener('click', lazyInitVideoCall, { once: true });
+    }
+    if (App.pool && App.publicKey && !App.guestMode) {
+      setTimeout(lazyInitVideoCall, 10000);
+    }
+  }
+
   try {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(autoSubscribeSignals, 100));
+      document.addEventListener('DOMContentLoaded', setupLazyTrigger);
     } else {
-      setTimeout(autoSubscribeSignals, 100);
+      setupLazyTrigger();
     }
   } catch (_) {}
+
+  App.initVideoCall = lazyInitVideoCall;
+  console.log('Video call module loaded (lazy init)');
 })(window);

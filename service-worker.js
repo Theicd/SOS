@@ -156,7 +156,87 @@
     if (event.data?.type === 'SKIP_WAITING') {
       self.skipWaiting();
     }
+    
+    // חלק P2P Coordinator (service-worker.js) – תיאום heartbeat בין טאבים | HYPER CORE TECH
+    if (event.data?.type === 'p2p-heartbeat-request') {
+      handleHeartbeatRequest(event.source, event.data);
+    }
+    if (event.data?.type === 'p2p-heartbeat-done') {
+      handleHeartbeatDone(event.data);
+    }
+    if (event.data?.type === 'p2p-get-coordinator-state') {
+      sendCoordinatorState(event.source);
+    }
   });
+
+  // חלק P2P Coordinator (service-worker.js) – ניהול heartbeat מרכזי | HYPER CORE TECH
+  const p2pCoordinator = {
+    lastHeartbeatTime: 0,
+    currentLeaderClientId: null,
+    heartbeatInterval: 60000, // ברירת מחדל
+    peerCount: 0,
+    networkTier: 'BOOTSTRAP'
+  };
+
+  async function handleHeartbeatRequest(client, data) {
+    const now = Date.now();
+    const timeSinceLastHeartbeat = now - p2pCoordinator.lastHeartbeatTime;
+    
+    // עדכון מצב הרשת מהלקוח
+    if (data.networkTier) {
+      p2pCoordinator.networkTier = data.networkTier;
+    }
+    if (typeof data.heartbeatInterval === 'number') {
+      p2pCoordinator.heartbeatInterval = data.heartbeatInterval;
+    }
+    if (typeof data.peerCount === 'number') {
+      p2pCoordinator.peerCount = data.peerCount;
+    }
+    
+    // אם עבר מספיק זמן - מאשרים heartbeat
+    if (timeSinceLastHeartbeat >= p2pCoordinator.heartbeatInterval * 0.8) {
+      p2pCoordinator.lastHeartbeatTime = now;
+      p2pCoordinator.currentLeaderClientId = client?.id || null;
+      
+      try {
+        client.postMessage({
+          type: 'p2p-heartbeat-approved',
+          shouldSend: true,
+          lastHeartbeat: p2pCoordinator.lastHeartbeatTime
+        });
+      } catch {}
+      
+      console.log('[SW] P2P Heartbeat approved for client', client?.id?.slice?.(0, 8));
+    } else {
+      // יש heartbeat אחרון מספיק חדש - דוחים
+      try {
+        client.postMessage({
+          type: 'p2p-heartbeat-approved',
+          shouldSend: false,
+          lastHeartbeat: p2pCoordinator.lastHeartbeatTime,
+          waitMs: p2pCoordinator.heartbeatInterval - timeSinceLastHeartbeat
+        });
+      } catch {}
+    }
+  }
+
+  function handleHeartbeatDone(data) {
+    if (data.success) {
+      p2pCoordinator.lastHeartbeatTime = Date.now();
+    }
+    if (typeof data.peerCount === 'number') {
+      p2pCoordinator.peerCount = data.peerCount;
+    }
+  }
+
+  async function sendCoordinatorState(client) {
+    try {
+      client.postMessage({
+        type: 'p2p-coordinator-state',
+        ...p2pCoordinator
+      });
+    } catch {}
+  }
 
   // חלק עדכון אוטומטי (service-worker.js) – בדיקת עדכונים כל 30 שניות | HYPER CORE TECH
   setInterval(() => {

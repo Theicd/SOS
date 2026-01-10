@@ -14,6 +14,85 @@
   };
   const STORAGE_PREFIX = 'nostr_following_';
 
+  // חלק IndexedDB Cache (follow-service.js) – שמירת follow state ב-IndexedDB למניעת פניות מיותרות לריליי | HYPER CORE TECH
+  const FOLLOW_DB_NAME = 'SOS2FollowCache';
+  const FOLLOW_DB_VERSION = 1;
+  const FOLLOW_STORE_NAME = 'followState';
+  let followDB = null;
+
+  async function openFollowDB() {
+    if (followDB) return followDB;
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.open(FOLLOW_DB_NAME, FOLLOW_DB_VERSION);
+        request.onerror = () => resolve(null);
+        request.onsuccess = () => {
+          followDB = request.result;
+          resolve(followDB);
+        };
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(FOLLOW_STORE_NAME)) {
+            db.createObjectStore(FOLLOW_STORE_NAME, { keyPath: 'pubkey' });
+          }
+        };
+      } catch (err) {
+        console.warn('Follow service: failed to open IndexedDB', err);
+        resolve(null);
+      }
+    });
+  }
+
+  async function persistFollowingToIndexedDB() {
+    const db = await openFollowDB();
+    if (!db) return;
+    const pubkey = normalizePubkey(App.publicKey);
+    if (!pubkey) return;
+    try {
+      const tx = db.transaction([FOLLOW_STORE_NAME], 'readwrite');
+      const store = tx.objectStore(FOLLOW_STORE_NAME);
+      const data = {
+        pubkey,
+        following: Array.from(followState.followingSet.values()),
+        updatedAt: Date.now(),
+      };
+      store.put(data);
+    } catch (err) {
+      console.warn('Follow service: failed to persist to IndexedDB', err);
+    }
+  }
+
+  async function restoreFollowingFromIndexedDB() {
+    const db = await openFollowDB();
+    if (!db) return false;
+    const pubkey = normalizePubkey(App.publicKey);
+    if (!pubkey) return false;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction([FOLLOW_STORE_NAME], 'readonly');
+        const store = tx.objectStore(FOLLOW_STORE_NAME);
+        const request = store.get(pubkey);
+        request.onsuccess = () => {
+          const data = request.result;
+          if (data && Array.isArray(data.following)) {
+            data.following.forEach((item) => {
+              const normalized = normalizePubkey(item);
+              if (normalized) followState.followingSet.add(normalized);
+            });
+            console.log('[Follow] Restored from IndexedDB:', data.following.length, 'following');
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        };
+        request.onerror = () => resolve(false);
+      } catch (err) {
+        console.warn('Follow service: failed to restore from IndexedDB', err);
+        resolve(false);
+      }
+    });
+  }
+
   // חלק מטא-דאטה (follow-service.js) – מספק פונקציית גיבוי לשליפת פרופילים עבור דפי פרופיל ו-Follow
   async function fetchProfileFallback(pubkey) {
     const normalized = normalizePubkey(pubkey);
@@ -85,11 +164,20 @@
     try {
       const list = Array.from(followState.followingSet.values());
       window.localStorage.setItem(key, JSON.stringify(list));
+      // חלק IndexedDB (follow-service.js) – שמירה גם ב-IndexedDB | HYPER CORE TECH
+      persistFollowingToIndexedDB();
     } catch (err) {
       console.warn('Follow service: failed storing following list', err);
     }
   }
-  function restoreFollowingFromStorage() {
+  async function restoreFollowingFromStorage() {
+    // חלק IndexedDB (follow-service.js) – ניסיון שחזור מ-IndexedDB קודם | HYPER CORE TECH
+    const restoredFromDB = await restoreFollowingFromIndexedDB();
+    if (restoredFromDB) {
+      refreshFollowButtons();
+      return;
+    }
+    // Fallback ל-localStorage
     const key = getFollowingStorageKey();
     if (!key) {
       return;

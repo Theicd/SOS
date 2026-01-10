@@ -797,14 +797,39 @@
     };
   }
 
-  // חלק שיחות קול (chat-voice-call.js) – ניסיון הרשמה ראשון + retry עד שה-pool והמפתחות זמינים
+  // חלק Lazy Init (chat-voice-call.js) – דחיית האזנה לסיגנלים עד שהמשתמש פותח צ'אט | HYPER CORE TECH
+  // מונע עומס מיותר על מכשירים חלשים ועל הrelays
+  function lazyInitVoiceCall() {
+    if (state.lazyInitDone) return;
+    state.lazyInitDone = true;
+    autoSubscribeSignals();
+    console.log('Voice call: lazy init completed');
+  }
+  state.lazyInitDone = false;
+
+  // האזנה לפתיחת צ'אט כדי להתחיל את השירות
+  function setupLazyTrigger() {
+    const chatButton = document.getElementById('chatToggle') || document.querySelector('[data-chat-toggle]');
+    if (chatButton) {
+      chatButton.addEventListener('click', lazyInitVoiceCall, { once: true });
+    }
+    // גם כשמקבלים הודעת צ'אט או שיחה נכנסת
+    if (App.pool && App.publicKey && !App.guestMode) {
+      // הפעלה אוטומטית אחרי 10 שניות אם המשתמש מחובר (למקרה של שיחות נכנסות)
+      setTimeout(lazyInitVoiceCall, 10000);
+    }
+  }
+
   try {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(autoSubscribeSignals, 100));
+      document.addEventListener('DOMContentLoaded', setupLazyTrigger);
     } else {
-      setTimeout(autoSubscribeSignals, 100);
+      setupLazyTrigger();
     }
   } catch (_) {}
 
-  console.log('Voice call module initialized');
+  // חשיפת פונקציה לאתחול ידני מבחוץ | HYPER CORE TECH
+  App.initVoiceCall = lazyInitVoiceCall;
+
+  console.log('Voice call module loaded (lazy init)');
 })(window);
