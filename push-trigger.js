@@ -186,6 +186,15 @@
       return;
     }
     
+    // חלק מניעת התרעות ישנות (push-trigger.js) – לא שולחים Push להודעות ישנות מריליי | HYPER CORE TECH
+    const nowSec = Math.floor(Date.now() / 1000);
+    const messageTs = message.createdAt || 0;
+    const messageAgeSec = nowSec - messageTs;
+    if (messageAgeSec > 60) {
+      console.log('[PUSH-TRIGGER] דילוג על הודעה ישנה:', messageAgeSec, 'שניות');
+      return;
+    }
+    
     // קבלת שם ותמונת השולח מקאש
     const contactInfo = getCachedContactInfo(message.from);
     

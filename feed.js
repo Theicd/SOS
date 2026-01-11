@@ -1970,6 +1970,15 @@
     if (!event || !event.id || !type) {
       return;
     }
+    
+    // חלק מניעת התרעות ישנות (feed.js) – לא מוסיפים התרעות על אירועים ישנים מריליי | HYPER CORE TECH
+    const nowSec = Math.floor(Date.now() / 1000);
+    const eventTs = event.created_at || 0;
+    const eventAgeSec = nowSec - eventTs;
+    if (eventAgeSec > 120) { // אירועים מעל 2 דקות נחשבים ישנים
+      return;
+    }
+    
     Promise.resolve().then(async () => {
       const record = {
         id: event.id,

@@ -376,8 +376,13 @@
 
     App.appendChatMessage(normalizedMessage);
     
-    // חלק Push (chat-service.js) – שליחת התראת Push כשמגיעה הודעה נכנסת | HYPER CORE TECH
-    if (!isSelfMessage && typeof App.triggerChatMessagePush === 'function') {
+    // חלק Push (chat-service.js) – שליחת התראת Push רק להודעות חדשות (לא ישנות מריליי) | HYPER CORE TECH
+    // בדיקה: הודעה נחשבת "חדשה" אם נוצרה בדקה האחרונה מעכשיו
+    const nowSec = Math.floor(Date.now() / 1000);
+    const messageAgeSec = nowSec - eventTs;
+    const isRecentMessage = messageAgeSec < 60; // הודעה מהדקה האחרונה
+    
+    if (!isSelfMessage && isRecentMessage && typeof App.triggerChatMessagePush === 'function') {
       App.triggerChatMessagePush(normalizedMessage);
     }
     
