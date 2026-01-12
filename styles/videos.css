@@ -104,8 +104,8 @@ body:has(.videos-feed) #guestLoginButton:active {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: rgba(20, 22, 26, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(26, 26, 46, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(14px);
@@ -204,6 +204,21 @@ body:has(.videos-feed) .top-bar {
   min-height: 44px !important;
   box-sizing: border-box !important;
   position: relative;
+}
+
+/* כותרת פרימיום לתפריט הפרופיל */
+.top-bar__dropdown-title {
+  padding: 10px 14px 6px;
+  margin: 4px 8px 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #e8ecff;
+  background: linear-gradient(120deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.22));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  text-align: right;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 /* קו דק זוהר בתחתית התפריט העליון - זהה לתפריט התחתון | HYPER CORE TECH */
@@ -1053,7 +1068,7 @@ body.global-stop .videos-feed__play-overlay {
 }
 
 .videos-comments-close:hover {
-  background: var(--border-color);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .videos-comments-list {
@@ -1223,10 +1238,6 @@ body.policy-modal-open {
   overflow: hidden;
 }
 
-.policy-modal.is-visible {
-  display: flex;
-}
-
 .policy-modal__dialog {
   width: min(720px, 94vw);
   height: min(90vh, 640px);
@@ -1308,82 +1319,6 @@ body.policy-modal-open {
   }
   .policy-modal__header {
     padding: 14px 16px;
-  }
-}
-
-/* חלק תגובתיות מובייל (videos.css) – התאמות למסכים קטנים */
-@media (max-width: 768px) {
-  .videos-feed__viewport {
-    padding-top: calc(44px + var(--safe-top, 0px));
-    padding-bottom: calc(56px + var(--safe-bottom, 0px));
-  }
-
-  .videos-feed__card {
-    height: calc(100dvh - 44px - var(--safe-top, 0px) - 56px - var(--safe-bottom, 0px));
-    min-height: calc(100dvh - 44px - var(--safe-top, 0px) - 56px - var(--safe-bottom, 0px));
-    max-height: calc(100dvh - 44px - var(--safe-top, 0px) - 56px - var(--safe-bottom, 0px));
-  }
-  
-  /* Fallback לדפדפנים ישנים */
-  @supports not (height: 100dvh) {
-    .videos-feed__card {
-      height: calc(100vh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
-      min-height: calc(100vh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
-      max-height: calc(100vh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
-    }
-  }
-
-  .videos-feed__actions {
-    gap: 16px;
-    left: 12px;
-  }
-
-  .videos-feed__action {
-    width: 44px;
-    height: 44px;
-    font-size: 1.2rem;
-  }
-
-  .videos-feed__info {
-    padding: 16px 70px 80px 16px;
-  }
-  
-  .videos-comments-panel {
-    max-height: 80vh;
-  }
-
-  body:has(.videos-feed) .primary-nav {
-    padding: 0 !important;
-    padding-bottom: var(--safe-bottom, 0px) !important;
-    gap: 0 !important;
-    height: calc(56px + var(--safe-bottom, 0px)) !important;
-    min-height: 56px !important;
-  }
-
-  body:has(.videos-feed) .nav-item {
-    padding: 6px 12px !important;
-    gap: 2px !important;
-  }
-
-  body:has(.videos-feed) .nav-item i {
-    font-size: 22px !important;
-  }
-
-  body:has(.videos-feed) .nav-item span {
-    font-size: 10px !important;
-  }
-}
-
-/* PWA Standalone Mode - מובייל */
-@media (max-width: 768px) and (display-mode: standalone) {
-  .videos-feed__card {
-    height: calc(100dvh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
-    min-height: calc(100dvh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
-    max-height: calc(100dvh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
-  }
-  
-  body:has(.videos-feed) .primary-nav {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
