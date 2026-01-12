@@ -43,6 +43,8 @@
     <link rel="stylesheet" href="./chat-enhanced-styles.css">
     <link rel="stylesheet" href="./styles/market-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
+    <link rel="stylesheet" href="./styles/game-trivia.css">
+    <link rel="stylesheet" href="./styles/game-doom-arena.css">
     <link rel="stylesheet" href="./styles/videos.css">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
@@ -1320,7 +1322,7 @@
       </div>
       <div class="top-bar__actions">
         <!-- חלק עיגול סטטיסטיקות P2P (videos.html) – מציג יחס הורדות P2P/Blossom | HYPER CORE TECH -->
-        <div class="p2p-stats-circle" id="p2pStatsCircle" title="סטטיסטיקות הורדה">
+        <div class="p2p-stats-circle" id="p2pStatsCircle" title="סטטיסטיקות הורדה" role="button" aria-haspopup="true" aria-expanded="false" tabindex="0">
           <svg viewBox="0 0 36 36" class="p2p-stats-svg">
             <circle class="p2p-stats-bg" cx="18" cy="18" r="15.9"/>
             <circle class="p2p-stats-p2p" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
@@ -1337,64 +1339,32 @@
             <span id="topBarProfileAvatar">?</span>
           </button>
           <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
-            <!-- חלק פוסט פיד (videos.html) – מעבר מהיר לפיד הראשי דרך תפריט הפרופיל | HYPER CORE TECH -->
-            <button type="button" class="top-bar__dropdown-item" id="topBarProfileHome">
-              <i class="fa-solid fa-house"></i>
-              <span>דף הבית</span>
-            </button>
-            <button type="button" class="top-bar__dropdown-item" id="topBarProfileSelf">
-              <i class="fa-solid fa-id-card"></i>
-              <span>הפרופיל שלי</span>
-            </button>
+            <div class="top-bar__dropdown-title">הגדרות</div>
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
               <i class="fa-solid fa-key"></i>
               <span>הצגת מפתח</span>
             </button>
-            <!-- חלק תת-תפריט שונות (videos.html) – קבוצת שונות עם הגנת סיסמה | HYPER CORE TECH -->
-            <div class="top-bar__dropdown-submenu">
-              <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--has-submenu" id="topBarMiscMenu">
-                <i class="fa-solid fa-ellipsis"></i>
-                <span>שונות</span>
-                <i class="fa-solid fa-chevron-right top-bar__submenu-arrow"></i>
-              </button>
-              <div class="top-bar__submenu" id="topBarMiscSubmenu" hidden>
-                <!-- חלק ניווט חדשות (videos.html) – כעת בתת-תפריט שונות | HYPER CORE TECH -->
-                <button type="button" class="top-bar__dropdown-item" id="newsToggleTop">
-                  <i class="fa-solid fa-newspaper"></i>
-                  <span>חדשות</span>
-                </button>
-                <!-- חלק ניווט משחקים (videos.html) – כעת בתת-תפריט שונות | HYPER CORE TECH -->
-                <button type="button" class="top-bar__dropdown-item" id="gamesToggleTop">
-                  <i class="fa-solid fa-gamepad"></i>
-                  <span>משחקים</span>
-                </button>
-                <!-- חלק ניווט הכרויות (videos.html) – כעת בתת-תפריט שונות | HYPER CORE TECH -->
-                <button type="button" class="top-bar__dropdown-item" id="datingToggleTop">
-                  <i class="fa-solid fa-heart"></i>
-                  <span>הכרויות</span>
-                </button>
-                <!-- חלק אחסון (videos.html) – כעת בתת-תפריט שונות | HYPER CORE TECH -->
-                <button type="button" class="top-bar__dropdown-item" id="topBarProfileStorage">
-                  <i class="fa-solid fa-box-archive"></i>
-                  <span>האחסון שלי</span>
-                </button>
-                <!-- חלק לוח גידול (videos.html) – כעת בתת-תפריט שונות | HYPER CORE TECH -->
-                <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
-                  <i class="fa-solid fa-chart-line"></i>
-                  <span>לוח גידול הרשת</span>
-                </button>
-                <!-- חלק חוזה חכם (videos.html) – כעת בתת-תפריט שונות | HYPER CORE TECH -->
-                <button type="button" class="top-bar__dropdown-item" id="topBarProfileContract">
-                  <i class="fa-solid fa-handshake"></i>
-                  <span>חוזה חכם</span>
-                </button>
-                <!-- חלק סיסמת שונות (videos.html) – כפתור סיסמה בתת-תפריט | HYPER CORE TECH -->
-                <button type="button" class="top-bar__dropdown-item" id="topBarMiscPassword">
-                  <i class="fa-solid fa-lock"></i>
-                  <span>סיסמת שונות</span>
-                </button>
-              </div>
-            </div>
+            <!-- חלק לוח גידול (videos.html) – ברמת תפריט ראשית | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
+              <i class="fa-solid fa-chart-line"></i>
+              <span>לוח גידול הרשת</span>
+            </button>
+            <!-- חלק ניווט משחקים (videos.html) – ברמת תפריט ראשית | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="gamesToggleTop">
+              <i class="fa-solid fa-gamepad"></i>
+              <span>משחקים</span>
+            </button>
+            <div class="top-bar__dropdown-title">משחקי רשת</div>
+            <!-- חלק משחק דום (הועבר מהתחתית) | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="videosDoomLauncher">
+              <span style="font-size: 1.2rem;">🔫</span>
+              <span>עוד משחק דום</span>
+            </button>
+            <!-- חלק משחק טריוויה (הועבר מהתחתית) | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="videosTriviaLauncher">
+              <span style="font-size: 1.2rem;">🎲</span>
+              <span>משחק טרוויה SOS</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1421,6 +1391,11 @@
     <!-- חלק פאנל פרופיל (videos.html) – פאנל overlay לפרופיל המשתמש כמו צ'אט והתראות | HYPER CORE TECH -->
     <div class="profile-panel" id="profilePanel" hidden>
       <iframe id="profilePanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
+    </div>
+
+    <!-- חלק פאנל פרופיל ציבורי (videos.html) – פאנל overlay לצפייה בפרופיל משתמש אחר | HYPER CORE TECH -->
+    <div class="profile-panel" id="publicProfilePanel" hidden>
+      <iframe id="publicProfilePanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
     <!-- חלק תפריט תחתון (videos.html) – ניווט תחתון בסגנון דף ההודעות | HYPER CORE TECH -->
@@ -1493,12 +1468,6 @@
 
     <!-- חלק הצגת מפתח (videos.html) – מודל ההצגה המשותף לכל העמודים | HYPER CORE TECH -->
     <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>המפתח הפרטי שלך</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions"><button class="icon-button" onclick="copyKeyViewer()">העתק</button><button class="button-secondary" onclick="closeKeyViewer()">סגור</button></div><div class="modal-actions"><button class="button-secondary" onclick="logoutAndSwitchUser()">התנתק והחלף משתמש</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
-
-    <!-- חלק חוזה חכם 2 (videos.html) – חלון אימות סיסמה לפני פתיחת החוזה | HYPER CORE TECH -->
-    <div class="modal contract-password-modal" id="contractPasswordModal" aria-hidden="true" hidden><div class="modal-content contract-password-modal__content" role="dialog" aria-modal="true" aria-labelledby="contractPasswordTitle"><h2 id="contractPasswordTitle">גישה לחוזה החכם</h2><p>כדי להמשיך אל מודול החוזה החכם יש להזין את קוד הגישה שנמסר לך.</p><label class="contract-password-modal__label" for="contractPasswordInput">קוד גישה</label><input type="password" id="contractPasswordInput" class="contract-password-modal__input" placeholder="הקלד/י את הסיסמה" autocomplete="off" /><div class="contract-password-modal__error" id="contractPasswordError" role="alert" hidden>סיסמה שגויה. נסו שוב.</div><div class="modal-actions"><button class="button-secondary" type="button" id="contractPasswordCancel">ביטול</button><button class="button-primary" type="button" id="contractPasswordSubmit">אישור</button></div></div></div>
-
-    <!-- חלק חוזה חכם 2 (videos.html) – פאנל השקעה ונתוני SPEAR ONE כמו בפיד הראשי | HYPER CORE TECH -->
-    <section class="contract-dashboard-v2" id="contractDashboardV2" aria-hidden="true"><div class="contract-dashboard-v2__backdrop" onclick="closeContractDashboardV2()"></div><article class="contract-dashboard-v2__panel" role="dialog" aria-modal="true"><header class="top-bar top-bar--profile contract-dashboard-v2__header-bar"><div class="top-bar__actions top-bar__actions--profile"><button class="circle-button top-bar__refresh" id="contractV2RefreshButton" type="button" aria-label="רענון נתוני החוזה"><i class="fa-solid fa-rotate-right"></i></button></div><div class="top-bar__title"><span class="top-bar__title-inner"><i class="fa-solid fa-signal" aria-hidden="true"></i><span>חוזה חכם – SPEAR ONE</span></span><p class="top-bar__subtitle">השקעה בטכנולוגיה המבוזרת שמשנה את האינטרנט</p></div><div class="top-bar__actions top-bar__actions--profile"><button class="circle-button top-bar__home" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם"><i class="fa-solid fa-xmark"></i></button></div></header><div class="contract-dashboard-v2__body"><section class="contract-v2-hero" id="contractV2Hero"><div class="contract-v2-hero__copy"><h3>טכנולוגיה חדשנית להחזקה ותפעול של פלטפורמות אינטרנטיות ללא שרת מרכזי ועלויות תשתית.</h3><p>המודל משלב רשת חברתית, מסחר ותקשורת בזמן אמת ומגובה בנתוני פעילות מהשרשרת המבוזרת.</p></div><div class="contract-v2-hero__metrics"><article class="contract-v2-hero__metric"><span class="contract-v2-hero__metric-label">השקעת R&D</span><strong id="contractV2DevelopmentValue">₪0</strong></article><article class="contract-v2-hero__metric"><span class="contract-v2-hero__metric-label">שווי יחידה נוכחי</span><strong id="contractV2UnitValue">$0</strong></article><article class="contract-v2-hero__metric"><span class="contract-v2-hero__metric-label">תשואת רשת מוערכת</span><strong id="contractV2NetworkYield">0%</strong></article></div><div class="contract-v2-hero__actions"><button class="button-primary" type="button" onclick="openOptionPurchase()"><i class="fa-solid fa-rocket"></i><span>המשך לתהליך ההשקעה</span></button><button class="button-secondary" type="button" data-scroll-target="contractV2Details"><i class="fa-solid fa-circle-info"></i><span>למד על המודל</span></button></div></section><section class="contract-v2-chart" id="contractV2ChartWrap"><header class="contract-v2-chart__header"><h3>שווי SPEAR ONE מול פעילות רשת</h3><p>הגרף משלב נתונים בזמן אמת מלוח הגידול על פעילות Relays, לייקים ותגובות.</p></header><div class="contract-v2-chart__canvas"><canvas id="contractV2Chart" aria-label="גרף נכס מול פעילות"></canvas></div><footer class="contract-v2-chart__legend" id="contractV2Legend"></footer></section><section class="contract-v2-infra"><h3>התשתית שמחזיקה את SPEAR ONE</h3><div class="contract-v2-infra__grid" id="contractV2InfraGrid"></div></section><section class="contract-v2-narrative"><h3>למה להצטרף עכשיו?</h3><ul class="contract-v2-narrative__list"><li>נקודת כניסה מוקדמת לרשת חברתית מבוזרת שמייצרת ערך למחזיקי היחידות.</li><li>בעלות מלאה על הנתונים והקניין הרוחני באמצעות מנגנון Credited Units.</li><li>תהליכי Buyback פנימיים שמחזקים את האקו-סיסטם לאורך זמן.</li></ul></section><section class="contract-v2-details" id="contractV2Details" hidden><h3>פירוט אנליטי</h3><div class="contract-v2-details__grid"><article><h4>קישור ללוח הגידול</h4><p>כל שינוי במדדי הפעילות משפיע ישירות על שווי היחידה ויוצג בגרף בזמן אמת.</p></article><article><h4>מודל מולטי-Relay</h4><p>הריליים מפזרים עומס ומאפשרים הרחבה מיידית לפי ביקוש, ללא תלות בשרתים מרכזיים.</p></article><article><h4>Units וקרדיטים</h4><p>יחידות נרכשות ב-$50 ומשרתות את האקו-סיסטם – Buyback מחזיר עד 80% בקרדיטים.</p></article></div></section><section class="contract-v2-terms" id="contractV2Terms"><h3>תנאי החוזה</h3><ol class="contract-v2-terms__list" id="contractV2TermsList"></ol></section><section class="contract-v2-forecast" id="contractV2Forecast"><header class="contract-v2-forecast__header"><div><h3>תחזית צמיחה לשנה קדימה</h3><p>תרחישים מבוססי נתוני Relay וקהילה פעילה.</p></div><div class="contract-v2-forecast__legend" id="contractV2ForecastLegend"></div></header><div class="contract-v2-forecast__chart"><canvas id="contractV2ForecastChart" aria-label="גרף תחזית פעילות ושווי"></canvas></div><footer class="contract-v2-forecast__notes" id="contractV2ForecastNotes"></footer></section><section class="contract-v2-calculator" id="contractV2Calculator"><header class="contract-v2-calculator__header"><h3>מחשבון השקעה מיידי</h3><p>הזינו סכום ובדקו את אחוז הזכות בטכנולוגיה ואת Buyback המשוער.</p></header><div class="contract-v2-calculator__body"><label class="contract-v2-calculator__label" for="contractV2InvestmentInput">סכום השקעה בדולר (מינימום $50)</label><div class="contract-v2-calculator__input"><span class="contract-v2-calculator__currency">$</span><input type="number" id="contractV2InvestmentInput" min="50" step="50" value="50" /></div><div class="contract-v2-calculator__summary" id="contractV2CalculatorSummary"><div class="contract-v2-calculator__item"><span class="contract-v2-calculator__item-label">אחוז בטכנולוגיה</span><strong class="contract-v2-calculator__item-value" id="contractV2Ownership">0%</strong></div><div class="contract-v2-calculator__item"><span class="contract-v2-calculator__item-label">Buyback בקרדיטים</span><strong class="contract-v2-calculator__item-value" id="contractV2Buyback">$0</strong></div><div class="contract-v2-calculator__item"><span class="contract-v2-calculator__item-label">קיבולת משתמשים נתמכת</span><strong class="contract-v2-calculator__item-value" id="contractV2CapacityImpact">0</strong></div></div><button class="contract-v2-calculator__cta" type="button" onclick="openOptionPurchase()"><i class="fa-solid fa-arrow-right-to-bracket"></i>המשך לתהליך ההשקעה</button></div></section></div><footer class="contract-dashboard-v2__footer"><span class="contract-dashboard-v2__status" id="contractV2Status">ממתין לנתוני רשת...</span><button class="contract-dashboard-v2__cta" type="button" onclick="openOptionPurchase()"><i class="fa-solid fa-rocket"></i>הצטרפות עם יחידה אחת</button></footer></article></section>
 
     <!-- חלק לוח גידול (videos.html) – פאנל דשבורד נתוני רשת לשימוש כפתור הפרופיל | HYPER CORE TECH -->
     <section class="growth-dashboard" id="growthDashboard" aria-hidden="true"><div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div><article class="growth-dashboard__panel" role="dialog" aria-modal="true"><header class="growth-dashboard__header"><div class="growth-dashboard__title"><i class="fa-solid fa-chart-line"></i><div><h2>מדד גידול הרשת</h2><p>נתוני פעילות בזמן אמת של SphereOne Social</p></div></div><button class="growth-dashboard__close" type="button" aria-label="סגירת לוח הגידול" onclick="closeGrowthDashboard()"><i class="fa-solid fa-xmark"></i></button></header><nav class="growth-dashboard__tabs" role="tablist"><button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">סקירה</button><button class="growth-dashboard__tab" data-tab="activity" role="tab">פעילות</button><button class="growth-dashboard__tab" data-tab="leaders" role="tab">מובילים</button></nav><div class="growth-dashboard__content"><section class="growth-dashboard__section" data-pane="overview"><div class="growth-metrics" id="growthMetrics"></div><div class="growth-chart" id="growthChartContainer"><div class="growth-chart__ranges" role="group" aria-label="טווח היסטוריה"><button type="button" class="growth-chart__range-button" data-range="1d">יום</button><button type="button" class="growth-chart__range-button" data-range="1w">שבוע</button><button type="button" class="growth-chart__range-button is-active" data-range="1m">חודש</button><button type="button" class="growth-chart__range-button" data-range="3m">3 חודשים</button><button type="button" class="growth-chart__range-button" data-range="1y">שנה</button></div><canvas id="growthChart" aria-label="גרף מגמת פעילות"></canvas></div></section><section class="growth-dashboard__section is-hidden" data-pane="activity"><div class="growth-activity" id="growthActivity"></div></section><section class="growth-dashboard__section is-hidden" data-pane="leaders"><div class="growth-leaders" id="growthLeaders"></div></section></div><footer class="growth-dashboard__footer"><div class="growth-dashboard__status" id="growthStatus">מתחבר למדד...</div><div class="growth-dashboard__actions"><label class="growth-dashboard__toggle"><input type="checkbox" id="growthAutoRefresh"><span>רענון אוטומטי</span></label><button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()"><i class="fa-solid fa-rotate"></i>רענן כעת</button></div></footer></article></section>
@@ -2155,6 +2124,11 @@
     </script>
 
     <!-- חיבור הודעות ושיחות (videos.html) – מבטיח שהצ'אט יאתחל שיחות נכנסות כמו בפיד הראשי | HYPER CORE TECH -->
-    <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();});</script>
+    <!-- טעינת סקריפט משחק הטריוויה -->
+    <script src="./game-trivia.js" defer></script>
+    <!-- טעינת סקריפט משחק Doom Arena -->
+    <script src="./game-doom-arena.js" defer></script>
+
+    <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
   </body>
 </html>

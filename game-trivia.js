@@ -1,4 +1,4 @@
-// חלק משחק טריוויה – מודול רשת בסגנון math_new עבור "יאללה תקשורת"
+// חלק משחק טריוויה – מודול רשת מבוזר עבור SOS Network
 ;(function initTriviaGame(window, document) {
   const App = window.NostrApp || (window.NostrApp = {});
 
@@ -44,7 +44,7 @@
     timers: { interval: null, question: null },
     presenceInterval: null,
     metrics: { correct: 0, total: 0, streak: 0, best: 0 },
-    fx: null
+    inTrivia: false
   };
 
   // חלק עזר – פונקציות קצרות לשימוש פנימי
@@ -53,6 +53,251 @@
   const addClass = (el, cls) => el && el.classList.add(cls);
   const removeClass = (el, cls) => el && el.classList.remove(cls);
   const toggleBodyLock = (lock) => document.body.classList[lock ? 'add' : 'remove']('trivia-open');
+
+  // ========== חלק קול – מערכת אודיו מלאה למשחק ==========
+  const SoundSystem = {
+    enabled: true,
+    bgMusic: null,
+    currentSpeech: null,
+    volume: { master: 0.7, music: 0.3, effects: 0.8, speech: 1.0 },
+    
+    // אתחול מערכת הקול
+    init() {
+      this.createBgMusic();
+    },
+    
+    // יצירת מוזיקת רקע באמצעות Web Audio API
+    createBgMusic() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        this.audioCtx = new AudioContext();
+      } catch (e) {
+        console.warn('Audio context not available');
+      }
+    },
+    
+    // הפעלת מוזיקת רקע
+    playBgMusic() {
+      if (!this.enabled || !this.audioCtx) return;
+      try {
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        // יצירת לופ רקע פשוט
+        this.stopBgMusic();
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 220;
+        gain.gain.value = 0.02 * this.volume.music * this.volume.master;
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+        this.bgMusic = { osc, gain };
+        // פעימות עדינות
+        this.bgInterval = setInterval(() => {
+          if (this.bgMusic?.gain) {
+            const t = this.audioCtx.currentTime;
+            this.bgMusic.gain.gain.setTargetAtTime(0.015 * this.volume.music * this.volume.master, t, 0.5);
+            setTimeout(() => {
+              if (this.bgMusic?.gain) this.bgMusic.gain.gain.setTargetAtTime(0.025 * this.volume.music * this.volume.master, this.audioCtx.currentTime, 0.5);
+            }, 1000);
+          }
+        }, 2000);
+      } catch (e) {
+        console.warn('Background music error:', e);
+      }
+    },
+    
+    // עצירת מוזיקת רקע
+    stopBgMusic() {
+      try {
+        if (this.bgInterval) clearInterval(this.bgInterval);
+        if (this.bgMusic?.osc) {
+          this.bgMusic.osc.stop();
+          this.bgMusic = null;
+        }
+      } catch (e) {}
+    },
+    
+    // אפקט קולי קצר
+    playEffect(type) {
+      if (!this.enabled || !this.audioCtx) return;
+      try {
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        gain.gain.value = 0.15 * this.volume.effects * this.volume.master;
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        
+        switch (type) {
+          case 'correct':
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523, this.audioCtx.currentTime);
+            osc.frequency.setValueAtTime(659, this.audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(784, this.audioCtx.currentTime + 0.2);
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.3, 0.1);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.5);
+            break;
+          case 'wrong':
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, this.audioCtx.currentTime);
+            osc.frequency.setValueAtTime(150, this.audioCtx.currentTime + 0.15);
+            gain.gain.value = 0.08 * this.volume.effects * this.volume.master;
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.2, 0.1);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.4);
+            break;
+          case 'tick':
+            osc.type = 'square';
+            osc.frequency.value = 800;
+            gain.gain.value = 0.05 * this.volume.effects * this.volume.master;
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.03, 0.01);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.05);
+            break;
+          case 'start':
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(392, this.audioCtx.currentTime);
+            osc.frequency.setValueAtTime(523, this.audioCtx.currentTime + 0.15);
+            osc.frequency.setValueAtTime(659, this.audioCtx.currentTime + 0.3);
+            osc.frequency.setValueAtTime(784, this.audioCtx.currentTime + 0.45);
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.6, 0.1);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.8);
+            break;
+          case 'win':
+            osc.type = 'sine';
+            [523, 659, 784, 1047].forEach((freq, i) => {
+              osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime + i * 0.15);
+            });
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.8, 0.2);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 1.2);
+            break;
+          case 'lose':
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(392, this.audioCtx.currentTime);
+            osc.frequency.setValueAtTime(330, this.audioCtx.currentTime + 0.3);
+            osc.frequency.setValueAtTime(262, this.audioCtx.currentTime + 0.6);
+            gain.gain.value = 0.1 * this.volume.effects * this.volume.master;
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.8, 0.2);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 1.0);
+            break;
+          case 'countdown':
+            osc.type = 'sine';
+            osc.frequency.value = 440;
+            gain.gain.value = 0.12 * this.volume.effects * this.volume.master;
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.1, 0.05);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.15);
+            break;
+          case 'coins':
+            // צליל מטבעות זהב - רצף צלילים גבוהים מנצנצים
+            osc.type = 'sine';
+            const coinFreqs = [1200, 1400, 1600, 1800, 2000];
+            coinFreqs.forEach((freq, i) => {
+              osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime + i * 0.08);
+            });
+            gain.gain.value = 0.12 * this.volume.effects * this.volume.master;
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.5, 0.1);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.6);
+            break;
+          case 'streak':
+            // צליל רצף - פנפרה קצרה ומרשימה
+            osc.type = 'square';
+            [784, 988, 1175, 1319].forEach((freq, i) => {
+              osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime + i * 0.1);
+            });
+            gain.gain.value = 0.1 * this.volume.effects * this.volume.master;
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.5, 0.15);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.7);
+            break;
+          case 'encourage':
+            // צליל עידוד - נעים ומרגיע
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(330, this.audioCtx.currentTime);
+            osc.frequency.setValueAtTime(392, this.audioCtx.currentTime + 0.15);
+            gain.gain.value = 0.08 * this.volume.effects * this.volume.master;
+            gain.gain.setTargetAtTime(0, this.audioCtx.currentTime + 0.3, 0.1);
+            osc.start();
+            osc.stop(this.audioCtx.currentTime + 0.4);
+            break;
+        }
+      } catch (e) {
+        console.warn('Sound effect error:', e);
+      }
+    },
+    
+    // הקראת טקסט בעברית באמצעות Web Speech API
+    speak(text, options = {}) {
+      if (!this.enabled || !window.speechSynthesis) return;
+      try {
+        // עצירת הקראה קודמת
+        this.stopSpeech();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'he-IL';
+        utterance.rate = options.rate || 1.0;
+        utterance.pitch = options.pitch || 1.0;
+        utterance.volume = this.volume.speech * this.volume.master;
+        
+        // ניסיון למצוא קול עברי
+        const voices = speechSynthesis.getVoices();
+        const hebrewVoice = voices.find(v => v.lang.includes('he') || v.lang.includes('iw'));
+        if (hebrewVoice) utterance.voice = hebrewVoice;
+        
+        this.currentSpeech = utterance;
+        speechSynthesis.speak(utterance);
+        
+        return new Promise(resolve => {
+          utterance.onend = resolve;
+          utterance.onerror = resolve;
+        });
+      } catch (e) {
+        console.warn('Speech error:', e);
+      }
+    },
+    
+    // הקראת שאלה בלבד (ללא התשובות)
+    async speakQuestion(questionText) {
+      if (!this.enabled) return;
+      await this.speak(questionText, { rate: 0.95 });
+    },
+    
+    // עצירת הקראה
+    stopSpeech() {
+      try {
+        if (window.speechSynthesis) speechSynthesis.cancel();
+        this.currentSpeech = null;
+      } catch (e) {}
+    },
+    
+    // הפעלה/כיבוי קול
+    toggle(enabled) {
+      this.enabled = enabled;
+      if (!enabled) {
+        this.stopBgMusic();
+        this.stopSpeech();
+      }
+    },
+    
+    // ניקוי משאבים
+    cleanup() {
+      this.stopBgMusic();
+      this.stopSpeech();
+      if (this.audioCtx) {
+        try { this.audioCtx.close(); } catch (e) {}
+      }
+    }
+  };
+
+  // אתחול מערכת הקול
+  SoundSystem.init();
 
   // חלק UI – דואג לטעינת ה-CSS והקמת מבנה המשחק
   function ensureStyles() {
@@ -65,7 +310,7 @@
     }
   }
 
-  // חלק UI – יצירת הכפתור הצף והמודאל בסגנון math_new
+  // חלק UI – יצירת המודאל בעיצוב שלבים פרימיום
   function buildUI() {
     if (state.ui.overlay) return;
     ensureStyles();
@@ -76,117 +321,193 @@
     overlay.innerHTML = `
       <div class="trivia-frame">
         <div class="trivia-background"></div>
+        <!-- פס עליון קומפקטי -->
         <header class="trivia-topbar">
-          <div class="trivia-topbar__brand">🎲 טריוויה ברשת • יאללה תקשורת</div>
+          <button id="triviaBackBtn" class="trivia-topbar__back" hidden>←</button>
+          <div class="trivia-topbar__brand">🎲 SOS Trivia</div>
           <div class="trivia-topbar__actions">
-            <button id="triviaReturnHome">חזרה לרשת</button>
-            <button id="triviaCloseOverlay" class="trivia-topbar__primary">סגור משחק</button>
+            <button id="triviaCloseOverlay">סגור</button>
           </div>
         </header>
-        <section class="trivia-scorestrip">
+        <!-- פס מדדים – מוצג רק במשחק פעיל -->
+        <section class="trivia-scorestrip" id="triviaScorestrip">
           <div class="trivia-strip__item"><span class="trivia-strip__label">סבב</span><span class="trivia-strip__value" id="triviaRound">0/10</span></div>
-          <div class="trivia-strip__item"><span class="trivia-strip__label">הניקוד שלך</span><span class="trivia-strip__value" id="triviaScoreSelf">0</span></div>
-          <div class="trivia-strip__item"><span class="trivia-strip__label">ניקוד יריב</span><span class="trivia-strip__value" id="triviaScoreOpp">0</span></div>
-          <div class="trivia-strip__item"><span class="trivia-strip__label">טיימר</span><span class="trivia-strip__value" id="triviaTimer">--</span></div>
-          <div class="trivia-strip__item"><span class="trivia-strip__label">דיוק</span><span class="trivia-strip__value" id="triviaAccuracy">0%</span></div>
+          <div class="trivia-strip__item"><span class="trivia-strip__label">אתה</span><span class="trivia-strip__value" id="triviaScoreSelf">0</span></div>
+          <div class="trivia-strip__item"><span class="trivia-strip__label">יריב</span><span class="trivia-strip__value" id="triviaScoreOpp">0</span></div>
+          <div class="trivia-strip__item"><span class="trivia-strip__label">⏱️</span><span class="trivia-strip__value" id="triviaTimer">--</span></div>
         </section>
+        <!-- אזור תוכן מרכזי – שלבים -->
         <section class="trivia-stage">
-          <div class="trivia-layer" id="triviaLobbyLayer">
-            <div class="trivia-lobby-headline">
-              <div>
-                <h2>לובי משחקים בזמן אמת</h2>
-                <p id="triviaLobbyStatus">מתחבר ללובי... אנא המתן.</p>
-              </div>
-              <div class="trivia-lobby-cta">
-                <button id="triviaSeekButton" class="trivia-btn-primary">חפש שותף</button>
-                <button id="triviaCancelButton" class="trivia-btn-secondary" hidden>בטל המתנה</button>
-              </div>
-            </div>
-            <div class="trivia-lobby-grid">
-              <article class="trivia-lobby-card">
-                <h3>שחקנים זמינים</h3>
-                <div class="trivia-player-list" id="triviaPeers"></div>
-                <p class="trivia-lobby-note" id="triviaPeersEmpty">אין כרגע שחקנים זמינים. הזמינו חברים!</p>
-              </article>
-              <article class="trivia-lobby-card">
-                <h3>שחקנים שממתינים למשחק</h3>
-                <div class="trivia-player-list" id="triviaWaiting"></div>
-                <p class="trivia-lobby-note" id="triviaWaitingEmpty">אף אחד עדיין לא מחפש שותף.</p>
-              </article>
+          <!-- שלב 1: מסך פתיחה -->
+          <div class="trivia-layer is-active" id="triviaWelcomeLayer">
+            <div class="trivia-welcome">
+              <div class="trivia-welcome__icon">🎲</div>
+              <h1 class="trivia-welcome__title">SOS Trivia Challenge</h1>
+              <p class="trivia-welcome__subtitle">בחנו את הידע שלכם מול חברים בזמן אמת</p>
+              <button id="triviaStartBtn" class="trivia-welcome__cta">התחל משחק</button>
             </div>
           </div>
+          <!-- שלב 2: בחירת אופן משחק -->
+          <div class="trivia-layer" id="triviaModeLayer">
+            <div class="trivia-mode">
+              <h2 class="trivia-mode__title">איך תרצה לשחק?</h2>
+              <div class="trivia-mode__options">
+                <button class="trivia-mode__btn" id="triviaModeRandom">
+                  <span class="trivia-mode__btn-icon">🔍</span>
+                  <span class="trivia-mode__btn-label">חפש יריב אקראי</span>
+                </button>
+                <button class="trivia-mode__btn" id="triviaModeList">
+                  <span class="trivia-mode__btn-icon">📋</span>
+                  <span class="trivia-mode__btn-label">בחר מרשימה</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- שלב 3א: המתנה ליריב -->
+          <div class="trivia-layer" id="triviaWaitingLayer">
+            <div class="trivia-waiting">
+              <div class="trivia-waiting__spinner"></div>
+              <div class="trivia-waiting__text" id="triviaWaitingText">מחפש יריב...</div>
+              <button id="triviaCancelSearch" class="trivia-waiting__cancel">בטל חיפוש</button>
+            </div>
+          </div>
+          <!-- שלב 3ב: בחירת יריב מרשימה -->
+          <div class="trivia-layer" id="triviaListLayer">
+            <div class="trivia-list">
+              <h2 class="trivia-list__title">בחר יריב</h2>
+              <div class="trivia-list__stats" id="triviaLobbyStats">טוען...</div>
+              <div class="trivia-list__container" id="triviaPlayerList"></div>
+              <p class="trivia-list__empty" id="triviaListEmpty">אין שחקנים פנויים כרגע</p>
+            </div>
+          </div>
+          <!-- שלב 4: משחק פעיל -->
           <div class="trivia-layer" id="triviaGameLayer">
             <div class="trivia-game-panel">
               <div class="trivia-versus">
                 <div class="trivia-playercard">
-                  <span class="trivia-playercard__title">המשחק שלך</span>
-                  <span class="trivia-playercard__name" id="triviaSelfName">אתה</span>
-                  <div class="trivia-playercard__score"><span>ניקוד:</span><span id="triviaSelfScoreCard">0</span></div>
+                  <div class="trivia-playercard__info">
+                    <span class="trivia-playercard__title">אתה</span>
+                    <span class="trivia-playercard__name" id="triviaSelfName">שחקן</span>
+                  </div>
+                  <span class="trivia-playercard__score" id="triviaSelfScoreCard">0</span>
                 </div>
                 <div class="trivia-playercard">
-                  <span class="trivia-playercard__title">היריב שלך</span>
-                  <span class="trivia-playercard__name" id="triviaOpponentName">---</span>
-                  <div class="trivia-playercard__score"><span>ניקוד:</span><span id="triviaOppScoreCard">0</span></div>
+                  <div class="trivia-playercard__info">
+                    <span class="trivia-playercard__title">יריב</span>
+                    <span class="trivia-playercard__name" id="triviaOpponentName">---</span>
+                  </div>
+                  <span class="trivia-playercard__score" id="triviaOppScoreCard">0</span>
                 </div>
               </div>
-              <div class="trivia-question-box" id="triviaQuestion">המשחק יתחיל ברגע ששני שחקנים יצטרפו.</div>
+              <div class="trivia-question-box" id="triviaQuestion">מחכים לשאלה...</div>
               <div class="trivia-answer-grid" id="triviaAnswers"></div>
               <div class="trivia-feedback" id="triviaFeedback"></div>
-              <div class="trivia-game-actions"><button id="triviaLeaveButton">חזרה ללובי</button></div>
-              <div class="trivia-banner" id="triviaBanner">ברוכים הבאים לזירה! מצאו שותף והתחילו להתחרות.</div>
+              <div class="trivia-game-actions"><button id="triviaLeaveButton">יציאה</button></div>
             </div>
           </div>
         </section>
       </div>
     `;
     document.body.append(overlay);
+    // אחסון רפרנסים לאלמנטים
     state.ui = {
       overlay,
-      lobbyLayer: overlay.querySelector('#triviaLobbyLayer'),
+      backBtn: overlay.querySelector('#triviaBackBtn'),
+      closeBtn: overlay.querySelector('#triviaCloseOverlay'),
+      scorestrip: overlay.querySelector('#triviaScorestrip'),
+      // שלבים
+      welcomeLayer: overlay.querySelector('#triviaWelcomeLayer'),
+      modeLayer: overlay.querySelector('#triviaModeLayer'),
+      waitingLayer: overlay.querySelector('#triviaWaitingLayer'),
+      listLayer: overlay.querySelector('#triviaListLayer'),
       gameLayer: overlay.querySelector('#triviaGameLayer'),
-      lobbyStatus: overlay.querySelector('#triviaLobbyStatus'),
-      seekBtn: overlay.querySelector('#triviaSeekButton'),
-      cancelBtn: overlay.querySelector('#triviaCancelButton'),
-      peersList: overlay.querySelector('#triviaPeers'),
-      peersEmpty: overlay.querySelector('#triviaPeersEmpty'),
-      waitingList: overlay.querySelector('#triviaWaiting'),
-      waitingEmpty: overlay.querySelector('#triviaWaitingEmpty'),
+      // כפתורי ניווט
+      startBtn: overlay.querySelector('#triviaStartBtn'),
+      modeRandomBtn: overlay.querySelector('#triviaModeRandom'),
+      modeListBtn: overlay.querySelector('#triviaModeList'),
+      cancelSearchBtn: overlay.querySelector('#triviaCancelSearch'),
+      leaveBtn: overlay.querySelector('#triviaLeaveButton'),
+      // רשימת שחקנים
+      playerList: overlay.querySelector('#triviaPlayerList'),
+      listEmpty: overlay.querySelector('#triviaListEmpty'),
+      lobbyStats: overlay.querySelector('#triviaLobbyStats'),
+      waitingText: overlay.querySelector('#triviaWaitingText'),
+      // מדדים
       roundValue: overlay.querySelector('#triviaRound'),
       scoreSelfValue: overlay.querySelector('#triviaScoreSelf'),
       scoreOppValue: overlay.querySelector('#triviaScoreOpp'),
       timerValue: overlay.querySelector('#triviaTimer'),
-      accuracyValue: overlay.querySelector('#triviaAccuracy'),
+      // משחק
       questionBox: overlay.querySelector('#triviaQuestion'),
       answersGrid: overlay.querySelector('#triviaAnswers'),
       feedback: overlay.querySelector('#triviaFeedback'),
-      banner: overlay.querySelector('#triviaBanner'),
-      leaveBtn: overlay.querySelector('#triviaLeaveButton'),
       selfName: overlay.querySelector('#triviaSelfName'),
       oppName: overlay.querySelector('#triviaOpponentName'),
       selfScoreCard: overlay.querySelector('#triviaSelfScoreCard'),
-      oppScoreCard: overlay.querySelector('#triviaOppScoreCard'),
-      closeBtn: overlay.querySelector('#triviaCloseOverlay'),
-      returnBtn: overlay.querySelector('#triviaReturnHome')
+      oppScoreCard: overlay.querySelector('#triviaOppScoreCard')
     };
-    state.fx = createGameShowFX({
-      backgroundEl: overlay.querySelector('.trivia-background'),
-      bannerEl: state.ui.banner,
-      timerEl: state.ui.timerValue,
-      roundEl: state.ui.roundValue,
-      accuracyEl: state.ui.accuracyValue,
-      scoreElements: {
-        stripSelf: state.ui.scoreSelfValue,
-        stripOpp: state.ui.scoreOppValue,
-        cardSelf: state.ui.selfScoreCard,
-        cardOpp: state.ui.oppScoreCard
-      }
-    });
+    // אירועי ניווט
     state.ui.closeBtn.addEventListener('click', closeOverlay);
-    state.ui.returnBtn.addEventListener('click', closeOverlay);
-    state.ui.seekBtn.addEventListener('click', startSeeking);
-    state.ui.cancelBtn.addEventListener('click', cancelSeeking);
+    state.ui.backBtn.addEventListener('click', goBack);
+    state.ui.startBtn.addEventListener('click', () => {
+      // סימון שהשחקן נכנס למשחק הטריוויה
+      state.inTrivia = true;
+      publishStatus('ready');
+      goToStep('list');
+      refreshLobby();
+    });
+    state.ui.modeRandomBtn.addEventListener('click', () => { startSeeking(); goToStep('waiting'); });
+    state.ui.modeListBtn.addEventListener('click', () => { goToStep('list'); refreshLobby(); });
+    state.ui.cancelSearchBtn.addEventListener('click', () => { cancelSeeking(); goToStep('mode'); });
     state.ui.leaveBtn.addEventListener('click', leaveMatch);
-    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeOverlay(); });
+  }
+
+  // חלק ניווט – מעבר בין שלבים
+  let currentStep = 'welcome';
+  const stepHistory = [];
+  
+  function goToStep(step) {
+    // הסתרת כל השלבים
+    state.ui.welcomeLayer?.classList.remove('is-active');
+    state.ui.modeLayer?.classList.remove('is-active');
+    state.ui.waitingLayer?.classList.remove('is-active');
+    state.ui.listLayer?.classList.remove('is-active');
+    state.ui.gameLayer?.classList.remove('is-active');
+    // הצגת פס מדדים רק במשחק פעיל
+    state.ui.scorestrip?.classList.remove('is-visible');
+    // שמירת היסטוריה
+    if (currentStep !== step) stepHistory.push(currentStep);
+    currentStep = step;
+    // הצגת השלב הנוכחי
+    switch (step) {
+      case 'welcome':
+        state.ui.welcomeLayer?.classList.add('is-active');
+        state.ui.backBtn.hidden = true;
+        break;
+      case 'mode':
+        state.ui.modeLayer?.classList.add('is-active');
+        state.ui.backBtn.hidden = false;
+        break;
+      case 'waiting':
+        state.ui.waitingLayer?.classList.add('is-active');
+        state.ui.backBtn.hidden = false;
+        break;
+      case 'list':
+        state.ui.listLayer?.classList.add('is-active');
+        state.ui.backBtn.hidden = false;
+        break;
+      case 'game':
+        state.ui.gameLayer?.classList.add('is-active');
+        state.ui.scorestrip?.classList.add('is-visible');
+        state.ui.backBtn.hidden = true;
+        break;
+    }
+  }
+  
+  function goBack() {
+    if (state.seeking) cancelSeeking();
+    const prev = stepHistory.pop() || 'welcome';
+    goToStep(prev);
   }
 
   // חלק פתיחה – הצגת המודאל, נעילת גלילה ושליחת נוכחות
@@ -196,12 +517,12 @@
     state.ui.overlay.classList.add('is-open');
     state.ui.overlay.setAttribute('aria-hidden', 'false');
     toggleBodyLock(true);
-    setText(state.ui.lobbyStatus, 'מתחבר ללובי... אנא המתן.');
-    switchToLobby();
-    refreshLobby();
+    // איפוס לשלב פתיחה
+    currentStep = 'welcome';
+    stepHistory.length = 0;
+    goToStep('welcome');
     ensurePresenceLoop();
     publishStatus('presence');
-    state.fx?.onOverlayOpen();
   }
 
   // חלק סגירה – שחרור נעילת גלילה וביטול חיפוש אם יש
@@ -213,17 +534,13 @@
     if (state.seeking) cancelSeeking();
   }
 
-  // חלק תצוגה – מעבר בין הלובי לזירה
+  // חלק תצוגה – מעבר בין הלובי לזירה (תאימות לאחור)
   const switchToLobby = () => {
     state.matchActive = false;
-    addClass(state.ui.lobbyLayer, 'is-active');
-    removeClass(state.ui.gameLayer, 'is-active');
-    state.fx?.onLobby();
+    goToStep('welcome');
   };
   const switchToGame = () => {
-    addClass(state.ui.gameLayer, 'is-active');
-    removeClass(state.ui.lobbyLayer, 'is-active');
-    state.fx?.onStage();
+    goToStep('game');
   };
 
   // חלק נוכחות – שליחת heartbeat קבועה לריליים
@@ -237,7 +554,7 @@
     const relays = Array.isArray(App.relayUrls) ? App.relayUrls.filter(Boolean) : [];
     if (relays.length === 0) return;
     const timestamp = now();
-    const payload = { type, name: App.profile?.name || 'שחקן', seeking: state.seeking, room: state.roomId, timestamp, ...extra };
+    const payload = { type, name: App.profile?.name || 'שחקן', seeking: state.seeking, room: state.roomId, inTrivia: state.inTrivia || false, playing: state.matchActive || false, timestamp, ...extra };
     const event = App.finalizeEvent({ kind: CFG.KIND_STATUS, created_at: timestamp, tags: [['t', CFG.TAG]], content: JSON.stringify(payload) }, App.privateKey);
     try {
       const result = App.pool.publish(relays, event);
@@ -297,22 +614,42 @@
     refreshLobby();
   }
 
-  // חלק לובי – הצטרפות לשחקן שמחפש יריב
+  // חלק לובי – שליחת הזמנה לשחקן אחר
   function joinWaiting(pubkey, roomId, name) {
-    if (!App.publicKey || !roomId) return;
-    state.seeking = false;
-    state.isHost = false;
-    state.roomId = roomId;
+    if (!App.publicKey) return;
+    // מניעת כניסה למשחק אם כבר במשחק פעיל
+    if (state.matchActive) {
+      console.log('already in active match, ignoring join request');
+      return;
+    }
     state.opponentPubkey = pubkey;
     state.opponentName = name || 'יריב';
-    state.ui.seekBtn.disabled = false;
-    state.ui.cancelBtn.hidden = true;
-    setText(state.ui.lobbyStatus, `הזמנה נשלחה אל ${state.opponentName}. ממתינים לאישור...`);
-    publishMatch('invite', { target: pubkey });
+    
+    // אם לשחקן יש חדר פתוח - מצטרפים אליו ומתחילים משחק
+    if (roomId) {
+      state.roomId = roomId;
+      state.isHost = false;
+      // שולחים אישור הצטרפות למארח
+      publishMatch('accept', { opponent: pubkey, room: roomId });
+      enterMatch(roomId, pubkey, name, false);
+    } else {
+      // יוצרים חדר חדש, שולחים הזמנה וממתינים לאישור
+      state.roomId = createRoomId();
+      state.isHost = true;
+      state.seeking = true;
+      publishMatch('invite', { target: pubkey, room: state.roomId });
+      goToStep('waiting');
+      setText(state.ui.waitingText, `ממתינים ל${name || 'יריב'}...`);
+    }
   }
 
   // חלק משחק – כניסה לזירה מול היריב
   function enterMatch(roomId, opponentPubkey, opponentName, asHost) {
+    // מניעת כניסה כפולה למשחק
+    if (state.matchActive) {
+      console.log('already in match, ignoring enter request');
+      return;
+    }
     state.matchActive = true;
     state.roomId = roomId;
     state.opponentPubkey = opponentPubkey;
@@ -322,37 +659,72 @@
     state.order = shuffleQuestions();
     state.answers.clear();
     state.metrics = { correct: 0, total: 0, streak: 0, best: 0 };
-    switchToGame();
+    FeedbackSystem.reset();
+    // קול - התחלת משחק
+    SoundSystem.playEffect('start');
+    SoundSystem.playBgMusic();
+    SoundSystem.speak(`המשחק מתחיל! משחקים נגד ${opponentName || 'יריב'}`);
+    // מעבר לשלב המשחק
+    goToStep('game');
     updateScores();
     setText(state.ui.selfName, App.profile?.name || 'אתה');
     setText(state.ui.oppName, state.opponentName);
-    setText(state.ui.banner, '🔥 המשחק התחיל! ענו מהר והובילו בניקוד.');
     setText(state.ui.feedback, '');
-    state.fx?.onMatchStart({ opponent: state.opponentName });
     if (state.isHost) {
       publishStatus('match');
       sendQuestion(0);
     } else {
       publishStatus('playing');
-      setText(state.ui.questionBox, 'מחכים לשאלה הראשונה מהמארח...');
+      setText(state.ui.questionBox, 'מחכים לשאלה הראשונה...');
     }
   }
 
   // חלק משחק – חזרה ללובי וסיום הסשן
   function leaveMatch() {
+    // קול - עצירת מוזיקה ודיבור
+    SoundSystem.stopBgMusic();
+    SoundSystem.stopSpeech();
+    // שליחת הודעה ליריב שעזבנו
+    if (state.matchActive && state.roomId) {
+      publishMatch('leave', { reason: 'user_left' });
+    }
     clearTimers();
     state.matchActive = false;
     state.roomId = null;
     state.opponentPubkey = null;
     state.round = 0;
-    state.ui.answersGrid.innerHTML = '';
-    setText(state.ui.questionBox, 'המשחק יתחיל ברגע ששני שחקנים יצטרפו.');
+    if (state.ui.answersGrid) state.ui.answersGrid.innerHTML = '';
+    setText(state.ui.questionBox, 'מחכים לשאלה...');
     setText(state.ui.feedback, '');
-    setText(state.ui.banner, 'חזרתם ללובי. פתחו משחק חדש או הצטרפו לחברים.');
+    state.inTrivia = false;
     publishStatus('idle');
-    switchToLobby();
-    refreshLobby();
-    state.fx?.onLobby();
+    // חזרה למסך פתיחה
+    stepHistory.length = 0;
+    goToStep('welcome');
+  }
+
+  // חלק משחק – טיפול בעזיבת יריב
+  function handleOpponentLeft() {
+    // קול - עצירת מוזיקה והודעה
+    SoundSystem.stopBgMusic();
+    SoundSystem.stopSpeech();
+    SoundSystem.speak('היריב עזב את המשחק');
+    clearTimers();
+    state.matchActive = false;
+    state.roomId = null;
+    state.opponentPubkey = null;
+    state.round = 0;
+    if (state.ui.answersGrid) state.ui.answersGrid.innerHTML = '';
+    setText(state.ui.questionBox, 'היריב עזב את המשחק');
+    setText(state.ui.feedback, 'המשחק הסתיים. חוזרים ללובי...');
+    state.inTrivia = false;
+    publishStatus('idle');
+    // המתנה קצרה וחזרה ללובי
+    setTimeout(() => {
+      stepHistory.length = 0;
+      goToStep('welcome');
+      refreshLobby();
+    }, 2000);
   }
 
   // חלק שאלות – שליחת שאלה חדשה מהמארח
@@ -376,32 +748,46 @@
     const data = QUESTIONS[questionIndex];
     if (!data) return;
     state.round = round;
-    setText(state.ui.questionBox, `${round + 1}/${totalRounds} • ${data.q}`);
-    state.ui.answersGrid.innerHTML = '';
+    setText(state.ui.questionBox, data.q);
+    if (state.ui.answersGrid) state.ui.answersGrid.innerHTML = '';
     setText(state.ui.feedback, '');
+    state.ui.feedback?.classList.remove('is-correct', 'is-wrong');
     data.answers.forEach((text, idx) => {
       const btn = Object.assign(document.createElement('button'), { className: 'trivia-answer-btn', type: 'button', textContent: text });
       btn.dataset.option = String(idx);
       btn.addEventListener('click', () => submitAnswer(idx, data.correct));
-      state.ui.answersGrid.appendChild(btn);
+      state.ui.answersGrid?.appendChild(btn);
     });
     updateRound(round, totalRounds);
     runTimer(startedAt, timeLimit);
-    state.fx?.onQuestion({ question: data.q, round, totalRounds });
+    // קול - הקראת השאלה בלבד
+    SoundSystem.speakQuestion(data.q);
   }
 
   // חלק תשובות – שליחת הבחירה לריליי והצגת פידבק
   function submitAnswer(optionIdx, correctIdx) {
     if (!state.matchActive || !state.roomId) return;
+    // קול - עצירת הקראה
+    SoundSystem.stopSpeech();
     markAnswer(optionIdx, correctIdx);
     disableAnswers();
     const isCorrect = optionIdx === correctIdx;
+    // עדכון מדדים לפני קבלת פידבק (כדי לדעת את הרצף)
+    updatePlayerMetrics(isCorrect);
+    // קבלת פידבק מותאם עם מחמאות/הערות בונות
+    const feedback = FeedbackSystem.getFeedback(isCorrect, state.metrics.streak);
+    // קול - אפקט מותאם לסוג הפידבק
+    SoundSystem.playEffect(feedback.effect);
+    // הקראת הפידבק אם נדרש (רצפים מיוחדים או עידוד)
+    if (feedback.speak) {
+      setTimeout(() => SoundSystem.speak(feedback.text.replace(/[🔥⭐🏆👑💪✓✗]/g, '')), 300);
+    }
     rememberAnswer(App.publicKey, state.round, isCorrect);
     publishMatch('answer', { option: optionIdx, correct: isCorrect });
-    setText(state.ui.feedback, isCorrect ? '🎉 תשובה נכונה! המשיכו כך.' : '❗ פספוס קטן, יש עוד סיבובים.');
+    setText(state.ui.feedback, feedback.text);
+    state.ui.feedback?.classList.remove('is-correct', 'is-wrong');
+    state.ui.feedback?.classList.add(isCorrect ? 'is-correct' : 'is-wrong');
     updateScores();
-    updatePlayerMetrics(isCorrect);
-    state.fx?.onAnswer({ correct: isCorrect, streak: state.metrics.streak, total: state.metrics.total, accuracy: getAccuracy() });
   }
 
   // חלק תשובות – סימון חזותי של תשובות נכונות ושגויות
@@ -442,46 +828,132 @@
     return state.metrics.total ? Math.round((state.metrics.correct / state.metrics.total) * 100) : 0;
   }
 
-  // חלק ניקוד – עידכון לוח הניקוד ודיוק התשובות
+  // ========== חלק מחמאות – מערכת פידבק חיובי והערות בונות ==========
+  const FeedbackSystem = {
+    // מחמאות לרצפים של תשובות נכונות
+    streakMessages: {
+      3: ['🔥 שלוש ברצף!', 'יופי! אתה על גלגל!', '3 נכונות רצוף! מדהים!'],
+      5: ['⭐ חמש ברצף!', 'וואו! בלתי ניתן לעצירה!', 'חמישייה מנצחת!'],
+      7: ['🏆 שבע ברצף!', 'גאון טהור!', 'מכונת תשובות!'],
+      10: ['👑 עשר ברצף!', 'אלוף העולם!', 'פשוט מושלם!']
+    },
+    
+    // מחמאות לתשובה נכונה בודדת
+    correctMessages: [
+      'נכון!', 'יפה מאוד!', 'מצוין!', 'בול!', 'נהדר!', 'כל הכבוד!', 'מדויק!'
+    ],
+    
+    // הערות בונות לתשובה שגויה
+    wrongMessages: [
+      'לא נורא, בפעם הבאה!', 'קרוב! נסה שוב', 'טעות קטנה, ממשיכים!', 
+      'לא הפעם, אבל אל תוותר!', 'קורה לכולם!'
+    ],
+    
+    // עידוד אחרי מספר טעויות ברצף
+    encourageMessages: [
+      'אל תוותר!', 'אתה יכול!', 'תתרכז, תצליח!', 'נשים הכל מאחור ומתחילים מחדש!'
+    ],
+    
+    // ספירת טעויות ברצף לעידוד
+    wrongStreak: 0,
+    
+    // קבלת פידבק מותאם לתשובה
+    getFeedback(isCorrect, streak) {
+      if (isCorrect) {
+        this.wrongStreak = 0;
+        // בדיקת רצף מיוחד
+        if (this.streakMessages[streak]) {
+          const msgs = this.streakMessages[streak];
+          return { 
+            text: msgs[Math.floor(Math.random() * msgs.length)], 
+            effect: streak >= 5 ? 'coins' : 'streak',
+            speak: true 
+          };
+        }
+        // תשובה נכונה רגילה
+        return { 
+          text: '✓ ' + this.correctMessages[Math.floor(Math.random() * this.correctMessages.length)], 
+          effect: 'correct',
+          speak: false 
+        };
+      } else {
+        this.wrongStreak += 1;
+        // עידוד אחרי 3 טעויות ברצף
+        if (this.wrongStreak >= 3) {
+          this.wrongStreak = 0;
+          return { 
+            text: '💪 ' + this.encourageMessages[Math.floor(Math.random() * this.encourageMessages.length)], 
+            effect: 'encourage',
+            speak: true 
+          };
+        }
+        // טעות רגילה
+        return { 
+          text: '✗ ' + this.wrongMessages[Math.floor(Math.random() * this.wrongMessages.length)], 
+          effect: 'wrong',
+          speak: false 
+        };
+      }
+    },
+    
+    // איפוס בתחילת משחק חדש
+    reset() {
+      this.wrongStreak = 0;
+    }
+  };
+
+  // חלק ניקוד – עידכון לוח הניקוד
   function updateScores() {
     const selfEntry = state.answers.get(App.publicKey) || { answers: {}, score: 0 };
     const oppEntry = state.answers.get(state.opponentPubkey) || { answers: {}, score: 0 };
     const selfScore = selfEntry.score || 0;
     const oppScore = oppEntry.score || 0;
-    const answered = Object.keys(selfEntry.answers).length;
-    const accuracy = answered ? Math.round((selfScore / answered) * 100) : 0;
     setText(state.ui.scoreSelfValue, String(selfScore));
     setText(state.ui.scoreOppValue, String(oppScore));
     setText(state.ui.selfScoreCard, String(selfScore));
     setText(state.ui.oppScoreCard, String(oppScore));
-    setText(state.ui.accuracyValue, `${accuracy}%`);
-    state.fx?.scoreboard.update({ selfScore, oppScore, accuracy, answered });
   }
 
   // חלק סיום – סיום המשחק ושליחת הודעת final לרשת
   function finishMatch() {
     clearTimers();
+    // קול - עצירת מוזיקה והקראה
+    SoundSystem.stopBgMusic();
+    SoundSystem.stopSpeech();
     publishMatch('final');
-    setText(state.ui.banner, '🎊 המשחק הסתיים! חזרו ללובי לדו-קרב נוסף.');
-    setText(state.ui.feedback, '');
+    const selfScore = state.answers.get(App.publicKey)?.score || 0;
+    const oppScore = state.answers.get(state.opponentPubkey)?.score || 0;
+    const isWin = selfScore > oppScore;
+    const isDraw = selfScore === oppScore;
+    // קול - אפקט ניצחון/הפסד והכרזת תוצאה
+    SoundSystem.playEffect(isWin ? 'win' : isDraw ? 'start' : 'lose');
+    const resultText = isWin ? 'ניצחת!' : isDraw ? 'תיקו!' : 'הפסדת';
+    SoundSystem.speak(`המשחק הסתיים. ${resultText} התוצאה ${selfScore} ל ${oppScore}`);
+    const result = isWin ? '🎉 ניצחת!' : isDraw ? '🤝 תיקו!' : '😔 הפסדת';
+    setText(state.ui.feedback, `${result} הניקוד: ${selfScore} - ${oppScore}`);
+    state.ui.feedback?.classList.add(selfScore >= oppScore ? 'is-correct' : 'is-wrong');
     setText(state.ui.timerValue, '--');
     state.isHost = false;
-    state.fx?.onMatchEnd({ selfScore: state.answers.get(App.publicKey)?.score || 0, oppScore: state.answers.get(state.opponentPubkey)?.score || 0 });
   }
 
   // חלק טיימר – שעון משותף לשאלה הנוכחית
   function runTimer(startedAt, timeLimit) {
     clearInterval(state.timers.interval);
     const end = (startedAt || now()) + (timeLimit || CFG.QUESTION_TIME);
-    state.fx?.timer.start(timeLimit || CFG.QUESTION_TIME);
+    let lastRemaining = -1;
     const tick = () => {
       const remaining = Math.max(0, end - now());
       setText(state.ui.timerValue, remaining.toString().padStart(2, '0'));
-      state.fx?.timer.tick(remaining);
+      // קול - אפקט קונטדאון בשלוש השניות האחרונות
+      if (remaining <= 3 && remaining > 0 && remaining !== lastRemaining) {
+        SoundSystem.playEffect('countdown');
+      }
+      lastRemaining = remaining;
       if (!remaining) {
         clearInterval(state.timers.interval);
         disableAnswers();
-        state.fx?.onTimeout();
+        setText(state.ui.feedback, '⏱️ נגמר הזמן!');
+        SoundSystem.playEffect('wrong');
       }
     };
     tick();
@@ -494,36 +966,65 @@
     clearTimeout(state.timers.question);
     state.timers.interval = null;
     state.timers.question = null;
-    state.fx?.timer.stop();
   }
 
   // חלק סבב – עדכון פס הסבבים בהתאם להתקדמות
   const updateRound = (round, total) => setText(state.ui.roundValue, `${round + 1}/${total}`);
 
-  // חלק לובי – רענון רשימות השחקנים המחוברים והמחכים
+  // חלק לובי – רענון רשימת השחקנים
   function refreshLobby() {
     const currentTime = now();
-    const peers = [];
-    const waiting = [];
+    const availablePlayers = [];
+    let totalConnected = 0;
+    let inGame = 0;
+    
     for (const player of state.players.values()) {
       if (player.updatedAt + CFG.LOBBY_TTL < currentTime) {
         state.players.delete(player.pubkey);
         continue;
       }
-      (player.seeking ? waiting : peers).push(player);
+      // ספירת כל המחוברים לטריוויה
+      if (player.inTrivia) {
+        totalConnected++;
+        // ספירת שחקנים במשחק פעיל
+        if (player.playing) {
+          inGame++;
+        } else {
+          // רק שחקנים פנויים (לא במשחק) מוצגים ברשימה
+          availablePlayers.push(player);
+        }
+      }
     }
-    renderPlayerList(state.ui.peersList, state.ui.peersEmpty, peers, false);
-    renderPlayerList(state.ui.waitingList, state.ui.waitingEmpty, waiting, true);
+    
+    // עדכון תצוגת סטטוס
+    updateLobbyStats(totalConnected, inGame, availablePlayers.length);
+    renderPlayerList(availablePlayers);
+  }
+  
+  // חלק לובי – עדכון תצוגת סטטיסטיקות
+  function updateLobbyStats(total, playing, available) {
+    if (state.ui.lobbyStats) {
+      if (total === 0) {
+        state.ui.lobbyStats.textContent = 'אין שחקנים מחוברים כרגע';
+      } else {
+        const parts = [];
+        parts.push(`${total} מחוברים`);
+        if (playing > 0) parts.push(`${playing} במשחק`);
+        if (available > 0) parts.push(`${available} פנויים`);
+        state.ui.lobbyStats.textContent = parts.join(' • ');
+      }
+    }
   }
 
-  // חלק לובי – ציור כרטיסי שחקנים בסגנון math_new
-  function renderPlayerList(container, emptyLabel, list, joinable) {
-    container.innerHTML = '';
+  // חלק לובי – ציור רשימת שחקנים אחת פשוטה
+  function renderPlayerList(list) {
+    if (!state.ui.playerList) return;
+    state.ui.playerList.innerHTML = '';
     if (!list.length) {
-      emptyLabel.hidden = false;
+      if (state.ui.listEmpty) state.ui.listEmpty.hidden = false;
       return;
     }
-    emptyLabel.hidden = true;
+    if (state.ui.listEmpty) state.ui.listEmpty.hidden = true;
     list.forEach((player) => {
       const row = document.createElement('div');
       row.className = 'trivia-player-row';
@@ -532,16 +1033,18 @@
       const name = document.createElement('span');
       name.textContent = player.name || 'שחקן';
       const status = document.createElement('span');
-      status.textContent = joinable ? 'ממתין למשחק' : 'זמין כעת';
+      status.textContent = player.seeking ? '🟢 מחפש יריב' : '⚪ זמין';
       meta.append(name, status);
       row.appendChild(meta);
       const action = document.createElement('button');
       action.type = 'button';
-      action.textContent = joinable ? 'הצטרף למשחק' : 'פרטים';
-      action.disabled = !joinable;
-      if (joinable) action.addEventListener('click', () => joinWaiting(player.pubkey, player.room, player.name));
+      action.textContent = 'שחק איתו';
+      action.addEventListener('click', () => {
+        // התחלת משחק ישירות עם השחקן הנבחר
+        joinWaiting(player.pubkey, player.room, player.name);
+      });
       row.appendChild(action);
-      container.appendChild(row);
+      state.ui.playerList.appendChild(row);
     });
   }
 
@@ -570,6 +1073,8 @@
         name: payload.name || 'שחקן',
         seeking: Boolean(payload.seeking),
         room: payload.room || null,
+        inTrivia: Boolean(payload.inTrivia),
+        playing: Boolean(payload.playing),
         updatedAt: created
       });
       refreshLobby();
@@ -593,29 +1098,46 @@
     if (!payload || (payload.room && state.roomId && payload.room !== state.roomId)) return;
     switch (payload.type) {
       case 'invite':
-        if (!isSelf && payload.target?.toLowerCase?.() === App.publicKey?.toLowerCase?.() && state.seeking) {
+        // הזמנה מיועדת אלינו ואנחנו לא במשחק פעיל
+        if (!isSelf && payload.target?.toLowerCase?.() === App.publicKey?.toLowerCase?.() && !state.matchActive && payload.room) {
+          // מישהו רוצה לשחק איתנו - מצטרפים ומתחילים משחק
           state.opponentPubkey = sender;
           state.opponentName = state.players.get(sender)?.name || 'שחקן';
-          publishMatch('accept', { opponent: sender });
-          enterMatch(state.roomId, sender, state.opponentName, true);
+          state.roomId = payload.room;
+          publishMatch('accept', { opponent: sender, room: payload.room });
+          enterMatch(payload.room, sender, state.opponentName, false);
         }
         break;
       case 'accept':
-        if (!isSelf && state.opponentPubkey && sender === state.opponentPubkey) enterMatch(state.roomId, sender, state.opponentName, false);
+        // היריב אישר - מתחילים משחק כמארח
+        if (!isSelf && state.opponentPubkey === sender && !state.matchActive && payload.room) {
+          state.seeking = false;
+          enterMatch(payload.room, sender, state.opponentName, true);
+        }
         break;
       case 'question':
-        if (!state.matchActive) switchToGame();
+        // רק אם אנחנו במשחק פעיל ובאותו חדר - מניעת כניסה של שחקן 3
+        if (!state.matchActive || !state.roomId) break;
+        if (payload.room && payload.room !== state.roomId) break;
         renderQuestion(payload.questionIndex, payload.round || 0, payload.totalRounds || CFG.MAX_ROUNDS, payload.startedAt, payload.timeLimit || CFG.QUESTION_TIME);
         break;
       case 'answer':
+        // רק אם אנחנו במשחק פעיל וזו תשובה מהיריב שלנו
+        if (!state.matchActive || !state.roomId) break;
         if (!isSelf && state.opponentPubkey === sender) {
           rememberAnswer(sender, state.round, Boolean(payload.correct));
           updateScores();
         }
         break;
       case 'final':
-        setText(state.ui.banner, '🎊 המשחק הסתיים! פתיחת דו-קרב חוזר זמינה בלובי.');
+        setText(state.ui.feedback, '🎊 המשחק הסתיים!');
         setText(state.ui.timerValue, '--');
+        break;
+      case 'leave':
+        // היריב עזב את המשחק
+        if (!isSelf && state.matchActive && sender === state.opponentPubkey) {
+          handleOpponentLeft();
+        }
         break;
       default:
         break;
@@ -681,12 +1203,11 @@
 
   // חלק bootstrap – אתחול המודול לאחר טעינת ה-DOM
   function bootstrap() {
-    buildUI();
     hookPoolReady();
     if (App.pool) {
       subscribe();
-      publishStatus('presence');
     }
+    publishStatus('presence');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootstrap);
@@ -696,194 +1217,4 @@
   App.openTriviaGame = function openTriviaGame() {
     openOverlay();
   };
-
-  // חלק אפקטים – קריינות, צלילים ורקע מתחלף בסגנון math_new
-  function createGameShowFX(ctx) {
-    const background = createBackgroundEngine(ctx.backgroundEl);
-    const audio = {
-      tick: null,
-      correct: null,
-      wrong: null,
-      fanfare: null
-    };
-    let tickInterval = null;
-    let speechLock = false;
-
-    function speak(text, opts = {}) {
-      if (!('speechSynthesis' in window) || !text) return;
-      try {
-        window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = opts.lang || 'he-IL';
-        utter.rate = opts.rate || 0.95;
-        utter.pitch = opts.pitch || 1;
-        utter.volume = opts.volume || 0.85;
-        speechLock = true;
-        utter.onend = () => { speechLock = false; };
-        window.speechSynthesis.speak(utter);
-      } catch (err) {
-        console.warn('speech failed', err);
-      }
-    }
-
-    function playOnce(el) {
-      if (!el) return;
-      try {
-        el.currentTime = 0;
-        void el.play();
-      } catch (err) {
-        console.warn('audio play failed', err);
-      }
-    }
-
-    function stopTickLoop() {
-      clearInterval(tickInterval);
-      tickInterval = null;
-    }
-
-    return {
-      onOverlayOpen() {
-        speak('ברוכים הבאים לאתגר הטריוויה של יאללה תקשורת! בחרו יריב והזניקו את המשחק.');
-        if (ctx.bannerEl) ctx.bannerEl.textContent = '🎤 מוכנים לזירה? מצאו יריב או הזמינו חברים.';
-      },
-      onLobby() {
-        stopTickLoop();
-        if (!speechLock) speak('חזרה ללובי. סמנו יריב ופיתחו משחק חדש.');
-      },
-      onStage() {
-        if (ctx.bannerEl) ctx.bannerEl.textContent = '🎬 מתכוננים לשאלה הבאה...';
-      },
-      onMatchStart({ opponent }) {
-        speak(`המשחק יוצא לדרך מול ${opponent || 'היריב'}. בהצלחה!`);
-        if (ctx.bannerEl) ctx.bannerEl.textContent = `🎯 דו-קרב מול ${opponent || 'היריב'}. הבמה שלכם!`;
-      },
-      onQuestion({ question, round, totalRounds }) {
-        background.update(question, round);
-        speak(`שאלה מספר ${round + 1} מתוך ${totalRounds}. ${question}`);
-        if (ctx.bannerEl) ctx.bannerEl.textContent = `❓ שאלה ${round + 1}/${totalRounds} – ריכוז מלא!`;
-      },
-      onAnswer({ correct, streak, accuracy }) {
-        if (correct) {
-          if (audio.correct) playOnce(audio.correct);
-          if (streak >= 3 && audio.fanfare) playOnce(audio.fanfare);
-          speak(streak >= 3 ? `מדהים! ${streak} תשובות רצופות.` : 'תשובה נכונה!');
-          if (ctx.bannerEl) ctx.bannerEl.textContent = streak >= 3 ? `🔥 רצף של ${streak} תשובות! המשיכו כך.` : '✅ תשובה מצוינת. השתלטו על הבמה.';
-        } else {
-          if (audio.wrong) playOnce(audio.wrong);
-          speak('טעות קטנה, נסו שוב בשאלה הבאה.');
-          if (ctx.bannerEl) ctx.bannerEl.textContent = '⚠️ לא נורא, קחו נשימה וננסה שוב.';
-        }
-        if (ctx.accuracyEl) {
-          ctx.accuracyEl.classList.add('trivia-accuracy-flash');
-          setTimeout(() => ctx.accuracyEl.classList.remove('trivia-accuracy-flash'), 600);
-          if (typeof accuracy === 'number') ctx.accuracyEl.textContent = `${accuracy}%`;
-        }
-      },
-      onTimeout() {
-        stopTickLoop();
-        if (audio.wrong) playOnce(audio.wrong);
-        speak('הזמן הסתיים! היו מוכנים לשאלה הבאה.');
-        if (ctx.bannerEl) ctx.bannerEl.textContent = '⏳ נגמר הזמן. השאלה הבאה מגיעה מיד.';
-      },
-      onMatchEnd({ selfScore, oppScore }) {
-        stopTickLoop();
-        const verdict = selfScore === oppScore ? 'שוויון מרתק!' : selfScore > oppScore ? 'ניצחון מהדהד!' : 'הפעם היריב הוביל.';
-        speak(`${verdict} תוצאה ${selfScore} מול ${oppScore}.`);
-        if (ctx.bannerEl) ctx.bannerEl.textContent = `🏁 ${verdict} • חזרו ללובי לאתגר נוסף.`;
-      },
-      timer: {
-        start(limit) {
-          stopTickLoop();
-          if (!limit) return;
-          if (audio.tick) {
-            tickInterval = setInterval(() => playOnce(audio.tick), 1000);
-          }
-        },
-        tick(remaining) {
-          if (!ctx.timerEl) return;
-          if (remaining <= 5) ctx.timerEl.classList.add('trivia-timer-alert');
-          else ctx.timerEl.classList.remove('trivia-timer-alert');
-        },
-        stop() {
-          stopTickLoop();
-          ctx.timerEl?.classList.remove('trivia-timer-alert');
-        }
-      },
-      scoreboard: {
-        update({ selfScore, oppScore, accuracy }) {
-          if (ctx.scoreElements.stripSelf) ctx.scoreElements.stripSelf.textContent = selfScore;
-          if (ctx.scoreElements.cardSelf) ctx.scoreElements.cardSelf.textContent = selfScore;
-          if (ctx.scoreElements.stripOpp) ctx.scoreElements.stripOpp.textContent = oppScore;
-          if (ctx.scoreElements.cardOpp) ctx.scoreElements.cardOpp.textContent = oppScore;
-          if (typeof accuracy === 'number' && ctx.accuracyEl) ctx.accuracyEl.textContent = `${accuracy}%`;
-        }
-      }
-    };
-  }
-
-  // חלק רקעים – חיפוש תמונות בסגנון setAmbientByTopic מהמשחק המקורי
-  function createBackgroundEngine(targetEl) {
-    const cache = new Map();
-    let currentToken = 0;
-
-    // מילון בסיסי לתרגום מילות מפתח בעברית -> אנגלית בדומה ל-TOPIC_MAP המקורי
-    const WORD_MAP = {
-      'חשבון': 'math kids',
-      'מספר': 'numbers challenge',
-      'ישראל': 'israel history',
-      'בירה': 'capital city',
-      'חיה': 'animal trivia',
-      'מדע': 'science facts',
-      'טבע': 'nature landscape',
-      'ים': 'ocean seascape',
-      'חלל': 'space stars',
-      'תולדות': 'history world'
-    };
-
-    function buildQueryFromQuestion(question, round) {
-      const base = String(question || '')
-        .replace(/["׳",.\-\[\]\(\)!?]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (!base) return `kids quiz show background ${round + 1}`;
-      for (const [he, en] of Object.entries(WORD_MAP)) {
-        if (base.includes(he)) return en;
-      }
-      // נ fallback פשוט: קח את שתי המילים הראשונות ותוסיף רקע
-      const tokens = base.split(' ').slice(0, 3).join(' ');
-      return `${tokens} background`;
-    }
-
-    async function searchImage(query) {
-      const apiKey = '25540812-faf2b76d586c1787d2dd02736';
-      const url = `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(query)}&image_type=photo&orientation=horizontal&per_page=18&safe_search=true`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const hits = Array.isArray(data?.hits) ? data.hits : [];
-      const pick = hits[Math.floor(Math.random() * Math.max(1, hits.length))];
-      return pick?.largeImageURL || pick?.webformatURL || '';
-    }
-
-    async function updateBackground(question, round) {
-      if (!targetEl) return;
-      const query = buildQueryFromQuestion(question, round);
-      const cacheKey = `${round}:${query}`;
-      if (cache.has(cacheKey)) {
-        targetEl.style.backgroundImage = cache.get(cacheKey);
-        return;
-      }
-      const token = ++currentToken;
-      const imageUrl = await searchImage(query);
-      if (!imageUrl || token !== currentToken) return;
-      const composed = `linear-gradient(180deg, rgba(24,36,82,0.55), rgba(8,12,26,0.85)), url('${imageUrl}') center/cover`;
-      cache.set(cacheKey, composed);
-      targetEl.style.backgroundImage = composed;
-    }
-
-    return {
-      update(question, round) {
-        void updateBackground(question, round).catch((err) => console.warn('background fetch failed', err));
-      }
-    };
-  }
 })(window, document);

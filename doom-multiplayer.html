@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOS Doom Multiplayer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; font-family: system-ui, sans-serif; overflow: hidden; }
+    
+    #gameFrame {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      display: block;
+    }
+    
+    #multiplayerOverlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    #multiplayerOverlay.hidden { display: none; }
+    
+    .lobby-box {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid #ff6b3b;
+      border-radius: 16px;
+      padding: 32px;
+      min-width: 400px;
+      color: #fff;
+      text-align: center;
+    }
+    
+    .lobby-box h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: #ff6b3b;
+    }
+    
+    .lobby-box p { opacity: 0.7; margin-bottom: 24px; }
+    
+    .lobby-status {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      min-height: 60px;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 14px 28px;
+      margin: 8px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .btn:hover { transform: translateY(-2px); }
+    
+    .btn-host {
+      background: linear-gradient(135deg, #ff6b3b, #ff8c42);
+      color: #fff;
+    }
+    
+    .btn-solo {
+      background: linear-gradient(135deg, #4ecdc4, #44a08d);
+      color: #fff;
+    }
+    
+    .btn-join {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+    
+    .rooms-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 16px;
+    }
+    
+    .room-item {
+      background: rgba(255,107,59,0.2);
+      border: 1px solid rgba(255,107,59,0.4);
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .room-item:hover { background: rgba(255,107,59,0.4); }
+    
+    /* === DOOM CLASSIC HUD V2 (Authentic) === */
+    #playerIndicator, #opponentMarker, #scoreDisplay { display: none !important; }
+    .controls-hint { display: none !important; }
+
+    /* === MULTIPLAYER INFO BAR - PREMIUM === */
+    .mp-info-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      z-index: 250;
+      font-family: 'VT323', monospace;
+      border-bottom: 1px solid #333;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .mp-info-bar.active { display: flex; }
+    
+    /* מזהה חדר - שמאל */
+    .mp-room-id {
+      position: absolute;
+      left: 10px;
+      color: #666;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+    
+    /* שחקנים במרכז */
+    .mp-players {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .mp-player-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 4px 10px;
+      min-width: 90px;
+    }
+    .mp-player-box.me {
+      border-color: #ff6b3b;
+      box-shadow: 0 0 8px rgba(255,107,59,0.3);
+    }
+    .mp-player-box.team {
+      border-color: #00d4aa;
+      box-shadow: 0 0 8px rgba(0,212,170,0.3);
+    }
+    
+    .mp-player-icon {
+      font-size: 16px;
+    }
+    
+    .mp-player-info {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+    .mp-player-name {
+      color: #aaa;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .mp-player-score {
+      color: #fd0;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .mp-player-box.team .mp-player-score {
+      color: #00ff88;
+    }
+    
+    .mp-vs {
+      color: #555;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    /* כפתור LOG - ימין */
+    #btnLog {
+      position: fixed;
+      top: 6px; right: 10px;
+      background: linear-gradient(180deg, #333 0%, #222 100%);
+      color: #888;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 3px 8px;
+      cursor: pointer;
+      z-index: 999;
+      font-family: 'VT323', monospace;
+      font-size: 12px;
+    }
+    #btnLog:hover { background: #444; color: #fff; }
+    
+    .mp-notifications {
+      position: fixed;
+      top: 45px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 260;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      pointer-events: none;
+    }
+    .mp-notification {
+      background: linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.95) 100%);
+      border: 1px solid #ff6b3b;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-family: 'VT323', monospace;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      animation: notif-fade 3s forwards;
+    }
+    @keyframes notif-fade {
+      0% { opacity: 1; transform: translateY(0); }
+      70% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-10px); }
+    }
+    
+    /* === MOBILE TOP BAR === */
+    @media (max-width: 768px) {
+      .mp-info-bar {
+        height: 32px;
+        gap: 6px;
+      }
+      .mp-room-id { display: none; }
+      .mp-player-box {
+        min-width: 70px;
+        padding: 3px 8px;
+      }
+      .mp-player-name { font-size: 9px; }
+      .mp-player-score { font-size: 14px; }
+      .mp-player-icon { font-size: 12px; }
+      #btnLog { padding: 2px 6px; font-size: 10px; }
+    }
+
+    /* פונט פיקסלי מדמה */
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+    #logPanel {
+      position: fixed;
+      top: 10px; right: 10px;
+      width: 280px; max-height: 200px;
+      background: rgba(0,0,0,0.8);
+      border: 2px solid #555;
+      padding: 6px;
+      font-size: 12px;
+      color: #0f0;
+      font-family: 'VT323', monospace;
+      overflow-y: auto;
+      z-index: 999;
+      display: none;
+    }
+    #logPanel.visible { display: block; }
+
+    #btnLog {
+      position: fixed;
+      top: 5px; right: 5px;
+      background: #333; color: #ccc;
+      border: 2px outset #555;
+      padding: 2px 6px;
+      cursor: pointer;
+      z-index: 999;
+      font-family: 'VT323', monospace;
+      font-size: 14px;
+    }
+
+    /* === DOOM STATUS BAR - DESKTOP === */
+    .doom-hud {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 900px;
+      height: 85px;
+      background-color: #5a5a5a;
+      background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px),
+        linear-gradient(to bottom, #777, #444);
+      border: 3px solid #333;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      display: none;
+      z-index: 200;
+      font-family: 'VT323', monospace;
+      user-select: none;
+      box-shadow: 0 -4px 15px rgba(0,0,0,0.6);
+    }
+    .doom-hud.active { display: flex; }
+
+    /* פריסה ראשית */
+    .doom-hud-inner {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      padding: 4px;
+      gap: 4px;
+      box-sizing: border-box;
+      align-items: stretch;
+      justify-content: center;
+    }
+
+    /* === עיצוב פאנל שקוע (Inset) === */
+    .hud-panel {
+      background: #333;
+      border-right: 2px solid #888;
+      border-bottom: 2px solid #888;
+      border-left: 2px solid #000;
+      border-top: 2px solid #000;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* כותרות */
+    .hud-label {
+      font-size: 11px;
+      color: #bb9;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 1px 1px 0 #000;
+      margin-bottom: 2px;
+    }
+
+    /* מספרים אדומים */
+    .hud-big-num {
+      font-size: 38px;
+      color: #e00;
+      text-shadow: 2px 2px 0 #000;
+      font-weight: bold;
+      line-height: 1;
+    }
+
+    /* === סקציות === */
+
+    /* SCORE - שמאל */
+    .section-score {
+      width: 80px;
+      padding: 4px 8px;
+      background: #3a3a3a;
+    }
+    .score-value {
+      font-size: 28px;
+      color: #fd0;
+      text-shadow: 2px 2px 0 #000;
+      font-weight: bold;
+    }
+
+    /* ARMOR */
+    .section-armor {
+      width: 90px;
+      padding: 4px 8px;
+    }
+    .section-armor .hud-big-num::after {
+      content: '%';
+      font-size: 18px;
+    }
+
+    /* ARMS */
+    .section-arms {
+      width: 60px;
+      background: #444;
+      display: flex;
+      flex-direction: column;
+      padding: 4px;
+      justify-content: center;
+    }
+    .arms-row {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+    }
+    .arm-digit {
+      font-size: 14px;
+      color: #555;
+      font-weight: bold;
+    }
+    .arm-digit.active {
+      color: #fd0;
+    }
+
+    /* FACE */
+    .section-face {
+      width: 75px;
+      background: #222;
+    }
+    .face-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 45px;
+      background: radial-gradient(circle, #443 20%, #222 80%);
+    }
+
+    /* HEALTH */
+    .section-health {
+      width: 95px;
+      padding: 4px 8px;
+    }
+    .section-health .hud-big-num::after {
+      content: '%';
+      font-size: 18px;
+    }
+
+    /* AMMO */
+    .section-ammo {
+      width: 70px;
+      padding: 4px 8px;
+    }
+
+    /* TEAM SCORE - ימין */
+    .section-team {
+      width: 80px;
+      padding: 4px 8px;
+      background: #2a4a2a;
+    }
+    .team-value {
+      font-size: 28px;
+      color: #0f0;
+      text-shadow: 2px 2px 0 #000;
+      font-weight: bold;
+    }
+
+    /* מצבים מיוחדים */
+    .face-hurt { animation: shake 0.2s; filter: sepia(0.5) hue-rotate(-50deg) saturate(3); }
+    .critical-flash { animation: red-flash 0.5s infinite; }
+    
+    @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -1px); } 100% { transform: translate(0, 0); } }
+    @keyframes red-flash { 0%, 100% { background-color: #333; } 50% { background-color: #600; } }
+
+    .damage-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: red; opacity: 0; pointer-events: none; z-index: 100;
+      transition: opacity 0.1s;
+    }
+    .damage-overlay.active { opacity: 0.3; }
+
+    /* === MOBILE CONTROLS === */
+    .mobile-controls {
+      display: none;
+      position: fixed;
+      z-index: 300;
+      pointer-events: none;
+    }
+    .mobile-controls.active {
+      display: block;
+    }
+
+    /* ג'ויסטיק וירטואלי */
+    .joystick-container {
+      position: fixed;
+      left: 20px;
+      bottom: 100px;
+      width: 120px;
+      height: 120px;
+      pointer-events: auto;
+    }
+    .joystick-base {
+      width: 120px;
+      height: 120px;
+      background: rgba(255,255,255,0.15);
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      position: relative;
+    }
+    .joystick-stick {
+      width: 50px;
+      height: 50px;
+      background: rgba(255,255,255,0.5);
+      border: 2px solid rgba(255,255,255,0.7);
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: none;
+    }
+
+    /* כפתור ירי */
+    .fire-button {
+      position: fixed;
+      right: 30px;
+      bottom: 120px;
+      width: 90px;
+      height: 90px;
+      background: rgba(255,50,50,0.4);
+      border: 4px solid rgba(255,100,100,0.6);
+      border-radius: 50%;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: #fff;
+      text-shadow: 2px 2px 4px #000;
+      font-family: 'VT323', monospace;
+    }
+    .fire-button:active {
+      background: rgba(255,100,100,0.7);
+      transform: scale(0.95);
+    }
+
+    /* === MOBILE RESPONSIVE === */
+    @media (max-width: 768px) {
+      .doom-hud {
+        height: 65px;
+        max-width: 100%;
+        border-radius: 0;
+      }
+      .hud-label { font-size: 8px; }
+      .hud-big-num { font-size: 24px; }
+      .score-value, .team-value { font-size: 20px; }
+      .section-score, .section-team { width: 55px; padding: 2px 4px; }
+      .section-armor, .section-health { width: 65px; padding: 2px 4px; }
+      .section-ammo { width: 50px; padding: 2px 4px; }
+      .section-arms { width: 45px; }
+      .section-face { width: 55px; }
+      .face-container { font-size: 32px; }
+      .arm-digit { font-size: 10px; }
+    }
+
+    @media (max-width: 480px) {
+      .doom-hud { height: 55px; }
+      .hud-big-num { font-size: 20px; }
+      .score-value, .team-value { font-size: 16px; }
+      .section-score, .section-team { width: 45px; }
+      .section-armor, .section-health { width: 55px; }
+      .section-ammo { width: 40px; }
+      .section-arms { display: none; }
+      .section-face { width: 45px; }
+      .face-container { font-size: 26px; }
+    }
+
+  </style>
+</head>
+<body>
+  <div id="multiplayerOverlay">
+    <div class="lobby-box">
+      <h1>⚡ SOS Doom Multiplayer</h1>
+      <p>משחק יריות ל-2 שחקנים</p>
+      <div class="lobby-status" id="lobbyStatus">מחכה לחיבור...</div>
+      <button class="btn btn-host" id="btnHost">🎮 פתח חדר</button>
+      <button class="btn btn-solo" id="btnSolo">🎯 שחק סולו</button>
+      <div class="rooms-list" id="roomsList"></div>
+    </div>
+  </div>
+  
+  <div id="playerIndicator"></div>
+  <div id="opponentMarker"></div>
+  <button id="btnLog">LOG</button>
+  <div id="logPanel"></div>
+  <div id="scoreDisplay"></div>
+  
+  <div class="damage-overlay" id="damageOverlay"></div>
+  
+  <!-- MULTIPLAYER INFO BAR - PREMIUM -->
+  <div class="mp-info-bar" id="mpInfoBar">
+    <span class="mp-room-id" id="mpRoomId">ROOM</span>
+    <div class="mp-players">
+      <div class="mp-player-box me">
+        <span class="mp-player-icon">🎯</span>
+        <div class="mp-player-info">
+          <span class="mp-player-name" id="mpMyName">YOU</span>
+          <span class="mp-player-score" id="mpMyScore">0</span>
+        </div>
+      </div>
+      <span class="mp-vs">VS</span>
+      <div class="mp-player-box team">
+        <span class="mp-player-icon">👤</span>
+        <div class="mp-player-info">
+          <span class="mp-player-name" id="mpTeamName">TEAM</span>
+          <span class="mp-player-score" id="mpTeamScore">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- MULTIPLAYER NOTIFICATIONS -->
+  <div class="mp-notifications" id="mpNotifications"></div>
+  
+  <!-- DOOM HUD -->
+  <div class="doom-hud" id="doomHud">
+    <div class="doom-hud-inner">
+      <!-- SCORE - ניקוד שלי -->
+      <div class="hud-panel section-score">
+        <div class="hud-label">SCORE</div>
+        <div class="score-value" id="hudScore">0</div>
+      </div>
+      <!-- ARMOR -->
+      <div class="hud-panel section-armor">
+        <div class="hud-label">ARMOR</div>
+        <div class="hud-big-num" id="hudArmor">0</div>
+      </div>
+      <!-- ARMS -->
+      <div class="hud-panel section-arms">
+        <div class="hud-label">ARMS</div>
+        <div class="arms-row"><span class="arm-digit">2</span><span class="arm-digit">3</span><span class="arm-digit">4</span></div>
+        <div class="arms-row"><span class="arm-digit active">5</span><span class="arm-digit">6</span><span class="arm-digit">7</span></div>
+      </div>
+      <!-- FACE -->
+      <div class="hud-panel section-face">
+        <div class="face-container" id="playerFace">😎</div>
+      </div>
+      <!-- HEALTH -->
+      <div class="hud-panel section-health" id="healthPanel">
+        <div class="hud-label">HEALTH</div>
+        <div class="hud-big-num" id="hudHealth">100</div>
+      </div>
+      <!-- AMMO -->
+      <div class="hud-panel section-ammo">
+        <div class="hud-label">AMMO</div>
+        <div class="hud-big-num" id="hudAmmo">∞</div>
+      </div>
+      <!-- TEAM - ניקוד צוות -->
+      <div class="hud-panel section-team">
+        <div class="hud-label">TEAM</div>
+        <div class="team-value" id="hudTeam">0</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Mobile Controls - ג'ויסטיק וכפתור ירי -->
+  <div class="mobile-controls" id="mobileControls">
+    <div class="joystick-container" id="joystickContainer">
+      <div class="joystick-base">
+        <div class="joystick-stick" id="joystickStick"></div>
+      </div>
+    </div>
+    <div class="fire-button" id="fireButton">🔥</div>
+  </div>
+  
+  <iframe id="gameFrame" src="./yet-another-doom-clone-master/doom.html"></iframe>
+
+  <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js"></script>
+  <script>
+    // SOS Doom Multiplayer - Nostr Integration
+    (function() {
+      const CFG = {
+        TAG: 'sos_doom_mp_v1',
+        KIND_STATUS: 33201,
+        KIND_POSITION: 33202,
+        KIND_KILL: 33203,
+        SYNC_INTERVAL: 100,
+        RELAYS: [
+          'wss://relay.damus.io',
+          'wss://nos.lol',
+          'wss://relay.snort.social',
+          'wss://relay.nostr.band'
+        ]
+      };
+      
+      const state = {
+        roomId: null,
+        isHost: false,
+        opponentPubkey: null,
+        opponentName: 'שחקן',
+        gameStarted: false,
+        lastPosition: null,
+        syncInterval: null,
+        rooms: new Map(),
+        processed: new Set(),
+        pool: null,
+        publicKey: null,
+        privateKey: null,
+        myKills: 0,
+        oppKills: 0
+      };
+      
+      // Try to get credentials from localStorage or opener
+      const openerApp = window.opener?.NostrApp || window.parent?.NostrApp || {};
+      const App = { ...openerApp };
+      const now = () => Math.floor(Date.now() / 1000);
+      
+      // UI Elements
+      const overlay = document.getElementById('multiplayerOverlay');
+      const lobbyStatus = document.getElementById('lobbyStatus');
+      const roomsList = document.getElementById('roomsList');
+      const btnHost = document.getElementById('btnHost');
+      const btnSolo = document.getElementById('btnSolo');
+      const playerIndicator = document.getElementById('playerIndicator');
+      const opponentMarker = document.getElementById('opponentMarker');
+      const gameFrame = document.getElementById('gameFrame');
+      const logPanel = document.getElementById('logPanel');
+      const btnLog = document.getElementById('btnLog');
+      // DOOM HUD Elements
+      const doomHud = document.getElementById('doomHud');
+      const hudHealth = document.getElementById('hudHealth');
+      const hudArmor = document.getElementById('hudArmor');
+      const playerFace = document.getElementById('playerFace');
+      const hudScore = document.getElementById('hudScore');
+      const hudTeam = document.getElementById('hudTeam');
+      const healthPanel = document.getElementById('healthPanel');
+      const damageOverlay = document.getElementById('damageOverlay');
+      
+      // Mobile Controls
+      const mobileControls = document.getElementById('mobileControls');
+      const joystickContainer = document.getElementById('joystickContainer');
+      const joystickStick = document.getElementById('joystickStick');
+      const fireButton = document.getElementById('fireButton');
+      
+      // Multiplayer Info Bar Elements
+      const mpInfoBar = document.getElementById('mpInfoBar');
+      const mpMyName = document.getElementById('mpMyName');
+      const mpMyScore = document.getElementById('mpMyScore');
+      const mpTeamName = document.getElementById('mpTeamName');
+      const mpTeamScore = document.getElementById('mpTeamScore');
+      const mpRoomId = document.getElementById('mpRoomId');
+      const mpNotifications = document.getElementById('mpNotifications');
+      
+      // מצב בריאות קודם לזיהוי נזק
+      let previousHealth = 9;
+      
+      // זיהוי מובייל
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                       ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      
+      // Log panel functions
+      function addLog(msg, type = 'info') {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry ' + type;
+        entry.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+        logPanel.appendChild(entry);
+        logPanel.scrollTop = logPanel.scrollHeight;
+        console.log('[DOOM MP]', msg);
+      }
+      
+      const log = (...args) => {
+        addLog(args.join(' '), 'info');
+      };
+      
+      btnLog.addEventListener('click', () => {
+        logPanel.classList.toggle('visible');
+      });
+      
+      function updateScoreDisplay() {
+        // עדכון ניקוד ב-HUD
+        hudScore.textContent = state.myKills * 100;
+        hudTeam.textContent = state.oppKills * 100;
+        
+        // עדכון סרגל מידע רשת
+        mpMyScore.textContent = state.myKills * 100;
+        mpTeamScore.textContent = state.oppKills * 100;
+      }
+      
+      // עדכון שמות שחקנים בסרגל
+      function updateMpInfo() {
+        mpMyName.textContent = getPlayerName().toUpperCase();
+        mpTeamName.textContent = (state.opponentName || 'WAITING').toUpperCase();
+        // הצגת 6 תווים אחרונים של מזהה החדר
+        const roomShort = state.roomId ? state.roomId.slice(-6).toUpperCase() : '---';
+        mpRoomId.textContent = roomShort;
+      }
+      
+      // הוספת התראה למסך
+      function showNotification(msg) {
+        const notif = document.createElement('div');
+        notif.className = 'mp-notification';
+        notif.textContent = msg;
+        mpNotifications.appendChild(notif);
+        setTimeout(() => notif.remove(), 3000);
+      }
+      
+      // === MOBILE CONTROLS LOGIC ===
+      let joystickActive = false;
+      let joystickStartX = 0;
+      let joystickStartY = 0;
+      const joystickMaxDist = 55; // רגישות עדינה יותר - טווח תנועה גדול יותר
+      
+      function setupMobileControls() {
+        if (!isMobile) return;
+        
+        mobileControls.classList.add('active');
+        log('Mobile controls activated');
+        
+        // ג'ויסטיק - Touch Events
+        joystickContainer.addEventListener('touchstart', handleJoystickStart, { passive: false });
+        joystickContainer.addEventListener('touchmove', handleJoystickMove, { passive: false });
+        joystickContainer.addEventListener('touchend', handleJoystickEnd);
+        joystickContainer.addEventListener('touchcancel', handleJoystickEnd);
+        
+        // כפתור ירי
+        fireButton.addEventListener('touchstart', handleFireStart, { passive: false });
+        fireButton.addEventListener('touchend', handleFireEnd);
+      }
+      
+      function handleJoystickStart(e) {
+        e.preventDefault();
+        joystickActive = true;
+        const touch = e.touches[0];
+        const rect = joystickContainer.getBoundingClientRect();
+        joystickStartX = rect.left + rect.width / 2;
+        joystickStartY = rect.top + rect.height / 2;
+      }
+      
+      function handleJoystickMove(e) {
+        if (!joystickActive) return;
+        e.preventDefault();
+        
+        const touch = e.touches[0];
+        let dx = touch.clientX - joystickStartX;
+        let dy = touch.clientY - joystickStartY;
+        
+        // הגבלת טווח
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > joystickMaxDist) {
+          dx = (dx / dist) * joystickMaxDist;
+          dy = (dy / dist) * joystickMaxDist;
+        }
+        
+        // הזזת הג'ויסטיק ויזואלית
+        joystickStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        
+        // שליחת פקודות לאייפריים - dy שלילי = למעלה = קדימה
+        const normX = dx / joystickMaxDist; // -1 to 1 (שמאל/ימין = סיבוב)
+        const normY = -dy / joystickMaxDist; // היפוך: למעלה (dy שלילי) = קדימה (normY חיובי)
+        
+        sendMobileInput('joystick', { x: normX, y: normY });
+      }
+      
+      function handleJoystickEnd() {
+        joystickActive = false;
+        joystickStick.style.transform = 'translate(-50%, -50%)';
+        sendMobileInput('joystick', { x: 0, y: 0 });
+      }
+      
+      function handleFireStart(e) {
+        e.preventDefault();
+        sendMobileInput('fire', { pressed: true });
+      }
+      
+      function handleFireEnd() {
+        sendMobileInput('fire', { pressed: false });
+      }
+      
+      function sendMobileInput(type, data) {
+        if (gameFrame.contentWindow) {
+          gameFrame.contentWindow.postMessage({ type: 'mobile_input', inputType: type, ...data }, '*');
+        }
+      }
+      
+      // עדכון HUD בריאות מהמשחק
+      function updateHealthHUD(health, maxHealth, isCritical) {
+        const healthPct = Math.round((health / maxHealth) * 100);
+        hudHealth.textContent = healthPct;
+        
+        // עדכון פנים השחקן לפי בריאות
+        if (healthPct > 80) playerFace.textContent = '😎';
+        else if (healthPct > 60) playerFace.textContent = '😐';
+        else if (healthPct > 40) playerFace.textContent = '😕';
+        else if (healthPct > 20) playerFace.textContent = '😣';
+        else if (healthPct > 0) playerFace.textContent = '😱';
+        else playerFace.textContent = '💀';
+        
+        // אפקט נזק אם הבריאות ירדה
+        if (health < previousHealth) {
+          damageOverlay.classList.add('active');
+          playerFace.classList.add('face-hurt');
+          setTimeout(() => {
+            damageOverlay.classList.remove('active');
+            playerFace.classList.remove('face-hurt');
+          }, 200);
+        }
+        previousHealth = health;
+        
+        // מצב קריטי
+        if (isCritical || healthPct <= 25) {
+          healthPanel.classList.add('critical-flash');
+        } else {
+          healthPanel.classList.remove('critical-flash');
+        }
+      }
+      
+      function createRoomId() {
+        return 'doom_' + Math.random().toString(36).slice(2, 8);
+      }
+      
+      function getPlayerName() {
+        return App.profile?.name || App.profile?.display_name || 'שחקן';
+      }
+      
+      // Nostr Event Publishing
+      async function publishEvent(kind, content, tags = []) {
+        if (!state.pool || !state.publicKey) {
+          log('No pool or pubkey', !!state.pool, !!state.publicKey);
+          return;
+        }
+        
+        const event = {
+          kind,
+          pubkey: state.publicKey,
+          created_at: now(),
+          tags: [['t', CFG.TAG], ...tags],
+          content: JSON.stringify(content)
+        };
+        
+        try {
+          let signed;
+          if (state.privateKey) {
+            // Sign with private key
+            signed = window.NostrTools.finalizeEvent(event, state.privateKey);
+          } else if (typeof App.signEvent === 'function') {
+            signed = await App.signEvent(event);
+          } else {
+            log('Cannot sign event - no private key');
+            return;
+          }
+          
+          state.pool.publish(CFG.RELAYS, signed);
+          log('Published', kind, content.type);
+        } catch (err) {
+          log('Publish error', err);
+        }
+      }
+      
+      function publishStatus(type, extra = {}) {
+        publishEvent(CFG.KIND_STATUS, {
+          type,
+          room: state.roomId,
+          name: getPlayerName(),
+          timestamp: now(),
+          ...extra
+        });
+      }
+      
+      function publishPosition(pos) {
+        if (!state.roomId || !state.gameStarted) return;
+        publishEvent(CFG.KIND_POSITION, {
+          type: 'position',
+          room: state.roomId,
+          x: pos.x,
+          y: pos.y,
+          z: pos.z,
+          theta: pos.theta,
+          timestamp: now()
+        });
+      }
+      
+      // Publish enemy kill to sync with other player
+      function publishKill(enemyId, x, y, z) {
+        if (!state.roomId || !state.gameStarted) return;
+        log('Publishing kill:', enemyId);
+        publishEvent(CFG.KIND_KILL, {
+          type: 'kill',
+          room: state.roomId,
+          enemyId: enemyId,
+          x: x,
+          y: y,
+          z: z,
+          timestamp: now()
+        });
+      }
+      
+      // Listen for messages from game iframe
+      window.addEventListener('message', function(event) {
+        if (!event.data) return;
+        
+        // עדכון סטטיסטיקות שחקן (בריאות, הריגות)
+        if (event.data.type === 'player_stats') {
+          updateHealthHUD(event.data.health, event.data.maxHealth, event.data.isCritical);
+          
+          // סנכרון הריגות אם המשחק שולח עדכון
+          if (event.data.kills !== undefined && event.data.kills > state.myKills) {
+            state.myKills = event.data.kills;
+            updateScoreDisplay();
+          }
+        }
+        
+        // אירוע הריגת אויב
+        if (event.data.type === 'enemy_killed') {
+          addLog('🎯 ENEMY DOWN @ ' + event.data.x.toFixed(0) + ',' + event.data.y.toFixed(0), 'send');
+          state.myKills++;
+          updateScoreDisplay();
+          publishKill(event.data.enemyId, event.data.x, event.data.y, event.data.z);
+        }
+      });
+      
+      // Subscribe to events
+      function subscribe() {
+        if (!state.pool) {
+          log('No pool for subscription');
+          return;
+        }
+        
+        const filter = {
+          kinds: [CFG.KIND_STATUS, CFG.KIND_POSITION, CFG.KIND_KILL],
+          '#t': [CFG.TAG],
+          since: now() - 120
+        };
+        
+        state.pool.subscribeMany(CFG.RELAYS, [filter], {
+          onevent: handleEvent
+        });
+        
+        log('Subscribed to events on', CFG.RELAYS.length, 'relays');
+      }
+      
+      function handleEvent(ev) {
+        if (state.processed.has(ev.id)) return;
+        state.processed.add(ev.id);
+        if (ev.pubkey === state.publicKey) return;
+        
+        try {
+          const data = JSON.parse(ev.content);
+          
+          if (ev.kind === CFG.KIND_STATUS) {
+            handleStatusEvent(ev, data);
+          } else if (ev.kind === CFG.KIND_POSITION) {
+            handlePositionEvent(ev, data);
+          } else if (ev.kind === CFG.KIND_KILL) {
+            handleKillEvent(ev, data);
+          }
+        } catch (err) {
+          log('Event parse error', err);
+        }
+      }
+      
+      // Handle kill event from other player - sync enemy death
+      function handleKillEvent(ev, data) {
+        if (data.room !== state.roomId) return;
+        if (!state.gameStarted) return;
+        
+        addLog('💀 יריב הרג אויב במיקום: ' + data.x + ',' + data.y, 'receive');
+        state.oppKills++;
+        updateScoreDisplay();
+        showNotification('💀 ' + (state.opponentName || 'צוות') + ' הרג אויב! +100');
+        
+        // Send message to game iframe to kill enemy at this position
+        try {
+          const msg = {
+            type: 'remote_enemy_killed',
+            enemyId: data.enemyId,
+            x: data.x,
+            y: data.y,
+            z: data.z
+          };
+          addLog('📤 שולח ל-iframe: x=' + data.x + ' y=' + data.y, 'send');
+          gameFrame.contentWindow.postMessage(msg, '*');
+        } catch (err) {
+          addLog('❌ שגיאה: ' + err, 'info');
+        }
+      }
+      
+      function handleStatusEvent(ev, data) {
+        log('Status event received:', data.type, 'room:', data.room, 'from:', ev.pubkey?.slice(0,8));
+        
+        if (data.type === 'host' && data.room) {
+          log('Adding room to list:', data.room);
+          state.rooms.set(data.room, {
+            roomId: data.room,
+            hostPubkey: ev.pubkey,
+            hostName: data.name || 'שחקן',
+            timestamp: data.timestamp || now()
+          });
+          refreshRoomsList();
+        }
+        
+        if (data.type === 'presence') {
+          log('Presence from:', data.name, ev.pubkey?.slice(0,8));
+        }
+        
+        if (data.type === 'join' && data.room === state.roomId && state.isHost) {
+          state.opponentPubkey = ev.pubkey;
+          state.opponentName = data.name || 'שחקן';
+          lobbyStatus.textContent = `${state.opponentName} הצטרף! מתחילים...`;
+          showNotification('🎮 ' + state.opponentName + ' הצטרף למשחק!');
+          setTimeout(startGame, 1500);
+          publishStatus('start', { room: state.roomId });
+        }
+        
+        if (data.type === 'start' && data.room === state.roomId && !state.isHost) {
+          startGame();
+        }
+      }
+      
+      function handlePositionEvent(ev, data) {
+        if (data.room !== state.roomId) return;
+        if (!state.gameStarted) return;
+        
+        // Update opponent position marker
+        updateOpponentMarker(data);
+      }
+      
+      function updateOpponentMarker(pos) {
+        // Simple 2D minimap representation
+        const screenX = (pos.x / 100) * window.innerWidth * 0.3 + window.innerWidth * 0.1;
+        const screenY = (pos.y / 100) * window.innerHeight * 0.3 + 50;
+        
+        opponentMarker.style.left = screenX + 'px';
+        opponentMarker.style.top = screenY + 'px';
+        opponentMarker.style.display = 'block';
+      }
+      
+      function refreshRoomsList() {
+        const rooms = Array.from(state.rooms.values())
+          .filter(r => now() - r.timestamp < 60);
+        
+        if (rooms.length === 0) {
+          roomsList.innerHTML = '<p style="opacity:0.5">אין חדרים פתוחים</p>';
+          return;
+        }
+        
+        roomsList.innerHTML = rooms.map(r => `
+          <div class="room-item" data-room="${r.roomId}" data-pubkey="${r.hostPubkey}" data-name="${r.hostName}">
+            🎮 ${r.hostName} - חדר ${r.roomId.slice(-4)}
+          </div>
+        `).join('');
+        
+        roomsList.querySelectorAll('.room-item').forEach(item => {
+          item.addEventListener('click', () => {
+            joinRoom(item.dataset.room, item.dataset.pubkey, item.dataset.name);
+          });
+        });
+      }
+      
+      // Game Actions
+      function hostRoom() {
+        state.roomId = createRoomId();
+        state.isHost = true;
+        lobbyStatus.textContent = `חדר נפתח: ${state.roomId}\nמחכה לשחקן נוסף...`;
+        btnHost.disabled = true;
+        publishStatus('host', { room: state.roomId });
+        log('Hosting room', state.roomId);
+      }
+      
+      function joinRoom(roomId, hostPubkey, hostName) {
+        state.roomId = roomId;
+        state.isHost = false;
+        state.opponentPubkey = hostPubkey;
+        state.opponentName = hostName;
+        lobbyStatus.textContent = `מצטרף לחדר של ${hostName}...`;
+        publishStatus('join', { room: roomId });
+        log('Joining room', roomId);
+      }
+      
+      function startSolo() {
+        state.roomId = createRoomId();
+        state.isHost = true;
+        state.opponentName = 'בוט';
+        startGame();
+      }
+      
+      function startGame() {
+        state.gameStarted = true;
+        state.myKills = 0;
+        state.oppKills = 0;
+        previousHealth = 9;
+        overlay.classList.add('hidden');
+        
+        // הצגת DOOM HUD
+        doomHud.classList.add('active');
+        
+        // הצגת סרגל מידע רשת
+        mpInfoBar.classList.add('active');
+        updateMpInfo();
+        updateScoreDisplay();
+        updateHealthHUD(9, 9, false);
+        
+        // הודעת התחלה
+        showNotification('🎮 המשחק התחיל!');
+        
+        // הפעלת בקרי מובייל
+        setupMobileControls();
+        
+        // Start position sync
+        startPositionSync();
+        
+        addLog('GAME START | ROOM: ' + state.roomId + (isMobile ? ' [MOBILE]' : ''), 'info');
+        
+        // Focus the game iframe
+        gameFrame.focus();
+        gameFrame.contentWindow?.focus();
+      }
+      
+      function startPositionSync() {
+        if (state.syncInterval) clearInterval(state.syncInterval);
+        
+        state.syncInterval = setInterval(() => {
+          try {
+            const gameWindow = gameFrame.contentWindow;
+            if (!gameWindow || !gameWindow.camera) return;
+            
+            const cam = gameWindow.camera;
+            const pos = {
+              x: cam.position?.x || 0,
+              y: cam.position?.y || 0,
+              z: cam.position?.z || 0,
+              theta: cam.theta || 0
+            };
+            
+            // Only send if position changed
+            if (!state.lastPosition || 
+                Math.abs(pos.x - state.lastPosition.x) > 0.5 ||
+                Math.abs(pos.y - state.lastPosition.y) > 0.5) {
+              publishPosition(pos);
+              state.lastPosition = pos;
+            }
+          } catch (err) {
+            // Cross-origin issues - expected
+          }
+        }, CFG.SYNC_INTERVAL);
+      }
+      
+      // Event Listeners
+      btnHost.addEventListener('click', hostRoom);
+      btnSolo.addEventListener('click', startSolo);
+      
+      // ESC to return to lobby
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && state.gameStarted) {
+          state.gameStarted = false;
+          overlay.classList.remove('hidden');
+          doomHud.classList.remove('active');
+          mpInfoBar.classList.remove('active');
+          mobileControls.classList.remove('active');
+          if (state.syncInterval) clearInterval(state.syncInterval);
+        }
+      });
+      
+      // Helper to convert hex to Uint8Array
+      function hexToBytes(hex) {
+        const bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) {
+          bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+        }
+        return bytes;
+      }
+      
+      // Connect to Nostr directly
+      async function connectNostr() {
+        log('Connecting to Nostr...');
+        
+        // Try to get keys from localStorage (same key names as main app)
+        const storedPrivKey = localStorage.getItem('nostr_private_key');
+        const storedPubKey = localStorage.getItem('nostr_public_key');
+        
+        log('Stored keys found:', !!storedPrivKey, !!storedPubKey);
+        
+        if (storedPrivKey && storedPrivKey.length === 64) {
+          // Convert hex string to Uint8Array for nostr-tools v2
+          state.privateKey = hexToBytes(storedPrivKey);
+          try {
+            state.publicKey = window.NostrTools.getPublicKey(state.privateKey);
+            log('Derived pubkey from privkey');
+          } catch (e) {
+            log('getPublicKey error:', e);
+            state.publicKey = storedPubKey;
+          }
+        } else if (storedPubKey) {
+          state.publicKey = storedPubKey;
+        }
+        
+        // Also try opener
+        if (!state.publicKey && openerApp.publicKey) {
+          state.publicKey = openerApp.publicKey;
+          state.privateKey = openerApp.privateKey;
+          log('Got keys from opener');
+        }
+        
+        if (!state.publicKey) {
+          // Generate temporary keys for this session
+          state.privateKey = window.NostrTools.generateSecretKey();
+          state.publicKey = window.NostrTools.getPublicKey(state.privateKey);
+          log('Generated temporary keys');
+        }
+        
+        // Create pool
+        state.pool = new window.NostrTools.SimplePool();
+        App.pool = state.pool;
+        App.publicKey = state.publicKey;
+        App.relayUrls = CFG.RELAYS;
+        
+        log('Connected with pubkey:', state.publicKey?.slice(0, 8));
+        return true;
+      }
+      
+      // Initialize
+      async function init() {
+        log('Initializing...');
+        
+        await connectNostr();
+        
+        if (state.pool && state.publicKey) {
+          subscribe();
+          publishStatus('presence');
+          lobbyStatus.textContent = 'מחובר! בחר פעולה:';
+          log('Ready - pool and pubkey available');
+        } else {
+          lobbyStatus.textContent = 'לא מחובר ל-Nostr. שחק סולו.';
+        }
+        
+        // Refresh rooms periodically
+        setInterval(refreshRoomsList, 5000);
+      }
+      
+      // Wait for nostr-tools to load, then init
+      function waitForNostrTools() {
+        if (window.NostrTools) {
+          init();
+        } else {
+          setTimeout(waitForNostrTools, 100);
+        }
+      }
+      
+      // Wait for iframe to load
+      gameFrame.addEventListener('load', () => {
+        log('Game frame loaded');
+        waitForNostrTools();
+      });
+    })();
+  </script>
+</body>
+</html>
