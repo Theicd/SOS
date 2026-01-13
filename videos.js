@@ -1449,7 +1449,7 @@ function renderVideoCard(video) {
       return `${m}:${s.toString().padStart(2, '0')}`;
     };
     
-    // דילוג 5 שניות
+    // דילוג 5 שניות עם הודעה קופצת בסגנון נטפליקס | HYPER CORE TECH
     const doSkip = (seconds) => {
       console.log('[VIDEO] Skip:', seconds);
       const current = isFinite(videoEl.currentTime) ? videoEl.currentTime : 0;
@@ -1461,8 +1461,13 @@ function renderVideoCard(video) {
       } else {
         videoEl.currentTime = newTime;
       }
-      // אינדיקטור
-      skipIndicator.textContent = seconds > 0 ? `+${seconds}` : `${seconds}`;
+      // אינדיקטור בסגנון נטפליקס - מספר שניות + זמן נוכחי | HYPER CORE TECH
+      const secondsText = seconds > 0 ? `+${seconds}` : `${seconds}`;
+      const timeText = formatTime(newTime);
+      skipIndicator.innerHTML = `
+        <span class="video-skip-indicator__seconds">${secondsText}</span>
+        <span class="video-skip-indicator__time">${timeText}</span>
+      `;
       skipIndicator.classList.remove('show');
       void skipIndicator.offsetWidth;
       skipIndicator.classList.add('show');
@@ -2723,17 +2728,11 @@ function setupInfiniteLoop() {
       const scrollingDown = viewportTop > lastScrollTop;
       lastScrollTop = viewportTop;
       
-      // מציאת הכרטיס הנוכחי - חישוב דינמי של גובה ה-header כולל safe-top
-      const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-top') || '0', 10);
-      const headerOffset = 44 + safeTop;
-      for (let i = 0; i < cardCount; i++) {
-        const card = cards[i];
-        const cardTop = card.offsetTop - headerOffset;
-        if (cardTop >= viewportTop - 50 && cardTop <= viewportTop + 50) {
-          currentIndex = i;
-          break;
-        }
-      }
+      // מציאת הכרטיס הנוכחי לפי גובה הכרטיסייה | HYPER CORE TECH
+      const cardHeight = cards[0]?.offsetHeight || viewport.clientHeight;
+      currentIndex = Math.round(viewportTop / cardHeight);
+      if (currentIndex < 0) currentIndex = 0;
+      if (currentIndex >= cardCount) currentIndex = cardCount - 1;
       
       // לולאה אינסופית - כשמגיעים לסוף, חוזרים להתחלה
       if (scrollingDown && viewportTop >= maxScroll - 5) {
