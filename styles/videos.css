@@ -482,15 +482,18 @@ body:has(.videos-feed) .nav-avatar {
   height: auto;
   overflow-y: scroll;
   overflow-x: hidden;
+  /* scroll-snap מהיר ועקבי כמו טיקטוק | HYPER CORE TECH */
   scroll-snap-type: y mandatory;
-  scroll-behavior: auto; /* גלילה מהירה כמו טיקטוק - ללא smooth לביצועים טובים יותר | HYPER CORE TECH */
+  scroll-behavior: auto;
   scrollbar-width: none;
   padding-top: calc(44px + var(--safe-top, 0px));
   padding-bottom: calc(56px + var(--safe-bottom, 0px));
   box-sizing: border-box;
+  /* אופטימיזציה לגלילה חלקה במובייל | HYPER CORE TECH */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  /* אופטימיזציה למכשירים חלשים */
+  overscroll-behavior: contain; /* מניעת גלילה של הדף מאחורי הפיד | HYPER CORE TECH */
+  /* אופטימיזציה לביצועים | HYPER CORE TECH */
   will-change: scroll-position;
   contain: layout style;
   scroll-padding-top: calc(44px + var(--safe-top, 0px));
