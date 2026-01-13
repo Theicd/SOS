@@ -3,7 +3,7 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   // קבועים של המשחק – מזהי אירועים וטאגים ברשת Nostr
-  const TRIVIA_TAG = 'yalla_trivia_v1';
+  const TRIVIA_TAG = 'sos_trivia_v1';
   const KIND_STATUS = 33051;
   const KIND_MATCH = 33052;
   const QUESTION_TIME_SEC = 18;

@@ -1,390 +1,367 @@
-// חלק דף משחקים (games.js) – קטלוג המשחקים כולל מידע על מקור הקוד והטמעת הלינקים
+// ========================================
+// SOS Play - פיד משחקים פרימיום
+// לוגיקת גלילה אנכית בסגנון TikTok/Reels
+// HYPER CORE TECH
+// ========================================
+
+// קטלוג משחקים
 const gamesCatalog = [
-  {
-    id: 'trivia-duel',
-    title: 'Trivia Duel',
-    studio: 'Yalla Network',
-    summary:
-      'טריוויה בזמן אמת עם שחקנים אחרים ברשת המבוזרת – בחרו יריב, ענו לשאלות ותעלו בטבלת ההישגים.',
-    playUrl: null,
-    sourceUrl: null,
-    coverImage: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1280&q=80',
-    tags: ['Realtime', 'Trivia', 'Multiplayer'],
-    highlight: '⭐ Live Challenge',
-    category: 'network',
-    launch: () => {
-      const targetUrl = new URL('./index.html', window.location.href);
-      targetUrl.searchParams.set('open', 'trivia');
-      window.location.href = targetUrl.toString();
-    }
-  },
-  // חלק דף משחקים (games.js) – משחק רשת: Krunker.io
   {
     id: 'krunker-io',
     title: 'Krunker.io',
     studio: 'Yendis Entertainment',
-    summary:
-      'קרבות FPS מהירים בדפדפן עם מערכת דירוג, התאמה לשרתים ציבוריים וכניסה אוטומטית לחדר הרשת שנבחר.',
+    description: 'קרבות FPS מהירים בדפדפן עם מערכת דירוג, התאמה לשרתים ציבוריים וכניסה אוטומטית לחדר הרשת.',
     playUrl: 'https://krunker.io/?game=NY:pc3ah',
-    sourceUrl: null,
-    coverImage: 'https://images.unsplash.com/photo-1611605698335-08e07a77b030?auto=format&fit=crop&w=1280&q=80',
-    tags: ['FPS', 'Multiplayer', 'Keyboard'],
-    highlight: '⭐ Ranked Arena',
-    category: 'network'
+    coverImage: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1920&q=80',
+    tags: ['FPS', 'Multiplayer', 'Action'],
+    category: 'אקשן',
+    categoryIcon: 'fa-crosshairs',
+    likes: '45.2K'
   },
   {
     id: 'taptaptap',
     title: 'Tap Tap Tap',
     studio: 'Mahdi Farra',
-    summary:
-      'משחק טאץ׳ בקוד פתוח שמזמין אותך לטפס בין שלבים בקצב מהיר, עם אנימציות מצומצמות שמתאימות במיוחד למסכי מגע.',
+    description: 'משחק טאץ׳ בקוד פתוח שמזמין אותך לטפס בין שלבים בקצב מהיר, עם אנימציות מצומצמות למסכי מגע.',
     playUrl: 'https://mahdif.github.io/taptaptap/play/',
-    sourceUrl: 'https://github.com/MahdiF/taptaptap',
-    coverImage: 'https://raw.githubusercontent.com/MahdiF/taptaptap/master/images/desktop-screenshot.png',
+    coverImage: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1920&q=80',
     tags: ['Touch', 'Arcade', 'Progressive'],
-    highlight: '⭐ 4.6',
-    category: 'web'
+    category: 'ארקייד',
+    categoryIcon: 'fa-hand-pointer',
+    likes: '8.3K'
   },
   {
     id: 'hexgl',
     title: 'HexGL',
     studio: 'BKcore',
-    summary:
-      'מירוץ חללי בקוד פתוח עם WebGL, המשלב שליטה חלקה, פיזיקה ריאליסטית ומסלולים עתידניים שמרגישים כמו קונסולה.',
+    description: 'מירוץ חללי בקוד פתוח עם WebGL, המשלב שליטה חלקה, פיזיקה ריאליסטית ומסלולים עתידניים.',
     playUrl: 'https://hexgl.bkcore.com/play/',
-    sourceUrl: 'https://github.com/BKcore/HexGL',
-    coverImage: 'https://raw.githubusercontent.com/BKcore/HexGL/master/css/title.png',
-    tags: ['WebGL', 'Racing', 'Keyboard'],
-    highlight: '⭐ קלאסי עולמי',
-    category: 'pc'
+    coverImage: 'https://images.unsplash.com/photo-1614294148960-9aa740632a87?auto=format&fit=crop&w=1920&q=80',
+    tags: ['Racing', 'WebGL', '3D'],
+    category: 'מירוצים',
+    categoryIcon: 'fa-flag-checkered',
+    likes: '23.1K'
   },
   {
     id: 'ninja-leap',
     title: 'Ninja Leap',
     studio: 'GamH5',
-    summary:
-      'ריצה אנכית אינסופית עם נינג׳ה זריזה – קפיצות מצד לצד, איסוף מטבעות ואימון רפלקסים למובייל בדפדפן.',
+    description: 'ריצה אנכית אינסופית עם נינג׳ה זריזה – קפיצות מצד לצד, איסוף מטבעות ואימון רפלקסים למובייל.',
     playUrl: 'https://gamh5.com/full/ninja-leap',
-    sourceUrl: null,
-    coverImage: 'https://images.unsplash.com/photo-1614680376739-414d95ff43df?auto=format&fit=crop&w=1280&q=80',
-    tags: ['Touch', 'Runner', 'Mobile'],
-    highlight: '⭐ מותאם מגע',
-    category: 'web'
+    coverImage: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=1920&q=80',
+    tags: ['Runner', 'Mobile', 'Infinite'],
+    category: 'ראנר',
+    categoryIcon: 'fa-person-running',
+    likes: '15.7K'
   },
   {
     id: 'meteorite-shooter',
     title: 'Meteorite Shooter',
     studio: 'GamH5',
-    summary:
-      'יוצאים למסע חללי מהיר בו מנווטים חללית, מפוצצים מטאורים ומתחמקים ממכשולים בקצב עולה.',
+    description: 'יוצאים למסע חללי מהיר בו מנווטים חללית, מפוצצים מטאורים ומתחמקים ממכשולים בקצב עולה.',
     playUrl: 'https://gamh5.com/full/meteorite-shooter-space-adventure',
-    sourceUrl: null,
-    coverImage: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1280&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1920&q=80',
     tags: ['Shooter', 'Space', 'Arcade'],
-    highlight: '⭐ אקשן מהיר',
-    category: 'web'
+    category: 'חלל',
+    categoryIcon: 'fa-rocket',
+    likes: '19.4K'
   },
   {
     id: 'zoo-boom',
     title: 'Zoo Boom',
     studio: 'Famobi',
-    summary:
-      'התאמת חיות צבעוניות ברמות קצרות ומידיות, עם משימות יומיות ומערכת קומבואים שמתגמלת יצירתיות.',
+    description: 'התאמת חיות צבעוניות ברמות קצרות ומידיות, עם משימות יומיות ומערכת קומבואים שמתגמלת יצירתיות.',
     playUrl: 'https://gamh5.com/full/zoo-boom-animal-matching-game',
-    sourceUrl: 'https://www.famobi.com/zoo-boom',
-    coverImage: 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92eee?auto=format&fit=crop&w=1280&q=80',
-    tags: ['Puzzle', 'Casual', 'Touch'],
-    highlight: '⭐ פופולרי',
-    category: 'web'
+    coverImage: 'https://images.unsplash.com/photo-1535591273668-578e31182c4f?auto=format&fit=crop&w=1920&q=80',
+    tags: ['Puzzle', 'Casual', 'Match-3'],
+    category: 'פאזל',
+    categoryIcon: 'fa-puzzle-piece',
+    likes: '31.8K'
   }
 ];
-// חלק דף משחקים (games.js) – אלמנטים מרכזיים בממשק
-const gamesGridElement = document.getElementById('gamesGrid');
-const gameModalElement = document.getElementById('gameModal');
-const gameModalFrame = document.getElementById('gameModalFrame');
-const gameModalBack = document.getElementById('gameModalBack');
-const gameModalBackdrop = document.getElementById('gameModalBackdrop');
-const gameModalStatus = document.getElementById('gameModalStatus');
-const gameModalTitle = document.getElementById('gameModalTitle');
-const gameModalExternal = document.getElementById('gameModalExternal');
-const gameModalFloatingBack = document.getElementById('gameModalFloatingBack');
-const gameModalFullscreen = document.getElementById('gameModalFullscreen');
-const gamesTopHomeButton = document.getElementById('gamesTopHomeButton');
-const gamesTopRefreshButton = document.getElementById('gamesTopRefreshButton');
 
-// חלק דף משחקים (games.js) – יצירת כרטיס משחק ב־DOM
-function createGameCard(game) {
+// אלמנטים ראשיים
+const viewport = document.getElementById('gamesViewport');
+const indicator = document.getElementById('gamesIndicator');
+const indicatorCurrent = indicator?.querySelector('.games-indicator__current');
+const indicatorTotal = indicator?.querySelector('.games-indicator__total');
+const backBtn = document.getElementById('gamesBackBtn');
+const menuBtn = document.getElementById('gamesMenuBtn');
+const gameModal = document.getElementById('gameModal');
+const gameModalFrame = document.getElementById('gameModalFrame');
+const gameModalTitle = document.getElementById('gameModalTitle');
+const gameModalClose = document.getElementById('gameModalClose');
+const gameModalBackdrop = document.getElementById('gameModalBackdrop');
+const gameModalFullscreen = document.getElementById('gameModalFullscreen');
+const gameModalLoading = document.getElementById('gameModalLoading');
+
+// מצב גלובלי
+let currentGameIndex = 0;
+let likedGames = new Set(JSON.parse(localStorage.getItem('sos_liked_games') || '[]'));
+
+// יצירת כרטיסיית משחק
+function createGameCard(game, index) {
   const card = document.createElement('article');
   card.className = 'game-card';
+  card.dataset.index = index;
+  card.dataset.gameId = game.id;
 
-  const artWrapper = document.createElement('div');
-  artWrapper.className = 'game-card__art';
-
-  const artImage = document.createElement('img');
-  artImage.alt = `${game.title} cover art`;
-  artImage.loading = 'lazy';
-  artImage.referrerPolicy = 'no-referrer';
-  artImage.src = game.coverImage;
-  artImage.addEventListener('error', () => {
-    artImage.src = 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1280&q=80';
-  });
-
-  artWrapper.appendChild(artImage);
-
-  const body = document.createElement('div');
-  body.className = 'game-card__body';
-
-  const title = document.createElement('h3');
-  title.className = 'game-card__title';
-  title.textContent = game.title;
-
-  if (game.highlight) {
-    const star = document.createElement('span');
-    star.textContent = game.highlight;
-    title.appendChild(star);
-  }
-
-  const summary = document.createElement('p');
-  summary.className = 'game-card__summary';
-  summary.textContent = game.summary;
-
-  const tagsList = document.createElement('ul');
-  tagsList.className = 'game-card__tags';
-  game.tags.forEach((tag) => {
-    const item = document.createElement('li');
-    item.className = 'game-card__tag';
-    item.textContent = tag;
-    tagsList.appendChild(item);
-  });
-
-  const actions = document.createElement('div');
-  actions.className = 'game-card__actions';
-
-  const playButton = document.createElement('button');
-  playButton.type = 'button';
-  playButton.className = 'game-card__play';
-  playButton.innerHTML = '<i class="fa-solid fa-gamepad"></i> Play';
-  playButton.addEventListener('click', () => {
-    if (typeof game.launch === 'function') {
-      game.launch();
-      return;
-    }
-    openGameModal(game);
-  });
-
-  const sourceLink = document.createElement('a');
-  sourceLink.className = 'game-card__source';
-  sourceLink.target = '_blank';
-  sourceLink.rel = 'noopener noreferrer';
-
-  if (game.sourceUrl) {
-    sourceLink.href = game.sourceUrl;
-    sourceLink.innerHTML = '<i class="fa-solid fa-code"></i> קוד מקור';
-  } else {
-    sourceLink.href = '#';
-    sourceLink.setAttribute('aria-disabled', 'true');
-    sourceLink.classList.add('is-disabled');
-    sourceLink.innerHTML = '<i class="fa-solid fa-lock"></i> קוד סגור זמני';
-    sourceLink.addEventListener('click', (event) => event.preventDefault());
-  }
-
-  actions.appendChild(playButton);
-  actions.appendChild(sourceLink);
-
-  body.appendChild(title);
-  body.appendChild(summary);
-  body.appendChild(tagsList);
-  body.appendChild(actions);
-
-  card.appendChild(artWrapper);
-  card.appendChild(body);
+  card.innerHTML = `
+    <div class="game-card__background">
+      <img src="${game.coverImage}" alt="${game.title}" loading="${index < 2 ? 'eager' : 'lazy'}" />
+    </div>
+    <div class="game-card__overlay"></div>
+    
+    <div class="game-card__content">
+      <div class="game-card__badge">
+        <i class="fa-solid ${game.categoryIcon}"></i>
+        ${game.category}
+      </div>
+      <h2 class="game-card__title">${game.title}</h2>
+      <div class="game-card__studio">
+        <i class="fa-solid fa-code"></i>
+        ${game.studio}
+      </div>
+      <p class="game-card__description">${game.description}</p>
+      <ul class="game-card__tags">
+        ${game.tags.map(tag => `<li class="game-card__tag">${tag}</li>`).join('')}
+      </ul>
+      <button class="game-card__play" data-game-id="${game.id}">
+        <i class="fa-solid fa-play"></i>
+        התחל לשחק
+      </button>
+    </div>
+    
+    <div class="game-card__actions">
+      <button class="game-card__action ${likedGames.has(game.id) ? 'game-card__action--liked' : ''}" data-action="like" data-game-id="${game.id}">
+        <i class="fa-${likedGames.has(game.id) ? 'solid' : 'regular'} fa-heart"></i>
+        <span>${game.likes}</span>
+      </button>
+      <button class="game-card__action" data-action="share" data-game-id="${game.id}">
+        <i class="fa-solid fa-share"></i>
+      </button>
+      <button class="game-card__action" data-action="info" data-game-id="${game.id}">
+        <i class="fa-solid fa-circle-info"></i>
+      </button>
+    </div>
+  `;
 
   return card;
 }
 
-// חלק דף משחקים (games.js) – רינדור כל הכרטיסיות בעמוד
-function renderGamesGrid() {
+// רינדור כל הכרטיסיות
+function renderGameCards() {
+  if (!viewport) return;
+  
+  viewport.innerHTML = '';
   const fragment = document.createDocumentFragment();
-  gamesCatalog.forEach((game) => {
-    fragment.appendChild(createGameCard(game));
+  
+  gamesCatalog.forEach((game, index) => {
+    fragment.appendChild(createGameCard(game, index));
   });
-  gamesGridElement.appendChild(fragment);
-}
-
-// חלק דף משחקים (games.js) – סינון משחקים לפי קטגוריה
-function filterGamesByCategory(category) {
-  const games = gamesCatalog.filter(game => game.category === category);
-  return games;
-}
-
-// חלק דף משחקים (games.js) – רינדור משחקים לפי קטגוריה
-function renderGamesByCategory(category) {
-  // נקה את הגריד
-  gamesGridElement.innerHTML = '';
   
-  // קבל משחקים מהקטגוריה
-  const filteredGames = filterGamesByCategory(category);
+  viewport.appendChild(fragment);
   
-  // רנדר את המשחקים
-  const fragment = document.createDocumentFragment();
-  filteredGames.forEach((game) => {
-    fragment.appendChild(createGameCard(game));
+  // עדכון אינדיקטור
+  if (indicatorTotal) {
+    indicatorTotal.textContent = gamesCatalog.length;
+  }
+  
+  // מאזינים לכפתורי הפעלה
+  viewport.querySelectorAll('.game-card__play').forEach(btn => {
+    btn.addEventListener('click', handlePlayClick);
   });
-  gamesGridElement.appendChild(fragment);
-}
-
-// חלק דף משחקים (games.js) – רישום מאזינים לקטגוריות
-function registerCategoryControls() {
-  const categoryButtons = document.querySelectorAll('.games-category');
   
-  categoryButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const category = button.dataset.category;
-      
-      // עדכן כפתורים פעילים
-      categoryButtons.forEach(btn => btn.classList.remove('active'));
-      button.classList.add('active');
-      
-      // רנדר משחקים לפי קטגוריה
-      renderGamesByCategory(category);
-    });
+  // מאזינים לכפתורי פעולה
+  viewport.querySelectorAll('.game-card__action').forEach(btn => {
+    btn.addEventListener('click', handleActionClick);
   });
 }
 
-// חלק דף משחקים (games.js) – פתיחת מודל המשחק וטעינת ה־iframe
+// טיפול בגלילה
+function handleScroll() {
+  if (!viewport) return;
+  
+  const cardHeight = viewport.querySelector('.game-card')?.offsetHeight || window.innerHeight;
+  const newIndex = Math.round(viewport.scrollTop / cardHeight);
+  
+  if (newIndex !== currentGameIndex && newIndex >= 0 && newIndex < gamesCatalog.length) {
+    currentGameIndex = newIndex;
+    updateIndicator();
+  }
+}
+
+// עדכון אינדיקטור
+function updateIndicator() {
+  if (indicatorCurrent) {
+    indicatorCurrent.textContent = currentGameIndex + 1;
+  }
+}
+
+// לחיצה על כפתור הפעלה
+function handlePlayClick(e) {
+  const gameId = e.currentTarget.dataset.gameId;
+  const game = gamesCatalog.find(g => g.id === gameId);
+  
+  if (!game) return;
+  
+  // אם יש פונקציית launch מותאמת
+  if (typeof game.launch === 'function') {
+    game.launch();
+    return;
+  }
+  
+  // פתיחת מודל
+  openGameModal(game);
+}
+
+// פתיחת מודל משחק
 function openGameModal(game) {
-  if (!gameModalElement || !gameModalFrame) {
+  if (!gameModal || !gameModalFrame) {
     window.open(game.playUrl, '_blank');
     return;
   }
-  gameModalStatus.textContent = 'Syncing game node…';
-  if (gameModalTitle) {
-    gameModalTitle.textContent = game.title;
+  
+  // הצגת טעינה
+  if (gameModalLoading) {
+    gameModalLoading.style.display = 'flex';
   }
-  if (gameModalExternal) {
-    gameModalExternal.hidden = true;
-    gameModalExternal.dataset.target = game.playUrl;
-  }
-  gameModalFrame.setAttribute('src', '');
+  
+  gameModalTitle.textContent = game.title;
   gameModalFrame.src = game.playUrl;
-  gameModalElement.classList.add('is-open');
-  document.body.classList.add('games-modal-open');
-}
-
-// חלק דף משחקים (games.js) – סגירת המודל וניקוי המשאב
-function closeGameModal() {
-  if (!gameModalElement) {
-    return;
-  }
-  gameModalElement.classList.remove('is-open');
-  gameModalFrame.src = '';
-  gameModalStatus.textContent = 'Syncing game node…';
-  if (gameModalTitle) {
-    gameModalTitle.textContent = 'מרכז המשחקים';
-  }
-  if (gameModalExternal) {
-    gameModalExternal.hidden = true;
-    delete gameModalExternal.dataset.target;
-  }
-  document.body.classList.remove('games-modal-open');
-}
-
-// חלק דף משחקים (games.js) – רישום מאזינים לכל רכיבי השליטה במודל
-function registerModalControls() {
-  if (gameModalBack) {
-    gameModalBack.addEventListener('click', closeGameModal);
-  }
-  if (gameModalBackdrop) {
-    gameModalBackdrop.addEventListener('click', closeGameModal);
-  }
-  if (gameModalFrame) {
-    gameModalFrame.addEventListener('load', () => {
-      gameModalStatus.textContent = 'Game synced · ready to play';
-      try {
-        gameModalFrame.setAttribute('allowfullscreen', 'true');
-        gameModalFrame.setAttribute('webkitallowfullscreen', 'true');
-        gameModalFrame.setAttribute('mozallowfullscreen', 'true');
-      } catch (err) {
-        console.warn('iframe fullscreen attributes failed', err);
-      }
-      if (gameModalExternal) {
-        gameModalExternal.hidden = true;
-      }
-    });
-    gameModalFrame.addEventListener('error', () => {
-      gameModalStatus.textContent = 'לא הצלחנו לטעון את המשחק בדפדפן זה. פתחו אותו בלשונית חדשה.';
-      if (gameModalExternal && gameModalExternal.dataset.target) {
-        gameModalExternal.hidden = false;
-      }
-    });
-  }
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      closeGameModal();
+  gameModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+  
+  // הסתרת טעינה כשהמשחק נטען
+  gameModalFrame.onload = () => {
+    if (gameModalLoading) {
+      gameModalLoading.style.display = 'none';
     }
+  };
+}
+
+// סגירת מודל משחק
+function closeGameModal() {
+  if (!gameModal) return;
+  
+  gameModal.setAttribute('aria-hidden', 'true');
+  gameModalFrame.src = '';
+  document.body.classList.remove('modal-open');
+}
+
+// טיפול בכפתורי פעולה
+function handleActionClick(e) {
+  const btn = e.currentTarget;
+  const action = btn.dataset.action;
+  const gameId = btn.dataset.gameId;
+  
+  switch (action) {
+    case 'like':
+      toggleLike(btn, gameId);
+      break;
+    case 'share':
+      shareGame(gameId);
+      break;
+    case 'info':
+      showGameInfo(gameId);
+      break;
+  }
+}
+
+// לייק
+function toggleLike(btn, gameId) {
+  const isLiked = likedGames.has(gameId);
+  const icon = btn.querySelector('i');
+  
+  if (isLiked) {
+    likedGames.delete(gameId);
+    btn.classList.remove('game-card__action--liked');
+    icon.classList.replace('fa-solid', 'fa-regular');
+  } else {
+    likedGames.add(gameId);
+    btn.classList.add('game-card__action--liked');
+    icon.classList.replace('fa-regular', 'fa-solid');
+  }
+  
+  localStorage.setItem('sos_liked_games', JSON.stringify([...likedGames]));
+}
+
+// שיתוף
+function shareGame(gameId) {
+  const game = gamesCatalog.find(g => g.id === gameId);
+  if (!game) return;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: game.title,
+      text: game.description,
+      url: window.location.href
+    });
+  } else {
+    // Fallback - העתקה ללוח
+    navigator.clipboard?.writeText(window.location.href);
+    alert('קישור הועתק!');
+  }
+}
+
+// מידע על משחק
+function showGameInfo(gameId) {
+  const game = gamesCatalog.find(g => g.id === gameId);
+  if (!game) return;
+  
+  alert(`${game.title}\n\nסטודיו: ${game.studio}\n\n${game.description}`);
+}
+
+// חזרה לדף הקודם - תמיד history.back() אם יש היסטוריה | HYPER CORE TECH
+function handleBackClick() {
+  // אם יש היסטוריה - חזור אחורה בלי רענון
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    // Fallback - אם אין היסטוריה, נווט לפיד
+    window.location.href = './videos.html';
+  }
+}
+
+// תפריט
+function handleMenuClick() {
+  // TODO: פתיחת תפריט אפשרויות
+  console.log('Menu clicked');
+}
+
+// מסך מלא למודל
+function handleFullscreenClick() {
+  if (!gameModalFrame) return;
+  
+  if (gameModalFrame.requestFullscreen) {
+    gameModalFrame.requestFullscreen();
+  } else if (gameModalFrame.webkitRequestFullscreen) {
+    gameModalFrame.webkitRequestFullscreen();
+  }
+}
+
+// אתחול
+function init() {
+  renderGameCards();
+  
+  // מאזינים
+  viewport?.addEventListener('scroll', handleScroll, { passive: true });
+  backBtn?.addEventListener('click', handleBackClick);
+  menuBtn?.addEventListener('click', handleMenuClick);
+  gameModalClose?.addEventListener('click', closeGameModal);
+  gameModalBackdrop?.addEventListener('click', closeGameModal);
+  gameModalFullscreen?.addEventListener('click', handleFullscreenClick);
+  
+  // מקש Escape לסגירת מודל
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeGameModal();
   });
-
-  if (gameModalExternal) {
-    gameModalExternal.addEventListener('click', (event) => {
-      if (!gameModalExternal.dataset.target) {
-        event.preventDefault();
-        return;
-      }
-      window.open(gameModalExternal.dataset.target, '_blank', 'noopener');
-    });
-  }
-
-  if (gameModalFloatingBack) {
-    gameModalFloatingBack.addEventListener('click', closeGameModal);
-  }
-
-  if (gameModalFullscreen) {
-    gameModalFullscreen.addEventListener('click', () => {
-      if (!gameModalFrame) {
-        return;
-      }
-      
-      // ניסיון להיכנס למסך מלא
-      const iframe = gameModalFrame;
-      
-      if (iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-      } else if (iframe.webkitRequestFullscreen) {
-        iframe.webkitRequestFullscreen();
-      } else if (iframe.mozRequestFullScreen) {
-        iframe.mozRequestFullScreen();
-      } else if (iframe.msRequestFullscreen) {
-        iframe.msRequestFullscreen();
-      }
-    });
-  }
+  
+  // עדכון אינדיקטור התחלתי
+  updateIndicator();
+  
+  console.log('[SOS Play] Games feed initialized with', gamesCatalog.length, 'games');
 }
 
-function registerTopBarControls() {
-  if (gamesTopHomeButton) {
-    gamesTopHomeButton.addEventListener('click', () => {
-      window.location.href = './index.html';
-    });
-  }
-
-  if (gamesTopRefreshButton) {
-    gamesTopRefreshButton.addEventListener('click', () => {
-      const activeButton = document.querySelector('.games-category.active');
-      const activeCategory = activeButton?.dataset.category || 'web';
-      renderGamesByCategory(activeCategory);
-    });
-  }
-
-}
-
-// חלק דף משחקים (games.js) – נקודת הכניסה לדף
-(function initGamesPage() {
-  if (!gamesGridElement) {
-    return;
-  }
-  // טען משחקי ווב כברירת מחדל
-  renderGamesByCategory('web');
-  registerModalControls();
-  registerCategoryControls();
-  registerTopBarControls();
-})();
+// הפעלה
+document.addEventListener('DOMContentLoaded', init);

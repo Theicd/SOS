@@ -4,7 +4,7 @@
 
   // חלק קבועים – מזהי אירועים, טיימרים והגדרות משחק
   const CFG = {
-    TAG: 'yalla_trivia_v1',
+    TAG: 'sos_trivia_v1',
     KIND_STATUS: 33051,
     KIND_MATCH: 33052,
     QUESTION_TIME: 18,
