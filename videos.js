@@ -2669,7 +2669,7 @@ function setupInfiniteLoop() {
     viewport.style.scrollBehavior = '';
     currentIndex = cards.length - 1;
     lastScrollTop = maxScroll;
-    setTimeout(() => { isJumping = false; }, 200);
+    setTimeout(() => { isJumping = false; }, 50); /* מהיר יותר - 50ms במקום 200ms | HYPER CORE TECH */
   };
   
   const jumpToStart = () => {
@@ -2680,7 +2680,7 @@ function setupInfiniteLoop() {
     viewport.style.scrollBehavior = '';
     currentIndex = 0;
     lastScrollTop = 0;
-    setTimeout(() => { isJumping = false; }, 200);
+    setTimeout(() => { isJumping = false; }, 50); /* מהיר יותר - 50ms במקום 200ms | HYPER CORE TECH */
   };
   
   // זיהוי גלילה למעלה כשאנחנו בהתחלה (wheel)
@@ -2737,9 +2737,9 @@ function setupInfiniteLoop() {
       
       // לולאה אינסופית - כשמגיעים לסוף, חוזרים להתחלה
       if (scrollingDown && viewportTop >= maxScroll - 5) {
-        setTimeout(jumpToStart, 150);
+        setTimeout(jumpToStart, 30); /* מהיר יותר - 30ms במקום 150ms | HYPER CORE TECH */
       }
-    }, 100);
+    }, 16); /* מהיר יותר - 16ms (~60fps) במקום 100ms | HYPER CORE TECH */
   }, { passive: true });
   
   // תמיכה במקשי חצים
