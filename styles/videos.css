@@ -84,7 +84,7 @@ body:has(.videos-feed) #guestLoginButton:active {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, transform 0.3s ease; /* אופטימיזציה - properties ספציפיים | HYPER CORE TECH */
   font-size: 1.3rem;
 }
 
@@ -483,7 +483,7 @@ body:has(.videos-feed) .nav-avatar {
   overflow-y: scroll;
   overflow-x: hidden;
   scroll-snap-type: y mandatory;
-  scroll-behavior: smooth; /* גלילה חלקה כמו טיקטוק */
+  scroll-behavior: auto; /* גלילה מהירה כמו טיקטוק - ללא smooth לביצועים טובים יותר | HYPER CORE TECH */
   scrollbar-width: none;
   padding-top: calc(44px + var(--safe-top, 0px));
   padding-bottom: calc(56px + var(--safe-bottom, 0px));
@@ -513,10 +513,10 @@ body:has(.videos-feed) .nav-avatar {
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* גובה מלא: 100dvh פחות header (44px) + קיזוז 56px כדי לכסות את התפריט התחתון והפוסט הבא */
-  height: calc(100dvh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
-  min-height: calc(100dvh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
-  max-height: calc(100dvh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
+  /* גובה מלא: 100dvh פחות header (44px) ותפריט תחתון (56px) - ממלא את המרחב בין התפריטים | HYPER CORE TECH */
+  height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  max-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   width: 100%;
   max-width: 100%;
   display: flex;
@@ -535,18 +535,18 @@ body:has(.videos-feed) .nav-avatar {
 /* Fallback לדפדפנים ישנים שלא תומכים ב-dvh */
 @supports not (height: 100dvh) {
   .videos-feed__card {
-    height: calc(100vh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
-    min-height: calc(100vh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
-    max-height: calc(100vh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
+    height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    min-height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    max-height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   }
 }
 
 /* PWA Standalone Mode - התאמה לגובה מסך מלא */
 @media all and (display-mode: standalone) {
   .videos-feed__card {
-    height: calc(100dvh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
-    min-height: calc(100dvh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
-    max-height: calc(100dvh - 44px - var(--safe-top, 0px) + 56px - var(--safe-bottom, 0px));
+    height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    max-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   }
 }
 
@@ -579,10 +579,10 @@ body:has(.videos-feed) .nav-avatar {
   backface-visibility: hidden;
 }
 
-/* כפתורי דילוג - בצדדים */
+/* כפתורי דילוג - בצדדים | תיקון מיקום מעל התפריט התחתון | HYPER CORE TECH */
 .video-skip-btn {
   position: absolute;
-  bottom: 8px;
+  bottom: 12px; /* מעל תחתית הכרטיסייה - הכרטיסייה עכשיו מסתיימת מעל התפריט התחתון | HYPER CORE TECH */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -594,7 +594,7 @@ body:has(.videos-feed) .nav-avatar {
   color: #fff;
   font-size: 16px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease; /* אופטימיזציה - properties ספציפיים במקום all | HYPER CORE TECH */
   -webkit-tap-highlight-color: transparent;
   pointer-events: auto;
   z-index: 500;
@@ -637,10 +637,10 @@ body:has(.videos-feed) .nav-avatar {
   transition: width 0.1s linear;
 }
 
-/* תצוגת זמן - מרכז תחתון */
+/* תצוגת זמן - מרכז תחתון | HYPER CORE TECH */
 .video-time-display {
   position: absolute;
-  bottom: 8px;
+  bottom: 12px; /* מעל תחתית הכרטיסייה - הכרטיסייה עכשיו מסתיימת מעל התפריט התחתון | HYPER CORE TECH */
   left: 50%;
   transform: translateX(-50%);
   font-size: 11px;
@@ -806,7 +806,7 @@ body.global-stop .videos-feed__play-overlay {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, transform 0.3s ease; /* אופטימיזציה - properties ספציפיים | HYPER CORE TECH */
   font-size: 1.3rem;
   padding: 0;
 }
@@ -2185,4 +2185,40 @@ body.policy-modal-open {
 
 .videos-follow-button.is-following:hover {
   transform: translateX(-50%) scale(1.15) !important;
+}
+
+/* חלק אופטימיזציה (videos.css) – הפחתת אנימציות למכשירים חלשים או למשתמשים שמעדיפים פחות תנועה | HYPER CORE TECH */
+@media (prefers-reduced-motion: reduce) {
+  /* ביטול אנימציות אינסופיות */
+  .videos-feed__author::after,
+  body:has(.videos-feed) .primary-nav::before,
+  body:has(.videos-feed) .top-bar::after {
+    animation: none !important;
+  }
+  
+  /* ביטול transitions כבדים */
+  .videos-feed__action,
+  .videos-feed__avatar,
+  .videos-feed__name,
+  .video-skip-btn {
+    transition: none !important;
+  }
+  
+  /* ביטול backdrop-filter כבד */
+  .videos-feed__author,
+  .videos-feed__menu,
+  body:has(.videos-feed) .top-bar,
+  body:has(.videos-feed) .primary-nav {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* חלק אופטימיזציה נוספת (videos.css) – שיפור ביצועים כללי | HYPER CORE TECH */
+@media (max-width: 768px) {
+  /* הפחתת backdrop-filter במובייל לביצועים טובים יותר */
+  .videos-feed__author {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
 }
