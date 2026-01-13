@@ -496,7 +496,6 @@ body:has(.videos-feed) .nav-avatar {
   touch-action: pan-y;
   overscroll-behavior: contain;
   /* אופטימיזציה לביצועים | HYPER CORE TECH */
-  will-change: scroll-position;
   contain: layout style;
   /* scroll-padding להתאמת snap לתפריטים | HYPER CORE TECH */
   scroll-padding-top: calc(44px + var(--safe-top, 0px));
@@ -534,8 +533,6 @@ body:has(.videos-feed) .nav-avatar {
   box-sizing: border-box;
   /* אופטימיזציה למכשירים חלשים | HYPER CORE TECH */
   contain: layout style paint;
-  content-visibility: auto;
-  contain-intrinsic-size: 100vw calc(100dvh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
 }
 
 /* Fallback לדפדפנים ישנים שלא תומכים ב-dvh | HYPER CORE TECH */
