@@ -2461,7 +2461,7 @@ function setupIntersectionObserver() {
     {
       root: viewport,
       threshold: [0, 0.5],
-      rootMargin: '0px' /* תיקון מהירות גלילה - הסרת השהייה | HYPER CORE TECH */
+      rootMargin: '-10% 0px'
     }
   );
 
@@ -2651,16 +2651,101 @@ function renderMoreVideos(videos) {
   updateLoadMoreTrigger();
 }
 
-// חלק לופ אינסופי (videos.js) – גלילה פשוטה כמו טיקטוק - CSS snap עושה הכל | HYPER CORE TECH
+// חלק לופ אינסופי (videos.js) – לולאה אינסופית כמו טיקטוק
+// הגלילה הטבעית של CSS snap עובדת, רק מוסיפים חזרה להתחלה בסוף
 function setupInfiniteLoop() {
   const viewport = document.querySelector('.videos-feed__viewport');
-  if (!viewport) return;
+  const stream = document.querySelector('.videos-feed__stream');
+  if (!viewport || !stream) return;
   
   let currentIndex = 0;
+  
   const getCards = () => document.querySelectorAll('.videos-feed__card:not(.clone)');
   const getCardCount = () => getCards().length;
   
-  // תמיכה במקשי חצים בלבד - CSS scroll-snap מטפל בכל השאר | HYPER CORE TECH
+  // מעקב אחרי גלילה לזיהוי הכרטיס הנוכחי ולולאה אינסופית
+  let scrollTimeout = null;
+  let lastScrollTop = 0;
+  let isJumping = false;
+  
+  const jumpToEnd = () => {
+    if (isJumping) return;
+    isJumping = true;
+    const cards = getCards();
+    const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+    viewport.style.scrollBehavior = 'auto';
+    viewport.scrollTop = maxScroll;
+    viewport.style.scrollBehavior = '';
+    currentIndex = cards.length - 1;
+    lastScrollTop = maxScroll;
+    setTimeout(() => { isJumping = false; }, 50); /* מהיר יותר - 50ms במקום 200ms | HYPER CORE TECH */
+  };
+  
+  const jumpToStart = () => {
+    if (isJumping) return;
+    isJumping = true;
+    viewport.style.scrollBehavior = 'auto';
+    viewport.scrollTop = 0;
+    viewport.style.scrollBehavior = '';
+    currentIndex = 0;
+    lastScrollTop = 0;
+    setTimeout(() => { isJumping = false; }, 50); /* מהיר יותר - 50ms במקום 200ms | HYPER CORE TECH */
+  };
+  
+  // זיהוי גלילה למעלה כשאנחנו בהתחלה (wheel)
+  viewport.addEventListener('wheel', (e) => {
+    if (viewport.scrollTop <= 5 && e.deltaY < 0) {
+      // בהתחלה וגוללים למעלה - קופצים לסוף
+      e.preventDefault();
+      jumpToEnd();
+    }
+  }, { passive: false });
+  
+  // זיהוי swipe למעלה כשאנחנו בהתחלה (touch)
+  let touchStartY = 0;
+  viewport.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  
+  viewport.addEventListener('touchend', (e) => {
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY - touchEndY;
+    
+    // swipe למטה (אצבע למטה = רוצה לחזור אחורה) כשבהתחלה
+    if (viewport.scrollTop <= 5 && deltaY < -30) {
+      jumpToEnd();
+    }
+  }, { passive: true });
+  
+  viewport.addEventListener('scroll', () => {
+    if (scrollTimeout) clearTimeout(scrollTimeout);
+    if (isJumping) return;
+    
+    scrollTimeout = setTimeout(() => {
+      const cards = getCards();
+      const cardCount = cards.length;
+      if (cardCount === 0) return;
+      
+      const viewportTop = viewport.scrollTop;
+      const viewportHeight = viewport.clientHeight;
+      const maxScroll = viewport.scrollHeight - viewportHeight;
+      const scrollingDown = viewportTop > lastScrollTop;
+      lastScrollTop = viewportTop;
+      
+      // מציאת הכרטיס הנוכחי לפי גובה הכרטיסייה | HYPER CORE TECH
+      const cardHeight = cards[0]?.offsetHeight || viewport.clientHeight;
+      currentIndex = Math.round(viewportTop / cardHeight);
+      if (currentIndex < 0) currentIndex = 0;
+      if (currentIndex >= cardCount) currentIndex = cardCount - 1;
+      
+      // לולאה אינסופית - כשמגיעים לסוף, חוזרים להתחלה
+      if (scrollingDown && viewportTop >= maxScroll - 5) {
+        setTimeout(jumpToStart, 30); /* מהיר יותר - 30ms במקום 150ms | HYPER CORE TECH */
+      }
+    }, 16); /* מהיר יותר - 16ms (~60fps) במקום 100ms | HYPER CORE TECH */
+  }, { passive: true });
+  
+  // תמיכה במקשי חצים
   document.addEventListener('keydown', (e) => {
     if (!document.querySelector('.videos-feed')) return;
     
@@ -2670,22 +2755,14 @@ function setupInfiniteLoop() {
     
     if (e.key === 'ArrowDown' || e.key === 'j') {
       e.preventDefault();
-      currentIndex = Math.min(currentIndex + 1, cardCount - 1);
+      currentIndex = (currentIndex + 1) % cardCount;
       cards[currentIndex]?.scrollIntoView({ behavior: 'auto', block: 'start' });
     } else if (e.key === 'ArrowUp' || e.key === 'k') {
       e.preventDefault();
-      currentIndex = Math.max(currentIndex - 1, 0);
+      currentIndex = (currentIndex - 1 + cardCount) % cardCount;
       cards[currentIndex]?.scrollIntoView({ behavior: 'auto', block: 'start' });
     }
   });
-  
-  // עדכון אינדקס נוכחי בגלילה - ללא התערבות בגלילה עצמה | HYPER CORE TECH
-  viewport.addEventListener('scrollend', () => {
-    const cards = getCards();
-    if (cards.length === 0) return;
-    const cardHeight = cards[0]?.offsetHeight || viewport.clientHeight;
-    currentIndex = Math.round(viewport.scrollTop / cardHeight);
-  }, { passive: true });
   
   // חשיפה גלובלית
   window.videoFeedNav = { getCurrentIndex: () => currentIndex, getCardCount };
