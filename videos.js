@@ -1474,34 +1474,38 @@ function renderVideoCard(video) {
       updateProgress();
     };
     
-    // כפתור אחורה - צד שמאל, חץ שמאלה
+    // כפתורי דילוג - יישמרו להוספה ל-article (לא ל-mediaDiv) כדי למנוע event bubbling | HYPER CORE TECH
     const skipBackBtn = document.createElement('button');
     skipBackBtn.type = 'button';
     skipBackBtn.className = 'video-skip-btn video-skip-btn--left';
-    skipBackBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-    skipBackBtn.addEventListener('click', (e) => { 
+    skipBackBtn.innerHTML = '<i class="fa-solid fa-backward"></i>';
+    skipBackBtn.setAttribute('aria-label', 'דילוג 5 שניות אחורה');
+    skipBackBtn.onclick = (e) => { 
       e.preventDefault(); 
-      e.stopPropagation(); 
+      e.stopPropagation();
       doSkip(-5); 
-    }, true);
-    mediaDiv.appendChild(skipBackBtn);
+    };
     
     // תצוגת זמן - מרכז תחתון
     const timeDisplay = document.createElement('div');
     timeDisplay.className = 'video-time-display';
-    mediaDiv.appendChild(timeDisplay);
     
-    // כפתור קדימה - צד ימין, חץ ימינה
+    // כפתור קדימה
     const skipForwardBtn = document.createElement('button');
     skipForwardBtn.type = 'button';
     skipForwardBtn.className = 'video-skip-btn video-skip-btn--right';
-    skipForwardBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-    skipForwardBtn.addEventListener('click', (e) => { 
+    skipForwardBtn.innerHTML = '<i class="fa-solid fa-forward"></i>';
+    skipForwardBtn.setAttribute('aria-label', 'דילוג 5 שניות קדימה');
+    skipForwardBtn.onclick = (e) => { 
       e.preventDefault(); 
-      e.stopPropagation(); 
+      e.stopPropagation();
       doSkip(5); 
-    }, true);
-    mediaDiv.appendChild(skipForwardBtn);
+    };
+    
+    // הוספה ל-article במקום ל-mediaDiv | HYPER CORE TECH
+    article.appendChild(skipBackBtn);
+    article.appendChild(timeDisplay);
+    article.appendChild(skipForwardBtn);
     
     // עדכון פס התקדמות וזמן
     let progressTimeout = null;
