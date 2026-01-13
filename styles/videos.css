@@ -475,22 +475,32 @@ body:has(.videos-feed) .nav-avatar {
 
 .videos-feed__viewport {
   position: absolute;
-  /* מיקום מדויק בין התפריטים - ללא padding | HYPER CORE TECH */
-  top: calc(44px + var(--safe-top, 0px));
+  top: 0;
   left: 0;
   right: 0;
-  bottom: calc(56px + var(--safe-bottom, 0px));
+  bottom: 0;
+  /* גובה מלא של המסך | HYPER CORE TECH */
+  height: 100dvh;
   overflow-y: scroll;
   overflow-x: hidden;
   /* scroll-snap מהיר ועקבי כמו טיקטוק | HYPER CORE TECH */
   scroll-snap-type: y mandatory;
   scroll-behavior: auto;
   scrollbar-width: none;
-  -ms-overflow-style: none;
+  /* padding לתפריטים עליון ותחתון | HYPER CORE TECH */
+  padding-top: calc(44px + var(--safe-top, 0px));
+  padding-bottom: calc(56px + var(--safe-bottom, 0px));
+  box-sizing: border-box;
   /* אופטימיזציה לגלילה חלקה במובייל | HYPER CORE TECH */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  overscroll-behavior-y: none; /* מונע bounce effect | HYPER CORE TECH */
+  overscroll-behavior: contain;
+  /* אופטימיזציה לביצועים | HYPER CORE TECH */
+  will-change: scroll-position;
+  contain: layout style;
+  /* scroll-padding להתאמת snap לתפריטים | HYPER CORE TECH */
+  scroll-padding-top: calc(44px + var(--safe-top, 0px));
+  scroll-padding-bottom: calc(56px + var(--safe-bottom, 0px));
 }
 
 .videos-feed__viewport::-webkit-scrollbar {
@@ -509,10 +519,12 @@ body:has(.videos-feed) .nav-avatar {
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* גובה מלא של ה-viewport - חישוב מדויק | HYPER CORE TECH */
+  /* גובה מלא בין התפריטים: 100dvh פחות header (44px) ותפריט תחתון (56px) | HYPER CORE TECH */
   height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  max-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -520,16 +532,32 @@ body:has(.videos-feed) .nav-avatar {
   background: #000;
   flex-shrink: 0;
   box-sizing: border-box;
+  /* אופטימיזציה למכשירים חלשים | HYPER CORE TECH */
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 100vw calc(100dvh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
 }
 
-/* Fallback לדפדפנים שלא תומכים ב-dvh | HYPER CORE TECH */
+/* Fallback לדפדפנים ישנים שלא תומכים ב-dvh | HYPER CORE TECH */
 @supports not (height: 100dvh) {
+  .videos-feed__viewport {
+    height: 100vh;
+  }
   .videos-feed__card {
     height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
     min-height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    max-height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   }
 }
 
+/* PWA Standalone Mode - התאמה לגובה מסך מלא | HYPER CORE TECH */
+@media all and (display-mode: standalone) {
+  .videos-feed__card {
+    height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    max-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  }
+}
 
 /* חלק מדיה (videos.css) – וידאו או YouTube iframe */
 .videos-feed__media {
@@ -537,16 +565,13 @@ body:has(.videos-feed) .nav-avatar {
   height: 100%;
   position: relative;
   background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   overflow: visible;
   flex: 1 1 auto;
   /* חלק תאימות iOS (videos.css) – תיקון מסך שחור ב-Safari iOS 15+ | HYPER CORE TECH */
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
-  /* מאפשר לחיצות על אלמנטים בתוך ה-media | HYPER CORE TECH */
-  pointer-events: auto;
 }
 
 .videos-feed__media video {
@@ -554,7 +579,7 @@ body:has(.videos-feed) .nav-avatar {
   max-height: 100%;
   width: 100%;
   height: 100%;
-  object-fit: contain; /* שומר על יחס הגובה-רוחב המקורי כמו טיקטוק | HYPER CORE TECH */
+  object-fit: contain;
   border: none;
   /* חלק תאימות iOS (videos.css) – תיקון מסך שחור ב-Safari iOS 15+ | HYPER CORE TECH */
   -webkit-transform: translateZ(0);
