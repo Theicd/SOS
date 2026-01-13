@@ -2,10 +2,13 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v1';
+  const CACHE_NAME = 'sos-cache-v2'; // bump version כדי לאלץ רענון בקלאיינטים קיימים
   const PRECACHE_URLS = [
     './',
     './videos.html',
+    './games.html', // דף משחקים חדש
+    './games.js',   // לוגיקת פיד משחקים
+    './styles/games.css', // עיצוב פיד משחקים חדש
     './auth.html',
     './styles/facebook-theme.css',
     './styles/chat.css',
