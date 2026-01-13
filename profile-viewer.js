@@ -733,17 +733,27 @@
     }
     if (refs.back) {
       refs.back.addEventListener('click', () => {
-        // אם נפתח כ-embedded (בתוך iframe), שלח הודעה לדף ההורה לסגור את הפאנל
+        // חלק כפתור חזרה (profile-viewer.js) – בדיקה אם נמצא בתוך iframe ושליחת postMessage | HYPER CORE TECH
+        const isInIframe = window.parent !== window;
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('embedded') === '1' && window.parent !== window) {
+        const isEmbedded = urlParams.get('embedded') === '1';
+        
+        console.log('[PROFILE-VIEWER] Back clicked, isInIframe:', isInIframe, 'isEmbedded:', isEmbedded);
+        
+        // אם נמצא בתוך iframe (גם אם אין embedded=1), שלח הודעה לדף ההורה
+        if (isInIframe) {
+          console.log('[PROFILE-VIEWER] Sending closePublicProfile to parent');
           window.parent.postMessage({ type: 'closePublicProfile' }, '*');
           return;
         }
         // Fallback - אם נפתח בחלון נפרד
         if (window.opener) {
           window.close();
-        } else {
+        } else if (window.history.length > 1) {
           window.history.back();
+        } else {
+          // אין היסטוריה - חזור לדף הבית
+          window.location.href = './videos.html';
         }
       });
     }

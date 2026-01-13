@@ -312,9 +312,22 @@ function showGameInfo(gameId) {
   alert(`${game.title}\n\nסטודיו: ${game.studio}\n\n${game.description}`);
 }
 
-// חזרה לדף הקודם - תמיד history.back() אם יש היסטוריה | HYPER CORE TECH
+// חזרה לדף הקודם - אם embedded שלח postMessage, אחרת history.back() | HYPER CORE TECH
 function handleBackClick() {
-  // אם יש היסטוריה - חזור אחורה בלי רענון
+  const isInIframe = window.parent !== window;
+  const urlParams = new URLSearchParams(window.location.search);
+  const isEmbedded = urlParams.get('embedded') === '1';
+  
+  console.log('[GAMES] Back clicked, isInIframe:', isInIframe, 'isEmbedded:', isEmbedded);
+  
+  // אם נמצא בתוך iframe, שלח הודעה לדף ההורה לסגור
+  if (isInIframe) {
+    console.log('[GAMES] Sending closeGames to parent');
+    window.parent.postMessage({ type: 'closeGames' }, '*');
+    return;
+  }
+  
+  // אם יש היסטוריה - חזור אחורה
   if (window.history.length > 1) {
     window.history.back();
   } else {

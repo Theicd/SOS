@@ -429,10 +429,21 @@
       });
     }
 
+    // חלק כפתור משחקים (app.js) – פתיחה כ-overlay במקום ניווט לדף | HYPER CORE TECH
     const gamesButton = document.getElementById('gamesToggleTop');
     if (gamesButton) {
       gamesButton.addEventListener('click', () => {
         closeMenu();
+        // פתיחה כ-overlay אם קיים הפאנל
+        const gamesPanel = document.getElementById('gamesPanel');
+        const gamesFrame = document.getElementById('gamesPanelFrame');
+        if (gamesPanel && gamesFrame) {
+          gamesFrame.src = './games.html?embedded=1';
+          gamesPanel.hidden = false;
+          console.log('[APP] Games panel opened from top menu');
+          return;
+        }
+        // Fallback
         window.location.href = 'games.html';
       });
     }

@@ -20,6 +20,7 @@
     });
   };
 
+  // חלק פרופיל ציבורי (utils.js) – פתיחת פרופיל משתמש אחר כ-overlay ללא רענון הפיד | HYPER CORE TECH
   App.openProfileByPubkey = function openProfileByPubkey(pubkey) {
     if (!pubkey || typeof pubkey !== 'string' || !pubkey.trim()) {
       return;
@@ -36,6 +37,16 @@
     } catch (err) {
       console.warn('Failed persisting last profile view to localStorage', err);
     }
+    // ניסיון לפתוח כ-overlay בתוך videos.html (אם קיים publicProfilePanel)
+    const publicPanel = document.getElementById('publicProfilePanel');
+    const publicFrame = document.getElementById('publicProfilePanelFrame');
+    if (publicPanel && publicFrame) {
+      publicFrame.src = `./profile-viewer.html?pubkey=${encoded}&embedded=1`;
+      publicPanel.hidden = false;
+      console.log('[UTILS] Public profile opened as overlay:', normalized.slice(0, 8));
+      return;
+    }
+    // Fallback – ניווט לדף נפרד אם אין overlay זמין
     window.location.href = `./profile-viewer.html?pubkey=${encoded}`;
   };
 

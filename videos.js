@@ -960,12 +960,35 @@ function handleCardMediaFailure(card, videoId, error) {
       `;
       mediaDiv.appendChild(placeholder);
       
-      // כפתור נסה שוב
+      // כפתור נסה שוב - טעינה מחדש של הוידאו בלבד ללא רענון הדף | HYPER CORE TECH
       const retryBtn = placeholder.querySelector('.videos-feed__retry-btn');
       if (retryBtn) {
         retryBtn.addEventListener('click', () => {
-          // רענון הדף לניסיון חוזר
-          window.location.reload();
+          // הסרת ה-placeholder וניסיון טעינה מחדש של הוידאו
+          placeholder.remove();
+          const videoUrl = mediaDiv.dataset.videoUrl;
+          if (videoUrl) {
+            const newVideo = document.createElement('video');
+            newVideo.controls = false;
+            newVideo.muted = false;
+            newVideo.loop = true;
+            newVideo.playsInline = true;
+            newVideo.autoplay = false;
+            newVideo.setAttribute('playsinline', 'true');
+            newVideo.setAttribute('webkit-playsinline', 'true');
+            newVideo.preload = 'auto';
+            newVideo.className = 'videos-feed__media-video';
+            newVideo.src = videoUrl;
+            newVideo.load();
+            mediaDiv.insertBefore(newVideo, mediaDiv.firstChild);
+            newVideo.addEventListener('error', () => {
+              handleCardMediaFailure(card, videoId, new Error('retry failed'));
+            }, { once: true });
+            console.log('[videos] Retrying video load:', videoId);
+          } else {
+            // אין URL - טעינת פוסטים חדשים ברקע
+            loadVideos().catch(err => console.warn('[videos] Retry loadVideos failed', err));
+          }
         });
       }
       
@@ -3376,10 +3399,25 @@ async function init() {
     return;
   }
 
+  // חלק כפתור בית (videos.js) – סגירת overlays במקום ניווט כשהפיד כבר פתוח | HYPER CORE TECH
   const homeButton = document.getElementById('videosTopHomeButton');
   if (homeButton) {
     homeButton.addEventListener('click', () => {
-      window.location.href = './index.html';
+      // ניסיון לסגור overlays פתוחים - אם נסגר משהו, לא לנווט
+      const App = window.NostrApp || {};
+      if (typeof App.closeAllOverlays === 'function' && App.closeAllOverlays()) {
+        console.log('[VIDEOS] Home button closed overlay, staying on videos');
+        return;
+      }
+      // אם אין overlay פתוח, גלול לראש הפיד
+      const viewport = document.querySelector('.videos-feed__viewport');
+      if (viewport && viewport.scrollTop > 50) {
+        viewport.scrollTo({ top: 0, behavior: 'smooth' });
+        console.log('[VIDEOS] Home button scrolled to top');
+        return;
+      }
+      // אחרת - נשאר בדף, אין צורך לנווט לindex
+      console.log('[VIDEOS] Already at top, no action needed');
     });
   }
 
@@ -3478,3 +3516,56 @@ function startPeriodicRefresh() {
 
 // הפעלה אחרי שהפיד נטען
 setTimeout(startPeriodicRefresh, 5000);
+
+// חלק פאנל פרופיל ציבורי (videos.js) – סגירת overlay פרופיל ציבורי ללא רענון | HYPER CORE TECH
+function closePublicProfilePanel() {
+  const publicPanel = document.getElementById('publicProfilePanel');
+  const publicFrame = document.getElementById('publicProfilePanelFrame');
+  if (publicPanel && !publicPanel.hidden) {
+    publicPanel.hidden = true;
+    if (publicFrame) publicFrame.src = '';
+    console.log('[VIDEOS] Public profile panel closed');
+    return true;
+  }
+  return false;
+}
+
+// חלק סגירת פאנלים (videos.js) – כל הפאנלים נסגרים דרך postMessage מכפתורי החזרה המקוריים | HYPER CORE TECH
+
+// חלק פאנל משחקים (videos.js) – סגירת overlay משחקים ללא רענון | HYPER CORE TECH
+function closeGamesPanel() {
+  const gamesPanel = document.getElementById('gamesPanel');
+  const gamesFrame = document.getElementById('gamesPanelFrame');
+  if (gamesPanel && !gamesPanel.hidden) {
+    gamesPanel.hidden = true;
+    if (gamesFrame) gamesFrame.src = '';
+    console.log('[VIDEOS] Games panel closed');
+    return true;
+  }
+  return false;
+}
+
+// חשיפה גלובלית לסגירת פאנל משחקים | HYPER CORE TECH
+window.closeGamesPanel = closeGamesPanel;
+if (window.NostrApp) {
+  window.NostrApp.closeGamesPanel = closeGamesPanel;
+}
+
+// חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH
+window.closePublicProfilePanel = closePublicProfilePanel;
+if (window.NostrApp) {
+  window.NostrApp.closePublicProfilePanel = closePublicProfilePanel;
+}
+
+// חלק מאזין הודעות (videos.js) – סגירת overlay בקבלת postMessage מ-iframe | HYPER CORE TECH
+window.addEventListener('message', function handleOverlayMessage(event) {
+  console.log('[VIDEOS] Received postMessage:', event.data);
+  if (event.data && event.data.type === 'closePublicProfile') {
+    console.log('[VIDEOS] Closing public profile panel via postMessage');
+    closePublicProfilePanel();
+  }
+  if (event.data && event.data.type === 'closeGames') {
+    console.log('[VIDEOS] Closing games panel via postMessage');
+    closeGamesPanel();
+  }
+});

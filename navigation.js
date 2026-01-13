@@ -23,7 +23,7 @@
     App.activeNav = targetKey;
   }
 
-  // חלק פאנל פרופיל (navigation.js) – פונקציה לסגירת פאנל הפרופיל | HYPER CORE TECH
+  // חלק פאנל פרופיל (navigation.js) – פונקציה לסגירת פאנל הפרופיל האישי | HYPER CORE TECH
   function closeProfilePanel() {
     const profilePanel = document.getElementById('profilePanel');
     const profileFrame = document.getElementById('profilePanelFrame');
@@ -36,8 +36,46 @@
     return false;
   }
 
-  // חשיפה גלובלית לסגירת פאנל הפרופיל | HYPER CORE TECH
+  // חלק פאנל פרופיל ציבורי (navigation.js) – פונקציה לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH
+  function closePublicProfilePanel() {
+    const publicPanel = document.getElementById('publicProfilePanel');
+    const publicFrame = document.getElementById('publicProfilePanelFrame');
+    if (publicPanel && !publicPanel.hidden) {
+      publicPanel.hidden = true;
+      if (publicFrame) publicFrame.src = '';
+      console.log('[NAV] Public profile panel closed');
+      return true;
+    }
+    return false;
+  }
+
+  // חלק פאנל משחקים (navigation.js) – פונקציה לסגירת פאנל המשחקים | HYPER CORE TECH
+  function closeGamesPanel() {
+    const gamesPanel = document.getElementById('gamesPanel');
+    const gamesFrame = document.getElementById('gamesPanelFrame');
+    if (gamesPanel && !gamesPanel.hidden) {
+      gamesPanel.hidden = true;
+      if (gamesFrame) gamesFrame.src = '';
+      console.log('[NAV] Games panel closed');
+      return true;
+    }
+    return false;
+  }
+
+  // חלק סגירת כל ה-overlays (navigation.js) – סוגר פרופיל אישי, ציבורי ומשחקים | HYPER CORE TECH
+  function closeAllOverlays() {
+    let closed = false;
+    if (closeProfilePanel()) closed = true;
+    if (closePublicProfilePanel()) closed = true;
+    if (closeGamesPanel()) closed = true;
+    return closed;
+  }
+
+  // חשיפה גלובלית לסגירת פאנלים | HYPER CORE TECH
   App.closeProfilePanel = closeProfilePanel;
+  App.closePublicProfilePanel = closePublicProfilePanel;
+  App.closeGamesPanel = closeGamesPanel;
+  App.closeAllOverlays = closeAllOverlays;
 
   function handleNavClick(event) {
     const key = event.currentTarget.getAttribute('data-nav');
@@ -48,12 +86,12 @@
     console.log('[NAV] Navigation clicked:', key);
     const previousNav = App.activeNav;
     
-    // חלק פאנל פרופיל (navigation.js) – סגירת פאנל הפרופיל בכל לחיצה על כפתור שאינו פרופיל | HYPER CORE TECH
-    // אם הפאנל נסגר, לא מנווטים לדף אחר - רק סוגרים ונשארים במקום
+    // חלק סגירת overlays (navigation.js) – סגירת כל ה-overlays בכל לחיצה על כפתור שאינו פרופיל | HYPER CORE TECH
+    // אם overlay כלשהו נסגר, לא מנווטים לדף אחר - רק סוגרים ונשארים במקום
     if (key !== 'profile') {
-      const wasClosed = closeProfilePanel();
+      const wasClosed = closeAllOverlays();
       if (wasClosed) {
-        console.log('[NAV] Profile panel was closed, staying on current page');
+        console.log('[NAV] Overlay was closed, staying on current page');
         return;
       }
     }
@@ -140,8 +178,24 @@
       return;
     }
 
-    // חלק ניווט משחקים (navigation.js) – לחיצה על "משחקים" פותחת את מודול הטריוויה הראשי
+    // חלק ניווט משחקים (navigation.js) – לחיצה על "משחקים" פותחת כ-overlay ללא רענון הפיד | HYPER CORE TECH
     if (key === 'games') {
+      const gamesPanel = document.getElementById('gamesPanel');
+      const gamesFrame = document.getElementById('gamesPanelFrame');
+      if (gamesPanel && gamesFrame) {
+        // Toggle - אם פתוח, סגור; אם סגור, פתח
+        if (!gamesPanel.hidden) {
+          gamesPanel.hidden = true;
+          gamesFrame.src = '';
+          console.log('[NAV] Games panel closed');
+        } else {
+          gamesFrame.src = './games.html?embedded=1';
+          gamesPanel.hidden = false;
+          console.log('[NAV] Games panel opened');
+        }
+        return;
+      }
+      // Fallback - אם אין פאנל, נווט לדף
       window.location.href = './games.html';
       return;
     }
@@ -174,10 +228,19 @@
         window.location.href = './dating.html';
       });
     }
+    // חלק כפתור משחקים עליון (navigation.js) – פתיחה כ-overlay | HYPER CORE TECH
     const gamesTopBtn = document.getElementById('gamesToggleTop');
     if (gamesTopBtn) {
       gamesTopBtn.addEventListener('click', () => {
         updateNavSelection('games');
+        const gamesPanel = document.getElementById('gamesPanel');
+        const gamesFrame = document.getElementById('gamesPanelFrame');
+        if (gamesPanel && gamesFrame) {
+          gamesFrame.src = './games.html?embedded=1';
+          gamesPanel.hidden = false;
+          console.log('[NAV] Games panel opened from top button');
+          return;
+        }
         window.location.href = './games.html';
       });
     }
