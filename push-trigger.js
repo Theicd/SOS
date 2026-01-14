@@ -90,18 +90,27 @@
   const PUSH_DEDUP_TTL = 5000; // 5 שניות
   
   async function sendPushToServer(targetPubkey, payload) {
-    if (!targetPubkey || !payload) return;
+    if (!targetPubkey || !payload) {
+      console.warn('[PUSH-TRIGGER] חסר pubkey או payload');
+      return;
+    }
     
     // אם השרת לא זמין - דלג
     if (!pushServerAvailable && Date.now() - pushServerCheckTime < PUSH_SERVER_CHECK_INTERVAL) {
+      console.log('[PUSH-TRIGGER] שרת לא זמין - דילוג');
       return;
     }
     
     // מניעת שליחות כפולות
     const dedupKey = `${targetPubkey}_${payload.type || 'msg'}_${payload.body?.slice(0, 20) || ''}`;
-    if (pushSentRecently.has(dedupKey)) return;
+    if (pushSentRecently.has(dedupKey)) {
+      console.log('[PUSH-TRIGGER] דילוג על שליחה כפולה');
+      return;
+    }
     pushSentRecently.set(dedupKey, Date.now());
     setTimeout(() => pushSentRecently.delete(dedupKey), PUSH_DEDUP_TTL);
+    
+    console.log('[PUSH-TRIGGER] שולח Push לשרת:', targetPubkey.slice(0, 8), payload.type);
     
     try {
       const response = await fetch(`${PUSH_SERVER_URL}/api/push/send`, {
@@ -110,19 +119,23 @@
         body: JSON.stringify({ pubkey: targetPubkey, payload }),
       });
       
+      const data = await response.json();
+      console.log('[PUSH-TRIGGER] תגובת שרת:', data);
+      
       if (!response.ok) {
-        // שרת לא זמין - הפסק לנסות
         pushServerAvailable = false;
         pushServerCheckTime = Date.now();
         return;
       }
       
-      const data = await response.json();
-      if (data.ok) {
-        console.log('[PUSH] sent to:', targetPubkey.slice(0, 8));
+      if (data.ok && data.sent > 0) {
+        console.log('[PUSH-TRIGGER] ✅ Push נשלח בהצלחה ל:', targetPubkey.slice(0, 8), 'sent:', data.sent);
+      } else if (data.message?.includes('No subscriptions')) {
+        console.warn('[PUSH-TRIGGER] ⚠️ אין מנוי רשום עבור:', targetPubkey.slice(0, 8));
       }
       pushServerAvailable = true;
     } catch (err) {
+      console.error('[PUSH-TRIGGER] ❌ שגיאה בשליחה:', err);
       pushServerAvailable = false;
       pushServerCheckTime = Date.now();
     }
