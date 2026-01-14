@@ -285,16 +285,16 @@ html, body {
   z-index: 50;
 }
 
-.games-play-btn:hover {
+.game-card__play:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 12px 40px var(--games-accent-glow);
 }
 
-.games-play-btn:active {
+.game-card__play:active {
   transform: translateY(0) scale(0.98);
 }
 
-.games-play-btn i {
+.game-card__play i {
   font-size: 20px;
 }
 
