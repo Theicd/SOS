@@ -434,15 +434,32 @@
   function setupUpdateChecker() {
     if (!navigator.serviceWorker) return;
     
-    setInterval(async () => {
+    // בדיקה מיידית + תקופתית כל דקה | HYPER CORE TECH
+    async function checkForUpdates() {
       try {
         const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) await reg.update();
-      } catch {}
-    }, 5 * 60 * 1000);
+        if (reg) {
+          await reg.update();
+          // בדיקה אם יש עדכון ממתין
+          if (reg.waiting) {
+            console.log('[PWA] נמצא עדכון ממתין!');
+            showUpdateAvailableToast();
+          }
+        }
+      } catch (err) {
+        console.warn('[PWA] שגיאה בבדיקת עדכונים:', err);
+      }
+    }
+    
+    // בדיקה ראשונית אחרי 3 שניות
+    setTimeout(checkForUpdates, 3000);
+    // בדיקה תקופתית כל דקה
+    setInterval(checkForUpdates, 60 * 1000);
     
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA] Service Worker עודכן');
+      console.log('[PWA] Service Worker עודכן - מרענן...');
+      // רענון אוטומטי כשה-SW מתחלף
+      window.location.reload();
     });
     
     // האזנה להודעות עדכון מה-SW (Push)
@@ -455,10 +472,7 @@
       // חלק עדכון גרסה (pwa-installer.js) – גרסה חדשה הופעלה | HYPER CORE TECH
       if (event.data?.type === 'NEW_VERSION_ACTIVATED') {
         console.log('[PWA] גרסה חדשה הופעלה!');
-        // אפשר להציג הודעה או לרענן
-        if (typeof App.showToast === 'function') {
-          App.showToast('האפליקציה עודכנה לגרסה החדשה ✓');
-        }
+        showUpdateAvailableToast();
       }
     });
   }
