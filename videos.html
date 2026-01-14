@@ -613,33 +613,35 @@
         }
       }
 
-      /* ===== כפתור רענון עמוק (deep refresh) ===== */
-      .deep-refresh-btn {
-        width: 32px;
-        height: 32px;
-        border: none;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        color: rgba(255, 255, 255, 0.7);
+      /* ===== כפתור רענון עמוק (deep refresh) - עיגול כמו P2P ===== */
+      .deep-refresh-circle {
+        width: 36px;
+        height: 36px;
+        position: relative;
         cursor: pointer;
+        margin-left: 8px;
+        transition: transform 0.2s ease;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
         display: flex;
         align-items: center;
         justify-content: center;
+        color: rgba(255, 255, 255, 0.7);
         font-size: 14px;
-        transition: all 0.3s ease;
-        margin-right: 8px;
       }
-      .deep-refresh-btn:hover {
+      .deep-refresh-circle:hover {
+        transform: scale(1.1);
         background: rgba(0, 212, 255, 0.2);
         color: #00d4ff;
-        transform: scale(1.1);
       }
-      .deep-refresh-btn:active {
+      .deep-refresh-circle:active {
         transform: scale(0.95);
       }
-      .deep-refresh-btn.is-refreshing {
-        animation: spin 1s linear infinite;
+      .deep-refresh-circle.is-refreshing {
         color: #00d4ff;
+      }
+      .deep-refresh-circle.is-refreshing i {
+        animation: spin 1s linear infinite;
       }
       @keyframes spin {
         from { transform: rotate(0deg); }
@@ -1308,7 +1310,8 @@
         // חלק רענון עמוק (videos.html) – מוחק cache ומרענן מהשרת | HYPER CORE TECH
         var deepRefreshBtn = document.getElementById('deepRefreshBtn');
         if (deepRefreshBtn) {
-          deepRefreshBtn.addEventListener('click', async function() {
+          // תמיכה בלחיצה ובמקש Enter
+          var handleDeepRefresh = async function() {
             if (deepRefreshBtn.classList.contains('is-refreshing')) return;
             
             deepRefreshBtn.classList.add('is-refreshing');
@@ -1357,6 +1360,14 @@
               console.error('[DEEP REFRESH] שגיאה:', err);
               deepRefreshBtn.classList.remove('is-refreshing');
               alert('שגיאה ברענון עמוק. נסה שוב.');
+            }
+          };
+          
+          deepRefreshBtn.addEventListener('click', handleDeepRefresh);
+          deepRefreshBtn.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleDeepRefresh();
             }
           });
         }
@@ -1422,6 +1433,10 @@
         <button id="guestLoginButton" class="button-primary" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;">
           התחבר / הירשם
         </button>
+        <!-- כפתור רענון עמוק - מוחק cache ומוריד קבצים מחדש | HYPER CORE TECH -->
+        <div class="deep-refresh-circle" id="deepRefreshBtn" title="רענון עמוק - מחיקת cache והורדה מחדש" role="button" tabindex="0">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </div>
         <div class="top-bar__profile" id="topBarProfile">
           <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
             <span id="topBarProfileAvatar">?</span>
