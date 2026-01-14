@@ -62,12 +62,36 @@
     return false;
   }
 
-  // חלק סגירת כל ה-overlays (navigation.js) – סוגר פרופיל אישי, ציבורי ומשחקים | HYPER CORE TECH
+  // חלק פאנל צ'אט (navigation.js) – פונקציה לסגירת פאנל ההודעות | HYPER CORE TECH
+  function closeChatPanel() {
+    const chatPanel = document.getElementById('chatPanel');
+    if (chatPanel && !chatPanel.hidden) {
+      chatPanel.hidden = true;
+      console.log('[NAV] Chat panel closed');
+      return true;
+    }
+    return false;
+  }
+
+  // חלק פאנל התראות (navigation.js) – פונקציה לסגירת פאנל ההתראות | HYPER CORE TECH
+  function closeNotificationsPanel() {
+    const notificationsPanel = document.getElementById('notificationsPanel');
+    if (notificationsPanel && !notificationsPanel.hidden) {
+      notificationsPanel.hidden = true;
+      console.log('[NAV] Notifications panel closed');
+      return true;
+    }
+    return false;
+  }
+
+  // חלק סגירת כל ה-overlays (navigation.js) – סוגר כל הפאנלים הפתוחים | HYPER CORE TECH
   function closeAllOverlays() {
     let closed = false;
     if (closeProfilePanel()) closed = true;
     if (closePublicProfilePanel()) closed = true;
     if (closeGamesPanel()) closed = true;
+    if (closeChatPanel()) closed = true;
+    if (closeNotificationsPanel()) closed = true;
     return closed;
   }
 
@@ -75,6 +99,8 @@
   App.closeProfilePanel = closeProfilePanel;
   App.closePublicProfilePanel = closePublicProfilePanel;
   App.closeGamesPanel = closeGamesPanel;
+  App.closeChatPanel = closeChatPanel;
+  App.closeNotificationsPanel = closeNotificationsPanel;
   App.closeAllOverlays = closeAllOverlays;
 
   function handleNavClick(event) {
