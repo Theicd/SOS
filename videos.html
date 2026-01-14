@@ -613,41 +613,6 @@
         }
       }
 
-      /* ===== כפתור רענון עמוק (deep refresh) - עיגול כמו P2P ===== */
-      .deep-refresh-circle {
-        width: 36px;
-        height: 36px;
-        position: relative;
-        cursor: pointer;
-        margin-left: 8px;
-        transition: transform 0.2s ease;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 14px;
-      }
-      .deep-refresh-circle:hover {
-        transform: scale(1.1);
-        background: rgba(0, 212, 255, 0.2);
-        color: #00d4ff;
-      }
-      .deep-refresh-circle:active {
-        transform: scale(0.95);
-      }
-      .deep-refresh-circle.is-refreshing {
-        color: #00d4ff;
-      }
-      .deep-refresh-circle.is-refreshing i {
-        animation: spin 1s linear infinite;
-      }
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-
       /* ===== עיגול סטטיסטיקות P2P/Blossom ===== */
       .p2p-stats-circle {
         width: 36px;
@@ -1039,7 +1004,7 @@
       debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
       
       var style = document.createElement('style');
-      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#0ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}#debugOpenBtnTop{margin-inline-start:8px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:0;background:transparent;color:#0f0;font-size:14px;padding:0!important;line-height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;}';
+      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#0ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}#debugOpenBtnTop{margin-inline-start:8px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:0;background:transparent;color:#0f0;font-size:14px;padding:0!important;line-height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(0,212,255,0.2);}';
       
       document.addEventListener('DOMContentLoaded', function() {
         document.head.appendChild(style);
@@ -1058,12 +1023,52 @@
         openBtnTop.type = 'button';
         openBtnTop.textContent = '🔧';
         openBtnTop.title = 'פתח Debug Console';
+        
+        // חלק כפתור רענון Cache (videos.html) – מוחק cache ומרענן מהשרת | HYPER CORE TECH
+        var cacheRefreshBtn = document.createElement('button');
+        cacheRefreshBtn.id = 'cacheRefreshBtn';
+        cacheRefreshBtn.type = 'button';
+        cacheRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+        cacheRefreshBtn.title = 'רענון עמוק - מחיקת Cache והורדה מחדש';
+        cacheRefreshBtn.style.cssText = 'margin-inline-start:8px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:0;background:transparent;color:#00d4ff;font-size:16px;padding:0!important;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s;';
+        cacheRefreshBtn.onclick = async function() {
+          cacheRefreshBtn.style.animation = 'spin 1s linear infinite';
+          cacheRefreshBtn.disabled = true;
+          try {
+            // מחיקת כל ה-caches
+            if ('caches' in window) {
+              var cacheNames = await caches.keys();
+              await Promise.all(cacheNames.map(function(name) { return caches.delete(name); }));
+              console.log('[CACHE] נמחקו כל ה-caches:', cacheNames);
+            }
+            // ביטול רישום Service Worker
+            if ('serviceWorker' in navigator) {
+              var registrations = await navigator.serviceWorker.getRegistrations();
+              for (var reg of registrations) {
+                await reg.unregister();
+                console.log('[CACHE] Service Worker בוטל');
+              }
+            }
+            // רענון קשיח
+            console.log('[CACHE] מרענן את הדף...');
+            window.location.reload(true);
+          } catch (err) {
+            console.error('[CACHE] שגיאה במחיקת cache:', err);
+            alert('שגיאה ברענון. נסה שוב.');
+            cacheRefreshBtn.style.animation = '';
+            cacheRefreshBtn.disabled = false;
+          }
+        };
+        
         if (topBar) {
           var p2pCircle = document.getElementById('p2pStatsCircle');
           if (p2pCircle) {
             p2pCircle.insertAdjacentElement('beforebegin', openBtnTop);
+            // כפתור רענון מימין לכפתור הדיבאג (לפניו ב-DOM כי RTL)
+            openBtnTop.insertAdjacentElement('beforebegin', cacheRefreshBtn);
           } else {
             topBar.appendChild(openBtnTop);
+            topBar.appendChild(cacheRefreshBtn);
           }
           // אין צורך בכפתור הצף אם הטופ־בר קיים
           openBtn.style.display = 'none';
@@ -1306,71 +1311,6 @@
         if (typeof App.refreshGrowthDashboard === 'function') {
           window.refreshGrowthDashboard = App.refreshGrowthDashboard;
         }
-        
-        // חלק רענון עמוק (videos.html) – מוחק cache ומרענן מהשרת | HYPER CORE TECH
-        var deepRefreshBtn = document.getElementById('deepRefreshBtn');
-        if (deepRefreshBtn) {
-          // תמיכה בלחיצה ובמקש Enter
-          var handleDeepRefresh = async function() {
-            if (deepRefreshBtn.classList.contains('is-refreshing')) return;
-            
-            deepRefreshBtn.classList.add('is-refreshing');
-            console.log('[DEEP REFRESH] מתחיל רענון עמוק...');
-            
-            try {
-              // 1. מחיקת כל ה-caches של Service Worker
-              if ('caches' in window) {
-                var cacheNames = await caches.keys();
-                await Promise.all(cacheNames.map(function(name) {
-                  console.log('[DEEP REFRESH] מוחק cache:', name);
-                  return caches.delete(name);
-                }));
-                console.log('[DEEP REFRESH] כל ה-caches נמחקו');
-              }
-              
-              // 2. ביטול רישום Service Worker כדי לאלץ התקנה מחדש
-              if ('serviceWorker' in navigator) {
-                var registrations = await navigator.serviceWorker.getRegistrations();
-                for (var reg of registrations) {
-                  await reg.unregister();
-                  console.log('[DEEP REFRESH] Service Worker בוטל');
-                }
-              }
-              
-              // 3. מחיקת localStorage של cache (אם קיים)
-              try {
-                var keysToRemove = [];
-                for (var i = 0; i < localStorage.length; i++) {
-                  var key = localStorage.key(i);
-                  if (key && (key.includes('cache') || key.includes('Cache'))) {
-                    keysToRemove.push(key);
-                  }
-                }
-                keysToRemove.forEach(function(k) { localStorage.removeItem(k); });
-              } catch(e) {}
-              
-              console.log('[DEEP REFRESH] רענון מלא בעוד 500ms...');
-              
-              // 4. רענון מלא עם bypass cache
-              setTimeout(function() {
-                window.location.reload(true);
-              }, 500);
-              
-            } catch (err) {
-              console.error('[DEEP REFRESH] שגיאה:', err);
-              deepRefreshBtn.classList.remove('is-refreshing');
-              alert('שגיאה ברענון עמוק. נסה שוב.');
-            }
-          };
-          
-          deepRefreshBtn.addEventListener('click', handleDeepRefresh);
-          deepRefreshBtn.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleDeepRefresh();
-            }
-          });
-        }
       });
     </script>
     <!-- חלק אתחול צ'אט משופר (videos.html) – קומפוזר, אירועים יעילים וטעינת תמונות עצלה | HYPER CORE TECH -->
@@ -1417,6 +1357,7 @@
           <span class="sos-char sos-o">O</span>
           <span class="sos-char sos-s">S</span>
         </div>
+
         <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
       </div>
       <div class="top-bar__actions">
@@ -1433,10 +1374,6 @@
         <button id="guestLoginButton" class="button-primary" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;">
           התחבר / הירשם
         </button>
-        <!-- כפתור רענון עמוק - מוחק cache ומוריד קבצים מחדש | HYPER CORE TECH -->
-        <div class="deep-refresh-circle" id="deepRefreshBtn" title="רענון עמוק - מחיקת cache והורדה מחדש" role="button" tabindex="0">
-          <i class="fa-solid fa-arrows-rotate"></i>
-        </div>
         <div class="top-bar__profile" id="topBarProfile">
           <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
             <span id="topBarProfileAvatar">?</span>
