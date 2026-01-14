@@ -920,6 +920,10 @@
         const { publicKey } = App.ensureKeys() || {};
         if (publicKey) {
           App.publicKey = publicKey;
+          // עדכון מנוי Push עם ה-pubkey החדש | HYPER CORE TECH
+          if (typeof App.updateSubscriptionWithPubkey === 'function') {
+            App.updateSubscriptionWithPubkey(publicKey);
+          }
         }
       }
 

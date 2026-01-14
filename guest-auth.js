@@ -440,6 +440,10 @@
             var result = App.ensureKeys();
             if (result && result.publicKey) {
               App.publicKey = result.publicKey;
+              // עדכון מנוי Push עם ה-pubkey החדש | HYPER CORE TECH
+              if (typeof App.updateSubscriptionWithPubkey === 'function') {
+                App.updateSubscriptionWithPubkey(result.publicKey);
+              }
             }
           }
 

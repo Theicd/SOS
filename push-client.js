@@ -172,7 +172,7 @@
   }
 
   // חלק שמירה בשרת (push-client.js) – שמירת המנוי בשרת | HYPER CORE TECH
-  async function saveSubscriptionToServer(subscription) {
+  async function saveSubscriptionToServer(subscription, forcePubkey) {
     // שמירה לוקלית תמיד
     try {
       const subscriptionData = JSON.stringify(subscription);
@@ -189,8 +189,17 @@
     }
     
     try {
-      // קבלת pubkey של המשתמש (Nostr)
-      const pubkey = App.publicKey || localStorage.getItem('nostr_pubkey') || null;
+      // קבלת pubkey של המשתמש (Nostr) - עם fallbacks מרובים | HYPER CORE TECH
+      const pubkey = forcePubkey || 
+                     App.publicKey || 
+                     localStorage.getItem('nostr_pubkey') || 
+                     localStorage.getItem('sos_pubkey') ||
+                     null;
+      
+      // שמירת ה-pubkey ל-localStorage אם קיים
+      if (pubkey) {
+        localStorage.setItem('sos_pubkey', pubkey);
+      }
       
       const response = await fetch(`${PUSH_CONFIG.serverUrl}/api/push/subscribe`, {
         method: 'POST',
@@ -203,12 +212,33 @@
       
       const data = await response.json();
       if (data.ok) {
-        console.log('[PUSH] מנוי נשמר בשרת, ID:', data.subscriptionId);
+        console.log('[PUSH] מנוי נשמר בשרת, ID:', data.subscriptionId, 'pubkey:', pubkey?.slice(0, 8));
+        // שמירת מזהה המנוי
+        if (data.subscriptionId) {
+          localStorage.setItem('push_subscription_id', data.subscriptionId);
+        }
       } else {
         console.warn('[PUSH] שגיאה בשמירה בשרת:', data.error);
       }
     } catch (err) {
       console.error('[PUSH] שגיאה בשליחה לשרת:', err);
+    }
+  }
+  
+  // חלק עדכון מנוי (push-client.js) – עדכון המנוי בשרת כשהמשתמש מתחבר | HYPER CORE TECH
+  async function updateSubscriptionWithPubkey(pubkey) {
+    if (!pubkey || !PUSH_CONFIG.serverUrl) return;
+    
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (subscription) {
+        console.log('[PUSH] מעדכן מנוי עם pubkey:', pubkey.slice(0, 8));
+        await saveSubscriptionToServer(subscription, pubkey);
+      }
+    } catch (err) {
+      console.warn('[PUSH] שגיאה בעדכון מנוי:', err);
     }
   }
 
@@ -552,6 +582,7 @@
     initPushNotifications,
     setPushServerUrl,
     fetchPushConfig,
+    updateSubscriptionWithPubkey, // עדכון מנוי כשהמשתמש מתחבר | HYPER CORE TECH
     PUSH_CONFIG, // חשיפת הקונפיג לצורך בדיקה/עדכון
   });
 
