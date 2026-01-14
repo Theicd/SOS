@@ -102,6 +102,7 @@ html, body {
   position: fixed;
   inset: 0;
   background: var(--games-bg);
+  z-index: 1;
 }
 
 .games-feed__viewport {
@@ -284,16 +285,16 @@ html, body {
   z-index: 50;
 }
 
-.game-card__play:hover {
+.games-play-btn:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 12px 40px var(--games-accent-glow);
 }
 
-.game-card__play:active {
+.games-play-btn:active {
   transform: translateY(0) scale(0.98);
 }
 
-.game-card__play i {
+.games-play-btn i {
   font-size: 20px;
 }
 
