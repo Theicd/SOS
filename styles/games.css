@@ -166,14 +166,14 @@ html, body {
   z-index: 2;
 }
 
-/* תוכן הכרטיסייה */
+/* תוכן הכרטיסייה - מועלה 50px מעל הכפתור | HYPER CORE TECH */
 .game-card__content {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   padding: 24px;
-  padding-bottom: calc(90px + var(--safe-bottom));
+  padding-bottom: calc(140px + var(--safe-bottom));
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -254,8 +254,13 @@ html, body {
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-/* כפתור הפעלה ראשי - קבוע בתחתית המסך | HYPER CORE TECH */
+/* כפתור הפעלה בכרטיסייה - מוסתר כי משתמשים בכפתור גלובלי | HYPER CORE TECH */
 .game-card__play {
+  display: none;
+}
+
+/* כפתור הפעלה גלובלי - קבוע בתחתית המסך | HYPER CORE TECH */
+.games-play-btn {
   position: fixed;
   bottom: calc(24px + var(--safe-bottom));
   left: 24px;
@@ -350,7 +355,7 @@ html, body {
 .games-indicator {
   position: fixed;
   left: 16px;
-  top: 50%;
+  top: 30%;
   transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
@@ -604,7 +609,7 @@ html, body {
   .game-card__content {
     max-width: 600px;
     padding: 40px;
-    padding-bottom: calc(80px + var(--safe-bottom));
+    padding-bottom: calc(140px + var(--safe-bottom));
   }
   
   .game-card__actions {
