@@ -805,6 +805,10 @@
     const targetState = typeof forceOpen === 'boolean' ? forceOpen : !state.isOpen;
     state.isOpen = targetState;
     if (state.isOpen) {
+      // עצירת וידאו בפתיחת פאנל הודעות | HYPER CORE TECH
+      if (typeof App.pauseAllFeedVideos === 'function') {
+        App.pauseAllFeedVideos();
+      }
       elements.panel.removeAttribute('hidden');
       elements.navButton?.setAttribute('aria-pressed', 'true');
       elements.launcherButton?.setAttribute('aria-expanded', 'true');

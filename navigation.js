@@ -178,6 +178,10 @@
           profileFrame.src = '';
           console.log('[NAV] Profile panel closed');
         } else {
+          // עצירת וידאו בפתיחת פרופיל אישי | HYPER CORE TECH
+          if (typeof App.pauseAllFeedVideos === 'function') {
+            App.pauseAllFeedVideos();
+          }
           // טעינת הפרופיל ב-iframe
           profileFrame.src = './profile.html?embedded=1';
           profilePanel.hidden = false;
@@ -215,6 +219,10 @@
           gamesFrame.src = '';
           console.log('[NAV] Games panel closed');
         } else {
+          // עצירת וידאו בפתיחת משחקים | HYPER CORE TECH
+          if (typeof App.pauseAllFeedVideos === 'function') {
+            App.pauseAllFeedVideos();
+          }
           gamesFrame.src = './games.html?embedded=1';
           gamesPanel.hidden = false;
           console.log('[NAV] Games panel opened');
@@ -258,6 +266,10 @@
     const gamesTopBtn = document.getElementById('gamesToggleTop');
     if (gamesTopBtn) {
       gamesTopBtn.addEventListener('click', () => {
+        // עצירת וידאו בפתיחת משחקים מהכפתור העליון | HYPER CORE TECH
+        if (typeof App.pauseAllFeedVideos === 'function') {
+          App.pauseAllFeedVideos();
+        }
         updateNavSelection('games');
         const gamesPanel = document.getElementById('gamesPanel');
         const gamesFrame = document.getElementById('gamesPanelFrame');

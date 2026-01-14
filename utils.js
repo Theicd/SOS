@@ -41,6 +41,10 @@
     const publicPanel = document.getElementById('publicProfilePanel');
     const publicFrame = document.getElementById('publicProfilePanelFrame');
     if (publicPanel && publicFrame) {
+      // עצירת וידאו בפתיחת פרופיל ציבורי | HYPER CORE TECH
+      if (typeof App.pauseAllFeedVideos === 'function') {
+        App.pauseAllFeedVideos();
+      }
       publicFrame.src = `./profile-viewer.html?pubkey=${encoded}&embedded=1`;
       publicPanel.hidden = false;
       console.log('[UTILS] Public profile opened as overlay:', normalized.slice(0, 8));

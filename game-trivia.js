@@ -512,6 +512,10 @@
 
   // חלק פתיחה – הצגת המודאל, נעילת גלילה ושליחת נוכחות
   function openOverlay() {
+    // עצירת וידאו בפתיחת משחק טריוויה | HYPER CORE TECH
+    if (typeof App.pauseAllFeedVideos === 'function') {
+      App.pauseAllFeedVideos();
+    }
     buildUI();
     if (!state.ui.overlay) return;
     state.ui.overlay.classList.add('is-open');
