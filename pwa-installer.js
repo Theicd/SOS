@@ -390,24 +390,31 @@
     const toast = document.createElement('div');
     toast.id = 'pwa-update-toast';
     toast.innerHTML = `
-      <div class="pwa-update-content">
+      <div class="pwa-update-icon">
         <i class="fa-solid fa-arrow-rotate-right"></i>
-        <span>גרסה חדשה זמינה!</span>
+      </div>
+      <div class="pwa-update-content">
+        <span class="pwa-update-title">גרסה חדשה זמינה!</span>
+        <span class="pwa-update-subtitle">עדכן כדי ליהנות משיפורים ותכונות חדשות</span>
       </div>
       <div class="pwa-update-actions">
         <button type="button" class="pwa-update-later">אח״כ</button>
-        <button type="button" class="pwa-update-now">עדכן עכשיו</button>
+        <button type="button" class="pwa-update-now">עדכן</button>
       </div>
     `;
     
-    toast.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:12px 16px;border-radius:12px;display:flex;align-items:center;gap:16px;z-index:100001;box-shadow:0 4px 20px rgba(0,0,0,0.4);direction:rtl;transition:transform 0.3s ease-out;max-width:90vw;`;
-    toast.querySelector('.pwa-update-content').style.cssText = 'display:flex;align-items:center;gap:10px;font-size:14px;';
-    toast.querySelector('.pwa-update-actions').style.cssText = 'display:flex;gap:8px;';
-    toast.querySelector('.pwa-update-later').style.cssText = 'background:transparent;border:1px solid rgba(255,255,255,0.3);color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;';
-    toast.querySelector('.pwa-update-now').style.cssText = 'background:#4a90d9;border:none;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;';
+    // עיצוב מותאם לממשק - רקע כהה עם accent בסגנון האפליקציה | HYPER CORE TECH
+    toast.style.cssText = `position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:16px;right:16px;transform:translateY(100px);background:linear-gradient(135deg,#0a0a1a 0%,#1a1a2e 50%,#16213e 100%);color:#fff;padding:16px;border-radius:16px;display:flex;align-items:center;gap:14px;z-index:100001;box-shadow:0 8px 32px rgba(0,0,0,0.6);direction:rtl;transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275);border:1px solid rgba(0,212,255,0.2);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);max-width:480px;margin:0 auto;`;
+    toast.querySelector('.pwa-update-icon').style.cssText = 'width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#00d4ff 0%,#00a8cc 100%);display:flex;align-items:center;justify-content:center;font-size:18px;color:#000;flex-shrink:0;';
+    toast.querySelector('.pwa-update-content').style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;';
+    toast.querySelector('.pwa-update-title').style.cssText = 'font-size:15px;font-weight:700;color:#fff;';
+    toast.querySelector('.pwa-update-subtitle').style.cssText = 'font-size:12px;color:rgba(255,255,255,0.6);';
+    toast.querySelector('.pwa-update-actions').style.cssText = 'display:flex;gap:8px;flex-shrink:0;';
+    toast.querySelector('.pwa-update-later').style.cssText = 'background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.8);padding:10px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;';
+    toast.querySelector('.pwa-update-now').style.cssText = 'background:linear-gradient(135deg,#00d4ff 0%,#00a8cc 100%);border:none;color:#000;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,212,255,0.3);';
     
     toast.querySelector('.pwa-update-later').onclick = () => {
-      toast.style.transform = 'translateX(-50%) translateY(100px)';
+      toast.style.transform = 'translateY(100px)';
       setTimeout(() => toast.remove(), 300);
     };
     

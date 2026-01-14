@@ -373,26 +373,29 @@
       </div>
     `;
     
-    // סגנונות inline
+    // סגנונות inline - עיצוב מותאם לממשק הכהה של האפליקציה | HYPER CORE TECH
     const style = document.createElement('style');
     style.textContent = `
-      #push-permission-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:12px}
-      .ppm-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5)}
-      .ppm-content{position:relative;background:#fff;border-radius:16px;padding:20px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.3);direction:rtl;text-align:center}
-      .ppm-icon{width:56px;height:56px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a2e,#4a90d9);color:#fff}
-      .ppm-icon--success{background:#22c55e;font-size:28px}
-      .ppm-icon--error{background:#ef4444;font-size:24px}
-      .ppm-content h3{margin:0 0 8px;font-size:18px;color:#1a1a2e}
-      .ppm-lead{color:#666;font-size:14px;margin:0 0 16px}
-      .ppm-bullets{list-style:none;padding:0;margin:0 0 20px;text-align:right}
-      .ppm-bullets li{padding:6px 0;font-size:13px;color:#444}
-      .ppm-actions{display:flex;gap:10px}
-      .ppm-btn{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:transform 0.1s}
+      #push-permission-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+      .ppm-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+      .ppm-content{position:relative;background:linear-gradient(135deg,#0a0a1a 0%,#1a1a2e 50%,#16213e 100%);border-radius:20px;padding:24px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);direction:rtl;text-align:center;border:1px solid rgba(0,212,255,0.15)}
+      .ppm-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00d4ff 0%,#00a8cc 100%);color:#000}
+      .ppm-icon--success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:32px}
+      .ppm-icon--error{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:28px}
+      .ppm-content h3{margin:0 0 8px;font-size:20px;font-weight:700;color:#fff}
+      .ppm-lead{color:rgba(255,255,255,0.7);font-size:14px;margin:0 0 20px}
+      .ppm-bullets{list-style:none;padding:0;margin:0 0 24px;text-align:right}
+      .ppm-bullets li{padding:8px 0;font-size:14px;color:rgba(255,255,255,0.85);border-bottom:1px solid rgba(255,255,255,0.08)}
+      .ppm-bullets li:last-child{border-bottom:none}
+      .ppm-actions{display:flex;gap:12px}
+      .ppm-btn{flex:1;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:none;transition:all 0.2s}
       .ppm-btn:active{transform:scale(0.97)}
-      .ppm-btn--later{background:#f1f5f9;color:#64748b}
-      .ppm-btn--enable{background:linear-gradient(135deg,#1a1a2e,#4a90d9);color:#fff}
-      .ppm-step p{font-size:14px;color:#333}
-      .ppm-error-msg{color:#ef4444}
+      .ppm-btn--later{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.2)}
+      .ppm-btn--later:hover{background:rgba(255,255,255,0.15)}
+      .ppm-btn--enable{background:linear-gradient(135deg,#00d4ff 0%,#00a8cc 100%);color:#000;font-weight:700;box-shadow:0 4px 16px rgba(0,212,255,0.3)}
+      .ppm-btn--enable:hover{box-shadow:0 6px 20px rgba(0,212,255,0.4)}
+      .ppm-step p{font-size:15px;color:#fff}
+      .ppm-error-msg{color:#f87171}
     `;
     document.head.appendChild(style);
     
@@ -436,12 +439,20 @@
         askStep.style.display = 'none';
         errorStep.style.display = 'block';
         
+        // הודעות שגיאה מפורטות יותר | HYPER CORE TECH
         if (result.error === 'denied') {
           errorMsg.textContent = 'ההרשאה נדחתה. ניתן לשנות בהגדרות הדפדפן';
         } else if (result.error === 'unsupported') {
           errorMsg.textContent = 'התראות לא נתמכות במכשיר זה';
+        } else if (result.error === 'missing_vapid_key') {
+          errorMsg.textContent = 'שגיאת הגדרות שרת. נסה שוב מאוחר יותר';
+        } else if (result.error && result.error.includes('ServiceWorker')) {
+          errorMsg.textContent = 'שגיאת Service Worker. נסה לרענן את הדף';
+        } else if (result.error && result.error.includes('network')) {
+          errorMsg.textContent = 'שגיאת רשת. בדוק את החיבור לאינטרנט';
         } else {
           errorMsg.textContent = 'שגיאה בהפעלת התראות. נסה שוב מאוחר יותר';
+          console.error('[PUSH] שגיאה לא מזוהה:', result.error);
         }
         
         localStorage.setItem('push_modal_dismissed', Date.now().toString());
