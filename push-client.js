@@ -107,8 +107,11 @@
 
   // חלק המרת מפתח (push-client.js) – המרת מפתח VAPID לפורמט נכון | HYPER CORE TECH
   function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
+    // ניקוי המחרוזת מתווים מיותרים (רווחים, שורות חדשות) | HYPER CORE TECH
+    const cleanedString = base64String.trim().replace(/[\r\n\s]/g, '');
+    
+    const padding = '='.repeat((4 - cleanedString.length % 4) % 4);
+    const base64 = (cleanedString + padding)
       .replace(/-/g, '+')
       .replace(/_/g, '/');
     
@@ -143,7 +146,9 @@
       let subscription = await registration.pushManager.getSubscription();
       
       if (subscription) {
-        console.log('[PUSH] כבר רשום למנוי Push');
+        console.log('[PUSH] ✅ כבר רשום למנוי Push - שולח לשרת');
+        // וודא שהמנוי נשמר בשרת עם ה-pubkey | HYPER CORE TECH
+        await saveSubscriptionToServer(subscription);
         return { success: true, subscription, existing: true };
       }
       
@@ -154,19 +159,55 @@
         return { success: false, error: 'missing_vapid_key' };
       }
       
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      // ניסיון רישום עם retry במקרה של שגיאה זמנית | HYPER CORE TECH
+      const maxRetries = 3;
+      let lastError = null;
       
-      console.log('[PUSH] נרשם למנוי Push בהצלחה');
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+          });
+          
+          console.log('[PUSH] ✅ נרשם למנוי Push בהצלחה');
+          
+          // שמירת המנוי בשרת (אם יש API)
+          await saveSubscriptionToServer(subscription);
+          
+          return { success: true, subscription, existing: false };
+        } catch (subscribeErr) {
+          lastError = subscribeErr;
+          console.warn(`[PUSH] ניסיון ${attempt}/${maxRetries} נכשל:`, subscribeErr.message);
+          
+          // אם זו שגיאה זמנית - ננסה שוב
+          if (subscribeErr.name === 'AbortError' && attempt < maxRetries) {
+            console.log(`[PUSH] ממתין 2 שניות לפני ניסיון נוסף...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            break;
+          }
+        }
+      }
       
-      // שמירת המנוי בשרת (אם יש API)
-      await saveSubscriptionToServer(subscription);
+      console.error('[PUSH] ❌ שגיאה ברישום Push אחרי כל הניסיונות:', lastError);
       
-      return { success: true, subscription, existing: false };
+      // Fallback: ניסיון לשחזר מנוי מ-localStorage | HYPER CORE TECH
+      try {
+        const savedSub = localStorage.getItem('push_subscription');
+        if (savedSub) {
+          const parsedSub = JSON.parse(savedSub);
+          console.log('[PUSH] 🔄 משחזר מנוי שמור מ-localStorage');
+          await saveSubscriptionToServer(parsedSub);
+          return { success: true, subscription: parsedSub, existing: true, restored: true };
+        }
+      } catch (restoreErr) {
+        console.warn('[PUSH] לא ניתן לשחזר מנוי:', restoreErr);
+      }
+      
+      return { success: false, error: lastError?.message || 'unknown' };
     } catch (err) {
-      console.error('[PUSH] שגיאה ברישום Push:', err);
+      console.error('[PUSH] ❌ שגיאה ברישום Push:', err);
       return { success: false, error: err.message };
     }
   }
