@@ -520,17 +520,22 @@
       }
     }
     
-    // הצגת מודאל בקשת הרשאה (אחרי השהייה) - רק למשתמש מחובר
+    // הצגת מודאל בקשת הרשאה (אחרי השהייה) | HYPER CORE TECH
     setTimeout(() => {
       // בדיקה נוספת - וודא שלא נרשמו בינתיים
-      if (localStorage.getItem('push_subscribed') === 'true') return;
-      if (Notification.permission !== 'default') return;
-      
-      // רק אם המשתמש מחובר
-      if (App.publicKey || App.isLoggedIn) {
-        showPushPermissionModal();
+      if (localStorage.getItem('push_subscribed') === 'true') {
+        console.log('[PUSH] כבר רשום - לא מציג מודאל');
+        return;
       }
-    }, 10000); // 10 שניות אחרי טעינת הדף
+      if (Notification.permission !== 'default') {
+        console.log('[PUSH] הרשאה כבר נקבעה:', Notification.permission);
+        return;
+      }
+      
+      // הצגת המודאל גם למשתמשים לא מחוברים (אורחים) | HYPER CORE TECH
+      console.log('[PUSH] מציג מודאל הרשאות');
+      showPushPermissionModal();
+    }, 8000); // 8 שניות אחרי טעינת הדף
   }
 
   // חשיפת API ציבורי
