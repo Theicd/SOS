@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v15'; // bump version כדי לאלץ רענון בקלאיינטים קיימים
+  const CACHE_NAME = 'sos-cache-v16'; // bump version כדי לאלץ רענון בקלאיינטים קיימים
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -417,10 +417,12 @@
     });
   }
 
+  // חלק Notification Click (service-worker.js) – טיפול בלחיצה על התראות מכל הסוגים | HYPER CORE TECH
   self.addEventListener('notificationclick', (event) => {
     const notification = event.notification;
+    const action = event.action || 'open'; // 'open', 'dismiss', או ריק
     const data = notification && notification.data ? notification.data : {};
-    const type = data.type || '';
+    const type = data.type || 'general';
     const peerPubkey = data.peerPubkey || null;
     const url = data.url || './';
 
@@ -428,23 +430,34 @@
       notification.close();
     } catch {}
 
-    // חלק Service Worker – תומך גם בשיחות קול (voice), וידאו (video) וגם הודעות טקסט | HYPER CORE TECH
-    const isVoice = type === 'voice-call-incoming';
-    const isVideo = type === 'video-call-incoming';
-    const isChat = type === 'chat-message';
-    if (!isVoice && !isVideo && !isChat) return;
+    // אם המשתמש לחץ על "סגור" - לא עושים כלום
+    if (action === 'dismiss') return;
 
     event.waitUntil((async () => {
+      // בניית הודעה לקליינט לפי סוג ההתראה | HYPER CORE TECH
+      let messageType = 'notification-action';
+      
+      if (type === 'voice-call-incoming') {
+        messageType = 'voice-call-notification-action';
+      } else if (type === 'video-call-incoming') {
+        messageType = 'video-call-notification-action';
+      } else if (type === 'chat-message') {
+        messageType = 'chat-message-notification-action';
+      } else if (type === 'missed-call') {
+        messageType = 'missed-call-notification-action';
+      } else if (type === 'app-update') {
+        messageType = 'app-update-notification-action';
+      }
+
       const message = {
-        type: isVoice
-          ? 'voice-call-notification-action'
-          : isVideo
-            ? 'video-call-notification-action'
-            : 'chat-message-notification-action',
+        type: messageType,
         action: 'open',
-        peerPubkey
+        peerPubkey,
+        notificationType: type,
+        url
       };
 
+      // פתיחת/פוקוס על חלון ושליחת הודעה | HYPER CORE TECH
       const client = await focusOrOpenClient(url);
       if (client) {
         try {

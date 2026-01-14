@@ -3,8 +3,14 @@
 (function initPushTrigger(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
-  // חלק הגדרות (push-trigger.js) – כתובת שרת Push | HYPER CORE TECH
-  const PUSH_SERVER_URL = 'https://sos-push-server.vercel.app';
+  // חלק הגדרות (push-trigger.js) – כתובת שרת Push (מסונכרן עם push-client.js) | HYPER CORE TECH
+  const getPushServerUrl = () => {
+    // קודם מנסה מ-localStorage (מסונכרן עם push-client.js)
+    const savedUrl = localStorage.getItem('push_server_url');
+    if (savedUrl) return savedUrl;
+    // fallback לברירת מחדל
+    return 'https://sos-push-server.vercel.app';
+  };
   const DEFAULT_ICON = './icons/sos-logo.jpg';
 
   // חלק קאש אנשי קשר (push-trigger.js) – קבלת מידע על איש קשר מקאש | HYPER CORE TECH
@@ -113,7 +119,7 @@
     console.log('[PUSH-TRIGGER] שולח Push לשרת:', targetPubkey.slice(0, 8), payload.type);
     
     try {
-      const response = await fetch(`${PUSH_SERVER_URL}/api/push/send`, {
+      const response = await fetch(`${getPushServerUrl()}/api/push/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pubkey: targetPubkey, payload }),
