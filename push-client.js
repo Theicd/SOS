@@ -145,11 +145,20 @@
       // בדיקת מנוי קיים
       let subscription = await registration.pushManager.getSubscription();
       
+      // חלק ניקוי מנוי ישן (push-client.js) – אם יש מנוי אבל הוא לא עובד, מנקים | HYPER CORE TECH
       if (subscription) {
-        console.log('[PUSH] ✅ כבר רשום למנוי Push - שולח לשרת');
-        // וודא שהמנוי נשמר בשרת עם ה-pubkey | HYPER CORE TECH
-        await saveSubscriptionToServer(subscription);
-        return { success: true, subscription, existing: true };
+        // בדיקה אם המנוי עדיין תקף על ידי בדיקת expirationTime
+        const isExpired = subscription.expirationTime && subscription.expirationTime < Date.now();
+        if (isExpired) {
+          console.log('[PUSH] ⚠️ מנוי פג תוקף - מבטל ומנסה מחדש');
+          await subscription.unsubscribe();
+          subscription = null;
+        } else {
+          console.log('[PUSH] ✅ כבר רשום למנוי Push - שולח לשרת');
+          // וודא שהמנוי נשמר בשרת עם ה-pubkey | HYPER CORE TECH
+          await saveSubscriptionToServer(subscription);
+          return { success: true, subscription, existing: true };
+        }
       }
       
       // יצירת מנוי חדש
@@ -165,6 +174,16 @@
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+          // חלק ניקוי לפני רישום (push-client.js) – מנקה מנוי ישן אם יש שגיאה | HYPER CORE TECH
+          if (attempt > 1) {
+            // אם זה לא הניסיון הראשון, ננסה לנקות מנוי ישן
+            const oldSub = await registration.pushManager.getSubscription();
+            if (oldSub) {
+              console.log('[PUSH] 🧹 מנקה מנוי ישן לפני ניסיון חדש...');
+              await oldSub.unsubscribe();
+            }
+          }
+          
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -180,8 +199,10 @@
           lastError = subscribeErr;
           console.warn(`[PUSH] ניסיון ${attempt}/${maxRetries} נכשל:`, subscribeErr.message);
           
-          // אם זו שגיאה זמנית - ננסה שוב
-          if (subscribeErr.name === 'AbortError' && attempt < maxRetries) {
+          // אם זו שגיאה זמנית או push service error - ננסה שוב אחרי ניקוי | HYPER CORE TECH
+          const isRetryableError = subscribeErr.name === 'AbortError' || 
+                                   subscribeErr.message?.includes('push service');
+          if (isRetryableError && attempt < maxRetries) {
             console.log(`[PUSH] ממתין 2 שניות לפני ניסיון נוסף...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
           } else {
@@ -328,6 +349,47 @@
       return !!subscription;
     } catch (err) {
       return false;
+    }
+  }
+
+  // חלק ניקוי ורישום מחדש (push-client.js) – פונקציה לניקוי מלא ורישום מחדש | HYPER CORE TECH
+  async function resetAndResubscribe() {
+    console.log('[PUSH] 🔄 מתחיל תהליך ניקוי ורישום מחדש...');
+    
+    try {
+      // 1. ניקוי localStorage
+      localStorage.removeItem('push_subscription');
+      localStorage.removeItem('push_subscribed');
+      localStorage.removeItem('push_subscription_id');
+      localStorage.removeItem('push_modal_dismissed');
+      
+      // 2. ביטול מנוי קיים
+      if (isPushSupported()) {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          console.log('[PUSH] ✅ מנוי ישן בוטל');
+        }
+      }
+      
+      // 3. קבלת מפתח VAPID חדש מהשרת
+      await fetchPushConfig();
+      
+      // 4. רישום מחדש
+      const result = await subscribeToPush();
+      
+      if (result.success) {
+        console.log('[PUSH] ✅ רישום מחדש הצליח!');
+        localStorage.setItem('push_subscribed', 'true');
+      } else {
+        console.error('[PUSH] ❌ רישום מחדש נכשל:', result.error);
+      }
+      
+      return result;
+    } catch (err) {
+      console.error('[PUSH] ❌ שגיאה בניקוי ורישום מחדש:', err);
+      return { success: false, error: err.message };
     }
   }
 
@@ -646,6 +708,7 @@
     setPushServerUrl,
     fetchPushConfig,
     updateSubscriptionWithPubkey, // עדכון מנוי כשהמשתמש מתחבר | HYPER CORE TECH
+    resetAndResubscribe, // ניקוי ורישום מחדש - לפתרון בעיות | HYPER CORE TECH
     PUSH_CONFIG, // חשיפת הקונפיג לצורך בדיקה/עדכון
   });
 
