@@ -62,7 +62,7 @@
   }
 
   .profile-cover {
-    padding: 20px;
+    padding: 20px 20px 0;
   }
 
   /* חלק תמונת נושא (profile.css) – במובייל הבאנר נמתח מקצה לקצה לרוחב המסך */
@@ -805,6 +805,22 @@
 
 .profile-cover__stat-box:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* חלק כרטיס סטטיסטיקה לחיץ (profile.css) – עיצוב כפתור עם אפקט לחיצה | HYPER CORE TECH */
+.profile-cover__stat-box--clickable {
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.profile-cover__stat-box--clickable:hover {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.profile-cover__stat-box--clickable:active {
+  transform: scale(0.95);
 }
 
 .profile-cover__stat-value {
@@ -1851,7 +1867,7 @@
   }
 
   .profile-mobile-tabs {
-    display: flex;
+    display: none;
     gap: 0;
     margin: 0 !important;
     padding: 0 !important;
@@ -1899,6 +1915,13 @@
   [data-profile-panel="posts"].is-active,
   .profile-timeline.profile-timeline--replies.is-active {
     display: block;
+  }
+}
+
+/* חלק טאבים מובייל (profile.css) – הצגת תפריט אודות/פוסטים רק במובייל לאורך */
+@media (max-width: 900px) and (orientation: portrait) {
+  .profile-mobile-tabs {
+    display: flex;
   }
 }
 
@@ -2011,6 +2034,10 @@
 @media (max-width: 900px) {
   .profile-timeline__header {
     display: none !important;
+  }
+
+  .profile-timeline .profile-timeline__list > li {
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
   }
 }
 
@@ -2319,11 +2346,10 @@
 
 /* תפריט עם 2 כפתורים גדולים */
 .profile-mobile-tabs--dual {
-  display: flex !important;
   gap: 0 !important;
   justify-content: center !important;
   padding: 0 !important;
-  margin: 8px 0 !important;
+  margin: 0 !important;
   overflow: hidden !important;
   min-height: 44px !important;
   max-height: 44px !important;
