@@ -60,6 +60,10 @@
     likesCount: document.getElementById('profileLikesCount'),
     followersList: document.getElementById('profileFollowersList'),
     followersStatus: document.getElementById('profileFollowersStatus'),
+    followingCard: document.getElementById('profileFollowingCard'),
+    followingCountLabel: document.getElementById('profileFollowingCountLabel'),
+    followingList: document.getElementById('profileFollowingList'),
+    followingStatus: document.getElementById('profileFollowingStatus'),
     repliesCard: document.getElementById('profileRepliesCard'),
     repliesToggle: document.getElementById('profileRepliesToggle'),
     repliesCountLabel: document.getElementById('profileRepliesCountLabel'),
@@ -306,6 +310,22 @@
     renderFollowersList();
   }
 
+  // חלק עזר נעקבים (profile-view.js) – מסנכרן ספירת נעקבים בלי לדרוס מספר גדול יותר | HYPER CORE TECH
+  function readCountValue(target) {
+    const parsed = Number.parseInt((target?.textContent || '').trim(), 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  // חלק עזר נעקבים (profile-view.js) – עדכון שני המונים (כותרת וכרטיס) לפי הערך המקסימלי | HYPER CORE TECH
+  function syncFollowingCountFromFollowingSet() {
+    const followingSize = App.followingSet ? App.followingSet.size : 0;
+    const currentTop = readCountValue(refs.followingCount);
+    const currentLabel = readCountValue(refs.followingCountLabel);
+    const next = Math.max(followingSize, currentTop, currentLabel);
+    if (refs.followingCount) refs.followingCount.textContent = next.toString();
+    if (refs.followingCountLabel) refs.followingCountLabel.textContent = next.toString();
+  }
+
   // חלק עוקבים (profile-view.js) – מציג את כמות העוקבים בפרופיל האישי וגם נעקבים ולייקים
   function renderFollowersSummary() {
     const count = Array.isArray(followState.snapshot) ? followState.snapshot.length : 0;
@@ -315,6 +335,9 @@
     if (refs.followersSummaryCount) {
       refs.followersSummaryCount.textContent = count.toString();
     }
+    
+    // חלק נעקבים (profile-view.js) – עדכון מספר הנעקבים מ-followingSet | HYPER CORE TECH
+    syncFollowingCountFromFollowingSet();
   }
 
   // חלק עוקבים (profile-view.js) – מציג את רשימת העוקבים בתוך הכרטיס הצדדי
@@ -379,6 +402,69 @@
         coverList.appendChild(coverItem);
         coverRendered += 1;
       }
+    });
+  }
+
+  // חלק נעקבים (profile-view.js) – מציג את רשימת הנעקבים (מי שאני עוקב אחריהם) | HYPER CORE TECH
+  async function renderFollowingList(pubkeysList) {
+    if (!refs.followingList) return;
+    
+    refs.followingList.innerHTML = '';
+    
+    // קבלת רשימת הנעקבים - מהפרמטר או מ-followingSet | HYPER CORE TECH
+    const followingPubkeys = Array.isArray(pubkeysList) && pubkeysList.length > 0 
+      ? pubkeysList 
+      : (App.followingSet ? Array.from(App.followingSet) : []);
+    
+    if (followingPubkeys.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'profile-followers__empty';
+      empty.textContent = 'עוד אין נעקבים להצגה.';
+      refs.followingList.appendChild(empty);
+      return;
+    }
+    
+    const escapeHtml = typeof App.escapeHtml === 'function' ? App.escapeHtml : (value) => value;
+    
+    // טעינת פרופילים לכל הנעקבים
+    const followingWithProfiles = [];
+    for (const pubkey of followingPubkeys.slice(0, 20)) {
+      let profile = App.profileCache instanceof Map ? App.profileCache.get(pubkey) : null;
+      
+      // ניסיון לטעון פרופיל אם לא קיים בקאש
+      if (!profile && typeof App.fetchProfile === 'function') {
+        try {
+          profile = await App.fetchProfile(pubkey);
+        } catch (err) {
+          // ממשיכים גם אם נכשל
+        }
+      }
+      
+      followingWithProfiles.push({ pubkey, profile });
+    }
+    
+    // רינדור הרשימה
+    followingWithProfiles.forEach(({ pubkey, profile }) => {
+      const fallbackName = pubkey ? `משתמש ${pubkey.slice(0, 8)}` : 'משתמש אנונימי';
+      const name = profile?.name || profile?.display_name || fallbackName;
+      const picture = profile?.picture || '';
+      const initialsSource = profile?.initials || (typeof App.getInitials === 'function' ? App.getInitials(name) : pubkey.slice(0, 2));
+      const initials = initialsSource ? initialsSource.toString().slice(0, 2).toUpperCase() : 'AN';
+      const safeName = escapeHtml(name);
+      const safePicture = picture ? escapeHtml(picture) : '';
+      const safeInitials = escapeHtml(initials);
+      const attrName = safeName.replace(/"/g, '&quot;');
+      const attrPicture = safePicture.replace(/"/g, '&quot;');
+      
+      const li = document.createElement('li');
+      li.className = 'profile-followers__item';
+      li.innerHTML = `
+        <button class="profile-followers__avatar" type="button" data-profile-link="${pubkey}" data-profile-name="${attrName}" data-profile-picture="${attrPicture}">
+          ${safePicture ? `<img src="${safePicture}" alt="${safeName}">` : `<span>${safeInitials}</span>`}
+        </button>
+        <span class="profile-followers__name">${safeName}</span>
+      `;
+      refs.followingList.appendChild(li);
     });
   }
 
@@ -449,6 +535,112 @@
           console.warn('Profile view: follower enrichment failed', err);
         });
     });
+    
+    // חלק שליפה ישירה (profile-view.js) – גיבוי לשליפת עוקבים ישירה מריליים | HYPER CORE TECH
+    fetchFollowersDirectFromRelays(App.publicKey);
+  }
+  
+  // חלק שליפת עוקבים ישירה (profile-view.js) – שליפה ישירה מריליים לספירה מדויקת | HYPER CORE TECH
+  async function fetchFollowersDirectFromRelays(pubkey) {
+    if (!pubkey) return;
+    const FOLLOW_KIND = App.FOLLOW_KIND || 40010;
+    const relays = App.relayUrls || ['wss://relay.damus.io', 'wss://nos.lol'];
+    const seen = new Set();
+    
+    try {
+      const filter = { kinds: [FOLLOW_KIND], '#p': [pubkey], limit: 200 };
+      if (App.NETWORK_TAG) filter['#t'] = [App.NETWORK_TAG];
+      
+      if (App.pool && typeof App.pool.querySync === 'function') {
+        const events = await App.pool.querySync(relays, filter);
+        if (Array.isArray(events)) {
+          events.forEach(event => {
+            if (!event.pubkey || seen.has(event.pubkey)) return;
+            let action = 'follow';
+            try {
+              const content = JSON.parse(event.content || '{}');
+              if (content.action === 'unfollow' || content.type === 'unfollow') action = 'unfollow';
+            } catch {}
+            if (action === 'follow') seen.add(event.pubkey);
+          });
+        }
+      } else if (App.pool && typeof App.pool.list === 'function') {
+        const events = await App.pool.list(relays, [filter]);
+        if (Array.isArray(events)) {
+          events.forEach(event => {
+            if (!event.pubkey || seen.has(event.pubkey)) return;
+            let action = 'follow';
+            try {
+              const content = JSON.parse(event.content || '{}');
+              if (content.action === 'unfollow' || content.type === 'unfollow') action = 'unfollow';
+            } catch {}
+            if (action === 'follow') seen.add(event.pubkey);
+          });
+        }
+      }
+      
+      // עדכון הספירה אם יש יותר תוצאות מהשליפה הישירה
+      if (seen.size > followState.snapshot.length) {
+        console.log('[PROFILE] עוקבים משליפה ישירה:', seen.size);
+        if (refs.followersCount) refs.followersCount.textContent = seen.size.toString();
+        if (refs.followersSummaryCount) refs.followersSummaryCount.textContent = seen.size.toString();
+      }
+      
+      // שליפת נעקבים ישירה גם כן | HYPER CORE TECH
+      await fetchFollowingDirectFromRelays(pubkey);
+    } catch (err) {
+      console.warn('Profile view: direct followers fetch failed', err);
+    }
+  }
+  
+  // חלק שליפת נעקבים ישירה (profile-view.js) – שליפה ישירה מריליים לספירה מדויקת | HYPER CORE TECH
+  async function fetchFollowingDirectFromRelays(pubkey) {
+    if (!pubkey) return;
+    const FOLLOW_KIND = App.FOLLOW_KIND || 40010;
+    const relays = App.relayUrls || ['wss://relay.damus.io', 'wss://nos.lol'];
+    const seen = new Set();
+    
+    try {
+      // שליפת כל אירועי Follow שהמשתמש יצר (מי שהוא עוקב אחריו)
+      const filter = { kinds: [FOLLOW_KIND], authors: [pubkey], limit: 200 };
+      if (App.NETWORK_TAG) filter['#t'] = [App.NETWORK_TAG];
+      
+      let events = [];
+      if (App.pool && typeof App.pool.querySync === 'function') {
+        events = await App.pool.querySync(relays, filter);
+      } else if (App.pool && typeof App.pool.list === 'function') {
+        events = await App.pool.list(relays, [filter]);
+      }
+      
+      if (Array.isArray(events)) {
+        events.forEach(event => {
+          const pTag = event.tags?.find(t => t[0] === 'p');
+          if (!pTag || !pTag[1]) return;
+          const followPubkey = pTag[1];
+          if (seen.has(followPubkey)) return;
+          
+          let action = 'follow';
+          try {
+            const content = JSON.parse(event.content || '{}');
+            if (content.action === 'unfollow' || content.type === 'unfollow') action = 'unfollow';
+          } catch {}
+          if (action === 'follow') seen.add(followPubkey);
+        });
+      }
+      
+      // עדכון הספירה - תמיד לקחת את המקסימום | HYPER CORE TECH
+      const currentFollowingCount = App.followingSet ? App.followingSet.size : 0;
+      const finalCount = Math.max(seen.size, currentFollowingCount);
+      console.log('[PROFILE] נעקבים - שליפה ישירה:', seen.size, 'followingSet:', currentFollowingCount, 'סופי:', finalCount);
+      if (refs.followingCount) refs.followingCount.textContent = finalCount.toString();
+      if (refs.followingCountLabel) refs.followingCountLabel.textContent = finalCount.toString();
+      
+      // רינדור רשימת הנעקבים עם הנתונים מהשליפה הישירה | HYPER CORE TECH
+      const followingPubkeys = seen.size > 0 ? Array.from(seen) : (App.followingSet ? Array.from(App.followingSet) : []);
+      await renderFollowingList(followingPubkeys);
+    } catch (err) {
+      console.warn('Profile view: direct following fetch failed', err);
+    }
   }
 
   // חלק חיבור לדפדפן הקיים (profile-view.js) – עוטף את renderProfile הקודם ומעדכן דף זה
@@ -1203,9 +1395,7 @@
     });
 
     attachClicks(['profileRefreshPosts'], loadOwnPosts);
-    attachClicks(['profileQuickCompose'], () => {
-      window.location.href = 'index.html#compose';
-    });
+    
     bindTopMenu();
     bindHeaderShortcuts();
     bindRepliesToggle();
@@ -1232,6 +1422,10 @@
     bindButtons();
     initActivityChart();
     loadOwnPosts();
+    
+    // חלק עדכון נעקבים (profile-view.js) – עדכון מספר הנעקבים אחרי טעינת follow-service | HYPER CORE TECH
+    setTimeout(syncFollowingCountFromFollowingSet, 1000);
+    setTimeout(syncFollowingCountFromFollowingSet, 3000);
   }
 
   if (document.readyState === 'loading') {

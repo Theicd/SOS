@@ -51,6 +51,63 @@
   // הרצת ניקוי בהתחלה
   cleanupLocalStorage();
 
+  // חלק כפתורי עוקבים (profile.js) – גלילה לאזור העוקבים/נעקבים בלחיצה על כרטיסיות הסטטיסטיקה | HYPER CORE TECH
+  let followersButtonsBound = false;
+  function bindFollowersButtons() {
+    if (followersButtonsBound) return;
+    
+    const followersBtn = document.getElementById('profileFollowersBtn');
+    const followingBtn = document.getElementById('profileFollowingBtn');
+    
+    // פונקציית גלילה לאזור העוקבים - כמו כפתור הסטטיסטיקה | HYPER CORE TECH
+    const scrollToFollowers = (e) => {
+      e.stopPropagation();
+      // מעבר לטאב אודות
+      if (typeof activateMobileTab === 'function') {
+        activateMobileTab('about');
+      } else {
+        const aboutTab = document.querySelector('[data-profile-tab="about"]');
+        if (aboutTab) aboutTab.click();
+      }
+      // גלילה לאזור העוקבים
+      setTimeout(() => {
+        const followersCard = document.getElementById('profileFollowersCard');
+        if (followersCard) {
+          followersCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    };
+    
+    // פונקציית גלילה לאזור הנעקבים | HYPER CORE TECH
+    const scrollToFollowing = (e) => {
+      e.stopPropagation();
+      // מעבר לטאב אודות
+      if (typeof activateMobileTab === 'function') {
+        activateMobileTab('about');
+      } else {
+        const aboutTab = document.querySelector('[data-profile-tab="about"]');
+        if (aboutTab) aboutTab.click();
+      }
+      // גלילה לאזור הנעקבים
+      setTimeout(() => {
+        const followingCard = document.getElementById('profileFollowingCard');
+        if (followingCard) {
+          followingCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    };
+    
+    if (followersBtn) {
+      followersBtn.addEventListener('click', scrollToFollowers);
+    }
+    
+    if (followingBtn) {
+      followingBtn.addEventListener('click', scrollToFollowing);
+    }
+    
+    followersButtonsBound = true;
+  }
+
   let profileCoverClickBound = false;
   function bindProfileCoverClick() {
     if (profileCoverClickBound) {
@@ -1853,6 +1910,9 @@
 
   // קישור מאזינים לכפתורי מחיקה עם הטעינה
   bindDeleteButtons();
+  
+  // חלק אתחול כפתורי עוקבים (profile.js) – קריאה לפונקציה בטעינת הדף | HYPER CORE TECH
+  bindFollowersButtons();
 
   // חלק חשיפת פונקציות (profile.js) – מבטיח שגם בדפי פרופיל ללא טעינת app.js המקורי נוכל לפתוח/לסגור את המודל כמו בדף הבית
   if (typeof window.openProfileSettings !== 'function') {

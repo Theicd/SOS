@@ -177,16 +177,16 @@
                   <p class="profile-cover__bio" id="profilePageBio">מעדכנים את תיאור הפרופיל...</p>
                 </div>
 
-                <!-- חלק סטטיסטיקה (profile.html) – עוקבים, נעקבים, לייקים בשלוש תיבות צפופות | HYPER CORE TECH -->
+                <!-- חלק סטטיסטיקה (profile.html) – עוקבים, נעקבים, לייקים בשלוש תיבות לחיצות | HYPER CORE TECH -->
                 <div class="profile-cover__stats-row">
-                  <div class="profile-cover__stat-box">
+                  <button type="button" class="profile-cover__stat-box profile-cover__stat-box--clickable" id="profileFollowersBtn" aria-label="פתיחת רשימת עוקבים">
                     <span class="profile-cover__stat-value" id="profileFollowersCount">0</span>
                     <span class="profile-cover__stat-label">עוקבים</span>
-                  </div>
-                  <div class="profile-cover__stat-box">
+                  </button>
+                  <button type="button" class="profile-cover__stat-box profile-cover__stat-box--clickable" id="profileFollowingBtn" aria-label="פתיחת רשימת נעקבים">
                     <span class="profile-cover__stat-value" id="profileFollowingCount">0</span>
                     <span class="profile-cover__stat-label">נעקבים</span>
-                  </div>
+                  </button>
                   <div class="profile-cover__stat-box">
                     <span class="profile-cover__stat-value" id="profileLikesCount">0</span>
                     <span class="profile-cover__stat-label">לייקים</span>
@@ -206,9 +206,6 @@
                 סטטיסטיקה
               </button>
             </div>
-            
-            <!-- חלק עוקבים (profile.html) – רשימת אווטרים קטנה של עוקבים אחרונים -->
-            <ul class="profile-cover__followers" id="profileCoverFollowers" aria-label="עוקבים אחרונים"></ul>
           </div>
         </div>
       </section>
@@ -260,7 +257,7 @@
           </section>
 
           <!-- חלק גלריית פרופיל (profile.html) – מציג ומנהל תמונות נוספות של המשתמש -->
-          <section class="profile-card profile-card--gallery" data-profile-panel="gallery" id="profileGalleryPanel">
+          <section class="profile-card profile-card--gallery" data-profile-panel="gallery" id="profileGalleryPanel" hidden>
             <h2 class="profile-card__title">גלריה</h2>
             <div class="profile-gallery__uploader" id="profileGalleryDropZone">
               <input id="profileGalleryFileInput" type="file" accept="image/*,video/*" multiple hidden />
@@ -378,14 +375,14 @@
             <div class="profile-status" id="profileFollowersStatus"></div>
           </section>
 
-          <section class="profile-card" data-profile-panel="about">
-            <h2 class="profile-card__title">קישורים מהירים</h2>
-            <div class="profile-quick-links">
-              <button class="profile-secondary-button profile-quick-links__button" id="profileQuickCompose">
-                <i class="fa-solid fa-square-pen"></i>
-                פוסט חדש
-              </button>
-            </div>
+          <!-- חלק נעקבים (profile.html) – מציג את רשימת הנעקבים (מי שאני עוקב אחריהם) | HYPER CORE TECH -->
+          <section class="profile-card" id="profileFollowingCard" data-profile-panel="about">
+            <h2 class="profile-card__title profile-card__title--with-count">
+              <span>נעקבים</span>
+              <span class="profile-card__count" id="profileFollowingCountLabel">0</span>
+            </h2>
+            <ul class="profile-followers__list" id="profileFollowingList"></ul>
+            <div class="profile-status" id="profileFollowingStatus"></div>
           </section>
 
           <!-- חלק תגובות שהגבנו (profile.html) – כרטיסייה מכווצת בתוך 'אודות' עם כפתור פתיחה/סגירה -->
@@ -487,12 +484,12 @@
         <input id="profileNameInput" type="text" placeholder="הכנס שם מלא" />
         <label for="profileBioInput">תיאור קצר</label>
         <textarea id="profileBioInput" rows="3" placeholder="ספר על עצמך"></textarea>
-        <label for="profileHeadlineInput">כותרת מקצועית</label>
-        <input id="profileHeadlineInput" type="text" maxlength="120" placeholder="לדוגמה: פרופיל · יוצר תוכן דיגיטלי" />
-        <label for="profileRoleInput">תפקיד נוכחי</label>
-        <input id="profileRoleInput" type="text" maxlength="80" placeholder="Owner and CEO" />
-        <label for="profileCompanyInput">חברה / ארגון</label>
-        <input id="profileCompanyInput" type="text" maxlength="80" placeholder="Hyper Core Tech" />
+        <label for="profileHeadlineInput" hidden>כותרת מקצועית</label>
+        <input id="profileHeadlineInput" type="text" maxlength="120" placeholder="לדוגמה: פרופיל · יוצר תוכן דיגיטלי" hidden />
+        <label for="profileRoleInput" hidden>תפקיד נוכחי</label>
+        <input id="profileRoleInput" type="text" maxlength="80" placeholder="Owner and CEO" hidden />
+        <label for="profileCompanyInput" hidden>חברה / ארגון</label>
+        <input id="profileCompanyInput" type="text" maxlength="80" placeholder="Hyper Core Tech" hidden />
         <label for="profileLocationInput">מיקום</label>
         <input id="profileLocationInput" type="text" maxlength="80" placeholder="תל אביב, ישראל" />
         <label for="profileWebsiteInput">אתר אינטרנט</label>
