@@ -270,6 +270,32 @@ body:has(.videos-feed) .top-bar__actions {
   position: relative;
 }
 
+@media (min-width: 769px) {
+  /* סדר כפתורים בדסקטופ: אווטאר ראשון, אחריו מד P2P, ואז כפתורים נוספים | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar__actions {
+    flex-direction: row;
+  }
+
+  body:has(.videos-feed) .top-bar__actions > #topBarProfile,
+  body:has(.videos-feed) .top-bar__actions > .top-bar__profile {
+    order: 0;
+  }
+
+  body:has(.videos-feed) .top-bar__actions > #p2pStatsCircle {
+    order: 1;
+  }
+
+  body:has(.videos-feed) .top-bar__actions > #cacheRefreshBtn,
+  body:has(.videos-feed) .top-bar__actions > #debugOpenBtnTop {
+    order: 2;
+  }
+
+  body:has(.videos-feed) .top-bar__actions > #guestLoginButton,
+  body:has(.videos-feed) .top-bar__actions > button {
+    order: 3;
+  }
+}
+
 body:has(.videos-feed) .top-bar__icon-btn {
   width: 48px;
   height: 48px;
@@ -334,6 +360,11 @@ body:has(.videos-feed) .primary-nav {
   z-index: 2001 !important;
   height: calc(56px + var(--safe-bottom, 0px)) !important;
   min-height: 56px !important;
+}
+
+/* חלק תפריט צד דסקטופ (videos.css) – לוגו וחיפוש בתוך primary-nav, מוסתרים במובייל | HYPER CORE TECH */
+body:has(.videos-feed) .primary-nav__desktop-header {
+  display: none !important;
 }
 
 /* חלק ביטול אנימציות (videos.css) – הסרת אנימציות מסתובבות מכפתור ההודעות לשיפור ביצועים | HYPER CORE TECH */
@@ -437,7 +468,7 @@ body:has(.videos-feed) #navCompose i::before {
 
 body:has(.videos-feed) #navCompose i::after {
   content: '+' !important;
-  position: absolute !important;
+  position: relative !important;
   z-index: 1 !important;
   color: #fff !important;
   font-size: 22px !important;
@@ -1035,19 +1066,614 @@ body.global-stop .videos-feed__play-overlay {
   pointer-events: none;
 }
 
-/* חלק תגובתיות דסקטופ (videos.css) – התאמות למסכים גדולים */
+/* חלק תגובתיות דסקטופ (videos.css) – פריסת Desktop בסגנון TikTok | HYPER CORE TECH */
 @media (min-width: 769px) {
-  .videos-feed__card {
-    max-width: 500px;
-    margin: 0 auto;
-    border-radius: 20px;
-    overflow: hidden;
+  /* משתנים לפריסת דסקטופ בסגנון TikTok | HYPER CORE TECH */
+  body:has(.videos-feed) {
+    --videos-desktop-nav-width: 240px;
+    --videos-desktop-nav-gap: 20px;
+    --videos-desktop-actions-offset: 70px;
+    --videos-desktop-top-offset: calc(0px + var(--safe-top, 0px));
   }
 
+  /* פריסה: הווידאו בגובה מלא (ללא ריווח לתפריט תחתון בדסקטופ) | HYPER CORE TECH */
+  .videos-feed__viewport {
+    padding-top: 0;
+    padding-bottom: 0;
+    scroll-padding-top: 0;
+    scroll-padding-bottom: 0;
+  }
+
+  /* חלק גודל וידאו דסקטופ (videos.css) – התאמת וידאו לפי aspect ratio כמו בטיקטוק | HYPER CORE TECH */
+  .videos-feed {
+    max-width: none;
+    /* הפיד במרכז, עם מקום קבוע לתפריט הצד מימין | HYPER CORE TECH */
+    padding-right: calc(var(--videos-desktop-nav-width) + var(--videos-desktop-nav-gap) + 24px);
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .videos-feed__viewport {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .videos-feed__stream {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  /* חלק wrapper לווידאו+כפתורים (videos.css) – פריסה אופקית כמו בטיקטוק | HYPER CORE TECH */
+  .videos-feed__card {
+    max-width: none;
+    width: auto;
+    margin: 0 auto;
+    border-radius: 0;
+    overflow: visible;
+    /* גובה מלא בין התפריטים | HYPER CORE TECH */
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    /* פריסה אופקית: וידאו במרכז, כפתורי פעולה משמאל | HYPER CORE TECH */
+    display: flex;
+    flex-direction: row;
+    direction: ltr;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 20px;
+    padding-bottom: 20px;
+  }
+
+  /* יישור טקסט/כיתוביות לצמוד לימין הווידאו בדסקטופ | HYPER CORE TECH */
+  .videos-feed__info {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: calc(100vh * 0.5625);
+    min-width: 300px;
+    padding: 12px 16px 24px;
+    text-align: right;
+    direction: rtl;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    pointer-events: none;
+    bottom: 72px; /* ממוקם מעל בקרי הדילוג והתצוגה זמן | HYPER CORE TECH */
+  }
+
+  .videos-feed__info .videos-feed__content {
+    pointer-events: auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0 0 0 auto;
+    text-align: right;
+    direction: rtl;
+  }
+
+  /* חלק מדיה דסקטופ (videos.css) – וידאו מותאם לפי aspect ratio | HYPER CORE TECH */
+  .videos-feed__media {
+    border-radius: 16px;
+    overflow: hidden;
+    /* גודל דינמי לפי הווידאו - מקסימום גובה הזמין */
+    width: auto;
+    height: calc(100vh - 40px);
+    max-height: calc(100vh - 40px);
+    max-width: calc(100vh * 0.5625); /* 9:16 ratio portrait */
+    min-width: 300px;
+    aspect-ratio: auto;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    order: 1;
+  }
+
+  /* וידאו ממלא את המדיה לפי aspect ratio שלו | HYPER CORE TECH */
+  .videos-feed__media video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 16px;
+  }
+
+  /* חלק כפתורי פעולה (videos.css) – צמוד לווידאו מצד שמאל כמו ב-sos010.html | HYPER CORE TECH */
   .videos-feed__actions {
-    left: auto;
-    right: 20px;
-    bottom: 330px;
+    position: relative !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    top: auto !important;
+    transform: none !important;
+    z-index: 100 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
+    padding-bottom: 80px !important;
+    gap: 16px !important;
+    width: 60px !important;
+    align-items: center !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    order: -1 !important; /* הצב את עמודת הכפתורים משמאל לווידאו בדסקטופ | HYPER CORE TECH */
+  }
+
+  /* כפתורי פעולה עגולים כמו ב-sos010.html | HYPER CORE TECH */
+  .videos-feed__actions .videos-feed__action-btn {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 20px !important;
+    transition: background 0.2s !important;
+  }
+
+  .videos-feed__actions .videos-feed__action-btn:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  .videos-feed__actions .videos-feed__action-count {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    margin-top: 4px !important;
+  }
+
+  /* Header מפוצל: פעולות משמאל, לוגו מימין מעל התפריט | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+    position: static !important;
+    pointer-events: none;
+  }
+
+  body:has(.videos-feed) .top-bar::after {
+    content: none !important;
+  }
+
+  /* חלק קפסולה עליונה שמאלית (videos.css) – עיצוב כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar .top-bar__actions {
+    pointer-events: auto;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    right: auto;
+    z-index: 2100;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 8px 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    direction: ltr;
+  }
+
+  /* עיצוב כפתורי הקפסולה העליונה | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar .top-bar__actions > * {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid transparent;
+    border-radius: 50%;
+    color: var(--text-color, #fff);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  body:has(.videos-feed) .top-bar .top-bar__actions > *:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  body:has(.videos-feed) .top-bar .top-bar__actions .top-bar__avatar {
+    border: 2px solid var(--accent-color, #fe2c55);
+  }
+
+  /* לוגו ב-Top Bar בדסקטופ (videos.css) – מוסתר, הלוגו עובר לתוך תפריט הצד | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar .app-logo {
+    display: none !important;
+  }
+
+  /* חלק תפריט קפסולה שמאלי (videos.css) – פתיחת dropdown לכיוון ימין במצב דסקטופ | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar__dropdown {
+    left: 0 !important;
+    right: auto !important;
+    inset-inline-start: 0 !important;
+    inset-inline-end: auto !important;
+  }
+
+  /* חלק תת-תפריט שונות (videos.css) – פתיחת submenu לכיוון ימין במקום שמאלה | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar__submenu {
+    inset-inline-start: calc(100% + 8px) !important;
+    inset-inline-end: auto !important;
+  }
+
+  /* תפריט צד דסקטופ (videos.css) – ביטול חיפוש מדומה והצגת לוגו+חיפוש אמיתיים בתוך התפריט | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  body:has(.videos-feed) .primary-nav__desktop-header {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0; /* ללא רווח בין לוגו לחיפוש | HYPER CORE TECH */
+    margin-bottom: 0;
+    padding-top: 0;
+  }
+
+  body:has(.videos-feed) .primary-nav__desktop-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    line-height: 1;
+    padding: 0;
+    margin: 0;
+    margin-top: -80px; /* שמירה על העלאה קודמת בלי לחתוך את הלוגו | HYPER CORE TECH */
+    height: auto;
+    overflow: visible;
+  }
+
+  /* חלק לוגו תמונה בתפריט צד (videos.css) – גודל מתאים לתפריט | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav__desktop-logo-img {
+    max-width: 344px;
+    height: auto;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+  }
+
+  /* קירוב שורת החיפוש ללוגו בלי לשנות את הלוגו עצמו | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav__desktop-search {
+    margin-top: -64px; /* קירוב נוסף לחיפוש מול הלוגו ללא שינוי בלוגו | HYPER CORE TECH */
+  }
+
+  body:has(.videos-feed) .primary-nav__desktop-search {
+    position: relative;
+    width: 100%;
+  }
+
+  body:has(.videos-feed) .primary-nav__desktop-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: var(--secondary-text, #a7a7a7);
+    pointer-events: none;
+  }
+
+  /* חלק חיפוש בסייד בר (videos.css) – עיצוב מרובע כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav__desktop-search-input {
+    width: 100%;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0 12px 0 40px;
+    color: #fff;
+    font-size: 14px;
+    text-align: right;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  body:has(.videos-feed) .primary-nav__desktop-search-input:focus {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  body:has(.videos-feed) .primary-nav__desktop-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  /* תפריט ראשי אנכי מימין בסגנון TikTok | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav {
+    top: var(--videos-desktop-top-offset) !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: var(--videos-desktop-nav-gap) !important;
+    width: var(--videos-desktop-nav-width) !important;
+    height: calc(100vh - var(--videos-desktop-top-offset, 0px)) !important;
+    max-height: calc(100vh - var(--videos-desktop-top-offset, 0px)) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0 !important;
+    padding: 0 12px 10px 12px !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    gap: 0 !important;
+    z-index: 2000 !important;
+  }
+
+  /* מניעת כיווץ פריטים בתוך תפריט הצד – שומר על תצוגת עוקבים/משחקים בזמן גלילה | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav > * {
+    flex-shrink: 0;
+  }
+
+  /* פס גלילה שקוף לתפריט צד בדסקטופ | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+  }
+
+  body:has(.videos-feed) .primary-nav {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  /* פריטי ניווט בדסקטופ - סגנון TikTok רחב עם אייקון+טקסט | HYPER CORE TECH */
+  body:has(.videos-feed) .nav-item {
+    width: 100%;
+    padding: 16px 16px !important;
+    min-width: auto;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 10px;
+  }
+
+  body:has(.videos-feed) .nav-item:hover {
+    background: var(--hover-color, rgba(255, 255, 255, 0.04));
+  }
+
+  body:has(.videos-feed) .nav-item.is-active {
+    background: transparent;
+    color: var(--accent-color, #fe2c55);
+  }
+
+  body:has(.videos-feed) .nav-item i {
+    font-size: 24px !important;
+    width: 28px;
+    text-align: center;
+    order: 1; /* אייקון קודם לטקסט | HYPER CORE TECH */
+  }
+
+  body:has(.videos-feed) .nav-item.is-active i {
+    color: #fe2c55;
+  }
+
+  body:has(.videos-feed) .nav-item span {
+    font-size: 16px !important;
+    font-weight: 700;
+    text-align: right;
+    order: 2;
+    flex: 1;
+    display: block !important;
+  }
+
+  body:has(.videos-feed) .nav-item.is-active span {
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* באדג'ים לפריטי ניווט כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .nav-item .nav-item__badge {
+    background-color: var(--accent-color, #fe2c55);
+    color: white;
+    font-size: 12px;
+    padding: 0 6px;
+    border-radius: 10px;
+    margin-right: auto;
+    order: 0;
+  }
+
+  /* כפתור + בסגנון TikTok | HYPER CORE TECH */
+  body:has(.videos-feed) #navCompose {
+    order: 0; /* שמור את הכפתור בחלק העליון עם שאר הפריטים | HYPER CORE TECH */
+    margin-top: 8px;
+    padding: 12px 16px !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+
+  body:has(.videos-feed) #navCompose span {
+    display: block !important;
+    order: 2;
+  }
+
+  body:has(.videos-feed) #navCompose i {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0 !important;
+    order: 1; /* אייקון לפני הטקסט | HYPER CORE TECH */
+    margin-left: 8px;
+  }
+
+  /* פאנלים: התאמה לפריסת דסקטופ ללא תפריט תחתון | HYPER CORE TECH */
+  .profile-panel,
+  .notifications-panel,
+  .chat-panel {
+    bottom: 0 !important;
+    height: 100dvh !important;
+  }
+
+  /* חלק קו הפרדה בתפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav .nav-separator {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.12);
+    margin: 16px 0;
+    width: 100%;
+  }
+
+  /* חלק כותרת מקטע בתפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav .nav-section-title {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  /* חלק פריטי עוקבים בתפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav .nav-user-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-direction: row-reverse;
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-user-item:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #333;
+    background-size: cover;
+    flex-shrink: 0;
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-user-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    flex: 1;
+    text-align: right;
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-user-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-user-tag {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  /* חלק פוטר תפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav .nav-footer {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+    padding: 0 12px;
+    line-height: 1.5;
+    text-align: right;
+    margin-top: auto;
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-footer a {
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: none;
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-footer a:hover {
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: underline;
+  }
+
+  /* חלק גבול שמאלי לתפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav {
+    border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+    padding-left: 0 !important;
+  }
+
+  /* חלק משחקים בתפריט צד (videos.css) – אחרי חשבונות עוקבים | HYPER CORE TECH */
+  body:has(.videos-feed) .sidebar-games-separator {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.12);
+    margin: 16px 0;
+    width: 100%;
+  }
+
+  body:has(.videos-feed) .sidebar-games-title {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  body:has(.videos-feed) .sidebar-games-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  body:has(.videos-feed) .sidebar-game-item {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-direction: row;
+  }
+
+  body:has(.videos-feed) .sidebar-game-item:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  body:has(.videos-feed) .sidebar-game-label {
+    font-size: 14px;
+    color: #fff;
+    font-weight: 600;
+    order: 2;
+    flex: 1;
+    text-align: right;
+  }
+
+  body:has(.videos-feed) .sidebar-game-item i {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.85);
+    width: 20px;
+    text-align: center;
+    order: 1; /* אייקון לפני הטקסט כמו בפריטי הניווט | HYPER CORE TECH */
   }
 }
 
@@ -2141,6 +2767,17 @@ body.policy-modal-open {
   .videos-feed__action {
     backdrop-filter: blur(4px);
   }
+
+  /* סדר כפתורים במובייל: navCompose באמצע | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav {
+    justify-content: space-between !important;
+  }
+
+  body:has(.videos-feed) .primary-nav .nav-item[data-nav="videos"] { order: 0; }
+  body:has(.videos-feed) #notificationsToggle { order: 1; }
+  body:has(.videos-feed) #navCompose { order: 2; margin-inline: 6px; }
+  body:has(.videos-feed) #messagesToggle { order: 3; }
+  body:has(.videos-feed) .primary-nav .nav-item[data-nav="profile"] { order: 4; }
   
   body:has(.videos-feed) .top-bar__logo,
   body:has(.videos-feed) .top-bar__icon-btn {
@@ -2235,6 +2872,191 @@ body.policy-modal-open {
 
 .videos-follow-button.is-following:hover {
   transform: translateX(-50%) scale(1.15) !important;
+}
+
+/* חלק כפתורי גלילה שמאליים (videos.css) – כפתורים למעלה/למטה בדסקטופ כמו ב-sos010.html | HYPER CORE TECH */
+.videos-nav-arrows {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .videos-nav-arrows {
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+  }
+
+  .videos-nav-arrow-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .videos-nav-arrow-btn:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .videos-nav-arrow-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+/* חלק עוקבים בתפריט צד דסקטופ (videos.css) – מקטע עוקבים ופוטר בסגנון טיקטוק | HYPER CORE TECH */
+@media (min-width: 769px) {
+  /* קו הפרדה לפני מקטע העוקבים */
+  .sidebar-followers-separator {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.12);
+    margin: 16px 0;
+    width: 100%;
+  }
+
+  /* כותרת מקטע עוקבים */
+  .sidebar-followers-title {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 0 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  /* מיכל רשימת העוקבים עם גלילה */
+  .sidebar-followers-list {
+    max-height: 180px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sidebar-followers-list::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .sidebar-followers-list::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+  }
+
+  /* פריט עוקב בודד */
+  .sidebar-follower-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .sidebar-follower-item:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  /* תמונת עוקב */
+  .sidebar-follower-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #333;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .sidebar-follower-img img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  /* פרטי עוקב */
+  .sidebar-follower-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    overflow: hidden;
+  }
+
+  .sidebar-follower-name {
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar-follower-name .verified-badge {
+    color: #20d5ec;
+    font-size: 10px;
+  }
+
+  .sidebar-follower-tag {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* הודעה כשאין עוקבים */
+  .sidebar-followers-empty {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  /* פוטר תפריט צד */
+  .sidebar-footer {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 12px;
+    padding: 0 12px;
+    line-height: 1.6;
+  }
+
+  .sidebar-footer a {
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .sidebar-footer a:hover {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .sidebar-footer .footer-links {
+    margin-bottom: 4px;
+  }
+
+  .sidebar-footer .footer-copyright {
+    margin-top: 8px;
+  }
 }
 
 /* חלק אופטימיזציה (videos.css) – הפחתת אנימציות למכשירים חלשים או למשתמשים שמעדיפים פחות תנועה | HYPER CORE TECH */
