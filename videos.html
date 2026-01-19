@@ -1447,6 +1447,14 @@
 
     <!-- חלק תפריט תחתון (videos.html) – ניווט תחתון בסגנון דף ההודעות | HYPER CORE TECH -->
     <nav class="primary-nav" aria-label="ניווט ראשי">
+      <!-- חלק תפריט צד דסקטופ (videos.html) – לוגו וחיפוש בתוך התפריט (מופיע בדסקטופ בלבד דרך CSS) | HYPER CORE TECH -->
+      <div class="primary-nav__desktop-header">
+        <div class="primary-nav__desktop-logo" aria-label="SOS"><img src="icons/sos-logo.PNG" alt="SOS Logo" class="primary-nav__desktop-logo-img"></div>
+        <div class="primary-nav__desktop-search">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input class="primary-nav__desktop-search-input" type="search" placeholder="חיפוש" aria-label="חיפוש" autocomplete="off">
+        </div>
+      </div>
       <!-- חלק בית (videos.html) – כפתור פיד הווידאו עם טקסט | HYPER CORE TECH -->
       <button class="nav-item is-active" data-nav="videos" aria-label="בית">
         <i class="fa-solid fa-house"></i>
@@ -1458,11 +1466,6 @@
         <span>התראות</span>
         <span class="nav-item__badge" id="notificationsBadge" hidden></span>
       </button>
-      <!-- חלק יצירת פוסט (videos.html) – כפתור פוסט חדש עם טקסט | HYPER CORE TECH -->
-      <button class="nav-item" id="navCompose" type="button" aria-label="פוסט חדש" onclick="openCompose()">
-        <i class="fa-solid fa-plus"></i>
-        <span>פרסם</span>
-      </button>
       <!-- חלק הודעות (videos.html) – כפתור צ'אט עם טקסט | HYPER CORE TECH -->
       <button class="nav-item" id="messagesToggle" aria-label="הודעות">
         <i class="fa-solid fa-comments"></i>
@@ -1473,6 +1476,11 @@
       <button class="nav-item" type="button" aria-label="הפרופיל שלי" data-nav="profile">
         <i class="fa-solid fa-user"></i>
         <span>פרופיל</span>
+      </button>
+      <!-- חלק יצירת פוסט (videos.html) – כפתור פוסט חדש עם טקסט | HYPER CORE TECH -->
+      <button class="nav-item" id="navCompose" type="button" aria-label="פוסט חדש" onclick="openCompose()">
+        <i class="fa-solid fa-plus"></i>
+        <span>פרסם</span>
       </button>
     </nav>
 

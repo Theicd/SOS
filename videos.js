@@ -1497,7 +1497,7 @@ function renderVideoCard(video) {
       updateProgress();
     };
     
-    // כפתורי דילוג - יישמרו להוספה ל-article (לא ל-mediaDiv) כדי למנוע event bubbling | HYPER CORE TECH
+    // כפתורי דילוג - נצמדים למדיה עצמה כדי להישאר מיושרים לגבולות הווידאו | HYPER CORE TECH
     const skipBackBtn = document.createElement('button');
     skipBackBtn.type = 'button';
     skipBackBtn.className = 'video-skip-btn video-skip-btn--left';
@@ -1525,10 +1525,10 @@ function renderVideoCard(video) {
       doSkip(5); 
     };
     
-    // הוספה ל-article במקום ל-mediaDiv | HYPER CORE TECH
-    article.appendChild(skipBackBtn);
-    article.appendChild(timeDisplay);
-    article.appendChild(skipForwardBtn);
+    // הוספה ל-mediaDiv כדי שמיקום הכפתורים יתיישר לגבולות הווידאו | HYPER CORE TECH
+    mediaDiv.appendChild(skipBackBtn);
+    mediaDiv.appendChild(timeDisplay);
+    mediaDiv.appendChild(skipForwardBtn);
     
     // עדכון פס התקדמות וזמן
     let progressTimeout = null;
@@ -3390,6 +3390,299 @@ function setupVideoRealtimeSubscription(eventIds = []) {
   });
 }
 
+// חלק כפתורי גלילה (videos.js) – יצירת כפתורי גלילה שמאליים למעלה/למטה בדסקטופ | HYPER CORE TECH
+function createNavArrows() {
+  // בדיקה אם כבר קיימים
+  if (document.querySelector('.videos-nav-arrows')) return;
+  
+  const container = document.createElement('div');
+  container.className = 'videos-nav-arrows';
+  
+  const upBtn = document.createElement('button');
+  upBtn.type = 'button';
+  upBtn.className = 'videos-nav-arrow-btn';
+  upBtn.setAttribute('aria-label', 'סרטון קודם');
+  upBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+  
+  const downBtn = document.createElement('button');
+  downBtn.type = 'button';
+  downBtn.className = 'videos-nav-arrow-btn';
+  downBtn.setAttribute('aria-label', 'סרטון הבא');
+  downBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+  
+  container.appendChild(upBtn);
+  container.appendChild(downBtn);
+  document.body.appendChild(container);
+  
+  // פונקציונליות גלילה
+  const scrollToCard = (direction) => {
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (!viewport) return;
+    
+    const cards = viewport.querySelectorAll('.videos-feed__card');
+    if (!cards.length) return;
+    
+    const viewportRect = viewport.getBoundingClientRect();
+    const viewportCenter = viewportRect.top + viewportRect.height / 2;
+    
+    let currentIndex = -1;
+    cards.forEach((card, index) => {
+      const cardRect = card.getBoundingClientRect();
+      const cardCenter = cardRect.top + cardRect.height / 2;
+      if (Math.abs(cardCenter - viewportCenter) < cardRect.height / 2) {
+        currentIndex = index;
+      }
+    });
+    
+    let targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    targetIndex = Math.max(0, Math.min(cards.length - 1, targetIndex));
+    
+    if (targetIndex >= 0 && targetIndex < cards.length) {
+      cards[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // עדכון מצב הכפתורים
+    upBtn.disabled = targetIndex <= 0;
+    downBtn.disabled = targetIndex >= cards.length - 1;
+  };
+  
+  upBtn.addEventListener('click', () => scrollToCard('up'));
+  downBtn.addEventListener('click', () => scrollToCard('down'));
+  
+  // עדכון מצב כפתורים בגלילה
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (viewport) {
+    viewport.addEventListener('scroll', () => {
+      const cards = viewport.querySelectorAll('.videos-feed__card');
+      if (!cards.length) return;
+      
+      const viewportRect = viewport.getBoundingClientRect();
+      const viewportCenter = viewportRect.top + viewportRect.height / 2;
+      
+      let currentIndex = 0;
+      cards.forEach((card, index) => {
+        const cardRect = card.getBoundingClientRect();
+        const cardCenter = cardRect.top + cardRect.height / 2;
+        if (Math.abs(cardCenter - viewportCenter) < cardRect.height / 2) {
+          currentIndex = index;
+        }
+      });
+      
+      upBtn.disabled = currentIndex <= 0;
+      downBtn.disabled = currentIndex >= cards.length - 1;
+    });
+  }
+  
+  console.log('[videos] Nav arrows created');
+}
+
+// חלק עוקבים בתפריט צד (videos.js) – יצירת מקטע עוקבים ופוטר בתפריט הצד בדסקטופ | HYPER CORE TECH
+function createSidebarFollowersSection() {
+  // רק בדסקטופ
+  if (window.innerWidth < 769) return;
+  
+  // בדיקה אם כבר קיים
+  if (document.querySelector('.sidebar-followers-separator')) return;
+  
+  const sidebar = document.querySelector('.primary-nav');
+  if (!sidebar) {
+    console.log('[videos] Sidebar not found, skipping followers section');
+    return;
+  }
+  
+  // יצירת קו הפרדה
+  const separator1 = document.createElement('div');
+  separator1.className = 'sidebar-followers-separator';
+  
+  // כותרת מקטע עוקבים
+  const title = document.createElement('div');
+  title.className = 'sidebar-followers-title';
+  title.textContent = 'חשבונות עוקבים';
+  
+  // רשימת עוקבים
+  const followersList = document.createElement('ul');
+  followersList.className = 'sidebar-followers-list';
+  followersList.id = 'sidebarFollowersList';
+  
+  // הודעה ראשונית
+  const emptyMsg = document.createElement('li');
+  emptyMsg.className = 'sidebar-followers-empty';
+  emptyMsg.textContent = 'טוען עוקבים...';
+  followersList.appendChild(emptyMsg);
+  
+  // קו הפרדה לפוטר
+  const separator2 = document.createElement('div');
+  separator2.className = 'sidebar-followers-separator';
+
+  // כותרת משחקים
+  const gamesTitle = document.createElement('div');
+  gamesTitle.className = 'nav-section-title sidebar-games-title';
+  gamesTitle.textContent = 'משחקים';
+
+  // רשימת משחקים
+  const gamesList = document.createElement('ul');
+  gamesList.className = 'sidebar-games-list';
+
+  const App = window.NostrApp || {};
+
+  const makeGameItem = (label, iconClass, href) => {
+    const li = document.createElement('li');
+    li.className = 'sidebar-game-item';
+    li.innerHTML = `
+      <span class="sidebar-game-label">${label}</span>
+      <i class="${iconClass}"></i>
+    `;
+    li.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (typeof App.openGamesPanel === 'function') {
+        App.openGamesPanel(href);
+      } else {
+        window.location.href = href;
+      }
+    });
+    return li;
+  };
+
+  gamesList.appendChild(makeGameItem('דף המשחקים', 'fa-solid fa-gamepad', 'games.html'));
+  gamesList.appendChild(makeGameItem('משחק רשת דום', 'fa-solid fa-gun', 'games.html#doom'));
+  gamesList.appendChild(makeGameItem('משחק רשת טריוויה', 'fa-solid fa-dice', 'games.html#trivia'));
+
+  // קו הפרדה אחרי מקטע משחקים
+  const gamesSeparatorAfter = document.createElement('div');
+  gamesSeparatorAfter.className = 'nav-separator sidebar-games-separator';
+
+  // פוטר עם קישורים
+  const footer = document.createElement('div');
+  footer.className = 'sidebar-footer';
+  footer.innerHTML = `
+    <div class="footer-links">
+      <a href="terms.html">חברה</a> • 
+      <a href="terms.html">אודות</a> • 
+      <a href="news.html">חדר חדשות</a> • 
+      <a href="terms.html">צור קשר</a>
+    </div>
+    <div class="footer-links">
+      <a href="terms.html">הנחיות קהילה</a> • 
+      <a href="terms.html">תנאי שימוש</a>
+    </div>
+    <div class="footer-copyright">© 2026 SOS</div>
+  `;
+  
+  // הוספה לתפריט הצד
+  sidebar.appendChild(separator1);
+  sidebar.appendChild(title);
+  sidebar.appendChild(followersList);
+  sidebar.appendChild(separator2); // קו אחד בין עוקבים למשחקים
+  sidebar.appendChild(gamesTitle);
+  sidebar.appendChild(gamesList);
+  sidebar.appendChild(gamesSeparatorAfter); // קו אחרי משחקים
+  sidebar.appendChild(footer);
+  
+  console.log('[videos] Sidebar followers section created');
+  
+  // טעינת עוקבים מהרשת
+  loadSidebarFollowers();
+}
+
+// חלק טעינת עוקבים (videos.js) – משיכת עוקבים מהרשת והצגתם בתפריט הצד | HYPER CORE TECH
+async function loadSidebarFollowers() {
+  const App = window.NostrApp || {};
+  const followersList = document.getElementById('sidebarFollowersList');
+  if (!followersList) return;
+  
+  // בדיקה אם המשתמש מחובר
+  if (!App.publicKey) {
+    followersList.innerHTML = '<li class="sidebar-followers-empty">התחבר לצפייה בעוקבים</li>';
+    return;
+  }
+  
+  // ניסיון להירשם לעוקבים אם קייםת הפונקציה
+  if (typeof App.subscribeFollowers === 'function') {
+    App.subscribeFollowers(App.publicKey, (followers) => {
+      renderSidebarFollowers(followers);
+    });
+  } else {
+    // Fallback - ניסיון לקחת מהרשת
+    followersList.innerHTML = '<li class="sidebar-followers-empty">אין עוקבים להצגה</li>';
+  }
+}
+
+// חלק רינדור עוקבים (videos.js) – הצגת רשימת העוקבים בתפריט הצד | HYPER CORE TECH
+function renderSidebarFollowers(followers) {
+  const followersList = document.getElementById('sidebarFollowersList');
+  if (!followersList) return;
+  
+  const App = window.NostrApp || {};
+  const escapeHtml = typeof App.escapeHtml === 'function' ? App.escapeHtml : (v) => v;
+  
+  // ניקוי הרשימה
+  followersList.innerHTML = '';
+  
+  if (!Array.isArray(followers) || followers.length === 0) {
+    const emptyMsg = document.createElement('li');
+    emptyMsg.className = 'sidebar-followers-empty';
+    emptyMsg.textContent = 'אין עוקבים להצגה כרגע';
+    followersList.appendChild(emptyMsg);
+    return;
+  }
+  
+  // הצגת עד 5 עוקבים
+  const displayFollowers = followers.slice(0, 5);
+  
+  displayFollowers.forEach((follower) => {
+    const pubkey = follower.pubkey || '';
+    const cached = App.profileCache instanceof Map ? App.profileCache.get(pubkey) : null;
+    const fallbackName = pubkey ? `משתמש ${pubkey.slice(0, 8)}` : 'משתמש';
+    const name = follower.name || cached?.name || fallbackName;
+    const picture = follower.picture || cached?.picture || '';
+    const initials = typeof App.getInitials === 'function' ? App.getInitials(name) : name.slice(0, 2).toUpperCase();
+    const tag = pubkey ? pubkey.slice(0, 12) : '';
+    
+    const li = document.createElement('li');
+    li.className = 'sidebar-follower-item';
+    li.setAttribute('data-pubkey', pubkey);
+    
+    li.innerHTML = `
+      <div class="sidebar-follower-img">
+        ${picture ? `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" loading="lazy">` : `<span>${escapeHtml(initials)}</span>`}
+      </div>
+      <div class="sidebar-follower-info">
+        <div class="sidebar-follower-name">${escapeHtml(name)}</div>
+        <div class="sidebar-follower-tag">${escapeHtml(tag)}</div>
+      </div>
+    `;
+    
+    // לחיצה פותחת פרופיל
+    li.addEventListener('click', () => {
+      if (pubkey && typeof App.openPublicProfile === 'function') {
+        App.openPublicProfile(pubkey);
+      } else if (pubkey) {
+        window.location.href = `profile-view.html?pubkey=${pubkey}`;
+      }
+    });
+    
+    followersList.appendChild(li);
+    
+    // טעינת פרופיל אם חסר
+    if (!picture && !cached && typeof App.fetchProfile === 'function') {
+      App.fetchProfile(pubkey).then((profile) => {
+        if (profile) {
+          const imgEl = li.querySelector('.sidebar-follower-img');
+          const nameEl = li.querySelector('.sidebar-follower-name');
+          if (imgEl && profile.picture) {
+            imgEl.innerHTML = `<img src="${escapeHtml(profile.picture)}" alt="${escapeHtml(profile.name || name)}" loading="lazy">`;
+          }
+          if (nameEl && profile.name) {
+            nameEl.textContent = profile.name;
+          }
+        }
+      }).catch(() => {});
+    }
+  });
+  
+  console.log(`[videos] Rendered ${displayFollowers.length} followers in sidebar`);
+}
+
 // חלק יאללה וידאו (videos.js) – אתחול בעת טעינת הדף
 async function init() {
   selectors.stream = document.getElementById('videosStream');
@@ -3398,6 +3691,12 @@ async function init() {
   if (!selectors.stream || !selectors.status) {
     return;
   }
+
+  // חלק כפתורי גלילה (videos.js) – יצירת כפתורי גלילה בדסקטופ | HYPER CORE TECH
+  createNavArrows();
+  
+  // חלק עוקבים בתפריט צד (videos.js) – יצירת מקטע עוקבים ופוטר בדסקטופ | HYPER CORE TECH
+  createSidebarFollowersSection();
 
   // חלק כפתור בית (videos.js) – סגירת overlays במקום ניווט כשהפיד כבר פתוח | HYPER CORE TECH
   const homeButton = document.getElementById('videosTopHomeButton');
