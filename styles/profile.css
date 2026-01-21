@@ -2474,3 +2474,43 @@
 .profile-follow__button.is-following i {
   color: #fff !important;
 }
+
+/* חלק דסקטופ (profile.css) – כיסוי גובה מלא והסתרת גלילות בפרופיל אישי | HYPER CORE TECH */
+@media (min-width: 901px) {
+  /* כיסוי גובה מלא של הדף כך שפיד הווידאו לא יראה מאחור | HYPER CORE TECH */
+  .profile-body {
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    background: #000 !important;
+  }
+
+  .app-shell.profile-shell,
+  .profile-shell {
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    background: #000 !important;
+  }
+
+  .profile-main {
+    min-height: 100vh !important;
+    background: #000 !important;
+  }
+
+  /* הסתרת פסי גלילה (לא הסרה) | HYPER CORE TECH */
+  .profile-body::-webkit-scrollbar,
+  .profile-shell::-webkit-scrollbar,
+  .profile-main::-webkit-scrollbar,
+  .profile-sidebar::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+
+  .profile-body,
+  .profile-shell,
+  .profile-main,
+  .profile-sidebar {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+}
