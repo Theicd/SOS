@@ -338,7 +338,7 @@ body:has(.videos-feed) .top-bar__logo-img {
   }
 
   body:has(.videos-feed) .top-bar__logo-img {
-    height: 93px; /* הגדלה נוספת של ~50% עבור מובייל | HYPER CORE TECH */
+    height: 112px; /* הגדלה נוספת של ~20% עבור מובייל | HYPER CORE TECH */
     animation: mobileLogoGlow 4s ease-in-out infinite; /* תאורת גלוא מתחלפת במובייל | HYPER CORE TECH */
   }
 }
