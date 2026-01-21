@@ -1,11 +1,10 @@
 /* חלק אפקטים (videos.css) – הסרת כל האפקטים לגלילה פשוטה | HYPER CORE TECH */
 /* אופטימיזציה: ביטול אנימציות כבדות, שמירה על מראה דומה סטטי */
 
-/* כפיית מצב כהה לפס ניווט תחתון במובייל - מונע צבע לבן | HYPER CORE TECH */
-html:has(.videos-feed),
-html:has(.videos-feed) body {
-  color-scheme: dark !important;
+/* חלק פס תחתון שחור (videos.css) – אילוץ רקע שחור לאזור כפתורי הניווט של המכשיר | HYPER CORE TECH */
+html:has(.videos-feed) {
   background-color: #000 !important;
+  color-scheme: dark !important;
 }
 
 /* רקע שחור מתקדם עם קרני אור דקות לכל הדף | HYPER CORE TECH */
