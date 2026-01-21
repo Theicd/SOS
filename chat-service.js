@@ -587,11 +587,24 @@
     return contact;
   }
 
-  function handlePoolReady() {
+  // חלק המתנה לקאש (chat-service.js) – ממתין לטעינת lastSyncTs לפני סנכרון | HYPER CORE TECH
+  async function handlePoolReady() {
     const pool = ensurePoolReady();
     if (!pool) {
       return;
     }
+    
+    // המתנה לטעינת הקאש מ-IndexedDB לפני שמתחילים לסנכרן
+    // זה מונע איפוס של lastSyncTs ל-0 וטעינה מחדש של כל ההיסטוריה
+    if (App.chatStateReady && typeof App.chatStateReady.then === 'function') {
+      try {
+        await App.chatStateReady;
+        console.log('[CHAT/SERVICE] State restored, lastSyncTs:', App.getChatLastSyncTs?.() || 0);
+      } catch (err) {
+        console.warn('[CHAT/SERVICE] Failed to wait for state restore', err);
+      }
+    }
+    
     ensureChatKeepaliveStarted();
     subscribeToChatEvents();
     bootstrapContactsFromFeed();

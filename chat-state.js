@@ -529,13 +529,27 @@
     updateChatMessageStatus: updateMessageStatus,
   });
 
+  // חלק המתנה ל-restore (chat-state.js) – Promise שמאפשר ל-chat-service להמתין לטעינת הקאש | HYPER CORE TECH
+  let _restoreStateResolve = null;
+  App.chatStateReady = new Promise((resolve) => {
+    _restoreStateResolve = resolve;
+  });
+
+  async function doRestoreAndSignal() {
+    await restoreState();
+    if (_restoreStateResolve) {
+      _restoreStateResolve();
+      _restoreStateResolve = null;
+    }
+  }
+
   if (!App._chatStateBootstrapped) {
     App._chatStateBootstrapped = true;
     if (typeof App.publicKey === 'string' && App.publicKey) {
-      restoreState();
+      doRestoreAndSignal();
     } else {
       document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(restoreState, 500);
+        setTimeout(doRestoreAndSignal, 500);
       });
     }
   }

@@ -1832,7 +1832,12 @@
 
       // התרעה + צליל רק אם זה נכנס ולא בשיחה הפעילה/פוקוס
       // חלק דה-דופליקציה (chat-ui.js) – בודק גם אם ההודעה כבר הותרעה | HYPER CORE TECH
-      if (isIncoming && !wasMessageNotified(messageId)) {
+      // חלק סינון הודעות ישנות (chat-ui.js) – התראה רק על הודעות מ-60 שניות אחרונות | HYPER CORE TECH
+      const messageCreatedAt = message?.createdAt || message?.created_at || 0;
+      const messageAgeSec = Math.floor(Date.now() / 1000) - messageCreatedAt;
+      const isRecentMessage = messageAgeSec >= 0 && messageAgeSec < 60; // פחות מ-60 שניות
+      
+      if (isIncoming && !wasMessageNotified(messageId) && isRecentMessage) {
         if (!isActivePeer || !state.isOpen) {
           playChatMessageSound();
           const snippetSource = (message?.content && message.content.trim()) ||
