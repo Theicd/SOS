@@ -456,10 +456,12 @@
     // בדיקה תקופתית כל דקה
     setInterval(checkForUpdates, 60 * 1000);
     
+    // חלק מניעת רענון אוטומטי (pwa-installer.js) – לא מרעננים אוטומטית כדי לא לאבד קאש ופוסטים | HYPER CORE TECH
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA] Service Worker עודכן - מרענן...');
-      // רענון אוטומטי כשה-SW מתחלף
-      window.location.reload();
+      console.log('[PWA] Service Worker עודכן - מציגים הודעה למשתמש');
+      // במקום רענון אוטומטי - מציגים הודעה למשתמש שיבחר מתי לרענן
+      // זה מונע איבוד קאש ופוסטים באמצע רענון לא מתוכנן
+      showUpdateAvailableToast();
     });
     
     // האזנה להודעות עדכון מה-SW (Push)

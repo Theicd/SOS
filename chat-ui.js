@@ -497,6 +497,31 @@
   // חלק דה-דופליקציה (chat-ui.js) – מניעת התראות כפולות על אותה הודעה | HYPER CORE TECH
   const NOTIFIED_MSG_KEY = 'nostr_notified_chat_messages';
   const MAX_NOTIFIED_IDS = 200;
+  // חלק קיבוץ התראות (chat-ui.js) – מנהל מצטבר להתראה אחת עם ספירת הודעות/משתמשים | HYPER CORE TECH
+  const aggregateNotificationState = {
+    totalMessages: 0,
+    peers: new Set(),
+    lastPeer: null,
+    lastSnippet: '',
+    lastName: ''
+  };
+
+  function resetAggregateNotificationState() {
+    aggregateNotificationState.totalMessages = 0;
+    aggregateNotificationState.peers.clear();
+    aggregateNotificationState.lastPeer = null;
+    aggregateNotificationState.lastSnippet = '';
+    aggregateNotificationState.lastName = '';
+  }
+
+  function buildAggregateNotificationBody() {
+    const usersCount = aggregateNotificationState.peers.size;
+    const header = `${aggregateNotificationState.totalMessages} הודעות מ-${usersCount} משתמשים`;
+    const tail = aggregateNotificationState.lastSnippet
+      ? `\n${aggregateNotificationState.lastName || 'משתמש'}: ${aggregateNotificationState.lastSnippet}`
+      : '';
+    return `${header}${tail}`;
+  }
   
   function getNotifiedMessageIds() {
     try {
@@ -550,18 +575,25 @@
       // חלק התראות מדיה (chat-ui.js) – שימוש בפורמט מדיה בעברית להתראות | HYPER CORE TECH
       const safeSnippet = formatMessageForNotification(message).slice(0, 120);
 
+      // חלק קיבוץ התראות (chat-ui.js) – צבירת ספירה ואיחוד להתראה אחת | HYPER CORE TECH
+      aggregateNotificationState.totalMessages += 1;
+      aggregateNotificationState.peers.add(normalizedPeer);
+      aggregateNotificationState.lastPeer = normalizedPeer;
+      aggregateNotificationState.lastSnippet = safeSnippet;
+      aggregateNotificationState.lastName = name;
+
       const baseOptions = {
-        body: safeSnippet,
-        tag: `chat-message-${normalizedPeer}`,
+        body: buildAggregateNotificationBody(),
+        tag: 'chat-aggregate',
         renotify: true
       };
       if (picture) baseOptions.icon = picture;
       try { baseOptions.requireInteraction = true; } catch {}
 
       const swOptions = Object.assign({}, baseOptions, {
-        actions: [{ action: 'open', title: 'פתח צ\'אט' }],
+        actions: [{ action: 'open', title: "פתח צ'אט" }],
         data: {
-          type: 'chat-message',
+          type: 'chat-message-aggregate',
           peerPubkey: normalizedPeer,
           url: window.location.href
         }
