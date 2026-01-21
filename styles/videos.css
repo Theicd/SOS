@@ -310,10 +310,46 @@ body:has(.videos-feed) .top-bar__logo {
   transition: all 0.3s ease;
 }
 
-
 body:has(.videos-feed) .top-bar__logo:hover {
   background: rgba(255, 255, 255, 0.25);
   transform: scale(1.1);
+}
+
+/* חלק לוגו תמונה בסרגל עליון מובייל (videos.css) – התאמת גודל לתפריט העליון | HYPER CORE TECH */
+body:has(.videos-feed) .top-bar .app-logo {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  margin: 0;
+}
+
+body:has(.videos-feed) .top-bar__logo-img {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* הגדלת לוגו במובייל בלבד (videos.css) | HYPER CORE TECH */
+@media (max-width: 900px) {
+  body:has(.videos-feed) .top-bar .app-logo {
+    transform: translateX(30px); /* הזזה 30px ימינה במובייל | HYPER CORE TECH */
+  }
+
+  body:has(.videos-feed) .top-bar__logo-img {
+    height: 93px; /* הגדלה נוספת של ~50% עבור מובייל | HYPER CORE TECH */
+    animation: mobileLogoGlow 4s ease-in-out infinite; /* תאורת גלוא מתחלפת במובייל | HYPER CORE TECH */
+  }
+}
+
+@keyframes mobileLogoGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.15)) drop-shadow(0 0 0 rgba(254, 44, 85, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.25)) drop-shadow(0 0 14px rgba(254, 44, 85, 0.35));
+  }
 }
 
 body:has(.videos-feed) .top-bar__logo img {
