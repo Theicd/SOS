@@ -3,33 +3,33 @@
    קובץ CSS זה מעצב את המודאל בסגנון טיקטוק - נקי, מודרני ונעים לעין
    ======================= */
 
-/* רקע המודאל */
+/* רקע המודאל – התאמה לצבעי פיד וידאו/משחקים (שחור עם טשטוש) | HYPER CORE TECH */
 #guestAuthModal.modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   direction: rtl;
 }
 
-/* תוכן המודאל */
+/* תוכן המודאל – פלטת שחור + הדגשות ציאן/ורוד כמו בדף הבית | HYPER CORE TECH */
 #guestAuthModal .modal-content {
-  background: #1a1a2e;
+  background: linear-gradient(145deg, #0b0d14 0%, #0f111a 100%);
   color: #ffffff;
   border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 224, 255, 0.08);
   position: relative;
   animation: slideUp 0.3s ease-out;
   max-height: 90vh;
   overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @keyframes slideUp {
@@ -62,7 +62,7 @@
 
 /* פסקאות */
 #guestAuthModal p {
-  color: #b0b0b0;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 /* שלבים */
@@ -84,9 +84,9 @@
 #guestAuthModal input[type="text"],
 #guestAuthModal textarea {
   transition: border-color 0.2s, box-shadow 0.2s;
-  background: #0f0f1e;
+  background: #0f141f;
   color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(0, 224, 255, 0.18);
   direction: rtl;
   text-align: right;
 }
@@ -141,9 +141,9 @@
 #guestAuthModal input[type="text"]:focus,
 #guestAuthModal textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-  background: #16162a;
+  border-color: #00e0ff;
+  box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.22);
+  background: #111827;
 }
 
 /* כפתורים */
@@ -158,14 +158,14 @@
 }
 
 #guestAuthModal .button-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #00ffd1 0%, #00a2ff 100%); /* ציאן-תכלת כמו צבעי דף המשחקים | HYPER CORE TECH */
   color: white;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 224, 255, 0.22), 0 0 0 1px rgba(0, 224, 255, 0.18);
 }
 
 #guestAuthModal .button-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 10px 28px rgba(0, 224, 255, 0.32), 0 0 0 1px rgba(254, 44, 85, 0.2);
 }
 
 #guestAuthModal .button-primary:disabled {
@@ -175,14 +175,14 @@
 }
 
 #guestAuthModal .button-secondary {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(15, 20, 31, 0.85);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 224, 255, 0.18);
 }
 
 #guestAuthModal .button-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(18, 27, 40, 0.95);
+  border-color: rgba(0, 224, 255, 0.28);
 }
 
 /* תצוגת אווטר */

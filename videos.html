@@ -1024,14 +1024,15 @@
         openBtnTop.type = 'button';
         openBtnTop.textContent = '🔧';
         openBtnTop.title = 'פתח Debug Console';
-        
-        // חלק כפתור רענון Cache (videos.html) – מוחק cache ומרענן מהשרת | HYPER CORE TECH
+
+        // חלק כפתור רענון Cache (videos.html) – כעת בתוך תפריט הפרופיל | HYPER CORE TECH
+        var profileMenu = document.getElementById('topBarProfileMenu');
         var cacheRefreshBtn = document.createElement('button');
         cacheRefreshBtn.id = 'cacheRefreshBtn';
         cacheRefreshBtn.type = 'button';
-        cacheRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+        cacheRefreshBtn.className = 'top-bar__dropdown-item';
+        cacheRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i><span>מחיקת Cache</span>';
         cacheRefreshBtn.title = 'רענון עמוק - מחיקת Cache והורדה מחדש';
-        cacheRefreshBtn.style.cssText = 'margin-inline-start:8px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:0;background:transparent;color:#00d4ff;font-size:16px;padding:0!important;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s;';
         cacheRefreshBtn.onclick = async function() {
           cacheRefreshBtn.style.animation = 'spin 1s linear infinite';
           cacheRefreshBtn.disabled = true;
@@ -1065,11 +1066,12 @@
           var p2pCircle = document.getElementById('p2pStatsCircle');
           if (p2pCircle) {
             p2pCircle.insertAdjacentElement('beforebegin', openBtnTop);
-            // כפתור רענון מימין לכפתור הדיבאג (לפניו ב-DOM כי RTL)
-            openBtnTop.insertAdjacentElement('beforebegin', cacheRefreshBtn);
           } else {
             topBar.appendChild(openBtnTop);
-            topBar.appendChild(cacheRefreshBtn);
+          }
+          // הוספת כפתור מחיקת קאש לתפריט הפרופיל
+          if (profileMenu) {
+            profileMenu.appendChild(cacheRefreshBtn);
           }
           // אין צורך בכפתור הצף אם הטופ־בר קיים
           openBtn.style.display = 'none';
