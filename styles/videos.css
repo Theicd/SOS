@@ -271,6 +271,36 @@ body:has(.videos-feed) .top-bar {
   position: relative;
 }
 
+/* חלק מיקום כפתור פרופיל (videos.css) – הזזה 5px ימינה במובייל | HYPER CORE TECH */
+@media (max-width: 900px) {
+  body:has(.videos-feed) .top-bar__profile {
+    transform: translateX(-5px);
+  }
+
+  /* הקטנת כפתור פרופיל ~10% במובייל | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar__actions .top-bar__avatar {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  /* תיקון גלישת כפתור התחבר/הרשם: ביטול הזזת לוגו וצריבת מרווחים קטנים יותר במובייל | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar .app-logo {
+    transform: translateX(0); /* היה 30px ימינה ומשך את שורת הכפתורים שמאלה | HYPER CORE TECH */
+  }
+
+  body:has(.videos-feed) .top-bar__actions {
+    gap: 8px; /* ריווח קטן יותר בין הכפתורים כדי להיכנס לפריים במובייל | HYPER CORE TECH */
+  }
+
+  body:has(.videos-feed) #guestLoginButton {
+    margin-left: 4px !important; /* צמצום מרווח שמאלי כדי לא לדחוף החוצה | HYPER CORE TECH */
+    padding: 4px 10px !important; /* הקטנת padding אופקי לשמירה בתוך המסך | HYPER CORE TECH */
+    font-size: 10px !important; /* קמצוץ טקסט במובייל | HYPER CORE TECH */
+  }
+}
+
 /* כותרת פרימיום לתפריט הפרופיל */
 .top-bar__dropdown-title {
   padding: 10px 14px 6px;
