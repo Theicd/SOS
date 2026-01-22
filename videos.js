@@ -1461,7 +1461,11 @@ function renderVideoCard(video) {
     progressBar.className = 'video-progress-bar';
     const progressFill = document.createElement('div');
     progressFill.className = 'video-progress-bar__fill';
+    // עיגול גרירה (thumb) לפס ההתקדמות | HYPER CORE TECH
+    const progressThumb = document.createElement('div');
+    progressThumb.className = 'video-progress-bar__thumb';
     progressBar.appendChild(progressFill);
+    progressBar.appendChild(progressThumb);
     mediaDiv.appendChild(progressBar);
     
     // פורמט זמן mm:ss
@@ -1502,12 +1506,15 @@ function renderVideoCard(video) {
     skipBackBtn.type = 'button';
     skipBackBtn.className = 'video-skip-btn video-skip-btn--left';
     skipBackBtn.innerHTML = '<i class="fa-solid fa-backward"></i>';
-    skipBackBtn.setAttribute('aria-label', 'דילוג 5 שניות אחורה');
-    skipBackBtn.onclick = (e) => { 
+    skipBackBtn.setAttribute('aria-label', 'דילוג 5 שניות קדימה');
+    // תמיכה בטאץ' ולחיצה במובייל | HYPER CORE TECH
+    const handleSkipBack = (e) => { 
       e.preventDefault(); 
       e.stopPropagation();
-      doSkip(-5); 
+      doSkip(5); 
     };
+    skipBackBtn.addEventListener('click', handleSkipBack);
+    skipBackBtn.addEventListener('touchend', handleSkipBack, { passive: false });
     
     // תצוגת זמן - מרכז תחתון
     const timeDisplay = document.createElement('div');
@@ -1518,12 +1525,15 @@ function renderVideoCard(video) {
     skipForwardBtn.type = 'button';
     skipForwardBtn.className = 'video-skip-btn video-skip-btn--right';
     skipForwardBtn.innerHTML = '<i class="fa-solid fa-forward"></i>';
-    skipForwardBtn.setAttribute('aria-label', 'דילוג 5 שניות קדימה');
-    skipForwardBtn.onclick = (e) => { 
+    skipForwardBtn.setAttribute('aria-label', 'דילוג 5 שניות אחורה');
+    // תמיכה בטאץ' ולחיצה במובייל | HYPER CORE TECH
+    const handleSkipForward = (e) => { 
       e.preventDefault(); 
       e.stopPropagation();
-      doSkip(5); 
+      doSkip(-5); 
     };
+    skipForwardBtn.addEventListener('click', handleSkipForward);
+    skipForwardBtn.addEventListener('touchend', handleSkipForward, { passive: false });
     
     // הוספה ל-mediaDiv כדי שמיקום הכפתורים יתיישר לגבולות הווידאו | HYPER CORE TECH
     mediaDiv.appendChild(skipBackBtn);
@@ -1532,19 +1542,78 @@ function renderVideoCard(video) {
     
     // עדכון פס התקדמות וזמן
     let progressTimeout = null;
+    let isDragging = false;
+    
     const updateProgress = () => {
       if (!videoEl.duration || !isFinite(videoEl.duration)) return;
       const pct = (videoEl.currentTime / videoEl.duration) * 100;
       progressFill.style.width = `${pct}%`;
+      // העיגול נע מימין לשמאל (פס RTL) | HYPER CORE TECH
+      progressThumb.style.left = `${100 - pct}%`;
       timeDisplay.textContent = `${formatTime(videoEl.currentTime)} / ${formatTime(videoEl.duration)}`;
       
       // הצגת פס התקדמות זמנית
       progressBar.classList.add('visible');
       clearTimeout(progressTimeout);
+      if (!isDragging) {
+        progressTimeout = setTimeout(() => {
+          progressBar.classList.remove('visible');
+        }, 2000);
+      }
+    };
+    
+    // גרירת פס ההתקדמות - תמיכה במובייל ודסקטופ | HYPER CORE TECH
+    const seekToPosition = (clientX) => {
+      const rect = progressBar.getBoundingClientRect();
+      const x = clientX - rect.left;
+      // פס RTL: ימין = התחלה, שמאל = סוף | HYPER CORE TECH
+      const pct = 1 - Math.max(0, Math.min(1, x / rect.width));
+      if (videoEl.duration && isFinite(videoEl.duration)) {
+        videoEl.currentTime = pct * videoEl.duration;
+        updateProgress();
+      }
+    };
+    
+    const handleDragStart = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isDragging = true;
+      progressBar.classList.add('visible', 'dragging');
+      const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      seekToPosition(clientX);
+    };
+    
+    const handleDragMove = (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      seekToPosition(clientX);
+    };
+    
+    const handleDragEnd = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      progressBar.classList.remove('dragging');
+      clearTimeout(progressTimeout);
       progressTimeout = setTimeout(() => {
         progressBar.classList.remove('visible');
       }, 2000);
     };
+    
+    // אירועי גרירה על פס ההתקדמות | HYPER CORE TECH
+    progressBar.addEventListener('mousedown', handleDragStart);
+    progressBar.addEventListener('touchstart', handleDragStart, { passive: false });
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('touchmove', handleDragMove, { passive: false });
+    document.addEventListener('mouseup', handleDragEnd);
+    document.addEventListener('touchend', handleDragEnd);
+    
+    // לחיצה פשוטה על הפס לדילוג למיקום | HYPER CORE TECH
+    progressBar.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      seekToPosition(e.clientX);
+    });
     
     videoEl.addEventListener('loadedmetadata', updateProgress);
     videoEl.addEventListener('timeupdate', updateProgress);
