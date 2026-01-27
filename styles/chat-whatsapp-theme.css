@@ -891,3 +891,81 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   margin-inline-start: auto;
   gap: 8px;
 }
+
+/* ========================================
+   חלק צ'אט דסקטופ (chat-whatsapp-theme.css) – מסך מלא כמו פרופיל
+   עיצוב WhatsApp מלא | HYPER CORE TECH
+   ======================================== */
+@media (min-width: 769px) {
+  /* === פאנל ראשי - מסך מלא === */
+  .chat-panel {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #111b21 !important;
+    z-index: 2000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* === הסתרת רקע דינמי === */
+  .chat-panel::before,
+  .chat-panel::after {
+    display: none !important;
+  }
+
+  /* === גוף הפאנל === */
+  .chat-panel .chat-panel__body {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: #111b21 !important;
+  }
+
+  /* === הסתרת כותרת עליונה ותפריט תחתון === */
+  .chat-panel .chat-panel__header,
+  .chat-panel .chat-panel__footer {
+    display: none !important;
+  }
+
+  /* === סיידבר ימני === */
+  .chat-panel .chat-contacts {
+    width: 30% !important;
+    min-width: 340px !important;
+    max-width: 450px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border-left: 1px solid #313d45 !important;
+    border-right: none !important;
+    background-color: #111b21 !important;
+    height: 100% !important;
+  }
+
+  /* === אזור שיחה ראשי === */
+  .chat-panel .chat-conversation {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #0b141a !important;
+    position: relative !important;
+  }
+
+  /* === מצבי תצוגה - תמיד מראה שניהם === */
+  .chat-panel--list-only .chat-conversation,
+  .chat-panel--conversation .chat-contacts {
+    display: flex !important;
+  }
+}
