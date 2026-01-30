@@ -407,23 +407,20 @@ body:has(.videos-feed) .top-bar__actions {
     flex-direction: row;
   }
 
-  body:has(.videos-feed) .top-bar__actions > #topBarProfile,
-  body:has(.videos-feed) .top-bar__actions > .top-bar__profile {
-    order: 0;
+  /* סידור פנימי של הכפתורים ע"י order - אווטאר (-2), P2P (-1), כל השאר (0) | HYPER CORE TECH */
+  /* זה מסדר את הכפתורים: אווטאר (ימין), P2P (אמצע), כלים (שמאל) */
+  body:has(.videos-feed) .top-bar__actions .top-bar__profile {
+    order: -2;
+  }
+  
+  body:has(.videos-feed) .top-bar__actions .p2p-stats-circle {
+    order: -1;
+    margin: 0 12px; /* ריווח סביב המד */
   }
 
-  body:has(.videos-feed) .top-bar__actions > #p2pStatsCircle {
-    order: 1;
-  }
-
-  body:has(.videos-feed) .top-bar__actions > #cacheRefreshBtn,
-  body:has(.videos-feed) .top-bar__actions > #debugOpenBtnTop {
-    order: 2;
-  }
-
-  body:has(.videos-feed) .top-bar__actions > #guestLoginButton,
-  body:has(.videos-feed) .top-bar__actions > button {
-    order: 3;
+  /* הסתרת כפתורים עליונים רק כאשר הצ'אט פתוח במצב דסקטופ | HYPER CORE TECH */
+  body:has(#chatPanel:not([hidden])) .top-bar__actions {
+    display: none !important;
   }
 }
 
@@ -1666,7 +1663,7 @@ body.global-stop .videos-feed__play-overlay {
     border-radius: 0 !important;
     box-shadow: none !important;
     gap: 0 !important;
-    z-index: 2001 !important; /* מעל פאנל הצ'אט/פרופיל (2000) כדי להישאר גלוי */
+    z-index: 2000 !important;
   }
 
   /* מניעת כיווץ פריטים בתוך תפריט הצד – שומר על תצוגת עוקבים/משחקים בזמן גלילה | HYPER CORE TECH */
@@ -1814,23 +1811,10 @@ body.global-stop .videos-feed__play-overlay {
 
   /* פאנלים: התאמה לפריסת דסקטופ ללא תפריט תחתון | HYPER CORE TECH */
   .profile-panel,
-  .notifications-panel {
-    bottom: 0 !important;
-    height: 100dvh !important;
-  }
-
-  /* תיקון ספציפי לצ'אט - איפוס ודריסת כל הגדרה קודמת שגורמת לו לכסות את התפריט */
+  .notifications-panel,
   .chat-panel {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
     bottom: 0 !important;
-    right: 260px !important; /* משאיר מקום לתפריט */
-    width: auto !important; /* מאפשר ל-right לקבוע את הרוחב */
     height: 100dvh !important;
-    z-index: 2000 !important;
-    max-width: none !important;
-    transform: none !important;
   }
 
   /* כיסוי גובה מלא והסתרת גלילות בפאנל פרופיל אישי בדסקטופ | HYPER CORE TECH */
@@ -2962,19 +2946,17 @@ body.policy-modal-open {
     visibility: hidden !important;
   }
 
-  /* כשאנחנו בתוך שיחה (conversation active) במובייל בלבד:
+  /* כשאנחנו בתוך שיחה (conversation active):
      1. מסתירים את התפריט התחתון הראשי (.primary-nav)
      2. מבטלים את המרווח התחתון של הפאנל כדי שינצל את כל הגובה (משאירים רק safe-area)
   */
-  @media (max-width: 768px) {
-    body:has(.chat-panel--conversation:not([hidden])) .primary-nav {
-      display: none !important;
-    }
-    
-    body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
-      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-      z-index: 2005 !important;
-    }
+  body:has(.chat-panel--conversation:not([hidden])) .primary-nav {
+    display: none !important;
+  }
+
+  body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    z-index: 2005 !important; /* וידוא שנשאר עליון */
   }
 
   /* הסתרת התפריט התחתון של הצ'אט כדי למנוע כפילות עם התפריט הראשי */

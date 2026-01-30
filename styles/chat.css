@@ -13,19 +13,35 @@
 .chat-message__delete {
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--muted); /* צבע מותאם לרקע הכללי ולא לרקע הבועה */
   cursor: pointer;
   font-size: 0.9rem;
-  padding: 4px;
+  padding: 6px;
   border-radius: 50%;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: all 0.2s ease;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  align-self: center; /* מירכוז אנכי לצד הבועה */
+  opacity: 0; /* מוסתר כברירת מחדל */
+  transform: scale(0.8);
+}
+
+.chat-message:hover .chat-message__delete {
+  opacity: 1; /* מוצג במעבר עכבר */
+  transform: scale(1);
+}
+
+/* במובייל תמיד להציג */
+@media (max-width: 768px) {
+  .chat-message__delete {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .chat-message__delete:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--danger); /* צבע אדום למחיקה בהובר */
 }
 
 .chat-message--incoming .chat-message__delete {
@@ -72,6 +88,20 @@ body.chat-overlay-open::before {
 }
 .chat-panel[hidden] {
   display: none !important; /* חלק צ'אט (chat.css) – מבטיח שהחלון יוסתר לחלוטין כאשר מאופיין hidden */
+}
+
+/* חלק צ'אט (chat.css) – כותרת סיידבר מוסתרת במובייל, מוצגת רק בדסקטופ | HYPER CORE TECH */
+.chat-sidebar-header {
+  display: none;
+}
+
+/* חלק צ'אט (chat.css) – מיכל search-bar מוסתר במובייל, מוצג רק בדסקטופ | HYPER CORE TECH */
+.chat-contacts__search-bar {
+  display: contents; /* במובייל - האלמנטים בפנים מוצגים ישירות */
+}
+
+.chat-contacts__search-bar > i:last-child {
+  display: none; /* הסתרת אייקון הפילטר במובייל */
 }
 
 /* חלק צ'אט (chat.css) – מעטפת חלון המסנג'ר בסגנון facebook-theme לשמירת אחדות */
@@ -618,6 +648,15 @@ body.chat-overlay-open::before {
   border-bottom-right-radius: 6px;
 }
 
+/* חלק הסרת רקע כפול (chat.css) – כשיש רק אודיו, מסיר רקע ופדינג מה-content | HYPER CORE TECH */
+.chat-message__content--has-attachment:has(.chat-audio-enhanced:only-child),
+.chat-message__content--has-attachment:has(.chat-audio-whatsapp):not(:has(.chat-message__text)):not(:has(.chat-message__meta-row)) {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 .chat-message__avatar {
   width: 32px;
   height: 32px;
@@ -642,6 +681,18 @@ body.chat-overlay-open::before {
 
 .chat-message__avatar--initials {
   background: rgba(35, 116, 225, 0.18);
+}
+
+/* חלק אוואטר הודעה יוצאת (chat.css) – מיקום avatar בהודעות קוליות יוצאות | HYPER CORE TECH */
+.chat-message__avatar--outgoing {
+  order: 1;
+}
+
+/* חלק הסתרת avatar במובייל (chat.css) – הסתרת avatar חיצוני בהודעות קוליות במובייל | HYPER CORE TECH */
+@media (max-width: 768px) {
+  .chat-message:has(.chat-audio-whatsapp) > .chat-message__avatar {
+    display: none;
+  }
 }
 
 .chat-message__meta {
@@ -1037,53 +1088,41 @@ body.chat-media-modal-open {
    נפתח מסך מלא עם תפריט צד גלוי | HYPER CORE TECH
    ======================================== */
 @media (min-width: 769px) {
-  /* === משתני CSS בסגנון Unified Theme (מותאם ל-SOS) === */
+  /* === משתני CSS בסגנון WhatsApp === */
   .chat-panel {
-    /* רקעים */
-    --wa-bg-color: #0b101c; /* רקע כהה עמוק תואם לפרופיל */
-    --wa-header-color: rgba(14, 18, 32, 0.95); /* כותרת כהה עם גוון כחול */
+    --wa-bg-color: #111b21;
+    --wa-header-color: #202c33;
     --wa-panel-header-icon: #aebac1;
-    --wa-search-bg: rgba(255, 255, 255, 0.05);
-    --wa-compose-input-bg: rgba(20, 24, 42, 0.6);
-    
-    /* טקסט */
-    --wa-primary-text: #f5f7ff;
-    --wa-secondary-text: #8b9bb4;
-    
-    /* בועות הודעה */
-    --wa-incoming-bg: rgba(30, 35, 50, 0.6);
-    --wa-outgoing-bg: var(--primary, #2374e1); /* כחול SOS */
-    
-    /* שונות */
-    --wa-system-message-bg: rgba(124, 160, 255, 0.08);
-    --wa-badge-color: var(--accent-color, #fe2c55); /* אדום/ורוד SOS */
-    --wa-icon-color: #8b9bb4;
-    --wa-border-color: rgba(124, 160, 255, 0.12); /* גבול כחלחל עדין תואם לפרופיל */
-    --wa-hover-bg: rgba(124, 160, 255, 0.06);
-    --wa-active-chat-bg: rgba(35, 116, 225, 0.12); /* כחול שקוף לפריט פעיל */
+    --wa-search-bg: #202c33;
+    --wa-compose-input-bg: #2a3942;
+    --wa-primary-text: #e9edef;
+    --wa-secondary-text: #8696a0;
+    --wa-incoming-bg: #202c33;
+    --wa-outgoing-bg: #005c4b;
+    --wa-system-message-bg: #182229;
+    --wa-badge-color: #2374e1; /* עודכן לכחול לפי בקשת המשתמש (במקום #00a884) */
+    --wa-icon-color: #8696a0;
+    --wa-border-color: #313d45;
+    --wa-hover-bg: #202c33;
+    --wa-active-chat-bg: #2a3942;
   }
 
   /* === פאנל ראשי - כמו פרופיל, מכסה את כל המסך === */
   .chat-panel {
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    /* שימוש ב-calc כדי להבטיח שהרוחב לא יעלה על השטח הפנוי משמאל לתפריט */
-    right: 260px !important;
-    width: calc(100vw - 260px) !important;
-    max-width: calc(100vw - 260px) !important;
-    height: 100vh !important;
-    max-height: none !important;
-    border-radius: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: var(--wa-bg-color) !important;
-    z-index: 2000 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    transform: none !important;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    background: var(--wa-bg-color);
+    z-index: 2000; /* מתחת לתפריט (2001) כך שהתפריט נשאר נגיש */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   /* === גוף הפאנל - פריסת sidebar + main chat === */
@@ -1117,9 +1156,9 @@ body.chat-media-modal-open {
 
   /* === סיידבר ימני - רשימת שיחות === */
   .chat-panel .chat-contacts {
-    width: 25%; /* הצרת רשימת השיחות כפי שהתבקש */
-    min-width: 280px;
-    max-width: 320px;
+    width: 30%;
+    min-width: 340px;
+    max-width: 450px;
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--wa-border-color);
@@ -1128,8 +1167,8 @@ body.chat-media-modal-open {
     height: 100%;
   }
 
-  /* === כותרת סיידבר === */
-  .chat-panel .chat-contacts__search {
+  /* === כותרת סיידבר עם לוגו (כמו בדוגמא) === */
+  .chat-panel .chat-sidebar-header {
     height: 59px;
     background-color: var(--wa-header-color);
     display: flex;
@@ -1137,41 +1176,158 @@ body.chat-media-modal-open {
     justify-content: space-between;
     padding: 10px 16px;
     flex-shrink: 0;
-    border-bottom: none;
-    grid-template-columns: unset;
-    gap: 12px;
+  }
+
+  /* קבוצה ללוגו וכפתור סגירה כדי שיהיו צמודים מימין (chat.css) | HYPER CORE TECH */
+  .chat-panel .chat-sidebar-header__group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chat-panel .chat-sidebar-header__logo {
+    width: auto;
+    height: auto;
+    background: transparent;
+    border-radius: 0;
+    overflow: visible;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding-right: 8px;
+  }
+
+  .chat-panel .chat-sidebar-header__logo img {
+    display: none;
+  }
+
+  /* כפתור סגירה חדש בסיידבר ליד הלוגו (chat.css) | HYPER CORE TECH */
+  .chat-panel .chat-sidebar-header__close {
+    background: none;
+    border: none;
+    color: var(--wa-icon-color);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px;
+    margin-left: 4px; /* ריווח מהלוגו שמשמאלו */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+  }
+  
+  .chat-panel .chat-sidebar-header__close:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--danger, #f02849);
+  }
+
+  /* חלק טקסט לוגו דסקטופ (chat.css) – טקסט So Call 010 בעיצוב תקשורת בינלאומי | HYPER CORE TECH */
+  .chat-panel .chat-sidebar-header__logo::after {
+    content: 'So Call 010';
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    font-style: italic;
+    /* גרדיאנט משולב: אדום -> כסוף -> טורקיז */
+    background: linear-gradient(90deg, #ff1744 0%, #f5f5f5 50%, #00e5ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    white-space: nowrap;
+    /* אפקט זוהר הייטקיסטי עדין */
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(0, 229, 255, 0.3));
+    text-transform: uppercase; /* מראה רשמי יותר */
+  }
+
+  .chat-panel .chat-sidebar-header__icons {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .chat-panel .chat-sidebar-header__icons i,
+  .chat-panel .chat-sidebar-header__icons .material-symbols-outlined {
+    color: var(--wa-icon-color);
+    font-size: 22px;
+    cursor: pointer;
+  }
+
+  /* === מיכל חיפוש ופילטרים (כמו בדוגמא) === */
+  .chat-panel .chat-contacts__search {
+    padding: 8px 12px;
+    border-bottom: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--wa-bg-color);
+    flex-shrink: 0;
+    height: auto;
+  }
+
+  /* === תיבת חיפוש (search-bar בדוגמא) === */
+  .chat-panel .chat-contacts__search-bar {
+    background-color: var(--wa-search-bg);
+    border-radius: 8px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    width: 100%; /* רוחב מלא בתוך המיכל */
+    margin: 0;
   }
 
   .chat-panel .chat-contacts__search i {
     color: var(--wa-icon-color);
-    font-size: 1rem;
+    font-size: 18px;
+    margin-left: 10px;
+    transform: rotate(0deg);
+  }
+
+  /* אייקון פילטר בתוך שורת החיפוש - בצד שמאל */
+  .chat-panel .chat-contacts__search-bar > i.fa-filter {
+    cursor: pointer;
+    margin-right: auto; /* דחיפה שמאלה אם צריך, אבל ב-flex רגיל זה יהיה בסוף */
+    margin-left: 0;
   }
 
   .chat-panel .chat-contacts__search input {
-    flex: 1;
-    background-color: var(--wa-search-bg);
-    border-radius: 8px;
-    height: 35px;
-    padding: 0 12px;
+    background: transparent;
+    border: none;
     color: var(--wa-primary-text);
+    flex: 1;
+    margin: 0 10px;
+    outline: none;
     font-size: 14px;
+    height: 100%;
+    padding: 0;
   }
 
   .chat-panel .chat-contacts__search input::placeholder {
     color: var(--wa-secondary-text);
   }
 
-  /* === פילטרים === */
+  /* === הסתרת אייקונים מיותרים בדסקטופ (רענון, סגירה, תפריט) === */
+  .chat-panel .chat-contacts__actions {
+    display: none;
+  }
+
+  /* === פילטרים (filter-chips בדוגמא) === */
   .chat-panel .chat-contacts__filters {
     display: flex;
     gap: 8px;
-    padding: 8px 12px;
-    background: var(--wa-bg-color);
+    padding: 4px 0;
+    background: transparent;
     border-bottom: none;
+    flex-wrap: nowrap;
+    justify-content: flex-start; /* יישור לימין (התחלה) */
   }
 
   .chat-panel .chat-filter-chip {
-    background-color: var(--wa-search-bg);
+    background-color: var(--wa-search-bg); /* צבע רקע תואם לדוגמא */
     color: var(--wa-secondary-text);
     padding: 6px 12px;
     border-radius: 24px;
@@ -1179,6 +1335,10 @@ body.chat-media-modal-open {
     cursor: pointer;
     border: none;
     transition: background 0.2s;
+    height: auto; /* גובה אוטומטי לפי ה-padding */
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .chat-panel .chat-filter-chip:hover {
@@ -1187,8 +1347,8 @@ body.chat-media-modal-open {
   }
 
   .chat-panel .chat-filter-chip.is-active {
-    background-color: var(--wa-active-chat-bg);
-    color: var(--primary, #2374e1);
+    background-color: rgba(0, 168, 132, 0.1);
+    color: #00a884;
   }
 
   /* === רשימת שיחות === */
@@ -1295,7 +1455,7 @@ body.chat-media-modal-open {
 
   .chat-panel .chat-contact__badge {
     background-color: var(--wa-badge-color);
-    color: #111b21;
+    color: #ffffff;
     border-radius: 50%;
     min-width: 20px;
     height: 20px;
@@ -1321,8 +1481,10 @@ body.chat-media-modal-open {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-image: none; /* ביטול רקע דודלים של וואטסאפ */
-    background-color: var(--wa-bg-color);
+    background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+    background-repeat: repeat;
+    background-size: 400px;
+    background-color: #0b141a;
     position: relative;
   }
 
@@ -1335,7 +1497,7 @@ body.chat-media-modal-open {
     justify-content: space-between;
     padding: 10px 16px;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--wa-border-color); /* הוספת גבול עדין */
+    border-bottom: none;
     position: static;
   }
 
@@ -1416,20 +1578,19 @@ body.chat-media-modal-open {
 
   /* === הודעות === */
   .chat-panel .chat-message {
-    max-width: 75%; /* קצת יותר רחב לניצול מקום */
+    max-width: 65%;
     display: flex;
     gap: 0;
-    margin-bottom: 2px; /* רווח קטן בין הודעות ברצף */
   }
 
   .chat-panel .chat-message__content {
-    padding: 8px 12px;
-    border-radius: 12px; /* פינות עגולות אחידות יותר */
-    font-size: 15px;
-    line-height: 1.4;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 6px 7px 8px 9px;
+    border-radius: 7.5px;
+    font-size: 14.2px;
+    line-height: 19px;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
     position: relative;
-    border: 1px solid transparent;
+    border: none;
   }
 
   .chat-panel .chat-message--incoming {
@@ -1439,9 +1600,8 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--incoming .chat-message__content {
     background-color: var(--wa-incoming-bg);
     color: var(--wa-primary-text);
-    border-top-right-radius: 12px;
-    border-bottom-left-radius: 4px; /* זנב קטן בצד שמאל למטה */
-    border-color: var(--wa-border-color);
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 7.5px;
   }
 
   .chat-panel .chat-message--outgoing {
@@ -1451,22 +1611,22 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing .chat-message__content {
     background-color: var(--wa-outgoing-bg);
     color: var(--wa-primary-text);
-    border-top-left-radius: 12px;
-    border-bottom-right-radius: 4px; /* זנב קטן בצד ימין למטה */
+    border-top-left-radius: 0;
+    border-bottom-right-radius: 7.5px;
   }
 
   .chat-panel .chat-message__avatar {
-    display: none; /* מוסתר בעיצוב Unified */
+    display: none; /* מוסתר בעיצוב WhatsApp */
   }
 
   .chat-panel .chat-message__meta {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.6);
     display: flex;
     align-items: center;
     gap: 4px;
     justify-content: flex-end;
-    margin-top: 4px;
+    margin-top: 2px;
   }
 
   /* === כותרת תאריך === */
@@ -1474,23 +1634,22 @@ body.chat-media-modal-open {
     align-self: center;
     background-color: var(--wa-system-message-bg);
     color: var(--wa-secondary-text);
-    padding: 6px 14px;
-    border-radius: 99px; /* קפסולה */
-    font-size: 13px;
-    margin: 16px 0;
-    box-shadow: none;
-    border: 1px solid var(--wa-border-color);
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    margin: 8px 0;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
     user-select: none;
   }
 
   /* === אזור קלט הודעה === */
   .chat-panel .chat-composer {
     background-color: var(--wa-header-color);
-    padding: 12px 16px;
+    padding: 10px 16px;
     display: flex;
-    align-items: flex-end; /* יישור לתחתית כשיש טקסט מרובה שורות */
-    gap: 12px;
-    border-top: 1px solid var(--wa-border-color);
+    align-items: center;
+    gap: 10px;
+    border-top: none;
   }
 
   .chat-panel .chat-composer[hidden] {
@@ -1502,18 +1661,13 @@ body.chat-media-modal-open {
     display: flex;
     align-items: center;
     background-color: var(--wa-compose-input-bg);
-    border-radius: 20px; /* עגול יותר */
-    padding: 8px 14px;
+    border-radius: 8px;
+    padding: 9px 12px;
     gap: 10px;
-    border: 1px solid var(--wa-border-color);
-    min-height: 44px;
-    max-height: 120px;
+    border: none;
+    min-height: unset;
+    max-height: unset;
     grid-template-columns: unset;
-    transition: border-color 0.2s;
-  }
-
-  .chat-panel .chat-composer__field:focus-within {
-    border-color: var(--wa-badge-color); /* הדגשה בפוקוס */
   }
 
   .chat-panel .chat-composer textarea {
@@ -1524,8 +1678,7 @@ body.chat-media-modal-open {
     font-size: 15px;
     resize: none;
     max-height: 100px;
-    line-height: 1.5;
-    padding: 4px 0;
+    line-height: 20px;
   }
 
   .chat-panel .chat-composer textarea::placeholder {
@@ -1535,38 +1688,29 @@ body.chat-media-modal-open {
   .chat-panel .chat-composer__icon {
     color: var(--wa-icon-color);
     font-size: 1.3rem;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: background 0.2s, color 0.2s;
+    width: auto;
+    height: auto;
   }
 
   .chat-panel .chat-composer__icon:hover {
     color: var(--wa-primary-text);
-    background-color: rgba(255, 255, 255, 0.05);
   }
 
   .chat-panel .chat-composer__send {
-    background-color: var(--wa-outgoing-bg); /* תואם לצבע בועות יוצאות */
-    color: #fff;
+    background-color: var(--wa-badge-color);
+    color: #111b21;
     border-radius: 50%;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: transform 0.2s, background-color 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   }
 
   .chat-panel .chat-composer__send:hover {
-    background-color: var(--primary-hover, #1b5ecf);
-    transform: scale(1.05);
-    color: #fff;
+    background-color: #00c897;
+    color: #111b21;
   }
 
   /* === התראות === */
@@ -1576,39 +1720,35 @@ body.chat-media-modal-open {
 
   /* === הודעת מדיה (תמונה/וידאו) === */
   .chat-panel .chat-message--media .chat-message__content {
-    padding: 4px;
+    padding: 3px;
     overflow: hidden;
-    background: transparent; /* ללא רקע למדיה */
-    border: none;
-    box-shadow: none;
   }
 
   .chat-panel .chat-message--media.chat-message--no-caption .chat-message__content {
-    padding: 4px;
+    padding: 3px;
   }
 
   /* === הודעת אודיו === */
   .chat-panel .chat-message--audio .chat-message__content {
-    min-width: 300px;
-    padding: 8px 12px;
+    min-width: 280px;
+    padding: 4px 6px;
   }
 
-  /* === מבנה נגן אודיו בסגנון Unified === */
+  /* === מבנה נגן אודיו בסגנון WhatsApp === */
   .chat-panel .chat-message__audio {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     padding: 4px 0;
   }
 
   .chat-panel .chat-audio-avatar {
-    width: 48px;
-    height: 48px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
-    border: 2px solid rgba(255,255,255,0.1);
   }
 
   .chat-panel .chat-audio-avatar img {
@@ -1619,106 +1759,90 @@ body.chat-media-modal-open {
 
   .chat-panel .chat-audio-avatar-icon {
     position: absolute;
-    bottom: 0;
-    right: 0;
-    font-size: 14px !important;
-    color: #fff;
-    background: var(--wa-badge-color);
+    bottom: -2px;
+    right: -2px;
+    font-size: 16px !important;
+    color: #00a884;
+    background: var(--wa-incoming-bg);
     border-radius: 50%;
-    padding: 4px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    padding: 1px;
   }
 
   .chat-panel .chat-message--outgoing .chat-audio-avatar-icon {
-    background: var(--wa-badge-color);
+    background: var(--wa-outgoing-bg);
   }
 
   .chat-panel .chat-audio-controls {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
   }
 
   .chat-panel .chat-audio-top-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
   }
 
   .chat-panel .chat-audio-play-btn {
-    font-size: 24px !important;
-    color: var(--wa-primary-text);
+    font-size: 28px !important;
+    color: #8696a0;
     cursor: pointer;
-    background: rgba(255,255,255,0.1);
+    background: none;
     border: none;
-    padding: 8px;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-  }
-  
-  .chat-panel .chat-audio-play-btn:hover {
-    background: rgba(255,255,255,0.2);
+    padding: 0;
   }
 
   .chat-panel .chat-message--outgoing .chat-audio-play-btn {
-    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
   }
 
   .chat-panel .chat-audio-waveform {
     flex: 1;
-    height: 32px;
+    height: 26px;
     display: flex;
     align-items: center;
-    gap: 3px;
-    opacity: 0.8;
+    gap: 2px;
   }
 
   .chat-panel .chat-waveform-bar {
     width: 3px;
     background-color: var(--wa-secondary-text);
     border-radius: 2px;
-    min-height: 4px;
   }
 
   .chat-panel .chat-message--outgoing .chat-waveform-bar {
-    background-color: rgba(255,255,255,0.8);
+    background-color: #b4d7cf;
   }
 
   .chat-panel .chat-audio-meta-row {
     display: flex;
     justify-content: space-between;
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
-    padding-left: 4px;
+    color: rgba(255, 255, 255, 0.6);
+    padding-right: 38px;
   }
 
   .chat-panel .chat-message--incoming .chat-audio-top-row {
-    flex-direction: row; /* רגיל */
+    flex-direction: row-reverse;
   }
 
   .chat-panel .chat-message--incoming .chat-audio-meta-row {
-    flex-direction: row; /* רגיל */
+    flex-direction: row-reverse;
     padding-right: 0;
-    padding-left: 4px;
+    padding-left: 38px;
   }
 
   /* === מיכל תמונה/וידאו === */
   .chat-panel .chat-message__image,
   .chat-panel .chat-message__video {
     width: 100%;
-    max-width: 360px;
-    border-radius: 12px;
+    max-width: 330px;
+    border-radius: 6px;
     overflow: hidden;
     position: relative;
     cursor: pointer;
     line-height: 0;
-    border: 1px solid var(--wa-border-color);
   }
 
   .chat-panel .chat-message__image img,
