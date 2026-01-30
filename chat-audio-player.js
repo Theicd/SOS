@@ -32,6 +32,8 @@
     else if (checkStr.includes('.alac')) mimeType = 'audio/mp4';
     
     // חלק נגן (chat-audio-player.js) – תמיכה בריבוי sources לתאימות מקסימלית | HYPER CORE TECH
+    // חלק שעה וסטטוס (chat-audio-player.js) – מקום לשעה וסטטוס בתוך הנגן | HYPER CORE TECH
+    // חלק תמונת פרופיל (chat-audio-player.js) – מקום לתמונת פרופיל בתוך הנגן | HYPER CORE TECH
     return `
       <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${src}">
         <audio preload="auto" class="chat-message__audio-el" crossorigin="anonymous">
@@ -49,8 +51,12 @@
               <div class="chat-audio-whatsapp__progress" style="width:0%"></div>
               <div class="chat-audio-whatsapp__seeker" style="left:0%"></div>
             </div>
-            <span class="chat-audio-whatsapp__time">${durationLabel}</span>
+            <div class="chat-audio-whatsapp__footer">
+              <span class="chat-audio-whatsapp__time">${durationLabel}</span>
+              <span class="chat-audio-whatsapp__meta-slot"></span>
+            </div>
           </div>
+          <span class="chat-audio-whatsapp__avatar-slot"></span>
         </div>
       </div>
     `;

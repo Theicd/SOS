@@ -794,43 +794,34 @@
     }
   }
 
+  // חלק צ'אט (chat-ui.js) – מיקום הפאנל - בדסקטופ נשלט על ידי CSS בלבד | HYPER CORE TECH
   function positionPanel() {
     if (!elements.panel) {
       return;
     }
-    const trigger = elements.navButton || elements.launcherButton;
-    if (window.innerWidth <= 768) {
-      elements.panel.style.left = '0px';
-      elements.panel.style.right = '0px';
-      const safeTop = Math.max(0, window.visualViewport?.offsetTop || 0);
-      elements.panel.style.top = `${safeTop}px`;
-      elements.panel.style.bottom = '0px';
-      elements.panel.style.width = `${window.visualViewport?.width || window.innerWidth}px`;
-      elements.panel.style.maxWidth = `${window.visualViewport?.width || window.innerWidth}px`;
-      elements.panel.style.height = `${window.visualViewport?.height || window.innerHeight}px`;
-      elements.panel.style.maxHeight = `${window.visualViewport?.height || window.innerHeight}px`;
+    // בדסקטופ (מעל 768px) - ה-CSS קובע את המיקום (כמו פרופיל), לא צריך JavaScript
+    if (window.innerWidth > 768) {
+      // איפוס כל הסגנונות האינליין כדי שה-CSS יעבוד
+      elements.panel.style.left = '';
+      elements.panel.style.right = '';
+      elements.panel.style.top = '';
+      elements.panel.style.bottom = '';
+      elements.panel.style.width = '';
+      elements.panel.style.maxWidth = '';
+      elements.panel.style.height = '';
+      elements.panel.style.maxHeight = '';
       return;
     }
-    if (!trigger) {
-      return;
-    }
-    const anchor = trigger;
-    const rect = anchor.getBoundingClientRect();
-    const panelWidth = elements.panel.offsetWidth || 420;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-    const preferredLeft = rect.left + rect.width / 2 - panelWidth / 2;
-    const minLeft = 16;
-    const maxLeft = viewportWidth - panelWidth - 16;
-    const clampedLeft = Math.max(minLeft, Math.min(preferredLeft, maxLeft)) - 6;
-    const top = rect.bottom + 18;
-    elements.panel.style.left = `${clampedLeft}px`;
-    elements.panel.style.top = `${top}px`;
-    elements.panel.style.right = '';
-    elements.panel.style.bottom = '';
-    elements.panel.style.width = '';
-    elements.panel.style.maxWidth = '';
-    elements.panel.style.height = '';
-    elements.panel.style.maxHeight = '';
+    // במובייל (768px ומטה) - מיקום מלא מסך
+    elements.panel.style.left = '0px';
+    elements.panel.style.right = '0px';
+    const safeTop = Math.max(0, window.visualViewport?.offsetTop || 0);
+    elements.panel.style.top = `${safeTop}px`;
+    elements.panel.style.bottom = '0px';
+    elements.panel.style.width = `${window.visualViewport?.width || window.innerWidth}px`;
+    elements.panel.style.maxWidth = `${window.visualViewport?.width || window.innerWidth}px`;
+    elements.panel.style.height = `${window.visualViewport?.height || window.innerHeight}px`;
+    elements.panel.style.maxHeight = `${window.visualViewport?.height || window.innerHeight}px`;
   }
 
   function togglePanel(forceOpen) {
@@ -1202,6 +1193,7 @@
       const rawMessageContent = typeof message.content === 'string' ? message.content.trim() : '';
 
       // חלק צ'אט (chat-ui.js) – משחזר אוואטר לשיחות נכנסות על בסיס נתוני איש הקשר
+      // חלק אוואטר יוצא (chat-ui.js) – הוספת תמיכה באוואטר גם להודעות יוצאות (אודיו) | HYPER CORE TECH
       let avatarHtml = '';
       if (!isOutgoing) {
         const normalizedFrom = message.from?.toLowerCase?.();
@@ -1215,7 +1207,6 @@
           ? `<span class="chat-message__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-message__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
           : `<span class="chat-message__avatar chat-message__avatar--initials" title="${safeName}">${safeInitials}</span>`;
       }
-
       // חלק זיהוי אודיו מקיף (chat-ui.js) – תמיכה בכל פורמטי האודיו הנפוצים PC/Android/iPhone/Apple | HYPER CORE TECH
       let attachmentHtml = '';
       let isAudioAttachment = false;
@@ -1471,18 +1462,24 @@
         }
       }
       
+      // חלק meta בתוך נגן (chat-ui.js) – הסתרת meta-row לאודיו והזרקה לתוך הנגן | HYPER CORE TECH
+      const hideMetaForAudio = isAudioAttachment && !textHtml && !youtubeHtml && !mediaUrlHtml;
+      const metaRowHtml = hideMetaForAudio ? '' : `
+          <div class="chat-message__meta-row">
+            <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
+            ${statusHtml}
+          </div>
+      `;
+      
       item.innerHTML = `
         ${avatarHtml}
+        ${deleteButtonHtml}
         <div class="${contentClassName}" data-chat-message="${message.id}">
           ${textHtml}
           ${attachmentHtml}
           ${youtubeHtml}
           ${mediaUrlHtml}
-          <div class="chat-message__meta-row">
-            <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
-            ${statusHtml}
-            ${deleteButtonHtml}
-          </div>
+          ${metaRowHtml}
         </div>
       `;
       // חלק חיבור נגנים (chat-ui.js) – חיבור כל נגני האודיו (attachment + URL) | HYPER CORE TECH
@@ -1493,6 +1490,44 @@
         audioWraps.forEach(wrap => {
           App.wireEnhancedAudioPlayer(wrap);
         });
+      }
+      // חלק הזרקת meta לנגן (chat-ui.js) – הזרקת שעה וסטטוס לתוך נגן האודיו | HYPER CORE TECH
+      if (hideMetaForAudio && contentEl) {
+        const metaSlot = contentEl.querySelector('.chat-audio-whatsapp__meta-slot');
+        if (metaSlot) {
+          metaSlot.innerHTML = `<span class="chat-audio-whatsapp__msg-time">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
+        }
+        // חלק הזרקת תמונת פרופיל לנגן (chat-ui.js) – הזרקת avatar לתוך נגן האודיו | HYPER CORE TECH
+        const avatarSlot = contentEl.querySelector('.chat-audio-whatsapp__avatar-slot');
+        if (avatarSlot) {
+          let playerAvatarHtml = '';
+          if (isOutgoing) {
+            // תמונת פרופיל של המשתמש הנוכחי - חיפוש במקומות שונים
+            const myPubkey = App.publicKey?.toLowerCase?.();
+            const myContact = myPubkey && App.chatState?.contacts?.get?.(myPubkey);
+            const myName = App.userName || App.userDisplayName || App.profile?.name || myContact?.name || 'אני';
+            const safeName = App.escapeHtml ? App.escapeHtml(myName) : myName;
+            const myInitials = typeof App.getInitials === 'function' ? App.getInitials(myName) : myName.slice(0, 2);
+            const safeInitials = App.escapeHtml ? App.escapeHtml(myInitials) : myInitials;
+            // חיפוש תמונת פרופיל במקומות שונים
+            const myPicture = App.userPicture || App.userAvatar || App.profile?.picture || App.profile?.image || myContact?.picture || null;
+            playerAvatarHtml = myPicture
+              ? `<img src="${myPicture}" alt="${safeName}" class="chat-audio-whatsapp__avatar" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('chat-audio-whatsapp__avatar--initials'); this.outerHTML='<span class=\\'chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials\\'>${safeInitials}</span>';">`
+              : `<span class="chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials">${safeInitials}</span>`;
+          } else {
+            // תמונת פרופיל של איש הקשר
+            const normalizedFrom = message.from?.toLowerCase?.();
+            const contact = normalizedFrom && App.chatState?.contacts?.get?.(normalizedFrom);
+            const fallbackName = contact?.name || (normalizedFrom ? `משתמש ${normalizedFrom.slice(0, 8)}` : 'משתמש');
+            const safeName = App.escapeHtml ? App.escapeHtml(fallbackName) : fallbackName;
+            const initialsValue = contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(fallbackName) : 'מש');
+            const safeInitials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
+            playerAvatarHtml = contact?.picture
+              ? `<img src="${contact.picture}" alt="${safeName}" class="chat-audio-whatsapp__avatar" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('chat-audio-whatsapp__avatar--initials'); this.outerHTML='<span class=\\'chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials\\'>${safeInitials}</span>';">`
+              : `<span class="chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials">${safeInitials}</span>`;
+          }
+          avatarSlot.innerHTML = playerAvatarHtml;
+        }
       }
       fragment.appendChild(item);
     });
@@ -1533,6 +1568,14 @@
         statusHtml = '<span class="chat-message__status chat-message__status--failed" title="שליחה נכשלה"><i class="fa-solid fa-exclamation-circle"></i></span>';
       }
     }
+
+    const deleteButtonHtml = isOutgoing
+      ? `
+          <button type="button" class="chat-message__delete" data-chat-delete="${message.id}" aria-label="מחק הודעה">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        `
+      : '';
     
     item.className = `chat-message ${directionClass}`;
     item.setAttribute('data-message-id', message.id);
@@ -1549,6 +1592,7 @@
           ${statusHtml}
         </div>
       </div>
+      ${deleteButtonHtml}
     `;
     
     elements.messagesContainer.appendChild(item);
@@ -1777,6 +1821,11 @@
     }
     if (elements.closeButton) {
       elements.closeButton.addEventListener('click', () => togglePanel(false));
+    }
+    // האזנה לכפתור סגירה החדש בסיידבר (דסקטופ) | HYPER CORE TECH
+    const sidebarCloseBtn = doc.getElementById('chatSidebarCloseBtn');
+    if (sidebarCloseBtn) {
+      sidebarCloseBtn.addEventListener('click', () => togglePanel(false));
     }
     doc.addEventListener('click', (event) => {
       if (!state.isOpen) return;

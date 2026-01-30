@@ -611,11 +611,26 @@
 /* חלק נגן וואטסאפ (chat-enhanced-styles.css) – עיצוב נגן הודעות קוליות כמו וואטסאפ | HYPER CORE TECH */
 .chat-audio-whatsapp {
   display: flex;
+  flex-direction: row-reverse; /* כפתור פליי בצד השני */
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  min-width: 180px;
-  max-width: 260px;
+  min-width: 274px; /* הוקטן ב-10% (מ-304px) */
+  max-width: 396px; /* הוקטן ב-10% (מ-440px) */
+  border-radius: 16px;
+}
+
+/* חלק רקע נגן יוצא (chat-enhanced-styles.css) – רקע כחול לנגן בהודעות יוצאות | HYPER CORE TECH */
+.chat-message--outgoing .chat-audio-whatsapp {
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  border-bottom-right-radius: 6px;
+}
+
+/* חלק רקע נגן נכנס (chat-enhanced-styles.css) – רקע כהה לנגן בהודעות נכנסות | HYPER CORE TECH */
+.chat-message--incoming .chat-audio-whatsapp {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 6px;
 }
 
 .chat-audio-whatsapp__play {
@@ -624,8 +639,8 @@
   min-width: 36px;
   border-radius: 50%;
   border: none;
-  background: #25D366;
-  color: white;
+  background: #ffffff; /* לבן במקום ירוק */
+  color: var(--primary, #2374e1); /* כחול לאייקון */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -636,7 +651,7 @@
 }
 
 .chat-audio-whatsapp__play:hover {
-  background: #20bd5a;
+  background: #e8f0fe; /* כחול בהיר בהובר */
   transform: scale(1.05);
 }
 
@@ -669,7 +684,7 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: #25D366;
+  background: #ffffff; /* לבן במקום ירוק */
   border-radius: 2px;
   transition: width 0.1s linear;
 }
@@ -686,10 +701,70 @@
   pointer-events: none;
 }
 
+/* חלק שורה תחתונה בנגן (chat-enhanced-styles.css) – שורה עם זמן ניגון + שעת הודעה + סטטוס | HYPER CORE TECH */
+.chat-audio-whatsapp__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .chat-audio-whatsapp__time {
-  font-size: 11px;
+  font-size: 0.7rem; /* הגדלה לגודל זהה לשאר ההודעות */
   color: rgba(255, 255, 255, 0.7);
   font-family: monospace;
+}
+
+/* חלק meta בתוך נגן (chat-enhanced-styles.css) – שעה וסטטוס בתוך הנגן | HYPER CORE TECH */
+.chat-audio-whatsapp__meta-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+
+.chat-audio-whatsapp__msg-time {
+  font-size: 0.7rem; /* הגדלה לגודל זהה לשאר ההודעות */
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.chat-audio-whatsapp__meta-slot .chat-message__status {
+  font-size: 12px;
+}
+
+.chat-audio-whatsapp__meta-slot .chat-message__status--read {
+  color: #ef4444;
+}
+
+.chat-audio-whatsapp__meta-slot .chat-message__status--sent {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* חלק תמונת פרופיל בנגן (chat-enhanced-styles.css) – עיצוב avatar בתוך נגן האודיו | HYPER CORE TECH */
+.chat-audio-whatsapp__avatar-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chat-audio-whatsapp__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.chat-audio-whatsapp__avatar--initials {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* תמיכה בנגן ישן לתאימות אחורה */
