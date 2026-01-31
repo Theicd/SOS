@@ -1722,10 +1722,16 @@
   // חלק שליחה אופטימיסטית (chat-ui.js) – שליחה מיידית ללא המתנה לרשת | HYPER CORE TECH
   function handleSendMessage(event) {
     event.preventDefault();
+    // חלק שמירת מקלדת פתוחה במובייל (chat-ui.js) – שמירת focus על ה-input מיד בתחילת השליחה | HYPER CORE TECH
+    const inputRef = elements.messageInput;
+    if (inputRef) {
+      inputRef.focus();
+    }
+    
     if (!state.activeContact) {
       return;
     }
-    const value = elements.messageInput?.value || '';
+    const value = inputRef?.value || '';
     const hasAttachment =
       typeof App.hasChatFileAttachment === 'function' && App.hasChatFileAttachment(state.activeContact);
     if (!value.trim() && !hasAttachment) {
@@ -1734,14 +1740,14 @@
     
     // 1. נקה input מיד - תגובה מיידית למשתמש
     const messageText = value;
-    elements.messageInput.value = '';
-    elements.messageInput.disabled = false;
-    // חלק שמירת מקלדת פתוחה (chat-ui.js) – החזרת focus לשדה הקלט כדי שהמקלדת תישאר פתוחה במובייל כמו וואטסאפ | HYPER CORE TECH
-    requestAnimationFrame(() => {
-      if (elements.messageInput) {
-        elements.messageInput.focus();
+    inputRef.value = '';
+    inputRef.disabled = false;
+    // שמירת focus אחרי ניקוי הערך
+    setTimeout(() => {
+      if (inputRef) {
+        inputRef.focus();
       }
-    });
+    }, 0);
     
     // 2. צור הודעה זמנית והצג מיד ב-UI
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
