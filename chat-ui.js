@@ -1885,17 +1885,6 @@
     }
     if (elements.composer) {
       elements.composer.addEventListener('submit', handleSendMessage);
-      // חלק שמירת מקלדת פתוחה במובייל (chat-ui.js) – מניעת איבוד focus כשלוחצים על כפתור השליחה | HYPER CORE TECH
-      const sendButton = elements.composer.querySelector('button[type="submit"]');
-      if (sendButton) {
-        // מניעת default על mousedown/touchstart כדי שה-focus יישאר על ה-input והמקלדת תישאר פתוחה
-        sendButton.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-        });
-        sendButton.addEventListener('touchstart', (e) => {
-          e.preventDefault();
-        }, { passive: false });
-      }
     }
     if (elements.messagesContainer) {
       elements.messagesContainer.addEventListener('click', handleMessageActions);
