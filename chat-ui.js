@@ -1864,6 +1864,30 @@
     window.addEventListener('scroll', () => {
       positionPanel();
     });
+    // חלק התאמת מקלדת וירטואלית (chat-ui.js) – שומר את שורת הקלט מעל המקלדת במובייל | HYPER CORE TECH
+    if (window.visualViewport) {
+      const adjustForKeyboard = () => {
+        if (!elements.composer || !state.isOpen) return;
+        const viewport = window.visualViewport;
+        const keyboardHeight = window.innerHeight - viewport.height - viewport.offsetTop;
+        if (keyboardHeight > 100) {
+          // מקלדת פתוחה
+          elements.composer.style.transform = `translateY(-${keyboardHeight}px)`;
+          elements.composer.style.transition = 'transform 0.1s ease-out';
+          // גלילה לתחתית כדי לראות את ההודעה האחרונה
+          if (elements.messagesContainer) {
+            setTimeout(() => {
+              elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+            }, 50);
+          }
+        } else {
+          // מקלדת סגורה
+          elements.composer.style.transform = '';
+        }
+      };
+      window.visualViewport.addEventListener('resize', adjustForKeyboard);
+      window.visualViewport.addEventListener('scroll', adjustForKeyboard);
+    }
     if (elements.contactsList) {
       elements.contactsList.addEventListener('click', handleContactClick);
     }
