@@ -865,10 +865,22 @@
     }
   }
 
+  // חלק מקלדת מובייל (chat-ui.js) – מאזין לשינויי viewport עם שמירה על פוקוס ב-input | HYPER CORE TECH
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => {
       if (state.isOpen) {
+        // שמור את האלמנט הפעיל לפני שינוי גודל
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
+        
         positionPanel();
+        
+        // אם ה-input היה בפוקוס, החזר אותו לפוקוס אחרי שינוי גודל
+        if (isInputFocused && activeElement === elements.messageInput) {
+          requestAnimationFrame(() => {
+            elements.messageInput?.focus();
+          });
+        }
       }
     });
   }
@@ -1722,7 +1734,6 @@
   // חלק שליחה אופטימיסטית (chat-ui.js) – שליחה מיידית ללא המתנה לרשת | HYPER CORE TECH
   function handleSendMessage(event) {
     event.preventDefault();
-    event.stopPropagation(); // חלק מניעת סגירה (chat-ui.js) – מונע מה-click להגיע ל-document ולסגור את הפאנל | HYPER CORE TECH
     if (!state.activeContact) {
       return;
     }
@@ -1737,12 +1748,8 @@
     const messageText = value;
     elements.messageInput.value = '';
     elements.messageInput.disabled = false;
-    // חלק שמירת מקלדת פתוחה (chat-ui.js) – החזרת focus לשדה הקלט כדי שהמקלדת תישאר פתוחה במובייל כמו וואטסאפ | HYPER CORE TECH
-    requestAnimationFrame(() => {
-      if (elements.messageInput) {
-        elements.messageInput.focus();
-      }
-    });
+    // חלק שמירת מקלדת (chat-ui.js) – שמירה על פוקוס ב-input אחרי שליחה כדי שהמקלדת תישאר פתוחה במובייל | HYPER CORE TECH
+    elements.messageInput.focus();
     
     // 2. צור הודעה זמנית והצג מיד ב-UI
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -1886,8 +1893,6 @@
     }
     if (elements.composer) {
       elements.composer.addEventListener('submit', handleSendMessage);
-      // חלק מניעת סגירה (chat-ui.js) – מונע לחיצות על הקומפוזר מלסגור את הפאנל | HYPER CORE TECH
-      elements.composer.addEventListener('click', (e) => e.stopPropagation());
     }
     if (elements.messagesContainer) {
       elements.messagesContainer.addEventListener('click', handleMessageActions);

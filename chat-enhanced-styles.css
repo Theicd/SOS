@@ -1,14 +1,13 @@
 /* חלק עיצוב משופר (chat-enhanced-styles.css) – סטיילים לצ'אט מתקדם בסגנון WhatsApp | HYPER CORE TECH */
 
-/* חלק ממשק הקלטה (chat-enhanced-styles.css) – ממשק הקלטת הודעה קולית בסגנון כהה מותאם לממשק | HYPER CORE TECH */
+/* חלק ממשק הקלטה (chat-enhanced-styles.css) – ממשק הקלטת הודעה קולית בסגנון וואטסאפ | HYPER CORE TECH */
 .chat-voice-recording {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 56px;
-  background: linear-gradient(135deg, #1a2633 0%, #0d1418 100%);
-  border-top: 1px solid rgba(0, 229, 255, 0.15);
+  background: linear-gradient(135deg, #075e54 0%, #128c7e 100%);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -66,7 +65,7 @@
 .chat-voice-recording__bars span {
   width: 3px;
   height: 30%;
-  background: #00e5ff;
+  background: #25D366;
   border-radius: 2px;
   transition: height 0.1s ease;
 }
@@ -85,7 +84,7 @@
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #2374e1 0%, #1a5bb8 100%);
+  background: #25D366;
   color: white;
   cursor: pointer;
   display: flex;
@@ -93,11 +92,11 @@
   justify-content: center;
   font-size: 18px;
   transition: background 0.2s, transform 0.1s;
-  box-shadow: 0 2px 8px rgba(35, 116, 225, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .chat-voice-recording__send:hover {
-  background: linear-gradient(135deg, #3a8af5 0%, #2374e1 100%);
+  background: #20bd5a;
 }
 
 .chat-voice-recording__send:active {
