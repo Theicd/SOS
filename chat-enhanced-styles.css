@@ -1,13 +1,14 @@
 /* חלק עיצוב משופר (chat-enhanced-styles.css) – סטיילים לצ'אט מתקדם בסגנון WhatsApp | HYPER CORE TECH */
 
-/* חלק ממשק הקלטה (chat-enhanced-styles.css) – ממשק הקלטת הודעה קולית בסגנון וואטסאפ | HYPER CORE TECH */
+/* חלק ממשק הקלטה (chat-enhanced-styles.css) – ממשק הקלטת הודעה קולית בסגנון כהה מותאם לממשק | HYPER CORE TECH */
 .chat-voice-recording {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 56px;
-  background: linear-gradient(135deg, #075e54 0%, #128c7e 100%);
+  background: linear-gradient(135deg, #1a2633 0%, #0d1418 100%);
+  border-top: 1px solid rgba(0, 229, 255, 0.15);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -65,7 +66,7 @@
 .chat-voice-recording__bars span {
   width: 3px;
   height: 30%;
-  background: #25D366;
+  background: #00e5ff;
   border-radius: 2px;
   transition: height 0.1s ease;
 }
@@ -84,7 +85,7 @@
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: #25D366;
+  background: linear-gradient(135deg, #2374e1 0%, #1a5bb8 100%);
   color: white;
   cursor: pointer;
   display: flex;
@@ -92,11 +93,11 @@
   justify-content: center;
   font-size: 18px;
   transition: background 0.2s, transform 0.1s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(35, 116, 225, 0.4);
 }
 
 .chat-voice-recording__send:hover {
-  background: #20bd5a;
+  background: linear-gradient(135deg, #3a8af5 0%, #2374e1 100%);
 }
 
 .chat-voice-recording__send:active {
@@ -1155,4 +1156,106 @@
 .chat-contact__status--sending {
   color: #8696a0;
   font-size: 10px;
+}
+
+/* חלק דיאלוג מחיקה (chat-enhanced-styles.css) – עיצוב דיאלוג אישור מחיקת הודעה בסגנון כהה מותאם לממשק | HYPER CORE TECH */
+.chat-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.chat-dialog__content {
+  position: relative;
+  background: linear-gradient(145deg, #1a2633 0%, #0d1418 100%);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 16px;
+  padding: 24px 28px;
+  min-width: 280px;
+  max-width: 340px;
+  width: fit-content;
+  height: fit-content;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.chat-dialog__title {
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #e9edef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chat-dialog__title::before {
+  content: '⚠️';
+  font-size: 1.1rem;
+}
+
+.chat-dialog__message {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  color: #8696a0;
+  line-height: 1.5;
+}
+
+.chat-dialog__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.chat-dialog__btn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 100px;
+}
+
+.chat-dialog__btn--cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e9edef;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chat-dialog__btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.chat-dialog__btn--confirm {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.chat-dialog__btn--confirm:hover {
+  background: linear-gradient(135deg, #ff5f4f 0%, #e74c3c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(231, 76, 60, 0.4);
+}
+
+.chat-dialog__btn--confirm:active {
+  transform: translateY(0);
 }

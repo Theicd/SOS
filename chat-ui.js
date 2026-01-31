@@ -113,9 +113,11 @@
     const cancel = dialog.querySelector('.chat-dialog__btn--cancel');
     const confirm = dialog.querySelector('.chat-dialog__btn--confirm');
     const close = () => dialog.remove();
-    backdrop?.addEventListener('click', close);
-    cancel?.addEventListener('click', close);
-    confirm?.addEventListener('click', () => {
+    // חלק מניעת סגירה (chat-ui.js) – stopPropagation מונע סגירת הצ'אט פאנל בלחיצה על הדיאלוג | HYPER CORE TECH
+    backdrop?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    cancel?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    confirm?.addEventListener('click', (e) => {
+      e.stopPropagation();
       close();
       if (typeof App.deleteChatMessage === 'function') {
         App.deleteChatMessage(peerPubkey, messageId).then(() => {
@@ -1532,7 +1534,14 @@
       fragment.appendChild(item);
     });
     elements.messagesContainer.appendChild(fragment);
-    elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+    // חלק גלילה לתחתית (chat-ui.js) – גלילה מושהית כדי לוודא שהדפדפן סיים לרנדר את כל ההודעות | HYPER CORE TECH
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (elements.messagesContainer) {
+          elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+        }
+      }, 50);
+    });
 
     // חלק צ'אט (chat-ui.js) – הבטחת איפוס מונה לא נקראים כשצופים בשיחה בפועל | HYPER CORE TECH
     const activeNormalized = (state.activeContact || '').toLowerCase();
@@ -1727,6 +1736,12 @@
     const messageText = value;
     elements.messageInput.value = '';
     elements.messageInput.disabled = false;
+    // חלק שמירת מקלדת פתוחה (chat-ui.js) – החזרת focus לשדה הקלט כדי שהמקלדת תישאר פתוחה במובייל כמו וואטסאפ | HYPER CORE TECH
+    requestAnimationFrame(() => {
+      if (elements.messageInput) {
+        elements.messageInput.focus();
+      }
+    });
     
     // 2. צור הודעה זמנית והצג מיד ב-UI
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
