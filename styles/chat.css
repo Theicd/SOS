@@ -862,12 +862,30 @@ body.chat-overlay-open::before {
 
   .chat-composer {
     padding: 8px 10px;
+    /* חלק מקלדת מובייל (chat.css) – שמירה על מיקום ה-composer כשהמקלדת פתוחה | HYPER CORE TECH */
+    position: sticky;
+    bottom: 0;
+    flex-shrink: 0;
   }
 
   .chat-composer__field {
     grid-template-columns: 44px 1fr 44px;
     min-height: 52px;
     padding: 0 6px;
+  }
+
+  /* חלק מקלדת מובייל (chat.css) – הבטחת flexbox נכון לשיחה במובייל | HYPER CORE TECH */
+  .chat-conversation {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .chat-conversation__messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 }
 
