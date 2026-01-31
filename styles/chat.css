@@ -862,12 +862,23 @@ body.chat-overlay-open::before {
 
   .chat-composer {
     padding: 8px 10px;
+    /* חלק שמירת מיקום מקלדת (chat.css) – שומר את שורת הקלט מעל המקלדת במובייל | HYPER CORE TECH */
+    position: sticky;
+    bottom: 0;
+    z-index: 280;
+    background: var(--card-alt);
   }
 
   .chat-composer__field {
     grid-template-columns: 44px 1fr 44px;
     min-height: 52px;
     padding: 0 6px;
+  }
+
+  /* חלק התאמה לגובה מקלדת (chat.css) – התאמת גובה ה-conversation כשהמקלדת פתוחה | HYPER CORE TECH */
+  .chat-conversation {
+    height: 100%;
+    max-height: 100%;
   }
 }
 
