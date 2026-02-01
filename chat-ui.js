@@ -1106,19 +1106,19 @@
       ? `<span class="chat-contact__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-contact__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
       : `<span class="chat-contact__avatar chat-contact__avatar--initials" title="${safeName}">${safeInitials}</span>`;
 
-    // חלק סטטוס קריאה (chat-ui.js) – הוספת וי לרשימת אנשי קשר כמו וואטסאפ | HYPER CORE TECH
+    // חלק סטטוס קריאה (chat-ui.js) – הוספת וי לרשימת אנשי קשר כמו וואטסאפ (אייקוני FontAwesome זהים לשיחה) | HYPER CORE TECH
     let statusCheckHtml = '';
     if (lastInfo.isOutgoing) {
       const status = lastInfo.status || 'sent';
       if (status === 'read') {
-        // וי כפול אדום - נקרא
-        statusCheckHtml = '<span class="chat-contact__status chat-contact__status--read">✓✓</span>';
+        // וי כפול ירוק - נקרא (אייקון FontAwesome כמו בשיחה)
+        statusCheckHtml = '<span class="chat-contact__status chat-contact__status--read"><i class="fa-solid fa-check-double"></i></span>';
       } else if (status === 'sent') {
-        // וי אחד אפור - נשלח
-        statusCheckHtml = '<span class="chat-contact__status chat-contact__status--sent">✓</span>';
+        // וי כפול אפור - נשלח (אייקון FontAwesome כמו בשיחה)
+        statusCheckHtml = '<span class="chat-contact__status chat-contact__status--sent"><i class="fa-solid fa-check-double"></i></span>';
       } else if (status === 'sending') {
-        // שעון - בשליחה
-        statusCheckHtml = '<span class="chat-contact__status chat-contact__status--sending">⏳</span>';
+        // שעון - בשליחה (אייקון FontAwesome כמו בשיחה)
+        statusCheckHtml = '<span class="chat-contact__status chat-contact__status--sending"><i class="fa-solid fa-clock"></i></span>';
       }
     }
 

@@ -620,27 +620,29 @@
   border-radius: 16px;
 }
 
-/* חלק רקע נגן יוצא (chat-enhanced-styles.css) – רקע כחול לנגן בהודעות יוצאות | HYPER CORE TECH */
+/* חלק רקע נגן יוצא (chat-enhanced-styles.css) – רקע כחול כהה לנגן בהודעות יוצאות | HYPER CORE TECH */
 .chat-message--outgoing .chat-audio-whatsapp {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  background: linear-gradient(135deg, #1a3a5c, #234b6e);
   border-bottom-right-radius: 6px;
 }
 
-/* חלק רקע נגן נכנס (chat-enhanced-styles.css) – רקע כהה לנגן בהודעות נכנסות | HYPER CORE TECH */
+/* חלק רקע נגן נכנס (chat-enhanced-styles.css) – אפור-כחלחל כהה אחיד תואם להודעות טקסט | HYPER CORE TECH */
 .chat-message--incoming .chat-audio-whatsapp {
-  background: var(--card-alt);
-  border: 1px solid var(--border);
+  background: linear-gradient(135deg, #202530 0%, #262c38 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   border-bottom-left-radius: 6px;
 }
 
+/* חלק כפתור פליי (chat-enhanced-styles.css) – עיצוב כפתור הניגון בהתאם לצבע teal-blue | HYPER CORE TECH */
 .chat-audio-whatsapp__play {
   width: 36px;
   height: 36px;
   min-width: 36px;
   border-radius: 50%;
   border: none;
-  background: #ffffff; /* לבן במקום ירוק */
-  color: var(--primary, #2374e1); /* כחול לאייקון */
+  background: #ffffff;
+  color: #1a3a5c; /* כחול כהה לאייקון */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -651,7 +653,7 @@
 }
 
 .chat-audio-whatsapp__play:hover {
-  background: #e8f0fe; /* כחול בהיר בהובר */
+  background: #e8f0f8; /* כחול בהיר בהובר */
   transform: scale(1.05);
 }
 
