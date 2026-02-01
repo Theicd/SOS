@@ -574,10 +574,11 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   color: inherit;
 }
 
-/* חלק ביצועים (chat-whatsapp-theme.css) – הסרת backdrop-filter לשיפור ביצועים | HYPER CORE TECH */
+/* חלק הודעות נכנסות (chat-whatsapp-theme.css) – אפור-כחלחל כהה אחיד | HYPER CORE TECH */
 .chat-message--incoming .chat-message__content {
-  background: rgba(35, 40, 50, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #202530 0%, #262c38 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   color: var(--text);
 }
 
@@ -586,10 +587,10 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   color: inherit;
 }
 
-/* חלק ביצועים (chat-whatsapp-theme.css) – בועות יוצאות ללא blur לשיפור ביצועים | HYPER CORE TECH */
+/* חלק ביצועים (chat-whatsapp-theme.css) – כחול כהה להודעות יוצאות | HYPER CORE TECH */
 .chat-message--outgoing .chat-message__content {
-  background: linear-gradient(135deg, #1a73e8 0%, #0d5bce 100%);
-  border: 1px solid rgba(34, 211, 238, 0.25);
+  background: linear-gradient(135deg, #1a3a5c 0%, #234b6e 100%);
+  border: 1px solid rgba(35, 75, 110, 0.4);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   color: #eef6ff;
 }
@@ -704,13 +705,14 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   color: var(--text);
 }
 
+/* חלק כפתור שליחה (chat-whatsapp-theme.css) – כחול כהה תואם להודעות יוצאות | HYPER CORE TECH */
 .chat-composer__send {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: var(--primary);
+  background: linear-gradient(135deg, #1a3a5c 0%, #234b6e 100%);
   color: #fff;
-  box-shadow: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.1s ease, background 0.1s ease;
@@ -721,7 +723,12 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 }
 
 .chat-composer__send:hover {
-  background: var(--primary-hover, rgba(35, 116, 225, 0.85));
+  background: linear-gradient(135deg, #234b6e 0%, #2d5a82 100%);
+}
+
+/* חלק אייקון שליחה (chat-whatsapp-theme.css) – מבטיח שהאייקון בפנים יהיה לבן גם במצב טקסט | HYPER CORE TECH */
+.chat-composer__send i {
+  color: #fff;
 }
 
 /* חלק צ'אט (chat-whatsapp-theme.css) – בועת אודיו: הנגן מותאם לרוחב הבועה ורקע אחיד כמו בוואטסאפ */
@@ -808,8 +815,9 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 }
 
 /* חלק קול (chat-whatsapp-theme.css) – כפתור שליחה כמשנה צורה למיקרופון כשאין טקסט, ול-STOP בזמן הקלטה */
+/* חלק כפתור מיקרופון (chat-whatsapp-theme.css) – כחול כהה תואם להודעות יוצאות | HYPER CORE TECH */
 .chat-composer__send.is-mic {
-  background: var(--primary);
+  background: linear-gradient(135deg, #1a3a5c 0%, #234b6e 100%);
   color: #fff;
 }
 .chat-composer__send.is-mic-recording {
@@ -890,6 +898,30 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 .chat-conversation__actions {
   margin-inline-start: auto;
   gap: 8px;
+}
+
+/* חלק סטטוס רשימת אנשי קשר (chat-whatsapp-theme.css) – ווים זהים לשיחה | HYPER CORE TECH */
+.chat-contact__status {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: 4px;
+  font-size: 0.7rem;
+}
+
+.chat-contact__status i {
+  font-size: 0.7rem;
+}
+
+.chat-contact__status--sent {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.chat-contact__status--read {
+  color: rgba(52, 211, 153, 0.9);
+}
+
+.chat-contact__status--sending {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 /* ========================================
