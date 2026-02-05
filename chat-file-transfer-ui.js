@@ -20,6 +20,8 @@
   };
 
   let currentAttachment = null;
+  let fileMenu = null; // חלק תפריט מובייל (chat-file-transfer-ui.js) – תפריט בחירת סוג קובץ | HYPER CORE TECH
+  let pendingFileType = null; // 'small' או 'large'
 
   function setUIRefs(config) {
     uiRefs = {
@@ -151,13 +153,137 @@
     renderPreview(null);
   }
 
+  // חלק תפריט מובייל (chat-file-transfer-ui.js) – בדיקה אם מכשיר מובייל | HYPER CORE TECH
+  function isMobileDevice() {
+    return window.innerWidth <= 768;
+  }
+
+  // חלק תפריט מובייל (chat-file-transfer-ui.js) – יצירת תפריט בחירת סוג קובץ | HYPER CORE TECH
+  function createFileMenu() {
+    if (fileMenu) return fileMenu;
+    
+    fileMenu = document.createElement('div');
+    fileMenu.className = 'chat-file-menu';
+    fileMenu.innerHTML = `
+      <button type="button" class="chat-file-menu__item chat-file-menu__item--small" data-file-type="small">
+        <i class="fa-solid fa-image"></i>
+        <span class="chat-file-menu__item-text">
+          <span class="chat-file-menu__item-title">תמונה או קובץ קטן</span>
+          <span class="chat-file-menu__item-desc">עד 90KB - שליחה מהירה</span>
+        </span>
+      </button>
+      <button type="button" class="chat-file-menu__item chat-file-menu__item--large" data-file-type="large">
+        <i class="fa-solid fa-file-zipper"></i>
+        <span class="chat-file-menu__item-text">
+          <span class="chat-file-menu__item-title">קובץ גדול</span>
+          <span class="chat-file-menu__item-desc">עד 100MB - שליחה ישירה</span>
+        </span>
+      </button>
+    `;
+    
+    // מאזינים ללחיצות על אפשרויות התפריט
+    fileMenu.querySelectorAll('.chat-file-menu__item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const fileType = item.getAttribute('data-file-type');
+        pendingFileType = fileType;
+        hideFileMenu();
+        
+        if (fileType === 'large' && typeof App.torrentTransfer?.sendFile === 'function') {
+          // פתיחת דיאלוג טורנט
+          const peer = uiRefs.getActivePeer();
+          if (peer) {
+            App.torrentTransfer.sendFile(peer);
+          }
+        } else {
+          // פתיחת בוחר קבצים רגיל
+          if (uiRefs.fileInput) {
+            uiRefs.fileInput.value = '';
+            uiRefs.fileInput.click();
+          }
+        }
+      });
+    });
+    
+    return fileMenu;
+  }
+
+  // חלק תפריט מובייל (chat-file-transfer-ui.js) – הצגת תפריט | HYPER CORE TECH
+  function showFileMenu() {
+    if (!uiRefs.fileButton) return;
+    
+    const menu = createFileMenu();
+    // חיבור התפריט ל-body כדי למנוע יציאה מגבולות המסך
+    if (!menu.parentElement) {
+      document.body.appendChild(menu);
+    }
+    
+    // מיקום התפריט מעל הכפתור - בתוך גבולות המסך
+    const btnRect = uiRefs.fileButton.getBoundingClientRect();
+    const menuWidth = 200; // min-width של התפריט
+    const margin = 10;
+    
+    menu.style.position = 'fixed';
+    menu.style.bottom = (window.innerHeight - btnRect.top + 8) + 'px';
+    
+    // בדיקה שהתפריט לא יוצא מגבולות המסך
+    let rightPos = window.innerWidth - btnRect.right;
+    if (rightPos + menuWidth > window.innerWidth - margin) {
+      // אם יוצא מימין - מקם בצד שמאל עם מרווח
+      menu.style.right = 'auto';
+      menu.style.left = margin + 'px';
+    } else {
+      menu.style.right = Math.max(rightPos, margin) + 'px';
+      menu.style.left = 'auto';
+    }
+    
+    // עיכוב קצר לאנימציה
+    requestAnimationFrame(() => {
+      menu.classList.add('is-visible');
+    });
+    
+    // סגירה בלחיצה מחוץ לתפריט
+    setTimeout(() => {
+      document.addEventListener('click', handleOutsideClick);
+    }, 10);
+  }
+
+  // חלק תפריט מובייל (chat-file-transfer-ui.js) – הסתרת תפריט | HYPER CORE TECH
+  function hideFileMenu() {
+    if (fileMenu) {
+      fileMenu.classList.remove('is-visible');
+    }
+    document.removeEventListener('click', handleOutsideClick);
+  }
+
+  function handleOutsideClick(e) {
+    if (fileMenu && !fileMenu.contains(e.target) && !uiRefs.fileButton?.contains(e.target)) {
+      hideFileMenu();
+    }
+  }
+
   function onFileButtonClick(event) {
     event.preventDefault();
+    event.stopPropagation();
+    
     if (!uiRefs.fileInput) {
       return;
     }
-    uiRefs.fileInput.value = '';
-    uiRefs.fileInput.click();
+    
+    // חלק תפריט מובייל (chat-file-transfer-ui.js) – במובייל מציג תפריט, בדסקטופ פותח ישירות | HYPER CORE TECH
+    if (isMobileDevice()) {
+      if (fileMenu?.classList.contains('is-visible')) {
+        hideFileMenu();
+      } else {
+        showFileMenu();
+      }
+    } else {
+      // דסקטופ - פתיחה ישירה של בוחר קבצים
+      pendingFileType = null;
+      uiRefs.fileInput.value = '';
+      uiRefs.fileInput.click();
+    }
   }
 
   function onFileInputChange(event) {

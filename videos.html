@@ -8,8 +8,17 @@
     <title>SOS – רשת חברתית על סטרואידים</title>
     <meta name="description" content="SOS רשת חברתית על סטרואידים – הרשת החברתית מבוזרת קהילתית הראשונה בישראל." />
     <!-- חלק PWA (videos.html) – קישור ל-manifest והגדרות iOS | HYPER CORE TECH -->
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="./icons/sos-logo.jpg" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <!-- חלק תפיסת beforeinstallprompt מוקדם (videos.html) – חייב להיות לפני כל סקריפט אחר | HYPER CORE TECH -->
+    <script>
+      window.deferredPwaPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.deferredPwaPrompt = e;
+        console.log('[PWA-EARLY] ✅ beforeinstallprompt נתפס מוקדם!');
+      });
+    </script>
+    <link rel="apple-touch-icon" href="./icons/WAPICON.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <!-- חלק פס עליון iOS (videos.html) – שחור מלא במקום שקוף | HYPER CORE TECH -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
@@ -26,7 +35,7 @@
     <meta name="twitter:description" content="רשת החברתית מבוזרת קהילתית הראשונה בישראל." />
     <meta name="twitter:image" content="https://image.nostr.build/dc0494760b1968f29370a53213ac34711c0392509dbc935e0bf2ca9fa386ef0f.png" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="icon" type="image/png" href="https://image.nostr.build/dc0494760b1968f29370a53213ac34711c0392509dbc935e0bf2ca9fa386ef0f.png" />
+    <link rel="icon" type="image/png" href="./icons/WAPICON.png" />
     <!-- חלק מובייל (videos.html) – טוקנים ו-Safe Area | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/tokens.css">
     <link rel="stylesheet" href="./styles/base.css">
@@ -55,6 +64,8 @@
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/pwa-install.css">
+    <!-- חלק WebTorrent (videos.html) – עיצוב העברת קבצים גדולים P2P | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./styles/webtorrent-transfer.css">
     <!-- עיצוב כפתורי קומפוזר משופרים -->
     <style>
       /* ===== מד טעינה והודעות סטטוס ===== */
@@ -1835,7 +1846,32 @@
     </div>
 
     <!-- צ'אט (videos.html) – מבנה זהה ומכווץ שורות | HYPER CORE TECH -->
-    <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי"><div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="סגור חלון"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SosCall010"><img src="icons/SOCALL010LOGO.PNG" alt="SosCall010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="צ'אט חדש"></i><i class="fa-solid fa-ellipsis-vertical" title="תפריט"></i></div></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש צ'אט או התחלת צ'אט חדש" autocomplete="off"><i class="fa-solid fa-filter"></i></div><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" id="chatRefreshContacts" aria-label="רענון שיחות" title="רענון כל השיחות"><i class="fa-solid fa-rotate"></i></button><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="שיחת קול"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><button type="button" class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ"><i class="fa-solid fa-paperclip"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div><input type="file" id="chatComposerFileInput" hidden></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
+    <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי">
+      <nav class="chat-nav-sidebar" aria-label="ניווט ראשי">
+        <div class="chat-nav-sidebar__top">
+          <button type="button" class="chat-nav-item" id="chatNavHome" title="דף הבית" data-chat-nav="home">
+            <i class="fa-solid fa-house"></i>
+          </button>
+          <button type="button" class="chat-nav-item" id="chatNavNotifications" title="התרעות" data-chat-nav="notifications">
+            <i class="fa-solid fa-bell"></i>
+          </button>
+          <button type="button" class="chat-nav-item is-active" id="chatNavChats" title="הודעות" data-chat-nav="contacts">
+            <i class="fa-solid fa-comments"></i>
+          </button>
+          <button type="button" class="chat-nav-item" id="chatNavGames" title="משחקים" data-chat-nav="games">
+            <i class="fa-solid fa-gamepad"></i>
+          </button>
+        </div>
+        <div class="chat-nav-sidebar__bottom">
+          <button type="button" class="chat-nav-item" id="chatNavSettings" title="הגדרות">
+            <i class="fa-solid fa-gear"></i>
+          </button>
+          <div class="chat-nav-profile" id="chatNavProfile" title="פרופיל" data-chat-nav="profile">
+            <img src="icons/WAPICON.png" alt="פרופיל" id="chatNavProfileImg">
+          </div>
+        </div>
+      </nav>
+      <div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="סגור חלון"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SosCall010"><img src="icons/so-call010.png" alt="SosCall010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="צ'אט חדש"></i><i class="fa-solid fa-ellipsis-vertical" title="תפריט"></i></div></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש צ'אט או התחלת צ'אט חדש" autocomplete="off"><i class="fa-solid fa-filter"></i></div><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" id="chatRefreshContacts" aria-label="רענון שיחות" title="רענון כל השיחות"><i class="fa-solid fa-rotate"></i></button><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><div class="chat-welcome-desktop" id="chatWelcomeDesktop"><div class="chat-welcome-desktop__card"><div class="chat-welcome-desktop__icon"><img src="icons/INSTALLPCLOGO.PNG" alt="SOS Call 010"></div><h2 class="chat-welcome-desktop__title">עדיין לא התקנת את SOS Call 010 למחשב?</h2><p class="chat-welcome-desktop__desc">האפליקציה שלנו זמינה להתקנה על המחשב שלך לחוויה מהירה ונוחה יותר, עם התראות בזמן אמת!</p><button type="button" class="chat-welcome-desktop__install" id="chatWelcomeInstallBtn" onclick="NostrApp.promptPwaInstall && NostrApp.promptPwaInstall()"><i class="fa-solid fa-download"></i> התקן עכשיו</button></div><div class="chat-welcome-desktop__actions"><button type="button" class="chat-welcome-desktop__action" onclick="document.getElementById('chatSearchInput')?.focus()"><i class="fa-solid fa-user-plus"></i><span>התחל שיחה חדשה</span></button><button type="button" class="chat-welcome-desktop__action" onclick="document.querySelector('[data-chat-filter=\"unread\"]')?.click()"><i class="fa-solid fa-envelope"></i><span>הודעות שלא נקראו</span></button></div><p class="chat-welcome-desktop__footer"><i class="fa-brands fa-windows"></i> הפעל את SOS Call 010 על Windows</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="שיחת קול"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><button type="button" class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ" title="צרף קובץ קטן"><i class="fa-solid fa-paperclip"></i></button><button type="button" class="chat-composer__icon chat-composer__icon--torrent" id="chatTorrentSendButton" aria-label="שלח קובץ גדול" title="שלח קובץ גדול (עד 100GB+)"><i class="fa-solid fa-cloud-arrow-up"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div><input type="file" id="chatComposerFileInput" hidden></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
 
     <!-- חלק סיסמת שונות (videos.html) – סקריפט הגנת סיסמה | HYPER CORE TECH -->
     <script src="./misc-password.js"></script>
@@ -2209,6 +2245,84 @@
     <script src="./game-trivia.js" defer></script>
     <!-- טעינת סקריפט משחק Doom Arena -->
     <script src="./game-doom-arena.js" defer></script>
+
+    <!-- חלק טיפול בכפתור התקנה בדסקטופ (videos.html) – בדיקה אם האפליקציה מותקנת והתאמת הכפתור | HYPER CORE TECH -->
+    <script>
+      (function() {
+        function setupChatWelcomeInstall() {
+          var App = window.NostrApp || {};
+          var installBtn = document.getElementById('chatWelcomeInstallBtn');
+          var welcomeCard = document.querySelector('.chat-welcome-desktop__card');
+          if (!installBtn) return;
+          
+          // בדיקה אם כבר מותקן
+          var isInstalled = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || 
+                           (navigator.standalone === true);
+          
+          if (isInstalled) {
+            // אם מותקן - משנה את הכפתור לכפתור הסרה
+            installBtn.innerHTML = '<i class="fa-solid fa-trash"></i> הסר SOS Call 010';
+            installBtn.classList.add('chat-welcome-desktop__uninstall');
+            installBtn.onclick = function() {
+              // יצירת מודל הסבר להסרה
+              var overlay = document.createElement('div');
+              overlay.className = 'pwa-uninstall-overlay';
+              overlay.innerHTML = '<div class="pwa-uninstall-modal">' +
+                '<div class="pwa-uninstall-header">' +
+                  '<i class="fa-solid fa-trash-can"></i>' +
+                  '<h3>הסרת SOS Call 010</h3>' +
+                '</div>' +
+                '<div class="pwa-uninstall-steps">' +
+                  '<div class="pwa-uninstall-step">' +
+                    '<span class="step-number">1</span>' +
+                    '<i class="fa-solid fa-ellipsis-vertical"></i>' +
+                    '<span>לחץ על <strong>⋮</strong> (שלוש נקודות) בפינה העליונה <strong>השמאלית</strong></span>' +
+                  '</div>' +
+                  '<div class="pwa-uninstall-step">' +
+                    '<span class="step-number">2</span>' +
+                    '<i class="fa-solid fa-trash"></i>' +
+                    '<span>בחר <strong>"הסרת SOS Call 010..."</strong></span>' +
+                  '</div>' +
+                '</div>' +
+                '<button class="pwa-uninstall-close" id="pwaUninstallCloseBtn">הבנתי</button>' +
+              '</div>';
+              document.body.appendChild(overlay);
+              // סגירת המודל בלי לעזוב את הדף
+              document.getElementById('pwaUninstallCloseBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                overlay.remove();
+              });
+              // סגירה גם בלחיצה על הרקע
+              overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                  overlay.remove();
+                }
+              });
+            };
+            
+            var title = document.querySelector('.chat-welcome-desktop__title');
+            var desc = document.querySelector('.chat-welcome-desktop__desc');
+            if (title) title.textContent = 'SOS Call 010 מותקנת!';
+            if (desc) desc.textContent = 'האפליקציה מותקנת על המחשב שלך. בחרו איש קשר מהרשימה כדי להתחיל לשוחח.';
+            
+            // משנה את הטקסט בתחתית
+            var footer = document.querySelector('.chat-welcome-desktop__footer');
+            if (footer) footer.innerHTML = '<i class="fa-solid fa-check-circle"></i> SOS Call 010 מותקנת על Windows';
+          }
+        }
+        
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', setupChatWelcomeInstall);
+        } else {
+          setupChatWelcomeInstall();
+        }
+      })();
+    </script>
+
+    <!-- חלק WebTorrent (videos.html) – ספריית WebTorrent והעברת קבצים גדולים P2P | HYPER CORE TECH -->
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+    <script src="./webtorrent-transfer.js"></script>
 
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
   </body>

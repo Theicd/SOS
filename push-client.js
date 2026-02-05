@@ -9,8 +9,8 @@
     // מפתח VAPID ציבורי - נטען דינמית מהשרת
     vapidPublicKey: null,
     notificationDefaults: {
-      icon: './icons/sos-logo.jpg',
-      badge: './icons/sos-logo.jpg',
+      icon: './icons/WAPICON.png',
+      badge: './icons/WAPICON.png',
       vibrate: [200, 100, 200],
       requireInteraction: false,
     },

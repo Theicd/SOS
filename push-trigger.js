@@ -11,7 +11,7 @@
     // fallback לברירת מחדל
     return 'https://sos-push-server.vercel.app';
   };
-  const DEFAULT_ICON = './icons/sos-logo.jpg';
+  const DEFAULT_ICON = './icons/WAPICON.png';
 
   // חלק קאש אנשי קשר (push-trigger.js) – קבלת מידע על איש קשר מקאש | HYPER CORE TECH
   function getCachedContactInfo(pubkey) {

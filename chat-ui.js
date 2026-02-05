@@ -79,6 +79,26 @@
   }
 
   function handleMessageActions(event) {
+    // חלק טורנט הורדה (chat-ui.js) – טיפול בלחיצה על כפתור הורדה של טורנט | HYPER CORE TECH
+    const torrentDownloadBtn = event.target.closest('.torrent-bubble__download-btn');
+    if (torrentDownloadBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const magnetURI = torrentDownloadBtn.getAttribute('data-magnet');
+      const fileName = torrentDownloadBtn.getAttribute('data-filename') || 'file';
+      if (magnetURI && typeof App.downloadTorrentFile === 'function') {
+        // שינוי מראה הכפתור להורדה פעילה
+        torrentDownloadBtn.disabled = true;
+        torrentDownloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> מוריד...';
+        App.downloadTorrentFile(magnetURI, fileName);
+      } else if (magnetURI) {
+        console.log('[CHAT/UI] Torrent download requested:', magnetURI);
+        // fallback - פתח את ה-magnet URI
+        window.open(magnetURI, '_blank');
+      }
+      return;
+    }
+    
     const deleteTarget = event.target.closest('[data-chat-delete]');
     if (!deleteTarget || !state.activeContact) {
       return;
@@ -160,6 +180,9 @@
     notificationsEmpty: doc.getElementById('chatNotificationsEmpty'),
     notificationsMarkRead: doc.getElementById('chatNotificationsMarkRead'),
     notificationsToggle: doc.getElementById('notificationsToggle'),
+    navSidebarItems: doc.querySelectorAll('.chat-nav-item, .chat-nav-profile'),
+    navProfileImg: doc.getElementById('chatNavProfileImg'),
+    torrentSendButton: doc.getElementById('chatTorrentSendButton'),
   };
 
   if ((!elements.navButton && !elements.launcherButton) || !elements.panel) {
@@ -284,17 +307,34 @@
     }
   }
 
-  // חלק צ'אט (chat-ui.js) – שליטה בסטטוס התפריט התחתון בסגנון וואטסאפ
+  // חלק צ'אט (chat-ui.js) – שליטה בסטטוס התפריט התחתון והצדדי בסגנון וואטסאפ
   function setFooterMode(mode) {
     state.footerMode = mode;
-    if (!elements.footerItems?.length) return;
-    elements.footerItems.forEach((item) => {
-      if (item.dataset.chatNav === mode) {
-        item.classList.add('is-active');
-      } else {
-        item.classList.remove('is-active');
-      }
-    });
+    
+    // עדכון סרגל תחתון (מובייל)
+    if (elements.footerItems?.length) {
+      elements.footerItems.forEach((item) => {
+        if (item.dataset.chatNav === mode) {
+          item.classList.add('is-active');
+        } else {
+          item.classList.remove('is-active');
+        }
+      });
+    }
+
+    // עדכון סרגל צדדי (דסקטופ)
+    if (elements.navSidebarItems?.length) {
+      elements.navSidebarItems.forEach((item) => {
+        // התעלמות מכפתורי פעולה שאינם טאבים (כמו home או settings אם הם לא מצב)
+        if (item.id === 'chatNavHome') return; 
+        
+        if (item.dataset.chatNav === mode) {
+          item.classList.add('is-active');
+        } else {
+          item.classList.remove('is-active');
+        }
+      });
+    }
   }
 
   function handleFooterNav(item) {
@@ -323,6 +363,16 @@
         setFooterMode('home');
         togglePanel(false);
         homeNavButton?.click?.();
+        break;
+      case 'profile':
+        // חלק פרופיל (chat-ui.js) – פתיחת דף הפרופיל של המשתמש | HYPER CORE TECH
+        console.log('[CHAT] Profile clicked - navigating to profile.html');
+        window.location.href = 'profile.html';
+        break;
+      case 'games':
+        // חלק משחקים (chat-ui.js) – פתיחת דף המשחקים | HYPER CORE TECH
+        console.log('[CHAT] Games clicked - navigating to games.html');
+        window.location.href = 'games.html';
         break;
       default:
         break;
@@ -1181,6 +1231,7 @@
   function renderMessages(peerPubkey) {
     if (!elements.messagesContainer) return;
     const messages = typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : [];
+    console.log('[CHAT/UI] 📜 renderMessages called for:', peerPubkey?.slice(0, 8), 'messages count:', messages?.length);
     elements.messagesContainer.innerHTML = '';
     if (!messages.length) {
       elements.messagesContainer.innerHTML = '<p class="chat-conversation__empty">אין הודעות עדיין. כתוב משהו!</p>';
@@ -1205,6 +1256,86 @@
       const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
       const safeContent = App.escapeHtml ? App.escapeHtml(message.content) : message.content;
       const rawMessageContent = typeof message.content === 'string' ? message.content.trim() : '';
+      
+      // חלק זיהוי טורנט (chat-ui.js) – זיהוי הודעות העברת קבצים גדולים והצגתן כבועות מיוחדות | HYPER CORE TECH
+      let isTorrentMessage = false;
+      let torrentData = null;
+      try {
+        if (rawMessageContent.includes('torrent-transfer-request') || rawMessageContent.includes('magnetURI') || rawMessageContent.includes('infoHash')) {
+          torrentData = JSON.parse(rawMessageContent);
+          if (torrentData?.type === 'torrent-transfer-request' || (torrentData?.magnetURI && torrentData?.infoHash)) {
+            isTorrentMessage = true;
+            console.log('[CHAT/UI] 🧲 Detected torrent message:', torrentData.fileName, 'isOutgoing:', isOutgoing);
+          }
+        }
+      } catch (e) { /* not JSON */ }
+      
+      // אם זו הודעת טורנט - מציגים בועה מיוחדת עם כפתור הורדה | HYPER CORE TECH
+      if (isTorrentMessage && torrentData) {
+        const torrentFileName = torrentData.fileName || 'קובץ';
+        const torrentFileSize = torrentData.fileSize || 0;
+        const torrentTransferId = torrentData.transferId || message.id;
+        const magnetURI = torrentData.magnetURI || '';
+        const infoHash = torrentData.infoHash || '';
+        const actionIcon = isOutgoing ? 'fa-cloud-arrow-up' : 'fa-cloud-arrow-down';
+        const actionText = isOutgoing ? 'נשלח' : 'התקבל';
+        const fileSizeFormatted = typeof App.formatFileSize === 'function' ? App.formatFileSize(torrentFileSize) : `${(torrentFileSize / (1024 * 1024)).toFixed(2)} MB`;
+        
+        // זיהוי סוג קובץ לאייקון מתאים
+        const fileExt = torrentFileName.split('.').pop()?.toLowerCase() || '';
+        let fileIcon = 'fa-file';
+        if (['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(fileExt)) fileIcon = 'fa-file-video';
+        else if (['mp3', 'm4a', 'wav', 'ogg', 'flac'].includes(fileExt)) fileIcon = 'fa-file-audio';
+        else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExt)) fileIcon = 'fa-file-image';
+        else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) fileIcon = 'fa-file-zipper';
+        else if (['pdf'].includes(fileExt)) fileIcon = 'fa-file-pdf';
+        else if (['doc', 'docx'].includes(fileExt)) fileIcon = 'fa-file-word';
+        else if (['xls', 'xlsx'].includes(fileExt)) fileIcon = 'fa-file-excel';
+        
+        item.className = `chat-message ${directionClass} chat-message--torrent-transfer chat-message--torrent-completed`;
+        item.setAttribute('data-message-id', message.id);
+        item.setAttribute('data-torrent-transfer', torrentTransferId);
+        if (magnetURI) item.setAttribute('data-magnet-uri', magnetURI);
+        if (infoHash) item.setAttribute('data-info-hash', infoHash);
+        
+        // כפתור הורדה - רק להודעות נכנסות
+        const downloadButtonHtml = !isOutgoing && magnetURI ? `
+          <button type="button" class="torrent-bubble__download-btn" data-magnet="${App.escapeHtml ? App.escapeHtml(magnetURI) : magnetURI}" data-filename="${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}" title="הורד קובץ">
+            <i class="fa-solid fa-download"></i> הורד
+          </button>
+        ` : '';
+        
+        // כפתור מחיקה - רק להודעות יוצאות | HYPER CORE TECH
+        const torrentDeleteButtonHtml = isOutgoing ? `
+          <button type="button" class="chat-message__delete" data-chat-delete="${message.id}" aria-label="מחק הודעה">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        ` : '';
+        
+        item.innerHTML = `
+          <div class="chat-message__content chat-message__content--torrent">
+            ${torrentDeleteButtonHtml}
+            <div class="torrent-bubble">
+              <div class="torrent-bubble__header">
+                <i class="fa-solid ${actionIcon}"></i>
+                <span class="torrent-bubble__action">${actionText}</span>
+              </div>
+              <div class="torrent-bubble__file">
+                <i class="fa-solid ${fileIcon}"></i>
+                <div class="torrent-bubble__file-info">
+                  <span class="torrent-bubble__file-name">${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}</span>
+                  <span class="torrent-bubble__file-size">${fileSizeFormatted}</span>
+                </div>
+                ${downloadButtonHtml}
+              </div>
+            </div>
+            <div class="chat-message__time">${formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000))}</div>
+          </div>
+        `;
+        
+        fragment.appendChild(item);
+        return; // המשך להודעה הבאה
+      }
 
       // חלק צ'אט (chat-ui.js) – משחזר אוואטר לשיחות נכנסות על בסיס נתוני איש הקשר
       // חלק אוואטר יוצא (chat-ui.js) – הוספת תמיכה באוואטר גם להודעות יוצאות (אודיו) | HYPER CORE TECH
@@ -1920,6 +2051,29 @@
         item.addEventListener('click', () => handleFooterNav(item));
       });
     }
+    
+    // האזנה לכפתורי סרגל הצד החדש | HYPER CORE TECH
+    if (elements.navSidebarItems?.length) {
+      elements.navSidebarItems.forEach((item) => {
+        item.addEventListener('click', () => handleFooterNav(item));
+      });
+    }
+    
+    // עדכון תמונת פרופיל בסרגל הצד אם זמינה
+    if (elements.navProfileImg && (App.userPicture || App.userAvatar)) {
+      elements.navProfileImg.src = App.userPicture || App.userAvatar;
+    }
+    
+    // חלק WebTorrent (chat-ui.js) – כפתור שליחת קובץ גדול | HYPER CORE TECH
+    if (elements.torrentSendButton) {
+      elements.torrentSendButton.addEventListener('click', () => {
+        if (!state.activeContact) {
+          alert('בחר איש קשר לפני שליחת קובץ');
+          return;
+        }
+        App.openTorrentSendDialog();
+      });
+    }
   }
 
   function initSubscriptions() {
@@ -2117,6 +2271,30 @@
       indicator.remove();
     }
     voiceSendingIndicators.delete(loadingId);
+  };
+
+  // חלק WebTorrent (chat-ui.js) – פתיחת דיאלוג שליחת קובץ גדול | HYPER CORE TECH
+  App.openTorrentSendDialog = function openTorrentSendDialog() {
+    if (!state.activeContact) {
+      console.warn('[CHAT] No active contact for torrent send');
+      return;
+    }
+    if (typeof App.torrentTransfer?.sendFile === 'function') {
+      App.torrentTransfer.sendFile(state.activeContact);
+    } else {
+      console.warn('[CHAT] WebTorrent module not loaded');
+      alert('מערכת העברת קבצים גדולים לא זמינה');
+    }
+  };
+
+  // חלק WebTorrent (chat-ui.js) – זיהוי הודעות WebTorrent נכנסות | HYPER CORE TECH
+  App.handleIncomingChatMessage = function handleIncomingChatMessage(fromPeer, content) {
+    // בדיקה אם זו הודעת בקשת העברה
+    if (typeof App.torrentTransfer?.parseTransferMessage === 'function') {
+      const handled = App.torrentTransfer.parseTransferMessage(content, fromPeer);
+      if (handled) return true; // ההודעה טופלה כבקשת העברה
+    }
+    return false;
   };
 
   // חשיפת מצב הפאנל ל-feed.js עבור לוגיקת התראות | HYPER CORE TECH

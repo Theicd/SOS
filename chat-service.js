@@ -355,6 +355,61 @@
     const profile = normalizeProfileData(await resolveProfile(peerPubkey), peerPubkey);
     App.ensureChatContact(peerPubkey, { ...profile, profileFetchedAt: eventTs });
 
+    // חלק WebTorrent (chat-service.js) – זיהוי בקשות העברת קבצים גדולים | HYPER CORE TECH
+    // ההודעה יכולה להגיע בשני פורמטים:
+    // 1. ישירות כ-JSON: {"type":"torrent-transfer-request",...}
+    // 2. עטופה בפורמט צ'אט: {"t":"{\"type\":\"torrent-transfer-request\",...}","a":null}
+    
+    if (event.content?.includes('torrent-transfer-request') && event.content?.includes('magnetURI')) {
+      console.log('[CHAT/TORRENT] 🔍 Detected torrent keywords, parsing...');
+      
+      try {
+        let torrentData = null;
+        const parsed = JSON.parse(event.content);
+        
+        // בדיקה אם זה עטוף בפורמט {"t":"..."}
+        if (parsed?.t && typeof parsed.t === 'string' && parsed.t.includes('torrent-transfer-request')) {
+          console.log('[CHAT/TORRENT] 📦 Found wrapped format {t:...}, extracting inner JSON');
+          torrentData = JSON.parse(parsed.t);
+        } else if (parsed?.type === 'torrent-transfer-request') {
+          // פורמט ישיר
+          torrentData = parsed;
+        }
+        
+        if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
+          console.log('[CHAT/TORRENT] ✅ Valid WebTorrent request from:', sender.slice(0, 8));
+          console.log('[CHAT/TORRENT] 📁 File:', torrentData.fileName);
+          console.log('[CHAT/TORRENT] 📊 Size:', torrentData.fileSize, 'bytes');
+          console.log('[CHAT/TORRENT] 🧲 Magnet:', torrentData.magnetURI?.slice(0, 60) + '...');
+          
+          // שמירת ההודעה בצ'אט כפי שהיא (וואטסאפ סטייל) – ההודעה תירנדר ע"י chat-ui.js | HYPER CORE TECH
+          const normalizedTorrentPayload = {
+            type: 'torrent-transfer-request',
+            transferId: torrentData.transferId,
+            magnetURI: torrentData.magnetURI,
+            infoHash: torrentData.infoHash,
+            fileName: torrentData.fileName,
+            fileSize: torrentData.fileSize,
+            fromPeer: sender,
+            timestamp: torrentData.timestamp || event.created_at || Date.now()
+          };
+          event.content = JSON.stringify(normalizedTorrentPayload);
+          event.torrentPayload = normalizedTorrentPayload;
+
+          if (typeof App.torrentTransfer?.handleIncomingRequest === 'function') {
+            console.log('[CHAT/TORRENT] 📞 Calling handleIncomingRequest...');
+            App.torrentTransfer.handleIncomingRequest(sender, torrentData);
+            console.log('[CHAT/TORRENT] ✅ Request forwarded - download should auto-start');
+          } else {
+            console.warn('[CHAT/TORRENT] ⚠️ WebTorrent module not loaded');
+          }
+          // לא מחזירים – נותנים להודעה להמשיך ב-renderMessages כדי שתוצג לשני הצדדים
+        }
+      } catch (e) {
+        console.error('[CHAT/TORRENT] ❌ Parse error:', e.message);
+      }
+    }
+
     const parsedPayload =
       typeof App.deserializeChatMessageContent === 'function'
         ? App.deserializeChatMessageContent(event.content)

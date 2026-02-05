@@ -95,13 +95,28 @@
 
   // חלק beforeinstallprompt (pwa-installer.js) – האזנה לאירוע התקנה | HYPER CORE TECH
   function setupInstallPromptListener() {
+    console.log('[PWA] מאזין לאירוע beforeinstallprompt...');
+    
+    // בדיקה אם כבר יש prompt שמור מקודם (יכול לקרות אם הקוד נטען מאוחר)
+    if (window.deferredPwaPrompt) {
+      deferredInstallPrompt = window.deferredPwaPrompt;
+      console.log('[PWA] נמצא prompt שמור מקודם!');
+    }
+    
     window.addEventListener('beforeinstallprompt', (event) => {
       // מניעת הופעה אוטומטית של הבאנר
       event.preventDefault();
       // שמירת האירוע לשימוש מאוחר יותר
       deferredInstallPrompt = event;
       window.deferredPwaPrompt = event;
-      console.log('[PWA] אירוע beforeinstallprompt נתפס - הדפדפן תומך בהתקנה!');
+      console.log('[PWA] ✅ אירוע beforeinstallprompt נתפס - הדפדפן תומך בהתקנה!');
+      
+      // עדכון כפתור ההתקנה בדסקטופ
+      const chatInstallBtn = document.getElementById('chatWelcomeInstallBtn');
+      if (chatInstallBtn) {
+        chatInstallBtn.classList.add('pwa-ready');
+        console.log('[PWA] כפתור התקנה מוכן');
+      }
       
       // הצגת כפתור התקנה אם קיים
       showInstallButton();
@@ -132,15 +147,24 @@
       return { outcome: 'ios_manual', platform: 'ios' };
     }
     
-    // בדיקה אם יש אירוע התקנה שמור
+    // בדיקה אם יש אירוע התקנה שמור - בדיקה גם ב-window.deferredPwaPrompt
+    if (!deferredInstallPrompt && window.deferredPwaPrompt) {
+      deferredInstallPrompt = window.deferredPwaPrompt;
+      console.log('[PWA] שוחזר prompt מ-window.deferredPwaPrompt');
+    }
+    
     if (!deferredInstallPrompt) {
-      console.log('[PWA] אין אירוע התקנה זמין');
-      // Firefox או דפדפנים אחרים ללא תמיכה
-      if (platform.isFirefox) {
-        showFirefoxInstallGuide();
-        return { outcome: 'firefox_manual', platform: 'firefox' };
+      console.log('[PWA] אין prompt זמין - בודק אם האפליקציה כבר מותקנת...');
+      
+      // בדיקה אם האפליקציה כבר מותקנת
+      if (checkIfInstalled()) {
+        console.log('[PWA] האפליקציה כבר מותקנת!');
+        return { outcome: 'already_installed', platform: 'installed' };
       }
-      return { outcome: 'unavailable', platform: 'unknown' };
+      
+      // הדפדפן לא שלח beforeinstallprompt - ממתינים ומנסים שוב
+      console.log('[PWA] ממתין ל-beforeinstallprompt...');
+      return { outcome: 'waiting', platform: 'unknown' };
     }
     
     try {
@@ -292,7 +316,7 @@
     banner.className = 'pwa-install-banner';
     banner.innerHTML = `
       <div class="pwa-install-banner__content">
-        <img src="./icons/sos-logo.jpg" alt="SOS" class="pwa-install-banner__icon">
+        <img src="./icons/WAPICON.png" alt="SOS Call 010" class="pwa-install-banner__icon">
         <div class="pwa-install-banner__text">
           <strong>התקן את SOS</strong>
           <span>גישה מהירה והתראות בזמן אמת</span>
@@ -326,10 +350,16 @@
   // חלק אתחול (pwa-installer.js) – אתחול מערכת ה-PWA | HYPER CORE TECH
   // חלק תיקון PWA ברקע – רישום SW תמיד כדי לאפשר Push והתרעות גם אחרי התקנה | HYPER CORE TECH
   async function initPwa() {
+    console.log('[PWA] מאתחל מערכת PWA...');
+    
     // **תמיד** לרשום SW - קריטי לקבלת Push והתרעות גם ב-PWA מותקנת!
     await registerServiceWorker();
     
+    // **תמיד** להגדיר מאזין להתקנה - גם אם נראה מותקן (יכול להיות חלון דפדפן רגיל)
+    setupInstallPromptListener();
+    
     isInstalled = checkIfInstalled();
+    console.log('[PWA] סטטוס התקנה:', isInstalled ? 'מותקן' : 'לא מותקן');
     
     if (isInstalled) {
       console.log('[PWA] האפליקציה מותקנת - SW רשום לקבלת Push והתרעות ברקע');
@@ -341,10 +371,7 @@
       return;
     }
     
-    // הגדרת מאזיני התקנה
-    setupInstallPromptListener();
-    
-    console.log('[PWA] מערכת PWA אותחלה');
+    console.log('[PWA] מערכת PWA אותחלה - ממתין ל-beforeinstallprompt');
     
     // יצירת באנר התקנה - עם השהייה לתת beforeinstallprompt זמן להגיע
     scheduleInstallBanner();
