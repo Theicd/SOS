@@ -1,0 +1,972 @@
+/* חלק WebTorrent UI (webtorrent-transfer.css) – עיצוב דיאלוגים והתקדמות העברה | HYPER CORE TECH */
+
+/* הגדרת position relative לקונטיינר השיחה כדי שהדיאלוגים יהיו יחסיים אליו */
+.chat-conversation {
+  position: relative;
+}
+
+/* דיאלוג כללי - absolute בתוך chatPanel */
+.torrent-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: torrentFadeIn 0.2s ease-out;
+}
+
+/* הגדרת chatPanel כ-relative container */
+#chatPanel {
+  position: relative;
+}
+
+@keyframes torrentFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.torrent-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.torrent-dialog__content {
+  position: relative;
+  background: linear-gradient(145deg, #1e2a38, #151d27);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: torrentSlideUp 0.3s ease-out;
+}
+
+@keyframes torrentSlideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.torrent-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.torrent-dialog__header i {
+  font-size: 24px;
+  color: #25D366;
+}
+
+.torrent-dialog__header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.torrent-dialog__body {
+  color: #b0b8c1;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.torrent-dialog__body p {
+  margin: 0 0 16px;
+}
+
+.torrent-dialog__sender {
+  color: #fff;
+}
+
+.torrent-dialog__sender strong {
+  color: #25D366;
+}
+
+/* מידע על קובץ */
+.torrent-dialog__file-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.torrent-dialog__file-info > i {
+  font-size: 32px;
+  color: #25D366;
+}
+
+.torrent-dialog__file-name {
+  font-weight: 600;
+  color: #fff;
+  word-break: break-all;
+  margin-bottom: 4px;
+}
+
+.torrent-dialog__file-size {
+  color: #8696a7;
+  font-size: 13px;
+}
+
+/* אזהרה */
+.torrent-dialog__warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(37, 211, 102, 0.1);
+  border: 1px solid rgba(37, 211, 102, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: #25D366;
+}
+
+.torrent-dialog__warning i {
+  font-size: 18px;
+}
+
+/* כפתורים */
+.torrent-dialog__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.torrent-dialog__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.torrent-dialog__btn--reject,
+.torrent-dialog__btn--cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: #b0b8c1;
+}
+
+.torrent-dialog__btn--reject:hover,
+.torrent-dialog__btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.torrent-dialog__btn--approve,
+.torrent-dialog__btn--send {
+  background: linear-gradient(135deg, #25D366, #128C7E);
+  color: #fff;
+}
+
+.torrent-dialog__btn--approve:hover,
+.torrent-dialog__btn--send:hover {
+  background: linear-gradient(135deg, #2be877, #15a08e);
+  transform: translateY(-1px);
+}
+
+.torrent-dialog__btn--send:disabled {
+  background: #3a4a5a;
+  color: #6a7a8a;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Dropzone */
+.torrent-dialog__dropzone {
+  border: 2px dashed rgba(37, 211, 102, 0.3);
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(37, 211, 102, 0.02);
+}
+
+.torrent-dialog__dropzone:hover,
+.torrent-dialog__dropzone--dragover {
+  border-color: #25D366;
+  background: rgba(37, 211, 102, 0.08);
+}
+
+.torrent-dialog__dropzone i {
+  font-size: 48px;
+  color: #25D366;
+  margin-bottom: 16px;
+}
+
+.torrent-dialog__dropzone p {
+  margin: 0 0 8px;
+  color: #fff;
+}
+
+.torrent-dialog__dropzone-hint {
+  font-size: 12px !important;
+  color: #6a7a8a !important;
+}
+
+/* קובץ נבחר */
+.torrent-dialog__selected-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(37, 211, 102, 0.1);
+  border: 1px solid rgba(37, 211, 102, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.torrent-dialog__selected-file > i {
+  font-size: 28px;
+  color: #25D366;
+}
+
+.torrent-dialog__selected-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.torrent-dialog__selected-name {
+  display: block;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.torrent-dialog__selected-size {
+  display: block;
+  font-size: 13px;
+  color: #8696a7;
+  margin-top: 2px;
+}
+
+.torrent-dialog__selected-remove {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b0b8c1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.torrent-dialog__selected-remove:hover {
+  background: rgba(255, 82, 82, 0.2);
+  color: #ff5252;
+}
+
+/* חלק התקדמות (webtorrent-transfer.css) – UI התקדמות העברה - absolute בתוך chatPanel | HYPER CORE TECH */
+.torrent-progress {
+  position: absolute;
+  bottom: 80px;
+  right: 20px;
+  left: auto;
+  transform: none;
+  z-index: 999;
+  background: linear-gradient(145deg, #1e2a38, #151d27);
+  border-radius: 12px;
+  width: 320px;
+  max-width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  animation: torrentSlideIn 0.3s ease-out;
+}
+
+@keyframes torrentSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.torrent-progress--minimized {
+  width: auto;
+  min-width: 200px;
+}
+
+.torrent-progress--minimized .torrent-progress__body,
+.torrent-progress--minimized .torrent-progress__actions {
+  display: none;
+}
+
+.torrent-progress__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.torrent-progress__header i {
+  color: #25D366;
+  font-size: 16px;
+}
+
+.torrent-progress__header span {
+  flex: 1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.torrent-progress__close {
+  background: none;
+  border: none;
+  color: #6a7a8a;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.torrent-progress__close:hover {
+  color: #fff;
+}
+
+.torrent-progress__body {
+  padding: 16px;
+}
+
+.torrent-progress__bar-container {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.torrent-progress__bar {
+  height: 100%;
+  background: linear-gradient(90deg, #25D366, #128C7E);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.torrent-progress__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 12px;
+  color: #8696a7;
+}
+
+.torrent-progress__percent {
+  font-weight: 600;
+  color: #25D366;
+}
+
+.torrent-progress__speed {
+  color: #fff;
+}
+
+.torrent-progress__actions {
+  padding: 0 16px 16px;
+}
+
+.torrent-progress__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.torrent-progress__btn--cancel {
+  background: rgba(255, 82, 82, 0.15);
+  color: #ff5252;
+}
+
+.torrent-progress__btn--cancel:hover {
+  background: rgba(255, 82, 82, 0.25);
+}
+
+/* מצבים מיוחדים */
+.torrent-progress--completed .torrent-progress__bar {
+  background: linear-gradient(90deg, #4caf50, #2e7d32);
+}
+
+.torrent-progress--completed .torrent-progress__header i {
+  color: #4caf50;
+}
+
+.torrent-progress--error .torrent-progress__bar {
+  background: linear-gradient(90deg, #ff5252, #d32f2f);
+}
+
+.torrent-progress--error .torrent-progress__header i {
+  color: #ff5252;
+}
+
+/* חלק כפתור טורנט דסקטופ (webtorrent-transfer.css) – כפתור שליחת קובץ גדול בצ'אט - רק דסקטופ | HYPER CORE TECH */
+.chat-composer__icon--torrent {
+  background: linear-gradient(135deg, #25D366, #128C7E) !important;
+  color: #fff !important;
+  border-radius: 50% !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: 4px;
+  transition: all 0.2s ease !important;
+  position: relative;
+}
+
+.chat-composer__icon--torrent:hover {
+  background: linear-gradient(135deg, #2be877, #15a08e) !important;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.4);
+}
+
+.chat-composer__icon--torrent i {
+  font-size: 14px !important;
+}
+
+/* חלק הסתרת טורנט מובייל (webtorrent-transfer.css) – הסתרת כפתור טורנט נפרד במובייל | HYPER CORE TECH */
+@media (max-width: 768px) {
+  .chat-composer__icon--torrent {
+    display: none !important;
+  }
+}
+
+/* חלק תפריט קבצים מובייל (webtorrent-transfer.css) – תפריט בחירה לכפתור האטב במובייל | HYPER CORE TECH */
+.chat-file-menu {
+  position: fixed;
+  background: linear-gradient(145deg, #1a2634, #141c26);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 8px 0;
+  min-width: 200px;
+  max-width: calc(100vw - 20px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+}
+
+.chat-file-menu.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.chat-file-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #e9edef;
+  font-size: 14px;
+  text-align: right;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.chat-file-menu__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.chat-file-menu__item i {
+  width: 24px;
+  font-size: 16px;
+  text-align: center;
+}
+
+.chat-file-menu__item--small i {
+  color: #2374e1;
+}
+
+.chat-file-menu__item--large i {
+  color: #25D366;
+}
+
+.chat-file-menu__item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-file-menu__item-title {
+  font-weight: 500;
+}
+
+.chat-file-menu__item-desc {
+  font-size: 11px;
+  color: #8696a0;
+}
+
+/* חלק RTL תפריט (webtorrent-transfer.css) – התאמה לכיוון RTL - תפריט ממורכז מעל הכפתור | HYPER CORE TECH */
+
+/* חלק כפתור קבצים מובייל (webtorrent-transfer.css) – סגנון כפתור קובץ עם תפריט | HYPER CORE TECH */
+.chat-composer__icon--file {
+  position: relative;
+}
+
+/* חלק מיקום תפריט (webtorrent-transfer.css) – מיקום התפריט ביחס ל-composer field | HYPER CORE TECH */
+.chat-composer__field {
+  position: relative;
+}
+
+/* הסתרת טולטיפ במובייל */
+@media (max-width: 768px) {
+  .chat-composer__icon--file::after {
+    display: none !important;
+  }
+}
+
+/* טולטיפ בדסקטופ */
+@media (min-width: 769px) {
+  .chat-composer__icon--file::after {
+    content: 'צרף קובץ';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    margin-bottom: 6px;
+  }
+
+  .chat-composer__icon--file:hover::after {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* רספונסיבי */
+@media (max-width: 480px) {
+  .torrent-dialog__content {
+    width: 95%;
+    padding: 20px;
+    max-width: none;
+  }
+
+  .torrent-progress {
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+
+  [dir="rtl"] .torrent-progress {
+    left: 10px;
+    right: 10px;
+  }
+}
+
+/* חלק בועת הודעה (webtorrent-transfer.css) – עיצוב בועת העברה בתוך השיחה (כמו וואטסאפ) | HYPER CORE TECH */
+
+/* בועת הודעה של טורנט - נכנסת (אפור) */
+.chat-message--torrent-transfer .chat-message__content--torrent {
+  background: linear-gradient(145deg, #1a2634, #141c26);
+  border: 1px solid rgba(37, 211, 102, 0.2);
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  min-width: 220px;
+  max-width: 280px;
+  position: relative;
+}
+
+/* כפתור מחיקה בהודעות טורנט יוצאות | HYPER CORE TECH */
+.chat-message--torrent-transfer .chat-message__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[dir="rtl"] .chat-message--torrent-transfer .chat-message__delete {
+  right: auto;
+  left: 8px;
+}
+
+.chat-message--torrent-transfer:hover .chat-message__delete {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .chat-message--torrent-transfer .chat-message__delete {
+    opacity: 1;
+  }
+}
+
+.chat-message--torrent-transfer .chat-message__delete:hover {
+  background: rgba(255, 59, 48, 0.3);
+  color: #FF3B30;
+}
+
+/* חלק הודעות טורנט יוצאות (webtorrent-transfer.css) – צבע כחול להודעות יוצאות כמו הודעות רגילות | HYPER CORE TECH */
+.chat-message--outgoing.chat-message--torrent-transfer .chat-message__content--torrent {
+  background: linear-gradient(135deg, #1a3a5c, #234b6e) !important;
+  border: 1px solid rgba(35, 116, 225, 0.3) !important;
+}
+
+.chat-message--outgoing.chat-message--torrent-transfer .torrent-bubble__header {
+  color: #5ca8ff !important;
+}
+
+.chat-message--outgoing.chat-message--torrent-transfer .torrent-bubble__file > i {
+  color: #5ca8ff !important;
+}
+
+.chat-message--outgoing.chat-message--torrent-transfer .torrent-bubble__bar-inner {
+  background: linear-gradient(90deg, #2374e1, #1a5bb8) !important;
+}
+
+.chat-message--outgoing.chat-message--torrent-transfer .torrent-bubble__percent {
+  color: #5ca8ff !important;
+}
+
+.chat-message--outgoing.chat-message--torrent-transfer .torrent-bubble__download {
+  background: linear-gradient(135deg, #2374e1, #1a5bb8) !important;
+}
+
+.torrent-bubble {
+  position: relative;
+  padding: 12px;
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* כותרת - מעלה/מוריד */
+.torrent-bubble__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #25D366;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.torrent-bubble__header i {
+  font-size: 14px;
+}
+
+/* פרטי קובץ */
+.torrent-bubble__file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.torrent-bubble__file > i {
+  font-size: 24px;
+  color: #25D366;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.torrent-bubble__file-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  max-width: calc(100% - 40px);
+}
+
+.torrent-bubble__file-name {
+  display: block;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.torrent-bubble__file-size {
+  display: block;
+  color: #8899a6;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* פס התקדמות */
+.torrent-bubble__progress {
+  margin-bottom: 4px;
+}
+
+.torrent-bubble__bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.torrent-bubble__bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #25D366, #128C7E);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.torrent-bubble__stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #8899a6;
+}
+
+.torrent-bubble__percent {
+  color: #25D366;
+  font-weight: 600;
+}
+
+/* כפתור ביטול */
+.torrent-bubble__cancel {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #8899a6;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+[dir="rtl"] .torrent-bubble__cancel {
+  left: auto;
+  right: 8px;
+}
+
+.torrent-bubble__cancel:hover {
+  background: rgba(255, 59, 48, 0.2);
+  color: #FF3B30;
+}
+
+/* כפתור הורדה/שמירה */
+.torrent-bubble__download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #25D366;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  margin-top: 8px;
+  transition: all 0.2s;
+}
+
+.torrent-bubble__download:hover {
+  background: #128C7E;
+}
+
+/* כפתור הורדה בתוך בועת טורנט | HYPER CORE TECH */
+.torrent-bubble__download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #25D366, #128C7E);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+}
+
+.torrent-bubble__download-btn:hover {
+  background: linear-gradient(135deg, #128C7E, #0d5c48);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+}
+
+.torrent-bubble__download-btn:active {
+  transform: translateY(0);
+}
+
+.torrent-bubble__download-btn:disabled {
+  background: #555;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.torrent-bubble__download-btn i {
+  font-size: 14px;
+}
+
+/* עיצוב בועת קובץ עם כפתור הורדה */
+.torrent-bubble__file {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.torrent-bubble__file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+/* מצב הושלם - הודעות נכנסות (ירוק) */
+.chat-message--incoming.chat-message--torrent-completed .torrent-bubble__header {
+  color: #25D366;
+}
+
+.chat-message--incoming.chat-message--torrent-completed .torrent-bubble__file > i {
+  color: #25D366;
+}
+
+/* מצב הושלם - הודעות יוצאות (כחול) | HYPER CORE TECH */
+.chat-message--outgoing.chat-message--torrent-completed .torrent-bubble__header {
+  color: #5ca8ff !important;
+}
+
+.chat-message--outgoing.chat-message--torrent-completed .torrent-bubble__file > i {
+  color: #5ca8ff !important;
+}
+
+.chat-message--outgoing.chat-message--torrent-transfer .torrent-bubble__bar-inner {
+  background: linear-gradient(90deg, #2374e1, #1a5bb8) !important;
+}
+
+/* מצב שגיאה */
+.chat-message--torrent-error .torrent-bubble__header {
+  color: #FF3B30;
+}
+
+.chat-message--torrent-error .torrent-bubble__file > i {
+  color: #FF3B30;
+}
+
+.chat-message--torrent-error .torrent-bubble__bar-inner {
+  background: #FF3B30;
+}
+
+/* זמן הודעה */
+.chat-message--torrent-transfer .chat-message__time {
+  padding: 4px 12px 8px;
+  text-align: left;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[dir="rtl"] .chat-message--torrent-transfer .chat-message__time {
+  text-align: right;
+}
+
+/* הודעה יוצאת - צבע כחול כמו שאר ההודעות היוצאות | HYPER CORE TECH */
+.chat-message--outgoing.chat-message--torrent-transfer .chat-message__content--torrent {
+  background: linear-gradient(135deg, #1a3a5c, #234b6e) !important;
+  border-color: rgba(35, 116, 225, 0.3) !important;
+}
+
+/* הודעה נכנסת - צבע כהה כמו שאר ההודעות הנכנסות */
+.chat-message--incoming.chat-message--torrent-transfer .chat-message__content--torrent {
+  background: linear-gradient(145deg, #1f2c34, #182229);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* בועה פעילה - עם אנימציה */
+.chat-message--torrent-active .torrent-bubble__bar-inner {
+  animation: torrent-progress-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes torrent-progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* סטטוס ממתין לחיבור */
+.chat-message--torrent-active .torrent-bubble__speed {
+  color: #f0b90b;
+  font-style: italic;
+}
+
+/* רספונסיבי לבועות */
+@media (max-width: 480px) {
+  .chat-message--torrent-transfer .chat-message__content--torrent {
+    min-width: 180px;
+    max-width: 85vw;
+  }
+}

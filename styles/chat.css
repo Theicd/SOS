@@ -608,6 +608,7 @@ body.chat-overlay-open::before {
   gap: 10px;
 }
 
+/* חלק רקע הודעות נכנסות (chat.css) – אפור אחיד לכל סוגי ההודעות | HYPER CORE TECH */
 .chat-message__content {
   flex: 0 1 auto;
   width: fit-content;
@@ -620,8 +621,8 @@ body.chat-overlay-open::before {
   flex-direction: column;
   gap: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: var(--card-alt);
-  border: 1px solid var(--border);
+  background: #2a2a2a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -641,8 +642,9 @@ body.chat-overlay-open::before {
   align-self: flex-end;
 }
 
+/* חלק צבע הודעות יוצאות (chat.css) – גוון כחול כהה להודעות יוצאות | HYPER CORE TECH */
 .chat-message--outgoing .chat-message__content {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  background: linear-gradient(135deg, #1a3a5c, #234b6e);
   color: #fff;
   border: none;
   border-bottom-right-radius: 6px;
@@ -1116,7 +1118,7 @@ body.chat-media-modal-open {
     --wa-primary-text: #e9edef;
     --wa-secondary-text: #8696a0;
     --wa-incoming-bg: #202c33;
-    --wa-outgoing-bg: #005c4b;
+    --wa-outgoing-bg: #1a3a5c; /* כחול כהה להודעות יוצאות | HYPER CORE TECH */
     --wa-system-message-bg: #182229;
     --wa-badge-color: #2374e1; /* עודכן לכחול לפי בקשת המשתמש (במקום #00a884) */
     --wa-icon-color: #8696a0;
@@ -1191,7 +1193,7 @@ body.chat-media-modal-open {
     background-color: var(--wa-header-color);
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start; /* הצמדה לצד ימין ב-RTL | HYPER CORE TECH */
     padding: 10px 16px;
     flex-shrink: 0;
   }
@@ -1201,6 +1203,12 @@ body.chat-media-modal-open {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  /* הסתרת כפתור סגירה וכפתורים נוספים בכותרת - רק הלוגו נשאר | HYPER CORE TECH */
+  .chat-panel .chat-sidebar-header__close,
+  .chat-panel .chat-sidebar-header__icons {
+    display: none !important;
   }
 
   .chat-panel .chat-sidebar-header__logo {
@@ -1242,23 +1250,15 @@ body.chat-media-modal-open {
     color: var(--danger, #f02849);
   }
 
-  /* חלק טקסט לוגו דסקטופ (chat.css) – טקסט So Call 010 בעיצוב תקשורת בינלאומי | HYPER CORE TECH */
+  /* חלק טקסט לוגו דסקטופ (chat.css) – טקסט So-Call-010 בסגנון וואטסאפ נקי | HYPER CORE TECH */
   .chat-panel .chat-sidebar-header__logo::after {
-    content: 'So Call 010';
+    content: 'So-Call-010';
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    font-size: 1.6rem;
-    font-weight: 900;
-    letter-spacing: -0.5px;
-    font-style: italic;
-    /* גרדיאנט משולב: אדום -> כסוף -> טורקיז */
-    background: linear-gradient(90deg, #ff1744 0%, #f5f5f5 50%, #00e5ff 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #e9edef; /* צבע טקסט בהיר כמו וואטסאפ */
     white-space: nowrap;
-    /* אפקט זוהר הייטקיסטי עדין */
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(0, 229, 255, 0.3));
-    text-transform: uppercase; /* מראה רשמי יותר */
   }
 
   .chat-panel .chat-sidebar-header__icons {
