@@ -237,13 +237,18 @@
       color: #fff; font-size: 13px; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
     }
-    .step__icon {
-      font-size: 28px; margin-bottom: 16px;
-      background: linear-gradient(135deg, var(--accent), var(--accent3));
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    .step__header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
     }
-    .step h3 { font-size: 19px; font-weight: 700; margin-bottom: 10px; color: var(--text-bright); }
-    .step p { font-size: 14.5px; color: var(--text-dim); line-height: 1.7; font-weight: 300; }
+    .step__icon {
+      font-size: 24px; flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(102,126,234,0.1);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+    }
+    .step h3 { font-size: 18px; font-weight: 700; margin: 0; color: var(--text-bright); }
+    .step p { font-size: 14px; color: var(--text-dim); line-height: 1.7; font-weight: 300; }
 
     /* ===== Features ===== */
     .features { padding: 100px 24px; }
@@ -325,8 +330,8 @@
     /* ===== Pricing ===== */
     .pricing { padding: 100px 24px; }
     .pricing-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 24px; max-width: 900px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px; max-width: 1100px; margin: 0 auto;
     }
     .price-card {
       background: var(--bg-card); border: 1px solid var(--border);
@@ -413,7 +418,7 @@
     /* ===== Responsive – Tablet (max 900px) ===== */
     @media (max-width: 900px) {
       .features-grid { grid-template-columns: 1fr; }
-      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+      .pricing-grid { grid-template-columns: repeat(2, 1fr); max-width: 600px; }
       .output-grid { grid-template-columns: repeat(2, 1fr); }
       .steps { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
       .cross__box { padding: 40px 24px; }
@@ -462,7 +467,7 @@
       .cross__node i { font-size: 16px; }
       .cross__arrow { font-size: 16px; }
 
-      .pricing-grid { grid-template-columns: 1fr; gap: 16px; }
+      .pricing-grid { grid-template-columns: 1fr; gap: 16px; max-width: 400px; margin: 0 auto; }
       .price-card { padding: 28px 20px; }
       .price-card__price { font-size: 36px; }
       .price-card__list li { font-size: 13px; padding: 6px 0; }
@@ -590,20 +595,26 @@
       <div class="steps">
         <div class="step">
           <div class="step__number">1</div>
-          <div class="step__icon"><i class="fa-solid fa-download"></i></div>
-          <h3>התקן את ה-Builder</h3>
+          <div class="step__header">
+            <div class="step__icon"><i class="fa-solid fa-download"></i></div>
+            <h3>התקן את ה-Builder</h3>
+          </div>
           <p>הורד את SOS Network Builder למחשב שלך. ההתקנה הופכת את המחשב לשרת relay + Blossom + P2P node באופן אוטומטי.</p>
         </div>
         <div class="step">
           <div class="step__number">2</div>
-          <div class="step__icon"><i class="fa-solid fa-palette"></i></div>
-          <h3>התאם אישית</h3>
+          <div class="step__header">
+            <div class="step__icon"><i class="fa-solid fa-palette"></i></div>
+            <h3>התאם אישית</h3>
+          </div>
           <p>בחר שם לרשת, העלה לוגו, בחר ערכת צבעים, הגדר דומיין. ה-Builder מייצר אפליקציות לכל הפלטפורמות.</p>
         </div>
         <div class="step">
           <div class="step__number">3</div>
-          <div class="step__icon"><i class="fa-solid fa-rocket"></i></div>
-          <h3>שגר</h3>
+          <div class="step__header">
+            <div class="step__icon"><i class="fa-solid fa-rocket"></i></div>
+            <h3>שגר</h3>
+          </div>
           <p>העלה לדומיין שלך בלחיצה. שתף קישור או QR code. הרשת שלך באוויר – עם אפליקציות, צ׳אט, וידאו והכל.</p>
         </div>
       </div>
@@ -750,51 +761,88 @@
   <section class="pricing" id="pricing">
     <div class="container">
       <div class="section-label">מחירים</div>
-      <h2 class="section-title">התחל בחינם, שדרג כשתרצה</h2>
-      <p class="section-subtitle">בלי הפתעות, בלי עלויות נסתרות. התוכנית החינמית כוללת הכל.</p>
+      <h2 class="section-title">מנוי חודשי – בטל בכל עת</h2>
+      <p class="section-subtitle">כל החבילות כוללות את הרשת החברתית המלאה. ההבדל הוא רק בכמות ובתשתית.</p>
       <div class="pricing-grid">
+        <!-- חבילה 1: התחלה -->
         <div class="price-card">
-          <h3>עצמאי</h3>
-          <p style="color: var(--text-dim); font-size: 14px;">המחשב שלך = השרת</p>
-          <div class="price-card__price">$0 <span>/ לנצח</span></div>
-          <ul class="price-card__list">
-            <li><i class="fa-solid fa-check"></i> רשת חברתית מלאה</li>
-            <li><i class="fa-solid fa-check"></i> צ׳אט + שיחות</li>
-            <li><i class="fa-solid fa-check"></i> וידאו P2P</li>
-            <li><i class="fa-solid fa-check"></i> אפליקציות לכל הפלטפורמות</li>
-            <li><i class="fa-solid fa-check"></i> הצפנה E2E</li>
-            <li><i class="fa-solid fa-check"></i> Relay על המחשב שלך</li>
-          </ul>
-          <a href="#download" class="btn btn--outline" style="width: 100%; justify-content: center;">הורד עכשיו</a>
-        </div>
-        <div class="price-card price-card--featured">
-          <h3>ענן</h3>
-          <p style="color: var(--text-dim); font-size: 14px;">שרתים מנוהלים 24/7</p>
+          <h3>התחלה</h3>
+          <p style="color: var(--text-dim); font-size: 13px;">לקהילות קטנות</p>
           <div class="price-card__price">$9 <span>/ חודש</span></div>
           <ul class="price-card__list">
-            <li><i class="fa-solid fa-check"></i> הכל מהתוכנית החינמית</li>
-            <li><i class="fa-solid fa-check"></i> Relay חיצוני (תמיד דלוק)</li>
-            <li><i class="fa-solid fa-check"></i> Blossom storage (10GB)</li>
-            <li><i class="fa-solid fa-check"></i> דומיין משנה חינמי</li>
-            <li><i class="fa-solid fa-check"></i> גיבויים אוטומטיים</li>
-            <li><i class="fa-solid fa-check"></i> תמיכה בדוא״ל</li>
+            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 200 משתמשים</strong></li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 10GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 500GB תעבורה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay בענן 24/7</li>
+            <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
+            <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין משנה (שם.sos010.com)</li>
+            <li><i class="fa-solid fa-bell" style="color: var(--accent); width: 16px;"></i> Push Notifications</li>
+            <li><i class="fa-solid fa-xmark" style="color: #555; width: 16px;"></i> <span style="color: #555;">חנות ומכירות</span></li>
+          </ul>
+          <a href="#download" class="btn btn--outline" style="width: 100%; justify-content: center;">התחל עכשיו</a>
+        </div>
+        <!-- חבילה 2: קהילה -->
+        <div class="price-card price-card--featured">
+          <h3>קהילה</h3>
+          <p style="color: var(--text-dim); font-size: 13px;">לרשתות צומחות</p>
+          <div class="price-card__price">$24 <span>/ חודש</span></div>
+          <ul class="price-card__list">
+            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 1,000 משתמשים</strong></li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 50GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 3TB תעבורה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay ייעודי</li>
+            <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
+            <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין מותאם (שלך)</li>
+            <li><i class="fa-solid fa-bell" style="color: var(--accent); width: 16px;"></i> Push Notifications</li>
+            <li><i class="fa-solid fa-xmark" style="color: #555; width: 16px;"></i> <span style="color: #555;">חנות ומכירות</span></li>
           </ul>
           <a href="#download" class="btn btn--primary" style="width: 100%; justify-content: center;">התחל עכשיו</a>
         </div>
+        <!-- חבילה 3: מקצועי -->
         <div class="price-card">
-          <h3>עסקי</h3>
-          <p style="color: var(--text-dim); font-size: 14px;">White-label ללא SOS branding</p>
+          <h3>מקצועי</h3>
+          <p style="color: var(--text-dim); font-size: 13px;">לרשתות גדולות</p>
           <div class="price-card__price">$49 <span>/ חודש</span></div>
           <ul class="price-card__list">
-            <li><i class="fa-solid fa-check"></i> הכל מתוכנית הענן</li>
-            <li><i class="fa-solid fa-check"></i> ללא לוגו SOS</li>
-            <li><i class="fa-solid fa-check"></i> Blossom storage (100GB)</li>
-            <li><i class="fa-solid fa-check"></i> דומיין מותאם</li>
-            <li><i class="fa-solid fa-check"></i> אנליטיקות מתקדמות</li>
-            <li><i class="fa-solid fa-check"></i> תמיכה עדיפות</li>
+            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 5,000 משתמשים</strong></li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 200GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 10TB תעבורה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay ייעודי מהיר</li>
+            <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
+            <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין מותאם + SSL</li>
+            <li><i class="fa-solid fa-chart-line" style="color: var(--accent); width: 16px;"></i> לוח ניהול + אנליטיקות</li>
+            <li><i class="fa-solid fa-xmark" style="color: #555; width: 16px;"></i> <span style="color: #555;">חנות ומכירות</span></li>
           </ul>
-          <a href="#download" class="btn btn--outline" style="width: 100%; justify-content: center;">צור קשר</a>
+          <a href="#download" class="btn btn--outline" style="width: 100%; justify-content: center;">התחל עכשיו</a>
         </div>
+        <!-- חבילה 4: עסקי -->
+        <div class="price-card" style="border-color: var(--accent3);">
+          <h3>עסקי</h3>
+          <p style="color: var(--text-dim); font-size: 13px;">White-label + חנות משולבת</p>
+          <div class="price-card__price">$99 <span>/ חודש</span></div>
+          <ul class="price-card__list">
+            <li><i class="fa-solid fa-users" style="color: var(--accent3); width: 16px;"></i> <strong>עד 20,000 משתמשים</strong></li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent3); width: 16px;"></i> 1TB אחסון מדיה</li>
+            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent3); width: 16px;"></i> 30TB תעבורה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent3); width: 16px;"></i> Relay ייעודי ביצועים גבוהים</li>
+            <li><i class="fa-solid fa-palette" style="color: var(--accent3); width: 16px;"></i> לוגו + צבעים מותאמים</li>
+            <li><i class="fa-solid fa-eye-slash" style="color: var(--accent3); width: 16px;"></i> ללא לוגו SOS (White-label)</li>
+            <li><i class="fa-solid fa-cart-shopping" style="color: var(--success); width: 16px;"></i> <strong style="color: var(--success);">חנות + מכירות משולבת</strong></li>
+            <li><i class="fa-solid fa-chart-line" style="color: var(--accent3); width: 16px;"></i> ניהול מתקדם + אנליטיקות</li>
+            <li><i class="fa-solid fa-headset" style="color: var(--accent3); width: 16px;"></i> תמיכה עדיפות</li>
+          </ul>
+          <a href="#download" class="btn btn--outline" style="width: 100%; justify-content: center; border-color: var(--accent3); color: var(--accent3);">התחל עכשיו</a>
+        </div>
+      </div>
+      <div style="max-width: 750px; margin: 40px auto 0; text-align: center;">
+        <p style="color: var(--text-dim); font-size: 14px; line-height: 2;">
+          <strong style="color: var(--text-bright);">כל החבילות כוללות:</strong>
+          צ׳אט מוצפן E2E · שיחות קול ווידאו · פיד וידאו P2P · לוגו וצבעים מותאמים · אפליקציות לכל הפלטפורמות<br>
+          <span style="color: var(--success);"><i class="fa-solid fa-rotate-left"></i> מנוי חודשי – בטל בכל עת, בלי התחייבות</span>
+        </p>
+        <p style="color: var(--text-dim); font-size: 13px; margin-top: 12px;">
+          אחסון נוסף בכל חבילה: $1 לכל 10GB · צריך יותר מ-20K משתמשים? <a href="#download" style="color: var(--accent);">צור קשר</a>
+        </p>
       </div>
     </div>
   </section>
