@@ -3,13 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>SOS Network Builder – בנה רשת חברתית משלך</title>
-  <meta name="description" content="הקם רשת חברתית מלאה על המחשב שלך תוך דקות. וידאו, צ׳אט, פיד – הכל P2P, בלי שרתים יקרים.">
+  <title>SOS Network Builder – בנה רשת חברתית משלך תוך דקות</title>
+  <meta name="description" content="הקם רשת חברתית מלאה עם וידאו, צ׳אט מוצפן, שיחות קול ווידאו – על המחשב שלך, בלי שרתים יקרים. קבל אפליקציות ל-Android, iOS ו-Desktop בלחיצה.">
+  <meta name="keywords" content="רשת חברתית, בניית רשת חברתית, P2P, מבוזר, Nostr, צ׳אט מוצפן, שיחות וידאו, TikTok, WhatsApp, open source, self-hosted, social network builder">
+  <meta name="author" content="SOS Network">
+  <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0a0a0f">
+  <meta name="color-scheme" content="dark">
   <link rel="icon" type="image/png" href="../icons/WAPICON.png">
-  <meta property="og:title" content="SOS Network Builder – בנה רשת חברתית משלך">
-  <meta property="og:description" content="הקם רשת חברתית מלאה תוך דקות. וידאו, צ׳אט, שיחות, פיד – הכל מבוזר.">
-  <meta property="og:image" content="../LOGO.jpg">
+  <link rel="apple-touch-icon" href="../icons/WAPICON.png">
+  <link rel="canonical" href="https://sos010.com/builder/">
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SOS Network Builder">
+  <meta property="og:title" content="SOS Network Builder – בנה רשת חברתית משלך תוך דקות">
+  <meta property="og:description" content="הקם רשת חברתית מלאה עם וידאו, צ׳אט מוצפן, שיחות קול ווידאו – על המחשב שלך. אפליקציות ל-Android, iOS ו-Desktop בלחיצה.">
+  <meta property="og:image" content="https://sos010.com/LOGO.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="SOS Network Builder – בנה רשת חברתית מבוזרת">
+  <meta property="og:url" content="https://sos010.com/builder/">
+  <meta property="og:locale" content="he_IL">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SOS Network Builder – בנה רשת חברתית משלך">
+  <meta name="twitter:description" content="רשת חברתית מלאה עם וידאו P2P, צ׳אט מוצפן, שיחות קול ווידאו – בלי שרתים, בלי עלויות.">
+  <meta name="twitter:image" content="https://sos010.com/LOGO.jpg">
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SOS Network Builder",
+    "applicationCategory": "CommunicationApplication",
+    "operatingSystem": "Windows, macOS, Linux, Android, iOS",
+    "description": "בנה רשת חברתית מלאה משלך עם וידאו, צ׳אט מוצפן ושיחות – בלי שרתים יקרים.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": ["TikTok-style Video Feed", "WhatsApp-style Encrypted Chat", "Voice & Video Calls", "P2P File Sharing", "Live Streaming", "Push Notifications"]
+  }
+  </script>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
   <style>
     :root {
@@ -31,11 +71,19 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Heebo', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       background: var(--bg-primary);
       color: var(--text);
-      line-height: 1.7;
+      line-height: 1.75;
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: 'Heebo', 'Inter', system-ui, sans-serif;
+      letter-spacing: -0.02em;
     }
 
     /* ===== Ambient Background ===== */
@@ -64,7 +112,8 @@
     .nav__logo img { width: 36px; height: 36px; border-radius: 8px; }
     .nav__logo span {
       background: linear-gradient(135deg, var(--accent), var(--accent3));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      font-family: 'Inter', 'Heebo', sans-serif; letter-spacing: -0.03em;
     }
     .nav__links { display: flex; gap: 24px; align-items: center; }
     .nav__links a {
@@ -94,17 +143,19 @@
     }
     .hero__badge i { font-size: 11px; }
     .hero h1 {
-      font-size: clamp(36px, 6vw, 64px); font-weight: 800;
-      line-height: 1.15; margin-bottom: 20px; color: var(--text-bright);
+      font-size: clamp(36px, 6vw, 68px); font-weight: 900;
+      line-height: 1.1; margin-bottom: 24px; color: var(--text-bright);
+      letter-spacing: -0.03em;
     }
     .hero h1 em {
       font-style: normal;
       background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     }
     .hero__sub {
-      font-size: clamp(16px, 2.5vw, 20px); color: var(--text-dim);
-      max-width: 640px; margin: 0 auto 40px;
+      font-size: clamp(16px, 2.5vw, 21px); color: var(--text-dim);
+      max-width: 600px; margin: 0 auto 40px;
+      line-height: 1.8; font-weight: 300;
     }
     .hero__cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
@@ -153,12 +204,18 @@
     /* ===== How It Works ===== */
     .how { padding: 100px 24px; }
     .section-label {
-      text-align: center; font-size: 13px; text-transform: uppercase;
-      letter-spacing: 3px; color: var(--accent); margin-bottom: 12px; font-weight: 600;
+      text-align: center; font-size: 12px; text-transform: uppercase;
+      letter-spacing: 4px; color: var(--accent); margin-bottom: 14px; font-weight: 600;
+      font-family: 'Inter', 'Heebo', sans-serif;
     }
     .section-title {
-      text-align: center; font-size: clamp(28px, 4vw, 42px);
-      font-weight: 700; color: var(--text-bright); margin-bottom: 60px;
+      text-align: center; font-size: clamp(28px, 4vw, 44px);
+      font-weight: 800; color: var(--text-bright); margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+    .section-subtitle {
+      text-align: center; font-size: 17px; color: var(--text-dim);
+      max-width: 560px; margin: 0 auto 56px; line-height: 1.7; font-weight: 300;
     }
     .steps {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -183,10 +240,10 @@
     .step__icon {
       font-size: 28px; margin-bottom: 16px;
       background: linear-gradient(135deg, var(--accent), var(--accent3));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text-bright); }
-    .step p { font-size: 14px; color: var(--text-dim); }
+    .step h3 { font-size: 19px; font-weight: 700; margin-bottom: 10px; color: var(--text-bright); }
+    .step p { font-size: 14.5px; color: var(--text-dim); line-height: 1.7; font-weight: 300; }
 
     /* ===== Features ===== */
     .features { padding: 100px 24px; }
@@ -207,8 +264,8 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 18px; color: var(--accent);
     }
-    .feature h4 { font-size: 16px; font-weight: 600; color: var(--text-bright); margin-bottom: 4px; }
-    .feature p { font-size: 13px; color: var(--text-dim); }
+    .feature h4 { font-size: 16px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; }
+    .feature p { font-size: 13.5px; color: var(--text-dim); line-height: 1.65; font-weight: 300; }
 
     /* ===== Output / What You Get ===== */
     .output { padding: 100px 24px; }
@@ -289,9 +346,10 @@
     }
     .price-card h3 { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
     .price-card__price {
-      font-size: 42px; font-weight: 800; color: var(--text-bright); margin: 16px 0;
+      font-size: 48px; font-weight: 900; color: var(--text-bright); margin: 16px 0;
+      font-family: 'Inter', 'Heebo', sans-serif; letter-spacing: -0.03em;
     }
-    .price-card__price span { font-size: 16px; font-weight: 400; color: var(--text-dim); }
+    .price-card__price span { font-size: 15px; font-weight: 400; color: var(--text-dim); }
     .price-card__list {
       list-style: none; text-align: right; margin: 24px 0;
     }
@@ -304,10 +362,24 @@
     /* ===== CTA ===== */
     .cta { padding: 100px 24px; text-align: center; }
     .cta h2 {
-      font-size: clamp(28px, 4vw, 42px); font-weight: 700;
-      color: var(--text-bright); margin-bottom: 16px;
+      font-size: clamp(28px, 4vw, 44px); font-weight: 800;
+      color: var(--text-bright); margin-bottom: 16px; letter-spacing: -0.02em;
     }
-    .cta p { color: var(--text-dim); font-size: 18px; margin-bottom: 32px; }
+    .cta p { color: var(--text-dim); font-size: 18px; margin-bottom: 32px; font-weight: 300; line-height: 1.7; }
+
+    /* ===== Stats Strip ===== */
+    .stats {
+      display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
+      padding: 60px 24px; position: relative; z-index: 1;
+    }
+    .stats__item { text-align: center; }
+    .stats__number {
+      font-size: 40px; font-weight: 900; color: var(--text-bright);
+      font-family: 'Inter', 'Heebo', sans-serif; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .stats__label { font-size: 13px; color: var(--text-dim); font-weight: 400; margin-top: 4px; }
 
     /* ===== Footer ===== */
     .footer {
@@ -316,12 +388,100 @@
     }
     .footer a { color: var(--accent); text-decoration: none; }
 
-    /* ===== Responsive ===== */
+    /* ===== Mobile Menu Toggle ===== */
+    .nav__toggle {
+      display: none; background: none; border: none; color: var(--text);
+      font-size: 22px; cursor: pointer; padding: 8px;
+    }
+    .nav__mobile-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(10,10,15,0.97); backdrop-filter: blur(20px);
+      flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+    }
+    .nav__mobile-overlay.is-open { display: flex; }
+    .nav__mobile-overlay a {
+      color: var(--text-bright); text-decoration: none; font-size: 20px; font-weight: 600;
+      padding: 12px 24px; border-radius: var(--radius-sm);
+      transition: background 0.2s;
+    }
+    .nav__mobile-overlay a:hover { background: rgba(102,126,234,0.1); }
+    .nav__mobile-close {
+      position: absolute; top: 20px; left: 20px;
+      background: none; border: none; color: var(--text); font-size: 28px; cursor: pointer;
+    }
+
+    /* ===== Responsive – Tablet (max 900px) ===== */
+    @media (max-width: 900px) {
+      .features-grid { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+      .output-grid { grid-template-columns: repeat(2, 1fr); }
+      .steps { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
+      .cross__box { padding: 40px 24px; }
+      .hero h1 { font-size: 36px; }
+    }
+
+    /* ===== Responsive – Mobile (max 640px) ===== */
     @media (max-width: 640px) {
       .nav__links { display: none; }
-      .hero { padding: 100px 16px 60px; }
-      .platforms { gap: 16px; }
-      .cross__box { padding: 32px 20px; }
+      .nav__toggle { display: block; }
+      .nav { padding: 12px 16px; }
+      .nav__logo { font-size: 17px; }
+      .nav__logo img { width: 30px; height: 30px; }
+
+      .hero { padding: 90px 16px 50px; min-height: auto; }
+      .hero h1 { font-size: 28px; line-height: 1.25; }
+      .hero__sub { font-size: 15px; margin-bottom: 28px; }
+      .hero__cta { flex-direction: column; align-items: stretch; gap: 10px; }
+      .hero__cta .btn { justify-content: center; width: 100%; padding: 14px 20px; }
+
+      .platforms { gap: 12px; margin-top: 32px; }
+      .platforms__icon { width: 48px; height: 48px; font-size: 20px; border-radius: 12px; }
+      .platforms__item { font-size: 11px; }
+
+      .how, .features, .output, .cross, .pricing, .cta { padding: 60px 16px; }
+      .section-title { font-size: 24px; margin-bottom: 36px; }
+      .section-label { font-size: 11px; letter-spacing: 2px; }
+
+      .step { padding: 24px; }
+      .step__number { width: 24px; height: 24px; font-size: 12px; top: -12px; right: 16px; }
+
+      .feature { padding: 20px; gap: 12px; }
+      .feature__icon { width: 38px; height: 38px; font-size: 16px; border-radius: 10px; }
+      .feature h4 { font-size: 15px; }
+      .feature p { font-size: 12px; }
+
+      .output-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .output-card { padding: 20px 16px; }
+      .output-card__icon { width: 48px; height: 48px; font-size: 22px; border-radius: 12px; }
+      .output-card h4 { font-size: 14px; }
+      .output-card p { font-size: 11px; }
+
+      .cross__box { padding: 28px 16px; border-radius: 16px; }
+      .cross__box p { font-size: 14px; }
+      .cross__node { width: 64px; height: 64px; font-size: 10px; }
+      .cross__node i { font-size: 16px; }
+      .cross__arrow { font-size: 16px; }
+
+      .pricing-grid { grid-template-columns: 1fr; gap: 16px; }
+      .price-card { padding: 28px 20px; }
+      .price-card__price { font-size: 36px; }
+      .price-card__list li { font-size: 13px; padding: 6px 0; }
+
+      .cta h2 { font-size: 24px; }
+      .cta p { font-size: 15px; margin-bottom: 24px; }
+
+      .footer { padding: 28px 16px; font-size: 12px; }
+    }
+
+    /* ===== Responsive – Very Small (max 380px) ===== */
+    @media (max-width: 380px) {
+      .hero h1 { font-size: 24px; }
+      .hero__sub { font-size: 14px; }
+      .output-grid { grid-template-columns: 1fr; }
+      .platforms { gap: 8px; }
+      .platforms__icon { width: 42px; height: 42px; font-size: 18px; }
+      .cross__diagram { gap: 6px; }
+      .cross__node { width: 56px; height: 56px; }
     }
   </style>
 </head>
@@ -341,7 +501,20 @@
       <a href="#pricing">מחירים</a>
       <a href="#download" class="btn btn--primary btn--sm"><i class="fa-solid fa-download"></i> הורדה</a>
     </div>
+    <button class="nav__toggle" id="navToggle" aria-label="תפריט">
+      <i class="fa-solid fa-bars"></i>
+    </button>
   </nav>
+
+  <!-- Mobile Menu Overlay -->
+  <div class="nav__mobile-overlay" id="mobileMenu">
+    <button class="nav__mobile-close" id="mobileMenuClose" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
+    <a href="#how" class="mobile-nav-link">איך זה עובד</a>
+    <a href="#features" class="mobile-nav-link">יכולות</a>
+    <a href="#output" class="mobile-nav-link">מה מקבלים</a>
+    <a href="#pricing" class="mobile-nav-link">מחירים</a>
+    <a href="#download" class="btn btn--primary" style="margin-top:8px;"><i class="fa-solid fa-download"></i> הורד בחינם</a>
+  </div>
 
   <!-- Hero -->
   <section class="hero">
@@ -389,11 +562,32 @@
     </div>
   </section>
 
+  <!-- Stats -->
+  <section class="stats">
+    <div class="stats__item">
+      <div class="stats__number">85K+</div>
+      <div class="stats__label">שורות קוד</div>
+    </div>
+    <div class="stats__item">
+      <div class="stats__number">18+</div>
+      <div class="stats__label">מודולים מובנים</div>
+    </div>
+    <div class="stats__item">
+      <div class="stats__number">5</div>
+      <div class="stats__label">פלטפורמות</div>
+    </div>
+    <div class="stats__item">
+      <div class="stats__number">$0</div>
+      <div class="stats__label">עלות שרתים</div>
+    </div>
+  </section>
+
   <!-- How It Works -->
   <section class="how" id="how">
     <div class="container">
       <div class="section-label">איך זה עובד</div>
       <h2 class="section-title">שלושה צעדים לרשת חברתית שלך</h2>
+      <p class="section-subtitle">בלי צוות פיתוח, בלי שרתים, בלי ידע טכני. רק אתה והחזון שלך.</p>
       <div class="steps">
         <div class="step">
           <div class="step__number">1</div>
@@ -422,6 +616,7 @@
     <div class="container">
       <div class="section-label">מה בפנים</div>
       <h2 class="section-title">כל מה שרשת חברתית צריכה</h2>
+      <p class="section-subtitle">לא חצי מוצר – רשת חברתית מלאה עם כל הפיצ׳רים שמשתמשים מצפים להם.</p>
       <div class="features-grid">
         <div class="feature">
           <div class="feature__icon"><i class="fa-solid fa-video"></i></div>
@@ -488,6 +683,7 @@
     <div class="container">
       <div class="section-label">מה מקבלים</div>
       <h2 class="section-title">ה-Builder מייצר לך חבילה מוכנה</h2>
+      <p class="section-subtitle">אפליקציות לכל פלטפורמה – עם ההתאמה האישית שלך, מוכנות להפצה.</p>
       <div class="output-grid">
         <div class="output-card">
           <div class="output-card__icon"><i class="fa-brands fa-android"></i></div>
@@ -556,6 +752,7 @@
     <div class="container">
       <div class="section-label">מחירים</div>
       <h2 class="section-title">התחל בחינם, שדרג כשתרצה</h2>
+      <p class="section-subtitle">בלי הפתעות, בלי עלויות נסתרות. התוכנית החינמית כוללת הכל.</p>
       <div class="pricing-grid">
         <div class="price-card">
           <h3>עצמאי</h3>
@@ -607,7 +804,7 @@
   <section class="cta" id="download">
     <div class="container">
       <h2>מוכן לבנות רשת חברתית?</h2>
-      <p>הורד את ה-Builder בחינם והרשת שלך תהיה באוויר תוך דקות.</p>
+      <p>הורד את ה-Builder בחינם והרשת שלך תהיה באוויר תוך דקות.<br>בלי כרטיס אשראי, בלי הרשמה, בלי הגבלות.</p>
       <div class="hero__cta">
         <a href="#" class="btn btn--primary" id="downloadWindows">
           <i class="fa-brands fa-windows"></i> הורד ל-Windows
@@ -641,8 +838,19 @@
     </div>
   </footer>
 
-  <!-- Smooth scroll -->
   <script>
+    // Mobile menu
+    const navToggle = document.getElementById('navToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const mobileClose = document.getElementById('mobileMenuClose');
+    if (navToggle && mobileMenu) {
+      navToggle.addEventListener('click', () => mobileMenu.classList.add('is-open'));
+      mobileClose.addEventListener('click', () => mobileMenu.classList.remove('is-open'));
+      mobileMenu.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => mobileMenu.classList.remove('is-open'));
+      });
+    }
+    // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(a => {
       a.addEventListener('click', e => {
         const target = document.querySelector(a.getAttribute('href'));
