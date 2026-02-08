@@ -360,7 +360,9 @@
       background: var(--bg-card); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 36px; text-align: center;
       transition: all 0.3s; position: relative;
+      display: flex; flex-direction: column;
     }
+    .price-card .btn { margin-top: auto; }
     .price-card--featured {
       border-color: var(--accent);
       box-shadow: 0 0 40px rgba(102,126,234,0.1);
@@ -829,9 +831,9 @@
           <p style="color: var(--text-dim); font-size: 13px;">לקהילות קטנות</p>
           <div class="price-card__price">$9 <span>/ חודש</span></div>
           <ul class="price-card__list">
-            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 200 משתמשים</strong></li>
-            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 10GB אחסון מדיה</li>
-            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 500GB תעבורה</li>
+            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 5,000 משתמשים</strong></li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 20GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 2TB תעבורה</li>
             <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay בענן 24/7</li>
             <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
             <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין משנה (שם.sos010.com)</li>
@@ -846,9 +848,9 @@
           <p style="color: var(--text-dim); font-size: 13px;">לרשתות צומחות</p>
           <div class="price-card__price">$24 <span>/ חודש</span></div>
           <ul class="price-card__list">
-            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 1,000 משתמשים</strong></li>
-            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 50GB אחסון מדיה</li>
-            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 3TB תעבורה</li>
+            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 25,000 משתמשים</strong></li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 100GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 10TB תעבורה</li>
             <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay ייעודי</li>
             <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
             <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין מותאם (שלך)</li>
@@ -863,9 +865,9 @@
           <p style="color: var(--text-dim); font-size: 13px;">לרשתות גדולות</p>
           <div class="price-card__price">$49 <span>/ חודש</span></div>
           <ul class="price-card__list">
-            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 5,000 משתמשים</strong></li>
-            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 200GB אחסון מדיה</li>
-            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 10TB תעבורה</li>
+            <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 50,000 משתמשים</strong></li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 500GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 20TB תעבורה</li>
             <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay ייעודי מהיר</li>
             <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
             <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין מותאם + SSL</li>
@@ -880,7 +882,7 @@
           <p style="color: var(--text-dim); font-size: 13px;">White-label + חנות משולבת</p>
           <div class="price-card__price">$99 <span>/ חודש</span></div>
           <ul class="price-card__list">
-            <li><i class="fa-solid fa-users" style="color: var(--accent3); width: 16px;"></i> <strong>עד 20,000 משתמשים</strong></li>
+            <li><i class="fa-solid fa-users" style="color: var(--accent3); width: 16px;"></i> <strong>עד 100,000 משתמשים</strong></li>
             <li><i class="fa-solid fa-hard-drive" style="color: var(--accent3); width: 16px;"></i> 1TB אחסון מדיה</li>
             <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent3); width: 16px;"></i> 30TB תעבורה</li>
             <li><i class="fa-solid fa-server" style="color: var(--accent3); width: 16px;"></i> Relay ייעודי ביצועים גבוהים</li>
@@ -900,8 +902,17 @@
           <span style="color: var(--success);"><i class="fa-solid fa-rotate-left"></i> מנוי חודשי – בטל בכל עת, בלי התחייבות</span>
         </p>
         <p style="color: var(--text-dim); font-size: 13px; margin-top: 12px;">
-          אחסון נוסף בכל חבילה: $1 לכל 10GB · צריך יותר מ-20K משתמשים? <a href="#download" style="color: var(--accent);">צור קשר</a>
+          אחסון נוסף בכל חבילה: $1 לכל 10GB · צריך יותר מ-100K? <a href="#download" style="color: var(--accent);">צור קשר</a>
         </p>
+        <div style="margin-top: 32px; padding: 20px 28px; background: rgba(102,126,234,0.06); border: 1px solid var(--border); border-radius: var(--radius); text-align: center;">
+          <p style="color: var(--text-dim); font-size: 14px; margin: 0; line-height: 1.8;">
+            <strong style="color: var(--text-bright);">כמה עולה רשת חברתית ל-100,000 משתמשים?</strong><br>
+            בדרך המסורתית (AWS/Firebase): <span style="color: #e53e3e; font-weight: 700;">$500,000+/שנה</span><br>
+            עם SOS Network: <span style="color: var(--success); font-weight: 700;">$1,188/שנה</span>
+            <span style="color: var(--text-dim);"> ($99 × 12 חודשים)</span><br>
+            <strong style="color: var(--accent); font-size: 16px;">פי 420 יותר זול.</strong>
+          </p>
+        </div>
       </div>
     </div>
   </section>
