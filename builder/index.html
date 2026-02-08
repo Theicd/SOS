@@ -329,6 +329,29 @@
 
     /* ===== Pricing ===== */
     .pricing { padding: 100px 24px; }
+    .pricing-free {
+      max-width: 700px; margin: 0 auto 32px;
+      background: var(--bg-card); border: 2px solid var(--success);
+      border-radius: var(--radius); padding: 36px 40px;
+      display: flex; align-items: center; gap: 32px;
+      box-shadow: 0 0 40px rgba(72,187,120,0.08);
+    }
+    .pricing-free__info { flex: 1; text-align: right; }
+    .pricing-free__info h3 { font-size: 24px; color: var(--success); margin-bottom: 4px; }
+    .pricing-free__info p { color: var(--text-dim); font-size: 14px; line-height: 1.7; margin: 8px 0 0; }
+    .pricing-free__features {
+      display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px;
+    }
+    .pricing-free__features span {
+      font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px;
+    }
+    .pricing-free__features i { color: var(--success); font-size: 12px; }
+    .pricing-free__price {
+      flex-shrink: 0; text-align: center;
+    }
+    .pricing-free__price .big { font-size: 48px; font-weight: 800; color: var(--success); line-height: 1; }
+    .pricing-free__price .sub { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
+    .pricing-free__price a { margin-top: 16px; }
     .pricing-grid {
       display: grid; grid-template-columns: repeat(4, 1fr);
       gap: 16px; max-width: 1100px; margin: 0 auto;
@@ -419,6 +442,8 @@
     @media (max-width: 900px) {
       .features-grid { grid-template-columns: 1fr; }
       .pricing-grid { grid-template-columns: repeat(2, 1fr); max-width: 600px; }
+      .pricing-free { flex-direction: column; text-align: center; padding: 28px 24px; }
+      .pricing-free__info { text-align: center; }
       .output-grid { grid-template-columns: repeat(2, 1fr); }
       .steps { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
       .cross__box { padding: 40px 24px; }
@@ -468,6 +493,11 @@
       .cross__arrow { font-size: 16px; }
 
       .pricing-grid { grid-template-columns: 1fr; gap: 16px; max-width: 400px; margin: 0 auto; }
+      .pricing-free { flex-direction: column; gap: 16px; padding: 24px 20px; }
+      .pricing-free__info { text-align: center; }
+      .pricing-free__info h3 { font-size: 20px; }
+      .pricing-free__features { justify-content: center; }
+      .pricing-free__price .big { font-size: 40px; }
       .price-card { padding: 28px 20px; }
       .price-card__price { font-size: 36px; }
       .price-card__list li { font-size: 13px; padding: 6px 0; }
@@ -761,8 +791,37 @@
   <section class="pricing" id="pricing">
     <div class="container">
       <div class="section-label">מחירים</div>
-      <h2 class="section-title">מנוי חודשי – בטל בכל עת</h2>
-      <p class="section-subtitle">כל החבילות כוללות את הרשת החברתית המלאה. ההבדל הוא רק בכמות ובתשתית.</p>
+      <h2 class="section-title">חינם לנצח. שדרג רק אם תרצה.</h2>
+      <p class="section-subtitle">הרשת החברתית המלאה רצה על המחשב שלך בחינם. חבילות הענן מוסיפות שרת שדלוק 24/7.</p>
+
+      <!-- חבילה חינמית -->
+      <div class="pricing-free">
+        <div class="pricing-free__info">
+          <h3><i class="fa-solid fa-gift"></i> חינם לנצח</h3>
+          <p>הרשת שלך רצה על המחשב שלך – בלי שרתים, בלי תשלום, בלי הגבלות. המחשב שלך הוא השרת.</p>
+          <div class="pricing-free__features">
+            <span><i class="fa-solid fa-check"></i> ללא הגבלת משתמשים</span>
+            <span><i class="fa-solid fa-check"></i> Relay + Blossom מקומיים</span>
+            <span><i class="fa-solid fa-check"></i> צ׳אט מוצפן E2E</span>
+            <span><i class="fa-solid fa-check"></i> שיחות קול ווידאו</span>
+            <span><i class="fa-solid fa-check"></i> פיד וידאו P2P</span>
+            <span><i class="fa-solid fa-check"></i> לוגו + צבעים מותאמים</span>
+            <span><i class="fa-solid fa-check"></i> אפליקציות לכל הפלטפורמות</span>
+            <span><i class="fa-solid fa-check"></i> שידור חי</span>
+          </div>
+        </div>
+        <div class="pricing-free__price">
+          <div class="big">$0</div>
+          <div class="sub">לנצח · ללא הגבלה</div>
+          <a href="#download" class="btn btn--outline" style="border-color: var(--success); color: var(--success); margin-top: 16px;">הורד עכשיו</a>
+        </div>
+      </div>
+
+      <p style="text-align: center; margin: 32px 0 24px; color: var(--text-dim); font-size: 15px;">
+        <i class="fa-solid fa-cloud" style="color: var(--accent);"></i>
+        רוצה שהרשת תהיה דלוקה 24/7 גם כשהמחשב כבוי? בחר חבילת ענן:
+      </p>
+
       <div class="pricing-grid">
         <!-- חבילה 1: התחלה -->
         <div class="price-card">
