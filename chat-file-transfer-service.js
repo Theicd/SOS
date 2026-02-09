@@ -65,7 +65,13 @@
       return null;
     }
     const isAudio = attachment && typeof attachment.type === 'string' && attachment.type.indexOf('audio/') === 0;
-    const displayText = text || (attachment ? (isAudio ? '' : `📎 ${attachment.name}`) : '');
+    // חלק תיקון קול (chat-file-transfer-service.js) – displayText לא ריק להודעות קוליות, אחרת appendMessageToConversation דוחה | HYPER CORE TECH
+    let audioDisplayText = '🎤 הודעה קולית';
+    if (isAudio && typeof attachment.duration === 'number' && attachment.duration > 0) {
+      const d = attachment.duration;
+      audioDisplayText = `🎤 הודעה קולית (${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')})`;
+    }
+    const displayText = text || (attachment ? (isAudio ? audioDisplayText : `📎 ${attachment.name}`) : '');
     return {
       rawContent,
       displayText,
@@ -92,7 +98,19 @@
         };
       }
       const attachment = payload.a || null;
-      const displayText = payload.t || (attachment?.name ? `📎 ${attachment.name}` : '');
+      // חלק תיקון קול (chat-file-transfer-service.js) – זיהוי הודעות קוליות בדסריאליזציה והצגת טקסט מתאים | HYPER CORE TECH
+      let displayText = payload.t || '';
+      if (!displayText && attachment) {
+        const aMime = (attachment.type || '').toLowerCase();
+        const aName = (attachment.name || '').toLowerCase();
+        const isAudioAtt = aMime.startsWith('audio/') || aName.includes('voice') || aName.endsWith('.webm') || aName.endsWith('.ogg') || aName.endsWith('.mp3');
+        if (isAudioAtt) {
+          const d = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : 0;
+          displayText = d > 0 ? `🎤 הודעה קולית (${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')})` : '🎤 הודעה קולית';
+        } else {
+          displayText = attachment.name ? `📎 ${attachment.name}` : '';
+        }
+      }
       return {
         displayText,
         attachment,
