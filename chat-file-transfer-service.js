@@ -26,7 +26,7 @@
     if (!attachment) {
       return null;
     }
-    return {
+    const serialized = {
       name: attachment.name,
       size: attachment.size,
       type: attachment.type,
@@ -34,6 +34,11 @@
       url: attachment.url || '',
       duration: typeof attachment.duration === 'number' ? attachment.duration : undefined,
     };
+    // חלק P2P קול (chat-file-transfer-service.js) – הוספת magnetURI לסריאליזציה כדי לאפשר הורדת אודיו מטורנט | HYPER CORE TECH
+    if (attachment.magnetURI) {
+      serialized.magnetURI = attachment.magnetURI;
+    }
+    return serialized;
   }
 
   function serializeChatMessageContent(peerPubkey, text) {

@@ -34,8 +34,13 @@
     // חלק נגן (chat-audio-player.js) – תמיכה בריבוי sources לתאימות מקסימלית | HYPER CORE TECH
     // חלק שעה וסטטוס (chat-audio-player.js) – מקום לשעה וסטטוס בתוך הנגן | HYPER CORE TECH
     // חלק תמונת פרופיל (chat-audio-player.js) – מקום לתמונת פרופיל בתוך הנגן | HYPER CORE TECH
+    // חלק P2P קול (chat-audio-player.js) – שמירת magnetURI כ-data attribute לטעינת P2P | HYPER CORE TECH
+    const magnetUri = attachment.magnetURI || '';
+    const fallbackSrc = src;
     return `
-      <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${src}">
+      <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${src}"
+           ${magnetUri ? `data-magnet-uri="${magnetUri}"` : ''}
+           ${fallbackSrc ? `data-fallback-src="${fallbackSrc}"` : ''}>
         <audio preload="auto" class="chat-message__audio-el" crossorigin="anonymous">
           <source src="${src}" type="${mimeType}">
           <source src="${src}" type="audio/mpeg">
@@ -114,9 +119,13 @@
       return;
     }
     
-    // חלק טעינת מקור (chat-audio-player.js) – טעינה ידנית של המקור | HYPER CORE TECH
+    // חלק P2P קול (chat-audio-player.js) – ניסיון טעינת אודיו מטורנט P2P לפני Blossom | HYPER CORE TECH
+    const magnetUri = container.dataset.magnetUri;
     const srcFromData = container.dataset.src;
-    if (srcFromData && !audio.src) {
+
+    if (magnetUri) {
+      tryLoadAudioFromTorrent(container, audio, btn, magnetUri, srcFromData);
+    } else if (srcFromData && !audio.src) {
       audio.src = srcFromData;
     }
     
@@ -226,6 +235,92 @@
     }
   }
   
+  // חלק P2P קול (chat-audio-player.js) – טעינת אודיו מטורנט P2P עם fallback ל-URL רגיל | HYPER CORE TECH
+  const P2P_AUDIO_TIMEOUT_MS = 15000; // 15 שניות timeout לטעינת P2P
+
+  function tryLoadAudioFromTorrent(container, audioEl, playBtn, magnetUri, fallbackSrc) {
+    if (!App.torrentTransfer || typeof App.torrentTransfer.init !== 'function') {
+      console.log('[AUDIO/P2P] WebTorrent לא זמין, משתמש ב-fallback');
+      if (fallbackSrc) audioEl.src = fallbackSrc;
+      return;
+    }
+
+    const wt = App.torrentTransfer.init();
+    if (!wt) {
+      if (fallbackSrc) audioEl.src = fallbackSrc;
+      return;
+    }
+
+    console.log('[AUDIO/P2P] 🔄 מנסה טעינת אודיו מטורנט P2P... magnetURI:', magnetUri.slice(0, 50));
+    if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+    let resolved = false;
+
+    // timeout – אם לא הצליח, fallback ל-URL רגיל
+    const timer = setTimeout(() => {
+      if (resolved) return;
+      resolved = true;
+      console.log('[AUDIO/P2P] ⏱️ Timeout, fallback ל-URL רגיל');
+      if (fallbackSrc) audioEl.src = fallbackSrc;
+      if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    }, P2P_AUDIO_TIMEOUT_MS);
+
+    try {
+      wt.add(magnetUri, {
+        announce: ['wss://tracker.openwebtorrent.com', 'wss://tracker.webtorrent.dev']
+      }, (torrent) => {
+        console.log('[AUDIO/P2P] 🔗 מחובר לטורנט! קבצים:', torrent.files.length, 'גודל:', torrent.length, 'bytes');
+        // חלק P2P קול (chat-audio-player.js) – לוג התקדמות הורדה בצד המקבל | HYPER CORE TECH
+        let lastLogPct = 0;
+        torrent.on('download', () => {
+          const pct = Math.round(torrent.progress * 100);
+          if (pct >= lastLogPct + 20) {
+            lastLogPct = pct;
+            console.log(`[AUDIO/P2P] 📥 מוריד הודעה קולית P2P: ${pct}%`);
+          }
+        });
+        torrent.on('wire', (wire) => {
+          console.log('[AUDIO/P2P] 🔗 Peer (שולח) מחובר:', wire.remoteAddress || 'WebRTC');
+        });
+        const file = torrent.files[0];
+        if (!file) {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            if (fallbackSrc) audioEl.src = fallbackSrc;
+            if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+          }
+          return;
+        }
+
+        file.getBlobURL((err, blobUrl) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timer);
+
+          if (err) {
+            console.warn('[AUDIO/P2P] שגיאה בהמרת blob:', err);
+            if (fallbackSrc) audioEl.src = fallbackSrc;
+          } else {
+            console.log('[AUDIO/P2P] ✅✅ הודעה קולית נטענה בהצלחה דרך P2P! (ללא Blossom)');
+            audioEl.src = blobUrl;
+            container.dataset.src = blobUrl;
+            container.dataset.p2pLoaded = 'true';
+          }
+          if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        });
+      });
+    } catch (err) {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        console.warn('[AUDIO/P2P] שגיאה בטעינה:', err);
+        if (fallbackSrc) audioEl.src = fallbackSrc;
+        if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+      }
+    }
+  }
+
   // חלק API ציבורי (chat-audio-player.js) – חשיפת פונקציות ליצירת נגן | HYPER CORE TECH
   Object.assign(App, {
     createEnhancedAudioPlayer,
