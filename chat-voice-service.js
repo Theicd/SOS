@@ -11,7 +11,7 @@
   // חלק פינג (chat-voice-service.js) – קבועים למנגנון בדיקת נוכחות peer לפני שליחת P2P | HYPER CORE TECH
   const VOICE_PING_KIND = 25050;  // ephemeral (20000-29999) – לא נשמר בריליי, רק מועבר
   const VOICE_PONG_KIND = 25051;  // ephemeral – תשובת פונג
-  const PING_TIMEOUT_MS = 2000;   // 2 שניות להמתין לפונג
+  const PING_TIMEOUT_MS = 7000;   // 7 שניות להמתין לפונג
   const PING_TAG = 'voice-ping';
 
   let recorder = null;
@@ -201,7 +201,7 @@
       let sub = null;
       const timer = setTimeout(() => {
         if (sub) try { sub.close(); } catch {}
-        console.log('[VOICE/PING] ⏱️ Peer לא ענה תוך 2 שניות – לא אונליין');
+        console.log('[VOICE/PING] ⏱️ Peer לא ענה תוך 7 שניות – לא אונליין');
         resolve(false);
       }, PING_TIMEOUT_MS);
 
