@@ -1392,8 +1392,11 @@
         // בדיקה נוספת: שם הקובץ מכיל "voice-message" - זה תמיד הודעה קולית!
         const isVoiceMessage = fileName.includes('voice-message') || fileName.includes('voicemessage');
         
-        // זיהוי אודיו: מספיק שאחד מהתנאים מתקיים
-        isAudioAttachment = !!(src && (
+        // חלק P2P קול (chat-ui.js) – הודעות P2P-only עם magnetURI בלבד גם נחשבות אודיו | HYPER CORE TECH
+        const hasMagnetURI = !!(a.magnetURI);
+        
+        // זיהוי אודיו: מספיק שאחד מהתנאים מתקיים (src או magnetURI)
+        isAudioAttachment = !!((src || hasMagnetURI) && (
           isAudioMime ||           // type: audio/*
           fromDataUrl ||           // data:audio/*
           audioExtInName ||        // song.mp3, voice.m4a, etc.
@@ -1402,7 +1405,8 @@
           isWebmFile ||            // קובץ .webm (הודעה קולית)
           hasDuration ||           // יש duration
           audioExtInUrl ||         // URL מסתיים בסיומת אודיו
-          isBlossomAudio           // Blossom URL עם שם קובץ אודיו
+          isBlossomAudio ||        // Blossom URL עם שם קובץ אודיו
+          hasMagnetURI             // הודעה קולית P2P עם magnetURI
         ));
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH

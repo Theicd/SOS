@@ -42,10 +42,10 @@
            ${magnetUri ? `data-magnet-uri="${magnetUri}"` : ''}
            ${fallbackSrc ? `data-fallback-src="${fallbackSrc}"` : ''}>
         <audio preload="auto" class="chat-message__audio-el" crossorigin="anonymous">
-          <source src="${src}" type="${mimeType}">
+          ${src ? `<source src="${src}" type="${mimeType}">
           <source src="${src}" type="audio/mpeg">
           <source src="${src}" type="audio/ogg">
-          <source src="${src}" type="audio/webm">
+          <source src="${src}" type="audio/webm">` : '<!-- P2P-only: audio source will be set by tryLoadAudioFromTorrent -->'}
         </audio>
         <div class="chat-audio-whatsapp">
           <button type="button" class="chat-audio-whatsapp__play" aria-label="נגן הודעה קולית">
