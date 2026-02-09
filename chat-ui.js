@@ -1,6 +1,8 @@
 (function initChatUI(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const doc = window.document;
+  // חלק אימות גרסה (chat-ui.js) – לוג לוידוא שהקוד החדש נטען | HYPER CORE TECH
+  console.log('%c[CHAT-UI] VERSION: P2P-VOICE-FIX-v2 (2026-02-09)', 'color: lime; font-size: 14px; font-weight: bold;');
   // חלק צ'אט (chat-ui.js) – צליל והתרעות להודעות נכנסות | HYPER CORE TECH
   const CHAT_MESSAGE_SOUND_URL = 'https://npub1jqzsts0fz6ufkgxdhna99rqwnn0ptrg9tvmy62m7ytffy4w0ncnsm7rac0.blossom.band/f0a73d1b6550d6a140a63fa91ec906f89dcbc2fdece317dbaa81e5093a319629.mp3';
   let chatMessageAudio = null;
@@ -1408,6 +1410,10 @@
           isBlossomAudio ||        // Blossom URL עם שם קובץ אודיו
           hasMagnetURI             // הודעה קולית P2P עם magnetURI
         ));
+        // חלק דיבוג P2P קול (chat-ui.js) – לוג לבדיקת זיהוי אודיו בהודעות עם magnetURI | HYPER CORE TECH
+        if (hasMagnetURI || hasDuration) {
+          console.log('[AUDIO/DETECT]', { isAudioAttachment, src: !!src, hasMagnetURI, isAudioMime, isVoiceMessage, hasDuration, name: a.name, type: a.type });
+        }
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
         if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {

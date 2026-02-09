@@ -378,7 +378,19 @@
         key,
       });
     }
-    const attachmentPreview = message?.attachment?.name ? `📎 ${message.attachment.name}` : '';
+    // חלק תיקון קול (chat-state.js) – preview מתאים להודעות קוליות: 🎤 במקום 📎 | HYPER CORE TECH
+    let attachmentPreview = '';
+    if (message?.attachment) {
+      const attMime = (message.attachment.type || '').toLowerCase();
+      const attName = (message.attachment.name || '').toLowerCase();
+      const isAudioAtt = attMime.startsWith('audio/') || attName.includes('voice') || attName.endsWith('.webm');
+      if (isAudioAtt) {
+        const d = typeof message.attachment.duration === 'number' && message.attachment.duration > 0 ? message.attachment.duration : 0;
+        attachmentPreview = d > 0 ? `🎤 הודעה קולית (${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')})` : '🎤 הודעה קולית';
+      } else if (message.attachment.name) {
+        attachmentPreview = `📎 ${message.attachment.name}`;
+      }
+    }
     const messagePreview = content || attachmentPreview;
     updateContactMeta(entry.peer, {
       lastMessage: messagePreview,
