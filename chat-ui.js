@@ -1230,10 +1230,21 @@
     elements.contactsList.appendChild(fragment);
   }
 
+  // חלק throttle (chat-ui.js) – מניעת renderMessages חוזר מהיר (500ms מינימום) | HYPER CORE TECH
+  let _lastRenderMsgTime = 0;
+  let _pendingRenderMsg = null;
+  const RENDER_MSG_THROTTLE = 500;
+
   function renderMessages(peerPubkey) {
     if (!elements.messagesContainer) return;
+    const now = Date.now();
+    if (now - _lastRenderMsgTime < RENDER_MSG_THROTTLE) {
+      if (_pendingRenderMsg) clearTimeout(_pendingRenderMsg);
+      _pendingRenderMsg = setTimeout(() => { _pendingRenderMsg = null; renderMessages(peerPubkey); }, RENDER_MSG_THROTTLE);
+      return;
+    }
+    _lastRenderMsgTime = now;
     const messages = typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : [];
-    console.log('[CHAT/UI] 📜 renderMessages called for:', peerPubkey?.slice(0, 8), 'messages count:', messages?.length);
     elements.messagesContainer.innerHTML = '';
     if (!messages.length) {
       elements.messagesContainer.innerHTML = '<p class="chat-conversation__empty">אין הודעות עדיין. כתוב משהו!</p>';
@@ -1410,10 +1421,6 @@
           isBlossomAudio ||        // Blossom URL עם שם קובץ אודיו
           hasMagnetURI             // הודעה קולית P2P עם magnetURI
         ));
-        // חלק דיבוג P2P קול (chat-ui.js) – לוג לבדיקת זיהוי אודיו בהודעות עם magnetURI | HYPER CORE TECH
-        if (hasMagnetURI || hasDuration) {
-          console.log('[AUDIO/DETECT]', { isAudioAttachment, src: !!src, hasMagnetURI, isAudioMime, isVoiceMessage, hasDuration, name: a.name, type: a.type });
-        }
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
         if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {
@@ -1838,6 +1845,10 @@
     if (typeof App.setChatFileTransferActivePeer === 'function') {
       App.setChatFileTransferActivePeer(peerPubkey);
     }
+    // חלק P2P DataChannel (chat-ui.js) – חיבור DataChannel כשפותחים שיחה | HYPER CORE TECH
+    if (App.dataChannel && typeof App.dataChannel.connect === 'function') {
+      App.dataChannel.connect(peerPubkey);
+    }
   }
 
   function resetConversationView() {
@@ -2207,6 +2218,8 @@
   App.getActiveChatContact = function getActiveChatContact() {
     return state.activeContact;
   };
+  // חלק P2P DataChannel (chat-ui.js) – alias עבור מודול DataChannel reconnect | HYPER CORE TECH
+  App.getActiveChatPeer = App.getActiveChatContact;
 
   // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לפתיחת שיחה ספציפית (לשימוש בסיום שיחת קול) | HYPER CORE TECH
   App.showChatConversation = function showChatConversationExternal(peerPubkey) {

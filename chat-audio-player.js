@@ -237,12 +237,21 @@
   
   // חלק P2P קול (chat-audio-player.js) – טעינת אודיו מטורנט P2P עם fallback ל-URL רגיל | HYPER CORE TECH
   const P2P_AUDIO_TIMEOUT_MS = 15000; // 15 שניות timeout לטעינת P2P
+  // חלק cache P2P (chat-audio-player.js) – מונע טעינה חוזרת של אותו magnetURI בכל renderMessages | HYPER CORE TECH
+  const _p2pCache = new Map(); // magnetUri → { status:'loading'|'done'|'failed', blobUrl? }
 
   function tryLoadAudioFromTorrent(container, audioEl, playBtn, magnetUri, fallbackSrc) {
     if (!App.torrentTransfer || typeof App.torrentTransfer.init !== 'function') {
-      console.log('[AUDIO/P2P] WebTorrent לא זמין, משתמש ב-fallback');
       if (fallbackSrc) audioEl.src = fallbackSrc;
       return;
+    }
+
+    // חלק cache P2P (chat-audio-player.js) – בדיקת cache לפני ניסיון טעינה מחדש | HYPER CORE TECH
+    const cached = _p2pCache.get(magnetUri);
+    if (cached) {
+      if (cached.status === 'done' && cached.blobUrl) { audioEl.src = cached.blobUrl; return; }
+      if (cached.status === 'failed') { if (fallbackSrc) audioEl.src = fallbackSrc; return; }
+      if (cached.status === 'loading') { if (fallbackSrc) audioEl.src = fallbackSrc; return; }
     }
 
     const wt = App.torrentTransfer.init();
@@ -251,6 +260,7 @@
       return;
     }
 
+    _p2pCache.set(magnetUri, { status: 'loading' });
     console.log('[AUDIO/P2P] 🔄 מנסה טעינת אודיו מטורנט P2P... magnetURI:', magnetUri.slice(0, 50));
     if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
@@ -263,6 +273,7 @@
       console.log('[AUDIO/P2P] ⏱️ Timeout, fallback ל-URL רגיל');
       if (fallbackSrc) audioEl.src = fallbackSrc;
       if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+      _p2pCache.set(magnetUri, { status: 'failed' });
     }, P2P_AUDIO_TIMEOUT_MS);
 
     try {
@@ -306,6 +317,7 @@
             audioEl.src = blobUrl;
             container.dataset.src = blobUrl;
             container.dataset.p2pLoaded = 'true';
+            _p2pCache.set(magnetUri, { status: 'done', blobUrl });
           }
           if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
         });
@@ -315,6 +327,7 @@
         resolved = true;
         clearTimeout(timer);
         console.warn('[AUDIO/P2P] שגיאה בטעינה:', err);
+        _p2pCache.set(magnetUri, { status: 'failed' });
         if (fallbackSrc) audioEl.src = fallbackSrc;
         if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
       }

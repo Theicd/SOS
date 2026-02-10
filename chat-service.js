@@ -173,6 +173,22 @@
       return { ok: false, error: 'empty-message' };
     }
 
+    // חלק P2P DataChannel (chat-service.js) – ניסיון שליחה ישירה דרך DataChannel לפני relay | HYPER CORE TECH
+    if (App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey)) {
+      const p2pId = 'p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      const p2pTs = Math.floor(Date.now() / 1000);
+      const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
+      const sent = App.dataChannel.send(peerPubkey, p2pMsg);
+      if (sent) {
+        App.appendChatMessage({ id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true });
+        App.markChatConversationRead(peerPubkey);
+        if (typeof App.afterChatMessagePublished === 'function') App.afterChatMessagePublished(peerPubkey, p2pMsg);
+        console.log('[DC] ✅ Message sent P2P, relay skipped');
+        return { ok: true, messageId: p2pId, p2p: true };
+      }
+    }
+    // fallback: שליחה רגילה דרך relay
+
     const draft = buildChatDraft(peerPubkey, serialization.rawContent || '');
     const event = App.finalizeEvent(draft, App.privateKey);
 
@@ -551,24 +567,29 @@
   }
 
   // חלק צ'אט (chat-service.js) – רענון חיבור לאחר חזרה מפוקוס/רשת או idle | HYPER CORE TECH
+  // חלק debounce (chat-service.js) – מונע re-subscribe אגרסיבי (מינימום 5 שניות בין רענונים) | HYPER CORE TECH
+  let _lastResubAt = 0;
+  const RESUB_DEBOUNCE_MS = 5000;
   function forceResubscribeChat(reason) {
     if (!ensurePoolReady()) return;
     try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
+    const now = Date.now();
+    if (now - _lastResubAt < RESUB_DEBOUNCE_MS) return;
+    _lastResubAt = now;
     if (activeSubscription && typeof activeSubscription.close === 'function') {
       try { activeSubscription.close(); } catch {}
     }
     activeSubscription = null;
-    chatLastSignalAt = Date.now();
+    chatLastSignalAt = now;
     subscribeToChatEvents();
     console.log('Chat: resubscribed', reason || '');
   }
 
   function ensureChatKeepaliveStarted() {
     if (chatSignalKeepaliveTimer) return;
+    // חלק keepalive (chat-service.js) – visibilitychange מספיק, focus/pageshow מיותרים ויוצרים כפילויות | HYPER CORE TECH
     try { document.addEventListener('visibilitychange', () => { if (!document.hidden) forceResubscribeChat('visibilitychange'); }); } catch {}
     try { window.addEventListener('online', () => forceResubscribeChat('online')); } catch {}
-    try { window.addEventListener('focus', () => forceResubscribeChat('focus')); } catch {}
-    try { window.addEventListener('pageshow', () => forceResubscribeChat('pageshow')); } catch {}
 
     chatSignalKeepaliveTimer = setInterval(() => {
       try {
@@ -707,12 +728,13 @@
       content,
     };
     
+    // חלק אישורי קריאה (chat-service.js) – pool.publish מחזיר promise לכל ריליי, עוטפים ב-allSettled למניעת Uncaught rejection | HYPER CORE TECH
     try {
       const signed = App.finalizeEvent(event, App.privateKey);
-      await pool.publish(App.relayUrls, signed);
-      console.log('[CHAT] Read receipt sent to', normalizedPeer.slice(0, 8));
+      const results = pool.publish(App.relayUrls, signed);
+      await Promise.allSettled(results);
     } catch (err) {
-      console.warn('[CHAT] Failed to send read receipt', err);
+      // שגיאה ב-finalize או בשליחה — שקט, לא קריטי
     }
   }
   
