@@ -2,32 +2,41 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>SOS App Builder – בנה אפליקציה לעסק שלך תוך דקות</title>
-  <meta name="description" content="חנות אונליין, מערכת הזמנות, תורים, כרטיסים, קורסים – הכל באפליקציה שלך עם הלוגו שלך. $9 בחודש, אפס עמלות. חינם להתקנה על המחשב.">
-  <meta name="keywords" content="אפליקציה לעסק, חנות אונליין, מערכת הזמנות, תורים, כרטיסים, Nostr, Lightning, PWA, self-hosted, app builder">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover">
+  <title>SOS App Builder – בנה אפליקציה לעסק שלך תוך דקות | $9/חודש אפס עמלות</title>
+  <meta name="description" content="חנות אונליין, מערכת הזמנות, תורים, כרטיסים, קורסים, הכרויות, דרושים – הכל באפליקציה שלך עם הלוגו שלך. $9 בחודש, אפס עמלות. חינם להתקנה על המחשב.">
+  <meta name="keywords" content="אפליקציה לעסק, חנות אונליין, מערכת הזמנות, תורים, כרטיסים, הכרויות, דרושים, Nostr, Lightning, PWA, self-hosted, app builder">
   <meta name="author" content="SOS Network">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0a0a0f">
   <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SOS App Builder">
+  <meta name="format-detection" content="telephone=no">
   <link rel="icon" type="image/png" href="https://sos010.com/icons/sos-logo.PNG">
   <link rel="apple-touch-icon" href="https://sos010.com/icons/sos-logo.PNG">
-  <link rel="canonical" href="https://sos010.com/builder/templates">
-  <!-- Open Graph -->
+  <link rel="canonical" href="https://sos010.com/builder/templates.html">
+  <!-- Open Graph (Facebook, WhatsApp, Telegram, LinkedIn) -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="SOS App Builder">
   <meta property="og:title" content="SOS App Builder – אפליקציה לעסק שלך ב-$9/חודש">
-  <meta property="og:description" content="חנות, הזמנות, תורים, כרטיסים – באפליקציה ממותגת שלך. חינם להתקנה מקומית, $9/חודש בענן. אפס עמלות.">
+  <meta property="og:description" content="חנות, הזמנות, תורים, כרטיסים, הכרויות, דרושים – באפליקציה ממותגת שלך. חינם להתקנה מקומית, $9/חודש בענן. אפס עמלות.">
   <meta property="og:image" content="https://sos010.com/icons/sos-logo.PNG">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:url" content="https://sos010.com/builder/templates">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:alt" content="SOS App Builder – בנה אפליקציה לעסק שלך ב-$9 לחודש">
+  <meta property="og:url" content="https://sos010.com/builder/templates.html">
   <meta property="og:locale" content="he_IL">
+  <meta property="og:locale:alternate" content="en_US">
   <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="SOS App Builder – אפליקציה לעסק שלך ב-$9/חודש">
-  <meta name="twitter:description" content="חנות אונליין, מערכת הזמנות, תורים – $9/חודש, אפס עמלות. חינם להתקנה מקומית.">
+  <meta name="twitter:description" content="חנות, הזמנות, תורים, הכרויות, דרושים – $9/חודש, אפס עמלות. חינם להתקנה מקומית.">
   <meta name="twitter:image" content="https://sos010.com/icons/sos-logo.PNG">
+  <meta name="twitter:image:alt" content="SOS App Builder">
   <!-- Structured Data -->
   <script type="application/ld+json">
   {
@@ -385,16 +394,27 @@
       background: none; border: none; color: var(--text); font-size: 28px; cursor: pointer;
     }
 
+    /* Compare table scroll wrapper */
+    .compare-scroll {
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      margin: 0 -24px; padding: 0 24px;
+    }
+    .compare-scroll::-webkit-scrollbar { height: 4px; }
+    .compare-scroll::-webkit-scrollbar-track { background: var(--bg-card); }
+    .compare-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
     /* Tablet */
     @media (max-width: 900px) {
-      .tpl-grid { grid-template-columns: 1fr; max-width: 500px; margin: 0 auto; }
+      .tpl-grid { grid-template-columns: repeat(2, 1fr); }
       .core-grid { grid-template-columns: repeat(2, 1fr); }
       .cloud-tiers { grid-template-columns: repeat(2, 1fr); }
       .pricing-free { flex-direction: column; text-align: center; padding: 28px 24px; }
       .pricing-free__info { text-align: center; }
-      .compare-table { font-size: 13px; }
+      .compare-table { font-size: 13px; min-width: 600px; }
       .compare-table th, .compare-table td { padding: 10px 12px; }
       .steps { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
+      .killer { gap: 12px; }
+      .killer__item { min-width: 140px; }
     }
 
     /* Mobile */
@@ -410,16 +430,23 @@
       .hero__cta { flex-direction: column; align-items: stretch; gap: 10px; }
       .hero__cta .btn { justify-content: center; width: 100%; }
 
-      .killer { gap: 12px; margin-top: 32px; }
-      .killer__item { padding: 16px 20px; min-width: 120px; }
-      .killer__number { font-size: 28px; }
+      .killer { gap: 8px; margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; }
+      .killer__item { padding: 14px 12px; min-width: unset; }
+      .killer__number { font-size: 24px; }
+      .killer__label { font-size: 11px; }
 
       .templates, .how, .core, .compare, .pricing, .cta { padding: 60px 16px; }
       .section-title { font-size: 24px; }
+      .section-subtitle { font-size: 15px; margin-bottom: 36px; }
       .section-label { font-size: 11px; letter-spacing: 2px; }
 
-      .tpl-card { padding: 24px; }
+      .tpl-grid { grid-template-columns: 1fr; }
+      .tpl-card { padding: 24px; padding-top: 32px; }
       .tpl-card__icon { width: 48px; height: 48px; font-size: 20px; }
+      .tpl-card h3 { font-size: 18px; }
+      .tpl-card p { font-size: 13px; }
+      .tpl-card__price { top: 10px; left: 10px; font-size: 11px; padding: 3px 10px; }
+      .tpl-card__replaces span { font-size: 10px; padding: 2px 8px; }
 
       .core-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
       .core-item { padding: 20px 16px; }
@@ -430,26 +457,108 @@
       .cloud-tiers { grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .cloud-tier { padding: 16px 8px; }
       .cloud-tier__price { font-size: 22px; }
+      .cloud-tier__name { font-size: 13px; }
+      .cloud-tier__details { font-size: 11px; }
       .pricing-free { gap: 16px; padding: 24px 20px; }
+      .pricing-free__info h3 { font-size: 20px; }
       .pricing-free__features { justify-content: center; }
+      .pricing-free__features span { font-size: 12px; }
       .pricing-free__price .big { font-size: 40px; }
       .pricing-cloud { padding: 24px 20px; }
+      .pricing-cloud h3 { font-size: 18px; }
 
-      .compare-table { font-size: 12px; }
-      .compare-table th, .compare-table td { padding: 8px 10px; }
+      .compare-scroll { margin: 0 -16px; padding: 0 16px; }
+      .compare-table { font-size: 12px; min-width: 520px; }
+      .compare-table th, .compare-table td { padding: 8px 10px; white-space: nowrap; }
 
       .step { padding: 24px; }
+      .step h3 { font-size: 16px; }
+      .step p { font-size: 13px; }
       .cta h2 { font-size: 24px; }
       .cta p { font-size: 15px; }
-      .footer { padding: 28px 16px; font-size: 12px; }
     }
 
     @media (max-width: 380px) {
-      .hero h1 { font-size: 24px; }
+      .hero h1 { font-size: 22px; }
       .hero__sub { font-size: 14px; }
+      .hero__badge { font-size: 11px; padding: 5px 12px; }
+      .killer__number { font-size: 22px; }
       .core-grid { grid-template-columns: 1fr; }
       .cloud-tiers { grid-template-columns: 1fr 1fr; }
+      .tpl-card__price { font-size: 10px; }
     }
+
+    /* GDPR checks grid */
+    .gdpr-checks {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px;
+      font-size: 13px; color: var(--text-dim); margin-bottom: 20px;
+    }
+    @media (max-width: 640px) {
+      .gdpr-checks { grid-template-columns: 1fr; gap: 6px; }
+      .gdpr-checks span { font-size: 12px; }
+      #gdpr .container > div { padding: 24px 20px !important; }
+    }
+
+    /* Fixed Footer */
+    .fixed-footer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      padding: 11px 24px;
+      background: linear-gradient(180deg, rgba(10,10,15,0.75) 0%, rgba(10,10,15,0.95) 100%);
+      backdrop-filter: blur(24px) saturate(1.2);
+      border-top: 1px solid rgba(102,126,234,0.12);
+    }
+    .fixed-footer__inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .fixed-footer__brand {
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+      background: linear-gradient(135deg, var(--accent), #f093fb);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .fixed-footer__links {
+      display: flex; gap: 20px; align-items: center;
+    }
+    .fixed-footer__links a {
+      font-size: 12px; color: var(--text-dim); text-decoration: none; font-weight: 500;
+      transition: color 0.25s;
+      position: relative;
+    }
+    .fixed-footer__links a:hover { color: var(--text-bright); }
+    .fixed-footer__links a::after {
+      content: ''; position: absolute; bottom: -4px; right: 0; width: 0; height: 1.5px;
+      background: linear-gradient(90deg, var(--accent), #f093fb);
+      transition: width 0.3s;
+    }
+    .fixed-footer__links a:hover::after { width: 100%; }
+    .fixed-footer__tech {
+      font-size: 11px; color: rgba(136,136,160,0.5); white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+    body { padding-bottom: 48px; }
+
+    @media (max-width: 640px) {
+      .fixed-footer { padding: 9px 16px; }
+      .fixed-footer__tech { display: none; }
+      .fixed-footer__links { gap: 14px; }
+      .fixed-footer__links a { font-size: 11px; }
+    }
+
+    /* Scroll to top */
+    .scroll-top {
+      position: fixed; bottom: 56px; right: 24px; z-index: 99;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(102,126,234,0.15); color: var(--accent); border: 1px solid rgba(102,126,234,0.25);
+      font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transform: translateY(10px);
+      transition: all 0.3s;
+      pointer-events: none;
+      backdrop-filter: blur(12px);
+    }
+    .scroll-top.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .scroll-top:hover { background: rgba(102,126,234,0.3); border-color: rgba(102,126,234,0.5); transform: translateY(-2px); }
+
   </style>
 </head>
 <body>
@@ -461,12 +570,12 @@
       <span>SOS App Builder</span>
     </a>
     <div class="nav__links">
-      <a href="index.html">רשת חברתית</a>
       <a href="#templates">תבניות</a>
       <a href="#how">איך זה עובד</a>
       <a href="#compare">השוואה</a>
       <a href="#pricing">מחירים</a>
-      <a href="#download" class="btn btn--green btn--sm"><i class="fa-solid fa-download"></i> הורדה</a>
+      <a href="#gdpr"><i class="fa-solid fa-shield-halved"></i> פרטיות</a>
+      <a href="#templates" class="btn btn--green btn--sm"><i class="fa-solid fa-grip"></i> בחר תבנית</a>
     </div>
     <button class="nav__toggle" id="navToggle" aria-label="תפריט">
       <i class="fa-solid fa-bars"></i>
@@ -476,12 +585,12 @@
   <!-- Mobile Menu -->
   <div class="nav__mobile-overlay" id="mobileMenu">
     <button class="nav__mobile-close" id="mobileMenuClose" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
-    <a href="index.html" class="mobile-nav-link">רשת חברתית</a>
     <a href="#templates" class="mobile-nav-link">תבניות</a>
     <a href="#how" class="mobile-nav-link">איך זה עובד</a>
     <a href="#compare" class="mobile-nav-link">השוואה</a>
     <a href="#pricing" class="mobile-nav-link">מחירים</a>
-    <a href="#download" class="btn btn--green" style="margin-top:8px;"><i class="fa-solid fa-download"></i> הורד בחינם</a>
+    <a href="#gdpr" class="mobile-nav-link"><i class="fa-solid fa-shield-halved"></i> פרטיות</a>
+    <a href="#templates" class="btn btn--green" style="margin-top:8px;"><i class="fa-solid fa-grip"></i> בחר תבנית</a>
   </div>
 
   <!-- Hero -->
@@ -496,11 +605,11 @@
         חנות אונליין, מערכת הזמנות, תורים, כרטיסים, קורסים – הכל באפליקציה ממותגת שלך. עם צ׳אט, וידאו ותשלומים מובנים.
       </p>
       <div class="hero__cta">
-        <a href="#download" class="btn btn--green">
-          <i class="fa-solid fa-download"></i> הורד בחינם
+        <a href="#templates" class="btn btn--green">
+          <i class="fa-solid fa-grip"></i> בחר תבנית
         </a>
-        <a href="#templates" class="btn btn--outline">
-          <i class="fa-solid fa-grid-2"></i> ראה תבניות
+        <a href="#pricing" class="btn btn--outline">
+          <i class="fa-solid fa-tag"></i> מחירים
         </a>
       </div>
 
@@ -533,7 +642,22 @@
       <p class="section-subtitle">כל תבנית כוללת צ׳אט, וידאו, תשלומים ואפליקציה מובייל. בחר את סוג העסק שלך – השאר עלינו.</p>
 
       <div class="tpl-grid">
-        <!-- 1 – חנות -->
+        <!-- 1 – רשת חברתית -->
+        <a href="index.html" class="tpl-card" style="text-decoration: none; color: inherit; border: 1.5px solid var(--accent); position: relative;">
+          <div style="position: absolute; top: 10px; right: 10px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 100px; z-index: 2;">הכי פופולרי</div>
+          <div class="tpl-card__price">$0 – חינם לחלוטין</div>
+          <div class="tpl-card__icon" style="background: rgba(102,126,234,0.12); color: var(--accent);">
+            <i class="fa-solid fa-users"></i>
+          </div>
+          <h3>רשת חברתית</h3>
+          <p>פיד וידאו בסגנון TikTok, צ׳אט מוצפן, שיחות קול ווידאו, שיתוף קבצים P2P, שידור חי, אפליקציות לכל פלטפורמה.</p>
+          <div class="tpl-card__replaces">
+            <span>Facebook</span>
+            <span>WhatsApp</span>
+          </div>
+        </a>
+
+        <!-- 2 – חנות -->
         <div class="tpl-card">
           <div class="tpl-card__price">$9 במקום $39+</div>
           <div class="tpl-card__icon" style="background: rgba(139,92,246,0.12); color: #8b5cf6;">
@@ -709,7 +833,7 @@
         <div class="step">
           <div class="step__number">1</div>
           <div class="step__header">
-            <div class="step__icon"><i class="fa-solid fa-grid-2"></i></div>
+            <div class="step__icon"><i class="fa-solid fa-grip"></i></div>
             <h3>בחר תבנית</h3>
           </div>
           <p>חנות? הזמנות? תורים? קורסים? בחר את התבנית שמתאימה לעסק שלך. כל תבנית מגיעה מוכנה לשימוש.</p>
@@ -741,6 +865,7 @@
       <h2 class="section-title">תפסיק לשלם עמלות</h2>
       <p class="section-subtitle">אותם כלים, שבריר מהמחיר. בלי עמלות, בלי התחייבות.</p>
 
+      <div class="compare-scroll">
       <table class="compare-table">
         <thead>
           <tr>
@@ -801,6 +926,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   </section>
 
@@ -889,41 +1015,93 @@
     </div>
   </section>
 
+  <!-- GDPR / Privacy -->
+  <section id="gdpr" style="padding: 0 24px 60px; position: relative; z-index: 1;">
+    <div class="container">
+      <div style="max-width: 700px; margin: 0 auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 36px;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(34,197,94,0.1); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--success); flex-shrink: 0;">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700; color: var(--text-bright); margin: 0;">GDPR Ready – פרטיות מובנית</h3>
+            <p style="font-size: 13px; color: var(--text-dim); margin: 4px 0 0;">תואם לרגולציה האירופית, בלי מאמץ</p>
+          </div>
+        </div>
+        <div class="gdpr-checks">
+          <span><i class="fa-solid fa-check" style="color: var(--success); margin-left: 6px;"></i> הצפנה E2E – אף אחד לא קורא את ההודעות</span>
+          <span><i class="fa-solid fa-check" style="color: var(--success); margin-left: 6px;"></i> ללא Cookies – לא צריך באנר עוגיות</span>
+          <span><i class="fa-solid fa-check" style="color: var(--success); margin-left: 6px;"></i> ייצוא מידע בפורמט פתוח (JSON)</span>
+          <span><i class="fa-solid fa-check" style="color: var(--success); margin-left: 6px;"></i> מחיקת חשבון ומידע בלחיצה</span>
+          <span><i class="fa-solid fa-check" style="color: var(--success); margin-left: 6px;"></i> המידע אצלך – לא אצלנו</span>
+          <span><i class="fa-solid fa-check" style="color: var(--success); margin-left: 6px;"></i> תבנית מדיניות פרטיות מוכנה</span>
+        </div>
+        <div style="text-align: center;">
+          <a href="privacy-template.html" class="btn btn--outline btn--sm" style="border-color: var(--success); color: var(--success);">
+            <i class="fa-solid fa-shield-halved"></i> פרטיות, תקנות ורגולציה – קרא עוד
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- CTA -->
   <section class="cta" id="download">
     <div class="container">
-      <h2>מוכן לבנות את האפליקציה שלך?</h2>
-      <p>הורד את SOS App Builder בחינם. בחר תבנית, התאם אישית, ושגר.<br>בלי כרטיס אשראי, בלי הרשמה, בלי עמלות.</p>
+      <h2>3 צעדים להתחלה</h2>
+      <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px;">
+        <div style="text-align: center; flex: 0 1 160px;">
+          <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(102,126,234,0.15); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 20px; font-weight: 800;">1</div>
+          <p style="font-size: 14px; color: var(--text); font-weight: 600; margin: 0;">בחר תבנית</p>
+          <p style="font-size: 12px; color: var(--text-dim); margin: 4px 0 0;">רשת חברתית, חנות, תורים...</p>
+        </div>
+        <div style="text-align: center; flex: 0 1 160px;">
+          <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(102,126,234,0.15); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 20px; font-weight: 800;">2</div>
+          <p style="font-size: 14px; color: var(--text); font-weight: 600; margin: 0;">הורד והתקן</p>
+          <p style="font-size: 12px; color: var(--text-dim); margin: 4px 0 0;">15MB, התקנה תוך דקה</p>
+        </div>
+        <div style="text-align: center; flex: 0 1 160px;">
+          <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(34,197,94,0.15); color: var(--success); display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 20px; font-weight: 800;">3</div>
+          <p style="font-size: 14px; color: var(--text); font-weight: 600; margin: 0;">שגר!</p>
+          <p style="font-size: 12px; color: var(--text-dim); margin: 4px 0 0;">התאם, העלה לדומיין שלך</p>
+        </div>
+      </div>
       <div class="hero__cta">
-        <a href="#" class="btn btn--green">
-          <i class="fa-brands fa-windows"></i> הורד ל-Windows
-        </a>
-        <a href="#" class="btn btn--outline">
-          <i class="fa-brands fa-apple"></i> הורד ל-macOS
-        </a>
-        <a href="#" class="btn btn--outline">
-          <i class="fa-brands fa-linux"></i> הורד ל-Linux
+        <a href="#templates" class="btn btn--green">
+          <i class="fa-solid fa-grip"></i> בחר תבנית
         </a>
       </div>
-      <p style="margin-top: 16px; font-size: 13px; color: var(--text-dim);">
+      <div style="display: flex; gap: 12px; justify-content: center; margin-top: 16px; flex-wrap: wrap;">
+        <a href="#" style="font-size: 12px; color: var(--text-dim); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); transition: border-color 0.2s;">
+          <i class="fa-brands fa-windows"></i> Windows
+        </a>
+        <a href="#" style="font-size: 12px; color: var(--text-dim); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); transition: border-color 0.2s;">
+          <i class="fa-brands fa-apple"></i> macOS
+        </a>
+        <a href="#" style="font-size: 12px; color: var(--text-dim); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); transition: border-color 0.2s;">
+          <i class="fa-brands fa-linux"></i> Linux
+        </a>
+      </div>
+      <p style="margin-top: 12px; font-size: 12px; color: var(--text-dim);">
         גרסה 1.0.0 &bull; ~15MB &bull; קוד פתוח &bull; ללא מעקב
       </p>
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container">
-      <p>
-        SOS App Builder &copy; 2026 &bull;
-        <a href="index.html">רשת חברתית</a> &bull;
-        <a href="../terms.html">תנאי שימוש</a> &bull;
-        <a href="../privacy.html">פרטיות</a> &bull;
+  <!-- Scroll to top -->
+  <button class="scroll-top" id="scrollTop" aria-label="חזרה למעלה"><i class="fa-solid fa-arrow-up"></i></button>
+
+  <!-- Fixed Footer -->
+  <footer class="fixed-footer">
+    <div class="fixed-footer__inner">
+      <span class="fixed-footer__brand">&copy; 2026 SOS App Builder</span>
+      <div class="fixed-footer__links">
+        <a href="templates.html">תבניות</a>
+        <a href="index.html">רשת חברתית</a>
+        <a href="privacy-template.html">פרטיות</a>
         <a href="https://github.com" target="_blank">GitHub</a>
-      </p>
-      <p style="margin-top: 8px;">
-        נבנה על <a href="https://nostr.com" target="_blank">Nostr Protocol</a> &bull; Blossom &bull; Lightning &bull; WebRTC
-      </p>
+      </div>
+      <span class="fixed-footer__tech">Nostr &bull; Lightning &bull; WebRTC</span>
     </div>
   </footer>
 
@@ -944,6 +1122,17 @@
         if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
       });
     });
+
+    // Scroll to top
+    const scrollBtn = document.getElementById('scrollTop');
+    if (scrollBtn) {
+      window.addEventListener('scroll', () => {
+        scrollBtn.classList.toggle('is-visible', window.scrollY > 400);
+      });
+      scrollBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
   </script>
 </body>
 </html>

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover">
+  <title>פרטיות ורגולציה – SOS App Builder</title>
+  <meta name="description" content="מסמך מלא לבעלי עסקים: תקנות, חוקים, GDPR, ומה נדרש ממך כדי לעמוד ברגולציה.">
+  <meta name="theme-color" content="#0a0a0f">
+  <link rel="icon" type="image/png" href="https://sos010.com/icons/sos-logo.PNG">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-card: #13131a;
+      --text: #e8e8ed;
+      --text-dim: #8888a0;
+      --text-bright: #ffffff;
+      --accent: #667eea;
+      --accent2: #764ba2;
+      --accent3: #f093fb;
+      --border: #2a2a3a;
+      --success: #22c55e;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Heebo', -apple-system, system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.85; -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    /* Nav */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 14px 24px;
+      background: rgba(10,10,15,0.88); backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav__logo {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 18px; font-weight: 700; color: var(--text-bright); text-decoration: none;
+    }
+    .nav__logo span {
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .nav__links { display: flex; gap: 20px; align-items: center; }
+    .nav__links a {
+      color: var(--text-dim); text-decoration: none; font-size: 13px; font-weight: 500; transition: color 0.2s;
+    }
+    .nav__links a:hover { color: var(--text-bright); text-decoration: none; }
+    .nav__btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+      text-decoration: none; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--success), #16a34a);
+      color: #fff; transition: all 0.2s;
+    }
+    .nav__btn:hover { transform: translateY(-1px); text-decoration: none; }
+    .nav__toggle {
+      display: none; background: none; border: none; color: var(--text);
+      font-size: 22px; cursor: pointer; padding: 8px;
+    }
+    .nav__mobile {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(10,10,15,0.97); backdrop-filter: blur(20px);
+      flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+    }
+    .nav__mobile.is-open { display: flex; }
+    .nav__mobile a {
+      color: var(--text-bright); text-decoration: none; font-size: 18px; font-weight: 600;
+      padding: 10px 20px; border-radius: 8px; transition: background 0.2s;
+    }
+    .nav__mobile a:hover { background: rgba(102,126,234,0.1); text-decoration: none; }
+    .nav__mobile-close {
+      position: absolute; top: 18px; left: 18px;
+      background: none; border: none; color: var(--text); font-size: 28px; cursor: pointer;
+    }
+    .container { max-width: 760px; margin: 0 auto; padding: 100px 24px 80px; }
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--border); padding: 32px 24px;
+      text-align: center; font-size: 13px; color: var(--text-dim);
+    }
+    .site-footer a { color: var(--accent); text-decoration: none; }
+    .site-footer a:hover { text-decoration: underline; }
+    .site-footer__links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .site-footer__links a { font-weight: 500; }
+    /* Table scroll */
+    .table-scroll {
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      margin: 20px -24px; padding: 0 24px;
+    }
+    .table-scroll::-webkit-scrollbar { height: 4px; }
+    .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    h1 {
+      font-size: 32px; font-weight: 800; color: var(--text-bright);
+      margin-bottom: 8px; letter-spacing: -0.02em;
+    }
+    .updated { font-size: 14px; color: var(--text-dim); margin-bottom: 40px; }
+    h2 {
+      font-size: 20px; font-weight: 700; color: var(--text-bright);
+      margin: 40px 0 12px; padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    h2:first-of-type { border-top: none; padding-top: 0; }
+    p, li { font-size: 15px; color: var(--text-dim); margin-bottom: 12px; }
+    ul { padding-right: 24px; margin-bottom: 16px; }
+    li { margin-bottom: 6px; }
+    strong { color: var(--text); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .highlight {
+      background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 12px; padding: 20px 24px; margin: 24px 0;
+    }
+    .highlight p { color: var(--success); margin: 0; font-weight: 500; }
+    .highlight--blue {
+      background: rgba(102,126,234,0.08); border: 1px solid rgba(102,126,234,0.2);
+      border-radius: 12px; padding: 20px 24px; margin: 24px 0;
+    }
+    .highlight--blue p { color: var(--accent); margin: 0; font-weight: 500; }
+    .highlight--warn {
+      background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
+      border-radius: 12px; padding: 20px 24px; margin: 24px 0;
+    }
+    .highlight--warn p { color: #f59e0b; margin: 0; font-weight: 500; }
+    .reg-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0;
+    }
+    .reg-item {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 20px;
+    }
+    .reg-item h4 { font-size: 14px; color: var(--text-bright); margin-bottom: 4px; }
+    .reg-item p { font-size: 13px; color: var(--text-dim); margin: 0; line-height: 1.6; }
+    .status-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+    .status-table th {
+      text-align: right; padding: 10px 14px; font-weight: 600;
+      color: var(--text-bright); border-bottom: 2px solid var(--border);
+    }
+    .status-table td {
+      padding: 10px 14px; border-bottom: 1px solid rgba(42,42,58,0.5);
+      color: var(--text-dim);
+    }
+    .status-table td:last-child { text-align: center; }
+    .badge-ok { background: rgba(34,197,94,0.1); color: var(--success); padding: 2px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+    .badge-na { background: rgba(136,136,160,0.1); color: var(--text-dim); padding: 2px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+    .badge-user { background: rgba(245,158,11,0.1); color: #f59e0b; padding: 2px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+    .toc { margin: 24px 0; padding: 20px 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+    .toc h3 { font-size: 15px; color: var(--text-bright); margin-bottom: 12px; }
+    .toc a { display: block; font-size: 14px; color: var(--accent); padding: 4px 0; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    @media (max-width: 768px) {
+      .nav__links { display: none; }
+      .nav__toggle { display: block; }
+      .nav { padding: 12px 16px; }
+      .nav__logo { font-size: 16px; }
+    }
+    @media (max-width: 640px) {
+      .reg-grid { grid-template-columns: 1fr; }
+      .status-table { font-size: 12px; min-width: 500px; }
+      .status-table th, .status-table td { padding: 8px 10px; white-space: nowrap; }
+      .table-scroll { margin: 20px -16px; padding: 0 16px; }
+    }
+    .placeholder {
+      background: rgba(102,126,234,0.1); color: var(--accent);
+      padding: 2px 8px; border-radius: 4px; font-weight: 600;
+    }
+    .footer-note {
+      margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border);
+      font-size: 12px; color: var(--text-dim); text-align: center;
+    }
+    @media (max-width: 640px) {
+      .container { padding: 80px 16px 60px; }
+      h1 { font-size: 24px; }
+      h2 { font-size: 18px; margin: 32px 0 10px; }
+      p, li { font-size: 14px; }
+      .toc a { font-size: 13px; }
+      .highlight, .highlight--blue, .highlight--warn { padding: 16px 18px; font-size: 13px; }
+      .highlight p, .highlight--blue p, .highlight--warn p { font-size: 13px; }
+    }
+    /* Fixed Footer */
+    .fixed-footer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      padding: 11px 24px;
+      background: linear-gradient(180deg, rgba(10,10,15,0.75) 0%, rgba(10,10,15,0.95) 100%);
+      backdrop-filter: blur(24px) saturate(1.2);
+      border-top: 1px solid rgba(102,126,234,0.12);
+    }
+    .fixed-footer__inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .fixed-footer__brand {
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .fixed-footer__links { display: flex; gap: 20px; align-items: center; }
+    .fixed-footer__links a {
+      font-size: 12px; color: var(--text-dim); text-decoration: none; font-weight: 500;
+      transition: color 0.25s; position: relative;
+    }
+    .fixed-footer__links a:hover { color: var(--text-bright); }
+    .fixed-footer__links a::after {
+      content: ''; position: absolute; bottom: -4px; right: 0; width: 0; height: 1.5px;
+      background: linear-gradient(90deg, var(--accent), var(--accent3));
+      transition: width 0.3s;
+    }
+    .fixed-footer__links a:hover::after { width: 100%; }
+    .fixed-footer__tech { font-size: 11px; color: rgba(136,136,160,0.5); white-space: nowrap; letter-spacing: 0.03em; }
+    body { padding-bottom: 48px; }
+    @media (max-width: 640px) {
+      .fixed-footer { padding: 9px 16px; }
+      .fixed-footer__tech { display: none; }
+      .fixed-footer__links { gap: 14px; }
+      .fixed-footer__links a { font-size: 11px; }
+    }
+    /* Scroll to top */
+    .scroll-top {
+      position: fixed; bottom: 56px; right: 24px; z-index: 99;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(102,126,234,0.15); color: var(--accent); border: 1px solid rgba(102,126,234,0.25);
+      font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transform: translateY(10px);
+      transition: all 0.3s;
+      pointer-events: none;
+      backdrop-filter: blur(12px);
+    }
+    .scroll-top.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .scroll-top:hover { background: rgba(102,126,234,0.3); border-color: rgba(102,126,234,0.5); transform: translateY(-2px); }
+  </style>
+</head>
+<body>
+  <!-- Nav -->
+  <nav class="nav">
+    <a href="templates.html" class="nav__logo">
+      <i class="fa-solid fa-shield-halved" style="color: var(--success);"></i>
+      <span>SOS App Builder</span>
+    </a>
+    <div class="nav__links">
+      <a href="templates.html">תבניות</a>
+      <a href="templates.html#compare">השוואה</a>
+      <a href="templates.html#pricing">מחירים</a>
+      <a href="index.html">רשת חברתית</a>
+      <a href="templates.html#download" class="nav__btn"><i class="fa-solid fa-download"></i> הורדה</a>
+    </div>
+    <button class="nav__toggle" id="navToggle" aria-label="תפריט">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+  </nav>
+
+  <!-- Mobile Menu -->
+  <div class="nav__mobile" id="mobileMenu">
+    <button class="nav__mobile-close" id="mobileClose" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
+    <a href="templates.html">תבניות</a>
+    <a href="templates.html#compare">השוואה</a>
+    <a href="templates.html#pricing">מחירים</a>
+    <a href="templates.html#gdpr">פרטיות ו-GDPR</a>
+    <a href="index.html">רשת חברתית</a>
+    <a href="templates.html#download" class="nav__btn" style="margin-top: 8px;"><i class="fa-solid fa-download"></i> הורד בחינם</a>
+  </div>
+
+  <div class="container">
+
+    <a href="templates.html#gdpr" style="display: inline-flex; align-items: center; gap: 8px; color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 600; margin-bottom: 24px; padding: 8px 0; transition: color 0.2s;">
+      <i class="fa-solid fa-arrow-right"></i> חזרה לדף התבניות
+    </a>
+
+    <h1>פרטיות, רגולציה ומדיניות פרטיות</h1>
+    <p class="updated">מסמך מלא לבעלי עסקים שמשתמשים ב-SOS App Builder | עודכן: 2026</p>
+
+    <!-- תוכן עניינים -->
+    <div class="toc">
+      <h3>תוכן עניינים</h3>
+      <a href="#regs">א. התקנות והחוקים הרלוונטיים</a>
+      <a href="#where">ב. איפה SOS עומדת מול הרגולציה</a>
+      <a href="#requirements">ג. מה נדרש ממך (בעל העסק)</a>
+      <a href="#privacy-policy">ד. מה המערכת כבר מספקת</a>
+      <a href="#checklist">ה. רשימת בדיקות מומלצת</a>
+      <a href="#disclaimer">ו. הבהרה – מה SOS לא עושה</a>
+    </div>
+
+    <!-- א. התקנות והחוקים -->
+    <h2 id="regs" style="border-top: none; padding-top: 0;">א. התקנות והחוקים הרלוונטיים</h2>
+    <p>כל עסק שמחזיק מידע על משתמשים (שם, אימייל, תמונות, היסטוריית רכישות) צריך לעמוד בתקנות הגנת פרטיות. אלו התקנות העיקריות:</p>
+
+    <div class="reg-grid">
+      <div class="reg-item">
+        <h4>GDPR – אירופה</h4>
+        <p>General Data Protection Regulation. חל מ-2018. חובה על כל מי שמטפל במידע של תושבי האיחוד האירופי. קנסות: עד 20 מיליון אירו או 4% מהמחזור.</p>
+      </div>
+      <div class="reg-item">
+        <h4>ePrivacy Directive – אירופה</h4>
+        <p>חוק העוגיות. דורש הסכמה לשימוש ב-Cookies וטכנולוגיות מעקב. זה הסיבה לבאנרי עוגיות בכל אתר.</p>
+      </div>
+      <div class="reg-item">
+        <h4>CCPA / CPRA – קליפורניה</h4>
+        <p>California Consumer Privacy Act. דומה ל-GDPR אבל לתושבי קליפורניה. דורש זכות מחיקה ואיסור מכירת מידע.</p>
+      </div>
+      <div class="reg-item">
+        <h4>חוק הגנת הפרטיות – ישראל</h4>
+        <p>חוק הגנת הפרטיות, תשמ"ב-1981. דורש הסכמה, מטרה ואבטחה בנושא מידע אישי.</p>
+      </div>
+      <div class="reg-item">
+        <h4>DSA – Digital Services Act</h4>
+        <p>תקנת השירותים הדיגיטליים של האיחוד האירופי (2024). דורשת שקיפות ואחריות מפלטפורמות דיגיטליות.</p>
+      </div>
+      <div class="reg-item">
+        <h4>LGPD – ברזיל</h4>
+        <p>Lei Geral de Proteção de Dados. דומה ל-GDPR, חלה על 200+ מיליון תושבי ברזיל.</p>
+      </div>
+    </div>
+
+    <p><strong>מה משותף לכל התקנות?</strong> העקרונות זהים:</p>
+    <ul>
+      <li><strong>שקיפות</strong> – להגיד למשתמש אילו נתונים נאספים ולמה</li>
+      <li><strong>הסכמה</strong> – לקבל אישור לפני איסוף מידע</li>
+      <li><strong>זכות מחיקה</strong> – לאפשר למשתמש למחוק את המידע שלו</li>
+      <li><strong>זכות ניידות</strong> – לאפשר ייצוא מידע בפורמט פתוח</li>
+      <li><strong>אבטחה</strong> – לשמור על המידע בצורה סבירה</li>
+      <li><strong>מדיניות פרטיות</strong> – לפרסם מסמך ברור ונגיש למשתמשים</li>
+    </ul>
+
+    <!-- ב. איפה SOS עומדת -->
+    <h2 id="where">ב. איפה SOS עומדת מול הרגולציה</h2>
+
+    <div class="highlight">
+      <p>SOS היא <strong>ספקית תוכנה בלבד</strong>. אנחנו לא מאחסנים, לא מעבדים, ולא ניגשים למידע של משתמשי הפלטפורמות שנבנות באמצעות הכלים שלנו.</p>
+    </div>
+
+    <div class="table-scroll">
+    <table class="status-table">
+      <thead>
+        <tr>
+          <th>דרישה</th>
+          <th>מה החוק דורש</th>
+          <th>סטטוס SOS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>איסוף מידע אישי</td>
+          <td>לאסוף רק בהסכמה</td>
+          <td><span class="badge-ok">עומד – אין איסוף מרכזי</span></td>
+        </tr>
+        <tr>
+          <td>אחסון מאובטח</td>
+          <td>הצפנה, גישה מוגבלת</td>
+          <td><span class="badge-ok">עומד – הצפנה E2E</span></td>
+        </tr>
+        <tr>
+          <td>זכות מחיקה</td>
+          <td>משתמש יכול למחוק הכל</td>
+          <td><span class="badge-ok">עומד – מחיקת events</span></td>
+        </tr>
+        <tr>
+          <td>ניידות מידע</td>
+          <td>ייצוא בפורמט פתוח</td>
+          <td><span class="badge-ok">עומד – Nostr JSON</span></td>
+        </tr>
+        <tr>
+          <td>עוגיות (Cookies)</td>
+          <td>הסכמה + באנר</td>
+          <td><span class="badge-na">לא רלוונטי – אין cookies</span></td>
+        </tr>
+        <tr>
+          <td>מדיניות פרטיות</td>
+          <td>מסמך ברור ונגיש</td>
+          <td><span class="badge-user">אחריות בעל העסק</span></td>
+        </tr>
+        <tr>
+          <td>קטינים (גיל 16+)</td>
+          <td>איסור איסוף מקטינים</td>
+          <td><span class="badge-user">אחריות בעל העסק</span></td>
+        </tr>
+        <tr>
+          <td>DPO (ממונה פרטיות)</td>
+          <td>נדרש לארגונים גדולים</td>
+          <td><span class="badge-na">לא נדרש – לעסקים קטנים</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="highlight--blue">
+      <p><strong>למה הארכיטקטורה של SOS מקלה על הרגולציה:</strong><br>
+      • אין מסד נתונים מרכזי – אין פריצה מסיבית<br>
+      • הזהות מבוססת על keypairs, לא אימייל/טלפון<br>
+      • הודעות מוצפנות E2E – אפילו מפעיל הרלי לא רואה<br>
+      • אין Cookies – אין צורך בבאנר<br>
+      • תשלומים P2P דרך Lightning – אין פרטי כרטיס לשמור</p>
+    </div>
+
+    <!-- ג. מה נדרש ממך -->
+    <h2 id="requirements">ג. מה נדרש ממך (בעל העסק)</h2>
+    <p>גם אם הטכנולוגיה תואמת, <strong>אתה</strong> כבעל העסק אחראי מול המשתמשים שלך (Data Controller). הנה מה שצריך:</p>
+
+    <div class="highlight--warn">
+      <p><strong>רשימת פעולות מינימלית:</strong></p>
+    </div>
+
+    <ul>
+      <li><strong>פרסם מדיניות פרטיות</strong> – מסמך שמפרט אילו נתונים נאספים, למה, ומה הזכויות של המשתמש. מומלץ להיעזר בעורך דין. הצג אותה במקום נגיש באפליקציה.</li>
+      <li><strong>אפשר מחיקת חשבון</strong> – כבר מובנה במערכת (מחיקת Nostr events). ודא שהכפתור נגיש וברור.</li>
+      <li><strong>אפשר ייצוא מידע</strong> – כבר מובנה (Nostr export ל-JSON). ודא שהכפתור נגיש.</li>
+      <li><strong>קטינים</strong> – אם הפלטפורמה פתוחה למשתמשים מתחת לגיל 16, הוסף הודעה מתאימה.</li>
+      <li><strong>אימייל ליצירת קשר</strong> – ספק דרך לפנות אליך בנושא פרטיות (נדרש לפי GDPR).</li>
+    </ul>
+
+    <!-- ד. מה המערכת כבר עושה בשבילך -->
+    <h2 id="privacy-policy">ד. מה המערכת כבר מספקת</h2>
+    <p>הארכיטקטורה של SOS כבר פותרת את רוב הדרישות הטכניות. הנה מה שמובנה במערכת ומה שחסר:</p>
+
+    <div class="table-scroll">
+    <table class="status-table">
+      <thead>
+        <tr>
+          <th>יכולת</th>
+          <th>מה זה עושה</th>
+          <th>סטטוס</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>הצפנה מקצה לקצה</td>
+          <td>הודעות פרטיות מוצפנות – אף אחד לא קורא</td>
+          <td><span class="badge-ok">מובנה</span></td>
+        </tr>
+        <tr>
+          <td>זהות ללא אימייל/טלפון</td>
+          <td>חשבון מבוסס keypairs – אין צורך בפרטים אישיים</td>
+          <td><span class="badge-ok">מובנה</span></td>
+        </tr>
+        <tr>
+          <td>מחיקת חשבון ומידע</td>
+          <td>מחיקת Nostr events – זכות מחיקה GDPR</td>
+          <td><span class="badge-ok">מובנה</span></td>
+        </tr>
+        <tr>
+          <td>ייצוא מידע (JSON)</td>
+          <td>ייצוא כל הנתונים בפורמט פתוח – ניידות מידע GDPR</td>
+          <td><span class="badge-ok">מובנה</span></td>
+        </tr>
+        <tr>
+          <td>ללא Cookies / מעקב</td>
+          <td>אין צורך בבאנר עוגיות – ePrivacy compliant</td>
+          <td><span class="badge-ok">מובנה</span></td>
+        </tr>
+        <tr>
+          <td>תשלומים ללא פרטי כרטיס</td>
+          <td>Lightning P2P – אין שמירת נתוני תשלום</td>
+          <td><span class="badge-ok">מובנה</span></td>
+        </tr>
+        <tr>
+          <td>שיחות וידאו P2P</td>
+          <td>WebRTC ישיר – לא עובר דרך שרתים</td>
+          <td><span class="badge-ok">מובנה</span></td>
+        </tr>
+        <tr>
+          <td>מדיניות פרטיות</td>
+          <td>מסמך שמסביר למשתמשים מה נאסף ולמה</td>
+          <td><span class="badge-user">באחריותך</span></td>
+        </tr>
+        <tr>
+          <td>הגבלת גיל (קטינים)</td>
+          <td>הודעה ו/או חסימת גישה מתחת לגיל 16</td>
+          <td><span class="badge-user">באחריותך</span></td>
+        </tr>
+        <tr>
+          <td>פרטי קשר לפניות פרטיות</td>
+          <td>אימייל או דרך יצירת קשר בנושא מידע אישי</td>
+          <td><span class="badge-user">באחריותך</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- ה. המלצות לבדיקה -->
+    <h2 id="checklist">ה. רשימת בדיקות מומלצת</h2>
+    <p>לפני שאתה משיק את הפלטפורמה שלך, מומלץ לבדוק את הנושאים הבאים. <strong>האחריות לוודא עמידה בדרישות החוק חלה עליך בלבד:</strong></p>
+
+    <ul>
+      <li><strong>האם יש לי מדיניות פרטיות?</strong> – מסמך שמפרט אילו נתונים נאספים, למה, ואיך המשתמש יכול למחוק אותם. מומלץ להיעזר בעורך דין.</li>
+      <li><strong>האם המשתמשים יכולים למחוק את החשבון?</strong> – המערכת תומכת בזה. ודא שהכפתור נגיש וברור בממשק.</li>
+      <li><strong>האם המשתמשים יכולים לייצא את המידע שלהם?</strong> – המערכת תומכת בזה. ודא שהאפשרות נגישה.</li>
+      <li><strong>האם הפלטפורמה פתוחה לקטינים?</strong> – אם כן, בדוק את דרישות החוק במדינה שלך לגבי גיל הסכמה (16 באירופה, 13 בארה"ב).</li>
+      <li><strong>האם יש לך אימייל ליצירת קשר בנושא פרטיות?</strong> – GDPR דורש דרך ליצור קשר. הצג אותה במקום נגיש.</li>
+      <li><strong>האם אתה פועל באירופה?</strong> – אם למשתמשים שלך יש תושבי EU, GDPR חל עליך גם אם העסק שלך לא באירופה.</li>
+      <li><strong>האם אתה משתמש בשירותי צד שלישי?</strong> – אם הוספת אנליטיקה, פרסום, או כלים חיצוניים – בדוק אם הם דורשים הסכמה נוספת.</li>
+      <li><strong>האם כדאי להתייעץ עם עורך דין?</strong> – עבור עסקים שמטפלים במידע רגיש (בריאות, פיננסים, הכרויות) – מומלץ מאוד.</li>
+    </ul>
+
+    <div class="highlight--warn">
+      <p><strong>שים לב:</strong> דף זה מספק מידע כללי בלבד ואינו מהווה ייעוץ משפטי. החוקים משתנים בין מדינות ומתעדכנים מעת לעת. <strong>באחריותך לבדוק את הדרישות הספציפיות שחלות על העסק שלך, במדינה שלך, ולפעול בהתאם.</strong> מומלץ להיוועץ בעורך דין המתמחה בפרטיות ורגולציה דיגיטלית.</p>
+    </div>
+
+    <!-- ו. מה SOS לא עושה -->
+    <h2 id="disclaimer">ו. הבהרה – מה SOS לא עושה</h2>
+    <p>למען הבהירות המלאה:</p>
+    <ul>
+      <li>SOS <strong>לא מספקת ייעוץ משפטי</strong> ואינה מחליפה עורך דין</li>
+      <li>SOS <strong>לא אחראית על עמידה ברגולציה</strong> של הפלטפורמות שנבנות באמצעות הכלים שלה</li>
+      <li>SOS <strong>לא אוספת, מעבדת, או ניגשת</strong> למידע של משתמשי הפלטפורמות שלך</li>
+      <li>SOS <strong>לא אחראית על תוכן, דומיינים, או שירותים</strong> שבעלי עסקים מפעילים</li>
+      <li>SOS <strong>מספקת תוכנה בלבד</strong> – כמו WordPress.org, כמו Hetzner, כמו כל ספק כלים</li>
+    </ul>
+
+    <div class="highlight">
+      <p><strong>לסיכום:</strong> הטכנולוגיה שלנו בנויה עם פרטיות בליבה – הצפנה, ביזור, ללא מעקב. אבל האחריות המשפטית לעמידה בחוקי הפרטיות של המדינה שלך חלה עליך כבעל העסק. אנחנו נותנים לך את הכלים הטובים ביותר – אתה אחראי להשתמש בהם נכון.</p>
+    </div>
+
+  </div>
+
+  <!-- Scroll to top -->
+  <button class="scroll-top" id="scrollTop" aria-label="חזרה למעלה"><i class="fa-solid fa-arrow-up"></i></button>
+
+  <!-- Fixed Footer -->
+  <footer class="fixed-footer">
+    <div class="fixed-footer__inner">
+      <span class="fixed-footer__brand">&copy; 2026 SOS App Builder</span>
+      <div class="fixed-footer__links">
+        <a href="templates.html">תבניות</a>
+        <a href="index.html">רשת חברתית</a>
+        <a href="privacy-template.html">פרטיות</a>
+        <a href="https://github.com" target="_blank">GitHub</a>
+      </div>
+      <span class="fixed-footer__tech">Nostr &bull; Lightning &bull; WebRTC</span>
+    </div>
+  </footer>
+
+  <script>
+    const toggle = document.getElementById('navToggle');
+    const menu = document.getElementById('mobileMenu');
+    const close = document.getElementById('mobileClose');
+    if (toggle && menu) {
+      toggle.addEventListener('click', () => menu.classList.add('is-open'));
+      close.addEventListener('click', () => menu.classList.remove('is-open'));
+      menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => menu.classList.remove('is-open')));
+    }
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const t = document.querySelector(a.getAttribute('href'));
+        if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth' }); }
+      });
+    });
+
+    // Scroll to top
+    const scrollBtn = document.getElementById('scrollTop');
+    if (scrollBtn) {
+      window.addEventListener('scroll', () => {
+        scrollBtn.classList.toggle('is-visible', window.scrollY > 400);
+      });
+      scrollBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+  </script>
+</body>
+</html>

@@ -507,7 +507,6 @@
       .cta h2 { font-size: 24px; }
       .cta p { font-size: 15px; margin-bottom: 24px; }
 
-      .footer { padding: 28px 16px; font-size: 12px; }
     }
 
     /* ===== Responsive – Very Small (max 380px) ===== */
@@ -520,6 +519,58 @@
       .cross__diagram { gap: 6px; }
       .cross__node { width: 56px; height: 56px; }
     }
+
+    /* Fixed Footer */
+    .fixed-footer {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      padding: 11px 24px;
+      background: linear-gradient(180deg, rgba(10,10,15,0.75) 0%, rgba(10,10,15,0.95) 100%);
+      backdrop-filter: blur(24px) saturate(1.2);
+      border-top: 1px solid rgba(102,126,234,0.12);
+    }
+    .fixed-footer__inner {
+      max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .fixed-footer__brand {
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+      background: linear-gradient(135deg, var(--accent), #f093fb);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .fixed-footer__links { display: flex; gap: 20px; align-items: center; }
+    .fixed-footer__links a {
+      font-size: 12px; color: var(--text-dim); text-decoration: none; font-weight: 500;
+      transition: color 0.25s; position: relative;
+    }
+    .fixed-footer__links a:hover { color: var(--text-bright); }
+    .fixed-footer__links a::after {
+      content: ''; position: absolute; bottom: -4px; right: 0; width: 0; height: 1.5px;
+      background: linear-gradient(90deg, var(--accent), #f093fb);
+      transition: width 0.3s;
+    }
+    .fixed-footer__links a:hover::after { width: 100%; }
+    .fixed-footer__tech { font-size: 11px; color: rgba(136,136,160,0.5); white-space: nowrap; letter-spacing: 0.03em; }
+    body { padding-bottom: 48px; }
+    .scroll-top {
+      position: fixed; bottom: 56px; right: 24px; z-index: 99;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(102,126,234,0.15); color: var(--accent); border: 1px solid rgba(102,126,234,0.25);
+      font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transform: translateY(10px);
+      transition: all 0.3s;
+      pointer-events: none;
+      backdrop-filter: blur(12px);
+    }
+    .scroll-top.is-visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .scroll-top:hover { background: rgba(102,126,234,0.3); border-color: rgba(102,126,234,0.5); transform: translateY(-2px); }
+    @media (max-width: 640px) {
+      .fixed-footer { padding: 8px 16px; }
+      .fixed-footer__tech { display: none; }
+      .fixed-footer__links { gap: 12px; }
+      .fixed-footer__links a { font-size: 11px; }
+      .fixed-footer__brand { font-size: 11px; }
+    }
   </style>
 </head>
 <body>
@@ -527,10 +578,11 @@
 
   <!-- Nav -->
   <nav class="nav">
-    <a href="#" class="nav__logo">
-      <span>SOS Network Builder</span>
+    <a href="templates.html" class="nav__logo">
+      <span>SOS App Builder</span>
     </a>
     <div class="nav__links">
+      <a href="templates.html" style="color: var(--accent);"><i class="fa-solid fa-arrow-right" style="margin-left: 4px;"></i> כל התבניות</a>
       <a href="#how">איך זה עובד</a>
       <a href="#features">יכולות</a>
       <a href="#output">מה מקבלים</a>
@@ -545,6 +597,7 @@
   <!-- Mobile Menu Overlay -->
   <div class="nav__mobile-overlay" id="mobileMenu">
     <button class="nav__mobile-close" id="mobileMenuClose" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
+    <a href="templates.html" class="mobile-nav-link" style="color: var(--accent);"><i class="fa-solid fa-arrow-right" style="margin-left: 6px;"></i> חזרה לכל התבניות</a>
     <a href="#how" class="mobile-nav-link">איך זה עובד</a>
     <a href="#features" class="mobile-nav-link">יכולות</a>
     <a href="#output" class="mobile-nav-link">מה מקבלים</a>
@@ -555,9 +608,14 @@
   <!-- Hero -->
   <section class="hero">
     <div>
+      <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <a href="templates.html" style="font-size: 13px; color: var(--accent); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-arrow-right"></i> חזרה לכל התבניות
+        </a>
+      </div>
       <div class="hero__badge">
-        <i class="fa-solid fa-circle"></i>
-        Open Source &bull; P2P &bull; Zero Server Cost
+        <i class="fa-solid fa-users"></i>
+        תבנית רשת חברתית &bull; Open Source &bull; P2P
       </div>
       <h1>בנה <em>רשת חברתית</em><br>משלך תוך דקות</h1>
       <p class="hero__sub">
@@ -832,9 +890,9 @@
           <div class="price-card__price">$9 <span>/ חודש</span></div>
           <ul class="price-card__list">
             <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 5,000 משתמשים</strong></li>
-            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 20GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay + Blossom בענן 24/7</li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 20GB אחסון מדיה (Blossom)</li>
             <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 2TB תעבורה</li>
-            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay בענן 24/7</li>
             <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
             <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין משנה (שם.sos010.com)</li>
             <li><i class="fa-solid fa-bell" style="color: var(--accent); width: 16px;"></i> Push Notifications</li>
@@ -849,9 +907,9 @@
           <div class="price-card__price">$24 <span>/ חודש</span></div>
           <ul class="price-card__list">
             <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 25,000 משתמשים</strong></li>
-            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 100GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay + Blossom ייעודיים</li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 100GB אחסון מדיה (Blossom)</li>
             <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 10TB תעבורה</li>
-            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay ייעודי</li>
             <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
             <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין מותאם (שלך)</li>
             <li><i class="fa-solid fa-bell" style="color: var(--accent); width: 16px;"></i> Push Notifications</li>
@@ -866,9 +924,9 @@
           <div class="price-card__price">$49 <span>/ חודש</span></div>
           <ul class="price-card__list">
             <li><i class="fa-solid fa-users" style="color: var(--accent); width: 16px;"></i> <strong>עד 50,000 משתמשים</strong></li>
-            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 500GB אחסון מדיה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay + Blossom ייעודיים מהירים</li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent); width: 16px;"></i> 500GB אחסון מדיה (Blossom)</li>
             <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent); width: 16px;"></i> 20TB תעבורה</li>
-            <li><i class="fa-solid fa-server" style="color: var(--accent); width: 16px;"></i> Relay ייעודי מהיר</li>
             <li><i class="fa-solid fa-palette" style="color: var(--accent); width: 16px;"></i> לוגו + צבעים מותאמים</li>
             <li><i class="fa-solid fa-globe" style="color: var(--accent); width: 16px;"></i> דומיין מותאם + SSL</li>
             <li><i class="fa-solid fa-chart-line" style="color: var(--accent); width: 16px;"></i> לוח ניהול + אנליטיקות</li>
@@ -883,9 +941,9 @@
           <div class="price-card__price">$99 <span>/ חודש</span></div>
           <ul class="price-card__list">
             <li><i class="fa-solid fa-users" style="color: var(--accent3); width: 16px;"></i> <strong>עד 100,000 משתמשים</strong></li>
-            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent3); width: 16px;"></i> 1TB אחסון מדיה</li>
+            <li><i class="fa-solid fa-server" style="color: var(--accent3); width: 16px;"></i> Relay + Blossom ביצועים גבוהים</li>
+            <li><i class="fa-solid fa-hard-drive" style="color: var(--accent3); width: 16px;"></i> 1TB אחסון מדיה (Blossom)</li>
             <li><i class="fa-solid fa-arrows-up-down" style="color: var(--accent3); width: 16px;"></i> 30TB תעבורה</li>
-            <li><i class="fa-solid fa-server" style="color: var(--accent3); width: 16px;"></i> Relay ייעודי ביצועים גבוהים</li>
             <li><i class="fa-solid fa-palette" style="color: var(--accent3); width: 16px;"></i> לוגו + צבעים מותאמים</li>
             <li><i class="fa-solid fa-eye-slash" style="color: var(--accent3); width: 16px;"></i> ללא לוגו SOS (White-label)</li>
             <li><i class="fa-solid fa-cart-shopping" style="color: var(--success); width: 16px;"></i> <strong style="color: var(--success);">חנות + מכירות משולבת</strong></li>
@@ -904,13 +962,26 @@
         <p style="color: var(--text-dim); font-size: 13px; margin-top: 12px;">
           אחסון נוסף בכל חבילה: $1 לכל 10GB · צריך יותר מ-100K? <a href="#download" style="color: var(--accent);">צור קשר</a>
         </p>
-        <div style="margin-top: 32px; padding: 20px 28px; background: rgba(102,126,234,0.06); border: 1px solid var(--border); border-radius: var(--radius); text-align: center;">
-          <p style="color: var(--text-dim); font-size: 14px; margin: 0; line-height: 1.8;">
-            <strong style="color: var(--text-bright);">כמה עולה רשת חברתית ל-100,000 משתמשים?</strong><br>
-            בדרך המסורתית (AWS/Firebase): <span style="color: #e53e3e; font-weight: 700;">$500,000+/שנה</span><br>
-            עם SOS Network: <span style="color: var(--success); font-weight: 700;">$1,188/שנה</span>
-            <span style="color: var(--text-dim);"> ($99 × 12 חודשים)</span><br>
-            <strong style="color: var(--accent); font-size: 16px;">פי 420 יותר זול.</strong>
+        <div style="margin-top: 32px; padding: 24px 28px; background: rgba(102,126,234,0.06); border: 1px solid var(--border); border-radius: var(--radius); text-align: center;">
+          <p style="color: var(--text-bright); font-size: 16px; font-weight: 700; margin: 0 0 16px;">כמה עולה רשת חברתית ל-100,000 משתמשים?</p>
+          <div style="display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; margin-bottom: 16px;">
+            <div style="text-align: center;">
+              <div style="font-size: 13px; color: var(--text-dim); margin-bottom: 4px;">רשת מסורתית (AWS)</div>
+              <div style="font-size: 28px; font-weight: 800; color: #e53e3e;">$81,000</div>
+              <div style="font-size: 12px; color: var(--text-dim);">לשנה · אחסון + תעבורה בלבד</div>
+            </div>
+            <div style="display: flex; align-items: center; color: var(--text-dim); font-size: 24px;">→</div>
+            <div style="text-align: center;">
+              <div style="font-size: 13px; color: var(--text-dim); margin-bottom: 4px;">עם SOS Network</div>
+              <div style="font-size: 28px; font-weight: 800; color: var(--success);">$1,188</div>
+              <div style="font-size: 12px; color: var(--text-dim);">לשנה · $99 × 12 חודשים</div>
+            </div>
+          </div>
+          <p style="margin: 0; color: var(--accent); font-size: 15px; font-weight: 600;">
+            <i class="fa-solid fa-bolt"></i> פי 68 יותר זול – כי הוידאו עובר P2P ולא דרך שרתים
+          </p>
+          <p style="margin: 8px 0 0; color: var(--text-dim); font-size: 12px;">
+            * מבוסס על מחירי AWS S3 ($0.023/GB) + Data Transfer ($0.09/GB) ל-150K משתמשים
           </p>
         </div>
       </div>
@@ -939,19 +1010,20 @@
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container">
-      <p>
-        SOS Network Builder &copy; 2026 &bull;
-        <a href="../terms.html">תנאי שימוש</a> &bull;
-        <a href="../privacy.html">פרטיות</a> &bull;
-        <a href="../copyright.html">רישיון</a> &bull;
+  <!-- Scroll to top -->
+  <button class="scroll-top" id="scrollTop" aria-label="חזרה למעלה"><i class="fa-solid fa-arrow-up"></i></button>
+
+  <!-- Fixed Footer -->
+  <footer class="fixed-footer">
+    <div class="fixed-footer__inner">
+      <span class="fixed-footer__brand">&copy; 2026 SOS Network</span>
+      <div class="fixed-footer__links">
+        <a href="templates.html">תבניות לעסקים</a>
+        <a href="index.html">רשת חברתית</a>
+        <a href="privacy-template.html">פרטיות</a>
         <a href="https://github.com" target="_blank">GitHub</a>
-      </p>
-      <p style="margin-top: 8px;">
-        נבנה על <a href="https://nostr.com" target="_blank">Nostr Protocol</a> &bull; P2P &bull; WebRTC &bull; WebTorrent
-      </p>
+      </div>
+      <span class="fixed-footer__tech">Nostr &bull; Lightning &bull; WebRTC</span>
     </div>
   </footer>
 
@@ -974,6 +1046,16 @@
         if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
       });
     });
+    // Scroll to top
+    const scrollBtn = document.getElementById('scrollTop');
+    if (scrollBtn) {
+      window.addEventListener('scroll', () => {
+        scrollBtn.classList.toggle('is-visible', window.scrollY > 400);
+      });
+      scrollBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
   </script>
 </body>
 </html>
