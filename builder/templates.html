@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SOS App Builder – בנה אפליקציה לעסק שלך תוך דקות</title>
+  <meta name="description" content="חנות אונליין, מערכת הזמנות, תורים, כרטיסים, קורסים – הכל באפליקציה שלך עם הלוגו שלך. $9 בחודש, אפס עמלות. חינם להתקנה על המחשב.">
+  <meta name="keywords" content="אפליקציה לעסק, חנות אונליין, מערכת הזמנות, תורים, כרטיסים, Nostr, Lightning, PWA, self-hosted, app builder">
+  <meta name="author" content="SOS Network">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/png" href="https://sos010.com/icons/sos-logo.PNG">
+  <link rel="apple-touch-icon" href="https://sos010.com/icons/sos-logo.PNG">
+  <link rel="canonical" href="https://sos010.com/builder/templates">
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SOS App Builder">
+  <meta property="og:title" content="SOS App Builder – אפליקציה לעסק שלך ב-$9/חודש">
+  <meta property="og:description" content="חנות, הזמנות, תורים, כרטיסים – באפליקציה ממותגת שלך. חינם להתקנה מקומית, $9/חודש בענן. אפס עמלות.">
+  <meta property="og:image" content="https://sos010.com/icons/sos-logo.PNG">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://sos010.com/builder/templates">
+  <meta property="og:locale" content="he_IL">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SOS App Builder – אפליקציה לעסק שלך ב-$9/חודש">
+  <meta name="twitter:description" content="חנות אונליין, מערכת הזמנות, תורים – $9/חודש, אפס עמלות. חינם להתקנה מקומית.">
+  <meta name="twitter:image" content="https://sos010.com/icons/sos-logo.PNG">
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SOS App Builder",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Windows, macOS, Linux, Android, iOS",
+    "description": "בנה אפליקציה לעסק שלך עם חנות, הזמנות, תורים, צ׳אט ותשלומים – בלי עמלות.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": ["Online Store", "Ordering System", "Booking & Appointments", "Ticket Sales", "Encrypted Chat", "Video Calls", "Lightning Payments", "PWA"]
+  }
+  </script>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+  <style>
+    :root {
+      --accent: #667eea;
+      --accent2: #764ba2;
+      --accent3: #f093fb;
+      --bg-primary: #0a0a0f;
+      --bg-card: #13131a;
+      --bg-card-hover: #1a1a25;
+      --text: #e8e8ed;
+      --text-dim: #8888a0;
+      --text-bright: #ffffff;
+      --border: #2a2a3a;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #e53e3e;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Heebo', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text);
+      line-height: 1.75;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    h1, h2, h3, h4 { font-family: 'Heebo', 'Inter', system-ui, sans-serif; letter-spacing: -0.02em; }
+
+    .ambient {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 600px 400px at 20% 20%, rgba(102,126,234,0.08), transparent),
+        radial-gradient(ellipse 500px 500px at 80% 60%, rgba(118,75,162,0.06), transparent),
+        radial-gradient(ellipse 400px 300px at 50% 90%, rgba(240,147,251,0.04), transparent);
+    }
+
+    /* Nav */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 24px;
+      background: rgba(10,10,15,0.85); backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav__logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 20px; font-weight: 700; color: var(--text-bright); text-decoration: none;
+    }
+    .nav__logo span {
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      font-family: 'Inter', 'Heebo', sans-serif; letter-spacing: -0.03em;
+    }
+    .nav__links { display: flex; gap: 24px; align-items: center; }
+    .nav__links a {
+      color: var(--text-dim); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s;
+    }
+    .nav__links a:hover { color: var(--text-bright); }
+
+    section { position: relative; z-index: 1; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 120px 24px 80px; text-align: center;
+    }
+    .hero__badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 100px; padding: 6px 16px; font-size: 13px; color: var(--success);
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(32px, 5.5vw, 64px); font-weight: 900;
+      line-height: 1.1; margin-bottom: 24px; color: var(--text-bright); letter-spacing: -0.03em;
+    }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--success), #22d3ee, var(--accent));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero__sub {
+      font-size: clamp(16px, 2.5vw, 20px); color: var(--text-dim);
+      max-width: 620px; margin: 0 auto 40px; line-height: 1.8; font-weight: 300;
+    }
+    .hero__cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 14px 28px; border-radius: var(--radius-sm);
+      font-size: 16px; font-weight: 600; text-decoration: none;
+      border: none; cursor: pointer; transition: all 0.25s;
+    }
+    .btn--primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; box-shadow: 0 4px 20px rgba(102,126,234,0.3);
+    }
+    .btn--primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(102,126,234,0.4); }
+    .btn--green {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #fff; box-shadow: 0 4px 20px rgba(34,197,94,0.3);
+    }
+    .btn--green:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(34,197,94,0.4); }
+    .btn--outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn--outline:hover { border-color: var(--accent); color: var(--accent); }
+    .btn--sm { padding: 10px 20px; font-size: 14px; }
+
+    /* Section Labels */
+    .section-label {
+      text-align: center; font-size: 12px; text-transform: uppercase;
+      letter-spacing: 4px; color: var(--accent); margin-bottom: 14px; font-weight: 600;
+      font-family: 'Inter', 'Heebo', sans-serif;
+    }
+    .section-title {
+      text-align: center; font-size: clamp(28px, 4vw, 44px);
+      font-weight: 800; color: var(--text-bright); margin-bottom: 20px; letter-spacing: -0.02em;
+    }
+    .section-subtitle {
+      text-align: center; font-size: 17px; color: var(--text-dim);
+      max-width: 580px; margin: 0 auto 56px; line-height: 1.7; font-weight: 300;
+    }
+
+    /* Killer Numbers */
+    .killer {
+      display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+      margin-top: 48px;
+    }
+    .killer__item {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px 32px; text-align: center;
+      min-width: 160px; transition: all 0.3s;
+    }
+    .killer__item:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .killer__number {
+      font-size: 36px; font-weight: 900; font-family: 'Inter', sans-serif; letter-spacing: -0.03em;
+    }
+    .killer__number--green { color: var(--success); }
+    .killer__number--red { color: var(--danger); text-decoration: line-through; }
+    .killer__label { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+    /* Templates Grid */
+    .templates { padding: 100px 24px; }
+    .tpl-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+    }
+    .tpl-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px; transition: all 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .tpl-card:hover {
+      border-color: var(--accent); transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .tpl-card__icon {
+      width: 56px; height: 56px; border-radius: 14px; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+    }
+    .tpl-card h3 { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+    .tpl-card p { font-size: 14px; color: var(--text-dim); line-height: 1.7; margin-bottom: 16px; }
+    .tpl-card__replaces {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .tpl-card__replaces span {
+      font-size: 11px; padding: 3px 10px; border-radius: 100px;
+      background: rgba(229,62,62,0.1); color: var(--danger);
+      text-decoration: line-through;
+    }
+    .tpl-card__price {
+      position: absolute; top: 16px; left: 16px;
+      background: rgba(34,197,94,0.12); color: var(--success);
+      padding: 4px 12px; border-radius: 100px; font-size: 12px; font-weight: 700;
+    }
+
+    /* How It Works */
+    .how { padding: 100px 24px; }
+    .steps {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;
+    }
+    .step {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px; transition: all 0.3s; position: relative;
+    }
+    .step:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+    .step__number {
+      position: absolute; top: -14px; right: 24px;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step__header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .step__icon {
+      font-size: 24px; flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(102,126,234,0.1);
+      display: flex; align-items: center; justify-content: center; color: var(--accent);
+    }
+    .step h3 { font-size: 18px; font-weight: 700; margin: 0; color: var(--text-bright); }
+    .step p { font-size: 14px; color: var(--text-dim); line-height: 1.7; font-weight: 300; }
+
+    /* Core Features */
+    .core { padding: 100px 24px; }
+    .core-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;
+    }
+    .core-item {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px; text-align: center; transition: all 0.3s;
+    }
+    .core-item:hover { border-color: rgba(102,126,234,0.3); background: var(--bg-card-hover); }
+    .core-item__icon {
+      width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 14px;
+      background: linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.12));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: var(--accent);
+    }
+    .core-item h4 { font-size: 16px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; }
+    .core-item p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+
+    /* Comparison */
+    .compare { padding: 100px 24px; }
+    .compare-table {
+      width: 100%; max-width: 900px; margin: 0 auto;
+      border-collapse: collapse; font-size: 14px;
+    }
+    .compare-table th {
+      padding: 16px 20px; text-align: right; font-weight: 700;
+      color: var(--text-bright); border-bottom: 2px solid var(--border);
+      font-size: 15px;
+    }
+    .compare-table th:last-child {
+      background: rgba(34,197,94,0.06);
+      border-bottom-color: var(--success);
+    }
+    .compare-table td {
+      padding: 14px 20px; border-bottom: 1px solid rgba(42,42,58,0.5);
+      color: var(--text-dim);
+    }
+    .compare-table td:first-child { color: var(--text); font-weight: 500; }
+    .compare-table td:last-child { background: rgba(34,197,94,0.03); }
+    .compare-table tr:hover td { background: rgba(102,126,234,0.03); }
+    .compare-table tr:hover td:last-child { background: rgba(34,197,94,0.08); }
+    .price-old { color: var(--danger); text-decoration: line-through; font-weight: 600; }
+    .price-new { color: var(--success); font-weight: 800; font-size: 16px; }
+
+    /* Pricing */
+    .pricing { padding: 100px 24px; }
+    .pricing-free {
+      max-width: 700px; margin: 0 auto 32px;
+      background: var(--bg-card); border: 2px solid var(--success);
+      border-radius: var(--radius); padding: 36px 40px;
+      display: flex; align-items: center; gap: 32px;
+      box-shadow: 0 0 40px rgba(72,187,120,0.08);
+    }
+    .pricing-free__info { flex: 1; text-align: right; }
+    .pricing-free__info h3 { font-size: 24px; color: var(--success); margin-bottom: 4px; }
+    .pricing-free__info p { color: var(--text-dim); font-size: 14px; line-height: 1.7; margin: 8px 0 0; }
+    .pricing-free__features { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; }
+    .pricing-free__features span { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .pricing-free__features i { color: var(--success); font-size: 12px; }
+    .pricing-free__price { flex-shrink: 0; text-align: center; }
+    .pricing-free__price .big { font-size: 48px; font-weight: 800; color: var(--success); line-height: 1; }
+    .pricing-free__price .sub { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
+    .pricing-cloud {
+      max-width: 700px; margin: 0 auto;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 36px 40px;
+    }
+    .pricing-cloud h3 {
+      font-size: 20px; color: var(--text-bright); margin-bottom: 8px; text-align: center;
+    }
+    .pricing-cloud > p { text-align: center; color: var(--text-dim); font-size: 14px; margin-bottom: 24px; }
+    .cloud-tiers {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    .cloud-tier {
+      text-align: center; padding: 20px 12px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      transition: all 0.3s;
+    }
+    .cloud-tier:hover { border-color: var(--accent); }
+    .cloud-tier--pop { border-color: var(--accent); box-shadow: 0 0 20px rgba(102,126,234,0.1); }
+    .cloud-tier__name { font-size: 14px; font-weight: 600; color: var(--text-bright); }
+    .cloud-tier__price {
+      font-size: 28px; font-weight: 900; color: var(--text-bright);
+      font-family: 'Inter', sans-serif; margin: 8px 0;
+    }
+    .cloud-tier__price span { font-size: 13px; font-weight: 400; color: var(--text-dim); }
+    .cloud-tier__details { font-size: 12px; color: var(--text-dim); line-height: 1.8; }
+
+    /* CTA */
+    .cta { padding: 100px 24px; text-align: center; }
+    .cta h2 {
+      font-size: clamp(28px, 4vw, 44px); font-weight: 800;
+      color: var(--text-bright); margin-bottom: 16px; letter-spacing: -0.02em;
+    }
+    .cta p { color: var(--text-dim); font-size: 18px; margin-bottom: 32px; font-weight: 300; line-height: 1.7; }
+
+    /* Footer */
+    .footer {
+      padding: 40px 24px; text-align: center;
+      border-top: 1px solid var(--border); color: var(--text-dim); font-size: 13px;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+
+    /* Mobile Menu */
+    .nav__toggle {
+      display: none; background: none; border: none; color: var(--text);
+      font-size: 22px; cursor: pointer; padding: 8px;
+    }
+    .nav__mobile-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(10,10,15,0.97); backdrop-filter: blur(20px);
+      flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+    }
+    .nav__mobile-overlay.is-open { display: flex; }
+    .nav__mobile-overlay a {
+      color: var(--text-bright); text-decoration: none; font-size: 20px; font-weight: 600;
+      padding: 12px 24px; border-radius: var(--radius-sm); transition: background 0.2s;
+    }
+    .nav__mobile-overlay a:hover { background: rgba(102,126,234,0.1); }
+    .nav__mobile-close {
+      position: absolute; top: 20px; left: 20px;
+      background: none; border: none; color: var(--text); font-size: 28px; cursor: pointer;
+    }
+
+    /* Tablet */
+    @media (max-width: 900px) {
+      .tpl-grid { grid-template-columns: 1fr; max-width: 500px; margin: 0 auto; }
+      .core-grid { grid-template-columns: repeat(2, 1fr); }
+      .cloud-tiers { grid-template-columns: repeat(2, 1fr); }
+      .pricing-free { flex-direction: column; text-align: center; padding: 28px 24px; }
+      .pricing-free__info { text-align: center; }
+      .compare-table { font-size: 13px; }
+      .compare-table th, .compare-table td { padding: 10px 12px; }
+      .steps { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; }
+    }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+      .nav__links { display: none; }
+      .nav__toggle { display: block; }
+      .nav { padding: 12px 16px; }
+      .nav__logo { font-size: 17px; }
+
+      .hero { padding: 90px 16px 50px; min-height: auto; }
+      .hero h1 { font-size: 28px; line-height: 1.25; }
+      .hero__sub { font-size: 15px; margin-bottom: 28px; }
+      .hero__cta { flex-direction: column; align-items: stretch; gap: 10px; }
+      .hero__cta .btn { justify-content: center; width: 100%; }
+
+      .killer { gap: 12px; margin-top: 32px; }
+      .killer__item { padding: 16px 20px; min-width: 120px; }
+      .killer__number { font-size: 28px; }
+
+      .templates, .how, .core, .compare, .pricing, .cta { padding: 60px 16px; }
+      .section-title { font-size: 24px; }
+      .section-label { font-size: 11px; letter-spacing: 2px; }
+
+      .tpl-card { padding: 24px; }
+      .tpl-card__icon { width: 48px; height: 48px; font-size: 20px; }
+
+      .core-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .core-item { padding: 20px 16px; }
+      .core-item__icon { width: 44px; height: 44px; font-size: 18px; }
+      .core-item h4 { font-size: 14px; }
+      .core-item p { font-size: 11px; }
+
+      .cloud-tiers { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .cloud-tier { padding: 16px 8px; }
+      .cloud-tier__price { font-size: 22px; }
+      .pricing-free { gap: 16px; padding: 24px 20px; }
+      .pricing-free__features { justify-content: center; }
+      .pricing-free__price .big { font-size: 40px; }
+      .pricing-cloud { padding: 24px 20px; }
+
+      .compare-table { font-size: 12px; }
+      .compare-table th, .compare-table td { padding: 8px 10px; }
+
+      .step { padding: 24px; }
+      .cta h2 { font-size: 24px; }
+      .cta p { font-size: 15px; }
+      .footer { padding: 28px 16px; font-size: 12px; }
+    }
+
+    @media (max-width: 380px) {
+      .hero h1 { font-size: 24px; }
+      .hero__sub { font-size: 14px; }
+      .core-grid { grid-template-columns: 1fr; }
+      .cloud-tiers { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient"></div>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <a href="#" class="nav__logo">
+      <span>SOS App Builder</span>
+    </a>
+    <div class="nav__links">
+      <a href="index.html">רשת חברתית</a>
+      <a href="#templates">תבניות</a>
+      <a href="#how">איך זה עובד</a>
+      <a href="#compare">השוואה</a>
+      <a href="#pricing">מחירים</a>
+      <a href="#download" class="btn btn--green btn--sm"><i class="fa-solid fa-download"></i> הורדה</a>
+    </div>
+    <button class="nav__toggle" id="navToggle" aria-label="תפריט">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+  </nav>
+
+  <!-- Mobile Menu -->
+  <div class="nav__mobile-overlay" id="mobileMenu">
+    <button class="nav__mobile-close" id="mobileMenuClose" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
+    <a href="index.html" class="mobile-nav-link">רשת חברתית</a>
+    <a href="#templates" class="mobile-nav-link">תבניות</a>
+    <a href="#how" class="mobile-nav-link">איך זה עובד</a>
+    <a href="#compare" class="mobile-nav-link">השוואה</a>
+    <a href="#pricing" class="mobile-nav-link">מחירים</a>
+    <a href="#download" class="btn btn--green" style="margin-top:8px;"><i class="fa-solid fa-download"></i> הורד בחינם</a>
+  </div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div>
+      <div class="hero__badge">
+        <i class="fa-solid fa-bolt"></i>
+        $9/חודש &bull; אפס עמלות &bull; חינם להתקנה מקומית
+      </div>
+      <h1>בנה <em>אפליקציה לעסק</em><br>שלך תוך דקות</h1>
+      <p class="hero__sub">
+        חנות אונליין, מערכת הזמנות, תורים, כרטיסים, קורסים – הכל באפליקציה ממותגת שלך. עם צ׳אט, וידאו ותשלומים מובנים.
+      </p>
+      <div class="hero__cta">
+        <a href="#download" class="btn btn--green">
+          <i class="fa-solid fa-download"></i> הורד בחינם
+        </a>
+        <a href="#templates" class="btn btn--outline">
+          <i class="fa-solid fa-grid-2"></i> ראה תבניות
+        </a>
+      </div>
+
+      <div class="killer">
+        <div class="killer__item">
+          <div class="killer__number killer__number--red">$39+</div>
+          <div class="killer__label">Shopify לחודש</div>
+        </div>
+        <div class="killer__item">
+          <div class="killer__number killer__number--red">30%</div>
+          <div class="killer__label">עמלת Wolt</div>
+        </div>
+        <div class="killer__item">
+          <div class="killer__number killer__number--red">$25+</div>
+          <div class="killer__label">Calendly / Fresha</div>
+        </div>
+        <div class="killer__item" style="border-color: var(--success);">
+          <div class="killer__number killer__number--green">$9</div>
+          <div class="killer__label">SOS – הכל כלול</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Templates -->
+  <section class="templates" id="templates">
+    <div class="container">
+      <div class="section-label">תבניות</div>
+      <h2 class="section-title">בחר תבנית, התאם אישית, שגר</h2>
+      <p class="section-subtitle">כל תבנית כוללת צ׳אט, וידאו, תשלומים ואפליקציה מובייל. בחר את סוג העסק שלך – השאר עלינו.</p>
+
+      <div class="tpl-grid">
+        <!-- 1 – חנות -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 במקום $39+</div>
+          <div class="tpl-card__icon" style="background: rgba(139,92,246,0.12); color: #8b5cf6;">
+            <i class="fa-solid fa-cart-shopping"></i>
+          </div>
+          <h3>חנות אונליין</h3>
+          <p>מוצרים עם תמונות, עגלת קניות, תשלום Lightning מיידי. כרטיס לקוח אישי, היסטוריית הזמנות, התראות על משלוח.</p>
+          <div class="tpl-card__replaces">
+            <span>Shopify $39</span>
+            <span>+ 2.9% עמלה</span>
+          </div>
+        </div>
+
+        <!-- 2 – הזמנות אוכל -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 במקום 30% עמלה</div>
+          <div class="tpl-card__icon" style="background: rgba(249,115,22,0.12); color: #f97316;">
+            <i class="fa-solid fa-utensils"></i>
+          </div>
+          <h3>הזמנות אוכל</h3>
+          <p>תפריט עם תמונות ומחירים, בחירת פריטים, הערות, תשלום מיידי. התראה למסעדה בזמן אמת. היסטוריית הזמנות.</p>
+          <div class="tpl-card__replaces">
+            <span>Wolt 30%</span>
+            <span>10bis 18%</span>
+          </div>
+        </div>
+
+        <!-- 3 – תורים -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 במקום $25+</div>
+          <div class="tpl-card__icon" style="background: rgba(236,72,153,0.12); color: #ec4899;">
+            <i class="fa-solid fa-calendar-check"></i>
+          </div>
+          <h3>תורים והזמנות</h3>
+          <p>שירותים, זמנים פנויים, הזמנת תור, תשלום מקדמה, תזכורת אוטומטית. מושלם למספרות, קליניקות, מכוני יופי.</p>
+          <div class="tpl-card__replaces">
+            <span>Fresha $25</span>
+            <span>Calendly $8</span>
+          </div>
+        </div>
+
+        <!-- 4 – כרטיסים -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 במקום 3.7%+</div>
+          <div class="tpl-card__icon" style="background: rgba(6,182,212,0.12); color: #06b6d4;">
+            <i class="fa-solid fa-ticket"></i>
+          </div>
+          <h3>מכירת כרטיסים</h3>
+          <p>אירועים, הופעות, סדנאות. כרטיס דיגיטלי עם QR, הגבלת כמות, רשימת משתתפים, עדכונים לקונים.</p>
+          <div class="tpl-card__replaces">
+            <span>Eventbrite 3.7%</span>
+            <span>+ $1.79/כרטיס</span>
+          </div>
+        </div>
+
+        <!-- 5 – קורסים -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 במקום $39+</div>
+          <div class="tpl-card__icon" style="background: rgba(34,197,94,0.12); color: #22c55e;">
+            <i class="fa-solid fa-graduation-cap"></i>
+          </div>
+          <h3>קורסים ותוכן</h3>
+          <p>שיעורים מוקלטים + שידור חי, צ׳אט תלמידים, מבחנים, תשלום גישה. קהילת לומדים פעילה.</p>
+          <div class="tpl-card__replaces">
+            <span>Teachable $39</span>
+            <span>Mighty $41</span>
+          </div>
+        </div>
+
+        <!-- 6 – שוק/מודעות -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 + 0% עמלה</div>
+          <div class="tpl-card__icon" style="background: rgba(251,191,36,0.12); color: #fbbf24;">
+            <i class="fa-solid fa-store"></i>
+          </div>
+          <h3>שוק ומודעות</h3>
+          <p>לוח מודעות לכל נישה – נדל"ן, רכב, ציוד, שירותים. מודעות עם תמונות, צ׳אט מוכר-קונה, תשלום ישיר.</p>
+          <div class="tpl-card__replaces">
+            <span>Facebook Marketplace</span>
+            <span>יד2</span>
+          </div>
+        </div>
+
+        <!-- 7 – דרושים -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 במקום $200+</div>
+          <div class="tpl-card__icon" style="background: rgba(59,130,246,0.12); color: #3b82f6;">
+            <i class="fa-solid fa-briefcase"></i>
+          </div>
+          <h3>לוח דרושים</h3>
+          <p>סווייפ על משרות ומועמדים בסגנון Tinder. Match = שני הצדדים מעוניינים → צ׳אט מוצפן + ראיון וידאו מובנה. קורות חיים, תיק עבודות, חיפוש חכם.</p>
+          <div class="tpl-card__replaces">
+            <span>LinkedIn $200+/משרה</span>
+            <span>Indeed $5/קליק</span>
+          </div>
+        </div>
+
+        <!-- 8 – הכרויות -->
+        <div class="tpl-card">
+          <div class="tpl-card__price">$9 במקום $30+</div>
+          <div class="tpl-card__icon" style="background: rgba(244,63,94,0.12); color: #f43f5e;">
+            <i class="fa-solid fa-heart"></i>
+          </div>
+          <h3>הכרויות</h3>
+          <p>פרופילים עם תמונות, סווייפ ו-Match, צ׳אט מוצפן E2E, דייט וידאו. פרטיות מלאה – הנתונים שלך, אף אחד לא רואה. מושלם לקהילות נישה.</p>
+          <div class="tpl-card__replaces">
+            <span>Tinder $15-40</span>
+            <span>Bumble $30</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core – What's in every template -->
+  <section class="core" id="core">
+    <div class="container">
+      <div class="section-label">הליבה</div>
+      <h2 class="section-title">מה כלול בכל תבנית</h2>
+      <p class="section-subtitle">כל תבנית מגיעה עם אותם כלים חזקים. רק הממשק משתנה.</p>
+      <div class="core-grid">
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-user-circle"></i></div>
+          <h4>חשבונות משתמשים</h4>
+          <p>כרטיס אישי לכל לקוח, היסטוריית פעילות, פרופיל מותאם</p>
+        </div>
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-bolt"></i></div>
+          <h4>תשלומים מיידיים</h4>
+          <p>Lightning Network – אפס עמלות, תשלום בשנייה, ללא צד שלישי</p>
+        </div>
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-comments"></i></div>
+          <h4>צ׳אט מוצפן</h4>
+          <p>הודעות, תמונות, קבצים. הצפנה E2E. צ׳אט עסק-לקוח ישיר</p>
+        </div>
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-video"></i></div>
+          <h4>שיחות וידאו</h4>
+          <p>WebRTC P2P, בלי שרת באמצע. ייעוץ, שירות, הדגמות</p>
+        </div>
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-images"></i></div>
+          <h4>אחסון מדיה</h4>
+          <p>תמונות, וידאו, מסמכים. אחסון Blossom מובנה</p>
+        </div>
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-bell"></i></div>
+          <h4>התראות Push</h4>
+          <p>הזמנה חדשה? הודעה? תשלום? הלקוח יודע מיד</p>
+        </div>
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-mobile-screen"></i></div>
+          <h4>אפליקציה (PWA)</h4>
+          <p>עובד כאפליקציה על כל מכשיר. הלקוח מתקין מהדפדפן</p>
+        </div>
+        <div class="core-item">
+          <div class="core-item__icon"><i class="fa-solid fa-lock"></i></div>
+          <h4>הצפנה + פרטיות</h4>
+          <p>הנתונים שלך. אף אחד לא יכול לגשת – כולל אנחנו</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="how" id="how">
+    <div class="container">
+      <div class="section-label">איך זה עובד</div>
+      <h2 class="section-title">3 צעדים – מרעיון לאפליקציה</h2>
+      <p class="section-subtitle">בלי מתכנתים, בלי עיצוב, בלי שבועות של עבודה.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step__number">1</div>
+          <div class="step__header">
+            <div class="step__icon"><i class="fa-solid fa-grid-2"></i></div>
+            <h3>בחר תבנית</h3>
+          </div>
+          <p>חנות? הזמנות? תורים? קורסים? בחר את התבנית שמתאימה לעסק שלך. כל תבנית מגיעה מוכנה לשימוש.</p>
+        </div>
+        <div class="step">
+          <div class="step__number">2</div>
+          <div class="step__header">
+            <div class="step__icon"><i class="fa-solid fa-palette"></i></div>
+            <h3>התאם אישית</h3>
+          </div>
+          <p>שם העסק, לוגו, צבעים, מוצרים או שירותים. הוסף תמונות, מחירים, ופרטי קשר. 5 דקות והכל מוכן.</p>
+        </div>
+        <div class="step">
+          <div class="step__number">3</div>
+          <div class="step__header">
+            <div class="step__icon"><i class="fa-solid fa-rocket"></i></div>
+            <h3>שגר</h3>
+          </div>
+          <p>הרץ מהמחשב שלך בחינם, או שדרג ל-$9/חודש לשרת ענן 24/7. שתף קישור ללקוחות שלך – הם מתקינים כאפליקציה.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section class="compare" id="compare">
+    <div class="container">
+      <div class="section-label">השוואה</div>
+      <h2 class="section-title">תפסיק לשלם עמלות</h2>
+      <p class="section-subtitle">אותם כלים, שבריר מהמחיר. בלי עמלות, בלי התחייבות.</p>
+
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>כלי</th>
+            <th>מחיר שלהם</th>
+            <th>עמלה</th>
+            <th style="text-align: center;">SOS App Builder</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><i class="fa-solid fa-cart-shopping" style="color: #8b5cf6; margin-left: 8px;"></i> Shopify</td>
+            <td class="price-old">$39/חודש</td>
+            <td class="price-old">2.9% + $0.30</td>
+            <td style="text-align: center;"><span class="price-new">$9 + 0%</span></td>
+          </tr>
+          <tr>
+            <td><i class="fa-solid fa-utensils" style="color: #f97316; margin-left: 8px;"></i> Wolt / 10bis</td>
+            <td>–</td>
+            <td class="price-old">18-30% עמלה</td>
+            <td style="text-align: center;"><span class="price-new">$9 + 0%</span></td>
+          </tr>
+          <tr>
+            <td><i class="fa-solid fa-calendar-check" style="color: #ec4899; margin-left: 8px;"></i> Fresha / Calendly</td>
+            <td class="price-old">$8-25/חודש</td>
+            <td class="price-old">2.19%+</td>
+            <td style="text-align: center;"><span class="price-new">$9 + 0%</span></td>
+          </tr>
+          <tr>
+            <td><i class="fa-solid fa-ticket" style="color: #06b6d4; margin-left: 8px;"></i> Eventbrite</td>
+            <td>–</td>
+            <td class="price-old">3.7% + $1.79</td>
+            <td style="text-align: center;"><span class="price-new">$9 + 0%</span></td>
+          </tr>
+          <tr>
+            <td><i class="fa-solid fa-graduation-cap" style="color: #22c55e; margin-left: 8px;"></i> Teachable</td>
+            <td class="price-old">$39/חודש</td>
+            <td class="price-old">5%+</td>
+            <td style="text-align: center;"><span class="price-new">$9 + 0%</span></td>
+          </tr>
+          <tr>
+            <td><i class="fa-solid fa-comments" style="color: #667eea; margin-left: 8px;"></i> Slack (10 users)</td>
+            <td class="price-old">$80/חודש</td>
+            <td>–</td>
+            <td style="text-align: center;"><span class="price-new">$9 flat</span></td>
+          </tr>
+          <tr>
+            <td><i class="fa-solid fa-briefcase" style="color: #3b82f6; margin-left: 8px;"></i> LinkedIn Jobs</td>
+            <td class="price-old">$200+/משרה</td>
+            <td>–</td>
+            <td style="text-align: center;"><span class="price-new">$9 flat</span></td>
+          </tr>
+          <tr>
+            <td><i class="fa-solid fa-heart" style="color: #f43f5e; margin-left: 8px;"></i> Tinder / Bumble</td>
+            <td class="price-old">$15-40/חודש</td>
+            <td>–</td>
+            <td style="text-align: center;"><span class="price-new">$9 flat</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="pricing" id="pricing">
+    <div class="container">
+      <div class="section-label">מחירים</div>
+      <h2 class="section-title">חינם להתחלה. שדרג כשתצטרך.</h2>
+      <p class="section-subtitle">האפליקציה המלאה רצה על המחשב שלך בחינם. שרת ענן 24/7 מתחיל ב-$9.</p>
+
+      <!-- Free -->
+      <div class="pricing-free">
+        <div class="pricing-free__info">
+          <h3><i class="fa-solid fa-gift"></i> חינם לנצח</h3>
+          <p>התקן על המחשב שלך. כל היכולות, כל התבניות, ללא הגבלה. המחשב שלך = השרת שלך.</p>
+          <div class="pricing-free__features">
+            <span><i class="fa-solid fa-check"></i> כל התבניות</span>
+            <span><i class="fa-solid fa-check"></i> צ׳אט + וידאו</span>
+            <span><i class="fa-solid fa-check"></i> תשלומים Lightning</span>
+            <span><i class="fa-solid fa-check"></i> אחסון ללא הגבלה</span>
+            <span><i class="fa-solid fa-check"></i> אפליקציה PWA</span>
+            <span><i class="fa-solid fa-check"></i> לוגו + צבעים</span>
+          </div>
+        </div>
+        <div class="pricing-free__price">
+          <div class="big">$0</div>
+          <div class="sub">לנצח · המחשב שלך</div>
+          <a href="#download" class="btn btn--outline" style="border-color: var(--success); color: var(--success); margin-top: 16px;">הורד עכשיו</a>
+        </div>
+      </div>
+
+      <!-- Cloud -->
+      <p style="text-align: center; margin: 32px 0 24px; color: var(--text-dim); font-size: 15px;">
+        <i class="fa-solid fa-cloud" style="color: var(--accent);"></i>
+        רוצה שהאפליקציה תהיה זמינה 24/7 גם כשהמחשב כבוי?
+      </p>
+
+      <div class="pricing-cloud">
+        <h3><i class="fa-solid fa-cloud" style="color: var(--accent); margin-left: 8px;"></i> חבילות ענן</h3>
+        <p>אנחנו מתווכים את השכרת השרת. אתה הבעלים. בטל בכל עת.</p>
+        <div class="cloud-tiers">
+          <div class="cloud-tier">
+            <div class="cloud-tier__name">התחלה</div>
+            <div class="cloud-tier__price">$9 <span>/חודש</span></div>
+            <div class="cloud-tier__details">
+              עד 5,000 משתמשים<br>
+              20GB אחסון מדיה<br>
+              Relay + Blossom
+            </div>
+          </div>
+          <div class="cloud-tier cloud-tier--pop">
+            <div class="cloud-tier__name" style="color: var(--accent);">קהילה</div>
+            <div class="cloud-tier__price">$24 <span>/חודש</span></div>
+            <div class="cloud-tier__details">
+              עד 25,000 משתמשים<br>
+              100GB אחסון מדיה<br>
+              Relay + Blossom ייעודי
+            </div>
+          </div>
+          <div class="cloud-tier">
+            <div class="cloud-tier__name">מקצועי</div>
+            <div class="cloud-tier__price">$49 <span>/חודש</span></div>
+            <div class="cloud-tier__details">
+              עד 50,000 משתמשים<br>
+              500GB אחסון מדיה<br>
+              ביצועים גבוהים
+            </div>
+          </div>
+          <div class="cloud-tier">
+            <div class="cloud-tier__name">עסקי</div>
+            <div class="cloud-tier__price">$99 <span>/חודש</span></div>
+            <div class="cloud-tier__details">
+              עד 100,000 משתמשים<br>
+              1TB אחסון מדיה<br>
+              White-label
+            </div>
+          </div>
+        </div>
+        <p style="text-align: center; margin-top: 20px; color: var(--text-dim); font-size: 13px;">
+          <i class="fa-solid fa-shield-halved" style="color: var(--accent); margin-left: 4px;"></i>
+          אנחנו רק מתווכים את השכרת השרת. אתה הבעלים הבלעדי של הנתונים. אחסון חינמי לאתר באמצעות GitHub Pages.
+          <br>
+          <span style="color: var(--success);"><i class="fa-solid fa-rotate-left"></i> מנוי חודשי – בטל בכל עת</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" id="download">
+    <div class="container">
+      <h2>מוכן לבנות את האפליקציה שלך?</h2>
+      <p>הורד את SOS App Builder בחינם. בחר תבנית, התאם אישית, ושגר.<br>בלי כרטיס אשראי, בלי הרשמה, בלי עמלות.</p>
+      <div class="hero__cta">
+        <a href="#" class="btn btn--green">
+          <i class="fa-brands fa-windows"></i> הורד ל-Windows
+        </a>
+        <a href="#" class="btn btn--outline">
+          <i class="fa-brands fa-apple"></i> הורד ל-macOS
+        </a>
+        <a href="#" class="btn btn--outline">
+          <i class="fa-brands fa-linux"></i> הורד ל-Linux
+        </a>
+      </div>
+      <p style="margin-top: 16px; font-size: 13px; color: var(--text-dim);">
+        גרסה 1.0.0 &bull; ~15MB &bull; קוד פתוח &bull; ללא מעקב
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>
+        SOS App Builder &copy; 2026 &bull;
+        <a href="index.html">רשת חברתית</a> &bull;
+        <a href="../terms.html">תנאי שימוש</a> &bull;
+        <a href="../privacy.html">פרטיות</a> &bull;
+        <a href="https://github.com" target="_blank">GitHub</a>
+      </p>
+      <p style="margin-top: 8px;">
+        נבנה על <a href="https://nostr.com" target="_blank">Nostr Protocol</a> &bull; Blossom &bull; Lightning &bull; WebRTC
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    const navToggle = document.getElementById('navToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const mobileClose = document.getElementById('mobileMenuClose');
+    if (navToggle && mobileMenu) {
+      navToggle.addEventListener('click', () => mobileMenu.classList.add('is-open'));
+      mobileClose.addEventListener('click', () => mobileMenu.classList.remove('is-open'));
+      mobileMenu.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => mobileMenu.classList.remove('is-open'));
+      });
+    }
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+      });
+    });
+  </script>
+</body>
+</html>
