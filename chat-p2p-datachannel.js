@@ -12,7 +12,9 @@
   const RECONN_MS = 5000;
   const MAX_RECONN = 3;
   const OFFER_RETRY_MS = 12000; // retry offer אם לא נענה תוך 12 שניות (סיגנלינג דרך ריליי איטי)
-  const MAX_OFFER_RETRY = 4;
+  const MAX_OFFER_RETRY = 3;
+  // חלק keepalive (chat-p2p-datachannel.js) – ping תקופתי לשמירת DC פתוח מול NAT/firewall timeout | HYPER CORE TECH
+  const DC_KEEPALIVE_MS = 30000;
   const SIG_SINCE_SEC = 3600; // חלון since - שעה (סובלני להיסט זמן בין מכשירים)
   const SIG_MAX_AGE_SEC = 3600; // התעלם מסיגנלים ישנים מ-שעה (מכסה היסט זמן משמעותי)
 
@@ -20,6 +22,26 @@
   const peers = new Map();
   let sigSub = null, keepTimer = null, lastSigAt = 0;
   let subReady = false; // האם ה-subscription פעיל וקיבל eose
+  // חלק הודעות נכנסות (chat-p2p-datachannel.js) – מאזינים חיצוניים ללוג/ניטור בלי לשבור את זרימת הצ'אט | HYPER CORE TECH
+  const incomingMessageListeners = new Set();
+
+  function notifyIncomingMessage(peer, message) {
+    incomingMessageListeners.forEach((listener) => {
+      try {
+        listener(peer, message);
+      } catch (err) {
+        console.warn('[DC] incoming listener failed:', err);
+      }
+    });
+  }
+
+  function subscribeIncomingMessages(listener) {
+    if (typeof listener !== 'function') {
+      return () => {};
+    }
+    incomingMessageListeners.add(listener);
+    return () => incomingMessageListeners.delete(listener);
+  }
 
   // חלק מצב (chat-p2p-datachannel.js) – remoteCandsBuf: באפר ICE, gotAnswer: התקבלה תשובה, offerId/lastOfferId למניעת תשובות ישנות | HYPER CORE TECH
   function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null }; }
@@ -33,6 +55,8 @@
   function cleanup(k) {
     k=k.toLowerCase(); const s=peers.get(k); if(!s) return;
     if(s.iceT) clearTimeout(s.iceT); if(s.reconnT) clearTimeout(s.reconnT); if(s.offerRetryT) clearTimeout(s.offerRetryT);
+    // חלק keepalive cleanup (chat-p2p-datachannel.js) – עצירת ping timer בניקוי | HYPER CORE TECH
+    if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
     try{if(s.dc)s.dc.close();}catch{} try{if(s.pc)s.pc.close();}catch{}
     s.pc=null; s.dc=null; s.status='closed'; s.iceQ=[]; s.offerRetryT=null; s.gotAnswer=false; s.lastOfferAt=0; s.remoteCandsBuf=[]; s.offerId=null; s.lastOfferId=null;
   }
@@ -61,8 +85,26 @@
   // חלק DataChannel (chat-p2p-datachannel.js) – חיבור אירועים לערוץ + בדיקת stale למניעת לולאת reconnect | HYPER CORE TECH
   function wireDC(k,dc) {
     k=k.toLowerCase(); const s=ensPS(k); s.dc=dc;
-    dc.onopen=()=>{ if(s.dc!==dc) return; s.status='connected'; s.reconnN=0; s.offerRetryN=0; if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;} console.log(`[DC] ✅ OPEN ${k.slice(0,8)}`); if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'open'); };
-    dc.onclose=()=>{ if(s.dc!==dc) return; s.dc=null; s.status='closed'; console.log(`[DC] ❌ CLOSED ${k.slice(0,8)}`); if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'closed'); maybeReconn(k); };
+    dc.onopen=()=>{
+      if(s.dc!==dc) return; s.status='connected'; s.reconnN=0; s.offerRetryN=0;
+      if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
+      console.log(`[DC] ✅ OPEN ${k.slice(0,8)}`);
+      if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'open');
+      // חלק keepalive start (chat-p2p-datachannel.js) – שליחת ping תקופתי לשמירת DC פתוח | HYPER CORE TECH
+      if(s._keepAliveT) clearInterval(s._keepAliveT);
+      s._keepAliveT=setInterval(()=>{
+        if(s.dc&&s.dc.readyState==='open'){ try{s.dc.send(JSON.stringify({type:'ping',ts:Date.now()}));}catch{} }
+        else { clearInterval(s._keepAliveT); s._keepAliveT=null; }
+      },DC_KEEPALIVE_MS);
+    };
+    dc.onclose=()=>{
+      if(s.dc!==dc) return; s.dc=null; s.status='closed';
+      // חלק keepalive stop (chat-p2p-datachannel.js) – עצירת ping כשהערוץ נסגר | HYPER CORE TECH
+      if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
+      console.log(`[DC] ❌ CLOSED ${k.slice(0,8)}`);
+      if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'closed');
+      maybeReconn(k);
+    };
     dc.onerror=(e)=>{ if(s.dc!==dc) return; console.warn(`[DC] ERR ${k.slice(0,8)}:`,e); };
     dc.onmessage=(ev)=>onMsg(k,ev.data);
   }
@@ -72,7 +114,8 @@
     k=k.toLowerCase(); const s=ensPS(k); if(s.pc) try{s.pc.close();}catch{}
     const pc=new RTCPeerConnection(RTC_CFG); s.pc=pc; s.status='connecting';
     pc.onicecandidate=(ev)=>{ if(s.pc!==pc) return; qICE(k,ev.candidate||null); };
-    pc.ondatachannel=(ev)=>{ if(s.pc!==pc) return; console.log(`[DC] 📥 remote DC ${k.slice(0,8)}`); wireDC(k,ev.channel); };
+    // חלק ניתוב ערוצים (chat-p2p-datachannel.js) – ערוץ file-transfer מנותב למערכת קבצים, sos-chat לצ'אט | HYPER CORE TECH
+    pc.ondatachannel=(ev)=>{ if(s.pc!==pc) return; const ch=ev.channel; if(ch.label==='file-transfer'){console.log(`[DC] 📥 file DC from ${k.slice(0,8)}`);if(typeof App.onFileDataChannel==='function')App.onFileDataChannel(k,ch);return;} console.log(`[DC] 📥 chat DC ${k.slice(0,8)}`); wireDC(k,ch); };
     pc.oniceconnectionstatechange=()=>{ if(s.pc!==pc) return; if(['disconnected','failed','closed'].includes(pc.iceConnectionState)){cleanup(k);maybeReconn(k);} };
     pc.onconnectionstatechange=()=>{ if(s.pc!==pc) return; if(['disconnected','failed','closed'].includes(pc.connectionState)){cleanup(k);maybeReconn(k);} };
     return pc;
@@ -186,11 +229,16 @@
     else if(type==='dc-candidates'&&Array.isArray(data)) await onCands(peer,data);
   }
 
-  // חלק הודעות P2P (chat-p2p-datachannel.js) – קבלה ושליחה | HYPER CORE TECH
+  // חלק הודעות P2P (chat-p2p-datachannel.js) – קבלה ושליחה + keepalive ping/pong | HYPER CORE TECH
   function onMsg(peer,raw) {
     try {
-      const m=JSON.parse(raw); if(m.type!=='chat-text') return;
+      const m=JSON.parse(raw);
+      // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
+      if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
+      if(m.type==='pong') return;
+      if(m.type!=='chat-text') return;
       console.log(`[DC] 📩 P2P ← ${peer.slice(0,8)}`);
+      notifyIncomingMessage(peer, m);
       if(typeof App.appendChatMessage==='function') App.appendChatMessage({
         id: m.id||('p2p-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)),
         from:peer, to:App.publicKey, content:m.content||'', attachment:m.attachment||null,
@@ -213,8 +261,11 @@
   function maybeReconn(k) {
     k=k.toLowerCase(); const s=ensPS(k);
     if(s.reconnT) return; if(s.reconnN>=MAX_RECONN) return;
+    // חלק sticky DC (chat-p2p-datachannel.js) – reconnect לכל peer שדיברנו איתו, לא רק active | HYPER CORE TECH
     const active=typeof App.getActiveChatPeer==='function'?App.getActiveChatPeer():null;
-    if(!active||active.toLowerCase()!==k) return;
+    const hasMessages=typeof App.getChatMessages==='function'&&(App.getChatMessages(k)||[]).length>0;
+    if(!active&&!hasMessages) return;
+    if(active&&active.toLowerCase()!==k&&!hasMessages) return;
     s.reconnT=setTimeout(()=>{ s.reconnT=null; s.reconnN++; s.status='idle'; connect(k); }, RECONN_MS*(s.reconnN+1));
   }
 
@@ -255,7 +306,23 @@
     else { const c=setInterval(()=>{ if(App.pool&&App.publicKey&&!App.guestMode){clearInterval(c);init();} },2000); }
   }
 
-  App.dataChannel={ connect, send, isConnected:isConn, getStatus:status, init:lazyInit, _peers:peers };
+  // חלק getChatPC (chat-p2p-datachannel.js) – חשיפת PeerConnection לשימוש מערכת הקבצים | HYPER CORE TECH
+  function getChatPC(peer) { const s=getPS(peer.toLowerCase()); return (s&&s.pc&&s.status==='connected')?s.pc:null; }
+
+  // חלק forceConnect (chat-p2p-datachannel.js) – חיבור DC בכוח גם כ-responder, לצורך שליחת קבצים | HYPER CORE TECH
+  async function forceConnect(peer) {
+    const k=peer.toLowerCase();
+    if(!App.pool||!App.publicKey||!App.privateKey) return;
+    const ex=getPS(k); if(ex&&(ex.status==='connected')) return;
+    if(!subReady){
+      init();
+      for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,200));if(subReady) break;}
+    }
+    console.log(`[DC] ⚡ forceConnect → ${k.slice(0,8)} (ignoring role)`);
+    await _sendOffer(k);
+  }
+
+  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, getChatPC, subscribeIncomingMessages, _peers:peers };
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט | HYPER CORE TECH
   function setupLazy(){

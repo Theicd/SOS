@@ -6,7 +6,8 @@
     return;
   }
 
-  const MAX_INLINE_SIZE_BYTES = 90 * 1024; // 90KB inline בהודעה
+  const P2P_PREFERRED_FROM_BYTES = 90 * 1024; // מעל 90KB מעדיפים P2P
+  const MAX_INLINE_SIZE_BYTES = 256 * 1024; // עד 256KB מאפשרים inline fallback אמין
   const MAX_P2P_SIZE_BYTES = 100 * 1024 * 1024; // 100MB דרך P2P
 
   let uiRefs = {
@@ -20,8 +21,7 @@
   };
 
   let currentAttachment = null;
-  let fileMenu = null; // חלק תפריט מובייל (chat-file-transfer-ui.js) – תפריט בחירת סוג קובץ | HYPER CORE TECH
-  let pendingFileType = null; // 'small' או 'large'
+  // חלק אטב אחיד (chat-file-transfer-ui.js) – כפתור אטב אחד לכל סוגי הקבצים, ללא פיצול קטן/גדול | HYPER CORE TECH
 
   function setUIRefs(config) {
     uiRefs = {
@@ -91,42 +91,94 @@
     }
     log('בחר קובץ', { name: file.name, size: file.size, type: file.type });
     
-    // חלק קבצים גדולים (chat-file-transfer-ui.js) – שימוש ב-P2P לקבצים מעל 90KB | HYPER CORE TECH
-    if (file.size > MAX_INLINE_SIZE_BYTES) {
-      if (typeof App.sendP2PFile === 'function') {
+    // חלק ניתוב קבצים (chat-file-transfer-ui.js) – מעל 90KB מעדיפים P2P, ואם נכשל עוברים ל-inline עד 256KB
+    // אם DC כבר מחובר — גם קבצים קטנים עוברים P2P כדי לא לעמיס על relay | HYPER CORE TECH
+    const dcConnectedNow = App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peer);
+    const shouldPreferP2P = file.size > P2P_PREFERRED_FROM_BYTES || dcConnectedNow;
+    if (shouldPreferP2P && typeof App.sendP2PFile === 'function') {
+      try {
         const previewUrl = URL.createObjectURL(file);
         const fileId = await App.sendP2PFile(peer, file, App.handleP2PProgressUpdate || undefined);
+        if (!fileId) {
+          throw new Error('p2p-send-returned-empty-id');
+        }
         log('שולח P2P', { peer, fileId, name: file.name, size: file.size });
         // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview תחתון לקבצי P2P כי ההעברה כבר מתחילה | HYPER CORE TECH
-        // ה-progress bubble מוצג ב-messages container, אין צורך ב-preview נוסף
-        // נשמור את ה-attachment ב-state אבל לא נציג preview כפול
         const attachment = {
           id: `${peer}-${Date.now()}`,
           name: file.name,
           size: file.size,
           type: file.type,
           isP2P: true,
-          file: file,
+          file,
           fileId,
           previewUrl,
           caption: uiRefs.getMessageDraft() || '',
           transferStarted: true, // סימון שההעברה כבר התחילה
         };
         App.setChatFileAttachment?.(peer, attachment);
-        // לא קוראים ל-renderPreview עבור P2P - ה-transfer bubble כבר מוצג
         return;
-      } else {
+      } catch (err) {
+        const reason = err?.message || 'unknown-error';
+        console.warn('[CHAT/FILE-UI] P2P send failed, trying fallback', reason);
         App.notifyChatFileTransferError?.({
-          code: 'p2p-unavailable',
-          message: 'מערכת P2P לא זמינה. נסה קובץ קטן יותר.',
+          peer,
+          code: 'p2p-send-failed',
+          message: `שליחת הקובץ נכשלה במסלול הישיר (${reason}). מנסה מסלול חלופי...`,
         });
-        return;
+        // ממשיכים ל-inline fallback אם הקובץ בטווח 256KB
       }
     }
+
+    // חלק חסם Inline (chat-file-transfer-ui.js) – אם P2P לא זמין/נכשל לקובץ גדול מ-256KB מנסים WebTorrent אוטומטית | HYPER CORE TECH
+    if (file.size > MAX_INLINE_SIZE_BYTES) {
+      if (typeof App.torrentTransfer?.requestTransfer === 'function') {
+        try {
+          log('P2P לא זמין לקובץ גדול, עובר ל-WebTorrent', { name: file.name, size: file.size });
+          const torrentResult = await App.torrentTransfer.requestTransfer(peer, file);
+          if (torrentResult?.success) {
+            App.showToast?.('הקובץ נשלח במסלול חלופי.', 'warning');
+            return;
+          }
+          const reason = torrentResult?.error || 'torrent-request-failed';
+          App.notifyChatFileTransferError?.({
+            peer,
+            code: 'torrent-fallback-failed',
+            message: `שליחת הקובץ נכשלה במסלול החלופי (${reason}). נסה שוב בעוד רגע.`,
+          });
+          return;
+        } catch (torrentErr) {
+          const reason = torrentErr?.message || 'torrent-exception';
+          App.notifyChatFileTransferError?.({
+            peer,
+            code: 'torrent-fallback-error',
+            message: `שליחת הקובץ נכשלה במסלול החלופי (${reason}). נסה שוב בעוד רגע.`,
+          });
+          return;
+        }
+      }
+
+      App.notifyChatFileTransferError?.({
+        peer,
+        code: 'p2p-required-for-large-file',
+        message: 'הקובץ גדול מ-256KB ודורש מסלול העברה מהיר פעיל. נסה שוב בעוד רגע.',
+      });
+      return;
+    }
+
+    if (shouldPreferP2P && typeof App.sendP2PFile !== 'function') {
+      App.notifyChatFileTransferError?.({
+        peer,
+        code: 'p2p-unavailable-inline-fallback',
+        message: 'מסלול ההעברה המהיר לא זמין כרגע. עובר לשליחה רגילה.',
+      });
+    }
     
-    // חלק קבצים קטנים (chat-file-transfer-ui.js) – inline DataURL לקבצים עד 90KB | HYPER CORE TECH
+    // חלק קבצים קטנים/בינוניים (chat-file-transfer-ui.js) – inline DataURL לקבצים עד 256KB | HYPER CORE TECH
+    // קבצים לא-מדיה (לא image/audio/video) נשלחים אוטומטית ללא preview
+    const isMediaFile = /^(image|audio|video)\//i.test(file.type || '');
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const attachment = {
         id: `${peer}-${Date.now()}`,
         name: file.name,
@@ -136,6 +188,29 @@
         caption: uiRefs.getMessageDraft() || '',
       };
       App.setChatFileAttachment?.(peer, attachment);
+
+      // חלק שליחה אוטומטית (chat-file-transfer-ui.js) – קבצים לא-מדיה נשלחים מיד | HYPER CORE TECH
+      if (!isMediaFile && typeof App.publishChatMessage === 'function') {
+        log('שליחה אוטומטית של קובץ לא-מדיה', { name: file.name, size: file.size });
+        const displayText = `📎 ${file.name}`;
+        try {
+          const result = await App.publishChatMessage(peer, displayText);
+          if (result?.ok) {
+            log('✅ קובץ נשלח אוטומטית', file.name);
+          } else {
+            log('⚠️ שליחה אוטומטית נכשלה:', result?.error);
+          }
+        } catch (err) {
+          log('❌ שגיאה בשליחה אוטומטית:', err);
+        }
+        if (typeof App.clearChatFileAttachment === 'function') {
+          App.clearChatFileAttachment(peer);
+        }
+        renderPreview(null);
+        return;
+      }
+
+      // קבצי מדיה קטנים — מציגים preview ומחכים ללחיצה על שלח
       renderPreview(attachment);
     };
     reader.onerror = () => {
@@ -153,137 +228,14 @@
     renderPreview(null);
   }
 
-  // חלק תפריט מובייל (chat-file-transfer-ui.js) – בדיקה אם מכשיר מובייל | HYPER CORE TECH
-  function isMobileDevice() {
-    return window.innerWidth <= 768;
-  }
-
-  // חלק תפריט מובייל (chat-file-transfer-ui.js) – יצירת תפריט בחירת סוג קובץ | HYPER CORE TECH
-  function createFileMenu() {
-    if (fileMenu) return fileMenu;
-    
-    fileMenu = document.createElement('div');
-    fileMenu.className = 'chat-file-menu';
-    fileMenu.innerHTML = `
-      <button type="button" class="chat-file-menu__item chat-file-menu__item--small" data-file-type="small">
-        <i class="fa-solid fa-image"></i>
-        <span class="chat-file-menu__item-text">
-          <span class="chat-file-menu__item-title">תמונה או קובץ קטן</span>
-          <span class="chat-file-menu__item-desc">עד 90KB - שליחה מהירה</span>
-        </span>
-      </button>
-      <button type="button" class="chat-file-menu__item chat-file-menu__item--large" data-file-type="large">
-        <i class="fa-solid fa-file-zipper"></i>
-        <span class="chat-file-menu__item-text">
-          <span class="chat-file-menu__item-title">קובץ גדול</span>
-          <span class="chat-file-menu__item-desc">עד 100MB - שליחה ישירה</span>
-        </span>
-      </button>
-    `;
-    
-    // מאזינים ללחיצות על אפשרויות התפריט
-    fileMenu.querySelectorAll('.chat-file-menu__item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const fileType = item.getAttribute('data-file-type');
-        pendingFileType = fileType;
-        hideFileMenu();
-        
-        if (fileType === 'large' && typeof App.torrentTransfer?.sendFile === 'function') {
-          // פתיחת דיאלוג טורנט
-          const peer = uiRefs.getActivePeer();
-          if (peer) {
-            App.torrentTransfer.sendFile(peer);
-          }
-        } else {
-          // פתיחת בוחר קבצים רגיל
-          if (uiRefs.fileInput) {
-            uiRefs.fileInput.value = '';
-            uiRefs.fileInput.click();
-          }
-        }
-      });
-    });
-    
-    return fileMenu;
-  }
-
-  // חלק תפריט מובייל (chat-file-transfer-ui.js) – הצגת תפריט | HYPER CORE TECH
-  function showFileMenu() {
-    if (!uiRefs.fileButton) return;
-    
-    const menu = createFileMenu();
-    // חיבור התפריט ל-body כדי למנוע יציאה מגבולות המסך
-    if (!menu.parentElement) {
-      document.body.appendChild(menu);
-    }
-    
-    // מיקום התפריט מעל הכפתור - בתוך גבולות המסך
-    const btnRect = uiRefs.fileButton.getBoundingClientRect();
-    const menuWidth = 200; // min-width של התפריט
-    const margin = 10;
-    
-    menu.style.position = 'fixed';
-    menu.style.bottom = (window.innerHeight - btnRect.top + 8) + 'px';
-    
-    // בדיקה שהתפריט לא יוצא מגבולות המסך
-    let rightPos = window.innerWidth - btnRect.right;
-    if (rightPos + menuWidth > window.innerWidth - margin) {
-      // אם יוצא מימין - מקם בצד שמאל עם מרווח
-      menu.style.right = 'auto';
-      menu.style.left = margin + 'px';
-    } else {
-      menu.style.right = Math.max(rightPos, margin) + 'px';
-      menu.style.left = 'auto';
-    }
-    
-    // עיכוב קצר לאנימציה
-    requestAnimationFrame(() => {
-      menu.classList.add('is-visible');
-    });
-    
-    // סגירה בלחיצה מחוץ לתפריט
-    setTimeout(() => {
-      document.addEventListener('click', handleOutsideClick);
-    }, 10);
-  }
-
-  // חלק תפריט מובייל (chat-file-transfer-ui.js) – הסתרת תפריט | HYPER CORE TECH
-  function hideFileMenu() {
-    if (fileMenu) {
-      fileMenu.classList.remove('is-visible');
-    }
-    document.removeEventListener('click', handleOutsideClick);
-  }
-
-  function handleOutsideClick(e) {
-    if (fileMenu && !fileMenu.contains(e.target) && !uiRefs.fileButton?.contains(e.target)) {
-      hideFileMenu();
-    }
-  }
-
+  // חלק כפתור אטב אחיד (chat-file-transfer-ui.js) – כל קובץ עובר דרך handleFileSelection → sendP2PFile | HYPER CORE TECH
+  // DC ישיר קודם → Torrent ל-non-media → Blossom רק למדיה נתמכת (קול/וידאו/תמונות)
   function onFileButtonClick(event) {
     event.preventDefault();
     event.stopPropagation();
-    
-    if (!uiRefs.fileInput) {
-      return;
-    }
-    
-    // חלק תפריט מובייל (chat-file-transfer-ui.js) – במובייל מציג תפריט, בדסקטופ פותח ישירות | HYPER CORE TECH
-    if (isMobileDevice()) {
-      if (fileMenu?.classList.contains('is-visible')) {
-        hideFileMenu();
-      } else {
-        showFileMenu();
-      }
-    } else {
-      // דסקטופ - פתיחה ישירה של בוחר קבצים
-      pendingFileType = null;
-      uiRefs.fileInput.value = '';
-      uiRefs.fileInput.click();
-    }
+    if (!uiRefs.fileInput) return;
+    uiRefs.fileInput.value = '';
+    uiRefs.fileInput.click();
   }
 
   function onFileInputChange(event) {
@@ -291,7 +243,14 @@
     if (!files || !files.length) {
       return;
     }
-    handleFileSelection(files[0]);
+    handleFileSelection(files[0]).catch((err) => {
+      const reason = err?.message || 'unknown-error';
+      console.error('[CHAT/FILE-UI] handleFileSelection failed:', reason, err);
+      App.notifyChatFileTransferError?.({
+        code: 'file-selection-failed',
+        message: `שליחת הקובץ נכשלה (${reason}). נסה שוב.`,
+      });
+    });
   }
 
   function onFileRemove(event) {
@@ -361,9 +320,12 @@
     renderPreview(null);
   }
 
+  // חלק API ציבורי (chat-file-transfer-ui.js) – חשיפת handleFileSelection גם כ-handleChatFileSelection | HYPER CORE TECH
+  // נדרש ע"י chat-composer-enhanced.js ו-chat-drag-drop.js
   Object.assign(App, {
     initializeChatFileTransferUI,
     setChatFileTransferActivePeer: setActivePeer,
     clearChatFileTransferUI: clearUI,
+    handleChatFileSelection: handleFileSelection,
   });
 })(window);

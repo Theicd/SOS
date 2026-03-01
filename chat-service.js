@@ -98,6 +98,7 @@
   const CONTACT_FETCH_LIMIT = 20;
   const PROFILE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לפרופילים/תמונות כדי לצמצם פניות לריליי | HYPER CORE TECH
   const AVATAR_CACHE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לקאש תמונות פרופיל | HYPER CORE TECH
+  const TORRENT_AUTOSTART_MAX_AGE_SECONDS = 90; // חלק טורנט (chat-service.js) – auto-start רק להודעות חדשות מאוד, לא להיסטוריה ישנה | HYPER CORE TECH
 
   let poolReadyWarningShown = false;
   let isServiceReady = false;
@@ -170,11 +171,28 @@
             hasAttachment: false,
           };
     if (!serialization || (!serialization.rawContent && !serialization.hasAttachment)) {
+      // חלק שגיאות קובץ (chat-service.js) – אם יש attachment אבל סריאליזציה נכשלה, מחזירים שגיאה ייעודית במקום empty-message | HYPER CORE TECH
+      if (attachmentReady) {
+        App.notifyChatFileTransferError?.({
+          peer: peerPubkey,
+          code: 'attachment-serialize-failed',
+          message: 'לא ניתן לשלוח את הקובץ במסלול הנוכחי. נסה שוב בעוד רגע.',
+        });
+        return { ok: false, error: 'attachment-serialize-failed' };
+      }
       return { ok: false, error: 'empty-message' };
     }
 
+    // חלק בדיקות אוטומטיות (chat-service.js) – אפשרות לכפות Relay כדי לבדוק תרחישי fallback ללא DC | HYPER CORE TECH
+    const forceRelay = (() => {
+      try {
+        return App.forceRelay === true || window.localStorage.getItem('sos_force_relay') === '1';
+      } catch (_) {
+        return App.forceRelay === true;
+      }
+    })();
     // חלק P2P DataChannel (chat-service.js) – ניסיון שליחה ישירה דרך DataChannel לפני relay | HYPER CORE TECH
-    if (App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey)) {
+    if (!forceRelay && App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey)) {
       const p2pId = 'p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       const p2pTs = Math.floor(Date.now() / 1000);
       const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
@@ -299,6 +317,9 @@
     };
   }
 
+  // חלק dedup פרופילים (chat-service.js) — מפה של בקשות פרופיל פעילות למניעת כפילויות במקביל | HYPER CORE TECH
+  const _profileInflight = new Map();
+
   async function resolveProfile(pubkey) {
     const normalized = pubkey?.toLowerCase?.() || '';
     const nowSec = Math.floor(Date.now() / 1000);
@@ -310,6 +331,17 @@
       return { name: existing.name, picture: existing.picture, initials: existing.initials, profileFetchedAt: existing.profileFetchedAt };
     }
 
+    // חלק dedup (chat-service.js) — אם כבר יש בקשה פעילה לאותו pubkey, נחזיר את אותה Promise | HYPER CORE TECH
+    if (_profileInflight.has(normalized)) {
+      return _profileInflight.get(normalized);
+    }
+
+    const promise = _resolveProfileInner(pubkey, normalized, nowSec, existing);
+    _profileInflight.set(normalized, promise);
+    try { return await promise; } finally { _profileInflight.delete(normalized); }
+  }
+
+  async function _resolveProfileInner(pubkey, normalized, nowSec, existing) {
     if (typeof App.fetchProfile === 'function') {
       try {
         const profile = await App.fetchProfile(pubkey);
@@ -341,6 +373,10 @@
       return;
     }
     const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const messageAgeSec = Math.max(0, nowSec - eventTs);
+    // חלק טורנט בזמן אמת (chat-service.js) – הורדה אוטומטית רק להודעות חדשות כדי למנוע ניסיונות חוזרים מהיסטוריה | HYPER CORE TECH
+    const isRecentAutoStartEvent = messageAgeSec < TORRENT_AUTOSTART_MAX_AGE_SECONDS;
     if (event.kind === 5) {
       handleIncomingDeletion(event);
       return;
@@ -369,7 +405,8 @@
     }
 
     const profile = normalizeProfileData(await resolveProfile(peerPubkey), peerPubkey);
-    App.ensureChatContact(peerPubkey, { ...profile, profileFetchedAt: eventTs });
+    // חלק תיקון cache (chat-service.js) — profileFetchedAt = זמן נוכחי (לא eventTs!) כדי שה-TTL cache יעבוד | HYPER CORE TECH
+    App.ensureChatContact(peerPubkey, { ...profile, profileFetchedAt: Math.floor(Date.now() / 1000) });
 
     // חלק WebTorrent (chat-service.js) – זיהוי בקשות העברת קבצים גדולים | HYPER CORE TECH
     // ההודעה יכולה להגיע בשני פורמטים:
@@ -413,9 +450,19 @@
           event.torrentPayload = normalizedTorrentPayload;
 
           if (typeof App.torrentTransfer?.handleIncomingRequest === 'function') {
-            console.log('[CHAT/TORRENT] 📞 Calling handleIncomingRequest...');
-            App.torrentTransfer.handleIncomingRequest(sender, torrentData);
-            console.log('[CHAT/TORRENT] ✅ Request forwarded - download should auto-start');
+            if (!isRecentAutoStartEvent) {
+              console.log('[CHAT/TORRENT] ⏭️ Skipping auto-start for historical message', { ageSec: messageAgeSec, fileName: torrentData.fileName });
+            } else {
+              if (!App._autoStartedTorrentMagnets) {
+                App._autoStartedTorrentMagnets = new Set();
+              }
+              if (torrentData.magnetURI) {
+                App._autoStartedTorrentMagnets.add(torrentData.magnetURI);
+              }
+              console.log('[CHAT/TORRENT] 📞 Calling handleIncomingRequest...');
+              App.torrentTransfer.handleIncomingRequest(sender, torrentData);
+              console.log('[CHAT/TORRENT] ✅ Request forwarded - download should auto-start');
+            }
           } else {
             console.warn('[CHAT/TORRENT] ⚠️ WebTorrent module not loaded');
           }
@@ -435,6 +482,38 @@
             hasAttachment: false,
           };
 
+    // חלק Auto-download טורנט (chat-service.js) – גם הודעת attachment עם magnetURI מפעילה הורדה אוטומטית ללא לחיצה | HYPER CORE TECH
+    if (!isSelfMessage && isRecentAutoStartEvent && parsedPayload?.attachment?.isTorrent && parsedPayload?.attachment?.magnetURI && typeof App.torrentTransfer?.handleIncomingRequest === 'function') {
+      try {
+        const att = parsedPayload.attachment;
+        // חלק dedup הורדה אוטומטית (chat-service.js) – סימון magnet שכבר טופל אוטומטית כדי למנוע הורדה כפולה ב-UI | HYPER CORE TECH
+        if (!App._autoStartedTorrentMagnets) {
+          App._autoStartedTorrentMagnets = new Set();
+        }
+        if (App._autoStartedTorrentMagnets.has(att.magnetURI)) {
+          console.log('[CHAT/TORRENT] ⏭️ Magnet already auto-started in service, skipping duplicate start');
+        } else {
+          App._autoStartedTorrentMagnets.add(att.magnetURI);
+          const autoTorrentRequest = {
+            type: 'torrent-transfer-request',
+            transferId: att.id || event.id,
+            magnetURI: att.magnetURI,
+            infoHash: att.infoHash || '',
+            fileName: att.name || 'file',
+            fileSize: typeof att.size === 'number' ? att.size : 0,
+            timestamp: event.created_at || Date.now(),
+          };
+          console.log('[CHAT/TORRENT] ⚡ Auto-start from attachment magnetURI', {
+            from: sender.slice(0, 8),
+            fileName: autoTorrentRequest.fileName,
+          });
+          App.torrentTransfer.handleIncomingRequest(sender, autoTorrentRequest);
+        }
+      } catch (attErr) {
+        console.warn('[CHAT/TORRENT] attachment auto-download failed:', attErr);
+      }
+    }
+
     const normalizedMessage = {
       id: event.id,
       from: sender,
@@ -446,11 +525,22 @@
     };
 
     App.appendChatMessage(normalizedMessage);
+
+    // חלק P2P auto-connect (chat-service.js) – כשמגיעה הודעה חדשה דרך relay מ-peer שאין איתו DC,
+    // מתחיל חיבור DataChannel ברקע כדי שההודעה הבאה תעבור P2P ישירות | HYPER CORE TECH
+    if (!isSelfMessage && messageAgeSec < 120 && App.dataChannel && typeof App.dataChannel.connect === 'function') {
+      const dcConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey);
+      if (!dcConnected) {
+        try {
+          App.dataChannel.init?.();
+          App.dataChannel.connect(peerPubkey);
+          console.log('[CHAT/P2P-AUTO] ⚡ auto-connect DC for', peerPubkey.slice(0, 8), '(relay msg received)');
+        } catch (_e) { /* שקט — לא קריטי */ }
+      }
+    }
     
     // חלק Push (chat-service.js) – שליחת התראת Push רק להודעות חדשות (לא ישנות מריליי) | HYPER CORE TECH
     // בדיקה: הודעה נחשבת "חדשה" אם נוצרה בדקה האחרונה מעכשיו
-    const nowSec = Math.floor(Date.now() / 1000);
-    const messageAgeSec = nowSec - eventTs;
     const isRecentMessage = messageAgeSec < 60; // הודעה מהדקה האחרונה
     
     if (!isSelfMessage && isRecentMessage && typeof App.triggerChatMessagePush === 'function') {
@@ -510,7 +600,13 @@
       }
     }
     
-    console.log('[CHAT] Deletion processed:', targets.length, 'messages from', conversationPeer?.slice(0, 8));
+    // חלק הגבלת לוג (chat-service.js) — מדפיס רק 5 מחיקות ראשונות ואח"כ כל 20 למניעת שטפון | HYPER CORE TECH
+    if (!handleIncomingDeletion._count) handleIncomingDeletion._count = 0;
+    handleIncomingDeletion._count++;
+    if (handleIncomingDeletion._count <= 5 || handleIncomingDeletion._count % 20 === 0) {
+      console.log('[CHAT] Deletion processed:', targets.length, 'messages from', conversationPeer?.slice(0, 8),
+        handleIncomingDeletion._count > 5 ? `(total: ${handleIncomingDeletion._count})` : '');
+    }
   }
 
   function subscribeToChatEvents() {
@@ -684,6 +780,30 @@
     ensureChatKeepaliveStarted();
     subscribeToChatEvents();
     bootstrapContactsFromFeed();
+
+    // חלק P2P pre-connect (chat-service.js) – 10 שניות אחרי אתחול, מחבר DC ל-5 אנשי קשר אחרונים
+    // כדי שכשהמשתמש יתחיל לדבר, ה-DC כבר יהיה מוכן ורוב ההודעות ילכו P2P | HYPER CORE TECH
+    setTimeout(() => {
+      try {
+        if (!App.dataChannel || typeof App.dataChannel.connect !== 'function') return;
+        if (App.guestMode) return;
+        const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
+        const DC_PRECONNECT_COUNT = 5;
+        let connected = 0;
+        for (let i = 0; i < contacts.length && connected < DC_PRECONNECT_COUNT; i++) {
+          const pk = contacts[i]?.pubkey;
+          if (!pk || pk.length !== 64) continue;
+          const alreadyConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(pk);
+          if (alreadyConnected) continue;
+          App.dataChannel.init?.();
+          App.dataChannel.connect(pk);
+          connected++;
+        }
+        if (connected > 0) {
+          console.log('[CHAT/P2P-AUTO] 🔗 pre-connected DC for', connected, 'top contacts');
+        }
+      } catch (_e) { /* שקט — לא קריטי */ }
+    }, 10000);
   }
 
   const previousNotifyPoolReady = App.notifyPoolReady;
@@ -769,7 +889,13 @@
       }
     });
     
-    console.log('[CHAT] Read receipt received from', sender.slice(0, 8), 'up to', lastReadAt);
+    // חלק הגבלת לוג (chat-service.js) — מדפיס רק 5 RR ראשונים ואח"כ כל 20 למניעת שטפון | HYPER CORE TECH
+    if (!handleIncomingReadReceipt._count) handleIncomingReadReceipt._count = 0;
+    handleIncomingReadReceipt._count++;
+    if (handleIncomingReadReceipt._count <= 5 || handleIncomingReadReceipt._count % 20 === 0) {
+      console.log('[CHAT] Read receipt received from', sender.slice(0, 8), 'up to', lastReadAt,
+        handleIncomingReadReceipt._count > 5 ? `(total: ${handleIncomingReadReceipt._count})` : '');
+    }
   }
 
   // חלק רענון שיחות (chat-service.js) – פונקציה לסנכרון מחדש של כל היסטוריית הצ'אט | HYPER CORE TECH

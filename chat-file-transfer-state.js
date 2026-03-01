@@ -20,7 +20,7 @@
     if (!attachment) {
       return null;
     }
-    // חלק צ'אט (chat-file-transfer-state.js) – כולל שדות P2P בהעתקה כולל magnetURI | HYPER CORE TECH
+    // חלק צ'אט (chat-file-transfer-state.js) – כולל שדות P2P בהעתקה כולל magnetURI ו-isTorrent לקבצים כלליים | HYPER CORE TECH
     return {
       id: attachment.id,
       name: attachment.name,
@@ -35,6 +35,9 @@
       transferStarted: attachment.transferStarted || false,
       fileId: attachment.fileId || null,
       magnetURI: attachment.magnetURI || '',
+      // חלק מטא-דאטה טורנט (chat-file-transfer-state.js) – שומר infoHash כדי לאפשר זיהוי והורדה אוטומטית | HYPER CORE TECH
+      infoHash: attachment.infoHash || '',
+      isTorrent: attachment.isTorrent || false,
     };
   }
 
@@ -88,7 +91,12 @@
   }
 
   function hasAttachment(peerPubkey) {
-    return attachments.has(normalizePeer(peerPubkey));
+    const attachment = attachments.get(normalizePeer(peerPubkey));
+    // חלק חסימת שליחה כפולה (chat-file-transfer-state.js) – קובץ P2P שההעברה שלו כבר התחילה לא נחשב כמצורף ממתין | HYPER CORE TECH
+    if (attachment?.isP2P && attachment?.transferStarted) {
+      return false;
+    }
+    return Boolean(attachment);
   }
 
   function subscribe(topic, callback) {

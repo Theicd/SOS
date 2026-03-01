@@ -1,6 +1,17 @@
 // חלק מדיה (chat-media-renderer.js) – תצוגת תמונות/וידאו/YouTube inline בצ'אט כמו וואטסאפ | HYPER CORE TECH
 (function initChatMediaRenderer(window) {
   const App = window.NostrApp || (window.NostrApp = {});
+  // חלק דיבאג מדיה (chat-media-renderer.js) – לוגים לפי localStorage sos_debug_media | HYPER CORE TECH
+  if (typeof App.mediaDebugLog !== 'function') {
+    App.mediaDebugLog = (...args) => {
+      try {
+        if (localStorage.getItem('sos_debug_media') === '1') {
+          console.log('[MEDIA-DEBUG]', ...args);
+        }
+      } catch (_) {}
+    };
+  }
+  const mediaDebugLog = App.mediaDebugLog;
   
   // חלק מטמון צ'אט (chat-media-renderer.js) – IndexedDB למדיה בשיחות | HYPER CORE TECH
   const CHAT_MEDIA_DB = 'SOSChatMediaCache';
@@ -54,16 +65,24 @@
       // בדוק מטמון קודם
       const cached = await getChatMediaFromCache(url);
       if (cached) {
+        // חלק דיבאג מטמון (chat-media-renderer.js) – זוהה cache hit | HYPER CORE TECH
+        mediaDebugLog('cache-hit', { url });
         return URL.createObjectURL(cached);
       }
+      // חלק דיבאג מטמון (chat-media-renderer.js) – cache miss לפני הורדה | HYPER CORE TECH
+      mediaDebugLog('cache-miss', { url });
       // הורד מהרשת
       const response = await fetch(url, { credentials: 'omit' });
       if (!response.ok) return url;
       const blob = await response.blob();
       // שמור למטמון
       await cacheChatMedia(url, blob);
+      // חלק דיבאג מטמון (chat-media-renderer.js) – שמירה למטמון הצליחה | HYPER CORE TECH
+      mediaDebugLog('cache-store', { url, size: blob.size });
       return URL.createObjectURL(blob);
     } catch (e) {
+      // חלק דיבאג מטמון (chat-media-renderer.js) – כשלון הורדה/שמירה | HYPER CORE TECH
+      mediaDebugLog('cache-failed', { url, error: e?.message || String(e) });
       return url; // fallback לURL מקורי
     }
   }
@@ -151,6 +170,14 @@
     const name = attachment.name || 'תמונה';
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'img-' + Math.random().toString(36).substr(2, 9);
+    // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור תמונה | HYPER CORE TECH
+    mediaDebugLog('render-image', {
+      name,
+      mime: attachment.type || '',
+      hasSrc: !!src,
+      isDataUrl: src.startsWith('data:'),
+      isBlob: src.startsWith('blob:')
+    });
     
     // טעינה אסינכרונית מהמטמון ברקע
     if (src && !src.startsWith('data:')) {
@@ -188,6 +215,14 @@
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'vid-' + Math.random().toString(36).substr(2, 9);
     const containerId = 'vc-' + Math.random().toString(36).substr(2, 9);
+    // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור וידאו | HYPER CORE TECH
+    mediaDebugLog('render-video', {
+      name,
+      mime: type,
+      hasSrc: !!src,
+      isDataUrl: src.startsWith('data:'),
+      isBlob: src.startsWith('blob:')
+    });
     
     // טעינה אסינכרונית מהמטמון + הוספת event listeners
     setTimeout(async () => {
@@ -311,15 +346,249 @@
     requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
   }
   
-  // חלק API ציבורי (chat-media-renderer.js) – חשיפת פונקציות לרינדור מדיה | HYPER CORE TECH
+  // חלק זיהוי PDF (chat-media-renderer.js) – בדיקה אם attachment הוא קובץ PDF | HYPER CORE TECH
+  function isPdfAttachment(attachment) {
+    if (!attachment) return false;
+    const mime = (attachment.type || '').toLowerCase();
+    const name = (attachment.name || '').toLowerCase();
+    return mime === 'application/pdf' || name.endsWith('.pdf');
+  }
+
+  // חלק רנדור PDF (chat-media-renderer.js) – תצוגה מקדימה של עמוד ראשון בסגנון WhatsApp | HYPER CORE TECH
+  function renderPdfAttachment(attachment) {
+    const name = attachment.name || 'קובץ PDF';
+    const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
+    const size = formatSize(attachment.size);
+    const magnetURI = attachment.magnetURI || '';
+    const dataUrl = attachment.dataUrl || attachment.url || '';
+    const uid = 'pdf-' + Math.random().toString(36).substr(2, 9);
+    // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור PDF | HYPER CORE TECH
+    mediaDebugLog('render-pdf', { name, mime: attachment.type || '', hasDataUrl: !!dataUrl, hasMagnet: !!magnetURI });
+
+    // כפתור הורדה — לקבצי טורנט או DataURL
+    let downloadHtml = '';
+    if (magnetURI) {
+      const escapedMagnet = magnetURI.replace(/"/g, '&quot;');
+      const escapedName = safeName.replace(/'/g, "\\'");
+      downloadHtml = `<button class="chat-pdf-bubble__download torrent-bubble__download-btn" data-magnet="${escapedMagnet}" data-filename="${escapedName}" title="הורד PDF"><i class="fa-solid fa-download"></i></button>`;
+    } else if (dataUrl) {
+      downloadHtml = `<a class="chat-pdf-bubble__download" href="${dataUrl}" download="${safeName}" title="הורד PDF"><i class="fa-solid fa-download"></i></a>`;
+    }
+
+    // רנדור אסינכרוני של העמוד הראשון באמצעות PDF.js
+    setTimeout(async () => {
+      const canvasEl = document.getElementById(uid);
+      if (!canvasEl) return;
+      const pagesEl = document.getElementById(uid + '-pages');
+      try {
+        if (!window.pdfjsLib) {
+          console.warn('[PDF-PREVIEW] pdf.js לא נטען');
+          return;
+        }
+        let pdfSource = null;
+        if (dataUrl && dataUrl.startsWith('data:')) {
+          // המרת data URL ל-Uint8Array
+          const base64 = dataUrl.split(',')[1];
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          pdfSource = { data: bytes };
+        } else if (dataUrl) {
+          pdfSource = { url: dataUrl };
+        } else {
+          // אין מקור זמין (קובץ טורנט שעדיין לא הורד)
+          return;
+        }
+        const pdf = await window.pdfjsLib.getDocument(pdfSource).promise;
+        // הצגת מספר עמודים
+        if (pagesEl) pagesEl.textContent = pdf.numPages + ' עמודים';
+        // רנדור עמוד ראשון
+        const page = await pdf.getPage(1);
+        const scale = 300 / page.getViewport({ scale: 1 }).width;
+        const viewport = page.getViewport({ scale });
+        canvasEl.width = viewport.width;
+        canvasEl.height = viewport.height;
+        const ctx = canvasEl.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        canvasEl.classList.add('chat-pdf-bubble__canvas--loaded');
+        console.log('[PDF-PREVIEW] ✅ רנדור הצליח:', name);
+        // חלק דיבאג מדיה (chat-media-renderer.js) – PDF נטען בהצלחה | HYPER CORE TECH
+        mediaDebugLog('render-pdf-success', { name, pages: pdf.numPages || null });
+      } catch (err) {
+        console.warn('[PDF-PREVIEW] ❌ שגיאה ברנדור PDF:', err);
+        // חלק דיבאג מדיה (chat-media-renderer.js) – שגיאת רנדור PDF | HYPER CORE TECH
+        mediaDebugLog('render-pdf-failed', { name, error: err?.message || String(err) });
+      }
+    }, 50);
+
+    return `
+      <div class="chat-pdf-bubble" id="${uid}-wrap">
+        <div class="chat-pdf-bubble__preview">
+          <canvas id="${uid}" class="chat-pdf-bubble__canvas"></canvas>
+          <div class="chat-pdf-bubble__overlay">
+            <i class="fa-solid fa-file-pdf chat-pdf-bubble__icon"></i>
+          </div>
+        </div>
+        <div class="chat-pdf-bubble__footer">
+          <div class="chat-pdf-bubble__info">
+            <div class="chat-pdf-bubble__name">${safeName}</div>
+            <div class="chat-pdf-bubble__meta"><span class="chat-pdf-bubble__size">${size}</span><span id="${uid}-pages" class="chat-pdf-bubble__pages"></span></div>
+          </div>
+          ${downloadHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  // חלק זיהוי HTML (chat-media-renderer.js) – בדיקה אם attachment הוא קובץ HTML | HYPER CORE TECH
+  function isHtmlAttachment(att) {
+    if (!att) return false;
+    const m = (att.type || '').toLowerCase(), n = (att.name || '').toLowerCase();
+    return m === 'text/html' || n.endsWith('.html') || n.endsWith('.htm');
+  }
+
+  // חלק רנדור HTML (chat-media-renderer.js) – תצוגה מקדימה ב-iframe sandbox בסגנון PDF | HYPER CORE TECH
+  function renderHtmlAttachment(att) {
+    const name = att.name || 'דף HTML';
+    const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
+    const size = formatSize(att.size);
+    const dataUrl = att.dataUrl || att.url || '';
+    const magnetURI = att.magnetURI || '';
+    const uid = 'html-' + Math.random().toString(36).substr(2, 9);
+    // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור HTML | HYPER CORE TECH
+    mediaDebugLog('render-html', { name, mime: att.type || '', hasDataUrl: !!dataUrl, hasMagnet: !!magnetURI });
+    let dlHtml = '';
+    if (magnetURI) {
+      dlHtml = `<button class="chat-pdf-bubble__download torrent-bubble__download-btn" data-magnet="${magnetURI.replace(/"/g,'&quot;')}" data-filename="${safeName.replace(/'/g,"\\'")}" title="הורד"><i class="fa-solid fa-download"></i></button>`;
+    } else if (dataUrl) {
+      dlHtml = `<a class="chat-pdf-bubble__download" href="${dataUrl}" download="${safeName}" title="הורד"><i class="fa-solid fa-download"></i></a>`;
+    }
+    setTimeout(() => {
+      const fr = document.getElementById(uid);
+      if (!fr) return;
+      try {
+        if (!dataUrl || !dataUrl.startsWith('data:')) return;
+        const parts = dataUrl.split(',');
+        let raw = '';
+        if (parts[0].includes('base64')) {
+          // פענוח base64 ל-UTF-8 תקין (תמיכה בעברית ותווים מיוחדים)
+          const bin = atob(parts[1]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          raw = new TextDecoder('utf-8').decode(bytes);
+        } else {
+          raw = decodeURIComponent(parts[1]);
+        }
+        // הוספת CSS צמצום בלבד — שומר את כל הסגנונות המקוריים של הדף
+        const scaleStyle = '<style>html,body{transform:scale(0.45);transform-origin:0 0;width:222%;overflow:hidden;pointer-events:none;}</style>';
+        const injected = raw.replace(/<head([^>]*)>/i, '<head$1><meta charset="utf-8">' + scaleStyle);
+        fr.srcdoc = injected;
+        fr.onload = () => fr.classList.add('chat-html-bubble__frame--loaded');
+      } catch(e) { console.warn('[HTML-PREVIEW]', e); }
+    }, 50);
+    return `
+      <div class="chat-pdf-bubble" id="${uid}-wrap">
+        <div class="chat-html-bubble__preview">
+          <iframe id="${uid}" class="chat-html-bubble__frame" sandbox="allow-same-origin" scrolling="no" frameborder="0"></iframe>
+          <div class="chat-pdf-bubble__overlay"><i class="fa-solid fa-code chat-pdf-bubble__icon" style="color:#e67e22"></i></div>
+        </div>
+        <div class="chat-pdf-bubble__footer">
+          <div class="chat-pdf-bubble__info">
+            <div class="chat-pdf-bubble__name">${safeName}</div>
+            <div class="chat-pdf-bubble__meta"><span class="chat-pdf-bubble__size">${size}</span><span>HTML</span></div>
+          </div>
+          ${dlHtml}
+        </div>
+      </div>`;
+  }
+
+  // חלק קובץ כללי (chat-media-renderer.js) – זיהוי קובץ טורנט/כללי שאינו תמונה/וידאו/אודיו | HYPER CORE TECH
+  function isTorrentFileAttachment(attachment) {
+    if (!attachment) return false;
+    return !!(attachment.isTorrent && attachment.magnetURI);
+  }
+
+  function isGenericFileAttachment(attachment) {
+    if (!attachment) return false;
+    if (isImageAttachment(attachment) || isVideoAttachment(attachment)) return false;
+    const mime = (attachment.type || '').toLowerCase();
+    if (mime.startsWith('audio/')) return false;
+    // קובץ כללי: PDF, ZIP, TXT, DOC וכו'
+    return !!(attachment.name || attachment.magnetURI || attachment.url || attachment.dataUrl);
+  }
+
+  // חלק אייקון קובץ (chat-media-renderer.js) – בחירת אייקון FontAwesome לפי סיומת/MIME | HYPER CORE TECH
+  function getFileIcon(attachment) {
+    const name = (attachment.name || '').toLowerCase();
+    const mime = (attachment.type || '').toLowerCase();
+    if (name.endsWith('.pdf') || mime === 'application/pdf') return 'fa-file-pdf';
+    if (name.endsWith('.doc') || name.endsWith('.docx') || mime.includes('word')) return 'fa-file-word';
+    if (name.endsWith('.xls') || name.endsWith('.xlsx') || mime.includes('spreadsheet') || mime.includes('excel')) return 'fa-file-excel';
+    if (name.endsWith('.ppt') || name.endsWith('.pptx') || mime.includes('presentation')) return 'fa-file-powerpoint';
+    if (name.endsWith('.zip') || name.endsWith('.rar') || name.endsWith('.7z') || name.endsWith('.tar') || name.endsWith('.gz') || mime.includes('zip') || mime.includes('compressed') || mime.includes('archive')) return 'fa-file-zipper';
+    if (name.endsWith('.txt') || name.endsWith('.csv') || name.endsWith('.log') || mime.startsWith('text/')) return 'fa-file-lines';
+    if (name.endsWith('.json') || name.endsWith('.xml') || name.endsWith('.html') || name.endsWith('.css') || name.endsWith('.js') || name.endsWith('.py')) return 'fa-file-code';
+    if (name.endsWith('.apk')) return 'fa-robot';
+    if (name.endsWith('.exe') || name.endsWith('.msi')) return 'fa-desktop';
+    return 'fa-file';
+  }
+
+  // חלק פורמט גודל (chat-media-renderer.js) – המרת bytes לפורמט קריא | HYPER CORE TECH
+  function formatSize(bytes) {
+    if (!bytes || bytes === 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // חלק רנדור קובץ כללי (chat-media-renderer.js) – בועת קובץ בסגנון WhatsApp עם אייקון, שם, גודל וכפתור הורדה | HYPER CORE TECH
+  function renderGenericFileAttachment(attachment) {
+    const name = attachment.name || 'קובץ';
+    const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
+    const size = formatSize(attachment.size);
+    const iconClass = getFileIcon(attachment);
+    const magnetURI = attachment.magnetURI || '';
+    const dataUrl = attachment.dataUrl || attachment.url || '';
+
+    // כפתור הורדה — לקבצי טורנט או DataURL
+    let downloadHtml = '';
+    if (magnetURI) {
+      const escapedMagnet = magnetURI.replace(/"/g, '&quot;');
+      const escapedName = safeName.replace(/'/g, "\\'");
+      downloadHtml = `<button class="chat-file-bubble__download torrent-bubble__download-btn" data-magnet="${escapedMagnet}" data-filename="${escapedName}" title="הורד קובץ"><i class="fa-solid fa-download"></i></button>`;
+    } else if (dataUrl) {
+      downloadHtml = `<a class="chat-file-bubble__download" href="${dataUrl}" download="${safeName}" title="הורד קובץ"><i class="fa-solid fa-download"></i></a>`;
+    }
+
+    return `
+      <div class="chat-file-bubble">
+        <div class="chat-file-bubble__icon"><i class="fa-solid ${iconClass}"></i></div>
+        <div class="chat-file-bubble__info">
+          <div class="chat-file-bubble__name">${safeName}</div>
+          <div class="chat-file-bubble__size">${size}</div>
+        </div>
+        ${downloadHtml}
+      </div>
+    `;
+  }
+
+  // חלק API ציבורי (chat-media-renderer.js) – חשיפת פונקציות לרינדור מדיה וקבצים כלליים | HYPER CORE TECH
   Object.assign(App, {
     isImageAttachment,
     isVideoAttachment,
+    isPdfAttachment,
+    isHtmlAttachment,
+    isTorrentFileAttachment,
+    isGenericFileAttachment,
     renderImageAttachment,
     renderVideoAttachment,
+    renderPdfAttachment,
+    renderHtmlAttachment,
+    renderGenericFileAttachment,
     detectAndRenderYouTube,
     extractYouTubeId,
     openImageLightbox,
+    getFileIcon,
     // מטמון מדיה צ'אט | HYPER CORE TECH
     fetchAndCacheChatMedia: fetchAndCacheMedia,
     getChatMediaFromCache

@@ -1260,3 +1260,239 @@
 .chat-dialog__btn--confirm:active {
   transform: translateY(0);
 }
+
+/* חלק בועת קובץ כללי (chat-enhanced-styles.css) – עיצוב בסגנון WhatsApp לקבצי ZIP/PDF/TXT וכו' | HYPER CORE TECH */
+.chat-file-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  min-width: 200px;
+  max-width: 300px;
+  margin: 4px 0;
+}
+.chat-file-bubble__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(0,168,132,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: #00a884;
+}
+.chat-file-bubble__info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.chat-file-bubble__name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #e9edef;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-file-bubble__size {
+  font-size: 0.75rem;
+  color: #8696a0;
+  margin-top: 2px;
+}
+.chat-file-bubble__download {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0,168,132,0.2);
+  border: none;
+  color: #00a884;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.15s;
+  text-decoration: none;
+}
+.chat-file-bubble__download:hover {
+  background: rgba(0,168,132,0.35);
+  transform: scale(1.08);
+}
+.chat-file-bubble__download:active {
+  transform: scale(0.95);
+}
+
+/* חלק בועת כשלון הורדה (chat-enhanced-styles.css) – עיצוב בועת כשלון + כפתור 'ניסיון שוב' | HYPER CORE TECH */
+.torrent-bubble--failed {
+  border: 1px solid rgba(231, 76, 60, 0.35) !important;
+  background: rgba(231, 76, 60, 0.06) !important;
+}
+.torrent-bubble--failed .torrent-bubble__header {
+  color: #e74c3c;
+}
+.torrent-bubble__retry-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,168,132,0.3);
+  background: rgba(0,168,132,0.12);
+  color: #00a884;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.torrent-bubble__retry-btn:hover {
+  background: rgba(0,168,132,0.25);
+  transform: scale(1.02);
+}
+.torrent-bubble__retry-btn:active {
+  transform: scale(0.97);
+}
+
+/* חלק אנימציית retry (chat-enhanced-styles.css) – סיבוב אייקון בזמן ניסיון חוזר | HYPER CORE TECH */
+.torrent-bubble__retry-btn .fa-rotate-right {
+  transition: transform 0.3s;
+}
+.torrent-bubble__retry-btn:hover .fa-rotate-right {
+  transform: rotate(180deg);
+}
+
+/* חלק אישור שליחה (chat-enhanced-styles.css) – סטטוס שליחה בבועת טורנט יוצאת | HYPER CORE TECH */
+.chat-message--torrent-transfer .torrent-bubble__action {
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.chat-message--torrent-completed .torrent-bubble__action {
+  color: #00a884;
+}
+.chat-message--torrent-failed .torrent-bubble__action,
+.chat-message--torrent-error .torrent-bubble__action {
+  color: #e74c3c;
+}
+
+/* חלק תצוגת PDF (chat-enhanced-styles.css) – בועת תצוגה מקדימה של PDF בסגנון WhatsApp | HYPER CORE TECH */
+.chat-pdf-bubble {
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.15);
+  max-width: 300px;
+  min-width: 200px;
+}
+.chat-pdf-bubble__preview {
+  position: relative;
+  background: #fff;
+  min-height: 120px;
+  max-height: 380px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-pdf-bubble__canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.chat-pdf-bubble__canvas--loaded {
+  opacity: 1;
+}
+.chat-pdf-bubble__overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  pointer-events: none;
+}
+.chat-pdf-bubble__icon {
+  font-size: 1.6rem;
+  color: #e74c3c;
+  background: rgba(255,255,255,0.85);
+  border-radius: 6px;
+  padding: 4px 7px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.chat-pdf-bubble__footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(0,40,30,0.35);
+}
+.chat-pdf-bubble__info {
+  flex: 1;
+  min-width: 0;
+  direction: rtl;
+}
+.chat-pdf-bubble__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-pdf-bubble__meta {
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #a0a0a0;
+  margin-top: 2px;
+}
+.chat-pdf-bubble__download {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #00a884;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+.chat-pdf-bubble__download:hover { background: #00c896; transform: scale(1.08); }
+.chat-pdf-bubble__download:active { transform: scale(0.95); }
+
+/* חלק תצוגת HTML (chat-enhanced-styles.css) – iframe sandbox בסגנון זהה ל-PDF preview | HYPER CORE TECH */
+.chat-html-bubble__preview {
+  position: relative;
+  background: #fff;
+  min-height: 120px;
+  max-height: 380px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.chat-html-bubble__frame {
+  display: block;
+  width: 100%;
+  height: 300px;
+  border: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.chat-html-bubble__frame--loaded { opacity: 1; }
+
+/* חלק סטטוסי בועת progress (chat-enhanced-styles.css) – צבעי סטטוס לבועת התקדמות השולח | HYPER CORE TECH */
+.chat-transfer-bubble__status.chat-transfer-bubble--success { color: #00a884; }
+.chat-transfer-bubble__status.chat-transfer-bubble--warn { color: #f0a500; }
+.chat-transfer-bubble__status.chat-transfer-bubble--retry { color: #5dade2; }
+.chat-transfer-bubble__status.chat-transfer-bubble--failed { color: #e74c3c; font-weight: 600; }

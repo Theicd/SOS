@@ -122,7 +122,8 @@
       <button type="button" class="chat-composer__action-btn" id="chatAttachButton" title="צרף קובץ" aria-label="צרף קובץ">
         <i class="fa-solid fa-paperclip"></i>
       </button>
-      <input type="file" id="chatFileInput" accept="image/*,video/*,audio/*,.pdf,.doc,.docx" style="display:none">
+      <!-- חלק אטב (chat-composer-enhanced.js) – תומך בכל סוגי הקבצים: DC ישיר / WebTorrent P2P / Blossom (למדיה) | HYPER CORE TECH -->
+      <input type="file" id="chatFileInput" style="display:none">
     `;
     
     // הוספת הכפתורים לפני ה-input

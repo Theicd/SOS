@@ -171,28 +171,48 @@
   }
 
 
-  // חלק P2P קול (chat-voice-service.js) – finalizeVoiceToChat: seed טורנט + Blossom במקביל, בלי פינג (חוסך 2 קריאות ריליי) | HYPER CORE TECH
+  // חלק P2P קול (chat-voice-service.js) – finalizeVoiceToChat: אופטימיזציה חכמה — P2P קודם, Blossom רק כ-fallback | HYPER CORE TECH
   async function finalizeVoiceToChat(peerPubkey){
     if(!peerPubkey) throw new Error('missing-peer');
     const result = await stopVoiceRecording();
     if(!result) return null;
 
-    // חלק seed+blossom (chat-voice-service.js) – זריעת טורנט + העלאה ל-Blossom במקביל. המקבל ינסה P2P קודם ויעבור ל-Blossom אם צריך | HYPER CORE TECH
-    console.log('[VOICE/P2P] � מתחיל seed + Blossom במקביל...');
-    const [magnetURI, attachment] = await Promise.all([
-      seedVoiceForP2P(result.blob, result.mimeType),
-      buildAttachmentFromBlob(result.blob, result.duration, result.mimeType)
-    ]);
+    const dcConnected = App.dataChannel?.isConnected?.(peerPubkey) || false;
 
-    // הוספת magnetURI ל-attachment כדי שהמקבל יוכל לנסות P2P לפני Blossom
-    if (magnetURI) {
-      attachment.magnetURI = magnetURI;
-      console.log('[VOICE/P2P] ✅ Blossom + P2P magnetURI מוכנים (המקבל ינסה P2P קודם)');
-    } else {
-      console.log('[VOICE/P2P] ⬇️ Seed נכשל – שולח דרך Blossom בלבד');
+    // חלק אופטימיזציה P2P (chat-voice-service.js) – כש-DC מחובר + קובץ גדול: P2P seed קודם, Blossom רק אם נכשל | HYPER CORE TECH
+    if (dcConnected && result.blob.size > MAX_INLINE_BYTES) {
+      console.log('[VOICE/P2P] ⚡ DC מחובר + קובץ גדול → P2P seed קודם (חוסך Blossom)');
+      const magnetURI = await seedVoiceForP2P(result.blob, result.mimeType);
+      if (magnetURI) {
+        const ext = getFileExtension(result.mimeType || 'audio/webm');
+        const fileName = `voice-message.${ext}`;
+        const attachment = { id: 'audio-'+Date.now(), name: fileName, size: result.blob.size, type: result.mimeType || 'audio/webm', dataUrl: '', url: '', duration: result.duration, magnetURI };
+        console.log('[VOICE/P2P] ✅ P2P seed הצליח! שולח עם magnetURI בלבד (ללא Blossom)');
+        if(typeof App.setChatFileAttachment === 'function') App.setChatFileAttachment(peerPubkey, attachment);
+        return attachment;
+      }
+      console.log('[VOICE/P2P] ⬇️ P2P seed נכשל עם DC מחובר → fallback ל-Blossom');
     }
 
-    console.log('[VOICE] Final attachment:', attachment);
+    // חלק fallback (chat-voice-service.js) – Torrent קודם, Blossom רק אם Torrent נכשל | HYPER CORE TECH
+    // שלב 1: ננסה Torrent seed קודם (גם אם DC לא מחובר — המקבל יוריד דרך tracker)
+    console.log('[VOICE/P2P] 🔄 מנסה Torrent seed קודם (DC:', dcConnected ? 'מחובר' : 'לא מחובר', ', גודל:', result.blob.size, ')');
+    const magnetURI = await seedVoiceForP2P(result.blob, result.mimeType);
+
+    if (magnetURI) {
+      // שלב 1 הצליח — Torrent בלבד, ללא Blossom!
+      const ext = getFileExtension(result.mimeType || 'audio/webm');
+      const fileName = `voice-message.${ext}`;
+      const attachment = { id: 'audio-'+Date.now(), name: fileName, size: result.blob.size, type: result.mimeType || 'audio/webm', dataUrl: '', url: '', duration: result.duration, magnetURI };
+      console.log('[VOICE/P2P] ✅ Torrent seed הצליח! שולח עם magnetURI בלבד (ללא Blossom)');
+      if(typeof App.setChatFileAttachment === 'function') App.setChatFileAttachment(peerPubkey, attachment);
+      return attachment;
+    }
+
+    // שלב 2: Torrent נכשל — fallback אחרון ל-Blossom
+    console.log('[VOICE/P2P] ⬇️ Torrent seed נכשל → fallback ל-Blossom');
+    const attachment = await buildAttachmentFromBlob(result.blob, result.duration, result.mimeType);
+    console.log('[VOICE] Final attachment (Blossom fallback):', attachment);
     if(typeof App.setChatFileAttachment === 'function'){
       App.setChatFileAttachment(peerPubkey, attachment);
     }

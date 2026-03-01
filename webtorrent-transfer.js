@@ -41,6 +41,41 @@
     return getProcessedRequests().has(key);
   }
 
+  // חלק dedup העברה פעילה (webtorrent-transfer.js) – איתור הורדה פעילה לפי magnet כדי למנוע פתיחה כפולה | HYPER CORE TECH
+  function findActiveTransferByMagnet(magnetURI) {
+    if (!magnetURI) return null;
+    for (const [transferId, transfer] of activeTransfers.entries()) {
+      if (transfer?.type !== 'receive') continue;
+      if (transfer?.status === 'error' || transfer?.status === 'cancelled' || transfer?.status === 'completed') continue;
+      if (transfer?.magnetURI === magnetURI) {
+        return transferId;
+      }
+    }
+    return null;
+  }
+
+  // חלק ניקוי auto-start (webtorrent-transfer.js) – שחרור מגנט מסומן כדי למנוע כפתור "מוריד..." תקוע אחרי סיום/כשל | HYPER CORE TECH
+  function clearAutoStartedMagnet(magnetURI, reason) {
+    if (!magnetURI) {
+      return;
+    }
+
+    let removed = false;
+    if (App._autoStartedTorrentMagnets instanceof Set) {
+      removed = App._autoStartedTorrentMagnets.delete(magnetURI);
+    }
+
+    if (removed) {
+      const magnetLabel = typeof magnetURI === 'string' ? `${magnetURI.slice(0, 48)}...` : 'unknown-magnet';
+      console.log('[TORRENT] 🧹 Cleared auto-start magnet:', reason || 'completed', magnetLabel);
+    }
+
+    // חלק סנכרון UI (webtorrent-transfer.js) – מרענן מצב כפתורים גם אם המגנט לא נמצא בסט כדי לשחרר כפתורים תקועים | HYPER CORE TECH
+    if (typeof App.syncTorrentDownloadButtons === 'function') {
+      App.syncTorrentDownloadButtons();
+    }
+  }
+
   // חלק אתחול (webtorrent-transfer.js) – יצירת WebTorrent client | HYPER CORE TECH
   function initClient() {
     if (client) return client;
@@ -96,6 +131,13 @@
     const s = Math.floor(seconds % 60);
     if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // חלק עזר טורנט (webtorrent-transfer.js) – חילוץ infoHash מ-magnetURI כדי לתמוך בבקשות ללא infoHash מפורש | HYPER CORE TECH
+  function extractInfoHashFromMagnet(magnetURI) {
+    if (!magnetURI || typeof magnetURI !== 'string') return '';
+    const match = magnetURI.match(/\bxt=urn:btih:([a-zA-Z0-9]+)/i);
+    return match?.[1] ? match[1].toLowerCase() : '';
   }
 
   // חלק התקדמות (webtorrent-transfer.js) – עדכון מאזינים על התקדמות | HYPER CORE TECH
@@ -289,6 +331,11 @@
       console.log('[TORRENT] Not a torrent request, ignoring');
       return false;
     }
+
+    if (!request.magnetURI) {
+      console.warn('[TORRENT] ❌ Request missing magnetURI, cannot auto-download');
+      return false;
+    }
     
     // בדיקה אם זה השולח עצמו - לא מציגים דיאלוג אישור לעצמו
     const myPubkey = App.chatState?.myPubkey || App.pubkey || App.publicKey || window.nostr?.getPublicKey?.() || '';
@@ -306,13 +353,18 @@
       }
     }
 
+    // חלק normalize request (webtorrent-transfer.js) – השלמת infoHash ומפתח dedup יציב לבקשות attachment/JSON | HYPER CORE TECH
+    const normalizedInfoHash = (request.infoHash || extractInfoHashFromMagnet(request.magnetURI) || '').toLowerCase();
+    const dedupBase = normalizedInfoHash || request.transferId || request.magnetURI || `${request.fileName || 'file'}_${request.fileSize || 0}`;
+
     // בדיקת כפילויות - אם כבר טיפלנו בבקשה הזו, לא מתחילים הורדה חדשה
     // אבל ההודעה עדיין תוצג ב-renderMessages כי היא נשמרת בהיסטוריית ההודעות
-    const requestKey = `${request.infoHash}_${fromPeer}`;
+    const requestKey = `${dedupBase}_${(fromPeer || '').toLowerCase()}`;
     const alreadyProcessed = isRequestProcessed(requestKey);
     
     if (alreadyProcessed) {
-      console.log('[TORRENT] ⏭️ Request already processed, skipping download (message will still show in chat):', request.infoHash?.slice(0, 12));
+      console.log('[TORRENT] ⏭️ Request already processed, skipping download (message will still show in chat):', String(dedupBase).slice(0, 24));
+      clearAutoStartedMagnet(request.magnetURI, 'request-already-processed');
       return true; // מחזירים true כי ההודעה תקינה, רק לא מתחילים הורדה חדשה
     }
     
@@ -322,11 +374,11 @@
     console.log('[TORRENT] 📁 File:', request.fileName, '- Size:', formatFileSize(request.fileSize));
     console.log('[TORRENT] 🧲 Magnet:', request.magnetURI?.slice(0, 60) + '...');
 
-    const transferId = `recv_${request.infoHash}_${Date.now()}`;
+    const transferId = `recv_${normalizedInfoHash || 'nohash'}_${Date.now()}`;
     
     pendingRequests.set(transferId, {
       magnetURI: request.magnetURI,
-      infoHash: request.infoHash,
+      infoHash: normalizedInfoHash,
       fileName: request.fileName,
       fileSize: request.fileSize,
       fromPeer,
@@ -470,6 +522,7 @@
     if (!wt) {
       console.error('[TORRENT] ❌ WebTorrent client not available');
       notifyProgress(transferId, { type: 'receive', status: 'error', error: 'WebTorrent not available' });
+      clearAutoStartedMagnet(pending.magnetURI, 'approveTransfer-no-client');
       return false;
     }
 
@@ -497,6 +550,7 @@
           type: 'receive',
           peer: pending.fromPeer,
           status: 'downloading',
+          magnetURI: pending.magnetURI,
           fileName: pending.fileName,
           fileSize: pending.fileSize,
           progress: 0,
@@ -553,12 +607,33 @@
               downloadFile(url, file.name);
             });
           });
+
+          // חלק ניקוי מצב הורדה (webtorrent-transfer.js) – מנקה רשומת transfer ומגנט auto-start אחרי השלמה | HYPER CORE TECH
+          setTimeout(() => {
+            const doneTransfer = activeTransfers.get(transferId);
+            if (doneTransfer?.torrent) {
+              try {
+                doneTransfer.torrent.destroy();
+              } catch {}
+            }
+            activeTransfers.delete(transferId);
+            clearAutoStartedMagnet(pending.magnetURI, 'approveTransfer-completed');
+          }, 5000);
         });
 
         torrent.on('error', (err) => {
           console.error('[TORRENT] Download error:', err);
           const transfer = activeTransfers.get(transferId);
-          if (transfer) transfer.status = 'error';
+          if (transfer) {
+            transfer.status = 'error';
+            if (transfer.torrent) {
+              try {
+                transfer.torrent.destroy();
+              } catch {}
+            }
+          }
+          activeTransfers.delete(transferId);
+          clearAutoStartedMagnet(pending.magnetURI, 'approveTransfer-error');
           notifyProgress(transferId, { type: 'receive', status: 'error', error: err.message });
         });
       });
@@ -567,6 +642,7 @@
     } catch (err) {
       console.error('[TORRENT] Add torrent failed:', err);
       notifyProgress(transferId, { type: 'receive', status: 'error', error: err.message });
+      clearAutoStartedMagnet(pending.magnetURI, 'approveTransfer-add-failed');
       return false;
     }
   }
@@ -576,6 +652,7 @@
     const pending = pendingRequests.get(transferId);
     if (pending) {
       pendingRequests.delete(transferId);
+      clearAutoStartedMagnet(pending.magnetURI, 'rejectTransfer');
       notifyProgress(transferId, {
         type: 'receive',
         status: 'rejected',
@@ -591,11 +668,13 @@
     if (!transfer) return false;
 
     try {
+      const magnetURI = transfer.magnetURI || '';
       if (transfer.torrent) {
         transfer.torrent.destroy();
       }
       transfer.status = 'cancelled';
       activeTransfers.delete(transferId);
+      clearAutoStartedMagnet(magnetURI, 'cancelTransfer');
 
       notifyProgress(transferId, {
         type: transfer.type,
@@ -825,6 +904,7 @@
       bubble = document.createElement('div');
       createdBubble = true;
       bubble.className = `chat-message ${directionClass} chat-message--torrent-transfer chat-message--torrent-active`;
+      bubble.setAttribute('data-torrent-transfer', transferId);
       bubble.innerHTML = `
         <div class="chat-message__content chat-message__content--torrent">
           <div class="torrent-bubble">
@@ -1112,6 +1192,7 @@
       fileName: t.fileName,
       fileSize: t.fileSize,
       progress: t.progress,
+      magnetURI: t.magnetURI || '',
       peer: t.peer
     }));
   }
@@ -1136,6 +1217,14 @@
     });
     activeTransfers.clear();
     pendingRequests.clear();
+
+    // חלק ניקוי UI טורנט (webtorrent-transfer.js) – איפוס מגנטים מסומנים אחרי cleanup כדי לשחרר כפתורי "מוריד..." | HYPER CORE TECH
+    if (App._autoStartedTorrentMagnets instanceof Set && App._autoStartedTorrentMagnets.size > 0) {
+      App._autoStartedTorrentMagnets.clear();
+      if (typeof App.syncTorrentDownloadButtons === 'function') {
+        App.syncTorrentDownloadButtons();
+      }
+    }
     
     if (client) {
       try {
@@ -1158,41 +1247,89 @@
     return false;
   }
 
-  // חלק הורדת קובץ מטורנט (webtorrent-transfer.js) – הורדת קובץ מ-magnet URI | HYPER CORE TECH
-  function downloadTorrentFile(magnetURI, fileName) {
+  // חלק הורדת קובץ מטורנט (webtorrent-transfer.js) – הורדת קובץ מ-magnet URI עם retry אוטומטי | HYPER CORE TECH
+  const DL_MAX_RETRIES = 3;          // מספר ניסיונות הורדה מקסימלי
+  const DL_RETRY_DELAY_MS = 3000;    // השהייה בין ניסיונות (ms)
+  const DL_CONNECT_TIMEOUT_MS = 30000; // timeout לחיבור ראשוני לפני retry (ms)
+
+  function downloadTorrentFile(magnetURI, fileName, _attempt) {
+    const attempt = _attempt || 1;
     if (!magnetURI) {
       console.error('[TORRENT] No magnet URI provided');
       return;
     }
-    
+
+    // חלק מניעת פתיחה כפולה (webtorrent-transfer.js) – אם כבר יש הורדה פעילה לאותו magnet, לא מתחילים שוב | HYPER CORE TECH
+    if (attempt === 1) {
+      if (!(App._autoStartedTorrentMagnets instanceof Set)) {
+        App._autoStartedTorrentMagnets = new Set();
+      }
+      App._autoStartedTorrentMagnets.add(magnetURI);
+      if (typeof App.syncTorrentDownloadButtons === 'function') {
+        App.syncTorrentDownloadButtons();
+      }
+      const existingTransferId = findActiveTransferByMagnet(magnetURI);
+      if (existingTransferId) {
+        console.log('[TORRENT] ⏭️ Download already active for magnet, reusing transfer:', existingTransferId);
+        showTransferProgressUI(existingTransferId);
+        return existingTransferId;
+      }
+    }
+
     initClient();
     if (!client) {
       console.error('[TORRENT] Failed to init WebTorrent client');
+      clearAutoStartedMagnet(magnetURI, 'download-init-failed');
       return;
     }
-    
-    console.log('[TORRENT] 📥 Starting download from magnet:', magnetURI.slice(0, 60) + '...');
-    
-    const transferId = 'download_' + Date.now();
-    
+
+    const attemptLabel = DL_MAX_RETRIES > 1 ? ` (${attempt}/${DL_MAX_RETRIES})` : '';
+    console.log(`[TORRENT] 📥 הורדה${attemptLabel}:`, magnetURI.slice(0, 60) + '...');
+
+    const transferId = 'download_' + Date.now() + '_' + attempt;
+
+    // חלק timeout חיבור (webtorrent-transfer.js) – אם אין peers אחרי X שניות, retry אוטומטי | HYPER CORE TECH
+    let connected = false;
+    let completed = false;
+    const connectTimer = setTimeout(() => {
+      if (connected || completed) return;
+      console.warn(`[TORRENT] ⏱️ Timeout — לא נמצאו peers אחרי ${DL_CONNECT_TIMEOUT_MS / 1000}s${attemptLabel}`);
+      // הריסת הטורנט הנוכחי וניסיון חוזר
+      const t = activeTransfers.get(transferId);
+      if (t?.torrent) { try { t.torrent.destroy(); } catch {} }
+      activeTransfers.delete(transferId);
+      if (attempt < DL_MAX_RETRIES) {
+        notifyProgress(transferId, { type: 'receive', status: 'retrying', fileName, attempt, maxRetries: DL_MAX_RETRIES });
+        setTimeout(() => downloadTorrentFile(magnetURI, fileName, attempt + 1), DL_RETRY_DELAY_MS);
+      } else {
+        // חלק כשלון הורדה סופי (webtorrent-transfer.js) – הצגת בועת כשלון עם כפתור ניסיון שוב | HYPER CORE TECH
+        console.error('[TORRENT] ❌ הורדה נכשלה אחרי', DL_MAX_RETRIES, 'ניסיונות');
+        clearAutoStartedMagnet(magnetURI, 'download-timeout-final-fail');
+        _showDownloadFailedBubble(magnetURI, fileName);
+      }
+    }, DL_CONNECT_TIMEOUT_MS);
+
     // הוספת הטורנט
-    client.add(magnetURI, { 
+    client.add(magnetURI, {
       announce: CONFIG.trackers,
       maxWebConns: CONFIG.maxConnections
     }, (torrent) => {
-      console.log('[TORRENT] ✅ Torrent added, files:', torrent.files.length);
-      
+      connected = true;
+      clearTimeout(connectTimer);
+      console.log(`[TORRENT] ✅ Torrent added${attemptLabel}, files:`, torrent.files.length);
+
       activeTransfers.set(transferId, {
         torrent,
         type: 'receive',
+        magnetURI,
         fileName: fileName || torrent.files[0]?.name || 'file',
         fileSize: torrent.length,
         status: 'downloading'
       });
-      
+
       // הצגת התקדמות בבועת הודעה
       showTransferProgressUI(transferId);
-      
+
       // עדכון התקדמות
       torrent.on('download', () => {
         const progress = Math.round(torrent.progress * 100);
@@ -1207,12 +1344,12 @@
           total: torrent.length
         });
       });
-      
+
       // סיום הורדה
       torrent.on('done', () => {
-        console.log('[TORRENT] ✅ Download complete!');
-        
-        // שמירת הקובץ
+        completed = true;
+        console.log('[TORRENT] ✅ הורדה הושלמה!');
+
         const file = torrent.files[0];
         if (file) {
           file.getBlobURL((err, url) => {
@@ -1220,44 +1357,72 @@
               console.error('[TORRENT] Failed to get blob URL:', err);
               return;
             }
-            
-            // יצירת לינק להורדה
             const a = document.createElement('a');
             a.href = url;
             a.download = fileName || file.name;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            
-            // ניקוי URL
             setTimeout(() => URL.revokeObjectURL(url), 1000);
           });
         }
-        
-        notifyProgress(transferId, {
-          type: 'receive',
-          status: 'completed',
-          progress: 100
-        });
-        
-        // ניקוי
+
+        notifyProgress(transferId, { type: 'receive', status: 'completed', progress: 100, fileName });
+
         setTimeout(() => {
           activeTransfers.delete(transferId);
           torrent.destroy();
+          clearAutoStartedMagnet(magnetURI, 'download-completed');
         }, 5000);
       });
-      
+
       torrent.on('error', (err) => {
-        console.error('[TORRENT] Download error:', err);
-        notifyProgress(transferId, {
-          type: 'receive',
-          status: 'error',
-          error: err.message
-        });
+        console.error(`[TORRENT] ❌ שגיאת הורדה${attemptLabel}:`, err);
+        clearTimeout(connectTimer);
+        const t = activeTransfers.get(transferId);
+        if (t?.torrent) { try { t.torrent.destroy(); } catch {} }
+        activeTransfers.delete(transferId);
+        if (attempt < DL_MAX_RETRIES) {
+          notifyProgress(transferId, { type: 'receive', status: 'retrying', fileName, attempt, maxRetries: DL_MAX_RETRIES, error: err.message });
+          setTimeout(() => downloadTorrentFile(magnetURI, fileName, attempt + 1), DL_RETRY_DELAY_MS);
+        } else {
+          clearAutoStartedMagnet(magnetURI, 'download-error-final-fail');
+          _showDownloadFailedBubble(magnetURI, fileName);
+        }
       });
     });
   }
-  
+
+  // חלק בועת כשלון הורדה (webtorrent-transfer.js) – הצגת בועה עם כפתור 'ניסיון שוב' בצד המקבל | HYPER CORE TECH
+  function _showDownloadFailedBubble(magnetURI, fileName) {
+    const container = document.getElementById('chatMessages');
+    if (!container) return;
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-message chat-message--incoming chat-message--torrent-failed';
+    const safeName = typeof App.escapeHtml === 'function' ? App.escapeHtml(fileName || 'קובץ') : (fileName || 'קובץ');
+    const safeMagnet = typeof App.escapeHtml === 'function' ? App.escapeHtml(magnetURI) : magnetURI;
+    bubble.innerHTML = `
+      <div class="chat-message__content chat-message__content--torrent">
+        <div class="torrent-bubble torrent-bubble--failed">
+          <div class="torrent-bubble__header"><i class="fa-solid fa-triangle-exclamation"></i> <span class="torrent-bubble__action">ההורדה נכשלה</span></div>
+          <div class="torrent-bubble__file">
+            <i class="fa-solid fa-file"></i>
+            <div class="torrent-bubble__file-info">
+              <span class="torrent-bubble__file-name">${safeName}</span>
+              <span class="torrent-bubble__file-size" style="color:#e74c3c;">לא ניתן להוריד כרגע</span>
+            </div>
+          </div>
+          <button type="button" class="torrent-bubble__retry-btn" data-retry-magnet="${safeMagnet}" data-retry-filename="${safeName}">
+            <i class="fa-solid fa-rotate-right"></i> ניסיון שוב
+          </button>
+        </div>
+        <div class="chat-message__time">${new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</div>
+      </div>
+    `;
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+  }
+
   // חשיפה גלובלית לשימוש מ-chat-ui.js
   App.downloadTorrentFile = downloadTorrentFile;
 
@@ -1266,6 +1431,7 @@
     init: initClient,
     sendFile: showSendFileDialog,
     requestTransfer: requestFileTransfer,
+    seedOnly: seedFile,              // seed בלבד — ללא UI ובלי שליחת הודעה (לשימוש fallbackToTorrent)
     approveTransfer,
     rejectTransfer,
     cancelTransfer,

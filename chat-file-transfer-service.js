@@ -9,6 +9,16 @@
   // חלק תיקון קול ארוך (chat-file-transfer-service.js) – הגדלת סף inline ל-256KB לתמיכה בהודעות קוליות ארוכות | HYPER CORE TECH
   const MAX_INLINE_SIZE = 256 * 1024;
 
+  // חלק חישוב גודל (chat-file-transfer-service.js) – הערכת גודל dataUrl בבתים במקום length גולמי | HYPER CORE TECH
+  function estimateDataUrlBytes(dataUrl) {
+    if (!dataUrl || typeof dataUrl !== 'string') return 0;
+    const commaIndex = dataUrl.indexOf(',');
+    if (commaIndex === -1) return 0;
+    const base64 = dataUrl.slice(commaIndex + 1);
+    const pad = base64.endsWith('==') ? 2 : (base64.endsWith('=') ? 1 : 0);
+    return Math.max(0, Math.floor((base64.length * 3) / 4) - pad);
+  }
+
   function getActiveAttachment(peerPubkey) {
     if (typeof App.getChatFileAttachment !== 'function') {
       return null;
@@ -34,9 +44,16 @@
       url: attachment.url || '',
       duration: typeof attachment.duration === 'number' ? attachment.duration : undefined,
     };
-    // חלק P2P קול (chat-file-transfer-service.js) – הוספת magnetURI לסריאליזציה כדי לאפשר הורדת אודיו מטורנט | HYPER CORE TECH
+    // חלק P2P קול+קבצים (chat-file-transfer-service.js) – הוספת magnetURI ו-isTorrent לסריאליזציה לתמיכה באודיו וקבצים כלליים דרך טורנט | HYPER CORE TECH
     if (attachment.magnetURI) {
       serialized.magnetURI = attachment.magnetURI;
+    }
+    // חלק טורנט (chat-file-transfer-service.js) – שומרים infoHash כדי לאפשר זיהוי בקשה והורדה אוטומטית בצד המקבל | HYPER CORE TECH
+    if (attachment.infoHash) {
+      serialized.infoHash = attachment.infoHash;
+    }
+    if (attachment.isTorrent) {
+      serialized.isTorrent = true;
     }
     return serialized;
   }
@@ -51,11 +68,16 @@
     };
     try {
       const packed = JSON.stringify(payload);
-      if (payload.a && payload.a.dataUrl && payload.a.dataUrl.length > MAX_INLINE_SIZE) {
+      const attachmentSize = typeof payload?.a?.size === 'number' ? payload.a.size : 0;
+      const dataUrlSize = payload?.a?.dataUrl ? estimateDataUrlBytes(payload.a.dataUrl) : 0;
+      const inlineSizeBytes = Math.max(attachmentSize, dataUrlSize);
+      if (payload.a && payload.a.dataUrl && inlineSizeBytes > MAX_INLINE_SIZE) {
+        const sizeKb = Math.ceil(inlineSizeBytes / 1024);
+        const limitKb = Math.ceil(MAX_INLINE_SIZE / 1024);
         App.notifyChatFileTransferError?.({
           peer: peerPubkey,
           code: 'attachment-too-large',
-          message: 'גודל הקובץ המצורף חורג מהמגבלה לשליחה דרך ההודעה.',
+          message: `גודל הקובץ (${sizeKb}KB) חורג ממגבלת inline (${limitKb}KB). נסה שוב בעוד רגע.`,
         });
         return null;
       }

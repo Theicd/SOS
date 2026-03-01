@@ -1,6 +1,17 @@
 // חלק נגן אודיו (chat-audio-player.js) – נגן אודיו משודרג לצ'אט עם waveform, seek, buffering, נגישות | HYPER CORE TECH
 (function initChatAudioPlayer(window) {
   const App = window.NostrApp || (window.NostrApp = {});
+  // חלק דיבאג אודיו (chat-audio-player.js) – לוגים לפי localStorage sos_debug_media | HYPER CORE TECH
+  if (typeof App.mediaDebugLog !== 'function') {
+    App.mediaDebugLog = (...args) => {
+      try {
+        if (localStorage.getItem('sos_debug_media') === '1') {
+          console.log('[MEDIA-DEBUG]', ...args);
+        }
+      } catch (_) {}
+    };
+  }
+  const mediaDebugLog = App.mediaDebugLog;
   
   // חלק עיצוב (chat-audio-player.js) – HTML משודרג לנגן אודיו בסגנון וואטסאפ | HYPER CORE TECH
   function createEnhancedAudioPlayer(attachment) {
@@ -37,11 +48,18 @@
     // חלק P2P קול (chat-audio-player.js) – שמירת magnetURI כ-data attribute לטעינת P2P | HYPER CORE TECH
     const magnetUri = attachment.magnetURI || '';
     const fallbackSrc = src;
+    // חלק דיבאג אודיו (chat-audio-player.js) – יצירת נגן והגדרת מקורות | HYPER CORE TECH
+    mediaDebugLog('audio-player-create', {
+      name: attachment.name || '',
+      mime: attachment.type || mimeType,
+      hasSrc: !!src,
+      hasMagnet: !!magnetUri
+    });
     return `
       <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${src}"
            ${magnetUri ? `data-magnet-uri="${magnetUri}"` : ''}
            ${fallbackSrc ? `data-fallback-src="${fallbackSrc}"` : ''}>
-        <audio preload="auto" class="chat-message__audio-el" crossorigin="anonymous">
+        <audio preload="auto" class="chat-message__audio-el"${src ? ` src="${src}"` : ''}>
           ${src ? `<source src="${src}" type="${mimeType}">
           <source src="${src}" type="audio/mpeg">
           <source src="${src}" type="audio/ogg">
@@ -122,11 +140,21 @@
     // חלק P2P קול (chat-audio-player.js) – ניסיון טעינת אודיו מטורנט P2P לפני Blossom | HYPER CORE TECH
     const magnetUri = container.dataset.magnetUri;
     const srcFromData = container.dataset.src;
+    const fallbackSrc = container.dataset.fallbackSrc || srcFromData || '';
+    // חלק דיבאג אודיו (chat-audio-player.js) – חיווט נגן ומקורות זמינים | HYPER CORE TECH
+    mediaDebugLog('audio-player-wire', {
+      hasMagnet: !!magnetUri,
+      hasFallback: !!fallbackSrc,
+      srcFromData: !!srcFromData
+    });
 
     if (magnetUri) {
-      tryLoadAudioFromTorrent(container, audio, btn, magnetUri, srcFromData);
-    } else if (srcFromData && !audio.src) {
-      audio.src = srcFromData;
+      mediaDebugLog('audio-p2p-start', { magnetPreview: magnetUri.slice(0, 60), hasFallback: !!fallbackSrc });
+      tryLoadAudioFromTorrent(container, audio, btn, magnetUri, fallbackSrc);
+    } else if (fallbackSrc && !audio.src) {
+      audio.src = fallbackSrc;
+      audio.load();
+      mediaDebugLog('audio-fallback-set', { src: fallbackSrc });
     }
     
     const format = (sec) => {
@@ -155,6 +183,20 @@
     audio.addEventListener('canplay', () => {
       console.log('[AUDIO] Can play');
     });
+
+    // חלק מצב נגן (chat-audio-player.js) – סנכרון כפתור גם בהפעלה אוטומטית | HYPER CORE TECH
+    audio.addEventListener('play', () => {
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+      isPlaying = true;
+      if (container?.dataset?.autoplayPending) {
+        delete container.dataset.autoplayPending;
+      }
+    });
+    audio.addEventListener('pause', () => {
+      if (audio.ended) return;
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+      isPlaying = false;
+    });
     
     // חלק ניגון (chat-audio-player.js) – toggle play/pause | HYPER CORE TECH
     const toggle = () => {
@@ -165,6 +207,16 @@
       }
       
       if (audio.paused) {
+        // חלק autoplay (chat-audio-player.js) – סימון בקשת ניגון כדי להפעיל אחרי טעינה | HYPER CORE TECH
+        if (container?.dataset) {
+          container.dataset.autoplayPending = 'true';
+        }
+        if (!audio.src && fallbackSrc) {
+          audio.src = fallbackSrc;
+          audio.load();
+          mediaDebugLog('audio-fallback-set', { src: fallbackSrc, reason: 'toggle-play' });
+        }
+        mediaDebugLog('audio-play-request', { hasSrc: !!audio.src });
         const playPromise = audio.play();
         if (playPromise) {
           playPromise.then(() => {
@@ -172,6 +224,7 @@
             isPlaying = true;
           }).catch((err) => {
             console.error('[AUDIO] Play failed:', err);
+            mediaDebugLog('audio-play-failed', { error: err?.message || String(err) });
             // ניסיון נוסף אחרי טעינה
             audio.load();
             setTimeout(() => {
@@ -180,9 +233,13 @@
           });
         }
       } else {
+        if (container?.dataset?.autoplayPending) {
+          delete container.dataset.autoplayPending;
+        }
         audio.pause();
         btn.innerHTML = '<i class="fa-solid fa-play"></i>';
         isPlaying = false;
+        mediaDebugLog('audio-pause', { currentTime: audio.currentTime || 0 });
       }
     };
     
@@ -222,6 +279,12 @@
       if (timeEl) {
         timeEl.textContent = format(audio.duration || 0);
       }
+      // חלק P2P קול (chat-audio-player.js) – אם נטען מקור P2P במהלך ניגון, מעדכנים לפעם הבאה | HYPER CORE TECH
+      const preferredSrc = container?.dataset?.src || '';
+      if (container?.dataset?.p2pLoaded === 'true' && preferredSrc && audio.src !== preferredSrc) {
+        audio.src = preferredSrc;
+        audio.load();
+      }
     });
     
     // חלק seek (chat-audio-player.js) – קפיצה בפס התקדמות בלחיצה | HYPER CORE TECH
@@ -243,12 +306,14 @@
   function tryLoadAudioFromTorrent(container, audioEl, playBtn, magnetUri, fallbackSrc) {
     if (!App.torrentTransfer || typeof App.torrentTransfer.init !== 'function') {
       if (fallbackSrc) audioEl.src = fallbackSrc;
+      mediaDebugLog('audio-p2p-unavailable', { fallbackSet: !!fallbackSrc });
       return;
     }
 
     // חלק cache P2P (chat-audio-player.js) – בדיקת cache לפני ניסיון טעינה מחדש | HYPER CORE TECH
     const cached = _p2pCache.get(magnetUri);
     if (cached) {
+      mediaDebugLog('audio-p2p-cache', { status: cached.status, hasBlob: !!cached.blobUrl });
       if (cached.status === 'done' && cached.blobUrl) { audioEl.src = cached.blobUrl; return; }
       if (cached.status === 'failed') { if (fallbackSrc) audioEl.src = fallbackSrc; return; }
       if (cached.status === 'loading') { if (fallbackSrc) audioEl.src = fallbackSrc; return; }
@@ -257,12 +322,23 @@
     const wt = App.torrentTransfer.init();
     if (!wt) {
       if (fallbackSrc) audioEl.src = fallbackSrc;
+      mediaDebugLog('audio-p2p-init-failed', { fallbackSet: !!fallbackSrc });
       return;
     }
 
     _p2pCache.set(magnetUri, { status: 'loading' });
     console.log('[AUDIO/P2P] 🔄 מנסה טעינת אודיו מטורנט P2P... magnetURI:', magnetUri.slice(0, 50));
     if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+    // חלק fallback מיידי (chat-audio-player.js) – מאפשר ניגון מהיר בזמן טעינת P2P | HYPER CORE TECH
+    if (fallbackSrc && !audioEl.src) {
+      audioEl.src = fallbackSrc;
+      audioEl.load();
+      if (container?.dataset?.autoplayPending === 'true') {
+        audioEl.play().catch((err) => console.warn('[AUDIO/P2P] autoplay fallback failed:', err));
+      }
+      mediaDebugLog('audio-fallback-set', { src: fallbackSrc, reason: 'p2p-loading' });
+    }
 
     let resolved = false;
 
@@ -274,6 +350,7 @@
       if (fallbackSrc) audioEl.src = fallbackSrc;
       if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
       _p2pCache.set(magnetUri, { status: 'failed' });
+      mediaDebugLog('audio-p2p-timeout', { fallbackSet: !!fallbackSrc });
     }, P2P_AUDIO_TIMEOUT_MS);
 
     try {
@@ -312,12 +389,22 @@
           if (err) {
             console.warn('[AUDIO/P2P] שגיאה בהמרת blob:', err);
             if (fallbackSrc) audioEl.src = fallbackSrc;
+            mediaDebugLog('audio-p2p-blob-failed', { error: err?.message || String(err), fallbackSet: !!fallbackSrc });
           } else {
             console.log('[AUDIO/P2P] ✅✅ הודעה קולית נטענה בהצלחה דרך P2P! (ללא Blossom)');
-            audioEl.src = blobUrl;
+            const canSwapNow = audioEl.paused && audioEl.currentTime === 0;
+            if (canSwapNow) {
+              audioEl.src = blobUrl;
+              audioEl.load();
+            }
             container.dataset.src = blobUrl;
             container.dataset.p2pLoaded = 'true';
             _p2pCache.set(magnetUri, { status: 'done', blobUrl });
+            mediaDebugLog('audio-p2p-success', { canSwapNow, hasBlob: !!blobUrl });
+            // חלק autoplay P2P (chat-audio-player.js) – אם המשתמש ביקש ניגון, ננסה להפעיל על המקור החדש | HYPER CORE TECH
+            if (canSwapNow && container?.dataset?.autoplayPending === 'true') {
+              audioEl.play().catch((err) => console.warn('[AUDIO/P2P] autoplay P2P failed:', err));
+            }
           }
           if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
         });
@@ -330,6 +417,7 @@
         _p2pCache.set(magnetUri, { status: 'failed' });
         if (fallbackSrc) audioEl.src = fallbackSrc;
         if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        mediaDebugLog('audio-p2p-error', { error: err?.message || String(err), fallbackSet: !!fallbackSrc });
       }
     }
   }

@@ -1287,21 +1287,25 @@
     <script src="./chat-service.js?v=4" defer></script>
     <script src="./chat-file-transfer-state.js?v=2" defer></script>
     <script src="./chat-file-transfer-service.js?v=2" defer></script>
-    <script src="./chat-file-transfer-ui.js" defer></script>
-    <script src="./chat-voice-service.js?v=2" defer></script>
+    <script src="./chat-file-transfer-ui.js?v=2" defer></script>
+    <script src="./chat-voice-service.js?v=3" defer></script>
     <script src="./chat-voice-ui.js" defer></script>
     <script src="./chat-voice-call.js" defer></script>
     <script src="./chat-voice-call-ui.js" defer></script>
     <script src="./chat-video-call.js" defer></script>
     <script src="./chat-video-call-ui.js" defer></script>
     <!-- חלק צ'אט משופר (videos.html) – העברת קבצים P2P, נגן אודיו, מדיה inline, אופטימיזציות וקומפוזר משופר | HYPER CORE TECH -->
-    <script src="./chat-p2p-file.js" defer></script>
+    <script src="./chat-p2p-file.js?v=9" defer></script>
     <script src="./chat-audio-player.js?v=3" defer></script>
-    <script src="./chat-media-renderer.js" defer></script>
+    <script src="./chat-media-renderer.js?v=5" defer></script>
     <script src="./chat-ui-optimizations.js" defer></script>
-    <script src="./chat-composer-enhanced.js" defer></script>
-    <script src="./chat-p2p-datachannel.js?v=11" defer></script>
-    <script src="./chat-ui.js?v=4" defer></script>
+    <script src="./chat-composer-enhanced.js?v=2" defer></script>
+    <script src="./chat-p2p-datachannel.js?v=13" defer></script>
+    <script src="./chat-ui.js?v=9" defer></script>
+    <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
+    <script src="./chat-request-logger.js?v=2" defer></script>
+    <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
+    <script src="./chat-transfer-monitor.js?v=4" defer></script>
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
     <script src="./pwa-installer.js" defer></script>
     <script src="./push-client.js" defer></script>
@@ -2321,9 +2325,13 @@
       })();
     </script>
 
+    <!-- חלק PDF.js (videos.html) – ספריית Mozilla PDF.js לתצוגה מקדימה של PDF בצ'אט | HYPER CORE TECH -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';}</script>
+
     <!-- חלק WebTorrent (videos.html) – ספריית WebTorrent והעברת קבצים גדולים P2P | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-    <script src="./webtorrent-transfer.js"></script>
+    <script src="./webtorrent-transfer.js?v=3"></script>
 
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
   </body>
