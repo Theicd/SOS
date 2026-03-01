@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <!-- חלק ראש (transfer-monitor.html) — דף בקרה ומוניטור, 3 טאבים נפרדים | HYPER CORE TECH -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOS — מוניטור בקרה</title>
+  <link rel="icon" href="./icons/WAPICON.png">
+  <style>
+    /* ═══════ CSS בסיס (transfer-monitor.html) | HYPER CORE TECH ═══════ */
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0d1117;color:#e0e0e0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;direction:rtl}
+    a{color:#58a6ff;text-decoration:none}
+
+    /* ═══════ header | HYPER CORE TECH ═══════ */
+    .hdr{background:#161b22;border-bottom:1px solid #30363d;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .hdr h1{font-size:17px;font-weight:700}
+    .hdr-status{font-size:12px}
+    .hdr-nav{display:flex;gap:8px;font-size:13px}
+    .hdr-nav a{padding:4px 10px;border-radius:6px;background:#21262d;color:#c9d1d9}
+
+    /* ═══════ tabs — 3 טאבים נפרדים | HYPER CORE TECH ═══════ */
+    .tabs{display:flex;background:#161b22;border-bottom:2px solid #30363d;padding:0 24px}
+    .tab{padding:12px 24px;cursor:pointer;border:none;background:transparent;color:#8b949e;font-size:15px;font-weight:600;position:relative;font-family:inherit;transition:color .15s}
+    .tab:hover{color:#c9d1d9}
+    .tab.on{color:#fff}
+    .tab.on::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:3px;border-radius:2px 2px 0 0}
+    .tab[data-t="comm"].on::after{background:#238636}
+    .tab[data-t="social"].on::after{background:#8957e5}
+    .tab[data-t="ctrl"].on::after{background:#da3633}
+    .tab .cnt{font-size:11px;padding:1px 7px;border-radius:10px;margin-right:6px;color:#fff;font-weight:700}
+
+    /* ═══════ toolbar | HYPER CORE TECH ═══════ */
+    .toolbar{padding:8px 24px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .toolbar-info{font-size:12px;color:#8b949e}
+    .btn{padding:4px 12px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:12px;font-family:inherit}
+    .btn:hover{background:#30363d}
+    .btn-red{border-color:#da3633;color:#f85149}
+
+    /* ═══════ log — שורות לוג פשוטות | HYPER CORE TECH ═══════ */
+    .log{padding:0 24px 24px;max-height:calc(100vh - 180px);overflow-y:auto}
+    .log::-webkit-scrollbar{width:6px}
+    .log::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+    .log-empty{text-align:center;padding:60px;color:#484f58;font-size:14px}
+
+    /* ═══════ שורת לוג בודדת | HYPER CORE TECH ═══════ */
+    .row{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:2px;background:#161b22;border-radius:6px;font-size:13px;border-right:3px solid #30363d}
+    .row:hover{background:#1c2128}
+    .row-time{color:#484f58;font-size:11px;min-width:55px;flex-shrink:0;font-variant-numeric:tabular-nums}
+    .row-icon{font-size:16px;width:22px;text-align:center;flex-shrink:0}
+    .row-type{font-weight:600;min-width:80px;flex-shrink:0}
+    .row-method{padding:1px 8px;border-radius:4px;color:#fff;font-size:11px;font-weight:600;flex-shrink:0}
+    .row-detail{color:#8b949e;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .row-status{flex-shrink:0;font-size:14px}
+    .row--send{border-right-color:#238636}
+    .row--recv{border-right-color:#1f6feb}
+    .row--conn{border-right-color:#d29922}
+    .row--err{border-right-color:#da3633}
+
+    /* ═══════ בקרה — כרטיסי בעיות | HYPER CORE TECH ═══════ */
+    .issue{background:#161b22;border-radius:8px;padding:14px 16px;margin-bottom:8px;border-right:4px solid #30363d;display:flex;align-items:flex-start;gap:12px}
+    .issue--critical{border-right-color:#da3633;background:#1a1012}
+    .issue--warning{border-right-color:#d29922;background:#1a1710}
+    .issue--ok{border-right-color:#238636;background:#0f1a10}
+    .issue-icon{font-size:22px;flex-shrink:0}
+    .issue-body{flex:1}
+    .issue-title{font-size:14px;font-weight:700;margin-bottom:4px}
+    .issue-desc{font-size:12px;color:#8b949e;line-height:1.5}
+    .issue-count{font-size:24px;font-weight:800;flex-shrink:0;min-width:60px;text-align:center}
+    .issue-count--red{color:#f85149}
+    .issue-count--yellow{color:#d29922}
+    .issue-count--green{color:#3fb950}
+    .ctrl-section{padding:8px 24px;font-size:14px;font-weight:700;color:#8b949e;margin-top:8px}
+
+    /* ═══════ אזהרת file:// | HYPER CORE TECH ═══════ */
+    .file-warn{background:#9e6a03;color:#fff;padding:14px 24px;font-size:14px;font-weight:600;text-align:center;display:none}
+    .file-warn a{color:#fff;text-decoration:underline;font-weight:700}
+    .file-warn.on{display:block}
+
+    @media(max-width:600px){.hdr{padding:10px 12px}.tabs{padding:0 8px}.tab{padding:10px 14px;font-size:13px}.log{padding:0 12px 12px}.toolbar{padding:6px 12px}}
+  </style>
+</head>
+<body>
+
+  <!-- ═══════ אזהרת file:// (transfer-monitor.html) | HYPER CORE TECH ═══════ -->
+  <div class="file-warn" id="file-warn">
+    ⚠️ הדף נפתח מקובץ מקומי — הנתונים לא זמינים!
+    <a href="http://localhost:3000/transfer-monitor.html">👉 פתח מ-localhost:3000</a>
+  </div>
+
+  <!-- ═══════ header | HYPER CORE TECH ═══════ -->
+  <header class="hdr">
+    <h1>📊 מוניטור בקרה</h1>
+    <span class="hdr-status" id="status">טוען...</span>
+    <nav class="hdr-nav">
+      <a href="./videos.html">🏠 ממשק ראשי</a>
+    </nav>
+  </header>
+
+  <!-- ═══════ 3 טאבים נפרדים (transfer-monitor.html) — תקשורת / רשת חברתית / בקרה | HYPER CORE TECH ═══════ -->
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-t="comm">📱 תקשורת <span class="cnt" style="background:#238636" id="cnt-comm">0</span></button>
+    <button class="tab" data-t="social">🎬 רשת חברתית <span class="cnt" style="background:#8957e5" id="cnt-social">0</span></button>
+    <button class="tab" data-t="ctrl">⚠️ בקרה <span class="cnt" style="background:#da3633" id="cnt-ctrl">0</span></button>
+  </div>
+
+  <!-- ═══════ toolbar | HYPER CORE TECH ═══════ -->
+  <div class="toolbar">
+    <span class="toolbar-info" id="info"></span>
+    <div style="display:flex;gap:6px">
+      <button class="btn" id="btn-refresh">🔄 רענן</button>
+      <button class="btn btn-red" id="btn-clear">🗑️ נקה</button>
+    </div>
+  </div>
+
+  <!-- ═══════ אזור תוכן — משתנה לפי הטאב | HYPER CORE TECH ═══════ -->
+  <div class="log" id="content">
+    <div class="log-empty">טוען נתונים...</div>
+  </div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// לוגיקה ראשית (transfer-monitor.html) — מוניטור בקרה | HYPER CORE TECH
+// ═══════════════════════════════════════════════════════════════════
+(function(){
+  'use strict';
+
+  // ═══════ קבועים | HYPER CORE TECH ═══════
+  var HOUR = 3600000;
+  var POLL = 2000;
+  var EVT_KEY = 'sos_transfer_events';   // מ-chat-transfer-monitor.js
+  var REQ_KEY = 'sos_request_log';       // מ-chat-request-logger.js
+  var tab = 'comm';
+  var evts = [];
+  var req = {entries:[],counters:{}};
+
+  // ═══════ זיהוי file:// | HYPER CORE TECH ═══════
+  if(location.protocol==='file:') document.getElementById('file-warn').classList.add('on');
+
+  // ═══════ טעינה מ-localStorage | HYPER CORE TECH ═══════
+  function load(){
+    try{evts=JSON.parse(localStorage.getItem(EVT_KEY))||[];}catch(e){evts=[];}
+    try{req=JSON.parse(localStorage.getItem(REQ_KEY))||{entries:[],counters:{}};}catch(e){req={entries:[],counters:{}};}
+  }
+
+  // ═══════ פילטר שעה אחרונה | HYPER CORE TECH ═══════
+  function recent(arr){var cut=Date.now()-HOUR;return arr.filter(function(e){return e.ts>=cut;});}
+
+  // ═══════ עזרים | HYPER CORE TECH ═══════
+  function t(ts){return new Date(ts).toLocaleTimeString('he-IL');}
+  function esc(s){return typeof s==='string'?s.replace(/</g,'&lt;').slice(0,120):'';}
+
+  // ═══════ מפות שיטות ותוויות | HYPER CORE TECH ═══════
+  var METHOD={
+    'p2p-dc':{c:'#238636',l:'P2P ⚡'},'relay':{c:'#6e7681',l:'Relay 📡'},
+    'blossom':{c:'#1f6feb',l:'Blossom 🌸'},'webtorrent':{c:'#9e6a03',l:'Torrent 🧲'},
+    'p2p-torrent':{c:'#238636',l:'P2P Torrent 🌐'},'inline':{c:'#8957e5',l:'Inline 📦'},
+    'p2p-torrent+blossom':{c:'#1f6feb',l:'Torrent+Blossom'},'unknown':{c:'#484f58',l:'...'}
+  };
+  var CAT={text:'📝 טקסט',voice:'🎤 קול',file:'📁 קובץ',connection:'🔗 חיבור'};
+  var STATUS={started:'⏳',success:'✅',failed:'❌',verified:'✅✅',connected:'🟢',disconnected:'🔴','in-progress':'🔄'};
+
+  // ═══════ קטגוריות רשת חברתית | HYPER CORE TECH ═══════
+  var SOCIAL_CATS={'feed-list':'📋 טעינת פיד','feed-sub':'📡 מנוי פיד','feed-like-sub':'❤️ מנוי לייקים',
+    'feed-comment-sub':'💬 מנוי תגובות','feed-post-pub':'📤 פרסום פוסט','feed-like-pub':'❤️ לייק',
+    'feed-comment-pub':'💬 תגובה','feed-share-pub':'🔄 שיתוף','feed-delete-pub':'🗑️ מחיקה',
+    'cache-hit-video':'💾 Cache וידאו','deletion-recv':'🗑️ מחיקה נכנסת'};
+
+  // ═══════════════════════════════════════════════════════════════════
+  // טאב 1: תקשורת — לוג פעילות צ'אט בזמן אמת | HYPER CORE TECH
+  // ═══════════════════════════════════════════════════════════════════
+  function renderComm(el){
+    var items=recent(evts);
+    if(!items.length){el.innerHTML='<div class="log-empty">אין פעילות תקשורת — שלח הודעה בצ׳אט כדי לראות</div>';return;}
+
+    var html='';
+    for(var i=items.length-1;i>=0;i--){
+      var e=items[i];
+      var m=METHOD[e.method]||METHOD.unknown;
+      var dir=e.direction==='send'?'📤':'📥';
+      var dirCls=e.direction==='send'?'row--send':'row--recv';
+      if(e.category==='connection') dirCls='row--conn';
+      var catLabel=CAT[e.category]||e.category;
+      var st=STATUS[e.status]||'•';
+      var d=e.details||{};
+      var detail=[];
+      if(d.peer) detail.push('מ-'+d.peer);
+      if(d.preview) detail.push('"'+esc(d.preview)+'"');
+      if(d.name) detail.push(d.name);
+      if(d.size) detail.push(fmtSize(d.size));
+      if(d.duration) detail.push(d.duration+'s');
+      if(d.progress&&d.progress!=='0%'&&d.progress!=='100%') detail.push(d.progress);
+      if(d.state) detail.push(d.state);
+      if(d.error) detail.push('❌ '+esc(d.error));
+      if(d.e2e) detail.push(d.e2e);
+      var elapsed=e.elapsed?(' · '+(e.elapsed/1000).toFixed(1)+'s'):'';
+
+      html+='<div class="row '+dirCls+'">';
+      html+='<span class="row-time">'+t(e.ts)+'</span>';
+      html+='<span class="row-icon">'+dir+'</span>';
+      html+='<span class="row-type">'+catLabel+'</span>';
+      html+='<span class="row-method" style="background:'+m.c+'">'+m.l+'</span>';
+      html+='<span class="row-detail">'+detail.join(' · ')+elapsed+'</span>';
+      html+='<span class="row-status">'+st+'</span>';
+      html+='</div>';
+    }
+    el.innerHTML=html;
+  }
+
+  function fmtSize(b){if(!b)return '';if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
+
+  // ═══════════════════════════════════════════════════════════════════
+  // טאב 2: רשת חברתית — לוג פעילות פיד בזמן אמת | HYPER CORE TECH
+  // ═══════════════════════════════════════════════════════════════════
+  function renderSocial(el){
+    var entries=recent(req.entries||[]);
+    var social=entries.filter(function(e){return !!SOCIAL_CATS[e.cat];});
+    if(!social.length){el.innerHTML='<div class="log-empty">אין פעילות רשת חברתית — פתח את הפיד כדי לראות</div>';return;}
+
+    var html='';
+    for(var i=social.length-1;i>=0;i--){
+      var e=social[i];
+      var label=SOCIAL_CATS[e.cat]||e.cat;
+      var isPub=e.cat.includes('-pub');
+      var dir=isPub?'📤':'📥';
+      var cls=isPub?'row--send':'row--recv';
+      var d=e.d||{};
+      var detail=[];
+      if(d.action) detail.push(d.action);
+      if(d.relays) detail.push(d.relays+' relays');
+      if(d.id) detail.push('id:'+d.id);
+      if(d.note) detail.push(d.note);
+      if(d.hash) detail.push('hash:'+d.hash);
+      if(d.sizeMB) detail.push(d.sizeMB+'MB');
+
+      html+='<div class="row '+cls+'">';
+      html+='<span class="row-time">'+t(e.ts)+'</span>';
+      html+='<span class="row-icon">'+dir+'</span>';
+      html+='<span class="row-type">'+label+'</span>';
+      html+='<span class="row-detail">'+detail.join(' · ')+'</span>';
+      html+='</div>';
+    }
+    el.innerHTML=html;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // טאב 3: בקרה — תקלות, כפילויות, ביצועים | HYPER CORE TECH
+  // ═══════════════════════════════════════════════════════════════════
+  function renderCtrl(el){
+    var c=req.counters||{};
+    var w=req.waste||{};
+    // חישובים
+    var dupProf=c['waste-dup-profile']||0;
+    var rrFlood=c['waste-read-receipt-flood']||0;
+    var hbExcess=c['waste-heartbeat-excess']||0;
+    var dblLike=c['waste-double-like-fetch']||0;
+    var totalWaste=dupProf+rrFlood+hbExcess+dblLike;
+    var profFetch=c['relay-profile']||0;
+    var hbCount=c['p2p-heartbeat']||0;
+    var totalReq=(w.totalAll||0);
+    var effPct=totalReq?Math.max(0,100-Math.round(totalWaste/totalReq*100)):100;
+
+    var html='';
+
+    // ═══════ סעיף: בעיות פעילות | HYPER CORE TECH ═══════
+    html+='<div class="ctrl-section">🔴 בעיות פעילות</div>';
+
+    // כפילויות פרופיל
+    if(dupProf>0){
+      html+=issue('critical','🔴','כפילויות פרופיל',dupProf,
+        'אותו pubkey נשלף '+dupProf+' פעמים ב-10 שניות. '+profFetch+' פניות profile סה"כ.',
+        '💡 תוקן — profileFetchedAt כעת משתמש ב-Date.now() במקום eventTs');
+    }else{
+      html+=issue('ok','✅','פרופילים — תקין',0,'אין כפילויות. Cache TTL פעיל.','');
+    }
+
+    // שטפון Read Receipts
+    if(rrFlood>0){
+      html+=issue('critical','🔴','שטפון Read Receipts',rrFlood,
+        'עודף read receipts מריליי. '+profFetch+' שליפות פרופיל.',
+        '💡 תוקן — הגבלת לוג ל-5 ראשונים + כל 20');
+    }else{
+      html+=issue('ok','✅','Read Receipts — תקין',0,'ללא שטפון.','');
+    }
+
+    // Heartbeat עודף
+    if(hbExcess>0){
+      html+=issue('warning','🟡','Heartbeat עודף',hbExcess,
+        hbCount+' heartbeats סה"כ, '+hbExcess+' עודפים. kind-30078 נשלח ל-relays.',
+        '💡 תוקן — dedup לפי event ID + סף 4/דקה');
+    }else if(hbCount>0){
+      html+=issue('ok','✅','Heartbeat — תקין',hbCount,'תדירות תקינה.','');
+    }
+
+    // לייקים כפולים
+    if(dblLike>0){
+      html+=issue('warning','🟡','לייקים כפולים',dblLike,
+        'subscribeLikesForPosts עושה list+subscribeMany — כפילות.',
+        '💡 הסרת pool.list prefetch');
+    }
+
+    // ═══════ סעיף: סיכום ביצועים | HYPER CORE TECH ═══════
+    html+='<div class="ctrl-section" style="margin-top:16px">📊 סיכום ביצועים</div>';
+
+    var effColor=effPct>=80?'issue-count--green':effPct>=50?'issue-count--yellow':'issue-count--red';
+    html+='<div class="issue issue--'+(effPct>=80?'ok':effPct>=50?'warning':'critical')+'">';
+    html+='<span class="issue-count '+effColor+'">'+effPct+'%</span>';
+    html+='<div class="issue-body"><div class="issue-title">ציון יעילות כללי</div>';
+    html+='<div class="issue-desc">סה"כ פניות: '+(totalReq||'?')+' · בזבוזים: '+totalWaste;
+    html+=' · נחסך (P2P+Cache): '+(w.savedPct||0)+'%</div></div></div>';
+
+    // פירוט מונים
+    html+='<div class="ctrl-section" style="margin-top:16px">📋 מוני פניות</div>';
+    var counters=[
+      ['📡 Relay Sub',c['relay-sub']||0],['📡 Relay Pub',c['relay-pub']||0],
+      ['🔄 Resub',c['relay-resub']||0],['👤 Profile',c['relay-profile']||0],
+      ['🔄 Sync',c['relay-sync']||0],['⚡ P2P Send',c['p2p-send']||0],
+      ['⚡ P2P Recv',c['p2p-receive']||0],['💓 Heartbeat',c['p2p-heartbeat']||0],
+      ['📡 Signal',c['p2p-signal-sub']||0],['💾 Cache Media',c['cache-hit-media']||0],
+      ['💾 Cache Avatar',c['cache-hit-avatar']||0],['🌸 Blossom DL',c['blossom-fetch']||0],
+      ['🌸 Blossom UP',c['blossom-upload']||0],['💾 Cache Video',c['cache-hit-video']||0],
+      ['📋 Feed List',c['feed-list']||0],['📡 Feed Sub',c['feed-sub']||0]
+    ];
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;padding:0 24px">';
+    for(var i=0;i<counters.length;i++){
+      var cv=counters[i][1];
+      if(cv>0) html+='<div class="row" style="border-right-color:#30363d"><span class="row-type" style="min-width:0">'+counters[i][0]+'</span><span style="margin-right:auto;font-weight:700;color:#58a6ff">'+cv+'</span></div>';
+    }
+    html+='</div>';
+
+    // כפתור העתקה
+    html+='<div style="text-align:center;padding:20px"><button class="btn" onclick="copyReport()" style="padding:10px 24px;font-size:14px">📋 העתק דוח אבחון</button></div>';
+
+    el.innerHTML=html;
+  }
+
+  function issue(level,icon,title,count,desc,fix){
+    var h='<div class="issue issue--'+level+'">';
+    h+='<span class="issue-icon">'+icon+'</span>';
+    h+='<div class="issue-body"><div class="issue-title">'+title+'</div>';
+    h+='<div class="issue-desc">'+desc;
+    if(fix) h+='<br>'+fix;
+    h+='</div></div>';
+    if(count>0){
+      var cc=level==='critical'?'issue-count--red':level==='warning'?'issue-count--yellow':'issue-count--green';
+      h+='<span class="issue-count '+cc+'">'+count+'</span>';
+    }
+    h+='</div>';
+    return h;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // render ראשי + polling | HYPER CORE TECH
+  // ═══════════════════════════════════════════════════════════════════
+  function render(){
+    var el=document.getElementById('content');
+    if(tab==='comm') renderComm(el);
+    else if(tab==='social') renderSocial(el);
+    else if(tab==='ctrl') renderCtrl(el);
+
+    // עדכון מונים בטאבים
+    var commCnt=recent(evts).length;
+    var socialEntries=recent(req.entries||[]).filter(function(e){return !!SOCIAL_CATS[e.cat];});
+    var c=req.counters||{};
+    var wasteCnt=(c['waste-dup-profile']||0)+(c['waste-read-receipt-flood']||0)+(c['waste-heartbeat-excess']||0)+(c['waste-double-like-fetch']||0);
+    document.getElementById('cnt-comm').textContent=commCnt;
+    document.getElementById('cnt-social').textContent=socialEntries.length;
+    document.getElementById('cnt-ctrl').textContent=wasteCnt||'✓';
+    document.getElementById('cnt-ctrl').style.background=wasteCnt>0?'#da3633':'#238636';
+
+    // סטטוס
+    var isFile=location.protocol==='file:';
+    var st=document.getElementById('status');
+    if(isFile) st.innerHTML='<span style="color:#f85149">❌ file:// — פתח מ-localhost:3000</span>';
+    else if(evts.length===0&&(req.entries||[]).length===0) st.innerHTML='<span style="color:#d29922">⏳ ממתין — שלח הודעה</span>';
+    else st.innerHTML='<span style="color:#3fb950">🟢 '+evts.length+' אירועים · '+(req.entries||[]).length+' פניות</span>';
+
+    document.getElementById('info').textContent='עדכון: '+t(Date.now());
+  }
+
+  function poll(){load();render();}
+
+  // ═══════ מאזיני טאבים | HYPER CORE TECH ═══════
+  document.getElementById('tabs').onclick=function(ev){
+    var b=ev.target.closest('.tab');
+    if(!b) return;
+    tab=b.dataset.t;
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+    b.classList.add('on');
+    render();
+  };
+  document.getElementById('btn-refresh').onclick=poll;
+  document.getElementById('btn-clear').onclick=function(){
+    evts=[];req={entries:[],counters:{}};
+    try{localStorage.removeItem(EVT_KEY);localStorage.removeItem(REQ_KEY);}catch(e){}
+    render();
+  };
+
+  // ═══════ start | HYPER CORE TECH ═══════
+  poll();
+  setInterval(poll,POLL);
+})();
+
+// ═══════ העתקת דוח (transfer-monitor.html) — פונקציה גלובלית | HYPER CORE TECH ═══════
+function copyReport(){
+  var raw;try{raw=JSON.parse(localStorage.getItem('sos_request_log'));}catch(e){raw={};}
+  var c=raw.counters||{};var w=raw.waste||{};
+  var L=function(k,v){return '  '+k+': '+v;};
+  var r='══ SOS DIAGNOSTIC ══\n'+new Date().toLocaleString('he-IL')+'\n';
+  r+=L('סה"כ פניות',w.totalAll||'?')+'\n'+L('בזבוזים',(w.totalWaste||0))+'\n'+L('יעילות',((w.totalAll?Math.max(0,100-Math.round((w.totalWaste||0)/(w.totalAll||1)*100)):100))+'%')+'\n';
+  r+='── תקשורת ──\n';
+  r+=L('Relay Sub',c['relay-sub']||0)+'\n'+L('Relay Pub',c['relay-pub']||0)+'\n'+L('Profile',c['relay-profile']||0)+'\n';
+  r+=L('P2P Send',c['p2p-send']||0)+'\n'+L('P2P Recv',c['p2p-receive']||0)+'\n'+L('HB',c['p2p-heartbeat']||0)+'\n';
+  r+=L('Cache Media',c['cache-hit-media']||0)+'\n'+L('Blossom DL',c['blossom-fetch']||0)+'\n';
+  r+='── בזבוזים ──\n';
+  r+=L('Dup Profile',c['waste-dup-profile']||0)+'\n'+L('RR Flood',c['waste-read-receipt-flood']||0)+'\n'+L('HB Excess',c['waste-heartbeat-excess']||0)+'\n';
+  r+='── רשת חברתית ──\n';
+  r+=L('Feed List',c['feed-list']||0)+'\n'+L('Feed Sub',c['feed-sub']||0)+'\n'+L('Like Pub',c['feed-like-pub']||0)+'\n'+L('Comment Pub',c['feed-comment-pub']||0)+'\n';
+  r+='\nSOS Monitor v3';
+  navigator.clipboard.writeText(r).catch(function(){prompt('העתק ידנית:',r);});
+}
+</script>
+</body>
+</html>
