@@ -212,6 +212,37 @@
     tabId: Math.random().toString(36).substr(2, 9), // מזהה ייחודי ללשונית
   };
   
+  // חלק ניתוב file-transfer (p2p-video-sharing.js) — מנתב הודעות chat-p2p-file (JSON + binary) מכל DC ל-handleIncomingMessage | HYPER CORE TECH
+  const FILE_TRANSFER_MSG_TYPES = new Set(['file-offer','chunk-meta','chunk-ack','file-complete-ack','file-resend-request','file-ready','file-resend-failed','ack','resume']);
+  function hasActiveFileTransfer(peerPubkey) {
+    if (!App.activeP2PTransfers) return false;
+    const key = (peerPubkey || '').toLowerCase();
+    for (const [, t] of App.activeP2PTransfers) {
+      if (t.peerPubkey === key || (t.peerPubkey || '').toLowerCase() === key) return true;
+    }
+    return false;
+  }
+  function routeFileTransferMessage(peerPubkey, eventData) {
+    try {
+      if (typeof eventData === 'string') {
+        const msg = JSON.parse(eventData);
+        if (msg && msg.type && FILE_TRANSFER_MSG_TYPES.has(msg.type)) {
+          if (typeof App.handleP2PFileMessage === 'function') {
+            App.handleP2PFileMessage(peerPubkey, eventData);
+          }
+          return true;
+        }
+      } else if (eventData instanceof ArrayBuffer || (typeof Blob !== 'undefined' && eventData instanceof Blob)) {
+        // binary מנותב רק אם יש transfer פעיל מ-peer זה — אחרת זה binary של download רגיל
+        if (hasActiveFileTransfer(peerPubkey) && typeof App.handleP2PFileMessage === 'function') {
+          App.handleP2PFileMessage(peerPubkey, eventData);
+          return true;
+        }
+      }
+    } catch (_e) {}
+    return false;
+  }
+
   // חלק Leader Election (p2p-video-sharing.js) – BroadcastChannel לתקשורת בין לשוניות | HYPER CORE TECH
   const LEADER_CHANNEL_NAME = 'sos-p2p-leader';
   const LEADER_HEARTBEAT_INTERVAL = 2000; // 2 שניות
@@ -1589,6 +1620,8 @@
       }, MAX_DOWNLOAD_TIMEOUT);
       
       conn.channel.onmessage = async (event) => {
+        // חלק ניתוב file-transfer (p2p-video-sharing.js) — ניתוב הודעות chat-p2p-file מ-persistent DC | HYPER CORE TECH
+        if (routeFileTransferMessage(peerPubkey, event.data)) return;
         try {
           if (typeof event.data === 'string') {
             const msg = JSON.parse(event.data);
@@ -1700,6 +1733,8 @@
         };
 
         channel.onmessage = async (event) => {
+          // חלק ניתוב file-transfer (p2p-video-sharing.js) — ניתוב הודעות chat-p2p-file מה-download DC | HYPER CORE TECH
+          if (routeFileTransferMessage(peerPubkey, event.data)) return;
           try {
             if (typeof event.data === 'string') {
               const msg = JSON.parse(event.data);
@@ -2327,6 +2362,8 @@
         };
 
         channel.onmessage = async (event) => {
+          // חלק ניתוב file-transfer (p2p-video-sharing.js) — ניתוב הודעות chat-p2p-file מה-sender DC | HYPER CORE TECH
+          if (routeFileTransferMessage(peerPubkey, event.data)) return;
           try {
             const msg = JSON.parse(event.data);
 
