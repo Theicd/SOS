@@ -26,6 +26,8 @@
   const progressListeners = new Set(); // UI listeners for progress
   // חלק שמירת קבצים (chat-p2p-file.js) – שומר קובץ 3 דקות אחרי סיום לצורך resend אם המקבל איחר | HYPER CORE TECH
   const recentCompletedFiles = new Map(); // fileId -> { file, keyStr, peerPubkey, completedAt }
+  // חלק מניעת לולאה (chat-p2p-file.js) — fileIds שנכשלו סופית, לא יוצרים transfer חדש עבורם | HYPER CORE TECH
+  const failedFileIds = new Set();
 
   function notifyProgress(payload) {
     progressListeners.forEach((cb) => {
@@ -756,6 +758,11 @@
         console.log('[CHAT/P2P] העברה כבר קיימת עבור fileId:', fileId);
         return;
       }
+      // חלק מניעת לולאה (chat-p2p-file.js) — לא יוצרים transfer חדש ל-fileId שנכשל סופית | HYPER CORE TECH
+      if (failedFileIds.has(fileId)) {
+        console.log('[CHAT/P2P] ⛔ fileId נכשל סופית — לא יוצרים transfer חדש:', fileId);
+        return;
+      }
       
       // ייבוא מפתח ההצפנה
       const key = await importFileKey(keyStr);
@@ -916,6 +923,8 @@
           const t2 = activeTransfers.get(fileId);
           if (!t2 || t2.direction !== 'receive' || t2.receivedChunks > 0) return;
           console.error('[CHAT/P2P] ❌ resend נכשל — הקובץ לא הגיע אחרי 2 ניסיונות');
+          failedFileIds.add(fileId); // חלק מניעת לולאה (chat-p2p-file.js) — מונע יצירת transfer חדש ל-fileId שנכשל | HYPER CORE TECH
+          setTimeout(() => failedFileIds.delete(fileId), 60000); // מאפשר ניסיון חדש אחרי דקה
           notifyProgress({ fileId, progress: 0, status: 'failed', direction: 'receive', name, size, peerPubkey: senderKey, error: 'no chunks received after resend' });
           if (typeof App.showToast === 'function') {
             App.showToast(`❌ הקובץ "${name || 'קובץ'}" לא התקבל — בקש מהשולח לשלוח שוב`, 'error');
@@ -1344,11 +1353,17 @@
     });
   }
 
+  // חלק ניתוב ישיר (chat-p2p-file.js) — מאפשר ל-p2p-video-sharing.js לנתב הודעות file-transfer ישירות | HYPER CORE TECH
+  function handleP2PFileMessage(peerPubkey, data) {
+    handleIncomingMessage(peerPubkey, data);
+  }
+
   // חלק API ציבורי (chat-p2p-file.js) – חשיפת פונקציות להעברת קבצים | HYPER CORE TECH
   Object.assign(App, {
     sendP2PFile: sendFile,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
     onFileDataChannel,
+    handleP2PFileMessage,
     activeP2PTransfers: activeTransfers,
     handleP2PFileOffer: handleP2PFileOffer,
     handleFileResendRequest: handleFileResendRequest,
