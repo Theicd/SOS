@@ -1595,7 +1595,7 @@
           if (typeof event.data === 'string') {
             const msg = JSON.parse(event.data);
             // חלק ניתוב file-transfer persistent (p2p-video-sharing.js) — הודעות file-transfer מנותבות ל-chat-p2p-file.js | HYPER CORE TECH
-            const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','file-resend-request','file-ready','file-resend-failed'];
+            const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','chunk-ack','file-resend-request','file-ready','file-resend-failed'];
             if (msg.type && fileTypes.includes(msg.type)) {
               if (typeof App.handleP2PFileMessage === 'function') {
                 App.handleP2PFileMessage(peerPubkey, event.data);
@@ -1719,7 +1719,7 @@
               const msg = JSON.parse(event.data);
 
               // חלק ניתוב file-transfer receiver (p2p-video-sharing.js) — הודעות file-transfer מנותבות ל-chat-p2p-file.js | HYPER CORE TECH
-              const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','file-resend-request','file-ready','file-resend-failed'];
+              const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','chunk-ack','file-resend-request','file-ready','file-resend-failed'];
               if (msg.type && fileTypes.includes(msg.type)) {
                 if (typeof App.handleP2PFileMessage === 'function') {
                   App.handleP2PFileMessage(peerPubkey, event.data);
@@ -2359,7 +2359,7 @@
               const msg = JSON.parse(event.data);
 
               // חלק ניתוב file-transfer (p2p-video-sharing.js) — הודעות file-transfer מנותבות ל-chat-p2p-file.js | HYPER CORE TECH
-              const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','file-resend-request','file-ready','file-resend-failed'];
+              const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','chunk-ack','file-resend-request','file-ready','file-resend-failed'];
               if (msg.type && fileTypes.includes(msg.type)) {
                 if (typeof App.handleP2PFileMessage === 'function') {
                   App.handleP2PFileMessage(peerPubkey, event.data);
