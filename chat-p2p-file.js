@@ -17,7 +17,7 @@
   const MAX_BUFFERED_AMOUNT = 1024 * 1024; // 1MB buffer limit
   const ACK_INTERVAL = 10; // Send ACK every 10 chunks
   const TRANSFER_TIMEOUT = 30000; // 30s timeout for stalled transfers
-  const RESEND_WAIT_SEC = 15; // זמן המתנה ל-chunks לפני בקשת resend
+  const RESEND_WAIT_SEC = 3; // חלק timeout מהיר (chat-p2p-file.js) — recovery תוך 3 שניות במקום 15 | HYPER CORE TECH
   const FILE_RETAIN_MS = 3 * 60 * 1000; // שומר קובץ 3 דקות אחרי סיום לצורך resend
   const MAX_RESEND_ATTEMPTS = 2; // מקסימום ניסיונות resend
   
@@ -65,10 +65,10 @@
     return '';
   }
 
-  // חלק סימון וידאו (chat-p2p-file.js) – webm נדרש לסימון isVideo כדי למנוע זיהוי כאודיו | HYPER CORE TECH
+  // חלק סימון וידאו (chat-p2p-file.js) – סימון isVideo לכל סוגי הוידאו כדי שה-UI יציג נגן | HYPER CORE TECH
   function shouldForceVideoFlag(mimeType, fileName) {
     const resolved = resolveMimeType(mimeType, fileName);
-    return resolved === 'video/webm';
+    return resolved.startsWith('video/');
   }
 
   // חלק הודעת שגיאה למשתמש (chat-p2p-file.js) – דיווח אחיד וברור במקרי כשל העברה | HYPER CORE TECH
@@ -365,6 +365,7 @@
       if (conn && conn.channel && conn.channel.readyState === 'open') {
         console.log('[CHAT/P2P] 🔗 משתמש ב-persistent DataChannel לשליחה');
         channel = conn.channel;
+        channel.binaryType = 'arraybuffer'; // חלק binaryType fix (chat-p2p-file.js) — מוודא קבלת ArrayBuffer ולא Blob | HYPER CORE TECH
         dataChannels.set(peerKey, channel);
         transfer.channel = channel;
         if (!channel._p2pFileHandler) {
@@ -513,8 +514,15 @@
         // חלק המשך שליחה (chat-p2p-file.js) – קריאה רקורסיבית ל-chunk הבא | HYPER CORE TECH
         setTimeout(() => sendNextChunk(fileId, onProgress), 0);
       } catch (err) {
-        console.error('[CHAT/P2P] Failed to send chunk', err);
-        await fallbackToBlossom(transfer, onProgress);
+        // חלק retry מהיר (chat-p2p-file.js) — DC נסגר באמצע שליחה, מאפס ומנסה שוב במקום Blossom | HYPER CORE TECH
+        console.warn('[CHAT/P2P] ⚠️ chunk send failed:', err.message, `(chunk ${currentChunk}/${totalChunks})`);
+        transfer.channel = null;
+        if (transfer.dcWaitAttempts < 5) {
+          setTimeout(() => sendNextChunk(fileId, onProgress), 200);
+        } else {
+          console.error('[CHAT/P2P] ❌ Failed to send chunk after retries, fallback to Blossom');
+          await fallbackToBlossom(transfer, onProgress);
+        }
       }
     };
     
@@ -566,6 +574,11 @@
       } else if (data instanceof ArrayBuffer) {
         // Chunk data received
         handleChunkData(peerKey, new Uint8Array(data));
+      } else if (typeof Blob !== 'undefined' && data instanceof Blob) {
+        // חלק Blob fallback (chat-p2p-file.js) — DC עם binaryType='blob' שולח Blob, ממיר ל-ArrayBuffer | HYPER CORE TECH
+        data.arrayBuffer().then(ab => {
+          handleChunkData(peerKey, new Uint8Array(ab));
+        }).catch(e => console.warn('[CHAT/P2P] Blob→ArrayBuffer failed:', e));
       }
     } catch (err) {
       console.error('handleIncomingMessage failed', err);
@@ -583,8 +596,14 @@
           return;
         }
         
-        transfer.chunks.push(decrypted);
-        transfer.receivedChunks++;
+        // חלק סדר chunks (chat-p2p-file.js) — שמירה לפי index מדויק, לא push עיוור — מונע blob שבור | HYPER CORE TECH
+        const chunkIndex = typeof transfer.expectedChunk === 'number' ? transfer.expectedChunk : transfer.receivedChunks;
+        if (!transfer.chunks[chunkIndex]) {
+          transfer.chunks[chunkIndex] = decrypted;
+          transfer.receivedChunks++;
+        } else {
+          console.warn('[CHAT/P2P] ⚠️ chunk כפול נדחה, index:', chunkIndex, 'fileId:', fileId);
+        }
 
         // חלק stall detection (chat-p2p-file.js) — מאפס timer על כל chunk, אם נתקע באמצע מבקש resend | HYPER CORE TECH
         if (transfer._resendTimer) { clearTimeout(transfer._resendTimer); transfer._resendTimer = null; }
@@ -781,6 +800,7 @@
       
       if (conn && conn.channel && conn.channel.readyState === 'open') {
         console.log('[CHAT/P2P] 🔗 משתמש ב-persistent DataChannel לקבלת צ\'אנקים');
+        conn.channel.binaryType = 'arraybuffer'; // חלק binaryType fix (chat-p2p-file.js) — מוודא קבלת ArrayBuffer בצד מקבל | HYPER CORE TECH
         // שמירת ה-channel המקושר
         dataChannels.set(senderKey, conn.channel);
         
@@ -952,8 +972,11 @@
       // חלק דיבאג קבלה (chat-p2p-file.js) – רישום מטא אחרי הרכבת קובץ | HYPER CORE TECH
       mediaDebugLog('receive-finalize', { fileId, name: transfer.name, size: transfer.size, mimeType: transfer.mimeType });
       
-      // הרכבת כל הצ'אנקים ל-Blob
-      const blob = new Blob(transfer.chunks, { type: transfer.mimeType || 'application/octet-stream' });
+      // חלק הרכבת blob (chat-p2p-file.js) — סינון chunks ריקים (indexed array) + הבטחת MIME | HYPER CORE TECH
+      const validChunks = transfer.chunks.filter(c => c != null);
+      const finalMime = resolveMimeType(transfer.mimeType, transfer.name) || transfer.mimeType || 'application/octet-stream';
+      console.log('[CHAT/P2P] 📦 הרכבת blob:', { validChunks: validChunks.length, totalChunks: transfer.totalChunks, mime: finalMime, name: transfer.name });
+      const blob = new Blob(validChunks, { type: finalMime });
       
       // שמירה ל-cache אם זמין
       if (typeof App.SOS2MediaCache !== 'undefined' && App.SOS2MediaCache) {
@@ -1005,15 +1028,16 @@
         const blobUrl = URL.createObjectURL(blob);
         if (typeof App.appendChatMessage === 'function') {
           const createdAt = Math.floor(Date.now() / 1000);
-          const resolvedMime = resolveMimeType(transfer.mimeType, transfer.name);
           const isVideoFlag = shouldForceVideoFlag(transfer.mimeType, transfer.name);
+          const attachObj = { name: transfer.name, size: transfer.size, type: finalMime, url: blobUrl, fileId, isVideo: isVideoFlag || undefined };
+          console.log('[CHAT/P2P] 📋 attachment למקבל:', { type: attachObj.type, isVideo: attachObj.isVideo, name: attachObj.name, urlPrefix: blobUrl.slice(0, 30) });
           App.appendChatMessage({
             id: `p2p-recv-${fileId}`,
             direction: 'incoming',
             from: transfer.peerPubkey,
             to: App.publicKey,
             content: `📎 ${transfer.name}`,
-            attachment: { name: transfer.name, size: transfer.size, type: resolvedMime || transfer.mimeType, url: blobUrl, fileId, isVideo: isVideoFlag || undefined },
+            attachment: attachObj,
             p2p: true,
             createdAt,
           });
