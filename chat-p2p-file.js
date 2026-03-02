@@ -17,7 +17,7 @@
   const MAX_BUFFERED_AMOUNT = 1024 * 1024; // 1MB buffer limit
   const ACK_INTERVAL = 10; // Send ACK every 10 chunks
   const TRANSFER_TIMEOUT = 30000; // 30s timeout for stalled transfers
-  const RESEND_WAIT_SEC = 3; // חלק timeout מהיר (chat-p2p-file.js) — recovery תוך 3 שניות במקום 15 | HYPER CORE TECH
+  const RESEND_WAIT_SEC = 3; // זמן המתנה ל-chunks לפני בקשת resend (מהיר — recovery תוך 3 שניות)
   const FILE_RETAIN_MS = 3 * 60 * 1000; // שומר קובץ 3 דקות אחרי סיום לצורך resend
   const MAX_RESEND_ATTEMPTS = 2; // מקסימום ניסיונות resend
   
@@ -26,8 +26,6 @@
   const progressListeners = new Set(); // UI listeners for progress
   // חלק שמירת קבצים (chat-p2p-file.js) – שומר קובץ 3 דקות אחרי סיום לצורך resend אם המקבל איחר | HYPER CORE TECH
   const recentCompletedFiles = new Map(); // fileId -> { file, keyStr, peerPubkey, completedAt }
-  // חלק מניעת לולאה (chat-p2p-file.js) — fileIds שנכשלו סופית, לא יוצרים transfer חדש עבורם | HYPER CORE TECH
-  const failedFileIds = new Set();
 
   function notifyProgress(payload) {
     progressListeners.forEach((cb) => {
@@ -67,7 +65,7 @@
     return '';
   }
 
-  // חלק סימון וידאו (chat-p2p-file.js) – סימון isVideo לכל סוגי הוידאו כדי שה-UI יציג נגן | HYPER CORE TECH
+  // חלק סימון וידאו (chat-p2p-file.js) – כל סוגי וידאו נדרשים לסימון isVideo כדי שממשק הצ'אט יציג נגן | HYPER CORE TECH
   function shouldForceVideoFlag(mimeType, fileName) {
     const resolved = resolveMimeType(mimeType, fileName);
     return resolved.startsWith('video/');
@@ -315,8 +313,7 @@
     
     if (currentChunk >= totalChunks) {
       // Transfer complete
-      if (transfer._chunkAckTimer) { clearTimeout(transfer._chunkAckTimer); transfer._chunkAckTimer = null; }
-      console.log('[CHAT/P2P] ✅ שליחת קובץ הושלמה', fileId, transfer.isResend ? '(resend)' : '');
+      console.log('[CHAT/P2P] ✅ שליחת קובץ הושלמה', fileId);
       // חלק הודעת צ'אט לשולח (chat-p2p-file.js) — שומר הודעת קובץ מקומית בלבד כדי למנוע שליחת blob URL לא חוקי לצד השני | HYPER CORE TECH
       try {
         if (typeof App.appendChatMessage === 'function') {
@@ -368,7 +365,7 @@
       if (conn && conn.channel && conn.channel.readyState === 'open') {
         console.log('[CHAT/P2P] 🔗 משתמש ב-persistent DataChannel לשליחה');
         channel = conn.channel;
-        channel.binaryType = 'arraybuffer'; // חלק binaryType fix (chat-p2p-file.js) — מוודא קבלת ArrayBuffer ולא Blob | HYPER CORE TECH
+        channel.binaryType = 'arraybuffer'; // חובה — בלי זה binary מגיע כ-Blob ונזרק
         dataChannels.set(peerKey, channel);
         transfer.channel = channel;
         if (!channel._p2pFileHandler) {
@@ -514,28 +511,14 @@
           onProgress(progressPayload);
         }
         notifyProgress(progressPayload);
-        // חלק פרוטוקול סדרתי (chat-p2p-file.js) — לא שולח chunk הבא עד שמגיע chunk-ack מהמקבל | HYPER CORE TECH
-        // ה-chunk הבא יישלח כש-handleIncomingMessage יקבל chunk-ack
-        console.log(`[CHAT/P2P] 📤 chunk ${currentChunk}/${totalChunks} נשלח, ממתין ל-chunk-ack...`);
-        // timeout אם לא מגיע ACK — שולח שוב את אותו chunk
-        transfer._chunkAckTimer = setTimeout(() => {
-          const t = activeTransfers.get(fileId);
-          if (!t || t.direction !== 'send') return;
-          if (t.currentChunk >= t.totalChunks) return;
-          console.warn(`[CHAT/P2P] ⏱️ chunk-ack לא הגיע תוך ${RESEND_WAIT_SEC}s, שולח chunk ${t.currentChunk - 1} שוב`);
-          t.currentChunk--; // חוזר ל-chunk שלא אושר
-          sendNextChunk(fileId, onProgress);
-        }, RESEND_WAIT_SEC * 1000);
+        // חלק המשך שליחה (chat-p2p-file.js) – קריאה רקורסיבית ל-chunk הבא | HYPER CORE TECH
+        setTimeout(() => sendNextChunk(fileId, onProgress), 0);
       } catch (err) {
-        // חלק retry מהיר (chat-p2p-file.js) — DC נסגר באמצע שליחה, מאפס ומנסה שוב במקום Blossom | HYPER CORE TECH
-        console.warn('[CHAT/P2P] ⚠️ chunk send failed:', err.message, `(chunk ${currentChunk}/${totalChunks})`);
+        // חלק retry on send fail (chat-p2p-file.js) — איפוס channel וניסיון חוזר במקום Blossom ישר | HYPER CORE TECH
+        console.warn('[CHAT/P2P] ⚠️ channel.send נכשל, מאפס channel ומנסה שוב:', err.message);
         transfer.channel = null;
-        if (transfer.dcWaitAttempts < 5) {
-          setTimeout(() => sendNextChunk(fileId, onProgress), 200);
-        } else {
-          console.error('[CHAT/P2P] ❌ Failed to send chunk after retries, fallback to Blossom');
-          await fallbackToBlossom(transfer, onProgress);
-        }
+        if (dataChannels.get(peerKey) === channel) dataChannels.delete(peerKey);
+        setTimeout(() => sendNextChunk(fileId, onProgress), 100);
       }
     };
     
@@ -564,15 +547,6 @@
             fileId: msg.fileId, progress: 1, status: 'verified', direction: 'send',
             name: msg.name, size: msg.size, peerPubkey: peerKey
           });
-        } else if (msg.type === 'chunk-ack') {
-          // חלק פרוטוקול סדרתי (chat-p2p-file.js) — המקבל אישר chunk, שולח את הבא | HYPER CORE TECH
-          const transfer = activeTransfers.get(msg.fileId);
-          if (transfer && transfer.direction === 'send') {
-            if (transfer._chunkAckTimer) { clearTimeout(transfer._chunkAckTimer); transfer._chunkAckTimer = null; }
-            console.log(`[CHAT/P2P] ✅ chunk-ack ${msg.chunkIndex} התקבל, ממשיך ל-chunk ${transfer.currentChunk}`);
-            transfer.ackReceived = msg.chunkIndex;
-            setTimeout(() => sendNextChunk(msg.fileId, null), 0);
-          }
         } else if (msg.type === 'ack') {
           const transfer = activeTransfers.get(msg.fileId);
           if (transfer) {
@@ -594,13 +568,14 @@
           handleFileResendRequest(peerKey, msg);
         }
       } else if (data instanceof ArrayBuffer) {
-        // Chunk data received
+        // Chunk data received — binary ישיר
         handleChunkData(peerKey, new Uint8Array(data));
-      } else if (typeof Blob !== 'undefined' && data instanceof Blob) {
-        // חלק Blob fallback (chat-p2p-file.js) — DC עם binaryType='blob' שולח Blob, ממיר ל-ArrayBuffer | HYPER CORE TECH
+      } else if (data instanceof Blob) {
+        // חלק Blob fallback (chat-p2p-file.js) — persistent channel עלול לשלוח Blob אם binaryType לא הוגדר | HYPER CORE TECH
+        console.log('[CHAT/P2P] 🔄 Blob→ArrayBuffer conversion (binaryType fallback)', data.size, 'bytes');
         data.arrayBuffer().then(ab => {
           handleChunkData(peerKey, new Uint8Array(ab));
-        }).catch(e => console.warn('[CHAT/P2P] Blob→ArrayBuffer failed:', e));
+        }).catch(e => console.error('[CHAT/P2P] Blob conversion failed:', e));
       }
     } catch (err) {
       console.error('handleIncomingMessage failed', err);
@@ -612,49 +587,61 @@
     // Find active receive transfer
     for (const [fileId, transfer] of activeTransfers.entries()) {
       if (transfer.peerPubkey === peerKey && transfer.direction === 'receive') {
+        // חלק index-based chunks (chat-p2p-file.js) — שומר chunk לפי index ולא push עיוור, מונע blob שבור | HYPER CORE TECH
+        const chunkIndex = (typeof transfer.expectedChunk === 'number') ? transfer.expectedChunk : transfer.receivedChunks;
+        // הגנה נגד chunk כפול
+        if (transfer.chunks[chunkIndex]) {
+          console.log('[CHAT/P2P] ⚠️ chunk כפול נדחה:', chunkIndex, 'fileId:', fileId);
+          return;
+        }
         const decrypted = await decryptChunk(encryptedData, transfer.key);
         if (!decrypted) {
-          console.error('[CHAT/P2P] Decryption failed for chunk');
+          console.error('[CHAT/P2P] Decryption failed for chunk', chunkIndex);
           return;
         }
         
-        // חלק פרוטוקול סדרתי (chat-p2p-file.js) — זיהוי chunk כפול מ-resend לעומת chunk חדש | HYPER CORE TECH
-        const metaIndex = typeof transfer.expectedChunk === 'number' ? transfer.expectedChunk : -1;
-        const isResendDuplicate = metaIndex >= 0 && metaIndex < transfer.receivedChunks && !!transfer.chunks[metaIndex];
-        
-        if (isResendDuplicate) {
-          // chunk כפול מ-resend — שולח ACK שוב בלי לשמור
-          console.log(`[CHAT/P2P] 🔁 chunk כפול ${metaIndex} (כבר נקלט), שולח ACK מחדש`);
-          const ackCh = dataChannels.get(peerKey);
-          if (ackCh && ackCh.readyState === 'open') {
-            try { ackCh.send(JSON.stringify({ type: 'chunk-ack', fileId, chunkIndex: metaIndex })); } catch (_e) {}
-          }
-          return;
-        }
-        
-        // chunk חדש — שמירה לפי receivedChunks (סדר הגעה)
-        const chunkIndex = transfer.receivedChunks;
-        if (chunkIndex < transfer.totalChunks) {
-          transfer.chunks[chunkIndex] = decrypted;
-          transfer.receivedChunks++;
-          transfer.expectedChunk = null; // איפוס — נצרוך ב-chunk-meta הבא
-          console.log(`[CHAT/P2P] 📥 chunk ${chunkIndex}/${transfer.totalChunks} נקלט (${transfer.name})`);
-        } else {
-          console.warn('[CHAT/P2P] ⚠️ chunk נדחה — index:', chunkIndex, 'total:', transfer.totalChunks, 'fileId:', fileId);
-          return;
-        }
+        transfer.chunks[chunkIndex] = decrypted;
+        transfer.receivedChunks++;
 
-        // חלק פרוטוקול סדרתי (chat-p2p-file.js) — שליחת chunk-ack לשולח כדי שישלח את הבא | HYPER CORE TECH
-        const ackChannel = dataChannels.get(peerKey);
-        if (ackChannel && ackChannel.readyState === 'open') {
-          try {
-            ackChannel.send(JSON.stringify({ type: 'chunk-ack', fileId, chunkIndex }));
-          } catch (_e) { console.warn('[CHAT/P2P] chunk-ack send failed'); }
-        }
-
-        // ביטול resend timers ישנים אם יש
+        // חלק stall detection (chat-p2p-file.js) — מאפס timer על כל chunk, אם נתקע באמצע מבקש resend | HYPER CORE TECH
         if (transfer._resendTimer) { clearTimeout(transfer._resendTimer); transfer._resendTimer = null; }
         if (transfer._resendTimer2) { clearTimeout(transfer._resendTimer2); transfer._resendTimer2 = null; }
+        transfer._lastChunkAt = Date.now();
+        // אם עדיין לא סיימנו — מפעיל stall timer
+        if (transfer.receivedChunks < transfer.totalChunks) {
+          transfer._resendTimer = setTimeout(async () => {
+            const t = activeTransfers.get(fileId);
+            if (!t || t.direction !== 'receive') return;
+            if (t.receivedChunks >= t.totalChunks) return; // כבר הושלם
+            const secSinceLastChunk = ((Date.now() - (t._lastChunkAt || 0)) / 1000).toFixed(1);
+            console.warn(`[CHAT/P2P] ⏱️ stall detected! ${t.receivedChunks}/${t.totalChunks} chunks, ${secSinceLastChunk}s since last chunk:`, fileId);
+            if (typeof App.showToast === 'function') {
+              App.showToast(`⏱️ העברת "${t.name || 'קובץ'}" נתקעה (${Math.round(t.receivedChunks/t.totalChunks*100)}%) — מבקש שליחה מחדש...`, 'warning');
+            }
+            notifyProgress({ fileId, progress: t.receivedChunks / t.totalChunks, status: 'stalled-requesting-resend', direction: 'receive', name: t.name, size: t.size, peerPubkey: peerKey });
+            // בקשת resend דרך DC
+            const dc = dataChannels.get(peerKey);
+            if (dc && dc.readyState === 'open') {
+              try { dc.send(JSON.stringify({ type: 'file-resend-request', fileId, fromChunk: t.receivedChunks })); console.log('[CHAT/P2P] 🔄 stall resend-request דרך DC, fromChunk:', t.receivedChunks); } catch (_e) {}
+            }
+            // בקשת resend דרך Nostr signal
+            if (typeof App.sendP2PSignal === 'function') {
+              try { await App.sendP2PSignal(peerKey, { type: 'file-resend-request', fileId, fromChunk: t.receivedChunks }); } catch (_e) {}
+            }
+            // timeout אחרון — אם עדיין תקוע, fail
+            t._resendTimer2 = setTimeout(() => {
+              const t2 = activeTransfers.get(fileId);
+              if (!t2 || t2.direction !== 'receive' || t2.receivedChunks >= t2.totalChunks) return;
+              if (t2._lastChunkAt && (Date.now() - t2._lastChunkAt) < RESEND_WAIT_SEC * 1000) return; // chunks חזרו!
+              console.error('[CHAT/P2P] ❌ stall לא טופל — transfer נכשל:', fileId);
+              notifyProgress({ fileId, progress: t2.receivedChunks / t2.totalChunks, status: 'failed', direction: 'receive', name: t2.name, size: t2.size, peerPubkey: peerKey, error: 'stalled mid-transfer' });
+              if (typeof App.showToast === 'function') {
+                App.showToast(`❌ "${t2.name || 'קובץ'}" נכשל (${Math.round(t2.receivedChunks/t2.totalChunks*100)}%) — בקש שליחה מחדש`, 'error');
+              }
+              activeTransfers.delete(fileId);
+            }, RESEND_WAIT_SEC * 1000);
+          }, RESEND_WAIT_SEC * 1000);
+        }
 
         // התקדמות לקבלה
         notifyProgress({
@@ -667,6 +654,18 @@
           mimeType: transfer.mimeType,
           peerPubkey: peerKey
         });
+        
+        // Send ACK every N chunks
+        if (transfer.receivedChunks % ACK_INTERVAL === 0) {
+          const channel = dataChannels.get(peerKey);
+          if (channel && channel.readyState === 'open') {
+            channel.send(JSON.stringify({
+              type: 'ack',
+              fileId,
+              index: transfer.receivedChunks
+            }));
+          }
+        }
         
         // Save to IndexedDB periodically
         if (transfer.receivedChunks % 20 === 0) {
@@ -689,18 +688,12 @@
   // חלק resend handler (chat-p2p-file.js) — שולח קובץ מחדש מ-cache כשהמקבל מבקש | HYPER CORE TECH
   async function handleFileResendRequest(requesterPubkey, msg) {
     const fileId = msg.fileId;
-    // חלק resend חכם (chat-p2p-file.js) — אם transfer פעיל שסיים, מנקה אותו ומאפשר resend; אם באמצע שליחה, מתעלם | HYPER CORE TECH
+    // בדיקה ראשונה: האם הקובץ עדיין בשליחה פעילה? אם כן — מתעלם (לא צריך resend)
     if (activeTransfers.has(fileId)) {
       const t = activeTransfers.get(fileId);
       if (t.direction === 'send') {
-        if (t.currentChunk < t.totalChunks) {
-          console.log('[CHAT/P2P] 🔄 resend התקבל אבל שליחה באמצע — מתעלם:', fileId, `(chunk ${t.currentChunk}/${t.totalChunks})`);
-          return;
-        }
-        // sender סיים לשלוח אבל המקבל לא קיבל הכל — מנקה ומאפשר resend
-        console.log('[CHAT/P2P] 🔄 sender סיים אבל המקבל מבקש resend — מנקה transfer ישן:', fileId);
-        if (t._chunkAckTimer) clearTimeout(t._chunkAckTimer);
-        activeTransfers.delete(fileId);
+        console.log('[CHAT/P2P] 🔄 file-ready/resend התקבל אבל שליחה פעילה — מתעלם:', fileId, `(chunk ${t.currentChunk}/${t.totalChunks})`);
+        return;
       }
     }
     const cached = recentCompletedFiles.get(fileId);
@@ -758,11 +751,6 @@
         console.log('[CHAT/P2P] העברה כבר קיימת עבור fileId:', fileId);
         return;
       }
-      // חלק מניעת לולאה (chat-p2p-file.js) — לא יוצרים transfer חדש ל-fileId שנכשל סופית | HYPER CORE TECH
-      if (failedFileIds.has(fileId)) {
-        console.log('[CHAT/P2P] ⛔ fileId נכשל סופית — לא יוצרים transfer חדש:', fileId);
-        return;
-      }
       
       // ייבוא מפתח ההצפנה
       const key = await importFileKey(keyStr);
@@ -810,7 +798,7 @@
       
       if (conn && conn.channel && conn.channel.readyState === 'open') {
         console.log('[CHAT/P2P] 🔗 משתמש ב-persistent DataChannel לקבלת צ\'אנקים');
-        conn.channel.binaryType = 'arraybuffer'; // חלק binaryType fix (chat-p2p-file.js) — מוודא קבלת ArrayBuffer בצד מקבל | HYPER CORE TECH
+        conn.channel.binaryType = 'arraybuffer'; // חובה — בלי זה binary מגיע כ-Blob ונזרק
         // שמירת ה-channel המקושר
         dataChannels.set(senderKey, conn.channel);
         
@@ -923,8 +911,6 @@
           const t2 = activeTransfers.get(fileId);
           if (!t2 || t2.direction !== 'receive' || t2.receivedChunks > 0) return;
           console.error('[CHAT/P2P] ❌ resend נכשל — הקובץ לא הגיע אחרי 2 ניסיונות');
-          failedFileIds.add(fileId); // חלק מניעת לולאה (chat-p2p-file.js) — מונע יצירת transfer חדש ל-fileId שנכשל | HYPER CORE TECH
-          setTimeout(() => failedFileIds.delete(fileId), 60000); // מאפשר ניסיון חדש אחרי דקה
           notifyProgress({ fileId, progress: 0, status: 'failed', direction: 'receive', name, size, peerPubkey: senderKey, error: 'no chunks received after resend' });
           if (typeof App.showToast === 'function') {
             App.showToast(`❌ הקובץ "${name || 'קובץ'}" לא התקבל — בקש מהשולח לשלוח שוב`, 'error');
@@ -984,11 +970,8 @@
       // חלק דיבאג קבלה (chat-p2p-file.js) – רישום מטא אחרי הרכבת קובץ | HYPER CORE TECH
       mediaDebugLog('receive-finalize', { fileId, name: transfer.name, size: transfer.size, mimeType: transfer.mimeType });
       
-      // חלק הרכבת blob (chat-p2p-file.js) — סינון chunks ריקים (indexed array) + הבטחת MIME | HYPER CORE TECH
-      const validChunks = transfer.chunks.filter(c => c != null);
-      const finalMime = resolveMimeType(transfer.mimeType, transfer.name) || transfer.mimeType || 'application/octet-stream';
-      console.log('[CHAT/P2P] 📦 הרכבת blob:', { validChunks: validChunks.length, totalChunks: transfer.totalChunks, mime: finalMime, name: transfer.name });
-      const blob = new Blob(validChunks, { type: finalMime });
+      // הרכבת כל הצ'אנקים ל-Blob
+      const blob = new Blob(transfer.chunks, { type: transfer.mimeType || 'application/octet-stream' });
       
       // שמירה ל-cache אם זמין
       if (typeof App.SOS2MediaCache !== 'undefined' && App.SOS2MediaCache) {
@@ -1040,16 +1023,15 @@
         const blobUrl = URL.createObjectURL(blob);
         if (typeof App.appendChatMessage === 'function') {
           const createdAt = Math.floor(Date.now() / 1000);
+          const resolvedMime = resolveMimeType(transfer.mimeType, transfer.name);
           const isVideoFlag = shouldForceVideoFlag(transfer.mimeType, transfer.name);
-          const attachObj = { name: transfer.name, size: transfer.size, type: finalMime, url: blobUrl, fileId, isVideo: isVideoFlag || undefined };
-          console.log('[CHAT/P2P] 📋 attachment למקבל:', { type: attachObj.type, isVideo: attachObj.isVideo, name: attachObj.name, urlPrefix: blobUrl.slice(0, 30) });
           App.appendChatMessage({
             id: `p2p-recv-${fileId}`,
             direction: 'incoming',
             from: transfer.peerPubkey,
             to: App.publicKey,
             content: `📎 ${transfer.name}`,
-            attachment: attachObj,
+            attachment: { name: transfer.name, size: transfer.size, type: resolvedMime || transfer.mimeType, url: blobUrl, fileId, isVideo: isVideoFlag || undefined },
             p2p: true,
             createdAt,
           });
@@ -1353,20 +1335,19 @@
     });
   }
 
-  // חלק ניתוב ישיר (chat-p2p-file.js) — מאפשר ל-p2p-video-sharing.js לנתב הודעות file-transfer ישירות | HYPER CORE TECH
+  // חלק API ציבורי (chat-p2p-file.js) – חשיפת פונקציות להעברת קבצים | HYPER CORE TECH
+  // handleP2PFileMessage — נקודת כניסה אחידה מ-p2p-video-sharing.js לכל הודעות file-transfer (JSON + binary)
   function handleP2PFileMessage(peerPubkey, data) {
     handleIncomingMessage(peerPubkey, data);
   }
-
-  // חלק API ציבורי (chat-p2p-file.js) – חשיפת פונקציות להעברת קבצים | HYPER CORE TECH
   Object.assign(App, {
     sendP2PFile: sendFile,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
     onFileDataChannel,
-    handleP2PFileMessage,
     activeP2PTransfers: activeTransfers,
     handleP2PFileOffer: handleP2PFileOffer,
     handleFileResendRequest: handleFileResendRequest,
+    handleP2PFileMessage: handleP2PFileMessage,
     recentCompletedFiles: recentCompletedFiles,
     subscribeP2PFileProgress: (cb) => {
       if (typeof cb === 'function') {
