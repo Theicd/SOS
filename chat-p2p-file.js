@@ -414,23 +414,42 @@
     }
     
     if (!channel || channel.readyState !== 'open') {
-      // חלק המתנה קצרה (chat-p2p-file.js) – ניסיון חוזר לפני fallback כאשר זו ההתחלה | HYPER CORE TECH
-      if (transfer.currentChunk === 0 && transfer.dcWaitAttempts < 5) {
+      // חלק reconnect (chat-p2p-file.js) – DC נסגר, מנסה לחבר מחדש לפני fallback — גם באמצע שליחה | HYPER CORE TECH
+      if (transfer.dcWaitAttempts < 5) {
         transfer.dcWaitAttempts += 1;
+        const chunkInfo = transfer.currentChunk > 0 ? ` (chunk ${transfer.currentChunk}/${totalChunks})` : '';
+        console.log(`[CHAT/P2P] ⏳ DC לא פתוח${chunkInfo}, ניסיון ${transfer.dcWaitAttempts}/5...`);
+        // ניסיון אקטיבי לחבר DC מחדש כשנפל באמצע
+        if (transfer.currentChunk > 0 && transfer.dcWaitAttempts === 1) {
+          transfer.channel = null; // מאפס channel שבור
+          try {
+            const chatPC = App.dataChannel?.getChatPC?.(peerKey);
+            if (chatPC && chatPC.connectionState === 'connected') {
+              console.log('[CHAT/P2P] ⚡ מנסה ליצור file-transfer DC חדש (reconnect)');
+              const newCh = chatPC.createDataChannel('file-transfer', { ordered: true });
+              newCh.binaryType = 'arraybuffer';
+              newCh._p2pFileHandler = true;
+              newCh.addEventListener('message', (event) => handleIncomingMessage(peerKey, event.data));
+              newCh.addEventListener('close', () => { if (dataChannels.get(peerKey) === newCh) dataChannels.delete(peerKey); if (transfer.channel === newCh) transfer.channel = null; });
+              dataChannels.set(peerKey, newCh);
+              transfer.channel = newCh;
+            }
+          } catch (e) { console.warn('[CHAT/P2P] reconnect DC failed:', e.message); }
+        }
         notifyProgress({
           fileId,
-          progress: 0,
-          status: 'waiting',
+          progress: transfer.currentChunk / totalChunks,
+          status: 'reconnecting',
           direction: 'send',
           name: file?.name,
           size: file?.size,
           mimeType: file?.type,
           peerPubkey: peerKey
         });
-        setTimeout(() => sendNextChunk(fileId, onProgress), 300);
+        setTimeout(() => sendNextChunk(fileId, onProgress), 500);
         return;
       }
-      console.warn('[CHAT/P2P] ⚠️ DataChannel not ready, fallback to Blossom');
+      console.warn('[CHAT/P2P] ⚠️ DataChannel not ready after 5 retries, fallback to Blossom');
       // חלק התראה (chat-p2p-file.js) – Push לפיר לא מחובר + Toast לשולח | HYPER CORE TECH
       if (typeof App.triggerOutgoingMessagePush === 'function') {
         App.triggerOutgoingMessagePush(peerKey, null, { type: 'file', name: transfer.file?.name, size: transfer.file?.size });
@@ -475,6 +494,7 @@
         channel.send(encrypted);
         
         transfer.currentChunk++;
+        transfer.dcWaitAttempts = 0; // איפוס — DC עבד, אפשר לנסות שוב אם ייפול
         
         const progressPayload = {
           fileId,
@@ -566,12 +586,44 @@
         transfer.chunks.push(decrypted);
         transfer.receivedChunks++;
 
-        // חלק ביטול resend timer (chat-p2p-file.js) — chunks מגיעים, לא צריך resend | HYPER CORE TECH
-        if (transfer.receivedChunks === 1 && transfer._resendTimer) {
-          clearTimeout(transfer._resendTimer);
-          transfer._resendTimer = null;
-          if (transfer._resendTimer2) { clearTimeout(transfer._resendTimer2); transfer._resendTimer2 = null; }
-          console.log('[CHAT/P2P] ✅ chunk ראשון הגיע — resend timer בוטל');
+        // חלק stall detection (chat-p2p-file.js) — מאפס timer על כל chunk, אם נתקע באמצע מבקש resend | HYPER CORE TECH
+        if (transfer._resendTimer) { clearTimeout(transfer._resendTimer); transfer._resendTimer = null; }
+        if (transfer._resendTimer2) { clearTimeout(transfer._resendTimer2); transfer._resendTimer2 = null; }
+        transfer._lastChunkAt = Date.now();
+        // אם עדיין לא סיימנו — מפעיל stall timer
+        if (transfer.receivedChunks < transfer.totalChunks) {
+          transfer._resendTimer = setTimeout(async () => {
+            const t = activeTransfers.get(fileId);
+            if (!t || t.direction !== 'receive') return;
+            if (t.receivedChunks >= t.totalChunks) return; // כבר הושלם
+            const secSinceLastChunk = ((Date.now() - (t._lastChunkAt || 0)) / 1000).toFixed(1);
+            console.warn(`[CHAT/P2P] ⏱️ stall detected! ${t.receivedChunks}/${t.totalChunks} chunks, ${secSinceLastChunk}s since last chunk:`, fileId);
+            if (typeof App.showToast === 'function') {
+              App.showToast(`⏱️ העברת "${t.name || 'קובץ'}" נתקעה (${Math.round(t.receivedChunks/t.totalChunks*100)}%) — מבקש שליחה מחדש...`, 'warning');
+            }
+            notifyProgress({ fileId, progress: t.receivedChunks / t.totalChunks, status: 'stalled-requesting-resend', direction: 'receive', name: t.name, size: t.size, peerPubkey: peerKey });
+            // בקשת resend דרך DC
+            const dc = dataChannels.get(peerKey);
+            if (dc && dc.readyState === 'open') {
+              try { dc.send(JSON.stringify({ type: 'file-resend-request', fileId, fromChunk: t.receivedChunks })); console.log('[CHAT/P2P] 🔄 stall resend-request דרך DC, fromChunk:', t.receivedChunks); } catch (_e) {}
+            }
+            // בקשת resend דרך Nostr signal
+            if (typeof App.sendP2PSignal === 'function') {
+              try { await App.sendP2PSignal(peerKey, { type: 'file-resend-request', fileId, fromChunk: t.receivedChunks }); } catch (_e) {}
+            }
+            // timeout אחרון — אם עדיין תקוע, fail
+            t._resendTimer2 = setTimeout(() => {
+              const t2 = activeTransfers.get(fileId);
+              if (!t2 || t2.direction !== 'receive' || t2.receivedChunks >= t2.totalChunks) return;
+              if (t2._lastChunkAt && (Date.now() - t2._lastChunkAt) < RESEND_WAIT_SEC * 1000) return; // chunks חזרו!
+              console.error('[CHAT/P2P] ❌ stall לא טופל — transfer נכשל:', fileId);
+              notifyProgress({ fileId, progress: t2.receivedChunks / t2.totalChunks, status: 'failed', direction: 'receive', name: t2.name, size: t2.size, peerPubkey: peerKey, error: 'stalled mid-transfer' });
+              if (typeof App.showToast === 'function') {
+                App.showToast(`❌ "${t2.name || 'קובץ'}" נכשל (${Math.round(t2.receivedChunks/t2.totalChunks*100)}%) — בקש שליחה מחדש`, 'error');
+              }
+              activeTransfers.delete(fileId);
+            }, RESEND_WAIT_SEC * 1000);
+          }, RESEND_WAIT_SEC * 1000);
         }
 
         // התקדמות לקבלה
@@ -619,6 +671,14 @@
   // חלק resend handler (chat-p2p-file.js) — שולח קובץ מחדש מ-cache כשהמקבל מבקש | HYPER CORE TECH
   async function handleFileResendRequest(requesterPubkey, msg) {
     const fileId = msg.fileId;
+    // בדיקה ראשונה: האם הקובץ עדיין בשליחה פעילה? אם כן — מתעלם (לא צריך resend)
+    if (activeTransfers.has(fileId)) {
+      const t = activeTransfers.get(fileId);
+      if (t.direction === 'send') {
+        console.log('[CHAT/P2P] 🔄 file-ready/resend התקבל אבל שליחה פעילה — מתעלם:', fileId, `(chunk ${t.currentChunk}/${t.totalChunks})`);
+        return;
+      }
+    }
     const cached = recentCompletedFiles.get(fileId);
     if (!cached) {
       console.warn('[CHAT/P2P] ⚠️ resend request עבור fileId שלא ב-cache:', fileId);
@@ -629,28 +689,24 @@
       }
       return;
     }
-    // בדיקה שלא כבר שולחים מחדש
-    if (activeTransfers.has(fileId)) {
-      console.log('[CHAT/P2P] 🔄 resend כבר בתהליך עבור:', fileId);
-      return;
-    }
-    console.log('[CHAT/P2P] 🔄 מתחיל resend עבור:', fileId, cached.file?.name);
+    const fromChunk = Math.max(0, parseInt(msg.fromChunk) || 0);
+    console.log('[CHAT/P2P] 🔄 מתחיל resend עבור:', fileId, cached.file?.name, 'fromChunk:', fromChunk);
     if (typeof App.showToast === 'function') {
-      App.showToast(`🔄 שולח מחדש: ${cached.file?.name || 'קובץ'}`, 'info');
+      App.showToast(`🔄 שולח מחדש: ${cached.file?.name || 'קובץ'} (מ-chunk ${fromChunk})`, 'info');
     }
-    // שליחה מחדש — שימוש חוזר באותו fileId ומפתח הצפנה
+    // שליחה מחדש — שימוש חוזר באותו fileId ומפתח הצפנה, מתחיל מ-fromChunk
     const peerKey = toPeerKey(requesterPubkey);
     const file = cached.file;
     const key = await importFileKey(cached.keyStr);
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const transfer = {
       fileId, file, key, keyStr: cached.keyStr, peerPubkey: peerKey,
-      direction: 'send', currentChunk: 0, totalChunks,
+      direction: 'send', currentChunk: fromChunk, totalChunks,
       ackReceived: 0, paused: false, startTime: Date.now(),
       dcWaitAttempts: 0, channel: null, isResend: true
     };
     activeTransfers.set(fileId, transfer);
-    notifyProgress({ fileId, progress: 0, status: 'starting', direction: 'send', name: file.name, size: file.size, mimeType: file.type, peerPubkey: peerKey });
+    notifyProgress({ fileId, progress: fromChunk / totalChunks, status: 'resending', direction: 'send', name: file.name, size: file.size, mimeType: file.type, peerPubkey: peerKey });
     await sendNextChunk(fileId, null);
   }
 
@@ -820,16 +876,16 @@
           App.showToast(`⏱️ ממתין לקובץ "${name || 'קובץ'}" — מבקש שליחה מחדש...`, 'warning');
         }
         notifyProgress({ fileId, progress: 0, status: 'requesting-resend', direction: 'receive', name, size, mimeType, peerPubkey: senderKey });
-        // ניסיון 1: בקשת resend דרך DC
+        // ניסיון 1: בקשת resend דרך DC (עם fromChunk)
         const dc = dataChannels.get(senderKey);
         if (dc && dc.readyState === 'open') {
-          try { dc.send(JSON.stringify({ type: 'file-resend-request', fileId })); console.log('[CHAT/P2P] 🔄 file-resend-request נשלח דרך DC'); } catch (_e) {}
+          try { dc.send(JSON.stringify({ type: 'file-resend-request', fileId, fromChunk: 0 })); console.log('[CHAT/P2P] 🔄 file-resend-request נשלח דרך DC (fromChunk:0)'); } catch (_e) {}
         }
         // ניסיון 2: בקשת resend דרך Nostr signal
         if (typeof App.sendP2PSignal === 'function') {
           try {
-            await App.sendP2PSignal(senderKey, { type: 'file-resend-request', fileId });
-            console.log('[CHAT/P2P] 🔄 file-resend-request נשלח דרך Nostr signal');
+            await App.sendP2PSignal(senderKey, { type: 'file-resend-request', fileId, fromChunk: 0 });
+            console.log('[CHAT/P2P] 🔄 file-resend-request נשלח דרך Nostr signal (fromChunk:0)');
           } catch (_e) {}
         }
         // timeout שני — אם עדיין לא הגיעו chunks, fallback
