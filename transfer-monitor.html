@@ -72,12 +72,44 @@
     .issue-count--green{color:#3fb950}
     .ctrl-section{padding:8px 24px;font-size:14px;font-weight:700;color:#8b949e;margin-top:8px}
 
+    /* ═══════ העברות פעילות — כרטיסים עם progress bar חי (transfer-monitor.html) | HYPER CORE TECH ═══════ */
+    .active-section{padding:0 24px 12px}
+    .active-title{font-size:13px;font-weight:700;color:#8b949e;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .active-title .pulse{width:8px;height:8px;border-radius:50%;background:#3fb950;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .xfer-card{background:#161b22;border-radius:8px;padding:12px 14px;margin-bottom:8px;border-right:4px solid #238636}
+    .xfer-card--recv{border-right-color:#1f6feb}
+    .xfer-card--done{border-right-color:#3fb950;opacity:.7}
+    .xfer-card--fail{border-right-color:#da3633}
+    .xfer-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px}
+    .xfer-name{font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .xfer-method{padding:1px 8px;border-radius:4px;color:#fff;font-size:10px;font-weight:600}
+    .xfer-dir{font-size:14px}
+    .xfer-peer{color:#8b949e;font-size:11px}
+    .xfer-bar-wrap{background:#21262d;border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px}
+    .xfer-bar{height:100%;border-radius:4px;transition:width .3s ease;background:linear-gradient(90deg,#238636,#3fb950)}
+    .xfer-card--recv .xfer-bar{background:linear-gradient(90deg,#1f6feb,#58a6ff)}
+    .xfer-stats{display:flex;justify-content:space-between;font-size:11px;color:#8b949e}
+    .xfer-speed{color:#58a6ff;font-weight:600}
+    .xfer-pct{color:#3fb950;font-weight:700}
+
+    /* ═══════ אישור קבלה בולט (transfer-monitor.html) | HYPER CORE TECH ═══════ */
+    .verified-banner{background:#0f1a10;border:1px solid #238636;border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;animation:verifiedFlash .6s}
+    @keyframes verifiedFlash{0%{background:#1a3d1a}100%{background:#0f1a10}}
+    .verified-icon{font-size:22px}
+    .verified-body{flex:1}
+    .verified-title{font-size:13px;font-weight:700;color:#3fb950}
+    .verified-detail{font-size:11px;color:#8b949e}
+
+    /* ═══════ live indicator (transfer-monitor.html) | HYPER CORE TECH ═══════ */
+    .live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#3fb950;margin-left:4px;animation:pulse 1.5s infinite}
+
     /* ═══════ אזהרת file:// | HYPER CORE TECH ═══════ */
     .file-warn{background:#9e6a03;color:#fff;padding:14px 24px;font-size:14px;font-weight:600;text-align:center;display:none}
     .file-warn a{color:#fff;text-decoration:underline;font-weight:700}
     .file-warn.on{display:block}
 
-    @media(max-width:600px){.hdr{padding:10px 12px}.tabs{padding:0 8px}.tab{padding:10px 14px;font-size:13px}.log{padding:0 12px 12px}.toolbar{padding:6px 12px}}
+    @media(max-width:600px){.hdr{padding:10px 12px}.tabs{padding:0 8px}.tab{padding:10px 14px;font-size:13px}.log{padding:0 12px 12px}.toolbar{padding:6px 12px}.active-section{padding:0 12px 8px}}
   </style>
 </head>
 <body>
@@ -113,6 +145,17 @@
     </div>
   </div>
 
+  <!-- ═══════ אזור העברות פעילות — progress bars חיים (transfer-monitor.html) | HYPER CORE TECH ═══════ -->
+  <div class="active-section" id="active-xfers" style="display:none">
+    <div class="active-title"><span class="pulse"></span> העברות פעילות</div>
+    <div id="active-cards"></div>
+  </div>
+
+  <!-- ═══════ אזור אישורי קבלה אחרונים (transfer-monitor.html) | HYPER CORE TECH ═══════ -->
+  <div class="active-section" id="verified-section" style="display:none">
+    <div id="verified-cards"></div>
+  </div>
+
   <!-- ═══════ אזור תוכן — משתנה לפי הטאב | HYPER CORE TECH ═══════ -->
   <div class="log" id="content">
     <div class="log-empty">טוען נתונים...</div>
@@ -127,15 +170,51 @@
 
   // ═══════ קבועים | HYPER CORE TECH ═══════
   var HOUR = 3600000;
-  var POLL = 2000;
+  var POLL = 3000;
   var EVT_KEY = 'sos_transfer_events';   // מ-chat-transfer-monitor.js
   var REQ_KEY = 'sos_request_log';       // מ-chat-request-logger.js
+  var BC_CHANNEL = 'sos-monitor-live';   // BroadcastChannel לעדכון מיידי
   var tab = 'comm';
   var evts = [];
   var req = {entries:[],counters:{}};
+  var liveXfers = {};     // העברות פעילות — עדכון בזמן אמת מ-BroadcastChannel
+  var verifiedList = [];  // אישורי קבלה אחרונים (עד 10)
 
   // ═══════ זיהוי file:// | HYPER CORE TECH ═══════
   if(location.protocol==='file:') document.getElementById('file-warn').classList.add('on');
+
+  // ═══════ BroadcastChannel listener (transfer-monitor.html) — עדכון מיידי בלי polling | HYPER CORE TECH ═══════
+  var bc = null;
+  try {
+    bc = new BroadcastChannel(BC_CHANNEL);
+    bc.onmessage = function(ev) {
+      var msg = ev.data;
+      if (!msg || !msg.type) return;
+      // עדכון מיידי של אירוע חדש — טוען מחדש מ-localStorage ומרנדר
+      if (msg.type === 'evt-add' || msg.type === 'evt-update') {
+        load(); render();
+      }
+      // עדכון progress חי להעברות פעילות
+      if (msg.type === 'file-progress') {
+        var p = msg.payload;
+        var key = p.fileId + '_' + p.direction;
+        liveXfers[key] = { fileId:p.fileId, direction:p.direction, status:p.status, method:p.method,
+          name:p.name, size:p.size, progress:p.progress, progressPct:p.progressPct,
+          speed:p.speed, speedLabel:p.speedLabel, peer:p.peer, ts:msg.ts };
+        // ניקוי העברות שהושלמו אחרי 5 שניות
+        if (p.status==='success'||p.status==='verified'||p.status==='failed') {
+          setTimeout(function(){ delete liveXfers[key]; renderActiveXfers(); }, 5000);
+        }
+        renderActiveXfers();
+      }
+      // אישור קבלה
+      if (msg.type === 'file-verified') {
+        verifiedList.unshift({ name:msg.payload.name, peer:msg.payload.peer, ts:msg.ts });
+        if (verifiedList.length > 10) verifiedList.pop();
+        renderVerified();
+      }
+    };
+  } catch(_e) { /* fallback to polling */ }
 
   // ═══════ טעינה מ-localStorage | HYPER CORE TECH ═══════
   function load(){
@@ -149,6 +228,8 @@
   // ═══════ עזרים | HYPER CORE TECH ═══════
   function t(ts){return new Date(ts).toLocaleTimeString('he-IL');}
   function esc(s){return typeof s==='string'?s.replace(/</g,'&lt;').slice(0,120):'';}
+  function fmtSize(b){if(!b)return '';if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
+  function fmtSpeed(bps){if(!bps||bps<=0)return '';if(bps<1024)return bps+'B/s';if(bps<1048576)return (bps/1024).toFixed(1)+'KB/s';return (bps/1048576).toFixed(1)+'MB/s';}
 
   // ═══════ מפות שיטות ותוויות | HYPER CORE TECH ═══════
   var METHOD={
@@ -167,6 +248,63 @@
     'cache-hit-video':'💾 Cache וידאו','deletion-recv':'🗑️ מחיקה נכנסת'};
 
   // ═══════════════════════════════════════════════════════════════════
+  // אזור העברות פעילות — progress bars חיים (transfer-monitor.html) | HYPER CORE TECH
+  // ═══════════════════════════════════════════════════════════════════
+  function renderActiveXfers() {
+    var wrap = document.getElementById('active-xfers');
+    var cards = document.getElementById('active-cards');
+    var keys = Object.keys(liveXfers);
+    if (!keys.length) { wrap.style.display='none'; return; }
+    wrap.style.display='block';
+    var html='';
+    for (var i=0;i<keys.length;i++) {
+      var x = liveXfers[keys[i]];
+      var m = METHOD[x.method]||METHOD.unknown;
+      var isSend = x.direction==='send';
+      var isDone = x.status==='success'||x.status==='verified';
+      var isFail = x.status==='failed';
+      var cls = 'xfer-card' + (isSend?'':' xfer-card--recv') + (isDone?' xfer-card--done':'') + (isFail?' xfer-card--fail':'');
+      var pct = x.progressPct || 0;
+      html+='<div class="'+cls+'">';
+      html+='<div class="xfer-top">';
+      html+='<span class="xfer-dir">'+(isSend?'📤 שולח':'📥 מוריד')+'</span>';
+      html+='<span class="xfer-name">'+(esc(x.name)||'קובץ')+'</span>';
+      html+='<span class="xfer-method" style="background:'+m.c+'">'+m.l+'</span>';
+      if(x.peer) html+='<span class="xfer-peer">'+x.peer+'</span>';
+      html+='</div>';
+      html+='<div class="xfer-bar-wrap"><div class="xfer-bar" style="width:'+pct+'%"></div></div>';
+      html+='<div class="xfer-stats">';
+      html+='<span>'+fmtSize(x.size)+'</span>';
+      html+='<span class="xfer-speed">'+(x.speedLabel||'')+'</span>';
+      html+='<span class="xfer-pct">'+pct+'%</span>';
+      html+='</div>';
+      html+='</div>';
+    }
+    cards.innerHTML=html;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // אישורי קבלה בולטים (transfer-monitor.html) | HYPER CORE TECH
+  // ═══════════════════════════════════════════════════════════════════
+  function renderVerified() {
+    var wrap = document.getElementById('verified-section');
+    var el = document.getElementById('verified-cards');
+    if (!verifiedList.length) { wrap.style.display='none'; return; }
+    wrap.style.display='block';
+    var html='';
+    for (var i=0;i<Math.min(verifiedList.length,5);i++) {
+      var v = verifiedList[i];
+      html+='<div class="verified-banner">';
+      html+='<span class="verified-icon">✅✅</span>';
+      html+='<div class="verified-body">';
+      html+='<div class="verified-title">הצד השני קיבל: '+(esc(v.name)||'קובץ')+'</div>';
+      html+='<div class="verified-detail">'+(v.peer?'peer: '+v.peer+' · ':'')+t(v.ts)+'</div>';
+      html+='</div></div>';
+    }
+    el.innerHTML=html;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   // טאב 1: תקשורת — לוג פעילות צ'אט בזמן אמת | HYPER CORE TECH
   // ═══════════════════════════════════════════════════════════════════
   function renderComm(el){
@@ -180,15 +318,20 @@
       var dir=e.direction==='send'?'📤':'📥';
       var dirCls=e.direction==='send'?'row--send':'row--recv';
       if(e.category==='connection') dirCls='row--conn';
+      if(e.status==='failed') dirCls='row--err';
       var catLabel=CAT[e.category]||e.category;
       var st=STATUS[e.status]||'•';
       var d=e.details||{};
       var detail=[];
-      if(d.peer) detail.push('מ-'+d.peer);
+      if(d.peer) detail.push('peer:'+d.peer);
       if(d.preview) detail.push('"'+esc(d.preview)+'"');
       if(d.name) detail.push(d.name);
       if(d.size) detail.push(fmtSize(d.size));
       if(d.duration) detail.push(d.duration+'s');
+      // מהירות ומשך העברה
+      if(d.speedLabel) detail.push('⚡'+d.speedLabel);
+      if(d.avgSpeedLabel) detail.push('ממוצע:'+d.avgSpeedLabel);
+      if(d.transferLabel) detail.push(d.transferLabel);
       if(d.progress&&d.progress!=='0%'&&d.progress!=='100%') detail.push(d.progress);
       if(d.state) detail.push(d.state);
       if(d.error) detail.push('❌ '+esc(d.error));
@@ -206,8 +349,6 @@
     }
     el.innerHTML=html;
   }
-
-  function fmtSize(b){if(!b)return '';if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
 
   // ═══════════════════════════════════════════════════════════════════
   // טאב 2: רשת חברתית — לוג פעילות פיד בזמן אמת | HYPER CORE TECH
@@ -368,12 +509,15 @@
     document.getElementById('cnt-ctrl').textContent=wasteCnt||'✓';
     document.getElementById('cnt-ctrl').style.background=wasteCnt>0?'#da3633':'#238636';
 
-    // סטטוס
+    // סטטוס עם live indicator (transfer-monitor.html) | HYPER CORE TECH
     var isFile=location.protocol==='file:';
     var st=document.getElementById('status');
+    var liveLabel=bc?'<span class="live-dot"></span> LIVE':'';
+    var activeCount=Object.keys(liveXfers).length;
+    var activeLabel=activeCount>0?' · <span style="color:#58a6ff;font-weight:700">'+activeCount+' העברות פעילות</span>':'';
     if(isFile) st.innerHTML='<span style="color:#f85149">❌ file:// — פתח מ-localhost:3000</span>';
-    else if(evts.length===0&&(req.entries||[]).length===0) st.innerHTML='<span style="color:#d29922">⏳ ממתין — שלח הודעה</span>';
-    else st.innerHTML='<span style="color:#3fb950">🟢 '+evts.length+' אירועים · '+(req.entries||[]).length+' פניות</span>';
+    else if(evts.length===0&&(req.entries||[]).length===0) st.innerHTML='<span style="color:#d29922">⏳ ממתין — שלח הודעה</span> '+liveLabel;
+    else st.innerHTML='<span style="color:#3fb950">🟢 '+evts.length+' אירועים · '+(req.entries||[]).length+' פניות</span>'+activeLabel+' '+liveLabel;
 
     document.getElementById('info').textContent='עדכון: '+t(Date.now());
   }
@@ -391,9 +535,9 @@
   };
   document.getElementById('btn-refresh').onclick=poll;
   document.getElementById('btn-clear').onclick=function(){
-    evts=[];req={entries:[],counters:{}};
+    evts=[];req={entries:[],counters:{}};liveXfers={};verifiedList=[];
     try{localStorage.removeItem(EVT_KEY);localStorage.removeItem(REQ_KEY);}catch(e){}
-    render();
+    renderActiveXfers();renderVerified();render();
   };
 
   // ═══════ start | HYPER CORE TECH ═══════

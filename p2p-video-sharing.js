@@ -1951,6 +1951,17 @@
         } else {
           log('warn', '[P2P-FILE] ⚠️ App.handleP2PFileOffer לא זמין');
         }
+      } else if (msg.type === 'file-resend-request' || msg.type === 'file-ready') {
+        // חלק P2P File Resend (p2p-video-sharing.js) – ניתוב בקשת resend/ready ל-chat-p2p-file.js | HYPER CORE TECH
+        log('info', `[P2P-FILE] 🔄 התקבל ${msg.type} מ-Relay`, {
+          from: senderPubkey?.slice?.(0, 12) + '...',
+          fileId: msg.data?.fileId || msg.fileId
+        });
+        if (typeof App.handleFileResendRequest === 'function') {
+          await App.handleFileResendRequest(senderPubkey, msg.data || msg);
+        } else {
+          log('warn', `[P2P-FILE] ⚠️ App.handleFileResendRequest לא זמין`);
+        }
       }
     } catch (err) {
       log('error', `❌ כשלון בעיבוד Relay Signal: ${err.message}`);
@@ -2050,6 +2061,15 @@
                 await App.handleP2PFileOffer(event.pubkey, message.data || message);
               } else {
                 log('warn', '[P2P-FILE] ⚠️ App.handleP2PFileOffer לא זמין');
+              }
+            } else if (message.type === 'file-resend-request' || message.type === 'file-ready') {
+              // חלק P2P File Resend (p2p-video-sharing.js) – ניתוב בקשת resend/ready מ-Nostr subscribe | HYPER CORE TECH
+              log('info', `[P2P-FILE] 🔄 התקבל ${message.type} מ-Nostr subscribe`, {
+                from: event.pubkey?.slice?.(0, 12) + '...',
+                fileId: message.data?.fileId || message.fileId
+              });
+              if (typeof App.handleFileResendRequest === 'function') {
+                await App.handleFileResendRequest(event.pubkey, message.data || message);
               }
             }
 

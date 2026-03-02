@@ -7,11 +7,22 @@
   const MAX_EVENTS = 500;
   const ONE_HOUR_MS = 60 * 60 * 1000;
   const STORAGE_KEY = 'sos_transfer_events';
+  const BC_CHANNEL = 'sos-monitor-live';
 
   // חלק מאגר אירועים (chat-transfer-monitor.js) — נטען מ-localStorage בהפעלה | HYPER CORE TECH
   let events = [];
   let evtN = 0;
   const fileEvtMap = new Map();
+
+  // חלק BroadcastChannel (chat-transfer-monitor.js) — עדכון מיידי ל-transfer-monitor.html בלי polling | HYPER CORE TECH
+  let bc = null;
+  try { bc = new BroadcastChannel(BC_CHANNEL); } catch (_e) { /* fallback to localStorage polling */ }
+  function broadcast(type, payload) {
+    if (bc) try { bc.postMessage({ type, payload, ts: Date.now() }); } catch (_e) {}
+  }
+
+  // חלק מעקב מהירות (chat-transfer-monitor.js) — חישוב bytes/sec להעברות פעילות | HYPER CORE TECH
+  const activeTransfers = new Map();
 
   function loadFromStorage() { try { const r = localStorage.getItem(STORAGE_KEY); if (r) events = JSON.parse(r); } catch { events = []; } evtN = events.length; }
   function saveToStorage() { try { const cut = Date.now() - ONE_HOUR_MS; const recent = events.filter(e => e.ts >= cut); if (recent.length !== events.length) events = recent; localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); } catch {} }
@@ -24,6 +35,7 @@
     if (events.length > MAX_EVENTS) events.shift();
     console.log(`[MONITOR/${cat.toUpperCase()}] ${dir} via ${method||'unknown'}`, evt.details);
     saveToStorage();
+    broadcast('evt-add', evt);
     return evt;
   }
 
@@ -33,6 +45,30 @@
     Object.assign(evt, upd);
     if (evt.ts) evt.elapsed = Date.now() - evt.ts;
     saveToStorage();
+    broadcast('evt-update', evt);
+  }
+
+  // חלק חישוב מהירות (chat-transfer-monitor.js) — מחשב speed בהתבסס על delta bytes ו-delta time | HYPER CORE TECH
+  function calcSpeed(mapKey, currentBytes) {
+    const now = Date.now();
+    const prev = activeTransfers.get(mapKey);
+    if (!prev) {
+      activeTransfers.set(mapKey, { bytes: currentBytes || 0, ts: now, speed: 0 });
+      return 0;
+    }
+    const dtMs = now - prev.ts;
+    if (dtMs < 200) return prev.speed;
+    const dBytes = Math.max(0, (currentBytes || 0) - prev.bytes);
+    const speed = dtMs > 0 ? Math.round((dBytes / dtMs) * 1000) : 0;
+    activeTransfers.set(mapKey, { bytes: currentBytes || 0, ts: now, speed });
+    return speed;
+  }
+
+  function fmtSpeed(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec <= 0) return '';
+    if (bytesPerSec < 1024) return bytesPerSec + ' B/s';
+    if (bytesPerSec < 1048576) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+    return (bytesPerSec / 1048576).toFixed(1) + ' MB/s';
   }
 
   // חלק hooks (chat-transfer-monitor.js) — עטיפת פונקציות קיימות לרישום אירועים | HYPER CORE TECH
@@ -78,7 +114,7 @@
     };
   }
 
-  // חלק hook קבצים (chat-transfer-monitor.js) — P2P DC/Blossom/WebTorrent + מעקב e2e | HYPER CORE TECH
+  // חלק hook קבצים (chat-transfer-monitor.js) — P2P DC/Blossom/WebTorrent + מעקב e2e + מהירות | HYPER CORE TECH
   function hookFiles() {
     if (typeof App.subscribeP2PFileProgress !== 'function') return;
     App.subscribeP2PFileProgress(function(p) {
@@ -92,27 +128,57 @@
       else if (s==='verified') status='verified';
       else if (s.startsWith('complete')) status='success';
       else if (s==='failed') status='failed';
-      const details = { name:p.name, size:p.size, peer:p.peerPubkey?.slice(0,8), progress:Math.round((p.progress||0)*100)+'%' };
-      if (p.error) details.error = p.error;
+
+      // חלק מהירות (chat-transfer-monitor.js) — חישוב מהירות העברה בזמן אמת | HYPER CORE TECH
+      const progressPct = Math.round((p.progress||0)*100);
+      const currentBytes = p.size ? Math.round((p.progress||0) * p.size) : 0;
       const mapKey = fid + '_' + (p.direction||'send');
+      const speed = calcSpeed(mapKey, currentBytes);
+      const speedLabel = fmtSpeed(speed);
+
+      const details = {
+        name: p.name,
+        size: p.size,
+        peer: p.peerPubkey?.slice(0,8),
+        progress: progressPct + '%',
+        progressRaw: p.progress || 0,
+        speed: speed,
+        speedLabel: speedLabel,
+        bytesTransferred: currentBytes,
+        mimeType: p.mimeType || ''
+      };
+      if (p.error) details.error = p.error;
+
       const existing = fileEvtMap.get(mapKey);
       const prevEvt = existing ? events.find(e => e.id === existing) : null;
       const mergedDetails = Object.assign({}, prevEvt?.details||{}, details);
       if (!mergedDetails.startTs) {
         mergedDetails.startTs = Date.now();
       }
-      // חלק חישוב זמן (chat-transfer-monitor.js) — משך העברה עבור הצלחה/אימות/כשלון | HYPER CORE TECH
+      // חלק חישוב זמן (chat-transfer-monitor.js) — משך העברה + מהירות ממוצעת | HYPER CORE TECH
       if (status === 'success' || status === 'verified' || status === 'failed') {
         const baseTs = mergedDetails.startTs || prevEvt?.ts || Date.now();
         const transferMs = Math.max(0, Date.now() - baseTs);
         mergedDetails.transferMs = transferMs;
         mergedDetails.transferLabel = `משך העברה ${(transferMs/1000).toFixed(1)}s`;
+        const avgSpeed = transferMs > 0 && mergedDetails.size ? Math.round((mergedDetails.size / transferMs) * 1000) : 0;
+        mergedDetails.avgSpeed = avgSpeed;
+        mergedDetails.avgSpeedLabel = fmtSpeed(avgSpeed);
+        activeTransfers.delete(mapKey);
       }
       if (!existing) {
         const evt=addEvt('file',p.direction||'send',status,method,mergedDetails);
         fileEvtMap.set(mapKey,evt.id);
       }
       else updateEvt(existing,{status,method,details:mergedDetails});
+
+      // חלק עדכון מיידי (chat-transfer-monitor.js) — שולח עדכון progress ישיר ל-monitor UI | HYPER CORE TECH
+      broadcast('file-progress', {
+        fileId: fid, direction: p.direction||'send', status, method,
+        name: p.name, size: p.size, progress: p.progress||0,
+        progressPct, speed, speedLabel, peer: p.peerPubkey?.slice(0,8)
+      });
+
       // חלק e2e (chat-transfer-monitor.js) — Toast + עדכון כרטיס שליחה כש-verified | HYPER CORE TECH
       if (s === 'verified') {
         showToast('✅ ' + (p.name||'קובץ') + ' הורד בהצלחה בצד השני!', 'success');
@@ -125,6 +191,7 @@
         if (recvEvtId) {
           updateEvt(recvEvtId, { status:'verified', details: Object.assign({}, events.find(e => e.id === recvEvtId)?.details||{}, { e2e:'✅ אומת — הקובץ התקבל בהצלחה' }) });
         }
+        broadcast('file-verified', { fileId: fid, name: p.name, peer: p.peerPubkey?.slice(0,8) });
       }
     });
   }
@@ -191,6 +258,6 @@
   else setTimeout(init, 300);
 
   // חלק API ציבורי (chat-transfer-monitor.js) — חשיפה למודולים אחרים | HYPER CORE TECH
-  App.transferMonitor = { addEvt, updateEvt, events };
+  App.transferMonitor = { addEvt, updateEvt, events, activeTransfers, fmtSpeed, calcSpeed, broadcast };
   App.showToast = showToast;
 })(window);
