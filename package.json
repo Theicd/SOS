@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "npx serve -s . -l 3000",
-    "qa:chat": "node qa/dual-user-qa.mjs"
+    "qa:chat": "node qa/dual-user-qa.mjs",
+    "qa:chat:local": "node qa/dual-user-qa.mjs --skipRemote=true --headless=true",
+    "qa:security": "node qa/security-audit.mjs"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +16,7 @@
     "nostr-tools": "^2.17.0"
   },
   "devDependencies": {
-    "serve": "^14.2.5",
-    "playwright": "^1.43.0"
+    "playwright": "^1.59.1",
+    "serve": "^14.2.5"
   }
 }

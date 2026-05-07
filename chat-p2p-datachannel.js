@@ -287,8 +287,8 @@
   function subscribe() {
     if(sigSub||!App.pool||!App.publicKey||App.guestMode) return;
     try {
-      // חלק subscribe (chat-p2p-datachannel.js) – סינון מוקדם לפי תג p כדי לצמצם רעש סיגנלינג מפידים אחרים | HYPER CORE TECH
-      sigSub=App.pool.subscribeMany(App.relayUrls,[{kinds:[SIG_KIND],'#p':[App.publicKey.toLowerCase()],since:Math.floor(Date.now()/1000)-SIG_SINCE_SEC}],{
+      // חלק subscribe (chat-p2p-datachannel.js) – מאזין לכל kind 25055 ומסנן ידנית לפי תג p כדי למנוע פספוס בריליי | HYPER CORE TECH
+      sigSub=App.pool.subscribeMany(App.relayUrls,[{kinds:[SIG_KIND],since:Math.floor(Date.now()/1000)-SIG_SINCE_SEC}],{
         onevent:handleSig, oneose:()=>{lastSigAt=Date.now();subReady=true;console.log('[DC] ✅ sub ready');}
       }); lastSigAt=Date.now();
     } catch(e){ console.warn('[DC] sub fail:',e); }

@@ -99,7 +99,7 @@
   const PROFILE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לפרופילים/תמונות כדי לצמצם פניות לריליי | HYPER CORE TECH
   const AVATAR_CACHE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לקאש תמונות פרופיל | HYPER CORE TECH
   const TORRENT_AUTOSTART_MAX_AGE_SECONDS = 90; // חלק טורנט (chat-service.js) – auto-start רק להודעות חדשות מאוד, לא להיסטוריה ישנה | HYPER CORE TECH
-  const DC_PREFER_WAIT_MS = 1200; // חלק P2P (chat-service.js) – חלון קצר להעדפת DataChannel לפני fallback לריליי
+  const DC_PREFER_WAIT_MS = 2600; // חלק P2P (chat-service.js) – חלון להעדפת DataChannel לפני relay; 1.2s היו קצרים מדי כש-ICE/סיגנלינג עדיין נסגרים
 
   let poolReadyWarningShown = false;
   let isServiceReady = false;
@@ -148,10 +148,6 @@
 
   function waitMs(ms) {
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
-  }
-
-  function isLikelyHexPubkey(pk) {
-    return typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk.trim());
   }
 
   async function publishChatMessage(peerPubkey, plainText) {
@@ -556,7 +552,7 @@
 
     // חלק P2P auto-connect (chat-service.js) – כשמגיעה הודעה חדשה דרך relay מ-peer שאין איתו DC,
     // מתחיל חיבור DataChannel ברקע כדי שההודעה הבאה תעבור P2P ישירות | HYPER CORE TECH
-    if (!isSelfMessage && messageAgeSec < 120 && isLikelyHexPubkey(peerPubkey) && App.dataChannel && typeof App.dataChannel.connect === 'function') {
+    if (!isSelfMessage && messageAgeSec < 120 && App.dataChannel && typeof App.dataChannel.connect === 'function') {
       const dcConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey);
       if (!dcConnected) {
         try {
@@ -809,7 +805,29 @@
     subscribeToChatEvents();
     bootstrapContactsFromFeed();
 
-    // pre-connect גלובלי הוסר: חיבורים נפתחים רק על שיחה פעילה/הודעה נכנסת כדי לצמצם סיגנלינג שגוי.
+    // חלק P2P pre-connect (chat-service.js) – 10 שניות אחרי אתחול, מחבר DC ל-5 אנשי קשר אחרונים
+    // כדי שכשהמשתמש יתחיל לדבר, ה-DC כבר יהיה מוכן ורוב ההודעות ילכו P2P | HYPER CORE TECH
+    setTimeout(() => {
+      try {
+        if (!App.dataChannel || typeof App.dataChannel.connect !== 'function') return;
+        if (App.guestMode) return;
+        const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
+        const DC_PRECONNECT_COUNT = 5;
+        let connected = 0;
+        for (let i = 0; i < contacts.length && connected < DC_PRECONNECT_COUNT; i++) {
+          const pk = contacts[i]?.pubkey;
+          if (!pk || pk.length !== 64) continue;
+          const alreadyConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(pk);
+          if (alreadyConnected) continue;
+          App.dataChannel.init?.();
+          App.dataChannel.connect(pk);
+          connected++;
+        }
+        if (connected > 0) {
+          console.log('[CHAT/P2P-AUTO] 🔗 pre-connected DC for', connected, 'top contacts');
+        }
+      } catch (_e) { /* שקט — לא קריטי */ }
+    }, 10000);
   }
 
   const previousNotifyPoolReady = App.notifyPoolReady;

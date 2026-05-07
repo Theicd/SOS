@@ -106,7 +106,7 @@
   const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 10000; // 10 שניות לחיפוש peers
   const PEER_DISCOVERY_LOOKBACK = 24 * 60 * 60; // 24 שעות אחורה - כדי למצוא peers גם אם פרסמו מוקדם יותר
   const CHUNK_SIZE = 16384; // 16KB chunks
-  const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || ['wss://nostr-02.uid.ovh', 'wss://relay.snort.social']));
+  const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || ['wss://nos.lol', 'wss://nostr-02.uid.ovh']));
   // זיהוי מובייל להתאמת משאבים
   const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
@@ -1598,7 +1598,7 @@
             const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','chunk-ack','file-resend-request','file-ready','file-resend-failed'];
             if (msg.type && fileTypes.includes(msg.type)) {
               if (typeof App.handleP2PFileMessage === 'function') {
-                App.handleP2PFileMessage(peerPubkey, event.data);
+                App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
               }
               return;
             }
@@ -1627,7 +1627,7 @@
           } else {
             // חלק ניתוב binary persistent (p2p-video-sharing.js) — מעביר binary ל-chat-p2p-file.js וגם ל-download | HYPER CORE TECH
             if (typeof App.handleP2PFileMessage === 'function') {
-              App.handleP2PFileMessage(peerPubkey, event.data);
+              App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
             }
             chunks.push(event.data);
             receivedSize += event.data.byteLength || event.data.size;
@@ -1722,7 +1722,7 @@
               const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','chunk-ack','file-resend-request','file-ready','file-resend-failed'];
               if (msg.type && fileTypes.includes(msg.type)) {
                 if (typeof App.handleP2PFileMessage === 'function') {
-                  App.handleP2PFileMessage(peerPubkey, event.data);
+                  App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
                 }
                 return;
               }
@@ -1779,7 +1779,7 @@
             } else {
               // חלק ניתוב binary receiver (p2p-video-sharing.js) — מעביר binary ל-chat-p2p-file.js וגם ל-download | HYPER CORE TECH
               if (typeof App.handleP2PFileMessage === 'function') {
-                App.handleP2PFileMessage(peerPubkey, event.data);
+                App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
               }
               const chunkSize = event.data.byteLength || event.data.size;
               chunks.push(event.data);
@@ -2362,7 +2362,7 @@
               const fileTypes = ['file-offer','chunk-meta','file-complete-ack','ack','chunk-ack','file-resend-request','file-ready','file-resend-failed'];
               if (msg.type && fileTypes.includes(msg.type)) {
                 if (typeof App.handleP2PFileMessage === 'function') {
-                  App.handleP2PFileMessage(peerPubkey, event.data);
+                  App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
                 }
                 return;
               }
@@ -2385,7 +2385,7 @@
             } else {
               // חלק ניתוב binary (p2p-video-sharing.js) — binary data מנותב ל-chat-p2p-file.js | HYPER CORE TECH
               if (typeof App.handleP2PFileMessage === 'function') {
-                App.handleP2PFileMessage(peerPubkey, event.data);
+                App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
               }
             }
           } catch (err) {
@@ -3030,9 +3030,9 @@
         // הגדרת ריליים בסיסיים אם אין
         if (!App.relayUrls || App.relayUrls.length === 0) {
           App.relayUrls = [
-            'wss://nos.lol',
-            'wss://nostr-relay.xbytez.io',
-            'wss://relay.nostr.net'
+            'wss://relay.snort.social',
+            'wss://relay.damus.io',
+            'wss://nos.lol'
           ];
         }
         
