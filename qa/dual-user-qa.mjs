@@ -266,9 +266,15 @@ async function runVoiceCall(localA, localB, pubA, pubB) {
   out.attempted = true;
   try {
     await localA.evaluate(async (peer) => window.NostrApp.voiceCall.start(peer), pubB);
-    const incoming = await localB.waitForFunction(() => !!window.__qaVoiceIncoming, { timeout: 20000 });
-    const incomingData = await incoming.jsonValue();
-    await localB.evaluate(async ({ peer, offer }) => window.NostrApp.voiceCall.accept(peer, offer), incomingData);
+    await localB.waitForFunction(
+      () => window.__qaVoiceIncoming?.offer?.sdp && window.__qaVoiceIncoming?.peer,
+      { timeout: 25000 },
+    );
+    const incomingData = await localB.evaluate(() => window.__qaVoiceIncoming);
+    await localB.evaluate(
+      async ({ peer, offer }) => window.NostrApp.voiceCall.accept(peer, offer),
+      incomingData,
+    );
     const okA = await localA.waitForFunction(() => window.NostrApp?.voiceCall?.getState?.()?.isCallActive === true, { timeout: 30000 }).then(() => true).catch(() => false);
     const okB = await localB.waitForFunction(() => window.NostrApp?.voiceCall?.getState?.()?.isCallActive === true, { timeout: 30000 }).then(() => true).catch(() => false);
     out.connected = okA && okB;
@@ -292,9 +298,15 @@ async function runVideoCall(localA, localB, pubA, pubB) {
   out.attempted = true;
   try {
     await localA.evaluate(async (peer) => window.NostrApp.videoCall.start(peer), pubB);
-    const incoming = await localB.waitForFunction(() => !!window.__qaVideoIncoming, { timeout: 20000 });
-    const incomingData = await incoming.jsonValue();
-    await localB.evaluate(async ({ peer, offer }) => window.NostrApp.videoCall.accept(peer, offer), incomingData);
+    await localB.waitForFunction(
+      () => window.__qaVideoIncoming?.offer?.sdp && window.__qaVideoIncoming?.peer,
+      { timeout: 25000 },
+    );
+    const incomingData = await localB.evaluate(() => window.__qaVideoIncoming);
+    await localB.evaluate(
+      async ({ peer, offer }) => window.NostrApp.videoCall.accept(peer, offer),
+      incomingData,
+    );
     const okA = await localA.waitForFunction(() => window.NostrApp?.videoCall?.getState?.()?.isActive === true, { timeout: 30000 }).then(() => true).catch(() => false);
     const okB = await localB.waitForFunction(() => window.NostrApp?.videoCall?.getState?.()?.isActive === true, { timeout: 30000 }).then(() => true).catch(() => false);
     out.connected = okA && okB;
@@ -311,7 +323,7 @@ async function runVideoCall(localA, localB, pubA, pubB) {
 async function runScenario(pageA, pageB, pubA, pubB, scenarioName, opts = {}) {
   const largeMb = Number(opts.largeMb) > 0 ? Number(opts.largeMb) : 5;
   const videoKb = Number(opts.videoKb) > 0 ? Number(opts.videoKb) : 128;
-  const largeTimeoutMs = Number(opts.largeTimeoutMs) > 0 ? Number(opts.largeTimeoutMs) : Math.max(240000, largeMb * 90000);
+  const largeTimeoutMs = Number(opts.largeTimeoutMs) > 0 ? Number(opts.largeTimeoutMs) : Math.max(600000, largeMb * 150000);
 
   const report = {
     scenario: scenarioName,

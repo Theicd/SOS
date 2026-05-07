@@ -5,14 +5,28 @@
 
   // חלק שיחות קול (chat-voice-call.js) – הגדרות WebRTC עם STUN server של Google
   const RTC_CONFIG = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
-    ]
+    iceServers:
+      (Array.isArray(App.RTC_ICE_SERVERS) && App.RTC_ICE_SERVERS.length > 0
+        ? App.RTC_ICE_SERVERS
+        : (Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length > 0
+            ? window.NostrRTC_ICE
+            : [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+              ]))
   };
   const CALL_METRIC_KIND = 25060; // חלק שיחות קול (chat-voice-call.js) – kind למדדי שיחות כלליות | HYPER CORE TECH
 
-  // חלק שיחות קול (chat-voice-call.js) – מצב השיחה הנוכחי
+  /** SDP מהסיגנלינג / JSON — תמיד מחזיר {type,sdp} או null */
+  function normalizeSessionDescription(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    let o = raw;
+    if (o.offer && typeof o.offer === 'object' && !o.type && !o.sdp) o = o.offer;
+    const type = o.type;
+    const sdp = typeof o.sdp === 'string' ? o.sdp : '';
+    if (!type || !sdp) return null;
+    return { type, sdp };
+  }
   let state = {
     currentPeer: null,
     peerConnection: null,
@@ -381,13 +395,14 @@
       state.callStartTimestamp = null;
       state.callStartTime = null;
 
-      // קבלת offer (אימות ושימוש ישיר באובייקט)
-      if (!offer || !offer.type || !offer.sdp) {
+      // קבלת offer (אימות + נרמול {type,sdp} אחרי סריאליזציה מ-Nostr/QA)
+      const offerNorm = normalizeSessionDescription(offer);
+      if (!offerNorm) {
         console.error('Invalid offer received', offer);
         throw new Error('ה-offer שהתקבל אינו תקין');
       }
-      console.log('Applying remote offer', { type: offer.type, sdpLen: offer.sdp?.length });
-      await state.peerConnection.setRemoteDescription(offer);
+      console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
+      await state.peerConnection.setRemoteDescription(offerNorm);
 
       // יצירת answer
       const answer = await state.peerConnection.createAnswer();

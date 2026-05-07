@@ -10,7 +10,15 @@
     : [ { urls: 'stun:stun.l.google.com:19302' } ] };
   const CALL_METRIC_KIND = 25060; // חלק שיחות וידאו (chat-video-call.js) – kind יעודי לרישום מדדי שיחה | HYPER CORE TECH
 
-  // חלק שיחות וידאו (chat-video-call.js) – הגדרות יציבות סיגנלים: חלון אחורה קצר + סינון הצעות ישנות | HYPER CORE TECH
+  function normalizeVideoSessionDescription(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    let o = raw;
+    if (o.offer && typeof o.offer === 'object' && !o.type && !o.sdp) o = o.offer;
+    const type = o.type;
+    const sdp = typeof o.sdp === 'string' ? o.sdp : '';
+    if (!type || !sdp) return null;
+    return { type, sdp };
+  }
   const SIGNAL_LOOKBACK_SEC = 180;
   const MAX_OFFER_AGE_SEC = SIGNAL_LOOKBACK_SEC;
 
@@ -320,8 +328,9 @@
     try { subscribeToSignals(); } catch {}
     state.currentPeer = peerPubkey;
     createPC(peerPubkey);
-    if (!offer || !offer.type || !offer.sdp) throw new Error('offer וידאו אינו תקין');
-    await state.pc.setRemoteDescription(offer);
+    const offerNorm = normalizeVideoSessionDescription(offer);
+    if (!offerNorm) throw new Error('offer וידאו אינו תקין');
+    await state.pc.setRemoteDescription(offerNorm);
     await flushRemoteCandidates(peerPubkey);
     const answer = await state.pc.createAnswer();
     await state.pc.setLocalDescription(answer);
