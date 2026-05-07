@@ -1352,7 +1352,7 @@
   // חלק throttle (chat-ui.js) – מניעת renderMessages חוזר מהיר (500ms מינימום) | HYPER CORE TECH
   let _lastRenderMsgTime = 0;
   let _pendingRenderMsg = null;
-  const RENDER_MSG_THROTTLE = 500;
+  const RENDER_MSG_THROTTLE = 180;
 
   // חלק בקרה UI טורנט (chat-ui.js) – ה-UI לא מתחיל הורדות היסטוריות בעצמו, רק מציג מצב לפי מנוע ההעברה | HYPER CORE TECH
 

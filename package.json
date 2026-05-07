@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "npx serve -s . -l 3000"
+    "start": "npx serve -s . -l 3000",
+    "qa:chat": "node qa/dual-user-qa.mjs"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +14,7 @@
     "nostr-tools": "^2.17.0"
   },
   "devDependencies": {
-    "serve": "^14.2.5"
+    "serve": "^14.2.5",
+    "playwright": "^1.43.0"
   }
 }

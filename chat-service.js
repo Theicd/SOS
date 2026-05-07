@@ -99,6 +99,7 @@
   const PROFILE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לפרופילים/תמונות כדי לצמצם פניות לריליי | HYPER CORE TECH
   const AVATAR_CACHE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לקאש תמונות פרופיל | HYPER CORE TECH
   const TORRENT_AUTOSTART_MAX_AGE_SECONDS = 90; // חלק טורנט (chat-service.js) – auto-start רק להודעות חדשות מאוד, לא להיסטוריה ישנה | HYPER CORE TECH
+  const DC_PREFER_WAIT_MS = 1200; // חלק P2P (chat-service.js) – חלון קצר להעדפת DataChannel לפני fallback לריליי
 
   let poolReadyWarningShown = false;
   let isServiceReady = false;
@@ -143,6 +144,10 @@
       content,
     };
     return draft;
+  }
+
+  function waitMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
   }
 
   async function publishChatMessage(peerPubkey, plainText) {
@@ -191,6 +196,25 @@
         return App.forceRelay === true;
       }
     })();
+    // חלק P2P (chat-service.js) – ניסיון חיבור מהיר ל-DC לפני שליחה כדי למזער שימוש בריליי
+    if (!forceRelay && App.dataChannel && typeof App.dataChannel.isConnected === 'function') {
+      const connectedNow = App.dataChannel.isConnected(peerPubkey);
+      if (!connectedNow && typeof App.dataChannel.connect === 'function') {
+        try {
+          App.dataChannel.init?.();
+          App.dataChannel.connect(peerPubkey);
+          const started = Date.now();
+          while ((Date.now() - started) < DC_PREFER_WAIT_MS) {
+            if (App.dataChannel.isConnected(peerPubkey)) {
+              break;
+            }
+            await waitMs(120);
+          }
+        } catch (_err) {
+          // לא חוסמים שליחה אם חיבור DC נכשל; ממשיכים ל-relay fallback
+        }
+      }
+    }
     // חלק P2P DataChannel (chat-service.js) – ניסיון שליחה ישירה דרך DataChannel לפני relay | HYPER CORE TECH
     if (!forceRelay && App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey)) {
       const p2pId = 'p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);

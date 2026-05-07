@@ -5,7 +5,14 @@
   const NostrTools = window.NostrTools;
 
   // חלק הגדרות (chat-p2p-datachannel.js) – קונפיגורציה | HYPER CORE TECH
-  const RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+  const RTC_CFG = {
+    iceServers:
+      (Array.isArray(App.RTC_ICE_SERVERS) && App.RTC_ICE_SERVERS.length > 0
+        ? App.RTC_ICE_SERVERS
+        : (Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length > 0
+            ? window.NostrRTC_ICE
+            : [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]))
+  };
   const SIG_KIND = 25055;
   const DC_LABEL = 'sos-chat';
   const ICE_BATCH_MS = 800;
@@ -47,6 +54,7 @@
   function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null }; }
   function getPS(k) { return peers.get(k.toLowerCase())||null; }
   function ensPS(k) { k=k.toLowerCase(); if(!peers.has(k)) peers.set(k,newPS()); return peers.get(k); }
+  function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
 
   // חלק תפקידים (chat-p2p-datachannel.js) – pubkey נמוך = initiator (שולח offers), גבוה = responder (רק עונה) | HYPER CORE TECH
   function amInitiator(peer) { return (App.publicKey||'').toLowerCase() < peer.toLowerCase(); }
@@ -66,6 +74,7 @@
 
   async function sendSig(p, type, data) {
     if(!App.pool||!App.publicKey||!App.privateKey) return;
+    if(!isValidPeerKey(p)) return;
     try {
       const raw=data?JSON.stringify(data):'';
       const enc=raw?await NostrTools.nip04.encrypt(App.privateKey,p,raw):'';
@@ -123,6 +132,7 @@
 
   // חלק חיבור (chat-p2p-datachannel.js) – רק initiator שולח offers, responder ממתין ל-offer נכנס | HYPER CORE TECH
   async function connect(peer) {
+    if(!isValidPeerKey(peer)) return;
     const k=peer.toLowerCase();
     if(!App.pool||!App.publicKey||!App.privateKey) return;
     const ex=getPS(k); if(ex&&(ex.status==='connected'||ex.status==='connecting'||ex.status==='waiting')) return;
@@ -215,7 +225,9 @@
     if(!pTag||pTag[1].toLowerCase()!==selfKey) return; // חלק סינון יעד (chat-p2p-datachannel.js) – מטפל רק באירועים שמיועדים אליי | HYPER CORE TECH
     const tag=event.tags.find(t=>t[0]==='type'); if(!tag) return;
     const type=tag[1]; if(!type||!type.startsWith('dc-')) return;
-    const peer=event.pubkey.toLowerCase(), s=ensPS(peer);
+    const peer=event.pubkey.toLowerCase();
+    if(!isValidPeerKey(peer)) return;
+    const s=ensPS(peer);
     if(event.id&&s.seen.has(event.id)) return;
     if(event.id){s.seen.add(event.id); if(s.seen.size>200){const a=[...s.seen];s.seen=new Set(a.slice(-100));}}
     lastSigAt=Date.now();
@@ -311,6 +323,7 @@
 
   // חלק forceConnect (chat-p2p-datachannel.js) – חיבור DC בכוח גם כ-responder, לצורך שליחת קבצים | HYPER CORE TECH
   async function forceConnect(peer) {
+    if(!isValidPeerKey(peer)) return;
     const k=peer.toLowerCase();
     if(!App.pool||!App.publicKey||!App.privateKey) return;
     const ex=getPS(k); if(ex&&(ex.status==='connected')) return;
