@@ -645,6 +645,11 @@
   async function handleChunkData(peerPubkey, encryptedData, sourceChannel) {
     const peerKey = toPeerKey(peerPubkey);
     preferDataChannel(peerKey, sourceChannel);
+    // חלק סינון (chat-p2p-file.js) — בינארי קצר מדי אינו צ'אנק AES-GCM שלנו (מונע רעש מפרוטוקולים אחרים על אותו DC) | HYPER CORE TECH
+    if (!encryptedData || encryptedData.byteLength < 32) {
+      mediaDebugLog('skip binary (too short for encrypted chunk)', peerKey.slice(0, 8), encryptedData?.byteLength);
+      return;
+    }
     // Find active receive transfer
     for (const [fileId, transfer] of activeTransfers.entries()) {
       if (transfer.peerPubkey === peerKey && transfer.direction === 'receive') {

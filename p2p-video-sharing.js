@@ -1625,10 +1625,8 @@
               }
             }
           } else {
-            // חלק ניתוב binary persistent (p2p-video-sharing.js) — מעביר binary ל-chat-p2p-file.js וגם ל-download | HYPER CORE TECH
-            if (typeof App.handleP2PFileMessage === 'function') {
-              App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
-            }
+            // חלק הורדת hash (p2p-video-sharing.js) — בינארי כאן הוא גולמי מהפרוטוקול metadata/chunks, לא צ'אנק AES של צ'אט | HYPER CORE TECH
+            // לא מפנים ל-chat-p2p-file (גרם ל-decryptChunk OperationError ושיבוש העברת צ'אט)
             chunks.push(event.data);
             receivedSize += event.data.byteLength || event.data.size;
           }
@@ -1777,10 +1775,7 @@
                 }
               }
             } else {
-              // חלק ניתוב binary receiver (p2p-video-sharing.js) — מעביר binary ל-chat-p2p-file.js וגם ל-download | HYPER CORE TECH
-              if (typeof App.handleP2PFileMessage === 'function') {
-                App.handleP2PFileMessage(peerPubkey, event.data, event.currentTarget);
-              }
+              // חלק הורדת hash (attemptPeerDownload) — בינארי גולמי לבניית Blob; לא צ'אט מוצפן | HYPER CORE TECH
               const chunkSize = event.data.byteLength || event.data.size;
               chunks.push(event.data);
               receivedSize += chunkSize;

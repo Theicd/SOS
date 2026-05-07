@@ -7,7 +7,9 @@
     "start": "npx serve -s . -l 3000",
     "qa:chat": "node qa/dual-user-qa.mjs",
     "qa:chat:local": "node qa/dual-user-qa.mjs --skipRemote=true --headless=true",
-    "qa:security": "node qa/security-audit.mjs"
+    "qa:security": "node qa/security-audit.mjs",
+    "qa:phase:security": "node qa/security-audit.mjs",
+    "qa:phases": "node qa/run-phases.mjs"
   },
   "keywords": [],
   "author": "",
