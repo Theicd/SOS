@@ -757,6 +757,10 @@
               ackChannel.send(JSON.stringify({ type: 'chunk-ack', fileId, index: chunkIndex }));
             } catch (_e) {}
           }
+          // גיבוי ACK דרך Nostr signal למקרים שבהם ACK לא חוזר ב-DC
+          if (typeof App.sendP2PSignal === 'function') {
+            try { App.sendP2PSignal(peerKey, { type: 'chunk-ack', fileId, index: chunkIndex }); } catch (_e) {}
+          }
         }
         
         // Save to IndexedDB periodically
@@ -776,18 +780,32 @@
       return;
     }
     if (!pendingChunks.has(peerKey)) pendingChunks.set(peerKey, []);
-    pendingChunks.get(peerKey).push(encryptedData);
-    console.log('[CHAT/P2P] 📦 Chunk buffered (ממתין ל-file-offer)', peerKey.slice(0,8), 'buffered:', pendingChunks.get(peerKey).length);
+    const q = pendingChunks.get(peerKey);
+    q.push(encryptedData);
+    if (q.length > 128) {
+      q.splice(0, q.length - 128);
+    }
+    console.log('[CHAT/P2P] 📦 Chunk buffered (ממתין ל-file-offer)', peerKey.slice(0,8), 'buffered:', q.length);
   }
 
   // חלק resend handler (chat-p2p-file.js) — שולח קובץ מחדש מ-cache כשהמקבל מבקש | HYPER CORE TECH
   async function handleFileResendRequest(requesterPubkey, msg) {
     const fileId = msg.fileId;
-    // בדיקה ראשונה: האם הקובץ עדיין בשליחה פעילה? אם כן — מתעלם (לא צריך resend)
+    // בדיקה ראשונה: האם הקובץ עדיין בשליחה פעילה? אם כן — מתאמים fromChunk וממשיכים
     if (activeTransfers.has(fileId)) {
       const t = activeTransfers.get(fileId);
       if (t.direction === 'send') {
-        console.log('[CHAT/P2P] 🔄 file-ready/resend התקבל אבל שליחה פעילה — מתעלם:', fileId, `(chunk ${t.currentChunk}/${t.totalChunks})`);
+        const fromChunk = Math.max(0, parseInt(msg.fromChunk) || 0);
+        if (fromChunk < t.currentChunk) {
+          t.currentChunk = fromChunk;
+        }
+        t.readyReceived = true;
+        if (t._ackTimeout) {
+          clearTimeout(t._ackTimeout);
+          t._ackTimeout = null;
+        }
+        console.log('[CHAT/P2P] 🔄 resend/file-ready בזמן שליחה פעילה — ממשיך מ-chunk', t.currentChunk, 'fileId:', fileId);
+        sendNextChunk(fileId, t._onProgress);
         return;
       }
     }
