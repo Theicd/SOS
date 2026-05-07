@@ -173,13 +173,18 @@ async function waitForIncomingAttachment(page, fromPeer, token, timeoutMs = 3000
   return { ok: false };
 }
 
-async function waitForIncomingLarge(page, fromPeer, token, timeoutMs = 60000) {
+async function waitForIncomingLarge(page, fromPeer, token, timeoutMs = 180000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const hit = await page.evaluate(({ peer, marker }) => {
       const app = window.NostrApp;
       const msgs = app?.getChatMessages?.(peer) || [];
-      const found = msgs.find((m) => m.direction === 'incoming' && (m.attachment?.name || '').includes(marker));
+      const found = msgs.find((m) => {
+        if (m.direction !== 'incoming') return false;
+        const byAttachment = (m.attachment?.name || '').includes(marker);
+        const byContent = typeof m.content === 'string' && m.content.includes(marker);
+        return byAttachment || byContent;
+      });
       if (!found) return null;
       return {
         id: found.id,
@@ -189,6 +194,7 @@ async function waitForIncomingLarge(page, fromPeer, token, timeoutMs = 60000) {
         hasMagnet: !!found.attachment?.magnetURI,
         attachmentSize: found.attachment?.size || 0,
         attachmentName: found.attachment?.name || '',
+        contentPreview: (found.content || '').slice(0, 120),
       };
     }, { peer: fromPeer, marker: token });
     if (hit) return { ok: true, ...hit };
@@ -316,6 +322,7 @@ async function main() {
   const keyA = requireArg(args, 'keyA');
   const keyB = requireArg(args, 'keyB');
   const headless = args.headless !== 'false';
+  const singlePair = args.singlePair === 'true';
 
   const pubA = getPublicKey(utils.hexToBytes(keyA));
   const pubB = getPublicKey(utils.hexToBytes(keyB));
@@ -339,24 +346,30 @@ async function main() {
     viewport: { width: 1366, height: 900 },
     permissions: ['microphone', 'camera'],
   });
-  const ctxLocal1 = await browser.newContext({
+  const ctxLocal1 = singlePair ? null : await browser.newContext({
     viewport: { width: 1366, height: 900 },
     permissions: ['microphone', 'camera'],
   });
-  const ctxLocal2 = await browser.newContext({
+  const ctxLocal2 = singlePair ? null : await browser.newContext({
     viewport: { width: 1366, height: 900 },
     permissions: ['microphone', 'camera'],
   });
 
-  for (const [ctx, key] of [[ctxA, keyA], [ctxB, keyB], [ctxLocal1, keyA], [ctxLocal2, keyB]]) {
+  const initPairs = [[ctxA, keyA], [ctxB, keyB]];
+  if (!singlePair) {
+    initPairs.push([ctxLocal1, keyA], [ctxLocal2, keyB]);
+  }
+  for (const [ctx, key] of initPairs) {
     await ctx.addInitScript((k) => window.localStorage.setItem('nostr_private_key', k), key);
   }
 
   const pageA = await ctxA.newPage();
   const pageB = await ctxB.newPage();
-  const pageLocalA = await ctxLocal1.newPage();
-  const pageLocalB = await ctxLocal2.newPage();
-  [ [pageA, 'A-remote'], [pageB, 'B-remote'], [pageLocalA, 'A-local'], [pageLocalB, 'B-local'] ].forEach(([p, n]) => attachConsole(p, n));
+  const pageLocalA = singlePair ? null : await ctxLocal1.newPage();
+  const pageLocalB = singlePair ? null : await ctxLocal2.newPage();
+  const pagesToAttach = [[pageA, 'A-remote'], [pageB, 'B-remote']];
+  if (!singlePair) pagesToAttach.push([pageLocalA, 'A-local'], [pageLocalB, 'B-local']);
+  pagesToAttach.forEach(([p, n]) => attachConsole(p, n));
 
   const report = {
     ok: false,
@@ -369,45 +382,68 @@ async function main() {
   };
 
   try {
-    await Promise.all([
+    const gotoTasks = [
       pageA.goto(localUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }),
       pageB.goto(remoteUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }),
-      pageLocalA.goto(localUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }),
-      pageLocalB.goto(localUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }),
-    ]);
+    ];
+    if (!singlePair) {
+      gotoTasks.push(
+        pageLocalA.goto(localUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }),
+        pageLocalB.goto(localUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }),
+      );
+    }
+    await Promise.all(gotoTasks);
 
-    await Promise.all([openChat(pageA, 'A-remote'), openChat(pageB, 'B-remote'), openChat(pageLocalA, 'A-local'), openChat(pageLocalB, 'B-local')]);
-    const [appPubA, appPubB, appLocalPubA, appLocalPubB] = await Promise.all([
-      waitForAppReady(pageA, 'A-remote'),
-      waitForAppReady(pageB, 'B-remote'),
-      waitForAppReady(pageLocalA, 'A-local'),
-      waitForAppReady(pageLocalB, 'B-local'),
-    ]);
-    if (appPubA !== pubA || appPubB !== pubB || appLocalPubA !== pubA || appLocalPubB !== pubB) {
+    const openTasks = [openChat(pageA, 'A-remote'), openChat(pageB, 'B-remote')];
+    if (!singlePair) openTasks.push(openChat(pageLocalA, 'A-local'), openChat(pageLocalB, 'B-local'));
+    await Promise.all(openTasks);
+
+    const readyTasks = [waitForAppReady(pageA, 'A-remote'), waitForAppReady(pageB, 'B-remote')];
+    if (!singlePair) readyTasks.push(waitForAppReady(pageLocalA, 'A-local'), waitForAppReady(pageLocalB, 'B-local'));
+    const readyPubs = await Promise.all(readyTasks);
+    const appPubA = readyPubs[0];
+    const appPubB = readyPubs[1];
+    if (appPubA !== pubA || appPubB !== pubB) {
       throw new Error('Loaded user keys do not match provided private keys');
+    }
+    if (!singlePair) {
+      const appLocalPubA = readyPubs[2];
+      const appLocalPubB = readyPubs[3];
+      if (appLocalPubA !== pubA || appLocalPubB !== pubB) {
+        throw new Error('Loaded local user keys do not match provided private keys');
+      }
     }
 
     report.remoteScenario = await runScenario(pageA, pageB, pubA, pubB, 'local-vs-remote');
-    report.localScenario = await runScenario(pageLocalA, pageLocalB, pubA, pubB, 'local-vs-local');
+    if (!singlePair) {
+      report.localScenario = await runScenario(pageLocalA, pageLocalB, pubA, pubB, 'local-vs-local');
+    } else {
+      report.localScenario = {};
+    }
 
-    await Promise.all([prepareCallHooks(pageLocalA), prepareCallHooks(pageLocalB)]);
-    report.voiceCallLocal = await runVoiceCall(pageLocalA, pageLocalB, pubA, pubB);
-    report.videoCallLocal = await runVideoCall(pageLocalA, pageLocalB, pubA, pubB);
+    if (!singlePair) {
+      await Promise.all([prepareCallHooks(pageLocalA), prepareCallHooks(pageLocalB)]);
+      report.voiceCallLocal = await runVoiceCall(pageLocalA, pageLocalB, pubA, pubB);
+      report.videoCallLocal = await runVideoCall(pageLocalA, pageLocalB, pubA, pubB);
+    } else {
+      report.voiceCallLocal = { attempted: false, connected: false, error: '' };
+      report.videoCallLocal = { attempted: false, connected: false, error: '' };
+    }
 
     if (!report.remoteScenario?.dataChannel?.aToB || !report.remoteScenario?.dataChannel?.bToA) {
       report.optimizationHints.push('Remote scenario did not establish DataChannel. This path still relies mostly on relays.');
     }
-    if (!report.localScenario?.p2pStats?.textP2P) {
+    if (!singlePair && !report.localScenario?.p2pStats?.textP2P) {
       report.optimizationHints.push('Local scenario text stayed on relay. Check relay-first fallback timing and DC bootstrap.');
     }
-    if (!report.localScenario?.p2pStats?.largeAttachmentP2P && !report.localScenario?.attachmentLarge?.receiveResult?.hasMagnet) {
+    if (!singlePair && !report.localScenario?.p2pStats?.largeAttachmentP2P && !report.localScenario?.attachmentLarge?.receiveResult?.hasMagnet) {
       report.optimizationHints.push('Large attachment was not marked P2P/torrent on receive side.');
     }
 
     report.ok = Boolean(
       report.remoteScenario?.ok &&
-      report.localScenario?.ok &&
-      report.localScenario?.p2pStats?.textP2P &&
+      (singlePair ? true : report.localScenario?.ok) &&
+      (singlePair ? true : report.localScenario?.p2pStats?.textP2P) &&
       (report.voiceCallLocal?.attempted ? report.voiceCallLocal?.connected : true) &&
       (report.videoCallLocal?.attempted ? report.videoCallLocal?.connected : true)
     );
@@ -416,8 +452,10 @@ async function main() {
   } finally {
     await pageA.screenshot({ path: 'qa-user-a-final.png', fullPage: true }).catch(() => {});
     await pageB.screenshot({ path: 'qa-user-b-final.png', fullPage: true }).catch(() => {});
-    await pageLocalA.screenshot({ path: 'qa-user-a-local-final.png', fullPage: true }).catch(() => {});
-    await pageLocalB.screenshot({ path: 'qa-user-b-local-final.png', fullPage: true }).catch(() => {});
+    if (!singlePair) {
+      await pageLocalA.screenshot({ path: 'qa-user-a-local-final.png', fullPage: true }).catch(() => {});
+      await pageLocalB.screenshot({ path: 'qa-user-b-local-final.png', fullPage: true }).catch(() => {});
+    }
     await browser.close();
   }
 

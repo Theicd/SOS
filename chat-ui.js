@@ -2024,7 +2024,7 @@
       App.setChatFileTransferActivePeer(peerPubkey);
     }
     // חלק P2P DataChannel (chat-ui.js) – חיבור DataChannel כשפותחים שיחה | HYPER CORE TECH
-    if (App.dataChannel && typeof App.dataChannel.connect === 'function') {
+    if (App.dataChannel && typeof App.dataChannel.connect === 'function' && /^[0-9a-f]{64}$/i.test((peerPubkey || '').trim())) {
       App.dataChannel.connect(peerPubkey);
     }
   }

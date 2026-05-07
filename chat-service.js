@@ -150,6 +150,10 @@
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
   }
 
+  function isLikelyHexPubkey(pk) {
+    return typeof pk === 'string' && /^[0-9a-f]{64}$/i.test(pk.trim());
+  }
+
   async function publishChatMessage(peerPubkey, plainText) {
     // חלק צ'אט (chat-service.js) – בודק אם מצורף קובץ לפני סינון טקסט ריק כדי לאפשר שליחת קבצים בלבד
     const attachmentReady = typeof App.hasChatFileAttachment === 'function' && App.hasChatFileAttachment(peerPubkey);
@@ -552,7 +556,7 @@
 
     // חלק P2P auto-connect (chat-service.js) – כשמגיעה הודעה חדשה דרך relay מ-peer שאין איתו DC,
     // מתחיל חיבור DataChannel ברקע כדי שההודעה הבאה תעבור P2P ישירות | HYPER CORE TECH
-    if (!isSelfMessage && messageAgeSec < 120 && App.dataChannel && typeof App.dataChannel.connect === 'function') {
+    if (!isSelfMessage && messageAgeSec < 120 && isLikelyHexPubkey(peerPubkey) && App.dataChannel && typeof App.dataChannel.connect === 'function') {
       const dcConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey);
       if (!dcConnected) {
         try {
@@ -805,29 +809,7 @@
     subscribeToChatEvents();
     bootstrapContactsFromFeed();
 
-    // חלק P2P pre-connect (chat-service.js) – 10 שניות אחרי אתחול, מחבר DC ל-5 אנשי קשר אחרונים
-    // כדי שכשהמשתמש יתחיל לדבר, ה-DC כבר יהיה מוכן ורוב ההודעות ילכו P2P | HYPER CORE TECH
-    setTimeout(() => {
-      try {
-        if (!App.dataChannel || typeof App.dataChannel.connect !== 'function') return;
-        if (App.guestMode) return;
-        const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
-        const DC_PRECONNECT_COUNT = 5;
-        let connected = 0;
-        for (let i = 0; i < contacts.length && connected < DC_PRECONNECT_COUNT; i++) {
-          const pk = contacts[i]?.pubkey;
-          if (!pk || pk.length !== 64) continue;
-          const alreadyConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(pk);
-          if (alreadyConnected) continue;
-          App.dataChannel.init?.();
-          App.dataChannel.connect(pk);
-          connected++;
-        }
-        if (connected > 0) {
-          console.log('[CHAT/P2P-AUTO] 🔗 pre-connected DC for', connected, 'top contacts');
-        }
-      } catch (_e) { /* שקט — לא קריטי */ }
-    }, 10000);
+    // pre-connect גלובלי הוסר: חיבורים נפתחים רק על שיחה פעילה/הודעה נכנסת כדי לצמצם סיגנלינג שגוי.
   }
 
   const previousNotifyPoolReady = App.notifyPoolReady;
