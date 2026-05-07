@@ -6,6 +6,16 @@
 (function initGuestAuthModal() {
   var App = window.NostrApp || (window.NostrApp = {});
 
+  function storeNostrPrivateKeyGuest(hex) {
+    if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+      window.SOSKeyStorage.writePrivateKeyRaw(hex);
+    } else {
+      try {
+        window.localStorage.setItem('nostr_private_key', hex);
+      } catch (_e) {}
+    }
+  }
+
   // משתנים גלובליים לשמירת נתוני ההרשמה
   var signupData = {
     email: '',
@@ -250,7 +260,7 @@
         }
 
         try {
-          window.localStorage.setItem('nostr_private_key', privateKey);
+          storeNostrPrivateKeyGuest(privateKey);
           App.privateKey = privateKey;
           if (typeof App.ensureKeys === 'function') {
             App.ensureKeys();
@@ -433,7 +443,7 @@
           btnFinalConnect.disabled = true;
           setStatus('keyStatus', 'שומר נתונים...', false);
 
-          window.localStorage.setItem('nostr_private_key', signupData.privateKey);
+          storeNostrPrivateKeyGuest(signupData.privateKey);
           App.privateKey = signupData.privateKey;
           
           if (typeof App.ensureKeys === 'function') {

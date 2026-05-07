@@ -99,7 +99,10 @@
   // =======================
   (function initGuestMode() {
     try {
-      const storedKey = window.localStorage.getItem('nostr_private_key');
+      const storedKey =
+        window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
+          ? window.SOSKeyStorage.readPrivateKeyRaw()
+          : window.localStorage.getItem('nostr_private_key');
 
       if (storedKey && typeof storedKey === 'string' && storedKey.trim().length > 0) {
         // יש מפתח שמור - מצב משתמש מחובר
@@ -150,19 +153,19 @@
   if (!Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
     // חלק Bootstrap (app.js) – מגדיר רשימת ריליים ברירת מחדל כאשר הקונפיגורציה לא סיפקה אחת
     App.relayUrls = [
+      'wss://relay.snort.social',
       'wss://nos.lol',
       'wss://nostr-relay.xbytez.io',
-      'wss://nostr.0x7e.xyz',
-      'wss://relay.nostr.net',
+      'wss://nostr-02.uid.ovh',
     ];
   }
 
   if (!Array.isArray(App.p2pRelayUrls) || App.p2pRelayUrls.length === 0) {
     App.p2pRelayUrls = [
+      'wss://relay.snort.social',
       'wss://nos.lol',
       'wss://nostr-relay.xbytez.io',
       'wss://nostr.0x7e.xyz',
-      'wss://relay.nostr.net',
     ];
   }
 

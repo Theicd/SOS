@@ -25,6 +25,22 @@
     return;
   }
 
+  function escapeHtmlAttr(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+  /** מונע javascript: / URL מזויפים בתמונת אווטר */
+  function safeConversationAvatarSrc(url) {
+    if (!url || typeof url !== 'string') return '';
+    const u = url.trim().slice(0, 2048);
+    if (/^https:/i.test(u)) return u;
+    if (/^http:/i.test(u) && window.location.protocol === 'http:') return u;
+    return '';
+  }
+
   // חלק בועת התקדמות העברה (chat-ui.js) – מציג אחוזים + אייקון קובץ/מדיה + סטטוס retry/אישור | HYPER CORE TECH
   function renderTransferProgress(progress) {
     if (!elements.messagesContainer || !progress?.fileId) return;
@@ -2009,7 +2025,14 @@
       elements.conversationAvatar.innerHTML = '';
       elements.conversationAvatar.textContent = '';
       if (contact?.picture) {
-        elements.conversationAvatar.innerHTML = `<img src="${contact.picture}" alt="${name}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent='${initials}'; this.remove();" />`;
+        const pic = safeConversationAvatarSrc(contact.picture);
+        const safeName = escapeHtmlAttr(name);
+        const iniForJs = String(initials).replace(/['\\]/g, '');
+        if (pic) {
+          elements.conversationAvatar.innerHTML = `<img src="${escapeHtmlAttr(pic)}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent='${iniForJs}'; this.remove();" />`;
+        } else {
+          elements.conversationAvatar.textContent = initials;
+        }
       } else {
         elements.conversationAvatar.textContent = initials;
       }
@@ -2024,7 +2047,7 @@
       App.setChatFileTransferActivePeer(peerPubkey);
     }
     // חלק P2P DataChannel (chat-ui.js) – חיבור DataChannel כשפותחים שיחה | HYPER CORE TECH
-    if (App.dataChannel && typeof App.dataChannel.connect === 'function' && /^[0-9a-f]{64}$/i.test((peerPubkey || '').trim())) {
+    if (App.dataChannel && typeof App.dataChannel.connect === 'function') {
       App.dataChannel.connect(peerPubkey);
     }
   }

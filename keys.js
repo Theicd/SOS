@@ -4,6 +4,24 @@
   const { generateSecretKey, getPublicKey } = tools;
   const { bytesToHex, hexToBytes } = App;
 
+  function persistNostrPrivateKey(key) {
+    if (key == null) return;
+    if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+      window.SOSKeyStorage.writePrivateKeyRaw(String(key));
+      return;
+    }
+    try {
+      window.localStorage.setItem('nostr_private_key', key);
+    } catch (_e) {}
+  }
+
+  function loadStoredNostrPrivateKey() {
+    if (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function') {
+      return window.SOSKeyStorage.readPrivateKeyRaw() || '';
+    }
+    return window.localStorage.getItem('nostr_private_key') || '';
+  }
+
   function normalizePrivateKey(storedKey) {
     if (!storedKey) return null;
     let key = storedKey.trim();
@@ -16,7 +34,7 @@
         .filter((n) => !Number.isNaN(n));
       if (bytes.length === 32 && typeof bytesToHex === 'function') {
         key = bytesToHex(Uint8Array.from(bytes));
-        window.localStorage.setItem('nostr_private_key', key);
+        persistNostrPrivateKey(key);
       }
     }
 
@@ -25,7 +43,7 @@
         const bytes = hexToBytes(key);
         if (bytes.length === 32) {
           key = bytesToHex(bytes);
-          window.localStorage.setItem('nostr_private_key', key);
+          persistNostrPrivateKey(key);
         }
       } catch (err) {
         console.warn('Private key normalization failed', err);
@@ -36,7 +54,7 @@
     if (key && key.length === 64) {
       // חלק ניהול מפתחות (keys.js) – מבטיח שכל המפתחות ישמרו בפורמט אחיד של אותיות קטנות
       key = key.toLowerCase();
-      window.localStorage.setItem('nostr_private_key', key);
+      persistNostrPrivateKey(key);
     }
 
     return key;
@@ -54,7 +72,7 @@
           .join('');
     const lowercase = normalized.toLowerCase();
     // חלק ניהול מפתחות (keys.js) – שומר מפתחות חדשים בפורמט אחיד כדי למנוע בעיות זהות
-    window.localStorage.setItem('nostr_private_key', lowercase);
+    persistNostrPrivateKey(lowercase);
     return lowercase;
   }
 
@@ -63,7 +81,7 @@
     let privateKey = normalizePrivateKey(App.privateKey);
     // חלק ניהול מפתחות (keys.js) – אם אין מפתח בזיכרון, מנסה לטעון אותו ישירות מ-localStorage
     if (!privateKey) {
-      const storedKey = window.localStorage.getItem('nostr_private_key');
+      const storedKey = loadStoredNostrPrivateKey();
       privateKey = normalizePrivateKey(storedKey);
     }
     if (!privateKey) {
@@ -73,7 +91,7 @@
     if (privateKey && privateKey.length === 64) {
       // חלק ניהול מפתחות (keys.js) – מבטיח שגם בזיכרון היישום נשתמש בפורמט אחיד
       privateKey = privateKey.toLowerCase();
-      window.localStorage.setItem('nostr_private_key', privateKey);
+      persistNostrPrivateKey(privateKey);
     }
 
     let publicKey;

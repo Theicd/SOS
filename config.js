@@ -40,16 +40,16 @@
 
   const App = window.NostrApp || {};
   const SAFE_DEFAULT_RELAYS = [
+    'wss://relay.snort.social',
     'wss://nos.lol',
     'wss://nostr-relay.xbytez.io',
-    'wss://nostr.0x7e.xyz',
-    'wss://relay.nostr.net',
+    'wss://nostr-02.uid.ovh',
   ];
   const SAFE_DEFAULT_P2P_RELAYS = [
+    'wss://relay.snort.social',
     'wss://nos.lol',
     'wss://nostr-relay.xbytez.io',
     'wss://nostr.0x7e.xyz',
-    'wss://relay.nostr.net',
   ];
   const UNSAFE_RELAY_PATTERNS = new Set([
     'wss://relay.damus.io',
@@ -268,7 +268,10 @@
   App.metadataPublishQueued = false;
   App.profile = profile;
   App.profileCache = App.profileCache || new Map();
-  App.privateKey = window.localStorage.getItem('nostr_private_key');
+  App.privateKey =
+    window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
+      ? window.SOSKeyStorage.readPrivateKeyRaw()
+      : window.localStorage.getItem('nostr_private_key');
   App.communityKeyBase64 = window.localStorage.getItem('nostr_community_key') || '';
   App.communityPassphrase =
     window.localStorage.getItem('nostr_community_passphrase') || App.COMMUNITY_CONTEXT;

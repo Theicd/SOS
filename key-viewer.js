@@ -61,7 +61,11 @@
 
   function clearCredentials() {
     try {
-      window.localStorage.removeItem('nostr_private_key');
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.clearPrivateKey === 'function') {
+        window.SOSKeyStorage.clearPrivateKey();
+      } else {
+        window.localStorage.removeItem('nostr_private_key');
+      }
       window.localStorage.removeItem('nostr_profile');
     } catch (err) {
       console.error('Failed clearing local credentials', err);

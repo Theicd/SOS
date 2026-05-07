@@ -1,6 +1,16 @@
 (function initAuth(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
+  function storeNostrPrivateKey(hex) {
+    if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+      window.SOSKeyStorage.writePrivateKeyRaw(hex);
+    } else {
+      try {
+        window.localStorage.setItem('nostr_private_key', hex);
+      } catch (_e) {}
+    }
+  }
+
   // הפניות לאלמנטים החדשים
   const entryPanel = document.getElementById('authEntryPanel');
   const importCard = document.querySelector('.auth-card--import');
@@ -914,7 +924,7 @@
       if (!preparedPrivateKey) {
         throw new Error('Missing prepared key');
       }
-      window.localStorage.setItem('nostr_private_key', preparedPrivateKey);
+      storeNostrPrivateKey(preparedPrivateKey);
       App.privateKey = preparedPrivateKey;
       if (typeof App.ensureKeys === 'function') {
         const { publicKey } = App.ensureKeys() || {};
@@ -1031,7 +1041,7 @@
       return;
     }
     try {
-      window.localStorage.setItem('nostr_private_key', privateKey);
+      storeNostrPrivateKey(privateKey);
       App.privateKey = privateKey;
       if (typeof App.ensureKeys === 'function') {
         App.ensureKeys();

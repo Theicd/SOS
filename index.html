@@ -2,19 +2,21 @@
 <html lang="he" dir="rtl" data-theme="dark">
 <head>
     <meta charset="UTF-8" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=(), geolocation=(), payment=(), usb=(), bluetooth=()" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light">
     <title>SOS – רשת חברתית על סטרואידים</title>
     <meta name="description" content="SOS רשת חברתית על סטרואידים – הרשת החברתית מבוזרת קהילתית הראשונה בישראל." />
     <!-- חלק PWA (index.html) – קישור ל-manifest והגדרות iOS | HYPER CORE TECH -->
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="./icons/so-call010.png" />
+    <link rel="apple-touch-icon" href="./icons/WAPICON.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SOS" />
     <meta name="theme-color" content="#4a90d9" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="icon" type="image/png" href="./icons/so-call010.png" />
+    <link rel="icon" type="image/png" href="./icons/WAPICON.png" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="SOS" />
     <meta property="og:title" content="SOS – רשת חברתית על סטרואידים" />
@@ -58,7 +60,7 @@
       })();
     </script>
     <!-- חלק ראש (index.html) – מגדיר את אותו אייקון לשונית מעודכן כמו בדף ההזדהות -->
-    <link rel="icon" type="image/png" href="./icons/so-call010.png" />
+    <link rel="icon" type="image/png" href="./icons/WAPICON.png" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- חלק מובייל (index.html) – טוקנים ו-Safe Area | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/tokens.css">
@@ -850,6 +852,7 @@
         </article>
     </section>
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./key-storage.js"></script>
     <script src="./config.js"></script>
     <script src="./secure-channel.js"></script>
     <script src="./key-utils.js"></script>

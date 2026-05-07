@@ -78,9 +78,9 @@ for (const rel of targets) {
 }
 
 summary.nip04UsageFiles = nip04files;
-summary.recommendations = [
-  'מפתח פרטי ב-localStorage: חשוף לכל סקריפט בהקשר המקור; שקול WebCrypto + session flag או Extension, או passphrase לפחות.',
-  'NIP-04 (נוסטר): ידוע כלא אידיאלי מבחינת קריפטו; NIP-44 מומלץ לתאימות קדימה.',
+  summary.recommendations = [
+    'מפתח פרטי ב-localStorage: חשוף לכל סקריפט באותו origin; אופציה: localStorage sos_session_only_key=1 — המפתח נשמר רק ב-sessionStorage (נמחק בסגירת לשונית).',
+    'NIP-04 (נוסטר): ידוע כלא אידיאלי מבחינת קריפטו; NIP-44 מומלץ לתאימות קדימה.',
   'P2P/WebRTC: מטא-דאטה וסיגנלינג עוברים בריליי; תוכן מוצפן ב-DC אבל relays רואים מי מדבר עם מי ומתי.',
   'innerHTML: סיכון XSS אם תוכן משתמש/ריליי מגיע לDOM ללא sanitization; העדף textContent או sanitize מוגדר.',
   'שקול CSP (Content-Security-Policy), SRI לסקריפטים חיצוניים, ו-HTTPS בלבד בפרודקשן.',

@@ -125,7 +125,11 @@
       return;
     }
     try {
-      window.localStorage.setItem('nostr_private_key', privateKey);
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+        window.SOSKeyStorage.writePrivateKeyRaw(privateKey);
+      } else {
+        window.localStorage.setItem('nostr_private_key', privateKey);
+      }
       App.privateKey = privateKey;
       if (typeof App.ensureKeys === 'function') {
         App.ensureKeys();

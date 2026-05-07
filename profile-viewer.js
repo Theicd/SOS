@@ -997,7 +997,10 @@
       }
     }
     if (!App.privateKey) {
-      App.privateKey = window.localStorage.getItem('nostr_private_key') || '';
+      App.privateKey =
+        window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
+          ? window.SOSKeyStorage.readPrivateKeyRaw()
+          : window.localStorage.getItem('nostr_private_key') || '';
     }
     ensurePool();
 

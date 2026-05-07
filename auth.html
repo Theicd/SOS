@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=(), geolocation=(), payment=(), usb=(), bluetooth=()" />
     <title>SphereOne Social – כניסה או יצירת פרופיל</title>
     <script>
       (function redirectAuthToVideos() {
@@ -598,6 +600,7 @@
     </div>
 
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./key-storage.js"></script>
     <script src="./config.js"></script>
     <script src="./utils.js"></script>
     <script src="./app.js"></script>
