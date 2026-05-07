@@ -15,12 +15,25 @@
     'nostr.download',
     'nostpic.com',
   ];
+  const CORS_BLOCKED_MEDIA_HOSTS = new Set([
+    'r2a.primal.net',
+    'blossom.primal.net',
+  ]);
 
   // חלק mirror (media-mirror.js) – בדיקה אם URL מדומיין מהימן
   function isTrustedDomain(url) {
     try {
       const urlObj = new URL(url);
       return TRUSTED_DOMAINS.some(domain => urlObj.hostname.includes(domain));
+    } catch {
+      return false;
+    }
+  }
+
+  function isCorsBlockedHost(url) {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return CORS_BLOCKED_MEDIA_HOSTS.has(host);
     } catch {
       return false;
     }
@@ -33,6 +46,10 @@
       if (isTrustedDomain(url)) {
         console.log('Trusted domain, skipping check:', url.slice(0, 50));
         return true;
+      }
+      // הימנעות מבדיקות fetch לדומיינים שיודעים שחוסמים CORS
+      if (isCorsBlockedHost(url)) {
+        return false;
       }
 
       const controller = new AbortController();
@@ -104,6 +121,10 @@
     for (let i = 0; i < urlsToTry.length; i++) {
       const url = urlsToTry[i];
       console.log(`Trying URL ${i + 1}/${urlsToTry.length}:`, url);
+      if (isCorsBlockedHost(url)) {
+        console.warn('Skipping CORS-blocked fetch host:', url);
+        continue;
+      }
 
       for (let retry = 0; retry < MAX_RETRIES; retry++) {
         try {

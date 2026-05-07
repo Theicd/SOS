@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v45'; // bump version - שינוי אייקון PWA ל-WAPICON.png
+  const CACHE_NAME = 'sos-cache-v46'; // bump version - תיקון נתיבי אייקון חסרים
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -13,7 +13,7 @@
     './styles/facebook-theme.css',
     './styles/chat.css',
     './styles/chat-whatsapp-theme.css',
-    './icons/WAPICON.png',
+    './icons/so-call010.png',
   ];
 
   // חלק Install (service-worker.js) – התקנה ושמירת קבצים ב-cache | HYPER CORE TECH
@@ -124,8 +124,8 @@
     const title = payload.title || 'SOS';
     const options = {
       body: payload.body || 'יש לך עדכון חדש',
-      icon: payload.icon || './icons/WAPICON.png',
-      badge: payload.badge || './icons/WAPICON.png',
+      icon: payload.icon || './icons/so-call010.png',
+      badge: payload.badge || './icons/so-call010.png',
       tag: payload.tag || 'sos-notification',
       renotify: true,
       silent: false,
@@ -143,7 +143,7 @@
       options.requireInteraction = true;
       options.vibrate = payload.vibrate || [200, 100, 200];
       options.actions = [
-        { action: 'open', title: 'פתח', icon: './icons/WAPICON.png' },
+        { action: 'open', title: 'פתח', icon: './icons/so-call010.png' },
         { action: 'dismiss', title: 'סגור' }
       ];
     }
@@ -172,8 +172,8 @@
       // אם אין קליינטים פתוחים - הצגת notification
       await self.registration.showNotification('עדכון זמין ל-SOS', {
         body: payload.body || 'גרסה חדשה זמינה! לחץ לעדכון',
-        icon: './icons/WAPICON.png',
-        badge: './icons/WAPICON.png',
+        icon: './icons/so-call010.png',
+        badge: './icons/so-call010.png',
         tag: 'app-update',
         requireInteraction: true,
         data: { type: 'app-update', url: './' }

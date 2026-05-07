@@ -7,7 +7,7 @@
     // רשימת trackers מעודכנת - רק openwebtorrent עובד טוב בדפדפן
     trackers: [
       'wss://tracker.openwebtorrent.com',
-      'wss://tracker.webtorrent.dev'
+      'wss://tracker.btorrent.xyz'
     ],
     maxConnections: 50,
     uploadRateLimitKB: 0, // 0 = unlimited

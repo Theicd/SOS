@@ -316,7 +316,7 @@
     banner.className = 'pwa-install-banner';
     banner.innerHTML = `
       <div class="pwa-install-banner__content">
-        <img src="./icons/WAPICON.png" alt="SOS Call 010" class="pwa-install-banner__icon">
+        <img src="./icons/so-call010.png" alt="SOS Call 010" class="pwa-install-banner__icon">
         <div class="pwa-install-banner__text">
           <strong>התקן את SOS</strong>
           <span>גישה מהירה והתראות בזמן אמת</span>

@@ -9,8 +9,8 @@
     // מפתח VAPID ציבורי - נטען דינמית מהשרת
     vapidPublicKey: null,
     notificationDefaults: {
-      icon: './icons/WAPICON.png',
-      badge: './icons/WAPICON.png',
+      icon: './icons/so-call010.png',
+      badge: './icons/so-call010.png',
       vibrate: [200, 100, 200],
       requireInteraction: false,
     },
