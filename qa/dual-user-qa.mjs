@@ -28,6 +28,12 @@ function requireArg(args, key) {
   return args[key];
 }
 
+function parseNumberList(input, fallback) {
+  if (!input) return fallback;
+  const nums = String(input).split(',').map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n > 0);
+  return nums.length ? nums : fallback;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -136,20 +142,24 @@ async function sendSmallAttachment(page, peerPub, token) {
   }, { peer: peerPub, marker: token });
 }
 
-async function sendLargeAttachmentViaUi(page, peerPub, token, sizeMb = 5) {
-  return page.evaluate(async ({ peer, marker, mb }) => {
+async function sendLargeAttachmentViaUi(page, peerPub, token, sizeMb = 5, mimeType = 'image/jpeg') {
+  return page.evaluate(async ({ peer, marker, mb, mime }) => {
     const app = window.NostrApp;
     if (typeof app.handleChatFileSelection !== 'function') {
       return { ok: false, error: 'handleChatFileSelection-missing' };
     }
+    if (typeof app.showChatConversation === 'function') {
+      try { app.showChatConversation(peer); } catch (_) {}
+    }
     const bytes = mb * 1024 * 1024;
     const arr = new Uint8Array(bytes);
     for (let i = 0; i < arr.length; i += 1) arr[i] = i % 251;
-    const blob = new Blob([arr], { type: 'image/jpeg' });
-    const file = new File([blob], `qa-${marker}-${mb}mb.jpg`, { type: 'image/jpeg' });
-    await app.handleChatFileSelection(peer, file);
-    return { ok: true, marker, fileName: file.name, fileSize: file.size };
-  }, { peer: peerPub, marker: token, mb: sizeMb });
+    const ext = mime.startsWith('video/') ? 'mp4' : 'jpg';
+    const blob = new Blob([arr], { type: mime });
+    const file = new File([blob], `qa-${marker}-${mb}mb.${ext}`, { type: mime });
+    await app.handleChatFileSelection(file);
+    return { ok: true, marker, fileName: file.name, fileSize: file.size, mimeType: mime };
+  }, { peer: peerPub, marker: token, mb: sizeMb, mime: mimeType });
 }
 
 async function waitForIncomingAttachment(page, fromPeer, token, timeoutMs = 30000) {
@@ -255,7 +265,7 @@ async function runVideoCall(localA, localB, pubA, pubB) {
   return out;
 }
 
-async function runScenario(pageA, pageB, pubA, pubB, scenarioName) {
+async function runScenario(pageA, pageB, pubA, pubB, scenarioName, opts = {}) {
   const report = {
     scenario: scenarioName,
     text: {},
@@ -264,6 +274,7 @@ async function runScenario(pageA, pageB, pubA, pubB, scenarioName) {
     dataChannel: {},
     timingsMs: {},
     p2pStats: { textP2P: false, smallAttachmentP2P: false, largeAttachmentP2P: false },
+    matrix: [],
   };
 
   const [dcAB, dcBA] = await Promise.all([
@@ -293,6 +304,35 @@ async function runScenario(pageA, pageB, pubA, pubB, scenarioName) {
   report.timingsMs.attachmentLargeAToB = Math.round(performance.now() - t2);
   report.p2pStats.largeAttachmentP2P = !!report.attachmentLarge.receiveResult?.p2p;
 
+  // matrix: bi-directional image/video sizes
+  const sizes = Array.isArray(opts.matrixSizes) && opts.matrixSizes.length ? opts.matrixSizes : [1, 5, 10, 20];
+  const matrixTimeoutMs = Number.isFinite(opts.matrixTimeoutMs) ? opts.matrixTimeoutMs : 120000;
+  const matrixPlans = [];
+  for (const sizeMb of sizes) {
+    matrixPlans.push({ dir: 'AtoB', sizeMb, mime: 'image/jpeg' });
+    matrixPlans.push({ dir: 'BtoA', sizeMb, mime: 'video/mp4' });
+  }
+  for (const plan of matrixPlans) {
+    const marker = `qa-matrix-${scenarioName}-${plan.dir}-${plan.sizeMb}mb-${Date.now()}`;
+    const sender = plan.dir === 'AtoB' ? pageA : pageB;
+    const receiver = plan.dir === 'AtoB' ? pageB : pageA;
+    const senderPeer = plan.dir === 'AtoB' ? pubB : pubA;
+    const receiverPeer = plan.dir === 'AtoB' ? pubA : pubB;
+    const startedAt = performance.now();
+    const sendResult = await sendLargeAttachmentViaUi(sender, senderPeer, marker, plan.sizeMb, plan.mime);
+    const receiveResult = await waitForIncomingLarge(receiver, receiverPeer, marker, matrixTimeoutMs);
+    report.matrix.push({
+      direction: plan.dir,
+      sizeMb: plan.sizeMb,
+      mimeType: plan.mime,
+      sendOk: !!sendResult?.ok,
+      receiveOk: !!receiveResult?.ok,
+      receiveP2P: !!receiveResult?.p2p,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      receiveAttachmentSize: receiveResult?.attachmentSize || 0,
+    });
+  }
+
   report.ok = Boolean(
     report.text.sendResult?.ok &&
     report.text.receiveResult?.ok &&
@@ -309,7 +349,14 @@ async function runScenario(pageA, pageB, pubA, pubB, scenarioName) {
 function attachConsole(page, name) {
   page.on('console', (msg) => {
     const t = msg.text();
-    if (t.includes('[DC]') || t.includes('voice') || t.includes('video')) {
+    if (
+      t.includes('[DC]') ||
+      t.includes('[CHAT/P2P]') ||
+      t.includes('[P2P-FILE]') ||
+      t.includes('[TORRENT]') ||
+      t.includes('voice') ||
+      t.includes('video')
+    ) {
       console.log(`[${name} console] ${t}`);
     }
   });
@@ -323,6 +370,8 @@ async function main() {
   const keyB = requireArg(args, 'keyB');
   const headless = args.headless !== 'false';
   const singlePair = args.singlePair === 'true';
+  const matrixSizes = parseNumberList(args.matrixSizes, [1, 5, 10, 20]);
+  const matrixTimeoutMs = Number(args.matrixTimeoutMs || 120000);
 
   const pubA = getPublicKey(utils.hexToBytes(keyA));
   const pubB = getPublicKey(utils.hexToBytes(keyB));
@@ -414,9 +463,9 @@ async function main() {
       }
     }
 
-    report.remoteScenario = await runScenario(pageA, pageB, pubA, pubB, 'local-vs-remote');
+    report.remoteScenario = await runScenario(pageA, pageB, pubA, pubB, 'local-vs-remote', { matrixSizes, matrixTimeoutMs });
     if (!singlePair) {
-      report.localScenario = await runScenario(pageLocalA, pageLocalB, pubA, pubB, 'local-vs-local');
+      report.localScenario = await runScenario(pageLocalA, pageLocalB, pubA, pubB, 'local-vs-local', { matrixSizes, matrixTimeoutMs });
     } else {
       report.localScenario = {};
     }

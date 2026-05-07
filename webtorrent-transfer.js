@@ -19,6 +19,8 @@
   const activeTransfers = new Map(); // transferId -> { torrent, type, peer, status, progress }
   const pendingRequests = new Map(); // transferId -> { magnetURI, fileName, fileSize, fromPeer }
   const progressListeners = new Set();
+  const recentIncomingMagnets = new Map(); // magnet|peer -> timestamp (anti-loop guard)
+  const INCOMING_MAGNET_COOLDOWN_MS = 120000; // avoid duplicate auto-download loops for 2 min
   
   // שמירת בקשות שטופלו ב-localStorage למניעת קפיצות חוזרות
   const PROCESSED_STORAGE_KEY = 'torrent_processed_requests';
@@ -52,6 +54,36 @@
       }
     }
     return null;
+  }
+
+  function hasPendingRequestByMagnet(magnetURI, fromPeer) {
+    if (!magnetURI) return false;
+    const peerKey = (fromPeer || '').toLowerCase();
+    for (const req of pendingRequests.values()) {
+      if (!req?.magnetURI) continue;
+      if (req.magnetURI !== magnetURI) continue;
+      if ((req.fromPeer || '').toLowerCase() !== peerKey) continue;
+      return true;
+    }
+    return false;
+  }
+
+  function shouldSkipIncomingMagnet(magnetURI, fromPeer) {
+    if (!magnetURI) return false;
+    const key = `${magnetURI}|${(fromPeer || '').toLowerCase()}`;
+    const now = Date.now();
+    const lastSeen = recentIncomingMagnets.get(key) || 0;
+    if (now - lastSeen < INCOMING_MAGNET_COOLDOWN_MS) {
+      return true;
+    }
+    recentIncomingMagnets.set(key, now);
+    if (recentIncomingMagnets.size > 400) {
+      const entries = Array.from(recentIncomingMagnets.entries());
+      for (let i = 0; i < entries.length - 200; i += 1) {
+        recentIncomingMagnets.delete(entries[i][0]);
+      }
+    }
+    return false;
   }
 
   // חלק ניקוי auto-start (webtorrent-transfer.js) – שחרור מגנט מסומן כדי למנוע כפתור "מוריד..." תקוע אחרי סיום/כשל | HYPER CORE TECH
@@ -336,6 +368,23 @@
       console.warn('[TORRENT] ❌ Request missing magnetURI, cannot auto-download');
       return false;
     }
+
+    if (shouldSkipIncomingMagnet(request.magnetURI, fromPeer)) {
+      console.log('[TORRENT] ⏭️ Incoming magnet ignored by cooldown guard');
+      return true;
+    }
+
+    if (hasPendingRequestByMagnet(request.magnetURI, fromPeer)) {
+      console.log('[TORRENT] ⏭️ Pending request already exists for this magnet/peer');
+      return true;
+    }
+
+    const existingMagnetTransferId = findActiveTransferByMagnet(request.magnetURI);
+    if (existingMagnetTransferId) {
+      console.log('[TORRENT] ⏭️ Active download already exists for this magnet:', existingMagnetTransferId);
+      showTransferProgressUI(existingMagnetTransferId);
+      return true;
+    }
     
     // בדיקה אם זה השולח עצמו - לא מציגים דיאלוג אישור לעצמו
     const myPubkey = App.chatState?.myPubkey || App.pubkey || App.publicKey || window.nostr?.getPublicKey?.() || '';
@@ -517,6 +566,14 @@
     console.log('[TORRENT]   - Size:', formatFileSize(pending.fileSize));
     console.log('[TORRENT]   - From:', pending.fromPeer?.slice(0, 8));
     console.log('[TORRENT]   - Magnet:', pending.magnetURI?.slice(0, 60) + '...');
+
+    const existingMagnetTransferId = findActiveTransferByMagnet(pending.magnetURI);
+    if (existingMagnetTransferId) {
+      console.log('[TORRENT] ⏭️ approveTransfer skipped, active magnet transfer exists:', existingMagnetTransferId);
+      pendingRequests.delete(transferId);
+      showTransferProgressUI(existingMagnetTransferId);
+      return true;
+    }
 
     const wt = initClient();
     if (!wt) {
