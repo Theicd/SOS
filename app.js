@@ -230,7 +230,7 @@
     }
     // חלק קומפוזר (app.js) – מפנה לפונקציית המודאל המרכזית ב-compose.js כדי למנוע מצבי תצוגה כפולים
     if (typeof App.openCompose === 'function') {
-      App.openCompose();
+      App.openCompose.apply(App, arguments);
       return;
     }
     const m = document.getElementById('composeModal');

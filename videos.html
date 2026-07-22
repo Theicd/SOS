@@ -286,79 +286,150 @@
         }
       }
 
-      /* ===== עיצוב כפתורי קומפוזר בסגנון רשתות חברתיות ===== */
-      .compose-toolbar-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 44px;
-        height: 44px;
-        border: none;
-        border-radius: 50%;
-        background: var(--card);
-        color: var(--muted);
-        font-size: 18px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .compose-toolbar-btn:hover {
-        background: var(--hover);
-        color: var(--text);
-        transform: scale(1.05);
-      }
-
-      .compose-toolbar-btn:active {
-        transform: scale(0.95);
-      }
-
-      .compose-toolbar-btn.active {
-        background: var(--primary);
-        color: white;
-      }
-
-      /* אפקט גלו לכפתורים פעילים */
-      .compose-toolbar-btn.active::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.3);
-        transform: translate(-50%, -50%) scale(0);
-        animation: ripple 0.6s ease-out;
-      }
-
-      @keyframes ripple {
-        to {
-          transform: translate(-50%, -50%) scale(2);
-          opacity: 0;
-        }
-      }
-
-      /* התאמה למובייל */
-      @media (max-width: 768px) {
-        .compose-toolbar-btn {
-          width: 40px;
-          height: 40px;
-          font-size: 16px;
-        }
-      }
-
-      /* שיפור עיצוב הקומפוזר כולו */
+      /* ===== קומפוזר פשוט בסגנון טיקטוק ===== */
       .compose-dialog {
         background: var(--card);
         border-radius: 16px;
         border: 1px solid var(--border);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         overflow: hidden;
+        width: min(420px, 94vw);
+        padding: 0;
+      }
+
+      .compose-chooser,
+      .compose-editor {
+        padding: 20px;
+      }
+
+      .compose-chooser[hidden],
+      .compose-editor[hidden] {
+        display: none !important;
+      }
+
+      .compose-chooser__header,
+      .compose-editor__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .compose-chooser__title,
+      .compose-editor__title {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .compose-chooser__subtitle {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .compose-icon-btn {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 50%;
+        background: var(--bg);
+        color: var(--text);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .compose-chooser__grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .compose-choice {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--bg);
+        color: var(--text);
+        cursor: pointer;
+        text-align: right;
+        transition: border-color 0.2s ease, transform 0.15s ease, background 0.2s ease;
+      }
+
+      .compose-choice:hover,
+      .compose-choice:focus-visible {
+        border-color: var(--primary);
+        background: var(--hover);
+        transform: translateY(-1px);
+        outline: none;
+      }
+
+      .compose-choice__icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        background: rgba(74, 144, 217, 0.15);
+        color: var(--primary);
+        flex-shrink: 0;
+      }
+
+      .compose-choice__icon--camera { background: rgba(255, 59, 92, 0.14); color: #ff3b5c; }
+      .compose-choice__icon--upload { background: rgba(74, 144, 217, 0.15); color: #4a90d9; }
+      .compose-choice__icon--text { background: rgba(255, 193, 7, 0.16); color: #e6a700; }
+
+      .compose-choice__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .compose-choice__label {
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+
+      .compose-choice__hint {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .compose-editor__profile {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .compose-editor__profile .profile-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 0.85rem;
+      }
+
+      .compose-editor__profile .profile-name {
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .compose-dialog textarea {
+        width: 100%;
+        min-height: 110px;
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: 12px;
@@ -366,7 +437,7 @@
         color: var(--text);
         font-size: 16px;
         resize: none;
-        transition: border-color 0.2s ease;
+        box-sizing: border-box;
       }
 
       .compose-dialog textarea:focus {
@@ -378,7 +449,37 @@
         color: var(--muted);
       }
 
-      /* שיפור תצוגת מדיה */
+      .compose-dialog__toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .compose-toolbar-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 8px 14px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+
+      .compose-toolbar-btn:hover,
+      .compose-toolbar-btn.active {
+        border-color: var(--primary);
+        background: var(--hover);
+      }
+
+      .compose-toolbar-btn span {
+        font-weight: 600;
+      }
+
       .compose-media-preview {
         border-radius: 12px;
         overflow: hidden;
@@ -390,50 +491,34 @@
       .compose-media-preview img,
       .compose-media-preview video {
         width: 100%;
-        max-height: 300px;
+        max-height: 280px;
         object-fit: cover;
         display: block;
-        transition: all 0.3s ease;
       }
 
-      /* התאמה לתמונות רוחביות */
-      .compose-media-preview img.landscape {
-        max-height: 300px;
-        object-fit: cover;
-        width: 100%;
+      .compose-terms-ack {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 14px;
+        padding: 12px;
+        border-radius: 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.45;
       }
 
-      /* התאמה לתמונות אנכיות */
-      .compose-media-preview img.portrait {
-        max-height: 400px;
-        object-fit: contain;
-        width: auto;
-        max-width: 100%;
+      .compose-terms-ack input {
+        margin-top: 3px;
+        flex-shrink: 0;
       }
 
-      /* התאמה לתמונות ריבועיות */
-      .compose-media-preview img.square {
-        max-height: 350px;
-        object-fit: cover;
-        width: 100%;
+      .compose-terms-ack a {
+        color: var(--primary);
       }
 
-      /* התאמה למובייל */
-      @media (max-width: 768px) {
-        .compose-media-preview img.landscape {
-          max-height: 200px;
-        }
-        
-        .compose-media-preview img.portrait {
-          max-height: 300px;
-        }
-        
-        .compose-media-preview img.square {
-          max-height: 250px;
-        }
-      }
-
-      /* שיפור כפתורי פעולה */
       .compose-dialog__actions {
         display: flex;
         gap: 12px;
@@ -443,35 +528,29 @@
         border-top: 1px solid var(--border);
       }
 
+      .compose-dialog__actions .button-primary,
+      .compose-dialog__actions .button-secondary {
+        border-radius: 999px;
+        padding: 10px 22px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
       .compose-dialog__actions .button-primary {
         background: var(--primary);
         color: white;
         border: none;
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s ease;
       }
 
-      .compose-dialog__actions .button-primary:hover {
-        background: var(--primary-hover);
+      .compose-dialog__actions .button-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
 
       .compose-dialog__actions .button-secondary {
         background: transparent;
         color: var(--muted);
         border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      .compose-dialog__actions .button-secondary:hover {
-        background: var(--hover);
-        color: var(--text);
       }
 
       /* ===== התאמה מובייל למקלדת ===== */
@@ -1273,7 +1352,7 @@
           window.openCompose = function(){
             var App = window.NostrApp || {};
             if (typeof App.openCompose === 'function') {
-              App.openCompose();
+              App.openCompose.apply(App, arguments);
             } else {
               console.warn('[VIDEOS] App.openCompose not ready');
             }
@@ -1574,61 +1653,111 @@
 
     <!-- חלק חלון יצירת פוסט (videos.html) – אותו קומפוזר בדיוק כמו בפיד הראשי | HYPER CORE TECH -->
     <div class="compose-modal" id="composeModal" aria-hidden="true">
-      <div class="compose-dialog" role="dialog" aria-modal="true">
-        <div class="profile-inline">
-          <div class="profile-avatar" id="composeProfileAvatar">?</div>
-          <div class="profile-text">
-            <span class="profile-name" id="composeProfileName">משתמש</span>
-            <span class="profile-bio" id="composeProfileBio">שתף את המחשבות שלך</span>
+      <div class="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="composeChooserTitle">
+        <!-- שלב 1: בחירת סוג תוכן | HYPER CORE TECH -->
+        <div class="compose-chooser" id="composeChooser">
+          <div class="compose-chooser__header">
+            <h2 class="compose-chooser__title" id="composeChooserTitle">מה לשתף?</h2>
+            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="סגור">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
           </div>
+          <p class="compose-chooser__subtitle">בחרו פעולה אחת והמשיכו</p>
+          <div class="compose-chooser__grid">
+            <button type="button" class="compose-choice" id="composeVideoRecordButton" data-compose-choice="camera">
+              <span class="compose-choice__icon compose-choice__icon--camera" aria-hidden="true">
+                <i class="fa-solid fa-video"></i>
+              </span>
+              <span class="compose-choice__copy">
+                <span class="compose-choice__label">מצלמה</span>
+                <span class="compose-choice__hint">הקליטו סרטון חדש עכשיו</span>
+              </span>
+            </button>
+            <button type="button" class="compose-choice" id="composeUploadChoice" data-compose-choice="upload">
+              <span class="compose-choice__icon compose-choice__icon--upload" aria-hidden="true">
+                <i class="fa-solid fa-images"></i>
+              </span>
+              <span class="compose-choice__copy">
+                <span class="compose-choice__label">העלאה</span>
+                <span class="compose-choice__hint">תמונה או וידאו מהגלריה</span>
+              </span>
+            </button>
+            <button type="button" class="compose-choice" id="composeTextChoice" data-compose-choice="text">
+              <span class="compose-choice__icon compose-choice__icon--text" aria-hidden="true">
+                <i class="fa-solid fa-pen"></i>
+              </span>
+              <span class="compose-choice__copy">
+                <span class="compose-choice__label">טקסט</span>
+                <span class="compose-choice__hint">פוסט כתוב בלי מדיה</span>
+              </span>
+            </button>
+          </div>
+          <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
         </div>
-        <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
-        <div class="compose-dialog__toolbar">
-          <button class="compose-toolbar-btn" type="button" onclick="document.getElementById('composeImageInput').click()" title="הוסף תמונה">
-            <i class="fa-solid fa-image"></i>
-          </button>
-          <button class="compose-toolbar-btn" type="button" onclick="document.getElementById('composeVideoInput').click()" title="הוסף וידיאו">
-            <i class="fa-solid fa-film"></i>
-          </button>
-          <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו" onclick="document.getElementById('composeVideoCameraInput').click()">
-            <i class="fa-solid fa-video"></i>
-          </button>
-          <button class="compose-toolbar-btn" type="button" id="composeLiveButton" title="שידור חי">
-            <i class="fa-solid fa-tower-broadcast"></i>
-          </button>
-          <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע טקסט">
-            <i class="fa-solid fa-palette"></i>
-          </button>
-          <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
-            <i class="fa-solid fa-eraser"></i>
-          </button>
-          <input id="composeImageInput" type="file" accept="image/*" hidden onchange="handleImageInput(event)">
-          <input id="composeVideoInput" type="file" accept="video/*" hidden onchange="handleVideoInput(event)">
-          <input id="composeVideoCameraInput" type="file" accept="video/*" capture="environment" hidden onchange="handleVideoInput(event)">
-        </div>
-        <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
-        <!-- חלק רקעים (videos.html) – שליטה אם הטקסט יוצג רק על גבי התמונה | HYPER CORE TECH -->
-        <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
-          <label class="compose-bg__option-toggle">
-            <input type="checkbox" id="composeBgTextOnlyToggle">
-            <span>הצג טקסט רק על התמונה</span>
+
+        <!-- שלב 2: עריכה ופרסום | HYPER CORE TECH -->
+        <div class="compose-editor" id="composeEditor" hidden>
+          <div class="compose-editor__header">
+            <button type="button" class="compose-icon-btn" id="composeBackToChooser" aria-label="חזרה">
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+            <div class="compose-editor__profile">
+              <div class="profile-avatar" id="composeProfileAvatar">?</div>
+              <span class="profile-name" id="composeProfileName">משתמש</span>
+              <span class="profile-bio" id="composeProfileBio" hidden></span>
+            </div>
+            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="סגור">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <textarea id="postText" placeholder="הוסיפו כיתוב..."></textarea>
+
+          <div class="compose-dialog__toolbar" id="composeTextTools" hidden>
+            <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע לטקסט">
+              <i class="fa-solid fa-palette"></i>
+              <span>רקע</span>
+            </button>
+            <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
+              <i class="fa-solid fa-eraser"></i>
+              <span>נקה</span>
+            </button>
+          </div>
+
+          <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
+          <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
+            <label class="compose-bg__option-toggle">
+              <input type="checkbox" id="composeBgTextOnlyToggle">
+              <span>הצג טקסט רק על התמונה</span>
+            </label>
+            <label class="compose-bg__option-toggle">
+              <input type="checkbox" id="composeBgZoomToggle">
+              <span>הפעל אפקט זום בלופ</span>
+            </label>
+          </div>
+
+          <div id="composeMediaPreview" class="compose-media-preview">
+            <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
+            <video id="composeMediaPreviewVideo" controls playsinline></video>
+          </div>
+
+          <label class="compose-terms-ack">
+            <input type="checkbox" id="composeTermsAck">
+            <span>
+              אני מאשר/ת שזו יצירה שלי או עם רישיון, ושאני מסכים/ה ל
+              <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a>
+              ול
+              <a href="copyright.html" target="_blank" rel="noopener">זכויות יוצרים</a>.
+            </span>
           </label>
-          <label class="compose-bg__option-toggle">
-            <input type="checkbox" id="composeBgZoomToggle">
-            <span>הפעל אפקט זום בלופ</span>
-          </label>
-        </div>
-        <div id="composeMediaPreview" class="compose-media-preview">
-          <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
-          <video id="composeMediaPreviewVideo" controls playsinline></video>
-        </div>
-        <!-- הועבר לחלון תנאים נפרד -->
-        <input type="hidden" id="composePolicyCheckbox" checked>
-        <input type="hidden" id="composeRightsCheckbox" checked>
-        <div id="composeStatus" class="p2p-status"></div>
-        <div class="compose-dialog__actions">
-          <button class="button-secondary" onclick="closeCompose()">ביטול</button>
-          <button class="button-primary" id="composePublishButton" onclick="openTermsModal()">המשך</button>
+
+          <input type="hidden" id="composePolicyCheckbox" checked>
+          <input type="hidden" id="composeRightsCheckbox" checked>
+          <div id="composeStatus" class="p2p-status"></div>
+          <div class="compose-dialog__actions">
+            <button class="button-secondary" type="button" onclick="closeCompose()">ביטול</button>
+            <button class="button-primary" type="button" id="composePublishButton" disabled>פרסם</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1947,7 +2076,33 @@
     <!-- חלון תנאים ואנימציית עיבוד | HYPER CORE TECH -->
     <script>
       (function() {
-        // פונקציות לניהול חלון התנאים
+        // פרסום ישיר ממסך העריכה (בלי שלב "המשך") | HYPER CORE TECH
+        window.publishFromCompose = function() {
+          const App = window.NostrApp || {};
+          if (typeof App.getComposePayload === 'function') {
+            const payload = App.getComposePayload();
+            if (!payload) return;
+          }
+
+          const ack = document.getElementById('composeTermsAck');
+          if (!ack || !ack.checked) {
+            if (typeof App.setComposeStatus === 'function') {
+              App.setComposeStatus('יש לאשר את התנאים לפני הפרסום.', 'error');
+            } else {
+              alert('יש לאשר את התנאים לפני הפרסום');
+            }
+            return;
+          }
+
+          const policyCheckbox = document.getElementById('termsPolicyCheckbox');
+          const rightsCheckbox = document.getElementById('termsRightsCheckbox');
+          if (policyCheckbox) policyCheckbox.checked = true;
+          if (rightsCheckbox) rightsCheckbox.checked = true;
+
+          confirmAndPublish();
+        };
+
+        // פונקציות לניהול חלון התנאים (גיבוי)
         window.openTermsModal = function() {
           // בדיקה שיש תוכן לפרסם
           const App = window.NostrApp || {};

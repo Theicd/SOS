@@ -6,6 +6,13 @@
 
   const elements = {
     modal,
+    chooser: document.getElementById('composeChooser'),
+    editor: document.getElementById('composeEditor'),
+    textTools: document.getElementById('composeTextTools'),
+    termsAck: document.getElementById('composeTermsAck'),
+    backButton: document.getElementById('composeBackToChooser'),
+    uploadChoice: document.getElementById('composeUploadChoice'),
+    textChoice: document.getElementById('composeTextChoice'),
     textarea: document.getElementById('postText'),
     mediaInput: document.getElementById('composeMediaInput'),
     previewContainer: document.getElementById('composeMediaPreview'),
@@ -31,6 +38,8 @@
     // חלק קומפוזר – מצב עריכה: מזהה פוסט מקורי אם מדובר בעריכה ולא ביצירה חדשה
     editingOriginalId: null,
     mediaInputBound: false,
+    step: 'chooser',
+    composeMode: 'text', // camera | upload | text
     // חלק רקעים – שליטה בבורר רקעים חינמי
     backgroundActive: false,
     backgroundChoices: [],
@@ -53,9 +62,37 @@
   }
 
   function updateComposeLegalState() {
-    // הצ'קבוקסים הועברו לחלון תנאים נפרד - כפתור "המשך" תמיד פעיל
     if (!elements.publishButton) return;
-    elements.publishButton.disabled = false;
+    const ackChecked = !elements.termsAck || elements.termsAck.checked;
+    elements.publishButton.disabled = !ackChecked;
+  }
+
+  function updateTextToolsVisibility() {
+    if (!elements.textTools) return;
+    const showTools = state.composeMode === 'text' && !state.media;
+    if (showTools) {
+      elements.textTools.removeAttribute('hidden');
+    } else {
+      elements.textTools.setAttribute('hidden', '');
+      if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
+      if (elements.bgOptions) elements.bgOptions.setAttribute('hidden', '');
+      if (elements.bgToggle) elements.bgToggle.classList.remove('active');
+    }
+  }
+
+  function showComposeStep(step) {
+    const nextStep = step === 'editor' ? 'editor' : 'chooser';
+    state.step = nextStep;
+    if (elements.chooser) {
+      if (nextStep === 'chooser') elements.chooser.removeAttribute('hidden');
+      else elements.chooser.setAttribute('hidden', '');
+    }
+    if (elements.editor) {
+      if (nextStep === 'editor') elements.editor.removeAttribute('hidden');
+      else elements.editor.setAttribute('hidden', '');
+    }
+    updateTextToolsVisibility();
+    updateComposeLegalState();
   }
 
   // פונקציות התקדמות גרפיות חדשות
@@ -124,18 +161,28 @@
 
   function clearMediaPreview() {
     state.media = null;
-    elements.previewContainer.classList.remove('is-visible');
-    elements.previewImage.style.display = 'none';
-    elements.previewImage.src = '';
-    elements.previewVideo.style.display = 'none';
-    elements.previewVideo.removeAttribute('src');
-    elements.previewVideo.load();
+    if (elements.previewContainer) {
+      elements.previewContainer.classList.remove('is-visible');
+    }
+    if (elements.previewImage) {
+      elements.previewImage.style.display = 'none';
+      elements.previewImage.src = '';
+    }
+    if (elements.previewVideo) {
+      elements.previewVideo.style.display = 'none';
+      elements.previewVideo.removeAttribute('src');
+      elements.previewVideo.load();
+    }
+    updateTextToolsVisibility();
   }
 
   function showMediaPreview(media) {
+    if (!elements.previewContainer) return;
     elements.previewContainer.classList.add('is-visible');
-    elements.previewImage.style.display = 'none';
-    elements.previewVideo.style.display = 'none';
+    elements.previewContainer.removeAttribute('hidden');
+    if (elements.previewImage) elements.previewImage.style.display = 'none';
+    if (elements.previewVideo) elements.previewVideo.style.display = 'none';
+    updateTextToolsVisibility();
 
     if (media.type === 'image') {
       elements.previewImage.src = media.dataUrl;
@@ -297,6 +344,7 @@
 
       state.media = { type: 'image', dataUrl };
       showMediaPreview(state.media);
+      showComposeStep('editor');
       setStatus('המדיה נוספה. לחיצה על התצוגה תסיר אותה.');
     } catch (err) {
       console.error('Media load failed', err);
@@ -339,7 +387,8 @@
       };
 
       showMediaPreview(state.media);
-      setStatus(`וידאו נבחר (${(file.size / (1024 * 1024)).toFixed(1)}MB) - לחץ המשך לפרסום`);
+      showComposeStep('editor');
+      setStatus(`וידאו מוכן (${(file.size / (1024 * 1024)).toFixed(1)}MB) — אפשר לפרסם`);
       console.log('[COMPOSE] Video preview ready, processing will happen on publish');
     } catch (err) {
       console.error('Video preview failed', err);
@@ -451,6 +500,7 @@
   function removeMedia() {
     if (!state.media) return;
     clearMediaPreview();
+    updateTextToolsVisibility();
     setStatus('המדיה הוסרה.');
   }
 
@@ -680,7 +730,7 @@
     state.mediaInputBound = true;
   }
 
-  function openCompose() {
+  function openCompose(options = {}) {
     const app = window.NostrApp || {};
     // בדיקת מצב אורח - חסימת פרסום פוסט למשתמשים לא מחוברים | HYPER CORE TECH
     if (app && typeof app.requireAuth === 'function') {
@@ -703,15 +753,38 @@
     if (elements.rightsCheckbox) {
       elements.rightsCheckbox.checked = false;
     }
+    if (elements.termsAck && !options.keepTerms) {
+      elements.termsAck.checked = false;
+    }
     updateComposeLegalState();
     // חלק קומפוזר – ביטול מצבי תצוגה קודמים והבטחת הצגה עקבית
     elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
     elements.modal.setAttribute('aria-hidden', 'false');
+
+    const requestedStep = options.step === 'editor' || options.mode === 'editor' || state.editingOriginalId
+      ? 'editor'
+      : 'chooser';
+    if (requestedStep === 'chooser' && !options.keepDraft) {
+      if (elements.textarea) elements.textarea.value = '';
+      clearMediaPreview();
+      if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
+        window.NostrApp.bg.onReset();
+      } else {
+        setBackgroundActive(false);
+      }
+      state.editingOriginalId = null;
+    }
+    if (options.composeMode) {
+      state.composeMode = options.composeMode;
+    } else if (requestedStep === 'chooser') {
+      state.composeMode = 'text';
+    }
+    showComposeStep(requestedStep);
     
     // לא מפעילים focus אוטומטי במובייל כדי למנוע פתיחת מקלדת
     // המשתמש יצטרך ללחוץ על ה-textarea במפורש
-    if (elements.textarea && !isMobile()) {
+    if (requestedStep === 'editor' && elements.textarea && !isMobile()) {
       elements.textarea.focus();
     }
     
@@ -757,6 +830,7 @@
     resetStatus();
     // חלק קומפוזר – איפוס מצב עריכה
     state.editingOriginalId = null;
+    state.composeMode = 'text';
     // חלק רקעים – איפוס סטייט
     if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
       window.NostrApp.bg.onReset();
@@ -774,7 +848,12 @@
     if (elements.rightsCheckbox) {
       elements.rightsCheckbox.checked = false;
     }
+    if (elements.termsAck) {
+      elements.termsAck.checked = false;
+    }
+    updateTextToolsVisibility();
     updateComposeLegalState();
+    showComposeStep('chooser');
   }
 
   // פונקציית זיהוי מובייל
@@ -901,6 +980,62 @@
       elements.previewContainer.addEventListener('click', removeMedia);
     }
 
+    if (elements.uploadChoice) {
+      elements.uploadChoice.addEventListener('click', () => {
+        state.composeMode = 'upload';
+        ensureMediaInputBound();
+        if (elements.mediaInput) {
+          elements.mediaInput.click();
+        }
+      });
+    }
+
+    if (elements.textChoice) {
+      elements.textChoice.addEventListener('click', () => {
+        state.composeMode = 'text';
+        showComposeStep('editor');
+        if (elements.textarea && !isMobile()) {
+          elements.textarea.focus();
+        }
+      });
+    }
+
+    if (elements.backButton) {
+      elements.backButton.addEventListener('click', () => {
+        resetStatus();
+        if (state.media) {
+          clearMediaPreview();
+        }
+        if (elements.textarea) {
+          elements.textarea.value = '';
+        }
+        if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
+          window.NostrApp.bg.onReset();
+        } else {
+          setBackgroundActive(false);
+        }
+        state.composeMode = 'text';
+        if (elements.termsAck) {
+          elements.termsAck.checked = false;
+        }
+        showComposeStep('chooser');
+      });
+    }
+
+    if (elements.termsAck) {
+      elements.termsAck.addEventListener('change', updateComposeLegalState);
+    }
+
+    if (elements.publishButton) {
+      elements.publishButton.addEventListener('click', () => {
+        if (typeof window.publishFromCompose === 'function') {
+          window.publishFromCompose();
+        } else if (typeof window.openTermsModal === 'function') {
+          window.openTermsModal();
+        }
+      });
+    }
+
     // חיבור מודול הרקעים המרכזי (אם נטען), מונע מאזינים כפולים
     if (window.NostrApp?.bg && !window.NostrApp._bgBound) {
       window.NostrApp.bg.bind({
@@ -963,6 +1098,7 @@
           elements.bgTextOnlyToggle.checked = false;
         }
         state.bgTextOnly = false;
+        updateTextToolsVisibility();
         setStatus('הרקע הוסר.');
       });
     }
@@ -995,20 +1131,6 @@
         updateComposeLegalState();
       });
     }
-
-    // חלק שידור חי (compose.js) – כפתור שידור חי מתוך חלון השיתוף
-    try {
-      const liveBtn = document.getElementById('composeLiveButton');
-      if (liveBtn) {
-        // מחליפים מאזין כדי למנוע כפילות אם ה-DOM נטען מחדש
-        const fresh = liveBtn.cloneNode(true);
-        liveBtn.parentNode.replaceChild(fresh, liveBtn);
-        fresh.addEventListener('click', () => {
-          try { if (typeof App.closeCompose === 'function') App.closeCompose(); } catch (_) {}
-          try { if (typeof App.openLiveBroadcast === 'function') App.openLiveBroadcast({ slug: 'live' }); } catch (_) {}
-        });
-      }
-    } catch (_) {}
   }
 
   function setComposeDraft(text, mediaDataUrl, originalId = null) {
@@ -1032,7 +1154,9 @@
         clearMediaPreview();
       }
       state.editingOriginalId = originalId || null;
-      openCompose();
+      state.composeMode = state.media ? 'upload' : 'text';
+      openCompose({ step: 'editor', keepTerms: false });
+      showComposeStep('editor');
     } catch (err) {
       console.warn('Failed setting compose draft', err);
     }
@@ -1107,6 +1231,7 @@
     closeCompose,
     getComposePayload,
     clearComposeMedia: removeMedia,
+    showComposeStep,
     // חלק קומפוזר – API לזרימת עריכה
     setComposeDraft,
     clearEditing,

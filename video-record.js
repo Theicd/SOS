@@ -59,6 +59,13 @@ class VideoRecorder {
         console.log('[VideoRecorder] Record button clicked!');
         e.preventDefault();
         e.stopPropagation();
+        try {
+          if (window.NostrApp && typeof window.NostrApp.closeCompose === 'function') {
+            window.NostrApp.closeCompose();
+          } else if (typeof window.closeCompose === 'function') {
+            window.closeCompose();
+          }
+        } catch (_) {}
         this.openModal();
       });
       console.log('[VideoRecorder] Event listener attached to record button');
@@ -497,23 +504,30 @@ class VideoRecorder {
   }
 
   transferToCompose(file) {
-    // הפעלת הקומפוזר אם לא פתוח
+    // הפעלת הקומפוזר ישירות במסך העריכה אחרי הקלטה | HYPER CORE TECH
+    const openEditor = () => {
+      if (typeof window.openCompose === 'function') {
+        window.openCompose({ step: 'editor', composeMode: 'camera' });
+      } else if (window.NostrApp && typeof window.NostrApp.openCompose === 'function') {
+        window.NostrApp.openCompose({ step: 'editor', composeMode: 'camera' });
+      }
+    };
+
     const composeModal = document.getElementById('composeModal');
     if (!composeModal || composeModal.getAttribute('aria-hidden') === 'true') {
-      if (typeof window.openCompose === 'function') {
-        window.openCompose();
-      } else if (typeof openCompose === 'function') {
-        openCompose();
-      }
+      openEditor();
+    } else if (window.NostrApp && typeof window.NostrApp.showComposeStep === 'function') {
+      window.NostrApp.composeState && (window.NostrApp.composeState.composeMode = 'camera');
+      window.NostrApp.showComposeStep('editor');
     }
 
     // המתנה קצרה שהקומפוזר ייפתח והאלמנטים יהיו זמינים
     setTimeout(() => {
       // העברת הקובץ לפונקציית הטיפול במדיה של הקומפוזר
       if (typeof window.handleMediaInput === 'function') {
-        window.handleMediaInput({ target: { files: [file] } });
+        window.handleMediaInput({ target: { files: [file], value: '' } });
       } else if (typeof handleMediaInput === 'function') {
-        handleMediaInput({ target: { files: [file] } });
+        handleMediaInput({ target: { files: [file], value: '' } });
       } else {
         console.error('[VideoRecorder] handleMediaInput function not found!');
         alert('שגיאה בהעברת הווידיאו לקומפוזר. נסו לבחור קובץ ידנית.');
