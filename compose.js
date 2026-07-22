@@ -81,16 +81,32 @@
   }
 
   function showComposeStep(step) {
+    // רענון הפניות מה-DOM — מונע מצב תקוע אחרי פרסום/סגירה | HYPER CORE TECH
+    elements.chooser = document.getElementById('composeChooser') || elements.chooser;
+    elements.editor = document.getElementById('composeEditor') || elements.editor;
+
     const nextStep = step === 'editor' ? 'editor' : 'chooser';
     state.step = nextStep;
-    if (elements.chooser) {
-      if (nextStep === 'chooser') elements.chooser.removeAttribute('hidden');
-      else elements.chooser.setAttribute('hidden', '');
-    }
-    if (elements.editor) {
-      if (nextStep === 'editor') elements.editor.removeAttribute('hidden');
-      else elements.editor.setAttribute('hidden', '');
-    }
+
+    const applyStepVisibility = (el, isActive) => {
+      if (!el) return;
+      if (isActive) {
+        el.removeAttribute('hidden');
+        el.hidden = false;
+        el.style.removeProperty('display');
+        el.classList.add('is-compose-step-active');
+        el.classList.remove('is-compose-step-hidden');
+      } else {
+        el.setAttribute('hidden', '');
+        el.hidden = true;
+        el.style.display = 'none';
+        el.classList.remove('is-compose-step-active');
+        el.classList.add('is-compose-step-hidden');
+      }
+    };
+
+    applyStepVisibility(elements.chooser, nextStep === 'chooser');
+    applyStepVisibility(elements.editor, nextStep === 'editor');
     updateTextToolsVisibility();
     updateComposeLegalState();
   }
@@ -756,10 +772,18 @@
   }
 
   function openCompose(rawOptions) {
-    // הגנה: לא לקבל Event / null כ-options (שומר על {} תקין) | HYPER CORE TECH
-    const options = (rawOptions && typeof rawOptions === 'object' && rawOptions.target == null)
-      ? rawOptions
-      : {};
+    // רק אובייקט options מפורש (step/mode/composeMode/keep*) נחשב; Event → {} | HYPER CORE TECH
+    let options = {};
+    if (rawOptions && typeof rawOptions === 'object') {
+      const looksLikeEvent = typeof rawOptions.preventDefault === 'function' || rawOptions instanceof Event;
+      const hasComposeKeys = ['step', 'mode', 'composeMode', 'keepDraft', 'keepTerms', 'preserveForPublish']
+        .some((key) => Object.prototype.hasOwnProperty.call(rawOptions, key));
+      if (!looksLikeEvent && hasComposeKeys) {
+        options = rawOptions;
+      } else if (!looksLikeEvent && rawOptions.target == null && rawOptions.type == null) {
+        options = rawOptions;
+      }
+    }
 
     const app = window.NostrApp || {};
     // בדיקת מצב אורח - חסימת פרסום פוסט למשתמשים לא מחוברים | HYPER CORE TECH
@@ -788,50 +812,55 @@
     }
     updateComposeLegalState();
 
-    // פוסט חדש תמיד מתחיל ב-chooser; editor רק בבקשה מפורשת או עריכה פעילה | HYPER CORE TECH
+    // פוסט חדש = תמיד chooser. editor רק עם step/mode מפורש | HYPER CORE TECH
     const forceEditor = options.step === 'editor' || options.mode === 'editor';
-    const requestedStep = forceEditor || (state.editingOriginalId && options.keepDraft)
-      ? 'editor'
-      : 'chooser';
+    const requestedStep = forceEditor ? 'editor' : 'chooser';
 
-    if (requestedStep === 'chooser' && !options.keepDraft) {
-      if (elements.textarea) elements.textarea.value = '';
-      clearMediaPreview();
-      try {
-        if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
-          window.NostrApp.bg.onReset();
-        } else {
+    if (requestedStep === 'chooser') {
+      // איפוס מלא לפני הצגה — גם אם נשאר מצב editor אחרי פרסום | HYPER CORE TECH
+      if (!options.keepDraft) {
+        if (elements.textarea) elements.textarea.value = '';
+        clearMediaPreview();
+        try {
+          if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
+            window.NostrApp.bg.onReset();
+          } else {
+            setBackgroundActive(false);
+          }
+        } catch (_) {
           setBackgroundActive(false);
         }
-      } catch (_) {
-        setBackgroundActive(false);
+        clearTextareaBg();
+        setBgZoomFx(false);
+        if (elements.bgZoomToggle) elements.bgZoomToggle.checked = false;
+        if (elements.bgClear) elements.bgClear.setAttribute('hidden', '');
+        state.editingOriginalId = null;
       }
-      clearTextareaBg();
-      state.editingOriginalId = null;
       state.composeMode = 'text';
-    }
-    if (options.composeMode) {
-      state.composeMode = options.composeMode;
-    } else if (requestedStep === 'chooser') {
-      state.composeMode = 'text';
+      state.step = 'chooser';
     }
 
-    // קודם קובעים שלב, ורק אז מציגים מודאל — מונע הצגת editor ישן | HYPER CORE TECH
+    if (options.composeMode) {
+      state.composeMode = options.composeMode;
+    }
+
+    // קודם שלב, אחר כך הצגת מודאל
     showComposeStep(requestedStep);
+    // וידוא כפול מול ה-DOM (למקרה שמשהו מחזיר editor) | HYPER CORE TECH
+    if (requestedStep === 'chooser') {
+      showComposeStep('chooser');
+    }
+
     elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
     elements.modal.setAttribute('aria-hidden', 'false');
     
-    // לא מפעילים focus אוטומטי במובייל כדי למנוע פתיחת מקלדת
-    // המשתמש יצטרך ללחוץ על ה-textarea במפורש
     if (requestedStep === 'editor' && elements.textarea && !isMobile()) {
       elements.textarea.focus();
     }
     
-    // התאמת המודאל למקלדת במובייל
     setupMobileKeyboardHandling();
     
-    // חלק רקעים – חיבור מאוחר למודול הרקעים בעת פתיחה אם טרם בוצע
     if (window.NostrApp?.bg && !window.NostrApp._bgBound) {
       window.NostrApp.bg.bind({
         elements,
@@ -844,7 +873,6 @@
       });
       window.NostrApp._bgBound = true;
     }
-    // ניהול מצב פתיחה
     try {
       if (window.NostrApp?.bg && typeof window.NostrApp.bg.onOpenCompose === 'function') {
         window.NostrApp.bg.onOpenCompose();
@@ -854,19 +882,28 @@
     } catch (_) {
       setBackgroundActive(false);
     }
+
+    // אם נפתחנו ל-chooser — ודא שוב אחרי onOpenCompose שלא נשאר editor גלוי | HYPER CORE TECH
+    if (requestedStep === 'chooser') {
+      showComposeStep('chooser');
+    }
   }
 
   function closeCompose(rawOptions) {
-    const options = (rawOptions && typeof rawOptions === 'object' && rawOptions.target == null)
-      ? rawOptions
-      : {};
-    // חלק קומפוזר – סגירה כפולה (class + style) כדי למנוע פתיחה מחדש בעקבות מצב ביניים
+    let options = {};
+    if (rawOptions && typeof rawOptions === 'object') {
+      const looksLikeEvent = typeof rawOptions.preventDefault === 'function' || rawOptions instanceof Event;
+      if (!looksLikeEvent) options = rawOptions;
+    }
     elements.modal.classList.remove('is-visible');
     elements.modal.setAttribute('aria-hidden', 'true');
     elements.modal.style.display = 'none';
     // איפוס מצב לסגירה רגילה; בפרסום שומרים טיוטה עד סיום ההעלאה | HYPER CORE TECH
     if (!options.preserveForPublish && !options.keepDraft) {
       resetCompose();
+    } else {
+      // גם בשימור טיוטה — אל תשאיר את המודאל על editor גלוי ב-DOM attributes | HYPER CORE TECH
+      // (המודאל מוסתר; השלב נשאר ב-state לצורך פרסום)
     }
   }
 
@@ -1026,6 +1063,17 @@
 
   function initListeners() {
     ensureMediaInputBound();
+
+    // כפתור פרסם בתפריט — תמיד פותח chooser לפוסט חדש (בלי step:editor) | HYPER CORE TECH
+    const navComposeBtn = document.getElementById('navCompose');
+    if (navComposeBtn && !navComposeBtn.dataset.composeBound) {
+      navComposeBtn.dataset.composeBound = '1';
+      navComposeBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openCompose({});
+      });
+    }
 
     if (elements.previewContainer) {
       elements.previewContainer.addEventListener('click', removeMedia);
@@ -1276,7 +1324,11 @@
       // חלק עדכון בזמן אמת (compose.js) – קריאה לעדכון הפיד הראשי והפיד הווידאו מיד אחרי פרסום | HYPER CORE TECH
       try { if (typeof app.onPostPublished === 'function') app.onPostPublished(signed); } catch (_) {}
       try { if (typeof app.onVideoPostPublished === 'function') app.onVideoPostPublished(signed); } catch (_) {}
+      // אחרי פרסום — חזרה מפורשת ל-chooser לפני הסגירה | HYPER CORE TECH
+      state.editingOriginalId = null;
+      state.composeMode = 'text';
       resetCompose();
+      showComposeStep('chooser');
       closeCompose();
       stopAnim();
     } catch (err) {

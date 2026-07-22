@@ -304,8 +304,26 @@
       }
 
       .compose-chooser[hidden],
-      .compose-editor[hidden] {
+      .compose-editor[hidden],
+      .compose-chooser.is-compose-step-hidden,
+      .compose-editor.is-compose-step-hidden {
         display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+      }
+
+      .compose-chooser.is-compose-step-active,
+      .compose-editor.is-compose-step-active {
+        display: block !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        height: auto !important;
+        overflow: visible !important;
       }
 
       .compose-chooser__header,
@@ -1343,7 +1361,7 @@
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js" defer></script>
+    <script src="./compose.js?v=20260723b" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -1577,7 +1595,7 @@
         <span>פרופיל</span>
       </button>
       <!-- חלק פרסם (videos.html) – כפתור פוסט חדש עם טקסט בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="navCompose" type="button" aria-label="פרסם" onclick="openCompose()">
+      <button class="nav-item" id="navCompose" type="button" aria-label="פרסם">
         <i class="fa-solid fa-plus"></i>
         <span>פרסם</span>
       </button>

@@ -3885,6 +3885,7 @@ async function loadFeed() {
       }
     }
     App.resetCompose?.();
+    try { if (typeof App.showComposeStep === 'function') App.showComposeStep('chooser'); } catch (_) {}
     App.closeCompose?.();
     loadFeed();
   }
