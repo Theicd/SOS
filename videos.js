@@ -344,9 +344,20 @@ window.updateP2PStatsUI = (source) => p2pStatsUI.update(source);
 // תור טעינה סדרתית לוידאו
 let videoDownloadQueue = [];
 let isProcessingVideoQueue = false;
+let feedDownloadsPaused = false; // השהיית הורדות פיד בזמן העלאת פוסט | HYPER CORE TECH
 const BOOTSTRAP_VIDEO_DELAY = 100; // 100ms בין הורדות - מופחת מ-2000ms
 // חלק מניעת כפילויות (videos.js) – מעקב אחרי וידאו שכבר בתור או הורדו | HYPER CORE TECH
 const videoDownloadedOrQueued = new Set();
+
+function setFeedDownloadsPaused(paused) {
+  feedDownloadsPaused = !!paused;
+  console.log('[videos] feed downloads', feedDownloadsPaused ? 'PAUSED (upload in progress)' : 'RESUMED');
+  if (!feedDownloadsPaused) {
+    processVideoDownloadQueue().catch((err) => {
+      console.warn('[videos] resume download queue failed', err);
+    });
+  }
+}
 
 // הוספת וידאו לתור ההורדה הסדרתי
 function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
@@ -364,6 +375,10 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
 // עיבוד תור ההורדות הסדרתי
 async function processVideoDownloadQueue() {
   if (isProcessingVideoQueue || videoDownloadQueue.length === 0) return;
+  if (feedDownloadsPaused) {
+    console.log('[videos] download queue waiting — upload in progress');
+    return;
+  }
   
   isProcessingVideoQueue = true;
   
@@ -391,6 +406,11 @@ async function processVideoDownloadQueue() {
   }
   
   while (videoDownloadQueue.length > 0) {
+    if (feedDownloadsPaused) {
+      console.log('[videos] download queue paused mid-run — upload takes priority');
+      break;
+    }
+
     const { videoEl, url, hash, mirrors, fallbackFn } = videoDownloadQueue.shift();
     processedCount++;
     
@@ -410,12 +430,12 @@ async function processVideoDownloadQueue() {
     }
     
     // השהייה רק במצב BOOTSTRAP, רק אם לא נטען מ-cache, ואם יש עוד בתור
-    if (useDelay && !loadedFromCache && videoDownloadQueue.length > 0) {
+    if (useDelay && !loadedFromCache && videoDownloadQueue.length > 0 && !feedDownloadsPaused) {
       await new Promise(resolve => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
     }
   }
   
-  if (useDelay) {
+  if (useDelay && !feedDownloadsPaused) {
     console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c║  ✅ טעינה סדרתית הושלמה - ${processedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
@@ -698,6 +718,7 @@ const App = window.NostrApp || (window.NostrApp = {});
 
 // חלק שיחות (videos.js) – חשיפת פונקציה לעצירת וידיאו בפיד | HYPER CORE TECH
 App.pauseAllFeedVideos = pauseAllFeedVideos;
+App.setFeedDownloadsPaused = setFeedDownloadsPaused;
 
 const state = {
   videos: [],
@@ -1031,21 +1052,36 @@ function mountCard(card, { prepend = false } = {}) {
   }
 }
 
-function prependVideoCard(video) {
+function prependVideoCard(video, { forceShow = false } = {}) {
   if (!selectors.stream) return;
   const existing = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`);
   if (existing) {
     existing.remove();
   }
   const { card, mediaReadyPromise } = renderVideoCard(video);
+
+  // פוסט עצמי: מציגים מיד בראש הפיד, גם לפני שהמדיה מוכנה | HYPER CORE TECH
+  if (forceShow) {
+    mountCard(card, { prepend: true });
+    markCardMediaReady(card);
+    mediaReadyPromise.catch((err) => handleCardMediaFailure(card, video.id, err));
+    return;
+  }
+
   mediaReadyPromise
     .then(() => {
       mountCard(card, { prepend: true });
     })
-    .catch((err) => handleCardMediaFailure(card, video.id, err));
+    .catch((err) => {
+      // בעבר כשל מדיה השאיר כרטיס מחוץ ל-DOM — עכשיו מציגים עם placeholder | HYPER CORE TECH
+      handleCardMediaFailure(card, video.id, err);
+      if (!card.isConnected) {
+        mountCard(card, { prepend: true });
+      }
+    });
 }
 
-function upsertVideoInState(video) {
+function upsertVideoInState(video, options = {}) {
   if (!video || !video.id) return;
   const existingIndex = state.videos.findIndex((v) => v.id === video.id);
   if (existingIndex > -1) {
@@ -1054,8 +1090,127 @@ function upsertVideoInState(video) {
   state.videos.unshift(video);
   truncateFeedLength();
   saveFeedCache(state.videos);
-  prependVideoCard(video);
+  prependVideoCard(video, options);
 }
+
+// חלק עדכון בזמן אמת (videos.js) – המרת אירוע Nostr לפריט פיד וידאו | HYPER CORE TECH
+function parseEventToVideoItem(event, currentApp) {
+  if (!event || event.kind !== 1) return null;
+  if (currentApp?.deletedEventIds?.has(event.id)) return null;
+
+  const lines = String(event.content || '').split('\n');
+  const mediaLinks = [];
+  const textLines = [];
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    if (trimmed.startsWith('http') || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+      mediaLinks.push(trimmed);
+    } else {
+      textLines.push(trimmed);
+    }
+  });
+
+  let youtubeId = mediaLinks.map(parseYouTube).find(Boolean) || null;
+  let videoUrl = mediaLinks.find(isVideoLink) || null;
+  let imageUrl = mediaLinks.find(isImageLink) || null;
+  let mediaHash = '';
+  const mediaMirrors = [];
+
+  if (Array.isArray(event.tags)) {
+    event.tags.forEach((tag) => {
+      if (!Array.isArray(tag)) return;
+      if (tag[0] === 'media' && tag[2]) {
+        const mime = String(tag[1] || '');
+        const tagUrl = String(tag[2]);
+        const tagHash = tag[3] || '';
+        if (mime.startsWith('video/') || isVideoLink(tagUrl)) {
+          videoUrl = videoUrl || tagUrl;
+          if (tagHash) mediaHash = tagHash;
+        } else if (mime.startsWith('image/') || isImageLink(tagUrl)) {
+          imageUrl = imageUrl || tagUrl;
+        } else if (!videoUrl && !imageUrl) {
+          videoUrl = tagUrl;
+          if (tagHash) mediaHash = tagHash;
+        }
+      }
+      if (tag[0] === 'mirror' && tag[1]) {
+        mediaMirrors.push(tag[1]);
+      }
+    });
+  }
+
+  // קישור http בלי סיומת וללא תמונה — נחשב וידאו (Blossom)
+  if (!videoUrl && !imageUrl && !youtubeId) {
+    const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isImageLink(l));
+    if (httpLink) videoUrl = httpLink;
+  }
+
+  if (!videoUrl && !imageUrl && !youtubeId) return null;
+
+  const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
+  return {
+    id: event.id,
+    pubkey: event.pubkey,
+    content: textLines.join(' '),
+    youtubeId,
+    videoUrl,
+    imageUrl,
+    hash: mediaHash || '',
+    mirrors: mediaMirrors,
+    fx: resolveFxValue(event, imageUrl),
+    createdAt: event.created_at || 0,
+    authorName: profileData.name || `משתמש ${String(event.pubkey || '').slice(0, 8)}`,
+    authorPicture: profileData.picture || '',
+    authorInitials: profileData.initials || 'AN',
+    likes: 0,
+    comments: 0,
+  };
+}
+
+// חלק עדכון בזמן אמת (videos.js) – הוספת פוסט חדש לפיד מיד אחרי פרסום | HYPER CORE TECH
+function onVideoPostPublished(signedEvent) {
+  if (!signedEvent || !signedEvent.id) {
+    console.warn('[videos] onVideoPostPublished: invalid event');
+    return;
+  }
+
+  const app = window.NostrApp || {};
+  if (!(app.postsById instanceof Map)) {
+    app.postsById = new Map();
+  }
+  app.postsById.set(signedEvent.id, signedEvent);
+
+  if (!(app.eventAuthorById instanceof Map)) {
+    app.eventAuthorById = new Map();
+  }
+  const authorKey = typeof signedEvent.pubkey === 'string' ? signedEvent.pubkey.toLowerCase() : '';
+  if (authorKey) {
+    app.eventAuthorById.set(signedEvent.id, authorKey);
+  }
+
+  const video = parseEventToVideoItem(signedEvent, app);
+  if (!video) {
+    console.warn('[videos] onVideoPostPublished: no displayable media', { id: signedEvent.id });
+    return;
+  }
+
+  try {
+    registerVideoSourceEvent(signedEvent);
+  } catch (_) {}
+
+  upsertVideoInState(video, { forceShow: true });
+
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (viewport) {
+    viewport.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  console.log('[videos] onVideoPostPublished: added to feed', { id: video.id });
+}
+
+App.onVideoPostPublished = onVideoPostPublished;
 
 // חלק יאללה וידאו (videos.js) – פונקציית עזר להבאת תג הרשת העיקרי
 function getNetworkTag() {
@@ -1282,7 +1437,13 @@ function parseYouTube(link) {
 function isVideoLink(link) {
   if (!link) return false;
   if (link.startsWith('data:video')) return true;
-  if (/\.(mp4|webm|ogg)$/i.test(link)) return true;
+  if (link.startsWith('blob:')) return true;
+  if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(link)) return true;
+  // Blossom / CDN בלי סיומת קובץ — לא לזהות כתמונה
+  if (/^https?:\/\//i.test(link) && !isImageLink(link) &&
+      /blossom|void\.cat|nostr\.build|satellite\.earth|media\.|cdn\./i.test(link)) {
+    return true;
+  }
   return false;
 }
 
@@ -3142,6 +3303,11 @@ function registerVideoCommentRecord(app, event, parentId) {
 
 // חלק יאללה וידאו (videos.js) – טעינת סרטונים מהפיד
 async function loadVideos() {
+  if (feedDownloadsPaused) {
+    console.log('[videos] loadVideos deferred — upload in progress');
+    return;
+  }
+
   // הצגת אנימציית טעינה רק אם אין תוכן מהמטמון
   if (!state.firstCardRendered) {
     showLoadingAnimation();

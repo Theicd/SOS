@@ -236,11 +236,12 @@
         padding: 16px 24px;
         border-radius: 12px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        z-index: 9999;
+        z-index: 20050;
         display: none;
         text-align: center;
         max-width: 90%;
         border: 1px solid #667eea;
+        pointer-events: none;
       }
 
       .processing-notice.is-visible {
@@ -2203,8 +2204,24 @@
                   const file = composeState.media.originalFile;
                   const result = await App.compressVideo(file, (progress) => {
                     console.log('[PUBLISH] Video progress:', progress.stage, progress.percent);
+                    const noticeText = document.querySelector('#processingNotice .processing-notice__text');
+                    if (noticeText && progress) {
+                      const pct = typeof progress.percent === 'number' ? Math.round(progress.percent) : '';
+                      if (progress.stage === 'compressing') {
+                        noticeText.textContent = `⏳ דוחס וידאו... ${pct}%`;
+                      } else if (progress.stage === 'finalizing') {
+                        noticeText.textContent = '⏳ מסיים עיבוד וידאו...';
+                      } else if (progress.stage === 'uploading') {
+                        noticeText.textContent = `⏳ מעלה וידאו... ${pct}%`;
+                      }
+                    }
                   });
                   
+                  const noticeText = document.querySelector('#processingNotice .processing-notice__text');
+                  if (noticeText) {
+                    noticeText.textContent = '⏳ מעלה את הפוסט לרשת...';
+                  }
+
                   // העלאה לשרת
                   let uploadedUrl = '';
                   if (typeof App.uploadToBlossom === 'function') {
@@ -2261,6 +2278,7 @@
             }
           } catch (err) {
             console.error('Publish error:', err);
+          } finally {
             stopProcessingAnimation();
           }
         }
@@ -2273,14 +2291,24 @@
             profileBtn.classList.add('processing');
           }
 
-          // הצגת הודעת עיבוד
+          // הצגת הודעת עיבוד — נשארת עד סיום הפרסום (לא נעלמת אחרי 10 שניות)
           const notice = document.getElementById('processingNotice');
           if (notice) {
+            if (notice._hideTimer) {
+              clearTimeout(notice._hideTimer);
+              notice._hideTimer = null;
+            }
+            const noticeText = notice.querySelector('.processing-notice__text');
+            if (noticeText) {
+              noticeText.textContent = '⏳ הפוסט שלך מעובד ומועלה...';
+            }
             notice.classList.add('is-visible');
-            // הסתרה אוטומטית אחרי 10 שניות
-            setTimeout(function() {
-              notice.classList.remove('is-visible');
-            }, 10000);
+          }
+
+          // השהיית הורדות הפיד כדי לפנות רוחב פס להעלאה | HYPER CORE TECH
+          const App = window.NostrApp || {};
+          if (typeof App.setFeedDownloadsPaused === 'function') {
+            App.setFeedDownloadsPaused(true);
           }
         };
 
@@ -2294,7 +2322,17 @@
           // הסתרת הודעת עיבוד
           const notice = document.getElementById('processingNotice');
           if (notice) {
+            if (notice._hideTimer) {
+              clearTimeout(notice._hideTimer);
+              notice._hideTimer = null;
+            }
             notice.classList.remove('is-visible');
+          }
+
+          // חידוש הורדות הפיד אחרי סיום ההעלאה
+          const App = window.NostrApp || {};
+          if (typeof App.setFeedDownloadsPaused === 'function') {
+            App.setFeedDownloadsPaused(false);
           }
         };
 

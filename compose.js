@@ -1169,18 +1169,27 @@
 
   // חלק קומפוזר (compose.js) – פרסום פוסט: בניית payload, חתימה ופרסום ל-relays | HYPER CORE TECH
   async function publishPostImpl() {
+    const stopAnim = () => {
+      try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
+    };
+
     try {
       resetStatus();
       const payload = getComposePayload();
-      if (!payload) return;
+      if (!payload) {
+        stopAnim();
+        return;
+      }
 
       const app = window.NostrApp || {};
       if (!app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
         setStatus('אין חיבור לריליים. נסה שוב לאחר ההתחברות.', 'error');
+        stopAnim();
         return;
       }
       if (!app.privateKey || !app.publicKey || typeof app.finalizeEvent !== 'function') {
         setStatus('חסר מפתח או חתימה. היכנס/י לחשבון ונסה שוב.', 'error');
+        stopAnim();
         return;
       }
 
@@ -1212,13 +1221,11 @@
       try { if (typeof app.onVideoPostPublished === 'function') app.onVideoPostPublished(signed); } catch (_) {}
       resetCompose();
       closeCompose();
-      // עצירת אנימציית העיבוד
-      try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
+      stopAnim();
     } catch (err) {
       console.error('Failed to publish post', err);
       setStatus('שגיאה בפרסום. נסה שוב.', 'error');
-      // עצירת אנימציית העיבוד גם במקרה של שגיאה
-      try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
+      stopAnim();
     }
   }
 
