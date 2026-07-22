@@ -256,6 +256,16 @@
   App.EMAIL_REGISTRY_TAG = window.localStorage.getItem('nostr_email_registry_tag') || 'email-registry';
   App.EMAIL_REGISTRY_HASH_TAG = (window.localStorage.getItem('nostr_email_registry_hash_tag') || 'h').slice(0, 1);
   App.identityAdminPrivateKey = window.localStorage.getItem('nostr_identity_admin_key') || '';
+  // הזמנות הצטרפות (config.js) – kind להזמנה / סימון שימוש + חובת הזמנה להרשמה חדשה | HYPER CORE TECH
+  App.INVITE_KIND = Number(window.localStorage.getItem('nostr_invite_kind')) || 37378;
+  App.INVITE_USED_KIND = Number(window.localStorage.getItem('nostr_invite_used_kind')) || 37379;
+  App.INVITE_TAG = window.localStorage.getItem('nostr_invite_tag') || 'sos-invite';
+  App.INVITE_USED_TAG = window.localStorage.getItem('nostr_invite_used_tag') || 'sos-invite-used';
+  App.INVITE_CODE_TAG = (window.localStorage.getItem('nostr_invite_code_tag') || 'i').slice(0, 1) || 'i';
+  App.INVITE_PHONE_TAG = (window.localStorage.getItem('nostr_invite_phone_tag') || 'ph').slice(0, 2) || 'ph';
+  App.INVITE_TTL_SECONDS = Number(window.localStorage.getItem('nostr_invite_ttl_seconds')) || 7 * 24 * 60 * 60;
+  // ברירת מחדל: חובת הזמנה. לביטול זמני: localStorage nostr_require_invite = '0'
+  App.REQUIRE_INVITE_FOR_SIGNUP = window.localStorage.getItem('nostr_require_invite') !== '0';
   // חלק קונפיגורציה (config.js) – מגבלת אורך נתוני תמונה המוטמעת (Data URL) עבור resize ב-utils
   // יישור למגבלת המדיה הכללית כדי למנוע כיווץ יתר שגורם לתמונות "קטנות" לאחר העלאה
   App.MAX_INLINE_PICTURE_LENGTH = 150000;

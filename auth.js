@@ -1514,5 +1514,7 @@
   // חשיפת פונקציות לשימוש חיצוני (guest-auth.js) | HYPER CORE TECH
   if (typeof window.NostrApp !== 'undefined') {
     window.NostrApp.publishEmailRegistry = publishEmailRegistry;
+    window.NostrApp.verifyEmailHashPublished = verifyEmailHashPublished;
+    window.NostrApp.isEmailHashRegistered = isEmailHashRegistered;
   }
 })(window);

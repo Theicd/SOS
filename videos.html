@@ -1382,7 +1382,8 @@
     <script src="./videos.js" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
-    <script src="./guest-auth.js" defer></script>
+    <script src="./invite-service.js?v=20260723c" defer></script>
+    <script src="./guest-auth.js?v=20260723c" defer></script>
     <!-- מודולי צ'אט (videos.html) – זהים לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./chat-state.js?v=2" defer></script>
     <script src="./chat-service.js?v=4" defer></script>
@@ -1495,6 +1496,10 @@
           </button>
           <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
             <div class="top-bar__dropdown-title">הגדרות</div>
+            <button type="button" class="top-bar__dropdown-item" id="topBarInviteFriend">
+              <i class="fa-brands fa-whatsapp"></i>
+              <span>הזמן משתמש</span>
+            </button>
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
               <i class="fa-solid fa-key"></i>
               <span>הצגת מפתח</span>
@@ -1880,6 +1885,21 @@
           </button>
         </div>
 
+        <!-- שלב הרשמה: הזמנה + טלפון -->
+        <div id="authStepInvite" class="auth-step" style="display:none;">
+          <button type="button" id="btnBackFromInvite" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
+          <h2 style="margin-bottom: 12px; font-size: 22px;">הזמנה לרשת</h2>
+          <p style="margin-bottom: 18px; color: #666; font-size: 14px; line-height: 1.5;">
+            פתיחת משתמש חדש אפשרית רק עם הזמנה שנשלחה בוואטסאפ, וצמודה למספר הטלפון שלכם.
+          </p>
+          <input type="text" id="signupInviteCodeInput" placeholder="קוד הזמנה" autocomplete="off" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase;" />
+          <input type="tel" id="signupInvitePhoneInput" placeholder="מספר טלפון (כמו בהזמנה)" autocomplete="tel" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px;" />
+          <p id="inviteStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnInviteNext" style="width: 100%; padding: 14px; font-size: 16px;">
+            המשך
+          </button>
+        </div>
+
         <!-- שלב 1 הרשמה: מייל -->
         <div id="authStepEmail" class="auth-step" style="display:none;">
           <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
@@ -1898,7 +1918,7 @@
                 </span>
               </span>
             </label>
-            <p class="auth-legal-note">לא נחלוק את המייל אלא לצורך אימות והפעלת חשבונך.</p>
+            <p class="auth-legal-note">המייל נרשם כ-hash ברשת כדי למנוע הרשמה כפולה. לא נשלח מייל אימות בשלב זה.</p>
           </div>
           <p id="emailStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnEmailNext" style="width: 100%; padding: 14px; font-size: 16px;">
@@ -1977,6 +1997,22 @@
             התחבר לרשת
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- הזמנת משתמש חדש בוואטסאפ | HYPER CORE TECH -->
+    <div id="inviteFriendModal" class="modal" style="display:none;" aria-hidden="true">
+      <div class="modal-content" style="max-width: 420px; text-align: center; padding: 28px; position: relative;">
+        <button type="button" id="btnCloseInviteFriend" style="position: absolute; top: 12px; left: 12px; background: none; border: none; font-size: 26px; cursor: pointer; color: #666;">&times;</button>
+        <h2 style="margin-bottom: 10px; font-size: 22px;">הזמן משתמש</h2>
+        <p style="margin-bottom: 18px; color: #666; font-size: 14px; line-height: 1.5;">
+          הזינו את מספר הטלפון של החבר. ההזמנה תישלח בוואטסאפ ותהיה צמודה למספר הזה.
+        </p>
+        <input type="tel" id="inviteFriendPhoneInput" placeholder="05xxxxxxxx" autocomplete="tel" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px;" />
+        <p id="inviteFriendStatus" style="margin-bottom: 14px; font-size: 14px; min-height: 20px;"></p>
+        <button type="button" class="button-primary" id="btnSendInviteWhatsapp" style="width: 100%; padding: 14px; font-size: 16px;">
+          שלח הזמנה בוואטסאפ
+        </button>
       </div>
     </div>
 
