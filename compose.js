@@ -161,6 +161,10 @@
 
   function clearMediaPreview() {
     state.media = null;
+    // איפוס קלט הקובץ כדי לאפשר בחירה חוזרת של אותו קובץ | HYPER CORE TECH
+    if (elements.mediaInput) {
+      elements.mediaInput.value = '';
+    }
     if (elements.previewContainer) {
       elements.previewContainer.classList.remove('is-visible');
     }
@@ -499,7 +503,28 @@
 
   function removeMedia() {
     if (!state.media) return;
+    const mode = state.composeMode;
     clearMediaPreview();
+    // אחרי הסרת מדיה ממצלמה/העלאה — חזרה למסך 3 הבחירות | HYPER CORE TECH
+    if (mode === 'upload' || mode === 'camera') {
+      if (elements.textarea) {
+        elements.textarea.value = '';
+      }
+      if (elements.termsAck) {
+        elements.termsAck.checked = false;
+      }
+      if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
+        try { window.NostrApp.bg.onReset(); } catch (_) {}
+      } else {
+        setBackgroundActive(false);
+      }
+      clearTextareaBg();
+      state.composeMode = 'text';
+      updateComposeLegalState();
+      showComposeStep('chooser');
+      setStatus('המדיה הוסרה. בחרו שוב מה לשתף.');
+      return;
+    }
     updateTextToolsVisibility();
     setStatus('המדיה הוסרה.');
   }
@@ -730,7 +755,12 @@
     state.mediaInputBound = true;
   }
 
-  function openCompose(options = {}) {
+  function openCompose(rawOptions) {
+    // הגנה: לא לקבל Event / null כ-options (שומר על {} תקין) | HYPER CORE TECH
+    const options = (rawOptions && typeof rawOptions === 'object' && rawOptions.target == null)
+      ? rawOptions
+      : {};
+
     const app = window.NostrApp || {};
     // בדיקת מצב אורח - חסימת פרסום פוסט למשתמשים לא מחוברים | HYPER CORE TECH
     if (app && typeof app.requireAuth === 'function') {
@@ -757,30 +787,40 @@
       elements.termsAck.checked = false;
     }
     updateComposeLegalState();
-    // חלק קומפוזר – ביטול מצבי תצוגה קודמים והבטחת הצגה עקבית
-    elements.modal.style.display = 'flex';
-    elements.modal.classList.add('is-visible');
-    elements.modal.setAttribute('aria-hidden', 'false');
 
-    const requestedStep = options.step === 'editor' || options.mode === 'editor' || state.editingOriginalId
+    // פוסט חדש תמיד מתחיל ב-chooser; editor רק בבקשה מפורשת או עריכה פעילה | HYPER CORE TECH
+    const forceEditor = options.step === 'editor' || options.mode === 'editor';
+    const requestedStep = forceEditor || (state.editingOriginalId && options.keepDraft)
       ? 'editor'
       : 'chooser';
+
     if (requestedStep === 'chooser' && !options.keepDraft) {
       if (elements.textarea) elements.textarea.value = '';
       clearMediaPreview();
-      if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
-        window.NostrApp.bg.onReset();
-      } else {
+      try {
+        if (window.NostrApp?.bg && typeof window.NostrApp.bg.onReset === 'function') {
+          window.NostrApp.bg.onReset();
+        } else {
+          setBackgroundActive(false);
+        }
+      } catch (_) {
         setBackgroundActive(false);
       }
+      clearTextareaBg();
       state.editingOriginalId = null;
+      state.composeMode = 'text';
     }
     if (options.composeMode) {
       state.composeMode = options.composeMode;
     } else if (requestedStep === 'chooser') {
       state.composeMode = 'text';
     }
+
+    // קודם קובעים שלב, ורק אז מציגים מודאל — מונע הצגת editor ישן | HYPER CORE TECH
     showComposeStep(requestedStep);
+    elements.modal.style.display = 'flex';
+    elements.modal.classList.add('is-visible');
+    elements.modal.setAttribute('aria-hidden', 'false');
     
     // לא מפעילים focus אוטומטי במובייל כדי למנוע פתיחת מקלדת
     // המשתמש יצטרך ללחוץ על ה-textarea במפורש
@@ -805,18 +845,29 @@
       window.NostrApp._bgBound = true;
     }
     // ניהול מצב פתיחה
-    if (window.NostrApp?.bg && typeof window.NostrApp.bg.onOpenCompose === 'function') {
-      window.NostrApp.bg.onOpenCompose();
-    } else {
+    try {
+      if (window.NostrApp?.bg && typeof window.NostrApp.bg.onOpenCompose === 'function') {
+        window.NostrApp.bg.onOpenCompose();
+      } else {
+        setBackgroundActive(false);
+      }
+    } catch (_) {
       setBackgroundActive(false);
     }
   }
 
-  function closeCompose() {
+  function closeCompose(rawOptions) {
+    const options = (rawOptions && typeof rawOptions === 'object' && rawOptions.target == null)
+      ? rawOptions
+      : {};
     // חלק קומפוזר – סגירה כפולה (class + style) כדי למנוע פתיחה מחדש בעקבות מצב ביניים
     elements.modal.classList.remove('is-visible');
     elements.modal.setAttribute('aria-hidden', 'true');
     elements.modal.style.display = 'none';
+    // איפוס מצב לסגירה רגילה; בפרסום שומרים טיוטה עד סיום ההעלאה | HYPER CORE TECH
+    if (!options.preserveForPublish && !options.keepDraft) {
+      resetCompose();
+    }
   }
 
   function resetCompose() {
@@ -1006,6 +1057,9 @@
         if (state.media) {
           clearMediaPreview();
         }
+        if (elements.mediaInput) {
+          elements.mediaInput.value = '';
+        }
         if (elements.textarea) {
           elements.textarea.value = '';
         }
@@ -1014,10 +1068,13 @@
         } else {
           setBackgroundActive(false);
         }
+        clearTextareaBg();
         state.composeMode = 'text';
+        state.editingOriginalId = null;
         if (elements.termsAck) {
           elements.termsAck.checked = false;
         }
+        updateComposeLegalState();
         showComposeStep('chooser');
       });
     }
@@ -1155,7 +1212,7 @@
       }
       state.editingOriginalId = originalId || null;
       state.composeMode = state.media ? 'upload' : 'text';
-      openCompose({ step: 'editor', keepTerms: false });
+      openCompose({ step: 'editor', keepDraft: true, keepTerms: false });
       showComposeStep('editor');
     } catch (err) {
       console.warn('Failed setting compose draft', err);

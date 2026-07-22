@@ -240,7 +240,7 @@
   window.closeCompose = function closeCompose() {
     // חלק קומפוזר (app.js) – מפנה לפונקציית הסגירה המרכזית ב-compose.js
     if (typeof App.closeCompose === 'function') {
-      App.closeCompose();
+      App.closeCompose.apply(App, arguments);
       return;
     }
     const m = document.getElementById('composeModal');

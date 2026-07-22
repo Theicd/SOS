@@ -2172,9 +2172,9 @@
           // סגירת חלון התנאים
           closeTermsModal();
           
-          // סגירת חלון השיתוף
+          // סגירת חלון השיתוף — שומרים טיוטה עד סיום העלאה/פרסום | HYPER CORE TECH
           if (typeof closeCompose === 'function') {
-            closeCompose();
+            closeCompose({ preserveForPublish: true });
           }
 
           // הפעלת אנימציית הבהוב והודעת עיבוד
