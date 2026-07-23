@@ -252,18 +252,35 @@
     };
   }
 
-  function prefillInviteFromUrl() {
+  function prefillInviteFromUrl(force) {
     var inviteInput = document.getElementById('signupInviteCodeInput');
-    if (!inviteInput) return;
-    if (inviteInput.value && inviteInput.value.trim()) return;
+    if (!inviteInput) return '';
+    if (!force && inviteInput.value && inviteInput.value.trim()) {
+      return inviteInput.value.trim().toUpperCase();
+    }
     if (typeof App.getInviteCodeFromLocation === 'function') {
       var code = App.getInviteCodeFromLocation();
-      if (code) inviteInput.value = code;
+      if (code) {
+        inviteInput.value = code;
+        return code;
+      }
     }
+    return (inviteInput.value || '').trim().toUpperCase();
+  }
+
+  function resolveAuthStep(step) {
+    if (!step || step === 'initial') return 'authStepInitial';
+    if (step === 'invite' || step === 'authStepInvite') return 'authStepInvite';
+    if (step === 'login' || step === 'authStepLogin') return 'authStepLogin';
+    if (step === 'email' || step === 'authStepEmail') return 'authStepEmail';
+    if (String(step).indexOf('authStep') === 0) return step;
+    return 'authStepInitial';
   }
 
   // פונקציה לפתיחת חלון ההתחברות/הרשמה
-  App.openAuthPrompt = function(message) {
+  // options.step: 'initial' | 'invite' | 'login' | 'email'
+  App.openAuthPrompt = function(message, options) {
+    var opts = options && typeof options === 'object' ? options : {};
     var modal = document.getElementById('guestAuthModal');
     var reasonNode = document.getElementById('guestAuthModalReason');
     if (!modal) return;
@@ -271,9 +288,25 @@
     if (reasonNode) {
       reasonNode.textContent = message || 'כדי להמשיך צריך להתחבר או להירשם.';
     }
-    showStep('authStepInitial');
-    prefillInviteFromUrl();
+
+    var step = resolveAuthStep(opts.step);
+    // קישור הזמנה מה־URL → תמיד שלב ההזמנה עם קוד ממולא | HYPER CORE TECH
+    var urlInvite = typeof App.getInviteCodeFromLocation === 'function'
+      ? App.getInviteCodeFromLocation()
+      : '';
+    if (urlInvite && (opts.preferInvite !== false) && (step === 'authStepInitial' || opts.fromInviteLink)) {
+      step = 'authStepInvite';
+    }
+
+    if (step === 'authStepInvite') {
+      prefillInviteFromUrl(true);
+    } else {
+      prefillInviteFromUrl(false);
+    }
+
+    showStep(step);
     modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
   };
 
   // פונקציה לסגירת חלון ההתחברות/הרשמה
@@ -281,6 +314,7 @@
     var modal = document.getElementById('guestAuthModal');
     if (!modal) return;
     modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
     showStep('authStepInitial');
     resetSignupData();
   };
@@ -365,8 +399,15 @@
     if (btnStartLogin) btnStartLogin.addEventListener('click', function() { showStep('authStepLogin'); });
     if (btnStartSignup) {
       btnStartSignup.addEventListener('click', function() {
-        prefillInviteFromUrl();
-        showStep(requireInviteEnabled() ? 'authStepInvite' : 'authStepEmail');
+        var inviteCode = prefillInviteFromUrl(true);
+        if (inviteCode || requireInviteEnabled()) {
+          showStep('authStepInvite');
+          if (inviteCode) {
+            setTimeout(function() { submitInviteStep({ auto: true }); }, 200);
+          }
+        } else {
+          showStep('authStepEmail');
+        }
       });
     }
 
@@ -403,38 +444,79 @@
     }
 
     // הרשמה - שלב הזמנה
-    if (btnInviteNext) {
-      btnInviteNext.addEventListener('click', async function() {
-        var code = (signupInviteCodeInput && signupInviteCodeInput.value || '').trim().toUpperCase();
-        var phone = (signupInvitePhoneInput && signupInvitePhoneInput.value || '').trim();
-        btnInviteNext.disabled = true;
-        setStatus('inviteStatus', 'בודק הזמנה...', false);
-        try {
-          if (!(await waitForPool(25))) {
-            setStatus('inviteStatus', 'אין חיבור לריליים. נסו שוב בעוד רגע.', true);
-            return;
-          }
-          if (typeof App.validateInvite !== 'function') {
-            setStatus('inviteStatus', 'מנגנון ההזמנות לא נטען', true);
-            return;
-          }
-          var result = await App.validateInvite({ code: code, phone: phone });
-          if (!result || !result.ok) {
-            setStatus('inviteStatus', (result && result.error) || 'ההזמנה לא תקפה', true);
-            return;
-          }
-          signupData.inviteCode = result.code;
-          signupData.invitePhone = phone || '';
-          signupData.invitePhoneHash = result.phoneHash || '';
-          signupData.inviterPubkey = result.inviterPubkey || '';
-          setStatus('inviteStatus', '', false);
-          showStep('authStepEmail');
-        } catch (e) {
-          setStatus('inviteStatus', 'שגיאה בבדיקת הזמנה: ' + (e.message || e), true);
-        } finally {
-          btnInviteNext.disabled = false;
+    async function submitInviteStep(options) {
+      var opts = options || {};
+      var auto = !!opts.auto;
+      var code = prefillInviteFromUrl(true) ||
+        ((signupInviteCodeInput && signupInviteCodeInput.value) || '').trim().toUpperCase();
+      var phone = (signupInvitePhoneInput && signupInvitePhoneInput.value || '').trim();
+
+      if (signupInviteCodeInput && code) {
+        signupInviteCodeInput.value = code;
+      }
+
+      if (!code) {
+        if (!auto) setStatus('inviteStatus', 'נא להזין קוד הזמנה', true);
+        return false;
+      }
+
+      if (btnInviteNext) btnInviteNext.disabled = true;
+      setStatus('inviteStatus', auto ? 'מאמת הזמנה מהקישור...' : 'בודק הזמנה...', false);
+      try {
+        if (!(await waitForPool(25))) {
+          setStatus('inviteStatus', 'אין חיבור לריליים. נסו שוב בעוד רגע.', true);
+          return false;
         }
+        if (typeof App.validateInvite !== 'function') {
+          setStatus('inviteStatus', 'מנגנון ההזמנות לא נטען', true);
+          return false;
+        }
+        var result = await App.validateInvite({ code: code, phone: phone });
+        if (!result || !result.ok) {
+          setStatus('inviteStatus', (result && result.error) || 'ההזמנה לא תקפה', true);
+          return false;
+        }
+        signupData.inviteCode = result.code;
+        signupData.invitePhone = phone || '';
+        signupData.invitePhoneHash = result.phoneHash || '';
+        signupData.inviterPubkey = result.inviterPubkey || '';
+        setStatus('inviteStatus', '', false);
+        showStep('authStepEmail');
+        return true;
+      } catch (e) {
+        setStatus('inviteStatus', 'שגיאה בבדיקת הזמנה: ' + (e.message || e), true);
+        return false;
+      } finally {
+        if (btnInviteNext) btnInviteNext.disabled = false;
+      }
+    }
+
+    if (btnInviteNext) {
+      btnInviteNext.addEventListener('click', function() {
+        submitInviteStep({ auto: false });
       });
+    }
+
+    function openInviteDeepLinkFlow() {
+      var code = typeof App.getInviteCodeFromLocation === 'function'
+        ? App.getInviteCodeFromLocation()
+        : '';
+      if (!code) return false;
+
+      var isGuest = !!(App.guestMode === true || !App.privateKey);
+      if (!isGuest) return false;
+
+      App.openAuthPrompt('הזמנה זוהתה — הקוד כבר מולא. המשיכו בהרשמה.', {
+        step: 'invite',
+        fromInviteLink: true
+      });
+      prefillInviteFromUrl(true);
+
+      // ניסיון אימות אוטומטי כדי לחסוך לחיצה נוספת במובייל | HYPER CORE TECH
+      setTimeout(function() {
+        submitInviteStep({ auto: true });
+      }, 400);
+      return true;
     }
 
     // הרשמה - שלב מייל
@@ -748,17 +830,14 @@
       });
     }
 
-    // אם נכנסו עם ?invite= — פותחים הרשמה ישירות לשלב ההזמנה
+    // אם נכנסו עם ?invite= — פותחים ישר את שלב ההזמנה עם קוד ממולא | HYPER CORE TECH
     try {
-      prefillInviteFromUrl();
-      if (typeof App.getInviteCodeFromLocation === 'function' && App.getInviteCodeFromLocation()) {
-        var isGuest = !!(App.guestMode === true || !App.privateKey);
-        if (isGuest) {
-          setTimeout(function() {
-            App.openAuthPrompt('יש לכם הזמנה לרשת. המשיכו בפתיחת משתמש חדש.');
-            if (requireInviteEnabled()) showStep('authStepInvite');
-          }, 600);
-        }
+      var openedInvite = openInviteDeepLinkFlow();
+      if (!openedInvite) {
+        // ניסיון נוסף אחרי שה־App מסיים אתחול guestMode
+        setTimeout(function() {
+          openInviteDeepLinkFlow();
+        }, 800);
       }
     } catch (_) {}
 
@@ -768,7 +847,18 @@
       if (guestLoginButton && isGuest) {
         guestLoginButton.style.display = 'inline-block';
         guestLoginButton.addEventListener('click', function () {
-          App.openAuthPrompt('התחברו או הירשמו כדי ליצור פרופיל אישי, לייקים ותגובות.');
+          var inviteCode = typeof App.getInviteCodeFromLocation === 'function'
+            ? App.getInviteCodeFromLocation()
+            : '';
+          if (inviteCode) {
+            App.openAuthPrompt('הזמנה זוהתה — הקוד כבר מולא. המשיכו בהרשמה.', {
+              step: 'invite',
+              fromInviteLink: true
+            });
+            setTimeout(function() { submitInviteStep({ auto: true }); }, 300);
+          } else {
+            App.openAuthPrompt('התחברו או הירשמו כדי ליצור פרופיל אישי, לייקים ותגובות.');
+          }
         });
       }
     } catch (e) {
