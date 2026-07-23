@@ -1052,13 +1052,13 @@ body:has(.videos-feed) #moreOptionsToggle {
   100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); opacity: 1; }
 }
 
-/* חלק ערוץ חי (videos.css) – שלג + חיפוש תחנת HF בזמן טעינה | HYPER CORE TECH */
+/* חלק ערוץ חי (videos.css) – שלג + מד סריקה שמתמלא | HYPER CORE TECH */
 .videos-live-tuning {
   position: absolute;
   inset: 0;
   z-index: 30;
   overflow: hidden;
-  background: #050505;
+  background: #0a0a0a;
   display: grid;
   place-items: center;
   pointer-events: none;
@@ -1070,151 +1070,184 @@ body:has(.videos-feed) #moreOptionsToggle {
 
 .videos-live-tuning__snow {
   position: absolute;
-  inset: -20%;
+  inset: -30%;
   background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.55) 0.8px, transparent 1.2px),
-    radial-gradient(circle, rgba(220, 220, 220, 0.35) 1px, transparent 1.6px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.25) 0.6px, transparent 1px);
-  background-size: 18px 18px, 31px 31px, 9px 9px;
-  background-position: 0 0, 12px 8px, 4px 16px;
-  opacity: 0.55;
-  animation: live-snow-drift 0.35s steps(2) infinite, live-snow-flicker 0.12s linear infinite;
-  filter: contrast(1.35) brightness(1.05);
+    radial-gradient(circle, rgba(255, 255, 255, 0.7) 0.7px, transparent 1.1px),
+    radial-gradient(circle, rgba(200, 200, 200, 0.45) 1px, transparent 1.5px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.3) 0.5px, transparent 0.9px);
+  background-size: 14px 14px, 26px 26px, 8px 8px;
+  background-position: 0 0, 10px 6px, 3px 12px;
+  opacity: 0.65;
+  animation: live-snow-drift 0.28s steps(2) infinite, live-snow-flicker 0.1s linear infinite;
+  filter: contrast(1.5) brightness(1.1);
 }
 
-.videos-live-tuning__scan {
+.videos-live-tuning__scanline {
   position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(255, 255, 255, 0.03) 0px,
-    rgba(255, 255, 255, 0.03) 1px,
-    transparent 2px,
-    transparent 4px
+  left: 0;
+  right: 0;
+  height: 28%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 40%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.05) 60%,
+    transparent 100%
   );
-  mix-blend-mode: screen;
-  animation: live-scanlines 2.4s linear infinite;
+  animation: live-scan-sweep 2.1s linear infinite;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 
-.videos-live-tuning__panel {
+.videos-live-tuning__center {
   position: relative;
   z-index: 2;
-  width: min(86%, 320px);
-  padding: 18px 16px 16px;
-  border: 1px solid rgba(180, 255, 190, 0.35);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(12, 28, 16, 0.88), rgba(6, 14, 10, 0.92));
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.45);
+  width: min(78%, 280px);
   text-align: center;
-  color: #b8ffc4;
-  font-family: "Courier New", Courier, monospace;
-}
-
-.videos-live-tuning__antenna {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  margin: 0 auto 10px;
-  border-radius: 50%;
-  border: 2px solid rgba(170, 255, 180, 0.45);
-  background:
-    radial-gradient(circle at center, rgba(40, 90, 50, 0.35) 0 28%, transparent 29%),
-    conic-gradient(from 0deg, rgba(90, 220, 120, 0.15), transparent 40%, rgba(90, 220, 120, 0.25), transparent 75%, rgba(90, 220, 120, 0.15));
-  box-shadow: inset 0 0 24px rgba(80, 200, 110, 0.18);
-}
-
-.videos-live-tuning__dial {
-  position: absolute;
-  inset: 14px;
-  border-radius: 50%;
-  border: 1px dashed rgba(180, 255, 190, 0.35);
-}
-
-.videos-live-tuning__needle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 3px;
-  height: 46px;
-  margin-left: -1.5px;
-  margin-top: -46px;
-  transform-origin: bottom center;
-  background: linear-gradient(#fff6a0, #ff9f1a);
-  border-radius: 2px;
-  box-shadow: 0 0 8px rgba(255, 200, 80, 0.55);
-  animation: live-needle-sweep 2.2s ease-in-out infinite;
-}
-
-.videos-live-tuning__freq {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #d7ffe0;
-  text-shadow: 0 0 8px rgba(120, 255, 150, 0.35);
+  color: #fff;
 }
 
 .videos-live-tuning__label {
-  margin-top: 6px;
-  font-size: 13px;
-  opacity: 0.9;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 
-.videos-live-tuning__bars {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 4px;
-  height: 28px;
-  margin-top: 12px;
+.videos-live-tuning__meter {
+  width: 100%;
 }
 
-.videos-live-tuning__bars i {
-  display: block;
-  width: 6px;
-  border-radius: 2px 2px 0 0;
-  background: #7dff9a;
-  animation: live-bar-bounce 0.9s ease-in-out infinite;
+.videos-live-tuning__meter-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
-.videos-live-tuning__bars i:nth-child(1) { height: 8px; animation-delay: 0s; }
-.videos-live-tuning__bars i:nth-child(2) { height: 14px; animation-delay: 0.08s; }
-.videos-live-tuning__bars i:nth-child(3) { height: 22px; animation-delay: 0.16s; }
-.videos-live-tuning__bars i:nth-child(4) { height: 12px; animation-delay: 0.24s; }
-.videos-live-tuning__bars i:nth-child(5) { height: 26px; animation-delay: 0.32s; }
-.videos-live-tuning__bars i:nth-child(6) { height: 16px; animation-delay: 0.4s; }
-.videos-live-tuning__bars i:nth-child(7) { height: 10px; animation-delay: 0.48s; }
+.videos-live-tuning__meter-fill {
+  height: 100%;
+  width: 8%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #fe2c55, #ff7a59, #ffd166);
+  box-shadow: 0 0 12px rgba(254, 44, 85, 0.55);
+  transition: width 0.18s linear;
+}
+
+.videos-live-tuning__pct {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
 
 @keyframes live-snow-drift {
   0% { transform: translate(0, 0); }
-  100% { transform: translate(-6px, 4px); }
+  100% { transform: translate(-8px, 5px); }
 }
 
 @keyframes live-snow-flicker {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 0.72; }
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.78; }
 }
 
-@keyframes live-scanlines {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(4px); }
-}
-
-@keyframes live-needle-sweep {
-  0% { transform: rotate(-55deg); }
-  50% { transform: rotate(55deg); }
-  100% { transform: rotate(-55deg); }
-}
-
-@keyframes live-bar-bounce {
-  0%, 100% { transform: scaleY(0.45); opacity: 0.55; }
-  50% { transform: scaleY(1); opacity: 1; }
+@keyframes live-scan-sweep {
+  0% { top: -30%; }
+  100% { top: 110%; }
 }
 
 .videos-feed__media[data-media-type="hls-live"] .video-progress-bar,
 .videos-feed__media[data-media-type="hls-live"] .video-skip-btn,
 .videos-feed__media[data-media-type="hls-live"] .video-time-display {
   display: none !important;
+}
+
+/* כפתור מסך מלא לערוץ חי */
+.videos-live-fs-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 18px;
+  z-index: 45;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.videos-live-fs-btn:active {
+  transform: scale(0.94);
+}
+
+/* כפתור סגירה – צד שמאל במסך מלא */
+.videos-live-fs-close {
+  position: absolute;
+  top: calc(14px + var(--safe-top, 0px));
+  left: 14px;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.videos-live-fs-close[hidden] {
+  display: none !important;
+}
+
+.videos-feed__media.is-live-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  z-index: 10000 !important;
+  background: #000;
+  border-radius: 0 !important;
+}
+
+.videos-feed__media.is-live-fullscreen video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.videos-feed__media.is-live-fullscreen .videos-live-fs-close {
+  display: grid !important;
+}
+
+.videos-feed__media.is-live-fullscreen .videos-live-fs-btn {
+  display: none !important;
+}
+
+body.live-channel-fullscreen {
+  overflow: hidden;
+}
+
+body.live-channel-fullscreen .videos-nav,
+body.live-channel-fullscreen .bottom-nav,
+body.live-channel-fullscreen .videos-feed__actions {
+  visibility: hidden;
 }
 
 /* תצוגה מקדימה בקומפוז לערוץ חי */

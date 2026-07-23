@@ -119,6 +119,7 @@
     badge.setAttribute('aria-label', 'שידור חי');
     badge.innerHTML = '<span class="videos-live-badge__dot" aria-hidden="true"></span><span class="videos-live-badge__text">LIVE</span>';
     mediaDiv.appendChild(badge);
+    ensureFullscreenControls(mediaDiv);
     return badge;
   }
 
@@ -132,17 +133,15 @@
     overlay.hidden = true;
     overlay.innerHTML = [
       '<div class="videos-live-tuning__snow" aria-hidden="true"></div>',
-      '<div class="videos-live-tuning__scan" aria-hidden="true"></div>',
-      '<div class="videos-live-tuning__panel">',
-      '  <div class="videos-live-tuning__antenna" aria-hidden="true">',
-      '    <span class="videos-live-tuning__dial"></span>',
-      '    <span class="videos-live-tuning__needle"></span>',
-      '  </div>',
-      '  <div class="videos-live-tuning__freq"><span data-live-freq>00.0</span> MHz</div>',
+      '<div class="videos-live-tuning__scanline" aria-hidden="true"></div>',
+      '<div class="videos-live-tuning__center">',
       '  <div class="videos-live-tuning__label">מחפש ערוץ...</div>',
-      '  <div class="videos-live-tuning__bars" aria-hidden="true">',
-      '    <i></i><i></i><i></i><i></i><i></i><i></i><i></i>',
+      '  <div class="videos-live-tuning__meter" aria-hidden="true">',
+      '    <div class="videos-live-tuning__meter-track">',
+      '      <div class="videos-live-tuning__meter-fill" data-live-meter></div>',
+      '    </div>',
       '  </div>',
+      '  <div class="videos-live-tuning__pct"><span data-live-pct>0</span>%</div>',
       '</div>',
     ].join('');
     mediaDiv.appendChild(overlay);
@@ -162,17 +161,29 @@
       startTuningFx(overlay);
     } else {
       stopTuningFx(overlay);
+      const fill = overlay.querySelector('[data-live-meter]');
+      const pct = overlay.querySelector('[data-live-pct]');
+      if (fill) fill.style.width = '100%';
+      if (pct) pct.textContent = '100';
     }
   }
 
   function startTuningFx(overlay) {
-    if (!overlay || overlay._freqTimer) return;
-    const freqEl = overlay.querySelector('[data-live-freq]');
+    if (!overlay) return;
+    stopTuningFx(overlay);
+    const fill = overlay.querySelector('[data-live-meter]');
+    const pctEl = overlay.querySelector('[data-live-pct]');
+    let progress = 8;
+    if (fill) fill.style.width = progress + '%';
+    if (pctEl) pctEl.textContent = String(progress);
+
     overlay._freqTimer = setInterval(() => {
-      if (!freqEl) return;
-      const val = (Math.random() * 90 + 10).toFixed(1);
-      freqEl.textContent = val;
-    }, 120);
+      // מד סריקה שמתמלא בהדרגה עם רעש קל | HYPER CORE TECH
+      const bump = 2 + Math.random() * 7;
+      progress = Math.min(92, progress + bump);
+      if (fill) fill.style.width = progress.toFixed(0) + '%';
+      if (pctEl) pctEl.textContent = String(Math.round(progress));
+    }, 180);
   }
 
   function stopTuningFx(overlay) {
@@ -180,6 +191,93 @@
     clearInterval(overlay._freqTimer);
     overlay._freqTimer = null;
   }
+
+  function ensureFullscreenControls(mediaDiv) {
+    if (!mediaDiv) return;
+    if (mediaDiv.querySelector('.videos-live-fs-btn')) return;
+
+    const fsBtn = document.createElement('button');
+    fsBtn.type = 'button';
+    fsBtn.className = 'videos-live-fs-btn';
+    fsBtn.setAttribute('aria-label', 'מסך מלא');
+    fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i>';
+    fsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      enterLiveFullscreen(mediaDiv);
+    });
+    mediaDiv.appendChild(fsBtn);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'videos-live-fs-close';
+    closeBtn.setAttribute('aria-label', 'סגור מסך מלא');
+    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    closeBtn.hidden = true;
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      exitLiveFullscreen(mediaDiv);
+    });
+    mediaDiv.appendChild(closeBtn);
+  }
+
+  function enterLiveFullscreen(mediaDiv) {
+    if (!mediaDiv) return;
+    exitLiveFullscreen(document.querySelector('.videos-feed__media.is-live-fullscreen'));
+    mediaDiv.classList.add('is-live-fullscreen');
+    document.body.classList.add('live-channel-fullscreen');
+    const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
+    const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
+    if (closeBtn) closeBtn.hidden = false;
+    if (fsBtn) fsBtn.hidden = true;
+
+    try {
+      if (mediaDiv.requestFullscreen) mediaDiv.requestFullscreen().catch(() => {});
+      else if (mediaDiv.webkitRequestFullscreen) mediaDiv.webkitRequestFullscreen();
+    } catch (_) {}
+  }
+
+  function exitLiveFullscreen(mediaDiv) {
+    if (!mediaDiv) {
+      document.body.classList.remove('live-channel-fullscreen');
+      return;
+    }
+    mediaDiv.classList.remove('is-live-fullscreen');
+    document.body.classList.remove('live-channel-fullscreen');
+    const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
+    const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
+    if (closeBtn) closeBtn.hidden = true;
+    if (fsBtn) fsBtn.hidden = false;
+
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } catch (_) {}
+  }
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+      document.querySelectorAll('.videos-feed__media.is-live-fullscreen').forEach((el) => {
+        el.classList.remove('is-live-fullscreen');
+        const closeBtn = el.querySelector('.videos-live-fs-close');
+        const fsBtn = el.querySelector('.videos-live-fs-btn');
+        if (closeBtn) closeBtn.hidden = true;
+        if (fsBtn) fsBtn.hidden = false;
+      });
+      document.body.classList.remove('live-channel-fullscreen');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const open = document.querySelector('.videos-feed__media.is-live-fullscreen');
+      if (open) exitLiveFullscreen(open);
+    }
+  });
 
   function attachHlsToVideo(videoEl, url, options = {}) {
     return new Promise((resolve, reject) => {
@@ -308,6 +406,9 @@
     destroyHls,
     ensureLiveBadge,
     ensureTuningOverlay,
+    ensureFullscreenControls,
+    enterLiveFullscreen,
+    exitLiveFullscreen,
     setTuningVisible,
     buildComposeLivePreview,
   });
@@ -321,6 +422,9 @@
     attachHlsToVideo,
     destroyHls,
     ensureLiveBadge,
+    ensureFullscreenControls,
+    enterLiveFullscreen,
+    exitLiveFullscreen,
     setTuningVisible,
     buildComposeLivePreview,
   };

@@ -1,12 +1,12 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.4.0-manual-play';
+const VIDEOS_CODE_VERSION = '2.5.0-default-play';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מצב גלובלי (videos.js) – מצב STOP/PLAY גלובלי לשליטה בהפעלה אוטומטית | HYPER CORE TECH
-// הממשק מתחיל במצב STOP - וידאו לא רץ אוטומטית עד שהמשתמש לוחץ פליי
-let globalAutoplayEnabled = false;
+// הממשק מתחיל במצב PLAY – גלילה מפעילה אוטומטית | HYPER CORE TECH
+let globalAutoplayEnabled = true;
 
 // עדכון מחלקה על הגוף לפי מצב STOP/PLAY
 function updateGlobalStopClass() {
@@ -17,7 +17,7 @@ function updateGlobalStopClass() {
   }
 }
 
-// הפעלה ראשונית - הממשק מתחיל במצב STOP
+// הפעלה ראשונית - הממשק מתחיל במצב PLAY
 document.addEventListener('DOMContentLoaded', () => {
   updateGlobalStopClass();
 });
@@ -491,7 +491,7 @@ function wireMediaControls(root = document) {
     // לחיצה על אזור המדיה תחליף בין ניגון להפסקה ידנית (ללא כפתור)
     mediaDiv.addEventListener('click', (event) => {
       // אם לחצו על כפתור ייעודי או דילוג או זמן, לא להפעיל את הטוגל
-      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display')) return;
+      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display') || event.target.closest('.videos-live-fs-btn') || event.target.closest('.videos-live-fs-close')) return;
       if (mediaDiv.dataset.state === 'playing') {
         pauseMedia(mediaDiv, { resetThumb: false, manual: true });
       } else {
@@ -1607,6 +1607,9 @@ function renderVideoCard(video) {
     }
     if (typeof AppLive.setTuningVisible === 'function') {
       AppLive.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
+    }
+    if (typeof AppLive.ensureFullscreenControls === 'function') {
+      AppLive.ensureFullscreenControls(mediaDiv);
     }
 
     const playOverlay = document.createElement('button');
