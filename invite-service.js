@@ -55,11 +55,18 @@
 
   function buildInviteUrl(code) {
     try {
-      const url = new URL(window.location.origin + '/');
+      const origin = window.location.origin || '';
+      const pathname = window.location.pathname || '/';
+      const segments = pathname.split('/').filter(Boolean);
+      const isGithubProject = /\.github\.io$/i.test(window.location.hostname || '');
+      const repoSegment = isGithubProject ? (segments[0] || '') : '';
+      const basePath = repoSegment ? `/${repoSegment}/` : '/';
+      // קישור ישיר ל-videos.html כדי לא לאבד ?invite= בהפניה מ-index | HYPER CORE TECH
+      const url = new URL(`${origin}${basePath}videos.html`);
       url.searchParams.set('invite', String(code || '').toUpperCase());
       return url.toString();
     } catch (_) {
-      return (window.location.origin || '') + '/?invite=' + encodeURIComponent(String(code || '').toUpperCase());
+      return (window.location.origin || '') + '/videos.html?invite=' + encodeURIComponent(String(code || '').toUpperCase());
     }
   }
 

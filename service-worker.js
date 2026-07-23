@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v50'; // bump - invite deep link opens signup with code
+  const CACHE_NAME = 'sos-cache-v51'; // bump - preserve invite query on index→videos redirect
   const PRECACHE_URLS = [
     './',
     './videos.html',

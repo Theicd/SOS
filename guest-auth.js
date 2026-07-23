@@ -497,14 +497,32 @@
       });
     }
 
+    function readInviteCodeFallback() {
+      try {
+        var params = new URLSearchParams(window.location.search || '');
+        var fromQuery = (params.get('invite') || '').trim().toUpperCase();
+        if (fromQuery) return fromQuery;
+        var hash = String(window.location.hash || '');
+        var match = hash.match(/invite=([A-Z0-9]+)/i);
+        return match ? match[1].toUpperCase() : '';
+      } catch (_) {
+        return '';
+      }
+    }
+
     function openInviteDeepLinkFlow() {
-      var code = typeof App.getInviteCodeFromLocation === 'function'
+      var code = (typeof App.getInviteCodeFromLocation === 'function'
         ? App.getInviteCodeFromLocation()
-        : '';
+        : '') || readInviteCodeFallback();
       if (!code) return false;
 
-      var isGuest = !!(App.guestMode === true || !App.privateKey);
+      // אורח = אין מפתח מקומי (גם אם guestMode עדיין לא אותחל)
+      var isGuest = !App.privateKey || App.guestMode === true;
       if (!isGuest) return false;
+
+      if (signupInviteCodeInput) {
+        signupInviteCodeInput.value = code;
+      }
 
       App.openAuthPrompt('הזמנה זוהתה — הקוד כבר מולא. המשיכו בהרשמה.', {
         step: 'invite',
@@ -515,7 +533,7 @@
       // ניסיון אימות אוטומטי כדי לחסוך לחיצה נוספת במובייל | HYPER CORE TECH
       setTimeout(function() {
         submitInviteStep({ auto: true });
-      }, 400);
+      }, 500);
       return true;
     }
 
@@ -834,11 +852,12 @@
     try {
       var openedInvite = openInviteDeepLinkFlow();
       if (!openedInvite) {
-        // ניסיון נוסף אחרי שה־App מסיים אתחול guestMode
-        setTimeout(function() {
-          openInviteDeepLinkFlow();
-        }, 800);
+        setTimeout(function() { openInviteDeepLinkFlow(); }, 500);
+        setTimeout(function() { openInviteDeepLinkFlow(); }, 1500);
       }
+      window.addEventListener('load', function() {
+        openInviteDeepLinkFlow();
+      });
     } catch (_) {}
 
     // הצגת כפתור "התחבר / הירשם" רק במצב אורח

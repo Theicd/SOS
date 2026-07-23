@@ -51,7 +51,10 @@
 
           if (!isVideosFile && (isRootPath || isIndexFile)) {
             const basePath = hasRepoSegment ? `/${repoSegmentOriginal}/` : '/';
-            const targetUrl = `${origin}${basePath}videos.html`;
+            const search = window.location.search || '';
+            const hash = window.location.hash || '';
+            // שמירת ?invite= ושאר הפרמטרים בהפניה לפיד | HYPER CORE TECH
+            const targetUrl = `${origin}${basePath}videos.html${search}${hash}`;
             window.location.replace(targetUrl);
           }
         } catch (err) {
