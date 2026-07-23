@@ -126,14 +126,20 @@
   function ensureTuningOverlay(mediaDiv) {
     if (!mediaDiv) return null;
     let overlay = mediaDiv.querySelector('.videos-live-tuning');
+    // אם יש overlay ישן בלי canvas שלג – בונים מחדש | HYPER CORE TECH
+    if (overlay && !overlay.querySelector('canvas.videos-live-tuning__snow')) {
+      stopTuningFx(overlay);
+      overlay.remove();
+      overlay = null;
+    }
     if (overlay) return overlay;
 
     overlay = document.createElement('div');
     overlay.className = 'videos-live-tuning';
     overlay.hidden = true;
     overlay.innerHTML = [
-      '<div class="videos-live-tuning__snow" aria-hidden="true"></div>',
-      '<div class="videos-live-tuning__scanline" aria-hidden="true"></div>',
+      '<canvas class="videos-live-tuning__snow" aria-hidden="true"></canvas>',
+      '<div class="videos-live-tuning__vignette" aria-hidden="true"></div>',
       '<div class="videos-live-tuning__center">',
       '  <div class="videos-live-tuning__label">מחפש ערוץ...</div>',
       '  <div class="videos-live-tuning__meter" aria-hidden="true">',
@@ -168,17 +174,49 @@
     }
   }
 
+  // שלג TV אנלוגי – רעש אפור אקראי (לא נקודות CSS) | HYPER CORE TECH
+  function drawTvStatic(canvas) {
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    const w = Math.max(160, Math.floor((parent && parent.clientWidth) || window.innerWidth || 320));
+    const h = Math.max(160, Math.floor((parent && parent.clientHeight) || window.innerHeight || 480));
+    const cw = Math.min(220, Math.max(120, Math.floor(w / 3)));
+    const ch = Math.min(400, Math.max(180, Math.floor(h / 3)));
+    if (canvas.width !== cw || canvas.height !== ch) {
+      canvas.width = cw;
+      canvas.height = ch;
+    }
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) return;
+    const imageData = ctx.createImageData(cw, ch);
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const v = (Math.random() * 220) | 0;
+      data[i] = v;
+      data[i + 1] = v;
+      data[i + 2] = v;
+      data[i + 3] = 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
   function startTuningFx(overlay) {
     if (!overlay) return;
     stopTuningFx(overlay);
     const fill = overlay.querySelector('[data-live-meter]');
     const pctEl = overlay.querySelector('[data-live-pct]');
+    const snow = overlay.querySelector('.videos-live-tuning__snow');
     let progress = 8;
     if (fill) fill.style.width = progress + '%';
     if (pctEl) pctEl.textContent = String(progress);
 
+    const paintSnow = () => {
+      drawTvStatic(snow);
+      overlay._snowTimer = setTimeout(paintSnow, 45);
+    };
+    paintSnow();
+
     overlay._freqTimer = setInterval(() => {
-      // מד סריקה שמתמלא בהדרגה עם רעש קל | HYPER CORE TECH
       const bump = 2 + Math.random() * 7;
       progress = Math.min(92, progress + bump);
       if (fill) fill.style.width = progress.toFixed(0) + '%';
@@ -187,9 +225,44 @@
   }
 
   function stopTuningFx(overlay) {
-    if (!overlay || !overlay._freqTimer) return;
-    clearInterval(overlay._freqTimer);
-    overlay._freqTimer = null;
+    if (!overlay) return;
+    if (overlay._freqTimer) {
+      clearInterval(overlay._freqTimer);
+      overlay._freqTimer = null;
+    }
+    if (overlay._snowTimer) {
+      clearTimeout(overlay._snowTimer);
+      overlay._snowTimer = null;
+    }
+  }
+
+  function clearFsChromeTimer(mediaDiv) {
+    if (!mediaDiv || !mediaDiv._fsChromeTimer) return;
+    clearTimeout(mediaDiv._fsChromeTimer);
+    mediaDiv._fsChromeTimer = null;
+  }
+
+  function showFsChrome(mediaDiv) {
+    if (!mediaDiv || !mediaDiv.classList.contains('is-live-fullscreen')) return;
+    const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
+    if (!closeBtn) return;
+    closeBtn.hidden = false;
+    closeBtn.classList.remove('is-fs-chrome-hidden');
+    mediaDiv.classList.add('is-fs-chrome-visible');
+    clearFsChromeTimer(mediaDiv);
+    mediaDiv._fsChromeTimer = setTimeout(() => {
+      hideFsChrome(mediaDiv);
+    }, 5000);
+  }
+
+  function hideFsChrome(mediaDiv) {
+    if (!mediaDiv) return;
+    clearFsChromeTimer(mediaDiv);
+    const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
+    if (closeBtn) {
+      closeBtn.classList.add('is-fs-chrome-hidden');
+    }
+    mediaDiv.classList.remove('is-fs-chrome-visible');
   }
 
   function ensureFullscreenControls(mediaDiv) {
@@ -220,17 +293,28 @@
       exitLiveFullscreen(mediaDiv);
     });
     mediaDiv.appendChild(closeBtn);
+
+    // לחיצה על המסך במסך מלא מחזירה את כפתור הסגירה ל־5 שניות | HYPER CORE TECH
+    const revealChrome = (e) => {
+      if (!mediaDiv.classList.contains('is-live-fullscreen')) return;
+      if (e.target && e.target.closest && e.target.closest('.videos-live-fs-close')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showFsChrome(mediaDiv);
+    };
+    mediaDiv.addEventListener('click', revealChrome);
+    mediaDiv.addEventListener('touchend', revealChrome, { passive: false });
   }
 
   function enterLiveFullscreen(mediaDiv) {
     if (!mediaDiv) return;
-    exitLiveFullscreen(document.querySelector('.videos-feed__media.is-live-fullscreen'));
+    const existing = document.querySelector('.videos-feed__media.is-live-fullscreen');
+    if (existing && existing !== mediaDiv) exitLiveFullscreen(existing);
     mediaDiv.classList.add('is-live-fullscreen');
     document.body.classList.add('live-channel-fullscreen');
-    const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
     const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
-    if (closeBtn) closeBtn.hidden = false;
     if (fsBtn) fsBtn.hidden = true;
+    showFsChrome(mediaDiv);
 
     try {
       if (mediaDiv.requestFullscreen) mediaDiv.requestFullscreen().catch(() => {});
@@ -243,11 +327,15 @@
       document.body.classList.remove('live-channel-fullscreen');
       return;
     }
-    mediaDiv.classList.remove('is-live-fullscreen');
+    clearFsChromeTimer(mediaDiv);
+    mediaDiv.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
     document.body.classList.remove('live-channel-fullscreen');
     const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
     const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
-    if (closeBtn) closeBtn.hidden = true;
+    if (closeBtn) {
+      closeBtn.hidden = true;
+      closeBtn.classList.remove('is-fs-chrome-hidden');
+    }
     if (fsBtn) fsBtn.hidden = false;
 
     try {
@@ -262,10 +350,14 @@
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement) {
       document.querySelectorAll('.videos-feed__media.is-live-fullscreen').forEach((el) => {
-        el.classList.remove('is-live-fullscreen');
+        clearFsChromeTimer(el);
+        el.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
         const closeBtn = el.querySelector('.videos-live-fs-close');
         const fsBtn = el.querySelector('.videos-live-fs-btn');
-        if (closeBtn) closeBtn.hidden = true;
+        if (closeBtn) {
+          closeBtn.hidden = true;
+          closeBtn.classList.remove('is-fs-chrome-hidden');
+        }
         if (fsBtn) fsBtn.hidden = false;
       });
       document.body.classList.remove('live-channel-fullscreen');
