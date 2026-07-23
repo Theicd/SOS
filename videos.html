@@ -515,6 +515,17 @@
         display: block;
       }
 
+      .compose-media-preview:has(.compose-live-preview) img,
+      .compose-media-preview:has(.compose-live-preview) video {
+        display: none;
+      }
+
+      .compose-media-preview .compose-live-preview {
+        border: none;
+        margin: 0;
+        border-radius: 0;
+      }
+
       .compose-terms-ack {
         display: flex;
         align-items: flex-start;
@@ -1356,12 +1367,15 @@
     <script src="./blossom.js" defer></script>
     <!-- חלק FFmpeg (videos.html) – טעינת ספריית ffmpeg.wasm כמו ב-index.html | HYPER CORE TECH -->
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" defer></script>
+    <!-- חלק ערוץ חי HLS (videos.html) – hls.js + מודול ערוצים חיים | HYPER CORE TECH -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" defer></script>
+    <script src="./hls-live.js?v=20260723a" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
     <script src="./video-record.js" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260723b" defer></script>
+    <script src="./compose.js?v=20260723g" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -1379,7 +1393,7 @@
         }
       })();
     </script>
-    <script src="./videos.js" defer></script>
+    <script src="./videos.js?v=20260723g" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -1735,7 +1749,7 @@
             </button>
           </div>
 
-          <textarea id="postText" placeholder="הוסיפו כיתוב..."></textarea>
+          <textarea id="postText" placeholder="הוסיפו כיתוב... או לינק ערוץ חי (.m3u8)"></textarea>
 
           <div class="compose-dialog__toolbar" id="composeTextTools" hidden>
             <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע לטקסט">

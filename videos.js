@@ -549,6 +549,8 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
         videoEl.pause();
       });
     });
+  } else if (mediaType === 'hls-live') {
+    playHlsLiveMedia(mediaDiv);
   } else if (mediaType === 'youtube') {
     ensureYouTubeIframe(mediaDiv, { autoplay: true });
   }
@@ -573,7 +575,7 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
 
-  if (mediaType === 'file') {
+  if (mediaType === 'file' || mediaType === 'hls-live') {
     const videoEl = mediaDiv.querySelector('video');
     if (videoEl) {
       videoEl.pause();
@@ -685,6 +687,54 @@ function restoreYouTubeThumbnail(mediaDiv) {
   }
 }
 
+// חלק ערוץ חי (videos.js) – הפעלת HLS עם מסך חיפוש תחנה | HYPER CORE TECH
+async function playHlsLiveMedia(mediaDiv) {
+  if (!mediaDiv) return;
+  const App = window.NostrApp || {};
+  const videoEl = mediaDiv.querySelector('video');
+  if (!videoEl) return;
+
+  if (typeof App.setTuningVisible === 'function') {
+    App.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
+  }
+  if (typeof App.ensureLiveBadge === 'function') {
+    App.ensureLiveBadge(mediaDiv);
+  }
+
+  try {
+    if (mediaDiv.dataset.livePrepared === '1') {
+      videoEl.muted = false;
+      await videoEl.play().catch(async () => {
+        videoEl.muted = true;
+        await videoEl.play().catch(() => {});
+      });
+      if (typeof App.setTuningVisible === 'function') {
+        App.setTuningVisible(mediaDiv, false);
+      }
+      return;
+    }
+
+    if (typeof App.prepareLiveMedia === 'function') {
+      const result = await App.prepareLiveMedia(mediaDiv, {
+        autoplay: true,
+        tuningLabel: 'מחפש ערוץ...',
+      });
+      if (result && result.ok) {
+        videoEl.muted = false;
+        await videoEl.play().catch(async () => {
+          videoEl.muted = true;
+          await videoEl.play().catch(() => {});
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('[videos] HLS live play failed', err);
+    if (typeof App.setTuningVisible === 'function') {
+      App.setTuningVisible(mediaDiv, true, 'לא מצליח לתפוס ערוץ');
+    }
+  }
+}
+
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים לפי רשת המשתמש (authors)
 async function fetchNetworkNotes(authors = [], limit = 100, sinceOverride = undefined) {
   const app = window.NostrApp;
@@ -765,6 +815,11 @@ function sanitizeCachedVideo(video) {
   }
   const clone = { ...video };
   clone.mirrors = Array.isArray(video.mirrors) ? video.mirrors.slice(0, 10) : [];
+  // תאימות לאחור – לינק m3u8 שנשמר כ־videoUrl הופך לערוץ חי | HYPER CORE TECH
+  if (!clone.liveUrl && clone.videoUrl && isHlsLiveLink(clone.videoUrl)) {
+    clone.liveUrl = clone.videoUrl;
+    clone.videoUrl = null;
+  }
   return clone;
 }
 
@@ -1113,6 +1168,7 @@ function parseEventToVideoItem(event, currentApp) {
   });
 
   let youtubeId = mediaLinks.map(parseYouTube).find(Boolean) || null;
+  let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
   let videoUrl = mediaLinks.find(isVideoLink) || null;
   let imageUrl = mediaLinks.find(isImageLink) || null;
   let mediaHash = '';
@@ -1125,14 +1181,23 @@ function parseEventToVideoItem(event, currentApp) {
         const mime = String(tag[1] || '');
         const tagUrl = String(tag[2]);
         const tagHash = tag[3] || '';
-        if (mime.startsWith('video/') || isVideoLink(tagUrl)) {
+        if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
+          liveUrl = liveUrl || tagUrl;
+        } else if (mime.startsWith('video/') || isVideoLink(tagUrl)) {
           videoUrl = videoUrl || tagUrl;
           if (tagHash) mediaHash = tagHash;
         } else if (mime.startsWith('image/') || isImageLink(tagUrl)) {
           imageUrl = imageUrl || tagUrl;
-        } else if (!videoUrl && !imageUrl) {
+        } else if (!videoUrl && !imageUrl && !liveUrl) {
           videoUrl = tagUrl;
           if (tagHash) mediaHash = tagHash;
+        }
+      }
+      if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'live-hls') {
+        // סימון מפורש מערוץ חי – אם יש קישור כלשהו נשתמש בו
+        if (!liveUrl) {
+          const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l));
+          if (httpLink) liveUrl = httpLink;
         }
       }
       if (tag[0] === 'mirror' && tag[1]) {
@@ -1142,12 +1207,15 @@ function parseEventToVideoItem(event, currentApp) {
   }
 
   // קישור http בלי סיומת וללא תמונה — נחשב וידאו (Blossom)
-  if (!videoUrl && !imageUrl && !youtubeId) {
+  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl) {
     const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isImageLink(l));
-    if (httpLink) videoUrl = httpLink;
+    if (httpLink) {
+      if (isHlsLiveLink(httpLink)) liveUrl = httpLink;
+      else videoUrl = httpLink;
+    }
   }
 
-  if (!videoUrl && !imageUrl && !youtubeId) return null;
+  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl) return null;
 
   const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
   return {
@@ -1155,7 +1223,8 @@ function parseEventToVideoItem(event, currentApp) {
     pubkey: event.pubkey,
     content: textLines.join(' '),
     youtubeId,
-    videoUrl,
+    liveUrl,
+    videoUrl: liveUrl ? null : videoUrl,
     imageUrl,
     hash: mediaHash || '',
     mirrors: mediaMirrors,
@@ -1434,8 +1503,16 @@ function parseYouTube(link) {
 }
 
 // חלק יאללה וידאו (videos.js) – זיהוי אם קישור הוא וידאו
+function isHlsLiveLink(link) {
+  const App = window.NostrApp || {};
+  if (typeof App.isHlsLiveUrl === 'function') return App.isHlsLiveUrl(link);
+  if (!link) return false;
+  return /\.m3u8(\?|#|$)/i.test(link) || /(mediatailor|amagi\.tv|\/hls\/)/i.test(link);
+}
+
 function isVideoLink(link) {
   if (!link) return false;
+  if (isHlsLiveLink(link)) return false;
   if (link.startsWith('data:video')) return true;
   if (link.startsWith('blob:')) return true;
   if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(link)) return true;
@@ -1502,7 +1579,52 @@ function renderVideoCard(video) {
   const mediaDiv = document.createElement('div');
   mediaDiv.className = 'videos-feed__media';
 
-  if (video.youtubeId && !video.videoUrl) {
+  if (video.liveUrl) {
+    mediaDiv.dataset.mediaType = 'hls-live';
+    mediaDiv.dataset.liveUrl = video.liveUrl;
+    mediaDiv.dataset.videoUrl = video.liveUrl;
+
+    const videoEl = document.createElement('video');
+    videoEl.controls = false;
+    videoEl.muted = false;
+    videoEl.loop = false;
+    videoEl.playsInline = true;
+    videoEl.autoplay = false;
+    videoEl.setAttribute('playsinline', 'true');
+    videoEl.setAttribute('webkit-playsinline', 'true');
+    videoEl.preload = 'none';
+    videoEl.className = 'videos-feed__media-video';
+    mediaDiv.appendChild(videoEl);
+
+    const AppLive = window.NostrApp || {};
+    if (typeof AppLive.ensureLiveBadge === 'function') {
+      AppLive.ensureLiveBadge(mediaDiv);
+    } else {
+      const badge = document.createElement('div');
+      badge.className = 'videos-live-badge';
+      badge.innerHTML = '<span class="videos-live-badge__dot"></span><span class="videos-live-badge__text">LIVE</span>';
+      mediaDiv.appendChild(badge);
+    }
+    if (typeof AppLive.setTuningVisible === 'function') {
+      AppLive.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
+    }
+
+    const playOverlay = document.createElement('button');
+    playOverlay.type = 'button';
+    playOverlay.className = 'videos-feed__play-overlay';
+    playOverlay.setAttribute('aria-label', 'Play live channel');
+    playOverlay.setAttribute('data-play-toggle', '');
+    playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+    mediaDiv.appendChild(playOverlay);
+
+    // כרטיס מוצג מיד עם שלג/LIVE — הטעינה ברקע | HYPER CORE TECH
+    queueMicrotask(() => {
+      markReady();
+      if (typeof AppLive.checkHlsHealth === 'function') {
+        AppLive.checkHlsHealth(video.liveUrl).catch(() => {});
+      }
+    });
+  } else if (video.youtubeId && !video.videoUrl) {
     mediaDiv.dataset.mediaType = 'youtube';
     mediaDiv.dataset.youtubeId = video.youtubeId;
 
@@ -2187,9 +2309,26 @@ function observeVideoCard(card) {
   }
 }
 
-// חלק יאללה וידאו (videos.js) – פרילוד לווידאו/תמונה של הקלף הבא | HYPER CORE TECH
+// חלק יאללה וידאו (videos.js) – פרילוד לווידאו/תמונה/ערוץ חי של הקלף הבא | HYPER CORE TECH
 function preloadNextMedia(video) {
   if (!video) return;
+
+  if (video.liveUrl) {
+    const App = window.NostrApp || {};
+    if (typeof App.prefetchLiveUrl === 'function') {
+      App.prefetchLiveUrl(video.liveUrl).catch(() => {});
+    }
+    // חימום הכרטיס הבא אם כבר במסך
+    const nextCard = document.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`);
+    const mediaDiv = nextCard && nextCard.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+    if (mediaDiv && mediaDiv.dataset.livePrepared !== '1' && typeof App.prepareLiveMedia === 'function') {
+      App.prepareLiveMedia(mediaDiv, {
+        autoplay: false,
+        tuningLabel: 'מחפש ערוץ...',
+      }).catch(() => {});
+    }
+    return;
+  }
 
   if (video.videoUrl) {
     const link = document.createElement('link');
@@ -2686,6 +2825,27 @@ function wireActions(root = selectors.stream) {
   // לא צריך מאזין נוסף כאן - זה יגרום ל-toggleFollow להיקרא פעמיים
 }
 
+// חלק ערוץ חי (videos.js) – חימום HLS של הכרטיס הבא/הקודם | HYPER CORE TECH
+function prefetchNeighborLiveChannels(activeCard) {
+  if (!activeCard || !activeCard.parentElement) return;
+  const App = window.NostrApp || {};
+  if (typeof App.prepareLiveMedia !== 'function') return;
+
+  const cards = Array.from(activeCard.parentElement.querySelectorAll('.videos-feed__card'));
+  const idx = cards.indexOf(activeCard);
+  if (idx < 0) return;
+
+  [cards[idx + 1], cards[idx + 2]].forEach((neighbor) => {
+    if (!neighbor) return;
+    const mediaDiv = neighbor.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+    if (!mediaDiv || mediaDiv.dataset.livePrepared === '1') return;
+    App.prepareLiveMedia(mediaDiv, {
+      autoplay: false,
+      tuningLabel: 'מחפש ערוץ...',
+    }).catch(() => {});
+  });
+}
+
 // חלק יאללה וידאו (videos.js) – Intersection Observer פשוט לגלילה כמו טיקטוק
 function setupIntersectionObserver() {
   const viewport = document.querySelector('.videos-feed__viewport');
@@ -2695,7 +2855,7 @@ function setupIntersectionObserver() {
     intersectionObserver.disconnect();
   }
 
-  // גלילה פשוטה - רק ניגן/עצור וידאו
+  // גלילה פשוטה - רק ניגן/עצור וידאו + פרילוד ערוץ חי של השכן | HYPER CORE TECH
   intersectionObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -2706,6 +2866,18 @@ function setupIntersectionObserver() {
         // ניגון כשהפוסט מרכזי (50%+ גלוי)
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           playMedia(mediaDiv, { manual: false });
+          prefetchNeighborLiveChannels(card);
+        } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
+          // מתקרבים לכרטיס — חימום HLS ברקע | HYPER CORE TECH
+          if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
+            const App = window.NostrApp || {};
+            if (typeof App.prepareLiveMedia === 'function') {
+              App.prepareLiveMedia(mediaDiv, {
+                autoplay: false,
+                tuningLabel: 'מחפש ערוץ...',
+              }).catch(() => {});
+            }
+          }
         } else {
           pauseMedia(mediaDiv, { resetThumb: false });
         }
@@ -2713,7 +2885,7 @@ function setupIntersectionObserver() {
     },
     {
       root: viewport,
-      threshold: [0, 0.5],
+      threshold: [0, 0.15, 0.5],
       rootMargin: '-10% 0px'
     }
   );
@@ -2863,9 +3035,10 @@ function processEventsToVideos(events, currentApp) {
     });
     
     const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
+    const liveUrl = mediaLinks.find(isHlsLiveLink) || null;
     const videoUrl = mediaLinks.find(isVideoLink);
     
-    if (!videoUrl && !youtubeId) return;
+    if (!videoUrl && !youtubeId && !liveUrl) return;
     
     const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
     
@@ -2873,7 +3046,8 @@ function processEventsToVideos(events, currentApp) {
       id: event.id,
       pubkey: event.pubkey,
       createdAt: event.created_at || 0,
-      videoUrl: videoUrl || null,
+      liveUrl: liveUrl || null,
+      videoUrl: liveUrl ? null : (videoUrl || null),
       youtubeId: youtubeId || null,
       text: textLines.join('\n'),
       likes: 0,
@@ -2887,6 +3061,15 @@ function processEventsToVideos(events, currentApp) {
   });
   
   return videoEvents;
+}
+
+function createVideoCard(video) {
+  const result = renderVideoCard(video);
+  const card = result && result.card ? result.card : result;
+  if (result && result.mediaReadyPromise) {
+    result.mediaReadyPromise.catch(() => {});
+  }
+  return card;
 }
 
 function renderMoreVideos(videos) {
@@ -3439,37 +3622,49 @@ async function loadVideos() {
     });
 
     const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
-    const videoUrl = mediaLinks.find(isVideoLink);
+    let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
+    let videoUrl = mediaLinks.find(isVideoLink);
     const imageUrl = mediaLinks.find(isImageLink);
-    const hasMedia = videoUrl || imageUrl;
+
+    // תגיות media / live-hls
+    let mediaHash = '';
+    const mediaMirrors = [];
+    if (Array.isArray(event.tags)) {
+      event.tags.forEach(tag => {
+        if (!Array.isArray(tag)) return;
+        if (tag[0] === 'media' && tag[2]) {
+          const mime = String(tag[1] || '');
+          const tagUrl = String(tag[2]);
+          const tagHash = tag[3] || '';
+          if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
+            liveUrl = liveUrl || tagUrl;
+          } else if (tagUrl === videoUrl && tagHash) {
+            mediaHash = tagHash;
+          }
+        }
+        if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'live-hls') {
+          const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l));
+          if (httpLink) liveUrl = liveUrl || httpLink;
+        }
+        if (tag[0] === 'mirror' && tag[1]) {
+          mediaMirrors.push(tag[1]);
+        }
+      });
+    }
+
+    if (liveUrl) videoUrl = null;
+    const hasMedia = liveUrl || videoUrl || imageUrl || youtubeId;
 
     if (hasMedia) {
       registerVideoSourceEvent(event);
-      
-      // חילוץ hash ו-mirrors מתגיות media
-      let mediaHash = '';
-      const mediaMirrors = [];
-      if (Array.isArray(event.tags)) {
-        event.tags.forEach(tag => {
-          if (Array.isArray(tag) && tag[0] === 'media' && tag[2]) {
-            const tagUrl = tag[2];
-            const tagHash = tag[3] || '';
-            if (tagUrl === videoUrl && tagHash) {
-              mediaHash = tagHash;
-            }
-          }
-          if (Array.isArray(tag) && tag[0] === 'mirror' && tag[1]) {
-            mediaMirrors.push(tag[1]);
-          }
-        });
-      }
       
       videoEvents.push({
         id: event.id,
         pubkey: event.pubkey,
         content: textLines.join(' '),
         youtubeId: youtubeId || null,
-        videoUrl: videoUrl || null,
+        liveUrl: liveUrl || null,
+        videoUrl: liveUrl ? null : (videoUrl || null),
         imageUrl: imageUrl || null,
         hash: mediaHash || '',
         mirrors: mediaMirrors,

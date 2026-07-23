@@ -1021,6 +1021,11 @@
       return null;
     }
 
+    const AppLive = window.NostrApp || {};
+    const liveUrl = (!state.media && typeof AppLive.extractHlsUrlFromText === 'function')
+      ? AppLive.extractHlsUrlFromText(textContent)
+      : '';
+
     const parts = [];
     if (textContent) {
       parts.push(textContent);
@@ -1033,6 +1038,11 @@
       } else if (state.media.dataUrl) {
         parts.push(state.media.dataUrl);
       }
+    }
+
+    // אם יש לינק HLS בטקסט — מוודאים שהוא בשורה נפרדת בתוכן | HYPER CORE TECH
+    if (liveUrl && !parts.some((p) => String(p).includes(liveUrl))) {
+      parts.push(liveUrl);
     }
 
     const content = parts.join('\n');
@@ -1049,6 +1059,9 @@
       if (mediaSource) {
         mediaTags.push(['media', state.media.mimeType || 'video/webm', mediaSource, state.media.hash || '']);
       }
+    } else if (liveUrl) {
+      mediaTags.push(['media', 'application/vnd.apple.mpegurl', liveUrl]);
+      mediaTags.push(['t', 'live-hls']);
     }
 
     return {
@@ -1056,6 +1069,7 @@
       text: textContent,
       media: state.media,
       mediaTags,
+      liveUrl: liveUrl || null,
       // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
       originalId: state.editingOriginalId || null,
     };
@@ -1170,6 +1184,7 @@
 
     if (elements.textarea) {
       elements.textarea.addEventListener('input', () => {
+        updateComposeLivePreview();
         if (!window.NostrApp?.bg) {
           if (!state.media && state.backgroundActive && state.bgImage) {
             regenerateBackgroundMedia();
@@ -1270,6 +1285,45 @@
   function clearEditing() {
     // חלק קומפוזר – ניקוי מצב העריכה בלבד (ללא מחיקת תוכן הטיוטה)
     state.editingOriginalId = null;
+  }
+
+  // חלק קומפוזר (compose.js) – תצוגה מקדימה כשמזהים לינק ערוץ חי בטקסט | HYPER CORE TECH
+  function updateComposeLivePreview() {
+    const container = elements.previewContainer;
+    if (!container) return;
+
+    const existing = container.querySelector('.compose-live-preview');
+    if (existing) existing.remove();
+
+    if (state.media || state.composeMode !== 'text') {
+      return;
+    }
+
+    const text = elements.textarea ? elements.textarea.value : '';
+    const AppLive = window.NostrApp || {};
+    const liveUrl = typeof AppLive.extractHlsUrlFromText === 'function'
+      ? AppLive.extractHlsUrlFromText(text)
+      : '';
+
+    if (!liveUrl) {
+      if (!state.media) {
+        container.classList.remove('is-visible');
+        container.setAttribute('hidden', '');
+      }
+      return;
+    }
+
+    const preview = typeof AppLive.buildComposeLivePreview === 'function'
+      ? AppLive.buildComposeLivePreview(liveUrl)
+      : null;
+    if (!preview) return;
+
+    if (elements.previewImage) elements.previewImage.style.display = 'none';
+    if (elements.previewVideo) elements.previewVideo.style.display = 'none';
+    container.appendChild(preview);
+    container.classList.add('is-visible');
+    container.removeAttribute('hidden');
+    setStatus('זוהה ערוץ חי — יפורסם עם תג LIVE', 'success');
   }
 
   // חלק קומפוזר (compose.js) – פרסום פוסט: בניית payload, חתימה ופרסום ל-relays | HYPER CORE TECH
