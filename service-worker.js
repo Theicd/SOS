@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v48'; // bump - invite + email registry guest fix
+  const CACHE_NAME = 'sos-cache-v49'; // bump - WhatsApp invite share without phone input
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -402,7 +402,7 @@
       });
     }
 
-    // הרשמה - שלב הזמנה + טלפון
+    // הרשמה - שלב הזמנה
     if (btnInviteNext) {
       btnInviteNext.addEventListener('click', async function() {
         var code = (signupInviteCodeInput && signupInviteCodeInput.value || '').trim().toUpperCase();
@@ -424,7 +424,7 @@
             return;
           }
           signupData.inviteCode = result.code;
-          signupData.invitePhone = phone;
+          signupData.invitePhone = phone || '';
           signupData.invitePhoneHash = result.phoneHash || '';
           signupData.inviterPubkey = result.inviterPubkey || '';
           setStatus('inviteStatus', '', false);
@@ -715,76 +715,35 @@
       updateFinalConnectState();
     }
 
-    // כפתור הזמן משתמש (למשתמש מחובר)
+    // כפתור הזמן משתמש — פותח וואטסאפ לבחירת איש קשר (בלי הקלדת טלפון) | HYPER CORE TECH
     var btnOpenInviteFriend = document.getElementById('topBarInviteFriend');
-    var inviteFriendModal = document.getElementById('inviteFriendModal');
-    var inviteFriendPhoneInput = document.getElementById('inviteFriendPhoneInput');
-    var btnSendInviteWhatsapp = document.getElementById('btnSendInviteWhatsapp');
-    var inviteFriendStatus = document.getElementById('inviteFriendStatus');
-    var btnCloseInviteFriend = document.getElementById('btnCloseInviteFriend');
-
-    function setInviteFriendStatus(message, isError) {
-      if (!inviteFriendStatus) return;
-      inviteFriendStatus.textContent = message || '';
-      inviteFriendStatus.style.color = isError ? '#dc3545' : '#28a745';
-    }
-
-    function openInviteFriendModal() {
-      if (!inviteFriendModal) return;
-      if (App.guestMode || !App.privateKey) {
-        if (typeof App.openAuthPrompt === 'function') {
-          App.openAuthPrompt('כדי להזמין חברים צריך להתחבר.');
-        }
-        return;
-      }
-      setInviteFriendStatus('', false);
-      if (inviteFriendPhoneInput) inviteFriendPhoneInput.value = '';
-      inviteFriendModal.style.display = 'flex';
-      inviteFriendModal.setAttribute('aria-hidden', 'false');
-    }
-
-    function closeInviteFriendModal() {
-      if (!inviteFriendModal) return;
-      inviteFriendModal.style.display = 'none';
-      inviteFriendModal.setAttribute('aria-hidden', 'true');
-    }
-
     if (btnOpenInviteFriend) {
-      btnOpenInviteFriend.addEventListener('click', function() {
-        openInviteFriendModal();
+      btnOpenInviteFriend.addEventListener('click', async function() {
         var menu = document.getElementById('topBarProfileMenu');
         if (menu) menu.hidden = true;
-      });
-    }
-    if (btnCloseInviteFriend) {
-      btnCloseInviteFriend.addEventListener('click', closeInviteFriendModal);
-    }
-    if (inviteFriendModal) {
-      inviteFriendModal.addEventListener('click', function(e) {
-        if (e.target === inviteFriendModal) closeInviteFriendModal();
-      });
-    }
-    if (btnSendInviteWhatsapp) {
-      btnSendInviteWhatsapp.addEventListener('click', async function() {
-        var phone = inviteFriendPhoneInput ? inviteFriendPhoneInput.value.trim() : '';
-        btnSendInviteWhatsapp.disabled = true;
-        setInviteFriendStatus('יוצר הזמנה...', false);
+
+        if (App.guestMode || !App.privateKey) {
+          if (typeof App.openAuthPrompt === 'function') {
+            App.openAuthPrompt('כדי להזמין חברים צריך להתחבר.');
+          }
+          return;
+        }
+
+        btnOpenInviteFriend.disabled = true;
         try {
           if (typeof App.createInvite !== 'function') {
             throw new Error('מנגנון ההזמנות לא נטען');
           }
-          var created = await App.createInvite({ phone: phone });
-          setInviteFriendStatus('ההזמנה מוכנה. פותח וואטסאפ...', false);
+          var created = await App.createInvite();
           if (typeof App.openWhatsAppInvite === 'function') {
             App.openWhatsAppInvite(created.whatsappUrl);
           } else {
             window.open(created.whatsappUrl, '_blank', 'noopener');
           }
-          setInviteFriendStatus('נשלח קישור עם קוד ' + created.code, false);
         } catch (e) {
-          setInviteFriendStatus(e.message || 'יצירת ההזמנה נכשלה', true);
+          alert(e.message || 'יצירת ההזמנה נכשלה');
         } finally {
-          btnSendInviteWhatsapp.disabled = false;
+          btnOpenInviteFriend.disabled = false;
         }
       });
     }

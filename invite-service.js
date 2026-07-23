@@ -125,9 +125,6 @@
     if (!normalizedCode || normalizedCode.length < 6) {
       return { ok: false, error: 'קוד הזמנה לא תקין' };
     }
-    if (!isValidPhone(phone)) {
-      return { ok: false, error: 'נא להזין מספר טלפון תקין של המוזמן' };
-    }
 
     let inviteEvent;
     try {
@@ -154,13 +151,17 @@
       return { ok: false, error: 'ההזמנה כבר נוצלה' };
     }
 
+    // תאימות לאחור: אם ההזמנה הישנה צמודה לטלפון — בודקים רק כשסופק טלפון
     const expectedPhoneHash = readInvitePhoneHash(inviteEvent);
-    if (!expectedPhoneHash) {
-      return { ok: false, error: 'ההזמנה אינה צמודה לטלפון' };
-    }
-    const actualPhoneHash = await hashPhone(phone);
-    if (actualPhoneHash !== expectedPhoneHash) {
-      return { ok: false, error: 'מספר הטלפון לא תואם להזמנה שנשלחה' };
+    let phoneHash = '';
+    if (expectedPhoneHash) {
+      if (!isValidPhone(phone)) {
+        return { ok: false, error: 'הזמנה ישנה דורשת מספר טלפון תואם' };
+      }
+      phoneHash = await hashPhone(phone);
+      if (phoneHash !== expectedPhoneHash) {
+        return { ok: false, error: 'מספר הטלפון לא תואם להזמנה שנשלחה' };
+      }
     }
 
     return {
@@ -168,16 +169,13 @@
       code: normalizedCode,
       inviteEvent,
       inviterPubkey: inviteEvent.pubkey || '',
-      phoneHash: actualPhoneHash,
+      phoneHash,
     };
   }
 
-  async function createInvite({ phone }) {
+  async function createInvite() {
     if (!App.privateKey || App.guestMode) {
       throw new Error('רק משתמש מחובר יכול להזמין');
-    }
-    if (!isValidPhone(phone)) {
-      throw new Error('נא להזין מספר טלפון תקין של החבר');
     }
     if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) {
       throw new Error('אין חיבור לריליים');
@@ -187,15 +185,12 @@
     }
 
     const code = generateInviteCode();
-    const phoneHash = await hashPhone(phone);
     const now = Math.floor(Date.now() / 1000);
     const ttl = Number(App.INVITE_TTL_SECONDS) || 7 * 24 * 60 * 60;
     const codeTag = App.INVITE_CODE_TAG || 'i';
-    const phoneTag = App.INVITE_PHONE_TAG || 'ph';
     const tags = [
       ['t', App.INVITE_TAG || 'sos-invite'],
       [codeTag, code],
-      [phoneTag, phoneHash],
       ['expiration', String(now + ttl)],
     ];
     if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
@@ -210,13 +205,13 @@
     await App.pool.publish(App.relayUrls, event);
 
     const inviteUrl = buildInviteUrl(code);
-    const waPhone = normalizePhone(phone);
+    // כמו auth.js — בלי מספר טלפון → בחירת איש קשר בוואטסאפ / WhatsApp Web | HYPER CORE TECH
     const message = encodeURIComponent(
-      `הזמנה לרשת SOS:\n${inviteUrl}\n\nקוד הזמנה: ${code}\nיש להירשם עם אותו מספר טלפון שאליו נשלחה ההזמנה.`
+      `הזמנה לרשת SOS:\n${inviteUrl}\n\nקוד הזמנה: ${code}\nלחצו על הקישור והמשיכו בפתיחת משתמש חדש.`
     );
-    const whatsappUrl = `https://wa.me/${waPhone}?text=${message}`;
+    const whatsappUrl = `https://wa.me/?text=${message}`;
 
-    return { code, inviteUrl, whatsappUrl, event, phoneHash };
+    return { code, inviteUrl, whatsappUrl, event };
   }
 
   async function markInviteUsed({ code, inviterPubkey }) {
