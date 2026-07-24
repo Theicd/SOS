@@ -647,26 +647,32 @@ body:has(.videos-feed) #moreOptionsToggle {
 
 .videos-feed__viewport {
   position: absolute;
-  /* בין התפריטים – בלי padding כפול ששובר את ה-snap | HYPER CORE TECH */
-  top: calc(44px + var(--safe-top, 0px));
+  top: 0;
   left: 0;
   right: 0;
-  bottom: calc(56px + var(--safe-bottom, 0px));
-  height: auto;
+  bottom: 0;
+  /* גובה מלא של המסך | HYPER CORE TECH */
+  height: 100dvh;
   overflow-y: scroll;
   overflow-x: hidden;
-  /* scroll-snap כמו טיקטוק | HYPER CORE TECH */
+  /* scroll-snap מהיר ועקבי כמו טיקטוק | HYPER CORE TECH */
   scroll-snap-type: y mandatory;
   scroll-behavior: auto;
   scrollbar-width: none;
-  padding: 0;
+  /* padding לתפריטים עליון ותחתון | HYPER CORE TECH */
+  padding-top: calc(44px + var(--safe-top, 0px));
+  padding-bottom: calc(56px + var(--safe-bottom, 0px));
   box-sizing: border-box;
+  /* אופטימיזציה לגלילה חלקה במובייל | HYPER CORE TECH */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   overscroll-behavior: contain;
+  /* אופטימיזציה לביצועים | HYPER CORE TECH */
   will-change: scroll-position;
   contain: layout style;
-  scroll-padding: 0;
+  /* scroll-padding להתאמת snap לתפריטים | HYPER CORE TECH */
+  scroll-padding-top: calc(44px + var(--safe-top, 0px));
+  scroll-padding-bottom: calc(56px + var(--safe-bottom, 0px));
 }
 
 .videos-feed__viewport::-webkit-scrollbar {
@@ -681,20 +687,11 @@ body:has(.videos-feed) #moreOptionsToggle {
   min-height: 100%;
 }
 
-/* נקודת טריגר לטעינת המשך – בלי snap כדי לא לשבור גלילה | HYPER CORE TECH */
-.videos-feed__load-more-sentinel {
-  flex: 0 0 2px;
-  height: 2px;
-  width: 100%;
-  pointer-events: none;
-  scroll-snap-align: none;
-}
-
-/* חלק קלף וידאו (videos.css) – גובה = בדיוק אזור הפיד לגלילה חלקה | HYPER CORE TECH */
+/* חלק קלף וידאו (videos.css) – כרטיס וידאו בודד עם snap מדויק | HYPER CORE TECH */
 .videos-feed__card {
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* תואם לגובה ה-viewport בין התפריטים (בלי padding כפול) | HYPER CORE TECH */
+  /* גובה מלא בין התפריטים: 100dvh פחות header (44px) ותפריט תחתון (56px) | HYPER CORE TECH */
   height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   max-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
@@ -707,14 +704,16 @@ body:has(.videos-feed) #moreOptionsToggle {
   background: #000;
   flex-shrink: 0;
   box-sizing: border-box;
+  /* אופטימיזציה למכשירים חלשים | HYPER CORE TECH */
   contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 100vw calc(100dvh - 100px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
 }
 
 /* Fallback לדפדפנים ישנים שלא תומכים ב-dvh | HYPER CORE TECH */
 @supports not (height: 100dvh) {
   .videos-feed__viewport {
-    top: calc(44px + var(--safe-top, 0px));
-    bottom: calc(56px + var(--safe-bottom, 0px));
+    height: 100vh;
   }
   .videos-feed__card {
     height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
