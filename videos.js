@@ -346,8 +346,8 @@ let videoDownloadQueue = [];
 let isProcessingVideoQueue = false;
 let feedDownloadsPaused = false; // השהיית הורדות פיד בזמן העלאת פוסט | HYPER CORE TECH
 const BOOTSTRAP_VIDEO_DELAY = 100; // 100ms בין הורדות - מופחת מ-2000ms
-// חלק מניעת כפילויות (videos.js) – מעקב אחרי וידאו שכבר בתור או הורדו | HYPER CORE TECH
-const videoDownloadedOrQueued = new Set();
+// מניעת כפילויות לפי אלמנט וידאו (לא לפי URL) – אותו קובץ יכול להופיע בכמה פוסטים | HYPER CORE TECH
+const videoElsQueued = new WeakSet();
 
 function setFeedDownloadsPaused(paused) {
   feedDownloadsPaused = !!paused;
@@ -361,13 +361,13 @@ function setFeedDownloadsPaused(paused) {
 
 // הוספת וידאו לתור ההורדה הסדרתי
 function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
-  // מניעת כפילויות - בדיקה לפי hash או url
-  const key = hash || url;
-  if (videoDownloadedOrQueued.has(key)) {
-    return; // כבר בתור או הורד
+  if (!videoEl) return;
+  // לא לדלג על videoEl חדש רק כי אותו URL כבר הורד – אחרת mediaReady נתקע והפוסט לא מופיע | HYPER CORE TECH
+  if (videoElsQueued.has(videoEl)) {
+    return;
   }
-  videoDownloadedOrQueued.add(key);
-  
+  videoElsQueued.add(videoEl);
+
   videoDownloadQueue.push({ videoEl, url, hash, mirrors, fallbackFn });
   processVideoDownloadQueue();
 }
@@ -823,6 +823,7 @@ const FEED_CACHE_KEY = 'videos_feed_cache_v3';
 const FEED_CACHE_MAX_SIZE = 1024 * 1024 * 1024; // 1GB מקסימום
 const FEED_CACHE_CLEANUP_BATCH = 20; // כמה פוסטים למחוק בכל פעם
 const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפח
+const FEED_CACHE_LIMIT = (typeof window !== 'undefined' && Number(window.FEED_CACHE_LIMIT)) || 60;
 
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
@@ -1053,10 +1054,7 @@ function handleCardMediaFailure(card, videoId, error) {
     }
     card.dataset.mediaReady = 'failed';
   }
-  // אם אין כרטיסים מוכנים בכלל – לא להשאיר את מסך הטעינה לנצח
-  if (selectors.stream && !selectors.stream.querySelector('.videos-feed__card[data-media-ready="ready"]')) {
-    // נשארים על אנימציית הטעינה עד שפוסט אחר מצליח / timeout ב-init
-  }
+  updateLoadMoreTrigger();
 }
 
 function mountCard(card, { prepend = false, videoId = null } = {}) {
@@ -1112,6 +1110,8 @@ function mountCard(card, { prepend = false, videoId = null } = {}) {
   wireActions(card);
   wireMediaControls(card);
   observeVideoCard(card);
+  // חשוב: טריגר טעינת המשך מתעדכן רק כשיש כרטיסים ב-DOM | HYPER CORE TECH
+  updateLoadMoreTrigger();
   if (!state.firstCardRendered) {
     hideLoadingAnimation();
     if (selectors.status) {
@@ -2384,6 +2384,7 @@ function finalizeIncrementalRender() {
   }
   state.incrementalRender.cancelled = true;
   state.incrementalRender = null;
+  updateLoadMoreTrigger();
 }
 
 // חלק יאללה וידאו (videos.js) – חיבור קלפים חדשים ל-IntersectionObserver | HYPER CORE TECH
@@ -3054,11 +3055,13 @@ function updateLoadMoreTrigger() {
   // הסר observer מקלפים קודמים
   loadMoreObserver.disconnect();
   
-  // חבר לקלף לפני האחרון כדי לטעון מראש
+  // חבר לקלף ליד הסוף – מתעדכן בכל mount של כרטיס מוכן | HYPER CORE TECH
   const cards = document.querySelectorAll('.videos-feed__card');
-  if (cards.length >= 3) {
-    const triggerCard = cards[cards.length - 3];
+  if (cards.length >= 2) {
+    const triggerCard = cards[Math.max(0, cards.length - 2)];
     loadMoreObserver.observe(triggerCard);
+  } else if (cards.length === 1) {
+    loadMoreObserver.observe(cards[0]);
   }
 }
 
@@ -3131,9 +3134,10 @@ async function loadMoreVideos() {
     }
   } catch (err) {
     console.warn('[videos] loadMoreVideos failed', err);
+  } finally {
+    isLoadingMore = false;
+    updateLoadMoreTrigger();
   }
-  
-  isLoadingMore = false;
 }
 
 function processEventsToVideos(events, currentApp) {
