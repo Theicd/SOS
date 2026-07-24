@@ -687,10 +687,11 @@ body:has(.videos-feed) #moreOptionsToggle {
   min-height: 100%;
 }
 
-/* חלק קלף וידאו (videos.css) – כרטיס וידאו בודד עם snap חלק כמו טיקטוק | HYPER CORE TECH */
+/* חלק קלף וידאו (videos.css) – כרטיס אחד בכל גלילה כמו טיקטוק | HYPER CORE TECH */
 .videos-feed__card {
   scroll-snap-align: start;
-  scroll-snap-stop: normal;
+  /* always = לא מדלג פוסטים גם בגלילה מהירה | HYPER CORE TECH */
+  scroll-snap-stop: always;
   /* גובה מלא בין התפריטים: 100dvh פחות header (44px) ותפריט תחתון (56px) | HYPER CORE TECH */
   height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
