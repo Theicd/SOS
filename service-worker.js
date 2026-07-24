@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v61'; // bump - clean sos-og.jpg fills WhatsApp frame
+  const CACHE_NAME = 'sos-cache-v64'; // bump - game autoplay + fullscreen like live TV
   const PRECACHE_URLS = [
     './',
     './videos.html',

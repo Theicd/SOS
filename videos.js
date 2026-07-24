@@ -491,7 +491,7 @@ function wireMediaControls(root = document) {
     // לחיצה על אזור המדיה תחליף בין ניגון להפסקה ידנית (ללא כפתור)
     mediaDiv.addEventListener('click', (event) => {
       // אם לחצו על כפתור ייעודי או דילוג או זמן, לא להפעיל את הטוגל
-      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display') || event.target.closest('.videos-live-fs-btn') || event.target.closest('.videos-live-fs-close')) return;
+      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display') || event.target.closest('.videos-live-fs-btn') || event.target.closest('.videos-live-fs-close') || event.target.closest('.videos-game-fs-btn') || event.target.closest('.videos-game-fs-close') || event.target.closest('.videos-game-fs-edge') || event.target.closest('.videos-feed__game-iframe') || event.target.closest('[data-game-tap-zone]')) return;
       if (mediaDiv.dataset.state === 'playing') {
         pauseMedia(mediaDiv, { resetThumb: false, manual: true });
       } else {
@@ -551,6 +551,8 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
     });
   } else if (mediaType === 'hls-live') {
     playHlsLiveMedia(mediaDiv);
+  } else if (mediaType === 'game-embed') {
+    playGameEmbedMedia(mediaDiv);
   } else if (mediaType === 'youtube') {
     ensureYouTubeIframe(mediaDiv, { autoplay: true });
   }
@@ -579,6 +581,14 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
     const videoEl = mediaDiv.querySelector('video');
     if (videoEl) {
       videoEl.pause();
+    }
+  } else if (mediaType === 'game-embed') {
+    const App = window.NostrApp || {};
+    // עצירה רכה – שומרת פרילוד כמו ערוץ חי | HYPER CORE TECH
+    if (typeof App.softDeactivateGameMedia === 'function') {
+      App.softDeactivateGameMedia(mediaDiv);
+    } else if (typeof App.deactivateGameMedia === 'function') {
+      App.deactivateGameMedia(mediaDiv);
     }
   } else if (mediaType === 'youtube') {
     const iframe = mediaDiv.querySelector('iframe');
@@ -735,6 +745,25 @@ async function playHlsLiveMedia(mediaDiv) {
   }
 }
 
+// חלק משחק בפיד (videos.js) – טעינת iframe למשחק HTML5 | HYPER CORE TECH
+function playGameEmbedMedia(mediaDiv) {
+  if (!mediaDiv) return;
+  const App = window.NostrApp || {};
+  if (typeof App.activateGameMedia === 'function') {
+    App.activateGameMedia(mediaDiv);
+  } else {
+    const url = mediaDiv.dataset.gameUrl;
+    let iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
+    if (!iframe && url) {
+      iframe = document.createElement('iframe');
+      iframe.className = 'videos-feed__game-iframe';
+      iframe.src = url;
+      mediaDiv.insertBefore(iframe, mediaDiv.firstChild);
+    }
+  }
+  mediaDiv.classList.add('videos-feed__media--ready');
+}
+
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים לפי רשת המשתמש (authors)
 async function fetchNetworkNotes(authors = [], limit = 100, sinceOverride = undefined) {
   const app = window.NostrApp;
@@ -818,6 +847,10 @@ function sanitizeCachedVideo(video) {
   // תאימות לאחור – לינק m3u8 שנשמר כ־videoUrl הופך לערוץ חי | HYPER CORE TECH
   if (!clone.liveUrl && clone.videoUrl && isHlsLiveLink(clone.videoUrl)) {
     clone.liveUrl = clone.videoUrl;
+    clone.videoUrl = null;
+  }
+  if (!clone.gameUrl && clone.videoUrl && isPlayableGameLink(clone.videoUrl)) {
+    clone.gameUrl = clone.videoUrl;
     clone.videoUrl = null;
   }
   return clone;
@@ -1169,6 +1202,7 @@ function parseEventToVideoItem(event, currentApp) {
 
   let youtubeId = mediaLinks.map(parseYouTube).find(Boolean) || null;
   let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
+  let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
   let videoUrl = mediaLinks.find(isVideoLink) || null;
   let imageUrl = mediaLinks.find(isImageLink) || null;
   let mediaHash = '';
@@ -1183,12 +1217,14 @@ function parseEventToVideoItem(event, currentApp) {
         const tagHash = tag[3] || '';
         if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
           liveUrl = liveUrl || tagUrl;
+        } else if (mime === 'text/html' || mime.includes('html') || isPlayableGameLink(tagUrl)) {
+          gameUrl = gameUrl || tagUrl;
         } else if (mime.startsWith('video/') || isVideoLink(tagUrl)) {
           videoUrl = videoUrl || tagUrl;
           if (tagHash) mediaHash = tagHash;
         } else if (mime.startsWith('image/') || isImageLink(tagUrl)) {
           imageUrl = imageUrl || tagUrl;
-        } else if (!videoUrl && !imageUrl && !liveUrl) {
+        } else if (!videoUrl && !imageUrl && !liveUrl && !gameUrl) {
           videoUrl = tagUrl;
           if (tagHash) mediaHash = tagHash;
         }
@@ -1200,6 +1236,12 @@ function parseEventToVideoItem(event, currentApp) {
           if (httpLink) liveUrl = httpLink;
         }
       }
+      if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-embed') {
+        if (!gameUrl) {
+          const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isHlsLiveLink(l));
+          if (httpLink) gameUrl = httpLink;
+        }
+      }
       if (tag[0] === 'mirror' && tag[1]) {
         mediaMirrors.push(tag[1]);
       }
@@ -1207,15 +1249,16 @@ function parseEventToVideoItem(event, currentApp) {
   }
 
   // קישור http בלי סיומת וללא תמונה — נחשב וידאו (Blossom)
-  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl) {
+  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl && !gameUrl) {
     const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isImageLink(l));
     if (httpLink) {
       if (isHlsLiveLink(httpLink)) liveUrl = httpLink;
+      else if (isPlayableGameLink(httpLink)) gameUrl = httpLink;
       else videoUrl = httpLink;
     }
   }
 
-  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl) return null;
+  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl && !gameUrl) return null;
 
   const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
   return {
@@ -1224,7 +1267,8 @@ function parseEventToVideoItem(event, currentApp) {
     content: textLines.join(' '),
     youtubeId,
     liveUrl,
-    videoUrl: liveUrl ? null : videoUrl,
+    gameUrl,
+    videoUrl: (liveUrl || gameUrl) ? null : videoUrl,
     imageUrl,
     hash: mediaHash || '',
     mirrors: mediaMirrors,
@@ -1510,9 +1554,19 @@ function isHlsLiveLink(link) {
   return /\.m3u8(\?|#|$)/i.test(link) || /(mediatailor|amagi\.tv|\/hls\/)/i.test(link);
 }
 
+function isPlayableGameLink(link) {
+  const App = window.NostrApp || {};
+  if (typeof App.isPlayableGameUrl === 'function') return App.isPlayableGameUrl(link);
+  if (!link) return false;
+  if (!/^https:\/\//i.test(link)) return false;
+  if (/\.(mp4|webm|m3u8|jpg|png)(\?|#|$)/i.test(link)) return false;
+  return /\.github\.io\//i.test(link) || /\/(game|games|play|mobile|mobileapp)(\/|$)/i.test(link);
+}
+
 function isVideoLink(link) {
   if (!link) return false;
   if (isHlsLiveLink(link)) return false;
+  if (isPlayableGameLink(link)) return false;
   if (link.startsWith('data:video')) return true;
   if (link.startsWith('blob:')) return true;
   if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(link)) return true;
@@ -1579,7 +1633,43 @@ function renderVideoCard(video) {
   const mediaDiv = document.createElement('div');
   mediaDiv.className = 'videos-feed__media';
 
-  if (video.liveUrl) {
+  if (video.gameUrl) {
+    mediaDiv.dataset.mediaType = 'game-embed';
+    mediaDiv.dataset.gameUrl = video.gameUrl;
+    mediaDiv.classList.add('videos-feed__media--game');
+
+    const AppGame = window.NostrApp || {};
+    if (typeof AppGame.ensureGameBadge === 'function') {
+      AppGame.ensureGameBadge(mediaDiv);
+    } else {
+      const badge = document.createElement('div');
+      badge.className = 'videos-game-badge';
+      badge.innerHTML = '<i class="fa-solid fa-gamepad"></i><span class="videos-game-badge__text">PLAY GAME</span>';
+      mediaDiv.appendChild(badge);
+    }
+
+    // placeholder עד שהמשחק נטען אוטומטית (כמו ערוץ חי) | HYPER CORE TECH
+    const placeholder = document.createElement('div');
+    placeholder.className = 'videos-feed__game-placeholder';
+    placeholder.setAttribute('data-game-tap-zone', '');
+    placeholder.innerHTML = '<i class="fa-solid fa-gamepad"></i><span>טוען משחק...</span>';
+    mediaDiv.appendChild(placeholder);
+
+    if (typeof AppGame.ensureGameFullscreenControls === 'function') {
+      AppGame.ensureGameFullscreenControls(mediaDiv);
+    }
+
+    const playOverlay = document.createElement('button');
+    playOverlay.type = 'button';
+    playOverlay.className = 'videos-feed__play-overlay';
+    playOverlay.setAttribute('aria-label', 'Play game');
+    playOverlay.setAttribute('data-play-toggle', '');
+    playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+    playOverlay.style.display = 'none';
+    mediaDiv.appendChild(playOverlay);
+
+    queueMicrotask(markReady);
+  } else if (video.liveUrl) {
     mediaDiv.dataset.mediaType = 'hls-live';
     mediaDiv.dataset.liveUrl = video.liveUrl;
     mediaDiv.dataset.videoUrl = video.liveUrl;
@@ -1602,7 +1692,7 @@ function renderVideoCard(video) {
     } else {
       const badge = document.createElement('div');
       badge.className = 'videos-live-badge';
-      badge.innerHTML = '<span class="videos-live-badge__dot"></span><span class="videos-live-badge__text">LIVE</span>';
+      badge.innerHTML = '<span class="videos-live-badge__dot"></span><span class="videos-live-badge__text">LIVE IPTV</span>';
       mediaDiv.appendChild(badge);
     }
     if (typeof AppLive.setTuningVisible === 'function') {
@@ -2312,7 +2402,7 @@ function observeVideoCard(card) {
   }
 }
 
-// חלק יאללה וידאו (videos.js) – פרילוד לווידאו/תמונה/ערוץ חי של הקלף הבא | HYPER CORE TECH
+// חלק יאללה וידאו (videos.js) – פרילוד לווידאו/תמונה/ערוץ חי/משחק של הקלף הבא | HYPER CORE TECH
 function preloadNextMedia(video) {
   if (!video) return;
 
@@ -2329,6 +2419,16 @@ function preloadNextMedia(video) {
         autoplay: false,
         tuningLabel: 'מחפש ערוץ...',
       }).catch(() => {});
+    }
+    return;
+  }
+
+  if (video.gameUrl) {
+    const App = window.NostrApp || {};
+    const nextCard = document.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`);
+    const mediaDiv = nextCard && nextCard.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+    if (mediaDiv && typeof App.prepareGameMedia === 'function') {
+      App.prepareGameMedia(mediaDiv, { loadingLabel: 'טוען משחק...' });
     }
     return;
   }
@@ -2828,11 +2928,10 @@ function wireActions(root = selectors.stream) {
   // לא צריך מאזין נוסף כאן - זה יגרום ל-toggleFollow להיקרא פעמיים
 }
 
-// חלק ערוץ חי (videos.js) – חימום HLS של הכרטיס הבא/הקודם | HYPER CORE TECH
+// חלק ערוץ חי + משחק (videos.js) – חימום השכן הבא/אחריו | HYPER CORE TECH
 function prefetchNeighborLiveChannels(activeCard) {
   if (!activeCard || !activeCard.parentElement) return;
   const App = window.NostrApp || {};
-  if (typeof App.prepareLiveMedia !== 'function') return;
 
   const cards = Array.from(activeCard.parentElement.querySelectorAll('.videos-feed__card'));
   const idx = cards.indexOf(activeCard);
@@ -2840,13 +2939,29 @@ function prefetchNeighborLiveChannels(activeCard) {
 
   [cards[idx + 1], cards[idx + 2]].forEach((neighbor) => {
     if (!neighbor) return;
-    const mediaDiv = neighbor.querySelector('.videos-feed__media[data-media-type="hls-live"]');
-    if (!mediaDiv || mediaDiv.dataset.livePrepared === '1') return;
-    App.prepareLiveMedia(mediaDiv, {
-      autoplay: false,
-      tuningLabel: 'מחפש ערוץ...',
-    }).catch(() => {});
+    const liveDiv = neighbor.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+    if (liveDiv && liveDiv.dataset.livePrepared !== '1' && typeof App.prepareLiveMedia === 'function') {
+      App.prepareLiveMedia(liveDiv, {
+        autoplay: false,
+        tuningLabel: 'מחפש ערוץ...',
+      }).catch(() => {});
+    }
+    const gameDiv = neighbor.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+    if (gameDiv && typeof App.prepareGameMedia === 'function') {
+      App.prepareGameMedia(gameDiv, { loadingLabel: 'טוען משחק...' });
+    }
   });
+
+  // שחרור משחקים רחוקים – שומרים רק ±2 | HYPER CORE TECH
+  if (typeof App.deactivateGameMedia === 'function') {
+    cards.forEach((card, i) => {
+      if (Math.abs(i - idx) <= 2) return;
+      const gameDiv = card.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+      if (!gameDiv || gameDiv.dataset.gamePrepared !== '1') return;
+      if (gameDiv.classList.contains('is-game-active') || gameDiv.classList.contains('is-game-fullscreen')) return;
+      App.deactivateGameMedia(gameDiv);
+    });
+  }
 }
 
 // חלק יאללה וידאו (videos.js) – Intersection Observer פשוט לגלילה כמו טיקטוק
@@ -2871,14 +2986,18 @@ function setupIntersectionObserver() {
           playMedia(mediaDiv, { manual: false });
           prefetchNeighborLiveChannels(card);
         } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
-          // מתקרבים לכרטיס — חימום HLS ברקע | HYPER CORE TECH
+          // מתקרבים לכרטיס — חימום HLS/משחק ברקע | HYPER CORE TECH
+          const App = window.NostrApp || {};
           if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
-            const App = window.NostrApp || {};
             if (typeof App.prepareLiveMedia === 'function') {
               App.prepareLiveMedia(mediaDiv, {
                 autoplay: false,
                 tuningLabel: 'מחפש ערוץ...',
               }).catch(() => {});
+            }
+          } else if (mediaDiv.dataset.mediaType === 'game-embed') {
+            if (typeof App.prepareGameMedia === 'function') {
+              App.prepareGameMedia(mediaDiv, { loadingLabel: 'טוען משחק...' });
             }
           }
         } else {
@@ -3039,9 +3158,10 @@ function processEventsToVideos(events, currentApp) {
     
     const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
     const liveUrl = mediaLinks.find(isHlsLiveLink) || null;
+    const gameUrl = mediaLinks.find(isPlayableGameLink) || null;
     const videoUrl = mediaLinks.find(isVideoLink);
     
-    if (!videoUrl && !youtubeId && !liveUrl) return;
+    if (!videoUrl && !youtubeId && !liveUrl && !gameUrl) return;
     
     const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
     
@@ -3050,7 +3170,8 @@ function processEventsToVideos(events, currentApp) {
       pubkey: event.pubkey,
       createdAt: event.created_at || 0,
       liveUrl: liveUrl || null,
-      videoUrl: liveUrl ? null : (videoUrl || null),
+      gameUrl: gameUrl || null,
+      videoUrl: (liveUrl || gameUrl) ? null : (videoUrl || null),
       youtubeId: youtubeId || null,
       text: textLines.join('\n'),
       likes: 0,
@@ -3626,10 +3747,11 @@ async function loadVideos() {
 
     const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
     let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
+    let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
     let videoUrl = mediaLinks.find(isVideoLink);
     const imageUrl = mediaLinks.find(isImageLink);
 
-    // תגיות media / live-hls
+    // תגיות media / live-hls / game-embed
     let mediaHash = '';
     const mediaMirrors = [];
     if (Array.isArray(event.tags)) {
@@ -3641,6 +3763,8 @@ async function loadVideos() {
           const tagHash = tag[3] || '';
           if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
             liveUrl = liveUrl || tagUrl;
+          } else if (mime === 'text/html' || mime.includes('html') || isPlayableGameLink(tagUrl)) {
+            gameUrl = gameUrl || tagUrl;
           } else if (tagUrl === videoUrl && tagHash) {
             mediaHash = tagHash;
           }
@@ -3649,14 +3773,18 @@ async function loadVideos() {
           const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l));
           if (httpLink) liveUrl = liveUrl || httpLink;
         }
+        if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-embed') {
+          const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isHlsLiveLink(l));
+          if (httpLink) gameUrl = gameUrl || httpLink;
+        }
         if (tag[0] === 'mirror' && tag[1]) {
           mediaMirrors.push(tag[1]);
         }
       });
     }
 
-    if (liveUrl) videoUrl = null;
-    const hasMedia = liveUrl || videoUrl || imageUrl || youtubeId;
+    if (liveUrl || gameUrl) videoUrl = null;
+    const hasMedia = liveUrl || gameUrl || videoUrl || imageUrl || youtubeId;
 
     if (hasMedia) {
       registerVideoSourceEvent(event);
@@ -3667,7 +3795,8 @@ async function loadVideos() {
         content: textLines.join(' '),
         youtubeId: youtubeId || null,
         liveUrl: liveUrl || null,
-        videoUrl: liveUrl ? null : (videoUrl || null),
+        gameUrl: gameUrl || null,
+        videoUrl: (liveUrl || gameUrl) ? null : (videoUrl || null),
         imageUrl: imageUrl || null,
         hash: mediaHash || '',
         mirrors: mediaMirrors,

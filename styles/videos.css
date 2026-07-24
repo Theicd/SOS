@@ -1025,10 +1025,11 @@ body:has(.videos-feed) #moreOptionsToggle {
   background: #fe2c55;
   color: #fff;
   font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   line-height: 1;
+  white-space: nowrap;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
@@ -1239,6 +1240,250 @@ body.live-channel-fullscreen .videos-nav,
 body.live-channel-fullscreen .bottom-nav,
 body.live-channel-fullscreen .videos-feed__actions {
   visibility: hidden;
+}
+
+/* חלק משחק בפיד (videos.css) – באדג' PLAY GAME + iframe | HYPER CORE TECH */
+.videos-game-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 6px;
+  background: #12b76a;
+  color: #fff;
+  font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.videos-game-badge i {
+  font-size: 12px;
+}
+
+.videos-feed__media--game {
+  background: #0b1220;
+  touch-action: none;
+}
+
+.videos-feed__game-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(18, 183, 106, 0.25), transparent 45%),
+    radial-gradient(circle at 70% 80%, rgba(56, 120, 255, 0.2), transparent 40%),
+    #0b1220;
+  pointer-events: none;
+}
+
+.videos-feed__game-placeholder[hidden] {
+  display: none !important;
+}
+
+.videos-feed__game-placeholder i {
+  font-size: 42px;
+  opacity: 0.9;
+}
+
+.videos-feed__game-placeholder span {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.videos-feed__game-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+  z-index: 8;
+  pointer-events: auto;
+}
+
+.videos-feed__media.is-game-active .videos-feed__play-overlay {
+  display: none !important;
+}
+
+/* כפתור מסך מלא למשחק – כמו ערוץ חי | HYPER CORE TECH */
+.videos-game-fs-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 18px;
+  z-index: 45;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.videos-game-fs-btn:active {
+  transform: scale(0.94);
+}
+
+.videos-game-fs-btn[hidden] {
+  display: none !important;
+}
+
+.videos-game-fs-close {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.28s ease, visibility 0.28s ease, transform 0.28s ease;
+}
+
+.videos-game-fs-close[hidden] {
+  display: none !important;
+}
+
+.videos-game-fs-close.is-fs-chrome-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-6px);
+}
+
+/* רצועה עליונה להצגת כפתור סגירה במסך מלא (iframe חוסם קליקים) */
+.videos-game-fs-edge {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: max(56px, calc(env(safe-area-inset-top, 0px) + 44px));
+  z-index: 55;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.videos-feed__media.is-game-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  z-index: 10000 !important;
+  background: #000;
+  border-radius: 0 !important;
+}
+
+.videos-feed__media.is-game-fullscreen .videos-feed__game-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.videos-feed__media.is-game-fullscreen .videos-game-fs-close {
+  display: grid !important;
+}
+
+.videos-feed__media.is-game-fullscreen .videos-game-fs-btn {
+  display: none !important;
+}
+
+.videos-feed__media.is-game-fullscreen .videos-game-fs-edge {
+  display: block;
+}
+
+.videos-feed__media.is-game-fullscreen .videos-game-badge,
+.videos-feed__media.is-game-fullscreen .videos-feed__game-placeholder,
+.videos-feed__media.is-game-fullscreen .videos-feed__play-overlay {
+  display: none !important;
+}
+
+body.game-embed-fullscreen {
+  overflow: hidden;
+}
+
+body.game-embed-fullscreen .videos-nav,
+body.game-embed-fullscreen .bottom-nav,
+body.game-embed-fullscreen .videos-feed__actions {
+  visibility: hidden;
+}
+
+.compose-game-preview {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(12, 24, 18, 0.96), rgba(10, 28, 40, 0.96));
+  border: 1px solid rgba(18, 183, 106, 0.45);
+  color: #fff;
+  text-align: right;
+}
+
+.compose-game-preview__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #12b76a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.compose-game-preview__title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.compose-game-preview__url {
+  font-size: 11px;
+  opacity: 0.7;
+  word-break: break-all;
+  direction: ltr;
+  text-align: left;
+  margin: 6px 0;
+}
+
+.compose-game-preview__hint {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.compose-media-preview:has(.compose-game-preview) img,
+.compose-media-preview:has(.compose-game-preview) video {
+  display: none;
 }
 
 /* תצוגה מקדימה בקומפוז לערוץ חי */
