@@ -1,10 +1,12 @@
-// חלק משחק בפיד (game-embed.js) – זיהוי, פרילוד, מסך מלא והטמעת HTML5 | HYPER CORE TECH
+// חלק משחק בפיד (game-embed.js) – זיהוי, סקייל למסגרת, מסך מלא | HYPER CORE TECH
 (function initGameEmbed(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
   const GAME_HOST_RE = /(github\.io|itch\.io|gamh5\.com|krunker\.io|famobi\.com|poki\.com|crazygames\.com|gamedistribution\.com|html5games|newgrounds\.com)/i;
   const GAME_PATH_RE = /\/(game|games|play|mobile|mobileapp|arcade|html5|full)(\/|$)/i;
   const MEDIA_EXT_RE = /\.(mp4|webm|ogg|mov|m4v|m3u8|jpg|jpeg|png|gif|webp|svg|pdf)(\?|#|$)/i;
+  const DEFAULT_GAME_W = 960;
+  const DEFAULT_GAME_H = 540;
 
   function isPlayableGameUrl(url) {
     if (!url || typeof url !== 'string') return false;
@@ -30,16 +32,10 @@
     return '';
   }
 
-  function ensureGameBadge(mediaDiv) {
-    if (!mediaDiv) return null;
-    let badge = mediaDiv.querySelector('.videos-game-badge');
-    if (badge) return badge;
-    badge = document.createElement('div');
-    badge.className = 'videos-game-badge';
-    badge.setAttribute('aria-label', 'HTML5 game');
-    badge.innerHTML = '<i class="fa-solid fa-gamepad" aria-hidden="true"></i><span class="videos-game-badge__text">PLAY GAME</span>';
-    mediaDiv.appendChild(badge);
-    return badge;
+  // מסיר באדג' ישן אם קיים – לא מציגים PLAY GAME בפיד | HYPER CORE TECH
+  function removeGameBadge(mediaDiv) {
+    if (!mediaDiv) return;
+    mediaDiv.querySelectorAll('.videos-game-badge').forEach((el) => el.remove());
   }
 
   function setGamePlaceholder(mediaDiv, text) {
@@ -57,12 +53,96 @@
     return placeholder;
   }
 
+  function detectNativeGameSize(iframe) {
+    let w = DEFAULT_GAME_W;
+    let h = DEFAULT_GAME_H;
+    try {
+      const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+      if (doc) {
+        const canvas = doc.querySelector('canvas');
+        if (canvas) {
+          const cw = canvas.width || canvas.clientWidth || 0;
+          const ch = canvas.height || canvas.clientHeight || 0;
+          if (cw > 80 && ch > 80) {
+            w = cw;
+            h = ch;
+          }
+        } else {
+          const root = doc.documentElement;
+          const body = doc.body;
+          const iw = Math.max(root?.clientWidth || 0, body?.clientWidth || 0, iframe.contentWindow?.innerWidth || 0);
+          const ih = Math.max(root?.clientHeight || 0, body?.clientHeight || 0, iframe.contentWindow?.innerHeight || 0);
+          if (iw > 80 && ih > 80) {
+            w = iw;
+            h = ih;
+          }
+        }
+      }
+    } catch (_) {
+      // cross-origin – נשארים עם ברירת מחדל landscape
+    }
+    return { w, h };
+  }
+
+  function fitGameStage(mediaDiv) {
+    if (!mediaDiv) return;
+    const stage = mediaDiv.querySelector('.videos-feed__game-stage');
+    const scaler = mediaDiv.querySelector('.videos-feed__game-scaler');
+    const iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
+    if (!stage || !scaler || !iframe) return;
+
+    const cw = stage.clientWidth || mediaDiv.clientWidth || 1;
+    const ch = stage.clientHeight || mediaDiv.clientHeight || 1;
+    const gw = Number(scaler.dataset.gameW) || DEFAULT_GAME_W;
+    const gh = Number(scaler.dataset.gameH) || DEFAULT_GAME_H;
+    if (gw < 1 || gh < 1 || cw < 1 || ch < 1) return;
+
+    const scale = Math.min(cw / gw, ch / gh);
+    scaler.style.width = `${gw}px`;
+    scaler.style.height = `${gh}px`;
+    scaler.style.transform = `scale(${scale})`;
+  }
+
+  function bindStageResize(mediaDiv, stage) {
+    if (!mediaDiv || !stage) return;
+    if (mediaDiv._gameResizeObserver) {
+      try {
+        mediaDiv._gameResizeObserver.disconnect();
+      } catch (_) {}
+    }
+    if (typeof ResizeObserver === 'function') {
+      const ro = new ResizeObserver(() => fitGameStage(mediaDiv));
+      ro.observe(stage);
+      mediaDiv._gameResizeObserver = ro;
+    }
+  }
+
+  function ensureGameStage(mediaDiv) {
+    let stage = mediaDiv.querySelector('.videos-feed__game-stage');
+    if (!stage) {
+      stage = document.createElement('div');
+      stage.className = 'videos-feed__game-stage';
+      mediaDiv.insertBefore(stage, mediaDiv.firstChild);
+    }
+    let scaler = stage.querySelector('.videos-feed__game-scaler');
+    if (!scaler) {
+      scaler = document.createElement('div');
+      scaler.className = 'videos-feed__game-scaler';
+      scaler.dataset.gameW = String(DEFAULT_GAME_W);
+      scaler.dataset.gameH = String(DEFAULT_GAME_H);
+      stage.appendChild(scaler);
+    }
+    bindStageResize(mediaDiv, stage);
+    return { stage, scaler };
+  }
+
   function ensureGameFrame(mediaDiv, url, options = {}) {
     if (!mediaDiv || !url) return null;
-    ensureGameBadge(mediaDiv);
+    removeGameBadge(mediaDiv);
     ensureGameFullscreenControls(mediaDiv);
 
-    let iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
+    const { scaler } = ensureGameStage(mediaDiv);
+    let iframe = scaler.querySelector('iframe.videos-feed__game-iframe');
     if (!iframe) {
       iframe = document.createElement('iframe');
       iframe.className = 'videos-feed__game-iframe';
@@ -77,13 +157,23 @@
         'allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-forms allow-modals'
       );
       iframe.referrerPolicy = 'no-referrer-when-downgrade';
-      mediaDiv.insertBefore(iframe, mediaDiv.firstChild);
+      scaler.appendChild(iframe);
       iframe.addEventListener('load', () => {
-        if (iframe.dataset.loadedUrl) {
-          mediaDiv.dataset.gamePrepared = '1';
-          const ph = mediaDiv.querySelector('.videos-feed__game-placeholder');
-          if (ph && mediaDiv.classList.contains('is-game-active')) ph.hidden = true;
-        }
+        if (!iframe.dataset.loadedUrl) return;
+        mediaDiv.dataset.gamePrepared = '1';
+        const size = detectNativeGameSize(iframe);
+        scaler.dataset.gameW = String(size.w);
+        scaler.dataset.gameH = String(size.h);
+        fitGameStage(mediaDiv);
+        // ניסיון שני אחרי שהמשחק מסיים init | HYPER CORE TECH
+        setTimeout(() => {
+          const again = detectNativeGameSize(iframe);
+          scaler.dataset.gameW = String(again.w);
+          scaler.dataset.gameH = String(again.h);
+          fitGameStage(mediaDiv);
+        }, 400);
+        const ph = mediaDiv.querySelector('.videos-feed__game-placeholder');
+        if (ph && mediaDiv.classList.contains('is-game-active')) ph.hidden = true;
       });
     }
 
@@ -92,6 +182,8 @@
       iframe.src = url;
       iframe.dataset.loadedUrl = url;
     }
+
+    requestAnimationFrame(() => fitGameStage(mediaDiv));
     return iframe;
   }
 
@@ -100,21 +192,30 @@
     if (mediaDiv.classList.contains('is-game-fullscreen')) {
       exitGameFullscreen(mediaDiv);
     }
+    if (mediaDiv._gameResizeObserver) {
+      try {
+        mediaDiv._gameResizeObserver.disconnect();
+      } catch (_) {}
+      mediaDiv._gameResizeObserver = null;
+    }
     const iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
-    if (!iframe) return;
-    try {
-      iframe.src = 'about:blank';
-    } catch (_) {}
-    delete iframe.dataset.loadedUrl;
+    if (iframe) {
+      try {
+        iframe.src = 'about:blank';
+      } catch (_) {}
+      delete iframe.dataset.loadedUrl;
+    }
+    const stage = mediaDiv.querySelector('.videos-feed__game-stage');
+    if (stage) stage.remove();
     mediaDiv.dataset.gamePrepared = '0';
   }
 
-  // חימום מראש – כמו ערוץ חי | HYPER CORE TECH
   function prepareGameMedia(mediaDiv, options = {}) {
     if (!mediaDiv) return;
     const url = mediaDiv.dataset.gameUrl || '';
     if (!url) return;
     if (mediaDiv.dataset.gamePrepared === '1' && mediaDiv.querySelector('iframe.videos-feed__game-iframe')) {
+      fitGameStage(mediaDiv);
       return;
     }
     ensureGameFrame(mediaDiv, url, {
@@ -141,9 +242,9 @@
     const overlay = mediaDiv.querySelector('[data-play-toggle]');
     if (overlay) overlay.style.display = 'none';
     ensureGameFullscreenControls(mediaDiv);
+    requestAnimationFrame(() => fitGameStage(mediaDiv));
   }
 
-  // עצירה רכה – שומרת iframe חם כמו ערוץ חי | HYPER CORE TECH
   function softDeactivateGameMedia(mediaDiv) {
     if (!mediaDiv) return;
     if (mediaDiv.classList.contains('is-game-fullscreen')) {
@@ -217,7 +318,6 @@
     });
     mediaDiv.appendChild(closeBtn);
 
-    // רצועת מגע עליונה – iframe חוצה-מקור לא מעביר קליקים להורה | HYPER CORE TECH
     let edge = mediaDiv.querySelector('.videos-game-fs-edge');
     if (!edge) {
       edge = document.createElement('div');
@@ -239,7 +339,6 @@
     if (!mediaDiv) return;
     const existing = document.querySelector('.videos-feed__media.is-game-fullscreen');
     if (existing && existing !== mediaDiv) exitGameFullscreen(existing);
-    // גם לצאת ממסך מלא של ערוץ חי אם פתוח
     if (typeof App.exitLiveFullscreen === 'function') {
       const liveFs = document.querySelector('.videos-feed__media.is-live-fullscreen');
       if (liveFs) App.exitLiveFullscreen(liveFs);
@@ -252,10 +351,25 @@
     if (fsBtn) fsBtn.hidden = true;
     showGameFsChrome(mediaDiv);
 
+    const afterLayout = () => {
+      fitGameStage(mediaDiv);
+      requestAnimationFrame(() => fitGameStage(mediaDiv));
+    };
+
     try {
-      if (mediaDiv.requestFullscreen) mediaDiv.requestFullscreen().catch(() => {});
-      else if (mediaDiv.webkitRequestFullscreen) mediaDiv.webkitRequestFullscreen();
-    } catch (_) {}
+      const req = mediaDiv.requestFullscreen
+        ? mediaDiv.requestFullscreen()
+        : (mediaDiv.webkitRequestFullscreen ? Promise.resolve(mediaDiv.webkitRequestFullscreen()) : null);
+      if (req && typeof req.then === 'function') {
+        req.then(afterLayout).catch(afterLayout);
+      } else {
+        afterLayout();
+      }
+    } catch (_) {
+      afterLayout();
+    }
+    setTimeout(afterLayout, 50);
+    setTimeout(afterLayout, 250);
   }
 
   function exitGameFullscreen(mediaDiv) {
@@ -281,6 +395,8 @@
         document.webkitExitFullscreen();
       }
     } catch (_) {}
+
+    requestAnimationFrame(() => fitGameStage(mediaDiv));
   }
 
   document.addEventListener('fullscreenchange', () => {
@@ -295,9 +411,17 @@
           closeBtn.classList.remove('is-fs-chrome-hidden');
         }
         if (fsBtn) fsBtn.hidden = false;
+        requestAnimationFrame(() => fitGameStage(el));
       });
       document.body.classList.remove('game-embed-fullscreen');
+    } else if (document.fullscreenElement.classList?.contains('videos-feed__media--game')
+      || document.fullscreenElement.classList?.contains('is-game-fullscreen')) {
+      fitGameStage(document.fullscreenElement);
     }
+  });
+
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.videos-feed__media--game').forEach((el) => fitGameStage(el));
   });
 
   document.addEventListener('keydown', (e) => {
@@ -311,7 +435,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'compose-game-preview';
     wrap.innerHTML = [
-      '<div class="compose-game-preview__badge"><i class="fa-solid fa-gamepad"></i> PLAY GAME</div>',
+      '<div class="compose-game-preview__badge"><i class="fa-solid fa-gamepad"></i> משחק</div>',
       '<div class="compose-game-preview__title">משחק HTML5 מזוהה</div>',
       '<div class="compose-game-preview__url"></div>',
       '<div class="compose-game-preview__hint">יפורסם כפוסט שניתן לשחק מתוך הפיד</div>',
@@ -324,8 +448,9 @@
   Object.assign(App, {
     isPlayableGameUrl,
     extractGameUrlFromText,
-    ensureGameBadge,
+    removeGameBadge,
     ensureGameFrame,
+    fitGameStage,
     prepareGameMedia,
     unloadGameFrame,
     activateGameMedia,
@@ -340,6 +465,7 @@
   window.SosGameEmbed = {
     isPlayableGameUrl,
     extractGameUrlFromText,
+    fitGameStage,
     prepareGameMedia,
     activateGameMedia,
     softDeactivateGameMedia,

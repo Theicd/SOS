@@ -491,7 +491,7 @@ function wireMediaControls(root = document) {
     // לחיצה על אזור המדיה תחליף בין ניגון להפסקה ידנית (ללא כפתור)
     mediaDiv.addEventListener('click', (event) => {
       // אם לחצו על כפתור ייעודי או דילוג או זמן, לא להפעיל את הטוגל
-      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display') || event.target.closest('.videos-live-fs-btn') || event.target.closest('.videos-live-fs-close') || event.target.closest('.videos-game-fs-btn') || event.target.closest('.videos-game-fs-close') || event.target.closest('.videos-game-fs-edge') || event.target.closest('.videos-feed__game-iframe') || event.target.closest('[data-game-tap-zone]')) return;
+      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display') || event.target.closest('.videos-live-fs-btn') || event.target.closest('.videos-live-fs-close') || event.target.closest('.videos-game-fs-btn') || event.target.closest('.videos-game-fs-close') || event.target.closest('.videos-game-fs-edge') || event.target.closest('.videos-feed__game-stage') || event.target.closest('.videos-feed__game-iframe') || event.target.closest('[data-game-tap-zone]')) return;
       if (mediaDiv.dataset.state === 'playing') {
         pauseMedia(mediaDiv, { resetThumb: false, manual: true });
       } else {
@@ -1639,13 +1639,8 @@ function renderVideoCard(video) {
     mediaDiv.classList.add('videos-feed__media--game');
 
     const AppGame = window.NostrApp || {};
-    if (typeof AppGame.ensureGameBadge === 'function') {
-      AppGame.ensureGameBadge(mediaDiv);
-    } else {
-      const badge = document.createElement('div');
-      badge.className = 'videos-game-badge';
-      badge.innerHTML = '<i class="fa-solid fa-gamepad"></i><span class="videos-game-badge__text">PLAY GAME</span>';
-      mediaDiv.appendChild(badge);
+    if (typeof AppGame.removeGameBadge === 'function') {
+      AppGame.removeGameBadge(mediaDiv);
     }
 
     // placeholder עד שהמשחק נטען אוטומטית (כמו ערוץ חי) | HYPER CORE TECH

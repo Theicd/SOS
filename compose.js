@@ -1339,7 +1339,7 @@
     container.classList.add('is-visible');
     container.removeAttribute('hidden');
     setStatus(
-      liveUrl ? 'זוהה ערוץ חי — יפורסם עם תג LIVE IPTV' : 'זוהה משחק — יפורסם עם תג PLAY GAME',
+      liveUrl ? 'זוהה ערוץ חי — יפורסם עם תג LIVE IPTV' : 'זוהה משחק — יפורסם כפוסט משחק בפיד',
       'success'
     );
   }
