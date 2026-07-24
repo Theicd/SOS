@@ -45,6 +45,100 @@
     }
   }
 
+  function setGameInteractive(mediaDiv, enabled) {
+    if (!mediaDiv) return;
+    if (enabled) {
+      mediaDiv.classList.add('is-game-interactive');
+    } else {
+      mediaDiv.classList.remove('is-game-interactive');
+    }
+  }
+
+  function exitAllGameInteractive() {
+    document.querySelectorAll('.videos-feed__media--game.is-game-interactive').forEach((el) => {
+      if (el.classList.contains('is-game-fullscreen')) return;
+      setGameInteractive(el, false);
+    });
+  }
+
+  function bindFeedScrollExit() {
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (!viewport || viewport._gameScrollExitBound) return;
+    viewport._gameScrollExitBound = true;
+    let lastTop = viewport.scrollTop;
+    viewport.addEventListener('scroll', () => {
+      if (Math.abs(viewport.scrollTop - lastTop) < 6) return;
+      lastTop = viewport.scrollTop;
+      exitAllGameInteractive();
+    }, { passive: true });
+  }
+
+  // שכבת מגן – במובייל מאפשרת גלילה; הקשה קצרה מפעילה משחק | HYPER CORE TECH
+  function ensureGameScrollShield(mediaDiv) {
+    if (!mediaDiv) return;
+    bindFeedScrollExit();
+
+    let shield = mediaDiv.querySelector('.videos-feed__game-scroll-shield');
+    if (!shield) {
+      shield = document.createElement('div');
+      shield.className = 'videos-feed__game-scroll-shield';
+      shield.setAttribute('aria-label', 'החלק לגלילה, הקש לשחק');
+      shield.innerHTML = '<span class="videos-feed__game-scroll-hint">החלק לגלילה · הקש לשחק</span>';
+      mediaDiv.appendChild(shield);
+
+      let startX = 0;
+      let startY = 0;
+      let moved = false;
+
+      shield.addEventListener('touchstart', (e) => {
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        startX = t.clientX;
+        startY = t.clientY;
+        moved = false;
+      }, { passive: true });
+
+      shield.addEventListener('touchmove', (e) => {
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) {
+          moved = true;
+        }
+      }, { passive: true });
+
+      shield.addEventListener('touchend', () => {
+        if (!moved) setGameInteractive(mediaDiv, true);
+      }, { passive: true });
+
+      // קליק דסקטופ – לא חוסמים גלגלת עכבר
+      shield.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setGameInteractive(mediaDiv, true);
+      });
+    }
+
+    // רצועות קצה לגלילה גם במצב משחק פעיל | HYPER CORE TECH
+    if (!mediaDiv.querySelector('.videos-feed__game-scroll-lane--top')) {
+      const topLane = document.createElement('div');
+      topLane.className = 'videos-feed__game-scroll-lane videos-feed__game-scroll-lane--top';
+      topLane.setAttribute('aria-hidden', 'true');
+      const bottomLane = document.createElement('div');
+      bottomLane.className = 'videos-feed__game-scroll-lane videos-feed__game-scroll-lane--bottom';
+      bottomLane.setAttribute('aria-hidden', 'true');
+      const exitInteractive = () => setGameInteractive(mediaDiv, false);
+      topLane.addEventListener('touchstart', exitInteractive, { passive: true });
+      bottomLane.addEventListener('touchstart', exitInteractive, { passive: true });
+      mediaDiv.appendChild(topLane);
+      mediaDiv.appendChild(bottomLane);
+    }
+
+    // ברירת מחדל במובייל: לא אינטראקטיבי כדי לא לחסום גלילה
+    if (!mediaDiv.classList.contains('is-game-fullscreen')) {
+      setGameInteractive(mediaDiv, false);
+    }
+  }
+
   function setGamePlaceholder(mediaDiv, text) {
     let placeholder = mediaDiv.querySelector('.videos-feed__game-placeholder');
     if (!placeholder) {
@@ -118,6 +212,7 @@
     removeGameBadge(mediaDiv);
     hideGamePlayOverlay(mediaDiv);
     ensureGameFullscreenControls(mediaDiv);
+    ensureGameScrollShield(mediaDiv);
 
     const stage = ensureGameStage(mediaDiv);
     let iframe = stage.querySelector('iframe.videos-feed__game-iframe');
@@ -163,6 +258,7 @@
     if (mediaDiv.classList.contains('is-game-fullscreen')) {
       exitGameFullscreen(mediaDiv);
     }
+    setGameInteractive(mediaDiv, false);
     if (mediaDiv._gameResizeObserver) {
       try {
         mediaDiv._gameResizeObserver.disconnect();
@@ -178,6 +274,9 @@
     }
     const stage = mediaDiv.querySelector('.videos-feed__game-stage');
     if (stage) stage.remove();
+    mediaDiv.querySelectorAll(
+      '.videos-feed__game-scroll-shield, .videos-feed__game-scroll-lane'
+    ).forEach((el) => el.remove());
     mediaDiv.dataset.gamePrepared = '0';
   }
 
@@ -213,6 +312,8 @@
     }
     hideGamePlayOverlay(mediaDiv);
     ensureGameFullscreenControls(mediaDiv);
+    ensureGameScrollShield(mediaDiv);
+    // לא מפעילים interactive אוטומטית – כדי לא לחסום גלילה במובייל
     requestAnimationFrame(() => nudgeGameResize(iframe));
   }
 
@@ -222,6 +323,7 @@
       exitGameFullscreen(mediaDiv);
     }
     mediaDiv.classList.remove('is-game-active');
+    setGameInteractive(mediaDiv, false);
     hideGamePlayOverlay(mediaDiv);
   }
 
@@ -316,6 +418,7 @@
 
     activateGameMedia(mediaDiv);
     mediaDiv.classList.add('is-game-fullscreen');
+    setGameInteractive(mediaDiv, true);
     document.body.classList.add('game-embed-fullscreen');
     const fsBtn = mediaDiv.querySelector('.videos-game-fs-btn');
     if (fsBtn) fsBtn.hidden = true;
@@ -349,6 +452,7 @@
     }
     clearFsChromeTimer(mediaDiv);
     mediaDiv.classList.remove('is-game-fullscreen', 'is-fs-chrome-visible');
+    setGameInteractive(mediaDiv, false);
     document.body.classList.remove('game-embed-fullscreen');
     const closeBtn = mediaDiv.querySelector('.videos-game-fs-close');
     const fsBtn = mediaDiv.querySelector('.videos-game-fs-btn');
@@ -376,6 +480,7 @@
       document.querySelectorAll('.videos-feed__media.is-game-fullscreen').forEach((el) => {
         clearFsChromeTimer(el);
         el.classList.remove('is-game-fullscreen', 'is-fs-chrome-visible');
+        setGameInteractive(el, false);
         const closeBtn = el.querySelector('.videos-game-fs-close');
         const fsBtn = el.querySelector('.videos-game-fs-btn');
         if (closeBtn) {
@@ -431,6 +536,8 @@
     activateGameMedia,
     softDeactivateGameMedia,
     deactivateGameMedia,
+    setGameInteractive,
+    ensureGameScrollShield,
     ensureGameFullscreenControls,
     enterGameFullscreen,
     exitGameFullscreen,
@@ -444,6 +551,7 @@
     activateGameMedia,
     softDeactivateGameMedia,
     deactivateGameMedia,
+    setGameInteractive,
     enterGameFullscreen,
     exitGameFullscreen,
     buildComposeGamePreview,

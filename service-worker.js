@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v66'; // bump - game fills post (no fake 960x540 scale)
+  const CACHE_NAME = 'sos-cache-v67'; // bump - mobile scroll shield over game iframe
   const PRECACHE_URLS = [
     './',
     './videos.html',

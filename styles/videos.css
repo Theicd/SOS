@@ -1249,7 +1249,7 @@ body.live-channel-fullscreen .videos-feed__actions {
 
 .videos-feed__media--game {
   background: #000;
-  touch-action: none;
+  touch-action: pan-y;
   overflow: hidden;
 }
 
@@ -1261,7 +1261,93 @@ body.live-channel-fullscreen .videos-feed__actions {
   height: 100%;
   overflow: hidden;
   background: #000;
+  pointer-events: none;
+}
+
+.videos-feed__media--game.is-game-interactive .videos-feed__game-stage,
+.videos-feed__media--game.is-game-fullscreen .videos-feed__game-stage {
   pointer-events: auto;
+}
+
+/* שכבה שקופה מעל המשחק – מאפשרת גלילת מגע במובייל | HYPER CORE TECH */
+.videos-feed__game-scroll-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  display: none;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.videos-feed__game-scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.videos-feed__game-scroll-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 19;
+  display: none;
+  touch-action: pan-y;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.videos-feed__game-scroll-lane--top {
+  top: 0;
+}
+
+.videos-feed__game-scroll-lane--bottom {
+  bottom: 0;
+}
+
+/* במובייל/מסך מגע: מגן גלילה עד שהמשתמש מקליק לשחק | HYPER CORE TECH */
+@media (hover: none), (pointer: coarse) {
+  .videos-feed__media--game:not(.is-game-interactive):not(.is-game-fullscreen) .videos-feed__game-scroll-shield {
+    display: block;
+  }
+
+  .videos-feed__media--game:not(.is-game-interactive):not(.is-game-fullscreen) .videos-feed__game-iframe,
+  .videos-feed__media--game:not(.is-game-interactive):not(.is-game-fullscreen) .videos-feed__game-stage {
+    pointer-events: none !important;
+  }
+
+  .videos-feed__media--game.is-game-interactive:not(.is-game-fullscreen) .videos-feed__game-scroll-lane {
+    display: block;
+  }
+
+  .videos-feed__media--game.is-game-interactive .videos-feed__game-scroll-shield,
+  .videos-feed__media--game.is-game-fullscreen .videos-feed__game-scroll-shield {
+    display: none !important;
+  }
+}
+
+/* דסקטופ עם עכבר: בלי מגן – גלגלת עובדת, משחק קליקבילי | HYPER CORE TECH */
+@media (hover: hover) and (pointer: fine) {
+  .videos-feed__game-scroll-shield,
+  .videos-feed__game-scroll-lane {
+    display: none !important;
+  }
+
+  .videos-feed__media--game .videos-feed__game-stage,
+  .videos-feed__media--game .videos-feed__game-iframe {
+    pointer-events: auto !important;
+  }
 }
 
 .videos-feed__game-placeholder {
@@ -1332,7 +1418,7 @@ body.global-stop .videos-feed__media[data-media-type="game-embed"] .videos-feed_
   position: absolute;
   right: 14px;
   bottom: 18px;
-  z-index: 45;
+  z-index: 46;
   width: 42px;
   height: 42px;
   border: none;
