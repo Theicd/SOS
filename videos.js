@@ -1042,70 +1042,20 @@ function hideCardUntilMediaReady(card) {
   card.style.display = 'none';
 }
 
-// חלק תאימות מכשירים (videos.js) – הצגת placeholder במקום מחיקת כרטיסיה כשהמדיה נכשלת | HYPER CORE TECH
+// חלק תאימות מכשירים (videos.js) – פוסטים שנכשלו לא מוצגים בפיד (רק מדיה מוכנה) | HYPER CORE TECH
 function handleCardMediaFailure(card, videoId, error) {
   if (error) {
-    console.warn('[videos] media failed', { videoId, error: error?.message || error });
+    console.warn('[videos] media failed – skipping card', { videoId, error: error?.message || error });
   }
-  
-  // במקום למחוק את הכרטיסיה, נציג placeholder עם אפשרות לנסות שוב
   if (card) {
-    const mediaDiv = card.querySelector('.videos-feed__media');
-    if (mediaDiv) {
-      // הסרת אלמנט הווידאו הכושל
-      const videoEl = mediaDiv.querySelector('video');
-      if (videoEl) videoEl.remove();
-      
-      // הוספת placeholder
-      const placeholder = document.createElement('div');
-      placeholder.className = 'videos-feed__media-placeholder';
-      placeholder.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.6);text-align:center;padding:20px;">
-          <i class="fa-solid fa-video-slash" style="font-size:48px;margin-bottom:16px;opacity:0.5;"></i>
-          <p style="margin:0 0 12px 0;font-size:14px;">לא ניתן לטעון את הסרטון</p>
-          <button class="videos-feed__retry-btn" style="padding:8px 16px;border-radius:20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-size:13px;">
-            <i class="fa-solid fa-rotate-right" style="margin-left:6px;"></i>
-            נסה שוב
-          </button>
-        </div>
-      `;
-      mediaDiv.appendChild(placeholder);
-      
-      // כפתור נסה שוב - טעינה מחדש של הוידאו בלבד ללא רענון הדף | HYPER CORE TECH
-      const retryBtn = placeholder.querySelector('.videos-feed__retry-btn');
-      if (retryBtn) {
-        retryBtn.addEventListener('click', () => {
-          // הסרת ה-placeholder וניסיון טעינה מחדש של הוידאו
-          placeholder.remove();
-          const videoUrl = mediaDiv.dataset.videoUrl;
-          if (videoUrl) {
-            const newVideo = document.createElement('video');
-            newVideo.controls = false;
-            newVideo.muted = false;
-            newVideo.loop = true;
-            newVideo.playsInline = true;
-            newVideo.autoplay = false;
-            newVideo.setAttribute('playsinline', 'true');
-            newVideo.setAttribute('webkit-playsinline', 'true');
-            newVideo.preload = 'auto';
-            newVideo.className = 'videos-feed__media-video';
-            newVideo.src = videoUrl;
-            newVideo.load();
-            mediaDiv.insertBefore(newVideo, mediaDiv.firstChild);
-            newVideo.addEventListener('error', () => {
-              handleCardMediaFailure(card, videoId, new Error('retry failed'));
-            }, { once: true });
-            console.log('[videos] Retrying video load:', videoId);
-          } else {
-            // אין URL - טעינת פוסטים חדשים ברקע
-            loadVideos().catch(err => console.warn('[videos] Retry loadVideos failed', err));
-          }
-        });
-      }
-      
-      // סימון הכרטיסיה כמוכנה כדי שתוצג
-      markCardMediaReady(card);
+    if (card.isConnected) {
+      card.remove();
     }
+    card.dataset.mediaReady = 'failed';
+  }
+  // אם אין כרטיסים מוכנים בכלל – לא להשאיר את מסך הטעינה לנצח
+  if (selectors.stream && !selectors.stream.querySelector('.videos-feed__card[data-media-ready="ready"]')) {
+    // נשארים על אנימציית הטעינה עד שפוסט אחר מצליח / timeout ב-init
   }
 }
 
@@ -1118,7 +1068,7 @@ function mountCard(card, { prepend = false, videoId = null } = {}) {
     return;
   }
 
-  // הכנסה לפי סדר createdAt ב-state.videos – לא לפי מי שסיים לטעון קודם | HYPER CORE TECH
+  // הכנסה לפי סדר createdAt ב-state.videos – בין כרטיסים שכבר מוכנים | HYPER CORE TECH
   const id = videoId || card.getAttribute('data-event-id');
   if (!prepend && id && Array.isArray(state.videos) && state.videos.length) {
     const index = state.videos.findIndex((v) => v.id === id);
@@ -1138,7 +1088,23 @@ function mountCard(card, { prepend = false, videoId = null } = {}) {
       selectors.stream.appendChild(card);
     }
   } else if (prepend) {
-    selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
+    // prepend: לפי סדר הזמן גם בראש – לא תמיד firstChild אם יש חדשים יותר
+    if (id && Array.isArray(state.videos) && state.videos.length) {
+      const index = state.videos.findIndex((v) => v.id === id);
+      let insertBefore = selectors.stream.firstChild;
+      if (index >= 0) {
+        for (let i = index + 1; i < state.videos.length; i += 1) {
+          const next = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${state.videos[i].id}"]`);
+          if (next) {
+            insertBefore = next;
+            break;
+          }
+        }
+      }
+      selectors.stream.insertBefore(card, insertBefore || null);
+    } else {
+      selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
+    }
   } else {
     selectors.stream.appendChild(card);
   }
@@ -1177,11 +1143,22 @@ function prependVideoCard(video, { forceShow = false } = {}) {
   }
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  // תמיד מציגים לפי סדר הזמן – מדיה ממשיכה להיטען ברקע | HYPER CORE TECH
-  mountCard(card, { prepend: true, videoId: video.id });
-  markCardMediaReady(card);
-  mediaReadyPromise.catch((err) => handleCardMediaFailure(card, video.id, err));
-  void forceShow;
+  // פוסט עצמי: מציגים מיד; אחרת רק אחרי שהמדיה ירדה למכשיר | HYPER CORE TECH
+  if (forceShow) {
+    mountCard(card, { prepend: true, videoId: video.id });
+    markCardMediaReady(card);
+    mediaReadyPromise.catch((err) => handleCardMediaFailure(card, video.id, err));
+    return;
+  }
+
+  mediaReadyPromise
+    .then(() => {
+      mountCard(card, { prepend: true, videoId: video.id });
+      markCardMediaReady(card);
+    })
+    .catch((err) => {
+      handleCardMediaFailure(card, video.id, err);
+    });
 }
 
 function upsertVideoInState(video, options = {}) {
@@ -2377,10 +2354,16 @@ function appendNextVideoCard() {
   const video = videos[controller.nextIndex];
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  // מציגים מיד לפי סדר הזמן; המדיה נטענת בתוך הכרטיס | HYPER CORE TECH
-  mountCard(card, { videoId: video.id });
-  markCardMediaReady(card);
-  mediaReadyPromise.catch((err) => handleCardMediaFailure(card, video.id, err));
+  // מציגים רק אחרי שהמדיה ירדה למכשיר; מיקום DOM לפי createdAt | HYPER CORE TECH
+  mediaReadyPromise
+    .then(() => {
+      if (controller.cancelled) return;
+      mountCard(card, { videoId: video.id });
+      markCardMediaReady(card);
+    })
+    .catch((err) => {
+      handleCardMediaFailure(card, video.id, err);
+    });
 
   controller.nextIndex += 1;
   preloadNextMedia(videos[controller.nextIndex]);
@@ -2993,11 +2976,16 @@ function setupIntersectionObserver() {
         const mediaDiv = card.querySelector('.videos-feed__media');
         if (!mediaDiv) return;
         
-        // ניגון כשהפוסט מרכזי (50%+ גלוי)
+        // ניגון כשהפוסט מרכזי (50%+ גלוי) – אחרי שהגלילה התייצבה | HYPER CORE TECH
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-          playMedia(mediaDiv, { manual: false });
-          prefetchNeighborLiveChannels(card);
+          const mediaRef = mediaDiv;
+          clearTimeout(mediaRef._playSettleTimer);
+          mediaRef._playSettleTimer = setTimeout(() => {
+            playMedia(mediaRef, { manual: false });
+            prefetchNeighborLiveChannels(card);
+          }, 80);
         } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
+          clearTimeout(mediaDiv._playSettleTimer);
           // מתקרבים לכרטיס — חימום HLS/משחק ברקע | HYPER CORE TECH
           const App = window.NostrApp || {};
           if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
@@ -3013,6 +3001,7 @@ function setupIntersectionObserver() {
             }
           }
         } else {
+          clearTimeout(mediaDiv._playSettleTimer);
           pauseMedia(mediaDiv, { resetThumb: false });
         }
       });
@@ -3213,11 +3202,14 @@ function renderMoreVideos(videos) {
   if (!stream || !videos.length) return;
   
   videos.forEach((video) => {
-    const card = createVideoCard(video);
-    if (card) {
-      mountCard(card, { videoId: video.id });
-      markCardMediaReady(card);
-    }
+    const { card, mediaReadyPromise } = renderVideoCard(video);
+    if (!card) return;
+    mediaReadyPromise
+      .then(() => {
+        mountCard(card, { videoId: video.id });
+        markCardMediaReady(card);
+      })
+      .catch((err) => handleCardMediaFailure(card, video.id, err));
   });
   
   updateLoadMoreTrigger();

@@ -647,32 +647,26 @@ body:has(.videos-feed) #moreOptionsToggle {
 
 .videos-feed__viewport {
   position: absolute;
-  top: 0;
+  /* בין התפריטים – בלי padding כפול ששובר את ה-snap | HYPER CORE TECH */
+  top: calc(44px + var(--safe-top, 0px));
   left: 0;
   right: 0;
-  bottom: 0;
-  /* גובה מלא של המסך | HYPER CORE TECH */
-  height: 100dvh;
+  bottom: calc(56px + var(--safe-bottom, 0px));
+  height: auto;
   overflow-y: scroll;
   overflow-x: hidden;
-  /* scroll-snap מהיר ועקבי כמו טיקטוק | HYPER CORE TECH */
+  /* scroll-snap כמו טיקטוק | HYPER CORE TECH */
   scroll-snap-type: y mandatory;
   scroll-behavior: auto;
   scrollbar-width: none;
-  /* padding לתפריטים עליון ותחתון | HYPER CORE TECH */
-  padding-top: calc(44px + var(--safe-top, 0px));
-  padding-bottom: calc(56px + var(--safe-bottom, 0px));
+  padding: 0;
   box-sizing: border-box;
-  /* אופטימיזציה לגלילה חלקה במובייל | HYPER CORE TECH */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   overscroll-behavior: contain;
-  /* אופטימיזציה לביצועים | HYPER CORE TECH */
   will-change: scroll-position;
   contain: layout style;
-  /* scroll-padding להתאמת snap לתפריטים | HYPER CORE TECH */
-  scroll-padding-top: calc(44px + var(--safe-top, 0px));
-  scroll-padding-bottom: calc(56px + var(--safe-bottom, 0px));
+  scroll-padding: 0;
 }
 
 .videos-feed__viewport::-webkit-scrollbar {
@@ -687,12 +681,11 @@ body:has(.videos-feed) #moreOptionsToggle {
   min-height: 100%;
 }
 
-/* חלק קלף וידאו (videos.css) – כרטיס אחד בכל גלילה כמו טיקטוק | HYPER CORE TECH */
+/* חלק קלף וידאו (videos.css) – גובה = בדיוק אזור הפיד לגלילה חלקה | HYPER CORE TECH */
 .videos-feed__card {
   scroll-snap-align: start;
-  /* always = לא מדלג פוסטים גם בגלילה מהירה | HYPER CORE TECH */
   scroll-snap-stop: always;
-  /* גובה מלא בין התפריטים: 100dvh פחות header (44px) ותפריט תחתון (56px) | HYPER CORE TECH */
+  /* תואם לגובה ה-viewport בין התפריטים (בלי padding כפול) | HYPER CORE TECH */
   height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   max-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
@@ -705,14 +698,14 @@ body:has(.videos-feed) #moreOptionsToggle {
   background: #000;
   flex-shrink: 0;
   box-sizing: border-box;
-  /* contain בלי content-visibility – מונע ג'אנק בהחלפת פוסטים | HYPER CORE TECH */
   contain: layout style paint;
 }
 
 /* Fallback לדפדפנים ישנים שלא תומכים ב-dvh | HYPER CORE TECH */
 @supports not (height: 100dvh) {
   .videos-feed__viewport {
-    height: 100vh;
+    top: calc(44px + var(--safe-top, 0px));
+    bottom: calc(56px + var(--safe-bottom, 0px));
   }
   .videos-feed__card {
     height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px));

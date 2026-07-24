@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v70'; // bump - restore scroll-snap-stop always (one post per swipe)
+  const CACHE_NAME = 'sos-cache-v71'; // bump - media-ready only + snap geometry fix
   const PRECACHE_URLS = [
     './',
     './videos.html',
