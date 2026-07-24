@@ -1441,6 +1441,93 @@ body.global-stop .videos-feed__media[data-media-type="game-embed"] .videos-feed_
   display: none !important;
 }
 
+/* כפתור שחרור לגלילה – ליד מסך מלא, מהבהב | HYPER CORE TECH */
+.videos-game-release-btn {
+  position: absolute;
+  right: 64px;
+  bottom: 18px;
+  z-index: 47;
+  width: 46px;
+  height: 46px;
+  border: 2px solid rgba(255, 214, 10, 0.95);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffd60a;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 0 0 rgba(255, 214, 10, 0.45);
+  animation: game-release-pulse 1.15s ease-in-out infinite;
+}
+
+.videos-game-release-btn i {
+  font-size: 18px;
+}
+
+.videos-game-release-btn:active {
+  transform: scale(0.94);
+}
+
+.videos-game-release-btn[hidden] {
+  display: none !important;
+}
+
+@keyframes game-release-pulse {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 0 0 0 rgba(255, 214, 10, 0.5);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 10px rgba(255, 214, 10, 0);
+    opacity: 0.85;
+  }
+}
+
+.videos-game-release-toast {
+  position: absolute;
+  right: 14px;
+  bottom: 76px;
+  z-index: 48;
+  max-width: min(280px, calc(100% - 28px));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: right;
+  direction: rtl;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.videos-game-release-toast.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.videos-game-release-toast[hidden] {
+  display: none !important;
+}
+
+.videos-game-release-toast i {
+  color: #ffd60a;
+  flex-shrink: 0;
+}
+
 .videos-game-fs-close {
   position: absolute;
   top: max(8px, env(safe-area-inset-top, 0px));
@@ -1520,7 +1607,9 @@ body.global-stop .videos-feed__media[data-media-type="game-embed"] .videos-feed_
   display: grid !important;
 }
 
-.videos-feed__media.is-game-fullscreen .videos-game-fs-btn {
+.videos-feed__media.is-game-fullscreen .videos-game-fs-btn,
+.videos-feed__media.is-game-fullscreen .videos-game-release-btn,
+.videos-feed__media.is-game-fullscreen .videos-game-release-toast {
   display: none !important;
 }
 

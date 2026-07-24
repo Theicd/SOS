@@ -47,11 +47,45 @@
 
   function setGameInteractive(mediaDiv, enabled) {
     if (!mediaDiv) return;
+    ensureGameFullscreenControls(mediaDiv);
     if (enabled) {
       mediaDiv.classList.add('is-game-interactive');
     } else {
       mediaDiv.classList.remove('is-game-interactive');
     }
+    syncGameReleaseUi(mediaDiv);
+  }
+
+  function syncGameReleaseUi(mediaDiv) {
+    if (!mediaDiv) return;
+    const interactive = mediaDiv.classList.contains('is-game-interactive');
+    const fullscreen = mediaDiv.classList.contains('is-game-fullscreen');
+    const showRelease = interactive && !fullscreen;
+
+    const releaseBtn = mediaDiv.querySelector('.videos-game-release-btn');
+    const toast = mediaDiv.querySelector('.videos-game-release-toast');
+    if (releaseBtn) releaseBtn.hidden = !showRelease;
+
+    if (toast) {
+      if (showRelease) {
+        toast.hidden = false;
+        toast.classList.add('is-visible');
+        clearTimeout(mediaDiv._gameReleaseToastTimer);
+        mediaDiv._gameReleaseToastTimer = setTimeout(() => {
+          toast.classList.remove('is-visible');
+        }, 4500);
+      } else {
+        clearTimeout(mediaDiv._gameReleaseToastTimer);
+        mediaDiv._gameReleaseToastTimer = null;
+        toast.classList.remove('is-visible');
+        toast.hidden = true;
+      }
+    }
+  }
+
+  function releaseGameForScroll(mediaDiv) {
+    if (!mediaDiv) return;
+    setGameInteractive(mediaDiv, false);
   }
 
   function exitAllGameInteractive() {
@@ -363,32 +397,69 @@
 
   function ensureGameFullscreenControls(mediaDiv) {
     if (!mediaDiv) return;
-    if (mediaDiv.querySelector('.videos-game-fs-btn')) return;
 
-    const fsBtn = document.createElement('button');
-    fsBtn.type = 'button';
-    fsBtn.className = 'videos-game-fs-btn';
-    fsBtn.setAttribute('aria-label', 'מסך מלא');
-    fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i>';
-    fsBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      enterGameFullscreen(mediaDiv);
-    });
-    mediaDiv.appendChild(fsBtn);
+    if (!mediaDiv.querySelector('.videos-game-fs-btn')) {
+      const fsBtn = document.createElement('button');
+      fsBtn.type = 'button';
+      fsBtn.className = 'videos-game-fs-btn';
+      fsBtn.setAttribute('aria-label', 'מסך מלא');
+      fsBtn.innerHTML = '<i class="fa-solid fa-expand"></i>';
+      fsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        enterGameFullscreen(mediaDiv);
+      });
+      mediaDiv.appendChild(fsBtn);
+    }
 
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'videos-game-fs-close';
-    closeBtn.setAttribute('aria-label', 'סגור מסך מלא');
-    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-    closeBtn.hidden = true;
-    closeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      exitGameFullscreen(mediaDiv);
-    });
-    mediaDiv.appendChild(closeBtn);
+    // כפתור שחרור לגלילה – ליד מסך מלא, מהבהב במצב משחק | HYPER CORE TECH
+    if (!mediaDiv.querySelector('.videos-game-release-btn')) {
+      const releaseBtn = document.createElement('button');
+      releaseBtn.type = 'button';
+      releaseBtn.className = 'videos-game-release-btn';
+      releaseBtn.setAttribute('aria-label', 'שחרר לגלילה');
+      releaseBtn.title = 'שחרר לגלילה';
+      releaseBtn.hidden = true;
+      releaseBtn.innerHTML = '<i class="fa-solid fa-arrow-down" aria-hidden="true"></i>';
+      releaseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        releaseGameForScroll(mediaDiv);
+      });
+      releaseBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        releaseGameForScroll(mediaDiv);
+      }, { passive: false });
+      mediaDiv.appendChild(releaseBtn);
+    }
+
+    if (!mediaDiv.querySelector('.videos-game-release-toast')) {
+      const toast = document.createElement('div');
+      toast.className = 'videos-game-release-toast';
+      toast.setAttribute('role', 'status');
+      toast.hidden = true;
+      toast.innerHTML = [
+        '<i class="fa-solid fa-arrow-down" aria-hidden="true"></i>',
+        '<span>מצב משחק פעיל — לחצו ↓ כדי לשחרר ולהמשיך לגלול</span>',
+      ].join('');
+      mediaDiv.appendChild(toast);
+    }
+
+    if (!mediaDiv.querySelector('.videos-game-fs-close')) {
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'videos-game-fs-close';
+      closeBtn.setAttribute('aria-label', 'סגור מסך מלא');
+      closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      closeBtn.hidden = true;
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        exitGameFullscreen(mediaDiv);
+      });
+      mediaDiv.appendChild(closeBtn);
+    }
 
     let edge = mediaDiv.querySelector('.videos-game-fs-edge');
     if (!edge) {
@@ -396,15 +467,17 @@
       edge.className = 'videos-game-fs-edge';
       edge.setAttribute('aria-hidden', 'true');
       mediaDiv.appendChild(edge);
+      const revealFromEdge = (e) => {
+        if (!mediaDiv.classList.contains('is-game-fullscreen')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        showGameFsChrome(mediaDiv);
+      };
+      edge.addEventListener('click', revealFromEdge);
+      edge.addEventListener('touchend', revealFromEdge, { passive: false });
     }
-    const revealFromEdge = (e) => {
-      if (!mediaDiv.classList.contains('is-game-fullscreen')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      showGameFsChrome(mediaDiv);
-    };
-    edge.addEventListener('click', revealFromEdge);
-    edge.addEventListener('touchend', revealFromEdge, { passive: false });
+
+    syncGameReleaseUi(mediaDiv);
   }
 
   function enterGameFullscreen(mediaDiv) {
@@ -422,6 +495,7 @@
     document.body.classList.add('game-embed-fullscreen');
     const fsBtn = mediaDiv.querySelector('.videos-game-fs-btn');
     if (fsBtn) fsBtn.hidden = true;
+    syncGameReleaseUi(mediaDiv);
     showGameFsChrome(mediaDiv);
 
     const afterLayout = () => {
@@ -461,6 +535,7 @@
       closeBtn.classList.remove('is-fs-chrome-hidden');
     }
     if (fsBtn) fsBtn.hidden = false;
+    syncGameReleaseUi(mediaDiv);
 
     try {
       if (document.fullscreenElement && document.exitFullscreen) {
@@ -537,6 +612,7 @@
     softDeactivateGameMedia,
     deactivateGameMedia,
     setGameInteractive,
+    releaseGameForScroll,
     ensureGameScrollShield,
     ensureGameFullscreenControls,
     enterGameFullscreen,
@@ -552,6 +628,7 @@
     softDeactivateGameMedia,
     deactivateGameMedia,
     setGameInteractive,
+    releaseGameForScroll,
     enterGameFullscreen,
     exitGameFullscreen,
     buildComposeGamePreview,

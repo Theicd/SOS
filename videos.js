@@ -491,7 +491,7 @@ function wireMediaControls(root = document) {
     // לחיצה על אזור המדיה תחליף בין ניגון להפסקה ידנית (ללא כפתור)
     mediaDiv.addEventListener('click', (event) => {
       // אם לחצו על כפתור ייעודי או דילוג או זמן, לא להפעיל את הטוגל
-      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display') || event.target.closest('.videos-live-fs-btn') || event.target.closest('.videos-live-fs-close') || event.target.closest('.videos-game-fs-btn') || event.target.closest('.videos-game-fs-close') || event.target.closest('.videos-game-fs-edge') || event.target.closest('.videos-feed__game-scroll-shield') || event.target.closest('.videos-feed__game-scroll-lane') || event.target.closest('.videos-feed__game-stage') || event.target.closest('.videos-feed__game-iframe') || event.target.closest('[data-game-tap-zone]')) return;
+      if (event.target.closest('[data-play-toggle]') || event.target.closest('.video-skip-btn') || event.target.closest('.video-time-display') || event.target.closest('.videos-live-fs-btn') || event.target.closest('.videos-live-fs-close') || event.target.closest('.videos-game-fs-btn') || event.target.closest('.videos-game-release-btn') || event.target.closest('.videos-game-fs-close') || event.target.closest('.videos-game-fs-edge') || event.target.closest('.videos-feed__game-scroll-shield') || event.target.closest('.videos-feed__game-scroll-lane') || event.target.closest('.videos-feed__game-stage') || event.target.closest('.videos-feed__game-iframe') || event.target.closest('[data-game-tap-zone]')) return;
       if (mediaDiv.dataset.state === 'playing') {
         pauseMedia(mediaDiv, { resetThumb: false, manual: true });
       } else {
