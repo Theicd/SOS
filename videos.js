@@ -372,6 +372,16 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
   processVideoDownloadQueue();
 }
 
+// קידום וידאו שנצפה כרגע לראש תור ההורדות | HYPER CORE TECH
+function prioritizeVideoDownload(videoEl) {
+  if (!videoEl || videoDownloadQueue.length < 2) return;
+  const idx = videoDownloadQueue.findIndex((item) => item.videoEl === videoEl);
+  if (idx > 0) {
+    const [item] = videoDownloadQueue.splice(idx, 1);
+    videoDownloadQueue.unshift(item);
+  }
+}
+
 // עיבוד תור ההורדות הסדרתי
 async function processVideoDownloadQueue() {
   if (isProcessingVideoQueue || videoDownloadQueue.length === 0) return;
@@ -541,6 +551,14 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (mediaType === 'file') {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return;
+
+    // אין עדיין src – ההורדה בתור; מקדמים אותה ומנגנים כשתהיה מוכנה | HYPER CORE TECH
+    if (!videoEl.currentSrc && !videoEl.src && videoEl.childElementCount === 0) {
+      mediaDiv.dataset.pendingPlay = '1';
+      prioritizeVideoDownload(videoEl);
+      return;
+    }
+
     mediaDiv.classList.add('videos-feed__media--ready');
     
     // ניסיון להפעיל עם צליל
@@ -571,7 +589,10 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
 // חלק יאללה וידאו (videos.js) – עצירת מדיה עבור כרטיס נתון
 function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   if (!mediaDiv) return;
-  
+
+  // הכרטיס כבר לא במסך – מבטלים ניגון ממתין | HYPER CORE TECH
+  delete mediaDiv.dataset.pendingPlay;
+
   // אם זו עצירה ידנית - מכבים מצב PLAY גלובלי (חוזרים ל-STOP)
   if (manual) {
     globalAutoplayEnabled = false;
@@ -1147,17 +1168,13 @@ function prependVideoCard(video, { forceShow = false } = {}) {
   }
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  // פוסט עצמי: מציגים מיד; אחרת רק אחרי שהמדיה ירדה למכשיר | HYPER CORE TECH
+  // הכרטיס נכנס מיד; פוסט עצמי מסומן מוכן מיידית | HYPER CORE TECH
+  mountCard(card, { prepend: true, videoId: video.id });
   if (forceShow) {
-    mountCard(card, { prepend: true, videoId: video.id });
     markCardMediaReady(card);
-    mediaReadyPromise.catch((err) => handleCardMediaFailure(card, video.id, err));
-    return;
   }
-
   mediaReadyPromise
     .then(() => {
-      mountCard(card, { prepend: true, videoId: video.id });
       markCardMediaReady(card);
     })
     .catch((err) => {
@@ -1762,24 +1779,31 @@ function renderVideoCard(video) {
     const cleanup = () => {
       videoEl.removeEventListener('loadeddata', onLoadedData);
       videoEl.removeEventListener('error', onError);
-      if (readyTimeout) clearTimeout(readyTimeout);
     };
 
     const onLoadedData = () => {
       cleanup();
       markReady();
+      // אם המשתמש כבר עומד על הכרטיס – מנגנים ברגע שהמדיה מוכנה | HYPER CORE TECH
+      if (mediaDiv.dataset.pendingPlay === '1') {
+        delete mediaDiv.dataset.pendingPlay;
+        playMedia(mediaDiv, { manual: false });
+      }
     };
 
+    // כישלון blob/P2P – ניסיון אחד נוסף עם ה-URL הישיר לפני ויתור | HYPER CORE TECH
+    let fallbackRetried = false;
     const onError = (event) => {
+      if (!fallbackRetried) {
+        fallbackRetried = true;
+        videoEl.addEventListener('loadeddata', onLoadedData, { once: true });
+        videoEl.addEventListener('error', onError, { once: true });
+        applyFallbackSrc();
+        return;
+      }
       cleanup();
       failReady(event?.error || new Error('video load error'));
     };
-
-    // אם loadeddata לא מגיע – לא לתקוע את הפיד על אותו פוסט | HYPER CORE TECH
-    const readyTimeout = setTimeout(() => {
-      cleanup();
-      failReady(new Error('video ready timeout'));
-    }, 20000);
 
     videoEl.addEventListener('loadeddata', onLoadedData, { once: true });
     videoEl.addEventListener('error', onError, { once: true });
@@ -2365,11 +2389,10 @@ function appendNextVideoCard() {
   const video = videos[controller.nextIndex];
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  // מציגים רק אחרי שהמדיה ירדה למכשיר; מיקום DOM לפי createdAt | HYPER CORE TECH
+  // הכרטיס נכנס ל-DOM מיד לפי סדר createdAt; המדיה נטענת ברקע | HYPER CORE TECH
+  mountCard(card, { videoId: video.id });
   mediaReadyPromise
     .then(() => {
-      if (controller.cancelled) return;
-      mountCard(card, { videoId: video.id });
       markCardMediaReady(card);
     })
     .catch((err) => {
@@ -3262,11 +3285,10 @@ function renderMoreVideos(videos) {
   videos.forEach((video) => {
     const { card, mediaReadyPromise } = renderVideoCard(video);
     if (!card) return;
+    // מציגים מיד; המדיה נטענת ברקע | HYPER CORE TECH
+    mountCard(card, { videoId: video.id });
     mediaReadyPromise
-      .then(() => {
-        mountCard(card, { videoId: video.id });
-        markCardMediaReady(card);
-      })
+      .then(() => markCardMediaReady(card))
       .catch((err) => handleCardMediaFailure(card, video.id, err));
   });
   

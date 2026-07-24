@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v73'; // bump - load-more uses until (older posts), not since
+  const CACHE_NAME = 'sos-cache-v74'; // bump - mount cards immediately, no 20s ready timeout
   const PRECACHE_URLS = [
     './',
     './videos.html',
