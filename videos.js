@@ -823,6 +823,12 @@ const FEED_CACHE_KEY = 'videos_feed_cache_v3';
 const FEED_CACHE_MAX_SIZE = 1024 * 1024 * 1024; // 1GB מקסימום
 const FEED_CACHE_CLEANUP_BATCH = 20; // כמה פוסטים למחוק בכל פעם
 const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפח
+const FEED_CACHE_LIMIT = 60; // מקסימום פוסטים בזיכרון הפיד (מניעת splice(undefined))
+
+// חלק מחיקות (videos.js) – רק מזהי אירוע Nostr תקפים (64 hex), לא p2p-send-* | HYPER CORE TECH
+function isValidFeedEventId(id) {
+  return typeof id === 'string' && /^[0-9a-f]{64}$/i.test(id);
+}
 
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
@@ -1345,13 +1351,16 @@ function loadDeletionsFromCache() {
     if (!cached) return null;
     const { ids, timestamp } = JSON.parse(cached);
     if (Date.now() - timestamp > DELETIONS_CACHE_TTL) return null;
-    return Array.isArray(ids) ? ids : null;
+    if (!Array.isArray(ids)) return null;
+    // סינון מזהים לא-תקפים (למשל p2p-send-*) ממטמון ישן | HYPER CORE TECH
+    return ids.filter(isValidFeedEventId);
   } catch { return null; }
 }
 
 function saveDeletionsToCache(ids) {
   try {
-    localStorage.setItem(DELETIONS_CACHE_KEY, JSON.stringify({ ids, timestamp: Date.now() }));
+    const cleanIds = Array.isArray(ids) ? ids.filter(isValidFeedEventId) : [];
+    localStorage.setItem(DELETIONS_CACHE_KEY, JSON.stringify({ ids: cleanIds, timestamp: Date.now() }));
   } catch {}
 }
 
@@ -1401,7 +1410,7 @@ async function loadDeletionsFirst() {
           app.registerDeletion(event);
           if (Array.isArray(event.tags)) {
             event.tags.forEach(tag => {
-              if (tag[0] === 'e' && tag[1]) deletedIds.push(tag[1]);
+              if (tag[0] === 'e' && isValidFeedEventId(tag[1])) deletedIds.push(tag[1]);
             });
           }
         }
@@ -2004,7 +2013,14 @@ function renderVideoCard(video) {
     imgEl.loading = 'lazy';
     mediaDiv.appendChild(imgEl);
 
-    queueMicrotask(markReady);
+    // מוכן רק אחרי טעינת התמונה (לא לפני onload) | HYPER CORE TECH
+    const onImageLoad = () => markReady();
+    const onImageError = () => failReady(new Error('image load error'));
+    imgEl.addEventListener('load', onImageLoad, { once: true });
+    imgEl.addEventListener('error', onImageError, { once: true });
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      queueMicrotask(onImageLoad);
+    }
   } else {
     queueMicrotask(() => {
       failReady(new Error('missing media sources'));
@@ -2325,7 +2341,10 @@ function renderVideos() {
 
   state.incrementalRender = {
     nextIndex: 0,
+    mountIndex: 0,
+    pending: [],
     cancelled: false,
+    scheduleDone: false,
     timer: null,
     videosToRender, // רק הפוסטים החדשים
   };
@@ -2345,6 +2364,31 @@ function resetIncrementalRender() {
 }
 
 // חלק יאללה וידאו (videos.js) – הוספת קלף חדש לפיד ומעבר לקלף הבא | HYPER CORE TECH
+// הורדות מתחילות ב-renderVideoCard (לפני mount) — סדר DOM נשמר לפי createdAt | HYPER CORE TECH
+function flushOrderedMounts(controller) {
+  if (!controller) return;
+  if (typeof controller.mountIndex !== 'number') {
+    controller.mountIndex = 0;
+  }
+  const pending = controller.pending || [];
+  while (controller.mountIndex < pending.length) {
+    const slot = pending[controller.mountIndex];
+    if (!slot || !slot.ready) break;
+    if (slot.card && !slot.card.isConnected) {
+      mountCard(slot.card);
+    }
+    controller.mountIndex += 1;
+  }
+  // ניקוי בקר אחרי שכל הכרטיסים תוזמנו ומואנטים | HYPER CORE TECH
+  if (
+    controller.scheduleDone &&
+    controller.mountIndex >= pending.length &&
+    state.incrementalRender === controller
+  ) {
+    state.incrementalRender = null;
+  }
+}
+
 function appendNextVideoCard() {
   const controller = state.incrementalRender;
   if (!controller || controller.cancelled) {
@@ -2359,14 +2403,37 @@ function appendNextVideoCard() {
     return;
   }
 
-  const video = videos[controller.nextIndex];
+  if (!controller.pending) {
+    controller.pending = [];
+  }
+  if (typeof controller.mountIndex !== 'number') {
+    controller.mountIndex = 0;
+  }
+
+  const index = controller.nextIndex;
+  const video = videos[index];
   const { card, mediaReadyPromise } = renderVideoCard(video);
+
+  controller.pending[index] = { card, video, ready: false };
 
   mediaReadyPromise
     .then(() => {
-      mountCard(card);
+      // רינדור חדש ביטל את הבקר הישן — לא למונט | HYPER CORE TECH
+      if (controller.cancelled || !controller.pending) return;
+      const slot = controller.pending[index];
+      if (!slot) return;
+      slot.ready = true;
+      flushOrderedMounts(controller);
     })
-    .catch((err) => handleCardMediaFailure(card, video.id, err));
+    .catch((err) => {
+      // כשל מדיה: placeholder + mount בסדר הנכון (לא לדלג על הכרטיס) | HYPER CORE TECH
+      handleCardMediaFailure(card, video.id, err);
+      if (controller.cancelled || !controller.pending) return;
+      const slot = controller.pending[index];
+      if (!slot) return;
+      slot.ready = true;
+      flushOrderedMounts(controller);
+    });
 
   controller.nextIndex += 1;
   preloadNextMedia(videos[controller.nextIndex]);
@@ -2376,17 +2443,18 @@ function appendNextVideoCard() {
     return;
   }
 
-  controller.timer = setTimeout(appendNextVideoCard, 0); // רינדור מיידי
+  controller.timer = setTimeout(appendNextVideoCard, 0); // רינדור מיידי — הורדות במקביל
 }
 
-// חלק יאללה וידאו (videos.js) – סיום סדרת הרינדור ההדרגתית | HYPER CORE TECH
+// חלק יאללה וידאו (videos.js) – סיום תזמון הרינדור (לא מבטל mounts ממתינים) | HYPER CORE TECH
 function finalizeIncrementalRender() {
   if (!state.incrementalRender) return;
   if (state.incrementalRender.timer) {
     clearTimeout(state.incrementalRender.timer);
   }
-  state.incrementalRender.cancelled = true;
-  state.incrementalRender = null;
+  state.incrementalRender.timer = null;
+  state.incrementalRender.scheduleDone = true;
+  flushOrderedMounts(state.incrementalRender);
 }
 
 // חלק יאללה וידאו (videos.js) – חיבור קלפים חדשים ל-IntersectionObserver | HYPER CORE TECH
@@ -3198,12 +3266,12 @@ function renderMoreVideos(videos) {
   const stream = document.querySelector('.videos-feed__stream');
   if (!stream || !videos.length) return;
   
+  // mount לפי סדר המערך (createdAt) — הורדה כבר בתור מ-renderVideoCard | HYPER CORE TECH
   videos.forEach((video) => {
-    const card = createVideoCard(video);
-    if (card) {
-      stream.appendChild(card);
-      observeVideoCard(card);
-    }
+    const { card, mediaReadyPromise } = renderVideoCard(video);
+    if (!card) return;
+    mountCard(card);
+    mediaReadyPromise.catch((err) => handleCardMediaFailure(card, video.id, err));
   });
   
   updateLoadMoreTrigger();
@@ -3814,10 +3882,13 @@ async function loadVideos() {
   }
 
   setLoadingProgress(80);
-  setLoadingStatus('טוען לייקים ותגובות...');
+  setLoadingStatus('מכין תצוגה...');
 
-  // טעינת לייקים ותגובות לכל הפוסטים
-  await loadLikesAndCommentsForVideos(videoEvents.map(v => v.id));
+  // לייקים/תגובות ברקע — לא חוסמים first paint (כמו בנתיב המטמון) | HYPER CORE TECH
+  const engagementIds = videoEvents.map(v => v.id);
+  loadLikesAndCommentsForVideos(engagementIds).then(() => {
+    engagementIds.forEach(id => updateVideoLikeButton(id));
+  }).catch(err => console.warn('[videos] Failed to load likes/comments', err));
 
   // רישום נתוני מעורבות למפות המטא | HYPER CORE TECH
   if (Array.isArray(sourceEvents)) {
@@ -3919,14 +3990,16 @@ function setupVideoRealtimeSubscription(eventIds = []) {
         if (typeof app.registerDeletion === 'function') {
           app.registerDeletion(event);
         }
-        // הסרת הפוסט מהפיד המקומי
+        // הסרה רק למזהי אירוע תקפים שאושרו ב-deletedEventIds | HYPER CORE TECH
         if (Array.isArray(event.tags)) {
           event.tags.forEach(tag => {
-            if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) {
+            if (Array.isArray(tag) && tag[0] === 'e' && isValidFeedEventId(tag[1])) {
               const deletedId = tag[1];
-              removeVideoFromState(deletedId);
-              removeVideoCard(deletedId);
-              console.log('%c[DELETE_DEBUG] videos removed card', 'color: #FF5722; font-weight: bold', { deletedId });
+              if (app.deletedEventIds?.has(deletedId)) {
+                removeVideoFromState(deletedId);
+                removeVideoCard(deletedId);
+                console.log('%c[DELETE_DEBUG] videos removed card', 'color: #FF5722; font-weight: bold', { deletedId });
+              }
             }
           });
         }
