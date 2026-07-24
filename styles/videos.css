@@ -681,6 +681,15 @@ body:has(.videos-feed) #moreOptionsToggle {
   min-height: 100%;
 }
 
+/* נקודת טריגר לטעינת המשך – בלי snap כדי לא לשבור גלילה | HYPER CORE TECH */
+.videos-feed__load-more-sentinel {
+  flex: 0 0 2px;
+  height: 2px;
+  width: 100%;
+  pointer-events: none;
+  scroll-snap-align: none;
+}
+
 /* חלק קלף וידאו (videos.css) – גובה = בדיוק אזור הפיד לגלילה חלקה | HYPER CORE TECH */
 .videos-feed__card {
   scroll-snap-align: start;

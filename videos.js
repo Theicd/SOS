@@ -418,7 +418,11 @@ async function processVideoDownloadQueue() {
     
     try {
       if (typeof App.loadVideoWithCache === 'function') {
-        const result = await App.loadVideoWithCache(videoEl, url, hash, mirrors);
+        // timeout כדי שהתור לא ייתקע על הורדה אחת לנצח | HYPER CORE TECH
+        const result = await Promise.race([
+          App.loadVideoWithCache(videoEl, url, hash, mirrors),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('video download timeout')), 25000))
+        ]);
         // בדיקה אם נטען מ-cache
         loadedFromCache = result?.source === 'cache';
       } else {
@@ -426,7 +430,7 @@ async function processVideoDownloadQueue() {
       }
     } catch (err) {
       console.warn('Failed to load video with P2P/cache:', err);
-      fallbackFn();
+      try { fallbackFn(); } catch (_) {}
     }
     
     // השהייה רק במצב BOOTSTRAP, רק אם לא נטען מ-cache, ואם יש עוד בתור
@@ -1758,6 +1762,7 @@ function renderVideoCard(video) {
     const cleanup = () => {
       videoEl.removeEventListener('loadeddata', onLoadedData);
       videoEl.removeEventListener('error', onError);
+      if (readyTimeout) clearTimeout(readyTimeout);
     };
 
     const onLoadedData = () => {
@@ -1769,6 +1774,12 @@ function renderVideoCard(video) {
       cleanup();
       failReady(event?.error || new Error('video load error'));
     };
+
+    // אם loadeddata לא מגיע – לא לתקוע את הפיד על אותו פוסט | HYPER CORE TECH
+    const readyTimeout = setTimeout(() => {
+      cleanup();
+      failReady(new Error('video ready timeout'));
+    }, 20000);
 
     videoEl.addEventListener('loadeddata', onLoadedData, { once: true });
     videoEl.addEventListener('error', onError, { once: true });
@@ -3041,25 +3052,51 @@ function setupLoadMoreObserver() {
     },
     {
       root: viewport,
-      threshold: 0.1,
-      rootMargin: '200px 0px'
+      threshold: 0,
+      rootMargin: '400px 0px'
     }
   );
+
+  // גיבוי: גם לפי scroll – IO לבד לא תמיד יורה עם scroll-snap | HYPER CORE TECH
+  if (!viewport.dataset.loadMoreScrollBound) {
+    viewport.dataset.loadMoreScrollBound = '1';
+    let scrollTicking = false;
+    viewport.addEventListener('scroll', () => {
+      if (scrollTicking || isLoadingMore) return;
+      scrollTicking = true;
+      requestAnimationFrame(() => {
+        scrollTicking = false;
+        const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+        if (remaining < viewport.clientHeight * 1.75) {
+          loadMoreVideos();
+        }
+      });
+    }, { passive: true });
+  }
   
   updateLoadMoreTrigger();
 }
 
 function updateLoadMoreTrigger() {
-  if (!loadMoreObserver) return;
+  if (!loadMoreObserver || !selectors.stream) return;
   
   // הסר observer מקלפים קודמים
   loadMoreObserver.disconnect();
-  
-  // חבר לקלף ליד הסוף – מתעדכן בכל mount של כרטיס מוכן | HYPER CORE TECH
-  const cards = document.querySelectorAll('.videos-feed__card');
+
+  // sentinel תמיד בסוף ה־DOM – אמין יותר מקלף לפני-אחרון | HYPER CORE TECH
+  let sentinel = selectors.stream.querySelector('[data-load-more-sentinel]');
+  if (!sentinel) {
+    sentinel = document.createElement('div');
+    sentinel.setAttribute('data-load-more-sentinel', '');
+    sentinel.setAttribute('aria-hidden', 'true');
+    sentinel.className = 'videos-feed__load-more-sentinel';
+  }
+  selectors.stream.appendChild(sentinel);
+  loadMoreObserver.observe(sentinel);
+
+  const cards = selectors.stream.querySelectorAll('.videos-feed__card');
   if (cards.length >= 2) {
-    const triggerCard = cards[Math.max(0, cards.length - 2)];
-    loadMoreObserver.observe(triggerCard);
+    loadMoreObserver.observe(cards[cards.length - 2]);
   } else if (cards.length === 1) {
     loadMoreObserver.observe(cards[0]);
   }
@@ -3082,53 +3119,70 @@ async function loadMoreVideos() {
     return;
   }
   
-  const untilTime = oldestVideo.createdAt;
+  let untilTime = oldestVideo.createdAt;
   console.log('[videos] loadMoreVideos: loading older than', new Date(untilTime * 1000).toLocaleString());
   
   try {
-    let moreEvents = [];
-    
-    if (currentApp && currentApp.postsById && currentApp.postsById.size > 0) {
-      // טען מהמטמון של האפליקציה
-      const fromApp = Array.from(currentApp.postsById.values());
-      const existingIds = new Set(state.videos.map(v => v.id));
-      const olderEvents = fromApp.filter(ev => 
-        ev && 
-        !existingIds.has(ev.id) && 
+    const existingIds = new Set(state.videos.map(v => v.id));
+    const collectedVideos = [];
+    // כמה ניסיונות – הרבה נוטס בלי מדיה; צריך until אמיתי מהריליי | HYPER CORE TECH
+    for (let attempt = 0; attempt < 4 && collectedVideos.length < 5; attempt++) {
+      let moreEvents = [];
+
+      // קודם until מהריליי – postsById לרוב מחזיר חדשים/טקסט בלי מדיה | HYPER CORE TECH
+      const fetched = await fetchRecentNotes(LOAD_MORE_BATCH, undefined, untilTime);
+      const olderFromRelay = fetched.filter(ev =>
+        ev &&
+        !existingIds.has(ev.id) &&
         (ev.created_at || 0) < untilTime
       );
-      const filtered = filterEventsByNetwork(olderEvents, networkTag);
+      let filtered = filterEventsByNetwork(olderFromRelay, networkTag);
       filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
       moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
-    }
-    
-    if (moreEvents.length === 0) {
-      // Fallback: משיכה מהרילאים
-      const fetched = await fetchRecentNotes(LOAD_MORE_BATCH);
-      const existingIds = new Set(state.videos.map(v => v.id));
-      const olderEvents = fetched.filter(ev => 
-        ev && 
-        !existingIds.has(ev.id) && 
-        (ev.created_at || 0) < untilTime
-      );
-      const filtered = filterEventsByNetwork(olderEvents, networkTag);
-      filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-      moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
-    }
-    
-    if (moreEvents.length > 0) {
-      // עיבוד האירועים לפורמט וידאו
-      const newVideos = processEventsToVideos(moreEvents, currentApp);
-      
-      if (newVideos.length > 0) {
-        // הוספה לסוף הרשימה
-        state.videos = [...state.videos, ...newVideos];
-        console.log('[videos] loadMoreVideos: added', newVideos.length, 'videos, total:', state.videos.length);
-        
-        // רינדור הפוסטים החדשים
-        renderMoreVideos(newVideos);
-        saveFeedCache(state.videos);
+
+      if (moreEvents.length === 0 && currentApp?.postsById?.size > 0) {
+        const fromApp = Array.from(currentApp.postsById.values());
+        const olderEvents = fromApp.filter(ev =>
+          ev &&
+          !existingIds.has(ev.id) &&
+          (ev.created_at || 0) < untilTime
+        );
+        filtered = filterEventsByNetwork(olderEvents, networkTag);
+        filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
       }
+
+      if (moreEvents.length === 0) {
+        console.log('[videos] loadMoreVideos: no older events on attempt', attempt + 1);
+        break;
+      }
+
+      moreEvents.forEach((ev) => {
+        if (ev?.id) existingIds.add(ev.id);
+      });
+      const oldestFetched = moreEvents.reduce(
+        (min, ev) => Math.min(min, ev.created_at || untilTime),
+        untilTime
+      );
+      if (oldestFetched < untilTime) {
+        untilTime = oldestFetched;
+      } else {
+        untilTime = untilTime - 1;
+      }
+
+      const batchVideos = processEventsToVideos(moreEvents, currentApp);
+      batchVideos.forEach((v) => {
+        if (!collectedVideos.some((x) => x.id === v.id)) {
+          collectedVideos.push(v);
+        }
+      });
+    }
+
+    if (collectedVideos.length > 0) {
+      state.videos = [...state.videos, ...collectedVideos];
+      console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
+      renderMoreVideos(collectedVideos);
+      saveFeedCache(state.videos);
     } else {
       console.log('[videos] loadMoreVideos: no more videos available');
     }
@@ -3307,8 +3361,9 @@ function setupInfiniteLoop() {
       if (currentIndex >= cardCount) currentIndex = cardCount - 1;
       
       // לולאה אינסופית - כשמגיעים לסוף, חוזרים להתחלה
+      // בוטל: זה גרם לתחושה של "תקוע על אותם ~10 פוסטים". במקום זה טוענים עוד. | HYPER CORE TECH
       if (scrollingDown && viewportTop >= maxScroll - 5) {
-        setTimeout(jumpToStart, 30); /* מהיר יותר - 30ms במקום 150ms | HYPER CORE TECH */
+        loadMoreVideos();
       }
     }, 16); /* מהיר יותר - 16ms (~60fps) במקום 100ms | HYPER CORE TECH */
   }, { passive: true });
@@ -3337,29 +3392,43 @@ function setupInfiniteLoop() {
 }
 
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים מהרילאים (fallback ללא הפיד הראשי)
-async function fetchRecentNotes(limit = 100, sinceOverride = undefined) {
+async function fetchRecentNotes(limit = 100, sinceOverride = undefined, untilOverride = undefined) {
   const app = window.NostrApp;
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
     console.warn('[videos] fetchRecentNotes: pool/relays not ready');
     return [];
   }
-  // אם יש sinceOverride (מהמטמון) - נשתמש בו, אחרת 30 יום
-  const since = sinceOverride || Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
   const networkTag = getNetworkTag();
-  const filters = [{ kinds: [1], limit, since, '#t': [networkTag] }];
-  const filtersNoSince = [{ kinds: [1], limit, '#t': [networkTag] }];
+  const filters = [{ kinds: [1], limit, '#t': [networkTag] }];
+  // until = פוסטים ישנים יותר (load-more); since = פוסטים חדשים יותר | HYPER CORE TECH
+  if (untilOverride != null && Number.isFinite(Number(untilOverride))) {
+    filters[0].until = Number(untilOverride);
+  } else if (sinceOverride != null && Number.isFinite(Number(sinceOverride))) {
+    filters[0].since = Number(sinceOverride);
+  } else {
+    filters[0].since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
+  }
+  // בלי until – fallback בלי since; עם until – לא ליפול ל"חדשים ביותר" | HYPER CORE TECH
+  const filtersFallback = untilOverride != null
+    ? [{ kinds: [1], limit, until: Number(untilOverride), '#t': [networkTag] }]
+    : [{ kinds: [1], limit, '#t': [networkTag] }];
   try {
-    console.log('[videos] fetchRecentNotes: using list', { relays: app.relayUrls.length, limit, since, fromCache: !!sinceOverride });
+    console.log('[videos] fetchRecentNotes: using list', {
+      relays: app.relayUrls.length,
+      limit,
+      since: filters[0].since,
+      until: filters[0].until,
+      fromCache: sinceOverride != null || untilOverride != null
+    });
     if (typeof app.pool.list === 'function') {
       const listed = await app.pool.list(app.relayUrls, filters);
       if (Array.isArray(listed) && listed.length > 0) {
         console.log('[videos] fetchRecentNotes: list returned', listed.length);
         return listed;
       }
-      // ניסיון נוסף ללא since
-      const listed2 = await app.pool.list(app.relayUrls, filtersNoSince);
+      const listed2 = await app.pool.list(app.relayUrls, filtersFallback);
       if (Array.isArray(listed2) && listed2.length > 0) {
-        console.log('[videos] fetchRecentNotes: list (no since) returned', listed2.length);
+        console.log('[videos] fetchRecentNotes: list (fallback) returned', listed2.length);
         return listed2;
       }
     }
@@ -3369,9 +3438,9 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined) {
         console.log('[videos] fetchRecentNotes: listMany returned', listed.length);
         return listed;
       }
-      const listed2 = await app.pool.listMany(app.relayUrls, filtersNoSince);
+      const listed2 = await app.pool.listMany(app.relayUrls, filtersFallback);
       if (Array.isArray(listed2) && listed2.length > 0) {
-        console.log('[videos] fetchRecentNotes: listMany (no since) returned', listed2.length);
+        console.log('[videos] fetchRecentNotes: listMany (fallback) returned', listed2.length);
         return listed2;
       }
     }
@@ -3383,10 +3452,10 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined) {
         console.log('[videos] fetchRecentNotes: querySync returned', events.length);
         return events;
       }
-      const res2 = await app.pool.querySync(app.relayUrls, filtersNoSince[0]);
+      const res2 = await app.pool.querySync(app.relayUrls, filtersFallback[0]);
       const events2 = Array.isArray(res2) ? res2 : (Array.isArray(res2?.events) ? res2.events : []);
       if (events2.length > 0) {
-        console.log('[videos] fetchRecentNotes: querySync (no since) returned', events2.length);
+        console.log('[videos] fetchRecentNotes: querySync (fallback) returned', events2.length);
         return events2;
       }
     }
@@ -3395,9 +3464,10 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined) {
       console.log('[videos] fetchRecentNotes: fallback sub start');
       return await new Promise((resolve) => {
         const collected = [];
+        const subFilters = untilOverride != null ? filters : filtersFallback;
         const sub = typeof app.pool.sub === 'function'
-          ? app.pool.sub(app.relayUrls, filtersNoSince)
-          : app.pool.subscribeMany(app.relayUrls, filtersNoSince);
+          ? app.pool.sub(app.relayUrls, subFilters)
+          : app.pool.subscribeMany(app.relayUrls, subFilters);
         const done = () => {
           try { sub.unsub(); } catch (_) {}
           const sorted = collected.sort((a,b) => (b.created_at||0)-(a.created_at||0));
