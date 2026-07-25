@@ -687,6 +687,15 @@ body:has(.videos-feed) #moreOptionsToggle {
   min-height: 100%;
 }
 
+/* נקודת טריגר לטעינת המשך – בלי snap | HYPER CORE TECH */
+.videos-feed__load-more-sentinel {
+  flex: 0 0 2px;
+  height: 2px;
+  width: 100%;
+  pointer-events: none;
+  scroll-snap-align: none;
+}
+
 /* חלק קלף וידאו (videos.css) – כרטיס וידאו בודד עם snap מדויק | HYPER CORE TECH */
 .videos-feed__card {
   scroll-snap-align: start;

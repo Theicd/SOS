@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v76'; // bump - block Subway Surfers and tighten game URL detection
+  const CACHE_NAME = 'sos-cache-v77'; // bump - load-more until + progress bar first-loop fix
   const PRECACHE_URLS = [
     './',
     './videos.html',
