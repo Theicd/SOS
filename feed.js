@@ -2284,20 +2284,6 @@
     } catch (err) {}
   }
 
-  function isValidDeletionTargetId(type, value) {
-    if (typeof value !== 'string' || !value) return false;
-    // מזהי צ'אט מקומיים (p2p-send-*) לעולם אינם אירוע Nostr לפיד | HYPER CORE TECH
-    if (value.startsWith('p2p-send-')) return false;
-    if (type === 'e') {
-      return /^[0-9a-f]{64}$/i.test(value);
-    }
-    if (type === 'a') {
-      // NIP-33 addressable: kind:pubkey:d-tag
-      return /^\d+:[0-9a-f]{64}:.+/i.test(value);
-    }
-    return false;
-  }
-
   function registerDeletion(event) {
     if (!event || !Array.isArray(event.tags)) {
       logDeletionDebug('skip deletion event: missing tags', { event });
@@ -2316,13 +2302,6 @@
       if (!Array.isArray(tag)) return;
       const [type, value] = tag;
       if ((type === 'e' || type === 'a') && value) {
-        if (!isValidDeletionTargetId(type, value)) {
-          logDeletionDebug('rejected deletion (invalid target id)', {
-            type,
-            eventId: value,
-          });
-          return;
-        }
         const author = App.eventAuthorById?.get(value)?.toLowerCase?.();
         // חלק פיד (feed.js) – מאפשר מחיקה אם:
         // 1. המוחק הוא אדמין, או
