@@ -2,20 +2,32 @@
 (function initGameEmbed(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
-  const GAME_HOST_RE = /(github\.io|itch\.io|gamh5\.com|krunker\.io|famobi\.com|poki\.com|crazygames\.com|gamedistribution\.com|html5games|newgrounds\.com)/i;
+  // רק דומיינים שמתאימים לקטלוג SOS – לא poki/crazygames (שם Subway Surfers ויראלי) | HYPER CORE TECH
+  const GAME_HOST_RE = /(github\.io|itch\.io|gamh5\.com|krunker\.io|famobi\.com)/i;
   const GAME_PATH_RE = /\/(game|games|play|mobile|mobileapp|arcade|html5|full)(\/|$)/i;
   const MEDIA_EXT_RE = /\.(mp4|webm|ogg|mov|m4v|m3u8|jpg|jpeg|png|gif|webp|svg|pdf)(\?|#|$)/i;
+  // חסימה מפורשת – לא להציג בכלל בפיד | HYPER CORE TECH
+  const BLOCKED_GAME_RE = /subway[\s\-_.]*surfers?|subwaysurfers|sz-games\.github\.io\/game\/\d+/i;
+
+  function isBlockedGameUrl(url) {
+    return BLOCKED_GAME_RE.test(String(url || ''));
+  }
 
   function isPlayableGameUrl(url) {
     if (!url || typeof url !== 'string') return false;
     const trimmed = url.trim();
     if (!/^https:\/\//i.test(trimmed)) return false;
     if (MEDIA_EXT_RE.test(trimmed)) return false;
+    if (isBlockedGameUrl(trimmed)) return false;
     if (typeof App.isHlsLiveUrl === 'function' && App.isHlsLiveUrl(trimmed)) return false;
     if (/youtube\.com|youtu\.be/i.test(trimmed)) return false;
     if (/blossom|void\.cat|nostr\.build|satellite\.earth/i.test(trimmed)) return false;
+    // דומיינים אגרסיביים של משחקי וירוס/פרסומות – לא לזהות אוטומטית | HYPER CORE TECH
+    if (/poki\.com|crazygames\.com|gamedistribution\.com|html5games|newgrounds\.com/i.test(trimmed)) {
+      return false;
+    }
     if (GAME_HOST_RE.test(trimmed)) return true;
-    if (GAME_PATH_RE.test(trimmed)) return true;
+    if (GAME_PATH_RE.test(trimmed) && GAME_HOST_RE.test(trimmed)) return true;
     return false;
   }
 
@@ -243,6 +255,10 @@
 
   function ensureGameFrame(mediaDiv, url, options = {}) {
     if (!mediaDiv || !url) return null;
+    if (isBlockedGameUrl(url) || !isPlayableGameUrl(url)) {
+      console.warn('[game-embed] blocked or unsupported game url', url);
+      return null;
+    }
     removeGameBadge(mediaDiv);
     hideGamePlayOverlay(mediaDiv);
     ensureGameFullscreenControls(mediaDiv);
@@ -603,6 +619,7 @@
 
   Object.assign(App, {
     isPlayableGameUrl,
+    isBlockedGameUrl,
     extractGameUrlFromText,
     removeGameBadge,
     ensureGameFrame,

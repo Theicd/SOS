@@ -853,6 +853,10 @@ function sanitizeCachedVideo(video) {
     clone.gameUrl = clone.videoUrl;
     clone.videoUrl = null;
   }
+  // חסימת משחקים לא רצויים (למשל Subway Surfers) גם ממטמון ישן | HYPER CORE TECH
+  if (clone.gameUrl && !isPlayableGameLink(clone.gameUrl)) {
+    clone.gameUrl = null;
+  }
   return clone;
 }
 
@@ -1217,7 +1221,7 @@ function parseEventToVideoItem(event, currentApp) {
         const tagHash = tag[3] || '';
         if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
           liveUrl = liveUrl || tagUrl;
-        } else if (mime === 'text/html' || mime.includes('html') || isPlayableGameLink(tagUrl)) {
+        } else if (isPlayableGameLink(tagUrl)) {
           gameUrl = gameUrl || tagUrl;
         } else if (mime.startsWith('video/') || isVideoLink(tagUrl)) {
           videoUrl = videoUrl || tagUrl;
@@ -1238,7 +1242,8 @@ function parseEventToVideoItem(event, currentApp) {
       }
       if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-embed') {
         if (!gameUrl) {
-          const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isHlsLiveLink(l));
+          // רק קישור שעובר זיהוי משחק אמיתי – לא כל http (מונע Subway Surfers וכו') | HYPER CORE TECH
+          const httpLink = mediaLinks.find((l) => isPlayableGameLink(l));
           if (httpLink) gameUrl = httpLink;
         }
       }
@@ -1559,8 +1564,10 @@ function isPlayableGameLink(link) {
   if (typeof App.isPlayableGameUrl === 'function') return App.isPlayableGameUrl(link);
   if (!link) return false;
   if (!/^https:\/\//i.test(link)) return false;
+  if (/subway[\s\-_.]*surfers?|subwaysurfers/i.test(link)) return false;
+  if (/poki\.com|crazygames\.com|gamedistribution\.com/i.test(link)) return false;
   if (/\.(mp4|webm|m3u8|jpg|png)(\?|#|$)/i.test(link)) return false;
-  return /\.github\.io\//i.test(link) || /\/(game|games|play|mobile|mobileapp)(\/|$)/i.test(link);
+  return /\.github\.io\//i.test(link) || /gamh5\.com|krunker\.io|famobi\.com|itch\.io/i.test(link);
 }
 
 function isVideoLink(link) {
@@ -3761,7 +3768,7 @@ async function loadVideos() {
           const tagHash = tag[3] || '';
           if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
             liveUrl = liveUrl || tagUrl;
-          } else if (mime === 'text/html' || mime.includes('html') || isPlayableGameLink(tagUrl)) {
+          } else if (isPlayableGameLink(tagUrl)) {
             gameUrl = gameUrl || tagUrl;
           } else if (tagUrl === videoUrl && tagHash) {
             mediaHash = tagHash;
@@ -3772,7 +3779,8 @@ async function loadVideos() {
           if (httpLink) liveUrl = liveUrl || httpLink;
         }
         if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-embed') {
-          const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isHlsLiveLink(l));
+          // רק קישור שעובר זיהוי משחק – לא כל http | HYPER CORE TECH
+          const httpLink = mediaLinks.find((l) => isPlayableGameLink(l));
           if (httpLink) gameUrl = gameUrl || httpLink;
         }
         if (tag[0] === 'mirror' && tag[1]) {
