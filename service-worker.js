@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v78'; // bump - synced video compress H.264/AAC for iPhone
+  const CACHE_NAME = 'sos-cache-v79'; // bump - higher quality compress (CRF/main, less blocking)
   const PRECACHE_URLS = [
     './',
     './videos.html',

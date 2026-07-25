@@ -7,11 +7,12 @@
   const TARGET_FPS = 30;
   const SKIP_REENCODE_MAX_BYTES = 22 * 1024 * 1024; // קובץ MP4/MOV קטן – לא להרוס סנכרון | HYPER CORE TECH
 
-  // דחיסה חזקה אבל אודיו לא מתחת ל-96kbps (מונע דילול/קיטועים) | HYPER CORE TECH
-  const MIN_VIDEO_BITRATE = 400_000;
-  const MAX_VIDEO_BITRATE = 1_600_000;
+  // דחיסה חזקה בלי macroblocks – רצפת ביטרייט ל-720p + אודיו יציב | HYPER CORE TECH
+  const MIN_VIDEO_BITRATE = 1_200_000;
+  const MAX_VIDEO_BITRATE = 3_200_000;
   const MIN_AUDIO_BITRATE = 96_000;
   const MAX_AUDIO_BITRATE = 128_000;
+  const FFMPEG_CRF = '23';
 
   let ffmpegInstance = null;
   let isLoading = false;
@@ -32,8 +33,9 @@
     const { isIOS, isSafari } = getDeviceInfo();
     const canCheck = typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function';
 
-    // עדיפות ל-MP4/H.264/AAC – תאימות iPhone מקסימלית | HYPER CORE TECH
+    // עדיפות ל-MP4/H.264 Main + AAC – איכות טובה יותר מ-Baseline, עדיין תואם iPhone | HYPER CORE TECH
     const mp4Candidates = [
+      'video/mp4;codecs=avc1.4D401E,mp4a.40.2',
       'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
       'video/mp4;codecs=avc1,mp4a.40.2',
       'video/mp4',
@@ -136,7 +138,7 @@
     );
   }
 
-  function getAdaptiveBitrates(fileSize, durationSeconds, targetCompressionRatio = 0.32) {
+  function getAdaptiveBitrates(fileSize, durationSeconds, targetCompressionRatio = 0.5) {
     const safeDuration = Math.max(durationSeconds || 1, 0.5);
     const originalBps = (fileSize * 8) / safeDuration;
     const targetTotalBps = originalBps * targetCompressionRatio;
@@ -148,7 +150,8 @@
     audioBps = Math.min(Math.max(audioBps, MIN_AUDIO_BITRATE), MAX_AUDIO_BITRATE);
 
     if (originalBps < MIN_VIDEO_BITRATE + MIN_AUDIO_BITRATE) {
-      videoBps = Math.max(Math.round(originalBps * 0.82), 250_000);
+      // מקור דל – לא לרדת מתחת לרצפה שגורמת לריבועים | HYPER CORE TECH
+      videoBps = Math.min(Math.max(Math.round(originalBps * 0.9), 800_000), MAX_VIDEO_BITRATE);
       audioBps = MIN_AUDIO_BITRATE;
     }
 
@@ -222,15 +225,16 @@
     }, 700);
 
     try {
+      // CRF + maxrate: איכות יציבה בלי ריבועים, עדיין קובץ קטן ותואם iPhone | HYPER CORE TECH
       await ffmpeg.run(
         '-i', inputName,
         '-vf', `scale=-2:${TARGET_HEIGHT}:force_original_aspect_ratio=decrease,fps=${TARGET_FPS}`,
         '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-profile:v', 'baseline',
-        '-level', '3.1',
-        '-b:v', String(videoBps),
-        '-maxrate', String(Math.round(videoBps * 1.15)),
+        '-preset', 'faster',
+        '-profile:v', 'main',
+        '-level', '4.0',
+        '-crf', FFMPEG_CRF,
+        '-maxrate', String(videoBps),
         '-bufsize', String(videoBps * 2),
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac',
