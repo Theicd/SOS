@@ -1025,6 +1025,9 @@
     const liveUrl = (!state.media && typeof AppLive.extractHlsUrlFromText === 'function')
       ? AppLive.extractHlsUrlFromText(textContent)
       : '';
+    const gameUrl = (!state.media && !liveUrl && typeof AppLive.extractGameUrlFromText === 'function')
+      ? AppLive.extractGameUrlFromText(textContent)
+      : '';
 
     const parts = [];
     if (textContent) {
@@ -1044,6 +1047,9 @@
     if (liveUrl && !parts.some((p) => String(p).includes(liveUrl))) {
       parts.push(liveUrl);
     }
+    if (gameUrl && !parts.some((p) => String(p).includes(gameUrl))) {
+      parts.push(gameUrl);
+    }
 
     const content = parts.join('\n');
     const textLimit = typeof App.MAX_TEXT_CONTENT_LENGTH === 'number' ? App.MAX_TEXT_CONTENT_LENGTH : 8000;
@@ -1062,6 +1068,9 @@
     } else if (liveUrl) {
       mediaTags.push(['media', 'application/vnd.apple.mpegurl', liveUrl]);
       mediaTags.push(['t', 'live-hls']);
+    } else if (gameUrl) {
+      mediaTags.push(['media', 'text/html', gameUrl]);
+      mediaTags.push(['t', 'game-embed']);
     }
 
     return {
@@ -1070,6 +1079,7 @@
       media: state.media,
       mediaTags,
       liveUrl: liveUrl || null,
+      gameUrl: gameUrl || null,
       // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
       originalId: state.editingOriginalId || null,
     };
@@ -1294,6 +1304,8 @@
 
     const existing = container.querySelector('.compose-live-preview');
     if (existing) existing.remove();
+    const existingGame = container.querySelector('.compose-game-preview');
+    if (existingGame) existingGame.remove();
 
     if (state.media || state.composeMode !== 'text') {
       return;
@@ -1304,8 +1316,11 @@
     const liveUrl = typeof AppLive.extractHlsUrlFromText === 'function'
       ? AppLive.extractHlsUrlFromText(text)
       : '';
+    const gameUrl = (!liveUrl && typeof AppLive.extractGameUrlFromText === 'function')
+      ? AppLive.extractGameUrlFromText(text)
+      : '';
 
-    if (!liveUrl) {
+    if (!liveUrl && !gameUrl) {
       if (!state.media) {
         container.classList.remove('is-visible');
         container.setAttribute('hidden', '');
@@ -1313,9 +1328,9 @@
       return;
     }
 
-    const preview = typeof AppLive.buildComposeLivePreview === 'function'
-      ? AppLive.buildComposeLivePreview(liveUrl)
-      : null;
+    const preview = liveUrl
+      ? (typeof AppLive.buildComposeLivePreview === 'function' ? AppLive.buildComposeLivePreview(liveUrl) : null)
+      : (typeof AppLive.buildComposeGamePreview === 'function' ? AppLive.buildComposeGamePreview(gameUrl) : null);
     if (!preview) return;
 
     if (elements.previewImage) elements.previewImage.style.display = 'none';
@@ -1323,7 +1338,10 @@
     container.appendChild(preview);
     container.classList.add('is-visible');
     container.removeAttribute('hidden');
-    setStatus('זוהה ערוץ חי — יפורסם עם תג LIVE', 'success');
+    setStatus(
+      liveUrl ? 'זוהה ערוץ חי — יפורסם עם תג LIVE IPTV' : 'זוהה משחק — יפורסם כפוסט משחק בפיד',
+      'success'
+    );
   }
 
   // חלק קומפוזר (compose.js) – פרסום פוסט: בניית payload, חתימה ופרסום ל-relays | HYPER CORE TECH

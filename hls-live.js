@@ -116,8 +116,8 @@
     if (badge) return badge;
     badge = document.createElement('div');
     badge.className = 'videos-live-badge';
-    badge.setAttribute('aria-label', 'שידור חי');
-    badge.innerHTML = '<span class="videos-live-badge__dot" aria-hidden="true"></span><span class="videos-live-badge__text">LIVE</span>';
+    badge.setAttribute('aria-label', 'שידור חי IPTV');
+    badge.innerHTML = '<span class="videos-live-badge__dot" aria-hidden="true"></span><span class="videos-live-badge__text">LIVE IPTV</span>';
     mediaDiv.appendChild(badge);
     ensureFullscreenControls(mediaDiv);
     return badge;
@@ -478,7 +478,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'compose-live-preview';
     wrap.innerHTML = [
-      '<div class="compose-live-preview__badge"><span class="videos-live-badge__dot"></span>LIVE</div>',
+      '<div class="compose-live-preview__badge"><span class="videos-live-badge__dot"></span>LIVE IPTV</div>',
       '<div class="compose-live-preview__title">ערוץ חי מזוהה</div>',
       '<div class="compose-live-preview__url"></div>',
       '<div class="compose-live-preview__hint">יפורסם כפוסט שידור חי בפיד</div>',
