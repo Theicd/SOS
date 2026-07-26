@@ -1,4 +1,4 @@
-﻿// ׳—׳׳§ Service Worker (service-worker.js) ג€“ PWA ׳׳׳ ׳¢׳ cache, push, notifications ׳•׳×׳׳™׳›׳” ׳‘׳¨׳§׳¢ | HYPER CORE TECH
+// ׳—׳׳§ Service Worker (service-worker.js) ג€“ PWA ׳׳׳ ׳¢׳ cache, push, notifications ׳•׳×׳׳™׳›׳” ׳‘׳¨׳§׳¢ | HYPER CORE TECH
 (function initServiceWorker(self) {
   
   // ׳—׳׳§ ׳”׳’׳“׳¨׳•׳× Cache (service-worker.js) ג€“ ׳©׳׳•׳× ׳•׳¨׳©׳™׳׳× ׳§׳‘׳¦׳™׳ ׳׳©׳׳™׳¨׳” | HYPER CORE TECH
