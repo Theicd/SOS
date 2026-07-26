@@ -56,10 +56,6 @@ function fallbackHref() {
   try { return new URL('loadnug-fallback.js', import.meta.url).href; }
   catch (e) { return 'loadnug-fallback.js'; }
 }
-function iconHref() {
-  try { return new URL('loadnug-icon.png', import.meta.url).href; }
-  catch (e) { return 'loadnug-icon.png'; }
-}
 function queryFlag() {
   try { return new URLSearchParams(location.search).get('loadnug'); }
   catch (e) { return null; }
@@ -128,7 +124,6 @@ export class LoadNugController {
     ov.innerHTML = `
       <canvas id="sosLoadNugCanvas" aria-hidden="true"></canvas>
       <div class="sos-loadnug__loader">
-        <img class="sos-loadnug__icon" alt="" referrerpolicy="no-referrer" />
         <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s">S</span><span class="ln-o">O</span><span class="ln-s">S</span></div>
         <div class="sos-loadnug__loading">Loading</div>
         <div class="sos-loadnug__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -154,16 +149,12 @@ export class LoadNugController {
 
     this.overlay = ov;
     this.canvas = ov.querySelector('#sosLoadNugCanvas');
-    this.iconEl = ov.querySelector('.sos-loadnug__icon');
     this._statusEl = ov.querySelector('.sos-loadnug__status');
     this._storyTitle = ov.querySelector('.sos-loadnug__explain-title');
     this._storySub = ov.querySelector('.sos-loadnug__explain-sub');
     this._barEls = Array.from(ov.querySelectorAll('.sos-loadnug__bar'));
     this._pctEls = Array.from(ov.querySelectorAll('.sos-loadnug__pct'));
     this._progressEls = Array.from(ov.querySelectorAll('.sos-loadnug__progress'));
-
-    this.iconEl.src = iconHref();
-    this.iconEl.onerror = () => { try { this.iconEl.style.display = 'none'; } catch (e) {} };
 
     this._applyStoryBeat(STORY_BEATS[0], 0);
     this._setBar(0);

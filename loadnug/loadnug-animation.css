@@ -86,15 +86,6 @@ body:has(.videos-feed) .primary-nav {
   width: min(380px, calc(100vw - 28px));
 }
 
-.sos-loadnug__icon {
-  width: clamp(48px, 12vw, 68px);
-  height: clamp(48px, 12vw, 68px);
-  border-radius: 16px;
-  object-fit: cover;
-  display: block;
-  box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.3), 0 8px 28px rgba(0, 0, 0, 0.5);
-}
-
 .sos-loadnug__logo {
   display: flex;
   gap: clamp(4px, 1vw, 8px);
