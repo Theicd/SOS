@@ -100,8 +100,14 @@ export class LoadNugController {
   _mount() {
     const crit = document.createElement('style');
     crit.id = 'sos-loadnug-critical';
-    // Critical CSS: בין ההדר לתפריט התחתון בלבד – תחת z-index של הכרום | HYPER CORE TECH
-    crit.textContent = 'body.sos-loadnug-active .top-bar{position:fixed!important;z-index:3000!important;left:0;right:0;top:0}body.sos-loadnug-active .primary-nav{z-index:3000!important}#sosLoadNugOverlay{position:fixed;top:calc(44px + var(--safe-top,0px));bottom:calc(56px + var(--safe-bottom,0px));left:0;right:0;background:#070b19;z-index:100;opacity:1;transition:opacity .7s ease;pointer-events:auto}#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}#sosLoadNugCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}';
+    // כרטיס בפיד כמו פוסט – ההדר והתפריט התחתון נשארים מעליו | HYPER CORE TECH
+    crit.textContent = [
+      'body:has(.videos-feed) .top-bar{position:fixed!important;z-index:3000!important;left:0!important;right:0!important;top:0!important;width:100%!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
+      'body:has(.videos-feed) .primary-nav{position:fixed!important;z-index:3000!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
+      '#sosLoadNugOverlay.videos-feed__card{position:relative!important;inset:auto!important;z-index:1!important;width:100%!important;flex-shrink:0!important;overflow:hidden!important;background:#070b19!important}',
+      '#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}',
+      '#sosLoadNugCanvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;z-index:1}',
+    ].join('');
     if (!document.getElementById('sos-loadnug-critical')) document.head.appendChild(crit);
 
     if (!document.querySelector('link[data-sos-loadnug-css]')) {
@@ -114,12 +120,13 @@ export class LoadNugController {
 
     const ov = document.createElement('div');
     ov.id = 'sosLoadNugOverlay';
-    ov.setAttribute('role', 'dialog');
+    // אותו מבנה גובה/snap כמו פוסט בפיד | HYPER CORE TECH
+    ov.className = 'videos-feed__card videos-feed__card--loadnug';
+    ov.setAttribute('role', 'status');
     ov.setAttribute('aria-label', 'SOS loading');
     ov.setAttribute('aria-busy', 'true');
     ov.innerHTML = `
       <canvas id="sosLoadNugCanvas" aria-hidden="true"></canvas>
-
       <div class="sos-loadnug__loader">
         <img class="sos-loadnug__icon" alt="" referrerpolicy="no-referrer" />
         <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s">S</span><span class="ln-o">O</span><span class="ln-s">S</span></div>
@@ -134,9 +141,16 @@ export class LoadNugController {
           <p class="sos-loadnug__explain-sub">האנשים הם הרשת — בלי שרת מרכזי אחד</p>
         </div>
       </div>`;
-    // body + class כדי להבטיח שההדר והתפריט התחתון מעל המד | HYPER CORE TECH
-    document.body.classList.add('sos-loadnug-active');
-    document.body.appendChild(ov);
+
+    const stream = document.getElementById('videosStream');
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (stream) {
+      stream.insertBefore(ov, stream.firstChild || null);
+    } else if (viewport) {
+      viewport.insertBefore(ov, viewport.firstChild || null);
+    } else {
+      document.body.appendChild(ov);
+    }
 
     this.overlay = ov;
     this.canvas = ov.querySelector('#sosLoadNugCanvas');
@@ -346,9 +360,13 @@ export class LoadNugController {
   }
 
   _disposeOverlay() {
-    try { document.body.classList.remove('sos-loadnug-active'); } catch (e) {}
     try {
       if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
+    } catch (e) {}
+    // אחרי הסרת כרטיס הטעינה – חזרה לראש הפיד (פוסט ראשון) | HYPER CORE TECH
+    try {
+      const vp = document.querySelector('.videos-feed__viewport');
+      if (vp) vp.scrollTop = 0;
     } catch (e) {}
     this.overlay = null;
     this.canvas = null;

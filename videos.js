@@ -2359,7 +2359,12 @@ function renderVideos() {
   // אם אין פוסטים קיימים - נקה והתחל מחדש
   const needsFullRender = existingIds.size === 0;
   if (needsFullRender) {
+    // שומרים את כרטיס LoadNug (יושב כמו פוסט) – innerHTML מוחק אותו | HYPER CORE TECH
+    const loadnugCard = document.getElementById('sosLoadNugOverlay');
     selectors.stream.innerHTML = '';
+    if (loadnugCard) {
+      try { selectors.stream.insertBefore(loadnugCard, selectors.stream.firstChild || null); } catch (_) {}
+    }
   }
   
   resetIncrementalRender();

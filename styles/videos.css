@@ -479,7 +479,11 @@ body:has(.videos-feed) .top-bar__dropdown {
 
 /* חלק תפריט תחתון (videos.css) – תפריט תחתון בסגנון TikTok דק | HYPER CORE TECH */
 body:has(.videos-feed) .primary-nav {
+  position: fixed !important;
   display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
   align-items: center !important;
   justify-content: space-around !important;
   background: rgba(0, 0, 0, 0.95) !important;

@@ -1,21 +1,23 @@
 /* ============================================================
-   SOS · LOADNUG — Full-page 3D fly-through + overlay UI
+   SOS · LOADNUG — loading card inside the feed (like a post)
+   Header + bottom nav stay visible | HYPER CORE TECH
    ============================================================ */
 
-/* מד טעינה פנימי בין הדר לתפריט תחתון – לא מכסה את הכרום | HYPER CORE TECH */
-#sosLoadNugOverlay {
-  position: fixed;
-  top: calc(44px + var(--safe-top, 0px));
-  bottom: calc(56px + var(--safe-bottom, 0px));
-  left: 0;
-  right: 0;
-  width: auto;
-  height: auto;
-  min-height: 0;
-  background: #070b19;
+#sosLoadNugOverlay.videos-feed__card,
+.videos-feed__card--loadnug {
+  position: relative !important;
+  inset: auto !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  /* גובה כמו פוסט – מגיע מ-.videos-feed__card | HYPER CORE TECH */
+  z-index: 1 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  background: #070b19 !important;
   color: #f4f7ff;
-  z-index: 100;
-  overflow: hidden;
   direction: ltr;
   font-family: 'Assistant', 'Rubik', 'Heebo', system-ui, sans-serif;
   opacity: 1;
@@ -24,20 +26,30 @@
   user-select: none;
   touch-action: none;
   box-sizing: border-box;
+  pointer-events: auto;
+  content-visibility: visible !important;
+  contain: none !important;
 }
 
-/* כרום תמיד מעל LoadNug */
-body.sos-loadnug-active .top-bar {
+/* כרום תמיד גלוי מעל הפיד */
+body:has(.videos-feed) .top-bar {
   position: fixed !important;
   z-index: 3000 !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: 0 !important;
-  width: 100% !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
 }
 
-body.sos-loadnug-active .primary-nav {
+body:has(.videos-feed) .primary-nav {
+  position: fixed !important;
   z-index: 3000 !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
 }
 
 #sosLoadNugOverlay.sos-loadnug--leaving {
