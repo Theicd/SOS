@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v82'; // bump - new glossy S-play transparent icon
+  const CACHE_NAME = 'sos-cache-v83'; // bump - LOADNUG cinematic loader replaces old SOS splash
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -17,6 +17,8 @@
     './icons/WAPICON.png',
     './icons/sos-app-icon-192.png',
     './icons/sos-app-icon-512.png',
+    './loadnug/loadnug-animation.css',
+    './loadnug/loadnug-controller.js',
     './manifest.webmanifest',
   ];
 

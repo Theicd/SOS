@@ -2034,14 +2034,7 @@ body.global-stop .videos-feed__play-overlay {
     align-items: flex-start;
   }
 
-  /* רקע שחור למסך הטעינה המוקדם של הפיד | HYPER CORE TECH */
-  body:has(.videos-feed) .videos-loading-overlay {
-    background: #000 !important;
-  }
-
-  body:has(.videos-feed) .videos-loading-scene {
-    background: transparent !important;
-  }
+  /* LOADNUG: מסך הטעינה הישן הוסר – אין דריסת רקע | HYPER CORE TECH */
 
   .videos-feed__stream {
     display: flex;

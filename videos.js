@@ -1522,6 +1522,12 @@ function hideLoadingAnimation() {
   if (overlay) {
     overlay.classList.add('hidden');
   }
+  // סגירת LOADNUG כשהפיד מוכן | HYPER CORE TECH
+  try {
+    if (window.SOSLoadNug && typeof window.SOSLoadNug.signalReady === 'function') {
+      window.SOSLoadNug.signalReady();
+    }
+  } catch (_) {}
 }
 
 // חלק יאללה וידאו (videos.js) – עדכון מד טעינה והודעות סטטוס | HYPER CORE TECH
