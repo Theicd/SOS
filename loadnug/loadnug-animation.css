@@ -2,16 +2,19 @@
    SOS · LOADNUG — Full-page 3D fly-through + overlay UI
    ============================================================ */
 
+/* רק אזור הפיד הפנימי – מתחת לתפריט עליון/תחתון, לא מכסה את כל הממשק | HYPER CORE TECH */
 #sosLoadNugOverlay {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
-  min-height: 100svh;
+  top: calc(44px + var(--safe-top, 0px));
+  bottom: calc(56px + var(--safe-bottom, 0px));
+  left: 0;
+  right: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
   background: #070b19;
   color: #f4f7ff;
-  z-index: 2147483647;
+  z-index: 90;
   overflow: hidden;
   direction: ltr;
   font-family: 'Assistant', 'Rubik', 'Heebo', system-ui, sans-serif;
@@ -21,6 +24,17 @@
   user-select: none;
   touch-action: none;
   box-sizing: border-box;
+}
+
+@media (min-width: 769px) {
+  /* בדסקטופ: מקום לתפריט הצד | HYPER CORE TECH */
+  #sosLoadNugOverlay {
+    right: 0;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 90;
+  }
 }
 
 #sosLoadNugOverlay.sos-loadnug--leaving {

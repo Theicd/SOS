@@ -258,6 +258,7 @@ body:has(.videos-feed) .primary-nav::-webkit-scrollbar {
 
 /* חלק תפריט עליון קבוע (videos.css) – תפריט עליון עם רקע אטום כמו התחתון | HYPER CORE TECH */
 body:has(.videos-feed) .top-bar {
+  z-index: 2000 !important; /* מעל LoadNug באזור הפיד | HYPER CORE TECH */
   background: rgba(0, 0, 0, 0.95) !important;
   backdrop-filter: saturate(180%) blur(20px) !important;
   -webkit-backdrop-filter: saturate(180%) blur(20px) !important;

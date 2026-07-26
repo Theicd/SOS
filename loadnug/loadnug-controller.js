@@ -5,8 +5,9 @@
    Always replays on refresh. Canvas2D fallback if WebGL fails.
    ============================================================ */
 
-const DURATION = 90;
-const SAFETY_HOLD = 20;
+// קולנוע קצר באזור הפיד בלבד – לא חוסם תפריטים | HYPER CORE TECH
+const DURATION = 12;
+const SAFETY_HOLD = 10;
 
 const STORY_BEATS = [
   {
@@ -15,27 +16,27 @@ const STORY_BEATS = [
     sub: 'האנשים הם הרשת — בלי שרת מרכזי אחד',
   },
   {
-    t: 12,
+    t: 2,
     title: 'חופש ממעקב',
     sub: 'הנתונים שלך נשארים אצלך — לא נמכרים ולא נאספים',
   },
   {
-    t: 26,
+    t: 4,
     title: 'חיבור ישיר בין אנשים',
     sub: 'כל משתמש מדבר עם משתמשים אחרים ברשת',
   },
   {
-    t: 42,
+    t: 6,
     title: 'שיתוף מבוזר ומהיר',
     sub: 'פוסטים ומדיה עוברים ברחבי הרשת בלי צוואר בקבוק',
   },
   {
-    t: 58,
+    t: 8,
     title: 'קידמה בלי שליטה מרכזית',
     sub: 'ממסרים ואחסון פתוחים — הרשת נשארת חיה בידיים שלך',
   },
   {
-    t: 74,
+    t: 10,
     title: 'טוענים את הפיד שלך',
     sub: 'התוכן עולה מהרשת המבוזרת — פרטי, חופשי, שלך',
   },
@@ -99,7 +100,8 @@ export class LoadNugController {
   _mount() {
     const crit = document.createElement('style');
     crit.id = 'sos-loadnug-critical';
-    crit.textContent = '#sosLoadNugOverlay{position:fixed;inset:0;width:100%;height:100%;height:100dvh;background:#070b19;z-index:2147483647;opacity:1;transition:opacity .7s ease}#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}#sosLoadNugCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}';
+    // Critical CSS: פנימי בלבד – מתחת לתפריטים (לא full-screen מעל הממשק) | HYPER CORE TECH
+    crit.textContent = '#sosLoadNugOverlay{position:fixed;top:calc(44px + var(--safe-top,0px));bottom:calc(56px + var(--safe-bottom,0px));left:0;right:0;background:#070b19;z-index:90;opacity:1;transition:opacity .7s ease}#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}#sosLoadNugCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}';
     if (!document.getElementById('sos-loadnug-critical')) document.head.appendChild(crit);
 
     if (!document.querySelector('link[data-sos-loadnug-css]')) {
@@ -132,7 +134,9 @@ export class LoadNugController {
           <p class="sos-loadnug__explain-sub">האנשים הם הרשת — בלי שרת מרכזי אחד</p>
         </div>
       </div>`;
-    document.body.appendChild(ov);
+    // מצמידים לאזור הפיד – לא ל-body מעל כל הממשק | HYPER CORE TECH
+    const host = document.querySelector('.videos-feed__viewport') || document.querySelector('.videos-feed') || document.body;
+    host.appendChild(ov);
 
     this.overlay = ov;
     this.canvas = ov.querySelector('#sosLoadNugCanvas');
