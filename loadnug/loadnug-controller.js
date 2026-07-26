@@ -5,9 +5,9 @@
    Always replays on refresh. Canvas2D fallback if WebGL fails.
    ============================================================ */
 
-// קולנוע קצר באזור הפיד בלבד – לא חוסם תפריטים | HYPER CORE TECH
-const DURATION = 12;
-const SAFETY_HOLD = 10;
+// זמנים מקוריים מ-LOADNUG – לא לשנות | HYPER CORE TECH
+const DURATION = 90;
+const SAFETY_HOLD = 20;
 
 const STORY_BEATS = [
   {
@@ -16,27 +16,27 @@ const STORY_BEATS = [
     sub: 'האנשים הם הרשת — בלי שרת מרכזי אחד',
   },
   {
-    t: 2,
+    t: 12,
     title: 'חופש ממעקב',
     sub: 'הנתונים שלך נשארים אצלך — לא נמכרים ולא נאספים',
   },
   {
-    t: 4,
+    t: 26,
     title: 'חיבור ישיר בין אנשים',
     sub: 'כל משתמש מדבר עם משתמשים אחרים ברשת',
   },
   {
-    t: 6,
+    t: 42,
     title: 'שיתוף מבוזר ומהיר',
     sub: 'פוסטים ומדיה עוברים ברחבי הרשת בלי צוואר בקבוק',
   },
   {
-    t: 8,
+    t: 58,
     title: 'קידמה בלי שליטה מרכזית',
     sub: 'ממסרים ואחסון פתוחים — הרשת נשארת חיה בידיים שלך',
   },
   {
-    t: 10,
+    t: 74,
     title: 'טוענים את הפיד שלך',
     sub: 'התוכן עולה מהרשת המבוזרת — פרטי, חופשי, שלך',
   },
@@ -100,8 +100,8 @@ export class LoadNugController {
   _mount() {
     const crit = document.createElement('style');
     crit.id = 'sos-loadnug-critical';
-    // Critical CSS: פנימי בלבד – מתחת לתפריטים (לא full-screen מעל הממשק) | HYPER CORE TECH
-    crit.textContent = '#sosLoadNugOverlay{position:fixed;top:calc(44px + var(--safe-top,0px));bottom:calc(56px + var(--safe-bottom,0px));left:0;right:0;background:#070b19;z-index:90;opacity:1;transition:opacity .7s ease}#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}#sosLoadNugCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}';
+    // Critical CSS: בין ההדר לתפריט התחתון בלבד – תחת z-index של הכרום | HYPER CORE TECH
+    crit.textContent = 'body.sos-loadnug-active .top-bar{position:fixed!important;z-index:3000!important;left:0;right:0;top:0}body.sos-loadnug-active .primary-nav{z-index:3000!important}#sosLoadNugOverlay{position:fixed;top:calc(44px + var(--safe-top,0px));bottom:calc(56px + var(--safe-bottom,0px));left:0;right:0;background:#070b19;z-index:100;opacity:1;transition:opacity .7s ease;pointer-events:auto}#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}#sosLoadNugCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}';
     if (!document.getElementById('sos-loadnug-critical')) document.head.appendChild(crit);
 
     if (!document.querySelector('link[data-sos-loadnug-css]')) {
@@ -134,9 +134,9 @@ export class LoadNugController {
           <p class="sos-loadnug__explain-sub">האנשים הם הרשת — בלי שרת מרכזי אחד</p>
         </div>
       </div>`;
-    // מצמידים לאזור הפיד – לא ל-body מעל כל הממשק | HYPER CORE TECH
-    const host = document.querySelector('.videos-feed__viewport') || document.querySelector('.videos-feed') || document.body;
-    host.appendChild(ov);
+    // body + class כדי להבטיח שההדר והתפריט התחתון מעל המד | HYPER CORE TECH
+    document.body.classList.add('sos-loadnug-active');
+    document.body.appendChild(ov);
 
     this.overlay = ov;
     this.canvas = ov.querySelector('#sosLoadNugCanvas');
@@ -344,6 +344,7 @@ export class LoadNugController {
   }
 
   _disposeOverlay() {
+    try { document.body.classList.remove('sos-loadnug-active'); } catch (e) {}
     try {
       if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
     } catch (e) {}

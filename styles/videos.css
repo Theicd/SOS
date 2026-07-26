@@ -258,7 +258,12 @@ body:has(.videos-feed) .primary-nav::-webkit-scrollbar {
 
 /* חלק תפריט עליון קבוע (videos.css) – תפריט עליון עם רקע אטום כמו התחתון | HYPER CORE TECH */
 body:has(.videos-feed) .top-bar {
-  z-index: 2000 !important; /* מעל LoadNug באזור הפיד | HYPER CORE TECH */
+  position: fixed !important; /* חייב fixed כדי להישאר מעל מד הטעינה | HYPER CORE TECH */
+  z-index: 3000 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
   background: rgba(0, 0, 0, 0.95) !important;
   backdrop-filter: saturate(180%) blur(20px) !important;
   -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
@@ -269,7 +274,6 @@ body:has(.videos-feed) .top-bar {
   height: calc(44px + var(--safe-top, 0px)) !important;
   min-height: 44px !important;
   box-sizing: border-box !important;
-  position: relative;
 }
 
 /* חלק מיקום כפתור פרופיל (videos.css) – הזזה 5px ימינה במובייל | HYPER CORE TECH */
@@ -486,7 +490,7 @@ body:has(.videos-feed) .primary-nav {
   padding-bottom: var(--safe-bottom, 0px) !important;
   gap: 0 !important;
   width: 100%;
-  z-index: 2001 !important;
+  z-index: 3000 !important;
   height: calc(56px + var(--safe-bottom, 0px)) !important;
   min-height: 56px !important;
 }
