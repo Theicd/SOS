@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v80'; // bump - 1080p CRF20 strong compress, no blocky maxrate
+  const CACHE_NAME = 'sos-cache-v81'; // bump - transparent SOS app icon favicon/PWA
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -14,6 +14,10 @@
     './styles/chat.css',
     './styles/chat-whatsapp-theme.css',
     './icons/so-call010.png',
+    './icons/WAPICON.png',
+    './icons/sos-app-icon-192.png',
+    './icons/sos-app-icon-512.png',
+    './manifest.webmanifest',
   ];
 
   // חלק Install (service-worker.js) – התקנה ושמירת קבצים ב-cache | HYPER CORE TECH
