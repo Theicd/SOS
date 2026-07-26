@@ -214,7 +214,7 @@
     }
     const items = [
       {
-        color: '#63e6be',
+        color: '#22c55e',
         label: 'ערך SPEAR ONE (USD)',
         note: 'משלב השקעה, משתמשים פעילים, חיסכון תשתיתי ופעילות מאומתת.',
       },
@@ -285,8 +285,8 @@
     }
     const context = selectors.chartCanvas.getContext('2d');
     const gradient = context.createLinearGradient(0, 0, 0, selectors.chartCanvas.height);
-    gradient.addColorStop(0, 'rgba(99, 230, 190, 0.35)');
-    gradient.addColorStop(1, 'rgba(99, 230, 190, 0.05)');
+    gradient.addColorStop(0, 'rgba(34, 197, 94, 0.35)');
+    gradient.addColorStop(1, 'rgba(34, 197, 94, 0.05)');
     const labels = model.chartSeries.map((bucket) => bucket.date);
     const valueSeries = model.chartSeries.map((bucket) => bucket.valueUSD);
     const activitySeries = model.chartSeries.map((bucket) => bucket.activityIndex);
@@ -298,7 +298,7 @@
           {
             label: 'שווי SPEAR ONE (USD)',
             data: valueSeries,
-            borderColor: '#63e6be',
+            borderColor: '#22c55e',
             backgroundColor: gradient,
             tension: 0.35,
             fill: true,
@@ -426,7 +426,7 @@
         labels: data.labels,
         datasets: [
           { label: 'פעילות ממוצעת', data: data.activityBase, borderColor: '#6f7dff', backgroundColor: gradient, fill: true, borderWidth: 2, tension: 0.35, yAxisID: 'activity' },
-          { label: 'פעילות – תרחיש אופטימי', data: data.activityOptimistic, borderColor: '#63e6be', borderDash: [6, 4], fill: false, tension: 0.32, yAxisID: 'activity' },
+          { label: 'פעילות – תרחיש אופטימי', data: data.activityOptimistic, borderColor: '#22c55e', borderDash: [6, 4], fill: false, tension: 0.32, yAxisID: 'activity' },
           { label: 'פעילות – תרחיש שמרני', data: data.activityConservative, borderColor: '#ffb347', borderDash: [4, 6], fill: false, tension: 0.32, yAxisID: 'activity' },
           { label: 'שווי רשת – אופטימי (USD)', data: data.valueOptimistic, borderColor: '#f472b6', fill: false, tension: 0.28, yAxisID: 'value' },
           { label: 'שווי רשת – שמרני (USD)', data: data.valueConservative, borderColor: '#9f7aea', fill: false, borderDash: [2, 3], tension: 0.28, yAxisID: 'value' },
@@ -459,7 +459,7 @@
     if (selectors.forecastLegend) {
       selectors.forecastLegend.innerHTML = `
         <span><i class="fa-solid fa-circle" style="color:#6f7dff"></i> פעילות ממוצעת</span>
-        <span><i class="fa-solid fa-circle" style="color:#63e6be"></i> תרחיש פעילות אופטימי</span>
+        <span><i class="fa-solid fa-circle" style="color:#22c55e"></i> תרחיש פעילות אופטימי</span>
         <span><i class="fa-solid fa-circle" style="color:#ffb347"></i> תרחיש פעילות שמרני</span>
         <span><i class="fa-solid fa-circle" style="color:#f472b6"></i> שווי רשת אופטימי</span>
         <span><i class="fa-solid fa-circle" style="color:#9f7aea"></i> שווי רשת שמרני</span>

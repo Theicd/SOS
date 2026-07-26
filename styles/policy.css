@@ -43,7 +43,7 @@ main.policy {
   width: 120px;
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff7eb3, #ffce7a, #7dd3fc, #c084fc);
+  background: linear-gradient(90deg, #ff2d55, #22c55e, #2d88ff, #c084fc);
   background-size: 300% 100%;
   animation: policyAccent 4s linear infinite;
 }

@@ -79,7 +79,7 @@
   inset: 0;
   border-radius: 8px;
   padding: 2px;
-  background: linear-gradient(45deg, #00f, #0ff, #f0f, #00f);
+  background: linear-gradient(45deg, #ff2d55, #22c55e, #2d88ff, #ff2d55);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -98,8 +98,8 @@
 .sos-char.sos-s {
   /* אופטימיזציה: האטת floatS ל-6s, צמצום text-shadow לשכבה אחת */
   background: linear-gradient(145deg, #1a1a6b, #0a0a3a);
-  color: #4fc3f7;
-  text-shadow: 0 0 12px #4fc3f7;
+  color: #2d88ff;
+  text-shadow: 0 0 12px #2d88ff;
   animation: floatS 6s ease-in-out infinite;
   will-change: transform;
 }
@@ -124,8 +124,8 @@
 .sos-char.sos-o-alt {
   /* וריאנט כחול עבור O (להחלפה דינמית) */
   background: linear-gradient(145deg, #1a1a6b, #0a0a3a);
-  color: #4fc3f7;
-  text-shadow: 0 0 12px #4fc3f7;
+  color: #2d88ff;
+  text-shadow: 0 0 12px #2d88ff;
 }
 
 /* אופטימיזציה: אנימציות ::before של sos-o בוטלו - יורשים מ-.sos-char::before הסטטי */

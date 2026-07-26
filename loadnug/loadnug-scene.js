@@ -17,15 +17,17 @@ const smoothstep = (a, b, t) => {
 const COL = {
   bg: 0x070b19,
   blue: 0x2d88ff,
-  sky: 0x4fc3f7,
-  cyan: 0x63e6be,
-  aqua: 0x00ffcc,
+  sky: 0x2d88ff,
+  cyan: 0x22c55e,
+  aqua: 0xff2d55,
+  red: 0xff2d55,
+  green: 0x22c55e,
   violet: 0x667eea,
   magenta: 0xf093fb,
   orange: 0xff6d00,
-  torrent: 0x2ecc71,
-  blossom: 0xff6b9d,
-  relay: 0x7c5cff,
+  torrent: 0x22c55e,
+  blossom: 0xff2d55,
+  relay: 0x2d88ff,
 };
 
 export class LoadNugScene {
@@ -143,7 +145,7 @@ export class LoadNugScene {
       rim.position.set(-90, 50, -70);
       this.scene.add(rim);
     }
-    const fill = new THREE.PointLight(0x00ffcc, this._low ? 0.3 : 0.45, this._low ? 280 : 500);
+    const fill = new THREE.PointLight(0xff2d55, this._low ? 0.3 : 0.45, this._low ? 280 : 500);
     fill.position.set(0, 40, 30);
     this.scene.add(fill);
 
@@ -283,7 +285,7 @@ export class LoadNugScene {
         const h = floors * floorH;
         const w = style === 2 ? 4.0 + Math.random() * 2.2 : 3.2 + Math.random() * 2.4;
         const d = style === 2 ? 3.6 + Math.random() * 1.8 : 3.2 + Math.random() * 2.4;
-        const glow = [COL.blue, COL.violet, COL.sky, COL.aqua][(Math.random() * 4) | 0];
+        const glow = [COL.red, COL.green, COL.blue, COL.blue][(Math.random() * 4) | 0];
         const facade = facadePool[(Math.random() * facadePool.length) | 0];
 
         const building = new THREE.Group();
@@ -731,7 +733,7 @@ export class LoadNugScene {
       // neon strip on trailer — tech feel
       const neon = new THREE.Mesh(
         new THREE.BoxGeometry(1.5, 0.08, 3.2),
-        new THREE.MeshBasicMaterial({ color: 0x00ffcc })
+        new THREE.MeshBasicMaterial({ color: 0xff2d55 })
       );
       neon.position.set(0, 1.95, -1.1);
       g.add(neon);
@@ -769,13 +771,13 @@ export class LoadNugScene {
   /** Neon video billboards — screens with static / scanline glitch */
   _initStreetBillboards() {
     const ads = [
-      { title: 'SOS', sub: 'PEOPLE = NETWORK', col: '#00ffcc' },
+      { title: 'SOS', sub: 'PEOPLE = NETWORK', col: '#ff2d55' },
       { title: 'PRIVATE', sub: 'NO TRACKING', col: '#2d88ff' },
       { title: 'FREE', sub: 'YOUR DATA · YOURS', col: '#2ecc71' },
       { title: 'SECURE', sub: 'END-TO-END', col: '#ff6b9d' },
       { title: 'OPEN', sub: 'NO CENTRAL TOWER', col: '#a78bfa' },
       { title: 'LIVE', sub: 'DECENTRAL FEED', col: '#ff6d00' },
-      { title: 'PEER', sub: 'DIRECT LINK', col: '#4fc3f7' },
+      { title: 'PEER', sub: 'DIRECT LINK', col: '#2d88ff' },
       { title: 'OWN', sub: 'YOUR IDENTITY', col: '#eaf6ff' },
     ];
     this._streetBoards = [];
@@ -797,7 +799,7 @@ export class LoadNugScene {
       color: 0x0a1018,
       metalness: 0.7,
       roughness: 0.3,
-      emissive: 0x00ffcc,
+      emissive: 0xff2d55,
       emissiveIntensity: 0.35,
     });
 
@@ -1086,7 +1088,7 @@ export class LoadNugScene {
         title: 'P2P',
         sub: 'PEER TO PEER',
         he: 'חיבור ישיר בין מכשירים',
-        col: '#00ffcc',
+        col: '#ff2d55',
         accent: '#2d88ff',
         start: 6,
         end: 13,

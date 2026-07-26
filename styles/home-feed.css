@@ -58,8 +58,8 @@ body.home-feed--loading #welcomeCard .welcome-scroll {
     45deg,
     #3aa0ff 0,
     #3aa0ff 12px,
-    #00d2ff 12px,
-    #00d2ff 24px
+    #2d88ff 12px,
+    #2d88ff 24px
   );
   background-size: 200% 100%;
   animation: welcome-stripes 1.2s linear infinite;

@@ -95,17 +95,22 @@ body:has(.videos-feed) .primary-nav {
   line-height: 1;
   letter-spacing: clamp(2px, 0.7vw, 5px);
   direction: ltr;
-  filter: drop-shadow(0 0 24px rgba(0, 255, 204, 0.55));
+  filter: drop-shadow(0 0 16px rgba(255, 45, 85, 0.35)) drop-shadow(0 0 16px rgba(34, 197, 94, 0.25)) drop-shadow(0 0 16px rgba(45, 136, 255, 0.35));
 }
 
-.sos-loadnug__logo .ln-s {
-  color: #00ffcc;
-  text-shadow: 0 0 18px rgba(0, 255, 204, 0.95), 0 0 40px rgba(45, 136, 255, 0.5);
+.sos-loadnug__logo .ln-s1 {
+  color: #ff2d55;
+  text-shadow: 0 0 18px rgba(255, 45, 85, 0.95), 0 0 40px rgba(255, 45, 85, 0.45);
 }
 
 .sos-loadnug__logo .ln-o {
-  color: #ff6d00;
-  text-shadow: 0 0 18px rgba(255, 109, 0, 0.9), 0 0 40px rgba(255, 109, 0, 0.45);
+  color: #22c55e;
+  text-shadow: 0 0 18px rgba(34, 197, 94, 0.95), 0 0 40px rgba(34, 197, 94, 0.45);
+}
+
+.sos-loadnug__logo .ln-s2 {
+  color: #2d88ff;
+  text-shadow: 0 0 18px rgba(45, 136, 255, 0.95), 0 0 40px rgba(45, 136, 255, 0.45);
 }
 
 .sos-loadnug__loading {
@@ -114,7 +119,7 @@ body:has(.videos-feed) .primary-nav {
   font-weight: 700;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: #cfe6ff;
+  color: #f4f7ff;
 }
 
 .sos-loadnug__progress {
@@ -124,16 +129,16 @@ body:has(.videos-feed) .primary-nav {
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(0, 255, 204, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(45, 136, 255, 0.25);
 }
 
 .sos-loadnug__bar {
   height: 100%;
   width: 0%;
   border-radius: 9999px;
-  background: linear-gradient(90deg, #2d88ff, #00ffcc 55%, #63e6be);
+  background: linear-gradient(90deg, #ff2d55, #22c55e 50%, #2d88ff);
   background-size: 200% 100%;
-  box-shadow: 0 0 14px rgba(0, 255, 204, 0.7);
+  box-shadow: 0 0 14px rgba(45, 136, 255, 0.7);
   transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
   animation: sosBarShimmer 1.8s linear infinite;
 }
@@ -170,7 +175,7 @@ body:has(.videos-feed) .primary-nav {
   pointer-events: none;
   border-radius: 14px;
   background: rgba(4, 10, 22, 0.88);
-  border: 1px solid rgba(0, 255, 204, 0.4);
+  border: 1px solid rgba(45, 136, 255, 0.4);
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);

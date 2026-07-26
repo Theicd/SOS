@@ -74,10 +74,10 @@ body:has(.profile-shell) .primary-nav .nav-item[data-nav="videos"] {
 
 /* הדגשת כפתור החזרה כאקטיבי */
 body:has(.profile-shell) .primary-nav .nav-item[data-nav="videos"] {
-  background: rgba(99, 230, 190, 0.32);
-  border-color: rgba(99, 230, 190, 0.58);
+  background: rgba(34, 197, 94, 0.32);
+  border-color: rgba(34, 197, 94, 0.58);
   color: #9df5ff;
-  box-shadow: 0 0 22px rgba(99, 230, 190, 0.45);
+  box-shadow: 0 0 22px rgba(34, 197, 94, 0.45);
 }
 
 /* חלק תפריט תחתון (profile-videos-theme.css) – מבטל החלקות נסתרות של המחלקות הגלובליות כדי לשמור על הניווט קבוע | HYPER CORE TECH */
@@ -107,15 +107,15 @@ body:has(.profile-shell) .nav-item {
 
 body:has(.profile-shell) .nav-item:hover {
   background: rgba(255, 255, 255, 0.24);
-  border-color: rgba(99, 230, 190, 0.45);
+  border-color: rgba(34, 197, 94, 0.45);
   transform: scale(1.08);
 }
 
 body:has(.profile-shell) .nav-item.is-active {
-  background: rgba(99, 230, 190, 0.32);
-  border-color: rgba(99, 230, 190, 0.58);
+  background: rgba(34, 197, 94, 0.32);
+  border-color: rgba(34, 197, 94, 0.58);
   color: #9df5ff;
-  box-shadow: 0 0 22px rgba(99, 230, 190, 0.45);
+  box-shadow: 0 0 22px rgba(34, 197, 94, 0.45);
 }
 
 /* חלק אפקט חשמל בתפריט תחתון (profile-videos-theme.css) – רעמים עדינים מאחורי כפתור החזרה | HYPER CORE TECH */
@@ -125,7 +125,7 @@ body:has(.profile-shell) .primary-nav::after {
   position: absolute;
   inset: -40% -10%;
   background:
-    radial-gradient(circle at 20% 0%, rgba(99, 230, 190, 0.45), transparent 55%),
+    radial-gradient(circle at 20% 0%, rgba(34, 197, 94, 0.45), transparent 55%),
     radial-gradient(circle at 80% 40%, rgba(53, 210, 255, 0.6), transparent 60%);
   opacity: 0;
   mix-blend-mode: screen;
@@ -297,10 +297,10 @@ body:has(.profile-shell) .profile-secondary-button {
 }
 
 body:has(.profile-shell) .profile-primary-button {
-  background: linear-gradient(135deg, rgba(99, 230, 190, 0.82), rgba(35, 210, 255, 0.78));
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.82), rgba(35, 210, 255, 0.78));
   color: #031622;
   border-color: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 10px 28px rgba(99, 230, 190, 0.36);
+  box-shadow: 0 10px 28px rgba(34, 197, 94, 0.36);
 }
 
 body:has(.profile-shell) .profile-secondary-button {
@@ -340,7 +340,7 @@ body:has(.profile-shell) .profile-card__title::before {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #63e6be, #35d2ff);
+  background: linear-gradient(135deg, #22c55e, #2d88ff);
   box-shadow: 0 0 18px rgba(53, 210, 255, 0.65);
 }
 
@@ -380,7 +380,7 @@ body:has(.profile-shell) .profile-mobile-tab {
 }
 
 body:has(.profile-shell) .profile-mobile-tab.is-active {
-  background: linear-gradient(135deg, rgba(99, 230, 190, 0.82), rgba(35, 210, 255, 0.78));
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.82), rgba(35, 210, 255, 0.78));
   border-color: rgba(255, 255, 255, 0.58);
   color: #05121c;
   box-shadow: 0 10px 22px rgba(35, 210, 255, 0.32);

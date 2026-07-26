@@ -69,7 +69,7 @@
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260727g">
+    <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260727h">
     <style>
       /* Hook בלתי נראה ל-videos.js / MutationObserver – בלי opacity:0 (שובר את LoadNug) */
       #videosLoadingOverlay.videos-loading-overlay {
@@ -1158,7 +1158,7 @@
       debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
       
       var style = document.createElement('style');
-      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#0ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}#debugOpenBtnTop{margin-inline-start:8px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:0;background:transparent;color:#0f0;font-size:14px;padding:0!important;line-height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(0,212,255,0.2);}';
+      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}#debugOpenBtnTop{margin-inline-start:8px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:0;background:transparent;color:#0f0;font-size:14px;padding:0!important;line-height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
       
       document.addEventListener('DOMContentLoaded', function() {
         document.head.appendChild(style);
@@ -1425,7 +1425,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260727g" defer></script>
+    <script src="./videos.js?v=20260727h" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -2589,6 +2589,6 @@
     <script src="./webtorrent-transfer.js?v=3"></script>
 
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
-      <script type="module" src="./loadnug/loadnug-controller.js?v=20260727g"></script>
+      <script type="module" src="./loadnug/loadnug-controller.js?v=20260727h"></script>
 </body>
 </html>

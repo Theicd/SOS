@@ -260,7 +260,7 @@
         labels: data.labels,
         datasets: [
           { label: 'מדד בסיס', data: data.base, borderColor: '#6f7dff', backgroundColor: gradient, tension: 0.35, fill: true, borderWidth: 2 },
-          { label: 'תרחיש אופטימי', data: data.optimistic, borderColor: '#63e6be', borderDash: [6, 4], tension: 0.3, fill: false, spanGaps: true },
+          { label: 'תרחיש אופטימי', data: data.optimistic, borderColor: '#22c55e', borderDash: [6, 4], tension: 0.3, fill: false, spanGaps: true },
           { label: 'תרחיש שמרני', data: data.conservative, borderColor: '#ffb347', borderDash: [4, 6], tension: 0.3, fill: false, spanGaps: true },
           { label: 'התרחבות גלובלית', data: data.globalScale, borderColor: '#f472b6', borderDash: [2, 3], tension: 0.28, fill: false, spanGaps: true },
         ],

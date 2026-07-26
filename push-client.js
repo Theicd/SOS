@@ -528,8 +528,8 @@
     style.textContent = `
       #push-permission-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
       .ppm-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-      .ppm-content{position:relative;background:linear-gradient(135deg,#0a0a1a 0%,#1a1a2e 50%,#16213e 100%);border-radius:20px;padding:24px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);direction:rtl;text-align:center;border:1px solid rgba(0,212,255,0.15)}
-      .ppm-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00d4ff 0%,#00a8cc 100%);color:#000}
+      .ppm-content{position:relative;background:linear-gradient(135deg,#0a0a1a 0%,#1a1a2e 50%,#16213e 100%);border-radius:20px;padding:24px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);direction:rtl;text-align:center;border:1px solid rgba(45,136,255,0.15)}
+      .ppm-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff2d55 0%,#2d88ff 100%);color:#000}
       .ppm-icon--success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:32px}
       .ppm-icon--error{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:28px}
       .ppm-content h3{margin:0 0 8px;font-size:20px;font-weight:700;color:#fff}
@@ -542,8 +542,8 @@
       .ppm-btn:active{transform:scale(0.97)}
       .ppm-btn--later{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.2)}
       .ppm-btn--later:hover{background:rgba(255,255,255,0.15)}
-      .ppm-btn--enable{background:linear-gradient(135deg,#00d4ff 0%,#00a8cc 100%);color:#000;font-weight:700;box-shadow:0 4px 16px rgba(0,212,255,0.3)}
-      .ppm-btn--enable:hover{box-shadow:0 6px 20px rgba(0,212,255,0.4)}
+      .ppm-btn--enable{background:linear-gradient(135deg,#ff2d55 0%,#2d88ff 100%);color:#000;font-weight:700;box-shadow:0 4px 16px rgba(45,136,255,0.3)}
+      .ppm-btn--enable:hover{box-shadow:0 6px 20px rgba(45,136,255,0.4)}
       .ppm-step p{font-size:15px;color:#fff}
       .ppm-error-msg{color:#f87171}
     `;

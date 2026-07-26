@@ -6,7 +6,7 @@
   --growth-primary: #4fd1c5;
   --growth-primary-glow: rgba(79, 209, 197, 0.3);
   --growth-danger: #ff6b6b;
-  --growth-success: #63e6be;
+  --growth-success: #22c55e;
   --growth-text: #f8fafc;
   --growth-muted: #9ba3be;
   --growth-accent: #8f9bff;
@@ -226,7 +226,7 @@
 
 .growth-metric__trend[data-trend="up"] {
   color: var(--growth-success);
-  background: rgba(99, 230, 190, 0.12);
+  background: rgba(34, 197, 94, 0.12);
 }
 
 .growth-metric__trend[data-trend="down"] {

@@ -124,7 +124,7 @@ export class LoadNugController {
     ov.innerHTML = `
       <canvas id="sosLoadNugCanvas" aria-hidden="true"></canvas>
       <div class="sos-loadnug__loader">
-        <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s">S</span><span class="ln-o">O</span><span class="ln-s">S</span></div>
+        <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s1">S</span><span class="ln-o">O</span><span class="ln-s2">S</span></div>
         <div class="sos-loadnug__loading">Loading</div>
         <div class="sos-loadnug__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="sos-loadnug__bar"></div>

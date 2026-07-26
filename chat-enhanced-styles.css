@@ -277,7 +277,7 @@
 
 .chat-transfer-bubble__bar {
   height: 100%;
-  background: linear-gradient(90deg, #22d3ee, #22c55e);
+  background: linear-gradient(90deg, #2d88ff, #22c55e);
   border-radius: inherit;
   transition: width 0.15s ease;
 }
@@ -1179,7 +1179,7 @@
 .chat-dialog__content {
   position: relative;
   background: linear-gradient(145deg, #1a2633 0%, #0d1418 100%);
-  border: 1px solid rgba(0, 229, 255, 0.15);
+  border: 1px solid rgba(45, 136, 255, 0.15);
   border-radius: 16px;
   padding: 24px 28px;
   min-width: 280px;

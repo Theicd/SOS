@@ -79,8 +79,8 @@
       return growthChart;
     }
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, 'rgba(99, 230, 190, 0.55)');
-    gradient.addColorStop(1, 'rgba(99, 230, 190, 0.05)');
+    gradient.addColorStop(0, 'rgba(34, 197, 94, 0.55)');
+    gradient.addColorStop(1, 'rgba(34, 197, 94, 0.05)');
 
     growthChart = new window.Chart(ctx, {
       type: 'bar',
@@ -122,7 +122,7 @@
             type: 'line',
             label: 'תגובות ביום',
             data: [],
-            borderColor: '#38bdf8',
+            borderColor: '#2d88ff',
             backgroundColor: 'rgba(56, 189, 248, 0.18)',
             tension: 0.25,
             fill: false,

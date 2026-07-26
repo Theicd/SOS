@@ -815,8 +815,8 @@
 }
 
 .profile-cover__stat-box--clickable:hover {
-  background: rgba(0, 212, 255, 0.15);
-  border-color: rgba(0, 212, 255, 0.3);
+  background: rgba(45, 136, 255, 0.15);
+  border-color: rgba(45, 136, 255, 0.3);
 }
 
 .profile-cover__stat-box--clickable:active {

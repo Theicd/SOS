@@ -12,7 +12,7 @@ const smooth = (a, b, t) => {
 };
 
 const KINDS = [
-  { name: 'P2P', col: '#00ffcc' },
+  { name: 'P2P', col: '#22c55e' },
   { name: 'TORRENT', col: '#2ecc71' },
   { name: 'BLOSSOM', col: '#ff6b9d' },
   { name: 'RELAY', col: '#a78bfa' },
@@ -237,7 +237,7 @@ export class LoadNugFallback {
     ctx.closePath();
     ctx.fillStyle = `rgba(18, 32, 64, ${0.85 + 0.15 * lit})`;
     ctx.fill();
-    ctx.strokeStyle = `rgba(0,255,204,${0.2 + 0.35 * lit})`;
+    ctx.strokeStyle = `rgba(45, 136, 255,${0.2 + 0.35 * lit})`;
     ctx.stroke();
 
     // Window rows on left + right faces
@@ -271,7 +271,7 @@ export class LoadNugFallback {
     if (lit > 0.25) {
       const cx = (sx(tNW) + sx(tNE) + sx(tSE) + sx(tSW)) / 4;
       const cy = (sy(tNW) + sy(tNE) + sy(tSE) + sy(tSW)) / 4;
-      ctx.fillStyle = `rgba(0,255,204,${0.75 * lit})`;
+      ctx.fillStyle = `rgba(45, 136, 255,${0.75 * lit})`;
       ctx.beginPath();
       ctx.arc(cx, cy, 2.8, 0, 6.28);
       ctx.fill();
@@ -293,7 +293,7 @@ export class LoadNugFallback {
     ctx.fillRect(0, 0, w, h);
 
     // Ground plane hint (iso diamond grid under city)
-    ctx.strokeStyle = 'rgba(45,136,255,0.07)';
+    ctx.strokeStyle = 'rgba(45, 136, 255,0.07)';
     ctx.lineWidth = 1;
     for (let i = -2; i < 14; i++) {
       const a = this._iso(i, -2, 0);
@@ -324,13 +324,13 @@ export class LoadNugFallback {
       ctx.lineCap = 'round';
       for (const L of this._links) {
         const pulse = 0.5 + 0.5 * Math.sin(t * 2.5 + L.ph * 6.28);
-        ctx.strokeStyle = `rgba(0,255,204,${linkA * pulse * 0.7})`;
+        ctx.strokeStyle = `rgba(45, 136, 255,${linkA * pulse * 0.7})`;
         ctx.lineWidth = 2.4;
         ctx.beginPath();
         ctx.moveTo(L.a.x, L.a.y);
         ctx.lineTo(L.b.x, L.b.y);
         ctx.stroke();
-        ctx.strokeStyle = `rgba(45,136,255,${linkA * pulse * 0.22})`;
+        ctx.strokeStyle = `rgba(45, 136, 255,${linkA * pulse * 0.22})`;
         ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.moveTo(L.a.x, L.a.y);

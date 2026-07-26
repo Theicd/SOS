@@ -24,7 +24,7 @@
   background: linear-gradient(145deg, #0b0d14 0%, #0f111a 100%);
   color: #ffffff;
   border-radius: 20px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 224, 255, 0.08);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(45, 136, 255, 0.08);
   position: relative;
   animation: slideUp 0.3s ease-out;
   max-height: 90vh;
@@ -86,7 +86,7 @@
   transition: border-color 0.2s, box-shadow 0.2s;
   background: #0f141f;
   color: #ffffff;
-  border-color: rgba(0, 224, 255, 0.18);
+  border-color: rgba(45, 136, 255, 0.18);
   direction: rtl;
   text-align: right;
 }
@@ -141,8 +141,8 @@
 #guestAuthModal input[type="text"]:focus,
 #guestAuthModal textarea:focus {
   outline: none;
-  border-color: #00e0ff;
-  box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.22);
+  border-color: #2d88ff;
+  box-shadow: 0 0 0 3px rgba(45, 136, 255, 0.22);
   background: #111827;
 }
 
@@ -158,14 +158,14 @@
 }
 
 #guestAuthModal .button-primary {
-  background: linear-gradient(135deg, #00ffd1 0%, #00a2ff 100%); /* ציאן-תכלת כמו צבעי דף המשחקים | HYPER CORE TECH */
+  background: linear-gradient(135deg, #ff2d55 0%, #2d88ff 100%); /* SOS red→blue | HYPER CORE TECH */
   color: white;
-  box-shadow: 0 8px 24px rgba(0, 224, 255, 0.22), 0 0 0 1px rgba(0, 224, 255, 0.18);
+  box-shadow: 0 8px 24px rgba(45, 136, 255, 0.22), 0 0 0 1px rgba(45, 136, 255, 0.18);
 }
 
 #guestAuthModal .button-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(0, 224, 255, 0.32), 0 0 0 1px rgba(254, 44, 85, 0.2);
+  box-shadow: 0 10px 28px rgba(45, 136, 255, 0.32), 0 0 0 1px rgba(254, 44, 85, 0.2);
 }
 
 #guestAuthModal .button-primary:disabled {
@@ -177,12 +177,12 @@
 #guestAuthModal .button-secondary {
   background: rgba(15, 20, 31, 0.85);
   color: #ffffff;
-  border: 1px solid rgba(0, 224, 255, 0.18);
+  border: 1px solid rgba(45, 136, 255, 0.18);
 }
 
 #guestAuthModal .button-secondary:hover {
   background: rgba(18, 27, 40, 0.95);
-  border-color: rgba(0, 224, 255, 0.28);
+  border-color: rgba(45, 136, 255, 0.28);
 }
 
 /* תצוגת אווטר */
