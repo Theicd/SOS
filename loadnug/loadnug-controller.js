@@ -236,14 +236,16 @@ export class LoadNugController {
   _onCinematicDone() {
     if (this._cinematicDone) return;
     this._cinematicDone = true;
-    this._holdInt = setInterval(() => this._creepBar(), 320);
+    // אם הפיד עדיין לא מוכן – ממשיכים לזחול על הבר עד ש-videos.js סוגר | HYPER CORE TECH
+    if (!this._holdInt) this._holdInt = setInterval(() => this._creepBar(), 320);
     if (this._appReady) this._dismissSoon();
   }
 
   _onAppReady() {
     if (this._appReady) return;
     this._appReady = true;
-    if (this._cinematicDone) this._dismissSoon();
+    // כמו מד הטעינה הישן: נסגר מיד כשהפיד מוכן (מטמון=קצר, רשת=ארוך) – בלי לחכות לקולנוע | HYPER CORE TECH
+    this._dismissSoon();
   }
 
   signalReady() { this._onAppReady(); }
