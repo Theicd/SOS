@@ -4,22 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SOS - People Are The Network</title>
-    <meta name="description" content="ג€SOS - People Are The Network. Decentralized social, direct communication, real connection." />
+    <meta name="description" content="‎SOS - People Are The Network. Decentralized social, direct communication, real connection." />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="SOS" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:title" content="ג€SOS - People Are The Network" />
-    <meta property="og:description" content="ג€Decentralized social. Direct communication. Real connection." />
+    <meta property="og:title" content="‎SOS - People Are The Network" />
+    <meta property="og:description" content="‎Decentralized social. Direct communication. Real connection." />
     <meta property="og:image" content="https://sos010.com/icons/sos-og.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="1200" />
     <meta property="og:url" content="https://sos010.com/profile-viewer.html" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="ג€SOS - People Are The Network" />
-    <meta name="twitter:description" content="ג€Decentralized social. Direct communication. Real connection." />
+    <meta name="twitter:title" content="‎SOS - People Are The Network" />
+    <meta name="twitter:description" content="‎Decentralized social. Direct communication. Real connection." />
     <meta name="twitter:image" content="https://sos010.com/icons/sos-og.jpg" />
-    <!-- ׳—׳׳§ ׳¨׳׳© ׳₪׳¨׳•׳₪׳™׳ ׳¦׳™׳‘׳•׳¨׳™ (profile-viewer.html) ג€“ ׳©׳•׳׳¨ ׳¢׳ ׳׳•׳×׳• ׳¢׳™׳¦׳•׳‘ ׳›׳׳• ׳”׳₪׳¨׳•׳₪׳™׳ ׳”׳׳™׳©׳™ -->
+    <!-- חלק ראש פרופיל ציבורי (profile-viewer.html) – שומר על אותו עיצוב כמו הפרופיל האישי -->
     <link rel="icon" type="image/png" href="./icons/WAPICON.png?v=20260726e" />
     <link
       rel="stylesheet"
@@ -32,13 +32,13 @@
     <link rel="stylesheet" href="./styles/media-overrides.css" />
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <style>
-      /* ׳₪׳¨׳•׳₪׳™׳ ׳¦׳™׳‘׳•׳¨׳™ - ׳׳׳ ׳—׳׳ ׳¨׳™׳§ ׳׳׳¢׳׳” */
+      /* פרופיל ציבורי - ללא חלל ריק למעלה */
       .profile-body { padding-top: 0 !important; margin-top: 0 !important; }
       .profile-shell { margin-top: 0 !important; padding-top: 0 !important; }
       .profile-cover { margin-top: 0 !important; }
       .profile-cover__banner { min-height: 120px; }
 
-      /* ׳™׳™׳©׳•׳¨ ׳׳׳ ׳׳׳¡׳›׳™׳ ׳¦׳¨׳™׳ */
+      /* יישור מלא למסכים צרים */
       @media (max-width: 900px) {
         .profile-viewer-body {
           background: #000 !important;
@@ -81,10 +81,10 @@
     <script src="./auth-guard.js"></script>
   </head>
   <body class="profile-body profile-viewer-body" dir="rtl">
-    <!-- ׳—׳׳§ ׳—׳™׳•׳•׳™ ׳—׳™׳‘׳•׳¨ (profile-viewer.html) ג€“ ׳׳¦׳™׳’ ׳׳¦׳‘ ׳˜׳¢׳™׳ ׳× ׳¨׳™׳׳™׳™׳ -->
-    <div id="connection-status" class="profile-connection" hidden>׳׳×׳—׳‘׳¨ ׳׳¨׳™׳׳™׳™׳...</div>
+    <!-- חלק חיווי חיבור (profile-viewer.html) – מציג מצב טעינת ריליים -->
+    <div id="connection-status" class="profile-connection" hidden>מתחבר לריליים...</div>
 
-    <!-- ׳—׳׳§ ׳׳¢׳˜׳₪׳× ׳₪׳¨׳•׳₪׳™׳ (profile-viewer.html) ג€“ ׳׳¢׳¦׳‘ ׳׳× ׳”׳›׳™׳¡׳•׳™ ׳•׳”׳׳™׳“׳¢ ׳”׳‘׳¡׳™׳¡׳™ ׳©׳ ׳”׳׳©׳×׳׳© -->
+    <!-- חלק מעטפת פרופיל (profile-viewer.html) – מעצב את הכיסוי והמידע הבסיסי של המשתמש -->
     <main class="app-shell profile-shell">
       <section class="profile-cover" id="viewerCover">
         <div class="profile-cover__inner">
@@ -92,23 +92,23 @@
             <div class="profile-cover__avatar" id="viewerAvatar">?</div>
             <div class="profile-cover__info-block">
               <div class="profile-cover__info-center">
-                <h1 class="profile-cover__name" id="viewerName">׳˜׳•׳¢׳ ׳׳©׳×׳׳©...</h1>
-                <p class="profile-cover__bio" id="viewerBio">׳׳•׳¡׳₪׳™׳ ׳₪׳¨׳˜׳™ ׳₪׳¨׳•׳₪׳™׳ ׳׳”׳¨׳™׳׳™׳™׳.</p>
+                <h1 class="profile-cover__name" id="viewerName">טוען משתמש...</h1>
+                <p class="profile-cover__bio" id="viewerBio">אוספים פרטי פרופיל מהריליים.</p>
               </div>
               
-              <!-- ׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳× ׳‘׳›׳•׳×׳¨׳× ׳›׳׳• ׳‘׳₪׳¨׳•׳₪׳™׳ ׳׳™׳©׳™ -->
+              <!-- סטטיסטיקות בכותרת כמו בפרופיל אישי -->
               <div class="profile-cover__stats-row">
                 <div class="profile-cover__stat-box">
                   <span class="profile-cover__stat-value" id="viewerFollowersCount">0</span>
-                  <span class="profile-cover__stat-label">׳¢׳•׳§׳‘׳™׳</span>
+                  <span class="profile-cover__stat-label">עוקבים</span>
                 </div>
                 <div class="profile-cover__stat-box">
                   <span class="profile-cover__stat-value" id="viewerFollowingCount">0</span>
-                  <span class="profile-cover__stat-label">׳ ׳¢׳§׳‘׳™׳</span>
+                  <span class="profile-cover__stat-label">נעקבים</span>
                 </div>
                 <div class="profile-cover__stat-box">
                   <span class="profile-cover__stat-value" id="viewerLikesCount">0</span>
-                  <span class="profile-cover__stat-label">׳׳™׳™׳§׳™׳</span>
+                  <span class="profile-cover__stat-label">לייקים</span>
                 </div>
               </div>
             </div>
@@ -123,77 +123,77 @@
               data-follow-label
             >
               <i class="fa-solid fa-user-plus"></i>
-              <span data-follow-label>׳¢׳§׳•׳‘</span>
+              <span data-follow-label>עקוב</span>
             </button>
             <button class="profile-secondary-button" id="viewerBackButton">
               <i class="fa-solid fa-arrow-right"></i>
-              ׳—׳–׳¨׳”
+              חזרה
             </button>
           </div>
         </div>
       </section>
       
-      <!-- ׳˜׳׳‘׳™׳ ׳›׳׳• ׳‘׳₪׳¨׳•׳₪׳™׳ ׳׳™׳©׳™ -->
-      <nav class="profile-mobile-tabs profile-mobile-tabs--dual" id="viewerMobileTabs" aria-label="׳ ׳™׳•׳•׳˜ ׳₪׳¨׳•׳₪׳™׳">
+      <!-- טאבים כמו בפרופיל אישי -->
+      <nav class="profile-mobile-tabs profile-mobile-tabs--dual" id="viewerMobileTabs" aria-label="ניווט פרופיל">
         <button type="button" class="profile-mobile-tab profile-mobile-tab--large" data-profile-tab="stats" aria-controls="viewerStatsPanel">
-          ׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳×
+          סטטיסטיקות
         </button>
         <button type="button" class="profile-mobile-tab profile-mobile-tab--large is-active" data-profile-tab="posts" aria-controls="viewerPostsPanel">
-          ׳₪׳•׳¡׳˜׳™׳
+          פוסטים
         </button>
       </nav>
 
-      <!-- ׳—׳׳§ ׳₪׳¨׳™׳¡׳× ׳×׳•׳›׳ (profile-viewer.html) ג€“ ׳׳¦׳™׳’ ׳ ׳×׳•׳ ׳™׳ ׳•׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳× -->
+      <!-- חלק פריסת תוכן (profile-viewer.html) – מציג נתונים וסטטיסטיקות -->
       <section class="profile-main">
         <aside class="profile-sidebar">
-          <!-- ׳₪׳׳ ׳ ׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳× ׳¢׳ ׳’׳¨׳£ - ׳›׳׳• ׳‘׳₪׳¨׳•׳₪׳™׳ ׳׳™׳©׳™ -->
+          <!-- פאנל סטטיסטיקות עם גרף - כמו בפרופיל אישי -->
           <section class="profile-card profile-card--activity" data-profile-panel="stats" id="viewerStatsPanel">
-            <h2 class="profile-card__title">׳ ׳×׳•׳ ׳™ ׳₪׳¢׳™׳׳•׳×</h2>
+            <h2 class="profile-card__title">נתוני פעילות</h2>
             <div class="profile-activity">
               <div class="profile-activity__controls">
                 <div class="profile-activity__summary">
                   <div class="profile-activity__summary-item">
                     <div class="profile-activity__summary-heading">
-                      <span class="profile-activity__summary-label">׳₪׳•׳¡׳˜׳™׳</span>
+                      <span class="profile-activity__summary-label">פוסטים</span>
                       <span class="profile-activity__summary-change is-neutral" id="viewerStatsPostsChange">0%</span>
                     </div>
                     <span class="profile-activity__summary-value" id="viewerStatsPosts">0</span>
-                    <span class="profile-activity__summary-note" id="viewerStatsPostsNote">׳׳™׳ ׳©׳™׳ ׳•׳™ ׳׳¢׳•׳׳× ׳”׳×׳§׳•׳₪׳” ׳”׳§׳•׳“׳׳×</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsPostsNote">אין שינוי לעומת התקופה הקודמת</span>
                   </div>
                   <div class="profile-activity__summary-item">
                     <div class="profile-activity__summary-heading">
-                      <span class="profile-activity__summary-label">׳׳™׳™׳§׳™׳</span>
+                      <span class="profile-activity__summary-label">לייקים</span>
                       <span class="profile-activity__summary-change is-neutral" id="viewerStatsLikesChange">0%</span>
                     </div>
                     <span class="profile-activity__summary-value" id="viewerStatsLikes">0</span>
-                    <span class="profile-activity__summary-note" id="viewerStatsLikesNote">׳׳™׳ ׳©׳™׳ ׳•׳™ ׳׳¢׳•׳׳× ׳”׳×׳§׳•׳₪׳” ׳”׳§׳•׳“׳׳×</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsLikesNote">אין שינוי לעומת התקופה הקודמת</span>
                   </div>
                   <div class="profile-activity__summary-item">
                     <div class="profile-activity__summary-heading">
-                      <span class="profile-activity__summary-label">׳×׳’׳•׳‘׳•׳× ׳©׳ ׳׳¡׳₪׳•</span>
+                      <span class="profile-activity__summary-label">תגובות שנאספו</span>
                       <span class="profile-activity__summary-change is-neutral" id="viewerStatsCommentsChange">0%</span>
                     </div>
                     <span class="profile-activity__summary-value" id="viewerStatsComments">0</span>
-                    <span class="profile-activity__summary-note" id="viewerStatsCommentsNote">׳׳™׳ ׳©׳™׳ ׳•׳™ ׳׳¢׳•׳׳× ׳”׳×׳§׳•׳₪׳” ׳”׳§׳•׳“׳׳×</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsCommentsNote">אין שינוי לעומת התקופה הקודמת</span>
                   </div>
                   <div class="profile-activity__summary-item">
                     <div class="profile-activity__summary-heading">
-                      <span class="profile-activity__summary-label">׳×׳’׳•׳‘׳•׳× ׳©׳ ׳©׳׳—׳•</span>
+                      <span class="profile-activity__summary-label">תגובות שנשלחו</span>
                       <span class="profile-activity__summary-change is-neutral" id="viewerStatsRepliesChange">0%</span>
                     </div>
                     <span class="profile-activity__summary-value" id="viewerStatsReplies">0</span>
-                    <span class="profile-activity__summary-note" id="viewerStatsRepliesNote">׳׳™׳ ׳©׳™׳ ׳•׳™ ׳׳¢׳•׳׳× ׳”׳×׳§׳•׳₪׳” ׳”׳§׳•׳“׳׳×</span>
+                    <span class="profile-activity__summary-note" id="viewerStatsRepliesNote">אין שינוי לעומת התקופה הקודמת</span>
                   </div>
                 </div>
-                <div class="profile-activity__periods" role="group" aria-label="׳‘׳—׳™׳¨׳× ׳˜׳•׳•׳— ׳–׳׳" id="viewerActivityPeriods">
-                  <button type="button" class="profile-activity__period" data-activity-period="7">7 ׳™׳׳™׳</button>
-                  <button type="button" class="profile-activity__period" data-activity-period="30">30 ׳™׳׳™׳</button>
-                  <button type="button" class="profile-activity__period is-active" data-activity-period="60">60 ׳™׳׳™׳</button>
+                <div class="profile-activity__periods" role="group" aria-label="בחירת טווח זמן" id="viewerActivityPeriods">
+                  <button type="button" class="profile-activity__period" data-activity-period="7">7 ימים</button>
+                  <button type="button" class="profile-activity__period" data-activity-period="30">30 ימים</button>
+                  <button type="button" class="profile-activity__period is-active" data-activity-period="60">60 ימים</button>
                 </div>
               </div>
               <div class="profile-activity__chart" id="viewerActivityChart"></div>
               <div class="profile-activity__empty" id="viewerActivityEmpty" hidden>
-                ׳¢׳“׳™׳™׳ ׳׳ ׳ ׳¨׳©׳׳” ׳₪׳¢׳™׳׳•׳× ׳‘׳×׳§׳•׳₪׳” ׳©׳ ׳‘׳—׳¨׳”.
+                עדיין לא נרשמה פעילות בתקופה שנבחרה.
               </div>
             </div>
           </section>
@@ -201,11 +201,11 @@
 
         <section class="profile-timeline is-active" data-profile-panel="posts" id="viewerPostsPanel">
           <header class="profile-timeline__header">
-            <h2 class="profile-timeline__title">׳₪׳•׳¡׳˜׳™׳</h2>
+            <h2 class="profile-timeline__title">פוסטים</h2>
             <div class="profile-timeline__actions">
               <button class="profile-secondary-button" id="viewerRefreshButton">
                 <i class="fa-solid fa-rotate"></i>
-                ׳¨׳¢׳ ׳•׳
+                רענון
               </button>
             </div>
           </header>
@@ -215,7 +215,7 @@
       </section>
     </main>
 
-    <!-- ׳—׳׳§ ׳¡׳§׳¨׳™׳₪׳˜׳™׳ (profile-viewer.html) ג€“ ׳˜׳•׳¢׳ ׳׳× ׳›׳ ׳”׳׳•׳’׳™׳§׳” ׳”׳“׳¨׳•׳©׳” -->
+    <!-- חלק סקריפטים (profile-viewer.html) – טוען את כל הלוגיקה הדרושה -->
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
     <script src="./config.js"></script>
     <script src="./utils.js"></script>
@@ -226,10 +226,10 @@
     <script src="./profile-post.js"></script>
     <script src="./profile-viewer.js"></script>
 
-    <!-- ׳—׳׳§ ׳׳•׳“׳ ׳’׳׳¨׳™׳” ׳¦׳•׳₪׳™׳ (profile-viewer.html) ג€“ ׳׳¦׳™׳’ ׳×׳׳•׳ ׳” ׳׳•׳’׳“׳׳× ׳‘׳׳—׳™׳¦׳” ׳‘׳¦׳“ ׳”׳¦׳•׳₪׳” -->
+    <!-- חלק מודל גלריה צופים (profile-viewer.html) – מציג תמונה מוגדלת בלחיצה בצד הצופה -->
     <div class="profile-gallery-modal" id="viewerGalleryModal" hidden>
-      <button class="profile-gallery-modal__close" id="viewerGalleryModalClose" type="button" aria-label="׳¡׳’׳™׳¨׳× ׳×׳׳•׳ ׳× ׳’׳׳¨׳™׳”">ֳ—</button>
-      <img class="profile-gallery-modal__image" id="viewerGalleryModalImage" alt="׳×׳¦׳•׳’׳× ׳’׳׳¨׳™׳” ׳¦׳™׳‘׳•׳¨׳™׳×" />
+      <button class="profile-gallery-modal__close" id="viewerGalleryModalClose" type="button" aria-label="סגירת תמונת גלריה">×</button>
+      <img class="profile-gallery-modal__image" id="viewerGalleryModalImage" alt="תצוגת גלריה ציבורית" />
     </div>
   </body>
 </html>

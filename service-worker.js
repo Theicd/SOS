@@ -1,14 +1,14 @@
-// ׳—׳׳§ Service Worker (service-worker.js) ג€“ PWA ׳׳׳ ׳¢׳ cache, push, notifications ׳•׳×׳׳™׳›׳” ׳‘׳¨׳§׳¢ | HYPER CORE TECH
+// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
 (function initServiceWorker(self) {
   
-  // ׳—׳׳§ ׳”׳’׳“׳¨׳•׳× Cache (service-worker.js) ג€“ ׳©׳׳•׳× ׳•׳¨׳©׳™׳׳× ׳§׳‘׳¦׳™׳ ׳׳©׳׳™׳¨׳” | HYPER CORE TECH
+  // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
   const CACHE_NAME = 'sos-cache-v82'; // bump - new glossy S-play transparent icon
   const PRECACHE_URLS = [
     './',
     './videos.html',
-    './games.html', // ׳“׳£ ׳׳©׳—׳§׳™׳ ׳—׳“׳©
-    './games.js',   // ׳׳•׳’׳™׳§׳× ׳₪׳™׳“ ׳׳©׳—׳§׳™׳
-    './styles/games.css', // ׳¢׳™׳¦׳•׳‘ ׳₪׳™׳“ ׳׳©׳—׳§׳™׳ ׳—׳“׳©
+    './games.html', // דף משחקים חדש
+    './games.js',   // לוגיקת פיד משחקים
+    './styles/games.css', // עיצוב פיד משחקים חדש
     './auth.html',
     './styles/facebook-theme.css',
     './styles/chat.css',
@@ -20,12 +20,12 @@
     './manifest.webmanifest',
   ];
 
-  // ׳—׳׳§ Install (service-worker.js) ג€“ ׳”׳×׳§׳ ׳” ׳•׳©׳׳™׳¨׳× ׳§׳‘׳¦׳™׳ ׳‘-cache | HYPER CORE TECH
+  // חלק Install (service-worker.js) – התקנה ושמירת קבצים ב-cache | HYPER CORE TECH
   self.addEventListener('install', (event) => {
     event.waitUntil((async () => {
       try {
         const cache = await caches.open(CACHE_NAME);
-        // ׳©׳׳™׳¨׳” ׳©׳ ׳§׳‘׳¦׳™׳ ׳‘׳¡׳™׳¡׳™׳™׳, ׳”׳×׳¢׳׳׳•׳× ׳׳©׳’׳™׳׳•׳×
+        // שמירה של קבצים בסיסיים, התעלמות משגיאות
         await Promise.allSettled(PRECACHE_URLS.map(url => cache.add(url)));
         console.log('[SW] Precache completed');
       } catch (err) {
@@ -35,10 +35,10 @@
     })());
   });
 
-  // ׳—׳׳§ Activate (service-worker.js) ג€“ ׳”׳₪׳¢׳׳” ׳•׳ ׳™׳§׳•׳™ cache ׳™׳©׳ | HYPER CORE TECH
+  // חלק Activate (service-worker.js) – הפעלה וניקוי cache ישן | HYPER CORE TECH
   self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
-      // ׳ ׳™׳§׳•׳™ cache ׳™׳©׳
+      // ניקוי cache ישן
       const cacheNames = await caches.keys();
       await Promise.all(
         cacheNames
@@ -47,7 +47,7 @@
       );
       await self.clients.claim();
       
-      // ׳—׳׳§ ׳”׳•׳“׳¢׳× ׳¢׳“׳›׳•׳ (service-worker.js) ג€“ ׳”׳•׳“׳¢׳” ׳׳§׳׳™׳™׳ ׳˜׳™׳ ׳¢׳ ׳’׳¨׳¡׳” ׳—׳“׳©׳” | HYPER CORE TECH
+      // חלק הודעת עדכון (service-worker.js) – הודעה לקליינטים על גרסה חדשה | HYPER CORE TECH
       const clients = await self.clients.matchAll({ type: 'window' });
       clients.forEach(client => {
         client.postMessage({ type: 'NEW_VERSION_ACTIVATED' });
@@ -57,8 +57,8 @@
     })());
   });
 
-  // ׳—׳׳§ Fetch (service-worker.js) ג€“ ׳˜׳™׳₪׳•׳ ׳‘׳‘׳§׳©׳•׳× ׳¨׳©׳× ׳¢׳ fallback ׳-cache | HYPER CORE TECH
-  // ׳—׳׳§ excludePaths (service-worker.js) ג€“ ׳ ׳×׳™׳‘׳™׳ ׳©׳׳ ׳׳©׳׳•׳¨ ׳‘׳§׳׳© | HYPER CORE TECH
+  // חלק Fetch (service-worker.js) – טיפול בבקשות רשת עם fallback ל-cache | HYPER CORE TECH
+  // חלק excludePaths (service-worker.js) – נתיבים שלא לשמור בקאש | HYPER CORE TECH
   const EXCLUDE_PATHS = ['/api', '/auth', '/login', '/register', '/admin'];
   
   self.addEventListener('fetch', (event) => {
@@ -66,7 +66,7 @@
     const url = new URL(event.request.url);
     if (url.origin !== self.location.origin) return;
     
-    // ׳׳ ׳׳©׳׳•׳¨ ׳‘׳§׳׳© ׳ ׳×׳™׳‘׳™׳ ׳“׳™׳ ׳׳™׳™׳
+    // לא לשמור בקאש נתיבים דינמיים
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
     
     event.respondWith((async () => {
@@ -90,7 +90,7 @@
     })());
   });
 
-  // ׳—׳׳§ Push (service-worker.js) ג€“ ׳§׳‘׳׳× ׳”׳×׳¨׳׳•׳× Push ׳׳”׳©׳¨׳× | HYPER CORE TECH
+  // חלק Push (service-worker.js) – קבלת התראות Push מהשרת | HYPER CORE TECH
   self.addEventListener('push', (event) => {
     let payload = {};
     
@@ -100,34 +100,34 @@
       }
     } catch (err) {
       try {
-        payload = { title: 'SOS', body: event.data?.text() || '׳™׳© ׳׳ ׳¢׳“׳›׳•׳ ׳—׳“׳©' };
+        payload = { title: 'SOS', body: event.data?.text() || 'יש לך עדכון חדש' };
       } catch (e) {
-        payload = { title: 'SOS', body: '׳™׳© ׳׳ ׳¢׳“׳›׳•׳ ׳—׳“׳©' };
+        payload = { title: 'SOS', body: 'יש לך עדכון חדש' };
       }
     }
     
-    // ׳—׳׳§ P2P Wake-up (service-worker.js) ג€“ ׳”׳¢׳¨׳× ׳”׳׳׳©׳§ ׳›׳©׳׳’׳™׳¢ Push | HYPER CORE TECH
+    // חלק P2P Wake-up (service-worker.js) – הערת הממשק כשמגיע Push | HYPER CORE TECH
     const pushType = payload.type || payload.data?.type || 'general';
     
-    // ׳׳ ׳–׳” ׳¡׳ ׳›׳¨׳•׳ P2P ׳©׳§׳˜ - ׳׳ ׳׳¦׳™׳’׳™׳ notification ׳׳‘׳ ׳׳¢׳™׳¨׳™׳ ׳׳× ׳”׳§׳׳™׳™׳ ׳˜׳™׳
+    // אם זה סנכרון P2P שקט - לא מציגים notification אבל מעירים את הקליינטים
     if (pushType === 'p2p-sync' || pushType === 'p2p-wakeup') {
       event.waitUntil(handleP2PSyncPush(payload));
       return;
     }
     
-    // ׳—׳׳§ ׳¢׳“׳›׳•׳ ׳’׳¨׳¡׳” (service-worker.js) ג€“ ׳˜׳™׳₪׳•׳ ׳‘׳”׳•׳“׳¢׳× ׳¢׳“׳›׳•׳ ׳׳₪׳׳™׳§׳¦׳™׳” | HYPER CORE TECH
+    // חלק עדכון גרסה (service-worker.js) – טיפול בהודעת עדכון אפליקציה | HYPER CORE TECH
     if (pushType === 'app-update') {
       event.waitUntil(handleAppUpdatePush(payload));
       return;
     }
     
-    // ׳—׳׳§ ׳–׳™׳”׳•׳™ iOS (service-worker.js) ג€“ ׳”׳×׳׳׳× options ׳׳₪׳™ ׳₪׳׳˜׳₪׳•׳¨׳׳” | HYPER CORE TECH
+    // חלק זיהוי iOS (service-worker.js) – התאמת options לפי פלטפורמה | HYPER CORE TECH
     let isIOS = false;
     try { isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent); } catch (e) {}
     
     const title = payload.title || 'SOS';
     const options = {
-      body: payload.body || '׳™׳© ׳׳ ׳¢׳“׳›׳•׳ ׳—׳“׳©',
+      body: payload.body || 'יש לך עדכון חדש',
       icon: payload.icon || './icons/so-call010.png',
       badge: payload.badge || './icons/so-call010.png',
       tag: payload.tag || 'sos-notification',
@@ -142,17 +142,17 @@
       },
     };
     
-    // ׳—׳׳§ ׳×׳׳™׳׳•׳× iOS (service-worker.js) ג€“ iOS ׳׳ ׳×׳•׳׳ ׳‘-actions, vibrate, requireInteraction | HYPER CORE TECH
+    // חלק תאימות iOS (service-worker.js) – iOS לא תומך ב-actions, vibrate, requireInteraction | HYPER CORE TECH
     if (!isIOS) {
       options.requireInteraction = true;
       options.vibrate = payload.vibrate || [200, 100, 200];
       options.actions = [
-        { action: 'open', title: '׳₪׳×׳—', icon: './icons/so-call010.png' },
-        { action: 'dismiss', title: '׳¡׳’׳•׳¨' }
+        { action: 'open', title: 'פתח', icon: './icons/so-call010.png' },
+        { action: 'dismiss', title: 'סגור' }
       ];
     }
     
-    // ׳—׳׳§ P2P Wake-up ג€“ ׳’׳ ׳‘׳”׳×׳¨׳¢׳•׳× ׳¨׳’׳™׳׳•׳×, ׳׳¢׳™׳¨׳™׳ ׳׳× ׳”׳§׳׳™׳™׳ ׳˜׳™׳ ׳׳¡׳ ׳›׳¨׳•׳ | HYPER CORE TECH
+    // חלק P2P Wake-up – גם בהתרעות רגילות, מעירים את הקליינטים לסנכרון | HYPER CORE TECH
     event.waitUntil(
       Promise.all([
         self.registration.showNotification(title, options),
@@ -161,11 +161,11 @@
     );
   });
 
-  // ׳—׳׳§ ׳¢׳“׳›׳•׳ ׳’׳¨׳¡׳” (service-worker.js) ג€“ ׳˜׳™׳₪׳•׳ ׳‘׳¢׳“׳›׳•׳ ׳׳₪׳׳™׳§׳¦׳™׳” | HYPER CORE TECH
+  // חלק עדכון גרסה (service-worker.js) – טיפול בעדכון אפליקציה | HYPER CORE TECH
   async function handleAppUpdatePush(payload) {
     console.log('[SW] App Update Push received', payload);
     
-    // ׳”׳•׳“׳¢׳× ׳”׳§׳׳™׳™׳ ׳˜׳™׳ ׳¢׳ ׳¢׳“׳›׳•׳ ׳–׳׳™׳
+    // הודעת הקליינטים על עדכון זמין
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     
     if (clients.length > 0) {
@@ -173,9 +173,9 @@
         client.postMessage({ type: 'app-update-available', version: payload.version || 'new' });
       });
     } else {
-      // ׳׳ ׳׳™׳ ׳§׳׳™׳™׳ ׳˜׳™׳ ׳₪׳×׳•׳—׳™׳ - ׳”׳¦׳’׳× notification
-      await self.registration.showNotification('׳¢׳“׳›׳•׳ ׳–׳׳™׳ ׳-SOS', {
-        body: payload.body || '׳’׳¨׳¡׳” ׳—׳“׳©׳” ׳–׳׳™׳ ׳”! ׳׳—׳¥ ׳׳¢׳“׳›׳•׳',
+      // אם אין קליינטים פתוחים - הצגת notification
+      await self.registration.showNotification('עדכון זמין ל-SOS', {
+        body: payload.body || 'גרסה חדשה זמינה! לחץ לעדכון',
         icon: './icons/so-call010.png',
         badge: './icons/so-call010.png',
         tag: 'app-update',
@@ -185,25 +185,25 @@
     }
   }
 
-  // ׳—׳׳§ P2P Wake-up (service-worker.js) ג€“ ׳˜׳™׳₪׳•׳ ׳‘׳¡׳ ׳›׳¨׳•׳ P2P ׳©׳§׳˜ | HYPER CORE TECH
+  // חלק P2P Wake-up (service-worker.js) – טיפול בסנכרון P2P שקט | HYPER CORE TECH
   async function handleP2PSyncPush(payload) {
     console.log('[SW] P2P Sync Push received', payload);
     
-    // ׳¢׳“׳›׳•׳ timestamp ׳©׳ ׳¡׳ ׳›׳¨׳•׳ ׳׳—׳¨׳•׳
+    // עדכון timestamp של סנכרון אחרון
     p2pCoordinator.lastSyncTime = Date.now();
     
-    // ׳”׳¢׳¨׳× ׳›׳ ׳”׳§׳׳™׳™׳ ׳˜׳™׳ ׳”׳₪׳×׳•׳—׳™׳
+    // הערת כל הקליינטים הפתוחים
     await wakeUpClientsForSync('p2p-sync', payload);
     
-    // ׳׳ ׳׳™׳ ׳§׳׳™׳™׳ ׳˜׳™׳ ׳₪׳×׳•׳—׳™׳, ׳©׳׳™׳¨׳× ׳”׳ ׳×׳•׳ ׳™׳ ׳-IndexedDB (׳׳•׳₪׳¦׳™׳•׳ ׳׳™)
+    // אם אין קליינטים פתוחים, שמירת הנתונים ל-IndexedDB (אופציונלי)
     const clients = await self.clients.matchAll({ type: 'window' });
     if (clients.length === 0) {
-      console.log('[SW] ׳׳™׳ ׳§׳׳™׳™׳ ׳˜׳™׳ ׳₪׳×׳•׳—׳™׳ - ׳©׳•׳׳¨ ׳ ׳×׳•׳ ׳™ sync');
-      // ׳›׳׳ ׳׳₪׳©׳¨ ׳׳©׳׳•׳¨ ׳‘-IndexedDB ׳׳˜׳¢׳™׳ ׳” ׳׳׳•׳—׳¨׳×
+      console.log('[SW] אין קליינטים פתוחים - שומר נתוני sync');
+      // כאן אפשר לשמור ב-IndexedDB לטעינה מאוחרת
     }
   }
 
-  // ׳—׳׳§ P2P Wake-up (service-worker.js) ג€“ ׳”׳¢׳¨׳× ׳§׳׳™׳™׳ ׳˜׳™׳ ׳׳¡׳ ׳›׳¨׳•׳ | HYPER CORE TECH
+  // חלק P2P Wake-up (service-worker.js) – הערת קליינטים לסנכרון | HYPER CORE TECH
   async function wakeUpClientsForSync(type, payload) {
     try {
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -229,14 +229,14 @@
     }
   }
 
-  // ׳—׳׳§ Keep-Alive (service-worker.js) ג€“ ׳©׳׳™׳¨׳” ׳¢׳ SW ׳₪׳¢׳™׳ ׳׳׳ ׳™׳¢׳× ׳”׳™׳¨׳“׳׳•׳× | HYPER CORE TECH
-  // ׳”׳¢׳¨׳”: ׳–׳” ׳¢׳•׳‘׳“ ׳¨׳§ ׳›׳©׳”׳׳₪׳׳™׳§׳¦׳™׳” ׳₪׳×׳•׳—׳” ׳‘׳¨׳§׳¢, ׳׳ ׳‘׳׳¡׳ ׳›׳‘׳•׳™ ׳׳’׳׳¨׳™
+  // חלק Keep-Alive (service-worker.js) – שמירה על SW פעיל למניעת הירדמות | HYPER CORE TECH
+  // הערה: זה עובד רק כשהאפליקציה פתוחה ברקע, לא במסך כבוי לגמרי
   let keepAliveInterval = null;
   
   function startKeepAlive() {
     if (keepAliveInterval) return;
     keepAliveInterval = setInterval(() => {
-      // ping ׳§׳˜׳ ׳׳©׳׳•׳¨ ׳׳× ׳”-SW ׳¢׳¨
+      // ping קטן לשמור את ה-SW ער
       self.clients.matchAll({ type: 'window' }).then(clients => {
         if (clients.length > 0) {
           clients.forEach(client => {
@@ -244,17 +244,17 @@
           });
         }
       });
-    }, 20000); // ׳›׳ 20 ׳©׳ ׳™׳•׳×
+    }, 20000); // כל 20 שניות
   }
   
-  // ׳”׳₪׳¢׳׳” ׳׳•׳˜׳•׳׳˜׳™׳×
+  // הפעלה אוטומטית
   startKeepAlive();
 
-  // ׳—׳׳§ pushsubscriptionchange (service-worker.js) ג€“ ׳—׳™׳“׳•׳© ׳׳ ׳•׳™ Push ׳׳•׳˜׳•׳׳˜׳™ | HYPER CORE TECH
+  // חלק pushsubscriptionchange (service-worker.js) – חידוש מנוי Push אוטומטי | HYPER CORE TECH
   self.addEventListener('pushsubscriptionchange', (event) => {
     event.waitUntil((async () => {
       try {
-        // ׳§׳‘׳׳× VAPID key ׳׳”׳©׳¨׳×
+        // קבלת VAPID key מהשרת
         const configRes = await fetch('https://sos-push-server.vercel.app/api/push/config', { cache: 'no-store' });
         const config = configRes.ok ? await configRes.json() : null;
         
@@ -263,13 +263,13 @@
           return;
         }
         
-        // ׳¨׳™׳©׳•׳ ׳׳—׳“׳©
+        // רישום מחדש
         const newSubscription = await self.registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(config.publicKey)
         });
         
-        // ׳©׳׳™׳—׳” ׳׳©׳¨׳×
+        // שליחה לשרת
         await fetch('https://sos-push-server.vercel.app/api/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -283,7 +283,7 @@
     })());
   });
   
-  // ׳—׳׳§ ׳”׳׳¨׳× Base64 (service-worker.js) ג€“ ׳”׳׳¨׳× VAPID key | HYPER CORE TECH
+  // חלק המרת Base64 (service-worker.js) – המרת VAPID key | HYPER CORE TECH
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -295,13 +295,13 @@
     return outputArray;
   }
 
-  // ׳—׳׳§ Message (service-worker.js) ג€“ ׳§׳‘׳׳× ׳”׳•׳“׳¢׳•׳× ׳׳”׳׳§׳•׳— | HYPER CORE TECH
+  // חלק Message (service-worker.js) – קבלת הודעות מהלקוח | HYPER CORE TECH
   self.addEventListener('message', (event) => {
     if (event.data?.type === 'SKIP_WAITING') {
       self.skipWaiting();
     }
     
-    // ׳—׳׳§ P2P Coordinator (service-worker.js) ג€“ ׳×׳™׳׳•׳ heartbeat ׳‘׳™׳ ׳˜׳׳‘׳™׳ | HYPER CORE TECH
+    // חלק P2P Coordinator (service-worker.js) – תיאום heartbeat בין טאבים | HYPER CORE TECH
     if (event.data?.type === 'p2p-heartbeat-request') {
       handleHeartbeatRequest(event.source, event.data);
     }
@@ -313,11 +313,11 @@
     }
   });
 
-  // ׳—׳׳§ P2P Coordinator (service-worker.js) ג€“ ׳ ׳™׳”׳•׳ heartbeat ׳׳¨׳›׳–׳™ | HYPER CORE TECH
+  // חלק P2P Coordinator (service-worker.js) – ניהול heartbeat מרכזי | HYPER CORE TECH
   const p2pCoordinator = {
     lastHeartbeatTime: 0,
     currentLeaderClientId: null,
-    heartbeatInterval: 60000, // ׳‘׳¨׳™׳¨׳× ׳׳—׳“׳
+    heartbeatInterval: 60000, // ברירת מחדל
     peerCount: 0,
     networkTier: 'BOOTSTRAP'
   };
@@ -326,7 +326,7 @@
     const now = Date.now();
     const timeSinceLastHeartbeat = now - p2pCoordinator.lastHeartbeatTime;
     
-    // ׳¢׳“׳›׳•׳ ׳׳¦׳‘ ׳”׳¨׳©׳× ׳׳”׳׳§׳•׳—
+    // עדכון מצב הרשת מהלקוח
     if (data.networkTier) {
       p2pCoordinator.networkTier = data.networkTier;
     }
@@ -337,7 +337,7 @@
       p2pCoordinator.peerCount = data.peerCount;
     }
     
-    // ׳׳ ׳¢׳‘׳¨ ׳׳¡׳₪׳™׳§ ׳–׳׳ - ׳׳׳©׳¨׳™׳ heartbeat
+    // אם עבר מספיק זמן - מאשרים heartbeat
     if (timeSinceLastHeartbeat >= p2pCoordinator.heartbeatInterval * 0.8) {
       p2pCoordinator.lastHeartbeatTime = now;
       p2pCoordinator.currentLeaderClientId = client?.id || null;
@@ -352,7 +352,7 @@
       
       console.log('[SW] P2P Heartbeat approved for client', client?.id?.slice?.(0, 8));
     } else {
-      // ׳™׳© heartbeat ׳׳—׳¨׳•׳ ׳׳¡׳₪׳™׳§ ׳—׳“׳© - ׳“׳•׳—׳™׳
+      // יש heartbeat אחרון מספיק חדש - דוחים
       try {
         client.postMessage({
           type: 'p2p-heartbeat-approved',
@@ -382,7 +382,7 @@
     } catch {}
   }
 
-  // ׳—׳׳§ ׳¢׳“׳›׳•׳ ׳׳•׳˜׳•׳׳˜׳™ (service-worker.js) ג€“ ׳‘׳“׳™׳§׳× ׳¢׳“׳›׳•׳ ׳™׳ ׳›׳ 30 ׳©׳ ׳™׳•׳× | HYPER CORE TECH
+  // חלק עדכון אוטומטי (service-worker.js) – בדיקת עדכונים כל 30 שניות | HYPER CORE TECH
   setInterval(() => {
     self.registration.update().catch(() => {});
   }, 30000);
@@ -420,10 +420,10 @@
     });
   }
 
-  // ׳—׳׳§ Notification Click (service-worker.js) ג€“ ׳˜׳™׳₪׳•׳ ׳‘׳׳—׳™׳¦׳” ׳¢׳ ׳”׳×׳¨׳׳•׳× ׳׳›׳ ׳”׳¡׳•׳’׳™׳ | HYPER CORE TECH
+  // חלק Notification Click (service-worker.js) – טיפול בלחיצה על התראות מכל הסוגים | HYPER CORE TECH
   self.addEventListener('notificationclick', (event) => {
     const notification = event.notification;
-    const action = event.action || 'open'; // 'open', 'dismiss', ׳׳• ׳¨׳™׳§
+    const action = event.action || 'open'; // 'open', 'dismiss', או ריק
     const data = notification && notification.data ? notification.data : {};
     const type = data.type || 'general';
     const peerPubkey = data.peerPubkey || null;
@@ -433,11 +433,11 @@
       notification.close();
     } catch {}
 
-    // ׳׳ ׳”׳׳©׳×׳׳© ׳׳—׳¥ ׳¢׳ "׳¡׳’׳•׳¨" - ׳׳ ׳¢׳•׳©׳™׳ ׳›׳׳•׳
+    // אם המשתמש לחץ על "סגור" - לא עושים כלום
     if (action === 'dismiss') return;
 
     event.waitUntil((async () => {
-      // ׳‘׳ ׳™׳™׳× ׳”׳•׳“׳¢׳” ׳׳§׳׳™׳™׳ ׳˜ ׳׳₪׳™ ׳¡׳•׳’ ׳”׳”׳×׳¨׳׳” | HYPER CORE TECH
+      // בניית הודעה לקליינט לפי סוג ההתראה | HYPER CORE TECH
       let messageType = 'notification-action';
       
       if (type === 'voice-call-incoming') {
@@ -460,7 +460,7 @@
         url
       };
 
-      // ׳₪׳×׳™׳—׳×/׳₪׳•׳§׳•׳¡ ׳¢׳ ׳—׳׳•׳ ׳•׳©׳׳™׳—׳× ׳”׳•׳“׳¢׳” | HYPER CORE TECH
+      // פתיחת/פוקוס על חלון ושליחת הודעה | HYPER CORE TECH
       const client = await focusOrOpenClient(url);
       if (client) {
         try {
