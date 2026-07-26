@@ -1,16 +1,15 @@
 from PIL import Image
 import os
-import shutil
+import sys
 
-src_path = r'C:\Users\Avatar001\AppData\Roaming\Cursor\User\workspaceStorage\empty-window\images\6bcfea88-7286-4d99-a724-d5697f62000f-ffdc570c-7c9c-41d8-a076-b3db9f88f2ba.png'
+src_path = sys.argv[1] if len(sys.argv) > 1 else r'C:\Users\Avatar001\AppData\Roaming\Cursor\User\workspaceStorage\empty-window\images\14118d3f-2fc8-4ed1-b688-5806cf027bea-4a33547a-7d1a-48cd-a258-7958db2c36f3.png'
 out_dir = r'c:\BRAIN\SOS-main\icons'
 os.makedirs(out_dir, exist_ok=True)
-shutil.copy2(src_path, os.path.join(out_dir, '_source-sos-mark.png'))
 
 img = Image.open(src_path).convert('RGBA')
 pixels = img.load()
 w, h = img.size
-print('source', w, h)
+print('source', w, h, src_path)
 
 out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
 out_px = out.load()
@@ -22,10 +21,11 @@ for y in range(h):
         r, g, b, a = pixels[x, y]
         mx = max(r, g, b)
         luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        # רקע שחור → שקוף; הילה כהה → אלפא רכה | HYPER CORE TECH
         if mx < 18 and luma < 16:
             continue
-        if mx < 45:
-            alpha = int(max(0, min(255, (mx - 18) * (255 / 27))))
+        if mx < 48:
+            alpha = int(max(0, min(255, (mx - 18) * (255 / 30))))
             if alpha < 8:
                 continue
             out_px[x, y] = (r, g, b, alpha)
@@ -42,7 +42,7 @@ for y in range(h):
             maxy = y
 
 print('kept', kept, 'bbox', minx, miny, maxx, maxy)
-pad = 24
+pad = 20
 minx = max(0, minx - pad)
 miny = max(0, miny - pad)
 maxx = min(w - 1, maxx + pad)
@@ -69,7 +69,6 @@ for size, name in [
     print('wrote', name, size)
 
 sample = Image.open(os.path.join(out_dir, 'WAPICON.png'))
+print('corner', sample.getpixel((0, 0)), 'center', sample.getpixel((256, 256)))
 px = list(sample.getdata())
-transparent = sum(1 for p in px if p[3] == 0)
-opaque = sum(1 for p in px if p[3] > 200)
-print('WAPICON mode', sample.mode, 'transparent', transparent, 'opaque', opaque, 'total', len(px))
+print('transparent%', round(100 * sum(1 for p in px if p[3] == 0) / len(px), 1))
