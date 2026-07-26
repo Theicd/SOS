@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v79'; // bump - higher quality compress (CRF/main, less blocking)
+  const CACHE_NAME = 'sos-cache-v80'; // bump - 1080p CRF20 strong compress, no blocky maxrate
   const PRECACHE_URLS = [
     './',
     './videos.html',

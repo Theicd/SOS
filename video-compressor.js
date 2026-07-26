@@ -3,16 +3,19 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   const MAX_INPUT_SIZE = 100 * 1024 * 1024; // 100MB
-  const TARGET_HEIGHT = 720;
+  // 1080p: דחיסה חזקה (מול 4K/מקור כבד) בלי להרוס את התמונה כמו ב-720 | HYPER CORE TECH
+  const TARGET_HEIGHT = 1080;
   const TARGET_FPS = 30;
   const SKIP_REENCODE_MAX_BYTES = 22 * 1024 * 1024; // קובץ MP4/MOV קטן – לא להרוס סנכרון | HYPER CORE TECH
 
-  // דחיסה חזקה בלי macroblocks – רצפת ביטרייט ל-720p + אודיו יציב | HYPER CORE TECH
-  const MIN_VIDEO_BITRATE = 1_200_000;
-  const MAX_VIDEO_BITRATE = 3_200_000;
+  // דחיסה חזקה + איכות נקייה: CRF שולט בגודל, maxrate רק תקרה רכה | HYPER CORE TECH
+  const MIN_VIDEO_BITRATE = 2_000_000;
+  const MAX_VIDEO_BITRATE = 5_500_000;
   const MIN_AUDIO_BITRATE = 96_000;
   const MAX_AUDIO_BITRATE = 128_000;
-  const FFMPEG_CRF = '23';
+  const FFMPEG_CRF = '20';
+  // תקרת VBV גבוהה – לא חונקת CRF (מונע ריבועים), עדיין מגבילה נפיחות | HYPER CORE TECH
+  const FFMPEG_MAXRATE = 5_500_000;
 
   let ffmpegInstance = null;
   let isLoading = false;
@@ -138,7 +141,7 @@
     );
   }
 
-  function getAdaptiveBitrates(fileSize, durationSeconds, targetCompressionRatio = 0.5) {
+  function getAdaptiveBitrates(fileSize, durationSeconds, targetCompressionRatio = 0.42) {
     const safeDuration = Math.max(durationSeconds || 1, 0.5);
     const originalBps = (fileSize * 8) / safeDuration;
     const targetTotalBps = originalBps * targetCompressionRatio;
@@ -150,8 +153,8 @@
     audioBps = Math.min(Math.max(audioBps, MIN_AUDIO_BITRATE), MAX_AUDIO_BITRATE);
 
     if (originalBps < MIN_VIDEO_BITRATE + MIN_AUDIO_BITRATE) {
-      // מקור דל – לא לרדת מתחת לרצפה שגורמת לריבועים | HYPER CORE TECH
-      videoBps = Math.min(Math.max(Math.round(originalBps * 0.9), 800_000), MAX_VIDEO_BITRATE);
+      // מקור דל – לא לרדת לרמות שיוצרות ריבועים | HYPER CORE TECH
+      videoBps = Math.min(Math.max(Math.round(originalBps * 0.9), 1_500_000), MAX_VIDEO_BITRATE);
       audioBps = MIN_AUDIO_BITRATE;
     }
 
@@ -210,7 +213,7 @@
     if (typeof onProgress === 'function') onProgress({ stage: 'loading', percent: 5 });
 
     const duration = await probeDuration(file).catch(() => 1);
-    const { videoBps, audioBps } = getAdaptiveBitrates(file.size, duration);
+    const { audioBps } = getAdaptiveBitrates(file.size, duration);
     const inputName = guessInputName(file);
     const outputName = 'output.mp4';
 
@@ -225,17 +228,18 @@
     }, 700);
 
     try {
-      // CRF + maxrate: איכות יציבה בלי ריבועים, עדיין קובץ קטן ותואם iPhone | HYPER CORE TECH
+      // CRF שולט באיכות/גודל; maxrate גבוה רק כתקרה; scale רק כלפי מטה; AAC לסנכרון | HYPER CORE TECH
+      // פלט: MP4 H.264 Main + AAC – תואם Android / iPhone / Desktop | HYPER CORE TECH
       await ffmpeg.run(
         '-i', inputName,
-        '-vf', `scale=-2:${TARGET_HEIGHT}:force_original_aspect_ratio=decrease,fps=${TARGET_FPS}`,
+        '-vf', `scale=-2:min(${TARGET_HEIGHT}\\,ih),fps=${TARGET_FPS}`,
         '-c:v', 'libx264',
-        '-preset', 'faster',
+        '-preset', 'medium',
         '-profile:v', 'main',
         '-level', '4.0',
         '-crf', FFMPEG_CRF,
-        '-maxrate', String(videoBps),
-        '-bufsize', String(videoBps * 2),
+        '-maxrate', String(FFMPEG_MAXRATE),
+        '-bufsize', String(FFMPEG_MAXRATE * 2),
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac',
         '-b:a', String(audioBps),
@@ -405,17 +409,17 @@
 
   function computeCanvasSize(video) {
     const minSize = TARGET_HEIGHT;
-    const maxSize = 1280;
+    const maxSize = 1920;
     const aspectRatio = video.videoWidth / Math.max(video.videoHeight, 1);
     let canvasWidth;
     let canvasHeight;
 
     if (video.videoWidth >= video.videoHeight) {
-      canvasHeight = minSize;
-      canvasWidth = Math.max(minSize, Math.floor(minSize * aspectRatio));
+      canvasHeight = Math.min(minSize, video.videoHeight || minSize);
+      canvasWidth = Math.max(2, Math.floor(canvasHeight * aspectRatio));
     } else {
-      canvasWidth = minSize;
-      canvasHeight = Math.max(minSize, Math.floor(minSize / aspectRatio));
+      canvasWidth = Math.min(minSize, video.videoWidth || minSize);
+      canvasHeight = Math.max(2, Math.floor(canvasWidth / aspectRatio));
     }
 
     if (canvasWidth > maxSize) {
@@ -691,7 +695,7 @@
       isMobile,
     });
 
-    // iPhone: אם כבר MP4/MOV סביר – לא לקודד מחדש (שומר סנכרון) | HYPER CORE TECH
+    // iPhone: MP4/MOV קטן וידידותי – passthrough (שומר סנכרון + איכות) | HYPER CORE TECH
     if (isIOS && isAlreadyFriendlyMobileMp4(file)) {
       console.log('[COMPRESS] iOS friendly MP4 – skip re-encode');
       if (typeof onProgress === 'function') onProgress({ stage: 'complete', percent: 100 });
@@ -706,15 +710,13 @@
       };
     }
 
-    // דסקטופ + אנדרואיד: FFmpeg ראשון (H.264/AAC מסונכרן) | HYPER CORE TECH
-    if (!isIOS) {
-      try {
-        const ff = await compressWithFFmpeg(file, onProgress);
-        console.log('[COMPRESS] FFmpeg success', ff.compressionRatio + '%');
-        return ff;
-      } catch (err) {
-        console.warn('[COMPRESS] FFmpeg path failed, falling back:', err?.message || err);
-      }
+    // כל המכשירים: FFmpeg ראשון → MP4 H.264/AAC מסונכרן ודחוס | HYPER CORE TECH
+    try {
+      const ff = await compressWithFFmpeg(file, onProgress);
+      console.log('[COMPRESS] FFmpeg success', ff.compressionRatio + '%');
+      return ff;
+    } catch (err) {
+      console.warn('[COMPRESS] FFmpeg path failed, falling back:', err?.message || err);
     }
 
     if (!isMobile && isDesktopCaptureSupported()) {
