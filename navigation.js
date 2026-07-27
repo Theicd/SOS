@@ -210,6 +210,10 @@
 
     // חלק ניווט משחקים (navigation.js) – לחיצה על "משחקים" פותחת כ-overlay ללא רענון הפיד | HYPER CORE TECH
     if (key === 'games') {
+      if (typeof App.openGamesPanel === 'function') {
+        App.openGamesPanel('./games.html');
+        return;
+      }
       const gamesPanel = document.getElementById('gamesPanel');
       const gamesFrame = document.getElementById('gamesPanelFrame');
       if (gamesPanel && gamesFrame) {
@@ -266,11 +270,15 @@
     const gamesTopBtn = document.getElementById('gamesToggleTop');
     if (gamesTopBtn) {
       gamesTopBtn.addEventListener('click', () => {
+        updateNavSelection('games');
+        if (typeof App.openGamesPanel === 'function') {
+          App.openGamesPanel('./games.html');
+          return;
+        }
         // עצירת וידאו בפתיחת משחקים מהכפתור העליון | HYPER CORE TECH
         if (typeof App.pauseAllFeedVideos === 'function') {
           App.pauseAllFeedVideos();
         }
-        updateNavSelection('games');
         const gamesPanel = document.getElementById('gamesPanel');
         const gamesFrame = document.getElementById('gamesPanelFrame');
         if (gamesPanel && gamesFrame) {

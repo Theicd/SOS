@@ -2,13 +2,15 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v90'; // bump - LoadNug post card; preserve on feed clear
+  const CACHE_NAME = 'sos-cache-v91'; // bump - shared games feed with game-embed controls
   const PRECACHE_URLS = [
     './',
     './videos.html',
-    './games.html', // דף משחקים חדש
-    './games.js',   // לוגיקת פיד משחקים
-    './styles/games.css', // עיצוב פיד משחקים חדש
+    './games.html', // דף משחקים – פיד משותף כמו הפיד הראשי
+    './games.js',   // לוגיקת פיד משחקים + game-embed
+    './game-embed.js',
+    './styles/games.css', // עיצוב פיד משחקים
+    './styles/videos.css',
     './auth.html',
     './styles/facebook-theme.css',
     './styles/chat.css',

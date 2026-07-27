@@ -1,44 +1,34 @@
 /* ========================================
-   SOS Play - פיד משחקים פרימיום
-   עיצוב בסגנון TikTok/Reels למשחקים
+   SOS Play - פיד משחקים (אותו מבנה כמו videos-feed)
    HYPER CORE TECH
    ======================================== */
 
-/* משתני עיצוב גלובליים */
 :root {
   --games-bg: #000;
-  --games-card-bg: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
-  --games-accent: #2d88ff;
-  --games-accent-glow: rgba(45, 136, 255, 0.4);
-  --games-gold: #ffd700;
+  --games-accent: #e8e8e8;
+  --games-accent-glow: rgba(255, 255, 255, 0.25);
   --games-text: #ffffff;
   --games-text-muted: rgba(255, 255, 255, 0.7);
-  --games-overlay: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 30%, transparent 60%);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* איפוס בסיסי */
 *, *::before, *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-html, body {
+html, body.games-page {
   height: 100%;
+  margin: 0;
   overflow: hidden;
   background: var(--games-bg);
   color: var(--games-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Segoe UI", "Heebo", "Rubik", sans-serif;
   direction: rtl;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ========================================
-   סרגל עליון
-   ======================================== */
+/* סרגל עליון */
 .games-top-bar {
   position: fixed;
   top: 0;
@@ -46,12 +36,19 @@ html, body {
   right: 0;
   height: calc(56px + var(--safe-top));
   padding-top: var(--safe-top);
-  background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 70%, transparent 100%);
+  padding-inline: 12px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.45) 75%, transparent 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-inline: 16px;
-  z-index: 100;
+  z-index: 120;
+  pointer-events: none;
+}
+
+.games-top-bar__btn,
+.games-top-bar__title,
+.games-top-menu {
+  pointer-events: auto;
 }
 
 .games-top-bar__btn {
@@ -65,15 +62,9 @@ html, body {
   color: #fff;
   font-size: 18px;
   cursor: pointer;
-  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.games-top-bar__btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
 }
 
 .games-top-bar__btn:active {
@@ -84,558 +75,211 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .games-top-bar__title i {
   color: var(--games-accent);
-  font-size: 24px;
-  filter: drop-shadow(0 0 10px var(--games-accent-glow));
+  font-size: 22px;
+  filter: drop-shadow(0 0 8px var(--games-accent-glow));
 }
 
-/* ========================================
-   פיד משחקים - מבנה ראשי
-   ======================================== */
-.games-feed {
-  position: fixed;
-  inset: 0;
-  background: var(--games-bg);
-  z-index: 1;
-}
-
-.games-feed__viewport {
+.games-top-menu {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  scroll-snap-type: y mandatory;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.games-feed__viewport::-webkit-scrollbar {
-  display: none;
-}
-
-/* ========================================
-   כרטיסיית משחק - מסך מלא
-   ======================================== */
-.game-card {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
+  top: calc(56px + var(--safe-top) + 4px);
+  left: 12px;
+  min-width: 200px;
+  background: rgba(18, 18, 18, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: 4px;
+  z-index: 130;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 
-/* רקע כרטיסייה עם תמונה */
-.game-card__background {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+.games-top-menu[hidden] {
+  display: none !important;
 }
 
-.game-card__background img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: brightness(0.6) saturate(1.2);
-  transition: transform 0.8s ease, filter 0.5s ease;
-}
-
-.game-card:hover .game-card__background img {
-  transform: scale(1.05);
-  filter: brightness(0.7) saturate(1.3);
-}
-
-/* שכבת גרדיאנט על הרקע */
-.game-card__overlay {
-  position: absolute;
-  inset: 0;
-  background: var(--games-overlay);
-  z-index: 2;
-}
-
-/* תוכן הכרטיסייה - מועלה 50px מעל הכפתור | HYPER CORE TECH */
-.game-card__content {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px;
-  padding-bottom: calc(140px + var(--safe-bottom));
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-/* באדג' קטגוריה */
-.game-card__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--games-accent);
-  color: #000;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  width: fit-content;
-  box-shadow: 0 4px 20px var(--games-accent-glow);
-}
-
-.game-card__badge i {
-  font-size: 11px;
-}
-
-/* שם המשחק */
-.game-card__title {
-  font-size: clamp(28px, 7vw, 42px);
-  font-weight: 900;
-  line-height: 1.1;
-  text-shadow: 0 4px 20px rgba(0,0,0,0.8);
-  max-width: 85%;
-}
-
-/* סטודיו */
-.game-card__studio {
-  font-size: 14px;
-  color: var(--games-text-muted);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.game-card__studio i {
-  color: var(--games-accent);
-}
-
-/* תיאור המשחק */
-.game-card__description {
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--games-text-muted);
-  max-width: 90%;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* תגיות */
-.game-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  list-style: none;
-}
-
-.game-card__tag {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-/* כפתור הפעלה בכרטיסייה - מוסתר כי משתמשים בכפתור גלובלי | HYPER CORE TECH */
-.game-card__play {
-  display: none;
-}
-
-/* כפתור הפעלה גלובלי - קבוע בתחתית המסך | HYPER CORE TECH */
-.games-play-btn {
-  position: fixed;
-  bottom: calc(24px + var(--safe-bottom));
-  left: 24px;
-  right: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: linear-gradient(135deg, #ff2d55 0%, #2d88ff 100%);
-  color: #000;
-  border: none;
-  border-radius: 16px;
-  padding: 16px 32px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 8px 30px var(--games-accent-glow);
-  z-index: 50;
-}
-
-.game-card__play:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 12px 40px var(--games-accent-glow);
-}
-
-.game-card__play:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.game-card__play i {
-  font-size: 20px;
-}
-
-/* כפתורי פעולה צדדיים */
-.game-card__actions {
-  position: absolute;
-  left: 16px;
-  bottom: calc(120px + var(--safe-bottom));
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  z-index: 4;
-}
-
-.game-card__action {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-
-.game-card__action:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
-}
-
-.game-card__action span {
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.game-card__action--liked {
-  color: #ff4757;
-}
-
-.game-card__action--liked i {
-  animation: heartPulse 0.3s ease;
-}
-
-@keyframes heartPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.3); }
-}
-
-/* ========================================
-   אינדיקטור מיקום
-   ======================================== */
-.games-indicator {
-  position: fixed;
-  left: 16px;
-  top: 30%;
-  transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(10px);
-  padding: 12px 8px;
-  border-radius: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  font-size: 14px;
-  font-weight: 700;
-  z-index: 50;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.games-indicator__current {
-  color: var(--games-accent);
-  font-size: 18px;
-}
-
-.games-indicator__separator {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 10px;
-}
-
-.games-indicator__total {
-  color: var(--games-text-muted);
-}
-
-/* ========================================
-   מודל משחק - עיצוב פרימיום | HYPER CORE TECH
-   ======================================== */
-.game-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  animation: modalFadeIn 0.3s ease;
-}
-
-.game-modal[aria-hidden="false"] {
-  display: flex;
-}
-
-@keyframes modalFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.game-modal__backdrop {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(0, 20, 40, 0.98) 0%, rgba(0, 0, 0, 0.98) 100%);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-}
-
-.game-modal__panel {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  display: flex;
-  flex-direction: column;
-  z-index: 1;
-  animation: modalSlideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes modalSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.game-modal__header {
-  height: calc(64px + var(--safe-top, 0px));
-  padding-top: var(--safe-top, 0px);
-  background: linear-gradient(to bottom, 
-    rgba(0, 20, 40, 0.95) 0%, 
-    rgba(0, 20, 40, 0.8) 70%, 
-    transparent 100%);
-  border-bottom: 1px solid rgba(45, 136, 255, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-inline: 16px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 10;
-}
-
-/* כפתורי סגירה ומסך מלא */
-.game-modal__close,
-.game-modal__fullscreen {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: rgba(45, 136, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(45, 136, 255, 0.3);
-  color: var(--games-accent);
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(45, 136, 255, 0.2);
-}
-
-.game-modal__close:hover,
-.game-modal__fullscreen:hover {
-  background: rgba(45, 136, 255, 0.25);
-  border-color: rgba(45, 136, 255, 0.5);
-  transform: scale(1.1);
-  box-shadow: 0 6px 25px rgba(45, 136, 255, 0.35);
-}
-
-.game-modal__close:active,
-.game-modal__fullscreen:active {
-  transform: scale(0.95);
-}
-
-/* כפתור סגירה - אדום בהובר */
-.game-modal__close:hover {
-  background: rgba(255, 71, 87, 0.2);
-  border-color: rgba(255, 71, 87, 0.5);
-  color: #ff4757;
-  box-shadow: 0 6px 25px rgba(255, 71, 87, 0.3);
-}
-
-/* כותרת המשחק */
-.game-modal__title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #fff;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+.games-top-menu__item {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-align: right;
+  padding: 12px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
 }
 
-.game-modal__title::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  background: var(--games-accent);
-  border-radius: 50%;
-  box-shadow: 0 0 10px var(--games-accent), 0 0 20px var(--games-accent-glow);
-  animation: pulse 2s infinite;
+.games-top-menu__item:hover,
+.games-top-menu__item:active {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.2); }
+.games-top-menu__item i {
+  width: 18px;
+  text-align: center;
+  opacity: 0.9;
 }
 
-/* אזור המשחק */
-.game-modal__player {
-  flex: 1;
-  position: relative;
-  background: linear-gradient(135deg, #0a0a1a 0%, #000 100%);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.game-modal__player::before {
-  content: '';
-  position: absolute;
+/* פיד – מלא מסך מתחת לסרגל */
+body.games-page .videos-feed.games-feed {
+  position: fixed;
   inset: 0;
-  background: 
-    radial-gradient(circle at 0% 0%, rgba(45, 136, 255, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(45, 136, 255, 0.03) 0%, transparent 50%);
-  pointer-events: none;
+  background: #000;
   z-index: 1;
 }
 
-.game-modal__player iframe {
+body.games-page .videos-feed__viewport.games-feed__viewport {
+  position: absolute;
+  inset: 0;
+  height: 100dvh;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-top: 0;
+  padding-bottom: 0;
+  scroll-padding-top: 0;
+  scroll-padding-bottom: 0;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+body.games-page .videos-feed__viewport.games-feed__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+body.games-page .videos-feed__stream {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* כרטיס מלא מסך (בלי מרווח תפריט תחתון של videos) */
+body.games-page .videos-feed__card.games-feed__card {
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  width: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  contain-intrinsic-size: 100vw 100dvh;
+}
+
+body.games-page .videos-feed__media {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  border: none;
-  z-index: 2;
 }
 
-/* טעינה */
-.game-modal__loading {
-  position: absolute;
+body.games-page .videos-feed__actions {
+  z-index: 40;
+}
+
+body.games-page .videos-feed__info {
+  z-index: 40;
+  padding-bottom: calc(28px + var(--safe-bottom));
+  max-width: calc(100% - 88px);
+}
+
+.games-feed__catalog-badge {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #111;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* אינדיקטור */
+.games-indicator {
+  position: fixed;
+  top: calc(64px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.games-indicator__separator {
+  opacity: 0.55;
+}
+
+/* ריק */
+.games-empty {
+  position: fixed;
   inset: 0;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: #000;
+  color: #fff;
+}
+
+.games-empty[hidden] {
+  display: none !important;
+}
+
+.games-empty i {
+  font-size: 42px;
+  opacity: 0.85;
+  margin-bottom: 8px;
+}
+
+.games-empty p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.games-empty span {
   color: var(--games-text-muted);
   font-size: 14px;
-  z-index: 0;
+  max-width: 280px;
+  line-height: 1.45;
 }
 
-.game-modal__loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 3px solid rgba(45, 136, 255, 0.2);
-  border-top-color: var(--games-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ========================================
-   אנימציות כניסה
-   ======================================== */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.game-card__content > * {
-  animation: fadeInUp 0.6s ease backwards;
-}
-
-.game-card__content > *:nth-child(1) { animation-delay: 0.1s; }
-.game-card__content > *:nth-child(2) { animation-delay: 0.2s; }
-.game-card__content > *:nth-child(3) { animation-delay: 0.3s; }
-.game-card__content > *:nth-child(4) { animation-delay: 0.4s; }
-.game-card__content > *:nth-child(5) { animation-delay: 0.5s; }
-.game-card__content > *:nth-child(6) { animation-delay: 0.6s; }
-
-/* ========================================
-   התאמות למסכים גדולים
-   ======================================== */
-@media (min-width: 768px) {
-  .game-card__content {
-    max-width: 600px;
-    padding: 40px;
-    padding-bottom: calc(140px + var(--safe-bottom));
-  }
-  
-  .game-card__actions {
-    left: 40px;
-    gap: 20px;
-  }
-  
-  .game-card__action {
-    width: 60px;
-    height: 60px;
-    font-size: 24px;
-  }
-  
-  .games-indicator {
-    left: 40px;
-  }
-}
-
-/* ========================================
-   נטרול גלילה בעת פתיחת מודל
-   ======================================== */
-body.modal-open {
-  overflow: hidden;
-}
-
-body.modal-open .games-feed__viewport {
-  overflow: hidden;
+/* מסך מלא של game-embed מעל הכל */
+body.game-embed-fullscreen .games-top-bar,
+body.game-embed-fullscreen .games-indicator {
+  opacity: 0;
+  pointer-events: none;
 }

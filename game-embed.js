@@ -108,7 +108,9 @@
   }
 
   function bindFeedScrollExit() {
-    const viewport = document.querySelector('.videos-feed__viewport');
+    const viewport = document.querySelector('.videos-feed__viewport')
+      || document.querySelector('.games-feed__viewport')
+      || document.getElementById('gamesViewport');
     if (!viewport || viewport._gameScrollExitBound) return;
     viewport._gameScrollExitBound = true;
     let lastTop = viewport.scrollTop;

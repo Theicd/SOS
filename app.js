@@ -437,6 +437,10 @@
     if (gamesButton) {
       gamesButton.addEventListener('click', () => {
         closeMenu();
+        if (typeof App.openGamesPanel === 'function') {
+          App.openGamesPanel('./games.html');
+          return;
+        }
         // פתיחה כ-overlay אם קיים הפאנל
         const gamesPanel = document.getElementById('gamesPanel');
         const gamesFrame = document.getElementById('gamesPanelFrame');

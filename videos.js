@@ -4524,7 +4524,40 @@ function closePublicProfilePanel() {
 
 // חלק סגירת פאנלים (videos.js) – כל הפאנלים נסגרים דרך postMessage מכפתורי החזרה המקוריים | HYPER CORE TECH
 
-// חלק פאנל משחקים (videos.js) – סגירת overlay משחקים ללא רענון | HYPER CORE TECH
+// חלק פאנל משחקים (videos.js) – פתיחה/סגירת overlay משחקים ללא רענון | HYPER CORE TECH
+function resolveGamesPanelUrl(href) {
+  const raw = String(href || './games.html').trim() || './games.html';
+  try {
+    const url = new URL(raw, window.location.href);
+    url.searchParams.set('embedded', '1');
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_) {
+    if (raw.includes('embedded=1')) return raw;
+    if (raw.includes('#')) {
+      return raw.replace('#', '?embedded=1#');
+    }
+    return raw.includes('?') ? `${raw}&embedded=1` : `${raw}?embedded=1`;
+  }
+}
+
+function openGamesPanel(href = './games.html') {
+  const gamesPanel = document.getElementById('gamesPanel');
+  const gamesFrame = document.getElementById('gamesPanelFrame');
+  if (!gamesPanel || !gamesFrame) {
+    window.location.href = href || './games.html';
+    return false;
+  }
+  if (typeof pauseAllFeedVideos === 'function') {
+    pauseAllFeedVideos();
+  } else if (typeof window.NostrApp?.pauseAllFeedVideos === 'function') {
+    window.NostrApp.pauseAllFeedVideos();
+  }
+  gamesFrame.src = resolveGamesPanelUrl(href);
+  gamesPanel.hidden = false;
+  console.log('[VIDEOS] Games panel opened', gamesFrame.src);
+  return true;
+}
+
 function closeGamesPanel() {
   const gamesPanel = document.getElementById('gamesPanel');
   const gamesFrame = document.getElementById('gamesPanelFrame');
@@ -4537,10 +4570,31 @@ function closeGamesPanel() {
   return false;
 }
 
-// חשיפה גלובלית לסגירת פאנל משחקים | HYPER CORE TECH
+function getSharedGamePosts() {
+  return (Array.isArray(state.videos) ? state.videos : [])
+    .filter((video) => video && video.gameUrl)
+    .map((video) => ({
+      id: video.id,
+      gameUrl: video.gameUrl,
+      content: video.content || '',
+      authorName: video.authorName || 'משתמש',
+      authorPicture: video.authorPicture || '',
+      authorInitials: video.authorInitials || '',
+      pubkey: video.pubkey || '',
+      createdAt: video.createdAt || 0,
+      source: 'feed',
+    }));
+}
+
+// חשיפה גלובלית לפאנל משחקים | HYPER CORE TECH
 window.closeGamesPanel = closeGamesPanel;
-if (window.NostrApp) {
-  window.NostrApp.closeGamesPanel = closeGamesPanel;
+window.openGamesPanel = openGamesPanel;
+window.getSharedGamePosts = getSharedGamePosts;
+{
+  const AppRef = window.NostrApp || (window.NostrApp = {});
+  AppRef.closeGamesPanel = closeGamesPanel;
+  AppRef.openGamesPanel = openGamesPanel;
+  AppRef.getSharedGamePosts = getSharedGamePosts;
 }
 
 // חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH
@@ -4559,5 +4613,15 @@ window.addEventListener('message', function handleOverlayMessage(event) {
   if (event.data && event.data.type === 'closeGames') {
     console.log('[VIDEOS] Closing games panel via postMessage');
     closeGamesPanel();
+  }
+  if (event.data && event.data.type === 'openTriviaGame') {
+    closeGamesPanel();
+    if (typeof window.NostrApp?.openTriviaGame === 'function') {
+      window.NostrApp.openTriviaGame();
+    }
+  }
+  if (event.data && event.data.type === 'openDoomGame') {
+    closeGamesPanel();
+    window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
   }
 });
