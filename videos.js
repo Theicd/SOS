@@ -806,6 +806,7 @@ const state = {
   firstCardRendered: false,
   pendingOldCards: null,
   downloadedBytes: 0, // מעקב אחרי כמות הנתונים שהורדו
+  feedMode: 'all', // 'all' | 'games' – פיד משחקים = אותו פיד, מסונן | HYPER CORE TECH
 };
 
 // חלק טעינה (videos.js) – סף מינימלי להורדה לפני סגירת מסך הטעינה | HYPER CORE TECH
@@ -2362,23 +2363,25 @@ function renderVideos() {
     // שומרים את כרטיס LoadNug (יושב כמו פוסט) – innerHTML מוחק אותו | HYPER CORE TECH
     const loadnugCard = document.getElementById('sosLoadNugOverlay');
     selectors.stream.innerHTML = '';
-    if (loadnugCard) {
+    if (loadnugCard && state.feedMode !== 'games') {
       try { selectors.stream.insertBefore(loadnugCard, selectors.stream.firstChild || null); } catch (_) {}
     }
   }
   
   resetIncrementalRender();
+
+  const sourceVideos = getDisplayVideos();
   
-  if (!Array.isArray(state.videos) || state.videos.length === 0) {
+  if (!Array.isArray(sourceVideos) || sourceVideos.length === 0) {
     hideLoadingAnimation();
-    setStatus('אין סרטונים להצגה');
+    setStatus(state.feedMode === 'games' ? 'אין משחקים להצגה' : 'אין סרטונים להצגה');
     return;
   }
 
   // סינון רק פוסטים שעוד לא מוצגים
   const videosToRender = needsFullRender 
-    ? state.videos 
-    : state.videos.filter(v => !existingIds.has(v.id));
+    ? sourceVideos 
+    : sourceVideos.filter(v => !existingIds.has(v.id));
   
   if (videosToRender.length === 0) {
     // כל הפוסטים כבר מוצגים
@@ -2388,7 +2391,7 @@ function renderVideos() {
   }
 
   if (!state.firstCardRendered && selectors.status) {
-    selectors.status.textContent = 'טוען סרטונים...';
+    selectors.status.textContent = state.feedMode === 'games' ? 'טוען משחקים...' : 'טוען סרטונים...';
     selectors.status.style.display = 'block';
   }
 
@@ -3163,6 +3166,8 @@ function updateLoadMoreTrigger() {
 
 async function loadMoreVideos() {
   if (isLoadingMore) return;
+  // במצב משחקים לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
+  if (state.feedMode === 'games') return;
   isLoadingMore = true;
   
   const currentApp = window.NostrApp;
@@ -4397,6 +4402,10 @@ async function init() {
     homeButton.addEventListener('click', () => {
       // ניסיון לסגור overlays פתוחים - אם נסגר משהו, לא לנווט
       const App = window.NostrApp || {};
+      if (typeof App.exitGamesFeedMode === 'function' && App.exitGamesFeedMode()) {
+        console.log('[VIDEOS] Home button exited games feed mode');
+        return;
+      }
       if (typeof App.closeAllOverlays === 'function' && App.closeAllOverlays()) {
         console.log('[VIDEOS] Home button closed overlay, staying on videos');
         return;
@@ -4524,7 +4533,122 @@ function closePublicProfilePanel() {
 
 // חלק סגירת פאנלים (videos.js) – כל הפאנלים נסגרים דרך postMessage מכפתורי החזרה המקוריים | HYPER CORE TECH
 
-// חלק פאנל משחקים (videos.js) – פתיחה/סגירת overlay משחקים ללא רענון | HYPER CORE TECH
+// חלק פאנל משחקים (videos.js) – פיד משחקים = אותו videos-feed (כפתורים/תפריט צד/דסקטופ) | HYPER CORE TECH
+const GAMES_CATALOG_POSTS = [
+  {
+    id: 'catalog-taptaptap',
+    gameUrl: 'https://mahdif.github.io/taptaptap/play/',
+    content: 'Tap Tap Tap — ארקייד מגע בקוד פתוח',
+    authorName: 'SOS Play',
+    authorInitials: 'SP',
+    authorPicture: '',
+    pubkey: '',
+    createdAt: 0,
+  },
+  {
+    id: 'catalog-3d-penalty-kick',
+    gameUrl: 'https://cdn-factory.marketjs.com/en/3d-penalty-kick/index.html',
+    content: '3D Penalty Kick — בעיטות עונשין תלת־ממד',
+    authorName: 'SOS Play',
+    authorInitials: 'SP',
+    authorPicture: '',
+    pubkey: '',
+    createdAt: 0,
+  },
+];
+
+function getGamesCatalogPosts() {
+  return GAMES_CATALOG_POSTS
+    .filter((post) => post.gameUrl && isPlayableGameLink(post.gameUrl))
+    .map((post) => ({ ...post }));
+}
+
+function buildGamesFeedVideos() {
+  const seen = new Set();
+  const list = [];
+  const push = (video) => {
+    if (!video || !video.gameUrl || !isPlayableGameLink(video.gameUrl)) return;
+    const key = String(video.gameUrl).toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push(video);
+  };
+
+  (state.videos || [])
+    .filter((v) => v && v.gameUrl)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .forEach(push);
+
+  getGamesCatalogPosts().forEach(push);
+  return list;
+}
+
+function getDisplayVideos() {
+  if (state.feedMode === 'games') {
+    return buildGamesFeedVideos();
+  }
+  return Array.isArray(state.videos) ? state.videos : [];
+}
+
+function forceFullFeedRerender() {
+  if (!selectors.stream) return;
+  resetIncrementalRender();
+  pauseAllFeedVideos();
+
+  const loadnugCard = document.getElementById('sosLoadNugOverlay');
+  selectors.stream.innerHTML = '';
+  if (loadnugCard && state.feedMode !== 'games') {
+    try { selectors.stream.appendChild(loadnugCard); } catch (_) {}
+  }
+
+  state.firstCardRendered = false;
+  const videos = getDisplayVideos();
+  if (!videos.length) {
+    hideLoadingAnimation();
+    setStatus(state.feedMode === 'games' ? 'אין משחקים להצגה' : 'אין סרטונים להצגה');
+    return;
+  }
+
+  if (selectors.status) {
+    selectors.status.textContent = state.feedMode === 'games' ? 'טוען משחקים...' : 'טוען סרטונים...';
+    selectors.status.style.display = 'block';
+  }
+
+  setupIntersectionObserver();
+  setupLoadMoreObserver();
+  setupLikeUpdateListener();
+
+  state.incrementalRender = {
+    nextIndex: 0,
+    cancelled: false,
+    timer: null,
+    videosToRender: videos,
+  };
+  appendNextVideoCard();
+
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (viewport) {
+    try { viewport.scrollTo({ top: 0, behavior: 'auto' }); } catch (_) { viewport.scrollTop = 0; }
+  }
+}
+
+function enterGamesFeedMode() {
+  state.feedMode = 'games';
+  document.body.classList.add('videos-feed-mode-games');
+  forceFullFeedRerender();
+  console.log('[VIDEOS] Games feed mode ON', { count: getDisplayVideos().length });
+  return true;
+}
+
+function exitGamesFeedMode() {
+  if (state.feedMode !== 'games') return false;
+  state.feedMode = 'all';
+  document.body.classList.remove('videos-feed-mode-games');
+  forceFullFeedRerender();
+  console.log('[VIDEOS] Games feed mode OFF');
+  return true;
+}
+
 function resolveGamesPanelUrl(href) {
   const raw = String(href || './games.html').trim() || './games.html';
   try {
@@ -4541,33 +4665,53 @@ function resolveGamesPanelUrl(href) {
 }
 
 function openGamesPanel(href = './games.html') {
-  const gamesPanel = document.getElementById('gamesPanel');
-  const gamesFrame = document.getElementById('gamesPanelFrame');
-  if (!gamesPanel || !gamesFrame) {
-    window.location.href = href || './games.html';
-    return false;
+  const raw = String(href || './games.html');
+  let hash = '';
+  try {
+    hash = new URL(raw, window.location.href).hash.replace(/^#/, '').toLowerCase();
+  } catch (_) {
+    hash = String(raw.split('#')[1] || '').toLowerCase();
   }
-  if (typeof pauseAllFeedVideos === 'function') {
-    pauseAllFeedVideos();
-  } else if (typeof window.NostrApp?.pauseAllFeedVideos === 'function') {
-    window.NostrApp.pauseAllFeedVideos();
-  }
-  gamesFrame.src = resolveGamesPanelUrl(href);
-  gamesPanel.hidden = false;
-  console.log('[VIDEOS] Games panel opened', gamesFrame.src);
-  return true;
-}
 
-function closeGamesPanel() {
+  if (hash === 'doom') {
+    window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
+    return true;
+  }
+  if (hash === 'trivia') {
+    if (typeof window.NostrApp?.openTriviaGame === 'function') {
+      window.NostrApp.openTriviaGame();
+    }
+    return true;
+  }
+
+  // סגירת iframe ישן אם נשאר פתוח | HYPER CORE TECH
   const gamesPanel = document.getElementById('gamesPanel');
   const gamesFrame = document.getElementById('gamesPanelFrame');
   if (gamesPanel && !gamesPanel.hidden) {
     gamesPanel.hidden = true;
     if (gamesFrame) gamesFrame.src = '';
-    console.log('[VIDEOS] Games panel closed');
+  }
+
+  // פיד משחקים בתוך אותו videos-feed – בדיוק כמו הפיד הכללי | HYPER CORE TECH
+  if (state.feedMode === 'games') {
+    forceFullFeedRerender();
     return true;
   }
-  return false;
+  return enterGamesFeedMode();
+}
+
+function closeGamesPanel() {
+  let closed = false;
+  const gamesPanel = document.getElementById('gamesPanel');
+  const gamesFrame = document.getElementById('gamesPanelFrame');
+  if (gamesPanel && !gamesPanel.hidden) {
+    gamesPanel.hidden = true;
+    if (gamesFrame) gamesFrame.src = '';
+    closed = true;
+    console.log('[VIDEOS] Games panel closed');
+  }
+  if (exitGamesFeedMode()) closed = true;
+  return closed;
 }
 
 function getSharedGamePosts() {
@@ -4589,11 +4733,15 @@ function getSharedGamePosts() {
 // חשיפה גלובלית לפאנל משחקים | HYPER CORE TECH
 window.closeGamesPanel = closeGamesPanel;
 window.openGamesPanel = openGamesPanel;
+window.exitGamesFeedMode = exitGamesFeedMode;
+window.enterGamesFeedMode = enterGamesFeedMode;
 window.getSharedGamePosts = getSharedGamePosts;
 {
   const AppRef = window.NostrApp || (window.NostrApp = {});
   AppRef.closeGamesPanel = closeGamesPanel;
   AppRef.openGamesPanel = openGamesPanel;
+  AppRef.exitGamesFeedMode = exitGamesFeedMode;
+  AppRef.enterGamesFeedMode = enterGamesFeedMode;
   AppRef.getSharedGamePosts = getSharedGamePosts;
 }
 

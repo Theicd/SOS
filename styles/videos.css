@@ -3464,31 +3464,17 @@ body.policy-modal-open {
   display: block !important;
 }
 
-/* פאנל משחקים מעל תפריט הצד בדסקטופ (nav z-index 2000) | HYPER CORE TECH */
-#gamesPanel.profile-panel:not([hidden]) {
-  z-index: 2600 !important;
-  inset: 0 !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100vw !important;
-  height: 100dvh !important;
-  background: #000 !important;
-  overflow: hidden !important;
-}
-
-body:has(#gamesPanel:not([hidden])) .primary-nav {
-  z-index: 100 !important;
-  pointer-events: none !important;
-}
-
 #gamesPanelFrame {
   width: 100% !important;
   height: 100% !important;
   border: 0 !important;
   display: block !important;
   background: #000;
+}
+
+/* מצב פיד משחקים – אותו videos-feed, בלי overlay שמסתיר תפריטים | HYPER CORE TECH */
+body.videos-feed-mode-games .videos-feed__status {
+  /* נשאר זהה לפיד הראשי */
 }
 
 .notifications-panel__header {

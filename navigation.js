@@ -49,17 +49,24 @@
     return false;
   }
 
-  // חלק פאנל משחקים (navigation.js) – פונקציה לסגירת פאנל המשחקים | HYPER CORE TECH
+  // חלק פאנל משחקים (navigation.js) – סגירת iframe + יציאה ממצב פיד משחקים | HYPER CORE TECH
   function closeGamesPanel() {
+    let closed = false;
     const gamesPanel = document.getElementById('gamesPanel');
     const gamesFrame = document.getElementById('gamesPanelFrame');
     if (gamesPanel && !gamesPanel.hidden) {
       gamesPanel.hidden = true;
       if (gamesFrame) gamesFrame.src = '';
       console.log('[NAV] Games panel closed');
-      return true;
+      closed = true;
     }
-    return false;
+    if (typeof App.exitGamesFeedMode === 'function' && App.exitGamesFeedMode()) {
+      console.log('[NAV] Games feed mode closed');
+      closed = true;
+    } else if (typeof window.exitGamesFeedMode === 'function' && window.exitGamesFeedMode()) {
+      closed = true;
+    }
+    return closed;
   }
 
   // חלק פאנל צ'אט (navigation.js) – פונקציה לסגירת פאנל ההודעות | HYPER CORE TECH
@@ -117,6 +124,8 @@
     if (key !== 'profile') {
       const wasClosed = closeAllOverlays();
       if (wasClosed) {
+        // אחרי יציאה מפיד משחקים / overlay – עדכון לשונית פעילה | HYPER CORE TECH
+        updateNavSelection(key === 'games' ? 'videos' : key);
         console.log('[NAV] Overlay was closed, staying on current page');
         return;
       }
@@ -145,8 +154,11 @@
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
-      // אם כבר בדף videos.html - לא לרענן, פשוט להישאר | HYPER CORE TECH
+      // אם כבר בדף videos.html - חזרה לפיד הכללי (גם ממצב משחקים) | HYPER CORE TECH
       if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos')) {
+        if (typeof App.exitGamesFeedMode === 'function') {
+          App.exitGamesFeedMode();
+        }
         console.log('[NAV] Already on videos page, staying here');
         return;
       }
@@ -208,32 +220,12 @@
       return;
     }
 
-    // חלק ניווט משחקים (navigation.js) – לחיצה על "משחקים" פותחת כ-overlay ללא רענון הפיד | HYPER CORE TECH
+    // חלק ניווט משחקים (navigation.js) – פיד משחקים בתוך אותו videos-feed | HYPER CORE TECH
     if (key === 'games') {
       if (typeof App.openGamesPanel === 'function') {
         App.openGamesPanel('./games.html');
         return;
       }
-      const gamesPanel = document.getElementById('gamesPanel');
-      const gamesFrame = document.getElementById('gamesPanelFrame');
-      if (gamesPanel && gamesFrame) {
-        // Toggle - אם פתוח, סגור; אם סגור, פתח
-        if (!gamesPanel.hidden) {
-          gamesPanel.hidden = true;
-          gamesFrame.src = '';
-          console.log('[NAV] Games panel closed');
-        } else {
-          // עצירת וידאו בפתיחת משחקים | HYPER CORE TECH
-          if (typeof App.pauseAllFeedVideos === 'function') {
-            App.pauseAllFeedVideos();
-          }
-          gamesFrame.src = './games.html?embedded=1';
-          gamesPanel.hidden = false;
-          console.log('[NAV] Games panel opened');
-        }
-        return;
-      }
-      // Fallback - אם אין פאנל, נווט לדף
       window.location.href = './games.html';
       return;
     }
@@ -266,25 +258,13 @@
         window.location.href = './dating.html';
       });
     }
-    // חלק כפתור משחקים עליון (navigation.js) – פתיחה כ-overlay | HYPER CORE TECH
+    // חלק כפתור משחקים עליון (navigation.js) – כניסה לפיד משחקים בתוך הפיד הראשי | HYPER CORE TECH
     const gamesTopBtn = document.getElementById('gamesToggleTop');
     if (gamesTopBtn) {
       gamesTopBtn.addEventListener('click', () => {
         updateNavSelection('games');
         if (typeof App.openGamesPanel === 'function') {
           App.openGamesPanel('./games.html');
-          return;
-        }
-        // עצירת וידאו בפתיחת משחקים מהכפתור העליון | HYPER CORE TECH
-        if (typeof App.pauseAllFeedVideos === 'function') {
-          App.pauseAllFeedVideos();
-        }
-        const gamesPanel = document.getElementById('gamesPanel');
-        const gamesFrame = document.getElementById('gamesPanelFrame');
-        if (gamesPanel && gamesFrame) {
-          gamesFrame.src = './games.html?embedded=1';
-          gamesPanel.hidden = false;
-          console.log('[NAV] Games panel opened from top button');
           return;
         }
         window.location.href = './games.html';
