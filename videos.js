@@ -1111,6 +1111,33 @@ function handleCardMediaFailure(card, videoId, error) {
   }
 }
 
+// חלק סדר פיד (videos.js) – אינדקס ב-state.videos (0=חדש ביותר) | HYPER CORE TECH
+function getFeedOrderIndex(eventId) {
+  if (!eventId || !Array.isArray(state.videos)) return -1;
+  return state.videos.findIndex((v) => v && v.id === eventId);
+}
+
+// חלק סדר פיד (videos.js) – נקודת הכנסה לפי זמן, לא לפי מי שסיים הורדה קודם | HYPER CORE TECH
+// וידאו שעדיין לא מוכן לא ב-DOM; כשמוכן – נכנס במקום הכרונולוגי בין הכרטיסים שכבר עלו.
+function findFeedInsertAnchor(eventId) {
+  if (!selectors.stream || !eventId) return null;
+  const myIndex = getFeedOrderIndex(eventId);
+  if (myIndex < 0) {
+    return selectors.stream.querySelector('.videos-feed__load-more-sentinel');
+  }
+  const cards = selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]');
+  for (let i = 0; i < cards.length; i++) {
+    const otherId = cards[i].getAttribute('data-event-id');
+    if (!otherId || otherId === eventId) continue;
+    const otherIndex = getFeedOrderIndex(otherId);
+    // אינדקס גבוה יותר = ישן יותר בסדר הפיד → אנחנו לפניו
+    if (otherIndex > myIndex) {
+      return cards[i];
+    }
+  }
+  return selectors.stream.querySelector('.videos-feed__load-more-sentinel');
+}
+
 function mountCard(card, { prepend = false } = {}) {
   if (!selectors.stream || !card) return;
   if (card.isConnected) {
@@ -1121,9 +1148,22 @@ function mountCard(card, { prepend = false } = {}) {
     return;
   }
   if (prepend) {
-    selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
+    // פוסט עצמי לראש – אחרי כרטיס LoadNug אם קיים | HYPER CORE TECH
+    const loadnug = document.getElementById('sosLoadNugOverlay');
+    if (loadnug && loadnug.parentNode === selectors.stream) {
+      selectors.stream.insertBefore(card, loadnug.nextSibling);
+    } else {
+      selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
+    }
   } else {
-    selectors.stream.appendChild(card);
+    // הכנסה לפי סדר state.videos – שומר שערי mediaReady (לא מציג וידאו לפני הורדה) | HYPER CORE TECH
+    const eventId = card.getAttribute('data-event-id');
+    const anchor = eventId ? findFeedInsertAnchor(eventId) : null;
+    if (anchor) {
+      selectors.stream.insertBefore(card, anchor);
+    } else {
+      selectors.stream.appendChild(card);
+    }
   }
   wireActions(card);
   wireMediaControls(card);
@@ -2435,11 +2475,17 @@ function appendNextVideoCard() {
   const video = videos[controller.nextIndex];
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
+  // שער mediaReady נשאר: וידאו קובץ נכנס ל-DOM רק אחרי הורדה; המיקום לפי סדר הזמן | HYPER CORE TECH
   mediaReadyPromise
     .then(() => {
       mountCard(card);
     })
-    .catch((err) => handleCardMediaFailure(card, video.id, err));
+    .catch((err) => {
+      handleCardMediaFailure(card, video.id, err);
+      if (!card.isConnected) {
+        mountCard(card);
+      }
+    });
 
   controller.nextIndex += 1;
   preloadNextMedia(videos[controller.nextIndex]);
