@@ -827,11 +827,27 @@ const FEED_CACHE_MAX_SIZE = 1024 * 1024 * 1024; // 1GB מקסימום
 const FEED_CACHE_CLEANUP_BATCH = 20; // כמה פוסטים למחוק בכל פעם
 const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפח
 
-// חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
-const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
-const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
+// חלק הגבלת טעינה (videos.js) – טעינה ראשונית רחבה + המשך בגלילה | HYPER CORE TECH
+const INITIAL_LOAD_LIMIT = 200; // כמה פוסטים למשוך בהתחלה (לא לחתוך ל-50)
+const LOAD_MORE_BATCH = 30; // מספר פוסטים בכל טעינה נוספת
+const FEED_CACHE_LIMIT = 300; // מקסימום ב-state/מטמון
 let isLoadingMore = false; // מונע טעינות כפולות
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
+const feedMountingIds = new Set(); // מונע כרטיסים כפולים בזמן mediaReady | HYPER CORE TECH
+
+function dedupeVideosById(videos) {
+  const seen = new Set();
+  return (Array.isArray(videos) ? videos : []).filter((v) => {
+    if (!v || !v.id || seen.has(v.id)) return false;
+    seen.add(v.id);
+    return true;
+  });
+}
+
+function isVideoCardMounted(eventId) {
+  if (!eventId || !selectors.stream) return false;
+  return !!selectors.stream.querySelector(`.videos-feed__card[data-event-id="${eventId}"]`);
+}
 
 function getNetworkTag() {
   const app = window.NostrApp;
@@ -865,7 +881,7 @@ function sanitizeCachedVideo(video) {
 
 function saveFeedCache(videos) {
   try {
-    const trimmed = (videos || [])
+    const trimmed = dedupeVideosById(videos || [])
       .map((video) => sanitizeCachedVideo(video))
       .filter(Boolean);
     const payload = {
@@ -995,7 +1011,8 @@ function hydrateFeedFromCache() {
       afterFilter: filtered.length,
       deletedCount: cached.length - filtered.length
     });
-    state.videos = filtered;
+    state.videos = dedupeVideosById(filtered);
+    truncateFeedLength();
     renderVideos();
     // חלק לייקים מהקאש (videos.js) – טעינת לייקים ותגובות ברקע לפוסטים מהמטמון | HYPER CORE TECH
     const eventIds = filtered.map(v => v.id);
@@ -1028,6 +1045,7 @@ function removeVideoCard(eventId) {
 }
 
 function truncateFeedLength() {
+  state.videos = dedupeVideosById(state.videos);
   if (state.videos.length <= FEED_CACHE_LIMIT) {
     return;
   }
@@ -1116,6 +1134,15 @@ function handleCardMediaFailure(card, videoId, error) {
 
 function mountCard(card, { prepend = false } = {}) {
   if (!selectors.stream || !card) return;
+  const eventId = card.getAttribute('data-event-id');
+  // מניעת כפילויות ב-DOM | HYPER CORE TECH
+  if (eventId) {
+    const existing = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${eventId}"]`);
+    if (existing && existing !== card) {
+      try { card.remove(); } catch (_) {}
+      return;
+    }
+  }
   if (card.isConnected) {
     wireActions(card);
     wireMediaControls(card);
@@ -1124,9 +1151,19 @@ function mountCard(card, { prepend = false } = {}) {
     return;
   }
   if (prepend) {
-    selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
+    const loadnug = document.getElementById('sosLoadNugOverlay');
+    if (loadnug && loadnug.parentNode === selectors.stream) {
+      selectors.stream.insertBefore(card, loadnug.nextSibling);
+    } else {
+      selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
+    }
   } else {
-    selectors.stream.appendChild(card);
+    const sentinel = selectors.stream.querySelector('[data-load-more-sentinel]');
+    if (sentinel) {
+      selectors.stream.insertBefore(card, sentinel);
+    } else {
+      selectors.stream.appendChild(card);
+    }
   }
   wireActions(card);
   wireMediaControls(card);
@@ -2362,6 +2399,7 @@ function renderVideos() {
   // אם אין פוסטים קיימים - נקה והתחל מחדש
   const needsFullRender = existingIds.size === 0;
   if (needsFullRender) {
+    feedMountingIds.clear();
     // שומרים את כרטיס LoadNug (יושב כמו פוסט) – innerHTML מוחק אותו | HYPER CORE TECH
     const loadnugCard = document.getElementById('sosLoadNugOverlay');
     selectors.stream.innerHTML = '';
@@ -2436,15 +2474,35 @@ function appendNextVideoCard() {
   }
 
   const video = videos[controller.nextIndex];
+  controller.nextIndex += 1;
+
+  // דילוג על כפילויות / כבר במסך / כבר בתהליך mount | HYPER CORE TECH
+  if (!video?.id || isVideoCardMounted(video.id) || feedMountingIds.has(video.id)) {
+    preloadNextMedia(videos[controller.nextIndex]);
+    if (controller.nextIndex >= videos.length) {
+      finalizeIncrementalRender();
+      return;
+    }
+    controller.timer = setTimeout(appendNextVideoCard, 0);
+    return;
+  }
+
+  feedMountingIds.add(video.id);
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
+  // רק פוסט שירד ותקין נכנס לפיד | HYPER CORE TECH
   mediaReadyPromise
     .then(() => {
-      mountCard(card);
+      feedMountingIds.delete(video.id);
+      if (!isVideoCardMounted(video.id)) {
+        mountCard(card);
+      }
     })
-    .catch((err) => handleCardMediaFailure(card, video.id, err));
+    .catch((err) => {
+      feedMountingIds.delete(video.id);
+      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+    });
 
-  controller.nextIndex += 1;
   preloadNextMedia(videos[controller.nextIndex]);
 
   if (controller.nextIndex >= videos.length) {
@@ -3281,10 +3339,16 @@ async function loadMoreVideos() {
     }
 
     if (collectedVideos.length > 0) {
-      state.videos = [...state.videos, ...collectedVideos];
-      console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
-      renderMoreVideos(collectedVideos);
-      saveFeedCache(state.videos);
+      const fresh = dedupeVideosById(collectedVideos).filter((v) => !state.videos.some((x) => x.id === v.id));
+      if (fresh.length === 0) {
+        console.log('[videos] loadMoreVideos: all candidates already in state');
+      } else {
+        state.videos = dedupeVideosById([...state.videos, ...fresh]);
+        truncateFeedLength();
+        console.log('[videos] loadMoreVideos: added', fresh.length, 'videos, total:', state.videos.length);
+        renderMoreVideos(fresh);
+        saveFeedCache(state.videos);
+      }
     } else {
       console.log('[videos] loadMoreVideos: no more videos available this pass');
     }
@@ -3358,17 +3422,35 @@ function createVideoCard(video) {
 }
 
 function renderMoreVideos(videos) {
-  const stream = document.querySelector('.videos-feed__stream');
-  if (!stream || !videos.length) return;
-  
+  if (!selectors.stream || !videos.length) return;
+
   videos.forEach((video) => {
-    const card = createVideoCard(video);
-    if (card) {
-      stream.appendChild(card);
-      observeVideoCard(card);
+    if (!video?.id) return;
+    if (isVideoCardMounted(video.id) || feedMountingIds.has(video.id)) return;
+
+    feedMountingIds.add(video.id);
+    const { card, mediaReadyPromise } = renderVideoCard(video);
+    if (!card) {
+      feedMountingIds.delete(video.id);
+      return;
     }
+
+    // רק אחרי הורדה תקינה – ובלי כפילות ב-DOM | HYPER CORE TECH
+    mediaReadyPromise
+      .then(() => {
+        feedMountingIds.delete(video.id);
+        if (!isVideoCardMounted(video.id)) {
+          mountCard(card);
+        }
+        updateLoadMoreTrigger();
+      })
+      .catch((err) => {
+        feedMountingIds.delete(video.id);
+        try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+        updateLoadMoreTrigger();
+      });
   });
-  
+
   updateLoadMoreTrigger();
 }
 
@@ -3877,6 +3959,7 @@ async function loadVideos() {
   // אם אין פוסטים חדשים ויש כבר תוכן מהמטמון - סיים
   if ((!Array.isArray(sourceEvents) || sourceEvents.length === 0) && state.videos.length > 0) {
     console.log('[videos] loadVideos: no new events, keeping cached content');
+    state.videos = dedupeVideosById(state.videos);
     // חלק לייקים (videos.js) – טעינת לייקים גם כשאין פוסטים חדשים | HYPER CORE TECH
     const cachedIds = state.videos.map(v => v.id);
     if (cachedIds.length > 0) {
@@ -3887,6 +3970,8 @@ async function loadVideos() {
     setLoadingProgress(100);
     setLoadingStatus('הכל מעודכן!');
     hideLoadingAnimation();
+    updateLoadMoreTrigger();
+    setTimeout(() => { try { loadMoreVideos(); } catch (_) {} }, 400);
     return;
   }
 
@@ -4026,19 +4111,13 @@ async function loadVideos() {
   
   if (newVideos.length > 0) {
     // הוספת פוסטים חדשים בתחילת הרשימה
-    state.videos = [...newVideos, ...state.videos];
-    // הסרת כפילויות ומיון מחדש
-    const seen = new Set();
-    state.videos = state.videos.filter(v => {
-      if (seen.has(v.id)) return false;
-      seen.add(v.id);
-      return true;
-    });
+    state.videos = dedupeVideosById([...newVideos, ...state.videos]);
     state.videos.sort((a, b) => b.createdAt - a.createdAt);
+    truncateFeedLength();
     console.log('[videos] merged new videos', { newCount: newVideos.length, totalCount: state.videos.length });
   } else if (state.videos.length === 0) {
     // אין פוסטים קיימים – השתמש בחדשים
-    state.videos = videoEvents;
+    state.videos = dedupeVideosById(videoEvents);
   }
   
   // חלק מד טעינה חכם (videos.js) – שחרור הפיד מוקדם כשיש לפחות 5 פוסטים | HYPER CORE TECH
