@@ -696,10 +696,10 @@ body:has(.videos-feed) #moreOptionsToggle {
   min-height: 100%;
 }
 
-/* נקודת טריגר לטעינת המשך – בלי snap | HYPER CORE TECH */
+/* נקודת טריגר לטעינת המשך – גובה מספיק לזיהוי במובייל עם scroll-snap | HYPER CORE TECH */
 .videos-feed__load-more-sentinel {
-  flex: 0 0 2px;
-  height: 2px;
+  flex: 0 0 48px;
+  height: 48px;
   width: 100%;
   pointer-events: none;
   scroll-snap-align: none;

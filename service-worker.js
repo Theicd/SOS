@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v98'; // restore pre post-order feed
+  const CACHE_NAME = 'sos-cache-v99'; // mobile load-more past snap stall
   const PRECACHE_URLS = [
     './',
     './videos.html',
