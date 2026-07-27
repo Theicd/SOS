@@ -3,7 +3,7 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   // רק דומיינים שמתאימים לקטלוג SOS – לא poki/crazygames (שם Subway Surfers ויראלי) | HYPER CORE TECH
-  const GAME_HOST_RE = /(github\.io|itch\.io|gamh5\.com|krunker\.io|famobi\.com)/i;
+  const GAME_HOST_RE = /(github\.io|itch\.io|gamh5\.com|krunker\.io|famobi\.com|marketjs\.com)/i;
   const GAME_PATH_RE = /\/(game|games|play|mobile|mobileapp|arcade|html5|full)(\/|$)/i;
   const MEDIA_EXT_RE = /\.(mp4|webm|ogg|mov|m4v|m3u8|jpg|jpeg|png|gif|webp|svg|pdf)(\?|#|$)/i;
   // חסימה מפורשת – לא להציג בכלל בפיד | HYPER CORE TECH

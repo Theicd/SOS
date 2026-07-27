@@ -1582,7 +1582,7 @@ function isPlayableGameLink(link) {
   if (/subway[\s\-_.]*surfers?|subwaysurfers/i.test(link)) return false;
   if (/poki\.com|crazygames\.com|gamedistribution\.com/i.test(link)) return false;
   if (/\.(mp4|webm|m3u8|jpg|png)(\?|#|$)/i.test(link)) return false;
-  return /\.github\.io\//i.test(link) || /gamh5\.com|krunker\.io|famobi\.com|itch\.io/i.test(link);
+  return /\.github\.io\//i.test(link) || /gamh5\.com|krunker\.io|famobi\.com|itch\.io|marketjs\.com/i.test(link);
 }
 
 function isVideoLink(link) {

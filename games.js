@@ -22,12 +22,20 @@
   let gamePosts = [];
   let intersectionObserver = null;
 
-  // קטלוג בסיס – רק משחקים שעולים בפועל (הוסרו HexGL / gamh5 / Krunker) | HYPER CORE TECH
+  // קטלוג בסיס – משחקים שעולים בפועל | HYPER CORE TECH
   const catalogGames = [
     {
       id: 'catalog-taptaptap',
       gameUrl: 'https://mahdif.github.io/taptaptap/play/',
       content: 'Tap Tap Tap — ארקייד מגע בקוד פתוח',
+      authorName: 'SOS Play',
+      authorInitials: 'SP',
+      source: 'catalog',
+    },
+    {
+      id: 'catalog-3d-penalty-kick',
+      gameUrl: 'https://cdn-factory.marketjs.com/en/3d-penalty-kick/index.html',
+      content: '3D Penalty Kick — בעיטות עונשין תלת־ממד',
       authorName: 'SOS Play',
       authorInitials: 'SP',
       source: 'catalog',
@@ -51,7 +59,7 @@
     if (/subway[\s\-_.]*surfers?|subwaysurfers/i.test(link)) return false;
     if (/poki\.com|crazygames\.com|gamedistribution\.com/i.test(link)) return false;
     if (/\.(mp4|webm|m3u8|jpg|png)(\?|#|$)/i.test(link)) return false;
-    return /\.github\.io\//i.test(link) || /gamh5\.com|krunker\.io|famobi\.com|itch\.io/i.test(link);
+    return /\.github\.io\//i.test(link) || /gamh5\.com|krunker\.io|famobi\.com|itch\.io|marketjs\.com/i.test(link);
   }
 
   function escapeText(value) {
