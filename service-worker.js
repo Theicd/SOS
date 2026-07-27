@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v91'; // bump - Feed mount order by createdAt, keep mediaReady gate
+  const CACHE_NAME = 'sos-cache-v92'; // bump - Pin mobile feed scroll to head after late mounts
   const PRECACHE_URLS = [
     './',
     './videos.html',

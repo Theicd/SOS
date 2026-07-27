@@ -364,7 +364,19 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
   // מניעת כפילויות - בדיקה לפי hash או url
   const key = hash || url;
   if (videoDownloadedOrQueued.has(key)) {
-    return; // כבר בתור או הורד
+    // URL כבר בתור/הורד, אבל videoEl חדש (רינדור חוזר במובייל) – חייבים לשייך מחדש | HYPER CORE TECH
+    try {
+      if (typeof App.loadVideoWithCache === 'function') {
+        Promise.resolve(App.loadVideoWithCache(videoEl, url, hash, mirrors)).catch(() => {
+          try { fallbackFn && fallbackFn(); } catch (_) {}
+        });
+      } else if (typeof fallbackFn === 'function') {
+        fallbackFn();
+      }
+    } catch (_) {
+      try { fallbackFn && fallbackFn(); } catch (__) {}
+    }
+    return;
   }
   videoDownloadedOrQueued.add(key);
   
@@ -504,7 +516,9 @@ function wireMediaControls(root = document) {
 // חלק יאללה וידאו (videos.js) – הפעלה אוטומטית של הווידאו הראשון
 function autoPlayFirstVideo() {
   if (!selectors.stream) return;
-  const firstCard = selectors.stream.querySelector('.videos-feed__card');
+  pinFeedViewportToHead();
+  // רק כרטיס פוסט אמיתי – לא LoadNug | HYPER CORE TECH
+  const firstCard = selectors.stream.querySelector('.videos-feed__card[data-event-id]');
   if (!firstCard) return;
   const mediaDiv = firstCard.querySelector('.videos-feed__media');
   if (mediaDiv) {
@@ -1117,6 +1131,52 @@ function getFeedOrderIndex(eventId) {
   return state.videos.findIndex((v) => v && v.id === eventId);
 }
 
+// חלק גלילה (videos.js) – במובייל insert מעל משחק/IPTV מזיז scroll (anchoring); ננעלים לראש עד גלילת משתמש | HYPER CORE TECH
+let feedHeadScrollPinned = true;
+let feedHeadScrollBound = false;
+
+function bindFeedHeadScrollGuard() {
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (!viewport || feedHeadScrollBound) return;
+  feedHeadScrollBound = true;
+  viewport.addEventListener('scroll', () => {
+    if (viewport.dataset.feedHeadForce === '1') return;
+    // המשתמש זז מהראש — מפסיקים לכפות scrollTop=0 | HYPER CORE TECH
+    if (viewport.scrollTop > 72) {
+      feedHeadScrollPinned = false;
+    }
+  }, { passive: true });
+  viewport.addEventListener('wheel', () => {
+    if (viewport.scrollTop > 24) feedHeadScrollPinned = false;
+  }, { passive: true });
+  viewport.addEventListener('touchmove', () => {
+    if (viewport.scrollTop > 24) feedHeadScrollPinned = false;
+  }, { passive: true });
+}
+
+function pinFeedViewportToHead() {
+  if (!feedHeadScrollPinned || savedScrollPosition > 0) return;
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (!viewport) return;
+  bindFeedHeadScrollGuard();
+  viewport.dataset.feedHeadForce = '1';
+  try { viewport.style.scrollBehavior = 'auto'; } catch (_) {}
+  viewport.scrollTop = 0;
+  try { viewport.style.scrollBehavior = ''; } catch (_) {}
+  // כפול rAF – לנצח scroll anchoring / snap במובייל אחרי insertBefore | HYPER CORE TECH
+  requestAnimationFrame(() => {
+    if (!feedHeadScrollPinned) {
+      delete viewport.dataset.feedHeadForce;
+      return;
+    }
+    viewport.scrollTop = 0;
+    requestAnimationFrame(() => {
+      if (feedHeadScrollPinned) viewport.scrollTop = 0;
+      delete viewport.dataset.feedHeadForce;
+    });
+  });
+}
+
 // חלק סדר פיד (videos.js) – נקודת הכנסה לפי זמן, לא לפי מי שסיים הורדה קודם | HYPER CORE TECH
 // וידאו שעדיין לא מוכן לא ב-DOM; כשמוכן – נכנס במקום הכרונולוגי בין הכרטיסים שכבר עלו.
 function findFeedInsertAnchor(eventId) {
@@ -1165,6 +1225,8 @@ function mountCard(card, { prepend = false } = {}) {
       selectors.stream.appendChild(card);
     }
   }
+  // אחרי insert מעל משחק/ערוץ – מחזירים לראש הפיד (מובייל) בלי להציג מדיה שלא ירדה | HYPER CORE TECH
+  pinFeedViewportToHead();
   wireActions(card);
   wireMediaControls(card);
   observeVideoCard(card);
@@ -1179,6 +1241,7 @@ function mountCard(card, { prepend = false } = {}) {
     
     // חלק שחזור מיקום (videos.js) – שחזור מיקום גלילה אחרי טעינת הפוסט הראשון | HYPER CORE TECH
     if (savedScrollPosition > 0) {
+      feedHeadScrollPinned = false;
       const viewport = document.querySelector('.videos-feed__viewport');
       if (viewport) {
         // המתנה קצרה לאחר שהתוכן נטען
@@ -1188,6 +1251,7 @@ function mountCard(card, { prepend = false } = {}) {
         }, 50);
       }
     } else {
+      pinFeedViewportToHead();
       autoPlayFirstVideo();
     }
   }
@@ -4495,6 +4559,8 @@ async function init() {
       selectors.status.style.display = 'none';
     }
     state.firstCardRendered = true;
+    feedHeadScrollPinned = true;
+    pinFeedViewportToHead();
     autoPlayFirstVideo();
     console.log('[videos] displayed cached content, loading fresh in background');
   }
