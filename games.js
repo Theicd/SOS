@@ -23,16 +23,7 @@
   let intersectionObserver = null;
 
   // קטלוג בסיס – משחקים שעולים בפועל | HYPER CORE TECH
-  const catalogGames = [
-    {
-      id: 'catalog-3d-penalty-kick',
-      gameUrl: 'https://cdn-factory.marketjs.com/en/3d-penalty-kick/index.html',
-      content: '3D Penalty Kick — בעיטות עונשין תלת־ממד',
-      authorName: 'SOS Play',
-      authorInitials: 'SP',
-      source: 'catalog',
-    },
-  ];
+  const catalogGames = [];
 
   // כתובות קטלוג ישנות שלא עולות – לא להציג גם אם נשארו במטמון | HYPER CORE TECH
   const BLOCKED_GAME_URL_PARTS = [
@@ -42,6 +33,7 @@
     'gamh5.com/full/zoo-boom',
     'krunker.io',
     'mahdif.github.io/taptaptap',
+    'cdn-factory.marketjs.com/en/3d-penalty-kick',
   ];
 
   function isPlayableGameUrl(link) {

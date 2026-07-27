@@ -4587,18 +4587,7 @@ function closePublicProfilePanel() {
 // חלק סגירת פאנלים (videos.js) – כל הפאנלים נסגרים דרך postMessage מכפתורי החזרה המקוריים | HYPER CORE TECH
 
 // חלק פאנל משחקים (videos.js) – פיד משחקים = אותו videos-feed (כפתורים/תפריט צד/דסקטופ) | HYPER CORE TECH
-const GAMES_CATALOG_POSTS = [
-  {
-    id: 'catalog-3d-penalty-kick',
-    gameUrl: 'https://cdn-factory.marketjs.com/en/3d-penalty-kick/index.html',
-    content: '3D Penalty Kick — בעיטות עונשין תלת־ממד',
-    authorName: 'SOS Play',
-    authorInitials: 'SP',
-    authorPicture: '',
-    pubkey: '',
-    createdAt: 0,
-  },
-];
+const GAMES_CATALOG_POSTS = [];
 
 function getGamesCatalogPosts() {
   return GAMES_CATALOG_POSTS
@@ -4616,6 +4605,7 @@ function buildGamesFeedVideos() {
     'gamh5.com/full/meteorite-shooter',
     'gamh5.com/full/zoo-boom',
     'krunker.io',
+    'cdn-factory.marketjs.com/en/3d-penalty-kick',
   ];
   const isBlocked = (url) => {
     const value = String(url || '').toLowerCase();
