@@ -31,8 +31,8 @@
   contain: none !important;
 }
 
-/* כרום תמיד גלוי מעל הפיד */
-body:has(.videos-feed) .top-bar {
+/* כרום מעל כרטיס הטעינה בלבד – לא מעל פאנל צ'אט | HYPER CORE TECH */
+body:has(#sosLoadNugOverlay) .top-bar {
   position: fixed !important;
   z-index: 3000 !important;
   display: flex !important;
@@ -42,7 +42,7 @@ body:has(.videos-feed) .top-bar {
   pointer-events: auto !important;
 }
 
-body:has(.videos-feed) .primary-nav {
+body:has(#sosLoadNugOverlay) .primary-nav {
   position: fixed !important;
   z-index: 3000 !important;
   display: flex !important;

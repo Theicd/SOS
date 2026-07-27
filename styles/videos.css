@@ -276,6 +276,35 @@ body:has(.videos-feed) .top-bar {
   box-sizing: border-box !important;
 }
 
+/* חלק צ'אט מעל כרום הפיד (videos.css) – top-bar/nav ב-3000 כיסו את כותרת הצ'אט; מתקנים שכבות | HYPER CORE TECH */
+body:has(#chatPanel:not([hidden])) .chat-panel {
+  z-index: 4500 !important;
+}
+
+/* מובייל+דסקטופ: מסתירים את בר האפליקציה כשהצ'אט פתוח – כדי שכפתור חזרה/כותרת שיחה יישבו במקום | HYPER CORE TECH */
+body:has(#chatPanel:not([hidden])) .top-bar {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* דסקטופ: סיידבר הפיד לא חופף את פאנל הצ'אט המלא | HYPER CORE TECH */
+@media (min-width: 769px) {
+  body:has(#chatPanel:not([hidden])) .primary-nav {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  body:has(#chatPanel:not([hidden])) .chat-panel {
+    z-index: 4500 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+  }
+}
+
 /* חלק מיקום כפתור פרופיל (videos.css) – הזזה 5px ימינה במובייל | HYPER CORE TECH */
 @media (max-width: 900px) {
   body:has(.videos-feed) .top-bar__profile {
@@ -3645,10 +3674,18 @@ body.policy-modal-open {
     border: none !important;
     border-top: none !important;
     background: #14161a !important; /* רקע אטום מלא */
-    padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; /* התחשבות ב-Notch + מרווח קטן */
+    padding-top: env(safe-area-inset-top, 0px) !important; /* בלי מרווח כפול – top-bar מוסתר כשהצ'אט פתוח | HYPER CORE TECH */
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; /* מרווח לתפריט התחתון + Safe Area */
-    z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
+    z-index: 3500 !important; /* מעל top-bar הישן; מתחת ל-primary-nav (4000) ברשימה | HYPER CORE TECH */
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
+  }
+
+  /* רשימת שיחות: תפריט תחתון נשאר לחיץ מעל הצ'אט | HYPER CORE TECH */
+  body:has(#chatPanel:not([hidden])):not(:has(.chat-panel--conversation:not([hidden]))) .primary-nav {
+    z-index: 4600 !important;
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
   }
 
   /* אופטימיזציה אגרסיבית למובייל - ביטול כל אפקטי הזכוכית והמעברים הפנימיים */
@@ -3676,11 +3713,29 @@ body.policy-modal-open {
   */
   body:has(.chat-panel--conversation:not([hidden])) .primary-nav {
     display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    z-index: 2005 !important; /* וידוא שנשאר עליון */
+    z-index: 4700 !important; /* שיחה מלאה מעל הכל כולל ניווט | HYPER CORE TECH */
+  }
+
+  /* כותרת שיחה + כפתור חזרה תמיד מעל תוכן ההודעות | HYPER CORE TECH */
+  body:has(#chatPanel:not([hidden])) .chat-conversation__header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+    display: flex !important;
+    visibility: visible !important;
+  }
+
+  body:has(#chatPanel:not([hidden])) .chat-conversation__back {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 
   /* הסתרת התפריט התחתון של הצ'אט כדי למנוע כפילות עם התפריט הראשי */
