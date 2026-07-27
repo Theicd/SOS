@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v93'; // bump - Fix chat z-index above feed chrome
+  const CACHE_NAME = 'sos-cache-v94'; // bump - Do not mount failed media cards in feed
   const PRECACHE_URLS = [
     './',
     './videos.html',

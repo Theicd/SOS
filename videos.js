@@ -1278,11 +1278,8 @@ function prependVideoCard(video, { forceShow = false } = {}) {
       mountCard(card, { prepend: true });
     })
     .catch((err) => {
-      // בעבר כשל מדיה השאיר כרטיס מחוץ ל-DOM — עכשיו מציגים עם placeholder | HYPER CORE TECH
-      handleCardMediaFailure(card, video.id, err);
-      if (!card.isConnected) {
-        mountCard(card, { prepend: true });
-      }
+      // לא mount בכישלון — רק מה שירד מוצג | HYPER CORE TECH
+      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
     });
 }
 
@@ -2539,16 +2536,14 @@ function appendNextVideoCard() {
   const video = videos[controller.nextIndex];
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  // שער mediaReady נשאר: וידאו קובץ נכנס ל-DOM רק אחרי הורדה; המיקום לפי סדר הזמן | HYPER CORE TECH
+  // שער mediaReady: רק מדיה שירדה בהצלחה נכנסת ל-DOM — בלי כרטיסים ריקים | HYPER CORE TECH
   mediaReadyPromise
     .then(() => {
       mountCard(card);
     })
     .catch((err) => {
-      handleCardMediaFailure(card, video.id, err);
-      if (!card.isConnected) {
-        mountCard(card);
-      }
+      // לא mount בכישלון — פוסט שלא ירד לא מוצג בפיד | HYPER CORE TECH
+      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
     });
 
   controller.nextIndex += 1;
