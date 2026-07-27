@@ -364,19 +364,7 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
   // מניעת כפילויות - בדיקה לפי hash או url
   const key = hash || url;
   if (videoDownloadedOrQueued.has(key)) {
-    // URL כבר בתור/הורד, אבל videoEl חדש (רינדור חוזר במובייל) – חייבים לשייך מחדש | HYPER CORE TECH
-    try {
-      if (typeof App.loadVideoWithCache === 'function') {
-        Promise.resolve(App.loadVideoWithCache(videoEl, url, hash, mirrors)).catch(() => {
-          try { fallbackFn && fallbackFn(); } catch (_) {}
-        });
-      } else if (typeof fallbackFn === 'function') {
-        fallbackFn();
-      }
-    } catch (_) {
-      try { fallbackFn && fallbackFn(); } catch (__) {}
-    }
-    return;
+    return; // כבר בתור או הורד
   }
   videoDownloadedOrQueued.add(key);
   
@@ -516,9 +504,7 @@ function wireMediaControls(root = document) {
 // חלק יאללה וידאו (videos.js) – הפעלה אוטומטית של הווידאו הראשון
 function autoPlayFirstVideo() {
   if (!selectors.stream) return;
-  pinFeedViewportToHead();
-  // רק כרטיס פוסט אמיתי – לא LoadNug | HYPER CORE TECH
-  const firstCard = selectors.stream.querySelector('.videos-feed__card[data-event-id]');
+  const firstCard = selectors.stream.querySelector('.videos-feed__card');
   if (!firstCard) return;
   const mediaDiv = firstCard.querySelector('.videos-feed__media');
   if (mediaDiv) {
@@ -822,9 +808,6 @@ const state = {
   downloadedBytes: 0, // מעקב אחרי כמות הנתונים שהורדו
 };
 
-// פוסטים שנכשלו בהורדת מדיה – לא ב-DOM; לא חוסמים את עדשת load-more | HYPER CORE TECH
-const feedMediaFailedIds = new Set();
-
 // חלק טעינה (videos.js) – סף מינימלי להורדה לפני סגירת מסך הטעינה | HYPER CORE TECH
 const MIN_DOWNLOAD_BYTES = 20 * 1024 * 1024; // 20MB מינימום
 
@@ -843,14 +826,9 @@ const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפ
 
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
-const LOAD_MORE_BATCH = 12; // כמה מועמדי מדיה לכל טריגר (mount רק אחרי הורדה)
-const LOAD_MORE_FETCH = 60; // כמה אירועים למשוך מהריליי בכל ניסיון
-const LOAD_MORE_MAX_ATTEMPTS = 18; // צעדים אחורה בטריגר אחד
-const FEED_CACHE_LIMIT = 200; // מקסימום ב-state/מטמון – רק פוסטים שעלו/מוכנים
+const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
 let isLoadingMore = false; // מונע טעינות כפולות
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
-let loadMorePendingMounts = 0; // כמה כרטיסי load-more ממתינים ל-mediaReady
-const feedSeenEventIds = new Set(); // אירועים שכבר עובדו ב-paging (כולל בלי מדיה)
 
 function getNetworkTag() {
   const app = window.NostrApp;
@@ -1015,7 +993,6 @@ function hydrateFeedFromCache() {
       deletedCount: cached.length - filtered.length
     });
     state.videos = filtered;
-    truncateFeedLength();
     renderVideos();
     // חלק לייקים מהקאש (videos.js) – טעינת לייקים ותגובות ברקע לפוסטים מהמטמון | HYPER CORE TECH
     const eventIds = filtered.map(v => v.id);
@@ -1048,19 +1025,6 @@ function removeVideoCard(eventId) {
 }
 
 function truncateFeedLength() {
-  // מסירים כשלונות שלא במסך – לא מנפחים state | HYPER CORE TECH
-  if (feedMediaFailedIds.size > 0) {
-    const mounted = new Set();
-    selectors.stream?.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
-      const id = card.getAttribute('data-event-id');
-      if (id) mounted.add(id);
-    });
-    state.videos = state.videos.filter((v) => {
-      if (!v?.id) return false;
-      if (feedMediaFailedIds.has(v.id) && !mounted.has(v.id)) return false;
-      return true;
-    });
-  }
   if (state.videos.length <= FEED_CACHE_LIMIT) {
     return;
   }
@@ -1147,79 +1111,6 @@ function handleCardMediaFailure(card, videoId, error) {
   }
 }
 
-// חלק סדר פיד (videos.js) – אינדקס ב-state.videos (0=חדש ביותר) | HYPER CORE TECH
-function getFeedOrderIndex(eventId) {
-  if (!eventId || !Array.isArray(state.videos)) return -1;
-  return state.videos.findIndex((v) => v && v.id === eventId);
-}
-
-// חלק גלילה (videos.js) – במובייל insert מעל משחק/IPTV מזיז scroll (anchoring); ננעלים לראש עד גלילת משתמש | HYPER CORE TECH
-let feedHeadScrollPinned = true;
-let feedHeadScrollBound = false;
-
-function bindFeedHeadScrollGuard() {
-  const viewport = document.querySelector('.videos-feed__viewport');
-  if (!viewport || feedHeadScrollBound) return;
-  feedHeadScrollBound = true;
-  viewport.addEventListener('scroll', () => {
-    if (viewport.dataset.feedHeadForce === '1') return;
-    // המשתמש זז מהראש — מפסיקים לכפות scrollTop=0 | HYPER CORE TECH
-    if (viewport.scrollTop > 72) {
-      feedHeadScrollPinned = false;
-    }
-  }, { passive: true });
-  viewport.addEventListener('wheel', () => {
-    if (viewport.scrollTop > 24) feedHeadScrollPinned = false;
-  }, { passive: true });
-  viewport.addEventListener('touchmove', () => {
-    if (viewport.scrollTop > 24) feedHeadScrollPinned = false;
-  }, { passive: true });
-}
-
-function pinFeedViewportToHead() {
-  if (!feedHeadScrollPinned || savedScrollPosition > 0) return;
-  const viewport = document.querySelector('.videos-feed__viewport');
-  if (!viewport) return;
-  bindFeedHeadScrollGuard();
-  viewport.dataset.feedHeadForce = '1';
-  try { viewport.style.scrollBehavior = 'auto'; } catch (_) {}
-  viewport.scrollTop = 0;
-  try { viewport.style.scrollBehavior = ''; } catch (_) {}
-  // כפול rAF – לנצח scroll anchoring / snap במובייל אחרי insertBefore | HYPER CORE TECH
-  requestAnimationFrame(() => {
-    if (!feedHeadScrollPinned) {
-      delete viewport.dataset.feedHeadForce;
-      return;
-    }
-    viewport.scrollTop = 0;
-    requestAnimationFrame(() => {
-      if (feedHeadScrollPinned) viewport.scrollTop = 0;
-      delete viewport.dataset.feedHeadForce;
-    });
-  });
-}
-
-// חלק סדר פיד (videos.js) – נקודת הכנסה לפי זמן, לא לפי מי שסיים הורדה קודם | HYPER CORE TECH
-// וידאו שעדיין לא מוכן לא ב-DOM; כשמוכן – נכנס במקום הכרונולוגי בין הכרטיסים שכבר עלו.
-function findFeedInsertAnchor(eventId) {
-  if (!selectors.stream || !eventId) return null;
-  const myIndex = getFeedOrderIndex(eventId);
-  if (myIndex < 0) {
-    return selectors.stream.querySelector('.videos-feed__load-more-sentinel');
-  }
-  const cards = selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]');
-  for (let i = 0; i < cards.length; i++) {
-    const otherId = cards[i].getAttribute('data-event-id');
-    if (!otherId || otherId === eventId) continue;
-    const otherIndex = getFeedOrderIndex(otherId);
-    // אינדקס גבוה יותר = ישן יותר בסדר הפיד → אנחנו לפניו
-    if (otherIndex > myIndex) {
-      return cards[i];
-    }
-  }
-  return selectors.stream.querySelector('.videos-feed__load-more-sentinel');
-}
-
 function mountCard(card, { prepend = false } = {}) {
   if (!selectors.stream || !card) return;
   if (card.isConnected) {
@@ -1230,25 +1121,10 @@ function mountCard(card, { prepend = false } = {}) {
     return;
   }
   if (prepend) {
-    // פוסט עצמי לראש – אחרי כרטיס LoadNug אם קיים | HYPER CORE TECH
-    const loadnug = document.getElementById('sosLoadNugOverlay');
-    if (loadnug && loadnug.parentNode === selectors.stream) {
-      selectors.stream.insertBefore(card, loadnug.nextSibling);
-    } else {
-      selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
-    }
+    selectors.stream.insertBefore(card, selectors.stream.firstChild || null);
   } else {
-    // הכנסה לפי סדר state.videos – שומר שערי mediaReady (לא מציג וידאו לפני הורדה) | HYPER CORE TECH
-    const eventId = card.getAttribute('data-event-id');
-    const anchor = eventId ? findFeedInsertAnchor(eventId) : null;
-    if (anchor) {
-      selectors.stream.insertBefore(card, anchor);
-    } else {
-      selectors.stream.appendChild(card);
-    }
+    selectors.stream.appendChild(card);
   }
-  // אחרי insert מעל משחק/ערוץ – מחזירים לראש הפיד (מובייל) בלי להציג מדיה שלא ירדה | HYPER CORE TECH
-  pinFeedViewportToHead();
   wireActions(card);
   wireMediaControls(card);
   observeVideoCard(card);
@@ -1263,7 +1139,6 @@ function mountCard(card, { prepend = false } = {}) {
     
     // חלק שחזור מיקום (videos.js) – שחזור מיקום גלילה אחרי טעינת הפוסט הראשון | HYPER CORE TECH
     if (savedScrollPosition > 0) {
-      feedHeadScrollPinned = false;
       const viewport = document.querySelector('.videos-feed__viewport');
       if (viewport) {
         // המתנה קצרה לאחר שהתוכן נטען
@@ -1273,7 +1148,6 @@ function mountCard(card, { prepend = false } = {}) {
         }, 50);
       }
     } else {
-      pinFeedViewportToHead();
       autoPlayFirstVideo();
     }
   }
@@ -1297,13 +1171,14 @@ function prependVideoCard(video, { forceShow = false } = {}) {
 
   mediaReadyPromise
     .then(() => {
-      try { feedMediaFailedIds.delete(video.id); } catch (_) {}
       mountCard(card, { prepend: true });
     })
     .catch((err) => {
-      // לא mount בכישלון — רק מה שירד מוצג | HYPER CORE TECH
-      if (video?.id) feedMediaFailedIds.add(video.id);
-      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+      // בעבר כשל מדיה השאיר כרטיס מחוץ ל-DOM — עכשיו מציגים עם placeholder | HYPER CORE TECH
+      handleCardMediaFailure(card, video.id, err);
+      if (!card.isConnected) {
+        mountCard(card, { prepend: true });
+      }
     });
 }
 
@@ -2484,9 +2359,6 @@ function renderVideos() {
   // אם אין פוסטים קיימים - נקה והתחל מחדש
   const needsFullRender = existingIds.size === 0;
   if (needsFullRender) {
-    feedMediaFailedIds.clear();
-    feedSeenEventIds.clear();
-    loadMorePendingMounts = 0;
     // שומרים את כרטיס LoadNug (יושב כמו פוסט) – innerHTML מוחק אותו | HYPER CORE TECH
     const loadnugCard = document.getElementById('sosLoadNugOverlay');
     selectors.stream.innerHTML = '';
@@ -2563,21 +2435,11 @@ function appendNextVideoCard() {
   const video = videos[controller.nextIndex];
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  // שער mediaReady: רק מדיה שירדה בהצלחה נכנסת ל-DOM — בלי כרטיסים ריקים | HYPER CORE TECH
   mediaReadyPromise
     .then(() => {
-      try { feedMediaFailedIds.delete(video.id); } catch (_) {}
       mountCard(card);
     })
-    .catch((err) => {
-      // לא mount בכישלון — מסמנים כדי ש-load-more לא ייעצר על הזמן שלהם | HYPER CORE TECH
-      if (video?.id) {
-        feedMediaFailedIds.add(video.id);
-        feedSeenEventIds.add(video.id);
-      }
-      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
-      updateLoadMoreTrigger();
-    });
+    .catch((err) => handleCardMediaFailure(card, video.id, err));
 
   controller.nextIndex += 1;
   preloadNextMedia(videos[controller.nextIndex]);
@@ -2599,10 +2461,6 @@ function finalizeIncrementalRender() {
   state.incrementalRender.cancelled = true;
   state.incrementalRender = null;
   updateLoadMoreTrigger();
-  // אחרי הטעינה הראשונית – ממשיכים אוטומטית אחורה (מובייל לא תמיד מגיע ל-sentinel) | HYPER CORE TECH
-  setTimeout(() => {
-    try { maybeLoadMoreVideos('after-initial'); } catch (_) {}
-  }, 500);
 }
 
 // חלק יאללה וידאו (videos.js) – חיבור קלפים חדשים ל-IntersectionObserver | HYPER CORE TECH
@@ -3233,12 +3091,6 @@ function setupIntersectionObserver() {
 }
 
 // חלק טעינת המשך (videos.js) – טעינת פוסטים נוספים כשמגיעים לסוף הפיד | HYPER CORE TECH
-function maybeLoadMoreVideos(reason) {
-  if (isLoadingMore) return;
-  if (loadMorePendingMounts > 8) return;
-  loadMoreVideos(reason);
-}
-
 function setupLoadMoreObserver() {
   const viewport = document.querySelector('.videos-feed__viewport');
   if (!viewport) return;
@@ -3250,39 +3102,34 @@ function setupLoadMoreObserver() {
   loadMoreObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting && !isLoadingMore) {
+          // הגענו לקרבת סוף הפיד - טען עוד פוסטים
           console.log('[videos] Near end of feed, loading more...');
-          maybeLoadMoreVideos('intersection');
+          loadMoreVideos();
         }
       });
     },
     {
       root: viewport,
       threshold: 0,
-      rootMargin: '600px 0px'
+      rootMargin: '400px 0px'
     }
   );
 
-  // גיבוי לפי גלילה + touch – IO לבד לא אמין עם scroll-snap במובייל | HYPER CORE TECH
+  // גיבוי לפי גלילה – IO לבד לא תמיד יורה עם scroll-snap | HYPER CORE TECH
   if (!viewport.dataset.loadMoreScrollBound) {
     viewport.dataset.loadMoreScrollBound = '1';
     let scrollTicking = false;
-    const checkNearEnd = () => {
-      const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      if (remaining < viewport.clientHeight * 2.5) {
-        maybeLoadMoreVideos('scroll-near-end');
-      }
-    };
     viewport.addEventListener('scroll', () => {
-      if (scrollTicking) return;
+      if (scrollTicking || isLoadingMore) return;
       scrollTicking = true;
       requestAnimationFrame(() => {
         scrollTicking = false;
-        checkNearEnd();
+        const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+        if (remaining < viewport.clientHeight * 1.75) {
+          loadMoreVideos();
+        }
       });
-    }, { passive: true });
-    viewport.addEventListener('touchend', () => {
-      setTimeout(checkNearEnd, 50);
     }, { passive: true });
   }
   
@@ -3306,143 +3153,81 @@ function updateLoadMoreTrigger() {
   selectors.stream.appendChild(sentinel);
   loadMoreObserver.observe(sentinel);
 
-  // גם הקלפים האחרונים שכן מוצגים (לא כשלונות) | HYPER CORE TECH
-  const cards = selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]');
+  const cards = selectors.stream.querySelectorAll('.videos-feed__card');
   if (cards.length >= 2) {
-    loadMoreObserver.observe(cards[cards.length - 1]);
     loadMoreObserver.observe(cards[cards.length - 2]);
   } else if (cards.length === 1) {
     loadMoreObserver.observe(cards[0]);
   }
 }
 
-// חלק טעינת המשך (videos.js) – until לפי הכרטיס הישן ביותר שמוצג ב-DOM | HYPER CORE TECH
-function getOldestMountedCreatedAt() {
-  if (!selectors.stream) return null;
-  let oldest = null;
-  const cards = selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]');
-  cards.forEach((card) => {
-    const id = card.getAttribute('data-event-id');
-    if (!id) return;
-    const video = state.videos.find((v) => v && v.id === id);
-    const t = video && typeof video.createdAt === 'number' ? video.createdAt : null;
-    if (t == null) return;
-    if (oldest == null || t < oldest) oldest = t;
-  });
-  return oldest;
-}
-
-function commitMountedVideoToState(video) {
-  if (!video?.id) return;
-  if (state.videos.some((v) => v && v.id === video.id)) return;
-  state.videos.push(video);
-  state.videos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  truncateFeedLength();
-  saveFeedCache(state.videos);
-}
-
-async function loadMoreVideos(reason = 'manual') {
+async function loadMoreVideos() {
   if (isLoadingMore) return;
-  if (loadMorePendingMounts > 8) return;
   isLoadingMore = true;
   
   const currentApp = window.NostrApp;
   const networkTag = getNetworkTag();
   
-  // עדשה לפי מה שמוצג – לא לפי פוסטים שנכשלו ולא נכנסו ל-DOM | HYPER CORE TECH
-  let untilTime = getOldestMountedCreatedAt();
-  if (untilTime == null && state.videos.length > 0) {
-    const candidates = state.videos.filter((v) => v && !feedMediaFailedIds.has(v.id));
-    const pool = candidates.length ? candidates : state.videos;
-    untilTime = pool.reduce((oldest, v) => (v.createdAt < oldest ? v.createdAt : oldest), pool[0].createdAt);
-  }
+  // מצא את הפוסט הישן ביותר שיש לנו
+  const oldestVideo = state.videos.length > 0 
+    ? state.videos.reduce((oldest, v) => (v.createdAt < oldest.createdAt ? v : oldest), state.videos[0])
+    : null;
   
-  if (untilTime == null) {
+  if (!oldestVideo) {
     isLoadingMore = false;
     return;
   }
   
-  console.log('[videos] loadMoreVideos:', reason, 'older than', new Date(untilTime * 1000).toLocaleString(), {
-    mounted: selectors.stream?.querySelectorAll('.videos-feed__card[data-event-id]')?.length || 0,
-    state: state.videos.length,
-    failed: feedMediaFailedIds.size,
-    seen: feedSeenEventIds.size,
-  });
+  let untilTime = oldestVideo.createdAt;
+  console.log('[videos] loadMoreVideos: loading older than', new Date(untilTime * 1000).toLocaleString());
   
   try {
-    const existingIds = new Set([
-      ...state.videos.map((v) => v.id).filter(Boolean),
-      ...feedSeenEventIds,
-      ...feedMediaFailedIds,
-    ]);
-    // גם מה שכבר במסך
-    selectors.stream?.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
-      const id = card.getAttribute('data-event-id');
-      if (id) existingIds.add(id);
-    });
-
+    const existingIds = new Set(state.videos.map(v => v.id));
     const collectedVideos = [];
-    let stagnantPages = 0;
 
-    // גלילה למטה ממשיכה אחורה דרך כפילויות / נוטס בלי מדיה – בלי לנפח state | HYPER CORE TECH
-    for (let attempt = 0; attempt < LOAD_MORE_MAX_ATTEMPTS && collectedVideos.length < LOAD_MORE_BATCH; attempt++) {
-      const cursorBefore = untilTime;
-      const fetched = await fetchRecentNotes(LOAD_MORE_FETCH, undefined, untilTime);
-      let pageEvents = Array.isArray(fetched)
-        ? fetched.filter((ev) => ev && typeof ev.created_at === 'number' && ev.created_at < untilTime)
-        : [];
+    // כמה ניסיונות עם until – הרבה נוטס בלי מדיה | HYPER CORE TECH
+    for (let attempt = 0; attempt < 4 && collectedVideos.length < 5; attempt++) {
+      let moreEvents = [];
 
-      if (pageEvents.length === 0 && currentApp?.postsById?.size > 0) {
-        pageEvents = Array.from(currentApp.postsById.values()).filter(
-          (ev) => ev && typeof ev.created_at === 'number' && ev.created_at < untilTime && !existingIds.has(ev.id)
+      // קודם until מהריליי – לא since (שזה רק החדשים ביותר) | HYPER CORE TECH
+      const fetched = await fetchRecentNotes(LOAD_MORE_BATCH, undefined, untilTime);
+      const olderFromRelay = fetched.filter(ev =>
+        ev &&
+        !existingIds.has(ev.id) &&
+        (ev.created_at || 0) < untilTime
+      );
+      let filtered = filterEventsByNetwork(olderFromRelay, networkTag);
+      filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
+
+      if (moreEvents.length === 0 && currentApp?.postsById?.size > 0) {
+        const fromApp = Array.from(currentApp.postsById.values());
+        const olderEvents = fromApp.filter(ev =>
+          ev &&
+          !existingIds.has(ev.id) &&
+          (ev.created_at || 0) < untilTime
         );
+        filtered = filterEventsByNetwork(olderEvents, networkTag);
+        filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
       }
 
-      pageEvents = filterEventsByNetwork(pageEvents, networkTag);
-      pageEvents.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-
-      if (pageEvents.length === 0) {
-        stagnantPages += 1;
-        untilTime = Math.max(0, untilTime - 3600);
-        if (stagnantPages >= 5 || untilTime <= 0) {
-          console.log('[videos] loadMoreVideos: no older events left', { attempt: attempt + 1, untilTime });
-          break;
-        }
-        continue;
+      if (moreEvents.length === 0) {
+        console.log('[videos] loadMoreVideos: no older events on attempt', attempt + 1);
+        break;
       }
 
-      stagnantPages = 0;
-      const oldestInPage = pageEvents.reduce(
+      moreEvents.forEach((ev) => {
+        if (ev?.id) existingIds.add(ev.id);
+      });
+      const oldestFetched = moreEvents.reduce(
         (min, ev) => Math.min(min, ev.created_at || untilTime),
         untilTime
       );
+      untilTime = oldestFetched < untilTime ? oldestFetched : untilTime - 1;
 
-      const newEvents = pageEvents.filter((ev) => ev?.id && !existingIds.has(ev.id));
-      newEvents.forEach((ev) => {
-        if (!ev?.id) return;
-        existingIds.add(ev.id);
-        feedSeenEventIds.add(ev.id);
-      });
-
-      // תמיד מקדמים את העדשה – גם כשכל העמוד כבר מוכר | HYPER CORE TECH
-      if (oldestInPage < untilTime) {
-        untilTime = oldestInPage;
-      } else {
-        untilTime = Math.max(0, untilTime - 1);
-      }
-      // אם הריליי מחזיר שוב ושוב אותו חלון – קופצים שעה אחורה | HYPER CORE TECH
-      if (newEvents.length === 0 && untilTime >= cursorBefore - 1) {
-        untilTime = Math.max(0, cursorBefore - 3600);
-      }
-
-      if (newEvents.length === 0) {
-        continue;
-      }
-
-      const batchVideos = processEventsToVideos(newEvents, currentApp);
+      const batchVideos = processEventsToVideos(moreEvents, currentApp);
       batchVideos.forEach((v) => {
-        if (!v?.id || feedMediaFailedIds.has(v.id)) return;
-        if (selectors.stream?.querySelector(`[data-event-id="${v.id}"]`)) return;
         if (!collectedVideos.some((x) => x.id === v.id)) {
           collectedVideos.push(v);
         }
@@ -3450,10 +3235,12 @@ async function loadMoreVideos(reason = 'manual') {
     }
 
     if (collectedVideos.length > 0) {
-      console.log('[videos] loadMoreVideos: mounting candidates', collectedVideos.length, '(state grows only after download OK)');
+      state.videos = [...state.videos, ...collectedVideos];
+      console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
       renderMoreVideos(collectedVideos);
+      saveFeedCache(state.videos);
     } else {
-      console.log('[videos] loadMoreVideos: no media candidates this pass');
+      console.log('[videos] loadMoreVideos: no more videos available');
     }
   } catch (err) {
     console.warn('[videos] loadMoreVideos failed', err);
@@ -3525,37 +3312,17 @@ function createVideoCard(video) {
 }
 
 function renderMoreVideos(videos) {
-  if (!selectors.stream || !videos.length) return;
-
+  const stream = document.querySelector('.videos-feed__stream');
+  if (!stream || !videos.length) return;
+  
   videos.forEach((video) => {
-    if (!video?.id || feedMediaFailedIds.has(video.id)) return;
-    if (selectors.stream.querySelector(`[data-event-id="${video.id}"]`)) return;
-
-    const { card, mediaReadyPromise } = renderVideoCard(video);
-    if (!card) return;
-
-    loadMorePendingMounts += 1;
-    // mount + state רק אחרי הורדה מוצלחת – מונע ניפוח רשימה ל-450 בלי כרטיסים | HYPER CORE TECH
-    mediaReadyPromise
-      .then(() => {
-        try { feedMediaFailedIds.delete(video.id); } catch (_) {}
-        commitMountedVideoToState(video);
-        mountCard(card);
-        updateLoadMoreTrigger();
-      })
-      .catch((err) => {
-        if (video?.id) {
-          feedMediaFailedIds.add(video.id);
-          feedSeenEventIds.add(video.id);
-        }
-        try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
-        updateLoadMoreTrigger();
-      })
-      .finally(() => {
-        loadMorePendingMounts = Math.max(0, loadMorePendingMounts - 1);
-      });
+    const card = createVideoCard(video);
+    if (card) {
+      stream.appendChild(card);
+      observeVideoCard(card);
+    }
   });
-
+  
   updateLoadMoreTrigger();
 }
 
@@ -4682,8 +4449,6 @@ async function init() {
       selectors.status.style.display = 'none';
     }
     state.firstCardRendered = true;
-    feedHeadScrollPinned = true;
-    pinFeedViewportToHead();
     autoPlayFirstVideo();
     console.log('[videos] displayed cached content, loading fresh in background');
   }

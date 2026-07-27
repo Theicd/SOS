@@ -1081,7 +1081,7 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
     border: none !important;
     box-shadow: none !important;
     background: #111b21 !important;
-    z-index: 4500 !important;
+    z-index: 2000 !important;
     display: flex !important;
     flex-direction: row !important; /* תיקון: שורה במקום עמודה כדי שהסרגל יהיה לצד התוכן */
     overflow: hidden !important;

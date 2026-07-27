@@ -98,8 +98,8 @@ export class LoadNugController {
     crit.id = 'sos-loadnug-critical';
     // כרטיס בפיד כמו פוסט – ההדר והתפריט התחתון נשארים מעליו | HYPER CORE TECH
     crit.textContent = [
-      'body:has(#sosLoadNugOverlay) .top-bar{position:fixed!important;z-index:3000!important;left:0!important;right:0!important;top:0!important;width:100%!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
-      'body:has(#sosLoadNugOverlay) .primary-nav{position:fixed!important;z-index:3000!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
+      'body:has(.videos-feed) .top-bar{position:fixed!important;z-index:3000!important;left:0!important;right:0!important;top:0!important;width:100%!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
+      'body:has(.videos-feed) .primary-nav{position:fixed!important;z-index:3000!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
       '#sosLoadNugOverlay.videos-feed__card{position:relative!important;inset:auto!important;z-index:1!important;width:100%!important;flex-shrink:0!important;overflow:hidden!important;background:#070b19!important}',
       '#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}',
       '#sosLoadNugCanvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;z-index:1}',
