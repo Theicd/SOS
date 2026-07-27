@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v91'; // bump - shared games feed with game-embed controls
+  const CACHE_NAME = 'sos-cache-v92'; // bump - trim broken games + fix desktop games panel
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -22,16 +22,8 @@
   let gamePosts = [];
   let intersectionObserver = null;
 
-  // קטלוג בסיס – מוצג אם אין (או בנוסף ל) פוסטים משותפים | HYPER CORE TECH
+  // קטלוג בסיס – רק משחקים שעולים בפועל (הוסרו HexGL / gamh5 / Krunker) | HYPER CORE TECH
   const catalogGames = [
-    {
-      id: 'catalog-krunker',
-      gameUrl: 'https://krunker.io/?game=NY:pc3ah',
-      content: 'Krunker.io — קרבות FPS בדפדפן',
-      authorName: 'SOS Play',
-      authorInitials: 'SP',
-      source: 'catalog',
-    },
     {
       id: 'catalog-taptaptap',
       gameUrl: 'https://mahdif.github.io/taptaptap/play/',
@@ -40,38 +32,15 @@
       authorInitials: 'SP',
       source: 'catalog',
     },
-    {
-      id: 'catalog-hexgl',
-      gameUrl: 'https://hexgl.bkcore.com/play/',
-      content: 'HexGL — מירוץ חללי WebGL',
-      authorName: 'SOS Play',
-      authorInitials: 'SP',
-      source: 'catalog',
-    },
-    {
-      id: 'catalog-ninja-leap',
-      gameUrl: 'https://gamh5.com/full/ninja-leap',
-      content: 'Ninja Leap — ראנר אנכי למובייל',
-      authorName: 'SOS Play',
-      authorInitials: 'SP',
-      source: 'catalog',
-    },
-    {
-      id: 'catalog-meteorite',
-      gameUrl: 'https://gamh5.com/full/meteorite-shooter-space-adventure',
-      content: 'Meteorite Shooter — יריות בחלל',
-      authorName: 'SOS Play',
-      authorInitials: 'SP',
-      source: 'catalog',
-    },
-    {
-      id: 'catalog-zoo-boom',
-      gameUrl: 'https://gamh5.com/full/zoo-boom-animal-matching-game',
-      content: 'Zoo Boom — התאמת חיות',
-      authorName: 'SOS Play',
-      authorInitials: 'SP',
-      source: 'catalog',
-    },
+  ];
+
+  // כתובות קטלוג ישנות שלא עולות – לא להציג גם אם נשארו במטמון | HYPER CORE TECH
+  const BLOCKED_GAME_URL_PARTS = [
+    'hexgl.bkcore.com',
+    'gamh5.com/full/ninja-leap',
+    'gamh5.com/full/meteorite-shooter',
+    'gamh5.com/full/zoo-boom',
+    'krunker.io',
   ];
 
   function isPlayableGameUrl(link) {
@@ -99,8 +68,14 @@
     return parts.slice(0, 2).map((p) => p[0]).join('').toUpperCase();
   }
 
+  function isBlockedCatalogUrl(url) {
+    const value = String(url || '').toLowerCase();
+    return BLOCKED_GAME_URL_PARTS.some((part) => value.includes(part));
+  }
+
   function pushUnique(list, seen, post) {
     if (!post || !post.gameUrl || !isPlayableGameUrl(post.gameUrl)) return;
+    if (isBlockedCatalogUrl(post.gameUrl)) return;
     const key = String(post.id || post.gameUrl).toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
