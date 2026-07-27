@@ -856,7 +856,12 @@ function sanitizeCachedVideo(video) {
   }
   // חסימת משחקים לא רצויים (למשל Subway Surfers) גם ממטמון ישן | HYPER CORE TECH
   if (clone.gameUrl && !isPlayableGameLink(clone.gameUrl)) {
-    clone.gameUrl = null;
+    const AppGame = window.NostrApp || {};
+    const canEmbed = typeof AppGame.canEmbedGameUrl === 'function' && AppGame.canEmbedGameUrl(clone.gameUrl);
+    if (!(clone.gameForced && canEmbed)) {
+      clone.gameUrl = null;
+      clone.gameForced = false;
+    }
   }
   return clone;
 }
@@ -1217,6 +1222,7 @@ function parseEventToVideoItem(event, currentApp) {
   let youtubeId = mediaLinks.map(parseYouTube).find(Boolean) || null;
   let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
   let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
+  let gameForced = false;
   let videoUrl = mediaLinks.find(isVideoLink) || null;
   let imageUrl = mediaLinks.find(isImageLink) || null;
   let mediaHash = '';
@@ -1231,8 +1237,11 @@ function parseEventToVideoItem(event, currentApp) {
         const tagHash = tag[3] || '';
         if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
           liveUrl = liveUrl || tagUrl;
-        } else if (isPlayableGameLink(tagUrl)) {
+        } else if (mime.includes('text/html') || isPlayableGameLink(tagUrl)) {
           gameUrl = gameUrl || tagUrl;
+          if (mime.includes('text/html') && !isPlayableGameLink(tagUrl) && canEmbedGameLink(tagUrl)) {
+            gameForced = true;
+          }
         } else if (mime.startsWith('video/') || isVideoLink(tagUrl)) {
           videoUrl = videoUrl || tagUrl;
           if (tagHash) mediaHash = tagHash;
@@ -1251,11 +1260,13 @@ function parseEventToVideoItem(event, currentApp) {
         }
       }
       if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-embed') {
+        // תג מפורש מהקומפוזר – מאפשר גם לינקים מחוץ לרשימת הזיהוי האוטומטי | HYPER CORE TECH
         if (!gameUrl) {
-          // רק קישור שעובר זיהוי משחק אמיתי – לא כל http (מונע Subway Surfers וכו') | HYPER CORE TECH
-          const httpLink = mediaLinks.find((l) => isPlayableGameLink(l));
+          const httpLink = mediaLinks.find((l) => canEmbedGameLink(l))
+            || mediaLinks.find((l) => /^https:\/\//i.test(l) && canEmbedGameLink(l));
           if (httpLink) gameUrl = httpLink;
         }
+        if (gameUrl) gameForced = true;
       }
       if (tag[0] === 'mirror' && tag[1]) {
         mediaMirrors.push(tag[1]);
@@ -1283,6 +1294,7 @@ function parseEventToVideoItem(event, currentApp) {
     youtubeId,
     liveUrl,
     gameUrl,
+    gameForced: !!(gameUrl && gameForced),
     videoUrl: (liveUrl || gameUrl) ? null : videoUrl,
     imageUrl,
     hash: mediaHash || '',
@@ -1586,6 +1598,18 @@ function isPlayableGameLink(link) {
   return /\.github\.io\//i.test(link) || /gamh5\.com|krunker\.io|famobi\.com|itch\.io|marketjs\.com/i.test(link);
 }
 
+function canEmbedGameLink(link) {
+  const App = window.NostrApp || {};
+  if (typeof App.canEmbedGameUrl === 'function') return App.canEmbedGameUrl(link);
+  if (isPlayableGameLink(link)) return true;
+  if (!link || !/^https:\/\//i.test(link)) return false;
+  if (/subway[\s\-_.]*surfers?|subwaysurfers/i.test(link)) return false;
+  if (/poki\.com|crazygames\.com|gamedistribution\.com/i.test(link)) return false;
+  if (/\.(mp4|webm|m3u8|jpe?g|png|gif|webp)(\?|#|$)/i.test(link)) return false;
+  if (/youtube\.com|youtu\.be/i.test(link)) return false;
+  return true;
+}
+
 function isVideoLink(link) {
   if (!link) return false;
   if (isHlsLiveLink(link)) return false;
@@ -1659,6 +1683,7 @@ function renderVideoCard(video) {
   if (video.gameUrl) {
     mediaDiv.dataset.mediaType = 'game-embed';
     mediaDiv.dataset.gameUrl = video.gameUrl;
+    if (video.gameForced) mediaDiv.dataset.gameForced = '1';
     mediaDiv.classList.add('videos-feed__media--game');
 
     const AppGame = window.NostrApp || {};
@@ -3904,6 +3929,7 @@ async function loadVideos() {
     const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
     let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
     let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
+    let gameForced = false;
     let videoUrl = mediaLinks.find(isVideoLink);
     const imageUrl = mediaLinks.find(isImageLink);
 
@@ -3919,8 +3945,11 @@ async function loadVideos() {
           const tagHash = tag[3] || '';
           if (mime.includes('mpegurl') || isHlsLiveLink(tagUrl)) {
             liveUrl = liveUrl || tagUrl;
-          } else if (isPlayableGameLink(tagUrl)) {
+          } else if (mime.includes('text/html') || isPlayableGameLink(tagUrl)) {
             gameUrl = gameUrl || tagUrl;
+            if (mime.includes('text/html') && !isPlayableGameLink(tagUrl) && canEmbedGameLink(tagUrl)) {
+              gameForced = true;
+            }
           } else if (tagUrl === videoUrl && tagHash) {
             mediaHash = tagHash;
           }
@@ -3930,9 +3959,11 @@ async function loadVideos() {
           if (httpLink) liveUrl = liveUrl || httpLink;
         }
         if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-embed') {
-          // רק קישור שעובר זיהוי משחק – לא כל http | HYPER CORE TECH
-          const httpLink = mediaLinks.find((l) => isPlayableGameLink(l));
-          if (httpLink) gameUrl = gameUrl || httpLink;
+          if (!gameUrl) {
+            const httpLink = mediaLinks.find((l) => canEmbedGameLink(l));
+            if (httpLink) gameUrl = httpLink;
+          }
+          if (gameUrl) gameForced = true;
         }
         if (tag[0] === 'mirror' && tag[1]) {
           mediaMirrors.push(tag[1]);
@@ -3953,6 +3984,7 @@ async function loadVideos() {
         youtubeId: youtubeId || null,
         liveUrl: liveUrl || null,
         gameUrl: gameUrl || null,
+        gameForced: !!(gameUrl && gameForced),
         videoUrl: (liveUrl || gameUrl) ? null : (videoUrl || null),
         imageUrl: imageUrl || null,
         hash: mediaHash || '',
@@ -4590,8 +4622,11 @@ function buildGamesFeedVideos() {
     return blockedParts.some((part) => value.includes(part));
   };
   const push = (video) => {
-    if (!video || !video.gameUrl || !isPlayableGameLink(video.gameUrl)) return;
+    if (!video || !video.gameUrl) return;
     if (isBlocked(video.gameUrl)) return;
+    const ok = isPlayableGameLink(video.gameUrl)
+      || (video.gameForced && canEmbedGameLink(video.gameUrl));
+    if (!ok) return;
     const key = String(video.gameUrl).toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);

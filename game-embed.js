@@ -31,6 +31,22 @@
     return false;
   }
 
+  // לינק שמותר להטמיע כמשחק כשהמשתמש סימן במפורש (גם מחוץ לרשימת דומיינים) | HYPER CORE TECH
+  function canEmbedGameUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    const trimmed = url.trim();
+    if (!/^https:\/\//i.test(trimmed)) return false;
+    if (MEDIA_EXT_RE.test(trimmed)) return false;
+    if (isBlockedGameUrl(trimmed)) return false;
+    if (typeof App.isHlsLiveUrl === 'function' && App.isHlsLiveUrl(trimmed)) return false;
+    if (/youtube\.com|youtu\.be/i.test(trimmed)) return false;
+    if (/blossom|void\.cat|nostr\.build|satellite\.earth/i.test(trimmed)) return false;
+    if (/poki\.com|crazygames\.com|gamedistribution\.com|html5games|newgrounds\.com/i.test(trimmed)) {
+      return false;
+    }
+    return true;
+  }
+
   function extractGameUrlFromText(text) {
     if (!text) return '';
     const match = String(text).match(/https:\/\/[^\s]+/gi);
@@ -38,6 +54,20 @@
     for (let i = 0; i < match.length; i += 1) {
       const clean = String(match[i] || '').replace(/[),.;]+$/g, '');
       if (isPlayableGameUrl(clean)) return clean;
+    }
+    return '';
+  }
+
+  // חילוץ לינק https כללי לסימון ידני כמשחק | HYPER CORE TECH
+  function extractEmbeddableGameUrlFromText(text) {
+    if (!text) return '';
+    const auto = extractGameUrlFromText(text);
+    if (auto) return auto;
+    const match = String(text).match(/https:\/\/[^\s]+/gi);
+    if (!match) return '';
+    for (let i = 0; i < match.length; i += 1) {
+      const clean = String(match[i] || '').replace(/[),.;]+$/g, '');
+      if (canEmbedGameUrl(clean)) return clean;
     }
     return '';
   }
@@ -257,10 +287,13 @@
 
   function ensureGameFrame(mediaDiv, url, options = {}) {
     if (!mediaDiv || !url) return null;
-    if (isBlockedGameUrl(url) || !isPlayableGameUrl(url)) {
+    const forced = options.force === true || mediaDiv.dataset.gameForced === '1';
+    const allowed = isPlayableGameUrl(url) || (forced && canEmbedGameUrl(url));
+    if (isBlockedGameUrl(url) || !allowed) {
       console.warn('[game-embed] blocked or unsupported game url', url);
       return null;
     }
+    if (forced) mediaDiv.dataset.gameForced = '1';
     removeGameBadge(mediaDiv);
     hideGamePlayOverlay(mediaDiv);
     ensureGameFullscreenControls(mediaDiv);
@@ -353,6 +386,7 @@
     }
     ensureGameFrame(mediaDiv, url, {
       load: true,
+      force: mediaDiv.dataset.gameForced === '1' || options.force === true,
       loadingLabel: options.loadingLabel || 'טוען משחק...',
     });
   }
@@ -632,7 +666,9 @@
   Object.assign(App, {
     isPlayableGameUrl,
     isBlockedGameUrl,
+    canEmbedGameUrl,
     extractGameUrlFromText,
+    extractEmbeddableGameUrlFromText,
     removeGameBadge,
     ensureGameFrame,
     prepareGameMedia,
@@ -651,7 +687,9 @@
 
   window.SosGameEmbed = {
     isPlayableGameUrl,
+    canEmbedGameUrl,
     extractGameUrlFromText,
+    extractEmbeddableGameUrlFromText,
     prepareGameMedia,
     activateGameMedia,
     softDeactivateGameMedia,

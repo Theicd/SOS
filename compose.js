@@ -31,6 +31,8 @@
     policyCheckbox: document.getElementById('composePolicyCheckbox'),
     rightsCheckbox: document.getElementById('composeRightsCheckbox'),
     publishButton: document.getElementById('composePublishButton'),
+    markAsGame: document.getElementById('composeMarkAsGame'),
+    gameFlagWrap: document.getElementById('composeGameFlagWrap'),
   };
 
   const state = {
@@ -48,6 +50,7 @@
     bgTextOnly: false,
     bgZoomFx: false,
     fx: null,
+    markAsGame: false,
   };
 
   App.composeState = state;
@@ -77,6 +80,42 @@
       if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
       if (elements.bgOptions) elements.bgOptions.setAttribute('hidden', '');
       if (elements.bgToggle) elements.bgToggle.classList.remove('active');
+    }
+    updateGameFlagVisibility();
+  }
+
+  // חלק קומפוזר (compose.js) – הצגת תיבת "זה משחק" כשיש לינק https בטקסט | HYPER CORE TECH
+  function updateGameFlagVisibility() {
+    const wrap = elements.gameFlagWrap;
+    const checkbox = elements.markAsGame;
+    if (!wrap) return;
+
+    const show = state.composeMode === 'text' && !state.media;
+    const text = elements.textarea ? elements.textarea.value : '';
+    const AppLive = window.NostrApp || {};
+    const liveUrl = typeof AppLive.extractHlsUrlFromText === 'function'
+      ? AppLive.extractHlsUrlFromText(text)
+      : '';
+    const autoGame = typeof AppLive.extractGameUrlFromText === 'function'
+      ? AppLive.extractGameUrlFromText(text)
+      : '';
+    const anyLink = typeof AppLive.extractEmbeddableGameUrlFromText === 'function'
+      ? AppLive.extractEmbeddableGameUrlFromText(text)
+      : '';
+
+    if (!show || liveUrl || (!anyLink && !autoGame)) {
+      wrap.hidden = true;
+      if (!show) {
+        state.markAsGame = false;
+        if (checkbox) checkbox.checked = false;
+      }
+      return;
+    }
+
+    wrap.hidden = false;
+    if (autoGame && checkbox && !checkbox.dataset.userTouched) {
+      checkbox.checked = true;
+      state.markAsGame = true;
     }
   }
 
@@ -939,6 +978,12 @@
     if (elements.termsAck) {
       elements.termsAck.checked = false;
     }
+    state.markAsGame = false;
+    if (elements.markAsGame) {
+      elements.markAsGame.checked = false;
+      delete elements.markAsGame.dataset.userTouched;
+    }
+    if (elements.gameFlagWrap) elements.gameFlagWrap.hidden = true;
     updateTextToolsVisibility();
     updateComposeLegalState();
     showComposeStep('chooser');
@@ -1025,9 +1070,15 @@
     const liveUrl = (!state.media && typeof AppLive.extractHlsUrlFromText === 'function')
       ? AppLive.extractHlsUrlFromText(textContent)
       : '';
-    const gameUrl = (!state.media && !liveUrl && typeof AppLive.extractGameUrlFromText === 'function')
+    const autoGameUrl = (!state.media && !liveUrl && typeof AppLive.extractGameUrlFromText === 'function')
       ? AppLive.extractGameUrlFromText(textContent)
       : '';
+    const forcedGameUrl = (!state.media && !liveUrl && (state.markAsGame || (elements.markAsGame && elements.markAsGame.checked))
+      && typeof AppLive.extractEmbeddableGameUrlFromText === 'function')
+      ? AppLive.extractEmbeddableGameUrlFromText(textContent)
+      : '';
+    const gameUrl = autoGameUrl || forcedGameUrl || '';
+    const gameForced = !!(gameUrl && (!autoGameUrl || (state.markAsGame || elements.markAsGame?.checked)));
 
     const parts = [];
     if (textContent) {
@@ -1080,6 +1131,7 @@
       mediaTags,
       liveUrl: liveUrl || null,
       gameUrl: gameUrl || null,
+      gameForced: gameForced || false,
       // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
       originalId: state.editingOriginalId || null,
     };
@@ -1203,6 +1255,14 @@
       });
     }
 
+    if (elements.markAsGame) {
+      elements.markAsGame.addEventListener('change', () => {
+        elements.markAsGame.dataset.userTouched = '1';
+        state.markAsGame = !!elements.markAsGame.checked;
+        updateComposeLivePreview();
+      });
+    }
+
     if (elements.bgClear) {
       elements.bgClear.addEventListener('click', () => {
         // הסרת רקע טקסט: ניקוי state.media אם מקורו רקע, ניקוי רקע מהטקסט, והצגת הגלריה מחדש אם מצב רקע פעיל
@@ -1297,7 +1357,7 @@
     state.editingOriginalId = null;
   }
 
-  // חלק קומפוזר (compose.js) – תצוגה מקדימה כשמזהים לינק ערוץ חי בטקסט | HYPER CORE TECH
+  // חלק קומפוזר (compose.js) – תצוגה מקדימה כשמזהים לינק ערוץ חי / משחק בטקסט | HYPER CORE TECH
   function updateComposeLivePreview() {
     const container = elements.previewContainer;
     if (!container) return;
@@ -1308,6 +1368,7 @@
     if (existingGame) existingGame.remove();
 
     if (state.media || state.composeMode !== 'text') {
+      updateGameFlagVisibility();
       return;
     }
 
@@ -1316,9 +1377,16 @@
     const liveUrl = typeof AppLive.extractHlsUrlFromText === 'function'
       ? AppLive.extractHlsUrlFromText(text)
       : '';
-    const gameUrl = (!liveUrl && typeof AppLive.extractGameUrlFromText === 'function')
+    const autoGameUrl = (!liveUrl && typeof AppLive.extractGameUrlFromText === 'function')
       ? AppLive.extractGameUrlFromText(text)
       : '';
+    const markGame = !!(state.markAsGame || elements.markAsGame?.checked);
+    const forcedGameUrl = (!liveUrl && markGame && typeof AppLive.extractEmbeddableGameUrlFromText === 'function')
+      ? AppLive.extractEmbeddableGameUrlFromText(text)
+      : '';
+    const gameUrl = autoGameUrl || forcedGameUrl || '';
+
+    updateGameFlagVisibility();
 
     if (!liveUrl && !gameUrl) {
       if (!state.media) {
@@ -1339,7 +1407,11 @@
     container.classList.add('is-visible');
     container.removeAttribute('hidden');
     setStatus(
-      liveUrl ? 'זוהה ערוץ חי — יפורסם עם תג LIVE IPTV' : 'זוהה משחק — יפורסם כפוסט משחק בפיד',
+      liveUrl
+        ? 'זוהה ערוץ חי — יפורסם עם תג LIVE IPTV'
+        : (autoGameUrl
+          ? 'זוהה משחק — יפורסם כפוסט משחק בפיד ובדף המשחקים'
+          : 'סומן כמשחק — יפורסם בפיד ובדף המשחקים'),
       'success'
     );
   }

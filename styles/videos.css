@@ -1707,6 +1707,69 @@ body.game-embed-fullscreen .videos-feed__actions {
   opacity: 0.85;
 }
 
+/* תיבת סימון "זה משחק" בקומפוזר | HYPER CORE TECH */
+.compose-game-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 14px 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+}
+
+.compose-game-flag[hidden] {
+  display: none !important;
+}
+
+.compose-game-flag input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.compose-game-flag__box {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.compose-game-flag input:checked + .compose-game-flag__box {
+  border-color: #7CFFB2;
+  background: rgba(124, 255, 178, 0.18);
+}
+
+.compose-game-flag input:checked + .compose-game-flag__box::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 11px;
+  border: solid #7CFFB2;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.compose-game-flag__text {
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.compose-game-flag__text strong {
+  color: #fff;
+}
+
 .compose-media-preview:has(.compose-game-preview) img,
 .compose-media-preview:has(.compose-game-preview) video {
   display: none;
