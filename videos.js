@@ -843,7 +843,10 @@ const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפ
 
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
-const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
+const LOAD_MORE_BATCH = 20; // כמה כרטיסי מדיה להוסיף בכל טריגר גלילה
+const LOAD_MORE_FETCH = 80; // כמה אירועים למשוך מהריליי בכל ניסיון (כולל טקסט בלי מדיה)
+const LOAD_MORE_MAX_ATTEMPTS = 30; // כמה צעדים אחורה לפני שמוותרים על הטריגר הנוכחי
+const FEED_CACHE_LIMIT = 500; // מקסימום פריטים ב-state לפני חיתוך ישנים
 let isLoadingMore = false; // מונע טעינות כפולות
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
 
@@ -3321,49 +3324,58 @@ async function loadMoreVideos() {
   try {
     const existingIds = new Set(state.videos.map(v => v.id));
     const collectedVideos = [];
+    let stagnantPages = 0;
 
-    // ממשיכים לנסות עד שיש מספיק מועמדים חדשים (הרבה נוטס בלי מדיה / כשלונות) | HYPER CORE TECH
-    for (let attempt = 0; attempt < 6 && collectedVideos.length < LOAD_MORE_BATCH; attempt++) {
-      let moreEvents = [];
+    // גלילה למטה חייבת להמשיך אחורה גם דרך כפילויות / נוטס בלי מדיה / כשלונות | HYPER CORE TECH
+    for (let attempt = 0; attempt < LOAD_MORE_MAX_ATTEMPTS && collectedVideos.length < LOAD_MORE_BATCH; attempt++) {
+      const fetched = await fetchRecentNotes(LOAD_MORE_FETCH, undefined, untilTime);
+      let pageEvents = Array.isArray(fetched)
+        ? fetched.filter((ev) => ev && typeof ev.created_at === 'number' && ev.created_at < untilTime)
+        : [];
 
-      // קודם until מהריליי – לא since (שזה רק החדשים ביותר) | HYPER CORE TECH
-      const fetched = await fetchRecentNotes(LOAD_MORE_BATCH, undefined, untilTime);
-      const olderFromRelay = fetched.filter(ev =>
-        ev &&
-        !existingIds.has(ev.id) &&
-        (ev.created_at || 0) < untilTime
-      );
-      let filtered = filterEventsByNetwork(olderFromRelay, networkTag);
-      filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-      moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
-
-      if (moreEvents.length === 0 && currentApp?.postsById?.size > 0) {
-        const fromApp = Array.from(currentApp.postsById.values());
-        const olderEvents = fromApp.filter(ev =>
-          ev &&
-          !existingIds.has(ev.id) &&
-          (ev.created_at || 0) < untilTime
+      if (pageEvents.length === 0 && currentApp?.postsById?.size > 0) {
+        pageEvents = Array.from(currentApp.postsById.values()).filter(
+          (ev) => ev && typeof ev.created_at === 'number' && ev.created_at < untilTime && !existingIds.has(ev.id)
         );
-        filtered = filterEventsByNetwork(olderEvents, networkTag);
-        filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-        moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
       }
 
-      if (moreEvents.length === 0) {
-        console.log('[videos] loadMoreVideos: no older events on attempt', attempt + 1);
-        break;
+      pageEvents = filterEventsByNetwork(pageEvents, networkTag);
+      pageEvents.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+      if (pageEvents.length === 0) {
+        stagnantPages += 1;
+        // אין אירועים בכלל מתחת ל-until – מזיזים אחורה ומנסים שוב (פוסטים ישנים בפרופיל) | HYPER CORE TECH
+        untilTime = Math.max(0, untilTime - 1);
+        if (stagnantPages >= 4 || untilTime <= 0) {
+          console.log('[videos] loadMoreVideos: no older events left', { attempt: attempt + 1, untilTime });
+          break;
+        }
+        continue;
       }
 
-      moreEvents.forEach((ev) => {
-        if (ev?.id) existingIds.add(ev.id);
-      });
-      const oldestFetched = moreEvents.reduce(
+      stagnantPages = 0;
+      const oldestInPage = pageEvents.reduce(
         (min, ev) => Math.min(min, ev.created_at || untilTime),
         untilTime
       );
-      untilTime = oldestFetched < untilTime ? oldestFetched : untilTime - 1;
 
-      const batchVideos = processEventsToVideos(moreEvents, currentApp);
+      const newEvents = pageEvents.filter((ev) => ev?.id && !existingIds.has(ev.id));
+      newEvents.forEach((ev) => {
+        if (ev?.id) existingIds.add(ev.id);
+      });
+
+      // תמיד מקדמים את העדשה – גם כשכל העמוד כבר מוכר (כשלונות / כפילויות) | HYPER CORE TECH
+      untilTime = oldestInPage < untilTime ? oldestInPage : untilTime - 1;
+
+      if (newEvents.length === 0) {
+        console.log('[videos] loadMoreVideos: page had only known ids, stepping further back', {
+          attempt: attempt + 1,
+          until: untilTime,
+        });
+        continue;
+      }
+
+      const batchVideos = processEventsToVideos(newEvents, currentApp);
       batchVideos.forEach((v) => {
         if (!v?.id || feedMediaFailedIds.has(v.id)) return;
         if (!collectedVideos.some((x) => x.id === v.id)) {
@@ -3379,7 +3391,7 @@ async function loadMoreVideos() {
       renderMoreVideos(fresh);
       saveFeedCache(state.videos);
     } else {
-      console.log('[videos] loadMoreVideos: no more videos available');
+      console.log('[videos] loadMoreVideos: no media videos found in this pass (will retry on next scroll)');
     }
   } catch (err) {
     console.warn('[videos] loadMoreVideos failed', err);
