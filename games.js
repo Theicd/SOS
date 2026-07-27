@@ -25,14 +25,6 @@
   // קטלוג בסיס – משחקים שעולים בפועל | HYPER CORE TECH
   const catalogGames = [
     {
-      id: 'catalog-taptaptap',
-      gameUrl: 'https://mahdif.github.io/taptaptap/play/',
-      content: 'Tap Tap Tap — ארקייד מגע בקוד פתוח',
-      authorName: 'SOS Play',
-      authorInitials: 'SP',
-      source: 'catalog',
-    },
-    {
       id: 'catalog-3d-penalty-kick',
       gameUrl: 'https://cdn-factory.marketjs.com/en/3d-penalty-kick/index.html',
       content: '3D Penalty Kick — בעיטות עונשין תלת־ממד',
@@ -49,6 +41,7 @@
     'gamh5.com/full/meteorite-shooter',
     'gamh5.com/full/zoo-boom',
     'krunker.io',
+    'mahdif.github.io/taptaptap',
   ];
 
   function isPlayableGameUrl(link) {

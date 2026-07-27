@@ -287,7 +287,8 @@
         if (!iframe.dataset.loadedUrl) return;
         mediaDiv.dataset.gamePrepared = '1';
         const ph = mediaDiv.querySelector('.videos-feed__game-placeholder');
-        if (ph && mediaDiv.classList.contains('is-game-active')) ph.hidden = true;
+        // תמיד להסתיר אחרי load – אחרת ה-placeholder (z-index גבוה) מכסה את המשחק בכרטיס | HYPER CORE TECH
+        if (ph) ph.hidden = true;
         hideGamePlayOverlay(mediaDiv);
         // Construct מאזין ל-resize של החלון בתוך ה-iframe | HYPER CORE TECH
         setTimeout(() => nudgeGameResize(iframe), 50);
@@ -300,6 +301,16 @@
       setGamePlaceholder(mediaDiv, options.loadingLabel || 'טוען משחק...');
       iframe.src = url;
       iframe.dataset.loadedUrl = url;
+      // גיבוי – אם load לא נורה (חלק מהמשחקים), עדיין להציג את ה-iframe | HYPER CORE TECH
+      clearTimeout(mediaDiv._gamePlaceholderTimer);
+      mediaDiv._gamePlaceholderTimer = setTimeout(() => {
+        if (!mediaDiv.isConnected) return;
+        if (iframe.dataset.loadedUrl === url) {
+          mediaDiv.dataset.gamePrepared = '1';
+          const ph = mediaDiv.querySelector('.videos-feed__game-placeholder');
+          if (ph) ph.hidden = true;
+        }
+      }, 1600);
     }
 
     return iframe;
@@ -355,12 +366,11 @@
     prepareGameMedia(mediaDiv, { loadingLabel: 'טוען משחק...' });
     const iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
     const placeholder = mediaDiv.querySelector('.videos-feed__game-placeholder');
-    if (iframe && mediaDiv.dataset.gamePrepared === '1') {
-      if (placeholder) placeholder.hidden = true;
-    } else if (placeholder) {
-      placeholder.hidden = false;
-      const span = placeholder.querySelector('span');
-      if (span) span.textContent = 'טוען משחק...';
+    // אם כבר יש src – מציגים את ה-iframe מעל ה-placeholder גם לפני load | HYPER CORE TECH
+    if (iframe && iframe.dataset.loadedUrl) {
+      if (mediaDiv.dataset.gamePrepared === '1' && placeholder) {
+        placeholder.hidden = true;
+      }
     }
     hideGamePlayOverlay(mediaDiv);
     ensureGameFullscreenControls(mediaDiv);

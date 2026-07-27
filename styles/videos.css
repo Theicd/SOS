@@ -1282,9 +1282,16 @@ body.live-channel-fullscreen .videos-feed__actions {
   pointer-events: none;
 }
 
+.videos-feed__media--game.is-game-active .videos-feed__game-stage,
 .videos-feed__media--game.is-game-interactive .videos-feed__game-stage,
 .videos-feed__media--game.is-game-fullscreen .videos-feed__game-stage {
+  z-index: 14;
   pointer-events: auto;
+}
+
+.videos-feed__media--game.is-game-active .videos-feed__game-placeholder:not([hidden]) {
+  z-index: 9;
+  background: transparent;
 }
 
 /* ׳©׳›׳‘׳” ׳©׳§׳•׳₪׳” ׳׳¢׳ ׳”׳׳©׳—׳§ ג€“ ׳׳׳₪׳©׳¨׳× ׳’׳׳™׳׳× ׳׳’׳¢ ׳‘׳׳•׳‘׳™׳™׳ | HYPER CORE TECH */
@@ -1414,9 +1421,15 @@ body.live-channel-fullscreen .videos-feed__actions {
   transform: none !important;
   border: 0 !important;
   background: #000;
-  z-index: 1;
+  z-index: 2;
   pointer-events: auto;
   object-fit: unset !important;
+}
+
+/* כשהמשחק פעיל – ה-iframe מעל שכבת הטעינה | HYPER CORE TECH */
+.videos-feed__media--game.is-game-active iframe.videos-feed__game-iframe,
+.videos-feed__media--game.is-game-fullscreen iframe.videos-feed__game-iframe {
+  z-index: 15 !important;
 }
 
 /* ׳׳£ ׳₪׳¢׳ ׳׳ ׳׳¦׳™׳’׳™׳ ׳›׳₪׳×׳•׳¨ PLAY ׳¢׳ ׳׳©׳—׳§ | HYPER CORE TECH */

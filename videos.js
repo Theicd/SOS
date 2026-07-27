@@ -2464,6 +2464,27 @@ function finalizeIncrementalRender() {
   state.incrementalRender.cancelled = true;
   state.incrementalRender = null;
   updateLoadMoreTrigger();
+
+  // במצב משחקים – הפעלה מיידית של הכרטיס הנראה (בלי לחכות רק ל-fullscreen) | HYPER CORE TECH
+  if (state.feedMode === 'games') {
+    requestAnimationFrame(() => {
+      const viewport = document.querySelector('.videos-feed__viewport');
+      const cards = selectors.stream
+        ? Array.from(selectors.stream.querySelectorAll('.videos-feed__card'))
+        : [];
+      let active = cards[0] || null;
+      if (viewport && cards.length) {
+        const mid = viewport.scrollTop + viewport.clientHeight / 2;
+        active = cards.find((card) => {
+          const top = card.offsetTop;
+          const bottom = top + card.offsetHeight;
+          return mid >= top && mid <= bottom;
+        }) || cards[0];
+      }
+      const mediaDiv = active?.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+      if (mediaDiv) playGameEmbedMedia(mediaDiv);
+    });
+  }
 }
 
 // חלק יאללה וידאו (videos.js) – חיבור קלפים חדשים ל-IntersectionObserver | HYPER CORE TECH
@@ -4536,16 +4557,6 @@ function closePublicProfilePanel() {
 // חלק פאנל משחקים (videos.js) – פיד משחקים = אותו videos-feed (כפתורים/תפריט צד/דסקטופ) | HYPER CORE TECH
 const GAMES_CATALOG_POSTS = [
   {
-    id: 'catalog-taptaptap',
-    gameUrl: 'https://mahdif.github.io/taptaptap/play/',
-    content: 'Tap Tap Tap — ארקייד מגע בקוד פתוח',
-    authorName: 'SOS Play',
-    authorInitials: 'SP',
-    authorPicture: '',
-    pubkey: '',
-    createdAt: 0,
-  },
-  {
     id: 'catalog-3d-penalty-kick',
     gameUrl: 'https://cdn-factory.marketjs.com/en/3d-penalty-kick/index.html',
     content: '3D Penalty Kick — בעיטות עונשין תלת־ממד',
@@ -4566,8 +4577,21 @@ function getGamesCatalogPosts() {
 function buildGamesFeedVideos() {
   const seen = new Set();
   const list = [];
+  const blockedParts = [
+    'mahdif.github.io/taptaptap',
+    'hexgl.bkcore.com',
+    'gamh5.com/full/ninja-leap',
+    'gamh5.com/full/meteorite-shooter',
+    'gamh5.com/full/zoo-boom',
+    'krunker.io',
+  ];
+  const isBlocked = (url) => {
+    const value = String(url || '').toLowerCase();
+    return blockedParts.some((part) => value.includes(part));
+  };
   const push = (video) => {
     if (!video || !video.gameUrl || !isPlayableGameLink(video.gameUrl)) return;
+    if (isBlocked(video.gameUrl)) return;
     const key = String(video.gameUrl).toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
