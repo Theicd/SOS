@@ -241,6 +241,94 @@
     return entry;
   }
 
+  function progressFromWindow(start, stop, now = new Date()) {
+    if (!(start instanceof Date) || !(stop instanceof Date)) {
+      return { progressPct: 0, minutesLeft: 0, durationMinutes: 0 };
+    }
+    const span = stop.getTime() - start.getTime();
+    const elapsed = now.getTime() - start.getTime();
+    const progressPct = span > 0 ? Math.min(100, Math.max(0, (elapsed / span) * 100)) : 0;
+    const minutesLeft = Math.max(0, Math.round((stop.getTime() - now.getTime()) / 60000));
+    const durationMinutes = Math.max(1, Math.round(span / 60000));
+    return { progressPct, minutesLeft, durationMinutes };
+  }
+
+  function formatOsdClock(d = new Date()) {
+    return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  }
+
+  function formatOsdDate(d = new Date()) {
+    try {
+      return new Intl.DateTimeFormat('he-IL', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Asia/Jerusalem',
+      }).format(d);
+    } catch (_) {
+      return d.toLocaleDateString('he-IL');
+    }
+  }
+
+  function formatOsdTime(d) {
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  function findNowInProgrammeList(list, nowMs = Date.now()) {
+    if (!Array.isArray(list)) return null;
+    for (let i = 0; i < list.length; i += 1) {
+      const p = list[i];
+      if (p.start.getTime() <= nowMs && nowMs < p.stop.getTime()) return p;
+    }
+    return null;
+  }
+
+  async function fetchNowPlayingByTvgId(tvgId) {
+    const raw = String(tvgId || '').trim();
+    if (!raw) return null;
+    const base = raw.includes('@') ? raw.split('@')[0].trim() : raw;
+    const keys = [raw, base, base.toLowerCase(), raw.toLowerCase()];
+    for (let i = 0; i < IL_EPG_GUIDES.length; i += 1) {
+      const g = IL_EPG_GUIDES[i];
+      try {
+        const guide = await loadEpgGuide(g.guide);
+        const idList = Array.from(new Set([...(g.channelIds || []), ...keys]));
+        for (let j = 0; j < idList.length; j += 1) {
+          const list = guide.programmes.get(idList[j])
+            || guide.programmes.get(String(idList[j]).toLowerCase())
+            || [];
+          const hit = findNowInProgrammeList(list);
+          if (hit) {
+            return {
+              channelName: g.displayName,
+              programTitle: hit.title,
+              start: hit.start,
+              stop: hit.stop,
+              source: 'epg-tvg',
+            };
+          }
+        }
+        // התאמה רכה לפי מפתחות ב־XML | HYPER CORE TECH
+        for (const [chId, list] of guide.programmes.entries()) {
+          if (!keys.some((k) => String(chId).toLowerCase() === String(k).toLowerCase())) continue;
+          const hit = findNowInProgrammeList(list);
+          if (hit) {
+            return {
+              channelName: g.displayName,
+              programTitle: hit.title,
+              start: hit.start,
+              stop: hit.stop,
+              source: 'epg-tvg',
+            };
+          }
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
   async function fetchNowPlayingForHints(hintText) {
     const blob = String(hintText || '');
     if (!blob) return null;
@@ -249,24 +337,43 @@
       if (!g.match.test(blob)) continue;
       try {
         const guide = await loadEpgGuide(g.guide);
-        const now = Date.now();
         const ids = g.channelIds;
         for (let j = 0; j < ids.length; j += 1) {
           const list = guide.programmes.get(ids[j]) || [];
-          for (let k = 0; k < list.length; k += 1) {
-            const p = list[k];
-            if (p.start.getTime() <= now && now < p.stop.getTime()) {
-              return { channelName: g.displayName, programTitle: p.title, source: 'epg' };
-            }
+          const hit = findNowInProgrammeList(list);
+          if (hit) {
+            return {
+              channelName: g.displayName,
+              programTitle: hit.title,
+              start: hit.start,
+              stop: hit.stop,
+              source: 'epg',
+            };
           }
         }
-        // אם יש EPG אבל לא מצאנו תוכנית – בכל זאת נחזיר שם ערוץ מוכר | HYPER CORE TECH
-        return { channelName: g.displayName, programTitle: '', source: 'epg-name' };
-      } catch (_) {
-        // ממשיכים לרמז הבא
-      }
+        return { channelName: g.displayName, programTitle: '', start: null, stop: null, source: 'epg-name' };
+      } catch (_) {}
     }
     return null;
+  }
+
+  async function resolveNowPlayingForMedia(mediaDiv, options = {}) {
+    const tvgId = options.tvgId || mediaDiv.dataset.liveTvgId || '';
+    const content = options.content != null ? options.content : (mediaDiv.dataset.liveCaption || '');
+    const channel = mediaDiv.dataset.liveChannel || content || '';
+    const url = options.url || mediaDiv.dataset.liveUrl || '';
+    let epg = null;
+    if (tvgId) {
+      try { epg = await fetchNowPlayingByTvgId(tvgId); } catch (_) {}
+    }
+    if (!epg || !epg.programTitle) {
+      const hint = [channel, content, tvgId, url].filter(Boolean).join(' ');
+      try {
+        const byHint = await fetchNowPlayingForHints(hint);
+        if (byHint && (byHint.programTitle || !epg)) epg = byHint;
+      } catch (_) {}
+    }
+    return epg;
   }
 
   async function enrichLiveCardMeta(mediaDiv, options = {}) {
@@ -285,28 +392,36 @@
     }
     let meta = resolveLiveMeta({ url, content, playlistMeta, lockedName });
 
-    // EPG חיצוני – רק כשיש רמז לשם ערוץ מוכר | HYPER CORE TECH
-    const hint = [meta.channelName, content, lockedName, url].filter(Boolean).join(' ');
-    if (!meta.programTitle) {
-      try {
-        const epg = await fetchNowPlayingForHints(hint);
-        if (epg) {
-          meta = {
-            channelName: meta.channelName || epg.channelName,
-            programTitle: epg.programTitle || meta.programTitle,
-            source: epg.source || meta.source,
-          };
-        }
-      } catch (_) {}
-    }
+    try {
+      const epg = await resolveNowPlayingForMedia(mediaDiv, {
+        url,
+        content,
+        tvgId: mediaDiv.dataset.liveTvgId || options.tvgId || '',
+      });
+      if (epg) {
+        meta = {
+          channelName: meta.channelName || epg.channelName,
+          programTitle: epg.programTitle || meta.programTitle,
+          source: epg.source || meta.source,
+          start: epg.start || null,
+          stop: epg.stop || null,
+        };
+      }
+    } catch (_) {}
 
-    // שם נעול מהקטלוג תמיד נשאר | HYPER CORE TECH
     if (lockedName) {
       const lockedClean = formatChannelDisplayName(lockedName);
       if (lockedClean) meta.channelName = lockedClean;
     }
 
+    if (meta.start instanceof Date) mediaDiv.dataset.liveProgramStart = meta.start.toISOString();
+    if (meta.stop instanceof Date) mediaDiv.dataset.liveProgramStop = meta.stop.toISOString();
+    if (meta.programTitle) mediaDiv.dataset.liveProgram = meta.programTitle;
+
     setLiveMetaOverlay(mediaDiv, meta);
+    if (mediaDiv.classList.contains('is-live-fullscreen')) {
+      updateCableOsd(mediaDiv);
+    }
     return meta;
   }
 
@@ -564,31 +679,202 @@
     mediaDiv._fsChromeTimer = null;
   }
 
+  function stopCableOsdTimers(mediaDiv) {
+    if (!mediaDiv) return;
+    if (mediaDiv._osdClockTimer) {
+      clearInterval(mediaDiv._osdClockTimer);
+      mediaDiv._osdClockTimer = null;
+    }
+  }
+
+  function lockFeedScrollForLiveFs() {
+    const vp = document.querySelector('.videos-feed__viewport');
+    if (!vp) return;
+    vp.dataset.liveFsScrollTop = String(vp.scrollTop || 0);
+    vp.style.overflow = 'hidden';
+    vp.style.touchAction = 'none';
+  }
+
+  function unlockFeedScrollForLiveFs() {
+    const vp = document.querySelector('.videos-feed__viewport');
+    if (!vp) return;
+    vp.style.overflow = '';
+    vp.style.touchAction = '';
+    const y = Number(vp.dataset.liveFsScrollTop || 0);
+    try { vp.scrollTop = y; } catch (_) {}
+    delete vp.dataset.liveFsScrollTop;
+  }
+
+  function ensureCableOsd(mediaDiv) {
+    if (!mediaDiv) return null;
+    let osd = mediaDiv.querySelector('.videos-live-cable-osd');
+    if (osd) return osd;
+    osd = document.createElement('div');
+    osd.className = 'videos-live-cable-osd';
+    osd.hidden = true;
+    osd.innerHTML = [
+      '<div class="videos-live-cable-osd__toolbar">',
+      '  <button type="button" class="videos-live-cable-osd__tool" data-osd-mute aria-label="השתק">',
+      '    <i class="fa-solid fa-volume-high" data-osd-mute-icon></i><span>שמע</span>',
+      '  </button>',
+      '  <button type="button" class="videos-live-cable-osd__tool videos-live-cable-osd__tool--back" data-osd-back aria-label="חזרה">',
+      '    <i class="fa-solid fa-arrow-right"></i><span>חזרה</span>',
+      '  </button>',
+      '</div>',
+      '<div class="videos-live-cable-osd__panel">',
+      '  <div class="videos-live-cable-osd__row-top">',
+      '    <div class="videos-live-cable-osd__ch-num" data-osd-num>—</div>',
+      '    <div class="videos-live-cable-osd__ch-name" data-osd-channel>ערוץ חי</div>',
+      '  </div>',
+      '  <div class="videos-live-cable-osd__program">',
+      '    <span class="videos-live-cable-osd__now-badge">עכשיו</span>',
+      '    <div class="videos-live-cable-osd__now-title" data-osd-title>שידור חי</div>',
+      '  </div>',
+      '  <div class="videos-live-cable-osd__timing">',
+      '    <div class="videos-live-cable-osd__timing-meta">',
+      '      <span data-osd-duration></span>',
+      '      <span class="videos-live-cable-osd__left" data-osd-left></span>',
+      '      <span data-osd-range></span>',
+      '    </div>',
+      '    <div class="videos-live-cable-osd__bar" aria-hidden="true"><span class="videos-live-cable-osd__fill" data-osd-fill></span></div>',
+      '  </div>',
+      '  <div class="videos-live-cable-osd__status">',
+      '    <span class="videos-live-cable-osd__weather" data-osd-weather></span>',
+      '    <span class="videos-live-cable-osd__date" data-osd-date></span>',
+      '    <span class="videos-live-cable-osd__clock" data-osd-clock></span>',
+      '  </div>',
+      '</div>',
+    ].join('');
+    mediaDiv.appendChild(osd);
+
+    const muteBtn = osd.querySelector('[data-osd-mute]');
+    const backBtn = osd.querySelector('[data-osd-back]');
+    if (muteBtn) {
+      muteBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const videoEl = mediaDiv.querySelector('video');
+        if (!videoEl) return;
+        videoEl.muted = !videoEl.muted;
+        updateCableOsdMuteIcon(mediaDiv);
+        showFsChrome(mediaDiv);
+      });
+    }
+    if (backBtn) {
+      backBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        exitLiveFullscreen(mediaDiv);
+      });
+    }
+    return osd;
+  }
+
+  function updateCableOsdMuteIcon(mediaDiv) {
+    const videoEl = mediaDiv && mediaDiv.querySelector('video');
+    const icon = mediaDiv && mediaDiv.querySelector('[data-osd-mute-icon]');
+    if (!icon || !videoEl) return;
+    icon.className = videoEl.muted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+  }
+
+  function updateCableOsd(mediaDiv) {
+    if (!mediaDiv) return;
+    const osd = ensureCableOsd(mediaDiv);
+    if (!osd) return;
+    const channel = mediaDiv.dataset.liveChannel
+      || formatChannelDisplayName(mediaDiv.dataset.liveCaption || '')
+      || 'ערוץ חי';
+    const title = mediaDiv.dataset.liveProgram || 'שידור חי';
+    const num = mediaDiv.dataset.liveChannelNumber || '';
+    const startIso = mediaDiv.dataset.liveProgramStart || '';
+    const stopIso = mediaDiv.dataset.liveProgramStop || '';
+    const start = startIso ? new Date(startIso) : null;
+    const stop = stopIso ? new Date(stopIso) : null;
+    const now = new Date();
+    const prog = (start && stop && !Number.isNaN(start.getTime()) && !Number.isNaN(stop.getTime()))
+      ? progressFromWindow(start, stop, now)
+      : null;
+
+    const numEl = osd.querySelector('[data-osd-num]');
+    const chEl = osd.querySelector('[data-osd-channel]');
+    const titleEl = osd.querySelector('[data-osd-title]');
+    const durEl = osd.querySelector('[data-osd-duration]');
+    const leftEl = osd.querySelector('[data-osd-left]');
+    const rangeEl = osd.querySelector('[data-osd-range]');
+    const fillEl = osd.querySelector('[data-osd-fill]');
+    const clockEl = osd.querySelector('[data-osd-clock]');
+    const dateEl = osd.querySelector('[data-osd-date]');
+    const weatherEl = osd.querySelector('[data-osd-weather]');
+
+    if (numEl) numEl.textContent = num || '•';
+    if (chEl) chEl.textContent = channel;
+    if (titleEl) titleEl.textContent = title || 'שידור חי';
+    if (clockEl) clockEl.textContent = formatOsdClock(now);
+    if (dateEl) dateEl.textContent = formatOsdDate(now);
+    if (weatherEl && mediaDiv.dataset.liveWeather) weatherEl.textContent = mediaDiv.dataset.liveWeather;
+
+    if (prog) {
+      if (durEl) durEl.textContent = 'דק\' ' + prog.durationMinutes;
+      if (leftEl) leftEl.textContent = 'נותרו ' + prog.minutesLeft + ' דק';
+      if (rangeEl) rangeEl.textContent = formatOsdTime(start) + ' – ' + formatOsdTime(stop);
+      if (fillEl) fillEl.style.width = prog.progressPct.toFixed(1) + '%';
+      osd.classList.remove('videos-live-cable-osd--no-epg');
+    } else {
+      if (durEl) durEl.textContent = '';
+      if (leftEl) leftEl.textContent = '';
+      if (rangeEl) rangeEl.textContent = '';
+      if (fillEl) fillEl.style.width = '0%';
+      osd.classList.add('videos-live-cable-osd--no-epg');
+    }
+    updateCableOsdMuteIcon(mediaDiv);
+  }
+
+  async function refreshCableOsdWeather(mediaDiv) {
+    if (!mediaDiv || mediaDiv.dataset.liveWeather) return;
+    try {
+      const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=32.08&longitude=34.78&current=temperature_2m,weather_code&timezone=Asia%2FJerusalem');
+      if (!res.ok) return;
+      const data = await res.json();
+      const temp = data && data.current && data.current.temperature_2m;
+      if (temp == null) return;
+      mediaDiv.dataset.liveWeather = Math.round(temp) + '°';
+      updateCableOsd(mediaDiv);
+    } catch (_) {}
+  }
+
   function showFsChrome(mediaDiv) {
     if (!mediaDiv || !mediaDiv.classList.contains('is-live-fullscreen')) return;
     const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
-    if (!closeBtn) return;
-    closeBtn.hidden = false;
-    closeBtn.classList.remove('is-fs-chrome-hidden');
+    const osd = ensureCableOsd(mediaDiv);
+    if (closeBtn) {
+      closeBtn.hidden = false;
+      closeBtn.classList.remove('is-fs-chrome-hidden');
+    }
+    if (osd) {
+      osd.hidden = false;
+      osd.classList.remove('is-fs-chrome-hidden');
+    }
     mediaDiv.classList.add('is-fs-chrome-visible');
+    updateCableOsd(mediaDiv);
     clearFsChromeTimer(mediaDiv);
     mediaDiv._fsChromeTimer = setTimeout(() => {
       hideFsChrome(mediaDiv);
-    }, 5000);
+    }, 5500);
   }
 
   function hideFsChrome(mediaDiv) {
     if (!mediaDiv) return;
     clearFsChromeTimer(mediaDiv);
     const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
-    if (closeBtn) {
-      closeBtn.classList.add('is-fs-chrome-hidden');
-    }
+    const osd = mediaDiv.querySelector('.videos-live-cable-osd');
+    if (closeBtn) closeBtn.classList.add('is-fs-chrome-hidden');
+    if (osd) osd.classList.add('is-fs-chrome-hidden');
     mediaDiv.classList.remove('is-fs-chrome-visible');
   }
 
   function ensureFullscreenControls(mediaDiv) {
     if (!mediaDiv) return;
+    ensureCableOsd(mediaDiv);
     if (mediaDiv.querySelector('.videos-live-fs-btn')) return;
 
     const fsBtn = document.createElement('button');
@@ -616,10 +902,9 @@
     });
     mediaDiv.appendChild(closeBtn);
 
-    // לחיצה על המסך במסך מלא מחזירה את כפתור הסגירה ל־5 שניות | HYPER CORE TECH
     const revealChrome = (e) => {
       if (!mediaDiv.classList.contains('is-live-fullscreen')) return;
-      if (e.target && e.target.closest && e.target.closest('.videos-live-fs-close')) return;
+      if (e.target && e.target.closest && e.target.closest('.videos-live-fs-close, .videos-live-cable-osd__tool')) return;
       e.preventDefault();
       e.stopPropagation();
       showFsChrome(mediaDiv);
@@ -628,37 +913,83 @@
     mediaDiv.addEventListener('touchend', revealChrome, { passive: false });
   }
 
+  function resumeLiveFullscreenPlayback(mediaDiv) {
+    if (!mediaDiv || !mediaDiv.classList.contains('is-live-fullscreen')) return;
+    const videoEl = mediaDiv.querySelector('video');
+    if (!videoEl) return;
+    const tryPlay = () => {
+      const p = videoEl.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          videoEl.muted = true;
+          videoEl.play().catch(() => {});
+        });
+      }
+    };
+    tryPlay();
+    setTimeout(tryPlay, 250);
+  }
+
   function enterLiveFullscreen(mediaDiv) {
     if (!mediaDiv) return;
     const existing = document.querySelector('.videos-feed__media.is-live-fullscreen');
     if (existing && existing !== mediaDiv) exitLiveFullscreen(existing);
     mediaDiv.classList.add('is-live-fullscreen');
     document.body.classList.add('live-channel-fullscreen');
+    lockFeedScrollForLiveFs();
     const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
     if (fsBtn) fsBtn.hidden = true;
+    ensureCableOsd(mediaDiv);
     showFsChrome(mediaDiv);
+    updateCableOsd(mediaDiv);
+    refreshCableOsdWeather(mediaDiv);
+    enrichLiveCardMeta(mediaDiv, {
+      url: mediaDiv.dataset.liveUrl || '',
+      content: mediaDiv.dataset.liveCaption || '',
+      lockedName: mediaDiv.dataset.liveCaption || '',
+      tvgId: mediaDiv.dataset.liveTvgId || '',
+    }).catch(() => {});
+
+    stopCableOsdTimers(mediaDiv);
+    mediaDiv._osdClockTimer = setInterval(() => {
+      if (!mediaDiv.classList.contains('is-live-fullscreen')) {
+        stopCableOsdTimers(mediaDiv);
+        return;
+      }
+      updateCableOsd(mediaDiv);
+    }, 1000);
 
     try {
       if (mediaDiv.requestFullscreen) mediaDiv.requestFullscreen().catch(() => {});
       else if (mediaDiv.webkitRequestFullscreen) mediaDiv.webkitRequestFullscreen();
     } catch (_) {}
+
+    resumeLiveFullscreenPlayback(mediaDiv);
   }
 
   function exitLiveFullscreen(mediaDiv) {
     if (!mediaDiv) {
       document.body.classList.remove('live-channel-fullscreen');
+      unlockFeedScrollForLiveFs();
       return;
     }
     clearFsChromeTimer(mediaDiv);
+    stopCableOsdTimers(mediaDiv);
     mediaDiv.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
     document.body.classList.remove('live-channel-fullscreen');
+    unlockFeedScrollForLiveFs();
     const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
     const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
+    const osd = mediaDiv.querySelector('.videos-live-cable-osd');
     if (closeBtn) {
       closeBtn.hidden = true;
       closeBtn.classList.remove('is-fs-chrome-hidden');
     }
     if (fsBtn) fsBtn.hidden = false;
+    if (osd) {
+      osd.hidden = true;
+      osd.classList.remove('is-fs-chrome-hidden');
+    }
 
     try {
       if (document.fullscreenElement && document.exitFullscreen) {
@@ -672,18 +1003,44 @@
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement) {
       document.querySelectorAll('.videos-feed__media.is-live-fullscreen').forEach((el) => {
+        // יציאה ממסך מלא של הדפדפן – סוגרים OSD אבל לא מחליפים ערוץ | HYPER CORE TECH
         clearFsChromeTimer(el);
+        stopCableOsdTimers(el);
         el.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
         const closeBtn = el.querySelector('.videos-live-fs-close');
         const fsBtn = el.querySelector('.videos-live-fs-btn');
+        const osd = el.querySelector('.videos-live-cable-osd');
         if (closeBtn) {
           closeBtn.hidden = true;
           closeBtn.classList.remove('is-fs-chrome-hidden');
         }
         if (fsBtn) fsBtn.hidden = false;
+        if (osd) {
+          osd.hidden = true;
+          osd.classList.remove('is-fs-chrome-hidden');
+        }
       });
       document.body.classList.remove('live-channel-fullscreen');
+      unlockFeedScrollForLiveFs();
     }
+  });
+
+  // סיבוב מסך במסך מלא – שומרים ערוץ ומחדשים ניגון | HYPER CORE TECH
+  const onOrientationOrResize = () => {
+    const open = document.querySelector('.videos-feed__media.is-live-fullscreen');
+    if (!open) return;
+    resumeLiveFullscreenPlayback(open);
+    updateCableOsd(open);
+    showFsChrome(open);
+  };
+  window.addEventListener('orientationchange', () => {
+    setTimeout(onOrientationOrResize, 120);
+    setTimeout(onOrientationOrResize, 450);
+  });
+  window.addEventListener('resize', () => {
+    if (!document.body.classList.contains('live-channel-fullscreen')) return;
+    clearTimeout(window._liveFsResizeTimer);
+    window._liveFsResizeTimer = setTimeout(onOrientationOrResize, 180);
   });
 
   document.addEventListener('keydown', (e) => {

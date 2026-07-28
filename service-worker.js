@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v121'; // bump - hide LIVE channels from general feed
+  const CACHE_NAME = 'sos-cache-v122'; // bump - LIVE autoplay + FS lock + cable OSD
   const PRECACHE_URLS = [
     './',
     './videos.html',

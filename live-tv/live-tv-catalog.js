@@ -220,7 +220,11 @@
     const channels = await fetchCatalog();
     return channels
       .filter((ch) => !isChannelHidden(ch.id) && !isChannelOffline(ch.id))
-      .map(channelToVideoItem);
+      .map((ch, index) => {
+        const item = channelToVideoItem(ch);
+        item.liveChannelNumber = index + 1;
+        return item;
+      });
   }
 
   async function probeChannelHealth(streamUrl, channelId) {

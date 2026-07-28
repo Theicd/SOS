@@ -1558,6 +1558,241 @@ body.live-channel-fullscreen .videos-feed__actions {
   visibility: hidden;
 }
 
+body.live-channel-fullscreen .videos-feed__viewport {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+/* תפריט כבלים במסך מלא – בהשראת GroVee Cable OSD | HYPER CORE TECH */
+.videos-live-cable-osd {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent 0%, rgba(4, 10, 22, 0.55) 18%, rgba(6, 14, 28, 0.92) 55%, rgba(4, 10, 22, 0.98) 100%);
+  color: #e8eef8;
+  pointer-events: none;
+  transition: opacity 0.28s ease, visibility 0.28s ease, transform 0.28s ease;
+  direction: rtl;
+}
+
+.videos-live-cable-osd[hidden] {
+  display: none !important;
+}
+
+.videos-live-cable-osd.is-fs-chrome-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+}
+
+.videos-live-cable-osd__toolbar {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.videos-live-cable-osd__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid rgba(80, 160, 230, 0.35);
+  border-radius: 10px;
+  background: rgba(10, 18, 34, 0.88);
+  color: #dcecff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(45, 160, 255, 0.18);
+}
+
+.videos-live-cable-osd__tool--back {
+  border-color: rgba(255, 200, 60, 0.45);
+  color: #ffe29a;
+}
+
+.videos-live-cable-osd__panel {
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 170, 240, 0.28);
+  background: rgba(8, 16, 32, 0.9);
+  box-shadow: 0 0 18px rgba(40, 150, 255, 0.18), inset 0 0 20px rgba(30, 90, 160, 0.12);
+}
+
+.videos-live-cable-osd__row-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.videos-live-cable-osd__ch-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f2f7ff;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.videos-live-cable-osd__ch-num {
+  flex-shrink: 0;
+  min-width: 42px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #f0c14a 0%, #c9941c 100%);
+  color: #1a1204;
+  font-size: 18px;
+  font-weight: 900;
+  text-align: center;
+  box-shadow: 0 2px 0 #7a5a10;
+}
+
+.videos-live-cable-osd__program {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.videos-live-cable-osd__now-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.videos-live-cable-osd__now-title {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.videos-live-cable-osd__timing-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: #9ec8e8;
+  margin-bottom: 6px;
+}
+
+.videos-live-cable-osd__left {
+  color: #ffe066;
+  font-weight: 800;
+}
+
+.videos-live-cable-osd__bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.videos-live-cable-osd__fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffe066, #ffb400);
+  box-shadow: 0 0 8px rgba(255, 200, 60, 0.55);
+  transition: width 0.4s linear;
+}
+
+.videos-live-cable-osd--no-epg .videos-live-cable-osd__timing {
+  display: none;
+}
+
+.videos-live-cable-osd__status {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #b7cce0;
+}
+
+.videos-live-cable-osd__clock {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #f4f8ff;
+}
+
+.videos-live-cable-osd__weather {
+  font-weight: 700;
+  color: #ffe29a;
+}
+
+@media (orientation: landscape) {
+  .videos-feed__media.is-live-fullscreen .videos-live-cable-osd {
+    padding-inline: 18px;
+  }
+
+  .videos-live-cable-osd__panel {
+    grid-template-columns: minmax(140px, 0.9fr) minmax(220px, 1.4fr) minmax(160px, 1fr) auto;
+    align-items: center;
+    gap: 12px 16px;
+  }
+
+  .videos-live-cable-osd__row-top,
+  .videos-live-cable-osd__program,
+  .videos-live-cable-osd__timing,
+  .videos-live-cable-osd__status {
+    margin: 0;
+  }
+
+  .videos-live-cable-osd__status {
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    text-align: left;
+    direction: ltr;
+  }
+
+  .videos-live-cable-osd__now-title {
+    font-size: 20px;
+  }
+}
+
+.videos-feed__media.is-live-fullscreen .videos-live-meta,
+.videos-feed__media.is-live-fullscreen .videos-live-topbar {
+  display: none !important;
+}
+
 /* תצוגה מקדימה בקומפוז לערוץ חי */
 /* ׳—׳׳§ ׳׳©׳—׳§ ׳‘׳₪׳™׳“ (videos.css) ג€“ iframe ׳׳׳ ׳¢׳ ׳›׳ ׳”׳₪׳•׳¡׳˜, ׳‘׳׳™ ׳‘׳׳“׳’'/׳¡׳§׳™׳™׳ ׳׳׳׳›׳•׳×׳™ | HYPER CORE TECH */
 .videos-game-badge {
