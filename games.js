@@ -312,16 +312,9 @@
 
     intersectionObserver = new IntersectionObserver(
       (entries) => {
-        let best = null;
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-            if (!best || entry.intersectionRatio > best.intersectionRatio) best = entry;
-          }
-        });
-
         entries.forEach((entry) => {
           const card = entry.target;
-          if (best && entry.target === best.target) {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
             const idx = Number(card.dataset.index || 0);
             if (idx !== currentIndex) {
               currentIndex = idx;
@@ -329,14 +322,15 @@
             }
             activateCard(card);
             prefetchNeighbors(card);
-          } else if (!entry.isIntersecting || entry.intersectionRatio <= 0.5) {
+          } else if (!entry.isIntersecting) {
+            // רק כשיוצאים לגמרי – עוצרים סאונד בלי להרוג טעינה באמצע גלילה | HYPER CORE TECH
             softDeactivateCard(card);
           }
         });
       },
       {
         root: viewport,
-        threshold: [0.5, 0.75],
+        threshold: [0, 0.5, 0.75],
       }
     );
 

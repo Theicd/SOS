@@ -3129,28 +3129,17 @@ function setupIntersectionObserver() {
   // גלילה פשוטה - רק ניגן/עצור וידאו + פרילוד ערוץ חי של השכן | HYPER CORE TECH
   intersectionObserver = new IntersectionObserver(
     (entries) => {
-      // קודם בוחרים כרטיס אחד פעיל – מונע מרוץ play/pause על משחקים | HYPER CORE TECH
-      let bestGameEntry = null;
-      entries.forEach((entry) => {
-        const mediaDiv = entry.target.querySelector('.videos-feed__media');
-        if (!mediaDiv || mediaDiv.dataset.mediaType !== 'game-embed') return;
-        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-          if (!bestGameEntry || entry.intersectionRatio > bestGameEntry.intersectionRatio) {
-            bestGameEntry = entry;
-          }
-        }
-      });
-
       entries.forEach((entry) => {
         const card = entry.target;
         const mediaDiv = card.querySelector('.videos-feed__media');
         if (!mediaDiv) return;
 
+        // משחקים: מפעילים מעל 50%, עוצרים סאונד רק כשיוצאים לגמרי מהמסך | HYPER CORE TECH
         if (mediaDiv.dataset.mediaType === 'game-embed') {
-          if (bestGameEntry && entry.target === bestGameEntry.target) {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
             playMedia(mediaDiv, { manual: false });
             prefetchNeighborLiveChannels(card);
-          } else if (!entry.isIntersecting || entry.intersectionRatio <= 0.5) {
+          } else if (!entry.isIntersecting) {
             pauseMedia(mediaDiv, { resetThumb: false });
           }
           return;
