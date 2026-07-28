@@ -4536,6 +4536,12 @@ async function init() {
     return;
   }
 
+  // אחרי שיש stream – מעטפת הboot יכולה לרדת אם LoadNug כבר עלה / דולג | HYPER CORE TECH
+  const bootShell = document.getElementById('feedBootShell');
+  if (bootShell && document.getElementById('sosLoadNugOverlay')) {
+    try { bootShell.remove(); } catch (_) {}
+  }
+
   // חלק כפתורי גלילה (videos.js) – יצירת כפתורי גלילה בדסקטופ | HYPER CORE TECH
   createNavArrows();
   

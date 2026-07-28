@@ -139,6 +139,10 @@ export class LoadNugController {
 
     const stream = document.getElementById('videosStream');
     const viewport = document.querySelector('.videos-feed__viewport');
+    const bootShell = document.getElementById('feedBootShell');
+    if (bootShell) {
+      try { bootShell.remove(); } catch (_) {}
+    }
     if (stream) {
       stream.insertBefore(ov, stream.firstChild || null);
     } else if (viewport) {
