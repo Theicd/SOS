@@ -65,7 +65,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260729b">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260729c">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -1644,9 +1644,12 @@
     </script>
     <!-- חלק סרגל עליון (videos.html) – סרגל עליון אחיד כמו בדפים הראשיים | HYPER CORE TECH -->
     <header class="top-bar">
-      <!-- חלק לוגו מובייל (videos.html) – תמונת לוגו במקום קוביות SOS | HYPER CORE TECH -->
+      <!-- חלק לוגו מובייל (videos.html) – לוגו S חדש במובייל; דסקטופ נשאר sos-logo.PNG בסיידבר | HYPER CORE TECH -->
       <div class="app-logo">
-        <img class="top-bar__logo-img" src="icons/sos-logo.PNG" alt="SOS Logo">
+        <picture>
+          <source media="(max-width: 900px)" srcset="icons/sos-logo-mobile.png">
+          <img class="top-bar__logo-img" src="icons/sos-logo.PNG" alt="SOS Logo">
+        </picture>
       </div>
       <div class="top-bar__actions">
         <!-- חלק כפתור אורח (videos.html) – כפתור קצר עם טקסט+אייקון מתחלף התחבר/הירשם | HYPER CORE TECH -->

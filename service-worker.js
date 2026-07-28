@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v112'; // bump - guest login button icons
+  const CACHE_NAME = 'sos-cache-v113'; // bump - mobile S logo replaces oversized SOS010
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -19,6 +19,7 @@
     './icons/WAPICON.png',
     './icons/sos-app-icon-192.png',
     './icons/sos-app-icon-512.png',
+    './icons/sos-logo-mobile.png',
     './loadnug/loadnug-animation.css',
     './loadnug/loadnug-controller.js',
     './manifest.webmanifest',

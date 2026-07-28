@@ -415,15 +415,17 @@ body:has(.videos-feed) .top-bar__logo-img {
   display: block;
 }
 
-/* הגדלת לוגו במובייל בלבד (videos.css) | HYPER CORE TECH */
+/* לוגו מובייל חדש – קומפקטי במקום SOS010 הענק | HYPER CORE TECH */
 @media (max-width: 900px) {
   body:has(.videos-feed) .top-bar .app-logo {
-    transform: translateX(30px); /* הזזה 30px ימינה במובייל | HYPER CORE TECH */
+    transform: translateX(8px);
   }
 
   body:has(.videos-feed) .top-bar__logo-img {
-    height: 112px; /* הגדלה נוספת של ~20% עבור מובייל | HYPER CORE TECH */
-    animation: mobileLogoGlow 4s ease-in-out infinite; /* תאורת גלוא מתחלפת במובייל | HYPER CORE TECH */
+    height: 40px; /* במקום 112px – מתאים לסרגל עליון | HYPER CORE TECH */
+    width: auto;
+    max-width: 48px;
+    animation: mobileLogoGlow 4s ease-in-out infinite;
   }
 }
 
