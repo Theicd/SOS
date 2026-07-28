@@ -65,7 +65,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260728i">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260728j">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -942,12 +942,17 @@
 
       .p2p-stats-tooltip--fixed {
         position: fixed;
-        top: max(64px, calc(env(safe-area-inset-top, 0px) + 56px));
-        right: 12px;
-        left: auto;
-        margin-top: 0;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        margin: 0;
+        transform: translate(-50%, -50%);
         z-index: 12000;
-        max-width: min(280px, calc(100vw - 24px));
+        width: min(280px, calc(100vw - 32px));
+        max-width: min(280px, calc(100vw - 32px));
+        max-height: min(80dvh, 520px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
 
       .p2p-stats-tooltip.visible {
@@ -955,9 +960,18 @@
         animation: fadeIn 0.2s ease;
       }
 
+      .p2p-stats-tooltip--fixed.visible {
+        animation: fadeInCenter 0.2s ease;
+      }
+
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes fadeInCenter {
+        from { opacity: 0; transform: translate(-50%, calc(-50% - 8px)); }
+        to { opacity: 1; transform: translate(-50%, -50%); }
       }
 
       .p2p-stats-tooltip__title {
@@ -1537,7 +1551,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260728i" defer></script>
+    <script src="./videos.js?v=20260728j" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
