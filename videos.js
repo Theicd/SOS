@@ -763,6 +763,10 @@ async function playHlsLiveMedia(mediaDiv) {
 // חלק משחק בפיד (videos.js) – טעינת iframe למשחק HTML5 | HYPER CORE TECH
 function playGameEmbedMedia(mediaDiv) {
   if (!mediaDiv) return;
+  // עוצרים מדיה קודמת (כולל סאונד משחק קודם) בלי תלות ב-autoplay גלובלי | HYPER CORE TECH
+  if (activeMediaDiv && activeMediaDiv !== mediaDiv) {
+    pauseMedia(activeMediaDiv, { resetThumb: false });
+  }
   const App = window.NostrApp || {};
   if (typeof App.activateGameMedia === 'function') {
     App.activateGameMedia(mediaDiv);
@@ -777,6 +781,9 @@ function playGameEmbedMedia(mediaDiv) {
     }
   }
   mediaDiv.classList.add('videos-feed__media--ready');
+  mediaDiv.dataset.state = 'playing';
+  mediaDiv.classList.remove('is-paused');
+  activeMediaDiv = mediaDiv;
 }
 
 // חלק יאללה וידאו (videos.js) – שאילת פוסטים לפי רשת המשתמש (authors)
@@ -3134,10 +3141,10 @@ function setupIntersectionObserver() {
         const mediaDiv = card.querySelector('.videos-feed__media');
         if (!mediaDiv) return;
 
-        // משחקים: מפעילים מעל 50%, עוצרים סאונד רק כשיוצאים לגמרי מהמסך | HYPER CORE TECH
+        // משחקים: playGameEmbed ישירות (לא playMedia – בלי חסימת autoplay) | HYPER CORE TECH
         if (mediaDiv.dataset.mediaType === 'game-embed') {
-          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-            playMedia(mediaDiv, { manual: false });
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            playGameEmbedMedia(mediaDiv);
             prefetchNeighborLiveChannels(card);
           } else if (!entry.isIntersecting) {
             pauseMedia(mediaDiv, { resetThumb: false });
@@ -3175,7 +3182,46 @@ function setupIntersectionObserver() {
   const cards = document.querySelectorAll('.videos-feed__card');
   cards.forEach((card) => intersectionObserver.observe(card));
 
+  // גיבוי לגלילת משחקים – מפעיל את הכרטיס במרכז גם אם IO פספס | HYPER CORE TECH
+  if (!viewport.dataset.gameScrollSyncBound) {
+    viewport.dataset.gameScrollSyncBound = '1';
+    let gameSyncTimer = null;
+    viewport.addEventListener('scroll', () => {
+      if (state.feedMode !== 'games') return;
+      clearTimeout(gameSyncTimer);
+      gameSyncTimer = setTimeout(() => {
+        syncCenteredGameCard(viewport);
+      }, 120);
+    }, { passive: true });
+  }
+
   return intersectionObserver;
+}
+
+// חלק משחקים (videos.js) – הפעלת הכרטיס הקרוב למרכז המסך | HYPER CORE TECH
+function syncCenteredGameCard(viewport) {
+  if (state.feedMode !== 'games' || !viewport || !selectors.stream) return;
+  const cards = Array.from(selectors.stream.querySelectorAll('.videos-feed__card'));
+  if (!cards.length) return;
+  const mid = viewport.scrollTop + viewport.clientHeight / 2;
+  let best = null;
+  let bestDist = Infinity;
+  cards.forEach((card) => {
+    const center = card.offsetTop + card.offsetHeight / 2;
+    const dist = Math.abs(center - mid);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = card;
+    }
+  });
+  if (!best) return;
+  // רק אם הכרטיס באמת קרוב למרכז (לא באמצע מעבר) | HYPER CORE TECH
+  if (bestDist > viewport.clientHeight * 0.35) return;
+  const mediaDiv = best.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+  if (!mediaDiv) return;
+  if (!mediaDiv.classList.contains('is-game-active')) {
+    playGameEmbedMedia(mediaDiv);
+  }
 }
 
 // חלק טעינת המשך (videos.js) – טעינת פוסטים נוספים כשמגיעים לסוף הפיד | HYPER CORE TECH

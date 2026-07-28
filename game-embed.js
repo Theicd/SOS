@@ -442,16 +442,29 @@
     const url = mediaDiv.dataset.gameUrl || '';
     if (!url) return;
 
-    // אם אותו משחק כבר נטען/בטעינה – לא להרוס את ה-iframe באמצע | HYPER CORE TECH
-    if (mediaDiv.classList.contains('is-game-active')) {
-      const existing = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
-      const srcAttr = existing ? (existing.getAttribute('src') || '') : '';
-      if (existing && existing.dataset.loadedUrl === url && srcAttr && srcAttr !== 'about:blank') {
-        if (mediaDiv.dataset.gamePrepared === '1') {
-          requestAnimationFrame(() => nudgeGameResize(existing));
-        }
-        return;
+    const existing = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
+    const srcAttr = existing ? (existing.getAttribute('src') || '') : '';
+    // iframe עם אותו URL כבר בטעינה/נטען – לא להרוס (זה גרם למסך טעינה אינסופי) | HYPER CORE TECH
+    const sameUrlLoading =
+      !!existing
+      && existing.dataset.loadedUrl === url
+      && !!srcAttr
+      && srcAttr !== 'about:blank';
+
+    if (sameUrlLoading) {
+      mediaDiv.classList.add('is-game-active');
+      mediaDiv.classList.remove('is-paused');
+      hideGamePlayOverlay(mediaDiv);
+      ensureGameFullscreenControls(mediaDiv);
+      ensureGameScrollShield(mediaDiv);
+      if (mediaDiv.dataset.gamePrepared === '1') {
+        requestAnimationFrame(() => nudgeGameResize(existing));
       }
+      // עוצרים סאונד של אחרים בלי לגעת ב-iframe הזה | HYPER CORE TECH
+      document.querySelectorAll('.videos-feed__media[data-media-type="game-embed"].is-game-active').forEach((el) => {
+        if (el !== mediaDiv) softDeactivateGameMedia(el);
+      });
+      return;
     }
 
     // עוצרים סאונד של משחק פעיל אחר בלבד | HYPER CORE TECH
@@ -461,7 +474,12 @@
 
     mediaDiv.classList.add('is-game-active');
     mediaDiv.classList.remove('is-paused');
-    prepareGameMedia(mediaDiv, { load: true, forceReload: true, loadingLabel: 'טוען משחק...' });
+    // forceReload רק כשאין iframe תקין (אחרי silence) – לא בכל activate | HYPER CORE TECH
+    prepareGameMedia(mediaDiv, {
+      load: true,
+      forceReload: true,
+      loadingLabel: 'טוען משחק...',
+    });
     hideGamePlayOverlay(mediaDiv);
     ensureGameFullscreenControls(mediaDiv);
     ensureGameScrollShield(mediaDiv);
@@ -475,9 +493,8 @@
     if (mediaDiv.classList.contains('is-game-fullscreen')) {
       exitGameFullscreen(mediaDiv);
     }
-    const shouldSilence = mediaDiv.classList.contains('is-game-active')
-      || mediaDiv.dataset.gamePrepared === '1'
-      || !!mediaDiv.querySelector('iframe.videos-feed__game-iframe[src]:not([src="about:blank"]):not([src=""])');
+    // מסירים iframe רק ממשחק שהיה פעיל – עוצר סאונד בלי לגעת בשכנים | HYPER CORE TECH
+    const shouldSilence = mediaDiv.classList.contains('is-game-active');
     mediaDiv.classList.remove('is-game-active');
     setGameInteractive(mediaDiv, false);
     hideGamePlayOverlay(mediaDiv);
