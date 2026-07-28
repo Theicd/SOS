@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v108'; // bump - stop mid-load iframe destroy + game scroll sync
+  const CACHE_NAME = 'sos-cache-v109'; // bump - profile menu opens on the right on mobile
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -557,6 +557,28 @@ body:has(.videos-feed) .top-bar__dropdown {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* מובייל: אווטאר + תפריט פרופיל מימין למעלה כמו קודם (לא משמאל) | HYPER CORE TECH */
+@media (max-width: 900px) {
+  body:has(.videos-feed) .top-bar {
+    direction: ltr !important; /* לוגו משמאל, פעולות מימין */
+  }
+
+  body:has(.videos-feed) .top-bar .app-logo {
+    transform: none !important;
+  }
+
+  body:has(.videos-feed) .top-bar__actions {
+    margin-inline-start: auto;
+  }
+
+  body:has(.videos-feed) .top-bar__dropdown {
+    right: 0 !important;
+    left: auto !important;
+    inset-inline-start: auto !important;
+    inset-inline-end: 0 !important;
+  }
+}
+
 /* חלק תפריט תחתון (videos.css) – תפריט תחתון בסגנון TikTok דק | HYPER CORE TECH */
 body:has(.videos-feed) .primary-nav {
   position: fixed !important;
