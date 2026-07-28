@@ -2,12 +2,245 @@
 (function initHlsLive(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
-  const healthCache = new Map(); // url -> { ok, checkedAt, reason }
+  const healthCache = new Map(); // url -> { ok, checkedAt, reason, meta }
   const HEALTH_TTL_MS = 5 * 60 * 1000;
   const hlsInstances = new WeakMap(); // videoEl -> Hls instance
+  const epgCache = new Map(); // guideUrl -> { fetchedAt, programmes: Map(channelId -> [{start,stop,title}]) }
+  const EPG_TTL_MS = 30 * 60 * 1000;
 
   const HLS_URL_RE = /\.m3u8(\?|#|$)/i;
   const HLS_HINT_RE = /(mediatailor|amagi\.tv|\/hls\/|\/playlist\.m3u8|mpegurl|LINEAR-)/i;
+
+  // מיפוי רמזים לערוצים ישראליים → מקור EPG של iptv-org | HYPER CORE TECH
+  const IL_EPG_GUIDES = [
+    {
+      guide: 'https://iptv-org.github.io/epg/guides/il/mako.co.il.epg.xml',
+      match: /(קשת|keshet|mako|ערוץ\s*12|channel\s*12)/i,
+      channelIds: ['Keshet12.il', 'Channel12.il', 'keshet12.il'],
+      displayName: 'קשת 12',
+    },
+    {
+      guide: 'https://iptv-org.github.io/epg/guides/il/kan.org.il.epg.xml',
+      match: /(כאן\s*11|kan\s*11|makan|ערוץ\s*11|channel\s*11)/i,
+      channelIds: ['Kan11.il', 'Makan33.il', 'KanEducational.il', 'kan11.il'],
+      displayName: 'כאן 11',
+    },
+    {
+      guide: 'https://iptv-org.github.io/epg/guides/il/i24news.tv.epg.xml',
+      match: /i24/i,
+      channelIds: ['i24NewsEnglish.il', 'i24NewsFrench.il', 'i24NewsArabic.il', 'i24news.tv'],
+      displayName: 'i24NEWS',
+    },
+    {
+      guide: 'https://iptv-org.github.io/epg/guides/il/9tv.co.il.epg.xml',
+      match: /(ערוץ\s*9|channel\s*9|9tv)/i,
+      channelIds: ['Channel9.il', '9tv.co.il'],
+      displayName: 'ערוץ 9',
+    },
+  ];
+
+  function decodeSafe(str) {
+    try { return decodeURIComponent(String(str || '')); } catch (_) { return String(str || ''); }
+  }
+
+  function cleanMetaLabel(raw) {
+    const s = decodeSafe(raw).replace(/[_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!s || s.length < 2 || s.length > 80) return '';
+    if (/^(index|playlist|master|live|hls|chunk|segment|manifest)$/i.test(s)) return '';
+    if (/^\d+$/.test(s)) return '';
+    return s;
+  }
+
+  function extractChannelNameFromUrl(url) {
+    if (!url) return '';
+    try {
+      const u = new URL(url);
+      const qKeys = ['channel', 'channelName', 'name', 'title', 'ch', 'station', 'tvg-name'];
+      for (let i = 0; i < qKeys.length; i += 1) {
+        const v = cleanMetaLabel(u.searchParams.get(qKeys[i]) || '');
+        if (v) return v;
+      }
+      const parts = u.pathname.split('/').filter(Boolean).map(cleanMetaLabel).filter(Boolean);
+      // מחפשים מקטע משמעותי לפני הקובץ | HYPER CORE TECH
+      for (let j = parts.length - 1; j >= 0; j -= 1) {
+        const p = parts[j];
+        if (/\.m3u8$/i.test(p)) continue;
+        if (/^(hls|live|stream|streams|playlist|play|media|cdn|video)$/i.test(p)) continue;
+        if (p.length >= 2) return p;
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function extractMetaFromPlaylist(text) {
+    const meta = { channelName: '', programTitle: '' };
+    if (!text) return meta;
+    const sessionTitle = text.match(/#EXT-X-SESSION-DATA:[^\n]*DATA-ID="[^"]*title[^"]*"[^\n]*VALUE="([^"]+)"/i)
+      || text.match(/#EXT-X-SESSION-DATA:[^\n]*VALUE="([^"]+)"[^\n]*DATA-ID="[^"]*title[^"]*"/i);
+    if (sessionTitle && sessionTitle[1]) meta.channelName = cleanMetaLabel(sessionTitle[1]);
+
+    const mediaName = text.match(/#EXT-X-MEDIA:[^\n]*NAME="([^"]+)"/i);
+    if (!meta.channelName && mediaName && mediaName[1]) meta.channelName = cleanMetaLabel(mediaName[1]);
+
+    const extinf = text.match(/#EXTINF:[^\n]*,\s*([^\n]+)/i);
+    if (extinf && extinf[1]) {
+      const label = cleanMetaLabel(extinf[1].split(/tvg-name=/i)[0]);
+      if (label) {
+        if (!meta.channelName) meta.channelName = label;
+        else if (label !== meta.channelName) meta.programTitle = label;
+      }
+    }
+
+    const tvgName = text.match(/tvg-name="([^"]+)"/i);
+    if (tvgName && tvgName[1]) meta.channelName = cleanMetaLabel(tvgName[1]) || meta.channelName;
+
+    return meta;
+  }
+
+  function extractChannelNameFromContent(content) {
+    if (!content) return '';
+    const lines = String(content).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (/^https?:\/\//i.test(line)) continue;
+      if (isHlsLiveUrl(line)) continue;
+      const cleaned = cleanMetaLabel(line.replace(/^#\s*/, ''));
+      if (cleaned) return cleaned;
+    }
+    return '';
+  }
+
+  function resolveLiveMeta(options = {}) {
+    const fromContent = extractChannelNameFromContent(options.content || '');
+    const fromUrl = extractChannelNameFromUrl(options.url || '');
+    const fromPlaylist = options.playlistMeta || {};
+    const channelName = fromContent || fromPlaylist.channelName || fromUrl || '';
+    const programTitle = fromPlaylist.programTitle || '';
+    return {
+      channelName,
+      programTitle,
+      source: fromContent ? 'content' : (fromPlaylist.channelName ? 'playlist' : (fromUrl ? 'url' : '')),
+    };
+  }
+
+  function ensureLiveMetaOverlay(mediaDiv) {
+    if (!mediaDiv) return null;
+    let box = mediaDiv.querySelector('.videos-live-meta');
+    if (box) return box;
+    box = document.createElement('div');
+    box.className = 'videos-live-meta';
+    box.hidden = true;
+    box.innerHTML = [
+      '<div class="videos-live-meta__channel" data-live-channel></div>',
+      '<div class="videos-live-meta__program" data-live-program></div>',
+    ].join('');
+    mediaDiv.appendChild(box);
+    return box;
+  }
+
+  function setLiveMetaOverlay(mediaDiv, meta) {
+    if (!mediaDiv) return;
+    const box = ensureLiveMetaOverlay(mediaDiv);
+    if (!box) return;
+    const channel = (meta && meta.channelName) || '';
+    const program = (meta && meta.programTitle) || '';
+    const channelEl = box.querySelector('[data-live-channel]');
+    const programEl = box.querySelector('[data-live-program]');
+    if (channelEl) channelEl.textContent = channel;
+    if (programEl) {
+      programEl.textContent = program ? ('עכשיו: ' + program) : '';
+      programEl.hidden = !program;
+    }
+    box.hidden = !(channel || program);
+    if (channel) mediaDiv.dataset.liveChannel = channel;
+    if (program) mediaDiv.dataset.liveProgram = program;
+  }
+
+  function xmltvToDate(raw) {
+    // 20240101120000 +0300 / 20240101120000
+    const m = String(raw || '').match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
+    if (!m) return null;
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+  }
+
+  async function loadEpgGuide(guideUrl) {
+    const cached = epgCache.get(guideUrl);
+    if (cached && Date.now() - cached.fetchedAt < EPG_TTL_MS) return cached;
+    const res = await fetch(guideUrl, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+    if (!res.ok) throw new Error('epg-http-' + res.status);
+    const xmlText = await res.text();
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    const programmes = new Map();
+    doc.querySelectorAll('programme').forEach((node) => {
+      const ch = node.getAttribute('channel') || '';
+      const start = xmltvToDate(node.getAttribute('start'));
+      const stop = xmltvToDate(node.getAttribute('stop'));
+      const title = (node.querySelector('title') && node.querySelector('title').textContent) || '';
+      if (!ch || !start || !stop || !title) return;
+      if (!programmes.has(ch)) programmes.set(ch, []);
+      programmes.get(ch).push({ start, stop, title: title.trim() });
+    });
+    const entry = { fetchedAt: Date.now(), programmes };
+    epgCache.set(guideUrl, entry);
+    return entry;
+  }
+
+  async function fetchNowPlayingForHints(hintText) {
+    const blob = String(hintText || '');
+    if (!blob) return null;
+    for (let i = 0; i < IL_EPG_GUIDES.length; i += 1) {
+      const g = IL_EPG_GUIDES[i];
+      if (!g.match.test(blob)) continue;
+      try {
+        const guide = await loadEpgGuide(g.guide);
+        const now = Date.now();
+        const ids = g.channelIds;
+        for (let j = 0; j < ids.length; j += 1) {
+          const list = guide.programmes.get(ids[j]) || [];
+          for (let k = 0; k < list.length; k += 1) {
+            const p = list[k];
+            if (p.start.getTime() <= now && now < p.stop.getTime()) {
+              return { channelName: g.displayName, programTitle: p.title, source: 'epg' };
+            }
+          }
+        }
+        // אם יש EPG אבל לא מצאנו תוכנית – בכל זאת נחזיר שם ערוץ מוכר | HYPER CORE TECH
+        return { channelName: g.displayName, programTitle: '', source: 'epg-name' };
+      } catch (_) {
+        // ממשיכים לרמז הבא
+      }
+    }
+    return null;
+  }
+
+  async function enrichLiveCardMeta(mediaDiv, options = {}) {
+    if (!mediaDiv) return null;
+    const url = options.url || mediaDiv.dataset.liveUrl || mediaDiv.dataset.videoUrl || '';
+    const content = options.content != null ? options.content : (mediaDiv.dataset.liveCaption || '');
+    let playlistMeta = options.playlistMeta || null;
+    if (!playlistMeta && options.playlistText) {
+      playlistMeta = extractMetaFromPlaylist(options.playlistText);
+    }
+    let meta = resolveLiveMeta({ url, content, playlistMeta });
+
+    // EPG חיצוני – רק כשיש רמז לשם ערוץ מוכר | HYPER CORE TECH
+    const hint = [meta.channelName, content, url].filter(Boolean).join(' ');
+    if (!meta.programTitle) {
+      try {
+        const epg = await fetchNowPlayingForHints(hint);
+        if (epg) {
+          meta = {
+            channelName: meta.channelName || epg.channelName,
+            programTitle: epg.programTitle || meta.programTitle,
+            source: epg.source || meta.source,
+          };
+        }
+      } catch (_) {}
+    }
+
+    setLiveMetaOverlay(mediaDiv, meta);
+    return meta;
+  }
 
   function isHlsLiveUrl(url) {
     if (!url || typeof url !== 'string') return false;
@@ -78,7 +311,12 @@
       } else {
         const text = await res.text();
         if (/#EXTM3U/i.test(text)) {
-          result = { ok: true, reason: 'playlist', checkedAt: Date.now() };
+          result = {
+            ok: true,
+            reason: 'playlist',
+            checkedAt: Date.now(),
+            playlistMeta: extractMetaFromPlaylist(text),
+          };
         } else {
           result = { ok: false, reason: 'not-m3u8', checkedAt: Date.now() };
         }
@@ -442,9 +680,25 @@
     if (!url) return { ok: false, reason: 'no-url' };
 
     ensureLiveBadge(mediaDiv);
+    ensureLiveMetaOverlay(mediaDiv);
     setTuningVisible(mediaDiv, true, options.tuningLabel || 'מחפש ערוץ...');
 
+    if (options.content != null) {
+      mediaDiv.dataset.liveCaption = String(options.content || '');
+    }
+    enrichLiveCardMeta(mediaDiv, {
+      url,
+      content: mediaDiv.dataset.liveCaption || options.content || '',
+    }).catch(() => {});
+
     const health = await checkHlsHealth(url);
+    if (health && health.playlistMeta) {
+      enrichLiveCardMeta(mediaDiv, {
+        url,
+        content: mediaDiv.dataset.liveCaption || options.content || '',
+        playlistMeta: health.playlistMeta,
+      }).catch(() => {});
+    }
     if (health && health.ok === false && !health.unverified) {
       setTuningVisible(mediaDiv, true, 'ערוץ לא זמין');
       return { ok: false, health };
@@ -474,15 +728,18 @@
     // חימום קל של playlist בלבד — הניגון עצמו על הכרטיס
   }
 
-  function buildComposeLivePreview(url) {
+  function buildComposeLivePreview(url, content) {
     const wrap = document.createElement('div');
     wrap.className = 'compose-live-preview';
+    const meta = resolveLiveMeta({ url, content: content || '' });
     wrap.innerHTML = [
       '<div class="compose-live-preview__badge"><span class="videos-live-badge__dot"></span>LIVE IPTV</div>',
-      '<div class="compose-live-preview__title">ערוץ חי מזוהה</div>',
+      '<div class="compose-live-preview__title"></div>',
       '<div class="compose-live-preview__url"></div>',
-      '<div class="compose-live-preview__hint">יפורסם כפוסט שידור חי בפיד</div>',
+      '<div class="compose-live-preview__hint">יפורסם כפוסט שידור חי בפיד — הוסיפו שם ערוץ בטקסט כדי שיוצג על הכרטיס</div>',
     ].join('');
+    const titleEl = wrap.querySelector('.compose-live-preview__title');
+    if (titleEl) titleEl.textContent = meta.channelName || 'ערוץ חי מזוהה';
     const urlEl = wrap.querySelector('.compose-live-preview__url');
     if (urlEl) urlEl.textContent = url;
     return wrap;
@@ -497,6 +754,10 @@
     attachHlsToVideo,
     destroyHls,
     ensureLiveBadge,
+    ensureLiveMetaOverlay,
+    setLiveMetaOverlay,
+    enrichLiveCardMeta,
+    resolveLiveMeta,
     ensureTuningOverlay,
     ensureFullscreenControls,
     enterLiveFullscreen,
@@ -514,6 +775,10 @@
     attachHlsToVideo,
     destroyHls,
     ensureLiveBadge,
+    ensureLiveMetaOverlay,
+    setLiveMetaOverlay,
+    enrichLiveCardMeta,
+    resolveLiveMeta,
     ensureFullscreenControls,
     enterLiveFullscreen,
     exitLiveFullscreen,

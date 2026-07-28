@@ -1746,6 +1746,7 @@ function renderVideoCard(video) {
     mediaDiv.dataset.mediaType = 'hls-live';
     mediaDiv.dataset.liveUrl = video.liveUrl;
     mediaDiv.dataset.videoUrl = video.liveUrl;
+    mediaDiv.dataset.liveCaption = video.content || '';
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
@@ -1768,6 +1769,9 @@ function renderVideoCard(video) {
       badge.innerHTML = '<span class="videos-live-badge__dot"></span><span class="videos-live-badge__text">LIVE IPTV</span>';
       mediaDiv.appendChild(badge);
     }
+    if (typeof AppLive.ensureLiveMetaOverlay === 'function') {
+      AppLive.ensureLiveMetaOverlay(mediaDiv);
+    }
     if (typeof AppLive.setTuningVisible === 'function') {
       AppLive.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
     }
@@ -1783,11 +1787,25 @@ function renderVideoCard(video) {
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
     mediaDiv.appendChild(playOverlay);
 
-    // כרטיס מוצג מיד עם שלג/LIVE — הטעינה ברקע | HYPER CORE TECH
+    // כרטיס מוצג מיד עם שלג/LIVE — מטא־דאטה + בריאות ברקע | HYPER CORE TECH
     queueMicrotask(() => {
       markReady();
+      if (typeof AppLive.enrichLiveCardMeta === 'function') {
+        AppLive.enrichLiveCardMeta(mediaDiv, {
+          url: video.liveUrl,
+          content: video.content || '',
+        }).catch(() => {});
+      }
       if (typeof AppLive.checkHlsHealth === 'function') {
-        AppLive.checkHlsHealth(video.liveUrl).catch(() => {});
+        AppLive.checkHlsHealth(video.liveUrl).then((health) => {
+          if (health && health.playlistMeta && typeof AppLive.enrichLiveCardMeta === 'function') {
+            AppLive.enrichLiveCardMeta(mediaDiv, {
+              url: video.liveUrl,
+              content: video.content || '',
+              playlistMeta: health.playlistMeta,
+            }).catch(() => {});
+          }
+        }).catch(() => {});
       }
     });
   } else if (video.youtubeId && !video.videoUrl) {

@@ -1229,6 +1229,51 @@ body:has(.videos-feed) #moreOptionsToggle {
   100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); opacity: 1; }
 }
 
+/* שם ערוץ + מה משודר עכשיו על כרטיס IPTV | HYPER CORE TECH */
+.videos-live-meta {
+  position: absolute;
+  top: 48px;
+  left: 14px;
+  right: 72px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: min(78%, 320px);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  pointer-events: none;
+  text-align: right;
+  direction: rtl;
+}
+
+.videos-live-meta[hidden] {
+  display: none !important;
+}
+
+.videos-live-meta__channel {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+.videos-live-meta__program {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.videos-live-meta__program[hidden] {
+  display: none !important;
+}
+
 /* חלק ערוץ חי (videos.css) – שלג + מד סריקה שמתמלא | HYPER CORE TECH */
 .videos-live-tuning {
   position: absolute;
