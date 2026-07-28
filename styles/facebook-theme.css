@@ -402,11 +402,8 @@ button {
 
 @media (max-width: 600px) {
   .top-bar__dropdown {
-    /* ימין פיזי – לא inset-inline (ב־RTL זה הופך לשמאל) | HYPER CORE TECH */
-    right: 0;
-    left: auto;
-    inset-inline-end: auto;
-    inset-inline-start: auto;
+    inset-inline-end: 0;
+    inset-inline-start: auto; /* מבטיח שהתפריט יישאר צמוד לימין גם במסכים צרים */
   }
   
   .top-bar__submenu {
