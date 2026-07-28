@@ -860,11 +860,11 @@
       });
     } catch (_) {}
 
-    // הצגת כפתור "התחבר / הירשם" רק במצב אורח
+    // הצגת כפתור "התחבר"/"הירשם" מתחלף רק במצב אורח | HYPER CORE TECH
     try {
       var isGuest = !!(App.guestMode === true || !App.privateKey);
       if (guestLoginButton && isGuest) {
-        guestLoginButton.style.display = 'inline-block';
+        guestLoginButton.style.display = 'inline-flex';
         guestLoginButton.addEventListener('click', function () {
           var inviteCode = typeof App.getInviteCodeFromLocation === 'function'
             ? App.getInviteCodeFromLocation()
@@ -879,6 +879,28 @@
             App.openAuthPrompt('התחברו או הירשמו כדי ליצור פרופיל אישי, לייקים ותגובות.');
           }
         });
+
+        // החלפת טקסט עדינה כל 4 שניות | HYPER CORE TECH
+        var words = guestLoginButton.querySelectorAll('.guest-login-btn__word');
+        if (words.length >= 2) {
+          var wordIndex = 0;
+          var reduceMotion = false;
+          try {
+            reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          } catch (_) {}
+          if (!reduceMotion && !guestLoginButton._labelSwapTimer) {
+            guestLoginButton._labelSwapTimer = setInterval(function () {
+              if (!guestLoginButton.isConnected) {
+                clearInterval(guestLoginButton._labelSwapTimer);
+                guestLoginButton._labelSwapTimer = null;
+                return;
+              }
+              words[wordIndex].classList.remove('is-visible');
+              wordIndex = (wordIndex + 1) % words.length;
+              words[wordIndex].classList.add('is-visible');
+            }, 4000);
+          }
+        }
       }
     } catch (e) {
       console.warn('Guest login button init failed:', e);

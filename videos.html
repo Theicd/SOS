@@ -65,7 +65,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260728u">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260729a">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -1555,7 +1555,7 @@
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
-    <script src="./guest-auth.js?v=20260728k" defer></script>
+    <script src="./guest-auth.js?v=20260729a" defer></script>
     <!-- מודולי צ'אט (videos.html) – זהים לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./chat-state.js?v=2" defer></script>
     <script src="./chat-service.js?v=4" defer></script>
@@ -1649,9 +1649,12 @@
         <img class="top-bar__logo-img" src="icons/sos-logo.PNG" alt="SOS Logo">
       </div>
       <div class="top-bar__actions">
-        <!-- חלק כפתור אורח (videos.html) – כפתור התחברות/הרשמה למצב אורח | HYPER CORE TECH -->
-        <button id="guestLoginButton" class="button-primary" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;">
-          התחבר / הירשם
+        <!-- חלק כפתור אורח (videos.html) – כפתור קצר עם טקסט מתחלף התחבר/הירשם | HYPER CORE TECH -->
+        <button id="guestLoginButton" class="button-primary guest-login-btn" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;" aria-label="התחבר או הירשם">
+          <span class="guest-login-btn__swap">
+            <span class="guest-login-btn__word is-visible">התחבר</span>
+            <span class="guest-login-btn__word">הירשם</span>
+          </span>
         </button>
         <div class="top-bar__profile" id="topBarProfile">
           <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">

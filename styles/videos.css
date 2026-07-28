@@ -81,9 +81,10 @@ body:has(.videos-feed) .primary-nav::before {
 /* כפתור התחבר/הירשם בפס העליון - עיצוב מותאם לפיד וידאו */
 body:has(.videos-feed) #guestLoginButton {
   width: auto !important;
+  min-width: 4.6em;
   min-height: 28px;
   height: auto;
-  padding: 5px 12px !important;
+  padding: 5px 10px !important;
   font-size: 11px !important;
   line-height: 1.2;
   border-radius: 18px !important;
@@ -96,14 +97,44 @@ body:has(.videos-feed) #guestLoginButton {
   backdrop-filter: blur(10px);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 0;
   text-transform: none;
   font-weight: 600;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 body:has(.videos-feed) #guestLoginButton:active {
   background: rgba(45, 136, 255, 0.25) !important;
+}
+
+/* החלפת טקסט עדינה כל 4 שניות – התחבר ↔ הירשם | HYPER CORE TECH */
+body:has(.videos-feed) .guest-login-btn__swap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: 3.4em;
+}
+
+body:has(.videos-feed) .guest-login-btn__word {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+  pointer-events: none;
+}
+
+body:has(.videos-feed) .guest-login-btn__word.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:has(.videos-feed) .guest-login-btn__word {
+    transition: none;
+    transform: none;
+  }
 }
 
 .videos-feed__menu-wrap {
