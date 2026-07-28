@@ -1221,8 +1221,11 @@ function upsertVideoInState(video, options = {}) {
   truncateFeedLength();
   saveFeedCache(state.videos);
 
-  // משחקים רק בפיד משחקים; שאר התוכן רק בפיד הכללי | HYPER CORE TECH
-  const showNow = state.feedMode === 'games' ? isGameFeedVideo(video) : !isGameFeedVideo(video);
+  // משחקים רק בפיד משחקים; LIVE TV רק במצב live-tv; שאר התוכן בפיד הכללי | HYPER CORE TECH
+  let showNow = false;
+  if (state.feedMode === 'games') showNow = isGameFeedVideo(video);
+  else if (state.feedMode === 'live-tv') showNow = false;
+  else showNow = !isGameFeedVideo(video);
   if (showNow) {
     prependVideoCard(video, options);
   }
@@ -2459,7 +2462,7 @@ function renderVideos() {
     // שומרים את כרטיס LoadNug (יושב כמו פוסט) – innerHTML מוחק אותו | HYPER CORE TECH
     const loadnugCard = document.getElementById('sosLoadNugOverlay');
     selectors.stream.innerHTML = '';
-    if (loadnugCard && state.feedMode !== 'games') {
+    if (loadnugCard && state.feedMode !== 'games' && state.feedMode !== 'live-tv') {
       try { selectors.stream.insertBefore(loadnugCard, selectors.stream.firstChild || null); } catch (_) {}
     }
   }
@@ -2474,7 +2477,11 @@ function renderVideos() {
 
   if (!Array.isArray(sourceVideos) || sourceVideos.length === 0) {
     hideLoadingAnimation();
-    setStatus(state.feedMode === 'games' ? 'אין משחקים להצגה' : 'אין סרטונים להצגה');
+    setStatus(
+      state.feedMode === 'games'
+        ? 'אין משחקים להצגה'
+        : (state.feedMode === 'live-tv' ? 'אין ערוצים להצגה' : 'אין סרטונים להצגה')
+    );
     return;
   }
 
@@ -2498,7 +2505,9 @@ function renderVideos() {
   }
 
   if (!state.firstCardRendered && selectors.status) {
-    selectors.status.textContent = state.feedMode === 'games' ? 'טוען משחקים...' : 'טוען סרטונים...';
+    selectors.status.textContent = state.feedMode === 'games'
+      ? 'טוען משחקים...'
+      : (state.feedMode === 'live-tv' ? 'טוען ערוצים...' : 'טוען סרטונים...');
     selectors.status.style.display = 'block';
   }
 
@@ -3347,8 +3356,8 @@ function updateLoadMoreTrigger() {
 
 async function loadMoreVideos() {
   if (isLoadingMore) return;
-  // במצב משחקים לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
-  if (state.feedMode === 'games') return;
+  // במצב משחקים / LIVE TV לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
+  if (state.feedMode === 'games' || state.feedMode === 'live-tv') return;
   isLoadingMore = true;
   
   const currentApp = window.NostrApp;
@@ -3507,7 +3516,9 @@ function renderMoreVideos(videos) {
 
   const list = state.feedMode === 'games'
     ? videos.filter((v) => isGameFeedVideo(v))
-    : videos.filter((v) => v && !isGameFeedVideo(v));
+    : state.feedMode === 'live-tv'
+      ? []
+      : videos.filter((v) => v && !isGameFeedVideo(v));
 
   list.forEach((video) => {
     const card = createVideoCard(video);
