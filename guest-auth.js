@@ -917,6 +917,11 @@
         gamesQuickBtn.style.display = '';
         gamesQuickBtn.hidden = false;
       }
+      var liveTvQuickBtn = document.getElementById('liveTvToggleTop');
+      if (liveTvQuickBtn) {
+        liveTvQuickBtn.style.display = '';
+        liveTvQuickBtn.hidden = false;
+      }
     } catch (e) {
       console.warn('Profile menu hide failed:', e);
     }

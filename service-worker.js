@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v116'; // bump - live channel name + now-playing on cards
+  const CACHE_NAME = 'sos-cache-v117'; // bump - LIVE TV feed + admin hide + prefetch
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -20,6 +20,8 @@
     './icons/sos-app-icon-192.png',
     './icons/sos-app-icon-512.png',
     './icons/sos-logo-mobile.png',
+    './live-tv/curatedFavorites.json',
+    './live-tv/live-tv-catalog.js',
     './loadnug/loadnug-animation.css',
     './loadnug/loadnug-controller.js',
     './manifest.webmanifest',

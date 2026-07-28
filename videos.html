@@ -105,7 +105,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260729f">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260729g">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -1544,7 +1544,7 @@
     <script src="./p2p-peer-exchange.js" defer></script>
     <script src="./p2p-metadata-transfer.js" defer></script>
     <script src="./contract-dashboard-v2.js" defer></script>
-    <script src="./app.js?v=20260728k" defer></script>
+    <script src="./app.js?v=20260729g" defer></script>
     <!-- חלק ניווט (videos.html) – הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
     <script>
       (function(){
@@ -1567,6 +1567,7 @@
     <!-- חלק ערוץ חי HLS (videos.html) – hls.js + מודול ערוצים חיים | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" defer></script>
     <script src="./hls-live.js?v=20260729f" defer></script>
+    <script src="./live-tv/live-tv-catalog.js?v=20260729g" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
     <script src="./video-record.js" defer></script>
@@ -1591,11 +1592,11 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260729f" defer></script>
+    <script src="./videos.js?v=20260729g" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
-    <script src="./guest-auth.js?v=20260729a" defer></script>
+    <script src="./guest-auth.js?v=20260729g" defer></script>
     <!-- מודולי צ'אט (videos.html) – זהים לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./chat-state.js?v=2" defer></script>
     <script src="./chat-service.js?v=4" defer></script>
@@ -1753,9 +1754,13 @@
             </button>
           </div>
         </div>
-        <!-- משחקים מימין לאווטאר – אייקון בלבד, מחוץ לקפסולה | HYPER CORE TECH -->
+        <!-- משחקים + LIVE TV מימין לאווטאר | HYPER CORE TECH -->
         <button type="button" class="top-bar__games-btn" id="gamesToggleTop" title="משחקים" aria-label="פתח פיד משחקים">
           <i class="fa-solid fa-gamepad" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="top-bar__live-tv-btn" id="liveTvToggleTop" title="LIVE TV" aria-label="פתח פיד ערוצי טלוויזיה">
+          <span class="top-bar__live-tv-dot" aria-hidden="true"></span>
+          <span class="top-bar__live-tv-label">LIVE TV</span>
         </button>
       </div>
     </header>

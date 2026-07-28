@@ -471,6 +471,30 @@
     });
   })();
 
+  // חלק כפתור LIVE TV בטופ־בר (app.js) – פיד ערוצים כמו משחקים | HYPER CORE TECH
+  (function initTopBarLiveTvButton() {
+    const liveTvButton = document.getElementById('liveTvToggleTop');
+    if (!liveTvButton || liveTvButton.dataset.bound === '1') return;
+    liveTvButton.dataset.bound = '1';
+    liveTvButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const menu = document.getElementById('topBarProfileMenu');
+        const btn = document.getElementById('topBarProfileButton');
+        if (menu) menu.hidden = true;
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      } catch (_) {}
+      if (typeof App.openLiveTvFeed === 'function') {
+        App.openLiveTvFeed();
+        return;
+      }
+      if (typeof window.openLiveTvFeed === 'function') {
+        window.openLiveTvFeed();
+      }
+    });
+  })();
+
   // חלק משחק טריוויה – מוודא שסקריפט המשחק נטען פעם אחת בלבד לאחר שהאפליקציה מוכנה
   if (!document.getElementById('triviaGameScript')) {
     const triviaScript = document.createElement('script');

@@ -499,6 +499,13 @@ body:has(.videos-feed) .top-bar__actions {
     margin-left: 8px !important;
   }
 
+  body:has(.videos-feed) .top-bar__live-tv-btn {
+    order: 3;
+    margin-left: 6px !important;
+    padding: 3px 7px !important;
+    font-size: 9px !important;
+  }
+
   body:has(.videos-feed) #guestLoginButton {
     order: 0;
   }
@@ -560,6 +567,53 @@ body:has(.videos-feed) .top-bar__games-btn {
   cursor: pointer;
   order: 2;
   animation: gamesBtnColorPulse 4.5s ease-in-out infinite;
+}
+
+/* כפתור LIVE TV ליד משחקים | HYPER CORE TECH */
+body:has(.videos-feed) .top-bar__live-tv-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  order: 3;
+  margin: 0;
+  margin-left: 8px !important;
+  padding: 4px 8px !important;
+  border: 1px solid rgba(254, 44, 85, 0.55) !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: #fff !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(254, 44, 85, 0.25);
+}
+
+body:has(.videos-feed) .top-bar__live-tv-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fe2c55;
+  box-shadow: 0 0 0 0 rgba(254, 44, 85, 0.7);
+  animation: live-badge-pulse 1.4s ease-out infinite;
+}
+
+body:has(.videos-feed) .top-bar__live-tv-label {
+  transform: translateY(0.5px);
+}
+
+body:has(.videos-feed) .top-bar__live-tv-btn:hover,
+body:has(.videos-feed) .top-bar__live-tv-btn:active {
+  background: rgba(254, 44, 85, 0.22) !important;
+  border-color: rgba(254, 44, 85, 0.85) !important;
+}
+
+body.videos-feed-mode-live-tv .top-bar__live-tv-btn {
+  background: rgba(254, 44, 85, 0.28) !important;
+  border-color: #fe2c55 !important;
 }
 
 body:has(.videos-feed) .top-bar__profile {

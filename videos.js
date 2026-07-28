@@ -828,7 +828,8 @@ const state = {
   firstCardRendered: false,
   pendingOldCards: null,
   downloadedBytes: 0, // מעקב אחרי כמות הנתונים שהורדו
-  feedMode: 'all', // 'all' | 'games' – פיד משחקים = אותו פיד, מסונן | HYPER CORE TECH
+  feedMode: 'all', // 'all' | 'games' | 'live-tv' | HYPER CORE TECH
+  liveTvVideos: [],
 };
 
 // חלק טעינה (videos.js) – סף מינימלי להורדה לפני סגירת מסך הטעינה | HYPER CORE TECH
@@ -1805,6 +1806,17 @@ function renderVideoCard(video) {
               playlistMeta: health.playlistMeta,
             }).catch(() => {});
           }
+          // ערוץ קטלוג שנכשל – מסמנים offline ומסירים מהפיד | HYPER CORE TECH
+          if (video.liveCatalog && health && health.ok === false && !health.unverified) {
+            if (typeof AppLive.markLiveTvChannelOffline === 'function' && video.liveChannelId) {
+              AppLive.markLiveTvChannelOffline(video.liveChannelId);
+            }
+            const card = mediaDiv.closest('.videos-feed__card');
+            if (card) card.remove();
+            if (Array.isArray(state.liveTvVideos)) {
+              state.liveTvVideos = state.liveTvVideos.filter((v) => v && v.id !== video.id);
+            }
+          }
         }).catch(() => {});
       }
     });
@@ -2216,7 +2228,10 @@ function renderVideoCard(video) {
     : false;
 
   const canEdit = isSelf;
-  const canDelete = isSelf || isAdminUser;
+  // קטלוג LIVE TV – רק מנהל יכול להסיר ערוץ | HYPER CORE TECH
+  const canDelete = video.liveCatalog
+    ? isAdminUser
+    : (isSelf || isAdminUser);
 
   if (isSelf) {
     // חלק תפריט פיד ווידאו (videos.js) – הוספת כפתור שלוש נקודות כמו בפיד הראשי לעריכה/מחיקה של המשתמש | HYPER CORE TECH
@@ -2297,16 +2312,27 @@ function renderVideoCard(video) {
   }
 
   if (!isSelf && canDelete) {
-    // חלק תפריט מנהל (videos.js) – מאפשר לאדמין למחוק פוסט וידאו של משתמש אחר באמצעות הפונקציה הקיימת | HYPER CORE TECH
+    // חלק תפריט מנהל (videos.js) – מחיקת פוסט / הסרת ערוץ LIVE TV | HYPER CORE TECH
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'videos-feed__action feed-post__action feed-post__action--delete';
     deleteBtn.setAttribute('data-admin-delete', video.id);
+    deleteBtn.title = video.liveCatalog ? 'הסר ערוץ (מנהל)' : 'מחק פוסט (מנהל)';
     deleteBtn.innerHTML = `
       <i class="fa-solid fa-trash"></i>
-      <span>מחק</span>
+      <span>${video.liveCatalog ? 'הסר' : 'מחק'}</span>
     `;
-    deleteBtn.addEventListener('click', () => {
+    deleteBtn.addEventListener('click', async () => {
+      if (video.liveCatalog && video.liveChannelId) {
+        const AppLive = window.NostrApp || {};
+        if (typeof AppLive.hideLiveTvChannel === 'function') {
+          const ok = await AppLive.hideLiveTvChannel(video.liveChannelId);
+          if (ok && typeof refreshLiveTvFeed === 'function') {
+            refreshLiveTvFeed();
+          }
+        }
+        return;
+      }
       if (typeof currentApp.deletePost === 'function') {
         currentApp.deletePost(video.id);
       }
@@ -2546,8 +2572,8 @@ function finalizeIncrementalRender() {
   state.incrementalRender = null;
   updateLoadMoreTrigger();
 
-  // במצב משחקים – הפעלה מיידית של הכרטיס הנראה (בלי לחכות רק ל-fullscreen) | HYPER CORE TECH
-  if (state.feedMode === 'games') {
+  // במצב משחקים / LIVE TV – הפעלה מיידית של הכרטיס הנראה | HYPER CORE TECH
+  if (state.feedMode === 'games' || state.feedMode === 'live-tv') {
     requestAnimationFrame(() => {
       const viewport = document.querySelector('.videos-feed__viewport');
       const cards = selectors.stream
@@ -2562,8 +2588,14 @@ function finalizeIncrementalRender() {
           return mid >= top && mid <= bottom;
         }) || cards[0];
       }
-      const mediaDiv = active?.querySelector('.videos-feed__media[data-media-type="game-embed"]');
-      if (mediaDiv) playGameEmbedMedia(mediaDiv);
+      if (state.feedMode === 'games') {
+        const mediaDiv = active?.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+        if (mediaDiv) playGameEmbedMedia(mediaDiv);
+      } else {
+        const mediaDiv = active?.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+        if (mediaDiv) playMedia(mediaDiv, { manual: false });
+        if (active) prefetchNeighborLiveChannels(active);
+      }
     });
   }
 }
@@ -4576,6 +4608,10 @@ async function init() {
         console.log('[VIDEOS] Home button exited games feed mode');
         return;
       }
+      if (typeof App.exitLiveTvFeedMode === 'function' && App.exitLiveTvFeedMode()) {
+        console.log('[VIDEOS] Home button exited LIVE TV feed mode');
+        return;
+      }
       if (typeof App.closeAllOverlays === 'function' && App.closeAllOverlays()) {
         console.log('[VIDEOS] Home button closed overlay, staying on videos');
         return;
@@ -4755,9 +4791,12 @@ function isGameFeedVideo(video) {
 }
 
 function getDisplayVideos() {
-  // פיד כללי = בלי משחקים; פיד משחקים = רק משחקים | HYPER CORE TECH
+  // פיד כללי = בלי משחקים; פיד משחקים = רק משחקים; LIVE TV = קטלוג ערוצים | HYPER CORE TECH
   if (state.feedMode === 'games') {
     return buildGamesFeedVideos();
+  }
+  if (state.feedMode === 'live-tv') {
+    return Array.isArray(state.liveTvVideos) ? state.liveTvVideos : [];
   }
   const all = Array.isArray(state.videos) ? state.videos : [];
   return all.filter((v) => v && !isGameFeedVideo(v));
@@ -4789,7 +4828,7 @@ function forceFullFeedRerender() {
 
   const loadnugCard = document.getElementById('sosLoadNugOverlay');
   selectors.stream.innerHTML = '';
-  if (loadnugCard && state.feedMode !== 'games') {
+  if (loadnugCard && state.feedMode !== 'games' && state.feedMode !== 'live-tv') {
     try { selectors.stream.appendChild(loadnugCard); } catch (_) {}
   }
 
@@ -4797,12 +4836,18 @@ function forceFullFeedRerender() {
   const videos = getDisplayVideos();
   if (!videos.length) {
     hideLoadingAnimation();
-    setStatus(state.feedMode === 'games' ? 'אין משחקים להצגה' : 'אין סרטונים להצגה');
+    setStatus(
+      state.feedMode === 'games'
+        ? 'אין משחקים להצגה'
+        : (state.feedMode === 'live-tv' ? 'אין ערוצים להצגה' : 'אין סרטונים להצגה')
+    );
     return;
   }
 
   if (selectors.status) {
-    selectors.status.textContent = state.feedMode === 'games' ? 'טוען משחקים...' : 'טוען סרטונים...';
+    selectors.status.textContent = state.feedMode === 'games'
+      ? 'טוען משחקים...'
+      : (state.feedMode === 'live-tv' ? 'טוען ערוצים...' : 'טוען סרטונים...');
     selectors.status.style.display = 'block';
   }
 
@@ -4827,6 +4872,7 @@ function forceFullFeedRerender() {
 function enterGamesFeedMode() {
   state.feedMode = 'games';
   document.body.classList.add('videos-feed-mode-games');
+  document.body.classList.remove('videos-feed-mode-live-tv');
   forceFullFeedRerender();
   console.log('[VIDEOS] Games feed mode ON', { count: getDisplayVideos().length });
   return true;
@@ -4839,6 +4885,70 @@ function exitGamesFeedMode() {
   forceFullFeedRerender();
   console.log('[VIDEOS] Games feed mode OFF');
   return true;
+}
+
+async function refreshLiveTvFeed() {
+  const App = window.NostrApp || {};
+  if (typeof App.getLiveTvFeedVideos === 'function') {
+    state.liveTvVideos = await App.getLiveTvFeedVideos();
+  } else {
+    state.liveTvVideos = [];
+  }
+  if (state.feedMode === 'live-tv') {
+    forceFullFeedRerender();
+  }
+}
+
+async function enterLiveTvFeedMode() {
+  // יוצאים ממצב משחקים אם פתוח | HYPER CORE TECH
+  if (state.feedMode === 'games') {
+    document.body.classList.remove('videos-feed-mode-games');
+  }
+  state.feedMode = 'live-tv';
+  document.body.classList.add('videos-feed-mode-live-tv');
+  if (selectors.status) {
+    selectors.status.textContent = 'טוען ערוצים...';
+    selectors.status.style.display = 'block';
+  }
+  const App = window.NostrApp || {};
+  try {
+    if (typeof App.warmInitialLiveTvHealth === 'function') {
+      await App.warmInitialLiveTvHealth(12);
+    }
+    if (typeof App.getLiveTvFeedVideos === 'function') {
+      state.liveTvVideos = await App.getLiveTvFeedVideos();
+    } else {
+      state.liveTvVideos = [];
+    }
+  } catch (err) {
+    console.warn('[VIDEOS] LIVE TV catalog failed', err);
+    state.liveTvVideos = [];
+  }
+  forceFullFeedRerender();
+  console.log('[VIDEOS] LIVE TV feed mode ON', { count: getDisplayVideos().length });
+  return true;
+}
+
+function exitLiveTvFeedMode() {
+  if (state.feedMode !== 'live-tv') return false;
+  state.feedMode = 'all';
+  document.body.classList.remove('videos-feed-mode-live-tv');
+  forceFullFeedRerender();
+  console.log('[VIDEOS] LIVE TV feed mode OFF');
+  return true;
+}
+
+function openLiveTvFeed() {
+  if (state.feedMode === 'live-tv') {
+    refreshLiveTvFeed();
+    return true;
+  }
+  enterLiveTvFeedMode();
+  return true;
+}
+
+function closeLiveTvFeed() {
+  return exitLiveTvFeedMode();
 }
 
 function resolveGamesPanelUrl(href) {
@@ -4885,6 +4995,9 @@ function openGamesPanel(href = './games.html') {
   }
 
   // פיד משחקים בתוך אותו videos-feed – בדיוק כמו הפיד הכללי | HYPER CORE TECH
+  if (state.feedMode === 'live-tv') {
+    exitLiveTvFeedMode();
+  }
   if (state.feedMode === 'games') {
     forceFullFeedRerender();
     return true;
@@ -4903,6 +5016,7 @@ function closeGamesPanel() {
     console.log('[VIDEOS] Games panel closed');
   }
   if (exitGamesFeedMode()) closed = true;
+  if (exitLiveTvFeedMode()) closed = true;
   return closed;
 }
 
@@ -4922,11 +5036,16 @@ function getSharedGamePosts() {
     }));
 }
 
-// חשיפה גלובלית לפאנל משחקים | HYPER CORE TECH
+// חשיפה גלובלית לפאנל משחקים + LIVE TV | HYPER CORE TECH
 window.closeGamesPanel = closeGamesPanel;
 window.openGamesPanel = openGamesPanel;
 window.exitGamesFeedMode = exitGamesFeedMode;
 window.enterGamesFeedMode = enterGamesFeedMode;
+window.openLiveTvFeed = openLiveTvFeed;
+window.closeLiveTvFeed = closeLiveTvFeed;
+window.exitLiveTvFeedMode = exitLiveTvFeedMode;
+window.enterLiveTvFeedMode = enterLiveTvFeedMode;
+window.refreshLiveTvFeed = refreshLiveTvFeed;
 window.getSharedGamePosts = getSharedGamePosts;
 {
   const AppRef = window.NostrApp || (window.NostrApp = {});
@@ -4934,6 +5053,11 @@ window.getSharedGamePosts = getSharedGamePosts;
   AppRef.openGamesPanel = openGamesPanel;
   AppRef.exitGamesFeedMode = exitGamesFeedMode;
   AppRef.enterGamesFeedMode = enterGamesFeedMode;
+  AppRef.openLiveTvFeed = openLiveTvFeed;
+  AppRef.closeLiveTvFeed = closeLiveTvFeed;
+  AppRef.exitLiveTvFeedMode = exitLiveTvFeedMode;
+  AppRef.enterLiveTvFeedMode = enterLiveTvFeedMode;
+  AppRef.refreshLiveTvFeed = refreshLiveTvFeed;
   AppRef.getSharedGamePosts = getSharedGamePosts;
 }
 
