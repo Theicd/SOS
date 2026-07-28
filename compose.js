@@ -33,6 +33,17 @@
     publishButton: document.getElementById('composePublishButton'),
     markAsGame: document.getElementById('composeMarkAsGame'),
     gameFlagWrap: document.getElementById('composeGameFlagWrap'),
+    gameOptions: document.getElementById('composeGameOptions'),
+    gameLandscape: document.getElementById('composeGameLandscape'),
+    gameLandscapeWrap: document.getElementById('composeGameLandscapeWrap'),
+    gameCoverEnable: document.getElementById('composeGameCoverEnable'),
+    gameCoverWrap: document.getElementById('composeGameCoverWrap'),
+    gameCoverPicker: document.getElementById('composeGameCoverPicker'),
+    gameCoverInput: document.getElementById('composeGameCoverInput'),
+    gameCoverBtn: document.getElementById('composeGameCoverBtn'),
+    gameCoverPreview: document.getElementById('composeGameCoverPreview'),
+    gameCoverPreviewImg: document.getElementById('composeGameCoverPreviewImg'),
+    gameCoverRemove: document.getElementById('composeGameCoverRemove'),
   };
 
   const state = {
@@ -51,6 +62,9 @@
     bgZoomFx: false,
     fx: null,
     markAsGame: false,
+    gameLandscape: false,
+    gameCoverEnabled: false,
+    gameCover: null, // { file, dataUrl, mimeType }
   };
 
   App.composeState = state;
@@ -84,11 +98,34 @@
     updateGameFlagVisibility();
   }
 
-  // חלק קומפוזר (compose.js) – הצגת תיבת "זה משחק" כשיש לינק https בטקסט | HYPER CORE TECH
+  // חלק קומפוזר (compose.js) – הצגת תיבות משחק / לרוחב / תמונת כיסוי | HYPER CORE TECH
+  function clearGameCover() {
+    state.gameCover = null;
+    if (elements.gameCoverInput) elements.gameCoverInput.value = '';
+    if (elements.gameCoverPreview) elements.gameCoverPreview.hidden = true;
+    if (elements.gameCoverPreviewImg) elements.gameCoverPreviewImg.removeAttribute('src');
+  }
+
+  function resetGameOptions() {
+    state.markAsGame = false;
+    state.gameLandscape = false;
+    state.gameCoverEnabled = false;
+    clearGameCover();
+    if (elements.markAsGame) {
+      elements.markAsGame.checked = false;
+      delete elements.markAsGame.dataset.userTouched;
+    }
+    if (elements.gameLandscape) elements.gameLandscape.checked = false;
+    if (elements.gameCoverEnable) elements.gameCoverEnable.checked = false;
+    if (elements.gameOptions) elements.gameOptions.hidden = true;
+    if (elements.gameLandscapeWrap) elements.gameLandscapeWrap.hidden = true;
+    if (elements.gameCoverWrap) elements.gameCoverWrap.hidden = true;
+    if (elements.gameCoverPicker) elements.gameCoverPicker.hidden = true;
+  }
+
   function updateGameFlagVisibility() {
-    const wrap = elements.gameFlagWrap;
-    const checkbox = elements.markAsGame;
-    if (!wrap) return;
+    const options = elements.gameOptions;
+    if (!options) return;
 
     const show = state.composeMode === 'text' && !state.media;
     const text = elements.textarea ? elements.textarea.value : '';
@@ -104,19 +141,43 @@
       : '';
 
     if (!show || liveUrl || (!anyLink && !autoGame)) {
-      wrap.hidden = true;
-      if (!show) {
-        state.markAsGame = false;
-        if (checkbox) checkbox.checked = false;
-      }
+      options.hidden = true;
+      if (!show) resetGameOptions();
       return;
     }
 
-    wrap.hidden = false;
-    if (autoGame && checkbox && !checkbox.dataset.userTouched) {
-      checkbox.checked = true;
+    options.hidden = false;
+    if (autoGame && elements.markAsGame && !elements.markAsGame.dataset.userTouched) {
+      elements.markAsGame.checked = true;
       state.markAsGame = true;
     }
+
+    const markGame = !!(state.markAsGame || elements.markAsGame?.checked);
+    if (elements.gameLandscapeWrap) elements.gameLandscapeWrap.hidden = !markGame;
+    if (!markGame) {
+      state.gameLandscape = false;
+      state.gameCoverEnabled = false;
+      clearGameCover();
+      if (elements.gameLandscape) elements.gameLandscape.checked = false;
+      if (elements.gameCoverEnable) elements.gameCoverEnable.checked = false;
+      if (elements.gameCoverWrap) elements.gameCoverWrap.hidden = true;
+      if (elements.gameCoverPicker) elements.gameCoverPicker.hidden = true;
+      return;
+    }
+
+    const landscape = !!(state.gameLandscape || elements.gameLandscape?.checked);
+    if (elements.gameCoverWrap) elements.gameCoverWrap.hidden = !landscape;
+    if (!landscape) {
+      state.gameCoverEnabled = false;
+      clearGameCover();
+      if (elements.gameCoverEnable) elements.gameCoverEnable.checked = false;
+      if (elements.gameCoverPicker) elements.gameCoverPicker.hidden = true;
+      return;
+    }
+
+    const coverOn = !!(state.gameCoverEnabled || elements.gameCoverEnable?.checked);
+    if (elements.gameCoverPicker) elements.gameCoverPicker.hidden = !coverOn;
+    if (!coverOn) clearGameCover();
   }
 
   function showComposeStep(step) {
@@ -984,6 +1045,7 @@
       delete elements.markAsGame.dataset.userTouched;
     }
     if (elements.gameFlagWrap) elements.gameFlagWrap.hidden = true;
+    resetGameOptions();
     updateTextToolsVisibility();
     updateComposeLegalState();
     showComposeStep('chooser');
@@ -1079,6 +1141,13 @@
       : '';
     const gameUrl = autoGameUrl || forcedGameUrl || '';
     const gameForced = !!(gameUrl && (!autoGameUrl || (state.markAsGame || elements.markAsGame?.checked)));
+    const gameLandscape = !!(gameUrl && (state.gameLandscape || elements.gameLandscape?.checked));
+    const wantCover = !!(gameLandscape && (state.gameCoverEnabled || elements.gameCoverEnable?.checked));
+    if (wantCover && !state.gameCover) {
+      setStatus('בחרו תמונת משחק או בטלו את סימון "צרף תמונת משחק".', 'error');
+      return null;
+    }
+    const gameCoverEnabled = !!(wantCover && state.gameCover);
 
     const parts = [];
     if (textContent) {
@@ -1122,6 +1191,9 @@
     } else if (gameUrl) {
       mediaTags.push(['media', 'text/html', gameUrl]);
       mediaTags.push(['t', 'game-embed']);
+      if (gameLandscape) {
+        mediaTags.push(['t', 'game-landscape']);
+      }
     }
 
     return {
@@ -1132,6 +1204,8 @@
       liveUrl: liveUrl || null,
       gameUrl: gameUrl || null,
       gameForced: gameForced || false,
+      gameLandscape: gameLandscape || false,
+      gameCover: gameCoverEnabled ? state.gameCover : null,
       // חלק קומפוזר – החזרת מזהה הפוסט המקורי (אם בעריכה)
       originalId: state.editingOriginalId || null,
     };
@@ -1259,7 +1333,58 @@
       elements.markAsGame.addEventListener('change', () => {
         elements.markAsGame.dataset.userTouched = '1';
         state.markAsGame = !!elements.markAsGame.checked;
+        updateGameFlagVisibility();
         updateComposeLivePreview();
+      });
+    }
+
+    if (elements.gameLandscape) {
+      elements.gameLandscape.addEventListener('change', () => {
+        state.gameLandscape = !!elements.gameLandscape.checked;
+        updateGameFlagVisibility();
+        updateComposeLivePreview();
+      });
+    }
+
+    if (elements.gameCoverEnable) {
+      elements.gameCoverEnable.addEventListener('change', () => {
+        state.gameCoverEnabled = !!elements.gameCoverEnable.checked;
+        updateGameFlagVisibility();
+        if (state.gameCoverEnabled && !state.gameCover && elements.gameCoverInput) {
+          // לא פותחים אוטומטית – רק מציגים את כפתור הבחירה
+        }
+      });
+    }
+
+    if (elements.gameCoverBtn && elements.gameCoverInput) {
+      elements.gameCoverBtn.addEventListener('click', () => elements.gameCoverInput.click());
+      elements.gameCoverInput.addEventListener('change', () => {
+        const file = elements.gameCoverInput.files && elements.gameCoverInput.files[0];
+        if (!file || !file.type.startsWith('image/')) {
+          clearGameCover();
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          state.gameCover = {
+            file,
+            dataUrl: String(reader.result || ''),
+            mimeType: file.type || 'image/jpeg',
+          };
+          if (elements.gameCoverPreviewImg) elements.gameCoverPreviewImg.src = state.gameCover.dataUrl;
+          if (elements.gameCoverPreview) elements.gameCoverPreview.hidden = false;
+          state.gameCoverEnabled = true;
+          if (elements.gameCoverEnable) elements.gameCoverEnable.checked = true;
+          updateGameFlagVisibility();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (elements.gameCoverRemove) {
+      elements.gameCoverRemove.addEventListener('click', () => {
+        clearGameCover();
+        updateGameFlagVisibility();
       });
     }
 
@@ -1440,6 +1565,31 @@
         setStatus('חסר מפתח או חתימה. היכנס/י לחשבון ונסה שוב.', 'error');
         stopAnim();
         return;
+      }
+
+      // העלאת תמונת כיסוי למשחק לפני הפרסום | HYPER CORE TECH
+      if (payload.gameUrl && payload.gameCover && payload.gameCover.file) {
+        setStatus('מעלה תמונת משחק...');
+        try {
+          let coverUrl = '';
+          if (typeof app.uploadToBlossom === 'function') {
+            coverUrl = await app.uploadToBlossom(payload.gameCover.file);
+          } else {
+            const uploaded = await uploadVideoToBlossom(payload.gameCover.file, '');
+            coverUrl = uploaded?.url || '';
+          }
+          if (coverUrl) {
+            payload.mediaTags.push(['media', payload.gameCover.mimeType || 'image/jpeg', coverUrl]);
+            payload.mediaTags.push(['game-cover', coverUrl]);
+          } else if (payload.gameCover.dataUrl) {
+            payload.mediaTags.push(['game-cover', payload.gameCover.dataUrl]);
+          }
+        } catch (coverErr) {
+          console.warn('[compose] game cover upload failed, using data URL fallback', coverErr);
+          if (payload.gameCover.dataUrl) {
+            payload.mediaTags.push(['game-cover', payload.gameCover.dataUrl]);
+          }
+        }
       }
 
       // בניית אירוע Kind 1
