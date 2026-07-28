@@ -1413,7 +1413,7 @@
     }
 
     const preview = liveUrl
-      ? (typeof AppLive.buildComposeLivePreview === 'function' ? AppLive.buildComposeLivePreview(liveUrl) : null)
+      ? (typeof AppLive.buildComposeLivePreview === 'function' ? AppLive.buildComposeLivePreview(liveUrl, text) : null)
       : (typeof AppLive.buildComposeGamePreview === 'function' ? AppLive.buildComposeGamePreview(gameUrl) : null);
     if (!preview) return;
 
