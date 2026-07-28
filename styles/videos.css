@@ -1712,7 +1712,7 @@ body.game-embed-fullscreen .videos-feed__actions {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin: 0;
+  margin: 10px 14px 4px;
   padding: 12px 14px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
@@ -1720,22 +1720,6 @@ body.game-embed-fullscreen .videos-feed__actions {
   color: #fff;
   cursor: pointer;
   user-select: none;
-}
-
-.compose-game-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 10px 14px 4px;
-}
-
-.compose-game-options[hidden] {
-  display: none !important;
-}
-
-.compose-game-flag--nested {
-  background: rgba(124, 255, 178, 0.06);
-  border-color: rgba(124, 255, 178, 0.18);
 }
 
 .compose-game-flag[hidden] {
@@ -1784,111 +1768,6 @@ body.game-embed-fullscreen .videos-feed__actions {
 
 .compose-game-flag__text strong {
   color: #fff;
-}
-
-.compose-game-cover {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.compose-game-cover[hidden] {
-  display: none !important;
-}
-
-.compose-game-cover__picker {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 0 4px 4px 36px;
-}
-
-.compose-game-cover__picker[hidden] {
-  display: none !important;
-}
-
-.compose-game-cover__btn {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.compose-game-cover__preview {
-  position: relative;
-  width: min(100%, 220px);
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.compose-game-cover__preview[hidden] {
-  display: none !important;
-}
-
-.compose-game-cover__preview img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 160px;
-  object-fit: cover;
-}
-
-.compose-game-cover__remove {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
-  cursor: pointer;
-}
-
-/* תמונת כיסוי למשחק בכרטיס | HYPER CORE TECH */
-.videos-feed__game-cover {
-  position: absolute;
-  inset: 0;
-  z-index: 16;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: #000;
-  pointer-events: none;
-}
-
-.videos-feed__media--game.is-game-fullscreen .videos-feed__game-cover,
-.videos-feed__media--game.is-game-cover-hidden .videos-feed__game-cover {
-  display: none !important;
-}
-
-/* מסך מלא לרוחב – נעילת orientation + גיבוי CSS למובייל | HYPER CORE TECH */
-.videos-feed__media.is-game-fullscreen.is-game-landscape {
-  background: #000;
-}
-
-@media (orientation: portrait) {
-  .videos-feed__media.is-game-fullscreen.is-game-landscape.is-game-landscape-rotate {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    width: 100vh !important;
-    height: 100vw !important;
-    max-width: none !important;
-    max-height: none !important;
-    transform: translate(-50%, -50%) rotate(90deg) !important;
-    border-radius: 0 !important;
-    z-index: 10000 !important;
-  }
 }
 
 .compose-media-preview:has(.compose-game-preview) img,

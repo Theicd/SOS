@@ -65,7 +65,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260728h">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260728f">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -1401,13 +1401,13 @@
     <!-- חלק ערוץ חי HLS (videos.html) – hls.js + מודול ערוצים חיים | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" defer></script>
     <script src="./hls-live.js?v=20260725a" defer></script>
-    <script src="./game-embed.js?v=20260728h" defer></script>
+    <script src="./game-embed.js?v=20260728f" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
     <script src="./video-record.js" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260726c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260728h" defer></script>
+    <script src="./compose.js?v=20260728f" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -1425,7 +1425,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260728h" defer></script>
+    <script src="./videos.js?v=20260728g" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -1757,49 +1757,14 @@
           <textarea id="postText" placeholder="הוסיפו כיתוב... לינק ערוץ חי (.m3u8) או לינק משחק"></textarea>
 
           <!-- סימון ידני למשחק – ללינקים שלא ברשימת הזיהוי האוטומטי | HYPER CORE TECH -->
-          <div class="compose-game-options" id="composeGameOptions" hidden>
-            <label class="compose-game-flag" id="composeGameFlagWrap">
-              <input type="checkbox" id="composeMarkAsGame">
-              <span class="compose-game-flag__box" aria-hidden="true"></span>
-              <span class="compose-game-flag__text">
-                <strong>זה משחק</strong>
-                — יופיע בפיד ובדף המשחקים
-              </span>
-            </label>
-
-            <label class="compose-game-flag compose-game-flag--nested" id="composeGameLandscapeWrap" hidden>
-              <input type="checkbox" id="composeGameLandscape">
-              <span class="compose-game-flag__box" aria-hidden="true"></span>
-              <span class="compose-game-flag__text">
-                <strong>מסך מלא לרוחב</strong>
-                — בלחיצה על מסך מלא המשחק ייפתח אוטומטית לרוחב
-              </span>
-            </label>
-
-            <div class="compose-game-cover" id="composeGameCoverWrap" hidden>
-              <label class="compose-game-flag compose-game-flag--nested" id="composeGameCoverFlag">
-                <input type="checkbox" id="composeGameCoverEnable">
-                <span class="compose-game-flag__box" aria-hidden="true"></span>
-                <span class="compose-game-flag__text">
-                  <strong>צרף תמונת משחק</strong>
-                  — תוצג בכרטיס במקום תצוגת המשחק עד מסך מלא
-                </span>
-              </label>
-              <div class="compose-game-cover__picker" id="composeGameCoverPicker" hidden>
-                <input type="file" id="composeGameCoverInput" accept="image/*" hidden>
-                <button type="button" class="compose-game-cover__btn" id="composeGameCoverBtn">
-                  <i class="fa-solid fa-image"></i>
-                  בחירת תמונה
-                </button>
-                <div class="compose-game-cover__preview" id="composeGameCoverPreview" hidden>
-                  <img id="composeGameCoverPreviewImg" alt="תמונת משחק">
-                  <button type="button" class="compose-game-cover__remove" id="composeGameCoverRemove" aria-label="הסר תמונה">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <label class="compose-game-flag" id="composeGameFlagWrap" hidden>
+            <input type="checkbox" id="composeMarkAsGame">
+            <span class="compose-game-flag__box" aria-hidden="true"></span>
+            <span class="compose-game-flag__text">
+              <strong>זה משחק</strong>
+              — יופיע בפיד ובדף המשחקים
+            </span>
+          </label>
 
           <div class="compose-dialog__toolbar" id="composeTextTools" hidden>
             <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע לטקסט">

@@ -552,12 +552,7 @@
     }
 
     activateGameMedia(mediaDiv);
-    mediaDiv.classList.add('is-game-fullscreen', 'is-game-cover-hidden');
-    const wantLandscape = mediaDiv.dataset.gameLandscape === '1';
-    if (wantLandscape) {
-      mediaDiv.classList.add('is-game-landscape');
-      lockGameLandscape(mediaDiv);
-    }
+    mediaDiv.classList.add('is-game-fullscreen');
     setGameInteractive(mediaDiv, true);
     document.body.classList.add('game-embed-fullscreen');
     const fsBtn = mediaDiv.querySelector('.videos-game-fs-btn');
@@ -575,10 +570,7 @@
         ? mediaDiv.requestFullscreen()
         : (mediaDiv.webkitRequestFullscreen ? Promise.resolve(mediaDiv.webkitRequestFullscreen()) : null);
       if (req && typeof req.then === 'function') {
-        req.then(() => {
-          if (wantLandscape) lockGameLandscape(mediaDiv);
-          afterLayout();
-        }).catch(afterLayout);
+        req.then(afterLayout).catch(afterLayout);
       } else {
         afterLayout();
       }
@@ -589,44 +581,13 @@
     setTimeout(afterLayout, 300);
   }
 
-  function lockGameLandscape(mediaDiv) {
-    const tryLock = () => {
-      try {
-        const orientation = screen.orientation || screen.mozOrientation || screen.msOrientation;
-        if (orientation && typeof orientation.lock === 'function') {
-          return orientation.lock('landscape').then(() => {
-            mediaDiv.classList.remove('is-game-landscape-rotate');
-          }).catch(() => {
-            mediaDiv.classList.add('is-game-landscape-rotate');
-          });
-        }
-      } catch (_) {}
-      mediaDiv.classList.add('is-game-landscape-rotate');
-      return Promise.resolve();
-    };
-    return tryLock();
-  }
-
-  function unlockGameLandscape(mediaDiv) {
-    if (mediaDiv) {
-      mediaDiv.classList.remove('is-game-landscape', 'is-game-landscape-rotate');
-    }
-    try {
-      const orientation = screen.orientation || screen.mozOrientation || screen.msOrientation;
-      if (orientation && typeof orientation.unlock === 'function') {
-        orientation.unlock();
-      }
-    } catch (_) {}
-  }
-
   function exitGameFullscreen(mediaDiv) {
     if (!mediaDiv) {
       document.body.classList.remove('game-embed-fullscreen');
       return;
     }
     clearFsChromeTimer(mediaDiv);
-    unlockGameLandscape(mediaDiv);
-    mediaDiv.classList.remove('is-game-fullscreen', 'is-fs-chrome-visible', 'is-game-cover-hidden');
+    mediaDiv.classList.remove('is-game-fullscreen', 'is-fs-chrome-visible');
     setGameInteractive(mediaDiv, false);
     document.body.classList.remove('game-embed-fullscreen');
     const closeBtn = mediaDiv.querySelector('.videos-game-fs-close');
@@ -655,8 +616,7 @@
     if (!document.fullscreenElement) {
       document.querySelectorAll('.videos-feed__media.is-game-fullscreen').forEach((el) => {
         clearFsChromeTimer(el);
-        unlockGameLandscape(el);
-        el.classList.remove('is-game-fullscreen', 'is-fs-chrome-visible', 'is-game-cover-hidden');
+        el.classList.remove('is-game-fullscreen', 'is-fs-chrome-visible');
         setGameInteractive(el, false);
         const closeBtn = el.querySelector('.videos-game-fs-close');
         const fsBtn = el.querySelector('.videos-game-fs-btn');
@@ -671,7 +631,6 @@
     } else {
       const el = document.fullscreenElement;
       if (el && el.classList && el.classList.contains('videos-feed__media--game')) {
-        if (el.dataset.gameLandscape === '1') lockGameLandscape(el);
         nudgeGameResize(el.querySelector('iframe.videos-feed__game-iframe'));
       }
     }

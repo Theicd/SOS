@@ -861,8 +861,6 @@ function sanitizeCachedVideo(video) {
     if (!(clone.gameForced && canEmbed)) {
       clone.gameUrl = null;
       clone.gameForced = false;
-      clone.gameLandscape = false;
-      clone.gameCoverUrl = null;
     }
   }
   return clone;
@@ -1225,8 +1223,6 @@ function parseEventToVideoItem(event, currentApp) {
   let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
   let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
   let gameForced = false;
-  let gameLandscape = false;
-  let gameCoverUrl = null;
   let videoUrl = mediaLinks.find(isVideoLink) || null;
   let imageUrl = mediaLinks.find(isImageLink) || null;
   let mediaHash = '';
@@ -1250,19 +1246,11 @@ function parseEventToVideoItem(event, currentApp) {
           videoUrl = videoUrl || tagUrl;
           if (tagHash) mediaHash = tagHash;
         } else if (mime.startsWith('image/') || isImageLink(tagUrl)) {
-          // תמונת כיסוי למשחק נשמרת בנפרד – לא מחליפה את המשחק | HYPER CORE TECH
-          if (gameUrl || gameForced) {
-            gameCoverUrl = gameCoverUrl || tagUrl;
-          } else {
-            imageUrl = imageUrl || tagUrl;
-          }
+          imageUrl = imageUrl || tagUrl;
         } else if (!videoUrl && !imageUrl && !liveUrl && !gameUrl) {
           videoUrl = tagUrl;
           if (tagHash) mediaHash = tagHash;
         }
-      }
-      if (tag[0] === 'game-cover' && tag[1]) {
-        gameCoverUrl = String(tag[1]);
       }
       if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'live-hls') {
         // סימון מפורש מערוץ חי – אם יש קישור כלשהו נשתמש בו
@@ -1279,9 +1267,6 @@ function parseEventToVideoItem(event, currentApp) {
           if (httpLink) gameUrl = httpLink;
         }
         if (gameUrl) gameForced = true;
-      }
-      if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-landscape') {
-        gameLandscape = true;
       }
       if (tag[0] === 'mirror' && tag[1]) {
         mediaMirrors.push(tag[1]);
@@ -1310,10 +1295,8 @@ function parseEventToVideoItem(event, currentApp) {
     liveUrl,
     gameUrl,
     gameForced: !!(gameUrl && gameForced),
-    gameLandscape: !!(gameUrl && gameLandscape),
-    gameCoverUrl: gameUrl ? (gameCoverUrl || null) : null,
     videoUrl: (liveUrl || gameUrl) ? null : videoUrl,
-    imageUrl: gameUrl ? null : imageUrl,
+    imageUrl,
     hash: mediaHash || '',
     mirrors: mediaMirrors,
     fx: resolveFxValue(event, imageUrl),
@@ -1701,8 +1684,6 @@ function renderVideoCard(video) {
     mediaDiv.dataset.mediaType = 'game-embed';
     mediaDiv.dataset.gameUrl = video.gameUrl;
     if (video.gameForced) mediaDiv.dataset.gameForced = '1';
-    if (video.gameLandscape) mediaDiv.dataset.gameLandscape = '1';
-    if (video.gameCoverUrl) mediaDiv.dataset.gameCoverUrl = video.gameCoverUrl;
     mediaDiv.classList.add('videos-feed__media--game');
 
     const AppGame = window.NostrApp || {};
@@ -1716,16 +1697,6 @@ function renderVideoCard(video) {
     placeholder.setAttribute('data-game-tap-zone', '');
     placeholder.innerHTML = '<i class="fa-solid fa-gamepad"></i><span>טוען משחק...</span>';
     mediaDiv.appendChild(placeholder);
-
-    if (video.gameCoverUrl) {
-      const cover = document.createElement('img');
-      cover.className = 'videos-feed__game-cover';
-      cover.src = video.gameCoverUrl;
-      cover.alt = 'תמונת משחק';
-      cover.decoding = 'async';
-      cover.loading = 'lazy';
-      mediaDiv.appendChild(cover);
-    }
 
     if (typeof AppGame.ensureGameFullscreenControls === 'function') {
       AppGame.ensureGameFullscreenControls(mediaDiv);
@@ -3959,8 +3930,6 @@ async function loadVideos() {
     let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
     let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
     let gameForced = false;
-    let gameLandscape = false;
-    let gameCoverUrl = null;
     let videoUrl = mediaLinks.find(isVideoLink);
     const imageUrl = mediaLinks.find(isImageLink);
 
@@ -3981,14 +3950,9 @@ async function loadVideos() {
             if (mime.includes('text/html') && !isPlayableGameLink(tagUrl) && canEmbedGameLink(tagUrl)) {
               gameForced = true;
             }
-          } else if (mime.startsWith('image/') || isImageLink(tagUrl)) {
-            if (gameUrl) gameCoverUrl = gameCoverUrl || tagUrl;
           } else if (tagUrl === videoUrl && tagHash) {
             mediaHash = tagHash;
           }
-        }
-        if (tag[0] === 'game-cover' && tag[1]) {
-          gameCoverUrl = String(tag[1]);
         }
         if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'live-hls') {
           const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l));
@@ -4000,9 +3964,6 @@ async function loadVideos() {
             if (httpLink) gameUrl = httpLink;
           }
           if (gameUrl) gameForced = true;
-        }
-        if (tag[0] === 't' && String(tag[1] || '').toLowerCase() === 'game-landscape') {
-          gameLandscape = true;
         }
         if (tag[0] === 'mirror' && tag[1]) {
           mediaMirrors.push(tag[1]);
@@ -4024,10 +3985,8 @@ async function loadVideos() {
         liveUrl: liveUrl || null,
         gameUrl: gameUrl || null,
         gameForced: !!(gameUrl && gameForced),
-        gameLandscape: !!(gameUrl && gameLandscape),
-        gameCoverUrl: gameUrl ? (gameCoverUrl || null) : null,
         videoUrl: (liveUrl || gameUrl) ? null : (videoUrl || null),
-        imageUrl: gameUrl ? null : (imageUrl || null),
+        imageUrl: imageUrl || null,
         hash: mediaHash || '',
         mirrors: mediaMirrors,
         fx: resolveFxValue(event, imageUrl),
