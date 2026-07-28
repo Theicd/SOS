@@ -407,13 +407,17 @@ body:has(.videos-feed) .top-bar__actions {
 }
 
 @media (min-width: 769px) {
-  /* סדר כפתורים בדסקטופ: אווטאר בלבד בסרגל (סטטיסטיקות/לוג בתפריט) | HYPER CORE TECH */
+  /* סדר: משחקים ליד האווטאר (משמאל לאווטאר ב־LTR של הקפסולה) | HYPER CORE TECH */
   body:has(.videos-feed) .top-bar__actions {
     flex-direction: row;
   }
 
   body:has(.videos-feed) .top-bar__actions .top-bar__profile {
     order: -2;
+  }
+
+  body:has(.videos-feed) .top-bar__actions .top-bar__games-btn {
+    order: -3;
   }
 
   /* הסתרת כפתורים עליונים רק כאשר הצ'אט פתוח במצב דסקטופ | HYPER CORE TECH */
@@ -438,6 +442,14 @@ body:has(.videos-feed) .top-bar__icon-btn {
   font-size: 1.2rem;
   padding: 0;
   position: relative;
+}
+
+body:has(.videos-feed) .top-bar__games-btn {
+  flex-shrink: 0;
+}
+
+body:has(.videos-feed) .top-bar__games-btn i {
+  pointer-events: none;
 }
 
 body:has(.videos-feed) .top-bar__icon-btn:hover {

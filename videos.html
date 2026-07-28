@@ -65,7 +65,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260728j">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260728k">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -1504,7 +1504,7 @@
     <script src="./p2p-peer-exchange.js" defer></script>
     <script src="./p2p-metadata-transfer.js" defer></script>
     <script src="./contract-dashboard-v2.js" defer></script>
-    <script src="./app.js" defer></script>
+    <script src="./app.js?v=20260728k" defer></script>
     <!-- חלק ניווט (videos.html) – הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
     <script>
       (function(){
@@ -1653,6 +1653,10 @@
         <button id="guestLoginButton" class="button-primary" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;">
           התחבר / הירשם
         </button>
+        <!-- גישה מהירה למשחקים – ליד האווטאר, זמין גם לאורחים | HYPER CORE TECH -->
+        <button type="button" class="top-bar__icon-btn top-bar__games-btn" id="gamesToggleTop" title="משחקים" aria-label="פתח פיד משחקים">
+          <i class="fa-solid fa-gamepad" aria-hidden="true"></i>
+        </button>
         <div class="top-bar__profile" id="topBarProfile">
           <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
             <span id="topBarProfileAvatar">?</span>
@@ -1671,11 +1675,6 @@
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
               <i class="fa-solid fa-chart-line"></i>
               <span>לוח גידול הרשת</span>
-            </button>
-            <!-- חלק ניווט משחקים (videos.html) – ברמת תפריט ראשית | HYPER CORE TECH -->
-            <button type="button" class="top-bar__dropdown-item" id="gamesToggleTop">
-              <i class="fa-solid fa-gamepad"></i>
-              <span>משחקים</span>
             </button>
             <!-- סטטיסטיקות הורדה + לוג – בסוף רשימת הגדרות | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--stats" id="topBarP2pStats">

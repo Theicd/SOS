@@ -884,11 +884,16 @@
       console.warn('Guest login button init failed:', e);
     }
 
-    // הסתרת תפריט הפרופיל במצב אורח
+    // הסתרת תפריט הפרופיל במצב אורח – כפתור המשחקים נשאר גלוי בטופ־בר | HYPER CORE TECH
     try {
       var topBarProfile = document.getElementById('topBarProfile');
       if (topBarProfile && App.guestMode === true) {
         topBarProfile.style.display = 'none';
+      }
+      var gamesQuickBtn = document.getElementById('gamesToggleTop');
+      if (gamesQuickBtn) {
+        gamesQuickBtn.style.display = '';
+        gamesQuickBtn.hidden = false;
       }
     } catch (e) {
       console.warn('Profile menu hide failed:', e);

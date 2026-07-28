@@ -432,18 +432,7 @@
       });
     }
 
-    // חלק כפתור משחקים (app.js) – כניסה לפיד משחקים בתוך הפיד הראשי | HYPER CORE TECH
-    const gamesButton = document.getElementById('gamesToggleTop');
-    if (gamesButton) {
-      gamesButton.addEventListener('click', () => {
-        closeMenu();
-        if (typeof App.openGamesPanel === 'function') {
-          App.openGamesPanel('./games.html');
-          return;
-        }
-        window.location.href = 'games.html';
-      });
-    }
+    // חלק כפתור משחקים – מחובר בנפרד מחוץ לתפריט (גם לאורחים) | HYPER CORE TECH
 
     const datingButton = document.getElementById('datingToggleTop');
     if (datingButton) {
@@ -454,6 +443,32 @@
     }
 
     profileWrapper.dataset.bound = '1';
+  })();
+
+  // חלק כפתור משחקים בטופ־בר (app.js) – גישה מהירה לפיד משחקים גם במצב אורח | HYPER CORE TECH
+  (function initTopBarGamesButton() {
+    const gamesButton = document.getElementById('gamesToggleTop');
+    if (!gamesButton || gamesButton.dataset.bound === '1') return;
+    gamesButton.dataset.bound = '1';
+    gamesButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const menu = document.getElementById('topBarProfileMenu');
+        const btn = document.getElementById('topBarProfileButton');
+        if (menu) menu.hidden = true;
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      } catch (_) {}
+      if (typeof App.openGamesPanel === 'function') {
+        App.openGamesPanel('./games.html');
+        return;
+      }
+      if (typeof window.openGamesPanel === 'function') {
+        window.openGamesPanel('./games.html');
+        return;
+      }
+      window.location.href = 'games.html';
+    });
   })();
 
   // חלק משחק טריוויה – מוודא שסקריפט המשחק נטען פעם אחת בלבד לאחר שהאפליקציה מוכנה
