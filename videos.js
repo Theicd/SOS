@@ -3100,7 +3100,8 @@ function prefetchNeighborLiveChannels(activeCard) {
     }
     const gameDiv = neighbor.querySelector('.videos-feed__media[data-media-type="game-embed"]');
     if (gameDiv && typeof App.prepareGameMedia === 'function') {
-      App.prepareGameMedia(gameDiv, { loadingLabel: 'טוען משחק...' });
+      // שלד בלבד – בלי טעינת iframe (מונע סאונד ברקע) | HYPER CORE TECH
+      App.prepareGameMedia(gameDiv, { loadingLabel: 'טוען משחק...', load: false });
     }
   });
 
@@ -3149,7 +3150,7 @@ function setupIntersectionObserver() {
             }
           } else if (mediaDiv.dataset.mediaType === 'game-embed') {
             if (typeof App.prepareGameMedia === 'function') {
-              App.prepareGameMedia(mediaDiv, { loadingLabel: 'טוען משחק...' });
+              App.prepareGameMedia(mediaDiv, { loadingLabel: 'טוען משחק...', load: false });
             }
           }
         } else {

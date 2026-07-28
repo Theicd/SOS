@@ -349,6 +349,27 @@
     return iframe;
   }
 
+  function silenceGameFrame(mediaDiv) {
+    // עוצר סאונד של משחק חוצה־מקור – רק איפוס src עובד | HYPER CORE TECH
+    if (!mediaDiv) return;
+    const iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
+    if (!iframe) return;
+    const hadGame = !!(iframe.dataset.loadedUrl || (iframe.src && iframe.src !== 'about:blank'));
+    if (!hadGame) return;
+    try {
+      iframe.src = 'about:blank';
+    } catch (_) {}
+    try {
+      iframe.removeAttribute('src');
+      iframe.src = 'about:blank';
+    } catch (_) {}
+    delete iframe.dataset.loadedUrl;
+    mediaDiv.dataset.gamePrepared = '0';
+    clearTimeout(mediaDiv._gamePlaceholderTimer);
+    const ph = mediaDiv.querySelector('.videos-feed__game-placeholder');
+    if (ph) ph.hidden = false;
+  }
+
   function unloadGameFrame(mediaDiv) {
     if (!mediaDiv) return;
     if (mediaDiv.classList.contains('is-game-fullscreen')) {
@@ -361,13 +382,7 @@
       } catch (_) {}
       mediaDiv._gameResizeObserver = null;
     }
-    const iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
-    if (iframe) {
-      try {
-        iframe.src = 'about:blank';
-      } catch (_) {}
-      delete iframe.dataset.loadedUrl;
-    }
+    silenceGameFrame(mediaDiv);
     const stage = mediaDiv.querySelector('.videos-feed__game-stage');
     if (stage) stage.remove();
     mediaDiv.querySelectorAll(
@@ -380,12 +395,19 @@
     if (!mediaDiv) return;
     const url = mediaDiv.dataset.gameUrl || '';
     if (!url) return;
-    if (mediaDiv.dataset.gamePrepared === '1' && mediaDiv.querySelector('iframe.videos-feed__game-iframe')) {
+    // פרילוד שכן = שלד בלי טעינה (מונע סאונד ברקע); טעינה מלאה רק למשחק פעיל | HYPER CORE TECH
+    const shouldLoad = options.load === true
+      || (options.load !== false && mediaDiv.classList.contains('is-game-active'));
+    if (
+      shouldLoad
+      && mediaDiv.dataset.gamePrepared === '1'
+      && mediaDiv.querySelector('iframe.videos-feed__game-iframe')
+    ) {
       nudgeGameResize(mediaDiv.querySelector('iframe.videos-feed__game-iframe'));
       return;
     }
     ensureGameFrame(mediaDiv, url, {
-      load: true,
+      load: shouldLoad,
       force: mediaDiv.dataset.gameForced === '1' || options.force === true,
       loadingLabel: options.loadingLabel || 'טוען משחק...',
     });
@@ -395,9 +417,16 @@
     if (!mediaDiv) return;
     const url = mediaDiv.dataset.gameUrl || '';
     if (!url) return;
+
+    // כבוי סאונד מכל משחק אחר לפני הפעלת הנוכחי | HYPER CORE TECH
+    document.querySelectorAll('.videos-feed__media[data-media-type="game-embed"]').forEach((el) => {
+      if (el === mediaDiv) return;
+      softDeactivateGameMedia(el);
+    });
+
     mediaDiv.classList.add('is-game-active');
     mediaDiv.classList.remove('is-paused');
-    prepareGameMedia(mediaDiv, { loadingLabel: 'טוען משחק...' });
+    prepareGameMedia(mediaDiv, { load: true, loadingLabel: 'טוען משחק...' });
     const iframe = mediaDiv.querySelector('iframe.videos-feed__game-iframe');
     const placeholder = mediaDiv.querySelector('.videos-feed__game-placeholder');
     // אם כבר יש src – מציגים את ה-iframe מעל ה-placeholder גם לפני load | HYPER CORE TECH
@@ -421,6 +450,9 @@
     mediaDiv.classList.remove('is-game-active');
     setGameInteractive(mediaDiv, false);
     hideGamePlayOverlay(mediaDiv);
+    // חובה לעצור סאונד – iframe חוצה־מקור ממשיך לנגן בלי זה | HYPER CORE TECH
+    silenceGameFrame(mediaDiv);
+    setGamePlaceholder(mediaDiv, 'טוען משחק...');
   }
 
   function deactivateGameMedia(mediaDiv) {

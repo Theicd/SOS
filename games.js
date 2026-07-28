@@ -291,7 +291,7 @@
       if (!neighbor) return;
       const gameDiv = neighbor.querySelector('.videos-feed__media[data-media-type="game-embed"]');
       if (gameDiv && typeof App.prepareGameMedia === 'function') {
-        App.prepareGameMedia(gameDiv, { loadingLabel: 'טוען משחק...' });
+        App.prepareGameMedia(gameDiv, { loadingLabel: 'טוען משחק...', load: false });
       }
     });
 
