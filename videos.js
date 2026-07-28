@@ -1221,11 +1221,11 @@ function upsertVideoInState(video, options = {}) {
   truncateFeedLength();
   saveFeedCache(state.videos);
 
-  // משחקים רק בפיד משחקים; LIVE TV רק במצב live-tv; שאר התוכן בפיד הכללי | HYPER CORE TECH
+  // משחקים רק בפיד משחקים; ערוצי LIVE רק בכפתור LIVE TV; שאר התוכן בפיד הכללי | HYPER CORE TECH
   let showNow = false;
   if (state.feedMode === 'games') showNow = isGameFeedVideo(video);
   else if (state.feedMode === 'live-tv') showNow = false;
-  else showNow = !isGameFeedVideo(video);
+  else showNow = isGeneralFeedVideo(video);
   if (showNow) {
     prependVideoCard(video, options);
   }
@@ -3442,8 +3442,8 @@ async function loadMoreVideos() {
     if (collectedVideos.length > 0) {
       state.videos = [...state.videos, ...collectedVideos];
       console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
-      // בפיד הכללי לא מציגים משחקים גם בטעינת המשך | HYPER CORE TECH
-      const toShow = collectedVideos.filter((v) => v && !isGameFeedVideo(v));
+      // בפיד הכללי לא מציגים משחקים/ערוצי LIVE גם בטעינת המשך | HYPER CORE TECH
+      const toShow = collectedVideos.filter((v) => isGeneralFeedVideo(v));
       if (toShow.length) {
         renderMoreVideos(toShow);
       }
@@ -3528,7 +3528,7 @@ function renderMoreVideos(videos) {
     ? videos.filter((v) => isGameFeedVideo(v))
     : state.feedMode === 'live-tv'
       ? []
-      : videos.filter((v) => v && !isGameFeedVideo(v));
+      : videos.filter((v) => isGeneralFeedVideo(v));
 
   list.forEach((video) => {
     const card = createVideoCard(video);
@@ -4811,8 +4811,17 @@ function isGameFeedVideo(video) {
   return !!(video && (video.gameUrl || video.gameForced));
 }
 
+function isLiveFeedVideo(video) {
+  // ערוץ טלוויזיה / IPTV – מוצג רק במצב LIVE TV | HYPER CORE TECH
+  return !!(video && (video.liveUrl || video.liveCatalog));
+}
+
+function isGeneralFeedVideo(video) {
+  return !!(video && !isGameFeedVideo(video) && !isLiveFeedVideo(video));
+}
+
 function getDisplayVideos() {
-  // פיד כללי = בלי משחקים; פיד משחקים = רק משחקים; LIVE TV = קטלוג ערוצים | HYPER CORE TECH
+  // פיד כללי = בלי משחקים ובלי ערוצי LIVE; משחקים / LIVE TV = מצבים נפרדים | HYPER CORE TECH
   if (state.feedMode === 'games') {
     return buildGamesFeedVideos();
   }
@@ -4820,7 +4829,7 @@ function getDisplayVideos() {
     return Array.isArray(state.liveTvVideos) ? state.liveTvVideos : [];
   }
   const all = Array.isArray(state.videos) ? state.videos : [];
-  return all.filter((v) => v && !isGameFeedVideo(v));
+  return all.filter((v) => isGeneralFeedVideo(v));
 }
 
 function pruneFeedCardsNotInDisplay(sourceVideos) {
@@ -4834,10 +4843,11 @@ function pruneFeedCardsNotInDisplay(sourceVideos) {
       card.remove();
       return;
     }
-    // חגורת בטיחות: כרטיס משחק בפיד הכללי תמיד מוסר | HYPER CORE TECH
-    if (state.feedMode !== 'games') {
+    // חגורת בטיחות: כרטיס משחק/LIVE בפיד הכללי תמיד מוסר | HYPER CORE TECH
+    if (state.feedMode === 'all' || (state.feedMode !== 'games' && state.feedMode !== 'live-tv')) {
       const isGameCard = !!card.querySelector('.videos-feed__media[data-media-type="game-embed"]');
-      if (isGameCard) card.remove();
+      const isLiveCard = !!card.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+      if (isGameCard || isLiveCard) card.remove();
     }
   });
 }
