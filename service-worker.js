@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v102'; // bump - games icon right of avatar, no shared capsule/circle
+  const CACHE_NAME = 'sos-cache-v103'; // bump - mobile avatar left, games icon to its right
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -279,7 +279,7 @@ body:has(.videos-feed) .top-bar {
 /* חלק מיקום כפתור פרופיל (videos.css) – הזזה 5px ימינה במובייל | HYPER CORE TECH */
 @media (max-width: 900px) {
   body:has(.videos-feed) .top-bar__profile {
-    transform: translateX(-5px);
+    transform: none;
   }
 
   /* הקטנת כפתור פרופיל ~10% במובייל | HYPER CORE TECH */
@@ -297,6 +297,8 @@ body:has(.videos-feed) .top-bar {
 
   body:has(.videos-feed) .top-bar__actions {
     gap: 8px; /* ריווח קטן יותר בין הכפתורים כדי להיכנס לפריים במובייל | HYPER CORE TECH */
+    direction: ltr !important;
+    flex-direction: row !important;
   }
 
   body:has(.videos-feed) #guestLoginButton {
@@ -404,6 +406,33 @@ body:has(.videos-feed) .top-bar__actions {
   gap: 12px;
   align-items: center;
   position: relative;
+  /* LTR קבוע: אווטאר משמאל, משחקים מימין לו – גם במובייל RTL | HYPER CORE TECH */
+  direction: ltr !important;
+  flex-direction: row !important;
+}
+
+/* מובייל: אווטאר ראשון משמאל, גיימפד מיד אחריו | HYPER CORE TECH */
+@media (max-width: 768px) {
+  body:has(.videos-feed) .top-bar__actions {
+    direction: ltr !important;
+    flex-direction: row !important;
+    gap: 10px;
+  }
+
+  body:has(.videos-feed) .top-bar__profile {
+    order: 1;
+    transform: none !important;
+  }
+
+  body:has(.videos-feed) .top-bar__games-btn {
+    order: 2;
+    margin: 0 !important;
+    margin-left: 8px !important;
+  }
+
+  body:has(.videos-feed) #guestLoginButton {
+    order: 0;
+  }
 }
 
 @media (min-width: 769px) {
@@ -445,7 +474,8 @@ body:has(.videos-feed) .top-bar__games-btn {
   min-height: 0;
   padding: 0 !important;
   margin: 0;
-  margin-inline-start: 10px;
+  margin-left: 10px !important;
+  margin-inline-start: 10px !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -459,6 +489,11 @@ body:has(.videos-feed) .top-bar__games-btn {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  order: 2;
+}
+
+body:has(.videos-feed) .top-bar__profile {
+  order: 1;
 }
 
 body:has(.videos-feed) .top-bar__games-btn:hover,
