@@ -114,15 +114,25 @@ body:has(.videos-feed) .guest-login-btn__swap {
   position: relative;
   display: inline-grid;
   place-items: center;
-  min-width: 3.4em;
+  min-width: 4.8em;
 }
 
 body:has(.videos-feed) .guest-login-btn__word {
   grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.55s ease, transform 0.55s ease;
   pointer-events: none;
+}
+
+body:has(.videos-feed) .guest-login-btn__word i {
+  font-size: 0.95em;
+  color: #4fc3f7;
+  filter: drop-shadow(0 0 4px rgba(79, 195, 247, 0.45));
 }
 
 body:has(.videos-feed) .guest-login-btn__word.is-visible {

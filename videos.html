@@ -65,7 +65,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260729a">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260729b">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -1649,11 +1649,17 @@
         <img class="top-bar__logo-img" src="icons/sos-logo.PNG" alt="SOS Logo">
       </div>
       <div class="top-bar__actions">
-        <!-- חלק כפתור אורח (videos.html) – כפתור קצר עם טקסט מתחלף התחבר/הירשם | HYPER CORE TECH -->
+        <!-- חלק כפתור אורח (videos.html) – כפתור קצר עם טקסט+אייקון מתחלף התחבר/הירשם | HYPER CORE TECH -->
         <button id="guestLoginButton" class="button-primary guest-login-btn" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;" aria-label="התחבר או הירשם">
           <span class="guest-login-btn__swap">
-            <span class="guest-login-btn__word is-visible">התחבר</span>
-            <span class="guest-login-btn__word">הירשם</span>
+            <span class="guest-login-btn__word is-visible">
+              <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
+              <span>התחבר</span>
+            </span>
+            <span class="guest-login-btn__word">
+              <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+              <span>הירשם</span>
+            </span>
           </span>
         </button>
         <div class="top-bar__profile" id="topBarProfile">
