@@ -3129,17 +3129,39 @@ function setupIntersectionObserver() {
   // גלילה פשוטה - רק ניגן/עצור וידאו + פרילוד ערוץ חי של השכן | HYPER CORE TECH
   intersectionObserver = new IntersectionObserver(
     (entries) => {
+      // קודם בוחרים כרטיס אחד פעיל – מונע מרוץ play/pause על משחקים | HYPER CORE TECH
+      let bestGameEntry = null;
+      entries.forEach((entry) => {
+        const mediaDiv = entry.target.querySelector('.videos-feed__media');
+        if (!mediaDiv || mediaDiv.dataset.mediaType !== 'game-embed') return;
+        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+          if (!bestGameEntry || entry.intersectionRatio > bestGameEntry.intersectionRatio) {
+            bestGameEntry = entry;
+          }
+        }
+      });
+
       entries.forEach((entry) => {
         const card = entry.target;
         const mediaDiv = card.querySelector('.videos-feed__media');
         if (!mediaDiv) return;
+
+        if (mediaDiv.dataset.mediaType === 'game-embed') {
+          if (bestGameEntry && entry.target === bestGameEntry.target) {
+            playMedia(mediaDiv, { manual: false });
+            prefetchNeighborLiveChannels(card);
+          } else if (!entry.isIntersecting || entry.intersectionRatio <= 0.5) {
+            pauseMedia(mediaDiv, { resetThumb: false });
+          }
+          return;
+        }
         
         // ניגון כשהפוסט מרכזי (50%+ גלוי)
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           playMedia(mediaDiv, { manual: false });
           prefetchNeighborLiveChannels(card);
         } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
-          // מתקרבים לכרטיס — חימום HLS/משחק ברקע | HYPER CORE TECH
+          // מתקרבים לכרטיס — חימום HLS ברקע | HYPER CORE TECH
           const App = window.NostrApp || {};
           if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
             if (typeof App.prepareLiveMedia === 'function') {
@@ -3147,10 +3169,6 @@ function setupIntersectionObserver() {
                 autoplay: false,
                 tuningLabel: 'מחפש ערוץ...',
               }).catch(() => {});
-            }
-          } else if (mediaDiv.dataset.mediaType === 'game-embed') {
-            if (typeof App.prepareGameMedia === 'function') {
-              App.prepareGameMedia(mediaDiv, { loadingLabel: 'טוען משחק...', load: false });
             }
           }
         } else {

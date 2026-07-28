@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v105'; // bump - stop previous game audio on scroll
+  const CACHE_NAME = 'sos-cache-v106'; // bump - fix games reload after silence on scroll
   const PRECACHE_URLS = [
     './',
     './videos.html',
