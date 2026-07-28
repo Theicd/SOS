@@ -185,11 +185,21 @@
     return true;
   }
 
+  function cleanChannelName(name) {
+    if (typeof App.formatChannelDisplayName === 'function') {
+      return App.formatChannelDisplayName(name) || String(name || '').trim();
+    }
+    return String(name || '')
+      .replace(/\s*[\(\[\{]\s*(?:\d{3,4}\s*[pi]|4k|8k|uhd|fhd|hd|sd|hq)\s*[\)\]\}]/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function channelToVideoItem(ch) {
     return {
       id: 'live-tv-' + ch.id,
       liveUrl: ch.stream,
-      content: ch.name,
+      content: cleanChannelName(ch.name),
       liveChannelId: ch.id,
       liveTvgId: ch.tvgId || '',
       liveCatalog: true,

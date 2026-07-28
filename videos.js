@@ -1776,6 +1776,9 @@ function renderVideoCard(video) {
     if (typeof AppLive.ensureLiveMetaOverlay === 'function') {
       AppLive.ensureLiveMetaOverlay(mediaDiv);
     }
+    if (typeof AppLive.setLiveMetaOverlay === 'function' && video.content) {
+      AppLive.setLiveMetaOverlay(mediaDiv, { channelName: video.content });
+    }
     if (typeof AppLive.setTuningVisible === 'function') {
       AppLive.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
     }
@@ -2360,7 +2363,8 @@ function renderVideoCard(video) {
 
   contentDiv.addEventListener('click', openFullText);
 
-  if (video.content) {
+  // בכרטיסי LIVE שם הערוץ מוצג ליד תג LIVE IPTV — לא חוזרים על אותו טקסט בתחתית | HYPER CORE TECH
+  if (video.content && !video.liveUrl) {
     infoDiv.appendChild(contentDiv);
     // בדיקת גלישת טקסט והוספת כפתור "עוד" לפתיחת חלונית טקסט מלאה | HYPER CORE TECH
     setTimeout(() => {

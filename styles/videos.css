@@ -502,8 +502,8 @@ body:has(.videos-feed) .top-bar__actions {
   body:has(.videos-feed) .top-bar__live-tv-btn {
     order: 3;
     margin-left: 6px !important;
-    padding: 3px 7px !important;
-    font-size: 9px !important;
+    padding: 4px 8px 4px 7px !important;
+    font-size: 10px !important;
   }
 
   body:has(.videos-feed) #guestLoginButton {
@@ -569,35 +569,38 @@ body:has(.videos-feed) .top-bar__games-btn {
   animation: gamesBtnColorPulse 4.5s ease-in-out infinite;
 }
 
-/* כפתור LIVE TV ליד משחקים | HYPER CORE TECH */
+/* כפתור LIVE TV – זהה לתג LIVE IPTV על הכרטיס | HYPER CORE TECH */
 body:has(.videos-feed) .top-bar__live-tv-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   order: 3;
   margin: 0;
   margin-left: 8px !important;
-  padding: 4px 8px !important;
-  border: 1px solid rgba(254, 44, 85, 0.55) !important;
-  border-radius: 999px !important;
-  background: rgba(0, 0, 0, 0.55) !important;
+  padding: 5px 10px 5px 8px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: #fe2c55 !important;
   color: #fff !important;
-  font-size: 10px !important;
+  font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+  font-size: 12px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(254, 44, 85, 0.25);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 body:has(.videos-feed) .top-bar__live-tv-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #fe2c55;
-  box-shadow: 0 0 0 0 rgba(254, 44, 85, 0.7);
+  background: #fff;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
   animation: live-badge-pulse 1.4s ease-out infinite;
 }
 
@@ -607,13 +610,13 @@ body:has(.videos-feed) .top-bar__live-tv-label {
 
 body:has(.videos-feed) .top-bar__live-tv-btn:hover,
 body:has(.videos-feed) .top-bar__live-tv-btn:active {
-  background: rgba(254, 44, 85, 0.22) !important;
-  border-color: rgba(254, 44, 85, 0.85) !important;
+  background: #ff3d66 !important;
+  filter: brightness(1.05);
 }
 
 body.videos-feed-mode-live-tv .top-bar__live-tv-btn {
-  background: rgba(254, 44, 85, 0.28) !important;
-  border-color: #fe2c55 !important;
+  background: #e01845 !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35), 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 body:has(.videos-feed) .top-bar__profile {
@@ -1242,12 +1245,29 @@ body:has(.videos-feed) #moreOptionsToggle {
   max-height: 100%;
 }
 
-/* חלק ערוץ חי (videos.css) – באדג' LIVE בסגנון טיקטוק | HYPER CORE TECH */
-.videos-live-badge {
+/* שורת LIVE IPTV + שם ערוץ באותה שורה | HYPER CORE TECH */
+.videos-live-topbar {
   position: absolute;
   top: 14px;
   left: 14px;
+  right: 72px;
   z-index: 40;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 86px);
+  pointer-events: none;
+}
+
+/* חלק ערוץ חי (videos.css) – באדג' LIVE בסגנון טיקטוק | HYPER CORE TECH */
+.videos-live-badge {
+  position: static;
+  top: auto;
+  left: auto;
+  z-index: auto;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1283,27 +1303,30 @@ body:has(.videos-feed) #moreOptionsToggle {
   100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); opacity: 1; }
 }
 
-/* שם ערוץ + מה משודר עכשיו על כרטיס IPTV | HYPER CORE TECH */
+/* שם ערוץ + מה משודר עכשיו — ליד תג LIVE | HYPER CORE TECH */
 .videos-live-meta {
-  position: absolute;
-  top: 48px;
-  left: 14px;
-  right: 72px;
-  z-index: 40;
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-width: min(78%, 320px);
-  padding: 8px 10px;
-  border-radius: 10px;
+  justify-content: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  padding: 5px 10px;
+  border-radius: 6px;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   color: #fff;
   pointer-events: none;
-  text-align: right;
-  direction: rtl;
+  text-align: left;
+  direction: ltr;
 }
 
 .videos-live-meta[hidden] {
@@ -1311,17 +1334,23 @@ body:has(.videos-feed) #moreOptionsToggle {
 }
 
 .videos-live-meta__channel {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .videos-live-meta__program {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1.3;
+  line-height: 1.25;
   color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .videos-live-meta__program[hidden] {

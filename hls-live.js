@@ -43,12 +43,26 @@
     try { return decodeURIComponent(String(str || '')); } catch (_) { return String(str || ''); }
   }
 
+  function stripStreamQualityLabel(raw) {
+    return String(raw || '')
+      .replace(/\s*[\(\[\{]\s*(?:\d{3,4}\s*[pi]|4k|8k|uhd|fhd|hd|sd|hq)\s*[\)\]\}]/gi, '')
+      .replace(/\s*[-–—]\s*(?:\d{3,4}\s*[pi]|4k|8k|uhd|fhd|hd|sd)\s*$/i, '')
+      .replace(/\s+(?:\d{3,4}p|4k|8k)\s*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function cleanMetaLabel(raw) {
-    const s = decodeSafe(raw).replace(/[_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+    let s = decodeSafe(raw).replace(/[_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+    s = stripStreamQualityLabel(s);
     if (!s || s.length < 2 || s.length > 80) return '';
     if (/^(index|playlist|master|live|hls|chunk|segment|manifest)$/i.test(s)) return '';
     if (/^\d+$/.test(s)) return '';
     return s;
+  }
+
+  function formatChannelDisplayName(raw) {
+    return cleanMetaLabel(raw);
   }
 
   function extractChannelNameFromUrl(url) {
@@ -125,16 +139,19 @@
 
   function ensureLiveMetaOverlay(mediaDiv) {
     if (!mediaDiv) return null;
-    let box = mediaDiv.querySelector('.videos-live-meta');
-    if (box) return box;
-    box = document.createElement('div');
-    box.className = 'videos-live-meta';
-    box.hidden = true;
-    box.innerHTML = [
-      '<div class="videos-live-meta__channel" data-live-channel></div>',
-      '<div class="videos-live-meta__program" data-live-program></div>',
-    ].join('');
-    mediaDiv.appendChild(box);
+    ensureLiveBadge(mediaDiv);
+    const top = ensureLiveTopbar(mediaDiv);
+    let box = top.querySelector('.videos-live-meta') || mediaDiv.querySelector('.videos-live-meta');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'videos-live-meta';
+      box.hidden = true;
+      box.innerHTML = [
+        '<div class="videos-live-meta__channel" data-live-channel></div>',
+        '<div class="videos-live-meta__program" data-live-program></div>',
+      ].join('');
+    }
+    if (box.parentElement !== top) top.appendChild(box);
     return box;
   }
 
@@ -142,8 +159,8 @@
     if (!mediaDiv) return;
     const box = ensureLiveMetaOverlay(mediaDiv);
     if (!box) return;
-    const channel = (meta && meta.channelName) || '';
-    const program = (meta && meta.programTitle) || '';
+    const channel = formatChannelDisplayName((meta && meta.channelName) || '');
+    const program = formatChannelDisplayName((meta && meta.programTitle) || '');
     const channelEl = box.querySelector('[data-live-channel]');
     const programEl = box.querySelector('[data-live-program]');
     if (channelEl) channelEl.textContent = channel;
@@ -152,6 +169,7 @@
       programEl.hidden = !program;
     }
     box.hidden = !(channel || program);
+    box.classList.toggle('videos-live-meta--channel-only', !!(channel && !program));
     if (channel) mediaDiv.dataset.liveChannel = channel;
     if (program) mediaDiv.dataset.liveProgram = program;
   }
@@ -348,15 +366,31 @@
     } catch (_) {}
   }
 
+  function ensureLiveTopbar(mediaDiv) {
+    if (!mediaDiv) return null;
+    let top = mediaDiv.querySelector('.videos-live-topbar');
+    if (!top) {
+      top = document.createElement('div');
+      top.className = 'videos-live-topbar';
+      mediaDiv.appendChild(top);
+    }
+    return top;
+  }
+
   function ensureLiveBadge(mediaDiv) {
     if (!mediaDiv) return null;
-    let badge = mediaDiv.querySelector('.videos-live-badge');
-    if (badge) return badge;
+    const top = ensureLiveTopbar(mediaDiv);
+    let badge = top.querySelector('.videos-live-badge') || mediaDiv.querySelector('.videos-live-badge');
+    if (badge) {
+      if (badge.parentElement !== top) top.insertBefore(badge, top.firstChild);
+      ensureFullscreenControls(mediaDiv);
+      return badge;
+    }
     badge = document.createElement('div');
     badge.className = 'videos-live-badge';
     badge.setAttribute('aria-label', 'שידור חי IPTV');
     badge.innerHTML = '<span class="videos-live-badge__dot" aria-hidden="true"></span><span class="videos-live-badge__text">LIVE IPTV</span>';
-    mediaDiv.appendChild(badge);
+    top.insertBefore(badge, top.firstChild);
     ensureFullscreenControls(mediaDiv);
     return badge;
   }
@@ -754,10 +788,12 @@
     attachHlsToVideo,
     destroyHls,
     ensureLiveBadge,
+    ensureLiveTopbar,
     ensureLiveMetaOverlay,
     setLiveMetaOverlay,
     enrichLiveCardMeta,
     resolveLiveMeta,
+    formatChannelDisplayName,
     ensureTuningOverlay,
     ensureFullscreenControls,
     enterLiveFullscreen,
@@ -775,8 +811,10 @@
     attachHlsToVideo,
     destroyHls,
     ensureLiveBadge,
+    ensureLiveTopbar,
     ensureLiveMetaOverlay,
     setLiveMetaOverlay,
+    formatChannelDisplayName,
     enrichLiveCardMeta,
     resolveLiveMeta,
     ensureFullscreenControls,
