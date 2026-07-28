@@ -65,7 +65,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260728h">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260728i">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -849,7 +849,28 @@
         }
       }
 
-      /* ===== עיגול סטטיסטיקות P2P/Blossom ===== */
+      /* ===== עיגול סטטיסטיקות P2P/Blossom – אייקון בתוך תפריט הגדרות | HYPER CORE TECH ===== */
+      .top-bar__dropdown-item--stats {
+        align-items: center;
+      }
+
+      .top-bar__dropdown-item--stats .p2p-stats-circle {
+        width: 28px;
+        height: 28px;
+        position: relative;
+        flex: 0 0 28px;
+        margin: 0;
+        cursor: inherit;
+      }
+
+      .top-bar__dropdown-item--stats .p2p-stats-text {
+        font-size: 9px;
+      }
+
+      .top-bar__dropdown-item--stats .p2p-stats-circle:hover {
+        transform: none;
+      }
+
       .p2p-stats-circle {
         width: 36px;
         height: 36px;
@@ -917,6 +938,16 @@
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         backdrop-filter: blur(10px);
         display: none;
+      }
+
+      .p2p-stats-tooltip--fixed {
+        position: fixed;
+        top: max(64px, calc(env(safe-area-inset-top, 0px) + 56px));
+        right: 12px;
+        left: auto;
+        margin-top: 0;
+        z-index: 12000;
+        max-width: min(280px, calc(100vw - 24px));
       }
 
       .p2p-stats-tooltip.visible {
@@ -1240,27 +1271,22 @@
       debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
       
       var style = document.createElement('style');
-      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}#debugOpenBtnTop{margin-inline-start:8px;width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:0;background:transparent;color:#0f0;font-size:14px;padding:0!important;line-height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
+      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
       
       document.addEventListener('DOMContentLoaded', function() {
         document.head.appendChild(style);
         document.body.appendChild(debugPanel);
         
-        // כפתור פתיחה צף (נשאר לגיבוי) + כפתור עליון ליד P2P
+        // כפתור פתיחה צף (גיבוי בלבד) – הכפתור הראשי בתפריט הפרופיל | HYPER CORE TECH
         var openBtn = document.createElement('button');
         openBtn.id = 'debugOpenBtn';
         openBtn.textContent = '🔧';
         openBtn.title = 'פתח Debug Console';
         document.body.appendChild(openBtn);
 
-        var topBar = document.querySelector('.top-bar__actions');
-        var openBtnTop = document.createElement('button');
-        openBtnTop.id = 'debugOpenBtnTop';
-        openBtnTop.type = 'button';
-        openBtnTop.textContent = '🔧';
-        openBtnTop.title = 'פתח Debug Console';
+        var openBtnTop = document.getElementById('topBarDebugLog');
 
-        // חלק כפתור רענון Cache (videos.html) – כעת בתוך תפריט הפרופיל | HYPER CORE TECH
+        // חלק כפתור רענון Cache (videos.html) – בתוך תפריט הפרופיל תחת משחקי רשת | HYPER CORE TECH
         var profileMenu = document.getElementById('topBarProfileMenu');
         var cacheRefreshBtn = document.createElement('button');
         cacheRefreshBtn.id = 'cacheRefreshBtn';
@@ -1297,20 +1323,10 @@
           }
         };
         
-        if (topBar) {
-          var p2pCircle = document.getElementById('p2pStatsCircle');
-          if (p2pCircle) {
-            p2pCircle.insertAdjacentElement('beforebegin', openBtnTop);
-          } else {
-            topBar.appendChild(openBtnTop);
-          }
-          // הוספת כפתור מחיקת קאש לתפריט הפרופיל
-          if (profileMenu) {
-            profileMenu.appendChild(cacheRefreshBtn);
-          }
-          // אין צורך בכפתור הצף אם הטופ־בר קיים
-          openBtn.style.display = 'none';
+        if (profileMenu) {
+          profileMenu.appendChild(cacheRefreshBtn);
         }
+        openBtn.style.display = 'none';
         
         var content = document.getElementById('debugContent');
         var toggle = document.getElementById('debugToggle');
@@ -1319,17 +1335,31 @@
         var maxLines = 1000; // שמור יותר שורות להצגה
         var fullLog = [];
         
+        function closeProfileMenuForDebug() {
+          var menu = document.getElementById('topBarProfileMenu');
+          var btn = document.getElementById('topBarProfileButton');
+          if (menu) menu.setAttribute('hidden', '');
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+
         function openPanel() {
+          closeProfileMenuForDebug();
           debugPanel.classList.add('open');
           openBtn.style.display = 'none';
           if (openBtnTop) openBtnTop.disabled = true;
         }
         openBtn.onclick = openPanel;
-        if (openBtnTop) openBtnTop.onclick = openPanel;
+        if (openBtnTop) {
+          openBtnTop.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openPanel();
+          });
+        }
 
         function closePanel() {
           debugPanel.classList.remove('open');
-          openBtn.style.display = 'block';
+          openBtn.style.display = 'none';
           if (openBtnTop) openBtnTop.disabled = false;
         }
         
@@ -1507,7 +1537,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260728h" defer></script>
+    <script src="./videos.js?v=20260728i" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -1605,15 +1635,6 @@
         <img class="top-bar__logo-img" src="icons/sos-logo.PNG" alt="SOS Logo">
       </div>
       <div class="top-bar__actions">
-        <!-- חלק עיגול סטטיסטיקות P2P (videos.html) – מציג יחס הורדות P2P/Blossom | HYPER CORE TECH -->
-        <div class="p2p-stats-circle" id="p2pStatsCircle" title="סטטיסטיקות הורדה" role="button" aria-haspopup="true" aria-expanded="false" tabindex="0">
-          <svg viewBox="0 0 36 36" class="p2p-stats-svg">
-            <circle class="p2p-stats-bg" cx="18" cy="18" r="15.9"/>
-            <circle class="p2p-stats-p2p" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
-            <circle class="p2p-stats-blossom" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
-          </svg>
-          <span class="p2p-stats-text" id="p2pStatsText">0</span>
-        </div>
         <!-- חלק כפתור אורח (videos.html) – כפתור התחברות/הרשמה למצב אורח | HYPER CORE TECH -->
         <button id="guestLoginButton" class="button-primary" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;">
           התחבר / הירשם
@@ -1641,6 +1662,22 @@
             <button type="button" class="top-bar__dropdown-item" id="gamesToggleTop">
               <i class="fa-solid fa-gamepad"></i>
               <span>משחקים</span>
+            </button>
+            <!-- סטטיסטיקות הורדה + לוג – בסוף רשימת הגדרות | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--stats" id="topBarP2pStats">
+              <span class="p2p-stats-circle" id="p2pStatsCircle" title="סטטיסטיקות הורדה" aria-haspopup="true" aria-expanded="false">
+                <svg viewBox="0 0 36 36" class="p2p-stats-svg" aria-hidden="true">
+                  <circle class="p2p-stats-bg" cx="18" cy="18" r="15.9"/>
+                  <circle class="p2p-stats-p2p" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
+                  <circle class="p2p-stats-blossom" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
+                </svg>
+                <span class="p2p-stats-text" id="p2pStatsText">0</span>
+              </span>
+              <span>סטטיסטיקות הורדה</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item" id="topBarDebugLog" title="פתח Debug Console">
+              <i class="fa-solid fa-wrench"></i>
+              <span>לוג ממשק</span>
             </button>
             <div class="top-bar__dropdown-title">משחקי רשת</div>
             <!-- חלק משחק דום (הועבר מהתחתית) | HYPER CORE TECH -->

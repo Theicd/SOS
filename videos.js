@@ -86,21 +86,24 @@ const p2pStatsUI = {
     circle.title = `P2P: ${this.p2p} | Blossom: ${this.blossom} | Cache: ${this.cache}`;
   },
   
-  // יצירת טולטיפ מפורט
+  // יצירת טולטיפ מפורט – נפתח מחוץ לתפריט (fixed) כי העיגול יושב בתפריט הפרופיל | HYPER CORE TECH
   createTooltip() {
     const circle = document.getElementById('p2pStatsCircle');
-    if (!circle || circle.querySelector('.p2p-stats-tooltip')) return;
+    const menuItem = document.getElementById('topBarP2pStats');
+    if (!circle || document.getElementById('p2pStatsTooltipPanel')) return;
     
     const closeP2PTooltip = () => {
-      const tooltipEl = circle.querySelector('.p2p-stats-tooltip');
+      const tooltipEl = document.getElementById('p2pStatsTooltipPanel');
       if (tooltipEl) {
         tooltipEl.classList.remove('visible');
       }
       circle.setAttribute('aria-expanded', 'false');
+      if (menuItem) menuItem.setAttribute('aria-expanded', 'false');
     };
 
     const tooltip = document.createElement('div');
-    tooltip.className = 'p2p-stats-tooltip';
+    tooltip.id = 'p2pStatsTooltipPanel';
+    tooltip.className = 'p2p-stats-tooltip p2p-stats-tooltip--fixed';
     tooltip.innerHTML = `
       <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות SOS</div>
       <div class="p2p-stats-tooltip__section">📥 הורדות</div>
@@ -157,9 +160,8 @@ const p2pStatsUI = {
         <span class="p2p-stats-tooltip__value" id="tooltipQueue">0</span>
       </div>
     `;
-    circle.appendChild(tooltip);
+    document.body.appendChild(tooltip);
     
-    // לחיצה להצגת/הסתרת טולטיפ
     const closeProfileMenu = () => {
       const profileMenu = document.getElementById('topBarProfileMenu');
       const profileBtn = document.getElementById('topBarProfileButton');
@@ -171,22 +173,35 @@ const p2pStatsUI = {
       }
     };
 
-    circle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeProfileMenu(); // סגירת תפריט פרופיל אם פתוח – חלוקה הדדית | HYPER CORE TECH
-      this.sync(); // עדכון מהסטטיסטיקות האמיתיות
+    const openOrToggleStats = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      closeProfileMenu();
+      this.sync();
       this.updateTooltip();
       const willOpen = !tooltip.classList.contains('visible');
-      tooltip.classList.toggle('visible');
+      tooltip.classList.toggle('visible', willOpen);
       circle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-    });
+      if (menuItem) menuItem.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    };
+
+    if (menuItem) {
+      menuItem.addEventListener('click', openOrToggleStats);
+    } else {
+      circle.addEventListener('click', openOrToggleStats);
+    }
     
     // סגירה בלחיצה מחוץ
-    document.addEventListener('click', () => {
+    document.addEventListener('click', (e) => {
+      if (tooltip.contains(e.target)) return;
+      if (menuItem && menuItem.contains(e.target)) return;
+      if (circle.contains(e.target)) return;
       closeP2PTooltip();
     });
 
-    // חלק תפריט פרופיל (videos.js) – הבטחת הדדיות: פתיחת תפריט פרופיל סוגרת טולטיפ P2P | HYPER CORE TECH
+    // חלק תפריט פרופיל (videos.js) – פתיחת תפריט פרופיל סוגרת טולטיפ P2P | HYPER CORE TECH
     const profileBtn = document.getElementById('topBarProfileButton');
     if (profileBtn) {
       profileBtn.addEventListener('click', () => {

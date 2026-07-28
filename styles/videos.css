@@ -407,20 +407,13 @@ body:has(.videos-feed) .top-bar__actions {
 }
 
 @media (min-width: 769px) {
-  /* סדר כפתורים בדסקטופ: אווטאר ראשון, אחריו מד P2P, ואז כפתורים נוספים | HYPER CORE TECH */
+  /* סדר כפתורים בדסקטופ: אווטאר בלבד בסרגל (סטטיסטיקות/לוג בתפריט) | HYPER CORE TECH */
   body:has(.videos-feed) .top-bar__actions {
     flex-direction: row;
   }
 
-  /* סידור פנימי של הכפתורים ע"י order - אווטאר (-2), P2P (-1), כל השאר (0) | HYPER CORE TECH */
-  /* זה מסדר את הכפתורים: אווטאר (ימין), P2P (אמצע), כלים (שמאל) */
   body:has(.videos-feed) .top-bar__actions .top-bar__profile {
     order: -2;
-  }
-  
-  body:has(.videos-feed) .top-bar__actions .p2p-stats-circle {
-    order: -1;
-    margin: 0 12px; /* ריווח סביב המד */
   }
 
   /* הסתרת כפתורים עליונים רק כאשר הצ'אט פתוח במצב דסקטופ | HYPER CORE TECH */
