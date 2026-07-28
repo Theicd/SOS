@@ -1199,8 +1199,7 @@ function upsertVideoInState(video, options = {}) {
   saveFeedCache(state.videos);
 
   // משחקים רק בפיד משחקים; שאר התוכן רק בפיד הכללי | HYPER CORE TECH
-  const isGame = !!video.gameUrl;
-  const showNow = state.feedMode === 'games' ? isGame : !isGame;
+  const showNow = state.feedMode === 'games' ? isGameFeedVideo(video) : !isGameFeedVideo(video);
   if (showNow) {
     prependVideoCard(video, options);
   }
@@ -2402,17 +2401,28 @@ function renderVideos() {
   resetIncrementalRender();
 
   const sourceVideos = getDisplayVideos();
-  
+  // מסיר כרטיסי משחק שכבר הוזרקו ל-DOM (מטמון / load-more ישן) | HYPER CORE TECH
+  if (!needsFullRender) {
+    pruneFeedCardsNotInDisplay(sourceVideos);
+  }
+
   if (!Array.isArray(sourceVideos) || sourceVideos.length === 0) {
     hideLoadingAnimation();
     setStatus(state.feedMode === 'games' ? 'אין משחקים להצגה' : 'אין סרטונים להצגה');
     return;
   }
 
+  // אחרי prune – מרעננים את רשימת הקיימים כדי לא לדלג על הוספות | HYPER CORE TECH
+  const currentIds = new Set();
+  selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
+    const id = card.getAttribute('data-event-id');
+    if (id) currentIds.add(id);
+  });
+
   // סינון רק פוסטים שעוד לא מוצגים
-  const videosToRender = needsFullRender 
-    ? sourceVideos 
-    : sourceVideos.filter(v => !existingIds.has(v.id));
+  const videosToRender = needsFullRender
+    ? sourceVideos
+    : sourceVideos.filter((v) => !currentIds.has(v.id));
   
   if (videosToRender.length === 0) {
     // כל הפוסטים כבר מוצגים
@@ -3294,7 +3304,11 @@ async function loadMoreVideos() {
     if (collectedVideos.length > 0) {
       state.videos = [...state.videos, ...collectedVideos];
       console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
-      renderMoreVideos(collectedVideos);
+      // בפיד הכללי לא מציגים משחקים גם בטעינת המשך | HYPER CORE TECH
+      const toShow = collectedVideos.filter((v) => v && !isGameFeedVideo(v));
+      if (toShow.length) {
+        renderMoreVideos(toShow);
+      }
       saveFeedCache(state.videos);
     } else {
       console.log('[videos] loadMoreVideos: no more videos available');
@@ -3371,15 +3385,19 @@ function createVideoCard(video) {
 function renderMoreVideos(videos) {
   const stream = document.querySelector('.videos-feed__stream');
   if (!stream || !videos.length) return;
-  
-  videos.forEach((video) => {
+
+  const list = state.feedMode === 'games'
+    ? videos.filter((v) => isGameFeedVideo(v))
+    : videos.filter((v) => v && !isGameFeedVideo(v));
+
+  list.forEach((video) => {
     const card = createVideoCard(video);
     if (card) {
       stream.appendChild(card);
       observeVideoCard(card);
     }
   });
-  
+
   updateLoadMoreTrigger();
 }
 
@@ -4638,13 +4656,37 @@ function buildGamesFeedVideos() {
   return list;
 }
 
+function isGameFeedVideo(video) {
+  // פוסט משחק = יש gameUrl / סומן כמשחק לכפיית embed | HYPER CORE TECH
+  return !!(video && (video.gameUrl || video.gameForced));
+}
+
 function getDisplayVideos() {
   // פיד כללי = בלי משחקים; פיד משחקים = רק משחקים | HYPER CORE TECH
   if (state.feedMode === 'games') {
     return buildGamesFeedVideos();
   }
   const all = Array.isArray(state.videos) ? state.videos : [];
-  return all.filter((v) => v && !v.gameUrl);
+  return all.filter((v) => v && !isGameFeedVideo(v));
+}
+
+function pruneFeedCardsNotInDisplay(sourceVideos) {
+  if (!selectors.stream) return;
+  const allowedIds = new Set((sourceVideos || []).map((v) => v && v.id).filter(Boolean));
+  const cards = Array.from(selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]'));
+  cards.forEach((card) => {
+    const id = card.getAttribute('data-event-id');
+    if (!id) return;
+    if (!allowedIds.has(id)) {
+      card.remove();
+      return;
+    }
+    // חגורת בטיחות: כרטיס משחק בפיד הכללי תמיד מוסר | HYPER CORE TECH
+    if (state.feedMode !== 'games') {
+      const isGameCard = !!card.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+      if (isGameCard) card.remove();
+    }
+  });
 }
 
 function forceFullFeedRerender() {

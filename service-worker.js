@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v97'; // bump - remove broken 3D Penalty Kick catalog game
+  const CACHE_NAME = 'sos-cache-v98'; // bump - hide games from general feed + compose fit
   const PRECACHE_URLS = [
     './',
     './videos.html',
