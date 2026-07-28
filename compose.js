@@ -105,18 +105,25 @@
 
     if (!show || liveUrl || (!anyLink && !autoGame)) {
       wrap.hidden = true;
-      if (!show) {
+      if (!show || liveUrl || !anyLink) {
         state.markAsGame = false;
-        if (checkbox) checkbox.checked = false;
+        if (checkbox) {
+          checkbox.checked = false;
+          delete checkbox.dataset.userTouched;
+        }
       }
       return;
     }
 
-    wrap.hidden = false;
-    if (autoGame && checkbox && !checkbox.dataset.userTouched) {
-      checkbox.checked = true;
+    // זיהוי אוטומטי — בלי תיבת סימון כפולה לתצוגה | HYPER CORE TECH
+    if (autoGame) {
+      wrap.hidden = true;
       state.markAsGame = true;
+      if (checkbox) checkbox.checked = true;
+      return;
     }
+
+    wrap.hidden = false;
   }
 
   function showComposeStep(step) {
@@ -984,6 +991,7 @@
       delete elements.markAsGame.dataset.userTouched;
     }
     if (elements.gameFlagWrap) elements.gameFlagWrap.hidden = true;
+    setComposeGameMode(false);
     updateTextToolsVisibility();
     updateComposeLegalState();
     showComposeStep('chooser');
@@ -1358,6 +1366,12 @@
   }
 
   // חלק קומפוזר (compose.js) – תצוגה מקדימה כשמזהים לינק ערוץ חי / משחק בטקסט | HYPER CORE TECH
+  function setComposeGameMode(active) {
+    if (elements.editor) {
+      elements.editor.classList.toggle('is-compose-game', !!active);
+    }
+  }
+
   function updateComposeLivePreview() {
     const container = elements.previewContainer;
     if (!container) return;
@@ -1368,6 +1382,7 @@
     if (existingGame) existingGame.remove();
 
     if (state.media || state.composeMode !== 'text') {
+      setComposeGameMode(false);
       updateGameFlagVisibility();
       return;
     }
@@ -1387,6 +1402,7 @@
     const gameUrl = autoGameUrl || forcedGameUrl || '';
 
     updateGameFlagVisibility();
+    setComposeGameMode(!!gameUrl);
 
     if (!liveUrl && !gameUrl) {
       if (!state.media) {
@@ -1406,14 +1422,12 @@
     container.appendChild(preview);
     container.classList.add('is-visible');
     container.removeAttribute('hidden');
-    setStatus(
-      liveUrl
-        ? 'זוהה ערוץ חי — יפורסם עם תג LIVE IPTV'
-        : (autoGameUrl
-          ? 'זוהה משחק — יפורסם כפוסט משחק בפיד ובדף המשחקים'
-          : 'סומן כמשחק — יפורסם בפיד ובדף המשחקים'),
-      'success'
-    );
+    // במצב משחק התצוגה עצמה מספיקה — בלי סטטוס כפול שתופס גובה | HYPER CORE TECH
+    if (liveUrl) {
+      setStatus('זוהה ערוץ חי — יפורסם עם תג LIVE IPTV', 'success');
+    } else {
+      resetStatus();
+    }
   }
 
   // חלק קומפוזר (compose.js) – פרסום פוסט: בניית payload, חתימה ופרסום ל-relays | HYPER CORE TECH

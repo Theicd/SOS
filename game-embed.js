@@ -656,7 +656,6 @@
       '<div class="compose-game-preview__badge"><i class="fa-solid fa-gamepad"></i> משחק</div>',
       '<div class="compose-game-preview__title">משחק HTML5 מזוהה</div>',
       '<div class="compose-game-preview__url"></div>',
-      '<div class="compose-game-preview__hint">יפורסם כפוסט שניתן לשחק מתוך הפיד</div>',
     ].join('');
     const urlEl = wrap.querySelector('.compose-game-preview__url');
     if (urlEl) urlEl.textContent = url;

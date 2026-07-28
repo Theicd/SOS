@@ -1665,61 +1665,76 @@ body.game-embed-fullscreen .videos-feed__actions {
 }
 
 .compose-game-preview {
-  margin-top: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
   background: linear-gradient(135deg, rgba(12, 24, 18, 0.96), rgba(10, 28, 40, 0.96));
   border: 1px solid rgba(18, 183, 106, 0.45);
   color: #fff;
   text-align: right;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
 }
 
 .compose-game-preview__badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 5px;
+  padding: 3px 7px;
   border-radius: 5px;
   background: #12b76a;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+  margin: 0;
+  grid-row: 1 / span 2;
+  align-self: center;
 }
 
 .compose-game-preview__title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .compose-game-preview__url {
-  font-size: 11px;
+  font-size: 10px;
   opacity: 0.7;
   word-break: break-all;
   direction: ltr;
   text-align: left;
-  margin: 6px 0;
+  margin: 0;
+  line-height: 1.25;
+  max-height: 2.5em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .compose-game-preview__hint {
-  font-size: 12px;
-  opacity: 0.85;
+  display: none;
 }
 
 /* תיבת סימון "זה משחק" בקומפוזר | HYPER CORE TECH */
 .compose-game-flag {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 10px 14px 4px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #fff;
   cursor: pointer;
   user-select: none;
+  flex: 0 0 auto;
 }
 
 .compose-game-flag[hidden] {
@@ -1733,11 +1748,11 @@ body.game-embed-fullscreen .videos-feed__actions {
 }
 
 .compose-game-flag__box {
-  flex: 0 0 22px;
-  width: 22px;
-  height: 22px;
-  margin-top: 1px;
-  border-radius: 6px;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin-top: 0;
+  border-radius: 5px;
   border: 2px solid rgba(255, 255, 255, 0.45);
   background: rgba(0, 0, 0, 0.25);
   position: relative;
@@ -1751,18 +1766,18 @@ body.game-embed-fullscreen .videos-feed__actions {
 .compose-game-flag input:checked + .compose-game-flag__box::after {
   content: '';
   position: absolute;
-  left: 6px;
-  top: 2px;
-  width: 6px;
-  height: 11px;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
   border: solid #7CFFB2;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 
 .compose-game-flag__text {
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.3;
   color: rgba(255, 255, 255, 0.9);
 }
 

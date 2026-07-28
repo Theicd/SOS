@@ -1197,7 +1197,13 @@ function upsertVideoInState(video, options = {}) {
   state.videos.unshift(video);
   truncateFeedLength();
   saveFeedCache(state.videos);
-  prependVideoCard(video, options);
+
+  // משחקים רק בפיד משחקים; שאר התוכן רק בפיד הכללי | HYPER CORE TECH
+  const isGame = !!video.gameUrl;
+  const showNow = state.feedMode === 'games' ? isGame : !isGame;
+  if (showNow) {
+    prependVideoCard(video, options);
+  }
 }
 
 // חלק עדכון בזמן אמת (videos.js) – המרת אירוע Nostr לפריט פיד וידאו | HYPER CORE TECH
@@ -4633,10 +4639,12 @@ function buildGamesFeedVideos() {
 }
 
 function getDisplayVideos() {
+  // פיד כללי = בלי משחקים; פיד משחקים = רק משחקים | HYPER CORE TECH
   if (state.feedMode === 'games') {
     return buildGamesFeedVideos();
   }
-  return Array.isArray(state.videos) ? state.videos : [];
+  const all = Array.isArray(state.videos) ? state.videos : [];
+  return all.filter((v) => v && !v.gameUrl);
 }
 
 function forceFullFeedRerender() {
