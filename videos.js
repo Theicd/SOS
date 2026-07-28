@@ -1751,6 +1751,10 @@ function renderVideoCard(video) {
     mediaDiv.dataset.liveUrl = video.liveUrl;
     mediaDiv.dataset.videoUrl = video.liveUrl;
     mediaDiv.dataset.liveCaption = video.content || '';
+    // שם ערוץ מהקטלוג/כיתוב נעול — לא יוחלף בזבל מ־URL/פלייליסט | HYPER CORE TECH
+    if (video.liveCatalog || (video.content && String(video.content).trim())) {
+      mediaDiv.dataset.liveChannelLocked = '1';
+    }
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
@@ -1801,6 +1805,7 @@ function renderVideoCard(video) {
         AppLive.enrichLiveCardMeta(mediaDiv, {
           url: video.liveUrl,
           content: video.content || '',
+          lockedName: video.liveCatalog ? (video.content || '') : '',
         }).catch(() => {});
       }
       if (typeof AppLive.checkHlsHealth === 'function') {
@@ -1809,6 +1814,7 @@ function renderVideoCard(video) {
             AppLive.enrichLiveCardMeta(mediaDiv, {
               url: video.liveUrl,
               content: video.content || '',
+              lockedName: video.liveCatalog ? (video.content || '') : '',
               playlistMeta: health.playlistMeta,
             }).catch(() => {});
           }

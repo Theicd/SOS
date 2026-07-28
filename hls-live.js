@@ -52,11 +52,24 @@
       .trim();
   }
 
+  function isJunkChannelLabel(raw) {
+    const t = String(raw || '').trim().toLowerCase();
+    if (!t) return true;
+    if (/^(english|hebrew|arabic|spanish|french|german|russian|portuguese|italian|chinese|japanese|korean|eng|heb|ara|spa|fre|deu|ger|rus|por|ita|chi|jpn|kor|und|unknown|null|undefined)$/i.test(t)) return true;
+    if (/^(audio|video|subtitle|subtitles|subs|default|none|auto|track|group|stereo|aac|mp4a)$/i.test(t)) return true;
+    if (/^(index|playlist|master|live|hls|chunk|segment|manifest|livehls|livx|cdn|abr|stream|streams|media|play|video|oil)$/i.test(t)) return true;
+    if (/\.livx$/i.test(t) || /\.(m3u8|ts|mpd|mp4)$/i.test(t)) return true;
+    if (/^(kancdn-live|medonecdn|cdn-redge)$/i.test(t)) return true;
+    if (/^[a-f0-9]{8}-[a-f0-9-]{20,}$/i.test(t)) return true;
+    if (/^[a-f0-9]{24,}$/i.test(t)) return true;
+    return false;
+  }
+
   function cleanMetaLabel(raw) {
     let s = decodeSafe(raw).replace(/[_+]+/g, ' ').replace(/\s+/g, ' ').trim();
     s = stripStreamQualityLabel(s);
     if (!s || s.length < 2 || s.length > 80) return '';
-    if (/^(index|playlist|master|live|hls|chunk|segment|manifest)$/i.test(s)) return '';
+    if (isJunkChannelLabel(s)) return '';
     if (/^\d+$/.test(s)) return '';
     return s;
   }
@@ -74,12 +87,15 @@
         const v = cleanMetaLabel(u.searchParams.get(qKeys[i]) || '');
         if (v) return v;
       }
-      const parts = u.pathname.split('/').filter(Boolean).map(cleanMetaLabel).filter(Boolean);
-      // מחפשים מקטע משמעותי לפני הקובץ | HYPER CORE TECH
+      const parts = u.pathname.split('/').filter(Boolean);
+      // מחפשים מקטע משמעותי לפני הקובץ — מדלגים על מקטעי CDN/טכניים | HYPER CORE TECH
       for (let j = parts.length - 1; j >= 0; j -= 1) {
-        const p = parts[j];
-        if (/\.m3u8$/i.test(p)) continue;
-        if (/^(hls|live|stream|streams|playlist|play|media|cdn|video)$/i.test(p)) continue;
+        const raw = decodeSafe(parts[j]);
+        if (/\.m3u8$/i.test(raw)) continue;
+        if (/\./.test(raw) && !/\s/.test(raw)) continue; // live.livx / file-like
+        const p = cleanMetaLabel(raw);
+        if (!p) continue;
+        if (/^(hls|live|stream|streams|playlist|play|media|cdn|video|livehls|oil)$/i.test(p)) continue;
         if (p.length >= 2) return p;
       }
     } catch (_) {}
@@ -93,8 +109,12 @@
       || text.match(/#EXT-X-SESSION-DATA:[^\n]*VALUE="([^"]+)"[^\n]*DATA-ID="[^"]*title[^"]*"/i);
     if (sessionTitle && sessionTitle[1]) meta.channelName = cleanMetaLabel(sessionTitle[1]);
 
+    // NAME מ־EXT-X-MEDIA הוא לרוב שפת אודיו (english) — לא שם ערוץ | HYPER CORE TECH
     const mediaName = text.match(/#EXT-X-MEDIA:[^\n]*NAME="([^"]+)"/i);
-    if (!meta.channelName && mediaName && mediaName[1]) meta.channelName = cleanMetaLabel(mediaName[1]);
+    if (!meta.channelName && mediaName && mediaName[1]) {
+      const mediaLabel = cleanMetaLabel(mediaName[1]);
+      if (mediaLabel && !isJunkChannelLabel(mediaName[1])) meta.channelName = mediaLabel;
+    }
 
     const extinf = text.match(/#EXTINF:[^\n]*,\s*([^\n]+)/i);
     if (extinf && extinf[1]) {
@@ -108,6 +128,8 @@
     const tvgName = text.match(/tvg-name="([^"]+)"/i);
     if (tvgName && tvgName[1]) meta.channelName = cleanMetaLabel(tvgName[1]) || meta.channelName;
 
+    if (meta.channelName && isJunkChannelLabel(meta.channelName)) meta.channelName = '';
+    if (meta.programTitle && isJunkChannelLabel(meta.programTitle)) meta.programTitle = '';
     return meta;
   }
 
@@ -125,15 +147,20 @@
   }
 
   function resolveLiveMeta(options = {}) {
+    const locked = formatChannelDisplayName(options.lockedName || '');
     const fromContent = extractChannelNameFromContent(options.content || '');
-    const fromUrl = extractChannelNameFromUrl(options.url || '');
     const fromPlaylist = options.playlistMeta || {};
-    const channelName = fromContent || fromPlaylist.channelName || fromUrl || '';
-    const programTitle = fromPlaylist.programTitle || '';
+    const playlistName = formatChannelDisplayName(fromPlaylist.channelName || '');
+    const fromUrl = extractChannelNameFromUrl(options.url || '');
+    // שם ידוע מהקטלוג/כיתוב תמיד מנצח — לא נדרסים ע"י live.livx / english | HYPER CORE TECH
+    const channelName = locked || fromContent || playlistName || fromUrl || '';
+    const programTitle = formatChannelDisplayName(fromPlaylist.programTitle || '');
     return {
       channelName,
       programTitle,
-      source: fromContent ? 'content' : (fromPlaylist.channelName ? 'playlist' : (fromUrl ? 'url' : '')),
+      source: locked || fromContent
+        ? 'content'
+        : (playlistName ? 'playlist' : (fromUrl ? 'url' : '')),
     };
   }
 
@@ -159,10 +186,21 @@
     if (!mediaDiv) return;
     const box = ensureLiveMetaOverlay(mediaDiv);
     if (!box) return;
-    const channel = formatChannelDisplayName((meta && meta.channelName) || '');
-    const program = formatChannelDisplayName((meta && meta.programTitle) || '');
+    const locked = mediaDiv.dataset.liveChannelLocked === '1'
+      ? formatChannelDisplayName(mediaDiv.dataset.liveCaption || '')
+      : '';
+    let channel = locked || formatChannelDisplayName((meta && meta.channelName) || '');
+    if (isJunkChannelLabel(channel)) channel = locked || '';
+    let program = formatChannelDisplayName((meta && meta.programTitle) || '');
+    if (isJunkChannelLabel(program) || (channel && program.toLowerCase() === channel.toLowerCase())) {
+      program = '';
+    }
     const channelEl = box.querySelector('[data-live-channel]');
     const programEl = box.querySelector('[data-live-program]');
+    // לא מחליפים שם טוב בזבל / ריק | HYPER CORE TECH
+    if (!channel && channelEl && channelEl.textContent && !isJunkChannelLabel(channelEl.textContent)) {
+      channel = channelEl.textContent.trim();
+    }
     if (channelEl) channelEl.textContent = channel;
     if (programEl) {
       programEl.textContent = program ? ('עכשיו: ' + program) : '';
@@ -235,14 +273,20 @@
     if (!mediaDiv) return null;
     const url = options.url || mediaDiv.dataset.liveUrl || mediaDiv.dataset.videoUrl || '';
     const content = options.content != null ? options.content : (mediaDiv.dataset.liveCaption || '');
+    if (options.content != null && String(options.content || '').trim()) {
+      mediaDiv.dataset.liveCaption = String(options.content || '').trim();
+    }
+    const lockedName = mediaDiv.dataset.liveChannelLocked === '1'
+      ? (mediaDiv.dataset.liveCaption || content || '')
+      : (options.lockedName || '');
     let playlistMeta = options.playlistMeta || null;
     if (!playlistMeta && options.playlistText) {
       playlistMeta = extractMetaFromPlaylist(options.playlistText);
     }
-    let meta = resolveLiveMeta({ url, content, playlistMeta });
+    let meta = resolveLiveMeta({ url, content, playlistMeta, lockedName });
 
     // EPG חיצוני – רק כשיש רמז לשם ערוץ מוכר | HYPER CORE TECH
-    const hint = [meta.channelName, content, url].filter(Boolean).join(' ');
+    const hint = [meta.channelName, content, lockedName, url].filter(Boolean).join(' ');
     if (!meta.programTitle) {
       try {
         const epg = await fetchNowPlayingForHints(hint);
@@ -254,6 +298,12 @@
           };
         }
       } catch (_) {}
+    }
+
+    // שם נעול מהקטלוג תמיד נשאר | HYPER CORE TECH
+    if (lockedName) {
+      const lockedClean = formatChannelDisplayName(lockedName);
+      if (lockedClean) meta.channelName = lockedClean;
     }
 
     setLiveMetaOverlay(mediaDiv, meta);
