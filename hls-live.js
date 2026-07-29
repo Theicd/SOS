@@ -175,6 +175,7 @@
       box.hidden = true;
       box.innerHTML = [
         '<div class="videos-live-meta__channel" data-live-channel></div>',
+        '<div class="videos-live-meta__category" data-live-category></div>',
         '<div class="videos-live-meta__program" data-live-program></div>',
       ].join('');
     }
@@ -186,6 +187,14 @@
     if (!mediaDiv) return;
     const box = ensureLiveMetaOverlay(mediaDiv);
     if (!box) return;
+    if (!box.querySelector('[data-live-category]')) {
+      const cat = document.createElement('div');
+      cat.className = 'videos-live-meta__category';
+      cat.setAttribute('data-live-category', '');
+      const channelNode = box.querySelector('[data-live-channel]');
+      if (channelNode && channelNode.nextSibling) box.insertBefore(cat, channelNode.nextSibling);
+      else box.appendChild(cat);
+    }
     const locked = mediaDiv.dataset.liveChannelLocked === '1'
       ? formatChannelDisplayName(mediaDiv.dataset.liveCaption || '')
       : '';
@@ -195,19 +204,25 @@
     if (isJunkChannelLabel(program) || (channel && program.toLowerCase() === channel.toLowerCase())) {
       program = '';
     }
+    const category = formatLiveCategoryLabel(mediaDiv.dataset.liveCategory || (meta && meta.category) || '');
     const channelEl = box.querySelector('[data-live-channel]');
+    const categoryEl = box.querySelector('[data-live-category]');
     const programEl = box.querySelector('[data-live-program]');
     // לא מחליפים שם טוב בזבל / ריק | HYPER CORE TECH
     if (!channel && channelEl && channelEl.textContent && !isJunkChannelLabel(channelEl.textContent)) {
       channel = channelEl.textContent.trim();
     }
     if (channelEl) channelEl.textContent = channel;
+    if (categoryEl) {
+      categoryEl.textContent = category ? ('סוג ערוץ: ' + category) : '';
+      categoryEl.hidden = !category;
+    }
     if (programEl) {
       programEl.textContent = program ? ('עכשיו: ' + program) : '';
       programEl.hidden = !program;
     }
-    box.hidden = !(channel || program);
-    box.classList.toggle('videos-live-meta--channel-only', !!(channel && !program));
+    box.hidden = !(channel || program || category);
+    box.classList.toggle('videos-live-meta--channel-only', !!(channel && !program && !category));
     if (channel) mediaDiv.dataset.liveChannel = channel;
     if (program) mediaDiv.dataset.liveProgram = program;
   }
@@ -693,6 +708,51 @@
     delete vp.dataset.liveFsScrollTop;
   }
 
+  function formatLiveCategoryLabel(raw) {
+    const key = String(raw || '').trim().toLowerCase();
+    if (!key || key === 'undefined' || key === 'null') return '';
+    const map = {
+      movies: 'סרטים',
+      movie: 'סרטים',
+      series: 'סדרות',
+      kids: 'ילדים',
+      children: 'ילדים',
+      sports: 'ספורט',
+      sport: 'ספורט',
+      news: 'חדשות',
+      music: 'מוזיקה',
+      entertainment: 'בידור',
+      documentary: 'תעודה',
+      documentaries: 'תעודה',
+      comedy: 'קומדיה',
+      cooking: 'בישול',
+      food: 'בישול',
+      fashion: 'אופנה',
+      general: 'כללי',
+      religious: 'דת',
+      outdoor: 'חוץ וטבע',
+      auto: 'רכב',
+      automotive: 'רכב',
+      business: 'עסקים',
+      culture: 'תרבות',
+      education: 'חינוך',
+      family: 'משפחה',
+      legislative: 'ממשל',
+      shop: 'קניות',
+      shopping: 'קניות',
+      travel: 'תיירות',
+      weather: 'מזג אוויר',
+      science: 'מדע',
+      animation: 'אנימציה',
+      classic: 'קלאסיקה',
+      lifestyle: 'לייף סטייל',
+    };
+    if (map[key]) return map[key];
+    // אם כבר בעברית / תווית מוכנה
+    if (/[\u0590-\u05FF]/.test(key)) return String(raw).trim();
+    return key.charAt(0).toUpperCase() + key.slice(1);
+  }
+
   function ensureCableOsd(mediaDiv) {
     if (!mediaDiv) return null;
     let osd = mediaDiv.querySelector('.videos-live-cable-osd');
@@ -712,7 +772,10 @@
       '<div class="videos-live-cable-osd__panel">',
       '  <div class="videos-live-cable-osd__row-top">',
       '    <div class="videos-live-cable-osd__ch-num" data-osd-num>—</div>',
-      '    <div class="videos-live-cable-osd__ch-name" data-osd-channel>ערוץ חי</div>',
+      '    <div class="videos-live-cable-osd__ch-block">',
+      '      <div class="videos-live-cable-osd__ch-name" data-osd-channel>ערוץ חי</div>',
+      '      <div class="videos-live-cable-osd__ch-type" data-osd-category></div>',
+      '    </div>',
       '  </div>',
       '  <div class="videos-live-cable-osd__program">',
       '    <span class="videos-live-cable-osd__now-badge">עכשיו</span>',
@@ -774,6 +837,7 @@
       || 'ערוץ חי';
     const title = mediaDiv.dataset.liveProgram || 'שידור חי';
     const num = mediaDiv.dataset.liveChannelNumber || '';
+    const category = formatLiveCategoryLabel(mediaDiv.dataset.liveCategory || '');
     const startIso = mediaDiv.dataset.liveProgramStart || '';
     const stopIso = mediaDiv.dataset.liveProgramStop || '';
     const start = startIso ? new Date(startIso) : null;
@@ -785,6 +849,7 @@
 
     const numEl = osd.querySelector('[data-osd-num]');
     const chEl = osd.querySelector('[data-osd-channel]');
+    const catEl = osd.querySelector('[data-osd-category]');
     const titleEl = osd.querySelector('[data-osd-title]');
     const durEl = osd.querySelector('[data-osd-duration]');
     const leftEl = osd.querySelector('[data-osd-left]');
@@ -796,6 +861,10 @@
 
     if (numEl) numEl.textContent = num || '•';
     if (chEl) chEl.textContent = channel;
+    if (catEl) {
+      catEl.textContent = category ? ('סוג ערוץ: ' + category) : '';
+      catEl.hidden = !category;
+    }
     if (titleEl) titleEl.textContent = title || 'שידור חי';
     if (clockEl) clockEl.textContent = formatOsdClock(now);
     if (dateEl) dateEl.textContent = formatOsdDate(now);
@@ -1257,6 +1326,7 @@
     enrichLiveCardMeta,
     resolveLiveMeta,
     formatChannelDisplayName,
+    formatLiveCategoryLabel,
     ensureTuningOverlay,
     ensureLiveLoadingPlaceholder,
     ensureFullscreenControls,

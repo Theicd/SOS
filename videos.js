@@ -1829,6 +1829,7 @@ function renderVideoCard(video) {
     if (video.liveTvgId) mediaDiv.dataset.liveTvgId = String(video.liveTvgId);
     if (video.liveChannelNumber) mediaDiv.dataset.liveChannelNumber = String(video.liveChannelNumber);
     if (video.liveChannelId) mediaDiv.dataset.liveChannelId = String(video.liveChannelId);
+    if (video.liveCategory) mediaDiv.dataset.liveCategory = String(video.liveCategory);
     // שם ערוץ מהקטלוג/כיתוב נעול — לא יוחלף בזבל מ־URL/פלייליסט | HYPER CORE TECH
     if (video.liveCatalog || (video.content && String(video.content).trim())) {
       mediaDiv.dataset.liveChannelLocked = '1';
