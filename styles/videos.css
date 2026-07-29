@@ -1275,7 +1275,7 @@ body:has(.videos-feed) #moreOptionsToggle {
 }
 
 body.videos-feed-mode-live-tv .videos-live-topbar {
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  bottom: 72px;
   right: 78px;
 }
 
@@ -2012,17 +2012,25 @@ body.live-channel-fullscreen .videos-feed__viewport {
   letter-spacing: 0.02em;
 }
 
-/* פיד LIVE TV – כרטיס מלא מסך כמו משחקים | HYPER CORE TECH */
+/* פיד LIVE TV – כרטיס בגובה הוויפורט בין ההדר לתפריט התחתון | HYPER CORE TECH */
+body.videos-feed-mode-live-tv .videos-feed__viewport {
+  padding-top: calc(44px + var(--safe-top, 0px));
+  padding-bottom: calc(56px + var(--safe-bottom, 0px));
+  scroll-padding-top: calc(44px + var(--safe-top, 0px));
+  scroll-padding-bottom: calc(56px + var(--safe-bottom, 0px));
+}
+
 body.videos-feed-mode-live-tv .videos-feed__card {
-  height: 100dvh !important;
-  min-height: 100dvh !important;
-  max-height: 100dvh !important;
+  height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px)) !important;
+  min-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px)) !important;
+  max-height: calc(100dvh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px)) !important;
   width: 100% !important;
   max-width: 100% !important;
   margin: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
   padding: 0 !important;
+  overflow: hidden !important;
 }
 
 body.videos-feed-mode-live-tv .videos-feed__media,
@@ -2037,19 +2045,55 @@ body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] {
   border: none !important;
   box-shadow: none !important;
   margin: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
 }
 
+/* contain – כל פריים הערוץ נכנס לכרטיס, בלי לחתוך תחתית | HYPER CORE TECH */
 body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] video,
 body.videos-feed-mode-live-tv .videos-feed__media-video {
+  position: absolute !important;
+  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover !important;
-  background: #000;
+  object-fit: contain !important;
+  object-position: center center !important;
+  background: #000 !important;
+}
+
+/* כפתור מסך מלא – תמיד גלוי מעל תחתית הכרטיס | HYPER CORE TECH */
+body.videos-feed-mode-live-tv .videos-live-fs-btn {
+  display: grid !important;
+  right: 14px !important;
+  bottom: 16px !important;
+  z-index: 55 !important;
+  width: 46px !important;
+  height: 46px !important;
+  background: rgba(0, 0, 0, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* שם ערוץ / LIVE – מעל כפתור מסך מלא, בלי לחפוף | HYPER CORE TECH */
+body.videos-feed-mode-live-tv .videos-live-topbar {
+  top: auto !important;
+  bottom: 72px !important;
+  left: 12px !important;
+  right: 72px !important;
+  max-width: calc(100% - 90px) !important;
 }
 
 /* לא לגעת בתפריט הצד – נשאר כמו בפיד הרגיל (לייק/שיתוף) | HYPER CORE TECH */
 body.videos-feed-mode-live-tv .videos-feed__info {
   display: none !important;
+}
+
+@supports not (height: 100dvh) {
+  body.videos-feed-mode-live-tv .videos-feed__card {
+    height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px)) !important;
+    min-height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px)) !important;
+    max-height: calc(100vh - 44px - 56px - var(--safe-top, 0px) - var(--safe-bottom, 0px)) !important;
+  }
 }
 
 /* השלג הישן – מוסתר לגמרי | HYPER CORE TECH */
