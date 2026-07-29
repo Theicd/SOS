@@ -1125,10 +1125,30 @@
           font-size: 9px;
         }
 
-        .p2p-stats-tooltip {
+        /* טולטיפ רגיל (לא הפאנל הקבוע) – ליד הכפתור | HYPER CORE TECH */
+        .p2p-stats-tooltip:not(.p2p-stats-tooltip--fixed) {
           left: 0;
           right: auto;
           min-width: 160px;
+        }
+
+        /* פאנל סטטיסטיקה – תמיד במרכז המסך במובייל | HYPER CORE TECH */
+        .p2p-stats-tooltip.p2p-stats-tooltip--fixed {
+          position: fixed !important;
+          top: 50% !important;
+          left: 50% !important;
+          right: auto !important;
+          bottom: auto !important;
+          margin: 0 !important;
+          transform: translate(-50%, -50%) !important;
+          width: min(300px, calc(100vw - 28px)) !important;
+          max-width: calc(100vw - 28px) !important;
+          max-height: min(78dvh, 520px) !important;
+          z-index: 12000 !important;
+        }
+
+        .p2p-stats-tooltip.p2p-stats-tooltip--fixed.visible {
+          animation: fadeInCenter 0.2s ease !important;
         }
       }
 
