@@ -205,10 +205,33 @@
       btn.setAttribute('hidden', '');
       btn.style.display = 'none';
     }
+    // כפתור בתפריט הפרופיל נשאר קבוע – לא מסתירים | HYPER CORE TECH
+  }
+
+  // חלק כפתור תפריט (pwa-installer.js) – התקנה קבועה מתפריט האווטאר | HYPER CORE TECH
+  function bindInstallMenuButton() {
     const menuBtn = document.getElementById('pwa-install-menu-btn');
-    if (menuBtn) {
-      menuBtn.setAttribute('hidden', '');
-    }
+    if (!menuBtn || menuBtn.dataset.bound === '1') return;
+    menuBtn.dataset.bound = '1';
+    menuBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const profileMenu = document.getElementById('topBarProfileMenu');
+      const profileBtn = document.getElementById('topBarProfileButton');
+      if (profileMenu) profileMenu.hidden = true;
+      if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
+      const result = await promptInstall();
+      if (result && result.outcome === 'waiting') {
+        const platform = getPlatformInfo();
+        if (platform.isFirefox) {
+          showFirefoxInstallGuide();
+        } else if (platform.isIOS) {
+          showIOSInstallGuide();
+        } else {
+          createInstallBanner();
+        }
+      }
+    });
   }
 
   // חלק הנחיות iOS (pwa-installer.js) – מדריך התקנה ידנית ל-iOS | HYPER CORE TECH
@@ -357,6 +380,7 @@
     
     // **תמיד** להגדיר מאזין להתקנה - גם אם נראה מותקן (יכול להיות חלון דפדפן רגיל)
     setupInstallPromptListener();
+    bindInstallMenuButton();
     
     isInstalled = checkIfInstalled();
     console.log('[PWA] סטטוס התקנה:', isInstalled ? 'מותקן' : 'לא מותקן');
