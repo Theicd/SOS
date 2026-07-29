@@ -1257,10 +1257,11 @@ body:has(.videos-feed) #moreOptionsToggle {
   max-height: 100%;
 }
 
-/* שורת LIVE IPTV + שם ערוץ באותה שורה | HYPER CORE TECH */
+/* שורת LIVE IPTV + שם ערוץ – בתחתית הכרטיס | HYPER CORE TECH */
 .videos-live-topbar {
   position: absolute;
-  top: 14px;
+  top: auto;
+  bottom: 88px;
   left: 14px;
   right: 72px;
   z-index: 40;
@@ -1271,6 +1272,11 @@ body:has(.videos-feed) #moreOptionsToggle {
   gap: 8px;
   max-width: calc(100% - 86px);
   pointer-events: none;
+}
+
+body.videos-feed-mode-live-tv .videos-live-topbar {
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  right: 78px;
 }
 
 /* חלק ערוץ חי (videos.css) – באדג' LIVE בסגנון טיקטוק | HYPER CORE TECH */
@@ -2006,13 +2012,7 @@ body.videos-feed-mode-live-tv .videos-feed__media-video {
   background: #000;
 }
 
-body.videos-feed-mode-live-tv .videos-feed__actions {
-  position: absolute !important;
-  right: 12px !important;
-  bottom: 96px !important;
-  z-index: 30 !important;
-}
-
+/* לא לגעת בתפריט הצד – נשאר כמו בפיד הרגיל (לייק/שיתוף) | HYPER CORE TECH */
 body.videos-feed-mode-live-tv .videos-feed__info {
   display: none !important;
 }

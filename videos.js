@@ -666,7 +666,7 @@ function updatePlayToggleIcon(mediaDiv, isPlaying) {
 }
 
 // חלק שיחות (videos.js) – עצירת כל הווידיאו בפיד כשמתחילה שיחת קול/וידיאו | HYPER CORE TECH
-function pauseAllFeedVideos() {
+function pauseAllFeedVideos(options = {}) {
   console.log('[VIDEOS] Pausing all feed videos for call');
   
   // עצירת הווידיאו הפעיל אם יש
@@ -696,9 +696,11 @@ function pauseAllFeedVideos() {
     }
   });
   
-  // כיבוי מצב autoplay גלובלי
-  globalAutoplayEnabled = false;
-  updateGlobalStopClass();
+  // כיבוי PLAY גלובלי רק כשצריך (שיחה וכו') – לא ברינדור מחדש של LIVE/משחקים | HYPER CORE TECH
+  if (options.disableAutoplay !== false) {
+    globalAutoplayEnabled = false;
+    updateGlobalStopClass();
+  }
 }
 
 function ensureYouTubeIframe(mediaDiv, { autoplay = false } = {}) {
@@ -818,6 +820,13 @@ async function playHlsLiveMedia(mediaDiv) {
       });
       if (result && result.ok) {
         await revealWhenReady();
+      } else {
+        // ערוץ שנכשל – לא מציגים ברשימה | HYPER CORE TECH
+        const channelId = mediaDiv.dataset.liveChannelId || '';
+        if (channelId && typeof App.markLiveTvChannelOffline === 'function') {
+          App.markLiveTvChannelOffline(channelId);
+        }
+        removeLiveTvCardFromFeed(mediaDiv);
       }
     }
   } catch (err) {
@@ -3254,7 +3263,17 @@ function prefetchNeighborLiveChannels(activeCard) {
         silent: true,
         muted: true,
         loadingLabel: 'טוען ערוץ...',
-      }).catch(() => {});
+      }).then((result) => {
+        if (result && result.ok === false) {
+          const channelId = liveDiv.dataset.liveChannelId || '';
+          if (channelId && typeof App.markLiveTvChannelOffline === 'function') {
+            App.markLiveTvChannelOffline(channelId);
+          }
+          removeLiveTvCardFromFeed(liveDiv);
+        }
+      }).catch(() => {
+        removeLiveTvCardFromFeed(liveDiv);
+      });
     }
     const gameDiv = neighbor.querySelector('.videos-feed__media[data-media-type="game-embed"]');
     if (gameDiv && typeof App.prepareGameMedia === 'function') {
@@ -4968,7 +4987,8 @@ function pruneFeedCardsNotInDisplay(sourceVideos) {
 function forceFullFeedRerender() {
   if (!selectors.stream) return;
   resetIncrementalRender();
-  pauseAllFeedVideos();
+  // לא מכבים PLAY גלובלי ברינדור מחדש (במיוחד LIVE TV / משחקים) | HYPER CORE TECH
+  pauseAllFeedVideos({ disableAutoplay: false });
 
   const loadnugCard = document.getElementById('sosLoadNugOverlay');
   selectors.stream.innerHTML = '';
@@ -4993,6 +5013,12 @@ function forceFullFeedRerender() {
       ? 'טוען משחקים...'
       : (state.feedMode === 'live-tv' ? 'טוען ערוצים...' : 'טוען סרטונים...');
     selectors.status.style.display = 'block';
+  }
+
+  // LIVE / משחקים – תמיד PLAY אחרי רינדור | HYPER CORE TECH
+  if (state.feedMode === 'live-tv' || state.feedMode === 'games') {
+    globalAutoplayEnabled = true;
+    updateGlobalStopClass();
   }
 
   setupIntersectionObserver();
@@ -5043,12 +5069,55 @@ async function refreshLiveTvFeed() {
   }
 }
 
+function appendLiveTvChannelToFeed(video) {
+  if (!video || !video.id || state.feedMode !== 'live-tv') return;
+  if (!Array.isArray(state.liveTvVideos)) state.liveTvVideos = [];
+  if (state.liveTvVideos.some((v) => v && v.id === video.id)) return;
+  video.liveChannelNumber = state.liveTvVideos.length + 1;
+  state.liveTvVideos.push(video);
+  if (!selectors.stream) return;
+  try {
+    const { card, mediaReadyPromise } = renderVideoCard(video);
+    mediaReadyPromise.then(() => {
+      if (state.feedMode !== 'live-tv') return;
+      if (!card.isConnected) {
+        selectors.stream.appendChild(card);
+        observeVideoCard(card);
+      }
+    }).catch(() => {});
+    if (!card.isConnected) {
+      selectors.stream.appendChild(card);
+      observeVideoCard(card);
+    }
+  } catch (err) {
+    console.warn('[VIDEOS] appendLiveTvChannelToFeed failed', err);
+  }
+}
+
+window.appendLiveTvChannelToFeed = appendLiveTvChannelToFeed;
+
+function removeLiveTvCardFromFeed(mediaDivOrId) {
+  let id = '';
+  let card = null;
+  if (typeof mediaDivOrId === 'string') {
+    id = mediaDivOrId;
+    card = selectors.stream && selectors.stream.querySelector(`.videos-feed__card[data-event-id="${id}"]`);
+  } else if (mediaDivOrId && mediaDivOrId.closest) {
+    card = mediaDivOrId.closest('.videos-feed__card');
+    id = (card && card.getAttribute('data-event-id')) || '';
+  }
+  if (id && Array.isArray(state.liveTvVideos)) {
+    state.liveTvVideos = state.liveTvVideos.filter((v) => v && v.id !== id);
+  }
+  if (card) card.remove();
+}
+
 async function enterLiveTvFeedMode() {
   // יוצאים ממצב משחקים אם פתוח | HYPER CORE TECH
   if (state.feedMode === 'games') {
     document.body.classList.remove('videos-feed-mode-games');
   }
-  // פיד LIVE תמיד מתחיל ב־PLAY | HYPER CORE TECH
+  // פיד LIVE תמיד מתחיל ב־PLAY – לפני כל await | HYPER CORE TECH
   globalAutoplayEnabled = true;
   updateGlobalStopClass();
   state.feedMode = 'live-tv';
@@ -5059,19 +5128,35 @@ async function enterLiveTvFeedMode() {
   }
   const App = window.NostrApp || {};
   try {
-    if (typeof App.warmInitialLiveTvHealth === 'function') {
-      await App.warmInitialLiveTvHealth(12);
-    }
-    if (typeof App.getLiveTvFeedVideos === 'function') {
-      state.liveTvVideos = await App.getLiveTvFeedVideos();
+    // רק ערוצים שעברו בדיקה מוצגים | HYPER CORE TECH
+    if (typeof App.getReadyLiveTvFeedVideos === 'function') {
+      state.liveTvVideos = await App.getReadyLiveTvFeedVideos(10);
     } else {
-      state.liveTvVideos = [];
+      if (typeof App.warmInitialLiveTvHealth === 'function') {
+        await App.warmInitialLiveTvHealth(16);
+      }
+      if (typeof App.getLiveTvFeedVideos === 'function') {
+        state.liveTvVideos = await App.getLiveTvFeedVideos();
+      } else {
+        state.liveTvVideos = [];
+      }
     }
   } catch (err) {
     console.warn('[VIDEOS] LIVE TV catalog failed', err);
     state.liveTvVideos = [];
   }
+  globalAutoplayEnabled = true;
+  updateGlobalStopClass();
   forceFullFeedRerender();
+  // אחרי רינדור – כופים PLAY שוב (pauseAllFeedVideos הישן שבר את זה) | HYPER CORE TECH
+  globalAutoplayEnabled = true;
+  updateGlobalStopClass();
+  requestAnimationFrame(() => {
+    globalAutoplayEnabled = true;
+    updateGlobalStopClass();
+    const first = selectors.stream && selectors.stream.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+    if (first) playHlsLiveMedia(first);
+  });
   console.log('[VIDEOS] LIVE TV feed mode ON', { count: getDisplayVideos().length });
   return true;
 }

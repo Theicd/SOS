@@ -244,6 +244,51 @@
     }
   }
 
+  // רק ערוצים שעברו health – מה שנכשל לא נכנס לפיד | HYPER CORE TECH
+  async function getReadyLiveTvFeedVideos(limit = 10) {
+    await pullHiddenListFromRelays().catch(() => {});
+    const channels = await fetchCatalog();
+    const candidates = channels.filter((ch) => !isChannelHidden(ch.id) && !isChannelOffline(ch.id));
+    const ready = [];
+    const batchSize = 4;
+    for (let i = 0; i < candidates.length && ready.length < limit; i += batchSize) {
+      const batch = candidates.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (ch) => {
+          const ok = await probeChannelHealth(ch.stream, ch.id);
+          return ok ? ch : null;
+        })
+      );
+      results.forEach((ch) => {
+        if (ch && ready.length < limit) ready.push(ch);
+      });
+    }
+    // ממשיכים לחמם עוד ברקע ולהוסיף לפיד | HYPER CORE TECH
+    warmMoreReadyChannels(candidates, ready.map((c) => c.id), limit + 20).catch(() => {});
+    return ready.map((ch, index) => {
+      const item = channelToVideoItem(ch);
+      item.liveChannelNumber = index + 1;
+      return item;
+    });
+  }
+
+  async function warmMoreReadyChannels(candidates, alreadyIds, maxTotal) {
+    const have = new Set((alreadyIds || []).map(String));
+    const rest = candidates.filter((ch) => !have.has(String(ch.id)) && !isChannelOffline(ch.id));
+    for (let i = 0; i < rest.length; i += 1) {
+      if (have.size >= maxTotal) break;
+      const ch = rest[i];
+      const ok = await probeChannelHealth(ch.stream, ch.id);
+      if (!ok) continue;
+      have.add(String(ch.id));
+      try {
+        if (typeof window.appendLiveTvChannelToFeed === 'function') {
+          window.appendLiveTvChannelToFeed(channelToVideoItem(ch));
+        }
+      } catch (_) {}
+    }
+  }
+
   // בדיקת אצווה קטנה בתחילת הפיד – לא חוסמת את כל 81 הערוצים | HYPER CORE TECH
   async function warmInitialLiveTvHealth(limit = 10) {
     const channels = await fetchCatalog();
@@ -258,6 +303,7 @@
   Object.assign(App, {
     fetchLiveTvCatalog: fetchCatalog,
     getLiveTvFeedVideos,
+    getReadyLiveTvFeedVideos,
     hideLiveTvChannel: hideChannel,
     isLiveTvAdmin: isAdminViewer,
     probeLiveTvChannelHealth: probeChannelHealth,
@@ -270,6 +316,7 @@
   window.SosLiveTvCatalog = {
     fetchCatalog,
     getLiveTvFeedVideos,
+    getReadyLiveTvFeedVideos,
     hideChannel,
     isAdminViewer,
     probeChannelHealth,
