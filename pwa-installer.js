@@ -162,19 +162,17 @@
         return { outcome: 'already_installed', platform: 'installed' };
       }
       
-      // הדפדפן לא שלח beforeinstallprompt - ממתינים ומנסים שוב
-      console.log('[PWA] ממתין ל-beforeinstallprompt...');
-      return { outcome: 'waiting', platform: 'unknown' };
+      // הדפדפן לא שלח beforeinstallprompt - אי אפשר לפתוח דיאלוג native
+      console.log('[PWA] beforeinstallprompt לא זמין');
+      return { outcome: 'unavailable', platform: 'unknown' };
     }
     
     try {
-      // הפעלת הדיאלוג
+      // הפעלת הדיאלוג של הדפדפן (התקנה אמיתית)
       deferredInstallPrompt.prompt();
-      // המתנה לתשובת המשתמש
       const choiceResult = await deferredInstallPrompt.userChoice;
       console.log('[PWA] תוצאת ההתקנה:', choiceResult.outcome);
       
-      // ניקוי האירוע
       deferredInstallPrompt = null;
       window.deferredPwaPrompt = null;
       
@@ -208,27 +206,68 @@
     // כפתור בתפריט הפרופיל נשאר קבוע – לא מסתירים | HYPER CORE TECH
   }
 
-  // חלק כפתור תפריט (pwa-installer.js) – התקנה קבועה מתפריט האווטאר | HYPER CORE TECH
+  // חלק כפתור תפריט (pwa-installer.js) – התקנה ישירה בלי באנר תחתון | HYPER CORE TECH
   function bindInstallMenuButton() {
     const menuBtn = document.getElementById('pwa-install-menu-btn');
     if (!menuBtn || menuBtn.dataset.bound === '1') return;
     menuBtn.dataset.bound = '1';
-    menuBtn.addEventListener('click', async (event) => {
+    menuBtn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+
       const profileMenu = document.getElementById('topBarProfileMenu');
       const profileBtn = document.getElementById('topBarProfileButton');
       if (profileMenu) profileMenu.hidden = true;
       if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
-      const result = await promptInstall();
-      if (result && result.outcome === 'waiting') {
-        const platform = getPlatformInfo();
-        if (platform.isFirefox) {
-          showFirefoxInstallGuide();
-        } else if (platform.isIOS) {
-          showIOSInstallGuide();
-        } else {
-          createInstallBanner();
+
+      // לא לפתוח באנר תחתון – רק דיאלוג התקנה של הדפדפן | HYPER CORE TECH
+      const existingBanner = document.getElementById('pwa-install-banner');
+      if (existingBanner) existingBanner.remove();
+
+      if (checkIfInstalled()) {
+        if (typeof App.showToast === 'function') {
+          App.showToast('הממשק כבר מותקן על המכשיר');
+        }
+        return;
+      }
+
+      const platform = getPlatformInfo();
+      if (platform.isIOS) {
+        // iOS לא תומך בדיאלוג התקנה אוטומטי
+        showIOSInstallGuide();
+        return;
+      }
+
+      if (!deferredInstallPrompt && window.deferredPwaPrompt) {
+        deferredInstallPrompt = window.deferredPwaPrompt;
+      }
+
+      const promptEvent = deferredInstallPrompt || window.deferredPwaPrompt;
+      if (!promptEvent || typeof promptEvent.prompt !== 'function') {
+        console.warn('[PWA] אין beforeinstallprompt – לא ניתן להתקין כרגע');
+        if (typeof App.showToast === 'function') {
+          App.showToast('ההתקנה לא זמינה כרגע בדפדפן זה');
+        }
+        return;
+      }
+
+      // קריאה סינכרונית בתוך לחיצת המשתמש – חובה לדיאלוג native | HYPER CORE TECH
+      try {
+        promptEvent.prompt();
+        Promise.resolve(promptEvent.userChoice).then((choiceResult) => {
+          console.log('[PWA] תוצאת התקנה מתפריט:', choiceResult && choiceResult.outcome);
+          deferredInstallPrompt = null;
+          window.deferredPwaPrompt = null;
+          if (choiceResult && choiceResult.outcome === 'accepted' && typeof App.showToast === 'function') {
+            App.showToast('הממשק מותקן בהצלחה');
+          }
+        }).catch((err) => {
+          console.error('[PWA] שגיאה ב-userChoice:', err);
+        });
+      } catch (err) {
+        console.error('[PWA] שגיאה בהפעלת prompt מתפריט:', err);
+        if (typeof App.showToast === 'function') {
+          App.showToast('לא ניתן להפעיל התקנה כרגע');
         }
       }
     });
