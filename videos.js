@@ -104,23 +104,11 @@ const p2pStatsUI = {
     const tooltip = document.createElement('div');
     tooltip.id = 'p2pStatsTooltipPanel';
     tooltip.className = 'p2p-stats-tooltip p2p-stats-tooltip--fixed';
-    // מרכוז קשיח במרכז המסך (מובייל) – לא תלוי ב-CSS cache | HYPER CORE TECH
-    Object.assign(tooltip.style, {
-      position: 'fixed',
-      top: '50%',
-      left: '50%',
-      right: 'auto',
-      bottom: 'auto',
-      margin: '0',
-      transform: 'translate(-50%, -50%)',
-      zIndex: '12000',
-      width: 'min(300px, calc(100vw - 28px))',
-      maxWidth: 'calc(100vw - 28px)',
-      maxHeight: 'min(78dvh, 520px)',
-      overflowY: 'auto'
-    });
     tooltip.innerHTML = `
-      <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות SOS</div>
+      <div class="p2p-stats-tooltip__header">
+        <button type="button" class="p2p-stats-tooltip__close" id="p2pStatsTooltipClose" aria-label="סגור סטטיסטיקות">✕</button>
+        <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות SOS</div>
+      </div>
       <div class="p2p-stats-tooltip__section">📥 הורדות</div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
@@ -176,6 +164,15 @@ const p2pStatsUI = {
       </div>
     `;
     document.body.appendChild(tooltip);
+
+    const closeBtn = tooltip.querySelector('#p2pStatsTooltipClose');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeP2PTooltip();
+      });
+    }
     
     const closeProfileMenu = () => {
       const profileMenu = document.getElementById('topBarProfileMenu');
@@ -197,20 +194,8 @@ const p2pStatsUI = {
       this.sync();
       this.updateTooltip();
       const willOpen = !tooltip.classList.contains('visible');
-      if (willOpen) {
-        // וידוא מרכוז בכל פתיחה | HYPER CORE TECH
-        Object.assign(tooltip.style, {
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          right: 'auto',
-          bottom: 'auto',
-          margin: '0',
-          transform: 'translate(-50%, -50%)'
-        });
-        if (tooltip.parentElement !== document.body) {
-          document.body.appendChild(tooltip);
-        }
+      if (willOpen && tooltip.parentElement !== document.body) {
+        document.body.appendChild(tooltip);
       }
       tooltip.classList.toggle('visible', willOpen);
       circle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
