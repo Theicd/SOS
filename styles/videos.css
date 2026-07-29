@@ -1966,7 +1966,7 @@ body.live-channel-fullscreen .videos-feed__viewport {
   z-index: 15 !important;
 }
 
-/* ׳׳£ ׳₪׳¢׳ ׳׳ ׳׳¦׳™׳’׳™׳ ׳›׳₪׳×׳•׳¨ PLAY ׳¢׳ ׳׳©׳—׳§ | HYPER CORE TECH */
+/* אף פעם לא מציגים כפתור PLAY על משחק | HYPER CORE TECH */
 .videos-feed__media--game .videos-feed__play-overlay,
 .videos-feed__media[data-media-type="game-embed"] .videos-feed__play-overlay,
 .videos-feed__media.is-game-active .videos-feed__play-overlay,
@@ -1976,6 +1976,28 @@ body.global-stop .videos-feed__media[data-media-type="game-embed"] .videos-feed_
   opacity: 0 !important;
   pointer-events: none !important;
   visibility: hidden !important;
+}
+
+/* ערוץ LIVE מנגן – בלי כפתור פליי/פאוז קבוע במרכז המסגרת | HYPER CORE TECH */
+.videos-feed__media[data-media-type="hls-live"][data-state="playing"] .videos-feed__play-overlay,
+.videos-feed__media[data-media-type="hls-live"].is-live-playing .videos-feed__play-overlay,
+body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"]:not(.is-paused) .videos-feed__play-overlay,
+body.global-stop .videos-feed__media[data-media-type="hls-live"][data-state="playing"] .videos-feed__play-overlay,
+body.global-stop .videos-feed__media[data-media-type="hls-live"].is-live-playing .videos-feed__play-overlay,
+body.live-channel-fullscreen .videos-feed__media[data-media-type="hls-live"] .videos-feed__play-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+/* עצירה ידנית של ערוץ – מציגים פליי | HYPER CORE TECH */
+.videos-feed__media[data-media-type="hls-live"].is-paused .videos-feed__play-overlay,
+body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"].is-paused .videos-feed__play-overlay {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
 
 /* ׳›׳₪׳×׳•׳¨ ׳׳¡׳ ׳׳׳ ׳׳׳©׳—׳§ ג€“ ׳›׳׳• ׳¢׳¨׳•׳¥ ׳—׳™ | HYPER CORE TECH */

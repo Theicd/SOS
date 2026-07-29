@@ -613,6 +613,17 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
     if (videoEl) {
       videoEl.pause();
     }
+    if (mediaType === 'hls-live') {
+      mediaDiv.classList.remove('is-live-playing');
+      const playOverlay = mediaDiv.querySelector('.videos-feed__play-overlay');
+      if (playOverlay && manual) {
+        playOverlay.hidden = false;
+        playOverlay.style.display = '';
+      } else if (playOverlay && !manual) {
+        playOverlay.hidden = true;
+        playOverlay.style.display = 'none';
+      }
+    }
   } else if (mediaType === 'game-embed') {
     const App = window.NostrApp || {};
     // עצירה רכה – שומרת פרילוד כמו ערוץ חי | HYPER CORE TECH
@@ -740,8 +751,15 @@ async function playHlsLiveMedia(mediaDiv) {
   }
   activeMediaDiv = mediaDiv;
   mediaDiv.dataset.state = 'playing';
-  updatePlayToggleIcon(mediaDiv, true);
+  mediaDiv.classList.add('is-live-playing');
   mediaDiv.classList.remove('is-paused');
+  updatePlayToggleIcon(mediaDiv, true);
+  // מסתירים את כפתור הפליי/פאוז המרכזי בזמן ניגון | HYPER CORE TECH
+  const playOverlay = mediaDiv.querySelector('.videos-feed__play-overlay');
+  if (playOverlay) {
+    playOverlay.hidden = true;
+    playOverlay.style.display = 'none';
+  }
 
   if (typeof App.setTuningVisible === 'function') {
     App.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
