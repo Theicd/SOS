@@ -1939,6 +1939,89 @@ body.live-channel-fullscreen .videos-feed__viewport {
   letter-spacing: 0.02em;
 }
 
+/* מסך טעינת ערוץ LIVE – זהה למשחקים (בלי שלג/מד) | HYPER CORE TECH */
+.videos-feed__live-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(18, 183, 106, 0.25), transparent 45%),
+    radial-gradient(circle at 70% 80%, rgba(56, 120, 255, 0.2), transparent 40%),
+    #0b1220;
+  pointer-events: none;
+}
+
+.videos-feed__live-placeholder[hidden] {
+  display: none !important;
+}
+
+.videos-feed__live-placeholder i {
+  font-size: 42px;
+  opacity: 0.9;
+  color: #7CFFB2;
+}
+
+.videos-feed__live-placeholder span {
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+/* פיד LIVE TV – כרטיס מלא מסך כמו משחקים | HYPER CORE TECH */
+body.videos-feed-mode-live-tv .videos-feed__card {
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+body.videos-feed-mode-live-tv .videos-feed__media,
+body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+
+body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] video,
+body.videos-feed-mode-live-tv .videos-feed__media-video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  background: #000;
+}
+
+body.videos-feed-mode-live-tv .videos-feed__actions {
+  position: absolute !important;
+  right: 12px !important;
+  bottom: 96px !important;
+  z-index: 30 !important;
+}
+
+body.videos-feed-mode-live-tv .videos-feed__info {
+  display: none !important;
+}
+
+/* השלג הישן – מוסתר לגמרי | HYPER CORE TECH */
+.videos-live-tuning {
+  display: none !important;
+}
+
 /* ׳¢׳•׳§׳£ ׳׳× ׳›׳׳ YouTube ג€“ iframe ׳׳׳׳ ׳׳× ׳›׳ ׳”׳׳¡׳’׳¨׳× | HYPER CORE TECH */
 .videos-feed__media iframe.videos-feed__game-iframe,
 .videos-feed__game-iframe {

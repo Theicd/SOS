@@ -739,7 +739,7 @@ function restoreYouTubeThumbnail(mediaDiv) {
   }
 }
 
-// חלק ערוץ חי (videos.js) – הפעלת HLS עם מסך חיפוש תחנה | HYPER CORE TECH
+// חלק ערוץ חי (videos.js) – הפעלת HLS עם מסך טעינה כמו משחקים | HYPER CORE TECH
 async function playHlsLiveMedia(mediaDiv) {
   if (!mediaDiv) return;
   const App = window.NostrApp || {};
@@ -754,51 +754,75 @@ async function playHlsLiveMedia(mediaDiv) {
   mediaDiv.classList.add('is-live-playing');
   mediaDiv.classList.remove('is-paused');
   updatePlayToggleIcon(mediaDiv, true);
-  // מסתירים את כפתור הפליי/פאוז המרכזי בזמן ניגון | HYPER CORE TECH
   const playOverlay = mediaDiv.querySelector('.videos-feed__play-overlay');
   if (playOverlay) {
     playOverlay.hidden = true;
     playOverlay.style.display = 'none';
   }
-
-  if (typeof App.setTuningVisible === 'function') {
-    App.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
-  }
   if (typeof App.ensureLiveBadge === 'function') {
     App.ensureLiveBadge(mediaDiv);
   }
 
+  const showLoading = typeof App.setLiveLoadingVisible === 'function'
+    ? (v, label) => App.setLiveLoadingVisible(mediaDiv, v, label)
+    : (typeof App.setTuningVisible === 'function'
+      ? (v, label) => App.setTuningVisible(mediaDiv, v, label)
+      : () => {});
+
+  const revealWhenReady = async () => {
+    // מציגים וידאו רק כשיש פריים – מונע סאונד בלי תמונה | HYPER CORE TECH
+    const waitFrame = () => new Promise((resolve) => {
+      if (videoEl.readyState >= 2) {
+        resolve();
+        return;
+      }
+      const done = () => {
+        videoEl.removeEventListener('loadeddata', done);
+        videoEl.removeEventListener('playing', done);
+        resolve();
+      };
+      videoEl.addEventListener('loadeddata', done, { once: true });
+      videoEl.addEventListener('playing', done, { once: true });
+      setTimeout(done, 2500);
+    });
+    videoEl.muted = true;
+    try {
+      await videoEl.play();
+    } catch (_) {
+      try { await videoEl.play(); } catch (__) {}
+    }
+    await waitFrame();
+    showLoading(false);
+    videoEl.muted = false;
+    try { await videoEl.play(); } catch (_) {
+      videoEl.muted = true;
+      try { await videoEl.play(); } catch (__) {}
+    }
+  };
+
   try {
     if (mediaDiv.dataset.livePrepared === '1') {
-      videoEl.muted = false;
-      await videoEl.play().catch(async () => {
-        videoEl.muted = true;
-        await videoEl.play().catch(() => {});
-      });
-      if (typeof App.setTuningVisible === 'function') {
-        App.setTuningVisible(mediaDiv, false);
-      }
+      // כבר חם – בלי מסך טעינה מחדש | HYPER CORE TECH
+      showLoading(false);
+      await revealWhenReady();
       return;
     }
 
+    showLoading(true, 'טוען ערוץ...');
     if (typeof App.prepareLiveMedia === 'function') {
       const result = await App.prepareLiveMedia(mediaDiv, {
-        autoplay: true,
-        tuningLabel: 'מחפש ערוץ...',
+        autoplay: false,
+        showLoading: true,
+        loadingLabel: 'טוען ערוץ...',
+        muted: true,
       });
       if (result && result.ok) {
-        videoEl.muted = false;
-        await videoEl.play().catch(async () => {
-          videoEl.muted = true;
-          await videoEl.play().catch(() => {});
-        });
+        await revealWhenReady();
       }
     }
   } catch (err) {
     console.warn('[videos] HLS live play failed', err);
-    if (typeof App.setTuningVisible === 'function') {
-      App.setTuningVisible(mediaDiv, true, 'לא מצליח לתפוס ערוץ');
-    }
+    showLoading(true, 'לא מצליח לתפוס ערוץ');
   }
 }
 
@@ -1803,13 +1827,13 @@ function renderVideoCard(video) {
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
-    videoEl.muted = false;
+    videoEl.muted = true;
     videoEl.loop = false;
     videoEl.playsInline = true;
     videoEl.autoplay = false;
     videoEl.setAttribute('playsinline', 'true');
     videoEl.setAttribute('webkit-playsinline', 'true');
-    videoEl.preload = 'none';
+    videoEl.preload = 'auto';
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
 
@@ -1828,8 +1852,11 @@ function renderVideoCard(video) {
     if (typeof AppLive.setLiveMetaOverlay === 'function' && video.content) {
       AppLive.setLiveMetaOverlay(mediaDiv, { channelName: video.content });
     }
-    if (typeof AppLive.setTuningVisible === 'function') {
-      AppLive.setTuningVisible(mediaDiv, true, 'מחפש ערוץ...');
+    // מסך טעינה כמו משחקים – בלי שלג/מד סריקה | HYPER CORE TECH
+    if (typeof AppLive.setLiveLoadingVisible === 'function') {
+      AppLive.setLiveLoadingVisible(mediaDiv, true, 'טוען ערוץ...');
+    } else if (typeof AppLive.setTuningVisible === 'function') {
+      AppLive.setTuningVisible(mediaDiv, true, 'טוען ערוץ...');
     }
     if (typeof AppLive.ensureFullscreenControls === 'function') {
       AppLive.ensureFullscreenControls(mediaDiv);
@@ -1841,9 +1868,11 @@ function renderVideoCard(video) {
     playOverlay.setAttribute('aria-label', 'Play live channel');
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+    playOverlay.hidden = true;
+    playOverlay.style.display = 'none';
     mediaDiv.appendChild(playOverlay);
 
-    // כרטיס מוצג מיד עם שלג/LIVE — מטא־דאטה + בריאות ברקע | HYPER CORE TECH
+    // כרטיס מוצג מיד – מטא־דאטה + בריאות ברקע (בלי שלג) | HYPER CORE TECH
     queueMicrotask(() => {
       markReady();
       if (typeof AppLive.enrichLiveCardMeta === 'function') {
@@ -2692,7 +2721,9 @@ function preloadNextMedia(video) {
     if (mediaDiv && mediaDiv.dataset.livePrepared !== '1' && typeof App.prepareLiveMedia === 'function') {
       App.prepareLiveMedia(mediaDiv, {
         autoplay: false,
-        tuningLabel: 'מחפש ערוץ...',
+        showLoading: false,
+        silent: true,
+        muted: true,
       }).catch(() => {});
     }
     return;
@@ -3203,7 +3234,7 @@ function wireActions(root = selectors.stream) {
   // לא צריך מאזין נוסף כאן - זה יגרום ל-toggleFollow להיקרא פעמיים
 }
 
-// חלק ערוץ חי + משחק (videos.js) – חימום השכן הבא/אחריו | HYPER CORE TECH
+// חלק ערוץ חי + משחק (videos.js) – חימום 3 ערוצים קדימה לגלילה חלקה | HYPER CORE TECH
 function prefetchNeighborLiveChannels(activeCard) {
   if (!activeCard || !activeCard.parentElement) return;
   const App = window.NostrApp || {};
@@ -3212,32 +3243,41 @@ function prefetchNeighborLiveChannels(activeCard) {
   const idx = cards.indexOf(activeCard);
   if (idx < 0) return;
 
-  [cards[idx + 1], cards[idx + 2]].forEach((neighbor) => {
+  // חימום מלא של 3 הערוצים הבאים (בלי מסך טעינה / בלי סאונד) | HYPER CORE TECH
+  [cards[idx + 1], cards[idx + 2], cards[idx + 3]].forEach((neighbor) => {
     if (!neighbor) return;
     const liveDiv = neighbor.querySelector('.videos-feed__media[data-media-type="hls-live"]');
     if (liveDiv && liveDiv.dataset.livePrepared !== '1' && typeof App.prepareLiveMedia === 'function') {
       App.prepareLiveMedia(liveDiv, {
         autoplay: false,
-        tuningLabel: 'מחפש ערוץ...',
+        showLoading: false,
+        silent: true,
+        muted: true,
+        loadingLabel: 'טוען ערוץ...',
       }).catch(() => {});
     }
     const gameDiv = neighbor.querySelector('.videos-feed__media[data-media-type="game-embed"]');
     if (gameDiv && typeof App.prepareGameMedia === 'function') {
-      // שלד בלבד – בלי טעינת iframe (מונע סאונד ברקע) | HYPER CORE TECH
       App.prepareGameMedia(gameDiv, { loadingLabel: 'טוען משחק...', load: false });
     }
   });
 
-  // שחרור משחקים רחוקים – שומרים רק ±2 | HYPER CORE TECH
-  if (typeof App.deactivateGameMedia === 'function') {
-    cards.forEach((card, i) => {
-      if (Math.abs(i - idx) <= 2) return;
+  // שחרור ערוצים/משחקים רחוקים – שומרים רק ±3 | HYPER CORE TECH
+  cards.forEach((card, i) => {
+    if (Math.abs(i - idx) <= 3) return;
+    const liveDiv = card.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+    if (liveDiv && liveDiv.dataset.livePrepared === '1' && typeof App.releaseLiveMedia === 'function') {
+      if (!liveDiv.classList.contains('is-live-fullscreen') && liveDiv !== activeMediaDiv) {
+        App.releaseLiveMedia(liveDiv);
+      }
+    }
+    if (typeof App.deactivateGameMedia === 'function') {
       const gameDiv = card.querySelector('.videos-feed__media[data-media-type="game-embed"]');
       if (!gameDiv || gameDiv.dataset.gamePrepared !== '1') return;
       if (gameDiv.classList.contains('is-game-active') || gameDiv.classList.contains('is-game-fullscreen')) return;
       App.deactivateGameMedia(gameDiv);
-    });
-  }
+    }
+  });
 }
 
 // חלק יאללה וידאו (videos.js) – Intersection Observer פשוט לגלילה כמו טיקטוק
@@ -3281,7 +3321,9 @@ function setupIntersectionObserver() {
             if (mediaDiv.dataset.livePrepared !== '1' && typeof App.prepareLiveMedia === 'function') {
               App.prepareLiveMedia(mediaDiv, {
                 autoplay: false,
-                tuningLabel: 'מחפש ערוץ...',
+                showLoading: false,
+                silent: true,
+                muted: true,
               }).catch(() => {});
             }
           } else if (!entry.isIntersecting) {
@@ -3295,13 +3337,15 @@ function setupIntersectionObserver() {
           playMedia(mediaDiv, { manual: false });
           prefetchNeighborLiveChannels(card);
         } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
-          // מתקרבים לכרטיס — חימום HLS ברקע | HYPER CORE TECH
+          // מתקרבים לכרטיס — חימום HLS שקט ברקע | HYPER CORE TECH
           const App = window.NostrApp || {};
           if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
             if (typeof App.prepareLiveMedia === 'function') {
               App.prepareLiveMedia(mediaDiv, {
                 autoplay: false,
-                tuningLabel: 'מחפש ערוץ...',
+                showLoading: false,
+                silent: true,
+                muted: true,
               }).catch(() => {});
             }
           }

@@ -560,55 +560,43 @@
     return badge;
   }
 
-  function ensureTuningOverlay(mediaDiv) {
+  function ensureLiveLoadingPlaceholder(mediaDiv) {
     if (!mediaDiv) return null;
-    let overlay = mediaDiv.querySelector('.videos-live-tuning');
-    // אם יש overlay ישן בלי canvas שלג – בונים מחדש | HYPER CORE TECH
-    if (overlay && !overlay.querySelector('canvas.videos-live-tuning__snow')) {
-      stopTuningFx(overlay);
-      overlay.remove();
-      overlay = null;
+    // מסירים שלג/מד סריקה ישן אם קיים | HYPER CORE TECH
+    const oldSnow = mediaDiv.querySelector('.videos-live-tuning');
+    if (oldSnow) {
+      stopTuningFx(oldSnow);
+      oldSnow.remove();
     }
-    if (overlay) return overlay;
+    let ph = mediaDiv.querySelector('.videos-feed__live-placeholder');
+    if (ph) return ph;
+    ph = document.createElement('div');
+    ph.className = 'videos-feed__live-placeholder';
+    ph.innerHTML = '<i class="fa-solid fa-tv" aria-hidden="true"></i><span data-live-loading-label>טוען ערוץ...</span>';
+    ph.hidden = true;
+    mediaDiv.appendChild(ph);
+    return ph;
+  }
 
-    overlay = document.createElement('div');
-    overlay.className = 'videos-live-tuning';
-    overlay.hidden = true;
-    overlay.innerHTML = [
-      '<canvas class="videos-live-tuning__snow" aria-hidden="true"></canvas>',
-      '<div class="videos-live-tuning__vignette" aria-hidden="true"></div>',
-      '<div class="videos-live-tuning__center">',
-      '  <div class="videos-live-tuning__label">מחפש ערוץ...</div>',
-      '  <div class="videos-live-tuning__meter" aria-hidden="true">',
-      '    <div class="videos-live-tuning__meter-track">',
-      '      <div class="videos-live-tuning__meter-fill" data-live-meter></div>',
-      '    </div>',
-      '  </div>',
-      '  <div class="videos-live-tuning__pct"><span data-live-pct>0</span>%</div>',
-      '</div>',
-    ].join('');
-    mediaDiv.appendChild(overlay);
-    return overlay;
+  function setLiveLoadingVisible(mediaDiv, visible, label) {
+    const ph = ensureLiveLoadingPlaceholder(mediaDiv);
+    if (!ph) return;
+    if (label) {
+      const span = ph.querySelector('[data-live-loading-label]') || ph.querySelector('span');
+      if (span) span.textContent = label;
+    }
+    ph.hidden = !visible;
+    mediaDiv.classList.toggle('is-live-loading', !!visible);
+    mediaDiv.classList.remove('is-live-tuning');
+  }
+
+  // תאימות לאחור – בלי שלג/מד; רק מסך טעינה בסגנון משחקים | HYPER CORE TECH
+  function ensureTuningOverlay(mediaDiv) {
+    return ensureLiveLoadingPlaceholder(mediaDiv);
   }
 
   function setTuningVisible(mediaDiv, visible, label) {
-    const overlay = ensureTuningOverlay(mediaDiv);
-    if (!overlay) return;
-    overlay.hidden = !visible;
-    mediaDiv.classList.toggle('is-live-tuning', !!visible);
-    if (label) {
-      const labelEl = overlay.querySelector('.videos-live-tuning__label');
-      if (labelEl) labelEl.textContent = label;
-    }
-    if (visible) {
-      startTuningFx(overlay);
-    } else {
-      stopTuningFx(overlay);
-      const fill = overlay.querySelector('[data-live-meter]');
-      const pct = overlay.querySelector('[data-live-pct]');
-      if (fill) fill.style.width = '100%';
-      if (pct) pct.textContent = '100';
-    }
+    setLiveLoadingVisible(mediaDiv, visible, label || (visible ? 'טוען ערוץ...' : ''));
   }
 
   // שלג TV אנלוגי – רעש אפור אקראי (לא נקודות CSS) | HYPER CORE TECH
@@ -1120,9 +1108,21 @@
     const url = mediaDiv.dataset.liveUrl || mediaDiv.dataset.videoUrl || '';
     if (!url) return { ok: false, reason: 'no-url' };
 
+    // מונע הכנות כפולות במקביל על אותו כרטיס | HYPER CORE TECH
+    if (mediaDiv._livePreparePromise) {
+      return mediaDiv._livePreparePromise;
+    }
+
+    const showLoading = options.showLoading !== false;
+    const silent = options.silent === true || showLoading === false;
+
     ensureLiveBadge(mediaDiv);
     ensureLiveMetaOverlay(mediaDiv);
-    setTuningVisible(mediaDiv, true, options.tuningLabel || 'מחפש ערוץ...');
+    ensureLiveLoadingPlaceholder(mediaDiv);
+
+    if (showLoading && !silent) {
+      setLiveLoadingVisible(mediaDiv, true, options.tuningLabel || options.loadingLabel || 'טוען ערוץ...');
+    }
 
     if (options.content != null) {
       mediaDiv.dataset.liveCaption = String(options.content || '');
@@ -1132,35 +1132,90 @@
       content: mediaDiv.dataset.liveCaption || options.content || '',
     }).catch(() => {});
 
-    const health = await checkHlsHealth(url);
-    if (health && health.playlistMeta) {
-      enrichLiveCardMeta(mediaDiv, {
-        url,
-        content: mediaDiv.dataset.liveCaption || options.content || '',
-        playlistMeta: health.playlistMeta,
-      }).catch(() => {});
-    }
-    if (health && health.ok === false && !health.unverified) {
-      setTuningVisible(mediaDiv, true, 'ערוץ לא זמין');
-      return { ok: false, health };
-    }
+    const run = (async () => {
+      // כבר מוכן – לא מציגים טעינה מחדש | HYPER CORE TECH
+      if (mediaDiv.dataset.livePrepared === '1') {
+        const videoElReady = mediaDiv.querySelector('video');
+        if (videoElReady && (videoElReady.readyState >= 2 || hlsInstances.get(videoElReady))) {
+          if (showLoading) setLiveLoadingVisible(mediaDiv, false);
+          if (options.autoplay && videoElReady) {
+            videoElReady.muted = !!options.muted;
+            try { await videoElReady.play(); } catch (_) {}
+          }
+          return { ok: true, cached: true };
+        }
+      }
 
+      const health = await checkHlsHealth(url);
+      if (health && health.playlistMeta) {
+        enrichLiveCardMeta(mediaDiv, {
+          url,
+          content: mediaDiv.dataset.liveCaption || options.content || '',
+          playlistMeta: health.playlistMeta,
+        }).catch(() => {});
+      }
+      if (health && health.ok === false && !health.unverified) {
+        if (showLoading) setLiveLoadingVisible(mediaDiv, true, 'ערוץ לא זמין');
+        return { ok: false, health };
+      }
+
+      const videoEl = mediaDiv.querySelector('video');
+      if (!videoEl) {
+        if (showLoading) setLiveLoadingVisible(mediaDiv, false);
+        return { ok: false, reason: 'no-video' };
+      }
+
+      // בחימום רקע – תמיד mute כדי לא לשמוע ערוץ שכן | HYPER CORE TECH
+      videoEl.muted = options.autoplay ? !!options.muted : true;
+
+      try {
+        await attachHlsToVideo(videoEl, url, {
+          autoplay: !!options.autoplay,
+        });
+        // חימום: נותנים לפריים להיטען בלי סאונד | HYPER CORE TECH
+        if (!options.autoplay) {
+          try {
+            videoEl.muted = true;
+            const p = videoEl.play();
+            if (p && typeof p.then === 'function') {
+              await p.catch(() => {});
+            }
+            // שומרים באפר ומשהים – מוכן לגלילה מיידית | HYPER CORE TECH
+            videoEl.pause();
+            try { videoEl.currentTime = Math.max(0, videoEl.currentTime); } catch (_) {}
+          } catch (_) {}
+        }
+        mediaDiv.classList.add('videos-feed__media--ready');
+        mediaDiv.dataset.livePrepared = '1';
+        // תמיד מסתירים טעינה כשהערוץ מוכן – גם בחימום שקט | HYPER CORE TECH
+        setLiveLoadingVisible(mediaDiv, false);
+        return { ok: true, health };
+      } catch (err) {
+        if (showLoading) setLiveLoadingVisible(mediaDiv, true, 'לא מצליח לתפוס ערוץ');
+        return { ok: false, error: err, health };
+      }
+    })();
+
+    mediaDiv._livePreparePromise = run.finally(() => {
+      mediaDiv._livePreparePromise = null;
+    });
+    return mediaDiv._livePreparePromise;
+  }
+
+  function releaseLiveMedia(mediaDiv) {
+    if (!mediaDiv) return;
+    if (mediaDiv.classList.contains('is-live-fullscreen')) return;
     const videoEl = mediaDiv.querySelector('video');
-    if (!videoEl) {
-      setTuningVisible(mediaDiv, false);
-      return { ok: false, reason: 'no-video' };
+    if (videoEl) {
+      try { videoEl.pause(); } catch (_) {}
+      destroyHls(videoEl);
+      try {
+        videoEl.removeAttribute('src');
+        videoEl.load();
+      } catch (_) {}
     }
-
-    try {
-      await attachHlsToVideo(videoEl, url, { autoplay: !!options.autoplay });
-      setTuningVisible(mediaDiv, false);
-      mediaDiv.classList.add('videos-feed__media--ready');
-      mediaDiv.dataset.livePrepared = '1';
-      return { ok: true, health };
-    } catch (err) {
-      setTuningVisible(mediaDiv, true, 'לא מצליח לתפוס ערוץ');
-      return { ok: false, error: err, health };
-    }
+    mediaDiv.dataset.livePrepared = '0';
+    setLiveLoadingVisible(mediaDiv, true, 'טוען ערוץ...');
   }
 
   async function prefetchLiveUrl(url) {
@@ -1192,6 +1247,7 @@
     checkHlsHealth,
     prepareLiveMedia,
     prefetchLiveUrl,
+    releaseLiveMedia,
     attachHlsToVideo,
     destroyHls,
     ensureLiveBadge,
@@ -1202,10 +1258,12 @@
     resolveLiveMeta,
     formatChannelDisplayName,
     ensureTuningOverlay,
+    ensureLiveLoadingPlaceholder,
     ensureFullscreenControls,
     enterLiveFullscreen,
     exitLiveFullscreen,
     setTuningVisible,
+    setLiveLoadingVisible,
     buildComposeLivePreview,
   });
 
@@ -1215,6 +1273,7 @@
     checkHlsHealth,
     prepareLiveMedia,
     prefetchLiveUrl,
+    releaseLiveMedia,
     attachHlsToVideo,
     destroyHls,
     ensureLiveBadge,
@@ -1228,6 +1287,7 @@
     enterLiveFullscreen,
     exitLiveFullscreen,
     setTuningVisible,
+    setLiveLoadingVisible,
     buildComposeLivePreview,
   };
 })(window);
