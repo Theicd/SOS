@@ -1,0 +1,17 @@
+SOS Native Shell – build notes
+==============================
+
+1) Open folder android-shell/ in Android Studio (Giraffe+).
+2) Let Gradle sync.
+3) For FCM (notifications when app process is killed):
+   - Create Firebase project
+   - Add Android app package: com.sos010.app
+   - Download google-services.json into android-shell/app/
+   - Copy service account JSON into Vercel env FIREBASE_SERVICE_ACCOUNT_JSON for fcm-push-api/
+4) Build APK: Build > Build Bundle(s) / APK(s) > Build APK(s)
+5) Install on phone, open SOS, login, allow notifications + battery exemption.
+6) Deploy fcm-push-api/ to Vercel and set localStorage fcm_push_url if URL differs from https://sos-fcm-push.vercel.app
+
+Without google-services.json the APK still runs:
+- WebView loads https://sos010.com/videos.html
+- Foreground service keeps process alive for background messages while app is not force-stopped

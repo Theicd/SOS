@@ -709,6 +709,13 @@
       await fetchPushConfig();
     }
 
+    // מעטפת Android – רישום FCM בנוסף ל-Web Push | HYPER CORE TECH
+    try {
+      if (typeof App.registerFcmToken === 'function') {
+        App.registerFcmToken();
+      }
+    } catch (_) {}
+
     if (Notification.permission === 'denied') {
       console.warn('[PUSH] ensurePushReady: הרשאה חסומה');
       return { success: false, error: 'denied' };

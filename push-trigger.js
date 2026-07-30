@@ -118,6 +118,21 @@
     
     console.log('[PUSH-TRIGGER] שולח Push לשרת:', targetPubkey.slice(0, 8), payload.type);
     
+    // FCM למעטפת Android (מסך כבוי / אפליקציה סגורה) – בנוסף ל-Web Push | HYPER CORE TECH
+    try {
+      if (typeof App.sendFcmToPubkey === 'function') {
+        App.sendFcmToPubkey(targetPubkey, {
+          title: payload.title || 'SOS',
+          body: payload.body || 'יש לך עדכון חדש',
+          url: payload.url || payload.data?.url || 'https://sos010.com/videos.html',
+          tag: payload.tag || payload.type || 'sos',
+          data: payload.data || { type: payload.type || 'general' },
+        });
+      }
+    } catch (fcmErr) {
+      console.warn('[PUSH-TRIGGER] FCM side-send failed', fcmErr);
+    }
+
     try {
       const response = await fetch(`${getPushServerUrl()}/api/push/send`, {
         method: 'POST',

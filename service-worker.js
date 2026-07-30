@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v132'; // bump - install logic + push after install
+  const CACHE_NAME = 'sos-cache-v133'; // bump - Android native shell + FCM bridge
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -24,6 +24,7 @@
     './live-tv/live-tv-catalog.js',
     './loadnug/loadnug-animation.css',
     './loadnug/loadnug-controller.js',
+    './native-shell-bridge.js',
     './manifest.webmanifest',
   ];
 

@@ -1,0 +1,9 @@
+{
+  "name": "sos-fcm-push-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "firebase-admin": "^12.1.1"
+  }
+}

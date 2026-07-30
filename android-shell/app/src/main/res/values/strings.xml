@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SOS</string>
+    <string name="channel_messages">הודעות ושיחות</string>
+    <string name="channel_messages_desc">התראות על הודעות, שיחות ועדכונים</string>
+    <string name="channel_keepalive">SOS ברקע</string>
+    <string name="channel_keepalive_desc">שומר את SOS פעיל לקבלת הודעות</string>
+    <string name="fg_title">SOS פעיל ברקע</string>
+    <string name="fg_text">מקבל הודעות ושיחות גם כשהמסך כבוי</string>
+</resources>
