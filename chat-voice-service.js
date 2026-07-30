@@ -4,7 +4,7 @@
   // חלק קול (chat-voice-service.js) – הקלטת קול בדפדפן, דחיסה ל-webm, העלאה ל-Blossom עם Fallback, ושילוב כמצורף בצ'אט
   // הערות: הקובץ קצר (<350 שורות) ומסביר לעצמו. שייך למודול SOS2 צ'אט קול.
 
-  const MAX_INLINE_BYTES = 90 * 1024; // שמרני כדי לא לעבור מגבלות הודעה
+  const MAX_INLINE_BYTES = 256 * 1024; // תואם מגבלת inline בצ'אט – הודעות קול ארוכות יותר | HYPER CORE TECH
   const MAX_SECONDS = 60; // בדומה ל-yakbak
   const P2P_SEED_TIMEOUT_MS = 5000; // חלק P2P קול (chat-voice-service.js) – timeout ליצירת טורנט קולי | HYPER CORE TECH
 
@@ -171,49 +171,34 @@
   }
 
 
-  // חלק P2P קול (chat-voice-service.js) – finalizeVoiceToChat: אופטימיזציה חכמה — P2P קודם, Blossom רק כ-fallback | HYPER CORE TECH
+  // חלק P2P קול (chat-voice-service.js) – finalize: תמיד מקור ניגון (dataUrl/Blossom) + magnet אופציונלי | HYPER CORE TECH
   async function finalizeVoiceToChat(peerPubkey){
     if(!peerPubkey) throw new Error('missing-peer');
     const result = await stopVoiceRecording();
     if(!result) return null;
 
-    const dcConnected = App.dataChannel?.isConnected?.(peerPubkey) || false;
+    // מקור playable חובה לשני הצדדים; magnet רק כבונוס P2P (לא במקום URL) | HYPER CORE TECH
+    console.log('[VOICE] Building playable attachment + optional P2P seed in parallel', {
+      size: result.blob.size,
+      mime: result.mimeType,
+    });
+    const [attachment, magnetURI] = await Promise.all([
+      buildAttachmentFromBlob(result.blob, result.duration, result.mimeType),
+      seedVoiceForP2P(result.blob, result.mimeType).catch(() => null),
+    ]);
 
-    // חלק אופטימיזציה P2P (chat-voice-service.js) – כש-DC מחובר + קובץ גדול: P2P seed קודם, Blossom רק אם נכשל | HYPER CORE TECH
-    if (dcConnected && result.blob.size > MAX_INLINE_BYTES) {
-      console.log('[VOICE/P2P] ⚡ DC מחובר + קובץ גדול → P2P seed קודם (חוסך Blossom)');
-      const magnetURI = await seedVoiceForP2P(result.blob, result.mimeType);
-      if (magnetURI) {
-        const ext = getFileExtension(result.mimeType || 'audio/webm');
-        const fileName = `voice-message.${ext}`;
-        const attachment = { id: 'audio-'+Date.now(), name: fileName, size: result.blob.size, type: result.mimeType || 'audio/webm', dataUrl: '', url: '', duration: result.duration, magnetURI };
-        console.log('[VOICE/P2P] ✅ P2P seed הצליח! שולח עם magnetURI בלבד (ללא Blossom)');
-        if(typeof App.setChatFileAttachment === 'function') App.setChatFileAttachment(peerPubkey, attachment);
-        return attachment;
-      }
-      console.log('[VOICE/P2P] ⬇️ P2P seed נכשל עם DC מחובר → fallback ל-Blossom');
+    if (!attachment || (!attachment.url && !attachment.dataUrl)) {
+      throw new Error('voice-attachment-missing-src');
     }
-
-    // חלק fallback (chat-voice-service.js) – Torrent קודם, Blossom רק אם Torrent נכשל | HYPER CORE TECH
-    // שלב 1: ננסה Torrent seed קודם (גם אם DC לא מחובר — המקבל יוריד דרך tracker)
-    console.log('[VOICE/P2P] 🔄 מנסה Torrent seed קודם (DC:', dcConnected ? 'מחובר' : 'לא מחובר', ', גודל:', result.blob.size, ')');
-    const magnetURI = await seedVoiceForP2P(result.blob, result.mimeType);
 
     if (magnetURI) {
-      // שלב 1 הצליח — Torrent בלבד, ללא Blossom!
-      const ext = getFileExtension(result.mimeType || 'audio/webm');
-      const fileName = `voice-message.${ext}`;
-      const attachment = { id: 'audio-'+Date.now(), name: fileName, size: result.blob.size, type: result.mimeType || 'audio/webm', dataUrl: '', url: '', duration: result.duration, magnetURI };
-      console.log('[VOICE/P2P] ✅ Torrent seed הצליח! שולח עם magnetURI בלבד (ללא Blossom)');
-      if(typeof App.setChatFileAttachment === 'function') App.setChatFileAttachment(peerPubkey, attachment);
-      return attachment;
+      attachment.magnetURI = magnetURI;
+      console.log('[VOICE] Hybrid ready: playable src + magnetURI');
+    } else {
+      console.log('[VOICE] Playable src ready (no magnet)');
     }
 
-    // שלב 2: Torrent נכשל — fallback אחרון ל-Blossom
-    console.log('[VOICE/P2P] ⬇️ Torrent seed נכשל → fallback ל-Blossom');
-    const attachment = await buildAttachmentFromBlob(result.blob, result.duration, result.mimeType);
-    console.log('[VOICE] Final attachment (Blossom fallback):', attachment);
-    if(typeof App.setChatFileAttachment === 'function'){
+    if (typeof App.setChatFileAttachment === 'function') {
       App.setChatFileAttachment(peerPubkey, attachment);
     }
     return attachment;
