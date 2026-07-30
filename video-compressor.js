@@ -290,30 +290,41 @@
     };
   }
 
-  // חלק החלטה (video-compressor.js) – מתי לא לקודד מחדש כדי לא לפגוע באיכות מינימלית | HYPER CORE TECH
+  // קבצים קטנים מאוד בלבד מדלגים בלי probe / בלי קידוד מחדש | HYPER CORE TECH
+  const SMALL_PASSTHROUGH_MAX_BYTES = 8 * 1024 * 1024;
+
+  // חלק החלטה (video-compressor.js) – passthrough רק כשהמקור כבר קל (לא דילוג על 20–40MB רק כי ≤720p) | HYPER CORE TECH
   function shouldPassthrough(file, meta) {
     if (!isFriendlyContainer(file)) return { skip: false };
 
-    if (file.size <= SKIP_REENCODE_MAX_BYTES) {
-      if (!meta || !meta.height) {
-        return { skip: true, reason: 'friendly-small-container' };
+    // בלי metadata: מדלגים רק על קבצים קטנים — 30MB בלי probe חייבים ניסיון דחיסה
+    if (!meta || !meta.height) {
+      if (file.size <= SMALL_PASSTHROUGH_MAX_BYTES) {
+        return { skip: true, reason: 'friendly-small-no-meta' };
       }
-      if (meta.height <= LOW_QUALITY_MAX_HEIGHT && meta.width <= TARGET_MAX_WIDTH) {
-        return { skip: true, reason: 'friendly-under-720p' };
-      }
+      return { skip: false };
     }
 
-    if (meta && meta.height > 0) {
-      const alreadyLow =
-        meta.height <= LOW_QUALITY_MAX_HEIGHT &&
-        meta.estimatedBps > 0 &&
-        meta.estimatedBps <= LOW_QUALITY_MAX_BPS &&
-        file.size <= SKIP_REENCODE_MAX_BYTES;
-      if (alreadyLow) {
-        return { skip: true, reason: 'already-low-bitrate' };
-      }
+    const underTarget =
+      meta.height <= LOW_QUALITY_MAX_HEIGHT && meta.width <= TARGET_MAX_WIDTH;
+    const lowBitrate =
+      meta.estimatedBps > 0 && meta.estimatedBps <= LOW_QUALITY_MAX_BPS;
+
+    // כבר ≤720p וביטרייט נמוך ורק אם הקובץ לא שמן — אחרת 20–40MB עדיין יקודדו מחדש | HYPER CORE TECH
+    if (underTarget && lowBitrate && file.size <= 15 * 1024 * 1024) {
+      return { skip: true, reason: 'already-low-bitrate' };
     }
 
+    // ≤720p אבל קטן מאוד וביטרייט סביר — מדלגים
+    if (
+      underTarget &&
+      file.size <= SMALL_PASSTHROUGH_MAX_BYTES &&
+      (!meta.estimatedBps || meta.estimatedBps <= MAX_VIDEO_BITRATE)
+    ) {
+      return { skip: true, reason: 'friendly-small-720p' };
+    }
+
+    // 1080p/4K או קובץ שמן (≥~8MB) — דוחסים ל-720p / maxrate
     return { skip: false };
   }
 
@@ -366,7 +377,7 @@
     }
     args.push(
       '-c:v', 'libx264',
-      '-preset', 'medium',
+      '-preset', 'veryfast', // מהיר במובייל/APK בלי לוותר על CRF/maxrate | HYPER CORE TECH
       '-profile:v', 'main',
       '-level', '4.0',
       '-crf', crf,
@@ -848,7 +859,13 @@
         console.log('[COMPRESS] FFmpeg success', ff.compressionRatio + '%');
         return ff;
       } catch (err) {
-        console.warn('[COMPRESS] FFmpeg path failed, falling back:', err?.message || err);
+        const reason = err?.message || String(err);
+        console.warn('[COMPRESS] FFmpeg path failed, falling back:', reason);
+        // אם הפלט לא קטן יותר — אין טעם לעבור ל-Canvas (איטי/גרוע); שולחים מקור | HYPER CORE TECH
+        if (reason === 'ffmpeg-not-smaller') {
+          if (typeof onProgress === 'function') onProgress({ stage: 'complete', percent: 100 });
+          return makePassthroughResult(normalized, 'ffmpeg-not-smaller');
+        }
       }
 
       // חלק מעטפת (video-compressor.js) – לא Canvas ב-WebView (שמע בלי תמונה / קיצור / טשטוש) | HYPER CORE TECH

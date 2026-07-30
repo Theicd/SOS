@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v156'; // bump - hide composer file-preview flash; auto-send media on pick
+  const CACHE_NAME = 'sos-cache-v157'; // bump - chat+post video compression always on; smarter passthrough
   const PRECACHE_URLS = [
     './',
     './videos.html',

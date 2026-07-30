@@ -3819,6 +3819,22 @@ async function loadFeed() {
       return;
     }
 
+    // קריטי: דחיסת וידאו לפני בניית payload גם אם הפרסום הגיע מ-feed | HYPER CORE TECH
+    if (typeof App.ensureVideoReadyForPublish === 'function') {
+      try {
+        const media = App.composeState?.media;
+        if (media?.type === 'video' && media.pendingProcessing && media.originalFile) {
+          try { if (typeof window.startProcessingAnimation === 'function') window.startProcessingAnimation(); } catch (_) {}
+          await App.ensureVideoReadyForPublish();
+        }
+      } catch (videoErr) {
+        console.error('[FEED] Video processing failed before publish', videoErr);
+        App.setComposeStatus?.(videoErr?.message || 'שגיאה בעיבוד הוידאו', 'error');
+        try { if (typeof window.stopProcessingAnimation === 'function') window.stopProcessingAnimation(); } catch (_) {}
+        return;
+      }
+    }
+
     const payload = App.getComposePayload();
     if (!payload) {
       return;

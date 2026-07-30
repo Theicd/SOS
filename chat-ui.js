@@ -103,6 +103,11 @@
       actionText = isReceive ? 'מתחיל הורדה...' : 'מתחיל שליחה...';
       actionIcon = 'fa-spinner fa-spin';
       speedText = 'מכין...';
+    } else if (st === 'compressing') {
+      actionText = 'דוחס וידאו...';
+      actionIcon = 'fa-film';
+      speedText = `${pct}%`;
+      showCancel = false;
     } else if (st === 'seeding-torrent') {
       const attempt = progress.attempt || 1;
       const max = progress.maxRetries || 3;
@@ -167,6 +172,7 @@
       progress.status === 'waiting-peer' ||
       progress.status === 'reconnecting' ||
       progress.status === 'starting' ||
+      progress.status === 'compressing' ||
       progress.status === 'seeding-torrent' ||
       (progress.status === 'sending' && ui.pct === 0) ||
       progress.status === 'requesting-resend' ||

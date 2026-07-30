@@ -93,12 +93,92 @@
     return true;
   }
 
+  function looksLikeVideoFile(file) {
+    if (!file) return false;
+    if (/^video\//i.test(file.type || '')) return true;
+    return /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(file.name || '');
+  }
+
+  function reportCompressProgress(peer, compressId, file, stage, percent) {
+    const pct = typeof percent === 'number' ? percent : 0;
+    App.handleP2PProgressUpdate?.({
+      fileId: compressId,
+      progress: Math.max(0, Math.min(1, pct / 100)),
+      status: stage === 'complete' ? 'complete' : stage === 'failed' ? 'failed' : 'compressing',
+      direction: 'send',
+      name: file?.name || 'video',
+      size: file?.size || 0,
+      peerPubkey: peer,
+      compressStage: stage,
+      error: stage === 'failed' ? 'דחיסה נכשלה — שולח מקור' : undefined,
+    });
+  }
+
+  // חלק דחיסה (chat-file-transfer-ui.js) – וידאו בצ'אט עובר compressVideo לפני P2P/Torrent עם בועת התקדמות | HYPER CORE TECH
+  async function maybeCompressVideoForChat(peer, file) {
+    if (!looksLikeVideoFile(file)) return file;
+    if (typeof App.compressVideo !== 'function') {
+      log('compressVideo לא זמין — שולח מקור');
+      return file;
+    }
+
+    const compressId = `compress-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    reportCompressProgress(peer, compressId, file, 'compressing', 2);
+    log('מתחיל דחיסת וידאו לצ׳אט', {
+      name: file.name,
+      sizeMB: (file.size / (1024 * 1024)).toFixed(2),
+      type: file.type,
+    });
+
+    try {
+      const result = await App.compressVideo(file, (progress) => {
+        reportCompressProgress(
+          peer,
+          compressId,
+          file,
+          progress?.stage === 'finalizing' ? 'compressing' : (progress?.stage || 'compressing'),
+          progress?.percent || 0
+        );
+      });
+
+      reportCompressProgress(peer, compressId, file, 'complete', 100);
+
+      if (!result?.blob) {
+        log('דחיסה ללא blob — שולח מקור');
+        return file;
+      }
+
+      const ext = /webm/i.test(result.type || '') ? '.webm' : '.mp4';
+      const base = String(file.name || 'video').replace(/\.[^.]+$/, '');
+      const compressedFile = new File([result.blob], `${base}${ext}`, {
+        type: result.type || 'video/mp4',
+        lastModified: Date.now(),
+      });
+
+      log('דחיסת וידאו לצ׳אט הסתיימה', {
+        method: result.method || 'unknown',
+        reason: result.reason || null,
+        originalMB: (file.size / (1024 * 1024)).toFixed(2),
+        compressedMB: (compressedFile.size / (1024 * 1024)).toFixed(2),
+        ratio: result.compressionRatio,
+      });
+      return compressedFile;
+    } catch (err) {
+      log('דחיסת וידאו נכשלה — ממשיכים עם מקור', err?.message || err);
+      reportCompressProgress(peer, compressId, file, 'failed', 0);
+      return file;
+    }
+  }
+
   async function handleFileSelection(file) {
     const peer = ensurePeer();
     if (!peer || !validateFile(file)) {
       return;
     }
     log('בחר קובץ', { name: file.name, size: file.size, type: file.type });
+
+    // דחיסת וידאו לפני כל מסלול שליחה (P2P / Torrent / inline)
+    file = await maybeCompressVideoForChat(peer, file);
     
     // חלק ניתוב קבצים (chat-file-transfer-ui.js) – מעל 90KB מעדיפים P2P, ואם נכשל עוברים ל-inline עד 256KB
     // אם DC כבר מחובר — גם קבצים קטנים עוברים P2P כדי לא לעמיס על relay | HYPER CORE TECH

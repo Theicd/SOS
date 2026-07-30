@@ -1643,9 +1643,9 @@
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
     <script src="./video-record.js" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
-    <script src="./video-compressor.js?v=20260731b" defer></script>
+    <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260731a" defer></script>
+    <script src="./compose.js?v=20260731c" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -1673,7 +1673,7 @@
     <script src="./chat-service.js?v=6" defer></script>
     <script src="./chat-file-transfer-state.js?v=2" defer></script>
     <script src="./chat-file-transfer-service.js?v=2" defer></script>
-    <script src="./chat-file-transfer-ui.js?v=5" defer></script>
+    <script src="./chat-file-transfer-ui.js?v=6" defer></script>
     <script src="./chat-voice-service.js?v=4" defer></script>
     <script src="./chat-voice-ui.js" defer></script>
     <script src="./chat-voice-call.js?v=20260730f" defer></script>
@@ -1687,7 +1687,7 @@
     <script src="./chat-ui-optimizations.js" defer></script>
     <script src="./chat-composer-enhanced.js?v=4" defer></script>
     <script src="./chat-p2p-datachannel.js?v=13" defer></script>
-    <script src="./chat-ui.js?v=13" defer></script>
+    <script src="./chat-ui.js?v=14" defer></script>
     <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
     <script src="./chat-request-logger.js?v=2" defer></script>
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
@@ -2527,88 +2527,62 @@
         async function publishPostWithAnimation() {
           try {
             const App = window.NostrApp || {};
-            const composeState = App.composeState;
-            
-            // בדיקה אם יש וידאו שממתין לעיבוד
-            if (composeState && composeState.media && 
-                composeState.media.type === 'video' && 
-                composeState.media.pendingProcessing && 
-                composeState.media.originalFile) {
-              
-              console.log('[PUBLISH] Processing pending video...');
-              
-              // עיבוד הוידאו
-              if (typeof App.compressVideo === 'function') {
-                try {
-                  const file = composeState.media.originalFile;
-                  const result = await App.compressVideo(file, (progress) => {
-                    console.log('[PUBLISH] Video progress:', progress.stage, progress.percent);
-                    const noticeText = document.querySelector('#processingNotice .processing-notice__text');
-                    if (noticeText && progress) {
-                      const pct = typeof progress.percent === 'number' ? Math.round(progress.percent) : '';
-                      if (progress.stage === 'compressing') {
-                        noticeText.textContent = `⏳ דוחס וידאו... ${pct}%`;
-                      } else if (progress.stage === 'finalizing') {
-                        noticeText.textContent = '⏳ מסיים עיבוד וידאו...';
-                      } else if (progress.stage === 'uploading') {
-                        noticeText.textContent = `⏳ מעלה וידאו... ${pct}%`;
-                      }
-                    }
-                  });
-                  
-                  const noticeText = document.querySelector('#processingNotice .processing-notice__text');
-                  if (noticeText) {
-                    noticeText.textContent = '⏳ מעלה את הפוסט לרשת...';
-                  }
 
-                  // העלאה לשרת
-                  let uploadedUrl = '';
-                  if (typeof App.uploadToBlossom === 'function') {
-                    try {
-                      uploadedUrl = await App.uploadToBlossom(result.blob);
-                    } catch (uploadErr) {
-                      console.warn('Upload failed, using data URL', uploadErr);
+            // דחיסה+העלאה דרך compose (מקור אמת אחד) — לא מדלגים על וידאו ממתין | HYPER CORE TECH
+            if (typeof App.ensureVideoReadyForPublish === 'function') {
+              try {
+                await App.ensureVideoReadyForPublish((progress) => {
+                  console.log('[PUBLISH] Video progress:', progress?.stage, progress?.percent);
+                });
+              } catch (videoErr) {
+                console.error('Video processing failed:', videoErr);
+                stopProcessingAnimation();
+                alert('שגיאה בעיבוד הוידאו: ' + (videoErr?.message || videoErr));
+                return;
+              }
+            } else {
+              // fallback ישן אם compose לא נטען
+              const composeState = App.composeState;
+              if (composeState && composeState.media &&
+                  composeState.media.type === 'video' &&
+                  composeState.media.pendingProcessing &&
+                  composeState.media.originalFile &&
+                  typeof App.compressVideo === 'function') {
+                console.warn('[PUBLISH] ensureVideoReadyForPublish missing — using inline fallback');
+                const file = composeState.media.originalFile;
+                const result = await App.compressVideo(file, (progress) => {
+                  const noticeText = document.querySelector('#processingNotice .processing-notice__text');
+                  if (noticeText && progress) {
+                    const pct = typeof progress.percent === 'number' ? Math.round(progress.percent) : '';
+                    if (progress.stage === 'compressing' || progress.stage === 'loading') {
+                      noticeText.textContent = `⏳ דוחס וידאו... ${pct}%`;
+                    } else if (progress.stage === 'finalizing') {
+                      noticeText.textContent = '⏳ מסיים עיבוד וידאו...';
                     }
                   }
-                  
-                  // אם ההעלאה נכשלה, נשתמש ב-data URL
-                  if (!uploadedUrl) {
-                    uploadedUrl = await new Promise((resolve, reject) => {
-                      const reader = new FileReader();
-                      reader.onload = () => resolve(reader.result);
-                      reader.onerror = reject;
-                      reader.readAsDataURL(result.blob);
-                    });
-                  }
-                  
-                  // עדכון ה-state עם התוצאה
-                  composeState.media.url = uploadedUrl;
-                  composeState.media.dataUrl = uploadedUrl;
-                  composeState.media.hash = result.hash;
-                  composeState.media.size = result.size;
-                  composeState.media.mimeType = result.type || 'video/webm';
-                  composeState.media.pendingProcessing = false;
-                  delete composeState.media.originalFile;
-                  
-                  // רישום ב-P2P
-                  if (typeof App.registerFileAvailability === 'function' && result.hash && result.blob) {
-                    try {
-                      await App.registerFileAvailability(result.hash, result.blob, result.type || 'video/webm');
-                    } catch (err) {
-                      console.warn('P2P registration failed:', err);
-                    }
-                  }
-                  
-                  console.log('[PUBLISH] Video processed successfully');
-                } catch (videoErr) {
-                  console.error('Video processing failed:', videoErr);
-                  stopProcessingAnimation();
-                  alert('שגיאה בעיבוד הוידאו: ' + videoErr.message);
-                  return;
+                });
+                let uploadedUrl = '';
+                if (typeof App.uploadToBlossom === 'function') {
+                  try { uploadedUrl = await App.uploadToBlossom(result.blob); } catch (_) {}
                 }
+                if (!uploadedUrl) {
+                  uploadedUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(result.blob);
+                  });
+                }
+                composeState.media.url = uploadedUrl;
+                composeState.media.dataUrl = uploadedUrl;
+                composeState.media.hash = result.hash;
+                composeState.media.size = result.size;
+                composeState.media.mimeType = result.type || 'video/mp4';
+                composeState.media.pendingProcessing = false;
+                delete composeState.media.originalFile;
               }
             }
-            
+
             // פרסום הפוסט
             if (typeof App.publishPost === 'function') {
               await App.publishPost();
