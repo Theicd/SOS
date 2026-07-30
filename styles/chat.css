@@ -1649,15 +1649,22 @@ body.chat-media-modal-open {
 
   /* === כותרת תאריך === */
   .chat-panel .chat-date-header {
+    position: sticky;
+    top: 8px;
+    z-index: 6;
     align-self: center;
-    background-color: var(--wa-system-message-bg);
-    color: var(--wa-secondary-text);
+    background-color: var(--wa-system-message-bg, #1f2c34);
+    color: var(--wa-primary-text, #e9edef);
     padding: 5px 12px;
     border-radius: 8px;
     font-size: 12.5px;
     margin: 8px 0;
     box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
     user-select: none;
+    pointer-events: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid rgba(255, 255, 255, 0.04);
   }
 
   /* === אזור קלט הודעה === */

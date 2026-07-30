@@ -644,7 +644,7 @@
 
     const sinceTs = typeof App.getChatLastSyncTs === 'function' ? App.getChatLastSyncTs() : 0;
     const baseFilter = (kinds, extra = {}) => {
-      const f = { kinds, limit: 200, ...extra };
+      const f = { kinds, limit: 80, ...extra };
       if (sinceTs && Number.isFinite(sinceTs)) {
         f.since = sinceTs;
       }

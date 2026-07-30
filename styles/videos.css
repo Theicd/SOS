@@ -4532,9 +4532,10 @@ body.videos-feed-mode-games .videos-feed__status {
     border-top: none !important;
     background: #14161a !important; /* רקע אטום מלא */
     padding-top: max(10px, env(safe-area-inset-top, 0px)) !important; /* רק safe-area – בלי top-bar של הפיד | HYPER CORE TECH */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; /* מרווח לתפריט התחתון + Safe Area */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important; /* מרווח לתפריט + מקלדת | HYPER CORE TECH */
     z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
+    transition: padding-bottom 0.12s ease-out !important; /* מעבר חלק עם המקלדת | HYPER CORE TECH */
   }
 
   /* כשדף השיחות פתוח – מסתירים את ה-top-bar של הפיד (z-index 3000) כדי שלא יחתוך את החיפוש | HYPER CORE TECH */
@@ -4590,7 +4591,7 @@ body.videos-feed-mode-games .videos-feed__status {
   }
 
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
     z-index: 2005 !important; /* וידוא שנשאר עליון */
   }
 

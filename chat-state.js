@@ -17,7 +17,7 @@
     lastSyncTs: 0, // חלק צ'אט (chat-state.js) – חותמת סנכרון אחרונה כדי לצמצם משיכה מריליי | HYPER CORE TECH
   };
 
-  const MAX_MESSAGES_PER_THREAD = null; // חלק צ'אט (chat-state.js) – מבטל קיצוץ הודעות (שומרים היסטוריה מלאה) | HYPER CORE TECH
+  const MAX_MESSAGES_PER_THREAD = 500; // חלק צ'אט (chat-state.js) – מגביל היסטוריה בזיכרון/שמירה לביצועים | HYPER CORE TECH
   
   // חלק IndexedDB (chat-state.js) – אחסון ללא הגבלה עם IndexedDB | HYPER CORE TECH
   const DB_NAME = 'NostrChatDB';
@@ -372,6 +372,12 @@
     }
     entry.messages.push(message);
     entry.messages.sort((a, b) => a.createdAt - b.createdAt);
+    if (MAX_MESSAGES_PER_THREAD && entry.messages.length > MAX_MESSAGES_PER_THREAD) {
+      const removed = entry.messages.splice(0, entry.messages.length - MAX_MESSAGES_PER_THREAD);
+      removed.forEach((old) => {
+        if (old?.id) chatState.messageIndex.delete(old.id);
+      });
+    }
     if (message?.id) {
       chatState.messageIndex.set(message.id, {
         peer: entry.peer,

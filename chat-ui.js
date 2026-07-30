@@ -818,7 +818,7 @@
     state.activeContact = normalized;
     togglePanel(true);
     renderContacts();
-    renderMessages(normalized);
+    renderMessages(normalized, { resetLimit: true, force: true });
     updatePanelMode(PANEL_MODES.CONVERSATION);
     App.markChatConversationRead(normalized);
   }
@@ -984,6 +984,7 @@
   }
 
   // חלק צ'אט (chat-ui.js) – מיקום הפאנל - בדסקטופ נשלט על ידי CSS בלבד | HYPER CORE TECH
+  let _viewportRaf = 0;
   function positionPanel() {
     if (!elements.panel) {
       return;
@@ -999,18 +1000,33 @@
       elements.panel.style.maxWidth = '';
       elements.panel.style.height = '';
       elements.panel.style.maxHeight = '';
+      elements.panel.style.removeProperty('--chat-keyboard-inset');
       return;
     }
-    // במובייל (768px ומטה) - מיקום מלא מסך
+    // במובייל – פאנל full-screen קבוע; המקלדת מזיזה רק padding דרך CSS var (בלי thrashing של height/top) | HYPER CORE TECH
     elements.panel.style.left = '0px';
     elements.panel.style.right = '0px';
-    const safeTop = Math.max(0, window.visualViewport?.offsetTop || 0);
-    elements.panel.style.top = `${safeTop}px`;
+    elements.panel.style.top = '0px';
     elements.panel.style.bottom = '0px';
-    elements.panel.style.width = `${window.visualViewport?.width || window.innerWidth}px`;
-    elements.panel.style.maxWidth = `${window.visualViewport?.width || window.innerWidth}px`;
-    elements.panel.style.height = `${window.visualViewport?.height || window.innerHeight}px`;
-    elements.panel.style.maxHeight = `${window.visualViewport?.height || window.innerHeight}px`;
+    elements.panel.style.width = '100%';
+    elements.panel.style.maxWidth = '100%';
+    elements.panel.style.height = '100%';
+    elements.panel.style.maxHeight = '100%';
+    const vv = window.visualViewport;
+    if (vv) {
+      const keyboardInset = Math.max(0, Math.round(window.innerHeight - vv.height - (vv.offsetTop || 0)));
+      elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
+    } else {
+      elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
+    }
+  }
+
+  function schedulePositionPanel() {
+    if (_viewportRaf) return;
+    _viewportRaf = requestAnimationFrame(() => {
+      _viewportRaf = 0;
+      if (state.isOpen) positionPanel();
+    });
   }
 
   function togglePanel(forceOpen) {
@@ -1052,23 +1068,13 @@
     }
   }
 
-  // חלק מקלדת מובייל (chat-ui.js) – מאזין לשינויי viewport עם שמירה על פוקוס ב-input | HYPER CORE TECH
+  // חלק מקלדת מובייל (chat-ui.js) – מאזין לשינויי viewport עם rAF (בלי thrashing) | HYPER CORE TECH
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => {
-      if (state.isOpen) {
-        // שמור את האלמנט הפעיל לפני שינוי גודל
-        const activeElement = document.activeElement;
-        const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
-        
-        positionPanel();
-        
-        // אם ה-input היה בפוקוס, החזר אותו לפוקוס אחרי שינוי גודל
-        if (isInputFocused && activeElement === elements.messageInput) {
-          requestAnimationFrame(() => {
-            elements.messageInput?.focus();
-          });
-        }
-      }
+      if (state.isOpen) schedulePositionPanel();
+    });
+    window.visualViewport.addEventListener('scroll', () => {
+      if (state.isOpen) schedulePositionPanel();
     });
   }
 
@@ -1369,25 +1375,70 @@
   let _lastRenderMsgTime = 0;
   let _pendingRenderMsg = null;
   const RENDER_MSG_THROTTLE = 180;
+  const INITIAL_VISIBLE_MESSAGES = 100;
+  let _visibleMessageLimit = INITIAL_VISIBLE_MESSAGES;
+  let _renderMessagesPeer = '';
 
   // חלק בקרה UI טורנט (chat-ui.js) – ה-UI לא מתחיל הורדות היסטוריות בעצמו, רק מציג מצב לפי מנוע ההעברה | HYPER CORE TECH
 
-  function renderMessages(peerPubkey) {
+  function isSimpleChatMessage(message) {
+    if (!message) return false;
+    if (message.attachment) return false;
+    const raw = typeof message.content === 'string' ? message.content.trim() : '';
+    if (!raw) return true;
+    if (raw.startsWith('{') && (raw.includes('torrent-transfer-request') || raw.includes('magnetURI') || raw.includes('infoHash'))) {
+      return false;
+    }
+    if (raw.includes('data:audio') || raw.includes('"type":"voice"') || raw.includes('"kind":"voice"')) {
+      return false;
+    }
+    return true;
+  }
+
+  function renderMessages(peerPubkey, options = {}) {
     if (!elements.messagesContainer) return;
+    const normalizedPeer = (peerPubkey || '').toLowerCase();
+    if (normalizedPeer && normalizedPeer !== _renderMessagesPeer) {
+      _renderMessagesPeer = normalizedPeer;
+      _visibleMessageLimit = INITIAL_VISIBLE_MESSAGES;
+    }
+    if (options.loadOlder) {
+      _visibleMessageLimit += INITIAL_VISIBLE_MESSAGES;
+    }
+    if (options.resetLimit) {
+      _visibleMessageLimit = INITIAL_VISIBLE_MESSAGES;
+    }
     const now = Date.now();
-    if (now - _lastRenderMsgTime < RENDER_MSG_THROTTLE) {
+    if (!options.force && !options.loadOlder && now - _lastRenderMsgTime < RENDER_MSG_THROTTLE) {
       if (_pendingRenderMsg) clearTimeout(_pendingRenderMsg);
-      _pendingRenderMsg = setTimeout(() => { _pendingRenderMsg = null; renderMessages(peerPubkey); }, RENDER_MSG_THROTTLE);
+      _pendingRenderMsg = setTimeout(() => { _pendingRenderMsg = null; renderMessages(peerPubkey, options); }, RENDER_MSG_THROTTLE);
       return;
     }
     _lastRenderMsgTime = now;
-    const messages = typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : [];
+    const allMessages = typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : [];
     elements.messagesContainer.innerHTML = '';
-    if (!messages.length) {
+    if (!allMessages.length) {
       elements.messagesContainer.innerHTML = '<p class="chat-conversation__empty">אין הודעות עדיין. כתוב משהו!</p>';
       return;
     }
+    const startIndex = Math.max(0, allMessages.length - _visibleMessageLimit);
+    const messages = allMessages.slice(startIndex);
     const fragment = doc.createDocumentFragment();
+    if (startIndex > 0) {
+      const loadOlder = doc.createElement('button');
+      loadOlder.type = 'button';
+      loadOlder.className = 'chat-load-older';
+      loadOlder.textContent = `טען הודעות ישנות יותר (${startIndex})`;
+      loadOlder.addEventListener('click', () => {
+        const prevHeight = elements.messagesContainer.scrollHeight;
+        renderMessages(peerPubkey, { loadOlder: true, force: true });
+        requestAnimationFrame(() => {
+          if (!elements.messagesContainer) return;
+          elements.messagesContainer.scrollTop = Math.max(0, elements.messagesContainer.scrollHeight - prevHeight);
+        });
+      });
+      fragment.appendChild(loadOlder);
+    }
     // חלק צ'אט (chat-ui.js) – קיבוץ הודעות לפי יום והוספת כותרות תאריך דביקות בסגנון וואטסאפ
     let lastDayKey = '';
     messages.forEach((message) => {
@@ -1397,6 +1448,7 @@
         lastDayKey = dayKey;
         const header = doc.createElement('div');
         header.className = 'chat-date-header';
+        header.setAttribute('data-day-key', dayKey);
         header.textContent = formatMessageDayHeader(messageTimestamp);
         fragment.appendChild(header);
       }
@@ -1888,13 +1940,15 @@
     syncTorrentDownloadButtons();
 
     // חלק גלילה לתחתית (chat-ui.js) – גלילה מושהית כדי לוודא שהדפדפן סיים לרנדר את כל ההודעות | HYPER CORE TECH
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        if (elements.messagesContainer) {
-          elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
-        }
-      }, 50);
-    });
+    if (!options.loadOlder) {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (elements.messagesContainer) {
+            elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+          }
+        }, 50);
+      });
+    }
 
     // חלק צ'אט (chat-ui.js) – הבטחת איפוס מונה לא נקראים כשצופים בשיחה בפועל | HYPER CORE TECH
     const activeNormalized = (state.activeContact || '').toLowerCase();
@@ -1906,17 +1960,30 @@
 
   // חלק הוספת הודעה בודדת (chat-ui.js) – מוסיף הודעה ל-UI ללא רינדור מחדש של הכל | HYPER CORE TECH
   function appendSingleMessage(message) {
-    if (!elements.messagesContainer) return;
-    
+    if (!elements.messagesContainer || !message?.id) return;
+    if (elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) return;
+
     // הסר הודעת "אין הודעות" אם קיימת
     const emptyMsg = elements.messagesContainer.querySelector('.chat-conversation__empty');
     if (emptyMsg) emptyMsg.remove();
-    
+
+    const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
+    const dayKey = getMessageDayKey(messageTimestamp);
+    const headers = elements.messagesContainer.querySelectorAll('.chat-date-header');
+    const lastHeader = headers.length ? headers[headers.length - 1] : null;
+    const lastDayKey = lastHeader?.getAttribute('data-day-key') || '';
+    if (dayKey && dayKey !== lastDayKey) {
+      const header = doc.createElement('div');
+      header.className = 'chat-date-header';
+      header.setAttribute('data-day-key', dayKey);
+      header.textContent = formatMessageDayHeader(messageTimestamp);
+      elements.messagesContainer.appendChild(header);
+    }
+
     const item = doc.createElement('div');
     const isOutgoing = message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
     const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
     const safeContent = App.escapeHtml ? App.escapeHtml(message.content) : message.content;
-    const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
     
     // סטטוס הודעה בסגנון ואטסאפ
     let statusHtml = '';
@@ -2041,7 +2108,7 @@
     if (elements.conversationStatus) {
       updateConversationDCStatus(peerPubkey);
     }
-    renderMessages(peerPubkey);
+    renderMessages(peerPubkey, { resetLimit: true, force: true });
     App.markChatConversationRead(peerPubkey);
     if (typeof App.setChatFileTransferActivePeer === 'function') {
       App.setChatFileTransferActivePeer(peerPubkey);
@@ -2240,11 +2307,9 @@
       togglePanel(false);
     });
     window.addEventListener('resize', () => {
-      positionPanel();
+      schedulePositionPanel();
     });
-    window.addEventListener('scroll', () => {
-      positionPanel();
-    });
+    // לא מאזינים ל-scroll של החלון – גורם לגרירת מקלדת איטית | HYPER CORE TECH
     if (elements.contactsList) {
       elements.contactsList.addEventListener('click', handleContactClick);
     }
@@ -2344,7 +2409,12 @@
       }
 
       if (isActivePeer) {
-        renderMessages(peer);
+        // הודעות טקסט פשוטות – append בלי רינדור מלא של ההיסטוריה | HYPER CORE TECH
+        if (message && isSimpleChatMessage(message)) {
+          appendSingleMessage(message);
+        } else {
+          renderMessages(peer);
+        }
         App.markChatConversationRead(peer);
       } else {
         renderContacts();
