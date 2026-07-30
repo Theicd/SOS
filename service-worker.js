@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v137'; // bump - call perms + bundled ringtone/dialtone
+  const CACHE_NAME = 'sos-cache-v138'; // bump - hide WebView giant play in STOP feed
   const PRECACHE_URLS = [
     './',
     './videos.html',

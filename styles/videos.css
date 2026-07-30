@@ -1006,6 +1006,35 @@ body:has(.videos-feed) #moreOptionsToggle {
   backface-visibility: hidden;
   /* הווידאו לא חוסם לחיצות - מאפשר ללחוץ על כפתורי הדילוג | HYPER CORE TECH */
   pointer-events: none;
+  background: #0a0a0a;
+}
+
+/* חלק STOP/WebView (videos.css) – הסתרת פליי ברירת-מחדל של Chromium/Android על כל הכרטיס | HYPER CORE TECH */
+.videos-feed__media video::-webkit-media-controls,
+.videos-feed__media video::-webkit-media-controls-enclosure,
+.videos-feed__media video::-webkit-media-controls-panel,
+.videos-feed__media video::-webkit-media-controls-start-playback-button,
+.videos-feed__media video::-webkit-media-controls-overlay-play-button,
+.videos-feed__media-video::-webkit-media-controls,
+.videos-feed__media-video::-webkit-media-controls-enclosure,
+.videos-feed__media-video::-webkit-media-controls-panel,
+.videos-feed__media-video::-webkit-media-controls-start-playback-button,
+.videos-feed__media-video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  appearance: none !important;
+}
+
+body.global-stop .videos-feed__media[data-media-type="file"] video:not(.has-preview-frame) {
+  opacity: 0.01; /* מסתיר את אייקון המערכת עד שיש פריים/poster */
+}
+body.global-stop .videos-feed__media[data-media-type="file"] video.has-preview-frame,
+body.global-stop .videos-feed__media[data-media-type="file"] video[poster] {
+  opacity: 1;
 }
 
 /* כפתורי דילוג - בצדדים ליד תצוגת הזמן בתחתית | HYPER CORE TECH */
@@ -2562,8 +2591,12 @@ body.game-embed-fullscreen .videos-feed__actions {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 80px;
-  height: 80px;
+  width: 80px !important;
+  height: 80px !important;
+  max-width: 80px !important;
+  max-height: 80px !important;
+  min-width: 80px;
+  min-height: 80px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.95);
   border: none;
@@ -2575,9 +2608,14 @@ body.game-embed-fullscreen .videos-feed__actions {
   justify-content: center;
   z-index: 20;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
   opacity: 0;
   pointer-events: none;
+  overflow: hidden;
+  flex: none;
+  inset: auto;
+  right: auto;
+  bottom: auto;
 }
 
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
@@ -2599,6 +2637,12 @@ body.global-stop .videos-feed__play-overlay {
 
 .videos-feed__play-overlay i {
   margin-left: 4px;
+  font-size: 2rem !important;
+  line-height: 1 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none;
+  max-height: none;
 }
 
 /* חלק פעולות צד (videos.css) – כפתורים בצד ימין כמו טיקטוק */

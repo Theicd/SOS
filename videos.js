@@ -1,7 +1,7 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.5.0-default-play';
+const VIDEOS_CODE_VERSION = '2.5.1-stop-preview';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מצב גלובלי (videos.js) – מצב STOP/PLAY גלובלי לשליטה בהפעלה אוטומטית | HYPER CORE TECH
@@ -15,6 +15,70 @@ function updateGlobalStopClass() {
   } else {
     document.body.classList.add('global-stop');
   }
+}
+
+/**
+ * חלק STOP/WebView (videos.js) – צובע פריים ראשון + poster כדי שלא יופיע פליי ענק של Android WebView | HYPER CORE TECH
+ */
+function captureVideoPosterFromFrame(videoEl) {
+  if (!videoEl || videoEl.dataset.posterCaptured === '1') return;
+  if (!videoEl.videoWidth || !videoEl.videoHeight) return;
+  try {
+    const maxW = 720;
+    const scale = Math.min(1, maxW / videoEl.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(videoEl.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(videoEl.videoHeight * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+    if (dataUrl && dataUrl.startsWith('data:image')) {
+      videoEl.poster = dataUrl;
+      videoEl.dataset.posterCaptured = '1';
+    }
+  } catch (_) {
+    // cross-origin / tainted canvas – מתעלמים
+  }
+}
+
+async function ensurePausedPreviewFrame(videoEl) {
+  if (!videoEl || videoEl.dataset.previewFrame === '1') return;
+  if (videoEl.readyState < 2) return;
+  let wasMuted = true;
+  try {
+    wasMuted = videoEl.muted;
+    videoEl.muted = true;
+    // play קצר + pause מצייר פריים ב-WebView; אחרת רואים פליי מערכת מתוח על כל הכרטיס
+    const playPromise = videoEl.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      await playPromise.catch(() => {});
+    }
+    videoEl.pause();
+    videoEl.muted = wasMuted;
+    try {
+      if (!(isFinite(videoEl.currentTime) && videoEl.currentTime > 0.05)) {
+        if (typeof videoEl.fastSeek === 'function') {
+          videoEl.fastSeek(0.001);
+        } else {
+          videoEl.currentTime = 0.001;
+        }
+      }
+    } catch (_) {}
+    captureVideoPosterFromFrame(videoEl);
+    videoEl.dataset.previewFrame = '1';
+    videoEl.classList.add('has-preview-frame');
+  } catch (_) {
+    try { videoEl.muted = wasMuted; } catch (_) {}
+  }
+}
+
+function refreshVisiblePausedPreviews() {
+  if (globalAutoplayEnabled) return;
+  const videos = document.querySelectorAll('.videos-feed__media[data-media-type="file"] video');
+  videos.forEach((videoEl) => {
+    ensurePausedPreviewFrame(videoEl);
+  });
 }
 
 // הפעלה ראשונית - הממשק מתחיל במצב PLAY
@@ -618,6 +682,8 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   if (manual) {
     globalAutoplayEnabled = false;
     updateGlobalStopClass();
+    // אחרי מעבר ל-STOP – מציירים פריימים כדי שלא יופיע פליי-ענק בגלילה | HYPER CORE TECH
+    queueMicrotask(refreshVisiblePausedPreviews);
   }
   
   const mediaType = mediaDiv.dataset.mediaType;
@@ -715,6 +781,7 @@ function pauseAllFeedVideos(options = {}) {
   if (options.disableAutoplay !== false) {
     globalAutoplayEnabled = false;
     updateGlobalStopClass();
+    queueMicrotask(refreshVisiblePausedPreviews);
   }
 }
 
@@ -1962,6 +2029,8 @@ function renderVideoCard(video) {
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
+    videoEl.controlsList = 'nodownload nofullscreen noremoteplayback';
+    videoEl.disablePictureInPicture = true;
     videoEl.muted = false; // וידאו מתחיל עם קול (ללא מיוט)
     videoEl.loop = true; // לופ כמו טיקטוק
     videoEl.playsInline = true;
@@ -1973,10 +2042,16 @@ function renderVideoCard(video) {
     videoEl.setAttribute('x-webkit-airplay', 'deny');
     videoEl.setAttribute('disableRemotePlayback', '');
     videoEl.setAttribute('disablePictureInPicture', '');
+    videoEl.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
     
     // חלק תאימות iOS (videos.js) – preload=auto נדרש לספארי כדי ש-loadeddata יירה | HYPER CORE TECH
     videoEl.preload = 'auto';
     videoEl.className = 'videos-feed__media-video';
+    // poster מתמונת הפוסט אם קיימת – מונע פליי-ענק של WebView במצב STOP | HYPER CORE TECH
+    if (typeof video.imageUrl === 'string' && video.imageUrl) {
+      videoEl.poster = video.imageUrl;
+      videoEl.dataset.posterCaptured = '1';
+    }
     mediaDiv.appendChild(videoEl);
 
     const cleanup = () => {
@@ -1987,6 +2062,15 @@ function renderVideoCard(video) {
     const onLoadedData = () => {
       cleanup();
       markReady();
+      // רק במצב STOP – מציירים פריים בלי לשבור autoplay | HYPER CORE TECH
+      if (!globalAutoplayEnabled) {
+        ensurePausedPreviewFrame(videoEl);
+      } else if (!videoEl.poster) {
+        // שומרים poster בשקט כשהסרטון עדיין מושהה לפני הפעלה
+        try {
+          if (videoEl.paused) captureVideoPosterFromFrame(videoEl);
+        } catch (_) {}
+      }
     };
 
     const onError = (event) => {
