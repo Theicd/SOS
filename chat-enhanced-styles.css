@@ -976,7 +976,7 @@
   background: #000;
 }
 
-/* חלק ואטסאפ (chat-enhanced-styles.css) – סרטון עם כפתור play מרכזי כמו ואטסאפ | HYPER CORE TECH */
+/* חלק ואטסאפ (chat-enhanced-styles.css) – סרטון עם כפתור play אחד + poster (בלי פליי ענק של WebView) | HYPER CORE TECH */
 .chat-message__video-container {
   max-width: 280px;
   min-width: 200px;
@@ -985,53 +985,70 @@
   margin: 4px 0;
   background: #000;
   position: relative;
+  line-height: 0;
 }
 
 .chat-message__video {
   width: 100%;
-  min-height: 150px;
   max-height: 400px;
+  min-height: 160px;
   display: block;
   border-radius: 8px;
-  object-fit: cover;
+  object-fit: contain;
+  background: #000;
+  /* מסתיר אייקון play מערכת של WebView עד שיש poster/פריים | HYPER CORE TECH */
+  color: transparent;
 }
 
-/* כפתור Play מרכזי כמו ואטסאפ */
-.chat-message__video-container::before {
-  content: '';
+.chat-message__video.has-poster,
+.chat-message__video[poster] {
+  min-height: 0;
+}
+
+/* כפתור Play יחיד (לא יחד עם controls מערכת) | HYPER CORE TECH */
+.chat-message__video-play {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 60px;
-  height: 60px;
-  background: rgba(0, 0, 0, 0.6);
+  width: 56px;
+  height: 56px;
+  border: none;
   border-radius: 50%;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 1;
-  transition: opacity 0.2s;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: opacity 0.2s ease, transform 0.15s ease;
 }
 
-.chat-message__video-container::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-40%, -50%);
+.chat-message__video-play:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+.chat-message__video-play-icon {
+  display: block;
+  width: 0;
+  height: 0;
+  margin-left: 3px;
   border-style: solid;
-  border-width: 12px 0 12px 20px;
+  border-width: 10px 0 10px 16px;
   border-color: transparent transparent transparent #fff;
-  z-index: 3;
-  pointer-events: none;
-  opacity: 1;
-  transition: opacity 0.2s;
 }
 
-/* הסתרת כפתור play כשהסרטון מתנגן */
-.chat-message__video-container.playing::before,
-.chat-message__video-container.playing::after {
+.chat-message__video-container.playing .chat-message__video-play {
   opacity: 0;
+  pointer-events: none;
+}
+
+/* ביטול שכבות play ישנות מ-pseudo (גרמו לכפל עם controls) | HYPER CORE TECH */
+.chat-message__video-container::before,
+.chat-message__video-container::after {
+  content: none !important;
+  display: none !important;
 }
 
 /* תצוגת אורך סרטון */
@@ -1044,7 +1061,12 @@
   font-size: 0.7rem;
   padding: 2px 6px;
   border-radius: 4px;
-  z-index: 4;
+  z-index: 6;
+  line-height: 1.2;
+}
+
+.chat-message__video-container.playing .chat-message__video-duration {
+  opacity: 0;
 }
 
 /* חלק YouTube (chat-enhanced-styles.css) – סגנון iframe YouTube | HYPER CORE TECH */

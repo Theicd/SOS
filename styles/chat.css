@@ -1900,10 +1900,13 @@ body.chat-media-modal-open {
   }
 
   .chat-panel .chat-message__image img,
-  .chat-panel .chat-message__video video {
+  .chat-panel .chat-message__video video,
+  .chat-panel .chat-message__video {
     width: 100%;
     height: auto;
     display: block;
+    object-fit: contain;
+    background: #000;
   }
 
   /* === מטא-דאטה על תמונה/וידאו (שכבת overlay) === */

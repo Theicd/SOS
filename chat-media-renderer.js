@@ -207,7 +207,49 @@
     `;
   }
   
-  // חלק רינדור וידאו (chat-media-renderer.js) – נגן וידאו בסגנון ואטסאפ עם כפתור play | HYPER CORE TECH
+  // חלק רינדור וידאו (chat-media-renderer.js) – נגן בסגנון וואטסאפ: poster + play אחד (בלי פליי ענק של WebView) | HYPER CORE TECH
+  function captureChatVideoPoster(videoEl) {
+    if (!videoEl || videoEl.dataset.posterCaptured === '1') return;
+    if (!videoEl.videoWidth || !videoEl.videoHeight) return;
+    try {
+      const maxW = 640;
+      const scale = Math.min(1, maxW / videoEl.videoWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(videoEl.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(videoEl.videoHeight * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+      if (dataUrl && dataUrl.startsWith('data:image')) {
+        videoEl.poster = dataUrl;
+        videoEl.dataset.posterCaptured = '1';
+        videoEl.classList.add('has-poster');
+      }
+    } catch (_) {
+      // cross-origin / tainted – מתעלמים
+    }
+  }
+
+  async function ensureChatVideoPosterFrame(videoEl) {
+    if (!videoEl || videoEl.dataset.posterCaptured === '1') return;
+    if (videoEl.readyState < 1) return;
+    let wasMuted = true;
+    try {
+      wasMuted = videoEl.muted;
+      videoEl.muted = true;
+      const p = videoEl.play();
+      if (p && typeof p.then === 'function') await p.catch(() => {});
+      videoEl.pause();
+      try { videoEl.currentTime = Math.min(0.05, (videoEl.duration || 1) * 0.01); } catch (_) {}
+      await new Promise((r) => setTimeout(r, 60));
+      captureChatVideoPoster(videoEl);
+    } catch (_) {
+    } finally {
+      try { videoEl.muted = wasMuted; } catch (_) {}
+    }
+  }
+
   function renderVideoAttachment(attachment) {
     const src = attachment.url || attachment.dataUrl || '';
     const type = attachment.type || 'video/mp4';
@@ -215,7 +257,7 @@
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'vid-' + Math.random().toString(36).substr(2, 9);
     const containerId = 'vc-' + Math.random().toString(36).substr(2, 9);
-    // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור וידאו | HYPER CORE TECH
+    const isLocal = src.startsWith('blob:') || src.startsWith('data:');
     mediaDebugLog('render-video', {
       name,
       mime: type,
@@ -223,14 +265,13 @@
       isDataUrl: src.startsWith('data:'),
       isBlob: src.startsWith('blob:')
     });
-    
-    // טעינה אסינכרונית מהמטמון + הוספת event listeners
+
     setTimeout(async () => {
       const container = document.getElementById(containerId);
       const el = document.getElementById(uid);
+      const playBtn = container?.querySelector('.chat-message__video-play');
       if (!el || !container) return;
-      
-      // טעינה מהמטמון
+
       if (src && !src.startsWith('data:') && !src.startsWith('blob:')) {
         const cachedUrl = await fetchAndCacheMedia(src);
         if (cachedUrl) {
@@ -241,9 +282,8 @@
           }
         }
       }
-      
-      // הצגת אורך סרטון
-      el.addEventListener('loadedmetadata', () => {
+
+      const updateDuration = () => {
         const duration = el.duration;
         if (duration && isFinite(duration)) {
           const mins = Math.floor(duration / 60);
@@ -251,23 +291,68 @@
           const durationEl = container.querySelector('.chat-message__video-duration');
           if (durationEl) durationEl.textContent = `${mins}:${secs}`;
         }
+      };
+
+      el.addEventListener('loadedmetadata', () => {
+        updateDuration();
+        ensureChatVideoPosterFrame(el);
       });
-      
-      // הסתרת כפתור play כשמתנגן
-      el.addEventListener('play', () => container.classList.add('playing'));
-      el.addEventListener('pause', () => container.classList.remove('playing'));
-      el.addEventListener('ended', () => container.classList.remove('playing'));
+      el.addEventListener('loadeddata', () => {
+        captureChatVideoPoster(el);
+        if (!el.dataset.posterCaptured) ensureChatVideoPosterFrame(el);
+      });
+      el.addEventListener('seeked', () => captureChatVideoPoster(el));
+
+      const startPlayback = (event) => {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        el.setAttribute('controls', '');
+        container.classList.add('playing');
+        const playPromise = el.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch((err) => {
+            console.warn('[CHAT/MEDIA] video play failed', err);
+            container.classList.remove('playing');
+          });
+        }
+      };
+
+      if (playBtn) {
+        playBtn.addEventListener('click', startPlayback);
+      }
+      // לחיצה על התמונה/poster לפני שיש controls
+      el.addEventListener('click', (event) => {
+        if (container.classList.contains('playing') || el.hasAttribute('controls')) return;
+        startPlayback(event);
+      });
+
+      el.addEventListener('play', () => {
+        container.classList.add('playing');
+        el.setAttribute('controls', '');
+      });
+      el.addEventListener('pause', () => {
+        container.classList.remove('playing');
+      });
+      el.addEventListener('ended', () => {
+        container.classList.remove('playing');
+        try { el.currentTime = 0; } catch (_) {}
+      });
     }, 0);
-    
+
     return `
       <div id="${containerId}" class="chat-message__video-container">
+        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו">
+          <span class="chat-message__video-play-icon" aria-hidden="true"></span>
+        </button>
         <span class="chat-message__video-duration">0:00</span>
-        <video 
+        <video
           id="${uid}"
           class="chat-message__video"
-          controls
-          preload="metadata"
+          preload="${isLocal ? 'auto' : 'metadata'}"
           playsinline
+          webkit-playsinline
           aria-label="${safeName}"
         >
           <source src="${src}" type="${type}">

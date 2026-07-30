@@ -3,22 +3,24 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   const MAX_INPUT_SIZE = 100 * 1024 * 1024; // 100MB
-  const TARGET_HEIGHT = 1080;
+  // 720p: חיסכון משמעותי מול 1080/4K בלי לפגוע בזרימה למובייל | HYPER CORE TECH
+  const TARGET_HEIGHT = 720;
+  const TARGET_MAX_WIDTH = 1280;
   // קבצים ידידותיים עד הסף – בלי קידוד מחדש (שומר סנכרון/איכות) | HYPER CORE TECH
   const SKIP_REENCODE_MAX_BYTES = 40 * 1024 * 1024;
   // במעטפת: אם FFmpeg נכשל – מעדיפים מקור עד הסף (Canvas ב-WebView שובר וידאו) | HYPER CORE TECH
   const SHELL_PASSTHROUGH_MAX_BYTES = 45 * 1024 * 1024;
-  // מקור שכבר דל – אל תיגע | HYPER CORE TECH
-  const LOW_QUALITY_MAX_BPS = 3_200_000;
-  const LOW_QUALITY_MAX_HEIGHT = 1080;
+  // מקור שכבר ≤720p ודל – אל תיגע | HYPER CORE TECH
+  const LOW_QUALITY_MAX_BPS = 2_800_000;
+  const LOW_QUALITY_MAX_HEIGHT = 720;
 
-  const MIN_VIDEO_BITRATE = 1_800_000;
-  const MAX_VIDEO_BITRATE = 5_500_000;
+  const MIN_VIDEO_BITRATE = 1_200_000;
+  const MAX_VIDEO_BITRATE = 3_500_000;
   const MIN_AUDIO_BITRATE = 96_000;
   const MAX_AUDIO_BITRATE = 128_000;
-  const FFMPEG_CRF = '20';
-  const FFMPEG_CRF_SOFT = '22'; // מקורות בינוניים – פחות אגרסיבי | HYPER CORE TECH
-  const FFMPEG_MAXRATE = 5_500_000;
+  const FFMPEG_CRF = '21';
+  const FFMPEG_CRF_SOFT = '23'; // מקורות בינוניים – פחות אגרסיבי | HYPER CORE TECH
+  const FFMPEG_MAXRATE = 3_500_000;
 
   let ffmpegInstance = null;
   let isLoading = false;
@@ -296,8 +298,8 @@
       if (!meta || !meta.height) {
         return { skip: true, reason: 'friendly-small-container' };
       }
-      if (meta.height <= LOW_QUALITY_MAX_HEIGHT && meta.width <= 1920) {
-        return { skip: true, reason: 'friendly-under-1080p' };
+      if (meta.height <= LOW_QUALITY_MAX_HEIGHT && meta.width <= TARGET_MAX_WIDTH) {
+        return { skip: true, reason: 'friendly-under-720p' };
       }
     }
 
@@ -345,7 +347,7 @@
     const { audioBps, originalBps } = getAdaptiveBitrates(file.size, duration);
     const inputName = guessInputName(file);
     const outputName = 'output.mp4';
-    const needDownscale = !meta || !meta.height || meta.height > TARGET_HEIGHT || meta.width > 1920;
+    const needDownscale = !meta || !meta.height || meta.height > TARGET_HEIGHT || meta.width > TARGET_MAX_WIDTH;
     const crf = originalBps > 0 && originalBps < 4_500_000 ? FFMPEG_CRF_SOFT : FFMPEG_CRF;
 
     ffmpeg.FS('writeFile', inputName, await fetchFile(file));
@@ -544,7 +546,7 @@
 
   function computeCanvasSize(video) {
     const minSize = TARGET_HEIGHT;
-    const maxSize = 1920;
+    const maxSize = TARGET_MAX_WIDTH;
     const aspectRatio = video.videoWidth / Math.max(video.videoHeight, 1);
     let canvasWidth;
     let canvasHeight;
