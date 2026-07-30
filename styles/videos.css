@@ -4531,10 +4531,35 @@ body.videos-feed-mode-games .videos-feed__status {
     border: none !important;
     border-top: none !important;
     background: #14161a !important; /* רקע אטום מלא */
-    padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; /* התחשבות ב-Notch + מרווח קטן */
+    padding-top: max(10px, env(safe-area-inset-top, 0px)) !important; /* רק safe-area – בלי top-bar של הפיד | HYPER CORE TECH */
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; /* מרווח לתפריט התחתון + Safe Area */
     z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
+  }
+
+  /* כשדף השיחות פתוח – מסתירים את ה-top-bar של הפיד (z-index 3000) כדי שלא יחתוך את החיפוש | HYPER CORE TECH */
+  body:has(#chatPanel:not([hidden])) .top-bar,
+  body:has(#chatPanel:not([hidden])) .top-bar__actions,
+  body:has(#chatPanel:not([hidden])) .top-bar .app-logo,
+  body:has(#chatPanel:not([hidden])) .top-bar__logo {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+  }
+
+  /* וידוא שכותרת/חיפוש של רשימת השיחות לא נחתכים למעלה | HYPER CORE TECH */
+  .chat-panel:not([hidden]) .chat-sidebar-header,
+  .chat-panel:not([hidden]) .chat-contacts__search {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+  }
+
+  .chat-panel:not([hidden]) .chat-contacts {
+    min-height: 0;
+    overflow: hidden;
   }
 
   /* אופטימיזציה אגרסיבית למובייל - ביטול כל אפקטי הזכוכית והמעברים הפנימיים */
