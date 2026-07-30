@@ -198,6 +198,9 @@
       console.log('[VOICE] Playable src ready (no magnet)');
     }
 
+    // hidePreview: אין שורת שם-קובץ מתחת לקומפוזר בזמן שליחת הודעה קולית | HYPER CORE TECH
+    attachment.hidePreview = true;
+    attachment.isVoice = true;
     if (typeof App.setChatFileAttachment === 'function') {
       App.setChatFileAttachment(peerPubkey, attachment);
     }

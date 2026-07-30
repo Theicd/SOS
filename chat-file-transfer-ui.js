@@ -41,12 +41,21 @@
     } catch (_) {}
   }
 
+  // חלק preview (chat-file-transfer-ui.js) – שורת שם-קובץ בתחתית הקומפוזר רק לבחירה ידנית; לא לקול/P2P/שליחה אוטומטית | HYPER CORE TECH
+  function shouldShowComposerPreview(attachment) {
+    if (!attachment) return false;
+    if (attachment.hidePreview || attachment.transferStarted) return false;
+    if (attachment.isP2P || attachment.isTorrent || attachment.isVoice) return false;
+    if (/^audio\//i.test(attachment.type || '')) return false;
+    return true;
+  }
+
   function renderPreview(attachment) {
     currentAttachment = attachment;
     if (!uiRefs.filePreview || !uiRefs.fileNameLabel) {
       return;
     }
-    if (!attachment) {
+    if (!shouldShowComposerPreview(attachment)) {
       uiRefs.filePreview.setAttribute('hidden', '');
       uiRefs.fileNameLabel.textContent = '';
       return;
@@ -115,8 +124,10 @@
           previewUrl,
           caption: uiRefs.getMessageDraft() || '',
           transferStarted: true, // סימון שההעברה כבר התחילה
+          hidePreview: true,
         };
         App.setChatFileAttachment?.(peer, attachment);
+        renderPreview(null); // אין שורת preview תחתונה בזמן העברת P2P
         return;
       } catch (err) {
         const reason = err?.message || 'unknown-error';
@@ -175,24 +186,27 @@
     }
     
     // חלק קבצים קטנים/בינוניים (chat-file-transfer-ui.js) – inline DataURL לקבצים עד 256KB | HYPER CORE TECH
-    // קבצים לא-מדיה (לא image/audio/video) נשלחים אוטומטית ללא preview
+    // כל הקבצים (מדיה ולא-מדיה) נשלחים אוטומטית — בלי שורת preview תחתונה שמחכה ללחיצת שלח
     const isMediaFile = /^(image|audio|video)\//i.test(file.type || '');
     const reader = new FileReader();
     reader.onload = async () => {
+      const caption = uiRefs.getMessageDraft() || '';
       const attachment = {
         id: `${peer}-${Date.now()}`,
         name: file.name,
         size: file.size,
         type: file.type,
         dataUrl: typeof reader.result === 'string' ? reader.result : '',
-        caption: uiRefs.getMessageDraft() || '',
+        caption,
+        hidePreview: true, // שליחה מיידית — לא מציגים שורת שם-קובץ מתחת לקומפוזר
       };
       App.setChatFileAttachment?.(peer, attachment);
+      renderPreview(null);
 
-      // חלק שליחה אוטומטית (chat-file-transfer-ui.js) – קבצים לא-מדיה נשלחים מיד | HYPER CORE TECH
-      if (!isMediaFile && typeof App.publishChatMessage === 'function') {
-        log('שליחה אוטומטית של קובץ לא-מדיה', { name: file.name, size: file.size });
-        const displayText = `📎 ${file.name}`;
+      // חלק שליחה אוטומטית (chat-file-transfer-ui.js) – תמונה/וידאו/קובץ נשלחים מיד אחרי בחירה | HYPER CORE TECH
+      if (typeof App.publishChatMessage === 'function') {
+        log('שליחה אוטומטית של קובץ', { name: file.name, size: file.size, media: isMediaFile });
+        const displayText = caption || (isMediaFile ? '' : `📎 ${file.name}`);
         try {
           const result = await App.publishChatMessage(peer, displayText);
           if (result?.ok) {
@@ -207,11 +221,7 @@
           App.clearChatFileAttachment(peer);
         }
         renderPreview(null);
-        return;
       }
-
-      // קבצי מדיה קטנים — מציגים preview ומחכים ללחיצה על שלח
-      renderPreview(attachment);
     };
     reader.onerror = () => {
       App.notifyChatFileTransferError?.({
@@ -297,12 +307,7 @@
       return;
     }
     const attachment = App.getChatFileAttachment?.(normalized) || null;
-    // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview עבור קבצי P2P שההעברה כבר התחילה | HYPER CORE TECH
-    if (attachment?.isP2P && attachment?.transferStarted) {
-      renderPreview(null); // מסתיר preview כי ה-transfer bubble מוצג
-      return;
-    }
-    renderPreview(attachment);
+    renderPreview(shouldShowComposerPreview(attachment) ? attachment : null);
   }
 
   function clearUI() {
@@ -327,11 +332,8 @@
       if (peer !== activePeer) {
         return;
       }
-      // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview עבור קבצי P2P שההעברה כבר התחילה | HYPER CORE TECH
-      if (attachment?.isP2P && attachment?.transferStarted) {
-        return; // ה-transfer bubble מוצג במקום
-      }
-      renderPreview(attachment);
+      // קול / P2P / שליחה אוטומטית — מסתירים תמיד את שורת ה-preview התחתונה
+      renderPreview(shouldShowComposerPreview(attachment) ? attachment : null);
     });
     App.subscribeChatFileTransfer?.('error', (details) => {
       console.warn('Chat file transfer error', details);

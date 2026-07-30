@@ -1290,6 +1290,7 @@
               dataUrl: '',
               fileId: transfer.fileId,
               isVideo: isVideoFlag || undefined,
+              hidePreview: true, // אין שורת preview תחתונה בזמן פרסום אחרי Blossom
             };
             if (typeof App.setChatFileAttachment === 'function') {
               App.setChatFileAttachment(transfer.peerPubkey, attachment);
@@ -1432,6 +1433,7 @@
             magnetURI: seedResult.magnetURI,
             infoHash: seedResult.infoHash,
             isTorrent: true,
+            hidePreview: true, // אין שורת preview תחתונה בזמן פרסום טורנט
           };
           App.setChatFileAttachment(transfer.peerPubkey, torrentAttachment);
           const displayText = `📎 ${fileName}`;
