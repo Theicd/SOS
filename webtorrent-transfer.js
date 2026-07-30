@@ -243,20 +243,24 @@
 
             const uploaded = torrent.uploaded || 0;
             const progress = file.size > 0 ? Math.min(100, (uploaded / file.size) * 100) : 0;
+            const peers = torrent.numPeers || 0;
 
             transfer.progress = progress;
             transfer.uploadSpeed = torrent.uploadSpeed || 0;
-            transfer.peers = torrent.numPeers || 0;
+            transfer.peers = peers;
+
+            // חלק המתנה לעמית (webtorrent-transfer.js) – כשאין peers מציגים המתנה במקום "מעלה" תקוע | HYPER CORE TECH
+            const seedStatus = (peers === 0 && uploaded === 0) ? 'waiting-peer' : 'seeding';
 
             notifyProgress(transferId, {
               type: 'send',
-              status: 'seeding',
+              status: seedStatus,
               fileName: file.name,
               fileSize: file.size,
               uploaded,
               progress,
               uploadSpeed: torrent.uploadSpeed,
-              peers: torrent.numPeers,
+              peers,
               magnetURI: torrent.magnetURI
             });
 
@@ -939,7 +943,7 @@
         torrentBubble.querySelector('.torrent-bubble__header i')?.classList?.add(actionIcon);
         const actionSpanEl = torrentBubble.querySelector('.torrent-bubble__action');
         if (actionSpanEl) actionSpanEl.textContent = actionText;
-        const fileIconEl = torrentBubble.querySelector('.torrent-bubble__file > i');
+        const fileIconEl = torrentBubble.querySelector('.torrent-bubble__file-row > i, .torrent-bubble__file > i');
         if (fileIconEl) fileIconEl.className = `fa-solid ${fileIcon}`;
         ensureProgressSection(torrentBubble);
         if (isOutgoing && !torrentBubble.querySelector('.torrent-bubble__cancel')) {
@@ -970,10 +974,12 @@
               <span class="torrent-bubble__action">${actionText}</span>
             </div>
             <div class="torrent-bubble__file">
-              <i class="fa-solid ${fileIcon}"></i>
-              <div class="torrent-bubble__file-info">
-                <span class="torrent-bubble__file-name">${fileName}</span>
-                <span class="torrent-bubble__file-size">${formatFileSize(transfer.fileSize || 0)}</span>
+              <div class="torrent-bubble__file-row">
+                <i class="fa-solid ${fileIcon}"></i>
+                <div class="torrent-bubble__file-info">
+                  <span class="torrent-bubble__file-name">${fileName}</span>
+                  <span class="torrent-bubble__file-size">${formatFileSize(transfer.fileSize || 0)}</span>
+                </div>
               </div>
             </div>
             <div class="torrent-bubble__progress">
@@ -1027,10 +1033,15 @@
       if (barInner) barInner.style.width = `${progressVal}%`;
       if (percent) percent.textContent = `${Math.round(progressVal)}%`;
       
-      // עדכון מהירות
+      // עדכון מהירות / סטטוס המתנה
       if (speed) {
         const speedVal = data.type === 'send' ? data.uploadSpeed : data.downloadSpeed;
-        if (speedVal && speedVal > 0) {
+        if (data.status === 'waiting-peer' || (data.type === 'send' && (!data.peers || data.peers === 0) && (!speedVal || speedVal <= 0) && (data.progress || 0) < 1)) {
+          speed.textContent = 'ממתין לצד השני...';
+          speed.style.color = '#f0b90b';
+          speed.style.fontStyle = 'italic';
+          bubble.classList.add('chat-message--torrent-active');
+        } else if (speedVal && speedVal > 0) {
           speed.textContent = `${formatFileSize(speedVal)}/s`;
           speed.style.color = '';
           speed.style.fontStyle = '';
@@ -1038,6 +1049,10 @@
           bubble.classList.remove('chat-message--torrent-active');
         } else if (data.peers > 0) {
           speed.textContent = `${data.peers} עמיתים`;
+          speed.style.color = '';
+          speed.style.fontStyle = '';
+        } else if (data.type === 'receive' && (data.progress || 0) > 0 && (data.progress || 0) < 100) {
+          speed.textContent = 'מוריד...';
         }
       }
       
@@ -1045,12 +1060,16 @@
       if (actionSpan) {
         if (data.status === 'downloading') {
           actionSpan.textContent = 'מוריד...';
+        } else if (data.status === 'waiting-peer') {
+          actionSpan.textContent = isOutgoing ? 'ממתין לצד השני...' : 'ממתין לחיבור...';
         } else if (data.status === 'seeding' || data.status === 'uploading') {
           actionSpan.textContent = 'מעלה...';
+        } else if (data.status === 'cancelled') {
+          actionSpan.textContent = 'בוטל';
         }
       }
 
-      // סיום מוצלח
+        // סיום מוצלח
       if (data.status === 'completed') {
         bubble.classList.remove('chat-message--torrent-active');
         bubble.classList.add('chat-message--torrent-completed');
@@ -1084,12 +1103,29 @@
         progressListeners.delete(updateBubble);
       }
 
+      // ביטול
+      if (data.status === 'cancelled') {
+        bubble.classList.remove('chat-message--torrent-active');
+        bubble.classList.add('chat-message--torrent-cancelled');
+        if (actionSpan) actionSpan.textContent = 'בוטל';
+        const progressDiv = bubble.querySelector('.torrent-bubble__progress');
+        const cancelBtn = bubble.querySelector('.torrent-bubble__cancel');
+        if (progressDiv) progressDiv.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        progressListeners.delete(updateBubble);
+        setTimeout(() => { if (bubble.isConnected) bubble.remove(); }, 800);
+      }
+
       // שגיאה
       if (data.status === 'error') {
         bubble.classList.remove('chat-message--torrent-active');
         bubble.classList.add('chat-message--torrent-error');
-        if (actionSpan) actionSpan.textContent = 'שגיאה ❌';
-        if (speed) speed.textContent = data.error || 'שגיאה בהעברה';
+        if (actionSpan) actionSpan.textContent = 'שגיאה';
+        if (speed) {
+          speed.textContent = data.error || 'שגיאה בהעברה';
+          speed.style.color = '#FF3B30';
+          speed.style.fontStyle = '';
+        }
         progressListeners.delete(updateBubble);
       }
     };
@@ -1463,10 +1499,12 @@
         <div class="torrent-bubble torrent-bubble--failed">
           <div class="torrent-bubble__header"><i class="fa-solid fa-triangle-exclamation"></i> <span class="torrent-bubble__action">ההורדה נכשלה</span></div>
           <div class="torrent-bubble__file">
-            <i class="fa-solid fa-file"></i>
-            <div class="torrent-bubble__file-info">
-              <span class="torrent-bubble__file-name">${safeName}</span>
-              <span class="torrent-bubble__file-size" style="color:#e74c3c;">לא ניתן להוריד כרגע</span>
+            <div class="torrent-bubble__file-row">
+              <i class="fa-solid fa-file"></i>
+              <div class="torrent-bubble__file-info">
+                <span class="torrent-bubble__file-name">${safeName}</span>
+                <span class="torrent-bubble__file-size" style="color:#e74c3c;">לא ניתן להוריד כרגע</span>
+              </div>
             </div>
           </div>
           <button type="button" class="torrent-bubble__retry-btn" data-retry-magnet="${safeMagnet}" data-retry-filename="${safeName}">

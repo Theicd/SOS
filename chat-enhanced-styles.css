@@ -296,15 +296,21 @@
 }
 
 @media (max-width: 768px) {
+  /* חלק מובייל (chat-enhanced-styles.css) – בועות העברה ישנות מיושרות כמו הודעה, לא ממורכזות | HYPER CORE TECH */
   .chat-transfer-bubble {
     padding: 10px 12px;
-    max-width: calc(100vw - 32px);
-    margin: 8px auto;
+    max-width: min(78vw, 280px);
+    margin: 6px 0;
     box-sizing: border-box;
+    align-self: flex-end;
+  }
+
+  .chat-transfer-bubble--receive {
+    align-self: flex-start;
   }
   
   .chat-transfer-bubble__name {
-    max-width: 150px;
+    max-width: none;
     font-size: 13px;
   }
   

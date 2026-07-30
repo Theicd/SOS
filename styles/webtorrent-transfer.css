@@ -869,23 +869,36 @@
   font-size: 14px;
 }
 
-/* עיצוב בועת קובץ עם כפתור הורדה */
+/* עיצוב בועת קובץ עם כפתור הורדה — שורת אייקון+שם כמו וואטסאפ | HYPER CORE TECH */
 .torrent-bubble__file {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 8px;
   background: rgba(0, 0, 0, 0.2);
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 8px;
   margin-bottom: 8px;
 }
 
 .torrent-bubble__file-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-width: 0;
+}
+
+.torrent-bubble__file-row > i {
+  font-size: 24px;
+  color: #25D366;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.chat-message--outgoing.chat-message--torrent-transfer .torrent-bubble__file-row > i {
+  color: #5ca8ff !important;
 }
 
 /* מצב הושלם - הודעות נכנסות (ירוק) */
@@ -963,10 +976,58 @@
   font-style: italic;
 }
 
-/* רספונסיבי לבועות */
+/* רספונסיבי לבועות — מובייל קודם: רוחב נוח בתוך שורת הצ'אט | HYPER CORE TECH */
 @media (max-width: 480px) {
-  .chat-message--torrent-transfer .chat-message__content--torrent {
-    min-width: 180px;
-    max-width: 85vw;
+  .chat-message--torrent-transfer,
+  .chat-message--file-transfer {
+    max-width: 100%;
   }
+
+  .chat-message--torrent-transfer .chat-message__content--torrent {
+    min-width: 0;
+    width: min(78vw, 280px);
+    max-width: min(78vw, 280px);
+  }
+
+  .torrent-bubble {
+    padding: 10px 12px 8px;
+  }
+
+  .torrent-bubble__file-name {
+    font-size: 13px;
+  }
+
+  .torrent-bubble__cancel {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+    top: 6px;
+  }
+
+  [dir="rtl"] .torrent-bubble__cancel {
+    right: 6px;
+  }
+
+  .chat-message--torrent-transfer .chat-message__delete {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* בועת העברת קובץ פעילה (P2P) — יישור כמו הודעת צ'אט רגילה | HYPER CORE TECH */
+.chat-message--file-transfer {
+  display: flex;
+  width: 100%;
+}
+
+.chat-message--file-transfer.chat-message--outgoing {
+  justify-content: flex-end;
+}
+
+.chat-message--file-transfer.chat-message--incoming {
+  justify-content: flex-start;
+}
+
+.chat-message--torrent-cancelled .torrent-bubble__header {
+  color: #8899a6 !important;
 }

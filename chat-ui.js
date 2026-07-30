@@ -13,7 +13,7 @@
   }
   const mediaDebugLog = App.mediaDebugLog;
   // חלק אימות גרסה (chat-ui.js) – לוג לוידוא שהקוד החדש נטען | HYPER CORE TECH
-  console.log('%c[CHAT-UI] VERSION: P2P-VOICE-FIX-v2 (2026-02-09)', 'color: lime; font-size: 14px; font-weight: bold;');
+  console.log('%c[CHAT-UI] VERSION: WA-FILE-TRANSFER-v1 (2026-07-30)', 'color: lime; font-size: 14px; font-weight: bold;');
   // חלק צ'אט (chat-ui.js) – צליל והתרעות להודעות נכנסות | HYPER CORE TECH
   const CHAT_MESSAGE_SOUND_URL = 'https://npub1jqzsts0fz6ufkgxdhna99rqwnn0ptrg9tvmy62m7ytffy4w0ncnsm7rac0.blossom.band/f0a73d1b6550d6a140a63fa91ec906f89dcbc2fdece317dbaa81e5093a319629.mp3';
   let chatMessageAudio = null;
@@ -41,83 +41,186 @@
     return '';
   }
 
-  // חלק בועת התקדמות העברה (chat-ui.js) – מציג אחוזים + אייקון קובץ/מדיה + סטטוס retry/אישור | HYPER CORE TECH
+  // חלק אייקון קובץ (chat-ui.js) – אייקון לפי סיומת בסגנון בועת העברה | HYPER CORE TECH
+  function getTransferFileIcon(fileName) {
+    const fileExt = String(fileName || '').split('.').pop()?.toLowerCase() || '';
+    if (['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(fileExt)) return 'fa-file-video';
+    if (['mp3', 'm4a', 'wav', 'ogg', 'flac'].includes(fileExt)) return 'fa-file-audio';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExt)) return 'fa-file-image';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) return 'fa-file-zipper';
+    if (fileExt === 'pdf') return 'fa-file-pdf';
+    if (['doc', 'docx'].includes(fileExt)) return 'fa-file-word';
+    if (['xls', 'xlsx'].includes(fileExt)) return 'fa-file-excel';
+    return 'fa-file';
+  }
+
+  function formatTransferSize(bytes) {
+    if (!bytes || bytes <= 0) return '';
+    if (typeof App.formatFileSize === 'function') return App.formatFileSize(bytes);
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  // חלק בועת התקדמות העברה (chat-ui.js) – בועת הודעה בסגנון וואטסאפ עם פס התקדמות + ביטול | HYPER CORE TECH
   function renderTransferProgress(progress) {
     if (!elements.messagesContainer || !progress?.fileId) return;
+
+    const isReceive = progress.direction === 'receive';
+    const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
     const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
     const bubble = existing || doc.createElement('div');
-    bubble.className = `chat-transfer-bubble chat-transfer-bubble--${progress.direction || 'send'}`;
-    bubble.setAttribute('data-transfer-id', progress.fileId);
-
-    const pct = Math.round((progress.progress || 0) * 100);
+    const pct = Math.max(0, Math.min(100, Math.round((progress.progress || 0) * 100)));
     const label = progress.name || 'קובץ מצורף';
-    const sizeMb = progress.size ? (progress.size / (1024 * 1024)).toFixed(2) : '';
-
-    // חלק סטטוסים מורחבים (chat-ui.js) – תמיכה ב-retry, seeding, complete-torrent, failed | HYPER CORE TECH
-    let statusText = '';
-    let statusClass = '';
-    let iconClass = 'fa-cloud-arrow-up';
+    const safeLabel = App.escapeHtml ? App.escapeHtml(label) : label;
+    const sizeLabel = formatTransferSize(progress.size);
+    const fileIcon = getTransferFileIcon(label);
     const st = progress.status;
-    if (st === 'complete' || st === 'complete-blossom') {
-      statusText = '✅ הועלה בהצלחה'; statusClass = 'chat-transfer-bubble--success';
+    const isTerminalFail = st === 'failed' || st === 'cancelled';
+    const isTerminalOk = st === 'complete' || st === 'complete-blossom' || st === 'complete-torrent' || st === 'verified';
+    const isWaiting =
+      st === 'waiting' ||
+      st === 'waiting-peer' ||
+      st === 'reconnecting' ||
+      st === 'starting' ||
+      st === 'seeding-torrent' ||
+      (st === 'sending' && pct === 0);
+
+    let actionText = isReceive ? 'מוריד...' : 'מעלה...';
+    let actionIcon = isReceive ? 'fa-cloud-arrow-down' : 'fa-cloud-arrow-up';
+    let speedText = `${pct}%`;
+    let showProgress = true;
+    let showCancel = !isReceive && !isTerminalOk && !isTerminalFail;
+
+    if (st === 'complete' || st === 'complete-blossom' || st === 'verified') {
+      actionText = isReceive ? 'התקבל ✓' : 'נשלח ✓';
+      actionIcon = 'fa-check';
+      showProgress = false;
+      showCancel = false;
     } else if (st === 'complete-torrent') {
-      statusText = progress.messageSent ? '✅ נשלח בהצלחה' : '⚠️ נשלח (ללא אישור)';
-      statusClass = progress.messageSent ? 'chat-transfer-bubble--success' : 'chat-transfer-bubble--warn';
+      actionText = progress.messageSent ? 'נשלח ✓' : 'נשלח';
+      actionIcon = 'fa-check';
+      showProgress = false;
+      showCancel = false;
     } else if (st === 'sent-no-confirm') {
-      statusText = '⚠️ הקובץ נשלח, ממתין לאישור'; statusClass = 'chat-transfer-bubble--warn';
+      actionText = 'נשלח — ממתין לאישור';
+      actionIcon = 'fa-clock';
+      showProgress = false;
+      showCancel = false;
+    } else if (st === 'waiting' || st === 'waiting-peer') {
+      actionText = isReceive ? 'ממתין לקובץ...' : 'ממתין לצד השני...';
+      actionIcon = 'fa-hourglass-half';
+      speedText = 'ממתין לחיבור...';
+    } else if (st === 'reconnecting') {
+      actionText = 'מתחבר מחדש...';
+      actionIcon = 'fa-rotate';
+      speedText = 'ממתין לחיבור...';
+    } else if (st === 'starting') {
+      actionText = isReceive ? 'מתחיל הורדה...' : 'מתחיל שליחה...';
+      actionIcon = 'fa-spinner fa-spin';
+      speedText = 'מכין...';
     } else if (st === 'seeding-torrent') {
       const attempt = progress.attempt || 1;
       const max = progress.maxRetries || 3;
-      statusText = max > 1 ? `🧲 משתף... (${attempt}/${max})` : '🧲 משתף...';
-      iconClass = 'fa-seedling';
+      actionText = max > 1 ? `משתף... (${attempt}/${max})` : 'משתף...';
+      actionIcon = 'fa-share-nodes';
+      speedText = 'ממתין לצד השני...';
     } else if (st === 'retrying-torrent') {
       const attempt = progress.attempt || 1;
       const max = progress.maxRetries || 3;
-      statusText = `🔄 ניסיון ${attempt + 1}/${max} — ${progress.error || 'ממתין'}`;
-      statusClass = 'chat-transfer-bubble--retry'; iconClass = 'fa-rotate-right';
-    } else if (st === 'failed') {
-      statusText = '❌ השליחה נכשלה'; statusClass = 'chat-transfer-bubble--failed';
-      iconClass = 'fa-triangle-exclamation';
+      actionText = `מנסה שוב (${Math.min(attempt + 1, max)}/${max})`;
+      actionIcon = 'fa-rotate-right';
+      speedText = 'ממתין...';
     } else if (st === 'uploading-blossom') {
-      statusText = `מעלה... ${pct}%`;
+      actionText = 'מעלה...';
+      speedText = `${pct}%`;
+    } else if (st === 'receiving' || st === 'requesting-resend' || st === 'stalled-requesting-resend') {
+      actionText = st === 'receiving' ? 'מוריד...' : 'ממתין להמשך...';
+      actionIcon = 'fa-cloud-arrow-down';
+      speedText = `${pct}%`;
+    } else if (st === 'resending') {
+      actionText = 'שולח מחדש...';
+      speedText = `${pct}%`;
+    } else if (st === 'cancelled') {
+      actionText = 'בוטל';
+      actionIcon = 'fa-xmark';
+      showProgress = false;
+      showCancel = false;
+    } else if (st === 'failed') {
+      // חלק כשלון רך (chat-ui.js) – במובייל מעדיפים ניסוח המתנה/ניסיון חוזר על "נכשל" מוקדם | HYPER CORE TECH
+      const softWait = /offline|peer|connect|timeout|not ready|dc|webtorrent|magnet/i.test(String(progress.error || ''));
+      actionText = softWait ? 'ממתין לצד השני...' : (isReceive ? 'ההורדה נכשלה' : 'השליחה נכשלה');
+      actionIcon = softWait ? 'fa-hourglass-half' : 'fa-triangle-exclamation';
+      speedText = softWait ? 'ניתן לנסות שוב' : (progress.error ? String(progress.error).slice(0, 40) : '');
+      showProgress = false;
+      showCancel = false;
+    } else if (isReceive) {
+      actionText = 'מוריד...';
+      actionIcon = 'fa-cloud-arrow-down';
+      speedText = `${pct}%`;
     } else {
-      statusText = `מעלה... ${pct}%`;
+      actionText = 'מעלה...';
+      speedText = `${pct}%`;
     }
 
+    bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--torrent-transfer${isWaiting ? ' chat-message--torrent-active' : ''}${isTerminalOk ? ' chat-message--torrent-completed' : ''}${st === 'failed' ? ' chat-message--torrent-error' : ''}${st === 'cancelled' ? ' chat-message--torrent-cancelled' : ''}`;
+    bubble.setAttribute('data-transfer-id', progress.fileId);
+    if (progress.torrentTransferId) {
+      bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
+    }
+
+    const nowLabel = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
     bubble.innerHTML = `
-      <div class="chat-transfer-bubble__header">
-        <div class="chat-transfer-bubble__icon"><i class="fa-solid ${iconClass}"></i></div>
-        <div class="chat-transfer-bubble__meta">
-          <div class="chat-transfer-bubble__name">${label}</div>
-          <div class="chat-transfer-bubble__size">${sizeMb ? sizeMb + 'MB' : ''}</div>
+      <div class="chat-message__content chat-message__content--torrent">
+        <div class="torrent-bubble">
+          <div class="torrent-bubble__header">
+            <i class="fa-solid ${actionIcon}"></i>
+            <span class="torrent-bubble__action">${actionText}</span>
+          </div>
+          <div class="torrent-bubble__file">
+            <div class="torrent-bubble__file-row">
+              <i class="fa-solid ${fileIcon}"></i>
+              <div class="torrent-bubble__file-info">
+                <span class="torrent-bubble__file-name">${safeLabel}</span>
+                <span class="torrent-bubble__file-size">${sizeLabel}</span>
+              </div>
+            </div>
+          </div>
+          ${showProgress ? `
+          <div class="torrent-bubble__progress">
+            <div class="torrent-bubble__bar">
+              <div class="torrent-bubble__bar-inner" style="width:${pct}%"></div>
+            </div>
+            <div class="torrent-bubble__stats">
+              <span class="torrent-bubble__percent">${pct}%</span>
+              <span class="torrent-bubble__speed">${speedText}</span>
+            </div>
+          </div>` : ''}
+          ${showCancel ? `<button type="button" class="torrent-bubble__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
         </div>
+        <div class="chat-message__time">${nowLabel}</div>
       </div>
-      <div class="chat-transfer-bubble__progress">
-        <div class="chat-transfer-bubble__bar" style="width:${Math.min(100, pct)}%"></div>
-      </div>
-      <div class="chat-transfer-bubble__status ${statusClass}">${statusText}</div>
     `;
 
     if (!existing) {
       elements.messagesContainer.appendChild(bubble);
     }
-
-    // scroll עם כל עדכון
     elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
 
-    // חלק הסרת בועה (chat-ui.js) – הסרה אחרי סיום מוצלח, השארה אם נכשל | HYPER CORE TECH
-    if (st === 'complete' || st === 'complete-blossom' || st === 'complete-torrent') {
+    if (isTerminalOk) {
       setTimeout(() => {
-        bubble.remove();
+        if (bubble.isConnected) bubble.remove();
         state.transferProgress.delete(progress.fileId);
-        console.log('[CHAT/UI] transfer bubble removed', progress.fileId);
-      }, 1500);
-    }
-    // כשלון — משאירים את הבועה כדי שהשולח יראה שנכשל
-    if (st === 'failed') {
+      }, 1200);
+    } else if (st === 'cancelled') {
+      setTimeout(() => {
+        if (bubble.isConnected) bubble.remove();
+        state.transferProgress.delete(progress.fileId);
+      }, 900);
+    } else if (st === 'failed') {
       setTimeout(() => {
         state.transferProgress.delete(progress.fileId);
-      }, 5000);
+      }, 8000);
     }
   }
 
@@ -140,6 +243,36 @@
   }
 
   function handleMessageActions(event) {
+    // חלק ביטול העברה (chat-ui.js) – X בתוך בועת הקובץ כמו בוואטסאפ | HYPER CORE TECH
+    const cancelBtn = event.target.closest('.torrent-bubble__cancel, [data-cancel-transfer]');
+    if (cancelBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const transferBubble = cancelBtn.closest('[data-transfer-id], [data-torrent-transfer]');
+      const p2pId = cancelBtn.getAttribute('data-cancel-transfer') || transferBubble?.getAttribute('data-transfer-id');
+      const torrentId = transferBubble?.getAttribute('data-torrent-transfer');
+      let cancelled = false;
+      if (p2pId && typeof App.cancelP2PFile === 'function') {
+        cancelled = !!App.cancelP2PFile(p2pId) || cancelled;
+      }
+      if (torrentId && App.torrentTransfer && typeof App.torrentTransfer.cancelTransfer === 'function') {
+        cancelled = !!App.torrentTransfer.cancelTransfer(torrentId) || cancelled;
+      }
+      if (!cancelled && p2pId && App.torrentTransfer && typeof App.torrentTransfer.cancelTransfer === 'function') {
+        App.torrentTransfer.cancelTransfer(p2pId);
+      }
+      if (transferBubble) {
+        const action = transferBubble.querySelector('.torrent-bubble__action');
+        if (action) action.textContent = 'בוטל';
+        transferBubble.classList.remove('chat-message--torrent-active');
+        transferBubble.classList.add('chat-message--torrent-cancelled');
+        transferBubble.querySelector('.torrent-bubble__progress')?.remove();
+        cancelBtn.remove();
+        setTimeout(() => transferBubble.remove(), 800);
+      }
+      return;
+    }
+
     // חלק טורנט הורדה (chat-ui.js) – טיפול בלחיצה על כפתור הורדה של טורנט | HYPER CORE TECH
     const torrentDownloadBtn = event.target.closest('.torrent-bubble__download-btn');
     if (torrentDownloadBtn) {
@@ -1523,10 +1656,12 @@
                 <span class="torrent-bubble__action">${actionText}</span>
               </div>
               <div class="torrent-bubble__file">
-                <i class="fa-solid ${fileIcon}"></i>
-                <div class="torrent-bubble__file-info">
-                  <span class="torrent-bubble__file-name">${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}</span>
-                  <span class="torrent-bubble__file-size">${fileSizeFormatted}</span>
+                <div class="torrent-bubble__file-row">
+                  <i class="fa-solid ${fileIcon}"></i>
+                  <div class="torrent-bubble__file-info">
+                    <span class="torrent-bubble__file-name">${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}</span>
+                    <span class="torrent-bubble__file-size">${fileSizeFormatted}</span>
+                  </div>
                 </div>
                 ${downloadButtonHtml}
               </div>

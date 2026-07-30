@@ -468,7 +468,7 @@
         notifyProgress({
           fileId,
           progress: transfer.currentChunk / totalChunks,
-          status: 'reconnecting',
+          status: 'waiting-peer',
           direction: 'send',
           name: file?.name,
           size: file?.size,
@@ -484,8 +484,18 @@
         App.triggerOutgoingMessagePush(peerKey, null, { type: 'file', name: transfer.file?.name, size: transfer.file?.size });
         console.log('[CHAT/P2P] 📲 Push נשלח לפיר לא מחובר:', peerKey?.slice(0,8));
       }
+      notifyProgress({
+        fileId,
+        progress: transfer.currentChunk / totalChunks,
+        status: 'waiting-peer',
+        direction: 'send',
+        name: file?.name,
+        size: file?.size,
+        mimeType: file?.type,
+        peerPubkey: peerKey
+      });
       if (typeof App.showToast === 'function') {
-        App.showToast('הקובץ נשלח במסלול חלופי.', 'warning');
+        App.showToast('ממתין לצד השני — שולח במסלול חלופי...', 'info');
       }
       await fallbackToBlossom(transfer, onProgress);
       return;
@@ -1357,6 +1367,23 @@
         console.log('[CHAT/P2P] ✅ Seed הצליח, magnetURI:', seedResult.magnetURI.slice(0, 60) + '...');
         mediaDebugLog('torrent-seed-success', { fileId: transfer.fileId, infoHash: seedResult.infoHash || null, magnetPreview: seedResult.magnetURI.slice(0, 60) });
 
+        transfer.torrentTransferId = seedResult.transferId;
+        // חלק המתנה לעמית (chat-p2p-file.js) – אחרי seed מציגים המתנה לצד השני במקום כשלון מוקדם | HYPER CORE TECH
+        const waitingPayload = {
+          fileId: transfer.fileId,
+          progress: 0.55,
+          status: 'waiting-peer',
+          direction: 'send',
+          name: fileName,
+          size: fileSize,
+          mimeType: mime,
+          peerPubkey: transfer.peerPubkey,
+          torrentTransferId: seedResult.transferId,
+          magnetURI: seedResult.magnetURI
+        };
+        if (onProgress) onProgress(waitingPayload);
+        notifyProgress(waitingPayload);
+
         let messageSent = false;
         if (typeof App.setChatFileAttachment === 'function' && typeof App.publishChatMessage === 'function') {
           const torrentAttachment = {
@@ -1379,9 +1406,21 @@
           }
         }
 
-        // חלק אישור שליחה (chat-p2p-file.js) – עדכון סטטוס סופי לשולח: נשלח/נכשל | HYPER CORE TECH
-        const finalStatus = messageSent ? 'complete-torrent' : 'sent-no-confirm';
-        const completePayload = { fileId: transfer.fileId, progress: 1, status: finalStatus, direction: 'send', name: fileName, size: fileSize, mimeType: mime, peerPubkey: transfer.peerPubkey, magnetURI: seedResult.magnetURI, messageSent };
+        // חלק אישור שליחה (chat-p2p-file.js) – עדכון סטטוס סופי לשולח: נשלח/ממתין | HYPER CORE TECH
+        const finalStatus = messageSent ? 'complete-torrent' : 'waiting-peer';
+        const completePayload = {
+          fileId: transfer.fileId,
+          progress: messageSent ? 1 : 0.7,
+          status: finalStatus,
+          direction: 'send',
+          name: fileName,
+          size: fileSize,
+          mimeType: mime,
+          peerPubkey: transfer.peerPubkey,
+          magnetURI: seedResult.magnetURI,
+          torrentTransferId: seedResult.transferId,
+          messageSent
+        };
         if (onProgress) onProgress(completePayload);
         notifyProgress(completePayload);
 
@@ -1465,8 +1504,50 @@
     return { dataChannels: dataChannels.size, activeTransfers: activeTransfers.size, recentCompleted: recentCompletedFiles.size };
   }
 
+  // חלק ביטול העברה (chat-p2p-file.js) – ביטול שליחה/קבלה פעילה עם עדכון UI | HYPER CORE TECH
+  function cancelP2PFile(fileId) {
+    if (!fileId) return false;
+    const transfer = activeTransfers.get(fileId);
+    if (!transfer) return false;
+
+    try {
+      transfer.paused = true;
+      if (transfer._ackTimeout) {
+        clearTimeout(transfer._ackTimeout);
+        transfer._ackTimeout = null;
+      }
+      const name = transfer.name || transfer.file?.name || 'קובץ';
+      const size = transfer.size || transfer.file?.size || 0;
+      const direction = transfer.direction || 'send';
+      const peerPubkey = transfer.peerPubkey;
+      const torrentId = transfer.torrentTransferId;
+      activeTransfers.delete(fileId);
+
+      if (torrentId && App.torrentTransfer && typeof App.torrentTransfer.cancelTransfer === 'function') {
+        try { App.torrentTransfer.cancelTransfer(torrentId); } catch (_) {}
+      }
+
+      notifyProgress({
+        fileId,
+        progress: 0,
+        status: 'cancelled',
+        direction,
+        name,
+        size,
+        peerPubkey,
+        torrentTransferId: torrentId || undefined
+      });
+      console.log('[CHAT/P2P] 🛑 העברה בוטלה:', fileId);
+      return true;
+    } catch (err) {
+      console.warn('[CHAT/P2P] cancel failed:', err);
+      return false;
+    }
+  }
+
   Object.assign(App, {
     sendP2PFile: sendFile,
+    cancelP2PFile,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
     onFileDataChannel,
     activeP2PTransfers: activeTransfers,
