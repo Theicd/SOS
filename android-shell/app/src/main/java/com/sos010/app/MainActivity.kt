@@ -589,6 +589,84 @@ class MainActivity : AppCompatActivity() {
                 document.documentElement.setAttribute('data-sos-native','1');
                 window.dispatchEvent(new Event('sos-native-ready'));
               } catch (e) {}
+              try { window.__sosWireNativeFilePick && window.__sosWireNativeFilePick(); } catch (e) {}
+              try {
+                if (window.__sosNativeFilePickInjected) return;
+                window.__sosNativeFilePickInjected = true;
+                var inflight = false;
+                function pick(accept) {
+                  return new Promise(function(resolve) {
+                    if (!window.SosNativeShell || typeof SosNativeShell.openFilePicker !== 'function') {
+                      resolve(null); return;
+                    }
+                    if (inflight) { resolve(null); return; }
+                    inflight = true;
+                    var id = 'fp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                    var done = false;
+                    function finish(files) {
+                      if (done) return;
+                      done = true; inflight = false;
+                      window.removeEventListener('sos-native-file-pick', onRes);
+                      resolve(files);
+                    }
+                    async function onRes(ev) {
+                      var d = ev && ev.detail;
+                      if (!d || d.requestId !== id) return;
+                      var metas = (d.files || []);
+                      if (!metas.length) { finish([]); return; }
+                      var out = [];
+                      for (var i = 0; i < metas.length; i++) {
+                        var m = metas[i] || {};
+                        var url = m.url || (m.id ? ('https://sos-native.app/file/' + m.id) : '');
+                        if (!url) continue;
+                        try {
+                          var res = await fetch(url);
+                          var blob = await res.blob();
+                          out.push(new File([blob], m.name || ('file-' + (i + 1)), { type: m.type || blob.type || 'application/octet-stream' }));
+                        } catch (err) { console.warn('[SOS-NATIVE] file load failed', err); }
+                      }
+                      finish(out);
+                    }
+                    window.addEventListener('sos-native-file-pick', onRes);
+                    try { SosNativeShell.openFilePicker(id, String(accept || '*/*')); }
+                    catch (err) { finish(null); return; }
+                    setTimeout(function(){ finish(null); }, 180000);
+                  });
+                }
+                async function onChat(e) {
+                  e.preventDefault(); e.stopPropagation();
+                  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                  var files = await pick((document.getElementById('chatComposerFileInput') || {}).accept || '*/*');
+                  if (!files || !files[0]) return;
+                  var App = window.NostrApp || {};
+                  if (typeof App.handleChatFileSelection === 'function') App.handleChatFileSelection(files[0]);
+                }
+                async function onCompose(e) {
+                  e.preventDefault(); e.stopPropagation();
+                  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                  var files = await pick((document.getElementById('composeMediaInput') || {}).accept || 'image/*,video/*');
+                  if (!files || !files[0]) return;
+                  var App = window.NostrApp || {};
+                  if (typeof App.handleComposeMediaFile === 'function') App.handleComposeMediaFile(files[0]);
+                  else if (typeof window.handleComposeMediaFile === 'function') window.handleComposeMediaFile(files[0]);
+                  else if (typeof window.handleMediaInput === 'function') window.handleMediaInput({ target: { files: files, value: '' } });
+                }
+                function bind(el, handler) {
+                  if (!el || el.getAttribute('data-sos-native-pick') === '1') return;
+                  el.setAttribute('data-sos-native-pick', '1');
+                  el.addEventListener('click', handler, true);
+                }
+                window.__sosWireNativeFilePick = function() {
+                  bind(document.getElementById('chatComposerFileButton'), onChat);
+                  bind(document.getElementById('chatComposerFileInput'), onChat);
+                  bind(document.getElementById('composeUploadChoice'), onCompose);
+                  bind(document.getElementById('composeMediaInput'), onCompose);
+                };
+                window.__sosWireNativeFilePick();
+                setTimeout(window.__sosWireNativeFilePick, 800);
+                setTimeout(window.__sosWireNativeFilePick, 2500);
+                console.log('[SOS-NATIVE] file picker injected v' + ${JSONObject.quote(BuildConfig.VERSION_NAME)});
+              } catch (err) { console.warn('[SOS-NATIVE] file picker inject failed', err); }
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
