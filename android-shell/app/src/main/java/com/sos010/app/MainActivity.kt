@@ -5,11 +5,13 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
 import android.view.View
@@ -18,6 +20,7 @@ import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -26,6 +29,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * מעטפת WebView ל-SOS – אותו ממשק ווב, עם שירות רקע + התראות מערכת.
@@ -37,6 +44,10 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var pendingWebPermission: PermissionRequest? = null
     /** חלק בחירת קובץ (MainActivity.kt) – callback מ-WebView ל-input[type=file] | HYPER CORE TECH */
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    /** חלק בחירת קובץ (MainActivity.kt) – בקשת pick דרך SosNativeShell.openFilePicker | HYPER CORE TECH */
+    private var bridgePickRequestId: String? = null
+    /** קבצים שנבחרו ל-fetch מ-https://sos-native.app/file/{id} | HYPER CORE TECH */
+    private val pickedNativeFiles = ConcurrentHashMap<String, Pair<Uri, String>>()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -53,17 +64,29 @@ class MainActivity : AppCompatActivity() {
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val callback = filePathCallback
+        val webCallback = filePathCallback
         filePathCallback = null
-        if (callback == null) return@registerForActivityResult
+        val bridgeId = bridgePickRequestId
+        bridgePickRequestId = null
+
         val uris = try {
-            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            parseChooserResult(result.resultCode, result.data)
         } catch (e: Exception) {
-            Log.w(TAG, "parseResult failed", e)
+            Log.w(TAG, "parseChooserResult failed", e)
             null
         }
+
         // גם בביטול חייבים להחזיר null — אחרת ה-WebView ננעל ולא יפתח שוב
-        callback.onReceiveValue(uris)
+        if (webCallback != null) {
+            try {
+                webCallback.onReceiveValue(uris)
+            } catch (e: Exception) {
+                Log.w(TAG, "filePathCallback.onReceiveValue failed", e)
+            }
+        }
+        if (bridgeId != null) {
+            deliverBridgeFiles(bridgeId, uris)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -152,6 +175,10 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
         }
         filePathCallback = null
+        if (bridgePickRequestId != null) {
+            deliverBridgeFiles(bridgePickRequestId!!, null)
+            bridgePickRequestId = null
+        }
         startKeepAliveService()
         SosForegroundService.scheduleRestart(applicationContext, 800L)
         super.onDestroy()
@@ -188,7 +215,7 @@ class MainActivity : AppCompatActivity() {
         settings.mediaPlaybackRequiresUserGesture = false
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         settings.cacheMode = WebSettings.LOAD_DEFAULT
-        settings.userAgentString = settings.userAgentString + " SOSNativeShell/1.0"
+        settings.userAgentString = settings.userAgentString + " SOSNativeShell/${BuildConfig.VERSION_NAME}"
         settings.setSupportMultipleWindows(false)
         settings.javaScriptCanOpenWindowsAutomatically = false
         settings.allowFileAccess = true
@@ -203,12 +230,48 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url ?: return false
                 if (url.host?.endsWith("sos010.com") == true) return false
+                if (url.host == NATIVE_FILE_HOST) return true
                 return try {
                     startActivity(Intent(Intent.ACTION_VIEW, url))
                     true
                 } catch (_: Exception) {
                     true
                 }
+            }
+
+            // חלק קבצים (MainActivity.kt) – מגיש content:// שנבחר ב-picker ל-fetch מה-WebView | HYPER CORE TECH
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): WebResourceResponse? {
+                val url = request?.url ?: return super.shouldInterceptRequest(view, request)
+                if (url.scheme == "https" && url.host == NATIVE_FILE_HOST) {
+                    val segments = url.pathSegments
+                    if (segments.size >= 2 && segments[0] == "file") {
+                        val id = segments[1]
+                        val entry = pickedNativeFiles[id]
+                        if (entry != null) {
+                            val (uri, mime) = entry
+                            return try {
+                                val stream = contentResolver.openInputStream(uri)
+                                if (stream == null) {
+                                    Log.w(TAG, "openInputStream null for $id")
+                                    null
+                                } else {
+                                    WebResourceResponse(
+                                        mime.ifBlank { "application/octet-stream" },
+                                        null,
+                                        stream
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "shouldInterceptRequest file failed", e)
+                                null
+                            }
+                        }
+                    }
+                }
+                return super.shouldInterceptRequest(view, request)
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -235,71 +298,108 @@ class MainActivity : AppCompatActivity() {
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?
             ): Boolean {
-                // מבטל בחירה קודמת תלויה
+                Log.i(TAG, "onShowFileChooser accept=${fileChooserParams?.acceptTypes?.joinToString()}")
                 try {
                     this@MainActivity.filePathCallback?.onReceiveValue(null)
                 } catch (_: Exception) {
                 }
                 this@MainActivity.filePathCallback = filePathCallback
+                bridgePickRequestId = null
 
-                val intent = buildSafeFileChooserIntent(fileChooserParams)
-                val chooser = Intent.createChooser(intent, "בחר קובץ")
-
-                return try {
-                    fileChooserLauncher.launch(chooser)
-                    true
-                } catch (e: ActivityNotFoundException) {
-                    Log.e(TAG, "No file picker activity", e)
-                    // ניסיון אחרון: OPEN_DOCUMENT
-                    try {
-                        val openDoc = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "*/*"
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                        }
-                        fileChooserLauncher.launch(Intent.createChooser(openDoc, "בחר קובץ"))
-                        true
-                    } catch (e2: Exception) {
-                        Log.e(TAG, "OPEN_DOCUMENT also failed", e2)
-                        this@MainActivity.filePathCallback = null
-                        filePathCallback?.onReceiveValue(null)
-                        false
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "onShowFileChooser failed", e)
-                    this@MainActivity.filePathCallback = null
-                    filePathCallback?.onReceiveValue(null)
-                    false
-                }
+                return launchFileChooser(fileChooserParams, fromBridge = false)
             }
         }
     }
 
-    // חלק Intent בטוח (MainActivity.kt) – מפרק acceptTypes כמו image/* + video/* ל-MIME חוקיים | HYPER CORE TECH
-    private fun buildSafeFileChooserIntent(params: WebChromeClient.FileChooserParams?): Intent {
-        val rawAccept = params?.acceptTypes
-            ?.flatMap { type ->
-                type.split(',', ';', ' ')
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
+    /**
+     * נקרא מ-SosNativeShell.openFilePicker – עוקף input HTML שלא תמיד מפעיל onShowFileChooser ב-WebView.
+     */
+    fun openFilePickerFromJs(requestId: String, accept: String) {
+        runOnUiThread {
+            Log.i(TAG, "openFilePickerFromJs id=$requestId accept=$accept")
+            try {
+                filePathCallback?.onReceiveValue(null)
+            } catch (_: Exception) {
             }
-            ?.distinct()
-            .orEmpty()
+            filePathCallback = null
+            bridgePickRequestId = requestId
+            val launched = launchFileChooser(acceptHint = accept, params = null, fromBridge = true)
+            if (!launched) {
+                bridgePickRequestId = null
+                deliverBridgeFiles(requestId, null)
+            }
+        }
+    }
 
-        // מסנן ערכים לא חוקיים (למשל המחרוזת המלאה image/*,video/* אם לא פוצלה)
-        val mimeTypes = rawAccept.filter { candidate ->
+    private fun launchFileChooser(
+        params: WebChromeClient.FileChooserParams? = null,
+        acceptHint: String? = null,
+        fromBridge: Boolean
+    ): Boolean {
+        val intent = buildOpenDocumentIntent(params, acceptHint)
+        return try {
+            // בלי createChooser מקונן – DocumentsUI נפתח ישירות (אמין יותר ב-OEM)
+            fileChooserLauncher.launch(intent)
+            true
+        } catch (e: ActivityNotFoundException) {
+            Log.e(TAG, "OPEN_DOCUMENT not found, trying GET_CONTENT", e)
+            try {
+                fileChooserLauncher.launch(buildGetContentIntent(params, acceptHint))
+                true
+            } catch (e2: Exception) {
+                Log.e(TAG, "GET_CONTENT also failed", e2)
+                failPendingFilePick(fromBridge)
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "launchFileChooser failed", e)
+            failPendingFilePick(fromBridge)
+            false
+        }
+    }
+
+    private fun failPendingFilePick(fromBridge: Boolean) {
+        if (!fromBridge) {
+            val cb = filePathCallback
+            filePathCallback = null
+            try {
+                cb?.onReceiveValue(null)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun normalizeMimeList(raw: List<String>): List<String> {
+        val split = raw.flatMap { type ->
+            type.split(',', ';')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+        }.distinct()
+        return split.filter { candidate ->
             candidate == "*/*" ||
                 (candidate.contains('/') && !candidate.contains(',') && candidate.length < 100)
         }
+    }
 
-        Log.i(TAG, "file chooser acceptTypes=${rawAccept.joinToString()} -> ${mimeTypes.joinToString()}")
+    private fun acceptTypesFrom(params: WebChromeClient.FileChooserParams?, acceptHint: String?): List<String> {
+        val fromParams = params?.acceptTypes?.toList().orEmpty()
+        val fromHint = if (!acceptHint.isNullOrBlank()) listOf(acceptHint) else emptyList()
+        return normalizeMimeList(fromParams + fromHint)
+    }
 
-        return Intent(Intent.ACTION_GET_CONTENT).apply {
+    // חלק Intent (MainActivity.kt) – ACTION_OPEN_DOCUMENT אמין יותר מ-GET_CONTENT ב-WebView | HYPER CORE TECH
+    private fun buildOpenDocumentIntent(
+        params: WebChromeClient.FileChooserParams?,
+        acceptHint: String?
+    ): Intent {
+        val mimeTypes = acceptTypesFrom(params, acceptHint)
+        Log.i(TAG, "OPEN_DOCUMENT mimes=${mimeTypes.joinToString()}")
+        return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             when {
-                mimeTypes.isEmpty() -> type = "*/*"
+                mimeTypes.isEmpty() || mimeTypes.contains("*/*") -> type = "*/*"
                 mimeTypes.size == 1 -> type = mimeTypes[0]
                 else -> {
                     type = "*/*"
@@ -310,6 +410,104 @@ class MainActivity : AppCompatActivity() {
                 putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
             }
         }
+    }
+
+    private fun buildGetContentIntent(
+        params: WebChromeClient.FileChooserParams?,
+        acceptHint: String?
+    ): Intent {
+        val mimeTypes = acceptTypesFrom(params, acceptHint)
+        return Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            when {
+                mimeTypes.isEmpty() || mimeTypes.contains("*/*") -> type = "*/*"
+                mimeTypes.size == 1 -> type = mimeTypes[0]
+                else -> {
+                    type = "*/*"
+                    putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes.toTypedArray())
+                }
+            }
+            if (params?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            }
+        }
+    }
+
+    private fun parseChooserResult(resultCode: Int, data: Intent?): Array<Uri>? {
+        if (resultCode != RESULT_OK || data == null) return null
+        val clip = data.clipData
+        if (clip != null && clip.itemCount > 0) {
+            val list = ArrayList<Uri>(clip.itemCount)
+            for (i in 0 until clip.itemCount) {
+                clip.getItemAt(i)?.uri?.let { list.add(it) }
+            }
+            if (list.isNotEmpty()) return list.toTypedArray()
+        }
+        data.data?.let { return arrayOf(it) }
+        return try {
+            WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri): String {
+        var name: String? = null
+        var cursor: Cursor? = null
+        try {
+            cursor = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            if (cursor != null && cursor.moveToFirst()) {
+                val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) name = cursor.getString(idx)
+            }
+        } catch (_: Exception) {
+        } finally {
+            try {
+                cursor?.close()
+            } catch (_: Exception) {
+            }
+        }
+        if (!name.isNullOrBlank()) return name
+        return uri.lastPathSegment?.substringAfterLast('/') ?: "file"
+    }
+
+    private fun deliverBridgeFiles(requestId: String, uris: Array<Uri>?) {
+        if (!this::webView.isInitialized) return
+        val filesJson = JSONArray()
+        if (uris != null) {
+            for (uri in uris) {
+                try {
+                    try {
+                        contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (_: SecurityException) {
+                        // לא כל URI תומך ב-persistable – מספיק הרשאה זמנית מה-picker
+                    }
+                    val id = UUID.randomUUID().toString()
+                    val mime = contentResolver.getType(uri) ?: "application/octet-stream"
+                    val name = queryDisplayName(uri)
+                    pickedNativeFiles[id] = uri to mime
+                    filesJson.put(
+                        JSONObject()
+                            .put("id", id)
+                            .put("name", name)
+                            .put("type", mime)
+                            .put("url", "https://$NATIVE_FILE_HOST/file/$id")
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "deliverBridgeFiles item failed", e)
+                }
+            }
+        }
+        val payload = JSONObject()
+            .put("requestId", requestId)
+            .put("files", filesJson)
+        val js = "window.dispatchEvent(new CustomEvent('sos-native-file-pick',{detail:$payload}));"
+        Log.i(TAG, "deliverBridgeFiles requestId=$requestId count=${filesJson.length()}")
+        webView.evaluateJavascript(js, null)
     }
 
     private fun handleWebPermissionRequest(request: PermissionRequest) {
@@ -387,6 +585,7 @@ class MainActivity : AppCompatActivity() {
               try {
                 window.SOS_NATIVE_SHELL = true;
                 window.SOS_NATIVE_HAS_FCM = ${BuildConfig.HAS_FCM};
+                window.SOS_NATIVE_SHELL_VERSION = ${JSONObject.quote(BuildConfig.VERSION_NAME)};
                 document.documentElement.setAttribute('data-sos-native','1');
                 window.dispatchEvent(new Event('sos-native-ready'));
               } catch (e) {}
@@ -465,6 +664,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "SosMain"
+        const val NATIVE_FILE_HOST = "sos-native.app"
 
         const val EXTRA_OPEN_URL = "open_url"
         const val EXTRA_START_IN_BACKGROUND = "start_in_background"

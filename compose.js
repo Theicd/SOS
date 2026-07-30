@@ -1561,11 +1561,27 @@
     handleMediaInput(event);
   }
 
+  // חלק מעטפת Native (compose.js) – קבלת File מגשר APK בלי input HTML | HYPER CORE TECH
+  function handleComposeMediaFile(file) {
+    if (!file) return Promise.resolve();
+    return handleMediaInput({
+      target: {
+        files: [file],
+        value: '',
+      },
+    });
+  }
+
+  Object.assign(App, {
+    handleComposeMediaFile,
+  });
+
   // חשיפת פונקציות גלובליות עבור מודולים אחרים
   window.publishPost = publishPostImpl;
   window.handleMediaInput = handleMediaInput;
   window.handleImageInput = handleImageInput;
   window.handleVideoInput = handleVideoInput;
+  window.handleComposeMediaFile = handleComposeMediaFile;
   window.openCompose = openCompose;
   window.closeCompose = closeCompose;
 })(window);

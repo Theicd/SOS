@@ -228,6 +228,127 @@
     }
   }
 
+  // חלק בחירת קובץ (native-shell-bridge.js) – DocumentsUI דרך SosNativeShell, לא דרך input HTML | HYPER CORE TECH
+  let nativePickInFlight = false;
+
+  function nativePickFiles(accept) {
+    return new Promise((resolve) => {
+      if (!isNativeShell()) {
+        resolve(null);
+        return;
+      }
+      if (nativePickInFlight) {
+        resolve(null);
+        return;
+      }
+      const bridge = getBridge();
+      if (!bridge || typeof bridge.openFilePicker !== 'function') {
+        resolve(null);
+        return;
+      }
+      nativePickInFlight = true;
+      const requestId = `fp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      let settled = false;
+      const finish = (files) => {
+        if (settled) return;
+        settled = true;
+        nativePickInFlight = false;
+        window.removeEventListener('sos-native-file-pick', onResult);
+        resolve(files);
+      };
+      const onResult = async (event) => {
+        const detail = event && event.detail;
+        if (!detail || detail.requestId !== requestId) return;
+        const metas = Array.isArray(detail.files) ? detail.files : [];
+        if (!metas.length) {
+          finish([]);
+          return;
+        }
+        const files = [];
+        for (let i = 0; i < metas.length; i += 1) {
+          const meta = metas[i] || {};
+          const url = meta.url || (meta.id ? `https://sos-native.app/file/${meta.id}` : '');
+          if (!url) continue;
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`native file fetch ${res.status}`);
+            const blob = await res.blob();
+            files.push(new File(
+              [blob],
+              meta.name || `file-${i + 1}`,
+              { type: meta.type || blob.type || 'application/octet-stream' }
+            ));
+          } catch (err) {
+            console.warn('[NATIVE-SHELL] failed to load picked file', err);
+          }
+        }
+        finish(files);
+      };
+      window.addEventListener('sos-native-file-pick', onResult);
+      try {
+        bridge.openFilePicker(requestId, String(accept || '*/*'));
+      } catch (err) {
+        console.warn('[NATIVE-SHELL] openFilePicker failed', err);
+        finish(null);
+        return;
+      }
+      setTimeout(() => finish(null), 180000);
+    });
+  }
+
+  async function handleNativeChatAttach(event) {
+    if (!isNativeShell()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    const accept = document.getElementById('chatComposerFileInput')?.getAttribute('accept') || '*/*';
+    const files = await nativePickFiles(accept);
+    if (!files || !files.length) return;
+    if (typeof App.handleChatFileSelection === 'function') {
+      App.handleChatFileSelection(files[0]);
+    }
+  }
+
+  async function handleNativeComposeUpload(event) {
+    if (!isNativeShell()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    const accept = document.getElementById('composeMediaInput')?.getAttribute('accept') || 'image/*,video/*';
+    const files = await nativePickFiles(accept);
+    if (!files || !files.length) return;
+    if (typeof App.handleComposeMediaFile === 'function') {
+      App.handleComposeMediaFile(files[0]);
+    } else if (typeof window.handleComposeMediaFile === 'function') {
+      window.handleComposeMediaFile(files[0]);
+    } else if (typeof window.handleMediaInput === 'function') {
+      window.handleMediaInput({ target: { files, value: '' } });
+    }
+  }
+
+  function wireNativeFilePickers() {
+    if (!isNativeShell()) return;
+    if (document.documentElement.dataset.sosNativeFilePickWired === '1') return;
+    document.documentElement.dataset.sosNativeFilePickWired = '1';
+
+    const bind = (el, handler) => {
+      if (!el || el.dataset.sosNativePickBound === '1') return;
+      el.dataset.sosNativePickBound = '1';
+      el.addEventListener('click', handler, true);
+    };
+
+    const watch = () => {
+      bind(document.getElementById('chatComposerFileButton'), handleNativeChatAttach);
+      bind(document.getElementById('chatComposerFileInput'), handleNativeChatAttach);
+      bind(document.getElementById('composeUploadChoice'), handleNativeComposeUpload);
+      bind(document.getElementById('composeMediaInput'), handleNativeComposeUpload);
+    };
+    watch();
+    setTimeout(watch, 800);
+    setTimeout(watch, 2500);
+    console.log('[NATIVE-SHELL] file picker bridge wired');
+  }
+
   function boot() {
     if (!isNativeShell()) {
       console.log('[NATIVE-SHELL] browser mode');
@@ -236,6 +357,7 @@
     console.log('[NATIVE-SHELL] active');
     patchLocalNotifications();
     syncPubkeyToNative();
+    wireNativeFilePickers();
     try {
       const bridge = getBridge();
       if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
@@ -255,10 +377,12 @@
     window.addEventListener('sos-fcm-token', () => tryRegister());
     window.addEventListener('sos-native-ready', () => {
       patchLocalNotifications();
+      wireNativeFilePickers();
       tryRegister();
     });
     window.addEventListener('sos-native-resume', () => {
       tryRegister();
+      wireNativeFilePickers();
       try {
         const bridge = getBridge();
         if (bridge && typeof bridge.stopCallSounds === 'function') bridge.stopCallSounds();
@@ -280,6 +404,7 @@
     ensureNativeMediaPermissions,
     nativeHasMicPermission,
     nativeHasCameraPermission,
+    nativePickFiles,
   });
 
   if (document.readyState === 'loading') {

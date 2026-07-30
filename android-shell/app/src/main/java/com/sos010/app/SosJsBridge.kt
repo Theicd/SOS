@@ -144,6 +144,17 @@ class SosJsBridge(
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
+    /**
+     * חלק בחירת קובץ (SosJsBridge.kt) – פותח DocumentsUI ישירות מה-APK.
+     * עוקף input[type=file] שב-WebView לפעמים לא מפעיל onShowFileChooser.
+     */
     @JavascriptInterface
-    fun getShellVersion(): String = "1.0.6"
+    fun openFilePicker(requestId: String?, accept: String?) {
+        val act = context as? MainActivity ?: return
+        val id = requestId?.ifBlank { null } ?: return
+        act.openFilePickerFromJs(id, accept?.ifBlank { null } ?: "*/*")
+    }
+
+    @JavascriptInterface
+    fun getShellVersion(): String = BuildConfig.VERSION_NAME
 }
