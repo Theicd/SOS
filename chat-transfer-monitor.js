@@ -179,9 +179,8 @@
         progressPct, speed, speedLabel, peer: p.peerPubkey?.slice(0,8)
       });
 
-      // חלק e2e (chat-transfer-monitor.js) — Toast + עדכון כרטיס שליחה כש-verified | HYPER CORE TECH
+      // חלק e2e (chat-transfer-monitor.js) — עדכון כרטיס שליחה כש-verified (בלי Toast בראש המסך) | HYPER CORE TECH
       if (s === 'verified') {
-        showToast('✅ ' + (p.name||'קובץ') + ' הורד בהצלחה בצד השני!', 'success');
         const sendEvtId = fileEvtMap.get(fid + '_send');
         if (sendEvtId) {
           const orig = events.find(e => e.id === sendEvtId);
@@ -234,8 +233,14 @@
     };
   }
 
-  // חלק Toast מינימלי (chat-transfer-monitor.js) — התראה צפה בממשק הראשי | HYPER CORE TECH
+  // חלק Toast מינימלי (chat-transfer-monitor.js) – רק התראות שאינן תהליך העברת קובץ (הסטטוס בבועה) | HYPER CORE TECH
   function showToast(message, type) {
+    const text = String(message || '');
+    // חלק סינון (chat-transfer-monitor.js) – לא מציגים בראש המסך הודעות resend/העברה שגורמות לקפיצות | HYPER CORE TECH
+    if (/שולח מחדש|ממתין לקובץ|ממתין לצד|העברת "|מסלול חלופי|chunk |נתקעה|לא התקבל|Blossom|הורד בהצלחה בצד השני|בקש שליחה|מבקש שליחה/i.test(text)) {
+      console.log('[MONITOR/toast-suppressed]', text);
+      return;
+    }
     let el = document.getElementById('tm-toast');
     if (!el) {
       el = document.createElement('div'); el.id = 'tm-toast';

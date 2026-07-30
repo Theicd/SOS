@@ -13,7 +13,7 @@
   }
   const mediaDebugLog = App.mediaDebugLog;
   // חלק אימות גרסה (chat-ui.js) – לוג לוידוא שהקוד החדש נטען | HYPER CORE TECH
-  console.log('%c[CHAT-UI] VERSION: WA-FILE-TRANSFER-v1 (2026-07-30)', 'color: lime; font-size: 14px; font-weight: bold;');
+  console.log('%c[CHAT-UI] VERSION: WA-FILE-STABLE-v2 (2026-07-30)', 'color: lime; font-size: 14px; font-weight: bold;');
   // חלק צ'אט (chat-ui.js) – צליל והתרעות להודעות נכנסות | HYPER CORE TECH
   const CHAT_MESSAGE_SOUND_URL = 'https://npub1jqzsts0fz6ufkgxdhna99rqwnn0ptrg9tvmy62m7ytffy4w0ncnsm7rac0.blossom.band/f0a73d1b6550d6a140a63fa91ec906f89dcbc2fdece317dbaa81e5093a319629.mp3';
   let chatMessageAudio = null;
@@ -63,28 +63,12 @@
   }
 
   // חלק בועת התקדמות העברה (chat-ui.js) – בועת הודעה בסגנון וואטסאפ עם פס התקדמות + ביטול | HYPER CORE TECH
-  function renderTransferProgress(progress) {
-    if (!elements.messagesContainer || !progress?.fileId) return;
-
+  function resolveTransferAction(progress) {
     const isReceive = progress.direction === 'receive';
-    const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
-    const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
-    const bubble = existing || doc.createElement('div');
     const pct = Math.max(0, Math.min(100, Math.round((progress.progress || 0) * 100)));
-    const label = progress.name || 'קובץ מצורף';
-    const safeLabel = App.escapeHtml ? App.escapeHtml(label) : label;
-    const sizeLabel = formatTransferSize(progress.size);
-    const fileIcon = getTransferFileIcon(label);
     const st = progress.status;
     const isTerminalFail = st === 'failed' || st === 'cancelled';
     const isTerminalOk = st === 'complete' || st === 'complete-blossom' || st === 'complete-torrent' || st === 'verified';
-    const isWaiting =
-      st === 'waiting' ||
-      st === 'waiting-peer' ||
-      st === 'reconnecting' ||
-      st === 'starting' ||
-      st === 'seeding-torrent' ||
-      (st === 'sending' && pct === 0);
 
     let actionText = isReceive ? 'מוריד...' : 'מעלה...';
     let actionIcon = isReceive ? 'fa-cloud-arrow-down' : 'fa-cloud-arrow-up';
@@ -103,16 +87,16 @@
       showProgress = false;
       showCancel = false;
     } else if (st === 'sent-no-confirm') {
-      actionText = 'נשלח — ממתין לאישור';
-      actionIcon = 'fa-clock';
+      actionText = 'נשלח';
+      actionIcon = 'fa-check';
       showProgress = false;
       showCancel = false;
     } else if (st === 'waiting' || st === 'waiting-peer') {
-      actionText = isReceive ? 'ממתין לקובץ...' : 'ממתין לצד השני...';
-      actionIcon = 'fa-hourglass-half';
+      actionText = isReceive ? 'מוריד...' : 'ממתין לצד השני...';
+      actionIcon = isReceive ? 'fa-cloud-arrow-down' : 'fa-hourglass-half';
       speedText = 'ממתין לחיבור...';
     } else if (st === 'reconnecting') {
-      actionText = 'מתחבר מחדש...';
+      actionText = isReceive ? 'מוריד...' : 'מתחבר מחדש...';
       actionIcon = 'fa-rotate';
       speedText = 'ממתין לחיבור...';
     } else if (st === 'starting') {
@@ -122,7 +106,7 @@
     } else if (st === 'seeding-torrent') {
       const attempt = progress.attempt || 1;
       const max = progress.maxRetries || 3;
-      actionText = max > 1 ? `משתף... (${attempt}/${max})` : 'משתף...';
+      actionText = max > 1 ? `מנסה שוב (${attempt}/${max})` : 'מתחיל שליחה...';
       actionIcon = 'fa-share-nodes';
       speedText = 'ממתין לצד השני...';
     } else if (st === 'retrying-torrent') {
@@ -135,11 +119,12 @@
       actionText = 'מעלה...';
       speedText = `${pct}%`;
     } else if (st === 'receiving' || st === 'requesting-resend' || st === 'stalled-requesting-resend') {
-      actionText = st === 'receiving' ? 'מוריד...' : 'ממתין להמשך...';
+      // סטטוס יציב — בלי להחליף ל"ממתין להמשך" שגורם לקפיצות
+      actionText = 'מוריד...';
       actionIcon = 'fa-cloud-arrow-down';
-      speedText = `${pct}%`;
+      speedText = (st === 'receiving') ? `${pct}%` : (pct > 0 ? `${pct}% · ממתין...` : 'ממתין...');
     } else if (st === 'resending') {
-      actionText = 'שולח מחדש...';
+      actionText = 'מנסה שוב...';
       speedText = `${pct}%`;
     } else if (st === 'cancelled') {
       actionText = 'בוטל';
@@ -147,7 +132,6 @@
       showProgress = false;
       showCancel = false;
     } else if (st === 'failed') {
-      // חלק כשלון רך (chat-ui.js) – במובייל מעדיפים ניסוח המתנה/ניסיון חוזר על "נכשל" מוקדם | HYPER CORE TECH
       const softWait = /offline|peer|connect|timeout|not ready|dc|webtorrent|magnet/i.test(String(progress.error || ''));
       actionText = softWait ? 'ממתין לצד השני...' : (isReceive ? 'ההורדה נכשלה' : 'השליחה נכשלה');
       actionIcon = softWait ? 'fa-hourglass-half' : 'fa-triangle-exclamation';
@@ -159,11 +143,88 @@
       actionIcon = 'fa-cloud-arrow-down';
       speedText = `${pct}%`;
     } else {
-      actionText = 'מעלה...';
+      actionText = pct <= 0 ? 'מתחיל שליחה...' : 'מעלה...';
       speedText = `${pct}%`;
     }
 
-    bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--torrent-transfer${isWaiting ? ' chat-message--torrent-active' : ''}${isTerminalOk ? ' chat-message--torrent-completed' : ''}${st === 'failed' ? ' chat-message--torrent-error' : ''}${st === 'cancelled' ? ' chat-message--torrent-cancelled' : ''}`;
+    return { actionText, actionIcon, speedText, showProgress, showCancel, pct, isTerminalOk, isTerminalFail, st };
+  }
+
+  function renderTransferProgress(progress) {
+    if (!elements.messagesContainer || !progress?.fileId) return;
+
+    const isReceive = progress.direction === 'receive';
+    const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
+    const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
+    const bubble = existing || doc.createElement('div');
+    const label = progress.name || 'קובץ מצורף';
+    const safeLabel = App.escapeHtml ? App.escapeHtml(label) : label;
+    const sizeLabel = formatTransferSize(progress.size);
+    const fileIcon = getTransferFileIcon(label);
+    const ui = resolveTransferAction(progress);
+    const isWaiting =
+      progress.status === 'waiting' ||
+      progress.status === 'waiting-peer' ||
+      progress.status === 'reconnecting' ||
+      progress.status === 'starting' ||
+      progress.status === 'seeding-torrent' ||
+      (progress.status === 'sending' && ui.pct === 0) ||
+      progress.status === 'requesting-resend' ||
+      progress.status === 'stalled-requesting-resend';
+
+    // חלק עדכון במקום (chat-ui.js) – מונע קפיצות DOM ע״י עדכון שדות קיימים במקום innerHTML מלא | HYPER CORE TECH
+    if (existing && existing.querySelector('.torrent-bubble')) {
+      bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--torrent-transfer${isWaiting ? ' chat-message--torrent-active' : ''}${ui.isTerminalOk ? ' chat-message--torrent-completed' : ''}${ui.st === 'failed' ? ' chat-message--torrent-error' : ''}${ui.st === 'cancelled' ? ' chat-message--torrent-cancelled' : ''}`;
+      if (progress.torrentTransferId) bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
+
+      const actionEl = bubble.querySelector('.torrent-bubble__action');
+      const actionIconEl = bubble.querySelector('.torrent-bubble__header > i');
+      const barInner = bubble.querySelector('.torrent-bubble__bar-inner');
+      const percentEl = bubble.querySelector('.torrent-bubble__percent');
+      const speedEl = bubble.querySelector('.torrent-bubble__speed');
+      const progressWrap = bubble.querySelector('.torrent-bubble__progress');
+      let cancelBtn = bubble.querySelector('.torrent-bubble__cancel');
+
+      if (actionEl) actionEl.textContent = ui.actionText;
+      if (actionIconEl) actionIconEl.className = `fa-solid ${ui.actionIcon}`;
+      if (barInner) barInner.style.width = `${ui.pct}%`;
+      if (percentEl) percentEl.textContent = `${ui.pct}%`;
+      if (speedEl) speedEl.textContent = ui.speedText;
+
+      if (progressWrap) {
+        progressWrap.style.display = ui.showProgress ? '' : 'none';
+      }
+      if (!ui.showCancel && cancelBtn) {
+        cancelBtn.remove();
+      } else if (ui.showCancel && !cancelBtn) {
+        cancelBtn = doc.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'torrent-bubble__cancel';
+        cancelBtn.setAttribute('data-cancel-transfer', progress.fileId);
+        cancelBtn.title = 'בטל';
+        cancelBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        bubble.querySelector('.torrent-bubble')?.appendChild(cancelBtn);
+      }
+
+      if (ui.isTerminalOk) {
+        setTimeout(() => {
+          if (bubble.isConnected) bubble.remove();
+          state.transferProgress.delete(progress.fileId);
+        }, 1200);
+      } else if (ui.st === 'cancelled') {
+        setTimeout(() => {
+          if (bubble.isConnected) bubble.remove();
+          state.transferProgress.delete(progress.fileId);
+        }, 900);
+      } else if (ui.st === 'failed') {
+        setTimeout(() => {
+          state.transferProgress.delete(progress.fileId);
+        }, 8000);
+      }
+      return;
+    }
+
+    bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--torrent-transfer${isWaiting ? ' chat-message--torrent-active' : ''}${ui.isTerminalOk ? ' chat-message--torrent-completed' : ''}${ui.st === 'failed' ? ' chat-message--torrent-error' : ''}${ui.st === 'cancelled' ? ' chat-message--torrent-cancelled' : ''}`;
     bubble.setAttribute('data-transfer-id', progress.fileId);
     if (progress.torrentTransferId) {
       bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
@@ -174,8 +235,8 @@
       <div class="chat-message__content chat-message__content--torrent">
         <div class="torrent-bubble">
           <div class="torrent-bubble__header">
-            <i class="fa-solid ${actionIcon}"></i>
-            <span class="torrent-bubble__action">${actionText}</span>
+            <i class="fa-solid ${ui.actionIcon}"></i>
+            <span class="torrent-bubble__action">${ui.actionText}</span>
           </div>
           <div class="torrent-bubble__file">
             <div class="torrent-bubble__file-row">
@@ -186,38 +247,35 @@
               </div>
             </div>
           </div>
-          ${showProgress ? `
-          <div class="torrent-bubble__progress">
+          <div class="torrent-bubble__progress" style="${ui.showProgress ? '' : 'display:none'}">
             <div class="torrent-bubble__bar">
-              <div class="torrent-bubble__bar-inner" style="width:${pct}%"></div>
+              <div class="torrent-bubble__bar-inner" style="width:${ui.pct}%"></div>
             </div>
             <div class="torrent-bubble__stats">
-              <span class="torrent-bubble__percent">${pct}%</span>
-              <span class="torrent-bubble__speed">${speedText}</span>
+              <span class="torrent-bubble__percent">${ui.pct}%</span>
+              <span class="torrent-bubble__speed">${ui.speedText}</span>
             </div>
-          </div>` : ''}
-          ${showCancel ? `<button type="button" class="torrent-bubble__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
+          </div>
+          ${ui.showCancel ? `<button type="button" class="torrent-bubble__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
         </div>
         <div class="chat-message__time">${nowLabel}</div>
       </div>
     `;
 
-    if (!existing) {
-      elements.messagesContainer.appendChild(bubble);
-    }
+    elements.messagesContainer.appendChild(bubble);
     elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
 
-    if (isTerminalOk) {
+    if (ui.isTerminalOk) {
       setTimeout(() => {
         if (bubble.isConnected) bubble.remove();
         state.transferProgress.delete(progress.fileId);
       }, 1200);
-    } else if (st === 'cancelled') {
+    } else if (ui.st === 'cancelled') {
       setTimeout(() => {
         if (bubble.isConnected) bubble.remove();
         state.transferProgress.delete(progress.fileId);
       }, 900);
-    } else if (st === 'failed') {
+    } else if (ui.st === 'failed') {
       setTimeout(() => {
         state.transferProgress.delete(progress.fileId);
       }, 8000);

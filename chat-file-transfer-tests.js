@@ -250,6 +250,102 @@
     return src.includes('transfer.channel') || src.includes('channel');
   });
 
+  // ═══ חלק 7: יציבות מובייל / קבצים גדולים / דו-כיווני (chat-file-transfer-tests.js) ═══ | HYPER CORE TECH
+  test('7.1 CHUNK_SIZE ≤ 64KB (בטוח ל-WebRTC במובייל)', () => {
+    const size = App.P2P_FILE_CHUNK_SIZE;
+    return typeof size === 'number' && size > 0 && size <= 64 * 1024;
+  });
+  test('7.2 cancelP2PFile קיים', () => typeof App.cancelP2PFile === 'function');
+  test('7.3 חישוב chunks לקובץ ~10.6MB', () => {
+    const chunk = App.P2P_FILE_CHUNK_SIZE || (64 * 1024);
+    const fileSize = Math.round(10.6 * 1024 * 1024);
+    const total = Math.ceil(fileSize / chunk);
+    return total > 100 && total < 400; // עם 64KB ≈ 170 chunks
+  });
+  test('7.4 סימולציית progress UI לא זורקת', () => {
+    if (typeof App.handleP2PProgressUpdate !== 'function') return 'skip';
+    try {
+      App.handleP2PProgressUpdate({
+        fileId: 'qa-ui-' + Date.now(),
+        progress: 0,
+        status: 'starting',
+        direction: 'send',
+        name: 'qa-large.mp4',
+        size: 10 * 1024 * 1024,
+        peerPubkey: peer || 'qa-peer'
+      });
+      App.handleP2PProgressUpdate({
+        fileId: 'qa-ui-' + Date.now(),
+        progress: 0.42,
+        status: 'resending',
+        direction: 'send',
+        name: 'qa-large.mp4',
+        size: 10 * 1024 * 1024,
+        peerPubkey: peer || 'qa-peer'
+      });
+      return true;
+    } catch (e) {
+      console.warn(e);
+      return false;
+    }
+  });
+
+  // חלק 7.5 דו-כיווני (chat-file-transfer-tests.js) – A→B ואז B→A אם יש peer מחובר | HYPER CORE TECH
+  if (peer && App.dataChannel?.isConnected?.(peer) && typeof App.sendP2PFile === 'function') {
+    const smallA = createTestFile('qa-bidir-a.webp', 'image/webp', 48);
+    const smallB = createTestFile('qa-bidir-b.webp', 'image/webp', 52);
+    const waitDone = (fileId, timeoutMs = 45000) => new Promise((resolve) => {
+      let done = false;
+      const unsub = App.subscribeP2PFileProgress((p) => {
+        if (p?.fileId !== fileId) return;
+        if (p.status === 'complete' || p.status === 'complete-blossom' || p.status === 'complete-torrent' || p.status === 'verified' || p.status === 'failed' || p.status === 'cancelled') {
+          if (done) return;
+          done = true;
+          try { unsub?.(); } catch (_) {}
+          resolve(p);
+        }
+      });
+      setTimeout(() => {
+        if (done) return;
+        done = true;
+        try { unsub?.(); } catch (_) {}
+        resolve({ status: 'timeout' });
+      }, timeoutMs);
+    });
+
+    try {
+      console.log('%c7.5 שולח תמונה A→B...', 'color: cyan;');
+      const idA = await App.sendP2PFile(peer, smallA);
+      const resA = await waitDone(idA);
+      const okA = resA && (resA.status === 'complete' || resA.status === 'verified' || String(resA.status || '').startsWith('complete'));
+      if (okA) { pass++; results.push('✅ 7.5a A→B תמונה'); }
+      else { fail++; results.push(`❌ 7.5a A→B תמונה — ${resA?.status || 'unknown'}`); }
+
+      console.log('%c7.5 שולח תמונה חזרה B→A (אותו peer, כיוון הפוך מהצד השני ידנית אם צריך)...', 'color: cyan;');
+      // בצד אחד אפשר רק לשלוח ל-peer; הדו-כיווניות המלאה דורשת שהצד השני גם יריץ send.
+      // כאן בודקים ששליחה שנייה ברצף לא נתקעת (ניקוי state אחרי הראשונה).
+      const idB = await App.sendP2PFile(peer, smallB);
+      const resB = await waitDone(idB);
+      const okB = resB && (resB.status === 'complete' || resB.status === 'verified' || String(resB.status || '').startsWith('complete'));
+      if (okB) { pass++; results.push('✅ 7.5b שליחה שנייה ברצף (state נקי)'); }
+      else { fail++; results.push(`❌ 7.5b שליחה שנייה — ${resB?.status || 'unknown'}`); }
+
+      console.log('%c7.6 קובץ גדול ~2MB...', 'color: cyan;');
+      const big = createTestFile('qa-large.bin', 'application/octet-stream', 2048);
+      const idBig = await App.sendP2PFile(peer, big);
+      const resBig = await waitDone(idBig, 120000);
+      const okBig = resBig && (resBig.status === 'complete' || resBig.status === 'verified' || String(resBig.status || '').startsWith('complete'));
+      if (okBig) { pass++; results.push('✅ 7.6 קובץ גדול ~2MB'); }
+      else { fail++; results.push(`❌ 7.6 קובץ גדול — ${resBig?.status || 'unknown'}`); }
+    } catch (e) {
+      fail++;
+      results.push(`❌ 7.5/7.6 runtime — ${e.message}`);
+    }
+  } else {
+    skip += 3;
+    results.push('⏭️ 7.5/7.6 דו-כיווני+גדול (SKIP — אין DC)');
+  }
+
   // ═══ סיכום (chat-file-transfer-tests.js) ═══ | HYPER CORE TECH
   console.log('%c═══ File Transfer Tests — סיכום ═══', 'color: cyan; font-size: 14px; font-weight: bold;');
   results.forEach(r => console.log(r));

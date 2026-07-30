@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v146'; // bump - WhatsApp-like file transfer bubble UX
+  const CACHE_NAME = 'sos-cache-v147'; // bump - stable WA file transfer, 64KB chunks, no top toasts
   const PRECACHE_URLS = [
     './',
     './videos.html',

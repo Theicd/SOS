@@ -137,7 +137,7 @@
           log('P2P לא זמין לקובץ גדול, עובר ל-WebTorrent', { name: file.name, size: file.size });
           const torrentResult = await App.torrentTransfer.requestTransfer(peer, file);
           if (torrentResult?.success) {
-            App.showToast?.('הקובץ נשלח במסלול חלופי.', 'warning');
+            log('torrent fallback ok', { name: file.name });
             return;
           }
           const reason = torrentResult?.error || 'torrent-request-failed';
