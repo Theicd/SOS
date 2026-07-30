@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isHostAlive = true
         WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
 
@@ -53,21 +54,35 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
+
+        // הופעלה ע"י שירות הרקע – מיד חוזרים לרקע בלי להציק למשתמש | HYPER CORE TECH
+        if (intent?.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false) == true) {
+            moveTaskToBack(true)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         val url = resolveStartUrl(intent)
-        if (url != webView.url) {
+        if (this::webView.isInitialized && url != webView.url) {
             webView.loadUrl(url)
+        }
+        if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) {
+            moveTaskToBack(true)
         }
     }
 
     override fun onResume() {
         super.onResume()
+        isHostAlive = true
         startKeepAliveService()
         if (this::webView.isInitialized) {
+            try {
+                webView.onResume()
+                webView.resumeTimers()
+            } catch (_: Exception) {
+            }
             webView.evaluateJavascript(
                 "window.dispatchEvent(new Event('sos-native-resume'));",
                 null
@@ -75,16 +90,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onPause() {
+        // לא עוצרים טיימרים/JS – חייבים לקבל הודעות ברקע | HYPER CORE TECH
+        if (this::webView.isInitialized) {
+            try {
+                webView.resumeTimers()
+            } catch (_: Exception) {
+            }
+        }
+        startKeepAliveService()
+        super.onPause()
+    }
+
     override fun onUserLeaveHint() {
-        // יציאה ל-Home – השירות ממשיך ברקע | HYPER CORE TECH
         startKeepAliveService()
         super.onUserLeaveHint()
     }
 
     override fun onDestroy() {
-        // גם אם ה-Activity נסגר – השירות חייב להמשיך | HYPER CORE TECH
+        isHostAlive = false
         startKeepAliveService()
-        SosForegroundService.scheduleRestart(applicationContext, 1000L)
+        SosForegroundService.scheduleRestart(applicationContext, 800L)
         super.onDestroy()
     }
 
@@ -213,5 +239,10 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_OPEN_URL = "open_url"
+        const val EXTRA_START_IN_BACKGROUND = "start_in_background"
+
+        @JvmField
+        @Volatile
+        var isHostAlive: Boolean = false
     }
 }

@@ -208,19 +208,19 @@
     console.log('[PUSH] Sent to recipient:', peerPubkey.slice(0, 8));
   }
 
-  // חלק הודעת צ'אט (push-trigger.js) – שליחת Push כשמתקבלת הודעת צ'אט/קולית (לגיבוי) | HYPER CORE TECH
+  // חלק הודעת צ'אט (push-trigger.js) – התראה מקומית + Push כשמתקבלת הודעה | HYPER CORE TECH
   async function triggerChatMessagePush(message) {
-    // לא שולחים Push אם המשתמש פעיל וצופה בצ'אט
+    // לא שולחים אם המשתמש פעיל וצופה בצ'אט עם השולח
     if (isUserActive() && isChatOpenWith(message.from)) {
       return;
     }
     
-    // לא שולחים Push להודעות יוצאות (שלי)
+    // לא שולחים להודעות יוצאות (שלי)
     if (message.direction === 'outgoing') {
       return;
     }
     
-    // חלק מניעת התרעות ישנות (push-trigger.js) – לא שולחים Push להודעות ישנות מריליי | HYPER CORE TECH
+    // חלק מניעת התרעות ישנות (push-trigger.js) – לא שולחים להודעות ישנות מריליי | HYPER CORE TECH
     const nowSec = Math.floor(Date.now() / 1000);
     const messageTs = message.createdAt || 0;
     const messageAgeSec = nowSec - messageTs;
@@ -229,10 +229,8 @@
       return;
     }
     
-    // קבלת שם ותמונת השולח מקאש
     const contactInfo = getCachedContactInfo(message.from);
     
-    // זיהוי סוג ההודעה (טקסט/קובץ/הודעה קולית)
     let body = 'הודעה חדשה';
     let messageType = 'text';
     
@@ -254,19 +252,41 @@
     } else if (message.content) {
       body = message.content.length > 100 ? message.content.slice(0, 100) + '...' : message.content;
     }
+
+    const title = `הודעה מ-${contactInfo.name}`;
+    const openUrl = `https://sos010.com/videos.html?chat=${message.from}`;
+    const tag = `chat-${message.from}`;
+
+    // קריטי: התראה מקומית/native מיד במכשיר הזה (גם ברקע) – לא רק דרך שרת | HYPER CORE TECH
+    try {
+      if (typeof App.showChatNotification === 'function') {
+        App.showChatNotification(contactInfo.name, body, message.from);
+      } else if (typeof App.nativeShowNotification === 'function') {
+        App.nativeShowNotification(title, body, openUrl, tag);
+      } else if (typeof App.showLocalNotification === 'function') {
+        App.showLocalNotification(title, {
+          body,
+          tag,
+          type: 'chat-message',
+          data: { type: 'chat-message', peerPubkey: message.from, url: openUrl },
+        });
+      }
+    } catch (localErr) {
+      console.warn('[PUSH-TRIGGER] local/native notify failed', localErr);
+    }
     
-    // שליחת Push לעצמי (לכל המכשירים שלי)
+    // Push לשרת – למכשירים אחרים / FCM כשה-WebView מת | HYPER CORE TECH
     const myPubkey = App.publicKey;
     if (!myPubkey) return;
     
     await sendPushToServer(myPubkey, {
-      title: `הודעה מ-${contactInfo.name}`,
+      title,
       body,
-      icon: contactInfo.picture, // תמונת איש הקשר מקאש
+      icon: contactInfo.picture,
       badge: DEFAULT_ICON,
-      tag: `chat-${message.from}`,
+      tag,
       type: 'chat-message',
-      messageType, // סוג ההודעה (text/voice-message/image/video/file)
+      messageType,
       peerPubkey: message.from,
       url: `./videos.html?chat=${message.from}`,
     });

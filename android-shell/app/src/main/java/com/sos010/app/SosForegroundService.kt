@@ -7,15 +7,19 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
 /**
- * שירות רקע קבוע – נשאר חי גם אחרי סגירת החלון / ניקוי רקע / ריסטארט.
+ * שירות רקע קבוע – מחזיק את התהליך חי ומחזיר את ה-WebView ברקע לקבלת הודעות.
  */
 class SosForegroundService : Service() {
+
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -27,19 +31,35 @@ class SosForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
-        // START_STICKY = המערכת תנסה להחזיר את השירות אם נהרג
+        // אם אין Activity חי – מעלים WebView ברקע כדי לקבל הודעות Nostr | HYPER CORE TECH
+        handler.postDelayed({ ensureHostActivity() }, 700L)
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // המשתמש סגר/החליק את האפליקציה מהרקע – מפעילים מחדש מיד | HYPER CORE TECH
-        scheduleRestart(applicationContext, delayMs = 800L)
+        scheduleRestart(applicationContext, delayMs = 600L)
         super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
-        scheduleRestart(applicationContext, delayMs = 1200L)
+        scheduleRestart(applicationContext, delayMs = 1000L)
         super.onDestroy()
+    }
+
+    private fun ensureHostActivity() {
+        if (MainActivity.isHostAlive) return
+        try {
+            val launch = Intent(this, MainActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                )
+                putExtra(MainActivity.EXTRA_START_IN_BACKGROUND, true)
+            }
+            startActivity(launch)
+        } catch (_: Exception) {
+        }
     }
 
     private fun buildOngoingNotification(): Notification {
