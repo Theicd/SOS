@@ -511,7 +511,7 @@
             <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
           <!-- חלק חלון יצירת פוסט (index.html) – כפתורים משופרים בסגנון רשתות חברתיות -->
           <div class="compose-dialog__toolbar">
-            <button class="compose-toolbar-btn" type="button" onclick="document.getElementById('composeMediaInput').click()" title="הוסף תמונה/וידיאו">
+            <button class="compose-toolbar-btn" type="button" onclick="(function(){var i=document.getElementById('composeMediaInput');if(!i)return;try{i.value='';}catch(e){}try{if(i.showPicker)i.showPicker();else i.click();}catch(e){i.click();}})()" title="הוסף תמונה/וידיאו">
               <i class="fa-solid fa-photo-video"></i>
             </button>
             <!-- חלק הקלטת וידיאו (index.html) – כפתור הקלטה ישירות מהקומפוזר -->
@@ -529,7 +529,7 @@
             <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
               <i class="fa-solid fa-eraser"></i>
             </button>
-            <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
+            <input id="composeMediaInput" type="file" class="compose-media-input" accept="image/*,video/*">
             <input id="composeVideoCameraInput" type="file" accept="video/*" capture="environment" hidden onchange="handleVideoInput(event)">
           </div>
           <!-- חלק רקעים (index.html) – גלריית רקעים מתחלפים מ-Picsum -->

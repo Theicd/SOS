@@ -802,11 +802,39 @@
     }
   }
 
+  function openFileInputElement(input) {
+    if (!input) return false;
+    try { input.value = ''; } catch (_) {}
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return true;
+      }
+    } catch (err) {
+      console.warn('[COMPOSE] showPicker failed, falling back to click', err);
+    }
+    try {
+      input.click();
+      return true;
+    } catch (err2) {
+      console.warn('[COMPOSE] file input click failed', err2);
+      return false;
+    }
+  }
+
   function ensureMediaInputBound() {
     // חלק קומפוזר – מבטיח שמאזין change מחובר לקלט המדיה גם לאחר שינוי מיקום ב-DOM
     const input = document.getElementById('composeMediaInput');
     if (!input) return;
     elements.mediaInput = input;
+    // חלק מובייל (compose.js) – מסיר hidden שחוסם file picker ב-WebView | HYPER CORE TECH
+    if (input.hasAttribute('hidden')) {
+      input.removeAttribute('hidden');
+    }
+    input.classList.add('compose-media-input');
+    if (!input.getAttribute('accept')) {
+      input.setAttribute('accept', 'image/*,video/*');
+    }
     if (state.mediaInputBound) return;
     input.addEventListener('change', (event) => {
       handleMediaInput(event).catch((err) => {
@@ -1164,12 +1192,12 @@
     }
 
     if (elements.uploadChoice) {
-      elements.uploadChoice.addEventListener('click', () => {
+      elements.uploadChoice.addEventListener('click', (event) => {
+        // לא preventDefault — שומר מחוות משתמש לפתיחת file picker במובייל | HYPER CORE TECH
+        event.stopPropagation();
         state.composeMode = 'upload';
         ensureMediaInputBound();
-        if (elements.mediaInput) {
-          elements.mediaInput.click();
-        }
+        openFileInputElement(elements.mediaInput || document.getElementById('composeMediaInput'));
       });
     }
 

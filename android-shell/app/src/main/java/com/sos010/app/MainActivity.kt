@@ -2,6 +2,7 @@ package com.sos010.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -10,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
@@ -33,7 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var loading: ProgressBar
     @Volatile private var pendingWebPermission: PermissionRequest? = null
-    /** חלק בחירת קובץ (MainActivity.kt) – callback מ-WebView ל-input[type=file] בצ'אט | HYPER CORE TECH */
+    /** חלק בחירת קובץ (MainActivity.kt) – callback מ-WebView ל-input[type=file] | HYPER CORE TECH */
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     private val permissionLauncher = registerForActivityResult(
@@ -47,14 +49,20 @@ class MainActivity : AppCompatActivity() {
         notifyJsPermissionsUpdated()
     }
 
-    // חלק File Chooser (MainActivity.kt) – פתיחת מנהל קבצים לצירוף קבצים בצ'אט במובייל | HYPER CORE TECH
+    // חלק File Chooser (MainActivity.kt) – פתיחת מנהל קבצים לצ'אט ולקומפוזר במובייל | HYPER CORE TECH
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val callback = filePathCallback
         filePathCallback = null
         if (callback == null) return@registerForActivityResult
-        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        val uris = try {
+            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        } catch (e: Exception) {
+            Log.w(TAG, "parseResult failed", e)
+            null
+        }
+        // גם בביטול חייבים להחזיר null — אחרת ה-WebView ננעל ולא יפתח שוב
         callback.onReceiveValue(uris)
     }
 
@@ -221,31 +229,85 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // חלק בחירת קובץ (MainActivity.kt) – חובה ל-WebView במובייל; בלי זה כפתור האטב לא פותח מנהל קבצים | HYPER CORE TECH
+            // חלק בחירת קובץ (MainActivity.kt) – חובה ל-WebView; מתקן MIME לא חוקי כמו image/*,video/* | HYPER CORE TECH
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?
             ): Boolean {
-                this@MainActivity.filePathCallback?.onReceiveValue(null)
+                // מבטל בחירה קודמת תלויה
+                try {
+                    this@MainActivity.filePathCallback?.onReceiveValue(null)
+                } catch (_: Exception) {
+                }
                 this@MainActivity.filePathCallback = filePathCallback
+
+                val intent = buildSafeFileChooserIntent(fileChooserParams)
+                val chooser = Intent.createChooser(intent, "בחר קובץ")
+
                 return try {
-                    val intent = fileChooserParams?.createIntent()
-                        ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                    fileChooserLauncher.launch(chooser)
+                    true
+                } catch (e: ActivityNotFoundException) {
+                    Log.e(TAG, "No file picker activity", e)
+                    // ניסיון אחרון: OPEN_DOCUMENT
+                    try {
+                        val openDoc = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                             addCategory(Intent.CATEGORY_OPENABLE)
                             type = "*/*"
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                         }
-                    // תומך גם בבחירה מרובה אם הדף מבקש
-                    if (fileChooserParams?.mode == FileChooserParams.MODE_OPEN_MULTIPLE) {
-                        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        fileChooserLauncher.launch(Intent.createChooser(openDoc, "בחר קובץ"))
+                        true
+                    } catch (e2: Exception) {
+                        Log.e(TAG, "OPEN_DOCUMENT also failed", e2)
+                        this@MainActivity.filePathCallback = null
+                        filePathCallback?.onReceiveValue(null)
+                        false
                     }
-                    fileChooserLauncher.launch(intent)
-                    true
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.e(TAG, "onShowFileChooser failed", e)
                     this@MainActivity.filePathCallback = null
                     filePathCallback?.onReceiveValue(null)
                     false
                 }
+            }
+        }
+    }
+
+    // חלק Intent בטוח (MainActivity.kt) – מפרק acceptTypes כמו image/* + video/* ל-MIME חוקיים | HYPER CORE TECH
+    private fun buildSafeFileChooserIntent(params: WebChromeClient.FileChooserParams?): Intent {
+        val rawAccept = params?.acceptTypes
+            ?.flatMap { type ->
+                type.split(',', ';', ' ')
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+            }
+            ?.distinct()
+            .orEmpty()
+
+        // מסנן ערכים לא חוקיים (למשל המחרוזת המלאה image/*,video/* אם לא פוצלה)
+        val mimeTypes = rawAccept.filter { candidate ->
+            candidate == "*/*" ||
+                (candidate.contains('/') && !candidate.contains(',') && candidate.length < 100)
+        }
+
+        Log.i(TAG, "file chooser acceptTypes=${rawAccept.joinToString()} -> ${mimeTypes.joinToString()}")
+
+        return Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            when {
+                mimeTypes.isEmpty() -> type = "*/*"
+                mimeTypes.size == 1 -> type = mimeTypes[0]
+                else -> {
+                    type = "*/*"
+                    putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes.toTypedArray())
+                }
+            }
+            if (params?.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
             }
         }
     }
@@ -402,6 +464,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val TAG = "SosMain"
+
         const val EXTRA_OPEN_URL = "open_url"
         const val EXTRA_START_IN_BACKGROUND = "start_in_background"
 
