@@ -16,8 +16,8 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
         buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
     }

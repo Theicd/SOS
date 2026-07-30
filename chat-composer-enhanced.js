@@ -142,8 +142,14 @@
     });
     
     composerState.attachButton?.addEventListener('click', (e) => {
-      e.preventDefault();
-      fileInput?.click();
+      // לא preventDefault — נדרש לפתיחת file picker במובייל | HYPER CORE TECH
+      e.stopPropagation();
+      try {
+        if (typeof fileInput?.showPicker === 'function') fileInput.showPicker();
+        else fileInput?.click();
+      } catch (_) {
+        fileInput?.click();
+      }
     });
     
     fileInput?.addEventListener('change', (e) => {

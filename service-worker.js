@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v147'; // bump - stable WA file transfer, 64KB chunks, no top toasts
+  const CACHE_NAME = 'sos-cache-v148'; // bump - mobile file picker + WebView onShowFileChooser
   const PRECACHE_URLS = [
     './',
     './videos.html',

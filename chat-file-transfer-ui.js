@@ -230,12 +230,36 @@
 
   // חלק כפתור אטב אחיד (chat-file-transfer-ui.js) – כל קובץ עובר דרך handleFileSelection → sendP2PFile | HYPER CORE TECH
   // DC ישיר קודם → Torrent ל-non-media → Blossom רק למדיה נתמכת (קול/וידאו/תמונות)
+  function openFilePicker() {
+    const input = uiRefs.fileInput;
+    if (!input) return;
+    try {
+      input.value = '';
+    } catch (_) {}
+    // חלק מובייל (chat-file-transfer-ui.js) – קליק סינכרוני בתוך מחוות משתמש; בלי preventDefault שמפר את ה-gesture | HYPER CORE TECH
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    } catch (err) {
+      try {
+        input.click();
+      } catch (err2) {
+        console.warn('[CHAT/FILE-UI] openFilePicker failed', err2 || err);
+      }
+    }
+  }
+
   function onFileButtonClick(event) {
-    event.preventDefault();
+    // label[for] כבר מפעיל את ה-input — נמנעים מ-click כפול ששובר מובייל
+    if (event?.currentTarget?.tagName === 'LABEL' || event?.target?.closest?.('label[for="chatComposerFileInput"]')) {
+      event.stopPropagation();
+      return;
+    }
     event.stopPropagation();
-    if (!uiRefs.fileInput) return;
-    uiRefs.fileInput.value = '';
-    uiRefs.fileInput.click();
+    openFilePicker();
   }
 
   function onFileInputChange(event) {

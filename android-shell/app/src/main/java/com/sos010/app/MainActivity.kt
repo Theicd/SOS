@@ -13,6 +13,7 @@ import android.provider.Settings
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -32,6 +33,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var loading: ProgressBar
     @Volatile private var pendingWebPermission: PermissionRequest? = null
+    /** חלק בחירת קובץ (MainActivity.kt) – callback מ-WebView ל-input[type=file] בצ'אט | HYPER CORE TECH */
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -42,6 +45,17 @@ class MainActivity : AppCompatActivity() {
             grantWebPermissionIfAllowed(req)
         }
         notifyJsPermissionsUpdated()
+    }
+
+    // חלק File Chooser (MainActivity.kt) – פתיחת מנהל קבצים לצירוף קבצים בצ'אט במובייל | HYPER CORE TECH
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = filePathCallback
+        filePathCallback = null
+        if (callback == null) return@registerForActivityResult
+        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        callback.onReceiveValue(uris)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -125,6 +139,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         isHostAlive = false
+        try {
+            filePathCallback?.onReceiveValue(null)
+        } catch (_: Exception) {
+        }
+        filePathCallback = null
         startKeepAliveService()
         SosForegroundService.scheduleRestart(applicationContext, 800L)
         super.onDestroy()
@@ -164,6 +183,8 @@ class MainActivity : AppCompatActivity() {
         settings.userAgentString = settings.userAgentString + " SOSNativeShell/1.0"
         settings.setSupportMultipleWindows(false)
         settings.javaScriptCanOpenWindowsAutomatically = false
+        settings.allowFileAccess = true
+        settings.allowContentAccess = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             settings.safeBrowsingEnabled = true
         }
@@ -197,6 +218,33 @@ class MainActivity : AppCompatActivity() {
                 if (request == null) return
                 runOnUiThread {
                     handleWebPermissionRequest(request)
+                }
+            }
+
+            // חלק בחירת קובץ (MainActivity.kt) – חובה ל-WebView במובייל; בלי זה כפתור האטב לא פותח מנהל קבצים | HYPER CORE TECH
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                this@MainActivity.filePathCallback?.onReceiveValue(null)
+                this@MainActivity.filePathCallback = filePathCallback
+                return try {
+                    val intent = fileChooserParams?.createIntent()
+                        ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                        }
+                    // תומך גם בבחירה מרובה אם הדף מבקש
+                    if (fileChooserParams?.mode == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                    fileChooserLauncher.launch(intent)
+                    true
+                } catch (_: Exception) {
+                    this@MainActivity.filePathCallback = null
+                    filePathCallback?.onReceiveValue(null)
+                    false
                 }
             }
         }
