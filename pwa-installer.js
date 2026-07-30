@@ -186,53 +186,55 @@
     });
   }
 
-  // חלק מדריך Chrome (pwa-installer.js) – כשאין beforeinstallprompt אבל Chrome תומך | HYPER CORE TECH
-  function showChromeInstallGuide() {
-    const existingDialog = document.getElementById('chrome-install-guide');
-    if (existingDialog) {
-      existingDialog.showModal?.() || (existingDialog.style.display = 'flex');
-      return;
-    }
+  // כתובת APK של מעטפת Android – התקנה אמיתית כמו אפליקציה | HYPER CORE TECH
+  const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
+    || './downloads/SOS.apk';
 
-    const platform = getPlatformInfo();
-    const mobileHint = platform.isAndroid
-      ? 'ב־Chrome במובייל: תפריט ⋮ → <strong>התקן אפליקציה</strong> / Install app'
-      : 'ב־Chrome במחשב: אייקון ההתקנה בשורת הכתובת, או תפריט ⋮ → <strong>התקן את SOS</strong> / Install SOS';
-
-    const dialog = document.createElement('dialog');
-    dialog.id = 'chrome-install-guide';
-    dialog.className = 'pwa-install-dialog';
-    dialog.innerHTML = `
-      <div class="pwa-install-dialog__content">
-        <h2>התקנת SOS ב־Chrome</h2>
-        <div class="pwa-install-steps">
-          <div class="pwa-install-step">
-            <span class="pwa-install-step__number">1</span>
-            <span>${mobileHint}</span>
-          </div>
-          <div class="pwa-install-step">
-            <span class="pwa-install-step__number">2</span>
-            <span>אשר את ההתקנה בחלון של Chrome</span>
-          </div>
-          <div class="pwa-install-step">
-            <span class="pwa-install-step__number">3</span>
-            <span>פתח את SOS מהאייקון ואשר <strong>התראות</strong> – כדי לקבל הודעות גם כשהמסך כבוי</span>
-          </div>
-        </div>
-        <p class="pwa-install-note">Chrome תומך בהתקנה. אם הכפתור לא פתח דיאלוג – ההתקנה זמינה מתפריט הדפדפן (לפעמים אחרי שההצעה נדחתה בעבר).</p>
-        <button type="button" class="pwa-install-dialog__close" id="chromeInstallGuideClose">הבנתי</button>
-      </div>
-    `;
-    document.body.appendChild(dialog);
-    dialog.querySelector('#chromeInstallGuideClose')?.addEventListener('click', () => {
-      dialog.close?.();
-      dialog.remove();
-    });
-    dialog.showModal?.() || (dialog.style.display = 'flex');
+  function isRunningInNativeShell() {
+    try {
+      if (window.SOS_NATIVE_SHELL) return true;
+      if (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function') {
+        const v = window.SosNativeShell.isNativeShell();
+        return v === true || v === 'true';
+      }
+    } catch (_) {}
+    return /SOSNativeShell\//i.test(navigator.userAgent || '');
   }
 
-  // חלק הפעלת התקנה מלחיצה (pwa-installer.js) – דיאלוג native בלבד, בלי באנר | HYPER CORE TECH
+  function startNativeApkInstall() {
+    // הורדה ישירה של APK – בלי מדריכים ובלי תפריט Chrome | HYPER CORE TECH
+    pwaToast('מוריד את אפליקציית SOS…');
+    try {
+      const link = document.createElement('a');
+      link.href = NATIVE_APK_URL;
+      link.setAttribute('download', 'SOS.apk');
+      link.rel = 'noopener';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => link.remove(), 1000);
+    } catch (err) {
+      console.error('[PWA] APK download failed, fallback navigate', err);
+      window.location.href = NATIVE_APK_URL;
+    }
+    return { outcome: 'apk_download', url: NATIVE_APK_URL };
+  }
+
+  // חלק מדריך Chrome (pwa-installer.js) – שמור לדסקטופ בלבד, לא בשימוש באנדרואיד | HYPER CORE TECH
+  function showChromeInstallGuide() {
+    // לא בשימוש במסלול ההתקנה הראשי – נשאר לתאימות לאחור
+    startNativeApkInstall();
+  }
+
+  // חלק הפעלת התקנה מלחיצה (pwa-installer.js) – APK native באנדרואיד / PWA בדסקטופ | HYPER CORE TECH
   function runInstallFromUserGesture() {
+    if (isRunningInNativeShell()) {
+      isInstalled = true;
+      pwaToast('SOS כבר מותקן במכשיר');
+      ensurePushAfterInstall();
+      return { outcome: 'already_installed', platform: 'native' };
+    }
+
     if (checkIfInstalled()) {
       isInstalled = true;
       pwaToast('הממשק כבר מותקן – פתח אותו מהאייקון');
@@ -241,11 +243,18 @@
     }
 
     const platform = getPlatformInfo();
+
+    // Android: תמיד מורידים את מעטפת ה-APK – בלי הוראות דפדפן | HYPER CORE TECH
+    if (platform.isAndroid) {
+      return startNativeApkInstall();
+    }
+
     if (platform.isIOS) {
       showIOSInstallGuide();
       return { outcome: 'ios_manual', platform: 'ios' };
     }
 
+    // דסקטופ: ניסיון דיאלוג PWA של הדפדפן
     const promptEvent = getDeferredPrompt();
     if (promptEvent && typeof promptEvent.prompt === 'function') {
       try {
@@ -262,7 +271,7 @@
             pwaToast('הממשק מותקן בהצלחה');
             ensurePushAfterInstall({ forcePermissionPrompt: true });
           } else if (choiceResult && choiceResult.outcome === 'dismissed') {
-            pwaToast('ההתקנה בוטלה – אפשר לנסות שוב מתפריט Chrome');
+            pwaToast('ההתקנה בוטלה');
           }
         }).catch((err) => {
           console.error('[PWA] שגיאה ב-userChoice:', err);
@@ -275,14 +284,8 @@
       }
     }
 
-    // אין beforeinstallprompt – זה לא אומר שאין תמיכה ב־Chrome | HYPER CORE TECH
-    if (platform.isFirefox) {
-      showFirefoxInstallGuide();
-      return { outcome: 'manual_guide', platform: 'firefox' };
-    }
-
-    showChromeInstallGuide();
-    return { outcome: 'manual_guide', platform: platform.isChrome || platform.isEdge ? 'chrome' : 'unknown' };
+    // דסקטופ בלי prompt – מורידים APK להתקנה בטלפון / sideload | HYPER CORE TECH
+    return startNativeApkInstall();
   }
 
   // חלק הפעלת התקנה (pwa-installer.js) – הפעלת דיאלוג ההתקנה | HYPER CORE TECH
@@ -442,8 +445,8 @@
       <div class="pwa-install-banner__content">
         <img src="./icons/so-call010.png" alt="SOS Call 010" class="pwa-install-banner__icon">
         <div class="pwa-install-banner__text">
-          <strong>התקן את SOS</strong>
-          <span>גישה מהירה והתראות בזמן אמת</span>
+          <strong>התקן את אפליקציית SOS</strong>
+          <span>התראות גם כשהמסך כבוי</span>
         </div>
       </div>
       <div class="pwa-install-banner__actions">

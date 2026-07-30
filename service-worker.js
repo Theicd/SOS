@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v133'; // bump - Android native shell + FCM bridge
+  const CACHE_NAME = 'sos-cache-v134'; // bump - install button downloads native APK
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -74,6 +74,9 @@
     const url = new URL(event.request.url);
     if (url.origin !== self.location.origin) return;
     
+    // APK / הורדות – תמיד מהרשת, בלי cache של SW | HYPER CORE TECH
+    if (url.pathname.includes('/downloads/') || url.pathname.endsWith('.apk')) return;
+
     // לא לשמור בקאש נתיבים דינמיים
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
     
