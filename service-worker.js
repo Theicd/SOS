@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v143'; // bump - fix voice message play (hybrid url+magnet)
+  const CACHE_NAME = 'sos-cache-v144'; // bump - fix duplicate outgoing chat messages
   const PRECACHE_URLS = [
     './',
     './videos.html',

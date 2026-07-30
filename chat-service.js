@@ -150,7 +150,8 @@
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
   }
 
-  async function publishChatMessage(peerPubkey, plainText) {
+  async function publishChatMessage(peerPubkey, plainText, options = {}) {
+    const clientTempId = typeof options?.clientTempId === 'string' ? options.clientTempId : null;
     // חלק צ'אט (chat-service.js) – בודק אם מצורף קובץ לפני סינון טקסט ריק כדי לאפשר שליחת קבצים בלבד
     const attachmentReady = typeof App.hasChatFileAttachment === 'function' && App.hasChatFileAttachment(peerPubkey);
     if ((!plainText || !plainText.trim()) && !attachmentReady) {
@@ -222,7 +223,13 @@
       const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
       const sent = App.dataChannel.send(peerPubkey, p2pMsg);
       if (sent) {
-        App.appendChatMessage({ id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true });
+        const p2pOutgoing = { id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true };
+        // חלק מניעת כפילות (chat-service.js) – מחליף temp optimistic במקום append נוסף | HYPER CORE TECH
+        if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
+          App.replaceOutgoingTempMessage(clientTempId, p2pOutgoing);
+        } else {
+          App.appendChatMessage(p2pOutgoing);
+        }
         App.markChatConversationRead(peerPubkey);
         if (typeof App.afterChatMessagePublished === 'function') App.afterChatMessagePublished(peerPubkey, p2pMsg);
         console.log('[DC] ✅ Message sent P2P, relay skipped');
@@ -246,8 +253,12 @@
       status: 'sending',
     };
 
-    // חלק סטטוס הודעות (chat-service.js) – מוסיף הודעה במצב "שולח" לפני הפרסום | HYPER CORE TECH
-    App.appendChatMessage(outgoingMessage);
+    // חלק סטטוס הודעות (chat-service.js) – מוסיף/מחליף הודעה במצב "שולח" לפני הפרסום | HYPER CORE TECH
+    if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
+      App.replaceOutgoingTempMessage(clientTempId, outgoingMessage);
+    } else {
+      App.appendChatMessage(outgoingMessage);
+    }
 
     // חלק timeout (chat-service.js) – פרסום עם timeout של 5 שניות למניעת תקיעה | HYPER CORE TECH
     const PUBLISH_TIMEOUT_MS = 5000;

@@ -529,6 +529,46 @@
     return true;
   }
 
+  // חלק החלפת temp (chat-state.js) – מחליף הודעת optimistic ב-ID אמיתי בלי כפילות ב-UI | HYPER CORE TECH
+  function replaceOutgoingTempMessage(tempId, realMessage) {
+    if (!tempId || !realMessage?.id) return false;
+    const self = (App.publicKey || '').toLowerCase();
+    const peer = (realMessage.to || '').toLowerCase() || (realMessage.from || '').toLowerCase();
+    const key = getConversationKey(self, peer);
+    if (!key) {
+      appendMessageToConversation(realMessage);
+      return false;
+    }
+    let entry = chatState.conversations.get(key);
+    if (!entry) {
+      appendMessageToConversation(realMessage);
+      return false;
+    }
+    // אם ההודעה האמיתית כבר קיימת – רק מוחקים את ה-temp | HYPER CORE TECH
+    const realIdx = entry.messages.findIndex((item) => item.id === realMessage.id);
+    const tempIdx = entry.messages.findIndex((item) => item.id === tempId);
+    if (realIdx !== -1) {
+      if (tempIdx !== -1) {
+        entry.messages.splice(tempIdx, 1);
+        chatState.messageIndex.delete(tempId);
+        persistState();
+        notify('message', { peer: entry.peer, removedMessageId: tempId, replacedTempId: tempId, message: entry.messages[Math.min(realIdx, entry.messages.length - 1)] });
+      }
+      return true;
+    }
+    if (tempIdx === -1) {
+      appendMessageToConversation(realMessage);
+      return false;
+    }
+    entry.messages[tempIdx] = realMessage;
+    chatState.messageIndex.delete(tempId);
+    chatState.messageIndex.set(realMessage.id, { peer: entry.peer, key });
+    entry.messages.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    persistState();
+    notify('message', { peer: entry.peer, message: realMessage, replacedTempId: tempId });
+    return true;
+  }
+
   Object.assign(App, {
     chatState,
     getConversationKey,
@@ -545,6 +585,7 @@
     setChatLastSyncTs: setLastSyncTs,
     getChatLastSyncTs: getLastSyncTs,
     updateChatMessageStatus: updateMessageStatus,
+    replaceOutgoingTempMessage,
   });
 
   // חלק המתנה ל-restore (chat-state.js) – Promise שמאפשר ל-chat-service להמתין לטעינת הקאש | HYPER CORE TECH

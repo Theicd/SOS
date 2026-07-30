@@ -2191,7 +2191,7 @@
     // חלק שמירת מקלדת (chat-ui.js) – שמירה על פוקוס ב-input אחרי שליחה כדי שהמקלדת תישאר פתוחה במובייל | HYPER CORE TECH
     elements.messageInput.focus();
     
-    // 2. צור הודעה זמנית והצג מיד ב-UI
+    // 2. הודעה זמנית ב-state (מפעיל UI פעם אחת דרך subscribe) | HYPER CORE TECH
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
     const tempMessage = {
       id: tempId,
@@ -2202,23 +2202,37 @@
       direction: 'outgoing',
       status: 'sending'
     };
+    if (typeof App.appendChatMessage === 'function') {
+      App.appendChatMessage(tempMessage);
+    } else {
+      appendSingleMessage(tempMessage);
+    }
     
-    // הוסף הודעה ל-UI מיד (אופטימיסטי)
-    appendSingleMessage(tempMessage);
-    
-    // 3. שלח ברקע - לא מחכים
-    App.publishChatMessage(state.activeContact, messageText)
+    // 3. שלח ברקע – מחליף את ה-temp במקום ליצור הודעה שנייה | HYPER CORE TECH
+    App.publishChatMessage(state.activeContact, messageText, { clientTempId: tempId })
       .then((result) => {
         if (!result?.ok) {
           console.warn('Failed to send chat message', result?.error);
           updateMessageStatus(tempId, 'failed');
+          if (typeof App.updateChatMessageStatus === 'function') {
+            App.updateChatMessageStatus(tempId, 'failed');
+          }
         } else {
-          updateMessageStatus(tempId, 'sent', result.messageId);
+          // אם ההחלפה כבר עדכנה את ה-DOM ל-ID אמיתי – מעדכנים סטטוס על ה-ID החדש | HYPER CORE TECH
+          const statusTargetId = result.messageId || tempId;
+          updateMessageStatus(statusTargetId, 'sent', result.messageId);
+          if (result.messageId && result.messageId !== tempId) {
+            const tempEl = elements.messagesContainer?.querySelector(`[data-message-id="${tempId}"]`);
+            if (tempEl) tempEl.remove();
+          }
         }
       })
       .catch((err) => {
         console.error('Chat send error', err);
         updateMessageStatus(tempId, 'failed');
+        if (typeof App.updateChatMessageStatus === 'function') {
+          App.updateChatMessageStatus(tempId, 'failed');
+        }
       });
   }
 
@@ -2381,13 +2395,40 @@
     App.subscribeChat?.('contacts', () => {
       renderContacts();
     });
-    App.subscribeChat?.('message', ({ peer, message }) => {
+    App.subscribeChat?.('message', (payload = {}) => {
+      const { peer, message, statusUpdate, replacedTempId, removedMessageId } = payload;
       if (!peer) return;
       const normalizedPeer = peer.toLowerCase();
       const isIncoming = message?.direction === 'incoming'
         || (message?.from && typeof App.publicKey === 'string' && message.from.toLowerCase() !== App.publicKey.toLowerCase());
       const isActivePeer = normalizedPeer === (state.activeContact || '').toLowerCase();
       const messageId = message?.id || null;
+
+      // חלק מניעת כפילות (chat-ui.js) – עדכון/החלפת temp בלי append נוסף | HYPER CORE TECH
+      if (removedMessageId && elements.messagesContainer) {
+        elements.messagesContainer.querySelector(`[data-message-id="${removedMessageId}"]`)?.remove();
+      }
+      if (replacedTempId && message?.id) {
+        const realEl = elements.messagesContainer?.querySelector(`[data-message-id="${message.id}"]`);
+        const tempEl = elements.messagesContainer?.querySelector(`[data-message-id="${replacedTempId}"]`);
+        if (realEl && tempEl && realEl !== tempEl) {
+          tempEl.remove();
+          updateMessageStatus(message.id, message.status || 'sent');
+        } else if (tempEl) {
+          updateMessageStatus(replacedTempId, message.status || 'sent', message.id);
+        } else if (!realEl) {
+          appendSingleMessage(message);
+        } else {
+          updateMessageStatus(message.id, message.status || 'sent');
+        }
+        if (isActivePeer) App.markChatConversationRead(peer);
+        return;
+      }
+      if (statusUpdate && message?.id) {
+        updateMessageStatus(message.id, message.status || 'sent');
+        if (isActivePeer) App.markChatConversationRead(peer);
+        return;
+      }
 
       // התרעה + צליל רק אם זה נכנס ולא בשיחה הפעילה/פוקוס
       // חלק דה-דופליקציה (chat-ui.js) – בודק גם אם ההודעה כבר הותרעה | HYPER CORE TECH
@@ -2412,7 +2453,7 @@
         // הודעות טקסט פשוטות – append בלי רינדור מלא של ההיסטוריה | HYPER CORE TECH
         if (message && isSimpleChatMessage(message)) {
           appendSingleMessage(message);
-        } else {
+        } else if (message) {
           renderMessages(peer);
         }
         App.markChatConversationRead(peer);
