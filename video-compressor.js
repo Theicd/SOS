@@ -1,25 +1,41 @@
-// חלק דחיסת וידאו (video-compressor.js) – דחיסה מסונכרנת + פלט תואם iPhone | HYPER CORE TECH
+// חלק דחיסת וידאו (video-compressor.js) – דחיסה חכמה + passthrough + תאימות מעטפת APK | HYPER CORE TECH
 (function initVideoCompressor(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
   const MAX_INPUT_SIZE = 100 * 1024 * 1024; // 100MB
-  // 1080p: דחיסה חזקה (מול 4K/מקור כבד) בלי להרוס את התמונה כמו ב-720 | HYPER CORE TECH
   const TARGET_HEIGHT = 1080;
-  const TARGET_FPS = 30;
-  const SKIP_REENCODE_MAX_BYTES = 22 * 1024 * 1024; // קובץ MP4/MOV קטן – לא להרוס סנכרון | HYPER CORE TECH
+  // קבצים ידידותיים עד הסף – בלי קידוד מחדש (שומר סנכרון/איכות) | HYPER CORE TECH
+  const SKIP_REENCODE_MAX_BYTES = 40 * 1024 * 1024;
+  // במעטפת: אם FFmpeg נכשל – מעדיפים מקור עד הסף (Canvas ב-WebView שובר וידאו) | HYPER CORE TECH
+  const SHELL_PASSTHROUGH_MAX_BYTES = 45 * 1024 * 1024;
+  // מקור שכבר דל – אל תיגע | HYPER CORE TECH
+  const LOW_QUALITY_MAX_BPS = 3_200_000;
+  const LOW_QUALITY_MAX_HEIGHT = 1080;
 
-  // דחיסה חזקה + איכות נקייה: CRF שולט בגודל, maxrate רק תקרה רכה | HYPER CORE TECH
-  const MIN_VIDEO_BITRATE = 2_000_000;
+  const MIN_VIDEO_BITRATE = 1_800_000;
   const MAX_VIDEO_BITRATE = 5_500_000;
   const MIN_AUDIO_BITRATE = 96_000;
   const MAX_AUDIO_BITRATE = 128_000;
   const FFMPEG_CRF = '20';
-  // תקרת VBV גבוהה – לא חונקת CRF (מונע ריבועים), עדיין מגבילה נפיחות | HYPER CORE TECH
+  const FFMPEG_CRF_SOFT = '22'; // מקורות בינוניים – פחות אגרסיבי | HYPER CORE TECH
   const FFMPEG_MAXRATE = 5_500_000;
 
   let ffmpegInstance = null;
   let isLoading = false;
   let loadPromise = null;
+
+  function isNativeShell() {
+    try {
+      if (window.SOS_NATIVE_SHELL) return true;
+      if (document.documentElement?.getAttribute('data-sos-native') === '1') return true;
+      if (/SOSNativeShell\//i.test(navigator.userAgent || '')) return true;
+      if (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function') {
+        const v = window.SosNativeShell.isNativeShell();
+        return v === true || v === 'true';
+      }
+    } catch (_) {}
+    return false;
+  }
 
   function getDeviceInfo() {
     const ua = navigator.userAgent || '';
@@ -28,15 +44,47 @@
     const isAndroid = /android/i.test(ua);
     const isSafari = /safari/i.test(ua) && !/chrome|chromium|crios|fxios|edgios|opios/i.test(ua);
     const finalIsIOS = isIOS || isIPadOS;
-    const isMobile = finalIsIOS || isAndroid || /mobile/i.test(ua);
-    return { isIOS: finalIsIOS, isAndroid, isSafari, isMobile };
+    const nativeShell = isNativeShell();
+    const isMobile = finalIsIOS || isAndroid || nativeShell || /mobile/i.test(ua);
+    return { isIOS: finalIsIOS, isAndroid, isSafari, isMobile, nativeShell };
+  }
+
+  function looksLikeVideo(file) {
+    if (!file) return false;
+    const type = String(file.type || '').toLowerCase();
+    if (type.startsWith('video/')) return true;
+    return /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(file.name || '');
+  }
+
+  function guessMimeFromName(name) {
+    const lower = String(name || '').toLowerCase();
+    if (lower.endsWith('.webm')) return 'video/webm';
+    if (lower.endsWith('.mov')) return 'video/quicktime';
+    if (lower.endsWith('.m4v')) return 'video/x-m4v';
+    if (lower.endsWith('.mkv')) return 'video/x-matroska';
+    if (lower.endsWith('.3gp')) return 'video/3gpp';
+    if (lower.endsWith('.avi')) return 'video/x-msvideo';
+    return 'video/mp4';
+  }
+
+  // חלק מעטפת (video-compressor.js) – משלים MIME חסר מקבצי DocumentsUI | HYPER CORE TECH
+  function normalizeVideoFile(file) {
+    if (!file) return file;
+    const type = String(file.type || '').toLowerCase();
+    if (type.startsWith('video/')) return file;
+    const name = file.name || 'video.mp4';
+    const mime = guessMimeFromName(name);
+    try {
+      return new File([file], name, { type: mime, lastModified: file.lastModified || Date.now() });
+    } catch (_) {
+      return file;
+    }
   }
 
   function getBestRecorderCodec() {
     const { isIOS, isSafari } = getDeviceInfo();
     const canCheck = typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function';
 
-    // עדיפות ל-MP4/H.264 Main + AAC – איכות טובה יותר מ-Baseline, עדיין תואם iPhone | HYPER CORE TECH
     const mp4Candidates = [
       'video/mp4;codecs=avc1.4D401E,mp4a.40.2',
       'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
@@ -104,7 +152,7 @@
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
       throw new Error(`הקובץ גדול מדי (${sizeMB}MB). מקסימום ${(MAX_INPUT_SIZE / (1024 * 1024)).toFixed(0)}MB.`);
     }
-    if (!file.type.startsWith('video/')) {
+    if (!looksLikeVideo(file)) {
       throw new Error('הקובץ אינו וידאו תקין');
     }
   }
@@ -123,14 +171,14 @@
   function guessInputName(file) {
     const name = (file && file.name) || '';
     if (/\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name)) return name.replace(/[^\w.\-]+/g, '_');
-    if (file.type.includes('webm')) return 'input.webm';
-    if (file.type.includes('quicktime') || file.type.includes('mov')) return 'input.mov';
+    const type = String(file.type || '');
+    if (type.includes('webm')) return 'input.webm';
+    if (type.includes('quicktime') || type.includes('mov')) return 'input.mov';
     return 'input.mp4';
   }
 
-  function isAlreadyFriendlyMobileMp4(file) {
+  function isFriendlyContainer(file) {
     if (!file) return false;
-    if (file.size > SKIP_REENCODE_MAX_BYTES) return false;
     const type = String(file.type || '').toLowerCase();
     const name = String(file.name || '').toLowerCase();
     return (
@@ -141,7 +189,7 @@
     );
   }
 
-  function getAdaptiveBitrates(fileSize, durationSeconds, targetCompressionRatio = 0.42) {
+  function getAdaptiveBitrates(fileSize, durationSeconds, targetCompressionRatio = 0.55) {
     const safeDuration = Math.max(durationSeconds || 1, 0.5);
     const originalBps = (fileSize * 8) / safeDuration;
     const targetTotalBps = originalBps * targetCompressionRatio;
@@ -153,8 +201,8 @@
     audioBps = Math.min(Math.max(audioBps, MIN_AUDIO_BITRATE), MAX_AUDIO_BITRATE);
 
     if (originalBps < MIN_VIDEO_BITRATE + MIN_AUDIO_BITRATE) {
-      // מקור דל – לא לרדת לרמות שיוצרות ריבועים | HYPER CORE TECH
-      videoBps = Math.min(Math.max(Math.round(originalBps * 0.9), 1_500_000), MAX_VIDEO_BITRATE);
+      // מקור דל – לא לרדת מתחת למקור | HYPER CORE TECH
+      videoBps = Math.min(Math.max(Math.round(originalBps * 0.95), 1_200_000), MAX_VIDEO_BITRATE);
       audioBps = MIN_AUDIO_BITRATE;
     }
 
@@ -165,17 +213,18 @@
       audioBps,
     });
 
-    return { videoBps, audioBps };
+    return { videoBps, audioBps, originalBps };
   }
 
   function isDesktopCaptureSupported() {
     if (typeof navigator === 'undefined') return false;
+    if (isNativeShell()) return false;
     const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent || '');
     const proto = HTMLMediaElement.prototype;
     return !isMobile && typeof MediaRecorder !== 'undefined' && (proto.captureStream || proto.mozCaptureStream);
   }
 
-  async function probeDuration(file) {
+  async function probeVideo(file) {
     const url = URL.createObjectURL(file);
     const video = document.createElement('video');
     video.preload = 'metadata';
@@ -194,7 +243,17 @@
           reject(new Error('metadata error'));
         };
       });
-      return Math.max(video.duration || 1, 0.5);
+      const duration = Math.max(video.duration || 1, 0.5);
+      const width = video.videoWidth || 0;
+      const height = video.videoHeight || 0;
+      const estimatedBps = (file.size * 8) / duration;
+      return {
+        duration,
+        width,
+        height,
+        maxEdge: Math.max(width, height),
+        estimatedBps,
+      };
     } finally {
       URL.revokeObjectURL(url);
       video.removeAttribute('src');
@@ -202,8 +261,78 @@
     }
   }
 
-  // FFmpeg: H.264 + AAC + יישור אודיו – הכי טוב לסנכרון ולאייפון | HYPER CORE TECH
-  async function compressWithFFmpeg(file, onProgress) {
+  async function probeDuration(file) {
+    try {
+      const meta = await probeVideo(file);
+      return meta.duration;
+    } catch (_) {
+      return 1;
+    }
+  }
+
+  async function makePassthroughResult(file, reason) {
+    console.log('[COMPRESS] Passthrough:', reason, {
+      name: file.name,
+      sizeMB: (file.size / 1024 / 1024).toFixed(2),
+      type: file.type,
+    });
+    return {
+      blob: file,
+      hash: await calculateHash(file),
+      size: file.size,
+      type: file.type || guessMimeFromName(file.name),
+      originalSize: file.size,
+      compressionRatio: '0.0',
+      method: 'passthrough',
+      reason,
+    };
+  }
+
+  // חלק החלטה (video-compressor.js) – מתי לא לקודד מחדש כדי לא לפגוע באיכות מינימלית | HYPER CORE TECH
+  function shouldPassthrough(file, meta) {
+    if (!isFriendlyContainer(file)) return { skip: false };
+
+    if (file.size <= SKIP_REENCODE_MAX_BYTES) {
+      if (!meta || !meta.height) {
+        return { skip: true, reason: 'friendly-small-container' };
+      }
+      if (meta.height <= LOW_QUALITY_MAX_HEIGHT && meta.width <= 1920) {
+        return { skip: true, reason: 'friendly-under-1080p' };
+      }
+    }
+
+    if (meta && meta.height > 0) {
+      const alreadyLow =
+        meta.height <= LOW_QUALITY_MAX_HEIGHT &&
+        meta.estimatedBps > 0 &&
+        meta.estimatedBps <= LOW_QUALITY_MAX_BPS &&
+        file.size <= SKIP_REENCODE_MAX_BYTES;
+      if (alreadyLow) {
+        return { skip: true, reason: 'already-low-bitrate' };
+      }
+    }
+
+    return { skip: false };
+  }
+
+  async function withWakeLock(fn) {
+    let wakeLock = null;
+    try {
+      if (navigator.wakeLock && navigator.wakeLock.request) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (_) {}
+    try {
+      return await fn();
+    } finally {
+      try {
+        if (wakeLock) await wakeLock.release();
+      } catch (_) {}
+    }
+  }
+
+  // FFmpeg: scale רק כלפי מטה, בלי כפיית fps=30 (שומר קצב מקור) | HYPER CORE TECH
+  async function compressWithFFmpeg(file, onProgress, meta) {
     const ffmpeg = await loadFFmpeg();
     if (!ffmpeg) throw new Error('ffmpeg-unavailable');
 
@@ -212,44 +341,54 @@
 
     if (typeof onProgress === 'function') onProgress({ stage: 'loading', percent: 5 });
 
-    const duration = await probeDuration(file).catch(() => 1);
-    const { audioBps } = getAdaptiveBitrates(file.size, duration);
+    const duration = (meta && meta.duration) || await probeDuration(file).catch(() => 1);
+    const { audioBps, originalBps } = getAdaptiveBitrates(file.size, duration);
     const inputName = guessInputName(file);
     const outputName = 'output.mp4';
+    const needDownscale = !meta || !meta.height || meta.height > TARGET_HEIGHT || meta.width > 1920;
+    const crf = originalBps > 0 && originalBps < 4_500_000 ? FFMPEG_CRF_SOFT : FFMPEG_CRF;
 
     ffmpeg.FS('writeFile', inputName, await fetchFile(file));
     if (typeof onProgress === 'function') onProgress({ stage: 'compressing', percent: 20 });
 
-    // progress משוער לפי זמן ריצה
     let fakePct = 20;
     const tick = setInterval(() => {
       fakePct = Math.min(88, fakePct + 3);
       if (typeof onProgress === 'function') onProgress({ stage: 'compressing', percent: fakePct });
     }, 700);
 
+    const args = ['-i', inputName];
+    if (needDownscale) {
+      // scale רק כלפי מטה; בלי כפיית fps (שומר קצב מקור ומונע קיצור/גמגום) | HYPER CORE TECH
+      args.push('-vf', `scale=-2:min(${TARGET_HEIGHT}\\,ih)`);
+    }
+    args.push(
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-profile:v', 'main',
+      '-level', '4.0',
+      '-crf', crf,
+      '-maxrate', String(FFMPEG_MAXRATE),
+      '-bufsize', String(FFMPEG_MAXRATE * 2),
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', String(audioBps),
+      '-ar', '44100',
+      '-ac', '2',
+      '-af', 'aresample=async=1:first_pts=0',
+      '-movflags', '+faststart',
+      '-y',
+      outputName
+    );
+
     try {
-      // CRF שולט באיכות/גודל; maxrate גבוה רק כתקרה; scale רק כלפי מטה; AAC לסנכרון | HYPER CORE TECH
-      // פלט: MP4 H.264 Main + AAC – תואם Android / iPhone / Desktop | HYPER CORE TECH
-      await ffmpeg.run(
-        '-i', inputName,
-        '-vf', `scale=-2:min(${TARGET_HEIGHT}\\,ih),fps=${TARGET_FPS}`,
-        '-c:v', 'libx264',
-        '-preset', 'medium',
-        '-profile:v', 'main',
-        '-level', '4.0',
-        '-crf', FFMPEG_CRF,
-        '-maxrate', String(FFMPEG_MAXRATE),
-        '-bufsize', String(FFMPEG_MAXRATE * 2),
-        '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac',
-        '-b:a', String(audioBps),
-        '-ar', '44100',
-        '-ac', '2',
-        '-af', 'aresample=async=1:first_pts=0',
-        '-movflags', '+faststart',
-        '-y',
-        outputName
-      );
+      console.log('[COMPRESS] FFmpeg args', {
+        needDownscale,
+        crf,
+        height: meta && meta.height,
+        originalMbps: originalBps ? (originalBps / 1e6).toFixed(2) : 'n/a',
+      });
+      await ffmpeg.run(...args);
     } finally {
       clearInterval(tick);
       try { ffmpeg.FS('unlink', inputName); } catch (_) {}
@@ -263,7 +402,6 @@
     const blob = new Blob([data.buffer], { type: 'video/mp4' });
     if (!blob.size) throw new Error('ffmpeg-empty-output');
     if (blob.size >= file.size * 0.98) {
-      // כמעט לא חסכנו – עדיף המקור אם הוא כבר ידידותי
       throw new Error('ffmpeg-not-smaller');
     }
 
@@ -281,7 +419,6 @@
     };
   }
 
-  // דסקטופ: captureStream מסונכרן (וידאו+אודיו מאותו אלמנט) | HYPER CORE TECH
   async function compressWithDirectRecorder(file, onProgress) {
     console.log('[COMPRESS] Desktop captureStream (synced A/V)...');
     if (typeof onProgress === 'function') onProgress({ stage: 'loading', percent: 0 });
@@ -291,7 +428,6 @@
     video.preload = 'auto';
     video.crossOrigin = 'anonymous';
     video.src = URL.createObjectURL(file);
-    // muted נדרש ל-autoplay, אבל ה-track של האודיו עדיין נלכד ב-Chrome | HYPER CORE TECH
     video.muted = true;
     video.defaultMuted = true;
     video.playsInline = true;
@@ -363,7 +499,6 @@
     try {
       video.currentTime = 0;
       await new Promise((r) => setTimeout(r, 40));
-      // מתחילים הקלטה ואז ניגון – אותו שעון ל-A/V | HYPER CORE TECH
       recorder.start(250);
       await video.play();
 
@@ -414,6 +549,7 @@
     let canvasWidth;
     let canvasHeight;
 
+    // לא להגדיל מקור קטן – רק להקטין אם צריך | HYPER CORE TECH
     if (video.videoWidth >= video.videoHeight) {
       canvasHeight = Math.min(minSize, video.videoHeight || minSize);
       canvasWidth = Math.max(2, Math.floor(canvasHeight * aspectRatio));
@@ -431,13 +567,11 @@
       canvasWidth = Math.floor(maxSize * aspectRatio);
     }
 
-    // H.264 אוהב ממדים זוגיים
     canvasWidth -= canvasWidth % 2;
     canvasHeight -= canvasHeight % 2;
     return { canvasWidth, canvasHeight };
   }
 
-  // מובייל: Canvas + אודיו מ-captureStream בלבד (בלי WebAudio latency) | HYPER CORE TECH
   async function compressWithCanvas(file, onProgress) {
     console.log('[COMPRESS] Canvas path (synced frames, no WebAudio)...');
     if (typeof onProgress === 'function') onProgress({ stage: 'preparing', percent: 5 });
@@ -479,7 +613,6 @@
     const duration = Math.max(video.duration || 1, 0.5);
     const { videoBps, audioBps } = getAdaptiveBitrates(file.size, duration);
 
-    // captureStream(0) + requestFrame – פריים רק כשמציירים לפי mediaTime | HYPER CORE TECH
     const canvasStream = canvas.captureStream(0);
     const canvasVideoTrack = canvasStream.getVideoTracks()[0];
 
@@ -580,7 +713,6 @@
       }
     } catch (_) {}
 
-    // הקלטה ואז ניגון – אותו ציר זמן | HYPER CORE TECH
     recorder.start(250);
     await video.play();
     startDrawing();
@@ -631,28 +763,19 @@
     const blob = new Blob(chunks, { type: outMime });
     if (!blob.size) {
       console.warn('[COMPRESS] empty canvas output – returning original');
-      return {
-        blob: file,
-        hash: await calculateHash(file),
-        size: file.size,
-        type: file.type,
-        originalSize: file.size,
-        compressionRatio: '0.0',
-        method: 'original-fallback',
-      };
+      return makePassthroughResult(file, 'canvas-empty');
     }
 
     if (blob.size >= file.size) {
       console.warn('[COMPRESS] grew – returning original');
-      return {
-        blob: file,
-        hash: await calculateHash(file),
-        size: file.size,
-        type: file.type,
-        originalSize: file.size,
-        compressionRatio: '0.0',
-        method: 'original-fallback',
-      };
+      return makePassthroughResult(file, 'canvas-grew');
+    }
+
+    // חלק איכות (video-compressor.js) – אם כמעט אין פריימים ביחס למשך, עדיף מקור | HYPER CORE TECH
+    const expectedMinFrames = Math.max(8, Math.floor(duration * 8));
+    if (frameCount < expectedMinFrames) {
+      console.warn('[COMPRESS] too few canvas frames', { frameCount, expectedMinFrames, duration });
+      return makePassthroughResult(file, 'canvas-too-few-frames');
     }
 
     const hash = await calculateHash(blob);
@@ -683,51 +806,70 @@
   }
 
   async function compressVideo(file, onProgress) {
-    validateInputSize(file);
-    const { isIOS, isAndroid, isMobile } = getDeviceInfo();
+    return withWakeLock(async () => {
+      const normalized = normalizeVideoFile(file);
+      validateInputSize(normalized);
+      const { isIOS, isAndroid, isMobile, nativeShell } = getDeviceInfo();
 
-    console.log('[COMPRESS] Starting:', {
-      fileName: file.name,
-      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-      fileType: file.type,
-      isIOS,
-      isAndroid,
-      isMobile,
-    });
+      console.log('[COMPRESS] Starting:', {
+        fileName: normalized.name,
+        fileSize: `${(normalized.size / 1024 / 1024).toFixed(2)}MB`,
+        fileType: normalized.type,
+        isIOS,
+        isAndroid,
+        isMobile,
+        nativeShell,
+      });
 
-    // iPhone: MP4/MOV קטן וידידותי – passthrough (שומר סנכרון + איכות) | HYPER CORE TECH
-    if (isIOS && isAlreadyFriendlyMobileMp4(file)) {
-      console.log('[COMPRESS] iOS friendly MP4 – skip re-encode');
-      if (typeof onProgress === 'function') onProgress({ stage: 'complete', percent: 100 });
-      return {
-        blob: file,
-        hash: await calculateHash(file),
-        size: file.size,
-        type: file.type || 'video/mp4',
-        originalSize: file.size,
-        compressionRatio: '0.0',
-        method: 'passthrough',
-      };
-    }
-
-    // כל המכשירים: FFmpeg ראשון → MP4 H.264/AAC מסונכרן ודחוס | HYPER CORE TECH
-    try {
-      const ff = await compressWithFFmpeg(file, onProgress);
-      console.log('[COMPRESS] FFmpeg success', ff.compressionRatio + '%');
-      return ff;
-    } catch (err) {
-      console.warn('[COMPRESS] FFmpeg path failed, falling back:', err?.message || err);
-    }
-
-    if (!isMobile && isDesktopCaptureSupported()) {
+      let meta = null;
       try {
-        return await compressWithDirectRecorder(file, onProgress);
+        meta = await probeVideo(normalized);
+        console.log('[COMPRESS] Probe:', {
+          w: meta.width,
+          h: meta.height,
+          duration: meta.duration.toFixed(2),
+          mbps: (meta.estimatedBps / 1e6).toFixed(2),
+        });
       } catch (err) {
-        console.warn('[COMPRESS] Desktop capture failed:', err?.message || err);
+        console.warn('[COMPRESS] probe failed', err?.message || err);
       }
-    }
 
-    return await compressWithCanvas(file, onProgress);
+      const pass = shouldPassthrough(normalized, meta);
+      if (pass.skip) {
+        if (typeof onProgress === 'function') onProgress({ stage: 'complete', percent: 100 });
+        return makePassthroughResult(normalized, pass.reason);
+      }
+
+      // FFmpeg ראשון – הכי אמין לסנכרון ולאייפון | HYPER CORE TECH
+      try {
+        const ff = await compressWithFFmpeg(normalized, onProgress, meta);
+        console.log('[COMPRESS] FFmpeg success', ff.compressionRatio + '%');
+        return ff;
+      } catch (err) {
+        console.warn('[COMPRESS] FFmpeg path failed, falling back:', err?.message || err);
+      }
+
+      // חלק מעטפת (video-compressor.js) – לא Canvas ב-WebView (שמע בלי תמונה / קיצור / טשטוש) | HYPER CORE TECH
+      if (nativeShell || isAndroid) {
+        if (normalized.size <= SHELL_PASSTHROUGH_MAX_BYTES || isFriendlyContainer(normalized)) {
+          if (typeof onProgress === 'function') onProgress({ stage: 'complete', percent: 100 });
+          return makePassthroughResult(normalized, 'shell-avoid-canvas');
+        }
+        throw new Error(
+          'לא ניתן לדחוס את הווידאו במעטפת. בחר קובץ קטן יותר (עד ~45MB) או נסה שוב מהדפדפן.'
+        );
+      }
+
+      if (!isMobile && isDesktopCaptureSupported()) {
+        try {
+          return await compressWithDirectRecorder(normalized, onProgress);
+        } catch (err) {
+          console.warn('[COMPRESS] Desktop capture failed:', err?.message || err);
+        }
+      }
+
+      return await compressWithCanvas(normalized, onProgress);
+    });
   }
 
   function isSupported() {
@@ -738,7 +880,8 @@
     compressVideo,
     isVideoCompressionSupported: isSupported,
     loadVideoCompressor: loadFFmpeg,
+    normalizeVideoFile,
   });
 
-  console.log('[COMPRESS] Video compressor module initialized (sync + iPhone MP4)');
+  console.log('[COMPRESS] Video compressor module initialized (smart passthrough + shell-safe)');
 })(window);

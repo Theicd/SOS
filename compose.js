@@ -376,9 +376,15 @@
       clearTextareaBg();
       
       // חלק וידאו (compose.js) – טיפול בקבצי וידאו עם דחיסה והעלאה
-      if (file.type.startsWith('video/')) {
+      const isVideo = (file.type && file.type.startsWith('video/'))
+        || /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(file.name || '')
+        || (file.type === 'application/octet-stream' && /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(file.name || ''));
+      if (isVideo) {
         console.log('[COMPOSE] Processing video file...');
-        await handleVideoFile(file);
+        const normalized = typeof App.normalizeVideoFile === 'function'
+          ? App.normalizeVideoFile(file)
+          : file;
+        await handleVideoFile(normalized);
         event.target.value = '';
         return;
       }
