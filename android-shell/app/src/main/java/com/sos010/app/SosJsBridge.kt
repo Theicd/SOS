@@ -150,9 +150,24 @@ class SosJsBridge(
      */
     @JavascriptInterface
     fun openFilePicker(requestId: String?, accept: String?) {
-        val act = context as? MainActivity ?: return
-        val id = requestId?.ifBlank { null } ?: return
+        android.util.Log.i("SosJsBridge", "openFilePicker req=$requestId accept=$accept")
+        val act = context as? MainActivity
+        if (act == null) {
+            android.util.Log.e("SosJsBridge", "openFilePicker: context is not MainActivity (${context.javaClass.name})")
+            return
+        }
+        val id = requestId?.ifBlank { null }
+        if (id == null) {
+            android.util.Log.e("SosJsBridge", "openFilePicker: empty requestId")
+            return
+        }
         act.openFilePickerFromJs(id, accept?.ifBlank { null } ?: "*/*")
+    }
+
+    /** בדיקה ידנית מ-console: SosNativeShell.testFilePicker() */
+    @JavascriptInterface
+    fun testFilePicker() {
+        openFilePicker("test_" + System.currentTimeMillis(), "*/*")
     }
 
     @JavascriptInterface
