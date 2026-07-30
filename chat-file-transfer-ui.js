@@ -253,8 +253,12 @@
   }
 
   function onFileButtonClick(event) {
-    // label[for] כבר מפעיל את ה-input — נמנעים מ-click כפול ששובר מובייל
-    if (event?.currentTarget?.tagName === 'LABEL' || event?.target?.closest?.('label[for="chatComposerFileInput"]')) {
+    // חלק מובייל (chat-file-transfer-ui.js) – ה-input עצמו מכסה את האטב; לא קליק פרוגרמטי | HYPER CORE TECH
+    if (event?.target?.closest?.('input[type="file"]')) {
+      event.stopPropagation();
+      return;
+    }
+    if (event?.currentTarget?.tagName === 'LABEL' || event?.currentTarget?.querySelector?.('input[type="file"]')) {
       event.stopPropagation();
       return;
     }

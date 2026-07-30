@@ -1193,11 +1193,18 @@
 
     if (elements.uploadChoice) {
       elements.uploadChoice.addEventListener('click', (event) => {
-        // לא preventDefault — שומר מחוות משתמש לפתיחת file picker במובייל | HYPER CORE TECH
+        // חלק מובייל (compose.js) – ה-input השקוף מקבל את הלחיצה ישירות; בלי click() כפול | HYPER CORE TECH
         event.stopPropagation();
         state.composeMode = 'upload';
         ensureMediaInputBound();
-        openFileInputElement(elements.mediaInput || document.getElementById('composeMediaInput'));
+        if (event.target?.closest?.('input[type="file"]')) {
+          return;
+        }
+        // דסקטופ/fallback בלבד אם הלחיצה לא נחתה על ה-input
+        const input = elements.mediaInput || document.getElementById('composeMediaInput');
+        if (input && event.target !== input) {
+          openFileInputElement(input);
+        }
       });
     }
 

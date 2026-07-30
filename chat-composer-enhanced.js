@@ -108,6 +108,19 @@
     const existingForm = container.querySelector('form');
     
     if (!existingInput || !existingForm) return;
+    // חלק אטב (chat-composer-enhanced.js) – לא יוצר אטב כפול שמסתיר/חוסם את #chatComposerFileInput | HYPER CORE TECH
+    if (container.querySelector('#chatComposerFileInput') || container.querySelector('#chatComposerFileButton')) {
+      composerState.inputElement = existingInput;
+      composerState.composerElement = container;
+      if (typeof App.optimizeMessageInput === 'function') {
+        App.optimizeMessageInput(existingInput);
+      }
+      existingInput.addEventListener('input', () => {
+        updateSendButton();
+      });
+      updateSendButton();
+      return;
+    }
     
     composerState.inputElement = existingInput;
     composerState.composerElement = container;

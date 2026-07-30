@@ -776,38 +776,32 @@ body.chat-overlay-open::before {
   color: var(--primary);
   position: relative;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .chat-composer__icon--file:hover {
   color: var(--primary-hover);
 }
 
-/* חלק קלט קובץ (chat.css) – מוסתר ויזואלית אבל ניתן להפעלה במובייל (לא attribute hidden) | HYPER CORE TECH */
+/* חלק קלט קובץ (chat.css) – שכבת לחיצה שקופה מעל האטב (מובייל/WebView) | HYPER CORE TECH */
 .chat-composer__file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-  opacity: 0;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  z-index: 5 !important;
+  font-size: 48px !important; /* Android WebView: hit-target גדול יותר | HYPER CORE TECH */
+  clip: auto !important;
+  overflow: hidden !important;
 }
 
-/* חלק קלט קובץ (chat.css) – לא hidden attribute: במובייל/WebView קליק פרוגרמטי על hidden נכשל לעיתים | HYPER CORE TECH */
-.chat-composer__file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-  opacity: 0;
+.chat-composer__icon--file > i {
   pointer-events: none;
 }
 

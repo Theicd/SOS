@@ -93,7 +93,7 @@
     <link rel="stylesheet" href="./styles/media-overrides.css">
     <!-- חלק עיצובים ללוגו ולצ'אט – זהים ל-storage/index | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css">
-    <link rel="stylesheet" href="./styles/chat.css?v=20260730u">
+    <link rel="stylesheet" href="./styles/chat.css?v=20260730w">
     <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css?v=20260730i">
     <link rel="stylesheet" href="./styles/chat-file-transfer.css?v=20260730t">
     <link rel="stylesheet" href="./styles/chat-dialog.css">
@@ -477,6 +477,7 @@
       }
 
       .compose-choice {
+        position: relative;
         display: flex;
         align-items: center;
         gap: 14px;
@@ -488,7 +489,26 @@
         color: var(--text);
         cursor: pointer;
         text-align: right;
+        overflow: hidden;
         transition: border-color 0.2s ease, transform 0.15s ease, background 0.2s ease;
+      }
+
+      /* חלק העלאה (videos.html) – input שקוף מכסה את כל כפתור ההעלאה במובייל | HYPER CORE TECH */
+      .compose-choice .compose-media-input {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        opacity: 0 !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        z-index: 5 !important;
+        font-size: 64px !important;
+        clip: auto !important;
+        overflow: hidden !important;
       }
 
       .compose-choice:hover,
@@ -510,18 +530,20 @@
         background: rgba(74, 144, 217, 0.15);
         color: var(--primary);
         flex-shrink: 0;
+        pointer-events: none;
       }
-
-      .compose-choice__icon--camera { background: rgba(255, 59, 92, 0.14); color: #ff3b5c; }
-      .compose-choice__icon--upload { background: rgba(74, 144, 217, 0.15); color: #4a90d9; }
-      .compose-choice__icon--text { background: rgba(255, 193, 7, 0.16); color: #e6a700; }
 
       .compose-choice__copy {
         display: flex;
         flex-direction: column;
         gap: 2px;
         min-width: 0;
+        pointer-events: none;
       }
+
+      .compose-choice__icon--camera { background: rgba(255, 59, 92, 0.14); color: #ff3b5c; }
+      .compose-choice__icon--upload { background: rgba(74, 144, 217, 0.15); color: #4a90d9; }
+      .compose-choice__icon--text { background: rgba(255, 193, 7, 0.16); color: #e6a700; }
 
       .compose-choice__label {
         font-size: 1.05rem;
@@ -1623,7 +1645,7 @@
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260726c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260730v" defer></script>
+    <script src="./compose.js?v=20260730w" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -1651,7 +1673,7 @@
     <script src="./chat-service.js?v=6" defer></script>
     <script src="./chat-file-transfer-state.js?v=2" defer></script>
     <script src="./chat-file-transfer-service.js?v=2" defer></script>
-    <script src="./chat-file-transfer-ui.js?v=4" defer></script>
+    <script src="./chat-file-transfer-ui.js?v=5" defer></script>
     <script src="./chat-voice-service.js?v=4" defer></script>
     <script src="./chat-voice-ui.js" defer></script>
     <script src="./chat-voice-call.js?v=20260730f" defer></script>
@@ -1663,7 +1685,7 @@
     <script src="./chat-audio-player.js?v=4" defer></script>
     <script src="./chat-media-renderer.js?v=5" defer></script>
     <script src="./chat-ui-optimizations.js" defer></script>
-    <script src="./chat-composer-enhanced.js?v=3" defer></script>
+    <script src="./chat-composer-enhanced.js?v=4" defer></script>
     <script src="./chat-p2p-datachannel.js?v=13" defer></script>
     <script src="./chat-ui.js?v=13" defer></script>
     <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
@@ -1961,7 +1983,7 @@
                 <span class="compose-choice__hint">הקליטו סרטון חדש עכשיו</span>
               </span>
             </button>
-            <button type="button" class="compose-choice" id="composeUploadChoice" data-compose-choice="upload">
+            <label class="compose-choice" id="composeUploadChoice" data-compose-choice="upload" aria-label="העלאה">
               <span class="compose-choice__icon compose-choice__icon--upload" aria-hidden="true">
                 <i class="fa-solid fa-images"></i>
               </span>
@@ -1969,7 +1991,8 @@
                 <span class="compose-choice__label">העלאה</span>
                 <span class="compose-choice__hint">תמונה או וידאו מהגלריה</span>
               </span>
-            </button>
+              <input type="file" id="composeMediaInput" class="compose-media-input" accept="image/*,video/*">
+            </label>
             <button type="button" class="compose-choice" id="composeTextChoice" data-compose-choice="text">
               <span class="compose-choice__icon compose-choice__icon--text" aria-hidden="true">
                 <i class="fa-solid fa-pen"></i>
@@ -1980,7 +2003,6 @@
               </span>
             </button>
           </div>
-          <input id="composeMediaInput" type="file" class="compose-media-input" accept="image/*,video/*">
         </div>
 
         <!-- שלב 2: עריכה ופרסום | HYPER CORE TECH -->
@@ -2326,7 +2348,7 @@
           </div>
         </div>
       </nav>
-      <div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="סגור חלון"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SosCall010"><img src="icons/so-call010.png" alt="SosCall010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="צ'אט חדש"></i><i class="fa-solid fa-ellipsis-vertical" title="תפריט"></i></div></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש צ'אט או התחלת צ'אט חדש" autocomplete="off"><i class="fa-solid fa-filter"></i></div><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" id="chatRefreshContacts" aria-label="רענון שיחות" title="רענון כל השיחות"><i class="fa-solid fa-rotate"></i></button><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><div class="chat-welcome-desktop" id="chatWelcomeDesktop"><div class="chat-welcome-desktop__card"><div class="chat-welcome-desktop__icon"><img src="icons/INSTALLPCLOGO.PNG" alt="SOS Call 010"></div><h2 class="chat-welcome-desktop__title">עדיין לא התקנת את SOS Call 010 למחשב?</h2><p class="chat-welcome-desktop__desc">האפליקציה שלנו זמינה להתקנה על המחשב שלך לחוויה מהירה ונוחה יותר, עם התראות בזמן אמת!</p><button type="button" class="chat-welcome-desktop__install" id="chatWelcomeInstallBtn" onclick="NostrApp.promptPwaInstall && NostrApp.promptPwaInstall()"><i class="fa-solid fa-download"></i> התקן עכשיו</button></div><div class="chat-welcome-desktop__actions"><button type="button" class="chat-welcome-desktop__action" onclick="document.getElementById('chatSearchInput')?.focus()"><i class="fa-solid fa-user-plus"></i><span>התחל שיחה חדשה</span></button><button type="button" class="chat-welcome-desktop__action" onclick="document.querySelector('[data-chat-filter=\"unread\"]')?.click()"><i class="fa-solid fa-envelope"></i><span>הודעות שלא נקראו</span></button></div><p class="chat-welcome-desktop__footer"><i class="fa-brands fa-windows"></i> הפעל את SOS Call 010 על Windows</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="שיחת קול"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><label class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" for="chatComposerFileInput" aria-label="צרף קובץ" title="צרף קובץ קטן"><i class="fa-solid fa-paperclip"></i></label><button type="button" class="chat-composer__icon chat-composer__icon--torrent" id="chatTorrentSendButton" aria-label="שלח קובץ גדול" title="שלח קובץ גדול (עד 100GB+)"><i class="fa-solid fa-cloud-arrow-up"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div><input type="file" id="chatComposerFileInput" class="chat-composer__file-input" accept="*/*"></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
+      <div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="סגור חלון"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SosCall010"><img src="icons/so-call010.png" alt="SosCall010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="צ'אט חדש"></i><i class="fa-solid fa-ellipsis-vertical" title="תפריט"></i></div></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש צ'אט או התחלת צ'אט חדש" autocomplete="off"><i class="fa-solid fa-filter"></i></div><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" id="chatRefreshContacts" aria-label="רענון שיחות" title="רענון כל השיחות"><i class="fa-solid fa-rotate"></i></button><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">הכל</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">לא נקראו</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><div class="chat-welcome-desktop" id="chatWelcomeDesktop"><div class="chat-welcome-desktop__card"><div class="chat-welcome-desktop__icon"><img src="icons/INSTALLPCLOGO.PNG" alt="SOS Call 010"></div><h2 class="chat-welcome-desktop__title">עדיין לא התקנת את SOS Call 010 למחשב?</h2><p class="chat-welcome-desktop__desc">האפליקציה שלנו זמינה להתקנה על המחשב שלך לחוויה מהירה ונוחה יותר, עם התראות בזמן אמת!</p><button type="button" class="chat-welcome-desktop__install" id="chatWelcomeInstallBtn" onclick="NostrApp.promptPwaInstall && NostrApp.promptPwaInstall()"><i class="fa-solid fa-download"></i> התקן עכשיו</button></div><div class="chat-welcome-desktop__actions"><button type="button" class="chat-welcome-desktop__action" onclick="document.getElementById('chatSearchInput')?.focus()"><i class="fa-solid fa-user-plus"></i><span>התחל שיחה חדשה</span></button><button type="button" class="chat-welcome-desktop__action" onclick="document.querySelector('[data-chat-filter=\"unread\"]')?.click()"><i class="fa-solid fa-envelope"></i><span>הודעות שלא נקראו</span></button></div><p class="chat-welcome-desktop__footer"><i class="fa-brands fa-windows"></i> הפעל את SOS Call 010 על Windows</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="שיחת קול"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><label class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ" title="צרף קובץ"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><input type="file" id="chatComposerFileInput" class="chat-composer__file-input" accept="*/*"></label><button type="button" class="chat-composer__icon chat-composer__icon--torrent" id="chatTorrentSendButton" aria-label="שלח קובץ גדול" title="שלח קובץ גדול (עד 100GB+)"><i class="fa-solid fa-cloud-arrow-up"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
 
     <!-- חלק סיסמת שונות (videos.html) – סקריפט הגנת סיסמה | HYPER CORE TECH -->
     <script src="./misc-password.js"></script>

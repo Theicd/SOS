@@ -559,17 +559,20 @@
   color: #4ecdc4;
 }
 
-/* חלק קלט מדיה מובייל (compose-modern.css) – מוסתר ויזואלית אך ניתן להפעלה ב-WebView | HYPER CORE TECH */
+/* חלק קלט מדיה מובייל (compose-modern.css) – שכבת לחיצה שקופה מעל בחירת העלאה | HYPER CORE TECH */
 .compose-media-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-  opacity: 0;
-  pointer-events: none;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  z-index: 5 !important;
+  font-size: 48px !important;
+  clip: auto !important;
+  overflow: hidden !important;
 }
