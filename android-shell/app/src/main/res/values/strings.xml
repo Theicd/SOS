@@ -3,6 +3,8 @@
     <string name="app_name">SOS</string>
     <string name="channel_messages">הודעות ושיחות</string>
     <string name="channel_messages_desc">התראות על הודעות, שיחות ועדכונים</string>
+    <string name="channel_calls">שיחות נכנסות</string>
+    <string name="channel_calls_desc">צלצול והתראה על שיחות קול ווידאו</string>
     <string name="channel_keepalive">SOS ברקע</string>
     <string name="channel_keepalive_desc">שומר את SOS פעיל לקבלת הודעות</string>
     <string name="fg_title">SOS פעיל ברקע</string>

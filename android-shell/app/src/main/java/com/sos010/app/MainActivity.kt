@@ -31,10 +31,18 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var loading: ProgressBar
+    @Volatile private var pendingWebPermission: PermissionRequest? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* no-op – המשתמש יכול לאשר מאוחר יותר מהממשק */ }
+    ) { _ ->
+        val req = pendingWebPermission
+        pendingWebPermission = null
+        if (req != null) {
+            grantWebPermissionIfAllowed(req)
+        }
+        notifyJsPermissionsUpdated()
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +63,6 @@ class MainActivity : AppCompatActivity() {
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
-        // הופעלה ע"י שירות הרקע – מיד חוזרים לרקע בלי להציק למשתמש | HYPER CORE TECH
         if (intent?.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false) == true) {
             moveTaskToBack(true)
         }
@@ -64,6 +71,7 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        CallSoundHelper.stopAll()
         val url = resolveStartUrl(intent)
         if (this::webView.isInitialized && url != webView.url) {
             webView.loadUrl(url)
@@ -76,6 +84,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         isHostAlive = true
+        CallSoundHelper.stopAll()
+        NotificationHelper.cancelIncomingCall(this)
         startKeepAliveService()
         if (this::webView.isInitialized) {
             try {
@@ -90,8 +100,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStop() {
+        // הממשק לא בחזית – שירות הרקע מטפל בצלצול שיחות נכנסות
+        isHostAlive = false
+        startKeepAliveService()
+        super.onStop()
+    }
+
     override fun onPause() {
-        // לא עוצרים טיימרים/JS – חייבים לקבל הודעות ברקע | HYPER CORE TECH
         if (this::webView.isInitialized) {
             try {
                 webView.resumeTimers()
@@ -178,9 +194,81 @@ class MainActivity : AppCompatActivity() {
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest?) {
-                request?.grant(request.resources)
+                if (request == null) return
+                runOnUiThread {
+                    handleWebPermissionRequest(request)
+                }
             }
         }
+    }
+
+    private fun handleWebPermissionRequest(request: PermissionRequest) {
+        val need = mutableListOf<String>()
+        for (resource in request.resources) {
+            when (resource) {
+                PermissionRequest.RESOURCE_AUDIO_CAPTURE -> {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        need += Manifest.permission.RECORD_AUDIO
+                    }
+                }
+                PermissionRequest.RESOURCE_VIDEO_CAPTURE -> {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                        != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        need += Manifest.permission.CAMERA
+                    }
+                }
+            }
+        }
+        if (need.isEmpty()) {
+            grantWebPermissionIfAllowed(request)
+            return
+        }
+        pendingWebPermission = request
+        permissionLauncher.launch(need.distinct().toTypedArray())
+    }
+
+    private fun grantWebPermissionIfAllowed(request: PermissionRequest) {
+        val granted = mutableListOf<String>()
+        for (resource in request.resources) {
+            when (resource) {
+                PermissionRequest.RESOURCE_AUDIO_CAPTURE -> {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        granted += resource
+                    }
+                }
+                PermissionRequest.RESOURCE_VIDEO_CAPTURE -> {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                        == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        granted += resource
+                    }
+                }
+                else -> granted += resource
+            }
+        }
+        try {
+            if (granted.isNotEmpty()) {
+                request.grant(granted.toTypedArray())
+            } else {
+                request.deny()
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun notifyJsPermissionsUpdated() {
+        if (!this::webView.isInitialized) return
+        val mic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val cam = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        webView.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('sos-native-permissions',{detail:{mic:$mic,camera:$cam}}));",
+            null
+        )
     }
 
     private fun injectNativeFlag() {
@@ -214,7 +302,36 @@ class MainActivity : AppCompatActivity() {
                 needed += perm
             }
         }
+        if (Build.VERSION.SDK_INT >= 31) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.BLUETOOTH_CONNECT
+            }
+        }
         if (needed.isNotEmpty()) {
+            permissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
+    /** נקרא מגשר JS כשמתחילים שיחה – פותח דיאלוג אם חסר */
+    fun requestMediaPermissionsFromJs(needCamera: Boolean) {
+        runOnUiThread {
+            val needed = mutableListOf<String>()
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.RECORD_AUDIO
+            }
+            if (needCamera && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                needed += Manifest.permission.CAMERA
+            }
+            if (needed.isEmpty()) {
+                notifyJsPermissionsUpdated()
+                return@runOnUiThread
+            }
             permissionLauncher.launch(needed.toTypedArray())
         }
     }
@@ -229,7 +346,6 @@ class MainActivity : AppCompatActivity() {
                 startActivity(intent)
             }
         } catch (_: Exception) {
-            // חלק מהמכשירים חוסמים את המסך הזה
         }
     }
 

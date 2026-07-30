@@ -269,6 +269,9 @@
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת צלצול (MP3) | HYPER CORE TECH
   function stopRingtone() {
+    try {
+      if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+    } catch {}
     if (!ringtoneAudio) return;
     try { ringtoneAudio.pause(); } catch {}
     try { ringtoneAudio.currentTime = 0; } catch {}
@@ -276,6 +279,9 @@
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת טון חיוג (MP3) | HYPER CORE TECH
   function stopDialtone() {
+    try {
+      if (typeof App.nativeStopCallDialtone === 'function') App.nativeStopCallDialtone();
+    } catch {}
     if (!dialtoneAudio) return;
     try { dialtoneAudio.pause(); } catch {}
     try { dialtoneAudio.currentTime = 0; } catch {}
@@ -283,8 +289,11 @@
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – ניגון צלצול נכנס (MP3) | HYPER CORE TECH
   function playRingtone() {
-    ensureToneAudioElements();
     stopDialtone();
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell() && typeof App.nativeStartCallRingtone === 'function') {
+      if (App.nativeStartCallRingtone()) return;
+    }
+    ensureToneAudioElements();
     if (ringtoneAudio && !ringtoneAudio.paused) return;
     try { ringtoneAudio.currentTime = 0; } catch {}
     try {
@@ -295,8 +304,11 @@
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – ניגון טון חיוג יוצא (MP3) | HYPER CORE TECH
   function playDialtone() {
-    ensureToneAudioElements();
     stopRingtone();
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell() && typeof App.nativeStartCallDialtone === 'function') {
+      if (App.nativeStartCallDialtone()) return;
+    }
+    ensureToneAudioElements();
     if (dialtoneAudio && !dialtoneAudio.paused) return;
     try { dialtoneAudio.currentTime = 0; } catch {}
     try {

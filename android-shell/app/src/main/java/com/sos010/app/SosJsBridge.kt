@@ -96,5 +96,54 @@ class SosJsBridge(
     }
 
     @JavascriptInterface
-    fun getShellVersion(): String = "1.0.0"
+    fun startCallRingtone() {
+        CallSoundHelper.startRingtone(context.applicationContext)
+    }
+
+    @JavascriptInterface
+    fun stopCallRingtone() {
+        CallSoundHelper.stopRingtone()
+        NotificationHelper.cancelIncomingCall(context.applicationContext)
+    }
+
+    @JavascriptInterface
+    fun startCallDialtone() {
+        CallSoundHelper.startDialtone(context.applicationContext)
+    }
+
+    @JavascriptInterface
+    fun stopCallDialtone() {
+        CallSoundHelper.stopDialtone()
+    }
+
+    @JavascriptInterface
+    fun stopCallSounds() {
+        CallSoundHelper.stopAll()
+        NotificationHelper.cancelIncomingCall(context.applicationContext)
+    }
+
+    @JavascriptInterface
+    fun requestMediaPermissions(needCamera: Boolean) {
+        val act = context as? MainActivity ?: return
+        act.requestMediaPermissionsFromJs(needCamera)
+    }
+
+    @JavascriptInterface
+    fun hasMicPermission(): Boolean {
+        return androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.RECORD_AUDIO
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    @JavascriptInterface
+    fun hasCameraPermission(): Boolean {
+        return androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.CAMERA
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    @JavascriptInterface
+    fun getShellVersion(): String = "1.0.6"
 }

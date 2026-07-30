@@ -906,20 +906,30 @@
   }
 
   function stopRingtone() {
+    try {
+      if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+    } catch {}
     if (!ringtoneAudio) return;
     try { ringtoneAudio.pause(); } catch {}
     try { ringtoneAudio.currentTime = 0; } catch {}
   }
 
   function stopDialtone() {
+    try {
+      if (typeof App.nativeStopCallDialtone === 'function') App.nativeStopCallDialtone();
+    } catch {}
     if (!dialtoneAudio) return;
     try { dialtoneAudio.pause(); } catch {}
     try { dialtoneAudio.currentTime = 0; } catch {}
   }
 
   function playRingtone() {
-    ensureToneAudioElements();
     stopDialtone();
+    // באפליקציה המקורית – צלצול מה-APK (לא תלוי ברשת)
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell() && typeof App.nativeStartCallRingtone === 'function') {
+      if (App.nativeStartCallRingtone()) return;
+    }
+    ensureToneAudioElements();
     if (ringtoneAudio && !ringtoneAudio.paused) return;
     try { ringtoneAudio.currentTime = 0; } catch {}
     try {
@@ -929,8 +939,11 @@
   }
 
   function playDialtone() {
-    ensureToneAudioElements();
     stopRingtone();
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell() && typeof App.nativeStartCallDialtone === 'function') {
+      if (App.nativeStartCallDialtone()) return;
+    }
+    ensureToneAudioElements();
     if (dialtoneAudio && !dialtoneAudio.paused) return;
     try { dialtoneAudio.currentTime = 0; } catch {}
     try {

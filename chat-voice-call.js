@@ -163,6 +163,12 @@
     }
 
     try {
+      if (typeof App.ensureNativeMediaPermissions === 'function') {
+        const ok = await App.ensureNativeMediaPermissions(false);
+        if (!ok) {
+          throw new Error('לא ניתן לגשת למיקרופון. אנא אשר הרשאות באפליקציה.');
+        }
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,

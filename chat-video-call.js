@@ -118,6 +118,12 @@
 
   // חלק שיחות וידאו – קבלת סטרים מקומי (אודיו+וידאו)
   async function getLocalStream(videoConstraints) {
+    if (typeof App.ensureNativeMediaPermissions === 'function') {
+      const ok = await App.ensureNativeMediaPermissions(true);
+      if (!ok) {
+        throw new Error('לא ניתן לגשת למצלמה/מיקרופון. אנא אשר הרשאות באפליקציה.');
+      }
+    }
     const constraints = {
       audio: true,
       video: buildVideoConstraints(videoConstraints)

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v136'; // bump - native Nostr watcher in Android FG service
+  const CACHE_NAME = 'sos-cache-v137'; // bump - call perms + bundled ringtone/dialtone
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -1,4 +1,4 @@
-// חלק מעטפת Native (native-shell-bridge.js) – חיבור WebView Android להתראות רקע + FCM | HYPER CORE TECH
+// חלק מעטפת Native (native-shell-bridge.js) – חיבור WebView Android להתראות רקע + FCM + שיחות | HYPER CORE TECH
 (function initNativeShellBridge(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const FCM_API_DEFAULT = localStorage.getItem('fcm_push_url') || 'https://sos-fcm-push.vercel.app';
@@ -36,6 +36,100 @@
       console.warn('[NATIVE-SHELL] showNotification failed', err);
       return false;
     }
+  }
+
+  function nativeStartCallRingtone() {
+    if (!isNativeShell()) return false;
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.startCallRingtone === 'function') {
+        bridge.startCallRingtone();
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function nativeStopCallRingtone() {
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.stopCallRingtone === 'function') bridge.stopCallRingtone();
+      if (bridge && typeof bridge.stopCallSounds === 'function') bridge.stopCallSounds();
+    } catch (_) {}
+  }
+
+  function nativeStartCallDialtone() {
+    if (!isNativeShell()) return false;
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.startCallDialtone === 'function') {
+        bridge.startCallDialtone();
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function nativeStopCallDialtone() {
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.stopCallDialtone === 'function') bridge.stopCallDialtone();
+    } catch (_) {}
+  }
+
+  function nativeRequestMediaPermissions(needCamera) {
+    if (!isNativeShell()) return false;
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.requestMediaPermissions === 'function') {
+        bridge.requestMediaPermissions(!!needCamera);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function nativeHasMicPermission() {
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.hasMicPermission === 'function') {
+        return bridge.hasMicPermission() === true || bridge.hasMicPermission() === 'true';
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function nativeHasCameraPermission() {
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.hasCameraPermission === 'function') {
+        return bridge.hasCameraPermission() === true || bridge.hasCameraPermission() === 'true';
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  async function ensureNativeMediaPermissions(needCamera) {
+    if (!isNativeShell()) return true;
+    const needCam = !!needCamera;
+    if (nativeHasMicPermission() && (!needCam || nativeHasCameraPermission())) return true;
+    nativeRequestMediaPermissions(needCam);
+    // ממתין לדיאלוג אישור של אנדרואיד
+    await new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        window.removeEventListener('sos-native-permissions', onPerm);
+        resolve();
+      };
+      const onPerm = () => finish();
+      window.addEventListener('sos-native-permissions', onPerm);
+      setTimeout(finish, 12000);
+    });
+    if (!nativeHasMicPermission()) return false;
+    if (needCam && !nativeHasCameraPermission()) return false;
+    return true;
   }
 
   function getFcmToken() {
@@ -147,7 +241,6 @@
       if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
     } catch (_) {}
 
-    // רישום FCM כשיש מפתח משתמש
     const tryRegister = () => {
       syncPubkeyToNative();
       const pubkey = App.publicKey || localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey');
@@ -157,7 +250,6 @@
     setTimeout(tryRegister, 1500);
     setTimeout(tryRegister, 4000);
     setTimeout(tryRegister, 10000);
-    // כל 20 שניות – אם התחברו אחרי שהאפליקציה כבר רצה
     setInterval(syncPubkeyToNative, 20000);
 
     window.addEventListener('sos-fcm-token', () => tryRegister());
@@ -165,7 +257,13 @@
       patchLocalNotifications();
       tryRegister();
     });
-    window.addEventListener('sos-native-resume', () => tryRegister());
+    window.addEventListener('sos-native-resume', () => {
+      tryRegister();
+      try {
+        const bridge = getBridge();
+        if (bridge && typeof bridge.stopCallSounds === 'function') bridge.stopCallSounds();
+      } catch (_) {}
+    });
     window.addEventListener('storage', () => syncPubkeyToNative());
   }
 
@@ -174,6 +272,14 @@
     registerFcmToken,
     sendFcmToPubkey,
     nativeShowNotification,
+    nativeStartCallRingtone,
+    nativeStopCallRingtone,
+    nativeStartCallDialtone,
+    nativeStopCallDialtone,
+    nativeRequestMediaPermissions,
+    ensureNativeMediaPermissions,
+    nativeHasMicPermission,
+    nativeHasCameraPermission,
   });
 
   if (document.readyState === 'loading') {
@@ -181,6 +287,5 @@
   } else {
     boot();
   }
-  // push-client נטען defer – ננסה שוב אחרי טעינה מלאה
   window.addEventListener('load', () => setTimeout(boot, 500));
 })(window);

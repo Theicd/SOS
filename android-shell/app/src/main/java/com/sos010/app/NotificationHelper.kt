@@ -17,14 +17,15 @@ import androidx.core.app.NotificationManagerCompat
 object NotificationHelper {
     /** ערוץ חדש – חובה כשמשנים צליל (אי אפשר לעדכן ערוץ קיים) */
     const val CHANNEL_MESSAGES = "sos_messages_v3"
+    const val CHANNEL_CALLS = "sos_calls_v1"
     const val CHANNEL_KEEPALIVE = "sos_keepalive"
     const val KEEPALIVE_ID = 1001
+    const val INCOMING_CALL_ID = 2002
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // מחיקת ערוצים ישנים בלי הצליל של SOS
         listOf("sos_messages", "sos_messages_v2").forEach { id ->
             try { nm.deleteNotificationChannel(id) } catch (_: Exception) {}
         }
@@ -36,20 +37,45 @@ object NotificationHelper {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .setLegacyStreamType(AudioManager.STREAM_NOTIFICATION)
                 .build()
-            val msgChannel = NotificationChannel(
-                CHANNEL_MESSAGES,
-                context.getString(R.string.channel_messages),
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = context.getString(R.string.channel_messages_desc)
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 250, 150, 250)
-                enableLights(true)
-                setShowBadge(true)
-                setSound(sound, attrs)
-                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-            }
-            nm.createNotificationChannel(msgChannel)
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_MESSAGES,
+                    context.getString(R.string.channel_messages),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(R.string.channel_messages_desc)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 250, 150, 250)
+                    enableLights(true)
+                    setShowBadge(true)
+                    setSound(sound, attrs)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                }
+            )
+        }
+
+        if (nm.getNotificationChannel(CHANNEL_CALLS) == null) {
+            val ring = CallSoundHelper.ringtoneUri(context)
+            val attrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setLegacyStreamType(AudioManager.STREAM_RING)
+                .build()
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_CALLS,
+                    context.getString(R.string.channel_calls),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(R.string.channel_calls_desc)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+                    enableLights(true)
+                    setShowBadge(true)
+                    setSound(ring, attrs)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                }
+            )
         }
 
         if (nm.getNotificationChannel(CHANNEL_KEEPALIVE) == null) {
@@ -123,8 +149,68 @@ object NotificationHelper {
         } catch (_: SecurityException) {
         }
 
-        // גיבוי: חלק מהמכשירים משתיקים צליל ערוץ – מנגנים את קובץ ה-SOS ישירות
         playBundledSound(app)
+    }
+
+    fun showIncomingCall(
+        context: Context,
+        title: String,
+        body: String,
+        openUrl: String,
+        callType: String = "voice"
+    ) {
+        ensureChannels(context)
+        val app = context.applicationContext
+        val intent = Intent(app, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
+            putExtra("call_type", callType)
+        }
+        val pi = PendingIntent.getActivity(
+            app,
+            INCOMING_CALL_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val largeIcon = try {
+            BitmapFactory.decodeResource(app.resources, R.drawable.sos_logo)
+        } catch (_: Exception) {
+            null
+        }
+
+        val notification = NotificationCompat.Builder(app, CHANNEL_CALLS)
+            .setSmallIcon(R.drawable.ic_stat_sos)
+            .setLargeIcon(largeIcon)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(pi)
+            .setFullScreenIntent(pi, true)
+            .setAutoCancel(true)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
+            .setSound(CallSoundHelper.ringtoneUri(app))
+            .setTimeoutAfter(60_000L)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(app).notify("sos-incoming-call", INCOMING_CALL_ID, notification)
+        } catch (_: SecurityException) {
+        }
+
+        CallSoundHelper.startRingtone(app)
+    }
+
+    fun cancelIncomingCall(context: Context) {
+        try {
+            NotificationManagerCompat.from(context.applicationContext)
+                .cancel("sos-incoming-call", INCOMING_CALL_ID)
+        } catch (_: Exception) {
+        }
+        CallSoundHelper.stopRingtone()
     }
 
     private fun playBundledSound(context: Context) {
