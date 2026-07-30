@@ -118,6 +118,22 @@
     App.showLocalNotification.__sosNativePatched = true;
   }
 
+  function syncPubkeyToNative() {
+    if (!isNativeShell()) return;
+    const bridge = getBridge();
+    const pubkey = (App.publicKey || localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey') || '').trim();
+    if (!pubkey || pubkey.length !== 64) return;
+    try {
+      if (bridge && typeof bridge.setUserPubkey === 'function') {
+        bridge.setUserPubkey(pubkey);
+        console.log('[NATIVE-SHELL] pubkey synced to background watcher');
+      }
+      if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
+    } catch (err) {
+      console.warn('[NATIVE-SHELL] setUserPubkey failed', err);
+    }
+  }
+
   function boot() {
     if (!isNativeShell()) {
       console.log('[NATIVE-SHELL] browser mode');
@@ -125,6 +141,7 @@
     }
     console.log('[NATIVE-SHELL] active');
     patchLocalNotifications();
+    syncPubkeyToNative();
     try {
       const bridge = getBridge();
       if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
@@ -132,12 +149,16 @@
 
     // רישום FCM כשיש מפתח משתמש
     const tryRegister = () => {
+      syncPubkeyToNative();
       const pubkey = App.publicKey || localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey');
       if (pubkey) registerFcmToken(pubkey);
     };
     tryRegister();
-    setTimeout(tryRegister, 2500);
-    setTimeout(tryRegister, 8000);
+    setTimeout(tryRegister, 1500);
+    setTimeout(tryRegister, 4000);
+    setTimeout(tryRegister, 10000);
+    // כל 20 שניות – אם התחברו אחרי שהאפליקציה כבר רצה
+    setInterval(syncPubkeyToNative, 20000);
 
     window.addEventListener('sos-fcm-token', () => tryRegister());
     window.addEventListener('sos-native-ready', () => {
@@ -145,6 +166,7 @@
       tryRegister();
     });
     window.addEventListener('sos-native-resume', () => tryRegister());
+    window.addEventListener('storage', () => syncPubkeyToNative());
   }
 
   Object.assign(App, {

@@ -74,10 +74,25 @@ class SosJsBridge(
         )
     }
 
+    /** שמירת pubkey לשירות הרקע – חובה לקבלת הודעות כשהממשק סגור | HYPER CORE TECH */
+    @JavascriptInterface
+    fun setUserPubkey(pubkey: String?) {
+        SosSessionStore.setPubkey(context.applicationContext, pubkey)
+        SosForegroundService.start(context.applicationContext)
+        SosRelayWatcher.ensureStarted(context.applicationContext)
+    }
+
+    @JavascriptInterface
+    fun clearUserSession() {
+        SosSessionStore.clear(context.applicationContext)
+        SosRelayWatcher.stopAll()
+    }
+
     @JavascriptInterface
     fun keepAlive() {
         val intent = android.content.Intent(context, SosForegroundService::class.java)
         androidx.core.content.ContextCompat.startForegroundService(context, intent)
+        SosRelayWatcher.ensureStarted(context.applicationContext)
     }
 
     @JavascriptInterface

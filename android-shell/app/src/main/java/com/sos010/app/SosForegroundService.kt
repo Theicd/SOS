@@ -15,7 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
 /**
- * שירות רקע קבוע – מחזיק את התהליך חי ומחזיר את ה-WebView ברקע לקבלת הודעות.
+ * שירות רקע קבוע + מאזין Nostr מקורי לקבלת הודעות בלי WebView.
  */
 class SosForegroundService : Service() {
 
@@ -27,12 +27,12 @@ class SosForegroundService : Service() {
         super.onCreate()
         NotificationHelper.ensureChannels(this)
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
+        handler.post { SosRelayWatcher.ensureStarted(this) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
-        // אם אין Activity חי – מעלים WebView ברקע כדי לקבל הודעות Nostr | HYPER CORE TECH
-        handler.postDelayed({ ensureHostActivity() }, 700L)
+        handler.post { SosRelayWatcher.ensureStarted(this) }
         return START_STICKY
     }
 
@@ -42,24 +42,9 @@ class SosForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        // לא עוצרים את ה-watcher כאן לפני restart – השירות יחזור עם START_STICKY
         scheduleRestart(applicationContext, delayMs = 1000L)
         super.onDestroy()
-    }
-
-    private fun ensureHostActivity() {
-        if (MainActivity.isHostAlive) return
-        try {
-            val launch = Intent(this, MainActivity::class.java).apply {
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                )
-                putExtra(MainActivity.EXTRA_START_IN_BACKGROUND, true)
-            }
-            startActivity(launch)
-        } catch (_: Exception) {
-        }
     }
 
     private fun buildOngoingNotification(): Notification {
