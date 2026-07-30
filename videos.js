@@ -1,12 +1,14 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.5.2-play-center';
+// גרסת קוד לזיהוי עדכונים
+const VIDEOS_CODE_VERSION = '2.5.3-play-center-fix';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
-// חלק מרכוז פליי (videos.js) – אינליין חזק נגד WebView/CSS ישן ששוברים top/left | HYPER CORE TECH
+// חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
 function centerPlayOverlayButton(playOverlay) {
   if (!playOverlay) return playOverlay;
+  playOverlay.style.removeProperty('inset');
   playOverlay.style.setProperty('position', 'absolute', 'important');
   playOverlay.style.setProperty('top', '50%', 'important');
   playOverlay.style.setProperty('left', '50%', 'important');
@@ -14,7 +16,7 @@ function centerPlayOverlayButton(playOverlay) {
   playOverlay.style.setProperty('bottom', 'auto', 'important');
   playOverlay.style.setProperty('margin', '0', 'important');
   playOverlay.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
-  playOverlay.style.setProperty('inset', 'unset', 'important');
+  playOverlay.style.setProperty('z-index', '1250', 'important');
   return playOverlay;
 }
 

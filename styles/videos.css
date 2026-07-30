@@ -2584,7 +2584,7 @@ body.game-embed-fullscreen .videos-feed__actions {
   height: 100%;
 }
 
-/* חלק כפתור פליי (videos.css) – מרכוז מדויק במרכז כרטיס המדיה (top/left 50% + translate) | HYPER CORE TECH */
+/* חלק כפתור פליי (videos.css) – מרכוז מדויק במרכז כרטיס המדיה (בלי inset shorthand שמאפס top/left) | HYPER CORE TECH */
 .videos-feed__media > .videos-feed__play-overlay,
 .videos-feed__play-overlay {
   position: absolute !important;
@@ -2592,7 +2592,6 @@ body.game-embed-fullscreen .videos-feed__actions {
   left: 50% !important;
   right: auto !important;
   bottom: auto !important;
-  inset: unset !important;
   width: 80px !important;
   height: 80px !important;
   max-width: 80px !important;
@@ -2620,6 +2619,7 @@ body.game-embed-fullscreen .videos-feed__actions {
   pointer-events: none;
   overflow: hidden;
   flex: none;
+  float: none !important;
   grid-area: unset !important;
   place-self: unset !important;
   justify-self: unset !important;
