@@ -67,10 +67,25 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         startKeepAliveService()
-        webView.evaluateJavascript(
-            "window.dispatchEvent(new Event('sos-native-resume'));",
-            null
-        )
+        if (this::webView.isInitialized) {
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new Event('sos-native-resume'));",
+                null
+            )
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        // יציאה ל-Home – השירות ממשיך ברקע | HYPER CORE TECH
+        startKeepAliveService()
+        super.onUserLeaveHint()
+    }
+
+    override fun onDestroy() {
+        // גם אם ה-Activity נסגר – השירות חייב להמשיך | HYPER CORE TECH
+        startKeepAliveService()
+        SosForegroundService.scheduleRestart(applicationContext, 1000L)
+        super.onDestroy()
     }
 
     @Deprecated("Deprecated in Java")
@@ -78,7 +93,7 @@ class MainActivity : AppCompatActivity() {
         if (this::webView.isInitialized && webView.canGoBack()) {
             webView.goBack()
         } else {
-            // לא סוגרים את האפליקציה – נשארת ברקע עם Foreground Service
+            startKeepAliveService()
             moveTaskToBack(true)
         }
     }
@@ -193,8 +208,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startKeepAliveService() {
-        val intent = Intent(this, SosForegroundService::class.java)
-        ContextCompat.startForegroundService(this, intent)
+        SosForegroundService.start(this)
     }
 
     companion object {

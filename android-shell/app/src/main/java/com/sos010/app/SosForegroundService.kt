@@ -1,14 +1,19 @@
 package com.sos010.app
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 
 /**
- * שירות רקע קבוע – מונע מהמערכת להרוג את התהליך כמו אפליקציית צ'אט.
+ * שירות רקע קבוע – נשאר חי גם אחרי סגירת החלון / ניקוי רקע / ריסטארט.
  */
 class SosForegroundService : Service() {
 
@@ -22,7 +27,19 @@ class SosForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
+        // START_STICKY = המערכת תנסה להחזיר את השירות אם נהרג
         return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // המשתמש סגר/החליק את האפליקציה מהרקע – מפעילים מחדש מיד | HYPER CORE TECH
+        scheduleRestart(applicationContext, delayMs = 800L)
+        super.onTaskRemoved(rootIntent)
+    }
+
+    override fun onDestroy() {
+        scheduleRestart(applicationContext, delayMs = 1200L)
+        super.onDestroy()
     }
 
     private fun buildOngoingNotification(): Notification {
@@ -39,8 +56,36 @@ class SosForegroundService : Service() {
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+    }
+
+    companion object {
+        fun start(context: Context) {
+            val intent = Intent(context, SosForegroundService::class.java)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun scheduleRestart(context: Context, delayMs: Long = 1000L) {
+            try {
+                val restart = Intent(context, SosForegroundService::class.java)
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                val pi = PendingIntent.getService(context, 9911, restart, flags)
+                val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val triggerAt = SystemClock.elapsedRealtime() + delayMs
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+                } else {
+                    am.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pi)
+                }
+            } catch (_: Exception) {
+                try {
+                    start(context)
+                } catch (_: Exception) {
+                }
+            }
+        }
     }
 }
