@@ -2585,18 +2585,21 @@ body.game-embed-fullscreen .videos-feed__actions {
   height: 100%;
 }
 
-/* חלק כפתור פליי (videos.css) – כפתור הפעלה לוידאו */
+/* חלק כפתור פליי (videos.css) – ממורכז במרכז המדיה (inset+margin, בלי inset:auto שמבטל top/left) | HYPER CORE TECH */
 .videos-feed__play-overlay {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 80px !important;
   height: 80px !important;
   max-width: 80px !important;
   max-height: 80px !important;
   min-width: 80px;
   min-height: 80px;
+  margin: auto;
+  transform: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.95);
   border: none;
@@ -2613,9 +2616,11 @@ body.game-embed-fullscreen .videos-feed__actions {
   pointer-events: none;
   overflow: hidden;
   flex: none;
-  inset: auto;
-  right: auto;
-  bottom: auto;
+  place-self: center;
+  justify-self: center;
+  align-self: center;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
@@ -2632,7 +2637,7 @@ body.global-stop .videos-feed__play-overlay {
 
 .videos-feed__play-overlay:hover {
   background: rgba(255, 255, 255, 1);
-  transform: translate(-50%, -50%) scale(1.1);
+  transform: scale(1.1);
 }
 
 .videos-feed__play-overlay i {
