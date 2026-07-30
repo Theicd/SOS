@@ -3479,6 +3479,18 @@ body.global-stop .videos-feed__play-overlay {
     height: 100% !important;
   }
 
+  /* חלק שיחות דסקטופ (videos.css) – רשימת משתמשים לא מתחת לתפריט הצד; מובייל לא מושפע | HYPER CORE TECH */
+  #chatPanel.chat-panel,
+  body:has(.videos-feed) .chat-panel {
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: var(--videos-desktop-nav-width, 260px) !important;
+    width: calc(100vw - var(--videos-desktop-nav-width, 260px)) !important;
+    max-width: calc(100vw - var(--videos-desktop-nav-width, 260px)) !important;
+    height: 100dvh !important;
+  }
+
   /* חלק הצגת אלמנטים נוספים בדסקטופ (videos.css) – הצגת כפתורים וקטעים שמוסתרים במובייל בסגנון sos010.html | HYPER CORE TECH */
   body:has(.videos-feed) .nav-separator,
   body:has(.videos-feed) .nav-section-title,

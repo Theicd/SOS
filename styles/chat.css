@@ -1152,11 +1152,15 @@ body.chat-media-modal-open {
     --wa-active-chat-bg: #2a3942;
   }
 
-  /* === פאנל ראשי - כמו פרופיל, מכסה את כל המסך === */
+  /* === פאנל ראשי - כמו פרופיל, מכסה את המסך ליד תפריט הצד === */
   .chat-panel {
     position: fixed;
-    inset: 0;
-    width: 100%;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    /* חלק דסקטופ (chat.css) – מרווח לתפריט הצד הימני (260px) כדי שרשימת השיחות לא תוסתר | HYPER CORE TECH */
+    right: var(--videos-desktop-nav-width, 260px);
+    width: calc(100vw - var(--videos-desktop-nav-width, 260px));
     height: 100%;
     max-width: none;
     max-height: none;
@@ -1164,7 +1168,7 @@ body.chat-media-modal-open {
     border: none;
     box-shadow: none;
     background: var(--wa-bg-color);
-    z-index: 2000; /* מתחת לתפריט (2001) כך שהתפריט נשאר נגיש */
+    z-index: 2000; /* מתחת/ליד התפריט כך שהתפריט נשאר נגיש */
     display: flex;
     flex-direction: column;
     overflow: hidden;
