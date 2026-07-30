@@ -983,8 +983,7 @@ body:has(.videos-feed) #moreOptionsToggle {
   height: 100%;
   position: relative;
   background: #000;
-  display: grid;
-  place-items: center;
+  display: block; /* לא grid – abspos בתוך grid יוצר containing-block שבור למרכוז הפליי | HYPER CORE TECH */
   overflow: visible;
   flex: 1 1 auto;
   /* חלק תאימות iOS (videos.css) – תיקון מסך שחור ב-Safari iOS 15+ | HYPER CORE TECH */
@@ -2585,42 +2584,46 @@ body.game-embed-fullscreen .videos-feed__actions {
   height: 100%;
 }
 
-/* חלק כפתור פליי (videos.css) – ממורכז במרכז המדיה (inset+margin, בלי inset:auto שמבטל top/left) | HYPER CORE TECH */
+/* חלק כפתור פליי (videos.css) – מרכוז מדויק במרכז כרטיס המדיה (top/left 50% + translate) | HYPER CORE TECH */
+.videos-feed__media > .videos-feed__play-overlay,
 .videos-feed__play-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  inset: unset !important;
   width: 80px !important;
   height: 80px !important;
   max-width: 80px !important;
   max-height: 80px !important;
-  min-width: 80px;
-  min-height: 80px;
-  margin: auto;
-  transform: none;
+  min-width: 80px !important;
+  min-height: 80px !important;
+  margin: 0 !important;
+  margin-inline: 0 !important;
+  margin-block: 0 !important;
+  transform: translate(-50%, -50%) !important;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.95);
   border: none;
+  outline: none;
   color: #000;
   font-size: 2rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  z-index: 1250 !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transition: background 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
   opacity: 0;
   pointer-events: none;
   overflow: hidden;
   flex: none;
-  place-self: center;
-  justify-self: center;
-  align-self: center;
-  grid-column: 1;
-  grid-row: 1;
+  grid-area: unset !important;
+  place-self: unset !important;
+  justify-self: unset !important;
+  align-self: unset !important;
 }
 
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
@@ -2635,13 +2638,15 @@ body.global-stop .videos-feed__play-overlay {
   pointer-events: auto;
 }
 
-.videos-feed__play-overlay:hover {
+.videos-feed__play-overlay:hover,
+.videos-feed__play-overlay:focus-visible {
   background: rgba(255, 255, 255, 1);
-  transform: scale(1.1);
+  transform: translate(-50%, -50%) scale(1.1) !important;
 }
 
 .videos-feed__play-overlay i {
-  margin-left: 4px;
+  margin-inline-start: 4px;
+  margin-left: 0;
   font-size: 2rem !important;
   line-height: 1 !important;
   width: auto !important;

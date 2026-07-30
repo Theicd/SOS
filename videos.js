@@ -1,8 +1,22 @@
 // חלק דף וידאו (videos.js) – מנגנון משיכת וידאו והצגת פיד בסגנון טיקטוק | HYPER CORE TECH
 
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.5.1-stop-preview';
+const VIDEOS_CODE_VERSION = '2.5.2-play-center';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
+
+// חלק מרכוז פליי (videos.js) – אינליין חזק נגד WebView/CSS ישן ששוברים top/left | HYPER CORE TECH
+function centerPlayOverlayButton(playOverlay) {
+  if (!playOverlay) return playOverlay;
+  playOverlay.style.setProperty('position', 'absolute', 'important');
+  playOverlay.style.setProperty('top', '50%', 'important');
+  playOverlay.style.setProperty('left', '50%', 'important');
+  playOverlay.style.setProperty('right', 'auto', 'important');
+  playOverlay.style.setProperty('bottom', 'auto', 'important');
+  playOverlay.style.setProperty('margin', '0', 'important');
+  playOverlay.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
+  playOverlay.style.setProperty('inset', 'unset', 'important');
+  return playOverlay;
+}
 
 // חלק מצב גלובלי (videos.js) – מצב STOP/PLAY גלובלי לשליטה בהפעלה אוטומטית | HYPER CORE TECH
 // הממשק מתחיל במצב PLAY – גלילה מפעילה אוטומטית | HYPER CORE TECH
@@ -700,6 +714,7 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
       if (playOverlay && manual) {
         playOverlay.hidden = false;
         playOverlay.style.display = '';
+        centerPlayOverlayButton(playOverlay);
       } else if (playOverlay && !manual) {
         playOverlay.hidden = true;
         playOverlay.style.display = 'none';
@@ -1900,6 +1915,7 @@ function renderVideoCard(video) {
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
     playOverlay.style.display = 'none';
+    centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
 
     queueMicrotask(markReady);
@@ -1962,6 +1978,7 @@ function renderVideoCard(video) {
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
     playOverlay.hidden = true;
     playOverlay.style.display = 'none';
+    centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
 
     // כרטיס מוצג מיד – מטא־דאטה + בריאות ברקע (בלי שלג) | HYPER CORE TECH
@@ -2020,6 +2037,7 @@ function renderVideoCard(video) {
     playOverlay.setAttribute('aria-label', 'Play video');
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+    centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
 
     queueMicrotask(markReady);
@@ -2123,6 +2141,7 @@ function renderVideoCard(video) {
     playOverlay.setAttribute('aria-label', 'Play video');
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+    centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
     
     // אינדיקטור דילוג במרכז המסך
