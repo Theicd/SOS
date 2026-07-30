@@ -693,6 +693,40 @@
     }, 8000); // 8 שניות אחרי טעינת הדף
   }
 
+  // חלק הבטחת Push (push-client.js) – רישום/מודאל אחרי התקנת PWA | HYPER CORE TECH
+  async function ensurePushReady() {
+    if (!isPushSupported()) {
+      console.warn('[PUSH] ensurePushReady: לא נתמך');
+      return { success: false, error: 'unsupported' };
+    }
+
+    if (isIOSPwaRequired()) {
+      console.warn('[PUSH] ensurePushReady: iOS דורש PWA מותקנת');
+      return { success: false, error: 'ios_install_required' };
+    }
+
+    if (PUSH_CONFIG.serverUrl && !PUSH_CONFIG.vapidPublicKey) {
+      await fetchPushConfig();
+    }
+
+    if (Notification.permission === 'denied') {
+      console.warn('[PUSH] ensurePushReady: הרשאה חסומה');
+      return { success: false, error: 'denied' };
+    }
+
+    if (Notification.permission === 'granted') {
+      const result = await subscribeToPush();
+      if (result.success) {
+        localStorage.setItem('push_subscribed', 'true');
+      }
+      return result;
+    }
+
+    // default / prompt – מציגים מודאל (דורש אישור משתמש) | HYPER CORE TECH
+    showPushPermissionModal();
+    return { success: false, error: 'permission_pending' };
+  }
+
   // חשיפת API ציבורי
   Object.assign(App, {
     isPushSupported,
@@ -705,6 +739,9 @@
     showCallNotification,
     showPushPermissionModal,
     initPushNotifications,
+    // alias – pwa-installer קרא לשם הישן ולא נרשם Push אחרי התקנה | HYPER CORE TECH
+    initPushSubscription: initPushNotifications,
+    ensurePushReady,
     setPushServerUrl,
     fetchPushConfig,
     updateSubscriptionWithPubkey, // עדכון מנוי כשהמשתמש מתחבר | HYPER CORE TECH

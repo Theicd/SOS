@@ -94,6 +94,52 @@
   }
 
   // חלק beforeinstallprompt (pwa-installer.js) – האזנה לאירוע התקנה | HYPER CORE TECH
+  function getDeferredPrompt() {
+    if (!deferredInstallPrompt && window.deferredPwaPrompt) {
+      deferredInstallPrompt = window.deferredPwaPrompt;
+    }
+    return deferredInstallPrompt || window.deferredPwaPrompt || null;
+  }
+
+  function pwaToast(message) {
+    if (typeof App.showToast === 'function') {
+      App.showToast(message);
+      return;
+    }
+    console.log('[PWA]', message);
+  }
+
+  // חלק Push אחרי התקנה (pwa-installer.js) – חיוני להתראות עם מסך כבוי | HYPER CORE TECH
+  // forcePermissionPrompt=true רק אחרי התקנה טרייה – לא בכל פתיחת PWA | HYPER CORE TECH
+  function ensurePushAfterInstall(options) {
+    const forcePermissionPrompt = !!(options && options.forcePermissionPrompt);
+    if (forcePermissionPrompt) {
+      try {
+        localStorage.removeItem('push_modal_dismissed');
+      } catch (_) {}
+    }
+
+    const run = () => {
+      if (forcePermissionPrompt && typeof App.ensurePushReady === 'function') {
+        App.ensurePushReady();
+        return;
+      }
+      if (typeof App.initPushNotifications === 'function') {
+        App.initPushNotifications();
+        return;
+      }
+      if (typeof App.initPushSubscription === 'function') {
+        App.initPushSubscription();
+        return;
+      }
+      if (forcePermissionPrompt && typeof App.showPushPermissionModal === 'function') {
+        App.showPushPermissionModal();
+      }
+    };
+
+    setTimeout(run, 900);
+  }
+
   function setupInstallPromptListener() {
     console.log('[PWA] מאזין לאירוע beforeinstallprompt...');
     
@@ -128,59 +174,120 @@
       isInstalled = true;
       deferredInstallPrompt = null;
       window.deferredPwaPrompt = null;
-      hideInstallButton();
+      try {
+        localStorage.setItem('pwa_installed', 'true');
+      } catch (_) {}
+      const banner = document.getElementById('pwa-install-banner');
+      if (banner) banner.remove();
       
-      // הצגת הודעת הצלחה
-      if (typeof App.showToast === 'function') {
-        App.showToast('האפליקציה הותקנה בהצלחה! 🎉');
-      }
+      pwaToast('האפליקציה הותקנה בהצלחה');
+      // קריטי: בלי מנוי Push אין התראות כשהמסך כבוי | HYPER CORE TECH
+      ensurePushAfterInstall({ forcePermissionPrompt: true });
     });
   }
 
-  // חלק הפעלת התקנה (pwa-installer.js) – הפעלת דיאלוג ההתקנה | HYPER CORE TECH
-  async function promptInstall() {
+  // חלק מדריך Chrome (pwa-installer.js) – כשאין beforeinstallprompt אבל Chrome תומך | HYPER CORE TECH
+  function showChromeInstallGuide() {
+    const existingDialog = document.getElementById('chrome-install-guide');
+    if (existingDialog) {
+      existingDialog.showModal?.() || (existingDialog.style.display = 'flex');
+      return;
+    }
+
     const platform = getPlatformInfo();
-    
-    // iOS - אין beforeinstallprompt, מציגים הנחיות ידניות
+    const mobileHint = platform.isAndroid
+      ? 'ב־Chrome במובייל: תפריט ⋮ → <strong>התקן אפליקציה</strong> / Install app'
+      : 'ב־Chrome במחשב: אייקון ההתקנה בשורת הכתובת, או תפריט ⋮ → <strong>התקן את SOS</strong> / Install SOS';
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'chrome-install-guide';
+    dialog.className = 'pwa-install-dialog';
+    dialog.innerHTML = `
+      <div class="pwa-install-dialog__content">
+        <h2>התקנת SOS ב־Chrome</h2>
+        <div class="pwa-install-steps">
+          <div class="pwa-install-step">
+            <span class="pwa-install-step__number">1</span>
+            <span>${mobileHint}</span>
+          </div>
+          <div class="pwa-install-step">
+            <span class="pwa-install-step__number">2</span>
+            <span>אשר את ההתקנה בחלון של Chrome</span>
+          </div>
+          <div class="pwa-install-step">
+            <span class="pwa-install-step__number">3</span>
+            <span>פתח את SOS מהאייקון ואשר <strong>התראות</strong> – כדי לקבל הודעות גם כשהמסך כבוי</span>
+          </div>
+        </div>
+        <p class="pwa-install-note">Chrome תומך בהתקנה. אם הכפתור לא פתח דיאלוג – ההתקנה זמינה מתפריט הדפדפן (לפעמים אחרי שההצעה נדחתה בעבר).</p>
+        <button type="button" class="pwa-install-dialog__close" id="chromeInstallGuideClose">הבנתי</button>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    dialog.querySelector('#chromeInstallGuideClose')?.addEventListener('click', () => {
+      dialog.close?.();
+      dialog.remove();
+    });
+    dialog.showModal?.() || (dialog.style.display = 'flex');
+  }
+
+  // חלק הפעלת התקנה מלחיצה (pwa-installer.js) – דיאלוג native בלבד, בלי באנר | HYPER CORE TECH
+  function runInstallFromUserGesture() {
+    if (checkIfInstalled()) {
+      isInstalled = true;
+      pwaToast('הממשק כבר מותקן – פתח אותו מהאייקון');
+      ensurePushAfterInstall();
+      return { outcome: 'already_installed' };
+    }
+
+    const platform = getPlatformInfo();
     if (platform.isIOS) {
       showIOSInstallGuide();
       return { outcome: 'ios_manual', platform: 'ios' };
     }
-    
-    // בדיקה אם יש אירוע התקנה שמור - בדיקה גם ב-window.deferredPwaPrompt
-    if (!deferredInstallPrompt && window.deferredPwaPrompt) {
-      deferredInstallPrompt = window.deferredPwaPrompt;
-      console.log('[PWA] שוחזר prompt מ-window.deferredPwaPrompt');
-    }
-    
-    if (!deferredInstallPrompt) {
-      console.log('[PWA] אין prompt זמין - בודק אם האפליקציה כבר מותקנת...');
-      
-      // בדיקה אם האפליקציה כבר מותקנת
-      if (checkIfInstalled()) {
-        console.log('[PWA] האפליקציה כבר מותקנת!');
-        return { outcome: 'already_installed', platform: 'installed' };
+
+    const promptEvent = getDeferredPrompt();
+    if (promptEvent && typeof promptEvent.prompt === 'function') {
+      try {
+        promptEvent.prompt();
+        Promise.resolve(promptEvent.userChoice).then((choiceResult) => {
+          console.log('[PWA] תוצאת התקנה:', choiceResult && choiceResult.outcome);
+          deferredInstallPrompt = null;
+          window.deferredPwaPrompt = null;
+          if (choiceResult && choiceResult.outcome === 'accepted') {
+            isInstalled = true;
+            try { localStorage.setItem('pwa_installed', 'true'); } catch (_) {}
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) banner.remove();
+            pwaToast('הממשק מותקן בהצלחה');
+            ensurePushAfterInstall({ forcePermissionPrompt: true });
+          } else if (choiceResult && choiceResult.outcome === 'dismissed') {
+            pwaToast('ההתקנה בוטלה – אפשר לנסות שוב מתפריט Chrome');
+          }
+        }).catch((err) => {
+          console.error('[PWA] שגיאה ב-userChoice:', err);
+        });
+        return { outcome: 'prompted' };
+      } catch (err) {
+        console.error('[PWA] שגיאה בהפעלת prompt:', err);
+        pwaToast('לא ניתן להפעיל התקנה כרגע');
+        return { outcome: 'error', error: err.message };
       }
-      
-      // הדפדפן לא שלח beforeinstallprompt - אי אפשר לפתוח דיאלוג native
-      console.log('[PWA] beforeinstallprompt לא זמין');
-      return { outcome: 'unavailable', platform: 'unknown' };
     }
-    
-    try {
-      // הפעלת הדיאלוג של הדפדפן (התקנה אמיתית)
-      deferredInstallPrompt.prompt();
-      const choiceResult = await deferredInstallPrompt.userChoice;
-      console.log('[PWA] תוצאת ההתקנה:', choiceResult.outcome);
-      
-      deferredInstallPrompt = null;
-      window.deferredPwaPrompt = null;
-      
-      return choiceResult;
-    } catch (err) {
-      console.error('[PWA] שגיאה בהפעלת ההתקנה:', err);
-      return { outcome: 'error', error: err.message };
+
+    // אין beforeinstallprompt – זה לא אומר שאין תמיכה ב־Chrome | HYPER CORE TECH
+    if (platform.isFirefox) {
+      showFirefoxInstallGuide();
+      return { outcome: 'manual_guide', platform: 'firefox' };
     }
+
+    showChromeInstallGuide();
+    return { outcome: 'manual_guide', platform: platform.isChrome || platform.isEdge ? 'chrome' : 'unknown' };
+  }
+
+  // חלק הפעלת התקנה (pwa-installer.js) – הפעלת דיאלוג ההתקנה | HYPER CORE TECH
+  async function promptInstall() {
+    return runInstallFromUserGesture();
   }
 
   // חלק UI התקנה (pwa-installer.js) – הצגת והסתרת כפתור התקנה | HYPER CORE TECH
@@ -220,56 +327,11 @@
       if (profileMenu) profileMenu.hidden = true;
       if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
 
-      // לא לפתוח באנר תחתון – רק דיאלוג התקנה של הדפדפן | HYPER CORE TECH
+      // לא לפתוח באנר תחתון – רק דיאלוג native / מדריך התקנה | HYPER CORE TECH
       const existingBanner = document.getElementById('pwa-install-banner');
       if (existingBanner) existingBanner.remove();
 
-      if (checkIfInstalled()) {
-        if (typeof App.showToast === 'function') {
-          App.showToast('הממשק כבר מותקן על המכשיר');
-        }
-        return;
-      }
-
-      const platform = getPlatformInfo();
-      if (platform.isIOS) {
-        // iOS לא תומך בדיאלוג התקנה אוטומטי
-        showIOSInstallGuide();
-        return;
-      }
-
-      if (!deferredInstallPrompt && window.deferredPwaPrompt) {
-        deferredInstallPrompt = window.deferredPwaPrompt;
-      }
-
-      const promptEvent = deferredInstallPrompt || window.deferredPwaPrompt;
-      if (!promptEvent || typeof promptEvent.prompt !== 'function') {
-        console.warn('[PWA] אין beforeinstallprompt – לא ניתן להתקין כרגע');
-        if (typeof App.showToast === 'function') {
-          App.showToast('ההתקנה לא זמינה כרגע בדפדפן זה');
-        }
-        return;
-      }
-
-      // קריאה סינכרונית בתוך לחיצת המשתמש – חובה לדיאלוג native | HYPER CORE TECH
-      try {
-        promptEvent.prompt();
-        Promise.resolve(promptEvent.userChoice).then((choiceResult) => {
-          console.log('[PWA] תוצאת התקנה מתפריט:', choiceResult && choiceResult.outcome);
-          deferredInstallPrompt = null;
-          window.deferredPwaPrompt = null;
-          if (choiceResult && choiceResult.outcome === 'accepted' && typeof App.showToast === 'function') {
-            App.showToast('הממשק מותקן בהצלחה');
-          }
-        }).catch((err) => {
-          console.error('[PWA] שגיאה ב-userChoice:', err);
-        });
-      } catch (err) {
-        console.error('[PWA] שגיאה בהפעלת prompt מתפריט:', err);
-        if (typeof App.showToast === 'function') {
-          App.showToast('לא ניתן להפעיל התקנה כרגע');
-        }
-      }
+      runInstallFromUserGesture();
     });
   }
 
@@ -396,11 +458,13 @@
       localStorage.setItem('pwa_banner_dismissed', Date.now().toString());
     });
     
-    banner.querySelector('.pwa-install-banner__install').addEventListener('click', async () => {
-      const result = await promptInstall();
-      if (result.outcome === 'accepted') {
-        banner.remove();
+    banner.querySelector('.pwa-install-banner__install').addEventListener('click', () => {
+      const result = runInstallFromUserGesture();
+      if (result && (result.outcome === 'accepted' || result.outcome === 'prompted' || result.outcome === 'already_installed')) {
+        // prompted = דיאלוג נפתח; accepted מגיע מ-appinstalled / userChoice
+        if (result.outcome === 'already_installed') banner.remove();
       }
+      // אם המשתמש אישר – appinstalled יסיר את הבאנר
     });
     
     document.body.appendChild(banner);
@@ -427,10 +491,8 @@
     if (isInstalled) {
       console.log('[PWA] האפליקציה מותקנת - SW רשום לקבלת Push והתרעות ברקע');
       localStorage.setItem('pwa_installed', 'true');
-      // ממשיכים לאתחל push גם אחרי התקנה
-      if (typeof App.initPushSubscription === 'function') {
-        setTimeout(() => App.initPushSubscription(), 1000);
-      }
+      // ממשיכים לאתחל push גם אחרי התקנה (שם הפונקציה הנכון) | HYPER CORE TECH
+      ensurePushAfterInstall();
       return;
     }
     
@@ -454,12 +516,11 @@
       return;
     }
     
-    // Android/Desktop - ממתינים ל-beforeinstallprompt או מציגים אחרי זמן
+    // Android/Desktop - ממתינים ל-beforeinstallprompt
     let bannerTimeout = setTimeout(() => {
-      // אם אין beforeinstallprompt אחרי 8 שניות, הדפדפן לא תומך בהתקנה
-      if (!deferredInstallPrompt) {
-        console.log('[PWA] beforeinstallprompt לא התקבל - הדפדפן לא תומך בהתקנה');
-        // אם זה Firefox, מציגים מדריך
+      if (!getDeferredPrompt()) {
+        // Chrome עדיין תומך – פשוט האירוע לא הגיע (נדחה בעבר / כבר מותקן / קריטריונים) | HYPER CORE TECH
+        console.log('[PWA] beforeinstallprompt לא התקבל עדיין – לא מציגים באנר אוטומטי');
         if (platform.isFirefox) {
           createInstallBanner();
         }
@@ -575,9 +636,11 @@
     checkIfInstalled,
     promptPwaInstall: promptInstall,
     showIOSInstallGuide,
+    showChromeInstallGuide,
     showInstallBanner: createInstallBanner,
     isPwaInstalled: () => isInstalled || checkIfInstalled(),
     showUpdateAvailableToast,
+    ensurePushAfterInstall,
   });
   
   // פונקציה גלובלית להפעלת התקנה
