@@ -243,6 +243,23 @@ class MainActivity : AppCompatActivity() {
             ): WebResourceResponse? {
                 val url = request?.url ?: return super.shouldInterceptRequest(view, request)
                 if (url.scheme == "https" && url.host == NATIVE_FILE_HOST) {
+                    // preflight ל-fetch חוצה-מקור מתוך העמוד
+                    if (request.method.equals("OPTIONS", ignoreCase = true)) {
+                        val headers = mapOf(
+                            "Access-Control-Allow-Origin" to "*",
+                            "Access-Control-Allow-Methods" to "GET, OPTIONS",
+                            "Access-Control-Allow-Headers" to "*",
+                            "Access-Control-Max-Age" to "86400"
+                        )
+                        return WebResourceResponse(
+                            "text/plain",
+                            "UTF-8",
+                            200,
+                            "OK",
+                            headers,
+                            java.io.ByteArrayInputStream(ByteArray(0))
+                        )
+                    }
                     val segments = url.pathSegments
                     if (segments.size >= 2 && segments[0] == "file") {
                         val id = segments[1]
@@ -251,9 +268,20 @@ class MainActivity : AppCompatActivity() {
                             val (uri, mime) = entry
                             return try {
                                 val stream = contentResolver.openInputStream(uri) ?: return null
+                                val safeMime = mime.ifBlank { "application/octet-stream" }
+                                // חלק CORS (MainActivity.kt) – בלי הכותרות fetch() מהעמוד נחסם ב-WebView | HYPER CORE TECH
+                                val headers = mapOf(
+                                    "Access-Control-Allow-Origin" to "*",
+                                    "Access-Control-Allow-Methods" to "GET, OPTIONS",
+                                    "Content-Type" to safeMime,
+                                    "Cache-Control" to "no-store"
+                                )
                                 WebResourceResponse(
-                                    mime.ifBlank { "application/octet-stream" },
-                                    null,
+                                    safeMime,
+                                    "UTF-8",
+                                    200,
+                                    "OK",
+                                    headers,
                                     stream
                                 )
                             } catch (e: Exception) {
@@ -429,6 +457,41 @@ class MainActivity : AppCompatActivity() {
         return uri.lastPathSegment?.substringAfterLast('/') ?: "file"
     }
 
+    private fun querySize(uri: Uri): Long {
+        var cursor: Cursor? = null
+        try {
+            cursor = contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+            if (cursor != null && cursor.moveToFirst()) {
+                val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (idx >= 0 && !cursor.isNull(idx)) return cursor.getLong(idx)
+            }
+        } catch (_: Exception) {
+        } finally {
+            try {
+                cursor?.close()
+            } catch (_: Exception) {
+            }
+        }
+        return -1L
+    }
+
+    private fun guessMime(name: String, fallback: String): String {
+        val lower = name.lowercase()
+        return when {
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
+            lower.endsWith(".png") -> "image/png"
+            lower.endsWith(".webp") -> "image/webp"
+            lower.endsWith(".gif") -> "image/gif"
+            lower.endsWith(".heic") || lower.endsWith(".heif") -> "image/heic"
+            lower.endsWith(".mp4") -> "video/mp4"
+            lower.endsWith(".webm") -> "video/webm"
+            lower.endsWith(".mov") -> "video/quicktime"
+            lower.endsWith(".mkv") -> "video/x-matroska"
+            lower.endsWith(".3gp") -> "video/3gpp"
+            else -> fallback.ifBlank { "application/octet-stream" }
+        }
+    }
+
     private fun deliverBridgeFiles(requestId: String, uris: Array<Uri>?) {
         if (!this::webView.isInitialized) return
         val filesJson = JSONArray()
@@ -443,16 +506,36 @@ class MainActivity : AppCompatActivity() {
                     } catch (_: SecurityException) {
                     }
                     val id = UUID.randomUUID().toString()
-                    val mime = contentResolver.getType(uri) ?: "application/octet-stream"
                     val name = queryDisplayName(uri)
+                    val rawMime = contentResolver.getType(uri) ?: ""
+                    val mime = guessMime(name, rawMime)
+                    val size = querySize(uri)
                     pickedNativeFiles[id] = uri to mime
-                    filesJson.put(
-                        JSONObject()
-                            .put("id", id)
-                            .put("name", name)
-                            .put("type", mime)
-                            .put("url", "https://$NATIVE_FILE_HOST/file/$id")
-                    )
+                    val item = JSONObject()
+                        .put("id", id)
+                        .put("name", name)
+                        .put("type", mime)
+                        .put("size", size)
+                        .put("url", "https://$NATIVE_FILE_HOST/file/$id")
+
+                    // חלק אמינות (MainActivity.kt) – קבצים עד 16MB גם כ-base64 (fetch חוצה-מקור נכשל בלי CORS) | HYPER CORE TECH
+                    val inlineLimit = 16L * 1024L * 1024L
+                    if (size in 1..inlineLimit) {
+                        try {
+                            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            if (bytes != null && bytes.size <= inlineLimit.toInt()) {
+                                item.put(
+                                    "base64",
+                                    android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                )
+                                item.put("size", bytes.size)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "inline base64 failed, will use url fetch", e)
+                        }
+                    }
+
+                    filesJson.put(item)
                 } catch (e: Exception) {
                     Log.e(TAG, "deliverBridgeFiles item failed", e)
                 }
@@ -462,7 +545,10 @@ class MainActivity : AppCompatActivity() {
             .put("requestId", requestId)
             .put("files", filesJson)
         val js = "window.dispatchEvent(new CustomEvent('sos-native-file-pick',{detail:$payload}));"
-        Log.i(TAG, "deliverBridgeFiles requestId=$requestId count=${filesJson.length()}")
+        Log.i(TAG, "deliverBridgeFiles requestId=$requestId count=${filesJson.length()} hasBase64=${filesJson.length() > 0 && filesJson.optJSONObject(0)?.has("base64") == true}")
+        if (filesJson.length() > 0) {
+            toast("טוען קובץ…")
+        }
         webView.evaluateJavascript(js, null)
     }
 

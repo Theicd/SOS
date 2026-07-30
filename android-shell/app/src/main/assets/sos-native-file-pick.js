@@ -26,6 +26,46 @@
     }
   }
 
+  function base64ToFile(b64, name, type) {
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], name || 'file', { type: type || 'application/octet-stream' });
+  }
+
+  function metaToFile(m) {
+    return new Promise(function (resolve, reject) {
+      if (!m) {
+        reject(new Error('empty-meta'));
+        return;
+      }
+      if (m.base64) {
+        try {
+          resolve(base64ToFile(m.base64, m.name, m.type));
+        } catch (err) {
+          reject(err);
+        }
+        return;
+      }
+      var url = m.url || (m.id ? ('https://sos-native.app/file/' + m.id) : '');
+      if (!url) {
+        reject(new Error('missing-url'));
+        return;
+      }
+      fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('native file fetch ' + res.status);
+          return res.blob();
+        })
+        .then(function (blob) {
+          resolve(new File([blob], m.name || 'file', {
+            type: m.type || blob.type || 'application/octet-stream'
+          }));
+        })
+        .catch(reject);
+    });
+  }
+
   function pick(accept) {
     return new Promise(function (resolve) {
       var bridge = window.SosNativeShell;
@@ -52,6 +92,7 @@
         var d = ev && ev.detail;
         if (!d || d.requestId !== id) return;
         var metas = d.files || [];
+        console.log('[SOS-NATIVE] pick result count=' + metas.length);
         if (!metas.length) {
           finish([]);
           return;
@@ -64,17 +105,9 @@
         }
         for (var i = 0; i < metas.length; i++) {
           (function (m) {
-            var url = m.url || (m.id ? ('https://sos-native.app/file/' + m.id) : '');
-            if (!url) {
-              stepDone();
-              return;
-            }
-            fetch(url).then(function (res) {
-              return res.blob();
-            }).then(function (blob) {
-              out.push(new File([blob], m.name || 'file', {
-                type: m.type || blob.type || 'application/octet-stream'
-              }));
+            metaToFile(m).then(function (file) {
+              console.log('[SOS-NATIVE] file ready', file && file.name, file && file.type, file && file.size);
+              out.push(file);
               stepDone();
             }).catch(function (err) {
               console.warn('[SOS-NATIVE] file load failed', err);
@@ -106,6 +139,42 @@
     return !!(t.closest('#composeUploadChoice') || t.closest('#composeMediaInput'));
   }
 
+  function deliverToChat(file) {
+    var App = window.NostrApp || {};
+    if (typeof App.handleChatFileSelection === 'function') {
+      Promise.resolve(App.handleChatFileSelection(file)).catch(function (err) {
+        console.error('[SOS-NATIVE] handleChatFileSelection failed', err);
+      });
+      return true;
+    }
+    console.warn('[SOS-NATIVE] App.handleChatFileSelection missing');
+    return false;
+  }
+
+  function deliverToCompose(file) {
+    var App = window.NostrApp || {};
+    if (typeof App.handleComposeMediaFile === 'function') {
+      Promise.resolve(App.handleComposeMediaFile(file)).catch(function (err) {
+        console.error('[SOS-NATIVE] handleComposeMediaFile failed', err);
+      });
+      return true;
+    }
+    if (typeof window.handleComposeMediaFile === 'function') {
+      Promise.resolve(window.handleComposeMediaFile(file)).catch(function (err) {
+        console.error('[SOS-NATIVE] window.handleComposeMediaFile failed', err);
+      });
+      return true;
+    }
+    if (typeof window.handleMediaInput === 'function') {
+      Promise.resolve(window.handleMediaInput({ target: { files: [file], value: '' } })).catch(function (err) {
+        console.error('[SOS-NATIVE] handleMediaInput failed', err);
+      });
+      return true;
+    }
+    console.warn('[SOS-NATIVE] compose media handler missing');
+    return false;
+  }
+
   function onDocClick(e) {
     var t = e.target;
     if (isChatAttachTarget(t)) {
@@ -114,11 +183,11 @@
       if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       console.log('[SOS-NATIVE] chat attach click');
       pick((document.getElementById('chatComposerFileInput') || {}).accept || '*/*').then(function (files) {
-        if (!files || !files[0]) return;
-        var App = window.NostrApp || {};
-        if (typeof App.handleChatFileSelection === 'function') {
-          App.handleChatFileSelection(files[0]);
+        if (!files || !files[0]) {
+          console.warn('[SOS-NATIVE] chat pick returned no file');
+          return;
         }
+        deliverToChat(files[0]);
       });
       return;
     }
@@ -128,13 +197,11 @@
       if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       console.log('[SOS-NATIVE] compose upload click');
       pick((document.getElementById('composeMediaInput') || {}).accept || 'image/*,video/*').then(function (files) {
-        if (!files || !files[0]) return;
-        var App = window.NostrApp || {};
-        if (typeof App.handleComposeMediaFile === 'function') App.handleComposeMediaFile(files[0]);
-        else if (typeof window.handleComposeMediaFile === 'function') window.handleComposeMediaFile(files[0]);
-        else if (typeof window.handleMediaInput === 'function') {
-          window.handleMediaInput({ target: { files: files, value: '' } });
+        if (!files || !files[0]) {
+          console.warn('[SOS-NATIVE] compose pick returned no file');
+          return;
         }
+        deliverToCompose(files[0]);
       });
     }
   }
@@ -144,23 +211,10 @@
   };
 
   document.addEventListener('click', onDocClick, true);
-  document.addEventListener('touchend', function (e) {
-    // חלק מובייל – חלק ממכשירי WebView בולעים click על label; touchend כגיבוי
-    if (!e || !e.target) return;
-    if (!isChatAttachTarget(e.target) && !isComposeUploadTarget(e.target)) return;
-    // לא מונעים כאן – מחכים ל-click; אם אין click תוך 400ms מפעילים ידנית
-    var target = e.target;
-    setTimeout(function () {
-      if (inflight) return;
-      if (isChatAttachTarget(target) || isComposeUploadTarget(target)) {
-        // אם click כבר טיפל – inflight יהיה true או שהדיאלוג פתוח
-      }
-    }, 0);
-  }, true);
 
   disableHtmlFileInputs();
   setTimeout(disableHtmlFileInputs, 800);
   setTimeout(disableHtmlFileInputs, 2500);
   setInterval(disableHtmlFileInputs, 5000);
-  console.log('[SOS-NATIVE] file picker document-delegation ready');
+  console.log('[SOS-NATIVE] file picker document-delegation ready (base64+cors)');
 })();
