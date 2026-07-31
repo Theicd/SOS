@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v163'; // bump - Home shows LoadNug, hide gray play during boot
+  const CACHE_NAME = 'sos-cache-v164'; // bump - restore full loading PAGE on refresh/Home
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -96,15 +96,17 @@ export class LoadNugController {
   _mount() {
     const crit = document.createElement('style');
     crit.id = 'sos-loadnug-critical';
-    // כרטיס בפיד כמו פוסט – ההדר והתפריט התחתון נשארים מעליו | HYPER CORE TECH
+    // דף טעינה מלא מסך מעל הפיד – לא כרטיס ריק בתוך הסטרים | HYPER CORE TECH
     crit.textContent = [
       'body:has(.videos-feed) .top-bar{position:fixed!important;z-index:3000!important;left:0!important;right:0!important;top:0!important;width:100%!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
       'body:has(.videos-feed) .primary-nav{position:fixed!important;z-index:3000!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
-      '#sosLoadNugOverlay.videos-feed__card{position:relative!important;inset:auto!important;z-index:1!important;width:100%!important;flex-shrink:0!important;overflow:hidden!important;background:#070b19!important}',
+      '#sosLoadNugOverlay,#sosLoadNugOverlay.videos-feed__card,#sosLoadNugOverlay.videos-feed__card--loadnug{position:fixed!important;inset:0!important;left:0!important;right:0!important;top:0!important;bottom:0!important;z-index:2850!important;width:100%!important;height:100%!important;max-width:none!important;margin:0!important;flex-shrink:0!important;overflow:hidden!important;background:#070b19!important;scroll-snap-align:none!important}',
       '#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}',
       '#sosLoadNugCanvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;z-index:1}',
     ].join('');
-    if (!document.getElementById('sos-loadnug-critical')) document.head.appendChild(crit);
+    const oldCrit = document.getElementById('sos-loadnug-critical');
+    if (oldCrit) oldCrit.remove();
+    document.head.appendChild(crit);
 
     if (!document.querySelector('link[data-sos-loadnug-css]')) {
       const link = document.createElement('link');
@@ -116,7 +118,6 @@ export class LoadNugController {
 
     const ov = document.createElement('div');
     ov.id = 'sosLoadNugOverlay';
-    // אותו מבנה גובה/snap כמו פוסט בפיד | HYPER CORE TECH
     ov.className = 'videos-feed__card videos-feed__card--loadnug';
     ov.setAttribute('role', 'status');
     ov.setAttribute('aria-label', 'SOS loading');
@@ -137,19 +138,12 @@ export class LoadNugController {
         </div>
       </div>`;
 
-    const stream = document.getElementById('videosStream');
-    const viewport = document.querySelector('.videos-feed__viewport');
     const bootShell = document.getElementById('feedBootShell');
     if (bootShell) {
       try { bootShell.remove(); } catch (_) {}
     }
-    if (stream) {
-      stream.insertBefore(ov, stream.firstChild || null);
-    } else if (viewport) {
-      viewport.insertBefore(ov, viewport.firstChild || null);
-    } else {
-      document.body.appendChild(ov);
-    }
+    // תמיד על body – דף טעינה מלא, לא כרטיס בפיד | HYPER CORE TECH
+    document.body.appendChild(ov);
 
     this.overlay = ov;
     this.canvas = ov.querySelector('#sosLoadNugCanvas');

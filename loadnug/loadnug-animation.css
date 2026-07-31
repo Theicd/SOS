@@ -4,17 +4,19 @@
    ============================================================ */
 
 #sosLoadNugOverlay.videos-feed__card,
-.videos-feed__card--loadnug {
-  position: relative !important;
-  inset: auto !important;
-  left: auto !important;
-  right: auto !important;
-  top: auto !important;
-  bottom: auto !important;
-  /* גובה כמו פוסט – מגיע מ-.videos-feed__card | HYPER CORE TECH */
-  z-index: 1 !important;
+.videos-feed__card--loadnug,
+#sosLoadNugOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  z-index: 2850 !important;
   width: 100% !important;
-  max-width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  margin: 0 !important;
   overflow: hidden !important;
   background: #070b19 !important;
   color: #f4f7ff;
@@ -29,6 +31,7 @@
   pointer-events: auto;
   content-visibility: visible !important;
   contain: none !important;
+  scroll-snap-align: none !important;
 }
 
 /* כרום תמיד גלוי מעל הפיד */

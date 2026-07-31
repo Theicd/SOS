@@ -1787,7 +1787,16 @@ function showLoadingAnimation() {
   const overlay = document.getElementById('videosLoadingOverlay');
   if (overlay) {
     overlay.classList.remove('hidden');
+    overlay.removeAttribute('hidden');
+    overlay.setAttribute('aria-busy', 'true');
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.style.display = 'flex';
+    // חייב על body – viewport עם contain שובר fixed | HYPER CORE TECH
+    if (overlay.parentElement !== document.body) {
+      document.body.appendChild(overlay);
+    }
   }
+  try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
   // איפוס מד הטעינה
   setLoadingProgress(0);
   setLoadingStatus('מתחבר לרשת...');
@@ -1803,6 +1812,9 @@ function hideLoadingAnimation(options = {}) {
   const overlay = document.getElementById('videosLoadingOverlay');
   if (overlay) {
     overlay.classList.add('hidden');
+    overlay.setAttribute('aria-busy', 'false');
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.style.display = 'none';
   }
   // סגירת LOADNUG כשהפיד מוכן | HYPER CORE TECH
   try {
@@ -1905,7 +1917,7 @@ function restartOriginalLoadingScreen() {
 
 let lastHomeSoftRefreshAt = 0;
 
-// חלק רענון בית (videos.js) – LoadNug מקורי בראש הפיד; כרטיסי וידאו מוסתרים עד מוכנות | HYPER CORE TECH
+// חלק רענון בית (videos.js) – דף טעינה מלא עד ש־2 פוסטים מוכנים | HYPER CORE TECH
 async function softRefreshVideosFeed() {
   const now = Date.now();
   if (now - lastHomeSoftRefreshAt < 700) {
@@ -1920,8 +1932,9 @@ async function softRefreshVideosFeed() {
     }
   } catch (_) {}
 
-  // בלי שכבת לוגו מעל LoadNug — המד המקורי חייב להיראות | HYPER CORE TECH
-  rearmBootGate('home-soft-refresh', { showSoft: false, holdMs: 1400 });
+  // מיד דף הטעינה המלא (SOS + מד) — לא כרטיס ריק | HYPER CORE TECH
+  rearmBootGate('home-soft-refresh', { showSoft: false, holdMs: 1600 });
+  showLoadingAnimation();
   setLoadingStatus('טוען מחדש את הפיד...');
   setLoadingProgress(30);
 
@@ -1932,11 +1945,8 @@ async function softRefreshVideosFeed() {
 
   state.videos = sortVideosByCreatedAtDesc(Array.isArray(state.videos) ? state.videos : []);
 
-  // קודם LoadNug בראש ה־stream, אחר כך רינדור הפיד מתחתיו | HYPER CORE TECH
-  const loadnugStarted = restartOriginalLoadingScreen();
-  if (!loadnugStarted) {
-    showSoftFeedLoading();
-  }
+  // LoadNug קולנועי מעל דף הטעינה (אם זמין) | HYPER CORE TECH
+  restartOriginalLoadingScreen();
 
   if (typeof forceFullFeedRerender === 'function') {
     forceFullFeedRerender();
@@ -1944,13 +1954,9 @@ async function softRefreshVideosFeed() {
     renderVideos();
   }
 
-  // אחרי רינדור — מוודאים שכרטיס LoadNug עדיין ראשון ונראה | HYPER CORE TECH
+  // אחרי רינדור — דף הטעינה נשאר מעל הפיד | HYPER CORE TECH
+  showLoadingAnimation();
   try {
-    const loadnug = document.getElementById('sosLoadNugOverlay');
-    const stream = selectors.stream;
-    if (loadnug && stream && stream.firstChild !== loadnug) {
-      stream.insertBefore(loadnug, stream.firstChild);
-    }
     const viewport = document.querySelector('.videos-feed__viewport');
     if (viewport) viewport.scrollTop = 0;
   } catch (_) {}
@@ -1965,16 +1971,20 @@ async function softRefreshVideosFeed() {
 
 // חלק יאללה וידאו (videos.js) – עדכון מד טעינה והודעות סטטוס | HYPER CORE TECH
 function setLoadingProgress(percent) {
+  const clamped = Math.min(100, Math.max(0, Number(percent) || 0));
   const fill = document.getElementById('videosLoadingBarFill');
   if (fill) {
-    fill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+    fill.style.width = `${clamped}%`;
+  }
+  const pctEl = document.getElementById('videosLoadingPct');
+  if (pctEl) {
+    pctEl.textContent = `${Math.round(clamped)}%`;
   }
   // סנכרון ל־LoadNug (המד הויזואלי האמיתי) | HYPER CORE TECH
   try {
     const bar = document.querySelector('#sosLoadNugOverlay .sos-loadnug__bar');
     const pct = document.querySelector('#sosLoadNugOverlay .sos-loadnug__pct');
     const progress = document.querySelector('#sosLoadNugOverlay .sos-loadnug__progress');
-    const clamped = Math.min(100, Math.max(0, Number(percent) || 0));
     if (bar) bar.style.width = `${clamped}%`;
     if (pct) pct.textContent = `${Math.round(clamped)}%`;
     if (progress) progress.setAttribute('aria-valuenow', String(Math.round(clamped)));
@@ -3169,12 +3179,8 @@ function renderVideos() {
   // אם אין פוסטים קיימים - נקה והתחל מחדש
   const needsFullRender = existingIds.size === 0;
   if (needsFullRender) {
-    // שומרים את כרטיס LoadNug (יושב כמו פוסט) – innerHTML מוחק אותו | HYPER CORE TECH
-    const loadnugCard = document.getElementById('sosLoadNugOverlay');
+    // LoadNug הוא דף מלא על body — לא מוחקים/מעבירים אותו ל־stream | HYPER CORE TECH
     selectors.stream.innerHTML = '';
-    if (loadnugCard && state.feedMode !== 'games' && state.feedMode !== 'live-tv') {
-      try { selectors.stream.insertBefore(loadnugCard, selectors.stream.firstChild || null); } catch (_) {}
-    }
   }
   
   resetIncrementalRender();
@@ -5470,6 +5476,7 @@ async function init() {
   setLoadingStatus('טוען פוסטים...');
   setLoadingProgress(20);
   try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
+  bootGate.holdUntil = Date.now() + 1200;
 
   // חלק מטמון (videos.js) – הצגת פוסטים מהמטמון, בלי לסגור LoadNug עד מוכנות מלאה | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();
@@ -5648,8 +5655,9 @@ function syncFeedDomOrder(sourceVideos) {
       selectors.stream.appendChild(card);
     }
   });
-  if (loadnug && selectors.stream.contains(loadnug) && state.feedMode !== 'games' && state.feedMode !== 'live-tv') {
-    selectors.stream.insertBefore(loadnug, selectors.stream.firstChild);
+  // LoadNug נשאר על body כדף טעינה מלא — לא מחזירים ל־stream | HYPER CORE TECH
+  if (loadnug && loadnug.parentElement !== document.body) {
+    try { document.body.appendChild(loadnug); } catch (_) {}
   }
 }
 
@@ -5696,10 +5704,11 @@ function forceFullFeedRerender() {
   videoDownloadQueue = [];
   isProcessingVideoQueue = false;
 
-  const loadnugCard = document.getElementById('sosLoadNugOverlay');
+  // LoadNug על body — לא מעבירים ל־stream (שובר fullscreen) | HYPER CORE TECH
   selectors.stream.innerHTML = '';
-  if (loadnugCard && state.feedMode !== 'games' && state.feedMode !== 'live-tv') {
-    try { selectors.stream.appendChild(loadnugCard); } catch (_) {}
+  const loadnugCard = document.getElementById('sosLoadNugOverlay');
+  if (loadnugCard && loadnugCard.parentElement !== document.body) {
+    try { document.body.appendChild(loadnugCard); } catch (_) {}
   }
 
   state.firstCardRendered = false;

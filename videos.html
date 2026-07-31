@@ -105,38 +105,93 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260731j">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260731k">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260731j">
+    <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260731k">
     <style>
-      /* Hook בלתי נראה ל-videos.js / MutationObserver – בלי opacity:0 (שובר את LoadNug) */
+      /* דף טעינה מלא מסך – חובה גלוי ברענון/בית עד שהפוסטים מוכנים | HYPER CORE TECH */
       #videosLoadingOverlay.videos-loading-overlay {
         position: fixed !important;
-        inset: auto !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 1px !important;
-        height: 1px !important;
+        inset: 0 !important;
+        z-index: 2800 !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
         margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        background: transparent !important;
+        padding: 24px 16px !important;
+        box-sizing: border-box !important;
+        background: #070b19 !important;
         opacity: 1 !important;
-        pointer-events: none !important;
-        z-index: -1 !important;
-        border: 0 !important;
+        pointer-events: auto !important;
+        overflow: hidden !important;
       }
       #videosLoadingOverlay.videos-loading-overlay.hidden {
         display: none !important;
+        pointer-events: none !important;
       }
-
-      /* מסך טעינה ברענון בית – לוגו מובייל ממורכז על שחור מלא מסך | HYPER CORE TECH */
+      .videos-loading-page {
+        width: min(380px, calc(100vw - 28px));
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        text-align: center;
+        direction: ltr;
+      }
+      .videos-loading-page .sos-loadnug__logo {
+        display: flex;
+        gap: 6px;
+        font-family: 'Orbitron', 'Assistant', sans-serif;
+        font-weight: 900;
+        font-size: clamp(2.8rem, 14vw, 4.8rem);
+        line-height: 1;
+        letter-spacing: 4px;
+      }
+      .videos-loading-page .sos-loadnug__logo .ln-s1 { color: #ff2d55; }
+      .videos-loading-page .sos-loadnug__logo .ln-o { color: #22c55e; }
+      .videos-loading-page .sos-loadnug__logo .ln-s2 { color: #2d88ff; }
+      .videos-loading-page .videos-loading-bar {
+        width: 100%;
+        max-width: 260px;
+        height: 8px;
+        margin: 0 0 4px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .videos-loading-page .videos-loading-bar__fill {
+        background: linear-gradient(90deg, #ff2d55, #22c55e 50%, #2d88ff);
+        background-size: 200% 100%;
+        border-radius: 9999px;
+      }
+      .videos-loading-page .videos-loading-status {
+        direction: rtl;
+        margin: 0;
+        color: #fff;
+        font-weight: 700;
+        font-size: clamp(0.9rem, 2.8vw, 1.05rem);
+      }
+      .videos-loading-page .sos-loadnug__pct {
+        color: rgba(207, 230, 255, 0.75);
+        letter-spacing: 2px;
+      }
+      .videos-loading-page .sos-loadnug__explain-title {
+        margin: 0;
+        color: #f4f7ff;
+        font-weight: 700;
+        direction: rtl;
+      }
+      .videos-loading-page .sos-loadnug__explain-sub {
+        margin: 4px 0 0;
+        color: rgba(207, 230, 255, 0.75);
+        direction: rtl;
+      }
       .videos-soft-loading {
         position: fixed !important;
         inset: 0 !important;
-        z-index: 10050 !important;
+        z-index: 2790 !important;
         display: flex !important;
         align-items: center;
         justify-content: center;
@@ -151,7 +206,6 @@
         height: auto;
         object-fit: contain;
         animation: videosSoftLogoPulse 1.15s ease-in-out infinite;
-        filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.12));
       }
       @keyframes videosSoftLogoPulse {
         0%, 100% { opacity: 0.72; transform: scale(0.96); }
@@ -1649,7 +1703,7 @@
         App.activeNav = 'videos';
       })();
     </script>
-    <script src="./navigation.js?v=20260731j" defer></script>
+    <script src="./navigation.js?v=20260731k" defer></script>
     <script src="./feed.js" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
@@ -1689,7 +1743,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260731j" defer></script>
+    <script src="./videos.js?v=20260731k" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -1969,16 +2023,29 @@
       </button>
     </nav>
 
+    <!-- דף טעינה מלא – גלוי מיד ברענון; נסגר רק כשהפוסטים מוכנים | HYPER CORE TECH -->
+    <div class="videos-loading-overlay" id="videosLoadingOverlay" role="status" aria-busy="true" aria-label="טוען">
+      <div class="videos-loading-page">
+        <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s1">S</span><span class="ln-o">O</span><span class="ln-s2">S</span></div>
+        <div class="sos-loadnug__loading">Loading</div>
+        <div class="videos-loading-bar" aria-hidden="true">
+          <div class="videos-loading-bar__fill" id="videosLoadingBarFill" style="width:0%"></div>
+        </div>
+        <div class="sos-loadnug__pct" id="videosLoadingPct">0%</div>
+        <p class="videos-loading-status" id="videosLoadingStatus">מתחבר לרשת...</p>
+        <div class="sos-loadnug__explain" aria-live="polite">
+          <p class="sos-loadnug__explain-title">רשת חברתית מבוזרת</p>
+          <p class="sos-loadnug__explain-sub">האנשים הם הרשת — בלי שרת מרכזי אחד</p>
+        </div>
+      </div>
+    </div>
+    <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="טוען">
+      <img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731k" alt="SOS">
+    </div>
+
     <!-- חלק ראשי (videos.html) – מעטפת דף הווידאו בסגנון טיקטוק | HYPER CORE TECH -->
     <main class="videos-feed" aria-labelledby="videosTitle">
       <section class="videos-feed__viewport" aria-live="polite">
-        <!-- LOADNUG signal hook – מסך הטעינה הויזואלי הוא sosLoadNugOverlay | HYPER CORE TECH -->
-        <div class="videos-loading-overlay" id="videosLoadingOverlay" aria-hidden="true"></div>
-        <!-- מסך טעינה רך (רענון בית) – לוגו מובייל על רקע שחור כמו טיקטוק | HYPER CORE TECH -->
-        <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="טוען">
-          <img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731j" alt="SOS">
-        </div>
-        <!-- מעטפת שחורה בטעינה ראשונית (טיקטוק) – מוסרת כש-LoadNug / הפיד עולים | HYPER CORE TECH -->
         <div id="feedBootShell" aria-hidden="true"></div>
         <div class="videos-feed__stream" id="videosStream" role="list"></div>
         <div class="videos-feed__status" id="videosStatus" role="status" style="display: none;">טוען סרטונים...</div>
@@ -2873,6 +2940,6 @@
     <script src="./webtorrent-transfer.js?v=4"></script>
 
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
-      <script type="module" src="./loadnug/loadnug-controller.js?v=20260731j"></script>
+      <script type="module" src="./loadnug/loadnug-controller.js?v=20260731k"></script>
 </body>
 </html>
