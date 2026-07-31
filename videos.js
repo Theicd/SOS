@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.5.3-play-center-fix';
+const VIDEOS_CODE_VERSION = '2.5.4-feed-chrono-order';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1065,9 +1065,11 @@ function sanitizeCachedVideo(video) {
 
 function saveFeedCache(videos) {
   try {
-    const trimmed = (videos || [])
-      .map((video) => sanitizeCachedVideo(video))
-      .filter(Boolean);
+    const trimmed = sortVideosByCreatedAtDesc(
+      (videos || [])
+        .map((video) => sanitizeCachedVideo(video))
+        .filter(Boolean)
+    );
     const payload = {
       timestamp: Date.now(),
       videos: trimmed,
@@ -1189,7 +1191,9 @@ function hydrateFeedFromCache() {
     // סינון פוסטים מחוקים מהמטמון
     const app = window.NostrApp;
     const deletedIds = app?.deletedEventIds || new Set();
-    const filtered = cached.filter(video => !deletedIds.has(video.id));
+    const filtered = sortVideosByCreatedAtDesc(
+      cached.filter(video => !deletedIds.has(video.id))
+    );
     console.log('[videos] hydrate feed from cache', { 
       total: cached.length, 
       afterFilter: filtered.length,
@@ -2712,7 +2716,8 @@ function renderVideos() {
     : sourceVideos.filter((v) => !currentIds.has(v.id));
   
   if (videosToRender.length === 0) {
-    // כל הפוסטים כבר מוצגים
+    // כל הפוסטים כבר מוצגים — עדיין מסנכרנים סדר DOM (יוטיוב לא יישאר בראש בטעות) | HYPER CORE TECH
+    syncFeedDomOrder(sourceVideos);
     hideLoadingAnimation();
     state.firstCardRendered = true;
     return;
@@ -2750,7 +2755,7 @@ function resetIncrementalRender() {
   state.incrementalRender = null;
 }
 
-// חלק יאללה וידאו (videos.js) – הוספת קלף חדש לפיד ומעבר לקלף הבא | HYPER CORE TECH
+// חלק יאללה וידאו (videos.js) – הוספת קלף חדש לפיד בסדר הכרונולוגי (לא לפי מי מוכן קודם) | HYPER CORE TECH
 function appendNextVideoCard() {
   const controller = state.incrementalRender;
   if (!controller || controller.cancelled) {
@@ -2768,9 +2773,12 @@ function appendNextVideoCard() {
   const video = videos[controller.nextIndex];
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
+  // קריטי: mount לפי סדר הרשימה (createdAt), לא לפי mediaReady —
+  // אחרת יוטיוב/תמונה (מוכנים מיד) קופצים לפני וידאו שעדיין נטען | HYPER CORE TECH
+  mountCard(card);
   mediaReadyPromise
     .then(() => {
-      mountCard(card);
+      markCardMediaReady(card);
     })
     .catch((err) => handleCardMediaFailure(card, video.id, err));
 
@@ -2794,6 +2802,11 @@ function finalizeIncrementalRender() {
   state.incrementalRender.cancelled = true;
   state.incrementalRender = null;
   updateLoadMoreTrigger();
+
+  // אחרי הוספת כרטיסים חדשים — מסדרים את כל ה-DOM לפי createdAt | HYPER CORE TECH
+  try {
+    syncFeedDomOrder(getDisplayVideos());
+  } catch (_) {}
 
   // במצב משחקים / LIVE TV – הפעלה מיידית של הכרטיס הנראה | HYPER CORE TECH
   if (state.feedMode === 'games' || state.feedMode === 'live-tv') {
@@ -5073,6 +5086,33 @@ function isGeneralFeedVideo(video) {
   return !!(video && !isGameFeedVideo(video) && !isLiveFeedVideo(video));
 }
 
+function sortVideosByCreatedAtDesc(videos) {
+  if (!Array.isArray(videos)) return [];
+  return videos.slice().sort((a, b) => (b?.createdAt || 0) - (a?.createdAt || 0));
+}
+
+// חלק סדר פיד (videos.js) – סנכרון DOM לסדר הכרונולוגי אחרי טעינה דיפרנציאלית / מטמון | HYPER CORE TECH
+function syncFeedDomOrder(sourceVideos) {
+  if (!selectors.stream || !Array.isArray(sourceVideos) || !sourceVideos.length) return;
+  const byId = new Map();
+  selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
+    const id = card.getAttribute('data-event-id');
+    if (id) byId.set(id, card);
+  });
+  if (!byId.size) return;
+
+  const loadnug = document.getElementById('sosLoadNugOverlay');
+  sourceVideos.forEach((video) => {
+    const card = video?.id ? byId.get(video.id) : null;
+    if (card) {
+      selectors.stream.appendChild(card);
+    }
+  });
+  if (loadnug && selectors.stream.contains(loadnug) && state.feedMode !== 'games' && state.feedMode !== 'live-tv') {
+    selectors.stream.insertBefore(loadnug, selectors.stream.firstChild);
+  }
+}
+
 function getDisplayVideos() {
   // פיד כללי = בלי משחקים ובלי ערוצי LIVE; משחקים / LIVE TV = מצבים נפרדים | HYPER CORE TECH
   if (state.feedMode === 'games') {
@@ -5082,7 +5122,7 @@ function getDisplayVideos() {
     return Array.isArray(state.liveTvVideos) ? state.liveTvVideos : [];
   }
   const all = Array.isArray(state.videos) ? state.videos : [];
-  return all.filter((v) => isGeneralFeedVideo(v));
+  return sortVideosByCreatedAtDesc(all.filter((v) => isGeneralFeedVideo(v)));
 }
 
 function pruneFeedCardsNotInDisplay(sourceVideos) {
