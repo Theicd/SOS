@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.5.4-feed-chrono-order';
+const VIDEOS_CODE_VERSION = '2.5.5-feed-chrono-createdAt';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -471,12 +471,17 @@ function setFeedDownloadsPaused(paused) {
 
 // הוספת וידאו לתור ההורדה הסדרתי
 function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
-  // מניעת כפילויות - בדיקה לפי hash או url
+  // מניעת כפילויות רק אם אותו אלמנט עדיין מחובר — אחרת אחרי רינדור מחדש חייבים לטעון שוב | HYPER CORE TECH
   const key = hash || url;
-  if (videoDownloadedOrQueued.has(key)) {
-    return; // כבר בתור או הורד
+  if (key && videoDownloadedOrQueued.has(key)) {
+    const stillInDom = videoEl && videoEl.isConnected;
+    if (stillInDom && videoEl.src) {
+      return;
+    }
+    // אלמנט חדש אחרי refresh/rerender — מאפשרים טעינה מחדש
+    videoDownloadedOrQueued.delete(key);
   }
-  videoDownloadedOrQueued.add(key);
+  if (key) videoDownloadedOrQueued.add(key);
   
   videoDownloadQueue.push({ videoEl, url, hash, mirrors, fallbackFn });
   processVideoDownloadQueue();
@@ -611,10 +616,19 @@ function wireMediaControls(root = document) {
   });
 }
 
-// חלק יאללה וידאו (videos.js) – הפעלה אוטומטית של הווידאו הראשון
+// חלק יאללה וידאו (videos.js) – הפעלה אוטומטית של הווידאו הראשון לפי סדר כרונולוגי | HYPER CORE TECH
 function autoPlayFirstVideo() {
   if (!selectors.stream) return;
-  const firstCard = selectors.stream.querySelector('.videos-feed__card');
+  const ordered = getDisplayVideos();
+  const firstId = ordered[0]?.id;
+  let firstCard = null;
+  if (firstId) {
+    firstCard = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${firstId}"]`);
+  }
+  if (!firstCard) {
+    // דילוג על LoadNug / כרטיסים בלי event-id
+    firstCard = Array.from(selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]'))[0] || null;
+  }
   if (!firstCard) return;
   const mediaDiv = firstCard.querySelector('.videos-feed__media');
   if (mediaDiv) {
@@ -1022,6 +1036,25 @@ const FEED_CACHE_MAX_SIZE = 1024 * 1024 * 1024; // 1GB מקסימום
 const FEED_CACHE_CLEANUP_BATCH = 20; // כמה פוסטים למחוק בכל פעם
 const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפח
 
+// חלק סדר פיד (videos.js) – נרמול createdAt גם מ־created_at / מחרוזת / ms | HYPER CORE TECH
+function getVideoCreatedAt(video) {
+  if (!video || typeof video !== 'object') return 0;
+  let raw = video.createdAt ?? video.created_at ?? 0;
+  if (typeof raw === 'string' && raw.trim()) {
+    const asNum = Number(raw);
+    if (Number.isFinite(asNum) && asNum > 0) {
+      raw = asNum;
+    } else {
+      const parsed = Date.parse(raw);
+      raw = Number.isFinite(parsed) ? Math.floor(parsed / 1000) : 0;
+    }
+  }
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0;
+  // אם נשמר בטעות במילישניות
+  if (raw > 1e12) return Math.floor(raw / 1000);
+  return Math.floor(raw);
+}
+
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
 const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
@@ -1042,6 +1075,8 @@ function sanitizeCachedVideo(video) {
   }
   const clone = { ...video };
   clone.mirrors = Array.isArray(video.mirrors) ? video.mirrors.slice(0, 10) : [];
+  // נרמול זמן — בלי זה פוסטי וידאו עם created_at / בלי camelCase נזרקים לסוף והיוטיוב עולה ראשון | HYPER CORE TECH
+  clone.createdAt = getVideoCreatedAt(clone);
   // תאימות לאחור – לינק m3u8 שנשמר כ־videoUrl הופך לערוץ חי | HYPER CORE TECH
   if (!clone.liveUrl && clone.videoUrl && isHlsLiveLink(clone.videoUrl)) {
     clone.liveUrl = clone.videoUrl;
@@ -1104,7 +1139,7 @@ function cleanupOldPosts(videos) {
     return videos;
   }
   // מיון לפי תאריך יצירה (חדש לישן)
-  const sorted = [...videos].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const sorted = [...videos].sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
   // הסרת הפוסטים הישנים ביותר
   const cleaned = sorted.slice(0, sorted.length - FEED_CACHE_CLEANUP_BATCH);
   console.log('[videos] cleaned old posts', { before: videos.length, after: cleaned.length });
@@ -1120,7 +1155,7 @@ function forceCleanupCache() {
     if (!parsed || !Array.isArray(parsed.videos)) return;
     
     // מחיקת 30% מהפוסטים הישנים
-    const sorted = [...parsed.videos].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const sorted = [...parsed.videos].sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
     const keepCount = Math.floor(sorted.length * 0.7);
     const cleaned = sorted.slice(0, keepCount);
     
@@ -1163,8 +1198,9 @@ function getCacheInfo() {
     // מציאת ה-timestamp של הפוסט החדש ביותר במטמון
     let newestPostTime = 0;
     parsed.videos.forEach(v => {
-      if (v && v.createdAt && v.createdAt > newestPostTime) {
-        newestPostTime = v.createdAt;
+      const ts = getVideoCreatedAt(v);
+      if (ts > newestPostTime) {
+        newestPostTime = ts;
       }
     });
     
@@ -1197,10 +1233,18 @@ function hydrateFeedFromCache() {
     console.log('[videos] hydrate feed from cache', { 
       total: cached.length, 
       afterFilter: filtered.length,
-      deletedCount: cached.length - filtered.length
+      deletedCount: cached.length - filtered.length,
+      firstId: filtered[0]?.id || null,
+      firstCreatedAt: filtered[0] ? getVideoCreatedAt(filtered[0]) : 0,
+      firstIsYouTube: !!(filtered[0]?.youtubeId && !filtered[0]?.videoUrl),
     });
     state.videos = filtered;
-    renderVideos();
+    // רינדור מלא מהמטמון — בלי DOM ישן / מרוץ מוכנות מדיה | HYPER CORE TECH
+    if (typeof forceFullFeedRerender === 'function' && selectors.stream) {
+      forceFullFeedRerender();
+    } else {
+      renderVideos();
+    }
     // חלק לייקים מהקאש (videos.js) – טעינת לייקים ותגובות ברקע לפוסטים מהמטמון | HYPER CORE TECH
     const eventIds = filtered.map(v => v.id);
     if (eventIds.length > 0) {
@@ -2083,9 +2127,16 @@ function renderVideoCard(video) {
       videoEl.removeEventListener('error', onError);
     };
 
+    let readySettled = false;
+    const settleReady = () => {
+      if (readySettled) return;
+      readySettled = true;
+      markReady();
+    };
+
     const onLoadedData = () => {
       cleanup();
-      markReady();
+      settleReady();
       // רק במצב STOP – מציירים פריים בלי לשבור autoplay | HYPER CORE TECH
       if (!globalAutoplayEnabled) {
         ensurePausedPreviewFrame(videoEl);
@@ -2099,7 +2150,12 @@ function renderVideoCard(video) {
 
     const onError = (event) => {
       cleanup();
-      failReady(event?.error || new Error('video load error'));
+      if (!readySettled) {
+        failReady(event?.error || new Error('video load error'));
+        readySettled = true;
+      } else {
+        handleCardMediaFailure(article, video.id, event?.error || new Error('video load error'));
+      }
     };
 
     videoEl.addEventListener('loadeddata', onLoadedData, { once: true });
@@ -2140,6 +2196,10 @@ function renderVideoCard(video) {
 
     // הוספה לתור הסדרתי במקום טעינה ישירה
     addToVideoDownloadQueue(videoEl, video.videoUrl, video.hash || '', video.mirrors || [], applyFallbackSrc);
+
+    // קריטי: כרטיס הקובץ נחשב "מוכן לסדר הפיד" מיד — בלי לחכות להורדה/קאש
+    // אחרת יוטיוב (מוכן מיד) קופץ ויזואלית לפני וידאו שעדיין בתור | HYPER CORE TECH
+    queueMicrotask(settleReady);
 
     const playOverlay = document.createElement('button');
     playOverlay.type = 'button';
@@ -3641,7 +3701,7 @@ async function loadMoreVideos() {
   
   // מצא את הפוסט הישן ביותר שיש לנו
   const oldestVideo = state.videos.length > 0 
-    ? state.videos.reduce((oldest, v) => (v.createdAt < oldest.createdAt ? v : oldest), state.videos[0])
+    ? state.videos.reduce((oldest, v) => (getVideoCreatedAt(v) < getVideoCreatedAt(oldest) ? v : oldest), state.videos[0])
     : null;
   
   if (!oldestVideo) {
@@ -3649,7 +3709,7 @@ async function loadMoreVideos() {
     return;
   }
   
-  let untilTime = oldestVideo.createdAt;
+  let untilTime = getVideoCreatedAt(oldestVideo);
   console.log('[videos] loadMoreVideos: loading older than', new Date(untilTime * 1000).toLocaleString());
   
   try {
@@ -4459,7 +4519,7 @@ async function loadVideos() {
     video.authorInitials = profileData.initials || 'AN';
   });
 
-  videoEvents.sort((a, b) => b.createdAt - a.createdAt);
+  videoEvents.sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
   console.log('[videos] loadVideos: video events found', { count: videoEvents.length });
   
   // חלק מיזוג מטמון (videos.js) – מיזוג פוסטים חדשים עם קיימים במקום החלפה מלאה | HYPER CORE TECH
@@ -4476,7 +4536,7 @@ async function loadVideos() {
       seen.add(v.id);
       return true;
     });
-    state.videos.sort((a, b) => b.createdAt - a.createdAt);
+    state.videos.sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
     console.log('[videos] merged new videos', { newCount: newVideos.length, totalCount: state.videos.length });
   } else if (state.videos.length === 0) {
     // אין פוסטים קיימים – השתמש בחדשים
@@ -5065,7 +5125,7 @@ function buildGamesFeedVideos() {
 
   (state.videos || [])
     .filter((v) => v && v.gameUrl)
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a))
     .forEach(push);
 
   getGamesCatalogPosts().forEach(push);
@@ -5088,7 +5148,14 @@ function isGeneralFeedVideo(video) {
 
 function sortVideosByCreatedAtDesc(videos) {
   if (!Array.isArray(videos)) return [];
-  return videos.slice().sort((a, b) => (b?.createdAt || 0) - (a?.createdAt || 0));
+  return videos
+    .slice()
+    .map((video) => {
+      if (!video || typeof video !== 'object') return video;
+      video.createdAt = getVideoCreatedAt(video);
+      return video;
+    })
+    .sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
 }
 
 // חלק סדר פיד (videos.js) – סנכרון DOM לסדר הכרונולוגי אחרי טעינה דיפרנציאלית / מטמון | HYPER CORE TECH
@@ -5150,6 +5217,11 @@ function forceFullFeedRerender() {
   resetIncrementalRender();
   // לא מכבים PLAY גלובלי ברינדור מחדש (במיוחד LIVE TV / משחקים) | HYPER CORE TECH
   pauseAllFeedVideos({ disableAutoplay: false });
+
+  // מאפשרים טעינת וידאו מחדש אחרי ניקוי DOM | HYPER CORE TECH
+  try { videoDownloadedOrQueued.clear(); } catch (_) {}
+  videoDownloadQueue = [];
+  isProcessingVideoQueue = false;
 
   const loadnugCard = document.getElementById('sosLoadNugOverlay');
   selectors.stream.innerHTML = '';
@@ -5424,7 +5496,7 @@ function getSharedGamePosts() {
       authorPicture: video.authorPicture || '',
       authorInitials: video.authorInitials || '',
       pubkey: video.pubkey || '',
-      createdAt: video.createdAt || 0,
+      createdAt: video.createdAt || getVideoCreatedAt(video) || 0,
       source: 'feed',
     }));
 }

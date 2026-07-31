@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v158'; // bump - general feed chronological order (YouTube not first by race)
+  const CACHE_NAME = 'sos-cache-v159'; // bump - normalize createdAt so YouTube is not falsely first on refresh
   const PRECACHE_URLS = [
     './',
     './videos.html',
