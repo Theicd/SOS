@@ -1031,6 +1031,7 @@ const bootGate = {
   active: true,
   released: false,
   releasePromise: null,
+  holdUntil: 0,
 };
 
 const selectors = {
@@ -1811,11 +1812,62 @@ function hideLoadingAnimation(options = {}) {
   } catch (_) {}
 }
 
-function releaseBootLoading(reason = 'ready') {
+function showSoftFeedLoading() {
+  let el = document.getElementById('videosSoftLoading');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'videosSoftLoading';
+    el.className = 'videos-soft-loading';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-label', 'טוען');
+    el.innerHTML = '<img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731j" alt="SOS">';
+    document.body.appendChild(el);
+  } else if (el.parentElement !== document.body) {
+    // viewport עם contain שובר position:fixed — חייב body | HYPER CORE TECH
+    document.body.appendChild(el);
+  }
+  el.hidden = false;
+  el.removeAttribute('hidden');
+  el.setAttribute('aria-hidden', 'false');
+  el.style.cssText = 'display:flex!important;position:fixed!important;inset:0!important;z-index:2500!important;background:#000!important;align-items:center;justify-content:center;pointer-events:auto;';
+}
+
+function hideSoftFeedLoading() {
+  const el = document.getElementById('videosSoftLoading');
+  if (!el) return;
+  el.hidden = true;
+  el.setAttribute('hidden', '');
+  el.setAttribute('aria-hidden', 'true');
+  el.style.display = 'none';
+}
+
+function rearmBootGate(reason = 'rearm', { showSoft = false, holdMs = 0 } = {}) {
+  bootGate.active = true;
+  bootGate.released = false;
+  bootGate.releasePromise = null;
+  bootGate.holdUntil = holdMs > 0 ? (Date.now() + holdMs) : 0;
+  console.log('[videos] boot gate rearmed:', reason, { showSoft, holdMs });
+  try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
+  // חשוב לפני LoadNug.replay — אחרת MutationObserver סוגר מיד | HYPER CORE TECH
+  showLoadingAnimation();
+  if (showSoft) showSoftFeedLoading();
+  else hideSoftFeedLoading();
+  setLoadingStatus('מרענן...');
+  setLoadingProgress(25);
+}
+
+async function releaseBootLoading(reason = 'ready') {
+  if (bootGate.released) return;
+  const waitMs = (bootGate.holdUntil || 0) - Date.now();
+  if (waitMs > 0) {
+    await sleepMs(waitMs);
+  }
   if (bootGate.released) return;
   bootGate.released = true;
   bootGate.active = false;
+  bootGate.holdUntil = 0;
   console.log('[videos] boot loading released:', reason);
+  try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
   setLoadingProgress(100);
   setLoadingStatus('הכל מוכן!');
   hideSoftFeedLoading();
@@ -1832,51 +1884,17 @@ function releaseBootLoading(reason = 'ready') {
   });
 }
 
-function showSoftFeedLoading() {
-  let el = document.getElementById('videosSoftLoading');
-  if (!el) {
-    const viewport = document.querySelector('.videos-feed__viewport') || document.body;
-    el = document.createElement('div');
-    el.id = 'videosSoftLoading';
-    el.className = 'videos-soft-loading';
-    el.setAttribute('role', 'status');
-    el.setAttribute('aria-label', 'טוען');
-    el.innerHTML = '<img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731h" alt="SOS">';
-    viewport.appendChild(el);
-  }
-  el.hidden = false;
-  el.removeAttribute('hidden');
-  el.setAttribute('aria-hidden', 'false');
-  el.style.display = 'flex';
-}
-
-function hideSoftFeedLoading() {
-  const el = document.getElementById('videosSoftLoading');
-  if (!el) return;
-  el.hidden = true;
-  el.setAttribute('hidden', '');
-  el.setAttribute('aria-hidden', 'true');
-  el.style.display = 'none';
-}
-
-function rearmBootGate(reason = 'rearm', { showSoft = false } = {}) {
-  bootGate.active = true;
-  bootGate.released = false;
-  bootGate.releasePromise = null;
-  console.log('[videos] boot gate rearmed:', reason);
-  showLoadingAnimation();
-  if (showSoft) showSoftFeedLoading();
-  else hideSoftFeedLoading();
-  setLoadingStatus('מרענן...');
-  setLoadingProgress(25);
-}
-
 function restartOriginalLoadingScreen() {
   // מסך הטעינה המקורי (LoadNug) כמו בפתיחת הממשק | HYPER CORE TECH
   try {
+    showLoadingAnimation();
     if (window.SOSLoadNug && typeof window.SOSLoadNug.replay === 'function') {
       window.SOSLoadNug.replay();
       console.log('[videos] LoadNug replay started');
+      try {
+        const viewport = document.querySelector('.videos-feed__viewport');
+        if (viewport) viewport.scrollTop = 0;
+      } catch (_) {}
       return true;
     }
   } catch (err) {
@@ -1885,8 +1903,16 @@ function restartOriginalLoadingScreen() {
   return false;
 }
 
-// חלק רענון בית (videos.js) – לחיצה על בית מחזירה את מסך הטעינה המקורי עד ש־2 פוסטים מוכנים | HYPER CORE TECH
+let lastHomeSoftRefreshAt = 0;
+
+// חלק רענון בית (videos.js) – LoadNug מקורי בראש הפיד; כרטיסי וידאו מוסתרים עד מוכנות | HYPER CORE TECH
 async function softRefreshVideosFeed() {
+  const now = Date.now();
+  if (now - lastHomeSoftRefreshAt < 700) {
+    console.log('[videos] softRefresh debounced');
+    return;
+  }
+  lastHomeSoftRefreshAt = now;
   console.log('[videos] softRefreshVideosFeed start');
   try {
     if (typeof pauseAllFeedVideos === 'function') {
@@ -1894,7 +1920,8 @@ async function softRefreshVideosFeed() {
     }
   } catch (_) {}
 
-  rearmBootGate('home-soft-refresh', { showSoft: false });
+  // בלי שכבת לוגו מעל LoadNug — המד המקורי חייב להיראות | HYPER CORE TECH
+  rearmBootGate('home-soft-refresh', { showSoft: false, holdMs: 1400 });
   setLoadingStatus('טוען מחדש את הפיד...');
   setLoadingProgress(30);
 
@@ -1905,25 +1932,33 @@ async function softRefreshVideosFeed() {
 
   state.videos = sortVideosByCreatedAtDesc(Array.isArray(state.videos) ? state.videos : []);
 
-  // קודם מנקים/מרנדרים, אחר כך LoadNug המקורי בראש הפיד (כמו פתיחה) | HYPER CORE TECH
+  // קודם LoadNug בראש ה־stream, אחר כך רינדור הפיד מתחתיו | HYPER CORE TECH
+  const loadnugStarted = restartOriginalLoadingScreen();
+  if (!loadnugStarted) {
+    showSoftFeedLoading();
+  }
+
   if (typeof forceFullFeedRerender === 'function') {
     forceFullFeedRerender();
   } else {
     renderVideos();
   }
 
-  const loadnugStarted = restartOriginalLoadingScreen();
-  if (!loadnugStarted) {
-    showSoftFeedLoading();
-  } else {
-    hideSoftFeedLoading();
-    try {
-      const viewport = document.querySelector('.videos-feed__viewport');
-      if (viewport) viewport.scrollTop = 0;
-    } catch (_) {}
-  }
+  // אחרי רינדור — מוודאים שכרטיס LoadNug עדיין ראשון ונראה | HYPER CORE TECH
+  try {
+    const loadnug = document.getElementById('sosLoadNugOverlay');
+    const stream = selectors.stream;
+    if (loadnug && stream && stream.firstChild !== loadnug) {
+      stream.insertBefore(loadnug, stream.firstChild);
+    }
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (viewport) viewport.scrollTop = 0;
+  } catch (_) {}
 
   await ensureBootFeedReady();
+  if (!bootGate.released) {
+    await releaseBootLoading('soft-refresh-fallback');
+  }
 
   loadVideos().catch((err) => console.warn('[videos] soft refresh loadVideos failed', err));
 }
@@ -2172,11 +2207,11 @@ async function ensureBootFeedReady() {
     const readyCount = mediaResults.filter(Boolean).length;
     // אם לפחות פוסט אחד מוכן (או שכולם נכשלו אחרי timeout) — משחררים כדי לא לתקוע | HYPER CORE TECH
     if (readyCount > 0 || posts.length > 0) {
-      releaseBootLoading(`first-${posts.length}-posts media=${readyCount}/${posts.length}`);
+      await releaseBootLoading(`first-${posts.length}-posts media=${readyCount}/${posts.length}`);
     }
-  })().catch((err) => {
+  })().catch(async (err) => {
     console.warn('[videos] ensureBootFeedReady failed', err);
-    releaseBootLoading('boot-error-fallback');
+    await releaseBootLoading('boot-error-fallback');
   });
 
   return bootGate.releasePromise;
@@ -2486,10 +2521,17 @@ function renderVideoCard(video) {
     // חלק תאימות iOS (videos.js) – preload=auto נדרש לספארי כדי ש-loadeddata יירה | HYPER CORE TECH
     videoEl.preload = 'auto';
     videoEl.className = 'videos-feed__media-video';
+    // מוסתר עד פריים אמיתי — מונע פליי-ענק אפור של WebView/Chrome | HYPER CORE TECH
+    mediaDiv.dataset.mediaPending = '1';
+    videoEl.style.opacity = '0';
+    videoEl.style.background = '#000';
     // poster מתמונת הפוסט אם קיימת – מונע פליי-ענק של WebView במצב STOP | HYPER CORE TECH
     if (typeof video.imageUrl === 'string' && video.imageUrl) {
       videoEl.poster = video.imageUrl;
       videoEl.dataset.posterCaptured = '1';
+    } else {
+      // poster שחור 1×1 — בלי כפתור פליי מערכת על אפור | HYPER CORE TECH
+      videoEl.poster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     }
     mediaDiv.appendChild(videoEl);
 
@@ -2508,10 +2550,14 @@ function renderVideoCard(video) {
     const onLoadedData = () => {
       cleanup();
       settleReady();
+      try {
+        mediaDiv.dataset.mediaPending = '0';
+        videoEl.style.opacity = '1';
+      } catch (_) {}
       // מציגים פליי רק אחרי שיש פריים אמיתי — לא מסך אפור עם פליי ענק | HYPER CORE TECH
       try {
         const ov = mediaDiv.querySelector('.videos-feed__play-overlay');
-        if (ov) {
+        if (ov && !document.body.classList.contains('videos-boot-loading')) {
           ov.hidden = false;
           ov.style.removeProperty('display');
           ov.style.removeProperty('opacity');
@@ -2520,7 +2566,7 @@ function renderVideoCard(video) {
       // רק במצב STOP – מציירים פריים בלי לשבור autoplay | HYPER CORE TECH
       if (!globalAutoplayEnabled) {
         ensurePausedPreviewFrame(videoEl);
-      } else if (!videoEl.poster) {
+      } else if (!videoEl.dataset.posterCaptured) {
         // שומרים poster בשקט כשהסרטון עדיין מושהה לפני הפעלה
         try {
           if (videoEl.paused) captureVideoPosterFromFrame(videoEl);
@@ -5368,6 +5414,29 @@ async function init() {
     });
   }
 
+  // חלק בית (videos.js) – capture: גם אם navigation.js ישן במטמון, לחיצה על בית מרעננת | HYPER CORE TECH
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!target || typeof target.closest !== 'function') return;
+    const homeNav = target.closest('.primary-nav [data-nav="videos"]');
+    if (!homeNav) return;
+    const onVideos =
+      window.location.pathname.includes('videos.html') ||
+      window.location.pathname.endsWith('/videos') ||
+      document.body.classList.contains('videos-page');
+    if (!onVideos) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      const App = window.NostrApp || {};
+      if (typeof App.exitGamesFeedMode === 'function') App.exitGamesFeedMode();
+      if (typeof App.exitLiveTvFeedMode === 'function') App.exitLiveTvFeedMode();
+      if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
+    } catch (_) {}
+    const refreshFn = window.softRefreshVideosFeed || softRefreshVideosFeed;
+    if (typeof refreshFn === 'function') refreshFn();
+  }, true);
+
   const refreshButton = document.getElementById('videosTopRefreshButton');
   if (refreshButton) {
     refreshButton.addEventListener('click', () => {
@@ -5400,6 +5469,7 @@ async function init() {
   showLoadingAnimation();
   setLoadingStatus('טוען פוסטים...');
   setLoadingProgress(20);
+  try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
 
   // חלק מטמון (videos.js) – הצגת פוסטים מהמטמון, בלי לסגור LoadNug עד מוכנות מלאה | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();

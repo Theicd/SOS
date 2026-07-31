@@ -305,6 +305,10 @@ export class LoadNugController {
   _wireIntegration() {
     const existing = document.getElementById('videosLoadingOverlay');
     const isReady = () => {
+      // בזמן רענון בית — לא סוגרים LoadNug לפי hook ישן | HYPER CORE TECH
+      try {
+        if (document.body && document.body.classList.contains('videos-boot-loading')) return false;
+      } catch (e) {}
       if (!existing) return false;
       if (existing.classList.contains('hidden')) return true;
       if ((existing.style && existing.style.display) === 'none') return true;

@@ -2626,6 +2626,41 @@ body.game-embed-fullscreen .videos-feed__actions {
   align-self: unset !important;
 }
 
+/* קריטי: display/opacity למעלה דורסים HTML [hidden] — חובה !important בזמן טעינה | HYPER CORE TECH */
+.videos-feed__play-overlay[hidden],
+.videos-feed__play-overlay.is-media-pending,
+.videos-feed__media[data-media-pending="1"] > .videos-feed__play-overlay,
+body.videos-boot-loading .videos-feed__play-overlay,
+body.videos-boot-loading .videos-feed__media.is-paused .videos-feed__play-overlay,
+body.videos-boot-loading .videos-feed__media > .videos-feed__play-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.videos-boot-loading .videos-feed__media[data-media-type="file"] video,
+.videos-feed__media[data-media-pending="1"] video {
+  opacity: 0 !important;
+}
+body.videos-boot-loading .videos-feed__media[data-media-type="file"],
+.videos-feed__media[data-media-pending="1"] {
+  background: #000 !important;
+}
+
+/* בזמן טעינה: רק כרטיס LoadNug נראה — בלי פליי אפור של הפוסטים מתחת | HYPER CORE TECH */
+body.videos-boot-loading .videos-feed__card[data-event-id],
+body.videos-boot-loading .videos-feed__card:not(#sosLoadNugOverlay):not(.videos-feed__card--loadnug) {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+body.videos-boot-loading #sosLoadNugOverlay,
+body.videos-boot-loading .videos-feed__card--loadnug {
+  visibility: visible !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
 .videos-feed__media.is-paused .videos-feed__play-overlay {
   opacity: 1;
