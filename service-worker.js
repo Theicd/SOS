@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v159'; // bump - normalize createdAt so YouTube is not falsely first on refresh
+  const CACHE_NAME = 'sos-cache-v160'; // bump - keep LoadNug until first 2 posts fully view-ready
   const PRECACHE_URLS = [
     './',
     './videos.html',
