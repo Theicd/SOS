@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.5.6-boot-gate-first-2';
+const VIDEOS_CODE_VERSION = '2.5.7-soft-refresh-logo';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1818,6 +1818,7 @@ function releaseBootLoading(reason = 'ready') {
   console.log('[videos] boot loading released:', reason);
   setLoadingProgress(100);
   setLoadingStatus('הכל מוכן!');
+  hideSoftFeedLoading();
   hideLoadingAnimation({ force: true });
   if (selectors.status) {
     selectors.status.style.display = 'none';
@@ -1829,6 +1830,62 @@ function releaseBootLoading(reason = 'ready') {
   requestAnimationFrame(() => {
     autoPlayFirstVideo();
   });
+}
+
+function showSoftFeedLoading() {
+  const el = document.getElementById('videosSoftLoading');
+  if (!el) return;
+  el.hidden = false;
+  el.setAttribute('aria-hidden', 'false');
+}
+
+function hideSoftFeedLoading() {
+  const el = document.getElementById('videosSoftLoading');
+  if (!el) return;
+  el.hidden = true;
+  el.setAttribute('aria-hidden', 'true');
+}
+
+function rearmBootGate(reason = 'rearm') {
+  bootGate.active = true;
+  bootGate.released = false;
+  bootGate.releasePromise = null;
+  console.log('[videos] boot gate rearmed:', reason);
+  showLoadingAnimation();
+  showSoftFeedLoading();
+  setLoadingStatus('מרענן...');
+  setLoadingProgress(25);
+}
+
+// חלק רענון בית (videos.js) – לחיצה חוזרת על בית: מסך לוגו שחור עד ש־2 פוסטים מוכנים | HYPER CORE TECH
+async function softRefreshVideosFeed() {
+  try {
+    if (typeof pauseAllFeedVideos === 'function') {
+      pauseAllFeedVideos({ disableAutoplay: false });
+    }
+  } catch (_) {}
+
+  rearmBootGate('home-soft-refresh');
+  setLoadingStatus('טוען מחדש את הפיד...');
+  setLoadingProgress(35);
+
+  try {
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (viewport) viewport.scrollTop = 0;
+  } catch (_) {}
+
+  // רינדור מחדש מהמצב הממוין — בלי לחשוף כרטיסי פליי ריקים | HYPER CORE TECH
+  state.videos = sortVideosByCreatedAtDesc(Array.isArray(state.videos) ? state.videos : []);
+  if (typeof forceFullFeedRerender === 'function') {
+    forceFullFeedRerender();
+  } else {
+    renderVideos();
+  }
+
+  await ensureBootFeedReady();
+
+  // עדכון ברקע מהרשת אחרי שהמשתמש כבר רואה תוכן מוכן
+  loadVideos().catch((err) => console.warn('[videos] soft refresh loadVideos failed', err));
 }
 
 // חלק יאללה וידאו (videos.js) – עדכון מד טעינה והודעות סטטוס | HYPER CORE TECH
@@ -2411,6 +2468,15 @@ function renderVideoCard(video) {
     const onLoadedData = () => {
       cleanup();
       settleReady();
+      // מציגים פליי רק אחרי שיש פריים אמיתי — לא מסך אפור עם פליי ענק | HYPER CORE TECH
+      try {
+        const ov = mediaDiv.querySelector('.videos-feed__play-overlay');
+        if (ov) {
+          ov.hidden = false;
+          ov.style.removeProperty('display');
+          ov.style.removeProperty('opacity');
+        }
+      } catch (_) {}
       // רק במצב STOP – מציירים פריים בלי לשבור autoplay | HYPER CORE TECH
       if (!globalAutoplayEnabled) {
         ensurePausedPreviewFrame(videoEl);
@@ -2475,12 +2541,18 @@ function renderVideoCard(video) {
     // אחרת יוטיוב (מוכן מיד) קופץ ויזואלית לפני וידאו שעדיין בתור | HYPER CORE TECH
     queueMicrotask(settleReady);
 
+    // רקע שחור בזמן טעינה — בלי כפתור פליי ענק על אפור | HYPER CORE TECH
+    mediaDiv.style.background = '#000';
+    videoEl.style.background = '#000';
+
     const playOverlay = document.createElement('button');
     playOverlay.type = 'button';
     playOverlay.className = 'videos-feed__play-overlay';
     playOverlay.setAttribute('aria-label', 'Play video');
     playOverlay.setAttribute('data-play-toggle', '');
     playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+    playOverlay.hidden = true;
+    playOverlay.style.display = 'none';
     centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
     
@@ -5232,11 +5304,11 @@ async function init() {
   // חלק עוקבים בתפריט צד (videos.js) – יצירת מקטע עוקבים ופוטר בדסקטופ | HYPER CORE TECH
   createSidebarFollowersSection();
 
-  // חלק כפתור בית (videos.js) – סגירת overlays במקום ניווט כשהפיד כבר פתוח | HYPER CORE TECH
+  // חלק כפתור בית (videos.js) – סגירת overlays / גלילה / רענון רך עם מסך לוגו | HYPER CORE TECH
   const homeButton = document.getElementById('videosTopHomeButton');
   if (homeButton) {
     homeButton.addEventListener('click', () => {
-      // ניסיון לסגור overlays פתוחים - אם נסגר משהו, לא לנווט
+      // ניסיון לסגור overlays פתוחים - אם נסגר משהו, לא מנווטים
       const App = window.NostrApp || {};
       if (typeof App.exitGamesFeedMode === 'function' && App.exitGamesFeedMode()) {
         console.log('[VIDEOS] Home button exited games feed mode');
@@ -5257,7 +5329,11 @@ async function init() {
         console.log('[VIDEOS] Home button scrolled to top');
         return;
       }
-      // אחרת - נשאר בדף, אין צורך לנווט לindex
+      // כבר בראש – רענון רך עם מסך לוגו שחור עד ש־2 פוסטים מוכנים | HYPER CORE TECH
+      if (typeof softRefreshVideosFeed === 'function') {
+        softRefreshVideosFeed();
+        return;
+      }
       console.log('[VIDEOS] Already at top, no action needed');
     });
   }
@@ -5809,6 +5885,7 @@ window.exitLiveTvFeedMode = exitLiveTvFeedMode;
 window.enterLiveTvFeedMode = enterLiveTvFeedMode;
 window.refreshLiveTvFeed = refreshLiveTvFeed;
 window.getSharedGamePosts = getSharedGamePosts;
+window.softRefreshVideosFeed = softRefreshVideosFeed;
 {
   const AppRef = window.NostrApp || (window.NostrApp = {});
   AppRef.closeGamesPanel = closeGamesPanel;
@@ -5821,6 +5898,7 @@ window.getSharedGamePosts = getSharedGamePosts;
   AppRef.enterLiveTvFeedMode = enterLiveTvFeedMode;
   AppRef.refreshLiveTvFeed = refreshLiveTvFeed;
   AppRef.getSharedGamePosts = getSharedGamePosts;
+  AppRef.softRefreshVideosFeed = softRefreshVideosFeed;
 }
 
 // חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH

@@ -154,10 +154,18 @@
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
-      // אם כבר בדף videos.html - חזרה לפיד הכללי (גם ממצב משחקים) | HYPER CORE TECH
+      // אם כבר בדף videos.html - רענון רך עם מסך לוגו (לא פליי אפור) | HYPER CORE TECH
       if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos')) {
         if (typeof App.exitGamesFeedMode === 'function') {
           App.exitGamesFeedMode();
+        }
+        if (typeof App.exitLiveTvFeedMode === 'function') {
+          App.exitLiveTvFeedMode();
+        }
+        if (typeof App.softRefreshVideosFeed === 'function') {
+          console.log('[NAV] Soft-refreshing videos feed from Home');
+          App.softRefreshVideosFeed();
+          return;
         }
         console.log('[NAV] Already on videos page, staying here');
         return;

@@ -131,6 +131,32 @@
       #videosLoadingOverlay.videos-loading-overlay.hidden {
         display: none !important;
       }
+
+      /* מסך טעינה ברענון בית – לוגו מובייל ממורכז על שחור (טיקטוק) | HYPER CORE TECH */
+      .videos-soft-loading {
+        position: absolute;
+        inset: 0;
+        z-index: 2500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        pointer-events: auto;
+      }
+      .videos-soft-loading[hidden] {
+        display: none !important;
+      }
+      .videos-soft-loading__logo {
+        width: min(38vw, 148px);
+        height: auto;
+        object-fit: contain;
+        animation: videosSoftLogoPulse 1.15s ease-in-out infinite;
+        filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.12));
+      }
+      @keyframes videosSoftLogoPulse {
+        0%, 100% { opacity: 0.72; transform: scale(0.96); }
+        50% { opacity: 1; transform: scale(1); }
+      }
     </style>
     <link rel="stylesheet" href="./styles/video-record.css">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
@@ -1663,7 +1689,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260731f" defer></script>
+    <script src="./videos.js?v=20260731g" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -1948,6 +1974,10 @@
       <section class="videos-feed__viewport" aria-live="polite">
         <!-- LOADNUG signal hook – מסך הטעינה הויזואלי הוא sosLoadNugOverlay | HYPER CORE TECH -->
         <div class="videos-loading-overlay" id="videosLoadingOverlay" aria-hidden="true"></div>
+        <!-- מסך טעינה רך (רענון בית) – לוגו מובייל על רקע שחור כמו טיקטוק | HYPER CORE TECH -->
+        <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="טוען">
+          <img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731f" alt="SOS">
+        </div>
         <!-- מעטפת שחורה בטעינה ראשונית (טיקטוק) – מוסרת כש-LoadNug / הפיד עולים | HYPER CORE TECH -->
         <div id="feedBootShell" aria-hidden="true"></div>
         <div class="videos-feed__stream" id="videosStream" role="list"></div>
