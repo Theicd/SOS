@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v161'; // bump - home soft-refresh black logo loading; hide play until media ready
+  const CACHE_NAME = 'sos-cache-v162'; // bump - Home restarts original LoadNug loading screen
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -132,22 +132,22 @@
         display: none !important;
       }
 
-      /* מסך טעינה ברענון בית – לוגו מובייל ממורכז על שחור (טיקטוק) | HYPER CORE TECH */
+      /* מסך טעינה ברענון בית – לוגו מובייל ממורכז על שחור מלא מסך | HYPER CORE TECH */
       .videos-soft-loading {
-        position: absolute;
-        inset: 0;
-        z-index: 2500;
-        display: flex;
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 10050 !important;
+        display: flex !important;
         align-items: center;
         justify-content: center;
-        background: #000;
+        background: #000 !important;
         pointer-events: auto;
       }
       .videos-soft-loading[hidden] {
         display: none !important;
       }
       .videos-soft-loading__logo {
-        width: min(38vw, 148px);
+        width: min(42vw, 168px);
         height: auto;
         object-fit: contain;
         animation: videosSoftLogoPulse 1.15s ease-in-out infinite;
@@ -1649,7 +1649,7 @@
         App.activeNav = 'videos';
       })();
     </script>
-    <script src="./navigation.js" defer></script>
+    <script src="./navigation.js?v=20260731h" defer></script>
     <script src="./feed.js" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
@@ -1689,7 +1689,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260731g" defer></script>
+    <script src="./videos.js?v=20260731h" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>

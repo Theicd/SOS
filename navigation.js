@@ -119,12 +119,11 @@
     console.log('[NAV] Navigation clicked:', key);
     const previousNav = App.activeNav;
     
-    // חלק סגירת overlays (navigation.js) – סגירת כל ה-overlays בכל לחיצה על כפתור שאינו פרופיל | HYPER CORE TECH
-    // אם overlay כלשהו נסגר, לא מנווטים לדף אחר - רק סוגרים ונשארים במקום
+    // חלק סגירת overlays (navigation.js) – סגירת overlays; בבית/וידאו עדיין מרעננים את הפיד | HYPER CORE TECH
+    let overlayClosed = false;
     if (key !== 'profile') {
-      const wasClosed = closeAllOverlays();
-      if (wasClosed) {
-        // אחרי יציאה מפיד משחקים / overlay – עדכון לשונית פעילה | HYPER CORE TECH
+      overlayClosed = !!closeAllOverlays();
+      if (overlayClosed && key !== 'videos' && key !== 'home') {
         updateNavSelection(key === 'games' ? 'videos' : key);
         console.log('[NAV] Overlay was closed, staying on current page');
         return;
@@ -154,20 +153,21 @@
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
-      // אם כבר בדף videos.html - רענון רך עם מסך לוגו (לא פליי אפור) | HYPER CORE TECH
-      if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos')) {
+      // אם כבר בדף videos.html – תמיד מסך טעינה מקורי + רענון (גם אחרי סגירת overlay) | HYPER CORE TECH
+      if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos') || document.body.classList.contains('videos-page')) {
         if (typeof App.exitGamesFeedMode === 'function') {
           App.exitGamesFeedMode();
         }
         if (typeof App.exitLiveTvFeedMode === 'function') {
           App.exitLiveTvFeedMode();
         }
-        if (typeof App.softRefreshVideosFeed === 'function') {
-          console.log('[NAV] Soft-refreshing videos feed from Home');
-          App.softRefreshVideosFeed();
+        const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed;
+        if (typeof refreshFn === 'function') {
+          console.log('[NAV] Restarting original loading + soft-refresh from Home', { overlayClosed });
+          refreshFn();
           return;
         }
-        console.log('[NAV] Already on videos page, staying here');
+        console.log('[NAV] Already on videos page, refresh fn missing');
         return;
       }
       if (previousNav === 'profile' && App.cameFromVideos && typeof window.history?.back === 'function') {
