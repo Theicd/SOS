@@ -168,11 +168,11 @@
     console.log('[NAV] Navigation clicked:', key);
     const previousNav = App.activeNav;
     
-    // חלק סגירת overlays (navigation.js) – סוגר פאנלים; בבית אחרי overlay = חזרה לאותו פוסט | HYPER CORE TECH
+    // חלק סגירת overlays (navigation.js) – בית מטופל ב־handleHomeButtonAction (בלי רענון בלחיצה 1) | HYPER CORE TECH
     let overlayClosed = false;
-    if (key !== 'profile') {
+    if (key !== 'profile' && key !== 'videos' && key !== 'home') {
       overlayClosed = !!closeAllOverlays();
-      if (overlayClosed && key !== 'videos' && key !== 'home') {
+      if (overlayClosed) {
         updateNavSelection(key === 'games' ? 'videos' : key);
         console.log('[NAV] Overlay was closed, staying on current page');
         return;
@@ -209,29 +209,21 @@
       }
       // אם כבר בדף videos.html | HYPER CORE TECH
       if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos') || document.body.classList.contains('videos-page')) {
-        // אחרי פרופיל/שיחות/התראות — רק חזרה לאותו פוסט, בלי רענון | HYPER CORE TECH
-        if (overlayClosed) {
-          console.log('[NAV] Home after overlay — resume same post');
-          if (typeof App.resumeCenteredFeedVideo === 'function') {
-            App.resumeCenteredFeedVideo();
-          } else if (typeof window.resumeCenteredFeedVideo === 'function') {
-            window.resumeCenteredFeedVideo();
-          }
+        // לחיצה 1: סגירת overlay / רמז; לחיצה 2: רענון | HYPER CORE TECH
+        const homeFn = App.handleHomeButtonAction || window.handleHomeButtonAction;
+        if (typeof homeFn === 'function') {
+          console.log('[NAV] Home delegated to handleHomeButtonAction');
+          homeFn();
           return;
         }
-        if (typeof App.exitGamesFeedMode === 'function') {
-          App.exitGamesFeedMode();
-        }
-        if (typeof App.exitLiveTvFeedMode === 'function') {
-          App.exitLiveTvFeedMode();
-        }
-        const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed;
-        if (typeof refreshFn === 'function') {
-          console.log('[NAV] Home on feed — warm/cold soft-refresh');
-          refreshFn();
+        // Fallback אם videos.js עוד לא נטען | HYPER CORE TECH
+        if (areFeedOverlaysOpen()) {
+          closeAllOverlays();
+          if (typeof App.resumeCenteredFeedVideo === 'function') App.resumeCenteredFeedVideo();
+          else if (typeof window.resumeCenteredFeedVideo === 'function') window.resumeCenteredFeedVideo();
           return;
         }
-        console.log('[NAV] Already on videos page, refresh fn missing');
+        console.log('[NAV] Already on videos page, handleHomeButtonAction missing');
         return;
       }
       if (previousNav === 'profile' && App.cameFromVideos && typeof window.history?.back === 'function') {
@@ -265,6 +257,11 @@
           // עצירת וידאו בפתיחת פרופיל אישי | HYPER CORE TECH
           if (typeof App.pauseAllFeedVideos === 'function') {
             App.pauseAllFeedVideos();
+          }
+          if (typeof App.clearHomeRefreshArm === 'function') {
+            App.clearHomeRefreshArm();
+          } else if (typeof window.clearHomeRefreshArm === 'function') {
+            window.clearHomeRefreshArm();
           }
           // טעינת הפרופיל ב-iframe
           profileFrame.src = './profile.html?embedded=1';
