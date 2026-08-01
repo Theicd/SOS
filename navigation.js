@@ -102,6 +102,14 @@
     return closed;
   }
 
+  function areFeedOverlaysOpen() {
+    const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
+    return ids.some((id) => {
+      const el = document.getElementById(id);
+      return !!(el && !el.hidden);
+    });
+  }
+
   // חשיפה גלובלית לסגירת פאנלים | HYPER CORE TECH
   App.closeProfilePanel = closeProfilePanel;
   App.closePublicProfilePanel = closePublicProfilePanel;
@@ -109,6 +117,7 @@
   App.closeChatPanel = closeChatPanel;
   App.closeNotificationsPanel = closeNotificationsPanel;
   App.closeAllOverlays = closeAllOverlays;
+  App.areFeedOverlaysOpen = areFeedOverlaysOpen;
 
   function handleNavClick(event) {
     const key = event.currentTarget.getAttribute('data-nav');
@@ -119,7 +128,7 @@
     console.log('[NAV] Navigation clicked:', key);
     const previousNav = App.activeNav;
     
-    // חלק סגירת overlays (navigation.js) – סגירת overlays; בבית/וידאו עדיין מרעננים את הפיד | HYPER CORE TECH
+    // חלק סגירת overlays (navigation.js) – סוגר פאנלים; בבית אחרי overlay = חזרה לאותו פוסט | HYPER CORE TECH
     let overlayClosed = false;
     if (key !== 'profile') {
       overlayClosed = !!closeAllOverlays();
@@ -153,8 +162,18 @@
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
-      // אם כבר בדף videos.html – תמיד מסך טעינה מקורי + רענון (גם אחרי סגירת overlay) | HYPER CORE TECH
+      // אם כבר בדף videos.html | HYPER CORE TECH
       if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos') || document.body.classList.contains('videos-page')) {
+        // אחרי פרופיל/שיחות/התראות — רק חזרה לאותו פוסט, בלי רענון | HYPER CORE TECH
+        if (overlayClosed) {
+          console.log('[NAV] Home after overlay — resume same post');
+          if (typeof App.resumeCenteredFeedVideo === 'function') {
+            App.resumeCenteredFeedVideo();
+          } else if (typeof window.resumeCenteredFeedVideo === 'function') {
+            window.resumeCenteredFeedVideo();
+          }
+          return;
+        }
         if (typeof App.exitGamesFeedMode === 'function') {
           App.exitGamesFeedMode();
         }
@@ -163,7 +182,7 @@
         }
         const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed;
         if (typeof refreshFn === 'function') {
-          console.log('[NAV] Restarting original loading + soft-refresh from Home', { overlayClosed });
+          console.log('[NAV] Home on feed — warm/cold soft-refresh');
           refreshFn();
           return;
         }

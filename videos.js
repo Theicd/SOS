@@ -637,6 +637,45 @@ function autoPlayFirstVideo() {
   }
 }
 
+// חלק חזרה מ־overlay (videos.js) – ממשיכים את הפוסט שבמרכז המסך, בלי רענון | HYPER CORE TECH
+function resumeCenteredFeedVideo() {
+  if (bootGate.active && !bootGate.released) return;
+  globalAutoplayEnabled = true;
+  updateGlobalStopClass();
+  const viewport = document.querySelector('.videos-feed__viewport');
+  const stream = selectors.stream || document.getElementById('videosStream');
+  if (!stream) return;
+  const cards = Array.from(stream.querySelectorAll('.videos-feed__card[data-event-id]'));
+  if (!cards.length) return;
+
+  let active = cards[0];
+  if (viewport) {
+    const mid = viewport.scrollTop + viewport.clientHeight / 2;
+    active = cards.find((card) => {
+      const top = card.offsetTop;
+      const bottom = top + card.offsetHeight;
+      return mid >= top && mid <= bottom;
+    }) || cards[0];
+  }
+  const mediaDiv = active.querySelector('.videos-feed__media');
+  if (mediaDiv) {
+    playMedia(mediaDiv, { manual: false, priority: true });
+    console.log('[videos] resumed centered feed video', { id: active.getAttribute('data-event-id') });
+  }
+}
+
+function areFeedOverlaysOpen() {
+  const App = window.NostrApp || {};
+  if (typeof App.areFeedOverlaysOpen === 'function') {
+    try { return !!App.areFeedOverlaysOpen(); } catch (_) {}
+  }
+  const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
+  return ids.some((id) => {
+    const el = document.getElementById(id);
+    return !!(el && !el.hidden);
+  });
+}
+
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (!mediaDiv) return;
@@ -5544,21 +5583,25 @@ async function init() {
   // חלק עוקבים בתפריט צד (videos.js) – יצירת מקטע עוקבים ופוטר בדסקטופ | HYPER CORE TECH
   createSidebarFollowersSection();
 
-  // חלק כפתור בית (videos.js) – תמיד מחזיר מסך טעינה מקורי + רענון הפיד | HYPER CORE TECH
+  // חלק כפתור בית (videos.js) – overlay פתוח = חזרה לפוסט; אחרת רענון חם | HYPER CORE TECH
   const homeButton = document.getElementById('videosTopHomeButton');
   if (homeButton) {
     homeButton.addEventListener('click', () => {
       const App = window.NostrApp || {};
+      const hadOverlay = areFeedOverlaysOpen();
+      if (typeof App.closeAllOverlays === 'function') {
+        App.closeAllOverlays();
+      }
+      if (hadOverlay) {
+        resumeCenteredFeedVideo();
+        return;
+      }
       if (typeof App.exitGamesFeedMode === 'function') {
         App.exitGamesFeedMode();
       }
       if (typeof App.exitLiveTvFeedMode === 'function') {
         App.exitLiveTvFeedMode();
       }
-      if (typeof App.closeAllOverlays === 'function') {
-        App.closeAllOverlays();
-      }
-      // תמיד רענון עם LoadNug המקורי (לא רק גלילה לראש) | HYPER CORE TECH
       const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed || softRefreshVideosFeed;
       if (typeof refreshFn === 'function') {
         refreshFn();
@@ -5568,7 +5611,7 @@ async function init() {
     });
   }
 
-  // חלק בית (videos.js) – capture: גם אם navigation.js ישן במטמון, לחיצה על בית מרעננת | HYPER CORE TECH
+  // חלק בית (videos.js) – capture: overlay → אותו פוסט; בלי overlay → רענון חם | HYPER CORE TECH
   document.addEventListener('click', (event) => {
     const target = event.target;
     if (!target || typeof target.closest !== 'function') return;
@@ -5579,14 +5622,34 @@ async function init() {
       window.location.pathname.endsWith('/videos') ||
       document.body.classList.contains('videos-page');
     if (!onVideos) return;
+
+    const hadOverlay = areFeedOverlaysOpen();
     event.preventDefault();
     event.stopPropagation();
+
+    try {
+      const App = window.NostrApp || {};
+      if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
+    } catch (_) {}
+
+    // סימון בית כפעיל אחרי חזרה מ־overlay | HYPER CORE TECH
+    try {
+      document.querySelectorAll('.primary-nav [data-nav]').forEach((btn) => {
+        btn.classList.toggle('is-active', btn.getAttribute('data-nav') === 'videos');
+      });
+    } catch (_) {}
+
+    if (hadOverlay) {
+      resumeCenteredFeedVideo();
+      return;
+    }
+
     try {
       const App = window.NostrApp || {};
       if (typeof App.exitGamesFeedMode === 'function') App.exitGamesFeedMode();
       if (typeof App.exitLiveTvFeedMode === 'function') App.exitLiveTvFeedMode();
-      if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
     } catch (_) {}
+
     const refreshFn = window.softRefreshVideosFeed || softRefreshVideosFeed;
     if (typeof refreshFn === 'function') refreshFn();
   }, true);
@@ -6143,6 +6206,7 @@ window.enterLiveTvFeedMode = enterLiveTvFeedMode;
 window.refreshLiveTvFeed = refreshLiveTvFeed;
 window.getSharedGamePosts = getSharedGamePosts;
 window.softRefreshVideosFeed = softRefreshVideosFeed;
+window.resumeCenteredFeedVideo = resumeCenteredFeedVideo;
 {
   const AppRef = window.NostrApp || (window.NostrApp = {});
   AppRef.closeGamesPanel = closeGamesPanel;
@@ -6156,6 +6220,8 @@ window.softRefreshVideosFeed = softRefreshVideosFeed;
   AppRef.refreshLiveTvFeed = refreshLiveTvFeed;
   AppRef.getSharedGamePosts = getSharedGamePosts;
   AppRef.softRefreshVideosFeed = softRefreshVideosFeed;
+  AppRef.resumeCenteredFeedVideo = resumeCenteredFeedVideo;
+  AppRef.areFeedOverlaysOpen = areFeedOverlaysOpen;
 }
 
 // חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH
