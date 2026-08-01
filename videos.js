@@ -1040,6 +1040,9 @@ const bootGate = {
   holdUntil: 0,
 };
 
+// פוסטים חדשים שירדו ברקע — מוצגים בראש רק בלחיצת בית (בלי קפיצה באמצע צפייה) | HYPER CORE TECH
+const pendingNewVideoIds = new Set();
+
 const selectors = {
   stream: null,
   status: null,
@@ -1464,9 +1467,53 @@ function upsertVideoInState(video, options = {}) {
   if (state.feedMode === 'games') showNow = isGameFeedVideo(video);
   else if (state.feedMode === 'live-tv') showNow = false;
   else showNow = isGeneralFeedVideo(video);
-  if (showNow) {
-    prependVideoCard(video, options);
+  if (!showNow) return;
+
+  // פוסט עצמי / immediate — מיד; אחרת בהפעלה חמה דוחים ל-DOM עד לחיצת בית | HYPER CORE TECH
+  const deferMount =
+    bootGate.released &&
+    state.firstCardRendered &&
+    !options.forceShow &&
+    !options.immediate;
+  if (deferMount) {
+    pendingNewVideoIds.add(video.id);
+    console.log('[videos] deferred new post until Home', { id: video.id });
+    return;
   }
+  prependVideoCard(video, options);
+}
+
+function hasWarmFeedContent() {
+  if (Array.isArray(state.videos) && state.videos.length > 0) return true;
+  try {
+    return !!(selectors.stream && selectors.stream.querySelector('.videos-feed__card[data-event-id]'));
+  } catch (_) {
+    return false;
+  }
+}
+
+function applyPendingNewPostsToDom() {
+  if (!selectors.stream) return 0;
+  const display = getDisplayVideos();
+  let added = 0;
+  display.forEach((video) => {
+    if (!video?.id) return;
+    if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
+    const { card, mediaReadyPromise } = renderVideoCard(video);
+    mountCard(card);
+    mediaReadyPromise
+      .then(() => markCardMediaReady(card))
+      .catch((err) => handleCardMediaFailure(card, video.id, err));
+    added += 1;
+  });
+  pendingNewVideoIds.clear();
+  try {
+    syncFeedDomOrder(display);
+  } catch (_) {}
+  if (added) {
+    console.log('[videos] applied pending posts on Home', { added, pendingCleared: true });
+  }
+  return added;
 }
 
 // חלק עדכון בזמן אמת (videos.js) – המרת אירוע Nostr לפריט פיד וידאו | HYPER CORE TECH
@@ -1936,7 +1983,7 @@ function restartOriginalLoadingScreen() {
 
 let lastHomeSoftRefreshAt = 0;
 
-// חלק רענון בית (videos.js) – דף טעינה מלא עד שהפוסט הראשון מוכן | HYPER CORE TECH
+// חלק רענון בית (videos.js) – חם: מיידי מהמטמון; קר: דף טעינה רק בלי תוכן | HYPER CORE TECH
 async function softRefreshVideosFeed() {
   const now = Date.now();
   if (now - lastHomeSoftRefreshAt < 700) {
@@ -1951,10 +1998,47 @@ async function softRefreshVideosFeed() {
     }
   } catch (_) {}
 
-  // מיד דף הטעינה המלא (SOS + מד) — לא כרטיס ריק | HYPER CORE TECH
-  rearmBootGate('home-soft-refresh', { showSoft: false, holdMs: 0 });
+  const warm = hasWarmFeedContent() && (bootGate.released || state.firstCardRendered);
+
+  if (warm) {
+    // הפעלה חמה: בלי דף טעינה — מציגים מיד + פוסטים חדשים שירדו ברקע בראש | HYPER CORE TECH
+    console.log('[videos] warm Home refresh', {
+      videos: state.videos.length,
+      pending: pendingNewVideoIds.size,
+    });
+    try {
+      document.body.classList.remove('videos-boot-loading');
+    } catch (_) {}
+    hideSoftFeedLoading();
+    hideLoadingAnimation({ force: true });
+    bootGate.active = false;
+    bootGate.released = true;
+    bootGate.releasePromise = null;
+
+    state.videos = sortVideosByCreatedAtDesc(Array.isArray(state.videos) ? state.videos : []);
+    applyPendingNewPostsToDom();
+    try {
+      syncFeedDomOrder(getDisplayVideos());
+    } catch (_) {}
+
+    try {
+      const viewport = document.querySelector('.videos-feed__viewport');
+      if (viewport) viewport.scrollTop = 0;
+    } catch (_) {}
+
+    requestAnimationFrame(() => {
+      autoPlayFirstVideo();
+    });
+
+    // חיפוש עדכונים ברקע — בלי לחסום / לקפוץ באמצע צפייה | HYPER CORE TECH
+    loadVideos().catch((err) => console.warn('[videos] warm Home loadVideos failed', err));
+    return;
+  }
+
+  // הפעלה קרה (אין פיד במכשיר) — דף טעינה עד הפוסט הראשון | HYPER CORE TECH
+  rearmBootGate('home-cold-refresh', { showSoft: false, holdMs: 0 });
   showLoadingAnimation();
-  setLoadingStatus('טוען מחדש את הפיד...');
+  setLoadingStatus('טוען את הפיד...');
   setLoadingProgress(30);
 
   try {
@@ -1963,8 +2047,6 @@ async function softRefreshVideosFeed() {
   } catch (_) {}
 
   state.videos = sortVideosByCreatedAtDesc(Array.isArray(state.videos) ? state.videos : []);
-
-  // LoadNug קולנועי מעל דף הטעינה (אם זמין) | HYPER CORE TECH
   restartOriginalLoadingScreen();
 
   if (typeof forceFullFeedRerender === 'function') {
@@ -1973,7 +2055,6 @@ async function softRefreshVideosFeed() {
     renderVideos();
   }
 
-  // אחרי רינדור — דף הטעינה נשאר מעל הפיד | HYPER CORE TECH
   showLoadingAnimation();
   try {
     const viewport = document.querySelector('.videos-feed__viewport');
@@ -5058,9 +5139,24 @@ async function loadVideos() {
   }
   
   saveFeedCache(state.videos);
+
+  // הפעלה חמה: שומרים חדשים בזיכרון/מטמון בלי לדחוף ל-DOM (יוצגו בלחיצת בית) | HYPER CORE TECH
+  const warmUi = bootGate.released && state.firstCardRendered;
+  if (warmUi) {
+    if (newVideos.length > 0) {
+      newVideos.forEach((v) => {
+        if (v?.id && isGeneralFeedVideo(v)) pendingNewVideoIds.add(v.id);
+      });
+      console.log('[videos] warm sync deferred DOM for Home', { deferred: newVideos.length });
+    }
+    setLoadingProgress(100);
+    hideLoadingAnimation();
+    return;
+  }
+
   renderVideos();
 
-  // אחרי רינדור מהרשת — מוודאים ש־2 הראשונים מוכנים לפני סגירת LoadNug | HYPER CORE TECH
+  // אחרי רינדור מהרשת — מוודאים שהראשון מוכן לפני סגירת LoadNug | HYPER CORE TECH
   if (!bootGate.released) {
     await ensureBootFeedReady();
   } else {
@@ -5530,15 +5626,15 @@ async function init() {
   try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
   bootGate.holdUntil = 0;
 
-  // חלק מטמון (videos.js) – הצגת פוסטים מהמטמון, בלי לסגור LoadNug עד מוכנות מלאה | HYPER CORE TECH
+  // חלק מטמון (videos.js) – יש מטמון = חזרה חמה מיידית; בלי מטמון = טעינה ראשונה | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();
   if (hadCachedContent) {
     if (selectors.status) {
       selectors.status.style.display = 'none';
     }
     state.firstCardRendered = true;
-    console.log('[videos] displayed cached content, waiting for first posts to be view-ready');
-    await ensureBootFeedReady();
+    console.log('[videos] warm start from cache — show feed immediately');
+    await releaseBootLoading('warm-cache-start');
   }
 
   // טעינת תוכן חדש ברקע (גם אם יש מטמון)
