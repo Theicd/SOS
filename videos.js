@@ -618,6 +618,7 @@ function wireMediaControls(root = document) {
 
 // חלק יאללה וידאו (videos.js) – הפעלה אוטומטית של הווידאו הראשון לפי סדר כרונולוגי | HYPER CORE TECH
 function autoPlayFirstVideo() {
+  if (bootGate.active && !bootGate.released) return;
   if (!selectors.stream) return;
   const ordered = getDisplayVideos();
   const firstId = ordered[0]?.id;
@@ -639,6 +640,11 @@ function autoPlayFirstVideo() {
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (!mediaDiv) return;
+
+  // בזמן דף טעינה – לא מנגנים מאחורי המסך; נתחיל מיד אחרי הסגירה | HYPER CORE TECH
+  if (bootGate.active && !bootGate.released && !manual) {
+    return;
+  }
   
   // אם זו לחיצה ידנית - מפעילים מצב PLAY גלובלי
   if (manual) {
@@ -1866,18 +1872,20 @@ function rearmBootGate(reason = 'rearm', { showSoft = false, holdMs = 0 } = {}) 
   else hideSoftFeedLoading();
   setLoadingStatus('מרענן...');
   setLoadingProgress(25);
+  // עוצרים כל ניגון ברקע בזמן המסך | HYPER CORE TECH
+  try {
+    document.querySelectorAll('.videos-feed__media video').forEach((v) => {
+      try { v.pause(); } catch (_) {}
+    });
+  } catch (_) {}
 }
 
 async function releaseBootLoading(reason = 'ready') {
   if (bootGate.released) return;
-  const waitMs = (bootGate.holdUntil || 0) - Date.now();
-  if (waitMs > 0) {
-    await sleepMs(waitMs);
-  }
-  if (bootGate.released) return;
+  // בלי השהיית hold מלאכותית — סוגרים ברגע שהפוסט הראשון מוכן לצפייה | HYPER CORE TECH
+  bootGate.holdUntil = 0;
   bootGate.released = true;
   bootGate.active = false;
-  bootGate.holdUntil = 0;
   console.log('[videos] boot loading released:', reason);
   try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
   setLoadingProgress(100);
@@ -1891,6 +1899,17 @@ async function releaseBootLoading(reason = 'ready') {
     const viewport = document.querySelector('.videos-feed__viewport');
     if (viewport) viewport.scrollTop = 0;
   } catch (_) {}
+  // מאפסים זמן — אם משהו רץ מאחורי המסך, המשתמש רואה מההתחלה | HYPER CORE TECH
+  try {
+    document.querySelectorAll('.videos-feed__media[data-media-type="file"] video').forEach((v) => {
+      try { v.pause(); } catch (_) {}
+      try {
+        if (typeof v.fastSeek === 'function') v.fastSeek(0);
+        else v.currentTime = 0;
+      } catch (_) {}
+    });
+  } catch (_) {}
+  // הפעלה מיד עם הסרת המסך — סנכרון מדויק לפוסט הראשון | HYPER CORE TECH
   requestAnimationFrame(() => {
     autoPlayFirstVideo();
   });
@@ -1917,7 +1936,7 @@ function restartOriginalLoadingScreen() {
 
 let lastHomeSoftRefreshAt = 0;
 
-// חלק רענון בית (videos.js) – דף טעינה מלא עד ש־2 פוסטים מוכנים | HYPER CORE TECH
+// חלק רענון בית (videos.js) – דף טעינה מלא עד שהפוסט הראשון מוכן | HYPER CORE TECH
 async function softRefreshVideosFeed() {
   const now = Date.now();
   if (now - lastHomeSoftRefreshAt < 700) {
@@ -1933,7 +1952,7 @@ async function softRefreshVideosFeed() {
   } catch (_) {}
 
   // מיד דף הטעינה המלא (SOS + מד) — לא כרטיס ריק | HYPER CORE TECH
-  rearmBootGate('home-soft-refresh', { showSoft: false, holdMs: 1600 });
+  rearmBootGate('home-soft-refresh', { showSoft: false, holdMs: 0 });
   showLoadingAnimation();
   setLoadingStatus('טוען מחדש את הפיד...');
   setLoadingProgress(30);
@@ -2072,11 +2091,35 @@ async function waitForPostMediaPlayable(video) {
   if (type === 'file') {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return false;
-    // אם כבר יש src/blob מוכן
-    if (videoEl.readyState >= 2) return true;
-    return waitForMediaElementReady(videoEl, {
-      events: ['loadeddata', 'canplay', 'canplaythrough'],
-      timeoutMs: BOOT_MEDIA_TIMEOUT_MS,
+    // פריים ראשון מספיק להצגה — לא מחכים להורדה מלאה / canplaythrough | HYPER CORE TECH
+    if (videoEl.readyState >= 2 || (videoEl.videoWidth > 0 && videoEl.readyState >= 1)) {
+      return true;
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const done = (ok) => {
+        if (settled) return;
+        settled = true;
+        clearInterval(poll);
+        clearTimeout(timer);
+        videoEl.removeEventListener('loadeddata', onOk);
+        videoEl.removeEventListener('canplay', onOk);
+        videoEl.removeEventListener('loadedmetadata', onOk);
+        videoEl.removeEventListener('error', onErr);
+        resolve(!!ok);
+      };
+      const onOk = () => done(true);
+      const onErr = () => done(false);
+      const poll = setInterval(() => {
+        if (videoEl.readyState >= 2 || (videoEl.videoWidth > 0 && videoEl.readyState >= 1)) {
+          done(true);
+        }
+      }, 100);
+      const timer = setTimeout(() => done(false), BOOT_MEDIA_TIMEOUT_MS);
+      videoEl.addEventListener('loadeddata', onOk, { once: true });
+      videoEl.addEventListener('canplay', onOk, { once: true });
+      videoEl.addEventListener('loadedmetadata', onOk, { once: true });
+      videoEl.addEventListener('error', onErr, { once: true });
     });
   }
   // live/game/other — לא חוסמים את ה-boot יותר מדי
@@ -2169,14 +2212,14 @@ async function loadBootMetaForPosts(posts) {
   });
 }
 
-// חלק טעינה (videos.js) – סגירת LoadNug רק כש־N הפוסטים הראשונים מוכנים לצפייה מלאה | HYPER CORE TECH
+// חלק טעינה (videos.js) – סגירת דף הטעינה ברגע שהפוסט הראשון מוכן לצפייה | HYPER CORE TECH
 async function ensureBootFeedReady() {
   if (bootGate.released) return;
   if (bootGate.releasePromise) return bootGate.releasePromise;
 
   bootGate.releasePromise = (async () => {
     showLoadingAnimation();
-    setLoadingStatus('מכין את הפוסטים הראשונים...');
+    setLoadingStatus('מכין את הפוסט הראשון...');
     setLoadingProgress(55);
 
     const posts = getDisplayVideos().slice(0, BOOT_READY_POST_COUNT);
@@ -2187,34 +2230,35 @@ async function ensureBootFeedReady() {
       return;
     }
 
-    // ממתינים שהכרטיסים ייכנסו ל-DOM ואז מריצים הורדות בעדיפות | HYPER CORE TECH
+    // ממתינים שהכרטיס ייכנס ל-DOM ואז מריצים הורדה בעדיפות | HYPER CORE TECH
     await Promise.all(posts.map((p) => waitForFeedCard(p.id, 15000)));
-    await sleepMs(80);
+    await sleepMs(40);
     prioritizeBootDownloads(posts);
     try {
       processVideoDownloadQueue();
     } catch (_) {}
 
     setLoadingStatus('טוען את הפוסט הראשון לצפייה...');
-    setLoadingProgress(62);
+    setLoadingProgress(70);
 
     const mediaResults = await Promise.all(
       posts.map(async (video, index) => {
         const ok = await waitForPostMediaPlayable(video);
-        setLoadingProgress(62 + ((index + 1) / posts.length) * 10);
+        setLoadingProgress(70 + ((index + 1) / posts.length) * 25);
         console.log('[videos] boot media', { id: video.id, ok, type: video.youtubeId ? 'youtube' : (video.videoUrl ? 'file' : 'other') });
         return ok;
       })
     );
 
-    await loadBootMetaForPosts(posts);
-    setLoadingProgress(92);
-
     const readyCount = mediaResults.filter(Boolean).length;
-    // אם לפחות פוסט אחד מוכן (או שכולם נכשלו אחרי timeout) — משחררים כדי לא לתקוע | HYPER CORE TECH
+    // סוגרים מיד כשהמדיה מוכנה — לייקים/פרופילים ברקע אחרי ההצגה | HYPER CORE TECH
     if (readyCount > 0 || posts.length > 0) {
-      await releaseBootLoading(`first-${posts.length}-posts media=${readyCount}/${posts.length}`);
+      await releaseBootLoading(`first-post media=${readyCount}/${posts.length}`);
     }
+
+    loadBootMetaForPosts(posts).catch((err) => {
+      console.warn('[videos] boot meta after release failed', err);
+    });
   })().catch(async (err) => {
     console.warn('[videos] ensureBootFeedReady failed', err);
     await releaseBootLoading('boot-error-fallback');
@@ -5472,7 +5516,7 @@ async function init() {
   setLoadingStatus('טוען פוסטים...');
   setLoadingProgress(20);
   try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
-  bootGate.holdUntil = Date.now() + 1200;
+  bootGate.holdUntil = 0;
 
   // חלק מטמון (videos.js) – הצגת פוסטים מהמטמון, בלי לסגור LoadNug עד מוכנות מלאה | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();

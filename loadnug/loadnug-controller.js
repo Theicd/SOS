@@ -258,10 +258,9 @@ export class LoadNugController {
     if (this._holdInt) { clearInterval(this._holdInt); this._holdInt = null; }
     this._setBar(100);
     if (this._statusEl) this._statusEl.textContent = 'הכל מוכן!';
-    setTimeout(() => {
-      try { this.renderer && this.renderer.complete && this.renderer.complete(); } catch (e) {}
-      this._complete();
-    }, 500);
+    // סגירה מיידית — מסונכרן עם הפוסט הראשון, בלי השהייה מלאכותית | HYPER CORE TECH
+    try { this.renderer && this.renderer.complete && this.renderer.complete(); } catch (e) {}
+    this._complete();
   }
 
   _onSceneResolved() {
