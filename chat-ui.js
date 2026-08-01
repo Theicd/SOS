@@ -694,9 +694,14 @@
         showNotificationsView();
         break;
       case 'home':
+        // סגירת שיחות + חזרה לאותו פוסט — בלי ללחוץ בית (שמרענן את הפיד) | HYPER CORE TECH
         setFooterMode('home');
         togglePanel(false);
-        homeNavButton?.click?.();
+        if (typeof App.resumeCenteredFeedVideo === 'function') {
+          App.resumeCenteredFeedVideo();
+        } else if (typeof window.resumeCenteredFeedVideo === 'function') {
+          window.resumeCenteredFeedVideo();
+        }
         break;
       case 'profile':
         // חלק פרופיל (chat-ui.js) – פתיחת דף הפרופיל של המשתמש | HYPER CORE TECH

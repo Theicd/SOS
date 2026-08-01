@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v168'; // bump - Home after overlay resumes same post
+  const CACHE_NAME = 'sos-cache-v169'; // bump - fix overlay Home resume (no recursive areFeedOverlaysOpen)
   const PRECACHE_URLS = [
     './',
     './videos.html',

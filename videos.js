@@ -665,14 +665,25 @@ function resumeCenteredFeedVideo() {
 }
 
 function areFeedOverlaysOpen() {
-  const App = window.NostrApp || {};
-  if (typeof App.areFeedOverlaysOpen === 'function') {
-    try { return !!App.areFeedOverlaysOpen(); } catch (_) {}
-  }
+  // לא לקרוא ל-App.areFeedOverlaysOpen אם זה אנחנו — מונע רקורסיה אחרי overwrite | HYPER CORE TECH
+  if (document.body.classList.contains('chat-overlay-open')) return true;
+  try {
+    const App = window.NostrApp || {};
+    if (App.chatState && App.chatState.isOpen) return true;
+    const navCheck = App.areFeedOverlaysOpen;
+    if (typeof navCheck === 'function' && navCheck !== areFeedOverlaysOpen) {
+      return !!navCheck();
+    }
+  } catch (_) {}
   const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
   return ids.some((id) => {
     const el = document.getElementById(id);
-    return !!(el && !el.hidden);
+    if (!el || el.hidden || el.hasAttribute('hidden')) return false;
+    try {
+      const cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    } catch (_) {}
+    return true;
   });
 }
 
@@ -6233,21 +6244,46 @@ if (window.NostrApp) {
 // חלק מאזין הודעות (videos.js) – סגירת overlay בקבלת postMessage מ-iframe | HYPER CORE TECH
 window.addEventListener('message', function handleOverlayMessage(event) {
   console.log('[VIDEOS] Received postMessage:', event.data);
-  if (event.data && event.data.type === 'closePublicProfile') {
+  const data = event.data;
+  if (!data || typeof data !== 'object') return;
+
+  if (data.type === 'closePublicProfile') {
     console.log('[VIDEOS] Closing public profile panel via postMessage');
     closePublicProfilePanel();
+    resumeCenteredFeedVideo();
+    return;
   }
-  if (event.data && event.data.type === 'closeGames') {
+  if (data.type === 'closeGames') {
     console.log('[VIDEOS] Closing games panel via postMessage');
     closeGamesPanel();
+    resumeCenteredFeedVideo();
+    return;
   }
-  if (event.data && event.data.type === 'openTriviaGame') {
+  // בית מתוך iframe פרופיל/משחקים — סגירה + אותו פוסט, בלי רענון | HYPER CORE TECH
+  if (data.type === 'closeProfileAndResumeFeed' || data.type === 'closeProfilePanel') {
+    console.log('[VIDEOS] Closing profile/games via postMessage + resume feed');
+    try {
+      const App = window.NostrApp || {};
+      if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
+      else {
+        closePublicProfilePanel();
+        const profilePanel = document.getElementById('profilePanel');
+        const profileFrame = document.getElementById('profilePanelFrame');
+        if (profilePanel) profilePanel.hidden = true;
+        if (profileFrame) profileFrame.src = '';
+        closeGamesPanel();
+      }
+    } catch (_) {}
+    resumeCenteredFeedVideo();
+    return;
+  }
+  if (data.type === 'openTriviaGame') {
     closeGamesPanel();
     if (typeof window.NostrApp?.openTriviaGame === 'function') {
       window.NostrApp.openTriviaGame();
     }
   }
-  if (event.data && event.data.type === 'openDoomGame') {
+  if (data.type === 'openDoomGame') {
     closeGamesPanel();
     window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
   }

@@ -69,15 +69,23 @@
     return closed;
   }
 
-  // חלק פאנל צ'אט (navigation.js) – פונקציה לסגירת פאנל ההודעות | HYPER CORE TECH
+  // חלק פאנל צ'אט (navigation.js) – סגירה דרך chat-ui (מסנכרן isOpen + chat-overlay-open) | HYPER CORE TECH
   function closeChatPanel() {
     const chatPanel = document.getElementById('chatPanel');
-    if (chatPanel && !chatPanel.hidden) {
+    const wasOpen = !!(
+      (chatPanel && !chatPanel.hidden && !chatPanel.hasAttribute('hidden')) ||
+      document.body.classList.contains('chat-overlay-open') ||
+      App.chatState?.isOpen
+    );
+    const externalClose = App.closeChatPanel;
+    if (typeof externalClose === 'function' && externalClose !== closeChatPanel) {
+      try { externalClose(); } catch (_) {}
+    } else if (chatPanel && !chatPanel.hidden) {
       chatPanel.hidden = true;
-      console.log('[NAV] Chat panel closed');
-      return true;
     }
-    return false;
+    try { document.body.classList.remove('chat-overlay-open'); } catch (_) {}
+    if (wasOpen) console.log('[NAV] Chat panel closed');
+    return wasOpen;
   }
 
   // חלק פאנל התראות (navigation.js) – פונקציה לסגירת פאנל ההתראות | HYPER CORE TECH
@@ -102,12 +110,44 @@
     return closed;
   }
 
+  function isOverlayElementVisible(el) {
+    if (!el) return false;
+    if (el.hasAttribute('hidden') || el.hidden) return false;
+    try {
+      const cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    } catch (_) {}
+    return true;
+  }
+
   function areFeedOverlaysOpen() {
+    if (document.body.classList.contains('chat-overlay-open')) return true;
+    try {
+      if (App.chatState && App.chatState.isOpen) return true;
+    } catch (_) {}
     const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
-    return ids.some((id) => {
-      const el = document.getElementById(id);
-      return !!(el && !el.hidden);
-    });
+    return ids.some((id) => isOverlayElementVisible(document.getElementById(id)));
+  }
+
+  function isEmbeddedInParentOverlay() {
+    try {
+      if (window.parent === window) return false;
+      const params = new URLSearchParams(window.location.search || '');
+      if (params.get('embedded') === '1') return true;
+      // פרופיל/משחקים ב-iframe מתוך videos.html | HYPER CORE TECH
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function requestParentResumeFeed() {
+    try {
+      window.parent.postMessage({ type: 'closeProfileAndResumeFeed' }, '*');
+      console.log('[NAV] Asked parent to close overlay and resume feed');
+    } catch (err) {
+      console.warn('[NAV] parent postMessage failed', err);
+    }
   }
 
   // חשיפה גלובלית לסגירת פאנלים | HYPER CORE TECH
@@ -162,6 +202,11 @@
 
     // חלק ניווט וידאו (navigation.js) – לחיצה על "וידאו פיד" עוברת לדף הווידאו בסגנון רשתות
     if (key === 'videos') {
+      // בתוך iframe (פרופיל/משחקים) — מבקשים מההורה לסגור ולחזור לאותו פוסט | HYPER CORE TECH
+      if (isEmbeddedInParentOverlay()) {
+        requestParentResumeFeed();
+        return;
+      }
       // אם כבר בדף videos.html | HYPER CORE TECH
       if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos') || document.body.classList.contains('videos-page')) {
         // אחרי פרופיל/שיחות/התראות — רק חזרה לאותו פוסט, בלי רענון | HYPER CORE TECH
