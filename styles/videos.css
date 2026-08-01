@@ -2654,6 +2654,15 @@ body.videos-boot-loading .videos-feed__card:not(#sosLoadNugOverlay):not(.videos-
   visibility: hidden !important;
   pointer-events: none !important;
 }
+body.videos-boot-loading .video-skip-indicator,
+body.videos-boot-loading .video-progress-bar,
+body.videos-boot-loading .videos-feed__skip,
+body.videos-boot-loading [data-skip],
+body.videos-boot-loading .videos-nav-arrows {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
 body.videos-boot-loading #sosLoadNugOverlay,
 body.videos-boot-loading .videos-feed__card--loadnug {
   visibility: visible !important;

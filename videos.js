@@ -1023,7 +1023,7 @@ const state = {
 // חלק טעינה (videos.js) – סף מינימלי להורדה לפני סגירת מסך הטעינה | HYPER CORE TECH
 const MIN_DOWNLOAD_BYTES = 20 * 1024 * 1024; // 20MB מינימום
 // כמה פוסטים ראשונים חייבים להיות מוכנים לצפייה לפני סגירת LoadNug | HYPER CORE TECH
-const BOOT_READY_POST_COUNT = 2;
+const BOOT_READY_POST_COUNT = 1;
 const BOOT_MEDIA_TIMEOUT_MS = 28000;
 const BOOT_SAFETY_TIMEOUT_MS = 45000;
 
@@ -1841,7 +1841,7 @@ function showSoftFeedLoading() {
   el.hidden = false;
   el.removeAttribute('hidden');
   el.setAttribute('aria-hidden', 'false');
-  el.style.cssText = 'display:flex!important;position:fixed!important;inset:0!important;z-index:2500!important;background:#000!important;align-items:center;justify-content:center;pointer-events:auto;';
+  el.style.cssText = 'display:flex!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:calc(56px + var(--safe-bottom, 0px))!important;z-index:2940!important;background:#000!important;align-items:center;justify-content:center;pointer-events:auto;';
 }
 
 function hideSoftFeedLoading() {
@@ -2195,11 +2195,7 @@ async function ensureBootFeedReady() {
       processVideoDownloadQueue();
     } catch (_) {}
 
-    setLoadingStatus(
-      posts.length >= 2
-        ? 'טוען 2 פוסטים ראשונים לצפייה...'
-        : 'טוען את הפוסט הראשון לצפייה...'
-    );
+    setLoadingStatus('טוען את הפוסט הראשון לצפייה...');
     setLoadingProgress(62);
 
     const mediaResults = await Promise.all(
