@@ -159,6 +159,20 @@
   App.closeAllOverlays = closeAllOverlays;
   App.areFeedOverlaysOpen = areFeedOverlaysOpen;
 
+  function isOnVideosFeedPage() {
+    try {
+      if (typeof App.isOnVideosFeedPage === 'function') return !!App.isOnVideosFeedPage();
+    } catch (_) {}
+    try {
+      if (document.body && document.body.classList.contains('videos-page')) return true;
+    } catch (_) {}
+    if (document.getElementById('videosStream')) return true;
+    if (document.querySelector('.videos-feed')) return true;
+    const path = String(window.location.pathname || '');
+    if (path.includes('videos.html') || path.endsWith('/videos')) return true;
+    return false;
+  }
+
   function handleNavClick(event) {
     const key = event.currentTarget.getAttribute('data-nav');
     if (!key) {
@@ -207,23 +221,22 @@
         requestParentResumeFeed();
         return;
       }
-      // אם כבר בדף videos.html | HYPER CORE TECH
-      if (window.location.pathname.includes('videos.html') || window.location.pathname.endsWith('/videos') || document.body.classList.contains('videos-page')) {
-        // לחיצה 1: סגירת overlay / רמז; לחיצה 2: רענון | HYPER CORE TECH
+      // אחרי history.replaceState ה־pathname הוא "/" — מזהים לפי body / #videosStream | HYPER CORE TECH
+      if (isOnVideosFeedPage()) {
         const homeFn = App.handleHomeButtonAction || window.handleHomeButtonAction;
         if (typeof homeFn === 'function') {
-          console.log('[NAV] Home delegated to handleHomeButtonAction');
+          console.log('[NAV] Home delegated to handleHomeButtonAction (no location.href)');
           homeFn();
           return;
         }
-        // Fallback אם videos.js עוד לא נטען | HYPER CORE TECH
+        // Fallback אם videos.js עוד לא נטען — רק סגירת overlay, בלי רענון | HYPER CORE TECH
         if (areFeedOverlaysOpen()) {
           closeAllOverlays();
           if (typeof App.resumeCenteredFeedVideo === 'function') App.resumeCenteredFeedVideo();
           else if (typeof window.resumeCenteredFeedVideo === 'function') window.resumeCenteredFeedVideo();
           return;
         }
-        console.log('[NAV] Already on videos page, handleHomeButtonAction missing');
+        console.log('[NAV] Already on videos feed, handleHomeButtonAction missing — stay put');
         return;
       }
       if (previousNav === 'profile' && App.cameFromVideos && typeof window.history?.back === 'function') {

@@ -697,16 +697,36 @@
         // סגירת שיחות + חזרה לאותו פוסט — בלי ללחוץ בית (שמרענן את הפיד) | HYPER CORE TECH
         setFooterMode('home');
         togglePanel(false);
-        if (typeof App.resumeCenteredFeedVideo === 'function') {
+        if (typeof App.handleHomeButtonAction === 'function') {
+          // לא קוראים handleHome אם רק סוגרים צ'אט — רק resume | HYPER CORE TECH
+          if (typeof App.resumeCenteredFeedVideo === 'function') App.resumeCenteredFeedVideo();
+          else if (typeof window.resumeCenteredFeedVideo === 'function') window.resumeCenteredFeedVideo();
+        } else if (typeof App.resumeCenteredFeedVideo === 'function') {
           App.resumeCenteredFeedVideo();
         } else if (typeof window.resumeCenteredFeedVideo === 'function') {
           window.resumeCenteredFeedVideo();
         }
         break;
       case 'profile':
-        // חלק פרופיל (chat-ui.js) – פתיחת דף הפרופיל של המשתמש | HYPER CORE TECH
-        console.log('[CHAT] Profile clicked - navigating to profile.html');
-        window.location.href = 'profile.html';
+        // חלק פרופיל (chat-ui.js) – פתיחת פרופיל כ־overlay, בלי ניווט מלא | HYPER CORE TECH
+        console.log('[CHAT] Profile clicked - opening profile overlay');
+        togglePanel(false);
+        {
+          const profileBtn = doc.querySelector('.primary-nav [data-nav="profile"]');
+          if (profileBtn && typeof profileBtn.click === 'function') {
+            profileBtn.click();
+          } else {
+            const profilePanel = doc.getElementById('profilePanel');
+            const profileFrame = doc.getElementById('profilePanelFrame');
+            if (profilePanel && profileFrame) {
+              if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
+              profileFrame.src = './profile.html?embedded=1';
+              profilePanel.hidden = false;
+            } else {
+              window.location.href = 'profile.html';
+            }
+          }
+        }
         break;
       case 'games':
         // חלק משחקים (chat-ui.js) – פתיחת דף המשחקים | HYPER CORE TECH

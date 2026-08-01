@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.5.8-home-loadnug-replay';
+const VIDEOS_CODE_VERSION = '2.5.9-home-no-reload';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -652,6 +652,18 @@ function getCenteredFeedCard() {
   }) || cards[0];
 }
 
+// חלק זיהוי פיד (videos.js) – אחרי replaceState ה־pathname הוא "/" ולכן לא סומכים עליו | HYPER CORE TECH
+function isOnVideosFeedPage() {
+  try {
+    if (document.body && document.body.classList.contains('videos-page')) return true;
+  } catch (_) {}
+  if (document.getElementById('videosStream')) return true;
+  if (document.querySelector('.videos-feed')) return true;
+  const path = String(window.location.pathname || '');
+  if (path.includes('videos.html') || path.endsWith('/videos')) return true;
+  return false;
+}
+
 // חלק חזרה מ־overlay (videos.js) – ממשיכים את הפוסט שבמרכז המסך, בלי רענון | HYPER CORE TECH
 function resumeCenteredFeedVideo() {
   if (bootGate.active && !bootGate.released) return;
@@ -666,14 +678,18 @@ function resumeCenteredFeedVideo() {
   }
 }
 
-// חלק בית (videos.js) – לחיצה 1: סגירת overlay / רמז לרענון; לחיצה 2: רענון פיד | HYPER CORE TECH
-const HOME_REFRESH_ARM_MS = 4000;
+// חלק בית (videos.js) – לחיצה 1: סגירת overlay / רמז; לחיצה 2: רענון חם בלבד | HYPER CORE TECH
+const HOME_REFRESH_ARM_MS = 4500;
+const HOME_ACTION_DEBOUNCE_MS = 450; // WebView לעיתים יורה 2 clicks מאותו מגע | HYPER CORE TECH
+const HOME_ARM_GUARD_MS = 500; // אחרי לחיצה 1 לא מאפשרים refresh מיידי מ־double-fire | HYPER CORE TECH
 let homeRefreshArmedUntil = 0;
+let homeRefreshArmedAt = 0;
 let homeRefreshHintTimer = null;
 let lastHomeActionInvokeAt = 0;
 
 function clearHomeRefreshArm() {
   homeRefreshArmedUntil = 0;
+  homeRefreshArmedAt = 0;
   if (homeRefreshHintTimer) {
     clearTimeout(homeRefreshHintTimer);
     homeRefreshHintTimer = null;
@@ -702,7 +718,9 @@ function showHomeRefreshHint() {
   requestAnimationFrame(() => {
     try { hint.classList.add('is-visible'); } catch (_) {}
   });
-  homeRefreshArmedUntil = Date.now() + HOME_REFRESH_ARM_MS;
+  const now = Date.now();
+  homeRefreshArmedAt = now;
+  homeRefreshArmedUntil = now + HOME_REFRESH_ARM_MS;
   homeRefreshHintTimer = setTimeout(() => {
     clearHomeRefreshArm();
   }, HOME_REFRESH_ARM_MS);
@@ -717,17 +735,19 @@ function markHomeNavActive() {
 }
 
 /**
- * התנהגות אחידה ללחיצת בית:
+ * התנהגות אחידה ללחיצת בית — לעולם בלי location.href / LoadNug בלחיצה 1:
  * - פרופיל / שיחות / התראות פתוחים → סוגר בלבד + ממשיך את אותו פוסט
- * - על הפיד: לחיצה ראשונה = רמז במרכז; לחיצה שנייה בתוך חלון הזמן = רענון
+ * - על הפיד: לחיצה ראשונה = רמז; לחיצה שנייה = soft-refresh חם בלבד
  */
 function handleHomeButtonAction() {
   const now = Date.now();
-  // מונע קריאה כפולה מאותה לחיצה (capture + navigation) | HYPER CORE TECH
-  if (now - lastHomeActionInvokeAt < 120) {
+  if (now - lastHomeActionInvokeAt < HOME_ACTION_DEBOUNCE_MS) {
+    console.log('[videos] Home debounced', { ms: now - lastHomeActionInvokeAt });
     return 'debounced';
   }
   lastHomeActionInvokeAt = now;
+
+  try { document.body.classList.add('videos-page'); } catch (_) {}
 
   const App = window.NostrApp || {};
   markHomeNavActive();
@@ -743,23 +763,29 @@ function handleHomeButtonAction() {
     return 'closed-overlay';
   }
 
-  if (now < homeRefreshArmedUntil) {
+  // לחיצה שנייה אחרי הרמז — רק אם עבר מספיק זמן מול double-fire | HYPER CORE TECH
+  if (homeRefreshArmedUntil > 0 && now < homeRefreshArmedUntil) {
+    if (now - homeRefreshArmedAt < HOME_ARM_GUARD_MS) {
+      console.log('[videos] Home second-tap ignored (arm guard)');
+      return 'arm-guard';
+    }
     clearHomeRefreshArm();
     try {
       if (typeof App.exitGamesFeedMode === 'function') App.exitGamesFeedMode();
       if (typeof App.exitLiveTvFeedMode === 'function') App.exitLiveTvFeedMode();
     } catch (_) {}
+    // תמיד warm אם יש תוכן על המסך — לא LoadNug | HYPER CORE TECH
     const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed || softRefreshVideosFeed;
     if (typeof refreshFn === 'function') {
-      console.log('[videos] Home second tap — soft refresh');
-      refreshFn();
+      console.log('[videos] Home second tap — soft refresh (prefer warm)');
+      refreshFn({ preferWarm: true, fromHome: true });
       return 'refresh';
     }
     return 'refresh-missing';
   }
 
   showHomeRefreshHint();
-  console.log('[videos] Home first tap on feed — armed refresh hint');
+  console.log('[videos] Home first tap on feed — armed refresh hint', { version: VIDEOS_CODE_VERSION });
   return 'armed';
 }
 
@@ -784,6 +810,38 @@ function areFeedOverlaysOpen() {
     } catch (_) {}
     return true;
   });
+}
+
+// חלק בית (videos.js) – מאזין capture מוקדם (לפני navigation.js bubble) | HYPER CORE TECH
+let homeCaptureBound = false;
+function bindHomeNavCaptureOnce() {
+  if (homeCaptureBound) return;
+  homeCaptureBound = true;
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!target || typeof target.closest !== 'function') return;
+    const homeNav = target.closest('.primary-nav [data-nav="videos"]');
+    if (!homeNav) return;
+    if (!isOnVideosFeedPage()) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    try { event.stopImmediatePropagation(); } catch (_) {}
+    handleHomeButtonAction();
+  }, true);
+}
+try {
+  bindHomeNavCaptureOnce();
+} catch (_) {}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      document.body.classList.add('videos-page');
+      bindHomeNavCaptureOnce();
+    } catch (_) {}
+  });
+} else {
+  try { document.body.classList.add('videos-page'); } catch (_) {}
 }
 
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
@@ -2133,7 +2191,7 @@ function restartOriginalLoadingScreen() {
 let lastHomeSoftRefreshAt = 0;
 
 // חלק רענון בית (videos.js) – חם: מיידי מהמטמון; קר: דף טעינה רק בלי תוכן | HYPER CORE TECH
-async function softRefreshVideosFeed() {
+async function softRefreshVideosFeed(options = {}) {
   clearHomeRefreshArm();
   const now = Date.now();
   if (now - lastHomeSoftRefreshAt < 700) {
@@ -2141,20 +2199,23 @@ async function softRefreshVideosFeed() {
     return;
   }
   lastHomeSoftRefreshAt = now;
-  console.log('[videos] softRefreshVideosFeed start');
+  const preferWarm = !!(options && (options.preferWarm || options.fromHome));
+  console.log('[videos] softRefreshVideosFeed start', { preferWarm, version: VIDEOS_CODE_VERSION });
   try {
     if (typeof pauseAllFeedVideos === 'function') {
       pauseAllFeedVideos({ disableAutoplay: false });
     }
   } catch (_) {}
 
-  const warm = hasWarmFeedContent() && (bootGate.released || state.firstCardRendered);
+  const hasContent = hasWarmFeedContent() || !!(document.querySelector('.videos-feed__card[data-event-id]'));
+  const warm = hasContent && (bootGate.released || state.firstCardRendered || preferWarm);
 
-  if (warm) {
+  if (warm || (preferWarm && hasContent)) {
     // הפעלה חמה: בלי דף טעינה — מציגים מיד + פוסטים חדשים שירדו ברקע בראש | HYPER CORE TECH
     console.log('[videos] warm Home refresh', {
       videos: state.videos.length,
       pending: pendingNewVideoIds.size,
+      preferWarm,
     });
     try {
       document.body.classList.remove('videos-boot-loading');
@@ -2186,6 +2247,12 @@ async function softRefreshVideosFeed() {
   }
 
   // הפעלה קרה (אין פיד במכשיר) — דף טעינה עד הפוסט הראשון | HYPER CORE TECH
+  // מבית עם תוכן — לא מגיעים לכאן | HYPER CORE TECH
+  if (preferWarm) {
+    console.warn('[videos] Home refresh skipped cold LoadNug — no content yet');
+    return;
+  }
+
   rearmBootGate('home-cold-refresh', { showSoft: false, holdMs: 0 });
   showLoadingAnimation();
   setLoadingStatus('טוען את הפיד...');
@@ -5706,22 +5773,8 @@ async function init() {
     });
   }
 
-  // חלק בית (videos.js) – capture: מונע soft-refresh מיידי מ־navigation.js | HYPER CORE TECH
-  document.addEventListener('click', (event) => {
-    const target = event.target;
-    if (!target || typeof target.closest !== 'function') return;
-    const homeNav = target.closest('.primary-nav [data-nav="videos"]');
-    if (!homeNav) return;
-    const onVideos =
-      window.location.pathname.includes('videos.html') ||
-      window.location.pathname.endsWith('/videos') ||
-      document.body.classList.contains('videos-page');
-    if (!onVideos) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    handleHomeButtonAction();
-  }, true);
+  bindHomeNavCaptureOnce();
+  try { document.body.classList.add('videos-page'); } catch (_) {}
 
   // גלילה מבטלת את מצב "לחיצה נוספת תרענן" | HYPER CORE TECH
   const feedViewport = document.querySelector('.videos-feed__viewport');
@@ -6286,6 +6339,7 @@ window.softRefreshVideosFeed = softRefreshVideosFeed;
 window.resumeCenteredFeedVideo = resumeCenteredFeedVideo;
 window.handleHomeButtonAction = handleHomeButtonAction;
 window.clearHomeRefreshArm = clearHomeRefreshArm;
+window.isOnVideosFeedPage = isOnVideosFeedPage;
 {
   const AppRef = window.NostrApp || (window.NostrApp = {});
   AppRef.closeGamesPanel = closeGamesPanel;
@@ -6303,6 +6357,7 @@ window.clearHomeRefreshArm = clearHomeRefreshArm;
   AppRef.areFeedOverlaysOpen = areFeedOverlaysOpen;
   AppRef.handleHomeButtonAction = handleHomeButtonAction;
   AppRef.clearHomeRefreshArm = clearHomeRefreshArm;
+  AppRef.isOnVideosFeedPage = isOnVideosFeedPage;
 }
 
 // חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH
