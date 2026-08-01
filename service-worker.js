@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v172'; // bump - quiet-prepend new posts at top; Home = scroll only
+  const CACHE_NAME = 'sos-cache-v173'; // bump - boot waits for first video frame before dismiss
   const PRECACHE_URLS = [
     './',
     './videos.html',
