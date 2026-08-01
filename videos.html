@@ -105,11 +105,11 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260731p">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260731q">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260731p">
+    <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260731q">
     <style>
       /* דף טעינה מלא – עד קו התפריט התחתון, מסתיר כרטיסיה/כפתורי דילוג | HYPER CORE TECH */
       #videosLoadingOverlay.videos-loading-overlay {
@@ -1714,7 +1714,7 @@
         App.activeNav = 'videos';
       })();
     </script>
-    <script src="./navigation.js?v=20260731p" defer></script>
+    <script src="./navigation.js?v=20260731q" defer></script>
     <script src="./feed.js" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
@@ -1754,7 +1754,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260731p" defer></script>
+    <script src="./videos.js?v=20260731q" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -2051,7 +2051,7 @@
       </div>
     </div>
     <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="טוען">
-      <img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731p" alt="SOS">
+      <img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731q" alt="SOS">
     </div>
 
     <!-- חלק ראשי (videos.html) – מעטפת דף הווידאו בסגנון טיקטוק | HYPER CORE TECH -->
@@ -2951,6 +2951,6 @@
     <script src="./webtorrent-transfer.js?v=4"></script>
 
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
-      <script type="module" src="./loadnug/loadnug-controller.js?v=20260731p"></script>
+      <script type="module" src="./loadnug/loadnug-controller.js?v=20260731q"></script>
 </body>
 </html>
