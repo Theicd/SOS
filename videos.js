@@ -2234,6 +2234,18 @@ async function ensureBootFeedReady() {
     await Promise.all(posts.map((p) => waitForFeedCard(p.id, 15000)));
     await sleepMs(40);
     prioritizeBootDownloads(posts);
+    // דוחפים את הווידאו הראשון לראש התור ומפעילים טעינה מיד | HYPER CORE TECH
+    try {
+      const firstCard = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${posts[0].id}"]`);
+      const firstVideo = firstCard?.querySelector('.videos-feed__media[data-media-type="file"] video');
+      if (firstVideo) {
+        const idx = videoDownloadQueue.findIndex((item) => item.videoEl === firstVideo);
+        if (idx > 0) {
+          const [item] = videoDownloadQueue.splice(idx, 1);
+          videoDownloadQueue.unshift(item);
+        }
+      }
+    } catch (_) {}
     try {
       processVideoDownloadQueue();
     } catch (_) {}
