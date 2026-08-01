@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.0-home-first-frame';
+const VIDEOS_CODE_VERSION = '2.6.1-quiet-prepend';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1659,6 +1659,59 @@ function prependVideoCard(video, { forceShow = false } = {}) {
     });
 }
 
+/**
+ * הכנסת פוסט חדש לראש הפיד ברקע בלי לקפוץ את המשתמש מהפוסט שהוא צופה בו.
+ * בלחיצת בית נשאר רק לגלול לראש — הכרטיסים כבר שם ונטענים. | HYPER CORE TECH
+ */
+function prependNewFeedCardQuietly(video, options = {}) {
+  if (!selectors.stream || !video?.id) return false;
+  if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) {
+    return false;
+  }
+
+  const viewport = document.querySelector('.videos-feed__viewport');
+  const anchorCard =
+    getCenteredFeedCard() ||
+    (activeMediaDiv && typeof activeMediaDiv.closest === 'function'
+      ? activeMediaDiv.closest('.videos-feed__card[data-event-id]')
+      : null);
+  const anchorId = anchorCard?.getAttribute('data-event-id') || null;
+  const userAtTop = !!(viewport && viewport.scrollTop < 24);
+  const jumpToTop = !!options.forceShow;
+
+  const { card, mediaReadyPromise } = renderVideoCard(video);
+  mountCard(card, { prepend: true });
+  markCardMediaReady(card);
+  mediaReadyPromise.catch((err) => handleCardMediaFailure(card, video.id, err));
+
+  if (jumpToTop) {
+    try {
+      if (viewport) viewport.scrollTop = 0;
+    } catch (_) {}
+    return true;
+  }
+
+  // שומרים את הפוסט שהמשתמש צופה בו במרכז — החדשים מחכים מעליו | HYPER CORE TECH
+  if (!userAtTop && anchorId) {
+    const restoreAnchor = () => {
+      if (!selectors.stream || !viewport) return;
+      const anchor = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${anchorId}"]`);
+      if (!anchor) return;
+      try {
+        anchor.scrollIntoView({ block: 'start', behavior: 'auto' });
+      } catch (_) {
+        try { viewport.scrollTop = anchor.offsetTop; } catch (__) {}
+      }
+    };
+    restoreAnchor();
+    requestAnimationFrame(restoreAnchor);
+    setTimeout(restoreAnchor, 50);
+  }
+
+  console.log('[videos] quiet-prepend new post at top', { id: video.id, anchorId, userAtTop });
+  return true;
+}
+
 function upsertVideoInState(video, options = {}) {
   if (!video || !video.id) return;
   const existingIndex = state.videos.findIndex((v) => v.id === video.id);
@@ -1676,51 +1729,16 @@ function upsertVideoInState(video, options = {}) {
   else showNow = isGeneralFeedVideo(video);
   if (!showNow) return;
 
-  // פוסט עצמי / immediate — מיד; אחרת בהפעלה חמה דוחים ל-DOM עד לחיצת בית | HYPER CORE TECH
-  const deferMount =
-    bootGate.released &&
-    state.firstCardRendered &&
-    !options.forceShow &&
-    !options.immediate;
-  if (deferMount) {
-    pendingNewVideoIds.add(video.id);
-    console.log('[videos] deferred new post until Home', { id: video.id });
-    // טעינת המדיה לקאש ברקע — כדי שבבית הכרטיס לא יישאר ריק | HYPER CORE TECH
-    if (pendingNewVideoIds.size <= 5) {
-      prefetchDeferredVideoMedia(video).catch((err) => {
-        console.warn('[videos] deferred prefetch failed', video.id, err);
-      });
-    }
+  // פוסט עצמי / immediate — מיד בראש (+ קפיצה); אחרת הכנסה שקטה לראש בלי להזיז את המשתמש | HYPER CORE TECH
+  if (options.forceShow || options.immediate) {
+    prependVideoCard(video, options);
+    return;
+  }
+  if (bootGate.released && state.firstCardRendered) {
+    prependNewFeedCardQuietly(video, options);
     return;
   }
   prependVideoCard(video, options);
-}
-
-async function prefetchDeferredVideoMedia(video) {
-  if (!video || !video.videoUrl) return;
-  const App = window.NostrApp || {};
-  const hash = video.hash || '';
-  try {
-    if (hash && typeof App.getCachedMedia === 'function') {
-      const cached = await App.getCachedMedia(hash);
-      if (cached && cached.blob) {
-        console.log('[videos] deferred media already cached', { id: video.id });
-        return;
-      }
-    }
-  } catch (_) {}
-  try {
-    if (hash && typeof App.downloadVideoWithP2P === 'function') {
-      console.log('[videos] prefetch deferred media', { id: video.id });
-      await App.downloadVideoWithP2P(video.videoUrl, hash, 'video/webm', { postIndex: 0 });
-      return;
-    }
-    if (typeof App.loadMediaWithFallback === 'function') {
-      await App.loadMediaWithFallback(video.videoUrl, video.mirrors || [], hash);
-    }
-  } catch (err) {
-    console.warn('[videos] prefetchDeferredVideoMedia error', err);
-  }
 }
 
 function hasWarmFeedContent() {
@@ -1732,38 +1750,24 @@ function hasWarmFeedContent() {
   }
 }
 
+// גיבוי: אם נשארו IDs ב־pending (מגרסאות ישנות / מרוץ) — מכניסים בשקט לראש | HYPER CORE TECH
 function applyPendingNewPostsToDom() {
   if (!selectors.stream) return 0;
-  const display = getDisplayVideos();
-  let added = 0;
-  // חדשים לפי סדר תצוגה (חדש→ישן) כדי שהראשון ייכנס ראשון לתור | HYPER CORE TECH
-  display.forEach((video) => {
-    if (!video?.id) return;
-    if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
-    const { card, mediaReadyPromise } = renderVideoCard(video);
-    mountCard(card);
-    mediaReadyPromise
-      .then(() => markCardMediaReady(card))
-      .catch((err) => handleCardMediaFailure(card, video.id, err));
-    added += 1;
-  });
+  const ids = Array.from(pendingNewVideoIds);
   pendingNewVideoIds.clear();
-  try {
-    syncFeedDomOrder(display);
-  } catch (_) {}
-  // דוחפים את הווידאו שבראש הפיד לראש תור ההורדה | HYPER CORE TECH
-  try {
-    const first = display[0];
-    if (first) {
-      prioritizeBootDownloads([first]);
-      const firstCard = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${first.id}"]`);
-      const firstVideo = firstCard?.querySelector('.videos-feed__media[data-media-type="file"] video');
-      if (firstVideo) prioritizeVideoElementInQueue(firstVideo);
-      processVideoDownloadQueue();
-    }
-  } catch (_) {}
+  if (!ids.length) return 0;
+
+  const videos = ids
+    .map((id) => (Array.isArray(state.videos) ? state.videos.find((v) => v.id === id) : null))
+    .filter((v) => v && isGeneralFeedVideo(v));
+  const sorted = sortVideosByCreatedAtDesc(videos);
+  let added = 0;
+  // מהישן לחדש כדי שהחדש יישאר בראש אחרי prepend | HYPER CORE TECH
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    if (prependNewFeedCardQuietly(sorted[i])) added += 1;
+  }
   if (added) {
-    console.log('[videos] applied pending posts on Home', { added, pendingCleared: true });
+    console.log('[videos] applied leftover pending posts quietly', { added });
   }
   return added;
 }
@@ -2256,10 +2260,10 @@ async function softRefreshVideosFeed(options = {}) {
   const warm = hasContent && (bootGate.released || state.firstCardRendered || preferWarm);
 
   if (warm || (preferWarm && hasContent)) {
-    // הפעלה חמה: בלי דף טעינה — מציגים מיד + פוסטים חדשים שירדו ברקע בראש | HYPER CORE TECH
-    console.log('[videos] warm Home refresh', {
+    // הפעלה חמה: חדשים כבר בראש הפיד מהרקע — רק קפיצה למעלה + play | HYPER CORE TECH
+    console.log('[videos] warm Home refresh (scroll-to-top)', {
       videos: state.videos.length,
-      pending: pendingNewVideoIds.size,
+      pendingLeftover: pendingNewVideoIds.size,
       preferWarm,
     });
     try {
@@ -2271,21 +2275,16 @@ async function softRefreshVideosFeed(options = {}) {
     bootGate.released = true;
     bootGate.releasePromise = null;
 
-    state.videos = sortVideosByCreatedAtDesc(Array.isArray(state.videos) ? state.videos : []);
-    applyPendingNewPostsToDom();
-    try {
-      syncFeedDomOrder(getDisplayVideos());
-    } catch (_) {}
+    // גיבוי נדיר אם נשארו pending ישנים | HYPER CORE TECH
+    try { applyPendingNewPostsToDom(); } catch (_) {}
 
     try {
       const viewport = document.querySelector('.videos-feed__viewport');
       if (viewport) viewport.scrollTop = 0;
     } catch (_) {}
 
-    // מחכים לפריים של הפוסט בראש — לא play מיידי על כרטיס ריק | HYPER CORE TECH
-    ensureFirstFeedVideoVisibleAndPlaying().catch((err) => {
-      console.warn('[videos] ensureFirstFeedVideoVisibleAndPlaying failed', err);
-      try { autoPlayFirstVideo(); } catch (_) {}
+    requestAnimationFrame(() => {
+      autoPlayFirstVideo();
     });
 
     // חיפוש עדכונים ברקע — בלי לחסום / לקפוץ באמצע צפייה | HYPER CORE TECH
@@ -2490,107 +2489,6 @@ function prioritizeBootDownloads(posts) {
     videoDownloadQueue = [...priority, ...rest];
     console.log('[videos] prioritized boot downloads', { count: priority.length });
   }
-}
-
-function prioritizeVideoElementInQueue(videoEl) {
-  if (!videoEl || !videoDownloadQueue.length) return;
-  const idx = videoDownloadQueue.findIndex((item) => item.videoEl === videoEl);
-  if (idx > 0) {
-    const [item] = videoDownloadQueue.splice(idx, 1);
-    videoDownloadQueue.unshift(item);
-    console.log('[videos] prioritized video element to front of queue');
-  }
-}
-
-function revealVideoElementFrame(mediaDiv, videoEl) {
-  if (!videoEl) return;
-  try {
-    if (mediaDiv) mediaDiv.dataset.mediaPending = '0';
-    videoEl.style.opacity = '1';
-  } catch (_) {}
-}
-
-function waitForVideoElementFrame(videoEl, timeoutMs = 12000) {
-  return new Promise((resolve) => {
-    if (!videoEl) {
-      resolve(false);
-      return;
-    }
-    if (videoEl.readyState >= 2 || (videoEl.videoWidth > 0 && videoEl.readyState >= 1)) {
-      resolve(true);
-      return;
-    }
-    let settled = false;
-    const done = (ok) => {
-      if (settled) return;
-      settled = true;
-      clearInterval(poll);
-      clearTimeout(timer);
-      videoEl.removeEventListener('loadeddata', onOk);
-      videoEl.removeEventListener('canplay', onOk);
-      videoEl.removeEventListener('loadedmetadata', onOk);
-      videoEl.removeEventListener('error', onErr);
-      resolve(!!ok);
-    };
-    const onOk = () => done(true);
-    const onErr = () => done(false);
-    const poll = setInterval(() => {
-      if (videoEl.readyState >= 2 || (videoEl.videoWidth > 0 && videoEl.readyState >= 1)) {
-        done(true);
-      }
-    }, 80);
-    const timer = setTimeout(() => done(false), timeoutMs);
-    videoEl.addEventListener('loadeddata', onOk, { once: true });
-    videoEl.addEventListener('canplay', onOk, { once: true });
-    videoEl.addEventListener('loadedmetadata', onOk, { once: true });
-    videoEl.addEventListener('error', onErr, { once: true });
-  });
-}
-
-// חלק בית (videos.js) – מחכים לפריים הראשון לפני play, כדי לא להציג כרטיס ריק | HYPER CORE TECH
-async function ensureFirstFeedVideoVisibleAndPlaying() {
-  if (!selectors.stream) return;
-  const ordered = getDisplayVideos();
-  const first = ordered[0];
-  if (!first?.id) {
-    autoPlayFirstVideo();
-    return;
-  }
-
-  let card = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${first.id}"]`);
-  if (!card) {
-    await sleepMs(40);
-    card = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${first.id}"]`);
-  }
-  if (!card) {
-    autoPlayFirstVideo();
-    return;
-  }
-
-  const mediaDiv = card.querySelector('.videos-feed__media');
-  if (!mediaDiv) return;
-
-  const mediaType = mediaDiv.dataset.mediaType || '';
-  if (mediaType === 'file') {
-    const videoEl = mediaDiv.querySelector('video');
-    if (videoEl) {
-      prioritizeBootDownloads([first]);
-      prioritizeVideoElementInQueue(videoEl);
-      try { processVideoDownloadQueue(); } catch (_) {}
-
-      const ok = await waitForVideoElementFrame(videoEl, 12000);
-      if (ok) {
-        revealVideoElementFrame(mediaDiv, videoEl);
-        console.log('[videos] first Home video frame ready', { id: first.id });
-      } else {
-        console.warn('[videos] first Home video frame timeout', { id: first.id });
-        // גם בטיימאאוט מציגים — עדיף משהו מאשר שחור לנצח | HYPER CORE TECH
-        revealVideoElementFrame(mediaDiv, videoEl);
-      }
-    }
-  }
-
-  playMedia(mediaDiv, { manual: false, priority: true });
 }
 
 function updateCardAuthorUi(video) {
@@ -5505,14 +5403,18 @@ async function loadVideos() {
   
   saveFeedCache(state.videos);
 
-  // הפעלה חמה: שומרים חדשים בזיכרון/מטמון בלי לדחוף ל-DOM (יוצגו בלחיצת בית) | HYPER CORE TECH
+  // הפעלה חמה: מכניסים חדשים לראש הפיד מיד (בשקט) — בבית רק קופצים למעלה | HYPER CORE TECH
   const warmUi = bootGate.released && state.firstCardRendered;
   if (warmUi) {
     if (newVideos.length > 0) {
-      newVideos.forEach((v) => {
-        if (v?.id && isGeneralFeedVideo(v)) pendingNewVideoIds.add(v.id);
-      });
-      console.log('[videos] warm sync deferred DOM for Home', { deferred: newVideos.length });
+      const toMount = sortVideosByCreatedAtDesc(
+        newVideos.filter((v) => v?.id && isGeneralFeedVideo(v))
+      );
+      // מהישן לחדש כדי שהחדש ביותר יישאר בראש אחרי prepend | HYPER CORE TECH
+      for (let i = toMount.length - 1; i >= 0; i -= 1) {
+        prependNewFeedCardQuietly(toMount[i]);
+      }
+      console.log('[videos] warm sync quiet-prepended new posts', { added: toMount.length });
     }
     setLoadingProgress(100);
     hideLoadingAnimation();
@@ -6127,40 +6029,22 @@ function sortVideosByCreatedAtDesc(videos) {
     .sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
 }
 
-// חלק סדר פיד (videos.js) – סנכרון DOM לסדר הכרונולוגי; בלי appendChild מיותר (מאפס video ב־WebView) | HYPER CORE TECH
+// חלק סדר פיד (videos.js) – סנכרון DOM לסדר הכרונולוגי אחרי טעינה דיפרנציאלית / מטמון | HYPER CORE TECH
 function syncFeedDomOrder(sourceVideos) {
   if (!selectors.stream || !Array.isArray(sourceVideos) || !sourceVideos.length) return;
   const byId = new Map();
-  const currentCards = Array.from(selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]'));
-  currentCards.forEach((card) => {
+  selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
     const id = card.getAttribute('data-event-id');
     if (id) byId.set(id, card);
   });
   if (!byId.size) return;
 
-  const desiredIds = sourceVideos.map((v) => v?.id).filter((id) => id && byId.has(id));
-  const currentIds = currentCards
-    .map((card) => card.getAttribute('data-event-id'))
-    .filter((id) => id && desiredIds.includes(id));
-
-  const orderMatches =
-    currentIds.length === desiredIds.length &&
-    currentIds.every((id, index) => id === desiredIds[index]);
-
-  if (orderMatches) {
-    // כבר בסדר הנכון — לא מזיזים כרטיסים (מונע מסך שחור ב־Android WebView) | HYPER CORE TECH
-    return;
-  }
-
-  console.log('[videos] syncFeedDomOrder reordering', {
-    from: currentIds.slice(0, 5),
-    to: desiredIds.slice(0, 5),
-  });
-
   const loadnug = document.getElementById('sosLoadNugOverlay');
-  desiredIds.forEach((id) => {
-    const card = byId.get(id);
-    if (card) selectors.stream.appendChild(card);
+  sourceVideos.forEach((video) => {
+    const card = video?.id ? byId.get(video.id) : null;
+    if (card) {
+      selectors.stream.appendChild(card);
+    }
   });
   // LoadNug נשאר על body כדף טעינה מלא — לא מחזירים ל־stream | HYPER CORE TECH
   if (loadnug && loadnug.parentElement !== document.body) {
