@@ -1216,36 +1216,58 @@
     if (typeof App.wireLikeButtons === 'function') App.wireLikeButtons(refs.timelineList);
   }
 
+  function setTimelineLoading(isLoading, message) {
+    if (!refs.timelineStatus) return;
+    const textEl = refs.timelineStatus.querySelector('.profile-timeline__loader-text');
+    if (textEl && message) textEl.textContent = message;
+    if (isLoading) {
+      refs.timelineStatus.hidden = false;
+      refs.timelineStatus.removeAttribute('hidden');
+      refs.timelineStatus.style.display = '';
+      refs.timelineStatus.classList.add('is-visible');
+      if (refs.timelineList && !refs.timelineList.children.length) {
+        refs.timelineList.classList.add('is-loading');
+      }
+    } else {
+      refs.timelineStatus.hidden = true;
+      refs.timelineStatus.setAttribute('hidden', '');
+      refs.timelineStatus.style.display = 'none';
+      refs.timelineStatus.classList.remove('is-visible');
+      if (refs.timelineList) refs.timelineList.classList.remove('is-loading');
+    }
+  }
+
   async function loadOwnPosts() {
     if (!refs.timelineStatus) {
       hideConnectionToast();
       return;
     }
     if (!App.publicKey) {
-      refs.timelineStatus.textContent = 'אין מפתח ציבורי זמין לטעינת הפוסטים.';
+      setTimelineLoading(false);
+      refs.timelineStatus.hidden = false;
+      refs.timelineStatus.style.display = '';
+      const textEl = refs.timelineStatus.querySelector('.profile-timeline__loader-text');
+      if (textEl) textEl.textContent = 'אין מפתח ציבורי זמין לטעינת הפוסטים.';
+      else refs.timelineStatus.textContent = 'אין מפתח ציבורי זמין לטעינת הפוסטים.';
       renderTimeline([]);
       hideConnectionToast();
       return;
     }
 
     const Cache = App.ProfileCache;
+    setTimelineLoading(true, 'טוען פוסטים...');
 
     // שלב 1: בדיקת קאש מקומי
     if (Cache) {
       const cached = Cache.get('posts');
       if (cached && cached.data && cached.data.length > 0) {
-        // ללא הודעות - עיצוב טיקטוקי נקי
-        refs.timelineStatus.style.display = 'none';
-        
-        // מפריד פוסטים מתגובות
         const posts = cached.data.filter(e => !extractParentId(e));
         const replies = cached.data.filter(e => extractParentId(e));
         
-        // טעינת engagement גם מהקאש
         if (typeof App.hydrateEngagementForPosts === 'function') {
           App.hydrateEngagementForPosts(posts, extractParentId).then(() => {
             renderTimelineWithLazyLoad(posts, replies);
-            // עדכון תגובות
+            setTimelineLoading(false);
             if (typeof App.updateCommentsForParent === 'function') {
               posts.slice(0, 6).forEach((event) => {
                 if (event?.id) App.updateCommentsForParent(event.id);
@@ -1253,29 +1275,38 @@
             }
           }).catch(() => {
             renderTimelineWithLazyLoad(posts, replies);
+            setTimelineLoading(false);
           });
         } else {
           renderTimelineWithLazyLoad(posts, replies);
+          setTimelineLoading(false);
         }
         
         if (!cached.isStale) {
           hideConnectionToast();
           return;
         }
+        setTimelineLoading(true, 'מרענן פוסטים...');
       }
     }
 
     // שלב 2: טעינה מהרשת
     if (!App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
-      refs.timelineStatus.textContent = 'Pool לא זמין כרגע. נסה לרענן מאוחר יותר.';
+      setTimelineLoading(false);
       if (!Cache?.get('posts')?.data?.length) {
+        const textEl = refs.timelineStatus.querySelector('.profile-timeline__loader-text');
+        refs.timelineStatus.hidden = false;
+        refs.timelineStatus.style.display = '';
+        if (textEl) textEl.textContent = 'Pool לא זמין כרגע. נסה לרענן מאוחר יותר.';
         renderTimeline([]);
       }
       hideConnectionToast();
       return;
     }
 
-    refs.timelineStatus.style.display = 'none';
+    if (!Cache?.get('posts')?.data?.length) {
+      setTimelineLoading(true, 'טוען פוסטים מהרשת...');
+    }
 
     try {
       const filter = { kinds: [1], authors: [App.publicKey], limit: 120 };
@@ -1357,6 +1388,7 @@
       }
 
       renderTimelineWithLazyLoad(sortedPosts, sortedReplies);
+      setTimelineLoading(false);
 
       if (typeof App.updateCommentsForParent === 'function') {
         sortedPosts.slice(0, 6).forEach((event) => {
@@ -1367,7 +1399,12 @@
       hideConnectionToast();
     } catch (err) {
       console.error('Failed loading own posts', err);
-      refs.timelineStatus.textContent = 'שגיאה בטעינה. בדוק את החיבור.';
+      setTimelineLoading(false);
+      refs.timelineStatus.hidden = false;
+      refs.timelineStatus.style.display = '';
+      const textEl = refs.timelineStatus.querySelector('.profile-timeline__loader-text');
+      if (textEl) textEl.textContent = 'שגיאה בטעינה. בדוק את החיבור.';
+      else refs.timelineStatus.textContent = 'שגיאה בטעינה. בדוק את החיבור.';
       hideConnectionToast();
     }
   }

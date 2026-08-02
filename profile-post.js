@@ -29,18 +29,33 @@
         }
 
         if (link.startsWith('data:video') || link.match(/\.(mp4|webm|ogg)$/i)) {
-          // חלק P2P (profile-post.js) – חילוץ hash מ-URL לצורך P2P | HYPER CORE TECH
+          // חלק תצוגה מקדימה (profile-post.js) – src מיד כמו בפיד (קריטי ל-WebView/APK) | HYPER CORE TECH
           const hashMatch = link.match(/\/([a-f0-9]{64})\./i);
           const hash = hashMatch ? hashMatch[1] : '';
-          return `<div class="feed-media"><video controls playsinline data-p2p-url="${link}" data-p2p-hash="${hash}" data-p2p-pending="true"></video></div>`;
+          const safeSrc = typeof App.escapeHtml === 'function' ? App.escapeHtml(link) : link;
+          return `
+            <div class="feed-media feed-media--video">
+              <video src="${safeSrc}" playsinline muted preload="metadata" data-p2p-url="${safeSrc}" data-p2p-hash="${hash}" data-p2p-upgrade="true"></video>
+              <div class="feed-media__play-overlay" data-play-overlay aria-hidden="true">
+                <i class="fa-solid fa-play"></i>
+              </div>
+            </div>
+          `;
         }
 
         if (/^https?:\/\//i.test(link)) {
           if (link.match(/\.(mp4|webm|ogg)$/i)) {
-            // חלק P2P (profile-post.js) – חילוץ hash מ-URL לצורך P2P | HYPER CORE TECH
             const hashMatch = link.match(/\/([a-f0-9]{64})\./i);
             const hash = hashMatch ? hashMatch[1] : '';
-            return `<div class="feed-media"><video controls playsinline data-p2p-url="${link}" data-p2p-hash="${hash}" data-p2p-pending="true"></video></div>`;
+            const safeSrc = typeof App.escapeHtml === 'function' ? App.escapeHtml(link) : link;
+            return `
+              <div class="feed-media feed-media--video">
+                <video src="${safeSrc}" playsinline muted preload="metadata" data-p2p-url="${safeSrc}" data-p2p-hash="${hash}" data-p2p-upgrade="true"></video>
+                <div class="feed-media__play-overlay" data-play-overlay aria-hidden="true">
+                  <i class="fa-solid fa-play"></i>
+                </div>
+              </div>
+            `;
           }
           const pathWithoutQuery = link.split('?')[0];
           if (pathWithoutQuery.match(/\.(png|jpe?g|gif|webp|avif)$/i)) {
@@ -322,34 +337,69 @@
     });
   }
 
-  // חלק P2P (profile-post.js) – טעינת וידאו דרך P2P עם fallback ל-URL ישיר | HYPER CORE TECH
+  // חלק P2P (profile-post.js) – שדרוג אופציונלי מ-blob + ציור פריים לתצוגה מקדימה ב-WebView | HYPER CORE TECH
+  function paintVideoPreviewFrame(video) {
+    if (!video) return;
+    const paint = () => {
+      try {
+        if (video.readyState >= 1) {
+          const t = video.currentTime;
+          if (!t || t < 0.05) {
+            video.currentTime = 0.08;
+          }
+        }
+      } catch (_) {}
+    };
+    if (video.readyState >= 1) {
+      paint();
+      return;
+    }
+    video.addEventListener('loadedmetadata', paint, { once: true });
+    video.addEventListener('loadeddata', paint, { once: true });
+  }
+
   function wireP2PVideos(root) {
     if (!root) return;
-    root.querySelectorAll('video[data-p2p-pending="true"]').forEach(async (video) => {
-      const url = video.dataset.p2pUrl;
-      const hash = video.dataset.p2pHash;
+
+    root.querySelectorAll('video[data-p2p-upgrade="true"], video[data-p2p-pending="true"]').forEach(async (video) => {
+      const url = video.dataset.p2pUrl || video.getAttribute('src') || '';
+      const hash = video.dataset.p2pHash || '';
+      const wasPending = video.getAttribute('data-p2p-pending') === 'true';
       video.removeAttribute('data-p2p-pending');
-      
-      // ניסיון P2P אם יש hash ופונקציית הורדה
+      video.removeAttribute('data-p2p-upgrade');
+
+      // תצוגה מקדימה מיד מה-URL (חשוב ל-APK/WebView) | HYPER CORE TECH
+      if (url && !video.getAttribute('src')) {
+        video.src = url;
+      }
+      video.setAttribute('playsinline', '');
+      video.setAttribute('muted', '');
+      video.setAttribute('preload', 'metadata');
+      video.removeAttribute('controls');
+      paintVideoPreviewFrame(video);
+
+      // שדרוג P2P ברקע אם אפשר – בלי לחכות לפני הצגת הפריים | HYPER CORE TECH
       if (hash && typeof App.downloadVideoWithP2P === 'function') {
         try {
           const result = await App.downloadVideoWithP2P(url, hash, 'video/webm');
           if (result && result.blob) {
-            if (result.blob._directUrl) {
-              video.src = result.blob._directUrl;
-            } else {
-              video.src = URL.createObjectURL(result.blob);
+            const nextSrc = result.blob._directUrl || URL.createObjectURL(result.blob);
+            if (nextSrc && video.src !== nextSrc) {
+              video.src = nextSrc;
+              paintVideoPreviewFrame(video);
             }
             console.log(`[Profile P2P] וידאו נטען מ-${result.source}:`, hash.slice(0, 16));
             return;
           }
         } catch (err) {
-          console.warn('[Profile P2P] P2P נכשל, עובר ל-fallback:', err.message);
+          console.warn('[Profile P2P] P2P נכשל, נשארים עם URL ישיר:', err.message);
         }
       }
-      
-      // Fallback לטעינה רגילה
-      video.src = url;
+
+      if (wasPending && url && !video.getAttribute('src')) {
+        video.src = url;
+        paintVideoPreviewFrame(video);
+      }
     });
   }
 

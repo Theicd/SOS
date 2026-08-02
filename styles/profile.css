@@ -1796,6 +1796,129 @@
   color: var(--primary);
 }
 
+/* חלק מד טעינת פוסטים (profile.css) – חיווי ברור בזמן טעינת הגריד | HYPER CORE TECH */
+.profile-timeline__loader {
+  display: none;
+  margin: 8px 12px 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(12, 14, 20, 0.92);
+  border: 1px solid rgba(37, 244, 238, 0.22);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+.profile-timeline__loader.is-visible,
+.profile-timeline__loader:not([hidden]) {
+  display: block;
+}
+
+.profile-timeline__loader[hidden] {
+  display: none !important;
+}
+
+.profile-timeline__loader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.profile-timeline__loader-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #25f4ee;
+  border-right-color: #fe2c55;
+  animation: profileLoaderSpin 0.8s linear infinite;
+}
+
+.profile-timeline__loader-text {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.profile-timeline__loader-bar {
+  width: min(220px, 70%);
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.profile-timeline__loader-bar > i {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #25f4ee, #fe2c55);
+  animation: profileLoaderBar 1.1s ease-in-out infinite;
+}
+
+@keyframes profileLoaderSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes profileLoaderBar {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(280%); }
+}
+
+.profile-timeline__list.is-loading {
+  min-height: 180px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: profileLoaderShimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
+
+@keyframes profileLoaderShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* חלק תצוגה מקדימה בגריד (profile.css) – בלי controls ריקים, עם overlay play | HYPER CORE TECH */
+.profile-timeline .feed-media--video {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.profile-timeline .feed-media--video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #111;
+  pointer-events: none;
+}
+
+.profile-timeline .feed-media__play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.35) 100%);
+  pointer-events: none;
+}
+
+.profile-timeline .feed-media__play-overlay i {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 0.75rem;
+  padding-inline-start: 2px;
+}
+
 /* חלק מודלים (profile.css) – שימוש באותם צבעים כהים כמו הפיד */
 .modal {
   position: fixed;
@@ -1902,6 +2025,18 @@
     background: #000 !important;
     min-height: calc(100vh - 60px) !important;
     min-height: calc(100dvh - 60px) !important;
+    gap: 10px !important;
+  }
+
+  .profile-main {
+    gap: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  .profile-timeline {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
 
   .profile-cover {

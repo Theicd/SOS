@@ -28,13 +28,13 @@
       referrerpolicy="no-referrer"
     />
     <link rel="stylesheet" href="./styles/facebook-theme.css" />
-    <link rel="stylesheet" href="./styles/profile.css?v=20260802ai" />
+    <link rel="stylesheet" href="./styles/profile.css?v=20260802aj" />
     <!-- חלק סגנונות הכרויות (profile.html) – טוען התאמות עיצוב לרכיבי ההכרויות החדשים -->
     <link rel="stylesheet" href="./styles/dating.css" />
     <link rel="stylesheet" href="./styles/media-overrides.css" />
     <!-- חלק לוגו (profile.html) – חיבור קובץ הסגנונות המקוריים של הלוגו העליון | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css" />
-    <link rel="stylesheet" href="./styles/profile-videos-theme.css?v=20260802ai" />
+    <link rel="stylesheet" href="./styles/profile-videos-theme.css?v=20260802aj" />
     <script src="./auth-guard.js"></script>
     <!-- חלק ניווט גלובלי (profile.html) – מאפשר שימוש בתפריט העליון/תחתון האחיד | HYPER CORE TECH -->
     <script>
@@ -414,7 +414,13 @@
               </button>
             </div>
           </header>
-          <div class="profile-status" id="profileTimelineStatus"></div>
+          <div class="profile-status profile-timeline__loader" id="profileTimelineStatus" hidden>
+            <div class="profile-timeline__loader-inner" role="status" aria-live="polite">
+              <span class="profile-timeline__loader-spinner" aria-hidden="true"></span>
+              <span class="profile-timeline__loader-text">טוען פוסטים...</span>
+              <div class="profile-timeline__loader-bar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
           <ul class="profile-timeline__list" id="profileTimeline"></ul>
         </section>
       </section>
