@@ -472,8 +472,18 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 }
 
 .chat-contacts__search input {
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .chat-contacts__search input {
+    font-size: 16px;
+  }
+
+  .chat-contacts__search input::placeholder {
+    font-size: 15px;
+  }
 }
 
 .chat-contacts__filters {

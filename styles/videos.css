@@ -4971,14 +4971,32 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   /* התאמת שדות חיפוש ופילטרים */
   .chat-contacts__search {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    position: relative !important;
   }
-  
+
   .chat-contacts__search input {
     color: #fff !important;
+    font-size: 16px !important;
+    min-height: 44px !important;
+    line-height: 1.35 !important;
   }
-  
+
   .chat-contacts__search input::placeholder {
-    color: rgba(255, 255, 255, 0.5) !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    font-size: 15px !important;
+  }
+
+  .chat-contacts__search > i.fa-magnifying-glass,
+  .chat-contacts__search-bar > i.fa-magnifying-glass {
+    font-size: 1.15rem !important;
+  }
+
+  .chat-contacts__search-spinner {
+    animation: chatSearchSpin 0.75s linear infinite !important;
+  }
+
+  .chat-contacts__search.is-searching::after {
+    animation: chatSearchProgress 1.05s linear infinite !important;
   }
 
   .chat-contacts__filters {

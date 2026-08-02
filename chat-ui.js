@@ -482,6 +482,7 @@
     networkSearchResults: [],
     networkSearchToken: 0,
     networkSearchPending: false,
+    networkSearchQuery: '',
   };
 
   let unsubscribeNotifications = null; // חלק צ'אט (chat-ui.js) – מחזיק ביטול הרשמה לעדכוני התרעות עבור ניקוי משאבים
@@ -1558,6 +1559,22 @@
     `;
   }
 
+  function updateSearchLoadingUI() {
+    const searchWrap = elements.searchInput?.closest?.('.chat-contacts__search');
+    if (!searchWrap) return;
+    const searching = Boolean(state.networkSearchPending) && state.filterText.trim().length >= 2;
+    searchWrap.classList.toggle('is-searching', searching);
+  }
+
+  function buildNetworkSearchLoadingHtml() {
+    return `
+      <div class="chat-contacts__search-loading" role="status" aria-live="polite">
+        <span class="chat-contacts__search-spinner" aria-hidden="true"></span>
+        <span>מחפש משתמשים ברשת…</span>
+      </div>
+    `;
+  }
+
   function renderContacts(force = false) {
     if (!elements.contactsList) return;
     
@@ -1567,6 +1584,7 @@
       return;
     }
     _lastRenderContactsTime = now;
+    updateSearchLoadingUI();
     
     const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
     const unreadTotal = contacts.reduce((sum, item) => sum + (item?.unreadCount || 0), 0);
@@ -1591,13 +1609,21 @@
         })
       : [];
     const displayList = filteredContacts.concat(networkHits);
+    const isNetworkSearching = state.networkSearchPending && normalizedFilter.length >= 2;
 
     if (!displayList.length) {
+      if (normalizedFilter && isNetworkSearching) {
+        elements.contactsList.innerHTML = `
+          <div class="chat-contacts__empty chat-contacts__empty--searching" role="status" aria-live="polite">
+            <span class="chat-contacts__search-spinner" aria-hidden="true"></span>
+            <span>מחפש משתמשים ברשת…</span>
+          </div>
+        `;
+        return;
+      }
       let message = 'עוד אין שיחות. שלח הודעה ראשונה.';
       if (normalizedFilter) {
-        message = state.networkSearchPending
-          ? 'מחפש משתמשים ברשת…'
-          : 'לא נמצאו תוצאות התואמות לחיפוש.';
+        message = 'לא נמצאו תוצאות התואמות לחיפוש.';
       } else if (contacts.length) {
         message = 'לא נמצאו תוצאות התואמות לחיפוש.';
       }
@@ -1613,6 +1639,13 @@
     });
     elements.contactsList.innerHTML = '';
     elements.contactsList.appendChild(fragment);
+    if (isNetworkSearching) {
+      const loadingWrap = doc.createElement('div');
+      loadingWrap.innerHTML = buildNetworkSearchLoadingHtml();
+      if (loadingWrap.firstElementChild) {
+        elements.contactsList.appendChild(loadingWrap.firstElementChild);
+      }
+    }
   }
 
   // חלק חיפוש רשת (chat-ui.js) – שאילתת שם בריליים דרך תיבת החיפוש הקיימת | HYPER CORE TECH
@@ -1622,15 +1655,21 @@
     if (q.length < 2) {
       state.networkSearchResults = [];
       state.networkSearchPending = false;
+      state.networkSearchQuery = '';
+      updateSearchLoadingUI();
       renderContacts(true);
       return;
     }
     if (typeof App.searchProfilesByName !== 'function') {
       state.networkSearchResults = [];
       state.networkSearchPending = false;
+      updateSearchLoadingUI();
+      renderContacts(true);
       return;
     }
     state.networkSearchPending = true;
+    state.networkSearchQuery = q;
+    updateSearchLoadingUI();
     renderContacts(true);
     try {
       const results = await App.searchProfilesByName(q, { limit: 20 });
@@ -1643,6 +1682,7 @@
     } finally {
       if (token === state.networkSearchToken) {
         state.networkSearchPending = false;
+        updateSearchLoadingUI();
         renderContacts(true);
       }
     }
@@ -2629,17 +2669,29 @@
       });
     }
     if (elements.searchInput) {
-      // חלק אופטימיזציה (chat-ui.js) – debounce על חיפוש מקומי + רשת | HYPER CORE TECH
-      const debouncedSearch = debounce((value) => {
-        state.filterText = value;
-        renderContacts(true);
-      }, 150);
+      // חלק חיפוש רשת (chat-ui.js) – מד טעינה מיידי + debounce רק לשאילתת הריליי | HYPER CORE TECH
       const debouncedNetworkSearch = debounce((value) => {
         runNetworkContactSearch(value);
       }, 350);
       elements.searchInput.addEventListener('input', (event) => {
         const value = event.target?.value || '';
-        debouncedSearch(value);
+        const trimmed = value.trim();
+        state.filterText = value;
+        if (trimmed.length >= 2) {
+          state.networkSearchPending = true;
+          const prevQ = String(state.networkSearchQuery || '').toLowerCase();
+          const nextQ = trimmed.toLowerCase();
+          if (prevQ && prevQ !== nextQ && !nextQ.startsWith(prevQ) && !prevQ.startsWith(nextQ)) {
+            state.networkSearchResults = [];
+          }
+          state.networkSearchQuery = trimmed;
+        } else {
+          state.networkSearchPending = false;
+          state.networkSearchResults = [];
+          state.networkSearchQuery = '';
+        }
+        updateSearchLoadingUI();
+        renderContacts(true);
         debouncedNetworkSearch(value);
       });
     }
