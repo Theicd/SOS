@@ -62,65 +62,63 @@
   }
 
   .profile-cover {
-    padding: 20px 20px 0;
+    padding: 12px 12px 0;
   }
 
-  /* חלק תמונת נושא (profile.css) – במובייל הבאנר נמתח מקצה לקצה לרוחב המסך */
+  /* חלק תמונת נושא (profile.css) – כרטיס עם שוליים ומסגרת מסודרת במובייל | HYPER CORE TECH */
   .profile-shell .profile-cover {
-    margin-inline: -12px;
+    margin-inline: 0;
   }
 
-  /* חלק תמונת נושא (profile.css) – התאמת גובה ודיספוזיציה במובייל */
+  /* חלק תמונת נושא (profile.css) – גובה נשמר + פינות מעוגלות | HYPER CORE TECH */
   .profile-cover__banner {
     min-height: 220px;
-    border-radius: 0;
+    border-radius: 18px;
+    overflow: hidden;
   }
 
-  /* חלק מעטפת כיסוי (profile.css) – פריסת עמודה וטקסט ממורכז במסכים צרים */
+  /* חלק מעטפת כיסוי (profile.css) – פריסה מקצועית: אווטאר + טקסט בשורה | HYPER CORE TECH */
   .profile-cover__inner {
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 20px 18px;
+    align-items: stretch;
+    text-align: right;
+    padding: 18px 16px;
     gap: 14px;
   }
 
-  /* חלק פעולות כיסוי (profile.css) – פריסה מלאה ורווחים במובייל */
+  .profile-cover__top {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .profile-cover__info-center {
+    align-items: flex-start;
+    text-align: right;
+  }
+
+  /* חלק פעולות כיסוי (profile.css) – כפתור עריכה קומפקטי | HYPER CORE TECH */
   .profile-cover__actions {
     width: 100%;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
+    flex-direction: row;
+    align-items: center;
   }
 
   .profile-cover__actions .profile-primary-button,
   .profile-cover__actions .profile-secondary-button {
-    flex: 1;
+    flex: 0 1 auto;
     justify-content: center;
   }
 
   .profile-cover__avatar {
-    width: 90px;
-    height: 90px;
-  }
-
-  .profile-cover__actions {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-    gap: 8px;
-  }
-
-  /* מרכוז טקסט ואייקון בכפתור סטטיסטיקה במובייל */
-  .profile-cover__actions .profile-secondary-button#profileStatsButton {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 8px;
+    width: 76px;
+    height: 76px;
   }
 
   .profile-shell {
-    padding: 0 !important;
+    padding: 10px 12px 0 !important;
+    box-sizing: border-box !important;
   }
 
   .profile-main {
@@ -1787,15 +1785,16 @@
 
   .app-shell.profile-shell,
   .profile-shell {
-    width: 100vw !important;
-    max-width: 100vw !important;
+    width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 10px 12px 0 !important;
     background: #000 !important;
+    box-sizing: border-box !important;
   }
 
   .profile-main {
-    width: 100vw !important;
+    width: 100% !important;
   }
 
   /* דף פרופיל ממלא את כל המסך עד התפריט התחתון */
@@ -1808,10 +1807,27 @@
   
   .profile-shell {
     margin-top: 0 !important;
-    padding: 0 !important;
+    padding: 10px 12px 0 !important;
     background: #000 !important;
     min-height: calc(100vh - 60px) !important;
     min-height: calc(100dvh - 60px) !important;
+  }
+
+  .profile-cover {
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .profile-cover__banner {
+    min-height: 220px !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(37, 244, 238, 0.22) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45) !important;
   }
 
   .profile-main {
@@ -1838,32 +1854,59 @@
 
   .profile-cover__inner {
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 16px 12px !important;
+    align-items: stretch;
+    text-align: right;
+    padding: 16px 14px !important;
     gap: 12px !important;
   }
 
+  .profile-cover__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+  }
+
   .profile-cover__avatar {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto;
+    width: 72px;
+    height: 72px;
+    margin: 0;
+    flex-shrink: 0;
   }
   
   .profile-cover__info-block {
-    width: 100%;
-    text-align: center;
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .profile-cover__info-center {
+    align-items: flex-start;
+    text-align: right;
   }
   
   .profile-cover__stats-row {
-    justify-content: center !important;
-    gap: 24px !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    flex-wrap: wrap;
   }
   
   .profile-cover__actions {
     justify-content: center !important;
     gap: 8px !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
+    width: 100%;
+  }
+
+  .profile-cover__actions .profile-primary-button {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: 100%;
+    padding: 8px 16px !important;
+    font-size: 0.8rem !important;
+    gap: 6px !important;
   }
 
   .profile-mobile-tabs {
@@ -2432,18 +2475,24 @@
   }
 }
 
-/* התאמת כפתורים ראשיים בסגנון TikTok */
+/* התאמת כפתורים ראשיים בסגנון TikTok – קומפקטי יותר | HYPER CORE TECH */
 .profile-primary-button {
   background: linear-gradient(135deg, #fe2c55, #ff6b81) !important;
   border: none !important;
   color: #fff !important;
   border-radius: 999px !important;
+  padding: 8px 16px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  gap: 6px !important;
+  line-height: 1.2 !important;
   transition: all 0.2s ease !important;
+  box-shadow: 0 4px 14px rgba(254, 44, 85, 0.28) !important;
 }
 
 .profile-primary-button:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 20px rgba(254, 44, 85, 0.35) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(254, 44, 85, 0.35) !important;
 }
 
 .profile-secondary-button {

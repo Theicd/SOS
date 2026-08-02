@@ -1738,14 +1738,6 @@
       }
     });
 
-    attachClicks(['profileStatsButton'], () => {
-      activateMobileTab('about');
-      const statsSection = document.querySelector('.profile-activity');
-      if (statsSection) {
-        statsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    });
-
     attachClicks(['profileDatingHeartButton'], () => {
       activateMobileTab('dating');
     });

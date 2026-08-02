@@ -28,13 +28,13 @@
       referrerpolicy="no-referrer"
     />
     <link rel="stylesheet" href="./styles/facebook-theme.css" />
-    <link rel="stylesheet" href="./styles/profile.css" />
+    <link rel="stylesheet" href="./styles/profile.css?v=20260802af" />
     <!-- חלק סגנונות הכרויות (profile.html) – טוען התאמות עיצוב לרכיבי ההכרויות החדשים -->
     <link rel="stylesheet" href="./styles/dating.css" />
     <link rel="stylesheet" href="./styles/media-overrides.css" />
     <!-- חלק לוגו (profile.html) – חיבור קובץ הסגנונות המקוריים של הלוגו העליון | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css" />
-    <link rel="stylesheet" href="./styles/profile-videos-theme.css" />
+    <link rel="stylesheet" href="./styles/profile-videos-theme.css?v=20260802af" />
     <script src="./auth-guard.js"></script>
     <!-- חלק ניווט גלובלי (profile.html) – מאפשר שימוש בתפריט העליון/תחתון האחיד | HYPER CORE TECH -->
     <script>
@@ -199,15 +199,11 @@
               </div>
             </div>
             
-            <!-- חלק כפתורים (profile.html) – כפתורי פעולה בשורה אחת -->
+            <!-- חלק כפתורים (profile.html) – עריכת פרופיל בלבד | HYPER CORE TECH -->
             <div class="profile-cover__actions">
-              <button class="profile-primary-button" id="profileEditButton">
-                <i class="fa-solid fa-pen"></i>
+              <button class="profile-primary-button" id="profileEditButton" type="button">
+                <i class="fa-solid fa-pen" aria-hidden="true"></i>
                 עריכת פרופיל
-              </button>
-              <button class="profile-secondary-button" id="profileStatsButton">
-                <i class="fa-solid fa-chart-line"></i>
-                סטטיסטיקה
               </button>
             </div>
           </div>
@@ -542,7 +538,7 @@
     <!-- חלק עוקבים (profile.html) – טוען את שירות המעקב המשותף לדפים אחרים -->
     <script src="./follow-service.js"></script>
     <script src="./profile-cache.js"></script>
-    <script src="./profile.js"></script>
+    <script src="./profile.js?v=20260802af"></script>
     <script src="./profile-engagement.js"></script>
     <script src="./profile-post.js"></script>
     <script src="./profile-view.js"></script>
