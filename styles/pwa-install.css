@@ -173,6 +173,44 @@
   transform: translateY(0);
 }
 
+/* דסקטופ: באנרים רק באזור התוכן משמאל — לא חוצים את תפריט הצד | HYPER CORE TECH */
+@media (min-width: 769px) {
+  body:has(.videos-feed) .pwa-install-banner,
+  body.videos-page .pwa-install-banner {
+    left: 12px;
+    right: calc(var(--videos-desktop-nav-width, 260px) + 12px);
+    bottom: 12px;
+    width: auto;
+    max-width: none;
+    border-radius: 16px;
+    border: 1px solid rgba(37, 244, 238, 0.28);
+    padding-bottom: 14px;
+    box-shadow:
+      0 12px 36px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(254, 44, 85, 0.12),
+      0 0 22px rgba(37, 244, 238, 0.1);
+  }
+
+  body:has(.videos-feed) .pwa-install-banner::before,
+  body.videos-page .pwa-install-banner::before {
+    border-radius: 16px 16px 0 0;
+  }
+
+  body:has(.videos-feed) .pwa-update-toast,
+  body.videos-page .pwa-update-toast {
+    left: 12px;
+    right: calc(var(--videos-desktop-nav-width, 260px) + 12px);
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+  }
+
+  /* כששני הבאנרים פתוחים — הטוסט מעל באנר ההתקנה בתוך אותו מסגרת | HYPER CORE TECH */
+  body:has(.videos-feed):has(.pwa-install-banner--visible) .pwa-update-toast,
+  body.videos-page:has(.pwa-install-banner--visible) .pwa-update-toast {
+    bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* ===== טוסט עדכון גרסה ===== */
 .pwa-update-toast {
   position: fixed;
