@@ -486,7 +486,7 @@
     dialog.showModal?.() || (dialog.style.display = 'flex');
   }
 
-  // חלק באנר התקנה (pwa-installer.js) – יצירת באנר התקנה בתחתית המסך | HYPER CORE TECH
+  // חלק באנר התקנה (pwa-installer.js) – מובייל למעלה, נעלם לבד אחרי 5 שניות | HYPER CORE TECH
   function createInstallBanner() {
     // בדיקה 1: לא מציגים אם כבר מותקן (כולל APK native) | HYPER CORE TECH
     if (isInstalled || isRunningInNativeShell() || checkIfInstalled()) {
@@ -511,7 +511,6 @@
       return;
     }
     
-    const platform = getPlatformInfo();
     const existingBanner = document.getElementById('pwa-install-banner');
     if (existingBanner) return;
     
@@ -520,7 +519,7 @@
     banner.className = 'pwa-install-banner';
     banner.innerHTML = `
       <div class="pwa-install-banner__content">
-        <img src="./icons/sos-logo-mobile.png?v=20260802aa" alt="SOS" class="pwa-install-banner__icon">
+        <img src="./icons/sos-logo-mobile.png?v=20260802ad" alt="SOS" class="pwa-install-banner__icon">
         <div class="pwa-install-banner__text">
           <strong>התקן את אפליקציית SOS</strong>
           <span>התראות גם כשהמסך כבוי</span>
@@ -531,24 +530,34 @@
         <button type="button" class="pwa-install-banner__install">התקן</button>
       </div>
     `;
+
+    function dismissInstallBanner(markDismissed) {
+      if (!banner.isConnected) return;
+      banner.classList.remove('pwa-install-banner--visible');
+      setTimeout(() => {
+        try { banner.remove(); } catch (_) {}
+      }, 350);
+      if (markDismissed) {
+        try { localStorage.setItem('pwa_banner_dismissed', Date.now().toString()); } catch (_) {}
+      }
+    }
     
-    // אירועים
     banner.querySelector('.pwa-install-banner__dismiss').addEventListener('click', () => {
-      banner.remove();
-      localStorage.setItem('pwa_banner_dismissed', Date.now().toString());
+      dismissInstallBanner(true);
     });
     
     banner.querySelector('.pwa-install-banner__install').addEventListener('click', () => {
       const result = openInstallChooserOrFallback();
       if (result && result.outcome === 'already_installed') {
-        banner.remove();
+        dismissInstallBanner(true);
       }
     });
     
     document.body.appendChild(banner);
     
-    // הצגה עם אנימציה
+    // הצגה עם אנימציה + היעלמות אוטומטית אחרי 5 שניות (פחות מפריע לאורח חדש) | HYPER CORE TECH
     setTimeout(() => banner.classList.add('pwa-install-banner--visible'), 100);
+    setTimeout(() => dismissInstallBanner(true), 5100);
   }
 
   // חלק אתחול (pwa-installer.js) – אתחול מערכת ה-PWA | HYPER CORE TECH

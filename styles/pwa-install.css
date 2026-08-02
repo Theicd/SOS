@@ -8,27 +8,29 @@
   --pwa-surface-2: #0c0c12;
 }
 
-/* ===== באנר התקנה בתחתית המסך ===== */
+/* ===== באנר התקנה – מובייל למעלה (לא מכסה תפריט תחתון) | HYPER CORE TECH ===== */
 .pwa-install-banner {
   position: fixed;
-  bottom: 0;
+  top: 0;
+  bottom: auto;
   left: 0;
   right: 0;
   background:
     linear-gradient(180deg, rgba(12, 12, 18, 0.96) 0%, rgba(5, 5, 8, 0.98) 100%);
   color: #fff;
-  padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   z-index: 99999;
-  border-top: 1px solid rgba(37, 244, 238, 0.28);
+  border-bottom: 1px solid rgba(37, 244, 238, 0.28);
+  border-top: none;
   box-shadow:
-    0 -8px 28px rgba(0, 0, 0, 0.55),
-    0 -1px 0 rgba(254, 44, 85, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  transform: translateY(100%);
+    0 8px 28px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(254, 44, 85, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  transform: translateY(-110%);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   direction: rtl;
   backdrop-filter: blur(14px);
@@ -38,7 +40,7 @@
 .pwa-install-banner::before {
   content: '';
   position: absolute;
-  inset: 0 auto auto 0;
+  inset: auto 0 0 0;
   width: 100%;
   height: 2px;
   background: linear-gradient(90deg, var(--pwa-neon-pink), var(--pwa-neon-green), var(--pwa-neon-cyan));
@@ -173,10 +175,11 @@
   transform: translateY(0);
 }
 
-/* דסקטופ: באנרים רק באזור התוכן משמאל — לא חוצים את תפריט הצד | HYPER CORE TECH */
+/* דסקטופ: באנר התקנה בתחתית אזור התוכן (לא חוצה תפריט צד) | HYPER CORE TECH */
 @media (min-width: 769px) {
   body:has(.videos-feed) .pwa-install-banner,
   body.videos-page .pwa-install-banner {
+    top: auto;
     left: 12px;
     right: calc(var(--videos-desktop-nav-width, 260px) + 12px);
     bottom: 12px;
@@ -184,15 +187,23 @@
     max-width: none;
     border-radius: 16px;
     border: 1px solid rgba(37, 244, 238, 0.28);
-    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(37, 244, 238, 0.28);
+    padding: 14px 16px;
+    transform: translateY(110%);
     box-shadow:
       0 12px 36px rgba(0, 0, 0, 0.55),
       0 0 0 1px rgba(254, 44, 85, 0.12),
       0 0 22px rgba(37, 244, 238, 0.1);
   }
 
+  body:has(.videos-feed) .pwa-install-banner.pwa-install-banner--visible,
+  body.videos-page .pwa-install-banner.pwa-install-banner--visible {
+    transform: translateY(0);
+  }
+
   body:has(.videos-feed) .pwa-install-banner::before,
   body.videos-page .pwa-install-banner::before {
+    inset: 0 auto auto 0;
     border-radius: 16px 16px 0 0;
   }
 
@@ -1005,8 +1016,7 @@
 /* ===== התאמות מובייל ===== */
 @media (max-width: 480px) {
   .pwa-install-banner {
-    padding: 10px 12px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
   }
 
   .pwa-install-chooser__card {
