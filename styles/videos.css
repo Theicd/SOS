@@ -2672,6 +2672,8 @@ body.videos-boot-loading .videos-feed__media > .videos-feed__play-overlay {
 body.videos-boot-loading .videos-feed__media[data-media-type="file"] video,
 .videos-feed__media[data-media-pending="1"] video {
   opacity: 0 !important;
+  visibility: hidden !important;
+  background: #000 !important;
 }
 body.videos-boot-loading .videos-feed__media[data-media-type="file"],
 .videos-feed__media[data-media-pending="1"] {

@@ -4014,6 +4014,19 @@ async function loadFeed() {
     const currentPostIndex = globalVideoLoadIndex++;
     
     try {
+      // קודם IndexedDB ישירות — בלי P2P/tiers בפתיחה חמה | HYPER CORE TECH
+      if (hash && typeof App.getCachedMedia === 'function') {
+        try {
+          const cached = await App.getCachedMedia(hash);
+          if (cached && cached.blob) {
+            videoElement.src = URL.createObjectURL(cached.blob);
+            try { videoElement.load(); } catch (_) {}
+            console.log('וידאו נטען מ-cache (direct):', hash.slice(0, 16));
+            return { success: true, source: 'cache' };
+          }
+        } catch (_) {}
+      }
+
       // חלק P2P (פיד) – ניסיון הורדה דרך P2P
       if (hash && typeof App.downloadVideoWithP2P === 'function') {
         try {
@@ -4094,7 +4107,7 @@ async function loadFeed() {
   const BOOTSTRAP_LOAD_DELAY = 2000; // 2 שניות בין טעינות
 
   // גרסת קוד לזיהוי עדכונים
-  const FEED_CODE_VERSION = '2.2.9-fast-hybrid';
+  const FEED_CODE_VERSION = '2.3.0-cache-first';
   console.log(`%c🔧 Feed.js גרסה: ${FEED_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
   async function processVideoLoadQueue() {

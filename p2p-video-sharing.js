@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.14.0-persistent-priority'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.14.1-cache-before-tiers'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -2482,6 +2482,21 @@
         return releaseSlot;
       };
 
+      // קודם קאש מקומי — בלי updateNetworkTier (חוסך שניות בפתיחה) | HYPER CORE TECH
+      if (hash && typeof App.getCachedMedia === 'function') {
+        try {
+          const cached = await App.getCachedMedia(hash);
+          if (cached && cached.blob) {
+            p2pStats.downloads.total++;
+            p2pStats.downloads.fromCache++;
+            log('success', `מ-Cache (fast-path)`, { hash: hash.slice(0,12), size: Math.round(cached.blob.size/1024)+'KB' });
+            scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType);
+            resetConsecutiveFailures();
+            return { blob: cached.blob, source: 'cache' };
+          }
+        } catch (_) {}
+      }
+
       // חלק Network Tiers (p2p-video-sharing.js) – קבלת מצב רשת ואינדקס פוסט | HYPER CORE TECH
       const postIndex = typeof options.postIndex === 'number' ? options.postIndex : 0;
       const { tier } = await updateNetworkTier();
@@ -2517,7 +2532,7 @@
           }
         }
 
-        // בדיקת cache מקומי
+        // בדיקת cache מקומי (גיבוי אם fast-path פספס)
         p2pStats.downloads.total++;
         if (typeof App.getCachedMedia === 'function') {
           const cached = await App.getCachedMedia(hash);
