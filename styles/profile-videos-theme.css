@@ -454,9 +454,9 @@ body:has(.profile-shell) .profile-activity__summary-item {
     flex-direction: column;
     align-items: stretch;
     text-align: right;
-    padding: 14px 12px 50px;
+    padding: 14px 12px 58px;
     padding-inline-start: 112px;
-    gap: 10px;
+    gap: 8px;
     min-height: 220px;
   }
 
@@ -479,23 +479,30 @@ body:has(.profile-shell) .profile-activity__summary-item {
   }
 
   body:has(.profile-shell) .profile-cover__stats-row {
-    display: none;
+    display: flex;
+    justify-content: flex-start;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
   }
 
   body:has(.profile-shell) .profile-cover__stat-box {
-    padding: 6px 10px;
-    min-width: 70px;
+    padding: 5px 8px;
+    min-width: 64px;
   }
 
   body:has(.profile-shell) .profile-cover__actions {
     position: absolute;
-    bottom: 10px;
-    inset-inline-start: 10px;
+    bottom: 8px;
+    inset-inline-start: 8px;
+    inset-inline-end: 8px;
     width: auto;
+    max-width: calc(100% - 16px);
     justify-content: flex-start;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
   }
 
   body:has(.profile-shell) .primary-nav {

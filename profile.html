@@ -28,13 +28,13 @@
       referrerpolicy="no-referrer"
     />
     <link rel="stylesheet" href="./styles/facebook-theme.css" />
-    <link rel="stylesheet" href="./styles/profile.css?v=20260802ag" />
+    <link rel="stylesheet" href="./styles/profile.css?v=20260802ah" />
     <!-- חלק סגנונות הכרויות (profile.html) – טוען התאמות עיצוב לרכיבי ההכרויות החדשים -->
     <link rel="stylesheet" href="./styles/dating.css" />
     <link rel="stylesheet" href="./styles/media-overrides.css" />
     <!-- חלק לוגו (profile.html) – חיבור קובץ הסגנונות המקוריים של הלוגו העליון | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css" />
-    <link rel="stylesheet" href="./styles/profile-videos-theme.css?v=20260802ag" />
+    <link rel="stylesheet" href="./styles/profile-videos-theme.css?v=20260802ah" />
     <script src="./auth-guard.js"></script>
     <!-- חלק ניווט גלובלי (profile.html) – מאפשר שימוש בתפריט העליון/תחתון האחיד | HYPER CORE TECH -->
     <script>
@@ -177,38 +177,42 @@
                 <h1 class="profile-cover__name" id="profilePageName">משתמש</h1>
                 <p class="profile-cover__bio" id="profilePageBio">מעדכנים את תיאור הפרופיל...</p>
               </div>
+
+              <!-- חלק סטטיסטיקה (profile.html) – עוקבים, נעקבים, לייקים | HYPER CORE TECH -->
+              <div class="profile-cover__stats-row">
+                <button type="button" class="profile-cover__stat-box profile-cover__stat-box--clickable" id="profileFollowersBtn" aria-label="פתיחת רשימת עוקבים">
+                  <span class="profile-cover__stat-value" id="profileFollowersCount">0</span>
+                  <span class="profile-cover__stat-label">עוקבים</span>
+                </button>
+                <button type="button" class="profile-cover__stat-box profile-cover__stat-box--clickable" id="profileFollowingBtn" aria-label="פתיחת רשימת נעקבים">
+                  <span class="profile-cover__stat-value" id="profileFollowingCount">0</span>
+                  <span class="profile-cover__stat-label">נעקבים</span>
+                </button>
+                <div class="profile-cover__stat-box">
+                  <span class="profile-cover__stat-value" id="profileLikesCount">0</span>
+                  <span class="profile-cover__stat-label">לייקים</span>
+                </div>
+              </div>
             </div>
 
-            <!-- שורת פעולות בתחתית הכרטיס: עריכה (ימין) ← אודות ← הכרויות | HYPER CORE TECH -->
+            <!-- שורת פעולות: עריכת פרופיל ← אודות ← פוסטים ← הכרויות | HYPER CORE TECH -->
             <div class="profile-cover__actions">
               <button class="profile-cover__chip profile-cover__chip--edit" id="profileEditButton" type="button" aria-label="עריכת פרופיל">
                 <i class="fa-solid fa-pen" aria-hidden="true"></i>
-                <span>עריכה</span>
+                <span>עריכת פרופיל</span>
               </button>
               <button class="profile-cover__chip" id="profileCoverAboutBtn" type="button" aria-label="אודות">
                 <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
                 <span>אודות</span>
               </button>
+              <button class="profile-cover__chip" id="profileCoverPostsBtn" type="button" aria-label="פוסטים">
+                <i class="fa-solid fa-grid-2" aria-hidden="true"></i>
+                <span>פוסטים</span>
+              </button>
               <button class="profile-cover__chip profile-cover__chip--dating" id="profileCoverDatingBtn" type="button" aria-label="הכרויות">
                 <i class="fa-solid fa-heart" aria-hidden="true"></i>
                 <span>הכרויות</span>
               </button>
-            </div>
-
-            <!-- סטטיסטיקות מוסתרות לתאימות עם profile-view.js | HYPER CORE TECH -->
-            <div class="profile-cover__stats-row" hidden aria-hidden="true">
-              <button type="button" class="profile-cover__stat-box profile-cover__stat-box--clickable" id="profileFollowersBtn">
-                <span class="profile-cover__stat-value" id="profileFollowersCount">0</span>
-                <span class="profile-cover__stat-label">עוקבים</span>
-              </button>
-              <button type="button" class="profile-cover__stat-box profile-cover__stat-box--clickable" id="profileFollowingBtn">
-                <span class="profile-cover__stat-value" id="profileFollowingCount">0</span>
-                <span class="profile-cover__stat-label">נעקבים</span>
-              </button>
-              <div class="profile-cover__stat-box">
-                <span class="profile-cover__stat-value" id="profileLikesCount">0</span>
-                <span class="profile-cover__stat-label">לייקים</span>
-              </div>
             </div>
           </div>
         </div>

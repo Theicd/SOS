@@ -1946,9 +1946,9 @@
     flex-direction: column;
     align-items: stretch;
     text-align: right;
-    padding: 14px 12px 50px !important;
+    padding: 14px 12px 58px !important;
     padding-inline-start: 112px !important;
-    gap: 10px !important;
+    gap: 8px !important;
     min-height: 220px !important;
   }
 
@@ -1977,17 +1977,36 @@
   }
   
   .profile-cover__stats-row {
-    display: none !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .profile-cover__stat-box {
+    padding: 5px 8px !important;
+    min-width: 64px !important;
+  }
+
+  .profile-cover__stat-value {
+    font-size: 1rem !important;
+  }
+
+  .profile-cover__stat-label {
+    font-size: 0.68rem !important;
   }
   
   .profile-cover__actions {
     position: absolute !important;
-    bottom: 10px !important;
-    inset-inline-start: 10px !important;
+    bottom: 8px !important;
+    inset-inline-start: 8px !important;
+    inset-inline-end: 8px !important;
     justify-content: flex-start !important;
-    gap: 6px !important;
-    flex-wrap: nowrap !important;
+    gap: 5px !important;
+    flex-wrap: wrap !important;
     width: auto !important;
+    max-width: calc(100% - 16px) !important;
   }
 
   .profile-cover__actions .profile-primary-button {
@@ -1995,8 +2014,8 @@
   }
 
   .profile-cover__chip {
-    padding: 5px 9px !important;
-    font-size: 0.68rem !important;
+    padding: 5px 8px !important;
+    font-size: 0.65rem !important;
   }
 
   .profile-mobile-tabs {

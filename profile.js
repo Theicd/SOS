@@ -1730,6 +1730,10 @@
       activateMobileTab('about');
     });
 
+    attachClicks(['profileCoverPostsBtn'], () => {
+      activateMobileTab('posts');
+    });
+
     attachClicks(['profileCoverDatingBtn', 'profileDatingHeartButton'], () => {
       activateMobileTab('dating');
     });
