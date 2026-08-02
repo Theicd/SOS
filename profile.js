@@ -1726,6 +1726,14 @@
       }
     });
 
+    attachClicks(['profileCoverAboutBtn'], () => {
+      activateMobileTab('about');
+    });
+
+    attachClicks(['profileCoverDatingBtn', 'profileDatingHeartButton'], () => {
+      activateMobileTab('dating');
+    });
+
     attachClicks(['profileSaveButton'], () => {
       if (typeof window.saveProfileSettings === 'function') {
         window.saveProfileSettings();
@@ -1736,10 +1744,6 @@
       if (typeof window.closeProfileSettings === 'function') {
         window.closeProfileSettings();
       }
-    });
-
-    attachClicks(['profileDatingHeartButton'], () => {
-      activateMobileTab('dating');
     });
 
     attachClicks(['profileTopHomeButton'], () => {

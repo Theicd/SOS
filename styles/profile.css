@@ -77,13 +77,15 @@
     overflow: hidden;
   }
 
-  /* חלק מעטפת כיסוי (profile.css) – פריסה מקצועית: אווטאר + טקסט בשורה | HYPER CORE TECH */
+  /* חלק מעטפת כיסוי (profile.css) – פריסה עם אווטאר בפינה | HYPER CORE TECH */
   .profile-cover__inner {
     flex-direction: column;
     align-items: stretch;
     text-align: right;
-    padding: 18px 16px;
-    gap: 14px;
+    padding: 16px 14px 52px;
+    padding-inline-start: 118px;
+    gap: 10px;
+    min-height: 220px;
   }
 
   .profile-cover__top {
@@ -96,11 +98,14 @@
     text-align: right;
   }
 
-  /* חלק פעולות כיסוי (profile.css) – כפתור עריכה קומפקטי | HYPER CORE TECH */
+  /* חלק פעולות כיסוי (profile.css) – צ׳יפים בתחתית ימין | HYPER CORE TECH */
   .profile-cover__actions {
-    width: 100%;
-    justify-content: center;
-    gap: 8px;
+    position: absolute;
+    bottom: 10px;
+    inset-inline-start: 10px;
+    width: auto;
+    justify-content: flex-start;
+    gap: 6px;
     flex-direction: row;
     align-items: center;
   }
@@ -112,8 +117,15 @@
   }
 
   .profile-cover__avatar {
-    width: 76px;
-    height: 76px;
+    width: 112px;
+    height: 112px;
+    font-size: 1.6rem;
+  }
+
+  .profile-cover__chip {
+    padding: 5px 9px;
+    font-size: 0.68rem;
+    gap: 4px;
   }
 
   .profile-shell {
@@ -678,25 +690,28 @@
   display: none;
 }
 
-/* חלק גריד כיסוי (profile.css) – פריסה ממורכזת בעמודה לאווטר, שם ופעולות בדומה לטיקטוק */
+/* חלק גריד כיסוי (profile.css) – כרטיס עם אווטאר בפינה וכפתורים בתחתית | HYPER CORE TECH */
 .profile-cover__inner {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
-  gap: 16px;
-  padding: 28px 24px;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 220px;
+  padding: 20px 16px 56px;
+  padding-inline-start: 140px;
   color: var(--text);
   backdrop-filter: blur(10px);
   background: linear-gradient(115deg, rgba(8, 10, 14, 0.55), rgba(12, 15, 20, 0.35));
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 18px 42px rgba(9, 11, 15, 0.45);
-  text-align: center;
+  text-align: right;
+  overflow: hidden;
 }
 
-/* פריסה עליונה של כיסוי – מידע משמאל ואווטר מימין */
+/* פריסה עליונה של כיסוי – מידע משמאל לאווטר */
 .profile-cover__top {
   display: flex;
   align-items: center;
@@ -710,23 +725,36 @@
   flex-direction: column;
   gap: 8px;
   flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
 }
 
-/* חלק מידע ממורכז (profile.css) – שם וביוגרפיה ממורכזים בעמודה */
+/* חלק מידע (profile.css) – שם וביוגרפיה */
 .profile-cover__info-center {
   display: flex;
   flex-direction: column;
   gap: 6px;
   align-items: flex-start;
+  text-align: right;
 }
 
-/* חלק אווטר ממורכז (profile.css) – תמונה קטנה וממורכזת בחלק העליון */
+/* חלק אווטר (profile.css) – חצי־עיגול בפינה הימנית העליונה | HYPER CORE TECH */
 .profile-cover__avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: 128px;
+  height: 128px;
+  /* פינת הכרטיס + רבע עיגול פנימה (RTL: inline-start = ימין) | HYPER CORE TECH */
+  border-start-start-radius: 18px;
+  border-start-end-radius: 0;
+  border-end-start-radius: 0;
+  border-end-end-radius: 100%;
   background: var(--card-alt);
-  border: 2px solid var(--border);
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-block-start: none;
+  border-inline-start: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -735,18 +763,22 @@
   color: var(--text);
   overflow: hidden;
   flex-shrink: 0;
+  z-index: 3;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .profile-cover__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 50%;
+  border-radius: inherit;
+  display: block;
 }
 
 .profile-cover__name {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: #fff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -757,7 +789,7 @@
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.4;
   font-size: 0.9rem;
-  max-width: 90%;
+  max-width: 100%;
 }
 
 .profile-cover__keys {
@@ -833,13 +865,71 @@
   text-transform: capitalize;
 }
 
-/* חלק פעולות כיסוי (profile.css) – כפתורים ממורכזים בשורה */
+/* חלק פעולות כיסוי (profile.css) – צ׳יפים קטנים בפינה הימנית התחתונה | HYPER CORE TECH */
 .profile-cover__actions {
+  position: absolute;
+  bottom: 10px;
+  inset-inline-start: 10px;
+  inset-inline-end: auto;
   display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  width: auto;
+  max-width: calc(100% - 20px);
+  z-index: 4;
+}
+
+.profile-cover__chip {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  width: 100%;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 10, 14, 0.72);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.profile-cover__chip i {
+  font-size: 0.7rem;
+}
+
+.profile-cover__chip:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(37, 244, 238, 0.35);
+  transform: translateY(-1px);
+}
+
+.profile-cover__chip--edit {
+  background: linear-gradient(135deg, rgba(254, 44, 85, 0.92), rgba(255, 107, 129, 0.88));
+  border-color: rgba(254, 44, 85, 0.55);
+  box-shadow: 0 4px 14px rgba(254, 44, 85, 0.3);
+}
+
+.profile-cover__chip--edit:hover {
+  filter: brightness(1.06);
+  background: linear-gradient(135deg, rgba(254, 44, 85, 0.98), rgba(255, 107, 129, 0.94));
+}
+
+.profile-cover__chip--dating {
+  border-color: rgba(254, 44, 85, 0.35);
+}
+
+.profile-cover__chip--dating i {
+  color: #fe2c55;
 }
 
 @keyframes profileCoverPulse {
@@ -1856,23 +1946,22 @@
     flex-direction: column;
     align-items: stretch;
     text-align: right;
-    padding: 16px 14px !important;
-    gap: 12px !important;
+    padding: 14px 12px 50px !important;
+    padding-inline-start: 112px !important;
+    gap: 10px !important;
+    min-height: 220px !important;
   }
 
   .profile-cover__top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    gap: 12px;
-    width: 100%;
+    display: none;
   }
 
   .profile-cover__avatar {
-    width: 72px;
-    height: 72px;
+    width: 108px;
+    height: 108px;
     margin: 0;
     flex-shrink: 0;
+    font-size: 1.5rem;
   }
   
   .profile-cover__info-block {
@@ -1888,25 +1977,26 @@
   }
   
   .profile-cover__stats-row {
-    justify-content: flex-start !important;
-    gap: 8px !important;
-    flex-wrap: wrap;
+    display: none !important;
   }
   
   .profile-cover__actions {
-    justify-content: center !important;
-    gap: 8px !important;
+    position: absolute !important;
+    bottom: 10px !important;
+    inset-inline-start: 10px !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
     flex-wrap: nowrap !important;
-    width: 100%;
+    width: auto !important;
   }
 
   .profile-cover__actions .profile-primary-button {
-    flex: 0 1 auto !important;
-    width: auto !important;
-    max-width: 100%;
-    padding: 8px 16px !important;
-    font-size: 0.8rem !important;
-    gap: 6px !important;
+    display: none !important;
+  }
+
+  .profile-cover__chip {
+    padding: 5px 9px !important;
+    font-size: 0.68rem !important;
   }
 
   .profile-mobile-tabs {
