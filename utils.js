@@ -25,6 +25,15 @@
     if (!pubkey || typeof pubkey !== 'string' || !pubkey.trim()) {
       return;
     }
+    // סגירת פאנל תגובות לפני פתיחת פרופיל (דסקטופ/מובייל) | HYPER CORE TECH
+    try {
+      if (typeof App.closeCommentsPanel === 'function') App.closeCommentsPanel();
+      else if (typeof window.closeCommentsPanel === 'function') window.closeCommentsPanel();
+      else {
+        document.body.classList.remove('videos-comments-open');
+        document.querySelector('.videos-comments-overlay')?.remove();
+      }
+    } catch (_) {}
     const normalized = pubkey.trim().toLowerCase();
     const encoded = encodeURIComponent(normalized);
     try {

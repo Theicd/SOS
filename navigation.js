@@ -100,7 +100,38 @@
   }
 
   // חלק סגירת כל ה-overlays (navigation.js) – סוגר כל הפאנלים הפתוחים | HYPER CORE TECH
+  function closeCommentsPanelSafe() {
+    let wasOpen = false;
+    try {
+      wasOpen = !!(
+        document.body.classList.contains('videos-comments-open') ||
+        document.querySelector('.videos-comments-overlay')
+      );
+    } catch (_) {}
+    if (!wasOpen) return false;
+    try {
+      if (typeof App.closeCommentsPanel === 'function') {
+        App.closeCommentsPanel();
+        return true;
+      }
+    } catch (_) {}
+    try {
+      if (typeof window.closeCommentsPanel === 'function') {
+        window.closeCommentsPanel();
+        return true;
+      }
+    } catch (_) {}
+    try {
+      document.body.classList.remove('videos-comments-open');
+      document.querySelector('.videos-comments-overlay')?.remove();
+      return true;
+    } catch (_) {}
+    return false;
+  }
+
   function closeAllOverlays() {
+    // תגובות נסגרות תמיד, אבל לא חוסמות ניווט לבד (בניגוד לפרופיל/צ׳אט) | HYPER CORE TECH
+    closeCommentsPanelSafe();
     let closed = false;
     if (closeProfilePanel()) closed = true;
     if (closePublicProfilePanel()) closed = true;
@@ -122,6 +153,8 @@
 
   function areFeedOverlaysOpen() {
     if (document.body.classList.contains('chat-overlay-open')) return true;
+    if (document.body.classList.contains('videos-comments-open')) return true;
+    if (document.querySelector('.videos-comments-overlay')) return true;
     try {
       if (App.chatState && App.chatState.isOpen) return true;
     } catch (_) {}
@@ -158,6 +191,7 @@
   App.closeNotificationsPanel = closeNotificationsPanel;
   App.closeAllOverlays = closeAllOverlays;
   App.areFeedOverlaysOpen = areFeedOverlaysOpen;
+  App.closeCommentsPanelSafe = closeCommentsPanelSafe;
 
   function isOnVideosFeedPage() {
     try {
@@ -251,6 +285,8 @@
 
     if (key === 'profile') {
       const app = window.NostrApp || {};
+      // סגירת תגובות לפני פתיחת פרופיל — אחרת הכרטיס נשאר מעל ה-overlay | HYPER CORE TECH
+      closeCommentsPanelSafe();
       // בדיקת מצב אורח - חסימת פרופיל למשתמשים לא מחוברים | HYPER CORE TECH
       if (app && typeof app.requireAuth === 'function') {
         if (!app.requireAuth('כדי לצפות בפרופיל אישי צריך להתחבר או להירשם.')) {

@@ -807,6 +807,8 @@ function areFeedOverlaysOpen() {
     }
   } catch (_) {}
   const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
+  if (document.body.classList.contains('videos-comments-open')) return true;
+  if (document.querySelector('.videos-comments-overlay')) return true;
   return ids.some((id) => {
     const el = document.getElementById(id);
     if (!el || el.hidden || el.hasAttribute('hidden')) return false;
@@ -3878,6 +3880,7 @@ function renderVideos() {
   setupLoadMoreObserver();
   setupLikeUpdateListener();
   setupCommentsChangedListener();
+  setupCommentsAutoClose();
 
   state.incrementalRender = {
     nextIndex: 0,
@@ -4170,6 +4173,21 @@ function setupCommentsChangedListener() {
 }
 
 // חלק יאללה וידאו (videos.js) – פתיחת פאנל תגובות בסגנון טיקטוק
+function isCommentsPanelOpen() {
+  try {
+    if (document.body.classList.contains('videos-comments-open')) return true;
+  } catch (_) {}
+  return !!document.querySelector('.videos-comments-overlay');
+}
+
+function getOpenCommentsEventId() {
+  try {
+    return document.querySelector('.videos-comments-overlay')?.dataset?.eventId || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function closeCommentsPanel(overlay) {
   try {
     document.body.classList.remove('videos-comments-open');
@@ -4179,6 +4197,95 @@ function closeCommentsPanel(overlay) {
     else document.querySelector('.videos-comments-overlay')?.remove();
   } catch (_) {}
 }
+
+function getCenteredFeedCard(viewport) {
+  const vp = viewport || document.querySelector('.videos-feed__viewport');
+  if (!vp) return null;
+  const cards = vp.querySelectorAll('.videos-feed__card');
+  if (!cards.length) return null;
+  const viewportRect = vp.getBoundingClientRect();
+  const viewportCenter = viewportRect.top + viewportRect.height / 2;
+  let best = null;
+  let bestDist = Infinity;
+  cards.forEach((card) => {
+    const cardRect = card.getBoundingClientRect();
+    const cardCenter = cardRect.top + cardRect.height / 2;
+    const dist = Math.abs(cardCenter - viewportCenter);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = card;
+    }
+  });
+  return best;
+}
+
+function closeCommentsPanelIfLeftActivePost() {
+  if (!isCommentsPanelOpen()) return;
+  const openId = getOpenCommentsEventId();
+  if (!openId) {
+    closeCommentsPanel();
+    return;
+  }
+  const active = getCenteredFeedCard();
+  const activeId = active?.getAttribute?.('data-event-id') || null;
+  if (activeId && activeId !== openId) {
+    closeCommentsPanel();
+  }
+}
+
+// חלק תגובות (videos.js) – סגירה אוטומטית בגלילה / ניווט / overlays | HYPER CORE TECH
+function setupCommentsAutoClose() {
+  if (window.__sosCommentsAutoCloseWired) return;
+  window.__sosCommentsAutoCloseWired = true;
+
+  const bindViewportScroll = () => {
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (!viewport || viewport.dataset.commentsAutoCloseBound === '1') return;
+    viewport.dataset.commentsAutoCloseBound = '1';
+    let timer = null;
+    viewport.addEventListener('scroll', () => {
+      if (!isCommentsPanelOpen()) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        closeCommentsPanelIfLeftActivePost();
+      }, 60);
+    }, { passive: true });
+  };
+
+  document.addEventListener('click', (event) => {
+    if (!isCommentsPanelOpen()) return;
+    const target = event.target;
+    if (!target || typeof target.closest !== 'function') return;
+    // אינטראקציה בתוך פאנל התגובות — לא סוגרים | HYPER CORE TECH
+    if (target.closest('.videos-comments-overlay')) return;
+    // כפתור התגובות של אותו פוסט — openCommentsPanel יטפל | HYPER CORE TECH
+    if (target.closest('[data-comment-button]')) return;
+
+    if (
+      target.closest('.primary-nav [data-nav]') ||
+      target.closest('#topBarProfileButton') ||
+      target.closest('.videos-nav-arrow-btn') ||
+      target.closest('[data-nav]')
+    ) {
+      closeCommentsPanel();
+    }
+  }, true);
+
+  bindViewportScroll();
+  try {
+    const obs = new MutationObserver(() => bindViewportScroll());
+    obs.observe(document.body, { childList: true, subtree: true });
+  } catch (_) {}
+}
+
+try {
+  const AppRef = window.NostrApp || (window.NostrApp = {});
+  AppRef.closeCommentsPanel = closeCommentsPanel;
+  AppRef.isCommentsPanelOpen = isCommentsPanelOpen;
+} catch (_) {}
+try {
+  window.closeCommentsPanel = closeCommentsPanel;
+} catch (_) {}
 
 function openCommentsPanel(eventId) {
   if (!eventId) return;
@@ -4220,6 +4327,7 @@ function openCommentsPanel(eventId) {
     overlay.dataset.eventId = eventId;
   } catch (_) {}
   try { document.body.classList.add('videos-comments-open'); } catch (_) {}
+  try { setupCommentsAutoClose(); } catch (_) {}
 
   // סגירה: מובייל = לחיצה על רקע כהה; דסקטופ = רק X (רקע שקוף עם pointer-events:none) | HYPER CORE TECH
   overlay.addEventListener('click', (e) => {
@@ -4819,6 +4927,14 @@ function setupIntersectionObserver() {
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           playMedia(mediaDiv, { manual: false });
           prefetchNeighborLiveChannels(card);
+          // גלילה לפוסט אחר — סגירת פאנל תגובות של הפוסט הקודם | HYPER CORE TECH
+          try {
+            const openId = getOpenCommentsEventId();
+            const cardId = card.getAttribute('data-event-id');
+            if (openId && cardId && openId !== cardId) {
+              closeCommentsPanel();
+            }
+          } catch (_) {}
         } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
           // מתקרבים לכרטיס — חימום HLS שקט ברקע | HYPER CORE TECH
           const App = window.NostrApp || {};
@@ -5998,6 +6114,10 @@ function createNavArrows() {
     let targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     targetIndex = Math.max(0, Math.min(cards.length - 1, targetIndex));
     
+    if (targetIndex !== currentIndex) {
+      try { closeCommentsPanel(); } catch (_) {}
+    }
+
     if (targetIndex >= 0 && targetIndex < cards.length) {
       cards[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -6605,6 +6725,7 @@ function forceFullFeedRerender() {
   setupLoadMoreObserver();
   setupLikeUpdateListener();
   setupCommentsChangedListener();
+  setupCommentsAutoClose();
 
   state.incrementalRender = {
     nextIndex: 0,
