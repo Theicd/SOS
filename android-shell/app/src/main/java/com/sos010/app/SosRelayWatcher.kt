@@ -148,7 +148,7 @@ class SosRelayWatcher(private val appContext: Context) {
             if (!addressedToMe) return
 
             when (kind) {
-                CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty())
+                CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty(), id)
                 CALL_KIND -> handleCallSignal(author, signalType)
             }
         } catch (err: Exception) {
@@ -156,26 +156,29 @@ class SosRelayWatcher(private val appContext: Context) {
         }
     }
 
-    private fun notifyChat(author: String, rawContent: String) {
-        val now = System.currentTimeMillis()
-        if (now - lastNotifyAt < 800L) return
-        lastNotifyAt = now
+    private fun notifyChat(author: String, rawContent: String, eventId: String) {
+        // כשהממשק פתוח – ה-Web מטפל בהתראות (מונע כפילות צליל/כרטיס)
+        if (MainActivity.isHostAlive) return
 
         val raw = rawContent.trim()
         val preview = when {
-            raw.isBlank() -> "קיבלת הודעה חדשה"
-            raw.startsWith("{") -> "קיבלת הודעה / קובץ"
+            raw.isBlank() -> "הודעה חדשה"
+            raw.startsWith("{") -> "הודעה / קובץ"
             raw.length > 120 -> raw.take(117) + "…"
             else -> raw
         }
+        val senderLabel = "משתמש ${author.take(8)}"
 
         NotificationHelper.showMessage(
             appContext,
-            "הודעה חדשה ב-SOS",
+            senderLabel,
             preview,
             "https://sos010.com/videos.html?chat=$author",
-            "chat-$author"
+            "chat-$author",
+            eventId = eventId,
+            peerKey = author
         )
+        lastNotifyAt = System.currentTimeMillis()
         Log.i(TAG, "chat notify from ${author.take(8)}")
     }
 

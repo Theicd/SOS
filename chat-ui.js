@@ -966,8 +966,6 @@
   function showIncomingChatNotification(peerPubkey, message, messageId) {
     try {
       if (!peerPubkey || !message) return;
-      if (!('Notification' in window)) return;
-      if (window.Notification.permission !== 'granted') return;
       
       // חלק דה-דופליקציה (chat-ui.js) – מניעת התראה כפולה על אותה הודעה | HYPER CORE TECH
       if (messageId && wasMessageNotified(messageId)) {
@@ -984,7 +982,6 @@
       // סימון ההודעה כ"הותרעה" כדי שלא תופיע שוב
       if (messageId) markMessageNotified(messageId);
 
-      registerChatServiceWorkerIfSupported();
       const contact = App.chatState?.contacts?.get(normalizedPeer);
       const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
       const picture = contact?.picture || '';
@@ -997,6 +994,27 @@
       aggregateNotificationState.lastPeer = normalizedPeer;
       aggregateNotificationState.lastSnippet = safeSnippet;
       aggregateNotificationState.lastName = name;
+
+      const openUrl = `${window.location.origin}${window.location.pathname}?chat=${normalizedPeer}`;
+
+      // APK: התראת Native מקובצת בלבד (בלי Web כפול) | HYPER CORE TECH
+      if (typeof App.isNativeShell === 'function' && App.isNativeShell()
+          && typeof App.nativeShowNotification === 'function') {
+        App.nativeShowNotification(
+          name,
+          safeSnippet,
+          openUrl,
+          `chat-${normalizedPeer}`,
+          messageId || '',
+          normalizedPeer
+        );
+        return;
+      }
+
+      if (!('Notification' in window)) return;
+      if (window.Notification.permission !== 'granted') return;
+
+      registerChatServiceWorkerIfSupported();
 
       const baseOptions = {
         body: buildAggregateNotificationBody(),
@@ -1011,7 +1029,8 @@
         data: {
           type: 'chat-message-aggregate',
           peerPubkey: normalizedPeer,
-          url: window.location.href
+          eventId: messageId || '',
+          url: openUrl
         }
       });
 

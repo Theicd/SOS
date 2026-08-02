@@ -21,10 +21,22 @@
     }
   }
 
-  function nativeShowNotification(title, body, openUrl, tag) {
+  function nativeShowNotification(title, body, openUrl, tag, eventId, peerKey) {
     const bridge = getBridge();
-    if (!bridge || typeof bridge.showNotification !== 'function') return false;
+    if (!bridge) return false;
     try {
+      if (typeof bridge.showChatNotification === 'function') {
+        bridge.showChatNotification(
+          String(title || 'SOS'),
+          String(body || 'יש לך עדכון חדש'),
+          openUrl ? String(openUrl) : 'https://sos010.com/videos.html',
+          tag ? String(tag) : 'sos',
+          eventId ? String(eventId) : '',
+          peerKey ? String(peerKey) : ''
+        );
+        return true;
+      }
+      if (typeof bridge.showNotification !== 'function') return false;
       bridge.showNotification(
         String(title || 'SOS'),
         String(body || 'יש לך עדכון חדש'),
@@ -199,13 +211,15 @@
     App.showLocalNotification = async function patchedShowLocalNotification(title, options = {}) {
       const url = (options && options.data && options.data.url) || options.url || 'https://sos010.com/videos.html';
       const tag = options.tag || options.type || 'sos';
-      if (isNativeShell()) {
-        nativeShowNotification(title, options.body || '', url, tag);
+      const eventId = (options && options.data && (options.data.eventId || options.data.id)) || options.eventId || '';
+      const peerKey = (options && options.data && (options.data.peerPubkey || options.data.pubkey)) || options.peerKey || '';
+      // באפליקציית APK – רק התראת Native מקובצת, בלי כפילות Web | HYPER CORE TECH
+      if (isNativeShell() && nativeShowNotification(title, options.body || '', url, tag, eventId, peerKey)) {
+        return true;
       }
       try {
         return await original.call(App, title, options);
       } catch (err) {
-        if (isNativeShell()) return true;
         throw err;
       }
     };

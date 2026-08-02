@@ -129,6 +129,7 @@ class MainActivity : AppCompatActivity() {
         isHostAlive = true
         CallSoundHelper.stopAll()
         NotificationHelper.cancelIncomingCall(this)
+        NotificationHelper.clearMessageNotifications(this)
         startKeepAliveService()
         if (this::webView.isInitialized) {
             try {

@@ -14,6 +14,9 @@ class SosFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        // כשהממשק פתוח – ה-Web מטפל (מונע כפילות מול RelayWatcher)
+        if (MainActivity.isHostAlive) return
+
         val title = message.notification?.title
             ?: message.data["title"]
             ?: "SOS"
@@ -22,6 +25,21 @@ class SosFirebaseMessagingService : FirebaseMessagingService() {
             ?: "יש לך עדכון חדש"
         val url = message.data["url"]
         val tag = message.data["tag"]
-        NotificationHelper.showMessage(applicationContext, title, body, url, tag)
+        val eventId = message.data["eventId"]
+            ?: message.data["event_id"]
+            ?: message.messageId
+        val peerKey = message.data["peer"]
+            ?: message.data["pubkey"]
+            ?: message.data["peerKey"]
+
+        NotificationHelper.showMessage(
+            applicationContext,
+            title,
+            body,
+            url,
+            tag,
+            eventId = eventId,
+            peerKey = peerKey
+        )
     }
 }

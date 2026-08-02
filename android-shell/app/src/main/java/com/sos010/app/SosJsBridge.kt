@@ -70,8 +70,36 @@ class SosJsBridge(
             title?.ifBlank { "SOS" } ?: "SOS",
             body?.ifBlank { "יש לך עדכון חדש" } ?: "יש לך עדכון חדש",
             openUrl,
-            tag
+            tag,
+            eventId = null,
+            peerKey = null
         )
+    }
+
+    /** התראת הודעה עם מזהה אירוע – מונע כפילות מול שירות הרקע | HYPER CORE TECH */
+    @JavascriptInterface
+    fun showChatNotification(
+        title: String?,
+        body: String?,
+        openUrl: String?,
+        tag: String?,
+        eventId: String?,
+        peerKey: String?
+    ) {
+        NotificationHelper.showMessage(
+            context.applicationContext,
+            title?.ifBlank { "SOS" } ?: "SOS",
+            body?.ifBlank { "יש לך עדכון חדש" } ?: "יש לך עדכון חדש",
+            openUrl,
+            tag,
+            eventId = eventId,
+            peerKey = peerKey
+        )
+    }
+
+    @JavascriptInterface
+    fun clearMessageNotifications() {
+        NotificationHelper.clearMessageNotifications(context.applicationContext)
     }
 
     /** שמירת pubkey לשירות הרקע – חובה לקבלת הודעות כשהממשק סגור | HYPER CORE TECH */
