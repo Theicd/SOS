@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v176'; // bump - reset feed videos to start on scroll leave/enter
+  const CACHE_NAME = 'sos-cache-v177'; // bump - drop dead/404 media cards from feed
   const PRECACHE_URLS = [
     './',
     './videos.html',
