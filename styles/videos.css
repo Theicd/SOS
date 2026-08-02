@@ -3540,8 +3540,8 @@ body.global-stop .videos-feed__play-overlay {
   }
 
   .profile-panel .profile-shell {
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
+    min-height: 0 !important;
+    align-content: start !important;
     background: #000 !important;
   }
 

@@ -1886,12 +1886,10 @@
 }
 
 .profile-timeline__list.is-loading {
-  min-height: 180px;
-  background:
-    linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
-  background-size: 200% 100%;
-  animation: profileLoaderShimmer 1.4s linear infinite;
-  border-radius: 8px;
+  min-height: 0;
+  background: transparent;
+  animation: none;
+  border-radius: 0;
 }
 
 @keyframes profileLoaderShimmer {
@@ -2042,20 +2040,25 @@
     margin-top: 0 !important;
     padding: 10px 12px 0 !important;
     background: #000 !important;
-    min-height: calc(100vh - 60px) !important;
-    min-height: calc(100dvh - 60px) !important;
+    min-height: 0 !important;
     gap: 10px !important;
+    align-content: start !important;
+    align-items: stretch !important;
   }
 
   .profile-main {
     gap: 0 !important;
     margin-top: 0 !important;
     padding-top: 0 !important;
+    min-height: 0 !important;
+    align-content: start !important;
   }
 
   .profile-timeline {
     margin-top: 0 !important;
     padding-top: 0 !important;
+    gap: 0 !important;
+    min-height: 0 !important;
   }
 
   .profile-cover {
@@ -2079,7 +2082,8 @@
     grid-template-columns: 1fr !important;
     gap: 0 !important;
     background: #000 !important;
-    min-height: 100% !important;
+    min-height: 0 !important;
+    align-content: start !important;
   }
   
   /* sidebar מוסתר אבל הפאנלים הפעילים מוצגים */
@@ -2584,12 +2588,12 @@
   border-radius: 8px;
 }
 
-/* סקלטון לפוסטים בזמן טעינה */
+/* סקלטון לפוסטים בזמן טעינה – קומפקטי, בלי לשמור גובה מסך מלא | HYPER CORE TECH */
 .profile-timeline__list:empty::before {
   content: '';
   display: block;
   grid-column: 1 / -1;
-  height: 300px;
+  height: 72px;
   background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -2599,7 +2603,7 @@
 /* רקע שחור יציב תמיד */
 @media (max-width: 900px) {
   .profile-timeline__list:empty {
-    min-height: calc(100dvh - 300px) !important;
+    min-height: 0 !important;
     background: #000 !important;
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
@@ -2607,9 +2611,15 @@
   
   .profile-timeline__list:empty::before,
   .profile-timeline__list:empty::after {
+    content: none;
+  }
+
+  .profile-timeline__list.is-loading:empty::before {
     content: '';
-    aspect-ratio: 9/16;
-    background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%);
+    display: block;
+    grid-column: 1 / -1;
+    height: 72px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
   }
@@ -2804,14 +2814,15 @@
 
   .app-shell.profile-shell,
   .profile-shell {
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
+    min-height: 0 !important;
     background: #000 !important;
+    align-content: start !important;
   }
 
   .profile-main {
-    min-height: 100vh !important;
+    min-height: 0 !important;
     background: #000 !important;
+    align-content: start !important;
   }
 
   /* הסתרת פסי גלילה (לא הסרה) | HYPER CORE TECH */

@@ -1323,23 +1323,24 @@
       if (cached && cached.data && cached.data.length > 0) {
         const posts = cached.data.filter(e => !extractParentId(e));
         const replies = cached.data.filter(e => extractParentId(e));
-        
+
+        // מציג מיד ומסתיר loader – בלי לחכות ל-hydrate | HYPER CORE TECH
+        renderTimelineWithLazyLoad(posts, replies);
+        setTimelineLoading(false);
+
         if (typeof App.hydrateEngagementForPosts === 'function') {
           App.hydrateEngagementForPosts(posts, extractParentId).then(() => {
-            renderTimelineWithLazyLoad(posts, replies);
-            setTimelineLoading(false);
+            if (typeof App.updateLikeIndicator === 'function') {
+              posts.forEach((event) => {
+                if (event?.id) App.updateLikeIndicator(event.id);
+              });
+            }
             if (typeof App.updateCommentsForParent === 'function') {
               posts.slice(0, 6).forEach((event) => {
                 if (event?.id) App.updateCommentsForParent(event.id);
               });
             }
-          }).catch(() => {
-            renderTimelineWithLazyLoad(posts, replies);
-            setTimelineLoading(false);
-          });
-        } else {
-          renderTimelineWithLazyLoad(posts, replies);
-          setTimelineLoading(false);
+          }).catch(() => {});
         }
         
         if (!cached.isStale) {
