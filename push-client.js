@@ -9,8 +9,8 @@
     // מפתח VAPID ציבורי - נטען דינמית מהשרת
     vapidPublicKey: null,
     notificationDefaults: {
-      icon: './icons/so-call010.png',
-      badge: './icons/so-call010.png',
+      icon: './icons/sos-logo-mobile.png',
+      badge: './icons/sos-logo-mobile.png',
       vibrate: [200, 100, 200],
       requireInteraction: false,
     },
@@ -481,7 +481,6 @@
   }
 
   // חלק מודאל הרשמה (push-client.js) – מודאל משופר לבקשת הרשאה להתראות | HYPER CORE TECH
-  // בהשראת VIPO – עם steps, הודעות iOS ברורות, ועיצוב מודרני
   function showPushPermissionModal(vapidPublicKey) {
     if (document.getElementById('push-permission-modal')) return;
     
@@ -490,64 +489,34 @@
     
     const modal = document.createElement('div');
     modal.id = 'push-permission-modal';
+    modal.className = 'ppm-modal';
     modal.innerHTML = `
       <div class="ppm-overlay"></div>
       <div class="ppm-content">
         <div class="ppm-step ppm-step--ask">
-          <div class="ppm-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-          </div>
+          <img class="ppm-logo" src="./icons/sos-logo-mobile.png?v=20260802x" alt="SOS" width="64" height="64">
           <h3>התראות חכמות ל-SOS</h3>
           <p class="ppm-lead">קבל עדכונים חשובים ישירות למכשיר</p>
           <ul class="ppm-bullets">
-            <li>🔔 הודעות צ'אט חדשות</li>
-            <li>📞 שיחות נכנסות</li>
-            <li>📰 פוסטים חדשים מאנשים שאתה עוקב</li>
+            <li><span class="ppm-bullet-icon" aria-hidden="true">💬</span><span>הודעות צ'אט חדשות</span></li>
+            <li><span class="ppm-bullet-icon" aria-hidden="true">📞</span><span>שיחות נכנסות</span></li>
+            <li><span class="ppm-bullet-icon" aria-hidden="true">📰</span><span>פוסטים חדשים מאנשים שאתה עוקב</span></li>
           </ul>
           <div class="ppm-actions">
             <button type="button" class="ppm-btn ppm-btn--later">לא עכשיו</button>
             <button type="button" class="ppm-btn ppm-btn--enable">הפעל</button>
           </div>
         </div>
-        <div class="ppm-step ppm-step--success" style="display:none">
-          <div class="ppm-icon ppm-icon--success">✓</div>
+        <div class="ppm-step ppm-step--success" hidden>
+          <img class="ppm-logo" src="./icons/sos-logo-mobile.png?v=20260802x" alt="SOS" width="64" height="64">
           <p>מעולה! תקבל התראות לנייד</p>
         </div>
-        <div class="ppm-step ppm-step--error" style="display:none">
-          <div class="ppm-icon ppm-icon--error">⚠</div>
+        <div class="ppm-step ppm-step--error" hidden>
+          <div class="ppm-status-icon ppm-status-icon--error" aria-hidden="true">⚠</div>
           <p class="ppm-error-msg"></p>
         </div>
       </div>
     `;
-    
-    // סגנונות inline - עיצוב מותאם לממשק הכהה של האפליקציה | HYPER CORE TECH
-    const style = document.createElement('style');
-    style.textContent = `
-      #push-permission-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-      .ppm-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-      .ppm-content{position:relative;background:linear-gradient(135deg,#0a0a1a 0%,#1a1a2e 50%,#16213e 100%);border-radius:20px;padding:24px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.5);direction:rtl;text-align:center;border:1px solid rgba(45,136,255,0.15)}
-      .ppm-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff2d55 0%,#2d88ff 100%);color:#000}
-      .ppm-icon--success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:32px}
-      .ppm-icon--error{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:28px}
-      .ppm-content h3{margin:0 0 8px;font-size:20px;font-weight:700;color:#fff}
-      .ppm-lead{color:rgba(255,255,255,0.7);font-size:14px;margin:0 0 20px}
-      .ppm-bullets{list-style:none;padding:0;margin:0 0 24px;text-align:right}
-      .ppm-bullets li{padding:8px 0;font-size:14px;color:rgba(255,255,255,0.85);border-bottom:1px solid rgba(255,255,255,0.08)}
-      .ppm-bullets li:last-child{border-bottom:none}
-      .ppm-actions{display:flex;gap:12px}
-      .ppm-btn{flex:1;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:none;transition:all 0.2s}
-      .ppm-btn:active{transform:scale(0.97)}
-      .ppm-btn--later{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.2)}
-      .ppm-btn--later:hover{background:rgba(255,255,255,0.15)}
-      .ppm-btn--enable{background:linear-gradient(135deg,#ff2d55 0%,#2d88ff 100%);color:#000;font-weight:700;box-shadow:0 4px 16px rgba(45,136,255,0.3)}
-      .ppm-btn--enable:hover{box-shadow:0 6px 20px rgba(45,136,255,0.4)}
-      .ppm-step p{font-size:15px;color:#fff}
-      .ppm-error-msg{color:#f87171}
-    `;
-    document.head.appendChild(style);
     
     const closeModal = () => modal.remove();
     
@@ -565,8 +534,8 @@
       
       // בדיקת iOS ללא התקנה
       if (isIOS && !isStandalone) {
-        askStep.style.display = 'none';
-        errorStep.style.display = 'block';
+        askStep.hidden = true;
+        errorStep.hidden = false;
         errorMsg.textContent = 'ב-iPhone יש להוסיף את האתר למסך הבית תחילה (לחץ על כפתור השיתוף ← "הוסף למסך הבית")';
         setTimeout(closeModal, 5000);
         return;
@@ -579,15 +548,15 @@
       const result = await subscribeToPush(vapidPublicKey);
       
       if (result.success) {
-        askStep.style.display = 'none';
-        successStep.style.display = 'block';
+        askStep.hidden = true;
+        successStep.hidden = false;
         localStorage.setItem('push_subscribed', 'true');
         localStorage.removeItem('push_modal_dismissed');
         window.dispatchEvent(new CustomEvent('push-subscription-changed', { detail: { subscribed: true } }));
         setTimeout(closeModal, 1500);
       } else {
-        askStep.style.display = 'none';
-        errorStep.style.display = 'block';
+        askStep.hidden = true;
+        errorStep.hidden = false;
         
         // הודעות שגיאה מפורטות יותר | HYPER CORE TECH
         if (result.error === 'denied') {
