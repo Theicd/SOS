@@ -3554,6 +3554,10 @@ async function loadFeed() {
       restoreNotificationsFromStorage();
       App.notificationsRestored = true;
     }
+    if (!App.commentsRestored && typeof App.publicKey === 'string' && App.publicKey) {
+      restoreCommentsFromStorage();
+      App.commentsRestored = true;
+    }
     setupNotificationUI();
     const statusEl = document.getElementById('connection-status');
     if (statusEl) {
@@ -3566,6 +3570,11 @@ async function loadFeed() {
       App.deletedEventIds = new Set();
       App.likesByEventId = new Map();
       App.commentsByParent = new Map();
+      // אחרי איפוס — משחזרים תגובות מהקאש המקומי | HYPER CORE TECH
+      if (typeof App.publicKey === 'string' && App.publicKey) {
+        restoreCommentsFromStorage();
+        App.commentsRestored = true;
+      }
     }
 
     // חלק חזרה לפיד (feed.js) – אם יש state שמור, רנדר מיד את הפוסטים ושחרר את מסך הברכה
@@ -4579,6 +4588,7 @@ async function loadFeed() {
     registerComment,
     updateCommentsForParent,
     listVisibleComments,
+    restoreCommentsFromStorage,
     parseYouTube,
     createMediaHtml,
     buildTheaterSnapshot: App.buildTheaterSnapshot,

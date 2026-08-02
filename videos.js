@@ -1567,8 +1567,11 @@ function hydrateFeedFromCache() {
     const eventIds = filtered.map(v => v.id);
     if (eventIds.length > 0) {
       loadLikesAndCommentsForVideos(eventIds).then(() => {
-        // עדכון כפתורי הלייק אחרי שהנתונים נטענו
-        eventIds.forEach(id => updateVideoLikeButton(id));
+        // עדכון כפתורי לייק ותגובה אחרי שהנתונים נטענו | HYPER CORE TECH
+        eventIds.forEach((id) => {
+          updateVideoLikeButton(id);
+          updateVideoCommentButton(id);
+        });
       }).catch(err => console.warn('[videos] Failed to load likes for cached videos', err));
     }
     return true;
@@ -2672,7 +2675,7 @@ function updateCardAuthorUi(video) {
     btn.setAttribute('aria-label', video.authorName);
   }
   updateVideoLikeButton(video.id);
-  const commentCount = window.NostrApp?.commentsByParent?.get(video.id)?.length || 0;
+  const commentCount = getVisibleCommentCount(video.id);
   const commentEl = card.querySelector(`[data-comment-count="${video.id}"]`);
   if (commentEl) {
     if (commentCount > 0) {
@@ -3568,7 +3571,7 @@ function renderVideoCard(video) {
   const currentApp = window.NostrApp || {};
   const likeCount = currentApp.likesByEventId?.get(video.id)?.size || 0;
   const isLiked = currentApp.likesByEventId?.get(video.id)?.has(currentApp.publicKey) || false;
-  const commentCount = currentApp.commentsByParent?.get(video.id)?.length || 0;
+  const commentCount = getVisibleCommentCount(video.id);
 
   actionsDiv.insertAdjacentHTML('beforeend', `
     <button class="videos-feed__action ${isLiked ? 'videos-feed__action--liked' : ''}" data-like-button data-event-id="${video.id}">
@@ -4083,25 +4086,32 @@ function updateVideoLikeButton(eventId) {
   }
 }
 
+function getVisibleCommentCount(eventId) {
+  if (!eventId) return 0;
+  const app = window.NostrApp;
+  if (typeof app?.listVisibleComments === 'function') {
+    return (app.listVisibleComments(eventId) || []).length;
+  }
+  const commentMap = app?.commentsByParent?.get(eventId);
+  if (!(commentMap instanceof Map)) return 0;
+  const deleted = app?.deletedEventIds instanceof Set ? app.deletedEventIds : null;
+  let count = 0;
+  commentMap.forEach((_, id) => {
+    if (deleted && deleted.has(id)) return;
+    count += 1;
+  });
+  return count;
+}
+
 // חלק יאללה וידאו (videos.js) – עדכון כפתור תגובות בדף הווידאו
 function updateVideoCommentButton(eventId) {
   if (!eventId) return;
   const button = document.querySelector(`button[data-comment-button][data-event-id="${eventId}"]`);
   if (!button) return;
 
-  const app = window.NostrApp;
-  let comments = [];
-  if (typeof app?.listVisibleComments === 'function') {
-    comments = app.listVisibleComments(eventId) || [];
-  } else {
-    const commentMap = app?.commentsByParent?.get(eventId);
-    const deleted = app?.deletedEventIds instanceof Set ? app.deletedEventIds : null;
-    comments = commentMap
-      ? Array.from(commentMap.values()).filter((c) => c?.id && !(deleted && deleted.has(c.id)))
-      : [];
-  }
-  const count = comments.length;
-  const counterEl = button.querySelector('.feed-post__comment-count');
+  const count = getVisibleCommentCount(eventId);
+  const counterEl = button.querySelector('.feed-post__comment-count') ||
+    button.querySelector('.videos-feed__action-count');
   
   if (counterEl) {
     if (count > 0) {
@@ -4447,7 +4457,6 @@ async function loadCommentsForPost(eventId) {
     return;
   }
 
-  commentsList.innerHTML = '<div class="videos-comments-loading">טוען תגובות...</div>';
   try {
     commentsList.dataset.parentId = eventId;
   } catch (_) {}
@@ -5399,7 +5408,10 @@ async function loadLikesAndCommentsForVideos(eventIds) {
       });
 
       // עדכון UI אחרי כל באצ' | HYPER CORE TECH
-      batch.forEach(id => updateVideoLikeButton(id));
+      batch.forEach((id) => {
+        updateVideoLikeButton(id);
+        updateVideoCommentButton(id);
+      });
 
     } catch (err) {
       console.warn('[videos] Failed to load likes/comments batch:', err);
@@ -5473,6 +5485,12 @@ function registerVideoCommentRecord(app, event, parentId) {
   if (typeof app.registerComment === 'function') {
     try {
       app.registerComment(event, parentId);
+      // registerComment מעדכן פיד בית בלבד — חובה לרענן בועת הווידאו | HYPER CORE TECH
+      try {
+        updateVideoCommentButton(parentId);
+      } catch (err) {
+        console.warn('[videos] updateVideoCommentButton failed', err);
+      }
       return;
     } catch (err) {
       console.warn('[videos] app.registerComment failed, falling back to local handler', err);
@@ -5633,7 +5651,10 @@ async function loadVideos() {
     const cachedIds = state.videos.map(v => v.id);
     if (cachedIds.length > 0) {
       loadLikesAndCommentsForVideos(cachedIds).then(() => {
-        cachedIds.forEach(id => updateVideoLikeButton(id));
+        cachedIds.forEach((id) => {
+          updateVideoLikeButton(id);
+          updateVideoCommentButton(id);
+        });
       }).catch(() => {});
     }
     setLoadingProgress(100);
@@ -6284,6 +6305,16 @@ async function init() {
     app.buildCoreFeedFilters = buildVideoFeedFilters;
   }
 
+  // שחזור תגובות מקאש מקומי לפני רינדור/בועות | HYPER CORE TECH
+  if (typeof app.restoreCommentsFromStorage === 'function' && !app.commentsRestored) {
+    try {
+      app.restoreCommentsFromStorage();
+      app.commentsRestored = true;
+    } catch (err) {
+      console.warn('[videos] restoreCommentsFromStorage failed', err);
+    }
+  }
+
   // טעינת מחיקות לפני הצגת המטמון כדי לסנן פוסטים מחוקים
   await loadDeletionsFirst();
 
@@ -6303,6 +6334,12 @@ async function init() {
     console.log('[videos] warm start from cache — waiting for first video frame');
     setLoadingStatus('טוען את הפוסט הראשון מהקאש...');
     setLoadingProgress(45);
+    // רענון בועות תגובה מהקאש המקומי ששוחזר | HYPER CORE TECH
+    try {
+      (state.videos || []).forEach((v) => {
+        if (v?.id) updateVideoCommentButton(v.id);
+      });
+    } catch (_) {}
     await ensureBootFeedReady();
   }
 
