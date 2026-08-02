@@ -443,7 +443,7 @@
     banner.className = 'pwa-install-banner';
     banner.innerHTML = `
       <div class="pwa-install-banner__content">
-        <img src="./icons/so-call010.png" alt="SOS Call 010" class="pwa-install-banner__icon">
+        <img src="./icons/sos-logo-mobile.png?v=20260802w" alt="SOS" class="pwa-install-banner__icon">
         <div class="pwa-install-banner__text">
           <strong>התקן את אפליקציית SOS</strong>
           <span>התראות גם כשהמסך כבוי</span>
@@ -543,36 +543,25 @@
     
     const toast = document.createElement('div');
     toast.id = 'pwa-update-toast';
+    toast.className = 'pwa-update-toast';
     toast.innerHTML = `
-      <div class="pwa-update-icon">
-        <i class="fa-solid fa-arrow-rotate-right"></i>
+      <img src="./icons/sos-logo-mobile.png?v=20260802w" alt="SOS" class="pwa-update-toast__logo">
+      <div class="pwa-update-toast__content">
+        <span class="pwa-update-toast__title">גרסה חדשה זמינה!</span>
+        <span class="pwa-update-toast__subtitle">עדכן כדי ליהנות משיפורים ותכונות חדשות</span>
       </div>
-      <div class="pwa-update-content">
-        <span class="pwa-update-title">גרסה חדשה זמינה!</span>
-        <span class="pwa-update-subtitle">עדכן כדי ליהנות משיפורים ותכונות חדשות</span>
-      </div>
-      <div class="pwa-update-actions">
-        <button type="button" class="pwa-update-later">אח״כ</button>
-        <button type="button" class="pwa-update-now">עדכן</button>
+      <div class="pwa-update-toast__actions">
+        <button type="button" class="pwa-update-toast__later">אח״כ</button>
+        <button type="button" class="pwa-update-toast__now">עדכן</button>
       </div>
     `;
     
-    // עיצוב מותאם לממשק ומובייל - רקע כהה עם accent בסגנון האפליקציה | HYPER CORE TECH
-    toast.style.cssText = `position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));left:12px;right:12px;transform:translateY(150px);background:linear-gradient(135deg,#0a0a1a 0%,#1a1a2e 50%,#16213e 100%);color:#fff;padding:14px;border-radius:16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;z-index:100001;box-shadow:0 8px 32px rgba(0,0,0,0.6);direction:rtl;transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275);border:1px solid rgba(45,136,255,0.2);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);`;
-    toast.querySelector('.pwa-update-icon').style.cssText = 'width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#ff2d55 0%,#2d88ff 100%);display:flex;align-items:center;justify-content:center;font-size:16px;color:#000;flex-shrink:0;';
-    toast.querySelector('.pwa-update-content').style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1;min-width:120px;';
-    toast.querySelector('.pwa-update-title').style.cssText = 'font-size:14px;font-weight:700;color:#fff;';
-    toast.querySelector('.pwa-update-subtitle').style.cssText = 'font-size:11px;color:rgba(255,255,255,0.6);';
-    toast.querySelector('.pwa-update-actions').style.cssText = 'display:flex;gap:8px;flex-shrink:0;margin-right:auto;';
-    toast.querySelector('.pwa-update-later').style.cssText = 'background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.8);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s;';
-    toast.querySelector('.pwa-update-now').style.cssText = 'background:linear-gradient(135deg,#ff2d55 0%,#2d88ff 100%);border:none;color:#000;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;box-shadow:0 4px 12px rgba(45,136,255,0.3);';
-    
-    toast.querySelector('.pwa-update-later').onclick = () => {
-      toast.style.transform = 'translateY(150px)';
+    toast.querySelector('.pwa-update-toast__later').onclick = () => {
+      toast.classList.remove('pwa-update-toast--visible');
       setTimeout(() => toast.remove(), 300);
     };
     
-    toast.querySelector('.pwa-update-now').onclick = () => {
+    toast.querySelector('.pwa-update-toast__now').onclick = () => {
       if (navigator.serviceWorker?.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
       }
@@ -580,7 +569,7 @@
     };
     
     document.body.appendChild(toast);
-    setTimeout(() => { toast.style.transform = 'translateY(0)'; }, 100);
+    setTimeout(() => { toast.classList.add('pwa-update-toast--visible'); }, 100);
     console.log('[PWA] הוצגה הודעת עדכון גרסה');
   }
 
