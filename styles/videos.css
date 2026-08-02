@@ -4608,9 +4608,10 @@ body.policy-modal-open {
   display: block !important;
 }
 
-/* חלק פרופיל אישי מובייל (videos.css) – מתחת להדר העליון כדי שהשם לא יוסתר | HYPER CORE TECH */
+/* חלק פרופיל מובייל (videos.css) – אישי + ציבורי מתחת להדר העליון | HYPER CORE TECH */
 @media (max-width: 900px) {
-  #profilePanel.profile-panel:not([hidden]) {
+  #profilePanel.profile-panel:not([hidden]),
+  #publicProfilePanel.profile-panel:not([hidden]) {
     top: calc(44px + var(--safe-top, 0px)) !important;
     bottom: 56px !important;
     height: auto !important;

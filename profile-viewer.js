@@ -228,15 +228,33 @@
     });
   }
 
+  function setTimelineLoading(isLoading, message) {
+    // חלק טעינה (profile-viewer.js) – אותו loader כמו בפרופיל האישי | HYPER CORE TECH
+    if (!refs.timelineStatus) return;
+    const textEl = refs.timelineStatus.querySelector('.profile-timeline__loader-text');
+    if (textEl && message) textEl.textContent = message;
+    if (isLoading) {
+      refs.timelineStatus.hidden = false;
+      refs.timelineStatus.removeAttribute('hidden');
+      refs.timelineStatus.style.display = '';
+      refs.timelineStatus.classList.add('is-visible');
+      if (refs.timelineList && !refs.timelineList.children.length) {
+        refs.timelineList.classList.add('is-loading');
+      }
+    } else {
+      refs.timelineStatus.hidden = true;
+      refs.timelineStatus.setAttribute('hidden', '');
+      refs.timelineStatus.style.display = 'none';
+      refs.timelineStatus.classList.remove('is-visible');
+      if (refs.timelineList) refs.timelineList.classList.remove('is-loading');
+    }
+  }
+
   function showStatus(message) {
-    // הודעת טעינה באזור הפוסטים עם עיצוב פרימיום
-    if (refs.timelineList && message) {
-      refs.timelineList.innerHTML = `
-        <li class="profile-loading-state">
-          <div class="profile-loading-state__spinner"></div>
-          <span class="profile-loading-state__text">טוען...</span>
-        </li>
-      `;
+    if (message) {
+      setTimelineLoading(true, message);
+    } else {
+      setTimelineLoading(false);
     }
   }
 
@@ -547,7 +565,7 @@
     if (!App.pool) {
       return { posts: [], replies: [] };
     }
-    showStatus('טוען פוסטים מהריליים...');
+    showStatus('טוען פוסטים...');
     try {
       const filter = {
         kinds: [1],
@@ -1006,9 +1024,7 @@
 
     state.targetPubkey = parsePubkey();
     if (!state.targetPubkey) {
-      if (refs.timelineStatus) {
-        refs.timelineStatus.textContent = 'לא נמצא משתמש להצגה. ודא שהכתובת כוללת pubkey תקין.';
-      }
+      setTimelineLoading(true, 'לא נמצא משתמש להצגה. ודא שהכתובת כוללת pubkey תקין.');
       return;
     }
     bindViewerGalleryModal();

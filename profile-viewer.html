@@ -28,7 +28,7 @@
       referrerpolicy="no-referrer"
     />
     <link rel="stylesheet" href="./styles/facebook-theme.css" />
-    <link rel="stylesheet" href="./styles/profile.css?v=20260803b" />
+    <link rel="stylesheet" href="./styles/profile.css?v=20260803c" />
     <link rel="stylesheet" href="./styles/media-overrides.css" />
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <style>
@@ -278,7 +278,13 @@
               </button>
             </div>
           </header>
-          <div class="profile-status" id="viewerTimelineStatus" style="display: none;"></div>
+          <div class="profile-status profile-timeline__loader" id="viewerTimelineStatus" hidden>
+            <div class="profile-timeline__loader-inner" role="status" aria-live="polite">
+              <span class="profile-timeline__loader-spinner" aria-hidden="true"></span>
+              <span class="profile-timeline__loader-text">טוען פוסטים...</span>
+              <div class="profile-timeline__loader-bar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
           <ul class="profile-timeline__list" id="viewerTimeline"></ul>
         </section>
       </section>
@@ -293,7 +299,7 @@
     <script src="./follow-service.js"></script>
     <script src="./profile-engagement.js"></script>
     <script src="./profile-post.js"></script>
-    <script src="./profile-viewer.js?v=20260803b"></script>
+    <script src="./profile-viewer.js?v=20260803c"></script>
 
     <!-- חלק מודל גלריה צופים (profile-viewer.html) – מציג תמונה מוגדלת בלחיצה בצד הצופה -->
     <div class="profile-gallery-modal" id="viewerGalleryModal" hidden>
