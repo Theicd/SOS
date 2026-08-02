@@ -3931,11 +3931,14 @@ body.global-stop .videos-feed__play-overlay {
   transform: scale(1.05);
 }
 
-/* חלק תגובות דסקטופ (videos.css) – פאנל שמאלי פיזי (לא inline-start ב־RTL) מתחת ל־top-bar | HYPER CORE TECH */
+/* חלק תגובות דסקטופ (videos.css) – פאנל שמאלי פיזי מתחת לקפסולת פרופיל/LIVE TV | HYPER CORE TECH */
 @media (min-width: 769px) {
   .videos-comments-overlay {
-    /* מתחת להדר העליון — לא מכסה אותו | HYPER CORE TECH */
-    top: calc(44px + var(--safe-top, 0px));
+    /*
+      בדסקטופ ה־top-bar הוא height:0; כפתורי פרופיל+LIVE צפים ב־top:16px (~68px גובה).
+      הפאנל חייב להתחיל מתחת לקפסולה הזו | HYPER CORE TECH
+    */
+    top: calc(88px + var(--safe-top, 0px));
     left: 0;
     right: 0;
     bottom: 0;
@@ -3944,14 +3947,12 @@ body.global-stop .videos-feed__play-overlay {
     justify-content: flex-start;
     pointer-events: none;
     animation: none;
-    /* מתחת ל־top-bar (3000) ומעל הווידאו | HYPER CORE TECH */
     z-index: 1500;
   }
 
   .videos-comments-panel {
     pointer-events: auto;
     position: absolute;
-    /* צד שמאל פיזי של המסך — בין חצי הגלילה לווידאו (לא ימין בגלל RTL) | HYPER CORE TECH */
     left: 84px;
     right: auto;
     top: 0;
@@ -3962,8 +3963,9 @@ body.global-stop .videos-feed__play-overlay {
     height: auto;
     max-height: none;
     margin: 0;
-    border-radius: 0;
+    border-radius: 12px 12px 0 0;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     border-inline-end: none;
     background: #121212;
     direction: rtl;
@@ -3980,10 +3982,8 @@ body.global-stop .videos-feed__play-overlay {
     padding: 12px 16px 16px;
   }
 
-  /* כשפתוח – חצי הגלילה נשארים מעל הפאנל ללחיצה | HYPER CORE TECH */
   body.videos-comments-open .videos-nav-arrows {
     z-index: 1600;
-    top: calc(50% + 22px);
   }
 }
 
