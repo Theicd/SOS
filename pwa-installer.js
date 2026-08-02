@@ -34,8 +34,24 @@
     };
   }
 
-  // חלק בדיקת התקנה (pwa-installer.js) – בודק אם האפליקציה כבר מותקנת | HYPER CORE TECH
+  // חלק זיהוי מעטפת APK (pwa-installer.js) – WebView של האפליקציה המותקנת | HYPER CORE TECH
+  function isRunningInNativeShell() {
+    try {
+      if (window.SOS_NATIVE_SHELL) return true;
+      if (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function') {
+        const v = window.SosNativeShell.isNativeShell();
+        return v === true || v === 'true';
+      }
+    } catch (_) {}
+    return /SOSNativeShell\//i.test(navigator.userAgent || '');
+  }
+
+  // חלק בדיקת התקנה (pwa-installer.js) – PWA standalone או APK native | HYPER CORE TECH
   function checkIfInstalled() {
+    // מעטפת Android מותקנת = כבר «מותקן», לא להציג באנר התקנה | HYPER CORE TECH
+    if (isRunningInNativeShell()) {
+      return true;
+    }
     // בדיקה דרך display-mode
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
       return true;
@@ -189,17 +205,6 @@
   // כתובת APK של מעטפת Android – התקנה אמיתית כמו אפליקציה | HYPER CORE TECH
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
     || './downloads/SOS.apk';
-
-  function isRunningInNativeShell() {
-    try {
-      if (window.SOS_NATIVE_SHELL) return true;
-      if (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function') {
-        const v = window.SosNativeShell.isNativeShell();
-        return v === true || v === 'true';
-      }
-    } catch (_) {}
-    return /SOSNativeShell\//i.test(navigator.userAgent || '');
-  }
 
   function startNativeApkInstall() {
     // הורדה ישירה של APK – בלי מדריכים ובלי תפריט Chrome | HYPER CORE TECH
@@ -374,7 +379,14 @@
       btn.setAttribute('hidden', '');
       btn.style.display = 'none';
     }
-    // כפתור בתפריט הפרופיל נשאר קבוע – לא מסתירים | HYPER CORE TECH
+    // ב־APK native מסתירים גם את כפתור התפריט – כבר מותקן | HYPER CORE TECH
+    if (isRunningInNativeShell()) {
+      const menuBtn = document.getElementById('pwa-install-menu-btn');
+      if (menuBtn) {
+        menuBtn.setAttribute('hidden', '');
+        menuBtn.style.display = 'none';
+      }
+    }
   }
 
   // חלק כפתור תפריט (pwa-installer.js) – התקנה ישירה בלי באנר תחתון | HYPER CORE TECH
@@ -476,8 +488,8 @@
 
   // חלק באנר התקנה (pwa-installer.js) – יצירת באנר התקנה בתחתית המסך | HYPER CORE TECH
   function createInstallBanner() {
-    // בדיקה 1: לא מציגים אם כבר מותקן
-    if (isInstalled || checkIfInstalled()) {
+    // בדיקה 1: לא מציגים אם כבר מותקן (כולל APK native) | HYPER CORE TECH
+    if (isInstalled || isRunningInNativeShell() || checkIfInstalled()) {
       console.log('[PWA] האפליקציה כבר מותקנת - לא מציגים באנר');
       return;
     }
@@ -550,13 +562,24 @@
     // **תמיד** להגדיר מאזין להתקנה - גם אם נראה מותקן (יכול להיות חלון דפדפן רגיל)
     setupInstallPromptListener();
     bindInstallMenuButton();
+
+    // אם הדגל מגיע מאוחר מ־onPageFinished – מסירים באנר אם הופיע | HYPER CORE TECH
+    window.addEventListener('sos-native-ready', () => {
+      isInstalled = true;
+      try { localStorage.setItem('pwa_installed', 'true'); } catch (_) {}
+      const banner = document.getElementById('pwa-install-banner');
+      if (banner) banner.remove();
+      hideInstallButton();
+    });
     
     isInstalled = checkIfInstalled();
-    console.log('[PWA] סטטוס התקנה:', isInstalled ? 'מותקן' : 'לא מותקן');
+    console.log('[PWA] סטטוס התקנה:', isInstalled ? 'מותקן' : 'לא מותקן',
+      isRunningInNativeShell() ? '(native shell)' : '');
     
     if (isInstalled) {
       console.log('[PWA] האפליקציה מותקנת - SW רשום לקבלת Push והתרעות ברקע');
       localStorage.setItem('pwa_installed', 'true');
+      hideInstallButton();
       // ממשיכים לאתחל push גם אחרי התקנה (שם הפונקציה הנכון) | HYPER CORE TECH
       ensurePushAfterInstall();
       return;
@@ -570,6 +593,11 @@
 
   // חלק תזמון באנר (pwa-installer.js) – הצגת באנר התקנה בתזמון נכון | HYPER CORE TECH
   function scheduleInstallBanner() {
+    // APK / כבר מותקן – בלי באנר התקנה | HYPER CORE TECH
+    if (isInstalled || isRunningInNativeShell() || checkIfInstalled()) {
+      return;
+    }
+
     const platform = getPlatformInfo();
     
     // iOS - מציגים באנר מיד (אין beforeinstallprompt)
@@ -584,8 +612,9 @@
     
     // Android/Desktop - ממתינים ל-beforeinstallprompt
     let bannerTimeout = setTimeout(() => {
+      if (isRunningInNativeShell() || checkIfInstalled()) return;
       if (!getDeferredPrompt()) {
-        // Android: באנר מוביל לבחירה (APK) גם בלי beforeinstallprompt | HYPER CORE TECH
+        // Android בדפדפן: באנר מוביל לבחירה (APK) גם בלי beforeinstallprompt | HYPER CORE TECH
         console.log('[PWA] beforeinstallprompt לא התקבל עדיין');
         if (platform.isFirefox || platform.isAndroid) {
           createInstallBanner();
@@ -595,6 +624,7 @@
     
     // אם beforeinstallprompt מגיע לפני הטיימאוט, מציגים באנר
     window.addEventListener('beforeinstallprompt', () => {
+      if (isRunningInNativeShell() || checkIfInstalled()) return;
       clearTimeout(bannerTimeout);
       setTimeout(createInstallBanner, 3000);
     }, { once: true });
@@ -689,6 +719,7 @@
   Object.assign(App, {
     getPlatformInfo,
     checkIfInstalled,
+    isRunningInNativeShell,
     promptPwaInstall: promptInstall,
     installPwaDesktop,
     installAndroidApk,

@@ -25,7 +25,10 @@
   }
 
   function openInstallChooser() {
-    if (typeof App.checkIfInstalled === 'function' && App.checkIfInstalled()) {
+    const alreadyInstalled =
+      (typeof App.isRunningInNativeShell === 'function' && App.isRunningInNativeShell())
+      || (typeof App.checkIfInstalled === 'function' && App.checkIfInstalled());
+    if (alreadyInstalled) {
       if (typeof App.showToast === 'function') {
         App.showToast('הממשק כבר מותקן – פתח אותו מהאייקון');
       }
