@@ -2682,7 +2682,10 @@ body.videos-boot-loading .videos-feed__media[data-media-type="file"],
 
 /* בזמן טעינה: רק כרטיס LoadNug נראה — בלי פליי אפור של הפוסטים מתחת | HYPER CORE TECH */
 body.videos-boot-loading .videos-feed__card[data-event-id],
-body.videos-boot-loading .videos-feed__card:not(#sosLoadNugOverlay):not(.videos-feed__card--loadnug) {
+body.videos-boot-loading .videos-feed__card:not(#sosLoadNugOverlay):not(.videos-feed__card--loadnug),
+/* גם בזמן fade-out של LoadNug — לא לחשוף נגן מתחת | HYPER CORE TECH */
+body:has(#sosLoadNugOverlay) .videos-feed__card[data-event-id],
+body:has(#sosLoadNugOverlay) .videos-feed__card:not(#sosLoadNugOverlay):not(.videos-feed__card--loadnug) {
   visibility: hidden !important;
   pointer-events: none !important;
 }
@@ -2690,7 +2693,10 @@ body.videos-boot-loading .video-skip-indicator,
 body.videos-boot-loading .video-progress-bar,
 body.videos-boot-loading .videos-feed__skip,
 body.videos-boot-loading [data-skip],
-body.videos-boot-loading .videos-nav-arrows {
+body.videos-boot-loading .videos-nav-arrows,
+body:has(#sosLoadNugOverlay) .video-skip-indicator,
+body:has(#sosLoadNugOverlay) .video-progress-bar,
+body:has(#sosLoadNugOverlay) .videos-nav-arrows {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;

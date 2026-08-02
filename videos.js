@@ -2318,11 +2318,19 @@ async function releaseBootLoading(reason = 'ready') {
   bootGate.released = true;
   bootGate.active = false;
   console.log('[videos] boot loading released:', reason);
-  try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
   setLoadingProgress(100);
   setLoadingStatus('הכל מוכן!');
   hideSoftFeedLoading();
   hideLoadingAnimation({ force: true });
+  // מסירים videos-boot-loading רק אחרי fade של LoadNug — מונע הבזק נגן מתחת | HYPER CORE TECH
+  const revealFeed = () => {
+    try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
+  };
+  if (document.getElementById('sosLoadNugOverlay')) {
+    setTimeout(revealFeed, 800);
+  } else {
+    revealFeed();
+  }
   if (selectors.status) {
     selectors.status.style.display = 'none';
   }

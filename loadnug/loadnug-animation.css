@@ -218,3 +218,18 @@ body:has(.videos-feed) .primary-nav {
 @media (prefers-reduced-motion: reduce) {
   .sos-loadnug__bar { animation: none !important; }
 }
+
+/* דסקטופ: אין תפריט תחתון — LoadNug עד קצה המסך באזור התוכן | HYPER CORE TECH */
+@media (min-width: 769px) {
+  #sosLoadNugOverlay.videos-feed__card,
+  .videos-feed__card--loadnug,
+  #sosLoadNugOverlay {
+    top: 0 !important;
+    left: 0 !important;
+    right: var(--videos-desktop-nav-width, 260px) !important;
+    bottom: 0 !important;
+    width: auto !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+  }
+}
