@@ -809,14 +809,15 @@
   color: var(--text);
 }
 
-/* חלק סטטיסטיקה (profile.css) – שלוש תיבות צפופות לעוקבים, נעקבים, לייקים */
+/* חלק סטטיסטיקה (profile.css) – שלוש תיבות עם רווח מהשם וביניהן | HYPER CORE TECH */
 .profile-cover__stats-row {
   display: flex;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 14px;
   width: 100%;
   flex-wrap: nowrap;
   overflow-x: auto;
+  margin-top: 14px;
 }
 
 /* חלק כרטיס סטטיסטיקה (profile.css) – תיבה קטנה לתווית ומספר */
@@ -1979,14 +1980,14 @@
   .profile-cover__stats-row {
     display: flex !important;
     justify-content: flex-start !important;
-    gap: 6px !important;
+    gap: 14px !important;
     flex-wrap: wrap;
-    margin-top: 4px;
+    margin-top: 16px !important;
   }
 
   .profile-cover__stat-box {
-    padding: 5px 8px !important;
-    min-width: 64px !important;
+    padding: 6px 10px !important;
+    min-width: 68px !important;
   }
 
   .profile-cover__stat-value {
@@ -2018,16 +2019,23 @@
     font-size: 0.65rem !important;
   }
 
-  .profile-mobile-tabs {
-    display: none;
-    gap: 0;
+  .profile-mobile-tabs,
+  .profile-mobile-tabs--dual {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow-x: hidden;
-    width: 100%;
-    background: rgba(0,0,0,0.5);
-    border-top: 1px solid rgba(255,255,255,0.1);
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .profile-dating-heart {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 
   .profile-mobile-tab {
@@ -2070,10 +2078,12 @@
   }
 }
 
-/* חלק טאבים מובייל (profile.css) – הצגת תפריט אודות/פוסטים רק במובייל לאורך */
+/* חלק טאבים מובייל (profile.css) – מוסתרים: אודות/פוסטים/הכרויות בכרטיס הכיסוי | HYPER CORE TECH */
 @media (max-width: 900px) and (orientation: portrait) {
-  .profile-mobile-tabs {
-    display: flex;
+  .profile-mobile-tabs,
+  .profile-mobile-tabs--dual,
+  .profile-dating-heart {
+    display: none !important;
   }
 }
 
@@ -2548,25 +2558,11 @@
   color: #fff !important;
 }
 
-/* כפתור לב מהבהב להכרויות */
+/* כפתור לב מהבהב להכרויות – מוסתר; הכרויות מהכרטיס (profileCoverDatingBtn) | HYPER CORE TECH */
 .profile-dating-heart {
-  position: fixed !important;
-  bottom: 100px !important;
-  left: 20px !important;
-  width: 56px !important;
-  height: 56px !important;
-  border-radius: 50% !important;
-  border: none !important;
-  background: linear-gradient(135deg, #fe2c55, #ff6b81) !important;
-  color: #fff !important;
-  font-size: 1.5rem !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  box-shadow: 0 4px 20px rgba(254, 44, 85, 0.5) !important;
-  z-index: 1000 !important;
-  animation: heartPulse 1.5s ease-in-out infinite !important;
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .profile-dating-heart:hover {
