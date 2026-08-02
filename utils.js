@@ -54,7 +54,7 @@
       if (typeof App.pauseAllFeedVideos === 'function') {
         App.pauseAllFeedVideos();
       }
-      publicFrame.src = `./profile-viewer.html?pubkey=${encoded}&embedded=1`;
+      publicFrame.src = `./profile-viewer.html?pubkey=${encoded}&embedded=1&v=20260803b`;
       publicPanel.hidden = false;
       console.log('[UTILS] Public profile opened as overlay:', normalized.slice(0, 8));
       return;
