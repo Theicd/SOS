@@ -3966,11 +3966,11 @@ body.global-stop .videos-feed__play-overlay {
   .videos-comments-panel {
     pointer-events: auto;
     position: absolute;
-    left: 84px;
+    left: var(--videos-desktop-comments-left, 84px);
     right: auto;
     top: 0;
     bottom: 0;
-    width: min(360px, calc(100vw - var(--videos-desktop-nav-width, 260px) - 420px));
+    width: var(--videos-desktop-comments-width, 340px);
     min-width: 280px;
     max-width: 400px;
     height: auto;
@@ -3982,7 +3982,7 @@ body.global-stop .videos-feed__play-overlay {
     border-inline-end: none;
     background: #121212;
     direction: rtl;
-    animation: commentsSlideInDesktop 0.25s ease;
+    animation: commentsSlideInDesktop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
     box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
   }
 
