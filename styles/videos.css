@@ -3756,7 +3756,8 @@ body.global-stop .videos-feed__play-overlay {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
-  z-index: 1000;
+  /* מעל primary-nav (3000) וכפתורי דילוג (1200) — אחרת שורת הקלט מוסתרת במובייל | HYPER CORE TECH */
+  z-index: 3200;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -3772,11 +3773,12 @@ body.global-stop .videos-feed__play-overlay {
   background: var(--card-bg);
   width: 100%;
   max-width: 680px;
-  max-height: 70vh;
+  max-height: min(70vh, calc(100dvh - 48px));
   border-radius: 20px 20px 0 0;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease;
+  box-sizing: border-box;
 }
 
 @keyframes slideUp {
@@ -3790,6 +3792,7 @@ body.global-stop .videos-feed__play-overlay {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .videos-comments-header h3 {
@@ -3822,6 +3825,8 @@ body.global-stop .videos-feed__play-overlay {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px;
+  min-height: 120px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .videos-comments-loading,
@@ -3883,9 +3888,12 @@ body.global-stop .videos-feed__play-overlay {
 .videos-comments-input {
   display: flex;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-color);
   background: var(--card-bg);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .videos-comments-input input {
