@@ -3879,17 +3879,52 @@ body.global-stop .videos-feed__play-overlay {
 
 .videos-comment-content {
   flex: 1;
+  min-width: 0;
+}
+
+.videos-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .videos-comment-author {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 0;
   background: transparent; /* ביטול רקע ברירת מחדל לכפתור שם מגיב | HYPER CORE TECH */
   border: none; /* הסרת מסגרת ברירת מחדל לכפתור | HYPER CORE TECH */
   padding: 0; /* שמירת פריסה הדוקה סביב הטקסט | HYPER CORE TECH */
   cursor: pointer; /* מצביע ידני לשם המגיב | HYPER CORE TECH */
+}
+
+.videos-comment-delete {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted, #9aa0a6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.videos-comment-delete:hover,
+.videos-comment-delete:focus-visible {
+  opacity: 1;
+  color: #e57373;
+  background: rgba(229, 115, 115, 0.12);
+  outline: none;
 }
 
 .videos-comment-text {

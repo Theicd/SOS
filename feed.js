@@ -89,15 +89,17 @@
       const parsed = JSON.parse(raw);
       const byParent = parsed?.commentsByParent || {};
       const syncTs = parsed?.lastSyncTs || 0;
+      const deleted = App.deletedEventIds instanceof Set ? App.deletedEventIds : null;
       Object.keys(byParent).forEach((parentId) => {
         const arr = Array.isArray(byParent[parentId]) ? byParent[parentId] : [];
         const map = new Map();
         arr.forEach((c) => {
-          if (c?.id) {
-            map.set(c.id, c);
-            if (typeof c.created_at === 'number' && c.created_at > App.commentLastSyncTs) {
-              App.commentLastSyncTs = c.created_at;
-            }
+          if (!c?.id) return;
+          // לא משחזרים תגובות שסומנו כמחוקות (NIP-09) | HYPER CORE TECH
+          if (deleted && deleted.has(c.id)) return;
+          map.set(c.id, c);
+          if (typeof c.created_at === 'number' && c.created_at > App.commentLastSyncTs) {
+            App.commentLastSyncTs = c.created_at;
           }
         });
         App.commentsByParent.set(parentId, map);
@@ -2278,6 +2280,60 @@
     }
   }
 
+  // חלק מחיקת תגובות (feed.js) – מסיר תגובה מהמאגר המקומי בלי לגעת במפתחות parent של פוסטים | HYPER CORE TECH
+  function removeCommentLocally(commentId) {
+    if (!commentId || !(App.commentsByParent instanceof Map)) {
+      return null;
+    }
+    let foundParent = null;
+    App.commentsByParent.forEach((map, parentId) => {
+      if (!(map instanceof Map) || !map.has(commentId)) return;
+      map.delete(commentId);
+      foundParent = parentId;
+    });
+    if (foundParent) {
+      try {
+        saveCommentsToStorage();
+      } catch (_) {}
+    }
+    return foundParent;
+  }
+
+  function notifyCommentsChanged(parentId) {
+    if (!parentId) return;
+    try {
+      window.dispatchEvent(new CustomEvent('sos:comments-changed', { detail: { parentId } }));
+    } catch (_) {}
+  }
+
+  function applyDeletedEventLocally(eventId) {
+    if (!eventId) return;
+    App.deletedEventIds.add(eventId);
+    removePostElement(eventId);
+    const parentId = removeCommentLocally(eventId);
+    if (parentId) {
+      try {
+        updateCommentsForParent(parentId);
+      } catch (_) {}
+      notifyCommentsChanged(parentId);
+    }
+  }
+
+  function canViewerDeleteComment(comment) {
+    if (!comment || typeof App.publicKey !== 'string' || !App.publicKey) {
+      return false;
+    }
+    const viewer = App.publicKey.toLowerCase();
+    const isAdmin =
+      App.adminPublicKeys instanceof Set && App.adminPublicKeys.has(viewer);
+    if (isAdmin) return true;
+    const author =
+      (typeof comment.pubkey === 'string' && comment.pubkey.toLowerCase()) ||
+      App.eventAuthorById?.get?.(comment.id)?.toLowerCase?.() ||
+      '';
+    return Boolean(author && author === viewer);
+  }
+
   function logDeletionDebug(msg, extra = {}) {
     try {
       console.log('%c[DELETE_DEBUG] ' + msg, 'color: #FF5722; font-weight: bold', extra);
@@ -2315,14 +2371,14 @@
           });
           return;
         }
-        App.deletedEventIds.add(value);
         logDeletionDebug('accepted deletion', {
           eventId: value,
           byAdmin: isAdmin,
           author: author || '(unknown)',
           reason: isAdmin ? 'admin' : (author ? 'author' : 'unknown-trust'),
         });
-        removePostElement(value);
+        // מסיר גם פוסט וגם תגובה מקומית אם קיימים | HYPER CORE TECH
+        applyDeletedEventLocally(value);
       }
     });
   }
@@ -2537,6 +2593,10 @@
     if (!event || !parentId) {
       return;
     }
+    // תגובות שנמחקו (kind 5) לא חוזרות למאגר גם אם הריליי שולח אותן שוב | HYPER CORE TECH
+    if (App.deletedEventIds instanceof Set && event.id && App.deletedEventIds.has(event.id)) {
+      return;
+    }
     if (!App.commentsByParent.has(parentId)) {
       App.commentsByParent.set(parentId, new Map());
     }
@@ -2557,6 +2617,36 @@
     handleNotificationForComment(event, parentId);
   }
 
+  function listVisibleComments(parentId) {
+    const commentMap = App.commentsByParent?.get(parentId);
+    if (!commentMap) return [];
+    const deleted = App.deletedEventIds instanceof Set ? App.deletedEventIds : null;
+    const comments = Array.from(commentMap.values()).filter((c) => {
+      if (!c?.id) return false;
+      if (deleted && deleted.has(c.id)) return false;
+      return true;
+    });
+    comments.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+    return comments;
+  }
+
+  function wireCommentDeleteButtons(listEl, parentId) {
+    if (!listEl || !parentId) return;
+    listEl.querySelectorAll('[data-delete-comment]').forEach((button) => {
+      if (button.dataset.deleteWired === '1') return;
+      button.dataset.deleteWired = '1';
+      button.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const commentId = button.getAttribute('data-delete-comment');
+        const parent = button.getAttribute('data-parent-id') || parentId;
+        if (commentId) {
+          deleteComment(commentId, parent);
+        }
+      });
+    });
+  }
+
   async function updateCommentsForParent(parentId) {
     // חלק פיד (feed.js) – מרנדר מחדש את רשימת התגובות עבור פוסט מסוים
     if (!parentId) return;
@@ -2566,9 +2656,7 @@
       return;
     }
 
-    const commentMap = App.commentsByParent.get(parentId);
-    const comments = commentMap ? Array.from(commentMap.values()) : [];
-    comments.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+    const comments = listVisibleComments(parentId);
     const theaterShouldRefresh = Boolean(window.PostTheaterViewer?.isOpen?.());
 
     if (counterEl) {
@@ -2607,13 +2695,18 @@
           : `<div class="feed-comment__avatar" ${profileDataset}>${commenterProfile.initials}</div>`;
         const safeContent = App.escapeHtml(comment.content || '').replace(/\n/g, '<br>');
         const timestamp = comment.created_at ? formatTimestamp(comment.created_at) : '';
+        const canDelete = canViewerDeleteComment(comment);
+        const deleteBtnHtml = canDelete
+          ? `<button type="button" class="feed-comment__delete" data-delete-comment="${comment.id}" data-parent-id="${parentId}" aria-label="מחק תגובה" title="מחק תגובה"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`
+          : '';
         fragments.push(`
-          <article class="feed-comment">
+          <article class="feed-comment" data-comment-id="${comment.id || ''}">
             ${commenterAvatarHtml}
             <div class="feed-comment__body">
               <header class="feed-comment__header">
                 <button class="feed-comment__author" type="button" ${profileDataset}>${commenterName}</button>
                 ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
+                ${deleteBtnHtml}
               </header>
               <div class="feed-comment__text">${safeContent}</div>
             </div>
@@ -2621,6 +2714,7 @@
         `);
       }
       listEl.innerHTML = fragments.join('');
+      wireCommentDeleteButtons(listEl, parentId);
     }
 
     // חלק תיאטרון (feed.js) – רענון שכבת התיאטרון רק אחרי שה-DOM מעודכן בפועל
@@ -3973,6 +4067,12 @@ async function loadFeed() {
       await App.pool.publish(App.relayUrls, event);
       App.deletedEventIds.add(eventId);
       removePostElement(eventId);
+      // אם זה היה id של תגובה (או במקרה נדיר) – מנקים גם מהמאגר | HYPER CORE TECH
+      const parentId = removeCommentLocally(eventId);
+      if (parentId) {
+        try { updateCommentsForParent(parentId); } catch (_) {}
+        notifyCommentsChanged(parentId);
+      }
       logDeletionPublish('delete published (quiet)', { eventId });
     } catch (e) {
       // מחיקה שקטה – לא מפוצצים UI
@@ -4333,12 +4433,86 @@ async function loadFeed() {
       });
       await App.pool.publish(App.relayUrls, event);
       console.log('Deleted event published to relays:', App.relayUrls);
-      App.deletedEventIds.add(eventId);
-      removePostElement(eventId);
+      applyDeletedEventLocally(eventId);
       logDeletionPublish('delete published successfully', { eventId, deletionEventId: event.id });
     } catch (e) {
       console.error('Delete publish error', e);
       logDeletionPublish('delete publish FAILED', { eventId, error: e.message });
+    }
+  }
+
+  async function deleteComment(commentId, parentId) {
+    // חלק מחיקת תגובות (feed.js) – NIP-09 kind 5 לתגובה; מחבר או מנהל בלבד | HYPER CORE TECH
+    if (!commentId) {
+      return;
+    }
+    if (!App.pool || typeof App.finalizeEvent !== 'function') {
+      console.warn('Pool or finalizeEvent unavailable for comment deletion');
+      return;
+    }
+    if (!App.publicKey || !App.privateKey) {
+      console.warn('Missing keys for comment deletion');
+      return;
+    }
+
+    let resolvedParent = parentId || null;
+    let comment = null;
+    if (resolvedParent && App.commentsByParent?.get?.(resolvedParent)?.has?.(commentId)) {
+      comment = App.commentsByParent.get(resolvedParent).get(commentId);
+    } else if (App.commentsByParent instanceof Map) {
+      App.commentsByParent.forEach((map, pid) => {
+        if (comment || !(map instanceof Map) || !map.has(commentId)) return;
+        comment = map.get(commentId);
+        resolvedParent = pid;
+      });
+    }
+
+    if (!comment) {
+      comment = {
+        id: commentId,
+        pubkey: App.eventAuthorById?.get?.(commentId) || '',
+      };
+    }
+
+    if (!canViewerDeleteComment(comment)) {
+      console.warn('Comment delete denied: not author/admin', { commentId });
+      return;
+    }
+
+    const confirmed = window.confirm('למחוק את התגובה? פעולה זו אינה ניתנת לשחזור.');
+    if (!confirmed) {
+      return;
+    }
+
+    const draft = {
+      kind: 5,
+      pubkey: App.publicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ['e', commentId],
+        ['t', App.NETWORK_TAG],
+      ],
+      content: '',
+    };
+    const event = App.finalizeEvent(draft, App.privateKey);
+
+    try {
+      logDeletionPublish('publishing comment delete', {
+        commentId,
+        parentId: resolvedParent,
+        relays: App.relayUrls,
+        pubkey: event.pubkey,
+      });
+      await App.pool.publish(App.relayUrls, event);
+      applyDeletedEventLocally(commentId);
+      logDeletionPublish('comment delete published successfully', {
+        commentId,
+        parentId: resolvedParent,
+        deletionEventId: event.id,
+      });
+    } catch (e) {
+      console.error('Comment delete publish error', e);
+      logDeletionPublish('comment delete publish FAILED', { commentId, error: e.message });
     }
   }
 
@@ -4401,6 +4575,10 @@ async function loadFeed() {
     openEditPost,
     deletePost,
     deletePostQuiet,
+    deleteComment,
+    registerComment,
+    updateCommentsForParent,
+    listVisibleComments,
     parseYouTube,
     createMediaHtml,
     buildTheaterSnapshot: App.buildTheaterSnapshot,

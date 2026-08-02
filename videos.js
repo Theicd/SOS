@@ -3874,6 +3874,7 @@ function renderVideos() {
   setupIntersectionObserver();
   setupLoadMoreObserver();
   setupLikeUpdateListener();
+  setupCommentsChangedListener();
 
   state.incrementalRender = {
     nextIndex: 0,
@@ -4089,8 +4090,16 @@ function updateVideoCommentButton(eventId) {
   if (!button) return;
 
   const app = window.NostrApp;
-  const commentMap = app?.commentsByParent?.get(eventId);
-  const comments = commentMap ? Array.from(commentMap.values()) : [];
+  let comments = [];
+  if (typeof app?.listVisibleComments === 'function') {
+    comments = app.listVisibleComments(eventId) || [];
+  } else {
+    const commentMap = app?.commentsByParent?.get(eventId);
+    const deleted = app?.deletedEventIds instanceof Set ? app.deletedEventIds : null;
+    comments = commentMap
+      ? Array.from(commentMap.values()).filter((c) => c?.id && !(deleted && deleted.has(c.id)))
+      : [];
+  }
   const count = comments.length;
   const counterEl = button.querySelector('.feed-post__comment-count');
   
@@ -4129,6 +4138,25 @@ function setupLikeUpdateListener() {
     
     return result;
   };
+}
+
+// חלק תגובות (videos.js) – רענון פאנל/מונה כשמחיקה או עדכון מגיעים מ-feed.js | HYPER CORE TECH
+function setupCommentsChangedListener() {
+  if (window.__sosCommentsChangedWired) return;
+  window.__sosCommentsChangedWired = true;
+  window.addEventListener('sos:comments-changed', (evt) => {
+    const parentId = evt?.detail?.parentId;
+    if (!parentId) return;
+    try {
+      updateVideoCommentButton(parentId);
+    } catch (_) {}
+    const overlay = document.querySelector('.videos-comments-overlay');
+    if (!overlay) return;
+    const openId = overlay.dataset?.eventId || document.getElementById('videoCommentsList')?.dataset?.parentId;
+    if (openId && openId === parentId) {
+      loadCommentsForPost(parentId).catch(() => {});
+    }
+  });
 }
 
 // חלק יאללה וידאו (videos.js) – פתיחת פאנל תגובות בסגנון טיקטוק
@@ -4176,6 +4204,9 @@ function openCommentsPanel(eventId) {
   `;
 
   document.body.appendChild(overlay);
+  try {
+    overlay.dataset.eventId = eventId;
+  } catch (_) {}
   try { document.body.classList.add('videos-comments-open'); } catch (_) {}
 
   // סגירה: מובייל = לחיצה על רקע כהה; דסקטופ = רק X (רקע שקוף עם pointer-events:none) | HYPER CORE TECH
@@ -4417,10 +4448,21 @@ async function loadCommentsForPost(eventId) {
   }
 
   commentsList.innerHTML = '<div class="videos-comments-loading">טוען תגובות...</div>';
+  try {
+    commentsList.dataset.parentId = eventId;
+  } catch (_) {}
 
-  const commentMap = app?.commentsByParent?.get(eventId);
-  const comments = commentMap ? Array.from(commentMap.values()) : [];
-  comments.sort((a, b) => (a?.created_at || 0) - (b?.created_at || 0));
+  let comments = [];
+  if (typeof app?.listVisibleComments === 'function') {
+    comments = app.listVisibleComments(eventId) || [];
+  } else {
+    const commentMap = app?.commentsByParent?.get(eventId);
+    const deleted = app?.deletedEventIds instanceof Set ? app.deletedEventIds : null;
+    comments = commentMap
+      ? Array.from(commentMap.values()).filter((c) => c?.id && !(deleted && deleted.has(c.id)))
+      : [];
+    comments.sort((a, b) => (a?.created_at || 0) - (b?.created_at || 0));
+  }
 
   const commentButton = document.querySelector(`[data-comment-button][data-event-id="${eventId}"]`);
   const counterEl = commentButton?.querySelector('.videos-feed__action-count');
@@ -4520,7 +4562,36 @@ async function loadCommentsForPost(eventId) {
     textDiv.className = 'videos-comment-text';
     textDiv.innerHTML = safeContent;
 
-    contentWrap.appendChild(nameButton);
+    const headerRow = document.createElement('div');
+    headerRow.className = 'videos-comment-header';
+    headerRow.appendChild(nameButton);
+
+    const viewerPk = typeof app?.publicKey === 'string' ? app.publicKey.toLowerCase() : '';
+    const isAdmin = viewerPk && app?.adminPublicKeys instanceof Set && app.adminPublicKeys.has(viewerPk);
+    const isOwn = viewerPk && authorKey && authorKey === viewerPk;
+    if ((isOwn || isAdmin) && comment?.id) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'videos-comment-delete';
+      deleteBtn.setAttribute('aria-label', 'מחק תגובה');
+      deleteBtn.title = 'מחק תגובה';
+      deleteBtn.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
+      deleteBtn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (typeof app?.requireAuth === 'function') {
+          if (!app.requireAuth('כדי למחוק תגובה צריך להתחבר או להירשם.')) {
+            return;
+          }
+        }
+        if (typeof app?.deleteComment === 'function') {
+          app.deleteComment(comment.id, eventId);
+        }
+      });
+      headerRow.appendChild(deleteBtn);
+    }
+
+    contentWrap.appendChild(headerRow);
     contentWrap.appendChild(textDiv);
 
     commentDiv.appendChild(avatarDiv);
@@ -5392,6 +5463,10 @@ function registerVideoEngagementEvent(event) {
 // חלק יאללה וידאו (videos.js) – רישום תגובה למבני הנתונים המשותפים והפעלת ההתרעות | HYPER CORE TECH
 function registerVideoCommentRecord(app, event, parentId) {
   if (!app || !event || !parentId) {
+    return;
+  }
+
+  if (app.deletedEventIds instanceof Set && event.id && app.deletedEventIds.has(event.id)) {
     return;
   }
 
@@ -6483,6 +6558,7 @@ function forceFullFeedRerender() {
   setupIntersectionObserver();
   setupLoadMoreObserver();
   setupLikeUpdateListener();
+  setupCommentsChangedListener();
 
   state.incrementalRender = {
     nextIndex: 0,

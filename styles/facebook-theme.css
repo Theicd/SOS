@@ -1444,6 +1444,33 @@ body.home-feed--menus-hidden .top-bar {
   outline: none;
 }
 
+.feed-comment__delete {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.feed-comment__delete:hover,
+.feed-comment__delete:focus-visible {
+  opacity: 1;
+  color: #e57373;
+  background: rgba(229, 115, 115, 0.12);
+  outline: none;
+}
+
 /* חלק פרופיל (facebook-theme.css) – כל כפתור שמקשר לפרופיל (data-profile-link) ללא רקע לבן */
 button[data-profile-link] {
   background: transparent;
