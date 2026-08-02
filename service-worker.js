@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v194'; // bump - hide install banner inside native APK
+  const CACHE_NAME = 'sos-cache-v195'; // bump - no false update toast on first SW claim
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -55,9 +55,9 @@
       );
       await self.clients.claim();
       
-      // חלק הודעת עדכון (service-worker.js) – הודעה לקליינטים על גרסה חדשה | HYPER CORE TECH
+      // חלק הודעת עדכון (service-worker.js) – הקליינט מחליט אם להציג toast (hadController) | HYPER CORE TECH
       const clients = await self.clients.matchAll({ type: 'window' });
-      clients.forEach(client => {
+      clients.forEach((client) => {
         client.postMessage({ type: 'NEW_VERSION_ACTIVATED' });
       });
       

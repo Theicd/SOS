@@ -633,12 +633,16 @@
   // חלק עדכון גרסה (pwa-installer.js) – הצגת הודעה כשיש גרסה חדשה | HYPER CORE TECH
   function showUpdateAvailableToast() {
     if (document.getElementById('pwa-update-toast')) return;
+    // אחרי לחיצה על «עדכן» – לא להציג שוב בטעינה הבאה | HYPER CORE TECH
+    try {
+      if (sessionStorage.getItem('pwa_just_updated') === '1') return;
+    } catch (_) {}
     
     const toast = document.createElement('div');
     toast.id = 'pwa-update-toast';
     toast.className = 'pwa-update-toast';
     toast.innerHTML = `
-      <img src="./icons/sos-logo-mobile.png?v=20260802aa" alt="SOS" class="pwa-update-toast__logo">
+      <img src="./icons/sos-logo-mobile.png?v=20260802ac" alt="SOS" class="pwa-update-toast__logo">
       <div class="pwa-update-toast__content">
         <span class="pwa-update-toast__title">גרסה חדשה זמינה!</span>
         <span class="pwa-update-toast__subtitle">עדכן כדי ליהנות משיפורים ותכונות חדשות</span>
@@ -655,10 +659,11 @@
     };
     
     toast.querySelector('.pwa-update-toast__now').onclick = () => {
+      try { sessionStorage.setItem('pwa_just_updated', '1'); } catch (_) {}
       if (navigator.serviceWorker?.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
       }
-      setTimeout(() => window.location.reload(true), 500);
+      setTimeout(() => window.location.reload(), 500);
     };
     
     document.body.appendChild(toast);
@@ -669,6 +674,18 @@
   // חלק עדכון גרסה (pwa-installer.js) – בדיקת עדכונים תקופתית | HYPER CORE TECH
   function setupUpdateChecker() {
     if (!navigator.serviceWorker) return;
+
+    // כניסה ראשונה בלי SW קודם ≠ «גרסה חדשה» | HYPER CORE TECH
+    const hadControllerAtLoad = !!navigator.serviceWorker.controller;
+    let ignoredFirstControllerClaim = false;
+
+    try {
+      if (sessionStorage.getItem('pwa_just_updated') === '1') {
+        setTimeout(() => {
+          try { sessionStorage.removeItem('pwa_just_updated'); } catch (_) {}
+        }, 4000);
+      }
+    } catch (_) {}
     
     // בדיקה מיידית + תקופתית כל דקה | HYPER CORE TECH
     async function checkForUpdates() {
@@ -676,8 +693,9 @@
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg) {
           await reg.update();
-          // בדיקה אם יש עדכון ממתין
-          if (reg.waiting) {
+          // worker ממתין = עדכון אמיתי רק אם כבר הייתה שליטה / אחרי claim ראשון | HYPER CORE TECH
+          const canPromptUpdate = hadControllerAtLoad || ignoredFirstControllerClaim;
+          if (reg.waiting && canPromptUpdate && navigator.serviceWorker.controller) {
             console.log('[PWA] נמצא עדכון ממתין!');
             showUpdateAvailableToast();
           }
@@ -694,22 +712,31 @@
     
     // חלק מניעת רענון אוטומטי (pwa-installer.js) – לא מרעננים אוטומטית כדי לא לאבד קאש ופוסטים | HYPER CORE TECH
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA] Service Worker עודכן - מציגים הודעה למשתמש');
-      // במקום רענון אוטומטי - מציגים הודעה למשתמש שיבחר מתי לרענן
-      // זה מונע איבוד קאש ופוסטים באמצע רענון לא מתוכנן
+      if (!hadControllerAtLoad && !ignoredFirstControllerClaim) {
+        ignoredFirstControllerClaim = true;
+        console.log('[PWA] Service Worker קיבל שליטה לראשונה – בלי הודעת עדכון');
+        return;
+      }
+      console.log('[PWA] Service Worker הוחלף – מציגים הודעת עדכון');
       showUpdateAvailableToast();
     });
     
-    // האזנה להודעות עדכון מה-SW (Push)
+    // האזנה להודעות עדכון מה-SW
     navigator.serviceWorker.addEventListener('message', (event) => {
+      // Push מכוון לעדכון אפליקציה – תמיד רלוונטי | HYPER CORE TECH
       if (event.data?.type === 'app-update-available') {
         console.log('[PWA] התקבלה הודעת עדכון מה-SW', event.data.version);
         showUpdateAvailableToast();
+        return;
       }
       
-      // חלק עדכון גרסה (pwa-installer.js) – גרסה חדשה הופעלה | HYPER CORE TECH
+      // activate: בכניסה ראשונה מתעלמים; בעדכון אמיתי מציגים | HYPER CORE TECH
       if (event.data?.type === 'NEW_VERSION_ACTIVATED') {
-        console.log('[PWA] גרסה חדשה הופעלה!');
+        if (!hadControllerAtLoad) {
+          console.log('[PWA] מדלגים על NEW_VERSION_ACTIVATED (אין controller בטעינה)');
+          return;
+        }
+        console.log('[PWA] גרסה חדשה הופעלה');
         showUpdateAvailableToast();
       }
     });
