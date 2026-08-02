@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v182'; // bump - recenter feed when desktop comments open
+  const CACHE_NAME = 'sos-cache-v183'; // bump - wait for real commenter profiles in videos panel
   const PRECACHE_URLS = [
     './',
     './videos.html',

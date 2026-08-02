@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.7-desktop-comments-side';
+const VIDEOS_CODE_VERSION = '2.6.8-comment-profiles';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -4350,6 +4350,64 @@ function escapeHtml(str) {
     .replaceAll("'", '&#39;');
 }
 
+// חלק יאללה וידאו (videos.js) – האם פרופיל בקאש הוא רק stub בלי שם/תמונה אמיתיים | HYPER CORE TECH
+function isStubCommentProfile(profile, pubkey) {
+  if (!profile || typeof profile !== 'object') return true;
+  const key = String(pubkey || '').toLowerCase();
+  const name = typeof profile.name === 'string' ? profile.name.trim() : '';
+  const picture = typeof profile.picture === 'string' ? profile.picture.trim() : '';
+  if (picture) return false;
+  if (!name) return true;
+  if (key && name === `משתמש ${key.slice(0, 8)}`) return true;
+  if (/^משתמש [0-9a-f]{6,16}$/i.test(name)) return true;
+  return false;
+}
+
+async function resolveCommentAuthorProfile(pubkey) {
+  const app = window.NostrApp || {};
+  const key = typeof pubkey === 'string' ? pubkey.trim().toLowerCase() : '';
+  if (!key) {
+    return { name: 'משתמש', bio: '', picture: '', initials: '?' };
+  }
+
+  const readCached = () =>
+    (app.profileCache instanceof Map
+      ? app.profileCache.get(key) || app.profileCache.get(pubkey)
+      : null) || null;
+
+  const cached = readCached();
+  // יש פרופיל מועשר בקאש — משתמשים בו | HYPER CORE TECH
+  if (cached && !isStubCommentProfile(cached, key)) {
+    return cached;
+  }
+
+  // אם כבר רצה fetch — מחכים לו בלי לקרוא שוב ל־fetchProfile (שדורס stub) | HYPER CORE TECH
+  if (app.profileFetchPromises instanceof Map && app.profileFetchPromises.has(key)) {
+    try {
+      await app.profileFetchPromises.get(key);
+    } catch (_) {}
+    const afterWait = readCached();
+    if (afterWait) return afterWait;
+  }
+
+  // אין הבטחה פתוחה — מריצים fetch מלא | HYPER CORE TECH
+  try {
+    if (typeof app.fetchProfile === 'function') {
+      const profile = await app.fetchProfile(key);
+      if (profile) return profile;
+    }
+  } catch (err) {
+    console.warn('[videos] comment profile fetch failed', { key: key.slice(0, 8), err });
+  }
+
+  return readCached() || {
+    name: `משתמש ${key.slice(0, 8)}`,
+    bio: '',
+    picture: '',
+    initials: key.slice(0, 2).toUpperCase() || '?',
+  };
+}
+
 // חלק יאללה וידאו (videos.js) – טעינת תגובות לפוסט
 async function loadCommentsForPost(eventId) {
   const app = window.NostrApp;
@@ -4376,30 +4434,27 @@ async function loadCommentsForPost(eventId) {
     return;
   }
 
-  const profiles = await Promise.all(
-    comments.map(async (comment) => {
-      const key = comment.pubkey?.toLowerCase?.() || comment.pubkey || '';
-      if (app?.profileCache?.has(key)) {
-        return app.profileCache.get(key);
-      }
-      if (typeof app?.fetchProfile === 'function') {
-        try {
-          return await app.fetchProfile(key);
-        } catch (_) {
-          return null;
-        }
-      }
-      return null;
+  // פרופילים ייחודיים — בלי short-circuit על stub בקאש | HYPER CORE TECH
+  const uniqueKeys = [...new Set(
+    comments
+      .map((c) => (typeof c?.pubkey === 'string' ? c.pubkey.trim().toLowerCase() : ''))
+      .filter(Boolean)
+  )];
+  const profileByKey = new Map();
+  await Promise.all(
+    uniqueKeys.map(async (key) => {
+      const profile = await resolveCommentAuthorProfile(key);
+      profileByKey.set(key, profile || null);
     })
   );
 
   const fragment = document.createDocumentFragment();
 
-  comments.forEach((comment, index) => {
-    const profile = profiles[index] || {};
-    const authorKey = comment.pubkey?.toLowerCase?.() || '';
+  comments.forEach((comment) => {
+    const authorKey = typeof comment.pubkey === 'string' ? comment.pubkey.trim().toLowerCase() : '';
+    const profile = profileByKey.get(authorKey) || {};
     const displayName = profile.name || (authorKey ? `משתמש ${authorKey.slice(0, 8)}` : 'משתמש');
-    const initials = profile.initials || displayName.slice(0, 2).toUpperCase();
+    const initials = profile.initials || getInitials(displayName);
     const picture = profile.picture || '';
     const safeName = escapeHtml(displayName);
     const safeContent = escapeHtml(comment.content || '').replace(/\n/g, '<br>');
@@ -4412,15 +4467,27 @@ async function loadCommentsForPost(eventId) {
     avatarDiv.className = 'videos-comment-avatar';
     avatarDiv.setAttribute('aria-label', `פרופיל של ${displayName}`);
     if (picture) {
-      avatarDiv.innerHTML = `<img src="${picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+      const img = document.createElement('img');
+      img.src = picture;
+      img.alt = displayName;
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.addEventListener('error', () => {
+        try {
+          img.remove();
+          avatarDiv.textContent = initials;
+        } catch (_) {}
+      }, { once: true });
+      avatarDiv.appendChild(img);
     } else {
       avatarDiv.textContent = initials;
     }
     avatarDiv.addEventListener('click', () => {
-      const app = window.NostrApp;
+      const appRef = window.NostrApp;
       // בדיקת מצב אורח - חסימת פרופיל בתגובות למשתמשים לא מחוברים | HYPER CORE TECH
-      if (app && typeof app.requireAuth === 'function') {
-        if (!app.requireAuth('כדי לצפות בפרופיל משתמש צריך להתחבר או להירשם.')) {
+      if (appRef && typeof appRef.requireAuth === 'function') {
+        if (!appRef.requireAuth('כדי לצפות בפרופיל משתמש צריך להתחבר או להירשם.')) {
           return;
         }
       }
@@ -4437,10 +4504,10 @@ async function loadCommentsForPost(eventId) {
     nameButton.className = 'videos-comment-author';
     nameButton.innerHTML = safeName;
     nameButton.addEventListener('click', () => {
-      const app = window.NostrApp;
+      const appRef = window.NostrApp;
       // בדיקת מצב אורח - חסימת פרופיל בתגובות למשתמשים לא מחוברים | HYPER CORE TECH
-      if (app && typeof app.requireAuth === 'function') {
-        if (!app.requireAuth('כדי לצפות בפרופיל משתמש צריך להתחבר או להירשם.')) {
+      if (appRef && typeof appRef.requireAuth === 'function') {
+        if (!appRef.requireAuth('כדי לצפות בפרופיל משתמש צריך להתחבר או להירשם.')) {
           return;
         }
       }
