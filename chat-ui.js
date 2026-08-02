@@ -478,6 +478,10 @@
     pendingProfileFetches: new Set(),
     // חלק צ'אט (chat-ui.js) – ניטור העברות P2P לצורך רינדור בועת התקדמות | HYPER CORE TECH
     transferProgress: new Map(),
+    // חלק חיפוש רשת (chat-ui.js) – תוצאות kind:0 מתיבת החיפוש הקיימת | HYPER CORE TECH
+    networkSearchResults: [],
+    networkSearchToken: 0,
+    networkSearchPending: false,
   };
 
   let unsubscribeNotifications = null; // חלק צ'אט (chat-ui.js) – מחזיק ביטול הרשמה לעדכוני התרעות עבור ניקוי משאבים
@@ -1575,15 +1579,33 @@
           return label.includes(normalizedFilter) || preview.includes(normalizedFilter);
         })
       : contacts;
-    if (!filteredContacts.length) {
-      const message = contacts.length
-        ? 'לא נמצאו תוצאות התואמות לחיפוש.'
-        : 'עוד אין שיחות. שלח הודעה ראשונה.';
+
+    // חלק חיפוש רשת (chat-ui.js) – ממזג אנשי קשר מקומיים עם תוצאות שם מהרשת | HYPER CORE TECH
+    const localKeys = new Set(
+      filteredContacts.map((c) => String(c?.pubkey || '').toLowerCase()).filter(Boolean)
+    );
+    const networkHits = normalizedFilter.length >= 2
+      ? (state.networkSearchResults || []).filter((hit) => {
+          const pk = String(hit?.pubkey || '').toLowerCase();
+          return pk && !localKeys.has(pk);
+        })
+      : [];
+    const displayList = filteredContacts.concat(networkHits);
+
+    if (!displayList.length) {
+      let message = 'עוד אין שיחות. שלח הודעה ראשונה.';
+      if (normalizedFilter) {
+        message = state.networkSearchPending
+          ? 'מחפש משתמשים ברשת…'
+          : 'לא נמצאו תוצאות התואמות לחיפוש.';
+      } else if (contacts.length) {
+        message = 'לא נמצאו תוצאות התואמות לחיפוש.';
+      }
       elements.contactsList.innerHTML = `<p class="chat-contacts__empty">${message}</p>`;
       return;
     }
     const fragment = doc.createDocumentFragment();
-    filteredContacts.forEach((contact) => {
+    displayList.forEach((contact) => {
       maybeFetchContactProfile(contact.pubkey, contact);
       const wrapper = doc.createElement('div');
       wrapper.innerHTML = buildContactHtml(contact);
@@ -1591,6 +1613,39 @@
     });
     elements.contactsList.innerHTML = '';
     elements.contactsList.appendChild(fragment);
+  }
+
+  // חלק חיפוש רשת (chat-ui.js) – שאילתת שם בריליים דרך תיבת החיפוש הקיימת | HYPER CORE TECH
+  async function runNetworkContactSearch(query) {
+    const token = ++state.networkSearchToken;
+    const q = String(query || '').trim();
+    if (q.length < 2) {
+      state.networkSearchResults = [];
+      state.networkSearchPending = false;
+      renderContacts(true);
+      return;
+    }
+    if (typeof App.searchProfilesByName !== 'function') {
+      state.networkSearchResults = [];
+      state.networkSearchPending = false;
+      return;
+    }
+    state.networkSearchPending = true;
+    renderContacts(true);
+    try {
+      const results = await App.searchProfilesByName(q, { limit: 20 });
+      if (token !== state.networkSearchToken) return;
+      state.networkSearchResults = Array.isArray(results) ? results : [];
+    } catch (err) {
+      console.warn('[CHAT/UI] network name search failed', err);
+      if (token !== state.networkSearchToken) return;
+      state.networkSearchResults = [];
+    } finally {
+      if (token === state.networkSearchToken) {
+        state.networkSearchPending = false;
+        renderContacts(true);
+      }
+    }
   }
 
   // חלק throttle (chat-ui.js) – מניעת renderMessages חוזר מהיר (500ms מינימום) | HYPER CORE TECH
@@ -2390,9 +2445,25 @@
     if (!target) return;
     const peerPubkey = target.getAttribute('data-chat-contact');
     if (!peerPubkey) return;
-    const contact = App.chatState.contacts.get(peerPubkey.toLowerCase());
+    const normalized = peerPubkey.toLowerCase();
+    let contact = App.chatState?.contacts?.get?.(normalized) || null;
+    // חלק חיפוש רשת (chat-ui.js) – לחיצה על תוצאת רשת מוסיפה איש קשר ופותחת שיחה | HYPER CORE TECH
+    if (!contact) {
+      const net = (state.networkSearchResults || []).find(
+        (item) => String(item?.pubkey || '').toLowerCase() === normalized
+      );
+      if (net && typeof App.ensureChatContact === 'function') {
+        contact = App.ensureChatContact(normalized, {
+          name: net.name,
+          picture: net.picture || '',
+          initials: net.initials || '',
+        });
+      } else if (typeof App.addChatContact === 'function') {
+        contact = App.addChatContact(normalized);
+      }
+    }
     showConversation(peerPubkey, contact);
-    renderContacts();
+    renderContacts(true);
   }
 
   // חלק שליחה אופטימיסטית (chat-ui.js) – שליחה מיידית ללא המתנה לרשת | HYPER CORE TECH
@@ -2558,13 +2629,18 @@
       });
     }
     if (elements.searchInput) {
-      // חלק אופטימיזציה (chat-ui.js) – debounce על חיפוש למניעת עומס | HYPER CORE TECH
+      // חלק אופטימיזציה (chat-ui.js) – debounce על חיפוש מקומי + רשת | HYPER CORE TECH
       const debouncedSearch = debounce((value) => {
         state.filterText = value;
-        renderContacts();
+        renderContacts(true);
       }, 150);
+      const debouncedNetworkSearch = debounce((value) => {
+        runNetworkContactSearch(value);
+      }, 350);
       elements.searchInput.addEventListener('input', (event) => {
-        debouncedSearch(event.target?.value || '');
+        const value = event.target?.value || '';
+        debouncedSearch(value);
+        debouncedNetworkSearch(value);
       });
     }
     if (elements.composer) {

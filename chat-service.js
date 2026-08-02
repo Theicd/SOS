@@ -794,6 +794,140 @@
     return contact;
   }
 
+  // חלק חיפוש משתמשים (chat-service.js) – חיפוש לפי שם בפרופילים ברשת (בלי UI חדש) | HYPER CORE TECH
+  function parseKind0ToProfile(event) {
+    if (!event?.pubkey || typeof event.content !== 'string') return null;
+    let meta = {};
+    try {
+      meta = JSON.parse(event.content || '{}') || {};
+    } catch (_) {
+      meta = {};
+    }
+    const pubkey = String(event.pubkey).toLowerCase();
+    const name = String(meta.display_name || meta.name || meta.username || '').trim();
+    if (!name) return null;
+    const picture = typeof meta.picture === 'string' ? meta.picture : '';
+    const initials = typeof App.getInitials === 'function' ? App.getInitials(name) : name.slice(0, 2);
+    if (App.profileCache instanceof Map) {
+      const prev = App.profileCache.get(pubkey) || {};
+      App.profileCache.set(pubkey, { ...prev, name, picture, initials, pubkey });
+    }
+    return { pubkey, name, picture, initials };
+  }
+
+  function profileMatchesQuery(profile, query) {
+    if (!profile || !query) return false;
+    const name = String(profile.name || '').toLowerCase();
+    const pubkey = String(profile.pubkey || '').toLowerCase();
+    return name.includes(query) || (query.length >= 8 && pubkey.startsWith(query));
+  }
+
+  async function listMetadataEvents(filters, timeoutMs = 4500) {
+    const pool = App.pool;
+    const relays = Array.isArray(App.relayUrls) ? App.relayUrls : [];
+    if (!pool || !relays.length) return [];
+    try {
+      if (typeof pool.list === 'function') {
+        return await pool.list(relays, filters);
+      }
+      if (typeof pool.listMany === 'function') {
+        return await pool.listMany(relays, filters);
+      }
+      if (typeof pool.querySync === 'function') {
+        const result = await pool.querySync(relays, filters[0] || {});
+        return Array.isArray(result?.events) ? result.events : (Array.isArray(result) ? result : []);
+      }
+      if (typeof pool.subscribeMany === 'function') {
+        return await new Promise((resolve) => {
+          const collected = [];
+          const sub = pool.subscribeMany(relays, filters, {
+            onevent(event) {
+              if (event) collected.push(event);
+            },
+            oneose() {
+              try { sub?.close?.(); } catch (_) {}
+              resolve(collected);
+            },
+          });
+          setTimeout(() => {
+            try { sub?.close?.(); } catch (_) {}
+            resolve(collected);
+          }, timeoutMs);
+        });
+      }
+    } catch (err) {
+      console.warn('[CHAT] listMetadataEvents failed', err);
+    }
+    return [];
+  }
+
+  async function searchProfilesByName(query, options = {}) {
+    const q = String(query || '').trim().toLowerCase();
+    if (q.length < 2) return [];
+    const limit = Math.max(5, Math.min(30, Number(options.limit) || 20));
+    const selfKey = String(App.publicKey || '').toLowerCase();
+    const byPubkey = new Map();
+
+    const pushProfile = (profile) => {
+      if (!profile?.pubkey || profile.pubkey === selfKey) return;
+      if (!profileMatchesQuery(profile, q)) return;
+      if (byPubkey.has(profile.pubkey)) return;
+      byPubkey.set(profile.pubkey, {
+        pubkey: profile.pubkey,
+        name: profile.name,
+        picture: profile.picture || '',
+        initials: profile.initials || (typeof App.getInitials === 'function' ? App.getInitials(profile.name) : 'מש'),
+        lastMessage: 'התחל שיחה חדשה',
+        unreadCount: 0,
+        isNetworkResult: true,
+      });
+    };
+
+    // 1) קאש מקומי – מהיר (כולל מחברי פוסטים שכבר נטענו)
+    if (App.profileCache instanceof Map) {
+      App.profileCache.forEach((profile, key) => {
+        const pubkey = String(profile?.pubkey || key || '').toLowerCase();
+        pushProfile({
+          pubkey,
+          name: profile?.name || profile?.display_name || '',
+          picture: profile?.picture || '',
+          initials: profile?.initials || '',
+        });
+      });
+    }
+
+    // 2) NIP-50 search אם הריליי תומך
+    try {
+      const searchFilter = { kinds: [0], search: q, limit: 40 };
+      if (App.NETWORK_TAG) searchFilter['#t'] = [App.NETWORK_TAG];
+      const searchEvents = await listMetadataEvents([searchFilter], 3500);
+      (searchEvents || []).forEach((event) => pushProfile(parseKind0ToProfile(event)));
+    } catch (err) {
+      console.warn('[CHAT] NIP-50 profile search failed', err);
+    }
+
+    // 3) גיבוי: סריקת מטא־דאטה אחרונה וסינון לפי שם
+    if (byPubkey.size < 5) {
+      try {
+        const recentFilter = { kinds: [0], limit: 400 };
+        if (App.NETWORK_TAG) recentFilter['#t'] = [App.NETWORK_TAG];
+        let events = await listMetadataEvents([recentFilter], 5000);
+        if ((!events || !events.length) && App.NETWORK_TAG) {
+          // חלק חיפוש (chat-service.js) – גיבוי בלי תג רשת לפרופילים ישנים | HYPER CORE TECH
+          events = await listMetadataEvents([{ kinds: [0], limit: 400 }], 5000);
+        }
+        (events || [])
+          .filter((evt) => evt && typeof evt.created_at === 'number')
+          .sort((a, b) => b.created_at - a.created_at)
+          .forEach((event) => pushProfile(parseKind0ToProfile(event)));
+      } catch (err) {
+        console.warn('[CHAT] fallback profile scan failed', err);
+      }
+    }
+
+    return Array.from(byPubkey.values()).slice(0, limit);
+  }
+
   // חלק המתנה לקאש (chat-service.js) – ממתין לטעינת lastSyncTs לפני סנכרון | HYPER CORE TECH
   async function handlePoolReady() {
     const pool = ensurePoolReady();
@@ -964,6 +1098,7 @@
     subscribeToChatEvents,
     bootstrapChatContacts: bootstrapContactsFromFeed,
     addChatContact,
+    searchProfilesByName,
     syncChatHistory,
     sendReadReceipt,
   });
