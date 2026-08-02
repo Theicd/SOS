@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v203'; // bump - centered uniform profile cover action chips
+  const CACHE_NAME = 'sos-cache-v204'; // bump - own posts vertical feed from profile grid
   const PRECACHE_URLS = [
     './',
     './videos.html',

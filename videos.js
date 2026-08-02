@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.8-comment-profiles';
+const VIDEOS_CODE_VERSION = '2.6.9-own-posts-feed';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -779,6 +779,7 @@ function handleHomeButtonAction() {
     try {
       if (typeof App.exitGamesFeedMode === 'function') App.exitGamesFeedMode();
       if (typeof App.exitLiveTvFeedMode === 'function') App.exitLiveTvFeedMode();
+      if (typeof App.exitOwnPostsFeedMode === 'function') App.exitOwnPostsFeedMode();
     } catch (_) {}
     // תמיד warm אם יש תוכן על המסך — לא LoadNug | HYPER CORE TECH
     const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed || softRefreshVideosFeed;
@@ -1258,8 +1259,10 @@ const state = {
   firstCardRendered: false,
   pendingOldCards: null,
   downloadedBytes: 0, // מעקב אחרי כמות הנתונים שהורדו
-  feedMode: 'all', // 'all' | 'games' | 'live-tv' | HYPER CORE TECH
+  feedMode: 'all', // 'all' | 'games' | 'live-tv' | 'own-posts' | HYPER CORE TECH
   liveTvVideos: [],
+  ownPostsVideos: [],
+  ownPostsStartId: null,
 };
 
 // חלק טעינה (videos.js) – סף מינימלי להורדה לפני סגירת מסך הטעינה | HYPER CORE TECH
@@ -1588,6 +1591,12 @@ function removeVideoFromState(eventId) {
     state.videos.splice(index, 1);
     saveFeedCache(state.videos);
   }
+  if (Array.isArray(state.ownPostsVideos)) {
+    state.ownPostsVideos = state.ownPostsVideos.filter((video) => video && video.id !== eventId);
+  }
+  if (Array.isArray(state.liveTvVideos)) {
+    state.liveTvVideos = state.liveTvVideos.filter((video) => video && video.id !== eventId);
+  }
 }
 
 function removeVideoCard(eventId) {
@@ -1852,7 +1861,7 @@ function upsertVideoInState(video, options = {}) {
   // משחקים רק בפיד משחקים; ערוצי LIVE רק בכפתור LIVE TV; שאר התוכן בפיד הכללי | HYPER CORE TECH
   let showNow = false;
   if (state.feedMode === 'games') showNow = isGameFeedVideo(video);
-  else if (state.feedMode === 'live-tv') showNow = false;
+  else if (state.feedMode === 'live-tv' || state.feedMode === 'own-posts') showNow = false;
   else showNow = isGeneralFeedVideo(video);
   if (!showNow) return;
 
@@ -3852,7 +3861,9 @@ function renderVideos() {
     setStatus(
       state.feedMode === 'games'
         ? 'אין משחקים להצגה'
-        : (state.feedMode === 'live-tv' ? 'אין ערוצים להצגה' : 'אין סרטונים להצגה')
+        : (state.feedMode === 'live-tv'
+          ? 'אין ערוצים להצגה'
+          : (state.feedMode === 'own-posts' ? 'אין פוסטים להצגה' : 'אין סרטונים להצגה'))
     );
     return;
   }
@@ -3880,7 +3891,9 @@ function renderVideos() {
   if (!state.firstCardRendered && selectors.status) {
     selectors.status.textContent = state.feedMode === 'games'
       ? 'טוען משחקים...'
-      : (state.feedMode === 'live-tv' ? 'טוען ערוצים...' : 'טוען סרטונים...');
+      : (state.feedMode === 'live-tv'
+        ? 'טוען ערוצים...'
+        : (state.feedMode === 'own-posts' ? 'טוען את הפוסטים שלך...' : 'טוען סרטונים...'));
     selectors.status.style.display = 'block';
   }
 
@@ -3974,8 +3987,8 @@ function finalizeIncrementalRender() {
     syncFeedDomOrder(getDisplayVideos());
   } catch (_) {}
 
-  // במצב משחקים / LIVE TV – הפעלה מיידית של הכרטיס הנראה | HYPER CORE TECH
-  if (state.feedMode === 'games' || state.feedMode === 'live-tv') {
+  // במצב משחקים / LIVE TV / פוסטים שלי – הפעלה מיידית של הכרטיס הנראה | HYPER CORE TECH
+  if (state.feedMode === 'games' || state.feedMode === 'live-tv' || state.feedMode === 'own-posts') {
     requestAnimationFrame(() => {
       const viewport = document.querySelector('.videos-feed__viewport');
       const cards = selectors.stream
@@ -3993,12 +4006,19 @@ function finalizeIncrementalRender() {
       if (state.feedMode === 'games') {
         const mediaDiv = active?.querySelector('.videos-feed__media[data-media-type="game-embed"]');
         if (mediaDiv) playGameEmbedMedia(mediaDiv);
-      } else {
+      } else if (state.feedMode === 'live-tv') {
         globalAutoplayEnabled = true;
         updateGlobalStopClass();
         const mediaDiv = active?.querySelector('.videos-feed__media[data-media-type="hls-live"]');
         if (mediaDiv) playHlsLiveMedia(mediaDiv);
         if (active) prefetchNeighborLiveChannels(active);
+      } else if (active) {
+        globalAutoplayEnabled = true;
+        updateGlobalStopClass();
+        const gameDiv = active.querySelector('.videos-feed__media[data-media-type="game-embed"]');
+        const liveDiv = active.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+        if (gameDiv) playGameEmbedMedia(gameDiv);
+        else if (liveDiv) playHlsLiveMedia(liveDiv);
       }
     });
   }
@@ -5086,8 +5106,8 @@ function updateLoadMoreTrigger() {
 
 async function loadMoreVideos() {
   if (isLoadingMore) return;
-  // במצב משחקים / LIVE TV לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
-  if (state.feedMode === 'games' || state.feedMode === 'live-tv') return;
+  // במצב משחקים / LIVE TV / פוסטים שלי לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
+  if (state.feedMode === 'games' || state.feedMode === 'live-tv' || state.feedMode === 'own-posts') return;
   isLoadingMore = true;
   
   const currentApp = window.NostrApp;
@@ -5249,7 +5269,9 @@ function renderMoreVideos(videos) {
     ? videos.filter((v) => isGameFeedVideo(v))
     : state.feedMode === 'live-tv'
       ? []
-      : videos.filter((v) => isGeneralFeedVideo(v));
+      : state.feedMode === 'own-posts'
+        ? []
+        : videos.filter((v) => isGeneralFeedVideo(v));
 
   list.forEach((video) => {
     const card = createVideoCard(video);
@@ -6653,12 +6675,15 @@ function syncFeedDomOrder(sourceVideos) {
 }
 
 function getDisplayVideos() {
-  // פיד כללי = בלי משחקים ובלי ערוצי LIVE; משחקים / LIVE TV = מצבים נפרדים | HYPER CORE TECH
+  // פיד כללי = בלי משחקים ובלי ערוצי LIVE; משחקים / LIVE TV / פוסטים שלי = מצבים נפרדים | HYPER CORE TECH
   if (state.feedMode === 'games') {
     return buildGamesFeedVideos();
   }
   if (state.feedMode === 'live-tv') {
     return Array.isArray(state.liveTvVideos) ? state.liveTvVideos : [];
+  }
+  if (state.feedMode === 'own-posts') {
+    return Array.isArray(state.ownPostsVideos) ? state.ownPostsVideos : [];
   }
   const all = Array.isArray(state.videos) ? state.videos : [];
   return sortVideosByCreatedAtDesc(
@@ -6678,7 +6703,7 @@ function pruneFeedCardsNotInDisplay(sourceVideos) {
       return;
     }
     // חגורת בטיחות: כרטיס משחק/LIVE בפיד הכללי תמיד מוסר | HYPER CORE TECH
-    if (state.feedMode === 'all' || (state.feedMode !== 'games' && state.feedMode !== 'live-tv')) {
+    if (state.feedMode === 'all') {
       const isGameCard = !!card.querySelector('.videos-feed__media[data-media-type="game-embed"]');
       const isLiveCard = !!card.querySelector('.videos-feed__media[data-media-type="hls-live"]');
       if (isGameCard || isLiveCard) card.remove();
@@ -6711,7 +6736,9 @@ function forceFullFeedRerender() {
     setStatus(
       state.feedMode === 'games'
         ? 'אין משחקים להצגה'
-        : (state.feedMode === 'live-tv' ? 'אין ערוצים להצגה' : 'אין סרטונים להצגה')
+        : (state.feedMode === 'live-tv'
+          ? 'אין ערוצים להצגה'
+          : (state.feedMode === 'own-posts' ? 'אין פוסטים להצגה' : 'אין סרטונים להצגה'))
     );
     return;
   }
@@ -6719,12 +6746,14 @@ function forceFullFeedRerender() {
   if (selectors.status) {
     selectors.status.textContent = state.feedMode === 'games'
       ? 'טוען משחקים...'
-      : (state.feedMode === 'live-tv' ? 'טוען ערוצים...' : 'טוען סרטונים...');
+      : (state.feedMode === 'live-tv'
+        ? 'טוען ערוצים...'
+        : (state.feedMode === 'own-posts' ? 'טוען את הפוסטים שלך...' : 'טוען סרטונים...'));
     selectors.status.style.display = 'block';
   }
 
-  // LIVE / משחקים – תמיד PLAY אחרי רינדור | HYPER CORE TECH
-  if (state.feedMode === 'live-tv' || state.feedMode === 'games') {
+  // LIVE / משחקים / פוסטים שלי – תמיד PLAY אחרי רינדור | HYPER CORE TECH
+  if (state.feedMode === 'live-tv' || state.feedMode === 'games' || state.feedMode === 'own-posts') {
     globalAutoplayEnabled = true;
     updateGlobalStopClass();
   }
@@ -6749,10 +6778,176 @@ function forceFullFeedRerender() {
   }
 }
 
+function closePersonalProfilePanelQuiet() {
+  try {
+    const profilePanel = document.getElementById('profilePanel');
+    const profileFrame = document.getElementById('profilePanelFrame');
+    if (profilePanel) profilePanel.hidden = true;
+    if (profileFrame) profileFrame.src = '';
+  } catch (_) {}
+}
+
+function reopenPersonalProfilePanel() {
+  try {
+    const profilePanel = document.getElementById('profilePanel');
+    const profileFrame = document.getElementById('profilePanelFrame');
+    if (!profilePanel || !profileFrame) return false;
+    if (typeof pauseAllFeedVideos === 'function') {
+      pauseAllFeedVideos();
+    }
+    profileFrame.src = './profile.html?embedded=1';
+    profilePanel.hidden = false;
+    return true;
+  } catch (err) {
+    console.warn('[VIDEOS] reopen profile failed', err);
+    return false;
+  }
+}
+
+function ensureOwnPostsBackButton() {
+  let btn = document.getElementById('ownPostsFeedBack');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'ownPostsFeedBack';
+    btn.type = 'button';
+    btn.className = 'videos-own-posts-back';
+    btn.setAttribute('aria-label', 'חזרה לפרופיל');
+    btn.title = 'חזרה לפרופיל';
+    btn.innerHTML = '<i class="fa-solid fa-arrow-right" aria-hidden="true"></i><span>חזרה</span>';
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      exitOwnPostsFeedMode({ reopenProfile: true });
+    });
+    document.body.appendChild(btn);
+  }
+  const visible = state.feedMode === 'own-posts';
+  btn.hidden = !visible;
+  btn.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  document.body.classList.toggle('videos-feed-mode-own-posts', visible);
+  return btn;
+}
+
+function scrollOwnPostsFeedToStart(startEventId, attempt = 0) {
+  if (!startEventId || !selectors.stream) return;
+  const card = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${startEventId}"]`);
+  if (card) {
+    try {
+      card.scrollIntoView({ behavior: 'auto', block: 'start' });
+    } catch (_) {
+      const viewport = document.querySelector('.videos-feed__viewport');
+      if (viewport) viewport.scrollTop = card.offsetTop || 0;
+    }
+    return;
+  }
+  if (attempt < 40) {
+    setTimeout(() => scrollOwnPostsFeedToStart(startEventId, attempt + 1), 50);
+  }
+}
+
+function buildOwnPostsVideosFromEvents(events) {
+  const currentApp = window.NostrApp || {};
+  const list = [];
+  const seen = new Set();
+  (Array.isArray(events) ? events : []).forEach((event) => {
+    if (!event || !event.id || seen.has(event.id)) return;
+    const video = parseEventToVideoItem(event, currentApp);
+    if (!video) return;
+    seen.add(video.id);
+    list.push(video);
+  });
+  return sortVideosByCreatedAtDesc(list);
+}
+
+function enterOwnPostsFeedMode(events, startEventId = null) {
+  // יוצאים ממצבים אחרים לפני פיד הפוסטים האישי | HYPER CORE TECH
+  if (state.feedMode === 'games') {
+    document.body.classList.remove('videos-feed-mode-games');
+  }
+  if (state.feedMode === 'live-tv') {
+    document.body.classList.remove('videos-feed-mode-live-tv');
+  }
+
+  closePersonalProfilePanelQuiet();
+  closePublicProfilePanel();
+
+  const videos = buildOwnPostsVideosFromEvents(events);
+  let resolvedStartId = startEventId || null;
+  if (resolvedStartId && !videos.some((v) => v.id === resolvedStartId)) {
+    const clicked = (Array.isArray(events) ? events : []).find((e) => e && e.id === resolvedStartId);
+    if (clicked && typeof clicked.created_at === 'number') {
+      const nearest = videos.find((v) => getVideoCreatedAt(v) <= clicked.created_at);
+      resolvedStartId = nearest ? nearest.id : (videos[0] && videos[0].id) || null;
+    } else {
+      resolvedStartId = (videos[0] && videos[0].id) || null;
+    }
+  }
+
+  // מתחילים מהפוסט שנלחץ ואז ממשיכים לישנים יותר (ואז עוטפים לחדשים) | HYPER CORE TECH
+  if (resolvedStartId && videos.length > 1) {
+    const idx = videos.findIndex((v) => v.id === resolvedStartId);
+    if (idx > 0) {
+      state.ownPostsVideos = videos.slice(idx).concat(videos.slice(0, idx));
+    } else {
+      state.ownPostsVideos = videos;
+    }
+  } else {
+    state.ownPostsVideos = videos;
+  }
+  state.ownPostsStartId = resolvedStartId;
+  state.feedMode = 'own-posts';
+  document.body.classList.add('videos-feed-mode-own-posts');
+  document.body.classList.remove('videos-feed-mode-games', 'videos-feed-mode-live-tv');
+  ensureOwnPostsBackButton();
+
+  globalAutoplayEnabled = true;
+  updateGlobalStopClass();
+  forceFullFeedRerender();
+  globalAutoplayEnabled = true;
+  updateGlobalStopClass();
+
+  if (resolvedStartId) {
+    requestAnimationFrame(() => scrollOwnPostsFeedToStart(state.ownPostsVideos[0]?.id || resolvedStartId));
+  }
+
+  console.log('[VIDEOS] Own posts feed mode ON', {
+    count: state.ownPostsVideos.length,
+    start: state.ownPostsStartId,
+  });
+  return true;
+}
+
+function exitOwnPostsFeedMode(options = {}) {
+  if (state.feedMode !== 'own-posts') {
+    ensureOwnPostsBackButton();
+    return false;
+  }
+  const reopenProfile = !!options.reopenProfile;
+  state.feedMode = 'all';
+  state.ownPostsVideos = [];
+  state.ownPostsStartId = null;
+  document.body.classList.remove('videos-feed-mode-own-posts');
+  ensureOwnPostsBackButton();
+  forceFullFeedRerender();
+  if (reopenProfile) {
+    reopenPersonalProfilePanel();
+  } else {
+    resumeCenteredFeedVideo();
+  }
+  console.log('[VIDEOS] Own posts feed mode OFF', { reopenProfile });
+  return true;
+}
+
 function enterGamesFeedMode() {
+  if (state.feedMode === 'own-posts') {
+    state.ownPostsVideos = [];
+    state.ownPostsStartId = null;
+    document.body.classList.remove('videos-feed-mode-own-posts');
+  }
   state.feedMode = 'games';
   document.body.classList.add('videos-feed-mode-games');
-  document.body.classList.remove('videos-feed-mode-live-tv');
+  document.body.classList.remove('videos-feed-mode-live-tv', 'videos-feed-mode-own-posts');
+  ensureOwnPostsBackButton();
   forceFullFeedRerender();
   console.log('[VIDEOS] Games feed mode ON', { count: getDisplayVideos().length });
   return true;
@@ -6823,15 +7018,23 @@ function removeLiveTvCardFromFeed(mediaDivOrId) {
 }
 
 async function enterLiveTvFeedMode() {
-  // יוצאים ממצב משחקים אם פתוח | HYPER CORE TECH
+  // יוצאים ממצב משחקים / פוסטים שלי אם פתוח | HYPER CORE TECH
   if (state.feedMode === 'games') {
     document.body.classList.remove('videos-feed-mode-games');
+  }
+  if (state.feedMode === 'own-posts') {
+    state.ownPostsVideos = [];
+    state.ownPostsStartId = null;
+    document.body.classList.remove('videos-feed-mode-own-posts');
+    ensureOwnPostsBackButton();
   }
   // פיד LIVE תמיד מתחיל ב־PLAY – לפני כל await | HYPER CORE TECH
   globalAutoplayEnabled = true;
   updateGlobalStopClass();
   state.feedMode = 'live-tv';
   document.body.classList.add('videos-feed-mode-live-tv');
+  document.body.classList.remove('videos-feed-mode-own-posts');
+  ensureOwnPostsBackButton();
   if (selectors.status) {
     selectors.status.textContent = 'טוען ערוצים...';
     selectors.status.style.display = 'block';
@@ -6940,6 +7143,9 @@ function openGamesPanel(href = './games.html') {
   if (state.feedMode === 'live-tv') {
     exitLiveTvFeedMode();
   }
+  if (state.feedMode === 'own-posts') {
+    exitOwnPostsFeedMode();
+  }
   if (state.feedMode === 'games') {
     forceFullFeedRerender();
     return true;
@@ -6959,6 +7165,7 @@ function closeGamesPanel() {
   }
   if (exitGamesFeedMode()) closed = true;
   if (exitLiveTvFeedMode()) closed = true;
+  if (exitOwnPostsFeedMode()) closed = true;
   return closed;
 }
 
@@ -6987,6 +7194,8 @@ window.openLiveTvFeed = openLiveTvFeed;
 window.closeLiveTvFeed = closeLiveTvFeed;
 window.exitLiveTvFeedMode = exitLiveTvFeedMode;
 window.enterLiveTvFeedMode = enterLiveTvFeedMode;
+window.enterOwnPostsFeedMode = enterOwnPostsFeedMode;
+window.exitOwnPostsFeedMode = exitOwnPostsFeedMode;
 window.refreshLiveTvFeed = refreshLiveTvFeed;
 window.getSharedGamePosts = getSharedGamePosts;
 window.softRefreshVideosFeed = softRefreshVideosFeed;
@@ -7004,6 +7213,8 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.closeLiveTvFeed = closeLiveTvFeed;
   AppRef.exitLiveTvFeedMode = exitLiveTvFeedMode;
   AppRef.enterLiveTvFeedMode = enterLiveTvFeedMode;
+  AppRef.enterOwnPostsFeedMode = enterOwnPostsFeedMode;
+  AppRef.exitOwnPostsFeedMode = exitOwnPostsFeedMode;
   AppRef.refreshLiveTvFeed = refreshLiveTvFeed;
   AppRef.getSharedGamePosts = getSharedGamePosts;
   AppRef.softRefreshVideosFeed = softRefreshVideosFeed;
@@ -7054,6 +7265,17 @@ window.addEventListener('message', function handleOverlayMessage(event) {
       }
     } catch (_) {}
     resumeCenteredFeedVideo();
+    return;
+  }
+  // חלק פיד פוסטים שלי (videos.js) – פתיחה מתוך גריד הפרופיל | HYPER CORE TECH
+  if (data.type === 'openOwnPostsFeed') {
+    const events = Array.isArray(data.events) ? data.events : [];
+    const startEventId = typeof data.startEventId === 'string' ? data.startEventId : null;
+    console.log('[VIDEOS] Opening own posts feed via postMessage', {
+      count: events.length,
+      startEventId,
+    });
+    enterOwnPostsFeedMode(events, startEventId);
     return;
   }
   if (data.type === 'openTriviaGame') {

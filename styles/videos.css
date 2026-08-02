@@ -4632,6 +4632,45 @@ body.videos-feed-mode-games .videos-feed__status {
   /* נשאר זהה לפיד הראשי */
 }
 
+/* חלק פיד פוסטים שלי (videos.css) – כפתור חזרה לפרופיל | HYPER CORE TECH */
+.videos-own-posts-back {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  inset-inline-start: 12px;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.videos-own-posts-back[hidden] {
+  display: none !important;
+}
+
+.videos-own-posts-back:active {
+  transform: scale(0.97);
+}
+
+.videos-own-posts-back i {
+  font-size: 0.95rem;
+}
+
+body.videos-feed-mode-own-posts .videos-own-posts-back {
+  display: inline-flex;
+}
+
 .notifications-panel__header {
   display: flex;
   align-items: center;

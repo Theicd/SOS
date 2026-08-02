@@ -761,6 +761,7 @@
       refs.repliesCountLabel.textContent = `${count} תגובות`;
     }
     updateActivityStats(posts, replies);
+    wireOwnPostsFeedOpen(refs.timelineList);
   }
 
   function bindRepliesToggle() {
@@ -1177,6 +1178,64 @@
     renderTimeline(allPosts, allReplies);
   }
 
+  // חלק פיד פוסטים שלי (profile-view.js) – לחיצה על תא בגריד פותחת פיד אנכי ב-parent | HYPER CORE TECH
+  function isProfileEmbeddedInVideos() {
+    try {
+      if (window.parent === window) return false;
+      const params = new URLSearchParams(window.location.search || '');
+      return params.get('embedded') === '1' || true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function openOwnPostsFeedAtEvent(eventId) {
+    const posts = Array.isArray(App.profilePostsCache) ? App.profilePostsCache : [];
+    if (!posts.length) return;
+    let payloadEvents = posts;
+    try {
+      payloadEvents = JSON.parse(JSON.stringify(posts));
+    } catch (_) {
+      payloadEvents = posts;
+    }
+    try {
+      if (isProfileEmbeddedInVideos() && window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'openOwnPostsFeed',
+          startEventId: eventId || null,
+          events: payloadEvents,
+        }, '*');
+        return;
+      }
+    } catch (err) {
+      console.warn('[profile] openOwnPostsFeed postMessage failed', err);
+    }
+  }
+
+  function wireOwnPostsFeedOpen(root) {
+    const list = root || refs.timelineList;
+    if (!list || list.dataset.ownPostsFeedWired === '1') return;
+    list.dataset.ownPostsFeedWired = '1';
+    list.addEventListener('click', (event) => {
+      if (event.target.closest('button, textarea, input, .feed-comments, .feed-post__actions')) {
+        return;
+      }
+      const item = event.target.closest('.profile-timeline__list > li, #profileTimeline > li');
+      if (!item || item.classList.contains('feed-post--empty') || item.classList.contains('profile-posts-loading')) {
+        return;
+      }
+      const article = item.querySelector('article[data-event-id], .feed-post[data-event-id]');
+      const eventId = article?.getAttribute('data-event-id') || item.getAttribute('data-event-id');
+      if (!eventId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openOwnPostsFeedAtEvent(eventId);
+    });
+  }
+
+  App.openOwnPostsFeedAtEvent = openOwnPostsFeedAtEvent;
+  App.wireOwnPostsFeedOpen = wireOwnPostsFeedOpen;
+
   // חלק הוספת פוסטים (profile-view.js) – מוסיף פוסטים לסוף הרשימה
   function appendPostsToTimeline(posts) {
     if (!refs.timelineList || !Array.isArray(posts) || posts.length === 0) {
@@ -1214,6 +1273,7 @@
     // מחבר אירועים לפוסטים החדשים
     if (typeof App.wireProfileLinks === 'function') App.wireProfileLinks(refs.timelineList);
     if (typeof App.wireLikeButtons === 'function') App.wireLikeButtons(refs.timelineList);
+    wireOwnPostsFeedOpen(refs.timelineList);
   }
 
   function setTimelineLoading(isLoading, message) {
