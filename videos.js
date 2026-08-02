@@ -4203,7 +4203,9 @@ function openCommentsPanel(eventId) {
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div class="videos-comments-list" id="videoCommentsList"></div>
+      <div class="videos-comments-list" id="videoCommentsList">
+        <div class="videos-comments-loading" role="status" aria-live="polite">טוען תגובות...</div>
+      </div>
       <div class="videos-comments-input">
         <input type="text" placeholder="הוסף תגובה..." id="videoCommentInput" />
         <button type="button" id="videoCommentSend" aria-label="שלח תגובה">
@@ -4457,6 +4459,8 @@ async function loadCommentsForPost(eventId) {
     return;
   }
 
+  // הודעת טעינה מיד (מובייל/דסקטופ) עד שהרשימה מוכנה | HYPER CORE TECH
+  commentsList.innerHTML = '<div class="videos-comments-loading" role="status" aria-live="polite">טוען תגובות...</div>';
   try {
     commentsList.dataset.parentId = eventId;
   } catch (_) {}
@@ -4485,7 +4489,7 @@ async function loadCommentsForPost(eventId) {
     return;
   }
 
-  // פרופילים ייחודיים — בלי short-circuit על stub בקאש | HYPER CORE TECH
+  // נשארים עם "טוען תגובות..." בזמן שליפת פרופילים (שם/אווטאר) | HYPER CORE TECH
   const uniqueKeys = [...new Set(
     comments
       .map((c) => (typeof c?.pubkey === 'string' ? c.pubkey.trim().toLowerCase() : ''))
@@ -4498,6 +4502,11 @@ async function loadCommentsForPost(eventId) {
       profileByKey.set(key, profile || null);
     })
   );
+
+  // אם הפאנל נסגר בזמן הטעינה — לא מעדכנים DOM ישן | HYPER CORE TECH
+  if (!commentsList.isConnected || commentsList.dataset.parentId !== eventId) {
+    return;
+  }
 
   const fragment = document.createDocumentFragment();
 
