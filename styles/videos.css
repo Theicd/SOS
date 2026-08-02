@@ -3931,36 +3931,48 @@ body.global-stop .videos-feed__play-overlay {
   transform: scale(1.05);
 }
 
-/* חלק תגובות דסקטופ (videos.css) – פאנל שמאלי כמו טיקטוק; מובייל נשאר bottom-sheet | HYPER CORE TECH */
+/* חלק תגובות דסקטופ (videos.css) – פאנל שמאלי פיזי (לא inline-start ב־RTL) מתחת ל־top-bar | HYPER CORE TECH */
 @media (min-width: 769px) {
   .videos-comments-overlay {
+    /* מתחת להדר העליון — לא מכסה אותו | HYPER CORE TECH */
+    top: calc(44px + var(--safe-top, 0px));
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: transparent;
     align-items: stretch;
     justify-content: flex-start;
     pointer-events: none;
     animation: none;
+    /* מתחת ל־top-bar (3000) ומעל הווידאו | HYPER CORE TECH */
     z-index: 1500;
   }
 
   .videos-comments-panel {
     pointer-events: auto;
+    position: absolute;
+    /* צד שמאל פיזי של המסך — בין חצי הגלילה לווידאו (לא ימין בגלל RTL) | HYPER CORE TECH */
+    left: 84px;
+    right: auto;
+    top: 0;
+    bottom: 0;
     width: min(360px, calc(100vw - var(--videos-desktop-nav-width, 260px) - 420px));
     min-width: 280px;
     max-width: 400px;
-    height: 100vh;
-    max-height: 100vh;
+    height: auto;
+    max-height: none;
     margin: 0;
-    /* בין חצי הגלילה (left ~20+48) לבין הווידאו במרכז | HYPER CORE TECH */
-    margin-inline-start: 84px;
     border-radius: 0;
-    border-inline-end: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-inline-end: none;
     background: #121212;
+    direction: rtl;
     animation: commentsSlideInDesktop 0.25s ease;
     box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
   }
 
   @keyframes commentsSlideInDesktop {
-    from { transform: translateX(-12px); opacity: 0.6; }
+    from { transform: translateX(-16px); opacity: 0.55; }
     to { transform: translateX(0); opacity: 1; }
   }
 
@@ -3971,6 +3983,7 @@ body.global-stop .videos-feed__play-overlay {
   /* כשפתוח – חצי הגלילה נשארים מעל הפאנל ללחיצה | HYPER CORE TECH */
   body.videos-comments-open .videos-nav-arrows {
     z-index: 1600;
+    top: calc(50% + 22px);
   }
 }
 
