@@ -4608,6 +4608,17 @@ body.policy-modal-open {
   display: block !important;
 }
 
+/* חלק פרופיל אישי מובייל (videos.css) – מתחת להדר העליון כדי שהשם לא יוסתר | HYPER CORE TECH */
+@media (max-width: 900px) {
+  #profilePanel.profile-panel:not([hidden]) {
+    top: calc(44px + var(--safe-top, 0px)) !important;
+    bottom: 56px !important;
+    height: auto !important;
+    /* גובה מפורש כגיבוי לדפדפנים שלא מכבדים top+bottom יחד | HYPER CORE TECH */
+    min-height: calc(100dvh - 56px - 44px - var(--safe-top, 0px)) !important;
+  }
+}
+
 #gamesPanelFrame {
   width: 100% !important;
   height: 100% !important;

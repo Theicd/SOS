@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v196'; // bump - install banner top mobile + auto hide 5s
+  const CACHE_NAME = 'sos-cache-v197'; // bump - personal profile panel below top-bar on mobile
   const PRECACHE_URLS = [
     './',
     './videos.html',
