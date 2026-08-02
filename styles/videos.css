@@ -2953,6 +2953,9 @@ body.global-stop .videos-feed__play-overlay {
     --videos-desktop-nav-gap: 0px;
     --videos-desktop-actions-offset: 70px;
     --videos-desktop-top-offset: calc(0px + var(--safe-top, 0px));
+    --videos-desktop-comments-left: 84px;
+    --videos-desktop-comments-width: 340px;
+    --videos-desktop-feed-shift: -76px;
   }
 
   /* פריסה: הווידאו בגובה מלא (ללא רווח לתפריט תחתון בדסקטופ) | HYPER CORE TECH */
@@ -2973,7 +2976,17 @@ body.global-stop .videos-feed__play-overlay {
     display: flex;
     justify-content: center;
     align-items: center;
-    transform: translateX(-76px); /* החזרת 20px ימינה כדי למקם נכון | HYPER CORE TECH */
+    transform: translate3d(var(--videos-desktop-feed-shift), 0, 0);
+    /* מרכוז חלק כשנפתחות תגובות | HYPER CORE TECH */
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  /* כשפאנל תגובות פתוח – מרכזים את הווידאו בין התגובות לתפריט הימני | HYPER CORE TECH */
+  body.videos-comments-open .videos-feed {
+    --videos-desktop-feed-shift: calc(
+      -76px + (var(--videos-desktop-comments-left) + var(--videos-desktop-comments-width) - 72px) / 2
+    );
   }
 
   .videos-feed__viewport {
