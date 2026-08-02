@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.3-boot-two-ready';
+const VIDEOS_CODE_VERSION = '2.6.4-cache-stats-fix';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -450,6 +450,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // חשיפה גלובלית לעדכון מקבצים אחרים
 window.updateP2PStatsUI = (source) => p2pStatsUI.update(source);
+window.syncP2PStatsUI = () => {
+  try {
+    p2pStatsUI.sync();
+    p2pStatsUI.updateTooltip();
+  } catch (_) {}
+};
 
 // תור טעינה סדרתית לוידאו
 let videoDownloadQueue = [];
@@ -1701,7 +1707,11 @@ function prependNewFeedCardQuietly(video, options = {}) {
                 try { videoEl.load(); } catch (_) {}
               }
               try {
-                if (typeof window.updateP2PStatsUI === 'function') window.updateP2PStatsUI('cache');
+                if (typeof window.NostrApp?.recordP2PDownload === 'function') {
+                  window.NostrApp.recordP2PDownload('cache');
+                } else if (typeof window.updateP2PStatsUI === 'function') {
+                  window.updateP2PStatsUI('cache');
+                }
               } catch (_) {}
               console.log('[videos] quiet-prepend attached from cache', { id: video.id });
               return;
@@ -2649,7 +2659,11 @@ async function attachBootVideoFromCache(video) {
         try { videoEl.load(); } catch (_) {}
         attached = true;
         try {
-          if (typeof window.updateP2PStatsUI === 'function') window.updateP2PStatsUI('cache');
+          if (typeof App.recordP2PDownload === 'function') {
+            App.recordP2PDownload('cache');
+          } else if (typeof window.updateP2PStatsUI === 'function') {
+            window.updateP2PStatsUI('cache');
+          }
         } catch (_) {}
         console.log('[videos] boot fast-cache hit', { id: video.id, size: cached.blob.size });
       }

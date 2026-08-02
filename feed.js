@@ -4021,6 +4021,12 @@ async function loadFeed() {
           if (cached && cached.blob) {
             videoElement.src = URL.createObjectURL(cached.blob);
             try { videoElement.load(); } catch (_) {}
+            // נתיב ישיר עוקף downloadVideoWithP2P — חייבים לרשום לסטטיסטיקה | HYPER CORE TECH
+            if (typeof App.recordP2PDownload === 'function') {
+              App.recordP2PDownload('cache');
+            } else if (typeof window.updateP2PStatsUI === 'function') {
+              window.updateP2PStatsUI('cache');
+            }
             console.log('וידאו נטען מ-cache (direct):', hash.slice(0, 16));
             return { success: true, source: 'cache' };
           }
@@ -4070,6 +4076,11 @@ async function loadFeed() {
         if (cached && cached.blob) {
           const objectUrl = URL.createObjectURL(cached.blob);
           videoElement.src = objectUrl;
+          if (typeof App.recordP2PDownload === 'function') {
+            App.recordP2PDownload('cache');
+          } else if (typeof window.updateP2PStatsUI === 'function') {
+            window.updateP2PStatsUI('cache');
+          }
           console.log('וידאו נטען מ-cache:', hash.slice(0, 16));
           return { success: true, source: 'cache' };
         }
@@ -4107,7 +4118,7 @@ async function loadFeed() {
   const BOOTSTRAP_LOAD_DELAY = 2000; // 2 שניות בין טעינות
 
   // גרסת קוד לזיהוי עדכונים
-  const FEED_CODE_VERSION = '2.3.0-cache-first';
+  const FEED_CODE_VERSION = '2.3.1-cache-stats';
   console.log(`%c🔧 Feed.js גרסה: ${FEED_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
   async function processVideoLoadQueue() {

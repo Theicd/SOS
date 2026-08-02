@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.14.1-cache-before-tiers'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.14.2-record-cache-stats'; // תג לזיהוי האפליקציה
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -2922,6 +2922,29 @@
     };
   }
 
+  // רישום הורדה מנתיבים שעוקפים את downloadVideoWithP2P (cache-first ב־feed/boot) | HYPER CORE TECH
+  function recordP2PDownload(source) {
+    const src = String(source || '').toLowerCase();
+    if (src === 'cache') {
+      p2pStats.downloads.total++;
+      p2pStats.downloads.fromCache++;
+    } else if (src === 'blossom') {
+      p2pStats.downloads.total++;
+      p2pStats.downloads.fromBlossom++;
+    } else if (src === 'p2p') {
+      p2pStats.downloads.total++;
+      p2pStats.downloads.fromP2P++;
+    } else if (src === 'failed') {
+      p2pStats.downloads.failed++;
+    } else {
+      return false;
+    }
+    try {
+      if (typeof window.syncP2PStatsUI === 'function') window.syncP2PStatsUI();
+    } catch (_) {}
+    return true;
+  }
+
   // חשיפה ל-App
   Object.assign(App, {
     registerFileAvailability,
@@ -2960,6 +2983,7 @@
     getGuestKeys: () => state.guestKeys, // קבלת מפתחות אורח
     // חלק סטטיסטיקות – API לקבלת סטטיסטיקות P2P | HYPER CORE TECH
     getP2PStats,                         // קבלת כל הסטטיסטיקות לממשק
+    recordP2PDownload,                   // רישום cache/blossom/p2p מנתיבים חיצוניים
   });
 
   // אתחול

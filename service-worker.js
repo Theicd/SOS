@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v174'; // bump - boot waits for 2 posts + hide green surface until playing
+  const CACHE_NAME = 'sos-cache-v175'; // bump - restore cache hit stats in download panel
   const PRECACHE_URLS = [
     './',
     './videos.html',
