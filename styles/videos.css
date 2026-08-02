@@ -3931,6 +3931,49 @@ body.global-stop .videos-feed__play-overlay {
   transform: scale(1.05);
 }
 
+/* חלק תגובות דסקטופ (videos.css) – פאנל שמאלי כמו טיקטוק; מובייל נשאר bottom-sheet | HYPER CORE TECH */
+@media (min-width: 769px) {
+  .videos-comments-overlay {
+    background: transparent;
+    align-items: stretch;
+    justify-content: flex-start;
+    pointer-events: none;
+    animation: none;
+    z-index: 1500;
+  }
+
+  .videos-comments-panel {
+    pointer-events: auto;
+    width: min(360px, calc(100vw - var(--videos-desktop-nav-width, 260px) - 420px));
+    min-width: 280px;
+    max-width: 400px;
+    height: 100vh;
+    max-height: 100vh;
+    margin: 0;
+    /* בין חצי הגלילה (left ~20+48) לבין הווידאו במרכז | HYPER CORE TECH */
+    margin-inline-start: 84px;
+    border-radius: 0;
+    border-inline-end: 1px solid rgba(255, 255, 255, 0.08);
+    background: #121212;
+    animation: commentsSlideInDesktop 0.25s ease;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
+  }
+
+  @keyframes commentsSlideInDesktop {
+    from { transform: translateX(-12px); opacity: 0.6; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  .videos-comments-input {
+    padding: 12px 16px 16px;
+  }
+
+  /* כשפתוח – חצי הגלילה נשארים מעל הפאנל ללחיצה | HYPER CORE TECH */
+  body.videos-comments-open .videos-nav-arrows {
+    z-index: 1600;
+  }
+}
+
 .compose-legal-warning {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);

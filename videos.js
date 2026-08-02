@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.6-drop-dead-media';
+const VIDEOS_CODE_VERSION = '2.6.7-desktop-comments-side';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -4132,8 +4132,21 @@ function setupLikeUpdateListener() {
 }
 
 // חלק יאללה וידאו (videos.js) – פתיחת פאנל תגובות בסגנון טיקטוק
+function closeCommentsPanel(overlay) {
+  try {
+    document.body.classList.remove('videos-comments-open');
+  } catch (_) {}
+  try {
+    if (overlay && overlay.isConnected) overlay.remove();
+    else document.querySelector('.videos-comments-overlay')?.remove();
+  } catch (_) {}
+}
+
 function openCommentsPanel(eventId) {
   if (!eventId) return;
+
+  // סגירת פאנל קודם אם פתוח | HYPER CORE TECH
+  closeCommentsPanel();
   
   const app = window.NostrApp;
   // לא דורשים שהפוסט יהיה ב-postsById, רק שיהיה eventId תקין
@@ -4142,18 +4155,20 @@ function openCommentsPanel(eventId) {
   // יצירת overlay
   const overlay = document.createElement('div');
   overlay.className = 'videos-comments-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', 'תגובות');
   overlay.innerHTML = `
     <div class="videos-comments-panel">
       <div class="videos-comments-header">
         <h3>תגובות</h3>
-        <button class="videos-comments-close" aria-label="סגור">
+        <button type="button" class="videos-comments-close" aria-label="סגור">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <div class="videos-comments-list" id="videoCommentsList"></div>
       <div class="videos-comments-input">
         <input type="text" placeholder="הוסף תגובה..." id="videoCommentInput" />
-        <button id="videoCommentSend">
+        <button type="button" id="videoCommentSend" aria-label="שלח תגובה">
           <i class="fa-solid fa-paper-plane"></i>
         </button>
       </div>
@@ -4161,11 +4176,12 @@ function openCommentsPanel(eventId) {
   `;
 
   document.body.appendChild(overlay);
+  try { document.body.classList.add('videos-comments-open'); } catch (_) {}
 
-  // סגירה בלחיצה על overlay או כפתור סגירה
+  // סגירה: מובייל = לחיצה על רקע כהה; דסקטופ = רק X (רקע שקוף עם pointer-events:none) | HYPER CORE TECH
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay || e.target.closest('.videos-comments-close')) {
-      overlay.remove();
+      closeCommentsPanel(overlay);
     }
   });
 
@@ -4202,6 +4218,13 @@ function openCommentsPanel(eventId) {
   input?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendComment();
   });
+
+  // פוקוס לשדה בדסקטופ | HYPER CORE TECH
+  try {
+    if (window.matchMedia('(min-width: 769px)').matches) {
+      setTimeout(() => input?.focus(), 50);
+    }
+  } catch (_) {}
 }
 
 // חלק יאללה וידאו (videos.js) – פתיחת חלונית טקסט מלאה בסגנון משופר | HYPER CORE TECH
