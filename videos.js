@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.4-cache-stats-fix';
+const VIDEOS_CODE_VERSION = '2.6.5-reset-on-scroll';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -850,6 +850,19 @@ if (document.readyState === 'loading') {
   try { document.body.classList.add('videos-page'); } catch (_) {}
 }
 
+// חלק יאללה וידאו (videos.js) – איפוס התחלה בגלילה (כמו טיקטוק) — מונע seek כבד בחזרה לפוסט | HYPER CORE TECH
+function resetFeedVideoToStart(videoEl) {
+  if (!videoEl) return;
+  try {
+    if (!(isFinite(videoEl.currentTime) && videoEl.currentTime > 0.05)) return;
+    if (typeof videoEl.fastSeek === 'function') {
+      try { videoEl.fastSeek(0); } catch (_) { videoEl.currentTime = 0; }
+    } else {
+      videoEl.currentTime = 0;
+    }
+  } catch (_) {}
+}
+
 // חלק יאללה וידאו (videos.js) – הפעלת מדיה עבור כרטיס נתון
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (!mediaDiv) return;
@@ -893,6 +906,10 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return;
     mediaDiv.classList.add('videos-feed__media--ready');
+    // בגלילה תמיד מההתחלה; Pause/Play ידני ממשיך מאותה נקודה | HYPER CORE TECH
+    if (!manual) {
+      resetFeedVideoToStart(videoEl);
+    }
     
     // ניסיון להפעיל עם צליל
     videoEl.muted = false;
@@ -942,6 +959,10 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
     const videoEl = mediaDiv.querySelector('video');
     if (videoEl) {
       videoEl.pause();
+      // בגלילה: מאפסים מיד כדי שבחזרה לפוסט לא יהיה seek כבד | HYPER CORE TECH
+      if (!manual && mediaType === 'file') {
+        resetFeedVideoToStart(videoEl);
+      }
     }
     if (mediaType === 'hls-live') {
       mediaDiv.classList.remove('is-live-playing');
