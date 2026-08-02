@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.9-own-posts-feed';
+const VIDEOS_CODE_VERSION = '2.6.10-public-posts-feed';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1263,6 +1263,8 @@ const state = {
   liveTvVideos: [],
   ownPostsVideos: [],
   ownPostsStartId: null,
+  ownPostsReturnSource: 'personal', // 'personal' | 'public'
+  ownPostsReturnPubkey: null,
 };
 
 // חלק טעינה (videos.js) – סף מינימלי להורדה לפני סגירת מסך הטעינה | HYPER CORE TECH
@@ -6804,6 +6806,35 @@ function reopenPersonalProfilePanel() {
   }
 }
 
+function reopenPublicProfilePanel(pubkey) {
+  try {
+    const key = typeof pubkey === 'string' ? pubkey.trim() : '';
+    if (!key) return false;
+    if (typeof pauseAllFeedVideos === 'function') {
+      pauseAllFeedVideos();
+    }
+    const App = window.NostrApp || {};
+    if (typeof App.openProfileByPubkey === 'function') {
+      App.openProfileByPubkey(key);
+      return true;
+    }
+    if (typeof window.openProfileByPubkey === 'function') {
+      window.openProfileByPubkey(key);
+      return true;
+    }
+    const publicPanel = document.getElementById('publicProfilePanel');
+    const publicFrame = document.getElementById('publicProfilePanelFrame');
+    if (!publicPanel || !publicFrame) return false;
+    const encoded = encodeURIComponent(key.toLowerCase());
+    publicFrame.src = `./profile-viewer.html?pubkey=${encoded}&embedded=1&v=20260803d`;
+    publicPanel.hidden = false;
+    return true;
+  } catch (err) {
+    console.warn('[VIDEOS] reopen public profile failed', err);
+    return false;
+  }
+}
+
 function ensureOwnPostsBackButton() {
   let btn = document.getElementById('ownPostsFeedBack');
   if (!btn) {
@@ -6859,14 +6890,17 @@ function buildOwnPostsVideosFromEvents(events) {
   return sortVideosByCreatedAtDesc(list);
 }
 
-function enterOwnPostsFeedMode(events, startEventId = null) {
-  // יוצאים ממצבים אחרים לפני פיד הפוסטים האישי | HYPER CORE TECH
+function enterOwnPostsFeedMode(events, startEventId = null, options = {}) {
+  // יוצאים ממצבים אחרים לפני פיד הפוסטים האישי / ציבורי | HYPER CORE TECH
   if (state.feedMode === 'games') {
     document.body.classList.remove('videos-feed-mode-games');
   }
   if (state.feedMode === 'live-tv') {
     document.body.classList.remove('videos-feed-mode-live-tv');
   }
+
+  const returnSource = options && options.source === 'public' ? 'public' : 'personal';
+  const returnPubkey = typeof options?.pubkey === 'string' ? options.pubkey.trim() : '';
 
   closePersonalProfilePanelQuiet();
   closePublicProfilePanel();
@@ -6895,6 +6929,8 @@ function enterOwnPostsFeedMode(events, startEventId = null) {
     state.ownPostsVideos = videos;
   }
   state.ownPostsStartId = resolvedStartId;
+  state.ownPostsReturnSource = returnSource;
+  state.ownPostsReturnPubkey = returnSource === 'public' ? returnPubkey : null;
   state.feedMode = 'own-posts';
   document.body.classList.add('videos-feed-mode-own-posts');
   document.body.classList.remove('videos-feed-mode-games', 'videos-feed-mode-live-tv');
@@ -6913,6 +6949,7 @@ function enterOwnPostsFeedMode(events, startEventId = null) {
   console.log('[VIDEOS] Own posts feed mode ON', {
     count: state.ownPostsVideos.length,
     start: state.ownPostsStartId,
+    returnSource: state.ownPostsReturnSource,
   });
   return true;
 }
@@ -6923,18 +6960,26 @@ function exitOwnPostsFeedMode(options = {}) {
     return false;
   }
   const reopenProfile = !!options.reopenProfile;
+  const returnSource = state.ownPostsReturnSource || 'personal';
+  const returnPubkey = state.ownPostsReturnPubkey || '';
   state.feedMode = 'all';
   state.ownPostsVideos = [];
   state.ownPostsStartId = null;
+  state.ownPostsReturnSource = 'personal';
+  state.ownPostsReturnPubkey = null;
   document.body.classList.remove('videos-feed-mode-own-posts');
   ensureOwnPostsBackButton();
   forceFullFeedRerender();
   if (reopenProfile) {
-    reopenPersonalProfilePanel();
+    if (returnSource === 'public' && returnPubkey) {
+      reopenPublicProfilePanel(returnPubkey);
+    } else {
+      reopenPersonalProfilePanel();
+    }
   } else {
     resumeCenteredFeedVideo();
   }
-  console.log('[VIDEOS] Own posts feed mode OFF', { reopenProfile });
+  console.log('[VIDEOS] Own posts feed mode OFF', { reopenProfile, returnSource });
   return true;
 }
 
@@ -6942,6 +6987,8 @@ function enterGamesFeedMode() {
   if (state.feedMode === 'own-posts') {
     state.ownPostsVideos = [];
     state.ownPostsStartId = null;
+    state.ownPostsReturnSource = 'personal';
+    state.ownPostsReturnPubkey = null;
     document.body.classList.remove('videos-feed-mode-own-posts');
   }
   state.feedMode = 'games';
@@ -7267,15 +7314,18 @@ window.addEventListener('message', function handleOverlayMessage(event) {
     resumeCenteredFeedVideo();
     return;
   }
-  // חלק פיד פוסטים שלי (videos.js) – פתיחה מתוך גריד הפרופיל | HYPER CORE TECH
+  // חלק פיד פוסטים (videos.js) – פתיחה מתוך גריד פרופיל אישי / ציבורי | HYPER CORE TECH
   if (data.type === 'openOwnPostsFeed') {
     const events = Array.isArray(data.events) ? data.events : [];
     const startEventId = typeof data.startEventId === 'string' ? data.startEventId : null;
+    const source = data.source === 'public' ? 'public' : 'personal';
+    const pubkey = typeof data.pubkey === 'string' ? data.pubkey : '';
     console.log('[VIDEOS] Opening own posts feed via postMessage', {
       count: events.length,
       startEventId,
+      source,
     });
-    enterOwnPostsFeedMode(events, startEventId);
+    enterOwnPostsFeedMode(events, startEventId, { source, pubkey });
     return;
   }
   if (data.type === 'openTriviaGame') {

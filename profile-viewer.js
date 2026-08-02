@@ -408,6 +408,63 @@
     }
 
     if (refs.statsReplies) refs.statsReplies.textContent = sortedReplies.length.toString();
+    wirePublicPostsFeedOpen(refs.timelineList);
+  }
+
+  // חלק פיד פוסטים (profile-viewer.js) – לחיצה על תא בגריד פותחת פיד אנכי ב-parent | HYPER CORE TECH
+  function isViewerEmbeddedInVideos() {
+    try {
+      if (window.parent === window) return false;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function openPublicPostsFeedAtEvent(eventId) {
+    const posts = Array.isArray(state.posts) ? state.posts : [];
+    if (!posts.length) return;
+    let payloadEvents = posts;
+    try {
+      payloadEvents = JSON.parse(JSON.stringify(posts));
+    } catch (_) {
+      payloadEvents = posts;
+    }
+    try {
+      if (isViewerEmbeddedInVideos() && window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'openOwnPostsFeed',
+          source: 'public',
+          pubkey: state.targetPubkey || '',
+          startEventId: eventId || null,
+          events: payloadEvents,
+        }, '*');
+        return;
+      }
+    } catch (err) {
+      console.warn('[profile-viewer] openPublicPostsFeed postMessage failed', err);
+    }
+  }
+
+  function wirePublicPostsFeedOpen(root) {
+    const list = root || refs.timelineList;
+    if (!list || list.dataset.publicPostsFeedWired === '1') return;
+    list.dataset.publicPostsFeedWired = '1';
+    list.addEventListener('click', (event) => {
+      if (event.target.closest('button, textarea, input, .feed-comments, .feed-post__actions')) {
+        return;
+      }
+      const item = event.target.closest('#viewerTimeline > li, .profile-timeline__list > li');
+      if (!item || item.classList.contains('feed-post--empty') || item.classList.contains('profile-posts-loading') || item.classList.contains('profile-loading-state')) {
+        return;
+      }
+      const article = item.querySelector('article[data-event-id], .feed-post[data-event-id]');
+      const eventId = article?.getAttribute('data-event-id') || item.getAttribute('data-event-id');
+      if (!eventId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openPublicPostsFeedAtEvent(eventId);
+    });
   }
 
   // חלק עטיפת ריליים (profile-viewer.js) – מאפשר להשתמש גם בגרסאות SimplePool ללא list קלאסי
