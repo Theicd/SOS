@@ -98,16 +98,20 @@
     text-align: right;
   }
 
-  /* חלק פעולות כיסוי (profile.css) – צ׳יפים בתחתית ימין | HYPER CORE TECH */
+  /* חלק פעולות כיסוי (profile.css) – כפתורים אחידים ממורכזים | HYPER CORE TECH */
   .profile-cover__actions {
     position: absolute;
     bottom: 10px;
+    left: 10px;
+    right: 10px;
     inset-inline-start: 10px;
+    inset-inline-end: 10px;
     width: auto;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 6px;
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;
+    flex-wrap: nowrap;
   }
 
   .profile-cover__actions .profile-primary-button,
@@ -123,9 +127,11 @@
   }
 
   .profile-cover__chip {
-    padding: 5px 9px;
-    font-size: 0.68rem;
-    gap: 4px;
+    flex: 1 1 0;
+    min-height: 34px;
+    padding: 7px 8px;
+    font-size: 0.78rem;
+    gap: 5px;
   }
 
   .profile-shell {
@@ -866,46 +872,59 @@
   text-transform: capitalize;
 }
 
-/* חלק פעולות כיסוי (profile.css) – צ׳יפים קטנים בפינה הימנית התחתונה | HYPER CORE TECH */
+/* חלק פעולות כיסוי (profile.css) – כפתורים אחידים ממורכזים בתחתית הכרטיס | HYPER CORE TECH */
 .profile-cover__actions {
   position: absolute;
   bottom: 10px;
+  left: 10px;
+  right: 10px;
   inset-inline-start: 10px;
-  inset-inline-end: auto;
+  inset-inline-end: 10px;
   display: flex;
   flex-direction: row;
-  justify-content: flex-start;
-  align-items: center;
+  justify-content: center;
+  align-items: stretch;
   gap: 8px;
   flex-wrap: nowrap;
   width: auto;
-  max-width: calc(100% - 20px);
+  max-width: none;
   z-index: 4;
+  box-sizing: border-box;
 }
 
 .profile-cover__chip {
   display: inline-flex;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 6px 11px;
+  gap: 6px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 10px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(8, 10, 14, 0.72);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.15;
   cursor: pointer;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.profile-cover__chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-cover__chip i {
-  font-size: 0.7rem;
+  font-size: 0.78rem;
+  flex-shrink: 0;
 }
 
 .profile-cover__chip:hover {
@@ -2136,13 +2155,16 @@
   .profile-cover__actions {
     position: absolute !important;
     bottom: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
     inset-inline-start: 8px !important;
     inset-inline-end: 8px !important;
-    justify-content: flex-start !important;
-    gap: 5px !important;
-    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
     width: auto !important;
-    max-width: calc(100% - 16px) !important;
+    max-width: none !important;
   }
 
   .profile-cover__actions .profile-primary-button {
@@ -2150,8 +2172,15 @@
   }
 
   .profile-cover__chip {
-    padding: 5px 8px !important;
-    font-size: 0.65rem !important;
+    flex: 1 1 0 !important;
+    min-height: 34px !important;
+    padding: 7px 6px !important;
+    font-size: 0.76rem !important;
+    gap: 4px !important;
+  }
+
+  .profile-cover__chip i {
+    font-size: 0.74rem !important;
   }
 
   .profile-mobile-tabs,

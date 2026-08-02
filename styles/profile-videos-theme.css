@@ -293,8 +293,10 @@ body:has(.profile-shell) .profile-cover__meta {
 
 body:has(.profile-shell) .profile-cover__actions {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: stretch;
 }
 
 body:has(.profile-shell) .profile-primary-button,
@@ -503,15 +505,23 @@ body:has(.profile-shell) .profile-activity__summary-item {
   body:has(.profile-shell) .profile-cover__actions {
     position: absolute;
     bottom: 8px;
+    left: 8px;
+    right: 8px;
     inset-inline-start: 8px;
     inset-inline-end: 8px;
     width: auto;
-    max-width: calc(100% - 16px);
-    justify-content: flex-start;
+    max-width: none;
+    justify-content: center;
     flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 5px;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  body:has(.profile-shell) .profile-cover__chip {
+    flex: 1 1 0;
+    min-height: 34px;
+    font-size: 0.76rem;
   }
 
   body:has(.profile-shell) .primary-nav {
