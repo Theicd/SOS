@@ -4020,21 +4020,27 @@ body.global-stop .videos-feed__play-overlay {
     left: var(--videos-desktop-comments-left, 84px);
     right: auto;
     top: 0;
-    bottom: 0;
+    /* מרווח תחתון — כרטיס סגור עם מסגרת סיום, לא נצמד לקצה המסך | HYPER CORE TECH */
+    bottom: 16px;
     width: var(--videos-desktop-comments-width, 340px);
     min-width: 280px;
     max-width: 400px;
     height: auto;
     max-height: none;
     margin: 0;
-    border-radius: 12px 12px 0 0;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-inline-end: none;
-    background: #121212;
+    /* פינות מעוגלות מכל הצדדים + מסגרת מלאה | HYPER CORE TECH */
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-inline-end: 1px solid rgba(255, 255, 255, 0.1);
+    /* רקע כהה יותר שמשתלב עם רקע הדף השחור | HYPER CORE TECH */
+    background: #070707;
     direction: rtl;
     animation: commentsSlideInDesktop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.55),
+      0 12px 32px rgba(0, 0, 0, 0.55),
+      8px 0 24px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
   }
 
   @keyframes commentsSlideInDesktop {
@@ -4042,8 +4048,26 @@ body.global-stop .videos-feed__play-overlay {
     to { transform: translateX(0); opacity: 1; }
   }
 
+  .videos-comments-header {
+    background: #070707;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .videos-comments-list {
+    background: #070707;
+  }
+
   .videos-comments-input {
-    padding: 12px 16px 16px;
+    padding: 12px 16px 14px;
+    background: #050505;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    /* שורת הקלט היא ה«סיום» הוויזואלי של הכרטיס | HYPER CORE TECH */
+    border-radius: 0 0 14px 14px;
+  }
+
+  .videos-comments-input input {
+    background: #121212;
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   body.videos-comments-open .videos-nav-arrows {
