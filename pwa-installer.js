@@ -220,41 +220,59 @@
     return { outcome: 'apk_download', url: NATIVE_APK_URL };
   }
 
-  // חלק מדריך Chrome (pwa-installer.js) – שמור לדסקטופ בלבד, לא בשימוש באנדרואיד | HYPER CORE TECH
-  function showChromeInstallGuide() {
-    // לא בשימוש במסלול ההתקנה הראשי – נשאר לתאימות לאחור
-    startNativeApkInstall();
-  }
-
-  // חלק הפעלת התקנה מלחיצה (pwa-installer.js) – APK native באנדרואיד / PWA בדסקטופ | HYPER CORE TECH
-  function runInstallFromUserGesture() {
-    if (isRunningInNativeShell()) {
-      isInstalled = true;
-      pwaToast('SOS כבר מותקן במכשיר');
-      ensurePushAfterInstall();
-      return { outcome: 'already_installed', platform: 'native' };
+  // חלק מדריך דסקטופ (pwa-installer.js) – כשאין beforeinstallprompt | HYPER CORE TECH
+  function showDesktopInstallGuide() {
+    const existingDialog = document.getElementById('desktop-install-guide');
+    if (existingDialog) {
+      existingDialog.showModal?.() || (existingDialog.style.display = 'flex');
+      return;
     }
 
-    if (checkIfInstalled()) {
+    const dialog = document.createElement('dialog');
+    dialog.id = 'desktop-install-guide';
+    dialog.className = 'pwa-install-dialog';
+    dialog.innerHTML = `
+      <div class="pwa-install-dialog__content">
+        <img src="./icons/sos-logo-mobile.png?v=20260802aa" alt="SOS" class="pwa-install-dialog__logo" width="64" height="64">
+        <h2>התקנה במחשב</h2>
+        <div class="pwa-install-steps">
+          <div class="pwa-install-step">
+            <span class="pwa-install-step__number">1</span>
+            <span>פתחו את האתר ב־Chrome או Edge</span>
+          </div>
+          <div class="pwa-install-step">
+            <span class="pwa-install-step__number">2</span>
+            <span>לחצו על תפריט הדפדפן (⋮) ובחרו «התקן את SOS» / Install app</span>
+          </div>
+          <div class="pwa-install-step">
+            <span class="pwa-install-step__number">3</span>
+            <span>אחרי ההתקנה יופיע אייקון בשולחן העבודה ובשורת המשימות</span>
+          </div>
+        </div>
+        <p class="pwa-install-note">אם האפשרות לא מופיעה – רעננו את הדף ונסו שוב מכפתור «התקן»</p>
+        <button type="button" class="pwa-install-dialog__close">הבנתי</button>
+      </div>
+    `;
+    dialog.querySelector('.pwa-install-dialog__close').addEventListener('click', () => {
+      dialog.close?.() || (dialog.style.display = 'none');
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal?.() || (dialog.style.display = 'flex');
+  }
+
+  function showChromeInstallGuide() {
+    showDesktopInstallGuide();
+  }
+
+  // חלק התקנת PWA בדסקטופ (pwa-installer.js) – beforeinstallprompt בלבד, בלי נפילה ל־APK | HYPER CORE TECH
+  function installPwaDesktop() {
+    if (isRunningInNativeShell() || checkIfInstalled()) {
       isInstalled = true;
       pwaToast('הממשק כבר מותקן – פתח אותו מהאייקון');
       ensurePushAfterInstall();
       return { outcome: 'already_installed' };
     }
 
-    const platform = getPlatformInfo();
-
-    // Android: תמיד מורידים את מעטפת ה-APK – בלי הוראות דפדפן | HYPER CORE TECH
-    if (platform.isAndroid) {
-      return startNativeApkInstall();
-    }
-
-    if (platform.isIOS) {
-      showIOSInstallGuide();
-      return { outcome: 'ios_manual', platform: 'ios' };
-    }
-
-    // דסקטופ: ניסיון דיאלוג PWA של הדפדפן
     const promptEvent = getDeferredPrompt();
     if (promptEvent && typeof promptEvent.prompt === 'function') {
       try {
@@ -284,8 +302,51 @@
       }
     }
 
-    // דסקטופ בלי prompt – מורידים APK להתקנה בטלפון / sideload | HYPER CORE TECH
+    showDesktopInstallGuide();
+    return { outcome: 'desktop_manual' };
+  }
+
+  function installAndroidApk() {
+    if (isRunningInNativeShell()) {
+      isInstalled = true;
+      pwaToast('SOS כבר מותקן במכשיר');
+      ensurePushAfterInstall();
+      return { outcome: 'already_installed', platform: 'native' };
+    }
     return startNativeApkInstall();
+  }
+
+  // חלק פתיחת בחירה (pwa-installer.js) – כרטיסיית PC / Android / iPhone | HYPER CORE TECH
+  function openInstallChooserOrFallback() {
+    if (isRunningInNativeShell()) {
+      isInstalled = true;
+      pwaToast('SOS כבר מותקן במכשיר');
+      ensurePushAfterInstall();
+      return { outcome: 'already_installed', platform: 'native' };
+    }
+    if (checkIfInstalled()) {
+      isInstalled = true;
+      pwaToast('הממשק כבר מותקן – פתח אותו מהאייקון');
+      ensurePushAfterInstall();
+      return { outcome: 'already_installed' };
+    }
+    if (typeof App.openInstallChooser === 'function') {
+      App.openInstallChooser();
+      return { outcome: 'chooser' };
+    }
+    // fallback אם המודול לא נטען
+    const platform = getPlatformInfo();
+    if (platform.isAndroid) return installAndroidApk();
+    if (platform.isIOS) {
+      showIOSInstallGuide();
+      return { outcome: 'ios_manual' };
+    }
+    return installPwaDesktop();
+  }
+
+  // חלק הפעלת התקנה מלחיצה (pwa-installer.js) – פותח בחירת פלטפורמה | HYPER CORE TECH
+  function runInstallFromUserGesture() {
+    return openInstallChooserOrFallback();
   }
 
   // חלק הפעלת התקנה (pwa-installer.js) – הפעלת דיאלוג ההתקנה | HYPER CORE TECH
@@ -330,46 +391,50 @@
       if (profileMenu) profileMenu.hidden = true;
       if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
 
-      // לא לפתוח באנר תחתון – רק דיאלוג native / מדריך התקנה | HYPER CORE TECH
       const existingBanner = document.getElementById('pwa-install-banner');
       if (existingBanner) existingBanner.remove();
 
-      runInstallFromUserGesture();
+      openInstallChooserOrFallback();
     });
   }
 
-  // חלק הנחיות iOS (pwa-installer.js) – מדריך התקנה ידנית ל-iOS | HYPER CORE TECH
+  // חלק הנחיות iOS (pwa-installer.js) – מדריך Add to Home Screen בסגנון ניאון | HYPER CORE TECH
   function showIOSInstallGuide() {
     const existingDialog = document.getElementById('ios-install-guide');
     if (existingDialog) {
       existingDialog.showModal?.() || (existingDialog.style.display = 'flex');
       return;
     }
-    
+
     const dialog = document.createElement('dialog');
     dialog.id = 'ios-install-guide';
     dialog.className = 'pwa-install-dialog';
     dialog.innerHTML = `
       <div class="pwa-install-dialog__content">
-        <h2>📱 התקנת SOS באייפון</h2>
+        <img src="./icons/sos-logo-mobile.png?v=20260802aa" alt="SOS" class="pwa-install-dialog__logo" width="64" height="64">
+        <h2>התקנת SOS באייפון</h2>
+        <p class="pwa-install-dialog__lead">ב־Safari בלבד — אין התקנה אוטומטית באייפון</p>
         <div class="pwa-install-steps">
           <div class="pwa-install-step">
             <span class="pwa-install-step__number">1</span>
-            <span>לחץ על כפתור השיתוף <i class="fa-solid fa-arrow-up-from-bracket"></i> בתחתית המסך</span>
+            <span>לחצו על כפתור השיתוף <i class="fa-solid fa-arrow-up-from-bracket"></i> בתחתית המסך</span>
           </div>
           <div class="pwa-install-step">
             <span class="pwa-install-step__number">2</span>
-            <span>גלול למטה ולחץ על "Add to Home Screen" או "הוסף למסך הבית"</span>
+            <span>גללו ולחצו על «Add to Home Screen» / «הוסף למסך הבית»</span>
           </div>
           <div class="pwa-install-step">
             <span class="pwa-install-step__number">3</span>
-            <span>לחץ "Add" או "הוסף" בפינה הימנית העליונה</span>
+            <span>לחצו «Add» / «הוסף» — האייקון יופיע במסך הבית</span>
           </div>
         </div>
-        <p class="pwa-install-note">💡 לאחר ההתקנה, האפליקציה תפעל במסך מלא ותתמוך בהתראות Push!</p>
-        <button type="button" class="pwa-install-dialog__close" onclick="this.closest('dialog').close()">הבנתי</button>
+        <p class="pwa-install-note">אחרי ההתקנה האפליקציה נפתחת במסך מלא וניתן להפעיל התראות Push</p>
+        <button type="button" class="pwa-install-dialog__close">הבנתי</button>
       </div>
     `;
+    dialog.querySelector('.pwa-install-dialog__close').addEventListener('click', () => {
+      dialog.close?.() || (dialog.style.display = 'none');
+    });
     document.body.appendChild(dialog);
     dialog.showModal?.() || (dialog.style.display = 'flex');
   }
@@ -443,7 +508,7 @@
     banner.className = 'pwa-install-banner';
     banner.innerHTML = `
       <div class="pwa-install-banner__content">
-        <img src="./icons/sos-logo-mobile.png?v=20260802w" alt="SOS" class="pwa-install-banner__icon">
+        <img src="./icons/sos-logo-mobile.png?v=20260802aa" alt="SOS" class="pwa-install-banner__icon">
         <div class="pwa-install-banner__text">
           <strong>התקן את אפליקציית SOS</strong>
           <span>התראות גם כשהמסך כבוי</span>
@@ -462,12 +527,10 @@
     });
     
     banner.querySelector('.pwa-install-banner__install').addEventListener('click', () => {
-      const result = runInstallFromUserGesture();
-      if (result && (result.outcome === 'accepted' || result.outcome === 'prompted' || result.outcome === 'already_installed')) {
-        // prompted = דיאלוג נפתח; accepted מגיע מ-appinstalled / userChoice
-        if (result.outcome === 'already_installed') banner.remove();
+      const result = openInstallChooserOrFallback();
+      if (result && result.outcome === 'already_installed') {
+        banner.remove();
       }
-      // אם המשתמש אישר – appinstalled יסיר את הבאנר
     });
     
     document.body.appendChild(banner);
@@ -522,9 +585,9 @@
     // Android/Desktop - ממתינים ל-beforeinstallprompt
     let bannerTimeout = setTimeout(() => {
       if (!getDeferredPrompt()) {
-        // Chrome עדיין תומך – פשוט האירוע לא הגיע (נדחה בעבר / כבר מותקן / קריטריונים) | HYPER CORE TECH
-        console.log('[PWA] beforeinstallprompt לא התקבל עדיין – לא מציגים באנר אוטומטי');
-        if (platform.isFirefox) {
+        // Android: באנר מוביל לבחירה (APK) גם בלי beforeinstallprompt | HYPER CORE TECH
+        console.log('[PWA] beforeinstallprompt לא התקבל עדיין');
+        if (platform.isFirefox || platform.isAndroid) {
           createInstallBanner();
         }
       }
@@ -545,7 +608,7 @@
     toast.id = 'pwa-update-toast';
     toast.className = 'pwa-update-toast';
     toast.innerHTML = `
-      <img src="./icons/sos-logo-mobile.png?v=20260802w" alt="SOS" class="pwa-update-toast__logo">
+      <img src="./icons/sos-logo-mobile.png?v=20260802aa" alt="SOS" class="pwa-update-toast__logo">
       <div class="pwa-update-toast__content">
         <span class="pwa-update-toast__title">גרסה חדשה זמינה!</span>
         <span class="pwa-update-toast__subtitle">עדכן כדי ליהנות משיפורים ותכונות חדשות</span>
@@ -627,7 +690,10 @@
     getPlatformInfo,
     checkIfInstalled,
     promptPwaInstall: promptInstall,
+    installPwaDesktop,
+    installAndroidApk,
     showIOSInstallGuide,
+    showDesktopInstallGuide,
     showChromeInstallGuide,
     showInstallBanner: createInstallBanner,
     isPwaInstalled: () => isInstalled || checkIfInstalled(),
@@ -635,7 +701,7 @@
     ensurePushAfterInstall,
   });
   
-  // פונקציה גלובלית להפעלת התקנה
+  // פונקציה גלובלית להפעלת התקנה – פותחת בחירת פלטפורמה | HYPER CORE TECH
   window.requestPwaInstallPrompt = promptInstall;
   setupUpdateChecker();
 

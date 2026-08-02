@@ -386,6 +386,29 @@
     0 0 24px rgba(37, 244, 238, 0.1);
 }
 
+.pwa-install-dialog__logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: contain;
+  margin: 0 auto 14px;
+  display: block;
+  background: #050508;
+  border: 1px solid rgba(37, 244, 238, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(254, 44, 85, 0.22),
+    0 0 16px rgba(37, 244, 238, 0.28),
+    0 0 20px rgba(254, 44, 85, 0.16);
+  animation: pwa-logo-pulse 2.4s ease-in-out infinite;
+}
+
+.pwa-install-dialog__lead {
+  margin: -8px 0 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}
+
 .pwa-install-dialog__content h2 {
   margin: 0 0 20px;
   font-size: 20px;
@@ -747,11 +770,255 @@
   filter: brightness(1.08);
 }
 
+/* ===== כרטיסיית בחירת התקנה (PC / Android / iPhone) ===== */
+.pwa-install-chooser {
+  position: fixed;
+  inset: 0;
+  z-index: 100050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  direction: rtl;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.pwa-install-chooser--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pwa-install-chooser__overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(37, 244, 238, 0.12), transparent 55%),
+    radial-gradient(ellipse at 80% 80%, rgba(254, 44, 85, 0.14), transparent 50%),
+    rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.pwa-install-chooser__card {
+  position: relative;
+  width: min(420px, 100%);
+  background:
+    linear-gradient(165deg, rgba(14, 14, 22, 0.98) 0%, rgba(6, 6, 10, 0.99) 100%);
+  border-radius: 22px;
+  padding: 28px 22px 22px;
+  border: 1px solid rgba(37, 244, 238, 0.28);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    0 0 28px rgba(37, 244, 238, 0.12),
+    0 0 36px rgba(254, 44, 85, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: center;
+  transform: translateY(18px) scale(0.96);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+
+.pwa-install-chooser--visible .pwa-install-chooser__card {
+  transform: translateY(0) scale(1);
+}
+
+.pwa-install-chooser__card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--pwa-neon-pink), var(--pwa-neon-green), var(--pwa-neon-cyan));
+  opacity: 0.95;
+  animation: pwa-neon-scan 3.2s linear infinite;
+  pointer-events: none;
+}
+
+.pwa-install-chooser__close {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.pwa-install-chooser__close:hover {
+  background: rgba(254, 44, 85, 0.18);
+  border-color: rgba(254, 44, 85, 0.4);
+  color: #fff;
+}
+
+.pwa-install-chooser__logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: contain;
+  margin: 0 auto 14px;
+  display: block;
+  background: #050508;
+  border: 1px solid rgba(37, 244, 238, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(254, 44, 85, 0.25),
+    0 0 18px rgba(37, 244, 238, 0.3),
+    0 0 22px rgba(254, 44, 85, 0.2);
+  animation: pwa-logo-pulse 2.4s ease-in-out infinite;
+}
+
+.pwa-install-chooser__title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: linear-gradient(90deg, #fff 20%, var(--pwa-neon-cyan) 55%, var(--pwa-neon-pink) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.pwa-install-chooser__lead {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.pwa-install-chooser__options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.pwa-install-chooser__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: right;
+  padding: 14px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(37, 244, 238, 0.18);
+  background:
+    linear-gradient(135deg, rgba(37, 244, 238, 0.06) 0%, rgba(254, 44, 85, 0.05) 100%);
+  color: #fff;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.pwa-install-chooser__option:hover,
+.pwa-install-chooser__option:focus-visible {
+  outline: none;
+  border-color: rgba(37, 244, 238, 0.45);
+  background:
+    linear-gradient(135deg, rgba(37, 244, 238, 0.12) 0%, rgba(254, 44, 85, 0.1) 100%);
+  box-shadow:
+    0 0 0 1px rgba(254, 44, 85, 0.15),
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 18px rgba(37, 244, 238, 0.12);
+  transform: translateY(-1px);
+}
+
+.pwa-install-chooser__option-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--pwa-neon-cyan);
+  background: rgba(5, 5, 8, 0.85);
+  border: 1px solid rgba(37, 244, 238, 0.28);
+  box-shadow: 0 0 12px rgba(37, 244, 238, 0.15);
+}
+
+.pwa-install-chooser__option[data-install-target="android"] .pwa-install-chooser__option-icon {
+  color: var(--pwa-neon-green);
+  border-color: rgba(57, 255, 20, 0.3);
+  box-shadow: 0 0 12px rgba(57, 255, 20, 0.15);
+}
+
+.pwa-install-chooser__option[data-install-target="ios"] .pwa-install-chooser__option-icon {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 12px rgba(254, 44, 85, 0.12);
+}
+
+.pwa-install-chooser__option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pwa-install-chooser__option-title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pwa-install-chooser__option-sub {
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pwa-install-chooser__badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #050508;
+  background: linear-gradient(135deg, var(--pwa-neon-cyan), var(--pwa-neon-pink));
+  box-shadow: 0 0 10px rgba(37, 244, 238, 0.25);
+}
+
+.pwa-install-chooser__note {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.4;
+}
+
 /* ===== התאמות מובייל ===== */
 @media (max-width: 480px) {
   .pwa-install-banner {
     padding: 10px 12px;
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pwa-install-chooser__card {
+    padding: 24px 16px 18px;
+  }
+
+  .pwa-install-chooser__title {
+    font-size: 20px;
+  }
+
+  .pwa-install-chooser__option {
+    padding: 12px;
   }
 
   .pwa-install-banner__icon {
