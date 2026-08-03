@@ -2708,20 +2708,31 @@ body.videos-boot-loading .videos-feed__card--loadnug {
   opacity: 1 !important;
 }
 
-/* חלק Deep Link (videos.css) – פתיחת שיחה מהתרעה בלי לחסום ב־LoadNug | HYPER CORE TECH */
+/* חלק Deep Link (videos.css) – פתיחת שיחה מהתרעה בלי שמסך טעינה יכסה את הצ'אט | HYPER CORE TECH */
 html[data-sos-deeplink="1"] #sosLoadNugOverlay,
 html[data-sos-deeplink="1"] .videos-feed__card--loadnug,
+html[data-sos-deeplink="1"] #videosLoadingOverlay,
+html[data-sos-deeplink="1"] #videosSoftLoading,
 body.sos-deeplink-chat #sosLoadNugOverlay,
-body.sos-deeplink-chat .videos-feed__card--loadnug {
+body.sos-deeplink-chat .videos-feed__card--loadnug,
+body.sos-deeplink-chat #videosLoadingOverlay,
+body.sos-deeplink-chat #videosSoftLoading,
+body:has(#chatPanel:not([hidden])) #sosLoadNugOverlay,
+body:has(#chatPanel:not([hidden])) .videos-feed__card--loadnug,
+body:has(#chatPanel:not([hidden])) #videosLoadingOverlay,
+body:has(#chatPanel:not([hidden])) #videosSoftLoading {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
 }
-/* לא מעלים את #chatPanel מעל .primary-nav (3000) – אחרת נעלם התפריט התחתון ברשימת שיחות | HYPER CORE TECH */
-html[data-sos-deeplink="1"] #chatPanel,
-body.sos-deeplink-chat #chatPanel {
-  z-index: 2000 !important;
+/* צ'אט מעל מסך הטעינה (2950) ומתחת לתפריט התחתון (3000) | HYPER CORE TECH */
+@media (max-width: 768px) {
+  html[data-sos-deeplink="1"] #chatPanel,
+  body.sos-deeplink-chat #chatPanel,
+  body:has(#chatPanel:not([hidden])) #chatPanel.chat-panel {
+    z-index: 2960 !important;
+  }
 }
 /* מסך שיחה תמיד מעל פאנל הצ'אט – גם בנתיב deep-link | HYPER CORE TECH */
 html[data-sos-deeplink="1"] .voice-call-dialog,
@@ -2733,7 +2744,7 @@ body.sos-call-active .video-call-dialog {
   z-index: 12060 !important;
 }
 body.sos-call-active #chatPanel {
-  z-index: 2000 !important;
+  z-index: 2960 !important;
 }
 /* ברשימת שיחות (לא conversation) – וידוא שהתפריט התחתון גלוי מעל הפאנל | HYPER CORE TECH */
 @media (max-width: 768px) {

@@ -105,7 +105,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260803q">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260803r">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -133,6 +133,15 @@
         opacity: 1 !important;
         pointer-events: auto !important;
         overflow: hidden !important;
+      }
+      /* Deep-link / צ'אט פתוח – לא לכסות את דף השיחה במסך טעינה | HYPER CORE TECH */
+      html[data-sos-deeplink="1"] #videosLoadingOverlay.videos-loading-overlay,
+      body.sos-deeplink-chat #videosLoadingOverlay.videos-loading-overlay,
+      body:has(#chatPanel:not([hidden])) #videosLoadingOverlay.videos-loading-overlay {
+        display: none !important;
+        pointer-events: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
       }
       #videosLoadingOverlay.videos-loading-overlay.hidden {
         display: none !important;
@@ -1766,7 +1775,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260803n" defer></script>
+    <script src="./videos.js?v=20260803r" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -1790,15 +1799,15 @@
     <script src="./chat-ui-optimizations.js" defer></script>
     <script src="./chat-composer-enhanced.js?v=4" defer></script>
     <script src="./chat-p2p-datachannel.js?v=13" defer></script>
-    <script src="./chat-ui.js?v=20260803q" defer></script>
-    <script src="./chat-deeplink.js?v=20260803q" defer></script>
+    <script src="./chat-ui.js?v=20260803r" defer></script>
+    <script src="./chat-deeplink.js?v=20260803r" defer></script>
     <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
     <script src="./chat-request-logger.js?v=2" defer></script>
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=5" defer></script>
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
-    <script src="./pwa-installer.js?v=20260803q" defer></script>
-    <script src="./pwa-install-chooser.js?v=20260803q" defer></script>
+    <script src="./pwa-installer.js?v=20260803r" defer></script>
+    <script src="./pwa-install-chooser.js?v=20260803r" defer></script>
     <script src="./push-client.js?v=20260803o" defer></script>
     <script src="./push-trigger.js?v=20260803h" defer></script>
     <script src="./native-shell-bridge.js?v=20260803p" defer></script>

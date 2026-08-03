@@ -32,16 +32,38 @@
     }
   }
 
-  function releaseBootIfNeeded() {
+  function suppressLoadingOverChat() {
     try {
-      if (typeof App.releaseBootForDeepLink === 'function') {
-        App.releaseBootForDeepLink('chat-deeplink');
-      }
-    } catch (_) {}
-    try {
+      document.documentElement.setAttribute('data-sos-deeplink', '1');
       document.body.classList.add('sos-deeplink-chat');
       document.body.classList.remove('videos-boot-loading');
     } catch (_) {}
+    try {
+      if (typeof App.releaseBootForDeepLink === 'function') {
+        App.releaseBootForDeepLink('chat-deeplink');
+      } else if (typeof App.hideLoadingAnimation === 'function') {
+        App.hideLoadingAnimation({ force: true });
+      }
+    } catch (_) {}
+    try {
+      const overlay = document.getElementById('videosLoadingOverlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+      }
+      const soft = document.getElementById('videosSoftLoading');
+      if (soft) {
+        soft.hidden = true;
+        soft.style.display = 'none';
+      }
+      const nug = document.getElementById('sosLoadNugOverlay');
+      if (nug) nug.remove();
+    } catch (_) {}
+  }
+
+  function releaseBootIfNeeded() {
+    suppressLoadingOverChat();
   }
 
   // חלק Deep Link (chat-deeplink.js) – מנקה דגלים כדי שהתפריט התחתון יחזור ברשימת שיחות | HYPER CORE TECH
@@ -77,6 +99,7 @@
 
   function openConversation(peer) {
     if (!peer) return false;
+    suppressLoadingOverChat();
     try {
       if (typeof App.ensureChatContact === 'function') {
         App.ensureChatContact(peer);
@@ -87,8 +110,9 @@
 
     if (typeof App.showChatConversation === 'function') {
       App.showChatConversation(peer);
-      // אחרי פתיחת השיחה – לא משאירים z-index/דגלים שחוסמים את ה-nav ברשימה | HYPER CORE TECH
-      setTimeout(clearDeepLinkFlags, 800);
+      suppressLoadingOverChat();
+      // אחרי שהשיחה פתוחה – CSS של #chatPanel מסתיר טעינה; מנקים דגלי deep-link | HYPER CORE TECH
+      setTimeout(clearDeepLinkFlags, 1500);
       return true;
     }
     return false;

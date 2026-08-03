@@ -1251,6 +1251,8 @@ const App = window.NostrApp || (window.NostrApp = {});
 // חלק שיחות (videos.js) – חשיפת פונקציה לעצירת וידיאו בפיד | HYPER CORE TECH
 App.pauseAllFeedVideos = pauseAllFeedVideos;
 App.setFeedDownloadsPaused = setFeedDownloadsPaused;
+App.hideLoadingAnimation = hideLoadingAnimation;
+App.showLoadingAnimation = showLoadingAnimation;
 
 const state = {
   videos: [],
@@ -2232,6 +2234,16 @@ function filterEventsByNetwork(events, networkTag) {
 
 // חלק יאללה וידאו (videos.js) – הצגת/הסתרת אנימציית טעינה
 function showLoadingAnimation() {
+  // כשצ'אט פתוח / deep-link – לא מציגים מסך טעינה מעל השיחה | HYPER CORE TECH
+  try {
+    const chatOpen = document.getElementById('chatPanel') && !document.getElementById('chatPanel').hasAttribute('hidden');
+    const deeplink = document.documentElement.getAttribute('data-sos-deeplink') === '1'
+      || document.body.classList.contains('sos-deeplink-chat');
+    if (chatOpen || deeplink) {
+      hideLoadingAnimation({ force: true });
+      return;
+    }
+  } catch (_) {}
   const overlay = document.getElementById('videosLoadingOverlay');
   if (overlay) {
     overlay.classList.remove('hidden');
