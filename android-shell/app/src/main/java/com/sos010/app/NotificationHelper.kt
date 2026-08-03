@@ -37,18 +37,22 @@ object NotificationHelper {
         val peerKey: String,
         val senderName: String,
         val text: String,
-        val openUrl: String?
+        val openUrl: String?,
+        val pictureUrl: String = ""
     )
 
     private val lock = Any()
     private val inboxLines = ArrayDeque<InboxLine>()
     private val peerMessageCounts = LinkedHashMap<String, Int>()
     private val peerDisplayNames = LinkedHashMap<String, String>()
+    private val peerPictureUrls = LinkedHashMap<String, String>()
     private var totalMessageCount = 0
     private var lastOpenUrl: String? = null
+    private var lastPeerKey: String? = null
     private val seenEventIds = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastAlertAt = 0L
     @Volatile private var suppressAlertsUntil = 0L
+    private val avatarExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -129,7 +133,8 @@ object NotificationHelper {
         openUrl: String? = null,
         tag: String? = null,
         eventId: String? = null,
-        peerKey: String? = null
+        peerKey: String? = null,
+        pictureUrl: String? = null
     ) {
         ensureChannels(context)
         val app = context.applicationContext
@@ -149,7 +154,14 @@ object NotificationHelper {
         trimSeenEvents()
 
         val resolvedPeer = resolvePeerKey(peerKey, tag, openUrl)
-        val senderName = resolveSenderName(title, resolvedPeer)
+        val cached = SosContactCache.get(app, resolvedPeer)
+        val senderName = when {
+            !cached?.name.isNullOrBlank() && !cached!!.name.startsWith("משתמש ") -> cached.name
+            else -> resolveSenderName(title, resolvedPeer)
+        }
+        val pic = pictureUrl?.trim()?.takeIf { it.isNotEmpty() }
+            ?: cached?.picture?.trim()?.takeIf { it.isNotEmpty() }
+            ?: ""
         val preview = body.trim().ifBlank { "הודעה חדשה" }
         val allowAlert = System.currentTimeMillis() >= suppressAlertsUntil
 
@@ -157,12 +169,61 @@ object NotificationHelper {
             totalMessageCount += 1
             peerMessageCounts[resolvedPeer] = (peerMessageCounts[resolvedPeer] ?: 0) + 1
             peerDisplayNames[resolvedPeer] = senderName
-            inboxLines.addLast(InboxLine(resolvedPeer, senderName, preview, openUrl))
+            if (pic.isNotEmpty()) peerPictureUrls[resolvedPeer] = pic
+            lastPeerKey = resolvedPeer
+            inboxLines.addLast(InboxLine(resolvedPeer, senderName, preview, openUrl, pic))
             while (inboxLines.size > MAX_INBOX_LINES) {
                 inboxLines.removeFirst()
             }
             lastOpenUrl = openUrl ?: lastOpenUrl
             postAggregateLocked(app, playSound = allowAlert)
+        }
+
+        if (pic.isNotEmpty()) {
+            refreshAvatarAsync(app, pic)
+        }
+    }
+
+    /** עדכון שם/תמונה לכרטיס קיים בלי צליל נוסף (אחרי טעינת פרופיל) | HYPER CORE TECH */
+    fun updatePeerProfile(context: Context, peerKey: String?, name: String?, pictureUrl: String?) {
+        val app = context.applicationContext
+        val pk = peerKey?.trim()?.lowercase().orEmpty()
+        if (pk.length < 8) return
+        if (MainActivity.isHostAlive) return
+
+        val cleanName = name?.trim().orEmpty()
+        val cleanPic = pictureUrl?.trim().orEmpty()
+        if (cleanName.isEmpty() && cleanPic.isEmpty()) return
+
+        var shouldRefreshAvatar = false
+        synchronized(lock) {
+            if (!peerMessageCounts.containsKey(pk) && inboxLines.none { it.peerKey == pk }) return
+            if (cleanName.isNotEmpty() && !cleanName.startsWith("משתמש ")) {
+                peerDisplayNames[pk] = cleanName
+            }
+            if (cleanPic.isNotEmpty()) {
+                peerPictureUrls[pk] = cleanPic
+                shouldRefreshAvatar = true
+            }
+            val updated = ArrayDeque<InboxLine>()
+            inboxLines.forEach { line ->
+                if (line.peerKey != pk) {
+                    updated.addLast(line)
+                } else {
+                    updated.addLast(
+                        line.copy(
+                            senderName = if (cleanName.isNotEmpty() && !cleanName.startsWith("משתמש ")) cleanName else line.senderName,
+                            pictureUrl = if (cleanPic.isNotEmpty()) cleanPic else line.pictureUrl
+                        )
+                    )
+                }
+            }
+            inboxLines.clear()
+            updated.forEach { inboxLines.addLast(it) }
+            postAggregateLocked(app, playSound = false)
+        }
+        if (shouldRefreshAvatar) {
+            refreshAvatarAsync(app, cleanPic)
         }
     }
 
@@ -171,8 +232,10 @@ object NotificationHelper {
             inboxLines.clear()
             peerMessageCounts.clear()
             peerDisplayNames.clear()
+            peerPictureUrls.clear()
             totalMessageCount = 0
             lastOpenUrl = null
+            lastPeerKey = null
         }
         try {
             NotificationManagerCompat.from(context.applicationContext)
@@ -245,20 +308,28 @@ object NotificationHelper {
         val total = totalMessageCount.coerceAtLeast(1)
         val lines = inboxLines.toList()
         val openUrl = lastOpenUrl
+        val focusPeer = lastPeerKey
+            ?: lines.lastOrNull()?.peerKey
+            ?: peerDisplayNames.keys.lastOrNull()
+            ?: ""
+        val focusName = peerDisplayNames[focusPeer]
+            ?: lines.lastOrNull()?.senderName
+            ?: "SOS"
+        val focusPicture = peerPictureUrls[focusPeer]
+            ?: lines.lastOrNull()?.pictureUrl
+            ?: ""
 
         val (contentTitle, contentText) = when {
             peerCount <= 1 -> {
-                val name = peerDisplayNames.values.lastOrNull()
-                    ?: lines.lastOrNull()?.senderName
-                    ?: "SOS"
                 if (total <= 1) {
-                    name to (lines.lastOrNull()?.text ?: "הודעה חדשה")
+                    focusName to (lines.lastOrNull()?.text ?: "הודעה חדשה")
                 } else {
-                    "$name · $total הודעות" to (lines.lastOrNull()?.text ?: "$total הודעות חדשות")
+                    focusName to "$total הודעות חדשות"
                 }
             }
             else -> {
-                "SOS" to "$total הודעות מ-$peerCount אנשים"
+                // כמו וואטסאפ: שם אחרון + סיכום כמה אנשים | HYPER CORE TECH
+                focusName to "$total הודעות מ-$peerCount אנשים"
             }
         }
 
@@ -273,11 +344,12 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val largeIcon = try {
-            BitmapFactory.decodeResource(app.resources, R.drawable.sos_logo)
-        } catch (_: Exception) {
-            null
-        }
+        val largeIcon = SosContactCache.getCachedBitmap(focusPicture)
+            ?: try {
+                BitmapFactory.decodeResource(app.resources, R.drawable.sos_logo)
+            } catch (_: Exception) {
+                null
+            }
 
         val inboxStyle = NotificationCompat.InboxStyle()
             .setBigContentTitle(contentTitle)
@@ -311,6 +383,21 @@ object NotificationHelper {
 
         if (playSound) {
             playMessageAlertOnce(app)
+        }
+    }
+
+    private fun refreshAvatarAsync(app: Context, pictureUrl: String) {
+        val url = pictureUrl.trim()
+        if (url.isEmpty()) return
+        avatarExecutor.execute {
+            try {
+                SosContactCache.loadBitmap(url) ?: return@execute
+                synchronized(lock) {
+                    if (inboxLines.isEmpty()) return@synchronized
+                    postAggregateLocked(app, playSound = false)
+                }
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -360,20 +447,19 @@ object NotificationHelper {
         return "unknown"
     }
 
-    private fun resolveSenderName(title: String, peerKey: String): String {
+    private fun resolveSenderName(title: String, @Suppress("UNUSED_PARAMETER") peerKey: String): String {
         val cleaned = title.trim()
-        if (cleaned.isNotEmpty()
-            && !cleaned.equals("SOS", ignoreCase = true)
-            && !cleaned.contains("הודעה חדשה")
-            && !cleaned.contains("קבלת הודעה")
-            && !cleaned.contains("קיבלת הודעה")
-        ) {
-            return cleaned
-        }
-        if (peerKey != "unknown" && peerKey.length >= 8) {
-            return "משתמש ${peerKey.take(8)}"
-        }
-        return "SOS"
+        val looksGeneric = cleaned.isEmpty()
+            || cleaned.equals("SOS", ignoreCase = true)
+            || cleaned.equals("משתמש", ignoreCase = false)
+            || cleaned.startsWith("משתמש ")
+            || cleaned.contains("הודעה חדשה")
+            || cleaned.contains("קבלת הודעה")
+            || cleaned.contains("קיבלת הודעה")
+            || cleaned.matches(Regex("^[0-9a-fA-F]{8,64}$"))
+        if (!looksGeneric) return cleaned
+        // בלי שם אמיתי – לא מציגים מפתח ציבורי על המסך הנעול | HYPER CORE TECH
+        return "הודעה חדשה"
     }
 
     private fun trimSeenEvents() {

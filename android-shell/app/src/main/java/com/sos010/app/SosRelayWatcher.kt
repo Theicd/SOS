@@ -131,9 +131,17 @@ class SosRelayWatcher(private val appContext: Context) {
             val id = event.optString("id")
             val author = event.optString("pubkey").lowercase()
             val kind = event.optInt("kind")
-            if (author.isBlank() || author == selfPubkey) return
+            if (author.isBlank()) return
             if (id.isNotBlank() && !seenIds.add(id)) return
             trimSeen()
+
+            // פרופיל kind:0 – שמירה לקאש ועדכון כרטיס התראה | HYPER CORE TECH
+            if (kind == 0) {
+                handleProfileEvent(author, event.optString("content").orEmpty())
+                return
+            }
+
+            if (author == selfPubkey) return
 
             val tags = event.optJSONArray("tags") ?: return
             var addressedToMe = false
@@ -156,6 +164,37 @@ class SosRelayWatcher(private val appContext: Context) {
         }
     }
 
+    private fun handleProfileEvent(author: String, content: String) {
+        if (content.isBlank()) return
+        try {
+            val meta = JSONObject(content)
+            val name = meta.optString("display_name").ifBlank { meta.optString("name") }.trim()
+            val picture = meta.optString("picture").trim()
+            if (name.isEmpty() && picture.isEmpty()) return
+            SosContactCache.put(appContext, author, name, picture)
+            NotificationHelper.updatePeerProfile(appContext, author, name, picture)
+            Log.i(TAG, "profile cached ${author.take(8)} name=${name.take(24)}")
+        } catch (err: Exception) {
+            Log.w(TAG, "profile parse fail: ${err.message}")
+        }
+    }
+
+    private fun requestProfile(author: String) {
+        if (author.length != 64) return
+        val filter = JSONObject()
+            .put("kinds", JSONArray().put(0))
+            .put("authors", JSONArray().put(author))
+            .put("limit", 1)
+        val req = JSONArray()
+            .put("REQ")
+            .put("sos-prof-${author.take(8)}")
+            .put(filter)
+            .toString()
+        sockets.values.forEach { ws ->
+            runCatching { ws.send(req) }
+        }
+    }
+
     private fun notifyChat(author: String, rawContent: String, eventId: String) {
         // כשהממשק פתוח – ה-Web מטפל בהתראות (מונע כפילות צליל/כרטיס)
         if (MainActivity.isHostAlive) return
@@ -167,7 +206,11 @@ class SosRelayWatcher(private val appContext: Context) {
             raw.length > 120 -> raw.take(117) + "…"
             else -> raw
         }
-        val senderLabel = "משתמש ${author.take(8)}"
+        val cached = SosContactCache.get(appContext, author)
+        val senderLabel = when {
+            !cached?.name.isNullOrBlank() && !cached!!.name.startsWith("משתמש ") -> cached.name
+            else -> "משתמש"
+        }
 
         NotificationHelper.showMessage(
             appContext,
@@ -176,10 +219,17 @@ class SosRelayWatcher(private val appContext: Context) {
             "https://sos010.com/videos.html?chat=$author",
             "chat-$author",
             eventId = eventId,
-            peerKey = author
+            peerKey = author,
+            pictureUrl = cached?.picture
         )
+        // אם אין שם אמיתי בקאש – מבקשים kind:0 מהריליי ומעדכנים את הכרטיס | HYPER CORE TECH
+        if (cached?.name.isNullOrBlank() || cached!!.name.startsWith("משתמש ")) {
+            requestProfile(author)
+        } else if (cached.picture.isBlank()) {
+            requestProfile(author)
+        }
         lastNotifyAt = System.currentTimeMillis()
-        Log.i(TAG, "chat notify from ${author.take(8)}")
+        Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
     }
 
     private fun handleCallSignal(author: String, signalType: String) {
@@ -193,13 +243,15 @@ class SosRelayWatcher(private val appContext: Context) {
                 val isVideo = signalType == "v-offer"
                 val callType = if (isVideo) "video" else "voice"
                 val title = if (isVideo) "שיחת וידאו נכנסת" else "שיחה קולית נכנסת"
+                val caller = SosContactCache.displayName(appContext, author, "מישהו")
                 NotificationHelper.showIncomingCall(
                     appContext,
                     title,
-                    "מישהו מתקשר אליך ב-SOS",
+                    "$caller מתקשר אליך ב-SOS",
                     "https://sos010.com/videos.html?chat=$author&incomingCall=$callType",
                     callType
                 )
+                if (caller == "מישהו") requestProfile(author)
                 Log.i(TAG, "incoming $callType from ${author.take(8)}")
             }
             "disconnect", "v-disconnect" -> {

@@ -240,6 +240,42 @@
     } catch (err) {
       console.warn('[NATIVE-SHELL] setUserPubkey failed', err);
     }
+    syncContactsToNative();
+  }
+
+  // חלק קאש אנשי קשר (native-shell-bridge.js) – שם+תמונה להתראות רקע | HYPER CORE TECH
+  function syncContactsToNative() {
+    if (!isNativeShell()) return;
+    const bridge = getBridge();
+    if (!bridge || typeof bridge.cacheContact !== 'function') return;
+    try {
+      const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
+      (contacts || []).slice(0, 100).forEach((c) => {
+        const pk = String(c?.pubkey || '').toLowerCase();
+        if (pk.length !== 64) return;
+        const name = String(c?.name || '').trim();
+        const picture = String(c?.picture || '').trim();
+        if (!name && !picture) return;
+        if (name.startsWith('משתמש ') && !picture) return;
+        bridge.cacheContact(pk, name, picture);
+      });
+      if (App.profileCache instanceof Map) {
+        let n = 0;
+        App.profileCache.forEach((profile, key) => {
+          if (n >= 120) return;
+          const pk = String(profile?.pubkey || key || '').toLowerCase();
+          if (pk.length !== 64) return;
+          const name = String(profile?.name || profile?.display_name || '').trim();
+          const picture = String(profile?.picture || '').trim();
+          if (!name && !picture) return;
+          if (name.startsWith('משתמש ') && !picture) return;
+          bridge.cacheContact(pk, name, picture);
+          n += 1;
+        });
+      }
+    } catch (err) {
+      console.warn('[NATIVE-SHELL] cacheContact sync failed', err);
+    }
   }
 
   // חלק בחירת קובץ (native-shell-bridge.js) – DocumentsUI דרך SosNativeShell, לא דרך input HTML | HYPER CORE TECH
@@ -397,12 +433,22 @@
     window.addEventListener('sos-native-resume', () => {
       tryRegister();
       wireNativeFilePickers();
+      syncContactsToNative();
       try {
         const bridge = getBridge();
         if (bridge && typeof bridge.stopCallSounds === 'function') bridge.stopCallSounds();
       } catch (_) {}
     });
     window.addEventListener('storage', () => syncPubkeyToNative());
+
+    // סנכרון שמות/תמונות כשמתעדכנת רשימת השיחות | HYPER CORE TECH
+    try {
+      if (typeof App.subscribeChat === 'function') {
+        App.subscribeChat('contacts', () => syncContactsToNative());
+      }
+    } catch (_) {}
+    setTimeout(syncContactsToNative, 2500);
+    setTimeout(syncContactsToNative, 8000);
   }
 
   Object.assign(App, {
@@ -419,6 +465,7 @@
     nativeHasMicPermission,
     nativeHasCameraPermission,
     nativePickFiles,
+    syncContactsToNative,
   });
 
   if (document.readyState === 'loading') {

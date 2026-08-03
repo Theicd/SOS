@@ -110,9 +110,16 @@ class SosJsBridge(
         SosRelayWatcher.ensureStarted(context.applicationContext)
     }
 
+    /** שמירת שם+תמונה של איש קשר להתראות רקע בסגנון וואטסאפ | HYPER CORE TECH */
+    @JavascriptInterface
+    fun cacheContact(pubkey: String?, name: String?, picture: String?) {
+        SosContactCache.put(context.applicationContext, pubkey, name, picture)
+    }
+
     @JavascriptInterface
     fun clearUserSession() {
         SosSessionStore.clear(context.applicationContext)
+        SosContactCache.clear(context.applicationContext)
         SosRelayWatcher.stopAll()
     }
 

@@ -17,7 +17,13 @@ class SosFirebaseMessagingService : FirebaseMessagingService() {
         // כשהממשק פתוח – ה-Web מטפל (מונע כפילות מול RelayWatcher)
         if (MainActivity.isHostAlive) return
 
-        val title = message.notification?.title
+        val peerKey = message.data["peer"]
+            ?: message.data["pubkey"]
+            ?: message.data["peerKey"]
+            ?: message.data["peerPubkey"]
+        val cached = SosContactCache.get(applicationContext, peerKey)
+        val title = cached?.name?.takeIf { it.isNotBlank() && !it.startsWith("משתמש ") }
+            ?: message.notification?.title
             ?: message.data["title"]
             ?: "SOS"
         val body = message.notification?.body
@@ -28,9 +34,6 @@ class SosFirebaseMessagingService : FirebaseMessagingService() {
         val eventId = message.data["eventId"]
             ?: message.data["event_id"]
             ?: message.messageId
-        val peerKey = message.data["peer"]
-            ?: message.data["pubkey"]
-            ?: message.data["peerKey"]
 
         NotificationHelper.showMessage(
             applicationContext,
@@ -39,7 +42,8 @@ class SosFirebaseMessagingService : FirebaseMessagingService() {
             url,
             tag,
             eventId = eventId,
-            peerKey = peerKey
+            peerKey = peerKey,
+            pictureUrl = cached?.picture
         )
     }
 }
