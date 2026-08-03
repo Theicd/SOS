@@ -52,7 +52,6 @@
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', 'בחירת התקנת SOS');
-    const App = window.NostrApp || {};
     const apkFile = App.SOS_APK_FILE || 'SOS-1.0.15.apk';
     const apkVersion = App.SOS_APK_VERSION || '1.0.15';
     root.innerHTML = `
