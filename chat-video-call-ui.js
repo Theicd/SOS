@@ -576,6 +576,20 @@
 
   // חלק שיחות וידאו – callbacks מהמנוע
   App.onVideoCallIncoming = function(peer, offer){
+    const peerNorm = peer ? String(peer).toLowerCase() : '';
+    try {
+      const pendingDecline = window.__sosNativePendingDecline;
+      if (pendingDecline && pendingDecline.peer === peerNorm && Date.now() < (pendingDecline.until || 0)) {
+        App.__videoIncomingOffer = offer;
+        App.__videoIncomingPeer = peerNorm;
+        userDeclinedVideoCall = true;
+        if (App.videoCall && typeof App.videoCall.rejectIncoming === 'function') {
+          App.videoCall.rejectIncoming(peerNorm);
+        } else if (App.videoCall) App.videoCall.end();
+        window.__sosNativePendingDecline = null;
+        return;
+      }
+    } catch (_) {}
     try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.isIncomingCallSuppressed === 'function') {
@@ -586,7 +600,7 @@
       }
     } catch (_) {}
     App.__videoIncomingOffer = offer;
-    App.__videoIncomingPeer = peer ? String(peer).toLowerCase() : null;
+    App.__videoIncomingPeer = peerNorm;
     try {
       sessionStorage.setItem('sos_pending_video_offer', JSON.stringify({
         peer: App.__videoIncomingPeer, callType: 'video', offer, savedAt: Date.now()
@@ -595,14 +609,22 @@
         App.nativeCacheIncomingCallOffer(peer, 'video', offer);
       }
     } catch (_) {}
-    // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
+    try {
+      const pendingAnswer = window.__sosNativePendingAnswer;
+      if (pendingAnswer && pendingAnswer.peer === peerNorm && pendingAnswer.callType === 'video' && Date.now() < (pendingAnswer.until || 0)) {
+        saveChatPanelState();
+        if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
+        createDialog(peer, true);
+        window.__sosNativePendingAnswer = null;
+        setTimeout(() => handleAccept(peerNorm), 120);
+        return;
+      }
+    } catch (_) {}
     saveChatPanelState();
-    // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה נכנסת | HYPER CORE TECH
     if (typeof App.pauseAllFeedVideos === 'function') {
       App.pauseAllFeedVideos();
     }
     createDialog(peer, true);
-    // חלק שיחות וידאו – התרעת מערכת כמו בשיחות קול | HYPER CORE TECH
     showIncomingVideoNotification(peer);
     startToneWithPolicy(playRingtone);
     try {
@@ -614,6 +636,11 @@
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
     if (!peer) return false;
     try {
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+    } catch (_) {}
+    window.__sosNativePendingAnswer = { peer, callType: 'video', until: Date.now() + 45000 };
+    window.__sosNativePendingDecline = null;
+    try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.markIncomingCallAnswered === 'function') {
         bridge.markIncomingCallAnswered(peer);
@@ -623,21 +650,48 @@
       saveChatPanelState();
       createDialog(peer, true);
     }
-    handleAccept(peer);
+    let attempts = 0;
+    const tryAccept = () => {
+      attempts += 1;
+      if (App.__videoIncomingOffer && App.__videoIncomingOffer.type && App.__videoIncomingOffer.sdp) {
+        window.__sosNativePendingAnswer = null;
+        handleAccept(peer);
+        return;
+      }
+      if (attempts >= 50) {
+        window.__sosNativePendingAnswer = null;
+        return;
+      }
+      setTimeout(tryAccept, 400);
+    };
+    tryAccept();
     return true;
   };
 
-  App.declineIncomingVideoCallFromNative = function declineIncomingVideoCallFromNative(peerPubkey) {
+  App.declineIncomingVideoCallFromNative = async function declineIncomingVideoCallFromNative(peerPubkey) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
+    window.__sosNativePendingDecline = { peer, until: Date.now() + 45000 };
+    window.__sosNativePendingAnswer = null;
+    userDeclinedVideoCall = true;
+    window.__sosIncomingCallActive = false;
+    try {
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+    } catch (_) {}
     try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
         bridge.markIncomingCallDeclined(peer);
       }
     } catch (_) {}
-    userDeclinedVideoCall = true;
-    window.__sosIncomingCallActive = false;
-    handleEnd();
+    closeDialog();
+    try {
+      if (App.videoCall && typeof App.videoCall.rejectIncoming === 'function' && peer) {
+        await App.videoCall.rejectIncoming(peer);
+      } else if (App.videoCall) {
+        await App.videoCall.end();
+      }
+    } catch (_) {}
+    window.__sosNativePendingDecline = null;
     return true;
   };
 

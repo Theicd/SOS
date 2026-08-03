@@ -436,9 +436,13 @@
     state.ending = true;
     console.log('Ending call');
 
-    // שליחת אירוע disconnect
+    // שליחת אירוע disconnect – חשוב await כדי שדחייה מ-APK תגיע לצד השני | HYPER CORE TECH
     if (state.currentPeer) {
-      sendSignal(state.currentPeer, 'disconnect', null);
+      try {
+        await sendSignal(state.currentPeer, 'disconnect', null);
+      } catch (err) {
+        console.warn('disconnect signal failed', err);
+      }
     }
 
     // חלק שיחות קול (chat-voice-call.js) – חישוב משך שיחה לפי timestamp זמין (תאימות ל-UI ולמדדים) | HYPER CORE TECH
@@ -528,8 +532,21 @@
     
     // חלק דה-דופליקציה (chat-voice-call.js) – דילוג על אירועים שכבר עובדו (מונע שיחות כפולות אחרי רענון) | HYPER CORE TECH
     if (event.id && isCallEventProcessed(event.id)) {
-      console.log('Skipping already processed call event:', event.id.slice(0, 8));
-      return;
+      // מאפשרים offer שוב אם יש מענה ממתין מ-APK (אחרת השיחה נתקעת בלי SDP) | HYPER CORE TECH
+      try {
+        const pending = window.__sosNativePendingAnswer;
+        const pendingDecline = window.__sosNativePendingDecline;
+        const peer = String(event.pubkey || '').toLowerCase();
+        const allowReplay = (pending && pending.peer === peer && Date.now() < (pending.until || 0))
+          || (pendingDecline && pendingDecline.peer === peer && Date.now() < (pendingDecline.until || 0));
+        if (!allowReplay) {
+          console.log('Skipping already processed call event:', event.id.slice(0, 8));
+          return;
+        }
+      } catch (_) {
+        console.log('Skipping already processed call event:', event.id.slice(0, 8));
+        return;
+      }
     }
 
     const typeTag = event.tags.find(t => t[0] === 'type');
@@ -683,19 +700,52 @@
     return getProcessedCallIds().includes(eventId);
   }
 
+  // חלק שיחות קול (chat-voice-call.js) – דחייה מ-APK גם בלי offer/UI מוכן | HYPER CORE TECH
+  async function rejectIncoming(peerPubkey) {
+    const peer = String(peerPubkey || state.currentPeer || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(peer)) return false;
+    state.currentPeer = peer;
+    state.isIncoming = true;
+    state.callStartTimestamp = null;
+    state.callStartTime = null;
+    try {
+      await endCall();
+      return true;
+    } catch (err) {
+      console.warn('rejectIncoming failed', err);
+      try {
+        await sendSignal(peer, 'disconnect', null);
+      } catch (_) {}
+      return false;
+    }
+  }
+
   // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון עם since מורחב | HYPER CORE TECH
   function subscribeToSignals(options) {
     options = options || {};
     ensureSignalKeepaliveStarted();
-    if (state.signalSubscription) return state.signalSubscription;
+    if (state.signalSubscription && !options.force) return state.signalSubscription;
     if (!App.pool || !App.publicKey) {
       console.log('Voice call: waiting for pool/publicKey...');
       return null;
     }
 
-    // since מורחב: מתחילת ניסיון ההרשמה או 30 שניות אחורה (הגדול מביניהם) לתפוס שיחות שנכנסו בזמן טעינה
+    if (options.force) {
+      closeSubscriptionSafely(state.signalSubscription);
+      state.signalSubscription = null;
+    }
+
+    // since מורחב: לתפוס offer שנשלח כשהמסך היה כבוי | HYPER CORE TECH
+    const lookback = Number.isFinite(Number(options.lookbackSec)) ? Number(options.lookbackSec) : null;
+    const requestedSince = Number.isFinite(Number(options.since)) ? Number(options.since) : null;
     const timeSinceStart = Math.floor((Date.now() - voiceSubscribeStartTime) / 1000);
-    const since = Math.floor(Date.now() / 1000) - Math.max(timeSinceStart + 5, 30);
+    const since = requestedSince !== null
+      ? Math.max(0, Math.floor(requestedSince))
+      : Math.floor(Date.now() / 1000) - Math.max(
+          lookback != null ? lookback : 0,
+          timeSinceStart + 5,
+          90
+        );
     const filters = [
       {
         kinds: [25050],
@@ -731,20 +781,20 @@
     if (!App.pool || !App.publicKey) return;
     try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
 
-    const now = Date.now();
-    if (now - (state.signalLastResubscribeAt || 0) < 5000) return;
-    state.signalLastResubscribeAt = now;
+  const now = Date.now();
+  if (now - (state.signalLastResubscribeAt || 0) < 5000 && !(options && options.force)) return;
+  state.signalLastResubscribeAt = now;
 
-    const opts = options && typeof options === 'object' ? options : null;
-    const requestedSince = opts && Number.isFinite(Number(opts.since)) ? Number(opts.since) : null;
-    const since = requestedSince !== null ? Math.max(0, Math.floor(requestedSince)) : Math.max(0, Math.floor(Date.now() / 1000) - 2);
-    console.log('Voice call: re-subscribing signals', reason || '', { since });
+  const opts = options && typeof options === 'object' ? options : null;
+  const requestedSince = opts && Number.isFinite(Number(opts.since)) ? Number(opts.since) : null;
+  const since = requestedSince !== null ? Math.max(0, Math.floor(requestedSince)) : Math.max(0, Math.floor(Date.now() / 1000) - 2);
+  console.log('Voice call: re-subscribing signals', reason || '', { since });
 
-    closeSubscriptionSafely(state.signalSubscription);
-    state.signalSubscription = null;
-    state.lastSignalReceivedAt = now;
-    subscribeToSignals({ since });
-  }
+  closeSubscriptionSafely(state.signalSubscription);
+  state.signalSubscription = null;
+  state.lastSignalReceivedAt = now;
+  subscribeToSignals({ since, force: true });
+}
 
   // חלק שיחות קול (chat-voice-call.js) – keepalive: רענון אחרי idle, האזנה לפוקוס/רשת | HYPER CORE TECH
   function ensureSignalKeepaliveStarted() {
@@ -803,6 +853,7 @@
       start: startCall,
       accept: acceptCall,
       end: endCall,
+      rejectIncoming,
       toggleMute,
       getState: () => ({ ...state }),
       subscribe: subscribeToSignals
@@ -820,11 +871,27 @@
 
   // חלק Lazy Init (chat-voice-call.js) – דחיית האזנה לסיגנלים עד שהמשתמש פותח צ'אט | HYPER CORE TECH
   // מונע עומס מיותר על מכשירים חלשים ועל הrelays
-  function lazyInitVoiceCall() {
-    if (state.lazyInitDone) return;
+  function lazyInitVoiceCall(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const force = !!opts.force;
+    if (state.lazyInitDone && !force) {
+      autoSubscribeSignals();
+      return;
+    }
     state.lazyInitDone = true;
-    autoSubscribeSignals();
-    console.log('Voice call: lazy init completed');
+    if (force || opts.lookbackSec) {
+      const lookback = Number(opts.lookbackSec) || 90;
+      forceResubscribeSignals('lazy-force', {
+        since: Math.floor(Date.now() / 1000) - lookback
+      });
+      // forceResubscribe → subscribeToSignals; ensure force path if empty
+      if (!state.signalSubscription) {
+        subscribeToSignals({ force: true, lookbackSec: lookback });
+      }
+    } else {
+      autoSubscribeSignals();
+    }
+    console.log('Voice call: lazy init completed', opts);
   }
   state.lazyInitDone = false;
 

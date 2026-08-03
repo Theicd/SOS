@@ -808,6 +808,26 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – callbacks מהמודול הראשי
   App.onVoiceCallIncoming = function(peerPubkey, offer) {
     console.log('Incoming call from', peerPubkey.slice(0, 8));
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+
+    // דחייה ממתינה מ-APK – שולחים disconnect בלי לפתוח UI | HYPER CORE TECH
+    try {
+      const pendingDecline = window.__sosNativePendingDecline;
+      if (pendingDecline && pendingDecline.peer === peer && Date.now() < (pendingDecline.until || 0)) {
+        console.log('Incoming voice auto-rejected by native pending decline');
+        incomingOffer = offer;
+        incomingOfferPeer = peer;
+        userDeclinedCall = true;
+        if (App.voiceCall && typeof App.voiceCall.rejectIncoming === 'function') {
+          App.voiceCall.rejectIncoming(peer);
+        } else if (App.voiceCall) {
+          App.voiceCall.end();
+        }
+        window.__sosNativePendingDecline = null;
+        return;
+      }
+    } catch (_) {}
+
     try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.isIncomingCallSuppressed === 'function') {
@@ -817,10 +837,24 @@
         }
       }
     } catch (_) {}
+
     // שמירת ה-offer באופן מקומי
     incomingOffer = offer;
-    incomingOfferPeer = peerPubkey ? String(peerPubkey).toLowerCase() : null;
+    incomingOfferPeer = peer;
     persistIncomingOffer(peerPubkey, offer);
+
+    // מענה ממתין מ-APK – מקבלים ברגע שיש offer | HYPER CORE TECH
+    try {
+      const pendingAnswer = window.__sosNativePendingAnswer;
+      if (pendingAnswer && pendingAnswer.peer === peer && Date.now() < (pendingAnswer.until || 0)) {
+        saveChatPanelState();
+        if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
+        createCallDialog(peerPubkey, true);
+        window.__sosNativePendingAnswer = null;
+        setTimeout(() => handleAcceptCall(peer), 120);
+        return;
+      }
+    } catch (_) {}
 
     // חלק שיחות קול (chat-voice-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
     saveChatPanelState();
@@ -850,38 +884,117 @@
     }
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
     if (!peer) return false;
+
+    try {
+      if (typeof App.initVoiceCall === 'function') {
+        App.initVoiceCall({ force: true, lookbackSec: 120 });
+      }
+    } catch (_) {}
+
+    window.__sosNativePendingAnswer = { peer, callType: 'voice', until: Date.now() + 45000 };
+    window.__sosNativePendingDecline = null;
+
     try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.markIncomingCallAnswered === 'function') {
         bridge.markIncomingCallAnswered(peer);
       }
     } catch (_) {}
+
     restoreIncomingOffer(peer, null);
     if (!callDialog) {
       saveChatPanelState();
       createCallDialog(peer, true);
     }
-    handleAcceptCall(peer);
+
+    let attempts = 0;
+    const maxAttempts = 50; // ~20s
+    const tryAccept = () => {
+      attempts += 1;
+      restoreIncomingOffer(peer, null);
+      if (incomingOffer && incomingOffer.type && incomingOffer.sdp) {
+        window.__sosNativePendingAnswer = null;
+        handleAcceptCall(peer);
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        console.warn('[APK] accept timed out waiting for offer');
+        window.__sosNativePendingAnswer = null;
+        updateCallStatus('ממתין להצעת שיחה...');
+        return;
+      }
+      setTimeout(tryAccept, 400);
+    };
+    tryAccept();
     return true;
   };
 
   // חלק APK (chat-voice-call-ui.js) – דחייה מהתראת CallStyle / ניתוק מרחוק | HYPER CORE TECH
-  App.declineIncomingCallFromNative = function declineIncomingCallFromNative(peerPubkey, callType) {
+  App.declineIncomingCallFromNative = async function declineIncomingCallFromNative(peerPubkey, callType) {
     if (callType && String(callType).toLowerCase() === 'video') {
       if (typeof App.declineIncomingVideoCallFromNative === 'function') {
         return App.declineIncomingVideoCallFromNative(peerPubkey);
       }
     }
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
+    window.__sosNativePendingDecline = { peer, until: Date.now() + 45000 };
+    window.__sosNativePendingAnswer = null;
+    userDeclinedCall = true;
+    window.__sosIncomingCallActive = false;
+
+    try {
+      if (typeof App.initVoiceCall === 'function') {
+        App.initVoiceCall({ force: true, lookbackSec: 120 });
+      }
+    } catch (_) {}
+
     try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
         bridge.markIncomingCallDeclined(peer);
       }
     } catch (_) {}
-    userDeclinedCall = true;
-    window.__sosIncomingCallActive = false;
-    handleEndCall();
+
+    closeIncomingCallNotification();
+    closeCallDialog();
+    stopRingtone();
+    stopDialtone();
+
+    let ok = false;
+    try {
+      if (App.voiceCall && typeof App.voiceCall.rejectIncoming === 'function' && peer) {
+        ok = await App.voiceCall.rejectIncoming(peer);
+      } else if (App.voiceCall) {
+        // fallback: קיבוע peer ואז end
+        try {
+          const st = App.voiceCall.getState && App.voiceCall.getState();
+          if (st) st.currentPeer = peer;
+        } catch (_) {}
+        await App.voiceCall.end();
+        ok = true;
+      }
+    } catch (err) {
+      console.warn('[APK] decline failed', err);
+    }
+
+    // ניסיונות נוספים אם pool עדיין לא מוכן | HYPER CORE TECH
+    if (!ok && peer) {
+      let tries = 0;
+      const retry = async () => {
+        tries += 1;
+        try {
+          if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
+          if (App.voiceCall && typeof App.voiceCall.rejectIncoming === 'function') {
+            ok = await App.voiceCall.rejectIncoming(peer);
+          }
+        } catch (_) {}
+        if (!ok && tries < 15) setTimeout(retry, 500);
+        else window.__sosNativePendingDecline = null;
+      };
+      setTimeout(retry, 400);
+    } else {
+      window.__sosNativePendingDecline = null;
+    }
     return true;
   };
 

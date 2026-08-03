@@ -354,7 +354,13 @@
     const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
     const wasIncoming = state.isIncoming;
     const wasAnswered = !!startMs;
-    if (peer) sendSignal(peer, 'v-disconnect', null);
+    if (peer) {
+      try {
+        await sendSignal(peer, 'v-disconnect', null);
+      } catch (err) {
+        console.warn('v-disconnect failed', err);
+      }
+    }
     try { if (state.pc) state.pc.close(); } catch {}
     state.pc = null;
     try { if (state.localStream) state.localStream.getTracks().forEach(t=>t.stop()); } catch {}
@@ -731,12 +737,30 @@
     subscribeToSignals();
   }
 
+  // חלק שיחות וידאו – דחייה מ-APK גם בלי offer מוכן | HYPER CORE TECH
+  async function rejectIncoming(peerPubkey) {
+    const peer = String(peerPubkey || state.currentPeer || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(peer)) return false;
+    state.currentPeer = peer;
+    state.isIncoming = true;
+    state.callStartTimestamp = null;
+    try {
+      await end();
+      return true;
+    } catch (err) {
+      console.warn('video rejectIncoming failed', err);
+      try { await sendSignal(peer, 'v-disconnect', null); } catch (_) {}
+      return false;
+    }
+  }
+
   // חלק שיחות וידאו – חשיפה ל-App
   App.videoCall = {
     isSupported,
     start,
     accept,
     end,
+    rejectIncoming,
     toggleMute,
     toggleCamera,
     switchCamera,
@@ -765,11 +789,28 @@
 
   // חלק Lazy Init (chat-video-call.js) – דחיית האזנה לסיגנלים עד שהמשתמש פותח צ'אט | HYPER CORE TECH
   let lazyInitDone = false;
-  function lazyInitVideoCall() {
-    if (lazyInitDone) return;
+  function lazyInitVideoCall(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    if (lazyInitDone && !opts.force) {
+      autoSubscribeSignals();
+      return;
+    }
     lazyInitDone = true;
     autoSubscribeSignals();
-    console.log('Video call: lazy init completed');
+    if (opts.force || opts.lookbackSec) {
+      try {
+        const lookback = Number(opts.lookbackSec) || 120;
+        // force new sub by clearing first
+        try {
+          if (state.signalSubscription) {
+            closeSubscriptionSafely(state.signalSubscription);
+            state.signalSubscription = null;
+          }
+        } catch (_) {}
+        subscribeToSignals({ since: Math.floor(Date.now() / 1000) - lookback });
+      } catch (_) {}
+    }
+    console.log('Video call: lazy init completed', opts);
   }
 
   function setupLazyTrigger() {

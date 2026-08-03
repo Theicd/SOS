@@ -117,9 +117,7 @@ class MainActivity : AppCompatActivity() {
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
-        if (intent?.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false) == true) {
-            moveTaskToBack(true)
-        }
+        maybeDeferBackgroundStart(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -159,9 +157,7 @@ class MainActivity : AppCompatActivity() {
                 webView.loadUrl(url)
             }
         }
-        if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) {
-            moveTaskToBack(true)
-        }
+        maybeDeferBackgroundStart(intent)
     }
 
     override fun onResume() {
@@ -326,6 +322,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** בדחייה – משאירים את ה-WebView פעיל כמה שניות כדי לשלוח disconnect | HYPER CORE TECH */
+    private fun maybeDeferBackgroundStart(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false) != true) return
+        val action = intent.getStringExtra(EXTRA_CALL_ACTION)
+            ?: when (intent.action) {
+                CallActionReceiver.ACTION_DECLINE -> CALL_ACTION_DECLINE
+                else -> null
+            }
+        if (action == CALL_ACTION_DECLINE) {
+            mainHandler.postDelayed({
+                try {
+                    moveTaskToBack(true)
+                } catch (_: Exception) {
+                }
+            }, 5500L)
+        } else {
+            moveTaskToBack(true)
+        }
+    }
+
     private fun captureDeepLinkFromIntent(intent: Intent?) {
         val url = intent?.getStringExtra(EXTRA_OPEN_URL)
             ?: intent?.data?.toString()
@@ -473,6 +489,8 @@ class MainActivity : AppCompatActivity() {
             (function(){
               try {
                 var App = window.NostrApp || {};
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
+                if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
                 if (typeof App.acceptIncomingCallFromNative === 'function') {
                   App.acceptIncomingCallFromNative($peerJs, $typeJs);
                 }
@@ -482,6 +500,16 @@ class MainActivity : AppCompatActivity() {
         try {
             webView.evaluateJavascript(js, null)
         } catch (_: Exception) {
+        }
+        // retries – pool/keys might not be ready yet | HYPER CORE TECH
+        listOf(800L, 1600L, 3200L, 5000L).forEach { delay ->
+            mainHandler.postDelayed({
+                if (!this::webView.isInitialized) return@postDelayed
+                try {
+                    webView.evaluateJavascript(js, null)
+                } catch (_: Exception) {
+                }
+            }, delay)
         }
     }
 
@@ -493,6 +521,8 @@ class MainActivity : AppCompatActivity() {
             (function(){
               try {
                 var App = window.NostrApp || {};
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
+                if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
                 if (typeof App.declineIncomingCallFromNative === 'function') {
                   App.declineIncomingCallFromNative($peerJs, $typeJs);
                 } else if ($typeJs === 'video' && typeof App.endVideoCall === 'function') {
@@ -508,6 +538,15 @@ class MainActivity : AppCompatActivity() {
             webView.evaluateJavascript(js, null)
             Log.i(TAG, "injected decline peer=${peer.take(8)}")
         } catch (_: Exception) {
+        }
+        listOf(600L, 1200L, 2500L, 4000L, 6000L).forEach { delay ->
+            mainHandler.postDelayed({
+                if (!this::webView.isInitialized) return@postDelayed
+                try {
+                    webView.evaluateJavascript(js, null)
+                } catch (_: Exception) {
+                }
+            }, delay)
         }
     }
 

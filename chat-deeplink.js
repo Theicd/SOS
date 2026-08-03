@@ -180,6 +180,10 @@
     // שיחה נכנסת: קודם מסך ענה, בלי לפתוח צ'אט שמסתיר אותו | HYPER CORE TECH
     if (incomingCall) {
       window.__sosIncomingCallActive = true;
+      try {
+        if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
+        if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+      } catch (_) {}
       const callFocused = focusIncomingCall(chat, incomingCall, pendingOffer);
       opened = callFocused || !!chat;
       if (opened && autoAccept) {
@@ -192,7 +196,7 @@
           } catch (err) {
             console.warn('[DEEPLINK] autoAccept failed', err);
           }
-        }, 500);
+        }, 300);
       }
     } else if (chat) {
       opened = openConversation(chat);
