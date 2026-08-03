@@ -91,7 +91,12 @@
     stripChatParamFromUrl();
     try {
       const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.rememberWebUrl === 'function') {
+      if (bridge && typeof bridge.clearPendingDeepLink === 'function') {
+        bridge.clearPendingDeepLink();
+      }
+      if (bridge && typeof bridge.clearRememberedChatUrl === 'function') {
+        bridge.clearRememberedChatUrl();
+      } else if (bridge && typeof bridge.rememberWebUrl === 'function') {
         bridge.rememberWebUrl(String(window.location.href || ''));
       }
     } catch (_) {}
@@ -172,7 +177,15 @@
       lastHandledKey = key;
       lastHandledAt = now;
       pending = null;
+      // מסירים chat= מה-URL אחרי פתיחה – מונע חזרה אוטומטית לשיחה ב־resume/אייקון | HYPER CORE TECH
       if (incomingCall) stripDeepLinkParams();
+      else stripChatParamFromUrl();
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.rememberWebUrl === 'function') {
+          bridge.rememberWebUrl(String(window.location.href || ''));
+        }
+      } catch (_) {}
       console.log('[DEEPLINK] opened', { chat: chat.slice(0, 8), incomingCall, attempt });
       return true;
     }

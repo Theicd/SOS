@@ -179,6 +179,21 @@ class SosJsBridge(
         SosSessionStore.setLastUrl(context.applicationContext, url)
     }
 
+    /** איפוס sticky שיחה – בפתיחה מאייקון / חזרה לפיד | HYPER CORE TECH */
+    @JavascriptInterface
+    fun clearRememberedChatUrl() {
+        SosSessionStore.clearLastUrl(context.applicationContext)
+        SosSessionStore.setLastUrl(context.applicationContext, BuildConfig.SOS_START_URL)
+    }
+
+    /** מונע פתיחה חוזרת של שיחה ב־resume אחרי שיצאנו ממנה | HYPER CORE TECH */
+    @JavascriptInterface
+    fun clearPendingDeepLink() {
+        mainHandler.post {
+            (context as? MainActivity)?.clearPendingDeepLinkFromJs()
+        }
+    }
+
     @JavascriptInterface
     fun requestMediaPermissions(needCamera: Boolean) {
         val act = context as? MainActivity ?: return

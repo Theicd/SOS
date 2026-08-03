@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v221'; // bump - hide loading overlay over chat deep-link + APK 1.0.20
+  const CACHE_NAME = 'sos-cache-v222'; // bump - launcher reopen = home feed, not sticky chat + APK 1.0.21
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -120,6 +120,22 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+
+        // לחיצה על אייקון האפליקציה – תמיד חזרה לפיד הבית, לא לשיחה האחרונה מהתרעה | HYPER CORE TECH
+        if (isLauncherHomeIntent(intent)) {
+            openedFromCallIntent = false
+            pendingDeepLinkPeer = null
+            pendingIncomingCall = null
+            CallSoundHelper.stopAll()
+            SosSessionStore.clearLastUrl(applicationContext)
+            SosSessionStore.setLastUrl(applicationContext, BuildConfig.SOS_START_URL)
+            returnToHomeFeed()
+            if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) {
+                moveTaskToBack(true)
+            }
+            return
+        }
+
         captureDeepLinkFromIntent(intent)
         // שיחה נכנסת – לא עוצרים צלצול מיד; Web יקבל deeplink בלי reload | HYPER CORE TECH
         if (!openedFromCallIntent) {
@@ -229,10 +245,63 @@ class MainActivity : AppCompatActivity() {
         }
         val openUrl = intent?.getStringExtra(EXTRA_OPEN_URL)
         if (!openUrl.isNullOrBlank()) return openUrl
-        // חזרה לדף האחרון אחרי שהמערכת הורגת את התהליך – פחות טעינות מלאות | HYPER CORE TECH
+
+        // פתיחה מאייקון / MAIN – תמיד דף הבית, בלי sticky chat מהתרעה קודמת | HYPER CORE TECH
+        if (isLauncherHomeIntent(intent)) {
+            SosSessionStore.clearLastUrl(applicationContext)
+            return BuildConfig.SOS_START_URL
+        }
+
         val remembered = SosSessionStore.getLastUrl(this)
         if (remembered.isNotBlank()) return remembered
         return BuildConfig.SOS_START_URL
+    }
+
+    /** Intent של לחיצה על האייקון (לא התרעה / לא deep-link) */
+    private fun isLauncherHomeIntent(intent: Intent?): Boolean {
+        if (intent == null) return true
+        if (!intent.getStringExtra(EXTRA_OPEN_URL).isNullOrBlank()) return false
+        val data = intent.data
+        if (data != null && data.scheme == "https") return false
+        val action = intent.action
+        if (action == Intent.ACTION_VIEW) return false
+        // MAIN / null / ברירת מחדל של launcher
+        if (action == Intent.ACTION_MAIN || action.isNullOrBlank()) return true
+        val cats = intent.categories
+        return cats != null && cats.contains(Intent.CATEGORY_LAUNCHER)
+    }
+
+    /** סוגר שיחה/overlays ומחזיר לפיד – בלי לרענן את כל ה-SPA אם כבר חם | HYPER CORE TECH */
+    private fun returnToHomeFeed() {
+        if (!this::webView.isInitialized) return
+        if (webPageReady && isWarmSosPage()) {
+            val js = """
+                (function(){
+                  try {
+                    var App = window.NostrApp || {};
+                    if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+                    if (typeof App.closeChatPanel === 'function') App.closeChatPanel();
+                    if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
+                    if (typeof App.closeNotificationsPanel === 'function') App.closeNotificationsPanel();
+                    document.documentElement.removeAttribute('data-sos-deeplink');
+                    document.body.classList.remove('sos-deeplink-chat');
+                    try {
+                      var u = new URL(window.location.href);
+                      u.searchParams.delete('chat');
+                      u.searchParams.delete('incomingCall');
+                      history.replaceState(null, '', u.pathname + (u.searchParams.toString() ? ('?' + u.searchParams) : '') + u.hash);
+                    } catch (e) {}
+                  } catch (e) {}
+                })();
+            """.trimIndent()
+            try {
+                webView.evaluateJavascript(js, null)
+            } catch (_: Exception) {
+            }
+        } else {
+            webPageReady = false
+            webView.loadUrl(BuildConfig.SOS_START_URL)
+        }
     }
 
     private fun captureDeepLinkFromIntent(intent: Intent?) {
@@ -307,7 +376,14 @@ class MainActivity : AppCompatActivity() {
         } catch (err: Exception) {
             Log.w(TAG, "deeplink inject failed: ${err.message}")
         }
-        // משאירים את peer ל־retry ב־resume; מנקים call אחרי הזרקה
+        // מנקים אחרי הזרקה – JS מנהל retries; בלי sticky peer שפותח שיחה בכל resume | HYPER CORE TECH
+        pendingDeepLinkPeer = null
+        pendingIncomingCall = null
+    }
+
+    /** ניקוי deep-link ממתינים – נקרא מה-Web אחרי סגירת שיחה / חזרה לפיד */
+    fun clearPendingDeepLinkFromJs() {
+        pendingDeepLinkPeer = null
         pendingIncomingCall = null
     }
 
@@ -415,6 +491,7 @@ class MainActivity : AppCompatActivity() {
                 loading.visibility = View.GONE
                 webPageReady = true
                 if (!url.isNullOrBlank()) {
+                    // לא שומרים sticky chat= — רק כתובת בית נקייה | HYPER CORE TECH
                     SosSessionStore.setLastUrl(applicationContext, url)
                 }
                 injectNativeFlag()

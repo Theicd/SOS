@@ -1,6 +1,7 @@
 package com.sos010.app
 
 import android.content.Context
+import android.net.Uri
 
 /**
  * שמירת מזהה המשתמש לשימוש בשירות הרקע (בלי WebView).
@@ -28,11 +29,12 @@ object SosSessionStore {
             .orEmpty()
     }
 
-    /** שומר את כתובת ה-Web האחרונה לחזרה מהירה אחרי שהמערכת הורגת את התהליך | HYPER CORE TECH */
+    /**
+     * שומר כתובת אחרונה ל-resume טכני – בלי sticky deep-link של שיחה/הודעה.
+     * URLs עם chat= / incomingCall= נשמרים ככתובת בית נקייה | HYPER CORE TECH
+     */
     fun setLastUrl(context: Context, url: String?) {
-        val clean = url?.trim().orEmpty()
-        if (clean.isEmpty() || !clean.startsWith("http")) return
-        if (clean.startsWith("about:") || clean.contains("blank")) return
+        val clean = sanitizeHomeUrl(url) ?: return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_LAST_URL, clean)
@@ -44,7 +46,36 @@ object SosSessionStore {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val at = prefs.getLong(KEY_LAST_URL_AT, 0L)
         if (at <= 0L || System.currentTimeMillis() - at > LAST_URL_TTL_MS) return ""
-        return prefs.getString(KEY_LAST_URL, "")?.trim().orEmpty()
+        val raw = prefs.getString(KEY_LAST_URL, "")?.trim().orEmpty()
+        return sanitizeHomeUrl(raw).orEmpty()
+    }
+
+    fun clearLastUrl(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_LAST_URL)
+            .remove(KEY_LAST_URL_AT)
+            .apply()
+    }
+
+    /** מסיר פרמטרי שיחה מה-URL – מונע חזרה אוטומטית לדף שיחה בפתיחת האייקון | HYPER CORE TECH */
+    fun sanitizeHomeUrl(url: String?): String? {
+        val clean = url?.trim().orEmpty()
+        if (clean.isEmpty() || !clean.startsWith("http")) return null
+        if (clean.startsWith("about:") || clean.contains("blank")) return null
+        return try {
+            val uri = Uri.parse(clean)
+            val builder = uri.buildUpon().clearQuery()
+            for (name in uri.queryParameterNames) {
+                if (name.equals("chat", true) || name.equals("incomingCall", true)) continue
+                uri.getQueryParameters(name).forEach { v ->
+                    builder.appendQueryParameter(name, v)
+                }
+            }
+            builder.build().toString()
+        } catch (_: Exception) {
+            if (clean.contains("chat=", true) || clean.contains("incomingCall=", true)) null else clean
+        }
     }
 
     fun clear(context: Context) {
