@@ -105,7 +105,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260803f">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260803n">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
     <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
@@ -1766,7 +1766,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260803d" defer></script>
+    <script src="./videos.js?v=20260803n" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -1780,9 +1780,9 @@
     <script src="./chat-voice-service.js?v=4" defer></script>
     <script src="./chat-voice-ui.js" defer></script>
     <script src="./chat-voice-call.js?v=20260730f" defer></script>
-    <script src="./chat-voice-call-ui.js?v=20260803h" defer></script>
+    <script src="./chat-voice-call-ui.js?v=20260803n" defer></script>
     <script src="./chat-video-call.js?v=20260730f" defer></script>
-    <script src="./chat-video-call-ui.js?v=20260803h" defer></script>
+    <script src="./chat-video-call-ui.js?v=20260803n" defer></script>
     <!-- חלק צ'אט משופר (videos.html) – העברת קבצים P2P, נגן אודיו, מדיה inline, אופטימיזציות וקומפוזר משופר | HYPER CORE TECH -->
     <script src="./chat-p2p-file.js?v=11" defer></script>
     <script src="./chat-audio-player.js?v=4" defer></script>
@@ -1790,17 +1790,18 @@
     <script src="./chat-ui-optimizations.js" defer></script>
     <script src="./chat-composer-enhanced.js?v=4" defer></script>
     <script src="./chat-p2p-datachannel.js?v=13" defer></script>
-    <script src="./chat-ui.js?v=20260803i" defer></script>
+    <script src="./chat-ui.js?v=20260803n" defer></script>
+    <script src="./chat-deeplink.js?v=20260803n" defer></script>
     <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
     <script src="./chat-request-logger.js?v=2" defer></script>
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=5" defer></script>
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
-    <script src="./pwa-installer.js?v=20260803m" defer></script>
-    <script src="./pwa-install-chooser.js?v=20260803m" defer></script>
+    <script src="./pwa-installer.js?v=20260803n" defer></script>
+    <script src="./pwa-install-chooser.js?v=20260803n" defer></script>
     <script src="./push-client.js?v=20260802x" defer></script>
     <script src="./push-trigger.js?v=20260803h" defer></script>
-    <script src="./native-shell-bridge.js?v=20260803m" defer></script>
+    <script src="./native-shell-bridge.js?v=20260803n" defer></script>
     <script src="./market-dashboard.js" defer></script>
     <script>
       // חלק לוח גידול (videos.html) – מבטיח שגלובליים מחוברים לאחר טעינת הדשבורד | HYPER CORE TECH
@@ -1852,6 +1853,13 @@
       // חשוב: אחרי replaceState ה־pathname הוא "/" — זיהוי דף בית חייב body.videos-page / #videosStream | HYPER CORE TECH
       (function() {
         try { document.body.classList.add('videos-page'); } catch (_) {}
+        try {
+          var params = new URLSearchParams(window.location.search || '');
+          if (params.get('chat') || params.get('incomingCall')) {
+            document.documentElement.setAttribute('data-sos-deeplink', '1');
+            document.body.classList.add('sos-deeplink-chat');
+          }
+        } catch (_) {}
         if (typeof history.replaceState === 'function') {
           var base = window.location.origin || '';
           var search = window.location.search || '';

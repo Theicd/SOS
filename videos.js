@@ -2337,7 +2337,8 @@ async function releaseBootLoading(reason = 'ready') {
   const revealFeed = () => {
     try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
   };
-  if (document.getElementById('sosLoadNugOverlay')) {
+  const skipLoadNugWait = reason === 'deeplink' || reason === 'url-deeplink' || hasCommunicationDeepLink();
+  if (document.getElementById('sosLoadNugOverlay') && !skipLoadNugWait) {
     setTimeout(revealFeed, 800);
   } else {
     revealFeed();
@@ -2364,6 +2365,38 @@ async function releaseBootLoading(reason = 'ready') {
   requestAnimationFrame(() => {
     autoPlayFirstVideo();
   });
+}
+
+// חלק Deep Link (videos.js) – משחרר מסך טעינה מיד כשפותחים שיחה מהתרעה | HYPER CORE TECH
+function hasCommunicationDeepLink() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const chat = String(params.get('chat') || '').trim();
+    const call = String(params.get('incomingCall') || '').trim();
+    return (chat.length === 64) || !!call || document.documentElement.getAttribute('data-sos-deeplink') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+App.releaseBootForDeepLink = function releaseBootForDeepLink(reason = 'deeplink') {
+  try {
+    document.documentElement.setAttribute('data-sos-deeplink', '1');
+    document.body.classList.add('sos-deeplink-chat');
+  } catch (_) {}
+  try {
+    hideLoadingAnimation({ force: true });
+  } catch (_) {}
+  releaseBootLoading(reason || 'deeplink');
+};
+
+if (hasCommunicationDeepLink()) {
+  try {
+    document.documentElement.setAttribute('data-sos-deeplink', '1');
+  } catch (_) {}
+  setTimeout(() => {
+    try { App.releaseBootForDeepLink('url-deeplink'); } catch (_) {}
+  }, 50);
 }
 
 function restartOriginalLoadingScreen() {

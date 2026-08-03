@@ -2708,6 +2708,21 @@ body.videos-boot-loading .videos-feed__card--loadnug {
   opacity: 1 !important;
 }
 
+/* חלק Deep Link (videos.css) – פתיחת שיחה מהתרעה בלי לחסום ב־LoadNug | HYPER CORE TECH */
+html[data-sos-deeplink="1"] #sosLoadNugOverlay,
+html[data-sos-deeplink="1"] .videos-feed__card--loadnug,
+body.sos-deeplink-chat #sosLoadNugOverlay,
+body.sos-deeplink-chat .videos-feed__card--loadnug {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+html[data-sos-deeplink="1"] #chatPanel,
+body.sos-deeplink-chat #chatPanel {
+  z-index: 10050 !important;
+}
+
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
 .videos-feed__media.is-paused .videos-feed__play-overlay {
   opacity: 1;

@@ -1,0 +1,212 @@
+// חלק Deep Link (chat-deeplink.js) – פתיחה ישירה לשיחה/שיחה נכנסת כמו וואטסאפ | HYPER CORE TECH
+(function initChatDeepLink(window) {
+  const App = window.NostrApp || (window.NostrApp = {});
+  const HEX64 = /^[0-9a-f]{64}$/i;
+
+  let lastHandledKey = '';
+  let lastHandledAt = 0;
+  let retryTimer = null;
+  let pending = null;
+
+  function normalizePeer(raw) {
+    const peer = String(raw || '').trim().toLowerCase();
+    return HEX64.test(peer) ? peer : '';
+  }
+
+  function normalizeCallType(raw) {
+    const t = String(raw || '').trim().toLowerCase();
+    if (t === 'video' || t === 'v' || t === 'v-offer') return 'video';
+    if (t === 'voice' || t === 'audio' || t === 'offer' || t === '1') return 'voice';
+    return '';
+  }
+
+  function parseFromLocation() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      return {
+        chat: normalizePeer(params.get('chat')),
+        incomingCall: normalizeCallType(params.get('incomingCall')),
+      };
+    } catch (_) {
+      return { chat: '', incomingCall: '' };
+    }
+  }
+
+  function releaseBootIfNeeded() {
+    try {
+      if (typeof App.releaseBootForDeepLink === 'function') {
+        App.releaseBootForDeepLink('chat-deeplink');
+      }
+    } catch (_) {}
+    try {
+      document.body.classList.add('sos-deeplink-chat');
+      document.body.classList.remove('videos-boot-loading');
+    } catch (_) {}
+  }
+
+  function openConversation(peer) {
+    if (!peer) return false;
+    try {
+      if (typeof App.ensureChatContact === 'function') {
+        App.ensureChatContact(peer);
+      } else if (typeof App.addChatContact === 'function') {
+        App.addChatContact(peer);
+      }
+    } catch (_) {}
+
+    if (typeof App.showChatConversation === 'function') {
+      App.showChatConversation(peer);
+      return true;
+    }
+    return false;
+  }
+
+  function focusIncomingCall(peer, callType) {
+    try {
+      if (callType === 'video' && typeof App.resumeIncomingVideoCallFromDeepLink === 'function') {
+        return !!App.resumeIncomingVideoCallFromDeepLink(peer);
+      }
+      if (typeof App.resumeIncomingVoiceCallFromDeepLink === 'function') {
+        return !!App.resumeIncomingVoiceCallFromDeepLink(peer);
+      }
+    } catch (err) {
+      console.warn('[DEEPLINK] incoming call focus failed', err);
+    }
+    return false;
+  }
+
+  function stripDeepLinkParams() {
+    try {
+      if (typeof history.replaceState !== 'function') return;
+      const url = new URL(window.location.href);
+      // משאירים chat ב־URL לסימון שיחה פעילה; מסירים רק incomingCall אחרי טיפול
+      if (url.searchParams.has('incomingCall')) {
+        url.searchParams.delete('incomingCall');
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+      }
+    } catch (_) {}
+  }
+
+  function attemptOpen(detail, attempt) {
+    const chat = normalizePeer(detail?.chat);
+    const incomingCall = normalizeCallType(detail?.incomingCall);
+    if (!chat && !incomingCall) return true;
+
+    const key = `${chat}|${incomingCall}`;
+    const now = Date.now();
+    if (key === lastHandledKey && now - lastHandledAt < 1200 && attempt === 0) {
+      return true;
+    }
+
+    releaseBootIfNeeded();
+
+    let opened = false;
+    if (chat) {
+      opened = openConversation(chat);
+    }
+
+    if (incomingCall) {
+      const callFocused = focusIncomingCall(chat, incomingCall);
+      opened = opened || callFocused || !!chat;
+    }
+
+    if (opened) {
+      lastHandledKey = key;
+      lastHandledAt = now;
+      pending = null;
+      if (incomingCall) stripDeepLinkParams();
+      console.log('[DEEPLINK] opened', { chat: chat.slice(0, 8), incomingCall, attempt });
+      return true;
+    }
+
+    return false;
+  }
+
+  function scheduleRetries(detail) {
+    pending = {
+      chat: normalizePeer(detail?.chat),
+      incomingCall: normalizeCallType(detail?.incomingCall),
+    };
+    if (!pending.chat && !pending.incomingCall) return;
+
+    if (retryTimer) {
+      clearInterval(retryTimer);
+      retryTimer = null;
+    }
+
+    let attempt = 0;
+    const maxAttempts = 40; // ~20s
+    if (attemptOpen(pending, attempt)) return;
+
+    retryTimer = setInterval(() => {
+      attempt += 1;
+      if (attemptOpen(pending, attempt) || attempt >= maxAttempts) {
+        clearInterval(retryTimer);
+        retryTimer = null;
+        if (attempt >= maxAttempts) {
+          console.warn('[DEEPLINK] gave up after retries', pending);
+        }
+      }
+    }, 500);
+  }
+
+  function handleDeepLink(detail) {
+    const chat = normalizePeer(detail?.chat);
+    const incomingCall = normalizeCallType(detail?.incomingCall);
+    if (!chat && !incomingCall) return;
+    console.log('[DEEPLINK] received', { chat: chat.slice(0, 8), incomingCall });
+    scheduleRetries({ chat, incomingCall });
+  }
+
+  App.openFromDeepLink = function openFromDeepLink(detail) {
+    handleDeepLink(detail || {});
+  };
+
+  App.consumeUrlDeepLink = function consumeUrlDeepLink() {
+    handleDeepLink(parseFromLocation());
+  };
+
+  window.addEventListener('sos-native-deeplink', (event) => {
+    handleDeepLink(event?.detail || {});
+  });
+
+  window.addEventListener('sos-native-resume', () => {
+    if (pending && (pending.chat || pending.incomingCall)) {
+      scheduleRetries(pending);
+      return;
+    }
+    const fromUrl = parseFromLocation();
+    if (fromUrl.chat || fromUrl.incomingCall) {
+      handleDeepLink(fromUrl);
+    }
+  });
+
+  window.addEventListener('sos-native-ready', () => {
+    const fromUrl = parseFromLocation();
+    if (fromUrl.chat || fromUrl.incomingCall) {
+      handleDeepLink(fromUrl);
+    }
+  });
+
+  function bootFromUrl() {
+    const fromUrl = parseFromLocation();
+    if (fromUrl.chat || fromUrl.incomingCall) {
+      // מסמן מוקדם כדי שהפיד לא יחסום את ה־UI | HYPER CORE TECH
+      try { document.documentElement.setAttribute('data-sos-deeplink', '1'); } catch (_) {}
+      handleDeepLink(fromUrl);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootFromUrl, { once: true });
+  } else {
+    bootFromUrl();
+  }
+  // chat-ui נטען ב־defer – ניסיון נוסף אחרי load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (pending) scheduleRetries(pending);
+      else bootFromUrl();
+    }, 300);
+  });
+})(window);

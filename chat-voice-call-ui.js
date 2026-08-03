@@ -26,6 +26,7 @@
   let selectedOutputDeviceId = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – שמירת offer נכנס מקומית לתהליך קבלה
   let incomingOffer = null;
+  let incomingOfferPeer = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – שומר את ה-peer הפעיל כדי לסגור UI בצורה מדויקת בעת ניתוק/ביטול | HYPER CORE TECH
   let activePeerPubkey = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – דגל: המשתמש דחה את השיחה באופן יזום (לא לרשום כ-missed) | HYPER CORE TECH
@@ -392,6 +393,7 @@
 
     // חלק שיחות קול (chat-voice-call-ui.js) – ניקוי offer ו-peer ודגל דחייה כדי למנוע קבלה של הצעה ישנה לאחר סגירה | HYPER CORE TECH
     incomingOffer = null;
+    incomingOfferPeer = null;
     activePeerPubkey = null;
     userDeclinedCall = false;
 
@@ -640,6 +642,7 @@
       }
       await App.voiceCall.accept(peerPubkey, offer);
       incomingOffer = null;
+      incomingOfferPeer = null;
       updateCallStatus('מתחבר...');
     } catch (err) {
       console.error('Failed to accept call', err);
@@ -695,6 +698,7 @@
     console.log('Incoming call from', peerPubkey.slice(0, 8));
     // שמירת ה-offer באופן מקומי
     incomingOffer = offer;
+    incomingOfferPeer = peerPubkey ? String(peerPubkey).toLowerCase() : null;
 
     // חלק שיחות קול (chat-voice-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
     saveChatPanelState();
@@ -709,6 +713,27 @@
     showIncomingCallNotification(peerPubkey);
     // חלק שיחות קול (chat-voice-call-ui.js) – ניגון צלצול בצורה autoplay-safe (מחווה ראשונה אם צריך) | HYPER CORE TECH
     resumeOnUserGestureOnce(() => playRingtone());
+  };
+
+  // חלק Deep Link (chat-voice-call-ui.js) – חזרה לשיחה נכנסת מלחיצה על התראת מערכת | HYPER CORE TECH
+  App.resumeIncomingVoiceCallFromDeepLink = function resumeIncomingVoiceCallFromDeepLink(peerPubkey) {
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
+    if (peer && typeof App.showChatConversation === 'function') {
+      try { App.showChatConversation(peer); } catch (_) {}
+    }
+    if (incomingOffer && (!peer || !incomingOfferPeer || peer === incomingOfferPeer)) {
+      const target = incomingOfferPeer || peer;
+      if (target) {
+        saveChatPanelState();
+        createCallDialog(target, true);
+        resumeOnUserGestureOnce(() => playRingtone());
+        try {
+          if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+        } catch (_) {}
+        return true;
+      }
+    }
+    return !!peer;
   };
 
   // חלק שיחה ממתינה (chat-voice-call-ui.js) – התראה קצרה ללא צלצול מלא בזמן שיחה פעילה | HYPER CORE TECH

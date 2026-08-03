@@ -49,6 +49,11 @@ class MainActivity : AppCompatActivity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var bridgePickRequestId: String? = null
     private val pickedNativeFiles = ConcurrentHashMap<String, Pair<Uri, String>>()
+    @Volatile private var webPageReady = false
+    @Volatile private var openedFromCallIntent = false
+    private var pendingDeepLinkPeer: String? = null
+    private var pendingIncomingCall: String? = null
+    private var suppressCallCancelUntil = 0L
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -103,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         startKeepAliveService()
 
         setupWebView()
+        captureDeepLinkFromIntent(intent)
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
@@ -114,10 +120,19 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        CallSoundHelper.stopAll()
-        val url = resolveStartUrl(intent)
-        if (this::webView.isInitialized && url != webView.url) {
-            webView.loadUrl(url)
+        captureDeepLinkFromIntent(intent)
+        // שיחה נכנסת – לא עוצרים צלצול מיד; Web יקבל deeplink בלי reload | HYPER CORE TECH
+        if (!openedFromCallIntent) {
+            CallSoundHelper.stopAll()
+        }
+        if (webPageReady && isWarmSosPage()) {
+            injectPendingDeepLink()
+        } else {
+            val url = resolveStartUrl(intent)
+            if (this::webView.isInitialized) {
+                webPageReady = false
+                webView.loadUrl(url)
+            }
         }
         if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) {
             moveTaskToBack(true)
@@ -127,11 +142,20 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         isHostAlive = true
-        CallSoundHelper.stopAll()
-        NotificationHelper.cancelIncomingCall(this)
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
         NotificationHelper.clearMessageNotifications(this)
+        if (!openedFromCallIntent && System.currentTimeMillis() >= suppressCallCancelUntil) {
+            CallSoundHelper.stopAll()
+            NotificationHelper.cancelIncomingCall(this)
+        } else if (openedFromCallIntent) {
+            // נותנים ל-Web להרים UI שיחה; מבטלים התראת מערכת אחרי השהייה קצרה
+            suppressCallCancelUntil = System.currentTimeMillis() + 2500L
+            mainHandler.postDelayed({
+                NotificationHelper.cancelIncomingCall(this@MainActivity)
+                openedFromCallIntent = false
+            }, 1800L)
+        }
         startKeepAliveService()
         if (this::webView.isInitialized) {
             try {
@@ -143,6 +167,9 @@ class MainActivity : AppCompatActivity() {
                 "window.dispatchEvent(new Event('sos-native-resume'));",
                 null
             )
+            if (webPageReady) {
+                injectPendingDeepLink()
+            }
             injectNativeFilePickScript()
         }
     }
@@ -202,7 +229,78 @@ class MainActivity : AppCompatActivity() {
         }
         val openUrl = intent?.getStringExtra(EXTRA_OPEN_URL)
         if (!openUrl.isNullOrBlank()) return openUrl
+        // חזרה לדף האחרון אחרי שהמערכת הורגת את התהליך – פחות טעינות מלאות | HYPER CORE TECH
+        val remembered = SosSessionStore.getLastUrl(this)
+        if (remembered.isNotBlank()) return remembered
         return BuildConfig.SOS_START_URL
+    }
+
+    private fun captureDeepLinkFromIntent(intent: Intent?) {
+        val url = intent?.getStringExtra(EXTRA_OPEN_URL)
+            ?: intent?.data?.toString()
+            ?: ""
+        val peer = extractQueryParam(url, "chat")
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }
+        val call = extractQueryParam(url, "incomingCall")
+            ?.trim()
+            ?.lowercase()
+            ?.let { raw ->
+                when {
+                    raw == "video" || raw == "v" || raw.startsWith("v-") -> "video"
+                    raw.isNotEmpty() -> "voice"
+                    else -> null
+                }
+            }
+        if (!peer.isNullOrBlank()) pendingDeepLinkPeer = peer
+        if (!call.isNullOrBlank()) {
+            pendingIncomingCall = call
+            openedFromCallIntent = true
+        }
+    }
+
+    private fun extractQueryParam(url: String, key: String): String? {
+        if (url.isBlank()) return null
+        return try {
+            Uri.parse(url).getQueryParameter(key)
+        } catch (_: Exception) {
+            val match = Regex("[?&]$key=([^&#]+)").find(url) ?: return null
+            Uri.decode(match.groupValues[1])
+        }
+    }
+
+    private fun isWarmSosPage(): Boolean {
+        if (!this::webView.isInitialized || !webPageReady) return false
+        val current = webView.url?.lowercase().orEmpty()
+        if (current.isBlank() || current.startsWith("about:")) return false
+        return current.contains("sos010.com") || current.contains("videos.html")
+    }
+
+    private fun injectPendingDeepLink() {
+        val peer = pendingDeepLinkPeer
+        val call = pendingIncomingCall
+        if (peer.isNullOrBlank() && call.isNullOrBlank()) return
+        if (!this::webView.isInitialized) return
+        val peerJs = JSONObject.quote(peer ?: "")
+        val callJs = JSONObject.quote(call ?: "")
+        val js = """
+            (function(){
+              try {
+                window.dispatchEvent(new CustomEvent('sos-native-deeplink', {
+                  detail: { chat: $peerJs, incomingCall: $callJs, ts: Date.now() }
+                }));
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+            Log.i(TAG, "injected deeplink peer=${peer?.take(8)} call=$call")
+        } catch (err: Exception) {
+            Log.w(TAG, "deeplink inject failed: ${err.message}")
+        }
+        // משאירים את peer ל־retry ב־resume; מנקים call אחרי הזרקה
+        pendingIncomingCall = null
     }
 
     private fun setupWebView() {
@@ -298,13 +396,22 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                loading.visibility = View.VISIBLE
+                webPageReady = false
+                // בנתיב שיחה מהתרעה – בלי לסמן טעינה כבדה על כל המסך | HYPER CORE TECH
+                if (pendingDeepLinkPeer.isNullOrBlank() && pendingIncomingCall.isNullOrBlank()) {
+                    loading.visibility = View.VISIBLE
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 loading.visibility = View.GONE
+                webPageReady = true
+                if (!url.isNullOrBlank()) {
+                    SosSessionStore.setLastUrl(applicationContext, url)
+                }
                 injectNativeFlag()
                 injectNativeFilePickScript()
+                injectPendingDeepLink()
             }
         }
 

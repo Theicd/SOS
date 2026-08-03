@@ -526,6 +526,7 @@
   // חלק שיחות וידאו – callbacks מהמנוע
   App.onVideoCallIncoming = function(peer, offer){
     App.__videoIncomingOffer = offer;
+    App.__videoIncomingPeer = peer ? String(peer).toLowerCase() : null;
     // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
     saveChatPanelState();
     // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה נכנסת | HYPER CORE TECH
@@ -536,6 +537,27 @@
     // חלק שיחות וידאו – התרעת מערכת כמו בשיחות קול | HYPER CORE TECH
     showIncomingVideoNotification(peer);
     startToneWithPolicy(playRingtone);
+  };
+
+  // חלק Deep Link (chat-video-call-ui.js) – חזרה לשיחת וידאו נכנסת מהתראת מערכת | HYPER CORE TECH
+  App.resumeIncomingVideoCallFromDeepLink = function resumeIncomingVideoCallFromDeepLink(peerPubkey) {
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
+    if (peer && typeof App.showChatConversation === 'function') {
+      try { App.showChatConversation(peer); } catch (_) {}
+    }
+    if (App.__videoIncomingOffer && (!peer || !App.__videoIncomingPeer || peer === App.__videoIncomingPeer)) {
+      const target = App.__videoIncomingPeer || peer;
+      if (target) {
+        saveChatPanelState();
+        createDialog(target, true);
+        startToneWithPolicy(playRingtone);
+        try {
+          if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+        } catch (_) {}
+        return true;
+      }
+    }
+    return !!peer;
   };
   App.onVideoCallStarted = function(peer, isIncoming){
     if (!dialog) createDialog(peer, isIncoming);

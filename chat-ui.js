@@ -2923,11 +2923,18 @@
   // חלק P2P DataChannel (chat-ui.js) – alias עבור מודול DataChannel reconnect | HYPER CORE TECH
   App.getActiveChatPeer = App.getActiveChatContact;
 
-  // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לפתיחת שיחה ספציפית (לשימוש בסיום שיחת קול) | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לפתיחת שיחה ספציפית (התרעות / deep link / סיום שיחה) | HYPER CORE TECH
   App.showChatConversation = function showChatConversationExternal(peerPubkey) {
     if (!peerPubkey) return;
-    const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
-    showConversation(peerPubkey, contact);
+    const normalized = String(peerPubkey).toLowerCase();
+    try {
+      if (typeof App.ensureChatContact === 'function') {
+        App.ensureChatContact(normalized);
+      }
+    } catch (_) {}
+    const contact = App.chatState?.contacts?.get(normalized);
+    togglePanel(true);
+    showConversation(normalized, contact);
   };
 
   // חלק העתקה ללוח (chat-ui.js) – העתקת טקסט הודעה ללוח בלחיצה | HYPER CORE TECH
