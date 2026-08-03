@@ -236,7 +236,7 @@ class SosRelayWatcher(private val appContext: Context) {
         when (signalType) {
             "offer", "v-offer" -> {
                 val now = System.currentTimeMillis()
-                // דיכוי אחרי דחייה/ניתוק – מונע צלצול חוזר 2–3 פעמים | HYPER CORE TECH
+                // דיכוי קצר בלבד (offer כפול מהריליי) – לא חוסם שיחה חדשה אחרי ~8 שנ' | HYPER CORE TECH
                 if (SosIncomingCallSession.isSuppressed(appContext, author)) {
                     Log.i(TAG, "suppressed offer from ${author.take(8)}")
                     return
@@ -246,19 +246,26 @@ class SosRelayWatcher(private val appContext: Context) {
                     Log.i(TAG, "duplicate active offer from ${author.take(8)}")
                     return
                 }
-                if (now - lastCallNotifyAt < 2500L) return
+                if (now - lastCallNotifyAt < 1500L) return
                 lastCallNotifyAt = now
-                // אם הממשק פתוח – ה-Web מטפל בצלצול
-                if (MainActivity.isHostAlive) return
                 val isVideo = signalType == "v-offer"
                 val callType = if (isVideo) "video" else "voice"
                 val title = if (isVideo) "שיחת וידאו נכנסת" else "שיחה קולית נכנסת"
                 val caller = SosContactCache.displayName(appContext, author, "מישהו")
+                val openUrl = "https://sos010.com/videos.html?chat=$author&incomingCall=$callType"
+
+                // גם כשהממשק פתוח – אם המסך כבוי/ברקע isHostAlive=false.
+                // כשהממשק בחזית: Web מציג דיאלוג; עדיין מציגים התראת CallStyle בלי FSI כפול.
+                if (MainActivity.isHostAlive) {
+                    Log.i(TAG, "host alive – web handles UI, skip lock-screen activity")
+                    return
+                }
+
                 NotificationHelper.showIncomingCall(
                     appContext,
                     title,
                     "$caller מתקשר אליך ב-SOS",
-                    "https://sos010.com/videos.html?chat=$author&incomingCall=$callType",
+                    openUrl,
                     callType,
                     peerPubkey = author,
                     callerName = caller
@@ -271,6 +278,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 SosPendingCallStore.clear(appContext)
                 NotificationHelper.cancelIncomingCall(appContext)
                 CallSoundHelper.stopAll()
+                IncomingCallActivity.dismiss(appContext, author)
                 Log.i(TAG, "remote hangup from ${author.take(8)}")
             }
         }

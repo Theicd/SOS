@@ -1,5 +1,6 @@
 package com.sos010.app
 
+import android.app.NotificationManager
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -106,6 +107,7 @@ class MainActivity : AppCompatActivity() {
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
+        maybeRequestFullScreenIntentPermission()
         maybeRequestBatteryOptimizationExemption()
         startKeepAliveService()
 
@@ -1028,6 +1030,31 @@ class MainActivity : AppCompatActivity() {
                 return@runOnUiThread
             }
             permissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
+    private fun maybeRequestFullScreenIntentPermission() {
+        if (Build.VERSION.SDK_INT < 34) return
+        try {
+            val prefs = getSharedPreferences("sos_native_session", MODE_PRIVATE)
+            if (prefs.getBoolean("fsi_prompted_v1", false)) return
+            val nm = getSystemService(NotificationManager::class.java) ?: return
+            if (nm.canUseFullScreenIntent()) {
+                prefs.edit().putBoolean("fsi_prompted_v1", true).apply()
+                return
+            }
+            prefs.edit().putBoolean("fsi_prompted_v1", true).apply()
+            val intent = Intent(
+                Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+            Toast.makeText(
+                this,
+                "אפשר ל-SOS התראות מסך מלא לשיחות נכנסות",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (_: Exception) {
         }
     }
 

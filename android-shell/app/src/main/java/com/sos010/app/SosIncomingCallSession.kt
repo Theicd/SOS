@@ -12,7 +12,7 @@ object SosIncomingCallSession {
     private const val KEY_ACTIVE_AT = "active_at"
     private const val KEY_SUPPRESS_PEER = "suppress_peer"
     private const val KEY_SUPPRESS_UNTIL = "suppress_until"
-    private const val SUPPRESS_AFTER_END_MS = 120_000L
+    private const val SUPPRESS_AFTER_END_MS = 8_000L
     private const val ACTIVE_TTL_MS = 90_000L
 
     fun markRinging(context: Context, peer: String?, callType: String?) {

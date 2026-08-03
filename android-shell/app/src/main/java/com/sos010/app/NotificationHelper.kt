@@ -275,6 +275,23 @@ object NotificationHelper {
 
         SosIncomingCallSession.markRinging(app, peer, type)
 
+        val fullScreenIntent = Intent(app, IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_NO_USER_ACTION
+            putExtra(IncomingCallActivity.EXTRA_PEER, peer)
+            putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, type)
+            putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, displayName)
+            putExtra(IncomingCallActivity.EXTRA_OPEN_URL, openUrl)
+        }
+        val fullScreenPi = PendingIntent.getActivity(
+            app,
+            INCOMING_CALL_ID,
+            fullScreenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val answerIntent = Intent(app, MainActivity::class.java).apply {
             action = CallActionReceiver.ACTION_ANSWER
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or
@@ -324,8 +341,8 @@ object NotificationHelper {
             .setLargeIcon(largeIcon)
             .setContentTitle(callTitle)
             .setContentText(callBody)
-            .setContentIntent(answerPi)
-            .setFullScreenIntent(answerPi, true)
+            .setContentIntent(fullScreenPi)
+            .setFullScreenIntent(fullScreenPi, true)
             .setStyle(
                 NotificationCompat.CallStyle.forIncomingCall(caller, declinePi, answerPi)
                     .setIsVideo(type == "video")
@@ -340,7 +357,6 @@ object NotificationHelper {
             .setTimeoutAfter(60_000L)
             .setUsesChronometer(false)
 
-        // כותרת/גוף גם לגרסאות בלי CallStyle מלא
         if (title.isNotBlank()) {
             builder.setContentTitle(callTitle.ifBlank { title })
         }
@@ -350,7 +366,8 @@ object NotificationHelper {
         } catch (_: SecurityException) {
         }
 
-        CallSoundHelper.wakeScreenBriefly(app)
+        // מפעיל מסך שיחה מקורי מעל הנעילה (לא רק wake לשומר מסך) | HYPER CORE TECH
+        IncomingCallActivity.launch(app, peer, type, displayName, openUrl)
         CallSoundHelper.startRingtone(app)
     }
 
@@ -360,6 +377,7 @@ object NotificationHelper {
                 .cancel("sos-incoming-call", INCOMING_CALL_ID)
         } catch (_: Exception) {
         }
+        IncomingCallActivity.dismiss(context)
         if (stopSound) {
             CallSoundHelper.stopRingtone()
         }

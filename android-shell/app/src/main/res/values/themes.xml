@@ -6,4 +6,13 @@
         <item name="android:windowBackground">#000000</item>
         <item name="colorPrimary">#2D88FF</item>
     </style>
+
+    <style name="Theme.SosIncomingCall" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#0B1220</item>
+        <item name="android:navigationBarColor">#0B1220</item>
+        <item name="android:windowBackground">#0B1220</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowShowWallpaper">false</item>
+        <item name="colorPrimary">#2E7D32</item>
+    </style>
 </resources>

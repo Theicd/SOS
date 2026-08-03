@@ -25,6 +25,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 SosPendingCallStore.clear(app)
                 NotificationHelper.cancelIncomingCall(app, stopSound = true)
                 CallSoundHelper.stopAll()
+                IncomingCallActivity.dismiss(app, peer)
                 // מעיר WebView ברקע כדי לשלוח disconnect לצד השני | HYPER CORE TECH
                 val launch = Intent(app, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -44,6 +45,7 @@ class CallActionReceiver : BroadcastReceiver() {
             ACTION_ANSWER -> {
                 SosIncomingCallSession.markAnswered(app, peer)
                 NotificationHelper.cancelIncomingCall(app, stopSound = false)
+                IncomingCallActivity.dismiss(app, peer)
                 val openUrl = intent.getStringExtra(MainActivity.EXTRA_OPEN_URL)
                     ?: "https://sos010.com/videos.html?chat=$peer&incomingCall=$callType"
                 val launch = Intent(app, MainActivity::class.java).apply {
