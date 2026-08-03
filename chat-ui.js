@@ -1050,11 +1050,15 @@
         const n = new window.Notification(name, baseOptions);
         n.onclick = () => {
           try { window.focus(); } catch {}
+          openConversationFromNotification(normalizedPeer);
         };
       }).catch(() => {
         try {
           const n = new window.Notification(name, baseOptions);
-          n.onclick = () => { try { window.focus(); } catch {} };
+          n.onclick = () => {
+            try { window.focus(); } catch {}
+            openConversationFromNotification(normalizedPeer);
+          };
         } catch {}
       });
     } catch (err) {
@@ -1065,7 +1069,14 @@
   // חלק צ'אט (chat-ui.js) – פתיחת שיחה מתוך הודעת SW | HYPER CORE TECH
   function openConversationFromNotification(peerPubkey) {
     if (!peerPubkey) return;
-    const normalized = peerPubkey.toLowerCase();
+    const normalized = String(peerPubkey).toLowerCase();
+    try {
+      if (typeof App.ensureChatContact === 'function') App.ensureChatContact(normalized);
+    } catch (_) {}
+    if (typeof App.showChatConversation === 'function') {
+      App.showChatConversation(normalized);
+      return;
+    }
     state.activeContact = normalized;
     togglePanel(true);
     renderContacts();
@@ -1077,8 +1088,16 @@
   // חלק צ'אט (chat-ui.js) – טיפול בהודעות מה-SW עבור התראות צ'אט | HYPER CORE TECH
   function handleChatServiceWorkerMessage(event) {
     const data = event && event.data ? event.data : null;
-    if (!data || data.type !== 'chat-message-notification-action') return;
-    const peerPubkey = data.peerPubkey || null;
+    if (!data) return;
+    const type = data.type;
+    if (
+      type !== 'chat-message-notification-action'
+      && type !== 'sos-deeplink'
+      && type !== 'missed-call-notification-action'
+    ) return;
+    // sos-deeplink עם שיחה נכנסת מטופל ב־chat-deeplink / call UI | HYPER CORE TECH
+    if (type === 'sos-deeplink' && data.incomingCall) return;
+    const peerPubkey = data.peerPubkey || data.chat || null;
     if (!peerPubkey) return;
     try { window.focus(); } catch {}
     openConversationFromNotification(peerPubkey);

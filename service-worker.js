@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v217'; // bump - deep link chat/call + APK 1.0.17
+  const CACHE_NAME = 'sos-cache-v218'; // bump - web notification click → chat/call answer UI
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -137,6 +137,17 @@
     try { isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent); } catch (e) {}
     
     const title = payload.title || 'SOS';
+    let peerPubkey = payload.peerPubkey || payload.data?.peerPubkey || null;
+    let incomingCall = payload.incomingCall || payload.data?.incomingCall || null;
+    if (!incomingCall) {
+      if (pushType === 'voice-call-incoming') incomingCall = 'voice';
+      if (pushType === 'video-call-incoming') incomingCall = 'video';
+    }
+    let openUrl = payload.url || payload.data?.url || './videos.html';
+    try {
+      openUrl = buildDeepLinkUrl(openUrl, peerPubkey, incomingCall);
+    } catch (_) {}
+
     const options = {
       body: payload.body || 'יש לך עדכון חדש',
       icon: payload.icon || './icons/so-call010.png',
@@ -145,11 +156,16 @@
       renotify: true,
       silent: false,
       data: {
-        url: payload.url || payload.data?.url || './',
+        url: openUrl,
         type: pushType,
-        peerPubkey: payload.peerPubkey || payload.data?.peerPubkey || null,
+        peerPubkey,
+        incomingCall,
         timestamp: Date.now(),
         ...payload.data,
+        url: openUrl,
+        peerPubkey,
+        incomingCall,
+        type: pushType,
       },
     };
     
@@ -401,7 +417,27 @@
   async function getFirstWindowClient() {
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     if (!list || !list.length) return null;
-    return list[0];
+    // מעדיפים לקוח גלוי אם יש | HYPER CORE TECH
+    const visible = list.find((c) => c.visibilityState === 'visible');
+    return visible || list[0];
+  }
+
+  function buildDeepLinkUrl(baseUrl, peerPubkey, incomingCall) {
+    try {
+      const origin = self.location && self.location.origin ? self.location.origin : self.registration.scope;
+      const absolute = new URL(baseUrl || '/videos.html', origin);
+      if (!String(absolute.pathname || '').includes('videos.html')) {
+        absolute.pathname = '/videos.html';
+      }
+      if (peerPubkey) absolute.searchParams.set('chat', String(peerPubkey).toLowerCase());
+      if (incomingCall) absolute.searchParams.set('incomingCall', String(incomingCall));
+      return absolute.href;
+    } catch (_) {
+      const q = [];
+      if (peerPubkey) q.push(`chat=${encodeURIComponent(String(peerPubkey).toLowerCase())}`);
+      if (incomingCall) q.push(`incomingCall=${encodeURIComponent(String(incomingCall))}`);
+      return `./videos.html${q.length ? `?${q.join('&')}` : ''}`;
+    }
   }
 
   async function focusOrOpenClient(url) {
@@ -409,6 +445,12 @@
     if (client) {
       try {
         await client.focus();
+      } catch {}
+      // ניווט בתוך הלקוח הקיים אם נתמך – אחרת postMessage יטפל | HYPER CORE TECH
+      try {
+        if (url && typeof client.navigate === 'function') {
+          // לא מנווטים מחדש אם כבר באותו origin – רק focus+message
+        }
       } catch {}
       return client;
     }
@@ -431,31 +473,58 @@
     });
   }
 
-  // חלק Notification Click (service-worker.js) – טיפול בלחיצה על התראות מכל הסוגים | HYPER CORE TECH
+  async function deliverNotificationAction(message, url) {
+    const client = await focusOrOpenClient(url);
+    const send = async (target) => {
+      if (!target) return false;
+      try {
+        target.postMessage(message);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (client) {
+      const ok = await send(client);
+      if (ok) return;
+      // חלון חדש לפעמים לא מוכן – ניסיונות חוזרים | HYPER CORE TECH
+      for (const delay of [300, 800, 1600]) {
+        await new Promise((r) => setTimeout(r, delay));
+        const again = await getFirstWindowClient();
+        if (again && await send(again)) return;
+      }
+    }
+
+    await postMessageToAllClients(message);
+  }
+
+  // חלק Notification Click (service-worker.js) – לחיצה על התראת דפדפן → שיחה / מסך ענה | HYPER CORE TECH
   self.addEventListener('notificationclick', (event) => {
     const notification = event.notification;
-    const action = event.action || 'open'; // 'open', 'dismiss', או ריק
+    const action = event.action || 'open';
     const data = notification && notification.data ? notification.data : {};
     const type = data.type || 'general';
     const peerPubkey = data.peerPubkey || null;
-    const url = data.url || './';
+    let url = data.url || './videos.html';
+    let incomingCall = data.incomingCall || null;
 
     try {
       notification.close();
     } catch {}
 
-    // אם המשתמש לחץ על "סגור" - לא עושים כלום
     if (action === 'dismiss') return;
 
     event.waitUntil((async () => {
-      // בניית הודעה לקליינט לפי סוג ההתראה | HYPER CORE TECH
       let messageType = 'notification-action';
-      
+
       if (type === 'voice-call-incoming') {
         messageType = 'voice-call-notification-action';
+        incomingCall = incomingCall || 'voice';
       } else if (type === 'video-call-incoming') {
         messageType = 'video-call-notification-action';
-      } else if (type === 'chat-message') {
+        incomingCall = incomingCall || 'video';
+      } else if (type === 'chat-message' || type === 'chat-message-aggregate') {
         messageType = 'chat-message-notification-action';
       } else if (type === 'missed-call') {
         messageType = 'missed-call-notification-action';
@@ -463,24 +532,30 @@
         messageType = 'app-update-notification-action';
       }
 
+      // URL עם deep link מסודר – גם אם הלקוח נפתח מחדש | HYPER CORE TECH
+      url = buildDeepLinkUrl(url, peerPubkey, incomingCall);
+
       const message = {
         type: messageType,
         action: 'open',
         peerPubkey,
+        incomingCall: incomingCall || '',
         notificationType: type,
-        url
+        url,
+        // תואם ל־chat-deeplink.js | HYPER CORE TECH
+        chat: peerPubkey || '',
       };
 
-      // פתיחת/פוקוס על חלון ושליחת הודעה | HYPER CORE TECH
-      const client = await focusOrOpenClient(url);
-      if (client) {
-        try {
-          client.postMessage(message);
-        } catch {}
-        return;
-      }
+      // הודעת deeplink אחידה בנוסף לסוג הספציפי | HYPER CORE TECH
+      const deeplinkMessage = {
+        type: 'sos-deeplink',
+        chat: peerPubkey || '',
+        incomingCall: incomingCall || '',
+        url,
+      };
 
-      await postMessageToAllClients(message);
+      await deliverNotificationAction(message, url);
+      await postMessageToAllClients(deeplinkMessage);
     })());
   });
 })(self);

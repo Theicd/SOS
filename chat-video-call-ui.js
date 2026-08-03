@@ -126,14 +126,16 @@
       if (picture) baseOptions.icon = picture;
       try { baseOptions.requireInteraction = true; } catch {}
 
+      const openUrl = `${window.location.origin}/videos.html?chat=${encodeURIComponent(peerPubkey)}&incomingCall=video`;
       const swOptions = Object.assign({}, baseOptions, {
         actions: [
-          { action: 'open', title: 'פתח מסך שיחת וידאו' }
+          { action: 'open', title: 'ענה / פתח וידאו' }
         ],
         data: {
           type: 'video-call-incoming',
           peerPubkey: peerPubkey,
-          url: window.location.href
+          incomingCall: 'video',
+          url: openUrl
         }
       });
 
@@ -150,6 +152,11 @@
         incomingVideoNotification.onclick = () => {
           try { window.focus(); } catch {}
           closeIncomingVideoNotification();
+          if (typeof App.resumeIncomingVideoCallFromDeepLink === 'function') {
+            App.resumeIncomingVideoCallFromDeepLink(peerPubkey);
+          } else if (!dialog) {
+            createDialog(peerPubkey, true);
+          }
         };
       }).catch(() => {
         try {
@@ -157,6 +164,11 @@
           incomingVideoNotification.onclick = () => {
             try { window.focus(); } catch {}
             closeIncomingVideoNotification();
+            if (typeof App.resumeIncomingVideoCallFromDeepLink === 'function') {
+              App.resumeIncomingVideoCallFromDeepLink(peerPubkey);
+            } else if (!dialog) {
+              createDialog(peerPubkey, true);
+            }
           };
         } catch {}
       });
@@ -168,13 +180,20 @@
   // חלק שיחות וידאו (chat-video-call-ui.js) – קבלת פעולה מהתראת Service Worker (פתיחת מסך וידאו) | HYPER CORE TECH
   function handleVideoCallServiceWorkerMessage(event) {
     const data = event && event.data ? event.data : null;
-    if (!data || data.type !== 'video-call-notification-action') return;
+    if (!data) return;
+    if (data.type !== 'video-call-notification-action' && !(data.type === 'sos-deeplink' && data.incomingCall === 'video')) {
+      return;
+    }
 
-    const peerPubkey = data.peerPubkey || null;
+    const peerPubkey = data.peerPubkey || data.chat || App.__videoIncomingPeer || null;
     if (!peerPubkey) return;
 
     closeIncomingVideoNotification();
     try { window.focus(); } catch {}
+    if (typeof App.resumeIncomingVideoCallFromDeepLink === 'function') {
+      App.resumeIncomingVideoCallFromDeepLink(peerPubkey);
+      return;
+    }
     if (!dialog) {
       createDialog(peerPubkey, true);
     }

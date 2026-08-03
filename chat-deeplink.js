@@ -188,6 +188,33 @@
     }
   });
 
+  // חלק Deep Link (chat-deeplink.js) – לחיצה על התראת דפדפן/PWA דרך Service Worker | HYPER CORE TECH
+  function handleServiceWorkerDeepLink(event) {
+    const data = event && event.data ? event.data : null;
+    if (!data) return;
+    if (data.type === 'sos-deeplink') {
+      handleDeepLink({ chat: data.chat || data.peerPubkey, incomingCall: data.incomingCall });
+      return;
+    }
+    if (data.type === 'chat-message-notification-action' || data.type === 'missed-call-notification-action') {
+      handleDeepLink({ chat: data.peerPubkey || data.chat, incomingCall: '' });
+      return;
+    }
+    if (data.type === 'voice-call-notification-action') {
+      handleDeepLink({ chat: data.peerPubkey || data.chat, incomingCall: 'voice' });
+      return;
+    }
+    if (data.type === 'video-call-notification-action') {
+      handleDeepLink({ chat: data.peerPubkey || data.chat, incomingCall: 'video' });
+    }
+  }
+
+  if ('serviceWorker' in navigator) {
+    try {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerDeepLink);
+    } catch (_) {}
+  }
+
   function bootFromUrl() {
     const fromUrl = parseFromLocation();
     if (fromUrl.chat || fromUrl.incomingCall) {

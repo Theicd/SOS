@@ -475,7 +475,8 @@
       data: {
         type: isVideo ? 'video-call-incoming' : 'voice-call-incoming',
         peerPubkey,
-        url: './',
+        incomingCall: isVideo ? 'video' : 'voice',
+        url: `./videos.html?chat=${peerPubkey}&incomingCall=${isVideo ? 'video' : 'voice'}`,
       },
     });
   }

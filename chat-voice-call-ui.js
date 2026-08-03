@@ -533,14 +533,16 @@
       if (picture) baseOptions.icon = picture;
       try { baseOptions.requireInteraction = true; } catch {}
 
+      const openUrl = `${window.location.origin}/videos.html?chat=${encodeURIComponent(peerPubkey)}&incomingCall=voice`;
       const swOptions = Object.assign({}, baseOptions, {
         actions: [
-          { action: 'open', title: 'פתח מסך שיחה (לא עונה)' }
+          { action: 'open', title: 'ענה / פתח שיחה' }
         ],
         data: {
           type: 'voice-call-incoming',
           peerPubkey: peerPubkey,
-          url: window.location.href
+          incomingCall: 'voice',
+          url: openUrl
         }
       });
 
@@ -557,6 +559,11 @@
         incomingCallNotification.onclick = () => {
           try { window.focus(); } catch {}
           closeIncomingCallNotification();
+          if (typeof App.resumeIncomingVoiceCallFromDeepLink === 'function') {
+            App.resumeIncomingVoiceCallFromDeepLink(peerPubkey);
+          } else if (!callDialog) {
+            createCallDialog(peerPubkey, true);
+          }
         };
       }).catch(() => {
         try {
@@ -564,6 +571,11 @@
           incomingCallNotification.onclick = () => {
             try { window.focus(); } catch {}
             closeIncomingCallNotification();
+            if (typeof App.resumeIncomingVoiceCallFromDeepLink === 'function') {
+              App.resumeIncomingVoiceCallFromDeepLink(peerPubkey);
+            } else if (!callDialog) {
+              createCallDialog(peerPubkey, true);
+            }
           };
         } catch {}
       });
@@ -575,13 +587,20 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – קבלת פעולה מהתראת Service Worker (פתיחת מסך שיחה ללא מענה אוטומטי) | HYPER CORE TECH
   function handleVoiceCallServiceWorkerMessage(event) {
     const data = event && event.data ? event.data : null;
-    if (!data || data.type !== 'voice-call-notification-action') return;
+    if (!data) return;
+    if (data.type !== 'voice-call-notification-action' && !(data.type === 'sos-deeplink' && data.incomingCall === 'voice')) {
+      return;
+    }
 
-    const peerPubkey = data.peerPubkey || activePeerPubkey;
+    const peerPubkey = data.peerPubkey || data.chat || activePeerPubkey || incomingOfferPeer;
     if (!peerPubkey) return;
 
     closeIncomingCallNotification();
     try { window.focus(); } catch {}
+    if (typeof App.resumeIncomingVoiceCallFromDeepLink === 'function') {
+      App.resumeIncomingVoiceCallFromDeepLink(peerPubkey);
+      return;
+    }
     if (!callDialog) {
       createCallDialog(peerPubkey, true);
     }
