@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.PowerManager
 import android.util.Log
 
 /**
@@ -14,12 +15,35 @@ object CallSoundHelper {
     private const val TAG = "CallSoundHelper"
     @Volatile private var ringtonePlayer: MediaPlayer? = null
     @Volatile private var dialtonePlayer: MediaPlayer? = null
+    @Volatile private var ringtoneWakeLock: PowerManager.WakeLock? = null
+    @Volatile private var screenWakeLock: PowerManager.WakeLock? = null
 
     fun ringtoneUri(context: Context): Uri =
         Uri.parse("android.resource://${context.packageName}/${R.raw.sos_ringtone}")
 
     fun dialtoneUri(context: Context): Uri =
         Uri.parse("android.resource://${context.packageName}/${R.raw.sos_dialtone}")
+
+    /** ניסיון להעיר מסך כשיש שיחה נכנסת (בנוסף ל-FullScreenIntent/CallStyle) | HYPER CORE TECH */
+    @Suppress("DEPRECATION")
+    fun wakeScreenBriefly(context: Context) {
+        try {
+            val app = context.applicationContext
+            val pm = app.getSystemService(Context.POWER_SERVICE) as PowerManager
+            screenWakeLock?.let { lock ->
+                try { if (lock.isHeld) lock.release() } catch (_: Exception) {}
+            }
+            val lock = pm.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+                "sos:incoming_call_screen"
+            )
+            lock.setReferenceCounted(false)
+            lock.acquire(8_000L)
+            screenWakeLock = lock
+        } catch (err: Exception) {
+            Log.w(TAG, "wake screen failed: ${err.message}")
+        }
+    }
 
     @Synchronized
     fun startRingtone(context: Context) {
@@ -28,6 +52,7 @@ object CallSoundHelper {
         stopRingtone()
         try {
             val app = context.applicationContext
+            acquireRingtoneWakeLock(app)
             val player = MediaPlayer()
             player.isLooping = true
             player.setAudioAttributes(
@@ -59,6 +84,7 @@ object CallSoundHelper {
         } catch (_: Exception) {
         }
         ringtonePlayer = null
+        releaseRingtoneWakeLock()
     }
 
     @Synchronized
@@ -104,5 +130,30 @@ object CallSoundHelper {
     fun stopAll() {
         stopRingtone()
         stopDialtone()
+        try {
+            screenWakeLock?.let { if (it.isHeld) it.release() }
+        } catch (_: Exception) {
+        }
+        screenWakeLock = null
+    }
+
+    private fun acquireRingtoneWakeLock(context: Context) {
+        try {
+            releaseRingtoneWakeLock()
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val lock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sos:ringtone")
+            lock.setReferenceCounted(false)
+            lock.acquire(65_000L)
+            ringtoneWakeLock = lock
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun releaseRingtoneWakeLock() {
+        try {
+            ringtoneWakeLock?.let { if (it.isHeld) it.release() }
+        } catch (_: Exception) {
+        }
+        ringtoneWakeLock = null
     }
 }

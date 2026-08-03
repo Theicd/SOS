@@ -236,6 +236,16 @@ class SosRelayWatcher(private val appContext: Context) {
         when (signalType) {
             "offer", "v-offer" -> {
                 val now = System.currentTimeMillis()
+                // דיכוי אחרי דחייה/ניתוק – מונע צלצול חוזר 2–3 פעמים | HYPER CORE TECH
+                if (SosIncomingCallSession.isSuppressed(appContext, author)) {
+                    Log.i(TAG, "suppressed offer from ${author.take(8)}")
+                    return
+                }
+                // אותה שיחה כבר מצלצלת – לא לפתוח התראה שוב
+                if (SosIncomingCallSession.isSameActiveCall(appContext, author)) {
+                    Log.i(TAG, "duplicate active offer from ${author.take(8)}")
+                    return
+                }
                 if (now - lastCallNotifyAt < 2500L) return
                 lastCallNotifyAt = now
                 // אם הממשק פתוח – ה-Web מטפל בצלצול
@@ -249,13 +259,19 @@ class SosRelayWatcher(private val appContext: Context) {
                     title,
                     "$caller מתקשר אליך ב-SOS",
                     "https://sos010.com/videos.html?chat=$author&incomingCall=$callType",
-                    callType
+                    callType,
+                    peerPubkey = author,
+                    callerName = caller
                 )
                 if (caller == "מישהו") requestProfile(author)
                 Log.i(TAG, "incoming $callType from ${author.take(8)}")
             }
             "disconnect", "v-disconnect" -> {
+                SosIncomingCallSession.markRemoteEnded(appContext, author)
+                SosPendingCallStore.clear(appContext)
                 NotificationHelper.cancelIncomingCall(appContext)
+                CallSoundHelper.stopAll()
+                Log.i(TAG, "remote hangup from ${author.take(8)}")
             }
         }
     }

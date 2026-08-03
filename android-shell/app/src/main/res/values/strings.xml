@@ -4,7 +4,13 @@
     <string name="channel_messages">הודעות ושיחות</string>
     <string name="channel_messages_desc">התראות על הודעות, שיחות ועדכונים</string>
     <string name="channel_calls">שיחות נכנסות</string>
-    <string name="channel_calls_desc">צלצול והתראה על שיחות קול ווידאו</string>
+    <string name="channel_calls_desc">לשונית שיחה עם ענה/דחה גם כשהמסך כבוי</string>
+    <string name="incoming_voice_call">שיחה קולית נכנסת</string>
+    <string name="incoming_video_call">שיחת וידאו נכנסת</string>
+    <string name="incoming_call_from">%1$s מתקשר אליך</string>
+    <string name="call_someone">מישהו</string>
+    <string name="call_answer">ענה</string>
+    <string name="call_decline">דחה</string>
     <string name="channel_keepalive">SOS ברקע</string>
     <string name="channel_keepalive_desc">שומר את SOS פעיל לקבלת הודעות</string>
     <string name="fg_title">SOS פעיל ברקע</string>

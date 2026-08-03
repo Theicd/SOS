@@ -153,9 +153,22 @@
     const chat = normalizePeer(detail?.chat);
     const incomingCall = normalizeCallType(detail?.incomingCall);
     const pendingOffer = detail?.pendingOffer || null;
+    const autoAccept = !!detail?.autoAccept;
     if (!chat && !incomingCall) return true;
 
-    const key = `${chat}|${incomingCall}`;
+    // דיכוי native אחרי דחייה/ניתוק – לא לפתוח UI שיחה שוב | HYPER CORE TECH
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.isIncomingCallSuppressed === 'function' && chat) {
+        if (bridge.isIncomingCallSuppressed(chat)) {
+          console.log('[DEEPLINK] suppressed by native', chat.slice(0, 8));
+          pending = null;
+          return true;
+        }
+      }
+    } catch (_) {}
+
+    const key = `${chat}|${incomingCall}|${autoAccept ? '1' : '0'}`;
     const now = Date.now();
     if (key === lastHandledKey && now - lastHandledAt < 1200 && attempt === 0) {
       return true;
@@ -169,6 +182,18 @@
       window.__sosIncomingCallActive = true;
       const callFocused = focusIncomingCall(chat, incomingCall, pendingOffer);
       opened = callFocused || !!chat;
+      if (opened && autoAccept) {
+        setTimeout(() => {
+          try {
+            const App = window.NostrApp || {};
+            if (typeof App.acceptIncomingCallFromNative === 'function') {
+              App.acceptIncomingCallFromNative(chat, incomingCall);
+            }
+          } catch (err) {
+            console.warn('[DEEPLINK] autoAccept failed', err);
+          }
+        }, 500);
+      }
     } else if (chat) {
       opened = openConversation(chat);
     }
@@ -186,7 +211,7 @@
           bridge.rememberWebUrl(String(window.location.href || ''));
         }
       } catch (_) {}
-      console.log('[DEEPLINK] opened', { chat: chat.slice(0, 8), incomingCall, attempt });
+      console.log('[DEEPLINK] opened', { chat: chat.slice(0, 8), incomingCall, autoAccept, attempt });
       return true;
     }
 
@@ -249,6 +274,12 @@
     }
     const fromUrl = parseFromLocation();
     if (fromUrl.chat || fromUrl.incomingCall) {
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.isIncomingCallSuppressed === 'function' && fromUrl.chat) {
+          if (bridge.isIncomingCallSuppressed(fromUrl.chat)) return;
+        }
+      } catch (_) {}
       handleDeepLink(fromUrl);
     }
   });

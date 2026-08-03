@@ -23,7 +23,8 @@ import java.util.concurrent.ConcurrentHashMap
 object NotificationHelper {
     /** ערוץ חדש בלי צליל מערכת – הצליל מנוגן ידנית פעם אחת בלבד */
     const val CHANNEL_MESSAGES = "sos_messages_v4"
-    const val CHANNEL_CALLS = "sos_calls_v2"
+    /** ערוץ שיחות חדש – CallStyle + heads-up על מסך נעול | HYPER CORE TECH */
+    const val CHANNEL_CALLS = "sos_calls_v3"
     const val CHANNEL_KEEPALIVE = "sos_keepalive"
     const val KEEPALIVE_ID = 1001
     const val INCOMING_CALL_ID = 2002
@@ -61,7 +62,7 @@ object NotificationHelper {
         listOf("sos_messages", "sos_messages_v2", "sos_messages_v3").forEach { id ->
             try { nm.deleteNotificationChannel(id) } catch (_: Exception) {}
         }
-        listOf("sos_calls_v1").forEach { id ->
+        listOf("sos_calls_v1", "sos_calls_v2").forEach { id ->
             try { nm.deleteNotificationChannel(id) } catch (_: Exception) {}
         }
 
@@ -98,6 +99,8 @@ object NotificationHelper {
                     setShowBadge(true)
                     setSound(null, null)
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    // חשוב ללשונית עליונה / מסך נעול | HYPER CORE TECH
+                    setBypassDnd(true)
                 }
             )
         }
@@ -249,48 +252,105 @@ object NotificationHelper {
         title: String,
         body: String,
         openUrl: String,
-        callType: String = "voice"
+        callType: String = "voice",
+        peerPubkey: String = "",
+        callerName: String = ""
     ) {
         ensureChannels(context)
         val app = context.applicationContext
-        val intent = Intent(app, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
-            putExtra("call_type", callType)
+        val peer = peerPubkey.trim().lowercase()
+        val type = when (callType.trim().lowercase()) {
+            "video", "v", "v-offer" -> "video"
+            else -> "voice"
         }
-        val pi = PendingIntent.getActivity(
+        val displayName = callerName.trim().ifBlank {
+            body.substringBefore(" ").ifBlank { app.getString(R.string.call_someone) }
+        }
+        val callTitle = if (type == "video") {
+            app.getString(R.string.incoming_video_call)
+        } else {
+            app.getString(R.string.incoming_voice_call)
+        }
+        val callBody = app.getString(R.string.incoming_call_from, displayName)
+
+        SosIncomingCallSession.markRinging(app, peer, type)
+
+        val answerIntent = Intent(app, MainActivity::class.java).apply {
+            action = CallActionReceiver.ACTION_ANSWER
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
+            putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
+            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
+            putExtra(MainActivity.EXTRA_CALL_TYPE, type)
+            putExtra(CallActionReceiver.EXTRA_PEER, peer)
+            putExtra(CallActionReceiver.EXTRA_CALL_TYPE, type)
+        }
+        val answerPi = PendingIntent.getActivity(
             app,
-            INCOMING_CALL_ID,
-            intent,
+            INCOMING_CALL_ID + 1,
+            answerIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+        val declineIntent = Intent(app, CallActionReceiver::class.java).apply {
+            this.action = CallActionReceiver.ACTION_DECLINE
+            putExtra(CallActionReceiver.EXTRA_PEER, peer)
+            putExtra(CallActionReceiver.EXTRA_CALL_TYPE, type)
+            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
+            putExtra(MainActivity.EXTRA_CALL_TYPE, type)
+        }
+        val declinePi = PendingIntent.getBroadcast(
+            app,
+            INCOMING_CALL_ID + 2,
+            declineIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val largeIcon = try {
             BitmapFactory.decodeResource(app.resources, R.drawable.sos_logo)
         } catch (_: Exception) {
             null
         }
 
+        val caller = androidx.core.app.Person.Builder()
+            .setName(displayName)
+            .setImportant(true)
+            .build()
+
         val builder = NotificationCompat.Builder(app, CHANNEL_CALLS)
             .setSmallIcon(R.drawable.ic_stat_sos)
             .setLargeIcon(largeIcon)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(pi)
-            .setFullScreenIntent(pi, true)
-            .setAutoCancel(true)
+            .setContentTitle(callTitle)
+            .setContentText(callBody)
+            .setContentIntent(answerPi)
+            .setFullScreenIntent(answerPi, true)
+            .setStyle(
+                NotificationCompat.CallStyle.forIncomingCall(caller, declinePi, answerPi)
+                    .setIsVideo(type == "video")
+            )
+            .addPerson(caller)
+            .setAutoCancel(false)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
             .setTimeoutAfter(60_000L)
+            .setUsesChronometer(false)
+
+        // כותרת/גוף גם לגרסאות בלי CallStyle מלא
+        if (title.isNotBlank()) {
+            builder.setContentTitle(callTitle.ifBlank { title })
+        }
 
         try {
             NotificationManagerCompat.from(app).notify("sos-incoming-call", INCOMING_CALL_ID, builder.build())
         } catch (_: SecurityException) {
         }
 
+        CallSoundHelper.wakeScreenBriefly(app)
         CallSoundHelper.startRingtone(app)
     }
 

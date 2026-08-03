@@ -142,6 +142,33 @@ class SosJsBridge(
     }
 
     @JavascriptInterface
+    fun isIncomingCallSuppressed(peer: String?): Boolean {
+        return SosIncomingCallSession.isSuppressed(context.applicationContext, peer)
+    }
+
+    @JavascriptInterface
+    fun markIncomingCallDeclined(peer: String?) {
+        SosIncomingCallSession.markDeclined(context.applicationContext, peer)
+        SosPendingCallStore.clear(context.applicationContext)
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+        CallSoundHelper.stopAll()
+    }
+
+    @JavascriptInterface
+    fun markIncomingCallEnded(peer: String?) {
+        SosIncomingCallSession.markRemoteEnded(context.applicationContext, peer)
+        SosPendingCallStore.clear(context.applicationContext)
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+        CallSoundHelper.stopAll()
+    }
+
+    @JavascriptInterface
+    fun markIncomingCallAnswered(peer: String?) {
+        SosIncomingCallSession.markAnswered(context.applicationContext, peer)
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+    }
+
+    @JavascriptInterface
     fun startCallDialtone() {
         CallSoundHelper.startDialtone(context.applicationContext)
     }

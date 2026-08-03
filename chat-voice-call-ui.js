@@ -760,6 +760,15 @@
     if (incomingOffer) {
       userDeclinedCall = true;
     }
+    try {
+      const peer = incomingOfferPeer || '';
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
+        bridge.markIncomingCallDeclined(peer);
+      } else if (typeof App.nativeStopCallSounds === 'function') {
+        App.nativeStopCallSounds();
+      }
+    } catch (_) {}
     // סגירה מיידית של ה-UI כדי לא להיתקע אם יש השהייה ברשת
     closeCallDialog();
     stopRingtone();
@@ -799,6 +808,15 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – callbacks מהמודול הראשי
   App.onVoiceCallIncoming = function(peerPubkey, offer) {
     console.log('Incoming call from', peerPubkey.slice(0, 8));
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.isIncomingCallSuppressed === 'function') {
+        if (bridge.isIncomingCallSuppressed(String(peerPubkey || ''))) {
+          console.log('Incoming voice suppressed by native');
+          return;
+        }
+      }
+    } catch (_) {}
     // שמירת ה-offer באופן מקומי
     incomingOffer = offer;
     incomingOfferPeer = peerPubkey ? String(peerPubkey).toLowerCase() : null;
@@ -820,6 +838,51 @@
     try {
       if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
     } catch (_) {}
+  };
+
+  // חלק APK (chat-voice-call-ui.js) – ענה מהתראת CallStyle | HYPER CORE TECH
+  App.acceptIncomingCallFromNative = function acceptIncomingCallFromNative(peerPubkey, callType) {
+    if (callType && String(callType).toLowerCase() === 'video') {
+      if (typeof App.acceptIncomingVideoCallFromNative === 'function') {
+        return App.acceptIncomingVideoCallFromNative(peerPubkey);
+      }
+      return false;
+    }
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
+    if (!peer) return false;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markIncomingCallAnswered === 'function') {
+        bridge.markIncomingCallAnswered(peer);
+      }
+    } catch (_) {}
+    restoreIncomingOffer(peer, null);
+    if (!callDialog) {
+      saveChatPanelState();
+      createCallDialog(peer, true);
+    }
+    handleAcceptCall(peer);
+    return true;
+  };
+
+  // חלק APK (chat-voice-call-ui.js) – דחייה מהתראת CallStyle / ניתוק מרחוק | HYPER CORE TECH
+  App.declineIncomingCallFromNative = function declineIncomingCallFromNative(peerPubkey, callType) {
+    if (callType && String(callType).toLowerCase() === 'video') {
+      if (typeof App.declineIncomingVideoCallFromNative === 'function') {
+        return App.declineIncomingVideoCallFromNative(peerPubkey);
+      }
+    }
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
+        bridge.markIncomingCallDeclined(peer);
+      }
+    } catch (_) {}
+    userDeclinedCall = true;
+    window.__sosIncomingCallActive = false;
+    handleEndCall();
+    return true;
   };
 
   // חלק Deep Link (chat-voice-call-ui.js) – חזרה לשיחה נכנסת מלחיצה על התראת מערכת | HYPER CORE TECH

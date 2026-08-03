@@ -69,6 +69,15 @@
         </service>
 
         <receiver
+            android:name=".CallActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.sos010.app.ACTION_ANSWER_CALL" />
+                <action android:name="com.sos010.app.ACTION_DECLINE_CALL" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".BootCompletedReceiver"
             android:directBootAware="true"
             android:exported="true">

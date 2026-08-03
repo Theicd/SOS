@@ -553,10 +553,17 @@
   function handleEnd(){
     // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת סימון דחייה ידנית גם אחרי closeDialog (שמאפס דגלים) | HYPER CORE TECH
     let shouldMarkDeclined = false;
+    const peer = App.__videoIncomingPeer || '';
     try {
       const st = App.videoCall?.getState && App.videoCall.getState();
       shouldMarkDeclined = !!(App.__videoIncomingOffer && st?.isIncoming && !st?.isActive);
     } catch {}
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
+        bridge.markIncomingCallDeclined(peer);
+      }
+    } catch (_) {}
     closeDialog();
     if (shouldMarkDeclined) {
       userDeclinedVideoCall = true;
@@ -569,6 +576,15 @@
 
   // חלק שיחות וידאו – callbacks מהמנוע
   App.onVideoCallIncoming = function(peer, offer){
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.isIncomingCallSuppressed === 'function') {
+        if (bridge.isIncomingCallSuppressed(String(peer || ''))) {
+          console.log('Incoming video suppressed by native');
+          return;
+        }
+      }
+    } catch (_) {}
     App.__videoIncomingOffer = offer;
     App.__videoIncomingPeer = peer ? String(peer).toLowerCase() : null;
     try {
@@ -592,6 +608,37 @@
     try {
       if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
     } catch (_) {}
+  };
+
+  App.acceptIncomingVideoCallFromNative = function acceptIncomingVideoCallFromNative(peerPubkey) {
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
+    if (!peer) return false;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markIncomingCallAnswered === 'function') {
+        bridge.markIncomingCallAnswered(peer);
+      }
+    } catch (_) {}
+    if (!dialog) {
+      saveChatPanelState();
+      createDialog(peer, true);
+    }
+    handleAccept(peer);
+    return true;
+  };
+
+  App.declineIncomingVideoCallFromNative = function declineIncomingVideoCallFromNative(peerPubkey) {
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
+        bridge.markIncomingCallDeclined(peer);
+      }
+    } catch (_) {}
+    userDeclinedVideoCall = true;
+    window.__sosIncomingCallActive = false;
+    handleEnd();
+    return true;
   };
 
   // חלק Deep Link (chat-video-call-ui.js) – חזרה לשיחת וידאו נכנסת מהתראת מערכת | HYPER CORE TECH

@@ -53,6 +53,8 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var openedFromCallIntent = false
     private var pendingDeepLinkPeer: String? = null
     private var pendingIncomingCall: String? = null
+    private var pendingCallAction: String? = null
+    private var pendingAutoAccept: Boolean = false
     private var suppressCallCancelUntil = 0L
 
     private val permissionLauncher = registerForActivityResult(
@@ -109,6 +111,7 @@ class MainActivity : AppCompatActivity() {
 
         setupWebView()
         captureDeepLinkFromIntent(intent)
+        captureCallActionFromIntent(intent)
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
@@ -126,6 +129,8 @@ class MainActivity : AppCompatActivity() {
             openedFromCallIntent = false
             pendingDeepLinkPeer = null
             pendingIncomingCall = null
+            pendingCallAction = null
+            pendingAutoAccept = false
             CallSoundHelper.stopAll()
             SosSessionStore.clearLastUrl(applicationContext)
             SosSessionStore.setLastUrl(applicationContext, BuildConfig.SOS_START_URL)
@@ -137,12 +142,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         captureDeepLinkFromIntent(intent)
+        captureCallActionFromIntent(intent)
         // שיחה נכנסת – לא עוצרים צלצול מיד; Web יקבל deeplink בלי reload | HYPER CORE TECH
-        if (!openedFromCallIntent) {
+        if (!openedFromCallIntent && pendingCallAction != CALL_ACTION_ANSWER) {
             CallSoundHelper.stopAll()
         }
         if (webPageReady && isWarmSosPage()) {
             injectPendingDeepLink()
+            injectPendingCallAction()
         } else {
             val url = resolveStartUrl(intent)
             if (this::webView.isInitialized) {
@@ -161,7 +168,14 @@ class MainActivity : AppCompatActivity() {
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
         NotificationHelper.clearMessageNotifications(this)
-        if (!openedFromCallIntent && System.currentTimeMillis() >= suppressCallCancelUntil) {
+        val ringingPeer = SosIncomingCallSession.activePeer(this)
+        if (!ringingPeer.isNullOrBlank() && !openedFromCallIntent) {
+            // פתיחת מסך בזמן צלצול – מעבירים ל-UI שיחה בלי לעצור את הצלצול | HYPER CORE TECH
+            pendingDeepLinkPeer = ringingPeer
+            pendingIncomingCall = SosIncomingCallSession.activeCallType(this)
+            openedFromCallIntent = true
+            suppressCallCancelUntil = System.currentTimeMillis() + 8000L
+        } else if (!openedFromCallIntent && System.currentTimeMillis() >= suppressCallCancelUntil) {
             CallSoundHelper.stopAll()
             NotificationHelper.cancelIncomingCall(this)
         } else if (openedFromCallIntent) {
@@ -185,6 +199,7 @@ class MainActivity : AppCompatActivity() {
             )
             if (webPageReady) {
                 injectPendingDeepLink()
+                injectPendingCallAction()
             }
             injectNativeFilePickScript()
         }
@@ -257,9 +272,14 @@ class MainActivity : AppCompatActivity() {
         return BuildConfig.SOS_START_URL
     }
 
-    /** Intent של לחיצה על האייקון (לא התרעה / לא deep-link) */
+    /** Intent של לחיצה על האייקון (לא התרעה / לא deep-link / לא ענה-דחה) */
     private fun isLauncherHomeIntent(intent: Intent?): Boolean {
         if (intent == null) return true
+        val callAction = intent.getStringExtra(EXTRA_CALL_ACTION)
+        if (!callAction.isNullOrBlank()) return false
+        if (intent.action == CallActionReceiver.ACTION_ANSWER ||
+            intent.action == CallActionReceiver.ACTION_DECLINE
+        ) return false
         if (!intent.getStringExtra(EXTRA_OPEN_URL).isNullOrBlank()) return false
         val data = intent.data
         if (data != null && data.scheme == "https") return false
@@ -308,24 +328,59 @@ class MainActivity : AppCompatActivity() {
         val url = intent?.getStringExtra(EXTRA_OPEN_URL)
             ?: intent?.data?.toString()
             ?: ""
-        val peer = extractQueryParam(url, "chat")
+        val peerFromExtra = intent?.getStringExtra(EXTRA_CALL_PEER)
             ?.trim()
             ?.lowercase()
             ?.takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }
-        val call = extractQueryParam(url, "incomingCall")
-            ?.trim()
-            ?.lowercase()
-            ?.let { raw ->
-                when {
-                    raw == "video" || raw == "v" || raw.startsWith("v-") -> "video"
-                    raw.isNotEmpty() -> "voice"
-                    else -> null
+        val peer = peerFromExtra
+            ?: extractQueryParam(url, "chat")
+                ?.trim()
+                ?.lowercase()
+                ?.takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }
+        val callFromExtra = intent?.getStringExtra(EXTRA_CALL_TYPE)?.trim()?.lowercase()
+        val call = when {
+            callFromExtra == "video" || callFromExtra == "v" || callFromExtra?.startsWith("v-") == true -> "video"
+            !callFromExtra.isNullOrBlank() -> "voice"
+            else -> extractQueryParam(url, "incomingCall")
+                ?.trim()
+                ?.lowercase()
+                ?.let { raw ->
+                    when {
+                        raw == "video" || raw == "v" || raw.startsWith("v-") -> "video"
+                        raw.isNotEmpty() -> "voice"
+                        else -> null
+                    }
                 }
-            }
+        }
         if (!peer.isNullOrBlank()) pendingDeepLinkPeer = peer
         if (!call.isNullOrBlank()) {
             pendingIncomingCall = call
             openedFromCallIntent = true
+        }
+    }
+
+    private fun captureCallActionFromIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.getStringExtra(EXTRA_CALL_ACTION)
+            ?: when (intent.action) {
+                CallActionReceiver.ACTION_ANSWER -> CALL_ACTION_ANSWER
+                CallActionReceiver.ACTION_DECLINE -> CALL_ACTION_DECLINE
+                else -> null
+            }
+        if (action.isNullOrBlank()) return
+        pendingCallAction = action
+        if (action == CALL_ACTION_ANSWER) {
+            pendingAutoAccept = true
+            openedFromCallIntent = true
+            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false)
+        }
+        if (action == CALL_ACTION_DECLINE) {
+            pendingAutoAccept = false
+            val peer = intent.getStringExtra(EXTRA_CALL_PEER) ?: pendingDeepLinkPeer
+            SosIncomingCallSession.markDeclined(applicationContext, peer)
+            SosPendingCallStore.clear(applicationContext)
+            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true)
+            CallSoundHelper.stopAll()
         }
     }
 
@@ -351,6 +406,7 @@ class MainActivity : AppCompatActivity() {
         val call = pendingIncomingCall
         if (peer.isNullOrBlank() && call.isNullOrBlank()) return
         if (!this::webView.isInitialized) return
+        val autoAccept = pendingAutoAccept && pendingCallAction == CALL_ACTION_ANSWER
         val peerJs = JSONObject.quote(peer ?: "")
         val callJs = JSONObject.quote(call ?: "")
         val pendingOfferRaw = SosPendingCallStore.getJson(applicationContext)
@@ -364,6 +420,7 @@ class MainActivity : AppCompatActivity() {
                     chat: $peerJs,
                     incomingCall: $callJs,
                     pendingOffer: $offerJs,
+                    autoAccept: ${if (autoAccept) "true" else "false"},
                     ts: Date.now()
                   }
                 }));
@@ -372,19 +429,92 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected deeplink peer=${peer?.take(8)} call=$call offer=${pendingOfferRaw.isNotBlank()}")
+            Log.i(TAG, "injected deeplink peer=${peer?.take(8)} call=$call autoAccept=$autoAccept")
         } catch (err: Exception) {
             Log.w(TAG, "deeplink inject failed: ${err.message}")
         }
-        // מנקים אחרי הזרקה – JS מנהל retries; בלי sticky peer שפותח שיחה בכל resume | HYPER CORE TECH
         pendingDeepLinkPeer = null
         pendingIncomingCall = null
+        if (autoAccept) {
+            pendingAutoAccept = false
+            pendingCallAction = null
+            SosIncomingCallSession.markAnswered(applicationContext, peer)
+        }
+    }
+
+    private fun injectPendingCallAction() {
+        val action = pendingCallAction ?: return
+        if (action == CALL_ACTION_ANSWER) {
+            // אם deeplink כבר נוקה – accept ישיר
+            val peer = intent?.getStringExtra(EXTRA_CALL_PEER)?.lowercase().orEmpty()
+            val type = intent?.getStringExtra(EXTRA_CALL_TYPE)?.lowercase() ?: "voice"
+            if (peer.isNotBlank()) injectNativeAccept(peer, type)
+            pendingCallAction = null
+            pendingAutoAccept = false
+            return
+        }
+        if (action != CALL_ACTION_DECLINE) return
+        val peer = intent?.getStringExtra(EXTRA_CALL_PEER)
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+        val type = intent?.getStringExtra(EXTRA_CALL_TYPE)?.lowercase() ?: "voice"
+        injectNativeDecline(peer, type)
+        pendingCallAction = null
+    }
+
+    private fun injectNativeAccept(peer: String, callType: String) {
+        if (!this::webView.isInitialized || peer.isBlank()) return
+        val peerJs = JSONObject.quote(peer)
+        val typeJs = JSONObject.quote(callType)
+        val js = """
+            (function(){
+              try {
+                var App = window.NostrApp || {};
+                if (typeof App.acceptIncomingCallFromNative === 'function') {
+                  App.acceptIncomingCallFromNative($peerJs, $typeJs);
+                }
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun injectNativeDecline(peer: String, callType: String) {
+        if (!this::webView.isInitialized) return
+        val peerJs = JSONObject.quote(peer)
+        val typeJs = JSONObject.quote(callType)
+        val js = """
+            (function(){
+              try {
+                var App = window.NostrApp || {};
+                if (typeof App.declineIncomingCallFromNative === 'function') {
+                  App.declineIncomingCallFromNative($peerJs, $typeJs);
+                } else if ($typeJs === 'video' && typeof App.endVideoCall === 'function') {
+                  App.endVideoCall();
+                } else if (typeof App.endVoiceCall === 'function') {
+                  App.endVoiceCall();
+                }
+                window.__sosIncomingCallActive = false;
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+            Log.i(TAG, "injected decline peer=${peer.take(8)}")
+        } catch (_: Exception) {
+        }
     }
 
     /** ניקוי deep-link ממתינים – נקרא מה-Web אחרי סגירת שיחה / חזרה לפיד */
     fun clearPendingDeepLinkFromJs() {
         pendingDeepLinkPeer = null
         pendingIncomingCall = null
+        pendingCallAction = null
+        pendingAutoAccept = false
     }
 
     private fun setupWebView() {
@@ -497,6 +627,7 @@ class MainActivity : AppCompatActivity() {
                 injectNativeFlag()
                 injectNativeFilePickScript()
                 injectPendingDeepLink()
+                injectPendingCallAction()
             }
         }
 
@@ -923,6 +1054,11 @@ class MainActivity : AppCompatActivity() {
 
         const val EXTRA_OPEN_URL = "open_url"
         const val EXTRA_START_IN_BACKGROUND = "start_in_background"
+        const val EXTRA_CALL_ACTION = "call_action"
+        const val EXTRA_CALL_PEER = "call_peer"
+        const val EXTRA_CALL_TYPE = "call_type"
+        const val CALL_ACTION_ANSWER = "answer"
+        const val CALL_ACTION_DECLINE = "decline"
 
         @JvmField
         @Volatile
