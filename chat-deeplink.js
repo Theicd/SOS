@@ -44,6 +44,37 @@
     } catch (_) {}
   }
 
+  // חלק Deep Link (chat-deeplink.js) – מנקה דגלים כדי שהתפריט התחתון יחזור ברשימת שיחות | HYPER CORE TECH
+  function clearDeepLinkFlags() {
+    try {
+      document.documentElement.removeAttribute('data-sos-deeplink');
+      document.body.classList.remove('sos-deeplink-chat');
+    } catch (_) {}
+  }
+
+  function stripChatParamFromUrl() {
+    try {
+      if (typeof history.replaceState !== 'function') return;
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has('chat') && !url.searchParams.has('incomingCall')) return;
+      url.searchParams.delete('chat');
+      url.searchParams.delete('incomingCall');
+      const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : '') + url.hash;
+      history.replaceState(null, '', next);
+    } catch (_) {}
+  }
+
+  App.clearSosDeepLinkFlags = function clearSosDeepLinkFlags() {
+    clearDeepLinkFlags();
+    stripChatParamFromUrl();
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.rememberWebUrl === 'function') {
+        bridge.rememberWebUrl(String(window.location.href || ''));
+      }
+    } catch (_) {}
+  };
+
   function openConversation(peer) {
     if (!peer) return false;
     try {
@@ -56,6 +87,8 @@
 
     if (typeof App.showChatConversation === 'function') {
       App.showChatConversation(peer);
+      // אחרי פתיחת השיחה – לא משאירים z-index/דגלים שחוסמים את ה-nav ברשימה | HYPER CORE TECH
+      setTimeout(clearDeepLinkFlags, 800);
       return true;
     }
     return false;

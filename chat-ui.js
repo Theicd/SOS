@@ -1335,6 +1335,9 @@
       elements.launcherButton?.setAttribute('aria-expanded', 'false');
       resetConversationView();
       doc.body.classList.remove('chat-overlay-open');
+      try {
+        if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+      } catch (_) {}
     }
   }
 
@@ -2519,6 +2522,14 @@
       App.clearChatFileTransferUI();
     }
     updatePanelMode(PANEL_MODES.LIST);
+    // חזרה לרשימת שיחות אחרי deep-link – מחזירים את התפריט התחתון | HYPER CORE TECH
+    try {
+      if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+      else {
+        document.documentElement.removeAttribute('data-sos-deeplink');
+        document.body.classList.remove('sos-deeplink-chat');
+      }
+    } catch (_) {}
   }
 
   function handleContactClick(event) {

@@ -173,6 +173,12 @@ class SosJsBridge(
         SosPendingCallStore.clear(context.applicationContext)
     }
 
+    /** עדכון כתובת אחרונה אחרי ניקוי ?chat= מה-deep-link | HYPER CORE TECH */
+    @JavascriptInterface
+    fun rememberWebUrl(url: String?) {
+        SosSessionStore.setLastUrl(context.applicationContext, url)
+    }
+
     @JavascriptInterface
     fun requestMediaPermissions(needCamera: Boolean) {
         val act = context as? MainActivity ?: return

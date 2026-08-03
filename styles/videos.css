@@ -2718,9 +2718,10 @@ body.sos-deeplink-chat .videos-feed__card--loadnug {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+/* לא מעלים את #chatPanel מעל .primary-nav (3000) – אחרת נעלם התפריט התחתון ברשימת שיחות | HYPER CORE TECH */
 html[data-sos-deeplink="1"] #chatPanel,
 body.sos-deeplink-chat #chatPanel {
-  z-index: 10050 !important;
+  z-index: 2000 !important;
 }
 /* מסך שיחה תמיד מעל פאנל הצ'אט – גם בנתיב deep-link | HYPER CORE TECH */
 html[data-sos-deeplink="1"] .voice-call-dialog,
@@ -2733,6 +2734,16 @@ body.sos-call-active .video-call-dialog {
 }
 body.sos-call-active #chatPanel {
   z-index: 2000 !important;
+}
+/* ברשימת שיחות (לא conversation) – וידוא שהתפריט התחתון גלוי מעל הפאנל | HYPER CORE TECH */
+@media (max-width: 768px) {
+  body:has(#chatPanel:not([hidden]):not(.chat-panel--conversation)) .primary-nav {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 3000 !important;
+  }
 }
 
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
