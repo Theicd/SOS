@@ -222,28 +222,40 @@
   }
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – priming לאודיו כדי לעקוף מדיניות autoplay | HYPER CORE TECH
+  function silenceDialtonePrime() {
+    if (!dialtoneAudio) return;
+    try { dialtoneAudio.pause(); } catch {}
+    try { dialtoneAudio.currentTime = 0; } catch {}
+  }
+
   function primeToneAudioOnce() {
     if (toneAudioPrimed) return;
+    // באפליקציית APK – CallSoundHelper, בלי priming HTML | HYPER CORE TECH
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
+      toneAudioPrimed = true;
+      return;
+    }
     ensureToneAudioElements();
     try {
       dialtoneAudio.muted = true;
       const p = dialtoneAudio.play();
       if (p && typeof p.then === 'function') {
         p.then(() => {
-          try { dialtoneAudio.pause(); } catch {}
-          try { dialtoneAudio.currentTime = 0; } catch {}
-          dialtoneAudio.muted = false;
+          silenceDialtonePrime();
+          try { dialtoneAudio.muted = false; } catch {}
           toneAudioPrimed = true;
         }).catch(() => {
+          // AbortError מנגן מדיה אחרת – עוצרים בלי להשאיר נגינה בקול | HYPER CORE TECH
+          silenceDialtonePrime();
           try { dialtoneAudio.muted = false; } catch {}
         });
       } else {
-        try { dialtoneAudio.pause(); } catch {}
-        try { dialtoneAudio.currentTime = 0; } catch {}
-        dialtoneAudio.muted = false;
+        silenceDialtonePrime();
+        try { dialtoneAudio.muted = false; } catch {}
         toneAudioPrimed = true;
       }
     } catch {
+      silenceDialtonePrime();
       try { dialtoneAudio.muted = false; } catch {}
     }
   }

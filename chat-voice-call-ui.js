@@ -855,8 +855,21 @@
     }
   }
 
+  function silenceTonePrimer() {
+    if (!tonePrimerAudio) return;
+    try { tonePrimerAudio.pause(); } catch {}
+    try { tonePrimerAudio.currentTime = 0; } catch {}
+    // נשאר muted – הפריים לא אמור להישמע אף פעם | HYPER CORE TECH
+    try { tonePrimerAudio.muted = true; } catch {}
+  }
+
   function primeToneAudioOnce() {
     if (toneAudioPrimed) return;
+    // באפליקציית APK הצלילים מגיעים מ-CallSoundHelper – בלי priming HTML | HYPER CORE TECH
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
+      toneAudioPrimed = true;
+      return;
+    }
     ensureToneAudioElements();
 
     try {
@@ -864,21 +877,18 @@
       const p = tonePrimerAudio.play();
       if (p && typeof p.then === 'function') {
         p.then(() => {
-          try { tonePrimerAudio.pause(); } catch {}
-          try { tonePrimerAudio.currentTime = 0; } catch {}
-          tonePrimerAudio.muted = false;
+          silenceTonePrimer();
           toneAudioPrimed = true;
         }).catch(() => {
-          try { tonePrimerAudio.muted = false; } catch {}
+          // AbortError מנגן וידאו/מדיה אחר – חובה לעצור בלי unmute | HYPER CORE TECH
+          silenceTonePrimer();
         });
       } else {
-        try { tonePrimerAudio.pause(); } catch {}
-        try { tonePrimerAudio.currentTime = 0; } catch {}
-        tonePrimerAudio.muted = false;
+        silenceTonePrimer();
         toneAudioPrimed = true;
       }
     } catch {
-      try { tonePrimerAudio.muted = false; } catch {}
+      silenceTonePrimer();
     }
   }
 
@@ -1017,8 +1027,7 @@
     initVoiceCallServiceWorkerMessageHandling();
     initCallButton();
     console.log('Voice call UI initialized');
-    // חלק שיחות קול (chat-voice-call-ui.js) – priming לצלילי MP3 + בקשת הרשאת Notification אחרי מחווה ראשונה | HYPER CORE TECH
-    resumeOnUserGestureOnce();
+    // priming רק בלחיצת שיחה / שיחה נכנסת – לא על כל מחווה בדף (מונע צלצול ב-compose) | HYPER CORE TECH
     // סגירת בטיחות כשעוזבים את הדף
     window.addEventListener('beforeunload', () => {
       stopRingtone();

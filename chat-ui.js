@@ -816,6 +816,8 @@
   }
 
   function playChatMessageSound() {
+    // באפליקציית APK הצליל מגיע מהתראת Native בלבד – מונע ציפצוף כפול | HYPER CORE TECH
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell()) return;
     ensureChatMessageAudio();
     if (!chatMessageAudio) return;
     try {

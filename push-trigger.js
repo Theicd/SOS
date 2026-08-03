@@ -256,23 +256,31 @@
     const title = `הודעה מ-${contactInfo.name}`;
     const openUrl = `https://sos010.com/videos.html?chat=${message.from}`;
     const tag = `chat-${message.from}`;
+    const eventId = message.id || message.eventId || '';
 
-    // קריטי: התראה מקומית/native מיד במכשיר הזה (גם ברקע) – לא רק דרך שרת | HYPER CORE TECH
-    try {
-      if (typeof App.showChatNotification === 'function') {
-        App.showChatNotification(contactInfo.name, body, message.from);
-      } else if (typeof App.nativeShowNotification === 'function') {
-        App.nativeShowNotification(title, body, openUrl, tag);
-      } else if (typeof App.showLocalNotification === 'function') {
-        App.showLocalNotification(title, {
-          body,
-          tag,
-          type: 'chat-message',
-          data: { type: 'chat-message', peerPubkey: message.from, url: openUrl },
-        });
+    // באפליקציית APK: chat-ui + SosRelayWatcher כבר מתריעים – בלי כפילות מקומית | HYPER CORE TECH
+    const isNative = typeof App.isNativeShell === 'function' && App.isNativeShell();
+    if (!isNative) {
+      try {
+        if (typeof App.showLocalNotification === 'function') {
+          await App.showLocalNotification(title, {
+            body,
+            tag,
+            type: 'chat-message',
+            eventId,
+            data: {
+              type: 'chat-message',
+              peerPubkey: message.from,
+              eventId,
+              url: openUrl,
+            },
+          });
+        } else if (typeof App.showChatNotification === 'function') {
+          App.showChatNotification(contactInfo.name, body, message.from);
+        }
+      } catch (localErr) {
+        console.warn('[PUSH-TRIGGER] local notify failed', localErr);
       }
-    } catch (localErr) {
-      console.warn('[PUSH-TRIGGER] local/native notify failed', localErr);
     }
     
     // Push לשרת – למכשירים אחרים / FCM כשה-WebView מת | HYPER CORE TECH
@@ -288,6 +296,7 @@
       type: 'chat-message',
       messageType,
       peerPubkey: message.from,
+      eventId,
       url: `./videos.html?chat=${message.from}`,
     });
   }

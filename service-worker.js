@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v211'; // bump - Android notification aggregate + single sound
+  const CACHE_NAME = 'sos-cache-v212'; // bump - single message beep + fix ringtone priming leak
   const PRECACHE_URLS = [
     './',
     './videos.html',
