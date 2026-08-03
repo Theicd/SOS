@@ -153,6 +153,94 @@
     return null;
   }
 
+  // חלק APK – פענוח EVENT גולמי שנשמר ב-native כשהמסך היה כבוי | HYPER CORE TECH
+  async function hydrateOfferFromNativeRawEvent(peerPubkey, pendingRawEventDetail) {
+    if (incomingOffer && incomingOffer.type && incomingOffer.sdp) return incomingOffer;
+    const peerWanted = String(peerPubkey || '').toLowerCase();
+
+    const tryDecryptEvent = async (eventObj) => {
+      if (!eventObj || typeof eventObj !== 'object') return null;
+      const peer = String(eventObj.pubkey || '').toLowerCase();
+      if (peerWanted && peer && peer !== peerWanted) return null;
+      if (!eventObj.content || !App.privateKey || !window.NostrTools?.nip04) return null;
+      try {
+        const decrypted = await window.NostrTools.nip04.decrypt(
+          App.privateKey,
+          peer,
+          eventObj.content
+        );
+        let offer = decrypted ? JSON.parse(decrypted) : null;
+        if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
+        if (!offer?.type || !offer?.sdp) return null;
+        incomingOffer = offer;
+        incomingOfferPeer = peer || peerWanted || incomingOfferPeer;
+        persistIncomingOffer(incomingOfferPeer, offer);
+        console.log('[APK] hydrated offer from native raw event', peer.slice(0, 8));
+        return offer;
+      } catch (err) {
+        console.warn('[APK] decrypt raw event failed', err);
+        return null;
+      }
+    };
+
+    const unwrap = (raw) => {
+      if (!raw) return null;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed?.event) {
+          const ev = typeof parsed.event === 'string' ? JSON.parse(parsed.event) : parsed.event;
+          return { meta: parsed, event: ev };
+        }
+        if (parsed?.pubkey && parsed?.content) return { meta: null, event: parsed };
+      } catch (_) {}
+      return null;
+    };
+
+    try {
+      if (pendingRawEventDetail) {
+        const pack = unwrap(pendingRawEventDetail);
+        if (pack) {
+          const ok = await tryDecryptEvent(pack.event);
+          if (ok) return ok;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      let pack = null;
+      if (typeof App.nativeGetIncomingCallRawEvent === 'function') {
+        pack = unwrap(App.nativeGetIncomingCallRawEvent());
+      } else {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
+          pack = unwrap(bridge.getIncomingCallRawEvent());
+        }
+      }
+      if (pack) {
+        const ok = await tryDecryptEvent(pack.event);
+        if (ok) return ok;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  async function ensureMicReady() {
+    try {
+      if (typeof App.nativeRequestMediaPermissions === 'function') {
+        App.nativeRequestMediaPermissions(false);
+      }
+    } catch (_) {}
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.requestMediaPermissions === 'function') {
+        bridge.requestMediaPermissions(false);
+      }
+    } catch (_) {}
+    // קצר – נותנים לדיאלוג הרשאות להופיע בלי לחסום לנצח
+    await new Promise((r) => setTimeout(r, 350));
+  }
+
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת דיאלוג שיחה
   function createCallDialog(peerPubkey, isIncoming) {
     // הסרת דיאלוג קיים
@@ -727,12 +815,14 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בקבלת שיחה
   async function handleAcceptCall(peerPubkey) {
     try {
-      // חלק שיחות קול (chat-voice-call-ui.js) – סגירת התראת מערכת מיד עם לחיצת "קבל" | HYPER CORE TECH
       closeIncomingCallNotification();
-      // אימות offer נכנס
+      await ensureMicReady();
+      await hydrateOfferFromNativeRawEvent(peerPubkey);
+      restoreIncomingOffer(peerPubkey, null);
       const offer = incomingOffer;
       if (!offer || !offer.type || !offer.sdp) {
-        alert('שגיאה: ההצעה לשיחה אינה תקינה. נסה שוב.');
+        updateCallStatus('ממתין להצעת שיחה...');
+        alert('עדיין אין הצעת שיחה תקינה. המתן שנייה ונסה שוב.');
         return;
       }
       await App.voiceCall.accept(peerPubkey, offer);
@@ -875,10 +965,10 @@
   };
 
   // חלק APK (chat-voice-call-ui.js) – ענה מהתראת CallStyle | HYPER CORE TECH
-  App.acceptIncomingCallFromNative = function acceptIncomingCallFromNative(peerPubkey, callType) {
+  App.acceptIncomingCallFromNative = function acceptIncomingCallFromNative(peerPubkey, callType, pendingRawEvent) {
     if (callType && String(callType).toLowerCase() === 'video') {
       if (typeof App.acceptIncomingVideoCallFromNative === 'function') {
-        return App.acceptIncomingVideoCallFromNative(peerPubkey);
+        return App.acceptIncomingVideoCallFromNative(peerPubkey, pendingRawEvent);
       }
       return false;
     }
@@ -901,26 +991,37 @@
       }
     } catch (_) {}
 
-    restoreIncomingOffer(peer, null);
     if (!callDialog) {
       saveChatPanelState();
       createCallDialog(peer, true);
     }
+    updateCallStatus('מתחבר...');
 
     let attempts = 0;
-    const maxAttempts = 50; // ~20s
-    const tryAccept = () => {
+    const maxAttempts = 40;
+    const tryAccept = async () => {
       attempts += 1;
-      restoreIncomingOffer(peer, null);
-      if (incomingOffer && incomingOffer.type && incomingOffer.sdp) {
-        window.__sosNativePendingAnswer = null;
-        handleAcceptCall(peer);
-        return;
+      try {
+        if (!App.privateKey || !window.NostrTools?.nip04) {
+          if (attempts < maxAttempts) {
+            setTimeout(tryAccept, 400);
+            return;
+          }
+        }
+        await hydrateOfferFromNativeRawEvent(peer, pendingRawEvent);
+        restoreIncomingOffer(peer, null);
+        if (incomingOffer && incomingOffer.type && incomingOffer.sdp) {
+          window.__sosNativePendingAnswer = null;
+          await handleAcceptCall(peer);
+          return;
+        }
+      } catch (err) {
+        console.warn('[APK] accept attempt failed', err);
       }
       if (attempts >= maxAttempts) {
         console.warn('[APK] accept timed out waiting for offer');
         window.__sosNativePendingAnswer = null;
-        updateCallStatus('ממתין להצעת שיחה...');
+        updateCallStatus('לא התקבלה הצעת שיחה');
         return;
       }
       setTimeout(tryAccept, 400);

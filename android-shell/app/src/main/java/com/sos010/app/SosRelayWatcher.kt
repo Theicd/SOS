@@ -157,7 +157,7 @@ class SosRelayWatcher(private val appContext: Context) {
 
             when (kind) {
                 CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty(), id)
-                CALL_KIND -> handleCallSignal(author, signalType)
+                CALL_KIND -> handleCallSignal(author, signalType, event)
             }
         } catch (err: Exception) {
             Log.w(TAG, "parse fail: ${err.message}")
@@ -232,7 +232,7 @@ class SosRelayWatcher(private val appContext: Context) {
         Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
     }
 
-    private fun handleCallSignal(author: String, signalType: String) {
+    private fun handleCallSignal(author: String, signalType: String, event: JSONObject) {
         when (signalType) {
             "offer", "v-offer" -> {
                 val now = System.currentTimeMillis()
@@ -241,15 +241,20 @@ class SosRelayWatcher(private val appContext: Context) {
                     Log.i(TAG, "suppressed offer from ${author.take(8)}")
                     return
                 }
-                // אותה שיחה כבר מצלצלת – לא לפתוח התראה שוב
+                // אותה שיחה כבר מצלצלת – לא לפתוח התראה שוב, אבל מעדכנים raw event
+                val isVideo = signalType == "v-offer"
+                val callType = if (isVideo) "video" else "voice"
+                try {
+                    SosPendingCallStore.saveRawEvent(appContext, author, callType, event.toString())
+                } catch (err: Exception) {
+                    Log.w(TAG, "save raw offer failed: ${err.message}")
+                }
                 if (SosIncomingCallSession.isSameActiveCall(appContext, author)) {
-                    Log.i(TAG, "duplicate active offer from ${author.take(8)}")
+                    Log.i(TAG, "duplicate active offer from ${author.take(8)} (raw refreshed)")
                     return
                 }
                 if (now - lastCallNotifyAt < 1500L) return
                 lastCallNotifyAt = now
-                val isVideo = signalType == "v-offer"
-                val callType = if (isVideo) "video" else "voice"
                 val title = if (isVideo) "שיחת וידאו נכנסת" else "שיחה קולית נכנסת"
                 val caller = SosContactCache.displayName(appContext, author, "מישהו")
                 val openUrl = "https://sos010.com/videos.html?chat=$author&incomingCall=$callType"
@@ -257,7 +262,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 // גם כשהממשק פתוח – אם המסך כבוי/ברקע isHostAlive=false.
                 // כשהממשק בחזית: Web מציג דיאלוג; עדיין מציגים התראת CallStyle בלי FSI כפול.
                 if (MainActivity.isHostAlive) {
-                    Log.i(TAG, "host alive – web handles UI, skip lock-screen activity")
+                    Log.i(TAG, "host alive – web handles UI, raw offer cached")
                     return
                 }
 

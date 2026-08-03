@@ -195,6 +195,12 @@ class SosJsBridge(
         return SosPendingCallStore.getJson(context.applicationContext)
     }
 
+    /** EVENT גולמי מה-RelayWatcher (מוצפן) – לפענוח ב-Web בלחיצת ענה | HYPER CORE TECH */
+    @JavascriptInterface
+    fun getIncomingCallRawEvent(): String {
+        return SosPendingCallStore.getRawEventJson(context.applicationContext)
+    }
+
     @JavascriptInterface
     fun clearIncomingCallOffer() {
         SosPendingCallStore.clear(context.applicationContext)

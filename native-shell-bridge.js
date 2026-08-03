@@ -76,6 +76,19 @@
     }
   }
 
+  function nativeGetIncomingCallRawEvent() {
+    if (!isNativeShell()) return null;
+    try {
+      const bridge = getBridge();
+      if (!bridge || typeof bridge.getIncomingCallRawEvent !== 'function') return null;
+      const raw = bridge.getIncomingCallRawEvent();
+      if (!raw) return null;
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function nativeClearIncomingCallOffer() {
     try {
       const bridge = getBridge();
@@ -499,6 +512,7 @@
     nativeStopCallDialtone,
     nativeCacheIncomingCallOffer,
     nativeGetIncomingCallOffer,
+    nativeGetIncomingCallRawEvent,
     nativeClearIncomingCallOffer,
     nativeRequestMediaPermissions,
     ensureNativeMediaPermissions,

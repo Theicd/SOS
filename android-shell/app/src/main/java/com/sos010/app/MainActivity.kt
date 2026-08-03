@@ -428,7 +428,9 @@ class MainActivity : AppCompatActivity() {
         val peerJs = JSONObject.quote(peer ?: "")
         val callJs = JSONObject.quote(call ?: "")
         val pendingOfferRaw = SosPendingCallStore.getJson(applicationContext)
+        val pendingRawEvent = SosPendingCallStore.getRawEventJson(applicationContext)
         val offerJs = JSONObject.quote(pendingOfferRaw)
+        val rawEventJs = JSONObject.quote(pendingRawEvent)
         val js = """
             (function(){
               try {
@@ -438,6 +440,7 @@ class MainActivity : AppCompatActivity() {
                     chat: $peerJs,
                     incomingCall: $callJs,
                     pendingOffer: $offerJs,
+                    pendingRawEvent: $rawEventJs,
                     autoAccept: ${if (autoAccept) "true" else "false"},
                     ts: Date.now()
                   }
@@ -485,6 +488,7 @@ class MainActivity : AppCompatActivity() {
         if (!this::webView.isInitialized || peer.isBlank()) return
         val peerJs = JSONObject.quote(peer)
         val typeJs = JSONObject.quote(callType)
+        val rawEventJs = JSONObject.quote(SosPendingCallStore.getRawEventJson(applicationContext))
         val js = """
             (function(){
               try {
@@ -492,7 +496,7 @@ class MainActivity : AppCompatActivity() {
                 if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
                 if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
                 if (typeof App.acceptIncomingCallFromNative === 'function') {
-                  App.acceptIncomingCallFromNative($peerJs, $typeJs);
+                  App.acceptIncomingCallFromNative($peerJs, $typeJs, $rawEventJs);
                 }
               } catch (e) {}
             })();

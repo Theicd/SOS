@@ -153,6 +153,7 @@
     const chat = normalizePeer(detail?.chat);
     const incomingCall = normalizeCallType(detail?.incomingCall);
     const pendingOffer = detail?.pendingOffer || null;
+    const pendingRawEvent = detail?.pendingRawEvent || null;
     const autoAccept = !!detail?.autoAccept;
     if (!chat && !incomingCall) return true;
 
@@ -191,7 +192,7 @@
           try {
             const App = window.NostrApp || {};
             if (typeof App.acceptIncomingCallFromNative === 'function') {
-              App.acceptIncomingCallFromNative(chat, incomingCall);
+              App.acceptIncomingCallFromNative(chat, incomingCall, pendingRawEvent);
             }
           } catch (err) {
             console.warn('[DEEPLINK] autoAccept failed', err);
