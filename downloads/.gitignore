@@ -1,3 +1,4 @@
 # APK served for one-tap Android install
 *.apk
 !SOS.apk
+!SOS-*.apk

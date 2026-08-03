@@ -202,17 +202,19 @@
     });
   }
 
-  // כתובת APK של מעטפת Android – התקנה אמיתית כמו אפליקציה | HYPER CORE TECH
+  // כתובת APK של מעטפת Android – שם קובץ כולל גרסה להורדה ברורה | HYPER CORE TECH
+  const NATIVE_APK_VERSION = '1.0.15';
+  const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
-    || './downloads/SOS.apk';
+    || `./downloads/${NATIVE_APK_FILE}`;
 
   function startNativeApkInstall() {
     // הורדה ישירה של APK – בלי מדריכים ובלי תפריט Chrome | HYPER CORE TECH
-    pwaToast('מוריד את אפליקציית SOS…');
+    pwaToast(`מוריד את אפליקציית SOS ${NATIVE_APK_VERSION}…`);
     try {
       const link = document.createElement('a');
       link.href = NATIVE_APK_URL;
-      link.setAttribute('download', 'SOS.apk');
+      link.setAttribute('download', NATIVE_APK_FILE);
       link.rel = 'noopener';
       link.style.display = 'none';
       document.body.appendChild(link);
@@ -222,7 +224,7 @@
       console.error('[PWA] APK download failed, fallback navigate', err);
       window.location.href = NATIVE_APK_URL;
     }
-    return { outcome: 'apk_download', url: NATIVE_APK_URL };
+    return { outcome: 'apk_download', url: NATIVE_APK_URL, file: NATIVE_APK_FILE, version: NATIVE_APK_VERSION };
   }
 
   // חלק מדריך דסקטופ (pwa-installer.js) – כשאין beforeinstallprompt | HYPER CORE TECH
@@ -766,6 +768,9 @@
     isPwaInstalled: () => isInstalled || checkIfInstalled(),
     showUpdateAvailableToast,
     ensurePushAfterInstall,
+    SOS_APK_VERSION: NATIVE_APK_VERSION,
+    SOS_APK_FILE: NATIVE_APK_FILE,
+    SOS_APK_URL: NATIVE_APK_URL,
   });
   
   // פונקציה גלובלית להפעלת התקנה – פותחת בחירת פלטפורמה | HYPER CORE TECH

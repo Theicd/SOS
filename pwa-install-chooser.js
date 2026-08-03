@@ -52,6 +52,9 @@
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', 'בחירת התקנת SOS');
+    const App = window.NostrApp || {};
+    const apkFile = App.SOS_APK_FILE || 'SOS-1.0.15.apk';
+    const apkVersion = App.SOS_APK_VERSION || '1.0.15';
     root.innerHTML = `
       <div class="pwa-install-chooser__overlay" data-chooser-close></div>
       <div class="pwa-install-chooser__card">
@@ -74,7 +77,7 @@
             <span class="pwa-install-chooser__option-icon" aria-hidden="true"><i class="fa-brands fa-android"></i></span>
             <span class="pwa-install-chooser__option-body">
               <span class="pwa-install-chooser__option-title">אנדרואיד</span>
-              <span class="pwa-install-chooser__option-sub">הורדת קובץ APK להתקנה כ־אפליקציה</span>
+              <span class="pwa-install-chooser__option-sub">הורדת ${apkFile} (גרסה ${apkVersion})</span>
             </span>
             ${recommended === 'android' ? '<span class="pwa-install-chooser__badge">מומלץ</span>' : ''}
           </button>
