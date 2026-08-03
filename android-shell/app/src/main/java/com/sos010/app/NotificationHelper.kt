@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioManager
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -17,20 +18,20 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * התראות מערכת בסגנון וואטסאפ:
- * כרטיס הודעות אחד שמתעדכן, צליל פעם אחת להודעה, בלי כפילויות.
+ * כרטיס הודעות אחד שמתעדכן, צליל יחיד להודעה, בלי כפילויות Web+Native.
  */
 object NotificationHelper {
-    /** ערוץ חדש – חובה כשמשנים צליל (אי אפשר לעדכן ערוץ קיים) */
-    const val CHANNEL_MESSAGES = "sos_messages_v3"
+    /** ערוץ חדש בלי צליל מערכת – הצליל מנוגן ידנית פעם אחת בלבד */
+    const val CHANNEL_MESSAGES = "sos_messages_v4"
     const val CHANNEL_CALLS = "sos_calls_v2"
     const val CHANNEL_KEEPALIVE = "sos_keepalive"
     const val KEEPALIVE_ID = 1001
     const val INCOMING_CALL_ID = 2002
-    /** מזהה קבוע – מעדכן את אותה כרטיסיית הודעות במקום ליצור חדשות */
     const val MESSAGES_AGGREGATE_ID = 3001
     private const val MESSAGES_TAG = "sos-messages"
     private const val MAX_INBOX_LINES = 7
     private const val MAX_SEEN_EVENTS = 400
+    private const val ALERT_DEBOUNCE_MS = 1000L
 
     private data class InboxLine(
         val peerKey: String,
@@ -46,12 +47,14 @@ object NotificationHelper {
     private var totalMessageCount = 0
     private var lastOpenUrl: String? = null
     private val seenEventIds = ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var lastAlertAt = 0L
+    @Volatile private var suppressAlertsUntil = 0L
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        listOf("sos_messages", "sos_messages_v2").forEach { id ->
+        listOf("sos_messages", "sos_messages_v2", "sos_messages_v3").forEach { id ->
             try { nm.deleteNotificationChannel(id) } catch (_: Exception) {}
         }
         listOf("sos_calls_v1").forEach { id ->
@@ -59,12 +62,6 @@ object NotificationHelper {
         }
 
         if (nm.getNotificationChannel(CHANNEL_MESSAGES) == null) {
-            val sound = messageSoundUri(context)
-            val attrs = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setLegacyStreamType(AudioManager.STREAM_NOTIFICATION)
-                .build()
             nm.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_MESSAGES,
@@ -73,17 +70,17 @@ object NotificationHelper {
                 ).apply {
                     description = context.getString(R.string.channel_messages_desc)
                     enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 250, 150, 250)
+                    vibrationPattern = longArrayOf(0, 220)
                     enableLights(true)
                     setShowBadge(true)
-                    setSound(sound, attrs)
+                    // בלי צליל ערוץ – מונע כפילות עם MediaPlayer / Web | HYPER CORE TECH
+                    setSound(null, null)
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
         }
 
         if (nm.getNotificationChannel(CHANNEL_CALLS) == null) {
-            // צליל הצלצול מנוהל רק ב-CallSoundHelper (לולאה) – בלי כפילות מערוץ | HYPER CORE TECH
             nm.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_CALLS,
@@ -120,11 +117,11 @@ object NotificationHelper {
         return Uri.parse("android.resource://${context.packageName}/${R.raw.sos_message}")
     }
 
-    /**
-     * מציג/מעדכן כרטיס הודעות אחד.
-     * @param eventId מזהה אירוע Nostr / Push – מונע כפילות מריליי+FCM+Web
-     * @param peerKey מפתח השיחה (pubkey) לקיבוץ לפי משתמש
-     */
+    /** חוסם צלילי התראה לזמן קצר אחרי פתיחת האפליקציה (מונע צלצול חוזר ב-resume) */
+    fun suppressAlertsFor(durationMs: Long) {
+        suppressAlertsUntil = System.currentTimeMillis() + durationMs.coerceAtLeast(0L)
+    }
+
     fun showMessage(
         context: Context,
         title: String,
@@ -137,15 +134,24 @@ object NotificationHelper {
         ensureChannels(context)
         val app = context.applicationContext
 
+        // כשהממשק פתוח – בלי התראת מערכת (ה-Web מציג במסך) | HYPER CORE TECH
+        if (MainActivity.isHostAlive) return
+
         val normalizedEventId = eventId?.trim()?.lowercase().orEmpty()
         if (normalizedEventId.isNotEmpty() && !seenEventIds.add(normalizedEventId)) {
             return
+        }
+        // בלי eventId – דה-דופ לפי זמן קצר כדי לא לצלצל פעמיים מ-FCM+Relay
+        if (normalizedEventId.isEmpty()) {
+            val now = System.currentTimeMillis()
+            if (now - lastAlertAt < ALERT_DEBOUNCE_MS) return
         }
         trimSeenEvents()
 
         val resolvedPeer = resolvePeerKey(peerKey, tag, openUrl)
         val senderName = resolveSenderName(title, resolvedPeer)
         val preview = body.trim().ifBlank { "הודעה חדשה" }
+        val allowAlert = System.currentTimeMillis() >= suppressAlertsUntil
 
         synchronized(lock) {
             totalMessageCount += 1
@@ -156,7 +162,7 @@ object NotificationHelper {
                 inboxLines.removeFirst()
             }
             lastOpenUrl = openUrl ?: lastOpenUrl
-            postAggregateLocked(app)
+            postAggregateLocked(app, playSound = allowAlert)
         }
     }
 
@@ -201,7 +207,6 @@ object NotificationHelper {
             null
         }
 
-        // צליל רק מהערוץ + CallSoundHelper (לא setSound כפול על ה-builder ב-O+)
         val builder = NotificationCompat.Builder(app, CHANNEL_CALLS)
             .setSmallIcon(R.drawable.ic_stat_sos)
             .setLargeIcon(largeIcon)
@@ -217,10 +222,6 @@ object NotificationHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
             .setTimeoutAfter(60_000L)
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            builder.setSound(CallSoundHelper.ringtoneUri(app))
-        }
 
         try {
             NotificationManagerCompat.from(app).notify("sos-incoming-call", INCOMING_CALL_ID, builder.build())
@@ -239,7 +240,7 @@ object NotificationHelper {
         CallSoundHelper.stopRingtone()
     }
 
-    private fun postAggregateLocked(app: Context) {
+    private fun postAggregateLocked(app: Context, playSound: Boolean) {
         val peerCount = peerMessageCounts.size
         val total = totalMessageCount.coerceAtLeast(1)
         val lines = inboxLines.toList()
@@ -296,23 +297,47 @@ object NotificationHelper {
             .setContentIntent(pi)
             .setAutoCancel(true)
             .setNumber(total)
-            .setVibrate(longArrayOf(0, 250, 150, 250))
+            .setVibrate(if (playSound) longArrayOf(0, 220) else longArrayOf(0))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            // false = צליל פעם אחת על כל הודעה חדשה שמעדכנת את אותה כרטיסיה
-            .setOnlyAlertOnce(false)
-            .setGroup(MESSAGES_TAG)
-            .setGroupSummary(true)
-
-        // API 26+: הצליל מגיע מהערוץ בלבד — בלי MediaPlayer נוסף ובלי setSound כפול
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            builder.setSound(messageSoundUri(app))
-        }
+            .setOnlyAlertOnce(true)
+            .setSilent(!playSound)
 
         try {
             NotificationManagerCompat.from(app).notify(MESSAGES_TAG, MESSAGES_AGGREGATE_ID, builder.build())
         } catch (_: SecurityException) {
+        }
+
+        if (playSound) {
+            playMessageAlertOnce(app)
+        }
+    }
+
+    private fun playMessageAlertOnce(context: Context) {
+        val now = System.currentTimeMillis()
+        if (now - lastAlertAt < ALERT_DEBOUNCE_MS) return
+        lastAlertAt = now
+        try {
+            val player = MediaPlayer()
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setLegacyStreamType(AudioManager.STREAM_NOTIFICATION)
+                    .build()
+            )
+            player.setDataSource(context, messageSoundUri(context))
+            player.setOnCompletionListener { mp ->
+                try { mp.release() } catch (_: Exception) {}
+            }
+            player.setOnErrorListener { mp, _, _ ->
+                try { mp.release() } catch (_: Exception) {}
+                true
+            }
+            player.prepare()
+            player.start()
+        } catch (_: Exception) {
         }
     }
 

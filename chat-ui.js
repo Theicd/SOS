@@ -803,6 +803,14 @@
   }
 
   // חלק צ'אט (chat-ui.js) – צליל התרעה להודעות נכנסות
+  let chatSoundSuppressedUntil = 0;
+  function suppressChatSoundsBriefly(ms = 3000) {
+    chatSoundSuppressedUntil = Date.now() + Math.max(0, ms);
+  }
+  try {
+    window.addEventListener('sos-native-resume', () => suppressChatSoundsBriefly(3000));
+  } catch (_) {}
+
   function ensureChatMessageAudio() {
     if (chatMessageAudio) return;
     try {
@@ -816,8 +824,11 @@
   }
 
   function playChatMessageSound() {
-    // באפליקציית APK הצליל מגיע מהתראת Native בלבד – מונע ציפצוף כפול | HYPER CORE TECH
-    if (typeof App.isNativeShell === 'function' && App.isNativeShell()) return;
+    if (Date.now() < chatSoundSuppressedUntil) return;
+    // באפליקציית APK: צליל בממשק רק כשהחלון גלוי; ברקע הצליל מגיע מ-SosRelayWatcher בלבד | HYPER CORE TECH
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
+      if (doc.hidden || doc.visibilityState === 'hidden') return;
+    }
     ensureChatMessageAudio();
     if (!chatMessageAudio) return;
     try {
@@ -999,17 +1010,9 @@
 
       const openUrl = `${window.location.origin}${window.location.pathname}?chat=${normalizedPeer}`;
 
-      // APK: התראת Native מקובצת בלבד (בלי Web כפול) | HYPER CORE TECH
-      if (typeof App.isNativeShell === 'function' && App.isNativeShell()
-          && typeof App.nativeShowNotification === 'function') {
-        App.nativeShowNotification(
-          name,
-          safeSnippet,
-          openUrl,
-          `chat-${normalizedPeer}`,
-          messageId || '',
-          normalizedPeer
-        );
+      // APK: לא שולחים התראת מערכת מה-Web כלל.
+      // ברקע → SosRelayWatcher/FCM; בממשק גלוי → רק צליל מקומי (playChatMessageSound) | HYPER CORE TECH
+      if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
         return;
       }
 

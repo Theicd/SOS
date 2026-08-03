@@ -129,6 +129,8 @@ class MainActivity : AppCompatActivity() {
         isHostAlive = true
         CallSoundHelper.stopAll()
         NotificationHelper.cancelIncomingCall(this)
+        // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
+        NotificationHelper.suppressAlertsFor(3000L)
         NotificationHelper.clearMessageNotifications(this)
         startKeepAliveService()
         if (this::webView.isInitialized) {
