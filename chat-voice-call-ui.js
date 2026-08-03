@@ -80,6 +80,79 @@
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
+  function markCallUiActive(active) {
+    try {
+      if (active) {
+        doc.body.classList.add('sos-call-active');
+        window.__sosIncomingCallActive = true;
+      } else {
+        doc.body.classList.remove('sos-call-active');
+        window.__sosIncomingCallActive = false;
+      }
+    } catch (_) {}
+  }
+
+  function persistIncomingOffer(peerPubkey, offer) {
+    try {
+      const peer = String(peerPubkey || '').toLowerCase();
+      sessionStorage.setItem('sos_pending_voice_offer', JSON.stringify({
+        peer, callType: 'voice', offer, savedAt: Date.now()
+      }));
+    } catch (_) {}
+    try {
+      if (typeof App.nativeCacheIncomingCallOffer === 'function') {
+        App.nativeCacheIncomingCallOffer(peerPubkey, 'voice', offer);
+      }
+    } catch (_) {}
+  }
+
+  function clearPersistedIncomingOffer() {
+    try { sessionStorage.removeItem('sos_pending_voice_offer'); } catch (_) {}
+    try {
+      if (typeof App.nativeClearIncomingCallOffer === 'function') App.nativeClearIncomingCallOffer();
+    } catch (_) {}
+  }
+
+  function restoreIncomingOffer(peerPubkey, pendingOfferDetail) {
+    if (incomingOffer && incomingOffer.type && incomingOffer.sdp) return incomingOffer;
+    const tryParse = (parsed) => {
+      if (!parsed) return null;
+      try {
+        const offerRaw = parsed.offer != null ? parsed.offer : parsed;
+        const offer = typeof offerRaw === 'string' ? JSON.parse(offerRaw) : offerRaw;
+        const peer = String(parsed.peer || peerPubkey || '').toLowerCase();
+        if (!offer?.type || !offer?.sdp) return null;
+        if (peerPubkey && peer && peer !== String(peerPubkey).toLowerCase()) return null;
+        incomingOffer = offer;
+        incomingOfferPeer = peer || String(peerPubkey || '').toLowerCase() || incomingOfferPeer;
+        return offer;
+      } catch (_) {
+        return null;
+      }
+    };
+    try {
+      if (pendingOfferDetail) {
+        const parsed = typeof pendingOfferDetail === 'string' ? JSON.parse(pendingOfferDetail) : pendingOfferDetail;
+        const ok = tryParse(parsed);
+        if (ok) return ok;
+      }
+    } catch (_) {}
+    try {
+      if (typeof App.nativeGetIncomingCallOffer === 'function') {
+        const ok = tryParse(App.nativeGetIncomingCallOffer());
+        if (ok) return ok;
+      }
+    } catch (_) {}
+    try {
+      const raw = sessionStorage.getItem('sos_pending_voice_offer');
+      if (raw) {
+        const ok = tryParse(JSON.parse(raw));
+        if (ok) return ok;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת דיאלוג שיחה
   function createCallDialog(peerPubkey, isIncoming) {
     // הסרת דיאלוג קיים
@@ -88,9 +161,10 @@
     }
 
     activePeerPubkey = peerPubkey;
+    markCallUiActive(true);
 
-    const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
-    const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
+    const contact = App.chatState?.contacts?.get(String(peerPubkey || '').toLowerCase());
+    const name = contact?.name || `משתמש ${String(peerPubkey || '').slice(0, 8)}`;
     const initials = contact?.initials || 'מש';
     const picture = contact?.picture || '';
 
@@ -103,34 +177,34 @@
       <div class="voice-call-dialog__content">
         <div class="voice-call-dialog__topbar">
           <h2 class="voice-call-dialog__topbar-title">${isIncoming ? 'שיחה נכנסת' : 'מתחיל שיחת קול'}</h2>
-          <p class="voice-call-dialog__topbar-sub">ממתין לתשובה...</p>
+          <p class="voice-call-dialog__topbar-sub">${isIncoming ? 'לחץ ענה כדי להתחבר' : 'ממתין לתשובה...'}</p>
         </div>
         <div class="voice-call-dialog__header">
           <div class="voice-call-dialog__avatar">
             ${picture ? `<img src="${picture}" alt="${name}">` : `<span>${initials}</span>`}
           </div>
           <h3 class="voice-call-dialog__name">${name}</h3>
-          <p class="voice-call-dialog__status">${isIncoming ? 'מחייג קול...' : 'מחייג...'}</p>
+          <p class="voice-call-dialog__status">${isIncoming ? 'מחייג אליך...' : 'מחייג...'}</p>
           <p class="voice-call-dialog__timer" hidden>0:00</p>
         </div>
         <div class="voice-call-dialog__actions">
           ${isIncoming ? `
             <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--accept" data-action="accept">
               <i class="fa-solid fa-phone"></i>
-              <span>קבל</span>
+              <span>ענה</span>
             </button>
           ` : ''}
-          <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--mute" data-action="mute" hidden>
+          <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--mute" data-action="mute">
             <i class="fa-solid fa-microphone"></i>
             <span>השתק</span>
           </button>
-          <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--speaker" data-action="speaker" hidden>
+          <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--speaker" data-action="speaker">
             <i class="fa-solid fa-volume-high"></i>
             <span>רמקול</span>
           </button>
           <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--end" data-action="end">
             <i class="fa-solid fa-phone-slash"></i>
-            <span>נתק</span>
+            <span>${isIncoming ? 'דחה' : 'נתק'}</span>
           </button>
         </div>
       </div>
@@ -396,6 +470,8 @@
     incomingOfferPeer = null;
     activePeerPubkey = null;
     userDeclinedCall = false;
+    clearPersistedIncomingOffer();
+    markCallUiActive(false);
 
     if (callDialog) {
       callDialog.remove();
@@ -662,7 +738,15 @@
       await App.voiceCall.accept(peerPubkey, offer);
       incomingOffer = null;
       incomingOfferPeer = null;
+      clearPersistedIncomingOffer();
       updateCallStatus('מתחבר...');
+      try {
+        const endBtn = callDialog?.querySelector('[data-action="end"] span');
+        if (endBtn) endBtn.textContent = 'נתק';
+      } catch (_) {}
+      try {
+        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
     } catch (err) {
       console.error('Failed to accept call', err);
       alert(err.message || 'שגיאה בקבלת השיחה');
@@ -718,6 +802,7 @@
     // שמירת ה-offer באופן מקומי
     incomingOffer = offer;
     incomingOfferPeer = peerPubkey ? String(peerPubkey).toLowerCase() : null;
+    persistIncomingOffer(peerPubkey, offer);
 
     // חלק שיחות קול (chat-voice-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
     saveChatPanelState();
@@ -732,27 +817,28 @@
     showIncomingCallNotification(peerPubkey);
     // חלק שיחות קול (chat-voice-call-ui.js) – ניגון צלצול בצורה autoplay-safe (מחווה ראשונה אם צריך) | HYPER CORE TECH
     resumeOnUserGestureOnce(() => playRingtone());
+    try {
+      if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+    } catch (_) {}
   };
 
   // חלק Deep Link (chat-voice-call-ui.js) – חזרה לשיחה נכנסת מלחיצה על התראת מערכת | HYPER CORE TECH
-  App.resumeIncomingVoiceCallFromDeepLink = function resumeIncomingVoiceCallFromDeepLink(peerPubkey) {
+  App.resumeIncomingVoiceCallFromDeepLink = function resumeIncomingVoiceCallFromDeepLink(peerPubkey, pendingOfferDetail) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
-    if (peer && typeof App.showChatConversation === 'function') {
-      try { App.showChatConversation(peer); } catch (_) {}
+    window.__sosIncomingCallActive = true;
+    restoreIncomingOffer(peer, pendingOfferDetail);
+    // קודם מסך ענה – לא פותחים צ'אט שמסתיר את הדיאלוג | HYPER CORE TECH
+    const target = incomingOfferPeer || peer;
+    if (target) {
+      saveChatPanelState();
+      createCallDialog(target, true);
+      resumeOnUserGestureOnce(() => playRingtone());
+      try {
+        if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+      } catch (_) {}
+      return true;
     }
-    if (incomingOffer && (!peer || !incomingOfferPeer || peer === incomingOfferPeer)) {
-      const target = incomingOfferPeer || peer;
-      if (target) {
-        saveChatPanelState();
-        createCallDialog(target, true);
-        resumeOnUserGestureOnce(() => playRingtone());
-        try {
-          if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
-        } catch (_) {}
-        return true;
-      }
-    }
-    return !!peer;
+    return false;
   };
 
   // חלק שיחה ממתינה (chat-voice-call-ui.js) – התראה קצרה ללא צלצול מלא בזמן שיחה פעילה | HYPER CORE TECH

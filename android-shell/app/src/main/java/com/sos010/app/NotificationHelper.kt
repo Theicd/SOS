@@ -294,13 +294,15 @@ object NotificationHelper {
         CallSoundHelper.startRingtone(app)
     }
 
-    fun cancelIncomingCall(context: Context) {
+    fun cancelIncomingCall(context: Context, stopSound: Boolean = true) {
         try {
             NotificationManagerCompat.from(context.applicationContext)
                 .cancel("sos-incoming-call", INCOMING_CALL_ID)
         } catch (_: Exception) {
         }
-        CallSoundHelper.stopRingtone()
+        if (stopSound) {
+            CallSoundHelper.stopRingtone()
+        }
     }
 
     private fun postAggregateLocked(app: Context, playSound: Boolean) {

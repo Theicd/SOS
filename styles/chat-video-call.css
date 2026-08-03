@@ -1,5 +1,5 @@
 /* חלק שיחות וידאו (chat-video-call.css) – עיצוב דיאלוג וידאו בסגנון וואטסאפ */
-.video-call-dialog { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; }
+.video-call-dialog { position: fixed; inset: 0; z-index: 12060 !important; display: grid; place-items: center; }
 .video-call-dialog__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
 .video-call-dialog [hidden] { display: none !important; }
 .video-call-dialog__content { position: relative; width: min(920px, 96vw); height: min(640px, 86vh); background: #000; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.4); }

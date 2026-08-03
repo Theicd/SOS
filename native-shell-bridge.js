@@ -50,6 +50,39 @@
     }
   }
 
+  function nativeCacheIncomingCallOffer(peer, callType, offer) {
+    if (!isNativeShell()) return false;
+    try {
+      const bridge = getBridge();
+      if (!bridge || typeof bridge.cacheIncomingCallOffer !== 'function') return false;
+      const offerJson = typeof offer === 'string' ? offer : JSON.stringify(offer || {});
+      bridge.cacheIncomingCallOffer(String(peer || ''), String(callType || 'voice'), offerJson);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function nativeGetIncomingCallOffer() {
+    if (!isNativeShell()) return null;
+    try {
+      const bridge = getBridge();
+      if (!bridge || typeof bridge.getIncomingCallOffer !== 'function') return null;
+      const raw = bridge.getIncomingCallOffer();
+      if (!raw) return null;
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function nativeClearIncomingCallOffer() {
+    try {
+      const bridge = getBridge();
+      if (bridge && typeof bridge.clearIncomingCallOffer === 'function') bridge.clearIncomingCallOffer();
+    } catch (_) {}
+  }
+
   function nativeStartCallRingtone() {
     if (!isNativeShell()) return false;
     try {
@@ -434,7 +467,11 @@
       tryRegister();
       wireNativeFilePickers();
       syncContactsToNative();
+      // לא עוצרים צלצול שיחה נכנסת ב־resume – רק אחרי ענה/דחייה | HYPER CORE TECH
       try {
+        const params = new URLSearchParams(window.location.search || '');
+        const incoming = params.get('incomingCall') || window.__sosIncomingCallActive;
+        if (incoming) return;
         const bridge = getBridge();
         if (bridge && typeof bridge.stopCallSounds === 'function') bridge.stopCallSounds();
       } catch (_) {}
@@ -460,6 +497,9 @@
     nativeStopCallRingtone,
     nativeStartCallDialtone,
     nativeStopCallDialtone,
+    nativeCacheIncomingCallOffer,
+    nativeGetIncomingCallOffer,
+    nativeClearIncomingCallOffer,
     nativeRequestMediaPermissions,
     ensureNativeMediaPermissions,
     nativeHasMicPermission,

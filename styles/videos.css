@@ -2722,6 +2722,18 @@ html[data-sos-deeplink="1"] #chatPanel,
 body.sos-deeplink-chat #chatPanel {
   z-index: 10050 !important;
 }
+/* מסך שיחה תמיד מעל פאנל הצ'אט – גם בנתיב deep-link | HYPER CORE TECH */
+html[data-sos-deeplink="1"] .voice-call-dialog,
+html[data-sos-deeplink="1"] .video-call-dialog,
+body.sos-deeplink-chat .voice-call-dialog,
+body.sos-deeplink-chat .video-call-dialog,
+body.sos-call-active .voice-call-dialog,
+body.sos-call-active .video-call-dialog {
+  z-index: 12060 !important;
+}
+body.sos-call-active #chatPanel {
+  z-index: 2000 !important;
+}
 
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
 .videos-feed__media.is-paused .videos-feed__play-overlay {

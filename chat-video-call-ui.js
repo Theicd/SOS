@@ -373,6 +373,10 @@
   // חלק שיחות וידאו – יצירת דיאלוג
   function createDialog(peer, isIncoming){
     if (dialog) dialog.remove();
+    try {
+      doc.body.classList.add('sos-call-active');
+      window.__sosIncomingCallActive = true;
+    } catch (_) {}
     // חלק שיחות וידאו (chat-video-call-ui.js) – שליפת פרטי איש קשר כמו בשיחת קול
     const contact = App.chatState?.contacts?.get(peer.toLowerCase());
     const name = contact?.name || `משתמש ${peer.slice(0, 8)}`;
@@ -387,7 +391,7 @@
           <div class="video-call-dialog__incomingfx">
             <div class="video-call-dialog__incomingfx-text">
               <div class="video-call-dialog__incomingfx-title">${isIncoming ? 'שיחת וידאו נכנסת' : 'מתחיל שיחת וידאו'}</div>
-              <div class="video-call-dialog__incomingfx-sub">${isIncoming ? 'מאתחל קישור מוצפן...' : 'ממתין לתשובה...'}</div>
+              <div class="video-call-dialog__incomingfx-sub">${isIncoming ? 'לחץ קבל כדי להתחבר' : 'ממתין לתשובה...'}</div>
             </div>
           </div>
           <video id="videoRemote" class="video-remote" autoplay playsinline></video>
@@ -405,11 +409,11 @@
             <span class="video-call-dialog__timer" hidden style="margin-inline-start:auto;">0:00</span>
           </div>
           <div class="video-call-dialog__actions">
-            ${isIncoming? '<button class="vbtn vbtn--accept" data-action="accept"><i class="fa-solid fa-video"></i><span>קבל</span></button>' : ''}
-            <button class="vbtn vbtn--mute" data-action="mute" hidden><i class="fa-solid fa-microphone"></i><span>השתק</span></button>
-            <button class="vbtn vbtn--camera" data-action="camera" hidden><i class="fa-solid fa-camera"></i><span>מצלמה</span></button>
-            <button class="vbtn vbtn--flip" data-action="flip" hidden><i class="fa-solid fa-camera-rotate"></i><span>החלף</span></button>
-            <button class="vbtn vbtn--end" data-action="end"><i class="fa-solid fa-phone-slash"></i><span>נתק</span></button>
+            ${isIncoming? '<button class="vbtn vbtn--accept" data-action="accept"><i class="fa-solid fa-video"></i><span>ענה</span></button>' : ''}
+            <button class="vbtn vbtn--mute" data-action="mute"><i class="fa-solid fa-microphone"></i><span>השתק</span></button>
+            <button class="vbtn vbtn--camera" data-action="camera"><i class="fa-solid fa-camera"></i><span>מצלמה</span></button>
+            <button class="vbtn vbtn--flip" data-action="flip"><i class="fa-solid fa-camera-rotate"></i><span>החלף</span></button>
+            <button class="vbtn vbtn--end" data-action="end"><i class="fa-solid fa-phone-slash"></i><span>${isIncoming ? 'דחה' : 'נתק'}</span></button>
           </div>
         </div>
       </div>`;
@@ -499,7 +503,28 @@
     }, 150);
   }
 
-  function closeDialog(){ stopTimer(); invalidateToneSession(); stopRingtone(); stopDialtone(); App.__videoIncomingOffer = null; userDeclinedVideoCall = false; if (dialog) { dialog.remove(); dialog=null; } remoteVideo=null; localVideo=null; timerEl=null; restoreChatPanelState(); }
+  function closeDialog(){
+    stopTimer();
+    invalidateToneSession();
+    stopRingtone();
+    stopDialtone();
+    App.__videoIncomingOffer = null;
+    App.__videoIncomingPeer = null;
+    userDeclinedVideoCall = false;
+    try {
+      if (typeof App.nativeClearIncomingCallOffer === 'function') App.nativeClearIncomingCallOffer();
+      sessionStorage.removeItem('sos_pending_video_offer');
+    } catch (_) {}
+    try {
+      doc.body.classList.remove('sos-call-active');
+      window.__sosIncomingCallActive = false;
+    } catch (_) {}
+    if (dialog) { dialog.remove(); dialog = null; }
+    remoteVideo = null;
+    localVideo = null;
+    timerEl = null;
+    restoreChatPanelState();
+  }
 
   // חלק שיחות וידאו – פעולות כפתורים
   async function handleStart(peer){ try { startToneWithPolicy(playDialtone); await App.videoCall.start(peer); } catch(e){ console.error(e); alert(e.message||'שגיאת וידאו'); closeDialog(); } }
@@ -546,6 +571,14 @@
   App.onVideoCallIncoming = function(peer, offer){
     App.__videoIncomingOffer = offer;
     App.__videoIncomingPeer = peer ? String(peer).toLowerCase() : null;
+    try {
+      sessionStorage.setItem('sos_pending_video_offer', JSON.stringify({
+        peer: App.__videoIncomingPeer, callType: 'video', offer, savedAt: Date.now()
+      }));
+      if (typeof App.nativeCacheIncomingCallOffer === 'function') {
+        App.nativeCacheIncomingCallOffer(peer, 'video', offer);
+      }
+    } catch (_) {}
     // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה נכנסת | HYPER CORE TECH
     saveChatPanelState();
     // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה נכנסת | HYPER CORE TECH
@@ -556,27 +589,53 @@
     // חלק שיחות וידאו – התרעת מערכת כמו בשיחות קול | HYPER CORE TECH
     showIncomingVideoNotification(peer);
     startToneWithPolicy(playRingtone);
+    try {
+      if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+    } catch (_) {}
   };
 
   // חלק Deep Link (chat-video-call-ui.js) – חזרה לשיחת וידאו נכנסת מהתראת מערכת | HYPER CORE TECH
-  App.resumeIncomingVideoCallFromDeepLink = function resumeIncomingVideoCallFromDeepLink(peerPubkey) {
+  App.resumeIncomingVideoCallFromDeepLink = function resumeIncomingVideoCallFromDeepLink(peerPubkey, pendingOfferDetail) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
-    if (peer && typeof App.showChatConversation === 'function') {
-      try { App.showChatConversation(peer); } catch (_) {}
-    }
-    if (App.__videoIncomingOffer && (!peer || !App.__videoIncomingPeer || peer === App.__videoIncomingPeer)) {
-      const target = App.__videoIncomingPeer || peer;
-      if (target) {
-        saveChatPanelState();
-        createDialog(target, true);
-        startToneWithPolicy(playRingtone);
-        try {
-          if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
-        } catch (_) {}
+    window.__sosIncomingCallActive = true;
+    const restore = (parsed) => {
+      if (!parsed) return false;
+      try {
+        const offerRaw = parsed.offer != null ? parsed.offer : parsed;
+        const offer = typeof offerRaw === 'string' ? JSON.parse(offerRaw) : offerRaw;
+        const p = String(parsed.peer || peer || '').toLowerCase();
+        if (!offer?.type || !offer?.sdp) return false;
+        App.__videoIncomingOffer = offer;
+        App.__videoIncomingPeer = p || peer;
         return true;
+      } catch (_) { return false; }
+    };
+    try {
+      if (pendingOfferDetail) {
+        restore(typeof pendingOfferDetail === 'string' ? JSON.parse(pendingOfferDetail) : pendingOfferDetail);
       }
+    } catch (_) {}
+    if (!App.__videoIncomingOffer) {
+      try {
+        if (typeof App.nativeGetIncomingCallOffer === 'function') restore(App.nativeGetIncomingCallOffer());
+      } catch (_) {}
     }
-    return !!peer;
+    if (!App.__videoIncomingOffer) {
+      try {
+        const raw = sessionStorage.getItem('sos_pending_video_offer');
+        if (raw) restore(JSON.parse(raw));
+      } catch (_) {}
+    }
+    const target = App.__videoIncomingPeer || peer;
+    if (!target) return false;
+    // קודם מסך ענה – בלי לפתוח צ'אט מעליו | HYPER CORE TECH
+    saveChatPanelState();
+    createDialog(target, true);
+    startToneWithPolicy(playRingtone);
+    try {
+      if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+    } catch (_) {}
+    return true;
   };
   App.onVideoCallStarted = function(peer, isIncoming){
     if (!dialog) createDialog(peer, isIncoming);

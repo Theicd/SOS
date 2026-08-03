@@ -157,6 +157,22 @@ class SosJsBridge(
         NotificationHelper.cancelIncomingCall(context.applicationContext)
     }
 
+    /** שמירת offer שיחה נכנסת (JSON) לשחזור מסך ענה אחרי deep-link | HYPER CORE TECH */
+    @JavascriptInterface
+    fun cacheIncomingCallOffer(peer: String?, callType: String?, offerJson: String?) {
+        SosPendingCallStore.save(context.applicationContext, peer, callType, offerJson)
+    }
+
+    @JavascriptInterface
+    fun getIncomingCallOffer(): String {
+        return SosPendingCallStore.getJson(context.applicationContext)
+    }
+
+    @JavascriptInterface
+    fun clearIncomingCallOffer() {
+        SosPendingCallStore.clear(context.applicationContext)
+    }
+
     @JavascriptInterface
     fun requestMediaPermissions(needCamera: Boolean) {
         val act = context as? MainActivity ?: return

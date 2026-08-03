@@ -203,7 +203,7 @@
   }
 
   // כתובת APK של מעטפת Android – שם קובץ כולל גרסה להורדה ברורה | HYPER CORE TECH
-  const NATIVE_APK_VERSION = '1.0.17';
+  const NATIVE_APK_VERSION = '1.0.18';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
     || `./downloads/${NATIVE_APK_FILE}`;

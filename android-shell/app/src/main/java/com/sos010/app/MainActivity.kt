@@ -149,12 +149,12 @@ class MainActivity : AppCompatActivity() {
             CallSoundHelper.stopAll()
             NotificationHelper.cancelIncomingCall(this)
         } else if (openedFromCallIntent) {
-            // נותנים ל-Web להרים UI שיחה; מבטלים התראת מערכת אחרי השהייה קצרה
-            suppressCallCancelUntil = System.currentTimeMillis() + 2500L
+            // נותנים ל-Web להרים UI שיחה; מסירים כרטיס התראה בלי לעצור צלצול | HYPER CORE TECH
+            suppressCallCancelUntil = System.currentTimeMillis() + 8000L
             mainHandler.postDelayed({
-                NotificationHelper.cancelIncomingCall(this@MainActivity)
+                NotificationHelper.cancelIncomingCall(this@MainActivity, stopSound = false)
                 openedFromCallIntent = false
-            }, 1800L)
+            }, 2500L)
         }
         startKeepAliveService()
         if (this::webView.isInitialized) {
@@ -284,18 +284,26 @@ class MainActivity : AppCompatActivity() {
         if (!this::webView.isInitialized) return
         val peerJs = JSONObject.quote(peer ?: "")
         val callJs = JSONObject.quote(call ?: "")
+        val pendingOfferRaw = SosPendingCallStore.getJson(applicationContext)
+        val offerJs = JSONObject.quote(pendingOfferRaw)
         val js = """
             (function(){
               try {
+                window.__sosIncomingCallActive = true;
                 window.dispatchEvent(new CustomEvent('sos-native-deeplink', {
-                  detail: { chat: $peerJs, incomingCall: $callJs, ts: Date.now() }
+                  detail: {
+                    chat: $peerJs,
+                    incomingCall: $callJs,
+                    pendingOffer: $offerJs,
+                    ts: Date.now()
+                  }
                 }));
               } catch (e) {}
             })();
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected deeplink peer=${peer?.take(8)} call=$call")
+            Log.i(TAG, "injected deeplink peer=${peer?.take(8)} call=$call offer=${pendingOfferRaw.isNotBlank()}")
         } catch (err: Exception) {
             Log.w(TAG, "deeplink inject failed: ${err.message}")
         }

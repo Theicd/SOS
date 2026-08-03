@@ -54,5 +54,6 @@ object SosSessionStore {
             .remove(KEY_LAST_URL)
             .remove(KEY_LAST_URL_AT)
             .apply()
+        SosPendingCallStore.clear(context)
     }
 }

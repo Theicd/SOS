@@ -61,13 +61,13 @@
     return false;
   }
 
-  function focusIncomingCall(peer, callType) {
+  function focusIncomingCall(peer, callType, pendingOffer) {
     try {
       if (callType === 'video' && typeof App.resumeIncomingVideoCallFromDeepLink === 'function') {
-        return !!App.resumeIncomingVideoCallFromDeepLink(peer);
+        return !!App.resumeIncomingVideoCallFromDeepLink(peer, pendingOffer);
       }
       if (typeof App.resumeIncomingVoiceCallFromDeepLink === 'function') {
-        return !!App.resumeIncomingVoiceCallFromDeepLink(peer);
+        return !!App.resumeIncomingVoiceCallFromDeepLink(peer, pendingOffer);
       }
     } catch (err) {
       console.warn('[DEEPLINK] incoming call focus failed', err);
@@ -90,6 +90,7 @@
   function attemptOpen(detail, attempt) {
     const chat = normalizePeer(detail?.chat);
     const incomingCall = normalizeCallType(detail?.incomingCall);
+    const pendingOffer = detail?.pendingOffer || null;
     if (!chat && !incomingCall) return true;
 
     const key = `${chat}|${incomingCall}`;
@@ -101,13 +102,13 @@
     releaseBootIfNeeded();
 
     let opened = false;
-    if (chat) {
-      opened = openConversation(chat);
-    }
-
+    // שיחה נכנסת: קודם מסך ענה, בלי לפתוח צ'אט שמסתיר אותו | HYPER CORE TECH
     if (incomingCall) {
-      const callFocused = focusIncomingCall(chat, incomingCall);
-      opened = opened || callFocused || !!chat;
+      window.__sosIncomingCallActive = true;
+      const callFocused = focusIncomingCall(chat, incomingCall, pendingOffer);
+      opened = callFocused || !!chat;
+    } else if (chat) {
+      opened = openConversation(chat);
     }
 
     if (opened) {
@@ -126,6 +127,7 @@
     pending = {
       chat: normalizePeer(detail?.chat),
       incomingCall: normalizeCallType(detail?.incomingCall),
+      pendingOffer: detail?.pendingOffer || null,
     };
     if (!pending.chat && !pending.incomingCall) return;
 
@@ -193,7 +195,11 @@
     const data = event && event.data ? event.data : null;
     if (!data) return;
     if (data.type === 'sos-deeplink') {
-      handleDeepLink({ chat: data.chat || data.peerPubkey, incomingCall: data.incomingCall });
+      handleDeepLink({
+        chat: data.chat || data.peerPubkey,
+        incomingCall: data.incomingCall,
+        pendingOffer: data.pendingOffer || null,
+      });
       return;
     }
     if (data.type === 'chat-message-notification-action' || data.type === 'missed-call-notification-action') {

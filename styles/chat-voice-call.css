@@ -3,7 +3,7 @@
 .voice-call-dialog {
   position: fixed;
   inset: 0;
-  z-index: 9999; /* הועלה מעל הכל (chat-panel במובייל יש לו 2005) כדי שיופיע תמיד מעל | HYPER CORE TECH */
+  z-index: 12050 !important; /* מעל #chatPanel (deep-link 10050) ומעל תפריטי צ'אט | HYPER CORE TECH */
   display: flex;
   align-items: center;
   justify-content: center;
