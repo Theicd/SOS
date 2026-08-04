@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v234'; // bump - WhatsApp media upload bubble + composer preview flash fix
+  const CACHE_NAME = 'sos-cache-v235'; // bump - feed cards only when media ready (no empty scroll)
   const PRECACHE_URLS = [
     './',
     './videos.html',
