@@ -164,6 +164,95 @@
     }
   }
   
+  // חלק הורדה (chat-media-renderer.js) – הורדת מדיה/קובץ (blob/data/http) | HYPER CORE TECH
+  function escapeAttr(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function escapeJsString(s) {
+    return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  async function downloadChatMedia(url, filename) {
+    const src = String(url || '').trim();
+    const name = String(filename || 'sos-file').trim() || 'sos-file';
+    if (!src) return false;
+    try {
+      if (src.startsWith('blob:') || src.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = src;
+        a.download = name;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return true;
+      }
+      let blobUrl = '';
+      try {
+        const cached = await fetchAndCacheMedia(src);
+        const fetchUrl = cached || src;
+        const resp = await fetch(fetchUrl, { mode: 'cors', credentials: 'omit' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = name;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => {
+          try { URL.revokeObjectURL(blobUrl); } catch (_) {}
+        }, 2000);
+        return true;
+      } catch (err) {
+        console.warn('[CHAT-MEDIA] download via fetch failed, fallback open', err);
+        const a = document.createElement('a');
+        a.href = src;
+        a.download = name;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return true;
+      }
+    } catch (err) {
+      console.warn('[CHAT-MEDIA] download failed', err);
+      return false;
+    }
+  }
+
+  function buildMediaDownloadButton(src, name, className) {
+    if (!src) return '';
+    const cls = className || 'chat-message__media-download';
+    const safeName = escapeAttr(name || 'sos-file');
+    const jsSrc = escapeJsString(src);
+    const jsName = escapeJsString(name || 'sos-file');
+    return `<button type="button" class="${cls}" title="הורד" aria-label="הורד ${safeName}" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMedia==='function')NostrApp.downloadChatMedia('${jsSrc}','${jsName}');"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+  }
+
+  function buildAttachmentDownloadHtml(attachment, className) {
+    if (!attachment) return '';
+    const name = attachment.name || 'קובץ';
+    const magnetURI = attachment.magnetURI || '';
+    const src = attachment.dataUrl || attachment.url || '';
+    const cls = className || 'chat-file-bubble__download';
+    if (magnetURI) {
+      const escapedMagnet = magnetURI.replace(/"/g, '&quot;');
+      const escapedName = escapeAttr(name).replace(/'/g, "\\'");
+      return `<button type="button" class="${cls} torrent-bubble__download-btn" data-magnet="${escapedMagnet}" data-filename="${escapedName}" title="הורד"><i class="fa-solid fa-download"></i></button>`;
+    }
+    if (!src) return '';
+    return buildMediaDownloadButton(src, name, cls);
+  }
+
   // חלק רינדור תמונה (chat-media-renderer.js) – הצגת תמונה עם מטמון מקומי | HYPER CORE TECH
   function renderImageAttachment(attachment) {
     const src = attachment.url || attachment.dataUrl || '';
@@ -190,6 +279,8 @@
         }
       }, 0);
     }
+
+    const downloadHtml = buildAttachmentDownloadHtml(attachment, 'chat-message__media-download');
     
     return `
       <div class="chat-message__image-container">
@@ -203,6 +294,7 @@
           referrerpolicy="no-referrer"
           onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox(this.src,'${safeName.replace(/'/g, "\\'")}')"
         />
+        ${downloadHtml}
       </div>
     `;
   }
@@ -347,6 +439,7 @@
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
         </button>
         <span class="chat-message__video-duration">0:00</span>
+        ${buildAttachmentDownloadHtml(attachment, 'chat-message__media-download')}
         <video
           id="${uid}"
           class="chat-message__video"
@@ -400,30 +493,46 @@
     const lightbox = document.createElement('div');
     lightbox.id = 'chatImageLightbox';
     lightbox.className = 'chat-lightbox';
+    const safeName = App.escapeHtml ? App.escapeHtml(name || 'תמונה') : String(name || 'תמונה');
     lightbox.innerHTML = `
       <div class="chat-lightbox__backdrop"></div>
       <div class="chat-lightbox__content">
-        <button type="button" class="chat-lightbox__close" aria-label="סגור">
-          <i class="fa-solid fa-times"></i>
-        </button>
-        <img src="${src}" alt="${name}" class="chat-lightbox__image">
-        <div class="chat-lightbox__name">${name}</div>
+        <div class="chat-lightbox__actions">
+          <button type="button" class="chat-lightbox__download" aria-label="הורד" title="הורד">
+            <i class="fa-solid fa-download"></i>
+          </button>
+          <button type="button" class="chat-lightbox__close" aria-label="סגור" title="סגור">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+        <img src="${src}" alt="${safeName}" class="chat-lightbox__image">
+        <div class="chat-lightbox__name">${safeName}</div>
       </div>
     `;
     
     document.body.appendChild(lightbox);
     
-    const close = () => {
+    const close = (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       lightbox.classList.add('chat-lightbox--closing');
       setTimeout(() => lightbox.remove(), 200);
     };
     
     lightbox.querySelector('.chat-lightbox__close').addEventListener('click', close);
     lightbox.querySelector('.chat-lightbox__backdrop').addEventListener('click', close);
+    lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      downloadChatMedia(src, name || 'image.jpg');
+    });
+    lightbox.addEventListener('click', (event) => event.stopPropagation());
     
     document.addEventListener('keydown', function onEsc(e) {
       if (e.key === 'Escape') {
-        close();
+        close(e);
         document.removeEventListener('keydown', onEsc);
       }
     });
@@ -450,15 +559,8 @@
     // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור PDF | HYPER CORE TECH
     mediaDebugLog('render-pdf', { name, mime: attachment.type || '', hasDataUrl: !!dataUrl, hasMagnet: !!magnetURI });
 
-    // כפתור הורדה — לקבצי טורנט או DataURL
-    let downloadHtml = '';
-    if (magnetURI) {
-      const escapedMagnet = magnetURI.replace(/"/g, '&quot;');
-      const escapedName = safeName.replace(/'/g, "\\'");
-      downloadHtml = `<button class="chat-pdf-bubble__download torrent-bubble__download-btn" data-magnet="${escapedMagnet}" data-filename="${escapedName}" title="הורד PDF"><i class="fa-solid fa-download"></i></button>`;
-    } else if (dataUrl) {
-      downloadHtml = `<a class="chat-pdf-bubble__download" href="${dataUrl}" download="${safeName}" title="הורד PDF"><i class="fa-solid fa-download"></i></a>`;
-    }
+    // כפתור הורדה — לקבצי טורנט / URL / DataURL
+    const downloadHtml = buildAttachmentDownloadHtml(attachment, 'chat-pdf-bubble__download');
 
     // רנדור אסינכרוני של העמוד הראשון באמצעות PDF.js
     setTimeout(async () => {
@@ -542,12 +644,7 @@
     const uid = 'html-' + Math.random().toString(36).substr(2, 9);
     // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור HTML | HYPER CORE TECH
     mediaDebugLog('render-html', { name, mime: att.type || '', hasDataUrl: !!dataUrl, hasMagnet: !!magnetURI });
-    let dlHtml = '';
-    if (magnetURI) {
-      dlHtml = `<button class="chat-pdf-bubble__download torrent-bubble__download-btn" data-magnet="${magnetURI.replace(/"/g,'&quot;')}" data-filename="${safeName.replace(/'/g,"\\'")}" title="הורד"><i class="fa-solid fa-download"></i></button>`;
-    } else if (dataUrl) {
-      dlHtml = `<a class="chat-pdf-bubble__download" href="${dataUrl}" download="${safeName}" title="הורד"><i class="fa-solid fa-download"></i></a>`;
-    }
+    const dlHtml = buildAttachmentDownloadHtml(att, 'chat-pdf-bubble__download');
     setTimeout(() => {
       const fr = document.getElementById(uid);
       if (!fr) return;
@@ -632,18 +729,7 @@
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const size = formatSize(attachment.size);
     const iconClass = getFileIcon(attachment);
-    const magnetURI = attachment.magnetURI || '';
-    const dataUrl = attachment.dataUrl || attachment.url || '';
-
-    // כפתור הורדה — לקבצי טורנט או DataURL
-    let downloadHtml = '';
-    if (magnetURI) {
-      const escapedMagnet = magnetURI.replace(/"/g, '&quot;');
-      const escapedName = safeName.replace(/'/g, "\\'");
-      downloadHtml = `<button class="chat-file-bubble__download torrent-bubble__download-btn" data-magnet="${escapedMagnet}" data-filename="${escapedName}" title="הורד קובץ"><i class="fa-solid fa-download"></i></button>`;
-    } else if (dataUrl) {
-      downloadHtml = `<a class="chat-file-bubble__download" href="${dataUrl}" download="${safeName}" title="הורד קובץ"><i class="fa-solid fa-download"></i></a>`;
-    }
+    const downloadHtml = buildAttachmentDownloadHtml(attachment, 'chat-file-bubble__download');
 
     return `
       <div class="chat-file-bubble">
@@ -673,6 +759,7 @@
     detectAndRenderYouTube,
     extractYouTubeId,
     openImageLightbox,
+    downloadChatMedia,
     getFileIcon,
     // מטמון מדיה צ'אט | HYPER CORE TECH
     fetchAndCacheChatMedia: fetchAndCacheMedia,

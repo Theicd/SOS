@@ -32,13 +32,39 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
   }
-  /** מונע javascript: / URL מזויפים בתמונת אווטר */
+  /** מונע javascript: / URL מזויפים בתמונת אווטר – מאפשר https/http/data/blob כמו בבועות | HYPER CORE TECH */
   function safeConversationAvatarSrc(url) {
     if (!url || typeof url !== 'string') return '';
     const u = url.trim().slice(0, 2048);
-    if (/^https:/i.test(u)) return u;
-    if (/^http:/i.test(u) && window.location.protocol === 'http:') return u;
+    if (/^https?:\/\//i.test(u)) return u;
+    if (/^data:image\//i.test(u)) return u;
+    if (/^blob:/i.test(u)) return u;
+    if (/^\/\//.test(u)) return `${window.location.protocol}${u}`;
     return '';
+  }
+
+  function updateActiveConversationHeader(peerPubkey) {
+    const peer = String(peerPubkey || state.activeContact || '').toLowerCase();
+    if (!peer || peer !== String(state.activeContact || '').toLowerCase()) return;
+    const contact = App.chatState?.contacts?.get?.(peer) || null;
+    const name = contact?.name || `משתמש ${peer.slice(0, 8)}`;
+    const initials = contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(name) : 'מש');
+    if (elements.conversationName) {
+      elements.conversationName.textContent = name;
+    }
+    if (!elements.conversationAvatar) return;
+    elements.conversationAvatar.innerHTML = '';
+    elements.conversationAvatar.textContent = '';
+    if (contact?.picture) {
+      const pic = safeConversationAvatarSrc(contact.picture);
+      const safeName = escapeHtmlAttr(name);
+      const iniForJs = String(initials).replace(/['\\]/g, '');
+      if (pic) {
+        elements.conversationAvatar.innerHTML = `<img src="${escapeHtmlAttr(pic)}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent='${iniForJs}'; this.remove();" />`;
+        return;
+      }
+    }
+    elements.conversationAvatar.textContent = initials;
   }
 
   // חלק אייקון קובץ (chat-ui.js) – אייקון לפי סיומת בסגנון בועת העברה | HYPER CORE TECH
@@ -2106,6 +2132,9 @@
           
           if (IMAGE_EXTS.test(url) && !a) {
             // תמונה
+            const dlBtn = typeof App.downloadChatMedia === 'function'
+              ? `<button type="button" class="chat-message__media-download" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();NostrApp.downloadChatMedia('${url.replace(/'/g, "\\'")}','תמונה.jpg')"><i class="fa-solid fa-download"></i></button>`
+              : '';
             mediaItems.push(`
               <div class="chat-message__image-container">
                 <img 
@@ -2117,6 +2146,7 @@
                   referrerpolicy="no-referrer"
                   onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox('${url.replace(/'/g, "\\'")}','תמונה')"
                 />
+                ${dlBtn}
               </div>
             `);
             remainingText = remainingText.replace(originalUrl, '').trim();
@@ -2141,8 +2171,13 @@
             isMediaUrl = true;
           } else if (VIDEO_EXTS.test(url) && !a) {
             // וידאו - רק סיומות וידאו מפורשות (לא webm)
+            const fileName = decodeURIComponent(url.split('/').pop()?.split('?')[0] || 'video.mp4');
+            const dlBtn = typeof App.downloadChatMedia === 'function'
+              ? `<button type="button" class="chat-message__media-download" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();NostrApp.downloadChatMedia('${url.replace(/'/g, "\\'")}','${fileName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-download"></i></button>`
+              : '';
             mediaItems.push(`
               <div class="chat-message__video-container">
+                ${dlBtn}
                 <video 
                   class="chat-message__video"
                   controls
@@ -2447,28 +2482,7 @@
         });
       }, 100);
     }
-    const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
-    const initials = contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(name) : 'מש');
-    if (elements.conversationName) {
-      elements.conversationName.textContent = name;
-    }
-    if (elements.conversationAvatar) {
-      // חלק צ'אט (chat-ui.js) – מציג אווטר עבור השיחה הנוכחית עם ניקוי תוכן קודם
-      elements.conversationAvatar.innerHTML = '';
-      elements.conversationAvatar.textContent = '';
-      if (contact?.picture) {
-        const pic = safeConversationAvatarSrc(contact.picture);
-        const safeName = escapeHtmlAttr(name);
-        const iniForJs = String(initials).replace(/['\\]/g, '');
-        if (pic) {
-          elements.conversationAvatar.innerHTML = `<img src="${escapeHtmlAttr(pic)}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent='${iniForJs}'; this.remove();" />`;
-        } else {
-          elements.conversationAvatar.textContent = initials;
-        }
-      } else {
-        elements.conversationAvatar.textContent = initials;
-      }
-    }
+    updateActiveConversationHeader(peerPubkey);
     // חלק סטטוס P2P (chat-ui.js) – מציג מצב חיבור DC בכותרת שיחה כדי שהמשתמש ידע אם ההודעות עוברות P2P | HYPER CORE TECH
     if (elements.conversationStatus) {
       updateConversationDCStatus(peerPubkey);
@@ -2700,6 +2714,8 @@
       const videoCallDialog = doc.getElementById('videoCallDialog');
       if (voiceCallDialog && voiceCallDialog.contains(event.target)) return;
       if (videoCallDialog && videoCallDialog.contains(event.target)) return;
+      // lightbox תמונה בצ'אט מחובר ל-body – לא לסגור את כל פאנל השיחות | HYPER CORE TECH
+      if (event.target.closest?.('#chatImageLightbox, .chat-lightbox, .chat-media-modal')) return;
       if (
         elements.panel.contains(event.target) ||
         (elements.navButton && elements.navButton.contains(event.target)) ||
@@ -2800,6 +2816,8 @@
   function initSubscriptions() {
     App.subscribeChat?.('contacts', () => {
       renderContacts();
+      // כשתמונת פרופיל מגיעה אחרי פתיחת השיחה – מרעננים את ההדר | HYPER CORE TECH
+      if (state.activeContact) updateActiveConversationHeader(state.activeContact);
     });
     App.subscribeChat?.('message', (payload = {}) => {
       const { peer, message, statusUpdate, replacedTempId, removedMessageId } = payload;

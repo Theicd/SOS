@@ -478,6 +478,7 @@
 
 /* חלק Media Display (chat-enhanced-styles.css) – תצוגת מדיה משופרת */
 .chat-message__image-container {
+  position: relative;
   max-width: 280px;
   border-radius: 8px;
   overflow: hidden;
@@ -497,6 +498,7 @@
 }
 
 .chat-message__video-container {
+  position: relative;
   max-width: 280px;
   border-radius: 8px;
   overflow: hidden;
@@ -567,10 +569,19 @@
   z-index: 1;
 }
 
-.chat-lightbox__close {
+.chat-lightbox__actions {
   position: absolute;
-  top: -50px;
+  top: -52px;
   left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 2;
+}
+
+.chat-lightbox__close,
+.chat-lightbox__download {
   width: 40px;
   height: 40px;
   border: none;
@@ -578,15 +589,23 @@
   color: white;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 24px;
+  font-size: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s;
 }
 
-.chat-lightbox__close:hover {
+.chat-lightbox__close:hover,
+.chat-lightbox__download:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+.chat-lightbox__close {
+  /* תאימות לאחור אם אין wrapper */
+  position: static;
+  top: auto;
+  left: auto;
 }
 
 .chat-lightbox__image {
@@ -958,6 +977,7 @@
 
 /* חלק מדיה בהודעות (chat-enhanced-styles.css) – סגנון תמונות ווידאו בצ'אט כמו וואטסאפ | HYPER CORE TECH */
 .chat-message__image-container {
+  position: relative;
   max-width: 280px;
   min-width: 200px;
   border-radius: 12px;
@@ -974,6 +994,30 @@
   cursor: pointer;
   border-radius: 8px;
   background: #000;
+}
+
+.chat-message__image-container .chat-message__media-download,
+.chat-message__video-container .chat-message__media-download {
+  position: absolute;
+  inset-inline-end: 8px;
+  inset-block-start: 8px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.chat-message__image-container .chat-message__media-download:hover,
+.chat-message__video-container .chat-message__media-download:hover {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 /* חלק ואטסאפ (chat-enhanced-styles.css) – סרטון עם כפתור play אחד + poster (בלי פליי ענק של WebView) | HYPER CORE TECH */
