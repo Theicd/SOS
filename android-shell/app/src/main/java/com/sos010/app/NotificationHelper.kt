@@ -266,6 +266,7 @@ object NotificationHelper {
         val displayName = callerName.trim().ifBlank {
             body.substringBefore(" ").ifBlank { app.getString(R.string.call_someone) }
         }
+        val pictureUrl = SosContactCache.get(app, peer)?.picture.orEmpty()
         val callTitle = if (type == "video") {
             app.getString(R.string.incoming_video_call)
         } else {
@@ -283,6 +284,7 @@ object NotificationHelper {
             putExtra(IncomingCallActivity.EXTRA_PEER, peer)
             putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, type)
             putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, displayName)
+            putExtra(IncomingCallActivity.EXTRA_CALLER_PICTURE, pictureUrl)
             putExtra(IncomingCallActivity.EXTRA_OPEN_URL, openUrl)
         }
         val fullScreenPi = PendingIntent.getActivity(
@@ -326,15 +328,23 @@ object NotificationHelper {
         )
 
         val largeIcon = try {
-            BitmapFactory.decodeResource(app.resources, R.drawable.sos_logo)
+            SosContactCache.getCachedBitmap(pictureUrl)
+                ?: BitmapFactory.decodeResource(app.resources, R.drawable.sos_logo)
         } catch (_: Exception) {
             null
         }
 
-        val caller = androidx.core.app.Person.Builder()
+        val callerBuilder = androidx.core.app.Person.Builder()
             .setName(displayName)
             .setImportant(true)
-            .build()
+        try {
+            val avatar = SosContactCache.getCachedBitmap(pictureUrl)
+            if (avatar != null) {
+                callerBuilder.setIcon(androidx.core.graphics.drawable.IconCompat.createWithBitmap(avatar))
+            }
+        } catch (_: Exception) {
+        }
+        val caller = callerBuilder.build()
 
         val builder = NotificationCompat.Builder(app, CHANNEL_CALLS)
             .setSmallIcon(R.drawable.ic_stat_sos)
@@ -367,8 +377,29 @@ object NotificationHelper {
         }
 
         // מפעיל מסך שיחה מקורי מעל הנעילה (לא רק wake לשומר מסך) | HYPER CORE TECH
-        IncomingCallActivity.launch(app, peer, type, displayName, openUrl)
+        IncomingCallActivity.launch(app, peer, type, displayName, openUrl, pictureUrl)
+        if (pictureUrl.isNotBlank() && SosContactCache.getCachedBitmap(pictureUrl) == null) {
+            refreshCallAvatarAsync(app, peer, type, displayName, openUrl, pictureUrl)
+        }
         CallSoundHelper.startRingtone(app)
+    }
+
+    private fun refreshCallAvatarAsync(
+        app: Context,
+        peer: String,
+        type: String,
+        displayName: String,
+        openUrl: String,
+        pictureUrl: String
+    ) {
+        avatarExecutor.execute {
+            try {
+                SosContactCache.loadBitmap(pictureUrl) ?: return@execute
+                // רענון מסך נעילה עם תמונה אחרי הורדה | HYPER CORE TECH
+                IncomingCallActivity.launch(app, peer, type, displayName, openUrl, pictureUrl)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun cancelIncomingCall(context: Context, stopSound: Boolean = true) {

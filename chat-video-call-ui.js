@@ -696,7 +696,7 @@
   };
 
   // חלק Deep Link (chat-video-call-ui.js) – חזרה לשיחת וידאו נכנסת מהתראת מערכת | HYPER CORE TECH
-  App.resumeIncomingVideoCallFromDeepLink = function resumeIncomingVideoCallFromDeepLink(peerPubkey, pendingOfferDetail) {
+  App.resumeIncomingVideoCallFromDeepLink = function resumeIncomingVideoCallFromDeepLink(peerPubkey, pendingOfferDetail, opts) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
     window.__sosIncomingCallActive = true;
     const restore = (parsed) => {
@@ -729,13 +729,27 @@
     }
     const target = App.__videoIncomingPeer || peer;
     if (!target) return false;
+    const autoAnswering = !!(opts && opts.autoAnswering) || !!(
+      window.__sosNativePendingAnswer &&
+      window.__sosNativePendingAnswer.peer === String(target).toLowerCase()
+    );
     // קודם מסך ענה – בלי לפתוח צ'אט מעליו | HYPER CORE TECH
     saveChatPanelState();
     createDialog(target, true);
-    startToneWithPolicy(playRingtone);
-    try {
-      if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
-    } catch (_) {}
+    if (autoAnswering) {
+      try {
+        const acceptBtn = dialog && dialog.querySelector('[data-action="accept"]');
+        if (acceptBtn) acceptBtn.setAttribute('hidden', '');
+      } catch (_) {}
+      try {
+        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
+    } else {
+      startToneWithPolicy(playRingtone);
+      try {
+        if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+      } catch (_) {}
+    }
     return true;
   };
   App.onVideoCallStarted = function(peer, isIncoming){

@@ -123,13 +123,13 @@
     return false;
   }
 
-  function focusIncomingCall(peer, callType, pendingOffer) {
+  function focusIncomingCall(peer, callType, pendingOffer, opts) {
     try {
       if (callType === 'video' && typeof App.resumeIncomingVideoCallFromDeepLink === 'function') {
-        return !!App.resumeIncomingVideoCallFromDeepLink(peer, pendingOffer);
+        return !!App.resumeIncomingVideoCallFromDeepLink(peer, pendingOffer, opts);
       }
       if (typeof App.resumeIncomingVoiceCallFromDeepLink === 'function') {
-        return !!App.resumeIncomingVoiceCallFromDeepLink(peer, pendingOffer);
+        return !!App.resumeIncomingVoiceCallFromDeepLink(peer, pendingOffer, opts);
       }
     } catch (err) {
       console.warn('[DEEPLINK] incoming call focus failed', err);
@@ -185,7 +185,20 @@
         if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
         if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
       } catch (_) {}
-      const callFocused = focusIncomingCall(chat, incomingCall, pendingOffer);
+      // לפני UI – מסמנים pending answer כדי שלא יופיע כפתור ענה שני | HYPER CORE TECH
+      if (autoAccept && chat) {
+        try {
+          window.__sosNativePendingAnswer = {
+            peer: chat,
+            callType: incomingCall || 'voice',
+            until: Date.now() + 60000,
+            pendingRawEvent: pendingRawEvent || null,
+          };
+        } catch (_) {}
+      }
+      const callFocused = focusIncomingCall(chat, incomingCall, pendingOffer, {
+        autoAnswering: autoAccept,
+      });
       opened = callFocused || !!chat;
       if (opened && autoAccept) {
         setTimeout(() => {
@@ -228,6 +241,8 @@
       chat: normalizePeer(detail?.chat),
       incomingCall: normalizeCallType(detail?.incomingCall),
       pendingOffer: detail?.pendingOffer || null,
+      pendingRawEvent: detail?.pendingRawEvent || null,
+      autoAccept: !!detail?.autoAccept,
     };
     if (!pending.chat && !pending.incomingCall) return;
 
@@ -256,8 +271,19 @@
     const chat = normalizePeer(detail?.chat);
     const incomingCall = normalizeCallType(detail?.incomingCall);
     if (!chat && !incomingCall) return;
-    console.log('[DEEPLINK] received', { chat: chat.slice(0, 8), incomingCall });
-    scheduleRetries({ chat, incomingCall });
+    console.log('[DEEPLINK] received', {
+      chat: chat.slice(0, 8),
+      incomingCall,
+      autoAccept: !!detail?.autoAccept,
+    });
+    // חשוב: לא לקצוץ autoAccept / pendingRawEvent – בלי זה ענה ממסך נעילה לא מתקבל | HYPER CORE TECH
+    scheduleRetries({
+      chat,
+      incomingCall,
+      pendingOffer: detail?.pendingOffer || null,
+      pendingRawEvent: detail?.pendingRawEvent || null,
+      autoAccept: !!detail?.autoAccept,
+    });
   }
 
   App.openFromDeepLink = function openFromDeepLink(detail) {

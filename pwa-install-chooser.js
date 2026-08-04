@@ -52,8 +52,8 @@
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', 'בחירת התקנת SOS');
-    const apkFile = App.SOS_APK_FILE || 'SOS-1.0.26.apk';
-    const apkVersion = App.SOS_APK_VERSION || '1.0.26';
+    const apkFile = App.SOS_APK_FILE || 'SOS-1.0.27.apk';
+    const apkVersion = App.SOS_APK_VERSION || '1.0.27';
     root.innerHTML = `
       <div class="pwa-install-chooser__overlay" data-chooser-close></div>
       <div class="pwa-install-chooser__card">

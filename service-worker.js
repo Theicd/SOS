@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v227'; // bump - auto-answer from lock screen without second tap + APK 1.0.26
+  const CACHE_NAME = 'sos-cache-v228'; // bump - lock-screen Answer accepts + caller avatar + APK 1.0.27
   const PRECACHE_URLS = [
     './',
     './videos.html',

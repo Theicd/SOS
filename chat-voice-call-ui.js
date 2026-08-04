@@ -1167,19 +1167,31 @@
   };
 
   // חלק Deep Link (chat-voice-call-ui.js) – חזרה לשיחה נכנסת מלחיצה על התראת מערכת | HYPER CORE TECH
-  App.resumeIncomingVoiceCallFromDeepLink = function resumeIncomingVoiceCallFromDeepLink(peerPubkey, pendingOfferDetail) {
+  App.resumeIncomingVoiceCallFromDeepLink = function resumeIncomingVoiceCallFromDeepLink(peerPubkey, pendingOfferDetail, opts) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
     window.__sosIncomingCallActive = true;
     restoreIncomingOffer(peer, pendingOfferDetail);
     // קודם מסך ענה – לא פותחים צ'אט שמסתיר את הדיאלוג | HYPER CORE TECH
     const target = incomingOfferPeer || peer;
     if (target) {
+      const autoAnswering = !!(opts && opts.autoAnswering) || !!(
+        window.__sosNativePendingAnswer &&
+        window.__sosNativePendingAnswer.peer === String(target).toLowerCase()
+      );
       saveChatPanelState();
-      createCallDialog(target, true);
-      resumeOnUserGestureOnce(() => playRingtone());
-      try {
-        if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
-      } catch (_) {}
+      createCallDialog(target, true, autoAnswering ? { autoAnswering: true } : undefined);
+      if (autoAnswering) {
+        stopRingtone();
+        try {
+          if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+        } catch (_) {}
+        markUiAutoAnswering();
+      } else {
+        resumeOnUserGestureOnce(() => playRingtone());
+        try {
+          if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+        } catch (_) {}
+      }
       return true;
     }
     return false;

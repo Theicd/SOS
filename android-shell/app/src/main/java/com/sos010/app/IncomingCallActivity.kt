@@ -5,15 +5,20 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Outline
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import java.util.concurrent.Executors
 
 /**
- * מסך שיחה נכנסת מקורי מעל שומר המסך – כמו וואטסאפ (ענה / דחה + שם).
+ * מסך שיחה נכנסת מקורי מעל שומר המסך – כמו וואטסאפ (ענה / דחה + שם + תמונה).
  */
 class IncomingCallActivity : AppCompatActivity() {
 
@@ -21,6 +26,7 @@ class IncomingCallActivity : AppCompatActivity() {
     private var callType: String = "voice"
     private var openUrl: String = ""
     private var handled = false
+    private var avatarLoadToken = 0
 
     private val dismissReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -36,6 +42,7 @@ class IncomingCallActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableLockScreenFlags()
         setContentView(R.layout.activity_incoming_call)
+        clipAvatarFrame()
         bindFromIntent(intent)
         wireButtons()
         registerDismissReceiver()
@@ -76,6 +83,16 @@ class IncomingCallActivity : AppCompatActivity() {
         )
     }
 
+    private fun clipAvatarFrame() {
+        val frame = findViewById<View>(R.id.incomingAvatarFrame) ?: return
+        frame.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setOval(0, 0, view.width, view.height)
+            }
+        }
+        frame.clipToOutline = true
+    }
+
     private fun bindFromIntent(intent: Intent?) {
         peer = intent?.getStringExtra(EXTRA_PEER)?.trim()?.lowercase().orEmpty()
         callType = when (intent?.getStringExtra(EXTRA_CALL_TYPE)?.trim()?.lowercase()) {
@@ -88,15 +105,52 @@ class IncomingCallActivity : AppCompatActivity() {
         val name = intent?.getStringExtra(EXTRA_CALLER_NAME)?.trim().orEmpty().ifBlank {
             SosContactCache.displayName(this, peer, getString(R.string.call_someone))
         }
+        val pictureUrl = intent?.getStringExtra(EXTRA_CALLER_PICTURE)?.trim().orEmpty().ifBlank {
+            SosContactCache.get(this, peer)?.picture.orEmpty()
+        }
 
         findViewById<TextView>(R.id.incomingCallerName).text = name
-        findViewById<TextView>(R.id.incomingAvatarLetter).text =
-            name.take(1).ifBlank { "S" }.uppercase()
         findViewById<TextView>(R.id.incomingCallLabel).text =
             if (callType == "video") getString(R.string.incoming_video_call)
             else getString(R.string.incoming_voice_call)
         findViewById<TextView>(R.id.incomingCallSub).text =
             getString(R.string.incoming_call_tap_answer)
+        bindAvatar(name, pictureUrl)
+    }
+
+    private fun bindAvatar(name: String, pictureUrl: String?) {
+        val letterView = findViewById<TextView>(R.id.incomingAvatarLetter)
+        val imageView = findViewById<ImageView>(R.id.incomingAvatarImage)
+        letterView.visibility = View.VISIBLE
+        letterView.text = name.take(1).ifBlank { "S" }.uppercase()
+        imageView.visibility = View.GONE
+        imageView.setImageDrawable(null)
+
+        val url = pictureUrl?.trim().orEmpty()
+        if (url.isBlank()) return
+
+        val token = ++avatarLoadToken
+        val cached = SosContactCache.getCachedBitmap(url)
+        if (cached != null) {
+            imageView.setImageBitmap(cached)
+            imageView.visibility = View.VISIBLE
+            letterView.visibility = View.GONE
+            return
+        }
+
+        avatarExecutor.execute {
+            val bmp = try {
+                SosContactCache.loadBitmap(url)
+            } catch (_: Exception) {
+                null
+            } ?: return@execute
+            runOnUiThread {
+                if (isFinishing || token != avatarLoadToken) return@runOnUiThread
+                imageView.setImageBitmap(bmp)
+                imageView.visibility = View.VISIBLE
+                letterView.visibility = View.GONE
+            }
+        }
     }
 
     private fun wireButtons() {
@@ -168,16 +222,23 @@ class IncomingCallActivity : AppCompatActivity() {
         const val EXTRA_PEER = "call_peer"
         const val EXTRA_CALL_TYPE = "call_type"
         const val EXTRA_CALLER_NAME = "caller_name"
+        const val EXTRA_CALLER_PICTURE = "caller_picture"
         const val EXTRA_OPEN_URL = "open_url"
+
+        private val avatarExecutor = Executors.newSingleThreadExecutor()
 
         fun launch(
             context: Context,
             peer: String,
             callType: String,
             callerName: String,
-            openUrl: String
+            openUrl: String,
+            callerPicture: String = ""
         ) {
             val app = context.applicationContext
+            val picture = callerPicture.trim().ifBlank {
+                SosContactCache.get(app, peer)?.picture.orEmpty()
+            }
             val intent = Intent(app, IncomingCallActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -186,6 +247,7 @@ class IncomingCallActivity : AppCompatActivity() {
                 putExtra(EXTRA_PEER, peer)
                 putExtra(EXTRA_CALL_TYPE, callType)
                 putExtra(EXTRA_CALLER_NAME, callerName)
+                putExtra(EXTRA_CALLER_PICTURE, picture)
                 putExtra(EXTRA_OPEN_URL, openUrl)
             }
             try {

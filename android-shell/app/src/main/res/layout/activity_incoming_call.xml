@@ -31,9 +31,11 @@
             android:layout_weight="1" />
 
         <FrameLayout
+            android:id="@+id/incomingAvatarFrame"
             android:layout_width="112dp"
             android:layout_height="112dp"
-            android:background="@drawable/bg_incoming_avatar">
+            android:background="@drawable/bg_incoming_avatar"
+            android:clipToOutline="true">
 
             <TextView
                 android:id="@+id/incomingAvatarLetter"
@@ -44,6 +46,14 @@
                 android:textColor="#FFFFFF"
                 android:textSize="42sp"
                 android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/incomingAvatarImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop"
+                android:visibility="gone" />
         </FrameLayout>
 
         <TextView

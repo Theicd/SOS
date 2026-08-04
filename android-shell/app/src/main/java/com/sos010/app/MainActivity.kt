@@ -456,9 +456,8 @@ class MainActivity : AppCompatActivity() {
         }
         pendingDeepLinkPeer = null
         pendingIncomingCall = null
+        // לא מנקים pendingCallAction כאן – injectPendingCallAction חייב להריץ accept ישיר | HYPER CORE TECH
         if (autoAccept) {
-            pendingAutoAccept = false
-            pendingCallAction = null
             SosIncomingCallSession.markAnswered(applicationContext, peer)
         }
     }
@@ -505,8 +504,8 @@ class MainActivity : AppCompatActivity() {
             webView.evaluateJavascript(js, null)
         } catch (_: Exception) {
         }
-        // retries קצרים בלבד – acceptIncomingCallFromNative חוסם כפילויות | HYPER CORE TECH
-        listOf(1200L, 3000L).forEach { delay ->
+        // retries עד שה־Web hydration מוכן; acceptIncomingCallFromNative חוסם כפילויות | HYPER CORE TECH
+        listOf(800L, 2000L, 4000L, 7000L).forEach { delay ->
             mainHandler.postDelayed({
                 if (!this::webView.isInitialized) return@postDelayed
                 try {
