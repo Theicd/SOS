@@ -32,12 +32,15 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
   }
-  /** אותה גישה כמו בועות הודעה / מסך שיחה – בלי לחנוק URL תקין | HYPER CORE TECH */
+  /** אותה גישה כמו בועות/שיחה – בלי לחתוך data:image מהמטמון | HYPER CORE TECH */
   function safeConversationAvatarSrc(url) {
     if (!url || typeof url !== 'string') return '';
-    const u = url.trim().slice(0, 2048);
+    const u = url.trim();
     if (!u || /^javascript:/i.test(u) || /^vbscript:/i.test(u) || /^data:text\/html/i.test(u)) return '';
-    return u;
+    // cacheAvatar שומר data:image מלא (עשרות KB) – חיתוך ל-2048 שובר את התמונה | HYPER CORE TECH
+    if (/^data:image\//i.test(u)) return u;
+    if (/^blob:/i.test(u)) return u;
+    return u.slice(0, 4096);
   }
 
   function setConversationAvatarElement(pictureUrl, name, initials) {
@@ -50,14 +53,16 @@
       elements.conversationAvatar.textContent = safeInitials;
       return;
     }
-    // כמו voice-call-ui / בועת הודעה – src ישיר, בלי referrerpolicy ששובר חלק מ-CDN | HYPER CORE TECH
+    // כמו contact list / audio avatar – src מלא + no-referrer | HYPER CORE TECH
     const img = doc.createElement('img');
     img.alt = name || 'משתמש';
     img.decoding = 'async';
     img.loading = 'eager';
+    img.referrerPolicy = 'no-referrer';
     img.src = pic;
     img.addEventListener('error', () => {
       if (!elements.conversationAvatar) return;
+      // אם data URL נכשל – נסה URL מקורי מהפרופיל אם שונה | HYPER CORE TECH
       elements.conversationAvatar.textContent = safeInitials;
     }, { once: true });
     elements.conversationAvatar.appendChild(img);
