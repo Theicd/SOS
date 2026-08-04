@@ -2192,25 +2192,13 @@
             remainingText = remainingText.replace(originalUrl, '').trim();
             isMediaUrl = true;
           } else if (VIDEO_EXTS.test(url) && !a) {
-            // וידאו - רק סיומות וידאו מפורשות (לא webm)
+            // וידאו בסגנון וואטסאפ – תקציר + Play למסך מלא | HYPER CORE TECH
             const fileName = decodeURIComponent(url.split('/').pop()?.split('?')[0] || 'video.mp4');
-            const dlBtn = typeof App.downloadChatMedia === 'function'
-              ? `<button type="button" class="chat-message__media-download" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();NostrApp.downloadChatMedia('${url.replace(/'/g, "\\'")}','${fileName.replace(/'/g, "\\'")}')"><i class="fa-solid fa-download"></i></button>`
-              : '';
-            mediaItems.push(`
-              <div class="chat-message__video-container">
-                ${dlBtn}
-                <video 
-                  class="chat-message__video"
-                  controls
-                  preload="metadata"
-                  playsinline
-                  aria-label="וידאו"
-                >
-                  <source src="${url}" type="video/mp4">
-                </video>
-              </div>
-            `);
+            mediaItems.push(
+              typeof App.renderVideoAttachment === 'function'
+                ? App.renderVideoAttachment({ url, type: 'video/mp4', name: fileName })
+                : `<div class="chat-message__video-container" data-chat-video-preview="1"><video class="chat-message__video" preload="metadata" playsinline muted src="${url}"></video></div>`
+            );
             remainingText = remainingText.replace(originalUrl, '').trim();
             isMediaUrl = true;
           }
@@ -2287,9 +2275,15 @@
         }
       }
       
-      // חלק meta בתוך נגן (chat-ui.js) – הסתרת meta-row לאודיו והזרקה לתוך הנגן | HYPER CORE TECH
+      // חלק meta בתוך נגן (chat-ui.js) – הסתרת meta-row לאודיו/וידאו והזרקה לתוך המדיה | HYPER CORE TECH
       const hideMetaForAudio = isAudioAttachment && !textHtml && !youtubeHtml && !mediaUrlHtml;
-      const metaRowHtml = hideMetaForAudio ? '' : `
+      const hideMetaForVideo =
+        (isVideoAttachment || (isMediaUrl && /chat-message__video-container/.test(mediaUrlHtml || ''))) &&
+        !textHtml &&
+        !youtubeHtml &&
+        !attachmentHtml?.includes('chat-audio');
+      const hideMetaForMedia = hideMetaForAudio || hideMetaForVideo;
+      const metaRowHtml = hideMetaForMedia ? '' : `
           <div class="chat-message__meta-row">
             <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
             ${statusHtml}
@@ -2353,6 +2347,13 @@
           }
           avatarSlot.innerHTML = playerAvatarHtml;
         }
+      }
+      // חלק וידאו וואטסאפ (chat-ui.js) – שעת הודעה מרחפת על הווידאו למטה־שמאל | HYPER CORE TECH
+      if (hideMetaForVideo && contentEl) {
+        contentEl.querySelectorAll('[data-video-time-slot]').forEach((slot) => {
+          slot.innerHTML = `<span class="chat-message__video-msg-time-text">${formatMessageTime(messageTimestamp)}</span>${statusHtml || ''}`;
+        });
+        contentEl.classList.add('chat-message__content--video-only');
       }
       fragment.appendChild(item);
     });

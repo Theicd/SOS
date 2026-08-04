@@ -408,50 +408,36 @@
       });
       el.addEventListener('seeked', () => captureChatVideoPoster(el));
 
-      const startPlayback = (event) => {
+      // כמו וואטסאפ – Play פותח מסך מלא, בלי controls בתוך הבועה | HYPER CORE TECH
+      const openFullscreen = (event) => {
         if (event) {
           event.preventDefault();
           event.stopPropagation();
         }
-        el.setAttribute('controls', '');
-        container.classList.add('playing');
-        const playPromise = el.play();
-        if (playPromise && typeof playPromise.catch === 'function') {
-          playPromise.catch((err) => {
-            console.warn('[CHAT/MEDIA] video play failed', err);
-            container.classList.remove('playing');
-          });
+        const source = el.querySelector('source');
+        const playSrc = (source && source.src) || el.currentSrc || src;
+        if (typeof openVideoLightbox === 'function') {
+          openVideoLightbox(playSrc, name, type);
         }
       };
 
       if (playBtn) {
-        playBtn.addEventListener('click', startPlayback);
+        playBtn.addEventListener('click', openFullscreen);
       }
-      // לחיצה על התמונה/poster לפני שיש controls
-      el.addEventListener('click', (event) => {
-        if (container.classList.contains('playing') || el.hasAttribute('controls')) return;
-        startPlayback(event);
-      });
-
-      el.addEventListener('play', () => {
-        container.classList.add('playing');
-        el.setAttribute('controls', '');
-      });
-      el.addEventListener('pause', () => {
-        container.classList.remove('playing');
-      });
-      el.addEventListener('ended', () => {
-        container.classList.remove('playing');
-        try { el.currentTime = 0; } catch (_) {}
+      el.addEventListener('click', openFullscreen);
+      container.addEventListener('click', (event) => {
+        if (event.target.closest('.chat-message__media-download')) return;
+        openFullscreen(event);
       });
     }, 0);
 
     return `
-      <div id="${containerId}" class="chat-message__video-container">
-        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו">
+      <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1">
+        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא">
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
         </button>
         <span class="chat-message__video-duration">0:00</span>
+        <span class="chat-message__video-msg-time" data-video-time-slot></span>
         ${buildAttachmentDownloadHtml(attachment, 'chat-message__media-download')}
         <video
           id="${uid}"
@@ -459,6 +445,7 @@
           preload="${isLocal ? 'auto' : 'metadata'}"
           playsinline
           webkit-playsinline
+          muted
           aria-label="${safeName}"
         >
           <source src="${src}" type="${type}">
@@ -554,6 +541,87 @@
     });
     
     requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
+  }
+
+  // חלק lightbox וידאו (chat-media-renderer.js) – מסך מלא כמו וואטסאפ, X חוזר לשיחה | HYPER CORE TECH
+  function openVideoLightbox(src, name, type) {
+    const existing = document.getElementById('chatVideoLightbox');
+    if (existing) existing.remove();
+    const playSrc = String(src || '').trim();
+    if (!playSrc) return;
+
+    const lightbox = document.createElement('div');
+    lightbox.id = 'chatVideoLightbox';
+    lightbox.className = 'chat-lightbox chat-lightbox--video';
+    const safeName = App.escapeHtml ? App.escapeHtml(name || 'וידאו') : String(name || 'וידאו');
+    const mime = type || 'video/mp4';
+    lightbox.innerHTML = `
+      <div class="chat-lightbox__backdrop"></div>
+      <div class="chat-lightbox__content chat-lightbox__content--video">
+        <div class="chat-lightbox__actions">
+          <button type="button" class="chat-lightbox__download" aria-label="הורד" title="הורד">
+            <i class="fa-solid fa-download"></i>
+          </button>
+          <button type="button" class="chat-lightbox__close" aria-label="סגור וחזור לשיחה" title="סגור">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+        <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay>
+          <source src="${playSrc.replace(/"/g, '&quot;')}" type="${mime.replace(/"/g, '&quot;')}">
+        </video>
+        <div class="chat-lightbox__name">${safeName}</div>
+      </div>
+    `;
+
+    document.body.appendChild(lightbox);
+    App.__sosSuppressChatOutsideClose = true;
+
+    const videoEl = lightbox.querySelector('.chat-lightbox__video');
+    const close = (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      try {
+        if (videoEl) {
+          videoEl.pause();
+          videoEl.removeAttribute('src');
+          videoEl.load();
+        }
+      } catch (_) {}
+      lightbox.classList.add('chat-lightbox--closing');
+      setTimeout(() => {
+        lightbox.remove();
+        setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
+      }, 200);
+    };
+
+    lightbox.querySelector('.chat-lightbox__close').addEventListener('click', close);
+    lightbox.querySelector('.chat-lightbox__backdrop').addEventListener('click', close);
+    lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      App.__sosSuppressChatOutsideClose = true;
+      Promise.resolve(downloadChatMedia(playSrc, name || 'video.mp4')).finally(() => {
+        setTimeout(() => { App.__sosSuppressChatOutsideClose = true; }, 50);
+      });
+    });
+    lightbox.addEventListener('click', (event) => event.stopPropagation());
+
+    document.addEventListener('keydown', function onEsc(e) {
+      if (e.key === 'Escape') {
+        close(e);
+        document.removeEventListener('keydown', onEsc);
+      }
+    });
+
+    requestAnimationFrame(() => {
+      lightbox.classList.add('chat-lightbox--visible');
+      try {
+        const p = videoEl?.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch (_) {}
+    });
   }
   
   // חלק זיהוי PDF (chat-media-renderer.js) – בדיקה אם attachment הוא קובץ PDF | HYPER CORE TECH
@@ -775,6 +843,7 @@
     detectAndRenderYouTube,
     extractYouTubeId,
     openImageLightbox,
+    openVideoLightbox,
     downloadChatMedia,
     getFileIcon,
     // מטמון מדיה צ'אט | HYPER CORE TECH
