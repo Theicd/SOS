@@ -181,15 +181,40 @@
     const src = String(url || '').trim();
     const name = String(filename || 'sos-file').trim() || 'sos-file';
     if (!src) return false;
+
+    // מונע סגירת פאנל הצ'אט: a.click() על body מפעיל מאזין "לחיצה מחוץ לפאנל" | HYPER CORE TECH
+    const suppressOutsideClose = () => {
+      try {
+        window.__sosIgnoreChatOutsideClickUntil = Date.now() + 1500;
+      } catch (_) {}
+    };
+
+    const triggerDownloadAnchor = (href, opts = {}) => {
+      suppressOutsideClose();
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = opts.download || name;
+      a.rel = 'noopener';
+      if (opts.target) a.target = opts.target;
+      a.style.display = 'none';
+      a.setAttribute('data-sos-chat-download', '1');
+      document.body.appendChild(a);
+      try {
+        // bubbles:false – לא מגיע למאזין document שסוגר את הצ'אט | HYPER CORE TECH
+        a.dispatchEvent(new MouseEvent('click', {
+          bubbles: false,
+          cancelable: true,
+          view: window,
+        }));
+      } catch (_) {
+        a.click();
+      }
+      a.remove();
+    };
+
     try {
       if (src.startsWith('blob:') || src.startsWith('data:')) {
-        const a = document.createElement('a');
-        a.href = src;
-        a.download = name;
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        triggerDownloadAnchor(src);
         return true;
       }
       let blobUrl = '';
@@ -200,27 +225,14 @@
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const blob = await resp.blob();
         blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = name;
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        triggerDownloadAnchor(blobUrl);
         setTimeout(() => {
           try { URL.revokeObjectURL(blobUrl); } catch (_) {}
         }, 2000);
         return true;
       } catch (err) {
         console.warn('[CHAT-MEDIA] download via fetch failed, fallback open', err);
-        const a = document.createElement('a');
-        a.href = src;
-        a.download = name;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        triggerDownloadAnchor(src, { target: '_blank' });
         return true;
       }
     } catch (err) {
@@ -526,6 +538,9 @@
     lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      try {
+        window.__sosIgnoreChatOutsideClickUntil = Date.now() + 1500;
+      } catch (_) {}
       downloadChatMedia(src, name || 'image.jpg');
     });
     lightbox.addEventListener('click', (event) => event.stopPropagation());

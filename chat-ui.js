@@ -2709,6 +2709,13 @@
     }
     doc.addEventListener('click', (event) => {
       if (!state.isOpen) return;
+      // הורדת קובץ יוצרת a.click() על body – לא לסגור את הצ'אט | HYPER CORE TECH
+      try {
+        if (Date.now() < (window.__sosIgnoreChatOutsideClickUntil || 0)) return;
+      } catch (_) {}
+      if (event.target?.closest?.('[data-sos-chat-download], .chat-message__media-download, .chat-lightbox__download, .chat-file-bubble__download, .chat-pdf-bubble__download, .torrent-bubble__download-btn')) {
+        return;
+      }
       // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
       const voiceCallDialog = doc.getElementById('voiceCallDialog');
       const videoCallDialog = doc.getElementById('videoCallDialog');
