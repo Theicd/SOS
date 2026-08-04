@@ -20,7 +20,7 @@
     if (!attachment) {
       return null;
     }
-    // חלק צ'אט (chat-file-transfer-state.js) – כולל שדות P2P בהעתקה כולל magnetURI ו-isTorrent לקבצים כלליים | HYPER CORE TECH
+    // חלק צ'אט (chat-file-transfer-state.js) – כולל שדות P2P/preview בהעתקה כדי למנוע קפיצת שם-קובץ בקומפוזר | HYPER CORE TECH
     return {
       id: attachment.id,
       name: attachment.name,
@@ -28,11 +28,14 @@
       type: attachment.type,
       dataUrl: attachment.dataUrl,
       url: attachment.url,
+      previewUrl: attachment.previewUrl || '',
       duration: attachment.duration,
       addedAt: attachment.addedAt,
       caption: attachment.caption || '',
       isP2P: attachment.isP2P || false,
+      isVoice: attachment.isVoice || false,
       transferStarted: attachment.transferStarted || false,
+      hidePreview: attachment.hidePreview === true,
       fileId: attachment.fileId || null,
       magnetURI: attachment.magnetURI || '',
       // חלק מטא-דאטה טורנט (chat-file-transfer-state.js) – שומר infoHash כדי לאפשר זיהוי והורדה אוטומטית | HYPER CORE TECH

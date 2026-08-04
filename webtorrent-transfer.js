@@ -227,6 +227,10 @@
             status: 'seeding',
             fileName: file.name,
             fileSize: file.size,
+            fileMime: file.type || '',
+            previewUrl: (/^(image|video)\//i.test(file.type || '') || /\.(jpe?g|png|gif|webp|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(file.name || ''))
+              ? URL.createObjectURL(file)
+              : '',
             progress: 0,
             uploadSpeed: 0,
             downloadSpeed: 0,
@@ -870,6 +874,57 @@
     });
   }
 
+  // חלק מדיה וואטסאפ (webtorrent-transfer.js) – שליחת תמונה/וידאו דרך בועת מדיה ב-chat-ui במקום torrent-bubble | HYPER CORE TECH
+  function isVisualMediaTransfer(transfer) {
+    if (!transfer) return false;
+    const mime = transfer.fileMime || '';
+    const name = transfer.fileName || '';
+    return /^(image|video)\//i.test(mime) ||
+      /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name);
+  }
+
+  function bridgeOutgoingMediaProgress(transferId, data) {
+    const transfer = activeTransfers.get(transferId);
+    if (!transfer || transfer.type !== 'send' || !isVisualMediaTransfer(transfer)) return false;
+    if (typeof App.handleP2PProgressUpdate !== 'function') return false;
+
+    const rawPct = typeof data?.progress === 'number' ? data.progress : (transfer.progress || 0);
+    const normalized = rawPct > 1 ? rawPct / 100 : rawPct;
+    const statusMap = {
+      seeding: 'sending',
+      uploading: 'sending',
+      'waiting-peer': 'waiting-peer',
+      downloading: 'sending',
+      completed: 'complete-torrent',
+      cancelled: 'cancelled',
+      error: 'failed',
+    };
+    const st = statusMap[data?.status || transfer.status] || 'sending';
+    App.handleP2PProgressUpdate({
+      fileId: transferId,
+      torrentTransferId: transferId,
+      progress: Math.max(0, Math.min(1, normalized)),
+      status: st,
+      direction: 'send',
+      name: transfer.fileName,
+      size: transfer.fileSize,
+      mimeType: transfer.fileMime || undefined,
+      previewUrl: transfer.previewUrl || undefined,
+      peerPubkey: transfer.peer,
+      messageSent: st === 'complete-torrent',
+      error: data?.error,
+    });
+    if (transfer.previewUrl && typeof App.registerChatTransferPreview === 'function') {
+      App.registerChatTransferPreview(transferId, {
+        url: transfer.previewUrl,
+        mime: transfer.fileMime || '',
+        name: transfer.fileName || '',
+        size: transfer.fileSize || 0,
+      });
+    }
+    return true;
+  }
+
   // חלק UI התקדמות (webtorrent-transfer.js) – הצגת בועת הודעה עם התקדמות בשיחה (כמו וואטסאפ) | HYPER CORE TECH
   function showTransferProgressUI(transferId) {
     const transfer = activeTransfers.get(transferId);
@@ -879,6 +934,23 @@
     }
 
     console.log('[TORRENT] 🎨 showTransferProgressUI called for:', transferId, 'type:', transfer.type);
+
+    // שליחת מדיה – בועת תמונה/וידאו כמו וואטסאפ דרך chat-ui | HYPER CORE TECH
+    if (transfer.type === 'send' && isVisualMediaTransfer(transfer)) {
+      bridgeOutgoingMediaProgress(transferId, {
+        status: transfer.status || 'seeding',
+        progress: transfer.progress || 0,
+      });
+      const updateMedia = (data) => {
+        if (data.transferId !== transferId) return;
+        bridgeOutgoingMediaProgress(transferId, data);
+        if (data.status === 'completed' || data.status === 'cancelled' || data.status === 'error') {
+          progressListeners.delete(updateMedia);
+        }
+      };
+      progressListeners.add(updateMedia);
+      return;
+    }
 
     // מציאת קונטיינר ההודעות בשיחה
     const messagesContainer = document.getElementById('chatMessages') || 

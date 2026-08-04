@@ -1637,3 +1637,174 @@
 .chat-transfer-bubble__status.chat-transfer-bubble--warn { color: #f0a500; }
 .chat-transfer-bubble__status.chat-transfer-bubble--retry { color: #5dade2; }
 .chat-transfer-bubble__status.chat-transfer-bubble--failed { color: #e74c3c; font-weight: 600; }
+
+/* חלק העלאת מדיה וואטסאפ (chat-enhanced-styles.css) – תצוגה מקומית + ספינר + טבעת ליד השעה | HYPER CORE TECH */
+.chat-message--media-transfer {
+  align-self: flex-end;
+  max-width: min(78%, 280px);
+}
+
+.chat-message__content--media-upload {
+  padding: 3px !important;
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.chat-media-upload {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+  line-height: 0;
+  min-width: 180px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.chat-media-upload__media {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  min-height: 140px;
+  object-fit: contain;
+  background: #000;
+  pointer-events: none;
+}
+
+.chat-media-upload__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.28);
+  z-index: 2;
+}
+
+.chat-media-upload__overlay[hidden] {
+  display: none !important;
+}
+
+.chat-media-upload__spinner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #fff;
+  animation: chat-media-upload-spin 0.85s linear infinite;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+@keyframes chat-media-upload-spin {
+  to { transform: rotate(360deg); }
+}
+
+.chat-media-upload__cancel {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  z-index: 4;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.chat-media-upload__footer {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.chat-media-upload__time {
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+}
+
+.chat-media-upload__ring-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+.chat-media-upload__ring {
+  width: 14px;
+  height: 14px;
+  transform: rotate(-90deg);
+}
+
+.chat-media-upload__ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 2.2;
+}
+
+.chat-media-upload__ring-fg {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.2s ease;
+}
+
+.chat-media-upload__checks {
+  color: #53bdeb;
+  font-size: 11px;
+}
+
+.chat-media-upload__fail {
+  color: #ff6b6b;
+  font-size: 11px;
+}
+
+.chat-media-upload__status {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  max-width: calc(100% - 48px);
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.chat-media-upload__status[hidden] {
+  display: none !important;
+}
+
+.chat-message--media-transfer-done .chat-media-upload__overlay {
+  display: none !important;
+}
+
+/* חלק מניעת קפיצת preview (chat-enhanced-styles.css) – שורת שם-קובץ בקומפוזר לא תופסת מקום כשמוסתרת | HYPER CORE TECH */
+#chatComposerFilePreview[hidden],
+.chat-composer__file-preview[hidden] {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  border: none !important;
+}

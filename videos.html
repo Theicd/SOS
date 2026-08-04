@@ -1,13 +1,13 @@
-ο»Ώ<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl" data-theme="dark">
   <head>
     <meta charset="utf-8">
-    <!-- Open Graph Χ§Χ•Χ“Χ ΧΧ›Χ β€“ Χ•Χ•ΧΧΧ΅ΧΧ¤ Χ§Χ•Χ¨Χ Χ¨Χ§ ΧΧª ΧªΧ—Χ™ΧΧª Χ”-head | HYPER CORE TECH -->
+    <!-- Open Graph χεγν μλμ – εεΰθρΰτ χεψΰ ψχ ΰϊ ϊηιμϊ δ-head | HYPER CORE TECH -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="SOS" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:title" content="β€SOS - People Are The Network" />
-    <meta property="og:description" content="β€Decentralized social. Direct communication. Real connection." />
+    <meta property="og:title" content="ύSOS - People Are The Network" />
+    <meta property="og:description" content="ύDecentralized social. Direct communication. Real connection." />
     <meta property="og:url" content="https://sos010.com/" />
     <meta property="og:image" content="https://sos010.com/icons/sos-og.jpg" />
     <meta property="og:image:secure_url" content="https://sos010.com/icons/sos-og.jpg" />
@@ -15,15 +15,15 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="1200" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="β€SOS - People Are The Network" />
-    <meta name="twitter:description" content="β€Decentralized social. Direct communication. Real connection." />
+    <meta name="twitter:title" content="ύSOS - People Are The Network" />
+    <meta name="twitter:description" content="ύDecentralized social. Direct communication. Real connection." />
     <meta name="twitter:image" content="https://sos010.com/icons/sos-og.jpg" />
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta http-equiv="Permissions-Policy" content="interest-cohort=(), geolocation=(), payment=(), usb=(), bluetooth=()">
-    <!-- Χ—ΧΧ§ Χ¦Χ‘ΧΆ address bar (videos.html) β€“ Χ—Χ™Χ™Χ‘ ΧΧ”Χ™Χ•Χª Χ‘ΧªΧ—Χ™ΧΧª head | HYPER CORE TECH -->
+    <!-- ημχ φας address bar (videos.html) – ηιια μδιεϊ αϊηιμϊ head | HYPER CORE TECH -->
     <meta name="theme-color" content="#000000">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <!-- First paint: Χ¨Χ§ΧΆ Χ©Χ—Χ•Χ¨ + ΧΧ•Χ’Χ• Χ§ΧΧ β€“ ΧΧ•Χ ΧΆ Χ¤ΧΧΧ© Χ©Χ ΧΧ•Χ’Χ• ΧΆΧ Χ§ ΧΧ¤Χ Χ™ CSS | HYPER CORE TECH -->
+    <!-- First paint: ψχς ωηεψ + μεβε χθο – ξεπς τμΰω ωμ μεβε ςπχ μτπι CSS | HYPER CORE TECH -->
     <style id="sos-boot-critical">
       html, body {
         background: #000 !important;
@@ -48,7 +48,7 @@
         .videos-feed__viewport {
           background: #000 !important;
         }
-        /* ΧΧ–Χ•Χ¨ Χ©Χ—Χ•Χ¨ Χ‘Χ™Χ Χ”Χ“Χ¨ ΧΧªΧ¤Χ¨Χ™Χ ΧΆΧ“ Χ©ΧΆΧ•ΧΧ” LoadNug / Χ”Χ¤Χ™Χ“ | HYPER CORE TECH */
+        /* ΰζεψ ωηεψ αιο δγψ μϊτψιθ ςγ ωςεμδ LoadNug / δτιγ | HYPER CORE TECH */
         #feedBootShell {
           display: block;
           box-sizing: border-box;
@@ -64,21 +64,21 @@
       }
     </style>
     <title>SOS - People Are The Network</title>
-    <meta name="description" content="β€SOS - People Are The Network. Decentralized social, direct communication, real connection." />
-    <!-- Χ—ΧΧ§ PWA (videos.html) β€“ Χ§Χ™Χ©Χ•Χ¨ Χ-manifest Χ•Χ”Χ’Χ“Χ¨Χ•Χª iOS | HYPER CORE TECH -->
+    <meta name="description" content="ύSOS - People Are The Network. Decentralized social, direct communication, real connection." />
+    <!-- ημχ PWA (videos.html) – χιωεψ μ-manifest εδβγψεϊ iOS | HYPER CORE TECH -->
     <link rel="manifest" href="manifest.webmanifest" />
-    <!-- Χ—ΧΧ§ ΧªΧ¤Χ™Χ΅Χª beforeinstallprompt ΧΧ•Χ§Χ“Χ (videos.html) β€“ Χ—Χ™Χ™Χ‘ ΧΧ”Χ™Χ•Χª ΧΧ¤Χ Χ™ Χ›Χ Χ΅Χ§Χ¨Χ™Χ¤Χ ΧΧ—Χ¨ | HYPER CORE TECH -->
+    <!-- ημχ ϊτιρϊ beforeinstallprompt ξεχγν (videos.html) – ηιια μδιεϊ μτπι λμ ρχψιτθ ΰηψ | HYPER CORE TECH -->
     <script>
       window.deferredPwaPrompt = null;
       window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         window.deferredPwaPrompt = e;
-        console.log('[PWA-EARLY] β… beforeinstallprompt Χ ΧªΧ¤Χ΅ ΧΧ•Χ§Χ“Χ!');
+        console.log('[PWA-EARLY] ? beforeinstallprompt πϊτρ ξεχγν!');
       });
     </script>
     <link rel="apple-touch-icon" href="./icons/sos-app-icon-180.png?v=20260726e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- Χ—ΧΧ§ Χ¤Χ΅ ΧΆΧΧ™Χ•Χ iOS (videos.html) β€“ Χ©Χ—Χ•Χ¨ ΧΧΧ Χ‘ΧΧ§Χ•Χ Χ©Χ§Χ•Χ£ | HYPER CORE TECH -->
+    <!-- ημχ τρ ςμιεο iOS (videos.html) – ωηεψ ξμΰ αξχεν ωχεσ | HYPER CORE TECH -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="SOS" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -86,12 +86,12 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png?v=20260726e" />
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/sos-app-icon-192.png?v=20260726e" />
     <link rel="icon" type="image/png" href="./icons/WAPICON.png?v=20260726e" />
-    <!-- Χ—ΧΧ§ ΧΧ•Χ‘Χ™Χ™Χ (videos.html) β€“ ΧΧ•Χ§Χ Χ™Χ Χ•-Safe Area | HYPER CORE TECH -->
+    <!-- ημχ ξεαιιμ (videos.html) – θεχπιν ε-Safe Area | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/tokens.css">
     <link rel="stylesheet" href="./styles/base.css">
     <link rel="stylesheet" href="./styles/facebook-theme.css?v=20260802s">
     <link rel="stylesheet" href="./styles/media-overrides.css">
-    <!-- Χ—ΧΧ§ ΧΆΧ™Χ¦Χ•Χ‘Χ™Χ ΧΧΧ•Χ’Χ• Χ•ΧΧ¦'ΧΧ β€“ Χ–Χ”Χ™Χ Χ-storage/index | HYPER CORE TECH -->
+    <!-- ημχ ςιφεαιν μμεβε εμφ'ΰθ – ζδιν μ-storage/index | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css">
     <link rel="stylesheet" href="./styles/chat.css?v=20260803f">
     <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css?v=20260803f">
@@ -99,19 +99,19 @@
     <link rel="stylesheet" href="./styles/chat-dialog.css">
     <link rel="stylesheet" href="./styles/chat-voice-call.css?v=20260804e">
     <link rel="stylesheet" href="./styles/chat-video-call.css?v=20260803p">
-    <!-- Χ—ΧΧ§ ΧΆΧ™Χ¦Χ•Χ‘ Χ¦'ΧΧ ΧΧ©Χ•Χ¤Χ¨ (videos.html) β€“ Χ Χ’Χ ΧΧ•Χ“Χ™Χ•/ΧΧ“Χ™Χ” Χ•Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ Χ‘Χ΅Χ’Χ Χ•Χ Χ•Χ•ΧΧΧ΅ΧΧ¤ | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./chat-enhanced-styles.css?v=20260804i">
+    <!-- ημχ ςιφεα φ'ΰθ ξωετψ (videos.html) – πβο ΰεγιε/ξγιδ εχεξτεζψ αρβπεο εεΰθρΰτ | HYPER CORE TECH -->
+    <link rel="stylesheet" href="./chat-enhanced-styles.css?v=20260804j">
     <link rel="stylesheet" href="./styles/market-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
     <link rel="stylesheet" href="./styles/videos.css?v=20260804e">
-    <!-- Χ—ΧΧ§ Χ΅Χ™Χ΅ΧΧª Χ©Χ•Χ Χ•Χª (videos.html) β€“ ΧΆΧ™Χ¦Χ•Χ‘ Χ—ΧΧ•Χ Χ΅Χ™Χ΅ΧΧ” | HYPER CORE TECH -->
+    <!-- ημχ ριρξϊ ωεπεϊ (videos.html) – ςιφεα ημεο ριρξδ | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
-    <!-- LOADNUG β€“ ΧΧ“ ΧΧΆΧ™Χ Χ” Χ§Χ•ΧΧ Χ•ΧΆΧ™ Χ—Χ“Χ© (ΧΧ—ΧΧ™Χ£ ΧΧª ΧΧ΅Χ Χ”-SOS Χ”Χ™Χ©Χ) | HYPER CORE TECH -->
+    <!-- LOADNUG – ξγ θςιπδ χεμπεςι ηγω (ξημισ ΰϊ ξρκ δ-SOS διωο) | HYPER CORE TECH -->
     <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260802z">
     <style>
-      /* Χ“Χ£ ΧΧΆΧ™Χ Χ” ΧΧΧ β€“ ΧΆΧ“ Χ§Χ• Χ”ΧªΧ¤Χ¨Χ™Χ Χ”ΧªΧ—ΧªΧ•Χ, ΧΧ΅ΧªΧ™Χ¨ Χ›Χ¨ΧΧ™Χ΅Χ™Χ”/Χ›Χ¤ΧªΧ•Χ¨Χ™ Χ“Χ™ΧΧ•Χ’ | HYPER CORE TECH */
+      /* γσ θςιπδ ξμΰ – ςγ χε δϊτψιθ δϊηϊεο, ξρϊιψ λψθιριδ/λτϊεψι γιμεβ | HYPER CORE TECH */
       #videosLoadingOverlay.videos-loading-overlay {
         position: fixed !important;
         top: 0 !important;
@@ -134,7 +134,7 @@
         pointer-events: auto !important;
         overflow: hidden !important;
       }
-      /* Deep-link / Χ¦'ΧΧ Χ¤ΧªΧ•Χ— β€“ ΧΧ ΧΧ›Χ΅Χ•Χª ΧΧª Χ“Χ£ Χ”Χ©Χ™Χ—Χ” Χ‘ΧΧ΅Χ ΧΧΆΧ™Χ Χ” | HYPER CORE TECH */
+      /* Deep-link / φ'ΰθ τϊεη – μΰ μλρεϊ ΰϊ γσ δωιηδ αξρκ θςιπδ | HYPER CORE TECH */
       html[data-sos-deeplink="1"] #videosLoadingOverlay.videos-loading-overlay,
       body.sos-deeplink-chat #videosLoadingOverlay.videos-loading-overlay,
       body:has(#chatPanel:not([hidden])) #videosLoadingOverlay.videos-loading-overlay {
@@ -231,7 +231,7 @@
         0%, 100% { opacity: 0.72; transform: scale(0.96); }
         50% { opacity: 1; transform: scale(1); }
       }
-      /* Χ“Χ΅Χ§ΧΧ•Χ¤: Χ›Χ™Χ΅Χ•Χ™ ΧΧΧ ΧΆΧ“ ΧªΧ—ΧªΧ™Χª ΧΧ–Χ•Χ¨ Χ”ΧªΧ•Χ›Χ (Χ‘ΧΧ™ Χ¤ΧΆΧ¨ 56px Χ©Χ ΧΧ•Χ‘Χ™Χ™Χ) | HYPER CORE TECH */
+      /* γρχθετ: λιρει ξμΰ ςγ ϊηϊιϊ ΰζεψ δϊελο (αμι τςψ 56px ωμ ξεαιιμ) | HYPER CORE TECH */
       @media (min-width: 769px) {
         #videosLoadingOverlay.videos-loading-overlay,
         .videos-soft-loading {
@@ -245,15 +245,15 @@
       }
     </style>
     <link rel="stylesheet" href="./styles/video-record.css">
-    <!-- Χ—ΧΧ§ ΧΧ¦Χ‘ ΧΧ•Χ¨Χ— (videos.html) β€“ ΧΆΧ™Χ¦Χ•Χ‘ Χ—ΧΧ•Χ Χ”ΧªΧ—Χ‘Χ¨Χ•Χª/Χ”Χ¨Χ©ΧΧ” | HYPER CORE TECH -->
+    <!-- ημχ ξφα ΰεψη (videos.html) – ςιφεα ημεο δϊηαψεϊ/δψωξδ | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
-    <!-- Χ—ΧΧ§ PWA (videos.html) β€“ ΧΆΧ™Χ¦Χ•Χ‘ Χ‘ΧΧ Χ¨Χ™ Χ”ΧªΧ§Χ Χ” Χ•ΧΧ•Χ“ΧΧΧ™ Χ”ΧªΧ¨ΧΧ•Χª | HYPER CORE TECH -->
+    <!-- ημχ PWA (videos.html) – ςιφεα αΰπψι δϊχπδ εξεγΰμι δϊψΰεϊ | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/pwa-install.css?v=20260802ad">
-    <!-- Χ—ΧΧ§ WebTorrent (videos.html) β€“ ΧΆΧ™Χ¦Χ•Χ‘ Χ”ΧΆΧ‘Χ¨Χª Χ§Χ‘Χ¦Χ™Χ Χ’Χ“Χ•ΧΧ™Χ P2P | HYPER CORE TECH -->
+    <!-- ημχ WebTorrent (videos.html) – ςιφεα δςαψϊ χαφιν βγεμιν P2P | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/webtorrent-transfer.css?v=20260730t">
-    <!-- ΧΆΧ™Χ¦Χ•Χ‘ Χ›Χ¤ΧªΧ•Χ¨Χ™ Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ ΧΧ©Χ•Χ¤Χ¨Χ™Χ -->
+    <!-- ςιφεα λτϊεψι χεξτεζψ ξωετψιν -->
     <style>
-      /* ===== ΧΧ“ ΧΧΆΧ™Χ Χ” Χ•Χ”Χ•Χ“ΧΆΧ•Χª Χ΅ΧΧΧ•Χ΅ ===== */
+      /* ===== ξγ θςιπδ εδεγςεϊ ρθθερ ===== */
       .videos-loading-progress {
         position: absolute;
         top: 55%;
@@ -305,7 +305,7 @@
         50% { opacity: 1; }
       }
 
-      /* ===== ΧΧ Χ™ΧΧ¦Χ™Χ™Χª Χ”Χ‘Χ”Χ•Χ‘ ΧΧ›Χ¤ΧªΧ•Χ¨ Χ¤Χ¨Χ•Χ¤Χ™Χ Χ‘Χ–ΧΧ ΧΆΧ™Χ‘Χ•Χ“ ===== */
+      /* ===== ΰπιξφιιϊ δαδεα μλτϊεψ τψετιμ αζξο ςιαεγ ===== */
       @keyframes profileButtonBlink {
         0%, 100% { 
           box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
@@ -323,7 +323,7 @@
         border-radius: 50%;
       }
 
-      /* ===== Χ—ΧΧ•Χ ΧªΧ ΧΧ™Χ ΧΧ¤Χ Χ™ Χ¤Χ¨Χ΅Χ•Χ ===== */
+      /* ===== ημεο ϊπΰιν μτπι τψρεν ===== */
       .terms-modal {
         position: fixed;
         top: 0;
@@ -408,7 +408,7 @@
         cursor: not-allowed;
       }
 
-      /* ===== Χ”Χ•Χ“ΧΆΧª ΧΆΧ™Χ‘Χ•Χ“ Χ‘Χ¨Χ§ΧΆ ===== */
+      /* ===== δεγςϊ ςιαεγ αψχς ===== */
       .processing-notice {
         position: fixed;
         top: 80px;
@@ -453,7 +453,7 @@
         font-weight: bold;
       }
 
-      /* Χ”ΧªΧΧΧ” ΧΧΧ•Χ‘Χ™Χ™Χ */
+      /* δϊΰξδ μξεαιιμ */
       @media (max-width: 768px) {
         .videos-loading-progress {
           top: 58%;
@@ -470,7 +470,7 @@
         }
       }
 
-      /* ===== Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ Χ¤Χ©Χ•Χ Χ‘Χ΅Χ’Χ Χ•Χ ΧΧ™Χ§ΧΧ•Χ§ β€“ Χ Χ›Χ Χ΅ ΧΧΧ΅Χ Χ‘ΧΧ™ Χ’ΧΧ™ΧΧ” ΧΧ™Χ•ΧªΧ¨Χª | HYPER CORE TECH ===== */
+      /* ===== χεξτεζψ τωεθ αρβπεο θιχθεχ – πλπρ μξρκ αμι βμιμδ ξιεϊψϊ | HYPER CORE TECH ===== */
       .compose-modal {
         align-items: center;
         justify-content: center;
@@ -605,7 +605,7 @@
         transition: border-color 0.2s ease, transform 0.15s ease, background 0.2s ease;
       }
 
-      /* Χ—ΧΧ§ Χ”ΧΆΧΧΧ” (videos.html) β€“ input Χ©Χ§Χ•Χ£ ΧΧ›Χ΅Χ” ΧΧª Χ›Χ Χ›Χ¤ΧªΧ•Χ¨ Χ”Χ”ΧΆΧΧΧ” Χ‘ΧΧ•Χ‘Χ™Χ™Χ | HYPER CORE TECH */
+      /* ημχ δςμΰδ (videos.html) – input ωχεσ ξλρδ ΰϊ λμ λτϊεψ δδςμΰδ αξεαιιμ | HYPER CORE TECH */
       .compose-choice .compose-media-input {
         position: absolute !important;
         inset: 0 !important;
@@ -850,7 +850,7 @@
         border: 1px solid var(--border);
       }
 
-      /* ΧΧ¦Χ‘ ΧΧ©Χ—Χ§: Χ§Χ•ΧΧ¤Χ§ΧΧ™ Χ‘ΧΧ™ Χ›Χ¤Χ™ΧΧ•Χ™Χ•Χª | HYPER CORE TECH */
+      /* ξφα ξωηχ: χεξτχθι αμι λτιμειεϊ | HYPER CORE TECH */
       .compose-editor.is-compose-game textarea {
         min-height: 52px;
         max-height: 72px;
@@ -866,7 +866,7 @@
         display: none !important;
       }
 
-      /* ===== Χ”ΧªΧΧΧ” ΧΧ•Χ‘Χ™Χ™Χ β€“ Χ Χ›Χ Χ΅ ΧΧΧ΅Χ Χ‘ΧΧ™ Χ’ΧΧ™ΧΧª ΧΧ•Χ“Χ | HYPER CORE TECH ===== */
+      /* ===== δϊΰξδ ξεαιιμ – πλπρ μξρκ αμι βμιμϊ ξεγμ | HYPER CORE TECH ===== */
       @media (max-width: 768px) {
         .compose-modal {
           position: fixed !important;
@@ -895,7 +895,7 @@
         .compose-dialog textarea {
           min-height: 64px;
           max-height: 96px;
-          font-size: 16px; /* ΧΧ•Χ ΧΆ Χ–Χ•Χ ΧΧ•ΧΧ•ΧΧΧ™ Χ‘-iOS */
+          font-size: 16px; /* ξεπς ζεν ΰεθεξθι α-iOS */
           line-height: 1.35;
         }
 
@@ -904,13 +904,13 @@
           max-height: 64px;
         }
         
-        /* Χ”ΧªΧΧΧ” Χ›Χ©Χ”ΧΧ§ΧΧ“Χª Χ¤ΧªΧ•Χ—Χ” β€“ Χ‘ΧΧ™ ΧΧ“Χ—Χ•Χ£ ΧΧª Χ”Χ“Χ™ΧΧΧ•Χ’ ΧΧ—Χ•Χ¥ ΧΧΧ΅Χ | HYPER CORE TECH */
+        /* δϊΰξδ λωδξχμγϊ τϊεηδ – αμι μγηεσ ΰϊ δγιΰμεβ ξηευ μξρκ | HYPER CORE TECH */
         .compose-modal.keyboard-open .compose-dialog {
           max-height: calc(100dvh - 8px);
         }
       }
 
-      /* ===== ΧΧ“Χ™Χ Χ”ΧªΧ§Χ“ΧΧ•Χª Χ’Χ¨Χ¤Χ™Χ™Χ ΧΧ•Χ•Χ™Χ“Χ™ΧΧ• ===== */
+      /* ===== ξγιν δϊχγξεϊ βψτιιν μεειγιΰε ===== */
       .progress-meter {
         width: 100%;
         height: 8px;
@@ -951,7 +951,7 @@
         100% { transform: translateX(100%); }
       }
 
-      /* ΧΆΧ™Χ¦Χ•Χ‘ Χ”ΧªΧ§Χ“ΧΧ•Χª ΧΆΧ ΧΧ™Χ™Χ§Χ•Χ Χ™Χ */
+      /* ςιφεα δϊχγξεϊ ςν ΰιιχεπιν */
       .progress-with-icon {
         display: flex;
         align-items: center;
@@ -996,7 +996,7 @@
         100% { transform: rotate(360deg); }
       }
 
-      /* Χ”ΧªΧΧΧ” ΧΧΧ•Χ‘Χ™Χ™Χ */
+      /* δϊΰξδ μξεαιιμ */
       @media (max-width: 768px) {
         .progress-meter {
           height: 6px;
@@ -1023,7 +1023,7 @@
         }
       }
 
-      /* ===== ΧΆΧ™Χ’Χ•Χ Χ΅ΧΧΧ™Χ΅ΧΧ™Χ§Χ•Χª P2P/Blossom β€“ ΧΧ™Χ™Χ§Χ•Χ Χ‘ΧªΧ•Χ ΧªΧ¤Χ¨Χ™Χ Χ”Χ’Χ“Χ¨Χ•Χª | HYPER CORE TECH ===== */
+      /* ===== ςιβεμ ρθθιρθιχεϊ P2P/Blossom – ΰιιχεο αϊεκ ϊτψιθ δβγψεϊ | HYPER CORE TECH ===== */
       .top-bar__dropdown-item--stats {
         align-items: center;
       }
@@ -1072,7 +1072,7 @@
 
       .p2p-stats-p2p {
         fill: none;
-        stroke: #4fc3f7; /* Χ›Χ—Χ•Χ - P2P */
+        stroke: #4fc3f7; /* ληεμ - P2P */
         stroke-width: 3;
         stroke-linecap: round;
         transition: stroke-dasharray 0.5s ease;
@@ -1080,7 +1080,7 @@
 
       .p2p-stats-blossom {
         fill: none;
-        stroke: #ff6d00; /* Χ›ΧªΧ•Χ - Blossom */
+        stroke: #ff6d00; /* λϊεν - Blossom */
         stroke-width: 3;
         stroke-linecap: round;
         transition: stroke-dasharray 0.5s ease;
@@ -1097,7 +1097,7 @@
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
       }
 
-      /* ΧΧ•ΧΧΧ™Χ¤ ΧΧ¤Χ•Χ¨Χ Χ‘ΧΧ—Χ™Χ¦Χ” */
+      /* θεμθιτ ξτεψθ αμηιφδ */
       .p2p-stats-tooltip {
         position: absolute;
         top: 100%;
@@ -1114,7 +1114,7 @@
         display: none;
       }
 
-      /* Χ¤ΧΧ Χ Χ΅ΧΧΧ™Χ΅ΧΧ™Χ§Χ” β€“ ΧΧΧ•Χ¨Χ›Χ– Χ‘ΧΧ΅Χ (ΧΧ—Χ©Χ‘ + ΧΧ•Χ‘Χ™Χ™Χ) | HYPER CORE TECH */
+      /* τΰπμ ρθθιρθιχδ – ξξεψλζ αξρκ (ξηωα + ξεαιιμ) | HYPER CORE TECH */
       .p2p-stats-tooltip--fixed,
       #p2pStatsTooltipPanel {
         position: fixed !important;
@@ -1256,7 +1256,7 @@
         border-top: none;
       }
 
-      /* ===== Χ”Χ‘Χ”Χ•Χ‘ P2P Χ¤Χ Χ™ΧΧ™ (Χ‘ΧΧ™ ΧªΧ Χ•ΧΆΧ” Χ©Χ Χ”ΧΆΧ™Χ’Χ•Χ) ===== */
+      /* ===== δαδεα P2P τπιξι (αμι ϊπεςδ ωμ δςιβεμ) ===== */
       .p2p-stats-circle {
         position: relative;
       }
@@ -1290,7 +1290,7 @@
         50% { opacity: 1; }
       }
 
-      /* Χ”ΧªΧΧΧ” ΧΧΧ•Χ‘Χ™Χ™Χ */
+      /* δϊΰξδ μξεαιιμ */
       @media (max-width: 768px) {
         .p2p-stats-circle {
           width: 32px;
@@ -1315,7 +1315,7 @@
         }
       }
 
-      /* ===== Χ”Χ‘ΧΧ—Χ” Χ©ΧΧ•Χ“ΧΧ Χ”Χ§ΧΧΧª Χ•Χ™Χ“Χ™ΧΧ• ΧªΧΧ™Χ“ ΧΧΆΧ ===== */
+      /* ===== δαθηδ ωξεγΰμ δχμθϊ ειγιΰε ϊξιγ ξςμ ===== */
       .video-record-modal {
         z-index: 99999 !important;
       }
@@ -1325,14 +1325,14 @@
         opacity: 1 !important;
       }
 
-      /* Χ”ΧªΧΧΧ” ΧΧΧ•Χ‘Χ™Χ™Χ */
+      /* δϊΰξδ μξεαιιμ */
       @media (max-width: 768px) {
         .video-record-modal {
           z-index: 99999 !important;
         }
       }
 
-      /* ===== Χ›Χ¤ΧªΧ•Χ¨ Χ‘Χ™ΧΧ•Χ Χ‘Χ‘Χ—Χ™Χ¨Χª Χ–ΧΧ ===== */
+      /* ===== λτϊεψ αιθεμ ααηιψϊ ζξο ===== */
       .timer-cancel {
         display: flex;
         justify-content: center;
@@ -1371,7 +1371,7 @@
         font-size: 16px;
       }
 
-      /* Χ”ΧªΧΧΧ” ΧΧΧ•Χ‘Χ™Χ™Χ */
+      /* δϊΰξδ μξεαιιμ */
       @media (max-width: 768px) {
         .timer-cancel {
           margin-top: 15px;
@@ -1388,7 +1388,7 @@
         }
       }
 
-      /* ===== Χ›Χ¤ΧªΧ•Χ¨ Χ‘Χ™ΧΧ•Χ Χ‘ΧΧΧ©Χ§ Χ”Χ§ΧΧΧ” ===== */
+      /* ===== λτϊεψ αιθεμ αξξωχ δχμθδ ===== */
       .record-cancel {
         display: flex;
         justify-content: center;
@@ -1425,7 +1425,7 @@
         font-size: 14px;
       }
 
-      /* Χ”ΧªΧΧΧ” ΧΧΧ•Χ‘Χ™Χ™Χ */
+      /* δϊΰξδ μξεαιιμ */
       @media (max-width: 768px) {
         .record-cancel {
           margin-top: 15px;
@@ -1442,7 +1442,7 @@
         }
       }
 
-      /* ===== ΧΧ™Χ™ΧΧ¨ Χ¦Χ£ Χ‘ΧΧ”ΧΧ Χ”Χ§ΧΧΧ” ===== */
+      /* ===== θιιξψ φσ αξδμκ δχμθδ ===== */
       .floating-timer {
         position: absolute;
         top: 20px;
@@ -1487,7 +1487,7 @@
         }
       }
 
-      /* Χ”ΧªΧΧΧ” ΧΧΧ•Χ‘Χ™Χ™Χ */
+      /* δϊΰξδ μξεαιιμ */
       @media (max-width: 768px) {
         .floating-timer {
           top: 15px;
@@ -1499,13 +1499,13 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
     
-    <!-- Χ—ΧΧ§ Debug Console (videos.html) β€“ Χ”Χ¦Χ’Χª ΧΧ•Χ’Χ™Χ ΧΆΧ Χ”ΧΧ΅Χ ΧΧ“Χ™Χ‘Χ•Χ’ Χ‘ΧΧ™Χ™Χ¤Χ•Χ | HYPER CORE TECH -->
+    <!-- ημχ Debug Console (videos.html) – δφβϊ μεβιν ςμ δξρκ μγιαεβ αΰιιτεο | HYPER CORE TECH -->
     <script>
     (function() {
-      // Χ™Χ¦Χ™Χ¨Χª Χ—ΧΧ•Χ debug Χ¦Χ£
+      // ιφιψϊ ημεο debug φσ
       var debugPanel = document.createElement('div');
       debugPanel.id = 'mobileDebugPanel';
-      debugPanel.innerHTML = '<div id="debugHeader">π”§ Debug Console <button id="debugToggle">β–Ό</button><button id="debugCopy">π“‹ Χ”ΧΆΧªΧ§</button><button id="debugClear">π—‘οΈ</button></div><div id="debugContent"></div>';
+      debugPanel.innerHTML = '<div id="debugHeader">?? Debug Console <button id="debugToggle">?</button><button id="debugCopy">?? δςϊχ</button><button id="debugClear">???</button></div><div id="debugContent"></div>';
       
       var style = document.createElement('style');
       style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
@@ -1514,47 +1514,47 @@
         document.head.appendChild(style);
         document.body.appendChild(debugPanel);
         
-        // Χ›Χ¤ΧªΧ•Χ¨ Χ¤ΧªΧ™Χ—Χ” Χ¦Χ£ (Χ’Χ™Χ‘Χ•Χ™ Χ‘ΧΧ‘Χ“) β€“ Χ”Χ›Χ¤ΧªΧ•Χ¨ Χ”Χ¨ΧΧ©Χ™ Χ‘ΧªΧ¤Χ¨Χ™Χ Χ”Χ¤Χ¨Χ•Χ¤Χ™Χ | HYPER CORE TECH
+        // λτϊεψ τϊιηδ φσ (βιαει αμαγ) – δλτϊεψ δψΰωι αϊτψιθ δτψετιμ | HYPER CORE TECH
         var openBtn = document.createElement('button');
         openBtn.id = 'debugOpenBtn';
-        openBtn.textContent = 'π”§';
-        openBtn.title = 'Χ¤ΧªΧ— Debug Console';
+        openBtn.textContent = '??';
+        openBtn.title = 'τϊη Debug Console';
         document.body.appendChild(openBtn);
 
         var openBtnTop = document.getElementById('topBarDebugLog');
 
-        // Χ—ΧΧ§ Χ›Χ¤ΧªΧ•Χ¨ Χ¨ΧΆΧ Χ•Χ Cache (videos.html) β€“ Χ‘ΧªΧ•Χ ΧªΧ¤Χ¨Χ™Χ Χ”Χ¤Χ¨Χ•Χ¤Χ™Χ ΧªΧ—Χª ΧΧ©Χ—Χ§Χ™ Χ¨Χ©Χª | HYPER CORE TECH
+        // ημχ λτϊεψ ψςπεο Cache (videos.html) – αϊεκ ϊτψιθ δτψετιμ ϊηϊ ξωηχι ψωϊ | HYPER CORE TECH
         var profileMenu = document.getElementById('topBarProfileMenu');
         var cacheRefreshBtn = document.createElement('button');
         cacheRefreshBtn.id = 'cacheRefreshBtn';
         cacheRefreshBtn.type = 'button';
         cacheRefreshBtn.className = 'top-bar__dropdown-item';
-        cacheRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i><span>ΧΧ—Χ™Χ§Χª Cache</span>';
-        cacheRefreshBtn.title = 'Χ¨ΧΆΧ Χ•Χ ΧΆΧΧ•Χ§ - ΧΧ—Χ™Χ§Χª Cache Χ•Χ”Χ•Χ¨Χ“Χ” ΧΧ—Χ“Χ©';
+        cacheRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i><span>ξηιχϊ Cache</span>';
+        cacheRefreshBtn.title = 'ψςπεο ςξεχ - ξηιχϊ Cache εδεψγδ ξηγω';
         cacheRefreshBtn.onclick = async function() {
           cacheRefreshBtn.style.animation = 'spin 1s linear infinite';
           cacheRefreshBtn.disabled = true;
           try {
-            // ΧΧ—Χ™Χ§Χª Χ›Χ Χ”-caches
+            // ξηιχϊ λμ δ-caches
             if ('caches' in window) {
               var cacheNames = await caches.keys();
               await Promise.all(cacheNames.map(function(name) { return caches.delete(name); }));
-              console.log('[CACHE] Χ ΧΧ—Χ§Χ• Χ›Χ Χ”-caches:', cacheNames);
+              console.log('[CACHE] πξηχε λμ δ-caches:', cacheNames);
             }
-            // Χ‘Χ™ΧΧ•Χ Χ¨Χ™Χ©Χ•Χ Service Worker
+            // αιθεμ ψιωεν Service Worker
             if ('serviceWorker' in navigator) {
               var registrations = await navigator.serviceWorker.getRegistrations();
               for (var reg of registrations) {
                 await reg.unregister();
-                console.log('[CACHE] Service Worker Χ‘Χ•ΧΧ');
+                console.log('[CACHE] Service Worker αεθμ');
               }
             }
-            // Χ¨ΧΆΧ Χ•Χ Χ§Χ©Χ™Χ—
-            console.log('[CACHE] ΧΧ¨ΧΆΧ Χ ΧΧª Χ”Χ“Χ£...');
+            // ψςπεο χωιη
+            console.log('[CACHE] ξψςπο ΰϊ δγσ...');
             window.location.reload(true);
           } catch (err) {
-            console.error('[CACHE] Χ©Χ’Χ™ΧΧ” Χ‘ΧΧ—Χ™Χ§Χª cache:', err);
-            alert('Χ©Χ’Χ™ΧΧ” Χ‘Χ¨ΧΆΧ Χ•Χ. Χ Χ΅Χ” Χ©Χ•Χ‘.');
+            console.error('[CACHE] ωβιΰδ αξηιχϊ cache:', err);
+            alert('ωβιΰδ αψςπεο. πρδ ωεα.');
             cacheRefreshBtn.style.animation = '';
             cacheRefreshBtn.disabled = false;
           }
@@ -1569,7 +1569,7 @@
         var toggle = document.getElementById('debugToggle');
         var copy = document.getElementById('debugCopy');
         var clear = document.getElementById('debugClear');
-        var maxLines = 1000; // Χ©ΧΧ•Χ¨ Χ™Χ•ΧªΧ¨ Χ©Χ•Χ¨Χ•Χª ΧΧ”Χ¦Χ’Χ”
+        var maxLines = 1000; // ωξεψ ιεϊψ ωεψεϊ μδφβδ
         var fullLog = [];
         
         function closeProfileMenuForDebug() {
@@ -1607,10 +1607,10 @@
         copy.onclick = function() {
           var text = content.innerText;
           navigator.clipboard.writeText(text).then(function() {
-            copy.textContent = 'β… Χ”Χ•ΧΆΧªΧ§!';
-            setTimeout(function() { copy.textContent = 'π“‹ Χ”ΧΆΧªΧ§'; }, 2000);
+            copy.textContent = '? δεςϊχ!';
+            setTimeout(function() { copy.textContent = '?? δςϊχ'; }, 2000);
           }).catch(function() {
-            // fallback ΧΧΧ™Χ™Χ¤Χ•Χ Χ™Χ©Χ
+            // fallback μΰιιτεο ιωο
             var ta = document.createElement('textarea');
             ta.value = text;
             ta.style.position = 'fixed';
@@ -1619,8 +1619,8 @@
             ta.select();
             document.execCommand('copy');
             document.body.removeChild(ta);
-            copy.textContent = 'β… Χ”Χ•ΧΆΧªΧ§!';
-            setTimeout(function() { copy.textContent = 'π“‹ Χ”ΧΆΧªΧ§'; }, 2000);
+            copy.textContent = '? δεςϊχ!';
+            setTimeout(function() { copy.textContent = '?? δςϊχ'; }, 2000);
           });
         };
         
@@ -1629,9 +1629,9 @@
           fullLog = [];
         };
 
-        // Χ©ΧΧ™Χ¨Χª ΧΧ•Χ’ Χ›-TXT
+        // ωξιψϊ μεβ λ-TXT
         var saveBtn = document.createElement('button');
-        saveBtn.textContent = 'π’Ύ Χ©ΧΧ•Χ¨ TXT';
+        saveBtn.textContent = '?? ωξεψ TXT';
         saveBtn.id = 'debugSave';
         saveBtn.onclick = function() {
           var text = fullLog.join('\n');
@@ -1653,7 +1653,7 @@
           var line = document.createElement('div');
           line.className = 'debug-line debug-' + type;
           var time = new Date().toLocaleTimeString('he-IL');
-          // Χ΅Χ™Χ Χ•Χ Χ¤Χ¨ΧΧΧ¨Χ™ %c style
+          // ριπεο τψξθψι %c style
           var filteredArgs = Array.from(args).filter(function(a, i, arr) {
             if (typeof a === 'string' && a.startsWith('%c')) return true;
             if (i > 0 && typeof arr[i-1] === 'string' && arr[i-1].includes('%c') && typeof a === 'string' && a.includes('color:')) return false;
@@ -1666,7 +1666,7 @@
             }
             return String(a);
           }).join(' ');
-          // Χ”Χ“Χ’Χ©Χª ΧΧ•Χ’Χ™ ΧΧ—Χ™Χ§Χ”
+          // δγβωϊ μεβι ξηιχδ
           if (msg.includes('[DELETE_DEBUG]') || msg.includes('[DELETE_PUBLISH]')) {
             line.style.color = '#FF5722';
             line.style.fontWeight = 'bold';
@@ -1698,13 +1698,13 @@
           addLine('error', ['PROMISE REJECTED:', e.reason]);
         };
         
-        console.log('π“± Debug Console Ready - iOS Debug Mode');
+        console.log('?? Debug Console Ready - iOS Debug Mode');
       });
     })();
     </script>
     
-    <!-- Χ—ΧΧ§ ΧªΧΧ•Χ™Χ•Χª Χ›ΧΧΧ™Χ•Χª (videos.html) β€“ Χ΅Χ“Χ¨ ΧΧΆΧ™Χ Χ” Χ–Χ”Χ” ΧΧΆΧΧ•Χ“Χ™Χ Χ”Χ¨ΧΧ©Χ™Χ™Χ | HYPER CORE TECH -->
-    <!-- Χ—ΧΧ§ ΧΧ•Χ‘Χ™Χ™Χ (videos.html) β€“ ΧªΧ™Χ§Χ•Χ Χ’Χ•Χ‘Χ” viewport Χ‘ΧΧ™Χ™Χ¤Χ•Χ | HYPER CORE TECH -->
+    <!-- ημχ ϊμειεϊ λμμιεϊ (videos.html) – ργψ θςιπδ ζδδ μςξεγιν δψΰωιιν | HYPER CORE TECH -->
+    <!-- ημχ ξεαιιμ (videos.html) – ϊιχεο βεαδ viewport αΰιιτεο | HYPER CORE TECH -->
     <script src="./mobile-viewport-fix.js"></script>
     <script src="./key-storage.js" defer></script>
     <script src="./config.js" defer></script>
@@ -1713,22 +1713,22 @@
     <script src="./secure-channel.js" defer></script>
     <script src="./keys.js" defer></script>
     <script src="./profile.js" defer></script>
-    <!-- Χ—ΧΧ§ Χ”Χ¦Χ’Χª ΧΧ¤ΧªΧ— (videos.html) β€“ ΧΧΆΧ™Χ Χª ΧΧ•Χ“Χ•Χ Χ Χ™Χ”Χ•Χ Χ—Χ©Χ‘Χ•Χ ΧΧ”Χ¦Χ’Χª Χ”ΧΧ¤ΧªΧ— | HYPER CORE TECH -->
+    <!-- ημχ δφβϊ ξτϊη (videos.html) – θςιπϊ ξεγεμ πιδεμ ηωαεο μδφβϊ δξτϊη | HYPER CORE TECH -->
     <script src="./account.js" defer></script>
     <script src="./key-viewer.js" defer></script>
     <script src="./media-cache.js" defer></script>
     <script src="./media-mirror.js" defer></script>
     <script src="./media-recheck.js" defer></script>
-    <!-- Χ—ΧΧ§ Χ“Χ™Χ‘Χ•Χ’ iOS (videos.html) β€“ ΧΧ•Χ“Χ•Χ Χ“Χ™Χ‘Χ•Χ’ ΧΧΆΧΧ™Χ§ ΧΧ‘ΧΆΧ™Χ•Χª Χ•Χ™Χ“ΧΧ• Χ‘ΧΧ™Χ™Χ¤Χ•Χ | HYPER CORE TECH -->
+    <!-- ημχ γιαεβ iOS (videos.html) – ξεγεμ γιαεβ ξςξιχ μαςιεϊ ειγΰε αΰιιτεο | HYPER CORE TECH -->
     <script src="./ios-video-debug.js" defer></script>
-    <!-- Χ—ΧΧ§ P2P (videos.html) β€“ ΧΧΆΧ¨Χ›Χª Χ©Χ™ΧªΧ•Χ£ Χ•Χ™Χ“ΧΧ• P2P Χ‘Χ™Χ ΧΧ©ΧªΧΧ©Χ™Χ | HYPER CORE TECH -->
+    <!-- ημχ P2P (videos.html) – ξςψλϊ ωιϊεσ ειγΰε P2P αιο ξωϊξωιν | HYPER CORE TECH -->
     <script src="./p2p-event-sync.js" defer></script>
     <script src="./p2p-video-sharing.js?v=20260802q" defer></script>
     <script src="./p2p-peer-exchange.js" defer></script>
     <script src="./p2p-metadata-transfer.js" defer></script>
     <script src="./contract-dashboard-v2.js" defer></script>
     <script src="./app.js?v=20260729g" defer></script>
-    <!-- Χ—ΧΧ§ Χ Χ™Χ•Χ•Χ (videos.html) β€“ Χ”Χ’Χ“Χ¨Χª ΧΧ©Χ•Χ Χ™Χª Χ¤ΧΆΧ™ΧΧ” ΧΧ•Χ™Χ“ΧΧ• Χ•ΧΧΆΧ™Χ Χª ΧΧ•Χ“Χ•Χ Χ”Χ Χ™Χ•Χ•Χ | HYPER CORE TECH -->
+    <!-- ημχ πιεεθ (videos.html) – δβγψϊ μωεπιϊ τςιμδ μειγΰε εθςιπϊ ξεγεμ δπιεεθ | HYPER CORE TECH -->
     <script>
       (function(){
         var App = window.NostrApp || (window.NostrApp = {});
@@ -1739,29 +1739,29 @@
     <script src="./feed.js?v=20260802s" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
-    <!-- Χ—ΧΧ§ ΧΧ•Χ— Χ’Χ™Χ“Χ•Χ (videos.html) β€“ ΧΧΆΧ™Χ Χª Χ΅Χ¤Χ¨Χ™Χ•Χª Χ”Χ’Χ¨Χ¤Χ™Χ ΧΧ“Χ©Χ‘Χ•Χ¨Χ“ | HYPER CORE TECH -->
+    <!-- ημχ μεη βιγεμ (videos.html) – θςιπϊ ρτψιεϊ δβψτιν μγωαεψγ | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" defer></script>
-    <!-- chartjs-chart-financial Χ”Χ•Χ΅Χ¨ - Χ’Χ•Χ¨Χ Χ-404 Χ•ΧΧ Χ Χ“Χ¨Χ© ΧΧΧΧ©Χ§ Χ”Χ Χ•Χ›Χ—Χ™ -->
-    <!-- Χ—ΧΧ§ Blossom (videos.html) β€“ ΧΧ§Χ•Χ— Χ”ΧΆΧΧΧ•Χª Χ›Χ“Χ™ ΧΧ”Χ™ΧΧ ΧΆ Χ-fallback Χ-void.cat | HYPER CORE TECH -->
+    <!-- chartjs-chart-financial δερψ - βεψν μ-404 εμΰ πγψω μξξωχ δπεληι -->
+    <!-- ημχ Blossom (videos.html) – μχεη δςμΰεϊ λγι μδιξπς ξ-fallback μ-void.cat | HYPER CORE TECH -->
     <script src="./blossom.js" defer></script>
-    <!-- Χ—ΧΧ§ FFmpeg (videos.html) β€“ ΧΧΆΧ™Χ Χª Χ΅Χ¤Χ¨Χ™Χ™Χª ffmpeg.wasm Χ›ΧΧ• Χ‘-index.html | HYPER CORE TECH -->
+    <!-- ημχ FFmpeg (videos.html) – θςιπϊ ρτψιιϊ ffmpeg.wasm λξε α-index.html | HYPER CORE TECH -->
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" defer></script>
-    <!-- Χ—ΧΧ§ ΧΆΧ¨Χ•Χ¥ Χ—Χ™ HLS (videos.html) β€“ hls.js + ΧΧ•Χ“Χ•Χ ΧΆΧ¨Χ•Χ¦Χ™Χ Χ—Χ™Χ™Χ | HYPER CORE TECH -->
+    <!-- ημχ ςψευ ηι HLS (videos.html) – hls.js + ξεγεμ ςψεφιν ηιιν | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" defer></script>
     <script src="./hls-live.js?v=20260729q" defer></script>
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
-    <!-- Χ—ΧΧ§ Χ”Χ§ΧΧΧª Χ•Χ™Χ“ΧΧ• (videos.html) β€“ ΧΧΧ©Χ§ Χ”Χ§ΧΧΧ” ΧΆΧ ΧΧ™Χ™ΧΧ¨ | HYPER CORE TECH -->
+    <!-- ημχ δχμθϊ ειγΰε (videos.html) – ξξωχ δχμθδ ςν θιιξψ | HYPER CORE TECH -->
     <script src="./video-record.js" defer></script>
-    <!-- Χ—ΧΧ§ Χ“Χ—Χ™Χ΅Χª Χ•Χ™Χ“ΧΧ• (videos.html) β€“ ΧΧ Χ•ΧΆ Χ”Χ“Χ—Χ™Χ΅Χ” | HYPER CORE TECH -->
+    <!-- ημχ γηιρϊ ειγΰε (videos.html) – ξπες δγηιρδ | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
-    <!-- Χ—ΧΧ§ Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ (videos.html) β€“ ΧΧ•Χ“Χ•Χ Χ”Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ | HYPER CORE TECH -->
+    <!-- ημχ χεξτεζψ (videos.html) – ξεγεμ δχεξτεζψ | HYPER CORE TECH -->
     <script src="./compose.js?v=20260731c" defer></script>
-    <!-- Χ—ΧΧ§ Χ¨Χ§ΧΆΧ™Χ (videos.html) β€“ ΧΧ•Χ“Χ•Χ Χ‘Χ•Χ¨Χ¨ Χ¨Χ§ΧΆΧ™Χ Χ›ΧΧ• Χ‘-index.html | HYPER CORE TECH -->
+    <!-- ημχ ψχςιν (videos.html) – ξεγεμ αεψψ ψχςιν λξε α-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
-      // Χ—ΧΧ§ Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ (videos.html) β€“ Χ”Χ‘ΧΧ—Χª Χ–ΧΧ™Χ Χ•Χª openCompose Χ‘ΧΧ•Χ¤Χ ΧΧ™Χ™Χ“Χ™ ΧΆΧ‘Χ•Χ¨ Χ”-onclick Χ‘ΧªΧ¤Χ¨Χ™Χ | HYPER CORE TECH
+      // ημχ χεξτεζψ (videos.html) – δαθηϊ ζξιπεϊ openCompose αΰετο ξιιγι ςαεψ δ-onclick αϊτψιθ | HYPER CORE TECH
       (function(){
         if (typeof window.openCompose !== 'function') {
           window.openCompose = function(){
@@ -1776,36 +1776,36 @@
       })();
     </script>
     <script src="./videos.js?v=20260803r" defer></script>
-    <!-- Χ—ΧΧ§ ΧΧ¦Χ‘ ΧΧ•Χ¨Χ— (videos.html) β€“ ΧΧΆΧ™Χ Χª ΧΧ•Χ“Χ•Χ Χ”ΧªΧ—Χ‘Χ¨Χ•Χª/Χ”Χ¨Χ©ΧΧ” ΧΧΧ•Χ¨Χ— | HYPER CORE TECH -->
+    <!-- ημχ ξφα ΰεψη (videos.html) – θςιπϊ ξεγεμ δϊηαψεϊ/δψωξδ μΰεψη | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
     <script src="./guest-auth.js?v=20260729g" defer></script>
-    <!-- ΧΧ•Χ“Χ•ΧΧ™ Χ¦'ΧΧ (videos.html) β€“ Χ–Χ”Χ™Χ ΧΧΆΧΧ•Χ“Χ™Χ Χ”Χ¨ΧΧ©Χ™Χ™Χ | HYPER CORE TECH -->
+    <!-- ξεγεμι φ'ΰθ (videos.html) – ζδιν μςξεγιν δψΰωιιν | HYPER CORE TECH -->
     <script src="./chat-state.js?v=4" defer></script>
     <script src="./chat-service.js?v=20260803e" defer></script>
-    <script src="./chat-file-transfer-state.js?v=2" defer></script>
+    <script src="./chat-file-transfer-state.js?v=3" defer></script>
     <script src="./chat-file-transfer-service.js?v=2" defer></script>
-    <script src="./chat-file-transfer-ui.js?v=6" defer></script>
+    <script src="./chat-file-transfer-ui.js?v=7" defer></script>
     <script src="./chat-voice-service.js?v=4" defer></script>
     <script src="./chat-voice-ui.js" defer></script>
     <script src="./chat-voice-call.js?v=20260804e" defer></script>
     <script src="./chat-voice-call-ui.js?v=20260804e" defer></script>
     <script src="./chat-video-call.js?v=20260804b" defer></script>
     <script src="./chat-video-call-ui.js?v=20260804d" defer></script>
-    <!-- Χ—ΧΧ§ Χ¦'ΧΧ ΧΧ©Χ•Χ¤Χ¨ (videos.html) β€“ Χ”ΧΆΧ‘Χ¨Χª Χ§Χ‘Χ¦Χ™Χ P2P, Χ Χ’Χ ΧΧ•Χ“Χ™Χ•, ΧΧ“Χ™Χ” inline, ΧΧ•Χ¤ΧΧ™ΧΧ™Χ–Χ¦Χ™Χ•Χª Χ•Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ ΧΧ©Χ•Χ¤Χ¨ | HYPER CORE TECH -->
+    <!-- ημχ φ'ΰθ ξωετψ (videos.html) – δςαψϊ χαφιν P2P, πβο ΰεγιε, ξγιδ inline, ΰετθιξιζφιεϊ εχεξτεζψ ξωετψ | HYPER CORE TECH -->
     <script src="./chat-p2p-file.js?v=11" defer></script>
     <script src="./chat-audio-player.js?v=4" defer></script>
     <script src="./chat-media-renderer.js?v=20260804i" defer></script>
     <script src="./chat-ui-optimizations.js" defer></script>
     <script src="./chat-composer-enhanced.js?v=4" defer></script>
     <script src="./chat-p2p-datachannel.js?v=13" defer></script>
-    <script src="./chat-ui.js?v=20260804i" defer></script>
+    <script src="./chat-ui.js?v=20260804j" defer></script>
     <script src="./chat-deeplink.js?v=20260804e" defer></script>
-    <!-- Χ—ΧΧ§ ΧΧ•Χ’Χ¨ Χ¤Χ Χ™Χ•Χª (videos.html) β€“ ΧΧΆΧ§Χ‘ Χ›Χ Χ¤Χ Χ™Χ•Χª relay/blossom/cache/P2P | HYPER CORE TECH -->
+    <!-- ημχ μεβψ τπιεϊ (videos.html) – ξςχα λμ τπιεϊ relay/blossom/cache/P2P | HYPER CORE TECH -->
     <script src="./chat-request-logger.js?v=2" defer></script>
-    <!-- Χ—ΧΧ§ ΧΧ•Χ Χ™ΧΧ•Χ¨ (videos.html) β€“ hooks Χ‘ΧΧ‘Χ“, Χ”-UI Χ‘Χ“Χ£ ΧΆΧ¦ΧΧΧ™ transfer-monitor.html | HYPER CORE TECH -->
+    <!-- ημχ ξεπιθεψ (videos.html) – hooks αμαγ, δ-UI αγσ ςφξΰι transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=5" defer></script>
-    <!-- Χ—ΧΧ§ PWA (videos.html) β€“ ΧΧΆΧ™Χ Χª ΧΧ•Χ“Χ•ΧΧ™ Χ”ΧªΧ§Χ Χ” Χ•Χ”ΧªΧ¨ΧΧ•Χª Push | HYPER CORE TECH -->
+    <!-- ημχ PWA (videos.html) – θςιπϊ ξεγεμι δϊχπδ εδϊψΰεϊ Push | HYPER CORE TECH -->
     <script src="./pwa-installer.js?v=20260803r" defer></script>
     <script src="./pwa-install-chooser.js?v=20260803r" defer></script>
     <script src="./push-client.js?v=20260803o" defer></script>
@@ -1813,7 +1813,7 @@
     <script src="./native-shell-bridge.js?v=20260804b" defer></script>
     <script src="./market-dashboard.js" defer></script>
     <script>
-      // Χ—ΧΧ§ ΧΧ•Χ— Χ’Χ™Χ“Χ•Χ (videos.html) β€“ ΧΧ‘ΧΧ™Χ— Χ©Χ’ΧΧ•Χ‘ΧΧ™Χ™Χ ΧΧ—Χ•Χ‘Χ¨Χ™Χ ΧΧΧ—Χ¨ ΧΧΆΧ™Χ Χª Χ”Χ“Χ©Χ‘Χ•Χ¨Χ“ | HYPER CORE TECH
+      // ημχ μεη βιγεμ (videos.html) – ξαθιη ωβμεαμιιν ξηεαψιν μΰηψ θςιπϊ δγωαεψγ | HYPER CORE TECH
       window.addEventListener('DOMContentLoaded', function () {
         var App = window.NostrApp || (window.NostrApp = {});
         if (typeof App.refreshGrowthSelectors === 'function') {
@@ -1833,7 +1833,7 @@
         }
       });
     </script>
-    <!-- Χ—ΧΧ§ ΧΧªΧ—Χ•Χ Χ¦'ΧΧ ΧΧ©Χ•Χ¤Χ¨ (videos.html) β€“ Χ§Χ•ΧΧ¤Χ•Χ–Χ¨, ΧΧ™Χ¨Χ•ΧΆΧ™Χ Χ™ΧΆΧ™ΧΧ™Χ Χ•ΧΧΆΧ™Χ Χª ΧªΧΧ•Χ Χ•Χª ΧΆΧ¦ΧΧ” | HYPER CORE TECH -->
+    <!-- ημχ ΰϊηεμ φ'ΰθ ξωετψ (videos.html) – χεξτεζψ, ΰιψεςιν ιςιμιν εθςιπϊ ϊξεπεϊ ςφμδ | HYPER CORE TECH -->
     <script>
       window.addEventListener('DOMContentLoaded', function () {
         const App = window.NostrApp || (window.NostrApp = {});
@@ -1858,8 +1858,8 @@
   </head>
   <body class="videos-page">
     <script>
-      // Χ”Χ—ΧΧ¤Χª Χ”-URL Χ”ΧΧ•Χ¦Χ’ ΧΧ©Χ•Χ¨Χ© Χ”Χ“Χ•ΧΧ™Χ™Χ (ΧΧΧ videos.html) | HYPER CORE TECH
-      // Χ—Χ©Χ•Χ‘: ΧΧ—Χ¨Χ™ replaceState Χ”ΦΎpathname Χ”Χ•Χ "/" β€” Χ–Χ™Χ”Χ•Χ™ Χ“Χ£ Χ‘Χ™Χª Χ—Χ™Χ™Χ‘ body.videos-page / #videosStream | HYPER CORE TECH
+      // δημτϊ δ-URL δξεφβ μωεψω δγεξιιο (μμΰ videos.html) | HYPER CORE TECH
+      // ηωεα: ΰηψι replaceState δΞpathname δεΰ "/" — ζιδει γσ αιϊ ηιια body.videos-page / #videosStream | HYPER CORE TECH
       (function() {
         try { document.body.classList.add('videos-page'); } catch (_) {}
         try {
@@ -1873,14 +1873,14 @@
           var base = window.location.origin || '';
           var search = window.location.search || '';
           var hash = window.location.hash || '';
-          // ΧΧ¦Χ™Χ’ https://sos010.com/ Χ‘ΧΧ§Χ•Χ https://sos010.com/videos.html
+          // ξφιβ https://sos010.com/ αξχεν https://sos010.com/videos.html
           history.replaceState(null, '', base + '/' + search + hash);
         }
       })();
     </script>
-    <!-- Χ—ΧΧ§ Χ΅Χ¨Χ’Χ ΧΆΧΧ™Χ•Χ (videos.html) β€“ Χ΅Χ¨Χ’Χ ΧΆΧΧ™Χ•Χ ΧΧ—Χ™Χ“ Χ›ΧΧ• Χ‘Χ“Χ¤Χ™Χ Χ”Χ¨ΧΧ©Χ™Χ™Χ | HYPER CORE TECH -->
+    <!-- ημχ ρψβμ ςμιεο (videos.html) – ρψβμ ςμιεο ΰηιγ λξε αγτιν δψΰωιιν | HYPER CORE TECH -->
     <header class="top-bar">
-      <!-- Χ—ΧΧ§ ΧΧ•Χ’Χ• ΧΧ•Χ‘Χ™Χ™Χ (videos.html) β€“ ΧΧ•Χ’Χ• S Χ—Χ“Χ© Χ‘ΧΧ•Χ‘Χ™Χ™Χ; Χ“Χ΅Χ§ΧΧ•Χ¤ Χ Χ©ΧΧ¨ sos-logo.PNG Χ‘Χ΅Χ™Χ™Χ“Χ‘Χ¨ | HYPER CORE TECH -->
+      <!-- ημχ μεβε ξεαιιμ (videos.html) – μεβε S ηγω αξεαιιμ; γρχθετ πωΰψ sos-logo.PNG αριιγαψ | HYPER CORE TECH -->
       <div class="app-logo">
         <picture>
           <source media="(max-width: 900px)" srcset="icons/sos-logo-mobile.png?v=20260729e">
@@ -1888,45 +1888,45 @@
         </picture>
       </div>
       <div class="top-bar__actions">
-        <!-- Χ—ΧΧ§ Χ›Χ¤ΧªΧ•Χ¨ ΧΧ•Χ¨Χ— (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ§Χ¦Χ¨ ΧΆΧ ΧΧ§Χ΅Χ+ΧΧ™Χ™Χ§Χ•Χ ΧΧªΧ—ΧΧ£ Χ”ΧªΧ—Χ‘Χ¨/Χ”Χ™Χ¨Χ©Χ | HYPER CORE TECH -->
-        <button id="guestLoginButton" class="button-primary guest-login-btn" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;" aria-label="Χ”ΧªΧ—Χ‘Χ¨ ΧΧ• Χ”Χ™Χ¨Χ©Χ">
+        <!-- ημχ λτϊεψ ΰεψη (videos.html) – λτϊεψ χφψ ςν θχρθ+ΰιιχεο ξϊημσ δϊηαψ/διψων | HYPER CORE TECH -->
+        <button id="guestLoginButton" class="button-primary guest-login-btn" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;" aria-label="δϊηαψ ΰε διψων">
           <span class="guest-login-btn__swap">
             <span class="guest-login-btn__word is-visible">
               <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
-              <span>Χ”ΧªΧ—Χ‘Χ¨</span>
+              <span>δϊηαψ</span>
             </span>
             <span class="guest-login-btn__word">
               <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
-              <span>Χ”Χ™Χ¨Χ©Χ</span>
+              <span>διψων</span>
             </span>
           </span>
         </button>
         <div class="top-bar__profile" id="topBarProfile">
-          <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="Χ¤Χ¨Χ•Χ¤Χ™Χ ΧΧ©ΧªΧΧ©">
+          <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="τψετιμ ξωϊξω">
             <span id="topBarProfileAvatar">?</span>
           </button>
           <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
-            <div class="top-bar__dropdown-title">Χ”Χ’Χ“Χ¨Χ•Χª</div>
+            <div class="top-bar__dropdown-title">δβγψεϊ</div>
             <button type="button" class="top-bar__dropdown-item" id="topBarInviteFriend">
               <i class="fa-brands fa-whatsapp"></i>
-              <span>Χ”Χ–ΧΧ ΧΧ©ΧªΧΧ©</span>
+              <span>δζξο ξωϊξω</span>
             </button>
             <button type="button" class="top-bar__dropdown-item" id="pwa-install-menu-btn">
               <i class="fa-solid fa-mobile-screen-button"></i>
-              <span>Χ”ΧªΧ§Χ ΧΧ¤ΧΧ™Χ§Χ¦Χ™Χ”</span>
+              <span>δϊχο ΰτμιχφιδ</span>
             </button>
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
               <i class="fa-solid fa-key"></i>
-              <span>Χ”Χ¦Χ’Χª ΧΧ¤ΧªΧ—</span>
+              <span>δφβϊ ξτϊη</span>
             </button>
-            <!-- Χ—ΧΧ§ ΧΧ•Χ— Χ’Χ™Χ“Χ•Χ (videos.html) β€“ Χ‘Χ¨ΧΧª ΧªΧ¤Χ¨Χ™Χ Χ¨ΧΧ©Χ™Χª | HYPER CORE TECH -->
+            <!-- ημχ μεη βιγεμ (videos.html) – αψξϊ ϊτψιθ ψΰωιϊ | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
               <i class="fa-solid fa-chart-line"></i>
-              <span>ΧΧ•Χ— Χ’Χ™Χ“Χ•Χ Χ”Χ¨Χ©Χª</span>
+              <span>μεη βιγεμ δψωϊ</span>
             </button>
-            <!-- Χ΅ΧΧΧ™Χ΅ΧΧ™Χ§Χ•Χª Χ”Χ•Χ¨Χ“Χ” + ΧΧ•Χ’ β€“ Χ‘Χ΅Χ•Χ£ Χ¨Χ©Χ™ΧΧª Χ”Χ’Χ“Χ¨Χ•Χª | HYPER CORE TECH -->
+            <!-- ρθθιρθιχεϊ δεψγδ + μεβ – αρεσ ψωιξϊ δβγψεϊ | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--stats" id="topBarP2pStats">
-              <span class="p2p-stats-circle" id="p2pStatsCircle" title="Χ΅ΧΧΧ™Χ΅ΧΧ™Χ§Χ•Χª Χ”Χ•Χ¨Χ“Χ”" aria-haspopup="true" aria-expanded="false">
+              <span class="p2p-stats-circle" id="p2pStatsCircle" title="ρθθιρθιχεϊ δεψγδ" aria-haspopup="true" aria-expanded="false">
                 <svg viewBox="0 0 36 36" class="p2p-stats-svg" aria-hidden="true">
                   <circle class="p2p-stats-bg" cx="18" cy="18" r="15.9"/>
                   <circle class="p2p-stats-p2p" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
@@ -1934,140 +1934,140 @@
                 </svg>
                 <span class="p2p-stats-text" id="p2pStatsText">0</span>
               </span>
-              <span>Χ΅ΧΧΧ™Χ΅ΧΧ™Χ§Χ•Χª Χ”Χ•Χ¨Χ“Χ”</span>
+              <span>ρθθιρθιχεϊ δεψγδ</span>
             </button>
-            <button type="button" class="top-bar__dropdown-item" id="topBarDebugLog" title="Χ¤ΧªΧ— Debug Console">
+            <button type="button" class="top-bar__dropdown-item" id="topBarDebugLog" title="τϊη Debug Console">
               <i class="fa-solid fa-wrench"></i>
-              <span>ΧΧ•Χ’ ΧΧΧ©Χ§</span>
+              <span>μεβ ξξωχ</span>
             </button>
-            <div class="top-bar__dropdown-title">ΧΧ©Χ—Χ§Χ™ Χ¨Χ©Χª</div>
-            <!-- Χ—ΧΧ§ ΧΧ©Χ—Χ§ Χ“Χ•Χ (Χ”Χ•ΧΆΧ‘Χ¨ ΧΧ”ΧªΧ—ΧªΧ™Χª) | HYPER CORE TECH -->
+            <div class="top-bar__dropdown-title">ξωηχι ψωϊ</div>
+            <!-- ημχ ξωηχ γεν (δεςαψ ξδϊηϊιϊ) | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="videosDoomLauncher">
-              <span style="font-size: 1.2rem;">π”«</span>
-              <span>ΧΆΧ•Χ“ ΧΧ©Χ—Χ§ Χ“Χ•Χ</span>
+              <span style="font-size: 1.2rem;">??</span>
+              <span>ςεγ ξωηχ γεν</span>
             </button>
-            <!-- Χ—ΧΧ§ ΧΧ©Χ—Χ§ ΧΧ¨Χ™Χ•Χ•Χ™Χ” (Χ”Χ•ΧΆΧ‘Χ¨ ΧΧ”ΧªΧ—ΧªΧ™Χª) | HYPER CORE TECH -->
+            <!-- ημχ ξωηχ θψιεειδ (δεςαψ ξδϊηϊιϊ) | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="videosTriviaLauncher">
-              <span style="font-size: 1.2rem;">π²</span>
-              <span>ΧΧ©Χ—Χ§ ΧΧ¨Χ•Χ•Χ™Χ” SOS</span>
+              <span style="font-size: 1.2rem;">??</span>
+              <span>ξωηχ θψεειδ SOS</span>
             </button>
           </div>
         </div>
-        <!-- ΧΧ©Χ—Χ§Χ™Χ + LIVE TV ΧΧ™ΧΧ™Χ ΧΧΧ•Χ•ΧΧΧ¨ | HYPER CORE TECH -->
-        <button type="button" class="top-bar__games-btn" id="gamesToggleTop" title="ΧΧ©Χ—Χ§Χ™Χ" aria-label="Χ¤ΧªΧ— Χ¤Χ™Χ“ ΧΧ©Χ—Χ§Χ™Χ">
+        <!-- ξωηχιν + LIVE TV ξιξιο μΰεεθΰψ | HYPER CORE TECH -->
+        <button type="button" class="top-bar__games-btn" id="gamesToggleTop" title="ξωηχιν" aria-label="τϊη τιγ ξωηχιν">
           <i class="fa-solid fa-gamepad" aria-hidden="true"></i>
         </button>
-        <button type="button" class="top-bar__live-tv-btn" id="liveTvToggleTop" title="LIVE TV" aria-label="Χ¤ΧªΧ— Χ¤Χ™Χ“ ΧΆΧ¨Χ•Χ¦Χ™ ΧΧΧ•Χ•Χ™Χ–Χ™Χ”">
+        <button type="button" class="top-bar__live-tv-btn" id="liveTvToggleTop" title="LIVE TV" aria-label="τϊη τιγ ςψεφι θμεειζιδ">
           <span class="top-bar__live-tv-dot" aria-hidden="true"></span>
           <span class="top-bar__live-tv-label">LIVE TV</span>
         </button>
       </div>
     </header>
 
-    <!-- Χ—ΧΧ§ Χ—ΧΧ•Χ Χ™Χª Χ”ΧªΧ¨ΧΧ•Χª (videos.html) β€“ ΧªΧ•ΧΧ 1:1 Χ-storage/index | HYPER CORE TECH -->
+    <!-- ημχ ημεπιϊ δϊψΰεϊ (videos.html) – ϊεΰν 1:1 μ-storage/index | HYPER CORE TECH -->
     <div class="notifications-panel" id="notificationsPanel" hidden>
       <header class="notifications-panel__header">
         <div class="notifications-panel__title-group">
           <i class="fa-solid fa-bell"></i>
           <div class="notifications-panel__title-text">
-            <h2>Χ”ΧªΧ¨ΧΧ•Χª</h2>
-            <p class="notifications-panel__subtitle">ΧΧ™Χ™Χ§Χ™Χ Χ•ΧªΧ’Χ•Χ‘Χ•Χª ΧΧ—Χ¨Χ•Χ Χ™Χ ΧΧ¤Χ•Χ΅ΧΧ™Χ Χ©ΧΧ</p>
+            <h2>δϊψΰεϊ</h2>
+            <p class="notifications-panel__subtitle">μιιχιν εϊβεαεϊ ΰηψεπιν μτερθιν ωμκ</p>
           </div>
         </div>
-        <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">Χ΅ΧΧ Χ›Χ Χ§Χ¨ΧΧ•</button>
+        <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">ρξο λπχψΰε</button>
       </header>
       <div class="notifications-panel__body">
-        <p class="notifications-panel__empty" id="notificationsEmpty">ΧΧ™Χ Χ”ΧªΧ¨ΧΆΧ•Χª Χ—Χ“Χ©Χ•Χª Χ›Χ¨Χ’ΧΆ.</p>
+        <p class="notifications-panel__empty" id="notificationsEmpty">ΰιο δϊψςεϊ ηγωεϊ λψβς.</p>
         <ul class="notifications-panel__list" id="notificationsList"></ul>
       </div>
     </div>
 
-    <!-- Χ—ΧΧ§ Χ¤ΧΧ Χ Χ¤Χ¨Χ•Χ¤Χ™Χ (videos.html) β€“ Χ¤ΧΧ Χ overlay ΧΧ¤Χ¨Χ•Χ¤Χ™Χ Χ”ΧΧ©ΧªΧΧ© Χ›ΧΧ• Χ¦'ΧΧ Χ•Χ”ΧªΧ¨ΧΧ•Χª | HYPER CORE TECH -->
+    <!-- ημχ τΰπμ τψετιμ (videos.html) – τΰπμ overlay μτψετιμ δξωϊξω λξε φ'ΰθ εδϊψΰεϊ | HYPER CORE TECH -->
     <div class="profile-panel" id="profilePanel" hidden>
       <iframe id="profilePanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
-    <!-- Χ—ΧΧ§ Χ¤ΧΧ Χ Χ¤Χ¨Χ•Χ¤Χ™Χ Χ¦Χ™Χ‘Χ•Χ¨Χ™ (videos.html) β€“ Χ¤ΧΧ Χ overlay ΧΧ¦Χ¤Χ™Χ™Χ” Χ‘Χ¤Χ¨Χ•Χ¤Χ™Χ ΧΧ©ΧªΧΧ© ΧΧ—Χ¨ | HYPER CORE TECH -->
-    <!-- Χ›Χ¤ΧªΧ•Χ¨ Χ”Χ΅Χ’Χ™Χ¨Χ” Χ ΧΧ¦Χ Χ‘ΧªΧ•Χ profile-viewer.html ΧΆΧ¦ΧΧ• Χ•Χ©Χ•ΧΧ— postMessage ΧΧ΅Χ’Χ™Χ¨Χ” -->
+    <!-- ημχ τΰπμ τψετιμ φιαεψι (videos.html) – τΰπμ overlay μφτιιδ ατψετιμ ξωϊξω ΰηψ | HYPER CORE TECH -->
+    <!-- λτϊεψ δρβιψδ πξφΰ αϊεκ profile-viewer.html ςφξε εωεμη postMessage μρβιψδ -->
     <div class="profile-panel" id="publicProfilePanel" hidden>
       <iframe id="publicProfilePanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
-    <!-- Χ—ΧΧ§ Χ¤ΧΧ Χ ΧΧ©Χ—Χ§Χ™Χ (videos.html) β€“ Χ¤ΧΧ Χ overlay ΧΧ“Χ£ Χ”ΧΧ©Χ—Χ§Χ™Χ ΧΧΧ Χ¨ΧΆΧ Χ•Χ Χ”Χ¤Χ™Χ“ | HYPER CORE TECH -->
-    <!-- Χ›Χ¤ΧªΧ•Χ¨ Χ”Χ΅Χ’Χ™Χ¨Χ” Χ ΧΧ¦Χ Χ‘ΧªΧ•Χ games.html ΧΆΧ¦ΧΧ• Χ•Χ©Χ•ΧΧ— postMessage ΧΧ΅Χ’Χ™Χ¨Χ” -->
+    <!-- ημχ τΰπμ ξωηχιν (videos.html) – τΰπμ overlay μγσ δξωηχιν μμΰ ψςπεο δτιγ | HYPER CORE TECH -->
+    <!-- λτϊεψ δρβιψδ πξφΰ αϊεκ games.html ςφξε εωεμη postMessage μρβιψδ -->
     <div class="profile-panel" id="gamesPanel" hidden>
       <iframe id="gamesPanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
-    <!-- Χ—ΧΧ§ ΧªΧ¤Χ¨Χ™Χ ΧªΧ—ΧªΧ•Χ (videos.html) β€“ Χ Χ™Χ•Χ•Χ ΧªΧ—ΧªΧ•Χ Χ‘Χ΅Χ’Χ Χ•Χ Χ“Χ£ Χ”Χ”Χ•Χ“ΧΆΧ•Χª + ΧªΧ¤Χ¨Χ™Χ Χ¦Χ“ Χ“Χ΅Χ§ΧΧ•Χ¤ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-    <nav class="primary-nav" aria-label="Χ Χ™Χ•Χ•Χ Χ¨ΧΧ©Χ™">
-      <!-- Χ—ΧΧ§ ΧªΧ¤Χ¨Χ™Χ Χ¦Χ“ Χ“Χ΅Χ§ΧΧ•Χ¤ (videos.html) β€“ ΧΧ•Χ’Χ• Χ•Χ—Χ™Χ¤Χ•Χ© Χ‘ΧªΧ•Χ Χ”ΧªΧ¤Χ¨Χ™Χ (ΧΧ•Χ¤Χ™ΧΆ Χ‘Χ“Χ΅Χ§ΧΧ•Χ¤ Χ‘ΧΧ‘Χ“ Χ“Χ¨Χ CSS) | HYPER CORE TECH -->
+    <!-- ημχ ϊτψιθ ϊηϊεο (videos.html) – πιεεθ ϊηϊεο αρβπεο γσ δδεγςεϊ + ϊτψιθ φγ γρχθετ αρβπεο sos010.html | HYPER CORE TECH -->
+    <nav class="primary-nav" aria-label="πιεεθ ψΰωι">
+      <!-- ημχ ϊτψιθ φγ γρχθετ (videos.html) – μεβε εηιτεω αϊεκ δϊτψιθ (ξετις αγρχθετ αμαγ γψκ CSS) | HYPER CORE TECH -->
       <div class="primary-nav__desktop-header">
         <div class="primary-nav__desktop-logo" aria-label="SOS">
           <img class="primary-nav__desktop-logo-img" src="icons/sos-logo.PNG" alt="SOS Logo">
         </div>
         <div class="primary-nav__desktop-search">
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-          <input class="primary-nav__desktop-search-input" type="search" placeholder="Χ—Χ™Χ¤Χ•Χ©" aria-label="Χ—Χ™Χ¤Χ•Χ©" autocomplete="off">
+          <input class="primary-nav__desktop-search-input" type="search" placeholder="ηιτεω" aria-label="ηιτεω" autocomplete="off">
         </div>
       </div>
-      <!-- Χ—ΧΧ§ Χ‘Χ™Χª (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ¤Χ™Χ“ Χ”Χ•Χ•Χ™Χ“ΧΧ• ΧΆΧ ΧΧ§Χ΅Χ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item is-active" data-nav="videos" aria-label="Χ‘Χ™Χª">
+      <!-- ημχ αιϊ (videos.html) – λτϊεψ τιγ δεειγΰε ςν θχρθ αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item is-active" data-nav="videos" aria-label="αιϊ">
         <i class="fa-solid fa-house"></i>
-        <span>Χ‘Χ™Χª</span>
+        <span>αιϊ</span>
       </button>
-      <!-- Χ—ΧΧ§ Χ”ΧªΧ¨ΧΧ•Χª (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ”ΧªΧ¨ΧΧ•Χª ΧΆΧ ΧΧ§Χ΅Χ Χ•Χ‘ΧΧ“Χ’' Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="notificationsToggle" aria-label="Χ”ΧªΧ¨ΧΧ•Χª">
+      <!-- ημχ δϊψΰεϊ (videos.html) – λτϊεψ δϊψΰεϊ ςν θχρθ εαΰγβ' αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="notificationsToggle" aria-label="δϊψΰεϊ">
         <i class="fa-regular fa-bell"></i>
-        <span>Χ”ΧªΧ¨ΧΧ•Χª</span>
+        <span>δϊψΰεϊ</span>
         <span class="nav-item__badge" id="notificationsBadge" hidden></span>
       </button>
-      <!-- Χ—ΧΧ§ Χ©Χ™Χ—Χ•Χª (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ¦'ΧΧ ΧΆΧ ΧΧ§Χ΅Χ Χ•Χ‘ΧΧ“Χ’' Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="messagesToggle" aria-label="Χ©Χ™Χ—Χ•Χª">
+      <!-- ημχ ωιηεϊ (videos.html) – λτϊεψ φ'ΰθ ςν θχρθ εαΰγβ' αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="messagesToggle" aria-label="ωιηεϊ">
         <i class="fa-solid fa-phone"></i>
-        <span>Χ©Χ™Χ—Χ•Χª</span>
+        <span>ωιηεϊ</span>
         <span class="nav-item__badge" id="messagesBadge" hidden></span>
       </button>
-      <!-- Χ—ΧΧ§ Χ¤Χ¨Χ•Χ¤Χ™Χ (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ¤Χ¨Χ•Χ¤Χ™Χ ΧΆΧ ΧΧ§Χ΅Χ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" type="button" aria-label="Χ¤Χ¨Χ•Χ¤Χ™Χ" data-nav="profile">
+      <!-- ημχ τψετιμ (videos.html) – λτϊεψ τψετιμ ςν θχρθ αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" type="button" aria-label="τψετιμ" data-nav="profile">
         <i class="fa-regular fa-user"></i>
-        <span>Χ¤Χ¨Χ•Χ¤Χ™Χ</span>
+        <span>τψετιμ</span>
       </button>
-      <!-- Χ—ΧΧ§ Χ¤Χ¨Χ΅Χ (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ¤Χ•Χ΅Χ Χ—Χ“Χ© ΧΆΧ ΧΧ§Χ΅Χ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="navCompose" type="button" aria-label="Χ¤Χ¨Χ΅Χ">
+      <!-- ημχ τψρν (videos.html) – λτϊεψ τερθ ηγω ςν θχρθ αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="navCompose" type="button" aria-label="τψρν">
         <i class="fa-solid fa-plus"></i>
-        <span>Χ¤Χ¨Χ΅Χ</span>
+        <span>τψρν</span>
       </button>
-      <!-- === Χ›Χ¤ΧªΧ•Χ¨Χ™Χ Χ Χ•Χ΅Χ¤Χ™Χ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html - ΧΧ•Χ¤Χ™ΧΆΧ™Χ Χ¨Χ§ Χ‘Χ“Χ΅Χ§ΧΧ•Χ¤ === -->
-      <!-- Χ—ΧΧ§ Χ΅Χ™Χ™Χ¨ (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ’ΧΧ™Χ©Χ”/Χ΅Χ™Χ™Χ¨ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="explore" aria-label="Χ΅Χ™Χ™Χ¨">
+      <!-- === λτϊεψιν περτιν αρβπεο sos010.html - ξετιςιν ψχ αγρχθετ === -->
+      <!-- ημχ ριιψ (videos.html) – λτϊεψ βμιωδ/ριιψ αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="explore" aria-label="ριιψ">
         <i class="fa-regular fa-compass"></i>
-        <span>Χ΅Χ™Χ™Χ¨</span>
+        <span>ριιψ</span>
       </button>
-      <!-- Χ—ΧΧ§ Χ‘ΧΧΆΧ§Χ‘ (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ ΧΆΧ•Χ§Χ‘Χ™Χ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="following" aria-label="Χ‘ΧΧΆΧ§Χ‘">
+      <!-- ημχ αξςχα (videos.html) – λτϊεψ ςεχαιν αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="following" aria-label="αξςχα">
         <i class="fa-solid fa-user-group"></i>
-        <span>Χ‘ΧΧΆΧ§Χ‘</span>
+        <span>αξςχα</span>
       </button>
-      <!-- Χ—ΧΧ§ Χ—Χ‘Χ¨Χ™Χ (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ—Χ‘Χ¨Χ™Χ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="friends" aria-label="Χ—Χ‘Χ¨Χ™Χ">
+      <!-- ημχ ηαψιν (videos.html) – λτϊεψ ηαψιν αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="friends" aria-label="ηαψιν">
         <i class="fa-solid fa-users"></i>
-        <span>Χ—Χ‘Χ¨Χ™Χ</span>
+        <span>ηαψιν</span>
       </button>
-      <!-- Χ—ΧΧ§ Χ©Χ™Χ“Χ•Χ¨ Χ—Χ™ (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ Χ©Χ™Χ“Χ•Χ¨ Χ—Χ™ Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="live" aria-label="Χ©Χ™Χ“Χ•Χ¨ Χ—Χ™">
+      <!-- ημχ ωιγεψ ηι (videos.html) – λτϊεψ ωιγεψ ηι αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="live" aria-label="ωιγεψ ηι">
         <i class="fa-solid fa-video"></i>
-        <span>Χ©Χ™Χ“Χ•Χ¨ Χ—Χ™</span>
+        <span>ωιγεψ ηι</span>
       </button>
-      <!-- Χ—ΧΧ§ ΧΆΧ•Χ“ (videos.html) β€“ Χ›Χ¤ΧªΧ•Χ¨ ΧΆΧ•Χ“ ΧΧ¤Χ©Χ¨Χ•Χ™Χ•Χª Χ‘Χ΅Χ’Χ Χ•Χ sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="moreOptionsToggle" type="button" aria-label="ΧΆΧ•Χ“">
+      <!-- ημχ ςεγ (videos.html) – λτϊεψ ςεγ ΰτωψειεϊ αρβπεο sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="moreOptionsToggle" type="button" aria-label="ςεγ">
         <i class="fa-solid fa-ellipsis"></i>
-        <span>ΧΆΧ•Χ“</span>
+        <span>ςεγ</span>
       </button>
     </nav>
 
-    <!-- Χ“Χ£ ΧΧΆΧ™Χ Χ” ΧΧΧ β€“ Χ’ΧΧ•Χ™ ΧΧ™Χ“ Χ‘Χ¨ΧΆΧ Χ•Χ; Χ Χ΅Χ’Χ¨ Χ¨Χ§ Χ›Χ©Χ”Χ¤Χ•Χ΅ΧΧ™Χ ΧΧ•Χ›Χ Χ™Χ | HYPER CORE TECH -->
-    <div class="videos-loading-overlay" id="videosLoadingOverlay" role="status" aria-busy="true" aria-label="ΧΧ•ΧΆΧ">
+    <!-- γσ θςιπδ ξμΰ – βμει ξιγ αψςπεο; πρβψ ψχ λωδτερθιν ξελπιν | HYPER CORE TECH -->
+    <div class="videos-loading-overlay" id="videosLoadingOverlay" role="status" aria-busy="true" aria-label="θεςο">
       <div class="videos-loading-page">
         <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s1">S</span><span class="ln-o">O</span><span class="ln-s2">S</span></div>
         <div class="sos-loadnug__loading">Loading</div>
@@ -2075,61 +2075,61 @@
           <div class="videos-loading-bar__fill" id="videosLoadingBarFill" style="width:0%"></div>
         </div>
         <div class="sos-loadnug__pct" id="videosLoadingPct">0%</div>
-        <p class="videos-loading-status" id="videosLoadingStatus">ΧΧªΧ—Χ‘Χ¨ ΧΧ¨Χ©Χª...</p>
+        <p class="videos-loading-status" id="videosLoadingStatus">ξϊηαψ μψωϊ...</p>
         <div class="sos-loadnug__explain" aria-live="polite">
-          <p class="sos-loadnug__explain-title">Χ¨Χ©Χª Χ—Χ‘Χ¨ΧªΧ™Χª ΧΧ‘Χ•Χ–Χ¨Χª</p>
-          <p class="sos-loadnug__explain-sub">Χ”ΧΧ Χ©Χ™Χ Χ”Χ Χ”Χ¨Χ©Χª β€” Χ‘ΧΧ™ Χ©Χ¨Χª ΧΧ¨Χ›Χ–Χ™ ΧΧ—Χ“</p>
+          <p class="sos-loadnug__explain-title">ψωϊ ηαψϊιϊ ξαεζψϊ</p>
+          <p class="sos-loadnug__explain-sub">δΰπωιν δν δψωϊ — αμι ωψϊ ξψλζι ΰηγ</p>
         </div>
       </div>
     </div>
-    <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="ΧΧ•ΧΆΧ">
+    <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="θεςο">
       <img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731q" alt="SOS">
     </div>
 
-    <!-- Χ—ΧΧ§ Χ¨ΧΧ©Χ™ (videos.html) β€“ ΧΧΆΧΧ¤Χª Χ“Χ£ Χ”Χ•Χ•Χ™Χ“ΧΧ• Χ‘Χ΅Χ’Χ Χ•Χ ΧΧ™Χ§ΧΧ•Χ§ | HYPER CORE TECH -->
+    <!-- ημχ ψΰωι (videos.html) – ξςθτϊ γσ δεειγΰε αρβπεο θιχθεχ | HYPER CORE TECH -->
     <main class="videos-feed" aria-labelledby="videosTitle">
       <section class="videos-feed__viewport" aria-live="polite">
         <div id="feedBootShell" aria-hidden="true"></div>
         <div class="videos-feed__stream" id="videosStream" role="list"></div>
-        <div class="videos-feed__status" id="videosStatus" role="status" style="display: none;">ΧΧ•ΧΆΧ Χ΅Χ¨ΧΧ•Χ Χ™Χ...</div>
+        <div class="videos-feed__status" id="videosStatus" role="status" style="display: none;">θεςο ρψθεπιν...</div>
       </section>
     </main>
 
-    <!-- Χ—ΧΧ§ Χ”Χ¦Χ’Χª ΧΧ¤ΧªΧ— (videos.html) β€“ ΧΧ•Χ“Χ Χ”Χ”Χ¦Χ’Χ” Χ”ΧΧ©Χ•ΧªΧ£ ΧΧ›Χ Χ”ΧΆΧΧ•Χ“Χ™Χ | HYPER CORE TECH -->
-    <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>Χ”ΧΧ¤ΧªΧ— Χ”Χ¤Χ¨ΧΧ™ Χ©ΧΧ</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions"><button class="icon-button" onclick="copyKeyViewer()">Χ”ΧΆΧªΧ§</button><button class="button-secondary" onclick="closeKeyViewer()">Χ΅Χ’Χ•Χ¨</button></div><div class="modal-actions"><button class="button-secondary" onclick="logoutAndSwitchUser()">Χ”ΧªΧ ΧªΧ§ Χ•Χ”Χ—ΧΧ£ ΧΧ©ΧªΧΧ©</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
+    <!-- ημχ δφβϊ ξτϊη (videos.html) – ξεγμ δδφβδ δξωεϊσ μλμ δςξεγιν | HYPER CORE TECH -->
+    <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>δξτϊη δτψθι ωμκ</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions"><button class="icon-button" onclick="copyKeyViewer()">δςϊχ</button><button class="button-secondary" onclick="closeKeyViewer()">ρβεψ</button></div><div class="modal-actions"><button class="button-secondary" onclick="logoutAndSwitchUser()">δϊπϊχ εδημσ ξωϊξω</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
 
-    <!-- Χ—ΧΧ§ ΧΧ•Χ— Χ’Χ™Χ“Χ•Χ (videos.html) β€“ Χ¤ΧΧ Χ Χ“Χ©Χ‘Χ•Χ¨Χ“ Χ ΧªΧ•Χ Χ™ Χ¨Χ©Χª ΧΧ©Χ™ΧΧ•Χ© Χ›Χ¤ΧªΧ•Χ¨ Χ”Χ¤Χ¨Χ•Χ¤Χ™Χ | HYPER CORE TECH -->
-    <section class="growth-dashboard" id="growthDashboard" aria-hidden="true"><div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div><article class="growth-dashboard__panel" role="dialog" aria-modal="true"><header class="growth-dashboard__header"><div class="growth-dashboard__title"><i class="fa-solid fa-chart-line"></i><div><h2>ΧΧ“Χ“ Χ’Χ™Χ“Χ•Χ Χ”Χ¨Χ©Χª</h2><p>Χ ΧªΧ•Χ Χ™ Χ¤ΧΆΧ™ΧΧ•Χª Χ‘Χ–ΧΧ ΧΧΧª Χ©Χ SphereOne Social</p></div></div><button class="growth-dashboard__close" type="button" aria-label="Χ΅Χ’Χ™Χ¨Χª ΧΧ•Χ— Χ”Χ’Χ™Χ“Χ•Χ" onclick="closeGrowthDashboard()"><i class="fa-solid fa-xmark"></i></button></header><nav class="growth-dashboard__tabs" role="tablist"><button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">Χ΅Χ§Χ™Χ¨Χ”</button><button class="growth-dashboard__tab" data-tab="activity" role="tab">Χ¤ΧΆΧ™ΧΧ•Χª</button><button class="growth-dashboard__tab" data-tab="leaders" role="tab">ΧΧ•Χ‘Χ™ΧΧ™Χ</button></nav><div class="growth-dashboard__content"><section class="growth-dashboard__section" data-pane="overview"><div class="growth-metrics" id="growthMetrics"></div><div class="growth-chart" id="growthChartContainer"><div class="growth-chart__ranges" role="group" aria-label="ΧΧ•Χ•Χ— Χ”Χ™Χ΅ΧΧ•Χ¨Χ™Χ”"><button type="button" class="growth-chart__range-button" data-range="1d">Χ™Χ•Χ</button><button type="button" class="growth-chart__range-button" data-range="1w">Χ©Χ‘Χ•ΧΆ</button><button type="button" class="growth-chart__range-button is-active" data-range="1m">Χ—Χ•Χ“Χ©</button><button type="button" class="growth-chart__range-button" data-range="3m">3 Χ—Χ•Χ“Χ©Χ™Χ</button><button type="button" class="growth-chart__range-button" data-range="1y">Χ©Χ Χ”</button></div><canvas id="growthChart" aria-label="Χ’Χ¨Χ£ ΧΧ’ΧΧª Χ¤ΧΆΧ™ΧΧ•Χª"></canvas></div></section><section class="growth-dashboard__section is-hidden" data-pane="activity"><div class="growth-activity" id="growthActivity"></div></section><section class="growth-dashboard__section is-hidden" data-pane="leaders"><div class="growth-leaders" id="growthLeaders"></div></section></div><footer class="growth-dashboard__footer"><div class="growth-dashboard__status" id="growthStatus">ΧΧªΧ—Χ‘Χ¨ ΧΧΧ“Χ“...</div><div class="growth-dashboard__actions"><label class="growth-dashboard__toggle"><input type="checkbox" id="growthAutoRefresh"><span>Χ¨ΧΆΧ Χ•Χ ΧΧ•ΧΧ•ΧΧΧ™</span></label><button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()"><i class="fa-solid fa-rotate"></i>Χ¨ΧΆΧ Χ Χ›ΧΆΧª</button></div></footer></article></section>
+    <!-- ημχ μεη βιγεμ (videos.html) – τΰπμ γωαεψγ πϊεπι ψωϊ μωιξεω λτϊεψ δτψετιμ | HYPER CORE TECH -->
+    <section class="growth-dashboard" id="growthDashboard" aria-hidden="true"><div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div><article class="growth-dashboard__panel" role="dialog" aria-modal="true"><header class="growth-dashboard__header"><div class="growth-dashboard__title"><i class="fa-solid fa-chart-line"></i><div><h2>ξγγ βιγεμ δψωϊ</h2><p>πϊεπι τςιμεϊ αζξο ΰξϊ ωμ SphereOne Social</p></div></div><button class="growth-dashboard__close" type="button" aria-label="ρβιψϊ μεη δβιγεμ" onclick="closeGrowthDashboard()"><i class="fa-solid fa-xmark"></i></button></header><nav class="growth-dashboard__tabs" role="tablist"><button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">ρχιψδ</button><button class="growth-dashboard__tab" data-tab="activity" role="tab">τςιμεϊ</button><button class="growth-dashboard__tab" data-tab="leaders" role="tab">ξεαιμιν</button></nav><div class="growth-dashboard__content"><section class="growth-dashboard__section" data-pane="overview"><div class="growth-metrics" id="growthMetrics"></div><div class="growth-chart" id="growthChartContainer"><div class="growth-chart__ranges" role="group" aria-label="θεεη διρθεψιδ"><button type="button" class="growth-chart__range-button" data-range="1d">ιεν</button><button type="button" class="growth-chart__range-button" data-range="1w">ωαες</button><button type="button" class="growth-chart__range-button is-active" data-range="1m">ηεγω</button><button type="button" class="growth-chart__range-button" data-range="3m">3 ηεγωιν</button><button type="button" class="growth-chart__range-button" data-range="1y">ωπδ</button></div><canvas id="growthChart" aria-label="βψσ ξβξϊ τςιμεϊ"></canvas></div></section><section class="growth-dashboard__section is-hidden" data-pane="activity"><div class="growth-activity" id="growthActivity"></div></section><section class="growth-dashboard__section is-hidden" data-pane="leaders"><div class="growth-leaders" id="growthLeaders"></div></section></div><footer class="growth-dashboard__footer"><div class="growth-dashboard__status" id="growthStatus">ξϊηαψ μξγγ...</div><div class="growth-dashboard__actions"><label class="growth-dashboard__toggle"><input type="checkbox" id="growthAutoRefresh"><span>ψςπεο ΰεθεξθι</span></label><button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()"><i class="fa-solid fa-rotate"></i>ψςπο λςϊ</button></div></footer></article></section>
 
-    <!-- Χ—ΧΧ§ Χ—ΧΧ•Χ Χ™Χ¦Χ™Χ¨Χª Χ¤Χ•Χ΅Χ (videos.html) β€“ ΧΧ•ΧªΧ• Χ§Χ•ΧΧ¤Χ•Χ–Χ¨ Χ‘Χ“Χ™Χ•Χ§ Χ›ΧΧ• Χ‘Χ¤Χ™Χ“ Χ”Χ¨ΧΧ©Χ™ | HYPER CORE TECH -->
+    <!-- ημχ ημεο ιφιψϊ τερθ (videos.html) – ΰεϊε χεξτεζψ αγιεχ λξε ατιγ δψΰωι | HYPER CORE TECH -->
     <div class="compose-modal" id="composeModal" aria-hidden="true">
       <div class="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="composeChooserTitle">
-        <!-- Χ©ΧΧ‘ 1: Χ‘Χ—Χ™Χ¨Χª Χ΅Χ•Χ’ ΧªΧ•Χ›Χ | HYPER CORE TECH -->
+        <!-- ωμα 1: αηιψϊ ρεβ ϊελο | HYPER CORE TECH -->
         <div class="compose-chooser" id="composeChooser">
           <div class="compose-chooser__header">
-            <h2 class="compose-chooser__title" id="composeChooserTitle">ΧΧ” ΧΧ©ΧªΧ£?</h2>
-            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="Χ΅Χ’Χ•Χ¨">
+            <h2 class="compose-chooser__title" id="composeChooserTitle">ξδ μωϊσ?</h2>
+            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="ρβεψ">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
-          <p class="compose-chooser__subtitle">Χ‘Χ—Χ¨Χ• Χ¤ΧΆΧ•ΧΧ” ΧΧ—Χª Χ•Χ”ΧΧ©Χ™Χ›Χ•</p>
+          <p class="compose-chooser__subtitle">αηψε τςεμδ ΰηϊ εδξωιλε</p>
           <div class="compose-chooser__grid">
             <button type="button" class="compose-choice" id="composeVideoRecordButton" data-compose-choice="camera">
               <span class="compose-choice__icon compose-choice__icon--camera" aria-hidden="true">
                 <i class="fa-solid fa-video"></i>
               </span>
               <span class="compose-choice__copy">
-                <span class="compose-choice__label">ΧΧ¦ΧΧΧ”</span>
-                <span class="compose-choice__hint">Χ”Χ§ΧΧ™ΧΧ• Χ΅Χ¨ΧΧ•Χ Χ—Χ“Χ© ΧΆΧ›Χ©Χ™Χ•</span>
+                <span class="compose-choice__label">ξφμξδ</span>
+                <span class="compose-choice__hint">δχμιθε ρψθεο ηγω ςλωιε</span>
               </span>
             </button>
-            <label class="compose-choice" id="composeUploadChoice" data-compose-choice="upload" aria-label="Χ”ΧΆΧΧΧ”">
+            <label class="compose-choice" id="composeUploadChoice" data-compose-choice="upload" aria-label="δςμΰδ">
               <span class="compose-choice__icon compose-choice__icon--upload" aria-hidden="true">
                 <i class="fa-solid fa-images"></i>
               </span>
               <span class="compose-choice__copy">
-                <span class="compose-choice__label">Χ”ΧΆΧΧΧ”</span>
-                <span class="compose-choice__hint">ΧªΧΧ•Χ Χ” ΧΧ• Χ•Χ™Χ“ΧΧ• ΧΧ”Χ’ΧΧ¨Χ™Χ”</span>
+                <span class="compose-choice__label">δςμΰδ</span>
+                <span class="compose-choice__hint">ϊξεπδ ΰε ειγΰε ξδβμψιδ</span>
               </span>
               <input type="file" id="composeMediaInput" class="compose-media-input" accept="image/*,video/*">
             </label>
@@ -2138,77 +2138,77 @@
                 <i class="fa-solid fa-pen"></i>
               </span>
               <span class="compose-choice__copy">
-                <span class="compose-choice__label">ΧΧ§Χ΅Χ</span>
-                <span class="compose-choice__hint">Χ¤Χ•Χ΅Χ Χ›ΧªΧ•Χ‘ Χ‘ΧΧ™ ΧΧ“Χ™Χ”</span>
+                <span class="compose-choice__label">θχρθ</span>
+                <span class="compose-choice__hint">τερθ λϊεα αμι ξγιδ</span>
               </span>
             </button>
           </div>
         </div>
 
-        <!-- Χ©ΧΧ‘ 2: ΧΆΧ¨Χ™Χ›Χ” Χ•Χ¤Χ¨Χ΅Χ•Χ | HYPER CORE TECH -->
+        <!-- ωμα 2: ςψιλδ ετψρεν | HYPER CORE TECH -->
         <div class="compose-editor" id="composeEditor" hidden>
           <div class="compose-editor__header">
-            <button type="button" class="compose-icon-btn" id="composeBackToChooser" aria-label="Χ—Χ–Χ¨Χ”">
+            <button type="button" class="compose-icon-btn" id="composeBackToChooser" aria-label="ηζψδ">
               <i class="fa-solid fa-arrow-right"></i>
             </button>
             <div class="compose-editor__profile">
               <div class="profile-avatar" id="composeProfileAvatar">?</div>
-              <span class="profile-name" id="composeProfileName">ΧΧ©ΧªΧΧ©</span>
+              <span class="profile-name" id="composeProfileName">ξωϊξω</span>
               <span class="profile-bio" id="composeProfileBio" hidden></span>
             </div>
-            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="Χ΅Χ’Χ•Χ¨">
+            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="ρβεψ">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
 
           <div class="compose-editor__body">
-            <textarea id="postText" placeholder="Χ”Χ•Χ΅Χ™Χ¤Χ• Χ›Χ™ΧªΧ•Χ‘... ΧΧ™Χ Χ§ ΧΆΧ¨Χ•Χ¥ Χ—Χ™ (.m3u8) ΧΧ• ΧΧ™Χ Χ§ ΧΧ©Χ—Χ§"></textarea>
+            <textarea id="postText" placeholder="δεριτε λιϊεα... μιπχ ςψευ ηι (.m3u8) ΰε μιπχ ξωηχ"></textarea>
 
-            <!-- Χ΅Χ™ΧΧ•Χ Χ™Χ“Χ Χ™ ΧΧΧ©Χ—Χ§ β€“ ΧΧΧ™Χ Χ§Χ™Χ Χ©ΧΧ Χ‘Χ¨Χ©Χ™ΧΧª Χ”Χ–Χ™Χ”Χ•Χ™ Χ”ΧΧ•ΧΧ•ΧΧΧ™ | HYPER CORE TECH -->
+            <!-- ριξεο ιγπι μξωηχ – μμιπχιν ωμΰ αψωιξϊ δζιδει δΰεθεξθι | HYPER CORE TECH -->
             <label class="compose-game-flag" id="composeGameFlagWrap" hidden>
               <input type="checkbox" id="composeMarkAsGame">
               <span class="compose-game-flag__box" aria-hidden="true"></span>
               <span class="compose-game-flag__text">
-                <strong>Χ–Χ” ΧΧ©Χ—Χ§</strong>
-                β€” Χ™Χ•Χ¤Χ™ΧΆ Χ‘Χ¤Χ™Χ“ Χ•Χ‘Χ“Χ£ Χ”ΧΧ©Χ—Χ§Χ™Χ
+                <strong>ζδ ξωηχ</strong>
+                — ιετις ατιγ εαγσ δξωηχιν
               </span>
             </label>
 
             <div class="compose-dialog__toolbar" id="composeTextTools" hidden>
-              <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="Χ¨Χ§ΧΆ ΧΧΧ§Χ΅Χ">
+              <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="ψχς μθχρθ">
                 <i class="fa-solid fa-palette"></i>
-                <span>Χ¨Χ§ΧΆ</span>
+                <span>ψχς</span>
               </button>
-              <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="Χ”Χ΅Χ¨ Χ¨Χ§ΧΆ">
+              <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="δρψ ψχς">
                 <i class="fa-solid fa-eraser"></i>
-                <span>Χ Χ§Χ”</span>
+                <span>πχδ</span>
               </button>
             </div>
 
-            <div class="compose-backgrounds" id="composeBackgrounds" aria-label="Χ’ΧΧ¨Χ™Χ™Χª Χ¨Χ§ΧΆΧ™Χ" hidden></div>
+            <div class="compose-backgrounds" id="composeBackgrounds" aria-label="βμψιιϊ ψχςιν" hidden></div>
             <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
               <label class="compose-bg__option-toggle">
                 <input type="checkbox" id="composeBgTextOnlyToggle">
-                <span>Χ”Χ¦Χ’ ΧΧ§Χ΅Χ Χ¨Χ§ ΧΆΧ Χ”ΧªΧΧ•Χ Χ”</span>
+                <span>δφβ θχρθ ψχ ςμ δϊξεπδ</span>
               </label>
               <label class="compose-bg__option-toggle">
                 <input type="checkbox" id="composeBgZoomToggle">
-                <span>Χ”Χ¤ΧΆΧ ΧΧ¤Χ§Χ Χ–Χ•Χ Χ‘ΧΧ•Χ¤</span>
+                <span>δτςμ ΰτχθ ζεν αμετ</span>
               </label>
             </div>
 
             <div id="composeMediaPreview" class="compose-media-preview">
-              <img id="composeMediaPreviewImage" alt="ΧªΧ¦Χ•Χ’Χ” ΧΧ§Χ“Χ™ΧΧ” ΧΧªΧΧ•Χ Χ”">
+              <img id="composeMediaPreviewImage" alt="ϊφεβδ ξχγιξδ μϊξεπδ">
               <video id="composeMediaPreviewVideo" controls playsinline></video>
             </div>
 
             <label class="compose-terms-ack">
               <input type="checkbox" id="composeTermsAck">
               <span>
-                ΧΧ Χ™ ΧΧΧ©Χ¨/Χª Χ©Χ–Χ• Χ™Χ¦Χ™Χ¨Χ” Χ©ΧΧ™ ΧΧ• ΧΆΧ Χ¨Χ™Χ©Χ™Χ•Χ, Χ•Χ©ΧΧ Χ™ ΧΧ΅Χ›Χ™Χ/Χ” Χ
-                <a href="terms.html" target="_blank" rel="noopener">ΧªΧ ΧΧ™ Χ”Χ©Χ™ΧΧ•Χ©</a>
-                Χ•Χ
-                <a href="copyright.html" target="_blank" rel="noopener">Χ–Χ›Χ•Χ™Χ•Χª Χ™Χ•Χ¦Χ¨Χ™Χ</a>.
+                ΰπι ξΰωψ/ϊ ωζε ιφιψδ ωμι ΰε ςν ψιωιεο, εωΰπι ξρλιν/δ μ
+                <a href="terms.html" target="_blank" rel="noopener">ϊπΰι δωιξεω</a>
+                εμ
+                <a href="copyright.html" target="_blank" rel="noopener">ζλειεϊ ιεφψιν</a>.
               </span>
             </label>
 
@@ -2218,73 +2218,73 @@
           </div>
 
           <div class="compose-dialog__actions">
-            <button class="button-secondary" type="button" onclick="closeCompose()">Χ‘Χ™ΧΧ•Χ</button>
-            <button class="button-primary" type="button" id="composePublishButton" disabled>Χ¤Χ¨Χ΅Χ</button>
+            <button class="button-secondary" type="button" onclick="closeCompose()">αιθεμ</button>
+            <button class="button-primary" type="button" id="composePublishButton" disabled>τψρν</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Χ—ΧΧ•Χ ΧªΧ ΧΧ™Χ ΧΧ¤Χ Χ™ Χ¤Χ¨Χ΅Χ•Χ | HYPER CORE TECH -->
+    <!-- ημεο ϊπΰιν μτπι τψρεν | HYPER CORE TECH -->
     <div class="terms-modal" id="termsModal" aria-hidden="true">
       <div class="terms-modal__content">
-        <h3 class="terms-modal__title">π“ ΧΧ™Χ©Χ•Χ¨ ΧªΧ ΧΧ™Χ</h3>
+        <h3 class="terms-modal__title">?? ΰιωεψ ϊπΰιν</h3>
         <div class="terms-modal__checkboxes">
           <label class="terms-modal__checkbox">
             <input type="checkbox" id="termsPolicyCheckbox">
-            <span>Χ§Χ¨ΧΧªΧ™ ΧΧª <a href="terms.html" target="_blank">ΧªΧ ΧΧ™ Χ”Χ©Χ™Χ¨Χ•Χª</a> Χ•<a href="copyright.html" target="_blank">ΧΧ“Χ™Χ Χ™Χ•Χª Χ–Χ›Χ•Χ™Χ•Χª Χ”Χ™Χ•Χ¦Χ¨Χ™Χ</a> Χ•ΧΧ Χ™ ΧΧ‘Χ™Χ ΧΧª ΧΧ›Χ™Χ¤Χª Χ”Χ¨Χ©Χª Χ”ΧΧ‘Χ•Χ–Χ¨Χª.</span>
+            <span>χψΰϊι ΰϊ <a href="terms.html" target="_blank">ϊπΰι δωιψεϊ</a> ε<a href="copyright.html" target="_blank">ξγιπιεϊ ζλειεϊ διεφψιν</a> εΰπι ξαιο ΰϊ ΰλιτϊ δψωϊ δξαεζψϊ.</span>
           </label>
           <label class="terms-modal__checkbox">
             <input type="checkbox" id="termsRightsCheckbox">
-            <span>Χ”ΧªΧ•Χ›Χ Χ©Χ¤Χ•Χ¨Χ΅Χ Χ”Χ•Χ Χ‘Χ‘ΧΆΧΧ•ΧªΧ™ ΧΧ• Χ©Χ™Χ© ΧΧ™ Χ¨Χ™Χ©Χ™Χ•Χ ΧΧ¤Χ¨Χ΅ΧΧ•.</span>
+            <span>δϊελο ωτεψρν δεΰ ααςμεϊι ΰε ωιω μι ψιωιεο μτψρξε.</span>
           </label>
         </div>
         <div class="terms-modal__actions">
-          <button class="terms-modal__cancel" onclick="closeTermsModal()">Χ‘Χ™ΧΧ•Χ</button>
-          <button class="terms-modal__publish" id="termsPublishButton" onclick="confirmAndPublish()" disabled>Χ¤Χ¨Χ΅Χ</button>
+          <button class="terms-modal__cancel" onclick="closeTermsModal()">αιθεμ</button>
+          <button class="terms-modal__publish" id="termsPublishButton" onclick="confirmAndPublish()" disabled>τψρν</button>
         </div>
       </div>
     </div>
 
-    <!-- Χ”Χ•Χ“ΧΆΧª ΧΆΧ™Χ‘Χ•Χ“ Χ‘Χ¨Χ§ΧΆ | HYPER CORE TECH -->
+    <!-- δεγςϊ ςιαεγ αψχς | HYPER CORE TECH -->
     <div class="processing-notice" id="processingNotice">
-      <p class="processing-notice__text">β³ Χ”Χ¤Χ•Χ΅Χ Χ©ΧΧ ΧΧΆΧ•Χ‘Χ“ Χ•ΧΧ•ΧΆΧΧ”...</p>
-      <p class="processing-notice__hint">ΧΧ ΧªΧ¨ΧΆΧ Χ ΧΧª Χ”Χ“Χ£! Χ”Χ›Χ¤ΧªΧ•Χ¨ <span class="blink-hint">Χ”ΧΧ”Χ‘Χ”Χ‘ Χ‘ΧΧ“Χ•Χ</span> ΧΧ¦Χ™Χ™Χ Χ©Χ”ΧΆΧ™Χ‘Χ•Χ“ Χ¤ΧΆΧ™Χ.</p>
+      <p class="processing-notice__text">? δτερθ ωμκ ξςεαγ εξεςμδ...</p>
+      <p class="processing-notice__hint">ΰμ ϊψςπο ΰϊ δγσ! δλτϊεψ <span class="blink-hint">δξδαδα αΰγεν</span> ξφιιο ωδςιαεγ τςιμ.</p>
     </div>
 
-    <!-- Χ—ΧΧ§ Χ”Χ§ΧΧΧª Χ•Χ™Χ“ΧΧ• (videos.html) β€“ Χ—ΧΧ•Χ Χ‘Χ—Χ™Χ¨Χª Χ–ΧΧ Χ•ΧΧ¦ΧΧΧ” | HYPER CORE TECH -->
+    <!-- ημχ δχμθϊ ειγΰε (videos.html) – ημεο αηιψϊ ζξο εξφμξδ | HYPER CORE TECH -->
     <div class="video-record-modal" id="videoRecordModal" aria-hidden="true">
       <div class="video-record-backdrop" onclick="closeVideoRecordModal()"></div>
       <div class="video-record-panel" role="dialog" aria-modal="true">
         <div class="video-record-header">
-          <h3>Χ”Χ§ΧΧ Χ•Χ™Χ“ΧΧ•</h3>
-          <button class="video-record-close" type="button" onclick="closeVideoRecordModal()" aria-label="Χ΅Χ’Χ•Χ¨">
+          <h3>δχμθ ειγΰε</h3>
+          <button class="video-record-close" type="button" onclick="closeVideoRecordModal()" aria-label="ρβεψ">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         
         <div class="video-record-content">
-  <!-- ΧΧΧ©Χ§ Χ”Χ§ΧΧΧ” Χ™Χ©Χ™Χ¨ -->
+  <!-- ξξωχ δχμθδ ιωιψ -->
   <div class="video-record-interface" id="videoRecordInterface">
     <div class="video-record-preview">
       <video id="videoRecordPreview" autoplay muted playsinline></video>
-      <!-- ΧΧ™Χ™ΧΧ¨ Χ¦Χ£ -->
+      <!-- θιιξψ φσ -->
       <div class="floating-timer" id="floatingTimer">00:00</div>
       <div class="video-record-controls">
-        <button class="camera-switch" id="cameraSwitchButton" aria-label="Χ”Χ—ΧΧ£ ΧΧ¦ΧΧΧ”">
+        <button class="camera-switch" id="cameraSwitchButton" aria-label="δημσ ξφμξδ">
           <i class="fa-solid fa-camera-rotate"></i>
         </button>
-        <button class="record-button" id="recordButton" aria-label="Χ”Χ§ΧΧ">
+        <button class="record-button" id="recordButton" aria-label="δχμθ">
           <div class="record-button-inner"></div>
         </button>
         <div class="record-timer" id="recordTimer">00:00</div>
       </div>
     </div>
-    <!-- Χ›Χ¤ΧªΧ•Χ¨ Χ‘Χ™ΧΧ•Χ Χ‘ΧΧΧ©Χ§ Χ”Χ§ΧΧΧ” -->
+    <!-- λτϊεψ αιθεμ αξξωχ δχμθδ -->
     <div class="record-cancel">
       <button class="record-cancel-btn" onclick="closeVideoRecordModal()" type="button">
         <i class="fa-solid fa-xmark"></i>
-        Χ‘Χ™ΧΧ•Χ Χ”Χ§ΧΧΧ”
+        αιθεμ δχμθδ
       </button>
     </div>
   </div>
@@ -2292,154 +2292,154 @@
       </div>
     </div>
 
-    <!-- Χ—ΧΧ§ Χ—ΧΧ•Χ Χ”ΧªΧ—Χ‘Χ¨Χ•Χª / Χ”Χ¨Χ©ΧΧ” ΧΧΧ•Χ¨Χ— (videos.html) β€“ ΧΧ•Χ“ΧΧ ΧΧΧ Χ›ΧΧ• Χ‘ΧΧ™Χ§ΧΧ•Χ§ | HYPER CORE TECH -->
+    <!-- ημχ ημεο δϊηαψεϊ / δψωξδ μΰεψη (videos.html) – ξεγΰμ ξμΰ λξε αθιχθεχ | HYPER CORE TECH -->
     <div id="guestAuthModal" class="modal" style="display:none;">
       <div class="modal-content" style="max-width: 450px; text-align: center; padding: 30px;">
         <button class="modal-close" type="button" data-guest-auth-close style="position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 28px; cursor: pointer; color: #666;">&times;</button>
         
-        <!-- Χ©ΧΧ‘ Χ¨ΧΧ©Χ•Χ Χ™: Χ‘Χ—Χ™Χ¨Χ” Χ‘Χ™Χ Χ”ΧªΧ—Χ‘Χ¨Χ•Χª ΧΧ”Χ¨Χ©ΧΧ” -->
+        <!-- ωμα ψΰωεπι: αηιψδ αιο δϊηαψεϊ μδψωξδ -->
         <div id="authStepInitial" class="auth-step">
-          <h2 style="margin-bottom: 15px; font-size: 24px;">Χ”Χ¦ΧΧ¨Χ¤Χ• ΧΧ¨Χ©Χª</h2>
+          <h2 style="margin-bottom: 15px; font-size: 24px;">δφθψτε μψωϊ</h2>
           <p id="guestAuthModalReason" style="margin-bottom: 30px; color: #666; font-size: 15px;">
-            Χ›Χ“Χ™ ΧΧ”ΧΧ©Χ™Χ Χ¦Χ¨Χ™Χ ΧΧ”ΧªΧ—Χ‘Χ¨ ΧΧ• ΧΧ”Χ™Χ¨Χ©Χ.
+            λγι μδξωικ φψικ μδϊηαψ ΰε μδιψων.
           </p>
           <div style="display: flex; flex-direction: column; gap: 12px;">
             <button type="button" class="button-primary" id="btnStartSignup" style="width: 100%; padding: 14px; font-size: 16px;">
-              Χ¤ΧªΧ—Χ• ΧΧ©ΧªΧΧ© Χ—Χ“Χ©
+              τϊηε ξωϊξω ηγω
             </button>
             <button type="button" class="button-secondary" id="btnStartLogin" style="width: 100%; padding: 14px; font-size: 16px;">
-              Χ™Χ© ΧΧ™ Χ›Χ‘Χ¨ Χ§Χ•Χ“ ΧΧ™Χ©Χ™
+              ιω μι λαψ χεγ ΰιωι
             </button>
           </div>
         </div>
 
-        <!-- Χ©ΧΧ‘ Χ”ΧªΧ—Χ‘Χ¨Χ•Χª: Χ”Χ“Χ‘Χ§Χª ΧΧ¤ΧªΧ— -->
+        <!-- ωμα δϊηαψεϊ: δγαχϊ ξτϊη -->
         <div id="authStepLogin" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromLogin" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">β†’</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">Χ”Χ“Χ‘Χ§ ΧΧª Χ”Χ§Χ•Χ“ Χ”ΧΧ™Χ©Χ™ Χ©ΧΧ</h2>
-          <textarea id="loginKeyInput" placeholder="Χ”Χ“Χ‘Χ§ Χ›ΧΧ ΧΧª Χ”ΧΧ¤ΧªΧ— Χ”Χ¤Χ¨ΧΧ™ Χ©ΧΧ (nsec... ΧΧ• hex)" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px;"></textarea>
+          <button type="button" id="btnBackFromLogin" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">?</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">δγαχ ΰϊ δχεγ δΰιωι ωμκ</h2>
+          <textarea id="loginKeyInput" placeholder="δγαχ λΰο ΰϊ δξτϊη δτψθι ωμκ (nsec... ΰε hex)" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px;"></textarea>
           <p id="loginStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnLoginSubmit" style="width: 100%; padding: 14px; font-size: 16px;">
-            Χ›Χ Χ™Χ΅Χ”
+            λπιρδ
           </button>
         </div>
 
-        <!-- Χ©ΧΧ‘ Χ”Χ¨Χ©ΧΧ”: Χ”Χ–ΧΧ Χ” -->
+        <!-- ωμα δψωξδ: δζξπδ -->
         <div id="authStepInvite" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromInvite" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">β†’</button>
-          <h2 style="margin-bottom: 12px; font-size: 22px;">Χ”Χ–ΧΧ Χ” ΧΧ¨Χ©Χª</h2>
+          <button type="button" id="btnBackFromInvite" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">?</button>
+          <h2 style="margin-bottom: 12px; font-size: 22px;">δζξπδ μψωϊ</h2>
           <p style="margin-bottom: 18px; color: #666; font-size: 14px; line-height: 1.5;">
-            Χ¤ΧªΧ™Χ—Χª ΧΧ©ΧªΧΧ© Χ—Χ“Χ© ΧΧ¤Χ©Χ¨Χ™Χª ΧΆΧ Χ§Χ•Χ“ Χ”Χ–ΧΧ Χ” Χ©Χ§Χ™Χ‘ΧΧªΧ ΧΧ—Χ‘Χ¨ Χ‘Χ¨Χ©Χª (Χ‘Χ“Χ¨Χ Χ›ΧΧ Χ‘Χ§Χ™Χ©Χ•Χ¨ ΧΧ•Χ•ΧΧΧ΅ΧΧ¤).
+            τϊιηϊ ξωϊξω ηγω ΰτωψιϊ ςν χεγ δζξπδ ωχιαμϊν ξηαψ αψωϊ (αγψκ λμμ αχιωεψ ξεεΰθρΰτ).
           </p>
-          <input type="text" id="signupInviteCodeInput" placeholder="Χ§Χ•Χ“ Χ”Χ–ΧΧ Χ”" autocomplete="off" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase;" />
+          <input type="text" id="signupInviteCodeInput" placeholder="χεγ δζξπδ" autocomplete="off" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase;" />
           <input type="tel" id="signupInvitePhoneInput" hidden autocomplete="off" tabindex="-1" aria-hidden="true" />
           <p id="inviteStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnInviteNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            Χ”ΧΧ©Χ
+            δξωκ
           </button>
         </div>
 
-        <!-- Χ©ΧΧ‘ 1 Χ”Χ¨Χ©ΧΧ”: ΧΧ™Χ™Χ -->
+        <!-- ωμα 1 δψωξδ: ξιιμ -->
         <div id="authStepEmail" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">β†’</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">ΧΧ” Χ›ΧªΧ•Χ‘Χª Χ”ΧΧ™Χ™Χ Χ©ΧΧ?</h2>
+          <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">?</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">ξδ λϊεαϊ δξιιμ ωμκ?</h2>
           <input type="email" id="signupEmailInput" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
           <div class="auth-legal-block">
             <label class="auth-legal-checkbox">
               <input type="checkbox" id="signupLegalAgree" />
               <span>
-                ΧΧ Χ™ ΧΧ΅Χ›Χ™Χ ΧΧªΧ ΧΧ™ Χ”Χ¨Χ©Χª Χ”ΧΧ‘Χ•Χ–Χ¨Χª Χ•ΧΧΧ©Χ¨ Χ©Χ§Χ¨ΧΧªΧ™ ΧΧª Χ”ΧΧ΅ΧΧ›Χ™Χ:
+                ΰπι ξρλιν μϊπΰι δψωϊ δξαεζψϊ εξΰωψ ωχψΰϊι ΰϊ δξρξλιν:
                 <span class="legal-links">
-                  <a href="terms.html" data-policy-target="terms.html">ΧªΧ ΧΧ™ Χ”Χ©Χ™ΧΧ•Χ©</a>,
-                  <a href="privacy.html" data-policy-target="privacy.html">ΧΧ“Χ™Χ Χ™Χ•Χª Χ”Χ¤Χ¨ΧΧ™Χ•Χª</a>,
-                  <a href="community.html" data-policy-target="community.html">Χ§Χ•Χ“ Χ”Χ§Χ”Χ™ΧΧ”</a> Χ•-
-                  <a href="copyright.html" data-policy-target="copyright.html">ΧΧ“Χ™Χ Χ™Χ•Χª Χ–Χ›Χ•Χ™Χ•Χª Χ”Χ™Χ•Χ¦Χ¨Χ™Χ</a>.
+                  <a href="terms.html" data-policy-target="terms.html">ϊπΰι δωιξεω</a>,
+                  <a href="privacy.html" data-policy-target="privacy.html">ξγιπιεϊ δτψθιεϊ</a>,
+                  <a href="community.html" data-policy-target="community.html">χεγ δχδιμδ</a> ε-
+                  <a href="copyright.html" data-policy-target="copyright.html">ξγιπιεϊ ζλειεϊ διεφψιν</a>.
                 </span>
               </span>
             </label>
-            <p class="auth-legal-note">Χ”ΧΧ™Χ™Χ Χ Χ¨Χ©Χ Χ›-hash Χ‘Χ¨Χ©Χª Χ›Χ“Χ™ ΧΧΧ Χ•ΧΆ Χ”Χ¨Χ©ΧΧ” Χ›Χ¤Χ•ΧΧ”. ΧΧ Χ Χ©ΧΧ— ΧΧ™Χ™Χ ΧΧ™ΧΧ•Χª Χ‘Χ©ΧΧ‘ Χ–Χ”.</p>
+            <p class="auth-legal-note">δξιιμ πψων λ-hash αψωϊ λγι μξπες δψωξδ λτεμδ. μΰ πωμη ξιιμ ΰιξεϊ αωμα ζδ.</p>
           </div>
           <p id="emailStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnEmailNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            Χ”Χ‘Χ
+            δαΰ
           </button>
         </div>
 
-        <!-- Χ©ΧΧ‘ 2 Χ”Χ¨Χ©ΧΧ”: Χ©Χ ΧΧ©ΧªΧΧ© -->
+        <!-- ωμα 2 δψωξδ: ων ξωϊξω -->
         <div id="authStepName" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromName" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">β†’</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">ΧΧ” Χ”Χ©Χ Χ©ΧΧ?</h2>
-          <input type="text" id="signupNameInput" placeholder="Χ”Χ©Χ Χ©ΧΧ" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
+          <button type="button" id="btnBackFromName" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">?</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">ξδ δων ωμκ?</h2>
+          <input type="text" id="signupNameInput" placeholder="δων ωμκ" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
           <p id="nameStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnNameNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            Χ”Χ‘Χ
+            δαΰ
           </button>
         </div>
 
-        <!-- Χ©ΧΧ‘ 3 Χ”Χ¨Χ©ΧΧ”: ΧªΧΧ•Χ Χª Χ¤Χ¨Χ•Χ¤Χ™Χ -->
+        <!-- ωμα 3 δψωξδ: ϊξεπϊ τψετιμ -->
         <div id="authStepAvatar" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromAvatar" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">β†’</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">Χ‘Χ—Χ¨ ΧªΧΧ•Χ Χª Χ¤Χ¨Χ•Χ¤Χ™Χ</h2>
+          <button type="button" id="btnBackFromAvatar" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">?</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">αηψ ϊξεπϊ τψετιμ</h2>
           <div id="avatarPreview" style="width: 120px; height: 120px; border-radius: 50%; background: #f0f0f0; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #ddd;">
-            <span style="font-size: 48px; color: #999;">π‘¤</span>
+            <span style="font-size: 48px; color: #999;">??</span>
           </div>
           <input type="file" id="signupAvatarInput" accept="image/*" style="display: none;" />
           <button type="button" class="button-secondary" id="btnChooseAvatar" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 10px;">
-            Χ‘Χ—Χ¨ ΧªΧΧ•Χ Χ”
+            αηψ ϊξεπδ
           </button>
           <button type="button" class="button-secondary" id="btnSkipAvatar" style="width: 100%; padding: 10px; font-size: 14px; margin-bottom: 15px; background: transparent; border: none; color: #666;">
-            Χ“ΧΧ’ ΧΆΧ Χ©ΧΧ‘ Χ–Χ”
+            γμβ ςμ ωμα ζδ
           </button>
           <p id="avatarStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnAvatarNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            Χ”Χ‘Χ
+            δαΰ
           </button>
         </div>
 
-        <!-- Χ©ΧΧ‘ 4 Χ”Χ¨Χ©ΧΧ”: Χ”Χ¦Χ’Χª ΧΧ¤ΧªΧ— -->
+        <!-- ωμα 4 δψωξδ: δφβϊ ξτϊη -->
         <div id="authStepKey" class="auth-step" style="display:none;">
-          <h2 style="margin-bottom: 15px; font-size: 22px; color: #ffffff;">Χ–Χ” Χ”ΧΧ¤ΧªΧ— Χ”ΧΧ™Χ©Χ™ Χ©ΧΧ!</h2>
+          <h2 style="margin-bottom: 15px; font-size: 22px; color: #ffffff;">ζδ δξτϊη δΰιωι ωμκ!</h2>
           <div style="background: rgba(255, 193, 7, 0.15); border: 2px solid #ffc107; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: right;">
             <p style="font-size: 14px; color: #ffc107; margin: 0; line-height: 1.6;">
-              β οΈ <strong>Χ—Χ©Χ•Χ‘ ΧΧΧ•Χ“!</strong> Χ©ΧΧ•Χ¨ ΧΧª Χ”ΧΧ¤ΧªΧ— Χ”Χ–Χ” Χ‘ΧΧ§Χ•Χ Χ‘ΧΧ•Χ—. <strong>ΧΧ Χ Χ™ΧªΧ ΧΧ©Χ—Χ–Χ¨ ΧΧ•ΧªΧ•!</strong>
+              ?? <strong>ηωεα ξΰεγ!</strong> ωξεψ ΰϊ δξτϊη δζδ αξχεν αθεη. <strong>μΰ πιϊο μωηζψ ΰεϊε!</strong>
             </p>
           </div>
           <div class="auth-legal-block">
             <label class="auth-legal-checkbox">
               <input type="checkbox" id="keyPolicyAgree" />
               <span>
-                ΧΧ Χ™ ΧΧΧ©Χ¨ Χ©Χ§Χ¨ΧΧªΧ™ ΧΧª Χ”ΧΧ΅ΧΧ›Χ™Χ ΧΧΆΧ™Χ Χ•ΧΧªΧ—Χ™Χ™Χ‘ ΧΧ”Χ™ΧΧ ΧΆ ΧΧªΧ•Χ›Χ ΧΧ΅Χ•Χ¨ ΧΧ• Χ‘ΧΧªΧ™ Χ—Χ•Χ§Χ™.
+                ΰπι ξΰωψ ωχψΰϊι ΰϊ δξρξλιν μςιμ εξϊηιια μδιξπς ξϊελο ΰρεψ ΰε αμϊι ηεχι.
               </span>
             </label>
             <label class="auth-legal-checkbox">
               <input type="checkbox" id="keyRightsConfirm" />
               <span>
-                ΧΧ Χ™ ΧΧ¦Χ”Χ™Χ¨ Χ©Χ›Χ ΧªΧ•Χ›Χ Χ©ΧΧΆΧΧ” Χ”Χ•Χ Χ‘Χ‘ΧΆΧΧ•ΧªΧ™ ΧΧ• Χ©Χ™Χ© ΧΧ™ Χ”Χ™ΧªΧ¨ Χ—Χ•Χ§Χ™ ΧΧ¤Χ¨Χ΅ΧΧ•.
+                ΰπι ξφδιψ ωλμ ϊελο ωΰςμδ δεΰ ααςμεϊι ΰε ωιω μι διϊψ ηεχι μτψρξε.
               </span>
             </label>
           </div>
           <textarea id="generatedKeyDisplay" readonly style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px; background: #0f0f1e; color: #ffffff;"></textarea>
           <div style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button type="button" class="button-secondary" id="btnCopyKey" style="flex: 1; padding: 10px; font-size: 14px;">
-              π“‹ Χ”ΧΆΧªΧ§
+              ?? δςϊχ
             </button>
             <button type="button" class="button-secondary" id="btnDownloadKey" style="flex: 1; padding: 10px; font-size: 14px;">
-              π’Ύ Χ©ΧΧ•Χ¨ Χ›Χ§Χ•Χ‘Χ¥
+              ?? ωξεψ λχεαυ
             </button>
           </div>
           <label style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
             <input type="checkbox" id="keyConfirmCheckbox" style="width: 18px; height: 18px; cursor: pointer;" />
-            <span style="font-size: 15px; color: #ffffff;">Χ©ΧΧ¨ΧªΧ™ ΧΧª Χ”ΧΧ¤ΧªΧ— Χ‘ΧΧ§Χ•Χ Χ‘ΧΧ•Χ—</span>
+            <span style="font-size: 15px; color: #ffffff;">ωξψϊι ΰϊ δξτϊη αξχεν αθεη</span>
           </label>
           <p id="keyStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnFinalConnect" disabled style="width: 100%; padding: 14px; font-size: 16px;">
-            Χ”ΧªΧ—Χ‘Χ¨ ΧΧ¨Χ©Χª
+            δϊηαψ μψωϊ
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Χ”Χ–ΧΧ Χª ΧΧ©ΧªΧΧ©: Χ‘ΧΧ™ ΧΧ•Χ“ΧΧ ΧΧΧ¤Χ•Χ β€” Χ Χ¤ΧªΧ— Χ™Χ©Χ™Χ¨Χ•Χª Χ•Χ•ΧΧΧ΅ΧΧ¤ ΧΧ‘Χ—Χ™Χ¨Χª ΧΧ™Χ© Χ§Χ©Χ¨ | HYPER CORE TECH -->
+    <!-- δζξπϊ ξωϊξω: αμι ξεγΰμ θμτεο — πτϊη ιωιψεϊ εεΰθρΰτ μαηιψϊ ΰιω χωψ | HYPER CORE TECH -->
 
     <div class="policy-modal" id="policyModal" aria-hidden="true">
       <div
@@ -2451,8 +2451,8 @@
         tabindex="-1"
       >
         <div class="policy-modal__header">
-          <h2 class="policy-modal__title" id="policyModalTitle">ΧΧ΅ΧΧ ΧΧ“Χ™Χ Χ™Χ•Χª</h2>
-          <button class="policy-modal__close" type="button" aria-label="Χ΅Χ’Χ•Χ¨" data-policy-close>
+          <h2 class="policy-modal__title" id="policyModalTitle">ξρξκ ξγιπιεϊ</h2>
+          <button class="policy-modal__close" type="button" aria-label="ρβεψ" data-policy-close>
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -2462,35 +2462,35 @@
       </div>
     </div>
 
-    <!-- Χ¦'ΧΧ (videos.html) β€“ ΧΧ‘Χ Χ” Χ–Χ”Χ” Χ•ΧΧ›Χ•Χ•Χ¥ Χ©Χ•Χ¨Χ•Χª | HYPER CORE TECH -->
-    <section class="chat-panel" id="chatPanel" hidden aria-label="ΧΧ΅Χ Χ’'Χ¨ Χ¤Χ¨ΧΧ™">
-      <nav class="chat-nav-sidebar" aria-label="Χ Χ™Χ•Χ•Χ Χ¨ΧΧ©Χ™">
+    <!-- φ'ΰθ (videos.html) – ξαπδ ζδδ εξλεευ ωεψεϊ | HYPER CORE TECH -->
+    <section class="chat-panel" id="chatPanel" hidden aria-label="ξρπβ'ψ τψθι">
+      <nav class="chat-nav-sidebar" aria-label="πιεεθ ψΰωι">
         <div class="chat-nav-sidebar__top">
-          <button type="button" class="chat-nav-item" id="chatNavHome" title="Χ“Χ£ Χ”Χ‘Χ™Χª" data-chat-nav="home">
+          <button type="button" class="chat-nav-item" id="chatNavHome" title="γσ δαιϊ" data-chat-nav="home">
             <i class="fa-solid fa-house"></i>
           </button>
-          <button type="button" class="chat-nav-item" id="chatNavNotifications" title="Χ”ΧªΧ¨ΧΆΧ•Χª" data-chat-nav="notifications">
+          <button type="button" class="chat-nav-item" id="chatNavNotifications" title="δϊψςεϊ" data-chat-nav="notifications">
             <i class="fa-solid fa-bell"></i>
           </button>
-          <button type="button" class="chat-nav-item is-active" id="chatNavChats" title="Χ”Χ•Χ“ΧΆΧ•Χª" data-chat-nav="contacts">
+          <button type="button" class="chat-nav-item is-active" id="chatNavChats" title="δεγςεϊ" data-chat-nav="contacts">
             <i class="fa-solid fa-comments"></i>
           </button>
-          <button type="button" class="chat-nav-item" id="chatNavGames" title="ΧΧ©Χ—Χ§Χ™Χ" data-chat-nav="games">
+          <button type="button" class="chat-nav-item" id="chatNavGames" title="ξωηχιν" data-chat-nav="games">
             <i class="fa-solid fa-gamepad"></i>
           </button>
         </div>
         <div class="chat-nav-sidebar__bottom">
-          <button type="button" class="chat-nav-item" id="chatNavSettings" title="Χ”Χ’Χ“Χ¨Χ•Χª">
+          <button type="button" class="chat-nav-item" id="chatNavSettings" title="δβγψεϊ">
             <i class="fa-solid fa-gear"></i>
           </button>
-          <div class="chat-nav-profile" id="chatNavProfile" title="Χ¤Χ¨Χ•Χ¤Χ™Χ" data-chat-nav="profile">
-            <img src="icons/WAPICON.png" alt="Χ¤Χ¨Χ•Χ¤Χ™Χ" id="chatNavProfileImg">
+          <div class="chat-nav-profile" id="chatNavProfile" title="τψετιμ" data-chat-nav="profile">
+            <img src="icons/WAPICON.png" alt="τψετιμ" id="chatNavProfileImg">
           </div>
         </div>
       </nav>
-      <div class="chat-panel__body"><aside class="chat-contacts" aria-label="Χ¨Χ©Χ™ΧΧª Χ©Χ™Χ—Χ•Χª"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="Χ΅Χ’Χ•Χ¨ Χ—ΧΧ•Χ"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SosCall010"><img src="icons/so-call010.png" alt="SosCall010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="Χ¦'ΧΧ Χ—Χ“Χ©"></i><i class="fa-solid fa-ellipsis-vertical" title="ΧªΧ¤Χ¨Χ™Χ"></i></div></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="Χ—Χ™Χ¤Χ•Χ© Χ¦'ΧΧ ΧΧ• Χ”ΧªΧ—ΧΧª Χ¦'ΧΧ Χ—Χ“Χ©" autocomplete="off"><i class="fa-solid fa-filter"></i></div><div class="chat-contacts__actions" role="group" aria-label="Χ¤ΧΆΧ•ΧΧ•Χª ΧΧ”Χ™Χ¨Χ•Χª Χ‘Χ¦'ΧΧ"><button type="button" class="chat-panel__icon" id="chatRefreshContacts" aria-label="Χ¨ΧΆΧ Χ•Χ Χ©Χ™Χ—Χ•Χª" title="Χ¨ΧΆΧ Χ•Χ Χ›Χ Χ”Χ©Χ™Χ—Χ•Χª"><i class="fa-solid fa-rotate"></i></button><button type="button" class="chat-panel__icon" aria-label="ΧªΧ¤Χ¨Χ™Χ Χ”Χ¦'ΧΧ"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="Χ΅Χ’Χ™Χ¨Χª Χ”Χ¦'ΧΧ"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">Χ”Χ›Χ</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">ΧΧ Χ Χ§Χ¨ΧΧ•</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>Χ”ΧªΧ¨ΧΧ•Χª</h2><p>ΧΧ™Χ™Χ§Χ™Χ Χ•ΧªΧ’Χ•Χ‘Χ•Χª ΧΧ—Χ¨Χ•Χ Χ™Χ ΧΧ¤Χ•Χ΅ΧΧ™Χ Χ©ΧΧ</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">Χ΅ΧΧ Χ›Χ Χ§Χ¨ΧΧ•</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">ΧΧ™Χ Χ”ΧªΧ¨ΧΆΧ•Χª Χ—Χ“Χ©Χ•Χª Χ›Χ¨Χ’ΧΆ.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>Χ‘Χ—Χ¨ ΧΧ™Χ© Χ§Χ©Χ¨ Χ›Χ“Χ™ ΧΧ”ΧªΧ—Χ™Χ ΧΧ©Χ•Χ—Χ—.</p></div><div class="chat-welcome-desktop" id="chatWelcomeDesktop"><div class="chat-welcome-desktop__card"><div class="chat-welcome-desktop__icon"><img src="icons/INSTALLPCLOGO.PNG" alt="SOS Call 010"></div><h2 class="chat-welcome-desktop__title">ΧΆΧ“Χ™Χ™Χ ΧΧ Χ”ΧªΧ§Χ Χª ΧΧª SOS Call 010 ΧΧΧ—Χ©Χ‘?</h2><p class="chat-welcome-desktop__desc">Χ”ΧΧ¤ΧΧ™Χ§Χ¦Χ™Χ” Χ©ΧΧ Χ• Χ–ΧΧ™Χ Χ” ΧΧ”ΧªΧ§Χ Χ” ΧΆΧ Χ”ΧΧ—Χ©Χ‘ Χ©ΧΧ ΧΧ—Χ•Χ•Χ™Χ” ΧΧ”Χ™Χ¨Χ” Χ•Χ Χ•Χ—Χ” Χ™Χ•ΧªΧ¨, ΧΆΧ Χ”ΧªΧ¨ΧΧ•Χª Χ‘Χ–ΧΧ ΧΧΧª!</p><button type="button" class="chat-welcome-desktop__install" id="chatWelcomeInstallBtn" onclick="NostrApp.promptPwaInstall && NostrApp.promptPwaInstall()"><i class="fa-solid fa-download"></i> Χ”ΧªΧ§Χ ΧΆΧ›Χ©Χ™Χ•</button></div><div class="chat-welcome-desktop__actions"><button type="button" class="chat-welcome-desktop__action" onclick="document.getElementById('chatSearchInput')?.focus()"><i class="fa-solid fa-user-plus"></i><span>Χ”ΧªΧ—Χ Χ©Χ™Χ—Χ” Χ—Χ“Χ©Χ”</span></button><button type="button" class="chat-welcome-desktop__action" onclick="document.querySelector('[data-chat-filter=\"unread\"]')?.click()"><i class="fa-solid fa-envelope"></i><span>Χ”Χ•Χ“ΧΆΧ•Χª Χ©ΧΧ Χ Χ§Χ¨ΧΧ•</span></button></div><p class="chat-welcome-desktop__footer"><i class="fa-brands fa-windows"></i> Χ”Χ¤ΧΆΧ ΧΧª SOS Call 010 ΧΆΧ Windows</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="Χ—Χ–Χ¨Χ” ΧΧ¨Χ©Χ™ΧΧª Χ©Χ™Χ—Χ•Χª"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">Χ©Χ•ΧªΧ£ ΧΧ©Χ™Χ—Χ”</span><span class="chat-conversation__status" id="chatConversationStatus">ΧΧ—Χ•Χ‘Χ¨</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="Χ©Χ™Χ—Χª Χ§Χ•Χ"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="Χ—Χ–Χ¨Χ” ΧΧ¨Χ©Χ™ΧΧª Χ©Χ™Χ—Χ•Χª"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><label class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="Χ¦Χ¨Χ£ Χ§Χ•Χ‘Χ¥" title="Χ¦Χ¨Χ£ Χ§Χ•Χ‘Χ¥"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><input type="file" id="chatComposerFileInput" class="chat-composer__file-input" accept="*/*"></label><button type="button" class="chat-composer__icon chat-composer__icon--torrent" id="chatTorrentSendButton" aria-label="Χ©ΧΧ— Χ§Χ•Χ‘Χ¥ Χ’Χ“Χ•Χ" title="Χ©ΧΧ— Χ§Χ•Χ‘Χ¥ Χ’Χ“Χ•Χ (ΧΆΧ“ 100GB+)"><i class="fa-solid fa-cloud-arrow-up"></i></button><textarea id="chatMessageInput" placeholder="Χ›ΧªΧ•Χ‘ Χ”Χ•Χ“ΧΆΧ”..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="Χ©ΧΧ— Χ”Χ•Χ“ΧΆΧ”"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">Χ©Χ Χ§Χ•Χ‘Χ¥</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="Χ”Χ΅Χ¨ Χ§Χ•Χ‘Χ¥"><i class="fa-solid fa-xmark"></i></button></div></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="Χ Χ™Χ•Χ•Χ Χ¦'ΧΧ"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>Χ©Χ™Χ—Χ•Χª</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>Χ”ΧªΧ¨ΧΧ•Χª</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>Χ“Χ£ Χ”Χ‘Χ™Χª</span></button></nav></section>
+      <div class="chat-panel__body"><aside class="chat-contacts" aria-label="ψωιξϊ ωιηεϊ"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="ρβεψ ημεο"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SosCall010"><img src="icons/so-call010.png" alt="SosCall010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="φ'ΰθ ηγω"></i><i class="fa-solid fa-ellipsis-vertical" title="ϊτψιθ"></i></div></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="ηιτεω φ'ΰθ ΰε δϊημϊ φ'ΰθ ηγω" autocomplete="off"><i class="fa-solid fa-filter"></i></div><div class="chat-contacts__actions" role="group" aria-label="τςεμεϊ ξδιψεϊ αφ'ΰθ"><button type="button" class="chat-panel__icon" id="chatRefreshContacts" aria-label="ψςπεο ωιηεϊ" title="ψςπεο λμ δωιηεϊ"><i class="fa-solid fa-rotate"></i></button><button type="button" class="chat-panel__icon" aria-label="ϊτψιθ δφ'ΰθ"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="ρβιψϊ δφ'ΰθ"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__filters"><button type="button" class="chat-filter-chip is-active" data-chat-filter="all">δλμ</button><button type="button" class="chat-filter-chip" data-chat-filter="unread">μΰ πχψΰε</button></div><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>δϊψΰεϊ</h2><p>μιιχιν εϊβεαεϊ ΰηψεπιν μτερθιν ωμκ</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">ρξο λπχψΰε</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">ΰιο δϊψςεϊ ηγωεϊ λψβς.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>αηψ ΰιω χωψ λγι μδϊηιμ μωεηη.</p></div><div class="chat-welcome-desktop" id="chatWelcomeDesktop"><div class="chat-welcome-desktop__card"><div class="chat-welcome-desktop__icon"><img src="icons/INSTALLPCLOGO.PNG" alt="SOS Call 010"></div><h2 class="chat-welcome-desktop__title">ςγιιο μΰ δϊχπϊ ΰϊ SOS Call 010 μξηωα?</h2><p class="chat-welcome-desktop__desc">δΰτμιχφιδ ωμπε ζξιπδ μδϊχπδ ςμ δξηωα ωμκ μηεειδ ξδιψδ επεηδ ιεϊψ, ςν δϊψΰεϊ αζξο ΰξϊ!</p><button type="button" class="chat-welcome-desktop__install" id="chatWelcomeInstallBtn" onclick="NostrApp.promptPwaInstall && NostrApp.promptPwaInstall()"><i class="fa-solid fa-download"></i> δϊχο ςλωιε</button></div><div class="chat-welcome-desktop__actions"><button type="button" class="chat-welcome-desktop__action" onclick="document.getElementById('chatSearchInput')?.focus()"><i class="fa-solid fa-user-plus"></i><span>δϊημ ωιηδ ηγωδ</span></button><button type="button" class="chat-welcome-desktop__action" onclick="document.querySelector('[data-chat-filter=\"unread\"]')?.click()"><i class="fa-solid fa-envelope"></i><span>δεγςεϊ ωμΰ πχψΰε</span></button></div><p class="chat-welcome-desktop__footer"><i class="fa-brands fa-windows"></i> δτςμ ΰϊ SOS Call 010 ςμ Windows</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="ηζψδ μψωιξϊ ωιηεϊ"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">ωεϊσ μωιηδ</span><span class="chat-conversation__status" id="chatConversationStatus">ξηεαψ</span></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon" aria-label="ωιηϊ χεμ"><i class="fa-solid fa-phone"></i></button><button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="ηζψδ μψωιξϊ ωιηεϊ"><i class="fa-solid fa-arrow-right-long"></i></button></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><label class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="φψσ χεαυ" title="φψσ χεαυ"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><input type="file" id="chatComposerFileInput" class="chat-composer__file-input" accept="*/*"></label><button type="button" class="chat-composer__icon chat-composer__icon--torrent" id="chatTorrentSendButton" aria-label="ωμη χεαυ βγεμ" title="ωμη χεαυ βγεμ (ςγ 100GB+)"><i class="fa-solid fa-cloud-arrow-up"></i></button><textarea id="chatMessageInput" placeholder="λϊεα δεγςδ..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="ωμη δεγςδ"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">ων χεαυ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="δρψ χεαυ"><i class="fa-solid fa-xmark"></i></button></div></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="πιεεθ φ'ΰθ"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>ωιηεϊ</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>δϊψΰεϊ</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>γσ δαιϊ</span></button></nav></section>
 
-    <!-- Χ—ΧΧ§ Χ΅Χ™Χ΅ΧΧª Χ©Χ•Χ Χ•Χª (videos.html) β€“ Χ΅Χ§Χ¨Χ™Χ¤Χ Χ”Χ’Χ Χª Χ΅Χ™Χ΅ΧΧ” | HYPER CORE TECH -->
+    <!-- ημχ ριρξϊ ωεπεϊ (videos.html) – ρχψιτθ δβπϊ ριρξδ | HYPER CORE TECH -->
     <script src="./misc-password.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
@@ -2502,12 +2502,12 @@
         const closeButtons = modal ? modal.querySelectorAll('[data-policy-close]') : [];
 
         function getPolicyTitle(path) {
-          if (!path) return 'ΧΧ΅ΧΧ ΧΧ“Χ™Χ Χ™Χ•Χª';
-          if (path.includes('terms')) return 'ΧªΧ ΧΧ™ Χ©Χ™ΧΧ•Χ©';
-          if (path.includes('privacy')) return 'ΧΧ“Χ™Χ Χ™Χ•Χª Χ¤Χ¨ΧΧ™Χ•Χª';
-          if (path.includes('community')) return 'Χ§Χ•Χ“ Χ§Χ”Χ™ΧΧ”';
-          if (path.includes('copyright')) return 'ΧΧ“Χ™Χ Χ™Χ•Χª Χ–Χ›Χ•Χ™Χ•Χª Χ™Χ•Χ¦Χ¨Χ™Χ';
-          return 'ΧΧ΅ΧΧ ΧΧ“Χ™Χ Χ™Χ•Χª';
+          if (!path) return 'ξρξκ ξγιπιεϊ';
+          if (path.includes('terms')) return 'ϊπΰι ωιξεω';
+          if (path.includes('privacy')) return 'ξγιπιεϊ τψθιεϊ';
+          if (path.includes('community')) return 'χεγ χδιμδ';
+          if (path.includes('copyright')) return 'ξγιπιεϊ ζλειεϊ ιεφψιν';
+          return 'ξρξκ ξγιπιεϊ';
         }
 
         function openPolicy(docPath) {
@@ -2553,10 +2553,10 @@
       });
     </script>
 
-    <!-- Χ—ΧΧ•Χ ΧªΧ ΧΧ™Χ Χ•ΧΧ Χ™ΧΧ¦Χ™Χ™Χª ΧΆΧ™Χ‘Χ•Χ“ | HYPER CORE TECH -->
+    <!-- ημεο ϊπΰιν εΰπιξφιιϊ ςιαεγ | HYPER CORE TECH -->
     <script>
       (function() {
-        // Χ¤Χ¨Χ΅Χ•Χ Χ™Χ©Χ™Χ¨ ΧΧΧ΅Χ Χ”ΧΆΧ¨Χ™Χ›Χ” (Χ‘ΧΧ™ Χ©ΧΧ‘ "Χ”ΧΧ©Χ") | HYPER CORE TECH
+        // τψρεν ιωιψ ξξρκ δςψιλδ (αμι ωμα "δξωκ") | HYPER CORE TECH
         window.publishFromCompose = function() {
           const App = window.NostrApp || {};
           if (typeof App.getComposePayload === 'function') {
@@ -2567,9 +2567,9 @@
           const ack = document.getElementById('composeTermsAck');
           if (!ack || !ack.checked) {
             if (typeof App.setComposeStatus === 'function') {
-              App.setComposeStatus('Χ™Χ© ΧΧΧ©Χ¨ ΧΧª Χ”ΧªΧ ΧΧ™Χ ΧΧ¤Χ Χ™ Χ”Χ¤Χ¨Χ΅Χ•Χ.', 'error');
+              App.setComposeStatus('ιω μΰωψ ΰϊ δϊπΰιν μτπι δτψρεν.', 'error');
             } else {
-              alert('Χ™Χ© ΧΧΧ©Χ¨ ΧΧª Χ”ΧªΧ ΧΧ™Χ ΧΧ¤Χ Χ™ Χ”Χ¤Χ¨Χ΅Χ•Χ');
+              alert('ιω μΰωψ ΰϊ δϊπΰιν μτπι δτψρεν');
             }
             return;
           }
@@ -2582,14 +2582,14 @@
           confirmAndPublish();
         };
 
-        // Χ¤Χ•Χ Χ§Χ¦Χ™Χ•Χª ΧΧ Χ™Χ”Χ•Χ Χ—ΧΧ•Χ Χ”ΧªΧ ΧΧ™Χ (Χ’Χ™Χ‘Χ•Χ™)
+        // τεπχφιεϊ μπιδεμ ημεο δϊπΰιν (βιαει)
         window.openTermsModal = function() {
-          // Χ‘Χ“Χ™Χ§Χ” Χ©Χ™Χ© ΧªΧ•Χ›Χ ΧΧ¤Χ¨Χ΅Χ
+          // αγιχδ ωιω ϊελο μτψρν
           const App = window.NostrApp || {};
           if (typeof App.getComposePayload === 'function') {
             const payload = App.getComposePayload();
             if (!payload) {
-              // ΧΧ™Χ ΧªΧ•Χ›Χ - Χ”Χ¤Χ•Χ Χ§Χ¦Χ™Χ” Χ›Χ‘Χ¨ Χ”Χ¦Χ™Χ’Χ” Χ”Χ•Χ“ΧΆΧª Χ©Χ’Χ™ΧΧ”
+              // ΰιο ϊελο - δτεπχφιδ λαψ δφιβδ δεγςϊ ωβιΰδ
               return;
             }
           }
@@ -2625,7 +2625,7 @@
           }
         }
 
-        // ΧΧΧ–Χ™Χ Χ™Χ ΧΧ©Χ™Χ Χ•Χ™Χ™Χ Χ‘Χ¦'Χ§Χ‘Χ•Χ§Χ΅Χ™Χ
+        // ξΰζιπιν μωιπειιν αφ'χαεχριν
         document.addEventListener('DOMContentLoaded', function() {
           const policyCheckbox = document.getElementById('termsPolicyCheckbox');
           const rightsCheckbox = document.getElementById('termsRightsCheckbox');
@@ -2638,37 +2638,37 @@
           }
         });
 
-        // Χ¤Χ•Χ Χ§Χ¦Χ™Χ” ΧΧΧ™Χ©Χ•Χ¨ Χ•Χ¤Χ¨Χ΅Χ•Χ
+        // τεπχφιδ μΰιωεψ ετψρεν
         window.confirmAndPublish = async function() {
           const policyOk = document.getElementById('termsPolicyCheckbox')?.checked;
           const rightsOk = document.getElementById('termsRightsCheckbox')?.checked;
           
           if (!policyOk || !rightsOk) {
-            alert('Χ™Χ© ΧΧΧ©Χ¨ ΧΧª Χ›Χ Χ”ΧªΧ ΧΧ™Χ ΧΧ¤Χ Χ™ Χ”Χ¤Χ¨Χ΅Χ•Χ');
+            alert('ιω μΰωψ ΰϊ λμ δϊπΰιν μτπι δτψρεν');
             return;
           }
 
-          // Χ΅Χ’Χ™Χ¨Χª Χ—ΧΧ•Χ Χ”ΧªΧ ΧΧ™Χ
+          // ρβιψϊ ημεο δϊπΰιν
           closeTermsModal();
           
-          // Χ΅Χ’Χ™Χ¨Χª Χ—ΧΧ•Χ Χ”Χ©Χ™ΧªΧ•Χ£ β€” Χ©Χ•ΧΧ¨Χ™Χ ΧΧ™Χ•ΧΧ” ΧΆΧ“ Χ΅Χ™Χ•Χ Χ”ΧΆΧΧΧ”/Χ¤Χ¨Χ΅Χ•Χ | HYPER CORE TECH
+          // ρβιψϊ ημεο δωιϊεσ — ωεξψιν θιεθδ ςγ ριεν δςμΰδ/τψρεν | HYPER CORE TECH
           if (typeof closeCompose === 'function') {
             closeCompose({ preserveForPublish: true });
           }
 
-          // Χ”Χ¤ΧΆΧΧª ΧΧ Χ™ΧΧ¦Χ™Χ™Χª Χ”Χ‘Χ”Χ•Χ‘ Χ•Χ”Χ•Χ“ΧΆΧª ΧΆΧ™Χ‘Χ•Χ“
+          // δτςμϊ ΰπιξφιιϊ δαδεα εδεγςϊ ςιαεγ
           startProcessingAnimation();
 
-          // Χ¤Χ¨Χ΅Χ•Χ Χ”Χ¤Χ•Χ΅Χ ΧΆΧ ΧΆΧ™Χ‘Χ•Χ“ Χ•Χ™Χ“ΧΧ• ΧΧ Χ¦Χ¨Χ™Χ
+          // τψρεν δτερθ ςν ςιαεγ ειγΰε ΰν φψικ
           await publishPostWithAnimation();
         };
 
-        // Χ¤Χ•Χ Χ§Χ¦Χ™Χ” ΧΧ¤Χ¨Χ΅Χ•Χ ΧΆΧ ΧΧ Χ™ΧΧ¦Χ™Χ” Χ•ΧΆΧ™Χ‘Χ•Χ“ Χ•Χ™Χ“ΧΧ•
+        // τεπχφιδ μτψρεν ςν ΰπιξφιδ εςιαεγ ειγΰε
         async function publishPostWithAnimation() {
           try {
             const App = window.NostrApp || {};
 
-            // Χ“Χ—Χ™Χ΅Χ”+Χ”ΧΆΧΧΧ” Χ“Χ¨Χ compose (ΧΧ§Χ•Χ¨ ΧΧΧª ΧΧ—Χ“) β€” ΧΧ ΧΧ“ΧΧ’Χ™Χ ΧΆΧ Χ•Χ™Χ“ΧΧ• ΧΧΧªΧ™Χ | HYPER CORE TECH
+            // γηιρδ+δςμΰδ γψκ compose (ξχεψ ΰξϊ ΰηγ) — μΰ ξγμβιν ςμ ειγΰε ξξϊιο | HYPER CORE TECH
             if (typeof App.ensureVideoReadyForPublish === 'function') {
               try {
                 await App.ensureVideoReadyForPublish((progress) => {
@@ -2677,27 +2677,27 @@
               } catch (videoErr) {
                 console.error('Video processing failed:', videoErr);
                 stopProcessingAnimation();
-                alert('Χ©Χ’Χ™ΧΧ” Χ‘ΧΆΧ™Χ‘Χ•Χ“ Χ”Χ•Χ™Χ“ΧΧ•: ' + (videoErr?.message || videoErr));
+                alert('ωβιΰδ αςιαεγ δειγΰε: ' + (videoErr?.message || videoErr));
                 return;
               }
             } else {
-              // fallback Χ™Χ©Χ ΧΧ compose ΧΧ Χ ΧΧΆΧ
+              // fallback ιωο ΰν compose μΰ πθςο
               const composeState = App.composeState;
               if (composeState && composeState.media &&
                   composeState.media.type === 'video' &&
                   composeState.media.pendingProcessing &&
                   composeState.media.originalFile &&
                   typeof App.compressVideo === 'function') {
-                console.warn('[PUBLISH] ensureVideoReadyForPublish missing β€” using inline fallback');
+                console.warn('[PUBLISH] ensureVideoReadyForPublish missing — using inline fallback');
                 const file = composeState.media.originalFile;
                 const result = await App.compressVideo(file, (progress) => {
                   const noticeText = document.querySelector('#processingNotice .processing-notice__text');
                   if (noticeText && progress) {
                     const pct = typeof progress.percent === 'number' ? Math.round(progress.percent) : '';
                     if (progress.stage === 'compressing' || progress.stage === 'loading') {
-                      noticeText.textContent = `β³ Χ“Χ•Χ—Χ΅ Χ•Χ™Χ“ΧΧ•... ${pct}%`;
+                      noticeText.textContent = `? γεηρ ειγΰε... ${pct}%`;
                     } else if (progress.stage === 'finalizing') {
-                      noticeText.textContent = 'β³ ΧΧ΅Χ™Χ™Χ ΧΆΧ™Χ‘Χ•Χ“ Χ•Χ™Χ“ΧΧ•...';
+                      noticeText.textContent = '? ξριιν ςιαεγ ειγΰε...';
                     }
                   }
                 });
@@ -2723,7 +2723,7 @@
               }
             }
 
-            // Χ¤Χ¨Χ΅Χ•Χ Χ”Χ¤Χ•Χ΅Χ
+            // τψρεν δτερθ
             if (typeof App.publishPost === 'function') {
               await App.publishPost();
             } else if (typeof window.publishPost === 'function') {
@@ -2736,15 +2736,15 @@
           }
         }
 
-        // Χ¤Χ•Χ Χ§Χ¦Χ™Χ•Χª ΧΧΧ Χ™ΧΧ¦Χ™Χ™Χª ΧΆΧ™Χ‘Χ•Χ“
+        // τεπχφιεϊ μΰπιξφιιϊ ςιαεγ
         window.startProcessingAnimation = function() {
-          // Χ”Χ‘Χ”Χ•Χ‘ Χ›Χ¤ΧªΧ•Χ¨ Χ”Χ¤Χ¨Χ•Χ¤Χ™Χ
+          // δαδεα λτϊεψ δτψετιμ
           const profileBtn = document.getElementById('topBarProfileButton');
           if (profileBtn) {
             profileBtn.classList.add('processing');
           }
 
-          // Χ”Χ¦Χ’Χª Χ”Χ•Χ“ΧΆΧª ΧΆΧ™Χ‘Χ•Χ“ β€” Χ Χ©ΧΧ¨Χª ΧΆΧ“ Χ΅Χ™Χ•Χ Χ”Χ¤Χ¨Χ΅Χ•Χ (ΧΧ Χ ΧΆΧΧΧª ΧΧ—Χ¨Χ™ 10 Χ©Χ Χ™Χ•Χª)
+          // δφβϊ δεγςϊ ςιαεγ — πωΰψϊ ςγ ριεν δτψρεν (μΰ πςμξϊ ΰηψι 10 ωπιεϊ)
           const notice = document.getElementById('processingNotice');
           if (notice) {
             if (notice._hideTimer) {
@@ -2753,12 +2753,12 @@
             }
             const noticeText = notice.querySelector('.processing-notice__text');
             if (noticeText) {
-              noticeText.textContent = 'β³ Χ”Χ¤Χ•Χ΅Χ Χ©ΧΧ ΧΧΆΧ•Χ‘Χ“ Χ•ΧΧ•ΧΆΧΧ”...';
+              noticeText.textContent = '? δτερθ ωμκ ξςεαγ εξεςμδ...';
             }
             notice.classList.add('is-visible');
           }
 
-          // Χ”Χ©Χ”Χ™Χ™Χª Χ”Χ•Χ¨Χ“Χ•Χª Χ”Χ¤Χ™Χ“ Χ›Χ“Χ™ ΧΧ¤Χ Χ•Χª Χ¨Χ•Χ—Χ‘ Χ¤Χ΅ ΧΧ”ΧΆΧΧΧ” | HYPER CORE TECH
+          // δωδιιϊ δεψγεϊ δτιγ λγι μτπεϊ ψεηα τρ μδςμΰδ | HYPER CORE TECH
           const App = window.NostrApp || {};
           if (typeof App.setFeedDownloadsPaused === 'function') {
             App.setFeedDownloadsPaused(true);
@@ -2766,13 +2766,13 @@
         };
 
         window.stopProcessingAnimation = function() {
-          // ΧΆΧ¦Χ™Χ¨Χª Χ”Χ‘Χ”Χ•Χ‘
+          // ςφιψϊ δαδεα
           const profileBtn = document.getElementById('topBarProfileButton');
           if (profileBtn) {
             profileBtn.classList.remove('processing');
           }
 
-          // Χ”Χ΅ΧªΧ¨Χª Χ”Χ•Χ“ΧΆΧª ΧΆΧ™Χ‘Χ•Χ“
+          // δρϊψϊ δεγςϊ ςιαεγ
           const notice = document.getElementById('processingNotice');
           if (notice) {
             if (notice._hideTimer) {
@@ -2782,55 +2782,55 @@
             notice.classList.remove('is-visible');
           }
 
-          // Χ—Χ™Χ“Χ•Χ© Χ”Χ•Χ¨Χ“Χ•Χª Χ”Χ¤Χ™Χ“ ΧΧ—Χ¨Χ™ Χ΅Χ™Χ•Χ Χ”Χ”ΧΆΧΧΧ”
+          // ηιγεω δεψγεϊ δτιγ ΰηψι ριεν δδςμΰδ
           const App = window.NostrApp || {};
           if (typeof App.setFeedDownloadsPaused === 'function') {
             App.setFeedDownloadsPaused(false);
           }
         };
 
-        // Χ—Χ©Χ™Χ¤Χ” Χ’ΧΧ•Χ‘ΧΧ™Χª ΧΧ©Χ™ΧΧ•Χ© ΧΧ§Χ‘Χ¦Χ™Χ ΧΧ—Χ¨Χ™Χ
+        // ηωιτδ βμεαμιϊ μωιξεω ξχαφιν ΰηψιν
         window.NostrApp = window.NostrApp || {};
         window.NostrApp.startProcessingAnimation = window.startProcessingAnimation;
         window.NostrApp.stopProcessingAnimation = window.stopProcessingAnimation;
       })();
     </script>
 
-    <!-- ΧΧ Χ™ΧΧ¦Χ™Χ™Χª Slot Machine ΧΧΧ•Χ’Χ• (videos.html) β€“ ΧΧ—ΧΧ™Χ£ Χ‘Χ™Χ SOS β†’ 010 β†’ COM | HYPER CORE TECH -->
+    <!-- ΰπιξφιιϊ Slot Machine μμεβε (videos.html) – ξημισ αιο SOS ? 010 ? COM | HYPER CORE TECH -->
     <script>
       (function() {
         'use strict';
         
-        // Χ”Χ’Χ“Χ¨Χ•Χª Χ”Χ΅Χ™Χ‘Χ•Χ‘Χ™Χ: SOS010.COM
+        // δβγψεϊ δριαεαιν: SOS010.COM
         const baseStates = [
           { key: 'SOS', chars: ['S', 'O', 'S'] },
           { key: '010', chars: ['0', '1', '0'] },
           { key: 'COM', chars: ['C', 'O', 'M'] }
         ];
         
-        // ΧΧ¦Χ‘ Χ¦Χ‘ΧΆΧ™Χ ΧΧªΧ—ΧΧ£ ΧΆΧ‘Χ•Χ¨ SOS: Χ¤ΧΆΧ ΧΧ¨Χ›Χ– Χ›Χ—Χ•Χ, Χ¤ΧΆΧ ΧΧ¨Χ›Χ– Χ›ΧªΧ•Χ
+        // ξφα φαςιν ξϊημσ ςαεψ SOS: τςν ξψλζ ληεμ, τςν ξψλζ λϊεν
         let sosColorFlip = false;
         let currentStateIndex = 0;
-        const DISPLAY_TIME = 5000; // Χ–ΧΧ Χ”Χ¦Χ’Χ” Χ‘Χ™Χ Χ”Χ—ΧΧ¤Χ•Χª (5 Χ©Χ Χ™Χ•Χª Χ›Χ“Χ™ Χ©ΧΧ Χ™Χ¦Χ™Χ§ Χ‘ΧΆΧ™Χ)
-        const SPIN_DELAY = 120; // ΧΆΧ™Χ›Χ•Χ‘ Χ‘Χ™Χ Χ΅Χ™Χ‘Χ•Χ‘Χ™ ΧªΧ•Χ•Χ™Χ (ΧΧ¤Χ§Χ Χ§Χ–Χ™Χ Χ•)
+        const DISPLAY_TIME = 5000; // ζξο δφβδ αιο δημτεϊ (5 ωπιεϊ λγι ωμΰ ιφιχ αςιο)
+        const SPIN_DELAY = 120; // ςιλεα αιο ριαεαι ϊεειν (ΰτχθ χζιπε)
         
-        // Χ¤Χ•Χ Χ§Χ¦Χ™Χ” ΧΧ”Χ—ΧΧ¤Χª ΧªΧ• Χ‘Χ•Χ“Χ“ ΧΆΧ ΧΧ Χ™ΧΧ¦Χ™Χ”
+        // τεπχφιδ μδημτϊ ϊε αεγγ ςν ΰπιξφιδ
         function spinChar(charEl, newChar, newClass, oldClasses) {
           return new Promise((resolve) => {
-            // Χ”Χ•Χ΅Χ¤Χª ΧΧ—ΧΧ§Χª ΧΧ Χ™ΧΧ¦Χ™Χ”
+            // δερτϊ ξημχϊ ΰπιξφιδ
             charEl.classList.add('slot-spinning');
             
-            // Χ‘ΧΧΧ¦ΧΆ Χ”ΧΧ Χ™ΧΧ¦Χ™Χ” - Χ”Χ—ΧΧ¤Χª Χ”ΧªΧ•Χ›Χ Χ•Χ”ΧΧ—ΧΧ§Χ•Χª
+            // αΰξφς δΰπιξφιδ - δημτϊ δϊελο εδξημχεϊ
             setTimeout(() => {
-              // Χ”Χ΅Χ¨Χª ΧΧ—ΧΧ§Χ•Χª Χ™Χ©Χ Χ•Χª
+              // δρψϊ ξημχεϊ ιωπεϊ
               oldClasses.forEach(cls => charEl.classList.remove(cls));
-              // Χ”Χ•Χ΅Χ¤Χª ΧΧ—ΧΧ§Χ” Χ—Χ“Χ©Χ”
+              // δερτϊ ξημχδ ηγωδ
               charEl.classList.add(newClass);
-              // Χ”Χ—ΧΧ¤Χª Χ”ΧΧ§Χ΅Χ
+              // δημτϊ δθχρθ
               charEl.textContent = newChar;
-            }, 200); // Χ‘ΧΧΧ¦ΧΆ Χ”ΧΧ Χ™ΧΧ¦Χ™Χ” (400ms / 2)
+            }, 200); // αΰξφς δΰπιξφιδ (400ms / 2)
             
-            // Χ΅Χ™Χ•Χ Χ”ΧΧ Χ™ΧΧ¦Χ™Χ”
+            // ριεν δΰπιξφιδ
             setTimeout(() => {
               charEl.classList.remove('slot-spinning');
               resolve();
@@ -2838,22 +2838,22 @@
           });
         }
         
-        // Χ¤Χ•Χ Χ§Χ¦Χ™Χ” ΧΧ”Χ—ΧΧ¤Χª Χ›Χ Χ”ΧΧ•Χ’Χ•
+        // τεπχφιδ μδημτϊ λμ δμεβε
         async function spinLogo() {
           const charElements = document.querySelectorAll('.sos-logo .sos-char');
           if (charElements.length !== 3) return;
           
-          // ΧΧΆΧ‘Χ¨ ΧΧΧ¦Χ‘ Χ”Χ‘Χ
+          // ξςαψ μξφα δαΰ
           currentStateIndex = (currentStateIndex + 1) % baseStates.length;
           const baseState = baseStates[currentStateIndex];
           
-          // Χ§Χ‘Χ™ΧΆΧª ΧΧ—ΧΧ§Χ•Χª Χ‘Χ”ΧªΧΧ ΧΧΧ¦Χ‘ Χ•ΧΧ¤ΧΧ™Χ¤ Χ”Χ¦Χ‘ΧΆΧ™Χ
+          // χαιςϊ ξημχεϊ αδϊΰν μξφα εμτμιτ δφαςιν
           let classes;
           if (baseState.key === 'SOS') {
             if (sosColorFlip) {
-              classes = ['sos-s', 'sos-o-alt', 'sos-s']; // ΧΧΧ¦ΧΆΧ™ Χ›Χ—Χ•Χ, Χ”Χ¦Χ“Χ“Χ™Χ Χ›ΧªΧ•ΧΧ™Χ
+              classes = ['sos-s', 'sos-o-alt', 'sos-s']; // ΰξφςι ληεμ, δφγγιν λϊεξιν
             } else {
-              classes = ['sos-s-alt', 'sos-o', 'sos-s-alt']; // ΧΧΧ¦ΧΆΧ™ Χ›ΧªΧ•Χ, Χ”Χ¦Χ“Χ“Χ™Χ Χ›Χ—Χ•ΧΧ™Χ
+              classes = ['sos-s-alt', 'sos-o', 'sos-s-alt']; // ΰξφςι λϊεν, δφγγιν ληεμιν
             }
             sosColorFlip = !sosColorFlip;
           } else if (baseState.key === '010') {
@@ -2864,26 +2864,26 @@
           
           const nextState = { chars: baseState.chars, classes };
           
-          // Χ΅Χ™Χ‘Χ•Χ‘ Χ›Χ ΧªΧ• Χ‘Χ Χ¤Χ¨Χ“ ΧΆΧ ΧΆΧ™Χ›Χ•Χ‘ (ΧΧ¤Χ§Χ Χ§Χ–Χ™Χ Χ•)
+          // ριαεα λμ ϊε απτψγ ςν ςιλεα (ΰτχθ χζιπε)
           for (let i = 0; i < 3; i++) {
             const charEl = charElements[i];
             const oldClasses = ['sos-s', 'sos-o', 'sos-num', 'sos-c', 'sos-m'];
             
             await spinChar(charEl, nextState.chars[i], nextState.classes[i], oldClasses);
             
-            // ΧΆΧ™Χ›Χ•Χ‘ Χ§Χ¦Χ¨ ΧΧ¤Χ Χ™ Χ”ΧªΧ• Χ”Χ‘Χ (ΧΧ¤Χ§Χ Χ§Χ–Χ™Χ Χ•)
+            // ςιλεα χφψ μτπι δϊε δαΰ (ΰτχθ χζιπε)
             if (i < 2) {
               await new Promise(r => setTimeout(r, SPIN_DELAY));
             }
           }
         }
         
-        // Χ”Χ¤ΧΆΧΧª Χ”ΧΧ•ΧΧΧ” Χ”ΧΧ™Χ Χ΅Χ•Χ¤Χ™Χª
+        // δτςμϊ δμεμΰδ δΰιπρετιϊ
         function startLogoAnimation() {
           setInterval(spinLogo, DISPLAY_TIME);
         }
         
-        // Χ”ΧªΧ—ΧΧ” ΧΧΧ—Χ¨ ΧΧΆΧ™Χ Χª Χ”Χ“Χ£
+        // δϊημδ μΰηψ θςιπϊ δγσ
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', startLogoAnimation);
         } else {
@@ -2894,13 +2894,13 @@
       })();
     </script>
 
-    <!-- Χ—Χ™Χ‘Χ•Χ¨ Χ”Χ•Χ“ΧΆΧ•Χª Χ•Χ©Χ™Χ—Χ•Χª (videos.html) β€“ ΧΧ‘ΧΧ™Χ— Χ©Χ”Χ¦'ΧΧ Χ™ΧΧªΧ—Χ Χ©Χ™Χ—Χ•Χª Χ Χ›Χ Χ΅Χ•Χª Χ›ΧΧ• Χ‘Χ¤Χ™Χ“ Χ”Χ¨ΧΧ©Χ™ | HYPER CORE TECH -->
-    <!-- ΧΧΆΧ™Χ Χª Χ΅Χ§Χ¨Χ™Χ¤Χ ΧΧ©Χ—Χ§ Χ”ΧΧ¨Χ™Χ•Χ•Χ™Χ” -->
+    <!-- ηιαεψ δεγςεϊ εωιηεϊ (videos.html) – ξαθιη ωδφ'ΰθ ιΰϊημ ωιηεϊ πλπρεϊ λξε ατιγ δψΰωι | HYPER CORE TECH -->
+    <!-- θςιπϊ ρχψιτθ ξωηχ δθψιεειδ -->
     <script src="./game-trivia.js" defer></script>
-    <!-- ΧΧΆΧ™Χ Χª Χ΅Χ§Χ¨Χ™Χ¤Χ ΧΧ©Χ—Χ§ Doom Arena -->
+    <!-- θςιπϊ ρχψιτθ ξωηχ Doom Arena -->
     <script src="./game-doom-arena.js" defer></script>
 
-    <!-- Χ—ΧΧ§ ΧΧ™Χ¤Χ•Χ Χ‘Χ›Χ¤ΧªΧ•Χ¨ Χ”ΧªΧ§Χ Χ” Χ‘Χ“Χ΅Χ§ΧΧ•Χ¤ (videos.html) β€“ Χ‘Χ“Χ™Χ§Χ” ΧΧ Χ”ΧΧ¤ΧΧ™Χ§Χ¦Χ™Χ” ΧΧ•ΧªΧ§Χ Χª Χ•Χ”ΧªΧΧΧª Χ”Χ›Χ¤ΧªΧ•Χ¨ | HYPER CORE TECH -->
+    <!-- ημχ θιτεμ αλτϊεψ δϊχπδ αγρχθετ (videos.html) – αγιχδ ΰν δΰτμιχφιδ ξεϊχπϊ εδϊΰξϊ δλτϊεψ | HYPER CORE TECH -->
     <script>
       (function() {
         function setupChatWelcomeInstall() {
@@ -2909,45 +2909,45 @@
           var welcomeCard = document.querySelector('.chat-welcome-desktop__card');
           if (!installBtn) return;
           
-          // Χ‘Χ“Χ™Χ§Χ” ΧΧ Χ›Χ‘Χ¨ ΧΧ•ΧªΧ§Χ
+          // αγιχδ ΰν λαψ ξεϊχο
           var isInstalled = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || 
                            (navigator.standalone === true);
           
           if (isInstalled) {
-            // ΧΧ ΧΧ•ΧªΧ§Χ - ΧΧ©Χ Χ” ΧΧª Χ”Χ›Χ¤ΧªΧ•Χ¨ ΧΧ›Χ¤ΧªΧ•Χ¨ Χ”Χ΅Χ¨Χ”
-            installBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Χ”Χ΅Χ¨ SOS Call 010';
+            // ΰν ξεϊχο - ξωπδ ΰϊ δλτϊεψ μλτϊεψ δρψδ
+            installBtn.innerHTML = '<i class="fa-solid fa-trash"></i> δρψ SOS Call 010';
             installBtn.classList.add('chat-welcome-desktop__uninstall');
             installBtn.onclick = function() {
-              // Χ™Χ¦Χ™Χ¨Χª ΧΧ•Χ“Χ Χ”Χ΅Χ‘Χ¨ ΧΧ”Χ΅Χ¨Χ”
+              // ιφιψϊ ξεγμ δραψ μδρψδ
               var overlay = document.createElement('div');
               overlay.className = 'pwa-uninstall-overlay';
               overlay.innerHTML = '<div class="pwa-uninstall-modal">' +
                 '<div class="pwa-uninstall-header">' +
                   '<i class="fa-solid fa-trash-can"></i>' +
-                  '<h3>Χ”Χ΅Χ¨Χª SOS Call 010</h3>' +
+                  '<h3>δρψϊ SOS Call 010</h3>' +
                 '</div>' +
                 '<div class="pwa-uninstall-steps">' +
                   '<div class="pwa-uninstall-step">' +
                     '<span class="step-number">1</span>' +
                     '<i class="fa-solid fa-ellipsis-vertical"></i>' +
-                    '<span>ΧΧ—Χ¥ ΧΆΧ <strong>β‹®</strong> (Χ©ΧΧ•Χ© Χ Χ§Χ•Χ“Χ•Χª) Χ‘Χ¤Χ™Χ Χ” Χ”ΧΆΧΧ™Χ•Χ Χ” <strong>Χ”Χ©ΧΧΧΧ™Χª</strong></span>' +
+                    '<span>μηυ ςμ <strong>?</strong> (ωμεω πχεγεϊ) ατιπδ δςμιεπδ <strong>δωξΰμιϊ</strong></span>' +
                   '</div>' +
                   '<div class="pwa-uninstall-step">' +
                     '<span class="step-number">2</span>' +
                     '<i class="fa-solid fa-trash"></i>' +
-                    '<span>Χ‘Χ—Χ¨ <strong>"Χ”Χ΅Χ¨Χª SOS Call 010..."</strong></span>' +
+                    '<span>αηψ <strong>"δρψϊ SOS Call 010..."</strong></span>' +
                   '</div>' +
                 '</div>' +
-                '<button class="pwa-uninstall-close" id="pwaUninstallCloseBtn">Χ”Χ‘Χ ΧªΧ™</button>' +
+                '<button class="pwa-uninstall-close" id="pwaUninstallCloseBtn">δαπϊι</button>' +
               '</div>';
               document.body.appendChild(overlay);
-              // Χ΅Χ’Χ™Χ¨Χª Χ”ΧΧ•Χ“Χ Χ‘ΧΧ™ ΧΧΆΧ–Χ•Χ‘ ΧΧª Χ”Χ“Χ£
+              // ρβιψϊ δξεγμ αμι μςζεα ΰϊ δγσ
               document.getElementById('pwaUninstallCloseBtn').addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 overlay.remove();
               });
-              // Χ΅Χ’Χ™Χ¨Χ” Χ’Χ Χ‘ΧΧ—Χ™Χ¦Χ” ΧΆΧ Χ”Χ¨Χ§ΧΆ
+              // ρβιψδ βν αμηιφδ ςμ δψχς
               overlay.addEventListener('click', function(e) {
                 if (e.target === overlay) {
                   overlay.remove();
@@ -2957,12 +2957,12 @@
             
             var title = document.querySelector('.chat-welcome-desktop__title');
             var desc = document.querySelector('.chat-welcome-desktop__desc');
-            if (title) title.textContent = 'SOS Call 010 ΧΧ•ΧªΧ§Χ Χª!';
-            if (desc) desc.textContent = 'Χ”ΧΧ¤ΧΧ™Χ§Χ¦Χ™Χ” ΧΧ•ΧªΧ§Χ Χª ΧΆΧ Χ”ΧΧ—Χ©Χ‘ Χ©ΧΧ. Χ‘Χ—Χ¨Χ• ΧΧ™Χ© Χ§Χ©Χ¨ ΧΧ”Χ¨Χ©Χ™ΧΧ” Χ›Χ“Χ™ ΧΧ”ΧªΧ—Χ™Χ ΧΧ©Χ•Χ—Χ—.';
+            if (title) title.textContent = 'SOS Call 010 ξεϊχπϊ!';
+            if (desc) desc.textContent = 'δΰτμιχφιδ ξεϊχπϊ ςμ δξηωα ωμκ. αηψε ΰιω χωψ ξδψωιξδ λγι μδϊηιμ μωεηη.';
             
-            // ΧΧ©Χ Χ” ΧΧª Χ”ΧΧ§Χ΅Χ Χ‘ΧªΧ—ΧªΧ™Χª
+            // ξωπδ ΰϊ δθχρθ αϊηϊιϊ
             var footer = document.querySelector('.chat-welcome-desktop__footer');
-            if (footer) footer.innerHTML = '<i class="fa-solid fa-check-circle"></i> SOS Call 010 ΧΧ•ΧªΧ§Χ Χª ΧΆΧ Windows';
+            if (footer) footer.innerHTML = '<i class="fa-solid fa-check-circle"></i> SOS Call 010 ξεϊχπϊ ςμ Windows';
           }
         }
         
@@ -2974,13 +2974,13 @@
       })();
     </script>
 
-    <!-- Χ—ΧΧ§ PDF.js (videos.html) β€“ Χ΅Χ¤Χ¨Χ™Χ™Χª Mozilla PDF.js ΧΧªΧ¦Χ•Χ’Χ” ΧΧ§Χ“Χ™ΧΧ” Χ©Χ PDF Χ‘Χ¦'ΧΧ | HYPER CORE TECH -->
+    <!-- ημχ PDF.js (videos.html) – ρτψιιϊ Mozilla PDF.js μϊφεβδ ξχγιξδ ωμ PDF αφ'ΰθ | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';}</script>
 
-    <!-- Χ—ΧΧ§ WebTorrent (videos.html) β€“ Χ΅Χ¤Χ¨Χ™Χ™Χª WebTorrent Χ•Χ”ΧΆΧ‘Χ¨Χª Χ§Χ‘Χ¦Χ™Χ Χ’Χ“Χ•ΧΧ™Χ P2P | HYPER CORE TECH -->
+    <!-- ημχ WebTorrent (videos.html) – ρτψιιϊ WebTorrent εδςαψϊ χαφιν βγεμιν P2P | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-    <script src="./webtorrent-transfer.js?v=4"></script>
+    <script src="./webtorrent-transfer.js?v=5"></script>
 
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
       <script type="module" src="./loadnug/loadnug-controller.js?v=20260802z"></script>

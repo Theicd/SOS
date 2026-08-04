@@ -106,6 +106,183 @@
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  // חלק תצוגת העלאת מדיה (chat-ui.js) – מפת blob/URL מקומי לפי fileId לתצוגה כמו וואטסאפ | HYPER CORE TECH
+  const transferMediaPreviews = new Map();
+
+  function registerChatTransferPreview(fileId, info) {
+    if (!fileId || !info) return;
+    const prev = transferMediaPreviews.get(fileId);
+    transferMediaPreviews.set(fileId, {
+      url: info.url || prev?.url || '',
+      mime: info.mime || prev?.mime || '',
+      name: info.name || prev?.name || '',
+      size: info.size || prev?.size || 0,
+    });
+  }
+  App.registerChatTransferPreview = registerChatTransferPreview;
+
+  function resolveTransferPreview(progress) {
+    if (!progress) return { url: '', mime: '', name: '', isVideo: false, isImage: false };
+    const cached = transferMediaPreviews.get(progress.fileId) || {};
+    const att = state.activeContact ? App.getChatFileAttachment?.(state.activeContact) : null;
+    const attMatch = att && (!att.fileId || att.fileId === progress.fileId);
+    const url =
+      progress.previewUrl ||
+      cached.url ||
+      (attMatch && (att.previewUrl || att.dataUrl || att.url)) ||
+      '';
+    const mime = progress.mimeType || progress.type || cached.mime || (attMatch && att.type) || '';
+    const name = progress.name || cached.name || (attMatch && att.name) || '';
+    const isVideo =
+      /^video\//i.test(mime) ||
+      /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name);
+    const isImage =
+      !isVideo &&
+      (/^image\//i.test(mime) ||
+        /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(name));
+    return { url, mime, name, isVideo, isImage };
+  }
+
+  function isOutgoingMediaTransfer(progress) {
+    if (!progress || progress.direction === 'receive') return false;
+    const preview = resolveTransferPreview(progress);
+    return preview.isVideo || preview.isImage;
+  }
+
+  function buildMediaUploadRingHtml(pct) {
+    const r = 7;
+    const c = 2 * Math.PI * r;
+    const offset = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+    return `
+      <svg class="chat-media-upload__ring" viewBox="0 0 18 18" aria-hidden="true">
+        <circle class="chat-media-upload__ring-bg" cx="9" cy="9" r="${r}"></circle>
+        <circle class="chat-media-upload__ring-fg" cx="9" cy="9" r="${r}"
+          stroke-dasharray="${c.toFixed(2)}"
+          stroke-dashoffset="${offset.toFixed(2)}"></circle>
+      </svg>
+    `;
+  }
+
+  function scheduleTransferBubbleCleanup(bubble, progress, ui) {
+    if (ui.isTerminalOk) {
+      setTimeout(() => {
+        if (bubble.isConnected) bubble.remove();
+        state.transferProgress.delete(progress.fileId);
+        transferMediaPreviews.delete(progress.fileId);
+      }, 900);
+    } else if (ui.st === 'cancelled') {
+      setTimeout(() => {
+        if (bubble.isConnected) bubble.remove();
+        state.transferProgress.delete(progress.fileId);
+        transferMediaPreviews.delete(progress.fileId);
+      }, 700);
+    } else if (ui.st === 'failed') {
+      setTimeout(() => {
+        state.transferProgress.delete(progress.fileId);
+      }, 8000);
+    }
+  }
+
+  function renderMediaTransferProgress(progress, existing) {
+    const ui = resolveTransferAction(progress);
+    const preview = resolveTransferPreview(progress);
+    if (progress.previewUrl || preview.url) {
+      registerChatTransferPreview(progress.fileId, {
+        url: progress.previewUrl || preview.url,
+        mime: progress.mimeType || preview.mime,
+        name: progress.name || preview.name,
+        size: progress.size || 0,
+      });
+    }
+    const mediaSrc = (transferMediaPreviews.get(progress.fileId)?.url) || preview.url;
+    const isVideo = preview.isVideo;
+    const directionClass = 'chat-message--outgoing';
+    const bubble = existing || doc.createElement('div');
+    const nowLabel = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    const done = ui.isTerminalOk;
+    const failed = ui.st === 'failed' || ui.st === 'cancelled';
+    const safeSrc = App.escapeHtml ? App.escapeHtml(mediaSrc) : String(mediaSrc || '');
+
+    // עדכון במקום אם כבר יש בועת מדיה | HYPER CORE TECH
+    if (existing && existing.querySelector('.chat-media-upload')) {
+      bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--media-transfer${done ? ' chat-message--media-transfer-done' : ''}${failed ? ' chat-message--media-transfer-failed' : ''}`;
+      const overlay = bubble.querySelector('.chat-media-upload__overlay');
+      const ringHost = bubble.querySelector('.chat-media-upload__ring-slot');
+      const statusEl = bubble.querySelector('.chat-media-upload__status');
+      const mediaEl = bubble.querySelector('.chat-media-upload__media');
+      if (mediaEl && mediaSrc && !mediaEl.getAttribute('src') && !mediaEl.querySelector('source')) {
+        if (isVideo) {
+          mediaEl.innerHTML = `<source src="${safeSrc}">`;
+          try { mediaEl.load(); } catch (_) {}
+        } else {
+          mediaEl.setAttribute('src', mediaSrc);
+        }
+      }
+      if (overlay) {
+        overlay.hidden = done || failed;
+        overlay.setAttribute('aria-hidden', done || failed ? 'true' : 'false');
+      }
+      if (ringHost) {
+        ringHost.innerHTML = done
+          ? '<i class="fa-solid fa-check-double chat-media-upload__checks"></i>'
+          : (failed ? '<i class="fa-solid fa-exclamation-circle chat-media-upload__fail"></i>' : buildMediaUploadRingHtml(ui.pct));
+      }
+      if (statusEl) {
+        statusEl.textContent = done ? '' : (failed ? (ui.actionText || '') : '');
+        statusEl.hidden = !failed;
+      }
+      let cancelBtn = bubble.querySelector('[data-cancel-transfer]');
+      if (!ui.showCancel && cancelBtn) cancelBtn.remove();
+      else if (ui.showCancel && !cancelBtn) {
+        cancelBtn = doc.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'chat-media-upload__cancel';
+        cancelBtn.setAttribute('data-cancel-transfer', progress.fileId);
+        cancelBtn.title = 'בטל';
+        cancelBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        bubble.querySelector('.chat-media-upload')?.appendChild(cancelBtn);
+      }
+      scheduleTransferBubbleCleanup(bubble, progress, ui);
+      return;
+    }
+
+    const mediaHtml = isVideo
+      ? `<video class="chat-media-upload__media" preload="metadata" muted playsinline webkit-playsinline${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`
+      : `<img class="chat-media-upload__media" alt=""${mediaSrc ? ` src="${safeSrc}"` : ''} decoding="async">`;
+
+    bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--media-transfer`;
+    bubble.setAttribute('data-transfer-id', progress.fileId);
+    if (progress.torrentTransferId) {
+      bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
+    }
+    bubble.innerHTML = `
+      <div class="chat-message__content chat-message__content--media-upload">
+        <div class="chat-media-upload" data-chat-media-upload="1">
+          ${mediaHtml}
+          <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
+            <div class="chat-media-upload__spinner" aria-hidden="true"></div>
+          </div>
+          ${ui.showCancel ? `<button type="button" class="chat-media-upload__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
+          <div class="chat-media-upload__footer">
+            <span class="chat-media-upload__time">${nowLabel}</span>
+            <span class="chat-media-upload__ring-slot">
+              ${done
+                ? '<i class="fa-solid fa-check-double chat-media-upload__checks"></i>'
+                : (failed ? '<i class="fa-solid fa-exclamation-circle chat-media-upload__fail"></i>' : buildMediaUploadRingHtml(ui.pct))}
+            </span>
+          </div>
+          <span class="chat-media-upload__status" ${failed ? '' : 'hidden'}>${failed ? (ui.actionText || '') : ''}</span>
+        </div>
+      </div>
+    `;
+
+    if (!existing) {
+      elements.messagesContainer.appendChild(bubble);
+      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+    }
+    scheduleTransferBubbleCleanup(bubble, progress, ui);
+  }
+
   // חלק בועת התקדמות העברה (chat-ui.js) – בועת הודעה בסגנון וואטסאפ עם פס התקדמות + ביטול | HYPER CORE TECH
   function resolveTransferAction(progress) {
     const isReceive = progress.direction === 'receive';
@@ -202,10 +379,21 @@
   function renderTransferProgress(progress) {
     if (!elements.messagesContainer || !progress?.fileId) return;
 
+    // תמונה/וידאו יוצאים – בועת מדיה כמו וואטסאפ (בלי שם קובץ ופס אחוזים) | HYPER CORE TECH
+    if (isOutgoingMediaTransfer(progress)) {
+      const existingMedia = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
+      renderMediaTransferProgress(progress, existingMedia);
+      return;
+    }
+
     const isReceive = progress.direction === 'receive';
     const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
     const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
-    const bubble = existing || doc.createElement('div');
+    // אם הייתה בועת מדיה והקובץ לא מזוהה יותר כמדיה – ממשיכים להחליף לבועת קובץ
+    if (existing?.querySelector('.chat-media-upload') && !isOutgoingMediaTransfer(progress)) {
+      existing.remove();
+    }
+    const bubble = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`) || doc.createElement('div');
     const label = progress.name || 'קובץ מצורף';
     const safeLabel = App.escapeHtml ? App.escapeHtml(label) : label;
     const sizeLabel = formatTransferSize(progress.size);
@@ -223,7 +411,7 @@
       progress.status === 'stalled-requesting-resend';
 
     // חלק עדכון במקום (chat-ui.js) – מונע קפיצות DOM ע״י עדכון שדות קיימים במקום innerHTML מלא | HYPER CORE TECH
-    if (existing && existing.querySelector('.torrent-bubble')) {
+    if (bubble.isConnected && bubble.querySelector('.torrent-bubble')) {
       bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--torrent-transfer${isWaiting ? ' chat-message--torrent-active' : ''}${ui.isTerminalOk ? ' chat-message--torrent-completed' : ''}${ui.st === 'failed' ? ' chat-message--torrent-error' : ''}${ui.st === 'cancelled' ? ' chat-message--torrent-cancelled' : ''}`;
       if (progress.torrentTransferId) bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
 
@@ -256,21 +444,7 @@
         bubble.querySelector('.torrent-bubble')?.appendChild(cancelBtn);
       }
 
-      if (ui.isTerminalOk) {
-        setTimeout(() => {
-          if (bubble.isConnected) bubble.remove();
-          state.transferProgress.delete(progress.fileId);
-        }, 1200);
-      } else if (ui.st === 'cancelled') {
-        setTimeout(() => {
-          if (bubble.isConnected) bubble.remove();
-          state.transferProgress.delete(progress.fileId);
-        }, 900);
-      } else if (ui.st === 'failed') {
-        setTimeout(() => {
-          state.transferProgress.delete(progress.fileId);
-        }, 8000);
-      }
+      scheduleTransferBubbleCleanup(bubble, progress, ui);
       return;
     }
 
@@ -312,24 +486,12 @@
       </div>
     `;
 
-    elements.messagesContainer.appendChild(bubble);
-    elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
-
-    if (ui.isTerminalOk) {
-      setTimeout(() => {
-        if (bubble.isConnected) bubble.remove();
-        state.transferProgress.delete(progress.fileId);
-      }, 1200);
-    } else if (ui.st === 'cancelled') {
-      setTimeout(() => {
-        if (bubble.isConnected) bubble.remove();
-        state.transferProgress.delete(progress.fileId);
-      }, 900);
-    } else if (ui.st === 'failed') {
-      setTimeout(() => {
-        state.transferProgress.delete(progress.fileId);
-      }, 8000);
+    if (!bubble.isConnected) {
+      elements.messagesContainer.appendChild(bubble);
+      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
     }
+
+    scheduleTransferBubbleCleanup(bubble, progress, ui);
   }
 
   function subscribeTransferProgress() {
@@ -337,6 +499,14 @@
       App.subscribeP2PFileProgress((evt) => {
         const activePeer = (state.activeContact || '').toLowerCase();
         if (evt?.peerPubkey && activePeer && evt.peerPubkey.toLowerCase() !== activePeer) return;
+        if (evt?.previewUrl || evt?.mimeType) {
+          registerChatTransferPreview(evt.fileId, {
+            url: evt.previewUrl || '',
+            mime: evt.mimeType || '',
+            name: evt.name || '',
+            size: evt.size || 0,
+          });
+        }
         state.transferProgress.set(evt.fileId, evt);
         renderTransferProgress(evt);
       });
@@ -345,9 +515,18 @@
     App.handleP2PProgressUpdate = (evt) => {
       const activePeer = (state.activeContact || '').toLowerCase();
       if (evt?.peerPubkey && activePeer && evt.peerPubkey.toLowerCase() !== activePeer) return;
+      if (evt?.previewUrl || evt?.mimeType) {
+        registerChatTransferPreview(evt.fileId, {
+          url: evt.previewUrl || '',
+          mime: evt.mimeType || '',
+          name: evt.name || '',
+          size: evt.size || 0,
+        });
+      }
       state.transferProgress.set(evt.fileId, evt);
       renderTransferProgress(evt);
     };
+    App.registerChatTransferPreview = registerChatTransferPreview;
   }
 
   function handleMessageActions(event) {
