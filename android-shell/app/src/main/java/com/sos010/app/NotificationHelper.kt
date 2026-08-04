@@ -299,7 +299,7 @@ object NotificationHelper {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                 Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
+            putExtra(MainActivity.EXTRA_OPEN_URL, SosCallUrls.acceptPage(type))
             putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
             putExtra(MainActivity.EXTRA_CALL_PEER, peer)
             putExtra(MainActivity.EXTRA_CALL_TYPE, type)
@@ -381,6 +381,8 @@ object NotificationHelper {
         if (pictureUrl.isNotBlank() && SosContactCache.getCachedBitmap(pictureUrl) == null) {
             refreshCallAvatarAsync(app, peer, type, displayName, openUrl, pictureUrl)
         }
+        // חימום נוסף אם עדיין לא הורם (למשל FSI בלי RelayWatcher) | HYPER CORE TECH
+        MainActivity.warmHostForIncomingCall(app, peer, type)
         CallSoundHelper.startRingtone(app)
     }
 

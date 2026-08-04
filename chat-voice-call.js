@@ -220,9 +220,6 @@
       };
 
       const signedEvent = App.finalizeEvent(event, App.privateKey);
-      
-      // שליחה עם delay קטן כדי למנוע rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
       await App.pool.publish(App.relayUrls, signedEvent);
 
       console.log(`Sent ${type} signal to ${peerPubkey.slice(0, 8)}`);
@@ -231,13 +228,8 @@
     }
   }
 
-  // חלק שיחות קול (chat-voice-call.js) – שליחת ICE candidates בצבירה
+  // חלק שיחות קול (chat-voice-call.js) – שליחת ICE candidates מיידית (trickle) לחיבור מהיר | HYPER CORE TECH
   function queueCandidate(peerPubkey, candidate) {
-    if (candidate) {
-      state.candidateQueue.push(candidate);
-    }
-
-    // אם זה ה-null candidate – זה אות שהאיסוף הסתיים; שלח את כל מה שנצבר
     if (!candidate) {
       const batch = state.candidateQueue.splice(0);
       if (batch.length) {
@@ -250,17 +242,8 @@
       return;
     }
 
-    // fallback: אם משום מה לא הגיע null – שלח אחרי 1200ms
-    if (state.candidateTimer) {
-      clearTimeout(state.candidateTimer);
-    }
-    state.candidateTimer = setTimeout(() => {
-      const batch = state.candidateQueue.splice(0);
-      if (batch.length) {
-        sendSignal(peerPubkey, 'candidates', batch);
-      }
-      state.candidateTimer = null;
-    }, 1200);
+    // trickle מיידי – לא מחכים ל-batch של שנייה+ | HYPER CORE TECH
+    sendSignal(peerPubkey, 'candidate', candidate);
   }
 
   // חלק שיחות קול (chat-voice-call.js) – יצירת חיבור WebRTC חדש
@@ -656,6 +639,10 @@
             }
             console.log('Applying remote answer', { type: data.type, sdpLen: data.sdp?.length });
             await state.peerConnection.setRemoteDescription(data);
+            // עוצרים חיוג מיד כשמגיע answer – לא מחכים ל-ICE | HYPER CORE TECH
+            if (typeof App.onVoiceCallAnswerReceived === 'function') {
+              App.onVoiceCallAnswerReceived(peerPubkey);
+            }
           }
           break;
 

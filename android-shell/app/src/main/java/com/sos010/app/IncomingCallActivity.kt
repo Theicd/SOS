@@ -100,7 +100,7 @@ class IncomingCallActivity : AppCompatActivity() {
             else -> "voice"
         }
         openUrl = intent?.getStringExtra(EXTRA_OPEN_URL).orEmpty().ifBlank {
-            "https://sos010.com/videos.html?chat=$peer&incomingCall=$callType"
+            SosCallUrls.acceptPage(callType)
         }
         val name = intent?.getStringExtra(EXTRA_CALLER_NAME)?.trim().orEmpty().ifBlank {
             SosContactCache.displayName(this, peer, getString(R.string.call_someone))

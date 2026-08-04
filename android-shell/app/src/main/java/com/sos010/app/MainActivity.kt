@@ -3,6 +3,7 @@ package com.sos010.app
 import android.app.NotificationManager
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
@@ -56,6 +57,8 @@ class MainActivity : AppCompatActivity() {
     private var pendingIncomingCall: String? = null
     private var pendingCallAction: String? = null
     private var pendingAutoAccept: Boolean = false
+    private var warmForCallPeer: String? = null
+    private var warmForCallType: String? = null
     private var suppressCallCancelUntil = 0L
 
     private val permissionLauncher = registerForActivityResult(
@@ -114,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         captureDeepLinkFromIntent(intent)
         captureCallActionFromIntent(intent)
+        captureWarmForCallFromIntent(intent)
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
@@ -143,13 +147,15 @@ class MainActivity : AppCompatActivity() {
 
         captureDeepLinkFromIntent(intent)
         captureCallActionFromIntent(intent)
+        captureWarmForCallFromIntent(intent)
         // שיחה נכנסת – לא עוצרים צלצול מיד; Web יקבל deeplink בלי reload | HYPER CORE TECH
-        if (!openedFromCallIntent && pendingCallAction != CALL_ACTION_ANSWER) {
+        if (!openedFromCallIntent && pendingCallAction != CALL_ACTION_ANSWER && warmForCallPeer.isNullOrBlank()) {
             CallSoundHelper.stopAll()
         }
         if (webPageReady && isWarmSosPage()) {
             injectPendingDeepLink()
             injectPendingCallAction()
+            injectWarmForCall()
         } else {
             val url = resolveStartUrl(intent)
             if (this::webView.isInitialized) {
@@ -198,6 +204,7 @@ class MainActivity : AppCompatActivity() {
             if (webPageReady) {
                 injectPendingDeepLink()
                 injectPendingCallAction()
+                injectWarmForCall()
             }
             injectNativeFilePickScript()
         }
@@ -254,10 +261,17 @@ class MainActivity : AppCompatActivity() {
     private fun resolveStartUrl(intent: Intent?): String {
         val data = intent?.data
         if (data != null && data.scheme == "https" && data.host?.endsWith("sos010.com") == true) {
-            return data.toString()
+            return stripChatParam(data.toString())
         }
         val openUrl = intent?.getStringExtra(EXTRA_OPEN_URL)
-        if (!openUrl.isNullOrBlank()) return openUrl
+        if (!openUrl.isNullOrBlank()) {
+            // במענה/חימום – בלי chat= כדי לא לפתוח פאנל הודעות | HYPER CORE TECH
+            val action = intent.getStringExtra(EXTRA_CALL_ACTION)
+            if (action == CALL_ACTION_ANSWER || intent.getBooleanExtra(EXTRA_WARM_FOR_CALL, false)) {
+                return stripChatParam(openUrl)
+            }
+            return openUrl
+        }
 
         // פתיחה מאייקון / MAIN – תמיד דף הבית, בלי sticky chat מהתרעה קודמת | HYPER CORE TECH
         if (isLauncherHomeIntent(intent)) {
@@ -265,9 +279,30 @@ class MainActivity : AppCompatActivity() {
             return BuildConfig.SOS_START_URL
         }
 
+        if (intent?.getBooleanExtra(EXTRA_WARM_FOR_CALL, false) == true) {
+            return SosCallUrls.warmPage()
+        }
+
         val remembered = SosSessionStore.getLastUrl(this)
         if (remembered.isNotBlank()) return remembered
         return BuildConfig.SOS_START_URL
+    }
+
+    private fun stripChatParam(url: String): String {
+        return try {
+            val uri = Uri.parse(url)
+            val b = uri.buildUpon().clearQuery()
+            val names = uri.queryParameterNames
+            for (name in names) {
+                if (name.equals("chat", ignoreCase = true)) continue
+                uri.getQueryParameters(name).forEach { value ->
+                    b.appendQueryParameter(name, value)
+                }
+            }
+            b.build().toString()
+        } catch (_: Exception) {
+            url.replace(Regex("([?&])chat=[^&#]*"), "$1").replace("?&", "?").trimEnd('?', '&')
+        }
     }
 
     /** Intent של לחיצה על האייקון (לא התרעה / לא deep-link / לא ענה-דחה) */
@@ -391,6 +426,8 @@ class MainActivity : AppCompatActivity() {
             pendingAutoAccept = true
             openedFromCallIntent = true
             NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false)
+            // מסתירים loading מיד במענה | HYPER CORE TECH
+            if (this::loading.isInitialized) loading.visibility = View.GONE
         }
         if (action == CALL_ACTION_DECLINE) {
             pendingAutoAccept = false
@@ -399,6 +436,66 @@ class MainActivity : AppCompatActivity() {
             SosPendingCallStore.clear(applicationContext)
             NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true)
             CallSoundHelper.stopAll()
+        }
+    }
+
+    /** חימום WebView בזמן צלצול – בלי לבטל התראה ובלי לפתוח UI שיחה | HYPER CORE TECH */
+    private fun captureWarmForCallFromIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_WARM_FOR_CALL, false) != true) return
+        val peer = intent.getStringExtra(EXTRA_CALL_PEER)
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }
+        val type = when (intent.getStringExtra(EXTRA_CALL_TYPE)?.trim()?.lowercase()) {
+            "video", "v", "v-offer" -> "video"
+            else -> "voice"
+        }
+        if (!peer.isNullOrBlank()) {
+            warmForCallPeer = peer
+            warmForCallType = type
+            if (pendingDeepLinkPeer.isNullOrBlank()) pendingDeepLinkPeer = peer
+        }
+        if (this::loading.isInitialized) loading.visibility = View.GONE
+    }
+
+    private fun injectWarmForCall() {
+        val peer = warmForCallPeer ?: return
+        if (!this::webView.isInitialized) return
+        val type = warmForCallType ?: "voice"
+        val peerJs = JSONObject.quote(peer)
+        val typeJs = JSONObject.quote(type)
+        val rawEventJs = JSONObject.quote(SosPendingCallStore.getRawEventJson(applicationContext))
+        val js = """
+            (function(){
+              try {
+                window.__sosIncomingCallActive = true;
+                document.documentElement.setAttribute('data-sos-deeplink', '1');
+                document.body.classList.add('sos-call-active');
+                var App = window.NostrApp || {};
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
+                if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+                if (typeof App.prepareIncomingCallFromNative === 'function') {
+                  App.prepareIncomingCallFromNative($peerJs, $typeJs, $rawEventJs);
+                } else if (typeof App.nativeRequestMediaPermissions === 'function') {
+                  App.nativeRequestMediaPermissions($typeJs === 'video');
+                }
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+            Log.i(TAG, "warm-for-call peer=${peer.take(8)} type=$type")
+        } catch (err: Exception) {
+            Log.w(TAG, "warm inject failed: ${err.message}")
+        }
+        listOf(500L, 1500L, 3500L).forEach { delay ->
+            mainHandler.postDelayed({
+                if (!this::webView.isInitialized) return@postDelayed
+                try {
+                    webView.evaluateJavascript(js, null)
+                } catch (_: Exception) {
+                }
+            }, delay)
         }
     }
 
@@ -504,8 +601,8 @@ class MainActivity : AppCompatActivity() {
             webView.evaluateJavascript(js, null)
         } catch (_: Exception) {
         }
-        // retries עד שה־Web hydration מוכן; acceptIncomingCallFromNative חוסם כפילויות | HYPER CORE TECH
-        listOf(800L, 2000L, 4000L, 7000L).forEach { delay ->
+        // retries מהירים – העמוד אמור להיות חם מחימום בזמן צלצול | HYPER CORE TECH
+        listOf(200L, 600L, 1200L, 2500L, 4500L).forEach { delay ->
             mainHandler.postDelayed({
                 if (!this::webView.isInitialized) return@postDelayed
                 try {
@@ -655,8 +752,14 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 webPageReady = false
-                // בנתיב שיחה מהתרעה – בלי לסמן טעינה כבדה על כל המסך | HYPER CORE TECH
-                if (pendingDeepLinkPeer.isNullOrBlank() && pendingIncomingCall.isNullOrBlank()) {
+                // בנתיב שיחה/חימום – בלי מסך טעינה מעל | HYPER CORE TECH
+                val quiet = !pendingDeepLinkPeer.isNullOrBlank() ||
+                    !pendingIncomingCall.isNullOrBlank() ||
+                    pendingCallAction == CALL_ACTION_ANSWER ||
+                    !warmForCallPeer.isNullOrBlank()
+                if (quiet) {
+                    loading.visibility = View.GONE
+                } else {
                     loading.visibility = View.VISIBLE
                 }
             }
@@ -670,6 +773,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 injectNativeFlag()
                 injectNativeFilePickScript()
+                injectWarmForCall()
                 injectPendingDeepLink()
                 injectPendingCallAction()
             }
@@ -1126,11 +1230,38 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_CALL_ACTION = "call_action"
         const val EXTRA_CALL_PEER = "call_peer"
         const val EXTRA_CALL_TYPE = "call_type"
+        const val EXTRA_WARM_FOR_CALL = "warm_for_call"
         const val CALL_ACTION_ANSWER = "answer"
         const val CALL_ACTION_DECLINE = "decline"
 
         @JvmField
         @Volatile
         var isHostAlive: Boolean = false
+
+        /** מעיר/מחמם את ה-WebView ברקע בזמן צלצול כדי שענה יהיה מיידי | HYPER CORE TECH */
+        fun warmHostForIncomingCall(context: Context, peer: String, callType: String) {
+            val app = context.applicationContext
+            val pk = peer.trim().lowercase()
+            if (pk.length != 64) return
+            val type = when (callType.trim().lowercase()) {
+                "video", "v", "v-offer" -> "video"
+                else -> "voice"
+            }
+            val intent = Intent(app, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                putExtra(EXTRA_START_IN_BACKGROUND, true)
+                putExtra(EXTRA_WARM_FOR_CALL, true)
+                putExtra(EXTRA_CALL_PEER, pk)
+                putExtra(EXTRA_CALL_TYPE, type)
+                putExtra(EXTRA_OPEN_URL, SosCallUrls.warmPage())
+            }
+            try {
+                app.startActivity(intent)
+            } catch (_: Exception) {
+            }
+        }
     }
 }

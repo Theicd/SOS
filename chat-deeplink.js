@@ -195,6 +195,11 @@
             pendingRawEvent: pendingRawEvent || null,
           };
         } catch (_) {}
+        try {
+          document.documentElement.setAttribute('data-sos-deeplink', '1');
+          document.body.classList.add('sos-call-active');
+          if (typeof App.closeChatPanel === 'function') App.closeChatPanel();
+        } catch (_) {}
       }
       const callFocused = focusIncomingCall(chat, incomingCall, pendingOffer, {
         autoAnswering: autoAccept,

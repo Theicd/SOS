@@ -257,7 +257,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 lastCallNotifyAt = now
                 val title = if (isVideo) "שיחת וידאו נכנסת" else "שיחה קולית נכנסת"
                 val caller = SosContactCache.displayName(appContext, author, "מישהו")
-                val openUrl = "https://sos010.com/videos.html?chat=$author&incomingCall=$callType"
+                val openUrl = SosCallUrls.acceptPage(callType)
 
                 // גם כשהממשק פתוח – אם המסך כבוי/ברקע isHostAlive=false.
                 // כשהממשק בחזית: Web מציג דיאלוג; עדיין מציגים התראת CallStyle בלי FSI כפול.
@@ -265,6 +265,9 @@ class SosRelayWatcher(private val appContext: Context) {
                     Log.i(TAG, "host alive – web handles UI, raw offer cached")
                     return
                 }
+
+                // מחממים WebView ברקע בזמן צלצול – ענה יהיה מהיר | HYPER CORE TECH
+                MainActivity.warmHostForIncomingCall(appContext, author, callType)
 
                 NotificationHelper.showIncomingCall(
                     appContext,

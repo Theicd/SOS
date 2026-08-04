@@ -2744,7 +2744,19 @@ body.sos-call-active .video-call-dialog {
   z-index: 12060 !important;
 }
 body.sos-call-active #chatPanel {
-  z-index: 2960 !important;
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+body.sos-call-active #sosLoadNugOverlay,
+body.sos-call-active .videos-feed__card--loadnug,
+body.sos-call-active #videosLoadingOverlay,
+body.sos-call-active #videosSoftLoading {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 /* ברשימת שיחות (לא conversation) – וידוא שהתפריט התחתון גלוי מעל הפאנל | HYPER CORE TECH */
 @media (max-width: 768px) {

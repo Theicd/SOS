@@ -237,8 +237,24 @@
         bridge.requestMediaPermissions(false);
       }
     } catch (_) {}
-    // קצר – נותנים לדיאלוג הרשאות להופיע בלי לחסום לנצח
-    await new Promise((r) => setTimeout(r, 350));
+    // קצר מאוד – הרשאות אמורות להיות מוכנות מחימום בזמן צלצול | HYPER CORE TECH
+    await new Promise((r) => setTimeout(r, 40));
+  }
+
+  function hideChatBehindCall() {
+    try {
+      if (typeof App.closeChatPanel === 'function') App.closeChatPanel();
+    } catch (_) {}
+    try {
+      document.documentElement.setAttribute('data-sos-deeplink', '1');
+      document.body.classList.add('sos-call-active');
+      document.body.classList.remove('videos-boot-loading', 'sos-deeplink-chat');
+    } catch (_) {}
+    try {
+      if (typeof App.releaseBootForDeepLink === 'function') {
+        App.releaseBootForDeepLink('incoming-call');
+      }
+    } catch (_) {}
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת דיאלוג שיחה
@@ -252,6 +268,7 @@
 
     activePeerPubkey = peerPubkey;
     markCallUiActive(true);
+    if (autoAnswering) hideChatBehindCall();
 
     const contact = App.chatState?.contacts?.get(String(peerPubkey || '').toLowerCase());
     const name = contact?.name || `משתמש ${String(peerPubkey || '').slice(0, 8)}`;
@@ -1002,6 +1019,38 @@
     } catch (_) {}
   };
 
+  // חלק APK (chat-voice-call-ui.js) – חימום בזמן צלצול: מפתח/offer/מיקרופון בלי UI | HYPER CORE TECH
+  App.prepareIncomingCallFromNative = async function prepareIncomingCallFromNative(peerPubkey, callType, pendingRawEvent) {
+    if (callType && String(callType).toLowerCase() === 'video') {
+      try {
+        if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+      } catch (_) {}
+      try {
+        if (typeof App.nativeRequestMediaPermissions === 'function') App.nativeRequestMediaPermissions(true);
+      } catch (_) {}
+      return true;
+    }
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+    if (!peer) return false;
+    try {
+      document.documentElement.setAttribute('data-sos-deeplink', '1');
+      document.body.classList.add('sos-call-active');
+    } catch (_) {}
+    try {
+      if (typeof App.initVoiceCall === 'function') {
+        App.initVoiceCall({ force: true, lookbackSec: 120 });
+      }
+    } catch (_) {}
+    try {
+      await ensureMicReady();
+    } catch (_) {}
+    try {
+      await hydrateOfferFromNativeRawEvent(peer, pendingRawEvent);
+      restoreIncomingOffer(peer, null);
+    } catch (_) {}
+    return true;
+  };
+
   // חלק APK (chat-voice-call-ui.js) – ענה מהתראת CallStyle | HYPER CORE TECH
   App.acceptIncomingCallFromNative = function acceptIncomingCallFromNative(peerPubkey, callType, pendingRawEvent) {
     if (callType && String(callType).toLowerCase() === 'video') {
@@ -1041,6 +1090,7 @@
       }
     } catch (_) {}
 
+    hideChatBehindCall();
     saveChatPanelState();
     if (typeof App.pauseAllFeedVideos === 'function') {
       try { App.pauseAllFeedVideos(); } catch (_) {}
@@ -1053,14 +1103,14 @@
     markUiAutoAnswering();
 
     let attempts = 0;
-    const maxAttempts = 50; // ~20s
+    const maxAttempts = 60; // ~12s בקצב מהיר יותר
     const tryAccept = async () => {
       attempts += 1;
       try {
-        if (!App.privateKey || !window.NostrTools?.nip04) {
+        if (!App.privateKey || !window.NostrTools?.nip04 || !App.pool) {
           updateCallStatus('מתחבר...');
           if (attempts < maxAttempts) {
-            setTimeout(tryAccept, 400);
+            setTimeout(tryAccept, 200);
             return;
           }
         }
@@ -1091,7 +1141,7 @@
         } catch (_) {}
         return;
       }
-      setTimeout(tryAccept, 400);
+      setTimeout(tryAccept, 200);
     };
     tryAccept();
     return true;
@@ -1250,6 +1300,14 @@
       updateCallStatus('מחייג...');
       playDialtone();
     }
+  };
+
+  // חלק שיחות קול – answer SDP התקבל; עוצרים חיוג לפני ICE connected | HYPER CORE TECH
+  App.onVoiceCallAnswerReceived = function onVoiceCallAnswerReceived(peerPubkey) {
+    console.log('Call answer received', String(peerPubkey || '').slice(0, 8));
+    updateCallStatus('מתחבר...');
+    stopDialtone();
+    stopRingtone();
   };
 
   App.onVoiceCallConnected = function(peerPubkey) {

@@ -47,7 +47,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 NotificationHelper.cancelIncomingCall(app, stopSound = false)
                 IncomingCallActivity.dismiss(app, peer)
                 val openUrl = intent.getStringExtra(MainActivity.EXTRA_OPEN_URL)
-                    ?: "https://sos010.com/videos.html?chat=$peer&incomingCall=$callType"
+                    ?: SosCallUrls.acceptPage(callType)
                 val launch = Intent(app, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or

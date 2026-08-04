@@ -22,6 +22,37 @@
   }
 }
 
+/* מענה מ-APK – מסך אטום מיד, בלי לראות צ'אט/טעינה מאחור | HYPER CORE TECH */
+.voice-call-dialog--auto-answer {
+  animation: none !important;
+  opacity: 1 !important;
+  background: #0B1220;
+}
+.voice-call-dialog--auto-answer .voice-call-dialog__backdrop {
+  background: #0B1220 !important;
+  backdrop-filter: none !important;
+}
+.voice-call-dialog--auto-answer .voice-call-dialog__backdrop::before,
+.voice-call-dialog--auto-answer .voice-call-dialog__backdrop::after {
+  opacity: 0.35;
+}
+
+body.sos-call-active #chatPanel {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+body.sos-call-active #sosLoadNugOverlay,
+body.sos-call-active .videos-feed__card--loadnug,
+body.sos-call-active #videosLoadingOverlay,
+body.sos-call-active #videosSoftLoading,
+body.sos-call-active.videos-boot-loading #sosLoadNugOverlay {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .voice-call-dialog__backdrop {
   position: absolute;
   inset: 0;
