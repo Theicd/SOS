@@ -242,7 +242,9 @@
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת דיאלוג שיחה
-  function createCallDialog(peerPubkey, isIncoming) {
+  function createCallDialog(peerPubkey, isIncoming, options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const autoAnswering = !!opts.autoAnswering;
     // הסרת דיאלוג קיים
     if (callDialog) {
       callDialog.remove();
@@ -255,28 +257,35 @@
     const name = contact?.name || `משתמש ${String(peerPubkey || '').slice(0, 8)}`;
     const initials = contact?.initials || 'מש';
     const picture = contact?.picture || '';
+    const showAccept = isIncoming && !autoAnswering;
+    const topTitle = autoAnswering ? 'מתחבר לשיחה' : (isIncoming ? 'שיחה נכנסת' : 'מתחיל שיחת קול');
+    const topSub = autoAnswering ? 'מקבל את השיחה...' : (isIncoming ? 'לחץ ענה כדי להתחבר' : 'ממתין לתשובה...');
+    const statusText = autoAnswering ? 'מתחבר...' : (isIncoming ? 'מחייג אליך...' : 'מחייג...');
 
     // חלק שיחות קול (chat-voice-call-ui.js) – עיצוב מסך מלא כמו שיחת וידיאו עם כותרת עליונה | HYPER CORE TECH
     callDialog = doc.createElement('div');
     callDialog.id = 'voiceCallDialog';
-    callDialog.className = isIncoming ? 'voice-call-dialog voice-call-dialog--incoming' : 'voice-call-dialog';
+    callDialog.className = isIncoming || autoAnswering
+      ? 'voice-call-dialog voice-call-dialog--incoming'
+      : 'voice-call-dialog';
+    if (autoAnswering) callDialog.classList.add('voice-call-dialog--auto-answer');
     callDialog.innerHTML = `
       <div class="voice-call-dialog__backdrop"></div>
       <div class="voice-call-dialog__content">
         <div class="voice-call-dialog__topbar">
-          <h2 class="voice-call-dialog__topbar-title">${isIncoming ? 'שיחה נכנסת' : 'מתחיל שיחת קול'}</h2>
-          <p class="voice-call-dialog__topbar-sub">${isIncoming ? 'לחץ ענה כדי להתחבר' : 'ממתין לתשובה...'}</p>
+          <h2 class="voice-call-dialog__topbar-title">${topTitle}</h2>
+          <p class="voice-call-dialog__topbar-sub">${topSub}</p>
         </div>
         <div class="voice-call-dialog__header">
           <div class="voice-call-dialog__avatar">
             ${picture ? `<img src="${picture}" alt="${name}">` : `<span>${initials}</span>`}
           </div>
           <h3 class="voice-call-dialog__name">${name}</h3>
-          <p class="voice-call-dialog__status">${isIncoming ? 'מחייג אליך...' : 'מחייג...'}</p>
+          <p class="voice-call-dialog__status">${statusText}</p>
           <p class="voice-call-dialog__timer" hidden>0:00</p>
         </div>
         <div class="voice-call-dialog__actions">
-          ${isIncoming ? `
+          ${showAccept ? `
             <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--accept" data-action="accept">
               <i class="fa-solid fa-phone"></i>
               <span>ענה</span>
@@ -292,7 +301,7 @@
           </button>
           <button type="button" class="voice-call-dialog__btn voice-call-dialog__btn--end" data-action="end">
             <i class="fa-solid fa-phone-slash"></i>
-            <span>${isIncoming ? 'דחה' : 'נתק'}</span>
+            <span>${isIncoming && !autoAnswering ? 'דחה' : 'נתק'}</span>
           </button>
         </div>
       </div>
@@ -329,6 +338,22 @@
     callTimer = callDialog.querySelector('.voice-call-dialog__timer');
 
     return callDialog;
+  }
+
+  function markUiAutoAnswering() {
+    if (!callDialog) return;
+    try {
+      const acceptBtn = callDialog.querySelector('[data-action="accept"]');
+      if (acceptBtn) acceptBtn.remove();
+      const endSpan = callDialog.querySelector('[data-action="end"] span');
+      if (endSpan) endSpan.textContent = 'נתק';
+      const topTitle = callDialog.querySelector('.voice-call-dialog__topbar-title');
+      if (topTitle) topTitle.textContent = 'מתחבר לשיחה';
+      const topSub = callDialog.querySelector('.voice-call-dialog__topbar-sub');
+      if (topSub) topSub.textContent = 'מקבל את השיחה...';
+      updateCallStatus('מתחבר...');
+      callDialog.classList.add('voice-call-dialog--auto-answer');
+    } catch (_) {}
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – עדכון סטטוס שיחה והסתרת כותרת עליונה בעת חיבור | HYPER CORE TECH
@@ -813,17 +838,24 @@
   }
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בקבלת שיחה
-  async function handleAcceptCall(peerPubkey) {
+  async function handleAcceptCall(peerPubkey, options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const silent = !!opts.silent;
     try {
       closeIncomingCallNotification();
+      stopRingtone();
+      try {
+        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
+      markUiAutoAnswering();
       await ensureMicReady();
-      await hydrateOfferFromNativeRawEvent(peerPubkey);
+      await hydrateOfferFromNativeRawEvent(peerPubkey, opts.pendingRawEvent);
       restoreIncomingOffer(peerPubkey, null);
       const offer = incomingOffer;
       if (!offer || !offer.type || !offer.sdp) {
         updateCallStatus('ממתין להצעת שיחה...');
-        alert('עדיין אין הצעת שיחה תקינה. המתן שנייה ונסה שוב.');
-        return;
+        if (!silent) alert('עדיין אין הצעת שיחה תקינה. המתן שנייה ונסה שוב.');
+        return false;
       }
       await App.voiceCall.accept(peerPubkey, offer);
       incomingOffer = null;
@@ -834,13 +866,14 @@
         const endBtn = callDialog?.querySelector('[data-action="end"] span');
         if (endBtn) endBtn.textContent = 'נתק';
       } catch (_) {}
-      try {
-        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
-      } catch (_) {}
+      return true;
     } catch (err) {
       console.error('Failed to accept call', err);
-      alert(err.message || 'שגיאה בקבלת השיחה');
-      closeCallDialog();
+      if (!silent) {
+        alert(err.message || 'שגיאה בקבלת השיחה');
+        closeCallDialog();
+      }
+      return false;
     }
   }
 
@@ -939,9 +972,14 @@
       if (pendingAnswer && pendingAnswer.peer === peer && Date.now() < (pendingAnswer.until || 0)) {
         saveChatPanelState();
         if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
-        createCallDialog(peerPubkey, true);
-        window.__sosNativePendingAnswer = null;
-        setTimeout(() => handleAcceptCall(peer), 120);
+        createCallDialog(peerPubkey, true, { autoAnswering: true });
+        stopRingtone();
+        // לא מנקים pending כאן – acceptIncomingCallFromNative / tryAccept מסיימים
+        setTimeout(() => {
+          handleAcceptCall(peer, { silent: true }).then((ok) => {
+            if (ok) window.__sosNativePendingAnswer = null;
+          });
+        }, 80);
         return;
       }
     } catch (_) {}
@@ -975,13 +1013,25 @@
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
     if (!peer) return false;
 
+    // מונע הפעלה כפולה מ־inject retries ב-MainActivity | HYPER CORE TECH
+    if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === peer) {
+      return true;
+    }
+    window.__sosAcceptInFlight = true;
+    window.__sosAcceptInFlightPeer = peer;
+
     try {
       if (typeof App.initVoiceCall === 'function') {
         App.initVoiceCall({ force: true, lookbackSec: 120 });
       }
     } catch (_) {}
 
-    window.__sosNativePendingAnswer = { peer, callType: 'voice', until: Date.now() + 45000 };
+    window.__sosNativePendingAnswer = {
+      peer,
+      callType: 'voice',
+      until: Date.now() + 60000,
+      pendingRawEvent: pendingRawEvent || null,
+    };
     window.__sosNativePendingDecline = null;
 
     try {
@@ -991,28 +1041,37 @@
       }
     } catch (_) {}
 
-    if (!callDialog) {
-      saveChatPanelState();
-      createCallDialog(peer, true);
+    saveChatPanelState();
+    if (typeof App.pauseAllFeedVideos === 'function') {
+      try { App.pauseAllFeedVideos(); } catch (_) {}
     }
-    updateCallStatus('מתחבר...');
+    createCallDialog(peer, true, { autoAnswering: true });
+    stopRingtone();
+    try {
+      if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+    } catch (_) {}
+    markUiAutoAnswering();
 
     let attempts = 0;
-    const maxAttempts = 40;
+    const maxAttempts = 50; // ~20s
     const tryAccept = async () => {
       attempts += 1;
       try {
         if (!App.privateKey || !window.NostrTools?.nip04) {
+          updateCallStatus('מתחבר...');
           if (attempts < maxAttempts) {
             setTimeout(tryAccept, 400);
             return;
           }
         }
-        await hydrateOfferFromNativeRawEvent(peer, pendingRawEvent);
-        restoreIncomingOffer(peer, null);
-        if (incomingOffer && incomingOffer.type && incomingOffer.sdp) {
+        const ok = await handleAcceptCall(peer, {
+          silent: true,
+          pendingRawEvent: pendingRawEvent || window.__sosNativePendingAnswer?.pendingRawEvent,
+        });
+        if (ok) {
           window.__sosNativePendingAnswer = null;
-          await handleAcceptCall(peer);
+          window.__sosAcceptInFlight = false;
+          window.__sosAcceptInFlightPeer = '';
           return;
         }
       } catch (err) {
@@ -1021,7 +1080,15 @@
       if (attempts >= maxAttempts) {
         console.warn('[APK] accept timed out waiting for offer');
         window.__sosNativePendingAnswer = null;
-        updateCallStatus('לא התקבלה הצעת שיחה');
+        window.__sosAcceptInFlight = false;
+        window.__sosAcceptInFlightPeer = '';
+        updateCallStatus('לא התקבלה הצעת שיחה – לחץ ענה');
+        // מחזירים כפתור ענה רק אם נכשל לגמרי | HYPER CORE TECH
+        try {
+          if (callDialog && !callDialog.querySelector('[data-action="accept"]')) {
+            createCallDialog(peer, true);
+          }
+        } catch (_) {}
         return;
       }
       setTimeout(tryAccept, 400);

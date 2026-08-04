@@ -505,8 +505,8 @@ class MainActivity : AppCompatActivity() {
             webView.evaluateJavascript(js, null)
         } catch (_: Exception) {
         }
-        // retries – pool/keys might not be ready yet | HYPER CORE TECH
-        listOf(800L, 1600L, 3200L, 5000L).forEach { delay ->
+        // retries קצרים בלבד – acceptIncomingCallFromNative חוסם כפילויות | HYPER CORE TECH
+        listOf(1200L, 3000L).forEach { delay ->
             mainHandler.postDelayed({
                 if (!this::webView.isInitialized) return@postDelayed
                 try {

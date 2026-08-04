@@ -388,6 +388,7 @@
       throw new Error('הדפדפן שלך לא תומך בשיחות קוליות');
     }
 
+    let answerSent = false;
     try {
       // חלק שיחות קול (chat-voice-call.js) – הגדרת AudioSession לשיחה לפני בקשת מיקרופון (Best Effort) | HYPER CORE TECH
       setCallAudioSessionType();
@@ -400,6 +401,7 @@
       // חלק שיחות קול (chat-voice-call.js) – איפוס זמן התחלה עד לחיבור בפועל (connected)
       state.callStartTimestamp = null;
       state.callStartTime = null;
+      state.isIncoming = true;
 
       // קבלת offer (אימות + נרמול {type,sdp} אחרי סריאליזציה מ-Nostr/QA)
       const offerNorm = normalizeSessionDescription(offer);
@@ -416,6 +418,7 @@
 
       // שליחת answer
       await sendSignal(peerPubkey, 'answer', answer);
+      answerSent = true;
 
       console.log('Call accepted from', peerPubkey.slice(0, 8));
 
@@ -425,7 +428,24 @@
       }
     } catch (err) {
       console.error('Failed to accept call', err);
-      endCall();
+      if (answerSent) {
+        endCall();
+      } else {
+        // ניקוי מקומי בלי disconnect – מאפשר retry אוטומטי מ-APK | HYPER CORE TECH
+        try {
+          if (state.peerConnection) {
+            state.peerConnection.close();
+            state.peerConnection = null;
+          }
+        } catch (_) {}
+        try {
+          if (state.localStream) {
+            state.localStream.getTracks().forEach((t) => t.stop());
+            state.localStream = null;
+          }
+        } catch (_) {}
+        state.isCallActive = false;
+      }
       throw err;
     }
   }
