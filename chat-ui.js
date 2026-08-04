@@ -32,15 +32,35 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
   }
-  /** מונע javascript: / URL מזויפים בתמונת אווטר – מאפשר https/http/data/blob כמו בבועות | HYPER CORE TECH */
+  /** אותה גישה כמו בועות הודעה / מסך שיחה – בלי לחנוק URL תקין | HYPER CORE TECH */
   function safeConversationAvatarSrc(url) {
     if (!url || typeof url !== 'string') return '';
     const u = url.trim().slice(0, 2048);
-    if (/^https?:\/\//i.test(u)) return u;
-    if (/^data:image\//i.test(u)) return u;
-    if (/^blob:/i.test(u)) return u;
-    if (/^\/\//.test(u)) return `${window.location.protocol}${u}`;
-    return '';
+    if (!u || /^javascript:/i.test(u) || /^vbscript:/i.test(u) || /^data:text\/html/i.test(u)) return '';
+    return u;
+  }
+
+  function setConversationAvatarElement(pictureUrl, name, initials) {
+    if (!elements.conversationAvatar) return;
+    const safeInitials = String(initials || 'מש').replace(/[<>]/g, '');
+    elements.conversationAvatar.innerHTML = '';
+    elements.conversationAvatar.textContent = '';
+    const pic = safeConversationAvatarSrc(pictureUrl);
+    if (!pic) {
+      elements.conversationAvatar.textContent = safeInitials;
+      return;
+    }
+    // כמו voice-call-ui / בועת הודעה – src ישיר, בלי referrerpolicy ששובר חלק מ-CDN | HYPER CORE TECH
+    const img = doc.createElement('img');
+    img.alt = name || 'משתמש';
+    img.decoding = 'async';
+    img.loading = 'eager';
+    img.src = pic;
+    img.addEventListener('error', () => {
+      if (!elements.conversationAvatar) return;
+      elements.conversationAvatar.textContent = safeInitials;
+    }, { once: true });
+    elements.conversationAvatar.appendChild(img);
   }
 
   function updateActiveConversationHeader(peerPubkey) {
@@ -52,19 +72,12 @@
     if (elements.conversationName) {
       elements.conversationName.textContent = name;
     }
-    if (!elements.conversationAvatar) return;
-    elements.conversationAvatar.innerHTML = '';
-    elements.conversationAvatar.textContent = '';
-    if (contact?.picture) {
-      const pic = safeConversationAvatarSrc(contact.picture);
-      const safeName = escapeHtmlAttr(name);
-      const iniForJs = String(initials).replace(/['\\]/g, '');
-      if (pic) {
-        elements.conversationAvatar.innerHTML = `<img src="${escapeHtmlAttr(pic)}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.textContent='${iniForJs}'; this.remove();" />`;
-        return;
-      }
-    }
-    elements.conversationAvatar.textContent = initials;
+    const picture =
+      contact?.picture ||
+      contact?.image ||
+      contact?.avatar ||
+      '';
+    setConversationAvatarElement(picture, name, initials);
   }
 
   // חלק אייקון קובץ (chat-ui.js) – אייקון לפי סיומת בסגנון בועת העברה | HYPER CORE TECH
@@ -1327,6 +1340,10 @@
 
   function togglePanel(forceOpen) {
     const targetState = typeof forceOpen === 'boolean' ? forceOpen : !state.isOpen;
+    // מונע סגירה בטעות בזמן הורדת קובץ (a.click סינתטי) | HYPER CORE TECH
+    if (targetState === false && App.__sosSuppressChatOutsideClose) {
+      return;
+    }
     state.isOpen = targetState;
     if (state.isOpen) {
       // עצירת וידאו בפתיחת פאנל הודעות | HYPER CORE TECH
@@ -2709,20 +2726,15 @@
     }
     doc.addEventListener('click', (event) => {
       if (!state.isOpen) return;
-      // הורדת קובץ יוצרת a.click() על body – לא לסגור את הצ'אט | HYPER CORE TECH
-      try {
-        if (Date.now() < (window.__sosIgnoreChatOutsideClickUntil || 0)) return;
-      } catch (_) {}
-      if (event.target?.closest?.('[data-sos-chat-download], .chat-message__media-download, .chat-lightbox__download, .chat-file-bubble__download, .chat-pdf-bubble__download, .torrent-bubble__download-btn')) {
-        return;
-      }
+      // הורדה יוצרת a.click() סינתטי מחוץ לפאנל – לא לסגור את הצ'אט | HYPER CORE TECH
+      if (App.__sosSuppressChatOutsideClose) return;
       // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
       const voiceCallDialog = doc.getElementById('voiceCallDialog');
       const videoCallDialog = doc.getElementById('videoCallDialog');
       if (voiceCallDialog && voiceCallDialog.contains(event.target)) return;
       if (videoCallDialog && videoCallDialog.contains(event.target)) return;
-      // lightbox תמונה בצ'אט מחובר ל-body – לא לסגור את כל פאנל השיחות | HYPER CORE TECH
-      if (event.target.closest?.('#chatImageLightbox, .chat-lightbox, .chat-media-modal')) return;
+      // lightbox / כפתורי הורדה / לינק הורדה זמני | HYPER CORE TECH
+      if (event.target.closest?.('#chatImageLightbox, .chat-lightbox, .chat-media-modal, .chat-message__media-download, .chat-lightbox__download, .chat-file-bubble__download, .chat-pdf-bubble__download, a[download], [data-sos-download-link]')) return;
       if (
         elements.panel.contains(event.target) ||
         (elements.navButton && elements.navButton.contains(event.target)) ||
