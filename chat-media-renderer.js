@@ -773,14 +773,18 @@
     msg.hidden = true;
   }
 
-  // גודל מדיה יחסי לרוחב עמודת הצ'אט — מונע overflow ודחיפה שמאלה במובייל | HYPER CORE TECH
+  // גודל מדיה יחסי לרוחב עמודת הצ'אט — גדול כמו וואטסאפ במובייל, בלי overflow | HYPER CORE TECH
   function getChatMediaAvailWidth(hostEl) {
     const col =
       hostEl?.closest?.('.chat-conversation__messages') ||
       document.getElementById('chatMessages') ||
       document.documentElement;
     const raw = Math.max(0, col?.clientWidth || window.innerWidth || 360);
-    return Math.max(160, raw - 48);
+    const narrow = raw < 480 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    // מובייל: כמעט כל רוחב הבועה (~92%). דסקטופ: מרווח נוח יותר | HYPER CORE TECH
+    const frac = narrow ? 0.92 : 0.72;
+    const gutter = narrow ? 8 : 24;
+    return Math.max(200, Math.floor(raw * frac) - gutter);
   }
 
   function computeChatMediaBox(w, h, hostEl) {
@@ -788,12 +792,13 @@
     const avail = getChatMediaAvailWidth(hostEl);
     const vh = window.innerHeight || document.documentElement?.clientHeight || 640;
     const narrow = avail < 420 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    // וואטסאפ-מובייל: רוחב מקסימלי לבועה; אנכי גבוה יותר מאופקי | HYPER CORE TECH
     const maxW = portrait
-      ? Math.min(narrow ? Math.round(avail * 0.82) : 280, avail)
-      : Math.min(narrow ? Math.round(avail * 0.92) : 360, avail);
+      ? Math.min(narrow ? avail : 300, avail)
+      : Math.min(narrow ? avail : 380, avail);
     const maxH = portrait
-      ? Math.min(Math.round(vh * (narrow ? 0.62 : 0.7)), 520)
-      : Math.min(narrow ? Math.round(vh * 0.4) : 280, narrow ? 300 : 280);
+      ? Math.min(Math.round(vh * (narrow ? 0.72 : 0.7)), narrow ? 640 : 520)
+      : Math.min(Math.round(vh * (narrow ? 0.45 : 0.35)), narrow ? 340 : 280);
     let dispW = maxW;
     let dispH = dispW * (h / w);
     if (dispH > maxH) {
@@ -808,10 +813,18 @@
         dispW = dispH * (w / h);
       }
     }
+    // רצפת גודל למובייל — לא מיניאטורי | HYPER CORE TECH
+    if (narrow) {
+      const minW = portrait ? Math.min(220, avail) : Math.min(260, avail);
+      if (dispW < minW) {
+        dispW = minW;
+        dispH = Math.min(maxH, dispW * (h / w));
+      }
+    }
     return {
       portrait,
-      dispW: Math.max(120, Math.round(dispW)),
-      dispH: Math.max(80, Math.round(dispH)),
+      dispW: Math.max(160, Math.round(dispW)),
+      dispH: Math.max(120, Math.round(dispH)),
     };
   }
 
@@ -829,9 +842,10 @@
       }
     }
     const box = computeChatMediaBox(w, h, el);
-    el.style.width = '100%';
+    // רוחב מפורש + max-width:100% — גדול כמו וואטסאפ, בלי לפרוץ את העמודה | HYPER CORE TECH
+    el.style.width = `${box.dispW}px`;
     el.style.height = 'auto';
-    el.style.maxWidth = `${box.dispW}px`;
+    el.style.maxWidth = '100%';
     el.style.maxHeight = `${box.dispH}px`;
     el.style.aspectRatio = `${w} / ${h}`;
     el.dataset.mediaNw = String(w);

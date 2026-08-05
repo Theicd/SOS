@@ -352,28 +352,23 @@
     }
     // fallback אם המודול עדיין לא נטען | HYPER CORE TECH
     const col = wrap.closest?.('.chat-conversation__messages') || document.getElementById('chatMessages');
-    const avail = Math.max(160, (col?.clientWidth || window.innerWidth || 360) - 48);
-    const narrow = avail < 420;
+    const raw = col?.clientWidth || window.innerWidth || 360;
+    const narrow = raw < 480;
+    const avail = Math.max(200, Math.floor(raw * (narrow ? 0.92 : 0.72)) - (narrow ? 8 : 24));
     const portrait = h > w;
-    const maxW = portrait
-      ? Math.min(narrow ? Math.round(avail * 0.82) : 280, avail)
-      : Math.min(narrow ? Math.round(avail * 0.92) : 360, avail);
+    const maxW = Math.min(avail, portrait ? (narrow ? avail : 300) : (narrow ? avail : 380));
     const maxH = portrait
-      ? Math.min(Math.round((window.innerHeight || 640) * 0.62), 520)
-      : Math.min(narrow ? Math.round((window.innerHeight || 640) * 0.4) : 280, narrow ? 300 : 280);
+      ? Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.72 : 0.7)), narrow ? 640 : 520)
+      : Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.45 : 0.35)), narrow ? 340 : 280);
     let dispW = maxW;
     let dispH = dispW * (h / w);
     if (dispH > maxH) {
       dispH = maxH;
       dispW = dispH * (w / h);
     }
-    if (dispW > avail) {
-      dispW = avail;
-      dispH = dispW * (h / w);
-    }
-    wrap.style.width = '100%';
+    wrap.style.width = `${Math.round(dispW)}px`;
     wrap.style.height = 'auto';
-    wrap.style.maxWidth = `${Math.round(dispW)}px`;
+    wrap.style.maxWidth = '100%';
     wrap.style.maxHeight = `${Math.round(dispH)}px`;
     wrap.style.aspectRatio = `${w} / ${h}`;
     wrap.classList.toggle('chat-media-upload--portrait', portrait);

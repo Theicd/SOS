@@ -1378,22 +1378,33 @@
   pointer-events: none;
 }
 
-/* חלק מובייל מדיה (chat-enhanced-styles.css) – גמיש לפי רוחב הצ'אט, בלי 100vw שגורם לדחיפה | HYPER CORE TECH */
+/* חלק מובייל מדיה (chat-enhanced-styles.css) – גודל מקסימלי כמו וואטסאפ, בלי overflow | HYPER CORE TECH */
 @media (max-width: 768px) {
   .chat-conversation__messages {
     overflow-x: hidden;
-    padding-inline: max(10px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-right, 0px));
+    padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
     padding-block: 10px;
   }
 
   .chat-message {
-    max-width: min(88%, 100%);
+    max-width: min(92%, 100%);
     min-width: 0;
   }
 
+  .chat-message:has(.chat-message__video-container),
+  .chat-message:has(.chat-message__image-container),
+  .chat-message:has(.chat-media-upload),
   .chat-message--media-transfer,
   .chat-message--media-settled {
-    max-width: min(88%, 100%);
+    max-width: min(92%, 100%);
+  }
+
+  .chat-message__content--video-only,
+  .chat-message__content--image-only,
+  .chat-message__content--media-upload {
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .chat-message__image-container,
@@ -1403,35 +1414,35 @@
   }
 
   .chat-message__image {
-    max-height: min(55vh, 360px);
+    max-height: min(70vh, 520px);
   }
 
   .chat-message__video-container,
   .chat-message__video-container--landscape,
   .chat-media-upload,
   .chat-media-upload--landscape {
-    width: 100%;
+    width: auto;
     max-width: 100%;
-    max-height: min(42vh, 300px);
+    max-height: min(45vh, 340px);
   }
 
   .chat-message__video-container--portrait,
   .chat-media-upload--portrait {
-    width: 100%;
-    max-width: min(82%, 300px);
-    max-height: min(62vh, 520px);
+    width: auto;
+    max-width: 100%;
+    max-height: min(72vh, 640px);
   }
 
   .chat-message__video-container[data-ready="1"] {
-    max-height: min(62vh, 520px);
+    max-height: min(72vh, 640px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--landscape {
-    max-height: min(42vh, 300px);
+    max-height: min(45vh, 340px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--portrait {
-    max-height: min(62vh, 520px);
+    max-height: min(72vh, 640px);
   }
 
   .chat-message__video,
