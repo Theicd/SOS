@@ -165,6 +165,38 @@
     `;
   }
 
+  // מילוי אדום על הספינר המרכזי — בלי לגעת בספינר הלבן עצמו | HYPER CORE TECH
+  function mediaUploadSpinnerFillMetrics(pct) {
+    const r = 24.5;
+    const c = 2 * Math.PI * r;
+    const offset = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+    return { r, c, offset };
+  }
+
+  function buildMediaUploadSpinnerFillHtml(pct) {
+    const { r, c, offset } = mediaUploadSpinnerFillMetrics(pct);
+    return `
+      <svg class="chat-media-upload__spinner-fill" viewBox="0 0 52 52" aria-hidden="true">
+        <circle class="chat-media-upload__spinner-fill-fg" cx="26" cy="26" r="${r}" fill="none" stroke="#ff2d55" stroke-width="3.2" stroke-linecap="round"
+          stroke-dasharray="${c.toFixed(2)}"
+          stroke-dashoffset="${offset.toFixed(2)}"></circle>
+      </svg>
+    `;
+  }
+
+  function updateMediaUploadSpinnerFill(host, pct) {
+    if (!host) return;
+    let fillFg = host.querySelector('.chat-media-upload__spinner-fill-fg');
+    if (!fillFg) {
+      host.insertAdjacentHTML('beforeend', buildMediaUploadSpinnerFillHtml(pct));
+      return;
+    }
+    const { c, offset } = mediaUploadSpinnerFillMetrics(pct);
+    fillFg.setAttribute('stroke-dasharray', c.toFixed(2));
+    fillFg.setAttribute('stroke-dashoffset', offset.toFixed(2));
+    fillFg.setAttribute('stroke', '#ff2d55');
+  }
+
   function scheduleTransferBubbleCleanup(bubble, progress, ui) {
     if (ui.isTerminalOk) {
       setTimeout(() => {
@@ -223,6 +255,23 @@
       if (overlay) {
         overlay.hidden = done || failed;
         overlay.setAttribute('aria-hidden', done || failed ? 'true' : 'false');
+        // עדכון מילוי אדום בלבד — הספינר הלבן נשאר וממשיך להסתובב | HYPER CORE TECH
+        let center = overlay.querySelector('.chat-media-upload__center');
+        if (!center) {
+          const oldSpinner = overlay.querySelector('.chat-media-upload__spinner');
+          center = doc.createElement('div');
+          center.className = 'chat-media-upload__center';
+          center.setAttribute('aria-hidden', 'true');
+          if (oldSpinner) center.appendChild(oldSpinner);
+          else {
+            const spinner = doc.createElement('div');
+            spinner.className = 'chat-media-upload__spinner';
+            spinner.setAttribute('aria-hidden', 'true');
+            center.appendChild(spinner);
+          }
+          overlay.appendChild(center);
+        }
+        if (!done && !failed) updateMediaUploadSpinnerFill(center, ui.pct);
       }
       if (ringHost) {
         ringHost.innerHTML = done
@@ -262,7 +311,10 @@
         <div class="chat-media-upload" data-chat-media-upload="1">
           ${mediaHtml}
           <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
-            <div class="chat-media-upload__spinner" aria-hidden="true"></div>
+            <div class="chat-media-upload__center" aria-hidden="true">
+              <div class="chat-media-upload__spinner"></div>
+              ${buildMediaUploadSpinnerFillHtml(ui.pct)}
+            </div>
           </div>
           ${ui.showCancel ? `<button type="button" class="chat-media-upload__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
           <div class="chat-media-upload__footer">

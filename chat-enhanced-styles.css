@@ -1684,6 +1684,13 @@
   display: none !important;
 }
 
+.chat-media-upload__center {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
 .chat-media-upload__spinner {
   width: 52px;
   height: 52px;
@@ -1692,6 +1699,25 @@
   border-top-color: #fff;
   animation: chat-media-upload-spin 0.85s linear infinite;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+/* מילוי אדום מעל הספינר — הספינר הלבן לא משתנה | HYPER CORE TECH */
+.chat-media-upload__spinner-fill {
+  position: absolute;
+  inset: 0;
+  width: 52px;
+  height: 52px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chat-media-upload__spinner-fill-fg {
+  fill: none !important;
+  stroke: #ff2d55 !important;
+  stroke-width: 3.2 !important;
+  stroke-linecap: round !important;
+  transition: stroke-dashoffset 0.2s ease;
 }
 
 @keyframes chat-media-upload-spin {
