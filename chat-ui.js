@@ -149,6 +149,63 @@
     return preview.isVideo || preview.isImage;
   }
 
+  // poster שחור — מונע פליי לבן של Android WebView בבועת העלאה | HYPER CORE TECH
+  const MEDIA_UPLOAD_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  function bindMediaUploadVideoReveal(bubble) {
+    const wrap = bubble?.querySelector?.('.chat-media-upload');
+    const mediaEl = bubble?.querySelector?.('video.chat-media-upload__media');
+    if (!wrap || !mediaEl || mediaEl.dataset.revealBound === '1') return;
+    mediaEl.dataset.revealBound = '1';
+    if (!mediaEl.getAttribute('poster')) mediaEl.setAttribute('poster', MEDIA_UPLOAD_BLACK_POSTER);
+    mediaEl.style.background = '#000';
+    wrap.classList.add('chat-media-upload--pending');
+
+    const reveal = () => {
+      if (wrap.dataset.mediaReady === '1') return;
+      const w = mediaEl.videoWidth;
+      const h = mediaEl.videoHeight;
+      if (!w || !h) return;
+      wrap.style.aspectRatio = `${w} / ${h}`;
+      wrap.dataset.mediaReady = '1';
+      wrap.classList.remove('chat-media-upload--pending');
+      wrap.classList.toggle('chat-media-upload--portrait', h > w);
+      wrap.classList.toggle('chat-media-upload--landscape', w >= h);
+      mediaEl.classList.add('is-ready');
+      mediaEl.style.opacity = '1';
+      mediaEl.style.visibility = 'visible';
+      // לכידת פריים לתצוגה נקייה | HYPER CORE TECH
+      try {
+        if (mediaEl.dataset.posterCaptured === '1') return;
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 640 / w);
+        canvas.width = Math.max(1, Math.round(w * scale));
+        canvas.height = Math.max(1, Math.round(h * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(mediaEl, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+        if (dataUrl && dataUrl.startsWith('data:image')) {
+          mediaEl.poster = dataUrl;
+          mediaEl.dataset.posterCaptured = '1';
+        }
+      } catch (_) {}
+    };
+
+    mediaEl.addEventListener('loadedmetadata', reveal);
+    mediaEl.addEventListener('loadeddata', reveal);
+    setTimeout(() => {
+      if (wrap.dataset.mediaReady === '1') return;
+      if (mediaEl.videoWidth && mediaEl.videoHeight) reveal();
+      else {
+        // נשארים על רקע שחור מסודר בלי לחשוף פליי מערכת | HYPER CORE TECH
+        wrap.classList.remove('chat-media-upload--pending');
+        wrap.style.aspectRatio = wrap.style.aspectRatio || '3 / 4';
+      }
+    }, 4000);
+    if (mediaEl.readyState >= 1) reveal();
+  }
+
   function buildMediaUploadRingHtml(pct) {
     // טבעת גדולה יותר (~22px) — ברורה יותר למשתמש בזמן העלאה | HYPER CORE TECH
     const r = 9.5;
@@ -283,6 +340,7 @@
           mediaEl.setAttribute('src', mediaSrc);
         }
       }
+      if (isVideo) bindMediaUploadVideoReveal(bubble);
       if (overlay) {
         overlay.hidden = done || failed;
         overlay.setAttribute('aria-hidden', done || failed ? 'true' : 'false');
@@ -329,7 +387,7 @@
     }
 
     const mediaHtml = isVideo
-      ? `<video class="chat-media-upload__media" preload="metadata" muted playsinline webkit-playsinline${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`
+      ? `<video class="chat-media-upload__media" preload="metadata" muted playsinline webkit-playsinline poster="${MEDIA_UPLOAD_BLACK_POSTER}" style="opacity:0;visibility:hidden;background:#000"${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`
       : `<img class="chat-media-upload__media" alt=""${mediaSrc ? ` src="${safeSrc}"` : ''} decoding="async">`;
 
     bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--media-transfer`;
@@ -339,7 +397,7 @@
     }
     bubble.innerHTML = `
       <div class="chat-message__content chat-message__content--media-upload">
-        <div class="chat-media-upload" data-chat-media-upload="1">
+        <div class="chat-media-upload${isVideo ? ' chat-media-upload--pending' : ''}" data-chat-media-upload="1">
           ${mediaHtml}
           <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
             <div class="chat-media-upload__center" aria-hidden="true">
@@ -366,6 +424,7 @@
       elements.messagesContainer.appendChild(bubble);
       elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
     }
+    if (isVideo) bindMediaUploadVideoReveal(bubble);
     scheduleTransferBubbleCleanup(bubble, progress, ui);
   }
 

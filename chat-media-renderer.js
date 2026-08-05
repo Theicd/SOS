@@ -417,9 +417,12 @@
   }
   
   // חלק רינדור וידאו (chat-media-renderer.js) – נגן בסגנון וואטסאפ: poster + play אחד (בלי פליי ענק של WebView) | HYPER CORE TECH
+  // poster שחור 1×1 — מונע משטח לבן/פליי מערכת של Android WebView | HYPER CORE TECH
+  const CHAT_VIDEO_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
   function captureChatVideoPoster(videoEl) {
-    if (!videoEl || videoEl.dataset.posterCaptured === '1') return;
-    if (!videoEl.videoWidth || !videoEl.videoHeight) return;
+    if (!videoEl || videoEl.dataset.posterCaptured === '1') return false;
+    if (!videoEl.videoWidth || !videoEl.videoHeight) return false;
     try {
       const maxW = 640;
       const scale = Math.min(1, maxW / videoEl.videoWidth);
@@ -427,17 +430,19 @@
       canvas.width = Math.max(1, Math.round(videoEl.videoWidth * scale));
       canvas.height = Math.max(1, Math.round(videoEl.videoHeight * scale));
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) return false;
       ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
       if (dataUrl && dataUrl.startsWith('data:image')) {
         videoEl.poster = dataUrl;
         videoEl.dataset.posterCaptured = '1';
         videoEl.classList.add('has-poster');
+        return true;
       }
     } catch (_) {
       // cross-origin / tainted – מתעלמים
     }
+    return false;
   }
 
   async function ensureChatVideoPosterFrame(videoEl) {
@@ -457,6 +462,39 @@
     } finally {
       try { videoEl.muted = wasMuted; } catch (_) {}
     }
+  }
+
+  function lockChatVideoAspect(container, videoEl) {
+    if (!container || !videoEl) return false;
+    const w = videoEl.videoWidth;
+    const h = videoEl.videoHeight;
+    if (!w || !h) return false;
+    container.style.aspectRatio = `${w} / ${h}`;
+    container.classList.toggle('chat-message__video-container--portrait', h > w);
+    container.classList.toggle('chat-message__video-container--landscape', w >= h);
+    container.dataset.aspectLocked = '1';
+    return true;
+  }
+
+  function revealChatVideoPreview(container, videoEl, { allowBlackPoster = false } = {}) {
+    if (!container || !videoEl || container.dataset.ready === '1') return false;
+    if (!lockChatVideoAspect(container, videoEl)) return false;
+    const hasRealPoster = videoEl.dataset.posterCaptured === '1';
+    if (!hasRealPoster && !allowBlackPoster) return false;
+    if (!hasRealPoster) {
+      videoEl.poster = CHAT_VIDEO_BLACK_POSTER;
+      videoEl.classList.add('has-poster');
+    }
+    container.dataset.ready = '1';
+    container.removeAttribute('data-chat-video-pending');
+    videoEl.classList.add('is-ready');
+    videoEl.style.opacity = '1';
+    videoEl.style.visibility = 'visible';
+    const playBtn = container.querySelector('.chat-message__video-play');
+    const durationEl = container.querySelector('.chat-message__video-duration');
+    if (playBtn) playBtn.hidden = false;
+    if (durationEl) durationEl.hidden = false;
+    return true;
   }
 
   function renderVideoAttachment(attachment) {
@@ -483,6 +521,11 @@
       const playBtn = container?.querySelector('.chat-message__video-play');
       if (!el || !container) return;
 
+      if (!el.getAttribute('poster')) el.setAttribute('poster', CHAT_VIDEO_BLACK_POSTER);
+      el.style.background = '#000';
+      el.style.opacity = '0';
+      el.style.visibility = 'hidden';
+
       const playable = await resolveChatMediaSrc(attachment);
       const source = el.querySelector('source');
       if (playable) {
@@ -507,15 +550,25 @@
         }
       };
 
-      el.addEventListener('loadedmetadata', () => {
+      const tryReady = async ({ force = false } = {}) => {
+        if (container.dataset.ready === '1') return;
         updateDuration();
-        ensureChatVideoPosterFrame(el);
-      });
-      el.addEventListener('loadeddata', () => {
+        if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
         captureChatVideoPoster(el);
-        if (!el.dataset.posterCaptured) ensureChatVideoPosterFrame(el);
+        if (el.dataset.posterCaptured !== '1') await ensureChatVideoPosterFrame(el);
+        revealChatVideoPreview(container, el, { allowBlackPoster: force });
+      };
+
+      el.addEventListener('loadedmetadata', () => { tryReady(); });
+      el.addEventListener('loadeddata', () => { tryReady(); });
+      el.addEventListener('seeked', () => {
+        captureChatVideoPoster(el);
+        tryReady();
       });
-      el.addEventListener('seeked', () => captureChatVideoPoster(el));
+
+      // fallback — לא נתקעים על מסך שחור לנצח אם לכידת פריים נכשלה | HYPER CORE TECH
+      setTimeout(() => { tryReady({ force: true }); }, 4500);
+      if (el.readyState >= 1) tryReady();
 
       // כמו וואטסאפ – Play פותח מסך מלא, בלי controls בתוך הבועה | HYPER CORE TECH
       const openFullscreen = (event) => {
@@ -523,6 +576,7 @@
           event.preventDefault();
           event.stopPropagation();
         }
+        if (container.dataset.ready !== '1') return;
         const sourceEl = el.querySelector('source');
         const playSrc = (sourceEl && sourceEl.src) || el.currentSrc || playable || src;
         if (typeof openVideoLightbox === 'function') {
@@ -541,11 +595,11 @@
     }, 0);
 
     return `
-      <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1">
-        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא">
+      <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1" data-chat-video-pending="1">
+        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא" hidden>
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
         </button>
-        <span class="chat-message__video-duration">0:00</span>
+        <span class="chat-message__video-duration" hidden>0:00</span>
         <span class="chat-message__video-msg-time" data-video-time-slot></span>
         ${buildAttachmentDownloadHtml(attachment, 'chat-message__media-download')}
         <video
@@ -555,6 +609,8 @@
           playsinline
           webkit-playsinline
           muted
+          poster="${CHAT_VIDEO_BLACK_POSTER}"
+          style="opacity:0;visibility:hidden;background:#000"
           aria-label="${safeName}"
         >
           <source src="${initialSrc}" type="${type}">

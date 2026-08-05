@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -677,6 +678,10 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             settings.safeBrowsingEnabled = true
         }
+
+        // רקע שחור במעטפת — מונע הבזק לבן לפני טעינת וידאו/פוסטר | HYPER CORE TECH
+        webView.setBackgroundColor(Color.BLACK)
+        webView.setBackgroundResource(android.R.color.black)
 
         webView.addJavascriptInterface(SosJsBridge(this, webView), "SosNativeShell")
 

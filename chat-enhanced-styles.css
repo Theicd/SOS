@@ -503,6 +503,7 @@
   border-radius: 8px;
   overflow: hidden;
   margin: 4px 0;
+  background: #000;
 }
 
 .chat-message__video {
@@ -510,6 +511,7 @@
   height: auto;
   display: block;
   border-radius: 8px;
+  background: #000;
 }
 
 .chat-message__youtube-container {
@@ -1048,11 +1050,24 @@
   border-radius: 6px;
   overflow: hidden;
   margin: 2px 0;
-  background: #000;
+  background: #000 !important;
   position: relative;
   line-height: 0;
   cursor: pointer;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* עד מוכן: קופסה שחורה קבועה — בלי פליי לבן של Android ובלי קפיצות יחס | HYPER CORE TECH */
+.chat-message__video-container[data-chat-video-pending="1"] {
+  aspect-ratio: 3 / 4;
+  min-height: 200px;
+  max-height: 360px;
+  background: #000 !important;
+}
+
+.chat-message__video-container[data-ready="1"] {
+  min-height: 0;
+  max-height: 360px;
 }
 
 .chat-message__content--video-only {
@@ -1067,20 +1082,50 @@
 
 .chat-message__video {
   width: 100%;
+  height: 100%;
   max-height: 360px;
-  min-height: 160px;
+  min-height: 0;
   display: block;
   border-radius: 6px;
   object-fit: contain;
-  background: #000;
+  background: #000 !important;
   pointer-events: none;
-  /* מסתיר אייקון play מערכת של WebView עד שיש poster/פריים | HYPER CORE TECH */
   color: transparent;
 }
 
+.chat-message__video-container[data-chat-video-pending="1"] .chat-message__video {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chat-message__video.is-ready,
 .chat-message__video.has-poster,
 .chat-message__video[poster] {
   min-height: 0;
+}
+
+/* הסתרת פליי/controls מערכת של Chromium/Android WebView בצ'אט | HYPER CORE TECH */
+.chat-message__video-container video::-webkit-media-controls,
+.chat-message__video-container video::-webkit-media-controls-enclosure,
+.chat-message__video-container video::-webkit-media-controls-panel,
+.chat-message__video-container video::-webkit-media-controls-start-playback-button,
+.chat-message__video-container video::-webkit-media-controls-overlay-play-button,
+.chat-media-upload video::-webkit-media-controls,
+.chat-media-upload video::-webkit-media-controls-enclosure,
+.chat-media-upload video::-webkit-media-controls-panel,
+.chat-media-upload video::-webkit-media-controls-start-playback-button,
+.chat-media-upload video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  appearance: none !important;
 }
 
 /* כפתור Play יחיד במרכז (בלי פס נגן בדפדפן) | HYPER CORE TECH */
@@ -1102,6 +1147,16 @@
   padding: 0;
   transition: transform 0.15s ease, background-color 0.15s ease;
   pointer-events: auto;
+}
+
+.chat-message__video-play[hidden],
+.chat-message__video-duration[hidden] {
+  display: none !important;
+}
+
+.chat-message__video-container[data-chat-video-pending="1"] .chat-message__video-play,
+.chat-message__video-container[data-chat-video-pending="1"] .chat-message__video-duration {
+  display: none !important;
 }
 
 .chat-message__video-play:active {
@@ -1654,20 +1709,44 @@
   position: relative;
   border-radius: 6px;
   overflow: hidden;
-  background: #000;
+  background: #000 !important;
   line-height: 0;
   min-width: 180px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.chat-media-upload--pending {
+  aspect-ratio: 3 / 4;
+  min-height: 180px;
+  max-height: 360px;
+  background: #000 !important;
 }
 
 .chat-media-upload__media {
   display: block;
   width: 100%;
   max-height: 360px;
-  min-height: 140px;
+  min-height: 0;
   object-fit: contain;
-  background: #000;
+  background: #000 !important;
   pointer-events: none;
+}
+
+.chat-media-upload--pending .chat-media-upload__media {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chat-media-upload[data-media-ready="1"] {
+  min-height: 0;
+}
+
+.chat-media-upload[data-media-ready="1"] .chat-media-upload__media {
+  height: 100%;
 }
 
 .chat-media-upload__overlay {
