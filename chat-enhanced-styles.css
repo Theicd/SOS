@@ -1424,30 +1424,30 @@
   .chat-message__video-container,
   .chat-media-upload {
     width: auto;
-    max-width: min(86vw, 360px);
-    min-width: 240px;
+    max-width: min(73vw, 306px);
+    min-width: 200px;
   }
 
   .chat-message__video-container--landscape,
   .chat-media-upload--landscape {
-    max-width: min(88vw, 360px);
-    min-width: 260px;
-    max-height: min(42vh, 280px);
+    max-width: min(75vw, 306px);
+    min-width: 220px;
+    max-height: min(36vh, 238px);
   }
 
   .chat-message__video-container--portrait,
   .chat-media-upload--portrait {
-    max-width: min(82vw, 320px);
-    min-width: 240px;
-    max-height: min(70vh, 560px);
+    max-width: min(70vw, 272px);
+    min-width: 200px;
+    max-height: min(60vh, 476px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--landscape {
-    max-height: min(42vh, 280px);
+    max-height: min(36vh, 238px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--portrait {
-    max-height: min(70vh, 560px);
+    max-height: min(60vh, 476px);
   }
 
   .chat-message__video,

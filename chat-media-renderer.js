@@ -784,9 +784,9 @@
     // אם העמודה עדיין 0 (לפני layout) — נופלים ל־viewport | HYPER CORE TECH
     const raw = colW > 40 ? colW : viewW;
     const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    // מובייל: ~85% ממסך פחות מרווח בטוח. דסקטופ: עד בועת מדיה רגילה | HYPER CORE TECH
+    // מובייל: ~73% ממסך (הוקטן ב־15% מהמקסימום הקודם) | HYPER CORE TECH
     if (narrow) {
-      return Math.max(240, Math.min(Math.floor(viewW * 0.86), Math.floor(raw * 0.94) - 4));
+      return Math.max(200, Math.min(Math.floor(viewW * 0.73), Math.floor(raw * 0.8) - 4));
     }
     return Math.max(260, Math.min(380, Math.floor(raw * 0.72) - 16));
   }
@@ -798,12 +798,12 @@
     const viewW = window.innerWidth || 360;
     const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
 
-    // יעדי וואטסאפ: אנכי רחב יחסית + גבוה; אופקי רחב + נמוך יותר | HYPER CORE TECH
+    // יעדי וואטסאפ; במובייל מוקטן ב־15% | HYPER CORE TECH
     let maxW;
     let maxH;
     if (narrow) {
-      maxW = portrait ? Math.min(avail, Math.floor(viewW * 0.82)) : Math.min(avail, Math.floor(viewW * 0.88));
-      maxH = portrait ? Math.min(Math.round(vh * 0.7), 560) : Math.min(Math.round(vh * 0.42), 280);
+      maxW = portrait ? Math.min(avail, Math.floor(viewW * 0.70)) : Math.min(avail, Math.floor(viewW * 0.75));
+      maxH = portrait ? Math.min(Math.round(vh * 0.60), 476) : Math.min(Math.round(vh * 0.36), 238);
     } else {
       maxW = portrait ? Math.min(300, avail) : Math.min(360, avail);
       maxH = portrait ? Math.min(Math.round(vh * 0.7), 520) : 280;
@@ -816,7 +816,7 @@
       dispW = dispH * (w / h);
     }
     // לא לחרוג ממסך (מונע דחיפה שמאלה) | HYPER CORE TECH
-    const hardMaxW = Math.max(200, viewW - (narrow ? 28 : 48));
+    const hardMaxW = Math.max(180, viewW - (narrow ? 36 : 48));
     if (dispW > hardMaxW) {
       dispW = hardMaxW;
       dispH = Math.min(maxH, dispW * (h / w));
@@ -825,16 +825,16 @@
       dispW = avail;
       dispH = Math.min(maxH, dispW * (h / w));
     }
-    // רצפה — לא מיניאטורי | HYPER CORE TECH
-    const floorW = narrow ? (portrait ? 240 : 280) : (portrait ? 220 : 280);
+    // רצפה — לא מיניאטורי (גם אחרי צמצום 15%) | HYPER CORE TECH
+    const floorW = narrow ? (portrait ? 200 : 230) : (portrait ? 220 : 280);
     if (dispW < floorW && floorW <= hardMaxW) {
       dispW = Math.min(floorW, avail, hardMaxW);
       dispH = Math.min(maxH, dispW * (h / w));
     }
     return {
       portrait,
-      dispW: Math.max(200, Math.round(dispW)),
-      dispH: Math.max(140, Math.round(dispH)),
+      dispW: Math.max(180, Math.round(dispW)),
+      dispH: Math.max(120, Math.round(dispH)),
     };
   }
 
