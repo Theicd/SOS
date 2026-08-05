@@ -369,14 +369,14 @@
     return buildMediaDownloadButton(src, name, cls);
   }
 
-  // חלק רינדור תמונה (chat-media-renderer.js) – הצגת תמונה עם מטמון מקומי | HYPER CORE TECH
+  // חלק רינדור תמונה (chat-media-renderer.js) – חשיפה רק אחרי טעינה מלאה (בלי שלד/שם קובץ) | HYPER CORE TECH
   function renderImageAttachment(attachment) {
     const src = attachment.url || attachment.dataUrl || '';
     const name = attachment.name || 'תמונה';
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'img-' + Math.random().toString(36).substr(2, 9);
+    const wrapId = uid + '-wrap';
     const initialSrc = (src && !src.startsWith('blob:')) ? src : '';
-    // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור תמונה | HYPER CORE TECH
     mediaDebugLog('render-image', {
       name,
       mime: attachment.type || '',
@@ -386,25 +386,68 @@
       fileId: attachment.fileId || null,
       cacheKey: chatP2PCacheKey(attachment) || null,
     });
-    
-    // טעינה/שחזור אסינכרוני — כולל blob מת אחרי restart לפי fileId | HYPER CORE TECH
+
     setTimeout(async () => {
       const el = document.getElementById(uid);
-      if (!el) return;
-      const playable = await resolveChatMediaSrc(attachment);
-      if (playable && el.src !== playable) {
-        el.src = playable;
+      const wrap = document.getElementById(wrapId);
+      if (!el || !wrap) return;
+
+      const revealImage = () => {
+        if (wrap.dataset.ready === '1') return;
+        wrap.dataset.ready = '1';
+        wrap.classList.remove('is-media-pending', 'is-media-failed');
+        wrap.classList.add('is-media-ready');
+        wrap.hidden = false;
+        el.style.opacity = '1';
+      };
+
+      const failImage = () => {
+        wrap.dataset.ready = '0';
+        wrap.classList.remove('is-media-pending', 'is-media-ready');
+        wrap.classList.add('is-media-failed');
+        wrap.hidden = true;
+        try { el.removeAttribute('src'); } catch (_) {}
+        // מסתירים גם את בועת ההודעה אם אין טקסט אחר — בלי פסים/שם קובץ | HYPER CORE TECH
+        const msg = wrap.closest('.chat-message');
+        if (msg && !msg.querySelector('.chat-message__text:not(:empty)') && !msg.querySelector('audio, .chat-message__video-container.is-media-ready')) {
+          const textEl = msg.querySelector('.chat-message__text');
+          const raw = (textEl?.textContent || '').trim();
+          if (!raw || raw === `📎 ${name}` || raw.startsWith('📎 ')) {
+            msg.hidden = true;
+            msg.classList.add('chat-message--media-failed');
+          }
+        }
+      };
+
+      el.addEventListener('load', revealImage);
+      el.addEventListener('error', failImage);
+
+      let playable = initialSrc;
+      try {
+        const resolved = await resolveChatMediaSrc(attachment);
+        if (resolved) playable = resolved;
+      } catch (_) {}
+
+      if (!playable) {
+        failImage();
+        return;
       }
+      if (el.src !== playable) el.src = playable;
+      if (el.complete && el.naturalWidth > 0) revealImage();
+      // timeout — לא משאירים שלד לנצח | HYPER CORE TECH
+      setTimeout(() => {
+        if (wrap.dataset.ready !== '1') failImage();
+      }, 12000);
     }, 0);
 
     const downloadHtml = buildAttachmentDownloadHtml(attachment, 'chat-message__media-download');
-    
+
     return `
-      <div class="chat-message__image-container">
-        <img 
+      <div id="${wrapId}" class="chat-message__image-container is-media-pending" hidden>
+        <img
           id="${uid}"
-          src="${initialSrc}" 
-          alt="${safeName}" 
+          src="${initialSrc}"
+          alt=""
           class="chat-message__image"
           loading="eager"
           decoding="async"
@@ -453,7 +496,7 @@
     return false;
   }
 
-  // לכידת תקציר מוידאו File/Blob ב־video ב־DOM (עובד ב־Android WebView ובדפדפן) | HYPER CORE TECH
+  // לכידת תקציר מוידאו File/Blob — video מחוץ למסך לגמרי (בלי פליי לבן ברקע) | HYPER CORE TECH
   async function capturePosterFromBlob(blobOrFile, mimeHint = '') {
     if (!blobOrFile) return '';
     const mime = String(mimeHint || blobOrFile.type || '').toLowerCase();
@@ -467,22 +510,44 @@
     return new Promise((resolve) => {
       let settled = false;
       const objectUrl = URL.createObjectURL(blobOrFile);
+      const host = document.createElement('div');
+      host.setAttribute('aria-hidden', 'true');
+      // מחוץ ל־viewport + מוסתר — המשתמש לא רואה פליי מערכת / קפיצות | HYPER CORE TECH
+      host.style.cssText = [
+        'position:fixed',
+        'left:-10000px',
+        'top:0',
+        'width:320px',
+        'height:320px',
+        'opacity:0',
+        'visibility:hidden',
+        'pointer-events:none',
+        'overflow:hidden',
+        'clip:rect(0,0,0,0)',
+        'clip-path:inset(50%)',
+        'z-index:-1',
+        'contain:strict',
+      ].join(';');
+
       const video = document.createElement('video');
       video.muted = true;
       video.defaultMuted = true;
       video.playsInline = true;
+      video.disablePictureInPicture = true;
+      video.controls = false;
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
+      video.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback');
       video.preload = 'auto';
-      // גודל נראה ב־DOM — לא opacity:0 מלא (במיוחד בווב) | HYPER CORE TECH
-      video.style.cssText = 'position:fixed;left:8px;top:8px;width:240px;height:240px;opacity:0.05;pointer-events:none;z-index:2147483646;background:#000;';
-      document.body.appendChild(video);
+      video.style.cssText = 'width:320px;height:320px;opacity:0;visibility:hidden;background:#000;';
+      host.appendChild(video);
+      document.body.appendChild(host);
 
       const cleanup = () => {
         try { URL.revokeObjectURL(objectUrl); } catch (_) {}
         try { video.pause(); } catch (_) {}
         try { video.removeAttribute('src'); video.load(); } catch (_) {}
-        try { video.remove(); } catch (_) {}
+        try { host.remove(); } catch (_) {}
       };
 
       const finish = (dataUrl) => {
@@ -687,6 +752,10 @@
     const w = videoEl.videoWidth;
     const h = videoEl.videoHeight;
     if (!w || !h) return false;
+    // אחרי חשיפה — לא משנים יחס (מונע קפיצה אנכי/אופקי לעין המשתמש) | HYPER CORE TECH
+    if (container.dataset.ready === '1' && container.dataset.aspectLocked === '1') {
+      return true;
+    }
     container.style.aspectRatio = `${w} / ${h}`;
     container.classList.toggle('chat-message__video-container--portrait', h > w);
     container.classList.toggle('chat-message__video-container--landscape', w >= h);
@@ -695,12 +764,9 @@
   }
 
   function revealChatVideoPreview(container, videoEl, { allowWithoutPoster = false } = {}) {
-    if (!container || !videoEl || container.dataset.ready === '1') {
-      // כבר ready — רק נועלים יחס אם צריך, בלי לחשוף וידאו מעל תקציר | HYPER CORE TECH
-      if (container?.dataset?.ready === '1' && videoEl?.videoWidth) {
-        lockChatVideoAspect(container, videoEl);
-      }
-      return container?.dataset?.ready === '1';
+    if (!container || !videoEl) return false;
+    if (container.dataset.ready === '1') {
+      return true;
     }
     if (!lockChatVideoAspect(container, videoEl)) return false;
     const hasRealPoster = videoEl.dataset.posterCaptured === '1';
@@ -713,8 +779,16 @@
       try { videoEl.removeAttribute('poster'); } catch (_) {}
     }
 
+    // נועלים יחס לפני חשיפה | HYPER CORE TECH
+    if (videoEl.videoWidth && videoEl.videoHeight) {
+      lockChatVideoAspect(container, videoEl);
+    }
+
     container.dataset.ready = '1';
     container.removeAttribute('data-chat-video-pending');
+    container.classList.remove('is-media-pending', 'is-media-failed');
+    container.classList.add('is-media-ready');
+    container.hidden = false;
     videoEl.classList.add('is-ready');
 
     if (hasRealPoster || thumbVisible) {
@@ -739,6 +813,23 @@
     return true;
   }
 
+  function failChatVideoPreview(container) {
+    if (!container) return;
+    container.classList.remove('is-media-pending', 'is-media-ready');
+    container.classList.add('is-media-failed');
+    container.hidden = true;
+    const msg = container.closest('.chat-message');
+    if (!msg) return;
+    const textEl = msg.querySelector('.chat-message__text');
+    const raw = (textEl?.textContent || '').trim();
+    const onlyFileLabel = !raw || /^📎\s/.test(raw);
+    const hasOtherMedia = msg.querySelector('.chat-message__image-container.is-media-ready, audio, .chat-audio');
+    if (onlyFileLabel && !hasOtherMedia) {
+      msg.hidden = true;
+      msg.classList.add('chat-message--media-failed');
+    }
+  }
+
   function renderVideoAttachment(attachment) {
     const src = attachment.url || attachment.dataUrl || '';
     const type = attachment.type || 'video/mp4';
@@ -758,10 +849,11 @@
       return '';
     })();
     const androidPlaceholder = needsAndroidVideoPlaceholder();
-    // בווב: לא מסתירים מאחורי פריים שחור — רק באנדרואיד | HYPER CORE TECH
     const usePendingBlack = androidPlaceholder && !knownPoster;
-    const pendingAttr = usePendingBlack ? ' data-chat-video-pending="1"' : '';
-    const readyAttr = knownPoster || !usePendingBlack ? ' data-ready="1"' : '';
+    // תמיד מוסתר עד ready+aspect — בלי פסים/קפיצות לעין | HYPER CORE TECH
+    const pendingAttr = knownPoster ? '' : ' data-chat-video-pending="1"';
+    const readyAttr = '';
+    const mediaStateClass = knownPoster ? ' has-video-thumb is-media-pending' : ' is-media-pending';
     mediaDebugLog('render-video', {
       name,
       mime: type,
@@ -779,34 +871,20 @@
       const playBtn = container?.querySelector('.chat-message__video-play');
       if (!el || !container) return;
 
-      // תקציר ידוע מראש — מציגים מיד, בלי לחכות ללכידה על אלמנט מוסתר | HYPER CORE TECH
+      // תקציר מוכן — עדיין מחכים ל־metadata לנעילת יחס לפני חשיפה | HYPER CORE TECH
       if (knownPoster) {
         applyChatVideoPoster(container, el, knownPoster);
-        // הווידאו נשאר מוסתר מתחת לתקציר — בלי ריצוד שחור | HYPER CORE TECH
-        if (playBtn) playBtn.hidden = false;
-        const durationEl = container.querySelector('.chat-message__video-duration');
-        if (durationEl) durationEl.hidden = false;
-      } else if (usePendingBlack) {
-        el.style.background = '#000';
-        el.style.opacity = '0';
-        el.style.visibility = 'hidden';
-      } else {
-        // ווב בלי תקציר עדיין: מציגים וידאו עד שיש תקציר | HYPER CORE TECH
-        el.removeAttribute('poster');
-        el.style.background = '#000';
-        el.style.opacity = '1';
-        el.style.visibility = 'visible';
-        if (playBtn) playBtn.hidden = false;
-        const durationEl = container.querySelector('.chat-message__video-duration');
-        if (durationEl) durationEl.hidden = false;
       }
+      el.style.background = '#000';
+      el.style.opacity = '0';
+      el.style.visibility = 'hidden';
 
       // ניסיון טעינת תקציר שמור לפי fileId (אחרי restart) | HYPER CORE TECH
       if (!knownPoster && attachment.fileId) {
         loadChatP2PPosterDataUrl(attachment).then((cachedPoster) => {
           if (!cachedPoster || el.dataset.posterCaptured === '1') return;
           applyChatVideoPoster(container, el, cachedPoster);
-          revealChatVideoPreview(container, el, { allowWithoutPoster: true });
+          if (el.videoWidth) revealChatVideoPreview(container, el, { allowWithoutPoster: true });
         }).catch(() => {});
       }
 
@@ -816,20 +894,25 @@
         if (resolved) playable = resolved;
       } catch (_) {}
 
-      const source = el.querySelector('source');
-      if (playable) {
-        if (source) {
-          if (source.getAttribute('src') !== playable) {
-            source.src = playable;
-            el.load();
-          }
-        } else if (el.src !== playable) {
-          el.src = playable;
-          try { el.load(); } catch (_) {}
-        }
+      if (!playable) {
+        failChatVideoPreview(container);
+        return;
       }
 
-      // אם אין תקציר — לכידה מ־blob ב־off-DOM (לא מהאלמנט המוסתר בבועה) | HYPER CORE TECH
+      const source = el.querySelector('source');
+      if (source) {
+        if (source.getAttribute('src') !== playable) {
+          source.src = playable;
+          el.load();
+        }
+      } else if (el.src !== playable) {
+        el.src = playable;
+        try { el.load(); } catch (_) {}
+      }
+
+      el.addEventListener('error', () => failChatVideoPreview(container), { once: true });
+
+      // אם אין תקציר — לכידה off-screen (המשתמש לא רואה) | HYPER CORE TECH
       if (el.dataset.posterCaptured !== '1' && playable) {
         try {
           const blobResp = await fetch(playable);
@@ -841,7 +924,7 @@
               if (attachment.fileId) {
                 persistChatP2PPoster(attachment.fileId, offDomPoster).catch(() => {});
               }
-              revealChatVideoPreview(container, el, { allowWithoutPoster: true });
+              if (el.videoWidth) revealChatVideoPreview(container, el, { allowWithoutPoster: true });
             }
           }
         } catch (_) {}
@@ -860,37 +943,29 @@
       let warming = false;
       const tryReady = async ({ force = false } = {}) => {
         if (warming) return;
-        // יש תקציר — רק מעדכנים משך/יחס, בלי play/pause שגורם לריצוד | HYPER CORE TECH
         if (el.dataset.posterCaptured === '1') {
           updateDuration();
-          if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
           revealChatVideoPreview(container, el, { allowWithoutPoster: true });
           return;
         }
         warming = true;
         try {
           updateDuration();
-          if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
           if (el.dataset.posterCaptured !== '1') {
-            const prevOpacity = el.style.opacity;
-            const prevVis = el.style.visibility;
-            el.style.opacity = '0.02';
-            el.style.visibility = 'visible';
             captureChatVideoPoster(el);
             if (el.dataset.posterCaptured !== '1') {
               await ensureChatVideoPosterFrame(el);
             }
             if (el.dataset.posterCaptured === '1') {
-              // אחרי לכידה — חוזרים להסתיר וידאו ולהציג תקציר | HYPER CORE TECH
               applyChatVideoPoster(container, el, el.poster);
-            } else {
-              el.style.opacity = prevOpacity;
-              el.style.visibility = prevVis;
             }
           }
-          revealChatVideoPreview(container, el, {
+          const ok = revealChatVideoPreview(container, el, {
             allowWithoutPoster: force || el.dataset.previewFrame === '1' || el.dataset.posterCaptured === '1',
           });
+          if (force && !ok && container.dataset.ready !== '1') {
+            failChatVideoPreview(container);
+          }
         } finally {
           warming = false;
         }
@@ -905,10 +980,14 @@
       });
 
       setTimeout(() => { tryReady({ force: true }); }, 2500);
-      setTimeout(() => { tryReady({ force: true }); }, 6000);
+      setTimeout(() => {
+        if (container.dataset.ready !== '1') tryReady({ force: true });
+      }, 6000);
+      setTimeout(() => {
+        if (container.dataset.ready !== '1') failChatVideoPreview(container);
+      }, 12000);
       if (el.readyState >= 1 || knownPoster) tryReady({ force: !!knownPoster });
 
-      // כמו וואטסאפ – Play פותח מסך מלא, בלי controls בתוך הבועה | HYPER CORE TECH
       const openFullscreen = (event) => {
         if (event) {
           event.preventDefault();
@@ -938,32 +1017,25 @@
     const thumbHtml = knownPoster
       ? `<img class="chat-message__video-thumb" alt="" src="${knownPoster}" decoding="async">`
       : `<img class="chat-message__video-thumb" alt="" hidden decoding="async">`;
-    const videoStyle = knownPoster
-      ? 'opacity:0;visibility:hidden;background:#000'
-      : ((knownPoster || !usePendingBlack)
-        ? 'opacity:1;visibility:visible;background:#000'
-        : 'opacity:0;visibility:hidden;background:#000');
-    const showChrome = !!(knownPoster || !usePendingBlack);
-    const thumbClass = knownPoster ? ' has-video-thumb' : '';
 
     return `
-      <div id="${containerId}" class="chat-message__video-container${thumbClass}" data-chat-video-preview="1"${pendingAttr}${readyAttr}>
+      <div id="${containerId}" class="chat-message__video-container${mediaStateClass}" data-chat-video-preview="1"${pendingAttr}${readyAttr} hidden>
         ${thumbHtml}
-        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא"${showChrome ? '' : ' hidden'}>
+        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא" hidden>
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
         </button>
-        <span class="chat-message__video-duration"${showChrome ? '' : ' hidden'}>0:00</span>
+        <span class="chat-message__video-duration" hidden>0:00</span>
         <span class="chat-message__video-msg-time" data-video-time-slot></span>
         ${buildAttachmentDownloadHtml(attachment, 'chat-message__media-download')}
         <video
           id="${uid}"
-          class="chat-message__video${knownPoster ? ' has-poster is-ready' : ''}"
+          class="chat-message__video${knownPoster ? ' has-poster' : ''}"
           preload="auto"
           playsinline
           webkit-playsinline
           muted
           ${posterAttr ? `poster="${posterAttr}"` : ''}
-          style="${videoStyle}"
+          style="opacity:0;visibility:hidden;background:#000"
           aria-label="${safeName}"
         >
           <source src="${initialSrc}" type="${type}">

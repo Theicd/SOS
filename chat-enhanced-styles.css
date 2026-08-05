@@ -1006,6 +1006,25 @@
   border-radius: 12px;
   overflow: hidden;
   margin: 4px 0;
+  background: #000;
+}
+
+.chat-message__image-container.is-media-pending,
+.chat-message__image-container.is-media-failed,
+.chat-message__video-container.is-media-pending,
+.chat-message__video-container.is-media-failed,
+.chat-message--media-failed {
+  display: none !important;
+}
+
+.chat-message__image-container.is-media-ready,
+.chat-message__video-container.is-media-ready {
+  display: block;
+}
+
+.chat-message__image-container[hidden],
+.chat-message__video-container[hidden] {
+  display: none !important;
 }
 
 .chat-message__image {
@@ -1057,15 +1076,13 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
-/* עד מוכן: קופסה שחורה קבועה — בלי פליי לבן של Android ובלי קפיצות יחס | HYPER CORE TECH */
+/* עד מוכן: לא תופסים מקום ולא מציגים שלד/פסים | HYPER CORE TECH */
 .chat-message__video-container[data-chat-video-pending="1"] {
-  aspect-ratio: 3 / 4;
-  min-height: 200px;
-  max-height: 360px;
-  background: #000 !important;
+  display: none !important;
 }
 
 .chat-message__video-container[data-ready="1"] {
+  display: block;
   min-height: 0;
   max-height: 360px;
 }
