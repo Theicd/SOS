@@ -125,10 +125,15 @@
 
   function reportCompressProgress(peer, compressId, file, stage, percent, previewUrl) {
     const pct = typeof percent === 'number' ? percent : 0;
+    // לא 'complete' — מונע בועת "נשלח" נפרדת לפני תחילת P2P | HYPER CORE TECH
+    const status =
+      stage === 'failed' ? 'failed'
+      : stage === 'complete' ? 'starting'
+      : 'compressing';
     App.handleP2PProgressUpdate?.({
       fileId: compressId,
       progress: Math.max(0, Math.min(1, pct / 100)),
-      status: stage === 'complete' ? 'complete' : stage === 'failed' ? 'failed' : 'compressing',
+      status,
       direction: 'send',
       name: file?.name || 'video',
       size: file?.size || 0,
@@ -142,10 +147,10 @@
 
   // חלק דחיסה (chat-file-transfer-ui.js) – וידאו בצ'אט עובר compressVideo לפני P2P/Torrent עם בועת התקדמות | HYPER CORE TECH
   async function maybeCompressVideoForChat(peer, file, previewUrl) {
-    if (!looksLikeVideoFile(file)) return file;
+    if (!looksLikeVideoFile(file)) return { file, compressId: null };
     if (typeof App.compressVideo !== 'function') {
       log('compressVideo לא זמין — שולח מקור');
-      return file;
+      return { file, compressId: null };
     }
 
     const compressId = `compress-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -169,11 +174,11 @@
         );
       });
 
-      reportCompressProgress(peer, compressId, file, 'complete', 100, previewUrl);
+      reportCompressProgress(peer, compressId, file, 'complete', 99, previewUrl);
 
       if (!result?.blob) {
         log('דחיסה ללא blob — שולח מקור');
-        return file;
+        return { file, compressId };
       }
 
       const ext = /webm/i.test(result.type || '') ? '.webm' : '.mp4';
@@ -190,11 +195,11 @@
         compressedMB: (compressedFile.size / (1024 * 1024)).toFixed(2),
         ratio: result.compressionRatio,
       });
-      return compressedFile;
+      return { file: compressedFile, compressId };
     } catch (err) {
       log('דחיסת וידאו נכשלה — ממשיכים עם מקור', err?.message || err);
       reportCompressProgress(peer, compressId, file, 'failed', 0, previewUrl);
-      return file;
+      return { file, compressId };
     }
   }
 
@@ -220,7 +225,9 @@
     }
 
     // דחיסת וידאו לפני כל מסלול שליחה (P2P / Torrent / inline)
-    file = await maybeCompressVideoForChat(peer, file, localPreviewUrl);
+    const compressResult = await maybeCompressVideoForChat(peer, file, localPreviewUrl);
+    file = compressResult?.file || file;
+    let pipelineCompressId = compressResult?.compressId || null;
 
     // אם אחרי דחיסה יש קובץ חדש — לכוד ממנו (עדיף על המקור) | HYPER CORE TECH
     if (looksLikeVideoFile(file) && typeof App.capturePosterFromBlob === 'function') {
@@ -243,6 +250,16 @@
       });
       return posterDataUrl || '';
     };
+
+    const adoptCompressBubble = (realFileId) => {
+      if (!realFileId) return;
+      if (pipelineCompressId && pipelineCompressId !== realFileId) {
+        App.adoptChatTransferBubble?.(pipelineCompressId, realFileId);
+        pipelineCompressId = null;
+      }
+      // ניקוי שאריות compress שלא אומצו | HYPER CORE TECH
+      App.cleanupOrphanCompressTransferBubbles?.();
+    };
     
     // חלק ניתוב קבצים (chat-file-transfer-ui.js) – מעל 90KB מעדיפים P2P, ואם נכשל עוברים ל-inline עד 256KB
     // אם DC כבר מחובר — גם קבצים קטנים עוברים P2P כדי לא לעמיס על relay | HYPER CORE TECH
@@ -252,6 +269,7 @@
       try {
         const previewUrl = localPreviewUrl || (isVisualMedia ? URL.createObjectURL(file) : '');
         const onProgress = (evt) => {
+          if (evt?.fileId) adoptCompressBubble(evt.fileId);
           const enriched = {
             ...(evt || {}),
             previewUrl: evt?.previewUrl || previewUrl || undefined,
@@ -266,10 +284,12 @@
           }
           App.handleP2PProgressUpdate?.(enriched);
         };
+        // מאמצים בועת דחיסה לפני progress ראשון של השליחה (subscribe עלול לרוץ לפני onProgress) | HYPER CORE TECH
         const fileId = await App.sendP2PFile(peer, file, onProgress);
         if (!fileId) {
           throw new Error('p2p-send-returned-empty-id');
         }
+        adoptCompressBubble(fileId);
         const posterDataUrl = await attachPosterToFileId(fileId, previewUrl);
         log('שולח P2P', { peer, fileId, name: file.name, size: file.size, hasPoster: !!posterDataUrl });
         // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview תחתון לקבצי P2P כי ההעברה כבר מתחילה | HYPER CORE TECH
@@ -307,6 +327,8 @@
       if (typeof App.torrentTransfer?.requestTransfer === 'function') {
         try {
           log('P2P לא זמין לקובץ גדול, עובר ל-WebTorrent', { name: file.name, size: file.size });
+          App.cleanupOrphanCompressTransferBubbles?.();
+          pipelineCompressId = null;
           if (localPreviewUrl) {
             // יישום מוקדם של preview לפני שהטורנט מקבל transferId | HYPER CORE TECH
             App.registerChatTransferPreview?.(`pending-torrent-${Date.now()}`, {

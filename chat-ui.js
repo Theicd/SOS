@@ -482,6 +482,72 @@
     return true;
   }
 
+  function adoptChatTransferBubble(oldFileId, newFileId) {
+    if (!oldFileId || !newFileId || oldFileId === newFileId || !elements.messagesContainer) return false;
+    const bubble = elements.messagesContainer.querySelector(`[data-transfer-id="${oldFileId}"]`);
+    if (!bubble || bubble.getAttribute('data-message-id')) return false;
+
+    bubble.setAttribute('data-transfer-id', newFileId);
+    bubble.querySelectorAll('[data-cancel-transfer]').forEach((btn) => {
+      btn.setAttribute('data-cancel-transfer', newFileId);
+    });
+
+    const prevProgress = state.transferProgress.get(oldFileId);
+    if (prevProgress) {
+      state.transferProgress.delete(oldFileId);
+      state.transferProgress.set(newFileId, { ...prevProgress, fileId: newFileId });
+    }
+    const prevPreview = transferMediaPreviews.get(oldFileId);
+    if (prevPreview) {
+      transferMediaPreviews.delete(oldFileId);
+      const existingPreview = transferMediaPreviews.get(newFileId);
+      transferMediaPreviews.set(newFileId, {
+        url: existingPreview?.url || prevPreview.url || '',
+        mime: existingPreview?.mime || prevPreview.mime || '',
+        name: existingPreview?.name || prevPreview.name || '',
+        size: existingPreview?.size || prevPreview.size || 0,
+        posterDataUrl: existingPreview?.posterDataUrl || prevPreview.posterDataUrl || '',
+      });
+    }
+    return true;
+  }
+
+  function cleanupOrphanCompressTransferBubbles(keepFileId = null) {
+    if (!elements.messagesContainer) return;
+    elements.messagesContainer.querySelectorAll('[data-transfer-id^="compress-"]').forEach((el) => {
+      const id = el.getAttribute('data-transfer-id');
+      if (keepFileId && id === keepFileId) return;
+      if (el.getAttribute('data-message-id') || el.getAttribute('data-p2p-file-id')) return;
+      el.remove();
+      if (id) {
+        state.transferProgress.delete(id);
+        transferMediaPreviews.delete(id);
+      }
+    });
+  }
+
+  function findOrClaimTransferBubble(fileId) {
+    if (!fileId || !elements.messagesContainer) return null;
+    const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${fileId}"]`);
+    if (existing) return existing;
+
+    // מאמצים בועת דחיסה פתוחה במקום ליצור בועה שנייה לאותו וידאו | HYPER CORE TECH
+    const compressBubbles = elements.messagesContainer.querySelectorAll('[data-transfer-id^="compress-"]');
+    for (const el of compressBubbles) {
+      if (el.getAttribute('data-message-id') || el.getAttribute('data-p2p-file-id')) continue;
+      if (!el.querySelector('.chat-media-upload')) continue;
+      const oldId = el.getAttribute('data-transfer-id');
+      if (adoptChatTransferBubble(oldId, fileId)) {
+        cleanupOrphanCompressTransferBubbles(fileId);
+        return el;
+      }
+    }
+    return null;
+  }
+
+  App.adoptChatTransferBubble = adoptChatTransferBubble;
+  App.cleanupOrphanCompressTransferBubbles = cleanupOrphanCompressTransferBubbles;
+
   function scheduleTransferBubbleCleanup(bubble, progress, ui) {
     // מדיה יוצאת שהושלמה — נשארת כהודעה (settle), בלי מחיקה שגורמת לקפיצה | HYPER CORE TECH
     if (ui.isTerminalOk && isOutgoingMediaTransfer(progress)) {
@@ -756,14 +822,15 @@
 
     // תמונה/וידאו יוצאים – בועת מדיה כמו וואטסאפ (בלי שם קובץ ופס אחוזים) | HYPER CORE TECH
     if (isOutgoingMediaTransfer(progress)) {
-      const existingMedia = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
+      const existingMedia = findOrClaimTransferBubble(progress.fileId);
       renderMediaTransferProgress(progress, existingMedia);
       return;
     }
 
     const isReceive = progress.direction === 'receive';
     const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
-    const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
+    const existing = findOrClaimTransferBubble(progress.fileId) ||
+      elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`);
     // אם הייתה בועת מדיה והקובץ לא מזוהה יותר כמדיה – ממשיכים להחליף לבועת קובץ
     if (existing?.querySelector('.chat-media-upload') && !isOutgoingMediaTransfer(progress)) {
       existing.remove();
