@@ -394,6 +394,15 @@
 
       const revealImage = () => {
         if (wrap.dataset.ready === '1') return;
+        const nw = el.naturalWidth || 0;
+        const nh = el.naturalHeight || 0;
+        if (nw && nh && typeof applyChatMediaBoxSize === 'function') {
+          const box = applyChatMediaBoxSize(wrap, nw, nh, { force: true });
+          if (box) {
+            wrap.classList.toggle('chat-message__image-container--portrait', !!box.portrait);
+            wrap.classList.toggle('chat-message__image-container--landscape', !box.portrait);
+          }
+        }
         wrap.dataset.ready = '1';
         wrap.classList.remove('is-media-pending', 'is-media-failed');
         wrap.classList.add('is-media-ready');
@@ -889,7 +898,7 @@
   function reflowLockedChatMedia() {
     try {
       document.querySelectorAll(
-        '.chat-message__video-container[data-aspect-locked="1"], .chat-media-upload[data-aspect-locked="1"], .chat-media-upload[data-media-ready="1"]'
+        '.chat-message__video-container[data-aspect-locked="1"], .chat-message__image-container[data-aspect-locked="1"], .chat-media-upload[data-aspect-locked="1"], .chat-media-upload[data-media-ready="1"]'
       ).forEach((el) => {
         const nw = Number(el.dataset.mediaNw || 0);
         const nh = Number(el.dataset.mediaNh || 0);
@@ -898,6 +907,8 @@
           if (box) {
             el.classList.toggle('chat-message__video-container--portrait', !!box.portrait);
             el.classList.toggle('chat-message__video-container--landscape', !box.portrait);
+            el.classList.toggle('chat-message__image-container--portrait', !!box.portrait);
+            el.classList.toggle('chat-message__image-container--landscape', !box.portrait);
             el.classList.toggle('chat-media-upload--portrait', !!box.portrait);
             el.classList.toggle('chat-media-upload--landscape', !box.portrait);
           }
@@ -914,6 +925,8 @@
           if (box) {
             el.classList.toggle('chat-media-upload--portrait', !!box.portrait);
             el.classList.toggle('chat-media-upload--landscape', !box.portrait);
+            el.classList.toggle('chat-message__image-container--portrait', !!box.portrait);
+            el.classList.toggle('chat-message__image-container--landscape', !box.portrait);
           }
         }
       });

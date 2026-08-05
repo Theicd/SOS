@@ -1003,10 +1003,26 @@
   position: relative;
   max-width: 280px;
   min-width: 200px;
+  width: auto;
+  box-sizing: border-box;
   border-radius: 12px;
   overflow: hidden;
   margin: 4px 0;
   background: #000;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.chat-message__image-container--landscape {
+  max-width: 360px;
+  min-width: 220px;
+  max-height: 280px;
+}
+
+.chat-message__image-container--portrait {
+  max-width: 300px;
+  min-width: 200px;
+  max-height: min(70vh, 520px);
 }
 
 .chat-message__image-container.is-media-pending,
@@ -1047,8 +1063,8 @@
 
 .chat-message__image {
   width: 100%;
-  height: auto;
-  max-height: 400px;
+  height: 100%;
+  max-height: none;
   object-fit: contain;
   display: block;
   cursor: pointer;
@@ -1413,12 +1429,24 @@
 
   .chat-message__image-container,
   .chat-message__youtube-container {
-    max-width: min(86vw, 100%);
+    max-width: min(73vw, 306px);
+    min-width: 180px;
+  }
+
+  .chat-message__image-container--landscape {
+    max-width: min(75vw, 306px);
     min-width: 200px;
+    max-height: min(36vh, 238px);
+  }
+
+  .chat-message__image-container--portrait {
+    max-width: min(70vw, 272px);
+    min-width: 180px;
+    max-height: min(60vh, 476px);
   }
 
   .chat-message__image {
-    max-height: min(70vh, 520px);
+    max-height: none;
   }
 
   .chat-message__video-container,
