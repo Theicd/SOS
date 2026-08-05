@@ -1760,7 +1760,7 @@
 
 .chat-media-upload__ring-fg {
   fill: none;
-  stroke: #fff;
+  stroke: #ff2d55;
   stroke-width: 2.2;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.2s ease;

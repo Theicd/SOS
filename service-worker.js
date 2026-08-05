@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v235'; // bump - feed cards only when media ready (no empty scroll)
+  const CACHE_NAME = 'sos-cache-v236'; // bump - red fill on chat media upload progress ring
   const PRECACHE_URLS = [
     './',
     './videos.html',
