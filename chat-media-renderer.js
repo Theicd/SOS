@@ -1572,6 +1572,7 @@
     detectAndRenderYouTube,
     extractYouTubeId,
     openImageLightbox,
+    openVideoLightbox,
     applyChatMediaBoxSize,
     computeChatMediaBox,
     reflowLockedChatMedia,
