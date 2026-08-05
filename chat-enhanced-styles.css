@@ -1723,9 +1723,9 @@
   z-index: 3;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 5px;
-  border-radius: 3px;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   font-size: 11px;
@@ -1742,13 +1742,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
 }
 
 .chat-media-upload__ring {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   transform: rotate(-90deg);
   color: #ff2d55;
 }
@@ -1756,25 +1756,25 @@
 .chat-media-upload__ring-bg {
   fill: none !important;
   stroke: rgba(255, 255, 255, 0.35) !important;
-  stroke-width: 2.2 !important;
+  stroke-width: 2.6 !important;
 }
 
 .chat-media-upload__ring-fg {
   fill: none !important;
   stroke: #ff2d55 !important;
-  stroke-width: 2.5 !important;
+  stroke-width: 3 !important;
   stroke-linecap: round !important;
   transition: stroke-dashoffset 0.2s ease;
 }
 
 .chat-media-upload__checks {
   color: #53bdeb;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .chat-media-upload__fail {
   color: #ff6b6b;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .chat-media-upload__status {
