@@ -1093,9 +1093,33 @@
   color: transparent;
 }
 
+/* תמונת תקציר מעל הווידאו — אמינה יותר מ־video.poster ב־Android | HYPER CORE TECH */
+.chat-message__video-thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 6px;
+}
+
+.chat-message__video-thumb[hidden] {
+  display: none !important;
+}
+
 .chat-message__video-container[data-chat-video-pending="1"] .chat-message__video {
   opacity: 0 !important;
   visibility: hidden !important;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chat-message__video-container[data-ready="1"] .chat-message__video {
   position: absolute;
   inset: 0;
   width: 100%;

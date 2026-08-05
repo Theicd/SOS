@@ -417,26 +417,50 @@
   }
   
   // חלק רינדור וידאו (chat-media-renderer.js) – נגן בסגנון וואטסאפ: poster + play אחד (בלי פליי ענק של WebView) | HYPER CORE TECH
-  // poster שחור 1×1 — מונע משטח לבן/פליי מערכת של Android WebView | HYPER CORE TECH
+  // poster שחור 1×1 — רק בזמן pending, מוסר בחשיפה אם אין פריים אמיתי | HYPER CORE TECH
   const CHAT_VIDEO_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  function canvasLooksMostlyBlack(ctx, canvas) {
+    try {
+      const sw = Math.min(24, canvas.width);
+      const sh = Math.min(24, canvas.height);
+      const { data } = ctx.getImageData(0, 0, sw, sh);
+      let lit = 0;
+      const total = sw * sh;
+      for (let i = 0; i < data.length; i += 4) {
+        if ((data[i] + data[i + 1] + data[i + 2]) > 40) lit += 1;
+      }
+      return lit < Math.max(2, total * 0.02);
+    } catch (_) {
+      return false;
+    }
+  }
 
   function captureChatVideoPoster(videoEl) {
     if (!videoEl || videoEl.dataset.posterCaptured === '1') return false;
     if (!videoEl.videoWidth || !videoEl.videoHeight) return false;
+    if (videoEl.readyState < 2) return false;
     try {
       const maxW = 640;
       const scale = Math.min(1, maxW / videoEl.videoWidth);
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(videoEl.videoWidth * scale));
       canvas.height = Math.max(1, Math.round(videoEl.videoHeight * scale));
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return false;
       ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+      // לא נועלים פריים שחור כ־poster — זה מה שגרם לתצוגה שחורה קבועה | HYPER CORE TECH
+      if (canvasLooksMostlyBlack(ctx, canvas)) return false;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       if (dataUrl && dataUrl.startsWith('data:image')) {
         videoEl.poster = dataUrl;
         videoEl.dataset.posterCaptured = '1';
         videoEl.classList.add('has-poster');
+        const thumb = videoEl.closest('.chat-message__video-container')?.querySelector('.chat-message__video-thumb');
+        if (thumb) {
+          thumb.src = dataUrl;
+          thumb.hidden = false;
+        }
         return true;
       }
     } catch (_) {
@@ -445,22 +469,59 @@
     return false;
   }
 
+  function seekChatVideo(videoEl, time) {
+    return new Promise((resolve) => {
+      if (!videoEl) return resolve(false);
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        videoEl.removeEventListener('seeked', onSeeked);
+        videoEl.removeEventListener('error', onErr);
+        resolve(ok);
+      };
+      const onSeeked = () => finish(true);
+      const onErr = () => finish(false);
+      videoEl.addEventListener('seeked', onSeeked, { once: true });
+      videoEl.addEventListener('error', onErr, { once: true });
+      try {
+        const t = Math.max(0, Number(time) || 0);
+        if (typeof videoEl.fastSeek === 'function') videoEl.fastSeek(t);
+        else videoEl.currentTime = t;
+      } catch (_) {
+        finish(false);
+        return;
+      }
+      setTimeout(() => finish(videoEl.readyState >= 2), 400);
+    });
+  }
+
   async function ensureChatVideoPosterFrame(videoEl) {
-    if (!videoEl || videoEl.dataset.posterCaptured === '1') return;
-    if (videoEl.readyState < 1) return;
+    if (!videoEl || videoEl.dataset.posterCaptured === '1') return videoEl?.dataset?.posterCaptured === '1';
+    if (videoEl.readyState < 1) return false;
     let wasMuted = true;
     try {
       wasMuted = videoEl.muted;
       videoEl.muted = true;
+      // play קצר מצייר פריים ב־Android WebView (כמו בפיד) | HYPER CORE TECH
       const p = videoEl.play();
       if (p && typeof p.then === 'function') await p.catch(() => {});
+      await new Promise((r) => setTimeout(r, 80));
       videoEl.pause();
-      try { videoEl.currentTime = Math.min(0.05, (videoEl.duration || 1) * 0.01); } catch (_) {}
-      await new Promise((r) => setTimeout(r, 60));
-      captureChatVideoPoster(videoEl);
+      const duration = isFinite(videoEl.duration) ? videoEl.duration : 0;
+      const target = duration > 0.3 ? Math.min(0.2, duration * 0.03) : 0.05;
+      await seekChatVideo(videoEl, target);
+      if (captureChatVideoPoster(videoEl)) return true;
+      await seekChatVideo(videoEl, 0.001);
+      if (captureChatVideoPoster(videoEl)) return true;
+      // גם בלי canvas — לפחות יש פריים מצויר על ה־video עצמו | HYPER CORE TECH
+      videoEl.dataset.previewFrame = '1';
+      return false;
     } catch (_) {
+      return false;
     } finally {
       try { videoEl.muted = wasMuted; } catch (_) {}
+      try { videoEl.pause(); } catch (_) {}
     }
   }
 
@@ -476,20 +537,26 @@
     return true;
   }
 
-  function revealChatVideoPreview(container, videoEl, { allowBlackPoster = false } = {}) {
+  function revealChatVideoPreview(container, videoEl, { allowWithoutPoster = false } = {}) {
     if (!container || !videoEl || container.dataset.ready === '1') return false;
     if (!lockChatVideoAspect(container, videoEl)) return false;
     const hasRealPoster = videoEl.dataset.posterCaptured === '1';
-    if (!hasRealPoster && !allowBlackPoster) return false;
+    if (!hasRealPoster && !allowWithoutPoster && videoEl.dataset.previewFrame !== '1') return false;
+
+    // קריטי: poster שחור 1×1 מסתיר את הפריים כשהווידאו ב־pause — מסירים אותו | HYPER CORE TECH
     if (!hasRealPoster) {
-      videoEl.poster = CHAT_VIDEO_BLACK_POSTER;
-      videoEl.classList.add('has-poster');
+      try { videoEl.removeAttribute('poster'); } catch (_) {}
     }
+
     container.dataset.ready = '1';
     container.removeAttribute('data-chat-video-pending');
     videoEl.classList.add('is-ready');
     videoEl.style.opacity = '1';
     videoEl.style.visibility = 'visible';
+    const thumb = container.querySelector('.chat-message__video-thumb');
+    if (thumb && hasRealPoster && thumb.src && !thumb.src.includes('AAAA')) {
+      thumb.hidden = false;
+    }
     const playBtn = container.querySelector('.chat-message__video-play');
     const durationEl = container.querySelector('.chat-message__video-duration');
     if (playBtn) playBtn.hidden = false;
@@ -521,7 +588,6 @@
       const playBtn = container?.querySelector('.chat-message__video-play');
       if (!el || !container) return;
 
-      if (!el.getAttribute('poster')) el.setAttribute('poster', CHAT_VIDEO_BLACK_POSTER);
       el.style.background = '#000';
       el.style.opacity = '0';
       el.style.visibility = 'hidden';
@@ -550,24 +616,38 @@
         }
       };
 
+      let warming = false;
       const tryReady = async ({ force = false } = {}) => {
-        if (container.dataset.ready === '1') return;
-        updateDuration();
-        if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
-        captureChatVideoPoster(el);
-        if (el.dataset.posterCaptured !== '1') await ensureChatVideoPosterFrame(el);
-        revealChatVideoPreview(container, el, { allowBlackPoster: force });
+        if (container.dataset.ready === '1' || warming) return;
+        warming = true;
+        try {
+          updateDuration();
+          if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
+          if (el.dataset.posterCaptured !== '1') {
+            captureChatVideoPoster(el);
+          }
+          if (el.dataset.posterCaptured !== '1') {
+            await ensureChatVideoPosterFrame(el);
+          }
+          revealChatVideoPreview(container, el, {
+            allowWithoutPoster: force || el.dataset.previewFrame === '1',
+          });
+        } finally {
+          warming = false;
+        }
       };
 
       el.addEventListener('loadedmetadata', () => { tryReady(); });
       el.addEventListener('loadeddata', () => { tryReady(); });
+      el.addEventListener('canplay', () => { tryReady(); });
       el.addEventListener('seeked', () => {
         captureChatVideoPoster(el);
         tryReady();
       });
 
-      // fallback — לא נתקעים על מסך שחור לנצח אם לכידת פריים נכשלה | HYPER CORE TECH
-      setTimeout(() => { tryReady({ force: true }); }, 4500);
+      // fallback: חושפים את הפריים עצמו (בלי poster שחור) אחרי ניסיונות לכידה | HYPER CORE TECH
+      setTimeout(() => { tryReady({ force: true }); }, 3500);
+      setTimeout(() => { tryReady({ force: true }); }, 7000);
       if (el.readyState >= 1) tryReady();
 
       // כמו וואטסאפ – Play פותח מסך מלא, בלי controls בתוך הבועה | HYPER CORE TECH
@@ -596,6 +676,7 @@
 
     return `
       <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1" data-chat-video-pending="1">
+        <img class="chat-message__video-thumb" alt="" hidden decoding="async">
         <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא" hidden>
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
         </button>
@@ -605,7 +686,7 @@
         <video
           id="${uid}"
           class="chat-message__video"
-          preload="metadata"
+          preload="auto"
           playsinline
           webkit-playsinline
           muted
