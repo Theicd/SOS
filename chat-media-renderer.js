@@ -809,7 +809,7 @@
     const aspect = w / Math.max(1, h);
     const ultraWide = !portrait && aspect >= 1.9;
 
-    // יעדי וואטסאפ; במובייל מוקטן ב־15%; רוחבי במיוחד מוגבל כדי לא לשבור layout | HYPER CORE TECH
+    // מסגרת בועה קבועה לכיוון — המדיה ממלאת ב־cover (בלי פסי שוליים) | HYPER CORE TECH
     let maxW;
     let maxH;
     if (narrow) {
@@ -818,49 +818,38 @@
         : Math.min(avail, Math.floor(viewW * (ultraWide ? 0.68 : 0.72)));
       maxH = portrait
         ? Math.min(Math.round(vh * 0.60), 476)
-        : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.32)), ultraWide ? 180 : 210);
+        : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.34)), ultraWide ? 180 : 220);
     } else {
       maxW = portrait ? Math.min(300, avail) : Math.min(360, avail);
       maxH = portrait ? Math.min(Math.round(vh * 0.7), 520) : (ultraWide ? 220 : 280);
     }
 
-    let dispW;
-    let dispH;
-    // פנורמה / רוחבי קיצוני: קודם גובה, אחר כך רוחב — מונע בועה רחבה מדי | HYPER CORE TECH
-    if (ultraWide) {
-      dispH = maxH;
-      dispW = Math.min(maxW, avail, dispH * aspect);
-    } else {
-      dispW = maxW;
-      dispH = dispW * (h / w);
-      if (dispH > maxH) {
-        dispH = maxH;
-        dispW = dispH * (w / h);
-      }
-    }
-    // תקרה קשיחה מול viewport — חשוב במיוחד לתמונות landscape במובייל | HYPER CORE TECH
     const hardMaxW = Math.max(160, viewW - (narrow ? 40 : 48));
-    if (dispW > hardMaxW) {
-      dispW = hardMaxW;
-      dispH = Math.min(maxH, dispW * (h / w));
+    maxW = Math.min(maxW, avail, hardMaxW);
+
+    // גובה המסגרת לפי יחס המדיה, אבל לא פחות ממינימום שממלא את הבועה יפה | HYPER CORE TECH
+    let dispW = maxW;
+    let dispH = Math.round(dispW * (h / w));
+    if (dispH > maxH) {
+      dispH = maxH;
+      // שומרים רוחב מלא של הבועה — cover יחתוך קלות; אין פסי שוליים | HYPER CORE TECH
+      dispW = maxW;
     }
-    if (dispW > avail) {
-      dispW = avail;
-      dispH = Math.min(maxH, dispW * (h / w));
+    // אנכי: אם יצא נמוך מדי — ממלאים לגובה יעד הבועה | HYPER CORE TECH
+    if (portrait) {
+      const minPortraitH = Math.min(maxH, Math.round(dispW * 1.45));
+      if (dispH < minPortraitH) dispH = minPortraitH;
+    } else {
+      const minLandH = Math.min(maxH, Math.round(dispW * 0.52));
+      if (dispH < minLandH) dispH = minLandH;
+      if (dispH > maxH) dispH = maxH;
     }
-    // רצפה — לרוחבי לא דוחפים מינימום גבוה שגורם ל־overflow | HYPER CORE TECH
-    const floorW = narrow
-      ? (portrait ? 200 : (ultraWide ? 160 : 180))
-      : (portrait ? 220 : 280);
-    if (dispW < floorW && floorW <= hardMaxW && !ultraWide) {
-      dispW = Math.min(floorW, avail, hardMaxW);
-      dispH = Math.min(maxH, dispW * (h / w));
-    }
+
     return {
       portrait,
       ultraWide,
       dispW: Math.max(140, Math.round(dispW)),
-      dispH: Math.max(100, Math.round(dispH)),
+      dispH: Math.max(120, Math.round(dispH)),
     };
   }
 
@@ -878,14 +867,14 @@
       }
     }
     const box = computeChatMediaBox(w, h, el);
-    // width/height ב־px; בלי minWidth קשיח — מונע overflow של landscape במובייל | HYPER CORE TECH
+    // מסגרת קבועה + cover על המדיה — בלי aspect-ratio טבעי שיוצר פסים | HYPER CORE TECH
     el.style.width = `${box.dispW}px`;
     el.style.height = `${box.dispH}px`;
     el.style.maxWidth = `${box.dispW}px`;
     el.style.maxHeight = `${box.dispH}px`;
     el.style.minWidth = '0';
     el.style.minHeight = '0';
-    el.style.aspectRatio = `${w} / ${h}`;
+    el.style.aspectRatio = `${box.dispW} / ${box.dispH}`;
     el.dataset.mediaNw = String(w);
     el.dataset.mediaNh = String(h);
     el.dataset.sizedW = String(box.dispW);
