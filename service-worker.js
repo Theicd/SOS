@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v246'; // bump - web shows sender video frame; black pending Android-only
+  const CACHE_NAME = 'sos-cache-v247'; // bump - stop receiver preview flicker under black video surface
   const PRECACHE_URLS = [
     './',
     './videos.html',

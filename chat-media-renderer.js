@@ -592,6 +592,10 @@
       thumb.src = posterDataUrl;
       thumb.hidden = false;
     }
+    // התקציר הוא מה שרואים — הווידאו נשאר מוסתר כדי שלא ירצד שחור מעליו | HYPER CORE TECH
+    container.classList.add('has-video-thumb');
+    videoEl.style.opacity = '0';
+    videoEl.style.visibility = 'hidden';
     return true;
   }
 
@@ -691,9 +695,17 @@
   }
 
   function revealChatVideoPreview(container, videoEl, { allowWithoutPoster = false } = {}) {
-    if (!container || !videoEl || container.dataset.ready === '1') return false;
+    if (!container || !videoEl || container.dataset.ready === '1') {
+      // כבר ready — רק נועלים יחס אם צריך, בלי לחשוף וידאו מעל תקציר | HYPER CORE TECH
+      if (container?.dataset?.ready === '1' && videoEl?.videoWidth) {
+        lockChatVideoAspect(container, videoEl);
+      }
+      return container?.dataset?.ready === '1';
+    }
     if (!lockChatVideoAspect(container, videoEl)) return false;
     const hasRealPoster = videoEl.dataset.posterCaptured === '1';
+    const thumb = container.querySelector('.chat-message__video-thumb');
+    const thumbVisible = !!(thumb && !thumb.hidden && thumb.getAttribute('src'));
     if (!hasRealPoster && !allowWithoutPoster && videoEl.dataset.previewFrame !== '1') return false;
 
     // קריטי: poster שחור 1×1 מסתיר את הפריים כשהווידאו ב־pause — מסירים אותו | HYPER CORE TECH
@@ -704,12 +716,22 @@
     container.dataset.ready = '1';
     container.removeAttribute('data-chat-video-pending');
     videoEl.classList.add('is-ready');
-    videoEl.style.opacity = '1';
-    videoEl.style.visibility = 'visible';
-    const thumb = container.querySelector('.chat-message__video-thumb');
-    if (thumb && hasRealPoster && thumb.src && !thumb.src.includes('AAAA')) {
-      thumb.hidden = false;
+
+    if (hasRealPoster || thumbVisible) {
+      container.classList.add('has-video-thumb');
+      if (thumb && hasRealPoster && isUsablePosterDataUrl(videoEl.poster)) {
+        thumb.src = videoEl.poster;
+        thumb.hidden = false;
+      }
+      // נשארים על תקציר יציב — לא מציגים את משטח הווידאו (מונע ריצוד שחור) | HYPER CORE TECH
+      videoEl.style.opacity = '0';
+      videoEl.style.visibility = 'hidden';
+    } else {
+      container.classList.remove('has-video-thumb');
+      videoEl.style.opacity = '1';
+      videoEl.style.visibility = 'visible';
     }
+
     const playBtn = container.querySelector('.chat-message__video-play');
     const durationEl = container.querySelector('.chat-message__video-duration');
     if (playBtn) playBtn.hidden = false;
@@ -760,8 +782,7 @@
       // תקציר ידוע מראש — מציגים מיד, בלי לחכות ללכידה על אלמנט מוסתר | HYPER CORE TECH
       if (knownPoster) {
         applyChatVideoPoster(container, el, knownPoster);
-        el.style.opacity = '1';
-        el.style.visibility = 'visible';
+        // הווידאו נשאר מוסתר מתחת לתקציר — בלי ריצוד שחור | HYPER CORE TECH
         if (playBtn) playBtn.hidden = false;
         const durationEl = container.querySelector('.chat-message__video-duration');
         if (durationEl) durationEl.hidden = false;
@@ -770,7 +791,7 @@
         el.style.opacity = '0';
         el.style.visibility = 'hidden';
       } else {
-        // ווב: מציגים את הווידאו מיד (רקע שחור כבר קיים בקונטיינר) | HYPER CORE TECH
+        // ווב בלי תקציר עדיין: מציגים וידאו עד שיש תקציר | HYPER CORE TECH
         el.removeAttribute('poster');
         el.style.background = '#000';
         el.style.opacity = '1';
@@ -783,20 +804,9 @@
       // ניסיון טעינת תקציר שמור לפי fileId (אחרי restart) | HYPER CORE TECH
       if (!knownPoster && attachment.fileId) {
         loadChatP2PPosterDataUrl(attachment).then((cachedPoster) => {
-          if (!cachedPoster || container.dataset.ready === '1' && el.dataset.posterCaptured === '1') return;
+          if (!cachedPoster || el.dataset.posterCaptured === '1') return;
           applyChatVideoPoster(container, el, cachedPoster);
-          if (el.videoWidth && el.videoHeight) {
-            revealChatVideoPreview(container, el, { allowWithoutPoster: true });
-          } else {
-            container.removeAttribute('data-chat-video-pending');
-            container.dataset.ready = '1';
-            el.classList.add('is-ready');
-            el.style.opacity = '1';
-            el.style.visibility = 'visible';
-            if (playBtn) playBtn.hidden = false;
-            const durationEl = container.querySelector('.chat-message__video-duration');
-            if (durationEl) durationEl.hidden = false;
-          }
+          revealChatVideoPreview(container, el, { allowWithoutPoster: true });
         }).catch(() => {});
       }
 
@@ -831,6 +841,7 @@
               if (attachment.fileId) {
                 persistChatP2PPoster(attachment.fileId, offDomPoster).catch(() => {});
               }
+              revealChatVideoPreview(container, el, { allowWithoutPoster: true });
             }
           }
         } catch (_) {}
@@ -849,9 +860,11 @@
       let warming = false;
       const tryReady = async ({ force = false } = {}) => {
         if (warming) return;
-        if (container.dataset.ready === '1' && el.dataset.posterCaptured === '1') {
+        // יש תקציר — רק מעדכנים משך/יחס, בלי play/pause שגורם לריצוד | HYPER CORE TECH
+        if (el.dataset.posterCaptured === '1') {
           updateDuration();
           if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
+          revealChatVideoPreview(container, el, { allowWithoutPoster: true });
           return;
         }
         warming = true;
@@ -859,7 +872,6 @@
           updateDuration();
           if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
           if (el.dataset.posterCaptured !== '1') {
-            // חשיפה זמנית ללכידה (כמו בועת העלאה) | HYPER CORE TECH
             const prevOpacity = el.style.opacity;
             const prevVis = el.style.visibility;
             el.style.opacity = '0.02';
@@ -868,7 +880,10 @@
             if (el.dataset.posterCaptured !== '1') {
               await ensureChatVideoPosterFrame(el);
             }
-            if (el.dataset.posterCaptured !== '1') {
+            if (el.dataset.posterCaptured === '1') {
+              // אחרי לכידה — חוזרים להסתיר וידאו ולהציג תקציר | HYPER CORE TECH
+              applyChatVideoPoster(container, el, el.poster);
+            } else {
               el.style.opacity = prevOpacity;
               el.style.visibility = prevVis;
             }
@@ -923,13 +938,16 @@
     const thumbHtml = knownPoster
       ? `<img class="chat-message__video-thumb" alt="" src="${knownPoster}" decoding="async">`
       : `<img class="chat-message__video-thumb" alt="" hidden decoding="async">`;
-    const videoStyle = (knownPoster || !usePendingBlack)
-      ? 'opacity:1;visibility:visible;background:#000'
-      : 'opacity:0;visibility:hidden;background:#000';
+    const videoStyle = knownPoster
+      ? 'opacity:0;visibility:hidden;background:#000'
+      : ((knownPoster || !usePendingBlack)
+        ? 'opacity:1;visibility:visible;background:#000'
+        : 'opacity:0;visibility:hidden;background:#000');
     const showChrome = !!(knownPoster || !usePendingBlack);
+    const thumbClass = knownPoster ? ' has-video-thumb' : '';
 
     return `
-      <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1"${pendingAttr}${readyAttr}>
+      <div id="${containerId}" class="chat-message__video-container${thumbClass}" data-chat-video-preview="1"${pendingAttr}${readyAttr}>
         ${thumbHtml}
         <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא"${showChrome ? '' : ' hidden'}>
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
