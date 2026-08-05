@@ -399,6 +399,7 @@
         wrap.classList.add('is-media-ready');
         wrap.hidden = false;
         el.style.opacity = '1';
+        revealChatMessageBubble(wrap);
       };
 
       const failImage = () => {
@@ -407,16 +408,7 @@
         wrap.classList.add('is-media-failed');
         wrap.hidden = true;
         try { el.removeAttribute('src'); } catch (_) {}
-        // מסתירים גם את בועת ההודעה אם אין טקסט אחר — בלי פסים/שם קובץ | HYPER CORE TECH
-        const msg = wrap.closest('.chat-message');
-        if (msg && !msg.querySelector('.chat-message__text:not(:empty)') && !msg.querySelector('audio, .chat-message__video-container.is-media-ready')) {
-          const textEl = msg.querySelector('.chat-message__text');
-          const raw = (textEl?.textContent || '').trim();
-          if (!raw || raw === `📎 ${name}` || raw.startsWith('📎 ')) {
-            msg.hidden = true;
-            msg.classList.add('chat-message--media-failed');
-          }
-        }
+        failChatMessageBubble(wrap);
       };
 
       el.addEventListener('load', revealImage);
@@ -747,6 +739,40 @@
     }
   }
 
+  function messageHasVisibleCaption(msg) {
+    const textEl = msg?.querySelector?.('.chat-message__text');
+    const raw = (textEl?.textContent || '').trim();
+    return !!(raw && !/^📎\s/.test(raw));
+  }
+
+  // חשיפת בועת ההודעה רק כשהמדיה מוכנה — מונע פסי בועה ריקים | HYPER CORE TECH
+  function revealChatMessageBubble(mediaEl) {
+    const msg = mediaEl?.closest?.('.chat-message');
+    if (!msg) return;
+    msg.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+    msg.hidden = false;
+  }
+
+  function failChatMessageBubble(mediaEl) {
+    const msg = mediaEl?.closest?.('.chat-message');
+    if (!msg) return;
+    if (messageHasVisibleCaption(msg)) {
+      msg.classList.remove('chat-message--media-pending');
+      return;
+    }
+    const hasReady = msg.querySelector(
+      '.chat-message__image-container.is-media-ready, .chat-message__video-container.is-media-ready, audio, .chat-audio, [data-audio]'
+    );
+    if (hasReady) {
+      msg.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+      msg.hidden = false;
+      return;
+    }
+    msg.classList.remove('chat-message--media-pending');
+    msg.classList.add('chat-message--media-failed');
+    msg.hidden = true;
+  }
+
   function lockChatVideoAspect(container, videoEl) {
     if (!container || !videoEl) return false;
     const w = videoEl.videoWidth;
@@ -766,6 +792,7 @@
   function revealChatVideoPreview(container, videoEl, { allowWithoutPoster = false } = {}) {
     if (!container || !videoEl) return false;
     if (container.dataset.ready === '1') {
+      revealChatMessageBubble(container);
       return true;
     }
     if (!lockChatVideoAspect(container, videoEl)) return false;
@@ -810,6 +837,7 @@
     const durationEl = container.querySelector('.chat-message__video-duration');
     if (playBtn) playBtn.hidden = false;
     if (durationEl) durationEl.hidden = false;
+    revealChatMessageBubble(container);
     return true;
   }
 
@@ -818,16 +846,7 @@
     container.classList.remove('is-media-pending', 'is-media-ready');
     container.classList.add('is-media-failed');
     container.hidden = true;
-    const msg = container.closest('.chat-message');
-    if (!msg) return;
-    const textEl = msg.querySelector('.chat-message__text');
-    const raw = (textEl?.textContent || '').trim();
-    const onlyFileLabel = !raw || /^📎\s/.test(raw);
-    const hasOtherMedia = msg.querySelector('.chat-message__image-container.is-media-ready, audio, .chat-audio');
-    if (onlyFileLabel && !hasOtherMedia) {
-      msg.hidden = true;
-      msg.classList.add('chat-message--media-failed');
-    }
+    failChatMessageBubble(container);
   }
 
   function renderVideoAttachment(attachment) {

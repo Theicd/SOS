@@ -2656,20 +2656,40 @@
         }
       }
       
-      // חלק meta בתוך נגן (chat-ui.js) – הסתרת meta-row לאודיו/וידאו והזרקה לתוך המדיה | HYPER CORE TECH
+      // חלק meta בתוך נגן (chat-ui.js) – הסתרת meta-row לאודיו/וידאו/תמונה והזרקה לתוך המדיה | HYPER CORE TECH
       const hideMetaForAudio = isAudioAttachment && !textHtml && !youtubeHtml && !mediaUrlHtml;
       const hideMetaForVideo =
         (isVideoAttachment || (isMediaUrl && /chat-message__video-container/.test(mediaUrlHtml || ''))) &&
         !textHtml &&
         !youtubeHtml &&
         !attachmentHtml?.includes('chat-audio');
-      const hideMetaForMedia = hideMetaForAudio || hideMetaForVideo;
+      const hideMetaForImage =
+        (isImageAttachment || (isMediaUrl && /chat-message__image-container/.test((attachmentHtml || '') + (mediaUrlHtml || '')))) &&
+        !textHtml &&
+        !youtubeHtml;
+      const hideMetaForMedia = hideMetaForAudio || hideMetaForVideo || hideMetaForImage;
       const metaRowHtml = hideMetaForMedia ? '' : `
           <div class="chat-message__meta-row">
             <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
             ${statusHtml}
           </div>
       `;
+
+      // הודעת מדיה בלבד — מסתירים את כל הבועה עד שהמדיה מוכנה (בלי פסים) | HYPER CORE TECH
+      const pendingVisualMediaOnly =
+        !textHtml &&
+        !youtubeHtml &&
+        !isAudioAttachment &&
+        (
+          isImageAttachment ||
+          isVideoAttachment ||
+          /is-media-pending|chat-message__image-container|chat-message__video-container/.test(
+            `${attachmentHtml || ''}${mediaUrlHtml || ''}`
+          )
+        );
+      if (pendingVisualMediaOnly) {
+        item.classList.add('chat-message--media-pending');
+      }
       
       item.innerHTML = `
         ${avatarHtml}
@@ -2735,6 +2755,18 @@
           slot.innerHTML = `<span class="chat-message__video-msg-time-text">${formatMessageTime(messageTimestamp)}</span>${statusHtml || ''}`;
         });
         contentEl.classList.add('chat-message__content--video-only');
+      }
+      // תמונה בלבד — שעה על המדיה כשתחשף (בלי meta-row שיוצר פס) | HYPER CORE TECH
+      if (hideMetaForImage && contentEl) {
+        contentEl.classList.add('chat-message__content--image-only');
+        contentEl.querySelectorAll('.chat-message__image-container').forEach((imgWrap) => {
+          if (imgWrap.querySelector('[data-image-time-slot]')) return;
+          const slot = document.createElement('span');
+          slot.className = 'chat-message__image-msg-time';
+          slot.setAttribute('data-image-time-slot', '');
+          slot.innerHTML = `<span class="chat-message__image-msg-time-text">${formatMessageTime(messageTimestamp)}</span>${statusHtml || ''}`;
+          imgWrap.appendChild(slot);
+        });
       }
       fragment.appendChild(item);
     });
