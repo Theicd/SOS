@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v242'; // bump - chat video black pending until poster+aspect ready
+  const CACHE_NAME = 'sos-cache-v243'; // bump - APK download UI shows 1.0.29
   const PRECACHE_URLS = [
     './',
     './videos.html',
