@@ -1742,27 +1742,28 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
 .chat-media-upload__ring {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   transform: rotate(-90deg);
+  color: #ff2d55;
 }
 
 .chat-media-upload__ring-bg {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.35);
-  stroke-width: 2.2;
+  fill: none !important;
+  stroke: rgba(255, 255, 255, 0.35) !important;
+  stroke-width: 2.2 !important;
 }
 
 .chat-media-upload__ring-fg {
-  fill: none;
-  stroke: #ff2d55;
-  stroke-width: 2.2;
-  stroke-linecap: round;
+  fill: none !important;
+  stroke: #ff2d55 !important;
+  stroke-width: 2.5 !important;
+  stroke-linecap: round !important;
   transition: stroke-dashoffset 0.2s ease;
 }
 

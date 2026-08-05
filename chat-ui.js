@@ -153,10 +153,11 @@
     const r = 7;
     const c = 2 * Math.PI * r;
     const offset = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+    // stroke כ־attribute — WebView לפעמים מתעלם מ־CSS stroke על SVG | HYPER CORE TECH
     return `
       <svg class="chat-media-upload__ring" viewBox="0 0 18 18" aria-hidden="true">
-        <circle class="chat-media-upload__ring-bg" cx="9" cy="9" r="${r}"></circle>
-        <circle class="chat-media-upload__ring-fg" cx="9" cy="9" r="${r}"
+        <circle class="chat-media-upload__ring-bg" cx="9" cy="9" r="${r}" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2.2"></circle>
+        <circle class="chat-media-upload__ring-fg" cx="9" cy="9" r="${r}" fill="none" stroke="#ff2d55" stroke-width="2.5" stroke-linecap="round"
           stroke-dasharray="${c.toFixed(2)}"
           stroke-dashoffset="${offset.toFixed(2)}"></circle>
       </svg>
