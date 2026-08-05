@@ -154,20 +154,65 @@
     return preview.isVideo || preview.isImage;
   }
 
-  // poster שחור — מונע פליי לבן של Android WebView בבועת העלאה | HYPER CORE TECH
+  // poster שחור — רק ב־Android WebView (מונע פליי לבן); בווב מציגים את הפריים מיד | HYPER CORE TECH
   const MEDIA_UPLOAD_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  function needsAndroidVideoPlaceholder() {
+    try {
+      if (window.SosNativeShell) return true;
+      const ua = navigator.userAgent || '';
+      if (/SOSNativeShell\//i.test(ua)) return true;
+      if (/Android/i.test(ua)) return true;
+    } catch (_) {}
+    return false;
+  }
 
   function bindMediaUploadVideoReveal(bubble) {
     const wrap = bubble?.querySelector?.('.chat-media-upload');
     const mediaEl = bubble?.querySelector?.('video.chat-media-upload__media');
     if (!wrap || !mediaEl || mediaEl.dataset.revealBound === '1') return;
     mediaEl.dataset.revealBound = '1';
-    if (!mediaEl.getAttribute('poster')) mediaEl.setAttribute('poster', MEDIA_UPLOAD_BLACK_POSTER);
+    const androidPlaceholder = needsAndroidVideoPlaceholder();
     mediaEl.style.background = '#000';
-    wrap.classList.add('chat-media-upload--pending');
+
+    if (androidPlaceholder) {
+      if (!mediaEl.getAttribute('poster')) mediaEl.setAttribute('poster', MEDIA_UPLOAD_BLACK_POSTER);
+      wrap.classList.add('chat-media-upload--pending');
+      mediaEl.style.opacity = '0';
+      mediaEl.style.visibility = 'hidden';
+    } else {
+      // ווב: מציגים את הווידאו מיד — בלי מסך שחור על כל ההעלאה | HYPER CORE TECH
+      wrap.classList.remove('chat-media-upload--pending');
+      mediaEl.removeAttribute('poster');
+      mediaEl.style.opacity = '1';
+      mediaEl.style.visibility = 'visible';
+      mediaEl.preload = 'auto';
+    }
+
+    const capturePosterFromVisibleVideo = () => {
+      try {
+        if (mediaEl.dataset.posterCaptured === '1') return;
+        const w = mediaEl.videoWidth;
+        const h = mediaEl.videoHeight;
+        if (!w || !h || mediaEl.readyState < 2) return;
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 640 / w);
+        canvas.width = Math.max(1, Math.round(w * scale));
+        canvas.height = Math.max(1, Math.round(h * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(mediaEl, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        if (dataUrl && dataUrl.startsWith('data:image') && dataUrl.length > 200) {
+          mediaEl.poster = dataUrl;
+          mediaEl.dataset.posterCaptured = '1';
+          const fileId = bubble.getAttribute('data-transfer-id');
+          if (fileId) registerChatTransferPreview(fileId, { posterDataUrl: dataUrl });
+        }
+      } catch (_) {}
+    };
 
     const reveal = () => {
-      if (wrap.dataset.mediaReady === '1') return;
       const w = mediaEl.videoWidth;
       const h = mediaEl.videoHeight;
       if (!w || !h) return;
@@ -179,40 +224,39 @@
       mediaEl.classList.add('is-ready');
       mediaEl.style.opacity = '1';
       mediaEl.style.visibility = 'visible';
-      // לכידת פריים לתצוגה נקייה | HYPER CORE TECH
-      try {
-        if (mediaEl.dataset.posterCaptured === '1') return;
-        const canvas = document.createElement('canvas');
-        const scale = Math.min(1, 640 / w);
-        canvas.width = Math.max(1, Math.round(w * scale));
-        canvas.height = Math.max(1, Math.round(h * scale));
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(mediaEl, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
-        if (dataUrl && dataUrl.startsWith('data:image') && dataUrl.length > 200) {
-          mediaEl.poster = dataUrl;
-          mediaEl.dataset.posterCaptured = '1';
-          const fileId = bubble.getAttribute('data-transfer-id');
-          if (fileId) {
-            registerChatTransferPreview(fileId, { posterDataUrl: dataUrl });
-          }
-        }
-      } catch (_) {}
+      capturePosterFromVisibleVideo();
     };
 
     mediaEl.addEventListener('loadedmetadata', reveal);
-    mediaEl.addEventListener('loadeddata', reveal);
+    mediaEl.addEventListener('loadeddata', () => {
+      reveal();
+      capturePosterFromVisibleVideo();
+    });
+    mediaEl.addEventListener('canplay', () => {
+      reveal();
+      capturePosterFromVisibleVideo();
+    });
     setTimeout(() => {
-      if (wrap.dataset.mediaReady === '1') return;
       if (mediaEl.videoWidth && mediaEl.videoHeight) reveal();
-      else {
-        // נשארים על רקע שחור מסודר בלי לחשוף פליי מערכת | HYPER CORE TECH
+      else if (androidPlaceholder) {
         wrap.classList.remove('chat-media-upload--pending');
         wrap.style.aspectRatio = wrap.style.aspectRatio || '3 / 4';
       }
     }, 4000);
     if (mediaEl.readyState >= 1) reveal();
+
+    // ווב: אם יש כבר תקציר מוכן מראש — שמים אותו מיד | HYPER CORE TECH
+    const fileId = bubble.getAttribute('data-transfer-id');
+    const readyPoster = fileId ? App.getChatTransferPreviewPoster?.(fileId) : '';
+    if (readyPoster && readyPoster.length > 200) {
+      mediaEl.poster = readyPoster;
+      mediaEl.dataset.posterCaptured = '1';
+      if (!androidPlaceholder) {
+        wrap.classList.remove('chat-media-upload--pending');
+        mediaEl.style.opacity = '1';
+        mediaEl.style.visibility = 'visible';
+      }
+    }
   }
 
   function buildMediaUploadRingHtml(pct) {
@@ -395,8 +439,12 @@
       return;
     }
 
+    const androidPlaceholder = needsAndroidVideoPlaceholder();
+    const readyPoster = progress.fileId ? (App.getChatTransferPreviewPoster?.(progress.fileId) || '') : '';
     const mediaHtml = isVideo
-      ? `<video class="chat-media-upload__media" preload="metadata" muted playsinline webkit-playsinline poster="${MEDIA_UPLOAD_BLACK_POSTER}" style="opacity:0;visibility:hidden;background:#000"${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`
+      ? (androidPlaceholder
+        ? `<video class="chat-media-upload__media" preload="auto" muted playsinline webkit-playsinline poster="${MEDIA_UPLOAD_BLACK_POSTER}" style="opacity:0;visibility:hidden;background:#000"${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`
+        : `<video class="chat-media-upload__media" preload="auto" muted playsinline webkit-playsinline${readyPoster ? ` poster="${readyPoster}"` : ''} style="opacity:1;visibility:visible;background:#000"${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`)
       : `<img class="chat-media-upload__media" alt=""${mediaSrc ? ` src="${safeSrc}"` : ''} decoding="async">`;
 
     bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--media-transfer`;
@@ -406,7 +454,7 @@
     }
     bubble.innerHTML = `
       <div class="chat-message__content chat-message__content--media-upload">
-        <div class="chat-media-upload${isVideo ? ' chat-media-upload--pending' : ''}" data-chat-media-upload="1">
+        <div class="chat-media-upload${isVideo && androidPlaceholder ? ' chat-media-upload--pending' : ''}" data-chat-media-upload="1">
           ${mediaHtml}
           <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
             <div class="chat-media-upload__center" aria-hidden="true">

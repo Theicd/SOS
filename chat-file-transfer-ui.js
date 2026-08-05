@@ -213,8 +213,36 @@
     // מסתירים מיד שורת שם-קובץ בקומפוזר — גם לפני async | HYPER CORE TECH
     renderPreview(null);
 
+    // לכידת תקציר מוקדמת מהקובץ המקומי — לפני/במקביל לדחיסה (קריטי לשולח בווב) | HYPER CORE TECH
+    let earlyPosterPromise = Promise.resolve('');
+    if (looksLikeVideoFile(file) && typeof App.capturePosterFromBlob === 'function') {
+      earlyPosterPromise = App.capturePosterFromBlob(file, file.type || 'video/mp4').catch(() => '');
+    }
+
     // דחיסת וידאו לפני כל מסלול שליחה (P2P / Torrent / inline)
     file = await maybeCompressVideoForChat(peer, file, localPreviewUrl);
+
+    // אם אחרי דחיסה יש קובץ חדש — לכוד ממנו (עדיף על המקור) | HYPER CORE TECH
+    if (looksLikeVideoFile(file) && typeof App.capturePosterFromBlob === 'function') {
+      earlyPosterPromise = App.capturePosterFromBlob(file, file.type || 'video/mp4').catch(() => '');
+    }
+
+    const attachPosterToFileId = async (fileId, previewUrl) => {
+      if (!fileId) return '';
+      let posterDataUrl = '';
+      try { posterDataUrl = await earlyPosterPromise; } catch (_) {}
+      if (!posterDataUrl && typeof App.getChatTransferPreviewPoster === 'function') {
+        posterDataUrl = App.getChatTransferPreviewPoster(fileId) || '';
+      }
+      App.registerChatTransferPreview?.(fileId, {
+        url: previewUrl || '',
+        mime: file?.type || '',
+        name: file?.name || '',
+        size: file?.size || 0,
+        posterDataUrl: posterDataUrl || undefined,
+      });
+      return posterDataUrl || '';
+    };
     
     // חלק ניתוב קבצים (chat-file-transfer-ui.js) – מעל 90KB מעדיפים P2P, ואם נכשל עוברים ל-inline עד 256KB
     // אם DC כבר מחובר — גם קבצים קטנים עוברים P2P כדי לא לעמיס על relay | HYPER CORE TECH
@@ -233,6 +261,8 @@
           };
           if (enriched.fileId) {
             registerTransferPreview(enriched.fileId, file, previewUrl);
+            // אל תחכה — תדביק תקציר ברגע שמוכן | HYPER CORE TECH
+            attachPosterToFileId(enriched.fileId, previewUrl);
           }
           App.handleP2PProgressUpdate?.(enriched);
         };
@@ -240,8 +270,8 @@
         if (!fileId) {
           throw new Error('p2p-send-returned-empty-id');
         }
-        registerTransferPreview(fileId, file, previewUrl);
-        log('שולח P2P', { peer, fileId, name: file.name, size: file.size });
+        const posterDataUrl = await attachPosterToFileId(fileId, previewUrl);
+        log('שולח P2P', { peer, fileId, name: file.name, size: file.size, hasPoster: !!posterDataUrl });
         // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview תחתון לקבצי P2P כי ההעברה כבר מתחילה | HYPER CORE TECH
         const attachment = {
           id: `${peer}-${Date.now()}`,
@@ -252,6 +282,7 @@
           file,
           fileId,
           previewUrl,
+          posterDataUrl: posterDataUrl || undefined,
           caption: uiRefs.getMessageDraft() || '',
           transferStarted: true, // סימון שההעברה כבר התחילה
           hidePreview: true,

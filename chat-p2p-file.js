@@ -368,15 +368,38 @@
           if (typeof App.getChatTransferPreviewPoster === 'function') {
             posterDataUrl = App.getChatTransferPreviewPoster(fileId) || '';
           }
+          // לכידה מבועת ההעלאה אם הווידאו כבר מוצג (בעיקר ווב) | HYPER CORE TECH
+          if (!posterDataUrl && typeof document !== 'undefined') {
+            try {
+              const bubbleVid = document.querySelector(`[data-transfer-id="${fileId}"] video.chat-media-upload__media`);
+              if (bubbleVid && bubbleVid.dataset.posterCaptured === '1' && bubbleVid.poster && bubbleVid.poster.length > 200) {
+                posterDataUrl = bubbleVid.poster;
+              } else if (bubbleVid && bubbleVid.videoWidth && bubbleVid.readyState >= 2) {
+                const canvas = document.createElement('canvas');
+                const scale = Math.min(1, 640 / bubbleVid.videoWidth);
+                canvas.width = Math.max(1, Math.round(bubbleVid.videoWidth * scale));
+                canvas.height = Math.max(1, Math.round(bubbleVid.videoHeight * scale));
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(bubbleVid, 0, 0, canvas.width, canvas.height);
+                  const shot = canvas.toDataURL('image/jpeg', 0.82);
+                  if (shot && shot.length > 200) posterDataUrl = shot;
+                }
+              }
+            } catch (_) {}
+          }
           if (!posterDataUrl && isVideoFlag && typeof App.capturePosterFromBlob === 'function') {
             try {
-              posterDataUrl = await App.capturePosterFromBlob(file, resolvedMime || file?.type);
+              posterDataUrl = await App.capturePosterFromBlob(file, resolvedMime || file?.type || 'video/mp4');
             } catch (posterErr) {
               console.warn('[CHAT/P2P] poster capture (send) failed:', posterErr);
             }
           }
           if (posterDataUrl && typeof App.persistChatP2PPoster === 'function') {
             App.persistChatP2PPoster(fileId, posterDataUrl).catch(() => {});
+          }
+          if (posterDataUrl && typeof App.registerChatTransferPreview === 'function') {
+            App.registerChatTransferPreview(fileId, { posterDataUrl });
           }
           App.appendChatMessage({
             id: `p2p-send-${fileId}`,

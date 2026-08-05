@@ -443,16 +443,26 @@
       && dataUrl !== CHAT_VIDEO_BLACK_POSTER;
   }
 
-  // לכידת תקציר מוידאו File/Blob ב־video מוסתר ב־DOM (עובד ב־Android WebView) | HYPER CORE TECH
+  function needsAndroidVideoPlaceholder() {
+    try {
+      if (window.SosNativeShell) return true;
+      const ua = navigator.userAgent || '';
+      if (/SOSNativeShell\//i.test(ua)) return true;
+      if (/Android/i.test(ua)) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  // לכידת תקציר מוידאו File/Blob ב־video ב־DOM (עובד ב־Android WebView ובדפדפן) | HYPER CORE TECH
   async function capturePosterFromBlob(blobOrFile, mimeHint = '') {
     if (!blobOrFile) return '';
     const mime = String(mimeHint || blobOrFile.type || '').toLowerCase();
     const name = String(blobOrFile.name || '').toLowerCase();
-    const looksVideo = mime.startsWith('video/') || /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name);
-    if (!looksVideo && mime && !mime.startsWith('application/octet')) {
-      // לא וידאו — אין תקציר
-      if (!mime.startsWith('video/')) return '';
-    }
+    const looksVideo = mime.startsWith('video/')
+      || mimeHint.toLowerCase().startsWith('video/')
+      || /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name)
+      || (!mime && blobOrFile.size > 1024);
+    if (!looksVideo) return '';
 
     return new Promise((resolve) => {
       let settled = false;
@@ -464,8 +474,8 @@
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       video.preload = 'auto';
-      // חייב להיות ב־DOM עם גודל אמיתי — opacity:0 בבועה נותן פריים שחור | HYPER CORE TECH
-      video.style.cssText = 'position:fixed;left:0;top:0;width:180px;height:180px;opacity:0.02;pointer-events:none;z-index:-1;';
+      // גודל נראה ב־DOM — לא opacity:0 מלא (במיוחד בווב) | HYPER CORE TECH
+      video.style.cssText = 'position:fixed;left:8px;top:8px;width:240px;height:240px;opacity:0.05;pointer-events:none;z-index:2147483646;background:#000;';
       document.body.appendChild(video);
 
       const cleanup = () => {
@@ -716,15 +726,20 @@
     const containerId = 'vc-' + Math.random().toString(36).substr(2, 9);
     // blob מותר ב־HTML בהתחלה — זה ה־session URL של השולח/מקבל | HYPER CORE TECH
     const initialSrc = src || '';
-    let knownPoster = isUsablePosterDataUrl(attachment.posterDataUrl)
-      ? attachment.posterDataUrl
-      : (isUsablePosterDataUrl(attachment.poster) ? attachment.poster : '');
-    if (!knownPoster && attachment.fileId && typeof App.getChatTransferPreviewPoster === 'function') {
-      const fromTransfer = App.getChatTransferPreviewPoster(attachment.fileId);
-      if (isUsablePosterDataUrl(fromTransfer)) knownPoster = fromTransfer;
-    }
-    const pendingAttr = knownPoster ? '' : ' data-chat-video-pending="1"';
-    const readyAttr = knownPoster ? ' data-ready="1"' : '';
+    const knownPoster = (() => {
+      if (isUsablePosterDataUrl(attachment.posterDataUrl)) return attachment.posterDataUrl;
+      if (isUsablePosterDataUrl(attachment.poster)) return attachment.poster;
+      if (attachment.fileId && typeof App.getChatTransferPreviewPoster === 'function') {
+        const fromTransfer = App.getChatTransferPreviewPoster(attachment.fileId);
+        if (isUsablePosterDataUrl(fromTransfer)) return fromTransfer;
+      }
+      return '';
+    })();
+    const androidPlaceholder = needsAndroidVideoPlaceholder();
+    // בווב: לא מסתירים מאחורי פריים שחור — רק באנדרואיד | HYPER CORE TECH
+    const usePendingBlack = androidPlaceholder && !knownPoster;
+    const pendingAttr = usePendingBlack ? ' data-chat-video-pending="1"' : '';
+    const readyAttr = knownPoster || !usePendingBlack ? ' data-ready="1"' : '';
     mediaDebugLog('render-video', {
       name,
       mime: type,
@@ -750,10 +765,19 @@
         if (playBtn) playBtn.hidden = false;
         const durationEl = container.querySelector('.chat-message__video-duration');
         if (durationEl) durationEl.hidden = false;
-      } else {
+      } else if (usePendingBlack) {
         el.style.background = '#000';
         el.style.opacity = '0';
         el.style.visibility = 'hidden';
+      } else {
+        // ווב: מציגים את הווידאו מיד (רקע שחור כבר קיים בקונטיינר) | HYPER CORE TECH
+        el.removeAttribute('poster');
+        el.style.background = '#000';
+        el.style.opacity = '1';
+        el.style.visibility = 'visible';
+        if (playBtn) playBtn.hidden = false;
+        const durationEl = container.querySelector('.chat-message__video-duration');
+        if (durationEl) durationEl.hidden = false;
       }
 
       // ניסיון טעינת תקציר שמור לפי fileId (אחרי restart) | HYPER CORE TECH
@@ -893,21 +917,24 @@
       });
     }, 0);
 
-    const posterAttr = knownPoster || CHAT_VIDEO_BLACK_POSTER;
+    const posterAttr = knownPoster
+      ? knownPoster
+      : (usePendingBlack ? CHAT_VIDEO_BLACK_POSTER : '');
     const thumbHtml = knownPoster
       ? `<img class="chat-message__video-thumb" alt="" src="${knownPoster}" decoding="async">`
       : `<img class="chat-message__video-thumb" alt="" hidden decoding="async">`;
-    const videoStyle = knownPoster
+    const videoStyle = (knownPoster || !usePendingBlack)
       ? 'opacity:1;visibility:visible;background:#000'
       : 'opacity:0;visibility:hidden;background:#000';
+    const showChrome = !!(knownPoster || !usePendingBlack);
 
     return `
       <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1"${pendingAttr}${readyAttr}>
         ${thumbHtml}
-        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא"${knownPoster ? '' : ' hidden'}>
+        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא"${showChrome ? '' : ' hidden'}>
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
         </button>
-        <span class="chat-message__video-duration"${knownPoster ? '' : ' hidden'}>0:00</span>
+        <span class="chat-message__video-duration"${showChrome ? '' : ' hidden'}>0:00</span>
         <span class="chat-message__video-msg-time" data-video-time-slot></span>
         ${buildAttachmentDownloadHtml(attachment, 'chat-message__media-download')}
         <video
@@ -917,7 +944,7 @@
           playsinline
           webkit-playsinline
           muted
-          poster="${posterAttr}"
+          ${posterAttr ? `poster="${posterAttr}"` : ''}
           style="${videoStyle}"
           aria-label="${safeName}"
         >

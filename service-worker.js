@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v245'; // bump - immediate P2P video posters for sender/receiver
+  const CACHE_NAME = 'sos-cache-v246'; // bump - web shows sender video frame; black pending Android-only
   const PRECACHE_URLS = [
     './',
     './videos.html',
