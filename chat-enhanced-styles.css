@@ -1176,6 +1176,15 @@
   margin: 0;
 }
 
+/* מסגרת כחולה דקה למדיה יוצאת — השולח מזהה בקלות מה הוא שלח | HYPER CORE TECH */
+.chat-message--outgoing .chat-message__video-container,
+.chat-message--outgoing .chat-message__image-container,
+.chat-message--media-transfer .chat-media-upload,
+.chat-message--media-settled .chat-media-upload {
+  box-shadow: 0 0 0 1.5px #3b9eff;
+  border-radius: 8px;
+}
+
 .chat-message__video {
   width: 100%;
   height: 100%;

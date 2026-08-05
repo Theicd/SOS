@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v260'; // bump - single bubble for compress+send video
+  const CACHE_NAME = 'sos-cache-v261'; // bump - thin blue frame on outgoing chat media
   const PRECACHE_URLS = [
     './',
     './videos.html',
