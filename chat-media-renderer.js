@@ -773,58 +773,68 @@
     msg.hidden = true;
   }
 
-  // גודל מדיה יחסי לרוחב עמודת הצ'אט — גדול כמו וואטסאפ במובייל, בלי overflow | HYPER CORE TECH
+  // גודל מדיה כמו וואטסאפ — px מפורשים (לא % על fit-content שקורס למיניאטורה) | HYPER CORE TECH
   function getChatMediaAvailWidth(hostEl) {
     const col =
       hostEl?.closest?.('.chat-conversation__messages') ||
       document.getElementById('chatMessages') ||
       document.documentElement;
-    const raw = Math.max(0, col?.clientWidth || window.innerWidth || 360);
-    const narrow = raw < 480 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    // מובייל: כמעט כל רוחב הבועה (~92%). דסקטופ: מרווח נוח יותר | HYPER CORE TECH
-    const frac = narrow ? 0.92 : 0.72;
-    const gutter = narrow ? 8 : 24;
-    return Math.max(200, Math.floor(raw * frac) - gutter);
+    const colW = Math.max(0, col?.clientWidth || 0);
+    const viewW = Math.max(0, window.innerWidth || document.documentElement?.clientWidth || 360);
+    // אם העמודה עדיין 0 (לפני layout) — נופלים ל־viewport | HYPER CORE TECH
+    const raw = colW > 40 ? colW : viewW;
+    const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    // מובייל: ~85% ממסך פחות מרווח בטוח. דסקטופ: עד בועת מדיה רגילה | HYPER CORE TECH
+    if (narrow) {
+      return Math.max(240, Math.min(Math.floor(viewW * 0.86), Math.floor(raw * 0.94) - 4));
+    }
+    return Math.max(260, Math.min(380, Math.floor(raw * 0.72) - 16));
   }
 
   function computeChatMediaBox(w, h, hostEl) {
     const portrait = h > w;
     const avail = getChatMediaAvailWidth(hostEl);
     const vh = window.innerHeight || document.documentElement?.clientHeight || 640;
-    const narrow = avail < 420 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    // וואטסאפ-מובייל: רוחב מקסימלי לבועה; אנכי גבוה יותר מאופקי | HYPER CORE TECH
-    const maxW = portrait
-      ? Math.min(narrow ? avail : 300, avail)
-      : Math.min(narrow ? avail : 380, avail);
-    const maxH = portrait
-      ? Math.min(Math.round(vh * (narrow ? 0.72 : 0.7)), narrow ? 640 : 520)
-      : Math.min(Math.round(vh * (narrow ? 0.45 : 0.35)), narrow ? 340 : 280);
+    const viewW = window.innerWidth || 360;
+    const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+
+    // יעדי וואטסאפ: אנכי רחב יחסית + גבוה; אופקי רחב + נמוך יותר | HYPER CORE TECH
+    let maxW;
+    let maxH;
+    if (narrow) {
+      maxW = portrait ? Math.min(avail, Math.floor(viewW * 0.82)) : Math.min(avail, Math.floor(viewW * 0.88));
+      maxH = portrait ? Math.min(Math.round(vh * 0.7), 560) : Math.min(Math.round(vh * 0.42), 280);
+    } else {
+      maxW = portrait ? Math.min(300, avail) : Math.min(360, avail);
+      maxH = portrait ? Math.min(Math.round(vh * 0.7), 520) : 280;
+    }
+
     let dispW = maxW;
     let dispH = dispW * (h / w);
     if (dispH > maxH) {
       dispH = maxH;
       dispW = dispH * (w / h);
     }
+    // לא לחרוג ממסך (מונע דחיפה שמאלה) | HYPER CORE TECH
+    const hardMaxW = Math.max(200, viewW - (narrow ? 28 : 48));
+    if (dispW > hardMaxW) {
+      dispW = hardMaxW;
+      dispH = Math.min(maxH, dispW * (h / w));
+    }
     if (dispW > avail) {
       dispW = avail;
-      dispH = dispW * (h / w);
-      if (dispH > maxH) {
-        dispH = maxH;
-        dispW = dispH * (w / h);
-      }
+      dispH = Math.min(maxH, dispW * (h / w));
     }
-    // רצפת גודל למובייל — לא מיניאטורי | HYPER CORE TECH
-    if (narrow) {
-      const minW = portrait ? Math.min(220, avail) : Math.min(260, avail);
-      if (dispW < minW) {
-        dispW = minW;
-        dispH = Math.min(maxH, dispW * (h / w));
-      }
+    // רצפה — לא מיניאטורי | HYPER CORE TECH
+    const floorW = narrow ? (portrait ? 240 : 280) : (portrait ? 220 : 280);
+    if (dispW < floorW && floorW <= hardMaxW) {
+      dispW = Math.min(floorW, avail, hardMaxW);
+      dispH = Math.min(maxH, dispW * (h / w));
     }
     return {
       portrait,
-      dispW: Math.max(160, Math.round(dispW)),
-      dispH: Math.max(120, Math.round(dispH)),
+      dispW: Math.max(200, Math.round(dispW)),
+      dispH: Math.max(140, Math.round(dispH)),
     };
   }
 
@@ -842,11 +852,13 @@
       }
     }
     const box = computeChatMediaBox(w, h, el);
-    // רוחב מפורש + max-width:100% — גדול כמו וואטסאפ, בלי לפרוץ את העמודה | HYPER CORE TECH
+    // width+height ב־px בלבד — מונע קריסת fit-content כשה־video ב־absolute | HYPER CORE TECH
     el.style.width = `${box.dispW}px`;
-    el.style.height = 'auto';
-    el.style.maxWidth = '100%';
+    el.style.height = `${box.dispH}px`;
+    el.style.maxWidth = `${box.dispW}px`;
     el.style.maxHeight = `${box.dispH}px`;
+    el.style.minWidth = `${box.dispW}px`;
+    el.style.minHeight = `${box.dispH}px`;
     el.style.aspectRatio = `${w} / ${h}`;
     el.dataset.mediaNw = String(w);
     el.dataset.mediaNh = String(h);

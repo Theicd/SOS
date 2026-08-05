@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v253'; // bump - larger WhatsApp-like mobile video size
+  const CACHE_NAME = 'sos-cache-v254'; // bump - fix collapsed miniature videos with explicit px box
   const PRECACHE_URLS = [
     './',
     './videos.html',

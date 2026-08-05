@@ -499,7 +499,8 @@
 
 .chat-message__video-container {
   position: relative;
-  max-width: min(72%, 360px);
+  max-width: 360px;
+  min-width: 200px;
   border-radius: 8px;
   overflow: hidden;
   margin: 4px 0;
@@ -1081,9 +1082,9 @@
 
 /* חלק ואטסאפ (chat-enhanced-styles.css) – תקציר וידאו: מסגרת דקה, Play מרכזי, בלי controls | HYPER CORE TECH */
 .chat-message__video-container {
-  max-width: min(100%, 360px);
-  min-width: 0;
-  width: 100%;
+  max-width: 360px;
+  min-width: 200px;
+  width: auto;
   box-sizing: border-box;
   border-radius: 6px;
   overflow: hidden;
@@ -1093,17 +1094,20 @@
   line-height: 0;
   cursor: pointer;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
 }
 
-/* אופקי: רוחב מלא של בועת מדיה, גובה מוגבל | HYPER CORE TECH */
+/* אופקי: כמו וואטסאפ — רחב, גובה מוגבל | HYPER CORE TECH */
 .chat-message__video-container--landscape {
-  max-width: min(100%, 360px);
+  max-width: 360px;
+  min-width: 240px;
   max-height: 280px;
 }
 
-/* אנכי: כמו וואטסאפ — גובה גבוה יותר כדי שלא יידחס לפס צר | HYPER CORE TECH */
+/* אנכי: כמו וואטסאפ — רחב מספיק + גבוה | HYPER CORE TECH */
 .chat-message__video-container--portrait {
-  max-width: min(100%, 280px);
+  max-width: 300px;
+  min-width: 220px;
   max-height: min(70vh, 520px);
 }
 
@@ -1115,7 +1119,6 @@
 .chat-message__video-container[data-ready="1"] {
   display: block;
   min-height: 0;
-  max-height: min(70vh, 520px);
 }
 
 .chat-message__video-container[data-ready="1"].chat-message__video-container--landscape {
@@ -1129,11 +1132,13 @@
 .chat-message__content--video-only {
   padding: 3px !important;
   background: transparent;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .chat-message__content--video-only .chat-message__video-container {
   margin: 0;
-  max-width: 100%;
 }
 
 .chat-message__video {
@@ -1378,7 +1383,7 @@
   pointer-events: none;
 }
 
-/* חלק מובייל מדיה (chat-enhanced-styles.css) – גודל מקסימלי כמו וואטסאפ, בלי overflow | HYPER CORE TECH */
+/* חלק מובייל מדיה (chat-enhanced-styles.css) – גודל וואטסאפ מלא, בלי קריסת fit-content | HYPER CORE TECH */
 @media (max-width: 768px) {
   .chat-conversation__messages {
     overflow-x: hidden;
@@ -1402,15 +1407,14 @@
   .chat-message__content--video-only,
   .chat-message__content--image-only,
   .chat-message__content--media-upload {
-    width: auto;
+    width: max-content;
     max-width: 100%;
-    min-width: 0;
   }
 
   .chat-message__image-container,
   .chat-message__youtube-container {
-    max-width: 100%;
-    width: auto;
+    max-width: min(86vw, 100%);
+    min-width: 200px;
   }
 
   .chat-message__image {
@@ -1418,31 +1422,32 @@
   }
 
   .chat-message__video-container,
-  .chat-message__video-container--landscape,
-  .chat-media-upload,
-  .chat-media-upload--landscape {
+  .chat-media-upload {
     width: auto;
-    max-width: 100%;
-    max-height: min(45vh, 340px);
+    max-width: min(86vw, 360px);
+    min-width: 240px;
+  }
+
+  .chat-message__video-container--landscape,
+  .chat-media-upload--landscape {
+    max-width: min(88vw, 360px);
+    min-width: 260px;
+    max-height: min(42vh, 280px);
   }
 
   .chat-message__video-container--portrait,
   .chat-media-upload--portrait {
-    width: auto;
-    max-width: 100%;
-    max-height: min(72vh, 640px);
-  }
-
-  .chat-message__video-container[data-ready="1"] {
-    max-height: min(72vh, 640px);
+    max-width: min(82vw, 320px);
+    min-width: 240px;
+    max-height: min(70vh, 560px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--landscape {
-    max-height: min(45vh, 340px);
+    max-height: min(42vh, 280px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--portrait {
-    max-height: min(72vh, 640px);
+    max-height: min(70vh, 560px);
   }
 
   .chat-message__video,
@@ -1855,7 +1860,7 @@
   padding: 3px !important;
   background: transparent !important;
   overflow: hidden;
-  width: fit-content;
+  width: max-content;
   max-width: 100%;
 }
 
@@ -1865,20 +1870,23 @@
   overflow: hidden;
   background: #000 !important;
   line-height: 0;
-  width: 100%;
-  max-width: min(100%, 360px);
-  min-width: 0;
+  width: auto;
+  max-width: 360px;
+  min-width: 200px;
   box-sizing: border-box;
+  flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .chat-media-upload--landscape {
-  max-width: min(100%, 360px);
+  max-width: 360px;
+  min-width: 240px;
   max-height: 280px;
 }
 
 .chat-media-upload--portrait {
-  max-width: min(100%, 280px);
+  max-width: 300px;
+  min-width: 220px;
   max-height: min(70vh, 520px);
 }
 

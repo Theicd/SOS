@@ -367,9 +367,11 @@
       dispW = dispH * (w / h);
     }
     wrap.style.width = `${Math.round(dispW)}px`;
-    wrap.style.height = 'auto';
-    wrap.style.maxWidth = '100%';
+    wrap.style.height = `${Math.round(dispH)}px`;
+    wrap.style.maxWidth = `${Math.round(dispW)}px`;
     wrap.style.maxHeight = `${Math.round(dispH)}px`;
+    wrap.style.minWidth = `${Math.round(dispW)}px`;
+    wrap.style.minHeight = `${Math.round(dispH)}px`;
     wrap.style.aspectRatio = `${w} / ${h}`;
     wrap.classList.toggle('chat-media-upload--portrait', portrait);
     wrap.classList.toggle('chat-media-upload--landscape', !portrait);
