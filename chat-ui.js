@@ -117,9 +117,14 @@
       mime: info.mime || prev?.mime || '',
       name: info.name || prev?.name || '',
       size: info.size || prev?.size || 0,
+      posterDataUrl: info.posterDataUrl || prev?.posterDataUrl || '',
     });
   }
   App.registerChatTransferPreview = registerChatTransferPreview;
+  App.getChatTransferPreviewPoster = function getChatTransferPreviewPoster(fileId) {
+    if (!fileId) return '';
+    return transferMediaPreviews.get(fileId)?.posterDataUrl || '';
+  };
 
   function resolveTransferPreview(progress) {
     if (!progress) return { url: '', mime: '', name: '', isVideo: false, isImage: false };
@@ -185,9 +190,13 @@
         if (!ctx) return;
         ctx.drawImage(mediaEl, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
-        if (dataUrl && dataUrl.startsWith('data:image')) {
+        if (dataUrl && dataUrl.startsWith('data:image') && dataUrl.length > 200) {
           mediaEl.poster = dataUrl;
           mediaEl.dataset.posterCaptured = '1';
+          const fileId = bubble.getAttribute('data-transfer-id');
+          if (fileId) {
+            registerChatTransferPreview(fileId, { posterDataUrl: dataUrl });
+          }
         }
       } catch (_) {}
     };

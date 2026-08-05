@@ -363,6 +363,21 @@
               type: resolvedMime || file?.type,
             });
           }
+          // תקציר מיידי מהקובץ המקומי של השולח — לפני append | HYPER CORE TECH
+          let posterDataUrl = '';
+          if (typeof App.getChatTransferPreviewPoster === 'function') {
+            posterDataUrl = App.getChatTransferPreviewPoster(fileId) || '';
+          }
+          if (!posterDataUrl && isVideoFlag && typeof App.capturePosterFromBlob === 'function') {
+            try {
+              posterDataUrl = await App.capturePosterFromBlob(file, resolvedMime || file?.type);
+            } catch (posterErr) {
+              console.warn('[CHAT/P2P] poster capture (send) failed:', posterErr);
+            }
+          }
+          if (posterDataUrl && typeof App.persistChatP2PPoster === 'function') {
+            App.persistChatP2PPoster(fileId, posterDataUrl).catch(() => {});
+          }
           App.appendChatMessage({
             id: `p2p-send-${fileId}`,
             from: App.publicKey,
@@ -376,6 +391,7 @@
               fileId,
               cacheKey,
               isVideo: isVideoFlag || undefined,
+              posterDataUrl: posterDataUrl || undefined,
             },
             createdAt,
             direction: 'outgoing',
@@ -385,7 +401,7 @@
           if (typeof App.markChatConversationRead === 'function') {
             App.markChatConversationRead(peerKey);
           }
-          console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח (עם cacheKey)');
+          console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח (עם cacheKey)', { hasPoster: !!posterDataUrl });
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] append local p2p message failed:', msgErr); }
       // חלק שמירת קובץ לאחר סיום (chat-p2p-file.js) — שומר קובץ 3 דקות לצורך resend אם המקבל איחר | HYPER CORE TECH
@@ -1193,6 +1209,18 @@
           const createdAt = Math.floor(Date.now() / 1000);
           const resolvedMime = resolveMimeType(transfer.mimeType, transfer.name);
           const isVideoFlag = shouldForceVideoFlag(transfer.mimeType, transfer.name);
+          // תקציר מיידי מה־blob שהתקבל — לפני append | HYPER CORE TECH
+          let posterDataUrl = '';
+          if (isVideoFlag && typeof App.capturePosterFromBlob === 'function') {
+            try {
+              posterDataUrl = await App.capturePosterFromBlob(blob, resolvedMime || transfer.mimeType);
+              if (posterDataUrl && typeof App.persistChatP2PPoster === 'function') {
+                App.persistChatP2PPoster(fileId, posterDataUrl).catch(() => {});
+              }
+            } catch (posterErr) {
+              console.warn('[CHAT/P2P] poster capture (recv) failed:', posterErr);
+            }
+          }
           App.appendChatMessage({
             id: `p2p-recv-${fileId}`,
             direction: 'incoming',
@@ -1207,11 +1235,12 @@
               fileId,
               cacheKey,
               isVideo: isVideoFlag || undefined,
+              posterDataUrl: posterDataUrl || undefined,
             },
             p2p: true,
             createdAt,
           });
-          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב');
+          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl });
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] appendChatMessage failed:', msgErr); }
 

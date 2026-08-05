@@ -59,6 +59,19 @@
       name: file?.name || '',
       size: file?.size || 0,
     });
+    // תקציר מוקדם מהקובץ המקומי — זמין כשההודעה הסופית מרונדרת | HYPER CORE TECH
+    if (looksLikeVideoFile(file) && typeof App.capturePosterFromBlob === 'function') {
+      App.capturePosterFromBlob(file, file?.type || '').then((posterDataUrl) => {
+        if (!posterDataUrl) return;
+        App.registerChatTransferPreview(fileId, {
+          url: previewUrl || '',
+          mime: file?.type || '',
+          name: file?.name || '',
+          size: file?.size || 0,
+          posterDataUrl,
+        });
+      }).catch(() => {});
+    }
   }
 
   function renderPreview(attachment) {

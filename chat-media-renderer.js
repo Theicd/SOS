@@ -436,6 +436,155 @@
     }
   }
 
+  function isUsablePosterDataUrl(dataUrl) {
+    return typeof dataUrl === 'string'
+      && dataUrl.startsWith('data:image/')
+      && dataUrl.length > 200
+      && dataUrl !== CHAT_VIDEO_BLACK_POSTER;
+  }
+
+  // לכידת תקציר מוידאו File/Blob ב־video מוסתר ב־DOM (עובד ב־Android WebView) | HYPER CORE TECH
+  async function capturePosterFromBlob(blobOrFile, mimeHint = '') {
+    if (!blobOrFile) return '';
+    const mime = String(mimeHint || blobOrFile.type || '').toLowerCase();
+    const name = String(blobOrFile.name || '').toLowerCase();
+    const looksVideo = mime.startsWith('video/') || /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name);
+    if (!looksVideo && mime && !mime.startsWith('application/octet')) {
+      // לא וידאו — אין תקציר
+      if (!mime.startsWith('video/')) return '';
+    }
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const objectUrl = URL.createObjectURL(blobOrFile);
+      const video = document.createElement('video');
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      video.preload = 'auto';
+      // חייב להיות ב־DOM עם גודל אמיתי — opacity:0 בבועה נותן פריים שחור | HYPER CORE TECH
+      video.style.cssText = 'position:fixed;left:0;top:0;width:180px;height:180px;opacity:0.02;pointer-events:none;z-index:-1;';
+      document.body.appendChild(video);
+
+      const cleanup = () => {
+        try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+        try { video.pause(); } catch (_) {}
+        try { video.removeAttribute('src'); video.load(); } catch (_) {}
+        try { video.remove(); } catch (_) {}
+      };
+
+      const finish = (dataUrl) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(isUsablePosterDataUrl(dataUrl) ? dataUrl : '');
+      };
+
+      const grabFrame = () => {
+        if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return '';
+        try {
+          const maxW = 640;
+          const scale = Math.min(1, maxW / video.videoWidth);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+          canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) return '';
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          if (canvasLooksMostlyBlack(ctx, canvas)) return '';
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          return isUsablePosterDataUrl(dataUrl) ? dataUrl : '';
+        } catch (_) {
+          return '';
+        }
+      };
+
+      const tryCapture = async () => {
+        try {
+          const playP = video.play();
+          if (playP && typeof playP.then === 'function') await playP.catch(() => {});
+          await new Promise((r) => setTimeout(r, 120));
+          try { video.pause(); } catch (_) {}
+          const duration = isFinite(video.duration) ? video.duration : 0;
+          const target = duration > 0.4 ? Math.min(0.25, duration * 0.04) : 0.08;
+          try {
+            if (typeof video.fastSeek === 'function') video.fastSeek(target);
+            else video.currentTime = target;
+          } catch (_) {}
+          await new Promise((r) => {
+            video.addEventListener('seeked', () => r(), { once: true });
+            setTimeout(r, 350);
+          });
+          let shot = grabFrame();
+          if (!shot) {
+            try { video.currentTime = 0.001; } catch (_) {}
+            await new Promise((r) => setTimeout(r, 180));
+            shot = grabFrame();
+          }
+          if (shot) {
+            finish(shot);
+            return true;
+          }
+        } catch (_) {}
+        return false;
+      };
+
+      video.addEventListener('loadeddata', () => { tryCapture(); }, { once: true });
+      video.addEventListener('canplay', () => { tryCapture(); }, { once: true });
+      video.addEventListener('error', () => finish(''), { once: true });
+      setTimeout(() => { if (!settled) tryCapture().then((ok) => { if (!ok) finish(''); }); }, 2500);
+      setTimeout(() => finish(''), 9000);
+      video.src = objectUrl;
+      try { video.load(); } catch (_) {}
+    });
+  }
+
+  async function persistChatP2PPoster(fileId, posterDataUrl) {
+    if (!fileId || !isUsablePosterDataUrl(posterDataUrl)) return;
+    const cacheKey = `${chatP2PCacheKey(fileId)}-poster`;
+    try {
+      const resp = await fetch(posterDataUrl);
+      const blob = await resp.blob();
+      if (blob?.size > 0) await cacheChatMedia(cacheKey, blob);
+    } catch (_) {}
+  }
+
+  async function loadChatP2PPosterDataUrl(fileIdOrAttachment) {
+    const fileId = typeof fileIdOrAttachment === 'string'
+      ? fileIdOrAttachment.replace(/^p2p-file-/, '').replace(/-poster$/, '')
+      : (fileIdOrAttachment?.fileId || '');
+    if (!fileId) return '';
+    if (isUsablePosterDataUrl(fileIdOrAttachment?.posterDataUrl)) return fileIdOrAttachment.posterDataUrl;
+    if (isUsablePosterDataUrl(fileIdOrAttachment?.poster)) return fileIdOrAttachment.poster;
+    try {
+      const blob = await loadChatP2PMediaBlob(`${chatP2PCacheKey(fileId)}-poster`);
+      if (!blob) return '';
+      return await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(isUsablePosterDataUrl(reader.result) ? reader.result : '');
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(blob);
+      });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function applyChatVideoPoster(container, videoEl, posterDataUrl) {
+    if (!container || !videoEl || !isUsablePosterDataUrl(posterDataUrl)) return false;
+    videoEl.poster = posterDataUrl;
+    videoEl.dataset.posterCaptured = '1';
+    videoEl.classList.add('has-poster');
+    const thumb = container.querySelector('.chat-message__video-thumb');
+    if (thumb) {
+      thumb.src = posterDataUrl;
+      thumb.hidden = false;
+    }
+    return true;
+  }
+
   function captureChatVideoPoster(videoEl) {
     if (!videoEl || videoEl.dataset.posterCaptured === '1') return false;
     if (!videoEl.videoWidth || !videoEl.videoHeight) return false;
@@ -452,15 +601,9 @@
       // לא נועלים פריים שחור כ־poster — זה מה שגרם לתצוגה שחורה קבועה | HYPER CORE TECH
       if (canvasLooksMostlyBlack(ctx, canvas)) return false;
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-      if (dataUrl && dataUrl.startsWith('data:image')) {
-        videoEl.poster = dataUrl;
-        videoEl.dataset.posterCaptured = '1';
-        videoEl.classList.add('has-poster');
-        const thumb = videoEl.closest('.chat-message__video-container')?.querySelector('.chat-message__video-thumb');
-        if (thumb) {
-          thumb.src = dataUrl;
-          thumb.hidden = false;
-        }
+      if (isUsablePosterDataUrl(dataUrl)) {
+        const container = videoEl.closest('.chat-message__video-container');
+        applyChatVideoPoster(container, videoEl, dataUrl);
         return true;
       }
     } catch (_) {
@@ -571,13 +714,24 @@
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'vid-' + Math.random().toString(36).substr(2, 9);
     const containerId = 'vc-' + Math.random().toString(36).substr(2, 9);
-    const initialSrc = (src && !src.startsWith('blob:')) ? src : '';
+    // blob מותר ב־HTML בהתחלה — זה ה־session URL של השולח/מקבל | HYPER CORE TECH
+    const initialSrc = src || '';
+    let knownPoster = isUsablePosterDataUrl(attachment.posterDataUrl)
+      ? attachment.posterDataUrl
+      : (isUsablePosterDataUrl(attachment.poster) ? attachment.poster : '');
+    if (!knownPoster && attachment.fileId && typeof App.getChatTransferPreviewPoster === 'function') {
+      const fromTransfer = App.getChatTransferPreviewPoster(attachment.fileId);
+      if (isUsablePosterDataUrl(fromTransfer)) knownPoster = fromTransfer;
+    }
+    const pendingAttr = knownPoster ? '' : ' data-chat-video-pending="1"';
+    const readyAttr = knownPoster ? ' data-ready="1"' : '';
     mediaDebugLog('render-video', {
       name,
       mime: type,
       hasSrc: !!src,
       isDataUrl: src.startsWith('data:'),
       isBlob: src.startsWith('blob:'),
+      hasPoster: !!knownPoster,
       fileId: attachment.fileId || null,
       cacheKey: chatP2PCacheKey(attachment) || null,
     });
@@ -588,15 +742,50 @@
       const playBtn = container?.querySelector('.chat-message__video-play');
       if (!el || !container) return;
 
-      el.style.background = '#000';
-      el.style.opacity = '0';
-      el.style.visibility = 'hidden';
+      // תקציר ידוע מראש — מציגים מיד, בלי לחכות ללכידה על אלמנט מוסתר | HYPER CORE TECH
+      if (knownPoster) {
+        applyChatVideoPoster(container, el, knownPoster);
+        el.style.opacity = '1';
+        el.style.visibility = 'visible';
+        if (playBtn) playBtn.hidden = false;
+        const durationEl = container.querySelector('.chat-message__video-duration');
+        if (durationEl) durationEl.hidden = false;
+      } else {
+        el.style.background = '#000';
+        el.style.opacity = '0';
+        el.style.visibility = 'hidden';
+      }
 
-      const playable = await resolveChatMediaSrc(attachment);
+      // ניסיון טעינת תקציר שמור לפי fileId (אחרי restart) | HYPER CORE TECH
+      if (!knownPoster && attachment.fileId) {
+        loadChatP2PPosterDataUrl(attachment).then((cachedPoster) => {
+          if (!cachedPoster || container.dataset.ready === '1' && el.dataset.posterCaptured === '1') return;
+          applyChatVideoPoster(container, el, cachedPoster);
+          if (el.videoWidth && el.videoHeight) {
+            revealChatVideoPreview(container, el, { allowWithoutPoster: true });
+          } else {
+            container.removeAttribute('data-chat-video-pending');
+            container.dataset.ready = '1';
+            el.classList.add('is-ready');
+            el.style.opacity = '1';
+            el.style.visibility = 'visible';
+            if (playBtn) playBtn.hidden = false;
+            const durationEl = container.querySelector('.chat-message__video-duration');
+            if (durationEl) durationEl.hidden = false;
+          }
+        }).catch(() => {});
+      }
+
+      let playable = initialSrc;
+      try {
+        const resolved = await resolveChatMediaSrc(attachment);
+        if (resolved) playable = resolved;
+      } catch (_) {}
+
       const source = el.querySelector('source');
       if (playable) {
         if (source) {
-          if (source.src !== playable) {
+          if (source.getAttribute('src') !== playable) {
             source.src = playable;
             el.load();
           }
@@ -604,6 +793,23 @@
           el.src = playable;
           try { el.load(); } catch (_) {}
         }
+      }
+
+      // אם אין תקציר — לכידה מ־blob ב־off-DOM (לא מהאלמנט המוסתר בבועה) | HYPER CORE TECH
+      if (el.dataset.posterCaptured !== '1' && playable) {
+        try {
+          const blobResp = await fetch(playable);
+          if (blobResp.ok) {
+            const mediaBlob = await blobResp.blob();
+            const offDomPoster = await capturePosterFromBlob(mediaBlob, type);
+            if (offDomPoster) {
+              applyChatVideoPoster(container, el, offDomPoster);
+              if (attachment.fileId) {
+                persistChatP2PPoster(attachment.fileId, offDomPoster).catch(() => {});
+              }
+            }
+          }
+        } catch (_) {}
       }
 
       const updateDuration = () => {
@@ -618,19 +824,33 @@
 
       let warming = false;
       const tryReady = async ({ force = false } = {}) => {
-        if (container.dataset.ready === '1' || warming) return;
+        if (warming) return;
+        if (container.dataset.ready === '1' && el.dataset.posterCaptured === '1') {
+          updateDuration();
+          if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
+          return;
+        }
         warming = true;
         try {
           updateDuration();
           if (el.videoWidth && el.videoHeight) lockChatVideoAspect(container, el);
           if (el.dataset.posterCaptured !== '1') {
+            // חשיפה זמנית ללכידה (כמו בועת העלאה) | HYPER CORE TECH
+            const prevOpacity = el.style.opacity;
+            const prevVis = el.style.visibility;
+            el.style.opacity = '0.02';
+            el.style.visibility = 'visible';
             captureChatVideoPoster(el);
-          }
-          if (el.dataset.posterCaptured !== '1') {
-            await ensureChatVideoPosterFrame(el);
+            if (el.dataset.posterCaptured !== '1') {
+              await ensureChatVideoPosterFrame(el);
+            }
+            if (el.dataset.posterCaptured !== '1') {
+              el.style.opacity = prevOpacity;
+              el.style.visibility = prevVis;
+            }
           }
           revealChatVideoPreview(container, el, {
-            allowWithoutPoster: force || el.dataset.previewFrame === '1',
+            allowWithoutPoster: force || el.dataset.previewFrame === '1' || el.dataset.posterCaptured === '1',
           });
         } finally {
           warming = false;
@@ -645,10 +865,9 @@
         tryReady();
       });
 
-      // fallback: חושפים את הפריים עצמו (בלי poster שחור) אחרי ניסיונות לכידה | HYPER CORE TECH
-      setTimeout(() => { tryReady({ force: true }); }, 3500);
-      setTimeout(() => { tryReady({ force: true }); }, 7000);
-      if (el.readyState >= 1) tryReady();
+      setTimeout(() => { tryReady({ force: true }); }, 2500);
+      setTimeout(() => { tryReady({ force: true }); }, 6000);
+      if (el.readyState >= 1 || knownPoster) tryReady({ force: !!knownPoster });
 
       // כמו וואטסאפ – Play פותח מסך מלא, בלי controls בתוך הבועה | HYPER CORE TECH
       const openFullscreen = (event) => {
@@ -656,7 +875,7 @@
           event.preventDefault();
           event.stopPropagation();
         }
-        if (container.dataset.ready !== '1') return;
+        if (container.dataset.ready !== '1' && el.dataset.posterCaptured !== '1') return;
         const sourceEl = el.querySelector('source');
         const playSrc = (sourceEl && sourceEl.src) || el.currentSrc || playable || src;
         if (typeof openVideoLightbox === 'function') {
@@ -674,24 +893,32 @@
       });
     }, 0);
 
+    const posterAttr = knownPoster || CHAT_VIDEO_BLACK_POSTER;
+    const thumbHtml = knownPoster
+      ? `<img class="chat-message__video-thumb" alt="" src="${knownPoster}" decoding="async">`
+      : `<img class="chat-message__video-thumb" alt="" hidden decoding="async">`;
+    const videoStyle = knownPoster
+      ? 'opacity:1;visibility:visible;background:#000'
+      : 'opacity:0;visibility:hidden;background:#000';
+
     return `
-      <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1" data-chat-video-pending="1">
-        <img class="chat-message__video-thumb" alt="" hidden decoding="async">
-        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא" hidden>
+      <div id="${containerId}" class="chat-message__video-container" data-chat-video-preview="1"${pendingAttr}${readyAttr}>
+        ${thumbHtml}
+        <button type="button" class="chat-message__video-play" aria-label="נגן וידאו במסך מלא"${knownPoster ? '' : ' hidden'}>
           <span class="chat-message__video-play-icon" aria-hidden="true"></span>
         </button>
-        <span class="chat-message__video-duration" hidden>0:00</span>
+        <span class="chat-message__video-duration"${knownPoster ? '' : ' hidden'}>0:00</span>
         <span class="chat-message__video-msg-time" data-video-time-slot></span>
         ${buildAttachmentDownloadHtml(attachment, 'chat-message__media-download')}
         <video
           id="${uid}"
-          class="chat-message__video"
+          class="chat-message__video${knownPoster ? ' has-poster is-ready' : ''}"
           preload="auto"
           playsinline
           webkit-playsinline
           muted
-          poster="${CHAT_VIDEO_BLACK_POSTER}"
-          style="opacity:0;visibility:hidden;background:#000"
+          poster="${posterAttr}"
+          style="${videoStyle}"
           aria-label="${safeName}"
         >
           <source src="${initialSrc}" type="${type}">
@@ -1096,6 +1323,9 @@
     fetchAndCacheChatMedia: fetchAndCacheMedia,
     getChatMediaFromCache,
     persistChatP2PMedia,
+    persistChatP2PPoster,
+    capturePosterFromBlob,
+    loadChatP2PPosterDataUrl,
     resolveChatMediaSrc,
     chatP2PCacheKey,
   });
