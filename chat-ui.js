@@ -341,17 +341,38 @@
 
   function sizeMediaUploadWrap(wrap, w, h) {
     if (!wrap || !w || !h) return;
+    if (typeof App.applyChatMediaBoxSize === 'function') {
+      const box = App.applyChatMediaBoxSize(wrap, w, h, { force: true });
+      if (box) {
+        wrap.dataset.mediaReady = '1';
+        wrap.classList.toggle('chat-media-upload--portrait', !!box.portrait);
+        wrap.classList.toggle('chat-media-upload--landscape', !box.portrait);
+      }
+      return;
+    }
+    // fallback אם המודול עדיין לא נטען | HYPER CORE TECH
+    const col = wrap.closest?.('.chat-conversation__messages') || document.getElementById('chatMessages');
+    const avail = Math.max(160, (col?.clientWidth || window.innerWidth || 360) - 48);
+    const narrow = avail < 420;
     const portrait = h > w;
-    const maxW = portrait ? 280 : 360;
-    const maxH = portrait ? Math.min(Math.round(window.innerHeight * 0.7) || 520, 520) : 280;
+    const maxW = portrait
+      ? Math.min(narrow ? Math.round(avail * 0.82) : 280, avail)
+      : Math.min(narrow ? Math.round(avail * 0.92) : 360, avail);
+    const maxH = portrait
+      ? Math.min(Math.round((window.innerHeight || 640) * 0.62), 520)
+      : Math.min(narrow ? Math.round((window.innerHeight || 640) * 0.4) : 280, narrow ? 300 : 280);
     let dispW = maxW;
     let dispH = dispW * (h / w);
     if (dispH > maxH) {
       dispH = maxH;
       dispW = dispH * (w / h);
     }
-    wrap.style.width = `${Math.round(dispW)}px`;
-    wrap.style.height = `${Math.round(dispH)}px`;
+    if (dispW > avail) {
+      dispW = avail;
+      dispH = dispW * (h / w);
+    }
+    wrap.style.width = '100%';
+    wrap.style.height = 'auto';
     wrap.style.maxWidth = `${Math.round(dispW)}px`;
     wrap.style.maxHeight = `${Math.round(dispH)}px`;
     wrap.style.aspectRatio = `${w} / ${h}`;

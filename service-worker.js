@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v251'; // bump - settle upload bubble in place, no media jump
+  const CACHE_NAME = 'sos-cache-v252'; // bump - mobile media width relative to chat column
   const PRECACHE_URLS = [
     './',
     './videos.html',

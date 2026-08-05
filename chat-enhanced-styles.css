@@ -1081,9 +1081,10 @@
 
 /* חלק ואטסאפ (chat-enhanced-styles.css) – תקציר וידאו: מסגרת דקה, Play מרכזי, בלי controls | HYPER CORE TECH */
 .chat-message__video-container {
-  max-width: min(72%, 360px);
-  min-width: 120px;
-  width: fit-content;
+  max-width: min(100%, 360px);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   border-radius: 6px;
   overflow: hidden;
   margin: 2px 0;
@@ -1096,13 +1097,13 @@
 
 /* אופקי: רוחב מלא של בועת מדיה, גובה מוגבל | HYPER CORE TECH */
 .chat-message__video-container--landscape {
-  max-width: min(72%, 360px);
+  max-width: min(100%, 360px);
   max-height: 280px;
 }
 
 /* אנכי: כמו וואטסאפ — גובה גבוה יותר כדי שלא יידחס לפס צר | HYPER CORE TECH */
 .chat-message__video-container--portrait {
-  max-width: min(72%, 280px);
+  max-width: min(100%, 280px);
   max-height: min(70vh, 520px);
 }
 
@@ -1377,43 +1378,64 @@
   pointer-events: none;
 }
 
-/* חלק מובייל מדיה (chat-enhanced-styles.css) – התאמת גדלי מדיה למובייל | HYPER CORE TECH */
+/* חלק מובייל מדיה (chat-enhanced-styles.css) – גמיש לפי רוחב הצ'אט, בלי 100vw שגורם לדחיפה | HYPER CORE TECH */
 @media (max-width: 768px) {
+  .chat-conversation__messages {
+    overflow-x: hidden;
+    padding-inline: max(10px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-right, 0px));
+    padding-block: 10px;
+  }
+
+  .chat-message {
+    max-width: min(88%, 100%);
+    min-width: 0;
+  }
+
+  .chat-message--media-transfer,
+  .chat-message--media-settled {
+    max-width: min(88%, 100%);
+  }
+
   .chat-message__image-container,
   .chat-message__youtube-container {
-    max-width: calc(100vw - 80px);
+    max-width: 100%;
+    width: auto;
   }
 
   .chat-message__image {
-    max-height: 280px;
+    max-height: min(55vh, 360px);
   }
 
   .chat-message__video-container,
-  .chat-message__video-container--landscape {
-    width: min(100%, calc(100vw - 64px));
-    max-width: calc(100vw - 64px);
-    max-height: 42vh;
+  .chat-message__video-container--landscape,
+  .chat-media-upload,
+  .chat-media-upload--landscape {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(42vh, 300px);
   }
 
-  .chat-message__video-container--portrait {
-    width: min(100%, min(78vw, 300px));
-    max-width: min(78vw, 300px);
-    max-height: min(70vh, 560px);
+  .chat-message__video-container--portrait,
+  .chat-media-upload--portrait {
+    width: 100%;
+    max-width: min(82%, 300px);
+    max-height: min(62vh, 520px);
   }
 
   .chat-message__video-container[data-ready="1"] {
-    max-height: min(70vh, 560px);
+    max-height: min(62vh, 520px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--landscape {
-    max-height: 42vh;
+    max-height: min(42vh, 300px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--portrait {
-    max-height: min(70vh, 560px);
+    max-height: min(62vh, 520px);
   }
 
-  .chat-message__video {
+  .chat-message__video,
+  .chat-media-upload__media {
     max-height: none;
   }
 }
@@ -1814,7 +1836,8 @@
 .chat-message--media-transfer,
 .chat-message--media-settled {
   align-self: flex-end;
-  max-width: min(78%, 360px);
+  max-width: min(88%, 360px);
+  min-width: 0;
 }
 
 .chat-message__content--media-upload {
@@ -1831,19 +1854,20 @@
   overflow: hidden;
   background: #000 !important;
   line-height: 0;
-  width: fit-content;
-  max-width: min(72%, 360px);
-  min-width: 120px;
+  width: 100%;
+  max-width: min(100%, 360px);
+  min-width: 0;
+  box-sizing: border-box;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .chat-media-upload--landscape {
-  max-width: min(72%, 360px);
+  max-width: min(100%, 360px);
   max-height: 280px;
 }
 
 .chat-media-upload--portrait {
-  max-width: min(72%, 280px);
+  max-width: min(100%, 280px);
   max-height: min(70vh, 520px);
 }
 

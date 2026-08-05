@@ -636,6 +636,8 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   background: transparent;
   padding: 14px;
   gap: 8px;
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* חלק צ'אט (chat-whatsapp-theme.css) – כפתור טעינת היסטוריה ישנה | HYPER CORE TECH */

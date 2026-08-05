@@ -773,33 +773,140 @@
     msg.hidden = true;
   }
 
-  function lockChatVideoAspect(container, videoEl) {
-    if (!container || !videoEl) return false;
-    const w = videoEl.videoWidth;
-    const h = videoEl.videoHeight;
-    if (!w || !h) return false;
-    // אחרי חשיפה — לא משנים יחס (מונע קפיצה אנכי/אופקי לעין המשתמש) | HYPER CORE TECH
-    if (container.dataset.ready === '1' && container.dataset.aspectLocked === '1') {
-      return true;
-    }
+  // גודל מדיה יחסי לרוחב עמודת הצ'אט — מונע overflow ודחיפה שמאלה במובייל | HYPER CORE TECH
+  function getChatMediaAvailWidth(hostEl) {
+    const col =
+      hostEl?.closest?.('.chat-conversation__messages') ||
+      document.getElementById('chatMessages') ||
+      document.documentElement;
+    const raw = Math.max(0, col?.clientWidth || window.innerWidth || 360);
+    return Math.max(160, raw - 48);
+  }
+
+  function computeChatMediaBox(w, h, hostEl) {
     const portrait = h > w;
-    const maxW = portrait ? 280 : 360;
-    const maxH = portrait ? Math.min(Math.round(window.innerHeight * 0.7) || 520, 520) : 280;
+    const avail = getChatMediaAvailWidth(hostEl);
+    const vh = window.innerHeight || document.documentElement?.clientHeight || 640;
+    const narrow = avail < 420 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    const maxW = portrait
+      ? Math.min(narrow ? Math.round(avail * 0.82) : 280, avail)
+      : Math.min(narrow ? Math.round(avail * 0.92) : 360, avail);
+    const maxH = portrait
+      ? Math.min(Math.round(vh * (narrow ? 0.62 : 0.7)), 520)
+      : Math.min(narrow ? Math.round(vh * 0.4) : 280, narrow ? 300 : 280);
     let dispW = maxW;
     let dispH = dispW * (h / w);
     if (dispH > maxH) {
       dispH = maxH;
       dispW = dispH * (w / h);
     }
-    container.style.width = `${Math.round(dispW)}px`;
-    container.style.height = `${Math.round(dispH)}px`;
-    container.style.maxWidth = `${Math.round(dispW)}px`;
-    container.style.maxHeight = `${Math.round(dispH)}px`;
-    container.style.aspectRatio = `${w} / ${h}`;
-    container.classList.toggle('chat-message__video-container--portrait', portrait);
-    container.classList.toggle('chat-message__video-container--landscape', !portrait);
-    container.dataset.aspectLocked = '1';
+    if (dispW > avail) {
+      dispW = avail;
+      dispH = dispW * (h / w);
+      if (dispH > maxH) {
+        dispH = maxH;
+        dispW = dispH * (w / h);
+      }
+    }
+    return {
+      portrait,
+      dispW: Math.max(120, Math.round(dispW)),
+      dispH: Math.max(80, Math.round(dispH)),
+    };
+  }
+
+  function applyChatMediaBoxSize(el, w, h, { force = false } = {}) {
+    if (!el || !w || !h) return false;
+    if (
+      !force &&
+      el.dataset.aspectLocked === '1' &&
+      el.dataset.mediaNw === String(w) &&
+      el.dataset.mediaNh === String(h)
+    ) {
+      const probe = computeChatMediaBox(w, h, el);
+      if (el.dataset.sizedW === String(probe.dispW) && el.dataset.sizedH === String(probe.dispH)) {
+        return probe;
+      }
+    }
+    const box = computeChatMediaBox(w, h, el);
+    el.style.width = '100%';
+    el.style.height = 'auto';
+    el.style.maxWidth = `${box.dispW}px`;
+    el.style.maxHeight = `${box.dispH}px`;
+    el.style.aspectRatio = `${w} / ${h}`;
+    el.dataset.mediaNw = String(w);
+    el.dataset.mediaNh = String(h);
+    el.dataset.sizedW = String(box.dispW);
+    el.dataset.sizedH = String(box.dispH);
+    el.dataset.aspectLocked = '1';
+    return box;
+  }
+
+  function lockChatVideoAspect(container, videoEl, { force = false } = {}) {
+    if (!container || !videoEl) return false;
+    const w = videoEl.videoWidth;
+    const h = videoEl.videoHeight;
+    if (!w || !h) return false;
+    if (!force && container.dataset.ready === '1' && container.dataset.aspectLocked === '1') {
+      const probe = computeChatMediaBox(w, h, container);
+      if (container.dataset.sizedW === String(probe.dispW) && container.dataset.sizedH === String(probe.dispH)) {
+        return true;
+      }
+    }
+    const box = applyChatMediaBoxSize(container, w, h, { force: true });
+    if (!box) return false;
+    container.classList.toggle('chat-message__video-container--portrait', box.portrait);
+    container.classList.toggle('chat-message__video-container--landscape', !box.portrait);
     return true;
+  }
+
+  function reflowLockedChatMedia() {
+    try {
+      document.querySelectorAll(
+        '.chat-message__video-container[data-aspect-locked="1"], .chat-media-upload[data-aspect-locked="1"], .chat-media-upload[data-media-ready="1"]'
+      ).forEach((el) => {
+        const nw = Number(el.dataset.mediaNw || 0);
+        const nh = Number(el.dataset.mediaNh || 0);
+        if (nw && nh) {
+          const box = applyChatMediaBoxSize(el, nw, nh, { force: true });
+          if (box) {
+            el.classList.toggle('chat-message__video-container--portrait', !!box.portrait);
+            el.classList.toggle('chat-message__video-container--landscape', !box.portrait);
+            el.classList.toggle('chat-media-upload--portrait', !!box.portrait);
+            el.classList.toggle('chat-media-upload--landscape', !box.portrait);
+          }
+          return;
+        }
+        const video = el.querySelector('video');
+        if (video?.videoWidth && video?.videoHeight) {
+          lockChatVideoAspect(el, video, { force: true });
+          return;
+        }
+        const img = el.querySelector('img.chat-media-upload__media, img.chat-message__image');
+        if (img?.naturalWidth && img?.naturalHeight) {
+          const box = applyChatMediaBoxSize(el, img.naturalWidth, img.naturalHeight, { force: true });
+          if (box) {
+            el.classList.toggle('chat-media-upload--portrait', !!box.portrait);
+            el.classList.toggle('chat-media-upload--landscape', !box.portrait);
+          }
+        }
+      });
+    } catch (_) {}
+  }
+
+  let _mediaReflowTimer = null;
+  function scheduleChatMediaReflow() {
+    if (_mediaReflowTimer) clearTimeout(_mediaReflowTimer);
+    _mediaReflowTimer = setTimeout(() => {
+      _mediaReflowTimer = null;
+      reflowLockedChatMedia();
+    }, 120);
+  }
+
+  if (typeof window !== 'undefined' && !window.__sosChatMediaReflowBound) {
+    window.__sosChatMediaReflowBound = true;
+    window.addEventListener('resize', scheduleChatMediaReflow, { passive: true });
+    window.addEventListener('orientationchange', scheduleChatMediaReflow, { passive: true });
   }
 
   function revealChatVideoPreview(container, videoEl, { allowWithoutPoster = false } = {}) {
@@ -1465,7 +1572,9 @@
     detectAndRenderYouTube,
     extractYouTubeId,
     openImageLightbox,
-    openVideoLightbox,
+    applyChatMediaBoxSize,
+    computeChatMediaBox,
+    reflowLockedChatMedia,
     downloadChatMedia,
     getFileIcon,
     // מטמון מדיה צ'אט | HYPER CORE TECH
