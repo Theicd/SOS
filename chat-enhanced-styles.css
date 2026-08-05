@@ -1066,11 +1066,20 @@
   width: 100%;
   height: 100%;
   max-height: none;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
   cursor: pointer;
   border-radius: 8px;
   background: #000;
+}
+
+/* כמו וידאו: התמונה ממלאת את כל המסגרת | HYPER CORE TECH */
+.chat-message__image-container.is-media-ready .chat-message__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .chat-message__image-container .chat-message__media-download,
@@ -1448,11 +1457,14 @@
     max-height: min(60vh, 476px);
   }
 
-  .chat-message__image-container--landscape .chat-message__image {
+  .chat-message__image-container--landscape .chat-message__image,
+  .chat-message__image-container.is-media-ready .chat-message__image {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     max-width: 100%;
-    object-fit: contain;
+    object-fit: cover;
   }
 
   .chat-message:has(.chat-message__image-container--landscape) {
