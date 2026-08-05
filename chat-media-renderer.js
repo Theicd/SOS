@@ -782,9 +782,22 @@
     if (container.dataset.ready === '1' && container.dataset.aspectLocked === '1') {
       return true;
     }
+    const portrait = h > w;
+    const maxW = portrait ? 280 : 360;
+    const maxH = portrait ? Math.min(Math.round(window.innerHeight * 0.7) || 520, 520) : 280;
+    let dispW = maxW;
+    let dispH = dispW * (h / w);
+    if (dispH > maxH) {
+      dispH = maxH;
+      dispW = dispH * (w / h);
+    }
+    container.style.width = `${Math.round(dispW)}px`;
+    container.style.height = `${Math.round(dispH)}px`;
+    container.style.maxWidth = `${Math.round(dispW)}px`;
+    container.style.maxHeight = `${Math.round(dispH)}px`;
     container.style.aspectRatio = `${w} / ${h}`;
-    container.classList.toggle('chat-message__video-container--portrait', h > w);
-    container.classList.toggle('chat-message__video-container--landscape', w >= h);
+    container.classList.toggle('chat-message__video-container--portrait', portrait);
+    container.classList.toggle('chat-message__video-container--landscape', !portrait);
     container.dataset.aspectLocked = '1';
     return true;
   }

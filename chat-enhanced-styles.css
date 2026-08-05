@@ -1082,8 +1082,8 @@
 /* חלק ואטסאפ (chat-enhanced-styles.css) – תקציר וידאו: מסגרת דקה, Play מרכזי, בלי controls | HYPER CORE TECH */
 .chat-message__video-container {
   max-width: min(72%, 360px);
-  min-width: 160px;
-  width: min(100%, 360px);
+  min-width: 120px;
+  width: fit-content;
   border-radius: 6px;
   overflow: hidden;
   margin: 2px 0;
@@ -1096,14 +1096,12 @@
 
 /* אופקי: רוחב מלא של בועת מדיה, גובה מוגבל | HYPER CORE TECH */
 .chat-message__video-container--landscape {
-  width: min(100%, 360px);
   max-width: min(72%, 360px);
   max-height: 280px;
 }
 
 /* אנכי: כמו וואטסאפ — גובה גבוה יותר כדי שלא יידחס לפס צר | HYPER CORE TECH */
 .chat-message__video-container--portrait {
-  width: min(100%, 280px);
   max-width: min(72%, 280px);
   max-height: min(70vh, 520px);
 }
@@ -1813,7 +1811,8 @@
 .chat-transfer-bubble__status.chat-transfer-bubble--failed { color: #e74c3c; font-weight: 600; }
 
 /* חלק העלאת מדיה וואטסאפ (chat-enhanced-styles.css) – תצוגה מקומית + ספינר + טבעת ליד השעה | HYPER CORE TECH */
-.chat-message--media-transfer {
+.chat-message--media-transfer,
+.chat-message--media-settled {
   align-self: flex-end;
   max-width: min(78%, 360px);
 }
@@ -1822,6 +1821,8 @@
   padding: 3px !important;
   background: transparent !important;
   overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .chat-media-upload {
@@ -1830,23 +1831,25 @@
   overflow: hidden;
   background: #000 !important;
   line-height: 0;
-  min-width: 160px;
-  width: min(100%, 360px);
+  width: fit-content;
+  max-width: min(72%, 360px);
+  min-width: 120px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .chat-media-upload--landscape {
-  width: min(100%, 360px);
+  max-width: min(72%, 360px);
   max-height: 280px;
 }
 
 .chat-media-upload--portrait {
-  width: min(100%, 280px);
+  max-width: min(72%, 280px);
   max-height: min(70vh, 520px);
 }
 
 .chat-media-upload--pending {
   aspect-ratio: 3 / 4;
+  width: min(100%, 220px);
   min-height: 180px;
   max-height: min(70vh, 520px);
   background: #000 !important;
@@ -1854,17 +1857,21 @@
 
 .chat-media-upload--pending.chat-media-upload--landscape {
   aspect-ratio: 16 / 9;
+  width: min(100%, 360px);
   max-height: 280px;
 }
 
 .chat-media-upload__media {
   display: block;
   width: 100%;
-  max-height: none;
+  height: auto;
+  max-width: 100%;
+  max-height: inherit;
   min-height: 0;
   object-fit: contain;
   background: #000 !important;
   pointer-events: none;
+  vertical-align: top;
 }
 
 .chat-media-upload--pending .chat-media-upload__media {
@@ -1881,7 +1888,9 @@
 }
 
 .chat-media-upload[data-media-ready="1"] .chat-media-upload__media {
+  width: 100%;
   height: 100%;
+  object-fit: cover;
 }
 
 .chat-media-upload__overlay {
