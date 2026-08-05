@@ -197,6 +197,37 @@
     fillFg.setAttribute('stroke', '#ff2d55');
   }
 
+  function formatMediaUploadPct(pct) {
+    return String(Math.max(0, Math.min(100, Math.round(Number(pct) || 0))));
+  }
+
+  function buildMediaUploadPctHtml(pct) {
+    const n = formatMediaUploadPct(pct);
+    const triple = n.length >= 3 ? ' chat-media-upload__pct--triple' : '';
+    return `<span class="chat-media-upload__pct${triple}"><span class="chat-media-upload__pct-num">${n}</span><span class="chat-media-upload__pct-sign">%</span></span>`;
+  }
+
+  function updateMediaUploadCenterProgress(host, pct) {
+    if (!host) return;
+    updateMediaUploadSpinnerFill(host, pct);
+    const n = formatMediaUploadPct(pct);
+    let label = host.querySelector('.chat-media-upload__pct');
+    if (!label) {
+      host.insertAdjacentHTML('beforeend', buildMediaUploadPctHtml(pct));
+      label = host.querySelector('.chat-media-upload__pct');
+    }
+    if (!label) return;
+    const num = label.querySelector('.chat-media-upload__pct-num');
+    if (num && num.textContent !== n) {
+      num.textContent = n;
+      label.classList.remove('chat-media-upload__pct--tick');
+      // reflow כדי להפעיל מחדש אנימציית tick | HYPER CORE TECH
+      void label.offsetWidth;
+      label.classList.add('chat-media-upload__pct--tick');
+    }
+    label.classList.toggle('chat-media-upload__pct--triple', n.length >= 3);
+  }
+
   function scheduleTransferBubbleCleanup(bubble, progress, ui) {
     if (ui.isTerminalOk) {
       setTimeout(() => {
@@ -271,7 +302,7 @@
           }
           overlay.appendChild(center);
         }
-        if (!done && !failed) updateMediaUploadSpinnerFill(center, ui.pct);
+        if (!done && !failed) updateMediaUploadCenterProgress(center, ui.pct);
       }
       if (ringHost) {
         ringHost.innerHTML = done
@@ -314,6 +345,7 @@
             <div class="chat-media-upload__center" aria-hidden="true">
               <div class="chat-media-upload__spinner"></div>
               ${buildMediaUploadSpinnerFillHtml(ui.pct)}
+              ${buildMediaUploadPctHtml(ui.pct)}
             </div>
           </div>
           ${ui.showCancel ? `<button type="button" class="chat-media-upload__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
