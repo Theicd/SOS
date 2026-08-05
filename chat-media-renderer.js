@@ -86,6 +86,109 @@
       return url; // fallback לURL מקורי
     }
   }
+
+  // חלק מפתח P2P (chat-media-renderer.js) – מפתח יציב לקבצי צ'אט שנשמרו אחרי העברת P2P | HYPER CORE TECH
+  function chatP2PCacheKey(fileIdOrAttachment) {
+    if (!fileIdOrAttachment) return '';
+    if (typeof fileIdOrAttachment === 'string') {
+      return fileIdOrAttachment.startsWith('p2p-file-')
+        ? fileIdOrAttachment
+        : `p2p-file-${fileIdOrAttachment}`;
+    }
+    const att = fileIdOrAttachment;
+    if (att.cacheKey) return String(att.cacheKey);
+    if (att.fileId) return `p2p-file-${att.fileId}`;
+    return '';
+  }
+
+  // חלק שמירת P2P (chat-media-renderer.js) – שמירת blob תחת מפתח יציב ששורד restart | HYPER CORE TECH
+  async function persistChatP2PMedia(fileId, blob, meta = {}) {
+    if (!fileId || !blob) return '';
+    const cacheKey = chatP2PCacheKey(fileId);
+    try {
+      await cacheChatMedia(cacheKey, blob);
+      if (typeof App.cacheMedia === 'function') {
+        await App.cacheMedia(cacheKey, cacheKey, blob, meta.type || blob.type || 'application/octet-stream', {
+          pinned: true,
+        });
+      }
+      mediaDebugLog('p2p-persist', { cacheKey, size: blob.size, name: meta.name || '' });
+      return cacheKey;
+    } catch (err) {
+      mediaDebugLog('p2p-persist-failed', { cacheKey, error: err?.message || String(err) });
+      return cacheKey;
+    }
+  }
+
+  async function loadChatP2PMediaBlob(cacheKey) {
+    if (!cacheKey) return null;
+    try {
+      const fromChat = await getChatMediaFromCache(cacheKey);
+      if (fromChat) return fromChat;
+      if (typeof App.getCachedMedia === 'function') {
+        const fromFeed = await App.getCachedMedia(cacheKey);
+        if (fromFeed?.blob) {
+          // סנכרון חזרה למטמון הצ'אט | HYPER CORE TECH
+          await cacheChatMedia(cacheKey, fromFeed.blob);
+          return fromFeed.blob;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // חלק שחזור מקור (chat-media-renderer.js) – blob מת אחרי restart → טעינה לפי fileId/cacheKey | HYPER CORE TECH
+  async function resolveChatMediaSrc(attachment) {
+    if (!attachment) return '';
+    const src = String(attachment.url || attachment.dataUrl || '').trim();
+    const cacheKey = chatP2PCacheKey(attachment);
+
+    const fromDurable = async () => {
+      if (!cacheKey) return '';
+      const blob = await loadChatP2PMediaBlob(cacheKey);
+      if (!blob) return '';
+      return URL.createObjectURL(blob);
+    };
+
+    if (src.startsWith('blob:')) {
+      // אם ה־blob עדיין חי (אותו session) – שמירה אופורטוניסטית + שימוש בו | HYPER CORE TECH
+      try {
+        const resp = await fetch(src);
+        if (resp.ok) {
+          const liveBlob = await resp.blob();
+          if (cacheKey && liveBlob?.size > 0) {
+            persistChatP2PMedia(cacheKey.replace(/^p2p-file-/, ''), liveBlob, {
+              name: attachment.name,
+              type: attachment.type || liveBlob.type,
+            }).catch(() => {});
+          }
+          return src;
+        }
+      } catch (_) {}
+      // blob מת – שחזור מהקאש | HYPER CORE TECH
+      const restored = await fromDurable();
+      if (restored) {
+        mediaDebugLog('p2p-restore-from-cache', { cacheKey });
+        return restored;
+      }
+      return '';
+    }
+
+    if (cacheKey && (!src || src.startsWith('blob:'))) {
+      const restored = await fromDurable();
+      if (restored) return restored;
+    }
+
+    // גם כשיש http – ננסה קודם קאש יציב אם קיים (מהיר יותר) | HYPER CORE TECH
+    if (cacheKey) {
+      const restored = await fromDurable();
+      if (restored) return restored;
+    }
+
+    if (src.startsWith('data:')) return src;
+    if (src) return fetchAndCacheMedia(src);
+    return '';
+  }
   
   // חלק זיהוי (chat-media-renderer.js) – זיהוי סוג קובץ לפי MIME/extension | HYPER CORE TECH
   const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'image/bmp', 'image/svg+xml'];
@@ -272,26 +375,27 @@
     const name = attachment.name || 'תמונה';
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'img-' + Math.random().toString(36).substr(2, 9);
+    const initialSrc = (src && !src.startsWith('blob:')) ? src : '';
     // חלק דיבאג מדיה (chat-media-renderer.js) – רינדור תמונה | HYPER CORE TECH
     mediaDebugLog('render-image', {
       name,
       mime: attachment.type || '',
       hasSrc: !!src,
       isDataUrl: src.startsWith('data:'),
-      isBlob: src.startsWith('blob:')
+      isBlob: src.startsWith('blob:'),
+      fileId: attachment.fileId || null,
+      cacheKey: chatP2PCacheKey(attachment) || null,
     });
     
-    // טעינה אסינכרונית מהמטמון ברקע
-    if (src && !src.startsWith('data:')) {
-      setTimeout(async () => {
-        const el = document.getElementById(uid);
-        if (!el) return;
-        const cachedUrl = await fetchAndCacheMedia(src);
-        if (cachedUrl && el.src !== cachedUrl) {
-          el.src = cachedUrl;
-        }
-      }, 0);
-    }
+    // טעינה/שחזור אסינכרוני — כולל blob מת אחרי restart לפי fileId | HYPER CORE TECH
+    setTimeout(async () => {
+      const el = document.getElementById(uid);
+      if (!el) return;
+      const playable = await resolveChatMediaSrc(attachment);
+      if (playable && el.src !== playable) {
+        el.src = playable;
+      }
+    }, 0);
 
     const downloadHtml = buildAttachmentDownloadHtml(attachment, 'chat-message__media-download');
     
@@ -299,7 +403,7 @@
       <div class="chat-message__image-container">
         <img 
           id="${uid}"
-          src="${src}" 
+          src="${initialSrc}" 
           alt="${safeName}" 
           class="chat-message__image"
           loading="eager"
@@ -362,13 +466,15 @@
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'vid-' + Math.random().toString(36).substr(2, 9);
     const containerId = 'vc-' + Math.random().toString(36).substr(2, 9);
-    const isLocal = src.startsWith('blob:') || src.startsWith('data:');
+    const initialSrc = (src && !src.startsWith('blob:')) ? src : '';
     mediaDebugLog('render-video', {
       name,
       mime: type,
       hasSrc: !!src,
       isDataUrl: src.startsWith('data:'),
-      isBlob: src.startsWith('blob:')
+      isBlob: src.startsWith('blob:'),
+      fileId: attachment.fileId || null,
+      cacheKey: chatP2PCacheKey(attachment) || null,
     });
 
     setTimeout(async () => {
@@ -377,14 +483,17 @@
       const playBtn = container?.querySelector('.chat-message__video-play');
       if (!el || !container) return;
 
-      if (src && !src.startsWith('data:') && !src.startsWith('blob:')) {
-        const cachedUrl = await fetchAndCacheMedia(src);
-        if (cachedUrl) {
-          const source = el.querySelector('source');
-          if (source && source.src !== cachedUrl) {
-            source.src = cachedUrl;
+      const playable = await resolveChatMediaSrc(attachment);
+      const source = el.querySelector('source');
+      if (playable) {
+        if (source) {
+          if (source.src !== playable) {
+            source.src = playable;
             el.load();
           }
+        } else if (el.src !== playable) {
+          el.src = playable;
+          try { el.load(); } catch (_) {}
         }
       }
 
@@ -414,8 +523,8 @@
           event.preventDefault();
           event.stopPropagation();
         }
-        const source = el.querySelector('source');
-        const playSrc = (source && source.src) || el.currentSrc || src;
+        const sourceEl = el.querySelector('source');
+        const playSrc = (sourceEl && sourceEl.src) || el.currentSrc || playable || src;
         if (typeof openVideoLightbox === 'function') {
           openVideoLightbox(playSrc, name, type);
         }
@@ -442,13 +551,13 @@
         <video
           id="${uid}"
           class="chat-message__video"
-          preload="${isLocal ? 'auto' : 'metadata'}"
+          preload="metadata"
           playsinline
           webkit-playsinline
           muted
           aria-label="${safeName}"
         >
-          <source src="${src}" type="${type}">
+          <source src="${initialSrc}" type="${type}">
         </video>
       </div>
     `;
@@ -848,7 +957,10 @@
     getFileIcon,
     // מטמון מדיה צ'אט | HYPER CORE TECH
     fetchAndCacheChatMedia: fetchAndCacheMedia,
-    getChatMediaFromCache
+    getChatMediaFromCache,
+    persistChatP2PMedia,
+    resolveChatMediaSrc,
+    chatP2PCacheKey,
   });
   
   // אתחול מטמון צ'אט | HYPER CORE TECH

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v237'; // bump - force red SVG stroke attrs on media upload ring
+  const CACHE_NAME = 'sos-cache-v238'; // bump - persist P2P chat media across restart
   const PRECACHE_URLS = [
     './',
     './videos.html',

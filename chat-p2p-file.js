@@ -349,19 +349,34 @@
       // Transfer complete — ניקוי timeout
       if (transfer._ackTimeout) { clearTimeout(transfer._ackTimeout); transfer._ackTimeout = null; }
       console.log('[CHAT/P2P] ✅ שליחת קובץ הושלמה', fileId);
-      // חלק הודעת צ'אט לשולח (chat-p2p-file.js) — שומר הודעת קובץ מקומית בלבד כדי למנוע שליחת blob URL לא חוקי לצד השני | HYPER CORE TECH
+      // חלק הודעת צ'אט לשולח (chat-p2p-file.js) — שמירה לקאש יציב + blob לsession נוכחי | HYPER CORE TECH
       try {
         if (typeof App.appendChatMessage === 'function') {
           const localUrl = URL.createObjectURL(file);
           const resolvedMime = resolveMimeType(file?.type, file?.name);
           const isVideoFlag = shouldForceVideoFlag(file?.type, file?.name);
           const createdAt = Math.floor(Date.now() / 1000);
+          const cacheKey = `p2p-file-${fileId}`;
+          if (typeof App.persistChatP2PMedia === 'function') {
+            await App.persistChatP2PMedia(fileId, file, {
+              name: file?.name,
+              type: resolvedMime || file?.type,
+            });
+          }
           App.appendChatMessage({
             id: `p2p-send-${fileId}`,
             from: App.publicKey,
             to: peerKey,
             content: `📎 ${file.name}`,
-            attachment: { name: file.name, size: file.size, type: resolvedMime || file.type, url: localUrl, fileId, isVideo: isVideoFlag || undefined },
+            attachment: {
+              name: file.name,
+              size: file.size,
+              type: resolvedMime || file.type,
+              url: localUrl,
+              fileId,
+              cacheKey,
+              isVideo: isVideoFlag || undefined,
+            },
             createdAt,
             direction: 'outgoing',
             status: 'sent',
@@ -370,7 +385,7 @@
           if (typeof App.markChatConversationRead === 'function') {
             App.markChatConversationRead(peerKey);
           }
-          console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח');
+          console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח (עם cacheKey)');
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] append local p2p message failed:', msgErr); }
       // חלק שמירת קובץ לאחר סיום (chat-p2p-file.js) — שומר קובץ 3 דקות לצורך resend אם המקבל איחר | HYPER CORE TECH
@@ -1115,12 +1130,26 @@
       // הרכבת כל הצ'אנקים ל-Blob
       const blob = new Blob(transfer.chunks, { type: transfer.mimeType || 'application/octet-stream' });
       
-      // שמירה ל-cache אם זמין
+      // שמירה ל-cache יציב לפי fileId (שורד restart) | HYPER CORE TECH
+      const cacheKey = `p2p-file-${fileId}`;
+      try {
+        if (typeof App.persistChatP2PMedia === 'function') {
+          await App.persistChatP2PMedia(fileId, blob, {
+            name: transfer.name,
+            type: transfer.mimeType,
+          });
+          console.log('[CHAT/P2P] 💾 קובץ נשמר בקאש צ\'אט יציב', { cacheKey });
+        } else if (typeof App.cacheMedia === 'function') {
+          await App.cacheMedia(cacheKey, cacheKey, blob, transfer.mimeType || blob.type, { pinned: true });
+          console.log('[CHAT/P2P] 💾 קובץ נשמר ב-media-cache', { cacheKey });
+        }
+      } catch (cacheErr) {
+        console.warn('[CHAT/P2P] ⚠️ כשלון בשמירה ל-cache:', cacheErr);
+      }
+
+      // תאימות לאחור ל־SOS2MediaCache אם קיים | HYPER CORE TECH
       if (typeof App.SOS2MediaCache !== 'undefined' && App.SOS2MediaCache) {
         try {
-          const url = URL.createObjectURL(blob);
-          const cacheKey = `p2p-file-${fileId}`;
-          
           if (typeof App.SOS2MediaCache.put === 'function') {
             await App.SOS2MediaCache.put(cacheKey, blob, {
               name: transfer.name,
@@ -1130,15 +1159,12 @@
               peerPubkey: transfer.peerPubkey,
               receivedAt: Date.now()
             });
-            console.log('[CHAT/P2P] 💾 קובץ נשמר ב-cache', { cacheKey });
           }
-          
-          // ניקוי transfer state מה-cache
           if (typeof App.SOS2MediaCache.deleteTransferState === 'function') {
             await App.SOS2MediaCache.deleteTransferState(fileId);
           }
         } catch (cacheErr) {
-          console.warn('[CHAT/P2P] ⚠️ כשלון בשמירה ל-cache:', cacheErr);
+          console.warn('[CHAT/P2P] ⚠️ כשלון ב-SOS2MediaCache:', cacheErr);
         }
       }
       
@@ -1160,7 +1186,7 @@
       
       console.log('[CHAT/P2P] ✅ קבלת קובץ הושלמה בהצלחה!', { fileId, name: transfer.name });
 
-      // חלק הודעת צ'אט למקבל (chat-p2p-file.js) — הצגת הקובץ בצ'אט עם blob URL להורדה ישירה | HYPER CORE TECH
+      // חלק הודעת צ'אט למקבל (chat-p2p-file.js) — blob לsession + cacheKey לשחזור אחרי restart | HYPER CORE TECH
       try {
         const blobUrl = URL.createObjectURL(blob);
         if (typeof App.appendChatMessage === 'function') {
@@ -1173,11 +1199,19 @@
             from: transfer.peerPubkey,
             to: App.publicKey,
             content: `📎 ${transfer.name}`,
-            attachment: { name: transfer.name, size: transfer.size, type: resolvedMime || transfer.mimeType, url: blobUrl, fileId, isVideo: isVideoFlag || undefined },
+            attachment: {
+              name: transfer.name,
+              size: transfer.size,
+              type: resolvedMime || transfer.mimeType,
+              url: blobUrl,
+              fileId,
+              cacheKey,
+              isVideo: isVideoFlag || undefined,
+            },
             p2p: true,
             createdAt,
           });
-          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם blob URL להורדה ישירה');
+          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב');
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] appendChatMessage failed:', msgErr); }
 
