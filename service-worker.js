@@ -1,8 +1,8 @@
-﻿// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
+// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v270'; // bump - lightbox footer single avatar only
+  const CACHE_NAME = 'sos-cache-v271'; // bump - force Pages redeploy + lightbox avatar fix
   const PRECACHE_URLS = [
     './',
     './videos.html',
