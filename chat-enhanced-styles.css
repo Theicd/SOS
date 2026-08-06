@@ -1448,6 +1448,7 @@
   .chat-message--media-transfer,
   .chat-message--media-settled {
     max-width: min(92%, 100%);
+    margin-block: 2px;
   }
 
   .chat-message__content--video-only,

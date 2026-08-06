@@ -635,7 +635,7 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 .chat-conversation__messages {
   background: transparent;
   padding: 14px;
-  gap: 8px;
+  gap: 12px;
   overflow-x: hidden;
   min-width: 0;
 }

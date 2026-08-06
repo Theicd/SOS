@@ -1711,7 +1711,7 @@ body.chat-media-modal-open {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 12px;
     background: transparent;
   }
 
