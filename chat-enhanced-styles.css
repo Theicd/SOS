@@ -1177,13 +1177,13 @@
   margin: 0;
 }
 
-/* מסגרת כחולה דקה למדיה יוצאת — inset/border (לא box-shadow חיצוני שנחתך ע״י overflow:hidden) | HYPER CORE TECH */
+/* מסגרת דקה למדיה יוצאת — אותו כחול של הודעה קולית / כפתור שליחה (#1a3a5c–#234b6e) | HYPER CORE TECH */
 .chat-message--outgoing .chat-message__video-container,
 .chat-message--outgoing .chat-message__image-container,
 .chat-message--media-transfer .chat-media-upload,
 .chat-message--media-settled .chat-media-upload {
-  border: 2px solid #3b9eff;
-  box-shadow: inset 0 0 0 1px rgba(59, 158, 255, 0.85);
+  border: 2px solid #234b6e;
+  box-shadow: inset 0 0 0 1px rgba(26, 58, 92, 0.9);
   border-radius: 8px;
 }
 
@@ -1955,13 +1955,13 @@
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
-/* אחרי .chat-media-upload — כדי שלא יידרס ע״י הצל האפור | HYPER CORE TECH */
+/* אחרי .chat-media-upload — מסגרת בגוון הודעה קולית / שליחה | HYPER CORE TECH */
 .chat-message--outgoing .chat-message__video-container,
 .chat-message--outgoing .chat-message__image-container,
 .chat-message--media-transfer .chat-media-upload,
 .chat-message--media-settled .chat-media-upload {
-  border: 2px solid #3b9eff;
-  box-shadow: inset 0 0 0 1px rgba(59, 158, 255, 0.85);
+  border: 2px solid #234b6e;
+  box-shadow: inset 0 0 0 1px rgba(26, 58, 92, 0.9);
   border-radius: 8px;
 }
 
