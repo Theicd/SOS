@@ -1225,35 +1225,662 @@
     `;
   }
   
-  // חלק רינדור YouTube (chat-media-renderer.js) – iframe מוטמע עם בדיקת אורך | HYPER CORE TECH
-  async function renderYouTubeEmbed(videoId, messageText) {
-    // בדיקת אורך וידאו (אופציונלי - דורש API key או שירות חיצוני)
-    const metadata = await getYouTubeVideoDuration(videoId);
-    
-    // כרגע מציגים את כל הסרטונים; אפשר להוסיף תנאי אורך
-    // if (metadata && metadata.duration > MAX_DURATION) return null;
-    
+  // חלק פתיחה חיצונית (chat-media-renderer.js) – כמו וואטסאפ: דפדפן / אפליקציית YouTube | HYPER CORE TECH
+  function openYouTubeExternal(videoId) {
+    const id = String(videoId || '').trim();
+    if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) return;
+    const url = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
+    App.__sosSuppressChatOutsideClose = true;
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (_) {
+      try { window.open(url, '_blank', 'noopener,noreferrer'); }
+      catch (__) { window.location.href = url; }
+    }
+    setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+  }
+
+  // חלק כרטיס YouTube (chat-media-renderer.js) – תמונה+כותרת בבועה; לחיצה פותחת YouTube חיצונית | HYPER CORE TECH
+  function renderYouTubeCard(videoId) {
+    if (!videoId) return '';
+    const safeId = escapeAttr(videoId);
+    const jsId = escapeJsString(videoId);
+    const thumbHq = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+    const thumbMq = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`;
     return `
-      <div class="chat-message__youtube-container">
-        <iframe
-          class="chat-message__youtube-iframe"
-          src="https://www.youtube.com/embed/${videoId}"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-          loading="lazy"
-          title="YouTube video"
-        ></iframe>
-      </div>
+      <button
+        type="button"
+        class="chat-message__youtube-card"
+        data-youtube-id="${safeId}"
+        data-youtube-title="יוטיוב"
+        aria-label="פתח סרטון YouTube"
+        onclick="event.stopPropagation();if(typeof App.openYouTubeExternal==='function')App.openYouTubeExternal('${jsId}')"
+      >
+        <span class="chat-message__youtube-thumb-wrap">
+          <img
+            class="chat-message__youtube-thumb"
+            src="${thumbHq}"
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            onerror="this.onerror=null;this.src='${thumbMq}'"
+          >
+          <span class="chat-message__youtube-play" aria-hidden="true"><i class="fa-solid fa-play"></i></span>
+        </span>
+        <span class="chat-message__youtube-meta">
+          <span class="chat-message__youtube-title">סרטון YouTube</span>
+          <span class="chat-message__youtube-author">YouTube</span>
+        </span>
+      </button>
     `;
   }
-  
+
+  // חלק מטא YouTube (chat-media-renderer.js) – כותרת/ערוץ מ-noembed לכרטיס | HYPER CORE TECH
+  async function hydrateYouTubeCards(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    const cards = scope.querySelectorAll?.('.chat-message__youtube-card[data-youtube-id]:not([data-youtube-hydrated="1"])');
+    if (!cards || !cards.length) return;
+    await Promise.all(Array.from(cards).map(async (card) => {
+      const videoId = card.getAttribute('data-youtube-id');
+      if (!videoId) return;
+      card.setAttribute('data-youtube-hydrated', '1');
+      const meta = await getYouTubeVideoDuration(videoId);
+      if (!meta) return;
+      const title = String(meta.title || '').trim();
+      const author = String(meta.author_name || meta.author || '').trim();
+      const thumb = String(meta.thumbnail_url || '').trim();
+      if (title) {
+        card.setAttribute('data-youtube-title', title);
+        const titleEl = card.querySelector('.chat-message__youtube-title');
+        if (titleEl) titleEl.textContent = title;
+        card.setAttribute('aria-label', `פתח: ${title}`);
+      }
+      if (author) {
+        const authorEl = card.querySelector('.chat-message__youtube-author');
+        if (authorEl) authorEl.textContent = author;
+      }
+      if (thumb) {
+        const img = card.querySelector('.chat-message__youtube-thumb');
+        if (img) img.src = thumb;
+      }
+    }));
+  }
+
+  // חלק תאימות (chat-media-renderer.js) – API ישן לכרטיס במקום iframe | HYPER CORE TECH
+  async function renderYouTubeEmbed(videoId) {
+    return renderYouTubeCard(videoId);
+  }
+
   // חלק זיהוי אוטומטי (chat-media-renderer.js) – סריקת טקסט הודעה ללינקי YouTube | HYPER CORE TECH
   async function detectAndRenderYouTube(messageText) {
     const videoId = extractYouTubeId(messageText);
     if (!videoId) return null;
-    
-    return await renderYouTubeEmbed(videoId, messageText);
+    return renderYouTubeCard(videoId);
+  }
+
+  // חלק לינק כללי (chat-media-renderer.js) – כרטיס כמו וואטסאפ: oEmbed + OG ציבורי + פרוקסי תמונה | HYPER CORE TECH
+  // אותו סוג תשתית כמו news-wave (corsproxy) + noembed של YouTube – בלי שרת חדש | HYPER CORE TECH
+  const LINK_PREVIEW_CORS_PROXY = 'https://corsproxy.io/?';
+
+  function openExternalChatLink(url) {
+    const href = String(url || '').trim();
+    if (!/^https?:\/\//i.test(href)) return;
+    App.__sosSuppressChatOutsideClose = true;
+    try {
+      const a = document.createElement('a');
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (_) {
+      try { window.open(href, '_blank', 'noopener,noreferrer'); }
+      catch (__) { window.location.href = href; }
+    }
+    setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+  }
+
+  function isDirectMediaFileUrl(url) {
+    return /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg|mp3|m4a|aac|ogg|oga|opus|wav|wave|webm|flac|wma|aiff|aif|caf|amr|3gp|3gpp|mp4|ogv|mov|avi|mkv|m4v|wmv|flv)(\?|#|$)/i.test(
+      String(url || '')
+    );
+  }
+
+  function getLinkHostLabel(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./i, '');
+    } catch (_) {
+      return 'קישור';
+    }
+  }
+
+  function getLinkBrandMeta(url) {
+    const host = getLinkHostLabel(url).toLowerCase();
+    if (/facebook\.com$|fb\.watch$|fb\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-facebook-f', label: 'Facebook', tone: 'facebook' };
+    }
+    if (/tiktok\.com$|vm\.tiktok\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-tiktok', label: 'TikTok', tone: 'tiktok' };
+    }
+    if (/instagram\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-instagram', label: 'Instagram', tone: 'instagram' };
+    }
+    if (/aliexpress\./.test(host)) {
+      return { icon: 'fa-solid fa-cart-shopping', label: 'AliExpress', tone: 'shop' };
+    }
+    if (/amazon\./.test(host)) {
+      return { icon: 'fa-brands fa-amazon', label: 'Amazon', tone: 'shop' };
+    }
+    if (/vimeo\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-vimeo-v', label: 'Vimeo', tone: 'default' };
+    }
+    if (/soundcloud\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-soundcloud', label: 'SoundCloud', tone: 'default' };
+    }
+    if (/spotify\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-spotify', label: 'Spotify', tone: 'default' };
+    }
+    if (/dailymotion\.com$|dai\.ly$/.test(host)) {
+      return { icon: 'fa-brands fa-dailymotion', label: 'Dailymotion', tone: 'default' };
+    }
+    if (/twitter\.com$|x\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-x-twitter', label: 'X', tone: 'default' };
+    }
+    if (/reddit\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-reddit-alien', label: 'Reddit', tone: 'default' };
+    }
+    if (/linkedin\.com$/.test(host)) {
+      return { icon: 'fa-brands fa-linkedin-in', label: 'LinkedIn', tone: 'default' };
+    }
+    if (/whatsapp\.com$|wa\.me$/.test(host)) {
+      return { icon: 'fa-brands fa-whatsapp', label: 'WhatsApp', tone: 'default' };
+    }
+    return { icon: 'fa-solid fa-link', label: host, tone: 'default' };
+  }
+
+  function decodePreviewEntities(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      const ta = document.createElement('textarea');
+      ta.innerHTML = raw;
+      return String(ta.value || raw).trim();
+    } catch (_) {
+      return raw.replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;/g, "'");
+    }
+  }
+
+  // ניקוי לינק לתצוגה מקדימה (מסיר מעקב מיותר) | HYPER CORE TECH
+  function canonicalizePreviewUrl(url) {
+    try {
+      const u = new URL(String(url || '').trim());
+      if (/aliexpress\./i.test(u.hostname) && /\/item\//i.test(u.pathname)) {
+        return `${u.origin}${u.pathname}`;
+      }
+      [
+        'spm', 'algo_pvid', 'pdp_ext_f', 'utparam-url', 'gatewayAdapt',
+        'fbclid', 'gclid', 'mc_cid', 'mc_eid', 'utm_source', 'utm_medium',
+        'utm_campaign', 'utm_term', 'utm_content', 'si', 'feature',
+      ].forEach((k) => u.searchParams.delete(k));
+      return u.toString();
+    } catch (_) {
+      return String(url || '').trim();
+    }
+  }
+
+  // מחלץ URL לתצוגה מקדימה — מדלג על YouTube ועל קבצי מדיה ישירים | HYPER CORE TECH
+  function extractPreviewableUrl(text) {
+    if (!text || typeof text !== 'string') return null;
+    const matches = text.match(/https?:\/\/[^\s<>"']+/gi) || [];
+    for (const raw of matches) {
+      const url = raw.replace(/[.,;:!?)}\]]+$/, '');
+      if (!/^https?:\/\//i.test(url)) continue;
+      if (isDirectMediaFileUrl(url)) continue;
+      if (extractYouTubeId(url)) continue;
+      return canonicalizePreviewUrl(url);
+    }
+    return null;
+  }
+
+  // מסיר מהטקסט גם URL ארוך עם פרמטרי מעקב (אחרי canonicalize) | HYPER CORE TECH
+  function stripPreviewUrlFromText(text, previewUrl) {
+    const canon = canonicalizePreviewUrl(previewUrl);
+    if (!text || !canon) return String(text || '').trim();
+    return String(text)
+      .replace(/https?:\/\/[^\s<>"']+/gi, (raw) => {
+        const cleaned = raw.replace(/[.,;:!?)}\]]+$/, '');
+        try {
+          if (canonicalizePreviewUrl(cleaned) === canon) return '';
+        } catch (_) {}
+        return raw;
+      })
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
+  function renderLinkPreviewCard(url) {
+    const href = canonicalizePreviewUrl(String(url || '').trim());
+    if (!/^https?:\/\//i.test(href) || extractYouTubeId(href) || isDirectMediaFileUrl(href)) return '';
+    const brand = getLinkBrandMeta(href);
+    const host = getLinkHostLabel(href);
+    const safeUrl = escapeAttr(href);
+    const jsUrl = escapeJsString(href);
+    const esc = (s) => (App.escapeHtml ? App.escapeHtml(String(s || '')) : escapeAttr(s));
+    return `
+      <button
+        type="button"
+        class="chat-message__link-card chat-message__link-card--${escapeAttr(brand.tone)}"
+        data-link-url="${safeUrl}"
+        aria-label="פתח קישור"
+        onclick="event.stopPropagation();if(typeof App.openExternalChatLink==='function')App.openExternalChatLink('${jsUrl}')"
+      >
+        <span class="chat-message__link-card-media" hidden>
+          <img class="chat-message__link-card-image" alt="" loading="lazy" decoding="async">
+        </span>
+        <span class="chat-message__link-card-body">
+          <span class="chat-message__link-card-icon" aria-hidden="true">
+            <i class="${escapeAttr(brand.icon)}"></i>
+          </span>
+          <span class="chat-message__link-card-text">
+            <span class="chat-message__link-card-title">${esc(brand.label)}</span>
+            <span class="chat-message__link-card-desc" hidden></span>
+            <span class="chat-message__link-card-host">${esc(host)}</span>
+          </span>
+        </span>
+      </button>
+    `;
+  }
+
+  const linkPreviewCache = new Map();
+
+  function pickImageFromUnknown(value) {
+    if (!value) return '';
+    if (typeof value === 'string') return decodePreviewEntities(value);
+    if (typeof value === 'object') {
+      return decodePreviewEntities(value.url || value.src || value.href || '');
+    }
+    return '';
+  }
+
+  function normalizeOEmbedPayload(data, fallbackHost) {
+    if (!data || typeof data !== 'object' || data.error) return null;
+    const title = String(data.title || '').trim();
+    let image = pickImageFromUnknown(data.thumbnail_url || data.thumbnail || '');
+    if (!image && typeof data.html === 'string') {
+      const m = data.html.match(/src=["']([^"']+\.(?:jpe?g|png|webp|gif)[^"']*)["']/i)
+        || data.html.match(/src=["'](https?:\/\/[^"']+)["']/i);
+      if (m) image = decodePreviewEntities(m[1]);
+    }
+    const author = String(data.author_name || '').trim();
+    const provider = String(data.provider_name || '').trim();
+    if (!title && !image) return null;
+    if (/\.html?$/i.test(title) && !image) return null;
+    return {
+      title: title || provider || fallbackHost || 'קישור',
+      description: author ? `מאת ${author}` : '',
+      image,
+      publisher: provider || author || fallbackHost || '',
+    };
+  }
+
+  function isWeakLinkPreviewMeta(meta, pageUrl) {
+    if (!meta) return true;
+    const hasImage = !!String(meta.image || '').trim();
+    // בלי תמונה ממשיכים לחפש (גם אם יש כותרת מ-oEmbed) | HYPER CORE TECH
+    if (!hasImage) return true;
+    const t = String(meta.title || '').trim();
+    if (!t) return true;
+    if (/\.html?$/i.test(t)) return true;
+    if (/^\d+(\.html)?$/i.test(t)) return true;
+    if (pageUrl) {
+      const host = getLinkHostLabel(pageUrl);
+      const brand = getLinkBrandMeta(pageUrl);
+      if (t === brand.label || t.toLowerCase() === host.toLowerCase()) return true;
+    }
+    return false;
+  }
+
+  // ספקי oEmbed ציבוריים (CORS) – אותה גישה כמו YouTube | HYPER CORE TECH
+  function getOEmbedEndpointForUrl(url) {
+    const href = String(url || '');
+    if (/vimeo\.com/i.test(href)) {
+      return `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(href)}`;
+    }
+    if (/soundcloud\.com/i.test(href)) {
+      return `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(href)}`;
+    }
+    if (/open\.spotify\.com|spotify\.com/i.test(href)) {
+      return `https://open.spotify.com/oembed?url=${encodeURIComponent(href)}`;
+    }
+    if (/dailymotion\.com|dai\.ly/i.test(href)) {
+      return `https://www.dailymotion.com/services/oembed?url=${encodeURIComponent(href)}`;
+    }
+    if (/tiktok\.com|vm\.tiktok\.com/i.test(href)) {
+      return `https://www.tiktok.com/oembed?url=${encodeURIComponent(href)}`;
+    }
+    if (/reddit\.com/i.test(href)) {
+      return `https://www.reddit.com/oembed?url=${encodeURIComponent(href)}`;
+    }
+    if (/(?:twitter|x)\.com/i.test(href)) {
+      return `https://publish.twitter.com/oembed?url=${encodeURIComponent(href)}&omit_script=1`;
+    }
+    if (/facebook\.com|fb\.watch|fb\.com/i.test(href)) {
+      const kind = /\/reel\/|\/videos?\/|\/watch|fb\.watch/i.test(href) ? 'oembed_video' : 'oembed_post';
+      return `https://graph.facebook.com/v19.0/${kind}?url=${encodeURIComponent(href)}&omitscript=true`;
+    }
+    return null;
+  }
+
+  async function fetchJsonPreview(endpoint) {
+    const response = await fetch(endpoint, { credentials: 'omit', cache: 'no-store' });
+    if (!response.ok) return null;
+    return response.json();
+  }
+
+  function readMetaTagContent(doc, keys) {
+    for (const key of keys) {
+      const el =
+        doc.querySelector(`meta[property="${key}"]`) ||
+        doc.querySelector(`meta[name="${key}"]`) ||
+        doc.querySelector(`meta[property="${key.toLowerCase()}"]`) ||
+        doc.querySelector(`meta[name="${key.toLowerCase()}"]`);
+      const content = decodePreviewEntities(el?.getAttribute('content') || '');
+      if (content) return content;
+    }
+    return '';
+  }
+
+  function parseOgFromHtml(html, fallbackHost) {
+    if (!html || typeof html !== 'string') return null;
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const title =
+        readMetaTagContent(doc, ['og:title', 'twitter:title']) ||
+        String(doc.querySelector('title')?.textContent || '').trim();
+      const description = readMetaTagContent(doc, ['og:description', 'twitter:description', 'description']);
+      const image = readMetaTagContent(doc, ['og:image', 'og:image:secure_url', 'twitter:image', 'twitter:image:src']);
+      const publisher =
+        readMetaTagContent(doc, ['og:site_name']) || fallbackHost || '';
+      if (!title && !image) return null;
+      if (/captcha/i.test(title) && !image) return null;
+      if (/\.html?$/i.test(title) && !image) return null;
+      return {
+        title: title || publisher || fallbackHost || 'קישור',
+        description: description.slice(0, 180),
+        image,
+        publisher,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function parseJinaMarkdownMeta(text, fallbackHost) {
+    const raw = String(text || '');
+    if (!raw) return null;
+    const titleMatch = raw.match(/^Title:\s*(.+)$/m);
+    const title = String(titleMatch?.[1] || '').trim();
+    if (/captcha/i.test(title)) return null;
+    const imgMatch = raw.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/);
+    const image = decodePreviewEntities(imgMatch?.[1] || '');
+    if (!title && !image) return null;
+    return {
+      title: title || fallbackHost || 'קישור',
+      description: '',
+      image,
+      publisher: fallbackHost || '',
+    };
+  }
+
+  async function fetchHtmlViaProxies(url) {
+    const key = String(url || '').trim();
+    if (!key) return '';
+
+    // אותו דומיין כמו הדף – בלי פרוקסי | HYPER CORE TECH
+    try {
+      const target = new URL(key);
+      if (typeof location !== 'undefined' && target.origin === location.origin) {
+        const res = await fetch(key, { credentials: 'omit', cache: 'no-store' });
+        if (res.ok) return await res.text();
+      }
+    } catch (_) {}
+
+    // allorigins – CORS ציבורי יציב יחסית | HYPER CORE TECH
+    try {
+      const data = await fetchJsonPreview(
+        `https://api.allorigins.win/get?url=${encodeURIComponent(key)}`
+      );
+      if (data && typeof data.contents === 'string' && data.contents.length > 200) {
+        return data.contents;
+      }
+    } catch (_) {}
+
+    // corsproxy – כבר בשימוש ב-news-wave.js | HYPER CORE TECH
+    try {
+      const res = await fetch(`${LINK_PREVIEW_CORS_PROXY}${encodeURIComponent(key)}`, {
+        credentials: 'omit',
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.length > 200 && !/CORSPROXY — Fix CORS/i.test(text)) {
+          return text;
+        }
+      }
+    } catch (_) {}
+
+    return '';
+  }
+
+  async function fetchMicrolinkMeta(url, fallbackHost) {
+    try {
+      const data = await fetchJsonPreview(
+        `https://api.microlink.io/?url=${encodeURIComponent(url)}&meta=true`
+      );
+      if (!data || data.status !== 'success' || !data.data) return null;
+      const d = data.data;
+      const title = String(d.title || '').trim();
+      const description = String(d.description || '').trim();
+      const image = pickImageFromUnknown(d.image || d.logo);
+      const publisher = String(d.publisher || d.author || fallbackHost || '').trim();
+      if (!title && !image) return null;
+      if (/\.html?$/i.test(title) && !image) return null;
+      return {
+        title: title || publisher || fallbackHost || 'קישור',
+        description: description.slice(0, 180),
+        image,
+        publisher: publisher || fallbackHost || '',
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function mergePreviewMeta(base, next) {
+    if (!next) return base;
+    if (!base) return next;
+    const nextTitle = String(next.title || '').trim();
+    const baseTitle = String(base.title || '').trim();
+    const preferNextTitle = nextTitle && (
+      !baseTitle ||
+      /\.html?$/i.test(baseTitle) ||
+      nextTitle.length > baseTitle.length + 8
+    );
+    return {
+      title: preferNextTitle ? nextTitle : (baseTitle || nextTitle),
+      description: next.description || base.description || '',
+      image: next.image || base.image || '',
+      publisher: next.publisher || base.publisher || '',
+    };
+  }
+
+  function buildPreviewImageCandidates(imageUrl) {
+    const src = decodePreviewEntities(imageUrl);
+    if (!/^https?:\/\//i.test(src)) return [];
+    const bare = src.replace(/^https?:\/\//i, '');
+    return [
+      src,
+      `https://wsrv.nl/?url=${encodeURIComponent(bare)}&w=640&output=jpg`,
+      `${LINK_PREVIEW_CORS_PROXY}${encodeURIComponent(src)}`,
+    ];
+  }
+
+  function applyLinkPreviewImage(card, mediaEl, img, imageUrl) {
+    const candidates = buildPreviewImageCandidates(imageUrl);
+    if (!candidates.length || !img || !mediaEl) return;
+    let idx = 0;
+    const show = () => {
+      mediaEl.hidden = false;
+      card.classList.add('has-image');
+    };
+    const hide = () => {
+      mediaEl.hidden = true;
+      card.classList.remove('has-image');
+    };
+    const tryNext = () => {
+      if (idx >= candidates.length) {
+        hide();
+        return;
+      }
+      const next = candidates[idx++];
+      img.onload = () => {
+        if (img.naturalWidth > 1) show();
+        else tryNext();
+      };
+      img.onerror = () => tryNext();
+      img.src = next;
+      if (img.complete) {
+        if (img.naturalWidth > 1) show();
+        else if (!img.naturalWidth) tryNext();
+      }
+    };
+    tryNext();
+  }
+
+  async function fetchLinkPreviewMeta(url) {
+    const key = canonicalizePreviewUrl(String(url || '').trim());
+    if (!key) return null;
+    if (linkPreviewCache.has(key)) return linkPreviewCache.get(key);
+
+    const host = getLinkHostLabel(key);
+    let meta = null;
+
+    try {
+      // 1) oEmbed ייעודי (TikTok/Vimeo וכו') | HYPER CORE TECH
+      const specific = getOEmbedEndpointForUrl(key);
+      if (specific) {
+        const data = await fetchJsonPreview(specific);
+        meta = normalizeOEmbedPayload(data, host);
+      }
+
+      // 2) noembed – כמו YouTube אצלנו | HYPER CORE TECH
+      if (isWeakLinkPreviewMeta(meta, key)) {
+        const data = await fetchJsonPreview(`https://noembed.com/embed?url=${encodeURIComponent(key)}`);
+        meta = mergePreviewMeta(meta, normalizeOEmbedPayload(data, host));
+      }
+
+      // 3) microlink – מטא OG לרוב האתרים (ynet/sos וכו') | HYPER CORE TECH
+      if (isWeakLinkPreviewMeta(meta, key)) {
+        meta = mergePreviewMeta(meta, await fetchMicrolinkMeta(key, host));
+      }
+
+      // 4) HTML דרך פרוקסי קיימים / אותו דומיין | HYPER CORE TECH
+      if (isWeakLinkPreviewMeta(meta, key)) {
+        const html = await fetchHtmlViaProxies(key);
+        meta = mergePreviewMeta(meta, parseOgFromHtml(html, host));
+      }
+
+      // 5) jina reader – כותרת+תמונה מתוך markdown | HYPER CORE TECH
+      if (isWeakLinkPreviewMeta(meta, key)) {
+        try {
+          const res = await fetch(`https://r.jina.ai/${key}`, {
+            credentials: 'omit',
+            cache: 'no-store',
+            headers: { Accept: 'text/plain' },
+          });
+          if (res.ok) {
+            meta = mergePreviewMeta(meta, parseJinaMarkdownMeta(await res.text(), host));
+          }
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.warn('Failed to fetch link preview', err);
+    }
+
+    if (!meta) {
+      const brand = getLinkBrandMeta(key);
+      meta = {
+        title: brand.label,
+        description: '',
+        image: '',
+        publisher: host,
+      };
+    }
+
+    linkPreviewCache.set(key, meta);
+    return meta;
+  }
+
+  async function hydrateLinkPreviewCards(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    const cards = scope.querySelectorAll?.(
+      '.chat-message__link-card[data-link-url]:not([data-link-hydrated="1"])'
+    );
+    if (!cards || !cards.length) return;
+    await Promise.all(Array.from(cards).map(async (card) => {
+      const url = card.getAttribute('data-link-url');
+      if (!url) return;
+      card.setAttribute('data-link-hydrated', '1');
+      const meta = await fetchLinkPreviewMeta(url);
+      if (!meta) return;
+
+      const titleEl = card.querySelector('.chat-message__link-card-title');
+      const descEl = card.querySelector('.chat-message__link-card-desc');
+      const hostEl = card.querySelector('.chat-message__link-card-host');
+      const mediaEl = card.querySelector('.chat-message__link-card-media');
+      const img = card.querySelector('.chat-message__link-card-image');
+
+      if (meta.title && titleEl) {
+        titleEl.textContent = meta.title;
+        card.setAttribute('aria-label', `פתח: ${meta.title}`);
+      }
+      if (meta.description && descEl) {
+        descEl.textContent = meta.description;
+        descEl.hidden = false;
+      }
+      if (meta.publisher && hostEl) {
+        hostEl.textContent = meta.publisher;
+      } else if (hostEl) {
+        hostEl.textContent = getLinkHostLabel(url);
+      }
+      if (meta.image) {
+        applyLinkPreviewImage(card, mediaEl, img, meta.image);
+      }
+    }));
+  }
+
+  // תאימות לשמות ישנים — מפנים לכרטיס הלינק הכללי | HYPER CORE TECH
+  function extractFacebookUrl(text) {
+    const url = extractPreviewableUrl(text);
+    if (!url) return null;
+    return /facebook\.com|fb\.watch|fb\.com/i.test(url) ? url : null;
+  }
+  function renderFacebookCard(url) {
+    return renderLinkPreviewCard(url);
+  }
+  async function hydrateFacebookCards(root) {
+    return hydrateLinkPreviewCards(root);
+  }
+  function openFacebookExternal(url) {
+    openExternalChatLink(url);
   }
   
   // חלק lightbox (chat-media-renderer.js) – מטא שולח/זמן להדר תחתון | HYPER CORE TECH
@@ -1347,14 +1974,18 @@
     };
   }
 
-  function buildLightboxShellHtml({ kind, mediaHtml, meta }) {
+  function buildLightboxShellHtml({ kind, mediaHtml, meta, headerTitle }) {
     const resolved = resolveLightboxSenderMeta(meta);
     const initials = resolved.senderInitials || 'מ';
     // רק עיגול אחד: תמונה אם קיימת, אחרת ראשי תיבות (לא שניהם יחד)
     const avatarHtml = resolved.senderPicture
       ? `<img class="chat-lightbox__avatar" src="${resolved.senderPicture}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;chat-lightbox__avatar chat-lightbox__avatar--initials&quot;>${initials}</span>';">`
       : `<span class="chat-lightbox__avatar chat-lightbox__avatar--initials">${initials}</span>`;
-    const title = kind === 'video' ? 'וידאו' : 'תמונה';
+    const isYouTube = kind === 'youtube';
+    const rawTitle = headerTitle || (isYouTube ? 'יוטיוב' : kind === 'video' ? 'וידאו' : 'תמונה');
+    const title = App.escapeHtml ? App.escapeHtml(rawTitle) : escapeAttr(rawTitle);
+    const actionLabel = isYouTube ? 'פתח ביוטיוב' : 'הורד';
+    const actionIcon = isYouTube ? 'fa-arrow-up-right-from-square' : 'fa-download';
     return `
       <div class="chat-lightbox__backdrop"></div>
       <div class="chat-lightbox__frame">
@@ -1363,11 +1994,11 @@
             <i class="fa-solid fa-times"></i>
           </button>
           <span class="chat-lightbox__header-title">${title}</span>
-          <button type="button" class="chat-lightbox__download" aria-label="הורד" title="הורד">
-            <i class="fa-solid fa-download"></i>
+          <button type="button" class="chat-lightbox__download" aria-label="${actionLabel}" title="${actionLabel}">
+            <i class="fa-solid ${actionIcon}"></i>
           </button>
         </header>
-        <div class="chat-lightbox__stage">
+        <div class="chat-lightbox__stage${isYouTube ? ' chat-lightbox__stage--youtube' : ''}">
           ${mediaHtml}
         </div>
         <footer class="chat-lightbox__footer">
@@ -1379,6 +2010,79 @@
         </footer>
       </div>
     `;
+  }
+
+  // חלק lightbox YouTube (chat-media-renderer.js) – מסך מלא עם אותו shell של תמונה/וידאו | HYPER CORE TECH
+  function openYouTubeLightbox(videoId, title, meta) {
+    const existing = document.getElementById('chatYouTubeLightbox');
+    if (existing) existing.remove();
+    const id = String(videoId || '').trim();
+    if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) return;
+
+    const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
+    const embedUrl = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&rel=0&playsinline=1`;
+    const headerTitle = String(title || 'יוטיוב').trim() || 'יוטיוב';
+    const lightbox = document.createElement('div');
+    lightbox.id = 'chatYouTubeLightbox';
+    lightbox.className = 'chat-lightbox chat-lightbox--youtube';
+    const mediaHtml = `
+      <iframe
+        class="chat-lightbox__youtube"
+        src="${embedUrl}"
+        title="${escapeAttr(headerTitle)}"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+        referrerpolicy="strict-origin-when-cross-origin"
+      ></iframe>
+    `;
+    lightbox.innerHTML = buildLightboxShellHtml({
+      kind: 'youtube',
+      mediaHtml,
+      meta: meta || null,
+      headerTitle,
+    });
+
+    document.body.appendChild(lightbox);
+    document.body.classList.add('chat-lightbox-open');
+    App.__sosSuppressChatOutsideClose = true;
+
+    const close = (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      lightbox.classList.add('chat-lightbox--closing');
+      document.body.classList.remove('chat-lightbox-open');
+      setTimeout(() => {
+        lightbox.remove();
+        setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
+      }, 200);
+    };
+
+    lightbox.querySelector('.chat-lightbox__close')?.addEventListener('click', close);
+    lightbox.querySelector('.chat-lightbox__backdrop')?.addEventListener('click', close);
+    lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      App.__sosSuppressChatOutsideClose = true;
+      try {
+        window.open(watchUrl, '_blank', 'noopener,noreferrer');
+      } catch (_) {
+        window.location.href = watchUrl;
+      }
+      setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+    });
+    lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
+
+    document.addEventListener('keydown', function onEsc(e) {
+      if (e.key === 'Escape') {
+        close(e);
+        document.removeEventListener('keydown', onEsc);
+      }
+    });
+
+    requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
   }
 
   // חלק lightbox (chat-media-renderer.js) – פתיחת תמונה במסך מלא עם הדר עליון/תחתון | HYPER CORE TECH
@@ -1719,6 +2423,19 @@
     renderGenericFileAttachment,
     detectAndRenderYouTube,
     extractYouTubeId,
+    renderYouTubeCard,
+    hydrateYouTubeCards,
+    openYouTubeExternal,
+    openYouTubeLightbox,
+    extractPreviewableUrl,
+    stripPreviewUrlFromText,
+    renderLinkPreviewCard,
+    hydrateLinkPreviewCards,
+    extractFacebookUrl,
+    renderFacebookCard,
+    hydrateFacebookCards,
+    openFacebookExternal,
+    openExternalChatLink,
     openImageLightbox,
     openVideoLightbox,
     applyChatMediaBoxSize,

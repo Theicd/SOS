@@ -123,15 +123,54 @@
     return `<button type="button" class="${sideClass}" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMedia==='function')NostrApp.downloadChatMedia('${safeSrc}','${safeName}');"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
   }
 
-  function buildChatSideActionsHtml({ isOutgoing, messageId, downloadHtml }) {
-    const deleteHtml = isOutgoing && messageId
-      ? `<button type="button" class="chat-message__delete" data-chat-delete="${messageId}" aria-label="מחק הודעה"><i class="fa-solid fa-trash"></i></button>`
-      : '';
-    if (!deleteHtml && !downloadHtml) return '';
-    return `<div class="chat-message__side-actions">${deleteHtml}${downloadHtml || ''}</div>`;
+  function buildChatLinkCopyHtml(url) {
+    const href = String(url || '').trim();
+    if (!/^https?:\/\//i.test(href)) return '';
+    const safeUrl = App.escapeHtml ? App.escapeHtml(href) : href.replace(/"/g, '&quot;');
+    return `<button type="button" class="chat-message__copy-link" data-chat-copy-url="${safeUrl}" title="העתק קישור" aria-label="העתק קישור"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>העתק קישור</span></button>`;
   }
 
-  function ensureChatSideActions(bubble, { isOutgoing, messageId, downloadHtml }) {
+  function buildChatDeleteHtml(messageId) {
+    if (!messageId) return '';
+    return `<button type="button" class="chat-message__delete" data-chat-delete="${messageId}" aria-label="מחק הודעה"><i class="fa-solid fa-trash" aria-hidden="true"></i><span>מחק</span></button>`;
+  }
+
+  function buildChatMoreMenuHtml(menuItemsHtml) {
+    const items = String(menuItemsHtml || '').trim();
+    if (!items) return '';
+    return `
+      <div class="chat-message__more-wrap">
+        <button type="button" class="chat-message__more" data-chat-more="1" aria-label="פעולות הודעה" aria-expanded="false" title="פעולות">
+          <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+        </button>
+        <div class="chat-message__more-menu" hidden role="menu">
+          ${items}
+        </div>
+      </div>
+    `;
+  }
+
+  function closeAllChatMessageMenus(exceptWrap) {
+    doc.querySelectorAll('.chat-message__more-wrap.is-open').forEach((wrap) => {
+      if (exceptWrap && wrap === exceptWrap) return;
+      wrap.classList.remove('is-open');
+      const btn = wrap.querySelector('[data-chat-more]');
+      const menu = wrap.querySelector('.chat-message__more-menu');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      if (menu) menu.hidden = true;
+    });
+  }
+
+  function buildChatSideActionsHtml({ isOutgoing, messageId, downloadHtml, copyHtml }) {
+    const deleteHtml = isOutgoing && messageId ? buildChatDeleteHtml(messageId) : '';
+    const copy = copyHtml || '';
+    const menuHtml = buildChatMoreMenuHtml(`${deleteHtml}${copy}`);
+    if (!menuHtml && !downloadHtml) return '';
+    // תפריט ⋮ (מחק/העתק) + הורדה בחוץ אם יש | HYPER CORE TECH
+    return `<div class="chat-message__side-actions">${menuHtml}${downloadHtml || ''}</div>`;
+  }
+
+  function ensureChatSideActions(bubble, { isOutgoing, messageId, downloadHtml, copyHtml }) {
     if (!bubble) return null;
     let side = bubble.querySelector('.chat-message__side-actions');
     const content = bubble.querySelector('.chat-message__content');
@@ -139,7 +178,6 @@
       side = doc.createElement('div');
       side.className = 'chat-message__side-actions';
       if (content) {
-        // שולח: לפני התוכן (ליד הפח). מקבל: אחרי התוכן — שמאל המדיה, לא בין מדיה לתמונת פרופיל | HYPER CORE TECH
         if (isOutgoing) bubble.insertBefore(side, content);
         else content.insertAdjacentElement('afterend', side);
       } else {
@@ -152,16 +190,26 @@
         content.insertAdjacentElement('afterend', side);
       }
     }
-    if (isOutgoing && messageId && !side.querySelector('.chat-message__delete')) {
-      const del = doc.createElement('button');
-      del.type = 'button';
-      del.className = 'chat-message__delete';
-      del.setAttribute('data-chat-delete', messageId);
-      del.setAttribute('aria-label', 'מחק הודעה');
-      del.innerHTML = '<i class="fa-solid fa-trash"></i>';
-      side.insertBefore(del, side.firstChild);
+
+    let moreWrap = side.querySelector('.chat-message__more-wrap');
+    let menu = moreWrap?.querySelector('.chat-message__more-menu') || null;
+    const needMenu = (isOutgoing && messageId) || !!copyHtml;
+    if (needMenu && !moreWrap) {
+      side.insertAdjacentHTML('afterbegin', buildChatMoreMenuHtml(''));
+      moreWrap = side.querySelector('.chat-message__more-wrap');
+      menu = moreWrap?.querySelector('.chat-message__more-menu') || null;
     }
-    // העברת הורדה מתוך המדיה לעמודה + יצירה אם חסרה | HYPER CORE TECH
+    if (menu) {
+      if (isOutgoing && messageId && !menu.querySelector('.chat-message__delete')) {
+        menu.insertAdjacentHTML('afterbegin', buildChatDeleteHtml(messageId));
+      }
+      if (copyHtml && !menu.querySelector('.chat-message__copy-link')) {
+        const delBtn = menu.querySelector('.chat-message__delete');
+        if (delBtn) delBtn.insertAdjacentHTML('afterend', copyHtml);
+        else menu.insertAdjacentHTML('afterbegin', copyHtml);
+      }
+    }
+
     bubble.querySelectorAll('.chat-message__image-container .chat-message__media-download, .chat-message__video-container .chat-message__media-download, .chat-media-upload .chat-message__media-download').forEach((btn) => {
       btn.classList.add('chat-message__media-download--side');
       side.appendChild(btn);
@@ -169,9 +217,10 @@
     if (downloadHtml && !side.querySelector('.chat-message__media-download')) {
       side.insertAdjacentHTML('beforeend', downloadHtml);
     }
-    // פח ישן מחוץ לעמודה | HYPER CORE TECH
-    bubble.querySelectorAll(':scope > .chat-message__delete').forEach((del) => {
-      side.insertBefore(del, side.firstChild);
+    // פח ישן מחוץ לתפריט — מעבירים פנימה | HYPER CORE TECH
+    bubble.querySelectorAll(':scope > .chat-message__delete, .chat-message__side-actions > .chat-message__delete').forEach((del) => {
+      if (!menu) return;
+      if (!menu.contains(del)) menu.insertBefore(del, menu.firstChild);
     });
     return side;
   }
@@ -1041,6 +1090,11 @@
   }
 
   function handleMessageActions(event) {
+    // סגירת תפריט ⋮ בלחיצה מחוץ אליו | HYPER CORE TECH
+    if (!event.target.closest('.chat-message__more-wrap')) {
+      closeAllChatMessageMenus();
+    }
+
     // חלק ביטול העברה (chat-ui.js) – X בתוך בועת הקובץ כמו בוואטסאפ | HYPER CORE TECH
     const cancelBtn = event.target.closest('.torrent-bubble__cancel, [data-cancel-transfer]');
     if (cancelBtn) {
@@ -1110,10 +1164,41 @@
       return;
     }
     
-    const deleteTarget = event.target.closest('[data-chat-delete]');
-    if (!deleteTarget || !state.activeContact) {
+    const moreTarget = event.target.closest('[data-chat-more]');
+    if (moreTarget) {
+      event.preventDefault();
+      event.stopPropagation();
+      const wrap = moreTarget.closest('.chat-message__more-wrap');
+      const menu = wrap?.querySelector('.chat-message__more-menu');
+      if (!wrap || !menu) return;
+      const willOpen = !wrap.classList.contains('is-open');
+      closeAllChatMessageMenus(willOpen ? wrap : null);
+      wrap.classList.toggle('is-open', willOpen);
+      moreTarget.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      menu.hidden = !willOpen;
       return;
     }
+
+    const copyTarget = event.target.closest('[data-chat-copy-url]');
+    if (copyTarget) {
+      event.preventDefault();
+      event.stopPropagation();
+      const url = copyTarget.getAttribute('data-chat-copy-url');
+      if (url && typeof App.copyChatLinkToClipboard === 'function') {
+        App.copyChatLinkToClipboard(url);
+      }
+      closeAllChatMessageMenus();
+      return;
+    }
+
+    const deleteTarget = event.target.closest('[data-chat-delete]');
+    if (!deleteTarget || !state.activeContact) {
+      if (!event.target.closest('.chat-message__more-menu')) {
+        closeAllChatMessageMenus();
+      }
+      return;
+    }
+    closeAllChatMessageMenus();
     event.preventDefault();
     const messageId = deleteTarget.getAttribute('data-chat-delete');
     if (!messageId) {
@@ -2819,26 +2904,40 @@
         }
       }
       
-      // חלק YouTube (chat-ui.js) – זיהוי לינק YouTube בטקסט ההודעה | HYPER CORE TECH
+      // חלק YouTube (chat-ui.js) – כרטיס תמונה+כותרת; לחיצה פותחת חיצונית (בלי URL גולמי) | HYPER CORE TECH
       let youtubeHtml = '';
+      let youtubeRemainingText = '';
+      let youtubeCopyUrl = '';
       if (!a && rawMessageContent && typeof App.extractYouTubeId === 'function') {
         const videoId = App.extractYouTubeId(rawMessageContent);
         if (videoId) {
-          // חלק דיבאג מדיה (chat-ui.js) – זיהוי YouTube בטקסט | HYPER CORE TECH
           mediaDebugLog('message-youtube-detect', { messageId: message.id, videoId });
-          youtubeHtml = `
-            <div class="chat-message__youtube-container">
-              <iframe
-                class="chat-message__youtube-iframe"
-                src="https://www.youtube.com/embed/${videoId}"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
-                loading="lazy"
-                title="YouTube video"
-              ></iframe>
-            </div>
-          `;
+          youtubeHtml = typeof App.renderYouTubeCard === 'function'
+            ? App.renderYouTubeCard(videoId)
+            : '';
+          youtubeCopyUrl = `https://www.youtube.com/watch?v=${videoId}`;
+          youtubeRemainingText = String(rawMessageContent)
+            .replace(/https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/[^\s<>"']+|youtu\.be\/[^\s<>"']+)/gi, '')
+            .trim();
+        }
+      }
+
+      // חלק לינק כללי (chat-ui.js) – כרטיס OG קומפקטי (לא YouTube) | HYPER CORE TECH
+      let linkPreviewHtml = '';
+      let linkPreviewRemainingText = '';
+      let linkCopyUrl = '';
+      if (!a && !youtubeHtml && rawMessageContent && typeof App.extractPreviewableUrl === 'function') {
+        const previewUrl = App.extractPreviewableUrl(rawMessageContent);
+        if (previewUrl && typeof App.renderLinkPreviewCard === 'function') {
+          mediaDebugLog('message-link-preview-detect', { messageId: message.id, url: previewUrl });
+          linkPreviewHtml = App.renderLinkPreviewCard(previewUrl);
+          linkCopyUrl = previewUrl;
+          linkPreviewRemainingText = typeof App.stripPreviewUrlFromText === 'function'
+            ? App.stripPreviewUrlFromText(rawMessageContent, previewUrl)
+            : String(rawMessageContent)
+              .replace(previewUrl, '')
+              .replace(/\s{2,}/g, ' ')
+              .trim();
         }
       }
       
@@ -2847,7 +2946,7 @@
       let isMediaUrl = false;
       let remainingText = rawMessageContent;
       // חלק זיהוי URL (chat-ui.js) – גם אם יש attachment, נבדוק URLs בטקסט | HYPER CORE TECH
-      if (!youtubeHtml && rawMessageContent) {
+      if (!youtubeHtml && !linkPreviewHtml && rawMessageContent) {
         const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|#|$)/i;
         // חלק זיהוי אודיו מקיף (chat-ui.js) – כל פורמטי האודיו PC/Android/iPhone/Apple | HYPER CORE TECH
         const AUDIO_EXTS = /\.(mp3|m4a|aac|ogg|oga|opus|wav|wave|webm|flac|wma|aiff|aif|caf|amr|3gp|3gpp|mp4a|m4b|m4p|m4r|alac)(\?|#|$)/i;
@@ -2936,19 +3035,27 @@
           sideDownloadHtml = buildChatMediaSideDownloadHtml(null, mediaUrl, isImgUrl ? 'תמונה.jpg' : 'video.mp4');
         }
       }
+      const sideCopyHtml = buildChatLinkCopyHtml(youtubeCopyUrl || linkCopyUrl);
       const sideActionsHtml = buildChatSideActionsHtml({
         isOutgoing,
         messageId: message.id,
         downloadHtml: sideDownloadHtml,
+        copyHtml: sideCopyHtml,
       });
       // חלק צ'אט (chat-ui.js) – כאשר מצורף קובץ בלבד, לא מציגים שוב את הטקסט "📎 filename" כי הלינק מציג את השם
       const fileOnlyLabel = a && !isAudioAttachment ? `📎 ${a.name || 'קובץ מצורף'}` : '';
       const hideTextForFileOnly = !isAudioAttachment && !!attachmentHtml && rawMessageContent === fileOnlyLabel;
-      // חלק מדיה URL (chat-ui.js) – מסתיר את הטקסט כשיש מדיה מ-URL | HYPER CORE TECH
-      // אם יש URLs של מדיה, נציג רק את הטקסט הנותר (ללא ה-URLs)
-      const textToShow = isMediaUrl ? remainingText : rawMessageContent;
+      // חלק מדיה URL / כרטיסי לינק (chat-ui.js) – מסתיר URL גולמי כשיש כרטיס/מדיה | HYPER CORE TECH
+      const textToShow = youtubeHtml
+        ? youtubeRemainingText
+        : (linkPreviewHtml
+          ? linkPreviewRemainingText
+          : (isMediaUrl ? remainingText : rawMessageContent));
       const safeTextToShow = App.escapeHtml ? App.escapeHtml(textToShow) : textToShow;
-      const hideTextForMediaUrl = isMediaUrl && !remainingText;
+      const hideTextForMediaUrl =
+        (isMediaUrl && !remainingText) ||
+        (!!youtubeHtml && !youtubeRemainingText) ||
+        (!!linkPreviewHtml && !linkPreviewRemainingText);
       
       // חלק "המשך קריאה" (chat-ui.js) – קיצור הודעות ארוכות ל-10 שורות עם כפתור הרחבה | HYPER CORE TECH
       let textHtml = '';
@@ -2978,8 +3085,12 @@
         rawMessageContent.length <= 60 &&
         !rawMessageContent.includes('\n') &&
         Boolean(textHtml);
+      const youtubeOnly = !!youtubeHtml && !textHtml && !attachmentHtml && !mediaUrlHtml && !linkPreviewHtml;
+      const linkPreviewOnly = !!linkPreviewHtml && !textHtml && !attachmentHtml && !mediaUrlHtml && !youtubeHtml;
       const contentClassName = `chat-message__content${a ? ' chat-message__content--has-attachment' : ''}${
         shouldCompactMeta ? ' chat-message__content--compact-meta' : ''
+      }${youtubeOnly ? ' chat-message__content--youtube-only' : ''}${
+        linkPreviewOnly ? ' chat-message__content--link-preview-only' : ''
       }`;
       
       // חלק סטטוס הודעות ואטסאפ (chat-ui.js) – וי כפול כמו ואטסאפ | HYPER CORE TECH
@@ -2998,16 +3109,18 @@
       }
       
       // חלק meta בתוך נגן (chat-ui.js) – הסתרת meta-row לאודיו/וידאו/תמונה והזרקה לתוך המדיה | HYPER CORE TECH
-      const hideMetaForAudio = isAudioAttachment && !textHtml && !youtubeHtml && !mediaUrlHtml;
+      const hideMetaForAudio = isAudioAttachment && !textHtml && !youtubeHtml && !linkPreviewHtml && !mediaUrlHtml;
       const hideMetaForVideo =
         (isVideoAttachment || (isMediaUrl && /chat-message__video-container/.test(mediaUrlHtml || ''))) &&
         !textHtml &&
         !youtubeHtml &&
+        !linkPreviewHtml &&
         !attachmentHtml?.includes('chat-audio');
       const hideMetaForImage =
         (isImageAttachment || (isMediaUrl && /chat-message__image-container/.test((attachmentHtml || '') + (mediaUrlHtml || '')))) &&
         !textHtml &&
-        !youtubeHtml;
+        !youtubeHtml &&
+        !linkPreviewHtml;
       const hideMetaForMedia = hideMetaForAudio || hideMetaForVideo || hideMetaForImage;
       const metaRowHtml = hideMetaForMedia ? '' : `
           <div class="chat-message__meta-row">
@@ -3020,6 +3133,7 @@
       const pendingVisualMediaOnly =
         !textHtml &&
         !youtubeHtml &&
+        !linkPreviewHtml &&
         !isAudioAttachment &&
         (
           isImageAttachment ||
@@ -3039,17 +3153,19 @@
           ${textHtml}
           ${attachmentHtml}
           ${youtubeHtml}
+          ${linkPreviewHtml}
           ${mediaUrlHtml}
           ${metaRowHtml}
         </div>
         ${!isOutgoing ? sideActionsHtml : ''}
       `;
-      // העברת שאריות כפתור הורדה מתוך המדיה לעמודת הצד | HYPER CORE TECH
-      if (sideDownloadHtml || isImageAttachment || isVideoAttachment || isMediaUrl) {
+      // העברת שאריות כפתור הורדה/העתקה לעמודת הצד | HYPER CORE TECH
+      if (sideDownloadHtml || sideCopyHtml || isImageAttachment || isVideoAttachment || isMediaUrl) {
         ensureChatSideActions(item, {
           isOutgoing,
           messageId: message.id,
           downloadHtml: sideDownloadHtml,
+          copyHtml: sideCopyHtml,
         });
       }
       // חלק חיבור נגנים (chat-ui.js) – חיבור כל נגני האודיו (attachment + URL) | HYPER CORE TECH
@@ -3060,6 +3176,13 @@
         audioWraps.forEach(wrap => {
           App.wireEnhancedAudioPlayer(wrap);
         });
+      }
+      // חלק כרטיסי לינק (chat-ui.js) – השלמת כותרת/תמונה אחרי רינדור | HYPER CORE TECH
+      if (youtubeHtml && contentEl && typeof App.hydrateYouTubeCards === 'function') {
+        App.hydrateYouTubeCards(contentEl);
+      }
+      if (linkPreviewHtml && contentEl && typeof App.hydrateLinkPreviewCards === 'function') {
+        App.hydrateLinkPreviewCards(contentEl);
       }
       // חלק הזרקת meta לנגן (chat-ui.js) – הזרקת שעה וסטטוס לתוך נגן האודיו | HYPER CORE TECH
       if (hideMetaForAudio && contentEl) {
@@ -3169,7 +3292,37 @@
     const item = doc.createElement('div');
     const isOutgoing = message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
     const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
-    const safeContent = App.escapeHtml ? App.escapeHtml(message.content) : message.content;
+    const rawContent = typeof message.content === 'string' ? message.content : '';
+
+    // חלק כרטיסי לינק (chat-ui.js) – גם ב-append מיידי אחרי שליחה מציגים כרטיס | HYPER CORE TECH
+    let youtubeHtml = '';
+    let linkPreviewHtml = '';
+    let linkCopyUrl = '';
+    let textToShow = rawContent;
+    if (!message.attachment && rawContent && typeof App.extractYouTubeId === 'function') {
+      const videoId = App.extractYouTubeId(rawContent);
+      if (videoId && typeof App.renderYouTubeCard === 'function') {
+        youtubeHtml = App.renderYouTubeCard(videoId);
+        linkCopyUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        textToShow = rawContent
+          .replace(/https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/[^\s<>"']+|youtu\.be\/[^\s<>"']+)/gi, '')
+          .trim();
+      }
+    }
+    if (!message.attachment && !youtubeHtml && rawContent && typeof App.extractPreviewableUrl === 'function') {
+      const previewUrl = App.extractPreviewableUrl(rawContent);
+      if (previewUrl && typeof App.renderLinkPreviewCard === 'function') {
+        linkPreviewHtml = App.renderLinkPreviewCard(previewUrl);
+        linkCopyUrl = previewUrl;
+        textToShow = typeof App.stripPreviewUrlFromText === 'function'
+          ? App.stripPreviewUrlFromText(rawContent, previewUrl)
+          : rawContent
+            .replace(previewUrl, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+      }
+    }
+    const safeContent = App.escapeHtml ? App.escapeHtml(textToShow) : textToShow;
     
     // סטטוס הודעה בסגנון ואטסאפ
     let statusHtml = '';
@@ -3184,31 +3337,52 @@
       }
     }
 
+    const sideCopyHtml = buildChatLinkCopyHtml(linkCopyUrl);
     const sideActionsHtml = buildChatSideActionsHtml({
       isOutgoing,
       messageId: message.id,
       downloadHtml: '',
+      copyHtml: sideCopyHtml,
     });
     
     item.className = `chat-message ${directionClass}`;
     item.setAttribute('data-message-id', message.id);
+    item.setAttribute('data-chat-created', String(messageTimestamp));
+    item.setAttribute('data-chat-from', String(message.from || '').toLowerCase());
     
-    const contentClass = safeContent.length <= 60 && !safeContent.includes('\n') 
-      ? 'chat-message__content chat-message__content--compact-meta' 
-      : 'chat-message__content';
+    const textHtml = safeContent
+      ? `<span class="chat-message__text">${safeContent.replace(/\n/g, '<br>')}</span>`
+      : '';
+    const youtubeOnly = !!youtubeHtml && !textHtml && !linkPreviewHtml;
+    const linkPreviewOnly = !!linkPreviewHtml && !textHtml && !youtubeHtml;
+    let contentClass = 'chat-message__content';
+    if (youtubeOnly) contentClass += ' chat-message__content--youtube-only';
+    else if (linkPreviewOnly) contentClass += ' chat-message__content--link-preview-only';
+    else if (!youtubeHtml && !linkPreviewHtml && safeContent.length <= 60 && !safeContent.includes('\n')) {
+      contentClass += ' chat-message__content--compact-meta';
+    }
     
     item.innerHTML = `
-      ${sideActionsHtml}
+      ${isOutgoing ? sideActionsHtml : ''}
       <div class="${contentClass}" data-chat-message="${message.id}">
-        <span class="chat-message__text">${safeContent.replace(/\n/g, '<br>')}</span>
+        ${textHtml}
+        ${youtubeHtml}
+        ${linkPreviewHtml}
         <div class="chat-message__meta-row">
           <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
           ${statusHtml}
         </div>
       </div>
+      ${!isOutgoing ? sideActionsHtml : ''}
     `;
     
     elements.messagesContainer.appendChild(item);
+    if (youtubeHtml && typeof App.hydrateYouTubeCards === 'function') {
+      App.hydrateYouTubeCards(item);
+    }
+    if (linkPreviewHtml && typeof App.hydrateLinkPreviewCards === 'function') {
+      App.hydrateLinkPreviewCards(item);
+    }
     elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
   }
 
@@ -3254,6 +3428,7 @@
     elements.messagesContainer?.removeAttribute('hidden');
     if (elements.messageInput) {
       elements.messageInput.value = '';
+      elements.messageInput.style.height = '';
       // חלק צ'אט (chat-ui.js) – לא מפעיל focus אוטומטי כדי שהמקלדת לא תיפתח ללא לחיצה יזומה
     }
     // אתחול מחדש של כפתור מיקרופון במובייל כשהשיחה נפתחת
@@ -3374,6 +3549,8 @@
     // 1. נקה input מיד - תגובה מיידית למשתמש
     const messageText = value;
     elements.messageInput.value = '';
+    // חלק גובה קלט (chat-ui.js) – value='' לא מפעיל input, מאפסים גובה שתפח בזמן הקלדה | HYPER CORE TECH
+    elements.messageInput.style.height = '';
     elements.messageInput.disabled = false;
     // חלק שמירת מקלדת (chat-ui.js) – שמירה על פוקוס ב-input אחרי שליחה כדי שהמקלדת תישאר פתוחה במובייל | HYPER CORE TECH
     elements.messageInput.focus();
@@ -3795,6 +3972,35 @@
       doc.body.appendChild(toast);
       setTimeout(() => toast.remove(), 2000);
     }).catch(() => {});
+  };
+
+  // חלק העתקת לינק (chat-ui.js) – העתקת URL מכרטיס לינק/YouTube בלי לפתוח דפדפן | HYPER CORE TECH
+  App.copyChatLinkToClipboard = function copyChatLinkToClipboard(url) {
+    const href = String(url || '').trim();
+    if (!href) return;
+    const showToast = () => {
+      const toast = doc.createElement('div');
+      toast.className = 'chat-toast';
+      toast.textContent = 'הקישור הועתק!';
+      toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;z-index:10000;animation:fadeInOut 2s forwards;';
+      doc.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(href).then(showToast).catch(() => {});
+      return;
+    }
+    try {
+      const ta = doc.createElement('textarea');
+      ta.value = href;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+      doc.body.appendChild(ta);
+      ta.select();
+      doc.execCommand('copy');
+      ta.remove();
+      showToast();
+    } catch (_) {}
   };
 
   // חלק הרחבת טקסט (chat-ui.js) – הרחבת הודעה ארוכה שנחתכה | HYPER CORE TECH

@@ -92,6 +92,9 @@
   // חלק Input Optimization (chat-ui-optimizations.js) – אופטימיזציה להקלדה | HYPER CORE TECH
   function optimizeMessageInput(inputElement) {
     if (!inputElement) return;
+    // מונע האזנה כפולה (enhanced composer + DOMContentLoaded) | HYPER CORE TECH
+    if (inputElement.dataset.heightOptimized === '1') return;
+    inputElement.dataset.heightOptimized = '1';
     
     // מניעת reflow מיותר
     inputElement.style.willChange = 'contents';
@@ -106,8 +109,12 @@
     
     inputElement.addEventListener('input', debouncedInput);
     
-    // אופטימיזציה לגובה דינמי
+    // גובה דינמי – בהקלדה גדל; מחיקה ידנית מאפסת (שליחה מאפסת ב-chat-ui.js) | HYPER CORE TECH
     inputElement.addEventListener('input', function() {
+      if (!this.value) {
+        this.style.height = '';
+        return;
+      }
       this.style.height = 'auto';
       this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
