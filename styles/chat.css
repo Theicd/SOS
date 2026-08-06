@@ -37,6 +37,23 @@
   flex-shrink: 0;
 }
 
+/* מקבל: הורדה בצד החיצוני (שמאל) — לא בין המדיה לתמונת הפרופיל | HYPER CORE TECH */
+.chat-message--incoming {
+  flex-wrap: nowrap;
+}
+
+.chat-message--incoming .chat-message__side-actions {
+  order: 3;
+}
+
+.chat-message--incoming .chat-message__content {
+  order: 2;
+}
+
+.chat-message--incoming .chat-message__avatar {
+  order: 1;
+}
+
 .chat-message__side-actions .chat-message__delete {
   opacity: 0;
   transform: scale(0.8);

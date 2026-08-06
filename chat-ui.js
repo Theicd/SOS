@@ -134,12 +134,23 @@
   function ensureChatSideActions(bubble, { isOutgoing, messageId, downloadHtml }) {
     if (!bubble) return null;
     let side = bubble.querySelector('.chat-message__side-actions');
+    const content = bubble.querySelector('.chat-message__content');
     if (!side) {
       side = doc.createElement('div');
       side.className = 'chat-message__side-actions';
-      const content = bubble.querySelector('.chat-message__content');
-      if (content) bubble.insertBefore(side, content);
-      else bubble.appendChild(side);
+      if (content) {
+        // שולח: לפני התוכן (ליד הפח). מקבל: אחרי התוכן — שמאל המדיה, לא בין מדיה לתמונת פרופיל | HYPER CORE TECH
+        if (isOutgoing) bubble.insertBefore(side, content);
+        else content.insertAdjacentElement('afterend', side);
+      } else {
+        bubble.appendChild(side);
+      }
+    } else if (content) {
+      if (isOutgoing && side.nextElementSibling !== content) {
+        bubble.insertBefore(side, content);
+      } else if (!isOutgoing && content.nextElementSibling !== side) {
+        content.insertAdjacentElement('afterend', side);
+      }
     }
     if (isOutgoing && messageId && !side.querySelector('.chat-message__delete')) {
       const del = doc.createElement('button');
@@ -3018,7 +3029,7 @@
       
       item.innerHTML = `
         ${avatarHtml}
-        ${sideActionsHtml}
+        ${isOutgoing ? sideActionsHtml : ''}
         <div class="${contentClassName}" data-chat-message="${message.id}">
           ${textHtml}
           ${attachmentHtml}
@@ -3026,6 +3037,7 @@
           ${mediaUrlHtml}
           ${metaRowHtml}
         </div>
+        ${!isOutgoing ? sideActionsHtml : ''}
       `;
       // העברת שאריות כפתור הורדה מתוך המדיה לעמודת הצד | HYPER CORE TECH
       if (sideDownloadHtml || isImageAttachment || isVideoAttachment || isMediaUrl) {
