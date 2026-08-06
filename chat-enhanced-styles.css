@@ -1018,7 +1018,7 @@
   max-width: 360px;
   min-width: 0;
   max-height: 240px;
-  flex-shrink: 1;
+  flex-shrink: 0;
 }
 
 .chat-message__image-container--portrait {
@@ -1462,12 +1462,11 @@
     min-width: 0;
   }
 
+  /* לא לדרוס width מה־JS — width:auto + img absolute קורסים את המסגרת ל־0 | HYPER CORE TECH */
   .chat-message__image-container--landscape {
-    max-width: min(70vw, 280px) !important;
-    width: auto !important;
-    min-width: 0 !important;
+    max-width: min(70vw, 280px);
     max-height: min(32vh, 200px);
-    flex-shrink: 1;
+    flex-shrink: 0;
   }
 
   .chat-message__image-container--portrait {
