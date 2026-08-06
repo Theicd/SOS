@@ -1349,11 +1349,11 @@
 
   function buildLightboxShellHtml({ kind, mediaHtml, meta }) {
     const resolved = resolveLightboxSenderMeta(meta);
+    const initials = resolved.senderInitials || 'מ';
+    // רק עיגול אחד: תמונה אם קיימת, אחרת ראשי תיבות (לא שניהם יחד)
     const avatarHtml = resolved.senderPicture
-      ? `<img class="chat-lightbox__avatar" src="${resolved.senderPicture}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';const n=this.nextElementSibling;if(n)n.hidden=false;">`
-      : '';
-    const initialsHidden = resolved.senderPicture ? ' hidden' : '';
-    const initialsHtml = `<span class="chat-lightbox__avatar chat-lightbox__avatar--initials"${initialsHidden}>${resolved.senderInitials || 'מ'}</span>`;
+      ? `<img class="chat-lightbox__avatar" src="${resolved.senderPicture}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;chat-lightbox__avatar chat-lightbox__avatar--initials&quot;>${initials}</span>';">`
+      : `<span class="chat-lightbox__avatar chat-lightbox__avatar--initials">${initials}</span>`;
     const title = kind === 'video' ? 'וידאו' : 'תמונה';
     return `
       <div class="chat-lightbox__backdrop"></div>
@@ -1372,7 +1372,7 @@
         </div>
         <footer class="chat-lightbox__footer">
           <div class="chat-lightbox__sender">
-            ${avatarHtml}${initialsHtml}
+            ${avatarHtml}
             <span class="chat-lightbox__sender-name">${resolved.senderName || ''}</span>
           </div>
           <span class="chat-lightbox__time">${resolved.timeLabel || ''}</span>
