@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v275'; // bump - redeploy chat lightbox to Pages without APKs
+  const CACHE_NAME = 'sos-cache-v276'; // bump - black lightbox header + larger close/download
   const PRECACHE_URLS = [
     './',
     './videos.html',
