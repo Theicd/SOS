@@ -139,7 +139,7 @@
         const src = image.getAttribute('src');
         const alt = image.getAttribute('alt');
         if (typeof App.openImageLightbox === 'function') {
-          App.openImageLightbox(src, alt);
+          App.openImageLightbox(src, alt, image);
         }
         return;
       }

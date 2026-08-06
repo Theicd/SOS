@@ -451,7 +451,7 @@
           loading="eager"
           decoding="async"
           referrerpolicy="no-referrer"
-          onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox(this.src,'${safeName.replace(/'/g, "\\'")}')"
+          onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox(this.src,'${safeName.replace(/'/g, "\\'")}',this)"
         />
       </div>
     `;
@@ -1179,7 +1179,7 @@
         const sourceEl = el.querySelector('source');
         const playSrc = (sourceEl && sourceEl.src) || el.currentSrc || playable || src;
         if (typeof openVideoLightbox === 'function') {
-          openVideoLightbox(playSrc, name, type);
+          openVideoLightbox(playSrc, name, type, container);
         }
       };
 
@@ -1256,42 +1256,157 @@
     return await renderYouTubeEmbed(videoId, messageText);
   }
   
-  // חלק lightbox (chat-media-renderer.js) – פתיחת תמונה במסך מלא | HYPER CORE TECH
-  function openImageLightbox(src, name) {
+  // חלק lightbox (chat-media-renderer.js) – מטא שולח/זמן להדר תחתון | HYPER CORE TECH
+  function formatLightboxTimeLabel(tsSec) {
+    const ts = Number(tsSec);
+    if (!ts) return '';
+    const date = new Date(ts * 1000);
+    if (Number.isNaN(date.getTime())) return '';
+    const now = new Date();
+    const sameDay =
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate();
+    const timePart = date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    if (sameDay) return timePart;
+    const datePart = date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `${datePart} · ${timePart}`;
+  }
+
+  function resolveLightboxSenderMeta(metaOrEl) {
+    const esc = (s) => (App.escapeHtml ? App.escapeHtml(String(s || '')) : String(s || ''));
+    let isOutgoing = false;
+    let fromKey = '';
+    let createdAt = 0;
+    let override = null;
+    let timeFromDom = '';
+
+    if (metaOrEl && typeof metaOrEl === 'object' && metaOrEl.nodeType === 1) {
+      const msg = metaOrEl.closest?.('.chat-message') || null;
+      isOutgoing = !!msg?.classList?.contains('chat-message--outgoing');
+      fromKey = (msg?.getAttribute('data-chat-from') || '').toLowerCase();
+      createdAt = Number(msg?.getAttribute('data-chat-created') || 0) || 0;
+      timeFromDom = (
+        msg?.querySelector?.('.chat-message__image-msg-time-text, .chat-message__video-msg-time-text, .chat-message__meta')
+          ?.textContent || ''
+      ).trim();
+    } else if (metaOrEl && typeof metaOrEl === 'object') {
+      override = metaOrEl;
+      isOutgoing = !!metaOrEl.isOutgoing;
+      fromKey = String(metaOrEl.from || metaOrEl.fromKey || '').toLowerCase();
+      createdAt = Number(metaOrEl.createdAt || 0) || 0;
+      timeFromDom = String(metaOrEl.timeLabel || '').trim();
+    }
+
+    let senderName = override?.senderName || '';
+    let senderPicture = override?.senderPicture || '';
+    let senderInitials = override?.senderInitials || '';
+
+    if (isOutgoing || (!fromKey && App.publicKey)) {
+      const myPubkey = App.publicKey?.toLowerCase?.() || '';
+      const myContact = myPubkey && App.chatState?.contacts?.get?.(myPubkey);
+      senderName =
+        senderName ||
+        App.userName ||
+        App.userDisplayName ||
+        App.profile?.name ||
+        myContact?.name ||
+        'אני';
+      senderPicture =
+        senderPicture ||
+        App.userPicture ||
+        App.userAvatar ||
+        App.profile?.picture ||
+        App.profile?.image ||
+        myContact?.picture ||
+        '';
+    } else if (fromKey) {
+      const contact = App.chatState?.contacts?.get?.(fromKey);
+      senderName = senderName || contact?.name || `משתמש ${fromKey.slice(0, 8)}`;
+      senderPicture = senderPicture || contact?.picture || '';
+      senderInitials =
+        senderInitials ||
+        contact?.initials ||
+        (typeof App.getInitials === 'function' ? App.getInitials(senderName) : String(senderName).slice(0, 2));
+    }
+
+    if (!senderName) senderName = isOutgoing ? 'אני' : 'משתמש';
+    if (!senderInitials) {
+      senderInitials =
+        typeof App.getInitials === 'function' ? App.getInitials(senderName) : String(senderName).slice(0, 2);
+    }
+
+    const timeLabel = timeFromDom || formatLightboxTimeLabel(createdAt) || '';
+
+    return {
+      isOutgoing,
+      senderName: esc(senderName),
+      senderPicture: esc(senderPicture),
+      senderInitials: esc(senderInitials),
+      timeLabel: esc(timeLabel),
+    };
+  }
+
+  function buildLightboxShellHtml({ kind, mediaHtml, meta }) {
+    const resolved = resolveLightboxSenderMeta(meta);
+    const avatarHtml = resolved.senderPicture
+      ? `<img class="chat-lightbox__avatar" src="${resolved.senderPicture}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none';const n=this.nextElementSibling;if(n)n.hidden=false;">`
+      : '';
+    const initialsHidden = resolved.senderPicture ? ' hidden' : '';
+    const initialsHtml = `<span class="chat-lightbox__avatar chat-lightbox__avatar--initials"${initialsHidden}>${resolved.senderInitials || 'מ'}</span>`;
+    const title = kind === 'video' ? 'וידאו' : 'תמונה';
+    return `
+      <div class="chat-lightbox__backdrop"></div>
+      <div class="chat-lightbox__frame">
+        <header class="chat-lightbox__header">
+          <button type="button" class="chat-lightbox__close" aria-label="סגור" title="סגור">
+            <i class="fa-solid fa-times"></i>
+          </button>
+          <span class="chat-lightbox__header-title">${title}</span>
+          <button type="button" class="chat-lightbox__download" aria-label="הורד" title="הורד">
+            <i class="fa-solid fa-download"></i>
+          </button>
+        </header>
+        <div class="chat-lightbox__stage">
+          ${mediaHtml}
+        </div>
+        <footer class="chat-lightbox__footer">
+          <div class="chat-lightbox__sender">
+            ${avatarHtml}${initialsHtml}
+            <span class="chat-lightbox__sender-name">${resolved.senderName || ''}</span>
+          </div>
+          <span class="chat-lightbox__time">${resolved.timeLabel || ''}</span>
+        </footer>
+      </div>
+    `;
+  }
+
+  // חלק lightbox (chat-media-renderer.js) – פתיחת תמונה במסך מלא עם הדר עליון/תחתון | HYPER CORE TECH
+  function openImageLightbox(src, name, meta) {
     const existing = document.getElementById('chatImageLightbox');
     if (existing) existing.remove();
-    
+    if (!src) return;
+
     const lightbox = document.createElement('div');
     lightbox.id = 'chatImageLightbox';
     lightbox.className = 'chat-lightbox';
     const safeName = App.escapeHtml ? App.escapeHtml(name || 'תמונה') : String(name || 'תמונה');
-    lightbox.innerHTML = `
-      <div class="chat-lightbox__backdrop"></div>
-      <div class="chat-lightbox__content">
-        <div class="chat-lightbox__actions">
-          <button type="button" class="chat-lightbox__download" aria-label="הורד" title="הורד">
-            <i class="fa-solid fa-download"></i>
-          </button>
-          <button type="button" class="chat-lightbox__close" aria-label="סגור" title="סגור">
-            <i class="fa-solid fa-times"></i>
-          </button>
-        </div>
-        <img src="${src}" alt="${safeName}" class="chat-lightbox__image">
-        <div class="chat-lightbox__name">${safeName}</div>
-      </div>
-    `;
-    
+    const mediaHtml = `<img src="${String(src).replace(/"/g, '&quot;')}" alt="${safeName}" class="chat-lightbox__image">`;
+    lightbox.innerHTML = buildLightboxShellHtml({ kind: 'image', mediaHtml, meta: meta || null });
+
     document.body.appendChild(lightbox);
-    
+    document.body.classList.add('chat-lightbox-open');
+
     const close = (event) => {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
       lightbox.classList.add('chat-lightbox--closing');
+      document.body.classList.remove('chat-lightbox-open');
       setTimeout(() => lightbox.remove(), 200);
     };
-    
+
     lightbox.querySelector('.chat-lightbox__close').addEventListener('click', close);
     lightbox.querySelector('.chat-lightbox__backdrop').addEventListener('click', close);
     lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
@@ -1302,20 +1417,20 @@
         setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
       });
     });
-    lightbox.addEventListener('click', (event) => event.stopPropagation());
-    
+    lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
+
     document.addEventListener('keydown', function onEsc(e) {
       if (e.key === 'Escape') {
         close(e);
         document.removeEventListener('keydown', onEsc);
       }
     });
-    
+
     requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
   }
 
-  // חלק lightbox וידאו (chat-media-renderer.js) – מסך מלא כמו וואטסאפ, X חוזר לשיחה | HYPER CORE TECH
-  function openVideoLightbox(src, name, type) {
+  // חלק lightbox וידאו (chat-media-renderer.js) – מסך מלא עם הדר עליון/תחתון | HYPER CORE TECH
+  function openVideoLightbox(src, name, type, meta) {
     const existing = document.getElementById('chatVideoLightbox');
     if (existing) existing.remove();
     const playSrc = String(src || '').trim();
@@ -1326,25 +1441,15 @@
     lightbox.className = 'chat-lightbox chat-lightbox--video';
     const safeName = App.escapeHtml ? App.escapeHtml(name || 'וידאו') : String(name || 'וידאו');
     const mime = type || 'video/mp4';
-    lightbox.innerHTML = `
-      <div class="chat-lightbox__backdrop"></div>
-      <div class="chat-lightbox__content chat-lightbox__content--video">
-        <div class="chat-lightbox__actions">
-          <button type="button" class="chat-lightbox__download" aria-label="הורד" title="הורד">
-            <i class="fa-solid fa-download"></i>
-          </button>
-          <button type="button" class="chat-lightbox__close" aria-label="סגור וחזור לשיחה" title="סגור">
-            <i class="fa-solid fa-times"></i>
-          </button>
-        </div>
-        <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay>
-          <source src="${playSrc.replace(/"/g, '&quot;')}" type="${mime.replace(/"/g, '&quot;')}">
-        </video>
-        <div class="chat-lightbox__name">${safeName}</div>
-      </div>
+    const mediaHtml = `
+      <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay>
+        <source src="${playSrc.replace(/"/g, '&quot;')}" type="${String(mime).replace(/"/g, '&quot;')}">
+      </video>
     `;
+    lightbox.innerHTML = buildLightboxShellHtml({ kind: 'video', mediaHtml, meta: meta || null });
 
     document.body.appendChild(lightbox);
+    document.body.classList.add('chat-lightbox-open');
     App.__sosSuppressChatOutsideClose = true;
 
     const videoEl = lightbox.querySelector('.chat-lightbox__video');
@@ -1361,6 +1466,7 @@
         }
       } catch (_) {}
       lightbox.classList.add('chat-lightbox--closing');
+      document.body.classList.remove('chat-lightbox-open');
       setTimeout(() => {
         lightbox.remove();
         setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
@@ -1377,7 +1483,7 @@
         setTimeout(() => { App.__sosSuppressChatOutsideClose = true; }, 50);
       });
     });
-    lightbox.addEventListener('click', (event) => event.stopPropagation());
+    lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
 
     document.addEventListener('keydown', function onEsc(e) {
       if (e.key === 'Escape') {
@@ -1394,7 +1500,7 @@
       } catch (_) {}
     });
   }
-  
+
   // חלק זיהוי PDF (chat-media-renderer.js) – בדיקה אם attachment הוא קובץ PDF | HYPER CORE TECH
   function isPdfAttachment(attachment) {
     if (!attachment) return false;

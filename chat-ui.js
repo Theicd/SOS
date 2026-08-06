@@ -483,6 +483,8 @@
     bubble.className = `chat-message chat-message--outgoing chat-message--media-settled`;
     bubble.setAttribute('data-message-id', message.id);
     bubble.setAttribute('data-p2p-file-id', fileId);
+    bubble.setAttribute('data-chat-created', String(messageTimestamp));
+    bubble.setAttribute('data-chat-from', String(message.from || App.publicKey || '').toLowerCase());
     bubble.removeAttribute('data-torrent-transfer');
 
     wrap?.querySelector?.('.chat-media-upload__overlay')?.remove();
@@ -518,7 +520,7 @@
         event?.preventDefault?.();
         event?.stopPropagation?.();
         if (typeof App.openVideoLightbox === 'function' && src) {
-          App.openVideoLightbox(src, name, type);
+          App.openVideoLightbox(src, name, type, wrap);
         }
       };
       wrap.style.cursor = 'pointer';
@@ -533,7 +535,7 @@
         event?.stopPropagation?.();
         const src = mediaEl.currentSrc || mediaEl.src || a.url || '';
         if (typeof App.openImageLightbox === 'function' && src) {
-          App.openImageLightbox(src, name);
+          App.openImageLightbox(src, name, wrap);
         }
       });
     }
@@ -2874,7 +2876,7 @@
                   loading="lazy"
                   decoding="async"
                   referrerpolicy="no-referrer"
-                  onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox('${url.replace(/'/g, "\\'")}','תמונה')"
+                  onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox('${url.replace(/'/g, "\\'")}','תמונה',this)"
                 />
               </div>
             `);
@@ -2919,6 +2921,9 @@
       }
 
       item.className = `chat-message ${directionClass}`;
+      item.setAttribute('data-message-id', message.id);
+      item.setAttribute('data-chat-created', String(messageTimestamp));
+      item.setAttribute('data-chat-from', String(message.from || '').toLowerCase());
       // הורדה ליד הפח (שולח) / במקום הפח (מקבל) לתמונה ווידאו | HYPER CORE TECH
       let sideDownloadHtml = '';
       if (isImageAttachment || isVideoAttachment) {
