@@ -953,7 +953,7 @@
   
   .chat-message__image-container,
   .chat-message__youtube-container {
-    max-width: 240px;
+    max-width: min(73vw, 306px);
   }
   
   .chat-lightbox__image {
@@ -1001,8 +1001,8 @@
 /* חלק מדיה בהודעות (chat-enhanced-styles.css) – סגנון תמונות ווידאו בצ'אט כמו וואטסאפ | HYPER CORE TECH */
 .chat-message__image-container {
   position: relative;
-  max-width: 280px;
-  min-width: 0;
+  max-width: 360px;
+  min-width: 200px;
   width: auto;
   box-sizing: border-box;
   border-radius: 8px;
@@ -1014,10 +1014,11 @@
   box-shadow: none;
 }
 
+/* אופקי: אותם גדלים כמו וידאו לרוחב | HYPER CORE TECH */
 .chat-message__image-container--landscape {
   max-width: 360px;
   min-width: 0;
-  max-height: 240px;
+  max-height: 280px;
   flex-shrink: 0;
 }
 
@@ -1458,20 +1459,21 @@
 
   .chat-message__image-container,
   .chat-message__youtube-container {
-    max-width: min(72vw, 280px);
-    min-width: 0;
+    max-width: min(73vw, 306px);
+    min-width: 200px;
   }
 
-  /* לא לדרוס width מה־JS — width:auto + img absolute קורסים את המסגרת ל־0 | HYPER CORE TECH */
+  /* תמונה לרוחב = אותם גדלים כמו וידאו לרוחב במובייל | HYPER CORE TECH */
   .chat-message__image-container--landscape {
-    max-width: min(70vw, 280px);
-    max-height: min(32vh, 200px);
+    max-width: min(75vw, 306px);
+    min-width: 220px;
+    max-height: min(36vh, 238px);
     flex-shrink: 0;
   }
 
   .chat-message__image-container--portrait {
     max-width: min(70vw, 272px);
-    min-width: 0;
+    min-width: 200px;
     max-height: min(60vh, 476px);
   }
 
@@ -1486,8 +1488,7 @@
   }
 
   .chat-message:has(.chat-message__image-container--landscape) {
-    max-width: min(88%, 100%);
-    overflow: hidden;
+    max-width: min(92%, 100%);
   }
 
   .chat-message__image {

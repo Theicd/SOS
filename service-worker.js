@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v263'; // bump - fix landscape chat images collapsed to 0
+  const CACHE_NAME = 'sos-cache-v264'; // bump - landscape images match video sizes on mobile
   const PRECACHE_URLS = [
     './',
     './videos.html',

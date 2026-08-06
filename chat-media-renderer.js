@@ -872,8 +872,9 @@
     el.style.height = `${box.dispH}px`;
     el.style.maxWidth = `${box.dispW}px`;
     el.style.maxHeight = `${box.dispH}px`;
-    el.style.minWidth = '0';
-    el.style.minHeight = '0';
+    // לא מאפסים min-width — במובייל תמונה/וידאו לרוחב צריכים רצפת 220px כמו CSS | HYPER CORE TECH
+    el.style.removeProperty('min-width');
+    el.style.removeProperty('min-height');
     el.style.aspectRatio = `${box.dispW} / ${box.dispH}`;
     el.dataset.mediaNw = String(w);
     el.dataset.mediaNh = String(h);
