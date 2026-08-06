@@ -26,6 +26,52 @@
   transform: scale(0.8);
 }
 
+/* עמודה ליד המדיה: פח מעל, הורדה מתחת (שולח); הורדה במקום הפח (מקבל) | HYPER CORE TECH */
+.chat-message__side-actions {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.chat-message__side-actions .chat-message__delete {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.chat-message:hover .chat-message__side-actions .chat-message__delete,
+.chat-message:hover .chat-message__delete {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.chat-message__media-download--side {
+  position: static !important;
+  inset: auto !important;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  box-shadow: none;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-message__media-download--side:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
 .chat-message:hover .chat-message__delete {
   opacity: 1; /* מוצג במעבר עכבר */
   transform: scale(1);
@@ -33,7 +79,8 @@
 
 /* במובייל תמיד להציג */
 @media (max-width: 768px) {
-  .chat-message__delete {
+  .chat-message__delete,
+  .chat-message__side-actions .chat-message__delete {
     opacity: 1;
     transform: scale(1);
   }
@@ -1081,6 +1128,11 @@ body.chat-overlay-open::before {
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
   transition: background 0.2s ease;
+}
+
+.chat-message__media-download.chat-message__media-download--side {
+  position: static;
+  inset: auto;
 }
 
 .chat-message__media-download:hover {

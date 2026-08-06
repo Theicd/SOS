@@ -1084,8 +1084,8 @@
   object-fit: cover;
 }
 
-.chat-message__image-container .chat-message__media-download,
-.chat-message__video-container .chat-message__media-download {
+.chat-message__image-container .chat-message__media-download:not(.chat-message__media-download--side),
+.chat-message__video-container .chat-message__media-download:not(.chat-message__media-download--side) {
   position: absolute;
   inset-inline-end: 8px;
   inset-block-start: 8px;
@@ -1103,8 +1103,8 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-.chat-message__image-container .chat-message__media-download:hover,
-.chat-message__video-container .chat-message__media-download:hover {
+.chat-message__image-container .chat-message__media-download:not(.chat-message__media-download--side):hover,
+.chat-message__video-container .chat-message__media-download:not(.chat-message__media-download--side):hover {
   background: rgba(0, 0, 0, 0.8);
 }
 

@@ -106,6 +106,65 @@
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  // חלק פעולות צד (chat-ui.js) – פח + הורדה בעמודה ליד המדיה (שולח); הורדה במקום הפח (מקבל) | HYPER CORE TECH
+  function buildChatMediaSideDownloadHtml(attachment, fallbackUrl, fallbackName) {
+    const sideClass = 'chat-message__media-download chat-message__media-download--side';
+    if (attachment && typeof App.buildAttachmentDownloadHtml === 'function') {
+      const html = App.buildAttachmentDownloadHtml(attachment, sideClass);
+      if (html && !html.includes('torrent-bubble__download-btn')) return html;
+    }
+    const src = String(fallbackUrl || attachment?.url || attachment?.dataUrl || '').trim();
+    if (!src || src.startsWith('magnet:')) return '';
+    if (typeof App.buildMediaDownloadButton === 'function') {
+      return App.buildMediaDownloadButton(src, fallbackName || attachment?.name || 'sos-file', sideClass);
+    }
+    const safeSrc = src.replace(/'/g, "\\'");
+    const safeName = String(fallbackName || attachment?.name || 'sos-file').replace(/'/g, "\\'");
+    return `<button type="button" class="${sideClass}" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMedia==='function')NostrApp.downloadChatMedia('${safeSrc}','${safeName}');"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+  }
+
+  function buildChatSideActionsHtml({ isOutgoing, messageId, downloadHtml }) {
+    const deleteHtml = isOutgoing && messageId
+      ? `<button type="button" class="chat-message__delete" data-chat-delete="${messageId}" aria-label="מחק הודעה"><i class="fa-solid fa-trash"></i></button>`
+      : '';
+    if (!deleteHtml && !downloadHtml) return '';
+    return `<div class="chat-message__side-actions">${deleteHtml}${downloadHtml || ''}</div>`;
+  }
+
+  function ensureChatSideActions(bubble, { isOutgoing, messageId, downloadHtml }) {
+    if (!bubble) return null;
+    let side = bubble.querySelector('.chat-message__side-actions');
+    if (!side) {
+      side = doc.createElement('div');
+      side.className = 'chat-message__side-actions';
+      const content = bubble.querySelector('.chat-message__content');
+      if (content) bubble.insertBefore(side, content);
+      else bubble.appendChild(side);
+    }
+    if (isOutgoing && messageId && !side.querySelector('.chat-message__delete')) {
+      const del = doc.createElement('button');
+      del.type = 'button';
+      del.className = 'chat-message__delete';
+      del.setAttribute('data-chat-delete', messageId);
+      del.setAttribute('aria-label', 'מחק הודעה');
+      del.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      side.insertBefore(del, side.firstChild);
+    }
+    // העברת הורדה מתוך המדיה לעמודה + יצירה אם חסרה | HYPER CORE TECH
+    bubble.querySelectorAll('.chat-message__image-container .chat-message__media-download, .chat-message__video-container .chat-message__media-download, .chat-media-upload .chat-message__media-download').forEach((btn) => {
+      btn.classList.add('chat-message__media-download--side');
+      side.appendChild(btn);
+    });
+    if (downloadHtml && !side.querySelector('.chat-message__media-download')) {
+      side.insertAdjacentHTML('beforeend', downloadHtml);
+    }
+    // פח ישן מחוץ לעמודה | HYPER CORE TECH
+    bubble.querySelectorAll(':scope > .chat-message__delete').forEach((del) => {
+      side.insertBefore(del, side.firstChild);
+    });
+    return side;
+  }
+
   // חלק תצוגת העלאת מדיה (chat-ui.js) – מפת blob/URL מקומי לפי fileId לתצוגה כמו וואטסאפ | HYPER CORE TECH
   const transferMediaPreviews = new Map();
 
@@ -426,15 +485,12 @@
       `;
     }
 
-    if (!bubble.querySelector('.chat-message__delete')) {
-      const del = doc.createElement('button');
-      del.type = 'button';
-      del.className = 'chat-message__delete';
-      del.setAttribute('data-chat-delete', message.id);
-      del.setAttribute('aria-label', 'מחק הודעה');
-      del.innerHTML = '<i class="fa-solid fa-trash"></i>';
-      bubble.appendChild(del);
-    }
+    const dl = buildChatMediaSideDownloadHtml(a, a?.url || a?.dataUrl || '', a?.name || '');
+    ensureChatSideActions(bubble, {
+      isOutgoing: true,
+      messageId: message.id,
+      downloadHtml: dl,
+    });
 
     const content = bubble.querySelector('.chat-message__content');
     if (content) {
@@ -2797,10 +2853,7 @@
           const isAudioUrl = AUDIO_EXTS.test(url);
           
           if (IMAGE_EXTS.test(url) && !a) {
-            // תמונה
-            const dlBtn = typeof App.downloadChatMedia === 'function'
-              ? `<button type="button" class="chat-message__media-download" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();NostrApp.downloadChatMedia('${url.replace(/'/g, "\\'")}','תמונה.jpg')"><i class="fa-solid fa-download"></i></button>`
-              : '';
+            // תמונה — הורדה בעמודת הצד (לא על המדיה) | HYPER CORE TECH
             mediaItems.push(`
               <div class="chat-message__image-container">
                 <img 
@@ -2812,7 +2865,6 @@
                   referrerpolicy="no-referrer"
                   onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox('${url.replace(/'/g, "\\'")}','תמונה')"
                 />
-                ${dlBtn}
               </div>
             `);
             remainingText = remainingText.replace(originalUrl, '').trim();
@@ -2856,13 +2908,23 @@
       }
 
       item.className = `chat-message ${directionClass}`;
-      const deleteButtonHtml = isOutgoing
-        ? `
-            <button type="button" class="chat-message__delete" data-chat-delete="${message.id}" aria-label="מחק הודעה">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          `
-        : '';
+      // הורדה ליד הפח (שולח) / במקום הפח (מקבל) לתמונה ווידאו | HYPER CORE TECH
+      let sideDownloadHtml = '';
+      if (isImageAttachment || isVideoAttachment) {
+        sideDownloadHtml = buildChatMediaSideDownloadHtml(a, a?.url || a?.dataUrl || '', a?.name || '');
+      } else if (isMediaUrl && /chat-message__image-container|chat-message__video-container/.test(mediaUrlHtml || '')) {
+        const urlMatch = (rawMessageContent || '').match(/https?:\/\/[^\s<>"']+/i);
+        const mediaUrl = urlMatch ? urlMatch[0].replace(/[.,;:!?)}\]]+$/, '') : '';
+        if (mediaUrl) {
+          const isImgUrl = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|#|$)/i.test(mediaUrl);
+          sideDownloadHtml = buildChatMediaSideDownloadHtml(null, mediaUrl, isImgUrl ? 'תמונה.jpg' : 'video.mp4');
+        }
+      }
+      const sideActionsHtml = buildChatSideActionsHtml({
+        isOutgoing,
+        messageId: message.id,
+        downloadHtml: sideDownloadHtml,
+      });
       // חלק צ'אט (chat-ui.js) – כאשר מצורף קובץ בלבד, לא מציגים שוב את הטקסט "📎 filename" כי הלינק מציג את השם
       const fileOnlyLabel = a && !isAudioAttachment ? `📎 ${a.name || 'קובץ מצורף'}` : '';
       const hideTextForFileOnly = !isAudioAttachment && !!attachmentHtml && rawMessageContent === fileOnlyLabel;
@@ -2956,7 +3018,7 @@
       
       item.innerHTML = `
         ${avatarHtml}
-        ${deleteButtonHtml}
+        ${sideActionsHtml}
         <div class="${contentClassName}" data-chat-message="${message.id}">
           ${textHtml}
           ${attachmentHtml}
@@ -2965,6 +3027,14 @@
           ${metaRowHtml}
         </div>
       `;
+      // העברת שאריות כפתור הורדה מתוך המדיה לעמודת הצד | HYPER CORE TECH
+      if (sideDownloadHtml || isImageAttachment || isVideoAttachment || isMediaUrl) {
+        ensureChatSideActions(item, {
+          isOutgoing,
+          messageId: message.id,
+          downloadHtml: sideDownloadHtml,
+        });
+      }
       // חלק חיבור נגנים (chat-ui.js) – חיבור כל נגני האודיו (attachment + URL) | HYPER CORE TECH
       const contentEl = item.querySelector('[data-chat-message]');
       if (contentEl && typeof App.wireEnhancedAudioPlayer === 'function') {
@@ -3097,13 +3167,11 @@
       }
     }
 
-    const deleteButtonHtml = isOutgoing
-      ? `
-          <button type="button" class="chat-message__delete" data-chat-delete="${message.id}" aria-label="מחק הודעה">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        `
-      : '';
+    const sideActionsHtml = buildChatSideActionsHtml({
+      isOutgoing,
+      messageId: message.id,
+      downloadHtml: '',
+    });
     
     item.className = `chat-message ${directionClass}`;
     item.setAttribute('data-message-id', message.id);
@@ -3113,6 +3181,7 @@
       : 'chat-message__content';
     
     item.innerHTML = `
+      ${sideActionsHtml}
       <div class="${contentClass}" data-chat-message="${message.id}">
         <span class="chat-message__text">${safeContent.replace(/\n/g, '<br>')}</span>
         <div class="chat-message__meta-row">
@@ -3120,7 +3189,6 @@
           ${statusHtml}
         </div>
       </div>
-      ${deleteButtonHtml}
     `;
     
     elements.messagesContainer.appendChild(item);

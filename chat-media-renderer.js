@@ -441,8 +441,6 @@
       }, 12000);
     }, 0);
 
-    const downloadHtml = buildAttachmentDownloadHtml(attachment, 'chat-message__media-download');
-
     return `
       <div id="${wrapId}" class="chat-message__image-container is-media-pending" hidden>
         <img
@@ -455,7 +453,6 @@
           referrerpolicy="no-referrer"
           onclick="if(typeof App.openImageLightbox==='function')App.openImageLightbox(this.src,'${safeName.replace(/'/g, "\\'")}')"
         />
-        ${downloadHtml}
       </div>
     `;
   }
@@ -1211,7 +1208,6 @@
         </button>
         <span class="chat-message__video-duration" hidden>0:00</span>
         <span class="chat-message__video-msg-time" data-video-time-slot></span>
-        ${buildAttachmentDownloadHtml(attachment, 'chat-message__media-download')}
         <video
           id="${uid}"
           class="chat-message__video${knownPoster ? ' has-poster' : ''}"
@@ -1624,6 +1620,8 @@
     reflowLockedChatMedia,
     downloadChatMedia,
     getFileIcon,
+    buildAttachmentDownloadHtml,
+    buildMediaDownloadButton,
     // מטמון מדיה צ'אט | HYPER CORE TECH
     fetchAndCacheChatMedia: fetchAndCacheMedia,
     getChatMediaFromCache,

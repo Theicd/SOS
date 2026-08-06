@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v266'; // bump - outgoing media frame matches voice/send blue
+  const CACHE_NAME = 'sos-cache-v267'; // bump - download button beside trash / incoming trash slot
   const PRECACHE_URLS = [
     './',
     './videos.html',
