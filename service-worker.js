@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v288'; // bump - message actions kebab menu (delete/copy)
+  const CACHE_NAME = 'sos-cache-v291'; // bump - fix missing ⋮ on outgoing settled media
   const PRECACHE_URLS = [
     './',
     './videos.html',

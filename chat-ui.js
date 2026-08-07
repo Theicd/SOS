@@ -127,12 +127,12 @@
     const href = String(url || '').trim();
     if (!/^https?:\/\//i.test(href)) return '';
     const safeUrl = App.escapeHtml ? App.escapeHtml(href) : href.replace(/"/g, '&quot;');
-    return `<button type="button" class="chat-message__copy-link" data-chat-copy-url="${safeUrl}" title="העתק קישור" aria-label="העתק קישור"><i class="fa-solid fa-copy" aria-hidden="true"></i><span>העתק קישור</span></button>`;
+    return `<button type="button" class="chat-message__copy-link" data-chat-copy-url="${safeUrl}" title="העתק קישור" aria-label="העתק קישור"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>`;
   }
 
   function buildChatDeleteHtml(messageId) {
     if (!messageId) return '';
-    return `<button type="button" class="chat-message__delete" data-chat-delete="${messageId}" aria-label="מחק הודעה"><i class="fa-solid fa-trash" aria-hidden="true"></i><span>מחק</span></button>`;
+    return `<button type="button" class="chat-message__delete" data-chat-delete="${messageId}" title="מחק" aria-label="מחק הודעה"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
   }
 
   function buildChatMoreMenuHtml(menuItemsHtml) {
@@ -164,10 +164,11 @@
   function buildChatSideActionsHtml({ isOutgoing, messageId, downloadHtml, copyHtml }) {
     const deleteHtml = isOutgoing && messageId ? buildChatDeleteHtml(messageId) : '';
     const copy = copyHtml || '';
-    const menuHtml = buildChatMoreMenuHtml(`${deleteHtml}${copy}`);
-    if (!menuHtml && !downloadHtml) return '';
-    // תפריט ⋮ (מחק/העתק) + הורדה בחוץ אם יש | HYPER CORE TECH
-    return `<div class="chat-message__side-actions">${menuHtml}${downloadHtml || ''}</div>`;
+    const download = downloadHtml || '';
+    // סדר DOM: העתק/הורדה ואז מחק קרוב ל-⋮ (נפתח כלפי מעלה) | HYPER CORE TECH
+    const menuHtml = buildChatMoreMenuHtml(`${copy}${download}${deleteHtml}`);
+    if (!menuHtml) return '';
+    return `<div class="chat-message__side-actions">${menuHtml}</div>`;
   }
 
   function ensureChatSideActions(bubble, { isOutgoing, messageId, downloadHtml, copyHtml }) {
@@ -193,35 +194,49 @@
 
     let moreWrap = side.querySelector('.chat-message__more-wrap');
     let menu = moreWrap?.querySelector('.chat-message__more-menu') || null;
-    const needMenu = (isOutgoing && messageId) || !!copyHtml;
+    const deleteHtml = isOutgoing && messageId ? buildChatDeleteHtml(messageId) : '';
+    const copy = copyHtml || '';
+    const download = downloadHtml || '';
+    const needMenu = !!(deleteHtml || copy || download);
+    // buildChatMoreMenuHtml('') מחזיר '' — חייבים פריטים ראשוניים (מחק/הורדה) | HYPER CORE TECH
     if (needMenu && !moreWrap) {
-      side.insertAdjacentHTML('afterbegin', buildChatMoreMenuHtml(''));
+      const initialMenu = buildChatMoreMenuHtml(`${copy}${download}${deleteHtml}`);
+      if (initialMenu) side.insertAdjacentHTML('afterbegin', initialMenu);
       moreWrap = side.querySelector('.chat-message__more-wrap');
       menu = moreWrap?.querySelector('.chat-message__more-menu') || null;
     }
     if (menu) {
-      if (isOutgoing && messageId && !menu.querySelector('.chat-message__delete')) {
-        menu.insertAdjacentHTML('afterbegin', buildChatDeleteHtml(messageId));
+      if (copy && !menu.querySelector('.chat-message__copy-link')) {
+        menu.insertAdjacentHTML('afterbegin', copy);
       }
-      if (copyHtml && !menu.querySelector('.chat-message__copy-link')) {
+      if (deleteHtml && !menu.querySelector('.chat-message__delete')) {
+        menu.insertAdjacentHTML('beforeend', deleteHtml);
+      }
+      // הורדה מתוך המדיה / מחוץ לתפריט → לתוך התפריט | HYPER CORE TECH
+      bubble.querySelectorAll(
+        '.chat-message__image-container .chat-message__media-download, .chat-message__video-container .chat-message__media-download, .chat-media-upload .chat-message__media-download, .chat-message__side-actions > .chat-message__media-download'
+      ).forEach((btn) => {
+        btn.classList.add('chat-message__media-download--side');
+        if (!menu.contains(btn)) {
+          const delBtn = menu.querySelector('.chat-message__delete');
+          if (delBtn) menu.insertBefore(btn, delBtn);
+          else menu.appendChild(btn);
+        }
+      });
+      if (download && !menu.querySelector('.chat-message__media-download')) {
         const delBtn = menu.querySelector('.chat-message__delete');
-        if (delBtn) delBtn.insertAdjacentHTML('afterend', copyHtml);
-        else menu.insertAdjacentHTML('afterbegin', copyHtml);
+        if (delBtn) delBtn.insertAdjacentHTML('beforebegin', download);
+        else menu.insertAdjacentHTML('beforeend', download);
       }
+      // פח ישן מחוץ לתפריט — מעבירים לסוף (הכי קרוב ל-⋮) | HYPER CORE TECH
+      bubble.querySelectorAll(':scope > .chat-message__delete, .chat-message__side-actions > .chat-message__delete').forEach((del) => {
+        if (!menu.contains(del)) menu.appendChild(del);
+      });
     }
-
-    bubble.querySelectorAll('.chat-message__image-container .chat-message__media-download, .chat-message__video-container .chat-message__media-download, .chat-media-upload .chat-message__media-download').forEach((btn) => {
-      btn.classList.add('chat-message__media-download--side');
-      side.appendChild(btn);
-    });
-    if (downloadHtml && !side.querySelector('.chat-message__media-download')) {
-      side.insertAdjacentHTML('beforeend', downloadHtml);
+    if (!side.querySelector('.chat-message__more-wrap') && !side.childElementCount) {
+      side.remove();
+      return null;
     }
-    // פח ישן מחוץ לתפריט — מעבירים פנימה | HYPER CORE TECH
-    bubble.querySelectorAll(':scope > .chat-message__delete, .chat-message__side-actions > .chat-message__delete').forEach((del) => {
-      if (!menu) return;
-      if (!menu.contains(del)) menu.insertBefore(del, menu.firstChild);
-    });
     return side;
   }
 
