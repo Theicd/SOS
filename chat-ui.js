@@ -169,11 +169,33 @@
     `;
   }
 
+  function getChatMessagesScroller() {
+    return (
+      elements.messagesContainer ||
+      doc.getElementById('chatMessages') ||
+      doc.querySelector('.chat-conversation__messages') ||
+      null
+    );
+  }
+
   function clearChatMessageMoreOpenLayout(msg) {
     if (!msg) return;
+    const scroller = getChatMessagesScroller();
+    const hadPad = msg.classList.contains('chat-message--more-open');
+    if (hadPad && scroller) {
+      // מסירים מרווח בלי לקפוץ את ההודעה על המסך | HYPER CORE TECH
+      const beforeTop = msg.getBoundingClientRect().top;
+      msg.style.marginTop = '';
+      msg.style.marginBottom = '';
+      const afterTop = msg.getBoundingClientRect().top;
+      scroller.scrollTop += afterTop - beforeTop;
+    } else {
+      msg.style.marginTop = '';
+      msg.style.marginBottom = '';
+    }
     msg.classList.remove('chat-message--more-open');
-    msg.style.marginTop = '';
-    msg.style.marginBottom = '';
+    delete msg.dataset.morePadAbove;
+    delete msg.dataset.morePadBelow;
     const content = msg.querySelector('.chat-message__content');
     if (content) content.style.marginTop = '';
   }
@@ -203,12 +225,13 @@
     });
 
     if (open && msg) {
-      // בועה + ⋮ נשארים מיושרים; margin על כל השורה דוחף שכנים בלי להזיז את הקו | HYPER CORE TECH
+      // אייקונים absolute; מרווח דוחף שכנים; גלילה מפצה כדי שההודעה+⋮ יישארו במקום על המסך | HYPER CORE TECH
       msg.classList.add('chat-message--more-open');
       requestAnimationFrame(() => {
+        const scroller = getChatMessagesScroller();
         const above = wrap.querySelector('.chat-message__more-menu--above');
         const below = wrap.querySelector('.chat-message__more-menu--below');
-        const gap = 6;
+        const gap = 8;
         const aboveH =
           above && !above.hidden && above.querySelector('button, a')
             ? Math.ceil(above.getBoundingClientRect().height) + gap
@@ -217,12 +240,16 @@
           below && !below.hidden && below.querySelector('button, a')
             ? Math.ceil(below.getBoundingClientRect().height) + gap
             : 0;
+
+        const anchorTop = msg.getBoundingClientRect().top;
+        msg.dataset.morePadAbove = String(aboveH);
+        msg.dataset.morePadBelow = String(belowH);
         msg.style.marginTop = aboveH ? `${aboveH}px` : '';
         msg.style.marginBottom = belowH ? `${belowH}px` : '';
-        try {
-          msg.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-        } catch (_) {
-          try { msg.scrollIntoView?.(false); } catch (__) {}
+
+        if (scroller) {
+          const newTop = msg.getBoundingClientRect().top;
+          scroller.scrollTop += newTop - anchorTop;
         }
       });
     } else {
