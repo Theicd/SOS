@@ -360,13 +360,20 @@
     const magnetURI = attachment.magnetURI || '';
     const src = attachment.dataUrl || attachment.url || '';
     const cls = className || 'chat-file-bubble__download';
+    // עדיפות לקובץ מקומי — כפתור כמו מדיה; magnet רק כשאין src | HYPER CORE TECH
+    if (src && !src.startsWith('magnet:')) {
+      return buildMediaDownloadButton(src, name, cls);
+    }
     if (magnetURI) {
+      const blob = typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnetURI) : null;
+      if (blob?.url) {
+        return buildMediaDownloadButton(blob.url, blob.name || name, cls);
+      }
       const escapedMagnet = magnetURI.replace(/"/g, '&quot;');
       const escapedName = escapeAttr(name).replace(/'/g, "\\'");
       return `<button type="button" class="${cls} torrent-bubble__download-btn" data-magnet="${escapedMagnet}" data-filename="${escapedName}" title="הורד"><i class="fa-solid fa-download"></i></button>`;
     }
-    if (!src) return '';
-    return buildMediaDownloadButton(src, name, cls);
+    return '';
   }
 
   // חלק רינדור תמונה (chat-media-renderer.js) – חשיפה רק אחרי טעינה מלאה (בלי שלד/שם קובץ) | HYPER CORE TECH

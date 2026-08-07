@@ -733,6 +733,12 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   transition: background 0.2s ease, opacity 0.2s ease;
 }
 
+.chat-message__more-menu .chat-message__delete {
+  opacity: 1;
+  width: 26px;
+  height: 26px;
+}
+
 .chat-message__delete:hover {
   opacity: 1;
   background: rgba(255, 255, 255, 0.12);

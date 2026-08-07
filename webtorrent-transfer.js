@@ -662,14 +662,25 @@
             fileSize: pending.fileSize
           });
 
-          // שמירת הקובץ
+          // שמירת blob מקומי לכפתור הורדה — בלי הורדה אוטומטית למכשיר (כמו מדיה) | HYPER CORE TECH
           torrent.files.forEach((file) => {
             file.getBlobURL((err, url) => {
               if (err) {
                 console.error('[TORRENT] Failed to get blob URL:', err);
                 return;
               }
-              downloadFile(url, file.name);
+              const t = activeTransfers.get(transferId);
+              if (t) t.blobUrl = url;
+              registerTorrentBlob(pending.magnetURI, url, file.name || pending.fileName);
+              notifyProgress(transferId, {
+                type: 'receive',
+                status: 'completed',
+                fileName: pending.fileName,
+                fileSize: pending.fileSize,
+                progress: 100,
+                blobUrl: url,
+                magnetURI: pending.magnetURI,
+              });
             });
           });
 
@@ -883,11 +894,53 @@
       /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name);
   }
 
-  function bridgeOutgoingMediaProgress(transferId, data) {
-    const transfer = activeTransfers.get(transferId);
-    if (!transfer || transfer.type !== 'send' || !isVisualMediaTransfer(transfer)) return false;
+  // חלק Blob להורדה (webtorrent-transfer.js) – שמירת URL מקומי אחרי קבלה כדי שכפתור הורדה לא יפעיל טורנט מחדש | HYPER CORE TECH
+  const torrentBlobByMagnet = new Map();
+
+  function registerTorrentBlob(magnetURI, blobUrl, fileName) {
+    const key = String(magnetURI || '').trim();
+    if (!key || !blobUrl) return;
+    const prev = torrentBlobByMagnet.get(key);
+    if (prev?.url && prev.url !== blobUrl) {
+      try { URL.revokeObjectURL(prev.url); } catch (_) {}
+    }
+    torrentBlobByMagnet.set(key, { url: blobUrl, name: fileName || prev?.name || 'file' });
+    if (typeof App.syncTorrentDownloadButtons === 'function') {
+      try { App.syncTorrentDownloadButtons(); } catch (_) {}
+    }
+    try {
+      document.querySelectorAll('.torrent-bubble__download-btn, .chat-file-bubble__download').forEach((btn) => {
+        const m = btn.getAttribute('data-magnet') || '';
+        if (m && m === key) {
+          btn.setAttribute('data-download-url', blobUrl);
+          btn.disabled = false;
+          btn.removeAttribute('aria-busy');
+          if (btn.dataset.defaultHtml) btn.innerHTML = btn.dataset.defaultHtml;
+          else btn.innerHTML = '<i class="fa-solid fa-download" aria-hidden="true"></i>';
+          btn.title = 'הורד';
+        }
+      });
+    } catch (_) {}
+  }
+
+  function getTorrentBlob(magnetURI) {
+    const key = String(magnetURI || '').trim();
+    if (!key) return null;
+    return torrentBlobByMagnet.get(key) || null;
+  }
+  App.getTorrentBlob = getTorrentBlob;
+  App.registerTorrentBlob = registerTorrentBlob;
+
+  function bridgeChatTransferProgress(transferId, data) {
+    const transfer = activeTransfers.get(transferId) || pendingRequests.get(transferId);
+    if (!transfer) return false;
     if (typeof App.handleP2PProgressUpdate !== 'function') return false;
 
+    const type = data?.type || transfer.type || (pendingRequests.has(transferId) ? 'receive' : 'send');
+    const isSend = type === 'send';
+    const name = transfer.fileName || data?.fileName || 'קובץ';
+    const size = transfer.fileSize || data?.fileSize || 0;
+    const mime = transfer.fileMime || data?.fileMime || '';
     const rawPct = typeof data?.progress === 'number' ? data.progress : (transfer.progress || 0);
     const normalized = rawPct > 1 ? rawPct / 100 : rawPct;
     const statusMap = {
@@ -899,30 +952,43 @@
       cancelled: 'cancelled',
       error: 'failed',
     };
-    const st = statusMap[data?.status || transfer.status] || 'sending';
+    const rawStatus = data?.status || transfer.status || (isSend ? 'sending' : 'downloading');
+    const st = statusMap[rawStatus] || 'sending';
+    const magnetURI = transfer.magnetURI || data?.magnetURI || '';
+    const blobUrl = data?.blobUrl || transfer.blobUrl || getTorrentBlob(magnetURI)?.url || '';
+
     App.handleP2PProgressUpdate({
       fileId: transferId,
       torrentTransferId: transferId,
       progress: Math.max(0, Math.min(1, normalized)),
       status: st,
-      direction: 'send',
-      name: transfer.fileName,
-      size: transfer.fileSize,
-      mimeType: transfer.fileMime || undefined,
+      direction: isSend ? 'send' : 'receive',
+      name,
+      size,
+      mimeType: mime || undefined,
       previewUrl: transfer.previewUrl || undefined,
-      peerPubkey: transfer.peer,
-      messageSent: st === 'complete-torrent',
+      blobUrl: blobUrl || undefined,
+      magnetURI,
+      peerPubkey: transfer.peer || transfer.fromPeer || data?.fromPeer,
+      messageSent: isSend && st === 'complete-torrent',
       error: data?.error,
+      isFileCard: !isVisualMediaTransfer({ fileMime: mime, fileName: name }),
     });
     if (transfer.previewUrl && typeof App.registerChatTransferPreview === 'function') {
       App.registerChatTransferPreview(transferId, {
         url: transfer.previewUrl,
-        mime: transfer.fileMime || '',
-        name: transfer.fileName || '',
-        size: transfer.fileSize || 0,
+        mime: mime || '',
+        name,
+        size: size || 0,
       });
     }
     return true;
+  }
+
+  function bridgeOutgoingMediaProgress(transferId, data) {
+    const transfer = activeTransfers.get(transferId);
+    if (!transfer || transfer.type !== 'send' || !isVisualMediaTransfer(transfer)) return false;
+    return bridgeChatTransferProgress(transferId, { ...data, type: 'send' });
   }
 
   // חלק UI התקדמות (webtorrent-transfer.js) – הצגת בועת הודעה עם התקדמות בשיחה (כמו וואטסאפ) | HYPER CORE TECH
@@ -949,6 +1015,29 @@
         }
       };
       progressListeners.add(updateMedia);
+      return;
+    }
+
+    // ZIP/קבצים כלליים (שליחה+קבלה) – כרטיס סופי + מד עגול ב-chat-ui, בלי כרטיסיית המתנה | HYPER CORE TECH
+    if (!isVisualMediaTransfer(transfer)) {
+      bridgeChatTransferProgress(transferId, {
+        type: transfer.type,
+        status: transfer.status || (transfer.type === 'receive' ? 'downloading' : 'seeding'),
+        progress: transfer.progress || 0,
+        fileName: transfer.fileName,
+        fileSize: transfer.fileSize,
+        fromPeer: transfer.peer || transfer.fromPeer,
+        magnetURI: transfer.magnetURI,
+        blobUrl: transfer.blobUrl,
+      });
+      const updateFile = (data) => {
+        if (data.transferId !== transferId) return;
+        bridgeChatTransferProgress(transferId, data);
+        if (data.status === 'completed' || data.status === 'cancelled' || data.status === 'error') {
+          progressListeners.delete(updateFile);
+        }
+      };
+      progressListeners.add(updateFile);
       return;
     }
 
@@ -1522,21 +1611,31 @@
               console.error('[TORRENT] Failed to get blob URL:', err);
               return;
             }
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName || file.name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            const t = activeTransfers.get(transferId);
+            if (t) t.blobUrl = url;
+            registerTorrentBlob(magnetURI, url, fileName || file.name);
+            // שמירה למכשיר רק בלחיצה ידנית על כפתור — כאן רק רושמים blob; אם זו בקשת כפתור נשמור פעם אחת | HYPER CORE TECH
+            if (typeof App.downloadChatMedia === 'function') {
+              App.downloadChatMedia(url, fileName || file.name);
+            } else {
+              downloadFile(url, fileName || file.name);
+            }
+            notifyProgress(transferId, {
+              type: 'receive',
+              status: 'completed',
+              progress: 100,
+              fileName,
+              blobUrl: url,
+              magnetURI,
+            });
           });
+        } else {
+          notifyProgress(transferId, { type: 'receive', status: 'completed', progress: 100, fileName });
         }
-
-        notifyProgress(transferId, { type: 'receive', status: 'completed', progress: 100, fileName });
 
         setTimeout(() => {
           activeTransfers.delete(transferId);
-          torrent.destroy();
+          try { torrent.destroy(); } catch (_) {}
           clearAutoStartedMagnet(magnetURI, 'download-completed');
         }, 5000);
       });

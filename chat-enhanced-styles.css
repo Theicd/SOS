@@ -2229,6 +2229,67 @@ body.chat-lightbox-open {
   transform: scale(0.95);
 }
 
+.chat-file-bubble__download--busy {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #8696a0;
+}
+
+/* כרטיס קובץ אחיד גדול — בועת הודעה רגילה + מד עגול מעל הקובץ | HYPER CORE TECH */
+.chat-message--file-card-transfer {
+  width: fit-content;
+  max-width: min(88%, 360px);
+}
+
+.chat-message--file-card-transfer .chat-message__content {
+  min-width: min(280px, 85vw);
+  max-width: min(340px, 92vw);
+}
+
+.chat-file-upload {
+  position: relative;
+  border-radius: 10px;
+  overflow: visible;
+  width: 100%;
+}
+
+.chat-message--file-card-transfer .chat-file-bubble {
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.chat-file-upload .chat-media-upload__overlay {
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  inset: 0;
+}
+
+.chat-file-upload .chat-media-upload__cancel {
+  z-index: 5;
+}
+
+.chat-message--file-card-transfer .chat-message__meta-row {
+  margin-top: 6px;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.chat-message--file-card-transfer .chat-message__status-slot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 16px;
+}
+
+.chat-message--file-card-transfer-done .chat-media-upload__overlay,
+.chat-message--file-card-settled .chat-media-upload__overlay[hidden] {
+  display: none !important;
+}
+
 /* חלק בועת כשלון הורדה (chat-enhanced-styles.css) – עיצוב בועת כשלון + כפתור 'ניסיון שוב' | HYPER CORE TECH */
 .torrent-bubble--failed {
   border: 1px solid rgba(231, 76, 60, 0.35) !important;

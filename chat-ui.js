@@ -108,7 +108,7 @@
 
   // חלק פעולות צד (chat-ui.js) – פח + הורדה בעמודה ליד המדיה (שולח); הורדה במקום הפח (מקבל) | HYPER CORE TECH
   function buildChatMediaSideDownloadHtml(attachment, fallbackUrl, fallbackName) {
-    const sideClass = 'chat-message__media-download chat-message__media-download--side';
+    const sideClass = 'chat-message__action-btn chat-message__action-btn--download chat-message__media-download chat-message__media-download--side';
     if (attachment && typeof App.buildAttachmentDownloadHtml === 'function') {
       const html = App.buildAttachmentDownloadHtml(attachment, sideClass);
       if (html && !html.includes('torrent-bubble__download-btn')) return html;
@@ -123,31 +123,59 @@
     return `<button type="button" class="${sideClass}" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMedia==='function')NostrApp.downloadChatMedia('${safeSrc}','${safeName}');"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
   }
 
-  function buildChatLinkCopyHtml(url) {
-    const href = String(url || '').trim();
-    if (!/^https?:\/\//i.test(href)) return '';
-    const safeUrl = App.escapeHtml ? App.escapeHtml(href) : href.replace(/"/g, '&quot;');
-    return `<button type="button" class="chat-message__copy-link" data-chat-copy-url="${safeUrl}" title="העתק קישור" aria-label="העתק קישור"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>`;
+  function buildChatFileSideDownloadHtml({ attachment, magnetURI, blobUrl, fileName } = {}) {
+    const name = fileName || attachment?.name || 'קובץ';
+    const magnet = String(magnetURI || attachment?.magnetURI || '').trim();
+    const url =
+      String(blobUrl || attachment?.url || attachment?.dataUrl || '').trim() ||
+      (magnet && typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnet)?.url || '' : '');
+    if (url && !url.startsWith('magnet:')) {
+      return buildChatMediaSideDownloadHtml(attachment, url, name);
+    }
+    if (!magnet) return '';
+    const safeMagnet = App.escapeHtml ? App.escapeHtml(magnet) : magnet.replace(/"/g, '&quot;');
+    const safeName = App.escapeHtml ? App.escapeHtml(name) : String(name).replace(/"/g, '&quot;');
+    return `<button type="button" class="chat-message__action-btn chat-message__action-btn--download chat-message__media-download chat-message__media-download--side torrent-bubble__download-btn" data-magnet="${safeMagnet}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
   }
 
   function buildChatDeleteHtml(messageId) {
     if (!messageId) return '';
-    return `<button type="button" class="chat-message__delete" data-chat-delete="${messageId}" title="מחק" aria-label="מחק הודעה"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
+    return `<button type="button" class="chat-message__action-btn chat-message__action-btn--danger chat-message__delete" data-chat-delete="${messageId}" title="מחק" aria-label="מחק הודעה"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>`;
   }
 
-  function buildChatMoreMenuHtml(menuItemsHtml) {
-    const items = String(menuItemsHtml || '').trim();
-    if (!items) return '';
+  function buildChatLinkCopyHtml(url) {
+    const href = String(url || '').trim();
+    if (!/^https?:\/\//i.test(href)) return '';
+    const safeUrl = App.escapeHtml ? App.escapeHtml(href) : href.replace(/"/g, '&quot;');
+    return `<button type="button" class="chat-message__action-btn chat-message__copy-link" data-chat-copy-url="${safeUrl}" title="העתק קישור" aria-label="העתק קישור"><i class="fa-solid fa-link" aria-hidden="true"></i></button>`;
+  }
+
+  function buildChatMoreMenuHtml({ aboveHtml = '', belowHtml = '' } = {}) {
+    const above = String(aboveHtml || '').trim();
+    const below = String(belowHtml || '').trim();
+    if (!above && !below) return '';
     return `
       <div class="chat-message__more-wrap">
+        <div class="chat-message__more-menu chat-message__more-menu--above" hidden role="menu" data-more-slot="above">
+          ${above}
+        </div>
         <button type="button" class="chat-message__more" data-chat-more="1" aria-label="פעולות הודעה" aria-expanded="false" title="פעולות">
           <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
         </button>
-        <div class="chat-message__more-menu" hidden role="menu">
-          ${items}
+        <div class="chat-message__more-menu chat-message__more-menu--below" hidden role="menu" data-more-slot="below">
+          ${below}
         </div>
       </div>
     `;
+  }
+
+  function clearChatMessageMoreOpenLayout(msg) {
+    if (!msg) return;
+    msg.classList.remove('chat-message--more-open');
+    msg.style.marginTop = '';
+    msg.style.marginBottom = '';
+    const content = msg.querySelector('.chat-message__content');
+    if (content) content.style.marginTop = '';
   }
 
   function closeAllChatMessageMenus(exceptWrap) {
@@ -155,18 +183,69 @@
       if (exceptWrap && wrap === exceptWrap) return;
       wrap.classList.remove('is-open');
       const btn = wrap.querySelector('[data-chat-more]');
-      const menu = wrap.querySelector('.chat-message__more-menu');
       if (btn) btn.setAttribute('aria-expanded', 'false');
-      if (menu) menu.hidden = true;
+      wrap.querySelectorAll('.chat-message__more-menu').forEach((menu) => {
+        menu.hidden = true;
+      });
+      clearChatMessageMoreOpenLayout(wrap.closest('.chat-message'));
     });
+  }
+
+  function setChatMoreMenusOpen(wrap, open) {
+    if (!wrap) return;
+    const msg = wrap.closest('.chat-message');
+    wrap.classList.toggle('is-open', open);
+    const btn = wrap.querySelector('[data-chat-more]');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    wrap.querySelectorAll('.chat-message__more-menu').forEach((menu) => {
+      const hasItems = !!menu.querySelector('button, a');
+      menu.hidden = !(open && hasItems);
+    });
+
+    if (open && msg) {
+      // בועה + ⋮ נשארים מיושרים; margin על כל השורה דוחף שכנים בלי להזיז את הקו | HYPER CORE TECH
+      msg.classList.add('chat-message--more-open');
+      requestAnimationFrame(() => {
+        const above = wrap.querySelector('.chat-message__more-menu--above');
+        const below = wrap.querySelector('.chat-message__more-menu--below');
+        const gap = 6;
+        const aboveH =
+          above && !above.hidden && above.querySelector('button, a')
+            ? Math.ceil(above.getBoundingClientRect().height) + gap
+            : 0;
+        const belowH =
+          below && !below.hidden && below.querySelector('button, a')
+            ? Math.ceil(below.getBoundingClientRect().height) + gap
+            : 0;
+        msg.style.marginTop = aboveH ? `${aboveH}px` : '';
+        msg.style.marginBottom = belowH ? `${belowH}px` : '';
+        try {
+          msg.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        } catch (_) {
+          try { msg.scrollIntoView?.(false); } catch (__) {}
+        }
+      });
+    } else {
+      clearChatMessageMoreOpenLayout(msg);
+    }
   }
 
   function buildChatSideActionsHtml({ isOutgoing, messageId, downloadHtml, copyHtml }) {
     const deleteHtml = isOutgoing && messageId ? buildChatDeleteHtml(messageId) : '';
     const copy = copyHtml || '';
     const download = downloadHtml || '';
-    // סדר DOM: העתק/הורדה ואז מחק קרוב ל-⋮ (נפתח כלפי מעלה) | HYPER CORE TECH
-    const menuHtml = buildChatMoreMenuHtml(`${copy}${download}${deleteHtml}`);
+    // שני כפתורים: אחד מעל ⋮ (העתק/מחק) ואחד מתחת (הורדה) — כמו ZIP | HYPER CORE TECH
+    let aboveHtml = `${copy}${deleteHtml}`;
+    let belowHtml = download;
+    // אם אין הורדה אבל יש שני פריטים למעלה — מפצלים: ראשון מעל, שני מתחת | HYPER CORE TECH
+    if (!belowHtml && copy && deleteHtml) {
+      aboveHtml = copy;
+      belowHtml = deleteHtml;
+    }
+    const menuHtml = buildChatMoreMenuHtml({
+      aboveHtml,
+      belowHtml,
+    });
     if (!menuHtml) return '';
     return `<div class="chat-message__side-actions">${menuHtml}</div>`;
   }
@@ -193,45 +272,67 @@
     }
 
     let moreWrap = side.querySelector('.chat-message__more-wrap');
-    let menu = moreWrap?.querySelector('.chat-message__more-menu') || null;
+    let menuAbove = moreWrap?.querySelector('.chat-message__more-menu--above') || null;
+    let menuBelow = moreWrap?.querySelector('.chat-message__more-menu--below') || null;
     const deleteHtml = isOutgoing && messageId ? buildChatDeleteHtml(messageId) : '';
     const copy = copyHtml || '';
     const download = downloadHtml || '';
-    const needMenu = !!(deleteHtml || copy || download);
-    // buildChatMoreMenuHtml('') מחזיר '' — חייבים פריטים ראשוניים (מחק/הורדה) | HYPER CORE TECH
+    let aboveHtml = `${copy}${deleteHtml}`;
+    let belowHtml = download;
+    if (!belowHtml && copy && deleteHtml) {
+      aboveHtml = copy;
+      belowHtml = deleteHtml;
+    }
+    const needMenu = !!(aboveHtml.trim() || belowHtml.trim());
     if (needMenu && !moreWrap) {
-      const initialMenu = buildChatMoreMenuHtml(`${copy}${download}${deleteHtml}`);
+      const initialMenu = buildChatMoreMenuHtml({
+        aboveHtml,
+        belowHtml,
+      });
       if (initialMenu) side.insertAdjacentHTML('afterbegin', initialMenu);
       moreWrap = side.querySelector('.chat-message__more-wrap');
-      menu = moreWrap?.querySelector('.chat-message__more-menu') || null;
+      menuAbove = moreWrap?.querySelector('.chat-message__more-menu--above') || null;
+      menuBelow = moreWrap?.querySelector('.chat-message__more-menu--below') || null;
     }
-    if (menu) {
-      if (copy && !menu.querySelector('.chat-message__copy-link')) {
-        menu.insertAdjacentHTML('afterbegin', copy);
+    // תפריט ישן בלי above/below — משדרגים | HYPER CORE TECH
+    if (moreWrap && (!menuAbove || !menuBelow)) {
+      const legacy = moreWrap.querySelector('.chat-message__more-menu:not([data-more-slot])');
+      const legacyItems = legacy ? legacy.innerHTML : '';
+      moreWrap.outerHTML = buildChatMoreMenuHtml({
+        aboveHtml: aboveHtml.trim() || legacyItems,
+        belowHtml,
+      });
+      moreWrap = side.querySelector('.chat-message__more-wrap');
+      menuAbove = moreWrap?.querySelector('.chat-message__more-menu--above') || null;
+      menuBelow = moreWrap?.querySelector('.chat-message__more-menu--below') || null;
+    }
+    if (menuAbove) {
+      if (copy && !menuAbove.querySelector('.chat-message__copy-link') && aboveHtml.includes('copy-link')) {
+        menuAbove.insertAdjacentHTML('afterbegin', copy);
       }
-      if (deleteHtml && !menu.querySelector('.chat-message__delete')) {
-        menu.insertAdjacentHTML('beforeend', deleteHtml);
+      if (deleteHtml && !menuAbove.querySelector('.chat-message__delete') && aboveHtml.includes('chat-message__delete')) {
+        menuAbove.insertAdjacentHTML('beforeend', deleteHtml);
       }
-      // הורדה מתוך המדיה / מחוץ לתפריט → לתוך התפריט | HYPER CORE TECH
+      if (deleteHtml && belowHtml.includes('chat-message__delete') && menuBelow && !menuBelow.querySelector('.chat-message__delete') && !menuAbove.querySelector('.chat-message__delete')) {
+        menuBelow.insertAdjacentHTML('beforeend', deleteHtml);
+      }
+      bubble.querySelectorAll(':scope > .chat-message__delete, .chat-message__side-actions > .chat-message__delete').forEach((del) => {
+        if (menuAbove.contains(del) || menuBelow?.contains(del)) return;
+        if (aboveHtml.includes('chat-message__delete')) menuAbove.appendChild(del);
+        else if (menuBelow) menuBelow.appendChild(del);
+        else menuAbove.appendChild(del);
+      });
+    }
+    if (menuBelow) {
       bubble.querySelectorAll(
-        '.chat-message__image-container .chat-message__media-download, .chat-message__video-container .chat-message__media-download, .chat-media-upload .chat-message__media-download, .chat-message__side-actions > .chat-message__media-download'
+        '.chat-message__image-container .chat-message__media-download, .chat-message__video-container .chat-message__media-download, .chat-media-upload .chat-message__media-download, .chat-message__side-actions > .chat-message__media-download, .chat-file-bubble .chat-message__media-download--side'
       ).forEach((btn) => {
         btn.classList.add('chat-message__media-download--side');
-        if (!menu.contains(btn)) {
-          const delBtn = menu.querySelector('.chat-message__delete');
-          if (delBtn) menu.insertBefore(btn, delBtn);
-          else menu.appendChild(btn);
-        }
+        if (!menuBelow.contains(btn)) menuBelow.appendChild(btn);
       });
-      if (download && !menu.querySelector('.chat-message__media-download')) {
-        const delBtn = menu.querySelector('.chat-message__delete');
-        if (delBtn) delBtn.insertAdjacentHTML('beforebegin', download);
-        else menu.insertAdjacentHTML('beforeend', download);
+      if (download && !menuBelow.querySelector('.chat-message__media-download, .torrent-bubble__download-btn, [data-download-url]')) {
+        menuBelow.insertAdjacentHTML('beforeend', download);
       }
-      // פח ישן מחוץ לתפריט — מעבירים לסוף (הכי קרוב ל-⋮) | HYPER CORE TECH
-      bubble.querySelectorAll(':scope > .chat-message__delete, .chat-message__side-actions > .chat-message__delete').forEach((del) => {
-        if (!menu.contains(del)) menu.appendChild(del);
-      });
     }
     if (!side.querySelector('.chat-message__more-wrap') && !side.childElementCount) {
       side.remove();
@@ -286,6 +387,37 @@
     if (!progress || progress.direction === 'receive') return false;
     const preview = resolveTransferPreview(progress);
     return preview.isVideo || preview.isImage;
+  }
+
+  // קבצי ZIP/PDF וכו' — כרטיס סופי + מד עגול (שולח ומקבל), בלי torrent-bubble קופץ | HYPER CORE TECH
+  function isFileCardTransfer(progress) {
+    if (!progress) return false;
+    if (progress.isFileCard === true) return true;
+    if (progress.isFileCard === false) return false;
+    const preview = resolveTransferPreview(progress);
+    if (preview.isVideo || preview.isImage) return false;
+    const mime = String(progress.mimeType || '').toLowerCase();
+    if (mime.startsWith('image/') || mime.startsWith('video/')) return false;
+    const name = String(progress.name || '');
+    if (/\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name)) return false;
+    return true;
+  }
+
+  function findExistingFileMessageBubble(progress) {
+    if (!elements.messagesContainer || !progress) return null;
+    const magnet = String(progress.magnetURI || '').trim();
+    if (magnet) {
+      const nodes = elements.messagesContainer.querySelectorAll('[data-magnet-uri]');
+      for (let i = 0; i < nodes.length; i += 1) {
+        if (nodes[i].getAttribute('data-magnet-uri') === magnet) return nodes[i];
+      }
+    }
+    const tid = progress.torrentTransferId || progress.fileId;
+    if (tid) {
+      const byTid = elements.messagesContainer.querySelector(`[data-torrent-transfer="${tid}"]`);
+      if (byTid && !byTid.querySelector('.chat-media-upload')) return byTid;
+    }
+    return null;
   }
 
   // poster שחור — רק ב־Android WebView (מונע פליי לבן); בווב מציגים את הפריים מיד | HYPER CORE TECH
@@ -615,6 +747,159 @@
     return true;
   }
 
+  // חלק settle קובץ ZIP (chat-ui.js) – ממיר בועת העברה לכרטיס הודעה אחד בלי כרטיס שני | HYPER CORE TECH
+  function extractMessageMagnet(message) {
+    const fromAtt = message?.attachment?.magnetURI || '';
+    if (fromAtt) return String(fromAtt).trim();
+    const raw = typeof message?.content === 'string' ? message.content.trim() : '';
+    if (!raw || raw[0] !== '{') return '';
+    try {
+      const data = JSON.parse(raw);
+      return String(data?.magnetURI || '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function extractMessageTorrentTransferId(message) {
+    const fromAtt = message?.attachment?.fileId || message?.attachment?.id || '';
+    if (fromAtt) return String(fromAtt);
+    const raw = typeof message?.content === 'string' ? message.content.trim() : '';
+    if (!raw || raw[0] !== '{') return '';
+    try {
+      const data = JSON.parse(raw);
+      return String(data?.transferId || '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function findFileCardTransferBubble({ fileId, magnetURI, transferId } = {}) {
+    if (!elements.messagesContainer) return null;
+    if (fileId) {
+      const byFile = elements.messagesContainer.querySelector(`[data-transfer-id="${fileId}"]`);
+      if (byFile?.querySelector?.('.chat-file-upload, .chat-file-bubble')) return byFile;
+    }
+    if (transferId) {
+      const byTid = elements.messagesContainer.querySelector(`[data-torrent-transfer="${transferId}"]`);
+      if (byTid?.querySelector?.('.chat-file-upload, .chat-file-bubble')) return byTid;
+    }
+    const magnet = String(magnetURI || '').trim();
+    if (magnet) {
+      const nodes = elements.messagesContainer.querySelectorAll('.chat-message--file-card-transfer[data-magnet-uri], [data-magnet-uri]');
+      for (let i = 0; i < nodes.length; i += 1) {
+        if (nodes[i].getAttribute('data-magnet-uri') === magnet) return nodes[i];
+      }
+    }
+    return null;
+  }
+
+  function settleFileCardBubble(bubble, message) {
+    if (!bubble || !message) return false;
+    const isOutgoing =
+      message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
+    const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
+    const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
+    const timeLabel = formatMessageTime(messageTimestamp);
+    const magnet = extractMessageMagnet(message);
+    const transferId = extractMessageTorrentTransferId(message);
+    const fileId = message?.attachment?.fileId || transferId || bubble.getAttribute('data-transfer-id') || '';
+    const a = message.attachment || null;
+    const statusHtml = isOutgoing
+      ? '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>'
+      : '';
+
+    bubble.className = `chat-message ${directionClass} chat-message--file-card-transfer chat-message--file-card-settled`;
+    bubble.setAttribute('data-message-id', message.id);
+    if (fileId) {
+      bubble.setAttribute('data-transfer-id', fileId);
+      bubble.setAttribute('data-p2p-file-id', fileId);
+    }
+    if (transferId) bubble.setAttribute('data-torrent-transfer', transferId);
+    if (magnet) bubble.setAttribute('data-magnet-uri', magnet);
+    bubble.setAttribute('data-chat-created', String(messageTimestamp));
+    bubble.setAttribute('data-chat-from', String(message.from || App.publicKey || '').toLowerCase());
+
+    const wrap = bubble.querySelector('.chat-file-upload');
+    wrap?.querySelector?.('.chat-media-upload__overlay')?.setAttribute('hidden', '');
+    wrap?.querySelector?.('[data-cancel-transfer]')?.remove();
+    const timeEl = bubble.querySelector('.chat-message__time, .chat-media-upload__time');
+    if (timeEl) timeEl.textContent = timeLabel;
+    const statusHost = bubble.querySelector('.chat-message__status-slot, .chat-media-upload__ring-slot');
+    if (statusHost) statusHost.innerHTML = statusHtml;
+
+    // כפתור הורדה מקומי אם יש blob | HYPER CORE TECH
+    const blobUrl =
+      (magnet && typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnet)?.url : '') ||
+      a?.url ||
+      a?.dataUrl ||
+      '';
+    const dlBtn = bubble.querySelector('.chat-file-bubble__download, .chat-file-bubble__download--busy, .torrent-bubble__download-btn');
+    if (dlBtn && (blobUrl || magnet)) {
+      const name = a?.name || bubble.querySelector('.chat-file-bubble__name')?.textContent || 'קובץ';
+      if (blobUrl) {
+        dlBtn.setAttribute('data-download-url', blobUrl);
+        dlBtn.removeAttribute('data-magnet');
+        dlBtn.className = 'chat-file-bubble__download';
+        dlBtn.disabled = false;
+        dlBtn.innerHTML = '<i class="fa-solid fa-download" aria-hidden="true"></i>';
+        dlBtn.title = 'הורד';
+      } else if (magnet && !isOutgoing) {
+        dlBtn.setAttribute('data-magnet', magnet);
+        dlBtn.setAttribute('data-filename', name);
+        dlBtn.className = 'chat-file-bubble__download torrent-bubble__download-btn';
+        dlBtn.disabled = false;
+        dlBtn.innerHTML = '<i class="fa-solid fa-download" aria-hidden="true"></i>';
+      }
+    }
+
+    const content = bubble.querySelector('.chat-message__content');
+    if (content) {
+      content.setAttribute('data-chat-message', message.id);
+      content.classList.remove('chat-message__content--file-upload');
+    }
+
+    // צד: ⋮ + מחיקה מעל / הורדה מתחת | HYPER CORE TECH
+    ensureChatSideActions(bubble, {
+      isOutgoing,
+      messageId: message.id,
+      downloadHtml: buildChatFileSideDownloadHtml({
+        attachment: a,
+        magnetURI: magnet,
+        blobUrl,
+        fileName: a?.name || bubble.querySelector('.chat-file-bubble__name')?.textContent || 'קובץ',
+      }),
+    });
+
+    if (fileId) settledMediaTransferIds.add(fileId);
+    if (magnet) settledMediaTransferIds.add(`mag:${magnet}`);
+    state.transferProgress.delete(fileId);
+    return true;
+  }
+
+  function settleOutgoingFileTransfer(message) {
+    if (!message || !elements.messagesContainer) return false;
+    const magnet = extractMessageMagnet(message);
+    const transferId = extractMessageTorrentTransferId(message);
+    const fileId = message?.attachment?.fileId || transferId;
+    const isFile =
+      !!magnet ||
+      (message.attachment &&
+        typeof App.isGenericFileAttachment === 'function' &&
+        App.isGenericFileAttachment(message.attachment)) ||
+      /\.(zip|rar|7z|tar|gz|pdf|docx?|xlsx?|txt)$/i.test(message?.attachment?.name || '');
+    if (!isFile) return false;
+
+    const settleKey = fileId || (magnet ? `mag:${magnet}` : '');
+    const bubble = findFileCardTransferBubble({ fileId, magnetURI: magnet, transferId });
+    if (!bubble) return false;
+
+    if (settleKey && settledMediaTransferIds.has(settleKey) && bubble.getAttribute('data-message-id') === String(message.id)) {
+      return true;
+    }
+    return settleFileCardBubble(bubble, message);
+  }
+
   function adoptChatTransferBubble(oldFileId, newFileId) {
     if (!oldFileId || !newFileId || oldFileId === newFileId || !elements.messagesContainer) return false;
     const bubble = elements.messagesContainer.querySelector(`[data-transfer-id="${oldFileId}"]`);
@@ -682,8 +967,8 @@
   App.cleanupOrphanCompressTransferBubbles = cleanupOrphanCompressTransferBubbles;
 
   function scheduleTransferBubbleCleanup(bubble, progress, ui) {
-    // מדיה יוצאת שהושלמה — נשארת כהודעה (settle), בלי מחיקה שגורמת לקפיצה | HYPER CORE TECH
-    if (ui.isTerminalOk && isOutgoingMediaTransfer(progress)) {
+    // מדיה/קובץ יוצאים או כרטיס קובץ — נשארים כהודעה (settle), בלי מחיקה שגורמת לקפיצה | HYPER CORE TECH
+    if (ui.isTerminalOk && (isOutgoingMediaTransfer(progress) || isFileCardTransfer(progress))) {
       state.transferProgress.delete(progress.fileId);
       return;
     }
@@ -705,6 +990,179 @@
         state.transferProgress.delete(progress.fileId);
       }, 8000);
     }
+  }
+
+  function buildFileCardDownloadButtonHtml(progress, ui) {
+    const name = progress.name || 'קובץ';
+    const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
+    const magnet = String(progress.magnetURI || '').trim();
+    const blobUrl =
+      progress.blobUrl ||
+      (magnet && typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnet)?.url : '') ||
+      '';
+    if (ui.isTerminalOk && blobUrl) {
+      const safeUrl = App.escapeHtml ? App.escapeHtml(blobUrl) : blobUrl.replace(/"/g, '&quot;');
+      return `<button type="button" class="chat-file-bubble__download" data-download-url="${safeUrl}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+    }
+    if (ui.isTerminalOk && magnet) {
+      const safeMagnet = App.escapeHtml ? App.escapeHtml(magnet) : magnet.replace(/"/g, '&quot;');
+      return `<button type="button" class="chat-file-bubble__download torrent-bubble__download-btn" data-magnet="${safeMagnet}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+    }
+    // בזמן העברה — בלי כפתור הורדה (המד העגול מציג התקדמות) | HYPER CORE TECH
+    return `<span class="chat-file-bubble__download chat-file-bubble__download--busy" aria-hidden="true"><i class="fa-solid fa-file-arrow-down"></i></span>`;
+  }
+
+  function renderFileCardTransferProgress(progress, existing) {
+    const settleKey = progress.fileId || (progress.magnetURI ? `mag:${progress.magnetURI}` : '');
+    if (settleKey && settledMediaTransferIds.has(settleKey)) return;
+
+    const ui = resolveTransferAction(progress);
+    const isReceive = progress.direction === 'receive';
+    const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
+    const label = progress.name || 'קובץ מצורף';
+    const safeLabel = App.escapeHtml ? App.escapeHtml(label) : label;
+    const sizeLabel = formatTransferSize(progress.size);
+    const fileIcon = getTransferFileIcon(label);
+    const done = ui.isTerminalOk;
+    const failed = ui.st === 'failed' || ui.st === 'cancelled';
+    const nowLabel = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    const statusHtml = done
+      ? (isReceive
+        ? ''
+        : '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>')
+      : (failed
+        ? '<i class="fa-solid fa-exclamation-circle chat-media-upload__fail"></i>'
+        : buildMediaUploadRingHtml(ui.pct));
+
+    // תמיד מעדיפים בועה קיימת (הודעה או העברה) — מונע כרטיס כפול | HYPER CORE TECH
+    let bubble =
+      existing ||
+      findFileCardTransferBubble({
+        fileId: progress.fileId,
+        magnetURI: progress.magnetURI,
+        transferId: progress.torrentTransferId,
+      }) ||
+      findOrClaimTransferBubble(progress.fileId) ||
+      findExistingFileMessageBubble(progress);
+    bubble = bubble || doc.createElement('div');
+
+    // אם זו הודעה סופית בלי מעטפת file-upload — עוטפים במקום בלי ליצור בועה חדשה | HYPER CORE TECH
+    if (
+      bubble.isConnected &&
+      bubble.getAttribute('data-message-id') &&
+      !bubble.querySelector('.chat-file-upload') &&
+      bubble.querySelector('.chat-file-bubble, .torrent-bubble')
+    ) {
+      const content = bubble.querySelector('.chat-message__content') || bubble;
+      const name = bubble.querySelector('.chat-file-bubble__name, .torrent-bubble__file-name')?.textContent || label;
+      const size = bubble.querySelector('.chat-file-bubble__size, .torrent-bubble__file-size')?.textContent || sizeLabel;
+      const iconClass = bubble.querySelector('.chat-file-bubble__icon i, .torrent-bubble__file-row > i')?.className || `fa-solid ${fileIcon}`;
+      content.innerHTML = `
+        <div class="chat-file-upload" data-chat-file-upload="1">
+          <div class="chat-file-bubble">
+            <div class="chat-file-bubble__icon"><i class="${iconClass}"></i></div>
+            <div class="chat-file-bubble__info">
+              <div class="chat-file-bubble__name">${App.escapeHtml ? App.escapeHtml(name) : name}</div>
+              <div class="chat-file-bubble__size">${App.escapeHtml ? App.escapeHtml(size || '') : (size || '')}</div>
+            </div>
+            ${buildFileCardDownloadButtonHtml(progress, ui)}
+          </div>
+          <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
+            <div class="chat-media-upload__center" aria-hidden="true">
+              <div class="chat-media-upload__spinner"></div>
+              ${buildMediaUploadSpinnerFillHtml(ui.pct)}
+              ${buildMediaUploadPctHtml(ui.pct)}
+            </div>
+          </div>
+        </div>
+        <div class="chat-message__meta-row">
+          <span class="chat-message__time">${nowLabel}</span>
+          <span class="chat-message__status-slot">${statusHtml}</span>
+        </div>
+      `;
+      bubble.classList.add('chat-message--file-card-transfer');
+      if (progress.fileId) bubble.setAttribute('data-transfer-id', progress.fileId);
+      if (progress.magnetURI) bubble.setAttribute('data-magnet-uri', progress.magnetURI);
+    }
+
+    // עדכון במקום | HYPER CORE TECH
+    if (bubble.isConnected && bubble.querySelector('.chat-file-upload')) {
+      bubble.className = `chat-message ${directionClass} chat-message--file-card-transfer${done ? ' chat-message--file-card-transfer-done' : ''}${failed ? ' chat-message--file-card-transfer-failed' : ''}${bubble.getAttribute('data-message-id') ? ' chat-message--file-card-settled' : ''}`;
+      if (progress.fileId) bubble.setAttribute('data-transfer-id', progress.fileId);
+      if (progress.torrentTransferId) bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
+      if (progress.magnetURI) bubble.setAttribute('data-magnet-uri', progress.magnetURI);
+
+      const overlay = bubble.querySelector('.chat-media-upload__overlay');
+      const center = bubble.querySelector('.chat-media-upload__center');
+      const statusHost = bubble.querySelector('.chat-message__status-slot, .chat-media-upload__ring-slot');
+      const dlHost = bubble.querySelector('.chat-file-bubble__download, .chat-file-bubble__download--busy, .torrent-bubble__download-btn');
+      if (overlay) {
+        overlay.hidden = done || failed;
+        overlay.setAttribute('aria-hidden', done || failed ? 'true' : 'false');
+      }
+      if (center && !done && !failed) updateMediaUploadCenterProgress(center, ui.pct);
+      if (statusHost) statusHost.innerHTML = statusHtml;
+      if (dlHost) {
+        const html = buildFileCardDownloadButtonHtml(progress, ui);
+        const wrapEl = doc.createElement('div');
+        wrapEl.innerHTML = html.trim();
+        const next = wrapEl.firstElementChild;
+        if (next) dlHost.replaceWith(next);
+      }
+      let cancelBtn = bubble.querySelector('[data-cancel-transfer]');
+      if (!ui.showCancel && cancelBtn) cancelBtn.remove();
+      else if (ui.showCancel && !cancelBtn) {
+        cancelBtn = doc.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'chat-media-upload__cancel';
+        cancelBtn.setAttribute('data-cancel-transfer', progress.fileId);
+        cancelBtn.title = 'בטל';
+        cancelBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        bubble.querySelector('.chat-file-upload')?.appendChild(cancelBtn);
+      }
+      scheduleTransferBubbleCleanup(bubble, progress, ui);
+      return;
+    }
+
+    const downloadHtml = buildFileCardDownloadButtonHtml(progress, ui);
+    bubble.className = `chat-message ${directionClass} chat-message--file-card-transfer`;
+    bubble.setAttribute('data-transfer-id', progress.fileId);
+    if (progress.torrentTransferId) bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
+    if (progress.magnetURI) bubble.setAttribute('data-magnet-uri', progress.magnetURI);
+
+    // כרטיס גדול כמו הודעה סופית — בועת content + קובץ בפנים + שעה | HYPER CORE TECH
+    bubble.innerHTML = `
+      <div class="chat-message__content">
+        <div class="chat-file-upload" data-chat-file-upload="1">
+          <div class="chat-file-bubble">
+            <div class="chat-file-bubble__icon"><i class="fa-solid ${fileIcon}"></i></div>
+            <div class="chat-file-bubble__info">
+              <div class="chat-file-bubble__name">${safeLabel}</div>
+              <div class="chat-file-bubble__size">${sizeLabel || ''}</div>
+            </div>
+            ${downloadHtml}
+          </div>
+          <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
+            <div class="chat-media-upload__center" aria-hidden="true">
+              <div class="chat-media-upload__spinner"></div>
+              ${buildMediaUploadSpinnerFillHtml(ui.pct)}
+              ${buildMediaUploadPctHtml(ui.pct)}
+            </div>
+          </div>
+          ${ui.showCancel ? `<button type="button" class="chat-media-upload__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
+        </div>
+        <div class="chat-message__meta-row">
+          <span class="chat-message__time">${nowLabel}</span>
+          <span class="chat-message__status-slot">${statusHtml}</span>
+        </div>
+      </div>
+    `;
+
+    if (!bubble.isConnected) {
+      elements.messagesContainer.appendChild(bubble);
+      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+    }
+    scheduleTransferBubbleCleanup(bubble, progress, ui);
   }
 
   function renderMediaTransferProgress(progress, existing) {
@@ -960,6 +1418,13 @@
       return;
     }
 
+    // ZIP/קבצים – כרטיס סופי + מד עגול (שולח ומקבל) | HYPER CORE TECH
+    if (isFileCardTransfer(progress)) {
+      const existingFile = findOrClaimTransferBubble(progress.fileId);
+      renderFileCardTransferProgress(progress, existingFile);
+      return;
+    }
+
     const isReceive = progress.direction === 'receive';
     const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
     const existing = findOrClaimTransferBubble(progress.fileId) ||
@@ -1140,24 +1605,35 @@
       return;
     }
 
-    // חלק טורנט הורדה (chat-ui.js) – טיפול בלחיצה על כפתור הורדה של טורנט | HYPER CORE TECH
-    const torrentDownloadBtn = event.target.closest('.torrent-bubble__download-btn');
-    if (torrentDownloadBtn) {
+    // חלק הורדת קובץ/מדיה (chat-ui.js) – עדיפות ל-blob מקומי; magnet רק אם אין קובץ אצלך | HYPER CORE TECH
+    const fileDownloadBtn = event.target.closest(
+      '.torrent-bubble__download-btn, .chat-file-bubble__download[data-download-url], .chat-file-bubble__download[data-magnet], .chat-message__media-download--side[data-magnet], .chat-message__media-download--side[data-download-url]'
+    );
+    if (fileDownloadBtn) {
       event.preventDefault();
       event.stopPropagation();
-      const magnetURI = torrentDownloadBtn.getAttribute('data-magnet');
-      const fileName = torrentDownloadBtn.getAttribute('data-filename') || 'file';
+      const fileName = fileDownloadBtn.getAttribute('data-filename') || 'file';
+      const localUrl =
+        fileDownloadBtn.getAttribute('data-download-url') ||
+        '';
+      const magnetURI = fileDownloadBtn.getAttribute('data-magnet') || '';
+      const blobFromMagnet =
+        !localUrl && magnetURI && typeof App.getTorrentBlob === 'function'
+          ? App.getTorrentBlob(magnetURI)?.url
+          : '';
+      const saveUrl = localUrl || blobFromMagnet;
+      if (saveUrl && typeof App.downloadChatMedia === 'function') {
+        App.downloadChatMedia(saveUrl, fileName);
+        return;
+      }
       if (magnetURI && typeof App.downloadTorrentFile === 'function') {
-        // שינוי מראה הכפתור להורדה פעילה
-        if (!torrentDownloadBtn.dataset.defaultHtml) {
-          torrentDownloadBtn.dataset.defaultHtml = torrentDownloadBtn.innerHTML;
+        if (!fileDownloadBtn.dataset.defaultHtml) {
+          fileDownloadBtn.dataset.defaultHtml = fileDownloadBtn.innerHTML;
         }
-        torrentDownloadBtn.disabled = true;
-        torrentDownloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> מוריד...';
+        fileDownloadBtn.disabled = true;
+        fileDownloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
         App.downloadTorrentFile(magnetURI, fileName);
       } else if (magnetURI) {
-        console.log('[CHAT/UI] Torrent download requested:', magnetURI);
-        // fallback - פתח את ה-magnet URI
         window.open(magnetURI, '_blank');
       }
       return;
@@ -1184,13 +1660,10 @@
       event.preventDefault();
       event.stopPropagation();
       const wrap = moreTarget.closest('.chat-message__more-wrap');
-      const menu = wrap?.querySelector('.chat-message__more-menu');
-      if (!wrap || !menu) return;
+      if (!wrap) return;
       const willOpen = !wrap.classList.contains('is-open');
       closeAllChatMessageMenus(willOpen ? wrap : null);
-      wrap.classList.toggle('is-open', willOpen);
-      moreTarget.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-      menu.hidden = !willOpen;
+      setChatMoreMenusOpen(wrap, willOpen);
       return;
     }
 
@@ -1359,6 +1832,17 @@
       }
 
       const magnetURI = btn.getAttribute('data-magnet');
+      const localUrl =
+        btn.getAttribute('data-download-url') ||
+        (magnetURI && typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnetURI)?.url : '');
+      // יש קובץ מקומי — כפתור שמירה רגיל, לא מצב "מוריד..." | HYPER CORE TECH
+      if (localUrl) {
+        btn.setAttribute('data-download-url', localUrl);
+        btn.disabled = false;
+        if (btn.dataset.defaultHtml) btn.innerHTML = btn.dataset.defaultHtml;
+        return;
+      }
+
       const shouldDisable = Boolean(magnetURI && activeMagnets.has(magnetURI));
 
       if (shouldDisable) {
@@ -2629,6 +3113,16 @@
           el.remove();
         }
       });
+      // בועות ZIP/קובץ פעילות או settled — לא ליצור כרטיס שני ברינדור | HYPER CORE TECH
+      elements.messagesContainer.querySelectorAll('.chat-message--file-card-transfer').forEach((el) => {
+        const mid = el.getAttribute('data-message-id');
+        const magnet = el.getAttribute('data-magnet-uri') || '';
+        const tid = el.getAttribute('data-transfer-id') || el.getAttribute('data-torrent-transfer') || '';
+        if (mid && !preservedSettled.has(mid)) preservedSettled.set(mid, el);
+        if (magnet) preservedSettled.set(`mag:${magnet}`, el);
+        if (tid) preservedSettled.set(`tid:${tid}`, el);
+        el.remove();
+      });
     }
 
     elements.messagesContainer.innerHTML = '';
@@ -2672,7 +3166,22 @@
       const preserved = message?.id ? preservedSettled.get(message.id) : null;
       if (preserved) {
         preservedSettled.delete(message.id);
+        if (preserved.classList.contains('chat-message--file-card-transfer') || preserved.querySelector('.chat-file-upload')) {
+          settleFileCardBubble(preserved, message);
+        }
         fragment.appendChild(preserved);
+        return;
+      }
+      const magnetKey = extractMessageMagnet(message);
+      const tidKey = extractMessageTorrentTransferId(message);
+      const preservedByMagnet = magnetKey ? preservedSettled.get(`mag:${magnetKey}`) : null;
+      const preservedByTid = tidKey ? preservedSettled.get(`tid:${tidKey}`) : null;
+      const preservedFile = preservedByMagnet || preservedByTid;
+      if (preservedFile) {
+        if (magnetKey) preservedSettled.delete(`mag:${magnetKey}`);
+        if (tidKey) preservedSettled.delete(`tid:${tidKey}`);
+        settleFileCardBubble(preservedFile, message);
+        fragment.appendChild(preservedFile);
         return;
       }
 
@@ -2696,73 +3205,75 @@
         }
       } catch (e) { /* not JSON */ }
       
-      // אם זו הודעת טורנט - מציגים בועה מיוחדת עם כפתור הורדה | HYPER CORE TECH
+      // אם זו הודעת טורנט - כרטיס קובץ אחיד (כמו ההעברה) | HYPER CORE TECH
       if (isTorrentMessage && torrentData) {
         const torrentFileName = torrentData.fileName || 'קובץ';
         const torrentFileSize = torrentData.fileSize || 0;
         const torrentTransferId = torrentData.transferId || message.id;
         const magnetURI = torrentData.magnetURI || '';
         const infoHash = torrentData.infoHash || '';
-        const actionIcon = isOutgoing ? 'fa-cloud-arrow-up' : 'fa-cloud-arrow-down';
-        const actionText = isOutgoing ? 'נשלח' : 'התקבל';
         const fileSizeFormatted = typeof App.formatFileSize === 'function' ? App.formatFileSize(torrentFileSize) : `${(torrentFileSize / (1024 * 1024)).toFixed(2)} MB`;
-        
-        // זיהוי סוג קובץ לאייקון מתאים
         const fileExt = torrentFileName.split('.').pop()?.toLowerCase() || '';
         let fileIcon = 'fa-file';
-        if (['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(fileExt)) fileIcon = 'fa-file-video';
-        else if (['mp3', 'm4a', 'wav', 'ogg', 'flac'].includes(fileExt)) fileIcon = 'fa-file-audio';
-        else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExt)) fileIcon = 'fa-file-image';
-        else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) fileIcon = 'fa-file-zipper';
+        if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) fileIcon = 'fa-file-zipper';
         else if (['pdf'].includes(fileExt)) fileIcon = 'fa-file-pdf';
         else if (['doc', 'docx'].includes(fileExt)) fileIcon = 'fa-file-word';
         else if (['xls', 'xlsx'].includes(fileExt)) fileIcon = 'fa-file-excel';
-        
-        item.className = `chat-message ${directionClass} chat-message--torrent-transfer chat-message--torrent-completed`;
+
+        const blobUrl = magnetURI && typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnetURI)?.url : '';
+        let downloadButtonHtml = '';
+        if (!isOutgoing && (blobUrl || magnetURI)) {
+          if (blobUrl) {
+            const safeUrl = App.escapeHtml ? App.escapeHtml(blobUrl) : blobUrl.replace(/"/g, '&quot;');
+            const safeName = App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName;
+            downloadButtonHtml = `<button type="button" class="chat-file-bubble__download" data-download-url="${safeUrl}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+          } else {
+            downloadButtonHtml = `<button type="button" class="chat-file-bubble__download torrent-bubble__download-btn" data-magnet="${App.escapeHtml ? App.escapeHtml(magnetURI) : magnetURI}" data-filename="${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+          }
+        }
+
+        item.className = `chat-message ${directionClass} chat-message--file-card-transfer chat-message--file-card-settled`;
         item.setAttribute('data-message-id', message.id);
         item.setAttribute('data-torrent-transfer', torrentTransferId);
         if (magnetURI) item.setAttribute('data-magnet-uri', magnetURI);
         if (infoHash) item.setAttribute('data-info-hash', infoHash);
-        
-        // כפתור הורדה - רק להודעות נכנסות
-        const downloadButtonHtml = !isOutgoing && magnetURI ? `
-          <button type="button" class="torrent-bubble__download-btn" data-magnet="${App.escapeHtml ? App.escapeHtml(magnetURI) : magnetURI}" data-filename="${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}" title="הורד קובץ">
-            <i class="fa-solid fa-download"></i> הורד
-          </button>
-        ` : '';
-        
-        // כפתור מחיקה - רק להודעות יוצאות | HYPER CORE TECH
-        const torrentDeleteButtonHtml = isOutgoing ? `
-          <button type="button" class="chat-message__delete" data-chat-delete="${message.id}" aria-label="מחק הודעה">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        ` : '';
-        
+
+        const sideDownloadHtml = buildChatFileSideDownloadHtml({
+          attachment: null,
+          magnetURI,
+          blobUrl,
+          fileName: torrentFileName,
+        });
+        const sideActionsHtml = buildChatSideActionsHtml({
+          isOutgoing,
+          messageId: message.id,
+          downloadHtml: sideDownloadHtml,
+          copyHtml: '',
+        });
+
         item.innerHTML = `
-          <div class="chat-message__content chat-message__content--torrent">
-            ${torrentDeleteButtonHtml}
-            <div class="torrent-bubble">
-              <div class="torrent-bubble__header">
-                <i class="fa-solid ${actionIcon}"></i>
-                <span class="torrent-bubble__action">${actionText}</span>
-              </div>
-              <div class="torrent-bubble__file">
-                <div class="torrent-bubble__file-row">
-                  <i class="fa-solid ${fileIcon}"></i>
-                  <div class="torrent-bubble__file-info">
-                    <span class="torrent-bubble__file-name">${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}</span>
-                    <span class="torrent-bubble__file-size">${fileSizeFormatted}</span>
-                  </div>
+          ${isOutgoing ? sideActionsHtml : ''}
+          <div class="chat-message__content" data-chat-message="${message.id}">
+            <div class="chat-file-upload" data-chat-file-upload="1">
+              <div class="chat-file-bubble">
+                <div class="chat-file-bubble__icon"><i class="fa-solid ${fileIcon}"></i></div>
+                <div class="chat-file-bubble__info">
+                  <div class="chat-file-bubble__name">${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}</div>
+                  <div class="chat-file-bubble__size">${fileSizeFormatted}</div>
                 </div>
                 ${downloadButtonHtml}
               </div>
             </div>
-            <div class="chat-message__time">${formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000))}</div>
+            <div class="chat-message__meta-row">
+              <span class="chat-message__time">${formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000))}</span>
+              <span class="chat-message__status-slot">${isOutgoing ? '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>' : ''}</span>
+            </div>
           </div>
+          ${!isOutgoing ? sideActionsHtml : ''}
         `;
-        
+
         fragment.appendChild(item);
-        return; // המשך להודעה הבאה
+        return;
       }
 
       // חלק צ'אט (chat-ui.js) – משחזר אוואטר לשיחות נכנסות על בסיס נתוני איש הקשר
@@ -3042,6 +3553,12 @@
       let sideDownloadHtml = '';
       if (isImageAttachment || isVideoAttachment) {
         sideDownloadHtml = buildChatMediaSideDownloadHtml(a, a?.url || a?.dataUrl || '', a?.name || '');
+      } else if (a && (typeof App.isGenericFileAttachment === 'function' ? App.isGenericFileAttachment(a) : true) && (a.magnetURI || a.url || a.dataUrl)) {
+        sideDownloadHtml = buildChatFileSideDownloadHtml({
+          attachment: a,
+          magnetURI: a.magnetURI || '',
+          fileName: a.name || 'קובץ',
+        });
       } else if (isMediaUrl && /chat-message__image-container|chat-message__video-container/.test(mediaUrlHtml || '')) {
         const urlMatch = (rawMessageContent || '').match(/https?:\/\/[^\s<>"']+/i);
         const mediaUrl = urlMatch ? urlMatch[0].replace(/[.,;:!?)}\]]+$/, '') : '';
@@ -3854,6 +4371,11 @@
       if (isActivePeer) {
         // מדיה יוצאת אחרי P2P — ממירים את בועת ההעלאה במקום בלי רינדור מלא/קפיצה | HYPER CORE TECH
         if (message && settleOutgoingMediaTransfer(message)) {
+          App.markChatConversationRead(peer);
+          return;
+        }
+        // ZIP/קובץ (שולח+מקבל) — ממירים את בועת ההעברה במקום בלי כרטיס שני | HYPER CORE TECH
+        if (message && settleOutgoingFileTransfer(message)) {
           App.markChatConversationRead(peer);
           return;
         }
