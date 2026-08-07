@@ -72,13 +72,18 @@
 }
 
 .chat-message--more-open {
-  align-items: center !important;
+  /* נשאר flex-start כדי שתמונת הפרופיל לא תרד למרכז הווידאו | HYPER CORE TECH */
+  align-items: flex-start !important;
   z-index: 20;
   position: relative;
 }
 
 .chat-message--more-open .chat-message__side-actions {
   align-self: center;
+}
+
+.chat-message--more-open .chat-message__avatar {
+  align-self: flex-start;
 }
 
 .chat-message:has(.chat-message__more-wrap.is-open) {
