@@ -25,16 +25,18 @@
   flex-shrink: 0;
 }
 
-/* עמודה ליד המדיה: תפריט + הורדה | HYPER CORE TECH */
+/* עמודה ליד הודעה: רק ⋮; פעולות נפתחות כלפי מעלה בקו ישר | HYPER CORE TECH */
 .chat-message__side-actions {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
   align-self: center;
   flex-shrink: 0;
   position: relative;
+  z-index: 5;
+  overflow: visible;
 }
 
 .chat-message--incoming {
@@ -56,8 +58,11 @@
 .chat-message__more-wrap {
   position: relative;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: visible;
+  z-index: 6;
 }
 
 .chat-message__more {
@@ -73,7 +78,7 @@
   align-items: center;
   justify-content: center;
   font-size: 0.95rem;
-  opacity: 0.55;
+  opacity: 0.7;
   transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -90,63 +95,75 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* תפריט אייקונים בלבד — מעל ה-⋮, באותו ציר אנכי | HYPER CORE TECH */
 .chat-message__more-menu {
   position: absolute;
-  top: 50%;
-  inset-inline-start: calc(100% + 6px);
-  transform: translateY(-50%);
-  min-width: 132px;
-  padding: 4px;
-  border-radius: 10px;
-  background: #1f2c34;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  z-index: 40;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  min-width: 0;
+  width: 28px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  z-index: 50;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .chat-message__more-menu[hidden] {
   display: none !important;
 }
 
-.chat-message--outgoing .chat-message__more-menu {
-  inset-inline-start: auto;
-  inset-inline-end: calc(100% + 6px);
-}
-
 .chat-message__more-menu .chat-message__delete,
-.chat-message__more-menu .chat-message__copy-link {
+.chat-message__more-menu .chat-message__copy-link,
+.chat-message__more-menu .chat-message__media-download--side {
   opacity: 1 !important;
   transform: none !important;
-  width: 100%;
-  height: auto;
-  min-height: 36px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
+  justify-content: center;
+  gap: 0;
   font-size: 0.82rem;
   color: #e9edef;
-  background: transparent;
+  background: rgba(31, 44, 52, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+  position: static !important;
+  inset: auto !important;
 }
 
 .chat-message__more-menu .chat-message__delete span,
 .chat-message__more-menu .chat-message__copy-link span {
-  font-weight: 500;
+  display: none !important;
 }
 
 .chat-message__more-menu .chat-message__delete:hover {
-  background: rgba(240, 40, 73, 0.14);
-  color: #ff6b7a;
+  background: rgba(240, 40, 73, 0.9);
+  color: #fff;
 }
 
 .chat-message__more-menu .chat-message__copy-link:hover {
-  background: rgba(83, 189, 235, 0.14);
-  color: #53bdeb;
+  background: rgba(83, 189, 235, 0.9);
+  color: #111b21;
+}
+
+.chat-message__more-menu .chat-message__media-download--side:hover {
+  background: rgba(0, 168, 132, 0.95);
+  color: #fff;
 }
 
 .chat-message__media-download--side {
@@ -169,10 +186,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.chat-message__media-download--side:hover {
-  background: rgba(0, 0, 0, 0.7);
-}
-
 .chat-message__copy-link {
   border: none;
   background: transparent;
@@ -193,19 +206,7 @@
 
 @media (max-width: 768px) {
   .chat-message__more {
-    opacity: 0.85;
-  }
-
-  .chat-message__more-menu {
-    inset-inline-start: auto;
-    inset-inline-end: 0;
-    top: calc(100% + 4px);
-    transform: none;
-  }
-
-  .chat-message--outgoing .chat-message__more-menu {
-    inset-inline-end: auto;
-    inset-inline-start: 0;
+    opacity: 0.9;
   }
 }
 

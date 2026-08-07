@@ -1348,10 +1348,15 @@ body.chat-lightbox-open {
   font-size: 12px;
 }
 
-/* חלק Performance (chat-enhanced-styles.css) – אופטימיזציות ביצועים */
+/* חלק Performance (chat-enhanced-styles.css) – בלי paint כדי שתפריט ⋮ כלפי מעלה לא ייחתך | HYPER CORE TECH */
 .chat-message {
-  contain: layout style paint;
-  will-change: transform;
+  contain: layout style;
+  overflow: visible;
+}
+
+.chat-message:has(.chat-message__more-wrap.is-open) {
+  z-index: 30;
+  position: relative;
 }
 
 .chat-message__image,
