@@ -2237,39 +2237,46 @@ body.chat-lightbox-open {
   color: #8696a0;
 }
 
-/* כרטיס קובץ בסגנון וואטסאפ — שם ברור, מד מקורי בצד, ביטול עדין בשורת השעה | HYPER CORE TECH */
+/* כרטיס קובץ — רוחב לפי קונטיינר הצ'אט (לא 100vw) כדי לא לחתוך שמאלה במובייל | HYPER CORE TECH */
 .chat-message--file-card-transfer {
   width: fit-content;
-  max-width: min(calc(100% - 20px), 340px);
+  max-width: min(100%, 320px);
   box-sizing: border-box;
+  min-width: 0;
+}
+
+.chat-message--outgoing.chat-message--file-card-transfer {
+  max-width: min(100%, 300px);
 }
 
 .chat-message--file-card-transfer .chat-message__content {
   min-width: 0;
-  width: min(300px, calc(100vw - 72px));
+  width: auto;
   max-width: 100%;
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
 .chat-file-upload {
   position: relative;
   border-radius: 10px;
-  overflow: visible;
+  overflow: hidden;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .chat-message--file-card-transfer .chat-file-bubble {
   margin: 0;
   min-width: 0;
   width: 100%;
-  max-width: none;
+  max-width: 100%;
   box-sizing: border-box;
   position: relative;
   z-index: 1;
   opacity: 1 !important;
   background: rgba(255, 255, 255, 0.08);
-  gap: 10px;
+  gap: 8px;
 }
 
 .chat-message--outgoing.chat-message--file-card-transfer .chat-file-bubble__name {
@@ -2331,6 +2338,30 @@ body.chat-lightbox-open {
   font-size: 12px;
   font-weight: 700;
   color: #fff;
+}
+
+@media (max-width: 768px) {
+  .chat-message--file-card-transfer,
+  .chat-message--outgoing.chat-message--file-card-transfer {
+    max-width: min(100%, 280px);
+  }
+
+  .chat-file-bubble__progress {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chat-file-bubble__progress-center,
+  .chat-file-bubble__progress .chat-media-upload__center,
+  .chat-file-bubble__progress .chat-media-upload__spinner,
+  .chat-file-bubble__progress .chat-media-upload__spinner-fill {
+    width: 40px;
+    height: 40px;
+  }
+
+  .chat-file-bubble__progress .chat-media-upload__pct {
+    font-size: 11px;
+  }
 }
 
 /* שורת meta: רק שעון (+ V בסיום) — בלי מד קטן ובלי X | HYPER CORE TECH */
