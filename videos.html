@@ -1502,23 +1502,28 @@
     <!-- חלק Debug Console (videos.html) – הצגת לוגים על המסך לדיבוג באייפון | HYPER CORE TECH -->
     <script>
     (function() {
-      // חלק שער דיבוג (videos.html) – heavy diagnostics רק עם ?debug=1 או localStorage.sos_debug=1 | HYPER CORE TECH
-      try {
-        window.SOS_DEBUG_ENABLED =
-          new URLSearchParams(window.location.search).get('debug') === '1' ||
-          localStorage.getItem('sos_debug') === '1';
-      } catch (_e) {
-        window.SOS_DEBUG_ENABLED = false;
-      }
-
-      // סגנון לכפתור cache (תמיד) — בלי תלות בדיבוג | HYPER CORE TECH
-      var cacheBtnStyle = document.createElement('style');
-      cacheBtnStyle.textContent = '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
-
+      // יצירת חלון debug צף
+      var debugPanel = document.createElement('div');
+      debugPanel.id = 'mobileDebugPanel';
+      debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
+      
+      var style = document.createElement('style');
+      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
+      
       document.addEventListener('DOMContentLoaded', function() {
-        document.head.appendChild(cacheBtnStyle);
+        document.head.appendChild(style);
+        document.body.appendChild(debugPanel);
+        
+        // כפתור פתיחה צף (גיבוי בלבד) – הכפתור הראשי בתפריט הפרופיל | HYPER CORE TECH
+        var openBtn = document.createElement('button');
+        openBtn.id = 'debugOpenBtn';
+        openBtn.textContent = '🔧';
+        openBtn.title = 'פתח Debug Console';
+        document.body.appendChild(openBtn);
 
-        // חלק כפתור רענון Cache (videos.html) – תמיד פעיל, לא חלק משער הדיבוג | HYPER CORE TECH
+        var openBtnTop = document.getElementById('topBarDebugLog');
+
+        // חלק כפתור רענון Cache (videos.html) – בתוך תפריט הפרופיל תחת משחקי רשת | HYPER CORE TECH
         var profileMenu = document.getElementById('topBarProfileMenu');
         var cacheRefreshBtn = document.createElement('button');
         cacheRefreshBtn.id = 'cacheRefreshBtn';
@@ -1530,11 +1535,13 @@
           cacheRefreshBtn.style.animation = 'spin 1s linear infinite';
           cacheRefreshBtn.disabled = true;
           try {
+            // מחיקת כל ה-caches
             if ('caches' in window) {
               var cacheNames = await caches.keys();
               await Promise.all(cacheNames.map(function(name) { return caches.delete(name); }));
               console.log('[CACHE] נמחקו כל ה-caches:', cacheNames);
             }
+            // ביטול רישום Service Worker
             if ('serviceWorker' in navigator) {
               var registrations = await navigator.serviceWorker.getRegistrations();
               for (var reg of registrations) {
@@ -1542,6 +1549,7 @@
                 console.log('[CACHE] Service Worker בוטל');
               }
             }
+            // רענון קשיח
             console.log('[CACHE] מרענן את הדף...');
             window.location.reload(true);
           } catch (err) {
@@ -1551,41 +1559,19 @@
             cacheRefreshBtn.disabled = false;
           }
         };
+        
         if (profileMenu) {
           profileMenu.appendChild(cacheRefreshBtn);
         }
-
-        // Normal mode: אין Debug Console / console override / fullLog
-        if (!window.SOS_DEBUG_ENABLED) {
-          return;
-        }
-
-        // יצירת חלון debug צף — רק במצב דיבוג מפורש
-        var debugPanel = document.createElement('div');
-        debugPanel.id = 'mobileDebugPanel';
-        debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
-
-        var style = document.createElement('style');
-        style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}';
-        document.head.appendChild(style);
-        document.body.appendChild(debugPanel);
-
-        var openBtn = document.createElement('button');
-        openBtn.id = 'debugOpenBtn';
-        openBtn.textContent = '🔧';
-        openBtn.title = 'פתח Debug Console';
-        document.body.appendChild(openBtn);
-
-        var openBtnTop = document.getElementById('topBarDebugLog');
         openBtn.style.display = 'none';
-
+        
         var content = document.getElementById('debugContent');
         var toggle = document.getElementById('debugToggle');
         var copy = document.getElementById('debugCopy');
         var clear = document.getElementById('debugClear');
-        var maxLines = 1000;
+        var maxLines = 1000; // שמור יותר שורות להצגה
         var fullLog = [];
-
+        
         function closeProfileMenuForDebug() {
           var menu = document.getElementById('topBarProfileMenu');
           var btn = document.getElementById('topBarProfileButton');
@@ -1613,17 +1599,18 @@
           openBtn.style.display = 'none';
           if (openBtnTop) openBtnTop.disabled = false;
         }
-
+        
         toggle.onclick = function() {
           closePanel();
         };
-
+        
         copy.onclick = function() {
           var text = content.innerText;
           navigator.clipboard.writeText(text).then(function() {
             copy.textContent = '✅ הועתק!';
             setTimeout(function() { copy.textContent = '📋 העתק'; }, 2000);
           }).catch(function() {
+            // fallback לאייפון ישן
             var ta = document.createElement('textarea');
             ta.value = text;
             ta.style.position = 'fixed';
@@ -1636,12 +1623,13 @@
             setTimeout(function() { copy.textContent = '📋 העתק'; }, 2000);
           });
         };
-
+        
         clear.onclick = function() {
           content.innerHTML = '';
           fullLog = [];
         };
 
+        // שמירת לוג כ-TXT
         var saveBtn = document.createElement('button');
         saveBtn.textContent = '💾 שמור TXT';
         saveBtn.id = 'debugSave';
@@ -1656,15 +1644,16 @@
           URL.revokeObjectURL(url);
 
           if (navigator.share) {
-            navigator.share({ title: 'SOS Debug Log', text, files: undefined, url: undefined }).catch(function() {});
+            navigator.share({ title: 'SOS Debug Log', text, files: undefined, url: undefined }).catch(() => {});
           }
         };
         document.getElementById('debugHeader').appendChild(saveBtn);
-
+        
         function addLine(type, args) {
           var line = document.createElement('div');
           line.className = 'debug-line debug-' + type;
           var time = new Date().toLocaleTimeString('he-IL');
+          // סינון פרמטרי %c style
           var filteredArgs = Array.from(args).filter(function(a, i, arr) {
             if (typeof a === 'string' && a.startsWith('%c')) return true;
             if (i > 0 && typeof arr[i-1] === 'string' && arr[i-1].includes('%c') && typeof a === 'string' && a.includes('color:')) return false;
@@ -1677,6 +1666,7 @@
             }
             return String(a);
           }).join(' ');
+          // הדגשת לוגי מחיקה
           if (msg.includes('[DELETE_DEBUG]') || msg.includes('[DELETE_PUBLISH]')) {
             line.style.color = '#FF5722';
             line.style.fontWeight = 'bold';
@@ -1687,25 +1677,27 @@
           if (content.children.length > maxLines) content.removeChild(content.firstChild);
           content.scrollTop = content.scrollHeight;
         }
-
+        
+        // Override console methods
         var origLog = console.log;
         var origWarn = console.warn;
         var origError = console.error;
         var origInfo = console.info;
-
+        
         console.log = function() { origLog.apply(console, arguments); addLine('log', arguments); };
         console.warn = function() { origWarn.apply(console, arguments); addLine('warn', arguments); };
         console.error = function() { origError.apply(console, arguments); addLine('error', arguments); };
         console.info = function() { origInfo.apply(console, arguments); addLine('info', arguments); };
-
-        window.onerror = function(msg, url, line) {
+        
+        // Catch errors
+        window.onerror = function(msg, url, line, col, error) {
           addLine('error', ['UNCAUGHT:', msg, 'at', url + ':' + line]);
         };
-
+        
         window.onunhandledrejection = function(e) {
           addLine('error', ['PROMISE REJECTED:', e.reason]);
         };
-
+        
         console.log('📱 Debug Console Ready - iOS Debug Mode');
       });
     })();
