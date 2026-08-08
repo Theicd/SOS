@@ -1152,6 +1152,32 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* מד טעינה בהדר בזמן ניקוי צ'ט | HYPER CORE TECH */
+.chat-conversation__clear-spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-inline-start: 4px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-top-color: #25d366;
+  box-sizing: border-box;
+  animation: chat-clear-spin 0.75s linear infinite;
+}
+
+.chat-conversation__clear-spinner[hidden] {
+  display: none !important;
+}
+
+.chat-conversation__header--clearing .chat-conversation__icon--menu {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+@keyframes chat-clear-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* חלק סטטוס רשימת אנשי קשר (chat-whatsapp-theme.css) – ווים זהים לשיחה | HYPER CORE TECH */
 .chat-contact__status {
   display: inline-flex;

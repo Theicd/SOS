@@ -1878,6 +1878,150 @@
     });
   }
 
+  // ניקוי שיחה מלא: יוצאות ברשת אחת-אחת, נכנסות רק מקומית + מטמון | HYPER CORE TECH
+  let clearChatInProgress = false;
+  const CLEAR_CHAT_DELETE_GAP_MS = 450;
+
+  function isOutgoingChatMessage(message) {
+    if (!message) return false;
+    if (message.direction === 'outgoing') return true;
+    if (message.direction === 'incoming') return false;
+    const self = (App.publicKey || '').toLowerCase();
+    return !!(self && message.from?.toLowerCase?.() === self);
+  }
+
+  function collectChatMessageCacheKeys(message) {
+    const keys = new Set();
+    const att = message?.attachment || null;
+    if (!att) return [];
+    if (att.cacheKey) keys.add(String(att.cacheKey));
+    if (att.fileId) {
+      const base =
+        typeof App.chatP2PCacheKey === 'function'
+          ? App.chatP2PCacheKey(att.fileId)
+          : `p2p-file-${att.fileId}`;
+      if (base) {
+        keys.add(base);
+        keys.add(`${base}-poster`);
+      }
+    }
+    const src = String(att.url || att.dataUrl || '').trim();
+    if (src && !src.startsWith('magnet:') && !src.startsWith('blob:')) {
+      keys.add(src);
+    }
+    return [...keys].filter(Boolean);
+  }
+
+  async function purgeLocalChatMessageMedia(message) {
+    const keys = collectChatMessageCacheKeys(message);
+    for (const key of keys) {
+      try {
+        if (typeof App.deleteChatMediaFromCache === 'function') {
+          await App.deleteChatMediaFromCache(key);
+        }
+      } catch (_) {}
+      try {
+        if (typeof App.deleteCachedMedia === 'function') {
+          await App.deleteCachedMedia(key);
+        }
+      } catch (_) {}
+    }
+  }
+
+  function setClearChatBusy(busy) {
+    const header = elements.conversationHeader;
+    const spinner = doc.getElementById('chatConversationClearSpinner');
+    const menuBtn = doc.getElementById('chatConversationMenuBtn');
+    if (header) header.classList.toggle('chat-conversation__header--clearing', !!busy);
+    if (spinner) {
+      spinner.hidden = !busy;
+      spinner.setAttribute('aria-hidden', busy ? 'false' : 'true');
+    }
+    if (menuBtn) menuBtn.disabled = !!busy;
+  }
+
+  function showClearChatConfirmDialog(peerPubkey) {
+    const existing = doc.getElementById('chatDeleteDialog');
+    if (existing) existing.remove();
+    const dialog = doc.createElement('div');
+    dialog.id = 'chatDeleteDialog';
+    dialog.className = 'chat-dialog';
+    dialog.innerHTML = `
+      <div class="chat-dialog__backdrop"></div>
+      <div class="chat-dialog__content" role="dialog" aria-modal="true">
+        <h3 class="chat-dialog__title">ניקוי הצ׳ט</h3>
+        <p class="chat-dialog__message">לנקות את השיחה? הודעות יוצאות יימחקו גם אצל הצד השני. הודעות נכנסות יימחקו רק מהמכשיר שלך.</p>
+        <div class="chat-dialog__actions">
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--cancel">ביטול</button>
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--confirm">נקה</button>
+        </div>
+      </div>
+    `;
+    elements.panel.appendChild(dialog);
+    const backdrop = dialog.querySelector('.chat-dialog__backdrop');
+    const cancel = dialog.querySelector('.chat-dialog__btn--cancel');
+    const confirm = dialog.querySelector('.chat-dialog__btn--confirm');
+    const close = () => dialog.remove();
+    backdrop?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    cancel?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    confirm?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+      clearActiveChatConversation(peerPubkey);
+    });
+  }
+
+  async function clearActiveChatConversation(peerPubkey) {
+    const peer = peerPubkey || state.activeContact;
+    if (!peer || clearChatInProgress) return;
+    const messages = (typeof App.getChatMessages === 'function' ? App.getChatMessages(peer) : []) || [];
+    if (!messages.length) return;
+
+    clearChatInProgress = true;
+    setClearChatBusy(true);
+    try {
+      const snapshot = messages.slice();
+      const outgoing = [];
+      const incoming = [];
+      snapshot.forEach((msg) => {
+        if (!msg?.id) return;
+        if (isOutgoingChatMessage(msg)) outgoing.push(msg);
+        else incoming.push(msg);
+      });
+
+      // נכנסות: מחיקה מקומית בלבד (בלי רשת) | HYPER CORE TECH
+      for (const msg of incoming) {
+        await purgeLocalChatMessageMedia(msg);
+        if (typeof App.removeChatMessage === 'function') {
+          App.removeChatMessage(peer, msg.id);
+        }
+      }
+      if (incoming.length) renderMessages(peer);
+
+      // יוצאות: הוראת מחיקה אחת-אחת עם מרווח | HYPER CORE TECH
+      for (let i = 0; i < outgoing.length; i++) {
+        if (state.activeContact !== peer) break;
+        const msg = outgoing[i];
+        await purgeLocalChatMessageMedia(msg);
+        if (typeof App.deleteChatMessage === 'function') {
+          await App.deleteChatMessage(peer, msg.id);
+        } else if (typeof App.removeChatMessage === 'function') {
+          App.removeChatMessage(peer, msg.id);
+        }
+        renderMessages(peer);
+        if (i < outgoing.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, CLEAR_CHAT_DELETE_GAP_MS));
+        }
+      }
+    } catch (err) {
+      console.warn('[chat] clear chat failed', err);
+    } finally {
+      clearChatInProgress = false;
+      setClearChatBusy(false);
+      if (state.activeContact === peer) renderMessages(peer);
+    }
+  }
+
   const homeNavButton = doc.querySelector('[data-nav="home"]');
 
   const elements = {
@@ -4510,7 +4654,11 @@
         if (!item) return;
         e.preventDefault();
         closeHeaderMenu();
-        if (item.getAttribute('data-action') === 'back') {
+        const action = item.getAttribute('data-action');
+        if (action === 'clear-chat') {
+          if (!state.activeContact || clearChatInProgress) return;
+          showClearChatConfirmDialog(state.activeContact);
+        } else if (action === 'back') {
           resetConversationView();
         }
       });
