@@ -23,7 +23,12 @@
     if (typeof App.getChatFileAttachment !== 'function') {
       return null;
     }
-    return App.getChatFileAttachment(peerPubkey);
+    const attachment = App.getChatFileAttachment(peerPubkey);
+    // P2P שכבר נשלח — לא לצרף את אותו קובץ להודעת טקסט הבאה | HYPER CORE TECH
+    if (attachment?.isP2P && attachment?.transferStarted) {
+      return null;
+    }
+    return attachment;
   }
 
   function resetAttachment(peerPubkey) {

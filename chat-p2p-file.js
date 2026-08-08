@@ -428,6 +428,10 @@
           console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח (עם cacheKey)', { hasPoster: !!posterDataUrl });
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] append local p2p message failed:', msgErr); }
+      // ניקוי attachment — מונע הדבקת הווידאו להודעת טקסט הבאה | HYPER CORE TECH
+      if (typeof App.clearChatFileAttachment === 'function') {
+        App.clearChatFileAttachment(peerKey);
+      }
       // חלק שמירת קובץ לאחר סיום (chat-p2p-file.js) — שומר קובץ 3 דקות לצורך resend אם המקבל איחר | HYPER CORE TECH
       recentCompletedFiles.set(fileId, { file, keyStr: transfer.keyStr, peerPubkey: peerKey, completedAt: Date.now() });
       setTimeout(() => { recentCompletedFiles.delete(fileId); }, FILE_RETAIN_MS);

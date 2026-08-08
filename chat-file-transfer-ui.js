@@ -292,22 +292,8 @@
         adoptCompressBubble(fileId);
         const posterDataUrl = await attachPosterToFileId(fileId, previewUrl);
         log('שולח P2P', { peer, fileId, name: file.name, size: file.size, hasPoster: !!posterDataUrl });
-        // חלק P2P (chat-file-transfer-ui.js) – לא מציג preview תחתון לקבצי P2P כי ההעברה כבר מתחילה | HYPER CORE TECH
-        const attachment = {
-          id: `${peer}-${Date.now()}`,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          isP2P: true,
-          file,
-          fileId,
-          previewUrl,
-          posterDataUrl: posterDataUrl || undefined,
-          caption: uiRefs.getMessageDraft() || '',
-          transferStarted: true, // סימון שההעברה כבר התחילה
-          hidePreview: true,
-        };
-        App.setChatFileAttachment?.(peer, attachment);
+        // חלק P2P (chat-file-transfer-ui.js) – מנקים attachment כדי שלא יידבק להודעת טקסט הבאה | HYPER CORE TECH
+        App.clearChatFileAttachment?.(peer);
         renderPreview(null); // אין שורת preview תחתונה בזמן העברת P2P
         return;
       } catch (err) {
