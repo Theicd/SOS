@@ -1035,8 +1035,35 @@
       const safeMagnet = App.escapeHtml ? App.escapeHtml(magnet) : magnet.replace(/"/g, '&quot;');
       return `<button type="button" class="chat-file-bubble__download torrent-bubble__download-btn" data-magnet="${safeMagnet}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
     }
-    // בזמן העברה — בלי כפתור הורדה (המד העגול מציג התקדמות) | HYPER CORE TECH
-    return `<span class="chat-file-bubble__download chat-file-bubble__download--busy" aria-hidden="true"><i class="fa-solid fa-file-arrow-down"></i></span>`;
+    // בזמן העברה — מד עגול ברור במקום כפתור הורדה (סגנון וואטסאפ) | HYPER CORE TECH
+    return buildFileCardProgressSlotHtml(ui.pct);
+  }
+
+  // מד התקדמות בצד הכרטיס — שם הקובץ נשאר קריא | HYPER CORE TECH
+  function buildFileCardProgressSlotHtml(pct) {
+    const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    return `
+      <div class="chat-file-bubble__progress" aria-label="התקדמות ${safePct}%">
+        <div class="chat-media-upload__center chat-file-bubble__progress-center" aria-hidden="true">
+          <div class="chat-media-upload__spinner"></div>
+          ${buildMediaUploadSpinnerFillHtml(safePct)}
+          ${buildMediaUploadPctHtml(safePct)}
+        </div>
+      </div>
+    `;
+  }
+
+  function buildFileCardMetaRowHtml({ nowLabel, statusHtml, showCancel, fileId }) {
+    const cancelHtml = showCancel && fileId
+      ? `<button type="button" class="chat-media-upload__cancel chat-file-card__cancel" data-cancel-transfer="${fileId}" title="בטל" aria-label="בטל"><i class="fa-solid fa-xmark"></i></button>`
+      : '';
+    return `
+      <div class="chat-message__meta-row chat-file-card__meta">
+        <span class="chat-message__time">${nowLabel}</span>
+        <span class="chat-message__status-slot">${statusHtml || ''}</span>
+        ${cancelHtml}
+      </div>
+    `;
   }
 
   function renderFileCardTransferProgress(progress, existing) {
@@ -1089,23 +1116,13 @@
           <div class="chat-file-bubble">
             <div class="chat-file-bubble__icon"><i class="${iconClass}"></i></div>
             <div class="chat-file-bubble__info">
-              <div class="chat-file-bubble__name">${App.escapeHtml ? App.escapeHtml(name) : name}</div>
+              <div class="chat-file-bubble__name" title="${App.escapeHtml ? App.escapeHtml(name) : name}">${App.escapeHtml ? App.escapeHtml(name) : name}</div>
               <div class="chat-file-bubble__size">${App.escapeHtml ? App.escapeHtml(size || '') : (size || '')}</div>
             </div>
             ${buildFileCardDownloadButtonHtml(progress, ui)}
           </div>
-          <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
-            <div class="chat-media-upload__center" aria-hidden="true">
-              <div class="chat-media-upload__spinner"></div>
-              ${buildMediaUploadSpinnerFillHtml(ui.pct)}
-              ${buildMediaUploadPctHtml(ui.pct)}
-            </div>
-          </div>
         </div>
-        <div class="chat-message__meta-row">
-          <span class="chat-message__time">${nowLabel}</span>
-          <span class="chat-message__status-slot">${statusHtml}</span>
-        </div>
+        ${buildFileCardMetaRowHtml({ nowLabel, statusHtml, showCancel: ui.showCancel, fileId: progress.fileId })}
       `;
       bubble.classList.add('chat-message--file-card-transfer');
       if (progress.fileId) bubble.setAttribute('data-transfer-id', progress.fileId);
@@ -1119,34 +1136,70 @@
       if (progress.torrentTransferId) bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
       if (progress.magnetURI) bubble.setAttribute('data-magnet-uri', progress.magnetURI);
 
-      const overlay = bubble.querySelector('.chat-media-upload__overlay');
-      const center = bubble.querySelector('.chat-media-upload__center');
-      const statusHost = bubble.querySelector('.chat-message__status-slot, .chat-media-upload__ring-slot');
-      const dlHost = bubble.querySelector('.chat-file-bubble__download, .chat-file-bubble__download--busy, .torrent-bubble__download-btn');
-      if (overlay) {
-        overlay.hidden = done || failed;
-        overlay.setAttribute('aria-hidden', done || failed ? 'true' : 'false');
+      // מיגרציה מכרטיס ישן (overlay מרכזי) לכרטיס וואטסאפ | HYPER CORE TECH
+      const hasLegacyOverlay = !!bubble.querySelector('.chat-file-upload > .chat-media-upload__overlay');
+      const hasSideProgress = !!bubble.querySelector('.chat-file-bubble__progress');
+      const hasMetaCancel = !!bubble.querySelector('.chat-file-card__cancel');
+      const needsMigrate =
+        hasLegacyOverlay ||
+        (!done && !failed && !hasSideProgress) ||
+        (ui.showCancel && !hasMetaCancel && !!bubble.querySelector('.chat-file-upload > .chat-media-upload__cancel'));
+      if (needsMigrate) {
+        const content = bubble.querySelector('.chat-message__content') || bubble;
+        const nameEl = bubble.querySelector('.chat-file-bubble__name');
+        const sizeEl = bubble.querySelector('.chat-file-bubble__size');
+        const iconEl = bubble.querySelector('.chat-file-bubble__icon i');
+        const name = nameEl?.textContent || label;
+        const size = sizeEl?.textContent || sizeLabel;
+        const iconClass = iconEl?.className || `fa-solid ${fileIcon}`;
+        const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
+        content.innerHTML = `
+          <div class="chat-file-upload" data-chat-file-upload="1">
+            <div class="chat-file-bubble">
+              <div class="chat-file-bubble__icon"><i class="${iconClass}"></i></div>
+              <div class="chat-file-bubble__info">
+                <div class="chat-file-bubble__name" title="${safeName}">${safeName}</div>
+                <div class="chat-file-bubble__size">${App.escapeHtml ? App.escapeHtml(size || '') : (size || '')}</div>
+              </div>
+              ${buildFileCardDownloadButtonHtml(progress, ui)}
+            </div>
+          </div>
+          ${buildFileCardMetaRowHtml({ nowLabel, statusHtml, showCancel: ui.showCancel, fileId: progress.fileId })}
+        `;
+        scheduleTransferBubbleCleanup(bubble, progress, ui);
+        return;
       }
-      if (center && !done && !failed) updateMediaUploadCenterProgress(center, ui.pct);
+
+      const statusHost = bubble.querySelector('.chat-message__status-slot, .chat-media-upload__ring-slot');
+      const progressCenter = bubble.querySelector('.chat-file-bubble__progress-center');
+      const actionHost = bubble.querySelector(
+        '.chat-file-bubble__progress, .chat-file-bubble__download, .chat-file-bubble__download--busy, .torrent-bubble__download-btn'
+      );
       if (statusHost) statusHost.innerHTML = statusHtml;
-      if (dlHost) {
+      if (progressCenter && !done && !failed) {
+        updateMediaUploadCenterProgress(progressCenter, ui.pct);
+      } else if (actionHost) {
         const html = buildFileCardDownloadButtonHtml(progress, ui);
         const wrapEl = doc.createElement('div');
         wrapEl.innerHTML = html.trim();
         const next = wrapEl.firstElementChild;
-        if (next) dlHost.replaceWith(next);
+        if (next) actionHost.replaceWith(next);
       }
-      let cancelBtn = bubble.querySelector('[data-cancel-transfer]');
+      let cancelBtn = bubble.querySelector('.chat-file-card__cancel, .chat-message__meta-row [data-cancel-transfer]');
+      const metaRow = bubble.querySelector('.chat-message__meta-row');
       if (!ui.showCancel && cancelBtn) cancelBtn.remove();
-      else if (ui.showCancel && !cancelBtn) {
+      else if (ui.showCancel && !cancelBtn && metaRow) {
         cancelBtn = doc.createElement('button');
         cancelBtn.type = 'button';
-        cancelBtn.className = 'chat-media-upload__cancel';
+        cancelBtn.className = 'chat-media-upload__cancel chat-file-card__cancel';
         cancelBtn.setAttribute('data-cancel-transfer', progress.fileId);
         cancelBtn.title = 'בטל';
+        cancelBtn.setAttribute('aria-label', 'בטל');
         cancelBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-        bubble.querySelector('.chat-file-upload')?.appendChild(cancelBtn);
+        metaRow.appendChild(cancelBtn);
       }
+      bubble.querySelector('.chat-file-upload > .chat-media-upload__overlay')?.remove();
+      bubble.querySelector('.chat-file-upload > .chat-media-upload__cancel:not(.chat-file-card__cancel)')?.remove();
       scheduleTransferBubbleCleanup(bubble, progress, ui);
       return;
     }
@@ -1157,31 +1210,20 @@
     if (progress.torrentTransferId) bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
     if (progress.magnetURI) bubble.setAttribute('data-magnet-uri', progress.magnetURI);
 
-    // כרטיס גדול כמו הודעה סופית — בועת content + קובץ בפנים + שעה | HYPER CORE TECH
+    // כרטיס וואטסאפ: שם+גודל ברורים, מד בצד, ביטול בשורת השעה | HYPER CORE TECH
     bubble.innerHTML = `
       <div class="chat-message__content">
         <div class="chat-file-upload" data-chat-file-upload="1">
           <div class="chat-file-bubble">
             <div class="chat-file-bubble__icon"><i class="fa-solid ${fileIcon}"></i></div>
             <div class="chat-file-bubble__info">
-              <div class="chat-file-bubble__name">${safeLabel}</div>
+              <div class="chat-file-bubble__name" title="${safeLabel}">${safeLabel}</div>
               <div class="chat-file-bubble__size">${sizeLabel || ''}</div>
             </div>
             ${downloadHtml}
           </div>
-          <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
-            <div class="chat-media-upload__center" aria-hidden="true">
-              <div class="chat-media-upload__spinner"></div>
-              ${buildMediaUploadSpinnerFillHtml(ui.pct)}
-              ${buildMediaUploadPctHtml(ui.pct)}
-            </div>
-          </div>
-          ${ui.showCancel ? `<button type="button" class="chat-media-upload__cancel" data-cancel-transfer="${progress.fileId}" title="בטל"><i class="fa-solid fa-xmark"></i></button>` : ''}
         </div>
-        <div class="chat-message__meta-row">
-          <span class="chat-message__time">${nowLabel}</span>
-          <span class="chat-message__status-slot">${statusHtml}</span>
-        </div>
+        ${buildFileCardMetaRowHtml({ nowLabel, statusHtml, showCancel: ui.showCancel, fileId: progress.fileId })}
       </div>
     `;
 
