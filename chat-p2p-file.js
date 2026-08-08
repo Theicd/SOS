@@ -283,7 +283,8 @@
       size: file.size,
       mimeType: file.type,
       keyStr,
-      totalChunks: Math.ceil(file.size / CHUNK_SIZE)
+      totalChunks: Math.ceil(file.size / CHUNK_SIZE),
+      createdAt: Math.floor(Date.now() / 1000),
     };
     
     // שליחת metadata דרך signaling
@@ -553,7 +554,7 @@
     // חלק file-offer via DC (chat-p2p-file.js) – שליחת metadata דרך DC לפני chunk ראשון (תיקון race condition) | HYPER CORE TECH
     if (currentChunk === 0) {
       try {
-        const dcOffer = JSON.stringify({ type: 'file-offer', fileId, name: file.name, size: file.size, mimeType: file.type, keyStr: transfer.keyStr, totalChunks });
+        const dcOffer = JSON.stringify({ type: 'file-offer', fileId, name: file.name, size: file.size, mimeType: file.type, keyStr: transfer.keyStr, totalChunks, createdAt: Math.floor((transfer.startTime || Date.now()) / 1000) });
         channel.send(dcOffer);
         console.log('[CHAT/P2P] ⚡ file-offer נשלח דרך DC (fast path, לפני chunks)');
       } catch (e) { console.warn('[CHAT/P2P] file-offer via DC failed:', e.message); }
@@ -929,7 +930,7 @@
   async function handleP2PFileOffer(senderPubkey, offerData) {
     const senderKey = toPeerKey(senderPubkey);
     try {
-      const { fileId, name, size, mimeType, keyStr, totalChunks } = offerData || {};
+      const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt } = offerData || {};
       
       console.log('[CHAT/P2P] 📥 handleP2PFileOffer', {
         from: senderKey?.slice?.(0, 12) + '...',
@@ -966,7 +967,11 @@
         totalChunks: totalChunks || Math.ceil(size / CHUNK_SIZE),
         receivedChunks: 0,
         chunks: [],
-        startTime: Date.now()
+        startTime: Date.now(),
+        // זמן מקורי מהשולח — כדי שההודעה תופיע לפני טקסט שנשלח אחריה | HYPER CORE TECH
+        offerCreatedAt: typeof offerCreatedAt === 'number' && offerCreatedAt > 0
+          ? offerCreatedAt
+          : Math.floor(Date.now() / 1000),
       };
       
       activeTransfers.set(fileId, transfer);
@@ -1210,26 +1215,17 @@
       // הסרת ההעברה מהרשימה הפעילה
       activeTransfers.delete(fileId);
       
-      // עדכון UI על סיום
-      notifyProgress({
-        fileId,
-        progress: 1,
-        status: 'complete',
-        direction: 'receive',
-        name: transfer.name,
-        size: transfer.size,
-        mimeType: transfer.mimeType,
-        peerPubkey: transfer.peerPubkey,
-        blob
-      });
-      
       console.log('[CHAT/P2P] ✅ קבלת קובץ הושלמה בהצלחה!', { fileId, name: transfer.name });
 
       // חלק הודעת צ'אט למקבל (chat-p2p-file.js) — blob לsession + cacheKey לשחזור אחרי restart | HYPER CORE TECH
       try {
         const blobUrl = URL.createObjectURL(blob);
         if (typeof App.appendChatMessage === 'function') {
-          const createdAt = Math.floor(Date.now() / 1000);
+          // זמן מקורי מה-offer — לא "עכשיו" אחרי סיום ההורדה | HYPER CORE TECH
+          const createdAt =
+            (typeof transfer.offerCreatedAt === 'number' && transfer.offerCreatedAt > 0
+              ? transfer.offerCreatedAt
+              : Math.floor((transfer.startTime || Date.now()) / 1000));
           const resolvedMime = resolveMimeType(transfer.mimeType, transfer.name);
           const isVideoFlag = shouldForceVideoFlag(transfer.mimeType, transfer.name);
           // תקציר מיידי מה־blob שהתקבל — לפני append | HYPER CORE TECH
@@ -1266,6 +1262,19 @@
           console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl });
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] appendChatMessage failed:', msgErr); }
+
+      // עדכון UI אחרי שההודעה כבר במאגר — בלי בועת התקדמות | HYPER CORE TECH
+      notifyProgress({
+        fileId,
+        progress: 1,
+        status: 'complete',
+        direction: 'receive',
+        name: transfer.name,
+        size: transfer.size,
+        mimeType: transfer.mimeType,
+        peerPubkey: transfer.peerPubkey,
+        blob
+      });
 
       // חלק ACK סיום (chat-p2p-file.js) — שליחת אישור קבלה מלאה חזרה לשולח | HYPER CORE TECH
       try {

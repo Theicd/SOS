@@ -1435,8 +1435,62 @@
     return { actionText, actionIcon, speedText, showProgress, showCancel, pct, isTerminalOk, isTerminalFail, st };
   }
 
+  function removeIncomingTransferProgressBubble(progress) {
+    if (!elements.messagesContainer || !progress) return;
+    const ids = [progress.fileId, progress.torrentTransferId].filter(Boolean);
+    ids.forEach((id) => {
+      elements.messagesContainer.querySelectorAll(`[data-transfer-id="${id}"], [data-torrent-transfer="${id}"]`).forEach((el) => {
+        if (el.getAttribute('data-message-id')) return;
+        if (!el.classList.contains('chat-message--incoming')) return;
+        el.remove();
+      });
+    });
+  }
+
+  function refreshChatAfterIncomingTransferReady(progress) {
+    const peer = progress?.peerPubkey || state.activeContact;
+    if (!peer) return;
+    try {
+      renderMessages(peer, { force: true });
+    } catch (_) {}
+  }
+
+  // מקבל: אין בועת "מוריד..." — ההודעה צצה רק כשהקובץ מוכן, לפי createdAt המקורי | HYPER CORE TECH
+  function isIncomingTransferPending(message) {
+    if (!message) return false;
+    const isOutgoing =
+      message.direction === 'outgoing' ||
+      message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
+    if (isOutgoing) return false;
+
+    const magnet = extractMessageMagnet(message);
+    const att = message.attachment || null;
+    const src = String(att?.url || att?.dataUrl || '').trim();
+    if (src && !src.startsWith('magnet:')) return false;
+
+    if (magnet) {
+      const blob = typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnet) : null;
+      return !(blob && blob.url);
+    }
+
+    if (att?.isTorrent && !src) return true;
+    return false;
+  }
+
   function renderTransferProgress(progress) {
     if (!elements.messagesContainer || !progress?.fileId) return;
+
+    // צד מקבל: לא מציגים התקדמות בחלון השיחה (כמו וואטסאפ) | HYPER CORE TECH
+    if (progress.direction === 'receive') {
+      removeIncomingTransferProgressBubble(progress);
+      const done =
+        progress.status === 'complete' ||
+        progress.status === 'complete-torrent' ||
+        progress.status === 'complete-blossom' ||
+        progress.status === 'verified';
+      if (done) refreshChatAfterIncomingTransferReady(progress);
+      return;
+    }
 
     // תמונה/וידאו יוצאים – בועת מדיה כמו וואטסאפ (בלי שם קובץ ופס אחוזים) | HYPER CORE TECH
     if (isOutgoingMediaTransfer(progress)) {
@@ -3178,6 +3232,9 @@
     // חלק צ'אט (chat-ui.js) – קיבוץ הודעות לפי יום והוספת כותרות תאריך דביקות בסגנון וואטסאפ
     let lastDayKey = '';
     messages.forEach((message) => {
+      // מקבל: מסתירים מדיה/קובץ טורנט עד שיש blob מוכן — ואז מופיעים לפי createdAt | HYPER CORE TECH
+      if (isIncomingTransferPending(message)) return;
+
       const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
       const dayKey = getMessageDayKey(messageTimestamp);
       if (dayKey && dayKey !== lastDayKey) {
@@ -3241,13 +3298,71 @@
         const infoHash = torrentData.infoHash || '';
         const fileSizeFormatted = typeof App.formatFileSize === 'function' ? App.formatFileSize(torrentFileSize) : `${(torrentFileSize / (1024 * 1024)).toFixed(2)} MB`;
         const fileExt = torrentFileName.split('.').pop()?.toLowerCase() || '';
+        const blobUrl = magnetURI && typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnetURI)?.url : '';
+        const looksImage = /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(torrentFileName);
+        const looksVideo = /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(torrentFileName);
+
+        // מקבל: תמונה/וידאו מוכנים — מציגים מדיה (לא כרטיס קובץ) | HYPER CORE TECH
+        if (!isOutgoing && blobUrl && (looksImage || looksVideo)) {
+          const mediaAtt = {
+            name: torrentFileName,
+            size: torrentFileSize,
+            type: looksVideo ? 'video/mp4' : 'image/jpeg',
+            url: blobUrl,
+            magnetURI,
+            isTorrent: true,
+            isVideo: looksVideo || undefined,
+          };
+          let avatarHtmlTorrent = '';
+          const normalizedFrom = message.from?.toLowerCase?.();
+          const contact = normalizedFrom && App.chatState?.contacts?.get?.(normalizedFrom);
+          const fallbackName = contact?.name || (normalizedFrom ? `משתמש ${normalizedFrom.slice(0, 8)}` : 'משתמש');
+          const safeName = App.escapeHtml ? App.escapeHtml(fallbackName) : fallbackName;
+          const initialsValue =
+            contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(fallbackName) : 'מש');
+          const safeInitials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
+          avatarHtmlTorrent = contact?.picture
+            ? `<span class="chat-message__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-message__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
+            : `<span class="chat-message__avatar chat-message__avatar--initials" title="${safeName}">${safeInitials}</span>`;
+          const mediaHtml = looksVideo
+            ? (typeof App.renderVideoAttachment === 'function' ? App.renderVideoAttachment(mediaAtt) : '')
+            : (typeof App.renderImageAttachment === 'function' ? App.renderImageAttachment(mediaAtt) : '');
+          const sideDownloadHtml = buildChatFileSideDownloadHtml({
+            attachment: mediaAtt,
+            magnetURI,
+            blobUrl,
+            fileName: torrentFileName,
+          });
+          const sideActionsHtml = buildChatSideActionsHtml({
+            isOutgoing: false,
+            messageId: message.id,
+            downloadHtml: sideDownloadHtml,
+            copyHtml: '',
+          });
+          item.className = `chat-message ${directionClass} chat-message--media`;
+          item.setAttribute('data-message-id', message.id);
+          item.setAttribute('data-torrent-transfer', torrentTransferId);
+          if (magnetURI) item.setAttribute('data-magnet-uri', magnetURI);
+          item.innerHTML = `
+            ${avatarHtmlTorrent}
+            <div class="chat-message__content chat-message__content--has-attachment" data-chat-message="${message.id}">
+              ${mediaHtml}
+              <div class="chat-message__meta-row">
+                <span class="chat-message__time">${formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000))}</span>
+              </div>
+            </div>
+            ${sideActionsHtml}
+          `;
+          fragment.appendChild(item);
+          return;
+        }
+
         let fileIcon = 'fa-file';
         if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExt)) fileIcon = 'fa-file-zipper';
         else if (['pdf'].includes(fileExt)) fileIcon = 'fa-file-pdf';
         else if (['doc', 'docx'].includes(fileExt)) fileIcon = 'fa-file-word';
         else if (['xls', 'xlsx'].includes(fileExt)) fileIcon = 'fa-file-excel';
 
-        const blobUrl = magnetURI && typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnetURI)?.url : '';
         let downloadButtonHtml = '';
         if (!isOutgoing && (blobUrl || magnetURI)) {
           if (blobUrl) {
@@ -3323,7 +3438,14 @@
       let isAudioAttachment = false;
       let isImageAttachment = false;
       let isVideoAttachment = false;
-      const a = message.attachment || null;
+      let a = message.attachment || null;
+      // אחרי הורדת טורנט — מחברים blob מקומי כדי שהמדיה תוצג מיד | HYPER CORE TECH
+      if (a?.magnetURI && !(a.url || a.dataUrl) && typeof App.getTorrentBlob === 'function') {
+        const torrentBlob = App.getTorrentBlob(a.magnetURI);
+        if (torrentBlob?.url) {
+          a = { ...a, url: torrentBlob.url };
+        }
+      }
       if (a) {
         const src = a.url || a.dataUrl || '';
         // תיקון: וודא שה-type מועבר נכון, אחרת נסה לזהות מהשם

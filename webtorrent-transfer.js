@@ -921,6 +921,20 @@
         }
       });
     } catch (_) {}
+    // רענון שיחה אחרי שהקובץ מוכן — ההודעה מופיעה במקומה לפי createdAt | HYPER CORE TECH
+    if (typeof App.handleP2PProgressUpdate === 'function') {
+      try {
+        App.handleP2PProgressUpdate({
+          fileId: `mag:${key}`,
+          magnetURI: key,
+          progress: 1,
+          status: 'complete-torrent',
+          direction: 'receive',
+          name: fileName || prev?.name || 'file',
+          blobUrl,
+        });
+      } catch (_) {}
+    }
   }
 
   function getTorrentBlob(magnetURI) {
@@ -1000,6 +1014,11 @@
     }
 
     console.log('[TORRENT] 🎨 showTransferProgressUI called for:', transferId, 'type:', transfer.type);
+
+    // מקבל: בלי בועת "מוריד..." — הורדה ברקע; ההודעה תופיע רק כשמוכנה | HYPER CORE TECH
+    if (transfer.type === 'receive') {
+      return;
+    }
 
     // שליחת מדיה – בועת תמונה/וידאו כמו וואטסאפ דרך chat-ui | HYPER CORE TECH
     if (transfer.type === 'send' && isVisualMediaTransfer(transfer)) {
