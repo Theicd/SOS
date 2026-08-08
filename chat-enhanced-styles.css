@@ -2357,7 +2357,7 @@ body.chat-lightbox-open {
   min-height: 16px;
 }
 
-/* ביטול עדין מעל אייקון הקובץ — האייקון נשאר, X שקוף מעליו | HYPER CORE TECH */
+/* ביטול: אייקון קובץ נשאר ברור + X אדום מעליו (כמו וואטסאפ) | HYPER CORE TECH */
 button.chat-file-bubble__icon.chat-file-bubble__icon--cancel {
   position: relative;
   cursor: pointer;
@@ -2371,7 +2371,7 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: rgba(0, 168, 132, 0.15);
+  background: rgba(0, 168, 132, 0.18);
   color: #00a884;
   display: inline-flex;
   align-items: center;
@@ -2381,36 +2381,51 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel {
 }
 
 .chat-message--outgoing button.chat-file-bubble__icon.chat-file-bubble__icon--cancel {
-  background: rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 168, 132, 0.22);
+  color: #1de9b6;
 }
 
 button.chat-file-bubble__icon.chat-file-bubble__icon--cancel > i:first-child {
-  opacity: 0.38;
+  opacity: 1;
+  z-index: 1;
   transition: opacity 0.15s ease;
 }
 
 .chat-file-bubble__icon-x {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: rgba(17, 27, 33, 0.28);
-  color: #fff;
-  font-size: 0.95rem;
+  background: rgba(0, 0, 0, 0.22);
+  color: #ff3b30;
+  font-size: 1.15rem;
+  font-weight: 800;
   pointer-events: none;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.chat-file-bubble__icon-x i {
+  color: #ff3b30;
 }
 
 button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:hover > i:first-child,
 button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible > i:first-child {
-  opacity: 0.22;
+  opacity: 0.7;
 }
 
 button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:hover .chat-file-bubble__icon-x,
 button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat-file-bubble__icon-x {
-  background: rgba(17, 27, 33, 0.42);
+  background: rgba(0, 0, 0, 0.32);
+}
+
+button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:hover .chat-file-bubble__icon-x i,
+button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat-file-bubble__icon-x i {
+  color: #ff2d20;
 }
 
 .chat-message--file-card-transfer-done .chat-media-upload__overlay,
