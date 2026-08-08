@@ -5317,6 +5317,15 @@ function processEventsToVideos(events, currentApp) {
     if (!videoUrl && !youtubeId && !liveUrl && !gameUrl) return;
     
     const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
+    // חלק mirror (videos.js) – חילוץ תגיות mirror כמו בשאר הממירים בקובץ (string[]) | HYPER CORE TECH
+    const mediaMirrors = [];
+    if (Array.isArray(event.tags)) {
+      event.tags.forEach((tag) => {
+        if (Array.isArray(tag) && tag[0] === 'mirror' && tag[1]) {
+          mediaMirrors.push(tag[1]);
+        }
+      });
+    }
     
     videoEvents.push({
       id: event.id,
@@ -5333,7 +5342,7 @@ function processEventsToVideos(events, currentApp) {
       authorPicture: profileData.picture || '',
       authorInitials: profileData.initials || 'AN',
       mediaLinks,
-      mirrors: extractMirrors(event)
+      mirrors: mediaMirrors
     });
   });
   
