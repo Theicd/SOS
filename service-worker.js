@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v303'; // bump - stop previous media re-attaching to next text message
+  const CACHE_NAME = 'sos-cache-v304'; // bump - ZIP card progress size + meta alignment
   const PRECACHE_URLS = [
     './',
     './videos.html',

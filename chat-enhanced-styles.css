@@ -2246,6 +2246,7 @@ body.chat-lightbox-open {
 .chat-message--file-card-transfer .chat-message__content {
   min-width: min(280px, 85vw);
   max-width: min(340px, 92vw);
+  overflow: visible;
 }
 
 .chat-file-upload {
@@ -2253,6 +2254,7 @@ body.chat-lightbox-open {
   border-radius: 10px;
   overflow: visible;
   width: 100%;
+  isolation: isolate;
 }
 
 .chat-message--file-card-transfer .chat-file-bubble {
@@ -2261,28 +2263,59 @@ body.chat-lightbox-open {
   width: 100%;
   max-width: none;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-file-upload .chat-media-upload__overlay {
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.45);
   inset: 0;
+  z-index: 4;
+}
+
+/* מד מרכזי קטן יותר — נכנס בגובה כרטיס ZIP בלי להיחתך | HYPER CORE TECH */
+.chat-file-upload .chat-media-upload__center,
+.chat-file-upload .chat-media-upload__spinner,
+.chat-file-upload .chat-media-upload__spinner-fill {
+  width: 36px;
+  height: 36px;
+}
+
+.chat-file-upload .chat-media-upload__spinner {
+  border-width: 2.5px;
+}
+
+.chat-file-upload .chat-media-upload__pct {
+  font-size: 0.72rem;
 }
 
 .chat-file-upload .chat-media-upload__cancel {
-  z-index: 5;
+  z-index: 6;
 }
 
 .chat-message--file-card-transfer .chat-message__meta-row {
+  /* שעון משמאל, מד קטן מימין לו — כמו בווידאו | HYPER CORE TECH */
+  float: none;
+  margin-inline-start: 0;
   margin-top: 6px;
+  width: 100%;
+  display: flex;
+  direction: ltr;
   justify-content: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
 }
 
 .chat-message--file-card-transfer .chat-message__status-slot {
   display: inline-flex;
   align-items: center;
   min-height: 16px;
+  order: 2;
+}
+
+.chat-message--file-card-transfer .chat-message__time {
+  order: 1;
 }
 
 .chat-message--file-card-transfer-done .chat-media-upload__overlay,
