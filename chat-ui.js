@@ -4489,6 +4489,37 @@
         resetConversationView();
       });
     }
+    // תפריט ⋮ בכותרת שיחה (במקום חזרה בשמאל) | HYPER CORE TECH
+    const headerMenuBtn = doc.getElementById('chatConversationMenuBtn');
+    const headerMenu = doc.getElementById('chatConversationMenu');
+    const closeHeaderMenu = () => {
+      if (!headerMenu || headerMenu.hidden) return;
+      headerMenu.hidden = true;
+      if (headerMenuBtn) headerMenuBtn.setAttribute('aria-expanded', 'false');
+    };
+    if (headerMenuBtn && headerMenu) {
+      headerMenuBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const open = headerMenu.hidden;
+        headerMenu.hidden = !open;
+        headerMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      headerMenu.addEventListener('click', (e) => {
+        const item = e.target.closest('[data-action]');
+        if (!item) return;
+        e.preventDefault();
+        closeHeaderMenu();
+        if (item.getAttribute('data-action') === 'back') {
+          resetConversationView();
+        }
+      });
+      doc.addEventListener('click', (e) => {
+        if (!headerMenu.hidden && !headerMenu.contains(e.target) && e.target !== headerMenuBtn && !headerMenuBtn.contains(e.target)) {
+          closeHeaderMenu();
+        }
+      });
+    }
     if (elements.notificationsMarkRead) {
       elements.notificationsMarkRead.addEventListener('click', () => {
         if (typeof App.markAllNotificationsRead === 'function') {
