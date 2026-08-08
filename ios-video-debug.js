@@ -8,6 +8,21 @@
 (function() {
   'use strict';
 
+  // חלק שער דיבוג (ios-video-debug.js) – no-op ב-runtime רגיל; פעיל רק עם ?debug=1 או localStorage.sos_debug=1 | HYPER CORE TECH
+  var sosDebugEnabled = false;
+  try {
+    sosDebugEnabled =
+      window.SOS_DEBUG_ENABLED === true ||
+      new URLSearchParams(window.location.search).get('debug') === '1' ||
+      localStorage.getItem('sos_debug') === '1';
+  } catch (_e) {
+    sosDebugEnabled = false;
+  }
+  if (!sosDebugEnabled) {
+    return;
+  }
+  window.SOS_DEBUG_ENABLED = true;
+
   const IOS_DEBUG_VERSION = '1.0.0';
   
   // בדיקה אם זה iOS
