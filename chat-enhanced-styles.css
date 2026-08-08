@@ -2237,16 +2237,19 @@ body.chat-lightbox-open {
   color: #8696a0;
 }
 
-/* כרטיס קובץ בסגנון וואטסאפ — שם ברור, מד בצד, ביטול בשורת השעה | HYPER CORE TECH */
+/* כרטיס קובץ בסגנון וואטסאפ — שם ברור, מד מקורי בצד, ביטול עדין בשורת השעה | HYPER CORE TECH */
 .chat-message--file-card-transfer {
   width: fit-content;
-  max-width: min(88%, 360px);
+  max-width: min(calc(100% - 20px), 340px);
+  box-sizing: border-box;
 }
 
 .chat-message--file-card-transfer .chat-message__content {
-  min-width: min(280px, 85vw);
-  max-width: min(340px, 92vw);
+  min-width: 0;
+  width: min(300px, calc(100vw - 72px));
+  max-width: 100%;
   overflow: visible;
+  box-sizing: border-box;
 }
 
 .chat-file-upload {
@@ -2266,6 +2269,15 @@ body.chat-lightbox-open {
   z-index: 1;
   opacity: 1 !important;
   background: rgba(255, 255, 255, 0.08);
+  gap: 10px;
+}
+
+.chat-message--outgoing.chat-message--file-card-transfer .chat-file-bubble__name {
+  color: #fff;
+}
+
+.chat-message--outgoing.chat-message--file-card-transfer .chat-file-bubble__size {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .chat-message--file-card-transfer .chat-file-bubble__name {
@@ -2281,11 +2293,11 @@ body.chat-lightbox-open {
   color: #aebac1;
 }
 
-/* מד התקדמות בצד הכרטיס (במקום overlay על השם) | HYPER CORE TECH */
+/* מד מקורי (52px) בצד — בלי רקע שחור ששובר את האחוזים | HYPER CORE TECH */
 .chat-file-bubble__progress {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2294,82 +2306,85 @@ body.chat-lightbox-open {
 .chat-file-bubble__progress-center,
 .chat-file-bubble__progress .chat-media-upload__center {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background: rgba(11, 20, 26, 0.92);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
+  background: transparent;
+  box-shadow: none;
   flex-shrink: 0;
 }
 
 .chat-file-bubble__progress .chat-media-upload__spinner,
 .chat-file-bubble__progress .chat-media-upload__spinner-fill {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
 }
 
 .chat-file-bubble__progress .chat-media-upload__spinner {
   border-width: 3px;
   border-color: rgba(255, 255, 255, 0.28);
   border-top-color: #fff;
-  box-shadow: none;
-}
-
-.chat-file-bubble__progress .chat-media-upload__spinner-fill-fg {
-  stroke: #ff3b5c !important;
-  stroke-width: 3.6 !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
 .chat-file-bubble__progress .chat-media-upload__pct {
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
-/* שורת meta: שעון + מד קטן + ביטול | HYPER CORE TECH */
+/* שורת meta: שעון + מד קטן + ביטול עדין | HYPER CORE TECH */
 .chat-message--file-card-transfer .chat-message__meta-row,
 .chat-file-card__meta {
-  float: none;
-  margin-inline-start: 0;
+  float: none !important;
+  margin-inline-start: 0 !important;
   margin-top: 6px;
   width: 100%;
+  max-width: 100%;
   display: flex;
+  flex-direction: row;
   direction: ltr;
   justify-content: flex-start;
   align-items: center;
   gap: 8px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .chat-message--file-card-transfer .chat-message__status-slot {
   display: inline-flex;
   align-items: center;
   min-height: 16px;
-  order: 2;
-}
-
-.chat-message--file-card-transfer .chat-message__time {
-  order: 1;
 }
 
 .chat-file-card__cancel.chat-media-upload__cancel {
-  position: static;
-  top: auto;
-  bottom: auto;
-  right: auto;
-  left: auto;
-  inset: auto;
-  order: 3;
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
-  font-size: 11px;
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  bottom: auto !important;
   margin-inline-start: auto;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #fff;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  border-radius: 50% !important;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.85);
   flex-shrink: 0;
   pointer-events: auto;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+
+.chat-file-card__cancel.chat-media-upload__cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .chat-message--file-card-transfer-done .chat-media-upload__overlay,
@@ -2733,10 +2748,21 @@ body.chat-lightbox-open {
 
 .chat-media-upload__pct-num {
   display: inline-block;
+  font-size: 1em;
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    0 0 6px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.75);
+}
+
+.chat-media-upload__pct-sign {
+  display: inline-block;
   font-size: 0.62em;
   font-weight: 600;
   margin-inline-start: 0.5px;
-  color: #ff2d55;
+  color: #fff;
+  opacity: 0.92;
   text-shadow:
     0 0 6px rgba(0, 0, 0, 0.55),
     0 1px 2px rgba(0, 0, 0, 0.75);
