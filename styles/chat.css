@@ -2429,9 +2429,8 @@ body.chat-media-modal-open {
 }
 
 .chat-panel .chat-system-message--disappearing {
-  position: sticky;
-  top: 8px;
-  z-index: 6;
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
 }
 

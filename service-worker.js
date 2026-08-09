@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v314'; // bump - mobile disappearing UI + sticky banner
+  const CACHE_NAME = 'sos-cache-v315'; // bump - inline disappearing system notices like WhatsApp
   const PRECACHE_URLS = [
     './',
     './videos.html',

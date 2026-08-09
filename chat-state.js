@@ -43,6 +43,109 @@
     return chatState.defaultDisappearingSec;
   }
 
+  function formatDisappearingTimerLabel(seconds) {
+    const sec = Number(seconds) || 0;
+    if (sec <= 0) return 'כבוי';
+    if (sec <= 24 * 60 * 60) return '24 שעות';
+    if (sec <= 7 * 24 * 60 * 60) return '7 ימים';
+    if (sec <= 90 * 24 * 60 * 60) return '90 ימים';
+    return `${Math.round(sec / 86400)} ימים`;
+  }
+
+  function isSystemChatMessage(message) {
+    return !!(message && (message.isSystem || message.direction === 'system' || message.systemKind));
+  }
+
+  function buildDisappearingNoticeContent(sec, kind = 'intro') {
+    const label = formatDisappearingTimerLabel(sec);
+    if (sec <= 0) {
+      return kind === 'change'
+        ? 'כיבית הודעות נעלמות בצ׳אט הזה. כדי להפעיל טיימר שוב, לחץ כאן.'
+        : 'הודעות נעלמות כבויות בצ׳אט הזה. כדי להפעיל טיימר, לחץ כאן.';
+    }
+    if (kind === 'change') {
+      return `הודעות נעלמות עודכנו ל-${label}. הודעות חדשות ייעלמו מהצ׳אט הזה ${label} אחרי שליחתן. כדי לשנות את הטיימר לחץ כאן.`;
+    }
+    return `בחרת להשתמש בטיימר ברירת מחדל להודעות נעלמות. הודעות חדשות ייעלמו מהצ׳אט הזה ${label} אחרי שליחתן. כדי לשנות את הטיימר לחץ כאן.`;
+  }
+
+  function ensureConversationEntry(peerPubkey) {
+    const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
+    const self = (App.publicKey || '').toLowerCase();
+    if (!peer || !self) return null;
+    const key = getConversationKey(peer, self);
+    if (!key) return null;
+    let entry = chatState.conversations.get(key);
+    if (!entry) {
+      entry = { peer, messages: [] };
+      chatState.conversations.set(key, entry);
+      ensureContact(peer);
+    }
+    return { key, entry, peer };
+  }
+
+  function appendDisappearingSystemNotice(peerPubkey, { kind = 'intro', silent = false } = {}) {
+    const bucket = ensureConversationEntry(peerPubkey);
+    if (!bucket) return null;
+    const { key, entry, peer } = bucket;
+    const sec = getDisappearingTimerSec(peer);
+    const now = Math.floor(Date.now() / 1000);
+    let createdAt = now;
+    if (kind === 'intro') {
+      const firstRegular = entry.messages.find((message) => !isSystemChatMessage(message));
+      const firstTs = firstRegular ? getMessageCreatedAt(firstRegular) : 0;
+      createdAt = firstTs > 0 ? Math.max(1, firstTs - 1) : now;
+    }
+    const noticeKind = kind === 'change' ? 'change' : 'intro';
+    const message = {
+      id: `sys-disappear-${noticeKind}-${peer.slice(0, 12)}-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      from: (App.publicKey || '').toLowerCase(),
+      to: peer,
+      content: buildDisappearingNoticeContent(sec, noticeKind),
+      createdAt,
+      direction: 'system',
+      isSystem: true,
+      systemKind: noticeKind === 'change' ? 'disappearing-change' : 'disappearing-intro',
+      disappearingTimerSec: sec,
+    };
+    if (kind === 'intro') {
+      entry.messages.unshift(message);
+    } else {
+      entry.messages.push(message);
+    }
+    entry.messages.sort((a, b) => getMessageCreatedAt(a) - getMessageCreatedAt(b));
+    chatState.messageIndex.set(message.id, { peer, key });
+    updateContactMeta(peer, {
+      lastMessage: '⏱ הודעות נעלמות',
+      timestamp: createdAt,
+      incrementUnread: false,
+    });
+    persistState();
+    if (!silent) {
+      notify('message', {
+        peer,
+        message,
+        disappearingSystemNotice: true,
+        disappearingTimerUpdated: kind === 'change',
+        disappearingTimerSec: sec,
+      });
+    }
+    return message;
+  }
+
+  function ensureDisappearingIntroNotice(peerPubkey) {
+    const bucket = ensureConversationEntry(peerPubkey);
+    if (!bucket) return null;
+    const { entry, peer } = bucket;
+    const hasRegular = entry.messages.some((message) => !isSystemChatMessage(message));
+    if (hasRegular) return null;
+    const hasDisappearingNotice = entry.messages.some((message) =>
+      message?.systemKind === 'disappearing-intro' || message?.systemKind === 'disappearing-change'
+    );
+    if (hasDisappearingNotice) return null;
+    return appendDisappearingSystemNotice(peer, { kind: 'intro', silent: true });
+  }
+
   function getCutoffForPeer(peerPubkey, nowSec = Math.floor(Date.now() / 1000)) {
     const timer = getDisappearingTimerSec(peerPubkey);
     if (timer > 0) {
@@ -87,7 +190,7 @@
     chatState.disappearingTimers.set(peer, sec);
     persistState();
     prunePeerDisappearingMessages(peer);
-    notify('message', { peer, disappearingTimerUpdated: true, disappearingTimerSec: sec });
+    appendDisappearingSystemNotice(peer, { kind: 'change' });
     return true;
   }
 
@@ -372,6 +475,7 @@
       }
       const lastRead = contact.lastReadTimestamp || 0;
       const unread = conversation.messages.reduce((total, message) => {
+        if (isSystemChatMessage(message)) return total;
         const direction = message.direction || (message.from?.toLowerCase?.() === contact.pubkey ? 'incoming' : 'outgoing');
         const createdAt = typeof message.createdAt === 'number' ? message.createdAt : typeof message.created_at === 'number' ? message.created_at : 0;
         if (direction === 'incoming' && createdAt > lastRead) {
@@ -786,6 +890,10 @@
     getDisappearingTimerSec,
     setDisappearingTimerSec,
     prunePeerDisappearingMessages,
+    ensureDisappearingIntroNotice,
+    appendDisappearingSystemNotice,
+    isSystemChatMessage,
+    formatDisappearingTimerLabel,
     updateChatMessageStatus: updateMessageStatus,
     replaceOutgoingTempMessage,
   });

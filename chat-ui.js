@@ -1841,6 +1841,7 @@
 
   function isOutgoingChatMessage(message) {
     if (!message) return false;
+    if (message.isSystem || message.direction === 'system' || message.systemKind) return false;
     if (message.direction === 'outgoing') return true;
     if (message.direction === 'incoming') return false;
     const self = (App.publicKey || '').toLowerCase();
@@ -1917,6 +1918,7 @@
       }
 
       if (state.activeContact && state.activeContact.toLowerCase() === peerPubkey.toLowerCase()) {
+        try { App.ensureDisappearingIntroNotice?.(peerPubkey); } catch (_) {}
         renderMessages(peerPubkey, { force: true });
       }
       renderContacts(true);
@@ -1959,6 +1961,9 @@
   }
 
   function formatDisappearingTimerLabel(seconds) {
+    if (typeof App.formatDisappearingTimerLabel === 'function') {
+      return App.formatDisappearingTimerLabel(seconds);
+    }
     const sec = Number(seconds) || 0;
     if (sec <= 0) return 'כבוי';
     if (sec <= 24 * 60 * 60) return '24 שעות';
@@ -1967,21 +1972,24 @@
     return `${Math.round(sec / 86400)} ימים`;
   }
 
-  function buildDisappearingSystemBanner(peerPubkey) {
-    const peer = (peerPubkey || '').toLowerCase();
-    const sec = typeof App.getDisappearingTimerSec === 'function'
-      ? App.getDisappearingTimerSec(peer)
-      : (App.DISAPPEARING_DEFAULT_SEC || 7 * 24 * 60 * 60);
+  function isSystemChatMessage(message) {
+    if (typeof App.isSystemChatMessage === 'function') return App.isSystemChatMessage(message);
+    return !!(message && (message.isSystem || message.direction === 'system' || message.systemKind));
+  }
+
+  function buildDisappearingSystemMessageEl(message, peerPubkey) {
+    const peer = (peerPubkey || state.activeContact || '').toLowerCase();
     const el = doc.createElement('div');
     el.className = 'chat-system-message chat-system-message--disappearing';
     el.setAttribute('role', 'status');
-    const link = '<button type="button" class="chat-system-message__link" data-disappearing-settings>לחץ כאן</button>';
-    if (sec <= 0) {
-      el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>הודעות נעלמות כבויות בצ'אט הזה. כדי להפעיל טיימר ${link}.</span>`;
-    } else {
-      const label = formatDisappearingTimerLabel(sec);
-      el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>בחרת להשתמש בטיימר ברירת מחדל להודעות נעלמות. הודעות חדשות ייעלמו מהצ'אט הזה ${label} אחרי שליחתן. כדי לשנות את הטיימר ${link}.</span>`;
-    }
+    if (message?.id) el.setAttribute('data-message-id', message.id);
+    const raw = typeof message?.content === 'string' ? message.content : '';
+    const safe = App.escapeHtml ? App.escapeHtml(raw) : raw;
+    const withLink = safe.replace(
+      /לחץ כאן\.?$/,
+      '<button type="button" class="chat-system-message__link" data-disappearing-settings>לחץ כאן</button>.'
+    );
+    el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>${withLink}</span>`;
     el.querySelector('[data-disappearing-settings]')?.addEventListener('click', (e) => {
       e.stopPropagation();
       openDisappearingSettings(peer);
@@ -2045,9 +2053,6 @@
           App.setDisappearingTimerSec?.(peer, sec);
         } catch (_) {}
         close();
-        if (state.activeContact && state.activeContact.toLowerCase() === peer) {
-          renderMessages(peer, { force: true });
-        }
         try {
           App.showToast?.(sec > 0 ? `הודעות נעלמות: ${formatDisappearingTimerLabel(sec)}` : 'הודעות נעלמות כבויות');
         } catch (_) {}
@@ -3513,6 +3518,9 @@
       return;
     }
     _lastRenderMsgTime = now;
+    try {
+      App.ensureDisappearingIntroNotice?.(peerPubkey);
+    } catch (_) {}
     const allMessages = typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : [];
 
     // שומרים בועות מדיה שכבר הומרו מהעלאה — מונע קפיצה ברינדור מלא | HYPER CORE TECH
@@ -3540,7 +3548,6 @@
 
     elements.messagesContainer.innerHTML = '';
     const fragment = doc.createDocumentFragment();
-    fragment.appendChild(buildDisappearingSystemBanner(peerPubkey));
     if (!allMessages.length) {
       const empty = doc.createElement('p');
       empty.className = 'chat-conversation__empty';
@@ -3571,6 +3578,21 @@
     messages.forEach((message) => {
       // מקבל: מסתירים מדיה/קובץ טורנט עד שיש blob מוכן — ואז מופיעים לפי createdAt | HYPER CORE TECH
       if (isIncomingTransferPending(message)) return;
+
+      if (isSystemChatMessage(message)) {
+        const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
+        const dayKey = getMessageDayKey(messageTimestamp);
+        if (dayKey && dayKey !== lastDayKey) {
+          lastDayKey = dayKey;
+          const header = doc.createElement('div');
+          header.className = 'chat-date-header';
+          header.setAttribute('data-day-key', dayKey);
+          header.textContent = formatMessageDayHeader(messageTimestamp);
+          fragment.appendChild(header);
+        }
+        fragment.appendChild(buildDisappearingSystemMessageEl(message, peerPubkey));
+        return;
+      }
 
       const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
       const dayKey = getMessageDayKey(messageTimestamp);
@@ -4294,6 +4316,26 @@
     const emptyMsg = elements.messagesContainer.querySelector('.chat-conversation__empty');
     if (emptyMsg) emptyMsg.remove();
 
+    if (isSystemChatMessage(message)) {
+      const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
+      const dayKey = getMessageDayKey(messageTimestamp);
+      const headers = elements.messagesContainer.querySelectorAll('.chat-date-header');
+      const lastHeader = headers.length ? headers[headers.length - 1] : null;
+      const lastDayKey = lastHeader?.getAttribute('data-day-key') || '';
+      if (dayKey && dayKey !== lastDayKey) {
+        const header = doc.createElement('div');
+        header.className = 'chat-date-header';
+        header.setAttribute('data-day-key', dayKey);
+        header.textContent = formatMessageDayHeader(messageTimestamp);
+        elements.messagesContainer.appendChild(header);
+      }
+      elements.messagesContainer.appendChild(
+        buildDisappearingSystemMessageEl(message, message.to || message.from || state.activeContact)
+      );
+      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+      return;
+    }
+
     const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
     const dayKey = getMessageDayKey(messageTimestamp);
     const headers = elements.messagesContainer.querySelectorAll('.chat-date-header');
@@ -4884,12 +4926,18 @@
       const { peer, message, statusUpdate, replacedTempId, removedMessageId } = payload;
       if (!peer) return;
       const normalizedPeer = peer.toLowerCase();
-      if (payload.disappearingTimerUpdated || payload.disappearingPruned) {
+      if (payload.disappearingTimerUpdated || payload.disappearingPruned || payload.disappearingSystemNotice) {
         if (normalizedPeer === (state.activeContact || '').toLowerCase()) {
-          renderMessages(state.activeContact, { force: true });
+          if (payload.disappearingSystemNotice && message && !payload.disappearingPruned) {
+            appendSingleMessage(message);
+          } else {
+            renderMessages(state.activeContact, { force: true });
+          }
         }
         renderContacts(true);
-        if (!message && !removedMessageId && !statusUpdate && !replacedTempId) return;
+        if (!removedMessageId && !statusUpdate && !replacedTempId) {
+          if (payload.disappearingSystemNotice || payload.disappearingTimerUpdated || payload.disappearingPruned) return;
+        }
       }
       const isIncoming = message?.direction === 'incoming'
         || (message?.from && typeof App.publicKey === 'string' && message.from.toLowerCase() !== App.publicKey.toLowerCase());
