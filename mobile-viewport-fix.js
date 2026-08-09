@@ -2,10 +2,16 @@
 (function initMobileViewportFix() {
   'use strict';
 
-  // עדכון משתנה --app-height לגובה החלון האמיתי
+  // עדכון משתנה --app-height לגובה החלון האמיתי (layout — לא visualViewport של מקלדת) | HYPER CORE TECH
   function setAppHeight() {
-    const vh = window.innerHeight;
-    document.documentElement.style.setProperty('--app-height', vh + 'px');
+    // כשהצ'אט פתוח לא מצמצמים --app-height לפי מקלדת (מונע קפיצת פיד) | HYPER CORE TECH
+    if (document.body && document.body.classList.contains('chat-overlay-open')) {
+      return;
+    }
+    const vh = Math.max(window.innerHeight || 0, document.documentElement?.clientHeight || 0);
+    if (vh > 0) {
+      document.documentElement.style.setProperty('--app-height', vh + 'px');
+    }
   }
 
   // הרצה ראשונית
@@ -23,10 +29,7 @@
     setTimeout(setAppHeight, 150);
   }, { passive: true });
 
-  // עדכון כשהמקלדת נפתחת/נסגרת (iOS)
-  if ('visualViewport' in window) {
-    window.visualViewport.addEventListener('resize', setAppHeight, { passive: true });
-  }
+  // לא מאזינים ל-visualViewport כאן — שינוי גובה מקלדת לא צריך לכווץ את הפיד | HYPER CORE TECH
 
   console.log('[MOBILE] Viewport fix initialized');
 })();

@@ -347,9 +347,17 @@ body.chat-overlay-open::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: #14161a;
-  z-index: 1990;
+  background: #0b141a;
+  z-index: 2950;
   pointer-events: none;
+}
+
+/* הסתרת הפיד לגמרי כשהצ'אט פתוח — גם אם יש פער ויזואלי | HYPER CORE TECH */
+body.chat-overlay-open .videos-feed,
+body.chat-overlay-open .videos-feed__viewport {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 

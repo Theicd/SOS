@@ -2941,39 +2941,41 @@
     const vv = window.visualViewport;
     const layoutH = getLayoutViewportHeight();
     const baseline = _baselineLayoutHeight || layoutH;
-    const layoutAlreadyShrunk = baseline > 0 && layoutH < baseline - 80;
+    // overlays-content: הפאנל תמיד על כל ה-layout — בלי top=offsetTop (גורם לקפיצה למעלה) | HYPER CORE TECH
     let top = 0;
-    let height = Math.max(220, layoutH);
+    let height = Math.max(220, Math.max(layoutH, baseline));
+    let keyboardInset = 0;
     let keyboardOpen = false;
 
     if (vv) {
-      // תמיד ממלאים בדיוק את ה-visualViewport — בלי קיצור יתר שיוצר פער לפיד | HYPER CORE TECH
-      top = Math.max(0, Math.round(vv.offsetTop || 0));
-      height = Math.max(220, Math.round(vv.height || layoutH));
-      const covered = top + height;
-      const measuredInset = Math.max(0, Math.round(Math.max(layoutH, baseline) - covered));
+      const vvTop = Math.max(0, vv.offsetTop || 0);
+      const vvHeight = Math.max(0, vv.height || 0);
+      const vvBottom = vvTop + vvHeight;
+      const measuredInset = Math.max(0, Math.round(height - vvBottom));
 
-      if (measuredInset > 60 || top > 1) {
+      if (measuredInset > 60) {
+        keyboardInset = measuredInset;
         keyboardOpen = true;
         if (measuredInset > 80) rememberKeyboardHeight(measuredInset);
         _keyboardExpecting = false;
-      } else if (layoutAlreadyShrunk) {
-        keyboardOpen = true;
-        _keyboardExpecting = false;
-      } else if (provisional) {
-        // vv עדיין לא התעדכן: מצמצמים פעם אחת לפי גובה מקלדת ידוע, עדיין עד תחתית משוערת | HYPER CORE TECH
-        const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(baseline * 0.38);
-        top = 0;
-        height = Math.max(220, baseline - guess);
-        keyboardOpen = true;
-      } else if (isChatComposerFocused()) {
+      } else if (provisional || isChatComposerFocused()) {
+        // vv עדיין לא עודכן — מרים את שורת הטקסט לפי גובה מקלדת ידוע, בלי לקצר את הפאנל | HYPER CORE TECH
+        keyboardInset = _lastKeyboardHeight > 120
+          ? _lastKeyboardHeight
+          : Math.round(baseline * 0.38);
         keyboardOpen = true;
       }
-    } else if (provisional && !layoutAlreadyShrunk) {
-      const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(baseline * 0.38);
-      height = Math.max(220, layoutH - guess);
+    } else if (provisional || isChatComposerFocused()) {
+      keyboardInset = _lastKeyboardHeight > 120
+        ? _lastKeyboardHeight
+        : Math.round(baseline * 0.38);
       keyboardOpen = true;
     }
+
+    // נועלים גלילת עמוד כדי שהדפדפן לא "יעלה" את המסך עם המקלדת | HYPER CORE TECH
+    try {
+      if (window.scrollY || window.scrollX) window.scrollTo(0, 0);
+    } catch (_) {}
 
     elements.panel.style.left = '0px';
     elements.panel.style.right = '0px';
@@ -2981,7 +2983,7 @@
     elements.panel.style.maxWidth = '100%';
     elements.panel.style.setProperty('--chat-panel-top', `${top}px`);
     elements.panel.style.setProperty('--chat-panel-height', `${height}px`);
-    elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
+    elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
     elements.panel.classList.toggle('chat-panel--keyboard', keyboardOpen);
 
     if (keyboardOpen && state.activeContact) {
