@@ -2483,7 +2483,9 @@ body.chat-media-modal-open {
   z-index: 1;
   width: 100%;
   max-width: 480px;
+  height: auto;
   max-height: min(78vh, 560px);
+  overflow-x: hidden;
   overflow-y: auto;
   background: #111b21;
   border-radius: 16px 16px 0 0;
@@ -2493,6 +2495,8 @@ body.chat-media-modal-open {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 0;
   box-sizing: border-box;
+  flex: 0 0 auto;
+  align-self: auto;
 }
 
 .chat-panel .chat-disappearing-sheet__header {
@@ -2577,6 +2581,42 @@ body.chat-media-modal-open {
   background: #00a884;
 }
 
+/* דסקטופ – כרטיס ממורכז קומפקטי (לא bottom-sheet) | HYPER CORE TECH */
+@media (min-width: 769px) {
+  .chat-panel .chat-disappearing-sheet {
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    box-sizing: border-box;
+  }
+
+  .chat-panel .chat-disappearing-sheet__panel {
+    width: min(380px, 100%);
+    max-width: 380px;
+    height: auto !important;
+    max-height: min(70vh, 480px);
+    overflow: visible;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+    padding: 14px 18px 10px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__hint {
+    margin-bottom: 8px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__option {
+    padding: 11px 2px;
+    font-size: 15px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__options {
+    overflow: visible;
+  }
+}
+
 @media (max-width: 768px) {
   .chat-panel .chat-system-message {
     max-width: calc(100% - 24px);
@@ -2584,9 +2624,14 @@ body.chat-media-modal-open {
     padding: 8px 12px;
   }
 
+  .chat-panel .chat-disappearing-sheet {
+    align-items: flex-end;
+  }
+
   .chat-panel .chat-disappearing-sheet__panel {
     max-width: 100%;
     border-radius: 18px 18px 0 0;
+    overflow-y: auto;
   }
 
   /* תפריט ⋮ במובייל – מיקום בפועל נקבע ב-JS (fixed ל-viewport / body) | HYPER CORE TECH */
