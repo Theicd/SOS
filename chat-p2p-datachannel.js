@@ -248,23 +248,6 @@
       // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
       if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
       if(m.type==='pong') return;
-      // מחיקת הודעה/מדיה דרך DC – תומך גם ב-p2p-send/recv ישנים | HYPER CORE TECH
-      if(m.type==='chat-delete'){
-        const ids=new Set();
-        if(m.id) ids.add(String(m.id));
-        if(Array.isArray(m.ids)) m.ids.forEach((id)=>{ if(id) ids.add(String(id)); });
-        if(m.fileId){
-          const fid=String(m.fileId);
-          ids.add(`p2p-file-${fid}`);
-          ids.add(`p2p-send-${fid}`);
-          ids.add(`p2p-recv-${fid}`);
-        }
-        ids.forEach((id)=>{
-          if(typeof App.removeChatMessage==='function') App.removeChatMessage(peer, id);
-          App.deletedChatMessageIds?.add?.(id);
-        });
-        return;
-      }
       if(m.type!=='chat-text') return;
       console.log(`[DC] 📩 P2P ← ${peer.slice(0,8)}`);
       notifyIncomingMessage(peer, m);
@@ -284,21 +267,6 @@
       console.log(`[DC] 📤 P2P → ${peer.slice(0,8)}`);
       return true;
     } catch(e){ console.warn('[DC] send:',e); return false; }
-  }
-
-  function sendDelete(peer,payload) {
-    const s=getPS(peer.toLowerCase());
-    if(!s||!s.dc||s.dc.readyState!=='open') return false;
-    try {
-      s.dc.send(JSON.stringify({
-        type:'chat-delete',
-        id: payload?.messageId || payload?.id || null,
-        fileId: payload?.fileId || null,
-        ids: Array.isArray(payload?.ids) ? payload.ids : [],
-      }));
-      console.log(`[DC] 🗑️ delete → ${peer.slice(0,8)}`);
-      return true;
-    } catch(e){ console.warn('[DC] sendDelete:',e); return false; }
   }
 
   // חלק reconnect (chat-p2p-datachannel.js) – חיבור מחדש אוטומטי | HYPER CORE TECH
@@ -367,7 +335,7 @@
     await _sendOffer(k);
   }
 
-  App.dataChannel={ connect, forceConnect, send, sendDelete, isConnected:isConn, getStatus:status, init:lazyInit, getChatPC, subscribeIncomingMessages, _peers:peers };
+  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, getChatPC, subscribeIncomingMessages, _peers:peers };
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט | HYPER CORE TECH
   function setupLazy(){

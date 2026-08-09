@@ -370,14 +370,6 @@
     if (message?.id && App.deletedChatMessageIds?.has?.(message.id)) {
       return;
     }
-    // גם אם נמחקה גרסת p2p-send/recv של אותו fileId | HYPER CORE TECH
-    const attFileId = message?.attachment?.fileId;
-    if (attFileId) {
-      const aliases = [`p2p-file-${attFileId}`, `p2p-send-${attFileId}`, `p2p-recv-${attFileId}`];
-      if (aliases.some((id) => App.deletedChatMessageIds?.has?.(id))) {
-        return;
-      }
-    }
     entry.messages.push(message);
     entry.messages.sort((a, b) => a.createdAt - b.createdAt);
     if (MAX_MESSAGES_PER_THREAD && entry.messages.length > MAX_MESSAGES_PER_THREAD) {
@@ -432,49 +424,18 @@
       key = indexEntry?.key || null;
     }
     if (!normalizedPeer || !key) {
-      // נסה לפי כינויי P2P / fileId גם בלי peer מפורש | HYPER CORE TECH
-      const aliasHit = findMessageByDeletionTarget(null, messageId);
-      if (aliasHit) {
-        normalizedPeer = aliasHit.peer;
-        key = aliasHit.key;
-      }
-    }
-    if (!normalizedPeer || !key) {
       return;
     }
     const entry = chatState.conversations.get(key);
     if (!entry || !Array.isArray(entry.messages) || !entry.messages.length) {
       return;
     }
-    const candidateIds = expandDeletionMessageIds(messageId);
-    let index = entry.messages.findIndex((item) => item?.id && candidateIds.has(String(item.id)));
-    if (index === -1) {
-      const fileId = extractP2PFileIdFromMessageId(messageId);
-      if (fileId) {
-        index = entry.messages.findIndex(
-          (item) =>
-            item?.attachment?.fileId === fileId ||
-            String(item?.id || '').includes(fileId)
-        );
-      }
-    }
+    const index = entry.messages.findIndex((item) => item.id === messageId);
     if (index === -1) {
       return;
     }
-    const removed = entry.messages[index];
-    const removedId = removed?.id || messageId;
     entry.messages.splice(index, 1);
-    chatState.messageIndex.delete(removedId);
-    candidateIds.forEach((id) => {
-      chatState.messageIndex.delete(id);
-      App.deletedChatMessageIds?.add?.(id);
-    });
-    if (removed?.attachment?.fileId) {
-      const fid = removed.attachment.fileId;
-      App.deletedChatMessageIds?.add?.(`p2p-file-${fid}`);
-      App.deletedChatMessageIds?.add?.(`p2p-send-${fid}`);
-      App.deletedChatMessageIds?.add?.(`p2p-recv-${fid}`);
-    }
+    chatState.messageIndex.delete(messageId);
     App.deletedChatMessageIds?.add?.(messageId);
     const lastMessage = entry.messages[entry.messages.length - 1];
     const attachmentPreview = lastMessage?.attachment?.name ? `📎 ${lastMessage.attachment.name}` : '';
@@ -487,48 +448,7 @@
     });
     recalculateUnreadTotal();
     persistState();
-    notify('message', { peer: normalizedPeer, removedMessageId: removedId });
-  }
-
-  function extractP2PFileIdFromMessageId(messageId) {
-    const raw = String(messageId || '');
-    const m = raw.match(/^(?:p2p-send-|p2p-recv-|p2p-file-)(.+)$/);
-    return m?.[1] || '';
-  }
-
-  function expandDeletionMessageIds(messageId) {
-    const ids = new Set();
-    const raw = String(messageId || '');
-    if (!raw) return ids;
-    ids.add(raw);
-    const fileId = extractP2PFileIdFromMessageId(raw);
-    if (fileId) {
-      ids.add(`p2p-file-${fileId}`);
-      ids.add(`p2p-send-${fileId}`);
-      ids.add(`p2p-recv-${fileId}`);
-    }
-    return ids;
-  }
-
-  function findMessageByDeletionTarget(peerPubkey, messageId) {
-    const self = (App.publicKey || '').toLowerCase();
-    const candidateIds = expandDeletionMessageIds(messageId);
-    const fileId = extractP2PFileIdFromMessageId(messageId);
-    const peers = peerPubkey
-      ? [peerPubkey.toLowerCase()]
-      : [...(chatState.contacts?.keys?.() || [])];
-    for (const peer of peers) {
-      const key = getConversationKey(peer, self);
-      const entry = key ? chatState.conversations.get(key) : null;
-      if (!entry?.messages?.length) continue;
-      const hit = entry.messages.find(
-        (item) =>
-          (item?.id && candidateIds.has(String(item.id))) ||
-          (fileId && (item?.attachment?.fileId === fileId || String(item?.id || '').includes(fileId)))
-      );
-      if (hit) return { peer, key, message: hit };
-    }
-    return null;
+    notify('message', { peer: normalizedPeer, removedMessageId: messageId });
   }
 
   function markConversationRead(peerPubkey) {

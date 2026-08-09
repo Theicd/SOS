@@ -342,21 +342,12 @@ body.chat-overlay-open {
   touch-action: manipulation;
 }
 
-/* רקע אטום כהה מתחת לצ'אט — בלי לבן | HYPER CORE TECH */
 body.chat-overlay-open::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: #0b141a;
-  z-index: 2950;
-  pointer-events: none;
-}
-
-body.chat-overlay-open .videos-feed,
-body.chat-overlay-open .videos-feed__viewport {
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 200; /* חלק צ'אט (chat.css) – שכבת כהות מאחורי חלון הצ'אט במובייל */
 }
 
 
@@ -467,46 +458,8 @@ body.chat-overlay-open .videos-feed__viewport {
   grid-template-columns: 1fr;
 }
 
-/* במובייל: רשימת שיחות נשארת מאחורי מסך השיחה (לא display:none) | HYPER CORE TECH */
-@media (max-width: 768px) {
-  .chat-panel--conversation .chat-panel__body {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .chat-panel--conversation .chat-contacts {
-    display: flex !important;
-    flex-direction: column;
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
-    background: #14161a;
-    pointer-events: none;
-  }
-
-  .chat-panel--conversation .chat-conversation {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    min-height: 0;
-    background: #0b141a;
-  }
-}
-
-@media (min-width: 769px) {
-  .chat-panel--conversation .chat-contacts {
-    display: none;
-  }
+.chat-panel--conversation .chat-contacts {
+  display: none;
 }
 
 .chat-panel--notifications .chat-panel__body {

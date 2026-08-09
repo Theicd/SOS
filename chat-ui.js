@@ -2863,16 +2863,11 @@
   let _viewportRaf = 0;
   let _keyboardExpecting = false;
   let _keyboardSyncRaf = 0;
-  let _suppressOutsideCloseUntil = 0;
   let _lastKeyboardHeight = 0;
   try {
     _lastKeyboardHeight = Math.max(0, parseInt(sessionStorage.getItem('sosChatKeyboardHeight') || '0', 10) || 0);
   } catch (_) {
     _lastKeyboardHeight = 0;
-  }
-
-  function armChatOutsideCloseSuppress(ms = 1400) {
-    _suppressOutsideCloseUntil = Math.max(_suppressOutsideCloseUntil, Date.now() + ms);
   }
 
   function rememberKeyboardHeight(px) {
@@ -2924,7 +2919,6 @@
       elements.panel.style.removeProperty('--chat-panel-top');
       elements.panel.style.removeProperty('--chat-panel-height');
       elements.panel.classList.remove('chat-panel--keyboard');
-      elements.panel.classList.remove('chat-panel--keyboard-pinned');
       _keyboardExpecting = false;
       return;
     }
@@ -2935,42 +2929,27 @@
     let top = 0;
     let height = Math.max(220, layoutH);
     let keyboardOpen = false;
-    let keyboardInset = 0;
-    let pinnedToVisual = false;
 
     if (vv) {
-      const vvTop = Math.max(0, Math.round(vv.offsetTop || 0));
-      const vvHeight = Math.max(220, Math.round(vv.height || layoutH));
-      const measuredInset = Math.max(0, Math.round(layoutH - vvHeight - vvTop));
-      if (measuredInset > 80 || vvTop > 1) {
-        // מקלדת אמיתית: מצמידים ל-visualViewport | HYPER CORE TECH
-        rememberKeyboardHeight(measuredInset > 80 ? measuredInset : Math.max(0, layoutH - vvHeight));
+      top = Math.max(0, Math.round(vv.offsetTop || 0));
+      height = Math.max(220, Math.round(vv.height || layoutH));
+      const measuredInset = Math.max(0, Math.round(layoutH - height - top));
+      if (measuredInset > 80) {
+        rememberKeyboardHeight(measuredInset);
         _keyboardExpecting = false;
-        top = vvTop;
-        height = vvHeight;
         keyboardOpen = true;
-        keyboardInset = 0;
-        pinnedToVisual = true;
       } else if (provisional) {
-        // הרמה מיידית בלי לצמצם את כיסוי המסך — מונע קליק שנופל לפיד וסוגר צ'אט | HYPER CORE TECH
+        // מיד עם הפוקוס: מצמצמים לפי גובה מקלדת אחרון / הערכה — בלי לחכות ל-vv | HYPER CORE TECH
         const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
         top = 0;
-        height = layoutH;
-        keyboardInset = guess;
+        height = Math.max(220, layoutH - guess);
         keyboardOpen = true;
-        pinnedToVisual = false;
       } else {
-        top = 0;
-        height = layoutH;
-        keyboardOpen = false;
-        keyboardInset = 0;
-        pinnedToVisual = false;
+        keyboardOpen = top > 1 || measuredInset > 80;
       }
     } else if (provisional) {
       const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
-      top = 0;
-      height = layoutH;
-      keyboardInset = guess;
+      height = Math.max(220, layoutH - guess);
       keyboardOpen = true;
     }
 
@@ -2980,9 +2959,8 @@
     elements.panel.style.maxWidth = '100%';
     elements.panel.style.setProperty('--chat-panel-top', `${top}px`);
     elements.panel.style.setProperty('--chat-panel-height', `${height}px`);
-    elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
+    elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
     elements.panel.classList.toggle('chat-panel--keyboard', keyboardOpen);
-    elements.panel.classList.toggle('chat-panel--keyboard-pinned', pinnedToVisual);
 
     if (keyboardOpen && state.activeContact) {
       scrollChatMessagesToEnd();
@@ -2999,7 +2977,6 @@
 
   function beginKeyboardOpen() {
     if (window.innerWidth > 768 || !state.isOpen) return;
-    armChatOutsideCloseSuppress(1600);
     _keyboardExpecting = true;
     positionPanel({ provisional: true });
     scrollChatMessagesToEnd();
@@ -3013,6 +2990,7 @@
       }
       positionPanel({ provisional: _keyboardExpecting });
       frames += 1;
+      // ~0.75s של סנכרון בזמן אנימציית מקלדת | HYPER CORE TECH
       if (_keyboardExpecting || frames < 20) {
         if (frames < 50) {
           _keyboardSyncRaf = requestAnimationFrame(tick);
@@ -3035,10 +3013,6 @@
     const targetState = typeof forceOpen === 'boolean' ? forceOpen : !state.isOpen;
     // מונע סגירה בטעות בזמן הורדת קובץ (a.click סינתטי) | HYPER CORE TECH
     if (targetState === false && App.__sosSuppressChatOutsideClose) {
-      return;
-    }
-    // מונע סגירה בטעות בזמן פתיחת מקלדת (קליק נופל מחוץ לפאנל) | HYPER CORE TECH
-    if (targetState === false && Date.now() < _suppressOutsideCloseUntil) {
       return;
     }
     state.isOpen = targetState;
@@ -3072,12 +3046,10 @@
       }
       elements.panel.setAttribute('hidden', '');
       elements.panel.classList.remove('chat-panel--keyboard');
-      elements.panel.classList.remove('chat-panel--keyboard-pinned');
       elements.panel.style.removeProperty('--chat-panel-top');
       elements.panel.style.removeProperty('--chat-panel-height');
       elements.panel.style.removeProperty('--chat-keyboard-inset');
       _keyboardExpecting = false;
-      _suppressOutsideCloseUntil = 0;
       if (_keyboardSyncRaf) {
         cancelAnimationFrame(_keyboardSyncRaf);
         _keyboardSyncRaf = 0;
@@ -4701,8 +4673,6 @@
       if (!state.isOpen) return;
       // הורדה יוצרת a.click() סינתטי מחוץ לפאנל – לא לסגור את הצ'אט | HYPER CORE TECH
       if (App.__sosSuppressChatOutsideClose) return;
-      // פתיחת מקלדת עלולה לייצר קליק מחוץ לפאנל – לא לסגור | HYPER CORE TECH
-      if (Date.now() < _suppressOutsideCloseUntil || _keyboardExpecting) return;
       // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
       const voiceCallDialog = doc.getElementById('voiceCallDialog');
       const videoCallDialog = doc.getElementById('videoCallDialog');
@@ -4880,20 +4850,7 @@
 
       // חלק מניעת כפילות (chat-ui.js) – עדכון/החלפת temp בלי append נוסף | HYPER CORE TECH
       if (removedMessageId && elements.messagesContainer) {
-        const ids = new Set([String(removedMessageId)]);
-        const m = String(removedMessageId).match(/^(?:p2p-send-|p2p-recv-|p2p-file-)(.+)$/);
-        if (m?.[1]) {
-          const fid = m[1];
-          ids.add(`p2p-file-${fid}`);
-          ids.add(`p2p-send-${fid}`);
-          ids.add(`p2p-recv-${fid}`);
-          elements.messagesContainer
-            .querySelectorAll(`[data-p2p-file-id="${fid}"]`)
-            .forEach((el) => el.remove());
-        }
-        ids.forEach((id) => {
-          elements.messagesContainer.querySelector(`[data-message-id="${id}"]`)?.remove();
-        });
+        elements.messagesContainer.querySelector(`[data-message-id="${removedMessageId}"]`)?.remove();
       }
       if (replacedTempId && message?.id) {
         const realEl = elements.messagesContainer?.querySelector(`[data-message-id="${message.id}"]`);
