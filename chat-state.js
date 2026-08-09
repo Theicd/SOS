@@ -54,10 +54,15 @@
 
   function formatDisappearingTimerLabel(seconds) {
     const sec = normalizeDisappearingTimerSec(seconds);
-    if (sec <= 24 * 60 * 60) return '24 שעות';
-    if (sec <= 7 * 24 * 60 * 60) return '7 ימים';
-    if (sec <= 90 * 24 * 60 * 60) return '90 ימים';
-    return `${Math.round(sec / 86400)} ימים`;
+    const day = 24 * 60 * 60;
+    if (sec <= day) return '24 שעות';
+    if (sec <= 3 * day) return '72 שעות';
+    if (sec <= 7 * day) return '7 ימים';
+    if (sec <= 14 * day) return '14 יום';
+    if (sec <= 30 * day) return '30 יום';
+    if (sec <= 60 * day) return '60 יום';
+    if (sec <= 90 * day) return '90 ימים';
+    return `${Math.round(sec / day)} ימים`;
   }
 
   function isSystemChatMessage(message) {

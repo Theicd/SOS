@@ -1965,10 +1965,15 @@
       return App.formatDisappearingTimerLabel(seconds);
     }
     const sec = Number(seconds) || 0;
-    if (sec <= 24 * 60 * 60) return '24 שעות';
-    if (sec <= 7 * 24 * 60 * 60) return '7 ימים';
-    if (sec <= 90 * 24 * 60 * 60) return '90 ימים';
-    return `${Math.round(sec / 86400)} ימים`;
+    const day = 24 * 60 * 60;
+    if (sec <= day) return '24 שעות';
+    if (sec <= 3 * day) return '72 שעות';
+    if (sec <= 7 * day) return '7 ימים';
+    if (sec <= 14 * day) return '14 יום';
+    if (sec <= 30 * day) return '30 יום';
+    if (sec <= 60 * day) return '60 יום';
+    if (sec <= 90 * day) return '90 ימים';
+    return `${Math.round(sec / day)} ימים`;
   }
 
   function isSystemChatMessage(message) {
@@ -2009,10 +2014,15 @@
     const current = typeof App.getDisappearingTimerSec === 'function'
       ? App.getDisappearingTimerSec(peer)
       : (App.DISAPPEARING_DEFAULT_SEC || 7 * 24 * 60 * 60);
+    const day = 24 * 60 * 60;
     const options = [
-      { value: 24 * 60 * 60, label: '24 שעות' },
-      { value: 7 * 24 * 60 * 60, label: '7 ימים' },
-      { value: 90 * 24 * 60 * 60, label: '90 ימים' },
+      { value: day, label: '24 שעות' },
+      { value: 3 * day, label: '72 שעות' },
+      { value: 7 * day, label: '7 ימים' },
+      { value: 14 * day, label: '14 יום' },
+      { value: 30 * day, label: '30 יום' },
+      { value: 60 * day, label: '60 יום' },
+      { value: 90 * day, label: '90 ימים' },
     ];
     const sheet = doc.createElement('div');
     sheet.id = 'chatDisappearingSheet';
@@ -2023,10 +2033,10 @@
       <div class="chat-disappearing-sheet__panel" role="document" aria-labelledby="chatDisappearingTitle">
         <div class="chat-disappearing-sheet__header">
           <button type="button" class="chat-disappearing-sheet__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
-          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">ניקוי אוטומטי</h3>
+          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">טיימר ניקוי שיחה</h3>
         </div>
-        <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ׳אט לפני שיימחקו אוטומטית. המקסימום הוא 90 ימים.</p>
-        <div class="chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר ניקוי אוטומטי">
+        <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ׳אט לפני שיימחקו אוטומטית.</p>
+        <div class="chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר ניקוי שיחה">
           ${options.map((opt) => {
             const isOn = current === opt.value;
             return `<label class="chat-disappearing-sheet__option${isOn ? ' is-selected' : ''}">
