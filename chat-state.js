@@ -67,9 +67,49 @@
   function buildDisappearingNoticeContent(sec, kind = 'intro') {
     const label = formatDisappearingTimerLabel(sec);
     if (kind === 'change') {
-      return `ניקוי אוטומטי עודכן. הודעות חדשות יימחקו מהצ׳אט הזה אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
+      return `ניקוי אוטומטי של הודעות השיחה עודכן. הודעות חדשות יימחקו מהצ׳אט אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
     }
-    return `ניקוי אוטומטי מופעל. הודעות חדשות יימחקו מהצ׳אט הזה אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
+    return `ניקוי אוטומטי של הודעות השיחה מופעל. הודעות חדשות יימחקו מהצ׳אט אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
+  }
+
+  function isOutdatedDisappearingNoticeContent(content) {
+    const text = String(content || '');
+    return (
+      text.includes('הודעות נעלמות')
+      || text.includes('בחרת להשתמש')
+      || text.includes('ייעלמו מהצ')
+      || text.includes('כיבית הודעות')
+    );
+  }
+
+  function refreshDisappearingSystemNotices() {
+    let changed = 0;
+    chatState.conversations.forEach((entry) => {
+      if (!entry?.peer || !Array.isArray(entry.messages)) return;
+      entry.messages.forEach((message) => {
+        const isDisappearNotice =
+          message?.systemKind === 'disappearing-intro'
+          || message?.systemKind === 'disappearing-change'
+          || isOutdatedDisappearingNoticeContent(message?.content);
+        if (!isDisappearNotice) return;
+        const kind = message.systemKind === 'disappearing-change' ? 'change' : 'intro';
+        const sec = normalizeDisappearingTimerSec(
+          message.disappearingTimerSec || getDisappearingTimerSec(entry.peer)
+        );
+        const next = buildDisappearingNoticeContent(sec, kind);
+        if (message.content === next && message.isSystem && message.direction === 'system') return;
+        message.content = next;
+        message.disappearingTimerSec = sec;
+        message.isSystem = true;
+        message.direction = 'system';
+        if (!message.systemKind) {
+          message.systemKind = kind === 'change' ? 'disappearing-change' : 'disappearing-intro';
+        }
+        changed += 1;
+      });
+    });
+    if (changed > 0) persistState();
+    return changed;
   }
 
   function ensureConversationEntry(peerPubkey) {
@@ -137,6 +177,7 @@
   }
 
   function ensureDisappearingIntroNotice(peerPubkey) {
+    try { refreshDisappearingSystemNotices(); } catch (_) {}
     const bucket = ensureConversationEntry(peerPubkey);
     if (!bucket) return null;
     const { entry, peer } = bucket;
@@ -891,6 +932,8 @@
     prunePeerDisappearingMessages,
     ensureDisappearingIntroNotice,
     appendDisappearingSystemNotice,
+    refreshDisappearingSystemNotices,
+    buildDisappearingNoticeContent,
     isSystemChatMessage,
     formatDisappearingTimerLabel,
     updateChatMessageStatus: updateMessageStatus,
@@ -905,6 +948,7 @@
 
   async function doRestoreAndSignal() {
     await restoreState();
+    try { refreshDisappearingSystemNotices(); } catch (_) {}
     try { pruneExpiredChatHistory(); } catch (_) {}
     if (_restoreStateResolve) {
       _restoreStateResolve();

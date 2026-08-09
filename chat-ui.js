@@ -1982,7 +1982,12 @@
     el.className = 'chat-system-message chat-system-message--disappearing';
     el.setAttribute('role', 'status');
     if (message?.id) el.setAttribute('data-message-id', message.id);
-    const raw = typeof message?.content === 'string' ? message.content : '';
+    const kind = message?.systemKind === 'disappearing-change' ? 'change' : 'intro';
+    const sec = Number(message?.disappearingTimerSec)
+      || (typeof App.getDisappearingTimerSec === 'function' ? App.getDisappearingTimerSec(peer) : 7 * 24 * 60 * 60);
+    const raw = typeof App.buildDisappearingNoticeContent === 'function'
+      ? App.buildDisappearingNoticeContent(sec, kind)
+      : (typeof message?.content === 'string' ? message.content : '');
     const safe = App.escapeHtml ? App.escapeHtml(raw) : raw;
     const withLink = safe.replace(
       /לחץ כאן\.?$/,
@@ -3517,6 +3522,7 @@
     }
     _lastRenderMsgTime = now;
     try {
+      App.refreshDisappearingSystemNotices?.();
       App.ensureDisappearingIntroNotice?.(peerPubkey);
     } catch (_) {}
     const allMessages = typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : [];
