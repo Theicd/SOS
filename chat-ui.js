@@ -4681,10 +4681,6 @@
         const action = item.getAttribute('data-action');
         if (action === 'clear-chat') {
           if (state.activeContact) showClearChatConfirmDialog(state.activeContact);
-          return;
-        }
-        if (action === 'back') {
-          resetConversationView();
         }
       });
       doc.addEventListener('click', (e) => {

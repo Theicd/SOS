@@ -628,6 +628,7 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   flex-shrink: 0;
   gap: 2px;
   margin-inline-start: auto;
+  z-index: 30;
 }
 
 .chat-panel .chat-conversation__actions {
@@ -1119,11 +1120,20 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 }
 
 /* תפריט ⋮ בכותרת שיחה | HYPER CORE TECH */
+.chat-conversation__header {
+  overflow: visible;
+  z-index: 40;
+}
+
 .chat-conversation__menu {
   position: absolute;
   top: calc(100% + 6px);
-  inset-inline-start: 0;
-  z-index: 40;
+  /* יישור לשמאל של בלוק הפעולות (כפתור ⋮) – בלי בריחה מחוץ למסך ב-RTL | HYPER CORE TECH */
+  left: 0;
+  right: auto;
+  inset-inline-start: auto;
+  inset-inline-end: auto;
+  z-index: 50;
   min-width: 180px;
   padding: 6px 0;
   border-radius: 10px;
@@ -1298,6 +1308,15 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   
   .chat-conversation > * {
     position: relative;
+    z-index: 1;
+  }
+
+  .chat-conversation > .chat-conversation__header {
+    z-index: 40;
+    overflow: visible;
+  }
+
+  .chat-conversation > .chat-conversation__messages {
     z-index: 1;
   }
 
