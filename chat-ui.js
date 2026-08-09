@@ -2859,8 +2859,26 @@
     }
   }
 
-  // חלק צ'אט (chat-ui.js) – מיקום הפאנל - בדסקטופ נשלט על ידי CSS בלבד | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – מיקום הפאנל לפי visualViewport (מקלדת בלי להעלים הדר) | HYPER CORE TECH
   let _viewportRaf = 0;
+  function scrollChatMessagesToEnd() {
+    const scroller = getChatMessagesScroller();
+    if (!scroller) return;
+    try {
+      scroller.scrollTop = scroller.scrollHeight;
+    } catch (_) {}
+  }
+
+  function focusChatMessageInput() {
+    const input = elements.messageInput;
+    if (!input || typeof input.focus !== 'function') return;
+    try {
+      input.focus({ preventScroll: true });
+    } catch (_) {
+      try { input.focus(); } catch (__) {}
+    }
+  }
+
   function positionPanel() {
     if (!elements.panel) {
       return;
@@ -2877,23 +2895,32 @@
       elements.panel.style.height = '';
       elements.panel.style.maxHeight = '';
       elements.panel.style.removeProperty('--chat-keyboard-inset');
+      elements.panel.style.removeProperty('--chat-panel-top');
+      elements.panel.style.removeProperty('--chat-panel-height');
+      elements.panel.classList.remove('chat-panel--keyboard');
       return;
     }
-    // במובייל – פאנל full-screen קבוע; המקלדת מזיזה רק padding דרך CSS var (בלי thrashing של height/top) | HYPER CORE TECH
+    // במובייל – מצמידים את הפאנל ל-visualViewport כדי שההדר לא ייעלם כשהמקלדת נפתחת | HYPER CORE TECH
+    const vv = window.visualViewport;
+    const top = vv ? Math.max(0, Math.round(vv.offsetTop || 0)) : 0;
+    const height = vv
+      ? Math.max(220, Math.round(vv.height || window.innerHeight || 0))
+      : Math.max(220, Math.round(window.innerHeight || 0));
+    const keyboardOpen = !!(vv && (top > 1 || (window.innerHeight - vv.height) > 80));
+
     elements.panel.style.left = '0px';
     elements.panel.style.right = '0px';
-    elements.panel.style.top = '0px';
-    elements.panel.style.bottom = '0px';
     elements.panel.style.width = '100%';
     elements.panel.style.maxWidth = '100%';
-    elements.panel.style.height = '100%';
-    elements.panel.style.maxHeight = '100%';
-    const vv = window.visualViewport;
-    if (vv) {
-      const keyboardInset = Math.max(0, Math.round(window.innerHeight - vv.height - (vv.offsetTop || 0)));
-      elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
-    } else {
-      elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
+    // משתני CSS עוקפים את ה-!important ב-videos.css | HYPER CORE TECH
+    elements.panel.style.setProperty('--chat-panel-top', `${top}px`);
+    elements.panel.style.setProperty('--chat-panel-height', `${height}px`);
+    // הגובה כבר לפי vv — בלי padding כפול של מקלדת | HYPER CORE TECH
+    elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
+    elements.panel.classList.toggle('chat-panel--keyboard', keyboardOpen);
+
+    if (keyboardOpen && state.activeContact) {
+      scrollChatMessagesToEnd();
     }
   }
 
@@ -2941,6 +2968,10 @@
         renderContacts(true);
       }
       elements.panel.setAttribute('hidden', '');
+      elements.panel.classList.remove('chat-panel--keyboard');
+      elements.panel.style.removeProperty('--chat-panel-top');
+      elements.panel.style.removeProperty('--chat-panel-height');
+      elements.panel.style.removeProperty('--chat-keyboard-inset');
       elements.navButton?.setAttribute('aria-pressed', 'false');
       elements.launcherButton?.setAttribute('aria-expanded', 'false');
       resetConversationView();
@@ -4441,7 +4472,7 @@
     elements.messageInput.style.height = '';
     elements.messageInput.disabled = false;
     // חלק שמירת מקלדת (chat-ui.js) – שמירה על פוקוס ב-input אחרי שליחה כדי שהמקלדת תישאר פתוחה במובייל | HYPER CORE TECH
-    elements.messageInput.focus();
+    focusChatMessageInput();
     
     // 2. הודעה זמנית ב-state (מפעיל UI פעם אחת דרך subscribe) | HYPER CORE TECH
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -4618,6 +4649,23 @@
     }
     if (elements.composer) {
       elements.composer.addEventListener('submit', handleSendMessage);
+    }
+    // מקלדת מובייל – בלי גלילת דף; מסנכרנים את הפאנל ל-visualViewport | HYPER CORE TECH
+    if (elements.messageInput) {
+      elements.messageInput.addEventListener('focus', () => {
+        schedulePositionPanel();
+        requestAnimationFrame(() => {
+          schedulePositionPanel();
+          scrollChatMessagesToEnd();
+        });
+        setTimeout(() => {
+          schedulePositionPanel();
+          scrollChatMessagesToEnd();
+        }, 120);
+      });
+      elements.messageInput.addEventListener('blur', () => {
+        setTimeout(() => schedulePositionPanel(), 80);
+      });
     }
     if (elements.messagesContainer) {
       elements.messagesContainer.addEventListener('click', handleMessageActions);

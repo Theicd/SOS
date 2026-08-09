@@ -338,6 +338,8 @@
 
 body.chat-overlay-open {
   overflow: hidden; /* חלק צ'אט (chat.css) – מונע גלילת רקע כאשר חלון הצ'אט מכסה את המסך */
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 body.chat-overlay-open::before {
@@ -1251,9 +1253,9 @@ body.chat-overlay-open::before {
 
   .chat-composer {
     padding: 8px 10px;
-    /* חלק מקלדת מובייל (chat.css) – שמירה על מיקום ה-composer כשהמקלדת פתוחה | HYPER CORE TECH */
-    position: sticky;
-    bottom: 0;
+    /* חלק מקלדת מובייל (chat.css) – קומפוזר בתחתית הפאנל (גובה vv) | HYPER CORE TECH */
+    position: relative;
+    bottom: auto;
     flex-shrink: 0;
   }
 
@@ -1298,12 +1300,12 @@ body.chat-overlay-open::before {
     height: 40px;
   }
 
-  /* חלק מקלדת מובייל (chat.css) – הבטחת flexbox נכון לשיחה במובייל | HYPER CORE TECH */
   .chat-conversation {
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    overflow: hidden;
   }
 
   .chat-conversation__messages {
