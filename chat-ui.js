@@ -1839,6 +1839,125 @@
     showDeleteConfirmDialog(messageId, state.activeContact);
   }
 
+  function isOutgoingChatMessage(message) {
+    if (!message) return false;
+    if (message.direction === 'outgoing') return true;
+    if (message.direction === 'incoming') return false;
+    const self = (App.publicKey || '').toLowerCase();
+    return !!(message.from && self && String(message.from).toLowerCase() === self);
+  }
+
+  function setConversationClearBusy(busy) {
+    const header = elements.conversationHeader;
+    if (!header) return;
+    header.classList.toggle('is-clearing-chat', !!busy);
+    let spin = header.querySelector('.chat-conversation__clear-spinner');
+    if (busy) {
+      if (!spin) {
+        spin = doc.createElement('span');
+        spin.className = 'chat-conversation__clear-spinner';
+        spin.setAttribute('aria-label', 'מנקה שיחה');
+        spin.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>';
+        const identity = header.querySelector('.chat-conversation__identity');
+        const meta = identity?.querySelector('.chat-conversation__meta');
+        if (meta) meta.insertAdjacentElement('afterend', spin);
+        else if (identity) identity.appendChild(spin);
+        else header.appendChild(spin);
+      }
+    } else if (spin) {
+      spin.remove();
+    }
+    const menuBtn = doc.getElementById('chatConversationMenuBtn');
+    if (menuBtn) menuBtn.disabled = !!busy;
+  }
+
+  function waitMs(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  let clearChatInProgress = false;
+
+  async function clearActiveConversationChat() {
+    const peerPubkey = state.activeContact;
+    if (!peerPubkey || clearChatInProgress) return;
+    clearChatInProgress = true;
+    setConversationClearBusy(true);
+    try {
+      const messages = (typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : []) || [];
+      const snapshot = Array.isArray(messages) ? messages.slice() : [];
+      const outgoing = [];
+      const incoming = [];
+      snapshot.forEach((message) => {
+        if (!message?.id) return;
+        if (isOutgoingChatMessage(message)) outgoing.push(message);
+        else incoming.push(message);
+      });
+
+      // הודעות נכנסות – מחיקה מקומית בלבד (בלי קריאה לריליי) | HYPER CORE TECH
+      incoming.forEach((message) => {
+        try { App.removeChatMessage?.(peerPubkey, message.id); } catch (_) {}
+      });
+
+      // הודעות יוצאות – kind 5 אחת־אחת בקצב יציב (כולל מדיה P2P) | HYPER CORE TECH
+      for (let i = 0; i < outgoing.length; i += 1) {
+        const message = outgoing[i];
+        try {
+          if (typeof App.deleteChatMessage === 'function') {
+            await App.deleteChatMessage(peerPubkey, message.id);
+          } else {
+            App.removeChatMessage?.(peerPubkey, message.id);
+          }
+        } catch (err) {
+          console.warn('[CHAT/UI] clear-chat outgoing delete failed', message.id, err);
+          try { App.removeChatMessage?.(peerPubkey, message.id); } catch (_) {}
+        }
+        if (i < outgoing.length - 1) {
+          await waitMs(450);
+        }
+      }
+
+      if (state.activeContact && state.activeContact.toLowerCase() === peerPubkey.toLowerCase()) {
+        renderMessages(peerPubkey, { force: true });
+      }
+      renderContacts(true);
+    } finally {
+      clearChatInProgress = false;
+      setConversationClearBusy(false);
+    }
+  }
+
+  function showClearChatConfirmDialog(peerPubkey) {
+    if (!peerPubkey || clearChatInProgress) return;
+    const existing = doc.getElementById('chatClearDialog');
+    if (existing) existing.remove();
+    const dialog = doc.createElement('div');
+    dialog.id = 'chatClearDialog';
+    dialog.className = 'chat-dialog';
+    dialog.innerHTML = `
+      <div class="chat-dialog__backdrop"></div>
+      <div class="chat-dialog__content" role="dialog" aria-modal="true">
+        <h3 class="chat-dialog__title">ניקוי הצ'ט</h3>
+        <p class="chat-dialog__message">לנקות את כל ההודעות בשיחה? הודעות יוצאות יימחקו גם אצל הצד השני. הודעות נכנסות יימחקו רק מהמכשיר שלך.</p>
+        <div class="chat-dialog__actions">
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--cancel">ביטול</button>
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--confirm">נקה צ'ט</button>
+        </div>
+      </div>
+    `;
+    elements.panel.appendChild(dialog);
+    const backdrop = dialog.querySelector('.chat-dialog__backdrop');
+    const cancel = dialog.querySelector('.chat-dialog__btn--cancel');
+    const confirm = dialog.querySelector('.chat-dialog__btn--confirm');
+    const close = () => dialog.remove();
+    backdrop?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    cancel?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    confirm?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+      clearActiveConversationChat();
+    });
+  }
+
   function showDeleteConfirmDialog(messageId, peerPubkey) {
     const existing = doc.getElementById('chatDeleteDialog');
     if (existing) existing.remove();
@@ -2053,10 +2172,14 @@
     }
     
     try {
-      // איפוס חותמת הזמן של הסנכרון האחרון כדי לטעון מההתחלה
+      // איפוס סנכרון לרצפת 90 יום (לא 0) – מונע משיכת היסטוריה ישנה מהריליי | HYPER CORE TECH
       if (typeof App.setChatLastSyncTs === 'function') {
-        App.setChatLastSyncTs(0);
+        const floor = typeof App.getChatRetentionCutoffTs === 'function'
+          ? App.getChatRetentionCutoffTs()
+          : Math.floor(Date.now() / 1000) - (90 * 24 * 60 * 60);
+        App.setChatLastSyncTs(floor);
       }
+      try { App.pruneExpiredChatHistory?.(); } catch (_) {}
       
       // קריאה לפונקציית הסנכרון מחדש
       if (typeof App.syncChatHistory === 'function') {
@@ -4555,7 +4678,12 @@
         if (!item) return;
         e.preventDefault();
         closeHeaderMenu();
-        if (item.getAttribute('data-action') === 'back') {
+        const action = item.getAttribute('data-action');
+        if (action === 'clear-chat') {
+          if (state.activeContact) showClearChatConfirmDialog(state.activeContact);
+          return;
+        }
+        if (action === 'back') {
           resetConversationView();
         }
       });

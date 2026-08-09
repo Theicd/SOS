@@ -18,6 +18,43 @@
   };
 
   const MAX_MESSAGES_PER_THREAD = 500; // חלק צ'אט (chat-state.js) – מגביל היסטוריה בזיכרון/שמירה לביצועים | HYPER CORE TECH
+  const CHAT_RETENTION_SECONDS = 90 * 24 * 60 * 60; // חלק צ'אט (chat-state.js) – שמירת היסטוריה מקסימום 90 יום | HYPER CORE TECH
+
+  function getChatRetentionCutoffTs(nowSec = Math.floor(Date.now() / 1000)) {
+    return nowSec - CHAT_RETENTION_SECONDS;
+  }
+
+  function getMessageCreatedAt(message) {
+    const ts = Number(message?.createdAt || message?.created_at || 0);
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
+  function pruneConversationEntry(entry, cutoffTs = getChatRetentionCutoffTs()) {
+    if (!entry || !Array.isArray(entry.messages) || !entry.messages.length) return 0;
+    const before = entry.messages.length;
+    entry.messages = entry.messages.filter((message) => {
+      const ts = getMessageCreatedAt(message);
+      if (ts && ts < cutoffTs) {
+        if (message?.id) chatState.messageIndex.delete(message.id);
+        return false;
+      }
+      return true;
+    });
+    return before - entry.messages.length;
+  }
+
+  function pruneExpiredChatHistory() {
+    const cutoffTs = getChatRetentionCutoffTs();
+    let removed = 0;
+    chatState.conversations.forEach((entry) => {
+      removed += pruneConversationEntry(entry, cutoffTs);
+    });
+    if (removed > 0) {
+      persistState();
+      console.log('[CHAT/STATE] Pruned expired messages (>90d):', removed);
+    }
+    return removed;
+  }
   
   // חלק IndexedDB (chat-state.js) – אחסון ללא הגבלה עם IndexedDB | HYPER CORE TECH
   const DB_NAME = 'NostrChatDB';
@@ -221,11 +258,12 @@
           if (!entry || !entry.key || !entry.peer) {
             return;
           }
-          const messages = Array.isArray(entry.messages)
-            ? MAX_MESSAGES_PER_THREAD
-              ? entry.messages.slice(-MAX_MESSAGES_PER_THREAD)
-              : entry.messages
-            : [];
+          const cutoffTs = getChatRetentionCutoffTs();
+          const filtered = (Array.isArray(entry.messages) ? entry.messages : []).filter((message) => {
+            const ts = getMessageCreatedAt(message);
+            return !ts || ts >= cutoffTs;
+          });
+          const messages = MAX_MESSAGES_PER_THREAD ? filtered.slice(-MAX_MESSAGES_PER_THREAD) : filtered;
           chatState.conversations.set(entry.key, {
             peer: entry.peer.toLowerCase(),
             messages,
@@ -368,6 +406,11 @@
       return;
     }
     if (isChatMessageMarkedDeleted(message)) {
+      return;
+    }
+    // חלק שמירה 90 יום (chat-state.js) – לא מקבלים הודעות ישנות מהרשת/שיחזור | HYPER CORE TECH
+    const createdAtTs = getMessageCreatedAt(message) || createdAt || 0;
+    if (createdAtTs && createdAtTs < getChatRetentionCutoffTs()) {
       return;
     }
     entry.messages.push(message);
@@ -670,6 +713,9 @@
     chatStorageKey: getStorageKey,
     setChatLastSyncTs: setLastSyncTs,
     getChatLastSyncTs: getLastSyncTs,
+    getChatRetentionCutoffTs,
+    pruneExpiredChatHistory,
+    CHAT_RETENTION_SECONDS,
     updateChatMessageStatus: updateMessageStatus,
     replaceOutgoingTempMessage,
   });
@@ -682,6 +728,7 @@
 
   async function doRestoreAndSignal() {
     await restoreState();
+    try { pruneExpiredChatHistory(); } catch (_) {}
     if (_restoreStateResolve) {
       _restoreStateResolve();
       _restoreStateResolve = null;

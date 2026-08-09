@@ -1152,6 +1152,30 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.chat-conversation__menu-item--danger {
+  color: #ea4335;
+}
+
+.chat-conversation__menu-item--danger:hover {
+  background: rgba(234, 67, 53, 0.12);
+}
+
+.chat-conversation__clear-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+  margin-inline-start: 4px;
+  color: #8696a0;
+  font-size: 0.9rem;
+}
+
+.chat-conversation__header.is-clearing-chat .chat-conversation__icon--menu {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 /* חלק סטטוס רשימת אנשי קשר (chat-whatsapp-theme.css) – ווים זהים לשיחה | HYPER CORE TECH */
 .chat-contact__status {
   display: inline-flex;
