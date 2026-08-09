@@ -4974,8 +4974,27 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
+    /* בשיחה פתוחה: בלי מרווח עליון — ההדר צמוד לראש (safe-area בתוך ההדר) | HYPER CORE TECH */
+    padding-top: 0 !important;
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
     z-index: 2005 !important; /* וידוא שנשאר עליון */
+  }
+
+  /* כותרת שיחה צמודה למעלה + גובה קומפקטי יותר | HYPER CORE TECH */
+  .chat-panel--conversation .chat-conversation__header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    min-height: calc(52px + env(safe-area-inset-top, 0px));
+    height: auto;
+    padding: 4px 8px;
+    padding-top: max(4px, env(safe-area-inset-top, 0px));
+    box-sizing: border-box;
+  }
+
+  .chat-panel--conversation .chat-conversation__avatar {
+    width: 46px !important;
+    height: 46px !important;
   }
 
   /* הסתרת התפריט התחתון של הצ'אט כדי למנוע כפילות עם התפריט הראשי */

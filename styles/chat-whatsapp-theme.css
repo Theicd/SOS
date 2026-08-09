@@ -573,9 +573,9 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px;
-  min-height: 59px;
-  height: 59px;
+  padding: 4px 8px;
+  min-height: 52px;
+  height: auto;
   box-sizing: border-box;
 }
 
@@ -592,8 +592,8 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   border-radius: 50%;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.06);
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
 }
 
