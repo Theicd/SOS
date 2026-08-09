@@ -19,9 +19,9 @@
 
   const MAX_MESSAGES_PER_THREAD = 500; // חלק צ'אט (chat-state.js) – מגביל היסטוריה בזיכרון/שמירה לביצועים | HYPER CORE TECH
   const CHAT_RETENTION_SECONDS = 90 * 24 * 60 * 60; // חלק צ'אט (chat-state.js) – תקרת שמירה גלובלית 90 יום | HYPER CORE TECH
-  const DISAPPEARING_DEFAULT_SEC = 7 * 24 * 60 * 60; // חלק הודעות נעלמות – ברירת מחדל 7 ימים כמו וואטסאפ | HYPER CORE TECH
+  const DISAPPEARING_DEFAULT_SEC = 7 * 24 * 60 * 60; // חלק ניקוי אוטומטי – ברירת מחדל 7 ימים | HYPER CORE TECH
 
-  // peerPubkey -> seconds (0 = כבוי; עדיין חלה תקרת 90 יום) | HYPER CORE TECH
+  // peerPubkey -> seconds (תמיד בין 24 שעות ל-90 יום; אין «כבוי») | HYPER CORE TECH
   chatState.disappearingTimers = new Map();
   chatState.defaultDisappearingSec = DISAPPEARING_DEFAULT_SEC;
 
@@ -34,18 +34,26 @@
     return Number.isFinite(ts) ? ts : 0;
   }
 
+  function normalizeDisappearingTimerSec(seconds) {
+    const sec = Number(seconds);
+    if (!Number.isFinite(sec) || sec <= 0) {
+      // מיגרציה מ«כבוי» ישן → תקרת 90 יום | HYPER CORE TECH
+      return CHAT_RETENTION_SECONDS;
+    }
+    return Math.min(sec, CHAT_RETENTION_SECONDS);
+  }
+
   function getDisappearingTimerSec(peerPubkey) {
     const key = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
     if (!key) return chatState.defaultDisappearingSec;
     if (chatState.disappearingTimers.has(key)) {
-      return Number(chatState.disappearingTimers.get(key)) || 0;
+      return normalizeDisappearingTimerSec(chatState.disappearingTimers.get(key));
     }
     return chatState.defaultDisappearingSec;
   }
 
   function formatDisappearingTimerLabel(seconds) {
-    const sec = Number(seconds) || 0;
-    if (sec <= 0) return 'כבוי';
+    const sec = normalizeDisappearingTimerSec(seconds);
     if (sec <= 24 * 60 * 60) return '24 שעות';
     if (sec <= 7 * 24 * 60 * 60) return '7 ימים';
     if (sec <= 90 * 24 * 60 * 60) return '90 ימים';
@@ -58,15 +66,10 @@
 
   function buildDisappearingNoticeContent(sec, kind = 'intro') {
     const label = formatDisappearingTimerLabel(sec);
-    if (sec <= 0) {
-      return kind === 'change'
-        ? 'כיבית הודעות נעלמות בצ׳אט הזה. כדי להפעיל טיימר שוב, לחץ כאן.'
-        : 'הודעות נעלמות כבויות בצ׳אט הזה. כדי להפעיל טיימר, לחץ כאן.';
-    }
     if (kind === 'change') {
-      return `הודעות נעלמות עודכנו ל-${label}. הודעות חדשות ייעלמו מהצ׳אט הזה ${label} אחרי שליחתן. כדי לשנות את הטיימר לחץ כאן.`;
+      return `ניקוי אוטומטי עודכן. הודעות חדשות יימחקו מהצ׳אט הזה אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
     }
-    return `בחרת להשתמש בטיימר ברירת מחדל להודעות נעלמות. הודעות חדשות ייעלמו מהצ׳אט הזה ${label} אחרי שליחתן. כדי לשנות את הטיימר לחץ כאן.`;
+    return `ניקוי אוטומטי מופעל. הודעות חדשות יימחקו מהצ׳אט הזה אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
   }
 
   function ensureConversationEntry(peerPubkey) {
@@ -116,7 +119,7 @@
     entry.messages.sort((a, b) => getMessageCreatedAt(a) - getMessageCreatedAt(b));
     chatState.messageIndex.set(message.id, { peer, key });
     updateContactMeta(peer, {
-      lastMessage: '⏱ הודעות נעלמות',
+      lastMessage: '⏱ ניקוי אוטומטי',
       timestamp: createdAt,
       incrementUnread: false,
     });
@@ -147,11 +150,7 @@
   }
 
   function getCutoffForPeer(peerPubkey, nowSec = Math.floor(Date.now() / 1000)) {
-    const timer = getDisappearingTimerSec(peerPubkey);
-    if (timer > 0) {
-      return nowSec - timer;
-    }
-    return getChatRetentionCutoffTs(nowSec);
+    return nowSec - getDisappearingTimerSec(peerPubkey);
   }
 
   function pruneConversationEntry(entry, cutoffTs) {
@@ -186,7 +185,7 @@
   function setDisappearingTimerSec(peerPubkey, seconds) {
     const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
     if (!peer) return false;
-    const sec = Math.max(0, Number(seconds) || 0);
+    const sec = normalizeDisappearingTimerSec(seconds);
     chatState.disappearingTimers.set(peer, sec);
     persistState();
     prunePeerDisappearingMessages(peer);
@@ -415,11 +414,11 @@
         parsed.disappearingTimers.forEach((row) => {
           const peer = typeof row?.peer === 'string' ? row.peer.toLowerCase() : '';
           if (!peer) return;
-          chatState.disappearingTimers.set(peer, Math.max(0, Number(row.seconds) || 0));
+          chatState.disappearingTimers.set(peer, normalizeDisappearingTimerSec(row.seconds));
         });
       }
-      if (typeof parsed.defaultDisappearingSec === 'number' && parsed.defaultDisappearingSec >= 0) {
-        chatState.defaultDisappearingSec = parsed.defaultDisappearingSec;
+      if (typeof parsed.defaultDisappearingSec === 'number' && parsed.defaultDisappearingSec > 0) {
+        chatState.defaultDisappearingSec = normalizeDisappearingTimerSec(parsed.defaultDisappearingSec);
       }
       if (Array.isArray(parsed.conversations)) {
         parsed.conversations.forEach((entry) => {
@@ -578,7 +577,7 @@
     if (isChatMessageMarkedDeleted(message)) {
       return;
     }
-    // חלק הודעות נעלמות (chat-state.js) – לא מקבלים הודעות שעברו את טיימר השיחה / תקרת 90 יום | HYPER CORE TECH
+    // חלק ניקוי אוטומטי (chat-state.js) – לא מקבלים הודעות שעברו את טיימר השיחה / תקרת 90 יום | HYPER CORE TECH
     const createdAtTs = getMessageCreatedAt(message) || createdAt || 0;
     if (createdAtTs && createdAtTs < getCutoffForPeer(entry.peer)) {
       return;

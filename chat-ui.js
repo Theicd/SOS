@@ -1965,7 +1965,6 @@
       return App.formatDisappearingTimerLabel(seconds);
     }
     const sec = Number(seconds) || 0;
-    if (sec <= 0) return 'כבוי';
     if (sec <= 24 * 60 * 60) return '24 שעות';
     if (sec <= 7 * 24 * 60 * 60) return '7 ימים';
     if (sec <= 90 * 24 * 60 * 60) return '90 ימים';
@@ -2009,7 +2008,6 @@
       { value: 24 * 60 * 60, label: '24 שעות' },
       { value: 7 * 24 * 60 * 60, label: '7 ימים' },
       { value: 90 * 24 * 60 * 60, label: '90 ימים' },
-      { value: 0, label: 'כבוי' },
     ];
     const sheet = doc.createElement('div');
     sheet.id = 'chatDisappearingSheet';
@@ -2020,10 +2018,10 @@
       <div class="chat-disappearing-sheet__panel" role="document" aria-labelledby="chatDisappearingTitle">
         <div class="chat-disappearing-sheet__header">
           <button type="button" class="chat-disappearing-sheet__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
-          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">הודעות נעלמות</h3>
+          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">ניקוי אוטומטי</h3>
         </div>
-        <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ'אט הזה לפני שיימחקו מהמכשיר.</p>
-        <div class="chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר הודעות נעלמות">
+        <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ׳אט לפני שיימחקו אוטומטית. המקסימום הוא 90 ימים.</p>
+        <div class="chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר ניקוי אוטומטי">
           ${options.map((opt) => {
             const isOn = current === opt.value;
             return `<label class="chat-disappearing-sheet__option${isOn ? ' is-selected' : ''}">
@@ -2054,7 +2052,7 @@
         } catch (_) {}
         close();
         try {
-          App.showToast?.(sec > 0 ? `הודעות נעלמות: ${formatDisappearingTimerLabel(sec)}` : 'הודעות נעלמות כבויות');
+          App.showToast?.(`ניקוי אוטומטי: ${formatDisappearingTimerLabel(sec)}`);
         } catch (_) {}
       });
     });
