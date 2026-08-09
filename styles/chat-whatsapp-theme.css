@@ -1159,15 +1159,30 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 }
 
 .chat-conversation__menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
   padding: 10px 16px;
   border: none;
   background: transparent;
-  color: #e9edef;
+  color: #ffffff;
   text-align: start;
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+.chat-conversation__menu-item i {
+  width: 1.15rem;
+  text-align: center;
+  font-size: 1rem;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.chat-conversation__menu-item span {
+  color: #ffffff;
+  font-weight: 500;
 }
 
 .chat-conversation__menu-item:hover {
