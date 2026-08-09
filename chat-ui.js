@@ -2859,12 +2859,13 @@
     }
   }
 
-  // חלק צ'אט (chat-ui.js) – מיקום הפאנל לפי visualViewport + הרמה מיידית של הקומפוזר | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – מיקום הפאנל לפי visualViewport בלי לכווץ פעמיים / לסגור בטעות | HYPER CORE TECH
   let _viewportRaf = 0;
   let _keyboardExpecting = false;
   let _keyboardSyncRaf = 0;
   let _lastKeyboardHeight = 0;
   let _suppressOutsideCloseUntil = 0;
+  let _baselineLayoutHeight = 0;
   try {
     _lastKeyboardHeight = Math.max(0, parseInt(sessionStorage.getItem('sosChatKeyboardHeight') || '0', 10) || 0);
   } catch (_) {
@@ -2882,6 +2883,16 @@
 
   function getLayoutViewportHeight() {
     return Math.max(window.innerHeight || 0, doc.documentElement?.clientHeight || 0);
+  }
+
+  function captureBaselineLayoutHeight() {
+    const h = getLayoutViewportHeight();
+    if (h > 200) _baselineLayoutHeight = h;
+  }
+
+  function isChatComposerFocused() {
+    const input = elements.messageInput;
+    return !!(input && doc.activeElement === input);
   }
 
   function scrollChatMessagesToEnd() {
@@ -2924,9 +2935,14 @@
       return;
     }
 
+    if (!_baselineLayoutHeight) captureBaselineLayoutHeight();
+
     const provisional = options.provisional === true || _keyboardExpecting;
     const vv = window.visualViewport;
     const layoutH = getLayoutViewportHeight();
+    const baseline = _baselineLayoutHeight || layoutH;
+    // אם ה-layout כבר התכווץ עם המקלדת — אסור להחסיר שוב "guess" | HYPER CORE TECH
+    const layoutAlreadyShrunk = baseline > 0 && layoutH < baseline - 80;
     let top = 0;
     let height = Math.max(220, layoutH);
     let keyboardOpen = false;
@@ -2934,23 +2950,28 @@
     if (vv) {
       top = Math.max(0, Math.round(vv.offsetTop || 0));
       height = Math.max(220, Math.round(vv.height || layoutH));
-      const measuredInset = Math.max(0, Math.round(layoutH - height - top));
+      const measuredInset = Math.max(0, Math.round(Math.max(layoutH, baseline) - height - top));
       if (measuredInset > 80) {
         rememberKeyboardHeight(measuredInset);
         _keyboardExpecting = false;
         keyboardOpen = true;
-      } else if (provisional) {
-        // מיד עם הפוקוס: מצמצמים לפי גובה מקלדת אחרון / הערכה — בלי לחכות ל-vv | HYPER CORE TECH
-        const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
-        top = 0;
-        height = Math.max(220, layoutH - guess);
+      } else if (layoutAlreadyShrunk) {
+        // layout כבר מעל המקלדת — ממלאים את כל ה-vv, בלי קיצור נוסף | HYPER CORE TECH
+        top = Math.max(0, Math.round(vv.offsetTop || 0));
+        height = Math.max(220, Math.round(vv.height || layoutH));
         keyboardOpen = true;
-        // אחרי כמה פריימים משחררים expecting גם אם vv לא מדווח inset (resizes-content) | HYPER CORE TECH
+        _keyboardExpecting = false;
+      } else if (provisional) {
+        // overlays-content: layout עדיין מלא — מצמצמים לפי vv או הערכה חד-פעמית | HYPER CORE TECH
+        const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(baseline * 0.4);
+        top = 0;
+        height = Math.max(220, Math.round(vv.height < layoutH - 40 ? vv.height : layoutH - guess));
+        keyboardOpen = true;
       } else {
-        keyboardOpen = top > 1 || measuredInset > 80 || elements.panel.classList.contains('chat-panel--keyboard');
+        keyboardOpen = top > 1 || measuredInset > 80 || isChatComposerFocused();
       }
-    } else if (provisional) {
-      const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
+    } else if (provisional && !layoutAlreadyShrunk) {
+      const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(baseline * 0.4);
       height = Math.max(220, layoutH - guess);
       keyboardOpen = true;
     }
@@ -2979,8 +3000,8 @@
 
   function beginKeyboardOpen() {
     if (window.innerWidth > 768 || !state.isOpen) return;
-    // חוסמים סגירה מלחיצה מחוץ לפאנל בזמן פתיחת מקלדת (click אחרי touchstart) | HYPER CORE TECH
-    _suppressOutsideCloseUntil = Date.now() + 700;
+    // חסימת סגירה חיצונית כל עוד המקלדת נפתחת / שדה בפוקוס | HYPER CORE TECH
+    _suppressOutsideCloseUntil = Date.now() + 2000;
     _keyboardExpecting = true;
     positionPanel({ provisional: true });
     scrollChatMessagesToEnd();
@@ -2992,12 +3013,11 @@
         _keyboardExpecting = false;
         return;
       }
-      positionPanel({ provisional: _keyboardExpecting });
+      positionPanel({ provisional: _keyboardExpecting || isChatComposerFocused() });
       frames += 1;
-      // אחרי ~12 פריימים מפסיקים provisional כדי לא לנעול סגירות | HYPER CORE TECH
-      if (frames >= 12) _keyboardExpecting = false;
-      if (frames < 45) {
-        _keyboardSyncRaf = requestAnimationFrame(tick);
+      if (frames >= 20) _keyboardExpecting = false;
+      if (frames < 60 || isChatComposerFocused()) {
+        if (frames < 90) _keyboardSyncRaf = requestAnimationFrame(tick);
       }
     };
     _keyboardSyncRaf = requestAnimationFrame(tick);
@@ -3009,11 +3029,19 @@
       cancelAnimationFrame(_keyboardSyncRaf);
       _keyboardSyncRaf = 0;
     }
-    schedulePositionPanel();
+    // אחרי סגירת מקלדת — baseline מתרענן לגובה המלא | HYPER CORE TECH
+    setTimeout(() => {
+      if (!isChatComposerFocused()) captureBaselineLayoutHeight();
+      schedulePositionPanel();
+    }, 50);
   }
 
   function shouldSuppressChatOutsideClose() {
-    return !!(App.__sosSuppressChatOutsideClose || Date.now() < _suppressOutsideCloseUntil || _keyboardExpecting);
+    if (App.__sosSuppressChatOutsideClose) return true;
+    if (Date.now() < _suppressOutsideCloseUntil) return true;
+    if (_keyboardExpecting) return true;
+    if (isChatComposerFocused()) return true;
+    return false;
   }
 
   function togglePanel(forceOpen) {
@@ -3031,6 +3059,7 @@
       elements.panel.removeAttribute('hidden');
       elements.navButton?.setAttribute('aria-pressed', 'true');
       elements.launcherButton?.setAttribute('aria-expanded', 'true');
+      captureBaselineLayoutHeight();
       positionPanel();
       if (window.innerWidth <= 768) {
         doc.body.classList.add('chat-overlay-open');
@@ -4678,8 +4707,9 @@
     }
     doc.addEventListener('click', (event) => {
       if (!state.isOpen) return;
-      // הורדה / פתיחת מקלדת – לא לסגור את הצ'אט | HYPER CORE TECH
+      // הורדה / מקלדת / פוקוס בשורת קלט – לא לסגור את הצ'אט (גם ב-capture) | HYPER CORE TECH
       if (shouldSuppressChatOutsideClose()) return;
+      if (event.target?.closest?.('#chatPanel, #chatComposer, #chatMessageInput, .chat-composer')) return;
       // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
       const voiceCallDialog = doc.getElementById('voiceCallDialog');
       const videoCallDialog = doc.getElementById('videoCallDialog');
@@ -4695,7 +4725,7 @@
         return;
       }
       togglePanel(false);
-    });
+    }, true);
     window.addEventListener('resize', () => {
       schedulePositionPanel();
     });
@@ -4739,20 +4769,22 @@
     if (elements.composer) {
       elements.composer.addEventListener('submit', handleSendMessage);
     }
-    // מקלדת מובייל – רק ב-focus (אחרי ה-click), כדי לא לסגור את הצ'אט בטעות | HYPER CORE TECH
+    // מקלדת מובייל – focus בלבד + חסימת סגירה כל עוד יש פוקוס | HYPER CORE TECH
     if (elements.messageInput) {
+      const armKeyboardGuard = () => {
+        _suppressOutsideCloseUntil = Date.now() + 2000;
+      };
+      elements.messageInput.addEventListener('touchstart', armKeyboardGuard, { passive: true });
+      elements.messageInput.addEventListener('pointerdown', armKeyboardGuard, { passive: true });
       elements.messageInput.addEventListener('focus', () => {
-        _suppressOutsideCloseUntil = Date.now() + 700;
-        // דוחים את צמצום הפאנל לפריים הבא — כדי שה-click של הלחיצה יסתיים קודם | HYPER CORE TECH
-        requestAnimationFrame(() => {
-          setTimeout(() => beginKeyboardOpen(), 0);
-        });
+        armKeyboardGuard();
+        beginKeyboardOpen();
       });
       elements.messageInput.addEventListener('blur', () => {
         setTimeout(() => {
-          if (doc.activeElement === elements.messageInput) return;
+          if (isChatComposerFocused()) return;
           endKeyboardOpen();
-        }, 220);
+        }, 280);
       });
     }
     if (elements.messagesContainer) {
@@ -4820,6 +4852,15 @@
     // האזנה לכפתורי סרגל הצד החדש | HYPER CORE TECH
     if (elements.navSidebarItems?.length) {
       elements.navSidebarItems.forEach((item) => {
+        // כפתור בית בסרגל דסקטופ — לא דרך handleFooterNav במובייל בטעות | HYPER CORE TECH
+        if (item.id === 'chatNavHome') {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.innerWidth <= 768) return;
+            handleFooterNav(item);
+          });
+          return;
+        }
         item.addEventListener('click', () => handleFooterNav(item));
       });
     }
