@@ -1958,6 +1958,52 @@
     });
   }
 
+  function showAutoCleanDialog() {
+    const existing = doc.getElementById('chatAutoCleanDialog');
+    if (existing) existing.remove();
+    const days = Math.round((App.CHAT_RETENTION_SECONDS || (90 * 24 * 60 * 60)) / 86400);
+    const dialog = doc.createElement('div');
+    dialog.id = 'chatAutoCleanDialog';
+    dialog.className = 'chat-dialog';
+    dialog.innerHTML = `
+      <div class="chat-dialog__backdrop"></div>
+      <div class="chat-dialog__content" role="dialog" aria-modal="true">
+        <h3 class="chat-dialog__title">ניקוי אוטומטי</h3>
+        <p class="chat-dialog__message">המערכת מוחקת אוטומטית הודעות ישנות מעל ${days} יום מהמכשיר ומהסנכרון. להריץ ניקוי עכשיו להודעות שכבר עברו את התקופה?</p>
+        <div class="chat-dialog__actions">
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--cancel">סגור</button>
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--confirm">נקה עכשיו</button>
+        </div>
+      </div>
+    `;
+    elements.panel.appendChild(dialog);
+    const backdrop = dialog.querySelector('.chat-dialog__backdrop');
+    const cancel = dialog.querySelector('.chat-dialog__btn--cancel');
+    const confirm = dialog.querySelector('.chat-dialog__btn--confirm');
+    const close = () => dialog.remove();
+    backdrop?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    cancel?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    confirm?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+      let removed = 0;
+      try {
+        removed = typeof App.pruneExpiredChatHistory === 'function' ? (App.pruneExpiredChatHistory() || 0) : 0;
+      } catch (_) {
+        removed = 0;
+      }
+      if (state.activeContact) {
+        renderMessages(state.activeContact, { force: true });
+      }
+      renderContacts(true);
+      try {
+        if (typeof App.showToast === 'function') {
+          App.showToast(removed > 0 ? `נוקו ${removed} הודעות ישנות` : 'אין הודעות ישנות לניקוי');
+        }
+      } catch (_) {}
+    });
+  }
+
   function showDeleteConfirmDialog(messageId, peerPubkey) {
     const existing = doc.getElementById('chatDeleteDialog');
     if (existing) existing.remove();
@@ -4700,6 +4746,10 @@
         const action = item.getAttribute('data-action');
         if (action === 'clear-chat') {
           if (state.activeContact) showClearChatConfirmDialog(state.activeContact);
+          return;
+        }
+        if (action === 'auto-clean') {
+          showAutoCleanDialog();
         }
       });
       doc.addEventListener('click', (e) => {
