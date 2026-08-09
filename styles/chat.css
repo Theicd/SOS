@@ -2589,9 +2589,16 @@ body.chat-media-modal-open {
     border-radius: 18px 18px 0 0;
   }
 
-  .chat-panel .chat-conversation__menu {
+  /* תפריט ⋮ במובייל – מיקום בפועל נקבע ב-JS (fixed ל-viewport / body) | HYPER CORE TECH */
+  .chat-conversation__menu,
+  .chat-panel .chat-conversation__menu,
+  body > .chat-conversation__menu {
     position: fixed !important;
-    z-index: 400;
+    z-index: 12000 !important;
+    left: auto !important;
+    right: auto !important;
+    inset-inline-start: auto !important;
+    inset-inline-end: auto !important;
     min-width: 11.5rem;
     max-width: calc(100vw - 24px);
   }

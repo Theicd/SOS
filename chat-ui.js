@@ -4812,36 +4812,60 @@
       if (!headerMenu || headerMenu.hidden) return;
       headerMenu.hidden = true;
       if (headerMenuBtn) headerMenuBtn.setAttribute('aria-expanded', 'false');
-      headerMenu.style.top = '';
-      headerMenu.style.left = '';
-      headerMenu.style.right = '';
-      headerMenu.style.transform = '';
+      headerMenu.style.removeProperty('position');
+      headerMenu.style.removeProperty('top');
+      headerMenu.style.removeProperty('left');
+      headerMenu.style.removeProperty('right');
+      headerMenu.style.removeProperty('transform');
+      headerMenu.style.removeProperty('inset-inline-start');
+      headerMenu.style.removeProperty('inset-inline-end');
+      // מחזירים לתפריט העטיפה אחרי פורטל ל-body במובייל | HYPER CORE TECH
+      const wrap = headerMenuBtn?.closest?.('.chat-conversation__menu-wrap');
+      if (wrap && headerMenu.parentElement !== wrap) {
+        wrap.appendChild(headerMenu);
+      }
     };
     if (headerMenuBtn && headerMenu) {
       const positionHeaderMenu = () => {
         if (!headerMenu || headerMenu.hidden) return;
         const pad = 8;
         const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        const btnRect = headerMenuBtn.getBoundingClientRect();
+
         if (isMobile) {
-          const btnRect = headerMenuBtn.getBoundingClientRect();
-          headerMenu.style.position = 'fixed';
-          headerMenu.style.top = `${Math.round(btnRect.bottom + 8)}px`;
-          headerMenu.style.left = `${Math.round(btnRect.left)}px`;
-          headerMenu.style.right = 'auto';
-          headerMenu.style.transform = 'none';
-          const rect = headerMenu.getBoundingClientRect();
-          if (rect.left < pad) {
-            headerMenu.style.left = `${pad}px`;
-          } else if (rect.right > window.innerWidth - pad) {
-            headerMenu.style.left = `${Math.max(pad, Math.floor(window.innerWidth - pad - rect.width))}px`;
+          // פורטל ל-body – בורח מ-overflow/backdrop-filter של .chat-panel | HYPER CORE TECH
+          if (headerMenu.parentElement !== doc.body) {
+            doc.body.appendChild(headerMenu);
           }
+          headerMenu.style.setProperty('position', 'fixed', 'important');
+          headerMenu.style.setProperty('top', `${Math.round(btnRect.bottom + 8)}px`, 'important');
+          headerMenu.style.setProperty('right', 'auto', 'important');
+          headerMenu.style.setProperty('transform', 'none', 'important');
+          headerMenu.style.setProperty('inset-inline-start', 'auto', 'important');
+          headerMenu.style.setProperty('inset-inline-end', 'auto', 'important');
+          // קודם מיישרים לשמאל הכפתור (נפתח ימינה), ואז מתקנים חריגה | HYPER CORE TECH
+          headerMenu.style.setProperty('left', `${Math.round(btnRect.left)}px`, 'important');
+          const rect = headerMenu.getBoundingClientRect();
+          let left = btnRect.left;
+          if (btnRect.left + rect.width <= window.innerWidth - pad) {
+            left = btnRect.left;
+          } else {
+            left = Math.max(pad, window.innerWidth - pad - rect.width);
+          }
+          if (left < pad) left = pad;
+          headerMenu.style.setProperty('left', `${Math.round(left)}px`, 'important');
           return;
         }
-        headerMenu.style.position = '';
-        headerMenu.style.top = '';
-        headerMenu.style.left = '0px';
-        headerMenu.style.right = 'auto';
-        headerMenu.style.transform = 'none';
+
+        const wrap = headerMenuBtn?.closest?.('.chat-conversation__menu-wrap');
+        if (wrap && headerMenu.parentElement !== wrap) {
+          wrap.appendChild(headerMenu);
+        }
+        headerMenu.style.removeProperty('position');
+        headerMenu.style.removeProperty('top');
+        headerMenu.style.setProperty('left', '0px');
+        headerMenu.style.setProperty('right', 'auto');
+        headerMenu.style.setProperty('transform', 'none');
         const rect = headerMenu.getBoundingClientRect();
         if (rect.left < pad) {
           headerMenu.style.transform = `translateX(${Math.ceil(pad - rect.left)}px)`;
@@ -4852,14 +4876,13 @@
       headerMenuBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const open = headerMenu.hidden;
-        headerMenu.hidden = !open;
-        headerMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (open) {
-          requestAnimationFrame(positionHeaderMenu);
-        } else {
-          headerMenu.style.transform = 'none';
+        if (!headerMenu.hidden) {
+          closeHeaderMenu();
+          return;
         }
+        headerMenu.hidden = false;
+        headerMenuBtn.setAttribute('aria-expanded', 'true');
+        requestAnimationFrame(positionHeaderMenu);
       });
       headerMenu.addEventListener('click', (e) => {
         const item = e.target.closest('[data-action]');
@@ -4878,7 +4901,6 @@
       doc.addEventListener('click', (e) => {
         if (!headerMenu.hidden && !headerMenu.contains(e.target) && e.target !== headerMenuBtn && !headerMenuBtn.contains(e.target)) {
           closeHeaderMenu();
-          headerMenu.style.transform = 'none';
         }
       });
       window.addEventListener('resize', () => {
