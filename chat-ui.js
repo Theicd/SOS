@@ -4613,7 +4613,24 @@
 
       // חלק מניעת כפילות (chat-ui.js) – עדכון/החלפת temp בלי append נוסף | HYPER CORE TECH
       if (removedMessageId && elements.messagesContainer) {
-        elements.messagesContainer.querySelector(`[data-message-id="${removedMessageId}"]`)?.remove();
+        const removedIds = Array.isArray(payload.removedMessageIds)
+          ? payload.removedMessageIds.filter(Boolean)
+          : [removedMessageId];
+        if (!removedIds.includes(removedMessageId)) removedIds.push(removedMessageId);
+        removedIds.forEach((id) => {
+          elements.messagesContainer.querySelector(`[data-message-id="${id}"]`)?.remove();
+        });
+        const removedFileId = payload.removedFileId
+          || (typeof removedMessageId === 'string' && removedMessageId.startsWith('p2p-send-')
+            ? removedMessageId.slice('p2p-send-'.length)
+            : '')
+          || (typeof removedMessageId === 'string' && removedMessageId.startsWith('p2p-recv-')
+            ? removedMessageId.slice('p2p-recv-'.length)
+            : '');
+        if (removedFileId) {
+          elements.messagesContainer.querySelector(`[data-p2p-file-id="${removedFileId}"]`)?.remove();
+          elements.messagesContainer.querySelector(`[data-transfer-id="${removedFileId}"]`)?.remove();
+        }
       }
       if (replacedTempId && message?.id) {
         const realEl = elements.messagesContainer?.querySelector(`[data-message-id="${message.id}"]`);

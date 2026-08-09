@@ -621,10 +621,8 @@
     const conversationPeer = isSelf ? pTagPubkey : actor;
     
     targets.forEach((messageId) => {
-      // מנסים למחוק מהשיחה עם הפיר הנכון
+      // מנסים למחוק מהשיחה עם הפיר הנכון (כולל התאמת p2p-send/p2p-recv לפי fileId) | HYPER CORE TECH
       App.removeChatMessage(conversationPeer, messageId);
-      // גם מוסיפים לרשימת המחוקים כדי לא להציג שוב
-      App.deletedChatMessageIds?.add?.(messageId);
     });
     
     const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);

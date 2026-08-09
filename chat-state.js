@@ -367,7 +367,7 @@
     if (existingIndex !== -1) {
       return;
     }
-    if (message?.id && App.deletedChatMessageIds?.has?.(message.id)) {
+    if (isChatMessageMarkedDeleted(message)) {
       return;
     }
     entry.messages.push(message);
@@ -408,6 +408,74 @@
     notify('message', { peer: entry.peer, message });
   }
 
+  // חלק מחיקת מדיה P2P (chat-state.js) – שולח שומר p2p-send-{fileId}, מקבל שומר p2p-recv-{fileId} | HYPER CORE TECH
+  function extractP2PFileIdFromMessageId(messageId) {
+    if (typeof messageId !== 'string' || !messageId) return '';
+    if (messageId.startsWith('p2p-send-')) return messageId.slice('p2p-send-'.length);
+    if (messageId.startsWith('p2p-recv-')) return messageId.slice('p2p-recv-'.length);
+    return '';
+  }
+
+  function buildP2PDeletionAliases(messageId, fileId) {
+    const aliases = new Set();
+    if (messageId) aliases.add(String(messageId));
+    const fromId = extractP2PFileIdFromMessageId(messageId);
+    const fid = (fileId && String(fileId)) || fromId;
+    if (fid) {
+      aliases.add(fid);
+      aliases.add(`p2p-send-${fid}`);
+      aliases.add(`p2p-recv-${fid}`);
+    }
+    return Array.from(aliases);
+  }
+
+  function messageMatchesDeletionTarget(item, targetId) {
+    if (!item || !targetId) return false;
+    if (item.id === targetId) return true;
+    const targetFileId = extractP2PFileIdFromMessageId(targetId) || targetId;
+    const itemFileId = item.attachment?.fileId || extractP2PFileIdFromMessageId(item.id);
+    if (itemFileId && targetFileId && itemFileId === targetFileId) return true;
+    if (itemFileId && (targetId === `p2p-send-${itemFileId}` || targetId === `p2p-recv-${itemFileId}`)) return true;
+    return false;
+  }
+
+  function isChatMessageMarkedDeleted(message) {
+    if (!message?.id || !App.deletedChatMessageIds?.has) return false;
+    if (App.deletedChatMessageIds.has(message.id)) return true;
+    const aliases = buildP2PDeletionAliases(message.id, message.attachment?.fileId);
+    return aliases.some((id) => App.deletedChatMessageIds.has(id));
+  }
+
+  function markDeletedMessageAliases(messageId, fileId) {
+    buildP2PDeletionAliases(messageId, fileId).forEach((id) => {
+      App.deletedChatMessageIds?.add?.(id);
+    });
+  }
+
+  function findMessageIndexEntryForDeletion(messageId) {
+    if (!messageId) return null;
+    if (chatState.messageIndex.has(messageId)) {
+      return chatState.messageIndex.get(messageId);
+    }
+    const aliases = buildP2PDeletionAliases(messageId);
+    for (let i = 0; i < aliases.length; i += 1) {
+      const alias = aliases[i];
+      if (alias !== messageId && chatState.messageIndex.has(alias)) {
+        return chatState.messageIndex.get(alias);
+      }
+    }
+    // סריקה לפי fileId כשאין אינדקס (למשל p2p-send מול p2p-recv) | HYPER CORE TECH
+    const fileId = extractP2PFileIdFromMessageId(messageId) || messageId;
+    if (!fileId) return null;
+    for (const [key, entry] of chatState.conversations.entries()) {
+      const hit = (entry?.messages || []).find((item) => messageMatchesDeletionTarget(item, messageId));
+      if (hit) {
+        return { peer: entry.peer, key, message: hit };
+      }
+    }
+    return null;
+  }
+
   function removeMessageFromConversation(peerPubkey, messageId) {
     // חלק צ'אט (chat-state.js) – מסיר הודעה מהמצב המקומי ומעדכן מטא-דאטה כך שתיעלם מכל המכשירים לאחר רענון
     if (!messageId) {
@@ -418,25 +486,36 @@
     let key = null;
     if (normalizedPeer) {
       key = getConversationKey(normalizedPeer, self);
-    } else if (chatState.messageIndex.has(messageId)) {
-      const indexEntry = chatState.messageIndex.get(messageId);
+    } else {
+      const indexEntry = findMessageIndexEntryForDeletion(messageId);
       normalizedPeer = indexEntry?.peer || null;
       key = indexEntry?.key || null;
     }
     if (!normalizedPeer || !key) {
+      // גם בלי שיחה מקומית – מסמנים aliases כדי שלא תחזור הודעת מדיה | HYPER CORE TECH
+      markDeletedMessageAliases(messageId, extractP2PFileIdFromMessageId(messageId));
       return;
     }
     const entry = chatState.conversations.get(key);
     if (!entry || !Array.isArray(entry.messages) || !entry.messages.length) {
+      markDeletedMessageAliases(messageId, extractP2PFileIdFromMessageId(messageId));
       return;
     }
-    const index = entry.messages.findIndex((item) => item.id === messageId);
+    const index = entry.messages.findIndex((item) => messageMatchesDeletionTarget(item, messageId));
     if (index === -1) {
+      markDeletedMessageAliases(messageId, extractP2PFileIdFromMessageId(messageId));
       return;
     }
-    entry.messages.splice(index, 1);
+    const removed = entry.messages.splice(index, 1)[0];
+    const removedId = removed?.id || messageId;
+    const removedFileId = removed?.attachment?.fileId || extractP2PFileIdFromMessageId(removedId) || extractP2PFileIdFromMessageId(messageId);
+    if (removed?.id) chatState.messageIndex.delete(removed.id);
     chatState.messageIndex.delete(messageId);
-    App.deletedChatMessageIds?.add?.(messageId);
+    buildP2PDeletionAliases(removedId, removedFileId).forEach((alias) => {
+      chatState.messageIndex.delete(alias);
+    });
+    markDeletedMessageAliases(removedId, removedFileId);
+    markDeletedMessageAliases(messageId, removedFileId);
     const lastMessage = entry.messages[entry.messages.length - 1];
     const attachmentPreview = lastMessage?.attachment?.name ? `📎 ${lastMessage.attachment.name}` : '';
     const messagePreview = (lastMessage?.content || '') || attachmentPreview;
@@ -448,7 +527,14 @@
     });
     recalculateUnreadTotal();
     persistState();
-    notify('message', { peer: normalizedPeer, removedMessageId: messageId });
+    notify('message', {
+      peer: normalizedPeer,
+      removedMessageId: removedId,
+      removedMessageIds: buildP2PDeletionAliases(removedId, removedFileId).concat(
+        messageId && messageId !== removedId ? [messageId] : []
+      ),
+      removedFileId: removedFileId || null,
+    });
   }
 
   function markConversationRead(peerPubkey) {
