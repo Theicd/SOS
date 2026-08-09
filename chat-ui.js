@@ -2864,6 +2864,7 @@
   let _keyboardExpecting = false;
   let _keyboardSyncRaf = 0;
   let _lastKeyboardHeight = 0;
+  let _suppressOutsideCloseUntil = 0;
   try {
     _lastKeyboardHeight = Math.max(0, parseInt(sessionStorage.getItem('sosChatKeyboardHeight') || '0', 10) || 0);
   } catch (_) {
@@ -2944,8 +2945,9 @@
         top = 0;
         height = Math.max(220, layoutH - guess);
         keyboardOpen = true;
+        // אחרי כמה פריימים משחררים expecting גם אם vv לא מדווח inset (resizes-content) | HYPER CORE TECH
       } else {
-        keyboardOpen = top > 1 || measuredInset > 80;
+        keyboardOpen = top > 1 || measuredInset > 80 || elements.panel.classList.contains('chat-panel--keyboard');
       }
     } else if (provisional) {
       const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
@@ -2977,6 +2979,8 @@
 
   function beginKeyboardOpen() {
     if (window.innerWidth > 768 || !state.isOpen) return;
+    // חוסמים סגירה מלחיצה מחוץ לפאנל בזמן פתיחת מקלדת (click אחרי touchstart) | HYPER CORE TECH
+    _suppressOutsideCloseUntil = Date.now() + 700;
     _keyboardExpecting = true;
     positionPanel({ provisional: true });
     scrollChatMessagesToEnd();
@@ -2990,11 +2994,10 @@
       }
       positionPanel({ provisional: _keyboardExpecting });
       frames += 1;
-      // ~0.75s של סנכרון בזמן אנימציית מקלדת | HYPER CORE TECH
-      if (_keyboardExpecting || frames < 20) {
-        if (frames < 50) {
-          _keyboardSyncRaf = requestAnimationFrame(tick);
-        }
+      // אחרי ~12 פריימים מפסיקים provisional כדי לא לנעול סגירות | HYPER CORE TECH
+      if (frames >= 12) _keyboardExpecting = false;
+      if (frames < 45) {
+        _keyboardSyncRaf = requestAnimationFrame(tick);
       }
     };
     _keyboardSyncRaf = requestAnimationFrame(tick);
@@ -3007,6 +3010,10 @@
       _keyboardSyncRaf = 0;
     }
     schedulePositionPanel();
+  }
+
+  function shouldSuppressChatOutsideClose() {
+    return !!(App.__sosSuppressChatOutsideClose || Date.now() < _suppressOutsideCloseUntil || _keyboardExpecting);
   }
 
   function togglePanel(forceOpen) {
@@ -4671,8 +4678,8 @@
     }
     doc.addEventListener('click', (event) => {
       if (!state.isOpen) return;
-      // הורדה יוצרת a.click() סינתטי מחוץ לפאנל – לא לסגור את הצ'אט | HYPER CORE TECH
-      if (App.__sosSuppressChatOutsideClose) return;
+      // הורדה / פתיחת מקלדת – לא לסגור את הצ'אט | HYPER CORE TECH
+      if (shouldSuppressChatOutsideClose()) return;
       // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
       const voiceCallDialog = doc.getElementById('voiceCallDialog');
       const videoCallDialog = doc.getElementById('videoCallDialog');
@@ -4732,26 +4739,21 @@
     if (elements.composer) {
       elements.composer.addEventListener('submit', handleSendMessage);
     }
-    // מקלדת מובייל – הרמה מיידית של הקומפוזר לפני/עם פתיחת המקלדת | HYPER CORE TECH
+    // מקלדת מובייל – רק ב-focus (אחרי ה-click), כדי לא לסגור את הצ'אט בטעות | HYPER CORE TECH
     if (elements.messageInput) {
-      const kickKeyboard = () => beginKeyboardOpen();
-      elements.messageInput.addEventListener('touchstart', kickKeyboard, { passive: true });
-      elements.messageInput.addEventListener('pointerdown', kickKeyboard, { passive: true });
-      elements.messageInput.addEventListener('focus', kickKeyboard);
-      elements.messageInput.addEventListener('blur', () => {
-        setTimeout(() => endKeyboardOpen(), 60);
+      elements.messageInput.addEventListener('focus', () => {
+        _suppressOutsideCloseUntil = Date.now() + 700;
+        // דוחים את צמצום הפאנל לפריים הבא — כדי שה-click של הלחיצה יסתיים קודם | HYPER CORE TECH
+        requestAnimationFrame(() => {
+          setTimeout(() => beginKeyboardOpen(), 0);
+        });
       });
-    }
-    if (elements.composer) {
-      elements.composer.addEventListener(
-        'touchstart',
-        (e) => {
-          if (e.target?.closest?.('textarea, input, .chat-composer__field')) {
-            beginKeyboardOpen();
-          }
-        },
-        { passive: true }
-      );
+      elements.messageInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          if (doc.activeElement === elements.messageInput) return;
+          endKeyboardOpen();
+        }, 220);
+      });
     }
     if (elements.messagesContainer) {
       elements.messagesContainer.addEventListener('click', handleMessageActions);

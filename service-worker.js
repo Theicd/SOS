@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v316'; // bump - fix P2P media delete for both sides via shared ids
+  const CACHE_NAME = 'sos-cache-v317'; // bump - prevent chat close when opening keyboard
   const PRECACHE_URLS = [
     './',
     './videos.html',
