@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v318'; // bump - stop keyboard open from closing chat (no double-shrink)
+  const CACHE_NAME = 'sos-cache-v319'; // bump - fill visualViewport + stack contacts under conversation (no feed gap)
   const PRECACHE_URLS = [
     './',
     './videos.html',

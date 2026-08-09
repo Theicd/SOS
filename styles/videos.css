@@ -4984,11 +4984,46 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     padding-top: 0 !important;
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
     z-index: 2005 !important; /* וידוא שנשאר עליון */
+    background: #0b141a !important;
   }
 
   body:has(.chat-panel--conversation.chat-panel--keyboard:not([hidden])) .chat-panel,
   .chat-panel--conversation.chat-panel--keyboard {
     padding-bottom: 0 !important;
+  }
+
+  /* רשימת שיחות שכבה מתחת לשיחה — לא display:none, כדי שלא ייראה הפיד | HYPER CORE TECH */
+  .chat-panel--conversation .chat-panel__body {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .chat-panel--conversation .chat-contacts {
+    display: flex !important;
+    flex-direction: column !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    background: #14161a !important;
+    pointer-events: none !important;
+  }
+
+  .chat-panel--conversation .chat-conversation {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 2 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    background: #0b141a !important;
   }
 
   /* כותרת שיחה צמודה למעלה + גובה קומפקטי יותר | HYPER CORE TECH */
