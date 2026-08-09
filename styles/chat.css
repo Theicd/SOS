@@ -1235,9 +1235,11 @@ body.chat-overlay-open::before {
   }
 
   .chat-conversation__header {
-    position: sticky;
-    top: env(safe-area-inset-top, 0);
-    z-index: 270; /* חלק צ'אט (chat.css) – שומר את הכותרת מעל רשימת ההודעות גם כשהמקלדת פתוחה */
+    /* flex column – בלי sticky (מונע היעלמות כותרת עם מקלדת/visualViewport) | HYPER CORE TECH */
+    position: relative;
+    top: auto;
+    flex-shrink: 0;
+    z-index: 270;
   }
 
   /* הצגת כפתור חזרה במובייל */
@@ -1251,9 +1253,9 @@ body.chat-overlay-open::before {
 
   .chat-composer {
     padding: 8px 10px;
-    /* חלק מקלדת מובייל (chat.css) – שמירה על מיקום ה-composer כשהמקלדת פתוחה | HYPER CORE TECH */
-    position: sticky;
-    bottom: 0;
+    /* חלק מקלדת מובייל (chat.css) – אח flex בתחתית, בלי sticky שקופץ מעל המקלדת | HYPER CORE TECH */
+    position: relative;
+    bottom: auto;
     flex-shrink: 0;
   }
 
