@@ -4919,7 +4919,6 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important; /* מרווח לתפריט + מקלדת | HYPER CORE TECH */
     z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
-    transition: padding-bottom 0.12s ease-out !important; /* מעבר חלק עם המקלדת | HYPER CORE TECH */
     overflow: hidden !important;
   }
 
