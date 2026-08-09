@@ -4923,7 +4923,6 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   .chat-panel.chat-panel--keyboard {
-    /* במקלדת: בלי padding עליון כפול — ה-vv כבר מצמצם | HYPER CORE TECH */
     padding-top: 0 !important;
   }
 
@@ -4971,19 +4970,16 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     visibility: hidden !important;
   }
 
-  /* כשאנחנו בתוך שיחה (conversation active):
-     1. מסתירים את התפריט התחתון הראשי (.primary-nav)
-     2. מבטלים את המרווח התחתון של הפאנל כדי שינצל את כל הגובה (משאירים רק safe-area)
-  */
   body:has(.chat-panel--conversation:not([hidden])) .primary-nav {
     display: none !important;
   }
 
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
-    /* בשיחה פתוחה: בלי מרווח עליון — ההדר צמוד לראש (safe-area בתוך ההדר) | HYPER CORE TECH */
     padding-top: 0 !important;
+    /* הרמה זמנית של הקומפוזר דרך inset בלי לחשוף את הפיד | HYPER CORE TECH */
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
-    z-index: 2005 !important; /* וידוא שנשאר עליון */
+    z-index: 2005 !important;
+    background: #0b141a !important;
   }
 
   body:has(.chat-panel--conversation.chat-panel--keyboard-pinned:not([hidden])) .chat-panel,
@@ -4992,8 +4988,51 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     padding-bottom: 0 !important;
   }
 
-  /* כותרת שיחה צמודה למעלה + גובה קומפקטי יותר | HYPER CORE TECH */
+  .chat-panel--conversation .chat-panel__body {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    background: #0b141a !important;
+  }
+
+  .chat-panel--conversation .chat-contacts {
+    display: flex !important;
+    flex-direction: column !important;
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    background: #14161a !important;
+    pointer-events: none !important;
+  }
+
+  /* רקע שיחה כהה יציב — בלי תמונה חיצונית (גורמת ללבן במכשירים מסוימים) | HYPER CORE TECH */
+  .chat-panel--conversation .chat-conversation {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 2 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    background: #0b141a !important;
+    background-image: none !important;
+  }
+
+  .chat-panel--conversation .chat-conversation__messages {
+    background: #0b141a !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+  }
+
   .chat-panel--conversation .chat-conversation__header {
+    background: #202c33 !important;
     position: relative;
     top: auto;
     z-index: 6;
@@ -5006,9 +5045,21 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   .chat-panel--conversation.chat-panel--keyboard .chat-conversation__header {
-    /* במקלדת ה-panel כבר בתוך vv — בלי safe-area כפול | HYPER CORE TECH */
     min-height: 52px;
     padding-top: 4px;
+  }
+
+  /* שורת קלט תמיד גלויה בתחתית הפאנל | HYPER CORE TECH */
+  .chat-panel--conversation .chat-composer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
+    padding-bottom: 6px !important;
+    background: #202c33 !important;
+    position: relative !important;
+    z-index: 8 !important;
   }
 
   .chat-panel--conversation .chat-conversation__avatar {
@@ -5041,6 +5092,32 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   .chat-notifications__body,
   .chat-notifications__list {
     background: transparent !important;
+  }
+
+  /* אחרי האיפוס: כפיית רקעים כהים יציבים בשיחה (בלי לבן / בלי תמונה חיצונית) | HYPER CORE TECH */
+  .chat-panel--conversation .chat-panel__body,
+  .chat-panel--conversation .chat-conversation,
+  .chat-panel--conversation .chat-conversation__messages {
+    background: #0b141a !important;
+    background-image: none !important;
+  }
+
+  .chat-panel--conversation .chat-conversation__header,
+  .chat-panel--conversation .chat-composer {
+    background: #202c33 !important;
+  }
+
+  .chat-panel--conversation .chat-contacts,
+  .chat-panel--conversation .chat-contacts__list,
+  .chat-panel--conversation .chat-contacts__search,
+  .chat-panel--conversation .chat-contacts__filters {
+    background: #14161a !important;
+  }
+
+  .chat-panel:not(.chat-panel--conversation) .chat-panel__body,
+  .chat-panel:not(.chat-panel--conversation) .chat-contacts,
+  .chat-panel:not(.chat-panel--conversation) .chat-contacts__list {
+    background: #14161a !important;
   }
 
   /* התאמת פריטי רשימת צ'אט (אנשי קשר) לעיצוב החדש */
