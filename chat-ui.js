@@ -4666,12 +4666,31 @@
       if (headerMenuBtn) headerMenuBtn.setAttribute('aria-expanded', 'false');
     };
     if (headerMenuBtn && headerMenu) {
+      const positionHeaderMenu = () => {
+        if (!headerMenu || headerMenu.hidden) return;
+        // איפוס ואז תיקון אם עדיין חורג משמאל המסך | HYPER CORE TECH
+        headerMenu.style.left = '0px';
+        headerMenu.style.right = 'auto';
+        headerMenu.style.transform = 'none';
+        const rect = headerMenu.getBoundingClientRect();
+        const pad = 8;
+        if (rect.left < pad) {
+          headerMenu.style.transform = `translateX(${Math.ceil(pad - rect.left)}px)`;
+        } else if (rect.right > window.innerWidth - pad) {
+          headerMenu.style.transform = `translateX(${Math.floor((window.innerWidth - pad) - rect.right)}px)`;
+        }
+      };
       headerMenuBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         const open = headerMenu.hidden;
         headerMenu.hidden = !open;
         headerMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+          requestAnimationFrame(positionHeaderMenu);
+        } else {
+          headerMenu.style.transform = 'none';
+        }
       });
       headerMenu.addEventListener('click', (e) => {
         const item = e.target.closest('[data-action]');
@@ -4686,8 +4705,12 @@
       doc.addEventListener('click', (e) => {
         if (!headerMenu.hidden && !headerMenu.contains(e.target) && e.target !== headerMenuBtn && !headerMenuBtn.contains(e.target)) {
           closeHeaderMenu();
+          headerMenu.style.transform = 'none';
         }
       });
+      window.addEventListener('resize', () => {
+        if (!headerMenu.hidden) positionHeaderMenu();
+      }, { passive: true });
     }
     if (elements.notificationsMarkRead) {
       elements.notificationsMarkRead.addEventListener('click', () => {

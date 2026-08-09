@@ -1125,21 +1125,33 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   z-index: 40;
 }
 
+.chat-conversation__menu-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
 .chat-conversation__menu {
   position: absolute;
   top: calc(100% + 6px);
-  /* יישור לשמאל של בלוק הפעולות (כפתור ⋮) – בלי בריחה מחוץ למסך ב-RTL | HYPER CORE TECH */
-  left: 0;
-  right: auto;
-  inset-inline-start: auto;
-  inset-inline-end: auto;
-  z-index: 50;
-  min-width: 180px;
+  /* עוגן פיזי לשמאל הכפתור – נפתח ימינה, בלי inset-inline שמתהפך ב-RTL | HYPER CORE TECH */
+  left: 0 !important;
+  right: auto !important;
+  inset-inline-start: unset !important;
+  inset-inline-end: unset !important;
+  transform: none;
+  z-index: 60;
+  min-width: 168px;
+  width: max-content;
+  max-width: min(220px, calc(100vw - 16px));
   padding: 6px 0;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: #1f2c34;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
 }
 
 .chat-conversation__menu[hidden] {
