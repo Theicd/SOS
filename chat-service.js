@@ -317,29 +317,75 @@
       return { ok: false, error: 'finalize-missing' };
     }
     const normalizedPeer = peerPubkey.toLowerCase();
+    const localMessages =
+      typeof App.getChatMessages === 'function' ? App.getChatMessages(normalizedPeer) || [] : [];
+    const localMsg = localMessages.find((m) => m?.id === messageId) || null;
+    const fileId = localMsg?.attachment?.fileId || extractChatDeletionFileId(messageId);
+    const deletionIds = expandChatDeletionIds(messageId, fileId);
+
     const draft = {
       kind: 5,
       pubkey: App.publicKey,
       created_at: Math.floor(Date.now() / 1000),
       tags: [
-        ['e', messageId],
+        ...[...deletionIds].map((id) => ['e', id]),
         ['p', normalizedPeer],
         ['t', CHAT_TAG],
       ],
       content: '',
     };
+    if (fileId) {
+      draft.tags.push(['file', fileId]);
+    }
     if (App.NETWORK_TAG) {
       draft.tags.push(['t', App.NETWORK_TAG]);
     }
     const event = App.finalizeEvent(draft, App.privateKey);
     try {
+      // מחיקה מיידית גם ב-DataChannel כשיש חיבור P2P | HYPER CORE TECH
+      try {
+        if (
+          App.dataChannel &&
+          typeof App.dataChannel.isConnected === 'function' &&
+          App.dataChannel.isConnected(normalizedPeer) &&
+          typeof App.dataChannel.sendDelete === 'function'
+        ) {
+          App.dataChannel.sendDelete(normalizedPeer, {
+            messageId,
+            fileId: fileId || null,
+            ids: [...deletionIds],
+          });
+        }
+      } catch (_) {}
+
       await pool.publish(App.relayUrls, event);
-      App.removeChatMessage(normalizedPeer, messageId);
+      deletionIds.forEach((id) => {
+        App.removeChatMessage(normalizedPeer, id);
+        App.deletedChatMessageIds?.add?.(id);
+      });
       return { ok: true };
     } catch (err) {
       console.error('Chat delete failed', err);
       return { ok: false, error: err?.message || 'delete-failed' };
     }
+  }
+
+  function extractChatDeletionFileId(messageId) {
+    const raw = String(messageId || '');
+    const m = raw.match(/^(?:p2p-send-|p2p-recv-|p2p-file-)(.+)$/);
+    return m?.[1] || '';
+  }
+
+  function expandChatDeletionIds(messageId, fileId) {
+    const ids = new Set();
+    if (messageId) ids.add(String(messageId));
+    const fid = fileId || extractChatDeletionFileId(messageId);
+    if (fid) {
+      ids.add(`p2p-file-${fid}`);
+      ids.add(`p2p-send-${fid}`);
+      ids.add(`p2p-recv-${fid}`);
+    }
+    return ids;
   }
 
   function normalizeProfileData(profile = {}, pubkey = '') {
@@ -621,10 +667,20 @@
     const conversationPeer = isSelf ? pTagPubkey : actor;
     
     targets.forEach((messageId) => {
-      // מנסים למחוק מהשיחה עם הפיר הנכון
+      // מנסים למחוק מהשיחה עם הפיר הנכון (כולל כינויי p2p-send/recv/file) | HYPER CORE TECH
       App.removeChatMessage(conversationPeer, messageId);
-      // גם מוסיפים לרשימת המחוקים כדי לא להציג שוב
       App.deletedChatMessageIds?.add?.(messageId);
+    });
+    // תג file מפורש ממחיקת מדיה P2P | HYPER CORE TECH
+    event.tags.forEach((tag) => {
+      if (Array.isArray(tag) && tag[0] === 'file' && tag[1]) {
+        const fid = String(tag[1]);
+        ['p2p-file-', 'p2p-send-', 'p2p-recv-'].forEach((prefix) => {
+          const id = `${prefix}${fid}`;
+          App.removeChatMessage(conversationPeer, id);
+          App.deletedChatMessageIds?.add?.(id);
+        });
+      }
     });
     
     const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);

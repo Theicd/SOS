@@ -403,7 +403,7 @@
             App.registerChatTransferPreview(fileId, { posterDataUrl });
           }
           App.appendChatMessage({
-            id: `p2p-send-${fileId}`,
+            id: `p2p-file-${fileId}`,
             from: App.publicKey,
             to: peerKey,
             content: `📎 ${file.name}`,
@@ -1245,7 +1245,7 @@
             }
           }
           App.appendChatMessage({
-            id: `p2p-recv-${fileId}`,
+            id: `p2p-file-${fileId}`,
             direction: 'incoming',
             from: transfer.peerPubkey,
             to: App.publicKey,

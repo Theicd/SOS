@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v315'; // bump - instant composer lift on keyboard open
+  const CACHE_NAME = 'sos-cache-v316'; // bump - fix P2P media delete for both sides via shared ids
   const PRECACHE_URLS = [
     './',
     './videos.html',

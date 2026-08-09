@@ -4850,7 +4850,20 @@
 
       // חלק מניעת כפילות (chat-ui.js) – עדכון/החלפת temp בלי append נוסף | HYPER CORE TECH
       if (removedMessageId && elements.messagesContainer) {
-        elements.messagesContainer.querySelector(`[data-message-id="${removedMessageId}"]`)?.remove();
+        const ids = new Set([String(removedMessageId)]);
+        const m = String(removedMessageId).match(/^(?:p2p-send-|p2p-recv-|p2p-file-)(.+)$/);
+        if (m?.[1]) {
+          const fid = m[1];
+          ids.add(`p2p-file-${fid}`);
+          ids.add(`p2p-send-${fid}`);
+          ids.add(`p2p-recv-${fid}`);
+          elements.messagesContainer
+            .querySelectorAll(`[data-p2p-file-id="${fid}"]`)
+            .forEach((el) => el.remove());
+        }
+        ids.forEach((id) => {
+          elements.messagesContainer.querySelector(`[data-message-id="${id}"]`)?.remove();
+        });
       }
       if (replacedTempId && message?.id) {
         const realEl = elements.messagesContainer?.querySelector(`[data-message-id="${message.id}"]`);
