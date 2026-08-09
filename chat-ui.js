@@ -2006,9 +2006,10 @@
     const sheet = doc.createElement('div');
     sheet.id = 'chatDisappearingSheet';
     sheet.className = 'chat-disappearing-sheet';
+    sheet.setAttribute('role', 'presentation');
     sheet.innerHTML = `
       <div class="chat-disappearing-sheet__backdrop"></div>
-      <div class="chat-disappearing-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="chatDisappearingTitle">
+      <div class="chat-disappearing-sheet__panel" role="document" aria-labelledby="chatDisappearingTitle">
         <div class="chat-disappearing-sheet__header">
           <button type="button" class="chat-disappearing-sheet__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
           <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">הודעות נעלמות</h3>
@@ -2026,7 +2027,8 @@
         </div>
       </div>
     `;
-    elements.panel.appendChild(sheet);
+    const host = elements.panel || doc.body;
+    host.appendChild(sheet);
     const close = () => sheet.remove();
     sheet.querySelector('.chat-disappearing-sheet__backdrop')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -4768,16 +4770,37 @@
       if (!headerMenu || headerMenu.hidden) return;
       headerMenu.hidden = true;
       if (headerMenuBtn) headerMenuBtn.setAttribute('aria-expanded', 'false');
+      headerMenu.style.top = '';
+      headerMenu.style.left = '';
+      headerMenu.style.right = '';
+      headerMenu.style.transform = '';
     };
     if (headerMenuBtn && headerMenu) {
       const positionHeaderMenu = () => {
         if (!headerMenu || headerMenu.hidden) return;
-        // איפוס ואז תיקון אם עדיין חורג משמאל המסך | HYPER CORE TECH
+        const pad = 8;
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        if (isMobile) {
+          const btnRect = headerMenuBtn.getBoundingClientRect();
+          headerMenu.style.position = 'fixed';
+          headerMenu.style.top = `${Math.round(btnRect.bottom + 8)}px`;
+          headerMenu.style.left = `${Math.round(btnRect.left)}px`;
+          headerMenu.style.right = 'auto';
+          headerMenu.style.transform = 'none';
+          const rect = headerMenu.getBoundingClientRect();
+          if (rect.left < pad) {
+            headerMenu.style.left = `${pad}px`;
+          } else if (rect.right > window.innerWidth - pad) {
+            headerMenu.style.left = `${Math.max(pad, Math.floor(window.innerWidth - pad - rect.width))}px`;
+          }
+          return;
+        }
+        headerMenu.style.position = '';
+        headerMenu.style.top = '';
         headerMenu.style.left = '0px';
         headerMenu.style.right = 'auto';
         headerMenu.style.transform = 'none';
         const rect = headerMenu.getBoundingClientRect();
-        const pad = 8;
         if (rect.left < pad) {
           headerMenu.style.transform = `translateX(${Math.ceil(pad - rect.left)}px)`;
         } else if (rect.right > window.innerWidth - pad) {

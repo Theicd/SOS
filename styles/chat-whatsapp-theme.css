@@ -1006,7 +1006,7 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 /* ===== ריכוז דיאלוגים/תפריטים בתוך חלון הצ'אט ===== */
 .chat-panel dialog,
 .chat-panel .dialog,
-.chat-panel [role="dialog"] {
+.chat-panel [role="dialog"]:not(.chat-disappearing-sheet):not(.chat-disappearing-sheet__panel) {
   position: absolute !important;
   inset: 0 !important;
   margin: auto !important;

@@ -2369,153 +2369,6 @@ body.chat-media-modal-open {
     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   }
 
-  /* === הודעת מערכת === */
-  .chat-panel .chat-system-message {
-    align-self: center;
-    background-color: #182229;
-    color: #FFD279;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 12.5px;
-    line-height: 1.45;
-    margin: 10px auto;
-    text-align: center;
-    max-width: min(92%, 420px);
-    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    direction: rtl;
-  }
-
-  .chat-panel .chat-system-message i {
-    flex: 0 0 auto;
-    margin-top: 2px;
-    opacity: 0.9;
-  }
-
-  .chat-panel .chat-system-message__link {
-    background: none;
-    border: 0;
-    padding: 0;
-    margin: 0;
-    color: #53bdeb;
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .chat-panel .chat-system-message__link:hover {
-    text-decoration: underline;
-  }
-
-  /* חלק הודעות נעלמות – גיליון הגדרות בסגנון וואטסאפ | HYPER CORE TECH */
-  .chat-disappearing-sheet {
-    position: absolute;
-    inset: 0;
-    z-index: 80;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-  }
-
-  .chat-disappearing-sheet__backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-  }
-
-  .chat-disappearing-sheet__panel {
-    position: relative;
-    width: 100%;
-    max-width: 480px;
-    background: #111b21;
-    border-radius: 16px 16px 0 0;
-    padding: 12px 16px 22px;
-    color: #e9edef;
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
-  }
-
-  .chat-disappearing-sheet__header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .chat-disappearing-sheet__close {
-    width: 36px;
-    height: 36px;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: #aebac1;
-    cursor: pointer;
-  }
-
-  .chat-disappearing-sheet__title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-  }
-
-  .chat-disappearing-sheet__hint {
-    margin: 0 0 14px;
-    color: #8696a0;
-    font-size: 13px;
-    line-height: 1.4;
-  }
-
-  .chat-disappearing-sheet__options {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .chat-disappearing-sheet__option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 4px;
-    border-bottom: 1px solid rgba(134, 150, 160, 0.18);
-    cursor: pointer;
-    font-size: 16px;
-  }
-
-  .chat-disappearing-sheet__option:last-child {
-    border-bottom: 0;
-  }
-
-  .chat-disappearing-sheet__option input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .chat-disappearing-sheet__radio {
-    width: 20px;
-    height: 20px;
-    border: 2px solid #8696a0;
-    border-radius: 50%;
-    position: relative;
-    flex: 0 0 auto;
-  }
-
-  .chat-disappearing-sheet__option.is-selected .chat-disappearing-sheet__radio,
-  .chat-disappearing-sheet__option:has(input:checked) .chat-disappearing-sheet__radio {
-    border-color: #00a884;
-  }
-
-  .chat-disappearing-sheet__option.is-selected .chat-disappearing-sheet__radio::after,
-  .chat-disappearing-sheet__option:has(input:checked) .chat-disappearing-sheet__radio::after {
-    content: "";
-    position: absolute;
-    inset: 3px;
-    border-radius: 50%;
-    background: #00a884;
-  }
-
   /* === שכבת כיסוי כהה על רקע הצ'אט === */
   .chat-panel .chat-conversation::before {
     content: "";
@@ -2551,5 +2404,196 @@ body.chat-media-modal-open {
   .chat-panel .chat-contacts__list::-webkit-scrollbar-track,
   .chat-panel .chat-conversation__messages::-webkit-scrollbar-track {
     background: transparent;
+  }
+}
+
+/* חלק הודעות נעלמות + הודעת מערכת – גלובלי (גם מובייל; לא רק דסקטופ) | HYPER CORE TECH */
+.chat-panel .chat-system-message {
+  align-self: center;
+  background-color: #182229;
+  color: #ffd279;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  margin: 10px auto;
+  text-align: center;
+  max-width: min(92%, 420px);
+  width: fit-content;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  direction: rtl;
+  box-sizing: border-box;
+}
+
+.chat-panel .chat-system-message--disappearing {
+  position: sticky;
+  top: 8px;
+  z-index: 6;
+  flex-shrink: 0;
+}
+
+.chat-panel .chat-system-message i {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+.chat-panel .chat-system-message__link {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: #53bdeb;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.chat-panel .chat-system-message__link:hover {
+  text-decoration: underline;
+}
+
+.chat-panel .chat-disappearing-sheet {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 320;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  pointer-events: auto;
+}
+
+.chat-panel .chat-disappearing-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(2px);
+}
+
+.chat-panel .chat-disappearing-sheet__panel {
+  position: relative !important;
+  inset: auto !important;
+  margin: 0 !important;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  max-height: min(78vh, 560px);
+  overflow-y: auto;
+  background: #111b21;
+  border-radius: 16px 16px 0 0;
+  padding: 12px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  color: #e9edef;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 0;
+  box-sizing: border-box;
+}
+
+.chat-panel .chat-disappearing-sheet__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chat-panel .chat-disappearing-sheet__close {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #aebac1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chat-panel .chat-disappearing-sheet__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e9edef;
+}
+
+.chat-panel .chat-disappearing-sheet__hint {
+  margin: 0 0 14px;
+  color: #8696a0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-panel .chat-disappearing-sheet__options {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-panel .chat-disappearing-sheet__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 4px;
+  border-bottom: 1px solid rgba(134, 150, 160, 0.18);
+  cursor: pointer;
+  font-size: 16px;
+  color: #e9edef;
+}
+
+.chat-panel .chat-disappearing-sheet__option:last-child {
+  border-bottom: 0;
+}
+
+.chat-panel .chat-disappearing-sheet__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-panel .chat-disappearing-sheet__radio {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #8696a0;
+  border-radius: 50%;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.chat-panel .chat-disappearing-sheet__option.is-selected .chat-disappearing-sheet__radio,
+.chat-panel .chat-disappearing-sheet__option:has(input:checked) .chat-disappearing-sheet__radio {
+  border-color: #00a884;
+}
+
+.chat-panel .chat-disappearing-sheet__option.is-selected .chat-disappearing-sheet__radio::after,
+.chat-panel .chat-disappearing-sheet__option:has(input:checked) .chat-disappearing-sheet__radio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: #00a884;
+}
+
+@media (max-width: 768px) {
+  .chat-panel .chat-system-message {
+    max-width: calc(100% - 24px);
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__panel {
+    max-width: 100%;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .chat-panel .chat-conversation__menu {
+    position: fixed !important;
+    z-index: 400;
+    min-width: 11.5rem;
+    max-width: calc(100vw - 24px);
   }
 }
