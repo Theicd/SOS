@@ -2859,15 +2859,20 @@
     }
   }
 
-  // חלק צ'אט (chat-ui.js) – מיקום הפאנל לפי visualViewport + הרמה מיידית של הקומפוזר | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – מקלדת: כיסוי מלא + הרמת קומפוזר ב-padding (בלי לחשוף את הפיד) | HYPER CORE TECH
   let _viewportRaf = 0;
   let _keyboardExpecting = false;
   let _keyboardSyncRaf = 0;
+  let _suppressOutsideCloseUntil = 0;
   let _lastKeyboardHeight = 0;
   try {
     _lastKeyboardHeight = Math.max(0, parseInt(sessionStorage.getItem('sosChatKeyboardHeight') || '0', 10) || 0);
   } catch (_) {
     _lastKeyboardHeight = 0;
+  }
+
+  function armChatOutsideCloseSuppress(ms = 1400) {
+    _suppressOutsideCloseUntil = Math.max(_suppressOutsideCloseUntil, Date.now() + ms);
   }
 
   function rememberKeyboardHeight(px) {
@@ -2905,7 +2910,6 @@
     if (!elements.panel) {
       return;
     }
-    // בדסקטופ (מעל 768px) - ה-CSS קובע את המיקום (כמו פרופיל), לא צריך JavaScript
     if (window.innerWidth > 768) {
       elements.panel.style.left = '';
       elements.panel.style.right = '';
@@ -2919,6 +2923,7 @@
       elements.panel.style.removeProperty('--chat-panel-top');
       elements.panel.style.removeProperty('--chat-panel-height');
       elements.panel.classList.remove('chat-panel--keyboard');
+      elements.panel.classList.remove('chat-panel--keyboard-pinned');
       _keyboardExpecting = false;
       return;
     }
@@ -2929,27 +2934,41 @@
     let top = 0;
     let height = Math.max(220, layoutH);
     let keyboardOpen = false;
+    let keyboardInset = 0;
+    let pinnedToVisual = false;
 
     if (vv) {
-      top = Math.max(0, Math.round(vv.offsetTop || 0));
-      height = Math.max(220, Math.round(vv.height || layoutH));
-      const measuredInset = Math.max(0, Math.round(layoutH - height - top));
-      if (measuredInset > 80) {
-        rememberKeyboardHeight(measuredInset);
+      const vvTop = Math.max(0, Math.round(vv.offsetTop || 0));
+      const vvHeight = Math.max(220, Math.round(vv.height || layoutH));
+      const measuredInset = Math.max(0, Math.round(layoutH - vvHeight - vvTop));
+      if (measuredInset > 80 || vvTop > 1) {
+        rememberKeyboardHeight(measuredInset > 80 ? measuredInset : Math.max(0, layoutH - vvHeight));
         _keyboardExpecting = false;
+        top = vvTop;
+        height = vvHeight;
         keyboardOpen = true;
+        keyboardInset = 0;
+        pinnedToVisual = true;
       } else if (provisional) {
-        // מיד עם הפוקוס: מצמצמים לפי גובה מקלדת אחרון / הערכה — בלי לחכות ל-vv | HYPER CORE TECH
+        // כיסוי מלא + הרמה ב-padding — מונע קליק שנופל לפיד וסוגר את השיחה | HYPER CORE TECH
         const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
         top = 0;
-        height = Math.max(220, layoutH - guess);
+        height = layoutH;
+        keyboardInset = guess;
         keyboardOpen = true;
+        pinnedToVisual = false;
       } else {
-        keyboardOpen = top > 1 || measuredInset > 80;
+        top = 0;
+        height = layoutH;
+        keyboardOpen = false;
+        keyboardInset = 0;
+        pinnedToVisual = false;
       }
     } else if (provisional) {
       const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
-      height = Math.max(220, layoutH - guess);
+      top = 0;
+      height = layoutH;
+      keyboardInset = guess;
       keyboardOpen = true;
     }
 
@@ -2959,8 +2978,9 @@
     elements.panel.style.maxWidth = '100%';
     elements.panel.style.setProperty('--chat-panel-top', `${top}px`);
     elements.panel.style.setProperty('--chat-panel-height', `${height}px`);
-    elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
+    elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
     elements.panel.classList.toggle('chat-panel--keyboard', keyboardOpen);
+    elements.panel.classList.toggle('chat-panel--keyboard-pinned', pinnedToVisual);
 
     if (keyboardOpen && state.activeContact) {
       scrollChatMessagesToEnd();
@@ -2977,6 +2997,7 @@
 
   function beginKeyboardOpen() {
     if (window.innerWidth > 768 || !state.isOpen) return;
+    armChatOutsideCloseSuppress(1600);
     _keyboardExpecting = true;
     positionPanel({ provisional: true });
     scrollChatMessagesToEnd();
@@ -2990,7 +3011,6 @@
       }
       positionPanel({ provisional: _keyboardExpecting });
       frames += 1;
-      // ~0.75s של סנכרון בזמן אנימציית מקלדת | HYPER CORE TECH
       if (_keyboardExpecting || frames < 20) {
         if (frames < 50) {
           _keyboardSyncRaf = requestAnimationFrame(tick);
@@ -3011,8 +3031,10 @@
 
   function togglePanel(forceOpen) {
     const targetState = typeof forceOpen === 'boolean' ? forceOpen : !state.isOpen;
-    // מונע סגירה בטעות בזמן הורדת קובץ (a.click סינתטי) | HYPER CORE TECH
     if (targetState === false && App.__sosSuppressChatOutsideClose) {
+      return;
+    }
+    if (targetState === false && Date.now() < _suppressOutsideCloseUntil) {
       return;
     }
     state.isOpen = targetState;
@@ -3046,10 +3068,12 @@
       }
       elements.panel.setAttribute('hidden', '');
       elements.panel.classList.remove('chat-panel--keyboard');
+      elements.panel.classList.remove('chat-panel--keyboard-pinned');
       elements.panel.style.removeProperty('--chat-panel-top');
       elements.panel.style.removeProperty('--chat-panel-height');
       elements.panel.style.removeProperty('--chat-keyboard-inset');
       _keyboardExpecting = false;
+      _suppressOutsideCloseUntil = 0;
       if (_keyboardSyncRaf) {
         cancelAnimationFrame(_keyboardSyncRaf);
         _keyboardSyncRaf = 0;
@@ -4673,6 +4697,8 @@
       if (!state.isOpen) return;
       // הורדה יוצרת a.click() סינתטי מחוץ לפאנל – לא לסגור את הצ'אט | HYPER CORE TECH
       if (App.__sosSuppressChatOutsideClose) return;
+      // פתיחת מקלדת עלולה לייצר קליק מחוץ לפאנל – לא לסגור | HYPER CORE TECH
+      if (Date.now() < _suppressOutsideCloseUntil || _keyboardExpecting) return;
       // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
       const voiceCallDialog = doc.getElementById('voiceCallDialog');
       const videoCallDialog = doc.getElementById('videoCallDialog');

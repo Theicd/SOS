@@ -4984,15 +4984,58 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     padding-top: 0 !important;
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
     z-index: 2005 !important; /* וידוא שנשאר עליון */
+    background: #0b141a !important;
   }
 
-  body:has(.chat-panel--conversation.chat-panel--keyboard:not([hidden])) .chat-panel,
-  .chat-panel--conversation.chat-panel--keyboard {
+  body:has(.chat-panel--conversation.chat-panel--keyboard-pinned:not([hidden])) .chat-panel,
+  .chat-panel--conversation.chat-panel--keyboard-pinned {
+    /* רק כשמצמידים ל-vv: בלי padding כפול | HYPER CORE TECH */
     padding-bottom: 0 !important;
+  }
+
+  .chat-panel--conversation .chat-panel__body {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    background: #0b141a !important;
+  }
+
+  .chat-panel--conversation .chat-conversation {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 2 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    background: #0b141a !important;
+    background-image: none !important;
+  }
+
+  .chat-panel--conversation .chat-conversation__messages {
+    background: #0b141a !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+  }
+
+  .chat-panel--conversation .chat-composer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
+    position: relative !important;
+    z-index: 8 !important;
+    background: #202c33 !important;
   }
 
   /* כותרת שיחה צמודה למעלה + גובה קומפקטי יותר | HYPER CORE TECH */
   .chat-panel--conversation .chat-conversation__header {
+    background: #202c33 !important;
     position: relative;
     top: auto;
     z-index: 6;
@@ -5026,20 +5069,28 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     scale: 1 !important;
   }
 
-  /* איפוס רקעים פנימיים בצ'אט כדי לאפשר לשקיפות לעבוד */
-  .chat-panel__body,
-  .chat-contacts,
+  /* איפוס רקעים פנימיים בצ'אט – רשימה/התראות שקופים; שיחה פעילה נשארת כהה למעלה | HYPER CORE TECH */
+  .chat-panel:not(.chat-panel--conversation) .chat-panel__body,
+  .chat-panel:not(.chat-panel--conversation) .chat-contacts,
   .chat-contacts__filters,
   .chat-contacts__search,
   .chat-contacts__list,
-  .chat-conversation,
-  .chat-conversation__header,
-  .chat-conversation__messages,
-  .chat-composer,
   .chat-notifications,
   .chat-notifications__body,
   .chat-notifications__list {
     background: transparent !important;
+  }
+
+  .chat-panel--conversation .chat-panel__body,
+  .chat-panel--conversation .chat-conversation,
+  .chat-panel--conversation .chat-conversation__messages {
+    background: #0b141a !important;
+    background-image: none !important;
+  }
+
+  .chat-panel--conversation .chat-conversation__header,
+  .chat-panel--conversation .chat-composer {
+    background: #202c33 !important;
   }
 
   /* התאמת פריטי רשימת צ'אט (אנשי קשר) לעיצוב החדש */
