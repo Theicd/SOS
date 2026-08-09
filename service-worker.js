@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v311'; // bump - WhatsApp-style chat header back+identity grouping
+  const CACHE_NAME = 'sos-cache-v312'; // bump - restore update toast via version file + waiting SW
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -39,7 +39,7 @@
       } catch (err) {
         console.warn('[SW] Precache failed:', err);
       }
-      await self.skipWaiting();
+      // לא קוראים skipWaiting כאן – ממתינים ללחיצת «עדכן» בכרטיסיית העדכון | HYPER CORE TECH
     })());
   });
 
@@ -76,6 +76,9 @@
     
     // APK / הורדות – תמיד מהרשת, בלי cache של SW | HYPER CORE TECH
     if (url.pathname.includes('/downloads/') || url.pathname.endsWith('.apk')) return;
+
+    // קובץ גרסה – תמיד מהרשת כדי לזהות דיפלוי חדש | HYPER CORE TECH
+    if (url.pathname.endsWith('/app-version.json') || url.pathname.endsWith('app-version.json')) return;
 
     // לא לשמור בקאש נתיבים דינמיים
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
