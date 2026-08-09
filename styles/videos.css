@@ -4923,8 +4923,9 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   .chat-panel.chat-panel--keyboard {
-    /* במקלדת: בלי padding עליון כפול — ה-vv כבר מצמצם | HYPER CORE TECH */
+    /* במקלדת: הפאנל = visualViewport בדיוק, בלי padding שיוצר פער | HYPER CORE TECH */
     padding-top: 0 !important;
+    padding-bottom: 0 !important;
   }
 
   /* כשדף השיחות פתוח – מסתירים את ה-top-bar של הפיד (z-index 3000) כדי שלא יחתוך את החיפוש | HYPER CORE TECH */
@@ -4982,16 +4983,16 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
     /* בשיחה פתוחה: בלי מרווח עליון — ההדר צמוד לראש (safe-area בתוך ההדר) | HYPER CORE TECH */
     padding-top: 0 !important;
-    /* מקלדת: מרים את שורת הטקסט עם inset — הפאנל נשאר על כל המסך (בלי פער לפיד) | HYPER CORE TECH */
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
+    /* סנכרון vv: בלי padding תחתון — תחתית הפאנל = ראש המקלדת | HYPER CORE TECH */
+    padding-bottom: 0 !important;
     z-index: 2005 !important; /* וידוא שנשאר עליון */
     background: #0b141a !important;
   }
 
-  /* אל תאפסו padding במקלדת — ה-inset הוא מה שמצמיד את הקומפוזר למקלדת | HYPER CORE TECH */
   body:has(.chat-panel--conversation.chat-panel--keyboard:not([hidden])) .chat-panel,
   .chat-panel--conversation.chat-panel--keyboard {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
   }
 
   /* רשימת שיחות שכבה מתחת לשיחה — לא display:none, כדי שלא ייראה הפיד | HYPER CORE TECH */
@@ -5026,6 +5027,7 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     flex-direction: column !important;
     width: 100% !important;
     min-height: 0 !important;
+    height: 100% !important;
     background: #0b141a !important;
   }
 
@@ -5033,6 +5035,13 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   .chat-panel--conversation .chat-composer,
   .chat-panel--conversation .chat-conversation__header {
     background: #0b141a !important;
+  }
+
+  /* שורת קלט תמיד בתחתית אזור ה-vv — צמודה למקלדת כשהפאנל מסונכרן | HYPER CORE TECH */
+  .chat-panel--conversation .chat-composer {
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
+    padding-bottom: 0 !important;
   }
 
   /* כותרת שיחה צמודה למעלה + גובה קומפקטי יותר | HYPER CORE TECH */
