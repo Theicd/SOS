@@ -4923,7 +4923,6 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   .chat-panel.chat-panel--keyboard {
-    /* במקלדת: בלי padding עליון כפול; ה-inset מרים את שורת הקלט | HYPER CORE TECH */
     padding-top: 0 !important;
   }
 
@@ -4975,18 +4974,17 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     display: none !important;
   }
 
-  /* שורת קלט עולה עם --chat-keyboard-inset בלבד; הרקע נשאר מלא | HYPER CORE TECH */
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
     padding-top: 0 !important;
-    padding-bottom: var(--chat-keyboard-inset, 0px) !important;
+    /* inset תמיד 0 ב-JS — בלי padding שדוחף את שורת הקלט החוצה | HYPER CORE TECH */
+    padding-bottom: 0 !important;
     z-index: 2005 !important;
     background: #0b141a !important;
   }
 
   body:has(.chat-panel--conversation.chat-panel--keyboard:not([hidden])) .chat-panel,
   .chat-panel--conversation.chat-panel--keyboard {
-    padding-top: 0 !important;
-    padding-bottom: var(--chat-keyboard-inset, 0px) !important;
+    padding-bottom: 0 !important;
   }
 
   .chat-panel--conversation .chat-panel__body {
@@ -5012,7 +5010,7 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     pointer-events: none !important;
   }
 
-  /* החזרת רקע דוודל של השיחה (כמו וואטסאפ) | HYPER CORE TECH */
+  /* רקע שיחה כהה יציב — בלי תמונה חיצונית (גורמת ללבן במכשירים מסוימים) | HYPER CORE TECH */
   .chat-panel--conversation .chat-conversation {
     position: absolute !important;
     inset: 0 !important;
@@ -5022,29 +5020,18 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     width: 100% !important;
     min-height: 0 !important;
     height: 100% !important;
-    background-color: #0b141a !important;
-    background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png') !important;
-    background-repeat: repeat !important;
-    background-size: 360px !important;
+    background: #0b141a !important;
+    background-image: none !important;
   }
 
   .chat-panel--conversation .chat-conversation__messages {
-    background: transparent !important;
+    background: #0b141a !important;
+    flex: 1 !important;
+    min-height: 0 !important;
   }
 
   .chat-panel--conversation .chat-conversation__header {
     background: #202c33 !important;
-  }
-
-  .chat-panel--conversation .chat-composer {
-    flex-shrink: 0 !important;
-    margin-top: auto !important;
-    padding-bottom: 6px !important;
-    background: #202c33 !important;
-  }
-
-  /* כותרת שיחה צמודה למעלה + גובה קומפקטי יותר | HYPER CORE TECH */
-  .chat-panel--conversation .chat-conversation__header {
     position: relative;
     top: auto;
     z-index: 6;
@@ -5059,6 +5046,19 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   .chat-panel--conversation.chat-panel--keyboard .chat-conversation__header {
     min-height: 52px;
     padding-top: 4px;
+  }
+
+  /* שורת קלט תמיד גלויה בתחתית הפאנל | HYPER CORE TECH */
+  .chat-panel--conversation .chat-composer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
+    padding-bottom: 6px !important;
+    background: #202c33 !important;
+    position: relative !important;
+    z-index: 8 !important;
   }
 
   .chat-panel--conversation .chat-conversation__avatar {
@@ -5093,20 +5093,12 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     background: transparent !important;
   }
 
-  /* שיחה: דוודל + הדר/קומפוזר כהים — לא שחור שטוח על ההודעות | HYPER CORE TECH */
-  .chat-panel--conversation .chat-panel__body {
-    background: #0b141a !important;
-  }
-
-  .chat-panel--conversation .chat-conversation {
-    background-color: #0b141a !important;
-    background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png') !important;
-    background-repeat: repeat !important;
-    background-size: 360px !important;
-  }
-
+  /* אחרי האיפוס: כפיית רקעים כהים יציבים בשיחה (בלי לבן / בלי תמונה חיצונית) | HYPER CORE TECH */
+  .chat-panel--conversation .chat-panel__body,
+  .chat-panel--conversation .chat-conversation,
   .chat-panel--conversation .chat-conversation__messages {
-    background: transparent !important;
+    background: #0b141a !important;
+    background-image: none !important;
   }
 
   .chat-panel--conversation .chat-conversation__header,

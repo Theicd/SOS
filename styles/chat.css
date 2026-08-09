@@ -342,7 +342,7 @@ body.chat-overlay-open {
   touch-action: manipulation;
 }
 
-/* רקע אטום מלא מתחת לצ'אט — מונע דליפת פיד הווידאו בפערי מקלדת | HYPER CORE TECH */
+/* רקע אטום כהה מתחת לצ'אט — בלי לבן | HYPER CORE TECH */
 body.chat-overlay-open::before {
   content: '';
   position: fixed;
@@ -352,7 +352,6 @@ body.chat-overlay-open::before {
   pointer-events: none;
 }
 
-/* הסתרת הפיד לגמרי כשהצ'אט פתוח — גם אם יש פער ויזואלי | HYPER CORE TECH */
 body.chat-overlay-open .videos-feed,
 body.chat-overlay-open .videos-feed__viewport {
   visibility: hidden !important;

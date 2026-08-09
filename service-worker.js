@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v322'; // bump - stable chat wallpaper + instant composer lift via keyboard inset
+  const CACHE_NAME = 'sos-cache-v323'; // bump - fix vanished composer + white bg (cap keyboard, no external wallpaper)
   const PRECACHE_URLS = [
     './',
     './videos.html',
