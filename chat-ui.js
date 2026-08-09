@@ -2914,63 +2914,16 @@
   }
 
   /**
-   * חוזה סנכרון מקלדת ↔ שורת קלט (מובייל) | HYPER CORE TECH
-   * ---------------------------------------------------------
-   * תחתית #chatPanel === תחתית window.visualViewport === ראש המקלדת.
-   * לכן top/height נלקחים מ-vv בלבד, בלי padding-bottom של מקלדת.
-   * אחרי paint מתקנים לפי getBoundingClientRect() עד סטייה ≤1px.
+   * מקלדת ↔ שורת קלט (מובייל) | HYPER CORE TECH
+   * -----------------------------------------------
+   * הפאנל נשאר על כל המסך (רקע שיחה יציב, בלי קפיצה).
+   * בלחיצה על הקלט: --chat-keyboard-inset עולה מיד לפי גובה מקלדת אחרון,
+   * ואז מתעדכן מ-visualViewport — כך שורת הקלט והמקלדת נפתחות יחד.
    */
-  function measureVisualViewportBox() {
-    const layoutH = getLayoutViewportHeight();
-    const layoutW = Math.max(window.innerWidth || 0, doc.documentElement?.clientWidth || 0);
-    const vv = window.visualViewport;
-    if (!vv) {
-      return { top: 0, left: 0, height: layoutH, width: layoutW, keyboardInset: 0, fromVv: false };
-    }
-    const top = Math.max(0, Math.round(vv.offsetTop || 0));
-    const left = Math.round(vv.offsetLeft || 0);
-    const height = Math.max(200, Math.round(vv.height || layoutH));
-    const width = Math.max(200, Math.round(vv.width || layoutW));
-    const keyboardInset = Math.max(0, Math.round(layoutH - (top + height)));
-    return { top, left, height, width, keyboardInset, fromVv: true };
-  }
-
-  function applyChatViewportBox(box, keyboardOpen) {
-    if (!elements.panel || !box) return;
-    elements.panel.style.left = `${box.left}px`;
-    elements.panel.style.right = 'auto';
-    elements.panel.style.width = `${box.width}px`;
-    elements.panel.style.maxWidth = `${box.width}px`;
-    elements.panel.style.setProperty('--chat-panel-top', `${box.top}px`);
-    elements.panel.style.setProperty('--chat-panel-height', `${box.height}px`);
-    // חובה 0: כל מרווח תחתון נוסף יוצר פער בין שורת הקלט למקלדת | HYPER CORE TECH
-    elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
-    elements.panel.classList.toggle('chat-panel--keyboard', !!keyboardOpen);
-  }
-
-  function correctChatViewportToKeyboard() {
-    if (!elements.panel || !state.isOpen || window.innerWidth > 768) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-    // getBoundingClientRect במערכת של ה-visualViewport — רוצים top≈0 ו-bottom≈vv.height | HYPER CORE TECH
-    const rect = elements.panel.getBoundingClientRect();
-    const driftTop = Math.round(rect.top);
-    const driftBottom = Math.round(vv.height - rect.bottom);
-    if (Math.abs(driftTop) <= 1 && Math.abs(driftBottom) <= 1) return;
-
-    const curTop = Math.max(0, parseInt(elements.panel.style.getPropertyValue('--chat-panel-top'), 10) || 0);
-    const nextTop = Math.max(0, curTop - driftTop);
-    const nextHeight = Math.max(200, Math.round(vv.height));
-    elements.panel.style.setProperty('--chat-panel-top', `${nextTop}px`);
-    elements.panel.style.setProperty('--chat-panel-height', `${nextHeight}px`);
-    elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
-  }
-
   function positionPanel(options = {}) {
     if (!elements.panel) {
       return;
     }
-    // בדסקטופ (מעל 768px) - ה-CSS קובע את המיקום (כמו פרופיל), לא צריך JavaScript
     if (window.innerWidth > 768) {
       elements.panel.style.left = '';
       elements.panel.style.right = '';
@@ -2993,26 +2946,35 @@
     const provisional = options.provisional === true || _keyboardExpecting;
     const focused = isChatComposerFocused();
     const layoutH = getLayoutViewportHeight();
-    const baseline = _baselineLayoutHeight || layoutH;
-    let box = measureVisualViewportBox();
+    const vv = window.visualViewport;
+
+    // פאנל מלא ויציב — לא מזיזים top/height עם המקלדת (מונע "רקע עולה בחצי") | HYPER CORE TECH
+    const top = 0;
+    const height = Math.max(220, layoutH);
+    let keyboardInset = 0;
     let keyboardOpen = false;
 
-    if (box.keyboardInset > 60) {
-      keyboardOpen = true;
-      if (box.keyboardInset > 80) rememberKeyboardHeight(box.keyboardInset);
-      _keyboardExpecting = false;
-    } else if ((provisional || focused) && _lastKeyboardHeight > 120) {
-      // vv עדיין לא עודכן — הערכה זמנית לפי גובה מקלדת שנמדד בפועל (לא אחוז ניחוש) | HYPER CORE TECH
-      box = {
-        top: 0,
-        left: 0,
-        height: Math.max(200, layoutH - _lastKeyboardHeight),
-        width: box.width,
-        keyboardInset: _lastKeyboardHeight,
-        fromVv: false
-      };
-      keyboardOpen = true;
-    } else if (focused || provisional) {
+    if (vv) {
+      const measured = Math.max(
+        0,
+        Math.round(layoutH - Math.max(0, vv.offsetTop || 0) - Math.max(0, vv.height || layoutH))
+      );
+      if (measured > 60) {
+        keyboardInset = measured;
+        keyboardOpen = true;
+        if (measured > 80) rememberKeyboardHeight(measured);
+        _keyboardExpecting = false;
+      } else if (provisional || focused) {
+        // מיד בלחיצה — שורת הקלט עולה יחד עם פתיחת המקלדת, לא אחריה | HYPER CORE TECH
+        keyboardInset = _lastKeyboardHeight > 120
+          ? _lastKeyboardHeight
+          : Math.round(layoutH * 0.42);
+        keyboardOpen = true;
+      }
+    } else if (provisional || focused) {
+      keyboardInset = _lastKeyboardHeight > 120
+        ? _lastKeyboardHeight
+        : Math.round(layoutH * 0.42);
       keyboardOpen = true;
     }
 
@@ -3020,15 +2982,18 @@
       if (window.scrollY || window.scrollX) window.scrollTo(0, 0);
     } catch (_) {}
 
-    applyChatViewportBox(box, keyboardOpen);
+    elements.panel.style.left = '0px';
+    elements.panel.style.right = '0px';
+    elements.panel.style.width = '100%';
+    elements.panel.style.maxWidth = '100%';
+    elements.panel.style.setProperty('--chat-panel-top', `${top}px`);
+    elements.panel.style.setProperty('--chat-panel-height', `${height}px`);
+    elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
+    elements.panel.classList.toggle('chat-panel--keyboard', keyboardOpen);
 
-    // תיקון מדויק אחרי paint — מצמיד את תחתית הפאנל לראש המקלדת | HYPER CORE TECH
-    requestAnimationFrame(() => {
-      correctChatViewportToKeyboard();
-      if (keyboardOpen && state.activeContact) {
-        scrollChatMessagesToEnd();
-      }
-    });
+    if (keyboardOpen && state.activeContact) {
+      scrollChatMessagesToEnd();
+    }
   }
 
   function schedulePositionPanel() {
@@ -3042,7 +3007,7 @@
   function beginKeyboardOpen() {
     if (window.innerWidth > 768 || !state.isOpen) return;
     // חסימת סגירה חיצונית כל עוד המקלדת נפתחת / שדה בפוקוס | HYPER CORE TECH
-    _suppressOutsideCloseUntil = Date.now() + 2500;
+    _suppressOutsideCloseUntil = Date.now() + 2000;
     _keyboardExpecting = true;
     positionPanel({ provisional: true });
     scrollChatMessagesToEnd();
@@ -3054,12 +3019,11 @@
         _keyboardExpecting = false;
         return;
       }
-      // סנכרון רציף בזמן אנימציית המקלדת — כל פריים מול visualViewport | HYPER CORE TECH
       positionPanel({ provisional: _keyboardExpecting || isChatComposerFocused() });
       frames += 1;
-      if (frames >= 24) _keyboardExpecting = false;
-      // ~1.5s סנכרון רציף בזמן פתיחת מקלדת; אחר כך visualViewport.resize/scroll | HYPER CORE TECH
-      if (frames < 90) {
+      if (frames >= 20) _keyboardExpecting = false;
+      // ~0.8s סנכרון בזמן אנימציית מקלדת | HYPER CORE TECH
+      if (frames < 50) {
         _keyboardSyncRaf = requestAnimationFrame(tick);
       }
     };
