@@ -338,8 +338,6 @@
 
 body.chat-overlay-open {
   overflow: hidden; /* חלק צ'אט (chat.css) – מונע גלילת רקע כאשר חלון הצ'אט מכסה את המסך */
-  overscroll-behavior: none;
-  touch-action: manipulation;
 }
 
 body.chat-overlay-open::before {
@@ -1253,9 +1251,9 @@ body.chat-overlay-open::before {
 
   .chat-composer {
     padding: 8px 10px;
-    /* חלק מקלדת מובייל (chat.css) – קומפוזר בתחתית הפאנל (גובה vv) | HYPER CORE TECH */
-    position: relative;
-    bottom: auto;
+    /* חלק מקלדת מובייל (chat.css) – שמירה על מיקום ה-composer כשהמקלדת פתוחה | HYPER CORE TECH */
+    position: sticky;
+    bottom: 0;
     flex-shrink: 0;
   }
 
@@ -1300,12 +1298,12 @@ body.chat-overlay-open::before {
     height: 40px;
   }
 
+  /* חלק מקלדת מובייל (chat.css) – הבטחת flexbox נכון לשיחה במובייל | HYPER CORE TECH */
   .chat-conversation {
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    overflow: hidden;
   }
 
   .chat-conversation__messages {
@@ -1940,17 +1938,15 @@ body.chat-media-modal-open {
 
   /* === כותרת צ'אט === */
   .chat-panel .chat-conversation__header {
-    min-height: 52px;
-    height: auto;
+    height: 59px;
     background-color: var(--wa-header-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px;
+    padding: 10px 16px;
     flex-shrink: 0;
     border-bottom: none;
     position: static;
-    box-sizing: border-box;
   }
 
   .chat-panel .chat-conversation__header[hidden] {
@@ -1962,8 +1958,8 @@ body.chat-media-modal-open {
   }
 
   .chat-panel .chat-conversation__avatar {
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background-color: #667781;
     overflow: hidden;

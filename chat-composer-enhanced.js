@@ -79,11 +79,7 @@
           const after = text.substring(end);
           composerState.inputElement.value = before + emoji + after;
           composerState.inputElement.selectionStart = composerState.inputElement.selectionEnd = start + emoji.length;
-          try {
-            composerState.inputElement.focus({ preventScroll: true });
-          } catch (_) {
-            composerState.inputElement.focus();
-          }
+          composerState.inputElement.focus();
           
           // Trigger input event
           composerState.inputElement.dispatchEvent(new Event('input', { bubbles: true }));

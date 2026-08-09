@@ -1878,150 +1878,6 @@
     });
   }
 
-  // ניקוי שיחה מלא: יוצאות ברשת אחת-אחת, נכנסות רק מקומית + מטמון | HYPER CORE TECH
-  let clearChatInProgress = false;
-  const CLEAR_CHAT_DELETE_GAP_MS = 450;
-
-  function isOutgoingChatMessage(message) {
-    if (!message) return false;
-    if (message.direction === 'outgoing') return true;
-    if (message.direction === 'incoming') return false;
-    const self = (App.publicKey || '').toLowerCase();
-    return !!(self && message.from?.toLowerCase?.() === self);
-  }
-
-  function collectChatMessageCacheKeys(message) {
-    const keys = new Set();
-    const att = message?.attachment || null;
-    if (!att) return [];
-    if (att.cacheKey) keys.add(String(att.cacheKey));
-    if (att.fileId) {
-      const base =
-        typeof App.chatP2PCacheKey === 'function'
-          ? App.chatP2PCacheKey(att.fileId)
-          : `p2p-file-${att.fileId}`;
-      if (base) {
-        keys.add(base);
-        keys.add(`${base}-poster`);
-      }
-    }
-    const src = String(att.url || att.dataUrl || '').trim();
-    if (src && !src.startsWith('magnet:') && !src.startsWith('blob:')) {
-      keys.add(src);
-    }
-    return [...keys].filter(Boolean);
-  }
-
-  async function purgeLocalChatMessageMedia(message) {
-    const keys = collectChatMessageCacheKeys(message);
-    for (const key of keys) {
-      try {
-        if (typeof App.deleteChatMediaFromCache === 'function') {
-          await App.deleteChatMediaFromCache(key);
-        }
-      } catch (_) {}
-      try {
-        if (typeof App.deleteCachedMedia === 'function') {
-          await App.deleteCachedMedia(key);
-        }
-      } catch (_) {}
-    }
-  }
-
-  function setClearChatBusy(busy) {
-    const header = elements.conversationHeader;
-    const spinner = doc.getElementById('chatConversationClearSpinner');
-    const menuBtn = doc.getElementById('chatConversationMenuBtn');
-    if (header) header.classList.toggle('chat-conversation__header--clearing', !!busy);
-    if (spinner) {
-      spinner.hidden = !busy;
-      spinner.setAttribute('aria-hidden', busy ? 'false' : 'true');
-    }
-    if (menuBtn) menuBtn.disabled = !!busy;
-  }
-
-  function showClearChatConfirmDialog(peerPubkey) {
-    const existing = doc.getElementById('chatDeleteDialog');
-    if (existing) existing.remove();
-    const dialog = doc.createElement('div');
-    dialog.id = 'chatDeleteDialog';
-    dialog.className = 'chat-dialog';
-    dialog.innerHTML = `
-      <div class="chat-dialog__backdrop"></div>
-      <div class="chat-dialog__content" role="dialog" aria-modal="true">
-        <h3 class="chat-dialog__title">ניקוי הצ׳ט</h3>
-        <p class="chat-dialog__message">לנקות את השיחה? הודעות יוצאות יימחקו גם אצל הצד השני. הודעות נכנסות יימחקו רק מהמכשיר שלך.</p>
-        <div class="chat-dialog__actions">
-          <button type="button" class="chat-dialog__btn chat-dialog__btn--cancel">ביטול</button>
-          <button type="button" class="chat-dialog__btn chat-dialog__btn--confirm">נקה</button>
-        </div>
-      </div>
-    `;
-    elements.panel.appendChild(dialog);
-    const backdrop = dialog.querySelector('.chat-dialog__backdrop');
-    const cancel = dialog.querySelector('.chat-dialog__btn--cancel');
-    const confirm = dialog.querySelector('.chat-dialog__btn--confirm');
-    const close = () => dialog.remove();
-    backdrop?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-    cancel?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-    confirm?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      close();
-      clearActiveChatConversation(peerPubkey);
-    });
-  }
-
-  async function clearActiveChatConversation(peerPubkey) {
-    const peer = peerPubkey || state.activeContact;
-    if (!peer || clearChatInProgress) return;
-    const messages = (typeof App.getChatMessages === 'function' ? App.getChatMessages(peer) : []) || [];
-    if (!messages.length) return;
-
-    clearChatInProgress = true;
-    setClearChatBusy(true);
-    try {
-      const snapshot = messages.slice();
-      const outgoing = [];
-      const incoming = [];
-      snapshot.forEach((msg) => {
-        if (!msg?.id) return;
-        if (isOutgoingChatMessage(msg)) outgoing.push(msg);
-        else incoming.push(msg);
-      });
-
-      // נכנסות: מחיקה מקומית בלבד (בלי רשת) | HYPER CORE TECH
-      for (const msg of incoming) {
-        await purgeLocalChatMessageMedia(msg);
-        if (typeof App.removeChatMessage === 'function') {
-          App.removeChatMessage(peer, msg.id);
-        }
-      }
-      if (incoming.length) renderMessages(peer);
-
-      // יוצאות: הוראת מחיקה אחת-אחת עם מרווח | HYPER CORE TECH
-      for (let i = 0; i < outgoing.length; i++) {
-        if (state.activeContact !== peer) break;
-        const msg = outgoing[i];
-        await purgeLocalChatMessageMedia(msg);
-        if (typeof App.deleteChatMessage === 'function') {
-          await App.deleteChatMessage(peer, msg.id);
-        } else if (typeof App.removeChatMessage === 'function') {
-          App.removeChatMessage(peer, msg.id);
-        }
-        renderMessages(peer);
-        if (i < outgoing.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, CLEAR_CHAT_DELETE_GAP_MS));
-        }
-      }
-    } catch (err) {
-      console.warn('[chat] clear chat failed', err);
-    } finally {
-      clearChatInProgress = false;
-      setClearChatBusy(false);
-      if (state.activeContact === peer) renderMessages(peer);
-    }
-  }
-
   const homeNavButton = doc.querySelector('[data-nav="home"]');
 
   const elements = {
@@ -2859,58 +2715,15 @@
     }
   }
 
-  // חלק צ'אט (chat-ui.js) – מקלדת: כיסוי מלא + הרמת קומפוזר ב-padding (בלי לחשוף את הפיד) | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – מיקום הפאנל - בדסקטופ נשלט על ידי CSS בלבד | HYPER CORE TECH
   let _viewportRaf = 0;
-  let _keyboardExpecting = false;
-  let _keyboardSyncRaf = 0;
-  let _suppressOutsideCloseUntil = 0;
-  let _lastKeyboardHeight = 0;
-  try {
-    _lastKeyboardHeight = Math.max(0, parseInt(sessionStorage.getItem('sosChatKeyboardHeight') || '0', 10) || 0);
-  } catch (_) {
-    _lastKeyboardHeight = 0;
-  }
-
-  function armChatOutsideCloseSuppress(ms = 1400) {
-    _suppressOutsideCloseUntil = Math.max(_suppressOutsideCloseUntil, Date.now() + ms);
-  }
-
-  function rememberKeyboardHeight(px) {
-    const n = Math.round(Number(px) || 0);
-    if (n < 120) return;
-    _lastKeyboardHeight = n;
-    try {
-      sessionStorage.setItem('sosChatKeyboardHeight', String(n));
-    } catch (_) {}
-  }
-
-  function getLayoutViewportHeight() {
-    return Math.max(window.innerHeight || 0, doc.documentElement?.clientHeight || 0);
-  }
-
-  function scrollChatMessagesToEnd() {
-    const scroller = getChatMessagesScroller();
-    if (!scroller) return;
-    try {
-      scroller.scrollTop = scroller.scrollHeight;
-    } catch (_) {}
-  }
-
-  function focusChatMessageInput() {
-    const input = elements.messageInput;
-    if (!input || typeof input.focus !== 'function') return;
-    try {
-      input.focus({ preventScroll: true });
-    } catch (_) {
-      try { input.focus(); } catch (__) {}
-    }
-  }
-
-  function positionPanel(options = {}) {
+  function positionPanel() {
     if (!elements.panel) {
       return;
     }
+    // בדסקטופ (מעל 768px) - ה-CSS קובע את המיקום (כמו פרופיל), לא צריך JavaScript
     if (window.innerWidth > 768) {
+      // איפוס כל הסגנונות האינליין כדי שה-CSS יעבוד
       elements.panel.style.left = '';
       elements.panel.style.right = '';
       elements.panel.style.top = '';
@@ -2920,70 +2733,23 @@
       elements.panel.style.height = '';
       elements.panel.style.maxHeight = '';
       elements.panel.style.removeProperty('--chat-keyboard-inset');
-      elements.panel.style.removeProperty('--chat-panel-top');
-      elements.panel.style.removeProperty('--chat-panel-height');
-      elements.panel.classList.remove('chat-panel--keyboard');
-      elements.panel.classList.remove('chat-panel--keyboard-pinned');
-      _keyboardExpecting = false;
       return;
     }
-
-    const provisional = options.provisional === true || _keyboardExpecting;
-    const vv = window.visualViewport;
-    const layoutH = getLayoutViewportHeight();
-    let top = 0;
-    let height = Math.max(220, layoutH);
-    let keyboardOpen = false;
-    let keyboardInset = 0;
-    let pinnedToVisual = false;
-
-    if (vv) {
-      const vvTop = Math.max(0, Math.round(vv.offsetTop || 0));
-      const vvHeight = Math.max(220, Math.round(vv.height || layoutH));
-      const measuredInset = Math.max(0, Math.round(layoutH - vvHeight - vvTop));
-      if (measuredInset > 80 || vvTop > 1) {
-        rememberKeyboardHeight(measuredInset > 80 ? measuredInset : Math.max(0, layoutH - vvHeight));
-        _keyboardExpecting = false;
-        top = vvTop;
-        height = vvHeight;
-        keyboardOpen = true;
-        keyboardInset = 0;
-        pinnedToVisual = true;
-      } else if (provisional) {
-        // כיסוי מלא + הרמה ב-padding — מונע קליק שנופל לפיד וסוגר את השיחה | HYPER CORE TECH
-        const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
-        top = 0;
-        height = layoutH;
-        keyboardInset = guess;
-        keyboardOpen = true;
-        pinnedToVisual = false;
-      } else {
-        top = 0;
-        height = layoutH;
-        keyboardOpen = false;
-        keyboardInset = 0;
-        pinnedToVisual = false;
-      }
-    } else if (provisional) {
-      const guess = _lastKeyboardHeight > 120 ? _lastKeyboardHeight : Math.round(layoutH * 0.42);
-      top = 0;
-      height = layoutH;
-      keyboardInset = guess;
-      keyboardOpen = true;
-    }
-
+    // במובייל – פאנל full-screen קבוע; המקלדת מזיזה רק padding דרך CSS var (בלי thrashing של height/top) | HYPER CORE TECH
     elements.panel.style.left = '0px';
     elements.panel.style.right = '0px';
+    elements.panel.style.top = '0px';
+    elements.panel.style.bottom = '0px';
     elements.panel.style.width = '100%';
     elements.panel.style.maxWidth = '100%';
-    elements.panel.style.setProperty('--chat-panel-top', `${top}px`);
-    elements.panel.style.setProperty('--chat-panel-height', `${height}px`);
-    elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
-    elements.panel.classList.toggle('chat-panel--keyboard', keyboardOpen);
-    elements.panel.classList.toggle('chat-panel--keyboard-pinned', pinnedToVisual);
-
-    if (keyboardOpen && state.activeContact) {
-      scrollChatMessagesToEnd();
+    elements.panel.style.height = '100%';
+    elements.panel.style.maxHeight = '100%';
+    const vv = window.visualViewport;
+    if (vv) {
+      const keyboardInset = Math.max(0, Math.round(window.innerHeight - vv.height - (vv.offsetTop || 0)));
+      elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
+    } else {
+      elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
     }
   }
 
@@ -2995,46 +2761,10 @@
     });
   }
 
-  function beginKeyboardOpen() {
-    if (window.innerWidth > 768 || !state.isOpen) return;
-    armChatOutsideCloseSuppress(1600);
-    _keyboardExpecting = true;
-    positionPanel({ provisional: true });
-    scrollChatMessagesToEnd();
-    if (_keyboardSyncRaf) return;
-    let frames = 0;
-    const tick = () => {
-      _keyboardSyncRaf = 0;
-      if (!state.isOpen) {
-        _keyboardExpecting = false;
-        return;
-      }
-      positionPanel({ provisional: _keyboardExpecting });
-      frames += 1;
-      if (_keyboardExpecting || frames < 20) {
-        if (frames < 50) {
-          _keyboardSyncRaf = requestAnimationFrame(tick);
-        }
-      }
-    };
-    _keyboardSyncRaf = requestAnimationFrame(tick);
-  }
-
-  function endKeyboardOpen() {
-    _keyboardExpecting = false;
-    if (_keyboardSyncRaf) {
-      cancelAnimationFrame(_keyboardSyncRaf);
-      _keyboardSyncRaf = 0;
-    }
-    schedulePositionPanel();
-  }
-
   function togglePanel(forceOpen) {
     const targetState = typeof forceOpen === 'boolean' ? forceOpen : !state.isOpen;
+    // מונע סגירה בטעות בזמן הורדת קובץ (a.click סינתטי) | HYPER CORE TECH
     if (targetState === false && App.__sosSuppressChatOutsideClose) {
-      return;
-    }
-    if (targetState === false && Date.now() < _suppressOutsideCloseUntil) {
       return;
     }
     state.isOpen = targetState;
@@ -3067,17 +2797,6 @@
         renderContacts(true);
       }
       elements.panel.setAttribute('hidden', '');
-      elements.panel.classList.remove('chat-panel--keyboard');
-      elements.panel.classList.remove('chat-panel--keyboard-pinned');
-      elements.panel.style.removeProperty('--chat-panel-top');
-      elements.panel.style.removeProperty('--chat-panel-height');
-      elements.panel.style.removeProperty('--chat-keyboard-inset');
-      _keyboardExpecting = false;
-      _suppressOutsideCloseUntil = 0;
-      if (_keyboardSyncRaf) {
-        cancelAnimationFrame(_keyboardSyncRaf);
-        _keyboardSyncRaf = 0;
-      }
       elements.navButton?.setAttribute('aria-pressed', 'false');
       elements.launcherButton?.setAttribute('aria-expanded', 'false');
       resetConversationView();
@@ -4578,7 +4297,7 @@
     elements.messageInput.style.height = '';
     elements.messageInput.disabled = false;
     // חלק שמירת מקלדת (chat-ui.js) – שמירה על פוקוס ב-input אחרי שליחה כדי שהמקלדת תישאר פתוחה במובייל | HYPER CORE TECH
-    focusChatMessageInput();
+    elements.messageInput.focus();
     
     // 2. הודעה זמנית ב-state (מפעיל UI פעם אחת דרך subscribe) | HYPER CORE TECH
     const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -4697,8 +4416,6 @@
       if (!state.isOpen) return;
       // הורדה יוצרת a.click() סינתטי מחוץ לפאנל – לא לסגור את הצ'אט | HYPER CORE TECH
       if (App.__sosSuppressChatOutsideClose) return;
-      // פתיחת מקלדת עלולה לייצר קליק מחוץ לפאנל – לא לסגור | HYPER CORE TECH
-      if (Date.now() < _suppressOutsideCloseUntil || _keyboardExpecting) return;
       // חלק שיחות קול (chat-ui.js) – התעלמות מלחיצות על דיאלוג שיחת קול/וידיאו כדי לא לסגור את הצ'אט | HYPER CORE TECH
       const voiceCallDialog = doc.getElementById('voiceCallDialog');
       const videoCallDialog = doc.getElementById('videoCallDialog');
@@ -4758,27 +4475,6 @@
     if (elements.composer) {
       elements.composer.addEventListener('submit', handleSendMessage);
     }
-    // מקלדת מובייל – הרמה מיידית של הקומפוזר לפני/עם פתיחת המקלדת | HYPER CORE TECH
-    if (elements.messageInput) {
-      const kickKeyboard = () => beginKeyboardOpen();
-      elements.messageInput.addEventListener('touchstart', kickKeyboard, { passive: true });
-      elements.messageInput.addEventListener('pointerdown', kickKeyboard, { passive: true });
-      elements.messageInput.addEventListener('focus', kickKeyboard);
-      elements.messageInput.addEventListener('blur', () => {
-        setTimeout(() => endKeyboardOpen(), 60);
-      });
-    }
-    if (elements.composer) {
-      elements.composer.addEventListener(
-        'touchstart',
-        (e) => {
-          if (e.target?.closest?.('textarea, input, .chat-composer__field')) {
-            beginKeyboardOpen();
-          }
-        },
-        { passive: true }
-      );
-    }
     if (elements.messagesContainer) {
       elements.messagesContainer.addEventListener('click', handleMessageActions);
     }
@@ -4814,11 +4510,7 @@
         if (!item) return;
         e.preventDefault();
         closeHeaderMenu();
-        const action = item.getAttribute('data-action');
-        if (action === 'clear-chat') {
-          if (!state.activeContact || clearChatInProgress) return;
-          showClearChatConfirmDialog(state.activeContact);
-        } else if (action === 'back') {
+        if (item.getAttribute('data-action') === 'back') {
           resetConversationView();
         }
       });

@@ -44,21 +44,6 @@
     } catch (e) { /* ignore */ }
   }
   
-  // חלק מחיקה מקומית (chat-media-renderer.js) – הסרת מדיה ממטמון הצ'אט בדפדפן | HYPER CORE TECH
-  async function deleteChatMediaFromCache(url) {
-    if (!url) return false;
-    try {
-      const db = await openChatMediaDB();
-      if (!db) return false;
-      const tx = db.transaction([CHAT_MEDIA_STORE], 'readwrite');
-      const store = tx.objectStore(CHAT_MEDIA_STORE);
-      store.delete(url);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
   // חלק קריאה (chat-media-renderer.js) – טעינת מדיה מהמטמון | HYPER CORE TECH
   async function getChatMediaFromCache(url) {
     try {
@@ -2470,7 +2455,6 @@
     // מטמון מדיה צ'אט | HYPER CORE TECH
     fetchAndCacheChatMedia: fetchAndCacheMedia,
     getChatMediaFromCache,
-    deleteChatMediaFromCache,
     persistChatP2PMedia,
     persistChatP2PPoster,
     capturePosterFromBlob,
