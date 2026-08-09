@@ -1958,50 +1958,103 @@
     });
   }
 
-  function showAutoCleanDialog() {
-    const existing = doc.getElementById('chatAutoCleanDialog');
+  function formatDisappearingTimerLabel(seconds) {
+    const sec = Number(seconds) || 0;
+    if (sec <= 0) return 'כבוי';
+    if (sec <= 24 * 60 * 60) return '24 שעות';
+    if (sec <= 7 * 24 * 60 * 60) return '7 ימים';
+    if (sec <= 90 * 24 * 60 * 60) return '90 ימים';
+    return `${Math.round(sec / 86400)} ימים`;
+  }
+
+  function buildDisappearingSystemBanner(peerPubkey) {
+    const peer = (peerPubkey || '').toLowerCase();
+    const sec = typeof App.getDisappearingTimerSec === 'function'
+      ? App.getDisappearingTimerSec(peer)
+      : (App.DISAPPEARING_DEFAULT_SEC || 7 * 24 * 60 * 60);
+    const el = doc.createElement('div');
+    el.className = 'chat-system-message chat-system-message--disappearing';
+    el.setAttribute('role', 'status');
+    const link = '<button type="button" class="chat-system-message__link" data-disappearing-settings>לחץ כאן</button>';
+    if (sec <= 0) {
+      el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>הודעות נעלמות כבויות בצ'אט הזה. כדי להפעיל טיימר ${link}.</span>`;
+    } else {
+      const label = formatDisappearingTimerLabel(sec);
+      el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>בחרת להשתמש בטיימר ברירת מחדל להודעות נעלמות. הודעות חדשות ייעלמו מהצ'אט הזה ${label} אחרי שליחתן. כדי לשנות את הטיימר ${link}.</span>`;
+    }
+    el.querySelector('[data-disappearing-settings]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDisappearingSettings(peer);
+    });
+    return el;
+  }
+
+  function openDisappearingSettings(peerPubkey) {
+    const peer = (peerPubkey || state.activeContact || '').toLowerCase();
+    if (!peer) return;
+    const existing = doc.getElementById('chatDisappearingSheet');
     if (existing) existing.remove();
-    const days = Math.round((App.CHAT_RETENTION_SECONDS || (90 * 24 * 60 * 60)) / 86400);
-    const dialog = doc.createElement('div');
-    dialog.id = 'chatAutoCleanDialog';
-    dialog.className = 'chat-dialog';
-    dialog.innerHTML = `
-      <div class="chat-dialog__backdrop"></div>
-      <div class="chat-dialog__content" role="dialog" aria-modal="true">
-        <h3 class="chat-dialog__title">ניקוי אוטומטי</h3>
-        <p class="chat-dialog__message">המערכת מוחקת אוטומטית הודעות ישנות מעל ${days} יום מהמכשיר ומהסנכרון. להריץ ניקוי עכשיו להודעות שכבר עברו את התקופה?</p>
-        <div class="chat-dialog__actions">
-          <button type="button" class="chat-dialog__btn chat-dialog__btn--cancel">סגור</button>
-          <button type="button" class="chat-dialog__btn chat-dialog__btn--confirm">נקה עכשיו</button>
+    const current = typeof App.getDisappearingTimerSec === 'function'
+      ? App.getDisappearingTimerSec(peer)
+      : (App.DISAPPEARING_DEFAULT_SEC || 7 * 24 * 60 * 60);
+    const options = [
+      { value: 24 * 60 * 60, label: '24 שעות' },
+      { value: 7 * 24 * 60 * 60, label: '7 ימים' },
+      { value: 90 * 24 * 60 * 60, label: '90 ימים' },
+      { value: 0, label: 'כבוי' },
+    ];
+    const sheet = doc.createElement('div');
+    sheet.id = 'chatDisappearingSheet';
+    sheet.className = 'chat-disappearing-sheet';
+    sheet.innerHTML = `
+      <div class="chat-disappearing-sheet__backdrop"></div>
+      <div class="chat-disappearing-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="chatDisappearingTitle">
+        <div class="chat-disappearing-sheet__header">
+          <button type="button" class="chat-disappearing-sheet__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
+          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">הודעות נעלמות</h3>
+        </div>
+        <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ'אט הזה לפני שיימחקו מהמכשיר.</p>
+        <div class="chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר הודעות נעלמות">
+          ${options.map((opt) => {
+            const isOn = current === opt.value;
+            return `<label class="chat-disappearing-sheet__option${isOn ? ' is-selected' : ''}">
+              <span>${opt.label}</span>
+              <input type="radio" name="disappearingTimer" value="${opt.value}" ${isOn ? 'checked' : ''}>
+              <span class="chat-disappearing-sheet__radio" aria-hidden="true"></span>
+            </label>`;
+          }).join('')}
         </div>
       </div>
     `;
-    elements.panel.appendChild(dialog);
-    const backdrop = dialog.querySelector('.chat-dialog__backdrop');
-    const cancel = dialog.querySelector('.chat-dialog__btn--cancel');
-    const confirm = dialog.querySelector('.chat-dialog__btn--confirm');
-    const close = () => dialog.remove();
-    backdrop?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-    cancel?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-    confirm?.addEventListener('click', (e) => {
+    elements.panel.appendChild(sheet);
+    const close = () => sheet.remove();
+    sheet.querySelector('.chat-disappearing-sheet__backdrop')?.addEventListener('click', (e) => {
       e.stopPropagation();
       close();
-      let removed = 0;
-      try {
-        removed = typeof App.pruneExpiredChatHistory === 'function' ? (App.pruneExpiredChatHistory() || 0) : 0;
-      } catch (_) {
-        removed = 0;
-      }
-      if (state.activeContact) {
-        renderMessages(state.activeContact, { force: true });
-      }
-      renderContacts(true);
-      try {
-        if (typeof App.showToast === 'function') {
-          App.showToast(removed > 0 ? `נוקו ${removed} הודעות ישנות` : 'אין הודעות ישנות לניקוי');
-        }
-      } catch (_) {}
     });
+    sheet.querySelector('.chat-disappearing-sheet__close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+    });
+    sheet.querySelectorAll('input[name="disappearingTimer"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const sec = Math.max(0, Number(input.value) || 0);
+        try {
+          App.setDisappearingTimerSec?.(peer, sec);
+        } catch (_) {}
+        close();
+        if (state.activeContact && state.activeContact.toLowerCase() === peer) {
+          renderMessages(peer, { force: true });
+        }
+        try {
+          App.showToast?.(sec > 0 ? `הודעות נעלמות: ${formatDisappearingTimerLabel(sec)}` : 'הודעות נעלמות כבויות');
+        } catch (_) {}
+      });
+    });
+  }
+
+  function showAutoCleanDialog() {
+    openDisappearingSettings(state.activeContact);
   }
 
   function showDeleteConfirmDialog(messageId, peerPubkey) {
@@ -3484,13 +3537,18 @@
     }
 
     elements.messagesContainer.innerHTML = '';
+    const fragment = doc.createDocumentFragment();
+    fragment.appendChild(buildDisappearingSystemBanner(peerPubkey));
     if (!allMessages.length) {
-      elements.messagesContainer.innerHTML = '<p class="chat-conversation__empty">אין הודעות עדיין. כתוב משהו!</p>';
+      const empty = doc.createElement('p');
+      empty.className = 'chat-conversation__empty';
+      empty.textContent = 'אין הודעות עדיין. כתוב משהו!';
+      fragment.appendChild(empty);
+      elements.messagesContainer.appendChild(fragment);
       return;
     }
     const startIndex = Math.max(0, allMessages.length - _visibleMessageLimit);
     const messages = allMessages.slice(startIndex);
-    const fragment = doc.createDocumentFragment();
     if (startIndex > 0) {
       const loadOlder = doc.createElement('button');
       loadOlder.type = 'button';
@@ -4803,6 +4861,13 @@
       const { peer, message, statusUpdate, replacedTempId, removedMessageId } = payload;
       if (!peer) return;
       const normalizedPeer = peer.toLowerCase();
+      if (payload.disappearingTimerUpdated || payload.disappearingPruned) {
+        if (normalizedPeer === (state.activeContact || '').toLowerCase()) {
+          renderMessages(state.activeContact, { force: true });
+        }
+        renderContacts(true);
+        if (!message && !removedMessageId && !statusUpdate && !replacedTempId) return;
+      }
       const isIncoming = message?.direction === 'incoming'
         || (message?.from && typeof App.publicKey === 'string' && message.from.toLowerCase() !== App.publicKey.toLowerCase());
       const isActivePeer = normalizedPeer === (state.activeContact || '').toLowerCase();

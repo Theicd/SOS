@@ -18,7 +18,12 @@
   };
 
   const MAX_MESSAGES_PER_THREAD = 500; // חלק צ'אט (chat-state.js) – מגביל היסטוריה בזיכרון/שמירה לביצועים | HYPER CORE TECH
-  const CHAT_RETENTION_SECONDS = 90 * 24 * 60 * 60; // חלק צ'אט (chat-state.js) – שמירת היסטוריה מקסימום 90 יום | HYPER CORE TECH
+  const CHAT_RETENTION_SECONDS = 90 * 24 * 60 * 60; // חלק צ'אט (chat-state.js) – תקרת שמירה גלובלית 90 יום | HYPER CORE TECH
+  const DISAPPEARING_DEFAULT_SEC = 7 * 24 * 60 * 60; // חלק הודעות נעלמות – ברירת מחדל 7 ימים כמו וואטסאפ | HYPER CORE TECH
+
+  // peerPubkey -> seconds (0 = כבוי; עדיין חלה תקרת 90 יום) | HYPER CORE TECH
+  chatState.disappearingTimers = new Map();
+  chatState.defaultDisappearingSec = DISAPPEARING_DEFAULT_SEC;
 
   function getChatRetentionCutoffTs(nowSec = Math.floor(Date.now() / 1000)) {
     return nowSec - CHAT_RETENTION_SECONDS;
@@ -29,7 +34,24 @@
     return Number.isFinite(ts) ? ts : 0;
   }
 
-  function pruneConversationEntry(entry, cutoffTs = getChatRetentionCutoffTs()) {
+  function getDisappearingTimerSec(peerPubkey) {
+    const key = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
+    if (!key) return chatState.defaultDisappearingSec;
+    if (chatState.disappearingTimers.has(key)) {
+      return Number(chatState.disappearingTimers.get(key)) || 0;
+    }
+    return chatState.defaultDisappearingSec;
+  }
+
+  function getCutoffForPeer(peerPubkey, nowSec = Math.floor(Date.now() / 1000)) {
+    const timer = getDisappearingTimerSec(peerPubkey);
+    if (timer > 0) {
+      return nowSec - timer;
+    }
+    return getChatRetentionCutoffTs(nowSec);
+  }
+
+  function pruneConversationEntry(entry, cutoffTs) {
     if (!entry || !Array.isArray(entry.messages) || !entry.messages.length) return 0;
     const before = entry.messages.length;
     entry.messages = entry.messages.filter((message) => {
@@ -43,15 +65,41 @@
     return before - entry.messages.length;
   }
 
+  function prunePeerDisappearingMessages(peerPubkey) {
+    const self = (App.publicKey || '').toLowerCase();
+    const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
+    if (!peer || !self) return 0;
+    const key = getConversationKey(peer, self);
+    const entry = key ? chatState.conversations.get(key) : null;
+    if (!entry) return 0;
+    const removed = pruneConversationEntry(entry, getCutoffForPeer(peer));
+    if (removed > 0) {
+      persistState();
+      notify('message', { peer, disappearingPruned: true });
+    }
+    return removed;
+  }
+
+  function setDisappearingTimerSec(peerPubkey, seconds) {
+    const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
+    if (!peer) return false;
+    const sec = Math.max(0, Number(seconds) || 0);
+    chatState.disappearingTimers.set(peer, sec);
+    persistState();
+    prunePeerDisappearingMessages(peer);
+    notify('message', { peer, disappearingTimerUpdated: true, disappearingTimerSec: sec });
+    return true;
+  }
+
   function pruneExpiredChatHistory() {
-    const cutoffTs = getChatRetentionCutoffTs();
     let removed = 0;
     chatState.conversations.forEach((entry) => {
-      removed += pruneConversationEntry(entry, cutoffTs);
+      if (!entry?.peer) return;
+      removed += pruneConversationEntry(entry, getCutoffForPeer(entry.peer));
     });
     if (removed > 0) {
       persistState();
-      console.log('[CHAT/STATE] Pruned expired messages (>90d):', removed);
+      console.log('[CHAT/STATE] Pruned disappearing/expired messages:', removed);
     }
     return removed;
   }
@@ -151,12 +199,18 @@
         messages: Array.isArray(info.messages) ? info.messages : [],
       });
     });
+    const disappearingTimers = [];
+    chatState.disappearingTimers.forEach((seconds, peer) => {
+      disappearingTimers.push({ peer, seconds: Number(seconds) || 0 });
+    });
     const payload = {
       id: storageKey,
       contacts: contactsArray,
       conversations: conversationsArray,
       deletedIds: Array.from(App.deletedChatMessageIds || []),
       lastSyncTs: chatState.lastSyncTs || 0,
+      disappearingTimers,
+      defaultDisappearingSec: chatState.defaultDisappearingSec,
     };
     
     try {
@@ -253,19 +307,31 @@
           chatState.contacts.set(key, restoredContact);
         });
       }
+      if (Array.isArray(parsed.disappearingTimers)) {
+        chatState.disappearingTimers.clear();
+        parsed.disappearingTimers.forEach((row) => {
+          const peer = typeof row?.peer === 'string' ? row.peer.toLowerCase() : '';
+          if (!peer) return;
+          chatState.disappearingTimers.set(peer, Math.max(0, Number(row.seconds) || 0));
+        });
+      }
+      if (typeof parsed.defaultDisappearingSec === 'number' && parsed.defaultDisappearingSec >= 0) {
+        chatState.defaultDisappearingSec = parsed.defaultDisappearingSec;
+      }
       if (Array.isArray(parsed.conversations)) {
         parsed.conversations.forEach((entry) => {
           if (!entry || !entry.key || !entry.peer) {
             return;
           }
-          const cutoffTs = getChatRetentionCutoffTs();
+          const peer = entry.peer.toLowerCase();
+          const cutoffTs = getCutoffForPeer(peer);
           const filtered = (Array.isArray(entry.messages) ? entry.messages : []).filter((message) => {
             const ts = getMessageCreatedAt(message);
             return !ts || ts >= cutoffTs;
           });
           const messages = MAX_MESSAGES_PER_THREAD ? filtered.slice(-MAX_MESSAGES_PER_THREAD) : filtered;
           chatState.conversations.set(entry.key, {
-            peer: entry.peer.toLowerCase(),
+            peer,
             messages,
           });
           messages.forEach((message) => {
@@ -273,7 +339,7 @@
               return;
             }
             chatState.messageIndex.set(message.id, {
-              peer: entry.peer.toLowerCase(),
+              peer,
               key: entry.key,
             });
           });
@@ -408,9 +474,9 @@
     if (isChatMessageMarkedDeleted(message)) {
       return;
     }
-    // חלק שמירה 90 יום (chat-state.js) – לא מקבלים הודעות ישנות מהרשת/שיחזור | HYPER CORE TECH
+    // חלק הודעות נעלמות (chat-state.js) – לא מקבלים הודעות שעברו את טיימר השיחה / תקרת 90 יום | HYPER CORE TECH
     const createdAtTs = getMessageCreatedAt(message) || createdAt || 0;
-    if (createdAtTs && createdAtTs < getChatRetentionCutoffTs()) {
+    if (createdAtTs && createdAtTs < getCutoffForPeer(entry.peer)) {
       return;
     }
     entry.messages.push(message);
@@ -716,6 +782,10 @@
     getChatRetentionCutoffTs,
     pruneExpiredChatHistory,
     CHAT_RETENTION_SECONDS,
+    DISAPPEARING_DEFAULT_SEC,
+    getDisappearingTimerSec,
+    setDisappearingTimerSec,
+    prunePeerDisappearingMessages,
     updateChatMessageStatus: updateMessageStatus,
     replaceOutgoingTempMessage,
   });
