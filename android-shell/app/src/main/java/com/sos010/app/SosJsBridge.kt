@@ -140,6 +140,15 @@ class SosJsBridge(
         }
     }
 
+    /** העברת קובץ פעילה – WakeLock + pump ל-WebView במסך כבוי | HYPER CORE TECH */
+    @JavascriptInterface
+    fun setP2pTransferActive(active: Boolean) {
+        SosP2pTransferKeeper.setActive(context.applicationContext, active)
+        if (active) {
+            MainActivity.pumpWebViewKeepAlive()
+        }
+    }
+
     /** שמירת שם+תמונה של איש קשר להתראות רקע בסגנון וואטסאפ | HYPER CORE TECH */
     @JavascriptInterface
     fun cacheContact(pubkey: String?, name: String?, picture: String?) {

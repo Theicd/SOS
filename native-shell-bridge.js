@@ -378,6 +378,18 @@
     }
   }
 
+  /** מעיר Native בזמן העברת קובץ (מסך כבוי / רקע) | HYPER CORE TECH */
+  function setP2pTransferActiveNative(active) {
+    if (!isNativeShell()) return;
+    const bridge = getBridge();
+    if (!bridge || typeof bridge.setP2pTransferActive !== 'function') return;
+    try {
+      bridge.setP2pTransferActive(!!active);
+    } catch (err) {
+      console.warn('[NATIVE-SHELL] setP2pTransferActive failed', err);
+    }
+  }
+
   // חלק בחירת קובץ (native-shell-bridge.js) – DocumentsUI דרך SosNativeShell, לא דרך input HTML | HYPER CORE TECH
   let nativePickInFlight = false;
 
@@ -602,6 +614,7 @@
     nativePickFiles,
     syncContactsToNative,
     syncP2pPeersToNative,
+    setP2pTransferActiveNative,
   });
 
   if (document.readyState === 'loading') {

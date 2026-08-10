@@ -108,6 +108,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hostRef = java.lang.ref.WeakReference(this)
         isHostAlive = true
         isActivityAlive = true
         // אם חזרנו ל-UI – Native P2P חייב להשתחרר מיד | HYPER CORE TECH
@@ -181,6 +182,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        hostRef = java.lang.ref.WeakReference(this)
         isHostAlive = true
         isActivityAlive = true
         SosP2pStandby.onHostForeground()
@@ -253,6 +255,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         isHostAlive = false
         isActivityAlive = false
+        if (hostRef?.get() === this) hostRef = null
         try {
             filePathCallback?.onReceiveValue(null)
         } catch (_: Exception) {
@@ -773,6 +776,13 @@ class MainActivity : AppCompatActivity() {
         settings.allowContentAccess = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             settings.safeBrowsingEnabled = true
+        }
+        // לא מורידים עדיפות renderer ברקע – קריטי ל-P2P/קבצים במסך כבוי | HYPER CORE TECH
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+            } catch (_: Exception) {
+            }
         }
 
         // רקע שחור במעטפת — מונע הבזק לבן לפני טעינת וידאו/פוסטר | HYPER CORE TECH
@@ -1509,6 +1519,24 @@ class MainActivity : AppCompatActivity() {
         @JvmField
         @Volatile
         var isActivityAlive: Boolean = false
+
+        @Volatile
+        private var hostRef: java.lang.ref.WeakReference<MainActivity>? = null
+
+        /** מעיר טיימרים/WebView בזמן העברת קובץ ברקע | HYPER CORE TECH */
+        fun pumpWebViewKeepAlive() {
+            val act = hostRef?.get() ?: return
+            act.runOnUiThread {
+                try {
+                    if (!act::webView.isInitialized) return@runOnUiThread
+                    act.webView.resumeTimers()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        act.webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
 
         /** מעיר/מחמם את ה-WebView ברקע בזמן צלצול כדי שענה יהיה מיידי | HYPER CORE TECH */
         fun warmHostForIncomingCall(context: Context, peer: String, callType: String) {

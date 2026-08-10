@@ -310,7 +310,13 @@ object SosNativeP2pEngine {
         override fun onAddStream(stream: org.webrtc.MediaStream?) {}
         override fun onRemoveStream(stream: org.webrtc.MediaStream?) {}
         override fun onDataChannel(dc: DataChannel?) {
-            if (dc != null) wireDc(peer, dc)
+            if (dc == null) return
+            val app = appRef
+            if (dc.label() == SosNativeFileTransfer.label() && app != null) {
+                SosNativeFileTransfer.wire(app, peer, dc)
+            } else {
+                wireDc(peer, dc)
+            }
         }
         override fun onRenegotiationNeeded() {}
         override fun onAddTrack(receiver: org.webrtc.RtpReceiver?, mediaStreams: Array<out org.webrtc.MediaStream>?) {}

@@ -37,6 +37,16 @@
   const recentCompletedFiles = new Map(); // fileId -> { file, keyStr, peerPubkey, completedAt }
 
   function notifyProgress(payload) {
+    try {
+      const st = payload && payload.status;
+      if (typeof App.setP2pTransferActiveNative === 'function') {
+        if (st === 'starting' || st === 'sending' || st === 'receiving' || st === 'waiting-peer' || st === 'resending' || st === 'requesting-resend' || st === 'stalled-requesting-resend') {
+          App.setP2pTransferActiveNative(true);
+        } else if (st === 'complete' || st === 'failed') {
+          App.setP2pTransferActiveNative(false);
+        }
+      }
+    } catch (_) {}
     progressListeners.forEach((cb) => {
       try {
         cb(payload);

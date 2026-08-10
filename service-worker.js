@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v345'; // bump - native P2P only after card close (fix bg race)
+  const CACHE_NAME = 'sos-cache-v346'; // bump - P2P file transfer wake + native receive
   const PRECACHE_URLS = [
     './',
     './videos.html',
