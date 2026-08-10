@@ -218,6 +218,11 @@
   setInterval(disableHtmlFileInputs, 5000);
 
   window.addEventListener('sos-native-keyboard-media', function (ev) {
+    if (window.__sosKeyboardMediaHandledAt && (Date.now() - window.__sosKeyboardMediaHandledAt) < 1500) {
+      console.log('[SOS-NATIVE] keyboard media ignored (dedupe)');
+      return;
+    }
+    window.__sosKeyboardMediaHandledAt = Date.now();
     var d = ev && ev.detail;
     var meta = d && d.file;
     if (!meta) {

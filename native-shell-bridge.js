@@ -427,24 +427,7 @@
     });
   }
 
-  function wireKeyboardGifSupport() {
-    if (!isNativeShell()) return;
-    if (window.__sosKeyboardMediaWired) return;
-    window.__sosKeyboardMediaWired = true;
-    window.addEventListener('sos-native-keyboard-media', (event) => {
-      const meta = event?.detail?.file;
-      if (!meta) return;
-      metaToNativeFile(meta).then((file) => {
-        if (typeof App.handleChatFileSelection === 'function') {
-          return App.handleChatFileSelection(file);
-        }
-        console.warn('[NATIVE-SHELL] handleChatFileSelection missing for keyboard GIF');
-        return null;
-      }).catch((err) => {
-        console.warn('[NATIVE-SHELL] keyboard media failed', err);
-      });
-    });
-  }
+  // GIF מהמקלדת מטופל רק ב-sos-native-file-pick.js (מוזרק ב-APK) – בלי מאזין כפול כאן | HYPER CORE TECH
 
   async function handleNativeComposeUpload(event) {
     if (!isNativeShell()) return;
@@ -495,7 +478,6 @@
     patchLocalNotifications();
     syncPubkeyToNative();
     wireNativeFilePickers();
-    wireKeyboardGifSupport();
     try {
       const bridge = getBridge();
       if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
@@ -516,7 +498,6 @@
     window.addEventListener('sos-native-ready', () => {
       patchLocalNotifications();
       wireNativeFilePickers();
-      wireKeyboardGifSupport();
       tryRegister();
     });
     window.addEventListener('sos-native-resume', () => {
