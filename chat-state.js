@@ -72,9 +72,9 @@
   function buildDisappearingNoticeContent(sec, kind = 'intro') {
     const label = formatDisappearingTimerLabel(sec);
     if (kind === 'change') {
-      return `ניקוי אוטומטי של הודעות השיחה עודכן. הודעות חדשות יימחקו מהצ׳אט אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
+      return `ניקוי אוטומטי של הודעות השיחה עודכן. הודעות חדשות יימחקו מהצ׳אט אחרי ${label}. לשינוי הטיימר לחצו כאן.`;
     }
-    return `ברירת המחדל לניקוי אוטומטי של הודעות השיחה פעיל. הודעות חדשות יימחקו מהצ׳אט אחרי ${label}. לשינוי הטיימר לחץ כאן.`;
+    return `ברירת המחדל לניקוי אוטומטי של הודעות השיחה פעיל. הודעות חדשות יימחקו מהצ׳אט אחרי ${label}. לשינוי הטיימר לחצו כאן.`;
   }
 
   function isOutdatedDisappearingNoticeContent(content) {
@@ -85,6 +85,7 @@
       || text.includes('ייעלמו מהצ')
       || text.includes('כיבית הודעות')
       || text.includes('ניקוי אוטומטי של הודעות השיחה מופעל')
+      || text.includes('לחץ כאן')
       || (text.includes('ניקוי אוטומטי') && !text.includes('ברירת המחדל לניקוי אוטומטי') && text.includes('מופעל'))
     );
   }

@@ -1994,12 +1994,12 @@
       ? App.buildDisappearingNoticeContent(sec, kind)
       : (typeof message?.content === 'string' ? message.content : '');
     const safe = App.escapeHtml ? App.escapeHtml(raw) : raw;
-    // שומרים "לשינוי הטיימר" יחד בשורה, ו"לחץ כאן" לבד בשורה נפרדת | HYPER CORE TECH
+    // שומרים "לשינוי הטיימר" יחד בשורה, ו"לחצו כאן" לבד בשורה נפרדת | HYPER CORE TECH
     const withLink = safe
-      .replace(/לשינוי הטיימר לחץ כאן\.?$/, 'לשינוי\u00A0הטיימר')
-      .replace(/לחץ כאן\.?$/, '')
+      .replace(/לשינוי הטיימר לחצו? כאן\.?$/, 'לשינוי\u00A0הטיימר')
+      .replace(/לחצו? כאן\.?$/, '')
       .replace(/\s+$/, '');
-    el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>${withLink}<br><button type="button" class="chat-system-message__link" data-disappearing-settings>לחץ כאן</button></span>`;
+    el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>${withLink}<br><button type="button" class="chat-system-message__link" data-disappearing-settings>לחצו כאן</button></span>`;
     el.querySelector('[data-disappearing-settings]')?.addEventListener('click', (e) => {
       e.stopPropagation();
       openDisappearingSettings(peer);
