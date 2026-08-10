@@ -179,6 +179,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         isHostAlive = true
+        SosP2pStandby.onHostForeground()
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
         NotificationHelper.clearMessageNotifications(this)
@@ -225,6 +226,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         isHostAlive = false
         startKeepAliveService()
+        // עדיין יש WebView של Activity – לא headless עדיין | HYPER CORE TECH
         super.onStop()
     }
 
@@ -256,6 +258,8 @@ class MainActivity : AppCompatActivity() {
             bridgePickRequestId = null
         }
         startKeepAliveService()
+        // כרטיסייה נסגרה – P2P עובר ל-WebView חסר-ממשק ב-FGS | HYPER CORE TECH
+        SosP2pStandby.onHostBackground(applicationContext)
         SosForegroundService.scheduleRestart(applicationContext, 800L)
         super.onDestroy()
     }

@@ -43,6 +43,7 @@ class SosForegroundService : Service() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        SosP2pStandby.onHostBackground(applicationContext)
         scheduleRestart(applicationContext, delayMs = 600L)
         super.onTaskRemoved(rootIntent)
     }
