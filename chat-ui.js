@@ -2034,7 +2034,7 @@
       <div class="chat-disappearing-sheet__panel" role="document" aria-labelledby="chatDisappearingTitle">
         <div class="chat-disappearing-sheet__header">
           <button type="button" class="chat-disappearing-sheet__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
-          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">ניקוי אוטומטי</h3>
+          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">מחיקת הודעות והגדרות טיימר</h3>
         </div>
         <section class="chat-disappearing-sheet__clear" aria-label="ניקוי הצ׳ט">
           <h4 class="chat-disappearing-sheet__section-title">ניקוי הצ׳ט</h4>
