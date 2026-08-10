@@ -109,10 +109,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hostRef = java.lang.ref.WeakReference(this)
-        isHostAlive = true
         isActivityAlive = true
-        // אם חזרנו ל-UI – Native P2P חייב להשתחרר מיד | HYPER CORE TECH
-        SosP2pStandby.onHostForeground()
+        val warmBg = isBackgroundWarmIntent(intent)
+        // חימום ברקע – isHostAlive נשאר false כדי ש-FCM/Relay/צלצול ימשיכו | HYPER CORE TECH
+        isHostAlive = !warmBg
+        if (!warmBg) {
+            SosP2pStandby.onHostForeground()
+        }
         WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
 
@@ -183,8 +186,31 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         hostRef = java.lang.ref.WeakReference(this)
-        isHostAlive = true
         isActivityAlive = true
+
+        // חימום ברקע (כרטיסייה סגורה / מסך כבוי) – לא חוסמים התראות וצלצול Native | HYPER CORE TECH
+        if (isBackgroundWarmIntent(intent)) {
+            isHostAlive = false
+            startKeepAliveService()
+            maybeResumePendingApkInstall()
+            if (this::webView.isInitialized) {
+                try {
+                    webView.onResume()
+                    webView.resumeTimers()
+                } catch (_: Exception) {
+                }
+                if (webPageReady) {
+                    injectPendingDeepLink()
+                    injectPendingCallAction()
+                    injectWarmForCall()
+                    injectWarmForP2p()
+                }
+                injectNativeFilePickScript()
+            }
+            return
+        }
+
+        isHostAlive = true
         SosP2pStandby.onHostForeground()
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
@@ -237,8 +263,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        // מסך כבוי / איבוד פוקוס – מאפשרים התראות Native מיד (לפני onStop) | HYPER CORE TECH
-        isHostAlive = false
+        // לא משנים isHostAlive כאן – רק ב-onStop/onDestroy (שומר התראות כשכרטיסייה סגורה) | HYPER CORE TECH
         if (this::webView.isInitialized) {
             try {
                 webView.resumeTimers()
@@ -247,6 +272,17 @@ class MainActivity : AppCompatActivity() {
         }
         startKeepAliveService()
         super.onPause()
+    }
+
+    /** Intent של חימום ברקע – בלי UI מלא ובלי דיכוי התראות | HYPER CORE TECH */
+    private fun isBackgroundWarmIntent(intent: Intent?): Boolean {
+        if (intent == null) return false
+        if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) return true
+        if (intent.getBooleanExtra(EXTRA_WARM_FOR_CALL, false)) return true
+        if (intent.getBooleanExtra(EXTRA_WARM_FOR_P2P, false)) return true
+        if (!warmForCallPeer.isNullOrBlank()) return true
+        if (warmForP2pPending) return true
+        return false
     }
 
     override fun onUserLeaveHint() {
