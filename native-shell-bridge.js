@@ -405,6 +405,47 @@
     }
   }
 
+  function base64ToFile(b64, name, type) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], name || 'file', { type: type || 'application/octet-stream' });
+  }
+
+  async function metaToNativeFile(meta) {
+    if (!meta) throw new Error('empty-meta');
+    if (meta.base64) {
+      return base64ToFile(meta.base64, meta.name, meta.type);
+    }
+    const url = meta.url || (meta.id ? `https://sos-native.app/file/${meta.id}` : '');
+    if (!url) throw new Error('missing-url');
+    const res = await fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store' });
+    if (!res.ok) throw new Error(`native file fetch ${res.status}`);
+    const blob = await res.blob();
+    return new File([blob], meta.name || 'file', {
+      type: meta.type || blob.type || 'application/octet-stream'
+    });
+  }
+
+  function wireKeyboardGifSupport() {
+    if (!isNativeShell()) return;
+    if (window.__sosKeyboardMediaWired) return;
+    window.__sosKeyboardMediaWired = true;
+    window.addEventListener('sos-native-keyboard-media', (event) => {
+      const meta = event?.detail?.file;
+      if (!meta) return;
+      metaToNativeFile(meta).then((file) => {
+        if (typeof App.handleChatFileSelection === 'function') {
+          return App.handleChatFileSelection(file);
+        }
+        console.warn('[NATIVE-SHELL] handleChatFileSelection missing for keyboard GIF');
+        return null;
+      }).catch((err) => {
+        console.warn('[NATIVE-SHELL] keyboard media failed', err);
+      });
+    });
+  }
+
   async function handleNativeComposeUpload(event) {
     if (!isNativeShell()) return;
     event.preventDefault();
@@ -454,6 +495,7 @@
     patchLocalNotifications();
     syncPubkeyToNative();
     wireNativeFilePickers();
+    wireKeyboardGifSupport();
     try {
       const bridge = getBridge();
       if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
@@ -474,6 +516,7 @@
     window.addEventListener('sos-native-ready', () => {
       patchLocalNotifications();
       wireNativeFilePickers();
+      wireKeyboardGifSupport();
       tryRegister();
     });
     window.addEventListener('sos-native-resume', () => {

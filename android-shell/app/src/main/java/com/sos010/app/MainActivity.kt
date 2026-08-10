@@ -35,6 +35,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.inputmethod.InputContentInfoCompat
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -45,13 +46,14 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
+    private lateinit var webView: SosWebView
     private lateinit var loading: ProgressBar
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var pendingWebPermission: PermissionRequest? = null
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var bridgePickRequestId: String? = null
     private val pickedNativeFiles = ConcurrentHashMap<String, Pair<Uri, String>>()
+    private val keyboardContentInfo = ConcurrentHashMap<String, InputContentInfoCompat>()
     @Volatile private var webPageReady = false
     @Volatile private var openedFromCallIntent = false
     private var pendingDeepLinkPeer: String? = null
@@ -684,6 +686,9 @@ class MainActivity : AppCompatActivity() {
         webView.setBackgroundResource(android.R.color.black)
 
         webView.addJavascriptInterface(SosJsBridge(this, webView), "SosNativeShell")
+        webView.richContentListener = SosWebView.RichContentListener { info, mime ->
+            onKeyboardRichContent(info, mime)
+        }
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -1029,6 +1034,76 @@ class MainActivity : AppCompatActivity() {
             toast("טוען קובץ…")
         }
         webView.evaluateJavascript(js, null)
+    }
+
+    /** GIF/תמונה מהמקלדת המובנית (Commit Content) → צינור קבצי הצ'אט | HYPER CORE TECH */
+    private fun onKeyboardRichContent(info: InputContentInfoCompat, mime: String) {
+        mainHandler.post {
+            try {
+                deliverKeyboardMedia(info, mime)
+            } catch (e: Exception) {
+                Log.e(TAG, "onKeyboardRichContent failed", e)
+                toast("לא ניתן לטעון את ה-GIF")
+                try {
+                    info.releasePermission()
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    private fun deliverKeyboardMedia(info: InputContentInfoCompat, mimeHint: String) {
+        if (!this::webView.isInitialized) return
+        val uri = info.contentUri
+        val id = UUID.randomUUID().toString()
+        val nameGuess = uri.lastPathSegment?.substringAfterLast('/') ?: "keyboard-gif.gif"
+        val rawMime = contentResolver.getType(uri) ?: mimeHint
+        val mime = guessMime(nameGuess, rawMime.ifBlank { "image/gif" })
+        val safeName = when {
+            nameGuess.contains('.') -> nameGuess
+            mime == "image/gif" -> "keyboard.gif"
+            mime == "image/png" -> "keyboard.png"
+            mime == "image/webp" -> "keyboard.webp"
+            mime.startsWith("image/") -> "keyboard.jpg"
+            else -> "keyboard-media.bin"
+        }
+        pickedNativeFiles[id] = uri to mime
+        keyboardContentInfo[id] = info
+
+        val item = JSONObject()
+            .put("id", id)
+            .put("name", safeName)
+            .put("type", mime)
+            .put("url", "https://$NATIVE_FILE_HOST/file/$id")
+
+        val inlineLimit = 16L * 1024L * 1024L
+        try {
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            if (bytes != null && bytes.isNotEmpty() && bytes.size <= inlineLimit.toInt()) {
+                item.put("base64", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
+                item.put("size", bytes.size)
+            } else if (bytes != null) {
+                item.put("size", bytes.size)
+            } else {
+                item.put("size", querySize(uri))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "keyboard media read failed, falling back to url", e)
+            item.put("size", querySize(uri))
+        }
+
+        val payload = JSONObject().put("file", item)
+        val js = "window.dispatchEvent(new CustomEvent('sos-native-keyboard-media',{detail:$payload}));"
+        Log.i(TAG, "deliverKeyboardMedia id=$id mime=$mime size=${item.opt("size")}")
+        toast("מצרף GIF…")
+        webView.evaluateJavascript(js, null)
+
+        mainHandler.postDelayed({
+            try {
+                keyboardContentInfo.remove(id)?.releasePermission()
+            } catch (_: Exception) {
+            }
+        }, 30_000L)
     }
 
     private fun handleWebPermissionRequest(request: PermissionRequest) {

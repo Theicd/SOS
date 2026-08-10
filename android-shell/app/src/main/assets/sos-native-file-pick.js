@@ -216,5 +216,23 @@
   setTimeout(disableHtmlFileInputs, 800);
   setTimeout(disableHtmlFileInputs, 2500);
   setInterval(disableHtmlFileInputs, 5000);
-  console.log('[SOS-NATIVE] file picker document-delegation ready (base64+cors)');
+
+  window.addEventListener('sos-native-keyboard-media', function (ev) {
+    var d = ev && ev.detail;
+    var meta = d && d.file;
+    if (!meta) {
+      console.warn('[SOS-NATIVE] keyboard media missing file meta');
+      return;
+    }
+    console.log('[SOS-NATIVE] keyboard media', meta.name, meta.type, meta.size);
+    metaToFile(meta).then(function (file) {
+      if (!deliverToChat(file)) {
+        console.warn('[SOS-NATIVE] keyboard GIF not delivered – open a chat first');
+      }
+    }).catch(function (err) {
+      console.warn('[SOS-NATIVE] keyboard media load failed', err);
+    });
+  });
+
+  console.log('[SOS-NATIVE] file picker document-delegation ready (base64+cors+keyboard-gif)');
 })();
