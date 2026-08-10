@@ -2034,8 +2034,18 @@
       <div class="chat-disappearing-sheet__panel" role="document" aria-labelledby="chatDisappearingTitle">
         <div class="chat-disappearing-sheet__header">
           <button type="button" class="chat-disappearing-sheet__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
-          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">טיימר ניקוי שיחה</h3>
+          <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">ניקוי אוטומטי</h3>
         </div>
+        <section class="chat-disappearing-sheet__clear" aria-label="ניקוי הצ׳ט">
+          <h4 class="chat-disappearing-sheet__section-title">ניקוי הצ׳ט</h4>
+          <p class="chat-disappearing-sheet__section-hint">מוחק את כל ההודעות בשיחה זו מהמכשיר. הודעות ששלחת יימחקו גם אצל הצד השני.</p>
+          <button type="button" class="chat-disappearing-sheet__clear-btn" data-action="clear-chat-now">
+            <i class="fa-solid fa-broom" aria-hidden="true"></i>
+            <span>נקה צ׳ט</span>
+          </button>
+        </section>
+        <div class="chat-disappearing-sheet__divider" role="separator"></div>
+        <h4 class="chat-disappearing-sheet__section-title chat-disappearing-sheet__section-title--timer">טיימר ניקוי</h4>
         <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ׳אט לפני שיימחקו אוטומטית.</p>
         <div class="chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר ניקוי שיחה">
           ${options.map((opt) => {
@@ -2059,6 +2069,11 @@
     sheet.querySelector('.chat-disappearing-sheet__close')?.addEventListener('click', (e) => {
       e.stopPropagation();
       close();
+    });
+    sheet.querySelector('[data-action="clear-chat-now"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+      showClearChatConfirmDialog(peer);
     });
     sheet.querySelectorAll('input[name="disappearingTimer"]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -4905,10 +4920,6 @@
         e.preventDefault();
         closeHeaderMenu();
         const action = item.getAttribute('data-action');
-        if (action === 'clear-chat') {
-          if (state.activeContact) showClearChatConfirmDialog(state.activeContact);
-          return;
-        }
         if (action === 'auto-clean') {
           showAutoCleanDialog();
         }
