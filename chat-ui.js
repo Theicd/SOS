@@ -2071,7 +2071,7 @@
                 <div class="chat-disappearing-sheet__roller-glow" aria-hidden="true"></div>
                 <div class="chat-disappearing-sheet__roller-viewport">
                   <div class="chat-disappearing-sheet__roller-track" data-roller-track>
-                    ${options.map((opt, i) => `<div class="chat-disappearing-sheet__roller-item" data-index="${i}" data-value="${opt.value}">${opt.label}</div>`).join('')}
+                    ${options.map((opt, i) => `<div class="chat-disappearing-sheet__roller-item" data-index="${i}" data-value="${opt.value}"><span class="chat-disappearing-sheet__roller-label">${opt.label}</span></div>`).join('')}
                   </div>
                 </div>
               </div>
@@ -2103,7 +2103,7 @@
     const rollerRoot = sheet.querySelector('[data-roller]');
     const rollerTrack = sheet.querySelector('[data-roller-track]');
     const rollerItems = [...sheet.querySelectorAll('.chat-disappearing-sheet__roller-item')];
-    const ROW_H = 52;
+    const ROW_H = 38;
     const syncRoller = (idx, { animate = true } = {}) => {
       selectedIdx = Math.max(0, Math.min(options.length - 1, idx));
       if (rollerTrack) {
