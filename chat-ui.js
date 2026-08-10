@@ -2032,31 +2032,40 @@
     sheet.innerHTML = `
       <div class="chat-disappearing-sheet__backdrop"></div>
       <div class="chat-disappearing-sheet__panel" role="document" aria-labelledby="chatDisappearingTitle">
-        <div class="chat-disappearing-sheet__header">
+        <header class="chat-disappearing-sheet__header">
           <button type="button" class="chat-disappearing-sheet__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
           <h3 id="chatDisappearingTitle" class="chat-disappearing-sheet__title">מחיקת הודעות והגדרות טיימר</h3>
+          <span class="chat-disappearing-sheet__header-spacer" aria-hidden="true"></span>
+        </header>
+        <div class="chat-disappearing-sheet__body">
+          <section class="chat-disappearing-sheet__group chat-disappearing-sheet__clear" aria-label="ניקוי הצ׳ט">
+            <h4 class="chat-disappearing-sheet__section-title">ניקוי הצ׳ט</h4>
+            <div class="chat-disappearing-sheet__card">
+              <p class="chat-disappearing-sheet__section-hint">מוחק את כל ההודעות בשיחה זו מהמכשיר. הודעות ששלחת יימחקו גם אצל הצד השני.</p>
+              <button type="button" class="chat-disappearing-sheet__clear-btn" data-action="clear-chat-now">
+                <i class="fa-solid fa-broom" aria-hidden="true"></i>
+                <span>נקה צ׳ט</span>
+              </button>
+            </div>
+          </section>
+          <section class="chat-disappearing-sheet__group chat-disappearing-sheet__timer" aria-label="טיימר ניקוי">
+            <h4 class="chat-disappearing-sheet__section-title">טיימר ניקוי</h4>
+            <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ׳אט לפני שיימחקו אוטומטית.</p>
+            <div class="chat-disappearing-sheet__card chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר ניקוי שיחה">
+              ${options.map((opt) => {
+                const isOn = current === opt.value;
+                return `<label class="chat-disappearing-sheet__option${isOn ? ' is-selected' : ''}">
+                  <span>${opt.label}</span>
+                  <input type="radio" name="disappearingTimer" value="${opt.value}" ${isOn ? 'checked' : ''}>
+                  <span class="chat-disappearing-sheet__radio" aria-hidden="true"></span>
+                </label>`;
+              }).join('')}
+            </div>
+          </section>
         </div>
-        <section class="chat-disappearing-sheet__clear" aria-label="ניקוי הצ׳ט">
-          <h4 class="chat-disappearing-sheet__section-title">ניקוי הצ׳ט</h4>
-          <p class="chat-disappearing-sheet__section-hint">מוחק את כל ההודעות בשיחה זו מהמכשיר. הודעות ששלחת יימחקו גם אצל הצד השני.</p>
-          <button type="button" class="chat-disappearing-sheet__clear-btn" data-action="clear-chat-now">
-            <i class="fa-solid fa-broom" aria-hidden="true"></i>
-            <span>נקה צ׳ט</span>
-          </button>
-        </section>
-        <div class="chat-disappearing-sheet__divider" role="separator"></div>
-        <h4 class="chat-disappearing-sheet__section-title chat-disappearing-sheet__section-title--timer">טיימר ניקוי</h4>
-        <p class="chat-disappearing-sheet__hint">בחר כמה זמן הודעות חדשות יישארו בצ׳אט לפני שיימחקו אוטומטית.</p>
-        <div class="chat-disappearing-sheet__options" role="radiogroup" aria-label="טיימר ניקוי שיחה">
-          ${options.map((opt) => {
-            const isOn = current === opt.value;
-            return `<label class="chat-disappearing-sheet__option${isOn ? ' is-selected' : ''}">
-              <span>${opt.label}</span>
-              <input type="radio" name="disappearingTimer" value="${opt.value}" ${isOn ? 'checked' : ''}>
-              <span class="chat-disappearing-sheet__radio" aria-hidden="true"></span>
-            </label>`;
-          }).join('')}
-        </div>
+        <footer class="chat-disappearing-sheet__footer">
+          <button type="button" class="chat-disappearing-sheet__done" data-action="sheet-done">סגור</button>
+        </footer>
       </div>
     `;
     const host = elements.panel || doc.body;
@@ -2067,6 +2076,10 @@
       close();
     });
     sheet.querySelector('.chat-disappearing-sheet__close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+    });
+    sheet.querySelector('[data-action="sheet-done"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
       close();
     });
