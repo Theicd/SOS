@@ -25,7 +25,8 @@ object SosP2pStandby {
     private const val NUDGE_MS = 12_000L
     private const val WAKE_MS = 60_000L
 
-    private val handler = Handler(Looper.getMainLooper())
+    // לא לקרוא בשם handler – בתוך WebView.apply זה נתפס כ-View.getHandler() (null) | HYPER CORE TECH
+    private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var appRef: Context? = null
     @Volatile private var wanted = false
     @Volatile private var pageReady = false
@@ -40,7 +41,7 @@ object SosP2pStandby {
                     injectResume()
                 }
             } finally {
-                if (wanted) handler.postDelayed(this, NUDGE_MS)
+                if (wanted) mainHandler.postDelayed(this, NUDGE_MS)
             }
         }
     }
@@ -48,23 +49,23 @@ object SosP2pStandby {
     fun ensureStarted(context: Context) {
         appRef = context.applicationContext
         wanted = true
-        handler.removeCallbacks(nudgeRunnable)
-        handler.postDelayed(nudgeRunnable, NUDGE_MS)
-        handler.post { startHeadlessIfNeeded("ensure") }
+        mainHandler.removeCallbacks(nudgeRunnable)
+        mainHandler.postDelayed(nudgeRunnable, NUDGE_MS)
+        mainHandler.post { startHeadlessIfNeeded("ensure") }
     }
 
     /** הממשק בחזית – סוגרים את ה-headless כדי לא לכפול PeerConnection | HYPER CORE TECH */
     fun onHostForeground() {
-        handler.post { destroyHeadless("host-foreground") }
+        mainHandler.post { destroyHeadless("host-foreground") }
     }
 
     /** הכרטיסייה/Activity נסגרו – מריצים P2P ב-headless | HYPER CORE TECH */
     fun onHostBackground(context: Context) {
         appRef = context.applicationContext
         wanted = true
-        handler.postDelayed({ startHeadlessIfNeeded("host-background") }, 400L)
-        handler.removeCallbacks(nudgeRunnable)
-        handler.postDelayed(nudgeRunnable, NUDGE_MS)
+        mainHandler.postDelayed({ startHeadlessIfNeeded("host-background") }, 400L)
+        mainHandler.removeCallbacks(nudgeRunnable)
+        mainHandler.postDelayed(nudgeRunnable, NUDGE_MS)
     }
 
     fun maybeWarm(context: Context, peer: String?, reason: String) {
@@ -78,7 +79,7 @@ object SosP2pStandby {
             }
         }
         Log.i(TAG, "signal/warm reason=$reason peer=${peer?.take(8) ?: "-"}")
-        handler.post {
+        mainHandler.post {
             startHeadlessIfNeeded(reason)
             injectResume(peer)
         }
@@ -86,8 +87,8 @@ object SosP2pStandby {
 
     fun stop() {
         wanted = false
-        handler.removeCallbacks(nudgeRunnable)
-        handler.post { destroyHeadless("stop") }
+        mainHandler.removeCallbacks(nudgeRunnable)
+        mainHandler.post { destroyHeadless("stop") }
         releaseWake()
     }
 
@@ -133,9 +134,9 @@ object SosP2pStandby {
                         pageReady = true
                         injectNativeFlags()
                         injectResume()
-                        // חיזוק אחרי אתחול מודולים איטי | HYPER CORE TECH
+                        // חיזוק אחרי אתחול מודולים איטי – mainHandler בלבד (לא View.handler) | HYPER CORE TECH
                         listOf(1500L, 4000L, 9000L).forEach { delay ->
-                            handler.postDelayed({
+                            mainHandler.postDelayed({
                                 if (webView === view && !MainActivity.isHostAlive) injectResume()
                             }, delay)
                         }
@@ -245,12 +246,13 @@ object SosP2pStandby {
 
     private fun acquireWake(context: Context) {
         try {
-            if (wakeLock?.isHeld == true) return
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sos:p2p-headless").also {
+            val lock = wakeLock ?: pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sos:p2p-headless").also {
                 it.setReferenceCounted(false)
-                it.acquire(WAKE_MS)
+                wakeLock = it
             }
+            // חידוש TTL בכל קריאה – שומר CPU ער בזמן headless / מסך כבוי | HYPER CORE TECH
+            lock.acquire(WAKE_MS)
         } catch (err: Exception) {
             Log.w(TAG, "wake lock failed: ${err.message}")
         }
