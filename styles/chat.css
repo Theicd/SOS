@@ -2407,23 +2407,23 @@ body.chat-media-modal-open {
   }
 }
 
-/* חלק הודעות נעלמות + הודעת מערכת – גלובלי (גם מובייל; לא רק דסקטופ) | HYPER CORE TECH */
+/* חלק הודעת מערכת / ניקוי אוטומטי – בועה צמודה בסגנון וואטסאפ | HYPER CORE TECH */
 .chat-panel .chat-system-message {
   align-self: center;
   background-color: #182229;
-  color: #ffd279;
-  padding: 8px 14px;
+  color: #e9edef;
+  padding: 5px 10px;
   border-radius: 8px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  margin: 10px auto;
+  font-size: 13.5px;
+  line-height: 1.25;
+  margin: 8px auto;
   text-align: center;
-  max-width: min(92%, 420px);
+  max-width: min(85%, 360px);
   width: fit-content;
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
   direction: rtl;
   box-sizing: border-box;
 }
@@ -2436,8 +2436,14 @@ body.chat-media-modal-open {
 
 .chat-panel .chat-system-message i {
   flex: 0 0 auto;
-  margin-top: 2px;
+  margin-top: 1px;
+  font-size: 0.92em;
   opacity: 0.9;
+  color: #e9edef;
+}
+
+.chat-panel .chat-system-message span {
+  line-height: 1.25;
 }
 
 .chat-panel .chat-system-message__link {
@@ -2450,6 +2456,7 @@ body.chat-media-modal-open {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
+  line-height: inherit;
 }
 
 .chat-panel .chat-system-message__link:hover {
@@ -2651,9 +2658,10 @@ body.chat-media-modal-open {
 
 @media (max-width: 768px) {
   .chat-panel .chat-system-message {
-    max-width: calc(100% - 24px);
-    font-size: 12px;
-    padding: 8px 12px;
+    max-width: calc(100% - 28px);
+    font-size: 13.5px;
+    padding: 5px 10px;
+    line-height: 1.25;
   }
 
   .chat-panel .chat-disappearing-sheet {
