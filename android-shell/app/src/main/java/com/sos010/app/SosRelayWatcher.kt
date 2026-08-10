@@ -163,7 +163,7 @@ class SosRelayWatcher(private val appContext: Context) {
             when (kind) {
                 CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty(), id)
                 CALL_KIND -> handleCallSignal(author, signalType, event)
-                P2P_KIND -> handleP2pSignal(author)
+                P2P_KIND -> handleP2pSignal(author, signalType, event)
             }
         } catch (err: Exception) {
             Log.w(TAG, "parse fail: ${err.message}")
@@ -238,12 +238,19 @@ class SosRelayWatcher(private val appContext: Context) {
         Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
     }
 
-    /** סיגנל P2P ברקע – מחמם WebView כדי לחדש DataChannel | HYPER CORE TECH */
-    private fun handleP2pSignal(author: String) {
+    /** סיגנל P2P ברקע – מנוע Native (לא WebView) | HYPER CORE TECH */
+    private fun handleP2pSignal(author: String, signalType: String, event: JSONObject) {
         if (MainActivity.isHostAlive) return
         if (!SosSessionStore.isP2pStandbyEnabled(appContext)) return
-        Log.i(TAG, "p2p signal from ${author.take(8)} – warming host")
-        SosP2pStandby.maybeWarm(appContext, author, reason = "signal-25055")
+        Log.i(TAG, "p2p signal $signalType from ${author.take(8)}")
+        SosNativeP2pEngine.onSignalEvent(author, signalType, event)
+    }
+
+    fun publish(event: JSONObject) {
+        val msg = JSONArray().put("EVENT").put(event).toString()
+        sockets.values.forEach { ws ->
+            runCatching { ws.send(msg) }
+        }
     }
 
     private fun handleCallSignal(author: String, signalType: String, event: JSONObject) {
@@ -344,6 +351,11 @@ class SosRelayWatcher(private val appContext: Context) {
 
         fun stopAll() {
             instance?.stop()
+        }
+
+        fun publishEvent(context: Context, event: JSONObject) {
+            ensureStarted(context)
+            instance?.publish(event)
         }
     }
 }

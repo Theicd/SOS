@@ -111,6 +111,15 @@ class SosJsBridge(
         SosP2pStandby.ensureStarted(context.applicationContext)
     }
 
+    /** מפתח פרטי ל-P2P Native ברקע (אחרי סגירת כרטיסייה) | HYPER CORE TECH */
+    @JavascriptInterface
+    fun setUserPrivkey(privkey: String?) {
+        SosSessionStore.setPrivkey(context.applicationContext, privkey)
+        if (!MainActivity.isHostAlive) {
+            SosNativeP2pEngine.ensureStarted(context.applicationContext)
+        }
+    }
+
     /** הפעלת/כיבוי שמירת P2P במצב המתנה (ברירת מחדל: דלוק) | HYPER CORE TECH */
     @JavascriptInterface
     fun setP2pStandbyEnabled(enabled: Boolean) {
@@ -120,11 +129,14 @@ class SosJsBridge(
         }
     }
 
-    /** סנכרון רשימת peers מועדפים לחימום P2P ברקע (CSV) | HYPER CORE TECH */
+    /** סנכרון רשימת peers מועדפים ל-P2P Native ברקע (CSV) | HYPER CORE TECH */
     @JavascriptInterface
     fun syncP2pPeers(peersCsv: String?) {
         SosSessionStore.setP2pPeers(context.applicationContext, peersCsv)
         SosP2pStandby.ensureStarted(context.applicationContext)
+        if (!MainActivity.isHostAlive) {
+            SosNativeP2pEngine.onHostBackground(context.applicationContext)
+        }
     }
 
     /** שמירת שם+תמונה של איש קשר להתראות רקע בסגנון וואטסאפ | HYPER CORE TECH */

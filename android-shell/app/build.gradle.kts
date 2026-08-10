@@ -16,8 +16,8 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "1.0.35"
+        versionCode = 37
+        versionName = "1.0.36"
         buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=77\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
     }
@@ -42,6 +42,11 @@ dependencies {
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.activity:activity-ktx:1.9.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // P2P Native בשירות הרקע | HYPER CORE TECH
+    implementation("io.github.webrtc-sdk:android:125.6422.06.1")
+    implementation("fr.acinq.secp256k1:secp256k1-kmp-jni-android:0.15.0")
+    implementation("fr.acinq.secp256k1:secp256k1-kmp-jvm:0.15.0")
 
     // FCM תמיד בקומפילציה; בלי google-services.json ההתראות מגיעות דרך Foreground + bridge
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))

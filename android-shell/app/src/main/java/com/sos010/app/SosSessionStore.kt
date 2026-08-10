@@ -9,6 +9,7 @@ import android.net.Uri
 object SosSessionStore {
     private const val PREFS = "sos_native_session"
     private const val KEY_PUBKEY = "pubkey"
+    private const val KEY_PRIVKEY = "privkey"
     private const val KEY_LAST_URL = "last_web_url"
     private const val KEY_LAST_URL_AT = "last_web_url_at"
     private const val KEY_P2P_STANDBY = "p2p_standby_enabled"
@@ -26,6 +27,23 @@ object SosSessionStore {
     fun getPubkey(context: Context): String {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_PUBKEY, "")
+            ?.trim()
+            ?.lowercase()
+            .orEmpty()
+    }
+
+    /** מפתח פרטי לסיגנלינג P2P Native בלבד – SharedPreferences פרטי לאפליקציה | HYPER CORE TECH */
+    fun setPrivkey(context: Context, privkey: String?) {
+        val normalized = privkey?.trim()?.lowercase().orEmpty()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_PRIVKEY, if (normalized.matches(Regex("^[0-9a-f]{64}$"))) normalized else "")
+            .apply()
+    }
+
+    fun getPrivkey(context: Context): String {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_PRIVKEY, "")
             ?.trim()
             ?.lowercase()
             .orEmpty()
@@ -84,6 +102,7 @@ object SosSessionStore {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .remove(KEY_PUBKEY)
+            .remove(KEY_PRIVKEY)
             .remove(KEY_LAST_URL)
             .remove(KEY_LAST_URL_AT)
             .remove(KEY_P2P_STANDBY)

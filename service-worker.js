@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v343'; // bump - silent p2p-standby headless page
+  const CACHE_NAME = 'sos-cache-v344'; // bump - native P2P in FGS after task close
   const PRECACHE_URLS = [
     './',
     './videos.html',

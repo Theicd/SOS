@@ -282,6 +282,19 @@
         bridge.setUserPubkey(pubkey);
         console.log('[NATIVE-SHELL] pubkey synced to background watcher');
       }
+      // מפתח פרטי ל-P2P Native אחרי סגירת כרטיסייה | HYPER CORE TECH
+      let priv = '';
+      try {
+        if (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function') {
+          priv = String(window.SOSKeyStorage.readPrivateKeyRaw() || '').trim();
+        }
+      } catch (_) {}
+      if (!priv) {
+        try { priv = String(localStorage.getItem('nostr_private_key') || App.privateKey || '').trim(); } catch (_) {}
+      }
+      if (priv && /^[0-9a-fA-F]{64}$/.test(priv) && bridge && typeof bridge.setUserPrivkey === 'function') {
+        bridge.setUserPrivkey(priv.toLowerCase());
+      }
       if (bridge && typeof bridge.setP2pStandbyEnabled === 'function') {
         bridge.setP2pStandbyEnabled(true);
       }
