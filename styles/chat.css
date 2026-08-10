@@ -2410,12 +2410,12 @@ body.chat-media-modal-open {
 /* חלק הודעת מערכת / ניקוי אוטומטי – בועה צמודה בסגנון וואטסאפ | HYPER CORE TECH */
 .chat-panel .chat-system-message {
   align-self: center;
-  background-color: #182229;
+  background-color: rgba(24, 34, 41, 0.78);
   color: #e9edef;
-  padding: 4px 8px;
+  padding: 3px 8px 2px;
   border-radius: 7px;
   font-size: 13.5px;
-  line-height: 1.12;
+  line-height: 1.08;
   margin: 8px auto;
   text-align: center;
   max-width: min(85%, 360px);
@@ -2437,14 +2437,17 @@ body.chat-media-modal-open {
 .chat-panel .chat-system-message i {
   flex: 0 0 auto;
   margin-top: 1px;
-  font-size: 0.9em;
+  font-size: 0.88em;
   opacity: 0.9;
   color: #e9edef;
-  line-height: 1.12;
+  line-height: 1;
 }
 
 .chat-panel .chat-system-message span {
-  line-height: 1.12;
+  display: inline;
+  line-height: 1.08;
+  margin: 0;
+  padding: 0;
 }
 
 .chat-panel .chat-system-message__link {
@@ -2457,7 +2460,9 @@ body.chat-media-modal-open {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  line-height: inherit;
+  line-height: 1;
+  display: inline;
+  vertical-align: baseline;
 }
 
 .chat-panel .chat-system-message__link:hover {
@@ -2661,8 +2666,8 @@ body.chat-media-modal-open {
   .chat-panel .chat-system-message {
     max-width: calc(100% - 28px);
     font-size: 13.5px;
-    padding: 4px 8px;
-    line-height: 1.12;
+    padding: 3px 8px 2px;
+    line-height: 1.08;
   }
 
   .chat-panel .chat-disappearing-sheet {
