@@ -63,6 +63,8 @@ class MainActivity : AppCompatActivity() {
     private var warmForCallPeer: String? = null
     private var warmForCallType: String? = null
     private var suppressCallCancelUntil = 0L
+    @Volatile private var pendingApkUpdateFile: java.io.File? = null
+    @Volatile private var apkUpdateInFlight = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -194,6 +196,7 @@ class MainActivity : AppCompatActivity() {
             }, 2500L)
         }
         startKeepAliveService()
+        maybeResumePendingApkInstall()
         if (this::webView.isInitialized) {
             try {
                 webView.onResume()
@@ -1299,6 +1302,96 @@ class MainActivity : AppCompatActivity() {
 
     private fun startKeepAliveService() {
         SosForegroundService.start(this)
+    }
+
+    /** חלק עדכון APK – הורדה לקאש + התקנה מעל הקיימת | HYPER CORE TECH */
+    fun startApkUpdateInstall(apkUrl: String) {
+        if (apkUpdateInFlight) {
+            toast("העדכון כבר בהורדה…")
+            return
+        }
+        apkUpdateInFlight = true
+        toast("מוריד עדכון לאפליקציה…")
+        Thread({
+            try {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .followRedirects(true)
+                    .followSslRedirects(true)
+                    .build()
+                val req = okhttp3.Request.Builder()
+                    .url(apkUrl)
+                    .header("User-Agent", "SOSNativeShell/${BuildConfig.VERSION_NAME}")
+                    .get()
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) {
+                        throw IllegalStateException("HTTP ${resp.code}")
+                    }
+                    val body = resp.body ?: throw IllegalStateException("empty body")
+                    val outDir = java.io.File(cacheDir, "updates").apply { mkdirs() }
+                    val outFile = java.io.File(outDir, "sos-update.apk")
+                    body.byteStream().use { input ->
+                        outFile.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    if (!outFile.exists() || outFile.length() < 50_000L) {
+                        throw IllegalStateException("apk too small")
+                    }
+                    pendingApkUpdateFile = outFile
+                    mainHandler.post {
+                        apkUpdateInFlight = false
+                        launchApkInstaller(outFile)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "startApkUpdateInstall failed", e)
+                mainHandler.post {
+                    apkUpdateInFlight = false
+                    toast("הורדת העדכון נכשלה")
+                }
+            }
+        }, "sos-apk-update").start()
+    }
+
+    private fun maybeResumePendingApkInstall() {
+        val file = pendingApkUpdateFile ?: return
+        if (!file.exists()) {
+            pendingApkUpdateFile = null
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+            return
+        }
+        launchApkInstaller(file)
+    }
+
+    private fun launchApkInstaller(file: java.io.File) {
+        try {
+            if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+                pendingApkUpdateFile = file
+                toast("אפשר התקנת עדכונים עבור SOS")
+                val settings = Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                )
+                startActivity(settings)
+                return
+            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            toast("אשר את עדכון האפליקציה")
+        } catch (e: Exception) {
+            Log.e(TAG, "launchApkInstaller failed", e)
+            toast("לא ניתן לפתוח את מתקין העדכון")
+        }
     }
 
     companion object {

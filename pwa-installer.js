@@ -206,10 +206,11 @@
   }
 
   // כתובת APK – נשאר ב-git (downloads/) ומורד מ-GitHub, לא מפורסם מחדש ב-Pages בכל deploy | HYPER CORE TECH
-  const NATIVE_APK_VERSION = '1.0.30';
+  const NATIVE_APK_VERSION = '1.0.31';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
     || `https://github.com/Theicd/SOS/raw/binaries/downloads/${NATIVE_APK_FILE}`;
+  const APK_VERSION_URL = './apk-version.json';
 
   function startNativeApkInstall() {
     // הורדה ישירה של APK – בלי מדריכים ובלי תפריט Chrome | HYPER CORE TECH
@@ -648,6 +649,7 @@
   const APP_VERSION_KEY = 'sos_app_version';
   const APP_VERSION_URL = './app-version.json';
   let pendingRemoteAppVersion = null;
+  let pendingApkRelease = null;
 
   function showUpdateAvailableToast() {
     if (document.getElementById('pwa-update-toast')) return;
@@ -697,6 +699,122 @@
     console.log('[PWA] הוצגה הודעת עדכון גרסה');
   }
 
+  function getInstalledShellVersion() {
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.getShellVersion === 'function') {
+        return String(bridge.getShellVersion() || '').trim();
+      }
+    } catch (_) {}
+    const m = String(navigator.userAgent || '').match(/SOSNativeShell\/([0-9.]+)/i);
+    return m ? m[1] : '';
+  }
+
+  function getInstalledShellVersionCode() {
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.getShellVersionCode === 'function') {
+        const n = Number(bridge.getShellVersionCode());
+        return Number.isFinite(n) ? n : 0;
+      }
+    } catch (_) {}
+    return 0;
+  }
+
+  function compareSemver(a, b) {
+    const pa = String(a || '').split('.').map((x) => parseInt(x, 10) || 0);
+    const pb = String(b || '').split('.').map((x) => parseInt(x, 10) || 0);
+    const len = Math.max(pa.length, pb.length, 3);
+    for (let i = 0; i < len; i += 1) {
+      const av = pa[i] || 0;
+      const bv = pb[i] || 0;
+      if (av > bv) return 1;
+      if (av < bv) return -1;
+    }
+    return 0;
+  }
+
+  function showApkUpdateAvailableToast(release) {
+    if (!isRunningInNativeShell()) return;
+    if (document.getElementById('apk-update-toast')) return;
+    try {
+      if (sessionStorage.getItem('apk_update_dismissed') === String(release?.version || '')) return;
+    } catch (_) {}
+
+    pendingApkRelease = release || pendingApkRelease;
+    const remoteVer = String(pendingApkRelease?.version || NATIVE_APK_VERSION);
+    const toast = document.createElement('div');
+    toast.id = 'apk-update-toast';
+    toast.className = 'pwa-update-toast apk-update-toast';
+    toast.innerHTML = `
+      <img src="./icons/sos-logo-mobile.png?v=20260802ac" alt="SOS" class="pwa-update-toast__logo">
+      <div class="pwa-update-toast__content">
+        <span class="pwa-update-toast__title">עדכון אפליקציה זמין</span>
+        <span class="pwa-update-toast__subtitle">גרסת APK חדשה (${remoteVer}) – עדכון מעל הקיים, בלי הסרה</span>
+      </div>
+      <div class="pwa-update-toast__actions">
+        <button type="button" class="pwa-update-toast__later">אח״כ</button>
+        <button type="button" class="pwa-update-toast__now">עדכן אפליקציה</button>
+      </div>
+    `;
+
+    toast.querySelector('.pwa-update-toast__later').onclick = () => {
+      try { sessionStorage.setItem('apk_update_dismissed', remoteVer); } catch (_) {}
+      toast.classList.remove('pwa-update-toast--visible');
+      setTimeout(() => toast.remove(), 300);
+    };
+
+    toast.querySelector('.pwa-update-toast__now').onclick = () => {
+      const url = String(pendingApkRelease?.url || NATIVE_APK_URL);
+      const bridge = window.SosNativeShell;
+      try {
+        if (bridge && typeof bridge.installApkUpdate === 'function') {
+          bridge.installApkUpdate(url);
+          pwaToast('מוריד את עדכון האפליקציה…');
+          return;
+        }
+      } catch (_) {}
+      installAndroidApk();
+    };
+
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.classList.add('pwa-update-toast--visible'); }, 120);
+    console.log('[PWA] הוצגה הודעת עדכון APK', remoteVer);
+  }
+
+  async function checkApkReleaseVersion() {
+    if (!isRunningInNativeShell()) return;
+    try {
+      const res = await fetch(`${APK_VERSION_URL}?_=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const remoteVersion = String(data?.version || '').trim();
+      const remoteCode = Number(data?.versionCode) || 0;
+      if (!remoteVersion && !remoteCode) return;
+
+      const localVersion = getInstalledShellVersion();
+      const localCode = getInstalledShellVersionCode();
+      let needsUpdate = false;
+      if (remoteCode > 0 && localCode > 0) {
+        needsUpdate = remoteCode > localCode;
+      } else if (remoteVersion && localVersion) {
+        needsUpdate = compareSemver(remoteVersion, localVersion) > 0;
+      }
+      if (!needsUpdate) return;
+
+      pendingApkRelease = {
+        version: remoteVersion || NATIVE_APK_VERSION,
+        versionCode: remoteCode,
+        file: data?.file || NATIVE_APK_FILE,
+        url: data?.url || NATIVE_APK_URL,
+      };
+      console.log('[PWA] עדכון APK זמין', { localVersion, localCode, remoteVersion, remoteCode });
+      showApkUpdateAvailableToast(pendingApkRelease);
+    } catch (err) {
+      console.warn('[PWA] בדיקת apk-version נכשלה:', err);
+    }
+  }
+
   // חלק עדכון גרסה (pwa-installer.js) – בדיקת app-version.json לזיהוי דיפלוי גם בלי שינוי SW | HYPER CORE TECH
   async function checkAppReleaseVersion() {
     try {
@@ -727,6 +845,8 @@
       // גם בלי SW – עדיין בודקים קובץ גרסה | HYPER CORE TECH
       setTimeout(checkAppReleaseVersion, 2500);
       setInterval(checkAppReleaseVersion, 60 * 1000);
+      setTimeout(checkApkReleaseVersion, 3500);
+      setInterval(checkApkReleaseVersion, 5 * 60 * 1000);
       return;
     }
 
@@ -746,6 +866,7 @@
     async function checkForUpdates() {
       try {
         await checkAppReleaseVersion();
+        await checkApkReleaseVersion();
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg) {
           await reg.update();
@@ -812,6 +933,8 @@
     showInstallBanner: createInstallBanner,
     isPwaInstalled: () => isInstalled || checkIfInstalled(),
     showUpdateAvailableToast,
+    showApkUpdateAvailableToast,
+    checkApkReleaseVersion,
     ensurePushAfterInstall,
     SOS_APK_VERSION: NATIVE_APK_VERSION,
     SOS_APK_FILE: NATIVE_APK_FILE,

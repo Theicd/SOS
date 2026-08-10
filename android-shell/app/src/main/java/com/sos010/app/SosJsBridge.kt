@@ -277,4 +277,22 @@ class SosJsBridge(
 
     @JavascriptInterface
     fun getShellVersion(): String = BuildConfig.VERSION_NAME
+
+    @JavascriptInterface
+    fun getShellVersionCode(): Int = BuildConfig.VERSION_CODE
+
+    /**
+     * חלק עדכון APK (SosJsBridge.kt) – מוריד ומתקין גרסה חדשה מעל הקיימת | HYPER CORE TECH
+     */
+    @JavascriptInterface
+    fun installApkUpdate(apkUrl: String?) {
+        val url = apkUrl?.trim().orEmpty()
+        if (url.isEmpty()) return
+        val act = context as? MainActivity
+        if (act == null) {
+            android.util.Log.e("SosJsBridge", "installApkUpdate: context is not MainActivity")
+            return
+        }
+        act.startApkUpdateInstall(url)
+    }
 }

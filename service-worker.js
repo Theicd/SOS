@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v337'; // bump - android keyboard GIF commit content + apk 1.0.30
+  const CACHE_NAME = 'sos-cache-v338'; // bump - APK in-app update card + apk 1.0.31
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -79,6 +79,7 @@
 
     // קובץ גרסה – תמיד מהרשת כדי לזהות דיפלוי חדש | HYPER CORE TECH
     if (url.pathname.endsWith('/app-version.json') || url.pathname.endsWith('app-version.json')) return;
+    if (url.pathname.endsWith('/apk-version.json') || url.pathname.endsWith('apk-version.json')) return;
 
     // לא לשמור בקאש נתיבים דינמיים
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
