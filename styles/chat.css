@@ -2412,10 +2412,10 @@ body.chat-media-modal-open {
   align-self: center;
   background-color: #182229;
   color: #e9edef;
-  padding: 5px 10px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: 7px;
   font-size: 13.5px;
-  line-height: 1.25;
+  line-height: 1.12;
   margin: 8px auto;
   text-align: center;
   max-width: min(85%, 360px);
@@ -2423,7 +2423,7 @@ body.chat-media-modal-open {
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 5px;
   direction: rtl;
   box-sizing: border-box;
 }
@@ -2437,13 +2437,14 @@ body.chat-media-modal-open {
 .chat-panel .chat-system-message i {
   flex: 0 0 auto;
   margin-top: 1px;
-  font-size: 0.92em;
+  font-size: 0.9em;
   opacity: 0.9;
   color: #e9edef;
+  line-height: 1.12;
 }
 
 .chat-panel .chat-system-message span {
-  line-height: 1.25;
+  line-height: 1.12;
 }
 
 .chat-panel .chat-system-message__link {
@@ -2660,8 +2661,8 @@ body.chat-media-modal-open {
   .chat-panel .chat-system-message {
     max-width: calc(100% - 28px);
     font-size: 13.5px;
-    padding: 5px 10px;
-    line-height: 1.25;
+    padding: 4px 8px;
+    line-height: 1.12;
   }
 
   .chat-panel .chat-disappearing-sheet {
