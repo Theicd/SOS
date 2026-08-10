@@ -240,6 +240,12 @@
         }
         App.markChatConversationRead(peerPubkey);
         if (typeof App.afterChatMessagePublished === 'function') App.afterChatMessagePublished(peerPubkey, p2pMsg);
+        // P2P בלבד לא מגיע ל-RelayWatcher – Push/FCM להתראה כשהמקבל ב-APK ברקע | HYPER CORE TECH
+        if (typeof App.triggerOutgoingMessagePush === 'function') {
+          try {
+            App.triggerOutgoingMessagePush(peerPubkey, serialization?.rawContent, attachmentReady, p2pId);
+          } catch (_pushErr) {}
+        }
         console.log('[DC] ✅ Message sent P2P, relay skipped');
         return { ok: true, messageId: p2pId, p2p: true };
       }

@@ -237,6 +237,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        // מסך כבוי / איבוד פוקוס – מאפשרים התראות Native מיד (לפני onStop) | HYPER CORE TECH
+        isHostAlive = false
         if (this::webView.isInitialized) {
             try {
                 webView.resumeTimers()

@@ -2826,9 +2826,24 @@
 
       const openUrl = `${window.location.origin}${window.location.pathname}?chat=${normalizedPeer}`;
 
-      // APK: לא שולחים התראת מערכת מה-Web כלל.
-      // ברקע → SosRelayWatcher/FCM; בממשק גלוי → רק צליל מקומי (playChatMessageSound) | HYPER CORE TECH
+      // APK: בממשק גלוי – רק צליל מקומי; ברקע – התראת Native (P2P לא עובר ב-Relay) | HYPER CORE TECH
       if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
+        if (!isHidden) return;
+        const notifBody = aggregateNotificationState.totalMessages > 1
+          ? buildAggregateNotificationBody()
+          : safeSnippet;
+        if (typeof App.nativeShowNotification === 'function') {
+          try {
+            App.nativeShowNotification(
+              name,
+              notifBody,
+              openUrl,
+              `chat-${normalizedPeer}`,
+              messageId || '',
+              normalizedPeer
+            );
+          } catch (_e) {}
+        }
         return;
       }
 

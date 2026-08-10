@@ -351,7 +351,26 @@ object SosNativeP2pEngine {
                     when (m.optString("type")) {
                         "ping" -> sendRaw(peer, JSONObject().put("type", "pong").put("ts", System.currentTimeMillis()).toString())
                         "pong" -> {}
-                        "chat-text" -> Log.i(TAG, "P2P chat ← ${peer.take(8)}")
+                        "chat-text" -> {
+                            Log.i(TAG, "P2P chat ← ${peer.take(8)}")
+                            val app = appRef
+                            if (!MainActivity.isHostAlive && app != null) {
+                                val preview = m.optString("content").trim().ifBlank {
+                                    if (m.optJSONObject("attachment") != null) "קובץ מצורף" else "הודעה חדשה"
+                                }.take(120)
+                                val eventId = m.optString("id").ifBlank { "p2p-${System.currentTimeMillis()}" }
+                                NotificationHelper.showMessage(
+                                    app,
+                                    SosContactCache.displayName(app, peer, "משתמש"),
+                                    preview,
+                                    "https://sos010.com/videos.html?chat=$peer",
+                                    "chat-$peer",
+                                    eventId = eventId,
+                                    peerKey = peer,
+                                    pictureUrl = SosContactCache.get(app, peer)?.picture
+                                )
+                            }
+                        }
                     }
                 } catch (_: Exception) {
                 }

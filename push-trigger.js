@@ -126,7 +126,11 @@
           body: payload.body || 'יש לך עדכון חדש',
           url: payload.url || payload.data?.url || 'https://sos010.com/videos.html',
           tag: payload.tag || payload.type || 'sos',
-          data: payload.data || { type: payload.type || 'general' },
+          data: Object.assign({}, payload.data || { type: payload.type || 'general' }, {
+            eventId: payload.eventId || payload.data?.eventId || '',
+            peer: payload.peerPubkey || payload.data?.peerPubkey || '',
+            peerPubkey: payload.peerPubkey || payload.data?.peerPubkey || '',
+          }),
         });
       }
     } catch (fcmErr) {
@@ -163,7 +167,7 @@
   }
 
   // חלק Push יוצא (push-trigger.js) – שליחת Push לנמען כשאני שולח הודעה | HYPER CORE TECH
-  async function triggerOutgoingMessagePush(peerPubkey, messageContent, attachment) {
+  async function triggerOutgoingMessagePush(peerPubkey, messageContent, attachment, messageId) {
     if (!peerPubkey) return;
     
     // קבלת שם ותמונת השולח (אני)
@@ -192,6 +196,7 @@
       body = messageContent.length > 100 ? messageContent.slice(0, 100) + '...' : messageContent;
     }
     
+    const eventId = messageId ? String(messageId) : '';
     // שליחת Push לנמען (לא לעצמי!)
     await sendPushToServer(peerPubkey, {
       title: `הודעה מ-${myName}`,
@@ -203,6 +208,13 @@
       messageType,
       peerPubkey: App.publicKey, // ה-pubkey שלי - כדי שהנמען יוכל לפתוח צ'אט איתי
       url: `./videos.html?chat=${App.publicKey}`,
+      eventId,
+      data: {
+        type: 'chat-message',
+        peerPubkey: App.publicKey,
+        eventId,
+        url: `https://sos010.com/videos.html?chat=${App.publicKey}`,
+      },
     });
     
     console.log('[PUSH] Sent to recipient:', peerPubkey.slice(0, 8));
