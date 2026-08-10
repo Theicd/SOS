@@ -2025,6 +2025,8 @@
       { value: 60 * day, label: '60 יום' },
       { value: 90 * day, label: '90 ימים' },
     ];
+    let selectedIdx = options.findIndex((o) => o.value === current);
+    if (selectedIdx < 0) selectedIdx = 2;
     const sheet = doc.createElement('div');
     sheet.id = 'chatDisappearingSheet';
     sheet.className = 'chat-disappearing-sheet';
@@ -2061,6 +2063,22 @@
                 </label>`;
               }).join('')}
             </div>
+            <div class="chat-disappearing-sheet__roller" data-roller aria-label="בחירת טיימר ברולר">
+              <button type="button" class="chat-disappearing-sheet__roller-btn" data-roller-dir="up" aria-label="למעלה">
+                <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
+              </button>
+              <div class="chat-disappearing-sheet__roller-frame">
+                <div class="chat-disappearing-sheet__roller-glow" aria-hidden="true"></div>
+                <div class="chat-disappearing-sheet__roller-viewport">
+                  <div class="chat-disappearing-sheet__roller-track" data-roller-track>
+                    ${options.map((opt, i) => `<div class="chat-disappearing-sheet__roller-item" data-index="${i}" data-value="${opt.value}">${opt.label}</div>`).join('')}
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="chat-disappearing-sheet__roller-btn" data-roller-dir="down" aria-label="למטה">
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </button>
+            </div>
           </section>
         </div>
         <footer class="chat-disappearing-sheet__footer">
@@ -2071,6 +2089,62 @@
     const host = elements.panel || doc.body;
     host.appendChild(sheet);
     const close = () => sheet.remove();
+    const applyTimer = (sec, { toast = true, dismiss = false } = {}) => {
+      try {
+        App.setDisappearingTimerSec?.(peer, sec);
+      } catch (_) {}
+      if (toast) {
+        try {
+          App.showToast?.(`ניקוי אוטומטי: ${formatDisappearingTimerLabel(sec)}`);
+        } catch (_) {}
+      }
+      if (dismiss) close();
+    };
+    const rollerRoot = sheet.querySelector('[data-roller]');
+    const rollerTrack = sheet.querySelector('[data-roller-track]');
+    const rollerItems = [...sheet.querySelectorAll('.chat-disappearing-sheet__roller-item')];
+    const ROW_H = 52;
+    const syncRoller = (idx, { animate = true } = {}) => {
+      selectedIdx = Math.max(0, Math.min(options.length - 1, idx));
+      if (rollerTrack) {
+        if (!animate) rollerTrack.style.transition = 'none';
+        rollerTrack.style.transform = `translate3d(0, ${-selectedIdx * ROW_H}px, 0)`;
+        if (!animate) {
+          void rollerTrack.offsetHeight;
+          rollerTrack.style.transition = '';
+        }
+      }
+      rollerItems.forEach((el, i) => {
+        const dist = Math.abs(i - selectedIdx);
+        el.classList.toggle('is-selected', dist === 0);
+        el.classList.toggle('is-near', dist === 1);
+        el.classList.toggle('is-far', dist > 1);
+      });
+      sheet.querySelector('[data-roller-dir="up"]')?.toggleAttribute('disabled', selectedIdx <= 0);
+      sheet.querySelector('[data-roller-dir="down"]')?.toggleAttribute('disabled', selectedIdx >= options.length - 1);
+    };
+    const moveRoller = (delta) => {
+      const next = selectedIdx + delta;
+      if (next < 0 || next >= options.length) return;
+      syncRoller(next);
+      applyTimer(options[next].value, { toast: false, dismiss: false });
+    };
+    if (rollerRoot && rollerTrack) {
+      syncRoller(selectedIdx, { animate: false });
+      sheet.querySelectorAll('[data-roller-dir]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moveRoller(btn.getAttribute('data-roller-dir') === 'up' ? -1 : 1);
+        });
+      });
+      rollerRoot.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.deltaY > 0) moveRoller(1);
+        else if (e.deltaY < 0) moveRoller(-1);
+      }, { passive: false });
+    }
+    const isDesktopRoller = () => window.matchMedia('(min-width: 769px)').matches;
     sheet.querySelector('.chat-disappearing-sheet__backdrop')?.addEventListener('click', (e) => {
       e.stopPropagation();
       close();
@@ -2081,6 +2155,10 @@
     });
     sheet.querySelector('[data-action="sheet-done"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (isDesktopRoller() && rollerRoot) {
+        applyTimer(options[selectedIdx].value, { toast: true, dismiss: true });
+        return;
+      }
       close();
     });
     sheet.querySelector('[data-action="clear-chat-now"]')?.addEventListener('click', (e) => {
@@ -2091,13 +2169,7 @@
     sheet.querySelectorAll('input[name="disappearingTimer"]').forEach((input) => {
       input.addEventListener('change', () => {
         const sec = Math.max(0, Number(input.value) || 0);
-        try {
-          App.setDisappearingTimerSec?.(peer, sec);
-        } catch (_) {}
-        close();
-        try {
-          App.showToast?.(`ניקוי אוטומטי: ${formatDisappearingTimerLabel(sec)}`);
-        } catch (_) {}
+        applyTimer(sec, { toast: true, dismiss: true });
       });
     });
   }
