@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v335'; // bump - desktop timer confirm + compact clear row
+  const CACHE_NAME = 'sos-cache-v336'; // bump - smaller desktop timer roller
   const PRECACHE_URLS = [
     './',
     './videos.html',

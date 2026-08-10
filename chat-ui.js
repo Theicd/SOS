@@ -2107,7 +2107,7 @@
     const rollerTrack = sheet.querySelector('[data-roller-track]');
     const rollerItems = [...sheet.querySelectorAll('.chat-disappearing-sheet__roller-item')];
     const confirmBtn = sheet.querySelector('[data-action="confirm-timer"]');
-    const ROW_H = 38;
+    const ROW_H = 28;
     const syncConfirmState = () => {
       if (!confirmBtn) return;
       const pending = options[selectedIdx]?.value;
