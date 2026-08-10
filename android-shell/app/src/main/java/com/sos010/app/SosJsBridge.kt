@@ -108,6 +108,23 @@ class SosJsBridge(
         SosSessionStore.setPubkey(context.applicationContext, pubkey)
         SosForegroundService.start(context.applicationContext)
         SosRelayWatcher.ensureStarted(context.applicationContext)
+        SosP2pStandby.ensureStarted(context.applicationContext)
+    }
+
+    /** הפעלת/כיבוי שמירת P2P במצב המתנה (ברירת מחדל: דלוק) | HYPER CORE TECH */
+    @JavascriptInterface
+    fun setP2pStandbyEnabled(enabled: Boolean) {
+        SosSessionStore.setP2pStandbyEnabled(context.applicationContext, enabled)
+        if (enabled) {
+            SosP2pStandby.ensureStarted(context.applicationContext)
+        }
+    }
+
+    /** סנכרון רשימת peers מועדפים לחימום P2P ברקע (CSV) | HYPER CORE TECH */
+    @JavascriptInterface
+    fun syncP2pPeers(peersCsv: String?) {
+        SosSessionStore.setP2pPeers(context.applicationContext, peersCsv)
+        SosP2pStandby.ensureStarted(context.applicationContext)
     }
 
     /** שמירת שם+תמונה של איש קשר להתראות רקע בסגנון וואטסאפ | HYPER CORE TECH */
@@ -128,6 +145,7 @@ class SosJsBridge(
         val intent = android.content.Intent(context, SosForegroundService::class.java)
         androidx.core.content.ContextCompat.startForegroundService(context, intent)
         SosRelayWatcher.ensureStarted(context.applicationContext)
+        SosP2pStandby.ensureStarted(context.applicationContext)
     }
 
     @JavascriptInterface

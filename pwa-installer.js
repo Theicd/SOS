@@ -206,7 +206,7 @@
   }
 
   // כתובת APK – נשאר ב-git (downloads/) ומורד מ-GitHub, לא מפורסם מחדש ב-Pages בכל deploy | HYPER CORE TECH
-  const NATIVE_APK_VERSION = '1.0.31';
+  const NATIVE_APK_VERSION = '1.0.32';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
     || `https://github.com/Theicd/SOS/raw/binaries/downloads/${NATIVE_APK_FILE}`;
@@ -774,7 +774,21 @@
           return;
         }
       } catch (_) {}
-      installAndroidApk();
+      // APK ישן בלי installApkUpdate – הורדה ישירה של הגרסה החדשה (לא "כבר מותקן") | HYPER CORE TECH
+      try {
+        pwaToast('מוריד את עדכון האפליקציה…');
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', String(pendingApkRelease?.file || NATIVE_APK_FILE));
+        link.rel = 'noopener';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => link.remove(), 1000);
+      } catch (err) {
+        console.error('[PWA] APK update download failed', err);
+        window.location.href = url;
+      }
     };
 
     document.body.appendChild(toast);

@@ -62,6 +62,8 @@ class MainActivity : AppCompatActivity() {
     private var pendingAutoAccept: Boolean = false
     private var warmForCallPeer: String? = null
     private var warmForCallType: String? = null
+    private var warmForP2pPeer: String? = null
+    private var warmForP2pPending = false
     private var suppressCallCancelUntil = 0L
     @Volatile private var pendingApkUpdateFile: java.io.File? = null
     @Volatile private var apkUpdateInFlight = false
@@ -123,6 +125,7 @@ class MainActivity : AppCompatActivity() {
         captureDeepLinkFromIntent(intent)
         captureCallActionFromIntent(intent)
         captureWarmForCallFromIntent(intent)
+        captureWarmForP2pFromIntent(intent)
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
@@ -153,6 +156,7 @@ class MainActivity : AppCompatActivity() {
         captureDeepLinkFromIntent(intent)
         captureCallActionFromIntent(intent)
         captureWarmForCallFromIntent(intent)
+        captureWarmForP2pFromIntent(intent)
         // שיחה נכנסת – לא עוצרים צלצול מיד; Web יקבל deeplink בלי reload | HYPER CORE TECH
         if (!openedFromCallIntent && pendingCallAction != CALL_ACTION_ANSWER && warmForCallPeer.isNullOrBlank()) {
             CallSoundHelper.stopAll()
@@ -161,6 +165,7 @@ class MainActivity : AppCompatActivity() {
             injectPendingDeepLink()
             injectPendingCallAction()
             injectWarmForCall()
+            injectWarmForP2p()
         } else {
             val url = resolveStartUrl(intent)
             if (this::webView.isInitialized) {
@@ -211,6 +216,7 @@ class MainActivity : AppCompatActivity() {
                 injectPendingDeepLink()
                 injectPendingCallAction()
                 injectWarmForCall()
+                injectWarmForP2p()
             }
             injectNativeFilePickScript()
         }
@@ -505,6 +511,63 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** חימום WebView לשמירת P2P במצב המתנה – בלי UI | HYPER CORE TECH */
+    private fun captureWarmForP2pFromIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_WARM_FOR_P2P, false) != true) return
+        warmForP2pPending = true
+        warmForP2pPeer = intent.getStringExtra(EXTRA_CALL_PEER)
+            ?.trim()
+            ?.lowercase()
+            ?.takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }
+        if (this::loading.isInitialized) loading.visibility = View.GONE
+        try {
+            if (this::webView.isInitialized) {
+                webView.onResume()
+                webView.resumeTimers()
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun injectWarmForP2p() {
+        if (!warmForP2pPending) return
+        if (!this::webView.isInitialized) return
+        val peerJs = JSONObject.quote(warmForP2pPeer.orEmpty())
+        val js = """
+            (function(){
+              try {
+                window.__sosP2pStandbyWarm = true;
+                var App = window.NostrApp || {};
+                var dc = App.dataChannel;
+                if (dc && typeof dc.resumeStandby === 'function') {
+                  dc.resumeStandby($peerJs || null);
+                } else if (dc && typeof dc.init === 'function') {
+                  dc.init();
+                }
+                window.dispatchEvent(new CustomEvent('sos-native-p2p-warm', { detail: { peer: $peerJs } }));
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+            Log.i(TAG, "warm-for-p2p peer=${warmForP2pPeer?.take(8) ?: "-"}")
+        } catch (err: Exception) {
+            Log.w(TAG, "p2p warm inject failed: ${err.message}")
+        }
+        listOf(800L, 2200L, 5000L).forEach { delay ->
+            mainHandler.postDelayed({
+                if (!this::webView.isInitialized) return@postDelayed
+                try {
+                    webView.evaluateJavascript(js, null)
+                } catch (_: Exception) {
+                }
+            }, delay)
+        }
+        mainHandler.postDelayed({
+            warmForP2pPending = false
+        }, 6000L)
+    }
+
     private fun extractQueryParam(url: String, key: String): String? {
         if (url.isBlank()) return null
         return try {
@@ -769,7 +832,8 @@ class MainActivity : AppCompatActivity() {
                 val quiet = !pendingDeepLinkPeer.isNullOrBlank() ||
                     !pendingIncomingCall.isNullOrBlank() ||
                     pendingCallAction == CALL_ACTION_ANSWER ||
-                    !warmForCallPeer.isNullOrBlank()
+                    !warmForCallPeer.isNullOrBlank() ||
+                    warmForP2pPending
                 if (quiet) {
                     loading.visibility = View.GONE
                 } else {
@@ -787,6 +851,7 @@ class MainActivity : AppCompatActivity() {
                 injectNativeFlag()
                 injectNativeFilePickScript()
                 injectWarmForCall()
+                injectWarmForP2p()
                 injectPendingDeepLink()
                 injectPendingCallAction()
             }
@@ -1404,6 +1469,7 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_CALL_PEER = "call_peer"
         const val EXTRA_CALL_TYPE = "call_type"
         const val EXTRA_WARM_FOR_CALL = "warm_for_call"
+        const val EXTRA_WARM_FOR_P2P = "warm_for_p2p"
         const val CALL_ACTION_ANSWER = "answer"
         const val CALL_ACTION_DECLINE = "decline"
 
@@ -1429,6 +1495,27 @@ class MainActivity : AppCompatActivity() {
                 putExtra(EXTRA_WARM_FOR_CALL, true)
                 putExtra(EXTRA_CALL_PEER, pk)
                 putExtra(EXTRA_CALL_TYPE, type)
+                putExtra(EXTRA_OPEN_URL, SosCallUrls.warmPage())
+            }
+            try {
+                app.startActivity(intent)
+            } catch (_: Exception) {
+            }
+        }
+
+        /** מחמם WebView ברקע לשימור / חידוש P2P DataChannel | HYPER CORE TECH */
+        fun warmHostForP2p(context: Context, peer: String?) {
+            val app = context.applicationContext
+            if (isHostAlive) return
+            val pk = peer?.trim()?.lowercase()?.takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }
+            val intent = Intent(app, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                putExtra(EXTRA_START_IN_BACKGROUND, true)
+                putExtra(EXTRA_WARM_FOR_P2P, true)
+                if (!pk.isNullOrBlank()) putExtra(EXTRA_CALL_PEER, pk)
                 putExtra(EXTRA_OPEN_URL, SosCallUrls.warmPage())
             }
             try {

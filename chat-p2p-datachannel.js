@@ -296,12 +296,61 @@
 
   function startKeep() {
     if(keepTimer) return;
+    const isNativeShell=()=>{
+      try{
+        if(window.SOS_NATIVE_SHELL===true) return true;
+        if(document.documentElement?.getAttribute('data-sos-native')==='1') return true;
+        const b=window.SosNativeShell;
+        if(b&&typeof b.isNativeShell==='function'){
+          const v=b.isNativeShell();
+          return v===true||v==='true';
+        }
+      }catch{}
+      return false;
+    };
     keepTimer=setInterval(()=>{
-      if(App.guestMode||!App.pool||!App.publicKey||document.hidden) return;
+      if(App.guestMode||!App.pool||!App.publicKey) return;
+      // ב-APK ממשיכים keepalive גם כשהמסך כבוי / המשימה ברקע | HYPER CORE TECH
+      if(document.hidden && !isNativeShell()) return;
       if(!sigSub){subscribe();return;}
       if(lastSigAt&&(Date.now()-lastSigAt)>120000){closeSub(sigSub);sigSub=null;subReady=false;subscribe();}
     },30000);
-    try{document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!sigSub)subscribe();});}catch{}
+    try{
+      document.addEventListener('visibilitychange',()=>{
+        if(!document.hidden&&!sigSub) subscribe();
+        if(isNativeShell()&&!sigSub) subscribe();
+      });
+      window.addEventListener('sos-native-p2p-warm', (ev)=>{
+        try{
+          const peer=ev?.detail?.peer||'';
+          resumeStandby(peer);
+        }catch{}
+      });
+      window.addEventListener('sos-native-resume', ()=>{
+        try{ if(isNativeShell()) resumeStandby(''); }catch{}
+      });
+    }catch{}
+  }
+
+  /** חידוש subscription + חיבור ל-peer אחרי חימום Native במצב המתנה | HYPER CORE TECH */
+  function resumeStandby(peer){
+    try{
+      init();
+      if(!sigSub) subscribe();
+      const k=String(peer||'').trim().toLowerCase();
+      if(isValidPeerKey(k)){
+        if(amInitiator(k)) connect(k);
+        return;
+      }
+      peers.forEach((s,pk)=>{
+        if(!s||s.status==='connected') return;
+        if(s.init && amInitiator(pk)){
+          try{ connect(pk); }catch{}
+        }
+      });
+    }catch(e){
+      console.warn('[DC] resumeStandby failed:', e);
+    }
   }
 
   // חלק API (chat-p2p-datachannel.js) – ממשק ציבורי | HYPER CORE TECH
@@ -335,7 +384,7 @@
     await _sendOffer(k);
   }
 
-  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, getChatPC, subscribeIncomingMessages, _peers:peers };
+  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, subscribeIncomingMessages, _peers:peers };
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט | HYPER CORE TECH
   function setupLazy(){

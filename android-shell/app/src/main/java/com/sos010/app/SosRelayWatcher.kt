@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * מאזין Nostr מקורי בתוך שירות הרקע –
- * הודעות (1050) + שיחות נכנסות (25050 offer / v-offer) גם כשהממשק סגור.
+ * הודעות (1050) + שיחות נכנסות (25050) + סיגנלי P2P (25055) גם כשהממשק סגור.
  */
 class SosRelayWatcher(private val appContext: Context) {
 
@@ -81,14 +81,19 @@ class SosRelayWatcher(private val appContext: Context) {
                     .put("kinds", JSONArray().put(CALL_KIND))
                     .put("#p", JSONArray().put(pubkey))
                     .put("since", since)
+                val filterP2p = JSONObject()
+                    .put("kinds", JSONArray().put(P2P_KIND))
+                    .put("#p", JSONArray().put(pubkey))
+                    .put("since", since)
                 val req = JSONArray()
                     .put("REQ")
                     .put("sos-bg-${pubkey.take(8)}")
                     .put(filterYala)
                     .put(filterNet)
                     .put(filterCalls)
+                    .put(filterP2p)
                 webSocket.send(req.toString())
-                Log.i(TAG, "subscribed chat+calls on $url")
+                Log.i(TAG, "subscribed chat+calls+p2p on $url")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -158,6 +163,7 @@ class SosRelayWatcher(private val appContext: Context) {
             when (kind) {
                 CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty(), id)
                 CALL_KIND -> handleCallSignal(author, signalType, event)
+                P2P_KIND -> handleP2pSignal(author)
             }
         } catch (err: Exception) {
             Log.w(TAG, "parse fail: ${err.message}")
@@ -230,6 +236,14 @@ class SosRelayWatcher(private val appContext: Context) {
         }
         lastNotifyAt = System.currentTimeMillis()
         Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
+    }
+
+    /** סיגנל P2P ברקע – מחמם WebView כדי לחדש DataChannel | HYPER CORE TECH */
+    private fun handleP2pSignal(author: String) {
+        if (MainActivity.isHostAlive) return
+        if (!SosSessionStore.isP2pStandbyEnabled(appContext)) return
+        Log.i(TAG, "p2p signal from ${author.take(8)} – warming host")
+        SosP2pStandby.maybeWarm(appContext, author, reason = "signal-25055")
     }
 
     private fun handleCallSignal(author: String, signalType: String, event: JSONObject) {
@@ -308,6 +322,7 @@ class SosRelayWatcher(private val appContext: Context) {
         private const val TAG = "SosRelayWatcher"
         private const val CHAT_KIND = 1050
         private const val CALL_KIND = 25050
+        private const val P2P_KIND = 25055
         private const val CHAT_TAG = "yalachat"
         private const val NETWORK_TAG = "israel-network"
 

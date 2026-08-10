@@ -27,12 +27,18 @@ class SosForegroundService : Service() {
         super.onCreate()
         NotificationHelper.ensureChannels(this)
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
-        handler.post { SosRelayWatcher.ensureStarted(this) }
+        handler.post {
+            SosRelayWatcher.ensureStarted(this)
+            SosP2pStandby.ensureStarted(this)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
-        handler.post { SosRelayWatcher.ensureStarted(this) }
+        handler.post {
+            SosRelayWatcher.ensureStarted(this)
+            SosP2pStandby.ensureStarted(this)
+        }
         return START_STICKY
     }
 

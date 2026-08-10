@@ -282,11 +282,15 @@
         bridge.setUserPubkey(pubkey);
         console.log('[NATIVE-SHELL] pubkey synced to background watcher');
       }
+      if (bridge && typeof bridge.setP2pStandbyEnabled === 'function') {
+        bridge.setP2pStandbyEnabled(true);
+      }
       if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
     } catch (err) {
       console.warn('[NATIVE-SHELL] setUserPubkey failed', err);
     }
     syncContactsToNative();
+    syncP2pPeersToNative();
   }
 
   // חלק קאש אנשי קשר (native-shell-bridge.js) – שם+תמונה להתראות רקע | HYPER CORE TECH
@@ -321,6 +325,35 @@
       }
     } catch (err) {
       console.warn('[NATIVE-SHELL] cacheContact sync failed', err);
+    }
+    syncP2pPeersToNative();
+  }
+
+  /** סנכרון peers לחימום P2P ברקע ב-APK | HYPER CORE TECH */
+  function syncP2pPeersToNative() {
+    if (!isNativeShell()) return;
+    const bridge = getBridge();
+    if (!bridge || typeof bridge.syncP2pPeers !== 'function') return;
+    try {
+      const keys = new Set();
+      const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
+      (contacts || []).forEach((c) => {
+        const pk = String(c?.pubkey || '').toLowerCase();
+        if (pk.length === 64) keys.add(pk);
+      });
+      try {
+        const dcPeers = App.dataChannel && App.dataChannel._peers;
+        if (dcPeers && typeof dcPeers.forEach === 'function') {
+          dcPeers.forEach((_, pk) => {
+            const k = String(pk || '').toLowerCase();
+            if (k.length === 64) keys.add(k);
+          });
+        }
+      } catch (_) {}
+      const csv = Array.from(keys).slice(0, 24).join(',');
+      bridge.syncP2pPeers(csv);
+    } catch (err) {
+      console.warn('[NATIVE-SHELL] syncP2pPeers failed', err);
     }
   }
 
@@ -504,6 +537,7 @@
       tryRegister();
       wireNativeFilePickers();
       syncContactsToNative();
+      syncP2pPeersToNative();
       // לא עוצרים צלצול שיחה נכנסת ב־resume – רק אחרי ענה/דחייה | HYPER CORE TECH
       try {
         const params = new URLSearchParams(window.location.search || '');
@@ -523,6 +557,8 @@
     } catch (_) {}
     setTimeout(syncContactsToNative, 2500);
     setTimeout(syncContactsToNative, 8000);
+    setTimeout(syncP2pPeersToNative, 3000);
+    setTimeout(syncP2pPeersToNative, 12000);
   }
 
   Object.assign(App, {
@@ -544,6 +580,7 @@
     nativeHasCameraPermission,
     nativePickFiles,
     syncContactsToNative,
+    syncP2pPeersToNative,
   });
 
   if (document.readyState === 'loading') {

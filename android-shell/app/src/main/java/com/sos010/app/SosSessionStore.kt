@@ -11,6 +11,8 @@ object SosSessionStore {
     private const val KEY_PUBKEY = "pubkey"
     private const val KEY_LAST_URL = "last_web_url"
     private const val KEY_LAST_URL_AT = "last_web_url_at"
+    private const val KEY_P2P_STANDBY = "p2p_standby_enabled"
+    private const val KEY_P2P_PEERS = "p2p_peers_csv"
     private const val LAST_URL_TTL_MS = 7L * 24 * 60 * 60 * 1000
 
     fun setPubkey(context: Context, pubkey: String?) {
@@ -84,7 +86,48 @@ object SosSessionStore {
             .remove(KEY_PUBKEY)
             .remove(KEY_LAST_URL)
             .remove(KEY_LAST_URL_AT)
+            .remove(KEY_P2P_STANDBY)
+            .remove(KEY_P2P_PEERS)
             .apply()
         SosPendingCallStore.clear(context)
+    }
+
+    fun setP2pStandbyEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_P2P_STANDBY, enabled)
+            .apply()
+    }
+
+    fun isP2pStandbyEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_P2P_STANDBY, true)
+    }
+
+    /** רשימת peers מועדפים לשימור P2P ברקע (CSV של pubkeys) | HYPER CORE TECH */
+    fun setP2pPeers(context: Context, peersCsv: String?) {
+        val cleaned = peersCsv
+            ?.split(',', ';', ' ', '\n', '\t')
+            ?.map { it.trim().lowercase() }
+            ?.filter { it.matches(Regex("^[0-9a-f]{64}$")) }
+            ?.distinct()
+            ?.take(24)
+            ?.joinToString(",")
+            .orEmpty()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_P2P_PEERS, cleaned)
+            .apply()
+    }
+
+    fun getP2pPeers(context: Context): List<String> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_P2P_PEERS, "")
+            .orEmpty()
+        if (raw.isBlank()) return emptyList()
+        return raw.split(',')
+            .map { it.trim().lowercase() }
+            .filter { it.matches(Regex("^[0-9a-f]{64}$")) }
+            .distinct()
     }
 }
