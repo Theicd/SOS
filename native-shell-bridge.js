@@ -335,22 +335,30 @@
     const bridge = getBridge();
     if (!bridge || typeof bridge.syncP2pPeers !== 'function') return;
     try {
-      const keys = new Set();
-      const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
-      (contacts || []).forEach((c) => {
-        const pk = String(c?.pubkey || '').toLowerCase();
-        if (pk.length === 64) keys.add(pk);
-      });
+      const connected = [];
+      const rest = [];
+      const seen = new Set();
       try {
         const dcPeers = App.dataChannel && App.dataChannel._peers;
         if (dcPeers && typeof dcPeers.forEach === 'function') {
-          dcPeers.forEach((_, pk) => {
+          dcPeers.forEach((st, pk) => {
             const k = String(pk || '').toLowerCase();
-            if (k.length === 64) keys.add(k);
+            if (k.length !== 64 || seen.has(k)) return;
+            seen.add(k);
+            if (st && (st.status === 'connected' || (st.dc && st.dc.readyState === 'open'))) connected.push(k);
+            else rest.push(k);
           });
         }
       } catch (_) {}
-      const csv = Array.from(keys).slice(0, 24).join(',');
+      const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
+      (contacts || []).forEach((c) => {
+        const pk = String(c?.pubkey || '').toLowerCase();
+        if (pk.length === 64 && !seen.has(pk)) {
+          seen.add(pk);
+          rest.push(pk);
+        }
+      });
+      const csv = connected.concat(rest).slice(0, 24).join(',');
       bridge.syncP2pPeers(csv);
     } catch (err) {
       console.warn('[NATIVE-SHELL] syncP2pPeers failed', err);

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl" data-sos-p2p-headless="1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="referrer" content="no-referrer" />
+  <title>SOS P2P Standby</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #000; color: #222; overflow: hidden; }
+    body { font-size: 0; }
+    * { pointer-events: none; }
+  </style>
+  <script>
+    // חלק headless (p2p-standby.html) – סימון מוקדם לפני כל מודול | HYPER CORE TECH
+    window.__sosP2pHeadless = true;
+    window.SOS_NATIVE_SHELL = true;
+    document.documentElement.setAttribute('data-sos-p2p-headless', '1');
+    document.documentElement.setAttribute('data-sos-native', '1');
+  </script>
+</head>
+<body>
+  <div id="sos-p2p-standby" aria-hidden="true"></div>
+  <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js"></script>
+  <script src="./key-storage.js"></script>
+  <script src="./config.js"></script>
+  <script src="./key-utils.js"></script>
+  <script src="./utils.js?v=20260803d"></script>
+  <script src="./keys.js"></script>
+  <script src="./app.js?v=20260729g"></script>
+  <script src="./chat-state.js?v=20260810dm5"></script>
+  <script src="./chat-p2p-datachannel.js?v=16"></script>
+  <script src="./native-shell-bridge.js?v=20260810p2p2"></script>
+  <script>
+    (function bootStandby() {
+      function killMedia() {
+        try {
+          document.querySelectorAll('audio,video').forEach(function (el) {
+            try { el.pause(); el.muted = true; el.src = ''; el.removeAttribute('src'); el.load(); } catch (_) {}
+          });
+        } catch (_) {}
+      }
+      function startDc() {
+        try {
+          var App = window.NostrApp || {};
+          if (App.guestMode || !App.publicKey || !App.pool) return false;
+          if (App.dataChannel) {
+            if (typeof App.dataChannel.init === 'function') App.dataChannel.init();
+            if (typeof App.dataChannel.resumeStandby === 'function') App.dataChannel.resumeStandby('');
+          }
+          killMedia();
+          return true;
+        } catch (e) {
+          console.warn('[P2P-STANDBY] boot failed', e);
+          return false;
+        }
+      }
+      var tries = 0;
+      var t = setInterval(function () {
+        tries += 1;
+        if (startDc() || tries > 40) clearInterval(t);
+      }, 500);
+      startDc();
+      window.addEventListener('sos-native-p2p-warm', function () { startDc(); });
+      setInterval(killMedia, 4000);
+      console.log('[P2P-STANDBY] minimal page loaded (no feed)');
+    })();
+  </script>
+</body>
+</html>

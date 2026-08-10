@@ -257,6 +257,25 @@ class MainActivity : AppCompatActivity() {
             deliverBridgeFiles(bridgePickRequestId!!, null)
             bridgePickRequestId = null
         }
+        // שמירת peers מחוברים לפני הריסת WebView | HYPER CORE TECH
+        try {
+            if (this::webView.isInitialized) {
+                webView.evaluateJavascript(
+                    """
+                    (function(){
+                      try {
+                        if (typeof window.NostrApp !== 'undefined' &&
+                            window.NostrApp.syncP2pPeersToNative) {
+                          window.NostrApp.syncP2pPeersToNative();
+                        }
+                      } catch (e) {}
+                    })();
+                    """.trimIndent(),
+                    null
+                )
+            }
+        } catch (_: Exception) {
+        }
         startKeepAliveService()
         // כרטיסייה נסגרה – P2P עובר ל-WebView חסר-ממשק ב-FGS | HYPER CORE TECH
         SosP2pStandby.onHostBackground(applicationContext)

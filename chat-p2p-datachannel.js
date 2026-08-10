@@ -23,9 +23,9 @@
   const DC_LABEL = 'sos-chat';
   const ICE_BATCH_MS = 800;
   const RECONN_MS = 5000;
-  const MAX_RECONN = 3;
+  const MAX_RECONN = window.__sosP2pHeadless ? 24 : 3;
   const OFFER_RETRY_MS = 12000; // retry offer אם לא נענה תוך 12 שניות (סיגנלינג דרך ריליי איטי)
-  const MAX_OFFER_RETRY = 3;
+  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 3;
   // חלק keepalive (chat-p2p-datachannel.js) – ping תקופתי לשמירת DC פתוח מול NAT/firewall timeout | HYPER CORE TECH
   const DC_KEEPALIVE_MS = 30000;
   const SIG_SINCE_SEC = 3600; // חלון since - שעה (סובלני להיסט זמן בין מכשירים)
@@ -105,6 +105,14 @@
       if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
       console.log(`[DC] ✅ OPEN ${k.slice(0,8)}`);
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'open');
+      try{
+        if(window.SosNativeShell&&typeof window.SosNativeShell.syncP2pPeers==='function'){
+          const keys=[];
+          peers.forEach((st,pk)=>{ if(st&&(st.status==='connected'||st.init)) keys.push(pk); });
+          if(!keys.includes(k)) keys.unshift(k);
+          window.SosNativeShell.syncP2pPeers(keys.slice(0,24).join(','));
+        }
+      }catch{}
       // חלק keepalive start (chat-p2p-datachannel.js) – שליחת ping תקופתי לשמירת DC פתוח | HYPER CORE TECH
       if(s._keepAliveT) clearInterval(s._keepAliveT);
       s._keepAliveT=setInterval(()=>{
@@ -356,16 +364,29 @@
         const pk=String(p||'').trim().toLowerCase();
         if(isValidPeerKey(pk)&&!list.includes(pk)) list.push(pk);
       });
-      peers.forEach((s,pk)=>{ if(s&&s.init&&!list.includes(pk)) list.push(pk); });
+      peers.forEach((s,pk)=>{
+        if(!s) return;
+        if(s.init||s.status==='connected'||s.status==='connecting'||s.status==='waiting'||s.status==='closed'){
+          if(!list.includes(pk)) list.push(pk);
+        }
+      });
       list.forEach((pk)=>{
         try{
-          if(amInitiator(pk)) connect(pk);
-          else {
-            const s=ensPS(pk);
-            if(s.status==='idle'||s.status==='closed') s.status='waiting';
+          const s=ensPS(pk);
+          s.offerRetryN=0;
+          s.reconnN=0;
+          if(s.status==='connected'&&s.dc&&s.dc.readyState==='open') return;
+          // headless: initiator שולח offer; responder ממתין – אם כבר היינו initiator נשלח שוב | HYPER CORE TECH
+          if(amInitiator(pk)){
+            s.status='idle';
+            connect(pk);
+          } else {
+            s.status='waiting';
+            s.init=true;
           }
         }catch{}
       });
+      console.log('[DC] resumeStandby peers=', list.length, 'headless=', !!window.__sosP2pHeadless);
     }catch(e){
       console.warn('[DC] resumeStandby failed:', e);
     }

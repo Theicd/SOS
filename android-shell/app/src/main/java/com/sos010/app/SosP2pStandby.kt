@@ -148,9 +148,8 @@ object SosP2pStandby {
             pageReady = false
             wv.resumeTimers()
             wv.onResume()
-            val base = BuildConfig.SOS_START_URL
-            val sep = if (base.contains('?')) '&' else '?'
-            wv.loadUrl(base + sep + "p2pHeadless=1")
+            // דף מינימלי בלי פיד/סאונד – אותו origin כדי לשמור מפתחות | HYPER CORE TECH
+            wv.loadUrl("https://sos010.com/p2p-standby.html?shell=77&p2pHeadless=1")
         } catch (err: Exception) {
             Log.e(TAG, "headless start failed: ${err.message}", err)
             destroyHeadless("start-failed")
@@ -184,6 +183,11 @@ object SosP2pStandby {
                 window.SOS_NATIVE_SHELL_VERSION = ${JSONObject.quote(BuildConfig.VERSION_NAME)};
                 document.documentElement.setAttribute('data-sos-native','1');
                 document.documentElement.setAttribute('data-sos-p2p-headless','1');
+                try {
+                  document.querySelectorAll('audio,video').forEach(function(el){
+                    try { el.pause(); el.muted = true; el.removeAttribute('src'); el.load(); } catch (e) {}
+                  });
+                } catch (e) {}
                 window.dispatchEvent(new Event('sos-native-ready'));
               } catch (e) {}
             })();
