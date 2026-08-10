@@ -2737,18 +2737,62 @@ body.chat-media-modal-open {
     line-height: 1.08;
   }
 
+  /* מובייל – כרטיסיית ניקוי/טיימר במסך מלא בלי גלילה בבחירת הזמנים | HYPER CORE TECH */
   .chat-panel .chat-disappearing-sheet {
-    align-items: flex-end;
+    align-items: stretch;
+    justify-content: stretch;
   }
 
   .chat-panel .chat-disappearing-sheet__panel {
+    width: 100%;
     max-width: 100%;
-    border-radius: 18px 18px 0 0;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    border: 0;
+    border-bottom: 0;
+    box-shadow: none;
+    flex: 1 1 auto;
+    padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  .chat-panel .chat-disappearing-sheet__header {
+    padding: 12px 14px 8px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__clear {
+    padding: 8px 16px 2px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__section-hint {
+    margin: 0 0 8px;
+    font-size: 0.82rem;
+  }
+
+  .chat-panel .chat-disappearing-sheet__clear-btn {
+    padding: 11px 14px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__divider {
+    margin: 10px 16px 6px;
+  }
+
+  .chat-panel .chat-disappearing-sheet__hint {
+    padding: 0 16px 6px;
+    font-size: 0.82rem;
+  }
+
   .chat-panel .chat-disappearing-sheet__options {
-    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    overflow: visible;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    padding: 0 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-panel .chat-disappearing-sheet__option {
+    padding: 11px 10px;
+    font-size: 0.95rem;
   }
 
   /* תפריט ⋮ במובייל – מיקום בפועל נקבע ב-JS (fixed ל-viewport / body) | HYPER CORE TECH */
