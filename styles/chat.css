@@ -2450,6 +2450,10 @@ body.chat-media-modal-open {
   padding: 0;
 }
 
+.chat-panel .chat-system-message span br {
+  line-height: 1.08;
+}
+
 .chat-panel .chat-system-message__link {
   background: none;
   border: 0;
@@ -2460,7 +2464,7 @@ body.chat-media-modal-open {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  line-height: 1;
+  line-height: 1.08;
   display: inline;
   vertical-align: baseline;
 }
