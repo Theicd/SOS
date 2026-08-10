@@ -2078,6 +2078,7 @@
               <button type="button" class="chat-disappearing-sheet__roller-btn" data-roller-dir="down" aria-label="למטה">
                 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
               </button>
+              <button type="button" class="chat-disappearing-sheet__confirm" data-action="confirm-timer" disabled>אישור</button>
             </div>
           </section>
         </div>
@@ -2089,10 +2090,12 @@
     const host = elements.panel || doc.body;
     host.appendChild(sheet);
     const close = () => sheet.remove();
+    let appliedValue = current;
     const applyTimer = (sec, { toast = true, dismiss = false } = {}) => {
       try {
         App.setDisappearingTimerSec?.(peer, sec);
       } catch (_) {}
+      appliedValue = sec;
       if (toast) {
         try {
           App.showToast?.(`ניקוי אוטומטי: ${formatDisappearingTimerLabel(sec)}`);
@@ -2103,7 +2106,13 @@
     const rollerRoot = sheet.querySelector('[data-roller]');
     const rollerTrack = sheet.querySelector('[data-roller-track]');
     const rollerItems = [...sheet.querySelectorAll('.chat-disappearing-sheet__roller-item')];
+    const confirmBtn = sheet.querySelector('[data-action="confirm-timer"]');
     const ROW_H = 38;
+    const syncConfirmState = () => {
+      if (!confirmBtn) return;
+      const pending = options[selectedIdx]?.value;
+      confirmBtn.disabled = pending === appliedValue;
+    };
     const syncRoller = (idx, { animate = true } = {}) => {
       selectedIdx = Math.max(0, Math.min(options.length - 1, idx));
       if (rollerTrack) {
@@ -2122,12 +2131,13 @@
       });
       sheet.querySelector('[data-roller-dir="up"]')?.toggleAttribute('disabled', selectedIdx <= 0);
       sheet.querySelector('[data-roller-dir="down"]')?.toggleAttribute('disabled', selectedIdx >= options.length - 1);
+      syncConfirmState();
     };
     const moveRoller = (delta) => {
       const next = selectedIdx + delta;
       if (next < 0 || next >= options.length) return;
+      // דסקטופ: רק מזיזים בחירה מקומית – שמירה רק באישור | HYPER CORE TECH
       syncRoller(next);
-      applyTimer(options[next].value, { toast: false, dismiss: false });
     };
     if (rollerRoot && rollerTrack) {
       syncRoller(selectedIdx, { animate: false });
@@ -2144,7 +2154,6 @@
         else if (e.deltaY < 0) moveRoller(-1);
       }, { passive: false });
     }
-    const isDesktopRoller = () => window.matchMedia('(min-width: 769px)').matches;
     sheet.querySelector('.chat-disappearing-sheet__backdrop')?.addEventListener('click', (e) => {
       e.stopPropagation();
       close();
@@ -2155,11 +2164,13 @@
     });
     sheet.querySelector('[data-action="sheet-done"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (isDesktopRoller() && rollerRoot) {
-        applyTimer(options[selectedIdx].value, { toast: true, dismiss: true });
-        return;
-      }
       close();
+    });
+    confirmBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sec = options[selectedIdx]?.value;
+      if (sec == null || sec === appliedValue) return;
+      applyTimer(sec, { toast: true, dismiss: true });
     });
     sheet.querySelector('[data-action="clear-chat-now"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
