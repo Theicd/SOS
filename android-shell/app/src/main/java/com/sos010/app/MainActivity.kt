@@ -109,6 +109,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         isHostAlive = true
+        isActivityAlive = true
+        // אם חזרנו ל-UI – Native P2P חייב להשתחרר מיד | HYPER CORE TECH
+        SosP2pStandby.onHostForeground()
         WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
 
@@ -179,6 +182,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         isHostAlive = true
+        isActivityAlive = true
         SosP2pStandby.onHostForeground()
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
@@ -224,9 +228,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        // רקע / מסך כבוי – ה-WebView נשאר; לא מפעילים Native (מונע תחרות על DC) | HYPER CORE TECH
         isHostAlive = false
         startKeepAliveService()
-        // עדיין יש WebView של Activity – לא headless עדיין | HYPER CORE TECH
         super.onStop()
     }
 
@@ -248,6 +252,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         isHostAlive = false
+        isActivityAlive = false
         try {
             filePathCallback?.onReceiveValue(null)
         } catch (_: Exception) {
@@ -277,8 +282,8 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
         }
         startKeepAliveService()
-        // כרטיסייה נסגרה – P2P עובר ל-WebView חסר-ממשק ב-FGS | HYPER CORE TECH
-        SosP2pStandby.onHostBackground(applicationContext)
+        // כרטיסייה נסגרה באמת – רק כאן Native P2P נכנס | HYPER CORE TECH
+        SosP2pStandby.onActivityDestroyed(applicationContext)
         SosForegroundService.scheduleRestart(applicationContext, 800L)
         super.onDestroy()
     }
@@ -1499,6 +1504,11 @@ class MainActivity : AppCompatActivity() {
         @JvmField
         @Volatile
         var isHostAlive: Boolean = false
+
+        /** Activity עדיין קיימת (גם ברקע) – WebView מנהל P2P. Native רק אחרי onDestroy | HYPER CORE TECH */
+        @JvmField
+        @Volatile
+        var isActivityAlive: Boolean = false
 
         /** מעיר/מחמם את ה-WebView ברקע בזמן צלצול כדי שענה יהיה מיידי | HYPER CORE TECH */
         fun warmHostForIncomingCall(context: Context, peer: String, callType: String) {

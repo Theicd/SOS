@@ -29,7 +29,7 @@ class SosForegroundService : Service() {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
         handler.post {
             SosRelayWatcher.ensureStarted(this)
-            SosP2pStandby.ensureStarted(this)
+            // לא מפעילים Native P2P כאן – רק אחרי סגירת Activity | HYPER CORE TECH
         }
     }
 
@@ -37,13 +37,18 @@ class SosForegroundService : Service() {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
         handler.post {
             SosRelayWatcher.ensureStarted(this)
-            SosP2pStandby.ensureStarted(this)
+            if (!MainActivity.isActivityAlive) {
+                SosP2pStandby.ensureStarted(this)
+            }
         }
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        SosP2pStandby.onHostBackground(applicationContext)
+        // כרטיסייה הוסרה מההיסטוריה – מעבירים ל-Native אם Activity כבר מתה | HYPER CORE TECH
+        if (!MainActivity.isActivityAlive) {
+            SosP2pStandby.onActivityDestroyed(applicationContext)
+        }
         scheduleRestart(applicationContext, delayMs = 600L)
         super.onTaskRemoved(rootIntent)
     }

@@ -238,9 +238,9 @@ class SosRelayWatcher(private val appContext: Context) {
         Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
     }
 
-    /** סיגנל P2P ברקע – מנוע Native (לא WebView) | HYPER CORE TECH */
+    /** סיגנל P2P – Native רק כשאין Activity; אחרת WebView מטפל | HYPER CORE TECH */
     private fun handleP2pSignal(author: String, signalType: String, event: JSONObject) {
-        if (MainActivity.isHostAlive) return
+        if (MainActivity.isActivityAlive) return
         if (!SosSessionStore.isP2pStandbyEnabled(appContext)) return
         Log.i(TAG, "p2p signal $signalType from ${author.take(8)}")
         SosNativeP2pEngine.onSignalEvent(author, signalType, event)

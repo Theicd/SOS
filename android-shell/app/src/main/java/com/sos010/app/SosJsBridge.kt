@@ -115,7 +115,7 @@ class SosJsBridge(
     @JavascriptInterface
     fun setUserPrivkey(privkey: String?) {
         SosSessionStore.setPrivkey(context.applicationContext, privkey)
-        if (!MainActivity.isHostAlive) {
+        if (!MainActivity.isActivityAlive) {
             SosNativeP2pEngine.ensureStarted(context.applicationContext)
         }
     }
@@ -133,9 +133,10 @@ class SosJsBridge(
     @JavascriptInterface
     fun syncP2pPeers(peersCsv: String?) {
         SosSessionStore.setP2pPeers(context.applicationContext, peersCsv)
-        SosP2pStandby.ensureStarted(context.applicationContext)
-        if (!MainActivity.isHostAlive) {
-            SosNativeP2pEngine.onHostBackground(context.applicationContext)
+        // Native רק אחרי סגירת כרטיסייה – ברקע WebView מנהל | HYPER CORE TECH
+        if (!MainActivity.isActivityAlive) {
+            SosP2pStandby.ensureStarted(context.applicationContext)
+            SosNativeP2pEngine.onCardClosed(context.applicationContext)
         }
     }
 

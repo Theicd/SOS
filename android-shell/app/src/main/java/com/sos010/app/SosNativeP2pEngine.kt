@@ -60,14 +60,14 @@ object SosNativeP2pEngine {
             return
         }
         if (!started.compareAndSet(false, true)) {
-            if (!MainActivity.isHostAlive) reconnectPreferred()
+            if (!MainActivity.isActivityAlive) reconnectPreferred()
             return
         }
         worker.execute {
             try {
                 initFactory(context.applicationContext)
                 Log.i(TAG, "native P2P engine ready")
-                if (!MainActivity.isHostAlive) reconnectPreferred()
+                if (!MainActivity.isActivityAlive) reconnectPreferred()
             } catch (err: Exception) {
                 Log.e(TAG, "init failed: ${err.message}", err)
                 started.set(false)
@@ -75,21 +75,27 @@ object SosNativeP2pEngine {
         }
     }
 
-    fun onHostForeground() {
-        // הממשק בחזית – WebView מנהל DC; Native משחרר כדי לא לכפול | HYPER CORE TECH
-        worker.execute { closeAll("host-foreground") }
+    /** הממשק חזר – משחררים Native | HYPER CORE TECH */
+    fun onUiActive() {
+        worker.execute { closeAll("ui-active") }
     }
 
-    fun onHostBackground(context: Context) {
+    /** כרטיסייה נסגרה – Native מנהל P2P | HYPER CORE TECH */
+    fun onCardClosed(context: Context) {
         appRef = context.applicationContext
+        if (MainActivity.isActivityAlive) return
         ensureStarted(context)
         mainHandler.postDelayed({
-            if (!MainActivity.isHostAlive) reconnectPreferred()
+            if (!MainActivity.isActivityAlive) reconnectPreferred()
         }, 600L)
     }
 
+    /** תאימות לשם ישן */
+    fun onHostForeground() = onUiActive()
+    fun onHostBackground(context: Context) = onCardClosed(context)
+
     fun onSignalEvent(author: String, signalType: String, event: JSONObject) {
-        if (MainActivity.isHostAlive) return
+        if (MainActivity.isActivityAlive) return
         if (!signalType.startsWith("dc-")) return
         val app = appRef ?: return
         val priv = SosSessionStore.getPrivkey(app)
@@ -116,7 +122,7 @@ object SosNativeP2pEngine {
 
     private fun reconnectPreferred() {
         val app = appRef ?: return
-        if (MainActivity.isHostAlive) return
+        if (MainActivity.isActivityAlive) return
         val self = SosSessionStore.getPubkey(app)
         val priv = SosSessionStore.getPrivkey(app)
         if (self.length != 64 || priv.length != 64) return
@@ -148,7 +154,7 @@ object SosNativeP2pEngine {
     )
 
     private fun connect(peer: String) {
-        if (MainActivity.isHostAlive) return
+        if (MainActivity.isActivityAlive) return
         val app = appRef ?: return
         val self = SosSessionStore.getPubkey(app)
         if (!amInitiator(self, peer)) {
@@ -280,7 +286,7 @@ object SosNativeP2pEngine {
                 state == PeerConnection.IceConnectionState.CLOSED
             ) {
                 peers[peer]?.let { cleanupPc(it); it.status = "closed" }
-                if (!MainActivity.isHostAlive) {
+                if (!MainActivity.isActivityAlive) {
                     mainHandler.postDelayed({ connect(peer) }, 5000L)
                 }
             }
