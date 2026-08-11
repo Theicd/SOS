@@ -24,6 +24,6 @@
     <string name="debug_log_clear">איפוס</string>
     <string name="debug_log_close">סגור</string>
     <string name="debug_log_copied">הלוג הועתק</string>
-    <string name="debug_log_saved">נשמר: %1$s</string>
+    <string name="debug_log_saved">נשמר בהורדות: %1$s</string>
     <string name="debug_log_reset_done">היסטוריית הלוג אופסה</string>
 </resources>

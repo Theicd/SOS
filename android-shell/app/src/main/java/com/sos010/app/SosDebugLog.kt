@@ -1,8 +1,14 @@
 package com.sos010.app
 
+import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -104,14 +110,72 @@ object SosDebugLog {
         i("log", "history reset by user")
     }
 
-    /** שומר TXT לייצוא/שיתוף | HYPER CORE TECH */
-    fun saveTxt(context: Context): File {
-        val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "debug")
+    data class SavedExport(
+        val displayName: String,
+        val publicPathHint: String,
+        val shareUri: Uri
+    )
+
+    /**
+     * שומר TXT לתיקיית Downloads הציבורית (נראה באפליקציית קבצים).
+     * ב-API 29+ דרך MediaStore; לפני כן ל-Environment.DIRECTORY_DOWNLOADS.
+     */
+    fun saveTxt(context: Context): SavedExport {
+        val name = "SOS-bg-log-${fileFmt.format(Date())}.txt"
+        val body = getText().toByteArray(Charsets.UTF_8)
+        val saved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            saveTxtViaMediaStore(context, name, body)
+        } else {
+            saveTxtToPublicDownloadsLegacy(context, name, body)
+        }
+        i("log", "exported ${saved.displayName} → ${saved.publicPathHint} (${body.size} bytes)")
+        return saved
+    }
+
+    private fun saveTxtViaMediaStore(context: Context, name: String, body: ByteArray): SavedExport {
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, name)
+            put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            put(MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: error("MediaStore insert failed")
+        resolver.openOutputStream(uri)?.use { it.write(body) }
+            ?: error("MediaStore openOutputStream failed")
+        values.clear()
+        values.put(MediaStore.Downloads.IS_PENDING, 0)
+        resolver.update(uri, values, null, null)
+        return SavedExport(
+            displayName = name,
+            publicPathHint = "Downloads/$name",
+            shareUri = uri
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun saveTxtToPublicDownloadsLegacy(context: Context, name: String, body: ByteArray): SavedExport {
+        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         if (!dir.exists()) dir.mkdirs()
-        val out = File(dir, "SOS-bg-log-${fileFmt.format(Date())}.txt")
-        out.writeText(getText(), Charsets.UTF_8)
-        i("log", "exported ${out.name} (${out.length()} bytes)")
-        return out
+        val out = File(dir, name)
+        FileOutputStream(out).use { it.write(body) }
+        android.media.MediaScannerConnection.scanFile(
+            context,
+            arrayOf(out.absolutePath),
+            arrayOf("text/plain"),
+            null
+        )
+        val shareUri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            out
+        )
+        return SavedExport(
+            displayName = name,
+            publicPathHint = "Downloads/$name",
+            shareUri = shareUri
+        )
     }
 
     private fun append(level: String, source: String, message: String) {

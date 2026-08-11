@@ -11,8 +11,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
-
 /**
  * מסך לוג רקע – העתק / שמירת TXT / שיתוף.
  */
@@ -89,15 +87,18 @@ class SosDebugLogActivity : AppCompatActivity() {
 
     private fun saveTxt(shareAfter: Boolean) {
         try {
-            val file = SosDebugLog.saveTxt(this)
-            Toast.makeText(this, getString(R.string.debug_log_saved, file.name), Toast.LENGTH_LONG).show()
+            val saved = SosDebugLog.saveTxt(this)
+            Toast.makeText(
+                this,
+                getString(R.string.debug_log_saved, saved.publicPathHint),
+                Toast.LENGTH_LONG
+            ).show()
             if (!shareAfter) return
-            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_SUBJECT, "SOS background log ${BuildConfig.VERSION_NAME}")
-                putExtra(Intent.EXTRA_TEXT, "SOS debug log attached")
-                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, "SOS debug log: ${saved.displayName}")
+                putExtra(Intent.EXTRA_STREAM, saved.shareUri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             startActivity(Intent.createChooser(send, getString(R.string.debug_log_share)))

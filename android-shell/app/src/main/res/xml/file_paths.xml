@@ -4,4 +4,5 @@
     <files-path name="apk_files" path="updates/" />
     <files-path name="debug_files" path="debug/" />
     <external-files-path name="debug_ext" path="debug/" />
+    <external-path name="public_downloads" path="Download/" />
 </paths>
