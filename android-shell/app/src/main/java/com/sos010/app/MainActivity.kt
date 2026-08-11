@@ -338,7 +338,7 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
         }
         startKeepAliveService()
-        // כרטיסייה נסגרה באמת – רק כאן Native P2P נכנס | HYPER CORE TECH
+        // כרטיסייה נסגרה – התראות דרך FGS/Relay; P2P רק on-demand | HYPER CORE TECH
         SosP2pStandby.onActivityDestroyed(applicationContext)
         SosForegroundService.scheduleRestart(applicationContext, 800L)
         super.onDestroy()

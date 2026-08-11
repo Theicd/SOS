@@ -7,97 +7,102 @@ import android.os.PowerManager
 import android.util.Log
 
 /**
- * שמירת P2P:
- * - כרטיסייה קיימת (גם ברקע / מסך כבוי) → WebView בלבד
- * - כרטיסייה נסגרה (onDestroy) → Native WebRTC ב-FGS
+ * P2P on-demand (לא ניטור קבוע):
+ * - התראות הודעה/שיחה = SosRelayWatcher ב-FGS (כמו גרסת הגיבוי)
+ * - כשמגיעה התראה / סיגנל ל-peer – מחממים WebView ברקע לאותו peer בלבד
+ * - לא מרימים Native WebRTC לכל ה-peers אחרי onDestroy (מונע OOM/קריסה)
  */
 object SosP2pStandby {
     private const val TAG = "SosP2pStandby"
-    private const val NUDGE_MS = 20_000L
-    private const val WAKE_MS = 90_000L
+    private const val WAKE_MS = 60_000L
+    private const val WARM_DEBOUNCE_MS = 8_000L
 
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var appRef: Context? = null
-    @Volatile private var wanted = false
+    @Volatile private var wanted = true
     private var wakeLock: PowerManager.WakeLock? = null
+    private val lastWarmAt = HashMap<String, Long>()
 
-    private val nudgeRunnable = object : Runnable {
-        override fun run() {
-            try {
-                val ctx = appRef
-                // Native רק כשאין Activity – אחרת ה-WebView מנהל | HYPER CORE TECH
-                if (wanted && ctx != null && !MainActivity.isActivityAlive) {
-                    acquireWake(ctx)
-                    SosNativeP2pEngine.ensureStarted(ctx)
-                    SosNativeP2pEngine.onCardClosed(ctx)
-                }
-            } finally {
-                if (wanted) mainHandler.postDelayed(this, NUDGE_MS)
-            }
-        }
-    }
-
+    /** שמירת דגל בלבד – לא מפעיל Native / reconnect גלובלי | HYPER CORE TECH */
     fun ensureStarted(context: Context) {
         appRef = context.applicationContext
         wanted = SosSessionStore.isP2pStandbyEnabled(context)
-        mainHandler.removeCallbacks(nudgeRunnable)
-        if (!wanted) return
-        // לא מפעילים Native כל עוד הכרטיסייה חיה | HYPER CORE TECH
-        if (MainActivity.isActivityAlive) return
-        mainHandler.postDelayed(nudgeRunnable, NUDGE_MS)
-        SosNativeP2pEngine.ensureStarted(context)
     }
 
-    /** חזרה לממשק – סוגרים Native כדי לא לכפול DC עם WebView | HYPER CORE TECH */
+    /** חזרה לממשק – משחררים Native אם היה | HYPER CORE TECH */
     fun onHostForeground() {
         SosNativeP2pEngine.onUiActive()
         releaseWake()
-        mainHandler.removeCallbacks(nudgeRunnable)
     }
 
-    /** הכרטיסייה נסגרה מההיסטוריה – מעבירים ל-Native | HYPER CORE TECH */
+    /**
+     * כרטיסייה נסגרה – ממשיכים רק התראות (Relay/FGS).
+     * P2P יופעל on-demand כשתגיע הודעה/סיגנל ל-peer.
+     */
     fun onActivityDestroyed(context: Context) {
         appRef = context.applicationContext
         wanted = SosSessionStore.isP2pStandbyEnabled(context)
-        if (!wanted) return
-        Log.i(TAG, "activity destroyed → native P2P")
-        SosDebugLog.i("p2p", "activity destroyed → native start")
-        acquireWake(context)
-        SosNativeP2pEngine.ensureStarted(context)
-        SosNativeP2pEngine.onCardClosed(context)
-        mainHandler.removeCallbacks(nudgeRunnable)
-        mainHandler.postDelayed(nudgeRunnable, NUDGE_MS)
+        SosNativeP2pEngine.onUiActive()
+        releaseWake()
+        Log.i(TAG, "card closed – alerts via relay; P2P on-demand only")
+        SosDebugLog.i("p2p", "card closed – alerts only; P2P on-demand")
     }
 
-    /** @deprecated שם ישן – מפנה ל-onActivityDestroyed */
+    /** @deprecated שם ישן */
     fun onHostBackground(context: Context) {
-        if (MainActivity.isActivityAlive) {
-            Log.i(TAG, "skip native – activity still alive")
-            return
-        }
+        if (MainActivity.isActivityAlive) return
         onActivityDestroyed(context)
     }
 
-    fun maybeWarm(context: Context, peer: String?, reason: String) {
-        if (MainActivity.isActivityAlive) return
-        appRef = context.applicationContext
+    /**
+     * מדליק P2P לפי צורך מול peer אחד:
+     * מחמם WebView ברקע (יציב כמו warm לשיחה) במקום Native לכל העולם.
+     */
+    fun warmForPeer(context: Context, peer: String?, reason: String) {
+        if (!wanted && !SosSessionStore.isP2pStandbyEnabled(context)) return
         wanted = true
-        if (!peer.isNullOrBlank() && peer.matches(Regex("^[0-9a-f]{64}$"))) {
-            val peers = SosSessionStore.getP2pPeers(context).toMutableList()
-            if (!peers.contains(peer.lowercase())) {
-                peers.add(0, peer.lowercase())
-                SosSessionStore.setP2pPeers(context, peers.joinToString(","))
-            }
+        appRef = context.applicationContext
+        val pk = peer?.trim()?.lowercase().orEmpty()
+        if (!pk.matches(Regex("^[0-9a-f]{64}$"))) return
+
+        val now = System.currentTimeMillis()
+        synchronized(lastWarmAt) {
+            val prev = lastWarmAt[pk] ?: 0L
+            if (now - prev < WARM_DEBOUNCE_MS) return
+            lastWarmAt[pk] = now
         }
-        Log.i(TAG, "warm reason=$reason peer=${peer?.take(8) ?: "-"}")
+
+        // שומרים את ה-peer ברשימה להמשך שיחה | HYPER CORE TECH
+        val peers = SosSessionStore.getP2pPeers(context).toMutableList()
+        if (!peers.contains(pk)) {
+            peers.add(0, pk)
+            while (peers.size > 12) peers.removeAt(peers.lastIndex)
+            SosSessionStore.setP2pPeers(context, peers.joinToString(","))
+        }
+
+        Log.i(TAG, "on-demand warm peer=${pk.take(8)} reason=$reason")
+        SosDebugLog.i("p2p", "on-demand warm peer=${pk.take(8)} reason=$reason")
         acquireWake(context)
-        SosNativeP2pEngine.ensureStarted(context)
-        SosNativeP2pEngine.onCardClosed(context)
+
+        // אם הממשק בחזית – WebView כבר מנהל P2P
+        if (MainActivity.isHostAlive) return
+
+        // כרטיסייה עדיין חיה ברקע – WebView מנהל; לא מרימים Activity מחדש | HYPER CORE TECH
+        if (MainActivity.isActivityAlive) {
+            MainActivity.pumpWebViewKeepAlive()
+            return
+        }
+
+        // כרטיסייה סגורה – חימום WebView ברקע לאותו peer | HYPER CORE TECH
+        MainActivity.warmHostForP2p(context, pk)
     }
+
+    /** תאימות לשם ישן */
+    fun maybeWarm(context: Context, peer: String?, reason: String) =
+        warmForPeer(context, peer, reason)
 
     fun stop() {
         wanted = false
-        mainHandler.removeCallbacks(nudgeRunnable)
         SosNativeP2pEngine.onUiActive()
         releaseWake()
     }
@@ -105,11 +110,12 @@ object SosP2pStandby {
     private fun acquireWake(context: Context) {
         try {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            val lock = wakeLock ?: pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sos:p2p-native").also {
+            val lock = wakeLock ?: pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sos:p2p-ondemand").also {
                 it.setReferenceCounted(false)
                 wakeLock = it
             }
             lock.acquire(WAKE_MS)
+            mainHandler.postDelayed({ releaseWake() }, WAKE_MS)
         } catch (err: Exception) {
             Log.w(TAG, "wake lock failed: ${err.message}")
         }

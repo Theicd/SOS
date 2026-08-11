@@ -28,27 +28,19 @@ class SosForegroundService : Service() {
         NotificationHelper.ensureChannels(this)
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
         SosDebugLog.i("fgs", "onCreate")
-        handler.post {
-            SosRelayWatcher.ensureStarted(this)
-            // לא מפעילים Native P2P כאן – רק אחרי סגירת Activity | HYPER CORE TECH
-        }
+        // כמו הגיבוי: FGS = RelayWatcher להתראות; P2P רק on-demand | HYPER CORE TECH
+        handler.post { SosRelayWatcher.ensureStarted(this) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
         SosDebugLog.i("fgs", "onStartCommand activityAlive=${MainActivity.isActivityAlive}")
-        handler.post {
-            SosRelayWatcher.ensureStarted(this)
-            if (!MainActivity.isActivityAlive) {
-                SosP2pStandby.ensureStarted(this)
-            }
-        }
+        handler.post { SosRelayWatcher.ensureStarted(this) }
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         SosDebugLog.i("fgs", "onTaskRemoved activityAlive=${MainActivity.isActivityAlive}")
-        // כרטיסייה הוסרה מההיסטוריה – מעבירים ל-Native אם Activity כבר מתה | HYPER CORE TECH
         if (!MainActivity.isActivityAlive) {
             SosP2pStandby.onActivityDestroyed(applicationContext)
         }

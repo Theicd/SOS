@@ -42,9 +42,19 @@ class SosRelayWatcher(private val appContext: Context) {
             stop()
             return
         }
+        // Idempotent: אם כבר רץ – רק משלימים ריליים חסרים, בלי לנתק סוקטים חיים | HYPER CORE TECH
         if (!running.compareAndSet(false, true)) {
-            stopSocketsOnly()
-            running.set(true)
+            var missing = 0
+            RELAYS.forEach { url ->
+                if (!sockets.containsKey(url)) {
+                    missing++
+                    connectRelay(url, pubkey)
+                }
+            }
+            if (missing > 0) {
+                SosDebugLog.i("relay", "ensure missing=$missing pubkey=${pubkey.take(8)}")
+            }
+            return
         }
         Log.i(TAG, "starting watcher for ${pubkey.take(8)}…")
         SosDebugLog.i("relay", "start watcher ${pubkey.take(8)}")
@@ -236,6 +246,8 @@ class SosRelayWatcher(private val appContext: Context) {
             peerKey = author,
             pictureUrl = cached?.picture
         )
+        // P2P on-demand: אחרי התראה – מחממים את המכשיר לשיחה עם אותו peer בלבד | HYPER CORE TECH
+        SosP2pStandby.warmForPeer(appContext, author, "chat-notify")
         // אם אין שם אמיתי בקאש – מבקשים kind:0 מהריליי ומעדכנים את הכרטיס | HYPER CORE TECH
         if (cached?.name.isNullOrBlank() || cached!!.name.startsWith("משתמש ")) {
             requestProfile(author)
@@ -246,12 +258,13 @@ class SosRelayWatcher(private val appContext: Context) {
         Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
     }
 
-    /** סיגנל P2P – Native רק כשאין Activity; אחרת WebView מטפל | HYPER CORE TECH */
+    /** סיגנל P2P – כרטיסייה סגורה: חימום on-demand (WebView), בלי Native גלובלי | HYPER CORE TECH */
     private fun handleP2pSignal(author: String, signalType: String, event: JSONObject) {
         if (MainActivity.isActivityAlive) return
         if (!SosSessionStore.isP2pStandbyEnabled(appContext)) return
         Log.i(TAG, "p2p signal $signalType from ${author.take(8)}")
-        SosNativeP2pEngine.onSignalEvent(author, signalType, event)
+        SosDebugLog.i("relay", "p2p signal $signalType from=${author.take(8)} → on-demand warm")
+        SosP2pStandby.warmForPeer(appContext, author, "p2p-$signalType")
     }
 
     fun publish(event: JSONObject) {

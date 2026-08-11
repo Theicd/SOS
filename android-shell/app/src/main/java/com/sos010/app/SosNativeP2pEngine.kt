@@ -59,15 +59,12 @@ object SosNativeP2pEngine {
             Log.w(TAG, "no privkey – native P2P idle")
             return
         }
-        if (!started.compareAndSet(false, true)) {
-            if (!MainActivity.isActivityAlive) reconnectPreferred()
-            return
-        }
+        // לא עושים reconnectPreferred אוטומטי – P2P on-demand ל-peer בודד בלבד | HYPER CORE TECH
+        if (!started.compareAndSet(false, true)) return
         worker.execute {
             try {
                 initFactory(context.applicationContext)
-                Log.i(TAG, "native P2P engine ready")
-                if (!MainActivity.isActivityAlive) reconnectPreferred()
+                Log.i(TAG, "native P2P engine ready (on-demand)")
             } catch (err: Exception) {
                 Log.e(TAG, "init failed: ${err.message}", err)
                 started.set(false)
@@ -80,14 +77,27 @@ object SosNativeP2pEngine {
         worker.execute { closeAll("ui-active") }
     }
 
-    /** כרטיסייה נסגרה – Native מנהל P2P | HYPER CORE TECH */
+    /** כרטיסייה נסגרה – לא מרימים כל ה-peers; on-demand בלבד | HYPER CORE TECH */
     fun onCardClosed(context: Context) {
         appRef = context.applicationContext
+        // no-op: מניעת OOM מ-WebRTC גלובלי אחרי destroy
+    }
+
+    /** חיבור Native ל-peer אחד לפי צורך (גיבוי אם WebView לא עלה) | HYPER CORE TECH */
+    fun connectPeer(context: Context, peer: String) {
         if (MainActivity.isActivityAlive) return
+        val pk = peer.trim().lowercase()
+        if (!pk.matches(Regex("^[0-9a-f]{64}$"))) return
+        appRef = context.applicationContext
         ensureStarted(context)
-        mainHandler.postDelayed({
-            if (!MainActivity.isActivityAlive) reconnectPreferred()
-        }, 600L)
+        worker.execute {
+            try {
+                if (!factoryReady.get()) initFactory(context.applicationContext)
+                connect(pk)
+            } catch (err: Exception) {
+                Log.w(TAG, "connectPeer fail: ${err.message}")
+            }
+        }
     }
 
     /** תאימות לשם ישן */

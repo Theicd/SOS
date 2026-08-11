@@ -115,9 +115,6 @@ class SosJsBridge(
     @JavascriptInterface
     fun setUserPrivkey(privkey: String?) {
         SosSessionStore.setPrivkey(context.applicationContext, privkey)
-        if (!MainActivity.isActivityAlive) {
-            SosNativeP2pEngine.ensureStarted(context.applicationContext)
-        }
     }
 
     /** הפעלת/כיבוי שמירת P2P במצב המתנה (ברירת מחדל: דלוק) | HYPER CORE TECH */
@@ -133,11 +130,7 @@ class SosJsBridge(
     @JavascriptInterface
     fun syncP2pPeers(peersCsv: String?) {
         SosSessionStore.setP2pPeers(context.applicationContext, peersCsv)
-        // Native רק אחרי סגירת כרטיסייה – ברקע WebView מנהל | HYPER CORE TECH
-        if (!MainActivity.isActivityAlive) {
-            SosP2pStandby.ensureStarted(context.applicationContext)
-            SosNativeP2pEngine.onCardClosed(context.applicationContext)
-        }
+        // שומרים רשימה בלבד – בלי להרים Native לכל ה-peers | HYPER CORE TECH
     }
 
     /** העברת קובץ פעילה – WakeLock + pump ל-WebView במסך כבוי | HYPER CORE TECH */
@@ -167,7 +160,6 @@ class SosJsBridge(
         val intent = android.content.Intent(context, SosForegroundService::class.java)
         androidx.core.content.ContextCompat.startForegroundService(context, intent)
         SosRelayWatcher.ensureStarted(context.applicationContext)
-        SosP2pStandby.ensureStarted(context.applicationContext)
     }
 
     @JavascriptInterface
