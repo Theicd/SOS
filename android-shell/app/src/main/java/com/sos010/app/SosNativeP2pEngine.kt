@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * P2P DataChannel Native בתוך תהליך ה-FGS – נשאר חי גם אחרי סגירת כרטיסיית האפליקציה.
+ * P2P DataChannel Native ב-FGS – on-demand ל-peer בודד אחרי סגירת כרטיסייה.
  * סיגנלינג kind 25055 תואם ל-chat-p2p-datachannel.js.
  */
 object SosNativeP2pEngine {
@@ -29,6 +29,8 @@ object SosNativeP2pEngine {
     private const val DC_LABEL = "sos-chat"
     private const val KEEP_MS = 30_000L
     private const val RETRY_MS = 12_000L
+    private const val IDLE_CLOSE_MS = 180_000L
+    private const val MAX_PEERS = 2
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
@@ -50,6 +52,8 @@ object SosNativeP2pEngine {
         val remoteCands: MutableList<IceCandidate> = mutableListOf(),
         var keepRunnable: Runnable? = null,
         var retryRunnable: Runnable? = null,
+        var idleRunnable: Runnable? = null,
+        var lastActiveAt: Long = System.currentTimeMillis(),
     )
 
     fun ensureStarted(context: Context) {
@@ -57,33 +61,33 @@ object SosNativeP2pEngine {
         if (!SosSessionStore.isP2pStandbyEnabled(context)) return
         if (SosSessionStore.getPrivkey(context).length != 64) {
             Log.w(TAG, "no privkey – native P2P idle")
+            SosDebugLog.w("p2p", "native idle – no privkey")
             return
         }
-        // לא עושים reconnectPreferred אוטומטי – P2P on-demand ל-peer בודד בלבד | HYPER CORE TECH
         if (!started.compareAndSet(false, true)) return
         worker.execute {
             try {
                 initFactory(context.applicationContext)
                 Log.i(TAG, "native P2P engine ready (on-demand)")
+                SosDebugLog.i("p2p", "native engine ready")
             } catch (err: Exception) {
                 Log.e(TAG, "init failed: ${err.message}", err)
+                SosDebugLog.e("p2p", "native init failed: ${err.message}")
                 started.set(false)
             }
         }
     }
 
-    /** הממשק חזר – משחררים Native | HYPER CORE TECH */
+    /** הממשק בחזית – משחררים Native | HYPER CORE TECH */
     fun onUiActive() {
         worker.execute { closeAll("ui-active") }
     }
 
-    /** כרטיסייה נסגרה – לא מרימים כל ה-peers; on-demand בלבד | HYPER CORE TECH */
     fun onCardClosed(context: Context) {
         appRef = context.applicationContext
-        // no-op: מניעת OOM מ-WebRTC גלובלי אחרי destroy
     }
 
-    /** חיבור Native ל-peer אחד לפי צורך (גיבוי אם WebView לא עלה) | HYPER CORE TECH */
+    /** חיבור Native ל-peer אחד (initiator שולח offer) | HYPER CORE TECH */
     fun connectPeer(context: Context, peer: String) {
         if (MainActivity.isActivityAlive) return
         val pk = peer.trim().lowercase()
@@ -93,55 +97,95 @@ object SosNativeP2pEngine {
         worker.execute {
             try {
                 if (!factoryReady.get()) initFactory(context.applicationContext)
+                if (!factoryReady.get()) return@execute
+                trimPeersIfNeeded(pk)
                 connect(pk)
+                SosDebugLog.i("p2p", "native connectPeer ${pk.take(8)}")
             } catch (err: Exception) {
                 Log.w(TAG, "connectPeer fail: ${err.message}")
+                SosDebugLog.w("p2p", "connectPeer fail: ${err.message}")
             }
         }
     }
 
-    /** תאימות לשם ישן */
     fun onHostForeground() = onUiActive()
     fun onHostBackground(context: Context) = onCardClosed(context)
 
-    fun onSignalEvent(author: String, signalType: String, event: JSONObject) {
+    fun onSignalEvent(context: Context, author: String, signalType: String, event: JSONObject) {
         if (MainActivity.isActivityAlive) return
         if (!signalType.startsWith("dc-")) return
-        val app = appRef ?: return
-        val priv = SosSessionStore.getPrivkey(app)
-        if (priv.length != 64) return
-        ensureStarted(app)
+        appRef = context.applicationContext
+        val priv = SosSessionStore.getPrivkey(context)
+        if (priv.length != 64) {
+            SosDebugLog.w("p2p", "signal drop – no privkey")
+            return
+        }
+        ensureStarted(context)
+        val pk = author.trim().lowercase()
         worker.execute {
             try {
+                if (!factoryReady.get()) initFactory(context.applicationContext)
+                if (!factoryReady.get()) return@execute
+                trimPeersIfNeeded(pk)
                 val enc = event.optString("content")
-                val plain = if (enc.isBlank()) null else SosNostrCrypto.nip04Decrypt(priv, author, enc)
-                val data = if (plain.isNullOrBlank()) null else JSONObject(plain)
+                val plain = if (enc.isBlank()) null else SosNostrCrypto.nip04Decrypt(priv, pk, enc)
                 when (signalType) {
-                    "dc-offer" -> if (data != null) onOffer(author, data)
-                    "dc-answer" -> if (data != null) onAnswer(author, data)
+                    "dc-offer" -> {
+                        val data = if (plain.isNullOrBlank()) null else JSONObject(plain)
+                        if (data != null) {
+                            SosDebugLog.i("p2p", "native handle dc-offer from=${pk.take(8)}")
+                            onOffer(pk, data)
+                        }
+                    }
+                    "dc-answer" -> {
+                        val data = if (plain.isNullOrBlank()) null else JSONObject(plain)
+                        if (data != null) onAnswer(pk, data)
+                    }
                     "dc-candidates" -> {
                         val arr = if (plain != null) JSONArray(plain) else JSONArray()
-                        onCandidates(author, arr)
+                        onCandidates(pk, arr)
                     }
                 }
+                touch(pk)
             } catch (err: Exception) {
                 Log.w(TAG, "signal handle fail: ${err.message}")
+                SosDebugLog.w("p2p", "signal fail: ${err.message}")
             }
         }
     }
 
-    private fun reconnectPreferred() {
-        val app = appRef ?: return
-        if (MainActivity.isActivityAlive) return
-        val self = SosSessionStore.getPubkey(app)
-        val priv = SosSessionStore.getPrivkey(app)
-        if (self.length != 64 || priv.length != 64) return
-        SosSessionStore.getP2pPeers(app).forEach { peer ->
-            if (amInitiator(self, peer)) connect(peer)
-            else {
-                peers.getOrPut(peer) { PeerState() }.status = "waiting"
+    private fun trimPeersIfNeeded(keep: String) {
+        if (peers.size < MAX_PEERS) return
+        val victims = peers.keys.filter { it != keep }.take(peers.size - MAX_PEERS + 1)
+        victims.forEach { peer ->
+            peers.remove(peer)?.let { cleanupPc(it) }
+            Log.i(TAG, "trimmed peer ${peer.take(8)}")
+        }
+    }
+
+    private fun touch(peer: String) {
+        val st = peers[peer] ?: return
+        st.lastActiveAt = System.currentTimeMillis()
+        scheduleIdleClose(peer)
+    }
+
+    private fun scheduleIdleClose(peer: String) {
+        val st = peers[peer] ?: return
+        st.idleRunnable?.let { mainHandler.removeCallbacks(it) }
+        val r = Runnable {
+            val cur = peers[peer] ?: return@Runnable
+            if (MainActivity.isActivityAlive) return@Runnable
+            val idleFor = System.currentTimeMillis() - cur.lastActiveAt
+            if (idleFor >= IDLE_CLOSE_MS) {
+                Log.i(TAG, "idle close ${peer.take(8)}")
+                SosDebugLog.i("p2p", "idle close ${peer.take(8)}")
+                peers.remove(peer)?.let { cleanupPc(it) }
+            } else {
+                scheduleIdleClose(peer)
             }
         }
+        st.idleRunnable = r
+        mainHandler.postDelayed(r, IDLE_CLOSE_MS)
     }
 
     private fun amInitiator(self: String, peer: String): Boolean =
@@ -266,7 +310,7 @@ object SosNativeP2pEngine {
     }
 
     private fun onCandidates(peer: String, arr: JSONArray) {
-        val st = peers[peer] ?: return
+        val st = peers.getOrPut(peer) { PeerState() }
         val pc = st.pc
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
@@ -296,9 +340,7 @@ object SosNativeP2pEngine {
                 state == PeerConnection.IceConnectionState.CLOSED
             ) {
                 peers[peer]?.let { cleanupPc(it); it.status = "closed" }
-                if (!MainActivity.isActivityAlive) {
-                    mainHandler.postDelayed({ connect(peer) }, 5000L)
-                }
+                // לא מתחברים מחדש אוטומטית – הסיגנל הבא / warmForPeer ידליק שוב | HYPER CORE TECH
             }
         }
         override fun onIceConnectionReceivingChange(receiving: Boolean) {}
@@ -344,11 +386,14 @@ object SosNativeP2pEngine {
                     st.offerRetryN = 0
                     cancelRetry(st)
                     startKeep(peer)
+                    touch(peer)
                     Log.i(TAG, "DC OPEN ${peer.take(8)}")
+                    SosDebugLog.i("p2p", "DC OPEN ${peer.take(8)}")
                 } else if (dc.state() == DataChannel.State.CLOSED) {
                     st.status = "closed"
                     stopKeep(st)
                     Log.i(TAG, "DC CLOSED ${peer.take(8)}")
+                    SosDebugLog.i("p2p", "DC CLOSED ${peer.take(8)}")
                 }
             }
             override fun onMessage(buffer: DataChannel.Buffer?) {
@@ -359,9 +404,13 @@ object SosNativeP2pEngine {
                 try {
                     val m = JSONObject(raw)
                     when (m.optString("type")) {
-                        "ping" -> sendRaw(peer, JSONObject().put("type", "pong").put("ts", System.currentTimeMillis()).toString())
-                        "pong" -> {}
+                        "ping" -> {
+                            touch(peer)
+                            sendRaw(peer, JSONObject().put("type", "pong").put("ts", System.currentTimeMillis()).toString())
+                        }
+                        "pong" -> touch(peer)
                         "chat-text" -> {
+                            touch(peer)
                             Log.i(TAG, "P2P chat ← ${peer.take(8)}")
                             val app = appRef
                             if (!MainActivity.isHostAlive && app != null) {
@@ -467,6 +516,8 @@ object SosNativeP2pEngine {
     private fun cleanupPc(st: PeerState) {
         stopKeep(st)
         cancelRetry(st)
+        st.idleRunnable?.let { mainHandler.removeCallbacks(it) }
+        st.idleRunnable = null
         try { st.dc?.close() } catch (_: Exception) {}
         try { st.pc?.close() } catch (_: Exception) {}
         st.dc = null

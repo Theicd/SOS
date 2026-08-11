@@ -258,13 +258,13 @@ class SosRelayWatcher(private val appContext: Context) {
         Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
     }
 
-    /** סיגנל P2P – כרטיסייה סגורה: חימום on-demand (WebView), בלי Native גלובלי | HYPER CORE TECH */
+    /** סיגנל P2P – כרטיסייה סגורה: Native ל-peer (לא warm Activity) | HYPER CORE TECH */
     private fun handleP2pSignal(author: String, signalType: String, event: JSONObject) {
         if (MainActivity.isActivityAlive) return
         if (!SosSessionStore.isP2pStandbyEnabled(appContext)) return
         Log.i(TAG, "p2p signal $signalType from ${author.take(8)}")
-        SosDebugLog.i("relay", "p2p signal $signalType from=${author.take(8)} → on-demand warm")
-        SosP2pStandby.warmForPeer(appContext, author, "p2p-$signalType")
+        SosDebugLog.i("relay", "p2p signal $signalType from=${author.take(8)} → native")
+        SosP2pStandby.onSignal(appContext, author, signalType, event)
     }
 
     fun publish(event: JSONObject) {
