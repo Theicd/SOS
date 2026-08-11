@@ -195,6 +195,78 @@
     );
   }
 
+  // חלק גלילה (chat-ui.js) – הדבקה לתחתית כמו וואטסאפ בזמן חשיפת מדיה | HYPER CORE TECH
+  const CHAT_STICK_BOTTOM_PX = 120;
+  let chatStickToBottom = true;
+  let chatStickRaf = 0;
+  let chatStickFollowRaf = 0;
+
+  function getChatDistanceFromBottom(scroller) {
+    const el = scroller || getChatMessagesScroller();
+    if (!el) return Number.POSITIVE_INFINITY;
+    return el.scrollHeight - el.scrollTop - el.clientHeight;
+  }
+
+  function isChatPinnedToBottom(scroller) {
+    return getChatDistanceFromBottom(scroller) <= CHAT_STICK_BOTTOM_PX;
+  }
+
+  function setChatStickToBottom(pinned) {
+    chatStickToBottom = !!pinned;
+  }
+
+  function scrollChatToBottom({ force = false } = {}) {
+    const el = getChatMessagesScroller();
+    if (!el) return;
+    if (!force && !chatStickToBottom) return;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function scheduleStickChatToBottom(opts = {}) {
+    if (!opts.force && !chatStickToBottom) return;
+    if (chatStickRaf) cancelAnimationFrame(chatStickRaf);
+    chatStickRaf = requestAnimationFrame(() => {
+      chatStickRaf = 0;
+      scrollChatToBottom({ force: true });
+      requestAnimationFrame(() => scrollChatToBottom({ force: true }));
+    });
+  }
+
+  function stickChatToBottomIfPinned(opts = {}) {
+    if (opts.force) setChatStickToBottom(true);
+    if (!chatStickToBottom && !opts.force) return;
+    scheduleStickChatToBottom({ force: true });
+  }
+
+  function onChatMessagesScroll() {
+    const el = getChatMessagesScroller();
+    if (!el) return;
+    chatStickToBottom = isChatPinnedToBottom(el);
+  }
+
+  function ensureChatStickScrollWiring() {
+    const el = getChatMessagesScroller();
+    if (!el || el.dataset.stickScrollBound === '1') return;
+    el.dataset.stickScrollBound = '1';
+    el.addEventListener('scroll', onChatMessagesScroll, { passive: true });
+    if (typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(() => {
+        if (!chatStickToBottom) return;
+        if (chatStickFollowRaf) return;
+        chatStickFollowRaf = requestAnimationFrame(() => {
+          chatStickFollowRaf = 0;
+          scheduleStickChatToBottom({ force: true });
+        });
+      });
+      observer.observe(el, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['hidden', 'class', 'style'],
+      });
+    }
+  }
+
   function clearChatMessageMoreOpenLayout(msg) {
     if (!msg) return;
     const scroller = getChatMessagesScroller();
@@ -658,6 +730,7 @@
         wrap.classList.toggle('chat-media-upload--portrait', !!box.portrait);
         wrap.classList.toggle('chat-media-upload--landscape', !box.portrait);
       }
+      stickChatToBottomIfPinned();
       return;
     }
     // fallback אם המודול עדיין לא נטען | HYPER CORE TECH
@@ -688,6 +761,7 @@
     wrap.style.aspectRatio = `${w} / ${h}`;
     wrap.classList.toggle('chat-media-upload--portrait', portrait);
     wrap.classList.toggle('chat-media-upload--landscape', !portrait);
+    stickChatToBottomIfPinned();
   }
 
   function settleOutgoingMediaTransfer(message) {
@@ -1268,7 +1342,7 @@
 
     if (!bubble.isConnected) {
       elements.messagesContainer.appendChild(bubble);
-      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+      stickChatToBottomIfPinned({ force: true });
     }
     scheduleTransferBubbleCleanup(bubble, progress, ui);
   }
@@ -1399,7 +1473,7 @@
 
     if (!existing) {
       elements.messagesContainer.appendChild(bubble);
-      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+      stickChatToBottomIfPinned({ force: true });
     }
     if (isVideo) bindMediaUploadVideoReveal(bubble);
     else if (!isVideo && preview.isImage) bindMediaUploadImageReveal(bubble);
@@ -1689,7 +1763,7 @@
 
     if (!bubble.isConnected) {
       elements.messagesContainer.appendChild(bubble);
-      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+      stickChatToBottomIfPinned({ force: true });
     }
 
     scheduleTransferBubbleCleanup(bubble, progress, ui);
@@ -3749,6 +3823,7 @@
       loadOlder.className = 'chat-load-older';
       loadOlder.textContent = `טען הודעות ישנות יותר (${startIndex})`;
       loadOlder.addEventListener('click', () => {
+        setChatStickToBottom(false);
         const prevHeight = elements.messagesContainer.scrollHeight;
         renderMessages(peerPubkey, { loadOlder: true, force: true });
         requestAnimationFrame(() => {
@@ -4478,14 +4553,14 @@
     // חלק סנכרון כפתור טורנט (chat-ui.js) – מניעת הורדות חוזרות מהיסטוריה אחרי אתחול שיחה | HYPER CORE TECH
     syncTorrentDownloadButtons();
 
-    // חלק גלילה לתחתית (chat-ui.js) – גלילה מושהית כדי לוודא שהדפדפן סיים לרנדר את כל ההודעות | HYPER CORE TECH
+    // חלק גלילה לתחתית (chat-ui.js) – הדבקה לתחתית גם כשמדיה נחשפת אחרי הקאש | HYPER CORE TECH
     if (!options.loadOlder) {
+      ensureChatStickScrollWiring();
+      setChatStickToBottom(true);
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          if (elements.messagesContainer) {
-            elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
-          }
-        }, 50);
+        scrollChatToBottom({ force: true });
+        setTimeout(() => stickChatToBottomIfPinned({ force: true }), 50);
+        setTimeout(() => stickChatToBottomIfPinned({ force: true }), 250);
       });
     }
 
@@ -4524,7 +4599,7 @@
       elements.messagesContainer.appendChild(
         buildDisappearingSystemMessageEl(message, message.to || message.from || state.activeContact)
       );
-      elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+      stickChatToBottomIfPinned({ force: true });
       return;
     }
 
@@ -4635,7 +4710,7 @@
     if (linkPreviewHtml && typeof App.hydrateLinkPreviewCards === 'function') {
       App.hydrateLinkPreviewCards(item);
     }
-    elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+    stickChatToBottomIfPinned({ force: true });
   }
 
   // חלק עדכון סטטוס הודעה (chat-ui.js) – מעדכן סטטוס הודעה קיימת ללא רינדור מחדש | HYPER CORE TECH
@@ -4678,6 +4753,8 @@
     elements.conversationHeader?.removeAttribute('hidden');
     elements.composer?.removeAttribute('hidden');
     elements.messagesContainer?.removeAttribute('hidden');
+    ensureChatStickScrollWiring();
+    setChatStickToBottom(true);
     if (elements.messageInput) {
       elements.messageInput.value = '';
       elements.messageInput.style.height = '';
@@ -5279,6 +5356,7 @@
     }
     // מנוי פרוגרס להעברות P2P כדי לרנדר בועות התקדמות בתוך השיחה | HYPER CORE TECH
     subscribeTransferProgress();
+    ensureChatStickScrollWiring();
     // רישום SW והאזנה להודעות ממנו (בקשת הרשאות רק בלחיצה על פאנל הצ'אט)
     registerChatServiceWorkerIfSupported();
     initChatServiceWorkerMessageHandling();
@@ -5326,6 +5404,9 @@
   };
   // חלק P2P DataChannel (chat-ui.js) – alias עבור מודול DataChannel reconnect | HYPER CORE TECH
   App.getActiveChatPeer = App.getActiveChatContact;
+  // חלק גלילה (chat-ui.js) – חשיפה לחשיפת מדיה בלי לשנות את תהליך הטעינה | HYPER CORE TECH
+  App.stickChatToBottomIfPinned = stickChatToBottomIfPinned;
+  App.setChatStickToBottom = setChatStickToBottom;
 
   // חלק צ'אט (chat-ui.js) – חשיפת פונקציה לפתיחת שיחה ספציפית (התרעות / deep link / סיום שיחה) | HYPER CORE TECH
   App.showChatConversation = function showChatConversationExternal(peerPubkey) {
@@ -5426,7 +5507,7 @@
       </div>
     `;
     elements.messagesContainer.appendChild(indicator);
-    elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
+    stickChatToBottomIfPinned({ force: true });
     voiceSendingIndicators.set(loadingId, indicator);
   };
   

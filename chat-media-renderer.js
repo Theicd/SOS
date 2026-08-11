@@ -764,6 +764,9 @@
     if (!msg) return;
     msg.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
     msg.hidden = false;
+    if (typeof App.stickChatToBottomIfPinned === 'function') {
+      App.stickChatToBottomIfPinned();
+    }
   }
 
   function failChatMessageBubble(mediaEl) {
