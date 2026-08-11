@@ -1938,12 +1938,15 @@
     let createdAt = 0;
     let override = null;
     let timeFromDom = '';
+    let messageId = '';
+    let peerPubkey = '';
 
     if (metaOrEl && typeof metaOrEl === 'object' && metaOrEl.nodeType === 1) {
       const msg = metaOrEl.closest?.('.chat-message') || null;
       isOutgoing = !!msg?.classList?.contains('chat-message--outgoing');
       fromKey = (msg?.getAttribute('data-chat-from') || '').toLowerCase();
       createdAt = Number(msg?.getAttribute('data-chat-created') || 0) || 0;
+      messageId = String(msg?.getAttribute('data-message-id') || '').trim();
       timeFromDom = (
         msg?.querySelector?.('.chat-message__image-msg-time-text, .chat-message__video-msg-time-text, .chat-message__meta')
           ?.textContent || ''
@@ -1954,6 +1957,8 @@
       fromKey = String(metaOrEl.from || metaOrEl.fromKey || '').toLowerCase();
       createdAt = Number(metaOrEl.createdAt || 0) || 0;
       timeFromDom = String(metaOrEl.timeLabel || '').trim();
+      messageId = String(metaOrEl.messageId || metaOrEl.id || '').trim();
+      peerPubkey = String(metaOrEl.peerPubkey || metaOrEl.to || '').toLowerCase();
     }
 
     let senderName = override?.senderName || '';
@@ -1994,10 +1999,22 @@
         typeof App.getInitials === 'function' ? App.getInitials(senderName) : String(senderName).slice(0, 2);
     }
 
+    if (!peerPubkey) {
+      if (!isOutgoing && fromKey) peerPubkey = fromKey;
+      else {
+        peerPubkey = (
+          document.querySelector('.chat-contact--active')?.getAttribute('data-chat-contact') ||
+          ''
+        ).toLowerCase();
+      }
+    }
+
     const timeLabel = timeFromDom || formatLightboxTimeLabel(createdAt) || '';
 
     return {
       isOutgoing,
+      messageId,
+      peerPubkey,
       senderName: esc(senderName),
       senderPicture: esc(senderPicture),
       senderInitials: esc(senderInitials),
@@ -2005,7 +2022,7 @@
     };
   }
 
-  function buildLightboxShellHtml({ kind, mediaHtml, meta, headerTitle }) {
+  function buildLightboxShellHtml({ kind, mediaHtml, meta }) {
     const resolved = resolveLightboxSenderMeta(meta);
     const initials = resolved.senderInitials || 'מ';
     // רק עיגול אחד: תמונה אם קיימת, אחרת ראשי תיבות (לא שניהם יחד)
@@ -2013,34 +2030,142 @@
       ? `<img class="chat-lightbox__avatar" src="${resolved.senderPicture}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;chat-lightbox__avatar chat-lightbox__avatar--initials&quot;>${initials}</span>';">`
       : `<span class="chat-lightbox__avatar chat-lightbox__avatar--initials">${initials}</span>`;
     const isYouTube = kind === 'youtube';
-    const rawTitle = headerTitle || (isYouTube ? 'יוטיוב' : kind === 'video' ? 'וידאו' : 'תמונה');
-    const title = App.escapeHtml ? App.escapeHtml(rawTitle) : escapeAttr(rawTitle);
     const actionLabel = isYouTube ? 'פתח ביוטיוב' : 'הורד';
     const actionIcon = isYouTube ? 'fa-arrow-up-right-from-square' : 'fa-download';
+    const canDelete = !!(resolved.isOutgoing && resolved.messageId && resolved.peerPubkey);
+    const deleteHtml = canDelete
+      ? `<button type="button" class="chat-lightbox__action chat-lightbox__delete" aria-label="מחק" title="מחק"><i class="fa-solid fa-trash-can"></i></button>`
+      : '';
     return `
       <div class="chat-lightbox__backdrop"></div>
       <div class="chat-lightbox__frame">
         <header class="chat-lightbox__header">
-          <button type="button" class="chat-lightbox__close" aria-label="סגור" title="סגור">
-            <i class="fa-solid fa-times"></i>
-          </button>
-          <span class="chat-lightbox__header-title">${title}</span>
-          <button type="button" class="chat-lightbox__download" aria-label="${actionLabel}" title="${actionLabel}">
-            <i class="fa-solid ${actionIcon}"></i>
-          </button>
+          <div class="chat-lightbox__identity">
+            <button type="button" class="chat-lightbox__back chat-lightbox__close" aria-label="חזרה" title="חזרה">
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+            ${avatarHtml}
+            <div class="chat-lightbox__meta">
+              <span class="chat-lightbox__sender-name">${resolved.senderName || ''}</span>
+              <span class="chat-lightbox__time">${resolved.timeLabel || ''}</span>
+            </div>
+          </div>
+          <div class="chat-lightbox__actions">
+            <button type="button" class="chat-lightbox__action chat-lightbox__download" aria-label="${actionLabel}" title="${actionLabel}">
+              <i class="fa-solid ${actionIcon}"></i>
+            </button>
+            ${deleteHtml}
+            <button type="button" class="chat-lightbox__action chat-lightbox__share" aria-label="שתף" title="שתף">
+              <i class="fa-solid fa-share-nodes"></i>
+            </button>
+          </div>
         </header>
         <div class="chat-lightbox__stage${isYouTube ? ' chat-lightbox__stage--youtube' : ''}">
           ${mediaHtml}
         </div>
-        <footer class="chat-lightbox__footer">
-          <div class="chat-lightbox__sender">
-            ${avatarHtml}
-            <span class="chat-lightbox__sender-name">${resolved.senderName || ''}</span>
-          </div>
-          <span class="chat-lightbox__time">${resolved.timeLabel || ''}</span>
-        </footer>
       </div>
     `;
+  }
+
+  function confirmLightboxDelete(messageId, peerPubkey, onDone) {
+    const existing = document.getElementById('chatLightboxDeleteDialog');
+    if (existing) existing.remove();
+    const dialog = document.createElement('div');
+    dialog.id = 'chatLightboxDeleteDialog';
+    dialog.className = 'chat-dialog chat-lightbox-delete-dialog';
+    dialog.innerHTML = `
+      <div class="chat-dialog__backdrop"></div>
+      <div class="chat-dialog__content" role="dialog" aria-modal="true">
+        <h3 class="chat-dialog__title">מחיקת הודעה</h3>
+        <p class="chat-dialog__message">למחוק את ההודעה עבור שני הצדדים? פעולה זו תשלח מחיקה לרשת.</p>
+        <div class="chat-dialog__actions">
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--cancel">ביטול</button>
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--confirm">מחק</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    const close = () => dialog.remove();
+    dialog.querySelector('.chat-dialog__backdrop')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+    });
+    dialog.querySelector('.chat-dialog__btn--cancel')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+    });
+    dialog.querySelector('.chat-dialog__btn--confirm')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+      if (typeof App.deleteChatMessage === 'function') {
+        Promise.resolve(App.deleteChatMessage(peerPubkey, messageId))
+          .catch(() => {})
+          .finally(() => {
+            if (typeof onDone === 'function') onDone();
+          });
+      } else if (typeof onDone === 'function') {
+        onDone();
+      }
+    });
+  }
+
+  async function shareLightboxMedia({ src, name, kind, watchUrl }) {
+    const title = name || (kind === 'video' ? 'וידאו' : kind === 'youtube' ? 'יוטיוב' : 'תמונה');
+    const url = watchUrl || src || '';
+    try {
+      if (navigator.share) {
+        if (src && kind !== 'youtube') {
+          try {
+            const res = await fetch(src);
+            const blob = await res.blob();
+            const fileName = name || (kind === 'video' ? 'video.mp4' : 'image.jpg');
+            const file = new File([blob], fileName, {
+              type: blob.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg'),
+            });
+            if (navigator.canShare?.({ files: [file] })) {
+              await navigator.share({ files: [file], title });
+              return;
+            }
+          } catch (_) {}
+        }
+        await navigator.share({ title, url: url || undefined, text: title });
+        return;
+      }
+    } catch (_) {}
+    if (url && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(url);
+        if (typeof App.showToast === 'function') App.showToast('הקישור הועתק');
+      } catch (_) {}
+    }
+  }
+
+  function wireLightboxShell(lightbox, { close, onPrimaryAction, onShare, onDelete }) {
+    const backBtn = lightbox.querySelector('.chat-lightbox__back') || lightbox.querySelector('.chat-lightbox__close');
+    backBtn?.addEventListener('click', close);
+    lightbox.querySelector('.chat-lightbox__backdrop')?.addEventListener('click', close);
+    lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof onPrimaryAction === 'function') onPrimaryAction(event);
+    });
+    lightbox.querySelector('.chat-lightbox__share')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof onShare === 'function') onShare(event);
+    });
+    lightbox.querySelector('.chat-lightbox__delete')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof onDelete === 'function') onDelete(event);
+    });
+    lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
+    document.addEventListener('keydown', function onEsc(e) {
+      if (e.key === 'Escape') {
+        close(e);
+        document.removeEventListener('keydown', onEsc);
+      }
+    });
   }
 
   // חלק lightbox YouTube (chat-media-renderer.js) – מסך מלא עם אותו shell של תמונה/וידאו | HYPER CORE TECH
@@ -2067,11 +2192,11 @@
         referrerpolicy="strict-origin-when-cross-origin"
       ></iframe>
     `;
+    const resolved = resolveLightboxSenderMeta(meta || null);
     lightbox.innerHTML = buildLightboxShellHtml({
       kind: 'youtube',
       mediaHtml,
       meta: meta || null,
-      headerTitle,
     });
 
     document.body.appendChild(lightbox);
@@ -2087,36 +2212,43 @@
       document.body.classList.remove('chat-lightbox-open');
       setTimeout(() => {
         lightbox.remove();
+        document.getElementById('chatLightboxDeleteDialog')?.remove();
         setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
       }, 200);
     };
 
-    lightbox.querySelector('.chat-lightbox__close')?.addEventListener('click', close);
-    lightbox.querySelector('.chat-lightbox__backdrop')?.addEventListener('click', close);
-    lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      App.__sosSuppressChatOutsideClose = true;
-      try {
-        window.open(watchUrl, '_blank', 'noopener,noreferrer');
-      } catch (_) {
-        window.location.href = watchUrl;
-      }
-      setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
-    });
-    lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
-
-    document.addEventListener('keydown', function onEsc(e) {
-      if (e.key === 'Escape') {
-        close(e);
-        document.removeEventListener('keydown', onEsc);
-      }
+    wireLightboxShell(lightbox, {
+      close,
+      onPrimaryAction: () => {
+        App.__sosSuppressChatOutsideClose = true;
+        try {
+          window.open(watchUrl, '_blank', 'noopener,noreferrer');
+        } catch (_) {
+          window.location.href = watchUrl;
+        }
+        setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+      },
+      onShare: () => {
+        App.__sosSuppressChatOutsideClose = true;
+        Promise.resolve(shareLightboxMedia({
+          src: watchUrl,
+          name: headerTitle,
+          kind: 'youtube',
+          watchUrl,
+        })).finally(() => {
+          setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+        });
+      },
+      onDelete: () => {
+        if (!resolved.messageId || !resolved.peerPubkey) return;
+        confirmLightboxDelete(resolved.messageId, resolved.peerPubkey, close);
+      },
     });
 
     requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
   }
 
-  // חלק lightbox (chat-media-renderer.js) – פתיחת תמונה במסך מלא עם הדר עליון/תחתון | HYPER CORE TECH
+  // חלק lightbox (chat-media-renderer.js) – פתיחת תמונה במסך מלא עם הדר כמו שיחה | HYPER CORE TECH
   function openImageLightbox(src, name, meta) {
     const existing = document.getElementById('chatImageLightbox');
     if (existing) existing.remove();
@@ -2127,10 +2259,12 @@
     lightbox.className = 'chat-lightbox';
     const safeName = App.escapeHtml ? App.escapeHtml(name || 'תמונה') : String(name || 'תמונה');
     const mediaHtml = `<img src="${String(src).replace(/"/g, '&quot;')}" alt="${safeName}" class="chat-lightbox__image">`;
+    const resolved = resolveLightboxSenderMeta(meta || null);
     lightbox.innerHTML = buildLightboxShellHtml({ kind: 'image', mediaHtml, meta: meta || null });
 
     document.body.appendChild(lightbox);
     document.body.classList.add('chat-lightbox-open');
+    App.__sosSuppressChatOutsideClose = true;
 
     const close = (event) => {
       if (event) {
@@ -2139,32 +2273,37 @@
       }
       lightbox.classList.add('chat-lightbox--closing');
       document.body.classList.remove('chat-lightbox-open');
-      setTimeout(() => lightbox.remove(), 200);
+      setTimeout(() => {
+        lightbox.remove();
+        document.getElementById('chatLightboxDeleteDialog')?.remove();
+        setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
+      }, 200);
     };
 
-    lightbox.querySelector('.chat-lightbox__close').addEventListener('click', close);
-    lightbox.querySelector('.chat-lightbox__backdrop').addEventListener('click', close);
-    lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      App.__sosSuppressChatOutsideClose = true;
-      Promise.resolve(downloadChatMedia(src, name || 'image.jpg')).finally(() => {
-        setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
-      });
-    });
-    lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
-
-    document.addEventListener('keydown', function onEsc(e) {
-      if (e.key === 'Escape') {
-        close(e);
-        document.removeEventListener('keydown', onEsc);
-      }
+    wireLightboxShell(lightbox, {
+      close,
+      onPrimaryAction: () => {
+        App.__sosSuppressChatOutsideClose = true;
+        Promise.resolve(downloadChatMedia(src, name || 'image.jpg')).finally(() => {
+          setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+        });
+      },
+      onShare: () => {
+        App.__sosSuppressChatOutsideClose = true;
+        Promise.resolve(shareLightboxMedia({ src, name: name || 'image.jpg', kind: 'image' })).finally(() => {
+          setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+        });
+      },
+      onDelete: () => {
+        if (!resolved.messageId || !resolved.peerPubkey) return;
+        confirmLightboxDelete(resolved.messageId, resolved.peerPubkey, close);
+      },
     });
 
     requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
   }
 
-  // חלק lightbox וידאו (chat-media-renderer.js) – מסך מלא עם הדר עליון/תחתון | HYPER CORE TECH
+  // חלק lightbox וידאו (chat-media-renderer.js) – מסך מלא עם הדר כמו שיחה | HYPER CORE TECH
   function openVideoLightbox(src, name, type, meta) {
     const existing = document.getElementById('chatVideoLightbox');
     if (existing) existing.remove();
@@ -2181,6 +2320,7 @@
         <source src="${playSrc.replace(/"/g, '&quot;')}" type="${String(mime).replace(/"/g, '&quot;')}">
       </video>
     `;
+    const resolved = resolveLightboxSenderMeta(meta || null);
     lightbox.innerHTML = buildLightboxShellHtml({ kind: 'video', mediaHtml, meta: meta || null });
 
     document.body.appendChild(lightbox);
@@ -2204,27 +2344,29 @@
       document.body.classList.remove('chat-lightbox-open');
       setTimeout(() => {
         lightbox.remove();
+        document.getElementById('chatLightboxDeleteDialog')?.remove();
         setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
       }, 200);
     };
 
-    lightbox.querySelector('.chat-lightbox__close').addEventListener('click', close);
-    lightbox.querySelector('.chat-lightbox__backdrop').addEventListener('click', close);
-    lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      App.__sosSuppressChatOutsideClose = true;
-      Promise.resolve(downloadChatMedia(playSrc, name || 'video.mp4')).finally(() => {
-        setTimeout(() => { App.__sosSuppressChatOutsideClose = true; }, 50);
-      });
-    });
-    lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
-
-    document.addEventListener('keydown', function onEsc(e) {
-      if (e.key === 'Escape') {
-        close(e);
-        document.removeEventListener('keydown', onEsc);
-      }
+    wireLightboxShell(lightbox, {
+      close,
+      onPrimaryAction: () => {
+        App.__sosSuppressChatOutsideClose = true;
+        Promise.resolve(downloadChatMedia(playSrc, name || 'video.mp4')).finally(() => {
+          setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+        });
+      },
+      onShare: () => {
+        App.__sosSuppressChatOutsideClose = true;
+        Promise.resolve(shareLightboxMedia({ src: playSrc, name: name || 'video.mp4', kind: 'video' })).finally(() => {
+          setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
+        });
+      },
+      onDelete: () => {
+        if (!resolved.messageId || !resolved.peerPubkey) return;
+        confirmLightboxDelete(resolved.messageId, resolved.peerPubkey, close);
+      },
     });
 
     requestAnimationFrame(() => {
