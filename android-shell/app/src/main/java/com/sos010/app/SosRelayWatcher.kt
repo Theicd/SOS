@@ -246,8 +246,7 @@ class SosRelayWatcher(private val appContext: Context) {
             peerKey = author,
             pictureUrl = cached?.picture
         )
-        // P2P on-demand: אחרי התראה – מחממים את המכשיר לשיחה עם אותו peer בלבד | HYPER CORE TECH
-        SosP2pStandby.warmForPeer(appContext, author, "chat-notify")
+        // לא מרימים Native WebRTC על הודעת צ'אט – שומרים את תהליך ההתראות חי | HYPER CORE TECH
         // אם אין שם אמיתי בקאש – מבקשים kind:0 מהריליי ומעדכנים את הכרטיס | HYPER CORE TECH
         if (cached?.name.isNullOrBlank() || cached!!.name.startsWith("משתמש ")) {
             requestProfile(author)

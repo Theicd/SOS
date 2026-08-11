@@ -29,8 +29,10 @@ object SosNativeP2pEngine {
     private const val DC_LABEL = "sos-chat"
     private const val KEEP_MS = 30_000L
     private const val RETRY_MS = 12_000L
-    private const val IDLE_CLOSE_MS = 180_000L
-    private const val MAX_PEERS = 2
+    private const val IDLE_CLOSE_MS = 120_000L
+    private const val HANDSHAKE_TIMEOUT_MS = 25_000L
+    private const val OFFER_RATE_LIMIT_MS = 60_000L
+    private const val MAX_PEERS = 1
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
@@ -53,7 +55,9 @@ object SosNativeP2pEngine {
         var keepRunnable: Runnable? = null,
         var retryRunnable: Runnable? = null,
         var idleRunnable: Runnable? = null,
+        var handshakeRunnable: Runnable? = null,
         var lastActiveAt: Long = System.currentTimeMillis(),
+        var lastPcAt: Long = 0L,
     )
 
     fun ensureStarted(context: Context) {
@@ -197,12 +201,48 @@ object SosNativeP2pEngine {
                 Log.i(TAG, "idle close ${peer.take(8)}")
                 SosDebugLog.i("p2p", "idle close ${peer.take(8)}")
                 peers.remove(peer)?.let { cleanupPc(it) }
+                maybeDisposeFactory()
             } else {
                 scheduleIdleClose(peer)
             }
         }
         st.idleRunnable = r
         mainHandler.postDelayed(r, IDLE_CLOSE_MS)
+    }
+
+    /** אם אין DC OPEN תוך זמן קצר – משחררים PC כדי לא להרוג את תהליך ההתראות | HYPER CORE TECH */
+    private fun scheduleHandshakeTimeout(peer: String) {
+        val st = peers[peer] ?: return
+        st.handshakeRunnable?.let { mainHandler.removeCallbacks(it) }
+        val r = Runnable {
+            val cur = peers[peer] ?: return@Runnable
+            if (cur.dc?.state() == DataChannel.State.OPEN) return@Runnable
+            Log.w(TAG, "handshake timeout ${peer.take(8)}")
+            SosDebugLog.w("p2p", "handshake timeout ${peer.take(8)} – free PC keep alerts")
+            peers.remove(peer)?.let { cleanupPc(it) }
+            maybeDisposeFactory()
+        }
+        st.handshakeRunnable = r
+        mainHandler.postDelayed(r, HANDSHAKE_TIMEOUT_MS)
+    }
+
+    private fun cancelHandshake(st: PeerState) {
+        st.handshakeRunnable?.let { mainHandler.removeCallbacks(it) }
+        st.handshakeRunnable = null
+    }
+
+    private fun maybeDisposeFactory() {
+        if (peers.isNotEmpty()) return
+        worker.execute {
+            try {
+                factory?.dispose()
+            } catch (_: Exception) {
+            }
+            factory = null
+            factoryReady.set(false)
+            started.set(false)
+            SosDebugLog.i("p2p", "native factory disposed")
+        }
     }
 
     private fun amInitiator(self: String, peer: String): Boolean =
@@ -222,6 +262,19 @@ object SosNativeP2pEngine {
     private fun iceServers(): List<PeerConnection.IceServer> = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
+        // TURN כמו ב-config.js – חיוני למובייל / מסך כבוי | HYPER CORE TECH
+        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
+            .setUsername("openrelayproject")
+            .setPassword("openrelayproject")
+            .createIceServer(),
+        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
+            .setUsername("openrelayproject")
+            .setPassword("openrelayproject")
+            .createIceServer(),
+        PeerConnection.IceServer.builder("turns:openrelay.metered.ca:443")
+            .setUsername("openrelayproject")
+            .setPassword("openrelayproject")
+            .createIceServer(),
     )
 
     private fun connect(peer: String) {
@@ -235,6 +288,11 @@ object SosNativeP2pEngine {
         }
         val st = peers.getOrPut(peer) { PeerState() }
         if (st.status == "connected" || st.status == "connecting") return
+        val now = System.currentTimeMillis()
+        if (now - st.lastPcAt < OFFER_RATE_LIMIT_MS && st.lastPcAt > 0L) {
+            SosDebugLog.i("p2p", "rate-limit skip sendOffer ${peer.take(8)}")
+            return
+        }
         sendOffer(peer)
     }
 
@@ -245,6 +303,7 @@ object SosNativeP2pEngine {
         cleanupPc(st)
         st.status = "connecting"
         st.gotAnswer = false
+        st.lastPcAt = System.currentTimeMillis()
         st.offerId = "${System.currentTimeMillis()}-${UUID.randomUUID().toString().take(6)}"
         val pc = fac.createPeerConnection(PeerConnection.RTCConfiguration(iceServers()).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
@@ -253,6 +312,7 @@ object SosNativeP2pEngine {
         val init = DataChannel.Init().apply { ordered = true }
         val dc = pc.createDataChannel(DC_LABEL, init)
         wireDc(peer, dc)
+        scheduleHandshakeTimeout(peer)
         pc.createOffer(object : SdpAdapter() {
             override fun onCreateSuccess(desc: SessionDescription?) {
                 if (desc == null) return
@@ -264,6 +324,7 @@ object SosNativeP2pEngine {
                 publishSig(peer, "dc-offer", payload.toString())
                 scheduleRetry(peer)
                 Log.i(TAG, "sent offer → ${peer.take(8)}")
+                SosDebugLog.i("p2p", "sent offer → ${peer.take(8)}")
             }
         }, MediaConstraints())
     }
@@ -280,13 +341,21 @@ object SosNativeP2pEngine {
         if (st.status == "connected" && st.dc?.state() == DataChannel.State.OPEN) return
         val oid = data.optString("oid")
         if (oid.isNotBlank() && oid == st.lastOfferId) return
+        val now = System.currentTimeMillis()
+        // מונעים יצירת PC חדש כל כמה שניות (הורג את תהליך ההתראות) | HYPER CORE TECH
+        if (st.pc != null && st.status == "connecting" && now - st.lastPcAt < OFFER_RATE_LIMIT_MS) {
+            SosDebugLog.i("p2p", "rate-limit skip offer ${peer.take(8)}")
+            return
+        }
         st.lastOfferId = oid
         cleanupPc(st)
         st.status = "connecting"
+        st.lastPcAt = now
         val pc = fac.createPeerConnection(PeerConnection.RTCConfiguration(iceServers()).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
         }, observer(peer)) ?: return
         st.pc = pc
+        scheduleHandshakeTimeout(peer)
         val remote = SessionDescription(
             SessionDescription.Type.fromCanonicalForm(data.optString("type")),
             data.optString("sdp")
@@ -407,6 +476,7 @@ object SosNativeP2pEngine {
                     st.status = "connected"
                     st.offerRetryN = 0
                     cancelRetry(st)
+                    cancelHandshake(st)
                     startKeep(peer)
                     touch(peer)
                     Log.i(TAG, "DC OPEN ${peer.take(8)}")
@@ -487,9 +557,12 @@ object SosNativeP2pEngine {
             val cur = peers[peer] ?: return@Runnable
             if (cur.status == "connected" || cur.gotAnswer) return@Runnable
             cur.offerRetryN += 1
-            if (cur.offerRetryN >= 12) {
+            if (cur.offerRetryN >= 3) {
                 Log.w(TAG, "gave up ${peer.take(8)}")
+                SosDebugLog.w("p2p", "gave up offer retries ${peer.take(8)}")
                 cur.status = "idle"
+                peers.remove(peer)?.let { cleanupPc(it) }
+                maybeDisposeFactory()
                 return@Runnable
             }
             sendOffer(peer)
@@ -538,6 +611,7 @@ object SosNativeP2pEngine {
     private fun cleanupPc(st: PeerState) {
         stopKeep(st)
         cancelRetry(st)
+        cancelHandshake(st)
         st.idleRunnable?.let { mainHandler.removeCallbacks(it) }
         st.idleRunnable = null
         try { st.dc?.close() } catch (_: Exception) {}
@@ -549,9 +623,11 @@ object SosNativeP2pEngine {
 
     private fun closeAll(reason: String) {
         Log.i(TAG, "closeAll ($reason)")
+        SosDebugLog.i("p2p", "closeAll ($reason)")
         peers.keys.toList().forEach { k ->
-            peers[k]?.let { cleanupPc(it); it.status = "idle" }
+            peers.remove(k)?.let { cleanupPc(it) }
         }
+        maybeDisposeFactory()
     }
 
     private open class SdpAdapter : org.webrtc.SdpObserver {
