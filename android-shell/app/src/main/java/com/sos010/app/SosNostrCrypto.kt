@@ -1,6 +1,7 @@
 package com.sos010.app
 
 import android.util.Base64
+import android.util.Log
 import fr.acinq.secp256k1.Hex
 import fr.acinq.secp256k1.Secp256k1
 import org.json.JSONArray
@@ -13,8 +14,10 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * קריפטו Nostr מינימלי לסיגנלינג P2P Native (nip04 + חתימת אירוע).
+ * NIP-04 AES key = X-coordinate של נקודת ECDH (בלי SHA-256) – כמו nostr-tools.
  */
 object SosNostrCrypto {
+    private const val TAG = "SosNostrCrypto"
     private val secp: Secp256k1 by lazy { Secp256k1.get() }
     private val rnd = SecureRandom()
 
@@ -39,14 +42,22 @@ object SosNostrCrypto {
     fun nip04Decrypt(privHex: String, peerPubHex: String, content: String): String? {
         return try {
             val parts = content.split("?iv=")
-            if (parts.size != 2) return null
+            if (parts.size != 2) {
+                Log.w(TAG, "nip04 bad format (no iv)")
+                return null
+            }
             val data = Base64.decode(parts[0], Base64.DEFAULT)
             val iv = Base64.decode(parts[1], Base64.DEFAULT)
+            if (iv.size != 16) {
+                Log.w(TAG, "nip04 bad iv size=${iv.size}")
+                return null
+            }
             val key = sharedKey(privHex, peerPubHex)
             val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
             cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), IvParameterSpec(iv))
             String(cipher.doFinal(data), Charsets.UTF_8)
-        } catch (_: Exception) {
+        } catch (err: Exception) {
+            Log.w(TAG, "nip04 decrypt fail: ${err.message}")
             null
         }
     }
@@ -66,25 +77,33 @@ object SosNostrCrypto {
         return event
     }
 
+    /**
+     * תואם nostr-tools / NIP-04:
+     * shared = priv * (02||peerX) → AES key = X (32 בתים), בלי hash.
+     */
     private fun sharedKey(privHex: String, peerPubHex: String): ByteArray {
         val priv = Hex.decode(privHex.lowercase())
-        // peer x-only → compressed even-y (02||x) for ecdh; try 02 then 03 if needed
-        val x = Hex.decode(peerPubHex.lowercase())
+        val xOnly = Hex.decode(peerPubHex.lowercase())
+        require(priv.size == 32) { "priv must be 32 bytes" }
+        require(xOnly.size == 32) { "peer pub x-only must be 32 bytes" }
+
+        // כמו nostr-tools: תמיד prefix 02 | HYPER CORE TECH
         val pub02 = ByteArray(33).also {
             it[0] = 0x02
-            System.arraycopy(x, 0, it, 1, 32)
+            System.arraycopy(xOnly, 0, it, 1, 32)
         }
-        val secret = try {
-            secp.ecdh(priv, pub02)
-        } catch (_: Exception) {
-            val pub03 = ByteArray(33).also {
-                it[0] = 0x03
-                System.arraycopy(x, 0, it, 1, 32)
-            }
-            secp.ecdh(priv, pub03)
+
+        // ecdh() של acinq מחזיר SHA256 – לא תואם NIP-04.
+        // pubKeyTweakMul(peerPub, priv) = נקודת ECDH; לוקחים את X. | HYPER CORE TECH
+        val peerParsed = secp.pubkeyParse(pub02)
+        val sharedPoint = secp.pubKeyTweakMul(peerParsed, priv)
+        val compressed = if (sharedPoint.size == 33) {
+            sharedPoint
+        } else {
+            secp.pubKeyCompress(sharedPoint)
         }
-        // nip04: sha256 of shared secret (32 bytes)
-        return sha256(secret)
+        require(compressed.size == 33) { "shared point compress failed size=${compressed.size}" }
+        return compressed.copyOfRange(1, 33)
     }
 
     private fun eventId(pubkey: String, createdAt: Long, kind: Int, tags: JSONArray, content: String): String {

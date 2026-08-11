@@ -1,4 +1,4 @@
 ﻿SOS Android APK downloads (branch: binaries)
 
 Latest:
-https://github.com/Theicd/SOS/raw/binaries/downloads/SOS-1.0.45.apk
+https://github.com/Theicd/SOS/raw/binaries/downloads/SOS-1.0.46.apk

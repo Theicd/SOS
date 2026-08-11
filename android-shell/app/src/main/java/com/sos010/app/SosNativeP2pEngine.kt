@@ -128,7 +128,18 @@ object SosNativeP2pEngine {
                 if (!factoryReady.get()) return@execute
                 trimPeersIfNeeded(pk)
                 val enc = event.optString("content")
-                val plain = if (enc.isBlank()) null else SosNostrCrypto.nip04Decrypt(priv, pk, enc)
+                val plain = if (enc.isBlank()) {
+                    SosDebugLog.w("p2p", "signal $signalType empty content from=${pk.take(8)}")
+                    null
+                } else {
+                    SosNostrCrypto.nip04Decrypt(priv, pk, enc)
+                }
+                if (plain.isNullOrBlank() && enc.isNotBlank()) {
+                    SosDebugLog.w(
+                        "p2p",
+                        "nip04 decrypt fail type=$signalType from=${pk.take(8)} encLen=${enc.length}"
+                    )
+                }
                 when (signalType) {
                     "dc-offer" -> {
                         val data = if (plain.isNullOrBlank()) null else JSONObject(plain)
@@ -139,10 +150,16 @@ object SosNativeP2pEngine {
                     }
                     "dc-answer" -> {
                         val data = if (plain.isNullOrBlank()) null else JSONObject(plain)
-                        if (data != null) onAnswer(pk, data)
+                        if (data != null) {
+                            SosDebugLog.i("p2p", "native handle dc-answer from=${pk.take(8)}")
+                            onAnswer(pk, data)
+                        }
                     }
                     "dc-candidates" -> {
                         val arr = if (plain != null) JSONArray(plain) else JSONArray()
+                        if (plain != null) {
+                            SosDebugLog.i("p2p", "native handle dc-candidates from=${pk.take(8)} n=${arr.length()}")
+                        }
                         onCandidates(pk, arr)
                     }
                 }
@@ -213,6 +230,7 @@ object SosNativeP2pEngine {
         val self = SosSessionStore.getPubkey(app)
         if (!amInitiator(self, peer)) {
             peers.getOrPut(peer) { PeerState() }.status = "waiting"
+            SosDebugLog.i("p2p", "connectPeer waiting (responder) ${peer.take(8)}")
             return
         }
         val st = peers.getOrPut(peer) { PeerState() }
@@ -253,7 +271,10 @@ object SosNativeP2pEngine {
     private fun onOffer(peer: String, data: JSONObject) {
         val app = appRef ?: return
         val self = SosSessionStore.getPubkey(app)
-        if (amInitiator(self, peer)) return
+        if (amInitiator(self, peer)) {
+            SosDebugLog.i("p2p", "skip offer – we are initiator vs ${peer.take(8)}")
+            return
+        }
         val fac = factory ?: return
         val st = peers.getOrPut(peer) { PeerState() }
         if (st.status == "connected" && st.dc?.state() == DataChannel.State.OPEN) return
@@ -283,6 +304,7 @@ object SosNativeP2pEngine {
                             .put("oid", oid)
                         publishSig(peer, "dc-answer", payload.toString())
                         Log.i(TAG, "answered offer ← ${peer.take(8)}")
+                        SosDebugLog.i("p2p", "answered offer ← ${peer.take(8)}")
                     }
                 }, MediaConstraints())
             }

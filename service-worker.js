@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v353'; // bump - native P2P on-demand single peer
+  const CACHE_NAME = 'sos-cache-v354'; // bump - fix native NIP-04 for P2P signaling
   const PRECACHE_URLS = [
     './',
     './videos.html',
