@@ -650,9 +650,29 @@
   const APP_VERSION_URL = './app-version.json';
   let pendingRemoteAppVersion = null;
   let pendingApkRelease = null;
+  let webUpdateToastQueued = false;
+
+  function queueOrShowWebUpdateToast() {
+    if (document.getElementById('apk-update-toast')) {
+      webUpdateToastQueued = true;
+      return;
+    }
+    showUpdateAvailableToast();
+  }
+
+  function flushQueuedWebUpdateToast() {
+    if (!webUpdateToastQueued) return;
+    webUpdateToastQueued = false;
+    showUpdateAvailableToast();
+  }
 
   function showUpdateAvailableToast() {
     if (document.getElementById('pwa-update-toast')) return;
+    // במעטפת: קודם APK, אחר כך ווב – לא שתי הודעות יחד | HYPER CORE TECH
+    if (document.getElementById('apk-update-toast')) {
+      webUpdateToastQueued = true;
+      return;
+    }
     // אחרי לחיצה על «עדכן» – לא להציג שוב בטעינה הבאה | HYPER CORE TECH
     try {
       if (sessionStorage.getItem('pwa_just_updated') === '1') return;
@@ -743,6 +763,14 @@
 
     pendingApkRelease = release || pendingApkRelease;
     const remoteVer = String(pendingApkRelease?.version || NATIVE_APK_VERSION);
+
+    // אם כבר מוצג עדכון ווב – מסירים וממתינים בתור אחרי ה-APK | HYPER CORE TECH
+    const webToast = document.getElementById('pwa-update-toast');
+    if (webToast) {
+      webUpdateToastQueued = true;
+      try { webToast.remove(); } catch (_) {}
+    }
+
     const toast = document.createElement('div');
     toast.id = 'apk-update-toast';
     toast.className = 'pwa-update-toast apk-update-toast';
@@ -758,10 +786,17 @@
       </div>
     `;
 
+    const finishApkToast = () => {
+      toast.classList.remove('pwa-update-toast--visible');
+      setTimeout(() => {
+        try { toast.remove(); } catch (_) {}
+        flushQueuedWebUpdateToast();
+      }, 300);
+    };
+
     toast.querySelector('.pwa-update-toast__later').onclick = () => {
       try { sessionStorage.setItem('apk_update_dismissed', remoteVer); } catch (_) {}
-      toast.classList.remove('pwa-update-toast--visible');
-      setTimeout(() => toast.remove(), 300);
+      finishApkToast();
     };
 
     toast.querySelector('.pwa-update-toast__now').onclick = () => {
@@ -771,6 +806,7 @@
         if (bridge && typeof bridge.installApkUpdate === 'function') {
           bridge.installApkUpdate(url);
           pwaToast('מוריד את עדכון האפליקציה…');
+          finishApkToast();
           return;
         }
       } catch (_) {}
@@ -789,6 +825,7 @@
         console.error('[PWA] APK update download failed', err);
         window.location.href = url;
       }
+      finishApkToast();
     };
 
     document.body.appendChild(toast);
@@ -846,7 +883,7 @@
       if (local !== remote) {
         pendingRemoteAppVersion = remote;
         console.log('[PWA] גרסת app-version חדשה', { local, remote });
-        showUpdateAvailableToast();
+        queueOrShowWebUpdateToast();
       }
     } catch (err) {
       console.warn('[PWA] בדיקת app-version נכשלה:', err);
@@ -857,10 +894,11 @@
   function setupUpdateChecker() {
     if (!navigator.serviceWorker) {
       // גם בלי SW – עדיין בודקים קובץ גרסה | HYPER CORE TECH
-      setTimeout(checkAppReleaseVersion, 2500);
-      setInterval(checkAppReleaseVersion, 60 * 1000);
-      setTimeout(checkApkReleaseVersion, 3500);
+      // במעטפת: קודם APK, אחר כך ווב | HYPER CORE TECH
+      setTimeout(checkApkReleaseVersion, 2500);
       setInterval(checkApkReleaseVersion, 5 * 60 * 1000);
+      setTimeout(checkAppReleaseVersion, 4000);
+      setInterval(checkAppReleaseVersion, 60 * 1000);
       return;
     }
 
@@ -879,8 +917,9 @@
     // בדיקה מיידית + תקופתית כל דקה | HYPER CORE TECH
     async function checkForUpdates() {
       try {
-        await checkAppReleaseVersion();
+        // קודם APK (אם יש), ואז ווב – תור אחד | HYPER CORE TECH
         await checkApkReleaseVersion();
+        await checkAppReleaseVersion();
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg) {
           await reg.update();

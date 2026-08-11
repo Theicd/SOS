@@ -215,11 +215,6 @@
     width: auto;
   }
 
-  body:has(.videos-feed) .apk-update-toast,
-  body.videos-page .apk-update-toast {
-    bottom: calc(188px + env(safe-area-inset-bottom, 0px));
-  }
-
   /* כששני הבאנרים פתוחים — הטוסט מעל באנר ההתקנה בתוך אותו מסגרת | HYPER CORE TECH */
   body:has(.videos-feed):has(.pwa-install-banner--visible) .pwa-update-toast,
   body.videos-page:has(.pwa-install-banner--visible) .pwa-update-toast {
@@ -351,7 +346,7 @@
   transform: translateY(-1px);
 }
 
-/* כרטיסיית עדכון APK – נפרדת מעדכון הווב | HYPER CORE TECH */
+/* כרטיסיית עדכון APK – אותו מיקום כמו עדכון הווב; תור אחד בכל פעם | HYPER CORE TECH */
 .apk-update-toast {
   z-index: 100002;
   border-color: rgba(254, 44, 85, 0.35);
@@ -364,12 +359,6 @@
 .apk-update-toast .pwa-update-toast__now {
   background: linear-gradient(135deg, #fe2c55 0%, #25f4ee 100%);
   color: #0a0a0e;
-}
-
-@media (max-width: 768px) {
-  .apk-update-toast {
-    bottom: calc(176px + env(safe-area-inset-bottom, 0px));
-  }
 }
 
 @media (max-width: 420px) {
