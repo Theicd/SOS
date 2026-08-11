@@ -43,16 +43,19 @@ class SosDebugLogActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnShare).setOnClickListener { saveTxt(shareAfter = true) }
         findViewById<Button>(R.id.btnClear).setOnClickListener {
             SosDebugLog.clear()
+            Toast.makeText(this, R.string.debug_log_reset_done, Toast.LENGTH_SHORT).show()
             render()
         }
         findViewById<Button>(R.id.btnClose).setOnClickListener { finish() }
 
-        SosDebugLog.i("ui", "debug log screen opened")
+        SosDebugLog.reloadFromDisk()
+        SosDebugLog.i("ui", "debug log screen opened (loaded history)")
         render()
     }
 
     override fun onResume() {
         super.onResume()
+        SosDebugLog.reloadFromDisk()
         handler.post(refreshRunnable)
     }
 

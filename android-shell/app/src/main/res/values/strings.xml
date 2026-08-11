@@ -21,8 +21,9 @@
     <string name="debug_log_copy">העתק</string>
     <string name="debug_log_save_txt">שמור TXT</string>
     <string name="debug_log_share">שתף</string>
-    <string name="debug_log_clear">נקה</string>
+    <string name="debug_log_clear">איפוס</string>
     <string name="debug_log_close">סגור</string>
     <string name="debug_log_copied">הלוג הועתק</string>
     <string name="debug_log_saved">נשמר: %1$s</string>
+    <string name="debug_log_reset_done">היסטוריית הלוג אופסה</string>
 </resources>
