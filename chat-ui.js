@@ -5178,9 +5178,12 @@
       // התרעה + צליל אם לא צופים בשיחה בחזית (גם כשהשיחה פתוחה ב-state ברקע) | HYPER CORE TECH
       // חלק דה-דופליקציה (chat-ui.js) – בודק גם אם ההודעה כבר הותרעה | HYPER CORE TECH
       // חלק סינון הודעות ישנות (chat-ui.js) – התראה רק על הודעות מ-60 שניות אחרונות | HYPER CORE TECH
-      const messageCreatedAt = message?.createdAt || message?.created_at || 0;
-      const messageAgeSec = Math.floor(Date.now() / 1000) - messageCreatedAt;
-      const isRecentMessage = messageAgeSec >= 0 && messageAgeSec < 60; // פחות מ-60 שניות
+      const messageCreatedAt = Number(message?.createdAt || message?.created_at || 0) || 0;
+      // בלי timestamp – מתייחסים כהודעה חדשה (P2P לפעמים בלי createdAt) | HYPER CORE TECH
+      const messageAgeSec = messageCreatedAt > 0
+        ? Math.floor(Date.now() / 1000) - messageCreatedAt
+        : 0;
+      const isRecentMessage = messageAgeSec >= 0 && messageAgeSec < 120;
       
       if (isIncoming && !wasMessageNotified(messageId) && isRecentMessage) {
         if (!isActivelyViewing) {
@@ -5190,7 +5193,9 @@
               (message?.attachment
                 ? (String(message.attachment.type || '').toLowerCase().startsWith('audio/') ? 'הודעת קול' : 'קובץ מצורף')
                 : 'הודעה חדשה'));
-          showIncomingChatNotification(normalizedPeer, snippetSource, messageId);
+          // מזהה ייחודי תמיד – מונע בליעת התראות חוזרות בלי eventId | HYPER CORE TECH
+          const notifyId = messageId || `local-${normalizedPeer}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          showIncomingChatNotification(normalizedPeer, snippetSource, notifyId);
         }
       }
 
