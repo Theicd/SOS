@@ -2022,7 +2022,7 @@
     };
   }
 
-  function buildLightboxShellHtml({ kind, mediaHtml, meta }) {
+  function buildLightboxShellHtml({ kind, mediaHtml, meta, showNav = false }) {
     const resolved = resolveLightboxSenderMeta(meta);
     const initials = resolved.senderInitials || 'מ';
     // רק עיגול אחד: תמונה אם קיימת, אחרת ראשי תיבות (לא שניהם יחד)
@@ -2035,6 +2035,16 @@
     const canDelete = !!(resolved.isOutgoing && resolved.messageId && resolved.peerPubkey);
     const deleteHtml = canDelete
       ? `<button type="button" class="chat-lightbox__action chat-lightbox__delete" aria-label="מחק" title="מחק"><i class="fa-solid fa-trash-can"></i></button>`
+      : '';
+    const navHtml = showNav
+      ? `<div class="chat-lightbox__nav-arrows" role="group" aria-label="ניווט מדיה">
+          <button type="button" class="chat-lightbox__nav-arrow chat-lightbox__nav-arrow--up" aria-label="מדיה קודמת" title="מדיה קודמת">
+            <i class="fa-solid fa-chevron-up"></i>
+          </button>
+          <button type="button" class="chat-lightbox__nav-arrow chat-lightbox__nav-arrow--down" aria-label="מדיה הבאה" title="מדיה הבאה">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>`
       : '';
     return `
       <div class="chat-lightbox__backdrop"></div>
@@ -2063,8 +2073,184 @@
         <div class="chat-lightbox__stage${isYouTube ? ' chat-lightbox__stage--youtube' : ''}">
           ${mediaHtml}
         </div>
+        ${navHtml}
       </div>
     `;
+  }
+
+  function normalizeLightboxSrc(src) {
+    return String(src || '').trim().split('#')[0];
+  }
+
+  function isTinyPlaceholderSrc(src) {
+    const s = String(src || '');
+    return s.startsWith('data:image/') && s.length < 400;
+  }
+
+  function collectChatMediaPlaylist(anchorEl) {
+    const root =
+      document.getElementById('chatMessages') ||
+      anchorEl?.closest?.('#chatMessages, .chat-conversation__messages') ||
+      null;
+    const items = [];
+    if (!root) return items;
+
+    root.querySelectorAll('.chat-message').forEach((msg) => {
+      msg.querySelectorAll('img.chat-message__image').forEach((img) => {
+        const wrap = img.closest('.chat-message__image-container');
+        if (wrap?.classList?.contains('is-media-pending') && wrap.dataset.ready !== '1') return;
+        const src = normalizeLightboxSrc(img.currentSrc || img.src);
+        if (!src || isTinyPlaceholderSrc(src)) return;
+        const name = img.getAttribute('alt') || 'תמונה';
+        items.push({ kind: 'image', src, name, metaEl: wrap || img });
+      });
+
+      msg.querySelectorAll('.chat-message__video-container').forEach((container) => {
+        if (container.classList.contains('is-media-pending') && container.dataset.ready !== '1') return;
+        const video = container.querySelector('video');
+        if (!video) return;
+        const sourceEl = video.querySelector('source');
+        const src = normalizeLightboxSrc((sourceEl && sourceEl.src) || video.currentSrc || video.src);
+        if (!src || isTinyPlaceholderSrc(src)) return;
+        const name = video.getAttribute('aria-label') || 'וידאו';
+        const type = (sourceEl && sourceEl.getAttribute('type')) || 'video/mp4';
+        items.push({ kind: 'video', src, name, type, metaEl: container });
+      });
+
+      msg.querySelectorAll('.chat-media-upload').forEach((wrap) => {
+        if (wrap.dataset.mediaReady === '0') return;
+        const img = wrap.querySelector('img.chat-media-upload__media');
+        const video = wrap.querySelector('video.chat-media-upload__media');
+        if (img) {
+          const src = normalizeLightboxSrc(img.currentSrc || img.src);
+          if (!src || isTinyPlaceholderSrc(src)) return;
+          items.push({ kind: 'image', src, name: img.getAttribute('alt') || 'תמונה', metaEl: wrap });
+          return;
+        }
+        if (video) {
+          const sourceEl = video.querySelector('source');
+          const src = normalizeLightboxSrc((sourceEl && sourceEl.src) || video.currentSrc || video.src);
+          if (!src || isTinyPlaceholderSrc(src)) return;
+          const type = (sourceEl && sourceEl.getAttribute('type')) || video.getAttribute('type') || 'video/mp4';
+          items.push({
+            kind: 'video',
+            src,
+            name: video.getAttribute('aria-label') || 'וידאו',
+            type,
+            metaEl: wrap,
+          });
+        }
+      });
+    });
+
+    return items;
+  }
+
+  function findChatMediaPlaylistIndex(playlist, kind, src, metaEl) {
+    if (!Array.isArray(playlist) || !playlist.length) return -1;
+    if (metaEl && metaEl.nodeType === 1) {
+      const byEl = playlist.findIndex((item) => {
+        const el = item.metaEl;
+        if (!el) return false;
+        return el === metaEl || el.contains?.(metaEl) || metaEl.contains?.(el);
+      });
+      if (byEl >= 0) return byEl;
+    }
+    const target = normalizeLightboxSrc(src);
+    return playlist.findIndex((item) => item.kind === kind && normalizeLightboxSrc(item.src) === target);
+  }
+
+  function removeOpenChatLightboxes() {
+    ['chatMediaLightbox', 'chatImageLightbox', 'chatVideoLightbox', 'chatYouTubeLightbox'].forEach((id) => {
+      document.getElementById(id)?.remove();
+    });
+    document.getElementById('chatLightboxDeleteDialog')?.remove();
+  }
+
+  function buildLightboxMediaHtml(item) {
+    if (item.kind === 'video') {
+      const safeName = App.escapeHtml ? App.escapeHtml(item.name || 'וידאו') : String(item.name || 'וידאו');
+      const mime = item.type || 'video/mp4';
+      return `
+        <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay>
+          <source src="${String(item.src).replace(/"/g, '&quot;')}" type="${String(mime).replace(/"/g, '&quot;')}">
+        </video>
+      `;
+    }
+    const safeName = App.escapeHtml ? App.escapeHtml(item.name || 'תמונה') : String(item.name || 'תמונה');
+    return `<img src="${String(item.src).replace(/"/g, '&quot;')}" alt="${safeName}" class="chat-lightbox__image">`;
+  }
+
+  function attachLightboxGalleryControls(lightbox, { playlist, index, onNavigate }) {
+    const total = Array.isArray(playlist) ? playlist.length : 0;
+    const canNav = total > 1 && typeof onNavigate === 'function';
+    const upBtn = lightbox.querySelector('.chat-lightbox__nav-arrow--up');
+    const downBtn = lightbox.querySelector('.chat-lightbox__nav-arrow--down');
+    if (upBtn) upBtn.disabled = !canNav || index <= 0;
+    if (downBtn) downBtn.disabled = !canNav || index >= total - 1;
+    if (!canNav) return () => {};
+
+    const goPrev = (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (index <= 0) return;
+      onNavigate(index - 1);
+    };
+    const goNext = (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (index >= total - 1) return;
+      onNavigate(index + 1);
+    };
+
+    upBtn?.addEventListener('click', goPrev);
+    downBtn?.addEventListener('click', goNext);
+
+    const onKey = (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        goPrev(e);
+      } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+        e.preventDefault();
+        goNext(e);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+
+    const stage = lightbox.querySelector('.chat-lightbox__stage');
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    const onTouchStart = (e) => {
+      if (!e.changedTouches?.length) return;
+      if (e.target.closest?.('input, button, .chat-lightbox__header, .chat-lightbox__nav-arrows')) return;
+      const t = e.changedTouches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      tracking = true;
+    };
+    const onTouchEnd = (e) => {
+      if (!tracking || !e.changedTouches?.length) return;
+      tracking = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.abs(dy) < 56 || Math.abs(dy) < Math.abs(dx) * 1.15) return;
+      if (dy < 0) goNext();
+      else goPrev();
+    };
+    stage?.addEventListener('touchstart', onTouchStart, { passive: true });
+    stage?.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      stage?.removeEventListener('touchstart', onTouchStart);
+      stage?.removeEventListener('touchend', onTouchEnd);
+    };
   }
 
   function confirmLightboxDelete(messageId, peerPubkey, onDone) {
@@ -2160,12 +2346,15 @@
       if (typeof onDelete === 'function') onDelete(event);
     });
     lightbox.querySelector('.chat-lightbox__frame')?.addEventListener('click', (event) => event.stopPropagation());
-    document.addEventListener('keydown', function onEsc(e) {
+    const onEsc = (e) => {
       if (e.key === 'Escape') {
         close(e);
-        document.removeEventListener('keydown', onEsc);
       }
-    });
+    };
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('keydown', onEsc);
+    };
   }
 
   // חלק lightbox YouTube (chat-media-renderer.js) – מסך מלא עם אותו shell של תמונה/וידאו | HYPER CORE TECH
@@ -2208,6 +2397,7 @@
         event.preventDefault();
         event.stopPropagation();
       }
+      try { detachShell(); } catch (_) {}
       lightbox.classList.add('chat-lightbox--closing');
       document.body.classList.remove('chat-lightbox-open');
       setTimeout(() => {
@@ -2217,7 +2407,7 @@
       }, 200);
     };
 
-    wireLightboxShell(lightbox, {
+    const detachShell = wireLightboxShell(lightbox, {
       close,
       onPrimaryAction: () => {
         App.__sosSuppressChatOutsideClose = true;
@@ -2243,100 +2433,59 @@
         if (!resolved.messageId || !resolved.peerPubkey) return;
         confirmLightboxDelete(resolved.messageId, resolved.peerPubkey, close);
       },
-    });
+    }) || (() => {});
 
     requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
   }
 
-  // חלק lightbox (chat-media-renderer.js) – פתיחת תמונה במסך מלא עם הדר כמו שיחה | HYPER CORE TECH
-  function openImageLightbox(src, name, meta) {
-    const existing = document.getElementById('chatImageLightbox');
-    if (existing) existing.remove();
-    if (!src) return;
+  // חלק lightbox (chat-media-renderer.js) – גלריית מדיה בשיחה עם חצים בדסקטופ והחלקה במובייל | HYPER CORE TECH
+  function openLightboxGallery(playlist, index, { instant = false } = {}) {
+    const items = Array.isArray(playlist) ? playlist.filter(Boolean) : [];
+    if (!items.length) return;
+    const safeIndex = Math.max(0, Math.min(items.length - 1, Number(index) || 0));
+    const item = items[safeIndex];
+    if (!item?.src) return;
+
+    removeOpenChatLightboxes();
 
     const lightbox = document.createElement('div');
-    lightbox.id = 'chatImageLightbox';
-    lightbox.className = 'chat-lightbox';
-    const safeName = App.escapeHtml ? App.escapeHtml(name || 'תמונה') : String(name || 'תמונה');
-    const mediaHtml = `<img src="${String(src).replace(/"/g, '&quot;')}" alt="${safeName}" class="chat-lightbox__image">`;
-    const resolved = resolveLightboxSenderMeta(meta || null);
-    lightbox.innerHTML = buildLightboxShellHtml({ kind: 'image', mediaHtml, meta: meta || null });
-
-    document.body.appendChild(lightbox);
-    document.body.classList.add('chat-lightbox-open');
-    App.__sosSuppressChatOutsideClose = true;
-
-    const close = (event) => {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      lightbox.classList.add('chat-lightbox--closing');
-      document.body.classList.remove('chat-lightbox-open');
-      setTimeout(() => {
-        lightbox.remove();
-        document.getElementById('chatLightboxDeleteDialog')?.remove();
-        setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
-      }, 200);
-    };
-
-    wireLightboxShell(lightbox, {
-      close,
-      onPrimaryAction: () => {
-        App.__sosSuppressChatOutsideClose = true;
-        Promise.resolve(downloadChatMedia(src, name || 'image.jpg')).finally(() => {
-          setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
-        });
-      },
-      onShare: () => {
-        App.__sosSuppressChatOutsideClose = true;
-        Promise.resolve(shareLightboxMedia({ src, name: name || 'image.jpg', kind: 'image' })).finally(() => {
-          setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
-        });
-      },
-      onDelete: () => {
-        if (!resolved.messageId || !resolved.peerPubkey) return;
-        confirmLightboxDelete(resolved.messageId, resolved.peerPubkey, close);
-      },
+    lightbox.id = 'chatMediaLightbox';
+    lightbox.className = `chat-lightbox${item.kind === 'video' ? ' chat-lightbox--video' : ''}`;
+    const mediaHtml = buildLightboxMediaHtml(item);
+    const resolved = resolveLightboxSenderMeta(item.metaEl || null);
+    lightbox.innerHTML = buildLightboxShellHtml({
+      kind: item.kind,
+      mediaHtml,
+      meta: item.metaEl || null,
+      showNav: items.length > 1,
     });
-
-    requestAnimationFrame(() => lightbox.classList.add('chat-lightbox--visible'));
-  }
-
-  // חלק lightbox וידאו (chat-media-renderer.js) – מסך מלא עם הדר כמו שיחה | HYPER CORE TECH
-  function openVideoLightbox(src, name, type, meta) {
-    const existing = document.getElementById('chatVideoLightbox');
-    if (existing) existing.remove();
-    const playSrc = String(src || '').trim();
-    if (!playSrc) return;
-
-    const lightbox = document.createElement('div');
-    lightbox.id = 'chatVideoLightbox';
-    lightbox.className = 'chat-lightbox chat-lightbox--video';
-    const safeName = App.escapeHtml ? App.escapeHtml(name || 'וידאו') : String(name || 'וידאו');
-    const mime = type || 'video/mp4';
-    const mediaHtml = `
-      <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay>
-        <source src="${playSrc.replace(/"/g, '&quot;')}" type="${String(mime).replace(/"/g, '&quot;')}">
-      </video>
-    `;
-    const resolved = resolveLightboxSenderMeta(meta || null);
-    lightbox.innerHTML = buildLightboxShellHtml({ kind: 'video', mediaHtml, meta: meta || null });
 
     document.body.appendChild(lightbox);
     document.body.classList.add('chat-lightbox-open');
     App.__sosSuppressChatOutsideClose = true;
 
     const videoEl = lightbox.querySelector('.chat-lightbox__video');
+    let detachShell = () => {};
+    let detachGallery = () => {};
+
+    const cleanupListeners = () => {
+      try { detachGallery(); } catch (_) {}
+      try { detachShell(); } catch (_) {}
+      detachGallery = () => {};
+      detachShell = () => {};
+    };
+
     const close = (event) => {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
+      cleanupListeners();
       try {
         if (videoEl) {
           videoEl.pause();
           videoEl.removeAttribute('src');
+          videoEl.querySelectorAll('source').forEach((s) => s.removeAttribute('src'));
           videoEl.load();
         }
       } catch (_) {}
@@ -2346,20 +2495,38 @@
         lightbox.remove();
         document.getElementById('chatLightboxDeleteDialog')?.remove();
         setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 100);
-      }, 200);
+      }, instant ? 0 : 200);
     };
 
-    wireLightboxShell(lightbox, {
+    const navigateTo = (nextIndex) => {
+      cleanupListeners();
+      try {
+        if (videoEl) {
+          videoEl.pause();
+          videoEl.removeAttribute('src');
+          videoEl.querySelectorAll('source').forEach((s) => s.removeAttribute('src'));
+          videoEl.load();
+        }
+      } catch (_) {}
+      openLightboxGallery(items, nextIndex, { instant: true });
+    };
+
+    detachShell = wireLightboxShell(lightbox, {
       close,
       onPrimaryAction: () => {
         App.__sosSuppressChatOutsideClose = true;
-        Promise.resolve(downloadChatMedia(playSrc, name || 'video.mp4')).finally(() => {
+        const fileName = item.name || (item.kind === 'video' ? 'video.mp4' : 'image.jpg');
+        Promise.resolve(downloadChatMedia(item.src, fileName)).finally(() => {
           setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
         });
       },
       onShare: () => {
         App.__sosSuppressChatOutsideClose = true;
-        Promise.resolve(shareLightboxMedia({ src: playSrc, name: name || 'video.mp4', kind: 'video' })).finally(() => {
+        Promise.resolve(shareLightboxMedia({
+          src: item.src,
+          name: item.name || (item.kind === 'video' ? 'video.mp4' : 'image.jpg'),
+          kind: item.kind,
+        })).finally(() => {
           setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
         });
       },
@@ -2367,15 +2534,63 @@
         if (!resolved.messageId || !resolved.peerPubkey) return;
         confirmLightboxDelete(resolved.messageId, resolved.peerPubkey, close);
       },
-    });
+    }) || (() => {});
 
-    requestAnimationFrame(() => {
+    detachGallery = attachLightboxGalleryControls(lightbox, {
+      playlist: items,
+      index: safeIndex,
+      onNavigate: navigateTo,
+    }) || (() => {});
+
+    const reveal = () => {
       lightbox.classList.add('chat-lightbox--visible');
-      try {
-        const p = videoEl?.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
-      } catch (_) {}
-    });
+      if (item.kind === 'video') {
+        try {
+          const p = videoEl?.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (_) {}
+      }
+    };
+    if (instant) reveal();
+    else requestAnimationFrame(reveal);
+  }
+
+  function openImageLightbox(src, name, meta) {
+    if (!src) return;
+    const metaEl = meta && meta.nodeType === 1 ? meta : null;
+    const fallback = {
+      kind: 'image',
+      src: normalizeLightboxSrc(src),
+      name: name || 'תמונה',
+      metaEl,
+    };
+    const playlist = collectChatMediaPlaylist(metaEl);
+    let index = findChatMediaPlaylistIndex(playlist, 'image', fallback.src, metaEl);
+    if (index < 0) {
+      playlist.push(fallback);
+      index = playlist.length - 1;
+    }
+    openLightboxGallery(playlist, index);
+  }
+
+  function openVideoLightbox(src, name, type, meta) {
+    const playSrc = normalizeLightboxSrc(src);
+    if (!playSrc) return;
+    const metaEl = meta && meta.nodeType === 1 ? meta : null;
+    const fallback = {
+      kind: 'video',
+      src: playSrc,
+      name: name || 'וידאו',
+      type: type || 'video/mp4',
+      metaEl,
+    };
+    const playlist = collectChatMediaPlaylist(metaEl);
+    let index = findChatMediaPlaylistIndex(playlist, 'video', playSrc, metaEl);
+    if (index < 0) {
+      playlist.push(fallback);
+      index = playlist.length - 1;
+    }
+    openLightboxGallery(playlist, index);
   }
 
   // חלק זיהוי PDF (chat-media-renderer.js) – בדיקה אם attachment הוא קובץ PDF | HYPER CORE TECH
