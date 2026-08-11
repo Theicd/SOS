@@ -1463,9 +1463,9 @@ body.chat-lightbox-open {
 }
 
 .chat-message__image-container--portrait {
-  max-width: 250px;
+  max-width: 310px;
   min-width: 0;
-  max-height: min(45vh, 380px);
+  max-height: min(58vh, 500px);
 }
 
 .chat-message__image-container.is-media-pending,
@@ -1572,11 +1572,11 @@ body.chat-lightbox-open {
   max-height: 280px;
 }
 
-/* אנכי: בועה קומפקטית כמו וואטסאפ — תמונה ווידאו זהים | HYPER CORE TECH */
+/* אנכי: מחשב — בועה גדולה יותר כמו וואטסאפ; מובייל ב־@media למטה | HYPER CORE TECH */
 .chat-message__video-container--portrait {
-  max-width: 250px;
+  max-width: 310px;
   min-width: 0;
-  max-height: min(45vh, 380px);
+  max-height: min(58vh, 500px);
 }
 
 /* עד מוכן: לא תופסים מקום ולא מציגים שלד/פסים | HYPER CORE TECH */
@@ -1594,7 +1594,7 @@ body.chat-lightbox-open {
 }
 
 .chat-message__video-container[data-ready="1"].chat-message__video-container--portrait {
-  max-height: min(45vh, 380px);
+  max-height: min(58vh, 500px);
 }
 
 .chat-message__content--video-only,
@@ -2699,16 +2699,16 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
 }
 
 .chat-media-upload--portrait {
-  max-width: 250px;
-  min-width: 180px;
-  max-height: min(45vh, 380px);
+  max-width: 310px;
+  min-width: 200px;
+  max-height: min(58vh, 500px);
 }
 
 .chat-media-upload--pending {
   aspect-ratio: 3 / 4;
-  width: min(100%, 220px);
+  width: min(100%, 240px);
   min-height: 180px;
-  max-height: min(45vh, 380px);
+  max-height: min(58vh, 500px);
   background: #000 !important;
 }
 

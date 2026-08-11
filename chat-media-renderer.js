@@ -801,7 +801,7 @@
     if (narrow) {
       return Math.max(180, Math.min(Math.floor(viewW * 0.62), Math.floor(raw * 0.72) - 4));
     }
-    return Math.max(220, Math.min(360, Math.floor(raw * 0.55) - 16));
+    return Math.max(240, Math.min(380, Math.floor(raw * 0.62) - 16));
   }
 
   function computeChatMediaBox(w, h, hostEl) {
@@ -824,8 +824,9 @@
         ? Math.min(Math.round(vh * 0.50), 390)
         : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.34)), ultraWide ? 180 : 220);
     } else {
-      maxW = portrait ? Math.min(250, avail) : Math.min(360, avail);
-      maxH = portrait ? Math.min(Math.round(vh * 0.45), 380) : (ultraWide ? 220 : 280);
+      // מחשב: בועה אנכית גדולה יותר (קרוב לוואטסאפ); מובייל נשאר בענף narrow | HYPER CORE TECH
+      maxW = portrait ? Math.min(310, avail) : Math.min(360, avail);
+      maxH = portrait ? Math.min(Math.round(vh * 0.58), 500) : (ultraWide ? 220 : 280);
     }
 
     const hardMaxW = Math.max(160, viewW - (narrow ? 40 : 48));
