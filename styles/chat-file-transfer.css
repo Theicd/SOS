@@ -81,6 +81,17 @@
   text-decoration: none;
   font-size: 0.8rem;
   transition: background 0.2s ease;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.chat-message__attachment > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-message__attachment:hover {

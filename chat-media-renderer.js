@@ -2223,7 +2223,6 @@
   // חלק רנדור PDF (chat-media-renderer.js) – תצוגה מקדימה של עמוד ראשון בסגנון WhatsApp | HYPER CORE TECH
   function renderPdfAttachment(attachment) {
     const name = attachment.name || 'קובץ PDF';
-    const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const size = formatSize(attachment.size);
     const magnetURI = attachment.magnetURI || '';
     const dataUrl = attachment.dataUrl || attachment.url || '';
@@ -2290,7 +2289,7 @@
         </div>
         <div class="chat-pdf-bubble__footer">
           <div class="chat-pdf-bubble__info">
-            <div class="chat-pdf-bubble__name">${safeName}</div>
+            ${buildChatFileNameHtml(name, { className: 'chat-pdf-bubble__name' })}
             <div class="chat-pdf-bubble__meta"><span class="chat-pdf-bubble__size">${size}</span><span id="${uid}-pages" class="chat-pdf-bubble__pages"></span></div>
           </div>
           ${downloadHtml}
@@ -2309,7 +2308,6 @@
   // חלק רנדור HTML (chat-media-renderer.js) – תצוגה מקדימה ב-iframe sandbox בסגנון PDF | HYPER CORE TECH
   function renderHtmlAttachment(att) {
     const name = att.name || 'דף HTML';
-    const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const size = formatSize(att.size);
     const dataUrl = att.dataUrl || att.url || '';
     const magnetURI = att.magnetURI || '';
@@ -2348,7 +2346,7 @@
         </div>
         <div class="chat-pdf-bubble__footer">
           <div class="chat-pdf-bubble__info">
-            <div class="chat-pdf-bubble__name">${safeName}</div>
+            ${buildChatFileNameHtml(name, { className: 'chat-pdf-bubble__name' })}
             <div class="chat-pdf-bubble__meta"><span class="chat-pdf-bubble__size">${size}</span><span>HTML</span></div>
           </div>
           ${dlHtml}
@@ -2395,10 +2393,50 @@
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
+  // חלק שם קובץ לתצוגה (chat-media-renderer.js) – קיצור קבוע כדי לא להרחיב את הצ'אט במובייל | HYPER CORE TECH
+  function formatChatFileDisplayName(name) {
+    const full = String(name || '').trim() || 'קובץ';
+    let maxChars = 40;
+    try {
+      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+        maxChars = 24;
+      }
+    } catch (_) {}
+    if (full.length <= maxChars) {
+      return { full, display: full, truncated: false };
+    }
+    const lastDot = full.lastIndexOf('.');
+    const extLen = lastDot > 0 ? full.length - lastDot : 0;
+    const hasExt = lastDot > 0 && extLen >= 2 && extLen <= 8 && !/\s/.test(full.slice(lastDot + 1));
+    const ext = hasExt ? full.slice(lastDot) : '';
+    const headBudget = Math.max(6, maxChars - (ext ? ext.length + 1 : 1));
+    return { full, display: `${full.slice(0, headBudget)}…${ext}`, truncated: true };
+  }
+
+  function escapeChatFileNameHtml(value) {
+    if (App.escapeHtml) return App.escapeHtml(value);
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function buildChatFileNameHtml(name, { className = 'chat-file-bubble__name', tag = 'div' } = {}) {
+    const { full, display } = formatChatFileDisplayName(name);
+    const safeFull = escapeChatFileNameHtml(full);
+    const safeDisplay = escapeChatFileNameHtml(display);
+    return `<${tag} class="${className}" title="${safeFull}" data-full-name="${safeFull}">${safeDisplay}</${tag}>`;
+  }
+
+  function readChatFileDisplayName(el) {
+    if (!el) return '';
+    return String(el.getAttribute('data-full-name') || el.getAttribute('title') || el.textContent || '').trim();
+  }
+
   // חלק רנדור קובץ כללי (chat-media-renderer.js) – בועת קובץ בסגנון WhatsApp עם אייקון, שם, גודל וכפתור הורדה | HYPER CORE TECH
   function renderGenericFileAttachment(attachment) {
     const name = attachment.name || 'קובץ';
-    const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const size = formatSize(attachment.size);
     const iconClass = getFileIcon(attachment);
     const downloadHtml = buildAttachmentDownloadHtml(attachment, 'chat-file-bubble__download');
@@ -2407,7 +2445,7 @@
       <div class="chat-file-bubble">
         <div class="chat-file-bubble__icon"><i class="fa-solid ${iconClass}"></i></div>
         <div class="chat-file-bubble__info">
-          <div class="chat-file-bubble__name">${safeName}</div>
+          ${buildChatFileNameHtml(name)}
           <div class="chat-file-bubble__size">${size}</div>
         </div>
         ${downloadHtml}
@@ -2452,6 +2490,9 @@
     getFileIcon,
     buildAttachmentDownloadHtml,
     buildMediaDownloadButton,
+    formatChatFileDisplayName,
+    buildChatFileNameHtml,
+    readChatFileDisplayName,
     // מטמון מדיה צ'אט | HYPER CORE TECH
     fetchAndCacheChatMedia: fetchAndCacheMedia,
     getChatMediaFromCache,

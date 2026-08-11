@@ -2171,9 +2171,12 @@ body.chat-lightbox-open {
   padding: 10px 14px;
   background: rgba(255,255,255,0.06);
   border-radius: 10px;
-  min-width: 200px;
+  min-width: 0;
   max-width: 300px;
+  width: 100%;
   margin: 4px 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .chat-file-bubble__icon {
   flex-shrink: 0;
@@ -2243,6 +2246,7 @@ body.chat-lightbox-open {
   max-width: min(100%, 320px);
   box-sizing: border-box;
   min-width: 0;
+  overflow: hidden;
 }
 
 .chat-message--outgoing.chat-message--file-card-transfer {
@@ -2343,6 +2347,10 @@ body.chat-lightbox-open {
 @media (max-width: 768px) {
   .chat-message--file-card-transfer,
   .chat-message--outgoing.chat-message--file-card-transfer {
+    max-width: min(100%, 280px);
+  }
+
+  .chat-file-bubble {
     max-width: min(100%, 280px);
   }
 

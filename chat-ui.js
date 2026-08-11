@@ -106,6 +106,23 @@
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  function buildFileNameLabelHtml(name, { className = 'chat-file-bubble__name', tag = 'div' } = {}) {
+    if (typeof App.buildChatFileNameHtml === 'function') {
+      return App.buildChatFileNameHtml(name, { className, tag });
+    }
+    const full = String(name || 'קובץ');
+    const safe = App.escapeHtml ? App.escapeHtml(full) : full;
+    return `<${tag} class="${className}" title="${safe}" data-full-name="${safe}">${safe}</${tag}>`;
+  }
+
+  function readFileNameFromBubbleEl(el) {
+    if (typeof App.readChatFileDisplayName === 'function') {
+      return App.readChatFileDisplayName(el);
+    }
+    if (!el) return '';
+    return String(el.getAttribute('data-full-name') || el.getAttribute('title') || el.textContent || '').trim();
+  }
+
   // חלק פעולות צד (chat-ui.js) – פח + הורדה בעמודה ליד המדיה (שולח); הורדה במקום הפח (מקבל) | HYPER CORE TECH
   function buildChatMediaSideDownloadHtml(attachment, fallbackUrl, fallbackName) {
     const sideClass = 'chat-message__action-btn chat-message__action-btn--download chat-message__media-download chat-message__media-download--side';
@@ -863,7 +880,7 @@
       '';
     const dlBtn = bubble.querySelector('.chat-file-bubble__download, .chat-file-bubble__download--busy, .torrent-bubble__download-btn');
     if (dlBtn && (blobUrl || magnet)) {
-      const name = a?.name || bubble.querySelector('.chat-file-bubble__name')?.textContent || 'קובץ';
+      const name = a?.name || readFileNameFromBubbleEl(bubble.querySelector('.chat-file-bubble__name')) || 'קובץ';
       if (blobUrl) {
         dlBtn.setAttribute('data-download-url', blobUrl);
         dlBtn.removeAttribute('data-magnet');
@@ -894,7 +911,7 @@
         attachment: a,
         magnetURI: magnet,
         blobUrl,
-        fileName: a?.name || bubble.querySelector('.chat-file-bubble__name')?.textContent || 'קובץ',
+        fileName: a?.name || readFileNameFromBubbleEl(bubble.querySelector('.chat-file-bubble__name')) || 'קובץ',
       }),
     });
 
@@ -1084,7 +1101,6 @@
     const isReceive = progress.direction === 'receive';
     const directionClass = isReceive ? 'chat-message--incoming' : 'chat-message--outgoing';
     const label = progress.name || 'קובץ מצורף';
-    const safeLabel = App.escapeHtml ? App.escapeHtml(label) : label;
     const sizeLabel = formatTransferSize(progress.size);
     const fileIcon = getTransferFileIcon(label);
     const done = ui.isTerminalOk;
@@ -1123,7 +1139,7 @@
       bubble.querySelector('.chat-file-bubble, .torrent-bubble')
     ) {
       const content = bubble.querySelector('.chat-message__content') || bubble;
-      const name = bubble.querySelector('.chat-file-bubble__name, .torrent-bubble__file-name')?.textContent || label;
+      const name = readFileNameFromBubbleEl(bubble.querySelector('.chat-file-bubble__name, .torrent-bubble__file-name')) || label;
       const size = bubble.querySelector('.chat-file-bubble__size, .torrent-bubble__file-size')?.textContent || sizeLabel;
       const iconClass = bubble.querySelector('.chat-file-bubble__icon i:not(.fa-xmark), .torrent-bubble__file-row > i')?.className || `fa-solid ${fileIcon}`;
       content.innerHTML = `
@@ -1131,7 +1147,7 @@
           <div class="chat-file-bubble">
             ${buildFileCardIconHtml({ fileIcon, iconClass, showCancel: ui.showCancel, fileId: progress.fileId })}
             <div class="chat-file-bubble__info">
-              <div class="chat-file-bubble__name" title="${App.escapeHtml ? App.escapeHtml(name) : name}">${App.escapeHtml ? App.escapeHtml(name) : name}</div>
+              ${buildFileNameLabelHtml(name)}
               <div class="chat-file-bubble__size">${App.escapeHtml ? App.escapeHtml(size || '') : (size || '')}</div>
             </div>
             ${buildFileCardDownloadButtonHtml(progress, ui)}
@@ -1166,16 +1182,15 @@
         const nameEl = bubble.querySelector('.chat-file-bubble__name');
         const sizeEl = bubble.querySelector('.chat-file-bubble__size');
         const iconEl = bubble.querySelector('.chat-file-bubble__icon i:not(.fa-xmark)');
-        const name = nameEl?.textContent || label;
+        const name = readFileNameFromBubbleEl(nameEl) || label;
         const size = sizeEl?.textContent || sizeLabel;
         const iconClass = iconEl?.className || `fa-solid ${fileIcon}`;
-        const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
         content.innerHTML = `
           <div class="chat-file-upload" data-chat-file-upload="1">
             <div class="chat-file-bubble">
               ${buildFileCardIconHtml({ fileIcon, iconClass, showCancel: ui.showCancel, fileId: progress.fileId })}
               <div class="chat-file-bubble__info">
-                <div class="chat-file-bubble__name" title="${safeName}">${safeName}</div>
+                ${buildFileNameLabelHtml(name)}
                 <div class="chat-file-bubble__size">${App.escapeHtml ? App.escapeHtml(size || '') : (size || '')}</div>
               </div>
               ${buildFileCardDownloadButtonHtml(progress, ui)}
@@ -1238,7 +1253,7 @@
           <div class="chat-file-bubble">
             ${iconHtml}
             <div class="chat-file-bubble__info">
-              <div class="chat-file-bubble__name" title="${safeLabel}">${safeLabel}</div>
+              ${buildFileNameLabelHtml(label)}
               <div class="chat-file-bubble__size">${sizeLabel || ''}</div>
             </div>
             ${downloadHtml}
@@ -1579,7 +1594,6 @@
     }
     const bubble = elements.messagesContainer.querySelector(`[data-transfer-id="${progress.fileId}"]`) || doc.createElement('div');
     const label = progress.name || 'קובץ מצורף';
-    const safeLabel = App.escapeHtml ? App.escapeHtml(label) : label;
     const sizeLabel = formatTransferSize(progress.size);
     const fileIcon = getTransferFileIcon(label);
     const ui = resolveTransferAction(progress);
@@ -1650,7 +1664,7 @@
             <div class="torrent-bubble__file-row">
               <i class="fa-solid ${fileIcon}"></i>
               <div class="torrent-bubble__file-info">
-                <span class="torrent-bubble__file-name">${safeLabel}</span>
+                ${buildFileNameLabelHtml(label, { className: 'torrent-bubble__file-name', tag: 'span' })}
                 <span class="torrent-bubble__file-size">${sizeLabel}</span>
               </div>
             </div>
@@ -3927,7 +3941,7 @@
               <div class="chat-file-bubble">
                 <div class="chat-file-bubble__icon"><i class="fa-solid ${fileIcon}"></i></div>
                 <div class="chat-file-bubble__info">
-                  <div class="chat-file-bubble__name">${App.escapeHtml ? App.escapeHtml(torrentFileName) : torrentFileName}</div>
+                  ${buildFileNameLabelHtml(torrentFileName)}
                   <div class="chat-file-bubble__size">${fileSizeFormatted}</div>
                 </div>
                 ${downloadButtonHtml}
@@ -4076,31 +4090,36 @@
           mediaDebugLog('attachment-render', { messageId: message.id, kind: 'pdf', name: a?.name || '', mime: a?.type || '', src });
           attachmentHtml = typeof App.renderPdfAttachment === 'function'
             ? App.renderPdfAttachment(a)
-            : `<div class="chat-file-bubble"><i class="fa-solid fa-file-pdf"></i> ${App.escapeHtml ? App.escapeHtml(a.name || 'PDF') : (a.name || 'PDF')}</div>`;
+            : `<div class="chat-file-bubble"><i class="fa-solid fa-file-pdf"></i> ${buildFileNameLabelHtml(a.name || 'PDF')}</div>`;
         } else if (typeof App.isHtmlAttachment === 'function' && App.isHtmlAttachment(a)) {
           // חלק HTML (chat-ui.js) – תצוגה מקדימה של דף HTML ב-iframe sandbox בסגנון PDF | HYPER CORE TECH
           // חלק דיבאג מדיה (chat-ui.js) – רינדור HTML מצורף | HYPER CORE TECH
           mediaDebugLog('attachment-render', { messageId: message.id, kind: 'html', name: a?.name || '', mime: a?.type || '', src });
           attachmentHtml = typeof App.renderHtmlAttachment === 'function'
             ? App.renderHtmlAttachment(a)
-            : `<div class="chat-file-bubble"><i class="fa-solid fa-code"></i> ${App.escapeHtml ? App.escapeHtml(a.name || 'HTML') : (a.name || 'HTML')}</div>`;
+            : `<div class="chat-file-bubble"><i class="fa-solid fa-code"></i> ${buildFileNameLabelHtml(a.name || 'HTML')}</div>`;
         } else if (typeof App.isGenericFileAttachment === 'function' && App.isGenericFileAttachment(a)) {
           // חלק קובץ כללי (chat-ui.js) – רנדור בועת קובץ מעוצבת לקבצי ZIP/TXT/טורנט | HYPER CORE TECH
           // חלק דיבאג מדיה (chat-ui.js) – רינדור קובץ כללי מצורף | HYPER CORE TECH
           mediaDebugLog('attachment-render', { messageId: message.id, kind: 'file', name: a?.name || '', mime: a?.type || '', src });
           attachmentHtml = typeof App.renderGenericFileAttachment === 'function'
             ? App.renderGenericFileAttachment(a)
-            : `<div class="chat-file-bubble"><i class="fa-solid fa-file"></i> ${App.escapeHtml ? App.escapeHtml(a.name || 'קובץ') : (a.name || 'קובץ')}</div>`;
+            : `<div class="chat-file-bubble"><i class="fa-solid fa-file"></i> ${buildFileNameLabelHtml(a.name || 'קובץ')}</div>`;
         } else if (src) {
           const fileName = a.name || 'קובץ מצורף';
-          const safeFileName = App.escapeHtml ? App.escapeHtml(fileName) : fileName;
+          const fmt =
+            typeof App.formatChatFileDisplayName === 'function'
+              ? App.formatChatFileDisplayName(fileName)
+              : { full: fileName, display: fileName };
+          const safeFull = App.escapeHtml ? App.escapeHtml(fmt.full) : fmt.full;
+          const safeDisplay = App.escapeHtml ? App.escapeHtml(fmt.display) : fmt.display;
           const extraAttrs = a.url ? 'target="_blank" rel="noopener noreferrer"' : '';
           // חלק דיבאג מדיה (chat-ui.js) – fallback ללינק מצורף | HYPER CORE TECH
           mediaDebugLog('attachment-render', { messageId: message.id, kind: 'link', name: fileName, mime: a?.type || '', src });
           attachmentHtml = `
-            <a class="chat-message__attachment" href="${src}" ${extraAttrs} download="${fileName}">
+            <a class="chat-message__attachment" href="${src}" ${extraAttrs} download="${fileName}" title="${safeFull}">
               <i class="fa-solid fa-paperclip"></i>
-              <span>${safeFileName}</span>
+              <span data-full-name="${safeFull}">${safeDisplay}</span>
             </a>
           `;
         }
