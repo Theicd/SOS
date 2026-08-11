@@ -1,7 +1,7 @@
 {
-  "version": "1.0.52",
-  "versionCode": 53,
-  "file": "SOS-1.0.52.apk",
-  "url": "https://github.com/Theicd/SOS/raw/binaries/downloads/SOS-1.0.52.apk",
+  "version": "1.0.53",
+  "versionCode": 54,
+  "file": "SOS-1.0.53.apk",
+  "url": "https://github.com/Theicd/SOS/raw/binaries/downloads/SOS-1.0.53.apk",
   "note": "Bump version + versionCode on every Android shell release"
 }

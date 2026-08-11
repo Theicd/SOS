@@ -17,13 +17,16 @@
         android:layout_gravity="center"
         android:indeterminate="true" />
 
-    <!-- כפתור צף ללוג רקע – קטן ושקוף חלקית, לא חוסם את הממשק | HYPER CORE TECH -->
+    <!-- כפתור צף ללוג רקע – מורם מעל תפריט תחתון במובייל | HYPER CORE TECH -->
     <TextView
         android:id="@+id/btnDebugFab"
         android:layout_width="44dp"
         android:layout_height="44dp"
         android:layout_gravity="bottom|start"
-        android:layout_margin="14dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="64dp"
         android:background="@drawable/bg_debug_fab"
         android:elevation="6dp"
         android:gravity="center"
