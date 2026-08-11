@@ -143,10 +143,14 @@ object NotificationHelper {
         val app = context.applicationContext
 
         // כשהממשק פתוח – בלי התראת מערכת (ה-Web מציג במסך) | HYPER CORE TECH
-        if (MainActivity.isHostAlive) return
+        if (MainActivity.isHostAlive) {
+            SosDebugLog.i("notify", "showMessage blocked hostAlive")
+            return
+        }
 
         val normalizedEventId = eventId?.trim()?.lowercase().orEmpty()
         if (normalizedEventId.isNotEmpty() && !seenEventIds.add(normalizedEventId)) {
+            SosDebugLog.i("notify", "showMessage dedupe id=${normalizedEventId.take(12)}")
             return
         }
         // בלי eventId – דה-דופ לפי זמן קצר כדי לא לצלצל פעמיים מ-FCM+Relay
@@ -179,6 +183,7 @@ object NotificationHelper {
                 inboxLines.removeFirst()
             }
             lastOpenUrl = openUrl ?: lastOpenUrl
+            SosDebugLog.i("notify", "showMessage post sound=$allowAlert peer=${resolvedPeer.take(8)}")
             postAggregateLocked(app, playSound = allowAlert)
         }
 
@@ -275,6 +280,7 @@ object NotificationHelper {
         val callBody = app.getString(R.string.incoming_call_from, displayName)
 
         SosIncomingCallSession.markRinging(app, peer, type)
+        SosDebugLog.i("notify", "showIncomingCall type=$type peer=${peer.take(8)}")
 
         val fullScreenIntent = Intent(app, IncomingCallActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or

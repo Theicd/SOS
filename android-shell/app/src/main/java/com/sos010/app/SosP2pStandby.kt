@@ -61,6 +61,7 @@ object SosP2pStandby {
         wanted = SosSessionStore.isP2pStandbyEnabled(context)
         if (!wanted) return
         Log.i(TAG, "activity destroyed → native P2P")
+        SosDebugLog.i("p2p", "activity destroyed → native start")
         acquireWake(context)
         SosNativeP2pEngine.ensureStarted(context)
         SosNativeP2pEngine.onCardClosed(context)

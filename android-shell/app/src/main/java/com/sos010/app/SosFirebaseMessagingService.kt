@@ -15,8 +15,12 @@ class SosFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         // כשהממשק פתוח – ה-Web מטפל (מונע כפילות מול RelayWatcher)
-        if (MainActivity.isHostAlive) return
+        if (MainActivity.isHostAlive) {
+            SosDebugLog.i("fcm", "skip hostAlive")
+            return
+        }
 
+        SosDebugLog.i("fcm", "onMessageReceived keys=${message.data.keys.joinToString(",")}")
         val peerKey = message.data["peer"]
             ?: message.data["pubkey"]
             ?: message.data["peerKey"]

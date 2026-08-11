@@ -16,4 +16,19 @@
         android:layout_height="48dp"
         android:layout_gravity="center"
         android:indeterminate="true" />
+
+    <!-- כפתור צף ללוג רקע – קטן ושקוף חלקית, לא חוסם את הממשק | HYPER CORE TECH -->
+    <TextView
+        android:id="@+id/btnDebugFab"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="14dp"
+        android:background="@drawable/bg_debug_fab"
+        android:elevation="6dp"
+        android:gravity="center"
+        android:text="LOG"
+        android:textColor="#EAF6FF"
+        android:textSize="11sp"
+        android:textStyle="bold" />
 </FrameLayout>

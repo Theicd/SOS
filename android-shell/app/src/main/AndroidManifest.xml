@@ -75,6 +75,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SosDebugLogActivity"
+            android:exported="false"
+            android:label="@string/debug_log_title"
+            android:theme="@style/Theme.SosShell" />
+
         <service
             android:name=".SosForegroundService"
             android:exported="false"

@@ -113,6 +113,8 @@ class MainActivity : AppCompatActivity() {
         val warmBg = isBackgroundWarmIntent(intent)
         // חימום ברקע – isHostAlive נשאר false כדי ש-FCM/Relay/צלצול ימשיכו | HYPER CORE TECH
         isHostAlive = !warmBg
+        SosDebugLog.i("life", "onCreate warmBg=$warmBg")
+        SosDebugLog.snapshotFlags("onCreate")
         if (!warmBg) {
             SosP2pStandby.onHostForeground()
         }
@@ -121,6 +123,10 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         loading = findViewById(R.id.loading)
+        findViewById<View>(R.id.btnDebugFab).setOnClickListener {
+            SosDebugLog.i("ui", "FAB open debug log")
+            startActivity(Intent(this, SosDebugLogActivity::class.java))
+        }
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
@@ -191,6 +197,8 @@ class MainActivity : AppCompatActivity() {
         // חימום ברקע (כרטיסייה סגורה / מסך כבוי) – לא חוסמים התראות וצלצול Native | HYPER CORE TECH
         if (isBackgroundWarmIntent(intent)) {
             isHostAlive = false
+            SosDebugLog.i("life", "onResume background-warm")
+            SosDebugLog.snapshotFlags("onResume-warm")
             startKeepAliveService()
             maybeResumePendingApkInstall()
             if (this::webView.isInitialized) {
@@ -211,6 +219,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         isHostAlive = true
+        SosDebugLog.i("life", "onResume foreground")
+        SosDebugLog.snapshotFlags("onResume")
         SosP2pStandby.onHostForeground()
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
@@ -258,12 +268,15 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         // רקע / מסך כבוי – ה-WebView נשאר; לא מפעילים Native (מונע תחרות על DC) | HYPER CORE TECH
         isHostAlive = false
+        SosDebugLog.i("life", "onStop")
+        SosDebugLog.snapshotFlags("onStop")
         startKeepAliveService()
         super.onStop()
     }
 
     override fun onPause() {
         // לא משנים isHostAlive כאן – רק ב-onStop/onDestroy (שומר התראות כשכרטיסייה סגורה) | HYPER CORE TECH
+        SosDebugLog.i("life", "onPause")
         if (this::webView.isInitialized) {
             try {
                 webView.resumeTimers()
@@ -293,6 +306,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         isHostAlive = false
         isActivityAlive = false
+        SosDebugLog.i("life", "onDestroy")
+        SosDebugLog.snapshotFlags("onDestroy")
         if (hostRef?.get() === this) hostRef = null
         try {
             filePathCallback?.onReceiveValue(null)

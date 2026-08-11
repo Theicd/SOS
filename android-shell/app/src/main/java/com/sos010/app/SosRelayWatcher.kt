@@ -38,6 +38,7 @@ class SosRelayWatcher(private val appContext: Context) {
         val pubkey = SosSessionStore.getPubkey(appContext)
         if (pubkey.length != 64) {
             Log.w(TAG, "no pubkey – relay watcher idle")
+            SosDebugLog.w("relay", "no pubkey – idle")
             stop()
             return
         }
@@ -46,6 +47,7 @@ class SosRelayWatcher(private val appContext: Context) {
             running.set(true)
         }
         Log.i(TAG, "starting watcher for ${pubkey.take(8)}…")
+        SosDebugLog.i("relay", "start watcher ${pubkey.take(8)}")
         RELAYS.forEach { url -> connectRelay(url, pubkey) }
     }
 
@@ -94,6 +96,7 @@ class SosRelayWatcher(private val appContext: Context) {
                     .put(filterP2p)
                 webSocket.send(req.toString())
                 Log.i(TAG, "subscribed chat+calls+p2p on $url")
+                SosDebugLog.i("relay", "subscribed $url")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -111,6 +114,7 @@ class SosRelayWatcher(private val appContext: Context) {
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.w(TAG, "relay fail $url: ${t.message}")
+                SosDebugLog.w("relay", "fail $url: ${t.message}")
                 sockets.remove(url)
                 scheduleReconnect(url, pubkey)
             }
@@ -203,7 +207,10 @@ class SosRelayWatcher(private val appContext: Context) {
 
     private fun notifyChat(author: String, rawContent: String, eventId: String) {
         // כשהממשק פתוח – ה-Web מטפל בהתראות (מונע כפילות צליל/כרטיס)
-        if (MainActivity.isHostAlive) return
+        if (MainActivity.isHostAlive) {
+            SosDebugLog.i("relay", "chat skip hostAlive id=${eventId.take(10)} from=${author.take(8)}")
+            return
+        }
 
         val raw = rawContent.trim()
         val preview = when {
@@ -218,6 +225,7 @@ class SosRelayWatcher(private val appContext: Context) {
             else -> "משתמש"
         }
 
+        SosDebugLog.i("relay", "chat NOTIFY ${author.take(8)} id=${eventId.take(10)}")
         NotificationHelper.showMessage(
             appContext,
             senderLabel,
@@ -284,10 +292,12 @@ class SosRelayWatcher(private val appContext: Context) {
                 // כשהממשק בחזית: Web מציג דיאלוג; עדיין מציגים התראת CallStyle בלי FSI כפול.
                 if (MainActivity.isHostAlive) {
                     Log.i(TAG, "host alive – web handles UI, raw offer cached")
+                    SosDebugLog.i("relay", "call skip hostAlive from=${author.take(8)}")
                     return
                 }
 
                 // מחממים WebView ברקע בזמן צלצול – ענה יהיה מהיר | HYPER CORE TECH
+                SosDebugLog.i("relay", "incoming $callType from=${author.take(8)} → notify+warm")
                 MainActivity.warmHostForIncomingCall(appContext, author, callType)
 
                 NotificationHelper.showIncomingCall(
