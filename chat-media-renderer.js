@@ -797,11 +797,11 @@
     // אם העמודה עדיין 0 (לפני layout) — נופלים ל־viewport | HYPER CORE TECH
     const raw = colW > 40 ? colW : viewW;
     const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    // מובייל: ~73% ממסך (הוקטן ב־15% מהמקסימום הקודם) | HYPER CORE TECH
+    // מובייל: בועה קומפקטית בסגנון וואטסאפ (~62% ממסך) | HYPER CORE TECH
     if (narrow) {
-      return Math.max(200, Math.min(Math.floor(viewW * 0.73), Math.floor(raw * 0.8) - 4));
+      return Math.max(180, Math.min(Math.floor(viewW * 0.62), Math.floor(raw * 0.72) - 4));
     }
-    return Math.max(260, Math.min(380, Math.floor(raw * 0.72) - 16));
+    return Math.max(220, Math.min(360, Math.floor(raw * 0.55) - 16));
   }
 
   function computeChatMediaBox(w, h, hostEl) {
@@ -813,37 +813,40 @@
     const aspect = w / Math.max(1, h);
     const ultraWide = !portrait && aspect >= 1.9;
 
-    // מסגרת בועה קבועה לכיוון — המדיה ממלאת ב־cover (בלי פסי שוליים) | HYPER CORE TECH
+    // מסגרת קומפקטית (תמונה+וידאו זהים) — שומרים יחס מקורי בתוך תקרה | HYPER CORE TECH
     let maxW;
     let maxH;
     if (narrow) {
       maxW = portrait
-        ? Math.min(avail, Math.floor(viewW * 0.70))
+        ? Math.min(avail, Math.floor(viewW * 0.58), 240)
         : Math.min(avail, Math.floor(viewW * (ultraWide ? 0.68 : 0.72)));
       maxH = portrait
-        ? Math.min(Math.round(vh * 0.60), 476)
+        ? Math.min(Math.round(vh * 0.50), 390)
         : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.34)), ultraWide ? 180 : 220);
     } else {
-      maxW = portrait ? Math.min(300, avail) : Math.min(360, avail);
-      maxH = portrait ? Math.min(Math.round(vh * 0.7), 520) : (ultraWide ? 220 : 280);
+      maxW = portrait ? Math.min(250, avail) : Math.min(360, avail);
+      maxH = portrait ? Math.min(Math.round(vh * 0.45), 380) : (ultraWide ? 220 : 280);
     }
 
     const hardMaxW = Math.max(160, viewW - (narrow ? 40 : 48));
     maxW = Math.min(maxW, avail, hardMaxW);
 
-    // גובה המסגרת לפי יחס המדיה, אבל לא פחות ממינימום שממלא את הבועה יפה | HYPER CORE TECH
+    // גובה לפי יחס המדיה; אם חורגים מהתקרה — מקטינים גם רוחב (פחות חיתוך cover) | HYPER CORE TECH
     let dispW = maxW;
     let dispH = Math.round(dispW * (h / w));
     if (dispH > maxH) {
       dispH = maxH;
-      // שומרים רוחב מלא של הבועה — cover יחתוך קלות; אין פסי שוליים | HYPER CORE TECH
-      dispW = maxW;
+      dispW = Math.round(dispH * (w / h));
+      if (dispW > maxW) {
+        dispW = maxW;
+        dispH = Math.min(maxH, Math.round(dispW * (h / w)));
+      }
     }
-    // אנכי: אם יצא נמוך מדי — ממלאים לגובה יעד הבועה | HYPER CORE TECH
-    if (portrait) {
-      const minPortraitH = Math.min(maxH, Math.round(dispW * 1.45));
+    // אנכי כמעט־ריבוע: תוספת גובה עדינה בלבד | HYPER CORE TECH
+    if (portrait && h / w < 1.35) {
+      const minPortraitH = Math.min(maxH, Math.round(dispW * 1.2));
       if (dispH < minPortraitH) dispH = minPortraitH;
-    } else {
+    } else if (!portrait) {
       const minLandH = Math.min(maxH, Math.round(dispW * 0.52));
       if (dispH < minLandH) dispH = minLandH;
       if (dispH > maxH) dispH = maxH;

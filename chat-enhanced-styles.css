@@ -1463,9 +1463,9 @@ body.chat-lightbox-open {
 }
 
 .chat-message__image-container--portrait {
-  max-width: 300px;
+  max-width: 250px;
   min-width: 0;
-  max-height: min(70vh, 520px);
+  max-height: min(45vh, 380px);
 }
 
 .chat-message__image-container.is-media-pending,
@@ -1572,11 +1572,11 @@ body.chat-lightbox-open {
   max-height: 280px;
 }
 
-/* אנכי: כמו וואטסאפ — רחב מספיק + גבוה | HYPER CORE TECH */
+/* אנכי: בועה קומפקטית כמו וואטסאפ — תמונה ווידאו זהים | HYPER CORE TECH */
 .chat-message__video-container--portrait {
-  max-width: 300px;
+  max-width: 250px;
   min-width: 0;
-  max-height: min(70vh, 520px);
+  max-height: min(45vh, 380px);
 }
 
 /* עד מוכן: לא תופסים מקום ולא מציגים שלד/פסים | HYPER CORE TECH */
@@ -1594,7 +1594,7 @@ body.chat-lightbox-open {
 }
 
 .chat-message__video-container[data-ready="1"].chat-message__video-container--portrait {
-  max-height: min(70vh, 520px);
+  max-height: min(45vh, 380px);
 }
 
 .chat-message__content--video-only,
@@ -1949,9 +1949,9 @@ body.chat-lightbox-open {
   }
 
   .chat-message__image-container--portrait {
-    max-width: min(70vw, 272px);
-    min-width: 200px;
-    max-height: min(60vh, 476px);
+    max-width: min(58vw, 240px);
+    min-width: 160px;
+    max-height: min(50vh, 390px);
   }
 
   .chat-message__image-container--landscape .chat-message__image,
@@ -1975,8 +1975,8 @@ body.chat-lightbox-open {
   .chat-message__video-container,
   .chat-media-upload {
     width: auto;
-    max-width: min(73vw, 306px);
-    min-width: 200px;
+    max-width: min(62vw, 260px);
+    min-width: 160px;
   }
 
   .chat-message__video-container--landscape,
@@ -1988,9 +1988,9 @@ body.chat-lightbox-open {
 
   .chat-message__video-container--portrait,
   .chat-media-upload--portrait {
-    max-width: min(70vw, 272px);
-    min-width: 200px;
-    max-height: min(60vh, 476px);
+    max-width: min(58vw, 240px);
+    min-width: 160px;
+    max-height: min(50vh, 390px);
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--landscape {
@@ -1998,7 +1998,7 @@ body.chat-lightbox-open {
   }
 
   .chat-message__video-container[data-ready="1"].chat-message__video-container--portrait {
-    max-height: min(60vh, 476px);
+    max-height: min(50vh, 390px);
   }
 
   .chat-message__video,
@@ -2699,16 +2699,16 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
 }
 
 .chat-media-upload--portrait {
-  max-width: 300px;
-  min-width: 220px;
-  max-height: min(70vh, 520px);
+  max-width: 250px;
+  min-width: 180px;
+  max-height: min(45vh, 380px);
 }
 
 .chat-media-upload--pending {
   aspect-ratio: 3 / 4;
   width: min(100%, 220px);
   min-height: 180px;
-  max-height: min(70vh, 520px);
+  max-height: min(45vh, 380px);
   background: #000 !important;
 }
 

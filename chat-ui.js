@@ -664,11 +664,11 @@
     const col = wrap.closest?.('.chat-conversation__messages') || document.getElementById('chatMessages');
     const raw = col?.clientWidth || window.innerWidth || 360;
     const narrow = raw < 480;
-    const avail = Math.max(200, Math.floor(raw * (narrow ? 0.92 : 0.72)) - (narrow ? 8 : 24));
+    const avail = Math.max(200, Math.floor(raw * (narrow ? 0.62 : 0.55)) - (narrow ? 8 : 24));
     const portrait = h > w;
-    const maxW = Math.min(avail, portrait ? (narrow ? avail : 300) : (narrow ? avail : 380));
+    const maxW = Math.min(avail, portrait ? (narrow ? Math.min(avail, 240) : 250) : (narrow ? avail : 380));
     const maxH = portrait
-      ? Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.72 : 0.7)), narrow ? 640 : 520)
+      ? Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.5 : 0.45)), narrow ? 390 : 380)
       : Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.45 : 0.35)), narrow ? 340 : 280);
     let dispW = maxW;
     let dispH = dispW * (h / w);
