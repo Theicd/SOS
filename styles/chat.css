@@ -2004,12 +2004,17 @@ body.chat-media-modal-open {
   /* === אזור הודעות === */
   .chat-panel .chat-conversation__messages {
     flex: 1;
-    padding: 20px 60px;
+    padding-block: 20px;
+    /* RTL: inline-end = שמאל — מרווח ממסגרת כדי שמדיה יוצאת לא תיחתך | HYPER CORE TECH */
+    padding-inline: 48px 36px;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 12px;
     background: transparent;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .chat-panel .chat-conversation__empty {
@@ -2034,6 +2039,8 @@ body.chat-media-modal-open {
     max-width: 65%;
     display: flex;
     gap: 0;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .chat-panel .chat-message__content {
@@ -2060,9 +2067,34 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing {
     align-self: flex-end;
     width: fit-content;
-    max-width: min(85%, 404px);
+    max-width: min(72%, 340px);
     justify-content: flex-end;
     min-width: 0;
+    box-sizing: border-box;
+    margin-inline-end: 10px;
+  }
+
+  /* מחשב: מדיה יוצאת רוחבית — לא לגלוש מעבר למסגרת עם עמודת ⋮ | HYPER CORE TECH */
+  .chat-panel .chat-message--outgoing:has(.chat-message__image-container),
+  .chat-panel .chat-message--outgoing:has(.chat-message__video-container),
+  .chat-panel .chat-message--outgoing:has(.chat-media-upload) {
+    max-width: min(72%, 340px);
+    margin-inline-end: 12px;
+  }
+
+  .chat-panel .chat-message--outgoing .chat-message__content--image-only,
+  .chat-panel .chat-message--outgoing .chat-message__content--video-only,
+  .chat-panel .chat-message--outgoing .chat-message__content--media-upload {
+    max-width: calc(100% - 44px);
+    min-width: 0;
+  }
+
+  .chat-panel .chat-message--outgoing .chat-message__image-container--landscape,
+  .chat-panel .chat-message--outgoing .chat-message__video-container--landscape,
+  .chat-panel .chat-message--outgoing .chat-media-upload--landscape {
+    max-width: min(280px, 100%) !important;
+    width: auto !important;
+    min-width: 0 !important;
     box-sizing: border-box;
   }
 

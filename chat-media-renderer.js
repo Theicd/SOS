@@ -802,10 +802,13 @@
     const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
     const side = CHAT_MEDIA_SIDE_ACTIONS_RESERVE;
     // מובייל: מספיק רוחב לבועה אנכית, בניכוי עמודת הפעולות | HYPER CORE TECH
+    // מובייל: ללא שינוי התנהגות | HYPER CORE TECH
     if (narrow) {
       return Math.max(180, Math.min(Math.floor(viewW * 0.72), Math.floor(raw * 0.82) - 4) - side);
     }
-    return Math.max(220, Math.min(330, Math.floor(raw * 0.62) - 16 - side));
+    // מחשב: מקום ל־⋮ + מרווח ממסגרת שמאל (RTL) | HYPER CORE TECH
+    const desktopFrameGap = 20;
+    return Math.max(200, Math.min(280, Math.floor(raw * 0.52) - 16 - side - desktopFrameGap));
   }
 
   function computeChatMediaBox(w, h, hostEl) {
@@ -828,12 +831,15 @@
         ? Math.min(Math.round(vh * 0.52), 420)
         : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.34)), ultraWide ? 180 : 220);
     } else {
-      // מחשב: אנכי רחב; אופקי עד 330 כדי להשאיר מקום ל־⋮ בצד השולח | HYPER CORE TECH
-      maxW = portrait ? Math.min(300, avail) : Math.min(330, avail);
+      // מחשב בלבד: אופקי צר יותר כדי שלא ייחתך עם ⋮ בדפנות | HYPER CORE TECH
+      maxW = portrait ? Math.min(290, avail) : Math.min(280, avail);
       maxH = portrait ? Math.min(Math.round(vh * 0.58), 500) : (ultraWide ? 220 : 280);
     }
 
-    const hardMaxW = Math.max(160, viewW - (narrow ? 40 : 48) - CHAT_MEDIA_SIDE_ACTIONS_RESERVE);
+    const hardMaxW = Math.max(
+      160,
+      viewW - (narrow ? 40 : 48) - CHAT_MEDIA_SIDE_ACTIONS_RESERVE - (narrow ? 0 : 20)
+    );
     maxW = Math.min(maxW, avail, hardMaxW);
 
     // גובה לפי יחס המדיה; באנכי שומרים רוחב בועה (cover חותך מעט) — לא מצמצמים לצר | HYPER CORE TECH
@@ -862,9 +868,9 @@
       if (dispH > maxH) dispH = maxH;
     }
 
-    // רצפת רוחב לאנכי — מונע בועה צרה מדי | HYPER CORE TECH
+    // רצפת רוחב לאנכי — מונע בועה צרה מדי (מובייל ללא שינוי) | HYPER CORE TECH
     if (portrait) {
-      const minW = narrow ? 220 : 280;
+      const minW = narrow ? 220 : Math.min(260, maxW);
       if (dispW < minW && maxW >= minW) dispW = Math.min(maxW, minW);
     }
 
