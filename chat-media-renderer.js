@@ -801,10 +801,9 @@
     const raw = colW > 40 ? colW : viewW;
     const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
     const side = CHAT_MEDIA_SIDE_ACTIONS_RESERVE;
-    // מובייל: מספיק רוחב לבועה אנכית, בניכוי עמודת הפעולות | HYPER CORE TECH
-    // מובייל: ללא שינוי התנהגות | HYPER CORE TECH
+    // מובייל: כמו לפני תיקוני הדסקטופ — בלי ניכוי ⋮ שמצר/דוחף | HYPER CORE TECH
     if (narrow) {
-      return Math.max(180, Math.min(Math.floor(viewW * 0.72), Math.floor(raw * 0.82) - 4) - side);
+      return Math.max(200, Math.min(Math.floor(viewW * 0.72), Math.floor(raw * 0.82) - 4));
     }
     // מחשב: מקום ל־⋮ + מרווח ממסגרת שמאל (RTL) | HYPER CORE TECH
     const desktopFrameGap = 20;
@@ -838,7 +837,7 @@
 
     const hardMaxW = Math.max(
       160,
-      viewW - (narrow ? 40 : 48) - CHAT_MEDIA_SIDE_ACTIONS_RESERVE - (narrow ? 0 : 20)
+      viewW - (narrow ? 40 : 48) - (narrow ? 0 : CHAT_MEDIA_SIDE_ACTIONS_RESERVE + 20)
     );
     maxW = Math.min(maxW, avail, hardMaxW);
 

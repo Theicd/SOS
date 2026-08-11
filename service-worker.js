@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v368'; // bump - desktop outgoing landscape margin
+  const CACHE_NAME = 'sos-cache-v369'; // bump - restore mobile chat media layout
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -1001,10 +1001,8 @@ body.chat-overlay-open::before {
   align-self: flex-end;
   /* מונע מתיחה ל-65% שדוחפת כרטיסים פנימה ב-RTL | HYPER CORE TECH */
   width: fit-content;
-  max-width: min(85%, 404px);
+  max-width: min(78%, 360px);
   justify-content: flex-end;
-  min-width: 0;
-  box-sizing: border-box;
 }
 
 /* חלק צבע הודעות יוצאות (chat.css) – גוון כחול כהה להודעות יוצאות | HYPER CORE TECH */
