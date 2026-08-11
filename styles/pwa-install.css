@@ -257,9 +257,10 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--pwa-neon-pink), var(--pwa-neon-green), var(--pwa-neon-cyan));
-  animation: pwa-neon-scan 3.2s linear infinite;
+  height: 1px;
+  background: linear-gradient(90deg, #0a3d6b, #1ee3ff, #0a3d6b);
+  box-shadow: 0 0 6px rgba(30, 227, 255, 0.55);
+  animation: pwa-neon-scan 6.5s linear infinite;
   pointer-events: none;
 }
 
