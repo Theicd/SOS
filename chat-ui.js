@@ -2662,7 +2662,8 @@
         return !!window.SosNativeShell.isHostAlive();
       }
     } catch (_) {}
-    return true;
+    // אם הגשר לא זמין – לא מניחים חזית (מונע דילוג על התראות ברקע) | HYPER CORE TECH
+    return false;
   }
 
   /** האם המשתמש באמת צופה בממשק עכשיו | HYPER CORE TECH */
@@ -5175,12 +5176,13 @@
         return;
       }
 
-      // התרעה + צליל אם לא צופים בשיחה בחזית (גם כשהשיחה פתוחה ב-state ברקע) | HYPER CORE TECH
-      // חלק דה-דופליקציה (chat-ui.js) – בודק גם אם ההודעה כבר הותרעה | HYPER CORE TECH
-      // חלק סינון הודעות ישנות (chat-ui.js) – התראה רק על הודעות מ-60 שניות אחרונות | HYPER CORE TECH
-      const messageCreatedAt = message?.createdAt || message?.created_at || 0;
-      const messageAgeSec = Math.floor(Date.now() / 1000) - messageCreatedAt;
-      const isRecentMessage = messageAgeSec >= 0 && messageAgeSec < 60; // פחות מ-60 שניות
+      // התרעה אם לא צופים בשיחה בחזית (P2P ברקע ממשיך; רק התראה/נצפה משתנים) | HYPER CORE TECH
+      const messageCreatedAt = Number(message?.createdAt || message?.created_at || 0) || 0;
+      // בלי timestamp (נפוץ ב-P2P) – מתייחסים כהודעה חדשה | HYPER CORE TECH
+      const messageAgeSec = messageCreatedAt > 0
+        ? Math.floor(Date.now() / 1000) - messageCreatedAt
+        : 0;
+      const isRecentMessage = messageAgeSec >= 0 && messageAgeSec < 120;
       
       if (isIncoming && !wasMessageNotified(messageId) && isRecentMessage) {
         if (!isActivelyViewing) {
@@ -5190,7 +5192,8 @@
               (message?.attachment
                 ? (String(message.attachment.type || '').toLowerCase().startsWith('audio/') ? 'הודעת קול' : 'קובץ מצורף')
                 : 'הודעה חדשה'));
-          showIncomingChatNotification(normalizedPeer, snippetSource, messageId);
+          const notifyId = messageId || `local-${normalizedPeer}-${Date.now()}`;
+          showIncomingChatNotification(normalizedPeer, snippetSource, notifyId);
         }
       }
 

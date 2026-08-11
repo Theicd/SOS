@@ -21,8 +21,8 @@ import java.util.concurrent.ConcurrentHashMap
  * כרטיס הודעות אחד שמתעדכן, צליל יחיד להודעה, בלי כפילויות Web+Native.
  */
 object NotificationHelper {
-    /** ערוץ חדש בלי צליל מערכת – הצליל מנוגן ידנית פעם אחת בלבד */
-    const val CHANNEL_MESSAGES = "sos_messages_v4"
+    /** ערוץ חדש – מאפשר צליל גם בעדכון כרטיס אגרגציה | HYPER CORE TECH */
+    const val CHANNEL_MESSAGES = "sos_messages_v5"
     /** ערוץ שיחות חדש – CallStyle + heads-up על מסך נעול | HYPER CORE TECH */
     const val CHANNEL_CALLS = "sos_calls_v3"
     const val CHANNEL_KEEPALIVE = "sos_keepalive"
@@ -492,7 +492,8 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOnlyAlertOnce(true)
+            // כשצריך צליל – לא חוסמים עדכון של אותו כרטיס (הודעות חוזרות מאותו peer) | HYPER CORE TECH
+            .setOnlyAlertOnce(!playSound)
             .setSilent(!playSound)
 
         try {
