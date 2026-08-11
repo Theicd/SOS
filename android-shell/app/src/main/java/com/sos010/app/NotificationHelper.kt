@@ -153,13 +153,10 @@ object NotificationHelper {
             SosDebugLog.i("notify", "showMessage dedupe id=${normalizedEventId.take(12)}")
             return
         }
-        // בלי eventId – דה-דופ קצר נגד כפילות FCM+Relay בלבד | HYPER CORE TECH
+        // בלי eventId – דה-דופ לפי זמן קצר כדי לא לצלצל פעמיים מ-FCM+Relay
         if (normalizedEventId.isEmpty()) {
             val now = System.currentTimeMillis()
-            if (now - lastAlertAt < ALERT_DEBOUNCE_MS) {
-                SosDebugLog.i("notify", "showMessage debounce empty-id")
-                return
-            }
+            if (now - lastAlertAt < ALERT_DEBOUNCE_MS) return
         }
         trimSeenEvents()
 
@@ -495,8 +492,7 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            // הודעה חדשה חייבת להשמיע שוב גם כשמעדכנים את אותו כרטיס אגרגציה | HYPER CORE TECH
-            .setOnlyAlertOnce(!playSound)
+            .setOnlyAlertOnce(true)
             .setSilent(!playSound)
 
         try {
@@ -505,7 +501,7 @@ object NotificationHelper {
         }
 
         if (playSound) {
-            playMessageAlert(app, force = true)
+            playMessageAlertOnce(app)
         }
     }
 
@@ -524,12 +520,9 @@ object NotificationHelper {
         }
     }
 
-    /** force=true – כל הודעה חדשה משמיעה, גם אם הכרטיס כבר מוצג | HYPER CORE TECH */
-    private fun playMessageAlert(context: Context, force: Boolean = false) {
+    private fun playMessageAlertOnce(context: Context) {
         val now = System.currentTimeMillis()
-        if (!force && now - lastAlertAt < ALERT_DEBOUNCE_MS) return
-        // גם ב-force – מניעת כפילות מיידית (<350ms) מ-JS+Relay על אותה הודעה | HYPER CORE TECH
-        if (force && now - lastAlertAt < 350L) return
+        if (now - lastAlertAt < ALERT_DEBOUNCE_MS) return
         lastAlertAt = now
         try {
             val player = MediaPlayer()
@@ -550,9 +543,7 @@ object NotificationHelper {
             }
             player.prepare()
             player.start()
-            SosDebugLog.i("notify", "message sound played force=$force")
-        } catch (err: Exception) {
-            SosDebugLog.w("notify", "message sound fail: ${err.message}")
+        } catch (_: Exception) {
         }
     }
 
