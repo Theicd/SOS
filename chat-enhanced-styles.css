@@ -917,8 +917,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #fe2c55, #39ff14, #25f4ee);
+  height: 1px;
+  background: linear-gradient(90deg, #0a3d6b, #1ee3ff, #0a3d6b);
+  box-shadow: 0 0 6px rgba(30, 227, 255, 0.55);
   animation: chat-lightbox-neon-scan 3.2s linear infinite;
   pointer-events: none;
 }
