@@ -787,6 +787,9 @@
   }
 
   // גודל מדיה כמו וואטסאפ — px מפורשים (לא % על fit-content שקורס למיניאטורה) | HYPER CORE TECH
+  // עמודת ⋮ ליד המדיה (~32px + gap) — חייבים להחסיר כדי שלא ייחתך צד השולח ב-RTL | HYPER CORE TECH
+  const CHAT_MEDIA_SIDE_ACTIONS_RESERVE = 44;
+
   function getChatMediaAvailWidth(hostEl) {
     const col =
       hostEl?.closest?.('.chat-conversation__messages') ||
@@ -797,11 +800,12 @@
     // אם העמודה עדיין 0 (לפני layout) — נופלים ל־viewport | HYPER CORE TECH
     const raw = colW > 40 ? colW : viewW;
     const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    // מובייל: מספיק רוחב לבועה אנכית (~72% ממסך) | HYPER CORE TECH
+    const side = CHAT_MEDIA_SIDE_ACTIONS_RESERVE;
+    // מובייל: מספיק רוחב לבועה אנכית, בניכוי עמודת הפעולות | HYPER CORE TECH
     if (narrow) {
-      return Math.max(200, Math.min(Math.floor(viewW * 0.72), Math.floor(raw * 0.82) - 4));
+      return Math.max(180, Math.min(Math.floor(viewW * 0.72), Math.floor(raw * 0.82) - 4) - side);
     }
-    return Math.max(240, Math.min(380, Math.floor(raw * 0.62) - 16));
+    return Math.max(220, Math.min(330, Math.floor(raw * 0.62) - 16 - side));
   }
 
   function computeChatMediaBox(w, h, hostEl) {
@@ -824,12 +828,12 @@
         ? Math.min(Math.round(vh * 0.52), 420)
         : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.34)), ultraWide ? 180 : 220);
     } else {
-      // מחשב: בועה אנכית גדולה יותר (קרוב לוואטסאפ); מובייל נשאר בענף narrow | HYPER CORE TECH
-      maxW = portrait ? Math.min(310, avail) : Math.min(360, avail);
+      // מחשב: אנכי רחב; אופקי עד 330 כדי להשאיר מקום ל־⋮ בצד השולח | HYPER CORE TECH
+      maxW = portrait ? Math.min(300, avail) : Math.min(330, avail);
       maxH = portrait ? Math.min(Math.round(vh * 0.58), 500) : (ultraWide ? 220 : 280);
     }
 
-    const hardMaxW = Math.max(160, viewW - (narrow ? 40 : 48));
+    const hardMaxW = Math.max(160, viewW - (narrow ? 40 : 48) - CHAT_MEDIA_SIDE_ACTIONS_RESERVE);
     maxW = Math.min(maxW, avail, hardMaxW);
 
     // גובה לפי יחס המדיה; באנכי שומרים רוחב בועה (cover חותך מעט) — לא מצמצמים לצר | HYPER CORE TECH

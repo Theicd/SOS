@@ -949,6 +949,7 @@ body.chat-overlay-open::before {
   flex: 1;
   padding: 22px;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1000,8 +1001,10 @@ body.chat-overlay-open::before {
   align-self: flex-end;
   /* מונע מתיחה ל-65% שדוחפת כרטיסים פנימה ב-RTL | HYPER CORE TECH */
   width: fit-content;
-  max-width: min(78%, 360px);
+  max-width: min(85%, 404px);
   justify-content: flex-end;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* חלק צבע הודעות יוצאות (chat.css) – גוון כחול כהה להודעות יוצאות | HYPER CORE TECH */
@@ -2057,8 +2060,10 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing {
     align-self: flex-end;
     width: fit-content;
-    max-width: min(65%, 360px);
+    max-width: min(85%, 404px);
     justify-content: flex-end;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .chat-panel .chat-message--outgoing .chat-message__content {
