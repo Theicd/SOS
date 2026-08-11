@@ -17,7 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * מאזין Nostr מקורי בתוך שירות הרקע –
- * הודעות (1050) + שיחות נכנסות (25050) + סיגנלי P2P (25055) גם כשהממשק סגור.
+ * הודעות (1050) + שיחות נכנסות (25050) כשהממשק/כרטיסייה סגורים.
+ * P2P (25055) לא כאן – רק WebView כשה-Activity חיה (גם ברקע).
  */
 class SosRelayWatcher(private val appContext: Context) {
 
@@ -93,19 +94,15 @@ class SosRelayWatcher(private val appContext: Context) {
                     .put("kinds", JSONArray().put(CALL_KIND))
                     .put("#p", JSONArray().put(pubkey))
                     .put("since", since)
-                val filterP2p = JSONObject()
-                    .put("kinds", JSONArray().put(P2P_KIND))
-                    .put("#p", JSONArray().put(pubkey))
-                    .put("since", since)
+                // בלי 25055 – חוסך תעבורה ומונע הדלקת Native כשהכרטיס סגור | HYPER CORE TECH
                 val req = JSONArray()
                     .put("REQ")
                     .put("sos-bg-${pubkey.take(8)}")
                     .put(filterYala)
                     .put(filterNet)
                     .put(filterCalls)
-                    .put(filterP2p)
                 webSocket.send(req.toString())
-                Log.i(TAG, "subscribed chat+calls+p2p on $url")
+                Log.i(TAG, "subscribed chat+calls on $url")
                 SosDebugLog.i("relay", "subscribed $url")
             }
 
@@ -177,7 +174,7 @@ class SosRelayWatcher(private val appContext: Context) {
             when (kind) {
                 CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty(), id)
                 CALL_KIND -> handleCallSignal(author, signalType, event)
-                P2P_KIND -> handleP2pSignal(author, signalType, event)
+                // P2P_KIND מתעלמים במכוון – WebView בלבד כש-Activity חיה | HYPER CORE TECH
             }
         } catch (err: Exception) {
             Log.w(TAG, "parse fail: ${err.message}")
@@ -255,15 +252,6 @@ class SosRelayWatcher(private val appContext: Context) {
         }
         lastNotifyAt = System.currentTimeMillis()
         Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
-    }
-
-    /** סיגנל P2P – כרטיסייה סגורה: Native ל-peer (לא warm Activity) | HYPER CORE TECH */
-    private fun handleP2pSignal(author: String, signalType: String, event: JSONObject) {
-        if (MainActivity.isActivityAlive) return
-        if (!SosSessionStore.isP2pStandbyEnabled(appContext)) return
-        Log.i(TAG, "p2p signal $signalType from ${author.take(8)}")
-        SosDebugLog.i("relay", "p2p signal $signalType from=${author.take(8)} → native")
-        SosP2pStandby.onSignal(appContext, author, signalType, event)
     }
 
     fun publish(event: JSONObject) {
@@ -351,7 +339,6 @@ class SosRelayWatcher(private val appContext: Context) {
         private const val TAG = "SosRelayWatcher"
         private const val CHAT_KIND = 1050
         private const val CALL_KIND = 25050
-        private const val P2P_KIND = 25055
         private const val CHAT_TAG = "yalachat"
         private const val NETWORK_TAG = "israel-network"
 

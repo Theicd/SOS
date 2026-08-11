@@ -28,13 +28,17 @@ class SosForegroundService : Service() {
         NotificationHelper.ensureChannels(this)
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
         SosDebugLog.i("fgs", "onCreate")
-        // כמו הגיבוי: FGS = RelayWatcher להתראות; P2P רק on-demand | HYPER CORE TECH
         handler.post { SosRelayWatcher.ensureStarted(this) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NotificationHelper.KEEPALIVE_ID, buildOngoingNotification())
-        SosDebugLog.i("fgs", "onStartCommand activityAlive=${MainActivity.isActivityAlive}")
+        // לוג בקצב נמוך – מונע הצפה כש-MainActivity קוראת start שוב ושוב | HYPER CORE TECH
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastStartLogAt > 30_000L) {
+            lastStartLogAt = now
+            SosDebugLog.i("fgs", "onStartCommand activityAlive=${MainActivity.isActivityAlive}")
+        }
         handler.post { SosRelayWatcher.ensureStarted(this) }
         return START_STICKY
     }
@@ -49,7 +53,6 @@ class SosForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        // לא עוצרים את ה-watcher כאן לפני restart – השירות יחזור עם START_STICKY
         scheduleRestart(applicationContext, delayMs = 1000L)
         super.onDestroy()
     }
@@ -75,7 +78,16 @@ class SosForegroundService : Service() {
     }
 
     companion object {
+        @Volatile
+        private var lastStartLogAt = 0L
+        @Volatile
+        private var lastStartAt = 0L
+
         fun start(context: Context) {
+            val now = SystemClock.elapsedRealtime()
+            // debounce – לא מפעילים startForegroundService עשרות פעמים בשנייה | HYPER CORE TECH
+            if (now - lastStartAt < 2_500L) return
+            lastStartAt = now
             val intent = Intent(context, SosForegroundService::class.java)
             ContextCompat.startForegroundService(context, intent)
         }
@@ -94,6 +106,7 @@ class SosForegroundService : Service() {
                 }
             } catch (_: Exception) {
                 try {
+                    lastStartAt = 0L
                     start(context)
                 } catch (_: Exception) {
                 }
