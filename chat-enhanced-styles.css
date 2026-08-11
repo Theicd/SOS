@@ -920,7 +920,7 @@
   height: 1px;
   background: linear-gradient(90deg, #0a3d6b, #1ee3ff, #0a3d6b);
   box-shadow: 0 0 6px rgba(30, 227, 255, 0.55);
-  animation: chat-lightbox-neon-scan 3.2s linear infinite;
+  animation: chat-lightbox-neon-scan 6.5s linear infinite;
   pointer-events: none;
 }
 
