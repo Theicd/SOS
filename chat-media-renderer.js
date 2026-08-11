@@ -797,9 +797,9 @@
     // אם העמודה עדיין 0 (לפני layout) — נופלים ל־viewport | HYPER CORE TECH
     const raw = colW > 40 ? colW : viewW;
     const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    // מובייל: בועה קומפקטית בסגנון וואטסאפ (~62% ממסך) | HYPER CORE TECH
+    // מובייל: מספיק רוחב לבועה אנכית (~72% ממסך) | HYPER CORE TECH
     if (narrow) {
-      return Math.max(180, Math.min(Math.floor(viewW * 0.62), Math.floor(raw * 0.72) - 4));
+      return Math.max(200, Math.min(Math.floor(viewW * 0.72), Math.floor(raw * 0.82) - 4));
     }
     return Math.max(240, Math.min(380, Math.floor(raw * 0.62) - 16));
   }
@@ -818,10 +818,10 @@
     let maxH;
     if (narrow) {
       maxW = portrait
-        ? Math.min(avail, Math.floor(viewW * 0.58), 240)
+        ? Math.min(avail, Math.floor(viewW * 0.68), 280)
         : Math.min(avail, Math.floor(viewW * (ultraWide ? 0.68 : 0.72)));
       maxH = portrait
-        ? Math.min(Math.round(vh * 0.50), 390)
+        ? Math.min(Math.round(vh * 0.52), 420)
         : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.34)), ultraWide ? 180 : 220);
     } else {
       // מחשב: בועה אנכית גדולה יותר (קרוב לוואטסאפ); מובייל נשאר בענף narrow | HYPER CORE TECH
@@ -832,15 +832,20 @@
     const hardMaxW = Math.max(160, viewW - (narrow ? 40 : 48));
     maxW = Math.min(maxW, avail, hardMaxW);
 
-    // גובה לפי יחס המדיה; אם חורגים מהתקרה — מקטינים גם רוחב (פחות חיתוך cover) | HYPER CORE TECH
+    // גובה לפי יחס המדיה; באנכי שומרים רוחב בועה (cover חותך מעט) — לא מצמצמים לצר | HYPER CORE TECH
     let dispW = maxW;
     let dispH = Math.round(dispW * (h / w));
     if (dispH > maxH) {
       dispH = maxH;
-      dispW = Math.round(dispH * (w / h));
-      if (dispW > maxW) {
+      if (portrait) {
+        // כמו וואטסאפ: רוחב מלא של הבועה, חיתוך אנכי קל | HYPER CORE TECH
         dispW = maxW;
-        dispH = Math.min(maxH, Math.round(dispW * (h / w)));
+      } else {
+        dispW = Math.round(dispH * (w / h));
+        if (dispW > maxW) {
+          dispW = maxW;
+          dispH = Math.min(maxH, Math.round(dispW * (h / w)));
+        }
       }
     }
     // אנכי כמעט־ריבוע: תוספת גובה עדינה בלבד | HYPER CORE TECH
@@ -851,6 +856,12 @@
       const minLandH = Math.min(maxH, Math.round(dispW * 0.52));
       if (dispH < minLandH) dispH = minLandH;
       if (dispH > maxH) dispH = maxH;
+    }
+
+    // רצפת רוחב לאנכי — מונע בועה צרה מדי | HYPER CORE TECH
+    if (portrait) {
+      const minW = narrow ? 220 : 280;
+      if (dispW < minW && maxW >= minW) dispW = Math.min(maxW, minW);
     }
 
     return {

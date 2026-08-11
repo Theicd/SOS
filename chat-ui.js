@@ -666,15 +666,15 @@
     const narrow = raw < 480;
     const avail = Math.max(200, Math.floor(raw * 0.62) - (narrow ? 8 : 24));
     const portrait = h > w;
-    const maxW = Math.min(avail, portrait ? (narrow ? Math.min(avail, 240) : 310) : (narrow ? avail : 380));
+    const maxW = Math.min(avail, portrait ? (narrow ? Math.min(avail, 280) : 310) : (narrow ? avail : 380));
     const maxH = portrait
-      ? Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.5 : 0.58)), narrow ? 390 : 500)
+      ? Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.52 : 0.58)), narrow ? 420 : 500)
       : Math.min(Math.round((window.innerHeight || 640) * (narrow ? 0.45 : 0.35)), narrow ? 340 : 280);
     let dispW = maxW;
     let dispH = dispW * (h / w);
     if (dispH > maxH) {
       dispH = maxH;
-      dispW = dispH * (w / h);
+      if (!portrait) dispW = dispH * (w / h);
     }
     wrap.style.width = `${Math.round(dispW)}px`;
     wrap.style.height = `${Math.round(dispH)}px`;
