@@ -25,6 +25,10 @@ class SosJsBridge(
     @JavascriptInterface
     fun isNativeShell(): Boolean = true
 
+    /** true רק כשהממשק בחזית – ל-JS: התראות / אי־סימון נצפה ברקע | HYPER CORE TECH */
+    @JavascriptInterface
+    fun isHostAlive(): Boolean = MainActivity.isHostAlive
+
     @JavascriptInterface
     fun hasFcm(): Boolean = BuildConfig.HAS_FCM
 

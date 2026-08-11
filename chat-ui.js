@@ -2641,8 +2641,9 @@
 
   function playChatMessageSound() {
     if (Date.now() < chatSoundSuppressedUntil) return;
-    // באפליקציית APK: צליל בממשק רק כשהחלון גלוי; ברקע הצליל מגיע מ-SosRelayWatcher בלבד | HYPER CORE TECH
+    // באפליקציית APK: צליל בממשק רק בחזית; ברקע הצליל מגיע מהתראת Native | HYPER CORE TECH
     if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
+      if (!isNativeHostAlive()) return;
       if (doc.hidden || doc.visibilityState === 'hidden') return;
     }
     ensureChatMessageAudio();
@@ -2652,6 +2653,34 @@
       const p = chatMessageAudio.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch {}
+  }
+
+  /** APK: האם המעטפת בחזית (אמין יותר מ-document.hidden ב-WebView) | HYPER CORE TECH */
+  function isNativeHostAlive() {
+    try {
+      if (window.SosNativeShell && typeof window.SosNativeShell.isHostAlive === 'function') {
+        return !!window.SosNativeShell.isHostAlive();
+      }
+    } catch (_) {}
+    return true;
+  }
+
+  /** האם המשתמש באמת צופה בממשק עכשיו | HYPER CORE TECH */
+  function isUiInForeground() {
+    if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
+      return isNativeHostAlive();
+    }
+    const isHidden = !!doc.hidden || doc.visibilityState === 'hidden';
+    const hasFocus = typeof doc.hasFocus === 'function' ? doc.hasFocus() : true;
+    return !isHidden && hasFocus;
+  }
+
+  /** שיחה פתוחה + ממשק בחזית – רק אז נצפה / בלי התראה | HYPER CORE TECH */
+  function isConversationActivelyViewed(peerPubkey) {
+    const activePeer = state.activeContact ? state.activeContact.toLowerCase() : null;
+    const normalizedPeer = String(peerPubkey || '').toLowerCase();
+    if (!activePeer || !normalizedPeer || activePeer !== normalizedPeer || !state.isOpen) return false;
+    return isUiInForeground();
   }
 
   // חלק צ'אט (chat-ui.js) – בקשת הרשאת התרעות (חסכון בבקשות) | HYPER CORE TECH
@@ -2801,12 +2830,9 @@
         return;
       }
 
-      const isHidden = !!doc.hidden || doc.visibilityState === 'hidden';
-      const hasFocus = typeof doc.hasFocus === 'function' ? doc.hasFocus() : true;
-      const activePeer = state.activeContact ? state.activeContact.toLowerCase() : null;
       const normalizedPeer = peerPubkey.toLowerCase();
-      const isActivePeer = activePeer && activePeer === normalizedPeer && state.isOpen && hasFocus && !isHidden;
-      if (isActivePeer) return;
+      // ברקע (גם עם שיחה פתוחה ב-state) – כן מתריעים; נצפה רק בחזית | HYPER CORE TECH
+      if (isConversationActivelyViewed(normalizedPeer)) return;
       
       // סימון ההודעה כ"הותרעה" כדי שלא תופיע שוב
       if (messageId) markMessageNotified(messageId);
@@ -2826,9 +2852,9 @@
 
       const openUrl = `${window.location.origin}${window.location.pathname}?chat=${normalizedPeer}`;
 
-      // APK: בממשק גלוי – רק צליל מקומי; ברקע – התראת Native (P2P לא עובר ב-Relay) | HYPER CORE TECH
+      // APK: בחזית – צליל מקומי; ברקע – התראת Native (P2P לא עובר ב-Relay) | HYPER CORE TECH
       if (typeof App.isNativeShell === 'function' && App.isNativeShell()) {
-        if (!isHidden) return;
+        if (isNativeHostAlive()) return;
         const notifBody = aggregateNotificationState.totalMessages > 1
           ? buildAggregateNotificationBody()
           : safeSnippet;
@@ -4440,10 +4466,12 @@
       });
     }
 
-    // חלק צ'אט (chat-ui.js) – הבטחת איפוס מונה לא נקראים כשצופים בשיחה בפועל | HYPER CORE TECH
+    // חלק צ'אט (chat-ui.js) – איפוס לא-נקראו + RR רק כשצופים בשיחה בחזית | HYPER CORE TECH
     const activeNormalized = (state.activeContact || '').toLowerCase();
     const normalized = (peerPubkey || '').toLowerCase();
-    if (activeNormalized && normalized && activeNormalized === normalized && typeof App.markChatConversationRead === 'function') {
+    if (activeNormalized && normalized && activeNormalized === normalized
+      && isConversationActivelyViewed(normalized)
+      && typeof App.markChatConversationRead === 'function') {
       App.markChatConversationRead(normalized);
     }
   }
@@ -5101,6 +5129,7 @@
       const isIncoming = message?.direction === 'incoming'
         || (message?.from && typeof App.publicKey === 'string' && message.from.toLowerCase() !== App.publicKey.toLowerCase());
       const isActivePeer = normalizedPeer === (state.activeContact || '').toLowerCase();
+      const isActivelyViewing = isConversationActivelyViewed(normalizedPeer);
       const messageId = message?.id || null;
 
       // חלק מניעת כפילות (chat-ui.js) – עדכון/החלפת temp בלי append נוסף | HYPER CORE TECH
@@ -5137,16 +5166,16 @@
         } else {
           updateMessageStatus(message.id, message.status || 'sent');
         }
-        if (isActivePeer) App.markChatConversationRead(peer);
+        if (isActivelyViewing) App.markChatConversationRead(peer);
         return;
       }
       if (statusUpdate && message?.id) {
         updateMessageStatus(message.id, message.status || 'sent');
-        if (isActivePeer) App.markChatConversationRead(peer);
+        if (isActivelyViewing) App.markChatConversationRead(peer);
         return;
       }
 
-      // התרעה + צליל רק אם זה נכנס ולא בשיחה הפעילה/פוקוס
+      // התרעה + צליל אם לא צופים בשיחה בחזית (גם כשהשיחה פתוחה ב-state ברקע) | HYPER CORE TECH
       // חלק דה-דופליקציה (chat-ui.js) – בודק גם אם ההודעה כבר הותרעה | HYPER CORE TECH
       // חלק סינון הודעות ישנות (chat-ui.js) – התראה רק על הודעות מ-60 שניות אחרונות | HYPER CORE TECH
       const messageCreatedAt = message?.createdAt || message?.created_at || 0;
@@ -5154,7 +5183,7 @@
       const isRecentMessage = messageAgeSec >= 0 && messageAgeSec < 60; // פחות מ-60 שניות
       
       if (isIncoming && !wasMessageNotified(messageId) && isRecentMessage) {
-        if (!isActivePeer || !state.isOpen) {
+        if (!isActivelyViewing) {
           playChatMessageSound();
           const snippetSource = (message?.content && message.content.trim()) ||
             (message?.attachment?.name ? `📎 ${message.attachment.name}` :
@@ -5168,12 +5197,12 @@
       if (isActivePeer) {
         // מדיה יוצאת אחרי P2P — ממירים את בועת ההעלאה במקום בלי רינדור מלא/קפיצה | HYPER CORE TECH
         if (message && settleOutgoingMediaTransfer(message)) {
-          App.markChatConversationRead(peer);
+          if (isActivelyViewing) App.markChatConversationRead(peer);
           return;
         }
         // ZIP/קובץ (שולח+מקבל) — ממירים את בועת ההעברה במקום בלי כרטיס שני | HYPER CORE TECH
         if (message && settleOutgoingFileTransfer(message)) {
-          App.markChatConversationRead(peer);
+          if (isActivelyViewing) App.markChatConversationRead(peer);
           return;
         }
         // הודעות טקסט פשוטות – append בלי רינדור מלא של ההיסטוריה | HYPER CORE TECH
@@ -5182,7 +5211,7 @@
         } else if (message) {
           renderMessages(peer);
         }
-        App.markChatConversationRead(peer);
+        if (isActivelyViewing) App.markChatConversationRead(peer);
       } else {
         renderContacts();
       }

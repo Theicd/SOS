@@ -275,8 +275,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        // לא משנים isHostAlive כאן – רק ב-onStop/onDestroy (שומר התראות כשכרטיסייה סגורה) | HYPER CORE TECH
+        // ברקע מיד – כדי ש-JS/Relay ידעו להתראות ולא לסמן נצפה | HYPER CORE TECH
+        isHostAlive = false
         SosDebugLog.i("life", "onPause")
+        SosDebugLog.snapshotFlags("onPause")
         if (this::webView.isInitialized) {
             try {
                 webView.resumeTimers()
