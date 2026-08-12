@@ -300,12 +300,23 @@
       } catch (err) {
         const reason = err?.message || 'unknown-error';
         console.warn('[CHAT/FILE-UI] P2P send failed, trying fallback', reason);
+        // חלק P2P-only (chat-file-transfer-ui.js) – כש-DC היה מחובר לא יורדים לשרת/inline | HYPER CORE TECH
+        if (dcConnectedNow) {
+          App.notifyChatFileTransferError?.({
+            peer,
+            code: 'p2p-send-failed',
+            message: `שליחה ישירה נכשלה (${reason}). נסה שוב.`,
+          });
+          App.clearChatFileAttachment?.(peer);
+          renderPreview(null);
+          return;
+        }
         App.notifyChatFileTransferError?.({
           peer,
           code: 'p2p-send-failed',
           message: `שליחת הקובץ נכשלה במסלול הישיר (${reason}). מנסה מסלול חלופי...`,
         });
-        // ממשיכים ל-inline fallback אם הקובץ בטווח 256KB
+        // ממשיכים ל-inline fallback אם הקובץ בטווח המותר ורק כשאין P2P
       }
     }
 
