@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.13-armed-pool';
+const VIDEOS_CODE_VERSION = '2.6.14-pool-revert';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -565,161 +565,6 @@ async function processVideoDownloadQueue() {
   isProcessingVideoQueue = false;
 }
 
-// חלק Player Pool (videos.js) – עד 3 נגני קובץ חמושים (נוכחי±1); השאר נשארים בקאש בלי decode | HYPER CORE TECH
-const ARMED_FILE_PLAYER_RADIUS = 1;
-let armedPoolSyncTimer = null;
-
-function isFilePlayerArmed(mediaDiv) {
-  if (!mediaDiv || mediaDiv.dataset.mediaType !== 'file') return false;
-  const videoEl = mediaDiv.querySelector('video');
-  if (!videoEl) return false;
-  const hasSrc = !!(videoEl.currentSrc || videoEl.getAttribute('src') || videoEl.querySelector('source[src]'));
-  return hasSrc && videoEl.readyState >= 2;
-}
-
-function buildFileFallbackLoader(videoEl, url) {
-  return () => {
-    if (!videoEl || !url) return;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    try {
-      if (isIOS) {
-        while (videoEl.firstChild) videoEl.removeChild(videoEl.firstChild);
-        const sourceEl = document.createElement('source');
-        sourceEl.src = url;
-        const lower = String(url).toLowerCase();
-        if (lower.includes('.webm')) sourceEl.type = 'video/webm';
-        else if (lower.includes('.mp4') || lower.includes('.m4v')) sourceEl.type = 'video/mp4';
-        else if (lower.includes('.mov')) sourceEl.type = 'video/quicktime';
-        else sourceEl.type = 'video/mp4';
-        videoEl.appendChild(sourceEl);
-      } else {
-        videoEl.src = url;
-      }
-      videoEl.load();
-    } catch (_) {}
-  };
-}
-
-function prioritizeVideoElInDownloadQueue(videoEl) {
-  if (!videoEl || !videoDownloadQueue.length) return;
-  const idx = videoDownloadQueue.findIndex((item) => item.videoEl === videoEl);
-  if (idx > 0) {
-    const [item] = videoDownloadQueue.splice(idx, 1);
-    videoDownloadQueue.unshift(item);
-  }
-}
-
-function disarmFilePlayer(mediaDiv) {
-  if (!mediaDiv || mediaDiv.dataset.mediaType !== 'file') return;
-  if (bootGate.active && !bootGate.released) return;
-  const card = mediaDiv.closest('.videos-feed__card');
-  if (card && card.dataset.mediaReady === 'pending') return;
-  if (mediaDiv === activeMediaDiv) return;
-  if (mediaDiv.dataset.playerArmed === '0') {
-    const el = mediaDiv.querySelector('video');
-    if (!el || !(el.currentSrc || el.getAttribute('src') || el.querySelector('source[src]'))) return;
-  }
-
-  const videoEl = mediaDiv.querySelector('video');
-  if (!videoEl) return;
-
-  try { captureVideoPosterFromFrame(videoEl); } catch (_) {}
-  try { videoEl.pause(); } catch (_) {}
-  removeVideoElFromDownloadQueue(videoEl);
-  try {
-    videoEl.removeAttribute('src');
-    while (videoEl.firstChild) videoEl.removeChild(videoEl.firstChild);
-    videoEl.load();
-  } catch (_) {}
-  try {
-    videoEl.style.opacity = '0';
-    videoEl.style.visibility = 'hidden';
-    mediaDiv.dataset.mediaPending = '1';
-  } catch (_) {}
-  mediaDiv.dataset.playerArmed = '0';
-}
-
-function ensureFilePlayerArmed(mediaDiv) {
-  if (!mediaDiv || mediaDiv.dataset.mediaType !== 'file') return Promise.resolve(false);
-  const videoEl = mediaDiv.querySelector('video');
-  if (!videoEl) return Promise.resolve(false);
-  if (isFilePlayerArmed(mediaDiv)) {
-    mediaDiv.dataset.playerArmed = '1';
-    return Promise.resolve(true);
-  }
-
-  const url = mediaDiv.dataset.videoUrl || '';
-  if (!url) return Promise.resolve(false);
-  const hash = mediaDiv.dataset.videoHash || '';
-  const mirrors = (mediaDiv.dataset.videoMirrors || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (ok) => {
-      if (settled) return;
-      settled = true;
-      if (ok) {
-        mediaDiv.dataset.playerArmed = '1';
-        try { revealVideoSurface(mediaDiv, videoEl); } catch (_) {}
-      }
-      resolve(!!ok);
-    };
-
-    const onReady = () => finish(true);
-    videoEl.addEventListener('loadeddata', onReady, { once: true });
-    videoEl.addEventListener('canplay', onReady, { once: true });
-    videoEl.addEventListener('error', () => finish(false), { once: true });
-    setTimeout(() => {
-      if (!settled && isFilePlayerArmed(mediaDiv)) finish(true);
-      else if (!settled) finish(isFilePlayerArmed(mediaDiv));
-    }, 8000);
-
-    const key = hash || url;
-    if (key) videoDownloadedOrQueued.delete(key);
-    addToVideoDownloadQueue(
-      videoEl,
-      url,
-      hash,
-      mirrors,
-      buildFileFallbackLoader(videoEl, url)
-    );
-    prioritizeVideoElInDownloadQueue(videoEl);
-    processVideoDownloadQueue().catch(() => {});
-  });
-}
-
-function syncArmedFilePlayerPool(activeCard) {
-  if (!selectors.stream || !activeCard) return;
-  if (bootGate.active && !bootGate.released) return;
-  if (state.feedMode === 'games' || state.feedMode === 'live-tv') return;
-
-  const cards = Array.from(selectors.stream.querySelectorAll('.videos-feed__card'));
-  const idx = cards.indexOf(activeCard);
-  if (idx < 0) return;
-
-  cards.forEach((card, i) => {
-    const mediaDiv = card.querySelector('.videos-feed__media[data-media-type="file"]');
-    if (!mediaDiv) return;
-    if (Math.abs(i - idx) <= ARMED_FILE_PLAYER_RADIUS) {
-      void ensureFilePlayerArmed(mediaDiv);
-    } else if (card.dataset.mediaReady === 'ready') {
-      disarmFilePlayer(mediaDiv);
-    }
-  });
-}
-
-function scheduleArmedFilePlayerPoolSync(activeCard) {
-  if (!activeCard) return;
-  if (armedPoolSyncTimer) clearTimeout(armedPoolSyncTimer);
-  armedPoolSyncTimer = setTimeout(() => {
-    armedPoolSyncTimer = null;
-    syncArmedFilePlayerPool(activeCard);
-  }, 40);
-}
-
 // המתנה לטעינת App והפיד
 function waitForApp() {
   return new Promise((resolve) => {
@@ -1063,41 +908,22 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (mediaType === 'file') {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return;
-    const card = mediaDiv.closest('.videos-feed__card');
-
-    const startFilePlayback = () => {
-      mediaDiv.classList.add('videos-feed__media--ready');
-      // בגלילה תמיד מההתחלה; Pause/Play ידני ממשיך מאותה נקודה | HYPER CORE TECH
-      if (!manual) {
-        resetFeedVideoToStart(videoEl);
-      }
-      videoEl.muted = false;
-      videoEl.play().catch(() => {
-        videoEl.muted = true;
-        videoEl.play().catch(() => {
-          videoEl.pause();
-        });
-      });
-      mediaDiv.dataset.state = 'playing';
-      updatePlayToggleIcon(mediaDiv, true);
-      mediaDiv.classList.remove('is-paused');
-      activeMediaDiv = mediaDiv;
-      if (card) scheduleArmedFilePlayerPoolSync(card);
-    };
-
-    if (isFilePlayerArmed(mediaDiv)) {
-      startFilePlayback();
-    } else {
-      activeMediaDiv = mediaDiv;
-      mediaDiv.dataset.state = 'playing';
-      void ensureFilePlayerArmed(mediaDiv).then((ok) => {
-        if (!ok) return;
-        if (activeMediaDiv !== mediaDiv) return;
-        startFilePlayback();
-      });
-      if (card) scheduleArmedFilePlayerPoolSync(card);
+    mediaDiv.classList.add('videos-feed__media--ready');
+    // בגלילה תמיד מההתחלה; Pause/Play ידני ממשיך מאותה נקודה | HYPER CORE TECH
+    if (!manual) {
+      resetFeedVideoToStart(videoEl);
     }
-    return;
+    
+    // ניסיון להפעיל עם צליל
+    videoEl.muted = false;
+    videoEl.play().catch(() => {
+      // אם autoplay עם צליל נכשל, ננסה עם mute
+      videoEl.muted = true;
+      videoEl.play().catch(() => {
+        // גם עם mute נכשל – להחזיר מצב נייח
+        videoEl.pause();
+      });
+    });
   } else if (mediaType === 'hls-live') {
     playHlsLiveMedia(mediaDiv);
   } else if (mediaType === 'game-embed') {
@@ -1888,7 +1714,6 @@ function mountCard(card, { prepend = false } = {}) {
   observeVideoCard(card);
   // טריגר טעינת המשך חייב להתעדכן אחרי כל mount (אחרת נעצרים באמצע) | HYPER CORE TECH
   updateLoadMoreTrigger();
-  scheduleArmedFilePlayerPoolSync(card);
   if (!state.firstCardRendered) {
     // לא סוגרים LoadNug כאן — רק אחרי ensureBootFeedReady | HYPER CORE TECH
     if (selectors.status) {
@@ -3430,9 +3255,6 @@ function renderVideoCard(video) {
   } else if (video.videoUrl) {
     mediaDiv.dataset.mediaType = 'file';
     mediaDiv.dataset.videoUrl = video.videoUrl;
-    mediaDiv.dataset.videoHash = video.hash || '';
-    mediaDiv.dataset.videoMirrors = Array.isArray(video.mirrors) ? video.mirrors.filter(Boolean).join(',') : '';
-    mediaDiv.dataset.playerArmed = '0';
 
     const videoEl = document.createElement('video');
     videoEl.controls = false;
@@ -3481,7 +3303,6 @@ function renderVideoCard(video) {
     const onLoadedData = () => {
       cleanup();
       settleReady();
-      mediaDiv.dataset.playerArmed = '1';
       // לא חושפים משטח ירוק ב־loadeddata — רק ב־playing / פריים אמיתי | HYPER CORE TECH
       const bootActive = document.body.classList.contains('videos-boot-loading')
         || (bootGate.active && !bootGate.released);
@@ -5225,9 +5046,6 @@ function setupIntersectionObserver() {
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           playMedia(mediaDiv, { manual: false });
           prefetchNeighborLiveChannels(card);
-          if (mediaDiv.dataset.mediaType === 'file') {
-            scheduleArmedFilePlayerPoolSync(card);
-          }
           // גלילה לפוסט אחר — סגירת פאנל תגובות של הפוסט הקודם | HYPER CORE TECH
           try {
             const openId = getOpenCommentsEventId();
@@ -5237,10 +5055,7 @@ function setupIntersectionObserver() {
             }
           } catch (_) {}
         } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
-          // מתקרבים לכרטיס — חימום קובץ/HLS שקט ברקע | HYPER CORE TECH
-          if (mediaDiv.dataset.mediaType === 'file') {
-            void ensureFilePlayerArmed(mediaDiv);
-          }
+          // מתקרבים לכרטיס — חימום HLS שקט ברקע | HYPER CORE TECH
           const App = window.NostrApp || {};
           if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
             if (typeof App.prepareLiveMedia === 'function') {
@@ -5254,10 +5069,6 @@ function setupIntersectionObserver() {
           }
         } else {
           pauseMedia(mediaDiv, { resetThumb: false });
-          if (mediaDiv.dataset.mediaType === 'file' && activeMediaDiv) {
-            const activeCard = activeMediaDiv.closest('.videos-feed__card');
-            if (activeCard) scheduleArmedFilePlayerPoolSync(activeCard);
-          }
         }
       });
     },

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v394'; // bump - armed file player pool ±1
+  const CACHE_NAME = 'sos-cache-v395'; // bump - revert broken armed player pool
   const PRECACHE_URLS = [
     './',
     './videos.html',
