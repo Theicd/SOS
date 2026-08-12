@@ -1678,6 +1678,23 @@ body.chat-lightbox-open {
   border-radius: 8px;
 }
 
+/* עם כיתוב: המסגרת היא הבועה עצמה — בלי מסגרת כפולה על התמונה | HYPER CORE TECH */
+.chat-message--outgoing .chat-message__content--media-caption .chat-message__image-container,
+.chat-message--outgoing .chat-message__content--media-caption .chat-message__video-container {
+  border: none;
+  box-shadow: none;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.chat-message--incoming .chat-message__content--media-caption .chat-message__image-container,
+.chat-message--incoming .chat-message__content--media-caption .chat-message__video-container {
+  border: none;
+  box-shadow: none;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
 /* מחשב בלבד: מקום ל־⋮ / מניעת חיתוך צד שולח — לא חל על מובייל | HYPER CORE TECH */
 @media (min-width: 769px) {
   .chat-message--outgoing:has(.chat-message__image-container),

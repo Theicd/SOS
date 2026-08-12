@@ -1395,6 +1395,47 @@ body.chat-overlay-open::before {
   padding-inline: 4px;
 }
 
+/* מדיה + כיתוב: מסגרת דקה כמו תמונה בלבד, כיתוב צמוד מתחת בלי להרחיב צדדים | HYPER CORE TECH */
+.chat-message__content--media-caption {
+  padding: 3px 3px 4px !important;
+  gap: 0 !important;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.chat-message__content--media-caption .chat-message__image-container,
+.chat-message__content--media-caption .chat-message__video-container {
+  margin: 0;
+  max-width: 100%;
+}
+
+.chat-message__content--media-caption .chat-message__text {
+  display: block;
+  margin: 0;
+  padding: 5px 6px 0;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: inherit;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.chat-message__content--media-caption .chat-message__meta-row {
+  float: none !important;
+  display: flex !important;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  margin: 0 !important;
+  margin-inline-start: 0 !important;
+  padding: 1px 4px 1px;
+  box-sizing: border-box;
+}
+
 /* כיתוב מתחת למדיה באותה בועה (כמו וואטסאפ) | HYPER CORE TECH */
 .chat-message__content--has-attachment .chat-message__text {
   display: block;
@@ -1402,6 +1443,11 @@ body.chat-overlay-open::before {
   font-size: 0.92rem;
   line-height: 1.35;
   color: inherit;
+}
+
+.chat-message__content--media-caption.chat-message__content--has-attachment .chat-message__text {
+  padding: 5px 6px 0;
+  line-height: 1.3;
 }
 
 /* חלק צ'אט (chat.css) – מודל תצוגה מוגדלת לתמונות מצורפות בסגנון גלריה */
@@ -2241,6 +2287,20 @@ body.chat-media-modal-open {
 
   .chat-panel .chat-message--media.chat-message--no-caption .chat-message__content {
     padding: 3px;
+  }
+
+  .chat-panel .chat-message__content--media-caption {
+    padding: 3px 3px 4px !important;
+    gap: 0 !important;
+  }
+
+  .chat-panel .chat-message__content--media-caption .chat-message__text {
+    padding: 5px 6px 0;
+  }
+
+  .chat-panel .chat-message__content--media-caption .chat-message__meta-row {
+    padding: 1px 4px 1px;
+    margin-top: 0;
   }
 
   /* === הודעת אודיו === */

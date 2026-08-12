@@ -4461,6 +4461,12 @@
         shouldCompactMeta ? ' chat-message__content--compact-meta' : ''
       }${youtubeOnly ? ' chat-message__content--youtube-only' : ''}${
         linkPreviewOnly ? ' chat-message__content--link-preview-only' : ''
+      }${
+        textHtml && (
+          isImageAttachment ||
+          isVideoAttachment ||
+          (isMediaUrl && /chat-message__image-container|chat-message__video-container/.test(`${attachmentHtml || ''}${mediaUrlHtml || ''}`))
+        ) ? ' chat-message__content--media-caption' : ''
       }`;
       
       // חלק סטטוס הודעות ואטסאפ (chat-ui.js) – וי כפול כמו ואטסאפ | HYPER CORE TECH
