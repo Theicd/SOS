@@ -60,6 +60,13 @@
     if (attachment.isTorrent) {
       serialized.isTorrent = true;
     }
+    // חלק מסלול קול (chat-file-transfer-service.js) – voiceVia לתצוגת פס צבע בנגן (relay/blossom/p2p) | HYPER CORE TECH
+    if (attachment.voiceVia === 'relay' || attachment.voiceVia === 'blossom' || attachment.voiceVia === 'p2p') {
+      serialized.voiceVia = attachment.voiceVia;
+    }
+    if (attachment.isVoice) {
+      serialized.isVoice = true;
+    }
     return serialized;
   }
 

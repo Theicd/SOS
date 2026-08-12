@@ -324,7 +324,12 @@
     if (!forceRelay && App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey)) {
       const p2pId = 'p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       const p2pTs = Math.floor(Date.now() / 1000);
-      const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
+      // חלק מסלול קול (chat-service.js) – סימון voiceVia=p2p כשהמעטפת עוברת ב-DataChannel | HYPER CORE TECH
+      let p2pAttachment = serialization.attachment || null;
+      if (p2pAttachment && (p2pAttachment.isVoice || String(p2pAttachment.type || '').startsWith('audio/') || p2pAttachment.dataUrl || p2pAttachment.url)) {
+        p2pAttachment = { ...p2pAttachment, voiceVia: 'p2p' };
+      }
+      const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: p2pAttachment, createdAt: p2pTs };
       const sent = App.dataChannel.send(peerPubkey, p2pMsg);
       if (sent) {
         const p2pOutgoing = { id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true };

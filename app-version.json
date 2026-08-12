@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.12-pwa61",
+  "version": "2026.08.12-pwa62",
   "note": "Bump this version on every GitHub deploy so clients show the update card"
 }

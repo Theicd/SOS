@@ -103,7 +103,7 @@
       const dataUrl = await new Promise((res,rej)=>{
         const r = new FileReader(); r.onload = ()=>res(String(r.result||'')); r.onerror = rej; r.readAsDataURL(blob);
       });
-      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
+      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration, voiceVia: 'relay' };
     }
     // חלק E2EE קול (chat-voice-service.js) – מעל סף inline: העלאה לשרת מדיה + התרעה למשתמש | HYPER CORE TECH
     try{
@@ -117,7 +117,7 @@
       if(typeof App.showToast === 'function'){
         App.showToast('ההודעה הקולית נשלחת', 'success');
       }
-      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration };
+      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration, voiceVia: 'blossom' };
     }catch(err){
       console.error('[VOICE] Blossom upload failed:', err);
       // לא מחזירים inline גדול שמפר את מגבלת ההצפנה בריליי | HYPER CORE TECH

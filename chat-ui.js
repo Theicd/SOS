@@ -4211,7 +4211,7 @@
           // חלק דיבאג מדיה (chat-ui.js) – רינדור אודיו מצורף | HYPER CORE TECH
           mediaDebugLog('attachment-render', { messageId: message.id, kind: 'audio', name: a?.name || '', mime: a?.type || '', src });
           attachmentHtml = typeof App.createEnhancedAudioPlayer === 'function'
-            ? App.createEnhancedAudioPlayer(a)
+            ? App.createEnhancedAudioPlayer(a, message)
             : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${src}" type="${a.type || 'audio/webm'}"></audio></div>`;
         } else if (isImageAttachment) {
           // חלק תמונות (chat-ui.js) – הצגת תמונה inline | HYPER CORE TECH

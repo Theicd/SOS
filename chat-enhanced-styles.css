@@ -1153,7 +1153,25 @@ body.chat-lightbox-open {
   min-width: 274px; /* הוקטן ב-10% (מ-304px) */
   max-width: 396px; /* הוקטן ב-10% (מ-440px) */
   border-radius: 16px;
+  position: relative;
 }
+
+/* חלק מסלול קול (chat-enhanced-styles.css) – פס תחתון: כחול=ריליי, אדום=Blossom, ירוק=P2P | HYPER CORE TECH */
+.chat-audio-whatsapp--via-relay::after,
+.chat-audio-whatsapp--via-blossom::after,
+.chat-audio-whatsapp--via-p2p::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.chat-audio-whatsapp--via-relay::after { background: #2196F3; }
+.chat-audio-whatsapp--via-blossom::after { background: #E53935; }
+.chat-audio-whatsapp--via-p2p::after { background: #25D366; }
 
 /* חלק רקע נגן יוצא (chat-enhanced-styles.css) – רקע כחול כהה לנגן בהודעות יוצאות | HYPER CORE TECH */
 .chat-message--outgoing .chat-audio-whatsapp {
