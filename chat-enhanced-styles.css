@@ -1156,7 +1156,7 @@ body.chat-lightbox-open {
   position: relative;
 }
 
-/* חלק מסלול קול (chat-enhanced-styles.css) – פס תחתון דק על כל רוחב הנגן: כחול=ריליי, אדום=Blossom, ירוק=P2P | HYPER CORE TECH */
+/* חלק מסלול קול (chat-enhanced-styles.css) – פס דק (0.5px) על כל הרוחב + אנימציית תנועה | HYPER CORE TECH */
 .chat-audio-whatsapp--via-relay::after,
 .chat-audio-whatsapp--via-blossom::after,
 .chat-audio-whatsapp--via-p2p::after {
@@ -1165,13 +1165,57 @@ body.chat-lightbox-open {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 1px;
+  height: 0.5px;
   border-radius: 0 0 16px 16px;
   pointer-events: none;
+  background-size: 200% 100%;
+  animation: chat-audio-via-flow 2.8s linear infinite;
 }
-.chat-audio-whatsapp--via-relay::after { background: #2196F3; }
-.chat-audio-whatsapp--via-blossom::after { background: #E53935; }
-.chat-audio-whatsapp--via-p2p::after { background: #25D366; }
+.chat-audio-whatsapp--via-relay::after {
+  background-image: linear-gradient(
+    90deg,
+    #1565C0 0%,
+    #1565C0 35%,
+    #90CAF9 50%,
+    #1565C0 65%,
+    #1565C0 100%
+  );
+}
+.chat-audio-whatsapp--via-blossom::after {
+  background-image: linear-gradient(
+    90deg,
+    #C62828 0%,
+    #C62828 35%,
+    #EF9A9A 50%,
+    #C62828 65%,
+    #C62828 100%
+  );
+}
+.chat-audio-whatsapp--via-p2p::after {
+  background-image: linear-gradient(
+    90deg,
+    #1B8A45 0%,
+    #1B8A45 35%,
+    #A5D6A7 50%,
+    #1B8A45 65%,
+    #1B8A45 100%
+  );
+}
+@keyframes chat-audio-via-flow {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-audio-whatsapp--via-relay::after,
+  .chat-audio-whatsapp--via-blossom::after,
+  .chat-audio-whatsapp--via-p2p::after {
+    animation: none;
+    background-image: none;
+  }
+  .chat-audio-whatsapp--via-relay::after { background: #2196F3; }
+  .chat-audio-whatsapp--via-blossom::after { background: #E53935; }
+  .chat-audio-whatsapp--via-p2p::after { background: #25D366; }
+}
 
 /* חלק רקע נגן יוצא (chat-enhanced-styles.css) – רקע כחול כהה לנגן בהודעות יוצאות | HYPER CORE TECH */
 .chat-message--outgoing .chat-audio-whatsapp {
