@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v376'; // bump - hide desktop torrent cloud composer button
+  const CACHE_NAME = 'sos-cache-v377'; // bump - chat list media preview labels
   const PRECACHE_URLS = [
     './',
     './videos.html',

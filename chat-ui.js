@@ -2813,50 +2813,57 @@
     const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
     const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
     const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-    
+    const DOC_EXTS = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf)(\?|$)/i;
+    const ARCHIVE_EXTS = /\.(zip|rar|7z|tar|gz|tgz|bz2|xz)(\?|$)/i;
+
     const content = typeof message === 'string' ? message : (message?.content || '');
     const attachment = typeof message === 'object' ? message?.attachment : null;
-    
+
     // בדיקת attachment
     if (attachment) {
       const mime = String(attachment.type || '').toLowerCase();
       const name = String(attachment.name || '').toLowerCase();
       const url = String(attachment.url || attachment.dataUrl || '').toLowerCase();
-      
+
       // הודעה קולית
-      if (mime.startsWith('audio/') || AUDIO_EXTS.test(name) || AUDIO_EXTS.test(url) || 
+      if (mime.startsWith('audio/') || AUDIO_EXTS.test(name) || AUDIO_EXTS.test(url) ||
           name.includes('voice') || url.includes('voice')) {
         const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
-        const durationText = dur !== null 
+        const durationText = dur !== null
           ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})`
           : '';
         return `🎤 הודעה קולית${durationText}`;
       }
       // וידאו
       if (mime.startsWith('video/') || VIDEO_EXTS.test(name) || VIDEO_EXTS.test(url)) {
-        return content ? `📹 ${content}` : '📹 וידאו';
+        return '📹 וידאו';
       }
       // תמונה
       if (mime.startsWith('image/') || IMAGE_EXTS.test(name) || IMAGE_EXTS.test(url)) {
-        return content ? `📷 ${content}` : '📷 תמונה';
+        return '📷 תמונה';
       }
-      // קובץ רגיל
-      return `📎 ${attachment.name || 'קובץ מצורף'}`;
+      if (ARCHIVE_EXTS.test(name) || mime.includes('zip') || mime.includes('rar') || mime.includes('compressed')) {
+        return '🗜️ קובץ מכווץ';
+      }
+      if (DOC_EXTS.test(name) || mime.includes('pdf') || mime.includes('officedocument') || mime.includes('msword')) {
+        return '📄 מסמך';
+      }
+      return '📎 קובץ';
     }
-    
+
     // בדיקת URL בתוכן
     if (content) {
       const urlMatch = content.match(/(https?:\/\/[^\s]+)/i);
       if (urlMatch) {
         const url = urlMatch[0];
-        const remainingText = content.replace(url, '').trim();
-        
         if (AUDIO_EXTS.test(url)) return '🎤 הודעה קולית';
-        if (VIDEO_EXTS.test(url)) return remainingText ? `📹 ${remainingText}` : '📹 וידאו';
-        if (IMAGE_EXTS.test(url)) return remainingText ? `📷 ${remainingText}` : '📷 תמונה';
+        if (VIDEO_EXTS.test(url)) return '📹 וידאו';
+        if (IMAGE_EXTS.test(url)) return '📷 תמונה';
+        if (ARCHIVE_EXTS.test(url)) return '🗜️ קובץ מכווץ';
+        if (DOC_EXTS.test(url)) return '📄 מסמך';
       }
     }
-    
+
     return content || 'הודעה חדשה';
   }
 
@@ -3086,84 +3093,127 @@
     
     // חלק זיהוי מדיה (chat-ui.js) – זיהוי סוגי מדיה לתצוגה בסגנון וואטסאפ | HYPER CORE TECH
     const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
-    const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
+    const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v|webm)(\?|$)/i;
     const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-    
+    const DOC_EXTS = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf|odt|ods|odp)(\?|$)/i;
+    const ARCHIVE_EXTS = /\.(zip|rar|7z|tar|gz|tgz|bz2|xz)(\?|$)/i;
+
+    function looksLikeFileOnlyCaption(content, fileName) {
+      const c = String(content || '').trim();
+      if (!c) return true;
+      const n = String(fileName || '').trim();
+      const bare = c.replace(/^📎\s*/u, '').trim();
+      if (n && (c === n || bare === n || c === `📎 ${n}`)) return true;
+      if (/^📎\s+\S+$/u.test(c)) return true;
+      if (/^IMG[-_]/i.test(bare) || /^VID[-_]/i.test(bare)) return true;
+      return false;
+    }
+
     // חלק זיהוי מדיה משופר (chat-ui.js) – תומך ב-Blossom URLs שלא מכילים סיומת | HYPER CORE TECH
     function detectMediaType(mime, name, url, attachment) {
       mime = String(mime || '').toLowerCase();
       name = String(name || '').toLowerCase();
       url = String(url || '').toLowerCase();
-      
-      // אודיו/הודעה קולית - עדיפות: MIME > שם > duration > URL
+
       const hasDuration = attachment && typeof attachment.duration === 'number' && attachment.duration > 0;
-      if (mime.startsWith('audio/') || AUDIO_EXTS.test(name) || name.includes('voice') || hasDuration || AUDIO_EXTS.test(url)) {
+      const isVoice = name.includes('voice') || name.includes('ptt');
+      // הודעה קולית לפני וידאו (webm קולי נפוץ בצ'אט) | HYPER CORE TECH
+      if (
+        mime.startsWith('audio/') ||
+        isVoice ||
+        hasDuration ||
+        /\.(mp3|m4a|ogg|wav|aac)(\?|$)/i.test(name) ||
+        /\.(mp3|m4a|ogg|wav|aac)(\?|$)/i.test(url) ||
+        ((name.endsWith('.webm') || /\.webm(\?|$)/i.test(url)) && !mime.startsWith('video/'))
+      ) {
         return 'audio';
       }
-      // וידאו
       if (mime.startsWith('video/') || VIDEO_EXTS.test(name) || VIDEO_EXTS.test(url)) {
         return 'video';
       }
-      // תמונה
       if (mime.startsWith('image/') || IMAGE_EXTS.test(name) || IMAGE_EXTS.test(url)) {
         return 'image';
       }
+      if (
+        mime.includes('zip') ||
+        mime.includes('rar') ||
+        mime.includes('compressed') ||
+        mime.includes('x-7z') ||
+        mime.includes('x-tar') ||
+        mime.includes('gzip') ||
+        ARCHIVE_EXTS.test(name) ||
+        ARCHIVE_EXTS.test(url)
+      ) {
+        return 'archive';
+      }
+      if (
+        mime.includes('pdf') ||
+        mime.includes('msword') ||
+        mime.includes('officedocument') ||
+        mime.includes('spreadsheet') ||
+        mime.includes('presentation') ||
+        mime === 'text/plain' ||
+        mime === 'text/csv' ||
+        DOC_EXTS.test(name) ||
+        DOC_EXTS.test(url)
+      ) {
+        return 'document';
+      }
       return 'file';
     }
-    
-    // פונקציית עזר לזיהוי מדיה מ-URL בטקסט
+
     function detectMediaFromUrl(url) {
       if (AUDIO_EXTS.test(url)) return 'audio';
       if (VIDEO_EXTS.test(url)) return 'video';
       if (IMAGE_EXTS.test(url)) return 'image';
+      if (ARCHIVE_EXTS.test(url)) return 'archive';
+      if (DOC_EXTS.test(url)) return 'document';
       return null;
     }
-    
+
+    function formatChatListMediaPreview(mediaType, content, attachment) {
+      const fileOnly = looksLikeFileOnlyCaption(content, attachment?.name);
+      if (mediaType === 'audio') {
+        const dur = typeof attachment?.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
+        const durationText = dur !== null
+          ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})`
+          : '';
+        return `🎤 הודעה קולית${durationText}`;
+      }
+      if (mediaType === 'video') {
+        return fileOnly ? '📹 וידאו' : `📹 ${content}`;
+      }
+      if (mediaType === 'image') {
+        return fileOnly ? '📷 תמונה' : `📷 ${content}`;
+      }
+      if (mediaType === 'archive') return '🗜️ קובץ מכווץ';
+      if (mediaType === 'document') return '📄 מסמך';
+      return '📎 קובץ';
+    }
+
     let text = '';
-    let mediaIcon = '';
     const content = typeof last.content === 'string' ? last.content.trim() : '';
-    
+
     // בדיקת attachment
     if (last.attachment) {
       const a = last.attachment;
       const mediaType = detectMediaType(a.type, a.name, a.url || a.dataUrl, a);
-      
-      if (mediaType === 'audio') {
-        // הודעה קולית: 🎤 הודעה קולית (0:15)
-        const dur = typeof a.duration === 'number' && a.duration > 0 ? a.duration : null;
-        const durationText = dur !== null 
-          ? ` (${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')})`
-          : '';
-        text = `🎤 הודעה קולית${durationText}`;
-      } else if (mediaType === 'video') {
-        // וידאו: 📹 וידאו או 📹 + טקסט
-        mediaIcon = '📹 ';
-        text = content ? mediaIcon + content : mediaIcon + 'וידאו';
-      } else if (mediaType === 'image') {
-        // תמונה: 📷 תמונה או 📷 + טקסט
-        mediaIcon = '📷 ';
-        text = content ? mediaIcon + content : mediaIcon + 'תמונה';
-      } else {
-        // קובץ רגיל: 📎 + שם קובץ
-        const fileName = typeof a.name === 'string' && a.name ? a.name : 'קובץ מצורף';
-        text = '📎 ' + fileName;
-      }
+      text = formatChatListMediaPreview(mediaType, content, a);
     } else if (content) {
       // בדיקה אם יש URL של מדיה בטקסט
       const urlMatch = content.match(/(https?:\/\/[^\s]+)/i);
       if (urlMatch) {
         const mediaType = detectMediaFromUrl(urlMatch[0]);
         const remainingText = content.replace(urlMatch[0], '').trim();
-        
-        if (mediaType === 'audio') {
-          text = '🎤 הודעה קולית';
-        } else if (mediaType === 'video') {
-          text = remainingText ? '📹 ' + remainingText : '📹 וידאו';
-        } else if (mediaType === 'image') {
-          text = remainingText ? '📷 ' + remainingText : '📷 תמונה';
+        if (mediaType) {
+          text = formatChatListMediaPreview(mediaType, remainingText, { name: '' });
         } else {
           text = content;
         }
+      } else if (/^📎\s+\S+/u.test(content)) {
+        const bare = content.replace(/^📎\s*/u, '').trim();
+        const mediaType = detectMediaType('', bare, bare, null);
+        text = formatChatListMediaPreview(mediaType, '', { name: bare });
       } else {
         text = content;
       }

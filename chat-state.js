@@ -645,20 +645,55 @@
         key,
       });
     }
-    // חלק תיקון קול (chat-state.js) – preview מתאים להודעות קוליות: 🎤 במקום 📎 | HYPER CORE TECH
+    // חלק תיקון מדיה (chat-state.js) – preview בסגנון וואטסאפ: תמונה/וידאו/מסמך במקום שם קובץ | HYPER CORE TECH
     let attachmentPreview = '';
     if (message?.attachment) {
-      const attMime = (message.attachment.type || '').toLowerCase();
-      const attName = (message.attachment.name || '').toLowerCase();
-      const isAudioAtt = attMime.startsWith('audio/') || attName.includes('voice') || attName.endsWith('.webm');
+      const att = message.attachment;
+      const attMime = (att.type || '').toLowerCase();
+      const attName = (att.name || '').toLowerCase();
+      const attUrl = String(att.url || att.dataUrl || '').toLowerCase();
+      const isAudioAtt =
+        attMime.startsWith('audio/') ||
+        attName.includes('voice') ||
+        attName.includes('ptt') ||
+        ((attName.endsWith('.webm') || attUrl.includes('.webm')) && !attMime.startsWith('video/')) ||
+        (typeof att.duration === 'number' && att.duration > 0);
+      const isVideoAtt = attMime.startsWith('video/') || /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i.test(attName) || /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i.test(attUrl);
+      const isImageAtt = attMime.startsWith('image/') || /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i.test(attName) || /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i.test(attUrl);
+      const isArchiveAtt =
+        /\.(zip|rar|7z|tar|gz|tgz|bz2|xz)(\?|$)/i.test(attName) ||
+        attMime.includes('zip') ||
+        attMime.includes('rar') ||
+        attMime.includes('compressed') ||
+        attMime.includes('x-7z');
+      const isDocAtt =
+        /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf)(\?|$)/i.test(attName) ||
+        attMime.includes('pdf') ||
+        attMime.includes('msword') ||
+        attMime.includes('officedocument');
+
       if (isAudioAtt) {
-        const d = typeof message.attachment.duration === 'number' && message.attachment.duration > 0 ? message.attachment.duration : 0;
+        const d = typeof att.duration === 'number' && att.duration > 0 ? att.duration : 0;
         attachmentPreview = d > 0 ? `🎤 הודעה קולית (${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')})` : '🎤 הודעה קולית';
-      } else if (message.attachment.name) {
-        attachmentPreview = `📎 ${message.attachment.name}`;
+      } else if (isVideoAtt) {
+        attachmentPreview = '📹 וידאו';
+      } else if (isImageAtt) {
+        attachmentPreview = '📷 תמונה';
+      } else if (isArchiveAtt) {
+        attachmentPreview = '🗜️ קובץ מכווץ';
+      } else if (isDocAtt) {
+        attachmentPreview = '📄 מסמך';
+      } else {
+        attachmentPreview = '📎 קובץ';
       }
     }
-    const messagePreview = content || attachmentPreview;
+    const rawContent = typeof content === 'string' ? content.trim() : '';
+    const fileOnlyCaption =
+      !rawContent ||
+      /^📎\s+\S+$/u.test(rawContent) ||
+      (message?.attachment?.name &&
+        (rawContent === message.attachment.name || rawContent === `📎 ${message.attachment.name}`));
+    const messagePreview = (!fileOnlyCaption && rawContent) ? rawContent : (attachmentPreview || rawContent);
     updateContactMeta(entry.peer, {
       lastMessage: messagePreview,
       timestamp: createdAt,
@@ -778,8 +813,33 @@
     markDeletedMessageAliases(removedId, removedFileId);
     markDeletedMessageAliases(messageId, removedFileId);
     const lastMessage = entry.messages[entry.messages.length - 1];
-    const attachmentPreview = lastMessage?.attachment?.name ? `📎 ${lastMessage.attachment.name}` : '';
-    const messagePreview = (lastMessage?.content || '') || attachmentPreview;
+    let attachmentPreview = '';
+    if (lastMessage?.attachment) {
+      const att = lastMessage.attachment;
+      const attMime = (att.type || '').toLowerCase();
+      const attName = (att.name || '').toLowerCase();
+      const attUrl = String(att.url || att.dataUrl || '').toLowerCase();
+      if (attMime.startsWith('audio/') || attName.includes('voice') || ((attName.endsWith('.webm') || attUrl.includes('.webm')) && !attMime.startsWith('video/'))) {
+        attachmentPreview = '🎤 הודעה קולית';
+      } else if (attMime.startsWith('video/') || /\.(mp4|mov|mkv|m4v)(\?|$)/i.test(attName)) {
+        attachmentPreview = '📹 וידאו';
+      } else if (attMime.startsWith('image/') || /\.(jpe?g|png|gif|webp)(\?|$)/i.test(attName)) {
+        attachmentPreview = '📷 תמונה';
+      } else if (/\.(zip|rar|7z)(\?|$)/i.test(attName) || attMime.includes('zip')) {
+        attachmentPreview = '🗜️ קובץ מכווץ';
+      } else if (/\.(pdf|docx?|xlsx?|pptx?)(\?|$)/i.test(attName) || attMime.includes('pdf')) {
+        attachmentPreview = '📄 מסמך';
+      } else if (att.name) {
+        attachmentPreview = '📎 קובץ';
+      }
+    }
+    const lastContent = typeof lastMessage?.content === 'string' ? lastMessage.content.trim() : '';
+    const fileOnly =
+      !lastContent ||
+      /^📎\s+\S+$/u.test(lastContent) ||
+      (lastMessage?.attachment?.name &&
+        (lastContent === lastMessage.attachment.name || lastContent === `📎 ${lastMessage.attachment.name}`));
+    const messagePreview = (!fileOnly && lastContent) ? lastContent : (attachmentPreview || lastContent);
     // חלק צ'אט (chat-state.js) – אחרי מחיקה נעדכן lastTimestamp גם אם ירד כדי שהשעה/מיון יהיו נכונים | HYPER CORE TECH
     updateContactMeta(normalizedPeer, {
       lastMessage: messagePreview,
