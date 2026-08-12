@@ -4520,11 +4520,11 @@
         ${avatarHtml}
         ${isOutgoing ? sideActionsHtml : ''}
         <div class="${contentClassName}" data-chat-message="${message.id}">
-          ${textHtml}
           ${attachmentHtml}
           ${youtubeHtml}
           ${linkPreviewHtml}
           ${mediaUrlHtml}
+          ${textHtml}
           ${metaRowHtml}
         </div>
         ${!isOutgoing ? sideActionsHtml : ''}

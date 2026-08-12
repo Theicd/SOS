@@ -1395,6 +1395,15 @@ body.chat-overlay-open::before {
   padding-inline: 4px;
 }
 
+/* כיתוב מתחת למדיה באותה בועה (כמו וואטסאפ) | HYPER CORE TECH */
+.chat-message__content--has-attachment .chat-message__text {
+  display: block;
+  padding: 6px 8px 2px;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: inherit;
+}
+
 /* חלק צ'אט (chat.css) – מודל תצוגה מוגדלת לתמונות מצורפות בסגנון גלריה */
 .chat-media-modal {
   position: fixed;

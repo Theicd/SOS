@@ -133,7 +133,7 @@
   font-size: 0.86rem;
   line-height: 1.35;
   text-align: center;
-  cursor: pointer;
+  pointer-events: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 

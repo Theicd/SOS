@@ -3,9 +3,9 @@
   const App = window.NostrApp || (window.NostrApp = {});
   const doc = window.document;
 
-  const HINT_KEY = 'sos_chat_send_preview_hint_v1';
   const FILE_BTN_ID = 'chatComposerFileButton';
   const TRASH_BTN_ID = 'chatComposerTrashButton';
+  const HINT_MS = 5000;
 
   let previewEl = null;
   let objectUrl = null;
@@ -232,16 +232,13 @@
     }
   }
 
-  function showHintOnce() {
-    let seen = false;
-    try { seen = window.localStorage.getItem(HINT_KEY) === '1'; } catch (_) {}
-    if (seen) return;
-    try { window.localStorage.setItem(HINT_KEY, '1'); } catch (_) {}
+  function showHint() {
     const hint = $('chatSendPreviewHint');
     if (!hint) return;
+    hideHint();
     hint.hidden = false;
     hint.classList.add('is-visible');
-    hintTimer = window.setTimeout(hideHint, 4500);
+    hintTimer = window.setTimeout(hideHint, HINT_MS);
   }
 
   function closePreview() {
@@ -289,7 +286,7 @@
     }
     forceSendIcon();
     setTrashMode();
-    showHintOnce();
+    showHint();
     bindOnce();
   }
 
@@ -306,25 +303,23 @@
     if (!file) return;
     const input = messageInput();
     const caption = (input && input.value || '').trim();
+    // כיתוב נשאר בטיוטה עד שליחת הקובץ — הודעה אחת (מדיה+טקסט), בלי שליחה כפולה | HYPER CORE TECH
+    if (input) input.value = caption;
     closePreview();
+    const clearDraft = function () {
+      if (!input) return;
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
     if (typeof App.sendChatSelectedFile === 'function') {
-      Promise.resolve(App.sendChatSelectedFile(file)).catch(function (err) {
-        console.error('[CHAT-SEND-PREVIEW] send failed', err);
-      });
+      Promise.resolve(App.sendChatSelectedFile(file))
+        .catch(function (err) {
+          console.error('[CHAT-SEND-PREVIEW] send failed', err);
+        })
+        .finally(clearDraft);
     } else {
       console.error('[CHAT-SEND-PREVIEW] sendChatSelectedFile missing');
-    }
-    if (caption && input) {
-      input.value = caption;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      const form = composerForm();
-      if (form && typeof form.requestSubmit === 'function') {
-        setTimeout(function () { form.requestSubmit(); }, 40);
-      } else if (form) {
-        setTimeout(function () {
-          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        }, 40);
-      }
+      clearDraft();
     }
   }
 
@@ -365,14 +360,6 @@
     closePreview();
   }
 
-  function onHintClick(event) {
-    if (!isOpen()) return;
-    const hint = event.target && event.target.closest ? event.target.closest('#chatSendPreviewHint') : null;
-    if (!hint) return;
-    event.preventDefault();
-    hideHint();
-  }
-
   function onBackClick(event) {
     if (!isOpen()) return;
     event.preventDefault();
@@ -407,7 +394,6 @@
     const actionsBack = $('chatConversationActionsBack');
     if (actionsBack) actionsBack.addEventListener('click', onBackClick, true);
     doc.addEventListener('click', onAttachClick, true);
-    doc.addEventListener('click', onHintClick, true);
     doc.addEventListener('keydown', onKeydown);
   }
 

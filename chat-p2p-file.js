@@ -286,6 +286,14 @@
     }
     
     // Send metadata first via encrypted relay message
+    const pendingCaption = (() => {
+      try {
+        const att = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(peerKey) : null;
+        return String(att?.caption || '').trim();
+      } catch (_) {
+        return '';
+      }
+    })();
     const metadata = {
       type: 'file-offer',
       fileId,
@@ -295,6 +303,7 @@
       keyStr,
       totalChunks: Math.ceil(file.size / CHUNK_SIZE),
       createdAt: Math.floor(Date.now() / 1000),
+      caption: pendingCaption || undefined,
     };
     
     // שליחת metadata דרך signaling
@@ -321,6 +330,7 @@
       ackReceived: 0,
       paused: false,
       startTime: Date.now(),
+      caption: pendingCaption || '',
       // חלק המתנה ל-DC (chat-p2p-file.js) – מונע fallback מוקדם ל-Blossom כש-DC נפתח באיחור קל | HYPER CORE TECH
       dcWaitAttempts: 0,
       // חלק יציבות DC (chat-p2p-file.js) – Channel קבוע להעברה ספציפית כדי לא לפתוח ערוצים חדשים בכל צ׳אנק | HYPER CORE TECH
@@ -412,11 +422,15 @@
           if (posterDataUrl && typeof App.registerChatTransferPreview === 'function') {
             App.registerChatTransferPreview(fileId, { posterDataUrl });
           }
+          const captionText = String(transfer.caption || '').trim()
+            || String((typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(peerKey)?.caption) || '').trim();
+          const isVisualMedia = /^image\//i.test(resolvedMime || file?.type || '') || !!isVideoFlag;
+          const messageContent = captionText || (isVisualMedia ? '' : `📎 ${file.name}`);
           App.appendChatMessage({
             id: `p2p-send-${fileId}`,
             from: App.publicKey,
             to: peerKey,
-            content: `📎 ${file.name}`,
+            content: messageContent,
             attachment: {
               name: file.name,
               size: file.size,
@@ -426,6 +440,7 @@
               cacheKey,
               isVideo: isVideoFlag || undefined,
               posterDataUrl: posterDataUrl || undefined,
+              caption: captionText || undefined,
             },
             createdAt,
             direction: 'outgoing',
@@ -435,7 +450,7 @@
           if (typeof App.markChatConversationRead === 'function') {
             App.markChatConversationRead(peerKey);
           }
-          console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח (עם cacheKey)', { hasPoster: !!posterDataUrl });
+          console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח (עם cacheKey)', { hasPoster: !!posterDataUrl, hasCaption: !!captionText });
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] append local p2p message failed:', msgErr); }
       // ניקוי attachment — מונע הדבקת הווידאו להודעת טקסט הבאה | HYPER CORE TECH
@@ -568,7 +583,7 @@
     // חלק file-offer via DC (chat-p2p-file.js) – שליחת metadata דרך DC לפני chunk ראשון (תיקון race condition) | HYPER CORE TECH
     if (currentChunk === 0) {
       try {
-        const dcOffer = JSON.stringify({ type: 'file-offer', fileId, name: file.name, size: file.size, mimeType: file.type, keyStr: transfer.keyStr, totalChunks, createdAt: Math.floor((transfer.startTime || Date.now()) / 1000) });
+        const dcOffer = JSON.stringify({ type: 'file-offer', fileId, name: file.name, size: file.size, mimeType: file.type, keyStr: transfer.keyStr, totalChunks, createdAt: Math.floor((transfer.startTime || Date.now()) / 1000), caption: transfer.caption || undefined });
         channel.send(dcOffer);
         console.log('[CHAT/P2P] ⚡ file-offer נשלח דרך DC (fast path, לפני chunks)');
       } catch (e) { console.warn('[CHAT/P2P] file-offer via DC failed:', e.message); }
@@ -944,7 +959,7 @@
   async function handleP2PFileOffer(senderPubkey, offerData) {
     const senderKey = toPeerKey(senderPubkey);
     try {
-      const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt } = offerData || {};
+      const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt, caption: offerCaption } = offerData || {};
       
       console.log('[CHAT/P2P] 📥 handleP2PFileOffer', {
         from: senderKey?.slice?.(0, 12) + '...',
@@ -982,6 +997,7 @@
         receivedChunks: 0,
         chunks: [],
         startTime: Date.now(),
+        caption: String(offerCaption || '').trim(),
         // זמן מקורי מהשולח — כדי שההודעה תופיע לפני טקסט שנשלח אחריה | HYPER CORE TECH
         offerCreatedAt: typeof offerCreatedAt === 'number' && offerCreatedAt > 0
           ? offerCreatedAt
@@ -1259,7 +1275,11 @@
             direction: 'incoming',
             from: transfer.peerPubkey,
             to: App.publicKey,
-            content: `📎 ${transfer.name}`,
+            content: (() => {
+              const captionText = String(transfer.caption || '').trim();
+              const isVisualMedia = /^image\//i.test(resolvedMime || transfer.mimeType || '') || !!isVideoFlag;
+              return captionText || (isVisualMedia ? '' : `📎 ${transfer.name}`);
+            })(),
             attachment: {
               name: transfer.name,
               size: transfer.size,
@@ -1269,11 +1289,12 @@
               cacheKey,
               isVideo: isVideoFlag || undefined,
               posterDataUrl: posterDataUrl || undefined,
+              caption: String(transfer.caption || '').trim() || undefined,
             },
             p2p: true,
             createdAt,
           });
-          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl });
+          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl, hasCaption: !!transfer.caption });
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] appendChatMessage failed:', msgErr); }
 
@@ -1400,11 +1421,14 @@
               fileId: transfer.fileId,
               isVideo: isVideoFlag || undefined,
               hidePreview: true, // אין שורת preview תחתונה בזמן פרסום אחרי Blossom
+              caption: String(transfer.caption || (typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(transfer.peerPubkey)?.caption) || '').trim() || undefined,
             };
             if (typeof App.setChatFileAttachment === 'function') {
               App.setChatFileAttachment(transfer.peerPubkey, attachment);
             }
-            const messageText = `📎 ${fileName}`;
+            const captionText = String(attachment.caption || '').trim();
+            const isVisualMedia = /^image\//i.test(attachment.type || '') || !!isVideoFlag;
+            const messageText = captionText || (isVisualMedia ? '' : `📎 ${fileName}`);
             const publishResult = await App.publishChatMessage(transfer.peerPubkey, messageText);
             if (publishResult?.ok) {
               console.log('[CHAT/P2P] 📨 הודעת צ\'אט עם attachment נשלחה', { peer: transfer.peerPubkey?.slice(0, 8), url: resultUrl });
@@ -1534,6 +1558,7 @@
 
         let messageSent = false;
         if (typeof App.setChatFileAttachment === 'function' && typeof App.publishChatMessage === 'function') {
+          const captionText = String(transfer.caption || (typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(transfer.peerPubkey)?.caption) || '').trim();
           const torrentAttachment = {
             id: transfer.fileId,
             name: fileName,
@@ -1543,9 +1568,11 @@
             infoHash: seedResult.infoHash,
             isTorrent: true,
             hidePreview: true, // אין שורת preview תחתונה בזמן פרסום טורנט
+            caption: captionText || undefined,
           };
           App.setChatFileAttachment(transfer.peerPubkey, torrentAttachment);
-          const displayText = `📎 ${fileName}`;
+          const isVisualMedia = /^image\//i.test(mime || '') || shouldForceVideoFlag(mime, fileName);
+          const displayText = captionText || (isVisualMedia ? '' : `📎 ${fileName}`);
           const result = await App.publishChatMessage(transfer.peerPubkey, displayText);
           if (result?.ok) {
             messageSent = true;

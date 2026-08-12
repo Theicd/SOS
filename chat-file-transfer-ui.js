@@ -208,7 +208,20 @@
     if (!peer || !validateFile(file)) {
       return;
     }
-    log('בחר קובץ', { name: file.name, size: file.size, type: file.type });
+    // כיתוב מהטיוטה — הודעה אחת עם הקובץ (כמו וואטסאפ) | HYPER CORE TECH
+    const caption = String(uiRefs.getMessageDraft?.() || '').trim();
+    if (caption && typeof uiRefs.clearMessageDraft === 'function') {
+      uiRefs.clearMessageDraft();
+    } else if (caption) {
+      try {
+        const input = document.getElementById('chatMessageInput');
+        if (input) {
+          input.value = '';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      } catch (_) {}
+    }
+    log('בחר קובץ', { name: file.name, size: file.size, type: file.type, hasCaption: !!caption });
 
     // חלק תצוגה מקומית (chat-file-transfer-ui.js) – blob URL מיידי לתמונה/וידאו (לפני דחיסה/העלאה) | HYPER CORE TECH
     const isVisualMedia =
@@ -268,6 +281,17 @@
     if (shouldPreferP2P && typeof App.sendP2PFile === 'function') {
       try {
         const previewUrl = localPreviewUrl || (isVisualMedia ? URL.createObjectURL(file) : '');
+        // שומרים כיתוב ל-P2P / Blossom / Torrent עד פרסום ההודעה | HYPER CORE TECH
+        if (caption) {
+          App.setChatFileAttachment?.(peer, {
+            id: `pending-caption-${Date.now()}`,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            caption,
+            hidePreview: true,
+          });
+        }
         const onProgress = (evt) => {
           if (evt?.fileId) adoptCompressBubble(evt.fileId);
           const enriched = {
@@ -291,9 +315,8 @@
         }
         adoptCompressBubble(fileId);
         const posterDataUrl = await attachPosterToFileId(fileId, previewUrl);
-        log('שולח P2P', { peer, fileId, name: file.name, size: file.size, hasPoster: !!posterDataUrl });
-        // חלק P2P (chat-file-transfer-ui.js) – מנקים attachment כדי שלא יידבק להודעת טקסט הבאה | HYPER CORE TECH
-        App.clearChatFileAttachment?.(peer);
+        log('שולח P2P', { peer, fileId, name: file.name, size: file.size, hasPoster: !!posterDataUrl, hasCaption: !!caption });
+        // לא מוחקים כיתוב כאן — sendP2PFile / Blossom קוראים אותו בפרסום | HYPER CORE TECH
         renderPreview(null); // אין שורת preview תחתונה בזמן העברת P2P
         return;
       } catch (err) {
@@ -315,6 +338,16 @@
           log('P2P לא זמין לקובץ גדול, עובר ל-WebTorrent', { name: file.name, size: file.size });
           App.cleanupOrphanCompressTransferBubbles?.();
           pipelineCompressId = null;
+          if (caption) {
+            App.setChatFileAttachment?.(peer, {
+              id: `pending-caption-${Date.now()}`,
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              caption,
+              hidePreview: true,
+            });
+          }
           if (localPreviewUrl) {
             // יישום מוקדם של preview לפני שהטורנט מקבל transferId | HYPER CORE TECH
             App.registerChatTransferPreview?.(`pending-torrent-${Date.now()}`, {
@@ -368,7 +401,6 @@
     const isMediaFile = /^(image|audio|video)\//i.test(file.type || '');
     const reader = new FileReader();
     reader.onload = async () => {
-      const caption = uiRefs.getMessageDraft() || '';
       const inlinePreview = localPreviewUrl || (typeof reader.result === 'string' ? reader.result : '');
       const attachment = {
         id: `${peer}-${Date.now()}`,
@@ -385,7 +417,7 @@
 
       // חלק שליחה אוטומטית (chat-file-transfer-ui.js) – תמונה/וידאו/קובץ נשלחים מיד אחרי בחירה | HYPER CORE TECH
       if (typeof App.publishChatMessage === 'function') {
-        log('שליחה אוטומטית של קובץ', { name: file.name, size: file.size, media: isMediaFile });
+        log('שליחה אוטומטית של קובץ', { name: file.name, size: file.size, media: isMediaFile, hasCaption: !!caption });
         const displayText = caption || (isMediaFile ? '' : `📎 ${file.name}`);
         try {
           const result = await App.publishChatMessage(peer, displayText);
