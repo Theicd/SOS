@@ -131,7 +131,7 @@
 
   function isChatAttachTarget(t) {
     if (!t || !t.closest) return false;
-    return !!(t.closest('#chatComposerFileButton') || t.closest('#chatComposerFileInput') || t.closest('label[for="chatComposerFileInput"]'));
+    return !!(t.closest('#chatComposerFileButton') || t.closest('#chatComposerTrashButton') || t.closest('#chatComposerFileInput') || t.closest('label[for="chatComposerFileInput"]'));
   }
 
   function isComposeUploadTarget(t) {
@@ -185,6 +185,14 @@
 
   function onDocClick(e) {
     var t = e.target;
+    var App = window.NostrApp || {};
+    if (isChatAttachTarget(t) && typeof App.isChatSendPreviewOpen === 'function' && App.isChatSendPreviewOpen()) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      if (typeof App.closeChatSendPreview === 'function') App.closeChatSendPreview();
+      return;
+    }
     if (isChatAttachTarget(t)) {
       e.preventDefault();
       e.stopPropagation();

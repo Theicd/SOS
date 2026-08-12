@@ -460,6 +460,13 @@
 
   async function handleNativeChatAttach(event) {
     if (!isNativeShell()) return;
+    if (typeof App.isChatSendPreviewOpen === 'function' && App.isChatSendPreviewOpen()) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      if (typeof App.closeChatSendPreview === 'function') App.closeChatSendPreview();
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();

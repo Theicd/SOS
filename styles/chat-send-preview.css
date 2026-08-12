@@ -5,6 +5,7 @@
 
 .chat-send-preview {
   display: none;
+  position: relative;
   flex: 1;
   min-height: 0;
   flex-direction: column;
@@ -98,4 +99,49 @@
 .chat-conversation.chat-send-preview-open .chat-composer {
   position: relative;
   z-index: 5;
+}
+
+.chat-conversation.chat-send-preview-open .chat-composer__file-input {
+  pointer-events: none !important;
+}
+
+.chat-conversation.chat-send-preview-open .chat-composer__icon--trash {
+  color: #ea4335;
+}
+
+.chat-conversation.chat-send-preview-open .chat-composer__icon--file.chat-composer__icon--trash::after {
+  content: 'בטל';
+}
+
+.chat-send-preview__hint {
+  display: none;
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  z-index: 6;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(17, 27, 33, 0.94);
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.chat-send-preview__hint.is-visible {
+  display: flex;
+}
+
+.chat-send-preview__hint i {
+  color: #00a884;
+  font-size: 0.95rem;
 }

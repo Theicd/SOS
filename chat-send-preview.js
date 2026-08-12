@@ -3,11 +3,19 @@
   const App = window.NostrApp || (window.NostrApp = {});
   const doc = window.document;
 
+  const HINT_KEY = 'sos_chat_send_preview_hint_v1';
+  const FILE_BTN_ID = 'chatComposerFileButton';
+  const TRASH_BTN_ID = 'chatComposerTrashButton';
+
   let previewEl = null;
   let objectUrl = null;
   let pendingFile = null;
   let bound = false;
   let savedPlaceholder = '';
+  let attachTrash = false;
+  let savedFileBtnHtml = '';
+  let savedFileBtnLabel = '';
+  let hintTimer = 0;
 
   function $(id) {
     return doc.getElementById(id);
@@ -82,7 +90,11 @@
     previewEl.setAttribute('aria-hidden', 'true');
     previewEl.innerHTML =
       '<div class="chat-send-preview__stage" id="chatSendPreviewStage"></div>' +
-      '<div class="chat-send-preview__meta" id="chatSendPreviewMeta"></div>';
+      '<div class="chat-send-preview__meta" id="chatSendPreviewMeta"></div>' +
+      '<button type="button" class="chat-send-preview__hint" id="chatSendPreviewHint" hidden>' +
+        '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>' +
+        '<span>אפשר להוסיף טקסט, לשלוח, או לבטל בפח</span>' +
+      '</button>';
     const messages = $('chatMessages');
     if (messages && messages.parentElement === root) {
       root.insertBefore(previewEl, messages);
@@ -172,7 +184,69 @@
     return !!(previewEl && !previewEl.hidden && pendingFile);
   }
 
+  function fileButton() {
+    return $(FILE_BTN_ID) || $(TRASH_BTN_ID);
+  }
+
+  function setTrashMode() {
+    const btn = fileButton();
+    if (!btn || attachTrash) return;
+    attachTrash = true;
+    savedFileBtnHtml = btn.innerHTML;
+    savedFileBtnLabel = btn.getAttribute('aria-label') || '';
+    btn.id = TRASH_BTN_ID;
+    btn.classList.add('chat-composer__icon--trash');
+    btn.setAttribute('aria-label', 'בטל');
+    btn.setAttribute('title', 'בטל');
+    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    const fileInput = $('chatComposerFileInput');
+    if (fileInput) fileInput.disabled = true;
+  }
+
+  function restoreAttachButton() {
+    const btn = fileButton();
+    if (!attachTrash) return;
+    attachTrash = false;
+    if (btn) {
+      btn.id = FILE_BTN_ID;
+      btn.classList.remove('chat-composer__icon--trash');
+      btn.innerHTML = savedFileBtnHtml || '<i class="fa-solid fa-paperclip"></i>';
+      btn.setAttribute('aria-label', savedFileBtnLabel || 'צרף קובץ');
+      btn.removeAttribute('title');
+    }
+    const fileInput = $('chatComposerFileInput');
+    if (fileInput) fileInput.disabled = false;
+    savedFileBtnHtml = '';
+    savedFileBtnLabel = '';
+  }
+
+  function hideHint() {
+    if (hintTimer) {
+      clearTimeout(hintTimer);
+      hintTimer = 0;
+    }
+    const hint = $('chatSendPreviewHint');
+    if (hint) {
+      hint.hidden = true;
+      hint.classList.remove('is-visible');
+    }
+  }
+
+  function showHintOnce() {
+    let seen = false;
+    try { seen = window.localStorage.getItem(HINT_KEY) === '1'; } catch (_) {}
+    if (seen) return;
+    try { window.localStorage.setItem(HINT_KEY, '1'); } catch (_) {}
+    const hint = $('chatSendPreviewHint');
+    if (!hint) return;
+    hint.hidden = false;
+    hint.classList.add('is-visible');
+    hintTimer = window.setTimeout(hideHint, 4500);
+  }
+
   function closePreview() {
+    hideHint();
+    restoreAttachButton();
     const root = conversationRoot();
     if (root) root.classList.remove('chat-send-preview-open');
     if (previewEl) {
@@ -214,6 +288,8 @@
       input.setAttribute('placeholder', 'הוסף כיתוב...');
     }
     forceSendIcon();
+    setTrashMode();
+    showHintOnce();
     bindOnce();
   }
 
@@ -270,6 +346,33 @@
     sendPending();
   }
 
+  function isAttachControl(target) {
+    if (!target || !target.closest) return false;
+    return !!(
+      target.closest('#' + FILE_BTN_ID) ||
+      target.closest('#' + TRASH_BTN_ID) ||
+      target.closest('#chatComposerFileInput') ||
+      target.closest('.chat-composer__icon--trash')
+    );
+  }
+
+  function onAttachClick(event) {
+    if (!isOpen()) return;
+    if (!isAttachControl(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    closePreview();
+  }
+
+  function onHintClick(event) {
+    if (!isOpen()) return;
+    const hint = event.target && event.target.closest ? event.target.closest('#chatSendPreviewHint') : null;
+    if (!hint) return;
+    event.preventDefault();
+    hideHint();
+  }
+
   function onBackClick(event) {
     if (!isOpen()) return;
     event.preventDefault();
@@ -303,6 +406,8 @@
     if (backBtn) backBtn.addEventListener('click', onBackClick, true);
     const actionsBack = $('chatConversationActionsBack');
     if (actionsBack) actionsBack.addEventListener('click', onBackClick, true);
+    doc.addEventListener('click', onAttachClick, true);
+    doc.addEventListener('click', onHintClick, true);
     doc.addEventListener('keydown', onKeydown);
   }
 

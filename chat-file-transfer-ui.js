@@ -443,6 +443,12 @@
   }
 
   function onFileButtonClick(event) {
+    if (typeof App.isChatSendPreviewOpen === 'function' && App.isChatSendPreviewOpen()) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof App.closeChatSendPreview === 'function') App.closeChatSendPreview();
+      return;
+    }
     // חלק מובייל (chat-file-transfer-ui.js) – ה-input עצמו מכסה את האטב; לא קליק פרוגרמטי | HYPER CORE TECH
     if (event?.target?.closest?.('input[type="file"]')) {
       event.stopPropagation();
