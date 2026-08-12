@@ -192,15 +192,26 @@
     const btn = fileButton();
     if (!btn || attachTrash) return;
     attachTrash = true;
-    savedFileBtnHtml = btn.innerHTML;
     savedFileBtnLabel = btn.getAttribute('aria-label') || '';
-    btn.id = TRASH_BTN_ID;
+    // לא מוחקים innerHTML — ב־desktop ה-input נמצא בתוך ה-label; מחיקה שוברת את בחירת הקובץ | HYPER CORE TECH
+    const icon = btn.querySelector('i');
+    if (icon) {
+      savedFileBtnHtml = icon.className || 'fa-solid fa-paperclip';
+      icon.className = 'fa-solid fa-trash';
+    } else {
+      savedFileBtnHtml = 'fa-solid fa-paperclip';
+      const i = doc.createElement('i');
+      i.className = 'fa-solid fa-trash';
+      btn.insertBefore(i, btn.firstChild);
+    }
     btn.classList.add('chat-composer__icon--trash');
     btn.setAttribute('aria-label', 'בטל');
     btn.setAttribute('title', 'בטל');
-    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-    const fileInput = $('chatComposerFileInput');
-    if (fileInput) fileInput.disabled = true;
+    const fileInput = btn.querySelector('#chatComposerFileInput') || $('chatComposerFileInput');
+    if (fileInput) {
+      try { fileInput.value = ''; } catch (_) {}
+      fileInput.disabled = true;
+    }
   }
 
   function restoreAttachButton() {
@@ -210,11 +221,16 @@
     if (btn) {
       btn.id = FILE_BTN_ID;
       btn.classList.remove('chat-composer__icon--trash');
-      btn.innerHTML = savedFileBtnHtml || '<i class="fa-solid fa-paperclip"></i>';
+      const icon = btn.querySelector('i');
+      if (icon) {
+        icon.className = savedFileBtnHtml || 'fa-solid fa-paperclip';
+      } else {
+        btn.insertAdjacentHTML('afterbegin', '<i class="fa-solid fa-paperclip"></i>');
+      }
       btn.setAttribute('aria-label', savedFileBtnLabel || 'צרף קובץ');
       btn.removeAttribute('title');
     }
-    const fileInput = $('chatComposerFileInput');
+    const fileInput = (btn && btn.querySelector('#chatComposerFileInput')) || $('chatComposerFileInput');
     if (fileInput) fileInput.disabled = false;
     savedFileBtnHtml = '';
     savedFileBtnLabel = '';

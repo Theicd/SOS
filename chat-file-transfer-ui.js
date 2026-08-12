@@ -490,10 +490,16 @@
     }
     // חלק מובייל (chat-file-transfer-ui.js) – ה-input עצמו מכסה את האטב; לא קליק פרוגרמטי | HYPER CORE TECH
     if (event?.target?.closest?.('input[type="file"]')) {
+      // מאפשרים בחירה חוזרת של אותו קובץ | HYPER CORE TECH
+      try { event.target.value = ''; } catch (_) {}
       event.stopPropagation();
       return;
     }
     if (event?.currentTarget?.tagName === 'LABEL' || event?.currentTarget?.querySelector?.('input[type="file"]')) {
+      const nested = event.currentTarget.querySelector?.('input[type="file"]');
+      if (nested) {
+        try { nested.value = ''; } catch (_) {}
+      }
       event.stopPropagation();
       return;
     }

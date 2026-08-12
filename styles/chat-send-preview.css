@@ -17,6 +17,23 @@
 
 .chat-conversation.chat-send-preview-open .chat-send-preview {
   display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-self: stretch;
+  z-index: 6;
+}
+
+/* דסקטופ: מבטיח גובה אמיתי למסך המקדים בין הדר לקומפוזר | HYPER CORE TECH */
+@media (min-width: 769px) {
+  .chat-conversation.chat-send-preview-open .chat-send-preview {
+    flex: 1 1 auto;
+    min-height: 280px;
+    z-index: 6;
+  }
+
+  .chat-conversation.chat-send-preview-open .chat-composer {
+    z-index: 7;
+  }
 }
 
 .chat-conversation.chat-send-preview-open .chat-conversation__messages,
