@@ -7,7 +7,8 @@
   }
 
   const P2P_PREFERRED_FROM_BYTES = 90 * 1024; // מעל 90KB מעדיפים P2P
-  const MAX_INLINE_SIZE_BYTES = 256 * 1024; // עד 256KB מאפשרים inline fallback אמין
+  // חלק E2EE (chat-file-transfer-ui.js) – סף inline ~40KB לתאימות הצפנת ריליי (NIP-44) | HYPER CORE TECH
+  const MAX_INLINE_SIZE_BYTES = 40 * 1024;
   const MAX_P2P_SIZE_BYTES = 100 * 1024 * 1024; // 100MB דרך P2P
 
   let uiRefs = {

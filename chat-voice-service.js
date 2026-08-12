@@ -4,7 +4,8 @@
   // חלק קול (chat-voice-service.js) – הקלטת קול בדפדפן, דחיסה ל-webm, העלאה ל-Blossom עם Fallback, ושילוב כמצורף בצ'אט
   // הערות: הקובץ קצר (<350 שורות) ומסביר לעצמו. שייך למודול SOS2 צ'אט קול.
 
-  const MAX_INLINE_BYTES = 256 * 1024; // תואם מגבלת inline בצ'אט – הודעות קול ארוכות יותר | HYPER CORE TECH
+  // חלק E2EE (chat-voice-service.js) – סף inline ~40KB כדי ש־dataUrl יישאר מתחת למגבלת NIP-44 בריליי | HYPER CORE TECH
+  const MAX_INLINE_BYTES = 40 * 1024;
   const MAX_SECONDS = 60; // בדומה ל-yakbak
   const P2P_SEED_TIMEOUT_MS = 5000; // חלק P2P קול (chat-voice-service.js) – timeout ליצירת טורנט קולי | HYPER CORE TECH
 
@@ -104,19 +105,24 @@
       });
       return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
     }
-    // העלאה ל-Blossom
+    // חלק E2EE קול (chat-voice-service.js) – מעל סף inline: העלאה לשרת מדיה + התרעה למשתמש | HYPER CORE TECH
     try{
+      if(typeof App.showToast === 'function'){
+        App.showToast('ההקלטה ארוכה — מעלה לשרת מדיה ושולח', 'warning');
+      }
       if(typeof App.uploadToBlossom !== 'function') throw new Error('blossom-missing');
       // חלק העלאה (chat-voice-service.js) – העלאה עם MIME type נכון | HYPER CORE TECH
       const url = await App.uploadToBlossom(new Blob([blob], { type: finalMime }));
       console.log('[VOICE] Uploaded to Blossom:', url);
+      if(typeof App.showToast === 'function'){
+        App.showToast('ההודעה הקולית נשלחת', 'success');
+      }
       return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration };
     }catch(err){
       console.error('[VOICE] Blossom upload failed:', err);
-      // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר, אחרת נדווח שגיאה
-      if (blob.size <= MAX_INLINE_BYTES * 1.2){
-        const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
-        return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
+      // לא מחזירים inline גדול שמפר את מגבלת ההצפנה בריליי | HYPER CORE TECH
+      if(typeof App.showToast === 'function'){
+        App.showToast('לא ניתן לשלוח את ההקלטה — נסה שוב או הקלט קצר יותר', 'warning');
       }
       throw err;
     }

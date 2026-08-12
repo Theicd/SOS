@@ -145,6 +145,12 @@
         }
       }catch(err){
         console.warn('voice finalize failed', err);
+        if (typeof App.hideVoiceSendingIndicator === 'function') {
+          App.hideVoiceSendingIndicator(loadingId);
+        }
+        if (typeof App.showToast === 'function' && !/הקלטה|מדיה|שליחה/.test(String(err?.message || ''))) {
+          App.showToast('שליחת ההודעה הקולית נכשלה', 'warning');
+        }
         hideRecordingUI();
         updateSendIcon();
       }

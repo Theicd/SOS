@@ -179,8 +179,14 @@
     const NT = window.NostrTools;
     const peer = String(peerPubkey || '').toLowerCase();
     if (!App.privateKey || !peer || plaintext == null || plaintext === '') return null;
+    const text = String(plaintext);
 
-    if (NT?.nip44 && String(plaintext).length <= NIP44_SAFE_CHARS) {
+    // חלק E2EE (chat-service.js) – מעל מגבלת NIP-44: לא fallback שקט; הקורא מציג הודעה למשתמש | HYPER CORE TECH
+    if (text.length > NIP44_SAFE_CHARS) {
+      return { error: 'message-too-large' };
+    }
+
+    if (NT?.nip44) {
       try {
         const nip44 = NT.nip44;
         const v2 = nip44.v2 || nip44;
@@ -188,7 +194,7 @@
         const encryptFn = v2.encrypt || nip44.encrypt;
         if (typeof getKey === 'function' && typeof encryptFn === 'function') {
           const conversationKey = getKey(App.privateKey, peer);
-          const cipher = encryptFn(String(plaintext), conversationKey);
+          const cipher = encryptFn(text, conversationKey);
           if (cipher) return { wire: JSON.stringify({ enc: 'nip44', c: cipher }), scheme: 'nip44' };
         }
       } catch (err) {
@@ -198,7 +204,7 @@
 
     if (NT?.nip04?.encrypt) {
       try {
-        const cipher = await NT.nip04.encrypt(App.privateKey, peer, String(plaintext));
+        const cipher = await NT.nip04.encrypt(App.privateKey, peer, text);
         if (cipher) return { wire: JSON.stringify({ enc: 'nip04', c: cipher }), scheme: 'nip04' };
       } catch (err) {
         console.warn('[CHAT/E2EE] nip04 encrypt failed', err?.message || err);
@@ -342,8 +348,22 @@
     }
     // fallback: שליחה רגילה דרך relay — תוכן מוצפן לפני publish | HYPER CORE TECH
     const encrypted = await encryptChatContentForPeer(peerPubkey, serialization.rawContent || '');
+    if (encrypted?.error === 'message-too-large') {
+      if (typeof App.showToast === 'function') {
+        App.showToast('ההודעה ארוכה מדי לשליחה מוצפנת', 'warning');
+      }
+      App.notifyChatFileTransferError?.({
+        peer: peerPubkey,
+        code: 'message-too-large',
+        message: 'ההודעה ארוכה מדי לשליחה מוצפנת דרך הריליי.',
+      });
+      return { ok: false, error: 'message-too-large' };
+    }
     if (!encrypted?.wire) {
       console.error('[CHAT/E2EE] ❌ encrypt failed — לא מפרסמים טקסט גלוי לריליי');
+      if (typeof App.showToast === 'function') {
+        App.showToast('שליחת ההודעה נכשלה — נסה שוב', 'warning');
+      }
       return { ok: false, error: 'encrypt-failed' };
     }
     const draft = buildChatDraft(peerPubkey, encrypted.wire);
