@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v392'; // bump - remove unused logo slot-machine timer
+  const CACHE_NAME = 'sos-cache-v393'; // bump - prioritized background engagement load
   const PRECACHE_URLS = [
     './',
     './videos.html',
