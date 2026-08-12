@@ -135,8 +135,7 @@
         }
         
         const result = await App.finalizeVoiceToChat?.(peer);
-        // חלק P2P קול (chat-voice-ui.js) – אם נשלח ב-P2P אין publish לריליי/Blossom | HYPER CORE TECH
-        if (result && !result.sentViaP2P && typeof App.publishChatMessage === 'function'){
+        if (result && typeof App.publishChatMessage === 'function'){
           await App.publishChatMessage(peer, '');
         }
         
@@ -146,9 +145,6 @@
         }
       }catch(err){
         console.warn('voice finalize failed', err);
-        if (typeof App.hideVoiceSendingIndicator === 'function') {
-          App.hideVoiceSendingIndicator(loadingId);
-        }
         hideRecordingUI();
         updateSendIcon();
       }

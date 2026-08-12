@@ -7,8 +7,7 @@
   }
 
   const P2P_PREFERRED_FROM_BYTES = 90 * 1024; // מעל 90KB מעדיפים P2P
-  // חלק E2EE (chat-file-transfer-ui.js) – סף inline ~40KB לתאימות הצפנת ריליי (NIP-44) | HYPER CORE TECH
-  const MAX_INLINE_SIZE_BYTES = 40 * 1024;
+  const MAX_INLINE_SIZE_BYTES = 256 * 1024; // עד 256KB מאפשרים inline fallback אמין
   const MAX_P2P_SIZE_BYTES = 100 * 1024 * 1024; // 100MB דרך P2P
 
   let uiRefs = {
@@ -300,23 +299,12 @@
       } catch (err) {
         const reason = err?.message || 'unknown-error';
         console.warn('[CHAT/FILE-UI] P2P send failed, trying fallback', reason);
-        // חלק P2P-only (chat-file-transfer-ui.js) – כש-DC היה מחובר לא יורדים לשרת/inline | HYPER CORE TECH
-        if (dcConnectedNow) {
-          App.notifyChatFileTransferError?.({
-            peer,
-            code: 'p2p-send-failed',
-            message: `שליחה ישירה נכשלה (${reason}). נסה שוב.`,
-          });
-          App.clearChatFileAttachment?.(peer);
-          renderPreview(null);
-          return;
-        }
         App.notifyChatFileTransferError?.({
           peer,
           code: 'p2p-send-failed',
           message: `שליחת הקובץ נכשלה במסלול הישיר (${reason}). מנסה מסלול חלופי...`,
         });
-        // ממשיכים ל-inline fallback אם הקובץ בטווח המותר ורק כשאין P2P
+        // ממשיכים ל-inline fallback אם הקובץ בטווח 256KB
       }
     }
 

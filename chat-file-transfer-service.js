@@ -6,8 +6,8 @@
     return;
   }
 
-  // חלק E2EE (chat-file-transfer-service.js) – סף inline ~40KB לתאימות NIP-44 אחרי Base64 בריליי | HYPER CORE TECH
-  const MAX_INLINE_SIZE = 40 * 1024;
+  // חלק תיקון קול ארוך (chat-file-transfer-service.js) – הגדלת סף inline ל-256KB לתמיכה בהודעות קוליות ארוכות | HYPER CORE TECH
+  const MAX_INLINE_SIZE = 256 * 1024;
 
   // חלק חישוב גודל (chat-file-transfer-service.js) – הערכת גודל dataUrl בבתים במקום length גולמי | HYPER CORE TECH
   function estimateDataUrlBytes(dataUrl) {
@@ -59,13 +59,6 @@
     }
     if (attachment.isTorrent) {
       serialized.isTorrent = true;
-    }
-    // חלק מסלול קול (chat-file-transfer-service.js) – voiceVia לתצוגת פס צבע בנגן (relay/blossom/p2p) | HYPER CORE TECH
-    if (attachment.voiceVia === 'relay' || attachment.voiceVia === 'blossom' || attachment.voiceVia === 'p2p') {
-      serialized.voiceVia = attachment.voiceVia;
-    }
-    if (attachment.isVoice) {
-      serialized.isVoice = true;
     }
     return serialized;
   }

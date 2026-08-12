@@ -1,13 +1,13 @@
 (function initChatVoiceService(window){
   const App = window.NostrApp || (window.NostrApp = {});
 
-  // חלק קול (chat-voice-service.js) – הקלטת קול, P2P קודם כשזמין, אחרת inline/Blossom לריליי | HYPER CORE TECH
+  // חלק קול (chat-voice-service.js) – הקלטת קול בדפדפן, דחיסה ל-webm, העלאה ל-Blossom עם Fallback, ושילוב כמצורף בצ'אט
+  // הערות: הקובץ קצר (<350 שורות) ומסביר לעצמו. שייך למודול SOS2 צ'אט קול.
 
-  // חלק E2EE (chat-voice-service.js) – סף inline ~40KB לתאימות NIP-44 כשאין P2P | HYPER CORE TECH
-  const MAX_INLINE_BYTES = 40 * 1024;
-  const MAX_SECONDS = 60;
-  const P2P_SEED_TIMEOUT_MS = 5000;
-  const P2P_CONNECT_WAIT_MS = 5000;
+  const MAX_INLINE_BYTES = 256 * 1024; // תואם מגבלת inline בצ'אט – הודעות קול ארוכות יותר | HYPER CORE TECH
+  const MAX_SECONDS = 60; // בדומה ל-yakbak
+  const P2P_SEED_TIMEOUT_MS = 5000; // חלק P2P קול (chat-voice-service.js) – timeout ליצירת טורנט קולי | HYPER CORE TECH
+
 
   let recorder = null;
   let chunks = [];
@@ -18,7 +18,9 @@
     return !!(navigator.mediaDevices && window.MediaRecorder);
   }
 
+  // חלק פורמט הקלטה (chat-voice-service.js) – בחירת פורמט תואם לכל הדפדפנים | HYPER CORE TECH
   function getSupportedMimeType() {
+    // סדר עדיפות: ogg (opus) > webm > mp4
     const types = [
       'audio/ogg; codecs=opus',
       'audio/ogg',
@@ -32,7 +34,7 @@
         return type;
       }
     }
-    return 'audio/webm';
+    return 'audio/webm'; // fallback
   }
   
   let activeMimeType = 'audio/webm';
@@ -60,6 +62,7 @@
       if(!recorder){ resolve(null); return; }
       const mr = recorder; recorder = null;
       mr.onstop = async ()=>{
+        // חלק פורמט (chat-voice-service.js) – שימוש בפורמט שנבחר בהקלטה | HYPER CORE TECH
         const blob = new Blob(chunks, { type: activeMimeType });
         const durationSec = Math.max(1, Math.round((Date.now()-startedAt)/1000));
         stopTracks();
@@ -82,6 +85,7 @@
     return true;
   }
 
+  // חלק שם קובץ (chat-voice-service.js) – קביעת סיומת לפי MIME | HYPER CORE TECH
   function getFileExtension(mimeType) {
     if (mimeType.includes('ogg')) return 'ogg';
     if (mimeType.includes('mp4') || mimeType.includes('m4a')) return 'm4a';
@@ -89,33 +93,6 @@
     return 'webm';
   }
 
-  function isP2PConnected(peerPubkey) {
-    return !!(App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey));
-  }
-
-  // חלק P2P קול (chat-voice-service.js) – חיבור DataChannel לפני שליחה כדי לא לעלות לשרת | HYPER CORE TECH
-  async function ensureP2PConnected(peerPubkey) {
-    if (isP2PConnected(peerPubkey)) return true;
-    if (!App.dataChannel) return false;
-    try {
-      App.dataChannel.init?.();
-      if (typeof App.dataChannel.forceConnect === 'function') {
-        await App.dataChannel.forceConnect(peerPubkey);
-      } else if (typeof App.dataChannel.connect === 'function') {
-        App.dataChannel.connect(peerPubkey);
-      }
-      const started = Date.now();
-      while (Date.now() - started < P2P_CONNECT_WAIT_MS) {
-        if (isP2PConnected(peerPubkey)) return true;
-        await new Promise((r) => setTimeout(r, 200));
-      }
-    } catch (err) {
-      console.warn('[VOICE] P2P connect failed:', err?.message || err);
-    }
-    return isP2PConnected(peerPubkey);
-  }
-
-  // חלק ריליי קול (chat-voice-service.js) – רק כשאין P2P: inline קטן / Blossom גדול (בלי Toast) | HYPER CORE TECH
   async function buildAttachmentFromBlob(blob, duration, mimeType){
     const ext = getFileExtension(mimeType || 'audio/webm');
     const fileName = `voice-message.${ext}`;
@@ -125,14 +102,27 @@
       const dataUrl = await new Promise((res,rej)=>{
         const r = new FileReader(); r.onload = ()=>res(String(r.result||'')); r.onerror = rej; r.readAsDataURL(blob);
       });
-      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration, voiceVia: 'relay', isVoice: true, hidePreview: true };
+      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
     }
-    if(typeof App.uploadToBlossom !== 'function') throw new Error('blossom-missing');
-    const url = await App.uploadToBlossom(new Blob([blob], { type: finalMime }));
-    console.log('[VOICE] Uploaded to Blossom (no P2P):', url);
-    return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration, voiceVia: 'blossom', isVoice: true, hidePreview: true };
+    // העלאה ל-Blossom
+    try{
+      if(typeof App.uploadToBlossom !== 'function') throw new Error('blossom-missing');
+      // חלק העלאה (chat-voice-service.js) – העלאה עם MIME type נכון | HYPER CORE TECH
+      const url = await App.uploadToBlossom(new Blob([blob], { type: finalMime }));
+      console.log('[VOICE] Uploaded to Blossom:', url);
+      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration };
+    }catch(err){
+      console.error('[VOICE] Blossom upload failed:', err);
+      // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר, אחרת נדווח שגיאה
+      if (blob.size <= MAX_INLINE_BYTES * 1.2){
+        const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
+        return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
+      }
+      throw err;
+    }
   }
 
+  // חלק P2P קול (chat-voice-service.js) – זריעת קובץ קול בטורנט כדי לאפשר הורדה P2P ישירה | HYPER CORE TECH
   async function seedVoiceForP2P(blob, mimeType) {
     try {
       if (!App.torrentTransfer || typeof App.torrentTransfer.init !== 'function') return null;
@@ -152,6 +142,21 @@
           }, (torrent) => {
             clearTimeout(timer);
             console.log('[VOICE/P2P] ✅ Voice seeded, magnetURI:', torrent.magnetURI.slice(0, 50));
+
+            // חלק P2P קול (chat-voice-service.js) – לוגים למעקב אחרי הורדת הצד השני | HYPER CORE TECH
+            let totalUploaded = 0;
+            torrent.on('wire', (wire) => {
+              console.log('[VOICE/P2P] 🔗 Peer התחבר לטורנט הקולי! peer:', wire.remoteAddress || 'WebRTC');
+            });
+            torrent.on('upload', (bytes) => {
+              totalUploaded += bytes;
+              const pct = Math.min(100, Math.round((totalUploaded / (torrent.length || 1)) * 100));
+              console.log(`[VOICE/P2P] 📤 מעלה לצד השני: ${pct}% (${totalUploaded}/${torrent.length} bytes)`);
+              if (totalUploaded >= torrent.length) {
+                console.log('[VOICE/P2P] ✅✅ הצד השני קיבל את ההודעה הקולית דרך P2P בהצלחה!');
+              }
+            });
+
             resolve(torrent.magnetURI);
           });
         } catch (err) {
@@ -165,34 +170,18 @@
     }
   }
 
-  // חלק שליחה (chat-voice-service.js) – P2P זמין = רק DataChannel/קבצים P2P, בלי שרת | HYPER CORE TECH
+
+  // חלק P2P קול (chat-voice-service.js) – finalize: תמיד מקור ניגון (dataUrl/Blossom) + magnet אופציונלי | HYPER CORE TECH
   async function finalizeVoiceToChat(peerPubkey){
     if(!peerPubkey) throw new Error('missing-peer');
     const result = await stopVoiceRecording();
     if(!result) return null;
 
-    const ext = getFileExtension(result.mimeType || 'audio/webm');
-    const fileName = `voice-message.${ext}`;
-    console.log('[VOICE] Finalize', { size: result.blob.size, mime: result.mimeType, peer: peerPubkey.slice(0, 8) });
-
-    const p2pReady = await ensureP2PConnected(peerPubkey);
-    if (p2pReady && typeof App.sendP2PFile === 'function') {
-      const file = new File([result.blob], fileName, { type: result.mimeType || 'audio/webm' });
-      if (!App._pendingVoiceMeta) App._pendingVoiceMeta = new Map();
-      App._pendingVoiceMeta.set(String(peerPubkey).toLowerCase(), {
-        duration: result.duration,
-        name: fileName,
-        mimeType: result.mimeType || 'audio/webm',
-      });
-      console.log('[VOICE] ⚡ P2P available — sending voice via sendP2PFile (no server)');
-      const fileId = await App.sendP2PFile(peerPubkey, file);
-      if (fileId) {
-        return { sentViaP2P: true, fileId, duration: result.duration, name: fileName };
-      }
-      console.warn('[VOICE] sendP2PFile returned empty — falling back to relay path');
-    }
-
-    // אין P2P — מסלול ריליי (inline / Blossom) + magnet אופציונלי | HYPER CORE TECH
+    // מקור playable חובה לשני הצדדים; magnet רק כבונוס P2P (לא במקום URL) | HYPER CORE TECH
+    console.log('[VOICE] Building playable attachment + optional P2P seed in parallel', {
+      size: result.blob.size,
+      mime: result.mimeType,
+    });
     const [attachment, magnetURI] = await Promise.all([
       buildAttachmentFromBlob(result.blob, result.duration, result.mimeType),
       seedVoiceForP2P(result.blob, result.mimeType).catch(() => null),
@@ -204,8 +193,12 @@
 
     if (magnetURI) {
       attachment.magnetURI = magnetURI;
+      console.log('[VOICE] Hybrid ready: playable src + magnetURI');
+    } else {
+      console.log('[VOICE] Playable src ready (no magnet)');
     }
 
+    // hidePreview: אין שורת שם-קובץ מתחת לקומפוזר בזמן שליחת הודעה קולית | HYPER CORE TECH
     attachment.hidePreview = true;
     attachment.isVoice = true;
     if (typeof App.setChatFileAttachment === 'function') {

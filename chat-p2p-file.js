@@ -323,8 +323,6 @@
       startTime: Date.now(),
       // חלק המתנה ל-DC (chat-p2p-file.js) – מונע fallback מוקדם ל-Blossom כש-DC נפתח באיחור קל | HYPER CORE TECH
       dcWaitAttempts: 0,
-      // חלק P2P-only (chat-p2p-file.js) – כש-P2P זמין בתחילת השליחה לא עוברים לשרת מדיה | HYPER CORE TECH
-      preferP2POnly: !!(hasConnection || chatDCConnected || App.dataChannel?.isConnected?.(peerKey)),
       // חלק יציבות DC (chat-p2p-file.js) – Channel קבוע להעברה ספציפית כדי לא לפתוח ערוצים חדשים בכל צ׳אנק | HYPER CORE TECH
       channel: null,
     };
@@ -414,27 +412,11 @@
           if (posterDataUrl && typeof App.registerChatTransferPreview === 'function') {
             App.registerChatTransferPreview(fileId, { posterDataUrl });
           }
-          const voiceMeta = App._pendingVoiceMeta?.get?.(peerKey) || null;
-          const isVoiceAtt =
-            !!(voiceMeta) ||
-            /voice/i.test(String(file?.name || '')) ||
-            String(resolvedMime || file?.type || '').startsWith('audio/');
-          if (voiceMeta && App._pendingVoiceMeta) {
-            App._pendingVoiceMeta.delete(peerKey);
-          }
-          const voiceDuration = typeof voiceMeta?.duration === 'number' ? voiceMeta.duration : undefined;
-          let voiceContent = `📎 ${file.name}`;
-          if (isVoiceAtt) {
-            voiceContent =
-              voiceDuration > 0
-                ? `🎤 הודעה קולית (${Math.floor(voiceDuration / 60)}:${String(Math.floor(voiceDuration % 60)).padStart(2, '0')})`
-                : '🎤 הודעה קולית';
-          }
           App.appendChatMessage({
             id: `p2p-send-${fileId}`,
             from: App.publicKey,
             to: peerKey,
-            content: voiceContent,
+            content: `📎 ${file.name}`,
             attachment: {
               name: file.name,
               size: file.size,
@@ -444,9 +426,6 @@
               cacheKey,
               isVideo: isVideoFlag || undefined,
               posterDataUrl: posterDataUrl || undefined,
-              isVoice: isVoiceAtt || undefined,
-              duration: voiceDuration,
-              voiceVia: 'p2p',
             },
             createdAt,
             direction: 'outgoing',
@@ -541,11 +520,10 @@
     
     if (!channel || channel.readyState !== 'open') {
       // חלק reconnect (chat-p2p-file.js) – DC נסגר, מנסה לחבר מחדש לפני fallback — גם באמצע שליחה | HYPER CORE TECH
-      const maxDcWait = transfer.preferP2POnly ? 40 : 5;
-      if (transfer.dcWaitAttempts < maxDcWait) {
+      if (transfer.dcWaitAttempts < 5) {
         transfer.dcWaitAttempts += 1;
         const chunkInfo = transfer.currentChunk > 0 ? ` (chunk ${transfer.currentChunk}/${totalChunks})` : '';
-        console.log(`[CHAT/P2P] ⏳ DC לא פתוח${chunkInfo}, ניסיון ${transfer.dcWaitAttempts}/${maxDcWait}...`);
+        console.log(`[CHAT/P2P] ⏳ DC לא פתוח${chunkInfo}, ניסיון ${transfer.dcWaitAttempts}/5...`);
         // ניסיון אקטיבי לחבר DC מחדש כשנפל באמצע
         if (transfer.currentChunk > 0 && transfer.dcWaitAttempts === 1) {
           transfer.channel = null; // מאפס channel שבור
@@ -563,11 +541,6 @@
             }
           } catch (e) { console.warn('[CHAT/P2P] reconnect DC failed:', e.message); }
         }
-        if (transfer.preferP2POnly && App.dataChannel && !App.dataChannel.isConnected?.(peerKey)) {
-          try {
-            App.dataChannel.forceConnect?.(peerKey) || App.dataChannel.connect?.(peerKey);
-          } catch (_) {}
-        }
         notifyProgress({
           fileId,
           progress: transfer.currentChunk / totalChunks,
@@ -581,28 +554,7 @@
         setTimeout(() => sendNextChunk(fileId, onProgress), 500);
         return;
       }
-      // חלק P2P-only (chat-p2p-file.js) – בלי מעבר לשרת כשהתחלנו עם P2P זמין | HYPER CORE TECH
-      if (transfer.preferP2POnly) {
-        console.warn('[CHAT/P2P] ⚠️ P2P-only: לא עוברים ל-Blossom — השליחה נכשלה');
-        if (typeof App.triggerOutgoingMessagePush === 'function') {
-          App.triggerOutgoingMessagePush(peerKey, null, { type: 'file', name: transfer.file?.name, size: transfer.file?.size });
-        }
-        notifyProgress({
-          fileId,
-          progress: transfer.currentChunk / totalChunks,
-          status: 'failed',
-          direction: 'send',
-          name: file?.name,
-          size: file?.size,
-          mimeType: file?.type,
-          peerPubkey: peerKey,
-          error: 'p2p-channel-unavailable',
-        });
-        notifyTransferError(peerKey, 'העברה ישירה נכשלה — נסה שוב כש־P2P מחובר.', 'p2p-only-failed');
-        activeTransfers.delete(fileId);
-        return;
-      }
-      console.warn('[CHAT/P2P] ⚠️ DataChannel not ready after retries, fallback to Blossom');
+      console.warn('[CHAT/P2P] ⚠️ DataChannel not ready after 5 retries, fallback to Blossom');
       // חלק התראה (chat-p2p-file.js) – Push לפיר לא מחובר + Toast לשולח | HYPER CORE TECH
       if (typeof App.triggerOutgoingMessagePush === 'function') {
         App.triggerOutgoingMessagePush(peerKey, null, { type: 'file', name: transfer.file?.name, size: transfer.file?.size });
@@ -1302,15 +1254,12 @@
               console.warn('[CHAT/P2P] poster capture (recv) failed:', posterErr);
             }
           }
-          const isVoiceAtt =
-            /voice/i.test(String(transfer.name || '')) ||
-            String(resolvedMime || transfer.mimeType || '').startsWith('audio/');
           App.appendChatMessage({
             id: `p2p-recv-${fileId}`,
             direction: 'incoming',
             from: transfer.peerPubkey,
             to: App.publicKey,
-            content: isVoiceAtt ? '🎤 הודעה קולית' : `📎 ${transfer.name}`,
+            content: `📎 ${transfer.name}`,
             attachment: {
               name: transfer.name,
               size: transfer.size,
@@ -1320,8 +1269,6 @@
               cacheKey,
               isVideo: isVideoFlag || undefined,
               posterDataUrl: posterDataUrl || undefined,
-              isVoice: isVoiceAtt || undefined,
-              voiceVia: 'p2p',
             },
             p2p: true,
             createdAt,

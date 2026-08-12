@@ -23,28 +23,13 @@
       .replace(/>/g, '&gt;');
   }
   
-  // חלק מסלול קול (chat-audio-player.js) – זיהוי איך ההודעה הקולית עברה: relay / blossom / p2p | HYPER CORE TECH
-  function resolveVoiceVia(attachment, message) {
-    if (message?.p2p === true) return 'p2p';
-    const tagged = attachment?.voiceVia;
-    if (tagged === 'p2p' || tagged === 'blossom' || tagged === 'relay') return tagged;
-    if (attachment?.magnetURI && !attachment?.url && !attachment?.dataUrl) return 'p2p';
-    const url = String(attachment?.url || '');
-    if (url && /^https?:\/\//i.test(url)) return 'blossom';
-    if (attachment?.dataUrl) return 'relay';
-    return 'relay';
-  }
-
   // חלק עיצוב (chat-audio-player.js) – HTML משודרג לנגן אודיו בסגנון וואטסאפ | HYPER CORE TECH
-  function createEnhancedAudioPlayer(attachment, message) {
+  function createEnhancedAudioPlayer(attachment) {
     const src = attachment.url || attachment.dataUrl || '';
     const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
     const mm = dur !== null ? Math.floor(dur / 60) : null;
     const ss = dur !== null ? String(dur % 60).padStart(2, '0') : null;
     const durationLabel = dur !== null ? `${mm}:${ss}` : '0:00';
-    const voiceVia = resolveVoiceVia(attachment, message);
-    const viaClass = `chat-audio-whatsapp--via-${voiceVia}`;
-    const viaLabel = voiceVia === 'p2p' ? 'P2P' : (voiceVia === 'blossom' ? 'שרת מדיה' : 'ריליי');
     
     // חלק MIME מקיף (chat-audio-player.js) – זיהוי MIME לכל פורמטי האודיו PC/Android/iPhone/Apple | HYPER CORE TECH
     let mimeType = attachment.type || 'audio/mpeg';
@@ -82,11 +67,10 @@
       name: attachment.name || '',
       mime: attachment.type || mimeType,
       hasSrc: !!src,
-      hasMagnet: !!magnetUri,
-      voiceVia
+      hasMagnet: !!magnetUri
     });
     return `
-      <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${safeSrc}" data-voice-via="${voiceVia}"
+      <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${safeSrc}"
            ${magnetUri ? `data-magnet-uri="${safeMagnet}"` : ''}
            ${fallbackSrc ? `data-fallback-src="${safeFallback}"` : ''}>
         <audio preload="auto" class="chat-message__audio-el"${src ? ` src="${safeSrc}"` : ''}>
@@ -95,7 +79,7 @@
           <source src="${safeSrc}" type="audio/ogg">
           <source src="${safeSrc}" type="audio/webm">` : '<!-- audio source pending / P2P -->'}
         </audio>
-        <div class="chat-audio-whatsapp ${viaClass}" title="נשלח דרך ${viaLabel}" aria-label="הודעה קולית דרך ${viaLabel}">
+        <div class="chat-audio-whatsapp">
           <button type="button" class="chat-audio-whatsapp__play" aria-label="נגן הודעה קולית">
             <i class="fa-solid fa-play"></i>
           </button>
