@@ -1,5 +1,5 @@
 ;(function initLoginKeyGuard(window) {
-  // חלק התחברות (login-key-guard.js) – חוסם מפתחות זמניים/אורח בלבד; מאפשר מנהל + מפתחות עם זהות רשת | HYPER CORE TECH
+  // חלק התחברות (login-key-guard.js) – חוסם רק מפתחות זמניים/אורח; כל מפתח מקורי תקין מתקבל | HYPER CORE TECH
   const App = window.NostrApp || (window.NostrApp = {});
   const GUEST_KEY_STORAGE = 'p2p_guest_keys';
   const TEMP_KEY_BLOCKLIST = 'sos_temp_login_blocklist';
@@ -89,74 +89,12 @@
     }
   }
 
-  function isAdminPrivateOrPublic(privateKeyHex, pubkey) {
-    const hex = normalizeHexKey(privateKeyHex);
-    const pk = String(pubkey || '').toLowerCase();
-    if (App.adminPublicKeys instanceof Set) {
-      if (pk && App.adminPublicKeys.has(pk)) return true;
-      // ב-config יש גם הוספת מפתח פרטי גולמי לסט — תמיכה בשני המקרים | HYPER CORE TECH
-      if (hex && App.adminPublicKeys.has(hex)) return true;
-    }
-    const adminPriv = normalizeHexKey(App.identityAdminPrivateKey || '');
-    if (adminPriv && adminPriv === hex) return true;
-    return false;
-  }
-
-  async function queryHasEvent(filters) {
-    const pool = App.pool;
-    const relays = Array.isArray(App.relayUrls) ? App.relayUrls : [];
-    if (!pool || !relays.length) return null;
-    try {
-      if (typeof pool.list === 'function') {
-        const events = await pool.list(relays, filters);
-        return Array.isArray(events) && events.length > 0;
-      }
-      if (typeof pool.listMany === 'function') {
-        const events = await pool.listMany(relays, filters);
-        return Array.isArray(events) && events.length > 0;
-      }
-      if (typeof pool.querySync === 'function') {
-        const events = await pool.querySync(relays, filters[0]);
-        return Array.isArray(events) && events.length > 0;
-      }
-      if (typeof pool.get === 'function') {
-        const event = await pool.get(relays, filters[0]);
-        return Boolean(event);
-      }
-    } catch (err) {
-      console.warn('[LOGIN-GUARD] registry lookup failed', err);
-      return null;
-    }
-    return null;
-  }
-
-  async function hasNetworkIdentityProof(pubkey) {
-    const pk = String(pubkey || '').toLowerCase();
-    if (!pk || pk.length !== 64) return false;
-
-    const emailKind = Number(App.EMAIL_REGISTRY_KIND) || 37377;
-    const inviteUsedKind = Number(App.INVITE_USED_KIND) || 37379;
-
-    const checks = [
-      queryHasEvent([{ kinds: [emailKind], authors: [pk], limit: 1 }]),
-      queryHasEvent([{ kinds: [inviteUsedKind], authors: [pk], limit: 1 }]),
-      // פרופיל kind:0 — משתמשים ותיקים לפני registry | HYPER CORE TECH
-      queryHasEvent([{ kinds: [0], authors: [pk], limit: 1 }]),
-    ];
-
-    const results = await Promise.all(checks);
-    if (results.some((r) => r === true)) return true;
-    if (results.every((r) => r === null)) return null;
-    return false;
-  }
-
   async function assertLoginPrivateKeyAllowed(privateKeyHex) {
     const hex = normalizeHexKey(privateKeyHex);
     if (!hex) {
       return { ok: false, error: 'המפתח לא תקין' };
     }
 
-    // חסימה היחידה הקשיחה: מפתחות זמניים/אורח | HYPER CORE TECH
     if (isTemporaryPrivateKey(hex)) {
       return {
         ok: false,
@@ -169,25 +107,7 @@
       return { ok: false, error: 'לא ניתן לחשב מפתח ציבורי מהמפתח שהוזן' };
     }
 
-    if (isAdminPrivateOrPublic(hex, pubkey)) {
-      return { ok: true, pubkey, privateKey: hex, reason: 'admin' };
-    }
-
-    const proof = await hasNetworkIdentityProof(pubkey);
-    if (proof === true) {
-      return { ok: true, pubkey, privateKey: hex, reason: 'registered' };
-    }
-
-    // כשל רשת: לא נועלים מפתח שאינו זמני | HYPER CORE TECH
-    if (proof === null) {
-      console.warn('[LOGIN-GUARD] network proof unavailable — allowing non-temporary key');
-      return { ok: true, pubkey, privateKey: hex, reason: 'network-fallback' };
-    }
-
-    return {
-      ok: false,
-      error: 'המפתח לא מזוהה במערכת. השתמשו במפתח המקורי מהרישום.',
-    };
+    return { ok: true, pubkey, privateKey: hex };
   }
 
   Object.assign(App, {

@@ -126,7 +126,7 @@
     }
     try {
       if (typeof App.assertLoginPrivateKeyAllowed === 'function') {
-        setStatus('מאמת מפתח רישום מול הרשת...');
+        setStatus('בודק מפתח...');
         const allowed = await App.assertLoginPrivateKeyAllowed(privateKey);
         if (!allowed?.ok) {
           setStatus(allowed?.error || 'המפתח נדחה.', 'error');

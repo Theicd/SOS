@@ -428,12 +428,7 @@
 
         try {
           btnLoginSubmit.disabled = true;
-          setStatus('loginStatus', 'מאמת מפתח רישום...', false);
-          if (!(await waitForPool(25))) {
-            setStatus('loginStatus', 'אין חיבור לריליים לאימות המפתח. נסו שוב.', true);
-            btnLoginSubmit.disabled = false;
-            return;
-          }
+          setStatus('loginStatus', 'בודק מפתח...', false);
           if (typeof App.assertLoginPrivateKeyAllowed !== 'function') {
             setStatus('loginStatus', 'מנגנון אימות מפתח לא נטען', true);
             btnLoginSubmit.disabled = false;

@@ -1041,7 +1041,7 @@
       return;
     }
     try {
-      setImportStatus('מאמת מפתח רישום מול הרשת...');
+      setImportStatus('בודק מפתח...');
       if (typeof App.assertLoginPrivateKeyAllowed === 'function') {
         const allowed = await App.assertLoginPrivateKeyAllowed(privateKey);
         if (!allowed?.ok) {
