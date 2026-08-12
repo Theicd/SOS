@@ -466,7 +466,9 @@
     const accept = document.getElementById('chatComposerFileInput')?.getAttribute('accept') || '*/*';
     const files = await nativePickFiles(accept);
     if (!files || !files.length) return;
-    if (typeof App.handleChatFileSelection === 'function') {
+    if (typeof App.openChatSendPreview === 'function') {
+      App.openChatSendPreview(files[0]);
+    } else if (typeof App.handleChatFileSelection === 'function') {
       App.handleChatFileSelection(files[0]);
     }
   }

@@ -167,7 +167,9 @@
     
     fileInput?.addEventListener('change', (e) => {
       const file = e.target.files?.[0];
-      if (file && typeof App.handleChatFileSelection === 'function') {
+      if (file && typeof App.openChatSendPreview === 'function') {
+        App.openChatSendPreview(file);
+      } else if (file && typeof App.handleChatFileSelection === 'function') {
         App.handleChatFileSelection(file);
       }
       fileInput.value = ''; // איפוס

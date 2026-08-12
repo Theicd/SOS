@@ -141,6 +141,14 @@
 
   function deliverToChat(file) {
     var App = window.NostrApp || {};
+    if (typeof App.openChatSendPreview === 'function') {
+      try {
+        App.openChatSendPreview(file);
+        return true;
+      } catch (err) {
+        console.error('[SOS-NATIVE] openChatSendPreview failed', err);
+      }
+    }
     if (typeof App.handleChatFileSelection === 'function') {
       Promise.resolve(App.handleChatFileSelection(file)).catch(function (err) {
         console.error('[SOS-NATIVE] handleChatFileSelection failed', err);

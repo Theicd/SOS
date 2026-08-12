@@ -456,12 +456,21 @@
     openFilePicker();
   }
 
+  function offerFileToUser(file) {
+    if (!file) return Promise.resolve();
+    if (typeof App.openChatSendPreview === 'function') {
+      App.openChatSendPreview(file);
+      return Promise.resolve();
+    }
+    return handleFileSelection(file);
+  }
+
   function onFileInputChange(event) {
     const files = event.target?.files;
     if (!files || !files.length) {
       return;
     }
-    handleFileSelection(files[0]).catch((err) => {
+    offerFileToUser(files[0]).catch((err) => {
       const reason = err?.message || 'unknown-error';
       console.error('[CHAT/FILE-UI] handleFileSelection failed:', reason, err);
       App.notifyChatFileTransferError?.({
@@ -540,6 +549,7 @@
     initializeChatFileTransferUI,
     setChatFileTransferActivePeer: setActivePeer,
     clearChatFileTransferUI: clearUI,
-    handleChatFileSelection: handleFileSelection,
+    handleChatFileSelection: offerFileToUser,
+    sendChatSelectedFile: handleFileSelection,
   });
 })(window);
