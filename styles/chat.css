@@ -3178,6 +3178,41 @@ body.chat-media-modal-open {
     line-height: 1.08;
   }
 
+  /* חלק רשימת שיחות מובייל (chat.css) – אווטאר ושם קריאים יותר | HYPER CORE TECH */
+  .chat-contact,
+  .chat-panel .chat-contact {
+    grid-template-columns: 52px 1fr;
+    gap: 12px;
+    padding: 12px 14px;
+    min-height: 68px;
+    align-items: center;
+  }
+
+  .chat-contact__avatar,
+  .chat-panel .chat-contact__avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 1rem;
+  }
+
+  .chat-contact__name,
+  .chat-panel .chat-contact__name {
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .chat-contact__last-message,
+  .chat-panel .chat-contact__last-message {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  .chat-contact__time,
+  .chat-panel .chat-contact__time {
+    font-size: 12px;
+  }
+
   /* מובייל – מסך הגדרות מלא בסגנון iOS/WhatsApp | HYPER CORE TECH */
   .chat-panel .chat-disappearing-sheet {
     align-items: stretch;
