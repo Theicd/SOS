@@ -477,6 +477,62 @@
     return transferMediaPreviews.get(fileId)?.posterDataUrl || '';
   };
 
+  // כיתוב לשליחת מדיה — מוצג כבר בבועת ההעלאה בצד השולח | HYPER CORE TECH
+  const transferCaptions = new Map();
+  function isPlaceholderFileCaption(text, fileName) {
+    const t = String(text || '').trim();
+    if (!t) return true;
+    const n = String(fileName || '').trim();
+    if (n && (t === n || t === `📎 ${n}`)) return true;
+    if (/^📎\s+\S+$/u.test(t)) return true;
+    return false;
+  }
+  function setChatTransferCaption(fileId, caption) {
+    const t = String(caption || '').trim();
+    if (!fileId || !t || isPlaceholderFileCaption(t)) return;
+    transferCaptions.set(fileId, t);
+  }
+  function getChatTransferCaption(fileId, progress) {
+    if (fileId && transferCaptions.has(fileId)) {
+      return transferCaptions.get(fileId) || '';
+    }
+    const fromProgress = String(progress?.caption || '').trim();
+    if (fromProgress && !isPlaceholderFileCaption(fromProgress, progress?.name)) return fromProgress;
+    try {
+      const att = state.activeContact ? App.getChatFileAttachment?.(state.activeContact) : null;
+      const fromAtt = String(att?.caption || '').trim();
+      if (fromAtt && !isPlaceholderFileCaption(fromAtt, att?.name || progress?.name)) return fromAtt;
+    } catch (_) {}
+    return '';
+  }
+  function buildTransferCaptionHtml(caption) {
+    const t = String(caption || '').trim();
+    if (!t) return '';
+    const safe = App.escapeHtml ? App.escapeHtml(t) : t;
+    return `<span class="chat-message__text">${safe.replace(/\n/g, '<br>')}</span>`;
+  }
+  function ensureTransferCaptionEl(contentEl, caption) {
+    if (!contentEl) return;
+    const t = String(caption || '').trim();
+    let textEl = contentEl.querySelector(':scope > .chat-message__text');
+    if (!t) {
+      if (textEl) textEl.remove();
+      contentEl.classList.remove('chat-message__content--media-caption');
+      return;
+    }
+    const html = buildTransferCaptionHtml(t);
+    if (textEl) {
+      textEl.outerHTML = html;
+    } else {
+      const upload = contentEl.querySelector('.chat-media-upload');
+      if (upload) upload.insertAdjacentHTML('afterend', html);
+      else contentEl.insertAdjacentHTML('beforeend', html);
+    }
+    contentEl.classList.add('chat-message__content--media-caption');
+  }
+  App.setChatTransferCaption = setChatTransferCaption;
+  App.getChatTransferCaption = getChatTransferCaption;
+
   function resolveTransferPreview(progress) {
     if (!progress) return { url: '', mime: '', name: '', isVideo: false, isImage: false };
     const cached = transferMediaPreviews.get(progress.fileId) || {};
@@ -826,6 +882,20 @@
     if (content) {
       content.setAttribute('data-chat-message', message.id);
       content.classList.add('chat-message__content--media-upload');
+      const captionFromMsg = isPlaceholderFileCaption(message.content, a?.name)
+        ? ''
+        : String(message.content || '').trim();
+      const captionText = captionFromMsg || getChatTransferCaption(fileId) || String(a?.caption || '').trim();
+      if (captionText) setChatTransferCaption(fileId, captionText);
+      ensureTransferCaptionEl(content, captionText);
+      // עם כיתוב: שעה מתחת לטקסט כמו וואטסאפ | HYPER CORE TECH
+      if (captionText) {
+        wrap?.querySelector?.('.chat-media-upload__footer')?.remove();
+        let meta = content.querySelector(':scope > .chat-message__meta-row');
+        const metaHtml = `<div class="chat-message__meta-row"><span class="chat-message__meta">${timeLabel}</span>${statusHtml}</div>`;
+        if (meta) meta.outerHTML = metaHtml;
+        else content.insertAdjacentHTML('beforeend', metaHtml);
+      }
     }
 
     if (isVid && mediaEl && wrap && wrap.dataset.settleBound !== '1') {
@@ -865,6 +935,7 @@
 
     settledMediaTransferIds.add(fileId);
     state.transferProgress.delete(fileId);
+    transferCaptions.delete(fileId);
     return true;
   }
 
@@ -1047,6 +1118,11 @@
         size: existingPreview?.size || prevPreview.size || 0,
         posterDataUrl: existingPreview?.posterDataUrl || prevPreview.posterDataUrl || '',
       });
+    }
+    const prevCaption = transferCaptions.get(oldFileId);
+    if (prevCaption) {
+      transferCaptions.delete(oldFileId);
+      if (!transferCaptions.has(newFileId)) transferCaptions.set(newFileId, prevCaption);
     }
     return true;
   }
@@ -1370,6 +1446,8 @@
     const done = ui.isTerminalOk;
     const failed = ui.st === 'failed' || ui.st === 'cancelled';
     const safeSrc = App.escapeHtml ? App.escapeHtml(mediaSrc) : String(mediaSrc || '');
+    if (progress.caption) setChatTransferCaption(progress.fileId, progress.caption);
+    const captionText = getChatTransferCaption(progress.fileId, progress);
 
     // עדכון במקום אם כבר יש בועת מדיה | HYPER CORE TECH
     if (existing && existing.querySelector('.chat-media-upload')) {
@@ -1429,6 +1507,7 @@
         cancelBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
         bubble.querySelector('.chat-media-upload')?.appendChild(cancelBtn);
       }
+      ensureTransferCaptionEl(bubble.querySelector('.chat-message__content'), captionText);
       scheduleTransferBubbleCleanup(bubble, progress, ui);
       return;
     }
@@ -1440,6 +1519,8 @@
         ? `<video class="chat-media-upload__media" preload="auto" muted playsinline webkit-playsinline poster="${MEDIA_UPLOAD_BLACK_POSTER}" style="opacity:0;visibility:hidden;background:#000"${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`
         : `<video class="chat-media-upload__media" preload="auto" muted playsinline webkit-playsinline${readyPoster ? ` poster="${readyPoster}"` : ''} style="opacity:1;visibility:visible;background:#000"${mediaSrc ? ` src="${safeSrc}"` : ''}></video>`)
       : `<img class="chat-media-upload__media" alt=""${mediaSrc ? ` src="${safeSrc}"` : ''} decoding="async">`;
+    const captionHtml = buildTransferCaptionHtml(captionText);
+    const captionClass = captionHtml ? ' chat-message__content--media-caption' : '';
 
     bubble.className = `chat-message ${directionClass} chat-message--file-transfer chat-message--media-transfer`;
     bubble.setAttribute('data-transfer-id', progress.fileId);
@@ -1447,7 +1528,7 @@
       bubble.setAttribute('data-torrent-transfer', progress.torrentTransferId);
     }
     bubble.innerHTML = `
-      <div class="chat-message__content chat-message__content--media-upload">
+      <div class="chat-message__content chat-message__content--media-upload${captionClass}">
         <div class="chat-media-upload${isVideo && androidPlaceholder ? ' chat-media-upload--pending' : ''}" data-chat-media-upload="1">
           ${mediaHtml}
           <div class="chat-media-upload__overlay"${done || failed ? ' hidden' : ''}>
@@ -1468,6 +1549,7 @@
           </div>
           <span class="chat-media-upload__status" ${failed ? '' : 'hidden'}>${failed ? (ui.actionText || '') : ''}</span>
         </div>
+        ${captionHtml}
       </div>
     `;
 

@@ -123,13 +123,14 @@
     return /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(file.name || '');
   }
 
-  function reportCompressProgress(peer, compressId, file, stage, percent, previewUrl) {
+  function reportCompressProgress(peer, compressId, file, stage, percent, previewUrl, caption) {
     const pct = typeof percent === 'number' ? percent : 0;
     // לא 'complete' — מונע בועת "נשלח" נפרדת לפני תחילת P2P | HYPER CORE TECH
     const status =
       stage === 'failed' ? 'failed'
       : stage === 'complete' ? 'starting'
       : 'compressing';
+    if (caption) App.setChatTransferCaption?.(compressId, caption);
     App.handleP2PProgressUpdate?.({
       fileId: compressId,
       progress: Math.max(0, Math.min(1, pct / 100)),
@@ -141,12 +142,13 @@
       previewUrl: previewUrl || undefined,
       peerPubkey: peer,
       compressStage: stage,
+      caption: caption || undefined,
       error: stage === 'failed' ? 'דחיסה נכשלה — שולח מקור' : undefined,
     });
   }
 
   // חלק דחיסה (chat-file-transfer-ui.js) – וידאו בצ'אט עובר compressVideo לפני P2P/Torrent עם בועת התקדמות | HYPER CORE TECH
-  async function maybeCompressVideoForChat(peer, file, previewUrl) {
+  async function maybeCompressVideoForChat(peer, file, previewUrl, caption) {
     if (!looksLikeVideoFile(file)) return { file, compressId: null };
     if (typeof App.compressVideo !== 'function') {
       log('compressVideo לא זמין — שולח מקור');
@@ -155,7 +157,8 @@
 
     const compressId = `compress-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     registerTransferPreview(compressId, file, previewUrl);
-    reportCompressProgress(peer, compressId, file, 'compressing', 2, previewUrl);
+    if (caption) App.setChatTransferCaption?.(compressId, caption);
+    reportCompressProgress(peer, compressId, file, 'compressing', 2, previewUrl, caption);
     log('מתחיל דחיסת וידאו לצ׳אט', {
       name: file.name,
       sizeMB: (file.size / (1024 * 1024)).toFixed(2),
@@ -170,11 +173,12 @@
           file,
           progress?.stage === 'finalizing' ? 'compressing' : (progress?.stage || 'compressing'),
           progress?.percent || 0,
-          previewUrl
+          previewUrl,
+          caption
         );
       });
 
-      reportCompressProgress(peer, compressId, file, 'complete', 99, previewUrl);
+      reportCompressProgress(peer, compressId, file, 'complete', 99, previewUrl, caption);
 
       if (!result?.blob) {
         log('דחיסה ללא blob — שולח מקור');
@@ -198,7 +202,7 @@
       return { file: compressedFile, compressId };
     } catch (err) {
       log('דחיסת וידאו נכשלה — ממשיכים עם מקור', err?.message || err);
-      reportCompressProgress(peer, compressId, file, 'failed', 0, previewUrl);
+      reportCompressProgress(peer, compressId, file, 'failed', 0, previewUrl, caption);
       return { file, compressId };
     }
   }
@@ -238,7 +242,7 @@
     }
 
     // דחיסת וידאו לפני כל מסלול שליחה (P2P / Torrent / inline)
-    const compressResult = await maybeCompressVideoForChat(peer, file, localPreviewUrl);
+    const compressResult = await maybeCompressVideoForChat(peer, file, localPreviewUrl, caption);
     file = compressResult?.file || file;
     let pipelineCompressId = compressResult?.compressId || null;
 
@@ -266,6 +270,7 @@
 
     const adoptCompressBubble = (realFileId) => {
       if (!realFileId) return;
+      if (caption) App.setChatTransferCaption?.(realFileId, caption);
       if (pipelineCompressId && pipelineCompressId !== realFileId) {
         App.adoptChatTransferBubble?.(pipelineCompressId, realFileId);
         pipelineCompressId = null;
@@ -300,8 +305,10 @@
             mimeType: evt?.mimeType || file.type || undefined,
             name: evt?.name || file.name,
             size: evt?.size || file.size,
+            caption: caption || evt?.caption || undefined,
           };
           if (enriched.fileId) {
+            if (caption) App.setChatTransferCaption?.(enriched.fileId, caption);
             registerTransferPreview(enriched.fileId, file, previewUrl);
             // אל תחכה — תדביק תקציר ברגע שמוכן | HYPER CORE TECH
             attachPosterToFileId(enriched.fileId, previewUrl);

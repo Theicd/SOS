@@ -2801,6 +2801,52 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
   box-shadow: none !important;
 }
 
+/* העלאה + כיתוב: בועה כחולה דקה עם טקסט מתחת למדיה כבר בזמן הטעינה | HYPER CORE TECH */
+.chat-message__content--media-upload.chat-message__content--media-caption {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 3px 3px 4px !important;
+  gap: 0 !important;
+  background: linear-gradient(135deg, #1a3a5c, #234b6e) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chat-message--incoming .chat-message__content--media-upload.chat-message__content--media-caption {
+  background: #2a2a2a !important;
+}
+
+.chat-message__content--media-upload.chat-message__content--media-caption .chat-media-upload {
+  border: none;
+  box-shadow: none;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+
+.chat-message__content--media-upload.chat-message__content--media-caption .chat-message__text {
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
+  padding: 5px 6px 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.chat-message__content--media-upload.chat-message__content--media-caption .chat-message__meta-row {
+  float: none !important;
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
+  margin: 0 !important;
+  margin-inline-start: 0 !important;
+  padding: 1px 4px 1px;
+  justify-content: flex-end;
+}
+
 .chat-media-upload {
   position: relative;
   border-radius: 6px;
