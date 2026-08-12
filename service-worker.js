@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v380'; // bump - P2P green ring on contact avatars
+  const CACHE_NAME = 'sos-cache-v381'; // bump - relay chat E2EE (nip44/nip04)
   const PRECACHE_URLS = [
     './',
     './videos.html',

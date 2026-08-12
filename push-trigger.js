@@ -174,7 +174,7 @@
     const myName = App.profile?.name || App.chatState?.myProfile?.name || 'משתמש';
     const myPicture = App.profile?.picture || App.chatState?.myProfile?.picture || DEFAULT_ICON;
     
-    // בניית תוכן ההודעה
+    // בניית תוכן ההודעה — בלי טקסט גולמי (פרטיות / E2EE) | HYPER CORE TECH
     let body = 'הודעה חדשה';
     let messageType = 'text';
     
@@ -192,8 +192,6 @@
         body = '📎 קובץ מצורף';
         messageType = 'file';
       }
-    } else if (messageContent) {
-      body = messageContent.length > 100 ? messageContent.slice(0, 100) + '...' : messageContent;
     }
     
     const eventId = messageId ? String(messageId) : '';
@@ -248,21 +246,19 @@
     
     if (message.attachment) {
       const att = message.attachment;
-      if (att.type === 'audio' || att.mimeType?.startsWith('audio/')) {
+      if (att.type === 'audio' || att.mimeType?.startsWith('audio/') || String(att.type || '').startsWith('audio/')) {
         body = '🎤 הודעה קולית';
         messageType = 'voice-message';
-      } else if (att.type === 'image' || att.mimeType?.startsWith('image/')) {
+      } else if (att.type === 'image' || att.mimeType?.startsWith('image/') || String(att.type || '').startsWith('image/')) {
         body = '📷 תמונה';
         messageType = 'image';
-      } else if (att.type === 'video' || att.mimeType?.startsWith('video/')) {
+      } else if (att.type === 'video' || att.mimeType?.startsWith('video/') || String(att.type || '').startsWith('video/')) {
         body = '🎬 וידאו';
         messageType = 'video';
       } else {
         body = '📎 קובץ מצורף';
         messageType = 'file';
       }
-    } else if (message.content) {
-      body = message.content.length > 100 ? message.content.slice(0, 100) + '...' : message.content;
     }
 
     const title = `הודעה מ-${contactInfo.name}`;

@@ -158,6 +158,96 @@
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
   }
 
+  // חלק E2EE ריליי (chat-service.js) – הצפנת תוכן kind 1050 לפני publish (NIP-44 / NIP-04) | HYPER CORE TECH
+  const NIP44_SAFE_CHARS = 60000;
+
+  function parseEncEnvelope(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') return null;
+      const scheme = obj.enc === 'nip44' || obj.enc === 'nip04' ? obj.enc : null;
+      const cipher = typeof obj.c === 'string' ? obj.c : (typeof obj.ciphertext === 'string' ? obj.ciphertext : null);
+      if (!scheme || !cipher) return null;
+      return { scheme, cipher };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function encryptChatContentForPeer(peerPubkey, plaintext) {
+    const NT = window.NostrTools;
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (!App.privateKey || !peer || plaintext == null || plaintext === '') return null;
+
+    if (NT?.nip44 && String(plaintext).length <= NIP44_SAFE_CHARS) {
+      try {
+        const nip44 = NT.nip44;
+        const v2 = nip44.v2 || nip44;
+        const getKey = v2.utils?.getConversationKey || nip44.getConversationKey;
+        const encryptFn = v2.encrypt || nip44.encrypt;
+        if (typeof getKey === 'function' && typeof encryptFn === 'function') {
+          const conversationKey = getKey(App.privateKey, peer);
+          const cipher = encryptFn(String(plaintext), conversationKey);
+          if (cipher) return { wire: JSON.stringify({ enc: 'nip44', c: cipher }), scheme: 'nip44' };
+        }
+      } catch (err) {
+        console.warn('[CHAT/E2EE] nip44 encrypt failed, trying nip04', err?.message || err);
+      }
+    }
+
+    if (NT?.nip04?.encrypt) {
+      try {
+        const cipher = await NT.nip04.encrypt(App.privateKey, peer, String(plaintext));
+        if (cipher) return { wire: JSON.stringify({ enc: 'nip04', c: cipher }), scheme: 'nip04' };
+      } catch (err) {
+        console.warn('[CHAT/E2EE] nip04 encrypt failed', err?.message || err);
+      }
+    }
+    return null;
+  }
+
+  async function decryptChatWireContent(wireContent, peerPubkey) {
+    const envelope = parseEncEnvelope(wireContent);
+    if (!envelope) return { content: wireContent, encrypted: false, ok: true };
+
+    const NT = window.NostrTools;
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (!App.privateKey || !peer) {
+      return { content: '', encrypted: true, ok: false };
+    }
+
+    try {
+      if (envelope.scheme === 'nip44' && NT?.nip44) {
+        const nip44 = NT.nip44;
+        const v2 = nip44.v2 || nip44;
+        const getKey = v2.utils?.getConversationKey || nip44.getConversationKey;
+        const decryptFn = v2.decrypt || nip44.decrypt;
+        if (typeof getKey === 'function' && typeof decryptFn === 'function') {
+          const conversationKey = getKey(App.privateKey, peer);
+          const plain = decryptFn(envelope.cipher, conversationKey);
+          if (typeof plain === 'string') return { content: plain, encrypted: true, ok: true };
+        }
+      }
+      if (envelope.scheme === 'nip04' && NT?.nip04?.decrypt) {
+        const plain = await NT.nip04.decrypt(App.privateKey, peer, envelope.cipher);
+        if (typeof plain === 'string') return { content: plain, encrypted: true, ok: true };
+      }
+    } catch (err) {
+      console.warn('[CHAT/E2EE] decrypt failed', err?.message || err);
+    }
+    return { content: '', encrypted: true, ok: false };
+  }
+
+  function buildSafePushAttachmentHint(serialization) {
+    if (!serialization?.hasAttachment || !serialization.attachment) return null;
+    const mime = String(serialization.attachment.type || serialization.attachment.mimeType || '').toLowerCase();
+    if (mime.startsWith('audio/')) return { mimeType: mime, type: 'audio' };
+    if (mime.startsWith('image/')) return { mimeType: mime, type: 'image' };
+    if (mime.startsWith('video/')) return { mimeType: mime, type: 'video' };
+    return { mimeType: mime || 'application/octet-stream', type: 'file' };
+  }
+
   async function publishChatMessage(peerPubkey, plainText, options = {}) {
     const clientTempId = typeof options?.clientTempId === 'string' ? options.clientTempId : null;
     // חלק צ'אט (chat-service.js) – בודק אם מצורף קובץ לפני סינון טקסט ריק כדי לאפשר שליחת קבצים בלבד
@@ -243,16 +333,23 @@
         // P2P בלבד לא מגיע ל-RelayWatcher – Push/FCM להתראה כשהמקבל ב-APK ברקע | HYPER CORE TECH
         if (typeof App.triggerOutgoingMessagePush === 'function') {
           try {
-            App.triggerOutgoingMessagePush(peerPubkey, serialization?.rawContent, attachmentReady, p2pId);
+            App.triggerOutgoingMessagePush(peerPubkey, null, buildSafePushAttachmentHint(serialization), p2pId);
           } catch (_pushErr) {}
         }
         console.log('[DC] ✅ Message sent P2P, relay skipped');
         return { ok: true, messageId: p2pId, p2p: true };
       }
     }
-    // fallback: שליחה רגילה דרך relay
-
-    const draft = buildChatDraft(peerPubkey, serialization.rawContent || '');
+    // fallback: שליחה רגילה דרך relay — תוכן מוצפן לפני publish | HYPER CORE TECH
+    const encrypted = await encryptChatContentForPeer(peerPubkey, serialization.rawContent || '');
+    if (!encrypted?.wire) {
+      console.error('[CHAT/E2EE] ❌ encrypt failed — לא מפרסמים טקסט גלוי לריליי');
+      return { ok: false, error: 'encrypt-failed' };
+    }
+    const draft = buildChatDraft(peerPubkey, encrypted.wire);
+    if (encrypted.scheme) {
+      draft.tags.push(['enc', encrypted.scheme]);
+    }
     const event = App.finalizeEvent(draft, App.privateKey);
 
     const outgoingMessage = {
@@ -276,6 +373,7 @@
 
     // חלק timeout (chat-service.js) – פרסום עם timeout של 5 שניות למניעת תקיעה | HYPER CORE TECH
     const PUBLISH_TIMEOUT_MS = 5000;
+    const pushHint = buildSafePushAttachmentHint(serialization);
     try {
       const publishPromise = pool.publish(App.relayUrls, event);
       const timeoutPromise = new Promise((_, reject) => 
@@ -289,7 +387,7 @@
       App.markChatConversationRead(peerPubkey);
       // חלק Push (chat-service.js) – שליחת Push לנמען כשההודעה נשלחה בהצלחה | HYPER CORE TECH
       if (typeof App.triggerOutgoingMessagePush === 'function') {
-        App.triggerOutgoingMessagePush(peerPubkey, serialization?.rawContent, attachmentReady);
+        App.triggerOutgoingMessagePush(peerPubkey, null, pushHint);
       }
       if (typeof App.afterChatMessagePublished === 'function') {
         App.afterChatMessagePublished(peerPubkey, outgoingMessage);
@@ -304,7 +402,7 @@
         }
         // שליחת Push גם במקרה של timeout
         if (typeof App.triggerOutgoingMessagePush === 'function') {
-          App.triggerOutgoingMessagePush(peerPubkey, serialization?.rawContent, attachmentReady);
+          App.triggerOutgoingMessagePush(peerPubkey, null, pushHint);
         }
         return { ok: true, messageId: event.id };
       }
@@ -456,6 +554,23 @@
     if (!conversationTarget) {
       return;
     }
+
+    // חלק E2EE ריליי (chat-service.js) – פענוח לפני deserialize / torrent (תאימות לאחור לטקסט גלוי) | HYPER CORE TECH
+    const decryptPeer = isSelfMessage ? recipient : sender;
+    const decrypted = await decryptChatWireContent(event.content, decryptPeer);
+    if (decrypted.encrypted && !decrypted.ok) {
+      App.appendChatMessage({
+        id: event.id,
+        from: sender,
+        to: conversationTarget,
+        content: '(הודעה מוצפנת לא נפתחה)',
+        attachment: null,
+        createdAt: eventTs,
+        direction: isSelfMessage ? 'outgoing' : 'incoming',
+      });
+      return;
+    }
+    event.content = decrypted.content;
 
     const profile = normalizeProfileData(await resolveProfile(peerPubkey), peerPubkey);
     // חלק תיקון cache (chat-service.js) — profileFetchedAt = זמן נוכחי (לא eventTs!) כדי שה-TTL cache יעבוד | HYPER CORE TECH
