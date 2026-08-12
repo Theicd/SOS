@@ -440,33 +440,12 @@
   color: #ff5252;
 }
 
-/* חלק כפתור טורנט דסקטופ (webtorrent-transfer.css) – כפתור שליחת קובץ גדול בצ'אט - רק דסקטופ | HYPER CORE TECH */
+/* חלק כפתור טורנט דסקטופ (webtorrent-transfer.css) – מוסתר גם בדסקטופ; שליחה דרך אטב אחיד | HYPER CORE TECH */
 .chat-composer__icon--torrent {
-  background: linear-gradient(135deg, #25D366, #128C7E) !important;
-  color: #fff !important;
-  border-radius: 50% !important;
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin-left: 4px;
-  transition: all 0.2s ease !important;
-  position: relative;
+  display: none !important;
 }
 
-.chat-composer__icon--torrent:hover {
-  background: linear-gradient(135deg, #2be877, #15a08e) !important;
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.4);
-}
-
-.chat-composer__icon--torrent i {
-  font-size: 14px !important;
-}
-
-/* חלק הסתרת טורנט מובייל (webtorrent-transfer.css) – הסתרת כפתור טורנט נפרד במובייל | HYPER CORE TECH */
+/* חלק הסתרת טורנט מובייל (webtorrent-transfer.css) – נשאר מוסתר בכל רוחב | HYPER CORE TECH */
 @media (max-width: 768px) {
   .chat-composer__icon--torrent {
     display: none !important;
