@@ -773,7 +773,17 @@
     const msg = mediaEl?.closest?.('.chat-message');
     if (!msg) return;
     if (messageHasVisibleCaption(msg)) {
-      msg.classList.remove('chat-message--media-pending');
+      // כשל מדיה עם כיתוב — לא חושפים בועה שבורה; משאירים מוסתר עד שיש מדיה מוכנה אחרת | HYPER CORE TECH
+      const hasReady = msg.querySelector(
+        '.chat-message__image-container.is-media-ready, .chat-message__video-container.is-media-ready, audio, .chat-audio, [data-audio]'
+      );
+      if (hasReady) {
+        msg.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+        msg.hidden = false;
+        return;
+      }
+      msg.classList.add('chat-message--media-pending');
+      msg.hidden = true;
       return;
     }
     const hasReady = msg.querySelector(

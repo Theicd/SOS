@@ -4587,9 +4587,8 @@
           </div>
       `;
 
-      // הודעת מדיה בלבד — מסתירים את כל הבועה עד שהמדיה מוכנה (בלי פסים) | HYPER CORE TECH
-      const pendingVisualMediaOnly =
-        !textHtml &&
+      // מדיה (עם/בלי כיתוב) — מסתירים את כל הבועה עד שהמדיה מוכנה; חושפים יחד | HYPER CORE TECH
+      const pendingVisualMedia =
         !youtubeHtml &&
         !linkPreviewHtml &&
         !isAudioAttachment &&
@@ -4600,7 +4599,7 @@
             `${attachmentHtml || ''}${mediaUrlHtml || ''}`
           )
         );
-      if (pendingVisualMediaOnly) {
+      if (pendingVisualMedia) {
         item.classList.add('chat-message--media-pending');
       }
       
