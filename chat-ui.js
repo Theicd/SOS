@@ -2813,7 +2813,7 @@
     const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
     const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v)(\?|$)/i;
     const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-    const DOC_EXTS = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf)(\?|$)/i;
+    const DOC_EXTS = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf|log)(\?|$)/i;
     const ARCHIVE_EXTS = /\.(zip|rar|7z|tar|gz|tgz|bz2|xz)(\?|$)/i;
 
     const content = typeof message === 'string' ? message : (message?.content || '');
@@ -3095,7 +3095,7 @@
     const AUDIO_EXTS = /\.(webm|mp3|m4a|ogg|wav|aac)(\?|$)/i;
     const VIDEO_EXTS = /\.(mp4|ogv|mov|avi|mkv|m4v|webm)(\?|$)/i;
     const IMAGE_EXTS = /\.(jpe?g|png|gif|webp|heic|heif|bmp|svg)(\?|$)/i;
-    const DOC_EXTS = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf|odt|ods|odp)(\?|$)/i;
+    const DOC_EXTS = /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf|odt|ods|odp|log)(\?|$)/i;
     const ARCHIVE_EXTS = /\.(zip|rar|7z|tar|gz|tgz|bz2|xz)(\?|$)/i;
 
     function looksLikeFileOnlyCaption(content, fileName) {

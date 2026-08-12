@@ -667,7 +667,7 @@
         attMime.includes('compressed') ||
         attMime.includes('x-7z');
       const isDocAtt =
-        /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf)(\?|$)/i.test(attName) ||
+        /\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf|log)(\?|$)/i.test(attName) ||
         attMime.includes('pdf') ||
         attMime.includes('msword') ||
         attMime.includes('officedocument');
@@ -827,7 +827,7 @@
         attachmentPreview = '📷 תמונה';
       } else if (/\.(zip|rar|7z)(\?|$)/i.test(attName) || attMime.includes('zip')) {
         attachmentPreview = '🗜️ קובץ מכווץ';
-      } else if (/\.(pdf|docx?|xlsx?|pptx?)(\?|$)/i.test(attName) || attMime.includes('pdf')) {
+      } else if (/\.(pdf|docx?|xlsx?|pptx?|txt|csv|rtf|log)(\?|$)/i.test(attName) || attMime.includes('pdf')) {
         attachmentPreview = '📄 מסמך';
       } else if (att.name) {
         attachmentPreview = '📎 קובץ';
