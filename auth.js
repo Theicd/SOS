@@ -1034,21 +1034,13 @@
     return null;
   }
 
-  async function handleImport() {
+  function handleImport() {
     const privateKey = decodeImportValue();
     if (!privateKey) {
       setImportStatus('לא זוהה מפתח פרטי חוקי.', 'error');
       return;
     }
     try {
-      setImportStatus('בודק מפתח...');
-      if (typeof App.assertLoginPrivateKeyAllowed === 'function') {
-        const allowed = await App.assertLoginPrivateKeyAllowed(privateKey);
-        if (!allowed?.ok) {
-          setImportStatus(allowed?.error || 'המפתח נדחה.', 'error');
-          return;
-        }
-      }
       storeNostrPrivateKey(privateKey);
       App.privateKey = privateKey;
       if (typeof App.ensureKeys === 'function') {

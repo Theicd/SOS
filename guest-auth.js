@@ -427,20 +427,6 @@
         }
 
         try {
-          btnLoginSubmit.disabled = true;
-          setStatus('loginStatus', 'בודק מפתח...', false);
-          if (typeof App.assertLoginPrivateKeyAllowed !== 'function') {
-            setStatus('loginStatus', 'מנגנון אימות מפתח לא נטען', true);
-            btnLoginSubmit.disabled = false;
-            return;
-          }
-          var allowed = await App.assertLoginPrivateKeyAllowed(privateKey);
-          if (!allowed || !allowed.ok) {
-            setStatus('loginStatus', (allowed && allowed.error) || 'המפתח נדחה', true);
-            btnLoginSubmit.disabled = false;
-            return;
-          }
-
           storeNostrPrivateKeyGuest(privateKey);
           App.privateKey = privateKey;
           if (typeof App.ensureKeys === 'function') {
@@ -453,7 +439,6 @@
           }, 500);
         } catch (e) {
           setStatus('loginStatus', 'שגיאה בשמירת המפתח', true);
-          btnLoginSubmit.disabled = false;
         }
       });
     }

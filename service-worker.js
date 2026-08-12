@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v390'; // bump - login: block temp keys only
+  const CACHE_NAME = 'sos-cache-v391'; // bump - rollback login key guard experiments
   const PRECACHE_URLS = [
     './',
     './videos.html',
