@@ -3598,6 +3598,16 @@
       });
   }
 
+  function isPeerP2PConnected(peerPubkey) {
+    const pk = String(peerPubkey || '').toLowerCase();
+    if (!pk) return false;
+    try {
+      return !!(App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(pk));
+    } catch (_) {
+      return false;
+    }
+  }
+
   function buildContactHtml(contact) {
     // חלק צ'אט (chat-ui.js) – בונה פריט רשימת אנשי קשר עם אווטרים, שם ותצוגה מקדימה
     const rawName = contact.name || `משתמש ${contact.pubkey.slice(0, 8)}`;
@@ -3616,9 +3626,12 @@
       ? `<span class="chat-contact__badge">${contact.unreadCount > 99 ? '99+' : contact.unreadCount}</span>`
       : '';
     const activeClass = state.activeContact === contact.pubkey ? ' chat-contact--active' : '';
+    const p2pOn = isPeerP2PConnected(contact.pubkey);
+    const p2pClass = p2pOn ? ' chat-contact__avatar--p2p' : '';
+    const avatarTitle = p2pOn ? `${safeName} · P2P ישיר` : safeName;
     const avatarHtml = contact.picture
-      ? `<span class="chat-contact__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-contact__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
-      : `<span class="chat-contact__avatar chat-contact__avatar--initials" title="${safeName}">${safeInitials}</span>`;
+      ? `<span class="chat-contact__avatar${p2pClass}" title="${avatarTitle}" data-p2p="${p2pOn ? '1' : '0'}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('chat-contact__avatar--initials'); this.parentElement.textContent='${safeInitials}'; this.remove();"></span>`
+      : `<span class="chat-contact__avatar chat-contact__avatar--initials${p2pClass}" title="${avatarTitle}" data-p2p="${p2pOn ? '1' : '0'}">${safeInitials}</span>`;
 
     // חלק סטטוס קריאה (chat-ui.js) – הוספת וי לרשימת אנשי קשר כמו וואטסאפ (אייקוני FontAwesome זהים לשיחה) | HYPER CORE TECH
     let statusCheckHtml = '';
@@ -3740,6 +3753,8 @@
         elements.contactsList.appendChild(loadingWrap.firstElementChild);
       }
     }
+    refreshContactsP2PIndicators();
+    ensureContactsP2PStatusWiring();
   }
 
   // חלק חיפוש רשת (chat-ui.js) – שאילתת שם בריליים דרך תיבת החיפוש הקיימת | HYPER CORE TECH
@@ -4845,14 +4860,45 @@
     const update = () => {
       const pk = peerPubkey || state.activeContact;
       if (!pk) { el.textContent = 'פעיל ברשת'; return; }
-      const dcOn = App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(pk);
+      const dcOn = isPeerP2PConnected(pk);
       el.innerHTML = dcOn
         ? '<span style="color:#25D366" title="חיבור ישיר P2P פעיל — הודעות עוברות ישירות">⚡ P2P ישיר</span>'
         : '<span title="הודעות עוברות דרך שרת relay">☁️ דרך שרת</span>';
+      refreshContactsP2PIndicators();
     };
     update();
     _dcStatusTimer = setInterval(() => {
       if (state.activeContact) update(); else { clearInterval(_dcStatusTimer); _dcStatusTimer = null; }
+    }, 3000);
+  }
+
+  // חלק P2P ברשימה (chat-ui.js) – מסגרת ירוקה סביב אווטאר כשיש DataChannel פעיל | HYPER CORE TECH
+  let _contactsP2PTimer = null;
+  function refreshContactsP2PIndicators() {
+    const list = elements.contactsList;
+    if (!list) return;
+    list.querySelectorAll('[data-chat-contact]').forEach((row) => {
+      const pk = row.getAttribute('data-chat-contact');
+      const avatar = row.querySelector('.chat-contact__avatar');
+      if (!pk || !avatar) return;
+      const on = isPeerP2PConnected(pk);
+      const wasOn = avatar.classList.contains('chat-contact__avatar--p2p');
+      if (on === wasOn && avatar.getAttribute('data-p2p') === (on ? '1' : '0')) return;
+      avatar.classList.toggle('chat-contact__avatar--p2p', on);
+      avatar.setAttribute('data-p2p', on ? '1' : '0');
+      const baseTitle = (avatar.getAttribute('title') || '')
+        .replace(/\s*·\s*P2P ישיר\s*$/u, '')
+        .trim();
+      avatar.title = on ? `${baseTitle || 'משתמש'} · P2P ישיר` : baseTitle;
+    });
+  }
+
+  function ensureContactsP2PStatusWiring() {
+    if (_contactsP2PTimer) return;
+    _contactsP2PTimer = setInterval(() => {
+      if (!elements.panel || elements.panel.hasAttribute('hidden')) return;
+      if (state.footerMode === 'notifications') return;
+      refreshContactsP2PIndicators();
     }, 3000);
   }
 
@@ -4875,6 +4921,8 @@
     }
     updatePanelMode(PANEL_MODES.LIST);
     // חזרה לרשימת שיחות אחרי deep-link – מחזירים את התפריט התחתון | HYPER CORE TECH
+    ensureContactsP2PStatusWiring();
+    refreshContactsP2PIndicators();
     try {
       if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
       else {
@@ -5407,6 +5455,7 @@
     // מנוי פרוגרס להעברות P2P כדי לרנדר בועות התקדמות בתוך השיחה | HYPER CORE TECH
     subscribeTransferProgress();
     ensureChatStickScrollWiring();
+    ensureContactsP2PStatusWiring();
     // רישום SW והאזנה להודעות ממנו (בקשת הרשאות רק בלחיצה על פאנל הצ'אט)
     registerChatServiceWorkerIfSupported();
     initChatServiceWorkerMessageHandling();

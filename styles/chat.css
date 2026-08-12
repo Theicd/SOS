@@ -825,6 +825,12 @@ body.chat-overlay-open::before {
   object-fit: cover;
 }
 
+/* חלק P2P (chat.css) – מסגרת ירוקה לאווטאר ברשימה כשיש חיבור ישיר | HYPER CORE TECH */
+.chat-contact__avatar--p2p {
+  border-color: #25D366;
+  box-shadow: 0 0 0 2px #25D366;
+}
+
 .chat-contact__body {
   display: flex;
   flex-direction: column;
@@ -1855,6 +1861,11 @@ body.chat-media-modal-open {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .chat-panel .chat-contact__avatar--p2p {
+    border: 2px solid #25D366;
+    box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.35);
   }
 
   /* === מידע שיחה === */
