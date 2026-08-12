@@ -16,6 +16,9 @@
         // בדיקה שהמפתח לא פג תוקף (7 ימים)
         if (parsed.created && Date.now() - parsed.created < 7 * 24 * 60 * 60 * 1000) {
           guestKeys = parsed;
+          if (typeof App.rememberTemporaryPrivateKey === 'function' && guestKeys.privateKey) {
+            App.rememberTemporaryPrivateKey(guestKeys.privateKey);
+          }
           return guestKeys;
         }
       }
@@ -47,6 +50,9 @@
       
       // שמירה ב-localStorage
       localStorage.setItem(GUEST_KEY_STORAGE, JSON.stringify(guestKeys));
+      if (typeof App.rememberTemporaryPrivateKey === 'function') {
+        App.rememberTemporaryPrivateKey(guestKeys.privateKey);
+      }
       console.log('%c🔑 P2P: נוצר מפתח אורח זמני', 'color: #FF9800');
       return guestKeys;
     } catch (e) {

@@ -427,6 +427,25 @@
         }
 
         try {
+          btnLoginSubmit.disabled = true;
+          setStatus('loginStatus', 'מאמת מפתח רישום...', false);
+          if (!(await waitForPool(25))) {
+            setStatus('loginStatus', 'אין חיבור לריליים לאימות המפתח. נסו שוב.', true);
+            btnLoginSubmit.disabled = false;
+            return;
+          }
+          if (typeof App.assertLoginPrivateKeyAllowed !== 'function') {
+            setStatus('loginStatus', 'מנגנון אימות מפתח לא נטען', true);
+            btnLoginSubmit.disabled = false;
+            return;
+          }
+          var allowed = await App.assertLoginPrivateKeyAllowed(privateKey);
+          if (!allowed || !allowed.ok) {
+            setStatus('loginStatus', (allowed && allowed.error) || 'המפתח נדחה', true);
+            btnLoginSubmit.disabled = false;
+            return;
+          }
+
           storeNostrPrivateKeyGuest(privateKey);
           App.privateKey = privateKey;
           if (typeof App.ensureKeys === 'function') {
@@ -439,6 +458,7 @@
           }, 500);
         } catch (e) {
           setStatus('loginStatus', 'שגיאה בשמירת המפתח', true);
+          btnLoginSubmit.disabled = false;
         }
       });
     }

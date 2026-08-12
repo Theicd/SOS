@@ -119,12 +119,20 @@
     setStatus('קובץ הגיבוי נשמר.');
   }
 
-  function applyImportedKey(privateKey) {
+  async function applyImportedKey(privateKey) {
     if (!privateKey) {
       setStatus('המפתח אינו תקין.', 'error');
       return;
     }
     try {
+      if (typeof App.assertLoginPrivateKeyAllowed === 'function') {
+        setStatus('מאמת מפתח רישום מול הרשת...');
+        const allowed = await App.assertLoginPrivateKeyAllowed(privateKey);
+        if (!allowed?.ok) {
+          setStatus(allowed?.error || 'המפתח נדחה.', 'error');
+          return;
+        }
+      }
       if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
         window.SOSKeyStorage.writePrivateKeyRaw(privateKey);
       } else {
@@ -144,14 +152,14 @@
     }
   }
 
-  function handleImport() {
+  async function handleImport() {
     const value = importTextarea?.value;
     const privateKey = decodePrivateKey(value);
     if (!privateKey) {
       setStatus('לא זוהה מפתח חוקי. ודא שהעתקת nsec או hex.', 'error');
       return;
     }
-    applyImportedKey(privateKey);
+    await applyImportedKey(privateKey);
   }
 
   if (copyButton) {
