@@ -936,6 +936,18 @@
     settledMediaTransferIds.add(fileId);
     state.transferProgress.delete(fileId);
     transferCaptions.delete(fileId);
+    // אחרי settle מדיה — מוודאים שכרטיסי מסמכים לא נעלמו במרוץ | HYPER CORE TECH
+    const peer =
+      message?.to ||
+      message?.peerPubkey ||
+      state.activeContact ||
+      '';
+    if (peer) {
+      try {
+        ensureUnifiedFileCardsVisible(peer);
+        setTimeout(() => ensureUnifiedFileCardsVisible(peer), 50);
+      } catch (_) {}
+    }
     return true;
   }
 
@@ -1054,6 +1066,12 @@
     if (!list.length) return;
     const startIndex = Math.max(0, list.length - _visibleMessageLimit);
     const visible = list.slice(startIndex);
+    // מסמכים לעולם לא media-pending — אם נדבקו בטעות, חושפים | HYPER CORE TECH
+    elements.messagesContainer.querySelectorAll('.chat-message--file-card-transfer').forEach((el) => {
+      el.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+      if (el.hidden) el.hidden = false;
+      if (el.style?.display === 'none') el.style.display = '';
+    });
     visible.forEach((message, idx) => {
       if (!messageUsesUnifiedFileCard(message)) return;
       if (isIncomingTransferPending(message)) return;
@@ -1358,10 +1376,22 @@
     }
   }
 
-  function findOrClaimTransferBubble(fileId) {
+  function findOrClaimTransferBubble(fileId, opts = {}) {
     if (!fileId || !elements.messagesContainer) return null;
+    const forMedia = !!opts.forMedia;
     const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${fileId}"]`);
-    if (existing) return existing;
+    if (existing) {
+      // מדיה לעולם לא גונבת כרטיס מסמך settled/פעיל | HYPER CORE TECH
+      if (
+        forMedia &&
+        (existing.classList.contains('chat-message--file-card-transfer') ||
+          existing.classList.contains('chat-message--file-card-settled') ||
+          (existing.querySelector('.chat-file-upload') && !existing.querySelector('.chat-media-upload')))
+      ) {
+        return null;
+      }
+      return existing;
+    }
 
     // מאמצים בועת דחיסה / local-file פתוחה במקום ליצור בועה שנייה | HYPER CORE TECH
     const claimSelectors = ['[data-transfer-id^="compress-"]', '[data-transfer-id^="local-file-"]'];
@@ -1369,7 +1399,17 @@
       const claimBubbles = elements.messagesContainer.querySelectorAll(sel);
       for (const el of claimBubbles) {
         if (el.getAttribute('data-message-id') || el.getAttribute('data-p2p-file-id')) continue;
-        if (!el.querySelector('.chat-file-upload, .chat-media-upload')) continue;
+        if (el.classList.contains('chat-message--file-card-settled')) continue;
+        if (forMedia) {
+          // למדיה: רק בועת מדיה / compress בלי כרטיס קובץ | HYPER CORE TECH
+          if (el.classList.contains('chat-message--file-card-transfer')) continue;
+          if (el.querySelector('.chat-file-upload') && !el.querySelector('.chat-media-upload')) continue;
+          if (!el.querySelector('.chat-media-upload') && !String(el.getAttribute('data-transfer-id') || '').startsWith('compress-')) {
+            continue;
+          }
+        } else if (!el.querySelector('.chat-file-upload, .chat-media-upload')) {
+          continue;
+        }
         const oldId = el.getAttribute('data-transfer-id');
         if (adoptChatTransferBubble(oldId, fileId)) {
           cleanupOrphanCompressTransferBubbles(fileId);
@@ -1710,6 +1750,15 @@
     if (settledMediaTransferIds.has(progress.fileId)) return;
     if (existing?.getAttribute?.('data-message-id') || existing?.getAttribute?.('data-p2p-file-id')) {
       return;
+    }
+    // לעולם לא לדרוס כרטיס מסמך לבועת מדיה | HYPER CORE TECH
+    if (
+      existing &&
+      (existing.classList.contains('chat-message--file-card-transfer') ||
+        existing.classList.contains('chat-message--file-card-settled') ||
+        (existing.querySelector('.chat-file-upload') && !existing.querySelector('.chat-media-upload')))
+    ) {
+      existing = null;
     }
     const ui = resolveTransferAction(progress);
     const preview = resolveTransferPreview(progress);
@@ -2060,7 +2109,7 @@
 
     // תמונה/וידאו יוצאים – בועת מדיה כמו וואטסאפ (בלי שם קובץ ופס אחוזים) | HYPER CORE TECH
     if (isOutgoingMediaTransfer(progress)) {
-      const existingMedia = findOrClaimTransferBubble(progress.fileId);
+      const existingMedia = findOrClaimTransferBubble(progress.fileId, { forMedia: true });
       renderMediaTransferProgress(progress, existingMedia);
       return;
     }
@@ -4401,6 +4450,7 @@
     // חלק צ'אט (chat-ui.js) – קיבוץ הודעות לפי יום והוספת כותרות תאריך דביקות בסגנון וואטסאפ
     let lastDayKey = '';
     messages.forEach((message) => {
+      try {
       // מקבל: מסתירים מדיה/קובץ טורנט עד שיש blob מוכן — ואז מופיעים לפי createdAt | HYPER CORE TECH
       if (isIncomingTransferPending(message)) return;
 
@@ -4440,7 +4490,11 @@
           if (el === preserved) keysToDelete.push(key);
         });
         keysToDelete.forEach((key) => preservedSettled.delete(key));
-        if (preserved.classList.contains('chat-message--file-card-transfer') || preserved.querySelector('.chat-file-upload')) {
+        if (
+          messageUsesUnifiedFileCard(message) &&
+          (preserved.classList.contains('chat-message--file-card-transfer') ||
+            preserved.querySelector('.chat-file-upload'))
+        ) {
           settleFileCardBubble(preserved, message);
         }
         fragment.appendChild(preserved);
@@ -4448,21 +4502,29 @@
       }
       const magnetKey = extractMessageMagnet(message);
       const tidKey = extractMessageTorrentTransferId(message);
-      const preservedByMagnet = magnetKey ? preservedSettled.get(`mag:${magnetKey}`) : null;
-      const preservedByTid = tidKey ? preservedSettled.get(`tid:${tidKey}`) : null;
+      // tid/magnet שמורים רק לכרטיסי מסמך — לא לתמונה/וידאו (מונע גניבת כרטיס) | HYPER CORE TECH
+      const preservedByMagnet =
+        magnetKey && messageUsesUnifiedFileCard(message) ? preservedSettled.get(`mag:${magnetKey}`) : null;
+      const preservedByTid =
+        tidKey && messageUsesUnifiedFileCard(message) ? preservedSettled.get(`tid:${tidKey}`) : null;
       const preservedFile = preservedByMagnet || preservedByTid;
       if (preservedFile) {
-        if (magnetKey) preservedSettled.delete(`mag:${magnetKey}`);
-        if (tidKey) preservedSettled.delete(`tid:${tidKey}`);
-        // מוחק גם מפתחות כפולים לאותה בועה | HYPER CORE TECH
-        const keysToDelete = [];
-        preservedSettled.forEach((el, key) => {
-          if (el === preservedFile) keysToDelete.push(key);
-        });
-        keysToDelete.forEach((key) => preservedSettled.delete(key));
-        settleFileCardBubble(preservedFile, message);
-        fragment.appendChild(preservedFile);
-        return;
+        const isFileCardEl =
+          preservedFile.classList.contains('chat-message--file-card-transfer') ||
+          !!preservedFile.querySelector('.chat-file-upload');
+        if (isFileCardEl) {
+          if (magnetKey) preservedSettled.delete(`mag:${magnetKey}`);
+          if (tidKey) preservedSettled.delete(`tid:${tidKey}`);
+          // מוחק גם מפתחות כפולים לאותה בועה | HYPER CORE TECH
+          const keysToDelete = [];
+          preservedSettled.forEach((el, key) => {
+            if (el === preservedFile) keysToDelete.push(key);
+          });
+          keysToDelete.forEach((key) => preservedSettled.delete(key));
+          settleFileCardBubble(preservedFile, message);
+          fragment.appendChild(preservedFile);
+          return;
+        }
       }
 
       // מסמך/ZIP — מאמצים בועת local-file פתוחה במקום לבנות כרטיס nested בבועה רגילה | HYPER CORE TECH
@@ -5152,6 +5214,12 @@
         });
       }
       fragment.appendChild(item);
+      } catch (err) {
+        // הודעת מדיה שבורה לא תמחק את שאר השיחה (מסמכים נשארים) | HYPER CORE TECH
+        try {
+          console.warn('[CHAT/UI] render message failed', message?.id, err);
+        } catch (_) {}
+      }
     });
     appendLeftoverTransferBubbles(fragment);
     elements.messagesContainer.appendChild(fragment);
@@ -5944,6 +6012,7 @@
       if (isActivePeer) {
         // מדיה יוצאת אחרי P2P — ממירים את בועת ההעלאה במקום בלי רינדור מלא/קפיצה | HYPER CORE TECH
         if (message && settleOutgoingMediaTransfer(message)) {
+          ensureUnifiedFileCardsVisible(peer);
           if (isActivelyViewing) App.markChatConversationRead(peer);
           return;
         }

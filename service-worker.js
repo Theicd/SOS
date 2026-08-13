@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v418'; // bump - restore vanished doc file-cards
+  const CACHE_NAME = 'sos-cache-v419'; // bump - docs stay visible when media added
   const PRECACHE_URLS = [
     './',
     './videos.html',
