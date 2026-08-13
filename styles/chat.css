@@ -418,7 +418,7 @@ body.chat-overlay-open::before {
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: transparent;
-  color: rgba(233, 237, 239, 0.92);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   font: inherit;
   text-align: start;
@@ -435,19 +435,21 @@ body.chat-overlay-open::before {
   align-items: center;
   gap: 16px;
   min-width: 0;
+  color: inherit;
 }
 
 .chat-contacts__archive-main > i {
   width: 22px;
   text-align: center;
   font-size: 1.15rem;
-  color: rgba(233, 237, 239, 0.88);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .chat-contacts__archive-label {
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .chat-contacts__archive-aside {
@@ -457,8 +459,12 @@ body.chat-overlay-open::before {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-  color: rgba(233, 237, 239, 0.55);
+  color: rgba(34, 211, 238, 0.55);
   font-size: 0.95rem;
+}
+
+.chat-contacts__archive-aside .fa-sparkles {
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.35));
 }
 
 /* חלק צ'אט (chat.css) – מיכל search-bar: בדסקטופ flex, במובייל שורה מלאה נפרדת | HYPER CORE TECH */

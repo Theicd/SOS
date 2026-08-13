@@ -5103,17 +5103,17 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
 
   .chat-contacts__archive {
     display: flex !important;
-    color: rgba(255, 255, 255, 0.9) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
   .chat-contacts__archive-main > i,
   .chat-contacts__archive-label {
-    color: rgba(255, 255, 255, 0.9) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
   }
 
   .chat-contacts__archive-aside {
-    color: rgba(255, 255, 255, 0.45) !important;
+    color: rgba(34, 211, 238, 0.55) !important;
   }
 
   /* התאמת כותרת שיחה */
