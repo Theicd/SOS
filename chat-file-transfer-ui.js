@@ -333,20 +333,7 @@
           if (enriched.fileId) {
             if (caption) App.setChatTransferCaption?.(enriched.fileId, caption);
             registerTransferPreview(enriched.fileId, file, previewUrl);
-            // אל תחכה — תדביק תקציר ברגע שמוכן | HYPER CORE TECH
             attachPosterToFileId(enriched.fileId, previewUrl);
-            if (!isVisualMedia && !isAudioFile) {
-              App.ensureOutgoingFileCardTransferBubble?.({
-                fileId: enriched.fileId,
-                name: enriched.name,
-                size: enriched.size,
-                mimeType: enriched.mimeType,
-                peerPubkey: peer,
-                status: enriched.status || 'sending',
-                progress: enriched.progress || 0,
-                caption: caption || undefined,
-              });
-            }
           }
           App.handleP2PProgressUpdate?.(enriched);
         };
@@ -489,10 +476,9 @@
                 status: 'complete',
                 progress: 1,
                 caption: caption || undefined,
+                blobUrl: attachment.dataUrl || undefined,
               });
             }
-            // גיבוי — אם ה־settle לא תפס, מרעננים את השיחה הפתוחה | HYPER CORE TECH
-            setTimeout(() => App.forceRenderActiveChatMessages?.(), 0);
           } else {
             log('⚠️ שליחה אוטומטית נכשלה:', result?.error);
           }

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v407'; // bump - sender optimistic file card for txt/log
+  const CACHE_NAME = 'sos-cache-v408'; // bump - single thin file card, hide progress when done
   const PRECACHE_URLS = [
     './',
     './videos.html',

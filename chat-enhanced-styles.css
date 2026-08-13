@@ -2392,15 +2392,17 @@ body.chat-lightbox-open {
   max-width: 100%;
   overflow: hidden;
   box-sizing: border-box;
+  padding: 6px 8px 4px;
 }
 
 .chat-file-upload {
   position: relative;
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  background: transparent;
 }
 
 .chat-message--file-card-transfer .chat-file-bubble {
@@ -2412,8 +2414,10 @@ body.chat-lightbox-open {
   position: relative;
   z-index: 1;
   opacity: 1 !important;
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent !important;
+  box-shadow: none !important;
   gap: 8px;
+  padding: 2px 0;
 }
 
 .chat-message--outgoing.chat-message--file-card-transfer .chat-file-bubble__name {
