@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v423'; // bump - voice messages show player not file card
+  const CACHE_NAME = 'sos-cache-v424'; // bump - voice append shows real audio player
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -2212,9 +2212,7 @@
         return false;
       });
       if (msg && isVoiceOrAudioChatMessage(msg)) {
-        if (!elements.messagesContainer?.querySelector(`[data-message-id="${msg.id}"]`)) {
-          appendSingleMessage(msg);
-        } else {
+        if (!appendOrUpgradeVoiceMessage(msg)) {
           renderMessages(peer, { force: true });
         }
         ensureUnifiedFileCardsVisible(peer);
@@ -5444,8 +5442,149 @@
   }
 
   // חלק הוספת הודעה בודדת (chat-ui.js) – מוסיף הודעה ל-UI ללא רינדור מחדש של הכל | HYPER CORE TECH
+  // הודעה קולית ב-append מיידי — נגן מלא (לא רק טקסט "🎤 הודעה קולית") | HYPER CORE TECH
+  function appendOrUpgradeVoiceMessage(message) {
+    if (!elements.messagesContainer || !message?.id) return false;
+    if (!isVoiceOrAudioChatMessage(message)) return false;
+
+    let a = message.attachment || null;
+    if (a?.magnetURI && !(a.url || a.dataUrl) && typeof App.getTorrentBlob === 'function') {
+      const torrentBlob = App.getTorrentBlob(a.magnetURI);
+      if (torrentBlob?.url) a = { ...a, url: torrentBlob.url };
+    }
+    if (!a) return false;
+
+    const mid = String(message.id);
+    let existing = null;
+    try {
+      existing = elements.messagesContainer.querySelector(
+        `[data-message-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(mid) : mid.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`
+      );
+    } catch (_) {
+      existing = elements.messagesContainer.querySelector(`[data-message-id="${mid}"]`);
+    }
+    // כבר יש נגן — לא בונים שוב | HYPER CORE TECH
+    if (existing?.querySelector?.('[data-audio], .chat-audio-whatsapp')) return true;
+    // בועת טקסט/כרטיס שגוי מאותו id — מחליפים בנגן | HYPER CORE TECH
+    if (existing) existing.remove();
+
+    const emptyMsg = elements.messagesContainer.querySelector('.chat-conversation__empty');
+    if (emptyMsg) emptyMsg.remove();
+
+    const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
+    const dayKey = getMessageDayKey(messageTimestamp);
+    const headers = elements.messagesContainer.querySelectorAll('.chat-date-header');
+    const lastHeader = headers.length ? headers[headers.length - 1] : null;
+    const lastDayKey = lastHeader?.getAttribute('data-day-key') || '';
+    if (dayKey && dayKey !== lastDayKey) {
+      const header = doc.createElement('div');
+      header.className = 'chat-date-header';
+      header.setAttribute('data-day-key', dayKey);
+      header.textContent = formatMessageDayHeader(messageTimestamp);
+      elements.messagesContainer.appendChild(header);
+    }
+
+    const isOutgoing =
+      message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
+    const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
+    const src = a.url || a.dataUrl || '';
+    const attachmentHtml =
+      typeof App.createEnhancedAudioPlayer === 'function'
+        ? App.createEnhancedAudioPlayer(a)
+        : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${src}" type="${a.type || 'audio/webm'}"></audio></div>`;
+    if (!attachmentHtml) return false;
+
+    let statusHtml = '';
+    if (isOutgoing) {
+      const status = message.status || 'sent';
+      if (status === 'sending') {
+        statusHtml = '<span class="chat-message__status chat-message__status--sending" title="שולח..."><i class="fa-solid fa-clock"></i></span>';
+      } else if (status === 'sent') {
+        statusHtml = '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>';
+      } else if (status === 'read') {
+        statusHtml = '<span class="chat-message__status chat-message__status--read" title="נקרא"><i class="fa-solid fa-check-double"></i></span>';
+      } else if (status === 'failed') {
+        statusHtml = '<span class="chat-message__status chat-message__status--failed" title="שליחה נכשלה"><i class="fa-solid fa-exclamation-circle"></i></span>';
+      }
+    }
+
+    const sideActionsHtml = buildChatSideActionsHtml({
+      isOutgoing,
+      messageId: message.id,
+      downloadHtml: '',
+      copyHtml: '',
+    });
+
+    const item = doc.createElement('div');
+    item.className = `chat-message ${directionClass}`;
+    item.setAttribute('data-message-id', mid);
+    item.setAttribute('data-chat-created', String(messageTimestamp));
+    item.setAttribute('data-chat-from', String(message.from || '').toLowerCase());
+    if (a.fileId) {
+      item.setAttribute('data-transfer-id', a.fileId);
+      item.setAttribute('data-p2p-file-id', a.fileId);
+    }
+    if (a.magnetURI) item.setAttribute('data-magnet-uri', a.magnetURI);
+
+    item.innerHTML = `
+      ${isOutgoing ? sideActionsHtml : ''}
+      <div class="chat-message__content chat-message__content--has-attachment" data-chat-message="${mid}">
+        ${attachmentHtml}
+      </div>
+      ${!isOutgoing ? sideActionsHtml : ''}
+    `;
+
+    elements.messagesContainer.appendChild(item);
+
+    const contentEl = item.querySelector('[data-chat-message]');
+    if (contentEl && typeof App.wireEnhancedAudioPlayer === 'function') {
+      contentEl.querySelectorAll('[data-audio]').forEach((wrap) => {
+        App.wireEnhancedAudioPlayer(wrap);
+      });
+    }
+    if (contentEl) {
+      const metaSlot = contentEl.querySelector('.chat-audio-whatsapp__meta-slot');
+      if (metaSlot) {
+        metaSlot.innerHTML = `<span class="chat-audio-whatsapp__msg-time">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
+      }
+      const avatarSlot = contentEl.querySelector('.chat-audio-whatsapp__avatar-slot');
+      if (avatarSlot) {
+        if (isOutgoing) {
+          const myName = App.profile?.displayName || App.profile?.name || 'אני';
+          const safeName = App.escapeHtml ? App.escapeHtml(myName) : myName;
+          const safeInitials = App.escapeHtml
+            ? App.escapeHtml(typeof App.getInitials === 'function' ? App.getInitials(myName) : 'א')
+            : 'א';
+          const myPicture = App.profile?.picture || '';
+          avatarSlot.innerHTML = myPicture
+            ? `<img src="${myPicture}" alt="${safeName}" class="chat-audio-whatsapp__avatar" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('chat-audio-whatsapp__avatar--initials'); this.outerHTML='<span class=\\'chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials\\'>${safeInitials}</span>';">`
+            : `<span class="chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials">${safeInitials}</span>`;
+        } else {
+          const normalizedFrom = message.from?.toLowerCase?.();
+          const contact = normalizedFrom && App.chatState?.contacts?.get?.(normalizedFrom);
+          const fallbackName = contact?.name || (normalizedFrom ? `משתמש ${normalizedFrom.slice(0, 8)}` : 'משתמש');
+          const safeName = App.escapeHtml ? App.escapeHtml(fallbackName) : fallbackName;
+          const initialsValue =
+            contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(fallbackName) : 'מש');
+          const safeInitials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
+          avatarSlot.innerHTML = contact?.picture
+            ? `<img src="${contact.picture}" alt="${safeName}" class="chat-audio-whatsapp__avatar" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.classList.add('chat-audio-whatsapp__avatar--initials'); this.outerHTML='<span class=\\'chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials\\'>${safeInitials}</span>';">`
+            : `<span class="chat-audio-whatsapp__avatar chat-audio-whatsapp__avatar--initials">${safeInitials}</span>`;
+        }
+      }
+    }
+
+    stickChatToBottomIfPinned({ force: true });
+    return true;
+  }
+
   function appendSingleMessage(message) {
     if (!elements.messagesContainer || !message?.id) return;
+    // קול: בונים/משדרגים נגן — גם אם כבר יש בועת טקסט עם אותו id | HYPER CORE TECH
+    if (isVoiceOrAudioChatMessage(message)) {
+      appendOrUpgradeVoiceMessage(message);
+      return;
+    }
     if (elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) return;
 
     // הסר הודעת "אין הודעות" אם קיימת
@@ -6217,10 +6356,10 @@
           if (isActivelyViewing) App.markChatConversationRead(peer);
           return;
         }
-        // הודעה קולית — append עם נגן, בלי כרטיס מסמך ובלי wipe | HYPER CORE TECH
+        // הודעה קולית — נגן מלא מיד (לא טקסט "🎤 הודעה קולית") | HYPER CORE TECH
         if (message && isVoiceOrAudioChatMessage(message)) {
-          if (!elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) {
-            appendSingleMessage(message);
+          if (!appendOrUpgradeVoiceMessage(message)) {
+            renderMessages(peer, { force: true });
           }
           ensureUnifiedFileCardsVisible(peer);
           if (isActivelyViewing) App.markChatConversationRead(peer);
@@ -6240,10 +6379,11 @@
               settleFileCardBubble(item, message);
               if (!item.isConnected) elements.messagesContainer.appendChild(item);
             }
-          } else if (!elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) {
-            // אודיו שלא סווג למעלה / מצורף שאינו תמונה — append מלא עם נגן | HYPER CORE TECH
+          } else if (!elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`) ||
+            isVoiceOrAudioChatMessage(message)) {
+            // אודיו — נגן מלא; אחרת מדיה ויזואלית / append רגיל | HYPER CORE TECH
             if (isVoiceOrAudioChatMessage(message)) {
-              appendSingleMessage(message);
+              if (!appendOrUpgradeVoiceMessage(message)) appendSingleMessage(message);
             } else if (!appendVisualMediaMessageWithoutWipe(message)) {
               appendSingleMessage(message);
             }
