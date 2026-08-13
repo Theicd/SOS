@@ -1084,18 +1084,17 @@
 
     const settleKey = fileId || (magnet ? `mag:${magnet}` : '');
     let bubble = findFileCardTransferBubble({ fileId, magnetURI: magnet, transferId });
-    // אין בועת העברה (נמחקה ברינדור) — בונים כרטיס מיידי מההודעה | HYPER CORE TECH
-    if (!bubble) {
+    // אין בועת העברה (שולח בלבד) — בונים כרטיס מיידי מההודעה | HYPER CORE TECH
+    const isOutgoingMsg =
+      message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
+    if (!bubble && isOutgoingMsg) {
       const a = message.attachment || {};
       const label = a.name || 'קובץ מצורף';
       const sizeLabel = formatTransferSize(a.size);
       const fileIcon = getTransferFileIcon(label);
-      const isOutgoing =
-        message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
-      const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
       const nowLabel = formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000));
       bubble = doc.createElement('div');
-      bubble.className = `chat-message ${directionClass} chat-message--file-card-transfer`;
+      bubble.className = 'chat-message chat-message--outgoing chat-message--file-card-transfer';
       if (fileId) bubble.setAttribute('data-transfer-id', fileId);
       bubble.innerHTML = `
         <div class="chat-message__content">
@@ -1115,6 +1114,7 @@
       elements.messagesContainer.appendChild(bubble);
       stickChatToBottomIfPinned({ force: true });
     }
+    if (!bubble) return false;
 
     if (settleKey && settledMediaTransferIds.has(settleKey) && bubble.getAttribute('data-message-id') === String(message.id)) {
       return true;
@@ -1716,6 +1716,10 @@
 
   function refreshChatAfterIncomingTransferReady(progress) {
     const peer = progress?.peerPubkey || state.activeContact;
+    // מוחקים progress סופי — מונע לולאת renderMessages↔receive-complete | HYPER CORE TECH
+    if (progress?.fileId) {
+      state.transferProgress.delete(progress.fileId);
+    }
     if (!peer) return;
     try {
       renderMessages(peer, { force: true });
@@ -1755,7 +1759,11 @@
         progress.status === 'complete-torrent' ||
         progress.status === 'complete-blossom' ||
         progress.status === 'verified';
-      if (done) refreshChatAfterIncomingTransferReady(progress);
+      if (done) {
+        // מוחקים לפני refresh — בלי זה נוצרת לולאת רינדור אינסופית במובייל | HYPER CORE TECH
+        state.transferProgress.delete(progress.fileId);
+        refreshChatAfterIncomingTransferReady(progress);
+      }
       return;
     }
 
@@ -3997,24 +4005,10 @@
       return seen.size;
     };
 
-    const rerenderActiveTransfers = () => {
-      state.transferProgress.forEach((progress) => {
-        if (!progress?.fileId) return;
-        if (settledMediaTransferIds.has(progress.fileId)) return;
-        const peer = String(progress.peerPubkey || '').toLowerCase();
-        const active = String(peerPubkey || '').toLowerCase();
-        if (peer && active && peer !== active) return;
-        try {
-          renderTransferProgress(progress);
-        } catch (_) {}
-      });
-    };
-
     if (!allMessages.length) {
       const leftoverCount = appendLeftoverTransferBubbles(fragment);
       if (leftoverCount) {
         elements.messagesContainer.appendChild(fragment);
-        rerenderActiveTransfers();
         return;
       }
       const empty = doc.createElement('p');
@@ -4769,7 +4763,6 @@
     });
     appendLeftoverTransferBubbles(fragment);
     elements.messagesContainer.appendChild(fragment);
-    rerenderActiveTransfers();
 
     // חלק סנכרון כפתור טורנט (chat-ui.js) – מניעת הורדות חוזרות מהיסטוריה אחרי אתחול שיחה | HYPER CORE TECH
     syncTorrentDownloadButtons();
