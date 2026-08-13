@@ -1103,24 +1103,27 @@
       (message.attachment &&
         typeof App.isGenericFileAttachment === 'function' &&
         App.isGenericFileAttachment(message.attachment)) ||
+      looksLikeChatDocumentFile(message.attachment) ||
       /\.(zip|rar|7z|tar|gz|pdf|docx?|xlsx?|txt|log|csv|rtf)$/i.test(message?.attachment?.name || '');
     if (!isFile) return false;
 
     const settleKey = fileId || (magnet ? `mag:${magnet}` : '');
     let bubble =
       findFileCardTransferBubble({ fileId, magnetURI: magnet, transferId }) ||
-      (fileId ? findOrClaimTransferBubble(fileId) : null);
-    // אין בועת העברה (שולח בלבד) — בונים כרטיס מיידי מההודעה | HYPER CORE TECH
+      (fileId ? findOrClaimTransferBubble(fileId) : null) ||
+      (message.id ? elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`) : null);
+    // אין בועת העברה — בונים כרטיס מיידי (שולח ומקבל) כדי שלא ייעלם ב-refresh | HYPER CORE TECH
     const isOutgoingMsg =
       message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
-    if (!bubble && isOutgoingMsg) {
+    if (!bubble) {
       const a = message.attachment || {};
       const label = a.name || 'קובץ מצורף';
       const sizeLabel = formatTransferSize(a.size);
       const fileIcon = getTransferFileIcon(label);
       const nowLabel = formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000));
+      const directionClass = isOutgoingMsg ? 'chat-message--outgoing' : 'chat-message--incoming';
       bubble = doc.createElement('div');
-      bubble.className = 'chat-message chat-message--outgoing chat-message--file-card-transfer';
+      bubble.className = `chat-message ${directionClass} chat-message--file-card-transfer`;
       if (fileId) bubble.setAttribute('data-transfer-id', fileId);
       bubble.innerHTML = `
         <div class="chat-message__content">
@@ -1131,7 +1134,7 @@
                 ${buildFileNameLabelHtml(label)}
                 <div class="chat-file-bubble__size">${sizeLabel || ''}</div>
               </div>
-              ${buildFileCardProgressSlotHtml(100)}
+              ${buildFileCardProgressSlotHtml(isOutgoingMsg ? 100 : 0)}
             </div>
           </div>
           ${buildFileCardMetaRowHtml({ nowLabel, statusHtml: '' })}
@@ -1143,6 +1146,8 @@
     if (!bubble) return false;
 
     if (settleKey && settledMediaTransferIds.has(settleKey) && bubble.getAttribute('data-message-id') === String(message.id)) {
+      bubble.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+      bubble.hidden = false;
       return true;
     }
     return settleFileCardBubble(bubble, message);
@@ -1292,14 +1297,25 @@
   App.forceRenderActiveChatMessages = forceRenderActiveChatMessages;
 
   function scheduleTransferBubbleCleanup(bubble, progress, ui) {
+    const isFileCardDom =
+      !!bubble?.querySelector?.('.chat-file-bubble') ||
+      bubble?.classList?.contains('chat-message--file-card-transfer');
     // מדיה/קובץ יוצאים או כרטיס קובץ — נשארים כהודעה (settle), בלי מחיקה שגורמת לקפיצה | HYPER CORE TECH
-    if (ui.isTerminalOk && (isOutgoingMediaTransfer(progress) || isFileCardTransfer(progress))) {
+    if (ui.isTerminalOk && (isOutgoingMediaTransfer(progress) || isFileCardTransfer(progress) || isFileCardDom)) {
       state.transferProgress.delete(progress.fileId);
       return;
     }
     if (ui.isTerminalOk) {
       setTimeout(() => {
-        if (bubble.isConnected && !bubble.getAttribute('data-message-id')) bubble.remove();
+        // לעולם לא מוחקים כרטיס מסמך — גם אם עדיין אין data-message-id | HYPER CORE TECH
+        if (
+          bubble.isConnected &&
+          !bubble.getAttribute('data-message-id') &&
+          !bubble.querySelector?.('.chat-file-bubble') &&
+          !bubble.classList?.contains('chat-message--file-card-transfer')
+        ) {
+          bubble.remove();
+        }
         state.transferProgress.delete(progress.fileId);
         transferMediaPreviews.delete(progress.fileId);
       }, 900);
@@ -1808,11 +1824,18 @@
 
   function removeIncomingTransferProgressBubble(progress) {
     if (!elements.messagesContainer || !progress) return;
+    // מסמכים: לא מוחקים בועה שמכילה כרטיס קובץ — רק progress ריק | HYPER CORE TECH
+    const isDoc =
+      looksLikeChatDocumentFile({ name: progress?.name, type: progress?.mime }) ||
+      (!!progress?.name && !isVisualMediaAttachment({ name: progress.name, type: progress.mime }, progress.name));
     const ids = [progress.fileId, progress.torrentTransferId].filter(Boolean);
     ids.forEach((id) => {
       elements.messagesContainer.querySelectorAll(`[data-transfer-id="${id}"], [data-torrent-transfer="${id}"]`).forEach((el) => {
         if (el.getAttribute('data-message-id')) return;
         if (!el.classList.contains('chat-message--incoming')) return;
+        if (isDoc || el.querySelector('.chat-file-bubble') || el.classList.contains('chat-message--file-card-transfer')) {
+          return;
+        }
         el.remove();
       });
     });
@@ -1825,6 +1848,58 @@
       state.transferProgress.delete(progress.fileId);
     }
     if (!peer) return;
+
+    const fileId = progress?.fileId || progress?.torrentTransferId || '';
+    const progressName = progress?.name || '';
+    const progressMime = progress?.mime || progress?.mimeType || '';
+
+    let matchedMsg = null;
+    try {
+      const history = App.chatHistory?.[peer] || [];
+      for (let i = history.length - 1; i >= 0; i -= 1) {
+        const msg = history[i];
+        if (!msg?.attachment) continue;
+        if (
+          (fileId && (msg.attachment.fileId === fileId || msg.id === `p2p-recv-${fileId}`)) ||
+          (!fileId && progressName && msg.attachment.name === progressName)
+        ) {
+          matchedMsg = msg;
+          break;
+        }
+      }
+    } catch (_) {}
+
+    const att = matchedMsg?.attachment || { name: progressName, type: progressMime };
+    const isVisual = isVisualMediaAttachment(att, att?.name || progressName);
+
+    // מסמכים: לעולם לא wipe מלא — appendChatMessage כבר בנה כרטיס; re-render מוחק אותו | HYPER CORE TECH
+    if (!isVisual) {
+      const existingEl =
+        (fileId &&
+          elements.messagesContainer?.querySelector(
+            `[data-transfer-id="${fileId}"], [data-p2p-file-id="${fileId}"], [data-message-id="p2p-recv-${fileId}"]`
+          )) ||
+        null;
+      if (matchedMsg) {
+        if (existingEl) {
+          settleFileCardBubble(existingEl, matchedMsg);
+        } else {
+          settleOutgoingFileTransfer(matchedMsg);
+        }
+        try {
+          stickChatToBottomIfPinned({ force: true });
+        } catch (_) {}
+        return;
+      }
+      if (existingEl?.querySelector?.('.chat-file-bubble') || existingEl?.classList?.contains('chat-message--file-card-transfer')) {
+        try {
+          stickChatToBottomIfPinned({ force: true });
+        } catch (_) {}
+        return;
+      }
+      return;
+    }
+
     try {
       renderMessages(peer, { force: true });
     } catch (_) {}
