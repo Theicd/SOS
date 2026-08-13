@@ -252,6 +252,27 @@
       });
     }
 
+    // תמונה — בועת מדיה מיידית כמו וידאו (מונע renderMessages שמוחק כרטיסי מסמך) | HYPER CORE TECH
+    let pipelineImageId = null;
+    if (isVisualMedia && !looksLikeVideoFile(file)) {
+      pipelineImageId = `local-image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      registerTransferPreview(pipelineImageId, file, localPreviewUrl);
+      if (caption) App.setChatTransferCaption?.(pipelineImageId, caption);
+      App.handleP2PProgressUpdate?.({
+        fileId: pipelineImageId,
+        progress: 0.02,
+        status: 'starting',
+        direction: 'send',
+        name: file.name || 'image',
+        size: file.size || 0,
+        mimeType: file.type || 'image/jpeg',
+        previewUrl: localPreviewUrl || undefined,
+        peerPubkey: peer,
+        caption: caption || undefined,
+        isFileCard: false,
+      });
+    }
+
     // לכידת תקציר מוקדמת מהקובץ המקומי — לפני/במקביל לדחיסה (קריטי לשולח בווב) | HYPER CORE TECH
     let earlyPosterPromise = Promise.resolve('');
     if (looksLikeVideoFile(file) && typeof App.capturePosterFromBlob === 'function') {
@@ -291,6 +312,10 @@
       if (pipelineCompressId && pipelineCompressId !== realFileId) {
         App.adoptChatTransferBubble?.(pipelineCompressId, realFileId);
         pipelineCompressId = null;
+      }
+      if (pipelineImageId && pipelineImageId !== realFileId) {
+        App.adoptChatTransferBubble?.(pipelineImageId, realFileId);
+        pipelineImageId = null;
       }
       if (optimisticFileId && optimisticFileId !== realFileId) {
         App.adoptChatTransferBubble?.(optimisticFileId, realFileId);
@@ -436,7 +461,12 @@
     const reader = new FileReader();
     reader.onload = async () => {
       const inlinePreview = localPreviewUrl || (typeof reader.result === 'string' ? reader.result : '');
-      const attachmentId = optimisticFileId || `${peer}-${Date.now()}`;
+      // תמונה: שומרים את id של בועת המדיה המוקדמת כדי ש-settle לא ייכשל | HYPER CORE TECH
+      const attachmentId = optimisticFileId || pipelineImageId || `${peer}-${Date.now()}`;
+      if (pipelineImageId && pipelineImageId !== attachmentId) {
+        App.adoptChatTransferBubble?.(pipelineImageId, attachmentId);
+        pipelineImageId = null;
+      }
       if (optimisticFileId) {
         App.ensureOutgoingFileCardTransferBubble?.({
           fileId: optimisticFileId,
@@ -447,6 +477,21 @@
           status: 'sending',
           progress: 0.5,
           caption: caption || undefined,
+        });
+      }
+      if (pipelineImageId || /^image\//i.test(file.type || '')) {
+        App.handleP2PProgressUpdate?.({
+          fileId: attachmentId,
+          progress: 0.85,
+          status: 'sending',
+          direction: 'send',
+          name: file.name || 'image',
+          size: file.size || 0,
+          mimeType: file.type || 'image/jpeg',
+          previewUrl: inlinePreview || undefined,
+          peerPubkey: peer,
+          caption: caption || undefined,
+          isFileCard: false,
         });
       }
       const attachment = {

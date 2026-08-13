@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v420'; // bump - media append without wiping doc cards
+  const CACHE_NAME = 'sos-cache-v421'; // bump - image early bubble keeps doc cards
   const PRECACHE_URLS = [
     './',
     './videos.html',

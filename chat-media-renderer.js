@@ -767,6 +767,17 @@
     if (typeof App.stickChatToBottomIfPinned === 'function') {
       App.stickChatToBottomIfPinned();
     }
+    // אחרי חשיפת תמונה — מחזירים כרטיסי מסמך אם נעלמו במרוץ | HYPER CORE TECH
+    try {
+      const peer =
+        (typeof App.getActiveChatPeer === 'function' && App.getActiveChatPeer()) || '';
+      if (peer && typeof App.ensureUnifiedFileCardsVisible === 'function') {
+        App.ensureUnifiedFileCardsVisible(peer);
+        setTimeout(() => {
+          try { App.ensureUnifiedFileCardsVisible(peer); } catch (_) {}
+        }, 60);
+      }
+    } catch (_) {}
   }
 
   function failChatMessageBubble(mediaEl) {

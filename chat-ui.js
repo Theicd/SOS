@@ -563,7 +563,16 @@
     if (a.isVideo === true) return true;
     const mime = String(a.type || '').toLowerCase();
     if (mime.startsWith('image/') || mime.startsWith('video/')) return true;
-    return /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(String(a.name || ''));
+    const src = String(a.url || a.dataUrl || a.previewUrl || '');
+    if (/^data:image\//i.test(src)) return true;
+    if (mime.startsWith('audio/')) return false;
+    // לא לסווג מסמך כמדיה | HYPER CORE TECH
+    if (typeof App.isGenericFileAttachment === 'function' && App.isGenericFileAttachment(a)) {
+      if (!/\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(String(a.name || '') + ' ' + src)) {
+        return false;
+      }
+    }
+    return /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(String(a.name || '') + ' ' + src);
   }
 
   // מוסיף תמונה/וידאו בלי renderMessages — כדי לא למחוק כרטיסי מסמכים | HYPER CORE TECH
@@ -1238,6 +1247,7 @@
     });
   }
   App.ensureUnifiedFileCardsVisible = ensureUnifiedFileCardsVisible;
+  App.getActiveChatPeer = () => state.activeContact || null;
 
   function takePreservedUnsettledFileCard(preservedSettled, message) {
     if (!preservedSettled || !preservedSettled.size) return null;
@@ -1526,18 +1536,27 @@
       return existing;
     }
 
-    // מאמצים בועת דחיסה / local-file פתוחה במקום ליצור בועה שנייה | HYPER CORE TECH
-    const claimSelectors = ['[data-transfer-id^="compress-"]', '[data-transfer-id^="local-file-"]'];
+    // מאמצים בועת דחיסה / local-file / local-image פתוחה במקום ליצור בועה שנייה | HYPER CORE TECH
+    const claimSelectors = [
+      '[data-transfer-id^="compress-"]',
+      '[data-transfer-id^="local-file-"]',
+      '[data-transfer-id^="local-image-"]',
+    ];
     for (const sel of claimSelectors) {
       const claimBubbles = elements.messagesContainer.querySelectorAll(sel);
       for (const el of claimBubbles) {
         if (el.getAttribute('data-message-id') || el.getAttribute('data-p2p-file-id')) continue;
         if (el.classList.contains('chat-message--file-card-settled')) continue;
         if (forMedia) {
-          // למדיה: רק בועת מדיה / compress בלי כרטיס קובץ | HYPER CORE TECH
+          // למדיה: רק בועת מדיה / compress / local-image בלי כרטיס קובץ | HYPER CORE TECH
           if (el.classList.contains('chat-message--file-card-transfer')) continue;
           if (el.querySelector('.chat-file-upload') && !el.querySelector('.chat-media-upload')) continue;
-          if (!el.querySelector('.chat-media-upload') && !String(el.getAttribute('data-transfer-id') || '').startsWith('compress-')) {
+          const claimId = String(el.getAttribute('data-transfer-id') || '');
+          if (
+            !el.querySelector('.chat-media-upload') &&
+            !claimId.startsWith('compress-') &&
+            !claimId.startsWith('local-image-')
+          ) {
             continue;
           }
         } else if (!el.querySelector('.chat-file-upload, .chat-media-upload')) {
@@ -6163,6 +6182,22 @@
         // ZIP/קובץ (שולח+מקבל) — ממירים את בועת ההעברה במקום בלי כרטיס שני | HYPER CORE TECH
         if (message && settleOutgoingFileTransfer(message)) {
           ensureUnifiedFileCardsVisible(peer);
+          if (isActivelyViewing) App.markChatConversationRead(peer);
+          return;
+        }
+        // כל מצורף אחר — לא wipe מלא (מונע העלמת כרטיסי מסמך בתמונות) | HYPER CORE TECH
+        if (message?.attachment) {
+          if (messageUsesUnifiedFileCard(message)) {
+            if (!fileCardDomExists(message)) {
+              const item = doc.createElement('div');
+              settleFileCardBubble(item, message);
+              if (!item.isConnected) elements.messagesContainer.appendChild(item);
+            }
+          } else if (!elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) {
+            appendVisualMediaMessageWithoutWipe(message);
+          }
+          ensureUnifiedFileCardsVisible(peer);
+          setTimeout(() => ensureUnifiedFileCardsVisible(peer), 100);
           if (isActivelyViewing) App.markChatConversationRead(peer);
           return;
         }
