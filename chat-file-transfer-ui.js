@@ -231,9 +231,26 @@
     const isVisualMedia =
       /^image\//i.test(file.type || '') ||
       looksLikeVideoFile(file);
+    const isAudioFile = /^audio\//i.test(file.type || '');
     const localPreviewUrl = isVisualMedia ? URL.createObjectURL(file) : '';
     // מסתירים מיד שורת שם-קובץ בקומפוזר — גם לפני async | HYPER CORE TECH
     renderPreview(null);
+
+    // מסמך/TXT/LOG וכו' — בועת קובץ מיידית אצל השולח (לפני P2P/inline) | HYPER CORE TECH
+    let optimisticFileId = null;
+    if (!isVisualMedia && !isAudioFile) {
+      optimisticFileId = `local-file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      App.ensureOutgoingFileCardTransferBubble?.({
+        fileId: optimisticFileId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        peerPubkey: peer,
+        status: 'starting',
+        progress: 0,
+        caption: caption || undefined,
+      });
+    }
 
     // לכידת תקציר מוקדמת מהקובץ המקומי — לפני/במקביל לדחיסה (קריטי לשולח בווב) | HYPER CORE TECH
     let earlyPosterPromise = Promise.resolve('');
@@ -275,6 +292,10 @@
         App.adoptChatTransferBubble?.(pipelineCompressId, realFileId);
         pipelineCompressId = null;
       }
+      if (optimisticFileId && optimisticFileId !== realFileId) {
+        App.adoptChatTransferBubble?.(optimisticFileId, realFileId);
+        optimisticFileId = null;
+      }
       // ניקוי שאריות compress שלא אומצו | HYPER CORE TECH
       App.cleanupOrphanCompressTransferBubbles?.();
     };
@@ -306,12 +327,26 @@
             name: evt?.name || file.name,
             size: evt?.size || file.size,
             caption: caption || evt?.caption || undefined,
+            peerPubkey: evt?.peerPubkey || peer,
+            isFileCard: !isVisualMedia && !isAudioFile ? true : evt?.isFileCard,
           };
           if (enriched.fileId) {
             if (caption) App.setChatTransferCaption?.(enriched.fileId, caption);
             registerTransferPreview(enriched.fileId, file, previewUrl);
             // אל תחכה — תדביק תקציר ברגע שמוכן | HYPER CORE TECH
             attachPosterToFileId(enriched.fileId, previewUrl);
+            if (!isVisualMedia && !isAudioFile) {
+              App.ensureOutgoingFileCardTransferBubble?.({
+                fileId: enriched.fileId,
+                name: enriched.name,
+                size: enriched.size,
+                mimeType: enriched.mimeType,
+                peerPubkey: peer,
+                status: enriched.status || 'sending',
+                progress: enriched.progress || 0,
+                caption: caption || undefined,
+              });
+            }
           }
           App.handleP2PProgressUpdate?.(enriched);
         };
@@ -409,8 +444,22 @@
     const reader = new FileReader();
     reader.onload = async () => {
       const inlinePreview = localPreviewUrl || (typeof reader.result === 'string' ? reader.result : '');
+      const attachmentId = optimisticFileId || `${peer}-${Date.now()}`;
+      if (optimisticFileId) {
+        App.ensureOutgoingFileCardTransferBubble?.({
+          fileId: optimisticFileId,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || 'application/octet-stream',
+          peerPubkey: peer,
+          status: 'sending',
+          progress: 0.5,
+          caption: caption || undefined,
+        });
+      }
       const attachment = {
-        id: `${peer}-${Date.now()}`,
+        id: attachmentId,
+        fileId: attachmentId,
         name: file.name,
         size: file.size,
         type: file.type,
@@ -430,6 +479,20 @@
           const result = await App.publishChatMessage(peer, displayText);
           if (result?.ok) {
             log('✅ קובץ נשלח אוטומטית', file.name);
+            if (optimisticFileId) {
+              App.ensureOutgoingFileCardTransferBubble?.({
+                fileId: optimisticFileId,
+                name: file.name,
+                size: file.size,
+                mimeType: file.type || 'application/octet-stream',
+                peerPubkey: peer,
+                status: 'complete',
+                progress: 1,
+                caption: caption || undefined,
+              });
+            }
+            // גיבוי — אם ה־settle לא תפס, מרעננים את השיחה הפתוחה | HYPER CORE TECH
+            setTimeout(() => App.forceRenderActiveChatMessages?.(), 0);
           } else {
             log('⚠️ שליחה אוטומטית נכשלה:', result?.error);
           }

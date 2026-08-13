@@ -1193,6 +1193,46 @@
   App.adoptChatTransferBubble = adoptChatTransferBubble;
   App.cleanupOrphanCompressTransferBubbles = cleanupOrphanCompressTransferBubbles;
 
+  // בועת קובץ מיידית אצל השולח (TXT/LOG/PDF…) — לא מחכים לאירוע progress | HYPER CORE TECH
+  function ensureOutgoingFileCardTransferBubble(opts = {}) {
+    if (!elements.messagesContainer) return null;
+    const fileId = String(opts.fileId || '').trim();
+    if (!fileId) return null;
+    if (settledMediaTransferIds.has(fileId)) {
+      return elements.messagesContainer.querySelector(`[data-transfer-id="${fileId}"]`);
+    }
+    const peer = String(opts.peerPubkey || state.activeContact || '').toLowerCase();
+    const active = String(state.activeContact || '').toLowerCase();
+    if (peer && active && peer !== active) return null;
+
+    const existing = elements.messagesContainer.querySelector(`[data-transfer-id="${fileId}"]`);
+    const evt = {
+      fileId,
+      name: opts.name || existing?.querySelector?.('.chat-file-bubble__name')?.textContent || 'קובץ מצורף',
+      size: typeof opts.size === 'number' ? opts.size : 0,
+      mimeType: opts.mimeType || opts.type || '',
+      peerPubkey: peer || active,
+      direction: 'send',
+      status: opts.status || 'starting',
+      progress: typeof opts.progress === 'number' ? opts.progress : 0,
+      isFileCard: true,
+      caption: opts.caption || undefined,
+    };
+    state.transferProgress.set(fileId, evt);
+    renderTransferProgress(evt);
+    return elements.messagesContainer.querySelector(`[data-transfer-id="${fileId}"]`);
+  }
+  App.ensureOutgoingFileCardTransferBubble = ensureOutgoingFileCardTransferBubble;
+
+  function forceRenderActiveChatMessages() {
+    const peer = state.activeContact;
+    if (!peer || !elements.messagesContainer) return;
+    try {
+      renderMessages(peer, { force: true });
+    } catch (_) {}
+  }
+  App.forceRenderActiveChatMessages = forceRenderActiveChatMessages;
+
   function scheduleTransferBubbleCleanup(bubble, progress, ui) {
     // מדיה/קובץ יוצאים או כרטיס קובץ — נשארים כהודעה (settle), בלי מחיקה שגורמת לקפיצה | HYPER CORE TECH
     if (ui.isTerminalOk && (isOutgoingMediaTransfer(progress) || isFileCardTransfer(progress))) {
@@ -1893,7 +1933,8 @@
     if (typeof App.subscribeP2PFileProgress === 'function') {
       App.subscribeP2PFileProgress((evt) => {
         const activePeer = (state.activeContact || '').toLowerCase();
-        if (evt?.peerPubkey && activePeer && evt.peerPubkey.toLowerCase() !== activePeer) return;
+        const evtPeer = String(evt?.peerPubkey || '').toLowerCase();
+        if (evtPeer && activePeer && evtPeer !== activePeer) return;
         if (evt?.previewUrl || evt?.mimeType) {
           registerChatTransferPreview(evt.fileId, {
             url: evt.previewUrl || '',
@@ -1909,7 +1950,9 @@
     // פונקציית callback לשימוש ב-chat-file-transfer-ui בעת שליחה | HYPER CORE TECH
     App.handleP2PProgressUpdate = (evt) => {
       const activePeer = (state.activeContact || '').toLowerCase();
-      if (evt?.peerPubkey && activePeer && evt.peerPubkey.toLowerCase() !== activePeer) return;
+      const evtPeer = String(evt?.peerPubkey || '').toLowerCase();
+      // שליחה מהשיחה הפתוחה — גם אם peerPubkey חסר באירוע | HYPER CORE TECH
+      if (evtPeer && activePeer && evtPeer !== activePeer) return;
       if (evt?.previewUrl || evt?.mimeType) {
         registerChatTransferPreview(evt.fileId, {
           url: evt.previewUrl || '',
@@ -1917,6 +1960,9 @@
           name: evt.name || '',
           size: evt.size || 0,
         });
+      }
+      if (evt?.fileId && evt?.direction !== 'receive' && !evt?.mimeType?.startsWith?.('image/') && !evt?.mimeType?.startsWith?.('video/')) {
+        evt.isFileCard = evt.isFileCard !== false;
       }
       state.transferProgress.set(evt.fileId, evt);
       renderTransferProgress(evt);

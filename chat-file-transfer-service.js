@@ -48,6 +48,8 @@
       dataUrl: attachment.dataUrl || '',
       url: attachment.url || '',
       duration: typeof attachment.duration === 'number' ? attachment.duration : undefined,
+      fileId: attachment.fileId || attachment.id || undefined,
+      id: attachment.id || attachment.fileId || undefined,
     };
     // חלק P2P קול+קבצים (chat-file-transfer-service.js) – הוספת magnetURI ו-isTorrent לסריאליזציה לתמיכה באודיו וקבצים כלליים דרך טורנט | HYPER CORE TECH
     if (attachment.magnetURI) {
