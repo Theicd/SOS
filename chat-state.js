@@ -607,7 +607,10 @@
 
   function appendMessageToConversation(message) {
     const { from, to, content, createdAt } = message;
-    if (!from || !to || !content) return;
+    // מדיה בלי כיתוב (תמונה/וידאו) מגיעה עם content ריק + attachment — חייבים לאפשר | HYPER CORE TECH
+    const hasAttachment = !!(message && message.attachment);
+    const hasText = typeof content === 'string' ? content.trim().length > 0 : !!content;
+    if (!from || !to || (!hasText && !hasAttachment)) return;
     const key = getConversationKey(from, to);
     if (!key) return;
     let entry = chatState.conversations.get(key);
