@@ -487,34 +487,11 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 }
 
 .chat-contacts__filters {
-  display: flex;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(12px);
+  display: none !important;
 }
 
 .chat-filter-chip {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.chat-filter-chip:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.chat-filter-chip.is-active {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: rgba(35, 116, 225, 0.15);
+  display: none !important;
 }
 
 .chat-contacts__search input::placeholder {

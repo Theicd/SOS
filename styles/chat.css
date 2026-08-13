@@ -648,15 +648,9 @@ body.chat-overlay-open::before {
 }
 
 
-/* חלק צ'אט (chat.css) – פס מסנני הרשימה בהשראת facebook-theme */
+/* חלק צ'אט (chat.css) – שורת פילטרים הכל/לא-נקראו הוסרה; החיפוש תופס את מקומה | HYPER CORE TECH */
 .chat-contacts__filters {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  gap: 8px;
-  background: var(--card-alt);
-  border-bottom: 1px solid var(--border);
+  display: none !important;
 }
 
 /* חלק צ'אט (chat.css) – שדה חיפוש לרשימת שיחות */
@@ -1845,40 +1839,13 @@ body.chat-media-modal-open {
     display: none;
   }
 
-  /* === פילטרים (filter-chips בדוגמא) === */
+  /* === הסתרת שורת פילטרים – החיפוש במקומה | HYPER CORE TECH */
   .chat-panel .chat-contacts__filters {
-    display: flex;
-    gap: 8px;
-    padding: 4px 0;
-    background: transparent;
-    border-bottom: none;
-    flex-wrap: nowrap;
-    justify-content: flex-start; /* יישור לימין (התחלה) */
+    display: none !important;
   }
 
   .chat-panel .chat-filter-chip {
-    background-color: var(--wa-search-bg); /* צבע רקע תואם לדוגמא */
-    color: var(--wa-secondary-text);
-    padding: 6px 12px;
-    border-radius: 24px;
-    font-size: 13px;
-    cursor: pointer;
-    border: none;
-    transition: background 0.2s;
-    height: auto; /* גובה אוטומטי לפי ה-padding */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .chat-panel .chat-filter-chip:hover {
-    background-color: var(--wa-active-chat-bg);
-    color: var(--wa-primary-text);
-  }
-
-  .chat-panel .chat-filter-chip.is-active {
-    background-color: rgba(0, 168, 132, 0.1);
-    color: #00a884;
+    display: none !important;
   }
 
   /* === רשימת שיחות === */
