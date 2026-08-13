@@ -2767,9 +2767,14 @@
 
   function isGenericFileAttachment(attachment) {
     if (!attachment) return false;
+    if (attachment.isVoice === true) return false;
     if (isImageAttachment(attachment) || isVideoAttachment(attachment)) return false;
     const mime = (attachment.type || '').toLowerCase();
-    if (mime.startsWith('audio/')) return false;
+    if (mime.startsWith('audio/') || mime === 'application/ogg') return false;
+    const name = (attachment.name || '').toLowerCase();
+    if (name.includes('voice') || name.includes('ptt') || name.includes('voicemessage')) return false;
+    if (typeof attachment.duration === 'number' && attachment.duration > 0) return false;
+    if (/\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|amr|caf)(\?|$)/i.test(name)) return false;
     // קובץ כללי: PDF, ZIP, TXT, DOC וכו'
     return !!(attachment.name || attachment.magnetURI || attachment.url || attachment.dataUrl);
   }

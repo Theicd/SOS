@@ -703,16 +703,39 @@
     return preview.isVideo || preview.isImage;
   }
 
+  // הודעה קולית / אודיו — נגן, לא כרטיס מסמך | HYPER CORE TECH
+  function isVoiceOrAudioChatMessage(messageOrAttachment) {
+    const a =
+      messageOrAttachment && typeof messageOrAttachment === 'object' && 'attachment' in messageOrAttachment
+        ? messageOrAttachment.attachment
+        : messageOrAttachment;
+    if (!a || typeof a !== 'object') return false;
+    if (a.isVoice === true) return true;
+    const mime = String(a.type || a.mimeType || '').toLowerCase();
+    if (mime.startsWith('audio/') || mime === 'application/ogg') return true;
+    const name = String(a.name || '').toLowerCase();
+    if (name.includes('voice') || name.includes('ptt') || name.includes('voicemessage')) return true;
+    if (typeof a.duration === 'number' && a.duration > 0) return true;
+    if (/\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|amr|caf)(\?|$)/i.test(name)) return true;
+    const src = String(a.url || a.dataUrl || a.previewUrl || '');
+    if (/^data:audio\//i.test(src)) return true;
+    return false;
+  }
+
   // קבצי ZIP/PDF וכו' — כרטיס סופי + מד עגול (שולח ומקבל), בלי torrent-bubble קופץ | HYPER CORE TECH
   function isFileCardTransfer(progress) {
     if (!progress) return false;
     if (progress.isFileCard === true) return true;
     if (progress.isFileCard === false) return false;
+    if (progress.isVoice === true) return false;
     const preview = resolveTransferPreview(progress);
     if (preview.isVideo || preview.isImage) return false;
-    const mime = String(progress.mimeType || '').toLowerCase();
+    const mime = String(progress.mimeType || progress.type || '').toLowerCase();
+    if (mime.startsWith('audio/') || mime === 'application/ogg') return false;
     if (mime.startsWith('image/') || mime.startsWith('video/')) return false;
     const name = String(progress.name || '');
+    if (/voice|ptt|voicemessage/i.test(name)) return false;
+    if (/\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|amr|caf)$/i.test(name)) return false;
     if (/\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name)) return false;
     return true;
   }
@@ -1157,6 +1180,7 @@
   function messageUsesUnifiedFileCard(message) {
     const a = message?.attachment;
     if (a) {
+      if (isVoiceOrAudioChatMessage(a)) return false;
       if (typeof App.isImageAttachment === 'function' && App.isImageAttachment(a)) return false;
       if (typeof App.isVideoAttachment === 'function' && App.isVideoAttachment(a)) return false;
       const mime = String(a.type || '').toLowerCase();
@@ -1170,6 +1194,7 @@
     const td = getTorrentJsonMeta(message);
     if (!td) return false;
     const name = String(td.fileName || '');
+    if (/voice|ptt|voicemessage/i.test(name)) return false;
     if (/\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name)) return false;
     if (/\.(mp3|m4a|aac|ogg|wav|flac|opus)$/i.test(name)) return false;
     return true;
@@ -1389,6 +1414,8 @@
 
   function settleOutgoingFileTransfer(message) {
     if (!message || !elements.messagesContainer) return false;
+    // הודעה קולית עם magnet לא הופכת לכרטיס הורדה | HYPER CORE TECH
+    if (isVoiceOrAudioChatMessage(message)) return false;
     const magnet = extractMessageMagnet(message);
     const transferId = extractMessageTorrentTransferId(message);
     const fileId = message?.attachment?.fileId || transferId;
@@ -2184,6 +2211,15 @@
         if (magnet && extractMessageMagnet(m) === magnet) return true;
         return false;
       });
+      if (msg && isVoiceOrAudioChatMessage(msg)) {
+        if (!elements.messagesContainer?.querySelector(`[data-message-id="${msg.id}"]`)) {
+          appendSingleMessage(msg);
+        } else {
+          renderMessages(peer, { force: true });
+        }
+        ensureUnifiedFileCardsVisible(peer);
+        return;
+      }
       if (msg && settleOutgoingFileTransfer(msg)) {
         ensureUnifiedFileCardsVisible(peer);
         return;
@@ -2224,6 +2260,8 @@
         fileName = String(JSON.parse(message.content.trim())?.fileName || '');
       } catch (_) {}
     }
+    // קול/אודיו — לא מסתירים כמדיה ממתינה (גם אם שם מסתיים ב־webm) | HYPER CORE TECH
+    if (isVoiceOrAudioChatMessage(message) || /voice|ptt|voicemessage/i.test(fileName)) return false;
     const isVisualMedia =
       (att && typeof App.isImageAttachment === 'function' && App.isImageAttachment(att)) ||
       (att && typeof App.isVideoAttachment === 'function' && App.isVideoAttachment(att)) ||
@@ -6179,6 +6217,15 @@
           if (isActivelyViewing) App.markChatConversationRead(peer);
           return;
         }
+        // הודעה קולית — append עם נגן, בלי כרטיס מסמך ובלי wipe | HYPER CORE TECH
+        if (message && isVoiceOrAudioChatMessage(message)) {
+          if (!elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) {
+            appendSingleMessage(message);
+          }
+          ensureUnifiedFileCardsVisible(peer);
+          if (isActivelyViewing) App.markChatConversationRead(peer);
+          return;
+        }
         // ZIP/קובץ (שולח+מקבל) — ממירים את בועת ההעברה במקום בלי כרטיס שני | HYPER CORE TECH
         if (message && settleOutgoingFileTransfer(message)) {
           ensureUnifiedFileCardsVisible(peer);
@@ -6194,7 +6241,12 @@
               if (!item.isConnected) elements.messagesContainer.appendChild(item);
             }
           } else if (!elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) {
-            appendVisualMediaMessageWithoutWipe(message);
+            // אודיו שלא סווג למעלה / מצורף שאינו תמונה — append מלא עם נגן | HYPER CORE TECH
+            if (isVoiceOrAudioChatMessage(message)) {
+              appendSingleMessage(message);
+            } else if (!appendVisualMediaMessageWithoutWipe(message)) {
+              appendSingleMessage(message);
+            }
           }
           ensureUnifiedFileCardsVisible(peer);
           setTimeout(() => ensureUnifiedFileCardsVisible(peer), 100);
