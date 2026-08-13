@@ -1403,10 +1403,13 @@ body.chat-lightbox-open {
   font-size: 12px;
 }
 
-/* חלק Performance (chat-enhanced-styles.css) – בלי paint כדי שתפריט ⋮ כלפי מעלה לא ייחתך | HYPER CORE TECH */
+/* חלק הודעות (chat-enhanced-styles.css) – בלי contain:layout (שובר גלילה ומשאיר כרטיסי מסמך "תקועים" מתחת למדיה) | HYPER CORE TECH */
 .chat-message {
-  contain: layout style;
+  position: relative;
+  z-index: auto;
+  contain: none;
   overflow: visible;
+  isolation: auto;
 }
 
 .chat-message:has(.chat-message__more-wrap.is-open) {
@@ -1414,9 +1417,10 @@ body.chat-lightbox-open {
   position: relative;
 }
 
+/* will-change יוצר שכבת קומפוזיטור שמכסה הודעות קודמות כשהשיחה מתרחבת | HYPER CORE TECH */
 .chat-message__image,
 .chat-message__video {
-  will-change: transform;
+  will-change: auto;
 }
 
 /* חלק Animations (chat-enhanced-styles.css) – אנימציות חלקות */
@@ -1528,7 +1532,7 @@ body.chat-lightbox-open {
   display: none !important;
 }
 
-/* כרטיסי מסמך — לעולם לא מוסתרים ע״י media-pending / מדיה לידם | HYPER CORE TECH */
+/* כרטיסי מסמך — בזרימת הגלילה הרגילה, בלי שכבה נפרדת / contain | HYPER CORE TECH */
 .chat-message.chat-message--file-card-transfer,
 .chat-message.chat-message--file-card-settled,
 .chat-message.chat-message--file-card-transfer.chat-message--media-pending,
@@ -1538,6 +1542,12 @@ body.chat-lightbox-open {
   opacity: 1 !important;
   height: auto !important;
   max-height: none !important;
+  position: relative !important;
+  z-index: auto !important;
+  contain: none !important;
+  isolation: auto !important;
+  transform: none !important;
+  inset: auto !important;
 }
 
 .chat-message__image-container.is-media-ready,
@@ -2406,6 +2416,10 @@ body.chat-lightbox-open {
   box-sizing: border-box;
   min-width: 0;
   overflow: hidden;
+  position: relative;
+  z-index: auto;
+  contain: none;
+  flex-shrink: 0;
 }
 
 .chat-message--outgoing.chat-message--file-card-transfer {
@@ -2438,7 +2452,7 @@ body.chat-lightbox-open {
   max-width: 100%;
   box-sizing: border-box;
   position: relative;
-  z-index: 1;
+  z-index: auto;
   opacity: 1 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -2813,12 +2827,18 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
 
 /* חלק העלאת מדיה וואטסאפ (chat-enhanced-styles.css) – תצוגה מקומית + ספינר + טבעת ליד השעה | HYPER CORE TECH */
 .chat-message--media-transfer,
-.chat-message--media-settled {
+.chat-message--media-settled,
+.chat-message--media {
   align-self: flex-end;
   width: fit-content;
   max-width: min(88%, 360px);
   min-width: 0;
   justify-content: flex-end;
+  position: relative;
+  z-index: auto;
+  contain: none;
+  isolation: auto;
+  flex-shrink: 0;
 }
 
 .chat-message__content--media-upload {
