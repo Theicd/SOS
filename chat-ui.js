@@ -1030,6 +1030,8 @@
       '';
 
     bubble.className = `chat-message ${directionClass} chat-message--file-card-transfer chat-message--file-card-settled chat-message--file-card-transfer-done`;
+    bubble.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+    bubble.hidden = false;
     bubble.setAttribute('data-message-id', message.id);
     if (fileId) {
       bubble.setAttribute('data-transfer-id', fileId);
@@ -1840,6 +1842,40 @@
     return /\.(jpe?g|png|gif|webp|bmp|heic|heif|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name);
   }
 
+  // מסמכים/ארכיונים — אף פעם לא מסלול media-pending (הסתרה עד טעינה) | HYPER CORE TECH
+  function looksLikeChatDocumentFile(attOrName) {
+    const name = String(
+      (attOrName && typeof attOrName === 'object' ? attOrName.name : attOrName) || ''
+    ).toLowerCase();
+    const mime = String((attOrName && typeof attOrName === 'object' ? attOrName.type : '') || '').toLowerCase();
+    if (
+      /\.(txt|log|csv|zip|rar|7z|tar|gz|tgz|pdf|docx?|xlsx?|pptx?|rtf|json|xml|apk|exe|msi|dmg|iso|bin|dat|sql|md|yml|yaml)$/i.test(
+        name
+      )
+    ) {
+      return true;
+    }
+    if (
+      mime &&
+      !mime.startsWith('image/') &&
+      !mime.startsWith('video/') &&
+      !mime.startsWith('audio/') &&
+      (mime.includes('zip') ||
+        mime.includes('compressed') ||
+        mime.includes('archive') ||
+        mime.includes('msword') ||
+        mime.includes('officedocument') ||
+        mime.includes('spreadsheet') ||
+        mime.includes('presentation') ||
+        mime === 'application/pdf' ||
+        mime.startsWith('text/'))
+    ) {
+      return true;
+    }
+    if (mime === 'application/octet-stream' && name) return true;
+    return false;
+  }
+
   function isIncomingTransferPending(message) {
     if (!message) return false;
     const isOutgoing =
@@ -1853,7 +1889,7 @@
     if (src && !src.startsWith('magnet:')) return false;
 
     // מסמכים/ZIP/TXT/LOG — מציגים כרטיס מיד (בלי לחכות ל-blob) | HYPER CORE TECH
-    if (!isVisualMediaAttachment(att, att?.name)) return false;
+    if (looksLikeChatDocumentFile(att) || !isVisualMediaAttachment(att, att?.name)) return false;
 
     if (magnet) {
       const blob = typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnet) : null;
@@ -4386,6 +4422,8 @@
       let isAudioAttachment = false;
       let isImageAttachment = false;
       let isVideoAttachment = false;
+      let isDocumentFile = false;
+      let isFileCardAttachment = false;
       let a = message.attachment || null;
       // אחרי הורדת טורנט — מחברים blob מקומי כדי שהמדיה תוצג מיד | HYPER CORE TECH
       if (a?.magnetURI && !(a.url || a.dataUrl) && typeof App.getTorrentBlob === 'function') {
@@ -4458,6 +4496,12 @@
           isVideoAttachment = App.isVideoAttachment(a);
         }
         } // סוף בלוק isVideo===true
+        // מסמך/ארכיון — לא לסווג כתמונה/וידאו (מונע media-pending שמסתיר את הכרטיס) | HYPER CORE TECH
+        isDocumentFile = looksLikeChatDocumentFile(a);
+        if (isDocumentFile) {
+          isImageAttachment = false;
+          isVideoAttachment = false;
+        }
         // חלק דיבאג מדיה (chat-ui.js) – רישום זיהוי מצורף וסוג מדיה | HYPER CORE TECH
         mediaDebugLog('attachment-detect', {
           messageId: message.id,
@@ -4467,7 +4511,8 @@
           url: a?.url || a?.dataUrl || '',
           audio: isAudioAttachment,
           image: isImageAttachment,
-          video: isVideoAttachment
+          video: isVideoAttachment,
+          document: isDocumentFile
         });
         
         if (isAudioAttachment) {
@@ -4505,13 +4550,14 @@
           attachmentHtml = typeof App.renderHtmlAttachment === 'function'
             ? App.renderHtmlAttachment(a)
             : `<div class="chat-file-bubble"><i class="fa-solid fa-code"></i> ${buildFileNameLabelHtml(a.name || 'HTML')}</div>`;
-        } else if (typeof App.isGenericFileAttachment === 'function' && App.isGenericFileAttachment(a)) {
+        } else if (isDocumentFile || (typeof App.isGenericFileAttachment === 'function' && App.isGenericFileAttachment(a))) {
           // חלק קובץ כללי (chat-ui.js) – רנדור בועת קובץ מעוצבת לקבצי ZIP/TXT/טורנט | HYPER CORE TECH
           // חלק דיבאג מדיה (chat-ui.js) – רינדור קובץ כללי מצורף | HYPER CORE TECH
           mediaDebugLog('attachment-render', { messageId: message.id, kind: 'file', name: a?.name || '', mime: a?.type || '', src });
           attachmentHtml = typeof App.renderGenericFileAttachment === 'function'
             ? App.renderGenericFileAttachment(a)
             : `<div class="chat-file-bubble"><i class="fa-solid fa-file"></i> ${buildFileNameLabelHtml(a.name || 'קובץ')}</div>`;
+          isFileCardAttachment = true;
         } else if (src) {
           const fileName = a.name || 'קובץ מצורף';
           const fmt =
@@ -4647,7 +4693,9 @@
         }
       }
 
-      item.className = `chat-message ${directionClass}`;
+      item.className = `chat-message ${directionClass}${
+        isFileCardAttachment ? ' chat-message--file-card-transfer chat-message--file-card-settled' : ''
+      }`;
       item.setAttribute('data-message-id', message.id);
       item.setAttribute('data-chat-created', String(messageTimestamp));
       item.setAttribute('data-chat-from', String(message.from || '').toLowerCase());
@@ -4774,11 +4822,17 @@
           </div>
       `;
 
-      // מדיה (עם/בלי כיתוב) — מסתירים את כל הבועה עד שהמדיה מוכנה; חושפים יחד | HYPER CORE TECH
+      // מדיה (עם/בלי כיתוב) — מסתירים רק תמונה/וידאו עד מוכן; מסמכים תמיד גלויים | HYPER CORE TECH
+      const hasFileCardHtml = /chat-file-bubble|chat-file-upload|chat-pdf-bubble/.test(
+        `${attachmentHtml || ''}`
+      );
       const pendingVisualMedia =
         !youtubeHtml &&
         !linkPreviewHtml &&
         !isAudioAttachment &&
+        !isDocumentFile &&
+        !isFileCardAttachment &&
+        !hasFileCardHtml &&
         (
           isImageAttachment ||
           isVideoAttachment ||
@@ -4788,6 +4842,9 @@
         );
       if (pendingVisualMedia) {
         item.classList.add('chat-message--media-pending');
+      } else {
+        item.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+        item.hidden = false;
       }
       
       item.innerHTML = `
@@ -4804,7 +4861,7 @@
         ${!isOutgoing ? sideActionsHtml : ''}
       `;
       // העברת שאריות כפתור הורדה/העתקה לעמודת הצד | HYPER CORE TECH
-      if (sideDownloadHtml || sideCopyHtml || isImageAttachment || isVideoAttachment || isMediaUrl) {
+      if (sideDownloadHtml || sideCopyHtml || isImageAttachment || isVideoAttachment || isMediaUrl || isFileCardAttachment) {
         ensureChatSideActions(item, {
           isOutgoing,
           messageId: message.id,

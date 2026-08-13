@@ -772,6 +772,15 @@
   function failChatMessageBubble(mediaEl) {
     const msg = mediaEl?.closest?.('.chat-message');
     if (!msg) return;
+    // כרטיס קובץ/מסמך — לא להסתיר עם media-pending | HYPER CORE TECH
+    if (
+      msg.classList.contains('chat-message--file-card-transfer') ||
+      msg.querySelector('.chat-file-bubble, .chat-file-upload, .chat-pdf-bubble')
+    ) {
+      msg.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
+      msg.hidden = false;
+      return;
+    }
     if (messageHasVisibleCaption(msg)) {
       // כשל מדיה עם כיתוב — לא חושפים בועה שבורה; משאירים מוסתר עד שיש מדיה מוכנה אחרת | HYPER CORE TECH
       const hasReady = msg.querySelector(

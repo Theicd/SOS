@@ -1528,6 +1528,15 @@ body.chat-lightbox-open {
   display: none !important;
 }
 
+/* מסמכים/ZIP/TXT — לא מוסתרים ע"י media-pending | HYPER CORE TECH */
+.chat-message.chat-message--media-pending:has(.chat-file-bubble),
+.chat-message.chat-message--media-pending:has(.chat-file-upload),
+.chat-message.chat-message--media-pending:has(.chat-pdf-bubble),
+.chat-message.chat-message--media-pending.chat-message--file-card-transfer {
+  display: flex !important;
+  visibility: visible !important;
+}
+
 .chat-message__image-container.is-media-ready,
 .chat-message__video-container.is-media-ready {
   display: block;
