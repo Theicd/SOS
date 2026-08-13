@@ -1828,7 +1828,18 @@
     } catch (_) {}
   }
 
-  // מקבל: אין בועת "מוריד..." — ההודעה צצה רק כשהקובץ מוכן, לפי createdAt המקורי | HYPER CORE TECH
+  // מקבל: מסתירים רק תמונה/וידאו עד שיש blob — כרטיסי TXT/ZIP/DOC מוצגים מיד | HYPER CORE TECH
+  function isVisualMediaAttachment(att, fileName) {
+    if (!att && !fileName) return false;
+    if (att?.isVideo === true) return true;
+    const mime = String(att?.type || '').toLowerCase();
+    if (mime.startsWith('image/') || mime.startsWith('video/')) return true;
+    if (typeof App.isImageAttachment === 'function' && att && App.isImageAttachment(att)) return true;
+    if (typeof App.isVideoAttachment === 'function' && att && App.isVideoAttachment(att)) return true;
+    const name = String(fileName || att?.name || '');
+    return /\.(jpe?g|png|gif|webp|bmp|heic|heif|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(name);
+  }
+
   function isIncomingTransferPending(message) {
     if (!message) return false;
     const isOutgoing =
@@ -1840,6 +1851,9 @@
     const att = message.attachment || null;
     const src = String(att?.url || att?.dataUrl || '').trim();
     if (src && !src.startsWith('magnet:')) return false;
+
+    // מסמכים/ZIP/TXT/LOG — מציגים כרטיס מיד (בלי לחכות ל-blob) | HYPER CORE TECH
+    if (!isVisualMediaAttachment(att, att?.name)) return false;
 
     if (magnet) {
       const blob = typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnet) : null;
@@ -4101,12 +4115,16 @@
     elements.messagesContainer.innerHTML = '';
     const fragment = doc.createDocumentFragment();
 
-    // מחזיר בועות העברה פעילות שלא שויכו להודעה (בלי data-message-id) | HYPER CORE TECH
+    // מחזיר בועות העברה פעילות / כרטיסי קובץ שלא שויכו בהודעה הנוכחית | HYPER CORE TECH
     const appendLeftoverTransferBubbles = (target) => {
       const seen = new Set();
       preservedSettled.forEach((el) => {
         if (!el || seen.has(el)) return;
-        if (el.getAttribute('data-message-id')) return;
+        // מדיה ממתינה (בלי message-id) או כרטיס קובץ שנשמר — מחזירים כדי שלא ייעלמו | HYPER CORE TECH
+        const mid = el.getAttribute('data-message-id');
+        const isFileCard =
+          el.classList.contains('chat-message--file-card-transfer') || !!el.querySelector('.chat-file-bubble, .chat-file-upload');
+        if (mid && !isFileCard) return;
         seen.add(el);
         target.appendChild(el);
       });
@@ -4147,7 +4165,7 @@
     // חלק צ'אט (chat-ui.js) – קיבוץ הודעות לפי יום והוספת כותרות תאריך דביקות בסגנון וואטסאפ
     let lastDayKey = '';
     messages.forEach((message) => {
-      // מקבל: מסתירים מדיה/קובץ טורנט עד שיש blob מוכן — ואז מופיעים לפי createdAt | HYPER CORE TECH
+      // מקבל: מסתירים רק תמונה/וידאו עד שיש blob — מסמכים מוצגים מיד | HYPER CORE TECH
       if (isIncomingTransferPending(message)) return;
 
       if (isSystemChatMessage(message)) {

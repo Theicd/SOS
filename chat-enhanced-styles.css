@@ -2017,7 +2017,7 @@ body.chat-lightbox-open {
   }
 
   .chat-message:has(.chat-file-bubble) > .chat-message__content {
-    width: auto !important;
+    width: 100% !important;
     max-width: 100%;
     min-width: 0;
   }
@@ -2392,26 +2392,27 @@ body.chat-lightbox-open {
   color: #8696a0;
 }
 
-/* כרטיס קובץ — בלי fit-content: שם ארוך לא מרחיב את כל הצ'אט במובייל | HYPER CORE TECH */
+/* כרטיס קובץ — רוחב יציב: לא מרחיב מסך, לא קורס לפס דק | HYPER CORE TECH */
 .chat-message:has(.chat-file-bubble),
 .chat-message--file-card-transfer {
-  width: auto;
+  width: min(100%, 280px);
   max-width: min(100%, 280px);
   box-sizing: border-box;
-  min-width: 0;
+  min-width: min(100%, 180px);
   overflow: hidden;
 }
 
 .chat-message--outgoing:has(.chat-file-bubble),
 .chat-message--outgoing.chat-message--file-card-transfer {
-  width: auto;
+  width: min(100%, 280px);
   max-width: min(100%, 280px);
+  min-width: min(100%, 180px);
 }
 
 .chat-message:has(.chat-file-bubble) > .chat-message__content,
 .chat-message--file-card-transfer .chat-message__content {
   min-width: 0;
-  width: auto;
+  width: 100%;
   max-width: 100%;
   overflow: hidden;
   box-sizing: border-box;
@@ -2516,8 +2517,9 @@ body.chat-lightbox-open {
   .chat-message--file-card-transfer,
   .chat-message--outgoing:has(.chat-file-bubble),
   .chat-message--outgoing.chat-message--file-card-transfer {
-    width: auto;
+    width: min(100%, 260px);
     max-width: min(100%, 260px);
+    min-width: min(100%, 160px);
   }
 
   .chat-file-bubble {

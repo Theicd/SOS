@@ -1011,17 +1011,17 @@ body.chat-overlay-open::before {
   justify-content: flex-end;
 }
 
-/* קובץ מצורף: בלי fit-content — שם ארוך לא מרחיב את המסך | HYPER CORE TECH */
+/* קובץ מצורף: רוחב יציב — בלי fit-content ובלי קריסה לפס | HYPER CORE TECH */
 .chat-message--outgoing:has(.chat-file-bubble),
 .chat-message:has(.chat-file-bubble) {
-  width: auto;
+  width: min(78%, 280px);
   max-width: min(78%, 280px);
-  min-width: 0;
+  min-width: min(78%, 180px);
   overflow: hidden;
 }
 
 .chat-message:has(.chat-file-bubble) > .chat-message__content {
-  width: auto;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
 }

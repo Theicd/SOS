@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v409'; // bump - long file name must not expand mobile chat layout
+  const CACHE_NAME = 'sos-cache-v410'; // bump - show document file cards immediately (not wait for blob)
   const PRECACHE_URLS = [
     './',
     './videos.html',
