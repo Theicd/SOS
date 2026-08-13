@@ -2373,6 +2373,20 @@ body.chat-lightbox-open {
   color: #8696a0;
 }
 
+/* כרטיס קובץ בתוך בועה רגילה (legacy) — בלי רקע כפול אם בכל זאת נוצר | HYPER CORE TECH */
+.chat-message:not(.chat-message--file-card-transfer) .chat-message__content:has(> .chat-file-bubble),
+.chat-message:not(.chat-message--file-card-transfer) .chat-message__content:has(> .chat-file-upload) {
+  padding: 6px 8px 4px;
+}
+
+.chat-message:not(.chat-message--file-card-transfer) > .chat-message__content > .chat-file-bubble,
+.chat-message:not(.chat-message--file-card-transfer) > .chat-message__content > .chat-file-upload > .chat-file-bubble {
+  background: transparent !important;
+  box-shadow: none !important;
+  margin: 0;
+  padding: 2px 0;
+}
+
 /* כרטיס קובץ — רוחב לפי קונטיינר הצ'אט (לא 100vw) כדי לא לחתוך שמאלה במובייל | HYPER CORE TECH */
 .chat-message--file-card-transfer {
   width: fit-content;

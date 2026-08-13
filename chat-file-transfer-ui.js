@@ -388,7 +388,12 @@
           }
           const torrentResult = await App.torrentTransfer.requestTransfer(peer, file);
           if (torrentResult?.success) {
-            log('torrent fallback ok', { name: file.name });
+            const tid = torrentResult.transferId || '';
+            if (optimisticFileId && tid && optimisticFileId !== tid) {
+              App.adoptChatTransferBubble?.(optimisticFileId, tid);
+              optimisticFileId = null;
+            }
+            log('torrent fallback ok', { name: file.name, transferId: tid || null });
             return;
           }
           const reason = torrentResult?.error || 'torrent-request-failed';

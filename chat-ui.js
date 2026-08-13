@@ -986,6 +986,53 @@
     return null;
   }
 
+  // מסמך/ZIP/TXT וכו' — תמיד כרטיס file-card-transfer (לא בועה רגילה עם chat-file-bubble בפנים) | HYPER CORE TECH
+  function messageUsesUnifiedFileCard(message) {
+    const a = message?.attachment;
+    if (!a) return false;
+    if (typeof App.isImageAttachment === 'function' && App.isImageAttachment(a)) return false;
+    if (typeof App.isVideoAttachment === 'function' && App.isVideoAttachment(a)) return false;
+    const mime = String(a.type || '').toLowerCase();
+    if (mime.startsWith('audio/')) return false;
+    if (typeof App.isPdfAttachment === 'function' && App.isPdfAttachment(a)) return false;
+    if (typeof App.isHtmlAttachment === 'function' && App.isHtmlAttachment(a)) return false;
+    if (typeof App.isGenericFileAttachment === 'function') return App.isGenericFileAttachment(a);
+    return !!(a.name || a.magnetURI || a.url || a.dataUrl || a.fileId);
+  }
+
+  function takePreservedUnsettledFileCard(preservedSettled, message) {
+    if (!preservedSettled || !preservedSettled.size) return null;
+    const wantName = String(message?.attachment?.name || '').trim().toLowerCase();
+    const candidates = [];
+    const seen = new Set();
+    preservedSettled.forEach((el) => {
+      if (!el || seen.has(el)) return;
+      seen.add(el);
+      if (el.getAttribute('data-message-id')) return;
+      if (!el.classList.contains('chat-message--file-card-transfer') && !el.querySelector('.chat-file-upload')) return;
+      candidates.push(el);
+    });
+    if (!candidates.length) return null;
+    let pick = null;
+    if (wantName) {
+      pick =
+        candidates.find((el) => {
+          const name = String(readFileNameFromBubbleEl(el.querySelector('.chat-file-bubble__name')) || '')
+            .trim()
+            .toLowerCase();
+          return name && name === wantName;
+        }) || null;
+    }
+    if (!pick && candidates.length === 1) pick = candidates[0];
+    if (!pick) return null;
+    const keysToDelete = [];
+    preservedSettled.forEach((el, key) => {
+      if (el === pick) keysToDelete.push(key);
+    });
+    keysToDelete.forEach((key) => preservedSettled.delete(key));
+    return pick;
+  }
+
   function settleFileCardBubble(bubble, message) {
     if (!bubble || !message) return false;
     const isOutgoing =
@@ -1038,8 +1085,15 @@
           })()
         : '');
 
-    const content = bubble.querySelector('.chat-message__content') || bubble;
-    content.className = 'chat-message__content';
+    // תמיד content נפרד — אחרת className על הבועה עצמה מוחק את chat-message--file-card-transfer | HYPER CORE TECH
+    let content = bubble.querySelector('.chat-message__content');
+    if (!content) {
+      content = doc.createElement('div');
+      content.className = 'chat-message__content';
+      bubble.appendChild(content);
+    } else {
+      content.className = 'chat-message__content';
+    }
     content.setAttribute('data-chat-message', message.id);
     content.innerHTML = `
       <div class="chat-file-upload" data-chat-file-upload="1">
@@ -1069,7 +1123,7 @@
 
     if (fileId) settledMediaTransferIds.add(fileId);
     if (magnet) settledMediaTransferIds.add(`mag:${magnet}`);
-    state.transferProgress.delete(fileId);
+    if (fileId) state.transferProgress.delete(fileId);
     cleanupOrphanLocalFileTransferBubbles(fileId);
     return true;
   }
@@ -1182,14 +1236,18 @@
   // מוחק בועות local-file כפולות בלי message-id (אחרי אימוץ ל-fileId אמיתי) | HYPER CORE TECH
   function cleanupOrphanLocalFileTransferBubbles(keepFileId = null) {
     if (!elements.messagesContainer) return;
+    const settlingRealId = !!(keepFileId && !String(keepFileId).startsWith('local-file-'));
     elements.messagesContainer.querySelectorAll('[data-transfer-id^="local-file-"]').forEach((el) => {
       if (el.getAttribute('data-message-id') || el.getAttribute('data-p2p-file-id')) return;
       const id = el.getAttribute('data-transfer-id') || '';
       if (keepFileId && id === keepFileId) return;
+      // עדיין בהעברה פעילה — לא למחוק, אלא אם כבר יש כרטיס settled עם id אמיתי | HYPER CORE TECH
+      if (id && state.transferProgress.has(id) && !settlingRealId) return;
       el.remove();
       if (id) {
         state.transferProgress.delete(id);
         transferMediaPreviews.delete(id);
+        transferCaptions.delete(id);
       }
     });
     if (keepFileId) {
@@ -1988,6 +2046,17 @@
             size: evt.size || 0,
           });
         }
+        if (evt?.fileId && evt?.direction !== 'receive') {
+          const mime = String(evt?.mimeType || '').toLowerCase();
+          const isVisual =
+            mime.startsWith('image/') ||
+            mime.startsWith('video/') ||
+            mime.startsWith('audio/') ||
+            /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp|mp3|m4a|ogg|wav|flac)$/i.test(
+              String(evt?.name || '')
+            );
+          if (!isVisual) evt.isFileCard = true;
+        }
         state.transferProgress.set(evt.fileId, evt);
         renderTransferProgress(evt);
       });
@@ -2006,8 +2075,16 @@
           size: evt.size || 0,
         });
       }
-      if (evt?.fileId && evt?.direction !== 'receive' && !evt?.mimeType?.startsWith?.('image/') && !evt?.mimeType?.startsWith?.('video/')) {
-        evt.isFileCard = evt.isFileCard !== false;
+      if (evt?.fileId && evt?.direction !== 'receive') {
+        const mime = String(evt?.mimeType || '').toLowerCase();
+        const isVisual =
+          mime.startsWith('image/') ||
+          mime.startsWith('video/') ||
+          mime.startsWith('audio/') ||
+          /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp|mp3|m4a|ogg|wav|flac)$/i.test(
+            String(evt?.name || '')
+          );
+        if (!isVisual) evt.isFileCard = true;
       }
       state.transferProgress.set(evt.fileId, evt);
       renderTransferProgress(evt);
@@ -4177,8 +4254,23 @@
       if (preservedFile) {
         if (magnetKey) preservedSettled.delete(`mag:${magnetKey}`);
         if (tidKey) preservedSettled.delete(`tid:${tidKey}`);
+        // מוחק גם מפתחות כפולים לאותה בועה | HYPER CORE TECH
+        const keysToDelete = [];
+        preservedSettled.forEach((el, key) => {
+          if (el === preservedFile) keysToDelete.push(key);
+        });
+        keysToDelete.forEach((key) => preservedSettled.delete(key));
         settleFileCardBubble(preservedFile, message);
         fragment.appendChild(preservedFile);
+        return;
+      }
+
+      // מסמך/ZIP — מאמצים בועת local-file פתוחה במקום לבנות כרטיס nested בבועה רגילה | HYPER CORE TECH
+      if (messageUsesUnifiedFileCard(message)) {
+        const claimed = takePreservedUnsettledFileCard(preservedSettled, message);
+        const item = claimed || doc.createElement('div');
+        settleFileCardBubble(item, message);
+        fragment.appendChild(item);
         return;
       }
 
