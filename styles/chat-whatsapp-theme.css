@@ -382,6 +382,9 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 /* חלק צ'אט (chat-whatsapp-theme.css) – התאמת רכיבים פנימיים לרקע Glass אחיד */
 .chat-conversation {
   background: transparent;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* חלק צ'אט (chat-whatsapp-theme.css) – מסך התראות בתוך הצ'אט ב-Glass כדי לשמור אחידות */

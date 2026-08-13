@@ -110,9 +110,26 @@
     if (typeof App.buildChatFileNameHtml === 'function') {
       return App.buildChatFileNameHtml(name, { className, tag });
     }
-    const full = String(name || 'קובץ');
-    const safe = App.escapeHtml ? App.escapeHtml(full) : full;
-    return `<${tag} class="${className}" title="${safe}" data-full-name="${safe}">${safe}</${tag}>`;
+    // fallback: קיצור מקומי כדי ששם ארוך לא ירחיב את הצ'אט גם בלי media-renderer | HYPER CORE TECH
+    const full = String(name || 'קובץ').trim() || 'קובץ';
+    let maxChars = 40;
+    try {
+      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+        maxChars = 24;
+      }
+    } catch (_) {}
+    let display = full;
+    if (full.length > maxChars) {
+      const lastDot = full.lastIndexOf('.');
+      const extLen = lastDot > 0 ? full.length - lastDot : 0;
+      const hasExt = lastDot > 0 && extLen >= 2 && extLen <= 8 && !/\s/.test(full.slice(lastDot + 1));
+      const ext = hasExt ? full.slice(lastDot) : '';
+      const headBudget = Math.max(6, maxChars - (ext ? ext.length + 1 : 1));
+      display = `${full.slice(0, headBudget)}…${ext}`;
+    }
+    const safeFull = App.escapeHtml ? App.escapeHtml(full) : full;
+    const safeDisplay = App.escapeHtml ? App.escapeHtml(display) : display;
+    return `<${tag} class="${className}" title="${safeFull}" data-full-name="${safeFull}">${safeDisplay}</${tag}>`;
   }
 
   function readFileNameFromBubbleEl(el) {

@@ -2792,9 +2792,11 @@
     const full = String(name || '').trim() || 'קובץ';
     let maxChars = 40;
     try {
-      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
-        maxChars = 24;
-      }
+      const narrowMq = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+      const narrowW =
+        typeof window !== 'undefined' &&
+        Math.min(window.innerWidth || 9999, (window.visualViewport && window.visualViewport.width) || 9999) <= 768;
+      if (narrowMq || narrowW) maxChars = 22;
     } catch (_) {}
     if (full.length <= maxChars) {
       return { full, display: full, truncated: false };
