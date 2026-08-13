@@ -405,6 +405,62 @@ body.chat-overlay-open::before {
   object-fit: contain;
 }
 
+/* חלק ארכיון (chat.css) – שורת בארכיון בסגנון וואטסאפ מתחת להדר | HYPER CORE TECH */
+.chat-contacts__archive {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(233, 237, 239, 0.92);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+  flex-shrink: 0;
+}
+
+.chat-contacts__archive:hover,
+.chat-contacts__archive:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-contacts__archive-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.chat-contacts__archive-main > i {
+  width: 22px;
+  text-align: center;
+  font-size: 1.15rem;
+  color: rgba(233, 237, 239, 0.88);
+}
+
+.chat-contacts__archive-label {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.chat-contacts__archive-aside {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: rgba(233, 237, 239, 0.55);
+  font-size: 0.95rem;
+}
+
 /* חלק צ'אט (chat.css) – מיכל search-bar: בדסקטופ flex, במובייל שורה מלאה נפרדת | HYPER CORE TECH */
 .chat-contacts__search-bar {
   display: contents;
@@ -1387,6 +1443,10 @@ body.chat-overlay-open::before {
     height: 40px;
   }
 
+  .chat-contacts__archive {
+    display: flex;
+  }
+
   /* חלק מקלדת מובייל (chat.css) – הבטחת flexbox נכון לשיחה במובייל | HYPER CORE TECH */
   .chat-conversation {
     display: flex;
@@ -1922,6 +1982,10 @@ body.chat-media-modal-open {
 
   /* === כותרת עליונה בדסקטופ: בלי לוגו מובייל / כפתורי פעולה === */
   .chat-panel .chat-contacts__mobile-brand {
+    display: none !important;
+  }
+
+  .chat-panel .chat-contacts__archive {
     display: none !important;
   }
 
