@@ -5029,10 +5029,32 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     color: rgba(255, 255, 255, 0.7) !important;
   }
 
-  /* התאמת שדות חיפוש ופילטרים */
+  /* התאמת שדות חיפוש אחרי הסרת פילטרים + הדר דו-שורתי | HYPER CORE TECH */
+  .chat-contacts__mobile-header {
+    display: flex !important;
+    border-bottom: none !important;
+  }
+
+  .chat-contacts__mobile-brand img {
+    height: 44px !important;
+    max-width: 132px !important;
+  }
+
   .chat-contacts__search {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     position: relative !important;
+    display: block !important;
+    padding: 6px 14px 12px !important;
+  }
+
+  .chat-contacts__search-bar {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    padding: 0 12px !important;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
   }
 
   .chat-contacts__search input {
@@ -5061,7 +5083,7 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   .chat-contacts__filters {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    display: none !important;
   }
 
   /* התאמת כותרת שיחה */

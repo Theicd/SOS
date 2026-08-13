@@ -378,9 +378,36 @@ body.chat-overlay-open::before {
   display: none;
 }
 
-/* חלק צ'אט (chat.css) – מיכל search-bar מוסתר במובייל, מוצג רק בדסקטופ | HYPER CORE TECH */
+/* חלק כותרת מובייל (chat.css) – לוגו + תפריט/רענון; מוצג רק במובייל | HYPER CORE TECH */
+.chat-contacts__mobile-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px 6px;
+  flex-shrink: 0;
+  background: transparent;
+  border-bottom: none;
+}
+
+.chat-contacts__mobile-brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.chat-contacts__mobile-brand img {
+  height: 42px;
+  width: auto;
+  max-width: 120px;
+  display: block;
+  object-fit: contain;
+}
+
+/* חלק צ'אט (chat.css) – מיכל search-bar: בדסקטופ flex, במובייל שורה מלאה נפרדת | HYPER CORE TECH */
 .chat-contacts__search-bar {
-  display: contents; /* במובייל - האלמנטים בפנים מוצגים ישירות */
+  display: contents;
 }
 
 .chat-contacts__search-bar > i:last-child {
@@ -1266,13 +1293,50 @@ body.chat-overlay-open::before {
     padding: 0 6px;
   }
 
-  /* חלק חיפוש מובייל (chat.css) – שורת חיפוש וטקסט בגודל מגע נוח | HYPER CORE TECH */
+  /* חלק הדר מובייל (chat.css) – שורה 1: לוגו ימין + ⋮/רענון שמאל; שורה 2: חיפוש | HYPER CORE TECH */
+  .chat-contacts__mobile-header {
+    display: flex;
+  }
+
+  .chat-contacts__mobile-header .chat-contacts__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    direction: ltr; /* ⋮ משמאל, רענון מימינו */
+  }
+
+  .chat-contacts__mobile-header #chatCloseButton {
+    display: none;
+  }
+
+  .chat-contacts__mobile-brand img {
+    height: 44px;
+    max-width: 132px;
+  }
+
   .chat-contacts__search {
+    display: block;
     position: relative;
+    padding: 6px 14px 12px;
+    min-height: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+
+  .chat-contacts__search-bar {
+    display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 14px 14px;
-    min-height: 58px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
+  }
+
+  .chat-contacts__search-bar > i.fa-filter {
+    display: none !important;
   }
 
   .chat-contacts__search > i.fa-magnifying-glass,
@@ -1280,14 +1344,23 @@ body.chat-overlay-open::before {
     font-size: 1.15rem;
     width: 1.25rem;
     text-align: center;
+    color: var(--muted);
+    flex-shrink: 0;
   }
 
   .chat-contacts__search input,
   .chat-contacts__search-bar input {
+    flex: 1;
+    min-width: 0;
     font-size: 16px;
     line-height: 1.35;
     min-height: 44px;
     padding: 10px 2px;
+    margin: 0;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    outline: none;
   }
 
   .chat-contacts__search input::placeholder,
@@ -1832,6 +1905,11 @@ body.chat-media-modal-open {
 
   .chat-panel .chat-contacts__search input::placeholder {
     color: var(--wa-secondary-text);
+  }
+
+  /* === הסתרת כותרת מובייל בדסקטופ === */
+  .chat-panel .chat-contacts__mobile-header {
+    display: none !important;
   }
 
   /* === הסתרת אייקונים מיותרים בדסקטופ (רענון, סגירה, תפריט) === */
