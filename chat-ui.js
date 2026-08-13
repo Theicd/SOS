@@ -1869,7 +1869,7 @@
     } catch (_) {}
   }
 
-  // מקבל: אין בועת "מוריד..." — ההודעה צצה רק כשהקובץ מוכן, לפי createdAt המקורי | HYPER CORE TECH
+  // מקבל: מסתירים רק תמונה/וידאו עד שיש blob — מסמך/ZIP מוצגים תמיד (כרטיס+הורדה) | HYPER CORE TECH
   function isIncomingTransferPending(message) {
     if (!message) return false;
     const isOutgoing =
@@ -1877,10 +1877,26 @@
       message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
     if (isOutgoing) return false;
 
+    // TXT/ZIP/PDF-as-file-card וכו' — לא מסתירים (מונע צץ-ונעלם אחרי settle) | HYPER CORE TECH
+    if (messageUsesUnifiedFileCard(message)) return false;
+
     const magnet = extractMessageMagnet(message);
     const att = message.attachment || null;
     const src = String(att?.url || att?.dataUrl || '').trim();
     if (src && !src.startsWith('magnet:')) return false;
+
+    let fileName = String(att?.name || '');
+    if (!fileName && typeof message.content === 'string' && message.content.trim().startsWith('{')) {
+      try {
+        fileName = String(JSON.parse(message.content.trim())?.fileName || '');
+      } catch (_) {}
+    }
+    const isVisualMedia =
+      (att && typeof App.isImageAttachment === 'function' && App.isImageAttachment(att)) ||
+      (att && typeof App.isVideoAttachment === 'function' && App.isVideoAttachment(att)) ||
+      /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(fileName);
+    // מסמך/ארכיון עם magnet — מציגים כרטיס גם לפני blob | HYPER CORE TECH
+    if (!isVisualMedia) return false;
 
     if (magnet) {
       const blob = typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnet) : null;
@@ -4139,10 +4155,18 @@
     const preservedSettled = new Map();
     if (elements.messagesContainer) {
       settledMediaTransferIds.forEach((fileId) => {
-        const el = elements.messagesContainer.querySelector(`[data-p2p-file-id="${fileId}"]`);
+        const id = String(fileId || '');
+        // mag:... לא מתאים ל-querySelector של data-p2p-file-id (עלול לשבור רינדור) | HYPER CORE TECH
+        if (!id || id.startsWith('mag:')) return;
+        let el = null;
+        try {
+          el = elements.messagesContainer.querySelector(`[data-p2p-file-id="${CSS.escape ? CSS.escape(id) : id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`);
+        } catch (_) {
+          el = elements.messagesContainer.querySelector(`[data-p2p-file-id="${id}"]`);
+        }
         const mid = el?.getAttribute?.('data-message-id');
         if (el && mid) {
-          preservedSettled.set(mid, el);
+          preservedSettled.set(String(mid), el);
           el.remove();
         }
       });
@@ -4151,7 +4175,7 @@
         const mid = el.getAttribute('data-message-id');
         const magnet = el.getAttribute('data-magnet-uri') || '';
         const tid = el.getAttribute('data-transfer-id') || el.getAttribute('data-torrent-transfer') || '';
-        if (mid && !preservedSettled.has(mid)) preservedSettled.set(mid, el);
+        if (mid && !preservedSettled.has(String(mid))) preservedSettled.set(String(mid), el);
         if (magnet) preservedSettled.set(`mag:${magnet}`, el);
         if (tid) preservedSettled.set(`tid:${tid}`, el);
         el.remove();
@@ -4160,13 +4184,24 @@
 
     elements.messagesContainer.innerHTML = '';
     const fragment = doc.createDocumentFragment();
+    // מתמלא אחרי slice לנראות — settled leftovers רק להודעות שמוצגות | HYPER CORE TECH
+    let knownMessageIds = new Set();
 
-    // מחזיר בועות העברה פעילות שלא שויכו להודעה (בלי data-message-id) | HYPER CORE TECH
+    // מחזיר בועות העברה שלא שויכו בלופ — כולל file-card settled אם ההודעה במאגר | HYPER CORE TECH
     const appendLeftoverTransferBubbles = (target) => {
       const seen = new Set();
       preservedSettled.forEach((el) => {
         if (!el || seen.has(el)) return;
-        if (el.getAttribute('data-message-id')) return;
+        const mid = el.getAttribute('data-message-id') || '';
+        const isFileCard =
+          el.classList.contains('chat-message--file-card-transfer') || !!el.querySelector('.chat-file-upload');
+        if (mid) {
+          // settled: מחזירים רק אם ההודעה עדיין במאגר (מונע איבוד אחרי pending/race) | HYPER CORE TECH
+          if (!knownMessageIds.has(String(mid))) return;
+          if (!isFileCard) return;
+        } else if (!isFileCard && !el.querySelector('.chat-media-upload')) {
+          return;
+        }
         seen.add(el);
         target.appendChild(el);
       });
@@ -4188,6 +4223,9 @@
     }
     const startIndex = Math.max(0, allMessages.length - _visibleMessageLimit);
     const messages = allMessages.slice(startIndex);
+    knownMessageIds = new Set(
+      messages.map((m) => (m?.id != null ? String(m.id) : '')).filter(Boolean)
+    );
     if (startIndex > 0) {
       const loadOlder = doc.createElement('button');
       loadOlder.type = 'button';
@@ -4237,9 +4275,15 @@
       }
 
       // בועת העלאה שכבר הומרה — משאירים אותה במקום בלי לבנות מחדש | HYPER CORE TECH
-      const preserved = message?.id ? preservedSettled.get(message.id) : null;
+      const messageIdKey = message?.id != null ? String(message.id) : '';
+      const preserved = messageIdKey ? preservedSettled.get(messageIdKey) : null;
       if (preserved) {
-        preservedSettled.delete(message.id);
+        preservedSettled.delete(messageIdKey);
+        const keysToDelete = [];
+        preservedSettled.forEach((el, key) => {
+          if (el === preserved) keysToDelete.push(key);
+        });
+        keysToDelete.forEach((key) => preservedSettled.delete(key));
         if (preserved.classList.contains('chat-message--file-card-transfer') || preserved.querySelector('.chat-file-upload')) {
           settleFileCardBubble(preserved, message);
         }
@@ -4267,8 +4311,17 @@
 
       // מסמך/ZIP — מאמצים בועת local-file פתוחה במקום לבנות כרטיס nested בבועה רגילה | HYPER CORE TECH
       if (messageUsesUnifiedFileCard(message)) {
-        const claimed = takePreservedUnsettledFileCard(preservedSettled, message);
+        const claimed =
+          takePreservedUnsettledFileCard(preservedSettled, message) ||
+          (messageIdKey ? preservedSettled.get(messageIdKey) : null);
         const item = claimed || doc.createElement('div');
+        if (claimed) {
+          const keysToDelete = [];
+          preservedSettled.forEach((el, key) => {
+            if (el === claimed) keysToDelete.push(key);
+          });
+          keysToDelete.forEach((key) => preservedSettled.delete(key));
+        }
         settleFileCardBubble(item, message);
         fragment.appendChild(item);
         return;
