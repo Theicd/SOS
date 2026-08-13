@@ -1528,6 +1528,18 @@ body.chat-lightbox-open {
   display: none !important;
 }
 
+/* כרטיסי מסמך — לעולם לא מוסתרים ע״י media-pending / מדיה לידם | HYPER CORE TECH */
+.chat-message.chat-message--file-card-transfer,
+.chat-message.chat-message--file-card-settled,
+.chat-message.chat-message--file-card-transfer.chat-message--media-pending,
+.chat-message.chat-message--file-card-settled.chat-message--media-pending {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
 .chat-message__image-container.is-media-ready,
 .chat-message__video-container.is-media-ready {
   display: block;

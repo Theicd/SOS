@@ -555,6 +555,139 @@
     return { url, mime, name, isVideo, isImage };
   }
 
+  function isVisualMediaChatMessage(message) {
+    const a = message?.attachment;
+    if (!a) return false;
+    if (typeof App.isImageAttachment === 'function' && App.isImageAttachment(a)) return true;
+    if (typeof App.isVideoAttachment === 'function' && App.isVideoAttachment(a)) return true;
+    if (a.isVideo === true) return true;
+    const mime = String(a.type || '').toLowerCase();
+    if (mime.startsWith('image/') || mime.startsWith('video/')) return true;
+    return /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(String(a.name || ''));
+  }
+
+  // מוסיף תמונה/וידאו בלי renderMessages — כדי לא למחוק כרטיסי מסמכים | HYPER CORE TECH
+  function appendVisualMediaMessageWithoutWipe(message) {
+    if (!elements.messagesContainer || !message?.id) return false;
+    if (elements.messagesContainer.querySelector(`[data-message-id="${message.id}"]`)) return true;
+    if (!isVisualMediaChatMessage(message)) return false;
+
+    const emptyMsg = elements.messagesContainer.querySelector('.chat-conversation__empty');
+    if (emptyMsg) emptyMsg.remove();
+
+    let a = message.attachment || null;
+    if (a?.magnetURI && !(a.url || a.dataUrl) && typeof App.getTorrentBlob === 'function') {
+      const torrentBlob = App.getTorrentBlob(a.magnetURI);
+      if (torrentBlob?.url) a = { ...a, url: torrentBlob.url };
+    }
+    if (!a) return false;
+
+    const isOutgoing =
+      message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.();
+    const directionClass = isOutgoing ? 'chat-message--outgoing' : 'chat-message--incoming';
+    const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
+    const isVid =
+      a.isVideo === true ||
+      (typeof App.isVideoAttachment === 'function' && App.isVideoAttachment(a)) ||
+      /^video\//i.test(a.type || '') ||
+      /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(a.name || '');
+    const attachmentHtml = isVid
+      ? (typeof App.renderVideoAttachment === 'function' ? App.renderVideoAttachment(a) : '')
+      : (typeof App.renderImageAttachment === 'function' ? App.renderImageAttachment(a) : '');
+    if (!attachmentHtml) return false;
+
+    const captionRaw = String(message.content || '').trim();
+    const fileOnlyLabel = `📎 ${a.name || 'קובץ מצורף'}`;
+    const captionText =
+      captionRaw && captionRaw !== fileOnlyLabel && captionRaw !== (a.name || '')
+        ? captionRaw
+        : '';
+    const safeCaption = captionText
+      ? (App.escapeHtml ? App.escapeHtml(captionText) : captionText).replace(/\n/g, '<br>')
+      : '';
+    const textHtml = safeCaption
+      ? `<span class="chat-message__text">${safeCaption}</span>`
+      : '';
+    const statusHtml = isOutgoing
+      ? '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>'
+      : '';
+    const hideMeta = !textHtml;
+    const metaRowHtml = hideMeta
+      ? ''
+      : `<div class="chat-message__meta-row"><span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>${statusHtml}</div>`;
+    const sideDownloadHtml = buildChatMediaSideDownloadHtml(a, a.url || a.dataUrl || '', a.name || '');
+    const sideActionsHtml = buildChatSideActionsHtml({
+      isOutgoing,
+      messageId: message.id,
+      downloadHtml: sideDownloadHtml,
+      copyHtml: '',
+    });
+
+    let avatarHtml = '';
+    if (!isOutgoing) {
+      const normalizedFrom = message.from?.toLowerCase?.();
+      const contact = normalizedFrom && App.chatState?.contacts?.get?.(normalizedFrom);
+      const fallbackName = contact?.name || (normalizedFrom ? `משתמש ${normalizedFrom.slice(0, 8)}` : 'משתמש');
+      const safeName = App.escapeHtml ? App.escapeHtml(fallbackName) : fallbackName;
+      const initialsValue =
+        contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(fallbackName) : 'מש');
+      const safeInitials = App.escapeHtml ? App.escapeHtml(initialsValue) : initialsValue;
+      avatarHtml = contact?.picture
+        ? `<span class="chat-message__avatar" title="${safeName}"><img src="${contact.picture}" alt="${safeName}" loading="lazy" decoding="async" referrerpolicy="no-referrer"></span>`
+        : `<span class="chat-message__avatar chat-message__avatar--initials" title="${safeName}">${safeInitials}</span>`;
+    }
+
+    const contentClass = [
+      'chat-message__content',
+      'chat-message__content--has-attachment',
+      textHtml ? 'chat-message__content--media-caption' : (isVid ? 'chat-message__content--video-only' : 'chat-message__content--image-only'),
+    ].join(' ');
+
+    const item = doc.createElement('div');
+    item.className = `chat-message ${directionClass} chat-message--media chat-message--media-pending`;
+    item.setAttribute('data-message-id', message.id);
+    item.setAttribute('data-chat-created', String(messageTimestamp));
+    item.setAttribute('data-chat-from', String(message.from || App.publicKey || '').toLowerCase());
+    if (a.fileId) {
+      item.setAttribute('data-transfer-id', a.fileId);
+      item.setAttribute('data-p2p-file-id', a.fileId);
+    }
+    item.innerHTML = `
+      ${avatarHtml}
+      ${isOutgoing ? sideActionsHtml : ''}
+      <div class="${contentClass}" data-chat-message="${message.id}">
+        ${attachmentHtml}
+        ${textHtml}
+        ${metaRowHtml}
+      </div>
+      ${!isOutgoing ? sideActionsHtml : ''}
+    `;
+    ensureChatSideActions(item, {
+      isOutgoing,
+      messageId: message.id,
+      downloadHtml: sideDownloadHtml,
+    });
+    if (hideMeta && !isVid) {
+      item.querySelectorAll('.chat-message__image-container').forEach((imgWrap) => {
+        if (imgWrap.querySelector('[data-image-time-slot]')) return;
+        const slot = doc.createElement('span');
+        slot.className = 'chat-message__image-msg-time';
+        slot.setAttribute('data-image-time-slot', '');
+        slot.innerHTML = `<span class="chat-message__image-msg-time-text">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
+        imgWrap.appendChild(slot);
+      });
+    }
+    if (hideMeta && isVid) {
+      item.querySelectorAll('[data-video-time-slot]').forEach((slot) => {
+        slot.innerHTML = `<span class="chat-message__video-msg-time-text">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
+      });
+    }
+
+    elements.messagesContainer.appendChild(item);
+    stickChatToBottomIfPinned({ force: true });
+    return true;
+  }
+
   function isOutgoingMediaTransfer(progress) {
     if (!progress || progress.direction === 'receive') return false;
     const preview = resolveTransferPreview(progress);
@@ -4358,7 +4491,18 @@
 
     // שומרים בועות מדיה שכבר הומרו מהעלאה — מונע קפיצה ברינדור מלא | HYPER CORE TECH
     const preservedSettled = new Map();
+    // חונים כרטיסי מסמכים מחוץ לקונטיינר לפני wipe — innerHTML לא יכול לאבד אותם | HYPER CORE TECH
+    const parkedFileCards = doc.createDocumentFragment();
     if (elements.messagesContainer) {
+      elements.messagesContainer.querySelectorAll('.chat-message--file-card-transfer').forEach((el) => {
+        const mid = el.getAttribute('data-message-id');
+        const magnet = el.getAttribute('data-magnet-uri') || '';
+        const tid = el.getAttribute('data-transfer-id') || el.getAttribute('data-torrent-transfer') || '';
+        if (mid) preservedSettled.set(String(mid), el);
+        if (magnet) preservedSettled.set(`mag:${magnet}`, el);
+        if (tid) preservedSettled.set(`tid:${tid}`, el);
+        parkedFileCards.appendChild(el);
+      });
       settledMediaTransferIds.forEach((fileId) => {
         const id = String(fileId || '');
         // mag:... לא מתאים ל-querySelector של data-p2p-file-id (עלול לשבור רינדור) | HYPER CORE TECH
@@ -4374,16 +4518,6 @@
           preservedSettled.set(String(mid), el);
           el.remove();
         }
-      });
-      // בועות ZIP/קובץ פעילות או settled — לא ליצור כרטיס שני ברינדור | HYPER CORE TECH
-      elements.messagesContainer.querySelectorAll('.chat-message--file-card-transfer').forEach((el) => {
-        const mid = el.getAttribute('data-message-id');
-        const magnet = el.getAttribute('data-magnet-uri') || '';
-        const tid = el.getAttribute('data-transfer-id') || el.getAttribute('data-torrent-transfer') || '';
-        if (mid && !preservedSettled.has(String(mid))) preservedSettled.set(String(mid), el);
-        if (magnet) preservedSettled.set(`mag:${magnet}`, el);
-        if (tid) preservedSettled.set(`tid:${tid}`, el);
-        el.remove();
       });
     }
 
@@ -6013,6 +6147,16 @@
         // מדיה יוצאת אחרי P2P — ממירים את בועת ההעלאה במקום בלי רינדור מלא/קפיצה | HYPER CORE TECH
         if (message && settleOutgoingMediaTransfer(message)) {
           ensureUnifiedFileCardsVisible(peer);
+          setTimeout(() => ensureUnifiedFileCardsVisible(peer), 80);
+          if (isActivelyViewing) App.markChatConversationRead(peer);
+          return;
+        }
+        // תמונה/וידאו — append בלבד, בלי renderMessages שמוחק כרטיסי מסמכים | HYPER CORE TECH
+        if (message && isVisualMediaChatMessage(message)) {
+          appendVisualMediaMessageWithoutWipe(message);
+          ensureUnifiedFileCardsVisible(peer);
+          setTimeout(() => ensureUnifiedFileCardsVisible(peer), 80);
+          setTimeout(() => ensureUnifiedFileCardsVisible(peer), 300);
           if (isActivelyViewing) App.markChatConversationRead(peer);
           return;
         }
