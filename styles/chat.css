@@ -1011,21 +1011,6 @@ body.chat-overlay-open::before {
   justify-content: flex-end;
 }
 
-/* קובץ מצורף: רוחב יציב — בלי fit-content ובלי קריסה לפס | HYPER CORE TECH */
-.chat-message--outgoing:has(.chat-file-bubble),
-.chat-message:has(.chat-file-bubble) {
-  width: min(78%, 280px);
-  max-width: min(78%, 280px);
-  min-width: min(78%, 180px);
-  overflow: hidden;
-}
-
-.chat-message:has(.chat-file-bubble) > .chat-message__content {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
 /* חלק צבע הודעות יוצאות (chat.css) – גוון כחול כהה להודעות יוצאות | HYPER CORE TECH */
 .chat-message--outgoing .chat-message__content {
   background: linear-gradient(135deg, #1a3a5c, #234b6e);

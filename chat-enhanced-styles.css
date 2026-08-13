@@ -1528,15 +1528,6 @@ body.chat-lightbox-open {
   display: none !important;
 }
 
-/* מסמכים/ZIP/TXT — לא מוסתרים ע"י media-pending | HYPER CORE TECH */
-.chat-message.chat-message--media-pending:has(.chat-file-bubble),
-.chat-message.chat-message--media-pending:has(.chat-file-upload),
-.chat-message.chat-message--media-pending:has(.chat-pdf-bubble),
-.chat-message.chat-message--media-pending.chat-message--file-card-transfer {
-  display: flex !important;
-  visibility: visible !important;
-}
-
 .chat-message__image-container.is-media-ready,
 .chat-message__video-container.is-media-ready {
   display: block;
@@ -2006,28 +1997,14 @@ body.chat-lightbox-open {
 
 /* חלק מובייל מדיה (chat-enhanced-styles.css) – גודל וואטסאפ מלא, בלי קריסת fit-content | HYPER CORE TECH */
 @media (max-width: 768px) {
-  .chat-conversation {
-    min-width: 0;
-    max-width: 100%;
-    overflow-x: hidden;
-  }
-
   .chat-conversation__messages {
     overflow-x: hidden;
-    min-width: 0;
-    max-width: 100%;
     padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
     padding-block: 10px;
   }
 
   .chat-message {
     max-width: min(92%, 100%);
-    min-width: 0;
-  }
-
-  .chat-message:has(.chat-file-bubble) > .chat-message__content {
-    width: 100% !important;
-    max-width: 100%;
     min-width: 0;
   }
 
@@ -2358,11 +2335,6 @@ body.chat-lightbox-open {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
-  min-width: 0;
-  direction: ltr;
-  unicode-bidi: isolate;
-  text-align: start;
 }
 .chat-file-bubble__size {
   font-size: 0.75rem;
@@ -2401,33 +2373,25 @@ body.chat-lightbox-open {
   color: #8696a0;
 }
 
-/* כרטיס קובץ — רוחב יציב: לא מרחיב מסך, לא קורס לפס דק | HYPER CORE TECH */
-.chat-message:has(.chat-file-bubble),
+/* כרטיס קובץ — רוחב לפי קונטיינר הצ'אט (לא 100vw) כדי לא לחתוך שמאלה במובייל | HYPER CORE TECH */
 .chat-message--file-card-transfer {
-  width: min(100%, 280px);
-  max-width: min(100%, 280px);
+  width: fit-content;
+  max-width: min(100%, 320px);
   box-sizing: border-box;
-  min-width: min(100%, 180px);
+  min-width: 0;
   overflow: hidden;
 }
 
-.chat-message--outgoing:has(.chat-file-bubble),
 .chat-message--outgoing.chat-message--file-card-transfer {
-  width: min(100%, 280px);
-  max-width: min(100%, 280px);
-  min-width: min(100%, 180px);
+  max-width: min(100%, 300px);
 }
 
-.chat-message:has(.chat-file-bubble) > .chat-message__content,
 .chat-message--file-card-transfer .chat-message__content {
   min-width: 0;
-  width: 100%;
+  width: auto;
   max-width: 100%;
   overflow: hidden;
   box-sizing: border-box;
-}
-
-.chat-message--file-card-transfer .chat-message__content {
   padding: 6px 8px 4px;
 }
 
@@ -2471,10 +2435,6 @@ body.chat-lightbox-open {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
-  min-width: 0;
-  direction: ltr;
-  unicode-bidi: isolate;
 }
 
 .chat-message--file-card-transfer .chat-file-bubble__size {
@@ -2522,17 +2482,13 @@ body.chat-lightbox-open {
 }
 
 @media (max-width: 768px) {
-  .chat-message:has(.chat-file-bubble),
   .chat-message--file-card-transfer,
-  .chat-message--outgoing:has(.chat-file-bubble),
   .chat-message--outgoing.chat-message--file-card-transfer {
-    width: min(100%, 260px);
-    max-width: min(100%, 260px);
-    min-width: min(100%, 160px);
+    max-width: min(100%, 280px);
   }
 
   .chat-file-bubble {
-    max-width: min(100%, 260px);
+    max-width: min(100%, 280px);
   }
 
   .chat-file-bubble__progress {

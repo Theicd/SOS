@@ -772,15 +772,6 @@
   function failChatMessageBubble(mediaEl) {
     const msg = mediaEl?.closest?.('.chat-message');
     if (!msg) return;
-    // כרטיס קובץ/מסמך — לא להסתיר עם media-pending | HYPER CORE TECH
-    if (
-      msg.classList.contains('chat-message--file-card-transfer') ||
-      msg.querySelector('.chat-file-bubble, .chat-file-upload, .chat-pdf-bubble')
-    ) {
-      msg.classList.remove('chat-message--media-pending', 'chat-message--media-failed');
-      msg.hidden = false;
-      return;
-    }
     if (messageHasVisibleCaption(msg)) {
       // כשל מדיה עם כיתוב — לא חושפים בועה שבורה; משאירים מוסתר עד שיש מדיה מוכנה אחרת | HYPER CORE TECH
       const hasReady = msg.querySelector(
@@ -2801,11 +2792,9 @@
     const full = String(name || '').trim() || 'קובץ';
     let maxChars = 40;
     try {
-      const narrowMq = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
-      const narrowW =
-        typeof window !== 'undefined' &&
-        Math.min(window.innerWidth || 9999, (window.visualViewport && window.visualViewport.width) || 9999) <= 768;
-      if (narrowMq || narrowW) maxChars = 22;
+      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+        maxChars = 24;
+      }
     } catch (_) {}
     if (full.length <= maxChars) {
       return { full, display: full, truncated: false };
