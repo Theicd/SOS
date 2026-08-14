@@ -5041,16 +5041,16 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
 
   .chat-contacts__mobile-brand {
     display: flex !important;
-    max-height: 44px !important;
+    max-height: 52px !important;
     overflow: hidden !important;
   }
 
   .chat-contacts__mobile-brand img,
   .chat-contacts__mobile-logo-img {
-    height: 42px !important;
+    height: 48px !important;
     width: auto !important;
-    max-width: 48px !important;
-    max-height: 42px !important;
+    max-width: 56px !important;
+    max-height: 48px !important;
     object-fit: contain !important;
   }
 
@@ -5113,7 +5113,7 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   .chat-contacts__archive-aside {
-    color: rgba(34, 211, 238, 0.55) !important;
+    color: rgba(34, 211, 238, 0.75) !important;
   }
 
   /* התאמת כותרת שיחה */

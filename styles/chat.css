@@ -397,10 +397,10 @@ body.chat-overlay-open::before {
 
 .chat-contacts__mobile-brand img,
 .chat-contacts__mobile-logo-img {
-  height: 42px;
+  height: 48px;
   width: auto;
-  max-width: 48px;
-  max-height: 42px;
+  max-width: 56px;
+  max-height: 48px;
   display: block;
   object-fit: contain;
 }
@@ -459,12 +459,32 @@ body.chat-overlay-open::before {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-  color: rgba(34, 211, 238, 0.55);
-  font-size: 0.95rem;
+  color: rgba(34, 211, 238, 0.75);
+  font-size: 0.55rem;
 }
 
-.chat-contacts__archive-aside .fa-sparkles {
-  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.35));
+.chat-contacts__archive-dot {
+  filter:
+    drop-shadow(0 0 4px rgba(34, 211, 238, 0.65))
+    drop-shadow(0 0 10px rgba(254, 44, 85, 0.35));
+  animation: chatArchiveDotPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes chatArchiveDotPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-contacts__archive-dot {
+    animation: none;
+  }
 }
 
 /* חלק צ'אט (chat.css) – מיכל search-bar: בדסקטופ flex, במובייל שורה מלאה נפרדת | HYPER CORE TECH */
@@ -1383,10 +1403,10 @@ body.chat-overlay-open::before {
 
   .chat-contacts__mobile-brand img,
   .chat-contacts__mobile-logo-img {
-    height: 42px !important;
+    height: 48px !important;
     width: auto !important;
-    max-width: 48px !important;
-    max-height: 42px !important;
+    max-width: 56px !important;
+    max-height: 48px !important;
     object-fit: contain !important;
   }
 
