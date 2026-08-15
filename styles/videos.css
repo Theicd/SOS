@@ -5041,8 +5041,10 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
 
   .chat-contacts__mobile-brand {
     display: flex !important;
+    width: 56px !important;
     max-height: 52px !important;
     overflow: hidden !important;
+    justify-content: center !important;
   }
 
   .chat-contacts__mobile-brand img,
@@ -5052,6 +5054,11 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     max-width: 56px !important;
     max-height: 48px !important;
     object-fit: contain !important;
+  }
+
+  .chat-contacts__top .chat-contacts__actions {
+    width: 40px !important;
+    justify-content: center !important;
   }
 
   .chat-contacts__top .chat-contacts__search {
@@ -5103,16 +5110,24 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
 
   .chat-contacts__archive {
     display: flex !important;
+    padding: 12px 12px !important;
+    gap: 8px !important;
     color: rgba(255, 255, 255, 0.7) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
-  .chat-contacts__archive-main > i,
+  .chat-contacts__archive-main > i {
+    width: 56px !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+
   .chat-contacts__archive-label {
     color: rgba(255, 255, 255, 0.7) !important;
   }
 
   .chat-contacts__archive-aside {
+    width: 40px !important;
+    height: 40px !important;
     color: rgba(34, 211, 238, 0.75) !important;
   }
 

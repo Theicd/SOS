@@ -391,7 +391,8 @@ body.chat-overlay-open::before {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  max-height: 44px;
+  width: 56px;
+  max-height: 52px;
   overflow: hidden;
 }
 
@@ -405,16 +406,16 @@ body.chat-overlay-open::before {
   object-fit: contain;
 }
 
-/* חלק ארכיון (chat.css) – שורת בארכיון בסגנון וואטסאפ מתחת להדר | HYPER CORE TECH */
+/* חלק ארכיון (chat.css) – שורת ארכיון מיושרת ללוגו / ⋮ בהדר | HYPER CORE TECH */
 .chat-contacts__archive {
   display: none;
   width: 100%;
   box-sizing: border-box;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
   margin: 0;
-  padding: 14px 16px;
+  padding: 12px 12px;
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: transparent;
@@ -433,13 +434,15 @@ body.chat-overlay-open::before {
 .chat-contacts__archive-main {
   display: inline-flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
+  flex: 1;
   color: inherit;
 }
 
 .chat-contacts__archive-main > i {
-  width: 22px;
+  width: 56px;
+  flex-shrink: 0;
   text-align: center;
   font-size: 1.15rem;
   color: rgba(255, 255, 255, 0.7);
@@ -456,8 +459,8 @@ body.chat-overlay-open::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   color: rgba(34, 211, 238, 0.75);
   font-size: 0.55rem;
@@ -1388,13 +1391,17 @@ body.chat-overlay-open::before {
 
   .chat-contacts__mobile-brand {
     display: flex;
+    width: 56px;
+    justify-content: center;
   }
 
   .chat-contacts__top .chat-contacts__actions {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 2px;
     flex-shrink: 0;
+    width: 40px;
   }
 
   .chat-contacts__top #chatCloseButton {
@@ -1471,6 +1478,17 @@ body.chat-overlay-open::before {
 
   .chat-contacts__archive {
     display: flex;
+    padding: 12px 12px;
+    gap: 8px;
+  }
+
+  .chat-contacts__archive-main > i {
+    width: 56px;
+  }
+
+  .chat-contacts__archive-aside {
+    width: 40px;
+    height: 40px;
   }
 
   /* חלק מקלדת מובייל (chat.css) – הבטחת flexbox נכון לשיחה במובייל | HYPER CORE TECH */
