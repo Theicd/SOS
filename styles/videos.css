@@ -5170,7 +5170,7 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
 
   .chat-contacts__archive {
     display: flex !important;
-    padding: 12px 12px !important;
+    padding: 6px 12px !important;
     gap: 8px !important;
     color: rgba(255, 255, 255, 0.7) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -5186,8 +5186,8 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   .chat-contacts__archive-aside {
-    width: 40px !important;
-    height: 40px !important;
+    width: 28px !important;
+    height: 28px !important;
     color: rgba(34, 211, 238, 0.75) !important;
   }
 
