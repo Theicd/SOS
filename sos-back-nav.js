@@ -1,6 +1,6 @@
 /**
- * חלק ניווט אחורה (sos-back-nav.js) – Back מערכתי כמו טיקטוק/וואטסאפ | HYPER CORE TECH
- * שכבות: שיחה → רשימת שיחות → בית → לחיצה נוספת לסגירה
+ * חלק ניווט אחורה (sos-back-nav.js) – Back כמו טיקטוק: שכבות + לחיצה כפולה לסגירה | HYPER CORE TECH
+ * סדר: לייטבוקס מדיה → שיחה → רשימה → בית → toast → יציאה
  */
 (function initSosBackNav(window, document) {
   'use strict';
@@ -17,6 +17,8 @@
   let exitArmedUntil = 0;
   let lastToastEl = null;
   let ready = false;
+  /** כמה push מעל בית (רשימה/שיחה) — לסגירה בלי toast מזויף | HYPER CORE TECH */
+  let chatHistoryDepth = 0;
 
   function layerRank(layer) {
     if (layer === LAYER.CHAT_CONV) return 2;
@@ -39,37 +41,101 @@
     return !!(panel && panel.classList.contains('chat-panel--conversation'));
   }
 
+  function isChatLightboxOpen() {
+    if (document.body.classList.contains('chat-lightbox-open')) return true;
+    if (document.body.classList.contains('chat-media-modal-open')) return true;
+    if (document.querySelector('.chat-lightbox.chat-lightbox--visible')) return true;
+    if (document.querySelector('.chat-lightbox:not(.chat-lightbox--closing)')) {
+      const lb = document.querySelector('.chat-lightbox');
+      if (lb && lb.id && !lb.hidden) return true;
+    }
+    const modal = document.querySelector('.chat-media-modal');
+    if (modal && !modal.hasAttribute('hidden') && !modal.hidden) return true;
+    return false;
+  }
+
+  function closeChatLightboxLayer() {
+    try {
+      if (typeof App.closeChatLightbox === 'function') {
+        if (App.closeChatLightbox()) return true;
+      }
+    } catch (_) {}
+    let closed = false;
+    try {
+      const btn = document.querySelector(
+        '.chat-lightbox--visible .chat-lightbox__back, .chat-lightbox--visible .chat-lightbox__close, .chat-lightbox .chat-lightbox__back, .chat-lightbox .chat-lightbox__close'
+      );
+      if (btn) {
+        btn.click();
+        closed = true;
+      }
+    } catch (_) {}
+    try {
+      document.querySelectorAll('.chat-lightbox').forEach((el) => {
+        el.remove();
+        closed = true;
+      });
+      document.getElementById('chatLightboxDeleteDialog')?.remove();
+      document.body.classList.remove('chat-lightbox-open');
+    } catch (_) {}
+    try {
+      const modal = document.querySelector('.chat-media-modal');
+      if (modal && !modal.hasAttribute('hidden')) {
+        modal.setAttribute('hidden', '');
+        document.body.classList.remove('chat-media-modal-open');
+        closed = true;
+      }
+    } catch (_) {}
+    try {
+      App.__sosSuppressChatOutsideClose = false;
+    } catch (_) {}
+    return closed;
+  }
+
   function desiredLayer() {
     if (isChatConversationOpen()) return LAYER.CHAT_CONV;
     if (isChatPanelOpen()) return LAYER.CHAT_LIST;
     return LAYER.HOME;
   }
 
-  function showBackToast(message) {
+  function showExitHint(message) {
     try {
       if (lastToastEl && lastToastEl.parentNode) lastToastEl.remove();
     } catch (_) {}
-    if (typeof App.showToast === 'function') {
+
+    const hint = document.createElement('div');
+    hint.className = 'sos-back-exit-hint';
+    hint.setAttribute('role', 'status');
+    hint.setAttribute('aria-live', 'polite');
+    hint.innerHTML = `<span>${message}</span>`;
+
+    const host =
+      document.querySelector('.videos-feed__viewport') ||
+      document.querySelector('.videos-feed') ||
+      document.body;
+    const useAbsolute = host !== document.body && host.querySelector;
+    if (useAbsolute && getComputedStyle(host).position === 'static') {
       try {
-        App.showToast(message);
-        return;
+        host.style.position = 'relative';
       } catch (_) {}
     }
-    const toast = document.createElement('div');
-    toast.className = 'sos-back-toast';
-    toast.setAttribute('role', 'status');
-    toast.textContent = message;
-    toast.style.cssText =
-      'position:fixed;bottom:88px;left:50%;transform:translateX(-50%);' +
-      'background:rgba(20,22,26,0.94);color:#fff;padding:10px 18px;border-radius:20px;' +
-      'font-size:14px;z-index:10050;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.35);';
-    document.body.appendChild(toast);
-    lastToastEl = toast;
+    host.appendChild(hint);
+    lastToastEl = hint;
+    requestAnimationFrame(() => {
+      try {
+        hint.classList.add('is-visible');
+      } catch (_) {}
+    });
     setTimeout(() => {
       try {
-        toast.remove();
+        hint.classList.remove('is-visible');
       } catch (_) {}
-      if (lastToastEl === toast) lastToastEl = null;
+      setTimeout(() => {
+        try {
+          hint.remove();
+        } catch (_) {}
+        if (lastToastEl === hint) lastToastEl = null;
+      }, 220);
     }, 2000);
   }
 
@@ -92,23 +158,77 @@
     } catch (_) {}
   }
 
-  /** מסנכרן את ה־history לשכבת ה־UI הנוכחית (פתיחה/סגירה מכפתורים) | HYPER CORE TECH */
+  function ensureHomeTrap() {
+    applying = true;
+    try {
+      writeHistory(LAYER.HOME, 'replace');
+      writeHistory(LAYER.HOME, 'push');
+    } finally {
+      applying = false;
+    }
+    chatHistoryDepth = 0;
+  }
+
   function syncFromUi() {
     if (!ready || applying) return;
     const want = desiredLayer();
     const cur = history.state && history.state.sosBack ? history.state.sosBack : LAYER.HOME;
+
+    if (want === LAYER.HOME) {
+      exitArmedUntil = 0;
+      if (chatHistoryDepth === 0 && cur === LAYER.HOME) return;
+      collapseChatHistoryToHome(true);
+      return;
+    }
+
     if (cur === want) return;
+
     applying = true;
     try {
-      if (layerRank(want) > layerRank(cur)) {
+      if (layerRank(want) > layerRank(cur === LAYER.HOME ? LAYER.HOME : cur)) {
         writeHistory(want, 'push');
+        chatHistoryDepth += 1;
+      } else if (layerRank(want) < layerRank(cur)) {
+        writeHistory(want, 'replace');
+        chatHistoryDepth = Math.max(1, chatHistoryDepth - 1);
       } else {
         writeHistory(want, 'replace');
       }
     } finally {
       applying = false;
     }
-    if (want === LAYER.HOME) exitArmedUntil = 0;
+  }
+
+  function collapseChatHistoryToHome(rearmTrap) {
+    const steps = Math.max(chatHistoryDepth, curChatStepsInState());
+    chatHistoryDepth = 0;
+    exitArmedUntil = 0;
+    applying = true;
+    try {
+      if (steps > 0) {
+        try {
+          history.go(-steps);
+        } catch (_) {
+          writeHistory(LAYER.HOME, 'replace');
+        }
+      } else {
+        writeHistory(LAYER.HOME, 'replace');
+      }
+    } finally {
+      window.setTimeout(() => {
+        applying = false;
+        if (rearmTrap !== false) ensureHomeTrap();
+        else {
+          writeHistory(LAYER.HOME, 'replace');
+          writeHistory(LAYER.HOME, 'push');
+        }
+      }, 30);
+    }
+  }
+
+  function curChatStepsInState() {
+    const cur = history.state && history.state.sosBack ? history.state.sosBack : LAYER.HOME;
+    return layerRank(cur);
   }
 
   function closeConversationToList() {
@@ -120,7 +240,9 @@
     } finally {
       applying = false;
     }
+    exitArmedUntil = 0;
     writeHistory(LAYER.CHAT_LIST, 'replace');
+    chatHistoryDepth = Math.max(1, chatHistoryDepth - 1);
   }
 
   function closeChatToHome() {
@@ -134,7 +256,8 @@
     } finally {
       applying = false;
     }
-    writeHistory(LAYER.HOME, 'replace');
+    exitArmedUntil = 0;
+    collapseChatHistoryToHome(true);
   }
 
   function handleHomeBack() {
@@ -145,7 +268,6 @@
         writeHistory(LAYER.HOME, 'replace');
         return true;
       }
-      // ווב: מאפשרים יציאה אמיתית מההיסטוריה | HYPER CORE TECH
       applying = true;
       try {
         history.back();
@@ -154,27 +276,28 @@
       return true;
     }
     exitArmedUntil = now + EXIT_ARM_MS;
-    showBackToast('לחיצה נוספת תסגור את הממשק');
-    writeHistory(LAYER.HOME, 'replace');
+    showExitHint('לחיצה נוספת תסגור את הממשק');
+    // משאירים מלכודת כדי שהלחיצה הבאה תגיע אלינו | HYPER CORE TECH
+    ensureHomeTrap();
     return true;
   }
 
-  /**
-   * מטפל בלחיצת Back מערכתית (APK) או אחרי popstate.
-   * תמיד מחזיר true כשטיפלנו — כדי שהמעטפת לא תברח ישר ל־launcher.
-   */
   function handleSystemBack() {
     if (applying) return true;
 
+    if (isChatLightboxOpen()) {
+      closeChatLightboxLayer();
+      exitArmedUntil = 0;
+      return true;
+    }
+
     if (isChatConversationOpen()) {
       closeConversationToList();
-      exitArmedUntil = 0;
       return true;
     }
 
     if (isChatPanelOpen()) {
       closeChatToHome();
-      exitArmedUntil = 0;
       return true;
     }
 
@@ -191,30 +314,29 @@
 
   function onPopState() {
     if (applying) return;
-    // הדפדפן כבר ירד שכבה — מיישרים UI לפי היעד / מצב בפועל | HYPER CORE TECH
-    const dest = history.state && history.state.sosBack ? history.state.sosBack : null;
 
-    if (dest === LAYER.CHAT_LIST || (!dest && isChatConversationOpen())) {
-      if (isChatConversationOpen()) closeConversationToList();
-      else if (!isChatPanelOpen() && dest === LAYER.CHAT_LIST) {
-        // לא אמור לקרות; מתעלמים
-      }
+    if (isChatLightboxOpen()) {
+      closeChatLightboxLayer();
+      exitArmedUntil = 0;
       return;
     }
 
+    const dest = history.state && history.state.sosBack ? history.state.sosBack : null;
+
+    // עדיין בשיחה / ברשימה — מיישרים UI בלי הודעת יציאה | HYPER CORE TECH
+    if (isChatConversationOpen()) {
+      closeConversationToList();
+      return;
+    }
+
+    if (isChatPanelOpen()) {
+      closeChatToHome();
+      return;
+    }
+
+    // כבר בבית — רק אז toast / יציאה כמו טיקטוק | HYPER CORE TECH
     if (dest === LAYER.HOME || dest == null) {
-      if (isChatPanelOpen()) {
-        closeChatToHome();
-        return;
-      }
       handleHomeBack();
-      // אחרי toast — דוחפים שוב home כדי שה־Back הבא יישאר אצלנו בווב | HYPER CORE TECH
-      applying = true;
-      try {
-        writeHistory(LAYER.HOME, 'push');
-      } finally {
-        applying = false;
-      }
     }
   }
 
@@ -222,9 +344,7 @@
     if (ready) return;
     ready = true;
     try {
-      // replace + push: Back ראשון נשאר אצלנו (toast) גם במעטפת ישנה עם goBack | HYPER CORE TECH
-      writeHistory(LAYER.HOME, 'replace');
-      writeHistory(LAYER.HOME, 'push');
+      ensureHomeTrap();
     } catch (_) {}
     window.addEventListener('popstate', onPopState);
     syncFromUi();

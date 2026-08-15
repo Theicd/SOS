@@ -2265,8 +2265,43 @@ body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"].is
   }
 }
 
-/* חלק בית (videos.css) – רמז במרכז הכרטיס ללחיצה שנייה שתרענן | HYPER CORE TECH */
-.videos-home-refresh-hint {
+/* חלק Back (videos.css) – רמז יציאה כמו טיקטוק, תואם עיצוב הפיד | HYPER CORE TECH */
+.sos-back-exit-hint {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  z-index: 10040;
+  max-width: min(86%, 320px);
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+  text-align: center;
+  direction: rtl;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -50%) scale(0.96);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+.sos-back-exit-hint.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+body:not(:has(.videos-feed__viewport)) .sos-back-exit-hint,
+.sos-back-exit-hint--fixed {
+  position: fixed;
+  top: 46%;
+  z-index: 10040;
+}
+
   position: absolute;
   left: 50%;
   top: 50%;

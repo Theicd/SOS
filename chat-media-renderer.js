@@ -2188,7 +2188,42 @@
     ['chatMediaLightbox', 'chatImageLightbox', 'chatVideoLightbox', 'chatYouTubeLightbox'].forEach((id) => {
       document.getElementById(id)?.remove();
     });
+    document.querySelectorAll('.chat-lightbox').forEach((el) => {
+      try { el.remove(); } catch (_) {}
+    });
     document.getElementById('chatLightboxDeleteDialog')?.remove();
+    document.body.classList.remove('chat-lightbox-open');
+    try {
+      App.__sosSuppressChatOutsideClose = false;
+    } catch (_) {}
+  }
+
+  /** סגירת לייטבוקס לצורך כפתור Back מערכתי | HYPER CORE TECH */
+  function closeChatLightbox() {
+    const open =
+      document.body.classList.contains('chat-lightbox-open') ||
+      !!document.querySelector('.chat-lightbox');
+    if (!open) return false;
+    try {
+      const btn = document.querySelector(
+        '.chat-lightbox .chat-lightbox__back, .chat-lightbox .chat-lightbox__close'
+      );
+      if (btn) {
+        btn.click();
+        return true;
+      }
+    } catch (_) {}
+    try {
+      document.querySelectorAll('.chat-lightbox video').forEach((v) => {
+        try {
+          v.pause();
+          v.removeAttribute('src');
+          v.load();
+        } catch (_) {}
+      });
+    } catch (_) {}
+    removeOpenChatLightboxes();
+    return true;
   }
 
   function buildLightboxMediaHtml(item) {
@@ -2893,6 +2928,7 @@
     openExternalChatLink,
     openImageLightbox,
     openVideoLightbox,
+    closeChatLightbox,
     applyChatMediaBoxSize,
     computeChatMediaBox,
     reflowLockedChatMedia,
