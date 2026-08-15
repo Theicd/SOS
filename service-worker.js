@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v433'; // bump - clear chat search when opening a conversation
+  const CACHE_NAME = 'sos-cache-v434'; // bump - faster APK keyboard / composer inset
   const PRECACHE_URLS = [
     './',
     './videos.html',
