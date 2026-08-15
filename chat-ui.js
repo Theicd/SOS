@@ -3949,6 +3949,19 @@
     } catch (_) {}
   }
 
+  function syncChatSearchKeyboardNav() {
+    if (!doc.body) return;
+    const searchFocused =
+      !!elements.searchInput &&
+      (doc.activeElement === elements.searchInput || elements.searchInput.matches?.(':focus'));
+    const shouldHideNav =
+      !!state.isOpen &&
+      window.innerWidth <= 768 &&
+      searchFocused &&
+      !elements.panel?.classList?.contains('chat-panel--conversation');
+    doc.body.classList.toggle('chat-search-keyboard-open', shouldHideNav);
+  }
+
   function positionPanel() {
     if (!elements.panel) {
       return;
@@ -3966,6 +3979,7 @@
       elements.panel.style.maxHeight = '';
       elements.panel.style.removeProperty('--chat-keyboard-inset');
       _lastKeyboardInset = 0;
+      doc.body?.classList?.remove('chat-search-keyboard-open');
       return;
     }
     // במובייל – פאנל full-screen קבוע; המקלדת מזיזה רק padding דרך CSS var (בלי thrashing של height/top) | HYPER CORE TECH
@@ -3985,6 +3999,7 @@
     if (keyboardInset > 0) {
       suppressChatKeyboardScrollJump();
     }
+    syncChatSearchKeyboardNav();
   }
 
   function schedulePositionPanel() {
@@ -3999,6 +4014,23 @@
     if (!state.isOpen || window.innerWidth > 768) return;
     const target = event?.target;
     if (!target) return;
+    if (target === elements.searchInput) {
+      syncChatSearchKeyboardNav();
+      suppressChatKeyboardScrollJump();
+      positionPanel();
+      schedulePositionPanel();
+      window.setTimeout(() => {
+        if (!state.isOpen) return;
+        syncChatSearchKeyboardNav();
+        positionPanel();
+      }, 50);
+      window.setTimeout(() => {
+        if (!state.isOpen) return;
+        syncChatSearchKeyboardNav();
+        positionPanel();
+      }, 180);
+      return;
+    }
     if (target !== elements.messageInput && !elements.composer?.contains(target)) return;
     // מיד אחרי focus – מסנכרנים inset ומבטלים גלילת דפדפן שמקפיצה את ה-composer | HYPER CORE TECH
     suppressChatKeyboardScrollJump();
@@ -4014,6 +4046,13 @@
       suppressChatKeyboardScrollJump();
       positionPanel();
     }, 180);
+  }
+
+  function onChatSearchFocusOut() {
+    window.setTimeout(() => {
+      syncChatSearchKeyboardNav();
+      if (state.isOpen) positionPanel();
+    }, 0);
   }
 
   function togglePanel(forceOpen) {
@@ -4056,6 +4095,7 @@
       elements.launcherButton?.setAttribute('aria-expanded', 'false');
       resetConversationView();
       doc.body.classList.remove('chat-overlay-open');
+      doc.body.classList.remove('chat-search-keyboard-open');
       try {
         if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
       } catch (_) {}
@@ -4075,6 +4115,13 @@
     });
   }
   doc.addEventListener('focusin', onChatComposerFocusIn, true);
+  if (elements.searchInput) {
+    elements.searchInput.addEventListener('focus', () => {
+      syncChatSearchKeyboardNav();
+      schedulePositionPanel();
+    });
+    elements.searchInput.addEventListener('blur', onChatSearchFocusOut);
+  }
 
   function renderChatBadge(unreadTotal) {
     const badges = [elements.badge, elements.launcherBadge].filter(Boolean);

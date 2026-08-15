@@ -2767,6 +2767,20 @@ body.sos-call-active #videosSoftLoading {
     pointer-events: auto !important;
     z-index: 3000 !important;
   }
+
+  /* חיפוש צ'אט + מקלדת – מסתירים primary-nav כדי שלא יעלה מעל המקלדת | HYPER CORE TECH */
+  body.chat-search-keyboard-open .primary-nav,
+  body:has(#chatPanel:not([hidden]):not(.chat-panel--conversation)):has(#chatSearchInput:focus) .primary-nav {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  body.chat-search-keyboard-open #chatPanel:not([hidden]):not(.chat-panel--conversation),
+  body:has(#chatPanel:not([hidden]):not(.chat-panel--conversation)):has(#chatSearchInput:focus) #chatPanel {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
+  }
 }
 
 /* כפתור פליי מוצג כשהסרטון מושהה ידנית */
