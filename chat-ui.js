@@ -3937,7 +3937,10 @@
   let _mobileGeomApplied = false;
   let _focusInsetPassTimer = 0;
   let _savedFeedScrollTop = null;
+  let _webInsetCandidate = -1;
+  let _webInsetStableCount = 0;
   const KEYBOARD_INSET_EPS = 8;
+  const WEB_INSET_STABLE_NEEDED = 3;
 
   function isChatNativeShell() {
     try {
@@ -4003,6 +4006,11 @@
     }
   }
 
+  function resetWebInsetStabilizer() {
+    _webInsetCandidate = -1;
+    _webInsetStableCount = 0;
+  }
+
   // inset למקלדת בלבד — בלי לשנות גובה/top של כל הפאנל (הדר נשאר קבוע) | HYPER CORE TECH
   function computeChatKeyboardInset() {
     const vv = window.visualViewport;
@@ -4032,13 +4040,46 @@
       return 0;
     }
 
-    // Web: חפיפה מתחת ל־visualViewport (כולל offsetTop אם הדפדפן גלל) | HYPER CORE TECH
+    // Web: חפיפה מתחת ל־visualViewport | HYPER CORE TECH
     const inset = Math.max(0, Math.round(layoutH - vvH - offsetTop));
     if (inset < 40) {
-      if (inset < 8) _kbStableHeight = Math.max(layoutH, vvH + offsetTop);
+      if (inset < 8) {
+        _kbStableHeight = Math.max(layoutH, vvH + offsetTop);
+        resetWebInsetStabilizer();
+      }
       return 0;
     }
     return inset;
+  }
+
+  // מונע overshoot: בפתיחה Chrome מוריד height לפני offsetTop → inset גדול מדי ואז יורד (קפיצה) | HYPER CORE TECH
+  function stabilizeWebKeyboardInset(rawInset) {
+    if (isChatNativeShell()) return rawInset;
+
+    // ירידה / סגירה — מיד (מתקן overshoot בלי להמתין) | HYPER CORE TECH
+    if (rawInset <= _lastKeyboardInset + KEYBOARD_INSET_EPS) {
+      resetWebInsetStabilizer();
+      return rawInset;
+    }
+
+    const vv = window.visualViewport;
+    const offsetTop = vv ? Math.max(0, Number(vv.offsetTop) || 0) : 0;
+
+    // עלייה: דורשים כמה דגימות זהות לפני יישום — מונע ערך ביניים מוגזם | HYPER CORE TECH
+    if (_webInsetCandidate >= 0 && Math.abs(_webInsetCandidate - rawInset) <= KEYBOARD_INSET_EPS) {
+      _webInsetStableCount += 1;
+    } else {
+      _webInsetCandidate = rawInset;
+      _webInsetStableCount = 1;
+    }
+
+    // אם offsetTop כבר הגיע — מספיקות 2 דגימות; בלי offsetTop מחכים ל־3 | HYPER CORE TECH
+    const need = offsetTop >= 8 ? 2 : WEB_INSET_STABLE_NEEDED;
+    if (_webInsetStableCount >= need) {
+      return rawInset;
+    }
+    // עדיין לא יציב — משאירים את ה־inset הנוכחי (לא קופצים למעלה) | HYPER CORE TECH
+    return _lastKeyboardInset;
   }
 
   function syncChatSearchKeyboardNav() {
@@ -4072,6 +4113,7 @@
     elements.panel.style.removeProperty('--chat-keyboard-inset');
     _mobileGeomApplied = false;
     _lastKeyboardInset = 0;
+    resetWebInsetStabilizer();
   }
 
   function ensureMobilePanelGeometry() {
@@ -4096,12 +4138,12 @@
   function applyChatKeyboardInset(forceSyncNav) {
     if (!elements.panel) return;
     keepFeedScrollLocked();
-    const keyboardInset = computeChatKeyboardInset();
+    const rawInset = computeChatKeyboardInset();
+    const keyboardInset = stabilizeWebKeyboardInset(rawInset);
     if (Math.abs(keyboardInset - _lastKeyboardInset) >= KEYBOARD_INSET_EPS || (keyboardInset === 0 && _lastKeyboardInset !== 0)) {
       _lastKeyboardInset = keyboardInset;
       elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
     }
-    // ב־Web לא עושים scrollTo בזמן מקלדת — זה מקפיץ הדר/composer | HYPER CORE TECH
     if (forceSyncNav) syncChatSearchKeyboardNav();
   }
 
@@ -4140,7 +4182,7 @@
         _viewportRaf = 0;
         if (state.isOpen) positionPanel();
       });
-    }, 50);
+    }, 32);
   }
 
   function onChatComposerFocusIn(event) {
@@ -4151,6 +4193,7 @@
     const isComposer = target === elements.messageInput || elements.composer?.contains(target);
     if (!isSearch && !isComposer) return;
     if (isSearch) syncChatSearchKeyboardNav();
+    // עדכון מדורג בלבד — בלי apply מיידי שתופס inset מוגזם | HYPER CORE TECH
     schedulePositionPanel(false);
     if (_focusInsetPassTimer) {
       clearTimeout(_focusInsetPassTimer);
@@ -4160,7 +4203,7 @@
       _focusInsetPassTimer = 0;
       if (!state.isOpen) return;
       schedulePositionPanel(true);
-    }, 200);
+    }, 280);
   }
 
   function onChatComposerFocusOut() {
@@ -4170,6 +4213,7 @@
       if (active === elements.messageInput || elements.composer?.contains(active) || active === elements.searchInput) {
         return;
       }
+      resetWebInsetStabilizer();
       schedulePositionPanel(true);
     }, 0);
   }

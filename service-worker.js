@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v442'; // bump - WhatsApp-like keyboard: fixed panel + bottom inset only
+  const CACHE_NAME = 'sos-cache-v443'; // bump - stabilize web keyboard inset (no overshoot jump)
   const PRECACHE_URLS = [
     './',
     './videos.html',
