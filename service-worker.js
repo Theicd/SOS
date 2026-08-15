@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v436'; // bump - web keyboard inset via visualViewport offsetTop
+  const CACHE_NAME = 'sos-cache-v437'; // bump - pin chat panel to visualViewport on web
   const PRECACHE_URLS = [
     './',
     './videos.html',

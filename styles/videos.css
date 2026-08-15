@@ -4936,6 +4936,31 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     /* בלי transition על padding-bottom – מונע קפיצה מעל המקלדת ואז חזרה | HYPER CORE TECH */
   }
 
+  /* Web בלבד: פאנל צמוד ל־visualViewport (הדר נשאר גלוי מעל המקלדת) | HYPER CORE TECH */
+  .chat-panel.chat-panel--vv-pin,
+  body.chat-web-vv-pin .chat-panel {
+    top: var(--chat-vv-offset, 0px) !important;
+    bottom: auto !important;
+    height: var(--chat-vv-height, 100%) !important;
+    max-height: var(--chat-vv-height, 100%) !important;
+    transform: none !important;
+  }
+
+  body.chat-web-vv-pin .chat-panel:not(.chat-panel--conversation),
+  .chat-panel.chat-panel--vv-pin:not(.chat-panel--conversation) {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body.chat-web-vv-pin .chat-panel.chat-panel--conversation,
+  .chat-panel.chat-panel--vv-pin.chat-panel--conversation {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body.chat-web-vv-pin.chat-search-keyboard-open .chat-panel:not(.chat-panel--conversation),
+  body.chat-search-keyboard-open .chat-panel.chat-panel--vv-pin:not(.chat-panel--conversation) {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px)) !important;
+  }
+
   /* כשדף השיחות פתוח – מסתירים את ה-top-bar של הפיד (z-index 3000) כדי שלא יחתוך את החיפוש | HYPER CORE TECH */
   body:has(#chatPanel:not([hidden])) .top-bar,
   body:has(#chatPanel:not([hidden])) .top-bar__actions,
