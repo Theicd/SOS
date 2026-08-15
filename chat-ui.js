@@ -3955,6 +3955,11 @@
     const vvH = Math.max(0, vv.height || 0);
     if (!layoutH || !vvH) return 0;
 
+    // שומרים גובה מלא כשהמקלדת סגורה | HYPER CORE TECH
+    if (!_kbStableHeight || layoutH > _kbStableHeight + KEYBOARD_INSET_EPS) {
+      _kbStableHeight = Math.max(layoutH, vvH);
+    }
+
     // דפדפן רגיל: layout נשאר גבוה, visualViewport יורד עם המקלדת | HYPER CORE TECH
     const byDiff = Math.max(0, Math.round(layoutH - vvH));
     if (byDiff >= 80) {
@@ -3962,20 +3967,19 @@
       return byDiff;
     }
 
-    // APK/WebView + adjustResize: גם innerHeight וגם vv יורדים יחד → byDiff≈0.
-    // 100dvh עלול לא להתכווץ — לכן מודדים מול baseline לפני מקלדת | HYPER CORE TECH
-    if (!_kbStableHeight || layoutH > _kbStableHeight + KEYBOARD_INSET_EPS) {
-      _kbStableHeight = Math.max(layoutH, vvH);
+    // APK/WebView + adjustResize: החלון כבר התכווץ לגובה מעל המקלדת.
+    // אסור להוסיף עוד padding בגובה המקלדת — זה מה שגרם ל־composer לצוף גבוה מדי | HYPER CORE TECH
+    const layoutShrunk = Math.max(0, Math.round(_kbStableHeight - layoutH));
+    if (layoutShrunk >= 80) {
+      // רק הפרש קטן שנשאר בין layout ל־visual (אם בכלל) | HYPER CORE TECH
+      return byDiff;
     }
-    const fromStable = Math.max(0, Math.round(_kbStableHeight - vvH));
-    if (fromStable >= 80) return fromStable;
 
     // מקלדת נסגרה / כמעט מלא — מאפסים baseline | HYPER CORE TECH
-    if (fromStable < 40) {
+    if (byDiff < 40 && layoutShrunk < 40) {
       _kbStableHeight = Math.max(layoutH, vvH);
-      return 0;
     }
-    return fromStable;
+    return 0;
   }
 
   function suppressChatKeyboardScrollJump() {
