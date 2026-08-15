@@ -344,8 +344,9 @@ body.chat-overlay-open::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  z-index: 200; /* חלק צ'אט (chat.css) – שכבת כהות מאחורי חלון הצ'אט במובייל */
+  /* רקע אטום מלא — מכסה את הפיד גם כשהפאנל צמוד ל־visualViewport | HYPER CORE TECH */
+  background: #14161a;
+  z-index: 1990;
 }
 
 
