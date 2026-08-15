@@ -4110,31 +4110,31 @@
     if (!vv) return null;
     const layoutH = Math.max(window.innerHeight || 0, doc.documentElement?.clientHeight || 0);
     let height = Math.max(0, Math.round(Number(vv.height) || 0));
-    let top = Math.max(0, Math.round(Number(vv.offsetTop) || 0));
     if (height < 80 || layoutH < 80) return null;
 
     if (!_kbStableHeight || layoutH > _kbStableHeight + KEYBOARD_INSET_EPS) {
-      _kbStableHeight = Math.max(_kbStableHeight, layoutH, height + top);
+      _kbStableHeight = Math.max(_kbStableHeight, layoutH, height);
     }
     const stable = Math.max(_kbStableHeight, layoutH);
     const shrunk = Math.max(0, stable - height);
 
-    // Chrome: height יורד לפני offsetTop — בלי תיקון הפאנל נשאר top:0+גובה קטן → קפיצה | HYPER CORE TECH
-    if (shrunk >= 80 && top < 24) {
-      top = Math.max(0, Math.round(layoutH - height));
-      if (top < 24) {
-        top = Math.max(0, Math.round(stable - height));
-      }
+    // מקלדת סגורה | HYPER CORE TECH
+    if (shrunk < 40) {
+      _kbStableHeight = Math.max(_kbStableHeight, layoutH, height);
+      return { top: 0, height: Math.max(height, layoutH) };
     }
 
-    // מקלדת סגורה / כמעט מלא | HYPER CORE TECH
-    if (shrunk < 40 && top < 24) {
-      top = 0;
-      height = Math.max(height, layoutH);
-      _kbStableHeight = Math.max(_kbStableHeight, height);
-    }
+    // מקלדת פתוחה: top תמיד 0 — ההדר נשאר קבוע למעלה; רק הגובה מתכווץ מעל המקלדת.
+    // לא מנחשים offsetTop (layoutH-height) — זה מה שהקפיץ את כל הפאנל כולל ההדר | HYPER CORE TECH
+    try {
+      if ((window.scrollY || 0) > 0) window.scrollTo(0, 0);
+      if (doc.documentElement) doc.documentElement.scrollTop = 0;
+      if (doc.body) doc.body.scrollTop = 0;
+    } catch (_) {}
 
-    return { top, height };
+    height = Math.max(0, Math.round(Number(vv.height) || 0));
+    if (height < 80) return null;
+    return { top: 0, height };
   }
 
   function applyWebVisualViewportPin(forceSyncNav) {
