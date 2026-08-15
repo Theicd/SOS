@@ -3386,6 +3386,17 @@
     return dayHeader;
   }
 
+  // טון צבע לשעת כרטיס שיחה (עיצוב דסקטופ Cyber) | HYPER CORE TECH
+  function contactListTimeToneClass(ts, unreadCount, isOnline) {
+    if (Number(unreadCount) > 0) return 'chat-contact__time--active';
+    if (isOnline) return 'chat-contact__time--online';
+    const n = Number(ts) || 0;
+    if (!n) return 'chat-contact__time--normal';
+    const ageSec = Math.max(0, Date.now() / 1000 - n);
+    if (ageSec >= 7 * 86400) return 'chat-contact__time--old';
+    return 'chat-contact__time--normal';
+  }
+
   // חלק צ'אט (chat-ui.js) – צליל התרעה להודעות נכנסות
   let chatSoundSuppressedUntil = 0;
   function suppressChatSoundsBriefly(ms = 3000) {
@@ -4498,12 +4509,15 @@
     const safePreview = App.escapeHtml ? App.escapeHtml(previewSource) : previewSource;
     // חלק צ'אט (chat-ui.js) – תצוגת זמן הודעה אחרונה ברשימת אנשי קשר בסגנון WhatsApp | HYPER CORE TECH
     const timeLabel = lastInfo.ts ? formatContactListTimestamp(lastInfo.ts) : '';
-    const timeHtml = timeLabel ? `<span class="chat-contact__time">${timeLabel}</span>` : '';
+    const p2pOn = isPeerP2PConnected(contact.pubkey);
+    const timeTone = contactListTimeToneClass(lastInfo.ts, contact.unreadCount, p2pOn);
+    const timeHtml = timeLabel
+      ? `<span class="chat-contact__time ${timeTone}">${timeLabel}</span>`
+      : '';
     const badgeHtml = contact.unreadCount
       ? `<span class="chat-contact__badge">${contact.unreadCount > 99 ? '99+' : contact.unreadCount}</span>`
       : '';
     const activeClass = state.activeContact === contact.pubkey ? ' chat-contact--active' : '';
-    const p2pOn = isPeerP2PConnected(contact.pubkey);
     const p2pClass = p2pOn ? ' chat-contact__avatar--p2p' : '';
     const avatarTitle = p2pOn ? `${safeName} · P2P ישיר` : safeName;
     const avatarHtml = contact.picture
