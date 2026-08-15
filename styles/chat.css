@@ -344,7 +344,6 @@ body.chat-overlay-open::before {
   content: '';
   position: fixed;
   inset: 0;
-  /* רקע אטום מלא — מכסה את הפיד גם כשהפאנל צמוד ל־visualViewport | HYPER CORE TECH */
   background: #14161a;
   z-index: 1990;
 }

@@ -4951,34 +4951,12 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     pointer-events: none !important;
   }
 
-  /* Web: פאנל על visualViewport; הרקע ::before האטום מכסה פערים לפיד | HYPER CORE TECH */
-  .chat-panel.chat-panel--vv-pin,
-  body.chat-web-vv-pin .chat-panel {
-    top: 0 !important; /* הדר תמיד בראש — לא מזיזים לפי offsetTop | HYPER CORE TECH */
-    bottom: auto !important;
-    height: var(--chat-vv-height, 100%) !important;
-    max-height: var(--chat-vv-height, 100%) !important;
-    transform: none !important;
-  }
-
-  body.chat-web-vv-pin .chat-panel--conversation .chat-conversation__header,
-  .chat-panel.chat-panel--vv-pin.chat-panel--conversation .chat-conversation__header {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 20 !important;
+  /* הדר שיחה קבוע בראש העמודה — לא sticky שקופץ עם viewport | HYPER CORE TECH */
+  body.chat-overlay-open .chat-panel--conversation .chat-conversation__header {
+    position: relative !important;
+    top: auto !important;
     flex-shrink: 0 !important;
-  }
-
-  body.chat-web-vv-pin .chat-panel:not(.chat-panel--conversation),
-  .chat-panel.chat-panel--vv-pin:not(.chat-panel--conversation) {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-
-  body.chat-web-vv-pin .chat-panel.chat-panel--conversation,
-  .chat-panel.chat-panel--vv-pin.chat-panel--conversation,
-  body.chat-web-vv-pin.chat-search-keyboard-open .chat-panel:not(.chat-panel--conversation),
-  body.chat-search-keyboard-open .chat-panel.chat-panel--vv-pin:not(.chat-panel--conversation) {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 20 !important;
   }
 
   /* כשדף השיחות פתוח – מסתירים את ה-top-bar של הפיד (z-index 3000) כדי שלא יחתוך את החיפוש | HYPER CORE TECH */
