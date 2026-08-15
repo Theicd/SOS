@@ -3938,6 +3938,18 @@
   let _focusInsetPassTimer = 0;
   const KEYBOARD_INSET_EPS = 8;
 
+  function isChatNativeShell() {
+    try {
+      if (window.SOS_NATIVE_SHELL) return true;
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.isNativeShell === 'function') {
+        const v = bridge.isNativeShell();
+        if (v === true || v === 'true') return true;
+      }
+    } catch (_) {}
+    return /SOSNativeShell\//i.test(navigator.userAgent || '');
+  }
+
   function noteKeyboardClosedBaseline() {
     const vv = window.visualViewport;
     const h = Math.max(
@@ -3960,26 +3972,31 @@
       _kbStableHeight = Math.max(layoutH, vvH);
     }
 
-    // דפדפן רגיל: layout נשאר גבוה, visualViewport יורד עם המקלדת | HYPER CORE TECH
     const byDiff = Math.max(0, Math.round(layoutH - vvH));
-    if (byDiff >= 80) {
-      _kbStableHeight = Math.max(_kbStableHeight, layoutH);
-      return byDiff;
-    }
-
-    // APK/WebView + adjustResize: החלון כבר התכווץ לגובה מעל המקלדת.
-    // אסור להוסיף עוד padding בגובה המקלדת — זה מה שגרם ל־composer לצוף גבוה מדי | HYPER CORE TECH
     const layoutShrunk = Math.max(0, Math.round(_kbStableHeight - layoutH));
-    if (layoutShrunk >= 80) {
-      // רק הפרש קטן שנשאר בין layout ל־visual (אם בכלל) | HYPER CORE TECH
-      return byDiff;
+
+    // APK/WebView + adjustResize: החלון כבר מעל המקלדת — בלי padding כפול | HYPER CORE TECH
+    if (isChatNativeShell()) {
+      if (byDiff >= 80) {
+        _kbStableHeight = Math.max(_kbStableHeight, layoutH);
+        return byDiff;
+      }
+      if (layoutShrunk >= 80) return byDiff;
+      if (byDiff < 40 && layoutShrunk < 40) {
+        _kbStableHeight = Math.max(layoutH, vvH);
+      }
+      return 0;
     }
 
-    // מקלדת נסגרה / כמעט מלא — מאפסים baseline | HYPER CORE TECH
-    if (byDiff < 40 && layoutShrunk < 40) {
-      _kbStableHeight = Math.max(layoutH, vvH);
+    // דפדפן Web: layout לרוב לא מתכווץ; מודדים את החפיפה מתחת ל־visualViewport
+    // (כולל offsetTop כדי לא לדחוף את ה־composer גבוה מדי) | HYPER CORE TECH
+    const offsetTop = Math.max(0, Number(vv.offsetTop) || 0);
+    const inset = Math.max(0, Math.round(layoutH - vvH - offsetTop));
+    if (inset < 40) {
+      if (inset < 8) _kbStableHeight = Math.max(layoutH, vvH + offsetTop);
+      return 0;
     }
-    return 0;
+    return inset;
   }
 
   function suppressChatKeyboardScrollJump() {

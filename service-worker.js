@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v435'; // bump - fix double keyboard inset (composer too high)
+  const CACHE_NAME = 'sos-cache-v436'; // bump - web keyboard inset via visualViewport offsetTop
   const PRECACHE_URLS = [
     './',
     './videos.html',
