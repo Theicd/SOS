@@ -5796,7 +5796,26 @@
     }
   }
 
+  function clearChatContactsSearch() {
+    state.filterText = '';
+    state.networkSearchPending = false;
+    state.networkSearchResults = [];
+    state.networkSearchQuery = '';
+    state.networkSearchToken += 1;
+    if (elements.searchInput) {
+      elements.searchInput.value = '';
+    }
+    try {
+      updateSearchLoadingUI();
+    } catch (_) {}
+    try {
+      syncChatSearchKeyboardNav();
+    } catch (_) {}
+  }
+
   function showConversation(peerPubkey, contact) {
+    // בחירת שיחה (גם מתוצאת חיפוש) — מנקים חיפוש כדי שבחזרה תופיע הרשימה המלאה | HYPER CORE TECH
+    clearChatContactsSearch();
     state.activeContact = peerPubkey;
     elements.panel.classList.add('chat-panel--conversation');
     updatePanelMode(PANEL_MODES.CONVERSATION);
