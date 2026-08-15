@@ -2779,7 +2779,11 @@ body.sos-call-active #videosSoftLoading {
 
   body.chat-search-keyboard-open #chatPanel:not([hidden]):not(.chat-panel--conversation),
   body:has(#chatPanel:not([hidden]):not(.chat-panel--conversation)):has(#chatSearchInput:focus) #chatPanel {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  }
+
+  body.chat-web-vv-pin #chatPanel:not([hidden]):not(.chat-panel--conversation) {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 
@@ -4930,10 +4934,23 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     border-top: none !important;
     background: #14161a !important; /* רקע אטום מלא */
     padding-top: max(10px, env(safe-area-inset-top, 0px)) !important; /* רק safe-area – בלי top-bar של הפיד | HYPER CORE TECH */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important; /* מרווח לתפריט + מקלדת | HYPER CORE TECH */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; /* מרווח לתפריט; מקלדת = vv-pin לא padding | HYPER CORE TECH */
     z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
-    /* בלי transition על padding-bottom – מונע קפיצה מעל המקלדת ואז חזרה | HYPER CORE TECH */
+  }
+
+  /* מקלדת Web: כל הפאנל = visualViewport — הדר בראש הנראה, קלט בתחתית (כמו וואטסאפ) | HYPER CORE TECH */
+  .chat-panel.chat-panel--vv-pin {
+    top: var(--chat-vv-offset, 0px) !important;
+    bottom: auto !important;
+    height: var(--chat-vv-height, 100%) !important;
+    max-height: var(--chat-vv-height, 100%) !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body.chat-web-vv-pin .chat-panel,
+  body.chat-web-vv-pin:has(.chat-panel--conversation:not([hidden])) .chat-panel {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* כשצ'אט פתוח – נועלים גובה הפיד (לא 100dvh שמשתנה עם מקלדת) | HYPER CORE TECH */
@@ -4951,12 +4968,13 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     pointer-events: none !important;
   }
 
-  /* הדר שיחה קבוע בראש העמודה — לא sticky שקופץ עם viewport | HYPER CORE TECH */
+  /* הדר שיחה נעול בראש עמודת הפאנל — לא זז ולא נעלם עם מקלדת | HYPER CORE TECH */
   body.chat-overlay-open .chat-panel--conversation .chat-conversation__header {
     position: relative !important;
     top: auto !important;
     flex-shrink: 0 !important;
     z-index: 20 !important;
+    transform: none !important;
   }
 
   /* כשדף השיחות פתוח – מסתירים את ה-top-bar של הפיד (z-index 3000) כדי שלא יחתוך את החיפוש | HYPER CORE TECH */
@@ -5012,8 +5030,12 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   body:has(.chat-panel--conversation:not([hidden])) .chat-panel {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     z-index: 2005 !important; /* וידוא שנשאר עליון */
+  }
+
+  body.chat-web-vv-pin:has(.chat-panel--conversation:not([hidden])) .chat-panel {
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* הסתרת התפריט התחתון של הצ'אט כדי למנוע כפילות עם התפריט הראשי */

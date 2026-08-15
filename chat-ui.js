@@ -3929,18 +3929,14 @@
     }
   }
 
-  // חלק צ'אט (chat-ui.js) – מיקום הפאנל בסגנון וואטסאפ: פאנל מלא קבוע, רק padding תחתון למקלדת | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – מקלדת כמו וואטסאפ: הפאנל = visualViewport; הדר לא זז, קומפוזר בתחתית הנראה | HYPER CORE TECH
   let _viewportRaf = 0;
   let _viewportThrottleTimer = 0;
-  let _lastKeyboardInset = 0;
   let _kbStableHeight = 0;
   let _mobileGeomApplied = false;
-  let _focusInsetPassTimer = 0;
+  let _focusGeomTimer = 0;
   let _savedFeedScrollTop = null;
-  let _webInsetCandidate = -1;
-  let _webInsetStableCount = 0;
-  const KEYBOARD_INSET_EPS = 8;
-  const WEB_INSET_STABLE_NEEDED = 3;
+  const KB_OPEN_EPS = 72;
 
   function isChatNativeShell() {
     try {
@@ -4006,80 +4002,12 @@
     }
   }
 
-  function resetWebInsetStabilizer() {
-    _webInsetCandidate = -1;
-    _webInsetStableCount = 0;
-  }
-
-  // inset למקלדת בלבד — בלי לשנות גובה/top של כל הפאנל (הדר נשאר קבוע) | HYPER CORE TECH
-  function computeChatKeyboardInset() {
-    const vv = window.visualViewport;
-    if (!vv) return 0;
-    const layoutH = Math.max(window.innerHeight || 0, doc.documentElement?.clientHeight || 0);
-    const vvH = Math.max(0, vv.height || 0);
-    if (!layoutH || !vvH) return 0;
-
-    if (!_kbStableHeight || layoutH > _kbStableHeight + KEYBOARD_INSET_EPS) {
-      _kbStableHeight = Math.max(_kbStableHeight, layoutH, vvH);
-    }
-
-    const byDiff = Math.max(0, Math.round(layoutH - vvH));
-    const layoutShrunk = Math.max(0, Math.round(_kbStableHeight - layoutH));
-    const offsetTop = Math.max(0, Number(vv.offsetTop) || 0);
-
-    if (isChatNativeShell()) {
-      // APK/adjustResize: אם החלון כבר התכווץ — בלי padding כפול | HYPER CORE TECH
-      if (byDiff >= 80) {
-        _kbStableHeight = Math.max(_kbStableHeight, layoutH);
-        return byDiff;
-      }
-      if (layoutShrunk >= 80) return byDiff;
-      if (byDiff < 40 && layoutShrunk < 40) {
-        _kbStableHeight = Math.max(layoutH, vvH);
-      }
-      return 0;
-    }
-
-    // Web: חפיפה מתחת ל־visualViewport | HYPER CORE TECH
-    const inset = Math.max(0, Math.round(layoutH - vvH - offsetTop));
-    if (inset < 40) {
-      if (inset < 8) {
-        _kbStableHeight = Math.max(layoutH, vvH + offsetTop);
-        resetWebInsetStabilizer();
-      }
-      return 0;
-    }
-    return inset;
-  }
-
-  // מונע overshoot: בפתיחה Chrome מוריד height לפני offsetTop → inset גדול מדי ואז יורד (קפיצה) | HYPER CORE TECH
-  function stabilizeWebKeyboardInset(rawInset) {
-    if (isChatNativeShell()) return rawInset;
-
-    // ירידה / סגירה — מיד (מתקן overshoot בלי להמתין) | HYPER CORE TECH
-    if (rawInset <= _lastKeyboardInset + KEYBOARD_INSET_EPS) {
-      resetWebInsetStabilizer();
-      return rawInset;
-    }
-
-    const vv = window.visualViewport;
-    const offsetTop = vv ? Math.max(0, Number(vv.offsetTop) || 0) : 0;
-
-    // עלייה: דורשים כמה דגימות זהות לפני יישום — מונע ערך ביניים מוגזם | HYPER CORE TECH
-    if (_webInsetCandidate >= 0 && Math.abs(_webInsetCandidate - rawInset) <= KEYBOARD_INSET_EPS) {
-      _webInsetStableCount += 1;
-    } else {
-      _webInsetCandidate = rawInset;
-      _webInsetStableCount = 1;
-    }
-
-    // אם offsetTop כבר הגיע — מספיקות 2 דגימות; בלי offsetTop מחכים ל־3 | HYPER CORE TECH
-    const need = offsetTop >= 8 ? 2 : WEB_INSET_STABLE_NEEDED;
-    if (_webInsetStableCount >= need) {
-      return rawInset;
-    }
-    // עדיין לא יציב — משאירים את ה־inset הנוכחי (לא קופצים למעלה) | HYPER CORE TECH
-    return _lastKeyboardInset;
+  function suppressDocumentScrollForChat() {
+    try {
+      if (window.scrollY || window.pageYOffset) window.scrollTo(0, 0);
+      if (doc.documentElement) doc.documentElement.scrollTop = 0;
+      if (doc.body) doc.body.scrollTop = 0;
+    } catch (_) {}
   }
 
   function syncChatSearchKeyboardNav() {
@@ -4095,12 +4023,18 @@
     doc.body.classList.toggle('chat-search-keyboard-open', shouldHideNav);
   }
 
-  function clearMobilePanelGeometry() {
+  function clearVvPin() {
     if (!elements.panel) return;
     elements.panel.classList.remove('chat-panel--vv-pin');
     doc.body?.classList?.remove('chat-web-vv-pin');
     elements.panel.style.removeProperty('--chat-vv-offset');
     elements.panel.style.removeProperty('--chat-vv-height');
+    elements.panel.style.removeProperty('--chat-keyboard-inset');
+  }
+
+  function clearMobilePanelGeometry() {
+    if (!elements.panel) return;
+    clearVvPin();
     elements.panel.style.left = '';
     elements.panel.style.right = '';
     elements.panel.style.top = '';
@@ -4110,19 +4044,13 @@
     elements.panel.style.height = '';
     elements.panel.style.maxHeight = '';
     elements.panel.style.transform = '';
-    elements.panel.style.removeProperty('--chat-keyboard-inset');
     _mobileGeomApplied = false;
-    _lastKeyboardInset = 0;
-    resetWebInsetStabilizer();
   }
 
-  function ensureMobilePanelGeometry() {
+  // פאנל מלא על ה־layout (מקלדת סגורה / APK adjustResize) | HYPER CORE TECH
+  function applyFullMobilePanel() {
     if (!elements.panel) return;
-    // כיסוי מלא קבוע — כמו וואטסאפ; לא מקצרים גובה לפי visualViewport | HYPER CORE TECH
-    elements.panel.classList.remove('chat-panel--vv-pin');
-    doc.body?.classList?.remove('chat-web-vv-pin');
-    elements.panel.style.removeProperty('--chat-vv-offset');
-    elements.panel.style.removeProperty('--chat-vv-height');
+    clearVvPin();
     elements.panel.style.left = '0px';
     elements.panel.style.right = '0px';
     elements.panel.style.top = '0px';
@@ -4135,30 +4063,70 @@
     _mobileGeomApplied = true;
   }
 
-  function applyChatKeyboardInset(forceSyncNav) {
+  // Web: מצמידים את כל הפאנל ל־visualViewport — הדר בראש הנראה, שורת קלט בתחתית הנראה | HYPER CORE TECH
+  function applyVisualViewportPin(offsetTop, vvH) {
     if (!elements.panel) return;
-    keepFeedScrollLocked();
-    const rawInset = computeChatKeyboardInset();
-    const keyboardInset = stabilizeWebKeyboardInset(rawInset);
-    if (Math.abs(keyboardInset - _lastKeyboardInset) >= KEYBOARD_INSET_EPS || (keyboardInset === 0 && _lastKeyboardInset !== 0)) {
-      _lastKeyboardInset = keyboardInset;
-      elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
-    }
-    if (forceSyncNav) syncChatSearchKeyboardNav();
+    elements.panel.classList.add('chat-panel--vv-pin');
+    doc.body?.classList?.add('chat-web-vv-pin');
+    elements.panel.style.setProperty('--chat-vv-offset', `${offsetTop}px`);
+    elements.panel.style.setProperty('--chat-vv-height', `${vvH}px`);
+    elements.panel.style.removeProperty('--chat-keyboard-inset');
+    elements.panel.style.left = '0px';
+    elements.panel.style.right = '0px';
+    elements.panel.style.width = '100%';
+    elements.panel.style.maxWidth = '100%';
+    elements.panel.style.transform = '';
+    // top/height באים מ־CSS var דרך .chat-panel--vv-pin | HYPER CORE TECH
+    elements.panel.style.top = '';
+    elements.panel.style.bottom = '';
+    elements.panel.style.height = '';
+    elements.panel.style.maxHeight = '';
+    _mobileGeomApplied = true;
   }
 
   function positionPanel() {
-    if (!elements.panel) {
-      return;
-    }
+    if (!elements.panel) return;
     if (window.innerWidth > 768) {
       clearMobilePanelGeometry();
       doc.body?.classList?.remove('chat-search-keyboard-open');
       return;
     }
+
+    keepFeedScrollLocked();
+    suppressDocumentScrollForChat();
     noteKeyboardClosedBaseline();
-    ensureMobilePanelGeometry();
-    applyChatKeyboardInset(true);
+    syncChatSearchKeyboardNav();
+
+    const vv = window.visualViewport;
+    const layoutH = Math.max(window.innerHeight || 0, doc.documentElement?.clientHeight || 0);
+    if (!vv || !layoutH) {
+      applyFullMobilePanel();
+      return;
+    }
+
+    const vvH = Math.max(0, Math.round(vv.height || 0));
+    const offsetTop = Math.max(0, Math.round(Number(vv.offsetTop) || 0));
+    const coveredBelow = Math.max(0, layoutH - vvH - offsetTop);
+    const layoutShrunk = _kbStableHeight > 0 ? Math.max(0, Math.round(_kbStableHeight - layoutH)) : 0;
+    const keyboardLikely = coveredBelow >= KB_OPEN_EPS || offsetTop >= 8 || (layoutH - vvH) >= KB_OPEN_EPS;
+
+    // APK adjustResize: החלון כבר התכווץ לגובה הנראה — פאנל מלא, בלי pin ובלי padding כפול | HYPER CORE TECH
+    if (isChatNativeShell() && (layoutShrunk >= KB_OPEN_EPS || !keyboardLikely || offsetTop < 8)) {
+      applyFullMobilePanel();
+      if (!keyboardLikely) {
+        _kbStableHeight = Math.max(_kbStableHeight, layoutH, vvH);
+      }
+      return;
+    }
+
+    // Web (או native בלי resize): pin ל־visualViewport — לא padding שדוחף/מקפיץ | HYPER CORE TECH
+    if (keyboardLikely && vvH > 0) {
+      applyVisualViewportPin(offsetTop, vvH);
+      return;
+    }
+
+    applyFullMobilePanel();
+    _kbStableHeight = Math.max(_kbStableHeight, layoutH, vvH + offsetTop);
   }
 
   function schedulePositionPanel(immediate) {
@@ -4182,7 +4150,7 @@
         _viewportRaf = 0;
         if (state.isOpen) positionPanel();
       });
-    }, 32);
+    }, 16);
   }
 
   function onChatComposerFocusIn(event) {
@@ -4193,17 +4161,18 @@
     const isComposer = target === elements.messageInput || elements.composer?.contains(target);
     if (!isSearch && !isComposer) return;
     if (isSearch) syncChatSearchKeyboardNav();
-    // עדכון מדורג בלבד — בלי apply מיידי שתופס inset מוגזם | HYPER CORE TECH
-    schedulePositionPanel(false);
-    if (_focusInsetPassTimer) {
-      clearTimeout(_focusInsetPassTimer);
-      _focusInsetPassTimer = 0;
+    suppressDocumentScrollForChat();
+    schedulePositionPanel(true);
+    if (_focusGeomTimer) {
+      clearTimeout(_focusGeomTimer);
+      _focusGeomTimer = 0;
     }
-    _focusInsetPassTimer = window.setTimeout(() => {
-      _focusInsetPassTimer = 0;
+    // מעקב אחרי סיום אנימציית המקלדת | HYPER CORE TECH
+    _focusGeomTimer = window.setTimeout(() => {
+      _focusGeomTimer = 0;
       if (!state.isOpen) return;
       schedulePositionPanel(true);
-    }, 280);
+    }, 320);
   }
 
   function onChatComposerFocusOut() {
@@ -4213,7 +4182,6 @@
       if (active === elements.messageInput || elements.composer?.contains(active) || active === elements.searchInput) {
         return;
       }
-      resetWebInsetStabilizer();
       schedulePositionPanel(true);
     }, 0);
   }
@@ -4277,26 +4245,27 @@
     }
   }
 
-  // חלק מקלדת מובייל (chat-ui.js) – רק עדכון inset, בלי לשנות גובה פאנל | HYPER CORE TECH
+  // חלק מקלדת מובייל (chat-ui.js) – מעקב visualViewport לצמידת פאנל | HYPER CORE TECH
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => {
-      if (state.isOpen) schedulePositionPanel(false);
+      if (state.isOpen) schedulePositionPanel(true);
     });
     window.visualViewport.addEventListener('scroll', () => {
       if (!state.isOpen) return;
       keepFeedScrollLocked();
-      schedulePositionPanel(false);
+      suppressDocumentScrollForChat();
+      schedulePositionPanel(true);
     });
   }
   window.addEventListener('resize', () => {
-    if (state.isOpen) schedulePositionPanel(false);
+    if (state.isOpen) schedulePositionPanel(true);
   });
   doc.addEventListener('focusin', onChatComposerFocusIn, true);
   doc.addEventListener('focusout', onChatComposerFocusOut, true);
   if (elements.searchInput) {
     elements.searchInput.addEventListener('focus', () => {
       syncChatSearchKeyboardNav();
-      schedulePositionPanel(false);
+      schedulePositionPanel(true);
     });
     elements.searchInput.addEventListener('blur', onChatSearchFocusOut);
   }
