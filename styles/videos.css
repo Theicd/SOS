@@ -2265,11 +2265,11 @@ body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"].is
   }
 }
 
-/* חלק Back (videos.css) – רמז יציאה כמו טיקטוק, תואם עיצוב הפיד | HYPER CORE TECH */
+/* חלק Back (videos.css) – רמז יציאה לכפתור אחורה בלבד (לא רמז בית) | HYPER CORE TECH */
 .sos-back-exit-hint {
-  position: absolute;
+  position: fixed;
   left: 50%;
-  top: 42%;
+  top: 46%;
   z-index: 10040;
   max-width: min(86%, 320px);
   padding: 14px 18px;
@@ -2295,13 +2295,8 @@ body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"].is
   transform: translate(-50%, -50%) scale(1);
 }
 
-body:not(:has(.videos-feed__viewport)) .sos-back-exit-hint,
-.sos-back-exit-hint--fixed {
-  position: fixed;
-  top: 46%;
-  z-index: 10040;
-}
-
+/* חלק בית (videos.css) – רמז במרכז הכרטיס ללחיצה שנייה שתרענן | HYPER CORE TECH */
+.videos-home-refresh-hint {
   position: absolute;
   left: 50%;
   top: 50%;

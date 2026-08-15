@@ -103,23 +103,13 @@
       if (lastToastEl && lastToastEl.parentNode) lastToastEl.remove();
     } catch (_) {}
 
+    // רק body + fixed — לא נוגעים ב־.videos-feed / רמז בית | HYPER CORE TECH
     const hint = document.createElement('div');
     hint.className = 'sos-back-exit-hint';
     hint.setAttribute('role', 'status');
     hint.setAttribute('aria-live', 'polite');
     hint.innerHTML = `<span>${message}</span>`;
-
-    const host =
-      document.querySelector('.videos-feed__viewport') ||
-      document.querySelector('.videos-feed') ||
-      document.body;
-    const useAbsolute = host !== document.body && host.querySelector;
-    if (useAbsolute && getComputedStyle(host).position === 'static') {
-      try {
-        host.style.position = 'relative';
-      } catch (_) {}
-    }
-    host.appendChild(hint);
+    document.body.appendChild(hint);
     lastToastEl = hint;
     requestAnimationFrame(() => {
       try {
