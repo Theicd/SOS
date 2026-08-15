@@ -4225,6 +4225,9 @@
         ensureChatEnabled();
         renderContacts(true); // force render בפתיחה ראשונה
       }
+      try {
+        if (typeof App.sosBackSync === 'function') App.sosBackSync();
+      } catch (_) {}
     } else {
       if (state.activeContact) {
         App.markChatConversationRead(state.activeContact);
@@ -4241,6 +4244,9 @@
       _kbStableHeight = 0;
       try {
         if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+      } catch (_) {}
+      try {
+        if (typeof App.sosBackSync === 'function') App.sosBackSync();
       } catch (_) {}
     }
   }
@@ -6037,6 +6043,9 @@
     if (App.dataChannel && typeof App.dataChannel.connect === 'function') {
       App.dataChannel.connect(peerPubkey);
     }
+    try {
+      if (typeof App.sosBackSync === 'function') App.sosBackSync();
+    } catch (_) {}
   }
 
   // חלק סטטוס P2P (chat-ui.js) – עדכון תצוגת מצב DC בכותרת שיחה + רענון כל 3 שניות | HYPER CORE TECH
@@ -6117,6 +6126,9 @@
         document.documentElement.removeAttribute('data-sos-deeplink');
         document.body.classList.remove('sos-deeplink-chat');
       }
+    } catch (_) {}
+    try {
+      if (typeof App.sosBackSync === 'function') App.sosBackSync();
     } catch (_) {}
   }
 
@@ -6699,6 +6711,7 @@
   };
 
   App.toggleChatPanel = togglePanel;
+  App.resetChatConversationView = resetConversationView;
 
   // חלק התראות (chat-ui.js) – חשיפת פונקציות שליטה בפאנל ההתראות | HYPER CORE TECH
   App.openNotificationsPanel = function openNotificationsPanel() {

@@ -348,12 +348,32 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (this::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
-        } else {
+        if (!this::webView.isInitialized) {
             startKeepAliveService()
             moveTaskToBack(true)
+            return
         }
+        // JS מטפל בהיררכיית מסכים (שיחה→רשימה→בית→יציאה כפולה) | HYPER CORE TECH
+        webView.evaluateJavascript(
+            "(function(){try{var h=window.__sosHandleSystemBack;if(typeof h==='function'){return !!h();}return false;}catch(e){return false;}})()"
+        ) { raw ->
+            mainHandler.post {
+                val normalized = raw?.trim()?.removeSurrounding("\"")?.lowercase()
+                val handled = normalized == "true"
+                if (handled) return@post
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    startKeepAliveService()
+                    moveTaskToBack(true)
+                }
+            }
+        }
+    }
+
+    fun moveAppToBackgroundFromJs() {
+        startKeepAliveService()
+        moveTaskToBack(true)
     }
 
     private fun resolveStartUrl(intent: Intent?): String {

@@ -331,4 +331,13 @@ class SosJsBridge(
         }
         act.startApkUpdateInstall(url)
     }
+
+    /** חלק Back (SosJsBridge.kt) – מחזיר את האפליקציה לרקע (כמו לחיצה כפולה לסגירה) | HYPER CORE TECH */
+    @JavascriptInterface
+    fun moveAppToBackground() {
+        val act = context as? MainActivity ?: return
+        act.runOnUiThread {
+            act.moveAppToBackgroundFromJs()
+        }
+    }
 }
