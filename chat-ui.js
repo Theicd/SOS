@@ -5797,6 +5797,8 @@
   }
 
   function clearChatContactsSearch() {
+    const hadSearch =
+      !!(state.filterText || state.networkSearchQuery || (state.networkSearchResults || []).length);
     state.filterText = '';
     state.networkSearchPending = false;
     state.networkSearchResults = [];
@@ -5811,6 +5813,11 @@
     try {
       syncChatSearchKeyboardNav();
     } catch (_) {}
+    if (hadSearch) {
+      try {
+        renderContacts(true);
+      } catch (_) {}
+    }
   }
 
   function showConversation(peerPubkey, contact) {
