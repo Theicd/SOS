@@ -3935,10 +3935,8 @@
   let _lastKeyboardInset = 0;
   let _kbStableHeight = 0;
   let _mobileGeomApplied = false;
-  let _webVvPinned = false;
-  let _lastVvTop = -1;
-  let _lastVvHeight = -1;
   let _focusInsetPassTimer = 0;
+  let _savedFeedScrollTop = null;
   const KEYBOARD_INSET_EPS = 8;
 
   function isChatNativeShell() {
@@ -3953,6 +3951,41 @@
     return /SOSNativeShell\//i.test(navigator.userAgent || '');
   }
 
+  function getVideosFeedViewport() {
+    return doc.querySelector('.videos-feed__viewport');
+  }
+
+  function lockVideosFeedBehindChat() {
+    const feedVp = getVideosFeedViewport();
+    if (feedVp) {
+      _savedFeedScrollTop = feedVp.scrollTop;
+    }
+    // מקפיאים --app-height לפני מקלדת כדי שהפיד לא יתכווץ מאחורי הצ'אט | HYPER CORE TECH
+    try {
+      const h = Math.max(window.innerHeight || 0, doc.documentElement?.clientHeight || 0);
+      if (h > 0) {
+        doc.documentElement.style.setProperty('--app-height', `${h}px`);
+        doc.documentElement.style.setProperty('--chat-lock-feed-height', `${h}px`);
+      }
+    } catch (_) {}
+  }
+
+  function unlockVideosFeedBehindChat() {
+    const feedVp = getVideosFeedViewport();
+    const restore = _savedFeedScrollTop;
+    _savedFeedScrollTop = null;
+    try {
+      doc.documentElement.style.removeProperty('--chat-lock-feed-height');
+    } catch (_) {}
+    if (feedVp && typeof restore === 'number' && Number.isFinite(restore)) {
+      requestAnimationFrame(() => {
+        try {
+          feedVp.scrollTop = restore;
+        } catch (_) {}
+      });
+    }
+  }
+
   function noteKeyboardClosedBaseline() {
     const vv = window.visualViewport;
     const h = Math.max(
@@ -3963,7 +3996,7 @@
     if (h > 0) _kbStableHeight = Math.max(_kbStableHeight, h);
   }
 
-  function computeNativeKeyboardInset() {
+  function computeChatKeyboardInset() {
     const vv = window.visualViewport;
     if (!vv) return 0;
     const layoutH = Math.max(window.innerHeight || 0, doc.documentElement?.clientHeight || 0);
@@ -3977,16 +4010,27 @@
     const byDiff = Math.max(0, Math.round(layoutH - vvH));
     const layoutShrunk = Math.max(0, Math.round(_kbStableHeight - layoutH));
 
-    // APK/WebView + adjustResize: החלון כבר מעל המקלדת — בלי padding כפול | HYPER CORE TECH
-    if (byDiff >= 80) {
-      _kbStableHeight = Math.max(_kbStableHeight, layoutH);
-      return byDiff;
+    // APK/WebView + adjustResize: בלי padding כפול | HYPER CORE TECH
+    if (isChatNativeShell()) {
+      if (byDiff >= 80) {
+        _kbStableHeight = Math.max(_kbStableHeight, layoutH);
+        return byDiff;
+      }
+      if (layoutShrunk >= 80) return byDiff;
+      if (byDiff < 40 && layoutShrunk < 40) {
+        _kbStableHeight = Math.max(layoutH, vvH);
+      }
+      return 0;
     }
-    if (layoutShrunk >= 80) return byDiff;
-    if (byDiff < 40 && layoutShrunk < 40) {
-      _kbStableHeight = Math.max(layoutH, vvH);
+
+    // Web: כיסוי מלא נשאר; רק padding תחתון לפי חפיפת visualViewport | HYPER CORE TECH
+    const offsetTop = Math.max(0, Number(vv.offsetTop) || 0);
+    const inset = Math.max(0, Math.round(layoutH - vvH - offsetTop));
+    if (inset < 40) {
+      if (inset < 8) _kbStableHeight = Math.max(layoutH, vvH + offsetTop);
+      return 0;
     }
-    return 0;
+    return inset;
   }
 
   function suppressChatKeyboardScrollJump() {
@@ -3995,6 +4039,13 @@
       if (doc.documentElement) doc.documentElement.scrollTop = 0;
       if (doc.body) doc.body.scrollTop = 0;
     } catch (_) {}
+    // לא לגעת ב־scrollTop של פיד הווידאו בזמן מקלדת | HYPER CORE TECH
+    if (typeof _savedFeedScrollTop === 'number') {
+      const feedVp = getVideosFeedViewport();
+      if (feedVp && Math.abs(feedVp.scrollTop - _savedFeedScrollTop) > 2) {
+        try { feedVp.scrollTop = _savedFeedScrollTop; } catch (_) {}
+      }
+    }
   }
 
   function syncChatSearchKeyboardNav() {
@@ -4010,20 +4061,12 @@
     doc.body.classList.toggle('chat-search-keyboard-open', shouldHideNav);
   }
 
-  function clearWebVisualViewportPin() {
+  function clearMobilePanelGeometry() {
     if (!elements.panel) return;
     elements.panel.classList.remove('chat-panel--vv-pin');
     doc.body?.classList?.remove('chat-web-vv-pin');
     elements.panel.style.removeProperty('--chat-vv-offset');
     elements.panel.style.removeProperty('--chat-vv-height');
-    _webVvPinned = false;
-    _lastVvTop = -1;
-    _lastVvHeight = -1;
-  }
-
-  function clearMobilePanelGeometry() {
-    if (!elements.panel) return;
-    clearWebVisualViewportPin();
     elements.panel.style.left = '';
     elements.panel.style.right = '';
     elements.panel.style.top = '';
@@ -4039,8 +4082,12 @@
   }
 
   function ensureMobilePanelGeometry() {
-    if (!elements.panel || _mobileGeomApplied) return;
-    // גיאומטריה פעם אחת ל־APK — לא בכל resize | HYPER CORE TECH
+    if (!elements.panel) return;
+    // כיסוי מלא של ה־layout — בלי לקצר לגובה visualViewport (מונע חור לפיד) | HYPER CORE TECH
+    elements.panel.classList.remove('chat-panel--vv-pin');
+    doc.body?.classList?.remove('chat-web-vv-pin');
+    elements.panel.style.removeProperty('--chat-vv-offset');
+    elements.panel.style.removeProperty('--chat-vv-height');
     elements.panel.style.left = '0px';
     elements.panel.style.right = '0px';
     elements.panel.style.top = '0px';
@@ -4049,58 +4096,19 @@
     elements.panel.style.maxWidth = '100%';
     elements.panel.style.height = '100%';
     elements.panel.style.maxHeight = '100%';
+    elements.panel.style.transform = '';
     _mobileGeomApplied = true;
   }
 
-  function applyNativeKeyboardInset(forceSyncNav) {
+  function applyChatKeyboardInset(forceSyncNav) {
     if (!elements.panel) return;
-    const keyboardInset = computeNativeKeyboardInset();
+    const keyboardInset = computeChatKeyboardInset();
     if (Math.abs(keyboardInset - _lastKeyboardInset) >= KEYBOARD_INSET_EPS || (keyboardInset === 0 && _lastKeyboardInset !== 0)) {
       _lastKeyboardInset = keyboardInset;
       elements.panel.style.setProperty('--chat-keyboard-inset', `${keyboardInset}px`);
     }
     if (keyboardInset > 0) {
       suppressChatKeyboardScrollJump();
-    }
-    if (forceSyncNav) syncChatSearchKeyboardNav();
-  }
-
-  // Web: מצמידים את הפאנל ל־visualViewport — ההדר נשאר גלוי, ה־composer בתחתית הנראית | HYPER CORE TECH
-  function applyWebVisualViewportPin(forceSyncNav) {
-    if (!elements.panel) return;
-    const vv = window.visualViewport;
-    if (!vv) {
-      ensureMobilePanelGeometry();
-      applyNativeKeyboardInset(forceSyncNav);
-      return;
-    }
-    const top = Math.max(0, Math.round(Number(vv.offsetTop) || 0));
-    const height = Math.max(0, Math.round(Number(vv.height) || 0));
-    if (height < 80) return;
-
-    suppressChatKeyboardScrollJump();
-
-    if (!_webVvPinned || top !== _lastVvTop || height !== _lastVvHeight) {
-      _lastVvTop = top;
-      _lastVvHeight = height;
-      _webVvPinned = true;
-      _mobileGeomApplied = false;
-      elements.panel.classList.add('chat-panel--vv-pin');
-      doc.body?.classList?.add('chat-web-vv-pin');
-      elements.panel.style.setProperty('--chat-vv-offset', `${top}px`);
-      elements.panel.style.setProperty('--chat-vv-height', `${height}px`);
-      elements.panel.style.setProperty('--chat-keyboard-inset', '0px');
-      _lastKeyboardInset = 0;
-      // איפוס inline ישן שעשוי להתנגש ב־CSS pin | HYPER CORE TECH
-      elements.panel.style.left = '';
-      elements.panel.style.right = '';
-      elements.panel.style.top = '';
-      elements.panel.style.bottom = '';
-      elements.panel.style.width = '';
-      elements.panel.style.maxWidth = '';
-      elements.panel.style.height = '';
-      elements.panel.style.maxHeight = '';
-      elements.panel.style.transform = '';
     }
     if (forceSyncNav) syncChatSearchKeyboardNav();
   }
@@ -4116,13 +4124,8 @@
       return;
     }
     noteKeyboardClosedBaseline();
-    if (isChatNativeShell()) {
-      clearWebVisualViewportPin();
-      ensureMobilePanelGeometry();
-      applyNativeKeyboardInset(true);
-      return;
-    }
-    applyWebVisualViewportPin(true);
+    ensureMobilePanelGeometry();
+    applyChatKeyboardInset(true);
   }
 
   function schedulePositionPanel(immediate) {
@@ -4138,7 +4141,6 @@
       if (state.isOpen) positionPanel();
       return;
     }
-    // throttle ל-viewport — לא על כל פריים בזמן אנימציית מקלדת | HYPER CORE TECH
     if (_viewportThrottleTimer) return;
     _viewportThrottleTimer = window.setTimeout(() => {
       _viewportThrottleTimer = 0;
@@ -4147,7 +4149,7 @@
         _viewportRaf = 0;
         if (state.isOpen) positionPanel();
       });
-    }, 32);
+    }, 48);
   }
 
   function scheduleFocusInsetPasses() {
@@ -4155,7 +4157,6 @@
       clearTimeout(_focusInsetPassTimer);
       _focusInsetPassTimer = 0;
     }
-    // מעבר אחד אחרי התייצבות מקלדת | HYPER CORE TECH
     _focusInsetPassTimer = window.setTimeout(() => {
       _focusInsetPassTimer = 0;
       if (!state.isOpen || window.innerWidth > 768) return;
@@ -4204,12 +4205,13 @@
       elements.navButton?.setAttribute('aria-pressed', 'true');
       elements.launcherButton?.setAttribute('aria-expanded', 'true');
       noteKeyboardClosedBaseline();
-      positionPanel();
       if (window.innerWidth <= 768) {
+        lockVideosFeedBehindChat();
         doc.body.classList.add('chat-overlay-open');
       } else {
         doc.body.classList.remove('chat-overlay-open');
       }
+      positionPanel();
       if (state.activeContact) {
         App.markChatConversationRead(state.activeContact);
         renderMessages(state.activeContact);
@@ -4231,6 +4233,7 @@
       doc.body.classList.remove('chat-overlay-open');
       doc.body.classList.remove('chat-search-keyboard-open');
       clearMobilePanelGeometry();
+      unlockVideosFeedBehindChat();
       _kbStableHeight = 0;
       try {
         if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
