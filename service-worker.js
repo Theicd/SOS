@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v449'; // bump - desktop SOS cyber chat theme
+  const CACHE_NAME = 'sos-cache-v450'; // bump - desktop nav icons + real chat bg + hide torrent
   const PRECACHE_URLS = [
     './',
     './videos.html',

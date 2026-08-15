@@ -1254,6 +1254,12 @@ body.chat-overlay-open::before {
   overflow: hidden;
 }
 
+/* כפתור טורנט/ענן ליד האטב – מוסתר (לא בשימוש) | HYPER CORE TECH */
+.chat-composer__icon--torrent,
+#chatTorrentSendButton {
+  display: none !important;
+}
+
 .chat-composer__icon--file:hover {
   color: var(--primary-hover);
 }

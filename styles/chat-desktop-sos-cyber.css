@@ -39,18 +39,80 @@
     background: var(--sos-bg) !important;
   }
 
-  /* סרגל אייקונים */
+  /* סרגל אייקונים ימין – glass + neon | HYPER CORE TECH */
   .chat-panel .chat-nav-sidebar {
-    background: rgba(3, 10, 20, 0.92) !important;
+    background: rgba(3, 10, 20, 0.94) !important;
     border-inline-start: 1px solid var(--sos-border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    padding: 18px 0 !important;
   }
 
-  .chat-panel .chat-nav-sidebar button,
-  .chat-panel .chat-nav-sidebar a,
-  .chat-panel .chat-nav-sidebar [class*='nav'] {
-    color: var(--sos-muted);
+  .chat-panel .chat-nav-sidebar__top,
+  .chat-panel .chat-nav-sidebar__bottom {
+    gap: 14px !important;
+  }
+
+  .chat-panel .chat-nav-item {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    background: rgba(6, 18, 32, 0.55) !important;
+    border: 1px solid var(--sos-border) !important;
+    color: var(--sos-electric) !important;
+    font-size: 1.15rem !important;
+    box-shadow: 0 0 12px rgba(0, 175, 255, 0.08);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease !important;
+  }
+
+  .chat-panel .chat-nav-item i {
+    color: inherit !important;
+  }
+
+  .chat-panel .chat-nav-item:hover {
+    transform: translateY(-2px);
+    color: var(--sos-text) !important;
+    border-color: var(--sos-electric) !important;
+    box-shadow: 0 0 18px rgba(0, 175, 255, 0.35);
+    background: rgba(6, 18, 32, 0.78) !important;
+  }
+
+  .chat-panel .chat-nav-item.is-active {
+    color: var(--sos-text) !important;
+    border-color: var(--sos-electric) !important;
+    background: rgba(8, 104, 255, 0.22) !important;
+    box-shadow:
+      0 0 20px rgba(0, 175, 255, 0.4),
+      inset 0 0 12px rgba(0, 175, 255, 0.12);
+  }
+
+  .chat-panel .chat-nav-item.is-active::before {
+    content: '';
+    position: absolute;
+    right: -11px;
+    left: auto;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 22px;
+    width: 3px;
+    background: var(--sos-electric);
+    border-radius: 3px;
+    box-shadow: 0 0 10px rgba(0, 175, 255, 0.8);
+  }
+
+  .chat-panel .chat-nav-profile {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50%;
+    border: 1px solid var(--sos-border);
+    box-shadow: 0 0 14px rgba(0, 175, 255, 0.2);
+    overflow: hidden;
+  }
+
+  .chat-panel .chat-nav-profile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   /* סיידבר רשימה */
@@ -237,8 +299,8 @@
   .chat-panel .chat-conversation {
     background-color: var(--sos-bg) !important;
     background-image:
-      linear-gradient(180deg, rgba(3, 10, 20, 0.55) 0%, rgba(3, 10, 20, 0.72) 100%),
-      url('../icons/chat-desktop-cyber-bg.svg') !important;
+      linear-gradient(180deg, rgba(3, 10, 20, 0.42) 0%, rgba(3, 10, 20, 0.62) 100%),
+      url('../icons/chat-desktop-cyber-bg.png') !important;
     background-repeat: no-repeat !important;
     background-size: cover !important;
     background-position: center !important;
@@ -342,6 +404,12 @@
     color: var(--sos-electric) !important;
   }
 
+  /* כפתור טורנט/ענן ליד האטב – מוסתר (לא בשימוש) | HYPER CORE TECH */
+  .chat-panel .chat-composer__icon--torrent,
+  .chat-panel #chatTorrentSendButton {
+    display: none !important;
+  }
+
   /* בועות הודעה – glass עדין */
   .chat-panel .chat-message--incoming .chat-message__content,
   .chat-panel .chat-message--incoming .chat-message__bubble {
@@ -358,8 +426,8 @@
   /* Welcome desktop */
   .chat-welcome-desktop {
     background:
-      linear-gradient(180deg, rgba(3, 10, 20, 0.55), rgba(3, 10, 20, 0.78)),
-      url('../icons/chat-desktop-cyber-bg.svg') center / cover no-repeat !important;
+      linear-gradient(180deg, rgba(3, 10, 20, 0.45), rgba(3, 10, 20, 0.72)),
+      url('../icons/chat-desktop-cyber-bg.png') center / cover no-repeat !important;
     border-bottom: none !important;
     color: var(--sos-text) !important;
   }
