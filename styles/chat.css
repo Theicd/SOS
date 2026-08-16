@@ -1294,12 +1294,12 @@ body.chat-overlay-open::before {
 
 /* אייקוני כותרת שיחה (SVG stroke) – בסיס לכל המסכים | HYPER CORE TECH */
 .chat-header-icon {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.35rem;
+  height: 1.35rem;
   display: block;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.7;
+  stroke-width: 1.55;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

@@ -410,12 +410,12 @@
   }
 
   .chat-panel .chat-header-icon {
-    width: 1.28rem !important;
-    height: 1.28rem !important;
+    width: 1.55rem !important;
+    height: 1.55rem !important;
     display: block;
     fill: none !important;
     stroke: currentColor !important;
-    stroke-width: 1.7;
+    stroke-width: 1.55;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
