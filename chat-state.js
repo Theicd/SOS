@@ -990,6 +990,35 @@
     return true;
   }
 
+  function removeChatContact(peerPubkey) {
+    const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
+    const self = (App.publicKey || '').toLowerCase();
+    if (!peer || !self) return false;
+    const key = getConversationKey(peer, self);
+    const entry = key ? chatState.conversations.get(key) : null;
+    if (entry && Array.isArray(entry.messages)) {
+      entry.messages.forEach((message) => {
+        if (message?.id) chatState.messageIndex.delete(message.id);
+        const fileId = message?.attachment?.fileId || extractP2PFileIdFromMessageId(message?.id);
+        if (fileId) {
+          buildP2PDeletionAliases(message.id, fileId).forEach((alias) => {
+            chatState.messageIndex.delete(alias);
+          });
+        }
+      });
+    }
+    if (key) chatState.conversations.delete(key);
+    chatState.contacts.delete(peer);
+    if (chatState.disappearingTimers?.has?.(peer)) {
+      chatState.disappearingTimers.delete(peer);
+    }
+    recalculateUnreadTotal();
+    persistState();
+    notify('contacts', getContactsSnapshot());
+    notify('message', { peer, contactRemoved: true });
+    return true;
+  }
+
   Object.assign(App, {
     chatState,
     getConversationKey,
@@ -998,6 +1027,7 @@
     ensureChatContact: ensureContact,
     appendChatMessage: appendMessageToConversation,
     removeChatMessage: removeMessageFromConversation,
+    removeChatContact,
     markChatConversationRead: markConversationRead,
     getChatContacts: getContactsSnapshot,
     getChatMessages: getConversationMessages,

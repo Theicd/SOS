@@ -2728,6 +2728,88 @@
     });
   }
 
+  /* חלק מחיקת שיחה (chat-ui.js) – מוחק הודעות ומסיר את איש הקשר מהרשימה | HYPER CORE TECH */
+  async function deleteActiveConversationChat() {
+    const peerPubkey = state.activeContact;
+    if (!peerPubkey || clearChatInProgress) return;
+    clearChatInProgress = true;
+    setConversationClearBusy(true);
+    try {
+      const messages = (typeof App.getChatMessages === 'function' ? App.getChatMessages(peerPubkey) : []) || [];
+      const snapshot = Array.isArray(messages) ? messages.slice() : [];
+      const outgoing = [];
+      const incoming = [];
+      snapshot.forEach((message) => {
+        if (!message?.id) return;
+        if (isOutgoingChatMessage(message)) outgoing.push(message);
+        else incoming.push(message);
+      });
+
+      incoming.forEach((message) => {
+        try { App.removeChatMessage?.(peerPubkey, message.id); } catch (_) {}
+      });
+
+      for (let i = 0; i < outgoing.length; i += 1) {
+        const message = outgoing[i];
+        try {
+          if (typeof App.deleteChatMessage === 'function') {
+            await App.deleteChatMessage(peerPubkey, message.id);
+          } else {
+            App.removeChatMessage?.(peerPubkey, message.id);
+          }
+        } catch (err) {
+          console.warn('[CHAT/UI] delete-chat outgoing delete failed', message.id, err);
+          try { App.removeChatMessage?.(peerPubkey, message.id); } catch (_) {}
+        }
+        if (i < outgoing.length - 1) {
+          await waitMs(450);
+        }
+      }
+
+      try { App.removeChatContact?.(peerPubkey); } catch (err) {
+        console.warn('[CHAT/UI] removeChatContact failed', err);
+      }
+      resetConversationView();
+      renderContacts(true);
+      try { App.showToast?.('השיחה נמחקה מהרשימה'); } catch (_) {}
+    } finally {
+      clearChatInProgress = false;
+      setConversationClearBusy(false);
+    }
+  }
+
+  function showDeleteChatConfirmDialog(peerPubkey) {
+    if (!peerPubkey || clearChatInProgress) return;
+    const existing = doc.getElementById('chatDeleteChatDialog');
+    if (existing) existing.remove();
+    const dialog = doc.createElement('div');
+    dialog.id = 'chatDeleteChatDialog';
+    dialog.className = 'chat-dialog';
+    dialog.innerHTML = `
+      <div class="chat-dialog__backdrop"></div>
+      <div class="chat-dialog__content" role="dialog" aria-modal="true">
+        <h3 class="chat-dialog__title">מחיקת הצ'ט</h3>
+        <p class="chat-dialog__message">למחוק את כל ההודעות ולהסיר את המשתמש מרשימת השיחות? הודעות יוצאות יימחקו גם אצל הצד השני. הודעות נכנסות יימחקו רק מהמכשיר שלך. המשתמש יוסר מהרשימה עד שיישלח שוב הודעה.</p>
+        <div class="chat-dialog__actions">
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--cancel">ביטול</button>
+          <button type="button" class="chat-dialog__btn chat-dialog__btn--confirm">מחק צ'ט</button>
+        </div>
+      </div>
+    `;
+    elements.panel.appendChild(dialog);
+    const backdrop = dialog.querySelector('.chat-dialog__backdrop');
+    const cancel = dialog.querySelector('.chat-dialog__btn--cancel');
+    const confirm = dialog.querySelector('.chat-dialog__btn--confirm');
+    const close = () => dialog.remove();
+    backdrop?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    cancel?.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    confirm?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+      deleteActiveConversationChat();
+    });
+  }
+
   function formatDisappearingTimerLabel(seconds) {
     if (typeof App.formatDisappearingTimerLabel === 'function') {
       return App.formatDisappearingTimerLabel(seconds);
@@ -6574,6 +6656,9 @@
         } else if (action === 'clear-chat') {
           // דסקטופ – אישור מחיקה ישירות | HYPER CORE TECH
           showClearChatConfirmDialog(state.activeContact);
+        } else if (action === 'delete-chat') {
+          // דסקטופ – מחיקת שיחה + הסרה מהרשימה | HYPER CORE TECH
+          showDeleteChatConfirmDialog(state.activeContact);
         } else if (action === 'schedule-timer') {
           // דסקטופ – דיאלוג טיימר בלבד | HYPER CORE TECH
           openDesktopDisappearingTimerDialog(state.activeContact);
