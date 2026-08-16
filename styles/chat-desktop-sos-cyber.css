@@ -21,8 +21,8 @@
     --wa-compose-input-bg: rgba(6, 18, 32, 0.55);
     --wa-primary-text: var(--sos-text);
     --wa-secondary-text: var(--sos-muted);
-    --wa-incoming-bg: rgba(0, 0, 0, 0.55);
-    --wa-outgoing-bg: rgba(0, 0, 0, 0.55);
+    --wa-incoming-bg: #202c33;
+    --wa-outgoing-bg: #1a3a5c;
     --wa-system-message-bg: rgba(6, 18, 32, 0.88);
     --wa-badge-color: var(--sos-red);
     --wa-icon-color: var(--sos-muted);
@@ -592,21 +592,31 @@
     display: none !important;
   }
 
-  /* בועות הודעה – אותו סגנון חלול לשני הצדדים (בלי מילוי כחול מצועצע) | HYPER CORE TECH */
+  /* בועות – צבעי מילוי כמו מובייל להפרדה ואחדות | HYPER CORE TECH */
   .chat-panel .chat-message--incoming .chat-message__content,
-  .chat-panel .chat-message--incoming .chat-message__bubble,
-  .chat-panel .chat-message--outgoing .chat-message__content,
-  .chat-panel .chat-message--outgoing .chat-message__bubble {
-    background: rgba(0, 0, 0, 0.55) !important;
-    background-color: rgba(0, 0, 0, 0.55) !important;
-    border: 1px solid rgba(40, 170, 255, 0.28) !important;
+  .chat-panel .chat-message--incoming .chat-message__bubble {
+    background: linear-gradient(135deg, #202530 0%, #262c38 100%) !important;
+    background-color: #202530 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
-  /* נגני קול – אותו רקע חלול כמו הבועות (דסקטופ בלבד) | HYPER CORE TECH */
-  .chat-panel .chat-message--incoming .chat-audio-whatsapp,
+  .chat-panel .chat-message--outgoing .chat-message__content,
+  .chat-panel .chat-message--outgoing .chat-message__bubble {
+    background: linear-gradient(135deg, #1a3a5c 0%, #234b6e 100%) !important;
+    background-color: #1a3a5c !important;
+    border: 1px solid rgba(35, 75, 110, 0.4) !important;
+  }
+
+  /* נגני קול – אותם צבעי מובייל | HYPER CORE TECH */
+  .chat-panel .chat-message--incoming .chat-audio-whatsapp {
+    background: linear-gradient(135deg, #202530 0%, #262c38 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+  }
+
   .chat-panel .chat-message--outgoing .chat-audio-whatsapp {
-    background: rgba(0, 0, 0, 0.55) !important;
-    border: 1px solid rgba(40, 170, 255, 0.28) !important;
+    background: linear-gradient(135deg, #1a3a5c 0%, #234b6e 100%) !important;
+    border: 1px solid rgba(35, 75, 110, 0.4) !important;
     box-shadow: none !important;
   }
 
