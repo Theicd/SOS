@@ -617,22 +617,95 @@
   }
 
   .chat-panel .chat-composer__send {
-    background: linear-gradient(135deg, #0868ff, #ff304f) !important;
-    color: #fff !important;
-    border: none !important;
-    box-shadow: 0 0 18px rgba(8, 104, 255, 0.35);
+    background: rgba(6, 18, 32, 0.75) !important;
+    border: 1px solid var(--sos-border) !important;
+    color: var(--sos-electric) !important;
+    box-shadow:
+      0 0 12px rgba(0, 175, 255, 0.28),
+      inset 0 0 0 1px rgba(0, 175, 255, 0.1) !important;
   }
 
   .chat-panel .chat-composer__send:hover {
-    filter: brightness(1.08);
-    color: #fff !important;
-    background: linear-gradient(135deg, #00afff, #ff304f) !important;
+    filter: none;
+    border-color: var(--sos-electric) !important;
+    color: #e8f7ff !important;
+    background: rgba(0, 175, 255, 0.12) !important;
+    box-shadow: 0 0 18px rgba(0, 175, 255, 0.4) !important;
+  }
+
+  .chat-panel .chat-composer__send i {
+    color: inherit !important;
   }
 
   .chat-panel .chat-composer__send.is-mic {
     background: rgba(6, 18, 32, 0.7) !important;
     border: 1px solid var(--sos-border) !important;
     color: var(--sos-electric) !important;
+  }
+
+  /* כרטיסיית הקלטה קולית – סייבר כמו גלולת הקלט | HYPER CORE TECH */
+  .chat-panel .chat-voice-recording {
+    height: 56px !important;
+    background: rgba(3, 10, 20, 0.94) !important;
+    border: 1px solid var(--sos-border) !important;
+    border-radius: 999px !important;
+    margin: 0 8px 8px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    gap: 10px !important;
+    padding: 0 10px !important;
+    box-shadow:
+      0 0 18px rgba(0, 175, 255, 0.18),
+      0 8px 24px rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .chat-panel .chat-voice-recording__delete {
+    background: rgba(6, 18, 32, 0.7) !important;
+    border: 1px solid rgba(255, 48, 79, 0.45) !important;
+    color: #ff6b85 !important;
+    box-shadow: 0 0 10px rgba(255, 48, 79, 0.25) !important;
+  }
+
+  .chat-panel .chat-voice-recording__delete:hover {
+    background: rgba(255, 48, 79, 0.16) !important;
+    border-color: rgba(255, 48, 79, 0.75) !important;
+  }
+
+  .chat-panel .chat-voice-recording__waveform {
+    background: rgba(0, 175, 255, 0.08) !important;
+    border: 1px solid rgba(40, 170, 255, 0.25) !important;
+    border-radius: 999px !important;
+  }
+
+  .chat-panel .chat-voice-recording__bars span {
+    background: var(--sos-electric) !important;
+    box-shadow: 0 0 6px rgba(0, 175, 255, 0.55);
+  }
+
+  .chat-panel .chat-voice-recording__timer {
+    color: var(--sos-text) !important;
+  }
+
+  .chat-panel .chat-voice-recording__send {
+    background: rgba(6, 18, 32, 0.75) !important;
+    border: 1px solid var(--sos-border) !important;
+    color: var(--sos-electric) !important;
+    box-shadow:
+      0 0 12px rgba(0, 175, 255, 0.3),
+      inset 0 0 0 1px rgba(0, 175, 255, 0.1) !important;
+  }
+
+  .chat-panel .chat-voice-recording__send:hover {
+    background: rgba(0, 175, 255, 0.14) !important;
+    border-color: var(--sos-electric) !important;
+    color: #e8f7ff !important;
+  }
+
+  .chat-panel .chat-voice-recording__send i {
+    color: inherit !important;
   }
 
   /* כפתור טורנט/ענן ליד האטב – מוסתר (לא בשימוש) | HYPER CORE TECH */
@@ -1492,10 +1565,65 @@
   }
 
   .chat-panel .chat-composer__send:not(.is-mic) {
-    background: linear-gradient(135deg, #0868ff, #ff304f) !important;
-    color: #fff !important;
-    border: none !important;
-    box-shadow: 0 0 16px rgba(8, 104, 255, 0.35) !important;
+    background: rgba(6, 18, 32, 0.75) !important;
+    border: 1px solid var(--sos-border) !important;
+    color: var(--sos-electric) !important;
+    box-shadow:
+      0 0 12px rgba(0, 175, 255, 0.28),
+      inset 0 0 0 1px rgba(0, 175, 255, 0.1) !important;
+  }
+
+  .chat-panel .chat-composer__send i {
+    color: inherit !important;
+  }
+
+  /* כרטיסיית הקלטה – סייבר במובייל | HYPER CORE TECH */
+  .chat-panel .chat-voice-recording {
+    height: 56px !important;
+    background: rgba(3, 10, 20, 0.96) !important;
+    border: 1px solid var(--sos-border) !important;
+    border-radius: 999px !important;
+    margin: 0 6px 6px !important;
+    gap: 8px !important;
+    padding: 0 8px !important;
+    box-shadow:
+      0 0 16px rgba(0, 175, 255, 0.2),
+      0 8px 22px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .chat-panel .chat-voice-recording__delete {
+    background: rgba(6, 18, 32, 0.7) !important;
+    border: 1px solid rgba(255, 48, 79, 0.45) !important;
+    color: #ff6b85 !important;
+    box-shadow: 0 0 10px rgba(255, 48, 79, 0.22) !important;
+  }
+
+  .chat-panel .chat-voice-recording__waveform {
+    background: rgba(0, 175, 255, 0.08) !important;
+    border: 1px solid rgba(40, 170, 255, 0.25) !important;
+    border-radius: 999px !important;
+  }
+
+  .chat-panel .chat-voice-recording__bars span {
+    background: var(--sos-electric) !important;
+    box-shadow: 0 0 6px rgba(0, 175, 255, 0.55);
+  }
+
+  .chat-panel .chat-voice-recording__timer {
+    color: var(--sos-text) !important;
+  }
+
+  .chat-panel .chat-voice-recording__send {
+    background: rgba(6, 18, 32, 0.75) !important;
+    border: 1px solid var(--sos-border) !important;
+    color: var(--sos-electric) !important;
+    box-shadow:
+      0 0 12px rgba(0, 175, 255, 0.3),
+      inset 0 0 0 1px rgba(0, 175, 255, 0.1) !important;
+  }
+
+  .chat-panel .chat-voice-recording__send i {
+    color: inherit !important;
   }
 
   /* תפריט ⋮ – אותו סדר/מסגרת כמו דסקטופ (פורטל ל-body במובייל) | HYPER CORE TECH */
