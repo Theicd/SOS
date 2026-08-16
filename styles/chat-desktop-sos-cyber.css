@@ -79,6 +79,18 @@
     filter: none;
   }
 
+  /* 4 עליונים (בית/פעמון/צ'אט/משחקים) – +30% | HYPER CORE TECH */
+  .chat-panel .chat-nav-sidebar__top .chat-nav-item {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .chat-panel .chat-nav-sidebar__top .chat-nav-icon {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    stroke-width: 1.55;
+  }
+
   .chat-panel .chat-nav-icon .nav-dot {
     fill: currentColor !important;
     stroke: none !important;
