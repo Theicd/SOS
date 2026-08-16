@@ -420,6 +420,20 @@
     stroke-linejoin: round;
   }
 
+  /* טלפון + וידאו – +30% מגודל הבסיס | HYPER CORE TECH */
+  .chat-panel .chat-conversation__icon--voice,
+  .chat-panel .chat-conversation__icon--video {
+    width: 44px;
+    height: 44px;
+  }
+
+  .chat-panel .chat-conversation__icon--voice .chat-header-icon,
+  .chat-panel .chat-conversation__icon--video .chat-header-icon {
+    width: 36px !important;
+    height: 36px !important;
+    stroke-width: 1.45;
+  }
+
   /* נקודות בתפריט ⋮ – מילוי קטן בלבד | HYPER CORE TECH */
   .chat-panel .chat-conversation__icon--menu .chat-header-icon circle {
     fill: currentColor !important;
