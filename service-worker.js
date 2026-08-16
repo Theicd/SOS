@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v482'; // bump - P2P green status light on avatar
+  const CACHE_NAME = 'sos-cache-v483'; // bump - darker desktop incoming bubbles
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -21,7 +21,7 @@
     --wa-compose-input-bg: rgba(6, 18, 32, 0.55);
     --wa-primary-text: var(--sos-text);
     --wa-secondary-text: var(--sos-muted);
-    --wa-incoming-bg: #202c33;
+    --wa-incoming-bg: #141820;
     --wa-outgoing-bg: #1a3a5c;
     --wa-system-message-bg: rgba(6, 18, 32, 0.88);
     --wa-badge-color: var(--sos-red);
@@ -614,12 +614,12 @@
     display: none !important;
   }
 
-  /* בועות – צבעי מילוי כמו מובייל להפרדה ואחדות | HYPER CORE TECH */
+  /* בועות – נכנסות אפור כהה יותר שמתאים לדף; יוצאות כמו מובייל | HYPER CORE TECH */
   .chat-panel .chat-message--incoming .chat-message__content,
   .chat-panel .chat-message--incoming .chat-message__bubble {
-    background: linear-gradient(135deg, #202530 0%, #262c38 100%) !important;
-    background-color: #202530 !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: linear-gradient(135deg, #12161c 0%, #181c24 100%) !important;
+    background-color: #141820 !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
   }
 
   .chat-panel .chat-message--outgoing .chat-message__content,
@@ -629,10 +629,10 @@
     border: 1px solid rgba(35, 75, 110, 0.4) !important;
   }
 
-  /* נגני קול – אותם צבעי מובייל | HYPER CORE TECH */
+  /* נגני קול – נכנס כהה כמו בועות נכנסות | HYPER CORE TECH */
   .chat-panel .chat-message--incoming .chat-audio-whatsapp {
-    background: linear-gradient(135deg, #202530 0%, #262c38 100%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: linear-gradient(135deg, #12161c 0%, #181c24 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
     box-shadow: none !important;
   }
 
