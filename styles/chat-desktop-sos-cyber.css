@@ -959,7 +959,7 @@
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
   }
 
-  /* דיאלוג טיימר דסקטופ – פאנל קומפקטי בלי גלילה | HYPER CORE TECH */
+  /* דיאלוג טיימר דסקטופ – ערפל + מסגרת זוהרת בלבד | HYPER CORE TECH */
   .chat-panel .chat-desktop-timer-dialog {
     position: absolute;
     inset: 0;
@@ -974,7 +974,9 @@
   .chat-panel .chat-desktop-timer-dialog__backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
 
   .chat-panel .chat-desktop-timer-dialog__panel {
@@ -982,53 +984,65 @@
     width: min(420px, 100%);
     max-height: none;
     overflow: visible;
-    background: #0a1018;
-    border: 1px solid rgba(0, 175, 255, 0.35);
+    background: rgba(10, 16, 24, 0.72);
+    border: 1px solid rgba(0, 200, 255, 0.45);
     border-radius: 16px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 175, 255, 0.12);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.5),
+      0 0 22px rgba(0, 175, 255, 0.18);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     padding: 20px 22px 18px;
     color: var(--sos-text);
     box-sizing: border-box;
+    text-align: center;
   }
 
   .chat-panel .chat-desktop-timer-dialog__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 12px;
     margin-bottom: 8px;
+    position: relative;
   }
 
   .chat-panel .chat-desktop-timer-dialog__title {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: var(--sos-text);
+    color: #e9edef;
   }
 
   .chat-panel .chat-desktop-timer-dialog__close {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    transform: translateY(-50%);
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    border: 1px solid var(--sos-border);
-    background: transparent;
+    border: 1px solid rgba(0, 200, 255, 0.4);
+    background: rgba(0, 0, 0, 0.25);
     color: var(--sos-muted);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 0 10px rgba(0, 175, 255, 0.2);
   }
 
   .chat-panel .chat-desktop-timer-dialog__close:hover {
     color: var(--sos-text);
-    border-color: var(--sos-electric);
+    border-color: rgba(0, 200, 255, 0.7);
+    box-shadow: 0 0 14px rgba(0, 175, 255, 0.35);
   }
 
   .chat-panel .chat-desktop-timer-dialog__hint {
     margin: 0 0 14px;
-    font-size: 0.88rem;
-    line-height: 1.45;
-    color: var(--sos-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #8696a0;
   }
 
   .chat-panel .chat-desktop-timer-dialog__options {
@@ -1036,6 +1050,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-bottom: 16px;
+    text-align: start;
   }
 
   .chat-panel .chat-desktop-timer-dialog__option {
@@ -1044,10 +1059,11 @@
     gap: 10px;
     padding: 10px 12px;
     border-radius: 12px;
-    border: 1px solid rgba(40, 170, 255, 0.22);
-    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(0, 200, 255, 0.28);
+    background: rgba(0, 0, 0, 0.28);
     cursor: pointer;
     color: var(--sos-text);
+    box-shadow: 0 0 10px rgba(0, 175, 255, 0.08);
   }
 
   .chat-panel .chat-desktop-timer-dialog__option input {
@@ -1060,18 +1076,21 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    border: 2px solid rgba(143, 162, 183, 0.7);
+    border: 2px solid rgba(0, 200, 255, 0.45);
     flex-shrink: 0;
     position: relative;
+    background: transparent;
   }
 
   .chat-panel .chat-desktop-timer-dialog__option.is-selected {
-    border-color: rgba(0, 175, 255, 0.55);
-    background: rgba(0, 175, 255, 0.1);
+    border-color: rgba(0, 200, 255, 0.7);
+    background: rgba(0, 175, 255, 0.08);
+    box-shadow: 0 0 14px rgba(0, 175, 255, 0.22);
   }
 
   .chat-panel .chat-desktop-timer-dialog__option.is-selected .chat-desktop-timer-dialog__radio {
-    border-color: var(--sos-electric);
+    border-color: #00c8ff;
+    box-shadow: 0 0 8px rgba(0, 200, 255, 0.55);
   }
 
   .chat-panel .chat-desktop-timer-dialog__option.is-selected .chat-desktop-timer-dialog__radio::after {
@@ -1079,7 +1098,8 @@
     position: absolute;
     inset: 3px;
     border-radius: 50%;
-    background: var(--sos-electric);
+    background: #00c8ff;
+    box-shadow: 0 0 6px rgba(0, 200, 255, 0.8);
   }
 
   .chat-panel .chat-desktop-timer-dialog__label {
@@ -1089,45 +1109,85 @@
 
   .chat-panel .chat-desktop-timer-dialog__actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px;
+    justify-content: center;
+    gap: 12px;
   }
 
   .chat-panel .chat-desktop-timer-dialog__btn {
-    min-width: 96px;
-    padding: 9px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--sos-border);
+    flex: 1;
+    min-width: 100px;
+    padding: 11px 18px;
+    border-radius: 10px;
     cursor: pointer;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
+    background: rgba(0, 0, 0, 0.28);
+    color: #e9edef;
+    border: 1px solid rgba(0, 200, 255, 0.4);
+    box-shadow: 0 0 12px rgba(0, 175, 255, 0.16);
   }
 
-  .chat-panel .chat-desktop-timer-dialog__btn--cancel {
-    background: transparent;
-    color: var(--sos-muted);
-  }
-
-  .chat-panel .chat-desktop-timer-dialog__btn--cancel:hover {
-    color: var(--sos-text);
+  .chat-panel .chat-desktop-timer-dialog__btn--cancel:hover,
+  .chat-panel .chat-desktop-timer-dialog__btn--confirm:hover {
+    border-color: rgba(0, 200, 255, 0.75);
+    box-shadow: 0 0 18px rgba(0, 175, 255, 0.3);
+    background: rgba(0, 175, 255, 0.08);
   }
 
   .chat-panel .chat-desktop-timer-dialog__btn--confirm {
-    background: linear-gradient(90deg, #0868ff, #00afff);
-    border-color: transparent;
-    color: #fff;
-    box-shadow: 0 0 18px rgba(0, 175, 255, 0.35);
+    border-color: rgba(0, 200, 255, 0.55);
+    box-shadow: 0 0 16px rgba(0, 175, 255, 0.28);
   }
 
-  .chat-panel .chat-desktop-timer-dialog__btn--confirm:hover {
-    filter: brightness(1.06);
+  /* דיאלוג ניקוי צ'אט – אותו שפת עיצוב: ערפל + זוהר מסגרת | HYPER CORE TECH */
+  .chat-panel .chat-dialog__backdrop {
+    background: rgba(0, 0, 0, 0.62) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
   }
 
-  /* דיאלוג ניקוי צ'אט – התאמה קלה לדסקטופ | HYPER CORE TECH */
   .chat-panel .chat-dialog__content {
-    background: #0a1018 !important;
-    border: 1px solid rgba(0, 175, 255, 0.35) !important;
+    background: rgba(10, 16, 24, 0.72) !important;
+    border: 1px solid rgba(0, 200, 255, 0.45) !important;
     border-radius: 16px !important;
     color: var(--sos-text) !important;
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.5),
+      0 0 22px rgba(0, 175, 255, 0.18) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+  }
+
+  .chat-panel .chat-dialog__title {
+    color: #e9edef !important;
+  }
+
+  .chat-panel .chat-dialog__message {
+    color: #8696a0 !important;
+  }
+
+  .chat-panel .chat-dialog__btn {
+    background: rgba(0, 0, 0, 0.28) !important;
+    color: #e9edef !important;
+    border: 1px solid rgba(0, 200, 255, 0.4) !important;
+    box-shadow: 0 0 12px rgba(0, 175, 255, 0.16) !important;
+  }
+
+  .chat-panel .chat-dialog__btn--cancel:hover {
+    border-color: rgba(0, 200, 255, 0.75) !important;
+    box-shadow: 0 0 18px rgba(0, 175, 255, 0.3) !important;
+    background: rgba(0, 175, 255, 0.08) !important;
+  }
+
+  .chat-panel .chat-dialog__btn--confirm {
+    border-color: rgba(255, 80, 80, 0.65) !important;
+    box-shadow: 0 0 16px rgba(255, 70, 70, 0.28) !important;
+    background: rgba(180, 40, 40, 0.18) !important;
+  }
+
+  .chat-panel .chat-dialog__btn--confirm:hover {
+    border-color: rgba(255, 100, 100, 0.85) !important;
+    box-shadow: 0 0 20px rgba(255, 70, 70, 0.4) !important;
+    background: rgba(200, 50, 50, 0.22) !important;
   }
 }

@@ -21,7 +21,7 @@
   const CHAT_RETENTION_SECONDS = 90 * 24 * 60 * 60; // חלק צ'אט (chat-state.js) – תקרת שמירה גלובלית 90 יום | HYPER CORE TECH
   const DISAPPEARING_DEFAULT_SEC = 7 * 24 * 60 * 60; // חלק ניקוי אוטומטי – ברירת מחדל 7 ימים | HYPER CORE TECH
 
-  // peerPubkey -> seconds (תמיד בין 24 שעות ל-90 יום; אין «כבוי») | HYPER CORE TECH
+  // peerPubkey -> seconds (0 = כבוי; אחרת עד 90 יום) | HYPER CORE TECH
   chatState.disappearingTimers = new Map();
   chatState.defaultDisappearingSec = DISAPPEARING_DEFAULT_SEC;
 
@@ -36,10 +36,11 @@
 
   function normalizeDisappearingTimerSec(seconds) {
     const sec = Number(seconds);
-    if (!Number.isFinite(sec) || sec <= 0) {
-      // מיגרציה מ«כבוי» ישן → תקרת 90 יום | HYPER CORE TECH
-      return CHAT_RETENTION_SECONDS;
+    if (!Number.isFinite(sec) || sec < 0) {
+      return DISAPPEARING_DEFAULT_SEC;
     }
+    // 0 = כבוי (בלי ניקוי אוטומטי לפי טיימר) | HYPER CORE TECH
+    if (sec === 0) return 0;
     return Math.min(sec, CHAT_RETENTION_SECONDS);
   }
 
@@ -54,6 +55,7 @@
 
   function formatDisappearingTimerLabel(seconds) {
     const sec = normalizeDisappearingTimerSec(seconds);
+    if (sec === 0) return 'כבוי';
     const day = 24 * 60 * 60;
     if (sec <= day) return '24 שעות';
     if (sec <= 3 * day) return '72 שעות';
@@ -70,7 +72,14 @@
   }
 
   function buildDisappearingNoticeContent(sec, kind = 'intro') {
-    const label = formatDisappearingTimerLabel(sec);
+    const normalized = normalizeDisappearingTimerSec(sec);
+    if (normalized === 0) {
+      if (kind === 'change') {
+        return 'ניקוי אוטומטי של הודעות השיחה כובה. הודעות לא יימחקו אוטומטית לפי טיימר. לשינוי הטיימר לחצו כאן.';
+      }
+      return 'ניקוי אוטומטי של הודעות השיחה כבוי. הודעות לא יימחקו אוטומטית לפי טיימר. לשינוי הטיימר לחצו כאן.';
+    }
+    const label = formatDisappearingTimerLabel(normalized);
     if (kind === 'change') {
       return `ניקוי אוטומטי של הודעות השיחה עודכן. הודעות חדשות יימחקו מהצ׳אט אחרי ${label}. לשינוי הטיימר לחצו כאן.`;
     }
@@ -220,6 +229,7 @@
     const self = (App.publicKey || '').toLowerCase();
     const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
     if (!peer || !self) return 0;
+    if (getDisappearingTimerSec(peer) === 0) return 0;
     const key = getConversationKey(peer, self);
     const entry = key ? chatState.conversations.get(key) : null;
     if (!entry) return 0;
@@ -246,6 +256,7 @@
     let removed = 0;
     chatState.conversations.forEach((entry) => {
       if (!entry?.peer) return;
+      if (getDisappearingTimerSec(entry.peer) === 0) return;
       removed += pruneConversationEntry(entry, getCutoffForPeer(entry.peer));
     });
     if (removed > 0) {

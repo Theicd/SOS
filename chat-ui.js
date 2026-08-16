@@ -2733,6 +2733,7 @@
       return App.formatDisappearingTimerLabel(seconds);
     }
     const sec = Number(seconds) || 0;
+    if (sec === 0) return 'כבוי';
     const day = 24 * 60 * 60;
     if (sec <= day) return '24 שעות';
     if (sec <= 3 * day) return '72 שעות';
@@ -2972,6 +2973,7 @@
       : (App.DISAPPEARING_DEFAULT_SEC || 7 * 24 * 60 * 60);
     const day = 24 * 60 * 60;
     const options = [
+      { value: 0, label: 'כבוי' },
       { value: day, label: '24 שעות' },
       { value: 3 * day, label: '72 שעות' },
       { value: 7 * day, label: '7 ימים' },
@@ -2981,7 +2983,7 @@
       { value: 90 * day, label: '90 ימים' },
     ];
     let selected = options.find((o) => o.value === current)?.value;
-    if (selected == null) selected = options[2].value;
+    if (selected == null) selected = options[3].value; // 7 ימים
 
     const dialog = doc.createElement('div');
     dialog.id = 'chatDesktopTimerDialog';
