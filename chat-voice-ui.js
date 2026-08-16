@@ -56,7 +56,6 @@
 
     // מניעת אתחול כפול
     if (sendBtn.dataset.voiceInitialized) return;
-    sendBtn.dataset.voiceInitialized = 'true';
 
     // יצירת ממשק הקלטה
     const recordingOverlay = createRecordingOverlay();
@@ -68,6 +67,7 @@
     const bars = recordingOverlay.querySelectorAll('.chat-voice-recording__bars span');
 
     let isRecording = false;
+    let starting = false;
     let tickHandle = null;
     let startedAt = 0;
     let animationHandle = null;
@@ -101,11 +101,31 @@
       stopBarsAnimation();
     }
 
+    function notifyVoiceIssue(message){
+      try {
+        if (typeof App.showChatToast === 'function') {
+          App.showChatToast(message);
+          return;
+        }
+      } catch (_) {}
+      try { console.warn('[VOICE]', message); } catch (_) {}
+    }
+
     async function startRecording(){
+      if (isRecording || starting) return;
       const peer = getActivePeer();
-      if(!peer) return;
+      if(!peer) {
+        notifyVoiceIssue('פתח שיחה כדי להקליט הודעה קולית');
+        return;
+      }
+      if (typeof App.startVoiceRecording !== 'function') {
+        notifyVoiceIssue('הקלטת קול לא זמינה כרגע');
+        return;
+      }
+      starting = true;
+      sendBtn.classList.add('is-mic-recording');
       try{
-        await App.startVoiceRecording?.();
+        await App.startVoiceRecording();
         isRecording = true;
         startedAt = Date.now();
         showRecordingUI();
@@ -116,6 +136,17 @@
         }, 500);
       }catch(err){
         console.warn('voice start failed', err);
+        sendBtn.classList.remove('is-mic-recording');
+        const name = String(err?.name || '');
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          notifyVoiceIssue('יש לאשר גישה למיקרופון');
+        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+          notifyVoiceIssue('לא נמצא מיקרופון במכשיר');
+        } else {
+          notifyVoiceIssue('לא ניתן להתחיל הקלטה');
+        }
+      } finally {
+        starting = false;
       }
     }
 
@@ -184,29 +215,43 @@
     function updateSendIcon(){
       const hasText = !!(inputEl && inputEl.value.trim());
       const hasFile = hasFileAttachment();
-      if (isRecording) return;
+      if (isRecording || starting) return;
       if (hasText || hasFile){
         sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
-        sendBtn.classList.remove('is-mic');
+        sendBtn.classList.remove('is-mic', 'is-mic-recording');
+        // מצב שליחה – submit רגיל (מובייל+דסקטופ) | HYPER CORE TECH
+        sendBtn.type = 'submit';
+        sendBtn.setAttribute('aria-label', 'שלח הודעה');
       } else {
         sendBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
         sendBtn.classList.add('is-mic');
+        sendBtn.classList.remove('is-mic-recording');
+        // חשוב: type=button מונע submit ריק שבודקים כ"לא מגיב" ב-WebView | HYPER CORE TECH
+        sendBtn.type = 'button';
+        sendBtn.setAttribute('aria-label', 'הקלט הודעה קולית');
       }
     }
 
-    // שליטה בהתנהגות לחיצה על כפתור שליחה/מיקרופון
-    sendBtn.addEventListener('click', (ev)=>{
+    function onMicActivate(ev){
+      if (isRecording || starting) return;
       const hasText = !!(inputEl && inputEl.value.trim());
       const hasFile = hasFileAttachment();
-      if (!hasText && !hasFile && !isRecording){
-        ev.preventDefault();
-        ev.stopPropagation();
-        startRecording();
-      }
-    });
+      if (hasText || hasFile) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+      startRecording();
+    }
+
+    // שליטה בהתנהגות לחיצה על כפתור שליחה/מיקרופון
+    // type=button במצב mic מונע submit ריק (נראה כ"לא מגיב") בלי לשנות את זרימת המובייל | HYPER CORE TECH
+    sendBtn.addEventListener('click', onMicActivate);
 
     inputEl?.addEventListener('input', updateSendIcon);
     updateSendIcon();
+
+    // רק אחרי קישור מאזינים – כדי לא לנעול אתחול כושל | HYPER CORE TECH
+    sendBtn.dataset.voiceInitialized = 'true';
     
     App.updateChatSendIcon = updateSendIcon;
   }

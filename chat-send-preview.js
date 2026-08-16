@@ -307,11 +307,12 @@
   }
 
   function forceSendIcon() {
-    const btn = composerForm()?.querySelector('.chat-composer__send, [type="submit"]');
+    const btn = composerForm()?.querySelector('.chat-composer__send, [type="submit"], [type="button"].chat-composer__send');
     if (!btn) return;
     btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
-    btn.classList.remove('is-mic');
+    btn.classList.remove('is-mic', 'is-mic-recording');
     btn.classList.add('chat-composer__send--active');
+    btn.type = 'submit';
   }
 
   function sendPending() {

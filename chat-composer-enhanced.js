@@ -189,16 +189,27 @@
   }
   
   function updateSendButton() {
-    const sendBtn = composerState.composerElement?.querySelector('button[type="submit"]');
+    const sendBtn = composerState.composerElement?.querySelector('button.chat-composer__send, button[type="submit"], button[type="button"].chat-composer__send');
     const hasText = composerState.inputElement?.value?.trim().length > 0;
     
     if (sendBtn) {
+      // לא לדרוס מצב הקלטה פעיל | HYPER CORE TECH
+      if (sendBtn.classList.contains('is-mic-recording') || composerState.composerElement?.classList.contains('chat-composer--recording')) {
+        return;
+      }
       if (hasText) {
         sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
         sendBtn.classList.add('chat-composer__send--active');
+        sendBtn.classList.remove('is-mic');
+        sendBtn.type = 'submit';
       } else {
         sendBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
         sendBtn.classList.remove('chat-composer__send--active');
+        sendBtn.classList.add('is-mic');
+        sendBtn.type = 'button';
+      }
+      if (typeof App.updateChatSendIcon === 'function') {
+        App.updateChatSendIcon();
       }
     }
   }

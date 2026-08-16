@@ -1288,6 +1288,8 @@ body.chat-overlay-open::before {
 
 .chat-composer__send {
   color: var(--primary);
+  position: relative;
+  z-index: 6;
 }
 
 .chat-composer__send:hover {
