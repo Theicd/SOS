@@ -54,6 +54,7 @@
   }
 
   .chat-panel .chat-nav-item {
+    position: relative !important;
     width: 40px !important;
     height: 40px !important;
     border-radius: 0 !important;
@@ -65,24 +66,22 @@
     transition: color 0.18s ease, filter 0.18s ease !important;
   }
 
-  .chat-panel .chat-nav-item i {
-    color: inherit !important;
-    font-weight: 900 !important;
+  /* SVG stroke-only – מסגרת דקה, בלי מילוי | HYPER CORE TECH */
+  .chat-panel .chat-nav-icon {
+    width: 1.35rem !important;
+    height: 1.35rem !important;
+    display: block;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     filter: none;
-    text-shadow: none !important;
   }
 
-  /* אייקוני solid → מראה מסגרת דקה (לא מילוי גס) | HYPER CORE TECH */
-  .chat-panel .chat-nav-item .fa-solid {
-    -webkit-text-stroke: 1.4px currentColor;
-    color: transparent !important;
-    paint-order: stroke fill;
-  }
-
-  /* regular כבר outline – בלי stroke כפול | HYPER CORE TECH */
-  .chat-panel .chat-nav-item .fa-regular {
-    -webkit-text-stroke: 0;
-    color: inherit !important;
+  .chat-panel .chat-nav-icon .nav-dot {
+    fill: currentColor !important;
+    stroke: none !important;
   }
 
   .chat-panel .chat-nav-item:hover {
@@ -94,7 +93,7 @@
     text-shadow: none !important;
   }
 
-  .chat-panel .chat-nav-item:hover i {
+  .chat-panel .chat-nav-item:hover .chat-nav-icon {
     filter: drop-shadow(0 0 4px rgba(0, 175, 255, 0.35));
   }
 
@@ -106,7 +105,7 @@
     text-shadow: none !important;
   }
 
-  .chat-panel .chat-nav-item.is-active i {
+  .chat-panel .chat-nav-item.is-active .chat-nav-icon {
     filter:
       drop-shadow(0 0 3px rgba(0, 175, 255, 0.95))
       drop-shadow(0 0 8px rgba(0, 175, 255, 0.7))
@@ -133,7 +132,7 @@
     text-shadow: none !important;
   }
 
-  .chat-panel .chat-nav-item#chatNavHome i {
+  .chat-panel .chat-nav-item#chatNavHome .chat-nav-icon {
     filter:
       drop-shadow(0 0 3px rgba(255, 48, 79, 0.95))
       drop-shadow(0 0 8px rgba(255, 48, 79, 0.75))
@@ -145,7 +144,7 @@
     text-shadow: none !important;
   }
 
-  .chat-panel .chat-nav-item#chatNavHome:hover i {
+  .chat-panel .chat-nav-item#chatNavHome:hover .chat-nav-icon {
     filter:
       drop-shadow(0 0 4px rgba(255, 48, 79, 1))
       drop-shadow(0 0 10px rgba(255, 48, 79, 0.85));
@@ -156,7 +155,7 @@
     text-shadow: none !important;
   }
 
-  .chat-panel .chat-nav-item#chatNavHome.is-active i {
+  .chat-panel .chat-nav-item#chatNavHome.is-active .chat-nav-icon {
     filter:
       drop-shadow(0 0 3px rgba(255, 48, 79, 1))
       drop-shadow(0 0 9px rgba(255, 48, 79, 0.9))
