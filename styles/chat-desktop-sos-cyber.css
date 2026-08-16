@@ -592,6 +592,18 @@
     display: none !important;
   }
 
+  /* אווטאר בהודעות נכנסות – כמו מובייל; בקול נשאר האווטאר שבנגן | HYPER CORE TECH */
+  .chat-panel .chat-message--incoming > .chat-message__avatar {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .chat-panel .chat-message--incoming:has(.chat-audio-whatsapp) > .chat-message__avatar {
+    display: none !important;
+  }
+
   /* בועות – צבעי מילוי כמו מובייל להפרדה ואחדות | HYPER CORE TECH */
   .chat-panel .chat-message--incoming .chat-message__content,
   .chat-panel .chat-message--incoming .chat-message__bubble {
