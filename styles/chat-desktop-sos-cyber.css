@@ -589,6 +589,13 @@
     border: 1px solid rgba(0, 175, 255, 0.28);
   }
 
+  /* נגן קול נכנס – אותו צבע כמו בועות נכנסות (דסקטופ בלבד) | HYPER CORE TECH */
+  .chat-panel .chat-message--incoming .chat-audio-whatsapp {
+    background: rgba(6, 18, 32, 0.78) !important;
+    border: 1px solid rgba(40, 170, 255, 0.22) !important;
+    box-shadow: none !important;
+  }
+
   /* Welcome desktop – מדויק לדוגמה: פינות רכות, כרטיסיות דקות, אייקון עם כנפיים | HYPER CORE TECH */
   .chat-welcome-desktop {
     background:
