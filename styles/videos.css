@@ -5095,28 +5095,114 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     background: transparent !important;
   }
 
-  /* התאמת פריטי רשימת צ'אט (אנשי קשר) לעיצוב החדש */
-  .chat-contact {
-    background: rgba(0, 0, 0, 0.18) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 18px !important;
-    margin-bottom: 8px;
-    color: #fff !important;
-  }
-  
-  .chat-contact:hover {
-    background: rgba(35, 116, 225, 0.15) !important;
-    border-color: rgba(34, 211, 238, 0.22) !important;
+  /* רשימת שיחות מובייל – שטוחה כמו דסקטופ סייבר (לא כרטיסים) | HYPER CORE TECH */
+  .chat-contact,
+  .chat-panel .chat-contact,
+  #chatPanel .chat-contact {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 12px 14px !important;
+    color: #f4f7fb !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: none !important;
+    position: relative !important;
+    min-height: 72px !important;
   }
 
-  .chat-contact__name {
-    color: #fff !important;
+  .chat-contact::after,
+  .chat-panel .chat-contact::after,
+  #chatPanel .chat-contact::after {
+    content: '' !important;
+    position: absolute !important;
+    left: 14px !important;
+    right: 14px !important;
+    bottom: 0 !important;
+    height: 1px !important;
+    background: rgba(40, 170, 255, 0.12) !important;
+    pointer-events: none !important;
+    display: block !important;
+  }
+
+  .chat-contact:last-child::after,
+  .chat-panel .chat-contact:last-child::after,
+  #chatPanel .chat-contact:last-child::after {
+    display: none !important;
+  }
+
+  .chat-contact:hover,
+  .chat-contact:active,
+  .chat-panel .chat-contact:hover,
+  .chat-panel .chat-contact:active,
+  #chatPanel .chat-contact:hover,
+  #chatPanel .chat-contact:active {
+    background: rgba(0, 175, 255, 0.06) !important;
+    border: none !important;
+    border-color: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .chat-contact--active,
+  .chat-panel .chat-contact--active,
+  #chatPanel .chat-contact--active {
+    background: rgba(8, 104, 255, 0.14) !important;
+    border: none !important;
+    box-shadow: inset -3px 0 0 #00afff !important;
+    transform: none !important;
+  }
+
+  .chat-contact__name,
+  .chat-panel .chat-contact__name,
+  #chatPanel .chat-contact__name {
+    color: #f4f7fb !important;
     font-weight: 700 !important;
   }
 
   .chat-contact__last-message,
-  .chat-contact__time {
-    color: rgba(255, 255, 255, 0.7) !important;
+  .chat-panel .chat-contact__last-message,
+  #chatPanel .chat-contact__last-message {
+    color: #8fa2b7 !important;
+  }
+
+  .chat-contact__time,
+  .chat-panel .chat-contact__time,
+  #chatPanel .chat-contact__time {
+    font-weight: 600 !important;
+  }
+
+  .chat-contact__time--normal {
+    color: #00afff !important;
+  }
+
+  .chat-contact__time--online {
+    color: #25e47a !important;
+  }
+
+  .chat-contact__time--active {
+    color: #ff304f !important;
+  }
+
+  .chat-contact__time--old {
+    color: #ffc928 !important;
+  }
+
+  .chat-contacts,
+  .chat-panel .chat-contacts,
+  #chatPanel .chat-contacts {
+    background: #000 !important;
+  }
+
+  .chat-contacts__list,
+  .chat-panel .chat-contacts__list,
+  #chatPanel .chat-contacts__list {
+    background: transparent !important;
+    gap: 0 !important;
+    padding: 0 0 12px !important;
   }
 
   /* הדר מובייל בשורה אחת: לוגו (כמו דף הבית 42×48) + חיפוש + ⋮ | HYPER CORE TECH */
@@ -5166,8 +5252,10 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     width: 100% !important;
     min-height: 40px !important;
     padding: 0 10px !important;
-    border-radius: 12px !important;
-    background: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 999px !important;
+    background: rgba(3, 10, 20, 0.78) !important;
+    border: 1px solid rgba(40, 170, 255, 0.35) !important;
+    box-shadow: 0 0 14px rgba(0, 175, 255, 0.08) !important;
   }
 
   .chat-contacts__top .chat-contacts__search input {
