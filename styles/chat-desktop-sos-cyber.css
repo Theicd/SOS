@@ -214,23 +214,27 @@
     gap: 0 !important;
   }
 
-  /* חיפוש glass */
-  .chat-panel .chat-contacts__search,
-  .chat-panel .chat-contacts__search-bar {
-    background: transparent !important;
-  }
-
-  .chat-panel .chat-contacts__search-bar,
+  /* חיפוש – מסגרת מלאה על הכרטיסייה, אייקון בתוך המסגרת | HYPER CORE TECH */
   .chat-panel .chat-contacts__search {
-    border-radius: 14px;
+    background: transparent !important;
+    padding: 8px 0 !important;
+    border-radius: 0 !important;
   }
 
-  .chat-panel .chat-contacts__search input,
-  .chat-panel #chatSearchInput {
+  .chat-panel .chat-contacts__search-bar {
+    width: 100% !important;
+    margin: 0 !important;
+    min-height: 40px;
+    height: 40px !important;
+    padding: 0 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px;
+    box-sizing: border-box;
     background: rgba(3, 10, 20, 0.78) !important;
     color: var(--sos-text) !important;
     border: 1px solid var(--sos-border) !important;
-    border-radius: 14px !important;
+    border-radius: 0 !important;
     box-shadow:
       0 0 0 1px rgba(255, 48, 79, 0.12),
       0 0 18px rgba(0, 175, 255, 0.08);
@@ -238,13 +242,47 @@
     -webkit-backdrop-filter: blur(12px);
   }
 
-  .chat-panel .chat-contacts__search input:focus,
-  .chat-panel #chatSearchInput:focus {
-    outline: none !important;
+  .chat-panel .chat-contacts__search-bar:focus-within {
     border-color: var(--sos-electric) !important;
     box-shadow:
       0 0 0 1px rgba(255, 48, 79, 0.22),
       0 0 22px rgba(0, 175, 255, 0.25);
+  }
+
+  .chat-panel .chat-contacts__search-bar > i.fa-magnifying-glass {
+    color: var(--sos-muted) !important;
+    font-size: 1rem !important;
+    margin: 0 !important;
+    flex-shrink: 0;
+    order: 0;
+  }
+
+  .chat-panel .chat-contacts__search-bar > i.fa-filter {
+    display: none !important;
+  }
+
+  .chat-panel .chat-contacts__search input,
+  .chat-panel #chatSearchInput {
+    background: transparent !important;
+    color: var(--sos-text) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100% !important;
+  }
+
+  .chat-panel .chat-contacts__search input:focus,
+  .chat-panel #chatSearchInput:focus {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   .chat-panel .chat-contacts__search input::placeholder,

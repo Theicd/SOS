@@ -2002,42 +2002,45 @@ body.chat-media-modal-open {
     cursor: pointer;
   }
 
-  /* === מיכל חיפוש ופילטרים (כמו בדוגמא) === */
+  /* === מיכל חיפוש ופילטרים – רוחב מלא לכרטיסייה | HYPER CORE TECH === */
   .chat-panel .chat-contacts__search {
-    padding: 8px 12px;
+    padding: 8px 0;
     border-bottom: 1px solid transparent;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0;
     background: var(--wa-bg-color);
     flex-shrink: 0;
     height: auto;
   }
 
-  /* === תיבת חיפוש (search-bar בדוגמא) === */
+  /* === תיבת חיפוש – אייקון בתוך המסגרת | HYPER CORE TECH === */
   .chat-panel .chat-contacts__search-bar {
     background-color: var(--wa-search-bg);
-    border-radius: 8px;
-    height: 35px;
+    border-radius: 0;
+    height: 40px;
     display: flex;
     align-items: center;
-    padding: 0 12px;
-    width: 100%; /* רוחב מלא בתוך המיכל */
+    padding: 0 14px;
+    width: 100%;
     margin: 0;
+    gap: 10px;
+    box-sizing: border-box;
   }
 
   .chat-panel .chat-contacts__search i {
     color: var(--wa-icon-color);
     font-size: 18px;
-    margin-left: 10px;
-    transform: rotate(0deg);
+    margin: 0;
+    transform: none;
+    flex-shrink: 0;
   }
 
   /* אייקון פילטר בתוך שורת החיפוש - בצד שמאל */
   .chat-panel .chat-contacts__search-bar > i.fa-filter {
     cursor: pointer;
-    margin-right: auto; /* דחיפה שמאלה אם צריך, אבל ב-flex רגיל זה יהיה בסוף */
-    margin-left: 0;
+    margin: 0;
+    margin-inline-start: auto;
   }
 
   .chat-panel .chat-contacts__search input {
@@ -2045,11 +2048,12 @@ body.chat-media-modal-open {
     border: none;
     color: var(--wa-primary-text);
     flex: 1;
-    margin: 0 10px;
+    margin: 0;
     outline: none;
     font-size: 14px;
     height: 100%;
     padding: 0;
+    min-width: 0;
   }
 
   .chat-panel .chat-contacts__search input::placeholder {
