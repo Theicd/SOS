@@ -39,9 +39,9 @@
     background: var(--sos-bg) !important;
   }
 
-  /* סרגל אייקונים ימין – בלי עיגולים, neon כמו הדוגמה | HYPER CORE TECH */
+  /* סרגל אייקונים ימין – שחור אחיד כמו דף הבית; כחול רק בזוהר/גבול | HYPER CORE TECH */
   .chat-panel .chat-nav-sidebar {
-    background: rgba(3, 10, 20, 0.96) !important;
+    background: #000 !important;
     border-inline-start: 1px solid rgba(40, 170, 255, 0.22);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -195,17 +195,16 @@
     object-fit: cover;
   }
 
-  /* סיידבר רשימה */
+  /* סיידבר רשימה – שחור אחיד עם תפריט הצד (פחות כחול, כמו דף הבית) | HYPER CORE TECH */
   .chat-panel .chat-contacts {
-    background: var(--sos-panel) !important;
-    /* פס גבול ימין – גוון שונה להפרדה בעין בלבד (בלי שינוי רקעים) | HYPER CORE TECH */
+    background: #000 !important;
     border-inline-start: 1px solid rgba(0, 200, 255, 0.65) !important;
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .chat-panel .chat-sidebar-header {
-    background: rgba(6, 18, 32, 0.9) !important;
+    background: #000 !important;
     border-bottom: 1px solid rgba(0, 200, 255, 0.55);
   }
 
