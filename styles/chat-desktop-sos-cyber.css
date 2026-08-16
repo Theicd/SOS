@@ -942,4 +942,192 @@
     margin: 2px 0 0 !important;
     font-size: 0.85rem;
   }
+
+  /* תפריט ⋮ דסקטופ – שני פריטים (מחיקה / טיימר) | HYPER CORE TECH */
+  .chat-panel .chat-conversation__menu-item--mobile-only {
+    display: none !important;
+  }
+
+  .chat-panel .chat-conversation__menu-item--desktop-only {
+    display: flex !important;
+  }
+
+  .chat-panel .chat-conversation__menu {
+    min-width: 220px;
+    background: rgba(6, 12, 20, 0.96) !important;
+    border: 1px solid var(--sos-border) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  /* דיאלוג טיימר דסקטופ – פאנל קומפקטי בלי גלילה | HYPER CORE TECH */
+  .chat-panel .chat-desktop-timer-dialog {
+    position: absolute;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__panel {
+    position: relative;
+    width: min(420px, 100%);
+    max-height: none;
+    overflow: visible;
+    background: #0a1018;
+    border: 1px solid rgba(0, 175, 255, 0.35);
+    border-radius: 16px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 175, 255, 0.12);
+    padding: 20px 22px 18px;
+    color: var(--sos-text);
+    box-sizing: border-box;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--sos-text);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__close {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--sos-border);
+    background: transparent;
+    color: var(--sos-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__close:hover {
+    color: var(--sos-text);
+    border-color: var(--sos-electric);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__hint {
+    margin: 0 0 14px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: var(--sos-muted);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(40, 170, 255, 0.22);
+    background: rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    color: var(--sos-text);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__radio {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(143, 162, 183, 0.7);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__option.is-selected {
+    border-color: rgba(0, 175, 255, 0.55);
+    background: rgba(0, 175, 255, 0.1);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__option.is-selected .chat-desktop-timer-dialog__radio {
+    border-color: var(--sos-electric);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__option.is-selected .chat-desktop-timer-dialog__radio::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: var(--sos-electric);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__label {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__btn {
+    min-width: 96px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--sos-border);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__btn--cancel {
+    background: transparent;
+    color: var(--sos-muted);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__btn--cancel:hover {
+    color: var(--sos-text);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__btn--confirm {
+    background: linear-gradient(90deg, #0868ff, #00afff);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 0 18px rgba(0, 175, 255, 0.35);
+  }
+
+  .chat-panel .chat-desktop-timer-dialog__btn--confirm:hover {
+    filter: brightness(1.06);
+  }
+
+  /* דיאלוג ניקוי צ'אט – התאמה קלה לדסקטופ | HYPER CORE TECH */
+  .chat-panel .chat-dialog__content {
+    background: #0a1018 !important;
+    border: 1px solid rgba(0, 175, 255, 0.35) !important;
+    border-radius: 16px !important;
+    color: var(--sos-text) !important;
+  }
 }

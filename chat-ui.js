@@ -2770,7 +2770,11 @@
     el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>${withLink}<br><button type="button" class="chat-system-message__link" data-disappearing-settings>לחצו כאן</button></span>`;
     el.querySelector('[data-disappearing-settings]')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      openDisappearingSettings(peer);
+      if (window.matchMedia('(min-width: 769px)').matches) {
+        openDesktopDisappearingTimerDialog(peer);
+      } else {
+        openDisappearingSettings(peer);
+      }
     });
     return el;
   }
@@ -2955,6 +2959,97 @@
 
   function showAutoCleanDialog() {
     openDisappearingSettings(state.activeContact);
+  }
+
+  /* חלק דסקטופ (chat-ui.js) – דיאלוג טיימר ניקוי אוטומטי בלבד (בלי מחיקה) | HYPER CORE TECH */
+  function openDesktopDisappearingTimerDialog(peerPubkey) {
+    const peer = (peerPubkey || state.activeContact || '').toLowerCase();
+    if (!peer) return;
+    const existing = doc.getElementById('chatDesktopTimerDialog');
+    if (existing) existing.remove();
+    const current = typeof App.getDisappearingTimerSec === 'function'
+      ? App.getDisappearingTimerSec(peer)
+      : (App.DISAPPEARING_DEFAULT_SEC || 7 * 24 * 60 * 60);
+    const day = 24 * 60 * 60;
+    const options = [
+      { value: day, label: '24 שעות' },
+      { value: 3 * day, label: '72 שעות' },
+      { value: 7 * day, label: '7 ימים' },
+      { value: 14 * day, label: '14 יום' },
+      { value: 30 * day, label: '30 יום' },
+      { value: 60 * day, label: '60 יום' },
+      { value: 90 * day, label: '90 ימים' },
+    ];
+    let selected = options.find((o) => o.value === current)?.value;
+    if (selected == null) selected = options[2].value;
+
+    const dialog = doc.createElement('div');
+    dialog.id = 'chatDesktopTimerDialog';
+    dialog.className = 'chat-desktop-timer-dialog';
+    dialog.setAttribute('role', 'presentation');
+    dialog.innerHTML = `
+      <div class="chat-desktop-timer-dialog__backdrop"></div>
+      <div class="chat-desktop-timer-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="chatDesktopTimerTitle">
+        <header class="chat-desktop-timer-dialog__header">
+          <h3 id="chatDesktopTimerTitle" class="chat-desktop-timer-dialog__title">תיזמון ניקוי אוטומטי</h3>
+          <button type="button" class="chat-desktop-timer-dialog__close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <p class="chat-desktop-timer-dialog__hint">בחר כמה זמן הודעות חדשות יישארו בצ׳אט לפני שיימחקו אוטומטית.</p>
+        <div class="chat-desktop-timer-dialog__options" role="radiogroup" aria-label="טיימר ניקוי">
+          ${options.map((opt) => `
+            <label class="chat-desktop-timer-dialog__option${opt.value === selected ? ' is-selected' : ''}">
+              <input type="radio" name="desktopDisappearingTimer" value="${opt.value}" ${opt.value === selected ? 'checked' : ''}>
+              <span class="chat-desktop-timer-dialog__radio" aria-hidden="true"></span>
+              <span class="chat-desktop-timer-dialog__label">${opt.label}</span>
+            </label>
+          `).join('')}
+        </div>
+        <div class="chat-desktop-timer-dialog__actions">
+          <button type="button" class="chat-desktop-timer-dialog__btn chat-desktop-timer-dialog__btn--cancel" data-action="cancel">ביטול</button>
+          <button type="button" class="chat-desktop-timer-dialog__btn chat-desktop-timer-dialog__btn--confirm" data-action="confirm">אישור</button>
+        </div>
+      </div>
+    `;
+    const host = elements.panel || doc.body;
+    host.appendChild(dialog);
+
+    const close = () => dialog.remove();
+    const syncSelected = () => {
+      dialog.querySelectorAll('.chat-desktop-timer-dialog__option').forEach((el) => {
+        const input = el.querySelector('input');
+        el.classList.toggle('is-selected', !!(input && input.checked));
+      });
+    };
+    dialog.querySelector('.chat-desktop-timer-dialog__backdrop')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+    });
+    dialog.querySelector('.chat-desktop-timer-dialog__close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+    });
+    dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      close();
+    });
+    dialog.querySelectorAll('input[name="desktopDisappearingTimer"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        selected = Math.max(0, Number(input.value) || 0);
+        syncSelected();
+      });
+    });
+    dialog.querySelector('[data-action="confirm"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const checked = dialog.querySelector('input[name="desktopDisappearingTimer"]:checked');
+      const sec = Math.max(0, Number(checked?.value || selected) || 0);
+      try {
+        App.setDisappearingTimerSec?.(peer, sec);
+      } catch (_) {}
+      try {
+        App.showToast?.(`ניקוי אוטומטי: ${formatDisappearingTimerLabel(sec)}`);
+      } catch (_) {}
+      close();
+    });
   }
 
   function showDeleteConfirmDialog(messageId, peerPubkey) {
@@ -6472,7 +6567,14 @@
         closeHeaderMenu();
         const action = item.getAttribute('data-action');
         if (action === 'auto-clean') {
+          // מובייל – מסך משולב כמו היום | HYPER CORE TECH
           showAutoCleanDialog();
+        } else if (action === 'clear-chat') {
+          // דסקטופ – אישור מחיקה ישירות | HYPER CORE TECH
+          showClearChatConfirmDialog(state.activeContact);
+        } else if (action === 'schedule-timer') {
+          // דסקטופ – דיאלוג טיימר בלבד | HYPER CORE TECH
+          openDesktopDisappearingTimerDialog(state.activeContact);
         }
       });
       doc.addEventListener('click', (e) => {
