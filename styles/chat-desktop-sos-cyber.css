@@ -67,16 +67,22 @@
 
   .chat-panel .chat-nav-item i {
     color: inherit !important;
-    font-weight: 400 !important;
+    font-weight: 900 !important;
     filter: none;
     text-shadow: none !important;
   }
 
-  /* gamepad אין outline ב־FA free – קו דק במקום מילוי גס | HYPER CORE TECH */
-  .chat-panel .chat-nav-item .fa-solid.fa-gamepad {
-    -webkit-text-stroke: 1.35px currentColor;
+  /* אייקוני solid → מראה מסגרת דקה (לא מילוי גס) | HYPER CORE TECH */
+  .chat-panel .chat-nav-item .fa-solid {
+    -webkit-text-stroke: 1.4px currentColor;
     color: transparent !important;
     paint-order: stroke fill;
+  }
+
+  /* regular כבר outline – בלי stroke כפול | HYPER CORE TECH */
+  .chat-panel .chat-nav-item .fa-regular {
+    -webkit-text-stroke: 0;
+    color: inherit !important;
   }
 
   .chat-panel .chat-nav-item:hover {
