@@ -351,6 +351,7 @@
         unreadCount: contact.unreadCount,
         lastReadTimestamp: contact.lastReadTimestamp || 0,
         profileFetchedAt: contact.profileFetchedAt || 0,
+        archived: !!contact.archived,
       });
     });
     const conversationsArray = [];
@@ -465,6 +466,7 @@
             unreadCount: 0, // חלק אופטימיזציה (chat-state.js) – אתחול unread ל-0 בשחזור | HYPER CORE TECH
             lastReadTimestamp: typeof contact.lastReadTimestamp === 'number' ? contact.lastReadTimestamp : 0,
             profileFetchedAt: typeof contact.profileFetchedAt === 'number' ? contact.profileFetchedAt : 0,
+            archived: !!contact.archived,
           };
           chatState.contacts.set(key, restoredContact);
         });
@@ -577,6 +579,7 @@
       unreadCount: 0,
       lastReadTimestamp: profile.lastReadTimestamp || 0,
       profileFetchedAt: profile.profileFetchedAt || Math.floor(Date.now() / 1000),
+      archived: false,
     };
     chatState.contacts.set(normalized, contact);
     debouncedNotifyContacts();
@@ -990,6 +993,26 @@
     return true;
   }
 
+  function setContactArchived(peerPubkey, archived) {
+    const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
+    if (!peer) return false;
+    const contact = ensureContact(peer);
+    if (!contact) return false;
+    const next = !!archived;
+    if (!!contact.archived === next) return true;
+    contact.archived = next;
+    persistState();
+    notify('contacts', getContactsSnapshot());
+    notify('message', { peer, contactArchived: next });
+    return true;
+  }
+
+  function isContactArchived(peerPubkey) {
+    const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
+    if (!peer) return false;
+    return !!chatState.contacts.get(peer)?.archived;
+  }
+
   function removeChatContact(peerPubkey) {
     const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
     const self = (App.publicKey || '').toLowerCase();
@@ -1028,6 +1051,8 @@
     appendChatMessage: appendMessageToConversation,
     removeChatMessage: removeMessageFromConversation,
     removeChatContact,
+    setChatContactArchived: setContactArchived,
+    isChatContactArchived: isContactArchived,
     markChatConversationRead: markConversationRead,
     getChatContacts: getContactsSnapshot,
     getChatMessages: getConversationMessages,

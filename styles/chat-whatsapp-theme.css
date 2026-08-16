@@ -1188,6 +1188,10 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   .chat-conversation__menu-item--desktop-only {
     display: flex !important;
   }
+
+  .chat-conversation__menu-item--desktop-only[hidden] {
+    display: none !important;
+  }
 }
 
 .chat-conversation__menu-item i {

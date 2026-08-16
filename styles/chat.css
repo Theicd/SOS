@@ -473,6 +473,54 @@ body.chat-overlay-open::before {
   animation: chatArchiveDotPulse 2.8s ease-in-out infinite;
 }
 
+/* כותרת מצב ארכיון – אותה מסגרת רשימה, חזרה לרשימה הראשית | HYPER CORE TECH */
+.chat-contacts__archive-view-bar {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  flex-shrink: 0;
+}
+
+.chat-contacts--archive-view .chat-contacts__archive-view-bar:not([hidden]) {
+  display: flex;
+}
+
+.chat-contacts--archive-view .chat-contacts__archive {
+  display: none !important;
+}
+
+.chat-contacts__archive-view-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chat-contacts__archive-view-back:hover,
+.chat-contacts__archive-view-back:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.chat-contacts__archive-view-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 @keyframes chatArchiveDotPulse {
   0%, 100% {
     transform: scale(1);

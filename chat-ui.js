@@ -3187,6 +3187,10 @@
     closeButton: doc.getElementById('chatCloseButton'),
     contactsList: doc.getElementById('chatContactsList'),
     refreshContacts: doc.getElementById('chatRefreshContacts'),
+    archiveRow: doc.getElementById('chatArchiveRow'),
+    archiveViewBar: doc.getElementById('chatArchiveViewBar'),
+    archiveViewBack: doc.getElementById('chatArchiveViewBack'),
+    contactsAside: doc.querySelector('#chatPanel .chat-contacts'),
     searchInput: doc.getElementById('chatSearchInput'),
     backButton: doc.getElementById('chatConversationBack'),
     emptyState: doc.getElementById('chatEmptyState'),
@@ -3218,6 +3222,7 @@
   const state = {
     isOpen: false,
     activeContact: null,
+    contactsView: 'main', // 'main' | 'archive' – אותו עיצוב רשימה, תוכן מסונן | HYPER CORE TECH
     filterText: '',
     footerMode: 'contacts',
     panelMode: 'list',
@@ -4752,6 +4757,95 @@
     `;
   }
 
+  /* חלק ארכיון (chat-ui.js) – מעבר לרשימת ארכיון באותה מסגרת כמו וואטסאפ | HYPER CORE TECH */
+  function updateContactsArchiveChrome() {
+    const inArchive = state.contactsView === 'archive';
+    elements.contactsAside?.classList.toggle('chat-contacts--archive-view', inArchive);
+    elements.panel?.classList.toggle('chat-panel--archive-view', inArchive);
+    if (elements.archiveViewBar) {
+      if (inArchive) elements.archiveViewBar.removeAttribute('hidden');
+      else elements.archiveViewBar.setAttribute('hidden', '');
+    }
+    if (elements.archiveRow) {
+      if (inArchive) elements.archiveRow.setAttribute('hidden', '');
+      else elements.archiveRow.removeAttribute('hidden');
+    }
+    updateArchiveRowUnreadDot();
+  }
+
+  function updateArchiveRowUnreadDot() {
+    if (!elements.archiveRow) return;
+    const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
+    const archivedUnread = contacts.some((c) => c?.archived && (c.unreadCount || 0) > 0);
+    elements.archiveRow.classList.toggle('chat-contacts__archive--has-unread', archivedUnread);
+    const aside = elements.archiveRow.querySelector('.chat-contacts__archive-aside');
+    if (aside) {
+      aside.style.visibility = archivedUnread ? 'visible' : 'hidden';
+    }
+  }
+
+  function setContactsView(view) {
+    const next = view === 'archive' ? 'archive' : 'main';
+    if (state.contactsView === next) {
+      updateContactsArchiveChrome();
+      return;
+    }
+    state.contactsView = next;
+    updateContactsArchiveChrome();
+    renderContacts(true);
+  }
+
+  function syncConversationArchiveMenuItems() {
+    const archiveBtn = doc.getElementById('chatMenuArchiveBtn');
+    const unarchiveBtn = doc.getElementById('chatMenuUnarchiveBtn');
+    if (!archiveBtn && !unarchiveBtn) return;
+    const peer = state.activeContact;
+    const archived = peer && typeof App.isChatContactArchived === 'function'
+      ? !!App.isChatContactArchived(peer)
+      : false;
+    if (archiveBtn) {
+      if (archived) archiveBtn.setAttribute('hidden', '');
+      else archiveBtn.removeAttribute('hidden');
+    }
+    if (unarchiveBtn) {
+      if (archived) unarchiveBtn.removeAttribute('hidden');
+      else unarchiveBtn.setAttribute('hidden', '');
+    }
+  }
+
+  function archiveActiveConversation() {
+    const peer = state.activeContact;
+    if (!peer) return;
+    try {
+      App.setChatContactArchived?.(peer, true);
+    } catch (err) {
+      console.warn('[CHAT/UI] archive failed', err);
+      return;
+    }
+    resetConversationView();
+    if (state.contactsView === 'archive') {
+      renderContacts(true);
+    } else {
+      setContactsView('main');
+      renderContacts(true);
+    }
+    try { App.showToast?.('הועבר לארכיון'); } catch (_) {}
+  }
+
+  function unarchiveActiveConversation() {
+    const peer = state.activeContact;
+    if (!peer) return;
+    try {
+      App.setChatContactArchived?.(peer, false);
+    } catch (err) {
+      console.warn('[CHAT/UI] unarchive failed', err);
+      return;
+    }
+    syncConversationArchiveMenuItems();
+    renderContacts(true);
+    try { App.showToast?.('הוחזר לרשימת השיחות'); } catch (_) {}
+  }
+
   function renderContacts(force = false) {
     if (!elements.contactsList) return;
     
@@ -4766,27 +4860,30 @@
     const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
     const unreadTotal = contacts.reduce((sum, item) => sum + (item?.unreadCount || 0), 0);
     renderChatBadge(unreadTotal);
+    updateContactsArchiveChrome();
+    const inArchiveView = state.contactsView === 'archive';
+    const viewContacts = contacts.filter((contact) => !!contact?.archived === inArchiveView);
     const normalizedFilter = state.filterText.trim().toLowerCase();
     const filteredContacts = normalizedFilter
-      ? contacts.filter((contact) => {
+      ? viewContacts.filter((contact) => {
           const label = (contact.name || contact.pubkey || '').toLowerCase();
           const preview = (contact.lastMessage || '').toLowerCase();
           return label.includes(normalizedFilter) || preview.includes(normalizedFilter);
         })
-      : contacts;
+      : viewContacts;
 
     // חלק חיפוש רשת (chat-ui.js) – ממזג אנשי קשר מקומיים עם תוצאות שם מהרשת | HYPER CORE TECH
     const localKeys = new Set(
       filteredContacts.map((c) => String(c?.pubkey || '').toLowerCase()).filter(Boolean)
     );
-    const networkHits = normalizedFilter.length >= 2
+    const networkHits = (!inArchiveView && normalizedFilter.length >= 2)
       ? (state.networkSearchResults || []).filter((hit) => {
           const pk = String(hit?.pubkey || '').toLowerCase();
           return pk && !localKeys.has(pk);
         })
       : [];
     const displayList = filteredContacts.concat(networkHits);
-    const isNetworkSearching = state.networkSearchPending && normalizedFilter.length >= 2;
+    const isNetworkSearching = !inArchiveView && state.networkSearchPending && normalizedFilter.length >= 2;
 
     if (!displayList.length) {
       if (normalizedFilter && isNetworkSearching) {
@@ -4798,10 +4895,10 @@
         `;
         return;
       }
-      let message = 'עוד אין שיחות. שלח הודעה ראשונה.';
+      let message = inArchiveView
+        ? 'אין שיחות בארכיון.'
+        : 'עוד אין שיחות. שלח הודעה ראשונה.';
       if (normalizedFilter) {
-        message = 'לא נמצאו תוצאות התואמות לחיפוש.';
-      } else if (contacts.length) {
         message = 'לא נמצאו תוצאות התואמות לחיפוש.';
       }
       elements.contactsList.innerHTML = `<p class="chat-contacts__empty">${message}</p>`;
@@ -6209,6 +6306,7 @@
       }, 100);
     }
     updateActiveConversationHeader(peerPubkey);
+    syncConversationArchiveMenuItems();
     // חלק סטטוס P2P (chat-ui.js) – מציג מצב חיבור DC בכותרת שיחה כדי שהמשתמש ידע אם ההודעות עוברות P2P | HYPER CORE TECH
     if (elements.conversationStatus) {
       updateConversationDCStatus(peerPubkey);
@@ -6515,6 +6613,20 @@
     if (elements.contactsList) {
       elements.contactsList.addEventListener('click', handleContactClick);
     }
+    if (elements.archiveRow) {
+      elements.archiveRow.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContactsView('archive');
+      });
+    }
+    if (elements.archiveViewBack) {
+      elements.archiveViewBack.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContactsView('main');
+      });
+    }
     if (elements.refreshContacts) {
       elements.refreshContacts.addEventListener('click', () => {
         // חלק רענון שיחות (chat-ui.js) – איפוס חותמת זמן וטעינה מחדש של כל השיחות | HYPER CORE TECH
@@ -6640,6 +6752,7 @@
           closeHeaderMenu();
           return;
         }
+        syncConversationArchiveMenuItems();
         headerMenu.hidden = false;
         headerMenuBtn.setAttribute('aria-expanded', 'true');
         requestAnimationFrame(positionHeaderMenu);
@@ -6659,6 +6772,10 @@
         } else if (action === 'delete-chat') {
           // דסקטופ – מחיקת שיחה + הסרה מהרשימה | HYPER CORE TECH
           showDeleteChatConfirmDialog(state.activeContact);
+        } else if (action === 'archive-chat') {
+          archiveActiveConversation();
+        } else if (action === 'unarchive-chat') {
+          unarchiveActiveConversation();
         } else if (action === 'schedule-timer') {
           // דסקטופ – דיאלוג טיימר בלבד | HYPER CORE TECH
           openDesktopDisappearingTimerDialog(state.activeContact);

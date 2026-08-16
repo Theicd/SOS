@@ -992,11 +992,34 @@
     display: flex !important;
   }
 
+  .chat-panel .chat-conversation__menu-item--desktop-only[hidden] {
+    display: none !important;
+  }
+
   .chat-panel .chat-conversation__menu {
     min-width: 220px;
     background: rgba(6, 12, 20, 0.96) !important;
     border: 1px solid var(--sos-border) !important;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  /* מצב ארכיון בדסקטופ – אותה סיידבר | HYPER CORE TECH */
+  .chat-panel .chat-contacts__archive-view-bar {
+    padding: 10px 16px !important;
+    border-bottom: 1px solid rgba(40, 170, 255, 0.12) !important;
+    color: var(--sos-text) !important;
+  }
+
+  .chat-panel .chat-contacts__archive-view-back {
+    color: var(--sos-electric) !important;
+  }
+
+  .chat-panel .chat-contacts__archive-view-back:hover {
+    background: rgba(0, 175, 255, 0.08) !important;
+  }
+
+  .chat-panel .chat-contacts__archive-view-title {
+    color: var(--sos-text) !important;
   }
 
   /* דיאלוג טיימר דסקטופ – ערפל + מסגרת זוהרת בלבד | HYPER CORE TECH */
