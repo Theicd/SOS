@@ -592,12 +592,19 @@
     display: none !important;
   }
 
-  /* אווטאר בהודעות נכנסות – כמו מובייל; בקול נשאר האווטאר שבנגן | HYPER CORE TECH */
+  /* אווטאר בהודעות נכנסות – גודל ומרווח כמו מובייל; בקול נשאר האווטאר שבנגן | HYPER CORE TECH */
+  .chat-panel .chat-message--incoming {
+    gap: 8px !important;
+    align-items: flex-start !important;
+  }
+
   .chat-panel .chat-message--incoming > .chat-message__avatar {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    width: 40px !important;
+    height: 40px !important;
   }
 
   .chat-panel .chat-message--incoming:has(.chat-audio-whatsapp) > .chat-message__avatar {
