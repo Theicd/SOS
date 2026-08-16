@@ -1175,6 +1175,10 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   white-space: nowrap;
 }
 
+.chat-conversation__menu-item[hidden] {
+  display: none !important;
+}
+
 /* חלק תפריט שיחה – פריטי דסקטופ מוסתרים במובייל | HYPER CORE TECH */
 .chat-conversation__menu-item--desktop-only {
   display: none !important;
