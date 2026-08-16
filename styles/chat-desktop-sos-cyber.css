@@ -1427,9 +1427,140 @@
     --sos-electric: #00afff;
     --sos-deep: #0868ff;
     --sos-red: #ff304f;
+    --sos-green: #25e47a;
+    --sos-yellow: #ffc928;
     --sos-text: #f4f7fb;
     --sos-muted: #8fa2b7;
     --sos-border: rgba(40, 170, 255, 0.35);
+  }
+
+  /* רשימת שיחות – שטוחה כמו דסקטופ (בלי כרטיסים מעוגלים) | HYPER CORE TECH */
+  .chat-panel .chat-contacts {
+    background: #000 !important;
+  }
+
+  .chat-panel .chat-contacts__list {
+    background: transparent !important;
+    padding: 0 0 12px !important;
+    gap: 0 !important;
+  }
+
+  .chat-panel .chat-contacts__top {
+    background: #000 !important;
+    border-bottom: 1px solid rgba(40, 170, 255, 0.16) !important;
+  }
+
+  .chat-panel .chat-contacts__search,
+  .chat-panel .chat-contacts__top .chat-contacts__search {
+    background: transparent !important;
+  }
+
+  .chat-panel .chat-contacts__search-bar,
+  .chat-panel .chat-contacts__top .chat-contacts__search-bar {
+    background: rgba(3, 10, 20, 0.78) !important;
+    border: 1px solid var(--sos-border) !important;
+    border-radius: 999px !important;
+    box-shadow:
+      0 0 0 1px rgba(255, 48, 79, 0.1),
+      0 0 14px rgba(0, 175, 255, 0.08) !important;
+  }
+
+  .chat-panel .chat-contacts__archive {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(40, 170, 255, 0.12) !important;
+    color: var(--sos-muted) !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .chat-panel .chat-contacts__archive-view-bar {
+    background: #000 !important;
+    border-bottom: 1px solid rgba(40, 170, 255, 0.12) !important;
+    color: var(--sos-text) !important;
+  }
+
+  .chat-panel .chat-contact {
+    height: auto !important;
+    min-height: 72px !important;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 12px 14px !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: none !important;
+    color: var(--sos-text) !important;
+    position: relative !important;
+    overflow: visible !important;
+  }
+
+  .chat-panel .chat-contact::after {
+    content: '' !important;
+    position: absolute !important;
+    left: 14px !important;
+    right: 14px !important;
+    bottom: 0 !important;
+    height: 1px !important;
+    background: rgba(40, 170, 255, 0.12) !important;
+    pointer-events: none !important;
+    display: block !important;
+  }
+
+  .chat-panel .chat-contact:last-child::after {
+    display: none !important;
+  }
+
+  .chat-panel .chat-contact__body {
+    border-bottom: none !important;
+    background: transparent !important;
+  }
+
+  .chat-panel .chat-contact:hover,
+  .chat-panel .chat-contact:active {
+    transform: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: rgba(0, 175, 255, 0.06) !important;
+  }
+
+  .chat-panel .chat-contact--active {
+    background: rgba(8, 104, 255, 0.14) !important;
+    border: none !important;
+    background-image: none !important;
+    box-shadow: inset -3px 0 0 #00afff !important;
+  }
+
+  .chat-panel .chat-contact__name {
+    color: var(--sos-text) !important;
+    font-weight: 700 !important;
+    text-shadow: none !important;
+  }
+
+  .chat-panel .chat-contact__last-message {
+    color: var(--sos-muted) !important;
+  }
+
+  .chat-panel .chat-contact__time {
+    font-weight: 600 !important;
+  }
+
+  .chat-panel .chat-contact__time--normal {
+    color: var(--sos-electric) !important;
+  }
+
+  .chat-panel .chat-contact__time--active {
+    color: var(--sos-red) !important;
+  }
+
+  .chat-panel .chat-contact__time--online {
+    color: var(--sos-green) !important;
+  }
+
+  .chat-panel .chat-contact__time--old {
+    color: var(--sos-yellow) !important;
   }
 
   /* הדר שיחה */
