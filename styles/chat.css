@@ -2004,7 +2004,7 @@ body.chat-media-modal-open {
 
   /* === מיכל חיפוש ופילטרים – רוחב מלא לכרטיסייה | HYPER CORE TECH === */
   .chat-panel .chat-contacts__search {
-    padding: 8px 0;
+    padding: 8px 12px;
     border-bottom: 1px solid transparent;
     display: flex;
     flex-direction: column;
@@ -2014,14 +2014,14 @@ body.chat-media-modal-open {
     height: auto;
   }
 
-  /* === תיבת חיפוש – אייקון בתוך המסגרת | HYPER CORE TECH === */
+  /* === תיבת חיפוש – מסגרת מעוגלת, אייקון בפנים | HYPER CORE TECH === */
   .chat-panel .chat-contacts__search-bar {
     background-color: var(--wa-search-bg);
-    border-radius: 0;
+    border-radius: 999px;
     height: 40px;
     display: flex;
     align-items: center;
-    padding: 0 14px;
+    padding: 0 16px;
     width: 100%;
     margin: 0;
     gap: 10px;
@@ -2054,10 +2054,12 @@ body.chat-media-modal-open {
     height: 100%;
     padding: 0;
     min-width: 0;
+    text-align: center;
   }
 
   .chat-panel .chat-contacts__search input::placeholder {
     color: var(--wa-secondary-text);
+    text-align: center;
   }
 
   /* === כותרת עליונה בדסקטופ: בלי לוגו מובייל / כפתורי פעולה === */

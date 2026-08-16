@@ -214,10 +214,10 @@
     gap: 0 !important;
   }
 
-  /* חיפוש – מסגרת מלאה על הכרטיסייה, אייקון בתוך המסגרת | HYPER CORE TECH */
+  /* חיפוש – מסגרת מעוגלת (כמו הדוגמה), אייקון בתוך המסגרת | HYPER CORE TECH */
   .chat-panel .chat-contacts__search {
     background: transparent !important;
-    padding: 8px 0 !important;
+    padding: 8px 12px !important;
     border-radius: 0 !important;
   }
 
@@ -226,7 +226,7 @@
     margin: 0 !important;
     min-height: 40px;
     height: 40px !important;
-    padding: 0 14px !important;
+    padding: 0 16px !important;
     display: flex !important;
     align-items: center !important;
     gap: 10px;
@@ -234,7 +234,7 @@
     background: rgba(3, 10, 20, 0.78) !important;
     color: var(--sos-text) !important;
     border: 1px solid var(--sos-border) !important;
-    border-radius: 0 !important;
+    border-radius: 999px !important;
     box-shadow:
       0 0 0 1px rgba(255, 48, 79, 0.12),
       0 0 18px rgba(0, 175, 255, 0.08);
@@ -276,6 +276,7 @@
     margin: 0 !important;
     padding: 0 !important;
     height: 100% !important;
+    text-align: center !important;
   }
 
   .chat-panel .chat-contacts__search input:focus,
@@ -288,6 +289,7 @@
   .chat-panel .chat-contacts__search input::placeholder,
   .chat-panel #chatSearchInput::placeholder {
     color: var(--sos-muted) !important;
+    text-align: center !important;
   }
 
   /* רשימת שיחות שטוחה – בלי כרטיסיות, רק פס הפרדה | HYPER CORE TECH */
