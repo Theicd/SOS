@@ -293,6 +293,46 @@
     text-align: center !important;
   }
 
+  /* ארכיון בדסקטופ – שורה מתחת לחיפוש (עיצוב כמו מובייל; ניווט יבוא בהמשך) | HYPER CORE TECH */
+  .chat-panel .chat-contacts__archive {
+    display: flex !important;
+    padding: 10px 16px !important;
+    gap: 8px !important;
+    color: var(--sos-muted) !important;
+    border-bottom: 1px solid rgba(40, 170, 255, 0.12) !important;
+    background: transparent !important;
+  }
+
+  .chat-panel .chat-contacts__archive:hover,
+  .chat-panel .chat-contacts__archive:active {
+    background: rgba(0, 175, 255, 0.06) !important;
+    color: var(--sos-text) !important;
+  }
+
+  .chat-panel .chat-contacts__archive-main > i {
+    width: 48px !important;
+    font-size: 1.1rem !important;
+    color: var(--sos-muted) !important;
+  }
+
+  .chat-panel .chat-contacts__archive-label {
+    color: inherit !important;
+    font-size: 0.98rem !important;
+    font-weight: 500 !important;
+  }
+
+  .chat-panel .chat-contacts__archive-aside {
+    width: 28px !important;
+    height: 28px !important;
+    color: rgba(0, 175, 255, 0.85) !important;
+  }
+
+  .chat-panel .chat-contacts__archive-dot {
+    filter:
+      drop-shadow(0 0 4px rgba(0, 175, 255, 0.7))
+      drop-shadow(0 0 10px rgba(255, 48, 79, 0.28));
+  }
+
   /* רשימת שיחות שטוחה – מפרידים עדינים שלא מגיעים לקצוות המסגרת | HYPER CORE TECH */
   .chat-panel .chat-contact {
     height: auto !important;

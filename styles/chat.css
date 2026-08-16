@@ -2085,8 +2085,43 @@ body.chat-media-modal-open {
     display: none !important;
   }
 
+  /* שורת ארכיון בדסקטופ – מתחת לחיפוש, כמו במובייל (עיצוב בלבד) | HYPER CORE TECH */
   .chat-panel .chat-contacts__archive {
-    display: none !important;
+    display: flex !important;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 10px 16px;
+    border: none;
+    border-bottom: 1px solid rgba(40, 170, 255, 0.12);
+    background: transparent;
+    color: rgba(244, 247, 251, 0.78);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+    flex-shrink: 0;
+  }
+
+  .chat-panel .chat-contacts__archive:hover,
+  .chat-panel .chat-contacts__archive:active {
+    background: rgba(0, 175, 255, 0.06);
+  }
+
+  .chat-panel .chat-contacts__archive-main > i {
+    width: 48px;
+    color: rgba(244, 247, 251, 0.72);
+  }
+
+  .chat-panel .chat-contacts__archive-label {
+    color: rgba(244, 247, 251, 0.78);
+    font-weight: 500;
+  }
+
+  .chat-panel .chat-contacts__archive-aside {
+    color: rgba(0, 175, 255, 0.85);
   }
 
   .chat-panel .chat-contacts__top {

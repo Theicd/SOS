@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v486'; // bump - desktop delete chat from list
+  const CACHE_NAME = 'sos-cache-v487'; // bump - desktop archive row visible
   const PRECACHE_URLS = [
     './',
     './videos.html',
