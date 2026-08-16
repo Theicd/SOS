@@ -589,58 +589,201 @@
     border: 1px solid rgba(0, 175, 255, 0.28);
   }
 
-  /* Welcome desktop */
+  /* Welcome desktop – כמו הדוגמה: glass + outline icons + זוהר | HYPER CORE TECH */
   .chat-welcome-desktop {
     background:
-      linear-gradient(180deg, rgba(3, 10, 20, 0.45), rgba(3, 10, 20, 0.72)),
+      radial-gradient(ellipse 80% 50% at 50% 20%, rgba(0, 175, 255, 0.12), transparent 55%),
+      linear-gradient(180deg, rgba(3, 10, 20, 0.55), rgba(3, 10, 20, 0.82)),
       url('../icons/chat-desktop-cyber-bg.png') center / cover no-repeat !important;
     border-bottom: none !important;
     color: var(--sos-text) !important;
+    gap: 18px;
+    padding: 28px 24px !important;
+    box-sizing: border-box;
   }
 
   .chat-welcome-desktop__card {
-    background: rgba(6, 18, 32, 0.78) !important;
-    border: 1px solid var(--sos-border) !important;
+    background: rgba(6, 18, 32, 0.72) !important;
+    border: 1px solid rgba(0, 175, 255, 0.45) !important;
+    border-radius: 22px !important;
     box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.4),
-      0 0 28px rgba(0, 175, 255, 0.12) !important;
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+      0 16px 48px rgba(0, 0, 0, 0.45),
+      0 0 32px rgba(0, 175, 255, 0.16) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    max-width: 460px !important;
+    padding: 28px 28px 24px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .chat-welcome-desktop__icon {
+    margin: 0 auto 14px !important;
+  }
+
+  .chat-welcome-desktop__icon img {
+    display: none !important;
+  }
+
+  .chat-welcome-desktop__icon-ring {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+    background:
+      linear-gradient(rgba(6, 18, 32, 0.9), rgba(6, 18, 32, 0.9)) padding-box,
+      linear-gradient(135deg, #00afff, #ff304f) border-box;
+    box-shadow:
+      0 0 18px rgba(0, 175, 255, 0.35),
+      0 0 22px rgba(255, 48, 79, 0.2);
+    color: #e8f7ff;
+  }
+
+  .chat-welcome-icon {
+    width: 28px;
+    height: 28px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .chat-welcome-icon--btn {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+  }
+
+  .chat-welcome-desktop__brand {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(244, 247, 251, 0.92) !important;
+    letter-spacing: 0.2px;
   }
 
   .chat-welcome-desktop__title {
     color: var(--sos-text) !important;
+    font-size: 1.45rem !important;
+    font-weight: 700 !important;
+    line-height: 1.35;
+    margin: 0 0 12px !important;
+  }
+
+  .chat-welcome-desktop__title-brand {
+    color: #00afff;
+    text-shadow: 0 0 12px rgba(0, 175, 255, 0.45);
   }
 
   .chat-welcome-desktop__desc {
     color: var(--sos-muted) !important;
+    font-size: 0.98rem !important;
+    line-height: 1.55;
+    margin: 0 0 22px !important;
   }
 
   .chat-welcome-desktop__install {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 200px;
+    padding: 12px 28px !important;
     background: linear-gradient(135deg, #0868ff, #00afff) !important;
     color: #fff !important;
-    box-shadow: 0 0 22px rgba(0, 175, 255, 0.35);
-    border-radius: 999px !important;
+    box-shadow: 0 0 28px rgba(0, 175, 255, 0.45);
+    border-radius: 14px !important;
+    border: none !important;
+    font-weight: 700;
   }
 
   .chat-welcome-desktop__install:hover {
     background: linear-gradient(135deg, #00afff, #0868ff) !important;
+    filter: brightness(1.05);
+  }
+
+  .chat-welcome-desktop__install.chat-welcome-desktop__uninstall {
+    background: linear-gradient(135deg, #ff304f, #0868ff) !important;
+  }
+
+  .chat-welcome-desktop__actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px !important;
+    width: min(460px, 100%);
+    margin: 0 !important;
   }
 
   .chat-welcome-desktop__action {
-    background: rgba(6, 18, 32, 0.72) !important;
-    border: 1px solid var(--sos-border) !important;
+    position: relative;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px !important;
+    min-height: 110px;
+    padding: 18px 16px !important;
+    background: rgba(6, 18, 32, 0.7) !important;
+    border-radius: 16px !important;
     color: var(--sos-text) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  .chat-welcome-desktop__action--new {
+    border: 1px solid rgba(37, 228, 122, 0.55) !important;
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.28),
+      0 0 18px rgba(37, 228, 122, 0.12);
+  }
+
+  .chat-welcome-desktop__action--new .chat-welcome-icon {
+    color: #25e47a;
+    filter: drop-shadow(0 0 8px rgba(37, 228, 122, 0.55));
+  }
+
+  .chat-welcome-desktop__action--unread {
+    border: 1px solid rgba(0, 175, 255, 0.55) !important;
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.28),
+      0 0 18px rgba(0, 175, 255, 0.14);
+  }
+
+  .chat-welcome-desktop__action--unread .chat-welcome-icon {
+    color: #00afff;
+    filter: drop-shadow(0 0 8px rgba(0, 175, 255, 0.55));
   }
 
   .chat-welcome-desktop__action:hover {
-    border-color: var(--sos-electric) !important;
-    box-shadow: 0 0 16px rgba(0, 175, 255, 0.22);
+    transform: translateY(-2px);
+  }
+
+  .chat-welcome-desktop__action span {
+    font-size: 0.92rem !important;
+    font-weight: 600;
+    color: var(--sos-text) !important;
+  }
+
+  .chat-welcome-desktop__action-arrow {
+    position: absolute;
+    inset-inline-end: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem !important;
+    color: rgba(143, 162, 183, 0.7) !important;
+  }
+
+  .chat-welcome-desktop__action i:not(.chat-welcome-desktop__action-arrow) {
+    display: none !important;
   }
 
   .chat-welcome-desktop__footer {
     color: var(--sos-muted) !important;
+    margin: 4px 0 0 !important;
   }
 }
