@@ -389,11 +389,11 @@
     color: var(--sos-muted) !important;
   }
 
-  /* אייקוני כותרת שיחה – stroke חלול + זוהר כמו סרגל הניווט | HYPER CORE TECH */
+  /* אייקוני כותרת שיחה – stroke חלול + זוהר; גודל תואם להדר/אווטאר | HYPER CORE TECH */
   .chat-panel .chat-conversation__icon,
   .chat-panel .chat-conversation__actions button {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 0 !important;
     display: inline-flex;
     align-items: center;
@@ -410,8 +410,8 @@
   }
 
   .chat-panel .chat-header-icon {
-    width: 1.55rem !important;
-    height: 1.55rem !important;
+    width: 28px !important;
+    height: 28px !important;
     display: block;
     fill: none !important;
     stroke: currentColor !important;
