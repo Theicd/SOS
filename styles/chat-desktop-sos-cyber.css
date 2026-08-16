@@ -389,26 +389,36 @@
     color: var(--sos-muted) !important;
   }
 
+  /* אייקוני כותרת שיחה – בלי עיגול/מסגרת, כמו חץ החזרה | HYPER CORE TECH */
   .chat-panel .chat-conversation__icon,
   .chat-panel .chat-conversation__actions button {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 0 !important;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(6, 18, 32, 0.55);
-    border: 1px solid var(--sos-border);
+    background: transparent !important;
+    border: none !important;
     color: var(--sos-electric) !important;
-    box-shadow: 0 0 12px rgba(0, 175, 255, 0.12);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .chat-panel .chat-conversation__icon:hover,
   .chat-panel .chat-conversation__actions button:hover {
-    border-color: var(--sos-electric);
-    box-shadow: 0 0 16px rgba(0, 175, 255, 0.35);
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--sos-text) !important;
+    filter: drop-shadow(0 0 6px rgba(0, 175, 255, 0.45));
+  }
+
+  .chat-panel .chat-conversation__back {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     color: var(--sos-text) !important;
   }
 
