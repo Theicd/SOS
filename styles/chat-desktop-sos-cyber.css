@@ -389,7 +389,7 @@
     color: var(--sos-muted) !important;
   }
 
-  /* אייקוני כותרת שיחה – בלי עיגול/מסגרת, כמו חץ החזרה | HYPER CORE TECH */
+  /* אייקוני כותרת שיחה – stroke חלול + זוהר כמו סרגל הניווט | HYPER CORE TECH */
   .chat-panel .chat-conversation__icon,
   .chat-panel .chat-conversation__actions button {
     width: 36px;
@@ -404,6 +404,26 @@
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    filter:
+      drop-shadow(0 0 3px rgba(0, 175, 255, 0.9))
+      drop-shadow(0 0 8px rgba(0, 175, 255, 0.55));
+  }
+
+  .chat-panel .chat-header-icon {
+    width: 1.28rem !important;
+    height: 1.28rem !important;
+    display: block;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* נקודות בתפריט ⋮ – מילוי קטן בלבד | HYPER CORE TECH */
+  .chat-panel .chat-conversation__icon--menu .chat-header-icon circle {
+    fill: currentColor !important;
+    stroke: none !important;
   }
 
   .chat-panel .chat-conversation__icon:hover,
@@ -411,8 +431,10 @@
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
-    color: var(--sos-text) !important;
-    filter: drop-shadow(0 0 6px rgba(0, 175, 255, 0.45));
+    color: #e8f7ff !important;
+    filter:
+      drop-shadow(0 0 4px rgba(0, 175, 255, 1))
+      drop-shadow(0 0 12px rgba(0, 175, 255, 0.7));
   }
 
   .chat-panel .chat-conversation__back {
@@ -420,6 +442,7 @@
     border: none !important;
     box-shadow: none !important;
     color: var(--sos-text) !important;
+    filter: none;
   }
 
   /* Composer capsule */

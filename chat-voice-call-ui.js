@@ -1522,7 +1522,11 @@
 
       callButtons.forEach(btn => {
         const icon = btn.querySelector('i');
-        if (icon && (icon.classList.contains('fa-phone') || btn.getAttribute('aria-label') === 'שיחת קול')) {
+        if (
+          btn.classList.contains('chat-conversation__icon--voice') ||
+          btn.getAttribute('aria-label') === 'שיחת קול' ||
+          (icon && icon.classList.contains('fa-phone'))
+        ) {
           phoneButton = btn;
         }
       });

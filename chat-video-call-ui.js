@@ -836,7 +836,7 @@
       if (!btn){
         btn = doc.createElement('button');
         btn.type='button'; btn.className='chat-conversation__icon chat-conversation__icon--video'; btn.setAttribute('aria-label','שיחת וידאו');
-        btn.innerHTML = '<i class="fa-solid fa-video"></i>';
+        btn.innerHTML = '<svg class="chat-header-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="7" width="12.5" height="10" rx="2"/><path d="M16 10.2 20.5 7.5v9L16 13.8z"/></svg>';
         actions.insertBefore(btn, actions.firstChild);
       }
       const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn);

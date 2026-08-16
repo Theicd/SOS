@@ -1292,6 +1292,23 @@ body.chat-overlay-open::before {
   z-index: 6;
 }
 
+/* אייקוני כותרת שיחה (SVG stroke) – בסיס לכל המסכים | HYPER CORE TECH */
+.chat-header-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chat-conversation__icon--menu .chat-header-icon circle {
+  fill: currentColor;
+  stroke: none;
+}
+
 .chat-composer__send:hover {
   color: var(--primary-hover);
 }
