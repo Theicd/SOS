@@ -589,56 +589,135 @@
     border: 1px solid rgba(0, 175, 255, 0.28);
   }
 
-  /* Welcome desktop – כמו הדוגמה: glass + outline icons + זוהר | HYPER CORE TECH */
+  /* Welcome desktop – מדויק לדוגמה: פינות רכות, כרטיסיות דקות, אייקון עם כנפיים | HYPER CORE TECH */
   .chat-welcome-desktop {
     background:
-      radial-gradient(ellipse 80% 50% at 50% 20%, rgba(0, 175, 255, 0.12), transparent 55%),
-      linear-gradient(180deg, rgba(3, 10, 20, 0.55), rgba(3, 10, 20, 0.82)),
+      radial-gradient(ellipse 70% 45% at 50% 18%, rgba(0, 175, 255, 0.1), transparent 58%),
+      linear-gradient(180deg, rgba(3, 10, 20, 0.5), rgba(3, 10, 20, 0.78)),
       url('../icons/chat-desktop-cyber-bg.png') center / cover no-repeat !important;
     border-bottom: none !important;
     color: var(--sos-text) !important;
-    gap: 18px;
-    padding: 28px 24px !important;
+    gap: 16px;
+    padding: 32px 28px !important;
     box-sizing: border-box;
   }
 
   .chat-welcome-desktop__card {
-    background: rgba(6, 18, 32, 0.72) !important;
-    border: 1px solid rgba(0, 175, 255, 0.45) !important;
-    border-radius: 22px !important;
+    background: rgba(8, 20, 36, 0.62) !important;
+    border: 1px solid rgba(0, 200, 255, 0.55) !important;
+    border-radius: 28px !important;
     box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.45),
-      0 0 32px rgba(0, 175, 255, 0.16) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    max-width: 460px !important;
-    padding: 28px 28px 24px !important;
+      0 12px 40px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(0, 175, 255, 0.08),
+      0 0 36px rgba(0, 175, 255, 0.18) !important;
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    max-width: 480px !important;
+    width: min(480px, 92%) !important;
+    padding: 26px 32px 28px !important;
     margin-bottom: 0 !important;
   }
 
   .chat-welcome-desktop__icon {
-    margin: 0 auto 14px !important;
+    margin: 2px auto 12px !important;
+    width: auto !important;
+    height: auto !important;
   }
 
   .chat-welcome-desktop__icon img {
     display: none !important;
   }
 
+  .chat-welcome-desktop__icon-deco {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    position: relative;
+  }
+
+  .chat-welcome-desktop__icon-wing {
+    width: 56px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.85));
+    box-shadow: 0 0 8px rgba(0, 175, 255, 0.55);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .chat-welcome-desktop__icon-wing--left {
+    background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.9));
+  }
+
+  .chat-welcome-desktop__icon-wing--left::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #00d4ff;
+    box-shadow: 0 0 8px #00afff;
+    transform: translate(-50%, -50%);
+  }
+
+  .chat-welcome-desktop__icon-wing--right {
+    background: linear-gradient(90deg, rgba(0, 200, 255, 0.9), transparent);
+  }
+
+  .chat-welcome-desktop__icon-wing--right::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #00d4ff;
+    box-shadow: 0 0 8px #00afff;
+    transform: translate(50%, -50%);
+  }
+
   .chat-welcome-desktop__icon-ring {
-    width: 72px;
-    height: 72px;
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin: 0 10px;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid transparent;
-    background:
-      linear-gradient(rgba(6, 18, 32, 0.9), rgba(6, 18, 32, 0.9)) padding-box,
-      linear-gradient(135deg, #00afff, #ff304f) border-box;
+    background: rgba(6, 16, 28, 0.95);
+    border: 1.5px solid rgba(0, 200, 255, 0.75);
     box-shadow:
-      0 0 18px rgba(0, 175, 255, 0.35),
-      0 0 22px rgba(255, 48, 79, 0.2);
-    color: #e8f7ff;
+      0 0 16px rgba(0, 175, 255, 0.45),
+      0 0 28px rgba(0, 175, 255, 0.22),
+      inset 0 0 12px rgba(0, 175, 255, 0.12);
+    color: #f0f8ff;
+    z-index: 1;
+  }
+
+  /* קשת אדומה-כתומה בחלק העליון-ימין כמו בדוגמה */
+  .chat-welcome-desktop__icon-orbit {
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+    pointer-events: none;
+    background: conic-gradient(
+      from 200deg,
+      transparent 0deg,
+      transparent 140deg,
+      rgba(255, 80, 60, 0.05) 160deg,
+      #ff5a3c 195deg,
+      #ff8a4a 220deg,
+      rgba(0, 200, 255, 0.35) 250deg,
+      transparent 280deg,
+      transparent 360deg
+    );
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+    filter: drop-shadow(0 0 4px rgba(255, 90, 60, 0.65));
   }
 
   .chat-welcome-icon {
@@ -652,38 +731,56 @@
     stroke-linejoin: round;
   }
 
+  .chat-welcome-icon--hero {
+    width: 26px;
+    height: 26px;
+    stroke-width: 1.85;
+    filter: drop-shadow(0 0 6px rgba(0, 200, 255, 0.4));
+  }
+
   .chat-welcome-icon--btn {
-    width: 18px;
-    height: 18px;
-    stroke-width: 2;
+    width: 17px;
+    height: 17px;
+    stroke-width: 2.1;
+  }
+
+  .chat-welcome-icon--action {
+    width: 38px !important;
+    height: 38px !important;
+    stroke-width: 1.55;
   }
 
   .chat-welcome-desktop__brand {
-    margin: 0 0 8px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: rgba(244, 247, 251, 0.92) !important;
-    letter-spacing: 0.2px;
+    margin: 0 0 6px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: rgba(244, 247, 251, 0.88) !important;
+    letter-spacing: 0.15px;
   }
 
   .chat-welcome-desktop__title {
     color: var(--sos-text) !important;
-    font-size: 1.45rem !important;
+    font-size: 1.42rem !important;
     font-weight: 700 !important;
-    line-height: 1.35;
-    margin: 0 0 12px !important;
+    line-height: 1.4;
+    margin: 0 0 10px !important;
   }
 
   .chat-welcome-desktop__title-brand {
-    color: #00afff;
-    text-shadow: 0 0 12px rgba(0, 175, 255, 0.45);
+    color: #00c8ff;
+    background: linear-gradient(90deg, #00afff, #4dd4ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(0, 175, 255, 0.45));
   }
 
   .chat-welcome-desktop__desc {
-    color: var(--sos-muted) !important;
-    font-size: 0.98rem !important;
+    color: rgba(180, 198, 214, 0.92) !important;
+    font-size: 0.95rem !important;
     line-height: 1.55;
-    margin: 0 0 22px !important;
+    margin: 0 auto 22px !important;
+    max-width: 380px;
   }
 
   .chat-welcome-desktop__install {
@@ -691,30 +788,33 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    min-width: 200px;
-    padding: 12px 28px !important;
-    background: linear-gradient(135deg, #0868ff, #00afff) !important;
+    min-width: 210px;
+    padding: 11px 32px !important;
+    background: linear-gradient(90deg, #0868ff 0%, #0098ff 50%, #00b4ff 100%) !important;
     color: #fff !important;
-    box-shadow: 0 0 28px rgba(0, 175, 255, 0.45);
-    border-radius: 14px !important;
+    box-shadow:
+      0 0 22px rgba(0, 160, 255, 0.55),
+      0 6px 18px rgba(0, 100, 255, 0.25);
+    border-radius: 999px !important;
     border: none !important;
     font-weight: 700;
+    font-size: 1rem;
   }
 
   .chat-welcome-desktop__install:hover {
-    background: linear-gradient(135deg, #00afff, #0868ff) !important;
-    filter: brightness(1.05);
+    background: linear-gradient(90deg, #00b4ff 0%, #0098ff 50%, #0868ff 100%) !important;
+    filter: brightness(1.06);
   }
 
   .chat-welcome-desktop__install.chat-welcome-desktop__uninstall {
-    background: linear-gradient(135deg, #ff304f, #0868ff) !important;
+    background: linear-gradient(90deg, #ff304f, #0868ff) !important;
   }
 
   .chat-welcome-desktop__actions {
     display: grid !important;
     grid-template-columns: 1fr 1fr;
-    gap: 14px !important;
-    width: min(460px, 100%);
+    gap: 12px !important;
+    width: min(480px, 92%);
     margin: 0 !important;
   }
 
@@ -724,58 +824,60 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px !important;
-    min-height: 110px;
-    padding: 18px 16px !important;
-    background: rgba(6, 18, 32, 0.7) !important;
-    border-radius: 16px !important;
+    gap: 8px !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 14px 28px 12px !important;
+    background: rgba(8, 20, 36, 0.55) !important;
+    border-radius: 18px !important;
     color: var(--sos-text) !important;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
   }
 
   .chat-welcome-desktop__action--new {
-    border: 1px solid rgba(37, 228, 122, 0.55) !important;
+    border: 1px solid rgba(37, 228, 122, 0.5) !important;
     box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.28),
-      0 0 18px rgba(37, 228, 122, 0.12);
+      0 4px 16px rgba(0, 0, 0, 0.22),
+      0 0 14px rgba(37, 228, 122, 0.14);
   }
 
-  .chat-welcome-desktop__action--new .chat-welcome-icon {
-    color: #25e47a;
-    filter: drop-shadow(0 0 8px rgba(37, 228, 122, 0.55));
+  .chat-welcome-desktop__action--new .chat-welcome-icon--action {
+    color: #2eff9a;
+    filter: drop-shadow(0 0 10px rgba(37, 228, 122, 0.65));
   }
 
   .chat-welcome-desktop__action--unread {
-    border: 1px solid rgba(0, 175, 255, 0.55) !important;
+    border: 1px solid rgba(0, 200, 255, 0.5) !important;
     box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.28),
-      0 0 18px rgba(0, 175, 255, 0.14);
+      0 4px 16px rgba(0, 0, 0, 0.22),
+      0 0 14px rgba(0, 175, 255, 0.16);
   }
 
-  .chat-welcome-desktop__action--unread .chat-welcome-icon {
-    color: #00afff;
-    filter: drop-shadow(0 0 8px rgba(0, 175, 255, 0.55));
+  .chat-welcome-desktop__action--unread .chat-welcome-icon--action {
+    color: #00c8ff;
+    filter: drop-shadow(0 0 10px rgba(0, 175, 255, 0.65));
   }
 
   .chat-welcome-desktop__action:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
   }
 
   .chat-welcome-desktop__action span {
-    font-size: 0.92rem !important;
+    font-size: 0.9rem !important;
     font-weight: 600;
     color: var(--sos-text) !important;
+    line-height: 1.25;
   }
 
   .chat-welcome-desktop__action-arrow {
     position: absolute;
-    inset-inline-end: 14px;
+    inset-inline-start: 12px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 0.75rem !important;
-    color: rgba(143, 162, 183, 0.7) !important;
+    font-size: 0.7rem !important;
+    color: rgba(143, 162, 183, 0.55) !important;
   }
 
   .chat-welcome-desktop__action i:not(.chat-welcome-desktop__action-arrow) {
@@ -784,6 +886,7 @@
 
   .chat-welcome-desktop__footer {
     color: var(--sos-muted) !important;
-    margin: 4px 0 0 !important;
+    margin: 2px 0 0 !important;
+    font-size: 0.85rem;
   }
 }
