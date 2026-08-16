@@ -923,18 +923,36 @@ body.chat-overlay-open::before {
   font-size: 0.95rem;
   color: var(--text);
   border: 1px solid var(--border);
+  position: relative;
 }
 
 .chat-contact__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 
-/* חלק P2P (chat.css) – מסגרת ירוקה לאווטאר ברשימה כשיש חיבור ישיר | HYPER CORE TECH */
+/* חלק P2P (chat.css) – מנורה ירוקה על האווטאר כשיש חיבור ישיר (בלי מסגרת) | HYPER CORE TECH */
 .chat-contact__avatar--p2p {
-  border-color: #25D366;
-  box-shadow: 0 0 0 2px #25D366;
+  overflow: visible;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.chat-contact__avatar--p2p::after {
+  content: '';
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #25D366;
+  border: 2px solid #000;
+  box-shadow: 0 0 6px rgba(37, 211, 102, 0.75);
+  inset-inline-start: 0;
+  bottom: 0;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .chat-contact__body {
@@ -2138,17 +2156,35 @@ body.chat-media-modal-open {
     flex-shrink: 0;
     background-color: #667781;
     border: none;
+    position: relative;
   }
 
   .chat-panel .chat-contact__avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
   }
 
   .chat-panel .chat-contact__avatar--p2p {
-    border: 2px solid #25D366;
-    box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.35);
+    overflow: visible;
+    border: none;
+    box-shadow: none;
+  }
+
+  .chat-panel .chat-contact__avatar--p2p::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #25D366;
+    border: 2px solid #111b21;
+    box-shadow: 0 0 6px rgba(37, 211, 102, 0.75);
+    inset-inline-start: 0;
+    bottom: 0;
+    z-index: 2;
+    pointer-events: none;
   }
 
   /* === מידע שיחה === */

@@ -404,23 +404,26 @@
     border: 1px solid var(--sos-border) !important;
   }
 
+  /* P2P – מנורה ירוקה בלבד (בלי מסגרת מסביב) כמו הדוגמה | HYPER CORE TECH */
   .chat-panel .chat-contact__avatar--p2p {
-    border-color: var(--sos-green) !important;
-    box-shadow: 0 0 0 1px rgba(37, 228, 122, 0.35), 0 0 12px rgba(37, 228, 122, 0.25) !important;
+    overflow: visible !important;
+    border-color: var(--sos-border) !important;
+    box-shadow: none !important;
   }
 
   .chat-panel .chat-contact__avatar--p2p::after {
     content: '';
     position: absolute;
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: var(--sos-green);
     box-shadow: 0 0 8px rgba(37, 228, 122, 0.85);
-    border: 2px solid var(--sos-bg);
-    inset-inline-start: 1px;
-    bottom: 1px;
+    border: 2px solid #000;
+    inset-inline-start: 0;
+    bottom: 0;
     z-index: 2;
+    pointer-events: none;
   }
 
   /* אזור שיחה + רקע עיר/רשת שקט */
