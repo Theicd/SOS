@@ -990,19 +990,6 @@
   }
 
   /* תפריט ⋮ דסקטופ – יישור כמו וואטסאפ: עמודת אייקון + שורות מלאות + מסגרת עדינה | HYPER CORE TECH */
-  .chat-panel .chat-conversation__menu-item--mobile-only {
-    display: none !important;
-  }
-
-  .chat-panel .chat-conversation__menu-item--desktop-only {
-    display: flex !important;
-  }
-
-  .chat-panel .chat-conversation__menu-item--desktop-only[hidden],
-  .chat-panel .chat-conversation__menu-item[hidden] {
-    display: none !important;
-  }
-
   .chat-panel .chat-conversation__menu {
     direction: rtl !important;
     display: flex !important;
@@ -1022,6 +1009,13 @@
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
     box-sizing: border-box !important;
+  }
+
+  /* חובה אחרי display:flex – אחרת [hidden] נשאר גלוי במצב סגור | HYPER CORE TECH */
+  .chat-panel .chat-conversation__menu[hidden] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 
   .chat-panel .chat-conversation__menu-item {
@@ -1044,6 +1038,20 @@
     line-height: 1.25 !important;
     box-sizing: border-box !important;
     white-space: nowrap !important;
+  }
+
+  /* אחרי display:flex של הפריט – מובייל בלבד נשאר מוסתר בדסקטופ | HYPER CORE TECH */
+  .chat-panel .chat-conversation__menu-item--mobile-only {
+    display: none !important;
+  }
+
+  .chat-panel .chat-conversation__menu-item--desktop-only {
+    display: flex !important;
+  }
+
+  .chat-panel .chat-conversation__menu-item--desktop-only[hidden],
+  .chat-panel .chat-conversation__menu-item[hidden] {
+    display: none !important;
   }
 
   .chat-panel .chat-conversation__menu-item i {
