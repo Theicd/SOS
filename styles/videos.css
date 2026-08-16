@@ -5206,6 +5206,12 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
+  .chat-contacts--archive-view .chat-contacts__archive,
+  .chat-panel--archive-view .chat-contacts__archive,
+  .chat-contacts__archive[hidden] {
+    display: none !important;
+  }
+
   .chat-contacts__archive-main > i {
     width: 56px !important;
     color: rgba(255, 255, 255, 0.7) !important;

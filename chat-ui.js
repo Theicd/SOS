@@ -4767,8 +4767,16 @@
       else elements.archiveViewBar.setAttribute('hidden', '');
     }
     if (elements.archiveRow) {
-      if (inArchive) elements.archiveRow.setAttribute('hidden', '');
-      else elements.archiveRow.removeAttribute('hidden');
+      // הסתרה חזקה – videos.css מאלץ display:flex !important על השורה | HYPER CORE TECH
+      if (inArchive) {
+        elements.archiveRow.setAttribute('hidden', '');
+        elements.archiveRow.setAttribute('aria-hidden', 'true');
+        elements.archiveRow.style.setProperty('display', 'none', 'important');
+      } else {
+        elements.archiveRow.removeAttribute('hidden');
+        elements.archiveRow.removeAttribute('aria-hidden');
+        elements.archiveRow.style.removeProperty('display');
+      }
     }
     updateArchiveRowUnreadDot();
   }
@@ -4778,9 +4786,10 @@
     const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
     const archivedUnread = contacts.some((c) => c?.archived && (c.unreadCount || 0) > 0);
     elements.archiveRow.classList.toggle('chat-contacts__archive--has-unread', archivedUnread);
+    // נקודת המסגרת בקצה השורה תמיד גלויה (לא רק כשיש לא נקרא) | HYPER CORE TECH
     const aside = elements.archiveRow.querySelector('.chat-contacts__archive-aside');
     if (aside) {
-      aside.style.visibility = archivedUnread ? 'visible' : 'hidden';
+      aside.style.removeProperty('visibility');
     }
   }
 

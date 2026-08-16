@@ -492,7 +492,9 @@ body.chat-overlay-open::before {
   display: flex;
 }
 
-.chat-contacts--archive-view .chat-contacts__archive {
+.chat-contacts--archive-view .chat-contacts__archive,
+.chat-panel--archive-view .chat-contacts__archive,
+.chat-contacts__archive[hidden] {
   display: none !important;
 }
 
@@ -2151,6 +2153,12 @@ body.chat-media-modal-open {
     font: inherit;
     text-align: start;
     flex-shrink: 0;
+  }
+
+  .chat-panel.chat-panel--archive-view .chat-contacts__archive,
+  .chat-panel .chat-contacts--archive-view .chat-contacts__archive,
+  .chat-panel .chat-contacts__archive[hidden] {
+    display: none !important;
   }
 
   .chat-panel .chat-contacts__archive:hover,

@@ -303,6 +303,12 @@
     background: transparent !important;
   }
 
+  .chat-panel.chat-panel--archive-view .chat-contacts__archive,
+  .chat-panel .chat-contacts--archive-view .chat-contacts__archive,
+  .chat-panel .chat-contacts__archive[hidden] {
+    display: none !important;
+  }
+
   .chat-panel .chat-contacts__archive:hover,
   .chat-panel .chat-contacts__archive:active {
     background: rgba(0, 175, 255, 0.06) !important;
