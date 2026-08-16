@@ -205,7 +205,8 @@
 
   .chat-panel .chat-sidebar-header {
     background: #000 !important;
-    border-bottom: 1px solid rgba(0, 200, 255, 0.55);
+    /* פס מתחת ללוגו – עדין יותר | HYPER CORE TECH */
+    border-bottom: 1px solid rgba(40, 170, 255, 0.16);
   }
 
   .chat-panel .chat-contacts__list {
@@ -292,7 +293,7 @@
     text-align: center !important;
   }
 
-  /* רשימת שיחות שטוחה – בלי כרטיסיות, רק פס הפרדה | HYPER CORE TECH */
+  /* רשימת שיחות שטוחה – מפרידים עדינים שלא מגיעים לקצוות המסגרת | HYPER CORE TECH */
   .chat-panel .chat-contact {
     height: auto !important;
     min-height: 72px;
@@ -301,7 +302,6 @@
     border-radius: 0 !important;
     background: transparent !important;
     border: none !important;
-    border-bottom: 1px solid rgba(40, 170, 255, 0.28) !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -311,8 +311,19 @@
     overflow: visible;
   }
 
-  .chat-panel .chat-contact:last-child {
-    border-bottom: none !important;
+  .chat-panel .chat-contact::after {
+    content: '';
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 0;
+    height: 1px;
+    background: rgba(40, 170, 255, 0.12);
+    pointer-events: none;
+  }
+
+  .chat-panel .chat-contact:last-child::after {
+    display: none;
   }
 
   .chat-panel .chat-contact__body {
@@ -324,7 +335,6 @@
   .chat-panel .chat-contact:hover {
     transform: none !important;
     border-color: transparent !important;
-    border-bottom-color: rgba(40, 170, 255, 0.28) !important;
     box-shadow: none !important;
     background: rgba(0, 175, 255, 0.06) !important;
   }
@@ -332,7 +342,6 @@
   .chat-panel .chat-contact--active {
     background: rgba(8, 104, 255, 0.14) !important;
     border: none !important;
-    border-bottom: 1px solid rgba(40, 170, 255, 0.28) !important;
     background-image: none !important;
     box-shadow: inset -3px 0 0 #00afff !important;
   }
