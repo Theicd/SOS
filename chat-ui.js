@@ -4813,6 +4813,31 @@
     }
   }
 
+  function showChatCenterHint(message) {
+    const text = String(message || '').trim();
+    if (!text) return;
+    try {
+      doc.querySelectorAll('.sos-chat-center-hint').forEach((el) => el.remove());
+    } catch (_) {}
+    const hint = doc.createElement('div');
+    hint.className = 'sos-back-exit-hint sos-chat-center-hint';
+    hint.setAttribute('role', 'status');
+    hint.setAttribute('aria-live', 'polite');
+    const span = doc.createElement('span');
+    span.textContent = text;
+    hint.appendChild(span);
+    doc.body.appendChild(hint);
+    requestAnimationFrame(() => {
+      try { hint.classList.add('is-visible'); } catch (_) {}
+    });
+    setTimeout(() => {
+      try { hint.classList.remove('is-visible'); } catch (_) {}
+      setTimeout(() => {
+        try { hint.remove(); } catch (_) {}
+      }, 220);
+    }, 2000);
+  }
+
   function archiveActiveConversation() {
     const peer = state.activeContact;
     if (!peer) return;
@@ -4829,7 +4854,7 @@
       setContactsView('main');
       renderContacts(true);
     }
-    try { App.showToast?.('הועבר לארכיון'); } catch (_) {}
+    showChatCenterHint('הועבר לארכיון');
   }
 
   function unarchiveActiveConversation() {
@@ -4843,7 +4868,7 @@
     }
     syncConversationArchiveMenuItems();
     renderContacts(true);
-    try { App.showToast?.('הוחזר לרשימת השיחות'); } catch (_) {}
+    showChatCenterHint('הוחזר לרשימת השיחות');
   }
 
   function renderContacts(force = false) {
