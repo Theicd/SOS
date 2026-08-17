@@ -4962,9 +4962,9 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     box-shadow: none !important;
     border: none !important;
     border-top: none !important;
-    background: #14161a !important; /* רקע אטום מלא */
+    background: #000 !important; /* שחור כמו התפריט – בלי פס אפור במרווח התחתון | HYPER CORE TECH */
     padding-top: max(10px, env(safe-area-inset-top, 0px)) !important; /* רק safe-area – בלי top-bar של הפיד | HYPER CORE TECH */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important; /* מרווח לתפריט; מקלדת = vv-pin לא padding | HYPER CORE TECH */
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; /* מרווח בדיוק לגובה primary-nav | HYPER CORE TECH */
     z-index: 2000 !important; /* מעל הכל (כולל Top Bar) אך מתחת לתפריט התחתון (2001) */
     box-sizing: border-box !important; /* מונע חריגה מהמסך בגלל הפאדינג */
   }
@@ -5123,15 +5123,41 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     right: 14px !important;
     bottom: 0 !important;
     height: 1px !important;
-    background: rgba(40, 170, 255, 0.12) !important;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 175, 255, 0.15) 18%,
+      rgba(0, 175, 255, 0.55) 50%,
+      rgba(0, 175, 255, 0.15) 82%,
+      transparent 100%
+    ) !important;
+    background-size: 220% 100% !important;
+    animation: chatContactDividerSweep 7s ease-in-out infinite !important;
     pointer-events: none !important;
     display: block !important;
+    opacity: 1 !important;
   }
 
   .chat-contact:last-child::after,
   .chat-panel .chat-contact:last-child::after,
   #chatPanel .chat-contact:last-child::after {
     display: none !important;
+  }
+
+  @keyframes chatContactDividerSweep {
+    0%, 100% { background-position: 100% 0; opacity: 0.55; }
+    50% { background-position: 0% 0; opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chat-contact::after,
+    .chat-panel .chat-contact::after,
+    #chatPanel .chat-contact::after {
+      animation: none !important;
+      background: rgba(0, 175, 255, 0.35) !important;
+      background-size: auto !important;
+      opacity: 1 !important;
+    }
   }
 
   .chat-contact:hover,

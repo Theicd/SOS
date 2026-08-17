@@ -1504,13 +1504,27 @@
     right: 14px !important;
     bottom: 0 !important;
     height: 1px !important;
-    background: rgba(40, 170, 255, 0.12) !important;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 175, 255, 0.15) 18%,
+      rgba(0, 175, 255, 0.55) 50%,
+      rgba(0, 175, 255, 0.15) 82%,
+      transparent 100%
+    ) !important;
+    background-size: 220% 100% !important;
+    animation: chatContactDividerSweep 7s ease-in-out infinite !important;
     pointer-events: none !important;
     display: block !important;
   }
 
   .chat-panel .chat-contact:last-child::after {
     display: none !important;
+  }
+
+  .chat-panel,
+  .chat-panel .chat-contacts {
+    background: #000 !important;
   }
 
   .chat-panel .chat-contact__body {
