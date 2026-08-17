@@ -84,6 +84,12 @@
             <i class="fa-solid fa-play"></i>
           </button>
           <div class="chat-audio-whatsapp__content">
+            <div class="chat-audio-whatsapp__eq" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
             <div class="chat-audio-whatsapp__track">
               <div class="chat-audio-whatsapp__progress" style="width:0%"></div>
               <div class="chat-audio-whatsapp__seeker" style="left:0%"></div>
@@ -145,6 +151,15 @@
     const seeker = container.querySelector('.chat-audio-whatsapp__seeker');
     const timeEl = container.querySelector('.chat-audio-whatsapp__time');
     const track = container.querySelector('.chat-audio-whatsapp__track');
+    const shell = container.querySelector('.chat-audio-whatsapp');
+    let isPlaying = false;
+    let loadAttempted = false;
+
+    const setPlayingUi = (playing) => {
+      isPlaying = !!playing;
+      if (shell) shell.classList.toggle('is-playing', !!playing);
+      if (container) container.classList.toggle('is-playing', !!playing);
+    };
     
     if (!audio || !btn) {
       console.warn('[AUDIO] Missing audio element or button in container');
@@ -179,9 +194,6 @@
       return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     };
     
-    let isPlaying = false;
-    let loadAttempted = false;
-    
     // חלק טעינה (chat-audio-player.js) – עדכון זמן בטעינת מטאדאטה | HYPER CORE TECH
     audio.addEventListener('loadedmetadata', () => {
       console.log('[AUDIO] Metadata loaded, duration:', audio.duration);
@@ -204,7 +216,7 @@
     // חלק מצב נגן (chat-audio-player.js) – סנכרון כפתור גם בהפעלה אוטומטית | HYPER CORE TECH
     audio.addEventListener('play', () => {
       if (btn) btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-      isPlaying = true;
+      setPlayingUi(true);
       if (container?.dataset?.autoplayPending) {
         delete container.dataset.autoplayPending;
       }
@@ -212,7 +224,7 @@
     audio.addEventListener('pause', () => {
       if (audio.ended) return;
       if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-      isPlaying = false;
+      setPlayingUi(false);
     });
     
     // חלק ניגון (chat-audio-player.js) – toggle play/pause | HYPER CORE TECH
@@ -245,7 +257,7 @@
         if (playPromise) {
           playPromise.then(() => {
             btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-            isPlaying = true;
+            setPlayingUi(true);
           }).catch((err) => {
             console.error('[AUDIO] Play failed:', err);
             mediaDebugLog('audio-play-failed', { error: err?.message || String(err) });
@@ -262,7 +274,7 @@
         }
         audio.pause();
         btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        isPlaying = false;
+        setPlayingUi(false);
         mediaDebugLog('audio-pause', { currentTime: audio.currentTime || 0 });
       }
     };
@@ -293,7 +305,7 @@
     // חלק סיום (chat-audio-player.js) – איפוס כפתור בסיום | HYPER CORE TECH
     audio.addEventListener('ended', () => {
       btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-      isPlaying = false;
+      setPlayingUi(false);
       if (progressBar) {
         progressBar.style.width = '0%';
       }
