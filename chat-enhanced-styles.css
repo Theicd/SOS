@@ -979,6 +979,15 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.chat-lightbox__download.is-downloading,
+.chat-message__media-download.is-downloading,
+.chat-message__media-download--side.is-downloading,
+.chat-file-bubble__download.is-downloading {
+  cursor: wait;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
 .chat-lightbox__delete {
   color: #ea4335;
 }

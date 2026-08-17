@@ -315,6 +315,7 @@
 
   async function downloadChatMediaFromButton(btn) {
     if (!btn || typeof btn.getAttribute !== 'function') return false;
+    if (btn.dataset.dlBusy === '1' || btn.disabled) return false;
     const name =
       String(btn.getAttribute('data-filename') || btn.getAttribute('aria-label') || 'sos-file')
         .replace(/^הורד\s+/u, '')
@@ -322,24 +323,53 @@
     const fallback = String(btn.getAttribute('data-download-url') || '').trim();
     const fileId = String(btn.getAttribute('data-file-id') || '').trim();
     const cacheKey = String(btn.getAttribute('data-cache-key') || '').trim();
-    let src = resolveLiveChatDownloadSrc(btn);
-    if (!src) src = fallback;
-    if ((!src || src.startsWith('blob:')) && (fileId || cacheKey)) {
-      try {
-        const restored = await resolveChatMediaSrc({
-          url: src || '',
-          fileId: fileId || undefined,
-          cacheKey: cacheKey || undefined,
-          name,
-        });
-        if (restored) src = restored;
-      } catch (_) {}
+
+    if (!setDownloadButtonBusy(btn, true)) return false;
+    try {
+      let src = resolveLiveChatDownloadSrc(btn);
+      if (!src) src = fallback;
+      if ((!src || src.startsWith('blob:')) && (fileId || cacheKey)) {
+        try {
+          const restored = await resolveChatMediaSrc({
+            url: src || '',
+            fileId: fileId || undefined,
+            cacheKey: cacheKey || undefined,
+            name,
+          });
+          if (restored) src = restored;
+        } catch (_) {}
+      }
+      if (!src) {
+        console.warn('[CHAT-MEDIA] download: no live src');
+        return false;
+      }
+      return await downloadChatMedia(src, name);
+    } finally {
+      setDownloadButtonBusy(btn, false);
     }
-    if (!src) {
-      console.warn('[CHAT-MEDIA] download: no live src');
-      return false;
+  }
+
+  // משוב מיידי + חסימת לחיצות כפולות בזמן הורדה | HYPER CORE TECH
+  function setDownloadButtonBusy(btn, busy) {
+    if (!btn) return false;
+    if (busy) {
+      if (btn.dataset.dlBusy === '1') return false;
+      btn.dataset.dlBusy = '1';
+      btn.disabled = true;
+      btn.classList.add('is-downloading');
+      btn.setAttribute('aria-busy', 'true');
+      if (!btn.dataset.dlDefaultHtml) btn.dataset.dlDefaultHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>';
+      return true;
     }
-    return downloadChatMedia(src, name);
+    btn.dataset.dlBusy = '0';
+    btn.disabled = false;
+    btn.classList.remove('is-downloading');
+    btn.removeAttribute('aria-busy');
+    if (btn.dataset.dlDefaultHtml) {
+      btn.innerHTML = btn.dataset.dlDefaultHtml;
+    }
+    return true;
   }
 
   async function downloadChatMedia(url, filename) {
@@ -2558,7 +2588,14 @@
     lightbox.querySelector('.chat-lightbox__download')?.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (typeof onPrimaryAction === 'function') onPrimaryAction(event);
+      const btn = event.currentTarget;
+      if (!btn || btn.dataset.dlBusy === '1' || btn.disabled) return;
+      if (!setDownloadButtonBusy(btn, true)) return;
+      Promise.resolve(typeof onPrimaryAction === 'function' ? onPrimaryAction(event) : null)
+        .catch(() => {})
+        .finally(() => {
+          setDownloadButtonBusy(btn, false);
+        });
     });
     lightbox.querySelector('.chat-lightbox__share')?.addEventListener('click', (event) => {
       event.preventDefault();
@@ -2741,7 +2778,7 @@
       onPrimaryAction: () => {
         App.__sosSuppressChatOutsideClose = true;
         const fileName = item.name || (item.kind === 'video' ? 'video.mp4' : 'image.jpg');
-        Promise.resolve(downloadChatMedia(item.src, fileName)).finally(() => {
+        return Promise.resolve(downloadChatMedia(item.src, fileName)).finally(() => {
           setTimeout(() => { App.__sosSuppressChatOutsideClose = false; }, 800);
         });
       },
