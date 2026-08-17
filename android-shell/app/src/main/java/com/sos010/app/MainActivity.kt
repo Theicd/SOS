@@ -1499,13 +1499,20 @@ class MainActivity : AppCompatActivity() {
         toast("מוריד עדכון לאפליקציה…")
         Thread({
             try {
+                val resolvedUrl = normalizeApkDownloadUrl(apkUrl)
+                SosDebugLog.i("apk", "download start $resolvedUrl")
                 val client = okhttp3.OkHttpClient.Builder()
                     .followRedirects(true)
                     .followSslRedirects(true)
+                    .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(10, java.util.concurrent.TimeUnit.MINUTES)
+                    .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                    .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
                     .build()
                 val req = okhttp3.Request.Builder()
-                    .url(apkUrl)
+                    .url(resolvedUrl)
                     .header("User-Agent", "SOSNativeShell/${BuildConfig.VERSION_NAME}")
+                    .header("Accept", "application/octet-stream,*/*")
                     .get()
                     .build()
                 client.newCall(req).execute().use { resp ->
@@ -1513,13 +1520,25 @@ class MainActivity : AppCompatActivity() {
                         throw IllegalStateException("HTTP ${resp.code}")
                     }
                     val body = resp.body ?: throw IllegalStateException("empty body")
+                    val declared = body.contentLength()
                     val outDir = java.io.File(cacheDir, "updates").apply { mkdirs() }
                     val outFile = java.io.File(outDir, "sos-update.apk")
                     body.byteStream().use { input ->
                         outFile.outputStream().use { output -> input.copyTo(output) }
                     }
-                    if (!outFile.exists() || outFile.length() < 50_000L) {
-                        throw IllegalStateException("apk too small")
+                    val size = outFile.length()
+                    SosDebugLog.i("apk", "download done bytes=$size declared=$declared")
+                    if (!outFile.exists() || size < 50_000L) {
+                        throw IllegalStateException("apk too small ($size)")
+                    }
+                    // דף HTML/שגיאה מ-GitHub במקום APK | HYPER CORE TECH
+                    outFile.inputStream().use { peek ->
+                        val magic = ByteArray(4)
+                        val n = peek.read(magic)
+                        val isZip = n >= 2 && magic[0] == 0x50.toByte() && magic[1] == 0x4B.toByte()
+                        if (!isZip) {
+                            throw IllegalStateException("not an apk/zip payload")
+                        }
                     }
                     pendingApkUpdateFile = outFile
                     mainHandler.post {
@@ -1529,12 +1548,30 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "startApkUpdateInstall failed", e)
+                SosDebugLog.e("apk", "download failed: ${e.message}")
                 mainHandler.post {
                     apkUpdateInFlight = false
                     toast("הורדת העדכון נכשלה")
                 }
             }
         }, "sos-apk-update").start()
+    }
+
+    /** github.com/.../raw/... → raw.githubusercontent.com ליציבות הורדה | HYPER CORE TECH */
+    private fun normalizeApkDownloadUrl(url: String): String {
+        val trimmed = url.trim()
+        val rawHost = Regex(
+            """^https?://github\.com/([^/]+)/([^/]+)/raw/([^/]+)/(.+)$""",
+            RegexOption.IGNORE_CASE
+        ).matchEntire(trimmed)
+        if (rawHost != null) {
+            val user = rawHost.groupValues[1]
+            val repo = rawHost.groupValues[2]
+            val ref = rawHost.groupValues[3]
+            val path = rawHost.groupValues[4]
+            return "https://raw.githubusercontent.com/$user/$repo/$ref/$path"
+        }
+        return trimmed
     }
 
     private fun maybeResumePendingApkInstall() {

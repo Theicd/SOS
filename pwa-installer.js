@@ -206,10 +206,10 @@
   }
 
   // כתובת APK – נשאר ב-git (downloads/) ומורד מ-GitHub, לא מפורסם מחדש ב-Pages בכל deploy | HYPER CORE TECH
-  const NATIVE_APK_VERSION = '1.0.56';
+  const NATIVE_APK_VERSION = '1.0.57';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
-    || `https://github.com/Theicd/SOS/raw/binaries/downloads/${NATIVE_APK_FILE}`;
+    || `https://github.com/Theicd/SOS/releases/download/apk-${NATIVE_APK_VERSION}/${NATIVE_APK_FILE}`;
   const APK_VERSION_URL = './apk-version.json';
 
   function startNativeApkInstall() {
