@@ -285,7 +285,7 @@ window.SOSEmergency = (function() {
     };
 })();
 
-// פריט מצב חירום בתפריט הצד של הפיד – סירנה אדומה; רק ב־APK | HYPER CORE TECH
+// פריטי תפריט צד לפיד – מצב חירום + לוג מעטפת; רק ב־APK | HYPER CORE TECH
 (function wireEmergencyFeedUi() {
     function isNativeShell() {
         try {
@@ -307,6 +307,15 @@ window.SOSEmergency = (function() {
         return false;
     }
 
+    function closeProfileMenu() {
+        var menu = document.getElementById('topBarProfileMenu');
+        if (menu && !menu.hidden) {
+            menu.hidden = true;
+            var avatarBtn = document.getElementById('topBarProfileButton');
+            if (avatarBtn) avatarBtn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
     function openEmergency() {
         try {
             if (window.SOSEmergency && typeof window.SOSEmergency.openSettings === 'function') {
@@ -325,6 +334,16 @@ window.SOSEmergency = (function() {
         }
     }
 
+    function openShellDebugLog() {
+        try {
+            if (window.SosNativeShell && typeof window.SosNativeShell.openDebugLog === 'function') {
+                window.SosNativeShell.openDebugLog();
+            }
+        } catch (err) {
+            console.warn('openShellDebugLog failed', err);
+        }
+    }
+
     function removeHeaderEmergencyIcon() {
         // הסרה דפנסיבית – גרסאות ישנות במטמון עדיין מזריקות כפתור בהדר | HYPER CORE TECH
         var stale = document.getElementById('emergencyToggleTop');
@@ -336,9 +355,8 @@ window.SOSEmergency = (function() {
         });
     }
 
-    function setup() {
-        removeHeaderEmergencyIcon();
-        var btn = document.getElementById('topBarEmergencyMode');
+    function wireApkMenuButton(id, onClick) {
+        var btn = document.getElementById(id);
         if (!btn) return;
         if (!isNativeShell()) {
             btn.hidden = true;
@@ -350,14 +368,15 @@ window.SOSEmergency = (function() {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            openEmergency();
-            var menu = document.getElementById('topBarProfileMenu');
-            if (menu && !menu.hidden) {
-                menu.hidden = true;
-                var avatarBtn = document.getElementById('topBarProfileButton');
-                if (avatarBtn) avatarBtn.setAttribute('aria-expanded', 'false');
-            }
+            onClick();
+            closeProfileMenu();
         });
+    }
+
+    function setup() {
+        removeHeaderEmergencyIcon();
+        wireApkMenuButton('topBarShellDebugLog', openShellDebugLog);
+        wireApkMenuButton('topBarEmergencyMode', openEmergency);
     }
 
     if (document.readyState === 'loading') {

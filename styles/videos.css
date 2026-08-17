@@ -583,6 +583,10 @@ body:has(.videos-feed) #topBarEmergencyMode[hidden] {
   display: none !important;
 }
 
+body:has(.videos-feed) #topBarShellDebugLog[hidden] {
+  display: none !important;
+}
+
 /* כפתור LIVE TV – קומפקטי כמו תג הכרטיס / כפתור התחברות | HYPER CORE TECH */
 body:has(.videos-feed) .top-bar__live-tv-btn {
   flex-shrink: 0;

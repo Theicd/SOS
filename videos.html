@@ -89,7 +89,7 @@
     <!-- חלק מובייל (videos.html) – טוקנים ו-Safe Area | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/tokens.css">
     <link rel="stylesheet" href="./styles/base.css">
-    <link rel="stylesheet" href="./styles/facebook-theme.css?v=20260817em6">
+    <link rel="stylesheet" href="./styles/facebook-theme.css?v=20260817em7">
     <link rel="stylesheet" href="./styles/media-overrides.css">
     <!-- חלק עיצובים ללוגו ולצ'אט – זהים ל-storage/index | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css">
@@ -106,7 +106,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260817em6">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260817em7">
     <!-- סייבר אחרי videos.css – כדי שינצח בדסקטופ ובמובייל | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/chat-desktop-sos-cyber.css?v=20260817voice2">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
@@ -1805,9 +1805,9 @@
     <script src="./chat-p2p-datachannel.js?v=16" defer></script>
     <script src="./chat-ui.js?v=20260817arch5" defer></script>
     <!-- רשת חירום מקומית (AndroidBridge) | HYPER CORE TECH -->
-    <script src="./android-bridge.js?v=20260817em6" defer></script>
-    <script src="./emergency-bridge.js?v=20260817em6" defer></script>
-    <script src="./emergency-wrapper.js?v=20260817em6" defer></script>
+    <script src="./android-bridge.js?v=20260817em7" defer></script>
+    <script src="./emergency-bridge.js?v=20260817em7" defer></script>
+    <script src="./emergency-wrapper.js?v=20260817em7" defer></script>
     <script src="./sos-back-nav.js?v=20260816back3" defer></script>
     <script src="./chat-deeplink.js?v=20260804e" defer></script>
     <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
@@ -1815,7 +1815,7 @@
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=5" defer></script>
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
-    <script src="./pwa-installer.js?v=20260817apk59" defer></script>
+    <script src="./pwa-installer.js?v=20260817apk60" defer></script>
     <script src="./pwa-install-chooser.js?v=20260805a" defer></script>
     <script src="./push-client.js?v=20260803o" defer></script>
     <script src="./push-trigger.js?v=20260810p2pAlert1" defer></script>
@@ -1948,6 +1948,11 @@
             <button type="button" class="top-bar__dropdown-item" id="topBarDebugLog" title="פתח Debug Console">
               <i class="fa-solid fa-wrench"></i>
               <span>לוג ממשק</span>
+            </button>
+            <!-- לוג מעטפת APK – מחליף את כפתור LOG הצף | HYPER CORE TECH -->
+            <button type="button" class="top-bar__dropdown-item" id="topBarShellDebugLog" hidden>
+              <i class="fa-solid fa-terminal"></i>
+              <span>לוג מעטפת</span>
             </button>
             <!-- מצב חירום – רק ב־APK (מוצג ב־JS) | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="topBarEmergencyMode" hidden>

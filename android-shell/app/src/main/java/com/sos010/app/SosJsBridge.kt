@@ -317,6 +317,21 @@ class SosJsBridge(
     @JavascriptInterface
     fun getShellVersionCode(): Int = BuildConfig.VERSION_CODE
 
+    /** פתיחת מסך לוגי המעטפת (מה שהיה ב־FAB LOG) | HYPER CORE TECH */
+    @JavascriptInterface
+    fun openDebugLog() {
+        mainHandler.post {
+            try {
+                SosDebugLog.i("ui", "open debug log from JS menu")
+                val intent = android.content.Intent(context, SosDebugLogActivity::class.java)
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                android.util.Log.e("SosJsBridge", "openDebugLog failed", e)
+            }
+        }
+    }
+
     /**
      * חלק עדכון APK (SosJsBridge.kt) – מוריד ומתקין גרסה חדשה מעל הקיימת | HYPER CORE TECH
      */

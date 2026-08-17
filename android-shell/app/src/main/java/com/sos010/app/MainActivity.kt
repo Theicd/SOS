@@ -123,10 +123,6 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         loading = findViewById(R.id.loading)
-        findViewById<View>(R.id.btnDebugFab).setOnClickListener {
-            SosDebugLog.i("ui", "FAB open debug log")
-            startActivity(Intent(this, SosDebugLogActivity::class.java))
-        }
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
