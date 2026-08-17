@@ -333,6 +333,11 @@ button {
   text-align: start;
 }
 
+/* display:flex למעלה דורס HTML [hidden] – חובה להסתיר פריטים כמו מצב חירום בווב | HYPER CORE TECH */
+.top-bar__dropdown-item[hidden] {
+  display: none !important;
+}
+
 .top-bar__dropdown-item i {
   font-size: 1.05rem;
   color: var(--primary);

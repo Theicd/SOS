@@ -289,9 +289,19 @@ window.SOSEmergency = (function() {
 (function wireEmergencyFeedUi() {
     function isNativeShell() {
         try {
-            if (typeof window.AndroidBridge !== 'undefined') return true;
+            if (window.NostrApp && typeof window.NostrApp.isRunningInNativeShell === 'function') {
+                return !!window.NostrApp.isRunningInNativeShell();
+            }
             if (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function') {
-                return !!window.SosNativeShell.isNativeShell();
+                var v = window.SosNativeShell.isNativeShell();
+                return v === true || v === 'true';
+            }
+            if (/SOSNativeShell\//i.test(navigator.userAgent || '')) return true;
+            // גשר נייטיב אמיתי בלבד (לא App.AndroidBridge מה־JS) | HYPER CORE TECH
+            if (typeof window.AndroidBridge !== 'undefined' &&
+                typeof window.AndroidBridge.openEmergencySettings === 'function' &&
+                typeof window.AndroidBridge.isRelayNetworkActive === 'function') {
+                return true;
             }
         } catch (e) {}
         return false;
