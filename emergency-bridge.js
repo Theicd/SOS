@@ -285,6 +285,59 @@ window.SOSEmergency = (function() {
     };
 })();
 
+// כפתור מנורה בהדר הפיד – רק ב־APK ורק אם האלמנט קיים (videos.html) | HYPER CORE TECH
+(function wireEmergencyTopBarButton() {
+    function isNativeShell() {
+        try {
+            if (typeof window.AndroidBridge !== 'undefined') return true;
+            if (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function') {
+                return !!window.SosNativeShell.isNativeShell();
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function setup() {
+        var btn = document.getElementById('emergencyToggleTop');
+        if (!btn) return;
+        if (!isNativeShell()) {
+            btn.hidden = true;
+            return;
+        }
+        btn.hidden = false;
+        if (btn.dataset.wired === '1') return;
+        btn.dataset.wired = '1';
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                if (window.SOSEmergency && typeof window.SOSEmergency.openSettings === 'function') {
+                    window.SOSEmergency.openSettings();
+                    return;
+                }
+                if (window.NostrApp && window.NostrApp.AndroidBridge && typeof window.NostrApp.AndroidBridge.openEmergencySettings === 'function') {
+                    window.NostrApp.AndroidBridge.openEmergencySettings();
+                    return;
+                }
+                if (typeof window.AndroidBridge !== 'undefined' && typeof window.AndroidBridge.openEmergencySettings === 'function') {
+                    window.AndroidBridge.openEmergencySettings();
+                }
+            } catch (err) {
+                console.warn('emergencyToggleTop open failed', err);
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setup);
+    } else {
+        setup();
+    }
+    // גשר נטען לעיתים אחרי DOM – ניסיון חוזר קצר | HYPER CORE TECH
+    setTimeout(setup, 400);
+    setTimeout(setup, 1200);
+})();
+
 // אתחול אוטומטי אם האפליקציה כבר טעונה
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     setTimeout(function() {

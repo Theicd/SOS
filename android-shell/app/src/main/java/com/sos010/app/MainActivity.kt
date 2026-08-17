@@ -127,10 +127,6 @@ class MainActivity : AppCompatActivity() {
             SosDebugLog.i("ui", "FAB open debug log")
             startActivity(Intent(this, SosDebugLogActivity::class.java))
         }
-        findViewById<View>(R.id.emergencyBar).setOnClickListener {
-            SosDebugLog.i("ui", "open emergency screen")
-            startActivity(Intent(this, SosEmergencyActivity::class.java))
-        }
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
