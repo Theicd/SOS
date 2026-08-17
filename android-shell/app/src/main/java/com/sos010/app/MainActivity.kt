@@ -866,6 +866,30 @@ class MainActivity : AppCompatActivity() {
             onKeyboardRichContent(info, mime)
         }
 
+        // הורדות מ־WebView (a[download] / Content-Disposition) → תיקיית Downloads | HYPER CORE TECH
+        webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
+            try {
+                val guessed = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
+                val request = android.app.DownloadManager.Request(android.net.Uri.parse(url))
+                    .setMimeType(mimeType)
+                    .setTitle(guessed)
+                    .setDescription("SOS download")
+                    .setNotificationVisibility(
+                        android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                    )
+                    .setDestinationInExternalPublicDir(
+                        android.os.Environment.DIRECTORY_DOWNLOADS,
+                        guessed
+                    )
+                val dm = getSystemService(DOWNLOAD_SERVICE) as android.app.DownloadManager
+                dm.enqueue(request)
+                toast("ההורדה התחילה…")
+            } catch (e: Exception) {
+                SosDebugLog.e("dl", "DownloadListener failed: ${e.message}")
+                toast("ההורדה נכשלה")
+            }
+        }
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url ?: return false

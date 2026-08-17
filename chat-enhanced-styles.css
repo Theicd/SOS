@@ -1084,8 +1084,20 @@
   display: none;
 }
 
+.chat-lightbox-delete-dialog.chat-dialog,
 .chat-lightbox-delete-dialog {
-  z-index: 10050;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10050 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-lightbox-delete-dialog .chat-dialog__backdrop,
+.chat-lightbox-delete-dialog .chat-dialog__content {
+  pointer-events: auto !important;
 }
 
 /* חלק ניווט גלריה (chat-enhanced-styles.css) – חצים כמו videos-nav-arrows בדסקטופ | HYPER CORE TECH */

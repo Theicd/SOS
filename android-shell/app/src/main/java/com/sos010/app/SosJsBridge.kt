@@ -333,6 +333,157 @@ class SosJsBridge(
     }
 
     /**
+     * שמירת קובץ להורדות מ־JS (blob/base64) – WebView לא מכבד a[download] | HYPER CORE TECH
+     * @return "ok" | "error:..."
+     */
+    @JavascriptInterface
+    fun saveToDownloads(base64Data: String?, fileName: String?, mimeType: String?): String {
+        val raw = base64Data?.trim().orEmpty()
+        if (raw.isEmpty()) return "error:empty-data"
+        val name = sanitizeFileName(fileName)
+        val mime = mimeType?.trim()?.ifBlank { null } ?: guessMime(name)
+        return try {
+            val payload = raw.substringAfter("base64,", raw)
+            val bytes = android.util.Base64.decode(payload, android.util.Base64.DEFAULT)
+            if (bytes.isEmpty()) return "error:empty-bytes"
+            val saved = writeBytesToDownloads(bytes, name, mime)
+            mainHandler.post {
+                android.widget.Toast.makeText(
+                    context.applicationContext,
+                    "נשמר בהורדות: ${saved.second}",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            SosDebugLog.i("dl", "saved base64 ${saved.second} (${bytes.size} bytes)")
+            "ok:${saved.second}"
+        } catch (e: Exception) {
+            android.util.Log.e("SosJsBridge", "saveToDownloads failed", e)
+            SosDebugLog.e("dl", "saveToDownloads failed: ${e.message}")
+            "error:${e.message ?: "save-failed"}"
+        }
+    }
+
+    /**
+     * הורדת URL ישירות להורדות (http/https) | HYPER CORE TECH
+     */
+    @JavascriptInterface
+    fun downloadUrlToDownloads(url: String?, fileName: String?, mimeType: String?): String {
+        val src = url?.trim().orEmpty()
+        if (src.isEmpty()) return "error:empty-url"
+        if (!(src.startsWith("http://") || src.startsWith("https://"))) {
+            return "error:unsupported-url"
+        }
+        val name = sanitizeFileName(fileName)
+        val mimeHint = mimeType?.trim()?.ifBlank { null }
+        return try {
+            val client = okhttp3.OkHttpClient.Builder()
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
+                .build()
+            val req = okhttp3.Request.Builder()
+                .url(src)
+                .header("User-Agent", "SOSNativeShell/${BuildConfig.VERSION_NAME}")
+                .get()
+                .build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
+                val body = resp.body ?: throw IllegalStateException("empty body")
+                val bytes = body.bytes()
+                val mime = mimeHint
+                    ?: resp.header("Content-Type")?.substringBefore(';')?.trim()
+                    ?: guessMime(name)
+                val saved = writeBytesToDownloads(bytes, name, mime)
+                mainHandler.post {
+                    android.widget.Toast.makeText(
+                        context.applicationContext,
+                        "נשמר בהורדות: ${saved.second}",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+                SosDebugLog.i("dl", "saved url ${saved.second} (${bytes.size} bytes)")
+                "ok:${saved.second}"
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SosJsBridge", "downloadUrlToDownloads failed", e)
+            SosDebugLog.e("dl", "downloadUrlToDownloads failed: ${e.message}")
+            "error:${e.message ?: "download-failed"}"
+        }
+    }
+
+    private fun sanitizeFileName(fileName: String?): String {
+        val raw = fileName?.trim().orEmpty().ifBlank { "sos-file" }
+        val cleaned = raw.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(120)
+        return if (cleaned.contains('.')) cleaned else "$cleaned.bin"
+    }
+
+    private fun guessMime(name: String): String {
+        val lower = name.lowercase()
+        return when {
+            lower.endsWith(".mp4") || lower.endsWith(".m4v") -> "video/mp4"
+            lower.endsWith(".webm") -> "video/webm"
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
+            lower.endsWith(".png") -> "image/png"
+            lower.endsWith(".gif") -> "image/gif"
+            lower.endsWith(".webp") -> "image/webp"
+            lower.endsWith(".pdf") -> "application/pdf"
+            else -> "application/octet-stream"
+        }
+    }
+
+    /** @return Pair(uriString, displayName) */
+    private fun writeBytesToDownloads(
+        bytes: ByteArray,
+        displayName: String,
+        mime: String
+    ): Pair<String, String> {
+        val resolver = context.contentResolver
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, displayName)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, mime)
+                put(
+                    android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                    android.os.Environment.DIRECTORY_DOWNLOADS
+                )
+                put(android.provider.MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: error("MediaStore insert failed")
+            resolver.openOutputStream(uri)?.use { it.write(bytes) }
+                ?: error("openOutputStream failed")
+            values.clear()
+            values.put(android.provider.MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            return uri.toString() to displayName
+        }
+        @Suppress("DEPRECATION")
+        val dir = android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS
+        )
+        if (!dir.exists()) dir.mkdirs()
+        var out = java.io.File(dir, displayName)
+        if (out.exists()) {
+            val stem = displayName.substringBeforeLast('.', displayName)
+            val ext = displayName.substringAfterLast('.', "")
+            out = java.io.File(
+                dir,
+                if (ext.isNotEmpty()) "$stem-${System.currentTimeMillis()}.$ext"
+                else "$displayName-${System.currentTimeMillis()}"
+            )
+        }
+        java.io.FileOutputStream(out).use { it.write(bytes) }
+        android.media.MediaScannerConnection.scanFile(
+            context,
+            arrayOf(out.absolutePath),
+            arrayOf(mime),
+            null
+        )
+        return out.absolutePath to out.name
+    }
+
+    /**
      * חלק עדכון APK (SosJsBridge.kt) – מוריד ומתקין גרסה חדשה מעל הקיימת | HYPER CORE TECH
      */
     @JavascriptInterface

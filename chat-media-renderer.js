@@ -316,7 +316,72 @@
       }
     };
 
+    const nativeShell = window.SosNativeShell;
+    const canNativeSave =
+      !!(nativeShell && typeof nativeShell.saveToDownloads === 'function');
+    const canNativeUrl =
+      !!(nativeShell && typeof nativeShell.downloadUrlToDownloads === 'function');
+
+    const blobToBase64 = (blob) =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error || new Error('read-failed'));
+        reader.readAsDataURL(blob);
+      });
+
+    const saveBlobViaNative = async (blob) => {
+      const dataUrl = await blobToBase64(blob);
+      const mime = blob.type || undefined;
+      const result = nativeShell.saveToDownloads(dataUrl, name, mime || '');
+      const ok = typeof result === 'string' && result.indexOf('ok:') === 0;
+      if (!ok) throw new Error(String(result || 'native-save-failed'));
+      return true;
+    };
+
     try {
+      // מעטפת APK: שמירה נייטיבית (a[download] לא עובד ב־WebView) | HYPER CORE TECH
+      if (canNativeSave || canNativeUrl) {
+        const release = suppressOutsideClose();
+        try {
+          if (
+            canNativeUrl &&
+            (src.startsWith('http://') || src.startsWith('https://'))
+          ) {
+            const result = nativeShell.downloadUrlToDownloads(src, name, '');
+            if (typeof result === 'string' && result.indexOf('ok:') === 0) {
+              return true;
+            }
+            // נפילה ל־fetch+base64 אם הורדת URL נכשלה | HYPER CORE TECH
+          }
+          if (src.startsWith('blob:') || src.startsWith('data:')) {
+            const resp = await fetch(src);
+            const blob = await resp.blob();
+            await saveBlobViaNative(blob);
+            return true;
+          }
+          if (canNativeSave) {
+            try {
+              const cached = await fetchAndCacheMedia(src);
+              const fetchUrl = cached || src;
+              const resp = await fetch(fetchUrl, { mode: 'cors', credentials: 'omit' });
+              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+              const blob = await resp.blob();
+              await saveBlobViaNative(blob);
+              return true;
+            } catch (fetchErr) {
+              if (canNativeUrl && (src.startsWith('http://') || src.startsWith('https://'))) {
+                const result = nativeShell.downloadUrlToDownloads(src, name, '');
+                if (typeof result === 'string' && result.indexOf('ok:') === 0) return true;
+              }
+              throw fetchErr;
+            }
+          }
+        } finally {
+          release();
+        }
+      }
+
       if (src.startsWith('blob:') || src.startsWith('data:')) {
         triggerAnchorDownload(src);
         return true;
@@ -2332,19 +2397,27 @@
     document.body.appendChild(dialog);
     const close = () => dialog.remove();
     dialog.querySelector('.chat-dialog__backdrop')?.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       close();
     });
+    dialog.querySelector('.chat-dialog__content')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
     dialog.querySelector('.chat-dialog__btn--cancel')?.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       close();
     });
     dialog.querySelector('.chat-dialog__btn--confirm')?.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       close();
       if (typeof App.deleteChatMessage === 'function') {
         Promise.resolve(App.deleteChatMessage(peerPubkey, messageId))
-          .catch(() => {})
+          .catch((err) => {
+            console.warn('[CHAT-MEDIA] lightbox delete failed', err);
+          })
           .finally(() => {
             if (typeof onDone === 'function') onDone();
           });
