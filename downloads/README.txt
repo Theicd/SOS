@@ -1,5 +1,3 @@
-﻿SOS Android APK downloads (branch: binaries)
-
-Latest:
-https://github.com/Theicd/SOS/raw/binaries/downloads/SOS-1.0.56.apk
+﻿Latest APK mirror (canonical = GitHub Releases apk-1.0.57).
+https://github.com/Theicd/SOS/releases/download/apk-1.0.57/SOS-1.0.57.apk
 
