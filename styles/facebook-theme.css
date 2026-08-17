@@ -302,14 +302,15 @@ button {
   top: calc(100% + 8px);
   inset-inline-end: 0;
   min-width: 220px;
+  max-width: min(320px, calc(100vw - 24px));
   background: var(--card);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
-  padding: 8px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   z-index: 210;
 }
 
@@ -323,14 +324,21 @@ button {
   align-items: center;
   gap: 10px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text);
-  padding: 10px 12px;
+  padding: 8px 12px;
+  min-height: 40px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+  font-size: 0.875rem;
+  line-height: 1.25;
   text-align: start;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.top-bar__dropdown-item:last-child {
+  border-bottom: none;
 }
 
 /* display:flex למעלה דורס HTML [hidden] – חובה להסתיר פריטים כמו מצב חירום בווב | HYPER CORE TECH */
@@ -338,16 +346,53 @@ button {
   display: none !important;
 }
 
-.top-bar__dropdown-item i {
-  font-size: 1.05rem;
+.top-bar__dropdown-item i,
+.top-bar__dropdown-item .top-bar__emergency-icon {
+  font-size: 1rem;
+  width: 1.15em;
+  text-align: center;
+  flex-shrink: 0;
   color: var(--primary);
 }
 
 .top-bar__dropdown-item:hover,
 .top-bar__dropdown-item:focus-visible {
   background: var(--hover);
-  transform: translateY(-1px);
   outline: none;
+}
+
+/* מובייל: תפריט צפוף וקריא יותר | HYPER CORE TECH */
+@media (max-width: 900px) {
+  .top-bar__dropdown {
+    min-width: 200px;
+    padding: 4px 6px;
+  }
+
+  .top-bar__dropdown-item {
+    padding: 7px 10px;
+    min-height: 38px;
+    font-size: 0.8125rem;
+    gap: 8px;
+  }
+
+  .top-bar__dropdown-item i,
+  .top-bar__dropdown-item .top-bar__emergency-icon {
+    font-size: 0.95rem;
+  }
+}
+
+/* דסקטופ: מעט יותר אוויר בלי לפזר | HYPER CORE TECH */
+@media (min-width: 901px) {
+  .top-bar__dropdown {
+    min-width: 240px;
+    padding: 8px 10px;
+  }
+
+  .top-bar__dropdown-item {
+    padding: 9px 12px;
+    min-height: 42px;
+    font-size: 0.9rem;
+  }
 }
 
 /* חלק תת-תפריט שונות (facebook-theme.css) – סגנון לתת-תפריט | HYPER CORE TECH */
