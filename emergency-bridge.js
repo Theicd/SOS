@@ -285,8 +285,8 @@ window.SOSEmergency = (function() {
     };
 })();
 
-// כפתור מנורה בהדר הפיד – רק ב־APK ורק אם האלמנט קיים (videos.html) | HYPER CORE TECH
-(function wireEmergencyTopBarButton() {
+// כפתורי מצב חירום בפיד – סירנה אדומה בהדר + תפריט צד; רק ב־APK | HYPER CORE TECH
+(function wireEmergencyFeedUi() {
     function isNativeShell() {
         try {
             if (typeof window.AndroidBridge !== 'undefined') return true;
@@ -297,8 +297,25 @@ window.SOSEmergency = (function() {
         return false;
     }
 
-    function setup() {
-        var btn = document.getElementById('emergencyToggleTop');
+    function openEmergency() {
+        try {
+            if (window.SOSEmergency && typeof window.SOSEmergency.openSettings === 'function') {
+                window.SOSEmergency.openSettings();
+                return;
+            }
+            if (window.NostrApp && window.NostrApp.AndroidBridge && typeof window.NostrApp.AndroidBridge.openEmergencySettings === 'function') {
+                window.NostrApp.AndroidBridge.openEmergencySettings();
+                return;
+            }
+            if (typeof window.AndroidBridge !== 'undefined' && typeof window.AndroidBridge.openEmergencySettings === 'function') {
+                window.AndroidBridge.openEmergencySettings();
+            }
+        } catch (err) {
+            console.warn('openEmergency failed', err);
+        }
+    }
+
+    function wireButton(btn) {
         if (!btn) return;
         if (!isNativeShell()) {
             btn.hidden = true;
@@ -310,22 +327,19 @@ window.SOSEmergency = (function() {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            try {
-                if (window.SOSEmergency && typeof window.SOSEmergency.openSettings === 'function') {
-                    window.SOSEmergency.openSettings();
-                    return;
-                }
-                if (window.NostrApp && window.NostrApp.AndroidBridge && typeof window.NostrApp.AndroidBridge.openEmergencySettings === 'function') {
-                    window.NostrApp.AndroidBridge.openEmergencySettings();
-                    return;
-                }
-                if (typeof window.AndroidBridge !== 'undefined' && typeof window.AndroidBridge.openEmergencySettings === 'function') {
-                    window.AndroidBridge.openEmergencySettings();
-                }
-            } catch (err) {
-                console.warn('emergencyToggleTop open failed', err);
+            openEmergency();
+            var menu = document.getElementById('topBarProfileMenu');
+            if (menu && !menu.hidden) {
+                menu.hidden = true;
+                var avatarBtn = document.getElementById('topBarProfileButton');
+                if (avatarBtn) avatarBtn.setAttribute('aria-expanded', 'false');
             }
         });
+    }
+
+    function setup() {
+        wireButton(document.getElementById('emergencyToggleTop'));
+        wireButton(document.getElementById('topBarEmergencyMode'));
     }
 
     if (document.readyState === 'loading') {
@@ -333,7 +347,6 @@ window.SOSEmergency = (function() {
     } else {
         setup();
     }
-    // גשר נטען לעיתים אחרי DOM – ניסיון חוזר קצר | HYPER CORE TECH
     setTimeout(setup, 400);
     setTimeout(setup, 1200);
 })();

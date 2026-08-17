@@ -594,7 +594,7 @@ body:has(.videos-feed) .top-bar__emergency-btn {
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  color: #ffb020;
+  color: #ff4444;
   font-size: 1.35rem;
   line-height: 1;
   display: inline-flex;
@@ -604,6 +604,12 @@ body:has(.videos-feed) .top-bar__emergency-btn {
   order: 3;
 }
 
+body:has(.videos-feed) .top-bar__emergency-btn .top-bar__emergency-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  filter: none;
+}
+
 body:has(.videos-feed) .top-bar__emergency-btn[hidden] {
   display: none !important;
 }
@@ -611,9 +617,16 @@ body:has(.videos-feed) .top-bar__emergency-btn[hidden] {
 body:has(.videos-feed) .top-bar__emergency-btn:hover,
 body:has(.videos-feed) .top-bar__emergency-btn:active {
   background: transparent !important;
-  color: #ffd060;
+  color: #ff6666;
   opacity: 1;
   transform: none;
+}
+
+body:has(.videos-feed) #topBarEmergencyMode .top-bar__emergency-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  width: 1.25em;
+  text-align: center;
 }
 
 /* כפתור LIVE TV – קומפקטי כמו תג הכרטיס / כפתור התחברות | HYPER CORE TECH */
