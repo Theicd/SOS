@@ -127,6 +127,10 @@ class MainActivity : AppCompatActivity() {
             SosDebugLog.i("ui", "FAB open debug log")
             startActivity(Intent(this, SosDebugLogActivity::class.java))
         }
+        findViewById<View>(R.id.emergencyBar).setOnClickListener {
+            SosDebugLog.i("ui", "open emergency screen")
+            startActivity(Intent(this, SosEmergencyActivity::class.java))
+        }
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
@@ -865,6 +869,7 @@ class MainActivity : AppCompatActivity() {
         webView.setBackgroundResource(android.R.color.black)
 
         webView.addJavascriptInterface(SosJsBridge(this, webView), "SosNativeShell")
+        webView.addJavascriptInterface(SosEmergencyBridge(this, webView), "AndroidBridge")
         webView.richContentListener = SosWebView.RichContentListener { info, mime ->
             onKeyboardRichContent(info, mime)
         }
@@ -1401,7 +1406,9 @@ class MainActivity : AppCompatActivity() {
         }
         listOf(
             Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA
+            Manifest.permission.CAMERA,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
         ).forEach { perm ->
             if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
                 needed += perm
