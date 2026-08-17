@@ -285,7 +285,7 @@ window.SOSEmergency = (function() {
     };
 })();
 
-// כפתורי מצב חירום בפיד – סירנה אדומה בהדר + תפריט צד; רק ב־APK | HYPER CORE TECH
+// פריט מצב חירום בתפריט הצד של הפיד – סירנה אדומה; רק ב־APK | HYPER CORE TECH
 (function wireEmergencyFeedUi() {
     function isNativeShell() {
         try {
@@ -315,7 +315,8 @@ window.SOSEmergency = (function() {
         }
     }
 
-    function wireButton(btn) {
+    function setup() {
+        var btn = document.getElementById('topBarEmergencyMode');
         if (!btn) return;
         if (!isNativeShell()) {
             btn.hidden = true;
@@ -335,11 +336,6 @@ window.SOSEmergency = (function() {
                 if (avatarBtn) avatarBtn.setAttribute('aria-expanded', 'false');
             }
         });
-    }
-
-    function setup() {
-        wireButton(document.getElementById('emergencyToggleTop'));
-        wireButton(document.getElementById('topBarEmergencyMode'));
     }
 
     if (document.readyState === 'loading') {

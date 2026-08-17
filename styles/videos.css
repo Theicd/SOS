@@ -499,14 +499,8 @@ body:has(.videos-feed) .top-bar__actions {
     margin-left: 8px !important;
   }
 
-  body:has(.videos-feed) .top-bar__emergency-btn {
-    order: 3;
-    margin: 0 !important;
-    margin-left: 8px !important;
-  }
-
   body:has(.videos-feed) .top-bar__live-tv-btn {
-    order: 4;
+    order: 3;
     margin-left: 6px !important;
     height: 20px !important;
     max-height: 20px !important;
@@ -577,51 +571,7 @@ body:has(.videos-feed) .top-bar__games-btn {
   animation: gamesBtnColorPulse 4.5s ease-in-out infinite;
 }
 
-/* כפתור מצב חירום – מנורה בהדר הפיד (APK בלבד) | HYPER CORE TECH */
-body:has(.videos-feed) .top-bar__emergency-btn {
-  flex-shrink: 0;
-  width: auto !important;
-  height: auto !important;
-  min-width: 0;
-  min-height: 0;
-  padding: 0 !important;
-  margin: 0;
-  margin-left: 10px !important;
-  margin-inline-start: 10px !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  color: #ff4444;
-  font-size: 1.35rem;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  order: 3;
-}
-
-body:has(.videos-feed) .top-bar__emergency-btn .top-bar__emergency-icon {
-  font-size: 1.25rem;
-  line-height: 1;
-  filter: none;
-}
-
-body:has(.videos-feed) .top-bar__emergency-btn[hidden] {
-  display: none !important;
-}
-
-body:has(.videos-feed) .top-bar__emergency-btn:hover,
-body:has(.videos-feed) .top-bar__emergency-btn:active {
-  background: transparent !important;
-  color: #ff6666;
-  opacity: 1;
-  transform: none;
-}
-
+/* אייקון סירנה בתפריט צד – מצב חירום (APK) | HYPER CORE TECH */
 body:has(.videos-feed) #topBarEmergencyMode .top-bar__emergency-icon {
   font-size: 1.15rem;
   line-height: 1;
@@ -637,7 +587,7 @@ body:has(.videos-feed) .top-bar__live-tv-btn {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  order: 4;
+  order: 3;
   margin: 0;
   margin-left: 8px !important;
   width: auto !important;
