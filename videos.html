@@ -1508,7 +1508,7 @@
       // יצירת חלון debug צף
       var debugPanel = document.createElement('div');
       debugPanel.id = 'mobileDebugPanel';
-      debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button id="debugToggle">▼</button><button id="debugCopy">📋 העתק</button><button id="debugClear">🗑️</button></div><div id="debugContent"></div>';
+      debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button type="button" id="debugLogPower">לוג: OFF</button><button type="button" id="debugToggle">▼</button><button type="button" id="debugCopy">📋 העתק</button><button type="button" id="debugClear">🗑️</button></div><div id="debugContent"></div>';
       
       var style = document.createElement('style');
       style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
@@ -1574,7 +1574,16 @@
         var clear = document.getElementById('debugClear');
         var maxLines = 1000; // שמור יותר שורות להצגה
         var fullLog = [];
-        
+        var UI_LOG_KEY = 'sos_ui_debug_log_enabled';
+        var uiLogEnabled = false;
+        try {
+          uiLogEnabled = localStorage.getItem(UI_LOG_KEY) === '1';
+        } catch (e) {}
+        var origLog = console.log;
+        var origWarn = console.warn;
+        var origError = console.error;
+        var origInfo = console.info;
+
         function closeProfileMenuForDebug() {
           var menu = document.getElementById('topBarProfileMenu');
           var btn = document.getElementById('topBarProfileButton');
@@ -1582,11 +1591,36 @@
           if (btn) btn.setAttribute('aria-expanded', 'false');
         }
 
+        var powerBtn = document.getElementById('debugLogPower');
+        function syncPowerUi() {
+          if (!powerBtn) return;
+          powerBtn.textContent = uiLogEnabled ? 'לוג: ON' : 'לוג: OFF';
+          powerBtn.style.background = uiLogEnabled ? '#1b5e20' : '#333';
+        }
+        syncPowerUi();
+        if (powerBtn) {
+          powerBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uiLogEnabled = !uiLogEnabled;
+            try {
+              localStorage.setItem(UI_LOG_KEY, uiLogEnabled ? '1' : '0');
+            } catch (err) {}
+            syncPowerUi();
+            if (uiLogEnabled) {
+              addLine('info', ['UI debug log ENABLED – capturing continues while panel closed']);
+            } else {
+              origInfo.call(console, 'UI debug log DISABLED');
+            }
+          };
+        }
+
         function openPanel() {
           closeProfileMenuForDebug();
           debugPanel.classList.add('open');
           openBtn.style.display = 'none';
           if (openBtnTop) openBtnTop.disabled = true;
+          syncPowerUi();
         }
         openBtn.onclick = openPanel;
         if (openBtnTop) {
@@ -1653,6 +1687,7 @@
         document.getElementById('debugHeader').appendChild(saveBtn);
         
         function addLine(type, args) {
+          if (!uiLogEnabled) return;
           var line = document.createElement('div');
           line.className = 'debug-line debug-' + type;
           var time = new Date().toLocaleTimeString('he-IL');
@@ -1681,27 +1716,24 @@
           content.scrollTop = content.scrollHeight;
         }
         
-        // Override console methods
-        var origLog = console.log;
-        var origWarn = console.warn;
-        var origError = console.error;
-        var origInfo = console.info;
+        // Override console methods – לכידה רק כש־uiLogEnabled | HYPER CORE TECH
+        console.log = function() { origLog.apply(console, arguments); if (uiLogEnabled) addLine('log', arguments); };
+        console.warn = function() { origWarn.apply(console, arguments); if (uiLogEnabled) addLine('warn', arguments); };
+        console.error = function() { origError.apply(console, arguments); if (uiLogEnabled) addLine('error', arguments); };
+        console.info = function() { origInfo.apply(console, arguments); if (uiLogEnabled) addLine('info', arguments); };
         
-        console.log = function() { origLog.apply(console, arguments); addLine('log', arguments); };
-        console.warn = function() { origWarn.apply(console, arguments); addLine('warn', arguments); };
-        console.error = function() { origError.apply(console, arguments); addLine('error', arguments); };
-        console.info = function() { origInfo.apply(console, arguments); addLine('info', arguments); };
-        
-        // Catch errors
+        // Catch errors – רק כשהלוג דלוק | HYPER CORE TECH
         window.onerror = function(msg, url, line, col, error) {
-          addLine('error', ['UNCAUGHT:', msg, 'at', url + ':' + line]);
+          if (uiLogEnabled) addLine('error', ['UNCAUGHT:', msg, 'at', url + ':' + line]);
         };
         
         window.onunhandledrejection = function(e) {
-          addLine('error', ['PROMISE REJECTED:', e.reason]);
+          if (uiLogEnabled) addLine('error', ['PROMISE REJECTED:', e.reason]);
         };
-        
-        console.log('📱 Debug Console Ready - iOS Debug Mode');
+
+        if (uiLogEnabled) {
+          addLine('info', ['UI debug log ON (restored) – capturing from page load']);
+        }
       });
     })();
     </script>
@@ -1815,7 +1847,7 @@
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=5" defer></script>
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
-    <script src="./pwa-installer.js?v=20260817apk60" defer></script>
+    <script src="./pwa-installer.js?v=20260817apk61" defer></script>
     <script src="./pwa-install-chooser.js?v=20260805a" defer></script>
     <script src="./push-client.js?v=20260803o" defer></script>
     <script src="./push-trigger.js?v=20260810p2pAlert1" defer></script>

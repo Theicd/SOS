@@ -11,8 +11,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+
 /**
- * מסך לוג רקע – העתק / שמירת TXT / שיתוף.
+ * מסך לוג רקע – העתק / שמירת TXT / שיתוף + מתג ON/OFF שנשמר.
  */
 class SosDebugLogActivity : AppCompatActivity() {
 
@@ -20,6 +21,7 @@ class SosDebugLogActivity : AppCompatActivity() {
     private lateinit var debugText: TextView
     private lateinit var debugMeta: TextView
     private lateinit var debugScroll: ScrollView
+    private lateinit var btnToggle: Button
     private var autoScroll = true
 
     private val refreshRunnable = object : Runnable {
@@ -35,7 +37,19 @@ class SosDebugLogActivity : AppCompatActivity() {
         debugText = findViewById(R.id.debugText)
         debugMeta = findViewById(R.id.debugMeta)
         debugScroll = findViewById(R.id.debugScroll)
+        btnToggle = findViewById(R.id.btnToggleLog)
 
+        btnToggle.setOnClickListener {
+            val next = !SosDebugLog.isEnabled()
+            SosDebugLog.setEnabled(next)
+            syncToggleUi()
+            Toast.makeText(
+                this,
+                if (next) R.string.debug_log_enabled_toast else R.string.debug_log_disabled_toast,
+                Toast.LENGTH_SHORT
+            ).show()
+            render()
+        }
         findViewById<Button>(R.id.btnCopy).setOnClickListener { copyLog() }
         findViewById<Button>(R.id.btnSaveTxt).setOnClickListener { saveTxt(shareAfter = false) }
         findViewById<Button>(R.id.btnShare).setOnClickListener { saveTxt(shareAfter = true) }
@@ -47,19 +61,25 @@ class SosDebugLogActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnClose).setOnClickListener { finish() }
 
         SosDebugLog.reloadFromDisk()
-        SosDebugLog.i("ui", "debug log screen opened (loaded history)")
+        syncToggleUi()
         render()
     }
 
     override fun onResume() {
         super.onResume()
         SosDebugLog.reloadFromDisk()
+        syncToggleUi()
         handler.post(refreshRunnable)
     }
 
     override fun onPause() {
         handler.removeCallbacks(refreshRunnable)
         super.onPause()
+    }
+
+    private fun syncToggleUi() {
+        val on = SosDebugLog.isEnabled()
+        btnToggle.text = getString(if (on) R.string.debug_log_toggle_on else R.string.debug_log_toggle_off)
     }
 
     private fun render() {
@@ -69,7 +89,8 @@ class SosDebugLogActivity : AppCompatActivity() {
             BuildConfig.VERSION_CODE,
             MainActivity.isHostAlive.toString(),
             MainActivity.isActivityAlive.toString(),
-            BuildConfig.HAS_FCM.toString()
+            BuildConfig.HAS_FCM.toString(),
+            if (SosDebugLog.isEnabled()) "ON" else "OFF"
         )
         val text = SosDebugLog.getText()
         debugText.text = text
@@ -82,7 +103,6 @@ class SosDebugLogActivity : AppCompatActivity() {
         val cm = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("SOS debug log", SosDebugLog.getText()))
         Toast.makeText(this, R.string.debug_log_copied, Toast.LENGTH_SHORT).show()
-        SosDebugLog.i("ui", "log copied to clipboard")
     }
 
     private fun saveTxt(shareAfter: Boolean) {
@@ -103,7 +123,6 @@ class SosDebugLogActivity : AppCompatActivity() {
             }
             startActivity(Intent.createChooser(send, getString(R.string.debug_log_share)))
         } catch (err: Exception) {
-            SosDebugLog.e("ui", "save/share failed: ${err.message}")
             Toast.makeText(this, err.message ?: "save failed", Toast.LENGTH_LONG).show()
         }
     }

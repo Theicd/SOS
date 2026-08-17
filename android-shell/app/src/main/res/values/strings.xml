@@ -17,7 +17,11 @@
     <string name="fg_title">SOS פעיל ברקע</string>
     <string name="fg_text">מקבל הודעות ושיחות גם כשהמסך כבוי</string>
     <string name="debug_log_title">לוג רקע (מעטפת APK)</string>
-    <string name="debug_log_meta">v%1$s (%2$d) · host=%3$s · activity=%4$s · fcm=%5$s</string>
+    <string name="debug_log_meta">v%1$s (%2$d) · host=%3$s · activity=%4$s · fcm=%5$s · log=%6$s</string>
+    <string name="debug_log_toggle_on">לוג: ON</string>
+    <string name="debug_log_toggle_off">לוג: OFF</string>
+    <string name="debug_log_enabled_toast">לוג מעטפת דלוק – ממשיך ברקע</string>
+    <string name="debug_log_disabled_toast">לוג מעטפת כבוי</string>
     <string name="debug_log_copy">העתק</string>
     <string name="debug_log_save_txt">שמור TXT</string>
     <string name="debug_log_share">שתף</string>

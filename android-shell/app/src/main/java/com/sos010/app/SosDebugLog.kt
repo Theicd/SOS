@@ -2,6 +2,7 @@ package com.sos010.app
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -17,11 +18,14 @@ import java.util.concurrent.ConcurrentLinkedDeque
 /**
  * לוג רקע למעטפת APK.
  * מקור האמת = קובץ בדיסק (שורד סגירת כרטיסייה / קריסה / פתיחה מחדש).
+ * איסוף פעיל רק כש־enabled=true (נשמר ב־SharedPreferences); כשדלוק – אותה לוגיקה כמו קודם.
  */
 object SosDebugLog {
     private const val TAG = "SosDebugLog"
     private const val MAX_LINES = 2000
     private const val FILE_NAME = "sos-bg-debug.log"
+    private const val PREFS = "sos_debug_log"
+    private const val KEY_ENABLED = "enabled"
 
     private val lines = ConcurrentLinkedDeque<String>()
     private val timeFmt = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
@@ -29,11 +33,32 @@ object SosDebugLog {
     private val lock = Any()
     @Volatile private var appRef: Context? = null
     @Volatile private var loaded = false
+    @Volatile private var enabled = false
 
     fun init(context: Context) {
         appRef = context.applicationContext
+        enabled = prefs(context).getBoolean(KEY_ENABLED, false)
         reloadFromDisk()
-        i("boot", "SosDebugLog ready v=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) lines=${lines.size}")
+        if (enabled) {
+            appendInternal("I", "boot", "SosDebugLog ready v=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) lines=${lines.size}", force = true)
+        }
+    }
+
+    fun isEnabled(): Boolean = enabled
+
+    /** הפעלה/כיבוי עם שמירה – כשדלוק האיסוף ממשיך גם אחרי יציאה ממסך הלוג | HYPER CORE TECH */
+    fun setEnabled(on: Boolean) {
+        if (enabled == on) return
+        val app = appRef
+        if (on) {
+            enabled = true
+            app?.let { prefs(it).edit().putBoolean(KEY_ENABLED, true).apply() }
+            appendInternal("I", "log", "logging ENABLED by user (persists across restarts)", force = true)
+        } else {
+            appendInternal("I", "log", "logging DISABLED by user", force = true)
+            enabled = false
+            app?.let { prefs(it).edit().putBoolean(KEY_ENABLED, false).apply() }
+        }
     }
 
     /** טוען מחדש מהקובץ (אחרי פתיחת מסך / חזרה מתהליך) | HYPER CORE TECH */
@@ -49,7 +74,6 @@ object SosDebugLog {
                     keep.forEach { line ->
                         if (line.isNotBlank()) lines.addLast(line)
                     }
-                    // אם קיצצנו – כותבים חזרה
                     if (all.size > MAX_LINES) {
                         file.writeText(keep.joinToString("\n") + "\n", Charsets.UTF_8)
                     }
@@ -61,9 +85,9 @@ object SosDebugLog {
         }
     }
 
-    fun i(source: String, message: String) = append("I", source, message)
-    fun w(source: String, message: String) = append("W", source, message)
-    fun e(source: String, message: String) = append("E", source, message)
+    fun i(source: String, message: String) = appendInternal("I", source, message, force = false)
+    fun w(source: String, message: String) = appendInternal("W", source, message, force = false)
+    fun e(source: String, message: String) = appendInternal("E", source, message, force = false)
 
     fun snapshotFlags(extra: String = "") {
         i(
@@ -74,7 +98,6 @@ object SosDebugLog {
     }
 
     fun getLines(): List<String> {
-        // תמיד מרעננים מהדיסק לפני תצוגה – כדי לראות מה שנכתב ברקע/בתהליך קודם
         reloadFromDisk()
         return lines.toList()
     }
@@ -83,6 +106,7 @@ object SosDebugLog {
         val body = getLines().joinToString("\n")
         val header = buildString {
             appendLine("=== SOS Background Debug Log ===")
+            appendLine("enabled=$enabled")
             appendLine("version=${BuildConfig.VERSION_NAME} code=${BuildConfig.VERSION_CODE}")
             appendLine("hasFcm=${BuildConfig.HAS_FCM}")
             appendLine("hostAlive=${MainActivity.isHostAlive} activityAlive=${MainActivity.isActivityAlive}")
@@ -107,7 +131,9 @@ object SosDebugLog {
                 }
             }
         }
-        i("log", "history reset by user")
+        if (enabled) {
+            appendInternal("I", "log", "history reset by user", force = true)
+        }
     }
 
     data class SavedExport(
@@ -116,10 +142,6 @@ object SosDebugLog {
         val shareUri: Uri
     )
 
-    /**
-     * שומר TXT לתיקיית Downloads הציבורית (נראה באפליקציית קבצים).
-     * ב-API 29+ דרך MediaStore; לפני כן ל-Environment.DIRECTORY_DOWNLOADS.
-     */
     fun saveTxt(context: Context): SavedExport {
         val name = "SOS-bg-log-${fileFmt.format(Date())}.txt"
         val body = getText().toByteArray(Charsets.UTF_8)
@@ -128,9 +150,19 @@ object SosDebugLog {
         } else {
             saveTxtToPublicDownloadsLegacy(context, name, body)
         }
-        i("log", "exported ${saved.displayName} → ${saved.publicPathHint} (${body.size} bytes)")
+        if (enabled) {
+            appendInternal(
+                "I",
+                "log",
+                "exported ${saved.displayName} → ${saved.publicPathHint} (${body.size} bytes)",
+                force = true
+            )
+        }
         return saved
     }
+
+    private fun prefs(context: Context): SharedPreferences =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private fun saveTxtViaMediaStore(context: Context, name: String, body: ByteArray): SavedExport {
         val values = ContentValues().apply {
@@ -178,7 +210,8 @@ object SosDebugLog {
         )
     }
 
-    private fun append(level: String, source: String, message: String) {
+    private fun appendInternal(level: String, source: String, message: String, force: Boolean) {
+        if (!force && !enabled) return
         val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         val line = "$day ${timeFmt.format(Date())} $level/$source $message"
         synchronized(lock) {
