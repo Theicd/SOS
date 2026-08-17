@@ -315,7 +315,19 @@ window.SOSEmergency = (function() {
         }
     }
 
+    function removeHeaderEmergencyIcon() {
+        // הסרה דפנסיבית – גרסאות ישנות במטמון עדיין מזריקות כפתור בהדר | HYPER CORE TECH
+        var stale = document.getElementById('emergencyToggleTop');
+        if (stale && stale.parentNode) {
+            stale.parentNode.removeChild(stale);
+        }
+        document.querySelectorAll('.top-bar__actions > .top-bar__emergency-btn').forEach(function(el) {
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+        });
+    }
+
     function setup() {
+        removeHeaderEmergencyIcon();
         var btn = document.getElementById('topBarEmergencyMode');
         if (!btn) return;
         if (!isNativeShell()) {
