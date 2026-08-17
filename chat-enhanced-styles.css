@@ -1822,6 +1822,11 @@ body.chat-lightbox-open {
   inset: 0;
   width: 100%;
   height: 100%;
+  /* תמיד מוסתר בבועה — מונע דף פליי לבן של WebView | HYPER CORE TECH */
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none;
+  background: #000 !important;
 }
 
 .chat-message__video.is-ready,

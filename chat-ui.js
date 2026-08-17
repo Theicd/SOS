@@ -137,7 +137,7 @@
     }
     const safeSrc = src.replace(/'/g, "\\'");
     const safeName = String(fallbackName || attachment?.name || 'sos-file').replace(/'/g, "\\'");
-    return `<button type="button" class="${sideClass}" title="הורד" aria-label="הורד" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMedia==='function')NostrApp.downloadChatMedia('${safeSrc}','${safeName}');"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+    return `<button type="button" class="${sideClass}" title="הורד" aria-label="הורד" data-filename="${safeName}" data-download-url="${safeSrc}" data-file-id="${String(attachment?.fileId || '').replace(/"/g, '')}" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMediaFromButton==='function')NostrApp.downloadChatMediaFromButton(this);else if(window.NostrApp&&typeof NostrApp.downloadChatMedia==='function')NostrApp.downloadChatMedia('${safeSrc}','${safeName}');"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
   }
 
   function buildChatFileSideDownloadHtml({ attachment, magnetURI, blobUrl, fileName } = {}) {
@@ -2518,6 +2518,32 @@
     }
 
     // חלק הורדת קובץ/מדיה (chat-ui.js) – עדיפות ל-blob מקומי; magnet רק אם אין קובץ אצלך | HYPER CORE TECH
+    const mediaDownloadBtn = event.target.closest(
+      '.chat-message__media-download, .chat-message__media-download--side'
+    );
+    if (
+      mediaDownloadBtn &&
+      !mediaDownloadBtn.hasAttribute('data-magnet') &&
+      !mediaDownloadBtn.classList.contains('torrent-bubble__download-btn')
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeAllChatMessageMenus();
+      if (typeof App.downloadChatMediaFromButton === 'function') {
+        App.downloadChatMediaFromButton(mediaDownloadBtn);
+      } else if (typeof App.downloadChatMedia === 'function') {
+        const url =
+          (typeof App.resolveLiveChatDownloadSrc === 'function'
+            ? App.resolveLiveChatDownloadSrc(mediaDownloadBtn)
+            : '') ||
+          mediaDownloadBtn.getAttribute('data-download-url') ||
+          '';
+        const fileName = mediaDownloadBtn.getAttribute('data-filename') || 'sos-file';
+        if (url) App.downloadChatMedia(url, fileName);
+      }
+      return;
+    }
+
     const fileDownloadBtn = event.target.closest(
       '.torrent-bubble__download-btn, .chat-file-bubble__download[data-download-url], .chat-file-bubble__download[data-magnet], .chat-message__media-download--side[data-magnet], .chat-message__media-download--side[data-download-url]'
     );

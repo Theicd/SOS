@@ -280,6 +280,68 @@
     return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   }
 
+  // מקור חי מהבועה — לא URL שננעל ב־HTML בזמן רינדור (blob מת אחרי resolve) | HYPER CORE TECH
+  function resolveLiveChatDownloadSrc(fromEl) {
+    const root = fromEl?.closest?.('.chat-message') || fromEl?.closest?.('[data-message-id]') || null;
+    const scope = root || fromEl?.parentElement || null;
+    if (!scope) return '';
+    const video = scope.querySelector(
+      'video.chat-message__video, video.chat-media-upload__media, .chat-message__video-container video'
+    );
+    if (video) {
+      const source = video.querySelector('source');
+      const live =
+        String((source && (source.src || source.getAttribute('src'))) || video.currentSrc || video.src || '').trim();
+      if (live && !live.startsWith('magnet:')) return live;
+      const fromContainer = video.closest('[data-media-src]')?.getAttribute('data-media-src');
+      if (fromContainer) return String(fromContainer).trim();
+    }
+    const img = scope.querySelector(
+      'img.chat-message__image, img.chat-media-upload__media, .chat-message__image-container img'
+    );
+    if (img) {
+      const live = String(img.currentSrc || img.src || '').trim();
+      if (live) return live;
+      const fromContainer = img.closest('[data-media-src]')?.getAttribute('data-media-src');
+      if (fromContainer) return String(fromContainer).trim();
+    }
+    const tagged = scope.querySelector('[data-media-src]');
+    if (tagged) {
+      const v = String(tagged.getAttribute('data-media-src') || '').trim();
+      if (v) return v;
+    }
+    return '';
+  }
+
+  async function downloadChatMediaFromButton(btn) {
+    if (!btn || typeof btn.getAttribute !== 'function') return false;
+    const name =
+      String(btn.getAttribute('data-filename') || btn.getAttribute('aria-label') || 'sos-file')
+        .replace(/^הורד\s+/u, '')
+        .trim() || 'sos-file';
+    const fallback = String(btn.getAttribute('data-download-url') || '').trim();
+    const fileId = String(btn.getAttribute('data-file-id') || '').trim();
+    const cacheKey = String(btn.getAttribute('data-cache-key') || '').trim();
+    let src = resolveLiveChatDownloadSrc(btn);
+    if (!src) src = fallback;
+    if ((!src || src.startsWith('blob:')) && (fileId || cacheKey)) {
+      try {
+        const restored = await resolveChatMediaSrc({
+          url: src || '',
+          fileId: fileId || undefined,
+          cacheKey: cacheKey || undefined,
+          name,
+        });
+        if (restored) src = restored;
+      } catch (_) {}
+    }
+    if (!src) {
+      console.warn('[CHAT-MEDIA] download: no live src');
+      return false;
+    }
+    return downloadChatMedia(src, name);
+  }
+
   async function downloadChatMedia(url, filename) {
     const src = String(url || '').trim();
     const name = String(filename || 'sos-file').trim() || 'sos-file';
@@ -410,13 +472,17 @@
     }
   }
 
-  function buildMediaDownloadButton(src, name, className) {
-    if (!src) return '';
+  function buildMediaDownloadButton(src, name, className, meta = {}) {
+    const fileId = meta.fileId || '';
+    const cacheKey = meta.cacheKey || (fileId ? chatP2PCacheKey(fileId) : '') || '';
+    if (!src && !fileId && !cacheKey) return '';
     const cls = className || 'chat-message__media-download';
     const safeName = escapeAttr(name || 'sos-file');
-    const jsSrc = escapeJsString(src);
-    const jsName = escapeJsString(name || 'sos-file');
-    return `<button type="button" class="${cls}" title="הורד" aria-label="הורד ${safeName}" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMedia==='function')NostrApp.downloadChatMedia('${jsSrc}','${jsName}');"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+    const safeSrc = escapeAttr(src || '');
+    const safeFileId = escapeAttr(fileId);
+    const safeCacheKey = escapeAttr(cacheKey);
+    // לחיצה פותרת מקור חי מהבועה — לא סומכת על blob ישן ב־onclick | HYPER CORE TECH
+    return `<button type="button" class="${cls}" title="הורד" aria-label="הורד ${safeName}" data-filename="${safeName}" data-download-url="${safeSrc}" data-file-id="${safeFileId}" data-cache-key="${safeCacheKey}" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMediaFromButton==='function')NostrApp.downloadChatMediaFromButton(this);"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
   }
 
   function buildAttachmentDownloadHtml(attachment, className) {
@@ -425,14 +491,18 @@
     const magnetURI = attachment.magnetURI || '';
     const src = attachment.dataUrl || attachment.url || '';
     const cls = className || 'chat-file-bubble__download';
+    const meta = {
+      fileId: attachment.fileId || '',
+      cacheKey: attachment.cacheKey || chatP2PCacheKey(attachment) || '',
+    };
     // עדיפות לקובץ מקומי — כפתור כמו מדיה; magnet רק כשאין src | HYPER CORE TECH
     if (src && !src.startsWith('magnet:')) {
-      return buildMediaDownloadButton(src, name, cls);
+      return buildMediaDownloadButton(src, name, cls, meta);
     }
     if (magnetURI) {
       const blob = typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnetURI) : null;
       if (blob?.url) {
-        return buildMediaDownloadButton(blob.url, blob.name || name, cls);
+        return buildMediaDownloadButton(blob.url, blob.name || name, cls, meta);
       }
       const escapedMagnet = magnetURI.replace(/"/g, '&quot;');
       const escapedName = escapeAttr(name).replace(/'/g, "\\'");
@@ -505,6 +575,10 @@
         failImage();
         return;
       }
+      try {
+        wrap.setAttribute('data-media-src', playable);
+        wrap.dataset.mediaSrc = playable;
+      } catch (_) {}
       if (el.src !== playable) el.src = playable;
       if (el.complete && el.naturalWidth > 0) revealImage();
       // timeout — לא משאירים שלד לנצח | HYPER CORE TECH
@@ -1101,19 +1175,26 @@
     container.hidden = false;
     videoEl.classList.add('is-ready');
 
+    // לעולם לא חושפים את משטח ה־video בבועה — ב־Android WebView זה מציג דף פליי לבן | HYPER CORE TECH
+    videoEl.style.opacity = '0';
+    videoEl.style.visibility = 'hidden';
+    videoEl.style.background = '#000';
+
     if (hasRealPoster || thumbVisible) {
       container.classList.add('has-video-thumb');
       if (thumb && hasRealPoster && isUsablePosterDataUrl(videoEl.poster)) {
         thumb.src = videoEl.poster;
         thumb.hidden = false;
       }
-      // נשארים על תקציר יציב — לא מציגים את משטח הווידאו (מונע ריצוד שחור) | HYPER CORE TECH
-      videoEl.style.opacity = '0';
-      videoEl.style.visibility = 'hidden';
     } else {
+      // בלי תקציר: רקע שחור + כפתור Play שלנו (בלי נגן מערכת) | HYPER CORE TECH
       container.classList.remove('has-video-thumb');
-      videoEl.style.opacity = '1';
-      videoEl.style.visibility = 'visible';
+      if (thumb) {
+        try {
+          thumb.removeAttribute('src');
+          thumb.hidden = true;
+        } catch (_) {}
+      }
     }
 
     const playBtn = container.querySelector('.chat-message__video-play');
@@ -1201,6 +1282,11 @@
         return;
       }
 
+      try {
+        container.setAttribute('data-media-src', playable);
+        container.dataset.mediaSrc = playable;
+      } catch (_) {}
+
       const source = el.querySelector('source');
       if (source) {
         if (source.getAttribute('src') !== playable) {
@@ -1262,11 +1348,18 @@
               applyChatVideoPoster(container, el, el.poster);
             }
           }
+          // חושפים רק עם תקציר אמיתי; ב־force בלי poster — שחור+Play בלי משטח video | HYPER CORE TECH
+          const hasPoster = el.dataset.posterCaptured === '1';
           const ok = revealChatVideoPreview(container, el, {
-            allowWithoutPoster: force || el.dataset.previewFrame === '1' || el.dataset.posterCaptured === '1',
+            allowWithoutPoster: hasPoster || force,
           });
           if (force && !ok && container.dataset.ready !== '1') {
-            failChatVideoPreview(container);
+            // עדיין מחכים ל־aspect; אם יש מידות — נחשוף שחור+Play בלי video גלוי | HYPER CORE TECH
+            if (el.videoWidth && el.videoHeight) {
+              revealChatVideoPreview(container, el, { allowWithoutPoster: true });
+            } else if (force) {
+              failChatVideoPreview(container);
+            }
           }
         } finally {
           warming = false;
@@ -1281,13 +1374,13 @@
         tryReady();
       });
 
-      setTimeout(() => { tryReady({ force: true }); }, 2500);
+      setTimeout(() => { tryReady({ force: true }); }, 3500);
       setTimeout(() => {
         if (container.dataset.ready !== '1') tryReady({ force: true });
-      }, 6000);
+      }, 8000);
       setTimeout(() => {
         if (container.dataset.ready !== '1') failChatVideoPreview(container);
-      }, 12000);
+      }, 15000);
       if (el.readyState >= 1 || knownPoster) tryReady({ force: !!knownPoster });
 
       const openFullscreen = (event) => {
@@ -3006,6 +3099,8 @@
     computeChatMediaBox,
     reflowLockedChatMedia,
     downloadChatMedia,
+    downloadChatMediaFromButton,
+    resolveLiveChatDownloadSrc,
     getFileIcon,
     buildAttachmentDownloadHtml,
     buildMediaDownloadButton,
