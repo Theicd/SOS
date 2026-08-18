@@ -226,7 +226,7 @@
       video.playsInline = true;
       video.preload = 'auto';
       video.style.background = '#000';
-      try { video.load(); } catch (_) {}
+      // לא קוראים ל־load() מחדש — מאט את הפריים הראשון ב־WebView | HYPER CORE TECH
     } catch (_) {}
 
     function ensureUi() {
@@ -315,41 +315,41 @@
 
     async function captureFrame() {
       if (video.dataset.sosSendPoster === '1') return;
-      try {
-        var App = window.NostrApp;
-        var src = video.currentSrc || video.src || '';
-        if (src && App && typeof App.capturePosterFromBlob === 'function') {
-          var resp = await fetch(src);
-          if (resp.ok) {
-            var blob = await resp.blob();
-            var off = await App.capturePosterFromBlob(blob, blob.type || 'video/mp4');
-            if (off && applyPoster(off)) return;
-          }
-        }
-      } catch (_) {}
+      if (video.dataset.sosSendCapturing === '1') return;
+      video.dataset.sosSendCapturing = '1';
 
       try {
-        // play מוסתר (pending) — המשתמש לא רואה פליי מערכת | HYPER CORE TECH
+        // נתיב מהיר בלבד — בלי capturePosterFromBlob (פענוח כפול של כל הקובץ) | HYPER CORE TECH
         video.muted = true;
         video.classList.add('sos-apk-send-pending');
+        if (video.readyState < 1) {
+          await new Promise(function (r) {
+            video.addEventListener('loadedmetadata', function () { r(); }, { once: true });
+            setTimeout(r, 800);
+          });
+        }
         var p = video.play();
         if (p && typeof p.then === 'function') await p.catch(function () {});
-        await new Promise(function (r) { setTimeout(r, 140); });
+        await new Promise(function (r) { setTimeout(r, 60); });
         try { video.pause(); } catch (_) {}
-        var duration = isFinite(video.duration) ? video.duration : 0;
-        var target = duration > 0.4 ? Math.min(0.2, duration * 0.03) : 0.05;
-        try {
-          if (typeof video.fastSeek === 'function') video.fastSeek(target);
-          else video.currentTime = target;
-        } catch (_) {}
-        await new Promise(function (r) {
-          video.addEventListener('seeked', function () { r(); }, { once: true });
-          setTimeout(r, 400);
-        });
+
         var shot = grabFromVideo();
         if (!shot) {
+          var duration = isFinite(video.duration) ? video.duration : 0;
+          var target = duration > 0.3 ? Math.min(0.12, duration * 0.02) : 0.04;
+          try {
+            if (typeof video.fastSeek === 'function') video.fastSeek(target);
+            else video.currentTime = target;
+          } catch (_) {}
+          await new Promise(function (r) {
+            video.addEventListener('seeked', function () { r(); }, { once: true });
+            setTimeout(r, 250);
+          });
+          shot = grabFromVideo();
+        }
+        if (!shot) {
           try { video.currentTime = 0.001; } catch (_) {}
-          await new Promise(function (r) { setTimeout(r, 200); });
+          await new Promise(function (r) { setTimeout(r, 120); });
           shot = grabFromVideo();
         }
         if (shot) applyPoster(shot);
@@ -357,6 +357,8 @@
         try { video.pause(); } catch (_) {}
       } catch (_) {
         ensureUi();
+      } finally {
+        try { delete video.dataset.sosSendCapturing; } catch (_) {}
       }
     }
 
@@ -364,11 +366,15 @@
     video.addEventListener('play', function () {
       if (!video.classList.contains('sos-apk-send-pending')) revealForUser();
     });
+    // טריגר אחד מהיר — בלי 500/1500 כפולים | HYPER CORE TECH
     video.addEventListener('loadeddata', function () { captureFrame(); }, { once: true });
-    video.addEventListener('loadedmetadata', function () { captureFrame(); }, { once: true });
-    if (video.readyState >= 1) captureFrame();
-    setTimeout(function () { captureFrame(); }, 500);
-    setTimeout(function () { captureFrame(); }, 1500);
+    if (video.readyState >= 2) captureFrame();
+    else if (video.readyState >= 1) {
+      setTimeout(function () { captureFrame(); }, 80);
+    } else {
+      video.addEventListener('loadedmetadata', function () { captureFrame(); }, { once: true });
+      setTimeout(function () { captureFrame(); }, 400);
+    }
   }
 
   function scan(root) {
