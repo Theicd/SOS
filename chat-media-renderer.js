@@ -998,9 +998,9 @@
     if (narrow) {
       return Math.max(200, Math.min(Math.floor(viewW * 0.72), Math.floor(raw * 0.82) - 4));
     }
-    // מחשב: מקום ל־⋮ + מרווח ממסגרת שמאל (RTL) | HYPER CORE TECH
-    const desktopFrameGap = 20;
-    return Math.max(200, Math.min(280, Math.floor(raw * 0.52) - 16 - side - desktopFrameGap));
+    // מחשב: רוחב בסגנון וואטסאפ (~360) + מקום ל־⋮ | HYPER CORE TECH
+    const desktopFrameGap = 16;
+    return Math.max(240, Math.min(360, Math.floor(raw * 0.58) - side - desktopFrameGap));
   }
 
   function computeChatMediaBox(w, h, hostEl) {
@@ -1023,9 +1023,9 @@
         ? Math.min(Math.round(vh * 0.52), 420)
         : Math.min(Math.round(vh * (ultraWide ? 0.28 : 0.34)), ultraWide ? 180 : 220);
     } else {
-      // מחשב בלבד: אופקי צר יותר כדי שלא ייחתך עם ⋮ בדפנות | HYPER CORE TECH
-      maxW = portrait ? Math.min(290, avail) : Math.min(280, avail);
-      maxH = portrait ? Math.min(Math.round(vh * 0.58), 500) : (ultraWide ? 220 : 280);
+      // מחשב: כמו וואטסאפ ווב — בועה רחבה יותר (~360) בלי לחתוך ⋮ | HYPER CORE TECH
+      maxW = portrait ? Math.min(330, avail) : Math.min(360, avail);
+      maxH = portrait ? Math.min(Math.round(vh * 0.58), 520) : (ultraWide ? 240 : 320);
     }
 
     const hardMaxW = Math.max(
@@ -1092,7 +1092,7 @@
     if (msg) {
       const viewW = window.innerWidth || 360;
       const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-      const msgCap = narrow ? Math.min(Math.floor(viewW * 0.92), dispW + 24) : Math.min(340, dispW + 48);
+      const msgCap = narrow ? Math.min(Math.floor(viewW * 0.92), dispW + 24) : Math.min(420, dispW + 52);
       msg.style.setProperty('max-width', `${msgCap}px`, 'important');
       msg.style.setProperty('min-width', '0', 'important');
       msg.style.setProperty('box-sizing', 'border-box', 'important');

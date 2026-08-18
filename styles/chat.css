@@ -2499,7 +2499,7 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing {
     align-self: flex-end;
     width: fit-content;
-    max-width: min(72%, 340px);
+    max-width: min(78%, 420px);
     justify-content: flex-end;
     min-width: 0;
     box-sizing: border-box;
@@ -2510,7 +2510,7 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing:has(.chat-message__image-container),
   .chat-panel .chat-message--outgoing:has(.chat-message__video-container),
   .chat-panel .chat-message--outgoing:has(.chat-media-upload) {
-    max-width: min(72%, 340px);
+    max-width: min(78%, 420px);
     margin-inline-end: 12px;
   }
 
@@ -2524,7 +2524,7 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing .chat-message__image-container--landscape,
   .chat-panel .chat-message--outgoing .chat-message__video-container--landscape,
   .chat-panel .chat-message--outgoing .chat-media-upload--landscape {
-    max-width: 280px !important;
+    max-width: 360px !important;
     min-width: 0 !important;
     box-sizing: border-box;
   }
@@ -2662,7 +2662,7 @@ body.chat-media-modal-open {
     align-items: stretch;
     padding: 0 0 4px !important;
     gap: 0 !important;
-    max-width: 280px;
+    max-width: 360px;
     min-width: 0;
     overflow: hidden;
   }

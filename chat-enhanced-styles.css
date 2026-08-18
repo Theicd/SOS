@@ -1777,7 +1777,7 @@ body.chat-lightbox-open {
   .chat-message--outgoing:has(.chat-media-upload),
   .chat-message--outgoing.chat-message--media-settled,
   .chat-message--outgoing.chat-message--media-transfer {
-    max-width: min(72%, 340px);
+    max-width: min(78%, 420px);
     min-width: 0;
     box-sizing: border-box;
     margin-inline-end: 12px;
@@ -1786,7 +1786,7 @@ body.chat-lightbox-open {
   .chat-message--incoming:has(.chat-message__image-container),
   .chat-message--incoming:has(.chat-message__video-container),
   .chat-message--incoming:has(.chat-media-upload) {
-    max-width: min(72%, 340px);
+    max-width: min(78%, 420px);
     min-width: 0;
     box-sizing: border-box;
   }
@@ -1809,12 +1809,12 @@ body.chat-lightbox-open {
   .chat-message--incoming .chat-message__image-container,
   .chat-message--incoming .chat-message__video-container,
   .chat-message--incoming .chat-media-upload {
-    max-width: min(280px, 100%);
+    max-width: min(360px, 100%);
     min-width: 0;
     box-sizing: border-box;
   }
 
-  /* באנר אופקי בדסקטופ: גובה טבעי; רוחב מגיע מ־JS (בלי width:auto ששובר כיתוב) | HYPER CORE TECH */
+  /* באנר אופקי בדסקטופ: גובה טבעי; רוחב מ־JS (~360 כמו וואטסאפ) | HYPER CORE TECH */
   .chat-message__image-container--landscape,
   .chat-message__image-container--natural,
   .chat-message__image-container[data-natural-fit="1"],
@@ -1825,7 +1825,7 @@ body.chat-lightbox-open {
   .chat-message--incoming .chat-media-upload--landscape,
   .chat-media-upload--landscape[data-media-ready="1"],
   .chat-media-upload[data-natural-fit="1"][data-media-ready="1"] {
-    max-width: 280px !important;
+    max-width: 360px !important;
     min-width: 0 !important;
     height: auto !important;
     max-height: none !important;
@@ -1833,9 +1833,9 @@ body.chat-lightbox-open {
     box-sizing: border-box !important;
   }
 
-  /* תמונה+טקסט: בלי max-content/% מעגלי; JS נועל px | HYPER CORE TECH */
+  /* תמונה+טקסט: כרטיס = רוחב תמונה; JS נועל px | HYPER CORE TECH */
   .chat-message__content--media-caption {
-    max-width: 280px !important;
+    max-width: 360px !important;
     min-width: 0 !important;
     padding: 0 0 4px !important;
     box-sizing: border-box !important;
@@ -1853,7 +1853,7 @@ body.chat-lightbox-open {
   }
 
   .chat-message:has(.chat-message__content--media-caption) {
-    max-width: 340px !important;
+    max-width: 420px !important;
     min-width: 0 !important;
   }
 }
