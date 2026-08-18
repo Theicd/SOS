@@ -1840,21 +1840,21 @@
     width: 22px !important;
     min-width: 22px !important;
     text-align: center !important;
-    color: #aebac1 !important;
+    color: #00afff !important;
   }
 
   .chat-panel .chat-conversation__menu-item span,
   body > .chat-conversation__menu .chat-conversation__menu-item span {
     order: 1 !important;
     flex: 1 1 auto !important;
-    color: #e9edef !important;
+    color: #e8f7ff !important;
     font-weight: 400 !important;
     text-align: start !important;
   }
 
   .chat-panel .chat-conversation__menu-item:active,
   body > .chat-conversation__menu .chat-conversation__menu-item:active {
-    background: rgba(255, 255, 255, 0.08) !important;
+    background: rgba(0, 175, 255, 0.2) !important;
   }
 }
 
