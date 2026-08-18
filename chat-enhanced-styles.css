@@ -1716,13 +1716,15 @@ body.chat-lightbox-open {
   margin: 0;
 }
 
-/* מסגרת דקה למדיה יוצאת — אותו כחול של הודעה קולית / כפתור שליחה (#1a3a5c–#234b6e) | HYPER CORE TECH */
+/* מסגרת דקה למדיה יוצאת — ציאן עדין כמו נגן; עם כיתוב המסגרת עוברת לבועה | HYPER CORE TECH */
 .chat-message--outgoing .chat-message__video-container,
 .chat-message--outgoing .chat-message__image-container,
 .chat-message--media-transfer .chat-media-upload,
 .chat-message--media-settled .chat-media-upload {
-  border: 2px solid #234b6e;
-  box-shadow: inset 0 0 0 1px rgba(26, 58, 92, 0.9);
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  box-shadow:
+    0 0 12px rgba(0, 175, 255, 0.18),
+    inset 0 0 0 1px rgba(26, 58, 92, 0.55);
   border-radius: 8px;
 }
 
@@ -2369,12 +2371,12 @@ body.chat-lightbox-open {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: rgba(0,168,132,0.15);
+  background: rgba(0, 175, 255, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
-  color: #00a884;
+  color: #00afff;
 }
 .chat-file-bubble__info {
   flex: 1;
@@ -2399,9 +2401,9 @@ body.chat-lightbox-open {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(0,168,132,0.2);
+  background: rgba(0, 175, 255, 0.2);
   border: none;
-  color: #00a884;
+  color: #00afff;
   font-size: 1rem;
   cursor: pointer;
   display: flex;
@@ -2411,7 +2413,7 @@ body.chat-lightbox-open {
   text-decoration: none;
 }
 .chat-file-bubble__download:hover {
-  background: rgba(0,168,132,0.35);
+  background: rgba(0, 175, 255, 0.35);
   transform: scale(1.08);
 }
 .chat-file-bubble__download:active {
@@ -2618,8 +2620,8 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: rgba(0, 168, 132, 0.18);
-  color: #00a884;
+  background: rgba(0, 175, 255, 0.18);
+  color: #00afff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2628,8 +2630,8 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel {
 }
 
 .chat-message--outgoing button.chat-file-bubble__icon.chat-file-bubble__icon--cancel {
-  background: rgba(0, 168, 132, 0.22);
-  color: #1de9b6;
+  background: rgba(0, 175, 255, 0.22);
+  color: #7ec8ff;
 }
 
 button.chat-file-bubble__icon.chat-file-bubble__icon--cancel > i:first-child {
@@ -2882,16 +2884,21 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
   box-shadow: none !important;
 }
 
-/* העלאה + כיתוב: בועה כחולה דקה עם טקסט מתחת למדיה כבר בזמן הטעינה | HYPER CORE TECH */
+/* העלאה + כיתוב: מרקם נגן קול; מסגרת דקה סביב + טקסט בתחתית | HYPER CORE TECH */
 .chat-message__content--media-upload.chat-message__content--media-caption {
   display: flex !important;
   flex-direction: column;
   align-items: stretch;
   padding: 3px 3px 4px !important;
   gap: 0 !important;
-  background: linear-gradient(135deg, #1a3a5c, #234b6e) !important;
-  border: none !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  background:
+    linear-gradient(145deg, rgba(26, 58, 92, 0.92) 0%, rgba(18, 42, 72, 0.96) 45%, rgba(35, 75, 110, 0.88) 100%) !important;
+  border: 1px solid rgba(120, 200, 255, 0.45) !important;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 22px rgba(0, 175, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -12px 26px rgba(0, 30, 55, 0.4) !important;
   border-radius: 8px;
   overflow: hidden;
 }
