@@ -3443,47 +3443,49 @@ body.global-stop .videos-feed__play-overlay {
     align-items: center;
     text-align: center;
     line-height: 1;
-    padding: 0;
+    padding: 8px 8px 0;
     margin: 0;
-    margin-top: -40px; /* העלאת הלוגו ב-30px נוספים | HYPER CORE TECH */
+    margin-top: 0;
     height: auto;
-    overflow: visible;
-    transform: translateX(0px); /* יישור אופקי עם שורת החיפוש במרכז | HYPER CORE TECH */
+    overflow: hidden;
+    background: #000;
+    transform: none;
   }
 
-  /* חלק לוגו בתפריט צד (videos.css) – תמונה או וידאו שקוף באותו גודל ומיקום | HYPER CORE TECH */
+  /* לוגו דסקטופ חדש – נוף 502×282, רקע שחור שמתמזג עם הסיידבר | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav__desktop-logo-img,
   body:has(.videos-feed) .primary-nav__desktop-logo-video {
-    max-width: 310px; /* הגדלת ~20% מרוחב 258px | HYPER CORE TECH */
+    max-width: min(228px, 100%);
+    width: 100%;
     height: auto;
     object-fit: contain;
     object-position: center;
     display: block;
-    opacity: 0.5; /* שקיפות 50% כדי להפחית בולטות יותר */
-    background: transparent !important;
-    background-color: transparent !important;
-    transform: scaleY(1); /* החזרת גובה מלא לאחר הגדלה | HYPER CORE TECH */
-    transform-origin: center top;
-    animation: logoAmbientGlow 4s ease-in-out infinite alternate; /* תאורה חזקה ומהירה יותר | HYPER CORE TECH */
-    will-change: filter; /* רמז ביצועים לאנימציית תאורה | HYPER CORE TECH */
+    opacity: 1;
+    background: #000 !important;
+    background-color: #000 !important;
+    transform: none;
+    transform-origin: center center;
+    animation: logoAmbientGlow 5.5s ease-in-out infinite alternate;
+    will-change: filter;
   }
 
-  /* אנימציית תאורה עדינה ללוגו – מחזורי צבעים רכים, ללא משאבים כבדים | HYPER CORE TECH */
+  /* זוהר עדין – הלוגו כבר ניאון, בלי הבהרה חזקה | HYPER CORE TECH */
   @keyframes logoAmbientGlow {
     0% {
-      filter: brightness(1.15) drop-shadow(0 0 12px rgba(45, 136, 255, 0.55));
+      filter: brightness(1.02) drop-shadow(0 0 8px rgba(45, 136, 255, 0.35));
     }
     50% {
-      filter: brightness(1.22) drop-shadow(0 0 18px rgba(254, 44, 85, 0.65));
+      filter: brightness(1.06) drop-shadow(0 0 12px rgba(254, 44, 85, 0.28));
     }
     100% {
-      filter: brightness(1.18) drop-shadow(0 0 14px rgba(255, 255, 255, 0.55));
+      filter: brightness(1.04) drop-shadow(0 0 10px rgba(57, 255, 20, 0.22));
     }
   }
 
-  /* קירוב שורת החיפוש ללוגו בלי לשנות את הלוגו עצמו | HYPER CORE TECH */
+  /* מרווח קצר בין לוגו לחיפוש (בלי קיזוז שלילי של הלוגו הישן) | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav__desktop-search {
-    margin-top: -50px; /* העלינו את החיפוש/התפריט בעוד 20px מעלה בלי לגעת בלוגו | HYPER CORE TECH */
+    margin-top: 6px;
   }
 
   body:has(.videos-feed) .primary-nav__desktop-search {
