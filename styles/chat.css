@@ -2476,7 +2476,7 @@ body.chat-media-modal-open {
   }
 
   .chat-panel .chat-message__content {
-    padding: 6px 7px 8px 9px;
+    padding: 6px 8px 6px 6px;
     border-radius: 7.5px;
     font-size: 14.2px;
     line-height: 19px;
@@ -2528,9 +2528,11 @@ body.chat-media-modal-open {
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
-    margin: 0 0 0 8px !important;
-    margin-inline-start: 8px !important;
-    padding: 2px 0 0;
+    /* צמוד לשמאל הבועה; מרווח קטן רק מול הטקסט | HYPER CORE TECH */
+    margin: 0 6px 0 0 !important;
+    margin-inline-start: 0 !important;
+    margin-inline-end: 6px !important;
+    padding: 2px 0 0 !important;
     white-space: nowrap;
     vertical-align: bottom;
     position: relative;
@@ -2561,9 +2563,10 @@ body.chat-media-modal-open {
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
-    margin: 0 0 0 8px !important;
-    margin-inline-start: 8px !important;
-    padding: 2px 4px 1px;
+    margin: 0 6px 0 0 !important;
+    margin-inline-start: 0 !important;
+    margin-inline-end: 6px !important;
+    padding: 2px 0 1px !important;
     justify-content: flex-end;
   }
 
@@ -2773,8 +2776,10 @@ body.chat-media-modal-open {
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
-    margin: 0 0 0 8px !important;
-    padding: 2px 4px 1px;
+    margin: 0 6px 0 0 !important;
+    margin-inline-start: 0 !important;
+    margin-inline-end: 6px !important;
+    padding: 2px 0 1px !important;
   }
 
   /* === הודעת אודיו === */

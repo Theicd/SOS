@@ -579,7 +579,10 @@
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
-    margin-inline-start: 8px !important;
+    margin: 0 6px 0 0 !important;
+    margin-inline-start: 0 !important;
+    margin-inline-end: 6px !important;
+    padding-inline: 0 !important;
   }
 
   .chat-panel .chat-message__content--media-caption .chat-message__meta-row {
@@ -587,6 +590,10 @@
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
+    margin: 0 6px 0 0 !important;
+    margin-inline-start: 0 !important;
+    margin-inline-end: 6px !important;
+    padding-inline: 0 !important;
   }
 
   .chat-panel .chat-message__content--media-caption .chat-message__text {
