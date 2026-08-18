@@ -2879,11 +2879,7 @@
     el.innerHTML = `<i class="fa-regular fa-clock" aria-hidden="true"></i><span>${withLink}<br><button type="button" class="chat-system-message__link" data-disappearing-settings>לחצו כאן</button></span>`;
     el.querySelector('[data-disappearing-settings]')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (window.matchMedia('(min-width: 769px)').matches) {
-        openDesktopDisappearingTimerDialog(peer);
-      } else {
-        openDisappearingSettings(peer);
-      }
+      openDesktopDisappearingTimerDialog(peer);
     });
     return el;
   }
@@ -3067,10 +3063,11 @@
   }
 
   function showAutoCleanDialog() {
-    openDisappearingSettings(state.activeContact);
+    // תאימות לאחור – פותח ישירות אישור ניקוי (לא sheet משולב) | HYPER CORE TECH
+    showClearChatConfirmDialog(state.activeContact);
   }
 
-  /* חלק דסקטופ (chat-ui.js) – דיאלוג טיימר ניקוי אוטומטי בלבד (בלי מחיקה) | HYPER CORE TECH */
+  /* חלק טיימר ניקוי (chat-ui.js) – דיאלוג טיימר בלבד (דסקטופ + מובייל) | HYPER CORE TECH */
   function openDesktopDisappearingTimerDialog(peerPubkey) {
     const peer = (peerPubkey || state.activeContact || '').toLowerCase();
     if (!peer) return;
@@ -6824,20 +6821,20 @@
         closeHeaderMenu();
         const action = item.getAttribute('data-action');
         if (action === 'auto-clean') {
-          // מובייל – מסך משולב כמו היום | HYPER CORE TECH
-          showAutoCleanDialog();
+          // תאימות – כמו clear-chat | HYPER CORE TECH
+          showClearChatConfirmDialog(state.activeContact);
         } else if (action === 'clear-chat') {
-          // דסקטופ – אישור מחיקה ישירות | HYPER CORE TECH
+          // אישור מחיקת הודעות ישירות | HYPER CORE TECH
           showClearChatConfirmDialog(state.activeContact);
         } else if (action === 'delete-chat') {
-          // דסקטופ – מחיקת שיחה + הסרה מהרשימה | HYPER CORE TECH
+          // מחיקת שיחה + הסרה מהרשימה | HYPER CORE TECH
           showDeleteChatConfirmDialog(state.activeContact);
         } else if (action === 'archive-chat') {
           archiveActiveConversation();
         } else if (action === 'unarchive-chat') {
           unarchiveActiveConversation();
         } else if (action === 'schedule-timer') {
-          // דסקטופ – דיאלוג טיימר בלבד | HYPER CORE TECH
+          // טיימר ניקוי אוטומטי (דסקטופ + מובייל) | HYPER CORE TECH
           openDesktopDisappearingTimerDialog(state.activeContact);
         }
       });
