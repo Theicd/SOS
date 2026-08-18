@@ -2468,7 +2468,7 @@ body.chat-media-modal-open {
 
   /* === הודעות === */
   .chat-panel .chat-message {
-    max-width: 65%;
+    max-width: 70%;
     display: flex;
     gap: 0;
     min-width: 0;
@@ -2485,6 +2485,19 @@ body.chat-media-modal-open {
     border: none;
   }
 
+  /* טקסט בלבד בדסקטופ: רוחב כמו וואטסאפ (~70%) — פחות שבירות שורה | HYPER CORE TECH */
+  .chat-panel .chat-message--outgoing:not(:has(.chat-message__image-container)):not(:has(.chat-message__video-container)):not(:has(.chat-media-upload)):not(:has(.chat-audio-whatsapp)):not(.chat-message--file-card-transfer):not(.chat-message--file-card-settled),
+  .chat-panel .chat-message--incoming:not(:has(.chat-message__image-container)):not(:has(.chat-message__video-container)):not(:has(.chat-media-upload)):not(:has(.chat-audio-whatsapp)):not(.chat-message--file-card-transfer):not(.chat-message--file-card-settled) {
+    max-width: min(70%, 650px);
+  }
+
+  .chat-panel .chat-message--outgoing:not(:has(.chat-message__image-container)):not(:has(.chat-message__video-container)):not(:has(.chat-media-upload)) .chat-message__content,
+  .chat-panel .chat-message--incoming:not(:has(.chat-message__image-container)):not(:has(.chat-message__video-container)):not(:has(.chat-media-upload)) .chat-message__content {
+    max-width: 100%;
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+
   .chat-panel .chat-message--incoming {
     align-self: flex-start;
   }
@@ -2499,14 +2512,14 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing {
     align-self: flex-end;
     width: fit-content;
-    max-width: min(78%, 420px);
+    max-width: min(70%, 650px);
     justify-content: flex-end;
     min-width: 0;
     box-sizing: border-box;
     margin-inline-end: 10px;
   }
 
-  /* מחשב: מדיה יוצאת רוחבית — לא לגלוש מעבר למסגרת עם עמודת ⋮ | HYPER CORE TECH */
+  /* מחשב: מדיה יוצאת — נשארת צרה יותר (לא כמו בועת טקסט) | HYPER CORE TECH */
   .chat-panel .chat-message--outgoing:has(.chat-message__image-container),
   .chat-panel .chat-message--outgoing:has(.chat-message__video-container),
   .chat-panel .chat-message--outgoing:has(.chat-media-upload) {

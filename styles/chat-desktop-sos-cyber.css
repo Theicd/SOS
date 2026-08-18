@@ -549,6 +549,25 @@
     overflow: hidden !important;
   }
 
+  /* טקסט בלבד בדסקטופ: רוחב כמו וואטסאפ — בלי לגעת במובייל/מדיה | HYPER CORE TECH */
+  .chat-panel .chat-message {
+    max-width: 70% !important;
+  }
+
+  .chat-panel .chat-message--outgoing:not(:has(.chat-message__image-container)):not(:has(.chat-message__video-container)):not(:has(.chat-media-upload)):not(:has(.chat-audio-whatsapp)),
+  .chat-panel .chat-message--incoming:not(:has(.chat-message__image-container)):not(:has(.chat-message__video-container)):not(:has(.chat-media-upload)):not(:has(.chat-audio-whatsapp)) {
+    max-width: min(70%, 650px) !important;
+  }
+
+  .chat-panel .chat-message--outgoing:has(.chat-message__image-container),
+  .chat-panel .chat-message--outgoing:has(.chat-message__video-container),
+  .chat-panel .chat-message--outgoing:has(.chat-media-upload),
+  .chat-panel .chat-message--incoming:has(.chat-message__image-container),
+  .chat-panel .chat-message--incoming:has(.chat-message__video-container),
+  .chat-panel .chat-message--incoming:has(.chat-media-upload) {
+    max-width: min(78%, 420px) !important;
+  }
+
   .chat-panel .chat-message__content--media-caption .chat-message__image-container,
   .chat-panel .chat-message__content--media-caption .chat-message__video-container,
   .chat-panel .chat-message__content--media-caption .chat-media-upload,
