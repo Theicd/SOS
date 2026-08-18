@@ -349,7 +349,7 @@ body:has(.videos-feed) .top-bar {
   }
 }
 
-/* כותרת קבוצה בתפריט הפרופיל – כחול כהה + מסגרת ציאן | HYPER CORE TECH */
+/* כותרת קבוצה בתפריט הפרופיל – כמעט שחור + מסגרת ציאן עדינה | HYPER CORE TECH */
 .top-bar__dropdown-title {
   padding: 8px 12px;
   margin: 6px 4px 4px;
@@ -358,13 +358,13 @@ body:has(.videos-feed) .top-bar {
   letter-spacing: 0.02em;
   color: #e8f7ff;
   background:
-    linear-gradient(145deg, rgba(18, 42, 72, 0.95) 0%, rgba(26, 58, 92, 0.9) 100%);
-  border: 1px solid rgba(120, 200, 255, 0.35);
+    linear-gradient(145deg, rgba(6, 10, 16, 0.98) 0%, rgba(10, 16, 26, 0.95) 100%);
+  border: 1px solid rgba(40, 170, 255, 0.22);
   border-radius: 10px;
   text-align: right;
   box-shadow:
-    0 0 12px rgba(0, 175, 255, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 0 8px rgba(0, 175, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .top-bar__dropdown-title:first-child {

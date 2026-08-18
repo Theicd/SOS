@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v528'; // bump - cyber glass for profile + chat menus
+  const CACHE_NAME = 'sos-cache-v529'; // bump - darker profile menu for black home page
   const PRECACHE_URLS = [
     './',
     './videos.html',
