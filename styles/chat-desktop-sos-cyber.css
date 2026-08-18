@@ -1060,26 +1060,26 @@
     font-size: 0.85rem;
   }
 
-  /* תפריט ⋮ דסקטופ – יישור כמו וואטסאפ: עמודת אייקון + שורות מלאות + מסגרת עדינה | HYPER CORE TECH */
+  /* תפריט ⋮ דסקטופ – כהה + קווים מפרידים כמו תפריט דף הבית | HYPER CORE TECH */
   .chat-panel .chat-conversation__menu {
     direction: rtl !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 2px !important;
+    gap: 0 !important;
     width: 240px !important;
     min-width: 240px !important;
     max-width: min(260px, calc(100vw - 24px)) !important;
-    padding: 6px !important;
+    padding: 6px 8px !important;
     border-radius: 12px !important;
-    border: 1px solid rgba(120, 200, 255, 0.45) !important;
+    border: 1px solid rgba(40, 170, 255, 0.28) !important;
     background:
-      linear-gradient(145deg, rgba(26, 58, 92, 0.94) 0%, rgba(18, 42, 72, 0.97) 45%, rgba(35, 75, 110, 0.9) 100%) !important;
+      linear-gradient(145deg, rgba(8, 12, 20, 0.97) 0%, rgba(3, 10, 20, 0.98) 55%, rgba(12, 18, 28, 0.95) 100%) !important;
     box-shadow:
-      0 10px 28px rgba(0, 0, 0, 0.45),
-      0 0 22px rgba(0, 175, 255, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      inset 0 -12px 26px rgba(0, 30, 55, 0.4) !important;
+      0 10px 28px rgba(0, 0, 0, 0.55),
+      0 0 14px rgba(0, 175, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      inset 0 -10px 22px rgba(0, 0, 0, 0.45) !important;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-sizing: border-box !important;
@@ -1104,14 +1104,19 @@
     margin: 0 !important;
     padding: 10px 12px !important;
     border: none !important;
+    border-bottom: 1px solid rgba(120, 200, 255, 0.12) !important;
     border-radius: 8px !important;
     background: transparent !important;
-    color: #e9edef !important;
+    color: #e8f7ff !important;
     text-align: start !important;
     font-size: 0.95rem !important;
     line-height: 1.25 !important;
     box-sizing: border-box !important;
     white-space: nowrap !important;
+  }
+
+  .chat-panel .chat-conversation__menu > .chat-conversation__menu-item:last-child {
+    border-bottom: none !important;
   }
 
   /* אחרי display:flex של הפריט – מובייל בלבד נשאר מוסתר בדסקטופ | HYPER CORE TECH */
@@ -1126,6 +1131,7 @@
   .chat-panel .chat-conversation__menu-item--desktop-only[hidden],
   .chat-panel .chat-conversation__menu-item[hidden] {
     display: none !important;
+    border-bottom: none !important;
   }
 
   .chat-panel .chat-conversation__menu-item i {
@@ -1772,26 +1778,26 @@
     color: inherit !important;
   }
 
-  /* תפריט ⋮ – אותו סדר/מסגרת כמו דסקטופ (פורטל ל-body במובייל) | HYPER CORE TECH */
+  /* תפריט ⋮ – כהה + מפרידים כמו דף הבית (פורטל ל-body במובייל) | HYPER CORE TECH */
   .chat-panel .chat-conversation__menu,
   body > .chat-conversation__menu {
     direction: rtl !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 2px !important;
+    gap: 0 !important;
     width: min(240px, calc(100vw - 24px)) !important;
     min-width: 200px !important;
-    padding: 6px !important;
+    padding: 6px 8px !important;
     border-radius: 12px !important;
-    border: 1px solid rgba(120, 200, 255, 0.45) !important;
+    border: 1px solid rgba(40, 170, 255, 0.28) !important;
     background:
-      linear-gradient(145deg, rgba(26, 58, 92, 0.94) 0%, rgba(18, 42, 72, 0.97) 45%, rgba(35, 75, 110, 0.9) 100%) !important;
+      linear-gradient(145deg, rgba(8, 12, 20, 0.97) 0%, rgba(3, 10, 20, 0.98) 55%, rgba(12, 18, 28, 0.95) 100%) !important;
     box-shadow:
-      0 10px 28px rgba(0, 0, 0, 0.45),
-      0 0 22px rgba(0, 175, 255, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      inset 0 -12px 26px rgba(0, 30, 55, 0.4) !important;
+      0 10px 28px rgba(0, 0, 0, 0.55),
+      0 0 14px rgba(0, 175, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      inset 0 -10px 22px rgba(0, 0, 0, 0.45) !important;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-sizing: border-box !important;
@@ -1816,11 +1822,17 @@
     margin: 0 !important;
     padding: 11px 12px !important;
     border: none !important;
+    border-bottom: 1px solid rgba(120, 200, 255, 0.12) !important;
     border-radius: 8px !important;
     background: transparent !important;
-    color: #e9edef !important;
+    color: #e8f7ff !important;
     text-align: start !important;
     box-sizing: border-box !important;
+  }
+
+  .chat-panel .chat-conversation__menu > .chat-conversation__menu-item:last-child,
+  body > .chat-conversation__menu > .chat-conversation__menu-item:last-child {
+    border-bottom: none !important;
   }
 
   .chat-panel .chat-conversation__menu-item--desktop-only,
@@ -1831,6 +1843,7 @@
   .chat-panel .chat-conversation__menu-item[hidden],
   body > .chat-conversation__menu .chat-conversation__menu-item[hidden] {
     display: none !important;
+    border-bottom: none !important;
   }
 
   .chat-panel .chat-conversation__menu-item i,

@@ -1128,18 +1128,18 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   width: max-content;
   min-width: 0;
   max-width: min(240px, calc(100vw - 20px));
-  padding: 5px;
+  padding: 6px 8px;
   border-radius: 14px;
-  border: 1px solid rgba(120, 200, 255, 0.45);
+  border: 1px solid rgba(40, 170, 255, 0.28);
   background:
-    linear-gradient(145deg, rgba(26, 58, 92, 0.94) 0%, rgba(18, 42, 72, 0.97) 45%, rgba(35, 75, 110, 0.9) 100%);
+    linear-gradient(145deg, rgba(8, 12, 20, 0.97) 0%, rgba(3, 10, 20, 0.98) 55%, rgba(12, 18, 28, 0.95) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.45),
-    0 0 22px rgba(0, 175, 255, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -12px 26px rgba(0, 30, 55, 0.4);
+    0 10px 28px rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(0, 175, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.45);
   box-sizing: border-box;
 }
 
@@ -1159,7 +1159,7 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 .chat-conversation__menu-sep {
   height: 1px;
   margin: 4px 8px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(120, 200, 255, 0.12);
   border: 0;
 }
 
@@ -1174,9 +1174,10 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   margin: 0;
   padding: 11px 12px;
   border: none;
-  border-radius: 10px;
+  border-bottom: 1px solid rgba(120, 200, 255, 0.12);
+  border-radius: 8px;
   background: transparent;
-  color: #ffffff;
+  color: #e8f7ff;
   text-align: start;
   font-size: 0.94rem;
   line-height: 1.2;
@@ -1187,6 +1188,12 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 
 .chat-conversation__menu-item[hidden] {
   display: none !important;
+  border-bottom: none !important;
+}
+
+/* בלי קו אחרי פריט אחרון | HYPER CORE TECH */
+.chat-conversation__menu > .chat-conversation__menu-item:last-child {
+  border-bottom: none;
 }
 
 /* חלק תפריט שיחה – פריטי דסקטופ מוסתרים במובייל | HYPER CORE TECH */
