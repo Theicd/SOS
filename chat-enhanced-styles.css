@@ -1535,12 +1535,17 @@ body.chat-lightbox-open {
   box-shadow: none;
 }
 
-/* אופקי: אותם גדלים כמו וידאו לרוחב | HYPER CORE TECH */
-.chat-message__image-container--landscape {
+/* אופקי: בלי תקרת גובה שחותכת באנרים | HYPER CORE TECH */
+.chat-message__image-container--landscape,
+.chat-message__image-container--natural,
+.chat-message__image-container[data-natural-fit="1"],
+.chat-message__image-container[data-fit-mode="contain"] {
   max-width: 360px;
   min-width: 0;
-  max-height: 280px;
+  max-height: none;
+  height: auto;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .chat-message__image-container--portrait {
@@ -1605,7 +1610,7 @@ body.chat-lightbox-open {
 
 .chat-message__image {
   width: 100%;
-  height: 100%;
+  height: auto;
   max-height: none;
   object-fit: contain;
   display: block;
@@ -1614,23 +1619,33 @@ body.chat-lightbox-open {
   background: #000;
 }
 
-/* תמונה ממלאת מסגרת: אופקי/באנר = contain (כל התמונה), אנכי = cover | HYPER CORE TECH */
-.chat-message__image-container.is-media-ready .chat-message__image {
+/* אנכי בלבד: ממלא מסגרת קבועה | HYPER CORE TECH */
+.chat-message__image-container--portrait.is-media-ready .chat-message__image,
+.chat-message__image-container[data-fit-mode="cover"] .chat-message__image {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-}
-
-.chat-message__image-container--portrait.is-media-ready .chat-message__image,
-.chat-message__image-container[data-fit-mode="cover"] .chat-message__image {
   object-fit: cover;
 }
 
+/* אופקי/באנר: זרימה טבעית כמו וואטסאפ — כל התמונה נראית | HYPER CORE TECH */
+.chat-message__image-container--landscape .chat-message__image,
 .chat-message__image-container--landscape.is-media-ready .chat-message__image,
-.chat-message__image-container[data-fit-mode="contain"] .chat-message__image {
-  object-fit: contain;
+.chat-message__image-container--natural .chat-message__image,
+.chat-message__image-container--natural.is-media-ready .chat-message__image,
+.chat-message__image-container[data-natural-fit="1"] .chat-message__image,
+.chat-message__image-container[data-natural-fit="1"].is-media-ready .chat-message__image,
+.chat-message__image-container[data-fit-mode="contain"] .chat-message__image,
+.chat-message__image-container[data-fit-mode="contain"].is-media-ready .chat-message__image {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  display: block !important;
 }
 
 .chat-message__image-container .chat-message__media-download:not(.chat-message__media-download--side),
@@ -2154,16 +2169,20 @@ body.chat-lightbox-open {
 
   .chat-message__image-container--landscape .chat-message__image,
   .chat-message__image-container.is-media-ready .chat-message__image {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    max-width: 100%;
-    object-fit: contain;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
   }
 
   .chat-message__image-container--portrait.is-media-ready .chat-message__image {
-    object-fit: cover;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
   }
 
   .chat-message:has(.chat-message__image-container--landscape) {
@@ -2975,13 +2994,14 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
 
 .chat-media-upload--landscape {
   max-width: 360px;
-  min-width: 220px;
-  max-height: 280px;
+  min-width: 0;
+  max-height: none;
+  height: auto;
 }
 
 .chat-media-upload--portrait {
   max-width: 310px;
-  min-width: 200px;
+  min-width: 0;
   max-height: min(58vh, 500px);
 }
 
@@ -3029,6 +3049,26 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* העלאה/תצוגה אופקית מוכנה – כמו וואטסאפ, בלי חיתוך | HYPER CORE TECH */
+.chat-media-upload--landscape[data-media-ready="1"],
+.chat-media-upload[data-natural-fit="1"][data-media-ready="1"],
+.chat-media-upload[data-fit-mode="contain"][data-media-ready="1"] {
+  height: auto !important;
+  max-height: none !important;
+  aspect-ratio: auto;
+}
+
+.chat-media-upload--landscape[data-media-ready="1"] .chat-media-upload__media,
+.chat-media-upload[data-natural-fit="1"][data-media-ready="1"] .chat-media-upload__media,
+.chat-media-upload[data-fit-mode="contain"][data-media-ready="1"] .chat-media-upload__media {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: contain !important;
 }
 
 .chat-media-upload__overlay {

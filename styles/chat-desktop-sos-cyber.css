@@ -514,6 +514,32 @@
     color: var(--sos-muted) !important;
   }
 
+  /* תמונות אופקיות בצ'אט – כל התמונה נראית (כמו וואטסאפ), בלי cover | HYPER CORE TECH */
+  .chat-panel .chat-message__image-container--landscape,
+  .chat-panel .chat-message__image-container--natural,
+  .chat-panel .chat-message__image-container[data-natural-fit="1"],
+  .chat-panel .chat-message__image-container[data-fit-mode="contain"],
+  .chat-panel .chat-media-upload--landscape[data-media-ready="1"],
+  .chat-panel .chat-media-upload[data-natural-fit="1"][data-media-ready="1"] {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .chat-panel .chat-message__image-container--landscape .chat-message__image,
+  .chat-panel .chat-message__image-container--natural .chat-message__image,
+  .chat-panel .chat-message__image-container[data-natural-fit="1"] .chat-message__image,
+  .chat-panel .chat-message__image-container[data-fit-mode="contain"] .chat-message__image,
+  .chat-panel .chat-media-upload--landscape[data-media-ready="1"] .chat-media-upload__media,
+  .chat-panel .chat-media-upload[data-natural-fit="1"][data-media-ready="1"] .chat-media-upload__media {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    object-fit: contain !important;
+  }
+
   /* אייקוני כותרת שיחה – stroke חלול + זוהר; גודל תואם להדר/אווטאר | HYPER CORE TECH */
   .chat-panel .chat-conversation__icon,
   .chat-panel .chat-conversation__actions button {

@@ -1086,25 +1086,38 @@
       }
     }
     const box = computeChatMediaBox(w, h, el);
-    // מסגרת לפי יחס מקורי; תמונות אופקיות ב־contain (בלי חיתוך באנרים) | HYPER CORE TECH
-    el.style.width = `${box.dispW}px`;
-    el.style.height = `${box.dispH}px`;
-    el.style.maxWidth = `${box.dispW}px`;
-    el.style.maxHeight = `${box.dispH}px`;
-    // לא מאפסים min-width — במובייל תמונה/וידאו לרוחב צריכים רצפת 220px כמו CSS | HYPER CORE TECH
-    el.style.removeProperty('min-width');
-    el.style.removeProperty('min-height');
-    el.style.aspectRatio = `${box.dispW} / ${box.dispH}`;
+    const isImageHost =
+      el.classList.contains('chat-message__image-container') ||
+      (el.classList.contains('chat-media-upload') && !!el.querySelector('img.chat-media-upload__media') && !el.querySelector('video'));
+
     el.dataset.mediaNw = String(w);
     el.dataset.mediaNh = String(h);
     el.dataset.sizedW = String(box.dispW);
     el.dataset.sizedH = String(box.dispH);
     el.dataset.aspectLocked = '1';
-    if (box.ultraWide || !box.portrait) {
+    el.style.width = `${box.dispW}px`;
+    el.style.maxWidth = `${box.dispW}px`;
+    el.style.removeProperty('min-width');
+    el.style.removeProperty('min-height');
+
+    // תמונה אופקית/באנר – כמו וואטסאפ: רוחב קבוע, גובה טבעי, בלי absolute/cover | HYPER CORE TECH
+    if (isImageHost && !box.portrait) {
+      el.style.height = 'auto';
+      el.style.maxHeight = 'none';
+      el.style.aspectRatio = `${w} / ${h}`;
       el.dataset.fitMode = 'contain';
-    } else {
-      el.dataset.fitMode = 'cover';
+      el.dataset.naturalFit = '1';
+      el.classList.add('chat-message__image-container--natural');
+      return box;
     }
+
+    // אנכי / וידאו – מסגרת קבועה כמו קודם | HYPER CORE TECH
+    el.style.height = `${box.dispH}px`;
+    el.style.maxHeight = `${box.dispH}px`;
+    el.style.aspectRatio = `${box.dispW} / ${box.dispH}`;
+    el.dataset.fitMode = box.portrait ? 'cover' : 'contain';
+    el.dataset.naturalFit = '0';
+    el.classList.remove('chat-message__image-container--natural');
     return box;
   }
 
