@@ -204,9 +204,20 @@
   }
 
   .chat-panel .chat-sidebar-header {
-    background: #000 !important;
+    background:
+      linear-gradient(145deg, rgba(8, 12, 20, 0.99) 0%, rgba(3, 8, 16, 1) 48%, rgba(10, 14, 22, 0.98) 100%) !important;
+    background-color: #05070c !important;
     /* פס מתחת ללוגו – עדין יותר | HYPER CORE TECH */
-    border-bottom: 1px solid rgba(40, 170, 255, 0.16);
+    border-bottom: 1px solid rgba(40, 170, 255, 0.22);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      inset 0 -12px 22px rgba(0, 0, 0, 0.45);
+    padding: 0 !important;
+  }
+
+  .chat-panel .chat-sidebar-header__logo,
+  .chat-panel .chat-sidebar-header__logo img {
+    background: #05070c !important;
   }
 
   .chat-panel .chat-contacts__list {

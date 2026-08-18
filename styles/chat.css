@@ -1977,25 +1977,26 @@ body.chat-media-modal-open {
     height: 100%;
   }
 
-  /* === כותרת סיידבר עם לוגו – גובה 59px מיושר לכותרת השיחה | HYPER CORE TECH === */
+  /* === כותרת סיידבר עם לוגו – צמוד לקצוות, גובה לפי הלוגו | HYPER CORE TECH === */
   .chat-panel .chat-sidebar-header {
-    height: 59px;
-    min-height: 59px;
-    background-color: var(--wa-header-color);
+    height: auto;
+    min-height: 0;
+    background-color: #05070c;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 16px;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0; /* לוגו ממלא למעלה + שמאל + ימין | HYPER CORE TECH */
     flex-shrink: 0;
     box-sizing: border-box;
+    overflow: hidden;
   }
 
   /* קבוצה ללוגו וכפתור סגירה כדי שיהיו צמודים מימין (chat.css) | HYPER CORE TECH */
   .chat-panel .chat-sidebar-header__group {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 0;
     width: 100%;
   }
 
@@ -2006,29 +2007,31 @@ body.chat-media-modal-open {
   }
 
   .chat-panel .chat-sidebar-header__logo {
-    width: auto;
+    width: 100%;
     height: auto;
     max-width: 100%;
-    background: transparent;
+    background: #05070c;
     border-radius: 0;
-    overflow: visible;
+    overflow: hidden;
     cursor: pointer;
-    flex-shrink: 1;
+    flex-shrink: 0;
     position: relative;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: stretch;
     padding: 0;
-    margin: 0 auto;
+    margin: 0;
   }
 
   .chat-panel .chat-sidebar-header__logo img {
     display: block !important;
-    height: 36px;
-    width: auto;
-    max-height: 36px;
-    max-width: min(264px, 100%);
+    height: auto;
+    width: 100%;
+    max-height: none;
+    max-width: 100%;
     object-fit: contain;
+    object-position: center top;
+    background: #05070c;
   }
 
   /* כפתור סגירה חדש בסיידבר ליד הלוגו (chat.css) | HYPER CORE TECH */
