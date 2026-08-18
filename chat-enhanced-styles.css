@@ -1856,6 +1856,28 @@ body.chat-lightbox-open {
     max-width: 420px !important;
     min-width: 0 !important;
   }
+
+  /* שעה בתוך כיתוב מדיה — float כמו וואטסאפ (דסקטופ) | HYPER CORE TECH */
+  .chat-message__content--media-upload.chat-message__content--media-caption {
+    display: block !important;
+  }
+
+  .chat-message__content--media-upload.chat-message__content--media-caption .chat-message__text {
+    display: inline;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+
+  .chat-message__content--media-upload.chat-message__content--media-caption .chat-message__meta-row {
+    float: left !important;
+    display: inline-flex !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 0 0 8px !important;
+    margin-inline-start: 8px !important;
+  }
 }
 
 .chat-message__video {
