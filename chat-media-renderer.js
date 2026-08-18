@@ -1072,6 +1072,33 @@
     };
   }
 
+  // תמונה+כיתוב: נועלים בועה+מדיה לאותו רוחב px (מונע max-content שמתנפח אחרי onload) | HYPER CORE TECH
+  function syncMediaCaptionBubble(el, dispW) {
+    if (!el || !dispW) return;
+    const px = `${Math.round(dispW)}px`;
+    el.style.setProperty('width', px, 'important');
+    el.style.setProperty('max-width', px, 'important');
+    el.style.setProperty('min-width', '0', 'important');
+
+    const bubble = el.closest?.('.chat-message__content--media-caption');
+    if (!bubble) return;
+    bubble.style.setProperty('width', px, 'important');
+    bubble.style.setProperty('max-width', px, 'important');
+    bubble.style.setProperty('min-width', '0', 'important');
+    bubble.style.setProperty('padding', '0 0 4px', 'important');
+    bubble.style.setProperty('box-sizing', 'border-box', 'important');
+
+    const msg = bubble.closest?.('.chat-message');
+    if (msg) {
+      const viewW = window.innerWidth || 360;
+      const narrow = viewW <= 768 || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+      const msgCap = narrow ? Math.min(Math.floor(viewW * 0.92), dispW + 24) : Math.min(340, dispW + 48);
+      msg.style.setProperty('max-width', `${msgCap}px`, 'important');
+      msg.style.setProperty('min-width', '0', 'important');
+      msg.style.setProperty('box-sizing', 'border-box', 'important');
+    }
+  }
+
   function applyChatMediaBoxSize(el, w, h, { force = false } = {}) {
     if (!el || !w || !h) return false;
     if (
@@ -1082,6 +1109,7 @@
     ) {
       const probe = computeChatMediaBox(w, h, el);
       if (el.dataset.sizedW === String(probe.dispW) && el.dataset.sizedH === String(probe.dispH)) {
+        syncMediaCaptionBubble(el, probe.dispW);
         return probe;
       }
     }
@@ -1095,29 +1123,32 @@
     el.dataset.sizedW = String(box.dispW);
     el.dataset.sizedH = String(box.dispH);
     el.dataset.aspectLocked = '1';
-    el.style.width = `${box.dispW}px`;
-    el.style.maxWidth = `${box.dispW}px`;
-    el.style.removeProperty('min-width');
+    // !important כדי ש־width:auto / width:100% ב־CSS לא ידרסו אחרי onload | HYPER CORE TECH
+    el.style.setProperty('width', `${box.dispW}px`, 'important');
+    el.style.setProperty('max-width', `${box.dispW}px`, 'important');
+    el.style.setProperty('min-width', '0', 'important');
     el.style.removeProperty('min-height');
 
     // תמונה אופקית/באנר – כמו וואטסאפ: רוחב קבוע, גובה טבעי, בלי absolute/cover | HYPER CORE TECH
     if (isImageHost && !box.portrait) {
-      el.style.height = 'auto';
-      el.style.maxHeight = 'none';
+      el.style.setProperty('height', 'auto', 'important');
+      el.style.setProperty('max-height', 'none', 'important');
       el.style.aspectRatio = `${w} / ${h}`;
       el.dataset.fitMode = 'contain';
       el.dataset.naturalFit = '1';
       el.classList.add('chat-message__image-container--natural');
+      syncMediaCaptionBubble(el, box.dispW);
       return box;
     }
 
     // אנכי / וידאו – מסגרת קבועה כמו קודם | HYPER CORE TECH
-    el.style.height = `${box.dispH}px`;
-    el.style.maxHeight = `${box.dispH}px`;
+    el.style.setProperty('height', `${box.dispH}px`, 'important');
+    el.style.setProperty('max-height', `${box.dispH}px`, 'important');
     el.style.aspectRatio = `${box.dispW} / ${box.dispH}`;
     el.dataset.fitMode = box.portrait ? 'cover' : 'contain';
     el.dataset.naturalFit = '0';
     el.classList.remove('chat-message__image-container--natural');
+    syncMediaCaptionBubble(el, box.dispW);
     return box;
   }
 

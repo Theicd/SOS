@@ -1673,15 +1673,14 @@ body.chat-overlay-open::before {
   padding-inline: 4px;
 }
 
-/* מדיה + כיתוב: תמונה צמודה למעלה/צדדים; טקסט מתחת באותו רוחב | HYPER CORE TECH */
+/* מדיה + כיתוב: תמונה צמודה; רוחב ננעל ב־JS (לא max-content שמתנפח) | HYPER CORE TECH */
 .chat-message__content--media-caption {
   display: flex !important;
   flex-direction: column;
   align-items: stretch;
   padding: 0 0 4px !important;
   gap: 0 !important;
-  width: max-content;
-  max-width: min(360px, 100%);
+  max-width: 360px;
   min-width: 0;
   overflow: hidden;
   box-sizing: border-box;
@@ -2525,8 +2524,7 @@ body.chat-media-modal-open {
   .chat-panel .chat-message--outgoing .chat-message__image-container--landscape,
   .chat-panel .chat-message--outgoing .chat-message__video-container--landscape,
   .chat-panel .chat-message--outgoing .chat-media-upload--landscape {
-    max-width: min(280px, 100%) !important;
-    width: auto !important;
+    max-width: 280px !important;
     min-width: 0 !important;
     box-sizing: border-box;
   }
@@ -2664,16 +2662,14 @@ body.chat-media-modal-open {
     align-items: stretch;
     padding: 0 0 4px !important;
     gap: 0 !important;
-    width: max-content;
-    max-width: min(280px, 100%);
+    max-width: 280px;
     min-width: 0;
+    overflow: hidden;
   }
 
   .chat-panel .chat-message__content--media-caption .chat-message__image-container,
   .chat-panel .chat-message__content--media-caption .chat-message__video-container,
   .chat-panel .chat-message__content--media-caption .chat-media-upload {
-    width: 100% !important;
-    max-width: 100% !important;
     min-width: 0 !important;
     align-self: stretch !important;
     border-radius: 0 !important;

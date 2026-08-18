@@ -514,15 +514,14 @@
     color: var(--sos-muted) !important;
   }
 
-  /* תמונות אופקיות בדסקטופ – כל התמונה + רוחב מוגבל (לא דוחף שמאלה) | HYPER CORE TECH */
+  /* תמונות אופקיות בדסקטופ – רוחב מ־JS; בלי width:auto (שובר תמונה+כיתוב) | HYPER CORE TECH */
   .chat-panel .chat-message__image-container--landscape,
   .chat-panel .chat-message__image-container--natural,
   .chat-panel .chat-message__image-container[data-natural-fit="1"],
   .chat-panel .chat-message__image-container[data-fit-mode="contain"],
   .chat-panel .chat-media-upload--landscape[data-media-ready="1"],
   .chat-panel .chat-media-upload[data-natural-fit="1"][data-media-ready="1"] {
-    max-width: min(280px, 100%) !important;
-    width: auto !important;
+    max-width: 280px !important;
     min-width: 0 !important;
     height: auto !important;
     max-height: none !important;
@@ -535,19 +534,19 @@
   .chat-panel .chat-message:has([data-natural-fit="1"]),
   .chat-panel .chat-message:has(.chat-media-upload--landscape),
   .chat-panel .chat-message:has(.chat-message__content--media-caption) {
-    max-width: min(72%, 340px) !important;
+    max-width: 340px !important;
     min-width: 0 !important;
     box-sizing: border-box !important;
   }
 
-  /* תמונה+טקסט: מסגרת צמודה לתמונה; טקסט מתחת באותו רוחב | HYPER CORE TECH */
+  /* תמונה+טקסט: מסגרת צמודה; רוחב ננעל ב־JS לאותו px כמו התמונה | HYPER CORE TECH */
   .chat-panel .chat-message__content--media-caption {
     padding: 0 0 4px !important;
-    max-width: min(280px, 100%) !important;
-    width: max-content !important;
+    max-width: 280px !important;
     min-width: 0 !important;
     align-items: stretch !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .chat-panel .chat-message__content--media-caption .chat-message__image-container,
@@ -556,8 +555,6 @@
   .chat-panel .chat-message__content--media-caption .chat-message__image-container[data-natural-fit="1"],
   .chat-panel .chat-message__content--media-caption .chat-media-upload[data-natural-fit="1"],
   .chat-panel .chat-message__content--media-caption .chat-media-upload--landscape {
-    width: 100% !important;
-    max-width: 100% !important;
     min-width: 0 !important;
     align-self: stretch !important;
     border-radius: 0 !important;
@@ -566,6 +563,9 @@
   .chat-panel .chat-message__content--media-caption .chat-message__image,
   .chat-panel .chat-message__content--media-caption .chat-media-upload__media {
     border-radius: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
   }
 
   .chat-panel .chat-message__image-container--landscape .chat-message__image,
