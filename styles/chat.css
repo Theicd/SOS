@@ -1977,15 +1977,15 @@ body.chat-media-modal-open {
     height: 100%;
   }
 
-  /* === כותרת סיידבר עם לוגו – צמוד לקצוות, גובה לפי הלוגו | HYPER CORE TECH === */
+  /* === כותרת סיידבר עם לוגו – גודל סביר, ממורכז, רקע סייבר | HYPER CORE TECH === */
   .chat-panel .chat-sidebar-header {
-    height: auto;
-    min-height: 0;
+    height: 56px;
+    min-height: 56px;
     background-color: #05070c;
     display: flex;
-    align-items: stretch;
-    justify-content: stretch;
-    padding: 0; /* לוגו ממלא למעלה + שמאל + ימין | HYPER CORE TECH */
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
     flex-shrink: 0;
     box-sizing: border-box;
     overflow: hidden;
@@ -1994,9 +1994,9 @@ body.chat-media-modal-open {
   /* קבוצה ללוגו וכפתור סגירה כדי שיהיו צמודים מימין (chat.css) | HYPER CORE TECH */
   .chat-panel .chat-sidebar-header__group {
     display: flex;
-    align-items: stretch;
-    justify-content: stretch;
-    gap: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     width: 100%;
   }
 
@@ -2007,31 +2007,31 @@ body.chat-media-modal-open {
   }
 
   .chat-panel .chat-sidebar-header__logo {
-    width: 100%;
+    width: auto;
     height: auto;
     max-width: 100%;
-    background: #05070c;
+    background: transparent;
     border-radius: 0;
-    overflow: hidden;
+    overflow: visible;
     cursor: pointer;
-    flex-shrink: 0;
+    flex-shrink: 1;
     position: relative;
     display: flex;
-    align-items: stretch;
-    justify-content: stretch;
+    align-items: center;
+    justify-content: center;
     padding: 0;
-    margin: 0;
+    margin: 0 auto;
   }
 
   .chat-panel .chat-sidebar-header__logo img {
     display: block !important;
-    height: auto;
-    width: 100%;
-    max-height: none;
-    max-width: 100%;
+    height: 42px;
+    width: auto;
+    max-height: 42px;
+    max-width: min(260px, 100%);
     object-fit: contain;
-    object-position: center top;
-    background: #05070c;
+    object-position: center;
+    background: transparent;
   }
 
   /* כפתור סגירה חדש בסיידבר ליד הלוגו (chat.css) | HYPER CORE TECH */
