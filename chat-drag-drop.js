@@ -162,15 +162,36 @@
     if (dragCounter <= 0) resetDragUi();
   }
 
+  function pointInRect(x, y, rect) {
+    return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  function isOverConversation(e) {
+    var conv = conversationEl();
+    if (!conv) return false;
+    if (e.target && e.target.closest && e.target.closest('.chat-conversation')) return true;
+    return pointInRect(e.clientX, e.clientY, conv.getBoundingClientRect());
+  }
+
+  function isOverContactsList(e) {
+    var list = doc.querySelector('#chatPanel .chat-contacts') || doc.querySelector('.chat-panel .chat-contacts');
+    if (!list) return false;
+    if (e.target && e.target.closest && e.target.closest('.chat-contacts')) return true;
+    return pointInRect(e.clientX, e.clientY, list.getBoundingClientRect());
+  }
+
   function onDrop(e) {
     if (!isDesktop()) return;
     e.preventDefault();
     e.stopPropagation();
     var contact = contactFromEvent(e);
     var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    var overConv = isOverConversation(e);
+    var overContacts = isOverContactsList(e);
     resetDragUi();
     if (!file) return;
 
+    // שחרור על איש קשר ברשימה | HYPER CORE TECH
     if (contact) {
       var pk = contact.getAttribute('data-chat-contact');
       if (pk) {
@@ -179,18 +200,19 @@
       }
     }
 
-    // שחרור באזור השיחה – דורש שיחה פעילה | HYPER CORE TECH
+    // שחרור באזור ריק ברשימה – מתעלמים | HYPER CORE TECH
+    if (overContacts && !overConv) return;
+
+    // שחרור באזור השיחה – שיחה פעילה + השהייה קצרה (כמו נתיב איש קשר) | HYPER CORE TECH
     var peer = App.chatState && App.chatState.activeContact;
     if (!peer) {
       console.warn('[DRAG-DROP] no active chat');
       return;
     }
-    var conv = conversationEl();
-    if (conv && !conv.contains(e.target) && !contact) {
-      // drop מחוץ לשיחה ולאיש קשר – מתעלמים
-      return;
-    }
-    openSendPreview(file);
+    if (!overConv) return;
+    window.setTimeout(function () {
+      openSendPreview(file);
+    }, 80);
   }
 
   function setupChatDragDrop() {
