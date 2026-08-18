@@ -1838,25 +1838,6 @@ body.chat-lightbox-open {
   background: #000 !important;
 }
 
-.chat-message__video-container--no-thumb {
-  background: #000 !important;
-}
-
-.chat-media-upload--android-safe .chat-media-upload__media {
-  opacity: 0 !important;
-  visibility: hidden !important;
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  left: -9999px !important;
-  pointer-events: none !important;
-}
-
-.chat-media-upload.has-poster-bg {
-  background-color: #000;
-  background-repeat: no-repeat;
-}
-
 .chat-message__video.is-ready,
 .chat-message__video.has-poster,
 .chat-message__video[poster] {

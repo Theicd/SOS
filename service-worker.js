@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v519'; // bump - APK 1.0.63 native video white-play fix
+  const CACHE_NAME = 'sos-cache-v520'; // bump - revert broken PWA video; safe APK shell inject only
   const PRECACHE_URLS = [
     './',
     './videos.html',

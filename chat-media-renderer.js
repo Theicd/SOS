@@ -670,28 +670,6 @@
     return false;
   }
 
-  // WebView אנדרואיד מצייר פליי לבן גם על video עם opacity:0 — מנתקים src אחרי תקציר | HYPER CORE TECH
-  function neutralizeAndroidBubbleVideo(el, container, playable) {
-    if (!el || !needsAndroidVideoPlaceholder()) return;
-    try {
-      if (playable) {
-        container?.setAttribute?.('data-media-src', playable);
-        if (container) container.dataset.mediaSrc = playable;
-      }
-      const source = el.querySelector('source');
-      if (source) {
-        source.removeAttribute('src');
-        try { source.src = ''; } catch (_) {}
-      }
-      el.removeAttribute('src');
-      try { el.removeAttribute('poster'); } catch (_) {}
-      try { el.load(); } catch (_) {}
-      el.style.cssText =
-        'opacity:0;visibility:hidden;position:absolute;width:1px;height:1px;left:-9999px;pointer-events:none;background:#000';
-      el.dataset.androidNeutralized = '1';
-    } catch (_) {}
-  }
-
   // לכידת תקציר מוידאו File/Blob — video מחוץ למסך לגמרי (בלי פליי לבן ברקע) | HYPER CORE TECH
   async function capturePosterFromBlob(blobOrFile, mimeHint = '') {
     if (!blobOrFile) return '';
@@ -1204,30 +1182,13 @@
       revealChatMessageBubble(container);
       return true;
     }
-    let aspectOk = lockChatVideoAspect(container, videoEl);
-    if (!aspectOk) {
-      const thumbEl = container.querySelector('.chat-message__video-thumb');
-      if (thumbEl?.naturalWidth && thumbEl?.naturalHeight) {
-        aspectOk = lockChatVideoAspect(container, {
-          videoWidth: thumbEl.naturalWidth,
-          videoHeight: thumbEl.naturalHeight,
-        });
-      } else if (Number(container.dataset.mediaNw) && Number(container.dataset.mediaNh)) {
-        aspectOk = lockChatVideoAspect(container, {
-          videoWidth: Number(container.dataset.mediaNw),
-          videoHeight: Number(container.dataset.mediaNh),
-        });
-      } else if (allowWithoutPoster && needsAndroidVideoPlaceholder()) {
-        aspectOk = lockChatVideoAspect(container, { videoWidth: 16, videoHeight: 9 });
-      }
-    }
-    if (!aspectOk) return false;
+    if (!lockChatVideoAspect(container, videoEl)) return false;
     const hasRealPoster = videoEl.dataset.posterCaptured === '1';
     const thumb = container.querySelector('.chat-message__video-thumb');
     const thumbVisible = !!(thumb && !thumb.hidden && thumb.getAttribute('src'));
     if (!hasRealPoster && !allowWithoutPoster && videoEl.dataset.previewFrame !== '1') return false;
 
-    // קריטי: poster שחור 1×1 מסתיר את הפריים כשהווידאו ב־pause — מסירים אותו רק כשיש תקציר אמיתי | HYPER CORE TECH
+    // קריטי: poster שחור 1×1 מסתיר את הפריים כשהווידאו ב־pause — מסירים אותו | HYPER CORE TECH
     if (!hasRealPoster) {
       try { videoEl.removeAttribute('poster'); } catch (_) {}
     }
@@ -1258,23 +1219,12 @@
     } else {
       // בלי תקציר: רקע שחור + כפתור Play שלנו (בלי נגן מערכת) | HYPER CORE TECH
       container.classList.remove('has-video-thumb');
-      container.classList.add('chat-message__video-container--no-thumb');
       if (thumb) {
         try {
           thumb.removeAttribute('src');
           thumb.hidden = true;
         } catch (_) {}
       }
-    }
-
-    // אחרי שיש תקציר (או חשיפה) — באנדרואיד מנתקים את ה־video מה־DOM הלוגי | HYPER CORE TECH
-    const liveSrc =
-      container.getAttribute('data-media-src') ||
-      videoEl.currentSrc ||
-      videoEl.querySelector('source')?.src ||
-      '';
-    if (hasRealPoster || needsAndroidVideoPlaceholder()) {
-      neutralizeAndroidBubbleVideo(videoEl, container, liveSrc);
     }
 
     const playBtn = container.querySelector('.chat-message__video-play');
@@ -1366,60 +1316,6 @@
         container.setAttribute('data-media-src', playable);
         container.dataset.mediaSrc = playable;
       } catch (_) {}
-
-      const androidShell = needsAndroidVideoPlaceholder();
-
-      // באנדרואיד: קודם תקציר off-DOM בלי src על ה־video הגלוי (מונע פליי לבן) | HYPER CORE TECH
-      if (androidShell && el.dataset.posterCaptured !== '1' && playable) {
-        try {
-          const blobResp = await fetch(playable);
-          if (blobResp.ok) {
-            const mediaBlob = await blobResp.blob();
-            const offDomPoster = await capturePosterFromBlob(mediaBlob, type);
-            if (offDomPoster) {
-              applyChatVideoPoster(container, el, offDomPoster);
-              if (attachment.fileId) {
-                persistChatP2PPoster(attachment.fileId, offDomPoster).catch(() => {});
-              }
-            }
-          }
-        } catch (_) {}
-      }
-
-      if (androidShell && el.dataset.posterCaptured === '1') {
-        // יש תקציר — לא טוענים video בבועה בכלל | HYPER CORE TECH
-        neutralizeAndroidBubbleVideo(el, container, playable);
-        const thumb = container.querySelector('.chat-message__video-thumb');
-        if (thumb?.naturalWidth && thumb.naturalHeight) {
-          lockChatVideoAspect(container, { videoWidth: thumb.naturalWidth, videoHeight: thumb.naturalHeight });
-        } else if (thumb) {
-          await new Promise((resolve) => {
-            thumb.onload = () => resolve();
-            thumb.onerror = () => resolve();
-            setTimeout(resolve, 800);
-          });
-          if (thumb.naturalWidth) {
-            lockChatVideoAspect(container, { videoWidth: thumb.naturalWidth, videoHeight: thumb.naturalHeight });
-          }
-        }
-        revealChatVideoPreview(container, el, { allowWithoutPoster: true });
-        const openFullscreenAndroid = (event) => {
-          if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          const playSrc = container.getAttribute('data-media-src') || playable || src;
-          if (typeof openVideoLightbox === 'function') {
-            openVideoLightbox(playSrc, name, type, container);
-          }
-        };
-        if (playBtn) playBtn.addEventListener('click', openFullscreenAndroid);
-        container.addEventListener('click', (event) => {
-          if (event.target.closest('.chat-message__media-download')) return;
-          openFullscreenAndroid(event);
-        });
-        return;
-      }
 
       const source = el.querySelector('source');
       if (source) {
@@ -1524,12 +1420,7 @@
         }
         if (container.dataset.ready !== '1' && el.dataset.posterCaptured !== '1') return;
         const sourceEl = el.querySelector('source');
-        const playSrc =
-          container.getAttribute('data-media-src') ||
-          (sourceEl && sourceEl.src) ||
-          el.currentSrc ||
-          playable ||
-          src;
+        const playSrc = (sourceEl && sourceEl.src) || el.currentSrc || playable || src;
         if (typeof openVideoLightbox === 'function') {
           openVideoLightbox(playSrc, name, type, container);
         }
@@ -1551,8 +1442,6 @@
     const thumbHtml = knownPoster
       ? `<img class="chat-message__video-thumb" alt="" src="${knownPoster}" decoding="async">`
       : `<img class="chat-message__video-thumb" alt="" hidden decoding="async">`;
-    // באנדרואיד לא שמים src בהתחלה — מונע פליי לבן לפני תקציר | HYPER CORE TECH
-    const sourceSrc = androidPlaceholder ? '' : initialSrc;
 
     return `
       <div id="${containerId}" class="chat-message__video-container${mediaStateClass}" data-chat-video-preview="1"${pendingAttr}${readyAttr} hidden>
@@ -1573,7 +1462,7 @@
           style="opacity:0;visibility:hidden;background:#000"
           aria-label="${safeName}"
         >
-          <source src="${sourceSrc}" type="${type}">
+          <source src="${initialSrc}" type="${type}">
         </video>
       </div>
     `;
