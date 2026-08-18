@@ -787,6 +787,9 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   overflow-wrap: break-word;
   word-break: break-word;
   max-width: 100%;
+  direction: rtl;
+  text-align: start;
+  unicode-bidi: plaintext;
 }
 
 .chat-message__meta {

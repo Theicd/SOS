@@ -1054,11 +1054,8 @@
     if (portrait && h / w < 1.35) {
       const minPortraitH = Math.min(maxH, Math.round(dispW * 1.2));
       if (dispH < minPortraitH) dispH = minPortraitH;
-    } else if (!portrait) {
-      const minLandH = Math.min(maxH, Math.round(dispW * 0.52));
-      if (dispH < minLandH) dispH = minLandH;
-      if (dispH > maxH) dispH = maxH;
     }
+    // אופקי/באנר: בלי רצפת גובה — שומרים יחס מקורי כמו וואטסאפ (בלי חיתוך) | HYPER CORE TECH
 
     // רצפת רוחב לאנכי — מונע בועה צרה מדי (מובייל ללא שינוי) | HYPER CORE TECH
     if (portrait) {
@@ -1066,11 +1063,12 @@
       if (dispW < minW && maxW >= minW) dispW = Math.min(maxW, minW);
     }
 
+    const minH = portrait ? 120 : (ultraWide ? 48 : 64);
     return {
       portrait,
       ultraWide,
       dispW: Math.max(140, Math.round(dispW)),
-      dispH: Math.max(120, Math.round(dispH)),
+      dispH: Math.max(minH, Math.round(dispH)),
     };
   }
 
@@ -1088,7 +1086,7 @@
       }
     }
     const box = computeChatMediaBox(w, h, el);
-    // מסגרת קבועה + cover על המדיה — בלי aspect-ratio טבעי שיוצר פסים | HYPER CORE TECH
+    // מסגרת לפי יחס מקורי; תמונות אופקיות ב־contain (בלי חיתוך באנרים) | HYPER CORE TECH
     el.style.width = `${box.dispW}px`;
     el.style.height = `${box.dispH}px`;
     el.style.maxWidth = `${box.dispW}px`;
@@ -1102,6 +1100,11 @@
     el.dataset.sizedW = String(box.dispW);
     el.dataset.sizedH = String(box.dispH);
     el.dataset.aspectLocked = '1';
+    if (box.ultraWide || !box.portrait) {
+      el.dataset.fitMode = 'contain';
+    } else {
+      el.dataset.fitMode = 'cover';
+    }
     return box;
   }
 

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v541'; // bump - fix drop zone wipe + cyber overlay color
+  const CACHE_NAME = 'sos-cache-v542'; // bump - wide chat images contain like WhatsApp
   const PRECACHE_URLS = [
     './',
     './videos.html',

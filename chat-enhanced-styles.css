@@ -1607,20 +1607,30 @@ body.chat-lightbox-open {
   width: 100%;
   height: 100%;
   max-height: none;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   cursor: pointer;
   border-radius: 8px;
   background: #000;
 }
 
-/* כמו וידאו: התמונה ממלאת את כל המסגרת | HYPER CORE TECH */
+/* תמונה ממלאת מסגרת: אופקי/באנר = contain (כל התמונה), אנכי = cover | HYPER CORE TECH */
 .chat-message__image-container.is-media-ready .chat-message__image {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+}
+
+.chat-message__image-container--portrait.is-media-ready .chat-message__image,
+.chat-message__image-container[data-fit-mode="cover"] .chat-message__image {
   object-fit: cover;
+}
+
+.chat-message__image-container--landscape.is-media-ready .chat-message__image,
+.chat-message__image-container[data-fit-mode="contain"] .chat-message__image {
+  object-fit: contain;
 }
 
 .chat-message__image-container .chat-message__media-download:not(.chat-message__media-download--side),
@@ -2149,6 +2159,10 @@ body.chat-lightbox-open {
     width: 100%;
     height: 100%;
     max-width: 100%;
+    object-fit: contain;
+  }
+
+  .chat-message__image-container--portrait.is-media-ready .chat-message__image {
     object-fit: cover;
   }
 
