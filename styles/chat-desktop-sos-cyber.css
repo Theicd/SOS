@@ -1893,8 +1893,14 @@
   .chat-panel .chat-desktop-timer-dialog__panel {
     position: relative !important;
     width: min(420px, 100%) !important;
-    max-height: min(86vh, 640px) !important;
+    height: fit-content !important;
+    max-height: min(90vh, 640px) !important;
+    min-height: 0 !important;
     overflow: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-self: center !important;
     background: rgba(8, 12, 20, 0.96) !important;
     border: 1px solid rgba(40, 170, 255, 0.35) !important;
     border-radius: 16px !important;
@@ -2009,6 +2015,9 @@
     display: flex !important;
     justify-content: center !important;
     gap: 10px !important;
+    margin-top: auto !important;
+    padding-top: 4px !important;
+    flex-shrink: 0 !important;
   }
 
   .chat-panel .chat-desktop-timer-dialog__btn {
