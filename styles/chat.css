@@ -1673,15 +1673,15 @@ body.chat-overlay-open::before {
   padding-inline: 4px;
 }
 
-/* מדיה + כיתוב: רוחב הבועה = רוחב התמונה/סרטון; הטקסט מתלפף ולא מרחיב | HYPER CORE TECH */
+/* מדיה + כיתוב: תמונה צמודה למעלה/צדדים; טקסט מתחת באותו רוחב | HYPER CORE TECH */
 .chat-message__content--media-caption {
   display: flex !important;
   flex-direction: column;
   align-items: stretch;
-  padding: 3px 3px 4px !important;
+  padding: 0 0 4px !important;
   gap: 0 !important;
   width: max-content;
-  max-width: 100%;
+  max-width: min(360px, 100%);
   min-width: 0;
   overflow: hidden;
   box-sizing: border-box;
@@ -1690,15 +1690,25 @@ body.chat-overlay-open::before {
 .chat-message__content--media-caption .chat-message__image-container,
 .chat-message__content--media-caption .chat-message__video-container {
   margin: 0;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   flex: 0 0 auto;
-  align-self: flex-start;
+  align-self: stretch;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.chat-message__content--media-caption .chat-message__image,
+.chat-message__content--media-caption .chat-message__video,
+.chat-message__content--media-caption .chat-media-upload__media {
+  border-radius: 0 !important;
 }
 
 .chat-message__content--media-caption .chat-message__text {
   display: block;
   margin: 0;
-  padding: 5px 6px 0;
+  padding: 6px 8px 0;
   font-size: 0.92rem;
   line-height: 1.3;
   color: inherit;
@@ -1737,7 +1747,7 @@ body.chat-overlay-open::before {
 }
 
 .chat-message__content--media-caption.chat-message__content--has-attachment .chat-message__text {
-  padding: 5px 6px 0;
+  padding: 6px 8px 0;
   line-height: 1.3;
   width: 0;
   min-width: 100%;
@@ -2651,14 +2661,26 @@ body.chat-media-modal-open {
   .chat-panel .chat-message__content--media-caption {
     display: flex !important;
     flex-direction: column;
-    padding: 3px 3px 4px !important;
+    align-items: stretch;
+    padding: 0 0 4px !important;
     gap: 0 !important;
     width: max-content;
-    max-width: 100%;
+    max-width: min(280px, 100%);
+    min-width: 0;
+  }
+
+  .chat-panel .chat-message__content--media-caption .chat-message__image-container,
+  .chat-panel .chat-message__content--media-caption .chat-message__video-container,
+  .chat-panel .chat-message__content--media-caption .chat-media-upload {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
+    border-radius: 0 !important;
   }
 
   .chat-panel .chat-message__content--media-caption .chat-message__text {
-    padding: 5px 6px 0;
+    padding: 6px 8px 0;
     width: 0;
     min-width: 100%;
     max-width: 100%;

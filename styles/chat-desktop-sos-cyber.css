@@ -533,10 +533,39 @@
   .chat-panel .chat-message:has(.chat-message__image-container--landscape),
   .chat-panel .chat-message:has(.chat-message__image-container--natural),
   .chat-panel .chat-message:has([data-natural-fit="1"]),
-  .chat-panel .chat-message:has(.chat-media-upload--landscape) {
+  .chat-panel .chat-message:has(.chat-media-upload--landscape),
+  .chat-panel .chat-message:has(.chat-message__content--media-caption) {
     max-width: min(72%, 340px) !important;
     min-width: 0 !important;
     box-sizing: border-box !important;
+  }
+
+  /* תמונה+טקסט: מסגרת צמודה לתמונה; טקסט מתחת באותו רוחב | HYPER CORE TECH */
+  .chat-panel .chat-message__content--media-caption {
+    padding: 0 0 4px !important;
+    max-width: min(280px, 100%) !important;
+    width: max-content !important;
+    min-width: 0 !important;
+    align-items: stretch !important;
+    box-sizing: border-box !important;
+  }
+
+  .chat-panel .chat-message__content--media-caption .chat-message__image-container,
+  .chat-panel .chat-message__content--media-caption .chat-message__video-container,
+  .chat-panel .chat-message__content--media-caption .chat-media-upload,
+  .chat-panel .chat-message__content--media-caption .chat-message__image-container[data-natural-fit="1"],
+  .chat-panel .chat-message__content--media-caption .chat-media-upload[data-natural-fit="1"],
+  .chat-panel .chat-message__content--media-caption .chat-media-upload--landscape {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
+    border-radius: 0 !important;
+  }
+
+  .chat-panel .chat-message__content--media-caption .chat-message__image,
+  .chat-panel .chat-message__content--media-caption .chat-media-upload__media {
+    border-radius: 0 !important;
   }
 
   .chat-panel .chat-message__image-container--landscape .chat-message__image,

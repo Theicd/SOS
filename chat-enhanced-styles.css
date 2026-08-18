@@ -1833,6 +1833,30 @@ body.chat-lightbox-open {
     overflow: hidden !important;
     box-sizing: border-box !important;
   }
+
+  /* תמונה+טקסט: הבועה קובעת רוחב; התמונה ממלאת אותה (בלי רווח צד) | HYPER CORE TECH */
+  .chat-message__content--media-caption {
+    max-width: min(280px, 100%) !important;
+    min-width: 0 !important;
+    padding: 0 0 4px !important;
+    box-sizing: border-box !important;
+  }
+
+  .chat-message__content--media-caption .chat-message__image-container,
+  .chat-message__content--media-caption .chat-message__video-container,
+  .chat-message__content--media-caption .chat-media-upload,
+  .chat-message__content--media-caption .chat-message__image-container[data-natural-fit="1"],
+  .chat-message__content--media-caption .chat-media-upload[data-natural-fit="1"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
+  }
+
+  .chat-message:has(.chat-message__content--media-caption) {
+    max-width: min(72%, 340px) !important;
+    min-width: 0 !important;
+  }
 }
 
 .chat-message__video {
@@ -2944,13 +2968,16 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
   box-shadow: none !important;
 }
 
-/* העלאה + כיתוב: מרקם נגן קול; מסגרת דקה סביב + טקסט בתחתית | HYPER CORE TECH */
+/* העלאה + כיתוב: תמונה צמודה למסגרת; טקסט מתחת | HYPER CORE TECH */
 .chat-message__content--media-upload.chat-message__content--media-caption {
   display: flex !important;
   flex-direction: column;
   align-items: stretch;
-  padding: 3px 3px 4px !important;
+  padding: 0 0 4px !important;
   gap: 0 !important;
+  width: max-content;
+  max-width: min(360px, 100%);
+  min-width: 0;
   background:
     linear-gradient(145deg, rgba(26, 58, 92, 0.92) 0%, rgba(18, 42, 72, 0.96) 45%, rgba(35, 75, 110, 0.88) 100%) !important;
   border: 1px solid rgba(120, 200, 255, 0.45) !important;
@@ -2961,6 +2988,7 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
     inset 0 -12px 26px rgba(0, 30, 55, 0.4) !important;
   border-radius: 8px;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .chat-message--incoming .chat-message__content--media-upload.chat-message__content--media-caption {
@@ -2970,15 +2998,22 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
 .chat-message__content--media-upload.chat-message__content--media-caption .chat-media-upload {
   border: none;
   box-shadow: none;
-  border-radius: 6px;
-  align-self: flex-start;
+  border-radius: 0;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.chat-message__content--media-upload.chat-message__content--media-caption .chat-media-upload__media {
+  border-radius: 0 !important;
 }
 
 .chat-message__content--media-upload.chat-message__content--media-caption .chat-message__text {
   width: 0;
   min-width: 100%;
   max-width: 100%;
-  padding: 5px 6px 0;
+  padding: 6px 8px 0;
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: pre-wrap;
