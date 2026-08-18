@@ -51,12 +51,29 @@
       '  opacity: 1 !important;',
       '}',
 
-      '/* תצוגה מקדימה לפני שליחה — לא נוגעים בנראות/controls של הווידאו */',
+      '/* תצוגה מקדימה לפני שליחה — וידאו + תמונת פריים מעל עד נגינה */',
       '.chat-send-preview video {',
       '  background: #000 !important;',
       '  opacity: 1 !important;',
       '  visibility: visible !important;',
-      '}'
+      '}',
+      '.chat-send-preview__stage { position: relative; }',
+      '.chat-send-preview__apk-poster {',
+      '  position: absolute;',
+      '  left: 50%;',
+      '  top: 50%;',
+      '  transform: translate(-50%, -50%);',
+      '  max-width: 100%;',
+      '  max-height: 100%;',
+      '  width: auto;',
+      '  height: auto;',
+      '  object-fit: contain;',
+      '  border-radius: 12px;',
+      '  z-index: 2;',
+      '  pointer-events: none;',
+      '  background: #000;',
+      '}',
+      '.chat-send-preview__apk-poster[hidden] { display: none !important; }'
     ].join('\n');
     (document.head || document.documentElement).appendChild(style);
   }
@@ -150,42 +167,131 @@
   function fixSendPreviewVideo(video) {
     if (!video || video.nodeName !== 'VIDEO') return;
     if (!video.closest('.chat-send-preview')) return;
-    // מבטיחים שהווידאו נשאר גלוי עם controls ב־APK | HYPER CORE TECH
+    if (video.dataset.sosSendPreviewFixed === '1') return;
+    video.dataset.sosSendPreviewFixed = '1';
+
+    var stage = video.closest('.chat-send-preview__stage') || video.parentElement;
+    if (!stage) return;
+
     try {
       video.style.opacity = '1';
       video.style.visibility = 'visible';
       video.style.display = 'block';
       video.style.background = '#000';
       video.controls = true;
+      video.muted = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       video.playsInline = true;
-      video.preload = video.preload || 'metadata';
-      if (!video.src && video.querySelector('source')) {
-        /* source כבר קיים */
-      }
-      // אם אין src בכלל — לא נוגעים (ה־PWA אמור לשים) | HYPER CORE TECH
-      var paint = function () {
-        try {
-          if (!video.videoWidth || video.readyState < 2) return;
-          if (video.dataset.sosSendPoster === '1') return;
-          var canvas = document.createElement('canvas');
-          var scale = Math.min(1, 640 / video.videoWidth);
-          canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-          canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-          var ctx = canvas.getContext('2d');
-          if (!ctx) return;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          if (dataUrl && dataUrl.length > 200) {
-            video.poster = dataUrl;
-            video.dataset.sosSendPoster = '1';
-          }
-        } catch (_) {}
-      };
-      video.addEventListener('loadeddata', paint, { once: true });
-      if (video.readyState >= 2) paint();
+      // metadata לבד ב־WebView לא מצייר פריים — צריך auto + play קצר | HYPER CORE TECH
+      video.preload = 'auto';
+      try { video.load(); } catch (_) {}
     } catch (_) {}
+
+    function applyPoster(dataUrl) {
+      if (!dataUrl || dataUrl.length < 200) return false;
+      try {
+        video.poster = dataUrl;
+        video.setAttribute('poster', dataUrl);
+        video.dataset.sosSendPoster = '1';
+        var existing = stage.querySelector('.chat-send-preview__apk-poster');
+        if (!existing) {
+          existing = document.createElement('img');
+          existing.className = 'chat-send-preview__apk-poster';
+          existing.alt = '';
+          existing.setAttribute('aria-hidden', 'true');
+          stage.style.position = stage.style.position || 'relative';
+          // img מעל הווידאו עד שהמשתמש מנגן | HYPER CORE TECH
+          if (video.parentElement === stage) {
+            stage.insertBefore(existing, video);
+          } else {
+            stage.appendChild(existing);
+          }
+        }
+        existing.src = dataUrl;
+        existing.hidden = false;
+        video.addEventListener(
+          'play',
+          function () {
+            try {
+              existing.hidden = true;
+              video.muted = false;
+            } catch (_) {}
+          },
+          { once: true }
+        );
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function grabFromVideo() {
+      try {
+        if (!video.videoWidth || !video.videoHeight || video.readyState < 2) return '';
+        var maxW = 720;
+        var scale = Math.min(1, maxW / video.videoWidth);
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        return dataUrl && dataUrl.length > 200 ? dataUrl : '';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    async function captureFrame() {
+      if (video.dataset.sosSendPoster === '1') return;
+      // עדיפות: capturePosterFromBlob מה־PWA (off-DOM) אם יש blob | HYPER CORE TECH
+      try {
+        var App = window.NostrApp;
+        var src = video.currentSrc || video.src || '';
+        if (src && App && typeof App.capturePosterFromBlob === 'function') {
+          var resp = await fetch(src);
+          if (resp.ok) {
+            var blob = await resp.blob();
+            var off = await App.capturePosterFromBlob(blob, blob.type || 'video/mp4');
+            if (off && applyPoster(off)) return;
+          }
+        }
+      } catch (_) {}
+
+      try {
+        video.muted = true;
+        var p = video.play();
+        if (p && typeof p.then === 'function') await p.catch(function () {});
+        await new Promise(function (r) { setTimeout(r, 140); });
+        try { video.pause(); } catch (_) {}
+        var duration = isFinite(video.duration) ? video.duration : 0;
+        var target = duration > 0.4 ? Math.min(0.2, duration * 0.03) : 0.05;
+        try {
+          if (typeof video.fastSeek === 'function') video.fastSeek(target);
+          else video.currentTime = target;
+        } catch (_) {}
+        await new Promise(function (r) {
+          video.addEventListener('seeked', function () { r(); }, { once: true });
+          setTimeout(r, 400);
+        });
+        var shot = grabFromVideo();
+        if (!shot) {
+          try { video.currentTime = 0.001; } catch (_) {}
+          await new Promise(function (r) { setTimeout(r, 200); });
+          shot = grabFromVideo();
+        }
+        if (shot) applyPoster(shot);
+        try { video.pause(); } catch (_) {}
+      } catch (_) {}
+    }
+
+    video.addEventListener('loadeddata', function () { captureFrame(); }, { once: true });
+    video.addEventListener('loadedmetadata', function () { captureFrame(); }, { once: true });
+    if (video.readyState >= 1) captureFrame();
+    setTimeout(function () { captureFrame(); }, 500);
+    setTimeout(function () { captureFrame(); }, 1500);
   }
 
   function scan(root) {
