@@ -259,7 +259,7 @@ body:has(.videos-feed) .guest-login-btn__word.is-visible {
     z-index: 2100;
     background: #000 !important;
     background-color: #000 !important;
-    padding: 0 10px 8px 10px; /* הצמדה לראש החלק השחור + ריווח אופקי תואם לתפריט | HYPER CORE TECH */
+    padding: 0; /* לוגו צמוד לקצוות; ריווח לחיפוש בתוך שורת החיפוש | HYPER CORE TECH */
   }
 }
 
@@ -3141,7 +3141,7 @@ body.global-stop .videos-feed__play-overlay {
 @media (min-width: 769px) {
   /* משתנים לפריסת דסקטופ בסגנון TikTok | HYPER CORE TECH */
   body:has(.videos-feed) {
-    --videos-desktop-nav-width: 260px;
+    --videos-desktop-nav-width: 220px;
     --videos-desktop-nav-gap: 0px;
     --videos-desktop-actions-offset: 70px;
     --videos-desktop-top-offset: calc(0px + var(--safe-top, 0px));
@@ -3440,31 +3440,32 @@ body.global-stop .videos-feed__play-overlay {
 
   body:has(.videos-feed) .primary-nav__desktop-logo {
     display: flex;
-    justify-content: center;
-    align-items: center;
+    justify-content: stretch;
+    align-items: stretch;
     text-align: center;
     line-height: 1;
-    padding: 8px 8px 0;
+    padding: 0; /* צמוד למעלה + שמאל + ימין של התפריט | HYPER CORE TECH */
     margin: 0;
     margin-top: 0;
     height: auto;
     overflow: hidden;
-    background: #000;
+    width: 100%;
+    background: #05070c;
     transform: none;
   }
 
-  /* לוגו דסקטופ חדש – נוף 502×282, רקע שחור שמתמזג עם הסיידבר | HYPER CORE TECH */
+  /* לוגו דסקטופ – מלא רוחב הסיידבר, בלי מרווח מהמסגרת | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav__desktop-logo-img,
   body:has(.videos-feed) .primary-nav__desktop-logo-video {
-    max-width: min(228px, 100%);
+    max-width: 100%;
     width: 100%;
     height: auto;
     object-fit: contain;
-    object-position: center;
+    object-position: center top;
     display: block;
     opacity: 1;
-    background: #000 !important;
-    background-color: #000 !important;
+    background: #05070c !important;
+    background-color: #05070c !important;
     transform: none;
     transform-origin: center center;
     animation: logoAmbientGlow 5.5s ease-in-out infinite alternate;
@@ -3484,16 +3485,14 @@ body.global-stop .videos-feed__play-overlay {
     }
   }
 
-  /* מרווח קצר בין לוגו לחיפוש (בלי קיזוז שלילי של הלוגו הישן) | HYPER CORE TECH */
-  body:has(.videos-feed) .primary-nav__desktop-search {
-    margin-top: 6px;
-  }
-
+  /* חיפוש מתחת ללוגו – ריווח פנימי בלבד (הלוגו נשאר edge-to-edge) | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav__desktop-search {
     position: relative;
-    width: calc(100% + 30px); /* הרחבה נוספת של 10px (סה"כ +30px) | HYPER CORE TECH */
-    margin-inline-start: -15px;
-    margin-inline-end: -15px;
+    width: 100%;
+    margin-top: 6px;
+    margin-inline: 0;
+    padding-inline: 10px;
+    box-sizing: border-box;
   }
 
   body:has(.videos-feed) .primary-nav__desktop-search i {
@@ -3530,7 +3529,7 @@ body.global-stop .videos-feed__play-overlay {
     color: rgba(255, 255, 255, 0.55);
   }
 
-  /* תפריט ראשי אנכי מימין – שחור אטום כמו רקע הלוגו | HYPER CORE TECH */
+  /* תפריט ראשי אנכי מימין – שחור סייבר כמו נגן קולי (כהה) + לוגו צמוד לקצוות | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav {
     top: var(--videos-desktop-top-offset) !important;
     bottom: auto !important;
@@ -3542,27 +3541,44 @@ body.global-stop .videos-feed__play-overlay {
     overflow-y: auto;
     overscroll-behavior: contain;
     min-height: 0 !important;
-    padding: 0 10px 8px 10px !important;
+    padding: 0 0 8px 0 !important; /* בלי padding אופקי – הלוגו ממלא את שלושת הצדדים | HYPER CORE TECH */
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: stretch !important;
-    background: #000 !important;
-    background-color: #000 !important;
-    background-image: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+    background:
+      linear-gradient(145deg, rgba(8, 12, 20, 0.99) 0%, rgba(3, 8, 16, 1) 48%, rgba(10, 14, 22, 0.98) 100%) !important;
+    background-color: #05070c !important;
+    background-image:
+      linear-gradient(145deg, rgba(8, 12, 20, 0.99) 0%, rgba(3, 8, 16, 1) 48%, rgba(10, 14, 22, 0.98) 100%) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
     border: none !important;
     border-top: none !important;
+    border-inline-start: 1px solid rgba(40, 170, 255, 0.22) !important;
     border-radius: 0 !important;
-    box-shadow: none !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      inset 0 -16px 28px rgba(0, 0, 0, 0.55),
+      0 0 18px rgba(0, 175, 255, 0.08) !important;
     gap: 0 !important;
     z-index: 2000 !important;
     isolation: isolate;
   }
 
   body:has(.videos-feed) .primary-nav__desktop-header {
-    background: #000 !important;
-    background-color: #000 !important;
+    padding: 0 !important;
+    background:
+      linear-gradient(145deg, rgba(8, 12, 20, 0.99) 0%, rgba(3, 8, 16, 1) 48%, rgba(10, 14, 22, 0.98) 100%) !important;
+    background-color: #05070c !important;
+  }
+
+  /* ריווח אופקי לפריטי תפריט בלבד (לא ללוגו) | HYPER CORE TECH */
+  body:has(.videos-feed) .primary-nav > .nav-item,
+  body:has(.videos-feed) .primary-nav > .nav-separator,
+  body:has(.videos-feed) .primary-nav > .nav-section-title,
+  body:has(.videos-feed) .primary-nav > .nav-user-item,
+  body:has(.videos-feed) .primary-nav > .nav-footer {
+    margin-inline: 10px;
   }
 
   /* מניעת כיווץ פריטים בתוך תפריט הצד – שומר על תצוגת עוקבים/משחקים בזמן גלילה | HYPER CORE TECH */
@@ -3898,9 +3914,9 @@ body.global-stop .videos-feed__play-overlay {
     text-decoration: underline;
   }
 
-  /* חלק גבול שמאלי לתפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
+  /* חלק גבול שמאלי לתפריט צד (videos.css) – קו סייבר עדין כמו נגן קולי | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav {
-    border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-left: 1px solid rgba(40, 170, 255, 0.22) !important;
     padding-left: 0 !important;
   }
 
