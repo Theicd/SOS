@@ -257,7 +257,8 @@ body:has(.videos-feed) .guest-login-btn__word.is-visible {
     position: sticky;
     top: 0;
     z-index: 2100;
-    background: #000;
+    background: #000 !important;
+    background-color: #000 !important;
     padding: 0 10px 8px 10px; /* הצמדה לראש החלק השחור + ריווח אופקי תואם לתפריט | HYPER CORE TECH */
   }
 }
@@ -3505,12 +3506,12 @@ body.global-stop .videos-feed__play-overlay {
     pointer-events: none;
   }
 
-  /* חלק חיפוש בסייד בר (videos.css) – עיצוב מרובע כמו ב-sos010.html | HYPER CORE TECH */
+  /* חלק חיפוש בסייד בר – כהה על שחור, בלי אפור בולט | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav__desktop-search-input {
     width: 100%;
     height: 40px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid transparent;
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
     border-radius: 8px;
     padding: 0 40px 0 12px; /* אייקון בימין, טקסט מיושר לימין | HYPER CORE TECH */
     color: #fff;
@@ -3521,15 +3522,15 @@ body.global-stop .videos-feed__play-overlay {
   }
 
   body:has(.videos-feed) .primary-nav__desktop-search-input:focus {
-    border-color: rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.12);
+    border-color: #2a2a2a;
+    background: #0d0d0d;
   }
 
   body:has(.videos-feed) .primary-nav__desktop-search-input::placeholder {
     color: rgba(255, 255, 255, 0.55);
   }
 
-  /* תפריט ראשי אנכי מימין בסגנון TikTok | HYPER CORE TECH */
+  /* תפריט ראשי אנכי מימין – שחור אטום כמו רקע הלוגו | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav {
     top: var(--videos-desktop-top-offset) !important;
     bottom: auto !important;
@@ -3545,14 +3546,23 @@ body.global-stop .videos-feed__play-overlay {
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: stretch !important;
-    background: #000 !important; /* רקע שחור לתפריט כדי להסתיר את מסגרת הלוגו */
+    background: #000 !important;
+    background-color: #000 !important;
+    background-image: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     border: none !important;
+    border-top: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     gap: 0 !important;
     z-index: 2000 !important;
+    isolation: isolate;
+  }
+
+  body:has(.videos-feed) .primary-nav__desktop-header {
+    background: #000 !important;
+    background-color: #000 !important;
   }
 
   /* מניעת כיווץ פריטים בתוך תפריט הצד – שומר על תצוגת עוקבים/משחקים בזמן גלילה | HYPER CORE TECH */
@@ -3590,8 +3600,8 @@ body.global-stop .videos-feed__play-overlay {
   }
 
   body:has(.videos-feed) .nav-item:hover {
-    background: var(--hover-color, rgba(255, 255, 255, 0.06));
-    border-color: rgba(255, 255, 255, 0.12); /* מסגרת עדינה בזמן ריחוף | HYPER CORE TECH */
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   body:has(.videos-feed) .nav-item.is-active {
