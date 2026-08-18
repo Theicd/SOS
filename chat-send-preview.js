@@ -130,15 +130,108 @@
 
     if (kind === 'video') {
       objectUrl = URL.createObjectURL(file);
+      const wrap = doc.createElement('div');
+      wrap.className = 'chat-send-preview__video-wrap';
+      const posterImg = doc.createElement('img');
+      posterImg.className = 'chat-send-preview__media chat-send-preview__poster';
+      posterImg.alt = file.name || 'וידאו';
       const video = doc.createElement('video');
-      video.className = 'chat-send-preview__media';
-      video.src = objectUrl;
-      video.controls = true;
+      video.className = 'chat-send-preview__media chat-send-preview__video';
       video.playsInline = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       video.preload = 'metadata';
-      stage.appendChild(video);
+      video.muted = true;
+      video.controls = false;
+      const playBtn = doc.createElement('button');
+      playBtn.type = 'button';
+      playBtn.className = 'chat-send-preview__play';
+      playBtn.setAttribute('aria-label', 'נגן');
+      playBtn.innerHTML = '<span class="chat-send-preview__play-icon" aria-hidden="true"></span>';
+
+      const isAndroid =
+        !!(window.SosNativeShell) ||
+        /Android/i.test(navigator.userAgent || '') ||
+        /SOSNativeShell\//i.test(navigator.userAgent || '');
+
+      const startPlayback = () => {
+        if (!video.src) video.src = objectUrl;
+        video.controls = true;
+        video.muted = false;
+        posterImg.hidden = true;
+        playBtn.hidden = true;
+        wrap.classList.add('is-playing');
+        try {
+          const p = video.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (_) {}
+      };
+      playBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        startPlayback();
+      });
+      posterImg.addEventListener('click', (e) => {
+        e.preventDefault();
+        startPlayback();
+      });
+
+      wrap.appendChild(posterImg);
+      wrap.appendChild(video);
+      wrap.appendChild(playBtn);
+      stage.appendChild(wrap);
+
+      // לכידת פריים ראשון ברקע — בלי להציג video גלוי ב־APK | HYPER CORE TECH
+      const applyPoster = (dataUrl) => {
+        if (!dataUrl) return;
+        posterImg.src = dataUrl;
+        wrap.classList.add('has-poster');
+      };
+
+      (async () => {
+        try {
+          if (typeof App.capturePosterFromBlob === 'function') {
+            const poster = await App.capturePosterFromBlob(file, file.type || 'video/mp4');
+            if (poster) {
+              applyPoster(poster);
+              return;
+            }
+          }
+        } catch (_) {}
+        // נפילה: video מוסתר ללכידת פריים (לא controls) | HYPER CORE TECH
+        video.src = objectUrl;
+        video.style.cssText = 'opacity:0;visibility:hidden;position:absolute;width:1px;height:1px;left:-9999px';
+        const paint = () => {
+          try {
+            if (!video.videoWidth || video.readyState < 2) return false;
+            const canvas = doc.createElement('canvas');
+            const scale = Math.min(1, 640 / video.videoWidth);
+            canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+            canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return false;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            if (dataUrl && dataUrl.length > 200) {
+              applyPoster(dataUrl);
+              if (isAndroid) {
+                try {
+                  video.removeAttribute('src');
+                  video.load();
+                } catch (_) {}
+              }
+              return true;
+            }
+          } catch (_) {}
+          return false;
+        };
+        video.addEventListener('loadeddata', () => { paint(); }, { once: true });
+        video.addEventListener('seeked', () => { paint(); }, { once: true });
+        try {
+          video.currentTime = 0.08;
+        } catch (_) {}
+        setTimeout(() => { paint(); }, 600);
+      })();
       return;
     }
 

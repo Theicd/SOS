@@ -823,9 +823,31 @@
       wrap.dataset.mediaReady = '1';
       wrap.classList.remove('chat-media-upload--pending');
       mediaEl.classList.add('is-ready');
-      mediaEl.style.opacity = '1';
-      mediaEl.style.visibility = 'visible';
       capturePosterFromVisibleVideo();
+      if (androidPlaceholder) {
+        // באנדרואיד לא חושפים את משטח ה־video — רק poster/רקע (מונע פליי לבן) | HYPER CORE TECH
+        mediaEl.style.opacity = '0';
+        mediaEl.style.visibility = 'hidden';
+        wrap.classList.add('chat-media-upload--android-safe');
+        if (mediaEl.dataset.posterCaptured === '1' && mediaEl.poster) {
+          wrap.style.backgroundImage = `url("${mediaEl.poster}")`;
+          wrap.style.backgroundSize = 'cover';
+          wrap.style.backgroundPosition = 'center';
+          wrap.classList.add('has-poster-bg');
+        }
+        // אחרי תקציר — מנתקים src כדי ש־WebView לא יצייר פליי מערכת | HYPER CORE TECH
+        if (mediaEl.dataset.posterCaptured === '1') {
+          const keepSrc = mediaEl.currentSrc || mediaEl.src || '';
+          if (keepSrc) wrap.setAttribute('data-media-src', keepSrc);
+          try {
+            mediaEl.removeAttribute('src');
+            mediaEl.load();
+          } catch (_) {}
+        }
+      } else {
+        mediaEl.style.opacity = '1';
+        mediaEl.style.visibility = 'visible';
+      }
     };
 
     mediaEl.addEventListener('loadedmetadata', reveal);
