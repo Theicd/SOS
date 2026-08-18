@@ -69,7 +69,6 @@
   ]);
   const RELAY_STORAGE_KEY = 'nostr_relay_urls';
   const P2P_RELAY_STORAGE_KEY = 'nostr_p2p_relays';
-  const pendingRelayWarnings = [];
 
   function loadRelaysFromStorage(storageKey, fallback) {
     if (!storageKey) {
@@ -99,114 +98,29 @@
     }
   }
 
-  function sanitizeRelayList(relays, { storageKey, context, fallback }) {
+  // סינון שקט בלבד — בלי באנר/אזהרה למשתמש | HYPER CORE TECH
+  function sanitizeRelayList(relays, { storageKey, fallback }) {
     const sanitized = [];
-    const flagged = [];
     (Array.isArray(relays) ? relays : []).forEach((relay) => {
       const trimmed = typeof relay === 'string' ? relay.trim() : '';
       if (!trimmed || !trimmed.startsWith('wss://')) {
         return;
       }
       if (UNSAFE_RELAY_PATTERNS.has(trimmed)) {
-        flagged.push(trimmed);
-      } else if (!sanitized.includes(trimmed)) {
+        return;
+      }
+      if (!sanitized.includes(trimmed)) {
         sanitized.push(trimmed);
       }
     });
     const finalList = sanitized.length ? sanitized : [...(fallback || SAFE_DEFAULT_RELAYS)];
     persistRelays(storageKey, finalList);
-    if (flagged.length) {
-      queueUnsafeRelayWarning({ context, flagged, storageKey, safeList: finalList });
-    }
     return finalList;
-  }
-
-  function queueUnsafeRelayWarning({ context, flagged, storageKey, safeList }) {
-    pendingRelayWarnings.push({ context, flagged, storageKey, safeList });
-    scheduleRelayWarningRender();
-  }
-
-  function scheduleRelayWarningRender() {
-    if (typeof document === 'undefined') {
-      return;
-    }
-    const render = () => {
-      if (!pendingRelayWarnings.length) {
-        return;
-      }
-      pendingRelayWarnings.splice(0).forEach((warning) => {
-        const banner = document.createElement('div');
-        banner.style.position = 'fixed';
-        banner.style.bottom = '16px';
-        banner.style.left = '16px';
-        banner.style.right = '16px';
-        banner.style.zIndex = '9999';
-        banner.style.background = '#2b2b2b';
-        banner.style.border = '1px solid #ff9800';
-        banner.style.borderRadius = '8px';
-        banner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.35)';
-        banner.style.padding = '12px 16px';
-        banner.style.color = '#fff';
-        banner.style.fontFamily = 'system-ui, sans-serif';
-
-        const title = document.createElement('div');
-        title.textContent = `⚠️ נמצאו ריליים בעייתיים (${warning.context})`;
-        title.style.fontWeight = '600';
-        title.style.marginBottom = '8px';
-        banner.appendChild(title);
-
-        const list = document.createElement('div');
-        list.textContent = warning.flagged.join(', ');
-        list.style.fontSize = '13px';
-        list.style.direction = 'ltr';
-        list.style.marginBottom = '10px';
-        banner.appendChild(list);
-
-        const actions = document.createElement('div');
-        actions.style.display = 'flex';
-        actions.style.gap = '8px';
-
-        const persistBtn = document.createElement('button');
-        persistBtn.textContent = 'נקה מהרשימה השמורה';
-        persistBtn.style.background = '#ff9800';
-        persistBtn.style.border = 'none';
-        persistBtn.style.borderRadius = '4px';
-        persistBtn.style.padding = '6px 12px';
-        persistBtn.style.cursor = 'pointer';
-        persistBtn.onclick = () => {
-          persistRelays(warning.storageKey, warning.safeList);
-          banner.remove();
-        };
-
-        const dismissBtn = document.createElement('button');
-        dismissBtn.textContent = 'סגור';
-        dismissBtn.style.background = 'transparent';
-        dismissBtn.style.color = '#fff';
-        dismissBtn.style.border = '1px solid #fff';
-        dismissBtn.style.borderRadius = '4px';
-        dismissBtn.style.padding = '6px 12px';
-        dismissBtn.style.cursor = 'pointer';
-        dismissBtn.onclick = () => banner.remove();
-
-        actions.appendChild(persistBtn);
-        actions.appendChild(dismissBtn);
-        banner.appendChild(actions);
-
-        document.body.appendChild(banner);
-      });
-    };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', render, { once: true });
-    } else {
-      window.setTimeout(render, 0);
-    }
   }
 
   const initialRelayList = loadRelaysFromStorage(RELAY_STORAGE_KEY, SAFE_DEFAULT_RELAYS);
   App.relayUrls = sanitizeRelayList(initialRelayList, {
     storageKey: RELAY_STORAGE_KEY,
-    context: 'ריליים כלליים',
     fallback: SAFE_DEFAULT_RELAYS,
   });
 
@@ -247,7 +161,6 @@
   const initialP2PRelays = loadRelaysFromStorage(P2P_RELAY_STORAGE_KEY, SAFE_DEFAULT_P2P_RELAYS);
   App.p2pRelayUrls = sanitizeRelayList(initialP2PRelays, {
     storageKey: P2P_RELAY_STORAGE_KEY,
-    context: 'ריליים ל-P2P',
     fallback: SAFE_DEFAULT_P2P_RELAYS,
   });
   App.NETWORK_TAG = 'israel-network';
