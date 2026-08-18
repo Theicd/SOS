@@ -634,8 +634,8 @@
   }
   
   // חלק רינדור וידאו (chat-media-renderer.js) – נגן בסגנון וואטסאפ: poster + play אחד (בלי פליי ענק של WebView) | HYPER CORE TECH
-  // poster שחור 1×1 — רק בזמן pending, מוסר בחשיפה אם אין פריים אמיתי | HYPER CORE TECH
-  const CHAT_VIDEO_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  // poster שחור אטום 1×1 (לא הירוק השקוף שהיה קודם) | HYPER CORE TECH
+  const CHAT_VIDEO_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==';
 
   function canvasLooksMostlyBlack(ctx, canvas) {
     try {
@@ -2414,14 +2414,38 @@
     return true;
   }
 
+  function resolveLightboxVideoPoster(item) {
+    try {
+      const root = item?.metaEl;
+      if (root && root.nodeType === 1) {
+        const container =
+          root.classList?.contains('chat-message__video-container')
+            ? root
+            : root.closest?.('.chat-message__video-container');
+        const thumb = container?.querySelector?.('.chat-message__video-thumb') || root.querySelector?.('.chat-message__video-thumb');
+        const thumbSrc = String(thumb?.currentSrc || thumb?.src || '').trim();
+        if (thumbSrc && thumbSrc !== CHAT_VIDEO_BLACK_POSTER) {
+          if (isUsablePosterDataUrl(thumbSrc) || thumbSrc.startsWith('blob:') || /^https?:/i.test(thumbSrc)) {
+            return thumbSrc;
+          }
+        }
+        const bubbleVideo = container?.querySelector?.('video.chat-message__video') || root.querySelector?.('video.chat-message__video');
+        const bubblePoster = String(bubbleVideo?.getAttribute?.('poster') || '').trim();
+        if (bubblePoster && bubblePoster !== CHAT_VIDEO_BLACK_POSTER) {
+          if (isUsablePosterDataUrl(bubblePoster) || bubblePoster.startsWith('blob:')) return bubblePoster;
+        }
+      }
+    } catch (_) {}
+    return CHAT_VIDEO_BLACK_POSTER;
+  }
+
   function buildLightboxMediaHtml(item) {
     if (item.kind === 'video') {
       const safeName = App.escapeHtml ? App.escapeHtml(item.name || 'וידאו') : String(item.name || 'וידאו');
       const mime = item.type || 'video/mp4';
-      // poster שחור — מונע הבזק אפור של הדפדפן עד שיש פריים | HYPER CORE TECH
-      const blackPoster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const poster = String(resolveLightboxVideoPoster(item) || CHAT_VIDEO_BLACK_POSTER).replace(/"/g, '&quot;');
       return `
-        <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay poster="${blackPoster}" style="background:#000">
+        <video class="chat-lightbox__video is-pending-frame" controls playsinline webkit-playsinline autoplay poster="${poster}" style="background:#000">
           <source src="${String(item.src).replace(/"/g, '&quot;')}" type="${String(mime).replace(/"/g, '&quot;')}">
         </video>
       `;
@@ -2808,9 +2832,17 @@
 
     const reveal = () => {
       lightbox.classList.add('chat-lightbox--visible');
-      if (item.kind === 'video') {
+      if (item.kind === 'video' && videoEl) {
+        const showFrame = () => {
+          try { videoEl.classList.remove('is-pending-frame'); } catch (_) {}
+          try { videoEl.style.opacity = '1'; } catch (_) {}
+        };
+        videoEl.addEventListener('loadeddata', showFrame, { once: true });
+        videoEl.addEventListener('playing', showFrame, { once: true });
+        videoEl.addEventListener('timeupdate', showFrame, { once: true });
+        setTimeout(showFrame, 1800);
         try {
-          const p = videoEl?.play();
+          const p = videoEl.play();
           if (p && typeof p.catch === 'function') p.catch(() => {});
         } catch (_) {}
       }

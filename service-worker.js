@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v525'; // bump - web black backgrounds for lightbox/send-preview
+  const CACHE_NAME = 'sos-cache-v526'; // bump - fix green/transparent video poster flash
   const PRECACHE_URLS = [
     './',
     './videos.html',

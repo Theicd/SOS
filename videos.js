@@ -3279,7 +3279,7 @@ function renderVideoCard(video) {
     videoEl.style.visibility = 'hidden';
     videoEl.style.background = '#000';
     // poster שחור בלבד בזמן טעינה — תמונה/ירוק לא יוצגו לפני פריים | HYPER CORE TECH
-    videoEl.poster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    videoEl.poster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==';
     if (typeof video.imageUrl === 'string' && video.imageUrl) {
       videoEl.dataset.posterUrl = video.imageUrl;
     }

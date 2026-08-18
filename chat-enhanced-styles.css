@@ -868,8 +868,13 @@
 .chat-lightbox__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
+  background: #000;
   cursor: pointer;
+}
+
+/* מסתיר פריים ירוק/אפור של הדפדפן עד שיש תמונה אמיתית | HYPER CORE TECH */
+.chat-lightbox__video.is-pending-frame {
+  opacity: 0 !important;
 }
 
 .chat-lightbox__frame {

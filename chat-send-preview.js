@@ -138,9 +138,21 @@
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       video.preload = 'metadata';
-      // poster שחור — מונע הבזק אפור בווב עד שיש פריים | HYPER CORE TECH
-      video.poster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      // poster שחור אטום — הישן היה ירוק שקוף ולכן הבזיק ירוק/אפור | HYPER CORE TECH
+      video.poster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==';
       video.style.background = '#000';
+      video.style.opacity = '0';
+      const showFrame = () => { try { video.style.opacity = '1'; } catch (_) {} };
+      video.addEventListener('loadeddata', showFrame, { once: true });
+      video.addEventListener('loadedmetadata', () => {
+        try {
+          if (video.videoWidth > 0) {
+            video.currentTime = Math.min(0.05, (video.duration || 1) * 0.01);
+          }
+        } catch (_) {}
+      }, { once: true });
+      video.addEventListener('seeked', showFrame, { once: true });
+      setTimeout(showFrame, 1800);
       stage.appendChild(video);
       return;
     }

@@ -758,7 +758,7 @@
   }
 
   // poster שחור — רק ב־Android WebView (מונע פליי לבן); בווב מציגים את הפריים מיד | HYPER CORE TECH
-  const MEDIA_UPLOAD_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const MEDIA_UPLOAD_BLACK_POSTER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAgLvRWwAAAABJRU5ErkJggg==';
 
   function needsAndroidVideoPlaceholder() {
     try {
