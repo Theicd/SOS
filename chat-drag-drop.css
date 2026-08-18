@@ -1,6 +1,5 @@
 /* =====================================================================================
    חלק Drag & Drop CSS (chat-drag-drop.css) – דסקטופ בלבד | HYPER CORE TECH
-   מובייל: אין כללי עיצוב פעילים (הכל תחת min-width: 769px).
    ===================================================================================== */
 
 @media (min-width: 769px) {
@@ -12,7 +11,7 @@
     position: relative;
   }
 
-  /* Overlay על אזור השיחה בלבד – בסגנון WhatsApp | HYPER CORE TECH */
+  /* Overlay כהה סייבר – בלי ירוק WhatsApp | HYPER CORE TECH */
   .chat-drop-overlay {
     position: absolute;
     inset: 0;
@@ -20,16 +19,18 @@
     display: none;
     align-items: center;
     justify-content: center;
-    background: rgba(17, 80, 68, 0.82);
-    border: 2px dashed rgba(233, 237, 239, 0.55);
+    background:
+      linear-gradient(145deg, rgba(8, 12, 20, 0.92) 0%, rgba(3, 8, 16, 0.94) 55%, rgba(10, 14, 22, 0.9) 100%);
+    border: 2px dashed rgba(0, 175, 255, 0.45);
     border-radius: 12px;
     pointer-events: none;
     box-sizing: border-box;
+    box-shadow: inset 0 0 40px rgba(0, 175, 255, 0.08);
   }
 
   .chat-drop-overlay.is-visible {
     display: flex;
-    pointer-events: auto; /* חייב לקבל drop | HYPER CORE TECH */
+    pointer-events: auto;
     animation: cddFadeIn 0.18s ease-out;
   }
 
@@ -38,18 +39,21 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 12px 20px;
+    padding: 14px 22px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(0, 175, 255, 0.28);
   }
 
   .chat-drop-overlay__text {
-    color: #e9edef;
-    font-size: 1.15rem;
+    color: #e8f7ff;
+    font-size: 1.1rem;
     font-weight: 600;
     letter-spacing: 0.01em;
     text-align: center;
+    text-shadow: 0 0 12px rgba(0, 175, 255, 0.35);
   }
 
-  /* הדגשת איש קשר בעת גרירת קובץ מעליו | HYPER CORE TECH */
   .chat-panel .chat-contact.is-file-drop-hover {
     background: rgba(0, 175, 255, 0.14) !important;
     outline: 1px solid rgba(0, 175, 255, 0.45);
