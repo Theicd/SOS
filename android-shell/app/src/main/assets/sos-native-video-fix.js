@@ -51,29 +51,70 @@
       '  opacity: 1 !important;',
       '}',
 
-      '/* תצוגה מקדימה לפני שליחה — וידאו + תמונת פריים מעל עד נגינה */',
-      '.chat-send-preview video {',
+      '/* תצוגה מקדימה לפני שליחה — כמו לייטבוקס: בלי פליי מערכת, רק תקציר */',
+      '.chat-send-preview video::-webkit-media-controls-overlay-play-button,',
+      '.chat-send-preview video::-webkit-media-controls-start-playback-button,',
+      '.chat-send-preview video::-webkit-media-controls-enclosure,',
+      '.chat-send-preview video::-webkit-media-controls-panel,',
+      '.chat-send-preview video::-webkit-media-controls {',
+      '  display: none !important;',
+      '  opacity: 0 !important;',
+      '  pointer-events: none !important;',
+      '  width: 0 !important;',
+      '  height: 0 !important;',
+      '}',
+      '.chat-send-preview video.sos-apk-send-pending {',
+      '  opacity: 0 !important;',
+      '  visibility: hidden !important;',
       '  background: #000 !important;',
+      '  pointer-events: none !important;',
+      '}',
+      '.chat-send-preview video.sos-apk-send-ready {',
       '  opacity: 1 !important;',
       '  visibility: visible !important;',
+      '  pointer-events: auto !important;',
       '}',
       '.chat-send-preview__stage { position: relative; }',
       '.chat-send-preview__apk-poster {',
       '  position: absolute;',
-      '  left: 50%;',
-      '  top: 50%;',
-      '  transform: translate(-50%, -50%);',
+      '  inset: 0;',
+      '  margin: auto;',
       '  max-width: 100%;',
       '  max-height: 100%;',
       '  width: auto;',
       '  height: auto;',
       '  object-fit: contain;',
       '  border-radius: 12px;',
-      '  z-index: 2;',
+      '  z-index: 3;',
       '  pointer-events: none;',
       '  background: #000;',
       '}',
-      '.chat-send-preview__apk-poster[hidden] { display: none !important; }'
+      '.chat-send-preview__apk-poster[hidden] { display: none !important; }',
+      '.chat-send-preview__apk-play {',
+      '  position: absolute;',
+      '  top: 50%;',
+      '  left: 50%;',
+      '  transform: translate(-50%, -50%);',
+      '  width: 64px;',
+      '  height: 64px;',
+      '  border: none;',
+      '  border-radius: 50%;',
+      '  background: rgba(0,0,0,0.45);',
+      '  z-index: 4;',
+      '  cursor: pointer;',
+      '  padding: 0;',
+      '}',
+      '.chat-send-preview__apk-play[hidden] { display: none !important; }',
+      '.chat-send-preview__apk-play-icon {',
+      '  display: block;',
+      '  width: 0;',
+      '  height: 0;',
+      '  margin: 0 auto;',
+      '  margin-inline-start: 22px;',
+      '  border-style: solid;',
+      '  border-width: 12px 0 12px 20px;',
+      '  border-color: transparent transparent transparent #fff;',
+      '}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(style);
   }
@@ -174,19 +215,65 @@
     if (!stage) return;
 
     try {
-      video.style.opacity = '1';
-      video.style.visibility = 'visible';
-      video.style.display = 'block';
-      video.style.background = '#000';
-      video.controls = true;
+      stage.style.position = 'relative';
+      // כמו לייטבוקס: מסתירים את משטח ה־video עד שיש תקציר / נגינה | HYPER CORE TECH
+      video.classList.add('sos-apk-send-pending');
+      video.classList.remove('sos-apk-send-ready');
+      video.controls = false;
       video.muted = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       video.playsInline = true;
-      // metadata לבד ב־WebView לא מצייר פריים — צריך auto + play קצר | HYPER CORE TECH
       video.preload = 'auto';
+      video.style.background = '#000';
       try { video.load(); } catch (_) {}
     } catch (_) {}
+
+    function ensureUi() {
+      var poster = stage.querySelector('.chat-send-preview__apk-poster');
+      if (!poster) {
+        poster = document.createElement('img');
+        poster.className = 'chat-send-preview__apk-poster';
+        poster.alt = '';
+        poster.setAttribute('aria-hidden', 'true');
+        stage.appendChild(poster);
+      }
+      var playBtn = stage.querySelector('.chat-send-preview__apk-play');
+      if (!playBtn) {
+        playBtn = document.createElement('button');
+        playBtn.type = 'button';
+        playBtn.className = 'chat-send-preview__apk-play';
+        playBtn.setAttribute('aria-label', 'נגן');
+        playBtn.innerHTML = '<span class="chat-send-preview__apk-play-icon" aria-hidden="true"></span>';
+        stage.appendChild(playBtn);
+        playBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          startUserPlay();
+        });
+      }
+      return { poster: poster, playBtn: playBtn };
+    }
+
+    function revealForUser() {
+      try {
+        video.classList.remove('sos-apk-send-pending');
+        video.classList.add('sos-apk-send-ready');
+        video.controls = true;
+        video.muted = false;
+        var ui = ensureUi();
+        ui.poster.hidden = true;
+        ui.playBtn.hidden = true;
+      } catch (_) {}
+    }
+
+    function startUserPlay() {
+      revealForUser();
+      try {
+        var p = video.play();
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      } catch (_) {}
+    }
 
     function applyPoster(dataUrl) {
       if (!dataUrl || dataUrl.length < 200) return false;
@@ -194,32 +281,14 @@
         video.poster = dataUrl;
         video.setAttribute('poster', dataUrl);
         video.dataset.sosSendPoster = '1';
-        var existing = stage.querySelector('.chat-send-preview__apk-poster');
-        if (!existing) {
-          existing = document.createElement('img');
-          existing.className = 'chat-send-preview__apk-poster';
-          existing.alt = '';
-          existing.setAttribute('aria-hidden', 'true');
-          stage.style.position = stage.style.position || 'relative';
-          // img מעל הווידאו עד שהמשתמש מנגן | HYPER CORE TECH
-          if (video.parentElement === stage) {
-            stage.insertBefore(existing, video);
-          } else {
-            stage.appendChild(existing);
-          }
-        }
-        existing.src = dataUrl;
-        existing.hidden = false;
-        video.addEventListener(
-          'play',
-          function () {
-            try {
-              existing.hidden = true;
-              video.muted = false;
-            } catch (_) {}
-          },
-          { once: true }
-        );
+        var ui = ensureUi();
+        ui.poster.src = dataUrl;
+        ui.poster.hidden = false;
+        ui.playBtn.hidden = false;
+        // נשארים על תקציר — הווידאו מוסתר (בלי פליי לבן) | HYPER CORE TECH
+        video.classList.add('sos-apk-send-pending');
+        video.classList.remove('sos-apk-send-ready');
+        video.controls = false;
         return true;
       } catch (_) {
         return false;
@@ -246,7 +315,6 @@
 
     async function captureFrame() {
       if (video.dataset.sosSendPoster === '1') return;
-      // עדיפות: capturePosterFromBlob מה־PWA (off-DOM) אם יש blob | HYPER CORE TECH
       try {
         var App = window.NostrApp;
         var src = video.currentSrc || video.src || '';
@@ -261,7 +329,9 @@
       } catch (_) {}
 
       try {
+        // play מוסתר (pending) — המשתמש לא רואה פליי מערכת | HYPER CORE TECH
         video.muted = true;
+        video.classList.add('sos-apk-send-pending');
         var p = video.play();
         if (p && typeof p.then === 'function') await p.catch(function () {});
         await new Promise(function (r) { setTimeout(r, 140); });
@@ -283,10 +353,17 @@
           shot = grabFromVideo();
         }
         if (shot) applyPoster(shot);
+        else ensureUi();
         try { video.pause(); } catch (_) {}
-      } catch (_) {}
+      } catch (_) {
+        ensureUi();
+      }
     }
 
+    ensureUi();
+    video.addEventListener('play', function () {
+      if (!video.classList.contains('sos-apk-send-pending')) revealForUser();
+    });
     video.addEventListener('loadeddata', function () { captureFrame(); }, { once: true });
     video.addEventListener('loadedmetadata', function () { captureFrame(); }, { once: true });
     if (video.readyState >= 1) captureFrame();
