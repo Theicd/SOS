@@ -296,17 +296,24 @@ button {
   align-items: center;
 }
 
-/* חלק תפריט פרופיל (facebook-theme.css) – מגדיר את מראה התפריט הנפתח מתחת לכפתור הפרופיל */
+/* חלק תפריט פרופיל (facebook-theme.css) – מרקם זכוכית סייבר כמו נגן קול | HYPER CORE TECH */
 .top-bar__dropdown {
   position: absolute;
   top: calc(100% + 8px);
   inset-inline-end: 0;
   min-width: 220px;
   max-width: min(320px, calc(100vw - 24px));
-  background: var(--card);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(145deg, rgba(26, 58, 92, 0.92) 0%, rgba(18, 42, 72, 0.96) 45%, rgba(35, 75, 110, 0.88) 100%);
+  border: 1px solid rgba(120, 200, 255, 0.45);
   border-radius: 16px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 22px rgba(0, 175, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -12px 26px rgba(0, 30, 55, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
@@ -352,12 +359,12 @@ button {
   width: 1.15em;
   text-align: center;
   flex-shrink: 0;
-  color: var(--primary);
+  color: #00afff;
 }
 
 .top-bar__dropdown-item:hover,
 .top-bar__dropdown-item:focus-visible {
-  background: var(--hover);
+  background: rgba(0, 175, 255, 0.12);
   outline: none;
 }
 
