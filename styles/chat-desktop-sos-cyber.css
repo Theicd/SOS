@@ -514,16 +514,29 @@
     color: var(--sos-muted) !important;
   }
 
-  /* תמונות אופקיות בצ'אט – כל התמונה נראית (כמו וואטסאפ), בלי cover | HYPER CORE TECH */
+  /* תמונות אופקיות בדסקטופ – כל התמונה + רוחב מוגבל (לא דוחף שמאלה) | HYPER CORE TECH */
   .chat-panel .chat-message__image-container--landscape,
   .chat-panel .chat-message__image-container--natural,
   .chat-panel .chat-message__image-container[data-natural-fit="1"],
   .chat-panel .chat-message__image-container[data-fit-mode="contain"],
   .chat-panel .chat-media-upload--landscape[data-media-ready="1"],
   .chat-panel .chat-media-upload[data-natural-fit="1"][data-media-ready="1"] {
+    max-width: min(280px, 100%) !important;
+    width: auto !important;
+    min-width: 0 !important;
     height: auto !important;
     max-height: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .chat-panel .chat-message:has(.chat-message__image-container--landscape),
+  .chat-panel .chat-message:has(.chat-message__image-container--natural),
+  .chat-panel .chat-message:has([data-natural-fit="1"]),
+  .chat-panel .chat-message:has(.chat-media-upload--landscape) {
+    max-width: min(72%, 340px) !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .chat-panel .chat-message__image-container--landscape .chat-message__image,

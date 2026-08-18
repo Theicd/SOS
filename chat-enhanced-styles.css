@@ -1535,7 +1535,7 @@ body.chat-lightbox-open {
   box-shadow: none;
 }
 
-/* אופקי: בלי תקרת גובה שחותכת באנרים | HYPER CORE TECH */
+/* אופקי: גובה טבעי בלי חיתוך באנרים | HYPER CORE TECH */
 .chat-message__image-container--landscape,
 .chat-message__image-container--natural,
 .chat-message__image-container[data-natural-fit="1"],
@@ -1545,7 +1545,7 @@ body.chat-lightbox-open {
   max-height: none;
   height: auto;
   flex-shrink: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .chat-message__image-container--portrait {
@@ -1783,28 +1783,55 @@ body.chat-lightbox-open {
     margin-inline-end: 12px;
   }
 
+  .chat-message--incoming:has(.chat-message__image-container),
+  .chat-message--incoming:has(.chat-message__video-container),
+  .chat-message--incoming:has(.chat-media-upload) {
+    max-width: min(72%, 340px);
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
   .chat-message--outgoing .chat-message__content--image-only,
   .chat-message--outgoing .chat-message__content--video-only,
-  .chat-message--outgoing .chat-message__content--media-upload {
+  .chat-message--outgoing .chat-message__content--media-upload,
+  .chat-message--incoming .chat-message__content--image-only,
+  .chat-message--incoming .chat-message__content--video-only,
+  .chat-message--incoming .chat-message__content--media-upload {
     max-width: calc(100% - 44px);
     min-width: 0;
     flex: 0 1 auto;
+    width: auto;
   }
 
   .chat-message--outgoing .chat-message__image-container,
   .chat-message--outgoing .chat-message__video-container,
-  .chat-message--outgoing .chat-media-upload {
+  .chat-message--outgoing .chat-media-upload,
+  .chat-message--incoming .chat-message__image-container,
+  .chat-message--incoming .chat-message__video-container,
+  .chat-message--incoming .chat-media-upload {
     max-width: min(280px, 100%);
     min-width: 0;
     box-sizing: border-box;
   }
 
+  /* באנר אופקי בדסקטופ: גובה טבעי + רוחב מוגבל (בלי לדחוף שמאלה) | HYPER CORE TECH */
+  .chat-message__image-container--landscape,
+  .chat-message__image-container--natural,
+  .chat-message__image-container[data-natural-fit="1"],
+  .chat-message__image-container[data-fit-mode="contain"],
   .chat-message--outgoing .chat-message__image-container--landscape,
-  .chat-message--outgoing .chat-message__video-container--landscape,
-  .chat-message--outgoing .chat-media-upload--landscape {
+  .chat-message--outgoing .chat-media-upload--landscape,
+  .chat-message--incoming .chat-message__image-container--landscape,
+  .chat-message--incoming .chat-media-upload--landscape,
+  .chat-media-upload--landscape[data-media-ready="1"],
+  .chat-media-upload[data-natural-fit="1"][data-media-ready="1"] {
     max-width: min(280px, 100%) !important;
     width: auto !important;
     min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
   }
 }
 
