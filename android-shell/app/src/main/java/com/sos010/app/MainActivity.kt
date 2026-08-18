@@ -210,6 +210,7 @@ class MainActivity : AppCompatActivity() {
                     injectWarmForP2p()
                 }
                 injectNativeFilePickScript()
+                injectNativeVideoFixScript()
             }
             return
         }
@@ -258,6 +259,7 @@ class MainActivity : AppCompatActivity() {
                 injectWarmForP2p()
             }
             injectNativeFilePickScript()
+            injectNativeVideoFixScript()
         }
     }
 
@@ -984,6 +986,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 injectNativeFlag()
                 injectNativeFilePickScript()
+                injectNativeVideoFixScript()
                 injectWarmForCall()
                 injectWarmForP2p()
                 injectPendingDeepLink()
@@ -1401,6 +1404,19 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "failed to inject sos-native-file-pick.js", e)
             toast("שגיאת טעינת בוחר קבצים")
+        }
+    }
+
+    /** מזריק תיקון פליי לבן של WebView על וידאו בצ'אט / תצוגה מקדימה | HYPER CORE TECH */
+    private fun injectNativeVideoFixScript() {
+        if (!this::webView.isInitialized) return
+        try {
+            val script = assets.open("sos-native-video-fix.js").bufferedReader().use { it.readText() }
+            webView.evaluateJavascript(script, null)
+            Log.i(TAG, "injected sos-native-video-fix.js")
+        } catch (e: Exception) {
+            Log.e(TAG, "failed to inject sos-native-video-fix.js", e)
+            SosDebugLog.e("webview", "video-fix inject failed: ${e.message}")
         }
     }
 

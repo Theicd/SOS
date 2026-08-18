@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v518'; // bump - kill Android WebView white play on chat video
+  const CACHE_NAME = 'sos-cache-v519'; // bump - APK 1.0.63 native video white-play fix
   const PRECACHE_URLS = [
     './',
     './videos.html',
