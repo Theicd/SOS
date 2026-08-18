@@ -10,6 +10,9 @@
   var dragCounter = 0;
   var dropOverlayEl = null;
   var hoverContactEl = null;
+  // אזור גרירה אחרון – לא לסמוך רק על e.target ב־drop | HYPER CORE TECH
+  var lastZone = null; // 'conversation' | 'contact' | null
+  var lastContactPk = null;
 
   function isDesktop() {
     return window.matchMedia && window.matchMedia('(min-width: 769px)').matches;
@@ -25,6 +28,20 @@
     }
   }
 
+  function getActivePeer() {
+    try {
+      if (typeof App.getActiveChatContact === 'function') {
+        var fromApi = App.getActiveChatContact();
+        if (fromApi) return String(fromApi).toLowerCase();
+      }
+      if (typeof App.getActiveChatPeer === 'function') {
+        var fromPeer = App.getActiveChatPeer();
+        if (fromPeer) return String(fromPeer).toLowerCase();
+      }
+    } catch (_) {}
+    return '';
+  }
+
   function conversationEl() {
     return doc.querySelector('#chatPanel .chat-conversation') ||
       doc.querySelector('.chat-panel .chat-conversation') ||
@@ -35,6 +52,18 @@
     var t = e.target;
     if (!t || !t.closest) return null;
     return t.closest('.chat-contact[data-chat-contact]');
+  }
+
+  function pointInRect(x, y, rect) {
+    return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  function isOverConversation(e) {
+    var conv = conversationEl();
+    if (!conv) return false;
+    if (e.target && e.target.closest && e.target.closest('.chat-conversation')) return true;
+    if (e.target && e.target.closest && e.target.closest('.chat-drop-overlay')) return true;
+    return pointInRect(e.clientX, e.clientY, conv.getBoundingClientRect());
   }
 
   function clearContactHover() {
@@ -53,6 +82,20 @@
     }
   }
 
+  function setZoneConversation() {
+    lastZone = 'conversation';
+    lastContactPk = null;
+    clearContactHover();
+    showConversationOverlay();
+  }
+
+  function setZoneContact(el) {
+    lastZone = 'contact';
+    lastContactPk = el ? el.getAttribute('data-chat-contact') : null;
+    hideConversationOverlay();
+    setContactHover(el);
+  }
+
   function ensureOverlay() {
     if (dropOverlayEl && dropOverlayEl.isConnected) return dropOverlayEl;
     dropOverlayEl = doc.createElement('div');
@@ -62,6 +105,21 @@
       '<div class="chat-drop-overlay__content">' +
       '<span class="chat-drop-overlay__text">\u05D2\u05E8\u05D5\u05E8/\u05D9 \u05D0\u05EA \u05D4\u05E7\u05D5\u05D1\u05E5 \u05DC\u05DB\u05D0\u05DF</span>' +
       '</div>';
+    // ה־overlay עצמו מקבל drop (לא pointer-events:none) | HYPER CORE TECH
+    dropOverlayEl.addEventListener('dragenter', function (e) {
+      if (!isDesktop()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setZoneConversation();
+    });
+    dropOverlayEl.addEventListener('dragover', function (e) {
+      if (!isDesktop()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      setZoneConversation();
+    });
+    dropOverlayEl.addEventListener('drop', onDrop);
     return dropOverlayEl;
   }
 
@@ -112,10 +170,25 @@
     if (typeof App.showChatConversation === 'function') {
       App.showChatConversation(normalized);
     }
-    // ממתינים לרענון DOM של השיחה לפני מסך התצוגה | HYPER CORE TECH
     window.setTimeout(function () {
       openSendPreview(file);
     }, 80);
+  }
+
+  function updateZoneFromEvent(e) {
+    var contact = contactFromEvent(e);
+    if (contact) {
+      setZoneContact(contact);
+      return;
+    }
+    if (isOverConversation(e) || (dropOverlayEl && dropOverlayEl.classList.contains('is-visible'))) {
+      setZoneConversation();
+      return;
+    }
+    // גרירה מעל פאנל עם שיחה פעילה – מציגים overlay על השיחה | HYPER CORE TECH
+    if (getActivePeer()) {
+      setZoneConversation();
+    }
   }
 
   function onDragEnter(e) {
@@ -124,18 +197,7 @@
     e.preventDefault();
     e.stopPropagation();
     dragCounter += 1;
-    var contact = contactFromEvent(e);
-    if (contact) {
-      hideConversationOverlay();
-      setContactHover(contact);
-    } else if (conversationEl() && conversationEl().contains(e.target)) {
-      clearContactHover();
-      showConversationOverlay();
-    } else {
-      // גרירה מעל פאנל הצ'אט (כולל רשימה) – מציגים overlay רק מעל אזור השיחה הפעיל
-      var peer = App.chatState && App.chatState.activeContact;
-      if (peer) showConversationOverlay();
-    }
+    updateZoneFromEvent(e);
   }
 
   function onDragOver(e) {
@@ -144,14 +206,7 @@
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-    var contact = contactFromEvent(e);
-    if (contact) {
-      hideConversationOverlay();
-      setContactHover(contact);
-    } else if (conversationEl() && conversationEl().contains(e.target)) {
-      clearContactHover();
-      showConversationOverlay();
-    }
+    updateZoneFromEvent(e);
   }
 
   function onDragLeave(e) {
@@ -159,25 +214,11 @@
     e.preventDefault();
     e.stopPropagation();
     dragCounter -= 1;
-    if (dragCounter <= 0) resetDragUi();
-  }
-
-  function pointInRect(x, y, rect) {
-    return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-  }
-
-  function isOverConversation(e) {
-    var conv = conversationEl();
-    if (!conv) return false;
-    if (e.target && e.target.closest && e.target.closest('.chat-conversation')) return true;
-    return pointInRect(e.clientX, e.clientY, conv.getBoundingClientRect());
-  }
-
-  function isOverContactsList(e) {
-    var list = doc.querySelector('#chatPanel .chat-contacts') || doc.querySelector('.chat-panel .chat-contacts');
-    if (!list) return false;
-    if (e.target && e.target.closest && e.target.closest('.chat-contacts')) return true;
-    return pointInRect(e.clientX, e.clientY, list.getBoundingClientRect());
+    if (dragCounter <= 0) {
+      resetDragUi();
+      lastZone = null;
+      lastContactPk = null;
+    }
   }
 
   function onDrop(e) {
@@ -186,33 +227,33 @@
     e.stopPropagation();
     var contact = contactFromEvent(e);
     var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    var overConv = isOverConversation(e);
-    var overContacts = isOverContactsList(e);
+    var zone = lastZone;
+    var pkFromZone = lastContactPk;
+    if (!zone && contact) {
+      zone = 'contact';
+      pkFromZone = contact.getAttribute('data-chat-contact');
+    }
+    if (!zone && isOverConversation(e)) zone = 'conversation';
     resetDragUi();
+    lastZone = null;
+    lastContactPk = null;
     if (!file) return;
 
-    // שחרור על איש קשר ברשימה | HYPER CORE TECH
-    if (contact) {
-      var pk = contact.getAttribute('data-chat-contact');
-      if (pk) {
-        openChatThenPreview(pk, file);
-        return;
-      }
-    }
-
-    // שחרור באזור ריק ברשימה – מתעלמים | HYPER CORE TECH
-    if (overContacts && !overConv) return;
-
-    // שחרור באזור השיחה – שיחה פעילה + השהייה קצרה (כמו נתיב איש קשר) | HYPER CORE TECH
-    var peer = App.chatState && App.chatState.activeContact;
-    if (!peer) {
-      console.warn('[DRAG-DROP] no active chat');
+    if (zone === 'contact' && pkFromZone) {
+      openChatThenPreview(pkFromZone, file);
       return;
     }
-    if (!overConv) return;
-    window.setTimeout(function () {
-      openSendPreview(file);
-    }, 80);
+
+    if (zone === 'conversation' || isOverConversation(e)) {
+      var peer = getActivePeer();
+      if (!peer) {
+        console.warn('[DRAG-DROP] no active chat');
+        return;
+      }
+      window.setTimeout(function () {
+        openSendPreview(file);
+      }, 80);
+    }
   }
 
   function setupChatDragDrop() {
@@ -224,10 +265,11 @@
     if (chatPanel.getAttribute('data-chat-dnd') === '1') return;
     chatPanel.setAttribute('data-chat-dnd', '1');
 
-    chatPanel.addEventListener('dragenter', onDragEnter);
-    chatPanel.addEventListener('dragover', onDragOver);
-    chatPanel.addEventListener('dragleave', onDragLeave);
-    chatPanel.addEventListener('drop', onDrop);
+    // capture כדי לתפוס drop גם כשילדים בולעים אירועים | HYPER CORE TECH
+    chatPanel.addEventListener('dragenter', onDragEnter, true);
+    chatPanel.addEventListener('dragover', onDragOver, true);
+    chatPanel.addEventListener('dragleave', onDragLeave, true);
+    chatPanel.addEventListener('drop', onDrop, true);
 
     window.addEventListener('resize', function () {
       if (!isDesktop()) resetDragUi();

@@ -29,6 +29,7 @@
 
   .chat-drop-overlay.is-visible {
     display: flex;
+    pointer-events: auto; /* חייב לקבל drop | HYPER CORE TECH */
     animation: cddFadeIn 0.18s ease-out;
   }
 
