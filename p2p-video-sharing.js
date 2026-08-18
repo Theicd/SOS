@@ -106,7 +106,12 @@
   const PEER_DISCOVERY_TIMEOUT = window.NostrP2P_PEER_DISCOVERY_TIMEOUT || 10000; // 10 שניות לחיפוש peers
   const PEER_DISCOVERY_LOOKBACK = 24 * 60 * 60; // 24 שעות אחורה - כדי למצוא peers גם אם פרסמו מוקדם יותר
   const CHUNK_SIZE = 16384; // 16KB chunks
-  const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || ['wss://nos.lol', 'wss://nostr-02.uid.ovh']));
+  const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || [
+    'wss://nos.lol',
+    'wss://nostr-02.uid.ovh',
+    'wss://nostr.0x7e.xyz',
+    'wss://nostr.0x7e.xyz/',
+  ]));
   // זיהוי מובייל להתאמת משאבים
   const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   

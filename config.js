@@ -49,7 +49,6 @@
     'wss://relay.snort.social',
     'wss://nos.lol',
     'wss://nostr-relay.xbytez.io',
-    'wss://nostr.0x7e.xyz',
   ];
   const UNSAFE_RELAY_PATTERNS = new Set([
     'wss://relay.damus.io',
@@ -64,6 +63,9 @@
     'wss://nostr-verif.slothy.win',
     'wss://cfrelay.puhcho.workers.dev',
     'wss://echo.websocket.org',
+    // relay מת — מציף reconnect בלי תועלת | HYPER CORE TECH
+    'wss://nostr.0x7e.xyz',
+    'wss://nostr.0x7e.xyz/',
   ]);
   const RELAY_STORAGE_KEY = 'nostr_relay_urls';
   const P2P_RELAY_STORAGE_KEY = 'nostr_p2p_relays';
