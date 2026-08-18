@@ -138,6 +138,9 @@
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       video.preload = 'metadata';
+      // poster שחור — מונע הבזק אפור בווב עד שיש פריים | HYPER CORE TECH
+      video.poster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      video.style.background = '#000';
       stage.appendChild(video);
       return;
     }

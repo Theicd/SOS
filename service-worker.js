@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v524'; // bump - APK 1.0.68 fast send-preview poster
+  const CACHE_NAME = 'sos-cache-v525'; // bump - web black backgrounds for lightbox/send-preview
   const PRECACHE_URLS = [
     './',
     './videos.html',

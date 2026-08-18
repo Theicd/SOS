@@ -2418,8 +2418,10 @@
     if (item.kind === 'video') {
       const safeName = App.escapeHtml ? App.escapeHtml(item.name || 'וידאו') : String(item.name || 'וידאו');
       const mime = item.type || 'video/mp4';
+      // poster שחור — מונע הבזק אפור של הדפדפן עד שיש פריים | HYPER CORE TECH
+      const blackPoster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
       return `
-        <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay>
+        <video class="chat-lightbox__video" controls playsinline webkit-playsinline autoplay poster="${blackPoster}" style="background:#000">
           <source src="${String(item.src).replace(/"/g, '&quot;')}" type="${String(mime).replace(/"/g, '&quot;')}">
         </video>
       `;
