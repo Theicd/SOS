@@ -734,15 +734,15 @@ body:has(.videos-feed) .top-bar__badge {
 
 body:has(.videos-feed) .top-bar__dropdown {
   background:
-    linear-gradient(145deg, rgba(26, 58, 92, 0.92) 0%, rgba(18, 42, 72, 0.96) 45%, rgba(35, 75, 110, 0.88) 100%);
+    linear-gradient(145deg, rgba(8, 12, 20, 0.97) 0%, rgba(3, 10, 20, 0.98) 55%, rgba(12, 18, 28, 0.95) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(120, 200, 255, 0.45);
+  border: 1px solid rgba(40, 170, 255, 0.28);
   box-shadow:
-    0 10px 28px rgba(0, 0, 0, 0.45),
-    0 0 22px rgba(0, 175, 255, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -12px 26px rgba(0, 30, 55, 0.4);
+    0 10px 28px rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(0, 175, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.45);
 }
 
 /* הפרדה עדינה בין שורות בתפריט הפיד; בלי קו אחרי פריט מוסתר | HYPER CORE TECH */
