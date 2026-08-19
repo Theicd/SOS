@@ -2594,6 +2594,11 @@
                   }
                   await registerFileAvailability(hash, result.blob, result.mimeType);
                   resetConsecutiveFailures();
+                  try {
+                    if (peer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
+                      App.EventSync.sendInventory(peer).catch(() => {});
+                    }
+                  } catch (_) {}
                   return { blob: result.blob, source: 'p2p-fallback', peer, tier };
                 } catch (peerErr) {
                   continue;
@@ -2683,6 +2688,12 @@
             }
             await registerFileAvailability(hash, result.blob, result.mimeType);
             resetConsecutiveFailures();
+            // עמוד שדרה דק: אחרי הורדת מדיה מ-peer – מבקשים גם אירועים (לייקים/תגובות) מאותו peer | HYPER CORE TECH
+            try {
+              if (peer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
+                App.EventSync.sendInventory(peer).catch(() => {});
+              }
+            } catch (_) {}
             return { blob: result.blob, source: 'p2p', peer, tier };
 
           } catch (err) {

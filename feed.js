@@ -636,6 +636,7 @@
   }
 
   // חלק לייקים (feed.js) – מנוי דינמי ללייקים לפי מזהי פוסטים (#e) כדי לכלול גם לייקים ללא תג רשת
+  // עמוד שדרה דק: קודם cache/P2P EventSync, ורק אז Relays למה שחסר | HYPER CORE TECH
   function subscribeLikesForPosts(postIds = []) {
     try {
       if (!Array.isArray(postIds) || postIds.length === 0 || !App.pool || !Array.isArray(App.relayUrls)) {
@@ -647,17 +648,43 @@
       const toSubscribe = postIds.filter((id) => typeof id === 'string' && id && !App._likesSubscribedForIds.has(id));
       if (toSubscribe.length === 0) return;
 
-      // שמירה למניעת כפילות מנויים בעתיד
       toSubscribe.forEach((id) => App._likesSubscribedForIds.add(id));
 
-      // חלק תגובות (feed.js) – מפעיל גם מנוי תגובות דלתא לאותם פוסטים | HYPER CORE TECH
       try { subscribeCommentsForPosts(toSubscribe); } catch (err) { console.warn('subscribeCommentsForPosts hook failed', err); }
 
-      // חלק לייקים (feed.js) – שאיבה מיידית של לייקים קיימים כדי להציג מונים גם לפני אינטראקציה | HYPER CORE TECH
+      // חלק hydrate מקומי (feed.js) – לייקים/תגובות מ-EventSync לפני Relays | HYPER CORE TECH
+      const needsRelayPrefetch = [];
       (async () => {
+        try {
+          if (App.EventSync && typeof App.EventSync.loadEngagementForPosts === 'function') {
+            const local = await App.EventSync.loadEngagementForPosts(toSubscribe);
+            (local.likes || []).forEach((ev) => {
+              if (ev?.kind === 7) registerLike(ev);
+            });
+            (local.comments || []).forEach((ev) => {
+              try {
+                if (ev?.kind === 1 && typeof registerComment === 'function') {
+                  const eTag = Array.isArray(ev.tags) && ev.tags.find((t) => t[0] === 'e');
+                  if (eTag?.[1]) registerComment(ev, eTag[1]);
+                }
+              } catch (_) {}
+            });
+          }
+        } catch (err) {
+          console.warn('local engagement hydrate failed', err);
+        }
+
+        toSubscribe.forEach((id) => {
+          const likeSet = App.likesByEventId?.get?.(id);
+          const commentMap = App.commentsByParent?.get?.(id);
+          const hasLocal = (likeSet && likeSet.size > 0) || (commentMap && commentMap.size > 0);
+          if (!hasLocal) needsRelayPrefetch.push(id);
+        });
+
+        // שאיבה מ-Relay רק לפוסטים בלי engagement מקומי | HYPER CORE TECH
         const chunkSize = 50;
-        for (let i = 0; i < toSubscribe.length; i += chunkSize) {
-          const chunk = toSubscribe.slice(i, i + chunkSize);
+        for (let i = 0; i < needsRelayPrefetch.length; i += chunkSize) {
+          const chunk = needsRelayPrefetch.slice(i, i + chunkSize);
           const filters = [{ kinds: [7], '#e': chunk, limit: 800 }];
           try {
             let events = [];
@@ -675,11 +702,12 @@
         }
       })();
 
-      // נפרוס למנות של עד 50 מזהים כדי להימנע מפילטרים כבדים מדי
+      // מנוי חי לדלתא – נשאר לכולם (קטן), בלי list כבד לכולם | HYPER CORE TECH
       const chunkSize = 50;
       for (let i = 0; i < toSubscribe.length; i += chunkSize) {
         const chunk = toSubscribe.slice(i, i + chunkSize);
-        const filters = [{ kinds: [7], '#e': chunk, limit: 1000 }];
+        const sinceTs = Math.floor(Date.now() / 1000) - 120;
+        const filters = [{ kinds: [7], '#e': chunk, since: sinceTs, limit: 200 }];
         try {
           const sub = App.pool.subscribeMany(App.relayUrls, filters, {
             onevent: (ev) => {
@@ -691,7 +719,6 @@
               try { sub?.close?.(); } catch (_) {}
             },
           });
-          // פייל-סייף סגירה אחרי זמן קצר
           setTimeout(() => { try { sub?.close?.(); } catch (_) {} }, 7000);
         } catch (err) {
           console.warn('subscribeLikesForPosts failed', err);
