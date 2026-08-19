@@ -101,6 +101,7 @@
   // חלק DataChannel (chat-p2p-datachannel.js) – חיבור אירועים לערוץ + בדיקת stale למניעת לולאת reconnect | HYPER CORE TECH
   function wireDC(k,dc) {
     k=k.toLowerCase(); const s=ensPS(k); s.dc=dc;
+    try{ dc.binaryType='arraybuffer'; }catch{}
     dc.onopen=()=>{
       if(s.dc!==dc) return; s.status='connected'; s.reconnN=0; s.offerRetryN=0;
       if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
@@ -263,12 +264,20 @@
   // חלק הודעות P2P (chat-p2p-datachannel.js) – קבלה ושליחה + keepalive ping/pong | HYPER CORE TECH
   function onMsg(peer,raw) {
     try {
+      // חלק גשר בינארי (chat-p2p-datachannel.js) – צ'אנקי קובץ על sos-chat (בלי file-transfer נפרד) | HYPER CORE TECH
+      if(raw instanceof ArrayBuffer || (typeof ArrayBuffer!=='undefined'&&ArrayBuffer.isView&&ArrayBuffer.isView(raw)) || (typeof Blob!=='undefined'&&raw instanceof Blob)){
+        if(typeof App.handleP2PFileMessage==='function'){
+          const s=getPS(peer.toLowerCase());
+          try{ App.handleP2PFileMessage(peer, raw instanceof ArrayBuffer||(typeof Blob!=='undefined'&&raw instanceof Blob)?raw:(raw.buffer||raw), s&&s.dc); }catch(e){ console.warn('[DC] file binary bridge:', e); }
+        }
+        return;
+      }
       const m=JSON.parse(raw);
       // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
       if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
       if(m.type==='pong') return;
-      // חלק גשר קבצים (chat-p2p-datachannel.js) – ACK/resend על ערוץ הצ'אט אם ערוץ הקובץ נסגר | HYPER CORE TECH
-      if(m.type==='file-complete-ack'||m.type==='file-resend-request'||m.type==='file-ready'||m.type==='file-offer'){
+      // חלק גשר קבצים (chat-p2p-datachannel.js) – metadata/ACK/chunks על ערוץ הצ'אט | HYPER CORE TECH
+      if(m.type==='file-complete-ack'||m.type==='file-resend-request'||m.type==='file-ready'||m.type==='file-offer'||m.type==='chunk-meta'||m.type==='chunk-ack'||m.type==='ack'||m.type==='resume'){
         if(typeof App.handleP2PFileControlMessage==='function'){
           try{ App.handleP2PFileControlMessage(peer, m); }catch(e){ console.warn('[DC] file control bridge:', e); }
         }
@@ -428,6 +437,8 @@
 
   // חלק getChatPC (chat-p2p-datachannel.js) – חשיפת PeerConnection לשימוש מערכת הקבצים | HYPER CORE TECH
   function getChatPC(peer) { const s=getPS(peer.toLowerCase()); return (s&&s.pc&&s.status==='connected')?s.pc:null; }
+  // חלק getChatDC (chat-p2p-datachannel.js) – ערוץ sos-chat פתוח להעברת קבצים בלי renegotiation | HYPER CORE TECH
+  function getChatDC(peer) { const s=getPS(peer.toLowerCase()); return (s&&s.dc&&s.dc.readyState==='open')?s.dc:null; }
 
   // חלק forceConnect (chat-p2p-datachannel.js) – חיבור DC בכוח גם כ-responder, לצורך שליחת קבצים | HYPER CORE TECH
   async function forceConnect(peer) {
@@ -443,7 +454,7 @@
     await _sendOffer(k);
   }
 
-  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, subscribeIncomingMessages, _peers:peers };
+  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, _peers:peers };
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט / headless | HYPER CORE TECH
   function setupLazy(){
