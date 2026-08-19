@@ -188,11 +188,13 @@
   const MULTI_SOURCE_PIECE = IS_MOBILE ? 256 * 1024 : 512 * 1024;
   const MULTI_SOURCE_MIN_BYTES = 512 * 1024;
   const MULTI_SOURCE_RANGE_TIMEOUT = IS_MOBILE ? 22000 : 16000;
+  const MULTI_SOURCE_OVERALL_TIMEOUT = IS_MOBILE ? 55000 : 45000;
+  const MULTI_SOURCE_MAX_ACTIVE = 1; // רק Multi אחד בכל רגע — מונע עומס על chat-dc
   
   const MAX_CONCURRENT_P2P_TRANSFERS =
     typeof window.NostrP2P_MAX_CONCURRENT_TRANSFERS === 'number'
       ? window.NostrP2P_MAX_CONCURRENT_TRANSFERS
-      : (IS_MOBILE ? 2 : 3); // מובייל: 2, דסקטופ: 3
+      : (IS_MOBILE ? 1 : 2); // D refine: פחות הורדות מקבילות — פחות Busy על chat-dc
   const MAX_PEER_ATTEMPTS_PER_FILE =
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
@@ -274,6 +276,7 @@
     signalTimestamps: [],
     activeTransferSlots: 0,
     pendingTransferResolvers: [],
+    multiSourceActive: 0, // כמה הורדות multi רצות (מגביל עומס) | HYPER CORE TECH
     // חלק Network Tiers (p2p-video-sharing.js) – מצב רשת ומטמון peers | HYPER CORE TECH
     networkTier: 'UNKNOWN',           // BOOTSTRAP | HYBRID | P2P_FULL | UNKNOWN
     lastPeerCount: 0,                 // ספירת peers אחרונה
@@ -1968,19 +1971,61 @@
   }
 
   // חלק Multi-Source (p2p-video-sharing.js) – הורדה מקבילית מ־K≤3 peers על chat-dc | HYPER CORE TECH
-  async function downloadMultiSource(peerPubkeys, hash) {
+  function canAttemptMultiSource() {
+    if (state.multiSourceActive >= MULTI_SOURCE_MAX_ACTIVE) {
+      log('info', `[feed-session] multi-source skip`, {
+        reason: 'multi-already-active',
+        active: state.multiSourceActive,
+      });
+      return false;
+    }
+    // הורדות פיד אחרות רצות — לא לפתוח Multi נוסף על אותו ערוץ | HYPER CORE TECH
+    if (state.activeTransferSlots > 1) {
+      log('info', `[feed-session] multi-source skip`, {
+        reason: 'concurrent-downloads',
+        slots: state.activeTransferSlots,
+      });
+      return false;
+    }
+    if (pendingChatDcDownloads.size > 0) {
+      log('info', `[feed-session] multi-source skip`, {
+        reason: 'chat-dc-busy',
+        pending: pendingChatDcDownloads.size,
+      });
+      return false;
+    }
+    return true;
+  }
+
+  async function downloadMultiSource(peerPubkeys, hash, session) {
+    const cancelFlag = session || { cancelled: false };
     const list = (Array.isArray(peerPubkeys) ? peerPubkeys : [])
       .map((p) => String(p || '').toLowerCase())
       .filter(Boolean);
     if (list.length < 2 || !hash) return null;
+    if (!canAttemptMultiSource()) return null;
 
+    state.multiSourceActive += 1;
+    try {
+      return await downloadMultiSourceInner(list, hash, cancelFlag);
+    } finally {
+      state.multiSourceActive = Math.max(0, state.multiSourceActive - 1);
+    }
+  }
+
+  async function downloadMultiSourceInner(list, hash, cancelFlag) {
     const warmBudget = IS_MOBILE ? 1600 : 2200;
     const ready = [];
     for (const peer of list) {
+      if (cancelFlag.cancelled) {
+        log('info', `[feed-session] multi-source skip`, { reason: 'cancelled-warm' });
+        return null;
+      }
       if (ready.length >= MULTI_SOURCE_MAX_PEERS) break;
+      if (pendingChatDcDownloads.has(peer)) continue;
       try {
         const dc = await ensureChatDcOpen(peer, warmBudget);
-        if (dc && dc.readyState === 'open') {
+        if (dc && dc.readyState === 'open' && !pendingChatDcDownloads.has(peer)) {
           ready.push({ peer, channel: dc });
         }
       } catch (_) {}
@@ -1990,23 +2035,40 @@
       return null;
     }
 
-    const probePeer = ready[0];
     let fileSize = 0;
     let mimeType = 'application/octet-stream';
-    try {
-      const meta = await downloadViaChatDc(probePeer.peer, hash, probePeer.channel, {
-        metaOnly: true,
-        rangeId: 'meta',
-        timeoutMs: Math.min(MULTI_SOURCE_RANGE_TIMEOUT, 8000),
-      });
-      fileSize = meta && meta.size ? meta.size : 0;
-      mimeType = (meta && meta.mimeType) || mimeType;
-    } catch (err) {
-      log('info', `[feed-session] multi-source meta failed`, { error: err.message });
-      return null;
+    let metaOk = false;
+    for (let mi = 0; mi < ready.length; mi++) {
+      if (cancelFlag.cancelled) return null;
+      const probePeer = ready[mi];
+      if (pendingChatDcDownloads.has(probePeer.peer)) continue;
+      try {
+        const meta = await downloadViaChatDc(probePeer.peer, hash, probePeer.channel, {
+          metaOnly: true,
+          rangeId: 'meta',
+          timeoutMs: Math.min(MULTI_SOURCE_RANGE_TIMEOUT, 10000),
+        });
+        fileSize = meta && meta.size ? meta.size : 0;
+        mimeType = (meta && meta.mimeType) || mimeType;
+        metaOk = true;
+        break;
+      } catch (err) {
+        const msg = String(err && err.message || '');
+        log('info', `[feed-session] multi-source meta failed`, {
+          peer: probePeer.peer.slice(0, 8),
+          error: msg,
+        });
+        if (/busy/i.test(msg)) {
+          await sleep(350);
+          continue;
+        }
+      }
     }
-    if (!fileSize || fileSize < MULTI_SOURCE_MIN_BYTES) {
-      log('info', `[feed-session] multi-source skip`, { reason: 'file-too-small', size: fileSize });
+    if (!metaOk || !fileSize || fileSize < MULTI_SOURCE_MIN_BYTES) {
+      log('info', `[feed-session] multi-source skip`, {
+        reason: !metaOk ? 'meta-failed' : 'file-too-small',
+        size: fileSize,
+      });
       return null;
     }
 
@@ -2044,12 +2106,14 @@
     };
 
     async function fetchRange(range, tried) {
+      if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
       const exclude = tried || new Set();
       let lastErr = null;
       for (let attempt = 0; attempt < ready.length + 2; attempt++) {
+        if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
         let slot = pickPeer(exclude);
         if (!slot) {
-          await sleep(120);
+          await sleep(150);
           slot = pickPeer(exclude);
         }
         if (!slot) break;
@@ -2066,6 +2130,7 @@
             timeoutMs: MULTI_SOURCE_RANGE_TIMEOUT,
           });
           if (!result || !result.blob) throw new Error('empty range');
+          if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
           range.buffer = result.blob;
           range.peer = slot.peer;
           peersUsed.add(slot.peer);
@@ -2073,25 +2138,32 @@
           return true;
         } catch (err) {
           lastErr = err;
+          if (cancelFlag.cancelled || /cancelled/i.test(String(err.message || ''))) throw err;
           log('info', `[feed-session] multi-source range fail → retry`, {
             rangeId: range.id,
             peer: slot.peer.slice(0, 8),
             error: err.message,
           });
+          if (/busy/i.test(String(err.message || ''))) await sleep(250);
         }
       }
       throw lastErr || new Error(`range ${range.id} failed`);
     }
 
-    // מקביליות: עד ready.length ranges בו־זמנית
     let nextIdx = 0;
     const workers = ready.map(async () => {
       while (nextIdx < ranges.length) {
+        if (cancelFlag.cancelled) return;
         const idx = nextIdx++;
         await fetchRange(ranges[idx], new Set());
       }
     });
     await Promise.all(workers);
+
+    if (cancelFlag.cancelled) {
+      log('info', `[feed-session] multi-source skip`, { reason: 'cancelled-after-ranges' });
+      return null;
+    }
 
     for (const range of ranges) {
       if (!range.buffer) throw new Error(`missing range ${range.id}`);
@@ -3337,12 +3409,19 @@
         // מיון: peers מחוברים קודם
         const sortedPeers = prioritizeConnectedPeers(peers);
 
-        // D – Multi-Source כשיש ≥2 peers (לא לאורחים) | HYPER CORE TECH
-        if (!isGuest && sortedPeers.length >= 2) {
+        // D refine – Multi-Source בלי Promise.race שמשאיר הורדה יתומה | HYPER CORE TECH
+        if (!isGuest && sortedPeers.length >= 2 && canAttemptMultiSource()) {
+          const multiSession = { cancelled: false };
           try {
+            const multiPromise = downloadMultiSource(sortedPeers, hash, multiSession);
+            const budget = Math.max(MULTI_SOURCE_OVERALL_TIMEOUT, MULTI_SOURCE_RANGE_TIMEOUT * 2);
             const multi = await Promise.race([
-              downloadMultiSource(sortedPeers, hash),
-              sleep(Math.max(p2pTimeout, MULTI_SOURCE_RANGE_TIMEOUT * 2)).then(() => null),
+              multiPromise,
+              sleep(budget).then(() => {
+                multiSession.cancelled = true;
+                log('info', `[feed-session] multi-source timeout → cancel`, { budgetMs: budget });
+                return null;
+              }),
             ]);
             if (multi && multi.blob) {
               p2pStats.downloads.fromP2P++;
@@ -3372,7 +3451,10 @@
                 tier,
               };
             }
+            // אם בוטל — לתת ל־promise להסתיים ברקע בלי לחסום (cancelled כבר מוגדר)
+            multiPromise.catch(() => {});
           } catch (multiErr) {
+            multiSession.cancelled = true;
             log('info', `[feed-session] multi-source → serial fallback`, { error: multiErr.message });
           }
         }
