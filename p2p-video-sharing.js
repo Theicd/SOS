@@ -186,9 +186,10 @@
   // חלק Multi-Source (p2p-video-sharing.js) – D: עד 3 peers, חתיכות מקבילות | HYPER CORE TECH
   const MULTI_SOURCE_MAX_PEERS = 3;
   const MULTI_SOURCE_PIECE = IS_MOBILE ? 256 * 1024 : 512 * 1024;
-  const MULTI_SOURCE_MIN_BYTES = 512 * 1024;
-  const MULTI_SOURCE_RANGE_TIMEOUT = IS_MOBILE ? 22000 : 16000;
-  const MULTI_SOURCE_OVERALL_TIMEOUT = IS_MOBILE ? 55000 : 45000;
+  const MULTI_SOURCE_MIN_BYTES = 256 * 1024;
+  const MULTI_SOURCE_RANGE_TIMEOUT = IS_MOBILE ? 28000 : 20000;
+  const MULTI_SOURCE_OVERALL_TIMEOUT = IS_MOBILE ? 90000 : 75000;
+  const MULTI_SOURCE_WARM_MS = IS_MOBILE ? 4500 : 5000;
   const MULTI_SOURCE_MAX_ACTIVE = 1; // רק Multi אחד בכל רגע — מונע עומס על chat-dc
   
   const MAX_CONCURRENT_P2P_TRANSFERS =
@@ -1979,22 +1980,47 @@
       });
       return false;
     }
-    // הורדות פיד אחרות רצות — לא לפתוח Multi נוסף על אותו ערוץ | HYPER CORE TECH
-    if (state.activeTransferSlots > 1) {
-      log('info', `[feed-session] multi-source skip`, {
-        reason: 'concurrent-downloads',
-        slots: state.activeTransferSlots,
-      });
-      return false;
-    }
-    if (pendingChatDcDownloads.size > 0) {
-      log('info', `[feed-session] multi-source skip`, {
-        reason: 'chat-dc-busy',
-        pending: pendingChatDcDownloads.size,
-      });
-      return false;
-    }
     return true;
+  }
+
+  async function warmPeersForMulti(peerList, cancelFlag) {
+    const targets = peerList.slice(0, MULTI_SOURCE_MAX_PEERS);
+    log('info', `[feed-session] multi-source warming`, {
+      peers: targets.map((p) => p.slice(0, 8)),
+      waitMs: MULTI_SOURCE_WARM_MS,
+    });
+    // חימום מקבילי — לא אחד אחרי השני | HYPER CORE TECH
+    await Promise.all(targets.map((peer) =>
+      ensureChatDcOpen(peer, MULTI_SOURCE_WARM_MS).catch(() => null)
+    ));
+    if (cancelFlag.cancelled) return [];
+
+    const ready = [];
+    for (const peer of targets) {
+      const dc = typeof App.dataChannel?.getChatDC === 'function'
+        ? App.dataChannel.getChatDC(peer)
+        : null;
+      if (dc && dc.readyState === 'open') {
+        ready.push({ peer, channel: dc });
+      }
+    }
+
+    // סיבוב שני קצר למי שעדיין לא נפתח | HYPER CORE TECH
+    if (ready.length < 2 && !cancelFlag.cancelled) {
+      const missing = targets.filter((p) => !ready.some((r) => r.peer === p));
+      await Promise.all(missing.map((peer) =>
+        ensureChatDcOpen(peer, Math.floor(MULTI_SOURCE_WARM_MS * 0.7)).catch(() => null)
+      ));
+      for (const peer of missing) {
+        const dc = typeof App.dataChannel?.getChatDC === 'function'
+          ? App.dataChannel.getChatDC(peer)
+          : null;
+        if (dc && dc.readyState === 'open') {
+          ready.push({ peer, channel: dc });
+        }
+      }
+    }
+    return ready;
   }
 
   async function downloadMultiSource(peerPubkeys, hash, session) {
@@ -2014,21 +2040,10 @@
   }
 
   async function downloadMultiSourceInner(list, hash, cancelFlag) {
-    const warmBudget = IS_MOBILE ? 1600 : 2200;
-    const ready = [];
-    for (const peer of list) {
-      if (cancelFlag.cancelled) {
-        log('info', `[feed-session] multi-source skip`, { reason: 'cancelled-warm' });
-        return null;
-      }
-      if (ready.length >= MULTI_SOURCE_MAX_PEERS) break;
-      if (pendingChatDcDownloads.has(peer)) continue;
-      try {
-        const dc = await ensureChatDcOpen(peer, warmBudget);
-        if (dc && dc.readyState === 'open' && !pendingChatDcDownloads.has(peer)) {
-          ready.push({ peer, channel: dc });
-        }
-      } catch (_) {}
+    const ready = await warmPeersForMulti(list, cancelFlag);
+    if (cancelFlag.cancelled) {
+      log('info', `[feed-session] multi-source skip`, { reason: 'cancelled-warm' });
+      return null;
     }
     if (ready.length < 2) {
       log('info', `[feed-session] multi-source skip`, { reason: 'need-2-chat-dc', ready: ready.length });
@@ -2041,12 +2056,19 @@
     for (let mi = 0; mi < ready.length; mi++) {
       if (cancelFlag.cancelled) return null;
       const probePeer = ready[mi];
+      // ממתין עד שהערוץ פנוי ל־meta (לא מדלגים על כל ה-Multi) | HYPER CORE TECH
+      for (let w = 0; w < 20 && pendingChatDcDownloads.has(probePeer.peer); w++) {
+        await sleep(100);
+      }
       if (pendingChatDcDownloads.has(probePeer.peer)) continue;
       try {
-        const meta = await downloadViaChatDc(probePeer.peer, hash, probePeer.channel, {
+        const liveDc = (typeof App.dataChannel?.getChatDC === 'function'
+          ? App.dataChannel.getChatDC(probePeer.peer)
+          : null) || probePeer.channel;
+        const meta = await downloadViaChatDc(probePeer.peer, hash, liveDc, {
           metaOnly: true,
           rangeId: 'meta',
-          timeoutMs: Math.min(MULTI_SOURCE_RANGE_TIMEOUT, 10000),
+          timeoutMs: Math.min(MULTI_SOURCE_RANGE_TIMEOUT, 12000),
         });
         fileSize = meta && meta.size ? meta.size : 0;
         mimeType = (meta && meta.mimeType) || mimeType;
@@ -2059,7 +2081,7 @@
           error: msg,
         });
         if (/busy/i.test(msg)) {
-          await sleep(350);
+          await sleep(400);
           continue;
         }
       }
@@ -2081,6 +2103,7 @@
         length: Math.min(piece, fileSize - offset),
         buffer: null,
         peer: null,
+        preferred: ready[ranges.length % ready.length].peer,
       });
     }
 
@@ -2093,72 +2116,72 @@
     });
 
     const peersUsed = new Set();
-    let peerCursor = 0;
-    const pickPeer = (exclude) => {
-      for (let i = 0; i < ready.length; i++) {
-        peerCursor = (peerCursor + 1) % ready.length;
-        const cand = ready[peerCursor];
-        if (exclude && exclude.has(cand.peer)) continue;
-        if (pendingChatDcDownloads.has(cand.peer)) continue;
-        return cand;
-      }
-      return ready.find((r) => !pendingChatDcDownloads.has(r.peer)) || null;
-    };
+    const peerByKey = new Map(ready.map((r) => [r.peer, r]));
 
-    async function fetchRange(range, tried) {
+    async function fetchRangeFromPeer(range, peerKey) {
       if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
-      const exclude = tried || new Set();
-      let lastErr = null;
-      for (let attempt = 0; attempt < ready.length + 2; attempt++) {
+      const slot = peerByKey.get(peerKey);
+      if (!slot) throw new Error('peer missing');
+      for (let w = 0; w < 40 && pendingChatDcDownloads.has(peerKey); w++) {
+        await sleep(80);
         if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
-        let slot = pickPeer(exclude);
-        if (!slot) {
-          await sleep(150);
-          slot = pickPeer(exclude);
-        }
-        if (!slot) break;
-        exclude.add(slot.peer);
-        const liveDc = (typeof App.dataChannel?.getChatDC === 'function'
-          ? App.dataChannel.getChatDC(slot.peer)
-          : null) || slot.channel;
-        if (!liveDc || liveDc.readyState !== 'open') continue;
+      }
+      const liveDc = (typeof App.dataChannel?.getChatDC === 'function'
+        ? App.dataChannel.getChatDC(peerKey)
+        : null) || slot.channel;
+      if (!liveDc || liveDc.readyState !== 'open') {
+        throw new Error('chat-dc closed');
+      }
+      const result = await downloadViaChatDc(peerKey, hash, liveDc, {
+        offset: range.offset,
+        length: range.length,
+        rangeId: range.id,
+        timeoutMs: MULTI_SOURCE_RANGE_TIMEOUT,
+      });
+      if (!result || !result.blob) throw new Error('empty range');
+      if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
+      range.buffer = result.blob;
+      range.peer = peerKey;
+      peersUsed.add(peerKey);
+      if (result.mimeType) mimeType = result.mimeType;
+      return true;
+    }
+
+    async function fetchRange(range) {
+      const tried = new Set();
+      let lastErr = null;
+      const order = [range.preferred, ...ready.map((r) => r.peer).filter((p) => p !== range.preferred)];
+      for (const peerKey of order) {
+        if (tried.has(peerKey)) continue;
+        tried.add(peerKey);
         try {
-          const result = await downloadViaChatDc(slot.peer, hash, liveDc, {
-            offset: range.offset,
-            length: range.length,
-            rangeId: range.id,
-            timeoutMs: MULTI_SOURCE_RANGE_TIMEOUT,
-          });
-          if (!result || !result.blob) throw new Error('empty range');
-          if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
-          range.buffer = result.blob;
-          range.peer = slot.peer;
-          peersUsed.add(slot.peer);
-          if (result.mimeType) mimeType = result.mimeType;
+          await fetchRangeFromPeer(range, peerKey);
           return true;
         } catch (err) {
           lastErr = err;
           if (cancelFlag.cancelled || /cancelled/i.test(String(err.message || ''))) throw err;
           log('info', `[feed-session] multi-source range fail → retry`, {
             rangeId: range.id,
-            peer: slot.peer.slice(0, 8),
+            peer: peerKey.slice(0, 8),
             error: err.message,
           });
-          if (/busy/i.test(String(err.message || ''))) await sleep(250);
+          if (/busy/i.test(String(err.message || ''))) await sleep(200);
         }
       }
       throw lastErr || new Error(`range ${range.id} failed`);
     }
 
-    let nextIdx = 0;
-    const workers = ready.map(async () => {
-      while (nextIdx < ranges.length) {
-        if (cancelFlag.cancelled) return;
-        const idx = nextIdx++;
-        await fetchRange(ranges[idx], new Set());
-      }
+    // worker לכל peer — חתיכות לפי preferred, בלי שכולם יתחרו על אותו peer | HYPER CORE TECH
+    const queues = ready.map(() => []);
+    ranges.forEach((range, idx) => {
+      queues[idx % ready.length].push(range);
     });
-    await Promise.all(workers);
+    await Promise.all(ready.map(async (slot, qi) => {
+      for (const range of queues[qi]) {
+        if (cancelFlag.cancelled) return;
+        await fetchRange(range);
+      }
+    }));
 
     if (cancelFlag.cancelled) {
       log('info', `[feed-session] multi-source skip`, { reason: 'cancelled-after-ranges' });
