@@ -773,6 +773,13 @@
       }
     } catch {}
   };
+  // חלק שיחות וידאו – answer SDP התקבל; עוצרים חיוג לפני ICE connected | HYPER CORE TECH
+  App.onVideoCallAnswerReceived = function onVideoCallAnswerReceived(peer) {
+    console.log('[VIDEO] answer received', String(peer || '').slice(0, 8));
+    setStatus('מתחבר...');
+    stopDialtone();
+    stopRingtone();
+  };
   App.onVideoCallConnected = function(peer){
     stopDialtone();
     stopRingtone();

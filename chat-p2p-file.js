@@ -24,6 +24,7 @@
   const RESEND_COOLDOWN_MS = 15000; // לא לשלוח בקשות resend חוזרות שגורמות לקפיצות UI
   const FILE_RETAIN_MS = 3 * 60 * 1000; // שומר קובץ 3 דקות אחרי סיום לצורך resend
   const MAX_RESEND_ATTEMPTS = 2; // מקסימום ניסיונות resend
+  const COMPLETE_ACK_WAIT_MS = 12000; // אם אין ACK מהמקבל → Blossom/retry אוטומטי | HYPER CORE TECH
 
   // חלק Toast שקט (chat-p2p-file.js) – סטטוס העברה רק בבועה, בלי התראות בראש המסך | HYPER CORE TECH
   function quietTransferLog(...args) {
@@ -461,7 +462,32 @@
       recentCompletedFiles.set(fileId, { file, keyStr: transfer.keyStr, peerPubkey: peerKey, completedAt: Date.now() });
       setTimeout(() => { recentCompletedFiles.delete(fileId); }, FILE_RETAIN_MS);
       console.log('[CHAT/P2P] 💾 קובץ נשמר ל-resend cache למשך 3 דקות:', fileId);
-      activeTransfers.delete(fileId);
+      // חלק ACK מפורש (chat-p2p-file.js) – ממתין לאישור מהמקבל; בלי ACK → Blossom/retry | HYPER CORE TECH
+      transfer.awaitingCompleteAck = true;
+      transfer.completeAckReceived = false;
+      if (transfer._completeAckTimer) clearTimeout(transfer._completeAckTimer);
+      transfer._completeAckTimer = setTimeout(async () => {
+        const t = activeTransfers.get(fileId);
+        if (!t || t.completeAckReceived) return;
+        console.warn('[CHAT/P2P] ⏱️ אין file-complete-ack – עובר ל-Blossom/retry', fileId);
+        t.awaitingCompleteAck = false;
+        t._completeAckTimer = null;
+        notifyProgress({
+          fileId, progress: 0.95, status: 'waiting-ack-timeout', direction: 'send',
+          name: file.name, size: file.size, peerPubkey: peerKey
+        });
+        try {
+          await fallbackToBlossom(t, onProgress || t._onProgress);
+        } catch (fbErr) {
+          console.warn('[CHAT/P2P] ACK-timeout fallback failed', fbErr);
+          activeTransfers.delete(fileId);
+          notifyProgress({
+            fileId, progress: 0, status: 'failed', direction: 'send',
+            name: file.name, size: file.size, peerPubkey: peerKey,
+            error: fbErr?.message || 'no-ack'
+          });
+        }
+      }, COMPLETE_ACK_WAIT_MS);
       if (onProgress) onProgress({ fileId, progress: 1, status: 'complete', direction: 'send', name: file.name, size: file.size, peerPubkey: peerKey });
       notifyProgress({ fileId, progress: 1, status: 'complete', direction: 'send', name: file.name, size: file.size, peerPubkey: peerKey });
       return;
@@ -687,6 +713,15 @@
         } else if (msg.type === 'file-complete-ack') {
           // חלק ACK סיום (chat-p2p-file.js) — הצד השני אישר שהקובץ הורד בהצלחה e2e | HYPER CORE TECH
           console.log('[CHAT/P2P] ✅✅ אישור קבלה מלאה מהצד השני!', msg.fileId, msg.name);
+          const doneTransfer = activeTransfers.get(msg.fileId);
+          if (doneTransfer) {
+            doneTransfer.completeAckReceived = true;
+            if (doneTransfer._completeAckTimer) {
+              clearTimeout(doneTransfer._completeAckTimer);
+              doneTransfer._completeAckTimer = null;
+            }
+            activeTransfers.delete(msg.fileId);
+          }
           notifyProgress({
             fileId: msg.fileId, progress: 1, status: 'verified', direction: 'send',
             name: msg.name, size: msg.size, peerPubkey: peerKey
@@ -1313,11 +1348,12 @@
 
       // חלק ACK סיום (chat-p2p-file.js) — שליחת אישור קבלה מלאה חזרה לשולח | HYPER CORE TECH
       try {
-        const ackChannel = dataChannels.get(transfer.peerPubkey);
-        if (ackChannel && ackChannel.readyState === 'open') {
-          ackChannel.send(JSON.stringify({ type: 'file-complete-ack', fileId, name: transfer.name, size: transfer.size }));
-          console.log('[CHAT/P2P] 📨 ACK קבלה מלאה נשלח לשולח', fileId);
-        }
+        sendFileCompleteAck(transfer.peerPubkey, {
+          type: 'file-complete-ack',
+          fileId,
+          name: transfer.name,
+          size: transfer.size
+        });
       } catch (ackErr) { console.warn('[CHAT/P2P] ACK send failed:', ackErr); }
       
     } catch (err) {
@@ -1332,6 +1368,35 @@
     }
   }
 
+  // חלק ACK (chat-p2p-file.js) – שולח אישור דרך ערוץ קובץ או ערוץ צ'אט | HYPER CORE TECH
+  function sendFileCompleteAck(peerPubkey, payload) {
+    const peerKey = toPeerKey(peerPubkey);
+    const raw = JSON.stringify(payload);
+    const fileCh = dataChannels.get(peerKey);
+    if (fileCh && fileCh.readyState === 'open') {
+      fileCh.send(raw);
+      console.log('[CHAT/P2P] 📨 ACK קבלה מלאה נשלח (file DC)', payload.fileId);
+      return true;
+    }
+    try {
+      const chatState = App.dataChannel?._peers?.get?.(peerKey);
+      const chatDc = chatState?.dc;
+      if (chatDc && chatDc.readyState === 'open') {
+        chatDc.send(raw);
+        console.log('[CHAT/P2P] 📨 ACK קבלה מלאה נשלח (chat DC)', payload.fileId);
+        return true;
+      }
+    } catch (_) {}
+    console.warn('[CHAT/P2P] ⚠️ לא נמצא ערוץ לשליחת ACK', peerKey.slice(0, 8));
+    return false;
+  }
+
+  // חלק גשר DC צ'אט (chat-p2p-file.js) – מקבל הודעות בקרה כשערוץ הקובץ לא פתוח | HYPER CORE TECH
+  function handleP2PFileControlMessage(peerPubkey, msg) {
+    if (!msg || !msg.type) return;
+    handleIncomingMessage(peerPubkey, JSON.stringify(msg), null);
+  }
+
   // חלק זיהוי סוג קובץ (chat-p2p-file.js) – בודק אם קובץ נתמך ע"י Blossom (מדיה בלבד) | HYPER CORE TECH
   function isBlossomSupported(mimeType) {
     if (!mimeType) return false;
@@ -1342,6 +1407,11 @@
   // חלק fallback חכם (chat-p2p-file.js) – מדיה → Blossom, שאר קבצים → WebTorrent P2P | HYPER CORE TECH
   async function fallbackToBlossom(transfer, onProgress) {
     try {
+      if (transfer._completeAckTimer) {
+        clearTimeout(transfer._completeAckTimer);
+        transfer._completeAckTimer = null;
+      }
+      transfer.awaitingCompleteAck = false;
       const mime = transfer.file?.type || '';
       const fileName = transfer.file?.name || 'קובץ';
       const fileSize = transfer.file?.size || 0;
@@ -1692,6 +1762,10 @@
         clearTimeout(transfer._ackTimeout);
         transfer._ackTimeout = null;
       }
+      if (transfer._completeAckTimer) {
+        clearTimeout(transfer._completeAckTimer);
+        transfer._completeAckTimer = null;
+      }
       const name = transfer.name || transfer.file?.name || 'קובץ';
       const size = transfer.size || transfer.file?.size || 0;
       const direction = transfer.direction || 'send';
@@ -1724,6 +1798,7 @@
   Object.assign(App, {
     sendP2PFile: sendFile,
     cancelP2PFile,
+    handleP2PFileControlMessage,
     P2P_FILE_CHUNK_SIZE: CHUNK_SIZE,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
     onFileDataChannel,

@@ -22,10 +22,11 @@
   const SIG_KIND = 25055;
   const DC_LABEL = 'sos-chat';
   const ICE_BATCH_MS = 800;
-  const RECONN_MS = 5000;
-  const MAX_RECONN = window.__sosP2pHeadless ? 24 : 3;
-  const OFFER_RETRY_MS = 12000; // retry offer אם לא נענה תוך 12 שניות (סיגנלינג דרך ריליי איטי)
-  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 3;
+  const RECONN_MS = 4000;
+  const MAX_RECONN = window.__sosP2pHeadless ? 24 : 8;
+  const OFFER_RETRY_MS = 10000; // retry offer אם לא נענה תוך 10 שניות
+  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 5;
+  const STUCK_CONNECT_MS = 12000; // initiator תקוע בלי answer → מקבלים offer נגדי (glare recovery)
   // חלק keepalive (chat-p2p-datachannel.js) – ping תקופתי לשמירת DC פתוח מול NAT/firewall timeout | HYPER CORE TECH
   const DC_KEEPALIVE_MS = 30000;
   const SIG_SINCE_SEC = 3600; // חלון since - שעה (סובלני להיסט זמן בין מכשירים)
@@ -57,7 +58,7 @@
   }
 
   // חלק מצב (chat-p2p-datachannel.js) – remoteCandsBuf: באפר ICE, gotAnswer: התקבלה תשובה, offerId/lastOfferId למניעת תשובות ישנות | HYPER CORE TECH
-  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null }; }
+  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null, connectStartedAt:0 }; }
   function getPS(k) { return peers.get(k.toLowerCase())||null; }
   function ensPS(k) { k=k.toLowerCase(); if(!peers.has(k)) peers.set(k,newPS()); return peers.get(k); }
   function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
@@ -161,7 +162,7 @@
 
   // חלק offer פנימי (chat-p2p-datachannel.js) – שליחת offer עם timer ל-retry | HYPER CORE TECH
   async function _sendOffer(k) {
-    const s=ensPS(k); s.init=true; s.status='connecting'; s.gotAnswer=false;
+    const s=ensPS(k); s.init=true; s.status='connecting'; s.gotAnswer=false; s.connectStartedAt=Date.now();
     if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
     // חלק ניתוק PC+DC ישן (chat-p2p-datachannel.js) – מנתק handlers לפני סגירה למנוע stale callbacks | HYPER CORE TECH
     if(s.dc){s.dc.onopen=null;s.dc.onclose=null;s.dc.onerror=null;s.dc.onmessage=null;}
@@ -172,7 +173,6 @@
     // חלק offerId (chat-p2p-datachannel.js) – מזהה ייחודי לשיוך answer/offer | HYPER CORE TECH
     await sendSig(k,'dc-offer',{type:offer.type,sdp:offer.sdp,oid:s.offerId});
     console.log(`[DC] 🔄 connecting ${k.slice(0,8)} (attempt ${s.offerRetryN+1})...`);
-    // retry timer – אם לא התחבר תוך 8 שניות, שלח offer מחדש
     s.offerRetryT=setTimeout(()=>{
       s.offerRetryT=null;
       if(s.status==='connected'||s.gotAnswer) return;
@@ -183,14 +183,19 @@
     },OFFER_RETRY_MS);
   }
 
-  // חלק offer נכנס (chat-p2p-datachannel.js) – רק responder מטפל ב-offers (אין עוד glare) | HYPER CORE TECH
+  // חלק offer נכנס (chat-p2p-datachannel.js) – responder עונה; initiator תקוע יכול לקבל offer נגדי | HYPER CORE TECH
   async function onOffer(peer,offer) {
     const k=peer.toLowerCase(), s=ensPS(k);
     if(s.status==='connected'&&s.dc&&s.dc.readyState==='open') return;
-    if(amInitiator(k)) return; // אני initiator, לא עונה ל-offers
+    if(amInitiator(k)) {
+      const stuck = s.status==='connecting' && !s.gotAnswer && s.connectStartedAt && (Date.now()-s.connectStartedAt)>STUCK_CONNECT_MS;
+      if(!stuck) return;
+      console.log(`[DC] 🔀 glare recovery – accepting remote offer while stuck ${k.slice(0,8)}`);
+      if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
+    }
     // חלק סינון offers כפולים (chat-p2p-datachannel.js) – אם יש כבר חיבור/הצעה טרייה, מתעלם | HYPER CORE TECH
     const now=Date.now();
-    if(s.status==='connecting'&&s.lastOfferAt&&(now-s.lastOfferAt)<8000) return;
+    if(s.status==='connecting'&&s.lastOfferAt&&(now-s.lastOfferAt)<8000&&!amInitiator(k)) return;
     s.lastOfferAt=now;
     const oid=offer?.oid||offer?._oid||null;
     if(oid&&s.lastOfferId===oid) return; // כבר ענינו ל-offer הזה
@@ -262,6 +267,13 @@
       // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
       if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
       if(m.type==='pong') return;
+      // חלק גשר קבצים (chat-p2p-datachannel.js) – ACK/resend על ערוץ הצ'אט אם ערוץ הקובץ נסגר | HYPER CORE TECH
+      if(m.type==='file-complete-ack'||m.type==='file-resend-request'||m.type==='file-ready'||m.type==='file-offer'){
+        if(typeof App.handleP2PFileControlMessage==='function'){
+          try{ App.handleP2PFileControlMessage(peer, m); }catch(e){ console.warn('[DC] file control bridge:', e); }
+        }
+        return;
+      }
       if(m.type!=='chat-text') return;
       console.log(`[DC] 📩 P2P ← ${peer.slice(0,8)}`);
       notifyIncomingMessage(peer, m);
@@ -292,11 +304,13 @@
     const inStandby=standbyPeers.some(p=>String(p||'').toLowerCase()===k);
     const active=typeof App.getActiveChatPeer==='function'?App.getActiveChatPeer():null;
     const hasMessages=typeof App.getChatMessages==='function'&&(App.getChatMessages(k)||[]).length>0;
+    const pageVisible = !document.hidden;
     if(headless){
       if(!inStandby&&!hasMessages&&!(s&&s.init)) return;
     } else {
-      if(!active&&!hasMessages) return;
-      if(active&&active.toLowerCase()!==k&&!hasMessages) return;
+      // בדף גלוי – גם peer פעיל או עם היסטוריית הודעות, או שכבר ניסינו להתחבר | HYPER CORE TECH
+      if(!active&&!hasMessages&&!s.init&&!pageVisible) return;
+      if(active&&active.toLowerCase()!==k&&!hasMessages&&!s.init) return;
     }
     s.reconnT=setTimeout(()=>{ s.reconnT=null; s.reconnN++; s.status='idle'; connect(k); }, RECONN_MS*(s.reconnN+1));
   }
@@ -337,7 +351,13 @@
     },30000);
     try{
       document.addEventListener('visibilitychange',()=>{
-        if(!document.hidden&&!sigSub) subscribe();
+        if(!document.hidden){
+          if(!sigSub) subscribe();
+          try{
+            const active=typeof App.getActiveChatPeer==='function'?App.getActiveChatPeer():'';
+            resumeStandby(active||'');
+          }catch{}
+        }
         if(isNativeShell()&&!sigSub) subscribe();
       });
       window.addEventListener('sos-native-p2p-warm', (ev)=>{

@@ -583,6 +583,10 @@
         if (answerData && answerData.type && answerData.sdp) {
           await state.pc.setRemoteDescription(answerData);
           await flushRemoteCandidates(peer);
+          // עוצרים חיוג מיד כמו בשיחת קול – לא מחכים ל-ICE | HYPER CORE TECH
+          if (typeof App.onVideoCallAnswerReceived === 'function') {
+            App.onVideoCallAnswerReceived(peer);
+          }
         } else {
           console.error('Invalid video answer received', answerData);
         }
