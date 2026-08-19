@@ -107,6 +107,7 @@
       if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
       console.log(`[DC] ✅ OPEN ${k.slice(0,8)}`);
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'open');
+      try{ if(typeof App.onChatDataChannelOpen==='function') App.onChatDataChannelOpen(k,dc); }catch{}
       try{
         if(window.SosNativeShell&&typeof window.SosNativeShell.syncP2pPeers==='function'){
           const keys=[];
@@ -127,6 +128,7 @@
       // חלק keepalive stop (chat-p2p-datachannel.js) – עצירת ping כשהערוץ נסגר | HYPER CORE TECH
       if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
       console.log(`[DC] ❌ CLOSED ${k.slice(0,8)}`);
+      try{ if(typeof App.onChatDataChannelClosed==='function') App.onChatDataChannelClosed(k); }catch{}
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'closed');
       maybeReconn(k);
     };
@@ -264,11 +266,15 @@
   // חלק הודעות P2P (chat-p2p-datachannel.js) – קבלה ושליחה + keepalive ping/pong | HYPER CORE TECH
   function onMsg(peer,raw) {
     try {
-      // חלק גשר בינארי (chat-p2p-datachannel.js) – צ'אנקי קובץ על sos-chat (בלי file-transfer נפרד) | HYPER CORE TECH
+      // חלק גשר בינארי (chat-p2p-datachannel.js) – קודם מדיה פיד ממתינה, אחרת קבצי צ'אט | HYPER CORE TECH
       if(raw instanceof ArrayBuffer || (typeof ArrayBuffer!=='undefined'&&ArrayBuffer.isView&&ArrayBuffer.isView(raw)) || (typeof Blob!=='undefined'&&raw instanceof Blob)){
+        const s=getPS(peer.toLowerCase());
+        const payload=raw instanceof ArrayBuffer||(typeof Blob!=='undefined'&&raw instanceof Blob)?raw:(raw.buffer||raw);
+        if(typeof App.handleFeedMediaBinary==='function'){
+          try{ if(App.handleFeedMediaBinary(peer, payload)) return; }catch(e){ console.warn('[DC] feed binary bridge:', e); }
+        }
         if(typeof App.handleP2PFileMessage==='function'){
-          const s=getPS(peer.toLowerCase());
-          try{ App.handleP2PFileMessage(peer, raw instanceof ArrayBuffer||(typeof Blob!=='undefined'&&raw instanceof Blob)?raw:(raw.buffer||raw), s&&s.dc); }catch(e){ console.warn('[DC] file binary bridge:', e); }
+          try{ App.handleP2PFileMessage(peer, payload, s&&s.dc); }catch(e){ console.warn('[DC] file binary bridge:', e); }
         }
         return;
       }
@@ -276,6 +282,15 @@
       // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
       if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
       if(m.type==='pong') return;
+      // חלק גשר מדיה פיד (chat-p2p-datachannel.js) – request/metadata/complete על sos-chat | HYPER CORE TECH
+      if(m.type==='request'||m.type==='metadata'||m.type==='complete'||m.type==='error'){
+        if(typeof App.handleFeedMediaControlMessage==='function'){
+          const s=getPS(peer.toLowerCase());
+          try{ if(App.handleFeedMediaControlMessage(peer, m, s&&s.dc)) return; }catch(e){ console.warn('[DC] feed control bridge:', e); }
+        }
+        // error/complete/metadata שלא לפיד – לא לצ'אט טקסט
+        if(m.type!=='request') return;
+      }
       // חלק גשר קבצים (chat-p2p-datachannel.js) – metadata/ACK/chunks על ערוץ הצ'אט | HYPER CORE TECH
       if(m.type==='file-complete-ack'||m.type==='file-resend-request'||m.type==='file-ready'||m.type==='file-offer'||m.type==='chunk-meta'||m.type==='chunk-ack'||m.type==='ack'||m.type==='resume'){
         if(typeof App.handleP2PFileControlMessage==='function'){

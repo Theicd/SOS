@@ -190,10 +190,13 @@ const p2pStatsUI = {
         <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות SOS</div>
       </div>
       <div class="p2p-stats-tooltip__section">📥 הורדות</div>
+      <div class="p2p-stats-tooltip__hint" style="font-size:11px;opacity:0.75;margin:0 0 8px;line-height:1.35">
+        SOS = WebRTC בין מכשירים (לא WebTorrent). Public = Blossom/שרת. Cache = מקומי.
+      </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
-          SOS (רשת)
+          SOS (WebRTC)
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
       </div>
