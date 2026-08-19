@@ -77,11 +77,12 @@
 **צ׳ק־ליסט:**
 - [x] B1. פרוטוקול מינימלי על DC: reuse של Persistent (`request` / `metadata` / binary / `complete`) על `sos-chat`.  
 - [x] B2. ב־`downloadFromPeer`: אם `App.dataChannel.getChatDC(peer)` פתוח → להשתמש בו לפני יצירת PC חדש.  
+- [x] B2b. לפני הורדה: `ensureChatDcOpen` = `forceConnect` + המתנה קצרה (~2–3ש) לאותו peer מ־`findPeersWithFile`.  
 - [x] B3. בצד המגיש: מאזין על chat DC לבקשות hash מ־`availableFiles` / קאש.  
 - [x] B4. שמירה על fallback: אין DC → Persistent → 30078 file-request.  
-- [ ] B5. בדיקה: 2 דפדפנים — נורת צ׳אט דולקת → הורדת פוסט = `מ-P2P` בלי `לא התקבל answer`.  
+- [ ] B5. בדיקה: 2 דפדפנים — נורת צ׳אט דולקת → לוג `download via chat-dc` + `מ-P2P` בלי `לא התקבל answer`.  
 - [ ] B6. בדיקה: צ׳אט טקסט + קובץ צ׳אט לא נשברים בזמן הורדת פיד.  
-- [x] B7. Bump `app-version.json` + `CACHE_NAME` + `?v=` ב־`videos.html` אחרי מיזוג. (`pwa235` / `v556` / `feed1`)
+- [x] B7. Bump `app-version.json` + `CACHE_NAME` + `?v=` ב־`videos.html` אחרי מיזוג. (`pwa236` / `v557` / `feed2`)
 
 **קריטריון יציאה:** עם DC פתוח, לפחות 70% מהורדות הפיד בין 2 peers בחזית הן `מ-P2P` (בלי Blossom כששניהם עם הקובץ).
 
@@ -100,9 +101,11 @@
 - `service-worker.js` — תיאום heartbeat
 
 **צ׳ק־ליסט:**
-- [ ] C1. כש־`document.hidden` אבל Native Shell / Activity חיה: **לא** להפסיק מאזיני 30078 / media-get.  
-- [ ] C2. לוג מפורש: `serving while hidden` / `skip serve reason=...`.  
-- [ ] C3. מעטפת: `pumpWebViewKeepAlive` בזמן warm ל־peer (כבר קיים חלקית — לוודא שמכסה בקשות מדיה).  
+- [x] C1. כש־`document.hidden` אבל Native Shell / Activity חיה: **לא** להפסיק מאזיני 30078 / media-get.  
+  - בוצע: `ensureP2pSignalSubscription` ב־hidden/freeze/resume; אין early-return על hidden ב־handleFileRequest.  
+- [x] C2. לוג מפורש: `serving while hidden` / `skip serve reason=...`.  
+- [x] C3. מעטפת: `pumpWebViewKeepAlive` בזמן warm ל־peer + `setP2pTransferActiveNative` בהגשה.  
+  - בוצע: `pumpServeAlive` ב־JS; `SosP2pStandby.warmForPeer` מפמפ כש־Activity חיה.  
 - [ ] C4. בדיקה: מקור במובייל ברקע (לא כבוי לגמרי) + מקבל מוריד → `מ-P2P` או לפחות answer בזמן.  
 - [ ] C5. בדיקה: מסך כבוי (best-effort) — לתעד איזה מכשירים עובדים; לא לחסום את שלב D אם חלק נכשלים.
 

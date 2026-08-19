@@ -47,13 +47,14 @@ object SosP2pStandby {
         val pk = peer?.trim()?.lowercase().orEmpty()
         if (!pk.matches(Regex("^[0-9a-f]{64}$"))) return
 
-        if (MainActivity.isHostAlive) return
-
+        // C3 – Activity חיה (גם ברקע): תמיד pump WebView לבקשות מדיה | HYPER CORE TECH
         if (MainActivity.isActivityAlive) {
             MainActivity.pumpWebViewKeepAlive()
             SosDebugLog.i("p2p", "activity alive – WebView pump reason=$reason")
             return
         }
+
+        if (MainActivity.isHostAlive) return
 
         SosDebugLog.i("p2p", "skip warm (card closed) peer=${pk.take(8)} reason=$reason")
     }

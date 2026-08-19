@@ -128,6 +128,53 @@
       return { hidden: false, visibility: 'unknown' };
     }
   }
+
+  // חלק Native Shell (p2p-video-sharing.js) – זיהוי APK לצורך שמירה ברקע (שלב C) | HYPER CORE TECH
+  function isNativeShellHost() {
+    try {
+      if (window.SOS_NATIVE_SHELL === true) return true;
+      if (document.documentElement?.getAttribute('data-sos-native') === '1') return true;
+      if (typeof App.isNativeShell === 'function') {
+        const v = App.isNativeShell();
+        return v === true || v === 'true';
+      }
+      const b = window.SosNativeShell;
+      if (b && typeof b.isNativeShell === 'function') {
+        const v = b.isNativeShell();
+        return v === true || v === 'true';
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /** מעיר FGS / WebView בזמן הגשת מדיה או כשהכרטיסייה ברקע ב-APK | HYPER CORE TECH */
+  function pumpServeAlive(reason) {
+    try {
+      if (typeof App.setP2pTransferActiveNative === 'function') {
+        App.setP2pTransferActiveNative(true);
+      }
+      const b = window.SosNativeShell;
+      if (b) {
+        if (typeof b.setP2pTransferActive === 'function' && typeof App.setP2pTransferActiveNative !== 'function') {
+          b.setP2pTransferActive(true);
+        }
+        if (typeof b.keepAlive === 'function') b.keepAlive();
+      }
+      log('info', `[feed-session] pumpServeAlive`, { reason: reason || 'unknown', hidden: !!document.hidden });
+    } catch (_) {}
+  }
+
+  function clearServeAlivePump() {
+    try {
+      if (state.activeUploadCount > 0) return;
+      if (typeof App.setP2pTransferActiveNative === 'function') {
+        App.setP2pTransferActiveNative(false);
+      } else {
+        const b = window.SosNativeShell;
+        if (b && typeof b.setP2pTransferActive === 'function') b.setP2pTransferActive(false);
+      }
+    } catch (_) {}
+  }
   const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || [
     'wss://nos.lol',
     'wss://nostr-02.uid.ovh',
@@ -393,7 +440,7 @@
     }
   }
   
-  // מעקב אחרי מצב הדף (visible/hidden)
+  // מעקב אחרי מצב הדף (visible/hidden) — C1: ב-Native לא מפסיקים מאזיני 30078 | HYPER CORE TECH
   function setupVisibilityTracking() {
     document.addEventListener('visibilitychange', () => {
       isPageVisible = document.visibilityState === 'visible';
@@ -405,14 +452,19 @@
         if (backgroundWorker) {
           backgroundWorker.postMessage({ type: 'stop' });
         }
+        ensureP2pSignalSubscription('visible');
       } else {
-        // הדף עבר לרקע - נפעיל את ה-worker
-        log('info', '🌙 הדף ברקע - מפעיל heartbeat ברקע');
+        // הדף עבר לרקע - נפעיל את ה-worker; ב-APK גם pump + שמירת sub
+        log('info', '🌙 הדף ברקע - מפעיל heartbeat ברקע', { native: isNativeShellHost() });
         if (!backgroundWorker) {
           backgroundWorker = createBackgroundWorker();
         }
         if (backgroundWorker) {
           backgroundWorker.postMessage({ type: 'start', interval: HEARTBEAT_INTERVAL });
+        }
+        if (isNativeShellHost()) {
+          pumpServeAlive('visibility-hidden');
+          ensureP2pSignalSubscription('hidden-native');
         }
       }
     });
@@ -422,11 +474,16 @@
       document.addEventListener('freeze', () => {
         log('info', '❄️ הדף הוקפא - שולח heartbeat אחרון');
         sendHeartbeat();
+        if (isNativeShellHost()) {
+          pumpServeAlive('page-freeze');
+          ensureP2pSignalSubscription('freeze-native');
+        }
       });
       
       document.addEventListener('resume', () => {
         log('info', '🔥 הדף התעורר - שולח heartbeat');
         sendHeartbeat();
+        ensureP2pSignalSubscription('resume');
       });
     }
   }
@@ -1634,14 +1691,52 @@
     return [...connected, ...notConnected];
   }
 
+  // חלק B refine (p2p-video-sharing.js) – חימום chat-dc קצר לפני fallback ל-30078 | HYPER CORE TECH
+  async function ensureChatDcOpen(peerPubkey, waitMs) {
+    const peerKey = String(peerPubkey || '').toLowerCase();
+    const budget = typeof waitMs === 'number' ? waitMs : (IS_MOBILE ? 2200 : 2800);
+    const getDc = () => {
+      try {
+        return (typeof App.dataChannel?.getChatDC === 'function')
+          ? App.dataChannel.getChatDC(peerKey)
+          : null;
+      } catch (_) {
+        return null;
+      }
+    };
+    let dc = getDc();
+    if (dc && dc.readyState === 'open') return dc;
+    if (!App.dataChannel) return null;
+    try {
+      if (typeof App.dataChannel.init === 'function') App.dataChannel.init();
+    } catch (_) {}
+    try {
+      log('info', `[feed-session] warming chat-dc`, { peer: peerKey.slice(0, 8), waitMs: budget });
+      if (typeof App.dataChannel.forceConnect === 'function') {
+        Promise.resolve(App.dataChannel.forceConnect(peerKey)).catch(() => {});
+      } else if (typeof App.dataChannel.connect === 'function') {
+        Promise.resolve(App.dataChannel.connect(peerKey)).catch(() => {});
+      }
+    } catch (_) {}
+    const deadline = Date.now() + budget;
+    while (Date.now() < deadline) {
+      dc = getDc();
+      if (dc && dc.readyState === 'open') {
+        log('success', `[feed-session] chat-dc ready`, { peer: peerKey.slice(0, 8) });
+        return dc;
+      }
+      await sleep(150);
+    }
+    log('info', `[feed-session] chat-dc warm timeout → fallback`, { peer: peerKey.slice(0, 8) });
+    return getDc();
+  }
+
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
   async function downloadFromPeer(peerPubkey, hash) {
     const peerKey = String(peerPubkey || '').toLowerCase();
 
-    // B2 – העדפת chat DC פתוח לפני PC חדש / Persistent נפרד | HYPER CORE TECH
-    const chatDc = typeof App.dataChannel?.getChatDC === 'function'
-      ? App.dataChannel.getChatDC(peerKey)
-      : null;
+    // B2 refine – חימום קצר של chat DC לאותו peer לפני Persistent / webrtc-file-request | HYPER CORE TECH
+    const chatDc = await ensureChatDcOpen(peerKey);
     if (chatDc && chatDc.readyState === 'open') {
       const chatConn = adoptChatDcAsPersistent(peerKey, chatDc);
       if (chatConn && !chatConn.busy) {
@@ -2264,6 +2359,12 @@
       return;
     }
 
+    // מניעת כפילות sub — C1 | HYPER CORE TECH
+    if (App._p2pSignalsSub) {
+      log('info', `[feed-session] signal sub already active`);
+      return;
+    }
+
     log('info', '👂 מתחיל להאזין לסיגנלי P2P...', { isGuest: keys.isGuest });
 
     const filters = [
@@ -2349,6 +2450,17 @@
     }
   }
 
+  // C1 – חידוש sub אם נעלם (רקע APK / resume) בלי לעצור בגלל hidden | HYPER CORE TECH
+  function ensureP2pSignalSubscription(reason) {
+    try {
+      if (App._p2pSignalsSub) return;
+      log('info', `[feed-session] ensure signal sub`, { reason: reason || 'unknown', hidden: !!document.hidden });
+      listenForP2PSignals();
+    } catch (err) {
+      log('warn', `[feed-session] ensure signal sub failed`, { error: err.message });
+    }
+  }
+
   async function handleFileResponse(peerPubkey, data) {
     try {
       const { answer, connectionId } = data || {};
@@ -2425,7 +2537,7 @@
     const useChatLock = path === FEED_PATH.CHAT_DC;
     if (useChatLock) {
       if (chatDcServeBusy.has(peerKey)) {
-        log('warn', `[feed-session] serve REJECT`, { path, reason: 'busy', peer: peerKey.slice(0, 8), hidden: vis.hidden });
+        log('warn', `[feed-session] skip serve reason=busy`, { path, peer: peerKey.slice(0, 8), hidden: vis.hidden });
         try { channel.send(JSON.stringify({ type: 'error', message: 'Busy' })); } catch (_) {}
         return false;
       }
@@ -2434,9 +2546,8 @@
 
     const fileData = await resolveMediaFileData(hash);
     if (!fileData || !channel || channel.readyState !== 'open') {
-      log('error', `[feed-session] serve REJECT`, {
+      log('error', `[feed-session] skip serve reason=${fileData ? 'channel-closed' : 'file-missing'}`, {
         path,
-        reason: fileData ? 'channel-closed' : 'file-missing',
         hash: (hash || '').slice(0, 12),
         hidden: vis.hidden,
       });
@@ -2447,6 +2558,17 @@
         }
       } catch (_) {}
       return false;
+    }
+
+    // C2/C3 – ברקע ב-APK: pump WebView; לא מדלגים על הגשה רק בגלל hidden | HYPER CORE TECH
+    if (vis.hidden) {
+      log('upload', `[feed-session] serving while hidden`, {
+        path,
+        peer: peerKey.slice(0, 8),
+        hash: hash.slice(0, 12),
+        native: isNativeShellHost(),
+      });
+      if (isNativeShellHost()) pumpServeAlive('serve-media');
     }
 
     log('upload', `[feed-session] serve START`, {
@@ -2530,6 +2652,7 @@
       return false;
     } finally {
       if (useChatLock) chatDcServeBusy.delete(peerKey);
+      clearServeAlivePump();
     }
   }
 
@@ -2571,7 +2694,22 @@
         hash: (hash || '').slice(0, 16) + '...',
         hidden: vis.hidden,
       });
+      log('warn', `[feed-session] skip serve reason=file-missing`, {
+        path: FEED_PATH.WEBRTC_NEW,
+        hash: (hash || '').slice(0, 12),
+        hidden: vis.hidden,
+      });
       return;
+    }
+
+    // C1/C3 – לא מדלגים על answer כש-hidden; ב-APK מעירים WebView | HYPER CORE TECH
+    if (vis.hidden) {
+      log('info', `[feed-session] serving while hidden`, {
+        path: FEED_PATH.WEBRTC_NEW,
+        peer: peerPubkey.slice(0, 8),
+        native: isNativeShellHost(),
+      });
+      if (isNativeShellHost()) pumpServeAlive('file-request');
     }
 
     log('success', `[feed-session] file-request ACCEPT`, {
