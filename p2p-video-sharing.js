@@ -109,6 +109,8 @@
   // חלק Chat DC media maps (p2p-video-sharing.js) – הורדה/הגשה על sos-chat בלי לגנוב onmessage | HYPER CORE TECH
   const pendingChatDcDownloads = new Map(); // peerKey -> pending download
   const chatDcServeChains = new Map(); // peerKey -> Promise chain (תור במקום Busy)
+  const chatDcDownloadChains = new Map(); // peerKey -> תור הורדות (בלי reject Busy→Blossom) | HYPER CORE TECH
+  const inventoryDeferTimers = new Map(); // peerKey -> timer | HYPER CORE TECH
   // חלק שמות נתיבים (p2p-video-sharing.js) – A1: שפה אחידה בלוגים | HYPER CORE TECH
   const FEED_PATH = {
     CACHE: 'cache',
@@ -214,7 +216,8 @@
   const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
   const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
   const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
-  const PEER_SEARCH_RETRY_MS = 1500;      // ניסיון שני קצר כש־0 peers (מניעת בריחה ל־Blossom) | HYPER CORE TECH
+  const PEER_SEARCH_RETRY_MS = 500;       // ניסיון שני קצר בלבד כש־0 peers | HYPER CORE TECH
+  const INVENTORY_DEFER_MS = 8000;        // inventory אחרי הורדה — לא על הנתיב החם | HYPER CORE TECH
   const CONSECUTIVE_FAILURES_THRESHOLD = 5; // כמות כשלונות ברצף לפני fallback - מאפשר לנסות יותר peers
   // חלק Adaptive Heartbeat (p2p-video-sharing.js) – תדירות דינמית לפי גודל רשת | HYPER CORE TECH
   const HEARTBEAT_INTERVALS = {
@@ -1232,6 +1235,8 @@
   }
 
   async function registerFileAvailability(hash, blob, mimeType, meta = null) {
+    hash = String(hash || '').trim().toLowerCase();
+    if (!hash || !blob) return false;
     const eventId = meta?.eventId || (App.MetadataTransfer?.resolveEventIdForHash?.(hash) || null);
     if (hash && eventId && App.MetadataTransfer?.bindMediaHash) {
       try { App.MetadataTransfer.bindMediaHash(hash, eventId); } catch (_) {}
@@ -1260,6 +1265,7 @@
   }
 
   async function doRegisterFileAvailability(hash, blob, mimeType, eventId = null) {
+    hash = String(hash || '').trim().toLowerCase();
     p2pStats.shares.total++;
     const keys = getEffectiveKeys();
     
@@ -1766,30 +1772,29 @@
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
   async function downloadFromPeer(peerPubkey, hash) {
     const peerKey = String(peerPubkey || '').toLowerCase();
+    hash = String(hash || '').trim().toLowerCase();
 
-    // B2 refine – חימום קצר של chat DC לאותו peer לפני Persistent / webrtc-file-request | HYPER CORE TECH
+    // B2 refine – תור chat-dc תמיד כשהערוץ פתוח (בלי לדלג בגלל busy→Blossom) | HYPER CORE TECH
     const chatDc = await ensureChatDcOpen(peerKey);
     if (chatDc && chatDc.readyState === 'open') {
       const chatConn = adoptChatDcAsPersistent(peerKey, chatDc);
-      if (chatConn && !chatConn.busy) {
-        chatConn.busy = true;
-        try {
-          log('download', `[feed-session] download via chat-dc`, {
-            path: FEED_PATH.CHAT_DC,
-            peer: peerKey.slice(0, 8),
-            hash: (hash || '').slice(0, 12),
-          });
-          const result = await downloadViaChatDc(peerKey, hash, chatDc);
-          chatConn.filesTransferred++;
-          return result;
-        } catch (err) {
-          log('info', `[feed-session] chat-dc download failed → fallback`, {
-            path: FEED_PATH.CHAT_DC,
-            error: err.message,
-          });
-        } finally {
-          chatConn.busy = false;
-        }
+      try {
+        log('download', `[feed-session] download via chat-dc`, {
+          path: FEED_PATH.CHAT_DC,
+          peer: peerKey.slice(0, 8),
+          hash: (hash || '').slice(0, 12),
+        });
+        const result = await downloadViaChatDc(peerKey, hash, chatDc);
+        if (chatConn) chatConn.filesTransferred++;
+        return result;
+      } catch (err) {
+        const msg = String(err?.message || '');
+        log('info', `[feed-session] chat-dc download failed → fallback`, {
+          path: FEED_PATH.CHAT_DC,
+          error: msg,
+        });
+        // אין קובץ אצל ה־peer — לא לבזבז webrtc על אותו peer | HYPER CORE TECH
+        if (/file not available/i.test(msg)) throw err;
       }
     }
 
@@ -1807,8 +1812,10 @@
         existingConn.filesTransferred++;
         return result;
       } catch (err) {
-        log('info', `⚠️ חיבור קיים נכשל, יוצר חדש`, { error: err.message, path: FEED_PATH.PERSISTENT });
+        const msg = String(err?.message || '');
+        log('info', `⚠️ חיבור קיים נכשל, יוצר חדש`, { error: msg, path: FEED_PATH.PERSISTENT });
         state.persistentPeers.delete(peerKey);
+        if (/file not available/i.test(msg)) throw err;
       } finally {
         existingConn.busy = false;
       }
@@ -1841,6 +1848,15 @@
   // חלק Chat DC download (p2p-video-sharing.js) – בקשת מדיה על sos-chat בלי לגנוב onmessage | HYPER CORE TECH
   function downloadViaChatDc(peerPubkey, hash, channel, options = {}) {
     const peerKey = String(peerPubkey || '').toLowerCase();
+    const run = () => downloadViaChatDcNow(peerKey, hash, channel, options);
+    // תור פר-peer: במקום reject Busy שבורח ל־Blossom | HYPER CORE TECH
+    const prev = chatDcDownloadChains.get(peerKey) || Promise.resolve();
+    const next = prev.catch(() => {}).then(run);
+    chatDcDownloadChains.set(peerKey, next.catch(() => {}));
+    return next;
+  }
+
+  function downloadViaChatDcNow(peerKey, hash, channel, options = {}) {
     const metaOnly = !!options.metaOnly;
     const rangeId = options.rangeId != null ? String(options.rangeId) : '';
     const rangeOffset = typeof options.offset === 'number' ? options.offset : null;
@@ -1848,54 +1864,61 @@
     const timeoutMs = typeof options.timeoutMs === 'number' ? options.timeoutMs : MAX_DOWNLOAD_TIMEOUT;
 
     return new Promise((resolve, reject) => {
-      if (pendingChatDcDownloads.has(peerKey)) {
-        reject(new Error('Chat DC media download already in progress'));
-        return;
-      }
       if (!channel || channel.readyState !== 'open') {
         reject(new Error('Chat DC not open'));
         return;
       }
-      const entry = {
-        hash,
-        chunks: [],
-        receivedSize: 0,
-        totalSize: 0,
-        expectedLength: rangeLength,
-        mimeType: '',
-        metaOnly,
-        rangeId,
-        offset: rangeOffset,
-        resolve,
-        reject,
-        channel,
-      };
-      entry.timer = setTimeout(() => {
-        if (pendingChatDcDownloads.get(peerKey) === entry) {
-          pendingChatDcDownloads.delete(peerKey);
-          reject(new Error(metaOnly ? 'Chat DC meta timeout' : 'Chat DC download timeout'));
+      // המתנה קצרה אם עדיין יש הורדה פעילה (מרוץ נדיר) | HYPER CORE TECH
+      const waitAndStart = async () => {
+        for (let i = 0; i < 80 && pendingChatDcDownloads.has(peerKey); i++) {
+          await sleep(50);
         }
-      }, timeoutMs);
-      pendingChatDcDownloads.set(peerKey, entry);
-      try {
-        const req = { type: 'request', hash };
-        if (metaOnly) req.metaOnly = true;
-        if (rangeOffset != null) req.offset = rangeOffset;
-        if (rangeLength != null) req.length = rangeLength;
-        if (rangeId) req.rangeId = rangeId;
-        channel.send(JSON.stringify(req));
-        log('request', `📤 [ChatDC] שלחתי בקשה לקובץ`, {
-          path: FEED_PATH.CHAT_DC,
-          hash: (hash || '').slice(0, 12),
-          metaOnly: metaOnly || undefined,
-          offset: rangeOffset != null ? rangeOffset : undefined,
-          length: rangeLength != null ? rangeLength : undefined,
-        });
-      } catch (err) {
-        clearTimeout(entry.timer);
-        pendingChatDcDownloads.delete(peerKey);
-        reject(err);
-      }
+        if (pendingChatDcDownloads.has(peerKey)) {
+          reject(new Error('Chat DC media download already in progress'));
+          return;
+        }
+        const entry = {
+          hash,
+          chunks: [],
+          receivedSize: 0,
+          totalSize: 0,
+          expectedLength: rangeLength,
+          mimeType: '',
+          metaOnly,
+          rangeId,
+          offset: rangeOffset,
+          resolve,
+          reject,
+          channel,
+        };
+        entry.timer = setTimeout(() => {
+          if (pendingChatDcDownloads.get(peerKey) === entry) {
+            pendingChatDcDownloads.delete(peerKey);
+            reject(new Error(metaOnly ? 'Chat DC meta timeout' : 'Chat DC download timeout'));
+          }
+        }, timeoutMs);
+        pendingChatDcDownloads.set(peerKey, entry);
+        try {
+          const req = { type: 'request', hash };
+          if (metaOnly) req.metaOnly = true;
+          if (rangeOffset != null) req.offset = rangeOffset;
+          if (rangeLength != null) req.length = rangeLength;
+          if (rangeId) req.rangeId = rangeId;
+          channel.send(JSON.stringify(req));
+          log('request', `📤 [ChatDC] שלחתי בקשה לקובץ`, {
+            path: FEED_PATH.CHAT_DC,
+            hash: (hash || '').slice(0, 12),
+            metaOnly: metaOnly || undefined,
+            offset: rangeOffset != null ? rangeOffset : undefined,
+            length: rangeLength != null ? rangeLength : undefined,
+          });
+        } catch (err) {
+          clearTimeout(entry.timer);
+          pendingChatDcDownloads.delete(peerKey);
+          reject(err);
+        }
+      };
+      waitAndStart().catch(reject);
     });
   }
 
@@ -2843,30 +2866,49 @@
   }
 
   // חלק הגשת מדיה (p2p-video-sharing.js) – שליחת blob ב-chunks על ערוץ נתון (chat-dc / webrtc) | HYPER CORE TECH
+  function mediaHashVariants(hash) {
+    const raw = String(hash || '').trim();
+    if (!raw) return [];
+    const lower = raw.toLowerCase();
+    const upper = raw.toUpperCase();
+    const out = [raw];
+    if (lower !== raw) out.push(lower);
+    if (upper !== raw && upper !== lower) out.push(upper);
+    return out;
+  }
+
   async function resolveMediaFileData(hash) {
-    if (!hash) return null;
-    let fileData = state.availableFiles.get(hash);
-    if (fileData && fileData.blob) {
-      if (!fileData.eventId && App.MetadataTransfer?.resolveEventIdForHash) {
-        fileData.eventId = App.MetadataTransfer.resolveEventIdForHash(hash) || fileData.eventId;
+    const variants = mediaHashVariants(hash);
+    if (!variants.length) return null;
+    const canon = variants[0].toLowerCase();
+
+    for (const h of variants) {
+      let fileData = state.availableFiles.get(h);
+      if (fileData && fileData.blob) {
+        if (!fileData.eventId && App.MetadataTransfer?.resolveEventIdForHash) {
+          fileData.eventId = App.MetadataTransfer.resolveEventIdForHash(canon) || fileData.eventId;
+        }
+        if (h !== canon) state.availableFiles.set(canon, fileData);
+        return fileData;
       }
-      return fileData;
     }
     if (typeof App.getCachedMedia === 'function') {
-      try {
-        const cached = await App.getCachedMedia(hash);
-        if (cached && cached.blob) {
-          fileData = {
-            blob: cached.blob,
-            mimeType: cached.mimeType || 'application/octet-stream',
-            size: cached.blob.size,
-            timestamp: Date.now(),
-            eventId: cached.eventId || App.MetadataTransfer?.resolveEventIdForHash?.(hash) || undefined,
-          };
-          state.availableFiles.set(hash, fileData);
-          return fileData;
-        }
-      } catch (_) {}
+      for (const h of variants) {
+        try {
+          const cached = await App.getCachedMedia(h);
+          if (cached && cached.blob) {
+            const fileData = {
+              blob: cached.blob,
+              mimeType: cached.mimeType || 'application/octet-stream',
+              size: cached.blob.size,
+              timestamp: Date.now(),
+              eventId: cached.eventId || App.MetadataTransfer?.resolveEventIdForHash?.(canon) || undefined,
+            };
+            state.availableFiles.set(canon, fileData);
+            return fileData;
+          }
+        } catch (_) {}
+      }
     }
     return null;
   }
@@ -2967,7 +3009,8 @@
       if (rangeId) metadataMsg.rangeId = rangeId;
       if (metaOnly) metadataMsg.metaOnly = true;
       if (App.MetadataTransfer && typeof App.MetadataTransfer.extendMetadataMessage === 'function') {
-        metadataMsg = App.MetadataTransfer.extendMetadataMessage(metadataMsg, hash, fileData.eventId);
+        // slim על chat-dc — פחות עומס על אותו ערוץ כמו המדיה | HYPER CORE TECH
+        metadataMsg = App.MetadataTransfer.extendMetadataMessage(metadataMsg, hash, fileData.eventId, { slim: true });
       }
       channel.send(JSON.stringify(metadataMsg));
 
@@ -3300,7 +3343,24 @@
     }
   }
 
-  // חלק שלב E (p2p-video-sharing.js) – אחרי מדיה מ־SOS: engagement + inventory | HYPER CORE TECH
+  // חלק שלב E (p2p-video-sharing.js) – אחרי מדיה מ־SOS: engagement; inventory מושהה | HYPER CORE TECH
+  function scheduleDeferredInventory(peer) {
+    const peerKey = String(peer || '').toLowerCase();
+    if (!peerKey || !App.EventSync || typeof App.EventSync.sendInventory !== 'function') return;
+    if (inventoryDeferTimers.has(peerKey)) return;
+    const timer = setTimeout(() => {
+      inventoryDeferTimers.delete(peerKey);
+      try {
+        if (pendingChatDcDownloads.has(peerKey)) {
+          scheduleDeferredInventory(peerKey);
+          return;
+        }
+        App.EventSync.sendInventory(peerKey).catch(() => {});
+      } catch (_) {}
+    }, INVENTORY_DEFER_MS);
+    inventoryDeferTimers.set(peerKey, timer);
+  }
+
   function afterP2PMediaEngagement(hash, peer, eventId) {
     try {
       if (hash && eventId && App.MetadataTransfer?.bindMediaHash) {
@@ -3311,11 +3371,8 @@
         App.MetadataTransfer.applyMetadata(stored.postMetadata.post.id, stored.postMetadata);
       }
     } catch (_) {}
-    try {
-      if (peer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
-        App.EventSync.sendInventory(peer).catch(() => {});
-      }
-    } catch (_) {}
+    // inventory לא על הנתיב החם של chat-dc | HYPER CORE TECH
+    try { scheduleDeferredInventory(peer); } catch (_) {}
   }
 
   // חלק P2P (p2p-video-sharing.js) – הורדת וידאו עם fallback ואסטרטגיית Network Tiers | HYPER CORE TECH
@@ -3771,7 +3828,8 @@
 
             entries.forEach((entry) => {
               if (entry.hash && entry.blob && entry.pinned) {
-                state.availableFiles.set(entry.hash, {
+                const h = String(entry.hash).trim().toLowerCase();
+                state.availableFiles.set(h, {
                   blob: entry.blob,
                   mimeType: entry.mimeType || entry.blob.type,
                   size: entry.size || entry.blob.size,

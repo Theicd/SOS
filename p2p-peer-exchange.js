@@ -134,7 +134,9 @@
     
     // עדכון קבצים
     if (Array.isArray(files)) {
-      files.forEach(hash => {
+      files.forEach((rawHash) => {
+        const hash = String(rawHash || '').trim().toLowerCase();
+        if (!hash) return;
         existing.files.add(hash);
         
         // עדכון fileLocations
@@ -586,6 +588,7 @@
    */
   function findPeersWithFileLocally(hash) {
     if (!hash) return [];
+    hash = String(hash).trim().toLowerCase();
     
     const locations = state.fileLocations.get(hash);
     if (!locations || locations.size === 0) return [];
@@ -614,7 +617,8 @@
    * בדיקה אם יש לנו מידע על קובץ
    */
   function hasFileInfo(hash) {
-    return state.fileLocations.has(hash) && state.fileLocations.get(hash).size > 0;
+    hash = String(hash || '').trim().toLowerCase();
+    return !!hash && state.fileLocations.has(hash) && state.fileLocations.get(hash).size > 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

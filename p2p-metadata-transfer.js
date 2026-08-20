@@ -130,7 +130,10 @@
   /**
    * יצירת metadata מורחב לפוסט
    */
-  function createPostMetadata(eventId, event = null) {
+  function createPostMetadata(eventId, event = null, opts = {}) {
+    const slim = !!opts.slim;
+    const maxComments = slim ? 5 : CONFIG.MAX_RECENT_COMMENTS;
+    const maxLikers = slim ? 15 : CONFIG.MAX_LIKERS;
     const resolvedEvent = resolvePostEvent(eventId, event);
     const id = String(eventId || resolvedEvent?.id || '');
     if (!id) return null;
@@ -139,7 +142,7 @@
       // מידע בסיסי על הפוסט
       const post = resolvedEvent ? {
         id: resolvedEvent.id,
-        content: (resolvedEvent.content || '').slice(0, CONFIG.MAX_CONTENT_LENGTH),
+        content: (resolvedEvent.content || '').slice(0, slim ? 120 : CONFIG.MAX_CONTENT_LENGTH),
         createdAt: resolvedEvent.created_at,
         pubkey: resolvedEvent.pubkey,
       } : { id };
@@ -151,7 +154,7 @@
         const profile = App.profileCache.get(authorPk) || App.profileCache.get(post.pubkey) || {};
         author = {
           name: (profile.name || '').slice(0, 50),
-          picture: sanitizePicture(profile.picture || ''),
+          picture: slim ? '' : sanitizePicture(profile.picture || ''),
           initials: profile.initials || 'AN',
         };
       }
@@ -174,10 +177,10 @@
       }
       
       // תגובות אחרונות
-      const recentComments = getRecentComments(id, CONFIG.MAX_RECENT_COMMENTS);
+      const recentComments = getRecentComments(id, maxComments, { slim });
       
       // רשימת likers
-      const likers = getLikersList(id, CONFIG.MAX_LIKERS);
+      const likers = getLikersList(id, maxLikers, { slim });
       
       return {
         post,
@@ -195,11 +198,12 @@
   /**
    * קבלת תגובות אחרונות
    */
-  function getRecentComments(eventId, limit = 5) {
+  function getRecentComments(eventId, limit = 5, opts = {}) {
     if (!eventId || !App.commentsByParent) return [];
     
     const commentMap = App.commentsByParent.get(eventId);
     if (!commentMap) return [];
+    const slim = !!opts.slim;
     
     try {
       return Array.from(commentMap.values())
@@ -209,12 +213,12 @@
           const authorProfile = App.profileCache?.get(comment.pubkey) || {};
           return {
             id: comment.id,
-            content: (comment.content || '').slice(0, 200),
+            content: (comment.content || '').slice(0, slim ? 80 : 200),
             createdAt: comment.created_at,
             author: {
               pubkey: comment.pubkey,
               name: (authorProfile.name || '').slice(0, 50),
-              picture: sanitizePicture(authorProfile.picture || ''),
+              picture: slim ? '' : sanitizePicture(authorProfile.picture || ''),
               initials: authorProfile.initials || 'AN',
             },
           };
@@ -227,7 +231,7 @@
   /**
    * קבלת רשימת likers
    */
-  function getLikersList(eventId, limit = 20) {
+  function getLikersList(eventId, limit = 20, opts = {}) {
     if (!eventId || !App.likesByEventId) return [];
     
     const likersSet = App.likesByEventId.get(eventId);
@@ -388,12 +392,13 @@
   /**
    * הרחבת הודעת metadata רגילה עם מידע נוסף
    */
-  function extendMetadataMessage(baseMessage, hash, eventId = null) {
+  function extendMetadataMessage(baseMessage, hash, eventId = null, opts = {}) {
     if (!baseMessage) return baseMessage;
     
     const resolvedId = eventId || resolveEventIdForHash(hash);
     if (resolvedId && hash) bindMediaHash(hash, resolvedId);
-    const postMetadata = createPostMetadata(resolvedId);
+    const slim = opts.slim !== false; // ברירת מחדל slim על נתיב המדיה | HYPER CORE TECH
+    const postMetadata = createPostMetadata(resolvedId, null, { slim });
     
     if (postMetadata) {
       baseMessage.postMetadata = postMetadata;
@@ -405,6 +410,7 @@
         hasAuthor: !!postMetadata.author,
         likes: postMetadata.stats?.likes,
         comments: postMetadata.stats?.comments,
+        slim: slim || undefined,
       });
     }
     
