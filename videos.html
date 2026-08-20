@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl" data-theme="dark">
   <head>
     <meta charset="utf-8">
-    <!-- Open Graph קודם לכל – וואטסאפ קורא רק את תחילת ה-head | HYPER CORE TECH -->
+    <!-- Open Graph ׳§׳•׳“׳ ׳׳›׳ ג€“ ׳•׳•׳׳˜׳¡׳׳₪ ׳§׳•׳¨׳ ׳¨׳§ ׳׳× ׳×׳—׳™׳׳× ׳”-head | HYPER CORE TECH -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="SOS" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:title" content="‎SOS - People Are The Network" />
-    <meta property="og:description" content="‎Decentralized social. Direct communication. Real connection." />
+    <meta property="og:title" content="ג€SOS - People Are The Network" />
+    <meta property="og:description" content="ג€Decentralized social. Direct communication. Real connection." />
     <meta property="og:url" content="https://sos010.com/" />
     <meta property="og:image" content="https://sos010.com/icons/sos-og.jpg" />
     <meta property="og:image:secure_url" content="https://sos010.com/icons/sos-og.jpg" />
@@ -15,15 +15,15 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="1200" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="‎SOS - People Are The Network" />
-    <meta name="twitter:description" content="‎Decentralized social. Direct communication. Real connection." />
+    <meta name="twitter:title" content="ג€SOS - People Are The Network" />
+    <meta name="twitter:description" content="ג€Decentralized social. Direct communication. Real connection." />
     <meta name="twitter:image" content="https://sos010.com/icons/sos-og.jpg" />
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta http-equiv="Permissions-Policy" content="interest-cohort=(), geolocation=(), payment=(), usb=(), bluetooth=()">
-    <!-- חלק צבע address bar (videos.html) – חייב להיות בתחילת head | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¦׳‘׳¢ address bar (videos.html) ג€“ ׳—׳™׳™׳‘ ׳׳”׳™׳•׳× ׳‘׳×׳—׳™׳׳× head | HYPER CORE TECH -->
     <meta name="theme-color" content="#000000">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <!-- First paint: רקע שחור + לוגו קטן – מונע פלאש של לוגו ענק לפני CSS | HYPER CORE TECH -->
+    <!-- First paint: ׳¨׳§׳¢ ׳©׳—׳•׳¨ + ׳׳•׳’׳• ׳§׳˜׳ ג€“ ׳׳•׳ ׳¢ ׳₪׳׳׳© ׳©׳ ׳׳•׳’׳• ׳¢׳ ׳§ ׳׳₪׳ ׳™ CSS | HYPER CORE TECH -->
     <style id="sos-boot-critical">
       html, body {
         background: #000 !important;
@@ -48,7 +48,7 @@
         .videos-feed__viewport {
           background: #000 !important;
         }
-        /* אזור שחור בין הדר לתפריט עד שעולה LoadNug / הפיד | HYPER CORE TECH */
+        /* ׳׳–׳•׳¨ ׳©׳—׳•׳¨ ׳‘׳™׳ ׳”׳“׳¨ ׳׳×׳₪׳¨׳™׳˜ ׳¢׳“ ׳©׳¢׳•׳׳” LoadNug / ׳”׳₪׳™׳“ | HYPER CORE TECH */
         #feedBootShell {
           display: block;
           box-sizing: border-box;
@@ -64,21 +64,21 @@
       }
     </style>
     <title>SOS - People Are The Network</title>
-    <meta name="description" content="‎SOS - People Are The Network. Decentralized social, direct communication, real connection." />
-    <!-- חלק PWA (videos.html) – קישור ל-manifest והגדרות iOS | HYPER CORE TECH -->
+    <meta name="description" content="ג€SOS - People Are The Network. Decentralized social, direct communication, real connection." />
+    <!-- ׳—׳׳§ PWA (videos.html) ג€“ ׳§׳™׳©׳•׳¨ ׳-manifest ׳•׳”׳’׳“׳¨׳•׳× iOS | HYPER CORE TECH -->
     <link rel="manifest" href="manifest.webmanifest" />
-    <!-- חלק תפיסת beforeinstallprompt מוקדם (videos.html) – חייב להיות לפני כל סקריפט אחר | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳×׳₪׳™׳¡׳× beforeinstallprompt ׳׳•׳§׳“׳ (videos.html) ג€“ ׳—׳™׳™׳‘ ׳׳”׳™׳•׳× ׳׳₪׳ ׳™ ׳›׳ ׳¡׳§׳¨׳™׳₪׳˜ ׳׳—׳¨ | HYPER CORE TECH -->
     <script>
       window.deferredPwaPrompt = null;
       window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         window.deferredPwaPrompt = e;
-        console.log('[PWA-EARLY] ✅ beforeinstallprompt נתפס מוקדם!');
+        console.log('[PWA-EARLY] ג… beforeinstallprompt ׳ ׳×׳₪׳¡ ׳׳•׳§׳“׳!');
       });
     </script>
     <link rel="apple-touch-icon" href="./icons/sos-app-icon-180.png?v=20260726e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- חלק פס עליון iOS (videos.html) – שחור מלא במקום שקוף | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳₪׳¡ ׳¢׳׳™׳•׳ iOS (videos.html) ג€“ ׳©׳—׳•׳¨ ׳׳׳ ׳‘׳׳§׳•׳ ׳©׳§׳•׳£ | HYPER CORE TECH -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="SOS" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -86,12 +86,12 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png?v=20260726e" />
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/sos-app-icon-192.png?v=20260726e" />
     <link rel="icon" type="image/png" href="./icons/WAPICON.png?v=20260726e" />
-    <!-- חלק מובייל (videos.html) – טוקנים ו-Safe Area | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳׳•׳‘׳™׳™׳ (videos.html) ג€“ ׳˜׳•׳§׳ ׳™׳ ׳•-Safe Area | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/tokens.css">
     <link rel="stylesheet" href="./styles/base.css">
     <link rel="stylesheet" href="./styles/facebook-theme.css?v=20260818menu2">
     <link rel="stylesheet" href="./styles/media-overrides.css">
-    <!-- חלק עיצובים ללוגו ולצ'אט – זהים ל-storage/index | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¢׳™׳¦׳•׳‘׳™׳ ׳׳׳•׳’׳• ׳•׳׳¦'׳׳˜ ג€“ ׳–׳”׳™׳ ׳-storage/index | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css">
     <link rel="stylesheet" href="./styles/chat.css?v=20260819meta2">
     <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css?v=20260818imgfit2">
@@ -101,21 +101,21 @@
     <link rel="stylesheet" href="./styles/chat-dialog.css">
     <link rel="stylesheet" href="./styles/chat-voice-call.css?v=20260804e">
     <link rel="stylesheet" href="./styles/chat-video-call.css?v=20260803p">
-    <!-- חלק עיצוב צ'אט משופר (videos.html) – נגן אודיו/מדיה וקומפוזר בסגנון וואטסאפ | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¢׳™׳¦׳•׳‘ ׳¦'׳׳˜ ׳׳©׳•׳₪׳¨ (videos.html) ג€“ ׳ ׳’׳ ׳׳•׳“׳™׳•/׳׳“׳™׳” ׳•׳§׳•׳׳₪׳•׳–׳¨ ׳‘׳¡׳’׳ ׳•׳ ׳•׳•׳׳˜׳¡׳׳₪ | HYPER CORE TECH -->
     <link rel="stylesheet" href="./chat-enhanced-styles.css?v=20260819meta2">
     <link rel="stylesheet" href="./styles/market-dashboard.css">
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <!-- game-doom-arena.css removed: file missing (404) | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/videos.css?v=20260818nav3">
-    <!-- סייבר אחרי videos.css – כדי שינצח בדסקטופ ובמובייל | HYPER CORE TECH -->
+    <!-- ׳¡׳™׳™׳‘׳¨ ׳׳—׳¨׳™ videos.css ג€“ ׳›׳“׳™ ׳©׳™׳ ׳¦׳— ׳‘׳“׳¡׳§׳˜׳•׳₪ ׳•׳‘׳׳•׳‘׳™׳™׳ | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/chat-desktop-sos-cyber.css?v=20260819meta2">
-    <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¡׳™׳¡׳׳× ׳©׳•׳ ׳•׳× (videos.html) ג€“ ׳¢׳™׳¦׳•׳‘ ׳—׳׳•׳ ׳¡׳™׳¡׳׳” | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/misc-password.css">
-    <!-- LOADNUG – מד טעינה קולנועי חדש (מחליף את מסך ה-SOS הישן) | HYPER CORE TECH -->
+    <!-- LOADNUG ג€“ ׳׳“ ׳˜׳¢׳™׳ ׳” ׳§׳•׳׳ ׳•׳¢׳™ ׳—׳“׳© (׳׳—׳׳™׳£ ׳׳× ׳׳¡׳ ׳”-SOS ׳”׳™׳©׳) | HYPER CORE TECH -->
     <link rel="stylesheet" href="./loadnug/loadnug-animation.css?v=20260802z">
     <style>
-      /* דף טעינה מלא – עד קו התפריט התחתון, מסתיר כרטיסיה/כפתורי דילוג | HYPER CORE TECH */
+      /* ׳“׳£ ׳˜׳¢׳™׳ ׳” ׳׳׳ ג€“ ׳¢׳“ ׳§׳• ׳”׳×׳₪׳¨׳™׳˜ ׳”׳×׳—׳×׳•׳, ׳׳¡׳×׳™׳¨ ׳›׳¨׳˜׳™׳¡׳™׳”/׳›׳₪׳×׳•׳¨׳™ ׳“׳™׳׳•׳’ | HYPER CORE TECH */
       #videosLoadingOverlay.videos-loading-overlay {
         position: fixed !important;
         top: 0 !important;
@@ -138,7 +138,7 @@
         pointer-events: auto !important;
         overflow: hidden !important;
       }
-      /* Deep-link / צ'אט פתוח – לא לכסות את דף השיחה במסך טעינה | HYPER CORE TECH */
+      /* Deep-link / ׳¦'׳׳˜ ׳₪׳×׳•׳— ג€“ ׳׳ ׳׳›׳¡׳•׳× ׳׳× ׳“׳£ ׳”׳©׳™׳—׳” ׳‘׳׳¡׳ ׳˜׳¢׳™׳ ׳” | HYPER CORE TECH */
       html[data-sos-deeplink="1"] #videosLoadingOverlay.videos-loading-overlay,
       body.sos-deeplink-chat #videosLoadingOverlay.videos-loading-overlay,
       body:has(#chatPanel:not([hidden])) #videosLoadingOverlay.videos-loading-overlay {
@@ -235,7 +235,7 @@
         0%, 100% { opacity: 0.72; transform: scale(0.96); }
         50% { opacity: 1; transform: scale(1); }
       }
-      /* דסקטופ: כיסוי מלא עד תחתית אזור התוכן (בלי פער 56px של מובייל) | HYPER CORE TECH */
+      /* ׳“׳¡׳§׳˜׳•׳₪: ׳›׳™׳¡׳•׳™ ׳׳׳ ׳¢׳“ ׳×׳—׳×׳™׳× ׳׳–׳•׳¨ ׳”׳×׳•׳›׳ (׳‘׳׳™ ׳₪׳¢׳¨ 56px ׳©׳ ׳׳•׳‘׳™׳™׳) | HYPER CORE TECH */
       @media (min-width: 769px) {
         #videosLoadingOverlay.videos-loading-overlay,
         .videos-soft-loading {
@@ -249,15 +249,15 @@
       }
     </style>
     <link rel="stylesheet" href="./styles/video-record.css">
-    <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳׳¦׳‘ ׳׳•׳¨׳— (videos.html) ג€“ ׳¢׳™׳¦׳•׳‘ ׳—׳׳•׳ ׳”׳×׳—׳‘׳¨׳•׳×/׳”׳¨׳©׳׳” | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
-    <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ PWA (videos.html) ג€“ ׳¢׳™׳¦׳•׳‘ ׳‘׳׳ ׳¨׳™ ׳”׳×׳§׳ ׳” ׳•׳׳•׳“׳׳׳™ ׳”׳×׳¨׳׳•׳× | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/pwa-install.css?v=20260812toast2">
-    <!-- חלק WebTorrent (videos.html) – עיצוב העברת קבצים גדולים P2P | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ WebTorrent (videos.html) ג€“ ׳¢׳™׳¦׳•׳‘ ׳”׳¢׳‘׳¨׳× ׳§׳‘׳¦׳™׳ ׳’׳“׳•׳׳™׳ P2P | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/webtorrent-transfer.css?v=20260812hide1">
-    <!-- עיצוב כפתורי קומפוזר משופרים -->
+    <!-- ׳¢׳™׳¦׳•׳‘ ׳›׳₪׳×׳•׳¨׳™ ׳§׳•׳׳₪׳•׳–׳¨ ׳׳©׳•׳₪׳¨׳™׳ -->
     <style>
-      /* ===== מד טעינה והודעות סטטוס ===== */
+      /* ===== ׳׳“ ׳˜׳¢׳™׳ ׳” ׳•׳”׳•׳“׳¢׳•׳× ׳¡׳˜׳˜׳•׳¡ ===== */
       .videos-loading-progress {
         position: absolute;
         top: 55%;
@@ -309,7 +309,7 @@
         50% { opacity: 1; }
       }
 
-      /* ===== אנימציית הבהוב לכפתור פרופיל בזמן עיבוד ===== */
+      /* ===== ׳׳ ׳™׳׳¦׳™׳™׳× ׳”׳‘׳”׳•׳‘ ׳׳›׳₪׳×׳•׳¨ ׳₪׳¨׳•׳₪׳™׳ ׳‘׳–׳׳ ׳¢׳™׳‘׳•׳“ ===== */
       @keyframes profileButtonBlink {
         0%, 100% { 
           box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
@@ -327,7 +327,7 @@
         border-radius: 50%;
       }
 
-      /* ===== חלון תנאים לפני פרסום ===== */
+      /* ===== ׳—׳׳•׳ ׳×׳ ׳׳™׳ ׳׳₪׳ ׳™ ׳₪׳¨׳¡׳•׳ ===== */
       .terms-modal {
         position: fixed;
         top: 0;
@@ -412,7 +412,7 @@
         cursor: not-allowed;
       }
 
-      /* ===== הודעת עיבוד ברקע ===== */
+      /* ===== ׳”׳•׳“׳¢׳× ׳¢׳™׳‘׳•׳“ ׳‘׳¨׳§׳¢ ===== */
       .processing-notice {
         position: fixed;
         top: 80px;
@@ -457,7 +457,7 @@
         font-weight: bold;
       }
 
-      /* התאמה למובייל */
+      /* ׳”׳×׳׳׳” ׳׳׳•׳‘׳™׳™׳ */
       @media (max-width: 768px) {
         .videos-loading-progress {
           top: 58%;
@@ -474,7 +474,7 @@
         }
       }
 
-      /* ===== קומפוזר פשוט בסגנון טיקטוק – נכנס למסך בלי גלילה מיותרת | HYPER CORE TECH ===== */
+      /* ===== ׳§׳•׳׳₪׳•׳–׳¨ ׳₪׳©׳•׳˜ ׳‘׳¡׳’׳ ׳•׳ ׳˜׳™׳§׳˜׳•׳§ ג€“ ׳ ׳›׳ ׳¡ ׳׳׳¡׳ ׳‘׳׳™ ׳’׳׳™׳׳” ׳׳™׳•׳×׳¨׳× | HYPER CORE TECH ===== */
       .compose-modal {
         align-items: center;
         justify-content: center;
@@ -609,7 +609,7 @@
         transition: border-color 0.2s ease, transform 0.15s ease, background 0.2s ease;
       }
 
-      /* חלק העלאה (videos.html) – input שקוף מכסה את כל כפתור ההעלאה במובייל | HYPER CORE TECH */
+      /* ׳—׳׳§ ׳”׳¢׳׳׳” (videos.html) ג€“ input ׳©׳§׳•׳£ ׳׳›׳¡׳” ׳׳× ׳›׳ ׳›׳₪׳×׳•׳¨ ׳”׳”׳¢׳׳׳” ׳‘׳׳•׳‘׳™׳™׳ | HYPER CORE TECH */
       .compose-choice .compose-media-input {
         position: absolute !important;
         inset: 0 !important;
@@ -854,7 +854,7 @@
         border: 1px solid var(--border);
       }
 
-      /* מצב משחק: קומפקטי בלי כפילויות | HYPER CORE TECH */
+      /* ׳׳¦׳‘ ׳׳©׳—׳§: ׳§׳•׳׳₪׳§׳˜׳™ ׳‘׳׳™ ׳›׳₪׳™׳׳•׳™׳•׳× | HYPER CORE TECH */
       .compose-editor.is-compose-game textarea {
         min-height: 52px;
         max-height: 72px;
@@ -870,7 +870,7 @@
         display: none !important;
       }
 
-      /* ===== התאמה מובייל – נכנס למסך בלי גלילת מודל | HYPER CORE TECH ===== */
+      /* ===== ׳”׳×׳׳׳” ׳׳•׳‘׳™׳™׳ ג€“ ׳ ׳›׳ ׳¡ ׳׳׳¡׳ ׳‘׳׳™ ׳’׳׳™׳׳× ׳׳•׳“׳ | HYPER CORE TECH ===== */
       @media (max-width: 768px) {
         .compose-modal {
           position: fixed !important;
@@ -899,7 +899,7 @@
         .compose-dialog textarea {
           min-height: 64px;
           max-height: 96px;
-          font-size: 16px; /* מונע זום אוטומטי ב-iOS */
+          font-size: 16px; /* ׳׳•׳ ׳¢ ׳–׳•׳ ׳׳•׳˜׳•׳׳˜׳™ ׳‘-iOS */
           line-height: 1.35;
         }
 
@@ -908,13 +908,13 @@
           max-height: 64px;
         }
         
-        /* התאמה כשהמקלדת פתוחה – בלי לדחוף את הדיאלוג מחוץ למסך | HYPER CORE TECH */
+        /* ׳”׳×׳׳׳” ׳›׳©׳”׳׳§׳׳“׳× ׳₪׳×׳•׳—׳” ג€“ ׳‘׳׳™ ׳׳“׳—׳•׳£ ׳׳× ׳”׳“׳™׳׳׳•׳’ ׳׳—׳•׳¥ ׳׳׳¡׳ | HYPER CORE TECH */
         .compose-modal.keyboard-open .compose-dialog {
           max-height: calc(100dvh - 8px);
         }
       }
 
-      /* ===== מדים התקדמות גרפיים לווידיאו ===== */
+      /* ===== ׳׳“׳™׳ ׳”׳×׳§׳“׳׳•׳× ׳’׳¨׳₪׳™׳™׳ ׳׳•׳•׳™׳“׳™׳׳• ===== */
       .progress-meter {
         width: 100%;
         height: 8px;
@@ -955,7 +955,7 @@
         100% { transform: translateX(100%); }
       }
 
-      /* עיצוב התקדמות עם אייקונים */
+      /* ׳¢׳™׳¦׳•׳‘ ׳”׳×׳§׳“׳׳•׳× ׳¢׳ ׳׳™׳™׳§׳•׳ ׳™׳ */
       .progress-with-icon {
         display: flex;
         align-items: center;
@@ -1000,7 +1000,7 @@
         100% { transform: rotate(360deg); }
       }
 
-      /* התאמה למובייל */
+      /* ׳”׳×׳׳׳” ׳׳׳•׳‘׳™׳™׳ */
       @media (max-width: 768px) {
         .progress-meter {
           height: 6px;
@@ -1027,7 +1027,7 @@
         }
       }
 
-      /* ===== עיגול סטטיסטיקות P2P/Blossom – אייקון בתוך תפריט הגדרות | HYPER CORE TECH ===== */
+      /* ===== ׳¢׳™׳’׳•׳ ׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳× P2P/Blossom ג€“ ׳׳™׳™׳§׳•׳ ׳‘׳×׳•׳ ׳×׳₪׳¨׳™׳˜ ׳”׳’׳“׳¨׳•׳× | HYPER CORE TECH ===== */
       .top-bar__dropdown-item--stats {
         align-items: center;
       }
@@ -1076,7 +1076,7 @@
 
       .p2p-stats-p2p {
         fill: none;
-        stroke: #4fc3f7; /* כחול - P2P */
+        stroke: #4fc3f7; /* ׳›׳—׳•׳ - P2P */
         stroke-width: 3;
         stroke-linecap: round;
         transition: stroke-dasharray 0.5s ease;
@@ -1084,7 +1084,7 @@
 
       .p2p-stats-blossom {
         fill: none;
-        stroke: #ff6d00; /* כתום - Blossom */
+        stroke: #ff6d00; /* ׳›׳×׳•׳ - Blossom */
         stroke-width: 3;
         stroke-linecap: round;
         transition: stroke-dasharray 0.5s ease;
@@ -1101,7 +1101,7 @@
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
       }
 
-      /* טולטיפ מפורט בלחיצה */
+      /* ׳˜׳•׳׳˜׳™׳₪ ׳׳₪׳•׳¨׳˜ ׳‘׳׳—׳™׳¦׳” */
       .p2p-stats-tooltip {
         position: absolute;
         top: 100%;
@@ -1118,7 +1118,7 @@
         display: none;
       }
 
-      /* פאנל סטטיסטיקה – ממורכז במסך (מחשב + מובייל) | HYPER CORE TECH */
+      /* ׳₪׳׳ ׳ ׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳” ג€“ ׳׳׳•׳¨׳›׳– ׳‘׳׳¡׳ (׳׳—׳©׳‘ + ׳׳•׳‘׳™׳™׳) | HYPER CORE TECH */
       .p2p-stats-tooltip--fixed,
       #p2pStatsTooltipPanel {
         position: fixed !important;
@@ -1260,7 +1260,7 @@
         border-top: none;
       }
 
-      /* ===== הבהוב P2P פנימי (בלי תנועה של העיגול) ===== */
+      /* ===== ׳”׳‘׳”׳•׳‘ P2P ׳₪׳ ׳™׳׳™ (׳‘׳׳™ ׳×׳ ׳•׳¢׳” ׳©׳ ׳”׳¢׳™׳’׳•׳) ===== */
       .p2p-stats-circle {
         position: relative;
       }
@@ -1294,7 +1294,7 @@
         50% { opacity: 1; }
       }
 
-      /* התאמה למובייל */
+      /* ׳”׳×׳׳׳” ׳׳׳•׳‘׳™׳™׳ */
       @media (max-width: 768px) {
         .p2p-stats-circle {
           width: 32px;
@@ -1319,7 +1319,7 @@
         }
       }
 
-      /* ===== הבטחה שמודאל הקלטת וידיאו תמיד מעל ===== */
+      /* ===== ׳”׳‘׳˜׳—׳” ׳©׳׳•׳“׳׳ ׳”׳§׳׳˜׳× ׳•׳™׳“׳™׳׳• ׳×׳׳™׳“ ׳׳¢׳ ===== */
       .video-record-modal {
         z-index: 99999 !important;
       }
@@ -1329,14 +1329,14 @@
         opacity: 1 !important;
       }
 
-      /* התאמה למובייל */
+      /* ׳”׳×׳׳׳” ׳׳׳•׳‘׳™׳™׳ */
       @media (max-width: 768px) {
         .video-record-modal {
           z-index: 99999 !important;
         }
       }
 
-      /* ===== כפתור ביטול בבחירת זמן ===== */
+      /* ===== ׳›׳₪׳×׳•׳¨ ׳‘׳™׳˜׳•׳ ׳‘׳‘׳—׳™׳¨׳× ׳–׳׳ ===== */
       .timer-cancel {
         display: flex;
         justify-content: center;
@@ -1375,7 +1375,7 @@
         font-size: 16px;
       }
 
-      /* התאמה למובייל */
+      /* ׳”׳×׳׳׳” ׳׳׳•׳‘׳™׳™׳ */
       @media (max-width: 768px) {
         .timer-cancel {
           margin-top: 15px;
@@ -1392,7 +1392,7 @@
         }
       }
 
-      /* ===== כפתור ביטול בממשק הקלטה ===== */
+      /* ===== ׳›׳₪׳×׳•׳¨ ׳‘׳™׳˜׳•׳ ׳‘׳׳׳©׳§ ׳”׳§׳׳˜׳” ===== */
       .record-cancel {
         display: flex;
         justify-content: center;
@@ -1429,7 +1429,7 @@
         font-size: 14px;
       }
 
-      /* התאמה למובייל */
+      /* ׳”׳×׳׳׳” ׳׳׳•׳‘׳™׳™׳ */
       @media (max-width: 768px) {
         .record-cancel {
           margin-top: 15px;
@@ -1446,7 +1446,7 @@
         }
       }
 
-      /* ===== טיימר צף במהלך הקלטה ===== */
+      /* ===== ׳˜׳™׳™׳׳¨ ׳¦׳£ ׳‘׳׳”׳׳ ׳”׳§׳׳˜׳” ===== */
       .floating-timer {
         position: absolute;
         top: 20px;
@@ -1491,7 +1491,7 @@
         }
       }
 
-      /* התאמה למובייל */
+      /* ׳”׳×׳׳׳” ׳׳׳•׳‘׳™׳™׳ */
       @media (max-width: 768px) {
         .floating-timer {
           top: 15px;
@@ -1503,13 +1503,13 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
     
-    <!-- חלק Debug Console (videos.html) – הצגת לוגים על המסך לדיבוג באייפון | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ Debug Console (videos.html) ג€“ ׳”׳¦׳’׳× ׳׳•׳’׳™׳ ׳¢׳ ׳”׳׳¡׳ ׳׳“׳™׳‘׳•׳’ ׳‘׳׳™׳™׳₪׳•׳ | HYPER CORE TECH -->
     <script>
     (function() {
-      // יצירת חלון debug צף
+      // ׳™׳¦׳™׳¨׳× ׳—׳׳•׳ debug ׳¦׳£
       var debugPanel = document.createElement('div');
       debugPanel.id = 'mobileDebugPanel';
-      debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button type="button" id="debugLogPower">לוג: OFF</button><button type="button" id="debugToggle">▼</button><button type="button" id="debugCopy">📋 העתק</button><button type="button" id="debugClear">🗑️</button></div><div id="debugContent"></div>';
+      debugPanel.innerHTML = '<div id="debugHeader">נ”§ Debug Console <button type="button" id="debugLogPower">׳׳•׳’: OFF</button><button type="button" id="debugToggle">ג–¼</button><button type="button" id="debugCopy">נ“‹ ׳”׳¢׳×׳§</button><button type="button" id="debugClear">נ—‘ן¸</button></div><div id="debugContent"></div>';
       
       var style = document.createElement('style');
       style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
@@ -1518,47 +1518,47 @@
         document.head.appendChild(style);
         document.body.appendChild(debugPanel);
         
-        // כפתור פתיחה צף (גיבוי בלבד) – הכפתור הראשי בתפריט הפרופיל | HYPER CORE TECH
+        // ׳›׳₪׳×׳•׳¨ ׳₪׳×׳™׳—׳” ׳¦׳£ (׳’׳™׳‘׳•׳™ ׳‘׳׳‘׳“) ג€“ ׳”׳›׳₪׳×׳•׳¨ ׳”׳¨׳׳©׳™ ׳‘׳×׳₪׳¨׳™׳˜ ׳”׳₪׳¨׳•׳₪׳™׳ | HYPER CORE TECH
         var openBtn = document.createElement('button');
         openBtn.id = 'debugOpenBtn';
-        openBtn.textContent = '🔧';
-        openBtn.title = 'פתח Debug Console';
+        openBtn.textContent = 'נ”§';
+        openBtn.title = '׳₪׳×׳— Debug Console';
         document.body.appendChild(openBtn);
 
         var openBtnTop = document.getElementById('topBarDebugLog');
 
-        // חלק כפתור רענון Cache (videos.html) – בתוך תפריט הפרופיל תחת משחקי רשת | HYPER CORE TECH
+        // ׳—׳׳§ ׳›׳₪׳×׳•׳¨ ׳¨׳¢׳ ׳•׳ Cache (videos.html) ג€“ ׳‘׳×׳•׳ ׳×׳₪׳¨׳™׳˜ ׳”׳₪׳¨׳•׳₪׳™׳ ׳×׳—׳× ׳׳©׳—׳§׳™ ׳¨׳©׳× | HYPER CORE TECH
         var profileMenu = document.getElementById('topBarProfileMenu');
         var cacheRefreshBtn = document.createElement('button');
         cacheRefreshBtn.id = 'cacheRefreshBtn';
         cacheRefreshBtn.type = 'button';
         cacheRefreshBtn.className = 'top-bar__dropdown-item';
-        cacheRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i><span>מחיקת Cache</span>';
-        cacheRefreshBtn.title = 'רענון עמוק - מחיקת Cache והורדה מחדש';
+        cacheRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i><span>׳׳—׳™׳§׳× Cache</span>';
+        cacheRefreshBtn.title = '׳¨׳¢׳ ׳•׳ ׳¢׳׳•׳§ - ׳׳—׳™׳§׳× Cache ׳•׳”׳•׳¨׳“׳” ׳׳—׳“׳©';
         cacheRefreshBtn.onclick = async function() {
           cacheRefreshBtn.style.animation = 'spin 1s linear infinite';
           cacheRefreshBtn.disabled = true;
           try {
-            // מחיקת כל ה-caches
+            // ׳׳—׳™׳§׳× ׳›׳ ׳”-caches
             if ('caches' in window) {
               var cacheNames = await caches.keys();
               await Promise.all(cacheNames.map(function(name) { return caches.delete(name); }));
-              console.log('[CACHE] נמחקו כל ה-caches:', cacheNames);
+              console.log('[CACHE] ׳ ׳׳—׳§׳• ׳›׳ ׳”-caches:', cacheNames);
             }
-            // ביטול רישום Service Worker
+            // ׳‘׳™׳˜׳•׳ ׳¨׳™׳©׳•׳ Service Worker
             if ('serviceWorker' in navigator) {
               var registrations = await navigator.serviceWorker.getRegistrations();
               for (var reg of registrations) {
                 await reg.unregister();
-                console.log('[CACHE] Service Worker בוטל');
+                console.log('[CACHE] Service Worker ׳‘׳•׳˜׳');
               }
             }
-            // רענון קשיח
-            console.log('[CACHE] מרענן את הדף...');
+            // ׳¨׳¢׳ ׳•׳ ׳§׳©׳™׳—
+            console.log('[CACHE] ׳׳¨׳¢׳ ׳ ׳׳× ׳”׳“׳£...');
             window.location.reload(true);
           } catch (err) {
-            console.error('[CACHE] שגיאה במחיקת cache:', err);
-            alert('שגיאה ברענון. נסה שוב.');
+            console.error('[CACHE] ׳©׳’׳™׳׳” ׳‘׳׳—׳™׳§׳× cache:', err);
+            alert('׳©׳’׳™׳׳” ׳‘׳¨׳¢׳ ׳•׳. ׳ ׳¡׳” ׳©׳•׳‘.');
             cacheRefreshBtn.style.animation = '';
             cacheRefreshBtn.disabled = false;
           }
@@ -1573,7 +1573,7 @@
         var toggle = document.getElementById('debugToggle');
         var copy = document.getElementById('debugCopy');
         var clear = document.getElementById('debugClear');
-        var maxLines = 1000; // שמור יותר שורות להצגה
+        var maxLines = 1000; // ׳©׳׳•׳¨ ׳™׳•׳×׳¨ ׳©׳•׳¨׳•׳× ׳׳”׳¦׳’׳”
         var fullLog = [];
         var UI_LOG_KEY = 'sos_ui_debug_log_enabled';
         var uiLogEnabled = false;
@@ -1595,7 +1595,7 @@
         var powerBtn = document.getElementById('debugLogPower');
         function syncPowerUi() {
           if (!powerBtn) return;
-          powerBtn.textContent = uiLogEnabled ? 'לוג: ON' : 'לוג: OFF';
+          powerBtn.textContent = uiLogEnabled ? '׳׳•׳’: ON' : '׳׳•׳’: OFF';
           powerBtn.style.background = uiLogEnabled ? '#1b5e20' : '#333';
         }
         syncPowerUi();
@@ -1609,7 +1609,7 @@
             } catch (err) {}
             syncPowerUi();
             if (uiLogEnabled) {
-              addLine('info', ['UI debug log ENABLED – capturing continues while panel closed']);
+              addLine('info', ['UI debug log ENABLED ג€“ capturing continues while panel closed']);
             } else {
               origInfo.call(console, 'UI debug log DISABLED');
             }
@@ -1645,10 +1645,10 @@
         copy.onclick = function() {
           var text = content.innerText;
           navigator.clipboard.writeText(text).then(function() {
-            copy.textContent = '✅ הועתק!';
-            setTimeout(function() { copy.textContent = '📋 העתק'; }, 2000);
+            copy.textContent = 'ג… ׳”׳•׳¢׳×׳§!';
+            setTimeout(function() { copy.textContent = 'נ“‹ ׳”׳¢׳×׳§'; }, 2000);
           }).catch(function() {
-            // fallback לאייפון ישן
+            // fallback ׳׳׳™׳™׳₪׳•׳ ׳™׳©׳
             var ta = document.createElement('textarea');
             ta.value = text;
             ta.style.position = 'fixed';
@@ -1657,8 +1657,8 @@
             ta.select();
             document.execCommand('copy');
             document.body.removeChild(ta);
-            copy.textContent = '✅ הועתק!';
-            setTimeout(function() { copy.textContent = '📋 העתק'; }, 2000);
+            copy.textContent = 'ג… ׳”׳•׳¢׳×׳§!';
+            setTimeout(function() { copy.textContent = 'נ“‹ ׳”׳¢׳×׳§'; }, 2000);
           });
         };
         
@@ -1667,9 +1667,9 @@
           fullLog = [];
         };
 
-        // שמירת לוג כ-TXT
+        // ׳©׳׳™׳¨׳× ׳׳•׳’ ׳›-TXT
         var saveBtn = document.createElement('button');
-        saveBtn.textContent = '💾 שמור TXT';
+        saveBtn.textContent = 'נ’¾ ׳©׳׳•׳¨ TXT';
         saveBtn.id = 'debugSave';
         saveBtn.onclick = function() {
           var text = fullLog.join('\n');
@@ -1692,7 +1692,7 @@
           var line = document.createElement('div');
           line.className = 'debug-line debug-' + type;
           var time = new Date().toLocaleTimeString('he-IL');
-          // סינון פרמטרי %c style
+          // ׳¡׳™׳ ׳•׳ ׳₪׳¨׳׳˜׳¨׳™ %c style
           var filteredArgs = Array.from(args).filter(function(a, i, arr) {
             if (typeof a === 'string' && a.startsWith('%c')) return true;
             if (i > 0 && typeof arr[i-1] === 'string' && arr[i-1].includes('%c') && typeof a === 'string' && a.includes('color:')) return false;
@@ -1705,7 +1705,7 @@
             }
             return String(a);
           }).join(' ');
-          // הדגשת לוגי מחיקה
+          // ׳”׳“׳’׳©׳× ׳׳•׳’׳™ ׳׳—׳™׳§׳”
           if (msg.includes('[DELETE_DEBUG]') || msg.includes('[DELETE_PUBLISH]')) {
             line.style.color = '#FF5722';
             line.style.fontWeight = 'bold';
@@ -1717,13 +1717,13 @@
           content.scrollTop = content.scrollHeight;
         }
         
-        // Override console methods – לכידה רק כש־uiLogEnabled | HYPER CORE TECH
+        // Override console methods ג€“ ׳׳›׳™׳“׳” ׳¨׳§ ׳›׳©ײ¾uiLogEnabled | HYPER CORE TECH
         console.log = function() { origLog.apply(console, arguments); if (uiLogEnabled) addLine('log', arguments); };
         console.warn = function() { origWarn.apply(console, arguments); if (uiLogEnabled) addLine('warn', arguments); };
         console.error = function() { origError.apply(console, arguments); if (uiLogEnabled) addLine('error', arguments); };
         console.info = function() { origInfo.apply(console, arguments); if (uiLogEnabled) addLine('info', arguments); };
         
-        // Catch errors – רק כשהלוג דלוק | HYPER CORE TECH
+        // Catch errors ג€“ ׳¨׳§ ׳›׳©׳”׳׳•׳’ ׳“׳׳•׳§ | HYPER CORE TECH
         window.onerror = function(msg, url, line, col, error) {
           if (uiLogEnabled) addLine('error', ['UNCAUGHT:', msg, 'at', url + ':' + line]);
         };
@@ -1733,14 +1733,14 @@
         };
 
         if (uiLogEnabled) {
-          addLine('info', ['UI debug log ON (restored) – capturing from page load']);
+          addLine('info', ['UI debug log ON (restored) ג€“ capturing from page load']);
         }
       });
     })();
     </script>
     
-    <!-- חלק תלויות כלליות (videos.html) – סדר טעינה זהה לעמודים הראשיים | HYPER CORE TECH -->
-    <!-- חלק מובייל (videos.html) – תיקון גובה viewport באייפון | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳×׳׳•׳™׳•׳× ׳›׳׳׳™׳•׳× (videos.html) ג€“ ׳¡׳“׳¨ ׳˜׳¢׳™׳ ׳” ׳–׳”׳” ׳׳¢׳׳•׳“׳™׳ ׳”׳¨׳׳©׳™׳™׳ | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳׳•׳‘׳™׳™׳ (videos.html) ג€“ ׳×׳™׳§׳•׳ ׳’׳•׳‘׳” viewport ׳‘׳׳™׳™׳₪׳•׳ | HYPER CORE TECH -->
     <script src="./mobile-viewport-fix.js"></script>
     <script src="./key-storage.js" defer></script>
     <script src="./config.js?v=20260819relay2" defer></script>
@@ -1749,22 +1749,22 @@
     <script src="./secure-channel.js" defer></script>
     <script src="./keys.js" defer></script>
     <script src="./profile.js" defer></script>
-    <!-- חלק הצגת מפתח (videos.html) – טעינת מודול ניהול חשבון להצגת המפתח | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳”׳¦׳’׳× ׳׳₪׳×׳— (videos.html) ג€“ ׳˜׳¢׳™׳ ׳× ׳׳•׳“׳•׳ ׳ ׳™׳”׳•׳ ׳—׳©׳‘׳•׳ ׳׳”׳¦׳’׳× ׳”׳׳₪׳×׳— | HYPER CORE TECH -->
     <script src="./account.js" defer></script>
     <script src="./key-viewer.js" defer></script>
-    <script src="./media-cache.js?v=20260821feed15" defer></script>
+    <script src="./media-cache.js?v=20260821feed16" defer></script>
     <script src="./media-mirror.js" defer></script>
     <script src="./media-recheck.js" defer></script>
-    <!-- חלק דיבוג iOS (videos.html) – מודול דיבוג מעמיק לבעיות וידאו באייפון | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳“׳™׳‘׳•׳’ iOS (videos.html) ג€“ ׳׳•׳“׳•׳ ׳“׳™׳‘׳•׳’ ׳׳¢׳׳™׳§ ׳׳‘׳¢׳™׳•׳× ׳•׳™׳“׳׳• ׳‘׳׳™׳™׳₪׳•׳ | HYPER CORE TECH -->
     <script src="./ios-video-debug.js?v=20260819relay1" defer></script>
-    <!-- חלק P2P (videos.html) – מערכת שיתוף וידאו P2P בין משתמשים | HYPER CORE TECH -->
-    <script src="./p2p-event-sync.js?v=20260821feed15" defer></script>
-    <script src="./p2p-video-sharing.js?v=20260821feed15" defer></script>
-    <script src="./p2p-peer-exchange.js?v=20260821feed15" defer></script>
-    <script src="./p2p-metadata-transfer.js?v=20260821feed15" defer></script>
+    <!-- ׳—׳׳§ P2P (videos.html) ג€“ ׳׳¢׳¨׳›׳× ׳©׳™׳×׳•׳£ ׳•׳™׳“׳׳• P2P ׳‘׳™׳ ׳׳©׳×׳׳©׳™׳ | HYPER CORE TECH -->
+    <script src="./p2p-event-sync.js?v=20260821feed16" defer></script>
+    <script src="./p2p-video-sharing.js?v=20260821feed16" defer></script>
+    <script src="./p2p-peer-exchange.js?v=20260821feed16" defer></script>
+    <script src="./p2p-metadata-transfer.js?v=20260821feed16" defer></script>
     <script src="./contract-dashboard-v2.js" defer></script>
     <script src="./app.js?v=20260819relay1" defer></script>
-    <!-- חלק ניווט (videos.html) – הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳ ׳™׳•׳•׳˜ (videos.html) ג€“ ׳”׳’׳“׳¨׳× ׳׳©׳•׳ ׳™׳× ׳₪׳¢׳™׳׳” ׳׳•׳™׳“׳׳• ׳•׳˜׳¢׳™׳ ׳× ׳׳•׳“׳•׳ ׳”׳ ׳™׳•׳•׳˜ | HYPER CORE TECH -->
     <script>
       (function(){
         var App = window.NostrApp || (window.NostrApp = {});
@@ -1775,29 +1775,29 @@
     <script src="./feed.js?v=20260820feed8" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
-    <!-- חלק לוח גידול (videos.html) – טעינת ספריות הגרפים לדשבורד | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳׳•׳— ׳’׳™׳“׳•׳ (videos.html) ג€“ ׳˜׳¢׳™׳ ׳× ׳¡׳₪׳¨׳™׳•׳× ׳”׳’׳¨׳₪׳™׳ ׳׳“׳©׳‘׳•׳¨׳“ | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" defer></script>
-    <!-- chartjs-chart-financial הוסר - גורם ל-404 ולא נדרש לממשק הנוכחי -->
-    <!-- חלק Blossom (videos.html) – לקוח העלאות כדי להימנע מ-fallback ל-void.cat | HYPER CORE TECH -->
+    <!-- chartjs-chart-financial ׳”׳•׳¡׳¨ - ׳’׳•׳¨׳ ׳-404 ׳•׳׳ ׳ ׳“׳¨׳© ׳׳׳׳©׳§ ׳”׳ ׳•׳›׳—׳™ -->
+    <!-- ׳—׳׳§ Blossom (videos.html) ג€“ ׳׳§׳•׳— ׳”׳¢׳׳׳•׳× ׳›׳“׳™ ׳׳”׳™׳׳ ׳¢ ׳-fallback ׳-void.cat | HYPER CORE TECH -->
     <script src="./blossom.js" defer></script>
-    <!-- חלק FFmpeg (videos.html) – טעינת ספריית ffmpeg.wasm כמו ב-index.html | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ FFmpeg (videos.html) ג€“ ׳˜׳¢׳™׳ ׳× ׳¡׳₪׳¨׳™׳™׳× ffmpeg.wasm ׳›׳׳• ׳‘-index.html | HYPER CORE TECH -->
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" defer></script>
-    <!-- חלק ערוץ חי HLS (videos.html) – hls.js + מודול ערוצים חיים | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¢׳¨׳•׳¥ ׳—׳™ HLS (videos.html) ג€“ hls.js + ׳׳•׳“׳•׳ ׳¢׳¨׳•׳¦׳™׳ ׳—׳™׳™׳ | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" defer></script>
     <script src="./hls-live.js?v=20260729q" defer></script>
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
-    <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳”׳§׳׳˜׳× ׳•׳™׳“׳׳• (videos.html) ג€“ ׳׳׳©׳§ ׳”׳§׳׳˜׳” ׳¢׳ ׳˜׳™׳™׳׳¨ | HYPER CORE TECH -->
     <script src="./video-record.js" defer></script>
-    <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳“׳—׳™׳¡׳× ׳•׳™׳“׳׳• (videos.html) ג€“ ׳׳ ׳•׳¢ ׳”׳“׳—׳™׳¡׳” | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
-    <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳§׳•׳׳₪׳•׳–׳¨ (videos.html) ג€“ ׳׳•׳“׳•׳ ׳”׳§׳•׳׳₪׳•׳–׳¨ | HYPER CORE TECH -->
     <script src="./compose.js?v=20260731c" defer></script>
-    <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¨׳§׳¢׳™׳ (videos.html) ג€“ ׳׳•׳“׳•׳ ׳‘׳•׳¨׳¨ ׳¨׳§׳¢׳™׳ ׳›׳׳• ׳‘-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
-      // חלק קומפוזר (videos.html) – הבטחת זמינות openCompose באופן מיידי עבור ה-onclick בתפריט | HYPER CORE TECH
+      // ׳—׳׳§ ׳§׳•׳׳₪׳•׳–׳¨ (videos.html) ג€“ ׳”׳‘׳˜׳—׳× ׳–׳׳™׳ ׳•׳× openCompose ׳‘׳׳•׳₪׳ ׳׳™׳™׳“׳™ ׳¢׳‘׳•׳¨ ׳”-onclick ׳‘׳×׳₪׳¨׳™׳˜ | HYPER CORE TECH
       (function(){
         if (typeof window.openCompose !== 'function') {
           window.openCompose = function(){
@@ -1811,12 +1811,12 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260821feed15" defer></script>
-    <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
+    <script src="./videos.js?v=20260821feed16" defer></script>
+    <!-- ׳—׳׳§ ׳׳¦׳‘ ׳׳•׳¨׳— (videos.html) ג€“ ׳˜׳¢׳™׳ ׳× ׳׳•׳“׳•׳ ׳”׳×׳—׳‘׳¨׳•׳×/׳”׳¨׳©׳׳” ׳׳׳•׳¨׳— | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
     <script src="./guest-auth.js?v=20260729g" defer></script>
-    <!-- מודולי צ'אט (videos.html) – זהים לעמודים הראשיים | HYPER CORE TECH -->
+    <!-- ׳׳•׳“׳•׳׳™ ׳¦'׳׳˜ (videos.html) ג€“ ׳–׳”׳™׳ ׳׳¢׳׳•׳“׳™׳ ׳”׳¨׳׳©׳™׳™׳ | HYPER CORE TECH -->
     <script src="./chat-state.js?v=20260817arch2" defer></script>
     <script src="./chat-service.js?v=20260819feed1" defer></script>
     <script src="./chat-file-transfer-state.js?v=3" defer></script>
@@ -1830,25 +1830,25 @@
     <script src="./chat-voice-call-ui.js?v=20260816hdr2" defer></script>
     <script src="./chat-video-call.js?v=20260819feed1" defer></script>
     <script src="./chat-video-call-ui.js?v=20260819feed1" defer></script>
-    <!-- חלק צ'אט משופר (videos.html) – העברת קבצים P2P, נגן אודיו, מדיה inline, אופטימיזציות וקומפוזר משופר | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¦'׳׳˜ ׳׳©׳•׳₪׳¨ (videos.html) ג€“ ׳”׳¢׳‘׳¨׳× ׳§׳‘׳¦׳™׳ P2P, ׳ ׳’׳ ׳׳•׳“׳™׳•, ׳׳“׳™׳” inline, ׳׳•׳₪׳˜׳™׳׳™׳–׳¦׳™׳•׳× ׳•׳§׳•׳׳₪׳•׳–׳¨ ׳׳©׳•׳₪׳¨ | HYPER CORE TECH -->
     <script src="./chat-p2p-file.js?v=20260819feed1" defer></script>
     <script src="./chat-audio-player.js?v=20260817voice1" defer></script>
     <script src="./chat-media-renderer.js?v=20260819wafit1" defer></script>
     <script src="./chat-ui-optimizations.js?v=20260807a" defer></script>
     <script src="./chat-composer-enhanced.js?v=20260816voice1" defer></script>
-    <script src="./chat-p2p-datachannel.js?v=20260821feed15" defer></script>
+    <script src="./chat-p2p-datachannel.js?v=20260821feed16" defer></script>
     <script src="./chat-ui.js?v=20260818menu4" defer></script>
-    <!-- רשת חירום מקומית (AndroidBridge) | HYPER CORE TECH -->
+    <!-- ׳¨׳©׳× ׳—׳™׳¨׳•׳ ׳׳§׳•׳׳™׳× (AndroidBridge) | HYPER CORE TECH -->
     <script src="./android-bridge.js?v=20260817em7" defer></script>
     <script src="./emergency-bridge.js?v=20260817em7" defer></script>
     <script src="./emergency-wrapper.js?v=20260817em7" defer></script>
     <script src="./sos-back-nav.js?v=20260816back3" defer></script>
     <script src="./chat-deeplink.js?v=20260804e" defer></script>
-    <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳׳•׳’׳¨ ׳₪׳ ׳™׳•׳× (videos.html) ג€“ ׳׳¢׳§׳‘ ׳›׳ ׳₪׳ ׳™׳•׳× relay/blossom/cache/P2P | HYPER CORE TECH -->
     <script src="./chat-request-logger.js?v=2" defer></script>
-    <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳׳•׳ ׳™׳˜׳•׳¨ (videos.html) ג€“ hooks ׳‘׳׳‘׳“, ׳”-UI ׳‘׳“׳£ ׳¢׳¦׳׳׳™ transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=5" defer></script>
-    <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ PWA (videos.html) ג€“ ׳˜׳¢׳™׳ ׳× ׳׳•׳“׳•׳׳™ ׳”׳×׳§׳ ׳” ׳•׳”׳×׳¨׳׳•׳× Push | HYPER CORE TECH -->
     <script src="./pwa-installer.js?v=20260818apk68" defer></script>
     <script src="./pwa-install-chooser.js?v=20260805a" defer></script>
     <script src="./push-client.js?v=20260803o" defer></script>
@@ -1856,7 +1856,7 @@
     <script src="./native-shell-bridge.js?v=20260813prev2" defer></script>
     <script src="./market-dashboard.js" defer></script>
     <script>
-      // חלק לוח גידול (videos.html) – מבטיח שגלובליים מחוברים לאחר טעינת הדשבורד | HYPER CORE TECH
+      // ׳—׳׳§ ׳׳•׳— ׳’׳™׳“׳•׳ (videos.html) ג€“ ׳׳‘׳˜׳™׳— ׳©׳’׳׳•׳‘׳׳™׳™׳ ׳׳—׳•׳‘׳¨׳™׳ ׳׳׳—׳¨ ׳˜׳¢׳™׳ ׳× ׳”׳“׳©׳‘׳•׳¨׳“ | HYPER CORE TECH
       window.addEventListener('DOMContentLoaded', function () {
         var App = window.NostrApp || (window.NostrApp = {});
         if (typeof App.refreshGrowthSelectors === 'function') {
@@ -1876,7 +1876,7 @@
         }
       });
     </script>
-    <!-- חלק אתחול צ'אט משופר (videos.html) – קומפוזר, אירועים יעילים וטעינת תמונות עצלה | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳׳×׳—׳•׳ ׳¦'׳׳˜ ׳׳©׳•׳₪׳¨ (videos.html) ג€“ ׳§׳•׳׳₪׳•׳–׳¨, ׳׳™׳¨׳•׳¢׳™׳ ׳™׳¢׳™׳׳™׳ ׳•׳˜׳¢׳™׳ ׳× ׳×׳׳•׳ ׳•׳× ׳¢׳¦׳׳” | HYPER CORE TECH -->
     <script>
       window.addEventListener('DOMContentLoaded', function () {
         const App = window.NostrApp || (window.NostrApp = {});
@@ -1901,8 +1901,8 @@
   </head>
   <body class="videos-page">
     <script>
-      // החלפת ה-URL המוצג לשורש הדומיין (ללא videos.html) | HYPER CORE TECH
-      // חשוב: אחרי replaceState ה־pathname הוא "/" — זיהוי דף בית חייב body.videos-page / #videosStream | HYPER CORE TECH
+      // ׳”׳—׳׳₪׳× ׳”-URL ׳”׳׳•׳¦׳’ ׳׳©׳•׳¨׳© ׳”׳“׳•׳׳™׳™׳ (׳׳׳ videos.html) | HYPER CORE TECH
+      // ׳—׳©׳•׳‘: ׳׳—׳¨׳™ replaceState ׳”ײ¾pathname ׳”׳•׳ "/" ג€” ׳–׳™׳”׳•׳™ ׳“׳£ ׳‘׳™׳× ׳—׳™׳™׳‘ body.videos-page / #videosStream | HYPER CORE TECH
       (function() {
         try { document.body.classList.add('videos-page'); } catch (_) {}
         try {
@@ -1916,14 +1916,14 @@
           var base = window.location.origin || '';
           var search = window.location.search || '';
           var hash = window.location.hash || '';
-          // מציג https://sos010.com/ במקום https://sos010.com/videos.html
+          // ׳׳¦׳™׳’ https://sos010.com/ ׳‘׳׳§׳•׳ https://sos010.com/videos.html
           history.replaceState(null, '', base + '/' + search + hash);
         }
       })();
     </script>
-    <!-- חלק סרגל עליון (videos.html) – סרגל עליון אחיד כמו בדפים הראשיים | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¡׳¨׳’׳ ׳¢׳׳™׳•׳ (videos.html) ג€“ ׳¡׳¨׳’׳ ׳¢׳׳™׳•׳ ׳׳—׳™׳“ ׳›׳׳• ׳‘׳“׳₪׳™׳ ׳”׳¨׳׳©׳™׳™׳ | HYPER CORE TECH -->
     <header class="top-bar">
-      <!-- חלק לוגו מובייל (videos.html) – לוגו S חדש במובייל; דסקטופ נשאר sos-logo.PNG בסיידבר | HYPER CORE TECH -->
+      <!-- ׳—׳׳§ ׳׳•׳’׳• ׳׳•׳‘׳™׳™׳ (videos.html) ג€“ ׳׳•׳’׳• S ׳—׳“׳© ׳‘׳׳•׳‘׳™׳™׳; ׳“׳¡׳§׳˜׳•׳₪ ׳ ׳©׳׳¨ sos-logo.PNG ׳‘׳¡׳™׳™׳“׳‘׳¨ | HYPER CORE TECH -->
       <div class="app-logo">
         <picture>
           <source media="(max-width: 900px)" srcset="icons/sos-logo-mobile.png?v=20260729e">
@@ -1931,40 +1931,40 @@
         </picture>
       </div>
       <div class="top-bar__actions">
-        <!-- חלק כפתור אורח (videos.html) – כפתור קצר עם טקסט+אייקון מתחלף התחבר/הירשם | HYPER CORE TECH -->
-        <button id="guestLoginButton" class="button-primary guest-login-btn" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;" aria-label="התחבר או הירשם">
+        <!-- ׳—׳׳§ ׳›׳₪׳×׳•׳¨ ׳׳•׳¨׳— (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳§׳¦׳¨ ׳¢׳ ׳˜׳§׳¡׳˜+׳׳™׳™׳§׳•׳ ׳׳×׳—׳׳£ ׳”׳×׳—׳‘׳¨/׳”׳™׳¨׳©׳ | HYPER CORE TECH -->
+        <button id="guestLoginButton" class="button-primary guest-login-btn" type="button" style="display:none; margin-left: 10px; padding: 8px 16px;" aria-label="׳”׳×׳—׳‘׳¨ ׳׳• ׳”׳™׳¨׳©׳">
           <span class="guest-login-btn__swap">
             <span class="guest-login-btn__word is-visible">
               <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
-              <span>התחבר</span>
+              <span>׳”׳×׳—׳‘׳¨</span>
             </span>
             <span class="guest-login-btn__word">
               <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
-              <span>הירשם</span>
+              <span>׳”׳™׳¨׳©׳</span>
             </span>
           </span>
         </button>
         <div class="top-bar__profile" id="topBarProfile">
-          <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
+          <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="׳₪׳¨׳•׳₪׳™׳ ׳׳©׳×׳׳©">
             <span id="topBarProfileAvatar">?</span>
           </button>
           <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
-            <div class="top-bar__dropdown-title">הגדרות</div>
+            <div class="top-bar__dropdown-title">׳”׳’׳“׳¨׳•׳×</div>
             <button type="button" class="top-bar__dropdown-item" id="topBarInviteFriend">
               <i class="fa-brands fa-whatsapp"></i>
-              <span>הזמן משתמש</span>
+              <span>׳”׳–׳׳ ׳׳©׳×׳׳©</span>
             </button>
             <button type="button" class="top-bar__dropdown-item" id="pwa-install-menu-btn">
               <i class="fa-solid fa-mobile-screen-button"></i>
-              <span>התקן אפליקציה</span>
+              <span>׳”׳×׳§׳ ׳׳₪׳׳™׳§׳¦׳™׳”</span>
             </button>
             <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
               <i class="fa-solid fa-key"></i>
-              <span>הצגת מפתח</span>
+              <span>׳”׳¦׳’׳× ׳׳₪׳×׳—</span>
             </button>
-            <!-- סטטיסטיקות הורדה + לוג – בסוף רשימת הגדרות | HYPER CORE TECH -->
+            <!-- ׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳× ׳”׳•׳¨׳“׳” + ׳׳•׳’ ג€“ ׳‘׳¡׳•׳£ ׳¨׳©׳™׳׳× ׳”׳’׳“׳¨׳•׳× | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--stats" id="topBarP2pStats">
-              <span class="p2p-stats-circle" id="p2pStatsCircle" title="סטטיסטיקות הורדה" aria-haspopup="true" aria-expanded="false">
+              <span class="p2p-stats-circle" id="p2pStatsCircle" title="׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳× ׳”׳•׳¨׳“׳”" aria-haspopup="true" aria-expanded="false">
                 <svg viewBox="0 0 36 36" class="p2p-stats-svg" aria-hidden="true">
                   <circle class="p2p-stats-bg" cx="18" cy="18" r="15.9"/>
                   <circle class="p2p-stats-p2p" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
@@ -1972,150 +1972,150 @@
                 </svg>
                 <span class="p2p-stats-text" id="p2pStatsText">0</span>
               </span>
-              <span>סטטיסטיקות הורדה</span>
+              <span>׳¡׳˜׳˜׳™׳¡׳˜׳™׳§׳•׳× ׳”׳•׳¨׳“׳”</span>
             </button>
-            <button type="button" class="top-bar__dropdown-item" id="topBarDebugLog" title="פתח Debug Console">
+            <button type="button" class="top-bar__dropdown-item" id="topBarDebugLog" title="׳₪׳×׳— Debug Console">
               <i class="fa-solid fa-wrench"></i>
-              <span>לוג ממשק</span>
+              <span>׳׳•׳’ ׳׳׳©׳§</span>
             </button>
-            <!-- לוג מעטפת APK – מחליף את כפתור LOG הצף | HYPER CORE TECH -->
+            <!-- ׳׳•׳’ ׳׳¢׳˜׳₪׳× APK ג€“ ׳׳—׳׳™׳£ ׳׳× ׳›׳₪׳×׳•׳¨ LOG ׳”׳¦׳£ | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="topBarShellDebugLog" hidden>
               <i class="fa-solid fa-terminal"></i>
-              <span>לוג מעטפת</span>
+              <span>׳׳•׳’ ׳׳¢׳˜׳₪׳×</span>
             </button>
-            <!-- מצב חירום – רק ב־APK (מוצג ב־JS) | HYPER CORE TECH -->
+            <!-- ׳׳¦׳‘ ׳—׳™׳¨׳•׳ ג€“ ׳¨׳§ ׳‘ײ¾APK (׳׳•׳¦׳’ ׳‘ײ¾JS) | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="topBarEmergencyMode" hidden>
-              <span class="top-bar__emergency-icon" aria-hidden="true">🚨</span>
-              <span>מצב חירום</span>
+              <span class="top-bar__emergency-icon" aria-hidden="true">נ¨</span>
+              <span>׳׳¦׳‘ ׳—׳™׳¨׳•׳</span>
             </button>
-            <div class="top-bar__dropdown-title">משחקי רשת</div>
-            <!-- חלק משחק דום (הועבר מהתחתית) | HYPER CORE TECH -->
+            <div class="top-bar__dropdown-title">׳׳©׳—׳§׳™ ׳¨׳©׳×</div>
+            <!-- ׳—׳׳§ ׳׳©׳—׳§ ׳“׳•׳ (׳”׳•׳¢׳‘׳¨ ׳׳”׳×׳—׳×׳™׳×) | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="videosDoomLauncher">
-              <span style="font-size: 1.2rem;">🔫</span>
-              <span>עוד משחק דום</span>
+              <span style="font-size: 1.2rem;">נ”«</span>
+              <span>׳¢׳•׳“ ׳׳©׳—׳§ ׳“׳•׳</span>
             </button>
-            <!-- חלק משחק טריוויה (הועבר מהתחתית) | HYPER CORE TECH -->
+            <!-- ׳—׳׳§ ׳׳©׳—׳§ ׳˜׳¨׳™׳•׳•׳™׳” (׳”׳•׳¢׳‘׳¨ ׳׳”׳×׳—׳×׳™׳×) | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="videosTriviaLauncher">
-              <span style="font-size: 1.2rem;">🎲</span>
-              <span>משחק טרוויה SOS</span>
+              <span style="font-size: 1.2rem;">נ²</span>
+              <span>׳׳©׳—׳§ ׳˜׳¨׳•׳•׳™׳” SOS</span>
             </button>
           </div>
         </div>
-        <!-- משחקים + LIVE TV מימין לאווטאר | HYPER CORE TECH -->
-        <button type="button" class="top-bar__games-btn" id="gamesToggleTop" title="משחקים" aria-label="פתח פיד משחקים">
+        <!-- ׳׳©׳—׳§׳™׳ + LIVE TV ׳׳™׳׳™׳ ׳׳׳•׳•׳˜׳׳¨ | HYPER CORE TECH -->
+        <button type="button" class="top-bar__games-btn" id="gamesToggleTop" title="׳׳©׳—׳§׳™׳" aria-label="׳₪׳×׳— ׳₪׳™׳“ ׳׳©׳—׳§׳™׳">
           <i class="fa-solid fa-gamepad" aria-hidden="true"></i>
         </button>
-        <button type="button" class="top-bar__live-tv-btn" id="liveTvToggleTop" title="LIVE TV" aria-label="פתח פיד ערוצי טלוויזיה">
+        <button type="button" class="top-bar__live-tv-btn" id="liveTvToggleTop" title="LIVE TV" aria-label="׳₪׳×׳— ׳₪׳™׳“ ׳¢׳¨׳•׳¦׳™ ׳˜׳׳•׳•׳™׳–׳™׳”">
           <span class="top-bar__live-tv-dot" aria-hidden="true"></span>
           <span class="top-bar__live-tv-label">LIVE TV</span>
         </button>
       </div>
     </header>
 
-    <!-- חלק חלונית התראות (videos.html) – תואם 1:1 ל-storage/index | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳—׳׳•׳ ׳™׳× ׳”׳×׳¨׳׳•׳× (videos.html) ג€“ ׳×׳•׳׳ 1:1 ׳-storage/index | HYPER CORE TECH -->
     <div class="notifications-panel" id="notificationsPanel" hidden>
       <header class="notifications-panel__header">
         <div class="notifications-panel__title-group">
           <i class="fa-solid fa-bell"></i>
           <div class="notifications-panel__title-text">
-            <h2>התראות</h2>
-            <p class="notifications-panel__subtitle">לייקים ותגובות אחרונים לפוסטים שלך</p>
+            <h2>׳”׳×׳¨׳׳•׳×</h2>
+            <p class="notifications-panel__subtitle">׳׳™׳™׳§׳™׳ ׳•׳×׳’׳•׳‘׳•׳× ׳׳—׳¨׳•׳ ׳™׳ ׳׳₪׳•׳¡׳˜׳™׳ ׳©׳׳</p>
           </div>
         </div>
-        <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">סמן כנקראו</button>
+        <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">׳¡׳׳ ׳›׳ ׳§׳¨׳׳•</button>
       </header>
       <div class="notifications-panel__body">
-        <p class="notifications-panel__empty" id="notificationsEmpty">אין התרעות חדשות כרגע.</p>
+        <p class="notifications-panel__empty" id="notificationsEmpty">׳׳™׳ ׳”׳×׳¨׳¢׳•׳× ׳—׳“׳©׳•׳× ׳›׳¨׳’׳¢.</p>
         <ul class="notifications-panel__list" id="notificationsList"></ul>
       </div>
     </div>
 
-    <!-- חלק פאנל פרופיל (videos.html) – פאנל overlay לפרופיל המשתמש כמו צ'אט והתראות | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳₪׳׳ ׳ ׳₪׳¨׳•׳₪׳™׳ (videos.html) ג€“ ׳₪׳׳ ׳ overlay ׳׳₪׳¨׳•׳₪׳™׳ ׳”׳׳©׳×׳׳© ׳›׳׳• ׳¦'׳׳˜ ׳•׳”׳×׳¨׳׳•׳× | HYPER CORE TECH -->
     <div class="profile-panel" id="profilePanel" hidden>
       <iframe id="profilePanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
-    <!-- חלק פאנל פרופיל ציבורי (videos.html) – פאנל overlay לצפייה בפרופיל משתמש אחר | HYPER CORE TECH -->
-    <!-- כפתור הסגירה נמצא בתוך profile-viewer.html עצמו ושולח postMessage לסגירה -->
+    <!-- ׳—׳׳§ ׳₪׳׳ ׳ ׳₪׳¨׳•׳₪׳™׳ ׳¦׳™׳‘׳•׳¨׳™ (videos.html) ג€“ ׳₪׳׳ ׳ overlay ׳׳¦׳₪׳™׳™׳” ׳‘׳₪׳¨׳•׳₪׳™׳ ׳׳©׳×׳׳© ׳׳—׳¨ | HYPER CORE TECH -->
+    <!-- ׳›׳₪׳×׳•׳¨ ׳”׳¡׳’׳™׳¨׳” ׳ ׳׳¦׳ ׳‘׳×׳•׳ profile-viewer.html ׳¢׳¦׳׳• ׳•׳©׳•׳׳— postMessage ׳׳¡׳’׳™׳¨׳” -->
     <div class="profile-panel" id="publicProfilePanel" hidden>
       <iframe id="publicProfilePanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
-    <!-- חלק פאנל משחקים (videos.html) – פאנל overlay לדף המשחקים ללא רענון הפיד | HYPER CORE TECH -->
-    <!-- כפתור הסגירה נמצא בתוך games.html עצמו ושולח postMessage לסגירה -->
+    <!-- ׳—׳׳§ ׳₪׳׳ ׳ ׳׳©׳—׳§׳™׳ (videos.html) ג€“ ׳₪׳׳ ׳ overlay ׳׳“׳£ ׳”׳׳©׳—׳§׳™׳ ׳׳׳ ׳¨׳¢׳ ׳•׳ ׳”׳₪׳™׳“ | HYPER CORE TECH -->
+    <!-- ׳›׳₪׳×׳•׳¨ ׳”׳¡׳’׳™׳¨׳” ׳ ׳׳¦׳ ׳‘׳×׳•׳ games.html ׳¢׳¦׳׳• ׳•׳©׳•׳׳— postMessage ׳׳¡׳’׳™׳¨׳” -->
     <div class="profile-panel" id="gamesPanel" hidden>
       <iframe id="gamesPanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
     </div>
 
-    <!-- חלק תפריט תחתון (videos.html) – ניווט תחתון בסגנון דף ההודעות + תפריט צד דסקטופ בסגנון sos010.html | HYPER CORE TECH -->
-    <nav class="primary-nav" aria-label="ניווט ראשי">
-      <!-- חלק תפריט צד דסקטופ (videos.html) – לוגו וחיפוש בתוך התפריט (מופיע בדסקטופ בלבד דרך CSS) | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳×׳₪׳¨׳™׳˜ ׳×׳—׳×׳•׳ (videos.html) ג€“ ׳ ׳™׳•׳•׳˜ ׳×׳—׳×׳•׳ ׳‘׳¡׳’׳ ׳•׳ ׳“׳£ ׳”׳”׳•׳“׳¢׳•׳× + ׳×׳₪׳¨׳™׳˜ ׳¦׳“ ׳“׳¡׳§׳˜׳•׳₪ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+    <nav class="primary-nav" aria-label="׳ ׳™׳•׳•׳˜ ׳¨׳׳©׳™">
+      <!-- ׳—׳׳§ ׳×׳₪׳¨׳™׳˜ ׳¦׳“ ׳“׳¡׳§׳˜׳•׳₪ (videos.html) ג€“ ׳׳•׳’׳• ׳•׳—׳™׳₪׳•׳© ׳‘׳×׳•׳ ׳”׳×׳₪׳¨׳™׳˜ (׳׳•׳₪׳™׳¢ ׳‘׳“׳¡׳§׳˜׳•׳₪ ׳‘׳׳‘׳“ ׳“׳¨׳ CSS) | HYPER CORE TECH -->
       <div class="primary-nav__desktop-header">
         <div class="primary-nav__desktop-logo" aria-label="SOS 010">
           <img class="primary-nav__desktop-logo-img" src="icons/sos-logo-desktop.png?v=20260818logo1" alt="SOS 010" width="240" height="135">
         </div>
         <div class="primary-nav__desktop-search">
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-          <input class="primary-nav__desktop-search-input" type="search" placeholder="חיפוש" aria-label="חיפוש" autocomplete="off">
+          <input class="primary-nav__desktop-search-input" type="search" placeholder="׳—׳™׳₪׳•׳©" aria-label="׳—׳™׳₪׳•׳©" autocomplete="off">
         </div>
       </div>
-      <!-- חלק בית (videos.html) – כפתור פיד הווידאו עם טקסט בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item is-active" data-nav="videos" aria-label="בית">
+      <!-- ׳—׳׳§ ׳‘׳™׳× (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳₪׳™׳“ ׳”׳•׳•׳™׳“׳׳• ׳¢׳ ׳˜׳§׳¡׳˜ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item is-active" data-nav="videos" aria-label="׳‘׳™׳×">
         <i class="fa-solid fa-house"></i>
-        <span>בית</span>
+        <span>׳‘׳™׳×</span>
       </button>
-      <!-- חלק התראות (videos.html) – כפתור התראות עם טקסט ובאדג' בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="notificationsToggle" aria-label="התראות">
+      <!-- ׳—׳׳§ ׳”׳×׳¨׳׳•׳× (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳”׳×׳¨׳׳•׳× ׳¢׳ ׳˜׳§׳¡׳˜ ׳•׳‘׳׳“׳’' ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="notificationsToggle" aria-label="׳”׳×׳¨׳׳•׳×">
         <i class="fa-regular fa-bell"></i>
-        <span>התראות</span>
+        <span>׳”׳×׳¨׳׳•׳×</span>
         <span class="nav-item__badge" id="notificationsBadge" hidden></span>
       </button>
-      <!-- חלק שיחות (videos.html) – כפתור צ'אט עם טקסט ובאדג' בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="messagesToggle" aria-label="שיחות">
+      <!-- ׳—׳׳§ ׳©׳™׳—׳•׳× (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳¦'׳׳˜ ׳¢׳ ׳˜׳§׳¡׳˜ ׳•׳‘׳׳“׳’' ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="messagesToggle" aria-label="׳©׳™׳—׳•׳×">
         <i class="fa-solid fa-phone"></i>
-        <span>שיחות</span>
+        <span>׳©׳™׳—׳•׳×</span>
         <span class="nav-item__badge" id="messagesBadge" hidden></span>
       </button>
-      <!-- חלק פרופיל (videos.html) – כפתור פרופיל עם טקסט בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" type="button" aria-label="פרופיל" data-nav="profile">
+      <!-- ׳—׳׳§ ׳₪׳¨׳•׳₪׳™׳ (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳₪׳¨׳•׳₪׳™׳ ׳¢׳ ׳˜׳§׳¡׳˜ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" type="button" aria-label="׳₪׳¨׳•׳₪׳™׳" data-nav="profile">
         <i class="fa-regular fa-user"></i>
-        <span>פרופיל</span>
+        <span>׳₪׳¨׳•׳₪׳™׳</span>
       </button>
-      <!-- חלק פרסם (videos.html) – כפתור פוסט חדש עם טקסט בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="navCompose" type="button" aria-label="פרסם">
+      <!-- ׳—׳׳§ ׳₪׳¨׳¡׳ (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳₪׳•׳¡׳˜ ׳—׳“׳© ׳¢׳ ׳˜׳§׳¡׳˜ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="navCompose" type="button" aria-label="׳₪׳¨׳¡׳">
         <i class="fa-solid fa-plus"></i>
-        <span>פרסם</span>
+        <span>׳₪׳¨׳¡׳</span>
       </button>
-      <!-- === כפתורים נוספים בסגנון sos010.html - מופיעים רק בדסקטופ === -->
-      <!-- חלק סייר (videos.html) – כפתור גלישה/סייר בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="explore" aria-label="סייר">
+      <!-- === ׳›׳₪׳×׳•׳¨׳™׳ ׳ ׳•׳¡׳₪׳™׳ ׳‘׳¡׳’׳ ׳•׳ sos010.html - ׳׳•׳₪׳™׳¢׳™׳ ׳¨׳§ ׳‘׳“׳¡׳§׳˜׳•׳₪ === -->
+      <!-- ׳—׳׳§ ׳¡׳™׳™׳¨ (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳’׳׳™׳©׳”/׳¡׳™׳™׳¨ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="explore" aria-label="׳¡׳™׳™׳¨">
         <i class="fa-regular fa-compass"></i>
-        <span>סייר</span>
+        <span>׳¡׳™׳™׳¨</span>
       </button>
-      <!-- חלק במעקב (videos.html) – כפתור עוקבים בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="following" aria-label="במעקב">
+      <!-- ׳—׳׳§ ׳‘׳׳¢׳§׳‘ (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳¢׳•׳§׳‘׳™׳ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="following" aria-label="׳‘׳׳¢׳§׳‘">
         <i class="fa-solid fa-user-group"></i>
-        <span>במעקב</span>
+        <span>׳‘׳׳¢׳§׳‘</span>
       </button>
-      <!-- חלק חברים (videos.html) – כפתור חברים בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="friends" aria-label="חברים">
+      <!-- ׳—׳׳§ ׳—׳‘׳¨׳™׳ (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳—׳‘׳¨׳™׳ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="friends" aria-label="׳—׳‘׳¨׳™׳">
         <i class="fa-solid fa-users"></i>
-        <span>חברים</span>
+        <span>׳—׳‘׳¨׳™׳</span>
       </button>
-      <!-- חלק שידור חי (videos.html) – כפתור שידור חי בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" data-nav="live" aria-label="שידור חי">
+      <!-- ׳—׳׳§ ׳©׳™׳“׳•׳¨ ׳—׳™ (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳©׳™׳“׳•׳¨ ׳—׳™ ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" data-nav="live" aria-label="׳©׳™׳“׳•׳¨ ׳—׳™">
         <i class="fa-solid fa-video"></i>
-        <span>שידור חי</span>
+        <span>׳©׳™׳“׳•׳¨ ׳—׳™</span>
       </button>
-      <!-- חלק עוד (videos.html) – כפתור עוד אפשרויות בסגנון sos010.html | HYPER CORE TECH -->
-      <button class="nav-item" id="moreOptionsToggle" type="button" aria-label="עוד">
+      <!-- ׳—׳׳§ ׳¢׳•׳“ (videos.html) ג€“ ׳›׳₪׳×׳•׳¨ ׳¢׳•׳“ ׳׳₪׳©׳¨׳•׳™׳•׳× ׳‘׳¡׳’׳ ׳•׳ sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="moreOptionsToggle" type="button" aria-label="׳¢׳•׳“">
         <i class="fa-solid fa-ellipsis"></i>
-        <span>עוד</span>
+        <span>׳¢׳•׳“</span>
       </button>
     </nav>
 
-    <!-- דף טעינה מלא – גלוי מיד ברענון; נסגר רק כשהפוסטים מוכנים | HYPER CORE TECH -->
-    <div class="videos-loading-overlay" id="videosLoadingOverlay" role="status" aria-busy="true" aria-label="טוען">
+    <!-- ׳“׳£ ׳˜׳¢׳™׳ ׳” ׳׳׳ ג€“ ׳’׳׳•׳™ ׳׳™׳“ ׳‘׳¨׳¢׳ ׳•׳; ׳ ׳¡׳’׳¨ ׳¨׳§ ׳›׳©׳”׳₪׳•׳¡׳˜׳™׳ ׳׳•׳›׳ ׳™׳ | HYPER CORE TECH -->
+    <div class="videos-loading-overlay" id="videosLoadingOverlay" role="status" aria-busy="true" aria-label="׳˜׳•׳¢׳">
       <div class="videos-loading-page">
         <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s1">S</span><span class="ln-o">O</span><span class="ln-s2">S</span></div>
         <div class="sos-loadnug__loading">Loading</div>
@@ -2123,61 +2123,61 @@
           <div class="videos-loading-bar__fill" id="videosLoadingBarFill" style="width:0%"></div>
         </div>
         <div class="sos-loadnug__pct" id="videosLoadingPct">0%</div>
-        <p class="videos-loading-status" id="videosLoadingStatus">מתחבר לרשת...</p>
+        <p class="videos-loading-status" id="videosLoadingStatus">׳׳×׳—׳‘׳¨ ׳׳¨׳©׳×...</p>
         <div class="sos-loadnug__explain" aria-live="polite">
-          <p class="sos-loadnug__explain-title">רשת חברתית מבוזרת</p>
-          <p class="sos-loadnug__explain-sub">האנשים הם הרשת — בלי שרת מרכזי אחד</p>
+          <p class="sos-loadnug__explain-title">׳¨׳©׳× ׳—׳‘׳¨׳×׳™׳× ׳׳‘׳•׳–׳¨׳×</p>
+          <p class="sos-loadnug__explain-sub">׳”׳׳ ׳©׳™׳ ׳”׳ ׳”׳¨׳©׳× ג€” ׳‘׳׳™ ׳©׳¨׳× ׳׳¨׳›׳–׳™ ׳׳—׳“</p>
         </div>
       </div>
     </div>
-    <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="טוען">
+    <div class="videos-soft-loading" id="videosSoftLoading" hidden aria-hidden="true" role="status" aria-label="׳˜׳•׳¢׳">
       <img class="videos-soft-loading__logo" src="./icons/sos-logo-mobile.png?v=20260731q" alt="SOS">
     </div>
 
-    <!-- חלק ראשי (videos.html) – מעטפת דף הווידאו בסגנון טיקטוק | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¨׳׳©׳™ (videos.html) ג€“ ׳׳¢׳˜׳₪׳× ׳“׳£ ׳”׳•׳•׳™׳“׳׳• ׳‘׳¡׳’׳ ׳•׳ ׳˜׳™׳§׳˜׳•׳§ | HYPER CORE TECH -->
     <main class="videos-feed" aria-labelledby="videosTitle">
       <section class="videos-feed__viewport" aria-live="polite">
         <div id="feedBootShell" aria-hidden="true"></div>
         <div class="videos-feed__stream" id="videosStream" role="list"></div>
-        <div class="videos-feed__status" id="videosStatus" role="status" style="display: none;">טוען סרטונים...</div>
+        <div class="videos-feed__status" id="videosStatus" role="status" style="display: none;">׳˜׳•׳¢׳ ׳¡׳¨׳˜׳•׳ ׳™׳...</div>
       </section>
     </main>
 
-    <!-- חלק הצגת מפתח (videos.html) – מודל ההצגה המשותף לכל העמודים | HYPER CORE TECH -->
-    <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>המפתח הפרטי שלך</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions"><button class="icon-button" onclick="copyKeyViewer()">העתק</button><button class="button-secondary" onclick="closeKeyViewer()">סגור</button></div><div class="modal-actions"><button class="button-secondary" onclick="logoutAndSwitchUser()">התנתק והחלף משתמש</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
+    <!-- ׳—׳׳§ ׳”׳¦׳’׳× ׳׳₪׳×׳— (videos.html) ג€“ ׳׳•׳“׳ ׳”׳”׳¦׳’׳” ׳”׳׳©׳•׳×׳£ ׳׳›׳ ׳”׳¢׳׳•׳“׳™׳ | HYPER CORE TECH -->
+    <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>׳”׳׳₪׳×׳— ׳”׳₪׳¨׳˜׳™ ׳©׳׳</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions"><button class="icon-button" onclick="copyKeyViewer()">׳”׳¢׳×׳§</button><button class="button-secondary" onclick="closeKeyViewer()">׳¡׳’׳•׳¨</button></div><div class="modal-actions"><button class="button-secondary" onclick="logoutAndSwitchUser()">׳”׳×׳ ׳×׳§ ׳•׳”׳—׳׳£ ׳׳©׳×׳׳©</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
 
-    <!-- חלק לוח גידול (videos.html) – פאנל דשבורד נתוני רשת לשימוש כפתור הפרופיל | HYPER CORE TECH -->
-    <section class="growth-dashboard" id="growthDashboard" aria-hidden="true"><div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div><article class="growth-dashboard__panel" role="dialog" aria-modal="true"><header class="growth-dashboard__header"><div class="growth-dashboard__title"><i class="fa-solid fa-chart-line"></i><div><h2>מדד גידול הרשת</h2><p>נתוני פעילות בזמן אמת של SphereOne Social</p></div></div><button class="growth-dashboard__close" type="button" aria-label="סגירת לוח הגידול" onclick="closeGrowthDashboard()"><i class="fa-solid fa-xmark"></i></button></header><nav class="growth-dashboard__tabs" role="tablist"><button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">סקירה</button><button class="growth-dashboard__tab" data-tab="activity" role="tab">פעילות</button><button class="growth-dashboard__tab" data-tab="leaders" role="tab">מובילים</button></nav><div class="growth-dashboard__content"><section class="growth-dashboard__section" data-pane="overview"><div class="growth-metrics" id="growthMetrics"></div><div class="growth-chart" id="growthChartContainer"><div class="growth-chart__ranges" role="group" aria-label="טווח היסטוריה"><button type="button" class="growth-chart__range-button" data-range="1d">יום</button><button type="button" class="growth-chart__range-button" data-range="1w">שבוע</button><button type="button" class="growth-chart__range-button is-active" data-range="1m">חודש</button><button type="button" class="growth-chart__range-button" data-range="3m">3 חודשים</button><button type="button" class="growth-chart__range-button" data-range="1y">שנה</button></div><canvas id="growthChart" aria-label="גרף מגמת פעילות"></canvas></div></section><section class="growth-dashboard__section is-hidden" data-pane="activity"><div class="growth-activity" id="growthActivity"></div></section><section class="growth-dashboard__section is-hidden" data-pane="leaders"><div class="growth-leaders" id="growthLeaders"></div></section></div><footer class="growth-dashboard__footer"><div class="growth-dashboard__status" id="growthStatus">מתחבר למדד...</div><div class="growth-dashboard__actions"><label class="growth-dashboard__toggle"><input type="checkbox" id="growthAutoRefresh"><span>רענון אוטומטי</span></label><button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()"><i class="fa-solid fa-rotate"></i>רענן כעת</button></div></footer></article></section>
+    <!-- ׳—׳׳§ ׳׳•׳— ׳’׳™׳“׳•׳ (videos.html) ג€“ ׳₪׳׳ ׳ ׳“׳©׳‘׳•׳¨׳“ ׳ ׳×׳•׳ ׳™ ׳¨׳©׳× ׳׳©׳™׳׳•׳© ׳›׳₪׳×׳•׳¨ ׳”׳₪׳¨׳•׳₪׳™׳ | HYPER CORE TECH -->
+    <section class="growth-dashboard" id="growthDashboard" aria-hidden="true"><div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div><article class="growth-dashboard__panel" role="dialog" aria-modal="true"><header class="growth-dashboard__header"><div class="growth-dashboard__title"><i class="fa-solid fa-chart-line"></i><div><h2>׳׳“׳“ ׳’׳™׳“׳•׳ ׳”׳¨׳©׳×</h2><p>׳ ׳×׳•׳ ׳™ ׳₪׳¢׳™׳׳•׳× ׳‘׳–׳׳ ׳׳׳× ׳©׳ SphereOne Social</p></div></div><button class="growth-dashboard__close" type="button" aria-label="׳¡׳’׳™׳¨׳× ׳׳•׳— ׳”׳’׳™׳“׳•׳" onclick="closeGrowthDashboard()"><i class="fa-solid fa-xmark"></i></button></header><nav class="growth-dashboard__tabs" role="tablist"><button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">׳¡׳§׳™׳¨׳”</button><button class="growth-dashboard__tab" data-tab="activity" role="tab">׳₪׳¢׳™׳׳•׳×</button><button class="growth-dashboard__tab" data-tab="leaders" role="tab">׳׳•׳‘׳™׳׳™׳</button></nav><div class="growth-dashboard__content"><section class="growth-dashboard__section" data-pane="overview"><div class="growth-metrics" id="growthMetrics"></div><div class="growth-chart" id="growthChartContainer"><div class="growth-chart__ranges" role="group" aria-label="׳˜׳•׳•׳— ׳”׳™׳¡׳˜׳•׳¨׳™׳”"><button type="button" class="growth-chart__range-button" data-range="1d">׳™׳•׳</button><button type="button" class="growth-chart__range-button" data-range="1w">׳©׳‘׳•׳¢</button><button type="button" class="growth-chart__range-button is-active" data-range="1m">׳—׳•׳“׳©</button><button type="button" class="growth-chart__range-button" data-range="3m">3 ׳—׳•׳“׳©׳™׳</button><button type="button" class="growth-chart__range-button" data-range="1y">׳©׳ ׳”</button></div><canvas id="growthChart" aria-label="׳’׳¨׳£ ׳׳’׳׳× ׳₪׳¢׳™׳׳•׳×"></canvas></div></section><section class="growth-dashboard__section is-hidden" data-pane="activity"><div class="growth-activity" id="growthActivity"></div></section><section class="growth-dashboard__section is-hidden" data-pane="leaders"><div class="growth-leaders" id="growthLeaders"></div></section></div><footer class="growth-dashboard__footer"><div class="growth-dashboard__status" id="growthStatus">׳׳×׳—׳‘׳¨ ׳׳׳“׳“...</div><div class="growth-dashboard__actions"><label class="growth-dashboard__toggle"><input type="checkbox" id="growthAutoRefresh"><span>׳¨׳¢׳ ׳•׳ ׳׳•׳˜׳•׳׳˜׳™</span></label><button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()"><i class="fa-solid fa-rotate"></i>׳¨׳¢׳ ׳ ׳›׳¢׳×</button></div></footer></article></section>
 
-    <!-- חלק חלון יצירת פוסט (videos.html) – אותו קומפוזר בדיוק כמו בפיד הראשי | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳—׳׳•׳ ׳™׳¦׳™׳¨׳× ׳₪׳•׳¡׳˜ (videos.html) ג€“ ׳׳•׳×׳• ׳§׳•׳׳₪׳•׳–׳¨ ׳‘׳“׳™׳•׳§ ׳›׳׳• ׳‘׳₪׳™׳“ ׳”׳¨׳׳©׳™ | HYPER CORE TECH -->
     <div class="compose-modal" id="composeModal" aria-hidden="true">
       <div class="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="composeChooserTitle">
-        <!-- שלב 1: בחירת סוג תוכן | HYPER CORE TECH -->
+        <!-- ׳©׳׳‘ 1: ׳‘׳—׳™׳¨׳× ׳¡׳•׳’ ׳×׳•׳›׳ | HYPER CORE TECH -->
         <div class="compose-chooser" id="composeChooser">
           <div class="compose-chooser__header">
-            <h2 class="compose-chooser__title" id="composeChooserTitle">מה לשתף?</h2>
-            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="סגור">
+            <h2 class="compose-chooser__title" id="composeChooserTitle">׳׳” ׳׳©׳×׳£?</h2>
+            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="׳¡׳’׳•׳¨">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
-          <p class="compose-chooser__subtitle">בחרו פעולה אחת והמשיכו</p>
+          <p class="compose-chooser__subtitle">׳‘׳—׳¨׳• ׳₪׳¢׳•׳׳” ׳׳—׳× ׳•׳”׳׳©׳™׳›׳•</p>
           <div class="compose-chooser__grid">
             <button type="button" class="compose-choice" id="composeVideoRecordButton" data-compose-choice="camera">
               <span class="compose-choice__icon compose-choice__icon--camera" aria-hidden="true">
                 <i class="fa-solid fa-video"></i>
               </span>
               <span class="compose-choice__copy">
-                <span class="compose-choice__label">מצלמה</span>
-                <span class="compose-choice__hint">הקליטו סרטון חדש עכשיו</span>
+                <span class="compose-choice__label">׳׳¦׳׳׳”</span>
+                <span class="compose-choice__hint">׳”׳§׳׳™׳˜׳• ׳¡׳¨׳˜׳•׳ ׳—׳“׳© ׳¢׳›׳©׳™׳•</span>
               </span>
             </button>
-            <label class="compose-choice" id="composeUploadChoice" data-compose-choice="upload" aria-label="העלאה">
+            <label class="compose-choice" id="composeUploadChoice" data-compose-choice="upload" aria-label="׳”׳¢׳׳׳”">
               <span class="compose-choice__icon compose-choice__icon--upload" aria-hidden="true">
                 <i class="fa-solid fa-images"></i>
               </span>
               <span class="compose-choice__copy">
-                <span class="compose-choice__label">העלאה</span>
-                <span class="compose-choice__hint">תמונה או וידאו מהגלריה</span>
+                <span class="compose-choice__label">׳”׳¢׳׳׳”</span>
+                <span class="compose-choice__hint">׳×׳׳•׳ ׳” ׳׳• ׳•׳™׳“׳׳• ׳׳”׳’׳׳¨׳™׳”</span>
               </span>
               <input type="file" id="composeMediaInput" class="compose-media-input" accept="image/*,video/*">
             </label>
@@ -2186,77 +2186,77 @@
                 <i class="fa-solid fa-pen"></i>
               </span>
               <span class="compose-choice__copy">
-                <span class="compose-choice__label">טקסט</span>
-                <span class="compose-choice__hint">פוסט כתוב בלי מדיה</span>
+                <span class="compose-choice__label">׳˜׳§׳¡׳˜</span>
+                <span class="compose-choice__hint">׳₪׳•׳¡׳˜ ׳›׳×׳•׳‘ ׳‘׳׳™ ׳׳“׳™׳”</span>
               </span>
             </button>
           </div>
         </div>
 
-        <!-- שלב 2: עריכה ופרסום | HYPER CORE TECH -->
+        <!-- ׳©׳׳‘ 2: ׳¢׳¨׳™׳›׳” ׳•׳₪׳¨׳¡׳•׳ | HYPER CORE TECH -->
         <div class="compose-editor" id="composeEditor" hidden>
           <div class="compose-editor__header">
-            <button type="button" class="compose-icon-btn" id="composeBackToChooser" aria-label="חזרה">
+            <button type="button" class="compose-icon-btn" id="composeBackToChooser" aria-label="׳—׳–׳¨׳”">
               <i class="fa-solid fa-arrow-right"></i>
             </button>
             <div class="compose-editor__profile">
               <div class="profile-avatar" id="composeProfileAvatar">?</div>
-              <span class="profile-name" id="composeProfileName">משתמש</span>
+              <span class="profile-name" id="composeProfileName">׳׳©׳×׳׳©</span>
               <span class="profile-bio" id="composeProfileBio" hidden></span>
             </div>
-            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="סגור">
+            <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="׳¡׳’׳•׳¨">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
 
           <div class="compose-editor__body">
-            <textarea id="postText" placeholder="הוסיפו כיתוב... לינק ערוץ חי (.m3u8) או לינק משחק"></textarea>
+            <textarea id="postText" placeholder="׳”׳•׳¡׳™׳₪׳• ׳›׳™׳×׳•׳‘... ׳׳™׳ ׳§ ׳¢׳¨׳•׳¥ ׳—׳™ (.m3u8) ׳׳• ׳׳™׳ ׳§ ׳׳©׳—׳§"></textarea>
 
-            <!-- סימון ידני למשחק – ללינקים שלא ברשימת הזיהוי האוטומטי | HYPER CORE TECH -->
+            <!-- ׳¡׳™׳׳•׳ ׳™׳“׳ ׳™ ׳׳׳©׳—׳§ ג€“ ׳׳׳™׳ ׳§׳™׳ ׳©׳׳ ׳‘׳¨׳©׳™׳׳× ׳”׳–׳™׳”׳•׳™ ׳”׳׳•׳˜׳•׳׳˜׳™ | HYPER CORE TECH -->
             <label class="compose-game-flag" id="composeGameFlagWrap" hidden>
               <input type="checkbox" id="composeMarkAsGame">
               <span class="compose-game-flag__box" aria-hidden="true"></span>
               <span class="compose-game-flag__text">
-                <strong>זה משחק</strong>
-                — יופיע בפיד ובדף המשחקים
+                <strong>׳–׳” ׳׳©׳—׳§</strong>
+                ג€” ׳™׳•׳₪׳™׳¢ ׳‘׳₪׳™׳“ ׳•׳‘׳“׳£ ׳”׳׳©׳—׳§׳™׳
               </span>
             </label>
 
             <div class="compose-dialog__toolbar" id="composeTextTools" hidden>
-              <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע לטקסט">
+              <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="׳¨׳§׳¢ ׳׳˜׳§׳¡׳˜">
                 <i class="fa-solid fa-palette"></i>
-                <span>רקע</span>
+                <span>׳¨׳§׳¢</span>
               </button>
-              <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
+              <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="׳”׳¡׳¨ ׳¨׳§׳¢">
                 <i class="fa-solid fa-eraser"></i>
-                <span>נקה</span>
+                <span>׳ ׳§׳”</span>
               </button>
             </div>
 
-            <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
+            <div class="compose-backgrounds" id="composeBackgrounds" aria-label="׳’׳׳¨׳™׳™׳× ׳¨׳§׳¢׳™׳" hidden></div>
             <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
               <label class="compose-bg__option-toggle">
                 <input type="checkbox" id="composeBgTextOnlyToggle">
-                <span>הצג טקסט רק על התמונה</span>
+                <span>׳”׳¦׳’ ׳˜׳§׳¡׳˜ ׳¨׳§ ׳¢׳ ׳”׳×׳׳•׳ ׳”</span>
               </label>
               <label class="compose-bg__option-toggle">
                 <input type="checkbox" id="composeBgZoomToggle">
-                <span>הפעל אפקט זום בלופ</span>
+                <span>׳”׳₪׳¢׳ ׳׳₪׳§׳˜ ׳–׳•׳ ׳‘׳׳•׳₪</span>
               </label>
             </div>
 
             <div id="composeMediaPreview" class="compose-media-preview">
-              <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
+              <img id="composeMediaPreviewImage" alt="׳×׳¦׳•׳’׳” ׳׳§׳“׳™׳׳” ׳׳×׳׳•׳ ׳”">
               <video id="composeMediaPreviewVideo" controls playsinline></video>
             </div>
 
             <label class="compose-terms-ack">
               <input type="checkbox" id="composeTermsAck">
               <span>
-                אני מאשר/ת שזו יצירה שלי או עם רישיון, ושאני מסכים/ה ל
-                <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a>
-                ול
-                <a href="copyright.html" target="_blank" rel="noopener">זכויות יוצרים</a>.
+                ׳׳ ׳™ ׳׳׳©׳¨/׳× ׳©׳–׳• ׳™׳¦׳™׳¨׳” ׳©׳׳™ ׳׳• ׳¢׳ ׳¨׳™׳©׳™׳•׳, ׳•׳©׳׳ ׳™ ׳׳¡׳›׳™׳/׳” ׳
+                <a href="terms.html" target="_blank" rel="noopener">׳×׳ ׳׳™ ׳”׳©׳™׳׳•׳©</a>
+                ׳•׳
+                <a href="copyright.html" target="_blank" rel="noopener">׳–׳›׳•׳™׳•׳× ׳™׳•׳¦׳¨׳™׳</a>.
               </span>
             </label>
 
@@ -2266,73 +2266,73 @@
           </div>
 
           <div class="compose-dialog__actions">
-            <button class="button-secondary" type="button" onclick="closeCompose()">ביטול</button>
-            <button class="button-primary" type="button" id="composePublishButton" disabled>פרסם</button>
+            <button class="button-secondary" type="button" onclick="closeCompose()">׳‘׳™׳˜׳•׳</button>
+            <button class="button-primary" type="button" id="composePublishButton" disabled>׳₪׳¨׳¡׳</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- חלון תנאים לפני פרסום | HYPER CORE TECH -->
+    <!-- ׳—׳׳•׳ ׳×׳ ׳׳™׳ ׳׳₪׳ ׳™ ׳₪׳¨׳¡׳•׳ | HYPER CORE TECH -->
     <div class="terms-modal" id="termsModal" aria-hidden="true">
       <div class="terms-modal__content">
-        <h3 class="terms-modal__title">📜 אישור תנאים</h3>
+        <h3 class="terms-modal__title">נ“ ׳׳™׳©׳•׳¨ ׳×׳ ׳׳™׳</h3>
         <div class="terms-modal__checkboxes">
           <label class="terms-modal__checkbox">
             <input type="checkbox" id="termsPolicyCheckbox">
-            <span>קראתי את <a href="terms.html" target="_blank">תנאי השירות</a> ו<a href="copyright.html" target="_blank">מדיניות זכויות היוצרים</a> ואני מבין את אכיפת הרשת המבוזרת.</span>
+            <span>׳§׳¨׳׳×׳™ ׳׳× <a href="terms.html" target="_blank">׳×׳ ׳׳™ ׳”׳©׳™׳¨׳•׳×</a> ׳•<a href="copyright.html" target="_blank">׳׳“׳™׳ ׳™׳•׳× ׳–׳›׳•׳™׳•׳× ׳”׳™׳•׳¦׳¨׳™׳</a> ׳•׳׳ ׳™ ׳׳‘׳™׳ ׳׳× ׳׳›׳™׳₪׳× ׳”׳¨׳©׳× ׳”׳׳‘׳•׳–׳¨׳×.</span>
           </label>
           <label class="terms-modal__checkbox">
             <input type="checkbox" id="termsRightsCheckbox">
-            <span>התוכן שפורסם הוא בבעלותי או שיש לי רישיון לפרסמו.</span>
+            <span>׳”׳×׳•׳›׳ ׳©׳₪׳•׳¨׳¡׳ ׳”׳•׳ ׳‘׳‘׳¢׳׳•׳×׳™ ׳׳• ׳©׳™׳© ׳׳™ ׳¨׳™׳©׳™׳•׳ ׳׳₪׳¨׳¡׳׳•.</span>
           </label>
         </div>
         <div class="terms-modal__actions">
-          <button class="terms-modal__cancel" onclick="closeTermsModal()">ביטול</button>
-          <button class="terms-modal__publish" id="termsPublishButton" onclick="confirmAndPublish()" disabled>פרסם</button>
+          <button class="terms-modal__cancel" onclick="closeTermsModal()">׳‘׳™׳˜׳•׳</button>
+          <button class="terms-modal__publish" id="termsPublishButton" onclick="confirmAndPublish()" disabled>׳₪׳¨׳¡׳</button>
         </div>
       </div>
     </div>
 
-    <!-- הודעת עיבוד ברקע | HYPER CORE TECH -->
+    <!-- ׳”׳•׳“׳¢׳× ׳¢׳™׳‘׳•׳“ ׳‘׳¨׳§׳¢ | HYPER CORE TECH -->
     <div class="processing-notice" id="processingNotice">
-      <p class="processing-notice__text">⏳ הפוסט שלך מעובד ומועלה...</p>
-      <p class="processing-notice__hint">אל תרענן את הדף! הכפתור <span class="blink-hint">המהבהב באדום</span> מציין שהעיבוד פעיל.</p>
+      <p class="processing-notice__text">ג³ ׳”׳₪׳•׳¡׳˜ ׳©׳׳ ׳׳¢׳•׳‘׳“ ׳•׳׳•׳¢׳׳”...</p>
+      <p class="processing-notice__hint">׳׳ ׳×׳¨׳¢׳ ׳ ׳׳× ׳”׳“׳£! ׳”׳›׳₪׳×׳•׳¨ <span class="blink-hint">׳”׳׳”׳‘׳”׳‘ ׳‘׳׳“׳•׳</span> ׳׳¦׳™׳™׳ ׳©׳”׳¢׳™׳‘׳•׳“ ׳₪׳¢׳™׳.</p>
     </div>
 
-    <!-- חלק הקלטת וידאו (videos.html) – חלון בחירת זמן ומצלמה | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳”׳§׳׳˜׳× ׳•׳™׳“׳׳• (videos.html) ג€“ ׳—׳׳•׳ ׳‘׳—׳™׳¨׳× ׳–׳׳ ׳•׳׳¦׳׳׳” | HYPER CORE TECH -->
     <div class="video-record-modal" id="videoRecordModal" aria-hidden="true">
       <div class="video-record-backdrop" onclick="closeVideoRecordModal()"></div>
       <div class="video-record-panel" role="dialog" aria-modal="true">
         <div class="video-record-header">
-          <h3>הקלט וידאו</h3>
-          <button class="video-record-close" type="button" onclick="closeVideoRecordModal()" aria-label="סגור">
+          <h3>׳”׳§׳׳˜ ׳•׳™׳“׳׳•</h3>
+          <button class="video-record-close" type="button" onclick="closeVideoRecordModal()" aria-label="׳¡׳’׳•׳¨">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
         
         <div class="video-record-content">
-  <!-- ממשק הקלטה ישיר -->
+  <!-- ׳׳׳©׳§ ׳”׳§׳׳˜׳” ׳™׳©׳™׳¨ -->
   <div class="video-record-interface" id="videoRecordInterface">
     <div class="video-record-preview">
       <video id="videoRecordPreview" autoplay muted playsinline></video>
-      <!-- טיימר צף -->
+      <!-- ׳˜׳™׳™׳׳¨ ׳¦׳£ -->
       <div class="floating-timer" id="floatingTimer">00:00</div>
       <div class="video-record-controls">
-        <button class="camera-switch" id="cameraSwitchButton" aria-label="החלף מצלמה">
+        <button class="camera-switch" id="cameraSwitchButton" aria-label="׳”׳—׳׳£ ׳׳¦׳׳׳”">
           <i class="fa-solid fa-camera-rotate"></i>
         </button>
-        <button class="record-button" id="recordButton" aria-label="הקלט">
+        <button class="record-button" id="recordButton" aria-label="׳”׳§׳׳˜">
           <div class="record-button-inner"></div>
         </button>
         <div class="record-timer" id="recordTimer">00:00</div>
       </div>
     </div>
-    <!-- כפתור ביטול בממשק הקלטה -->
+    <!-- ׳›׳₪׳×׳•׳¨ ׳‘׳™׳˜׳•׳ ׳‘׳׳׳©׳§ ׳”׳§׳׳˜׳” -->
     <div class="record-cancel">
       <button class="record-cancel-btn" onclick="closeVideoRecordModal()" type="button">
         <i class="fa-solid fa-xmark"></i>
-        ביטול הקלטה
+        ׳‘׳™׳˜׳•׳ ׳”׳§׳׳˜׳”
       </button>
     </div>
   </div>
@@ -2340,154 +2340,154 @@
       </div>
     </div>
 
-    <!-- חלק חלון התחברות / הרשמה לאורח (videos.html) – מודאל מלא כמו בטיקטוק | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳—׳׳•׳ ׳”׳×׳—׳‘׳¨׳•׳× / ׳”׳¨׳©׳׳” ׳׳׳•׳¨׳— (videos.html) ג€“ ׳׳•׳“׳׳ ׳׳׳ ׳›׳׳• ׳‘׳˜׳™׳§׳˜׳•׳§ | HYPER CORE TECH -->
     <div id="guestAuthModal" class="modal" style="display:none;">
       <div class="modal-content" style="max-width: 450px; text-align: center; padding: 30px;">
         <button class="modal-close" type="button" data-guest-auth-close style="position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 28px; cursor: pointer; color: #666;">&times;</button>
         
-        <!-- שלב ראשוני: בחירה בין התחברות להרשמה -->
+        <!-- ׳©׳׳‘ ׳¨׳׳©׳•׳ ׳™: ׳‘׳—׳™׳¨׳” ׳‘׳™׳ ׳”׳×׳—׳‘׳¨׳•׳× ׳׳”׳¨׳©׳׳” -->
         <div id="authStepInitial" class="auth-step">
-          <h2 style="margin-bottom: 15px; font-size: 24px;">הצטרפו לרשת</h2>
+          <h2 style="margin-bottom: 15px; font-size: 24px;">׳”׳¦׳˜׳¨׳₪׳• ׳׳¨׳©׳×</h2>
           <p id="guestAuthModalReason" style="margin-bottom: 30px; color: #666; font-size: 15px;">
-            כדי להמשיך צריך להתחבר או להירשם.
+            ׳›׳“׳™ ׳׳”׳׳©׳™׳ ׳¦׳¨׳™׳ ׳׳”׳×׳—׳‘׳¨ ׳׳• ׳׳”׳™׳¨׳©׳.
           </p>
           <div style="display: flex; flex-direction: column; gap: 12px;">
             <button type="button" class="button-primary" id="btnStartSignup" style="width: 100%; padding: 14px; font-size: 16px;">
-              פתחו משתמש חדש
+              ׳₪׳×׳—׳• ׳׳©׳×׳׳© ׳—׳“׳©
             </button>
             <button type="button" class="button-secondary" id="btnStartLogin" style="width: 100%; padding: 14px; font-size: 16px;">
-              יש לי כבר קוד אישי
+              ׳™׳© ׳׳™ ׳›׳‘׳¨ ׳§׳•׳“ ׳׳™׳©׳™
             </button>
           </div>
         </div>
 
-        <!-- שלב התחברות: הדבקת מפתח -->
+        <!-- ׳©׳׳‘ ׳”׳×׳—׳‘׳¨׳•׳×: ׳”׳“׳‘׳§׳× ׳׳₪׳×׳— -->
         <div id="authStepLogin" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromLogin" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">הדבק את הקוד האישי שלך</h2>
-          <textarea id="loginKeyInput" placeholder="הדבק כאן את המפתח הפרטי שלך (nsec... או hex)" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px;"></textarea>
+          <button type="button" id="btnBackFromLogin" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">ג†’</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">׳”׳“׳‘׳§ ׳׳× ׳”׳§׳•׳“ ׳”׳׳™׳©׳™ ׳©׳׳</h2>
+          <textarea id="loginKeyInput" placeholder="׳”׳“׳‘׳§ ׳›׳׳ ׳׳× ׳”׳׳₪׳×׳— ׳”׳₪׳¨׳˜׳™ ׳©׳׳ (nsec... ׳׳• hex)" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px;"></textarea>
           <p id="loginStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnLoginSubmit" style="width: 100%; padding: 14px; font-size: 16px;">
-            כניסה
+            ׳›׳ ׳™׳¡׳”
           </button>
         </div>
 
-        <!-- שלב הרשמה: הזמנה -->
+        <!-- ׳©׳׳‘ ׳”׳¨׳©׳׳”: ׳”׳–׳׳ ׳” -->
         <div id="authStepInvite" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromInvite" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
-          <h2 style="margin-bottom: 12px; font-size: 22px;">הזמנה לרשת</h2>
+          <button type="button" id="btnBackFromInvite" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">ג†’</button>
+          <h2 style="margin-bottom: 12px; font-size: 22px;">׳”׳–׳׳ ׳” ׳׳¨׳©׳×</h2>
           <p style="margin-bottom: 18px; color: #666; font-size: 14px; line-height: 1.5;">
-            פתיחת משתמש חדש אפשרית עם קוד הזמנה שקיבלתם מחבר ברשת (בדרך כלל בקישור מוואטסאפ).
+            ׳₪׳×׳™׳—׳× ׳׳©׳×׳׳© ׳—׳“׳© ׳׳₪׳©׳¨׳™׳× ׳¢׳ ׳§׳•׳“ ׳”׳–׳׳ ׳” ׳©׳§׳™׳‘׳׳×׳ ׳׳—׳‘׳¨ ׳‘׳¨׳©׳× (׳‘׳“׳¨׳ ׳›׳׳ ׳‘׳§׳™׳©׳•׳¨ ׳׳•׳•׳׳˜׳¡׳׳₪).
           </p>
-          <input type="text" id="signupInviteCodeInput" placeholder="קוד הזמנה" autocomplete="off" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase;" />
+          <input type="text" id="signupInviteCodeInput" placeholder="׳§׳•׳“ ׳”׳–׳׳ ׳”" autocomplete="off" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase;" />
           <input type="tel" id="signupInvitePhoneInput" hidden autocomplete="off" tabindex="-1" aria-hidden="true" />
           <p id="inviteStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnInviteNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            המשך
+            ׳”׳׳©׳
           </button>
         </div>
 
-        <!-- שלב 1 הרשמה: מייל -->
+        <!-- ׳©׳׳‘ 1 ׳”׳¨׳©׳׳”: ׳׳™׳™׳ -->
         <div id="authStepEmail" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">מה כתובת המייל שלך?</h2>
+          <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">ג†’</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">׳׳” ׳›׳×׳•׳‘׳× ׳”׳׳™׳™׳ ׳©׳׳?</h2>
           <input type="email" id="signupEmailInput" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
           <div class="auth-legal-block">
             <label class="auth-legal-checkbox">
               <input type="checkbox" id="signupLegalAgree" />
               <span>
-                אני מסכים לתנאי הרשת המבוזרת ומאשר שקראתי את המסמכים:
+                ׳׳ ׳™ ׳׳¡׳›׳™׳ ׳׳×׳ ׳׳™ ׳”׳¨׳©׳× ׳”׳׳‘׳•׳–׳¨׳× ׳•׳׳׳©׳¨ ׳©׳§׳¨׳׳×׳™ ׳׳× ׳”׳׳¡׳׳›׳™׳:
                 <span class="legal-links">
-                  <a href="terms.html" data-policy-target="terms.html">תנאי השימוש</a>,
-                  <a href="privacy.html" data-policy-target="privacy.html">מדיניות הפרטיות</a>,
-                  <a href="community.html" data-policy-target="community.html">קוד הקהילה</a> ו-
-                  <a href="copyright.html" data-policy-target="copyright.html">מדיניות זכויות היוצרים</a>.
+                  <a href="terms.html" data-policy-target="terms.html">׳×׳ ׳׳™ ׳”׳©׳™׳׳•׳©</a>,
+                  <a href="privacy.html" data-policy-target="privacy.html">׳׳“׳™׳ ׳™׳•׳× ׳”׳₪׳¨׳˜׳™׳•׳×</a>,
+                  <a href="community.html" data-policy-target="community.html">׳§׳•׳“ ׳”׳§׳”׳™׳׳”</a> ׳•-
+                  <a href="copyright.html" data-policy-target="copyright.html">׳׳“׳™׳ ׳™׳•׳× ׳–׳›׳•׳™׳•׳× ׳”׳™׳•׳¦׳¨׳™׳</a>.
                 </span>
               </span>
             </label>
-            <p class="auth-legal-note">המייל נרשם כ-hash ברשת כדי למנוע הרשמה כפולה. לא נשלח מייל אימות בשלב זה.</p>
+            <p class="auth-legal-note">׳”׳׳™׳™׳ ׳ ׳¨׳©׳ ׳›-hash ׳‘׳¨׳©׳× ׳›׳“׳™ ׳׳׳ ׳•׳¢ ׳”׳¨׳©׳׳” ׳›׳₪׳•׳׳”. ׳׳ ׳ ׳©׳׳— ׳׳™׳™׳ ׳׳™׳׳•׳× ׳‘׳©׳׳‘ ׳–׳”.</p>
           </div>
           <p id="emailStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnEmailNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            הבא
+            ׳”׳‘׳
           </button>
         </div>
 
-        <!-- שלב 2 הרשמה: שם משתמש -->
+        <!-- ׳©׳׳‘ 2 ׳”׳¨׳©׳׳”: ׳©׳ ׳׳©׳×׳׳© -->
         <div id="authStepName" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromName" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">מה השם שלך?</h2>
-          <input type="text" id="signupNameInput" placeholder="השם שלך" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
+          <button type="button" id="btnBackFromName" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">ג†’</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">׳׳” ׳”׳©׳ ׳©׳׳?</h2>
+          <input type="text" id="signupNameInput" placeholder="׳”׳©׳ ׳©׳׳" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
           <p id="nameStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnNameNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            הבא
+            ׳”׳‘׳
           </button>
         </div>
 
-        <!-- שלב 3 הרשמה: תמונת פרופיל -->
+        <!-- ׳©׳׳‘ 3 ׳”׳¨׳©׳׳”: ׳×׳׳•׳ ׳× ׳₪׳¨׳•׳₪׳™׳ -->
         <div id="authStepAvatar" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromAvatar" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">בחר תמונת פרופיל</h2>
+          <button type="button" id="btnBackFromAvatar" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">ג†’</button>
+          <h2 style="margin-bottom: 20px; font-size: 22px;">׳‘׳—׳¨ ׳×׳׳•׳ ׳× ׳₪׳¨׳•׳₪׳™׳</h2>
           <div id="avatarPreview" style="width: 120px; height: 120px; border-radius: 50%; background: #f0f0f0; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #ddd;">
-            <span style="font-size: 48px; color: #999;">👤</span>
+            <span style="font-size: 48px; color: #999;">נ‘₪</span>
           </div>
           <input type="file" id="signupAvatarInput" accept="image/*" style="display: none;" />
           <button type="button" class="button-secondary" id="btnChooseAvatar" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 10px;">
-            בחר תמונה
+            ׳‘׳—׳¨ ׳×׳׳•׳ ׳”
           </button>
           <button type="button" class="button-secondary" id="btnSkipAvatar" style="width: 100%; padding: 10px; font-size: 14px; margin-bottom: 15px; background: transparent; border: none; color: #666;">
-            דלג על שלב זה
+            ׳“׳׳’ ׳¢׳ ׳©׳׳‘ ׳–׳”
           </button>
           <p id="avatarStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnAvatarNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            הבא
+            ׳”׳‘׳
           </button>
         </div>
 
-        <!-- שלב 4 הרשמה: הצגת מפתח -->
+        <!-- ׳©׳׳‘ 4 ׳”׳¨׳©׳׳”: ׳”׳¦׳’׳× ׳׳₪׳×׳— -->
         <div id="authStepKey" class="auth-step" style="display:none;">
-          <h2 style="margin-bottom: 15px; font-size: 22px; color: #ffffff;">זה המפתח האישי שלך!</h2>
+          <h2 style="margin-bottom: 15px; font-size: 22px; color: #ffffff;">׳–׳” ׳”׳׳₪׳×׳— ׳”׳׳™׳©׳™ ׳©׳׳!</h2>
           <div style="background: rgba(255, 193, 7, 0.15); border: 2px solid #ffc107; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: right;">
             <p style="font-size: 14px; color: #ffc107; margin: 0; line-height: 1.6;">
-              ⚠️ <strong>חשוב מאוד!</strong> שמור את המפתח הזה במקום בטוח. <strong>לא ניתן לשחזר אותו!</strong>
+              ג ן¸ <strong>׳—׳©׳•׳‘ ׳׳׳•׳“!</strong> ׳©׳׳•׳¨ ׳׳× ׳”׳׳₪׳×׳— ׳”׳–׳” ׳‘׳׳§׳•׳ ׳‘׳˜׳•׳—. <strong>׳׳ ׳ ׳™׳×׳ ׳׳©׳—׳–׳¨ ׳׳•׳×׳•!</strong>
             </p>
           </div>
           <div class="auth-legal-block">
             <label class="auth-legal-checkbox">
               <input type="checkbox" id="keyPolicyAgree" />
               <span>
-                אני מאשר שקראתי את המסמכים לעיל ומתחייב להימנע מתוכן אסור או בלתי חוקי.
+                ׳׳ ׳™ ׳׳׳©׳¨ ׳©׳§׳¨׳׳×׳™ ׳׳× ׳”׳׳¡׳׳›׳™׳ ׳׳¢׳™׳ ׳•׳׳×׳—׳™׳™׳‘ ׳׳”׳™׳׳ ׳¢ ׳׳×׳•׳›׳ ׳׳¡׳•׳¨ ׳׳• ׳‘׳׳×׳™ ׳—׳•׳§׳™.
               </span>
             </label>
             <label class="auth-legal-checkbox">
               <input type="checkbox" id="keyRightsConfirm" />
               <span>
-                אני מצהיר שכל תוכן שאעלה הוא בבעלותי או שיש לי היתר חוקי לפרסמו.
+                ׳׳ ׳™ ׳׳¦׳”׳™׳¨ ׳©׳›׳ ׳×׳•׳›׳ ׳©׳׳¢׳׳” ׳”׳•׳ ׳‘׳‘׳¢׳׳•׳×׳™ ׳׳• ׳©׳™׳© ׳׳™ ׳”׳™׳×׳¨ ׳—׳•׳§׳™ ׳׳₪׳¨׳¡׳׳•.
               </span>
             </label>
           </div>
           <textarea id="generatedKeyDisplay" readonly style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px; background: #0f0f1e; color: #ffffff;"></textarea>
           <div style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button type="button" class="button-secondary" id="btnCopyKey" style="flex: 1; padding: 10px; font-size: 14px;">
-              📋 העתק
+              נ“‹ ׳”׳¢׳×׳§
             </button>
             <button type="button" class="button-secondary" id="btnDownloadKey" style="flex: 1; padding: 10px; font-size: 14px;">
-              💾 שמור כקובץ
+              נ’¾ ׳©׳׳•׳¨ ׳›׳§׳•׳‘׳¥
             </button>
           </div>
           <label style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
             <input type="checkbox" id="keyConfirmCheckbox" style="width: 18px; height: 18px; cursor: pointer;" />
-            <span style="font-size: 15px; color: #ffffff;">שמרתי את המפתח במקום בטוח</span>
+            <span style="font-size: 15px; color: #ffffff;">׳©׳׳¨׳×׳™ ׳׳× ׳”׳׳₪׳×׳— ׳‘׳׳§׳•׳ ׳‘׳˜׳•׳—</span>
           </label>
           <p id="keyStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnFinalConnect" disabled style="width: 100%; padding: 14px; font-size: 16px;">
-            התחבר לרשת
+            ׳”׳×׳—׳‘׳¨ ׳׳¨׳©׳×
           </button>
         </div>
       </div>
     </div>
 
-    <!-- הזמנת משתמש: בלי מודאל טלפון — נפתח ישירות וואטסאפ לבחירת איש קשר | HYPER CORE TECH -->
+    <!-- ׳”׳–׳׳ ׳× ׳׳©׳×׳׳©: ׳‘׳׳™ ׳׳•׳“׳׳ ׳˜׳׳₪׳•׳ ג€” ׳ ׳₪׳×׳— ׳™׳©׳™׳¨׳•׳× ׳•׳•׳׳˜׳¡׳׳₪ ׳׳‘׳—׳™׳¨׳× ׳׳™׳© ׳§׳©׳¨ | HYPER CORE TECH -->
 
     <div class="policy-modal" id="policyModal" aria-hidden="true">
       <div
@@ -2499,8 +2499,8 @@
         tabindex="-1"
       >
         <div class="policy-modal__header">
-          <h2 class="policy-modal__title" id="policyModalTitle">מסמך מדיניות</h2>
-          <button class="policy-modal__close" type="button" aria-label="סגור" data-policy-close>
+          <h2 class="policy-modal__title" id="policyModalTitle">׳׳¡׳׳ ׳׳“׳™׳ ׳™׳•׳×</h2>
+          <button class="policy-modal__close" type="button" aria-label="׳¡׳’׳•׳¨" data-policy-close>
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -2510,35 +2510,35 @@
       </div>
     </div>
 
-    <!-- צ'אט (videos.html) – מבנה זהה ומכווץ שורות | HYPER CORE TECH -->
-    <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי">
-      <nav class="chat-nav-sidebar" aria-label="ניווט ראשי">
+    <!-- ׳¦'׳׳˜ (videos.html) ג€“ ׳׳‘׳ ׳” ׳–׳”׳” ׳•׳׳›׳•׳•׳¥ ׳©׳•׳¨׳•׳× | HYPER CORE TECH -->
+    <section class="chat-panel" id="chatPanel" hidden aria-label="׳׳¡׳ ׳’'׳¨ ׳₪׳¨׳˜׳™">
+      <nav class="chat-nav-sidebar" aria-label="׳ ׳™׳•׳•׳˜ ׳¨׳׳©׳™">
         <div class="chat-nav-sidebar__top">
-          <button type="button" class="chat-nav-item" id="chatNavHome" title="דף הבית" data-chat-nav="home">
+          <button type="button" class="chat-nav-item" id="chatNavHome" title="׳“׳£ ׳”׳‘׳™׳×" data-chat-nav="home">
             <svg class="chat-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 10.5 12 3l8 7.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg>
           </button>
-          <button type="button" class="chat-nav-item" id="chatNavNotifications" title="התרעות" data-chat-nav="notifications">
+          <button type="button" class="chat-nav-item" id="chatNavNotifications" title="׳”׳×׳¨׳¢׳•׳×" data-chat-nav="notifications">
             <svg class="chat-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4 1.5 5.5 1.5 5.5H5s1.5-1.5 1.5-5.5z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
           </button>
-          <button type="button" class="chat-nav-item is-active" id="chatNavChats" title="הודעות" data-chat-nav="contacts">
+          <button type="button" class="chat-nav-item is-active" id="chatNavChats" title="׳”׳•׳“׳¢׳•׳×" data-chat-nav="contacts">
             <svg class="chat-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5.5 5.5h13A2.5 2.5 0 0 1 21 8v7.5a2.5 2.5 0 0 1-2.5 2.5H12l-4.5 3v-3H5.5A2.5 2.5 0 0 1 3 15.5V8a2.5 2.5 0 0 1 2.5-2.5z"/><circle class="nav-dot" cx="9" cy="11.5" r="0.9"/><circle class="nav-dot" cx="12" cy="11.5" r="0.9"/><circle class="nav-dot" cx="15" cy="11.5" r="0.9"/></svg>
           </button>
-          <button type="button" class="chat-nav-item" id="chatNavGames" title="משחקים" data-chat-nav="games">
+          <button type="button" class="chat-nav-item" id="chatNavGames" title="׳׳©׳—׳§׳™׳" data-chat-nav="games">
             <svg class="chat-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="10" rx="4"/><path d="M8 13h4M10 11v4"/><circle class="nav-dot" cx="16.2" cy="12" r="0.9"/><circle class="nav-dot" cx="18" cy="14" r="0.9"/></svg>
           </button>
         </div>
         <div class="chat-nav-sidebar__bottom">
-          <button type="button" class="chat-nav-item" id="chatNavSettings" title="הגדרות">
+          <button type="button" class="chat-nav-item" id="chatNavSettings" title="׳”׳’׳“׳¨׳•׳×">
             <svg class="chat-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M4.9 6.5l1.6 1.6M17.5 15.9l1.6 1.6M3.5 12h2.2M18.3 12h2.2M4.9 17.5l1.6-1.6M17.5 8.1l1.6-1.6"/></svg>
           </button>
-          <div class="chat-nav-profile" id="chatNavProfile" title="פרופיל" data-chat-nav="profile">
-            <img src="icons/WAPICON.png" alt="פרופיל" id="chatNavProfileImg">
+          <div class="chat-nav-profile" id="chatNavProfile" title="׳₪׳¨׳•׳₪׳™׳" data-chat-nav="profile">
+            <img src="icons/WAPICON.png" alt="׳₪׳¨׳•׳₪׳™׳" id="chatNavProfileImg">
           </div>
         </div>
       </nav>
-      <div class="chat-panel__body"><aside class="chat-contacts" aria-label="רשימת שיחות"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="סגור חלון"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SO CALL 010"><img src="icons/so-call010-header.png?v=20260818socall3" alt="SO CALL 010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="צ'אט חדש"></i><i class="fa-solid fa-ellipsis-vertical" title="תפריט"></i></div></div><div class="chat-contacts__top"><div class="chat-contacts__mobile-brand" title="SOS Call"><img class="chat-contacts__mobile-logo-img top-bar__logo-img" src="icons/sos-logo-mobile.png?v=20260729e" alt="SOS Logo" width="56" height="48"></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="חיפוש צ'אט או התחלת צ'אט חדש" autocomplete="off"><i class="fa-solid fa-filter"></i></div></div><div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט"><button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__archive-view-bar" id="chatArchiveViewBar" hidden><button type="button" class="chat-contacts__archive-view-back" id="chatArchiveViewBack" aria-label="חזרה לרשימת השיחות"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><span class="chat-contacts__archive-view-title">חזרה לרשימת השיחות</span></div><button type="button" class="chat-contacts__archive" id="chatArchiveRow" aria-label="שיחות בארכיון"><span class="chat-contacts__archive-main"><i class="fa-solid fa-box-archive" aria-hidden="true"></i><span class="chat-contacts__archive-label">ארכיון</span></span><span class="chat-contacts__archive-aside" aria-hidden="true"><i class="fa-solid fa-circle chat-contacts__archive-dot"></i></span></button><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>התראות</h2><p>לייקים ותגובות אחרונים לפוסטים שלך</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>בחר איש קשר כדי להתחיל לשוחח.</p></div><div class="chat-welcome-desktop" id="chatWelcomeDesktop"><div class="chat-welcome-desktop__card"><div class="chat-welcome-desktop__icon" aria-hidden="true"><div class="chat-welcome-desktop__icon-deco"><span class="chat-welcome-desktop__icon-wing chat-welcome-desktop__icon-wing--left"></span><span class="chat-welcome-desktop__icon-ring"><span class="chat-welcome-desktop__icon-orbit"></span><svg class="chat-welcome-icon chat-welcome-icon--hero" viewBox="0 0 24 24" focusable="false"><path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M5 18h14"/></svg></span><span class="chat-welcome-desktop__icon-wing chat-welcome-desktop__icon-wing--right"></span></div></div><p class="chat-welcome-desktop__brand">SOS Call 010</p><h2 class="chat-welcome-desktop__title">עדיין לא התקנת את <span class="chat-welcome-desktop__title-brand">SOS Call 010</span> למחשב?</h2><p class="chat-welcome-desktop__desc">האפליקציה שלנו זמינה להתקנה על המחשב שלך לחוויה מהירה ונוחה יותר, עם התראות בזמן אמת!</p><button type="button" class="chat-welcome-desktop__install" id="chatWelcomeInstallBtn" onclick="NostrApp.promptPwaInstall && NostrApp.promptPwaInstall()"><span>התקן עכשיו</span><svg class="chat-welcome-icon chat-welcome-icon--btn" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M5 18h14"/></svg></button></div><div class="chat-welcome-desktop__actions"><button type="button" class="chat-welcome-desktop__action chat-welcome-desktop__action--new" onclick="document.getElementById('chatSearchInput')?.focus()"><svg class="chat-welcome-icon chat-welcome-icon--action" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10" cy="8" r="3.2"/><path d="M4.5 18.5c.8-3.2 2.9-5 5.5-5s4.7 1.8 5.5 5"/><path d="M17 8v6M14 11h6"/></svg><span>התחל שיחה חדשה</span><i class="fa-solid fa-chevron-left chat-welcome-desktop__action-arrow" aria-hidden="true"></i></button><button type="button" class="chat-welcome-desktop__action chat-welcome-desktop__action--unread" onclick="document.querySelector('[data-chat-filter=&quot;unread&quot;]')?.click()"><svg class="chat-welcome-icon chat-welcome-icon--action" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="m4.5 7.5 7.5 6 7.5-6"/></svg><span>הודעות שלא נקראו</span><i class="fa-solid fa-chevron-left chat-welcome-desktop__action-arrow" aria-hidden="true"></i></button></div><p class="chat-welcome-desktop__footer"><i class="fa-brands fa-windows"></i> הפעל את SOS Call 010 על Windows</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><div class="chat-conversation__identity"><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span><span class="chat-conversation__status" id="chatConversationStatus">מחובר</span></div></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon chat-conversation__icon--voice" aria-label="שיחת קול"><svg class="chat-header-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 4.5h2.2l1.2 3.2-1.5 1.5a12.5 12.5 0 0 0 5.4 5.4l1.5-1.5 3.2 1.2v2.2c0 .9-.7 1.6-1.6 1.6A14.5 14.5 0 0 1 4.9 6.1c0-.9.7-1.6 1.6-1.6z"/></svg></button><div class="chat-conversation__menu-wrap"><button type="button" class="chat-conversation__icon chat-conversation__icon--menu" id="chatConversationMenuBtn" aria-label="תפריט" aria-haspopup="true" aria-expanded="false"><svg class="chat-header-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.15"/><circle cx="12" cy="12" r="1.15"/><circle cx="12" cy="19" r="1.15"/></svg></button><div class="chat-conversation__menu" id="chatConversationMenu" hidden role="menu"><button type="button" class="chat-conversation__menu-item" data-action="clear-chat" role="menuitem"><i class="fa-solid fa-broom" aria-hidden="true"></i><span>ניקוי הצ'ט</span></button><button type="button" class="chat-conversation__menu-item" data-action="delete-chat" role="menuitem"><i class="fa-solid fa-trash" aria-hidden="true"></i><span>מחיקת הצ'ט</span></button><button type="button" class="chat-conversation__menu-item" data-action="archive-chat" role="menuitem" id="chatMenuArchiveBtn"><i class="fa-solid fa-box-archive" aria-hidden="true"></i><span>העברה לארכיון</span></button><button type="button" class="chat-conversation__menu-item" data-action="unarchive-chat" role="menuitem" id="chatMenuUnarchiveBtn" hidden><i class="fa-solid fa-box-open" aria-hidden="true"></i><span>בטל מצב ארכיון</span></button><button type="button" class="chat-conversation__menu-item" data-action="schedule-timer" role="menuitem"><i class="fa-regular fa-clock" aria-hidden="true"></i><span>תיזמון ניקוי אוטומטי</span></button></div></div></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><label class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ" title="צרף קובץ"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><input type="file" id="chatComposerFileInput" class="chat-composer__file-input" accept="*/*"></label><button type="button" class="chat-composer__icon chat-composer__icon--torrent" id="chatTorrentSendButton" aria-label="שלח קובץ גדול" title="שלח קובץ גדול (עד 100GB+)"><i class="fa-solid fa-cloud-arrow-up"></i></button><textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ"><i class="fa-solid fa-xmark"></i></button></div></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>שיחות</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>התראות</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>דף הבית</span></button></nav></section>
+      <div class="chat-panel__body"><aside class="chat-contacts" aria-label="׳¨׳©׳™׳׳× ׳©׳™׳—׳•׳×"><div class="chat-sidebar-header"><div class="chat-sidebar-header__group"><button type="button" class="chat-sidebar-header__close" id="chatSidebarCloseBtn" aria-label="׳¡׳’׳•׳¨ ׳—׳׳•׳"><i class="fa-solid fa-xmark"></i></button><div class="chat-sidebar-header__logo" title="SO CALL 010"><img src="icons/so-call010-header.png?v=20260818socall3" alt="SO CALL 010"></div></div><div class="chat-sidebar-header__icons"><i class="fa-solid fa-comment-medical" title="׳¦'׳׳˜ ׳—׳“׳©"></i><i class="fa-solid fa-ellipsis-vertical" title="׳×׳₪׳¨׳™׳˜"></i></div></div><div class="chat-contacts__top"><div class="chat-contacts__mobile-brand" title="SOS Call"><img class="chat-contacts__mobile-logo-img top-bar__logo-img" src="icons/sos-logo-mobile.png?v=20260729e" alt="SOS Logo" width="56" height="48"></div><div class="chat-contacts__search"><div class="chat-contacts__search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="chatSearchInput" placeholder="׳—׳™׳₪׳•׳© ׳¦'׳׳˜ ׳׳• ׳”׳×׳—׳׳× ׳¦'׳׳˜ ׳—׳“׳©" autocomplete="off"><i class="fa-solid fa-filter"></i></div></div><div class="chat-contacts__actions" role="group" aria-label="׳₪׳¢׳•׳׳•׳× ׳׳”׳™׳¨׳•׳× ׳‘׳¦'׳׳˜"><button type="button" class="chat-panel__icon" aria-label="׳×׳₪׳¨׳™׳˜ ׳”׳¦'׳׳˜"><i class="fa-solid fa-ellipsis-vertical"></i></button><button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="׳¡׳’׳™׳¨׳× ׳”׳¦'׳׳˜"><i class="fa-solid fa-xmark"></i></button></div></div><div class="chat-contacts__archive-view-bar" id="chatArchiveViewBar" hidden><button type="button" class="chat-contacts__archive-view-back" id="chatArchiveViewBack" aria-label="׳—׳–׳¨׳” ׳׳¨׳©׳™׳׳× ׳”׳©׳™׳—׳•׳×"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><span class="chat-contacts__archive-view-title">׳—׳–׳¨׳” ׳׳¨׳©׳™׳׳× ׳”׳©׳™׳—׳•׳×</span></div><button type="button" class="chat-contacts__archive" id="chatArchiveRow" aria-label="׳©׳™׳—׳•׳× ׳‘׳׳¨׳›׳™׳•׳"><span class="chat-contacts__archive-main"><i class="fa-solid fa-box-archive" aria-hidden="true"></i><span class="chat-contacts__archive-label">׳׳¨׳›׳™׳•׳</span></span><span class="chat-contacts__archive-aside" aria-hidden="true"><i class="fa-solid fa-circle chat-contacts__archive-dot"></i></span></button><div class="chat-contacts__list" id="chatContactsList"></div></aside><main class="chat-conversation" aria-live="polite"><section class="chat-notifications" id="chatNotifications" hidden><header class="chat-notifications__header"><div class="chat-notifications__title"><i class="fa-solid fa-bell"></i><div><h2>׳”׳×׳¨׳׳•׳×</h2><p>׳׳™׳™׳§׳™׳ ׳•׳×׳’׳•׳‘׳•׳× ׳׳—׳¨׳•׳ ׳™׳ ׳׳₪׳•׳¡׳˜׳™׳ ׳©׳׳</p></div></div><button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">׳¡׳׳ ׳›׳ ׳§׳¨׳׳•</button></header><div class="chat-notifications__body"><p class="chat-notifications__empty" id="chatNotificationsEmpty">׳׳™׳ ׳”׳×׳¨׳¢׳•׳× ׳—׳“׳©׳•׳× ׳›׳¨׳’׳¢.</p><ul class="chat-notifications__list" id="chatNotificationsList"></ul></div></section><div class="chat-conversation__empty" id="chatEmptyState"><i class="fa-regular fa-comments"></i><p>׳‘׳—׳¨ ׳׳™׳© ׳§׳©׳¨ ׳›׳“׳™ ׳׳”׳×׳—׳™׳ ׳׳©׳•׳—׳—.</p></div><div class="chat-welcome-desktop" id="chatWelcomeDesktop"><div class="chat-welcome-desktop__card"><div class="chat-welcome-desktop__icon" aria-hidden="true"><div class="chat-welcome-desktop__icon-deco"><span class="chat-welcome-desktop__icon-wing chat-welcome-desktop__icon-wing--left"></span><span class="chat-welcome-desktop__icon-ring"><span class="chat-welcome-desktop__icon-orbit"></span><svg class="chat-welcome-icon chat-welcome-icon--hero" viewBox="0 0 24 24" focusable="false"><path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M5 18h14"/></svg></span><span class="chat-welcome-desktop__icon-wing chat-welcome-desktop__icon-wing--right"></span></div></div><p class="chat-welcome-desktop__brand">SOS Call 010</p><h2 class="chat-welcome-desktop__title">׳¢׳“׳™׳™׳ ׳׳ ׳”׳×׳§׳ ׳× ׳׳× <span class="chat-welcome-desktop__title-brand">SOS Call 010</span> ׳׳׳—׳©׳‘?</h2><p class="chat-welcome-desktop__desc">׳”׳׳₪׳׳™׳§׳¦׳™׳” ׳©׳׳ ׳• ׳–׳׳™׳ ׳” ׳׳”׳×׳§׳ ׳” ׳¢׳ ׳”׳׳—׳©׳‘ ׳©׳׳ ׳׳—׳•׳•׳™׳” ׳׳”׳™׳¨׳” ׳•׳ ׳•׳—׳” ׳™׳•׳×׳¨, ׳¢׳ ׳”׳×׳¨׳׳•׳× ׳‘׳–׳׳ ׳׳׳×!</p><button type="button" class="chat-welcome-desktop__install" id="chatWelcomeInstallBtn" onclick="NostrApp.promptPwaInstall && NostrApp.promptPwaInstall()"><span>׳”׳×׳§׳ ׳¢׳›׳©׳™׳•</span><svg class="chat-welcome-icon chat-welcome-icon--btn" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M5 18h14"/></svg></button></div><div class="chat-welcome-desktop__actions"><button type="button" class="chat-welcome-desktop__action chat-welcome-desktop__action--new" onclick="document.getElementById('chatSearchInput')?.focus()"><svg class="chat-welcome-icon chat-welcome-icon--action" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10" cy="8" r="3.2"/><path d="M4.5 18.5c.8-3.2 2.9-5 5.5-5s4.7 1.8 5.5 5"/><path d="M17 8v6M14 11h6"/></svg><span>׳”׳×׳—׳ ׳©׳™׳—׳” ׳—׳“׳©׳”</span><i class="fa-solid fa-chevron-left chat-welcome-desktop__action-arrow" aria-hidden="true"></i></button><button type="button" class="chat-welcome-desktop__action chat-welcome-desktop__action--unread" onclick="document.querySelector('[data-chat-filter=&quot;unread&quot;]')?.click()"><svg class="chat-welcome-icon chat-welcome-icon--action" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="m4.5 7.5 7.5 6 7.5-6"/></svg><span>׳”׳•׳“׳¢׳•׳× ׳©׳׳ ׳ ׳§׳¨׳׳•</span><i class="fa-solid fa-chevron-left chat-welcome-desktop__action-arrow" aria-hidden="true"></i></button></div><p class="chat-welcome-desktop__footer"><i class="fa-brands fa-windows"></i> ׳”׳₪׳¢׳ ׳׳× SOS Call 010 ׳¢׳ Windows</p></div><header class="chat-conversation__header" id="chatConversationHeader" hidden><div class="chat-conversation__identity"><button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="׳—׳–׳¨׳” ׳׳¨׳©׳™׳׳× ׳©׳™׳—׳•׳×"><i class="fa-solid fa-arrow-right"></i></button><div class="chat-conversation__avatar" id="chatConversationAvatar">?</div><div class="chat-conversation__meta"><span class="chat-conversation__name" id="chatConversationName">׳©׳•׳×׳£ ׳׳©׳™׳—׳”</span><span class="chat-conversation__status" id="chatConversationStatus">׳׳—׳•׳‘׳¨</span></div></div><div class="chat-conversation__actions"><button type="button" class="chat-conversation__icon chat-conversation__icon--voice" aria-label="׳©׳™׳—׳× ׳§׳•׳"><svg class="chat-header-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 4.5h2.2l1.2 3.2-1.5 1.5a12.5 12.5 0 0 0 5.4 5.4l1.5-1.5 3.2 1.2v2.2c0 .9-.7 1.6-1.6 1.6A14.5 14.5 0 0 1 4.9 6.1c0-.9.7-1.6 1.6-1.6z"/></svg></button><div class="chat-conversation__menu-wrap"><button type="button" class="chat-conversation__icon chat-conversation__icon--menu" id="chatConversationMenuBtn" aria-label="׳×׳₪׳¨׳™׳˜" aria-haspopup="true" aria-expanded="false"><svg class="chat-header-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.15"/><circle cx="12" cy="12" r="1.15"/><circle cx="12" cy="19" r="1.15"/></svg></button><div class="chat-conversation__menu" id="chatConversationMenu" hidden role="menu"><button type="button" class="chat-conversation__menu-item" data-action="clear-chat" role="menuitem"><i class="fa-solid fa-broom" aria-hidden="true"></i><span>׳ ׳™׳§׳•׳™ ׳”׳¦'׳˜</span></button><button type="button" class="chat-conversation__menu-item" data-action="delete-chat" role="menuitem"><i class="fa-solid fa-trash" aria-hidden="true"></i><span>׳׳—׳™׳§׳× ׳”׳¦'׳˜</span></button><button type="button" class="chat-conversation__menu-item" data-action="archive-chat" role="menuitem" id="chatMenuArchiveBtn"><i class="fa-solid fa-box-archive" aria-hidden="true"></i><span>׳”׳¢׳‘׳¨׳” ׳׳׳¨׳›׳™׳•׳</span></button><button type="button" class="chat-conversation__menu-item" data-action="unarchive-chat" role="menuitem" id="chatMenuUnarchiveBtn" hidden><i class="fa-solid fa-box-open" aria-hidden="true"></i><span>׳‘׳˜׳ ׳׳¦׳‘ ׳׳¨׳›׳™׳•׳</span></button><button type="button" class="chat-conversation__menu-item" data-action="schedule-timer" role="menuitem"><i class="fa-regular fa-clock" aria-hidden="true"></i><span>׳×׳™׳–׳׳•׳ ׳ ׳™׳§׳•׳™ ׳׳•׳˜׳•׳׳˜׳™</span></button></div></div></div></header><div class="chat-conversation__messages" id="chatMessages"></div><form class="chat-composer" id="chatComposer" hidden><div class="chat-composer__field"><label class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="׳¦׳¨׳£ ׳§׳•׳‘׳¥" title="׳¦׳¨׳£ ׳§׳•׳‘׳¥"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><input type="file" id="chatComposerFileInput" class="chat-composer__file-input" accept="*/*"></label><button type="button" class="chat-composer__icon chat-composer__icon--torrent" id="chatTorrentSendButton" aria-label="׳©׳׳— ׳§׳•׳‘׳¥ ׳’׳“׳•׳" title="׳©׳׳— ׳§׳•׳‘׳¥ ׳’׳“׳•׳ (׳¢׳“ 100GB+)"><i class="fa-solid fa-cloud-arrow-up"></i></button><textarea id="chatMessageInput" placeholder="׳›׳×׳•׳‘ ׳”׳•׳“׳¢׳”..." rows="1"></textarea><button type="submit" class="chat-composer__icon chat-composer__send" aria-label="׳©׳׳— ׳”׳•׳“׳¢׳”"><i class="fa-solid fa-paper-plane"></i></button></div><div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden><span class="chat-composer__file-name" id="chatComposerFileName">׳©׳ ׳§׳•׳‘׳¥</span><button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="׳”׳¡׳¨ ׳§׳•׳‘׳¥"><i class="fa-solid fa-xmark"></i></button></div></form></main></div><nav class="chat-panel__footer" id="chatPanelFooter" aria-label="׳ ׳™׳•׳•׳˜ ׳¦'׳׳˜"><button type="button" class="chat-footer__item is-active" data-chat-nav="contacts"><i class="fa-solid fa-comments"></i><span>׳©׳™׳—׳•׳×</span></button><button type="button" class="chat-footer__item" data-chat-nav="notifications"><i class="fa-solid fa-bell"></i><span>׳”׳×׳¨׳׳•׳×</span><span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span></button><button type="button" class="chat-footer__item" data-chat-nav="home"><i class="fa-solid fa-house"></i><span>׳“׳£ ׳”׳‘׳™׳×</span></button></nav></section>
 
-    <!-- חלק סיסמת שונות (videos.html) – סקריפט הגנת סיסמה | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳¡׳™׳¡׳׳× ׳©׳•׳ ׳•׳× (videos.html) ג€“ ׳¡׳§׳¨׳™׳₪׳˜ ׳”׳’׳ ׳× ׳¡׳™׳¡׳׳” | HYPER CORE TECH -->
     <script src="./misc-password.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
@@ -2550,12 +2550,12 @@
         const closeButtons = modal ? modal.querySelectorAll('[data-policy-close]') : [];
 
         function getPolicyTitle(path) {
-          if (!path) return 'מסמך מדיניות';
-          if (path.includes('terms')) return 'תנאי שימוש';
-          if (path.includes('privacy')) return 'מדיניות פרטיות';
-          if (path.includes('community')) return 'קוד קהילה';
-          if (path.includes('copyright')) return 'מדיניות זכויות יוצרים';
-          return 'מסמך מדיניות';
+          if (!path) return '׳׳¡׳׳ ׳׳“׳™׳ ׳™׳•׳×';
+          if (path.includes('terms')) return '׳×׳ ׳׳™ ׳©׳™׳׳•׳©';
+          if (path.includes('privacy')) return '׳׳“׳™׳ ׳™׳•׳× ׳₪׳¨׳˜׳™׳•׳×';
+          if (path.includes('community')) return '׳§׳•׳“ ׳§׳”׳™׳׳”';
+          if (path.includes('copyright')) return '׳׳“׳™׳ ׳™׳•׳× ׳–׳›׳•׳™׳•׳× ׳™׳•׳¦׳¨׳™׳';
+          return '׳׳¡׳׳ ׳׳“׳™׳ ׳™׳•׳×';
         }
 
         function openPolicy(docPath) {
@@ -2601,10 +2601,10 @@
       });
     </script>
 
-    <!-- חלון תנאים ואנימציית עיבוד | HYPER CORE TECH -->
+    <!-- ׳—׳׳•׳ ׳×׳ ׳׳™׳ ׳•׳׳ ׳™׳׳¦׳™׳™׳× ׳¢׳™׳‘׳•׳“ | HYPER CORE TECH -->
     <script>
       (function() {
-        // פרסום ישיר ממסך העריכה (בלי שלב "המשך") | HYPER CORE TECH
+        // ׳₪׳¨׳¡׳•׳ ׳™׳©׳™׳¨ ׳׳׳¡׳ ׳”׳¢׳¨׳™׳›׳” (׳‘׳׳™ ׳©׳׳‘ "׳”׳׳©׳") | HYPER CORE TECH
         window.publishFromCompose = function() {
           const App = window.NostrApp || {};
           if (typeof App.getComposePayload === 'function') {
@@ -2615,9 +2615,9 @@
           const ack = document.getElementById('composeTermsAck');
           if (!ack || !ack.checked) {
             if (typeof App.setComposeStatus === 'function') {
-              App.setComposeStatus('יש לאשר את התנאים לפני הפרסום.', 'error');
+              App.setComposeStatus('׳™׳© ׳׳׳©׳¨ ׳׳× ׳”׳×׳ ׳׳™׳ ׳׳₪׳ ׳™ ׳”׳₪׳¨׳¡׳•׳.', 'error');
             } else {
-              alert('יש לאשר את התנאים לפני הפרסום');
+              alert('׳™׳© ׳׳׳©׳¨ ׳׳× ׳”׳×׳ ׳׳™׳ ׳׳₪׳ ׳™ ׳”׳₪׳¨׳¡׳•׳');
             }
             return;
           }
@@ -2630,14 +2630,14 @@
           confirmAndPublish();
         };
 
-        // פונקציות לניהול חלון התנאים (גיבוי)
+        // ׳₪׳•׳ ׳§׳¦׳™׳•׳× ׳׳ ׳™׳”׳•׳ ׳—׳׳•׳ ׳”׳×׳ ׳׳™׳ (׳’׳™׳‘׳•׳™)
         window.openTermsModal = function() {
-          // בדיקה שיש תוכן לפרסם
+          // ׳‘׳“׳™׳§׳” ׳©׳™׳© ׳×׳•׳›׳ ׳׳₪׳¨׳¡׳
           const App = window.NostrApp || {};
           if (typeof App.getComposePayload === 'function') {
             const payload = App.getComposePayload();
             if (!payload) {
-              // אין תוכן - הפונקציה כבר הציגה הודעת שגיאה
+              // ׳׳™׳ ׳×׳•׳›׳ - ׳”׳₪׳•׳ ׳§׳¦׳™׳” ׳›׳‘׳¨ ׳”׳¦׳™׳’׳” ׳”׳•׳“׳¢׳× ׳©׳’׳™׳׳”
               return;
             }
           }
@@ -2673,7 +2673,7 @@
           }
         }
 
-        // מאזינים לשינויים בצ'קבוקסים
+        // ׳׳׳–׳™׳ ׳™׳ ׳׳©׳™׳ ׳•׳™׳™׳ ׳‘׳¦'׳§׳‘׳•׳§׳¡׳™׳
         document.addEventListener('DOMContentLoaded', function() {
           const policyCheckbox = document.getElementById('termsPolicyCheckbox');
           const rightsCheckbox = document.getElementById('termsRightsCheckbox');
@@ -2686,37 +2686,37 @@
           }
         });
 
-        // פונקציה לאישור ופרסום
+        // ׳₪׳•׳ ׳§׳¦׳™׳” ׳׳׳™׳©׳•׳¨ ׳•׳₪׳¨׳¡׳•׳
         window.confirmAndPublish = async function() {
           const policyOk = document.getElementById('termsPolicyCheckbox')?.checked;
           const rightsOk = document.getElementById('termsRightsCheckbox')?.checked;
           
           if (!policyOk || !rightsOk) {
-            alert('יש לאשר את כל התנאים לפני הפרסום');
+            alert('׳™׳© ׳׳׳©׳¨ ׳׳× ׳›׳ ׳”׳×׳ ׳׳™׳ ׳׳₪׳ ׳™ ׳”׳₪׳¨׳¡׳•׳');
             return;
           }
 
-          // סגירת חלון התנאים
+          // ׳¡׳’׳™׳¨׳× ׳—׳׳•׳ ׳”׳×׳ ׳׳™׳
           closeTermsModal();
           
-          // סגירת חלון השיתוף — שומרים טיוטה עד סיום העלאה/פרסום | HYPER CORE TECH
+          // ׳¡׳’׳™׳¨׳× ׳—׳׳•׳ ׳”׳©׳™׳×׳•׳£ ג€” ׳©׳•׳׳¨׳™׳ ׳˜׳™׳•׳˜׳” ׳¢׳“ ׳¡׳™׳•׳ ׳”׳¢׳׳׳”/׳₪׳¨׳¡׳•׳ | HYPER CORE TECH
           if (typeof closeCompose === 'function') {
             closeCompose({ preserveForPublish: true });
           }
 
-          // הפעלת אנימציית הבהוב והודעת עיבוד
+          // ׳”׳₪׳¢׳׳× ׳׳ ׳™׳׳¦׳™׳™׳× ׳”׳‘׳”׳•׳‘ ׳•׳”׳•׳“׳¢׳× ׳¢׳™׳‘׳•׳“
           startProcessingAnimation();
 
-          // פרסום הפוסט עם עיבוד וידאו אם צריך
+          // ׳₪׳¨׳¡׳•׳ ׳”׳₪׳•׳¡׳˜ ׳¢׳ ׳¢׳™׳‘׳•׳“ ׳•׳™׳“׳׳• ׳׳ ׳¦׳¨׳™׳
           await publishPostWithAnimation();
         };
 
-        // פונקציה לפרסום עם אנימציה ועיבוד וידאו
+        // ׳₪׳•׳ ׳§׳¦׳™׳” ׳׳₪׳¨׳¡׳•׳ ׳¢׳ ׳׳ ׳™׳׳¦׳™׳” ׳•׳¢׳™׳‘׳•׳“ ׳•׳™׳“׳׳•
         async function publishPostWithAnimation() {
           try {
             const App = window.NostrApp || {};
 
-            // דחיסה+העלאה דרך compose (מקור אמת אחד) — לא מדלגים על וידאו ממתין | HYPER CORE TECH
+            // ׳“׳—׳™׳¡׳”+׳”׳¢׳׳׳” ׳“׳¨׳ compose (׳׳§׳•׳¨ ׳׳׳× ׳׳—׳“) ג€” ׳׳ ׳׳“׳׳’׳™׳ ׳¢׳ ׳•׳™׳“׳׳• ׳׳׳×׳™׳ | HYPER CORE TECH
             if (typeof App.ensureVideoReadyForPublish === 'function') {
               try {
                 await App.ensureVideoReadyForPublish((progress) => {
@@ -2725,27 +2725,27 @@
               } catch (videoErr) {
                 console.error('Video processing failed:', videoErr);
                 stopProcessingAnimation();
-                alert('שגיאה בעיבוד הוידאו: ' + (videoErr?.message || videoErr));
+                alert('׳©׳’׳™׳׳” ׳‘׳¢׳™׳‘׳•׳“ ׳”׳•׳™׳“׳׳•: ' + (videoErr?.message || videoErr));
                 return;
               }
             } else {
-              // fallback ישן אם compose לא נטען
+              // fallback ׳™׳©׳ ׳׳ compose ׳׳ ׳ ׳˜׳¢׳
               const composeState = App.composeState;
               if (composeState && composeState.media &&
                   composeState.media.type === 'video' &&
                   composeState.media.pendingProcessing &&
                   composeState.media.originalFile &&
                   typeof App.compressVideo === 'function') {
-                console.warn('[PUBLISH] ensureVideoReadyForPublish missing — using inline fallback');
+                console.warn('[PUBLISH] ensureVideoReadyForPublish missing ג€” using inline fallback');
                 const file = composeState.media.originalFile;
                 const result = await App.compressVideo(file, (progress) => {
                   const noticeText = document.querySelector('#processingNotice .processing-notice__text');
                   if (noticeText && progress) {
                     const pct = typeof progress.percent === 'number' ? Math.round(progress.percent) : '';
                     if (progress.stage === 'compressing' || progress.stage === 'loading') {
-                      noticeText.textContent = `⏳ דוחס וידאו... ${pct}%`;
+                      noticeText.textContent = `ג³ ׳“׳•׳—׳¡ ׳•׳™׳“׳׳•... ${pct}%`;
                     } else if (progress.stage === 'finalizing') {
-                      noticeText.textContent = '⏳ מסיים עיבוד וידאו...';
+                      noticeText.textContent = 'ג³ ׳׳¡׳™׳™׳ ׳¢׳™׳‘׳•׳“ ׳•׳™׳“׳׳•...';
                     }
                   }
                 });
@@ -2771,7 +2771,7 @@
               }
             }
 
-            // פרסום הפוסט
+            // ׳₪׳¨׳¡׳•׳ ׳”׳₪׳•׳¡׳˜
             if (typeof App.publishPost === 'function') {
               await App.publishPost();
             } else if (typeof window.publishPost === 'function') {
@@ -2784,15 +2784,15 @@
           }
         }
 
-        // פונקציות לאנימציית עיבוד
+        // ׳₪׳•׳ ׳§׳¦׳™׳•׳× ׳׳׳ ׳™׳׳¦׳™׳™׳× ׳¢׳™׳‘׳•׳“
         window.startProcessingAnimation = function() {
-          // הבהוב כפתור הפרופיל
+          // ׳”׳‘׳”׳•׳‘ ׳›׳₪׳×׳•׳¨ ׳”׳₪׳¨׳•׳₪׳™׳
           const profileBtn = document.getElementById('topBarProfileButton');
           if (profileBtn) {
             profileBtn.classList.add('processing');
           }
 
-          // הצגת הודעת עיבוד — נשארת עד סיום הפרסום (לא נעלמת אחרי 10 שניות)
+          // ׳”׳¦׳’׳× ׳”׳•׳“׳¢׳× ׳¢׳™׳‘׳•׳“ ג€” ׳ ׳©׳׳¨׳× ׳¢׳“ ׳¡׳™׳•׳ ׳”׳₪׳¨׳¡׳•׳ (׳׳ ׳ ׳¢׳׳׳× ׳׳—׳¨׳™ 10 ׳©׳ ׳™׳•׳×)
           const notice = document.getElementById('processingNotice');
           if (notice) {
             if (notice._hideTimer) {
@@ -2801,12 +2801,12 @@
             }
             const noticeText = notice.querySelector('.processing-notice__text');
             if (noticeText) {
-              noticeText.textContent = '⏳ הפוסט שלך מעובד ומועלה...';
+              noticeText.textContent = 'ג³ ׳”׳₪׳•׳¡׳˜ ׳©׳׳ ׳׳¢׳•׳‘׳“ ׳•׳׳•׳¢׳׳”...';
             }
             notice.classList.add('is-visible');
           }
 
-          // השהיית הורדות הפיד כדי לפנות רוחב פס להעלאה | HYPER CORE TECH
+          // ׳”׳©׳”׳™׳™׳× ׳”׳•׳¨׳“׳•׳× ׳”׳₪׳™׳“ ׳›׳“׳™ ׳׳₪׳ ׳•׳× ׳¨׳•׳—׳‘ ׳₪׳¡ ׳׳”׳¢׳׳׳” | HYPER CORE TECH
           const App = window.NostrApp || {};
           if (typeof App.setFeedDownloadsPaused === 'function') {
             App.setFeedDownloadsPaused(true);
@@ -2814,13 +2814,13 @@
         };
 
         window.stopProcessingAnimation = function() {
-          // עצירת הבהוב
+          // ׳¢׳¦׳™׳¨׳× ׳”׳‘׳”׳•׳‘
           const profileBtn = document.getElementById('topBarProfileButton');
           if (profileBtn) {
             profileBtn.classList.remove('processing');
           }
 
-          // הסתרת הודעת עיבוד
+          // ׳”׳¡׳×׳¨׳× ׳”׳•׳“׳¢׳× ׳¢׳™׳‘׳•׳“
           const notice = document.getElementById('processingNotice');
           if (notice) {
             if (notice._hideTimer) {
@@ -2830,26 +2830,26 @@
             notice.classList.remove('is-visible');
           }
 
-          // חידוש הורדות הפיד אחרי סיום ההעלאה
+          // ׳—׳™׳“׳•׳© ׳”׳•׳¨׳“׳•׳× ׳”׳₪׳™׳“ ׳׳—׳¨׳™ ׳¡׳™׳•׳ ׳”׳”׳¢׳׳׳”
           const App = window.NostrApp || {};
           if (typeof App.setFeedDownloadsPaused === 'function') {
             App.setFeedDownloadsPaused(false);
           }
         };
 
-        // חשיפה גלובלית לשימוש מקבצים אחרים
+        // ׳—׳©׳™׳₪׳” ׳’׳׳•׳‘׳׳™׳× ׳׳©׳™׳׳•׳© ׳׳§׳‘׳¦׳™׳ ׳׳—׳¨׳™׳
         window.NostrApp = window.NostrApp || {};
         window.NostrApp.startProcessingAnimation = window.startProcessingAnimation;
         window.NostrApp.stopProcessingAnimation = window.stopProcessingAnimation;
       })();
     </script>
 
-    <!-- חיבור הודעות ושיחות (videos.html) – מבטיח שהצ'אט יאתחל שיחות נכנסות כמו בפיד הראשי | HYPER CORE TECH -->
-    <!-- טעינת סקריפט משחק הטריוויה -->
+    <!-- ׳—׳™׳‘׳•׳¨ ׳”׳•׳“׳¢׳•׳× ׳•׳©׳™׳—׳•׳× (videos.html) ג€“ ׳׳‘׳˜׳™׳— ׳©׳”׳¦'׳׳˜ ׳™׳׳×׳—׳ ׳©׳™׳—׳•׳× ׳ ׳›׳ ׳¡׳•׳× ׳›׳׳• ׳‘׳₪׳™׳“ ׳”׳¨׳׳©׳™ | HYPER CORE TECH -->
+    <!-- ׳˜׳¢׳™׳ ׳× ׳¡׳§׳¨׳™׳₪׳˜ ׳׳©׳—׳§ ׳”׳˜׳¨׳™׳•׳•׳™׳” -->
     <script src="./game-trivia.js" defer></script>
     <!-- game-doom-arena.js removed: file missing (404) | HYPER CORE TECH -->
 
-    <!-- חלק טיפול בכפתור התקנה בדסקטופ (videos.html) – בדיקה אם האפליקציה מותקנת והתאמת הכפתור | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ ׳˜׳™׳₪׳•׳ ׳‘׳›׳₪׳×׳•׳¨ ׳”׳×׳§׳ ׳” ׳‘׳“׳¡׳§׳˜׳•׳₪ (videos.html) ג€“ ׳‘׳“׳™׳§׳” ׳׳ ׳”׳׳₪׳׳™׳§׳¦׳™׳” ׳׳•׳×׳§׳ ׳× ׳•׳”׳×׳׳׳× ׳”׳›׳₪׳×׳•׳¨ | HYPER CORE TECH -->
     <script>
       (function() {
         function setupChatWelcomeInstall() {
@@ -2858,45 +2858,45 @@
           var welcomeCard = document.querySelector('.chat-welcome-desktop__card');
           if (!installBtn) return;
           
-          // בדיקה אם כבר מותקן
+          // ׳‘׳“׳™׳§׳” ׳׳ ׳›׳‘׳¨ ׳׳•׳×׳§׳
           var isInstalled = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || 
                            (navigator.standalone === true);
           
           if (isInstalled) {
-            // אם מותקן - משנה את הכפתור לכפתור הסרה
-            installBtn.innerHTML = '<i class="fa-solid fa-trash"></i> הסר SOS Call 010';
+            // ׳׳ ׳׳•׳×׳§׳ - ׳׳©׳ ׳” ׳׳× ׳”׳›׳₪׳×׳•׳¨ ׳׳›׳₪׳×׳•׳¨ ׳”׳¡׳¨׳”
+            installBtn.innerHTML = '<i class="fa-solid fa-trash"></i> ׳”׳¡׳¨ SOS Call 010';
             installBtn.classList.add('chat-welcome-desktop__uninstall');
             installBtn.onclick = function() {
-              // יצירת מודל הסבר להסרה
+              // ׳™׳¦׳™׳¨׳× ׳׳•׳“׳ ׳”׳¡׳‘׳¨ ׳׳”׳¡׳¨׳”
               var overlay = document.createElement('div');
               overlay.className = 'pwa-uninstall-overlay';
               overlay.innerHTML = '<div class="pwa-uninstall-modal">' +
                 '<div class="pwa-uninstall-header">' +
                   '<i class="fa-solid fa-trash-can"></i>' +
-                  '<h3>הסרת SOS Call 010</h3>' +
+                  '<h3>׳”׳¡׳¨׳× SOS Call 010</h3>' +
                 '</div>' +
                 '<div class="pwa-uninstall-steps">' +
                   '<div class="pwa-uninstall-step">' +
                     '<span class="step-number">1</span>' +
                     '<i class="fa-solid fa-ellipsis-vertical"></i>' +
-                    '<span>לחץ על <strong>⋮</strong> (שלוש נקודות) בפינה העליונה <strong>השמאלית</strong></span>' +
+                    '<span>׳׳—׳¥ ׳¢׳ <strong>ג‹®</strong> (׳©׳׳•׳© ׳ ׳§׳•׳“׳•׳×) ׳‘׳₪׳™׳ ׳” ׳”׳¢׳׳™׳•׳ ׳” <strong>׳”׳©׳׳׳׳™׳×</strong></span>' +
                   '</div>' +
                   '<div class="pwa-uninstall-step">' +
                     '<span class="step-number">2</span>' +
                     '<i class="fa-solid fa-trash"></i>' +
-                    '<span>בחר <strong>"הסרת SOS Call 010..."</strong></span>' +
+                    '<span>׳‘׳—׳¨ <strong>"׳”׳¡׳¨׳× SOS Call 010..."</strong></span>' +
                   '</div>' +
                 '</div>' +
-                '<button class="pwa-uninstall-close" id="pwaUninstallCloseBtn">הבנתי</button>' +
+                '<button class="pwa-uninstall-close" id="pwaUninstallCloseBtn">׳”׳‘׳ ׳×׳™</button>' +
               '</div>';
               document.body.appendChild(overlay);
-              // סגירת המודל בלי לעזוב את הדף
+              // ׳¡׳’׳™׳¨׳× ׳”׳׳•׳“׳ ׳‘׳׳™ ׳׳¢׳–׳•׳‘ ׳׳× ׳”׳“׳£
               document.getElementById('pwaUninstallCloseBtn').addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 overlay.remove();
               });
-              // סגירה גם בלחיצה על הרקע
+              // ׳¡׳’׳™׳¨׳” ׳’׳ ׳‘׳׳—׳™׳¦׳” ׳¢׳ ׳”׳¨׳§׳¢
               overlay.addEventListener('click', function(e) {
                 if (e.target === overlay) {
                   overlay.remove();
@@ -2906,12 +2906,12 @@
             
             var title = document.querySelector('.chat-welcome-desktop__title');
             var desc = document.querySelector('.chat-welcome-desktop__desc');
-            if (title) title.textContent = 'SOS Call 010 מותקנת!';
-            if (desc) desc.textContent = 'האפליקציה מותקנת על המחשב שלך. בחרו איש קשר מהרשימה כדי להתחיל לשוחח.';
+            if (title) title.textContent = 'SOS Call 010 ׳׳•׳×׳§׳ ׳×!';
+            if (desc) desc.textContent = '׳”׳׳₪׳׳™׳§׳¦׳™׳” ׳׳•׳×׳§׳ ׳× ׳¢׳ ׳”׳׳—׳©׳‘ ׳©׳׳. ׳‘׳—׳¨׳• ׳׳™׳© ׳§׳©׳¨ ׳׳”׳¨׳©׳™׳׳” ׳›׳“׳™ ׳׳”׳×׳—׳™׳ ׳׳©׳•׳—׳—.';
             
-            // משנה את הטקסט בתחתית
+            // ׳׳©׳ ׳” ׳׳× ׳”׳˜׳§׳¡׳˜ ׳‘׳×׳—׳×׳™׳×
             var footer = document.querySelector('.chat-welcome-desktop__footer');
-            if (footer) footer.innerHTML = '<i class="fa-solid fa-check-circle"></i> SOS Call 010 מותקנת על Windows';
+            if (footer) footer.innerHTML = '<i class="fa-solid fa-check-circle"></i> SOS Call 010 ׳׳•׳×׳§׳ ׳× ׳¢׳ Windows';
           }
         }
         
@@ -2923,11 +2923,11 @@
       })();
     </script>
 
-    <!-- חלק PDF.js (videos.html) – ספריית Mozilla PDF.js לתצוגה מקדימה של PDF בצ'אט | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ PDF.js (videos.html) ג€“ ׳¡׳₪׳¨׳™׳™׳× Mozilla PDF.js ׳׳×׳¦׳•׳’׳” ׳׳§׳“׳™׳׳” ׳©׳ PDF ׳‘׳¦'׳׳˜ | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';}</script>
 
-    <!-- חלק WebTorrent (videos.html) – ספריית WebTorrent והעברת קבצים גדולים P2P | HYPER CORE TECH -->
+    <!-- ׳—׳׳§ WebTorrent (videos.html) ג€“ ׳¡׳₪׳¨׳™׳™׳× WebTorrent ׳•׳”׳¢׳‘׳¨׳× ׳§׳‘׳¦׳™׳ ׳’׳“׳•׳׳™׳ P2P | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
     <script src="./webtorrent-transfer.js?v=20260808a"></script>
 
