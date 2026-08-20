@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v565'; // bump - progress-aware P2P timeout; longer chat-dc warm
+  const CACHE_NAME = 'sos-cache-v566'; // bump - fair peer load balancing across seeders
   const PRECACHE_URLS = [
     './',
     './videos.html',
