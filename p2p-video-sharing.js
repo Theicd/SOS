@@ -183,19 +183,21 @@
   ]));
   // זיהוי מובייל להתאמת משאבים
   const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  // חלק Multi-Source (p2p-video-sharing.js) – D: עד 3 peers, חתיכות מקבילות | HYPER CORE TECH
+  // חלק Multi-Source (p2p-video-sharing.js) – D: כבוי כברירת מחדל (חונק תור + מבטל התקדמות) | HYPER CORE TECH
+  // הפעלה ידנית: window.NostrP2P_MULTI_SOURCE = true
+  const MULTI_SOURCE_ENABLED = window.NostrP2P_MULTI_SOURCE === true;
   const MULTI_SOURCE_MAX_PEERS = 3;
   const MULTI_SOURCE_PIECE = IS_MOBILE ? 256 * 1024 : 512 * 1024;
   const MULTI_SOURCE_MIN_BYTES = 256 * 1024;
   const MULTI_SOURCE_RANGE_TIMEOUT = IS_MOBILE ? 28000 : 20000;
   const MULTI_SOURCE_OVERALL_TIMEOUT = IS_MOBILE ? 90000 : 75000;
   const MULTI_SOURCE_WARM_MS = IS_MOBILE ? 4500 : 5000;
-  const MULTI_SOURCE_MAX_ACTIVE = 1; // רק Multi אחד בכל רגע — מונע עומס על chat-dc
+  const MULTI_SOURCE_MAX_ACTIVE = 1;
   
   const MAX_CONCURRENT_P2P_TRANSFERS =
     typeof window.NostrP2P_MAX_CONCURRENT_TRANSFERS === 'number'
       ? window.NostrP2P_MAX_CONCURRENT_TRANSFERS
-      : (IS_MOBILE ? 1 : 2); // D refine: פחות הורדות מקבילות — פחות Busy על chat-dc
+      : (IS_MOBILE ? 2 : 3); // חזרה לערכים המהירים מלפני Multi
   const MAX_PEER_ATTEMPTS_PER_FILE =
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
@@ -1973,6 +1975,7 @@
 
   // חלק Multi-Source (p2p-video-sharing.js) – הורדה מקבילית מ־K≤3 peers על chat-dc | HYPER CORE TECH
   function canAttemptMultiSource() {
+    if (!MULTI_SOURCE_ENABLED) return false;
     if (state.multiSourceActive >= MULTI_SOURCE_MAX_ACTIVE) {
       log('info', `[feed-session] multi-source skip`, {
         reason: 'multi-already-active',

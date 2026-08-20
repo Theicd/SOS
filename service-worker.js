@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v560'; // bump - multi warm parallel + sticky 3-peer ranges
+  const CACHE_NAME = 'sos-cache-v561'; // bump - disable multi-source (restore serial P2P speed)
   const PRECACHE_URLS = [
     './',
     './videos.html',
