@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v569'; // bump - fix loadMore extractMirrors + videos.js cache bust
+  const CACHE_NAME = 'sos-cache-v570'; // bump - aggressive scroll loadMore for full Blossom/relay history
   const PRECACHE_URLS = [
     './',
     './videos.html',

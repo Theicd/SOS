@@ -1294,8 +1294,7 @@ async function fetchNetworkNotes(authors = [], limit = 100, sinceOverride = unde
   const app = window.NostrApp;
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) return [];
   if (!Array.isArray(authors) || authors.length === 0) return [];
-  // אם יש sinceOverride (מהמטמון) - נשתמש בו, אחרת 30 יום
-  const since = sinceOverride || Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
+  const since = sinceOverride || Math.floor(Date.now() / 1000) - FEED_HISTORY_LOOKBACK_SEC;
   const networkTag = getNetworkTag();
   const filters = [{ kinds: [1], authors, since, limit, '#t': [networkTag] }];
   try {
@@ -1454,9 +1453,13 @@ function getVideoCreatedAt(video) {
 
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
-const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
+const LOAD_MORE_BATCH = 40; // כמה events למשוך מהריליי בכל ניסיון | HYPER CORE TECH
+const LOAD_MORE_MAX_ATTEMPTS = 12; // כמה קפיצות until בגלילה אחת | HYPER CORE TECH
+const LOAD_MORE_TARGET_VIDEOS = 15; // יעד וידאו להוסיף בכל Near-end | HYPER CORE TECH
+const FEED_HISTORY_LOOKBACK_SEC = 60 * 60 * 24 * 400; // ~13 חודשים לטעינה ראשונית בלי until | HYPER CORE TECH
 let isLoadingMore = false; // מונע טעינות כפולות
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
+let loadMoreExhaustedUntil = 0; // חותם זמן שמתחתיו הריליי ריק (מונע לולאה אינסופית) | HYPER CORE TECH
 
 function getNetworkTag() {
   const app = window.NostrApp;
@@ -5328,19 +5331,27 @@ async function loadMoreVideos() {
   }
   
   let untilTime = getVideoCreatedAt(oldestVideo);
+  if (loadMoreExhaustedUntil > 0 && untilTime <= loadMoreExhaustedUntil) {
+    console.log('[videos] loadMoreVideos: already exhausted history', {
+      untilTime,
+      exhaustedAt: loadMoreExhaustedUntil,
+    });
+    isLoadingMore = false;
+    return;
+  }
   console.log('[videos] loadMoreVideos: loading older than', new Date(untilTime * 1000).toLocaleString());
   
   try {
     const existingIds = new Set(state.videos.map(v => v.id));
     const collectedVideos = [];
+    let emptyStreak = 0;
 
-    // כמה ניסיונות עם until – הרבה נוטס בלי מדיה | HYPER CORE TECH
-    for (let attempt = 0; attempt < 4 && collectedVideos.length < 5; attempt++) {
+    // בגלילה: ממשיכים לקפוץ אחורה עד שיש וידאו או עד שהריליי באמת ריק | HYPER CORE TECH
+    for (let attempt = 0; attempt < LOAD_MORE_MAX_ATTEMPTS && collectedVideos.length < LOAD_MORE_TARGET_VIDEOS; attempt++) {
       let moreEvents = [];
 
-      // קודם until מהריליי – לא since (שזה רק החדשים ביותר) | HYPER CORE TECH
       const fetched = await fetchRecentNotes(LOAD_MORE_BATCH, undefined, untilTime);
-      const olderFromRelay = fetched.filter(ev =>
+      const olderFromRelay = (Array.isArray(fetched) ? fetched : []).filter(ev =>
         ev &&
         !existingIds.has(ev.id) &&
         (ev.created_at || 0) < untilTime
@@ -5362,12 +5373,32 @@ async function loadMoreVideos() {
       }
 
       if (moreEvents.length === 0) {
-        // גם אם הריליי החזיר כפילויות — לקדם until כדי לא להיתקע באותו חותם | HYPER CORE TECH
-        untilTime = Math.max(0, untilTime - 1);
-        console.log('[videos] loadMoreVideos: no older events on attempt', attempt + 1, { untilTime });
+        emptyStreak += 1;
+        // כפילויות מהריליי — לקפוץ לחותם הישן ביותר בבאצ' במקום until-1 | HYPER CORE TECH
+        if (Array.isArray(fetched) && fetched.length > 0) {
+          const oldestInFetched = fetched.reduce(
+            (min, ev) => Math.min(min, ev.created_at || untilTime),
+            untilTime
+          );
+          untilTime = Math.min(untilTime - 1, oldestInFetched > 0 ? oldestInFetched : untilTime - 1);
+          console.log('[videos] loadMoreVideos: duplicate/empty batch, jump until', {
+            attempt: attempt + 1,
+            untilTime,
+            fetched: fetched.length,
+          });
+        } else {
+          untilTime = Math.max(0, untilTime - 86400); // קפיצה של יום כשהריליי ריק לגמרי
+          console.log('[videos] loadMoreVideos: empty relay batch', { attempt: attempt + 1, untilTime });
+        }
+        if (emptyStreak >= 3 && collectedVideos.length === 0) {
+          loadMoreExhaustedUntil = untilTime;
+          console.log('[videos] loadMoreVideos: marking history exhausted', { untilTime });
+          break;
+        }
         continue;
       }
 
+      emptyStreak = 0;
       moreEvents.forEach((ev) => {
         if (ev?.id) existingIds.add(ev.id);
       });
@@ -5383,19 +5414,26 @@ async function loadMoreVideos() {
           collectedVideos.push(v);
         }
       });
+      // נוטס בלי מדיה — ממשיכים אחורה באותה גלילה | HYPER CORE TECH
+      if (batchVideos.length === 0) {
+        console.log('[videos] loadMoreVideos: notes without video media, continue', {
+          notes: moreEvents.length,
+          untilTime,
+        });
+      }
     }
 
     if (collectedVideos.length > 0) {
+      loadMoreExhaustedUntil = 0; // יש עוד היסטוריה — לא לנעול
       state.videos = [...state.videos, ...collectedVideos];
       console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
-      // בפיד הכללי לא מציגים משחקים/ערוצי LIVE גם בטעינת המשך | HYPER CORE TECH
       const toShow = collectedVideos.filter((v) => isGeneralFeedVideo(v));
       if (toShow.length) {
         renderMoreVideos(toShow);
       }
       saveFeedCache(state.videos);
     } else {
-      console.log('[videos] loadMoreVideos: no more videos available');
+      console.log('[videos] loadMoreVideos: no more videos available', { untilTime });
     }
   } catch (err) {
     console.warn('[videos] loadMoreVideos failed', err);
@@ -5642,7 +5680,8 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined, untilOve
   } else if (sinceOverride != null && Number.isFinite(Number(sinceOverride))) {
     filters[0].since = Number(sinceOverride);
   } else {
-    filters[0].since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
+    // בלי until/since מפורש — היסטוריה ארוכה (לא רק 30 יום) | HYPER CORE TECH
+    filters[0].since = Math.floor(Date.now() / 1000) - FEED_HISTORY_LOOKBACK_SEC;
   }
   // עם until – לא ליפול ל"חדשים ביותר"; בלי until – fallback בלי since | HYPER CORE TECH
   const filtersFallback = untilOverride != null
