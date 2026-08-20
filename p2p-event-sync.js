@@ -6,10 +6,10 @@
   const STORE_NAME = 'events';
 
   const TTL_MS = 7 * 24 * 60 * 60 * 1000;
-  const INV_LIMIT = 300;
+  const INV_LIMIT = 500;
   const MAX_IDS_PER_REQ = 200;
   const MAX_EVENTS_PER_RES = 50;
-  const MIN_INV_INTERVAL_MS = 5000;
+  const MIN_INV_INTERVAL_MS = 4000;
 
   let db = null;
   let dbDisabled = false;
@@ -184,18 +184,27 @@
     const index = store.index('created_at');
 
     return new Promise((resolve) => {
-      const ids = [];
+      const postIds = [];
+      const otherIds = [];
       const request = index.openCursor(null, 'prev');
       request.onsuccess = (event) => {
         const cursor = event.target.result;
-        if (!cursor || ids.length >= limit) {
-          resolve(ids);
+        if (!cursor || postIds.length + otherIds.length >= limit * 2) {
+          // קודם פוסטי פיד (kind:1 בלי e), אחר כך השאר — כדי שיגיעו בין peers | HYPER CORE TECH
+          resolve(postIds.concat(otherIds).slice(0, limit));
           return;
         }
-        if (cursor.value?.id) ids.push(cursor.value.id);
+        const rec = cursor.value;
+        if (rec?.id) {
+          const isRootPost =
+            rec.kind === 1 &&
+            !(Array.isArray(rec.tags) && rec.tags.some((t) => Array.isArray(t) && t[0] === 'e'));
+          if (isRootPost) postIds.push(rec.id);
+          else otherIds.push(rec.id);
+        }
         cursor.continue();
       };
-      request.onerror = () => resolve(ids);
+      request.onerror = () => resolve(postIds.concat(otherIds).slice(0, limit));
     });
   }
 
@@ -352,6 +361,17 @@
     }
 
     log('info', '📥 RES received', { from: senderPubkey.slice(0, 8), events: msg.events.length, stored, newPosts: newPosts.length, newLikes: newLikes.length });
+
+    // דחיפת פוסטי פיד חסרים למסך הווידאו | HYPER CORE TECH
+    if (newPosts.length > 0) {
+      try {
+        if (typeof App.onP2PFeedEvents === 'function') {
+          App.onP2PFeedEvents(newPosts);
+        }
+      } catch (err) {
+        log('warn', 'onP2PFeedEvents failed', err?.message || String(err));
+      }
+    }
     return true;
   }
 
@@ -383,6 +403,10 @@
     state.lastInvSentAt.delete(peerPubkey);
   }
 
+  function getConnectedPeers() {
+    return Array.from(state.channels.keys());
+  }
+
   function getStats() {
     return Object.assign({ channels: state.channels.size, dbDisabled }, state.stats);
   }
@@ -392,8 +416,9 @@
     const database = await openDB();
     if (!database) return [];
 
-    const { kinds = [1], limit = 100, since = 0 } = options;
+    const { kinds = [1], limit = 100, since = 0, until = Number.MAX_SAFE_INTEGER } = options;
     const kindsSet = new Set(kinds);
+    const untilTs = Number.isFinite(Number(until)) ? Number(until) : Number.MAX_SAFE_INTEGER;
 
     return new Promise((resolve) => {
       const results = [];
@@ -409,7 +434,12 @@
           return;
         }
         const rec = cursor.value;
-        if (rec && kindsSet.has(rec.kind) && rec.created_at >= since) {
+        if (
+          rec &&
+          kindsSet.has(rec.kind) &&
+          rec.created_at >= since &&
+          rec.created_at < untilTs
+        ) {
           results.push({
             id: rec.id,
             pubkey: rec.pubkey,
@@ -478,6 +508,7 @@
       return sendInventory(peerPubkey, ch);
     },
     getStats,
+    getConnectedPeers,
     loadCachedEvents,
     loadEngagementForPosts,
   });

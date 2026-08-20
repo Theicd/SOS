@@ -1453,11 +1453,11 @@ function getVideoCreatedAt(video) {
 
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
-const LOAD_MORE_BATCH = 40; // כמה events למשוך מהריליי בכל ניסיון | HYPER CORE TECH
-const LOAD_MORE_MAX_ATTEMPTS = 16; // כמה קפיצות until בגלילה אחת | HYPER CORE TECH
-const LOAD_MORE_TARGET_VIDEOS = 15; // יעד וידאו להוסיף בכל Near-end | HYPER CORE TECH
-const LOAD_MORE_EMPTY_JUMP_SEC = 60 * 60 * 24 * 3; // קפיצה של 3 ימים כשהריליי ריק/דחוי | HYPER CORE TECH
-const LOAD_MORE_EXHAUST_COOLDOWN_MS = 45000; // אחרי "exhausted" — לא לנעול לנצח, לנסות שוב | HYPER CORE TECH
+const LOAD_MORE_BATCH = 50; // כמה events למשוך מהריליי בכל ניסיון | HYPER CORE TECH
+const LOAD_MORE_MAX_ATTEMPTS = 40; // ממשיכים לקפוץ אחורה עד שיש וידאו | HYPER CORE TECH
+const LOAD_MORE_TARGET_VIDEOS = 20; // יעד וידאו להוסיף בכל Near-end | HYPER CORE TECH
+const LOAD_MORE_EMPTY_JUMP_SEC = 60 * 60 * 24 * 14; // קפיצה של 14 יום כשריק/דחוי | HYPER CORE TECH
+const LOAD_MORE_EXHAUST_COOLDOWN_MS = 20000; // אחרי exhausted — ניסיון חוזר מהיר | HYPER CORE TECH
 const FEED_HISTORY_LOOKBACK_SEC = 60 * 60 * 24 * 400; // ~13 חודשים לטעינה ראשונית בלי until | HYPER CORE TECH
 let isLoadingMore = false; // מונע טעינות כפולות
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
@@ -5359,6 +5359,15 @@ async function loadMoreVideos() {
     loadMoreExhaustedAtMs = 0;
   }
   console.log('[videos] loadMoreVideos: loading older than', new Date(untilTime * 1000).toLocaleString());
+
+  // מבקשים מה־peers רשימת אירועים חסרים (לא רק hashes של קבצים) | HYPER CORE TECH
+  try {
+    const app = window.NostrApp;
+    const peers = app?.EventSync?.getConnectedPeers?.() || [];
+    peers.forEach((pk) => {
+      try { app.EventSync.sendInventory(pk); } catch (_) {}
+    });
+  } catch (_) {}
   
   try {
     const existingIds = new Set(state.videos.map(v => v.id));
@@ -5370,9 +5379,36 @@ async function loadMoreVideos() {
     for (let attempt = 0; attempt < LOAD_MORE_MAX_ATTEMPTS && collectedVideos.length < LOAD_MORE_TARGET_VIDEOS; attempt++) {
       let moreEvents = [];
 
+      // קודם EventSync מקומי / מה שכבר הגיע מ־P2P | HYPER CORE TECH
+      try {
+        const cachedEv = await currentApp?.EventSync?.loadCachedEvents?.({
+          kinds: [1],
+          limit: LOAD_MORE_BATCH,
+          until: untilTime,
+        });
+        if (Array.isArray(cachedEv) && cachedEv.length) {
+          const olderCached = cachedEv.filter((ev) =>
+            ev &&
+            !existingIds.has(ev.id) &&
+            (ev.created_at || 0) < untilTime &&
+            !(Array.isArray(ev.tags) && ev.tags.some((t) => Array.isArray(t) && t[0] === 'e'))
+          );
+          if (olderCached.length) {
+            moreEvents = filterEventsByNetwork(olderCached, networkTag)
+              .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+              .slice(0, LOAD_MORE_BATCH);
+            if (moreEvents.length) {
+              console.log('[videos] loadMoreVideos: from EventSync cache', { count: moreEvents.length });
+            }
+          }
+        }
+      } catch (_) {}
+
       lastNotesFetchFailed = false;
-      const fetched = await fetchRecentNotes(LOAD_MORE_BATCH, undefined, untilTime);
-      const fetchFailed = lastNotesFetchFailed;
+      const fetched = moreEvents.length
+        ? moreEvents
+        : await fetchRecentNotes(LOAD_MORE_BATCH, undefined, untilTime);
+      const fetchFailed = !moreEvents.length && lastNotesFetchFailed;
       const olderFromRelay = (Array.isArray(fetched) ? fetched : []).filter(ev =>
         ev &&
         !existingIds.has(ev.id) &&
@@ -5380,7 +5416,7 @@ async function loadMoreVideos() {
       );
       let filtered = filterEventsByNetwork(olderFromRelay, networkTag);
       filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-      moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
+      if (!moreEvents.length) moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
 
       if (moreEvents.length === 0 && currentApp?.postsById?.size > 0) {
         const fromApp = Array.from(currentApp.postsById.values());
@@ -5410,20 +5446,20 @@ async function loadMoreVideos() {
             fetched: fetched.length,
           });
         } else if (fetchFailed) {
-          // ריליי דחוי (too many REQs) — לא לסמן exhausted | HYPER CORE TECH
+          // ריליי דחוי — ממשיכים לקפוץ אחורה, בלי לעצור את הגלילה | HYPER CORE TECH
           hardEmptyStreak = 0;
           untilTime = Math.max(0, untilTime - LOAD_MORE_EMPTY_JUMP_SEC);
           console.log('[videos] loadMoreVideos: relay fetch failed, soft jump', {
             attempt: attempt + 1,
             untilTime,
           });
-          if (emptyStreak >= 2) break; // לשחרר REQ slot — ינסה שוב בגלילה/cooldown
         } else {
           hardEmptyStreak += 1;
           untilTime = Math.max(0, untilTime - LOAD_MORE_EMPTY_JUMP_SEC);
           console.log('[videos] loadMoreVideos: empty relay batch', { attempt: attempt + 1, untilTime });
         }
-        if (hardEmptyStreak >= 4 && collectedVideos.length === 0) {
+        if (untilTime <= 0) break;
+        if (hardEmptyStreak >= 8 && collectedVideos.length === 0) {
           loadMoreExhaustedUntil = untilTime;
           loadMoreExhaustedAtMs = Date.now();
           console.log('[videos] loadMoreVideos: marking history exhausted (cooldown)', { untilTime });
@@ -5481,74 +5517,18 @@ async function loadMoreVideos() {
 
 function processEventsToVideos(events, currentApp) {
   const videoEvents = [];
-  const AppRef = currentApp || window.NostrApp || {};
+  const app = currentApp || window.NostrApp || {};
 
-  const extractVideoMirrors = (event) => {
-    // תאימות ל־media-mirror + פורמט מחרוזות כמו ב־loadVideos | HYPER CORE TECH
-    try {
-      if (typeof AppRef.extractMirrorsFromEvent === 'function') {
-        const list = AppRef.extractMirrorsFromEvent(event) || [];
-        return list
-          .map((m) => (typeof m === 'string' ? m : (m && m.url)))
-          .filter(Boolean);
-      }
-    } catch (_) {}
-    const out = [];
-    if (Array.isArray(event?.tags)) {
-      event.tags.forEach((tag) => {
-        if (Array.isArray(tag) && tag[0] === 'mirror' && tag[1]) out.push(String(tag[1]));
-      });
-    }
-    return out;
-  };
-  
-  events.forEach((event) => {
+  (events || []).forEach((event) => {
     if (!event || event.kind !== 1) return;
-    if (currentApp?.deletedEventIds?.has(event.id)) return;
-    if (isMediaUnavailable(event.id)) return;
-    
-    const lines = String(event.content || '').split('\n');
-    const mediaLinks = [];
-    const textLines = [];
-    
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      if (trimmed.startsWith('http') || trimmed.startsWith('data:')) {
-        mediaLinks.push(trimmed);
-      } else {
-        textLines.push(trimmed);
-      }
-    });
-    
-    const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
-    const liveUrl = mediaLinks.find(isHlsLiveLink) || null;
-    const gameUrl = mediaLinks.find(isPlayableGameLink) || null;
-    const videoUrl = mediaLinks.find(isVideoLink);
-    
-    if (!videoUrl && !youtubeId && !liveUrl && !gameUrl) return;
-    
-    const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
-    
-    videoEvents.push({
-      id: event.id,
-      pubkey: event.pubkey,
-      createdAt: event.created_at || 0,
-      liveUrl: liveUrl || null,
-      gameUrl: gameUrl || null,
-      videoUrl: (liveUrl || gameUrl) ? null : (videoUrl || null),
-      youtubeId: youtubeId || null,
-      text: textLines.join('\n'),
-      likes: 0,
-      comments: 0,
-      authorName: profileData.name || `משתמש ${String(event.pubkey || '').slice(0, 8)}`,
-      authorPicture: profileData.picture || '',
-      authorInitials: profileData.initials || 'AN',
-      mediaLinks,
-      mirrors: extractVideoMirrors(event)
-    });
+    // אותה לוגיקה כמו loadVideos — כולל תגי media/Blossom (לא רק URL בתוכן) | HYPER CORE TECH
+    const item = parseEventToVideoItem(event, app);
+    if (!item) return;
+    registerVideoSourceEvent(event);
+    try { app.EventSync?.ingestEvent?.(event, { source: 'videos-process' }); } catch (_) {}
+    videoEvents.push(item);
   });
-  
+
   return videoEvents;
 }
 
@@ -5970,6 +5950,12 @@ function registerVideoSourceEvent(event) {
   app.postsById.set(event.id, event);
 
   try {
+    if (typeof app.EventSync?.ingestEvent === 'function') {
+      app.EventSync.ingestEvent(event, { source: 'videos-register' });
+    }
+  } catch (_) {}
+
+  try {
     const mediaHash = typeof event._sosMediaHash === 'string'
       ? event._sosMediaHash
       : (Array.isArray(event.tags)
@@ -5988,6 +5974,50 @@ function registerVideoSourceEvent(event) {
     }
   }
 }
+
+// חלק P2P פיד (videos.js) – פוסטים שהגיעו מ־EventSync (RES) נכנסים לפיד מיד | HYPER CORE TECH
+function mergeP2PFeedEvents(events) {
+  if (!Array.isArray(events) || events.length === 0) return 0;
+  const app = window.NostrApp || {};
+  const networkTag = getNetworkTag();
+  const existing = new Set((state.videos || []).map((v) => v && v.id).filter(Boolean));
+  const filtered = filterEventsByNetwork(
+    events.filter((ev) => ev && ev.kind === 1 && ev.id && !existing.has(ev.id)),
+    networkTag
+  );
+  if (!filtered.length) return 0;
+  const videos = processEventsToVideos(filtered, app).filter((v) => v && !existing.has(v.id));
+  if (!videos.length) return 0;
+  state.videos = sortVideosByCreatedAtDesc([...(state.videos || []), ...videos]);
+  saveFeedCache(state.videos);
+  const toShow = videos.filter((v) => isGeneralFeedVideo(v));
+  if (toShow.length && state.feedMode !== 'games' && state.feedMode !== 'live-tv' && state.feedMode !== 'own-posts') {
+    // פוסטים חדשים יותר — לראש; ישנים — לסוף | HYPER CORE TECH
+    const stream = document.querySelector('.videos-feed__stream');
+    if (stream) {
+      const oldestShown = state.videos.length
+        ? Math.min(...state.videos.slice(0, 20).map((v) => getVideoCreatedAt(v)))
+        : 0;
+      toShow.forEach((video) => {
+        const card = createVideoCard(video);
+        if (!card) return;
+        if (getVideoCreatedAt(video) >= oldestShown) {
+          stream.insertBefore(card, stream.firstChild);
+        } else {
+          stream.appendChild(card);
+        }
+      });
+      updateLoadMoreTrigger();
+    }
+  }
+  console.log('[videos] merged P2P feed posts', { added: videos.length, total: state.videos.length });
+  return videos.length;
+}
+
+try {
+  window.NostrApp = window.NostrApp || {};
+  window.NostrApp.onP2PFeedEvents = mergeP2PFeedEvents;
+} catch (_) {}
 
 // חלק יאללה וידאו (videos.js) – רישום לייקים/תגובות להשלמת ספירות UI | HYPER CORE TECH
 function registerVideoEngagementEvent(event) {
