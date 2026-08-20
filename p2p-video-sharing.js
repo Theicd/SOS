@@ -1696,6 +1696,21 @@
       adoptChatDcAsPersistent(peerPubkey, channel);
       log('info', `🔗 Chat DC זמין למדיה פיד`, { peer: String(peerPubkey || '').slice(0, 8) });
     } catch (_) {}
+    // אור ירוק = sos-chat: חייבים להחליף רשימת קבצים, אחרת המוריד לא יודע מי seeder | HYPER CORE TECH
+    try {
+      if (App.PeerExchange) {
+        if (typeof App.PeerExchange.markPeerConnected === 'function') {
+          App.PeerExchange.markPeerConnected(peerPubkey, channel);
+        }
+        if (typeof App.PeerExchange.sendPeerExchangeRequest === 'function') {
+          App.PeerExchange.sendPeerExchangeRequest(channel);
+        }
+        if (typeof App.PeerExchange.pushFileInventory === 'function') {
+          App.PeerExchange.pushFileInventory(channel, peerPubkey);
+        }
+        log('info', `🔄 Exchange על Chat DC`, { peer: String(peerPubkey || '').slice(0, 8) });
+      }
+    } catch (_) {}
   }
 
   function onChatDataChannelClosed(peerPubkey) {

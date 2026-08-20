@@ -291,6 +291,21 @@
         // error/complete/metadata שלא לפיד – לא לצ'אט טקסט
         if(m.type!=='request') return;
       }
+      // חלק גשר PeerExchange/EventSync (chat-p2p-datachannel.js) – חייב לרוץ על sos-chat (אור ירוק) | HYPER CORE TECH
+      if(m.type==='peer-exchange-request'||m.type==='peer-exchange-response'||m.type==='relay-signal'||m.type==='relay-signal-forward'){
+        if(App.PeerExchange&&typeof App.PeerExchange.handleIncomingMessage==='function'){
+          const s=getPS(peer.toLowerCase());
+          try{ if(App.PeerExchange.handleIncomingMessage(m, peer, s&&s.dc)) return; }catch(e){ console.warn('[DC] peer-exchange bridge:', e); }
+        }
+        return;
+      }
+      if(m.type==='p2p-event-inv'||m.type==='p2p-event-req'||m.type==='p2p-event-res'){
+        if(App.EventSync&&typeof App.EventSync.handleIncomingMessage==='function'){
+          const s=getPS(peer.toLowerCase());
+          try{ App.EventSync.handleIncomingMessage(m, peer, s&&s.dc); }catch(e){ console.warn('[DC] event-sync bridge:', e); }
+        }
+        return;
+      }
       // חלק גשר קבצים (chat-p2p-datachannel.js) – metadata/ACK/chunks על ערוץ הצ'אט | HYPER CORE TECH
       if(m.type==='file-complete-ack'||m.type==='file-resend-request'||m.type==='file-ready'||m.type==='file-offer'||m.type==='chunk-meta'||m.type==='chunk-ack'||m.type==='ack'||m.type==='resume'){
         if(typeof App.handleP2PFileControlMessage==='function'){
