@@ -6569,6 +6569,51 @@ function createNavArrows() {
   console.log('[videos] Nav arrows created');
 }
 
+// חלק תיקון עברית (videos.js) – אם HTML ישן במטמון הציג גיבריש, דורסים תוויות נכונות מ־JS | HYPER CORE TECH
+function repairHebrewUiLabels() {
+  const setText = (el, text) => {
+    if (!el || typeof text !== 'string') return;
+    el.textContent = text;
+  };
+  const setAttr = (el, name, text) => {
+    if (!el || typeof text !== 'string') return;
+    el.setAttribute(name, text);
+  };
+  const nav = document.querySelector('.primary-nav');
+  if (nav) {
+    const map = [
+      ['[data-nav="videos"]', 'בית'],
+      ['#notificationsToggle', 'התראות'],
+      ['#messagesToggle', 'שיחות'],
+      ['[data-nav="profile"]', 'פרופיל'],
+      ['#navCompose', 'פרסם'],
+      ['[data-nav="explore"]', 'סייר'],
+      ['[data-nav="following"]', 'במעקב'],
+      ['[data-nav="friends"]', 'חברים'],
+      ['[data-nav="live"]', 'שידור חי'],
+      ['#moreOptionsToggle', 'עוד'],
+    ];
+    map.forEach(([sel, label]) => {
+      const btn = nav.querySelector(sel);
+      if (!btn) return;
+      setAttr(btn, 'aria-label', label);
+      const span = btn.querySelector('span:not(.nav-item__badge)');
+      setText(span, label);
+    });
+    const search = nav.querySelector('.primary-nav__desktop-search-input');
+    if (search) {
+      setAttr(search, 'placeholder', 'חיפוש');
+      setAttr(search, 'aria-label', 'חיפוש');
+    }
+  }
+  const cacheBtn = document.getElementById('cacheRefreshBtn');
+  if (cacheBtn) {
+    const span = cacheBtn.querySelector('span');
+    if (span) span.textContent = 'מחיקת Cache';
+    cacheBtn.title = 'רענון עמוק - מחיקת Cache והורדה מחדש';
+  }
+}
+
 // חלק עוקבים בתפריט צד (videos.js) – יצירת מקטע עוקבים ופוטר בתפריט הצד בדסקטופ | HYPER CORE TECH
 function createSidebarFollowersSection() {
   // רק בדסקטופ
@@ -6796,6 +6841,9 @@ async function init() {
   
   // חלק עוקבים בתפריט צד (videos.js) – יצירת מקטע עוקבים ופוטר בדסקטופ | HYPER CORE TECH
   createSidebarFollowersSection();
+
+  // תיקון תוויות עברית אם HTML ישן נשאר במטמון הדפדפן | HYPER CORE TECH
+  repairHebrewUiLabels();
 
   // חלק כפתור בית (videos.js) – לחיצה 1 סוגרת overlay / רמז; לחיצה 2 מרעננת | HYPER CORE TECH
   const homeButton = document.getElementById('videosTopHomeButton');

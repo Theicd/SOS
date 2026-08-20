@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v572'; // bump - restore Hebrew UTF-8 in videos.html
+  const CACHE_NAME = 'sos-cache-v573'; // bump - force fresh HTML (fix stuck Hebrew mojibake cache)
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -39,7 +39,8 @@
       } catch (err) {
         console.warn('[SW] Precache failed:', err);
       }
-      // לא קוראים skipWaiting כאן – ממתינים ללחיצת «עדכן» בכרטיסיית העדכון | HYPER CORE TECH
+      // תיקון קידוד עברית: מפעילים מיד כדי לא להשאיר HTML שבור במטמון | HYPER CORE TECH
+      await self.skipWaiting();
     })());
   });
 
@@ -85,8 +86,17 @@
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
     
     event.respondWith((async () => {
+      const isHtmlNav =
+        event.request.mode === 'navigate' ||
+        url.pathname.endsWith('.html') ||
+        url.pathname === '/' ||
+        url.pathname.endsWith('/');
       try {
-        const networkResponse = await fetch(event.request);
+        // HTML תמיד מהרשת בלי HTTP cache – מונע גיבריש מ־videos.html ישן | HYPER CORE TECH
+        const networkResponse = await fetch(
+          event.request,
+          isHtmlNav ? { cache: 'no-store' } : undefined
+        );
         if (networkResponse.ok) {
           const cache = await caches.open(CACHE_NAME);
           cache.put(event.request, networkResponse.clone()).catch(() => {});
