@@ -107,7 +107,6 @@ const p2pStatsUI = {
   p2p: 0,
   blossom: 0,
   cache: 0,
-  multi: 0,
   total: 0,
   
   // עדכון הסטטיסטיקות
@@ -115,7 +114,6 @@ const p2pStatsUI = {
     if (source === 'p2p' || source === 'p2p-multi') this.p2p++;
     else if (source === 'blossom') this.blossom++;
     else if (source === 'cache') this.cache++;
-    if (source === 'p2p-multi') this.multi++;
     this.total = this.p2p + this.blossom + this.cache;
     this.render();
   },
@@ -129,7 +127,6 @@ const p2pStatsUI = {
         this.p2p = stats.downloads.fromP2P || 0;
         this.blossom = stats.downloads.fromBlossom || 0;
         this.cache = stats.downloads.fromCache || 0;
-        this.multi = stats.downloads.fromMultiSource || 0;
         this.total = stats.downloads.total || (this.p2p + this.blossom + this.cache);
         this.render();
       }
@@ -151,7 +148,6 @@ const p2pStatsUI = {
     const total = this.total || 1;
     const p2pPercent = (this.p2p / total) * 100;
     const blossomPercent = (this.blossom / total) * 100;
-    const cachePercent = (this.cache / total) * 100;
     
     // עדכון ה-SVG - עיגול עוגה
     // P2P מתחיל מ-0
@@ -166,7 +162,7 @@ const p2pStatsUI = {
     textEl.textContent = this.total;
     
     // עדכון title
-    circle.title = `P2P: ${this.p2p} | Multi: ${this.multi || 0} | Blossom: ${this.blossom} | Cache: ${this.cache}`;
+    circle.title = `SOS: ${this.p2p} | Blossom: ${this.blossom} | Cache: ${this.cache}`;
   },
   
   // יצירת טולטיפ מפורט – נפתח מחוץ לתפריט (fixed) כי העיגול יושב בתפריט הפרופיל | HYPER CORE TECH
@@ -193,37 +189,32 @@ const p2pStatsUI = {
         <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות SOS</div>
       </div>
       <div class="p2p-stats-tooltip__section">📥 הורדות</div>
-      <div class="p2p-stats-tooltip__hint" style="font-size:11px;opacity:0.75;margin:0 0 8px;line-height:1.35">
-        SOS = WebRTC בין מכשירים (לא WebTorrent). Public = Blossom/שרת. Cache = מקומי.
-      </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
-          SOS (WebRTC)
+          SOS
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
       </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
-          Multi-Source
-        </span>
-        <span class="p2p-stats-tooltip__value" id="tooltipMultiSource">0</span>
-      </div>
-      <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--blossom"></span>
-          Public (שרת)
+          Blossom
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipBlossom">0</span>
       </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--cache"></span>
-          Cache (מקומי)
+          Cache
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipCache">0</span>
       </div>
       <div class="p2p-stats-tooltip__section">⬇️ הורדה פעילה</div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">מקור</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipDownloadSource">-</span>
+      </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">מקורות זמינים</span>
         <span class="p2p-stats-tooltip__value" id="tooltipDownloadPeers">-</span>
@@ -236,7 +227,28 @@ const p2pStatsUI = {
         <span class="p2p-stats-tooltip__label">מהירות</span>
         <span class="p2p-stats-tooltip__value" id="tooltipDownloadSpeed">-</span>
       </div>
+      <div class="p2p-stats-tooltip__section">⬆️ נדחף למשתמש ברשת</div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">הועלה (סה״כ)</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipPushedBytes">0 MB</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">קבצים שנדחפו</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipPushedFiles">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">נמען אחרון</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipPushedPeer">-</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">מהירות ממוצעת</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipPushedAvgSpeed">-</span>
+      </div>
       <div class="p2p-stats-tooltip__section">⬆️ העלאה פעילה</div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">אל משתמש</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipUploadPeer">-</span>
+      </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">קבצים</span>
         <span class="p2p-stats-tooltip__value" id="tooltipUploadFiles">0</span>
@@ -320,18 +332,22 @@ const p2pStatsUI = {
   // עדכון הטולטיפ
   updateTooltip() {
     const p2pEl = document.getElementById('tooltipP2P');
-    const multiEl = document.getElementById('tooltipMultiSource');
     const blossomEl = document.getElementById('tooltipBlossom');
     const cacheEl = document.getElementById('tooltipCache');
     const queueEl = document.getElementById('tooltipQueue');
     const peersEl = document.getElementById('tooltipPeers');
     const downloadPeersEl = document.getElementById('tooltipDownloadPeers');
+    const downloadSourceEl = document.getElementById('tooltipDownloadSource');
     const downloadSpeedEl = document.getElementById('tooltipDownloadSpeed');
     const uploadFilesEl = document.getElementById('tooltipUploadFiles');
     const uploadSpeedEl = document.getElementById('tooltipUploadSpeed');
+    const uploadPeerEl = document.getElementById('tooltipUploadPeer');
+    const pushedBytesEl = document.getElementById('tooltipPushedBytes');
+    const pushedFilesEl = document.getElementById('tooltipPushedFiles');
+    const pushedPeerEl = document.getElementById('tooltipPushedPeer');
+    const pushedAvgEl = document.getElementById('tooltipPushedAvgSpeed');
     
     if (p2pEl) p2pEl.textContent = this.p2p;
-    if (multiEl) multiEl.textContent = this.multi || 0;
     if (blossomEl) blossomEl.textContent = this.blossom;
     if (cacheEl) cacheEl.textContent = this.cache;
     
@@ -346,7 +362,10 @@ const p2pStatsUI = {
         // הורדות פעילות
         const download = stats.activeDownload;
         if (downloadPeersEl) {
-          downloadPeersEl.textContent = download?.peers || '-';
+          downloadPeersEl.textContent = (download && download.peers != null) ? String(download.peers) : '-';
+        }
+        if (downloadSourceEl) {
+          downloadSourceEl.textContent = this.formatDownloadSource(download);
         }
         const downloadProgressEl = document.getElementById('tooltipDownloadProgress');
         if (downloadProgressEl) {
@@ -357,9 +376,28 @@ const p2pStatsUI = {
           downloadSpeedEl.textContent = speed ? this.formatSpeed(speed) : '-';
         }
         
+        // נדחף לרשת (מצטבר)
+        const uploads = stats.uploads || {};
+        if (pushedBytesEl) pushedBytesEl.textContent = this.formatBytes(uploads.bytesPushed || 0);
+        if (pushedFilesEl) pushedFilesEl.textContent = String(uploads.filesPushed || 0);
+        if (pushedPeerEl) {
+          pushedPeerEl.textContent = uploads.lastPeer
+            ? String(uploads.lastPeer).slice(0, 8)
+            : '-';
+        }
+        if (pushedAvgEl) {
+          pushedAvgEl.textContent = uploads.avgSpeed
+            ? this.formatSpeed(uploads.avgSpeed)
+            : '-';
+        }
+
         // העלאות פעילות
         if (uploadFilesEl) {
           uploadFilesEl.textContent = stats.activeTransfers || 0;
+        }
+        if (uploadPeerEl) {
+          const peer = stats.activeUpload?.peer;
+          uploadPeerEl.textContent = peer ? String(peer).slice(0, 8) : '-';
         }
         if (uploadSpeedEl) {
           const speed = stats.activeUpload?.speed;
@@ -368,12 +406,32 @@ const p2pStatsUI = {
       }
     }
   },
+
+  formatDownloadSource(download) {
+    if (!download) return '-';
+    const src = String(download.source || '').toLowerCase();
+    const peer = download.peer ? String(download.peer).slice(0, 8) : '';
+    if (src === 'sos' || src === 'p2p' || src === 'p2p-multi') {
+      return peer ? `SOS ← ${peer}` : 'SOS';
+    }
+    if (src === 'blossom' || src === 'url') return 'Blossom';
+    if (src === 'cache') return 'Cache';
+    return src || '-';
+  },
   
   // פורמט מהירות
   formatSpeed(bytesPerSec) {
-    if (bytesPerSec < 1024) return `${bytesPerSec} B/s`;
+    if (!bytesPerSec || bytesPerSec < 0) return '-';
+    if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
     if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
     return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
+  },
+
+  formatBytes(bytes) {
+    const n = Number(bytes) || 0;
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
   },
   
   // אתחול

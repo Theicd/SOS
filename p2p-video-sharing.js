@@ -209,11 +209,12 @@
 
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
-  const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: 3 אחרונים מ-Blossom, שאר P2P
-  const HYBRID_BLOSSOM_POSTS = 5;         // כמות פוסטים לטעון מ-Blossom במצב Hybrid
+  const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: מעט Blossom ואז P2P
+  const HYBRID_BLOSSOM_POSTS = 1;         // רק פוסט ראשון מ-Blossom לטעינה מהירה — השאר SOS קודם | HYPER CORE TECH
   const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
   const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
   const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
+  const PEER_SEARCH_RETRY_MS = 1500;      // ניסיון שני קצר כש־0 peers (מניעת בריחה ל־Blossom) | HYPER CORE TECH
   const CONSECUTIVE_FAILURES_THRESHOLD = 5; // כמות כשלונות ברצף לפני fallback - מאפשר לנסות יותר peers
   // חלק Adaptive Heartbeat (p2p-video-sharing.js) – תדירות דינמית לפי גודל רשת | HYPER CORE TECH
   const HEARTBEAT_INTERVALS = {
@@ -1063,6 +1064,16 @@
   const p2pStats = {
     downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, fromMultiSource: 0, failed: 0 },
     shares: { total: 0, success: 0, failed: 0 },
+    // נדחף למשתמשים ברשת (העלאות מדיה לפיד) | HYPER CORE TECH
+    uploads: {
+      bytesPushed: 0,
+      filesPushed: 0,
+      totalUploadMs: 0,
+      lastPeer: '',
+      lastBytes: 0,
+      lastSpeed: 0,
+      avgSpeed: 0,
+    },
     lastSummaryTime: 0
   };
 
@@ -1146,13 +1157,15 @@
     
     // עדכון state להצגה בטולטיפ
     state.activeDownload = {
-      hash: extra.hash || connectionId,
-      peers: extra.peers || 1,
-      startTime: prev?.startTime || now,
+      hash: extra.hash || state.activeDownload?.hash || connectionId,
+      peers: extra.peers || state.activeDownload?.peers || 1,
+      startTime: prev?.startTime || state.activeDownload?.startTime || now,
       bytesReceived: receivedSize,
       totalSize,
       speed,
       percent,
+      source: extra.source || state.activeDownload?.source || 'sos',
+      peer: extra.peer || state.activeDownload?.peer || null,
     };
     
     // הדפסה רק כל 10% או בסיום
@@ -2981,6 +2994,7 @@
       state.activeUploadCount++;
       state.activeUpload = {
         hash,
+        peer: peerKey,
         startTime: uploadStartTime,
         bytesSent: 0,
         totalSize: blob.size,
@@ -3000,7 +3014,12 @@
         if (now - lastSpeedCheck > 500) {
           const timeDiff = (now - lastSpeedCheck) / 1000;
           const bytesDiff = offset - lastBytesSent;
-          state.activeUpload = { ...state.activeUpload, bytesSent: offset, speed: bytesDiff / timeDiff };
+          state.activeUpload = {
+            ...state.activeUpload,
+            peer: peerKey,
+            bytesSent: offset,
+            speed: bytesDiff / timeDiff,
+          };
           lastSpeedCheck = now;
           lastBytesSent = offset;
         }
@@ -3021,11 +3040,26 @@
       p2pStats.shares.total++;
       p2pStats.shares.success++;
       confirmUpload(hash);
+      try {
+        const elapsedMs = Math.max(1, Date.now() - uploadStartTime);
+        const bytes = blob.size || 0;
+        const instantSpeed = bytes / (elapsedMs / 1000);
+        p2pStats.uploads.bytesPushed += bytes;
+        p2pStats.uploads.filesPushed += 1;
+        p2pStats.uploads.totalUploadMs += elapsedMs;
+        p2pStats.uploads.lastPeer = peerKey;
+        p2pStats.uploads.lastBytes = bytes;
+        p2pStats.uploads.lastSpeed = instantSpeed;
+        p2pStats.uploads.avgSpeed = p2pStats.uploads.totalUploadMs > 0
+          ? (p2pStats.uploads.bytesPushed / (p2pStats.uploads.totalUploadMs / 1000))
+          : instantSpeed;
+      } catch (_) {}
       state.activeUploadCount = Math.max(0, state.activeUploadCount - 1);
       if (state.activeUploadCount === 0) state.activeUpload = null;
 
       log('success', `[feed-session] serve DONE`, {
         path,
+        peer: peerKey.slice(0, 8),
         chunks: chunkNum,
         size: blob.size,
         hidden: vis.hidden,
@@ -3382,6 +3416,17 @@
             }
             p2pStats.downloads.fromBlossom++;
             log('success', `מ-Blossom [${tier}]`, { post: postIndex+1, size: Math.round(blob.size/1024)+'KB' });
+            state.activeDownload = {
+              hash,
+              peers: 0,
+              startTime: Date.now(),
+              bytesReceived: blob.size,
+              totalSize: blob.size,
+              speed: 0,
+              percent: 100,
+              source: 'blossom',
+              peer: null,
+            };
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
             }
@@ -3429,7 +3474,7 @@
         const maxPeersToTry = isGuest ? GUEST_MAX_PEERS_TO_TRY : MAX_PEER_ATTEMPTS_PER_FILE;
         const p2pTimeout = isGuest ? GUEST_P2P_TIMEOUT : INITIAL_LOAD_TIMEOUT;
         
-        // חיפוש peers עם timeout
+        // חיפוש peers עם timeout + ניסיון שני קצר אם ריק | HYPER CORE TECH
         let rawPeers = [];
         try {
           rawPeers = await Promise.race([
@@ -3438,6 +3483,17 @@
           ]);
         } catch (e) {
           rawPeers = [];
+        }
+        if (!Array.isArray(rawPeers) || rawPeers.length === 0) {
+          try {
+            await sleep(PEER_SEARCH_RETRY_MS);
+            rawPeers = await Promise.race([
+              findPeersWithFile(hash),
+              sleep(peerSearchTimeout).then(() => [])
+            ]);
+          } catch (_) {
+            rawPeers = [];
+          }
         }
         const peers = Array.isArray(rawPeers) ? [...rawPeers] : [];
         
@@ -3450,10 +3506,18 @@
           totalSize: 0,
           speed: 0,
           percent: 0,
+          source: peers.length > 0 ? 'sos' : 'blossom',
+          peer: null,
         };
 
         if (peers.length === 0) {
           try {
+            state.activeDownload = {
+              ...(state.activeDownload || {}),
+              source: 'blossom',
+              peer: null,
+              peers: 0,
+            };
             const response = await fetch(url);
             const blob = await response.blob();
             p2pStats.downloads.fromBlossom++;
@@ -3461,7 +3525,7 @@
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
             }
-            await registerFileAvailability(hash, blob, mimeType);
+            await registerFileAvailability(hash, blob, mimeType, optionEventId ? { eventId: optionEventId } : null);
             resetConsecutiveFailures();
             return { blob, source: 'url' };
           } catch (err) {
@@ -3538,6 +3602,14 @@
 
             p2pStats.downloads.fromP2P++;
             log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
+            state.activeDownload = {
+              ...(state.activeDownload || {}),
+              hash,
+              peers: sortedPeers.length,
+              source: 'sos',
+              peer: peer,
+              percent: 100,
+            };
 
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
@@ -3777,6 +3849,7 @@
     return {
       downloads: { ...p2pStats.downloads },
       shares: { ...p2pStats.shares },
+      uploads: { ...p2pStats.uploads },
       peerCount: state.lastPeerCount,
       tier: state.networkTier,
       activeTransfers: state.activeUploadCount,
