@@ -5362,8 +5362,10 @@ async function loadMoreVideos() {
       }
 
       if (moreEvents.length === 0) {
-        console.log('[videos] loadMoreVideos: no older events on attempt', attempt + 1);
-        break;
+        // גם אם הריליי החזיר כפילויות — לקדם until כדי לא להיתקע באותו חותם | HYPER CORE TECH
+        untilTime = Math.max(0, untilTime - 1);
+        console.log('[videos] loadMoreVideos: no older events on attempt', attempt + 1, { untilTime });
+        continue;
       }
 
       moreEvents.forEach((ev) => {
@@ -5405,6 +5407,26 @@ async function loadMoreVideos() {
 
 function processEventsToVideos(events, currentApp) {
   const videoEvents = [];
+  const AppRef = currentApp || window.NostrApp || {};
+
+  const extractVideoMirrors = (event) => {
+    // תאימות ל־media-mirror + פורמט מחרוזות כמו ב־loadVideos | HYPER CORE TECH
+    try {
+      if (typeof AppRef.extractMirrorsFromEvent === 'function') {
+        const list = AppRef.extractMirrorsFromEvent(event) || [];
+        return list
+          .map((m) => (typeof m === 'string' ? m : (m && m.url)))
+          .filter(Boolean);
+      }
+    } catch (_) {}
+    const out = [];
+    if (Array.isArray(event?.tags)) {
+      event.tags.forEach((tag) => {
+        if (Array.isArray(tag) && tag[0] === 'mirror' && tag[1]) out.push(String(tag[1]));
+      });
+    }
+    return out;
+  };
   
   events.forEach((event) => {
     if (!event || event.kind !== 1) return;
@@ -5449,7 +5471,7 @@ function processEventsToVideos(events, currentApp) {
       authorPicture: profileData.picture || '',
       authorInitials: profileData.initials || 'AN',
       mediaLinks,
-      mirrors: extractMirrors(event)
+      mirrors: extractVideoMirrors(event)
     });
   });
   
