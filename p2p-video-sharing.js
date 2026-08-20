@@ -204,7 +204,7 @@
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
       : 5; // ננסה עד 5 peers לפני fallback
-  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 15000; // 15 שניות - מהיר יותר לעבור ל-fallback | HYPER CORE TECH
+  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 45000; // בסיס chat-dc; מתארך עם progress | HYPER CORE TECH
   const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 4000; // 4 שניות לתשובה - מהיר יותר | HYPER CORE TECH
   const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 1; // ניסיון אחד בלבד - עוברים ל-peer הבא מהר
   const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 500; // חצי שנייה בין ניסיונות
@@ -213,7 +213,10 @@
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
   const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: מעט Blossom ואז P2P
   const HYBRID_BLOSSOM_POSTS = 1;         // רק פוסט ראשון מ-Blossom לטעינה מהירה — השאר SOS קודם | HYPER CORE TECH
-  const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
+  const INITIAL_LOAD_TIMEOUT = 12000;     // בסיס לפני progress; עם בתים ממתינים עד hard-cap | HYPER CORE TECH
+  const CHAT_DC_WARM_MS = IS_MOBILE ? 5000 : 6500; // חימום chat-dc — היה קצר מדי בלוג | HYPER CORE TECH
+  const P2P_PROGRESS_STALL_MS = 15000;    // בלי בתים חדשים → timeout | HYPER CORE TECH
+  const P2P_HARD_CAP_MS = 120000;         // תקרת הורדה אחת | HYPER CORE TECH
   const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
   const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
   const PEER_SEARCH_RETRY_MS = 500;       // ניסיון שני קצר בלבד כש־0 peers | HYPER CORE TECH
@@ -1729,10 +1732,10 @@
     return [...connected, ...notConnected];
   }
 
-  // חלק B refine (p2p-video-sharing.js) – חימום chat-dc קצר לפני fallback ל-30078 | HYPER CORE TECH
+  // חלק B refine (p2p-video-sharing.js) – חימום chat-dc לפני fallback ל-30078 | HYPER CORE TECH
   async function ensureChatDcOpen(peerPubkey, waitMs) {
     const peerKey = String(peerPubkey || '').toLowerCase();
-    const budget = typeof waitMs === 'number' ? waitMs : (IS_MOBILE ? 2200 : 2800);
+    const budget = typeof waitMs === 'number' ? waitMs : CHAT_DC_WARM_MS;
     const getDc = () => {
       try {
         return (typeof App.dataChannel?.getChatDC === 'function')
@@ -1767,6 +1770,110 @@
     }
     log('info', `[feed-session] chat-dc warm timeout → fallback`, { peer: peerKey.slice(0, 8) });
     return getDc();
+  }
+
+  // חלק timeout חכם (p2p-video-sharing.js) – לא בורחים ל־Blossom אם כבר זורמים בתים | HYPER CORE TECH
+  function getDownloadProgressBytes(hash, peerKey) {
+    const h = String(hash || '').toLowerCase();
+    const pk = String(peerKey || '').toLowerCase();
+    const ad = state.activeDownload;
+    if (ad && (!h || String(ad.hash || '').toLowerCase() === h) && (ad.bytesReceived || 0) > 0) {
+      return ad.bytesReceived || 0;
+    }
+    if (pk && pendingChatDcDownloads.has(pk)) {
+      const p = pendingChatDcDownloads.get(pk);
+      if (p && (!h || String(p.hash || '').toLowerCase() === h)) return p.receivedSize || 0;
+    }
+    return 0;
+  }
+
+  function hardCapForSize(sizeBytes) {
+    if (!sizeBytes || sizeBytes <= 0) return P2P_HARD_CAP_MS;
+    // ~25KB/s מינימום + 15ש׳ רזרבה, עד תקרה
+    return Math.min(P2P_HARD_CAP_MS, Math.max(MAX_DOWNLOAD_TIMEOUT, Math.ceil(sizeBytes / 25000) * 1000 + 15000));
+  }
+
+  function armChatDcStallTimer(pending, peerKey) {
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    const elapsed = Date.now() - (pending.startedAt || Date.now());
+    const hardLeft = Math.max(1000, (pending.hardCapMs || P2P_HARD_CAP_MS) - elapsed);
+    const wait = Math.min(P2P_PROGRESS_STALL_MS, hardLeft);
+    pending.timer = setTimeout(() => {
+      if (pendingChatDcDownloads.get(peerKey) === pending) {
+        pendingChatDcDownloads.delete(peerKey);
+        pending.reject(new Error(pending.metaOnly ? 'Chat DC meta timeout' : 'Chat DC download timeout'));
+      }
+    }, wait);
+  }
+
+  async function awaitPeerDownload(peer, hash, baseTimeoutMs) {
+    const peerKey = String(peer || '').toLowerCase();
+    const downloadPromise = downloadFromPeer(peer, hash);
+    const start = Date.now();
+    const base = Math.max(3000, baseTimeoutMs || INITIAL_LOAD_TIMEOUT);
+    let lastBytes = 0;
+    let lastProgressAt = start;
+    let loggedExtend = false;
+
+    const abortPending = () => {
+      const pending = pendingChatDcDownloads.get(peerKey);
+      if (!pending) return;
+      if (hash && String(pending.hash || '').toLowerCase() !== String(hash).toLowerCase()) return;
+      clearTimeout(pending.timer);
+      pendingChatDcDownloads.delete(peerKey);
+      try { pending.reject(new Error('timeout')); } catch (_) {}
+    };
+
+    while (true) {
+      const elapsed = Date.now() - start;
+      const hardCap = hardCapForSize(state.activeDownload?.totalSize || 0);
+      if (elapsed >= hardCap) {
+        abortPending();
+        throw new Error('timeout');
+      }
+
+      const slice = Math.min(1500, hardCap - elapsed);
+      const raced = await Promise.race([
+        downloadPromise.then((r) => ({ done: true, r })).catch((err) => ({ done: true, err })),
+        sleep(Math.max(400, slice)).then(() => ({ done: false })),
+      ]);
+      if (raced.done) {
+        if (raced.err) throw raced.err;
+        return raced.r;
+      }
+
+      const bytes = getDownloadProgressBytes(hash, peerKey);
+      if (bytes > lastBytes) {
+        lastBytes = bytes;
+        lastProgressAt = Date.now();
+        if (!loggedExtend) {
+          loggedExtend = true;
+          log('info', `[feed-session] keep waiting — bytes flowing`, {
+            peer: peerKey.slice(0, 8),
+            hash: String(hash || '').slice(0, 12),
+            bytes,
+          });
+        }
+        continue;
+      }
+
+      // עדיין בתוך חלון הבסיס ובלי בתים — ממתינים
+      if (elapsed < base && bytes === 0) continue;
+
+      // יש בתים — סבלנות עד stall
+      if (bytes > 0 && (Date.now() - lastProgressAt) < P2P_PROGRESS_STALL_MS) continue;
+
+      // בלי התקדמות אחרי הבסיס
+      if (elapsed >= base && bytes === 0) {
+        abortPending();
+        throw new Error('timeout');
+      }
+      if ((Date.now() - lastProgressAt) >= P2P_PROGRESS_STALL_MS) {
+        abortPending();
+        throw new Error('timeout');
+      }
+    }
   }
 
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
@@ -1890,13 +1997,10 @@
           resolve,
           reject,
           channel,
+          startedAt: Date.now(),
+          hardCapMs: hardCapForSize(rangeLength || 0),
         };
-        entry.timer = setTimeout(() => {
-          if (pendingChatDcDownloads.get(peerKey) === entry) {
-            pendingChatDcDownloads.delete(peerKey);
-            reject(new Error(metaOnly ? 'Chat DC meta timeout' : 'Chat DC download timeout'));
-          }
-        }, timeoutMs);
+        armChatDcStallTimer(entry, peerKey);
         pendingChatDcDownloads.set(peerKey, entry);
         try {
           const req = { type: 'request', hash };
@@ -1951,6 +2055,18 @@
       pending.totalSize = msg.size || 0;
       pending.mimeType = msg.mimeType || '';
       if (typeof msg.length === 'number') pending.expectedLength = msg.length;
+      pending.hardCapMs = hardCapForSize(pending.expectedLength || pending.totalSize || 0);
+      armChatDcStallTimer(pending, peerKey);
+      state.activeDownload = {
+        ...(state.activeDownload || {}),
+        hash: pending.hash,
+        peer: peerKey,
+        source: 'sos',
+        bytesReceived: pending.receivedSize || 0,
+        totalSize: pending.expectedLength || pending.totalSize || 0,
+        startTime: (state.activeDownload && state.activeDownload.startTime) || Date.now(),
+        percent: 0,
+      };
       // E: חבילת שם/אווטאר/לייקים/תגובות על chat-dc | HYPER CORE TECH
       if (msg.postMetadata && App.MetadataTransfer?.processReceivedMetadata) {
         try {
@@ -2006,6 +2122,28 @@
     const pending = pendingChatDcDownloads.get(peerKey);
     if (!pending) return false;
     if (pending.metaOnly) return true;
+
+    const onBytes = (byteLength) => {
+      armChatDcStallTimer(pending, peerKey);
+      const total = pending.expectedLength || pending.totalSize || 0;
+      const received = pending.receivedSize || 0;
+      state.activeDownload = {
+        ...(state.activeDownload || {}),
+        hash: pending.hash,
+        peer: peerKey,
+        source: 'sos',
+        bytesReceived: received,
+        totalSize: total || state.activeDownload?.totalSize || 0,
+        startTime: (state.activeDownload && state.activeDownload.startTime) || pending.startedAt || Date.now(),
+        percent: total > 0 ? Math.min(99, Math.floor((received / total) * 100)) : (state.activeDownload?.percent || 0),
+      };
+      if (byteLength > 0 && total > 0) {
+        try {
+          updateDownloadProgress(peerKey, received, total, { hash: pending.hash, peer: peerKey, source: 'sos' });
+        } catch (_) {}
+      }
+    };
+
     let buf = data;
     if (data && typeof Blob !== 'undefined' && data instanceof Blob) {
       data.arrayBuffer().then((ab) => {
@@ -2013,6 +2151,7 @@
         if (!p || p.metaOnly) return;
         p.chunks.push(ab);
         p.receivedSize += ab.byteLength;
+        onBytes(ab.byteLength);
       }).catch(() => {});
       return true;
     }
@@ -2021,6 +2160,7 @@
     }
     pending.chunks.push(buf);
     pending.receivedSize += (buf && buf.byteLength) || 0;
+    onBytes((buf && buf.byteLength) || 0);
     return true;
   }
 
@@ -3498,10 +3638,7 @@
             if (fallbackPeers && fallbackPeers.length > 0) {
               for (const peer of fallbackPeers.slice(0, MAX_PEER_ATTEMPTS_PER_FILE)) {
                 try {
-                  const result = await Promise.race([
-                    downloadFromPeer(peer, hash),
-                    sleep(INITIAL_LOAD_TIMEOUT).then(() => { throw new Error('timeout'); })
-                  ]);
+                  const result = await awaitPeerDownload(peer, hash, INITIAL_LOAD_TIMEOUT);
                   
                   p2pStats.downloads.fromP2P++;
                   log('success', `מ-P2P (fallback מ-Blossom)`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB' });
@@ -3646,16 +3783,12 @@
           if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
           attemptCount++;
           
-          // timeout קצר יותר ל-peers מחוברים (כבר יש חיבור)
+          // peers מחוברים: לפחות הבסיס (בלי לקצר ל־5ש׳ שזרק ל־Blossom) | HYPER CORE TECH
           const isConnected = state.persistentPeers.has(peer);
-          const effectiveTimeout = isConnected ? Math.min(p2pTimeout, 5000) : p2pTimeout;
+          const effectiveTimeout = isConnected ? Math.max(p2pTimeout, INITIAL_LOAD_TIMEOUT) : p2pTimeout;
           
           try {
-            const downloadPromise = downloadFromPeer(peer, hash);
-            const timeoutPromise = sleep(effectiveTimeout).then(() => {
-              throw new Error('timeout');
-            });
-            const result = await Promise.race([downloadPromise, timeoutPromise]);
+            const result = await awaitPeerDownload(peer, hash, effectiveTimeout);
 
             p2pStats.downloads.fromP2P++;
             log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
