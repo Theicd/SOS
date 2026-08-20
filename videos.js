@@ -2798,6 +2798,41 @@ function updateCardAuthorUi(video) {
   }
 }
 
+// שלב E: אחרי חבילת SOS – רענון אווטאר/שם/לייקים/תגובות בכרטיס | HYPER CORE TECH
+function applyP2pMetadataToVideoCard(detail) {
+  if (!detail?.eventId) return;
+  const video = state.videos.find((v) => v && v.id === detail.eventId)
+    || state.ownPostsVideos?.find((v) => v && v.id === detail.eventId)
+    || null;
+  const app = window.NostrApp;
+  const author = detail.author || null;
+  const pubkey = detail.pubkey || video?.pubkey || null;
+  if (author && video) {
+    if (author.name) video.authorName = author.name;
+    if (author.picture) video.authorPicture = author.picture;
+    if (author.initials) video.authorInitials = author.initials;
+  } else if (pubkey && video && app?.profileCache) {
+    const profile = app.profileCache.get(pubkey) || {};
+    if (profile.name) video.authorName = profile.name;
+    if (profile.picture) video.authorPicture = profile.picture;
+    if (profile.initials) video.authorInitials = profile.initials;
+  }
+  if (video) updateCardAuthorUi(video);
+  updateVideoLikeButton(detail.eventId);
+  updateVideoCommentButton(detail.eventId);
+}
+
+if (typeof window !== 'undefined' && !window.__sosP2pMetadataUiBound) {
+  window.__sosP2pMetadataUiBound = true;
+  window.addEventListener('sos:p2p-metadata-applied', (evt) => {
+    try {
+      applyP2pMetadataToVideoCard(evt?.detail || {});
+    } catch (err) {
+      console.warn('[videos] p2p metadata UI update failed', err);
+    }
+  });
+}
+
 async function loadBootMetaForPosts(posts) {
   const app = window.NostrApp || {};
   const ids = posts.map((p) => p.id).filter(Boolean);
@@ -3077,6 +3112,9 @@ function resolveFxValue(event, imageUrl) {
 
 // חלק יאללה וידאו (videos.js) – בניית קלף HTML לכל וידאו
 function renderVideoCard(video) {
+  if (video?.hash && video?.id && window.NostrApp?.MetadataTransfer?.bindMediaHash) {
+    try { window.NostrApp.MetadataTransfer.bindMediaHash(video.hash, video.id); } catch (_) {}
+  }
   const article = document.createElement('article');
   article.className = 'videos-feed__card';
   article.setAttribute('role', 'listitem');
@@ -5619,15 +5657,35 @@ async function loadLikesAndCommentsForVideos(eventIds) {
     return;
   }
 
+  // שלב E: אם engagement כבר טרי מ־SOS/P2P – לא מושכים שוב מהריליי | HYPER CORE TECH
+  const idsNeedingRelay = eventIds.filter((id) => {
+    try {
+      if (app.MetadataTransfer?.hasFreshEngagement?.(id)) {
+        updateVideoLikeButton(id);
+        updateVideoCommentButton(id);
+        return false;
+      }
+    } catch (_) {}
+    return true;
+  });
+  if (idsNeedingRelay.length === 0) {
+    console.log('[videos] Skipping relay likes/comments — fresh P2P engagement', { total: eventIds.length });
+    return;
+  }
+
   const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30; // 30 יום
 
   // חלק באצ'ים (videos.js) – פיצול ה-eventIds לבאצ'ים קטנים | HYPER CORE TECH
   const batches = [];
-  for (let i = 0; i < eventIds.length; i += ENGAGEMENT_BATCH_SIZE) {
-    batches.push(eventIds.slice(i, i + ENGAGEMENT_BATCH_SIZE));
+  for (let i = 0; i < idsNeedingRelay.length; i += ENGAGEMENT_BATCH_SIZE) {
+    batches.push(idsNeedingRelay.slice(i, i + ENGAGEMENT_BATCH_SIZE));
   }
 
-  console.log('[videos] Loading likes/comments in batches:', { total: eventIds.length, batches: batches.length });
+  console.log('[videos] Loading likes/comments in batches:', {
+    total: idsNeedingRelay.length,
+    skippedFresh: eventIds.length - idsNeedingRelay.length,
+    batches: batches.length,
+  });
 
   let totalLoaded = 0;
 
@@ -5702,6 +5760,17 @@ function registerVideoSourceEvent(event) {
     app.eventAuthorById.set(event.id, normalizedPubkey);
   }
   app.postsById.set(event.id, event);
+
+  try {
+    const mediaHash = typeof event._sosMediaHash === 'string'
+      ? event._sosMediaHash
+      : (Array.isArray(event.tags)
+        ? (event.tags.find((t) => Array.isArray(t) && (t[0] === 'x' || t[0] === 'hash') && t[1]) || [])[1]
+        : null);
+    if (mediaHash && app.MetadataTransfer?.bindMediaHash) {
+      app.MetadataTransfer.bindMediaHash(mediaHash, event.id);
+    }
+  } catch (_) {}
 
   if (typeof app.processPendingNotifications === 'function') {
     try {

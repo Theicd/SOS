@@ -1,9 +1,9 @@
 # תוכנית עבודה: איחוד P2P + Multi-Source + זמינות פיד
 
-**סטטוס:** שלבים A–C (קוד + בדיקות ווב) בוצעו; שלב D (Multi-Source) בקוד מ־2026-08-20 — בדיקות D8/D9 ידניות.  
+**סטטוס:** שלבים A–C בוצעו; D (Multi) נדחה/כבוי; שלב E מחובר בקוד מ־2026-08-20 (`pwa241`).  
 **תאריך:** 2026-08-19  
 **רקע מוכח מלוגים:** צ׳אט-DC עובד; פיד-P2P נכשל כשאין answer (במיוחד מובייל/רקע); כשיש answer מ־peer חי — `מ-P2P` מצליח; הורדה היום = peer אחד ברצף, לא swarm.
-**גרסת לקוח נוכחית:** `pwa240` / cache `v561` / `?v=20260820feed6` (Multi כבוי — חזרה ל־P2P סדרתי מהיר; `NostrP2P_MULTI_SOURCE=true` להפעלה)
+**גרסת לקוח נוכחית:** `pwa241` / cache `v562` / `?v=20260820feed7` (שלב E: עם מדיה SOS גם שם+אווטאר+לייקים+תגובות; Multi כבוי)
 
 ---
 
@@ -160,10 +160,14 @@
 - כבר יש העדפות “thin backbone” — להרחיב בעקביות
 
 **צ׳ק־ליסט:**
-- [ ] E1. אחרי `מ-P2P` מוצלח: בקשת metadata ל־`eventId` מאותו peer (`EventSync` / metadata API קיים).  
-- [ ] E2. מיזוג likes/comments לקאש מקומי (`likesByEventId` וכו׳).  
-- [ ] E3. דילוג על ריענון ריליי לפוסט אם יש עותק P2P טרי (TTL ברור, למשל 15–30 דק׳).  
-- [ ] E4. ריליי נשאר ל־delta חי (אירוע חדש בזמן אמת).  
+- [x] E1. אחרי `מ-P2P` מוצלח: בקשת metadata ל־`eventId` מאותו peer (`EventSync` / metadata API קיים).  
+  - בוצע: `postMetadata` על הודעת `metadata` (chat-dc + webrtc) + `afterP2PMediaEngagement` + `sendInventory`.  
+- [x] E2. מיזוג likes/comments לקאש מקומי (`likesByEventId` וכו׳).  
+  - בוצע ב־`MetadataTransfer.applyMetadata` (מיזוג) + רענון UI ב־`sos:p2p-metadata-applied`.  
+- [x] E3. דילוג על ריענון ריליי לפוסט אם יש עותק P2P טרי (TTL ברור, למשל 15–30 דק׳).  
+  - בוצע: `hasFreshEngagement` (30 דק׳) מדלג ב־`loadLikesAndCommentsForVideos`.  
+- [x] E4. ריליי נשאר ל־delta חי (אירוע חדש בזמן אמת).  
+  - ללא שינוי הרסני: מנויי like/comment הקיימים נשארים; TTL רק חוסך משיכת היסטוריה כבדה.  
 - [ ] E5. בדיקה: ניתוק זמני מריליי likes — הפיד עדיין מציג engagement שהגיע ב־P2P.  
 - [ ] E6. מדידת ירידה ב־`feed-like-sub` / שאילתות מיותרות בלוג REQ.
 

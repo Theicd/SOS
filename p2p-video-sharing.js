@@ -724,12 +724,13 @@
   }
 
   // חלק איזון עומסים (p2p-video-sharing.js) – רישום זמינות ברקע עבור קבצים שנשלפו מה-cache | HYPER CORE TECH
-  function scheduleBackgroundRegistration(hash, blob, mimeType) {
+  function scheduleBackgroundRegistration(hash, blob, mimeType, meta = null) {
     if (!hash || !blob) {
       return;
     }
     queueMicrotask(() => {
-      registerFileAvailability(hash, blob, mimeType).catch((err) => {
+      const eventId = meta?.eventId || (App.MetadataTransfer?.resolveEventIdForHash?.(hash) || null);
+      registerFileAvailability(hash, blob, mimeType, eventId ? { eventId } : null).catch((err) => {
         console.warn('Background registerFileAvailability failed', err);
       });
     });
@@ -1200,9 +1201,9 @@
     isProcessingShares = true;
     
     while (shareQueue.length > 0) {
-      const { hash, blob, mimeType, resolve, reject } = shareQueue.shift();
+      const { hash, blob, mimeType, eventId, resolve, reject } = shareQueue.shift();
       try {
-        const result = await doRegisterFileAvailability(hash, blob, mimeType);
+        const result = await doRegisterFileAvailability(hash, blob, mimeType, eventId || null);
         resolve(result.success);
         
         // השהייה רק אם באמת פורסם ל-relay (לא אם דולג)
@@ -1217,12 +1218,16 @@
     isProcessingShares = false;
   }
 
-  async function registerFileAvailability(hash, blob, mimeType) {
+  async function registerFileAvailability(hash, blob, mimeType, meta = null) {
+    const eventId = meta?.eventId || (App.MetadataTransfer?.resolveEventIdForHash?.(hash) || null);
+    if (hash && eventId && App.MetadataTransfer?.bindMediaHash) {
+      try { App.MetadataTransfer.bindMediaHash(hash, eventId); } catch (_) {}
+    }
     // רק המנהיג מפרסם קבצים לרשת
     if (!isP2PAllowed()) {
       // שמירה מקומית בלבד - בלי פרסום לרשת
       state.availableFiles.set(hash, {
-        blob, mimeType, size: blob.size, timestamp: Date.now(),
+        blob, mimeType, size: blob.size, timestamp: Date.now(), eventId: eventId || undefined,
       });
       return true;
     }
@@ -1236,20 +1241,23 @@
     
     // הוספה לתור במקום ביצוע מיידי
     return new Promise((resolve, reject) => {
-      shareQueue.push({ hash, blob, mimeType, resolve, reject });
+      shareQueue.push({ hash, blob, mimeType, eventId, resolve, reject });
       processShareQueue();
     });
   }
 
-  async function doRegisterFileAvailability(hash, blob, mimeType) {
+  async function doRegisterFileAvailability(hash, blob, mimeType, eventId = null) {
     p2pStats.shares.total++;
     const keys = getEffectiveKeys();
     
     try {
       // שמירה מקומית
       state.availableFiles.set(hash, {
-        blob, mimeType, size: blob.size, timestamp: Date.now(),
+        blob, mimeType, size: blob.size, timestamp: Date.now(), eventId: eventId || undefined,
       });
+      if (hash && eventId && App.MetadataTransfer?.bindMediaHash) {
+        try { App.MetadataTransfer.bindMediaHash(hash, eventId); } catch (_) {}
+      }
 
       if (typeof App.pinCachedMedia === 'function') {
         try {
@@ -1907,11 +1915,18 @@
       pending.totalSize = msg.size || 0;
       pending.mimeType = msg.mimeType || '';
       if (typeof msg.length === 'number') pending.expectedLength = msg.length;
+      // E: חבילת שם/אווטאר/לייקים/תגובות על chat-dc | HYPER CORE TECH
+      if (msg.postMetadata && App.MetadataTransfer?.processReceivedMetadata) {
+        try {
+          App.MetadataTransfer.processReceivedMetadata(msg, pending.hash);
+        } catch (_) {}
+      }
       log('info', `📊 [ChatDC] קיבלתי metadata`, {
         path: FEED_PATH.CHAT_DC,
         size: pending.totalSize,
         offset: msg.offset,
         length: msg.length,
+        extended: !!msg.postMetadata,
       });
       return true;
     }
@@ -2818,7 +2833,12 @@
   async function resolveMediaFileData(hash) {
     if (!hash) return null;
     let fileData = state.availableFiles.get(hash);
-    if (fileData && fileData.blob) return fileData;
+    if (fileData && fileData.blob) {
+      if (!fileData.eventId && App.MetadataTransfer?.resolveEventIdForHash) {
+        fileData.eventId = App.MetadataTransfer.resolveEventIdForHash(hash) || fileData.eventId;
+      }
+      return fileData;
+    }
     if (typeof App.getCachedMedia === 'function') {
       try {
         const cached = await App.getCachedMedia(hash);
@@ -2828,7 +2848,7 @@
             mimeType: cached.mimeType || 'application/octet-stream',
             size: cached.blob.size,
             timestamp: Date.now(),
-            eventId: cached.eventId,
+            eventId: cached.eventId || App.MetadataTransfer?.resolveEventIdForHash?.(hash) || undefined,
           };
           state.availableFiles.set(hash, fileData);
           return fileData;
@@ -3246,6 +3266,24 @@
     }
   }
 
+  // חלק שלב E (p2p-video-sharing.js) – אחרי מדיה מ־SOS: engagement + inventory | HYPER CORE TECH
+  function afterP2PMediaEngagement(hash, peer, eventId) {
+    try {
+      if (hash && eventId && App.MetadataTransfer?.bindMediaHash) {
+        App.MetadataTransfer.bindMediaHash(hash, eventId);
+      }
+      const stored = hash && App.MetadataTransfer?.getStoredMetadata?.(hash);
+      if (stored?.postMetadata?.post?.id && App.MetadataTransfer?.applyMetadata) {
+        App.MetadataTransfer.applyMetadata(stored.postMetadata.post.id, stored.postMetadata);
+      }
+    } catch (_) {}
+    try {
+      if (peer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
+        App.EventSync.sendInventory(peer).catch(() => {});
+      }
+    } catch (_) {}
+  }
+
   // חלק P2P (p2p-video-sharing.js) – הורדת וידאו עם fallback ואסטרטגיית Network Tiers | HYPER CORE TECH
   async function downloadVideoWithP2P(url, hash, mimeType = 'video/webm', options = {}) {
     const queueKey = hash || url;
@@ -3259,6 +3297,11 @@
         return releaseSlot;
       };
 
+      const optionEventId = options.eventId ? String(options.eventId) : null;
+      if (hash && optionEventId && App.MetadataTransfer?.bindMediaHash) {
+        try { App.MetadataTransfer.bindMediaHash(hash, optionEventId); } catch (_) {}
+      }
+
       // קודם קאש מקומי — בלי updateNetworkTier (חוסך שניות בפתיחה) | HYPER CORE TECH
       if (hash && typeof App.getCachedMedia === 'function') {
         try {
@@ -3267,7 +3310,7 @@
             p2pStats.downloads.total++;
             p2pStats.downloads.fromCache++;
             log('success', `מ-Cache (fast-path)`, { hash: hash.slice(0,12), size: Math.round(cached.blob.size/1024)+'KB' });
-            scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType);
+            scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType, { eventId: optionEventId });
             resetConsecutiveFailures();
             return { blob: cached.blob, source: 'cache' };
           }
@@ -3316,7 +3359,7 @@
           if (cached && cached.blob) {
             p2pStats.downloads.fromCache++;
             log('success', `מ-Cache`, { hash: hash.slice(0,12), size: Math.round(cached.blob.size/1024)+'KB' });
-            scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType);
+            scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType, { eventId: optionEventId });
             resetConsecutiveFailures();
             return { blob: cached.blob, source: 'cache' };
           }
@@ -3342,7 +3385,7 @@
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
             }
-            scheduleBackgroundRegistration(hash, blob, mimeType);
+            scheduleBackgroundRegistration(hash, blob, mimeType, { eventId: optionEventId });
             resetConsecutiveFailures();
             return { blob, source: 'blossom', tier };
           } catch (blossomErr) {
@@ -3364,13 +3407,9 @@
                   if (typeof App.cacheMedia === 'function') {
                     await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
                   }
-                  await registerFileAvailability(hash, result.blob, result.mimeType);
+                  await registerFileAvailability(hash, result.blob, result.mimeType, optionEventId ? { eventId: optionEventId } : null);
                   resetConsecutiveFailures();
-                  try {
-                    if (peer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
-                      App.EventSync.sendInventory(peer).catch(() => {});
-                    }
-                  } catch (_) {}
+                  afterP2PMediaEngagement(hash, peer, optionEventId);
                   return { blob: result.blob, source: 'p2p-fallback', peer, tier };
                 } catch (peerErr) {
                   continue;
@@ -3461,14 +3500,9 @@
               if (typeof App.cacheMedia === 'function') {
                 await App.cacheMedia(url, hash, multi.blob, multi.mimeType, { pinned: true });
               }
-              await registerFileAvailability(hash, multi.blob, multi.mimeType);
+              await registerFileAvailability(hash, multi.blob, multi.mimeType, optionEventId ? { eventId: optionEventId } : null);
               resetConsecutiveFailures();
-              try {
-                const firstPeer = multi.peersUsed && multi.peersUsed[0];
-                if (firstPeer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
-                  App.EventSync.sendInventory(firstPeer).catch(() => {});
-                }
-              } catch (_) {}
+              afterP2PMediaEngagement(hash, (multi.peersUsed || [])[0], optionEventId);
               return {
                 blob: multi.blob,
                 source: multi.multiSource ? 'p2p-multi' : 'p2p',
@@ -3508,14 +3542,9 @@
             if (typeof App.cacheMedia === 'function') {
               await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
             }
-            await registerFileAvailability(hash, result.blob, result.mimeType);
+            await registerFileAvailability(hash, result.blob, result.mimeType, optionEventId ? { eventId: optionEventId } : null);
             resetConsecutiveFailures();
-            // עמוד שדרה דק: אחרי הורדת מדיה מ-peer – מבקשים גם אירועים (לייקים/תגובות) מאותו peer | HYPER CORE TECH
-            try {
-              if (peer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
-                App.EventSync.sendInventory(peer).catch(() => {});
-              }
-            } catch (_) {}
+            afterP2PMediaEngagement(hash, peer, optionEventId);
             return { blob: result.blob, source: 'p2p', peer, tier };
 
           } catch (err) {
@@ -3533,7 +3562,7 @@
           if (typeof App.cacheMedia === 'function') {
             await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
           }
-          await registerFileAvailability(hash, blob, mimeType);
+          await registerFileAvailability(hash, blob, mimeType, optionEventId ? { eventId: optionEventId } : null);
           return { blob, source: 'blossom-fallback', tier };
         } catch (err) {
           p2pStats.downloads.failed++;
