@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v567'; // bump - PeerExchange over chat-dc so green-light seeders advertise files
+  const CACHE_NAME = 'sos-cache-v568'; // bump - 2 parallel distinct peers + slow-peer abort + 3 blossom first paint
   const PRECACHE_URLS = [
     './',
     './videos.html',

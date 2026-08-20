@@ -199,7 +199,7 @@
   const MAX_CONCURRENT_P2P_TRANSFERS =
     typeof window.NostrP2P_MAX_CONCURRENT_TRANSFERS === 'number'
       ? window.NostrP2P_MAX_CONCURRENT_TRANSFERS
-      : (IS_MOBILE ? 2 : 3); // חזרה לערכים המהירים מלפני Multi
+      : (IS_MOBILE ? 2 : 2); // 2 קבצים במקביל מ־2 peers שונים | HYPER CORE TECH
   const MAX_PEER_ATTEMPTS_PER_FILE =
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
@@ -212,11 +212,14 @@
   // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
   const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: מעט Blossom ואז P2P
-  const HYBRID_BLOSSOM_POSTS = 1;         // רק פוסט ראשון מ-Blossom לטעינה מהירה — השאר SOS קודם | HYPER CORE TECH
-  const INITIAL_LOAD_TIMEOUT = 12000;     // בסיס לפני progress; עם בתים ממתינים עד hard-cap | HYPER CORE TECH
-  const CHAT_DC_WARM_MS = IS_MOBILE ? 5000 : 6500; // חימום chat-dc — היה קצר מדי בלוג | HYPER CORE TECH
-  const P2P_PROGRESS_STALL_MS = 15000;    // בלי בתים חדשים → timeout | HYPER CORE TECH
-  const P2P_HARD_CAP_MS = 120000;         // תקרת הורדה אחת | HYPER CORE TECH
+  const HYBRID_BLOSSOM_POSTS = 3;         // 3 פוסטים ראשונים מ-Blossom — first paint למשתמש חדש | HYPER CORE TECH
+  const INITIAL_LOAD_TIMEOUT = 10000;     // בסיס לפני progress | HYPER CORE TECH
+  const CHAT_DC_WARM_MS = IS_MOBILE ? 5000 : 6500; // חימום chat-dc | HYPER CORE TECH
+  const P2P_PROGRESS_STALL_MS = 10000;    // בלי בתים חדשים → timeout | HYPER CORE TECH
+  const P2P_HARD_CAP_MS = 60000;          // תקרה לקובץ אחד — לא 2 דק׳ על seeder איטי | HYPER CORE TECH
+  const SLOW_PEER_GRACE_MS = 4000;        // זמן חסד לפני בדיקת מהירות | HYPER CORE TECH
+  const SLOW_PEER_MIN_BPS = 80 * 1024;    // מתחת ל־80KB/s = איטי מדי | HYPER CORE TECH
+  const SLOW_PEER_ABORT_MS = 6000;        // אחרי חסד+איטי → peer אחר | HYPER CORE TECH
   const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
   const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
   const PEER_SEARCH_RETRY_MS = 500;       // ניסיון שני קצר בלבד כש־0 peers | HYPER CORE TECH
@@ -1046,11 +1049,11 @@
         // משתמש 1 בלבד: כל הפוסטים מ-Blossom
         return true;
       case 'HYBRID':
-        // משתמשים 3-10: 5 פוסטים ראשונים מ-Blossom לחוויה חלקה, השאר P2P
+        // משתמשים 2–10: 3 פוסטים ראשונים מ-Blossom ל־first paint, השאר P2P
         return postIndex < HYBRID_BLOSSOM_POSTS;
       case 'P2P_FULL':
-        // משתמש 11+: P2P בלבד (עם fallback אוטומטי)
-        return false;
+        // גם ברשת גדולה: 3 ראשונים מ-Blossom ל־first paint, השאר SOS | HYPER CORE TECH
+        return postIndex < HYBRID_BLOSSOM_POSTS;
       default:
         // לא ידוע - נשתמש ב-Blossom לבטיחות
         return true;
@@ -1444,27 +1447,31 @@
     return isPersistentChannelOpen(conn);
   }
 
-  // פיזור: הכי פחות הורדות/inflight קודם — חיבור פתוח רק כ־tie-break קל | HYPER CORE TECH
+  // פיזור: peers פנויים קודם (2 קבצים ≠ אותו seeder), אחר כך הכי פחות עומס | HYPER CORE TECH
   function rankPeersForFairDownload(peers) {
     if (!Array.isArray(peers) || peers.length <= 1) return Array.isArray(peers) ? [...peers] : [];
-    const scored = peers.map((pubkey, idx) => {
+    const scored = peers.map((pubkey) => {
       const key = String(pubkey || '').toLowerCase();
       const load = state.peerLoadScores.get(key) || { downloads: 0, bytes: 0 };
       const inflight = state.peerInflight.get(key) || 0;
       const connected = isPeerMediaConnected(key) ? 1 : 0;
       return {
         pubkey: key,
-        downloads: load.downloads + inflight * 2,
+        inflight,
+        downloads: load.downloads,
         bytes: load.bytes,
         connected,
         jitter: Math.random(),
-        idx,
       };
     });
     scored.sort((a, b) => {
+      // חובה: peer פנוי לפני peer שכבר מוריד קובץ אחר
+      const aBusy = a.inflight > 0 ? 1 : 0;
+      const bBusy = b.inflight > 0 ? 1 : 0;
+      if (aBusy !== bBusy) return aBusy - bBusy;
+      if (a.inflight !== b.inflight) return a.inflight - b.inflight;
       if (a.downloads !== b.downloads) return a.downloads - b.downloads;
       if (a.bytes !== b.bytes) return a.bytes - b.bytes;
-      // מחובר עדיף רק בתיקו עומס — לא sticky מוחלט
       if (a.connected !== b.connected) return b.connected - a.connected;
       return a.jitter - b.jitter;
     });
@@ -1480,6 +1487,14 @@
       });
     }
     return ordered;
+  }
+
+  /** בוחר peer פנוי אם יש; אחרת נופל לדירוג הרגיל | HYPER CORE TECH */
+  function pickLeastBusyPeer(peers) {
+    const ranked = rankPeersForFairDownload(peers);
+    if (!ranked.length) return null;
+    const free = ranked.filter((p) => !(state.peerInflight.get(String(p).toLowerCase()) > 0));
+    return (free.length ? free : ranked)[0];
   }
 
   function findPeersWithFileFromRelay(hash) {
@@ -1899,25 +1914,30 @@
     let lastBytes = 0;
     let lastProgressAt = start;
     let loggedExtend = false;
+    let loggedSlow = false;
 
-    const abortPending = () => {
+    const abortPending = (reason) => {
       const pending = pendingChatDcDownloads.get(peerKey);
       if (!pending) return;
       if (hash && String(pending.hash || '').toLowerCase() !== String(hash).toLowerCase()) return;
       clearTimeout(pending.timer);
       pendingChatDcDownloads.delete(peerKey);
-      try { pending.reject(new Error('timeout')); } catch (_) {}
+      try { pending.reject(new Error(reason || 'timeout')); } catch (_) {}
     };
 
     while (true) {
       const elapsed = Date.now() - start;
-      const hardCap = hardCapForSize(state.activeDownload?.totalSize || 0);
+      const pending = pendingChatDcDownloads.get(peerKey);
+      const totalHint = (pending && (pending.expectedLength || pending.totalSize))
+        || state.activeDownload?.totalSize
+        || 0;
+      const hardCap = hardCapForSize(totalHint);
       if (elapsed >= hardCap) {
-        abortPending();
+        abortPending('timeout');
         throw new Error('timeout');
       }
 
-      const slice = Math.min(1500, hardCap - elapsed);
+      const slice = Math.min(1000, hardCap - elapsed);
       const raced = await Promise.race([
         downloadPromise.then((r) => ({ done: true, r })).catch((err) => ({ done: true, err })),
         sleep(Math.max(400, slice)).then(() => ({ done: false })),
@@ -1928,33 +1948,58 @@
       }
 
       const bytes = getDownloadProgressBytes(hash, peerKey);
+      const bps = elapsed > 0 ? (bytes / (elapsed / 1000)) : 0;
+
+      // Abort על seeder איטי — לא לחכות דקות על 50KB/s | HYPER CORE TECH
+      if (elapsed >= SLOW_PEER_ABORT_MS && bytes > 0 && bps < SLOW_PEER_MIN_BPS) {
+        if (!loggedSlow) {
+          loggedSlow = true;
+          log('info', `[feed-session] slow peer → next`, {
+            peer: peerKey.slice(0, 8),
+            hash: String(hash || '').slice(0, 12),
+            bps: Math.round(bps / 1024) + 'KB/s',
+            bytes,
+            elapsedMs: elapsed,
+          });
+        }
+        abortPending('slow peer');
+        throw new Error('slow peer');
+      }
+      // גם בלי בתים אחרי grace — לא למשוך
+      if (elapsed >= Math.max(SLOW_PEER_GRACE_MS, base) && bytes === 0) {
+        abortPending('timeout');
+        throw new Error('timeout');
+      }
+
       if (bytes > lastBytes) {
         lastBytes = bytes;
         lastProgressAt = Date.now();
+        // מהירות טובה → ממשיכים; איטית אחרי grace → לא "keep waiting" לנצח
+        if (elapsed >= SLOW_PEER_GRACE_MS && bps < SLOW_PEER_MIN_BPS) {
+          continue; // ייתפס ב־slow abort למעלה בסיבוב הבא אחרי SLOW_PEER_ABORT_MS
+        }
         if (!loggedExtend) {
           loggedExtend = true;
           log('info', `[feed-session] keep waiting — bytes flowing`, {
             peer: peerKey.slice(0, 8),
             hash: String(hash || '').slice(0, 12),
             bytes,
+            bps: Math.round(bps / 1024) + 'KB/s',
           });
         }
         continue;
       }
 
-      // עדיין בתוך חלון הבסיס ובלי בתים — ממתינים
       if (elapsed < base && bytes === 0) continue;
 
-      // יש בתים — סבלנות עד stall
       if (bytes > 0 && (Date.now() - lastProgressAt) < P2P_PROGRESS_STALL_MS) continue;
 
-      // בלי התקדמות אחרי הבסיס
       if (elapsed >= base && bytes === 0) {
-        abortPending();
+        abortPending('timeout');
         throw new Error('timeout');
       }
       if ((Date.now() - lastProgressAt) >= P2P_PROGRESS_STALL_MS) {
-        abortPending();
+        abortPending('timeout');
         throw new Error('timeout');
       }
     }
@@ -3862,15 +3907,15 @@
           }
         }
         
-        // ניסיון P2P — בכל ניסיון בוחרים את ה־peer הכי פחות עמוס מבין הנותרים | HYPER CORE TECH
+        // ניסיון P2P — 2 משבצות → העדפת 2 peers שונים; abort לאיטי | HYPER CORE TECH
         let attemptCount = 0;
         const remainingPeers = [...sortedPeers];
         while (remainingPeers.length > 0) {
           if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
           attemptCount++;
 
-          const rankedLeft = rankPeersForFairDownload(remainingPeers);
-          const peer = rankedLeft[0];
+          const peer = pickLeastBusyPeer(remainingPeers);
+          if (!peer) break;
           const rmIdx = remainingPeers.findIndex((p) => String(p).toLowerCase() === String(peer).toLowerCase());
           if (rmIdx >= 0) remainingPeers.splice(rmIdx, 1);
           else remainingPeers.shift();
@@ -3908,7 +3953,10 @@
             return { blob: result.blob, source: 'p2p', peer, tier };
 
           } catch (err) {
-            // ממשיכים לנסות peers נוספים - לא יוצאים מהלולאה
+            const msg = String(err?.message || '');
+            if (/slow peer/i.test(msg)) {
+              log('info', `[feed-session] skipped slow peer`, { peer: String(peer).slice(0, 8) });
+            }
             continue;
           } finally {
             releasePeerInflight(peer);
