@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.21-pwa260-restore48h",
-  "note": "Restore backup from about 48h ago; force client update"
+  "version": "2026.08.21-pwa261-restore48h",
+  "note": "Restore backup from about 48h ago including videos; force client update"
 }
