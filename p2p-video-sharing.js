@@ -1726,6 +1726,13 @@
         log('info', `🔄 Exchange על Chat DC`, { peer: String(peerPubkey || '').slice(0, 8) });
       }
     } catch (_) {}
+    // שיתוף רשימת פוסטים צבורה (לא רק hashes) | HYPER CORE TECH
+    try {
+      App.EventSync?.attachChannel?.(peerPubkey, channel);
+      setTimeout(() => {
+        try { App.EventSync?.sendInventory?.(peerPubkey); } catch (_) {}
+      }, 1200);
+    } catch (_) {}
   }
 
   function onChatDataChannelClosed(peerPubkey) {

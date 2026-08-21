@@ -1658,6 +1658,8 @@ function hydrateFeedFromCache() {
     } else {
       renderVideos();
     }
+    // השלמה מ־EventSync / peers — פוסטים שצבורים אצל אחרים | HYPER CORE TECH
+    setTimeout(() => { pullFeedFromEventSyncAndPeers().catch(() => {}); }, 800);
     // חלק לייקים מהקאש (videos.js) – טעינת לייקים ותגובות ברקע לפוסטים מהמטמון | HYPER CORE TECH
     const eventIds = filtered.map(v => v.id);
     if (eventIds.length > 0) {
@@ -5491,6 +5493,12 @@ async function loadMoreVideos() {
           notes: moreEvents.length,
           untilTime,
         });
+      } else {
+        // אחרי שהוספנו פוסטים — נפרסם INV כדי שהמכשירים האחרים יקבלו | HYPER CORE TECH
+        try {
+          const peers = currentApp?.EventSync?.getConnectedPeers?.() || [];
+          peers.forEach((pk) => { try { currentApp.EventSync.sendInventory(pk); } catch (_) {} });
+        } catch (_) {}
       }
     }
 
@@ -6017,7 +6025,28 @@ function mergeP2PFeedEvents(events) {
 try {
   window.NostrApp = window.NostrApp || {};
   window.NostrApp.onP2PFeedEvents = mergeP2PFeedEvents;
+  window.NostrApp.getLocalFeedPostIds = () => (state.videos || []).map((v) => v && v.id).filter(Boolean);
+  window.NostrApp.hasVideoFeedPost = (id) => !!(id && (state.videos || []).some((v) => v && v.id === id));
 } catch (_) {}
+
+async function pullFeedFromEventSyncAndPeers() {
+  const app = window.NostrApp || {};
+  try {
+    const cached = await app.EventSync?.loadCachedEvents?.({ kinds: [1], limit: 500 });
+    if (Array.isArray(cached) && cached.length) {
+      const added = mergeP2PFeedEvents(cached);
+      if (added) console.log('[videos] hydrated posts from EventSync', { added, available: cached.length });
+    }
+  } catch (err) {
+    console.warn('[videos] EventSync hydrate failed', err);
+  }
+  try {
+    const peers = app.EventSync?.getConnectedPeers?.() || [];
+    peers.forEach((pk) => {
+      try { app.EventSync.sendInventory(pk); } catch (_) {}
+    });
+  } catch (_) {}
+}
 
 // חלק יאללה וידאו (videos.js) – רישום לייקים/תגובות להשלמת ספירות UI | HYPER CORE TECH
 function registerVideoEngagementEvent(event) {
@@ -6356,7 +6385,10 @@ async function loadVideos() {
 
   // רישום נתוני מעורבות למפות המטא | HYPER CORE TECH
   if (Array.isArray(sourceEvents)) {
-    sourceEvents.forEach(registerVideoEngagementEvent);
+    sourceEvents.forEach((event) => {
+      try { registerVideoSourceEvent(event); } catch (_) {}
+      try { registerVideoEngagementEvent(event); } catch (_) {}
+    });
   }
 
   // התחלת מנוי חי כדי לקבל התרעות חדשות בזמן אמת
@@ -6874,6 +6906,17 @@ async function init() {
 
   // תיקון תוויות עברית אם HTML ישן נשאר במטמון הדפדפן | HYPER CORE TECH
   repairHebrewUiLabels();
+
+  // סנכרון פוסטים מ־peers / EventSync אחרי עלייה | HYPER CORE TECH
+  setTimeout(() => { pullFeedFromEventSyncAndPeers().catch(() => {}); }, 1500);
+  setInterval(() => {
+    try {
+      const app = window.NostrApp;
+      const peers = app?.EventSync?.getConnectedPeers?.() || [];
+      if (!peers.length) return;
+      peers.forEach((pk) => { try { app.EventSync.sendInventory(pk); } catch (_) {} });
+    } catch (_) {}
+  }, 45000);
 
   // חלק כפתור בית (videos.js) – לחיצה 1 סוגרת overlay / רמז; לחיצה 2 מרעננת | HYPER CORE TECH
   const homeButton = document.getElementById('videosTopHomeButton');
