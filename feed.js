@@ -4148,13 +4148,6 @@ async function loadFeed() {
   async function loadVideoWithCache(videoElement, url, hash, mirrors = []) {
     // חלק Network Tiers (פיד) – קבלת אינדקס פוסט נוכחי | HYPER CORE TECH
     const currentPostIndex = globalVideoLoadIndex++;
-    const eventId =
-      (videoElement && typeof videoElement.closest === 'function'
-        ? videoElement.closest('[data-event-id]')?.getAttribute('data-event-id')
-        : null) || null;
-    if (hash && eventId && window.NostrApp?.MetadataTransfer?.bindMediaHash) {
-      try { window.NostrApp.MetadataTransfer.bindMediaHash(hash, eventId); } catch (_) {}
-    }
     
     try {
       // קודם IndexedDB ישירות — בלי P2P/tiers בפתיחה חמה | HYPER CORE TECH
@@ -4179,10 +4172,7 @@ async function loadFeed() {
       // חלק P2P (פיד) – ניסיון הורדה דרך P2P
       if (hash && typeof App.downloadVideoWithP2P === 'function') {
         try {
-          const p2pResult = await App.downloadVideoWithP2P(url, hash, 'video/webm', {
-            postIndex: currentPostIndex,
-            eventId: eventId || undefined,
-          });
+          const p2pResult = await App.downloadVideoWithP2P(url, hash, 'video/webm', { postIndex: currentPostIndex });
           
           if (p2pResult && p2pResult.blob) {
             // אם זה URL ישיר (עקיפת CORS), נשתמש בו ישירות

@@ -16,13 +16,12 @@
   // ═══════════════════════════════════════════════════════════════════════════
   
   const CONFIG = {
-    MAX_RECENT_COMMENTS: 40,       // E: צילום מצב עשיר יותר עם המדיה | HYPER CORE TECH
-    MAX_LIKERS: 50,
-    MAX_CONTENT_LENGTH: 500,
-    MAX_PICTURE_CHARS: 8000,       // לא שולחים data-URL ענק של אווטאר
+    MAX_RECENT_COMMENTS: 5,        // מקסימום תגובות לשלוח
+    MAX_LIKERS: 20,                // מקסימום likers לשלוח
+    MAX_CONTENT_LENGTH: 500,       // מקסימום אורך תוכן פוסט
     // עמוד שדרה דק: metadata מ-P2P נחשב טרי לזמן ארוך יותר – פחות חזרה ל-Relays | HYPER CORE TECH
-    METADATA_FRESHNESS: 30 * 60,   // 30 דקות – לא קצב לייקים חיים
-    RELAY_REFRESH_DELAY_MS: 45000,
+    METADATA_FRESHNESS: 30 * 60,   // 30 דקות
+    RELAY_REFRESH_DELAY_MS: 45000, // אם בכל זאת מרעננים מ-Relay – רק אחרי השהייה ארוכה
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -33,10 +32,6 @@
     // metadata שקיבלנו מ-peers
     // hash -> { postMetadata, receivedAt, verified }
     receivedMetadata: new Map(),
-    // hash מדיה → eventId של הפוסט (כדי לצרף engagement בהגשה) | HYPER CORE TECH
-    hashToEventId: new Map(),
-    // eventId → asOf (שניות) – דילוג על משיכת likes כבדה מריליי | HYPER CORE TECH
-    engagementFreshUntil: new Map(),
     
     // סטטיסטיקות
     stats: {
@@ -45,58 +40,6 @@
       metadataApplied: 0,
     },
   };
-
-  function sanitizePicture(pic) {
-    if (!pic || typeof pic !== 'string') return '';
-    if (pic.startsWith('http://') || pic.startsWith('https://')) {
-      return pic.slice(0, 500);
-    }
-    if (pic.startsWith('data:image/') && pic.length <= CONFIG.MAX_PICTURE_CHARS) {
-      return pic;
-    }
-    return '';
-  }
-
-  function bindMediaHash(hash, eventId) {
-    const h = String(hash || '').toLowerCase();
-    const id = String(eventId || '');
-    if (!h || !id) return false;
-    state.hashToEventId.set(h, id);
-    return true;
-  }
-
-  function resolveEventIdForHash(hash) {
-    const h = String(hash || '').toLowerCase();
-    if (!h) return null;
-    return state.hashToEventId.get(h) || null;
-  }
-
-  function markEngagementFresh(eventId, asOfSec) {
-    const id = String(eventId || '');
-    if (!id) return;
-    const asOf = typeof asOfSec === 'number' ? asOfSec : Math.floor(Date.now() / 1000);
-    state.engagementFreshUntil.set(id, asOf + CONFIG.METADATA_FRESHNESS);
-  }
-
-  function hasFreshEngagement(eventId) {
-    const id = String(eventId || '');
-    if (!id) return false;
-    const until = state.engagementFreshUntil.get(id);
-    if (!until) return false;
-    return Math.floor(Date.now() / 1000) < until;
-  }
-
-  function resolvePostEvent(eventId, event) {
-    if (event && event.id) return event;
-    const id = String(eventId || '');
-    if (!id) return null;
-    try {
-      if (App.postsById instanceof Map && App.postsById.has(id)) {
-        return App.postsById.get(id);
-      }
-    } catch (_) {}
-    return null;
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // לוגים
@@ -130,33 +73,29 @@
   /**
    * יצירת metadata מורחב לפוסט
    */
-  function createPostMetadata(eventId, event = null, opts = {}) {
-    const slim = !!opts.slim;
-    const maxComments = slim ? 5 : CONFIG.MAX_RECENT_COMMENTS;
-    const maxLikers = slim ? 15 : CONFIG.MAX_LIKERS;
-    const resolvedEvent = resolvePostEvent(eventId, event);
-    const id = String(eventId || resolvedEvent?.id || '');
-    if (!id) return null;
+  function createPostMetadata(eventId, event = null) {
+    if (!eventId) return null;
     
     try {
       // מידע בסיסי על הפוסט
-      const post = resolvedEvent ? {
-        id: resolvedEvent.id,
-        content: (resolvedEvent.content || '').slice(0, slim ? 120 : CONFIG.MAX_CONTENT_LENGTH),
-        createdAt: resolvedEvent.created_at,
-        pubkey: resolvedEvent.pubkey,
-      } : { id };
+      const post = event ? {
+        id: event.id,
+        content: (event.content || '').slice(0, CONFIG.MAX_CONTENT_LENGTH),
+        createdAt: event.created_at,
+        pubkey: event.pubkey,
+      } : { id: eventId };
       
-      // מידע על היוצר (שם + אווטאר לכרטיס) | HYPER CORE TECH
+      // מידע על היוצר
       let author = null;
-      const authorPk = String(post.pubkey || resolvedEvent?.pubkey || '').toLowerCase();
-      if (authorPk && App.profileCache) {
-        const profile = App.profileCache.get(authorPk) || App.profileCache.get(post.pubkey) || {};
-        author = {
-          name: (profile.name || '').slice(0, 50),
-          picture: slim ? '' : sanitizePicture(profile.picture || ''),
-          initials: profile.initials || 'AN',
-        };
+      if (event?.pubkey && App.profileCache) {
+        const profile = App.profileCache.get(event.pubkey);
+        if (profile) {
+          author = {
+            name: (profile.name || '').slice(0, 50),
+            picture: profile.picture || '',
+            initials: profile.initials || 'AN',
+          };
+        }
       }
       
       // סטטיסטיקות
@@ -167,20 +106,20 @@
       };
       
       if (App.likesByEventId) {
-        const likes = App.likesByEventId.get(id);
+        const likes = App.likesByEventId.get(eventId);
         stats.likes = likes ? likes.size : 0;
       }
       
       if (App.commentsByParent) {
-        const comments = App.commentsByParent.get(id);
+        const comments = App.commentsByParent.get(eventId);
         stats.comments = comments ? comments.size : 0;
       }
       
       // תגובות אחרונות
-      const recentComments = getRecentComments(id, maxComments, { slim });
+      const recentComments = getRecentComments(eventId, CONFIG.MAX_RECENT_COMMENTS);
       
       // רשימת likers
-      const likers = getLikersList(id, maxLikers, { slim });
+      const likers = getLikersList(eventId, CONFIG.MAX_LIKERS);
       
       return {
         post,
@@ -198,12 +137,11 @@
   /**
    * קבלת תגובות אחרונות
    */
-  function getRecentComments(eventId, limit = 5, opts = {}) {
+  function getRecentComments(eventId, limit = 5) {
     if (!eventId || !App.commentsByParent) return [];
     
     const commentMap = App.commentsByParent.get(eventId);
     if (!commentMap) return [];
-    const slim = !!opts.slim;
     
     try {
       return Array.from(commentMap.values())
@@ -213,12 +151,12 @@
           const authorProfile = App.profileCache?.get(comment.pubkey) || {};
           return {
             id: comment.id,
-            content: (comment.content || '').slice(0, slim ? 80 : 200),
+            content: (comment.content || '').slice(0, 200),
             createdAt: comment.created_at,
             author: {
               pubkey: comment.pubkey,
               name: (authorProfile.name || '').slice(0, 50),
-              picture: slim ? '' : sanitizePicture(authorProfile.picture || ''),
+              picture: authorProfile.picture || '',
               initials: authorProfile.initials || 'AN',
             },
           };
@@ -231,7 +169,7 @@
   /**
    * קבלת רשימת likers
    */
-  function getLikersList(eventId, limit = 20, opts = {}) {
+  function getLikersList(eventId, limit = 20) {
     if (!eventId || !App.likesByEventId) return [];
     
     const likersSet = App.likesByEventId.get(eventId);
@@ -270,9 +208,8 @@
    */
   function storeReceivedMetadata(hash, postMetadata) {
     if (!hash || !postMetadata) return;
-    const h = String(hash).toLowerCase();
     
-    state.receivedMetadata.set(h, {
+    state.receivedMetadata.set(hash, {
       postMetadata,
       receivedAt: Date.now(),
       verified: false,
@@ -281,7 +218,7 @@
     state.stats.metadataReceived++;
     
     log('metadata', 'נשמר metadata', {
-      hash: h.slice(0, 12),
+      hash: hash.slice(0, 12),
       likes: postMetadata.stats?.likes,
       comments: postMetadata.stats?.comments,
     });
@@ -294,20 +231,18 @@
     if (!eventId || !postMetadata) return false;
     
     try {
-      // עדכון פרופיל המחבר (מיזוג – לא דורסים ערכים קיימים טובים) | HYPER CORE TECH
-      const authorPk = String(postMetadata.post?.pubkey || '').toLowerCase();
-      if (postMetadata.author && authorPk && App.profileCache) {
-        const existing = App.profileCache.get(authorPk) || {};
-        const nextPicture = sanitizePicture(postMetadata.author.picture) || existing.picture || '';
-        App.profileCache.set(authorPk, {
+      // עדכון פרופיל המחבר
+      if (postMetadata.author && postMetadata.post?.pubkey && App.profileCache) {
+        const existing = App.profileCache.get(postMetadata.post.pubkey) || {};
+        App.profileCache.set(postMetadata.post.pubkey, {
           ...existing,
           name: postMetadata.author.name || existing.name,
-          picture: nextPicture,
+          picture: postMetadata.author.picture || existing.picture,
           initials: postMetadata.author.initials || existing.initials,
         });
       }
       
-      // עדכון לייקים מ-P2P (מיזוג ל־likesByEventId הקיים) | HYPER CORE TECH
+      // עדכון לייקים מ-P2P (בלי Relays) | HYPER CORE TECH
       if (Array.isArray(postMetadata.likers) && App.likesByEventId) {
         if (!App.likesByEventId.has(eventId)) {
           App.likesByEventId.set(eventId, new Set());
@@ -319,7 +254,7 @@
         });
       }
 
-      // עדכון תגובות (מיזוג – לא מוחקים תגובות קיימות)
+      // עדכון תגובות
       if (postMetadata.recentComments && App.commentsByParent) {
         if (!App.commentsByParent.has(eventId)) {
           App.commentsByParent.set(eventId, new Map());
@@ -335,41 +270,27 @@
               pubkey: comment.author?.pubkey,
             });
             
+            // עדכון פרופיל המגיב
             if (comment.author?.pubkey && App.profileCache) {
-              const cpk = String(comment.author.pubkey).toLowerCase();
-              const existing = App.profileCache.get(cpk) || {};
-              App.profileCache.set(cpk, {
+              const existing = App.profileCache.get(comment.author.pubkey) || {};
+              App.profileCache.set(comment.author.pubkey, {
                 ...existing,
                 name: comment.author.name || existing.name,
-                picture: sanitizePicture(comment.author.picture) || existing.picture || '',
+                picture: comment.author.picture || existing.picture,
                 initials: comment.author.initials || existing.initials,
               });
             }
           }
         });
       }
-
-      markEngagementFresh(eventId, postMetadata.stats?.asOf);
+      
       state.stats.metadataApplied++;
       
       log('success', 'Metadata הוחל', {
         eventId: eventId.slice(0, 12),
         likes: postMetadata.stats?.likes,
         comments: postMetadata.recentComments?.length,
-        hasAuthor: !!postMetadata.author?.name,
       });
-
-      try {
-        window.dispatchEvent(new CustomEvent('sos:p2p-metadata-applied', {
-          detail: {
-            eventId,
-            pubkey: authorPk || null,
-            likes: App.likesByEventId?.get(eventId)?.size || 0,
-            comments: App.commentsByParent?.get(eventId)?.size || 0,
-            author: postMetadata.author || null,
-          },
-        }));
-      } catch (_) {}
       
       return true;
     } catch (err) {
@@ -382,7 +303,7 @@
    * קבלת metadata שנשמר
    */
   function getStoredMetadata(hash) {
-    return state.receivedMetadata.get(String(hash || '').toLowerCase());
+    return state.receivedMetadata.get(hash);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -392,13 +313,11 @@
   /**
    * הרחבת הודעת metadata רגילה עם מידע נוסף
    */
-  function extendMetadataMessage(baseMessage, hash, eventId = null, opts = {}) {
+  function extendMetadataMessage(baseMessage, hash, eventId = null) {
     if (!baseMessage) return baseMessage;
     
-    const resolvedId = eventId || resolveEventIdForHash(hash);
-    if (resolvedId && hash) bindMediaHash(hash, resolvedId);
-    const slim = opts.slim !== false; // ברירת מחדל slim על נתיב המדיה | HYPER CORE TECH
-    const postMetadata = createPostMetadata(resolvedId, null, { slim });
+    // יצירת metadata מורחב
+    const postMetadata = createPostMetadata(eventId);
     
     if (postMetadata) {
       baseMessage.postMetadata = postMetadata;
@@ -406,11 +325,8 @@
       
       log('metadata', 'הוספתי metadata להודעה', {
         hash: hash?.slice(0, 12),
-        eventId: (resolvedId || '').slice(0, 12),
         hasAuthor: !!postMetadata.author,
         likes: postMetadata.stats?.likes,
-        comments: postMetadata.stats?.comments,
-        slim: slim || undefined,
       });
     }
     
@@ -525,10 +441,6 @@
     // אחסון
     storeReceivedMetadata,
     getStoredMetadata,
-    bindMediaHash,
-    resolveEventIdForHash,
-    markEngagementFresh,
-    hasFreshEngagement,
     
     // סטטיסטיקות
     getStats,

@@ -5,11 +5,11 @@
   const DB_VERSION = 1;
   const STORE_NAME = 'events';
 
-  const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 יום — פוסטים צבורים חייבים להישאר לשיתוף | HYPER CORE TECH
-  const INV_LIMIT = 600;
-  const MAX_IDS_PER_REQ = 250;
-  const MAX_EVENTS_PER_RES = 40;
-  const MIN_INV_INTERVAL_MS = 2500;
+  const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const INV_LIMIT = 300;
+  const MAX_IDS_PER_REQ = 200;
+  const MAX_EVENTS_PER_RES = 50;
+  const MIN_INV_INTERVAL_MS = 5000;
 
   let db = null;
   let dbDisabled = false;
@@ -175,91 +175,37 @@
     });
   }
 
-  function isRootFeedPost(ev) {
-    if (!ev || ev.kind !== 1 || !ev.id) return false;
-    return !(Array.isArray(ev.tags) && ev.tags.some((t) => Array.isArray(t) && t[0] === 'e'));
-  }
-
-  function eventFromPostsById(id) {
-    try {
-      const ev = App.postsById instanceof Map ? App.postsById.get(id) : null;
-      return isEventLike(ev) ? ev : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function localFeedIdSet() {
-    try {
-      if (typeof App.getLocalFeedPostIds === 'function') {
-        return new Set(App.getLocalFeedPostIds() || []);
-      }
-    } catch (_) {}
-    return new Set();
-  }
-
   async function listRecentIds(limit = INV_LIMIT) {
-    // רק פוסטי פיד (kind:1 root) — לא לייקים/תגובות. זה הבסיס לשיתוף בין משתמשים | HYPER CORE TECH
-    const seen = new Set();
-    const postIds = [];
-
-    const pushId = (id) => {
-      if (!id || seen.has(id) || postIds.length >= limit) return;
-      seen.add(id);
-      postIds.push(id);
-    };
-
-    try {
-      if (App.postsById instanceof Map) {
-        const mem = Array.from(App.postsById.values())
-          .filter(isRootFeedPost)
-          .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-        mem.forEach((ev) => pushId(ev.id));
-      }
-    } catch (_) {}
-
-    if (postIds.length >= limit) return postIds.slice(0, limit);
-
     const database = await openDB();
-    if (!database) return postIds;
+    if (!database) return [];
+
+    const tx = database.transaction([STORE_NAME], 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const index = store.index('created_at');
 
     return new Promise((resolve) => {
-      const tx = database.transaction([STORE_NAME], 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const index = store.index('created_at');
+      const ids = [];
       const request = index.openCursor(null, 'prev');
       request.onsuccess = (event) => {
         const cursor = event.target.result;
-        if (!cursor || postIds.length >= limit) {
-          resolve(postIds.slice(0, limit));
+        if (!cursor || ids.length >= limit) {
+          resolve(ids);
           return;
         }
-        const rec = cursor.value;
-        if (rec && isRootFeedPost(rec)) pushId(rec.id);
+        if (cursor.value?.id) ids.push(cursor.value.id);
         cursor.continue();
       };
-      request.onerror = () => resolve(postIds.slice(0, limit));
+      request.onerror = () => resolve(ids);
     });
   }
 
   async function missingIds(database, ids) {
     const unique = Array.from(new Set(ids)).slice(0, MAX_IDS_PER_REQ);
-    const haveFeed = localFeedIdSet();
-    const store = database
-      ? database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME)
-      : null;
+    const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
 
     const checks = unique.map(
       (id) =>
         new Promise((resolve) => {
-          if (haveFeed.has(id) || eventFromPostsById(id)) {
-            resolve(null);
-            return;
-          }
-          if (!store) {
-            resolve(id);
-            return;
-          }
           const req = store.get(id);
           req.onsuccess = () => resolve(req.result ? null : id);
           req.onerror = () => resolve(id);
@@ -272,19 +218,9 @@
 
   async function loadRecords(database, ids) {
     const unique = Array.from(new Set(ids)).slice(0, MAX_IDS_PER_REQ);
-    const out = [];
-    const needIdb = [];
-
-    unique.forEach((id) => {
-      const mem = eventFromPostsById(id);
-      if (mem) out.push(mem);
-      else needIdb.push(id);
-    });
-
-    if (!database || !needIdb.length) return out;
-
     const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
-    const fetches = needIdb.map(
+
+    const fetches = unique.map(
       (id) =>
         new Promise((resolve) => {
           const req = store.get(id);
@@ -292,9 +228,9 @@
           req.onerror = () => resolve(null);
         })
     );
+
     const results = await Promise.all(fetches);
-    results.filter(Boolean).forEach((r) => out.push(r));
-    return out;
+    return results.filter(Boolean);
   }
 
   function sendJson(channel, payload) {
@@ -316,15 +252,12 @@
     state.lastInvSentAt.set(peerPubkey, now);
 
     const ids = await listRecentIds();
-    if (!ids.length) {
-      log('warn', 'INV skipped — no local feed posts to share');
-      return false;
-    }
+    if (!ids.length) return false;
 
-    const ok = sendJson(channel, { type: 'p2p-event-inv', ids, ts: now, feedOnly: true });
+    const ok = sendJson(channel, { type: 'p2p-event-inv', ids, ts: now });
     if (ok) {
       state.stats.invSent++;
-      log('info', '📤 INV sent (feed posts)', { to: peerPubkey.slice(0, 8), ids: ids.length });
+      log('info', '📤 INV sent', { to: peerPubkey.slice(0, 8), ids: ids.length });
     }
     return ok;
   }
@@ -334,26 +267,16 @@
     if (!Array.isArray(msg.ids) || msg.ids.length === 0) return true;
 
     const database = await openDB();
-    // כל ה־ids החסרים — נבקש במנות | HYPER CORE TECH
-    const allMissing = [];
-    const chunkSize = MAX_IDS_PER_REQ;
-    for (let i = 0; i < msg.ids.length; i += chunkSize) {
-      const slice = msg.ids.slice(i, i + chunkSize);
-      const miss = await missingIds(database, slice);
-      allMissing.push(...miss);
-    }
-    if (!allMissing.length) {
-      log('info', 'INV — nothing missing', { from: senderPubkey.slice(0, 8), offered: msg.ids.length });
-      return true;
-    }
+    if (!database) return true;
 
-    for (let i = 0; i < allMissing.length; i += MAX_IDS_PER_REQ) {
-      const reqIds = allMissing.slice(i, i + MAX_IDS_PER_REQ);
-      const ok = sendJson(channel, { type: 'p2p-event-req', ids: reqIds, ts: Date.now() });
-      if (ok) {
-        state.stats.reqSent++;
-        log('info', '📤 REQ sent', { to: senderPubkey.slice(0, 8), ids: reqIds.length, batch: i / MAX_IDS_PER_REQ + 1 });
-      }
+    const missing = await missingIds(database, msg.ids);
+    if (!missing.length) return true;
+
+    const reqIds = missing.slice(0, MAX_IDS_PER_REQ);
+    const ok = sendJson(channel, { type: 'p2p-event-req', ids: reqIds, ts: Date.now() });
+    if (ok) {
+      state.stats.reqSent++;
+      log('info', '📤 REQ sent', { to: senderPubkey.slice(0, 8), ids: reqIds.length });
     }
 
     return true;
@@ -364,11 +287,10 @@
     if (!Array.isArray(msg.ids) || msg.ids.length === 0) return true;
 
     const database = await openDB();
+    if (!database) return true;
+
     const records = await loadRecords(database, msg.ids);
-    if (!records.length) {
-      log('warn', 'REQ — no events to serve', { to: senderPubkey.slice(0, 8), asked: msg.ids.length });
-      return true;
-    }
+    if (!records.length) return true;
 
     for (let i = 0; i < records.length; i += MAX_EVENTS_PER_RES) {
       const batch = records.slice(i, i + MAX_EVENTS_PER_RES).map((r) => ({
@@ -386,7 +308,7 @@
       }
     }
 
-    log('info', '📤 RES sent', { to: senderPubkey.slice(0, 8), events: records.length, asked: msg.ids.length });
+    log('info', '📤 RES sent', { to: senderPubkey.slice(0, 8), events: records.length });
     return true;
   }
 
@@ -398,53 +320,38 @@
     const newPosts = [];
     const newLikes = [];
     const newComments = [];
-
+    
     for (const ev of msg.events) {
-      if (!isEventLike(ev) || !verifyEventSafe(ev)) continue;
-      const ok = await ingestEvent(ev, { source: 'p2p:' + senderPubkey.slice(0, 8) });
-      if (ok) stored++;
-      try {
-        if (!(App.postsById instanceof Map)) App.postsById = new Map();
-        App.postsById.set(ev.id, ev);
-      } catch (_) {}
-
-      if (ev.kind === 1) {
-        const hasETag = Array.isArray(ev.tags) && ev.tags.some((t) => t[0] === 'e');
-        if (hasETag) newComments.push(ev);
-        else newPosts.push(ev);
-      } else if (ev.kind === 7) {
-        newLikes.push(ev);
+      if (await ingestEvent(ev, { source: 'p2p:' + senderPubkey.slice(0, 8) })) {
+        stored++;
+        // חלק P2P לייב (p2p-event-sync.js) – איסוף אירועים חדשים לעדכון הפיד | HYPER CORE TECH
+        if (ev.kind === 1) {
+          const hasETag = Array.isArray(ev.tags) && ev.tags.some(t => t[0] === 'e');
+          if (hasETag) {
+            newComments.push(ev);
+          } else {
+            newPosts.push(ev);
+          }
+        } else if (ev.kind === 7) {
+          newLikes.push(ev);
+        }
       }
     }
 
+    // חלק P2P לייב (p2p-event-sync.js) – עדכון הפיד עם אירועים שהגיעו מ-P2P | HYPER CORE TECH
     if (newLikes.length > 0 && typeof App.registerLike === 'function') {
-      newLikes.forEach((like) => App.registerLike(like));
+      newLikes.forEach(like => App.registerLike(like));
     }
     if (newComments.length > 0 && typeof App.registerComment === 'function') {
-      newComments.forEach((comment) => {
-        const eTag = Array.isArray(comment.tags) && comment.tags.find((t) => t[0] === 'e');
-        if (eTag && eTag[1]) App.registerComment(comment, eTag[1]);
+      newComments.forEach(comment => {
+        const eTag = Array.isArray(comment.tags) && comment.tags.find(t => t[0] === 'e');
+        if (eTag && eTag[1]) {
+          App.registerComment(comment, eTag[1]);
+        }
       });
     }
 
-    log('info', '📥 RES received', {
-      from: senderPubkey.slice(0, 8),
-      events: msg.events.length,
-      stored,
-      newPosts: newPosts.length,
-      newLikes: newLikes.length,
-    });
-
-    if (newPosts.length > 0) {
-      try {
-        if (typeof App.onP2PFeedEvents === 'function') {
-          const added = App.onP2PFeedEvents(newPosts);
-          log('info', '📥 merged into video feed', { added: added || 0, posts: newPosts.length });
-        }
-      } catch (err) {
-        log('warn', 'onP2PFeedEvents failed', err?.message || String(err));
-      }
-    }
+    log('info', '📥 RES received', { from: senderPubkey.slice(0, 8), events: msg.events.length, stored, newPosts: newPosts.length, newLikes: newLikes.length });
     return true;
   }
 
@@ -467,25 +374,13 @@
   function attachChannel(peerPubkey, channel) {
     if (!peerPubkey || !channel) return;
     state.channels.set(peerPubkey, channel);
-    // כל חיבור חדש — שיתוף רשימת פוסטים מיד (בלי throttle מהחיבור הקודם) | HYPER CORE TECH
-    state.lastInvSentAt.delete(peerPubkey);
     sendInventory(peerPubkey, channel);
-    setTimeout(() => {
-      try {
-        state.lastInvSentAt.delete(peerPubkey);
-        sendInventory(peerPubkey, channel);
-      } catch (_) {}
-    }, 3500);
   }
 
   function detachChannel(peerPubkey) {
     if (!peerPubkey) return;
     state.channels.delete(peerPubkey);
     state.lastInvSentAt.delete(peerPubkey);
-  }
-
-  function getConnectedPeers() {
-    return Array.from(state.channels.keys());
   }
 
   function getStats() {
@@ -497,9 +392,8 @@
     const database = await openDB();
     if (!database) return [];
 
-    const { kinds = [1], limit = 100, since = 0, until = Number.MAX_SAFE_INTEGER } = options;
+    const { kinds = [1], limit = 100, since = 0 } = options;
     const kindsSet = new Set(kinds);
-    const untilTs = Number.isFinite(Number(until)) ? Number(until) : Number.MAX_SAFE_INTEGER;
 
     return new Promise((resolve) => {
       const results = [];
@@ -515,12 +409,7 @@
           return;
         }
         const rec = cursor.value;
-        if (
-          rec &&
-          kindsSet.has(rec.kind) &&
-          rec.created_at >= since &&
-          rec.created_at < untilTs
-        ) {
+        if (rec && kindsSet.has(rec.kind) && rec.created_at >= since) {
           results.push({
             id: rec.id,
             pubkey: rec.pubkey,
@@ -586,15 +475,11 @@
     detachChannel,
     sendInventory: async (peerPubkey) => {
       const ch = state.channels.get(peerPubkey);
-      if (!ch) return false;
-      state.lastInvSentAt.delete(peerPubkey);
       return sendInventory(peerPubkey, ch);
     },
     getStats,
-    getConnectedPeers,
     loadCachedEvents,
     loadEngagementForPosts,
-    listFeedPostIds: listRecentIds,
   });
 
   if (!App._p2pEventSyncBootstrapped) {

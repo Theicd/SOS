@@ -61,8 +61,6 @@
   // חלק cache (media-cache.js) – שמירת מדיה ב-cache
   async function cacheMedia(url, hash, blob, mimeType, options = {}) {
     try {
-      hash = String(hash || '').trim().toLowerCase();
-      if (!hash || !blob) return false;
       const database = await openDB();
       if (!database) {
         return false;
@@ -137,8 +135,6 @@
   // חלק cache (media-cache.js) – קריאת מדיה מ-cache
   async function getCachedMedia(hash) {
     try {
-      hash = String(hash || '').trim().toLowerCase();
-      if (!hash) return null;
       const database = await openDB();
       if (!database) {
         return null;
@@ -146,20 +142,11 @@
       const transaction = database.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
 
-      let entry = await new Promise((resolve, reject) => {
+      const entry = await new Promise((resolve, reject) => {
         const request = store.get(hash);
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
-      // תאימות למפתחות ישנים באותיות גדולות | HYPER CORE TECH
-      if (!entry) {
-        const upper = hash.toUpperCase();
-        entry = await new Promise((resolve, reject) => {
-          const request = store.get(upper);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-      }
 
       if (!entry) {
         return null;

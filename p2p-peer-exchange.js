@@ -31,7 +31,7 @@
     MAX_KNOWN_PEERS: 50,           // מקסימום peers לשמור בזיכרון
     PEER_TTL: 5 * 60 * 1000,       // 5 דקות - אחרי זה peer נחשב לא פעיל
     EXCHANGE_INTERVAL: 30 * 1000,  // כל 30 שניות לבקש עדכון מ-peers מחוברים
-    MAX_FILES_TO_SHARE: 150,       // מקסימום קבצים לשתף ברשימה (הכי חדשים קודם) | HYPER CORE TECH
+    MAX_FILES_TO_SHARE: 100,       // מקסימום קבצים לשתף ברשימה
     MAX_PEERS_TO_SHARE: 20,        // מקסימום peers לשתף ברשימה
     CLEANUP_INTERVAL: 60 * 1000,   // ניקוי כל דקה
   };
@@ -134,9 +134,7 @@
     
     // עדכון קבצים
     if (Array.isArray(files)) {
-      files.forEach((rawHash) => {
-        const hash = String(rawHash || '').trim().toLowerCase();
-        if (!hash) return;
+      files.forEach(hash => {
         existing.files.add(hash);
         
         // עדכון fileLocations
@@ -276,20 +274,22 @@
    */
   function handlePeerExchangeRequest(channel, senderPubkey) {
     if (!channel || channel.readyState !== 'open') return;
-    pushFileInventory(channel, senderPubkey);
-  }
-
-  /**
-   * דחיפת רשימת קבצים ל־peer (בלי לחכות לבקשה) — seeder עם אור ירוק מפרסם מה יש לו | HYPER CORE TECH
-   */
-  function pushFileInventory(channel, senderPubkey) {
-    if (!channel || channel.readyState !== 'open') return false;
-
-    const myFiles = collectMyRecentFileHashes();
+    
+    // אוסף את הקבצים שיש לנו
+    const myFiles = [];
+    if (App.getAvailableFiles) {
+      const files = App.getAvailableFiles();
+      if (files && typeof files.keys === 'function') {
+        myFiles.push(...Array.from(files.keys()).slice(0, CONFIG.MAX_FILES_TO_SHARE));
+      }
+    }
+    
+    // אוסף peers שאנחנו מכירים (לא כולל השולח)
     const myPeers = [];
     state.knownPeers.forEach((data, pubkey) => {
       if (pubkey === senderPubkey) return;
       if (Date.now() - data.lastSeen > CONFIG.PEER_TTL) return;
+      
       if (myPeers.length < CONFIG.MAX_PEERS_TO_SHARE) {
         myPeers.push({
           pubkey,
@@ -298,7 +298,7 @@
         });
       }
     });
-
+    
     try {
       channel.send(JSON.stringify({
         type: MESSAGE_TYPES.PEER_EXCHANGE_RESPONSE,
@@ -306,42 +306,14 @@
         knownPeers: myPeers,
         timestamp: Date.now(),
       }));
-      log('exchange', 'שלחתי תשובת Exchange', {
-        files: myFiles.length,
-        peers: myPeers.length,
-        to: String(senderPubkey || '').slice(0, 8) || undefined,
+      
+      log('exchange', 'שלחתי תשובת Exchange', { 
+        files: myFiles.length, 
+        peers: myPeers.length 
       });
-      return true;
     } catch (err) {
       log('error', 'שגיאה בשליחת Exchange response', { error: err.message });
-      return false;
     }
-  }
-
-  function collectMyRecentFileHashes() {
-    const myFiles = [];
-    if (!App.getAvailableFiles) return myFiles;
-    const files = App.getAvailableFiles();
-    if (!files) return myFiles;
-
-    const entries = [];
-    if (typeof files.forEach === 'function') {
-      files.forEach((data, hash) => {
-        const h = String(hash || '').trim().toLowerCase();
-        if (!h) return;
-        entries.push({ hash: h, ts: (data && data.timestamp) || 0 });
-      });
-    } else if (typeof files.keys === 'function') {
-      for (const hash of files.keys()) {
-        const h = String(hash || '').trim().toLowerCase();
-        if (h) entries.push({ hash: h, ts: 0 });
-      }
-    }
-    entries.sort((a, b) => b.ts - a.ts);
-    for (const e of entries.slice(0, CONFIG.MAX_FILES_TO_SHARE)) {
-      myFiles.push(e.hash);
-    }
-    return myFiles;
   }
 
   /**
@@ -614,7 +586,6 @@
    */
   function findPeersWithFileLocally(hash) {
     if (!hash) return [];
-    hash = String(hash).trim().toLowerCase();
     
     const locations = state.fileLocations.get(hash);
     if (!locations || locations.size === 0) return [];
@@ -643,8 +614,7 @@
    * בדיקה אם יש לנו מידע על קובץ
    */
   function hasFileInfo(hash) {
-    hash = String(hash || '').trim().toLowerCase();
-    return !!hash && state.fileLocations.has(hash) && state.fileLocations.get(hash).size > 0;
+    return state.fileLocations.has(hash) && state.fileLocations.get(hash).size > 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -660,7 +630,6 @@
     state.activeChannels.forEach((channel, pubkey) => {
       if (channel.readyState === 'open') {
         sendPeerExchangeRequest(channel);
-        pushFileInventory(channel, pubkey);
         sent++;
       }
     });
@@ -770,7 +739,6 @@
     
     // Peer Exchange
     sendPeerExchangeRequest,
-    pushFileInventory,
     handleIncomingMessage,
     broadcastExchangeRequest,
     
