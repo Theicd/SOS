@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v575'; // bump - force fresh HTML (fix stuck Hebrew mojibake cache)
+  const CACHE_NAME = 'sos-cache-v577'; // bump - cap cache DOM boot, parallel network
   const PRECACHE_URLS = [
     './',
     './videos.html',
