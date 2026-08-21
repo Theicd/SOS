@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v583'; // bump - silent relay sanitize, no UI warning banner
+  const CACHE_NAME = 'sos-cache-v584'; // bump - flush desktop meta clock to bubble left
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -43,15 +43,15 @@
     })());
   });
 
-  // חלק Activate (service-worker.js) – הפעלה וניקוי cache ישן של SOS בלבד | HYPER CORE TECH
+  // חלק Activate (service-worker.js) – הפעלה וניקוי cache ישן | HYPER CORE TECH
   self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
-      // מוחקים רק sos-cache-v* ישנים — לא נוגעים ב־Cache API אחר | HYPER CORE TECH
+      // ניקוי cache ישן
       const cacheNames = await caches.keys();
       await Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('sos-cache-') && name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+          .filter(name => name !== CACHE_NAME)
+          .map(name => caches.delete(name))
       );
       await self.clients.claim();
       
@@ -65,20 +65,9 @@
     })());
   });
 
-  // חלק Fetch (service-worker.js) – סטטי מקאש קודם; HTML/גרסה מהרשת | HYPER CORE TECH
+  // חלק Fetch (service-worker.js) – טיפול בבקשות רשת עם fallback ל-cache | HYPER CORE TECH
   // חלק excludePaths (service-worker.js) – נתיבים שלא לשמור בקאש | HYPER CORE TECH
   const EXCLUDE_PATHS = ['/api', '/auth', '/login', '/register', '/admin'];
-
-  function isHtmlNavigation(request, url) {
-    return request.mode === 'navigate'
-      || url.pathname.endsWith('.html')
-      || url.pathname === '/'
-      || url.pathname.endsWith('/');
-  }
-
-  function isStaticAsset(url) {
-    return /\.(?:js|css|mjs|map|woff2?|ttf|otf|png|jpe?g|gif|webp|svg|ico|wasm|json|webmanifest)$/i.test(url.pathname);
-  }
   
   self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
@@ -96,31 +85,8 @@
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
     
     event.respondWith((async () => {
-      const htmlNav = isHtmlNavigation(event.request, url);
-      const preferCache = !htmlNav && isStaticAsset(url);
-
-      // JS/CSS/אייקונים – קודם מקאש (רענון דף לא מוריד הכל מחדש) | HYPER CORE TECH
-      if (preferCache) {
-        const cachedStatic = await caches.match(event.request);
-        if (cachedStatic) {
-          event.waitUntil((async () => {
-            try {
-              const fresh = await fetch(event.request);
-              if (fresh && fresh.ok) {
-                const cache = await caches.open(CACHE_NAME);
-                await cache.put(event.request, fresh.clone());
-              }
-            } catch (_) {}
-          })());
-          return cachedStatic;
-        }
-      }
-
       try {
-        const networkResponse = await fetch(
-          event.request,
-          htmlNav ? { cache: 'no-store' } : undefined
-        );
+        const networkResponse = await fetch(event.request);
         if (networkResponse.ok) {
           const cache = await caches.open(CACHE_NAME);
           cache.put(event.request, networkResponse.clone()).catch(() => {});

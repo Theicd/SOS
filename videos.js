@@ -4157,12 +4157,6 @@ function preloadNextMedia(video) {
   }
 
   if (video.videoUrl) {
-    // לא prefetch ישיר ל-CDN/Blossom — גורם ל-503 כפול אחרי cache-hit | HYPER CORE TECH
-    // הטעינה עוברת ב-loadVideoWithCache (cache → P2P → Blossom)
-    const url = String(video.videoUrl);
-    if (/files\.sovbit\.host|blossom\.|nostr\.build\/|cdn\.|r2\.|media\./i.test(url)) {
-      return;
-    }
     const link = document.createElement('link');
     link.rel = 'prefetch';
     link.href = video.videoUrl;

@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.21-pwa262-desktop-cache",
-  "note": "Keep desktop cache across refresh: persist storage + SW cache-first static"
+  "version": "2026.08.21-pwa263-restore229",
+  "note": "Full restore to pwa229 era; remove post-229 files; force client update"
 }

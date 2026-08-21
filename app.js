@@ -165,6 +165,7 @@
       'wss://relay.snort.social',
       'wss://nos.lol',
       'wss://nostr-relay.xbytez.io',
+      'wss://nostr.0x7e.xyz',
     ];
   }
 

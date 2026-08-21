@@ -78,12 +78,6 @@
       return null;
     }
     try {
-      // בקשת אחסון קבוע — מונע מחיקת IndexedDB/קאש ברענון במחשב | HYPER CORE TECH
-      if (navigator.storage && typeof navigator.storage.persist === 'function') {
-        navigator.storage.persist().then((granted) => {
-          console.log('[PWA] storage.persist()', { granted });
-        }).catch(() => {});
-      }
       const registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
       console.log('[PWA] Service Worker נרשם בהצלחה', registration.scope);
       

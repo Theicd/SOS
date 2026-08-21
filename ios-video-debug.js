@@ -8,7 +8,7 @@
 (function() {
   'use strict';
 
-  const IOS_DEBUG_VERSION = '1.0.1';
+  const IOS_DEBUG_VERSION = '1.0.0';
   
   // בדיקה אם זה iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -18,18 +18,8 @@
     return match ? { major: parseInt(match[1]), minor: parseInt(match[2]), patch: parseInt(match[3] || 0) } : null;
   })();
 
-  // דסקטופ: כבוי (מונע הצפת RENDER). הפעלה ידנית: localStorage.sos_ios_video_debug=1 | HYPER CORE TECH
-  const ENABLE_IOS_VIDEO_DEBUG = (() => {
-    try {
-      if (window.localStorage.getItem('sos_ios_video_debug') === '1') return true;
-      if (window.localStorage.getItem('sos_ios_video_debug') === '0') return false;
-    } catch (_) {}
-    return !!isIOS;
-  })();
-
   // לוג מיוחד לדיבוג iOS
   function iosLog(category, message, data = {}) {
-    if (!ENABLE_IOS_VIDEO_DEBUG) return;
     const timestamp = new Date().toLocaleTimeString('he-IL');
     const prefix = `[iOS-DEBUG ${timestamp}]`;
     const colors = {
@@ -380,9 +370,6 @@
 
   // אתחול
   function init() {
-    if (!ENABLE_IOS_VIDEO_DEBUG) {
-      return;
-    }
     iosLog('INFO', `=== iOS Video Debug v${IOS_DEBUG_VERSION} ===`);
     
     if (!isIOS) {
