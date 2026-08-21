@@ -13,6 +13,34 @@
 
   let db = null;
   let dbDisabled = false; // חלק cache (media-cache.js) – דגל משותק כש-IndexedDB אינו זמין | HYPER CORE TECH
+  let persistRequested = false;
+
+  // חלק קאש קבוע (media-cache.js) – מבקשים מהדפדפן לא למחוק נתונים ברענון/לחץ אחסון | HYPER CORE TECH
+  async function requestPersistentStorage() {
+    if (persistRequested) return false;
+    persistRequested = true;
+    try {
+      if (!navigator.storage || typeof navigator.storage.persist !== 'function') {
+        return false;
+      }
+      let persisted = false;
+      try {
+        persisted = typeof navigator.storage.persisted === 'function'
+          ? !!(await navigator.storage.persisted())
+          : false;
+      } catch (_) {}
+      if (persisted) {
+        console.log('[media-cache] storage already persistent');
+        return true;
+      }
+      const granted = await navigator.storage.persist();
+      console.log('[media-cache] storage.persist()', { granted });
+      return !!granted;
+    } catch (err) {
+      console.warn('[media-cache] storage.persist failed', err);
+      return false;
+    }
+  }
 
   // חלק cache (media-cache.js) – פתיחת/יצירת database
   async function openDB() {
@@ -152,13 +180,21 @@
         return null;
       }
 
-      // בדיקת תוקף
+      // בדיקת תוקף — פינים לא נמחקים ברענון; אחרת לפי גיל | HYPER CORE TECH
       const age = Date.now() - entry.timestamp;
-      if (age > MAX_CACHE_AGE) {
+      if (!entry.pinned && age > MAX_CACHE_AGE) {
         console.log('Cache entry expired:', hash.slice(0, 16));
         await deleteCachedMedia(hash);
         return null;
       }
+
+      // מרעננים timestamp בגישה — רענון דף לא «מזדקן» את הקובץ | HYPER CORE TECH
+      try {
+        const writeTx = database.transaction([STORE_NAME], 'readwrite');
+        const writeStore = writeTx.objectStore(STORE_NAME);
+        entry.timestamp = Date.now();
+        writeStore.put(entry);
+      } catch (_) {}
 
       console.log('Media loaded from cache:', hash.slice(0, 16));
       return {
@@ -342,6 +378,7 @@
   // חלק cache (media-cache.js) – אתחול אוטומטי
   async function init() {
     try {
+      await requestPersistentStorage();
       const database = await openDB();
       if (!database) {
         console.warn('Media cache disabled – skipping initialization');
@@ -365,6 +402,7 @@
     getCacheStats,
     pinCachedMedia,
     clearMediaCache: clearAllCache,
+    requestPersistentStorage,
   });
 
   // אתחול
