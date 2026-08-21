@@ -1464,6 +1464,7 @@ const LOAD_MORE_EXHAUST_COOLDOWN_MS = 20000; // אחרי exhausted — ניסי�
 const FEED_HISTORY_LOOKBACK_SEC = 60 * 60 * 24 * 400; // ~13 חודשים לטעינה ראשונית בלי until | HYPER CORE TECH
 let isLoadingMore = false; // מונע טעינות כפולות
 let isAppendingLocalCards = false;
+const localAppendSkipIds = new Set(); // מדיה שנכשלה זמנית — לא חוסמים את שאר הפיד | HYPER CORE TECH
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
 let loadMoreExhaustedUntil = 0; // חותם זמן שמתחתיו הריליי ריק זמנית | HYPER CORE TECH
 let loadMoreExhaustedAtMs = 0; // מתי סומן exhausted — ל־cooldown | HYPER CORE TECH
@@ -1970,13 +1971,13 @@ function upsertVideoInState(video, options = {}) {
   else showNow = isGeneralFeedVideo(video);
   if (!showNow) return;
 
-  // פוסט עצמי / immediate — מיד בראש (+ קפיצה אחרי מדיה מוכנה); אחרת חימום ברקע עד בית | HYPER CORE TECH
+  // פוסט עצמי / immediate — מיד בראש (+ קפיצה אחרי מדיה מוכנה); אחרת הכנסה שקטה כשהמדיה מוכנה | HYPER CORE TECH
   if (options.forceShow || options.immediate) {
     prependVideoCard(video, options);
     return;
   }
   if (bootGate.released && state.firstCardRendered) {
-    queueNewPostForHomeReveal(video);
+    prependNewFeedCardQuietly(video, options);
     return;
   }
   prependVideoCard(video, options);
@@ -4056,15 +4057,18 @@ function pickVideosForDomRender(sourceVideos, { needsFullRender = false, initial
   if (needsFullRender || initialOnly) {
     return list.slice(0, INITIAL_DOM_CARD_LIMIT);
   }
-  // בפערים — לא שופכים הכל ל־DOM; גלילה תוסיף מקומית | HYPER CORE TECH
-  return [];
+  // מוסיפים את הבאים שעוד לא ב־DOM (לא מחזירים ריק — אחרת פיד נתקע על 3–4) | HYPER CORE TECH
+  const shown = getShownFeedCardIds();
+  return list.filter((v) => v?.id && !shown.has(v.id)).slice(0, DOM_APPEND_BATCH);
 }
 
 async function appendLocalFeedCards(limit = DOM_APPEND_BATCH) {
   if (!selectors.stream || isAppendingLocalCards) return 0;
   if (state.feedMode !== 'all') return 0;
   const shown = getShownFeedCardIds();
-  const pending = getDisplayVideos().filter((v) => v?.id && !shown.has(v.id)).slice(0, limit);
+  const pending = getDisplayVideos()
+    .filter((v) => v?.id && !shown.has(v.id) && !localAppendSkipIds.has(v.id))
+    .slice(0, limit);
   if (!pending.length) return 0;
 
   isAppendingLocalCards = true;
@@ -4077,14 +4081,16 @@ async function appendLocalFeedCards(limit = DOM_APPEND_BATCH) {
         const { card, mediaReadyPromise } = renderVideoCard(video);
         await Promise.race([
           mediaReadyPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('local-media-timeout')), 45000)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('local-media-timeout')), 20000)),
         ]);
         if (!selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) {
           mountCard(card);
           markCardMediaReady(card);
+          localAppendSkipIds.delete(video.id);
           added += 1;
         }
       } catch (err) {
+        localAppendSkipIds.add(video.id);
         console.warn('[videos] local card skipped', { id: video.id, err: err?.message || err });
       }
     }
@@ -5393,9 +5399,11 @@ async function loadMoreVideos() {
   if (state.feedMode === 'games' || state.feedMode === 'live-tv' || state.feedMode === 'own-posts') return;
 
   // קודם מרוקנים מטא־דאטה מקומית ל־DOM — בלי להציף הורדות/רשת | HYPER CORE TECH
-  const localAdded = await appendLocalFeedCards(DOM_APPEND_BATCH);
-  if (localAdded > 0) {
-    return;
+  const shownBefore = getShownFeedCardIds();
+  const hasLocalPending = getDisplayVideos().some((v) => v?.id && !shownBefore.has(v.id));
+  if (hasLocalPending) {
+    const localAdded = await appendLocalFeedCards(DOM_APPEND_BATCH);
+    if (localAdded > 0) return;
   }
 
   isLoadingMore = true;
@@ -6525,16 +6533,21 @@ async function loadVideos() {
   
   saveFeedCache(state.videos);
 
-  // הפעלה חמה: מחממים חדשים ברקע — מוצגים בראש רק בלחיצת בית | HYPER CORE TECH
+  // הפעלה חמה: פוסטים חדשים נכנסים לפיד כשהמדיה מוכנה (בלי לחכות ללחיצת בית) | HYPER CORE TECH
   const warmUi = bootGate.released && state.firstCardRendered;
   if (warmUi) {
     if (newVideos.length > 0) {
-      const toQueue = sortVideosByCreatedAtDesc(
+      const toShow = sortVideosByCreatedAtDesc(
         newVideos.filter((v) => v?.id && isGeneralFeedVideo(v))
       );
-      toQueue.forEach((v) => queueNewPostForHomeReveal(v));
-      console.log('[videos] warm sync queued new posts for Home', { queued: toQueue.length });
+      // מהישן לחדש — אחרי prependQuietly החדש ביותר בראש | HYPER CORE TECH
+      for (let i = toShow.length - 1; i >= 0; i -= 1) {
+        prependNewFeedCardQuietly(toShow[i]);
+      }
+      console.log('[videos] warm sync prepended new posts', { added: toShow.length });
     }
+    // גם פוסטים ישנים מהרשימה שעדיין לא ב־DOM — יופיעו בגלילה / כאן בקצב עדין | HYPER CORE TECH
+    appendLocalFeedCards(DOM_APPEND_BATCH).catch(() => {});
     setLoadingProgress(100);
     hideLoadingAnimation();
     return;
