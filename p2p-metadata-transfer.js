@@ -19,9 +19,7 @@
     MAX_RECENT_COMMENTS: 5,        // מקסימום תגובות לשלוח
     MAX_LIKERS: 20,                // מקסימום likers לשלוח
     MAX_CONTENT_LENGTH: 500,       // מקסימום אורך תוכן פוסט
-    // עמוד שדרה דק: metadata מ-P2P נחשב טרי לזמן ארוך יותר – פחות חזרה ל-Relays | HYPER CORE TECH
-    METADATA_FRESHNESS: 30 * 60,   // 30 דקות
-    RELAY_REFRESH_DELAY_MS: 45000, // אם בכל זאת מרעננים מ-Relay – רק אחרי השהייה ארוכה
+    METADATA_FRESHNESS: 5 * 60,    // 5 דקות בשניות - אחרי זה צריך עדכון
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -242,18 +240,6 @@
         });
       }
       
-      // עדכון לייקים מ-P2P (בלי Relays) | HYPER CORE TECH
-      if (Array.isArray(postMetadata.likers) && App.likesByEventId) {
-        if (!App.likesByEventId.has(eventId)) {
-          App.likesByEventId.set(eventId, new Set());
-        }
-        const likeSet = App.likesByEventId.get(eventId);
-        postMetadata.likers.forEach((liker) => {
-          const pk = typeof liker === 'string' ? liker : (liker?.pubkey || '');
-          if (pk && pk.length >= 16) likeSet.add(pk.toLowerCase());
-        });
-      }
-
       // עדכון תגובות
       if (postMetadata.recentComments && App.commentsByParent) {
         if (!App.commentsByParent.has(eventId)) {
@@ -346,9 +332,8 @@
       if (msg.postMetadata.post?.id) {
         if (isMetadataFresh(msg.postMetadata)) {
           applyMetadata(msg.postMetadata.post.id, msg.postMetadata);
-          // טרי מ-P2P – לא רצים ל-Relay בכלל (עמוד שדרה דק) | HYPER CORE TECH
         } else {
-          // metadata ישן - מחילים אבל מרעננים מ-Relay רק אחרי השהייה ארוכה | HYPER CORE TECH
+          // metadata ישן - מחילים אבל מתזמנים עדכון
           applyMetadata(msg.postMetadata.post.id, msg.postMetadata);
           scheduleMetadataRefresh(msg.postMetadata.post.id);
         }
@@ -357,33 +342,23 @@
   }
 
   /**
-   * תזמון עדכון metadata מ-Relay – רק כשאין מספיק נתונים מקומיים | HYPER CORE TECH
+   * תזמון עדכון metadata מ-Relay
    */
   function scheduleMetadataRefresh(eventId) {
     if (!eventId) return;
-
+    
+    // עדכון ברקע אחרי 5 שניות
     setTimeout(() => {
-      try {
-        const likes = App.likesByEventId?.get?.(eventId);
-        const comments = App.commentsByParent?.get?.(eventId);
-        const hasLocal =
-          (likes && likes.size > 0) ||
-          (comments && comments.size > 0);
-        // אם כבר יש engagement מקומי מ-P2P/cache – מדלגים על Relay | HYPER CORE TECH
-        if (hasLocal) {
-          log('info', 'מדלג על רענון Relay – יש engagement מקומי', { eventId: eventId.slice(0, 12) });
-          return;
-        }
-      } catch (_) {}
-
-      log('info', 'מתזמן עדכון metadata מ-Relay (חסר מקומי)', { eventId: eventId.slice(0, 12) });
+      log('info', 'מתזמן עדכון metadata מ-Relay', { eventId: eventId.slice(0, 12) });
+      
+      // קריאה לפונקציות קיימות לעדכון לייקים ותגובות
       if (typeof App.fetchLikesForEvent === 'function') {
         App.fetchLikesForEvent(eventId);
       }
       if (typeof App.fetchCommentsForEvent === 'function') {
         App.fetchCommentsForEvent(eventId);
       }
-    }, CONFIG.RELAY_REFRESH_DELAY_MS);
+    }, 5000);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

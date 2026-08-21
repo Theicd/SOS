@@ -22,11 +22,10 @@
   const SIG_KIND = 25055;
   const DC_LABEL = 'sos-chat';
   const ICE_BATCH_MS = 800;
-  const RECONN_MS = 4000;
-  const MAX_RECONN = window.__sosP2pHeadless ? 24 : 8;
-  const OFFER_RETRY_MS = 10000; // retry offer אם לא נענה תוך 10 שניות
-  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 5;
-  const STUCK_CONNECT_MS = 12000; // initiator תקוע בלי answer → מקבלים offer נגדי (glare recovery)
+  const RECONN_MS = 5000;
+  const MAX_RECONN = window.__sosP2pHeadless ? 24 : 3;
+  const OFFER_RETRY_MS = 12000; // retry offer אם לא נענה תוך 12 שניות (סיגנלינג דרך ריליי איטי)
+  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 3;
   // חלק keepalive (chat-p2p-datachannel.js) – ping תקופתי לשמירת DC פתוח מול NAT/firewall timeout | HYPER CORE TECH
   const DC_KEEPALIVE_MS = 30000;
   const SIG_SINCE_SEC = 3600; // חלון since - שעה (סובלני להיסט זמן בין מכשירים)
@@ -58,7 +57,7 @@
   }
 
   // חלק מצב (chat-p2p-datachannel.js) – remoteCandsBuf: באפר ICE, gotAnswer: התקבלה תשובה, offerId/lastOfferId למניעת תשובות ישנות | HYPER CORE TECH
-  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null, connectStartedAt:0 }; }
+  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null }; }
   function getPS(k) { return peers.get(k.toLowerCase())||null; }
   function ensPS(k) { k=k.toLowerCase(); if(!peers.has(k)) peers.set(k,newPS()); return peers.get(k); }
   function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
@@ -101,13 +100,11 @@
   // חלק DataChannel (chat-p2p-datachannel.js) – חיבור אירועים לערוץ + בדיקת stale למניעת לולאת reconnect | HYPER CORE TECH
   function wireDC(k,dc) {
     k=k.toLowerCase(); const s=ensPS(k); s.dc=dc;
-    try{ dc.binaryType='arraybuffer'; }catch{}
     dc.onopen=()=>{
       if(s.dc!==dc) return; s.status='connected'; s.reconnN=0; s.offerRetryN=0;
       if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
       console.log(`[DC] ✅ OPEN ${k.slice(0,8)}`);
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'open');
-      try{ if(typeof App.onChatDataChannelOpen==='function') App.onChatDataChannelOpen(k,dc); }catch{}
       try{
         if(window.SosNativeShell&&typeof window.SosNativeShell.syncP2pPeers==='function'){
           const keys=[];
@@ -128,7 +125,6 @@
       // חלק keepalive stop (chat-p2p-datachannel.js) – עצירת ping כשהערוץ נסגר | HYPER CORE TECH
       if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
       console.log(`[DC] ❌ CLOSED ${k.slice(0,8)}`);
-      try{ if(typeof App.onChatDataChannelClosed==='function') App.onChatDataChannelClosed(k); }catch{}
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'closed');
       maybeReconn(k);
     };
@@ -165,7 +161,7 @@
 
   // חלק offer פנימי (chat-p2p-datachannel.js) – שליחת offer עם timer ל-retry | HYPER CORE TECH
   async function _sendOffer(k) {
-    const s=ensPS(k); s.init=true; s.status='connecting'; s.gotAnswer=false; s.connectStartedAt=Date.now();
+    const s=ensPS(k); s.init=true; s.status='connecting'; s.gotAnswer=false;
     if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
     // חלק ניתוק PC+DC ישן (chat-p2p-datachannel.js) – מנתק handlers לפני סגירה למנוע stale callbacks | HYPER CORE TECH
     if(s.dc){s.dc.onopen=null;s.dc.onclose=null;s.dc.onerror=null;s.dc.onmessage=null;}
@@ -176,6 +172,7 @@
     // חלק offerId (chat-p2p-datachannel.js) – מזהה ייחודי לשיוך answer/offer | HYPER CORE TECH
     await sendSig(k,'dc-offer',{type:offer.type,sdp:offer.sdp,oid:s.offerId});
     console.log(`[DC] 🔄 connecting ${k.slice(0,8)} (attempt ${s.offerRetryN+1})...`);
+    // retry timer – אם לא התחבר תוך 8 שניות, שלח offer מחדש
     s.offerRetryT=setTimeout(()=>{
       s.offerRetryT=null;
       if(s.status==='connected'||s.gotAnswer) return;
@@ -186,19 +183,14 @@
     },OFFER_RETRY_MS);
   }
 
-  // חלק offer נכנס (chat-p2p-datachannel.js) – responder עונה; initiator תקוע יכול לקבל offer נגדי | HYPER CORE TECH
+  // חלק offer נכנס (chat-p2p-datachannel.js) – רק responder מטפל ב-offers (אין עוד glare) | HYPER CORE TECH
   async function onOffer(peer,offer) {
     const k=peer.toLowerCase(), s=ensPS(k);
     if(s.status==='connected'&&s.dc&&s.dc.readyState==='open') return;
-    if(amInitiator(k)) {
-      const stuck = s.status==='connecting' && !s.gotAnswer && s.connectStartedAt && (Date.now()-s.connectStartedAt)>STUCK_CONNECT_MS;
-      if(!stuck) return;
-      console.log(`[DC] 🔀 glare recovery – accepting remote offer while stuck ${k.slice(0,8)}`);
-      if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
-    }
+    if(amInitiator(k)) return; // אני initiator, לא עונה ל-offers
     // חלק סינון offers כפולים (chat-p2p-datachannel.js) – אם יש כבר חיבור/הצעה טרייה, מתעלם | HYPER CORE TECH
     const now=Date.now();
-    if(s.status==='connecting'&&s.lastOfferAt&&(now-s.lastOfferAt)<8000&&!amInitiator(k)) return;
+    if(s.status==='connecting'&&s.lastOfferAt&&(now-s.lastOfferAt)<8000) return;
     s.lastOfferAt=now;
     const oid=offer?.oid||offer?._oid||null;
     if(oid&&s.lastOfferId===oid) return; // כבר ענינו ל-offer הזה
@@ -266,38 +258,10 @@
   // חלק הודעות P2P (chat-p2p-datachannel.js) – קבלה ושליחה + keepalive ping/pong | HYPER CORE TECH
   function onMsg(peer,raw) {
     try {
-      // חלק גשר בינארי (chat-p2p-datachannel.js) – קודם מדיה פיד ממתינה, אחרת קבצי צ'אט | HYPER CORE TECH
-      if(raw instanceof ArrayBuffer || (typeof ArrayBuffer!=='undefined'&&ArrayBuffer.isView&&ArrayBuffer.isView(raw)) || (typeof Blob!=='undefined'&&raw instanceof Blob)){
-        const s=getPS(peer.toLowerCase());
-        const payload=raw instanceof ArrayBuffer||(typeof Blob!=='undefined'&&raw instanceof Blob)?raw:(raw.buffer||raw);
-        if(typeof App.handleFeedMediaBinary==='function'){
-          try{ if(App.handleFeedMediaBinary(peer, payload)) return; }catch(e){ console.warn('[DC] feed binary bridge:', e); }
-        }
-        if(typeof App.handleP2PFileMessage==='function'){
-          try{ App.handleP2PFileMessage(peer, payload, s&&s.dc); }catch(e){ console.warn('[DC] file binary bridge:', e); }
-        }
-        return;
-      }
       const m=JSON.parse(raw);
       // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
       if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
       if(m.type==='pong') return;
-      // חלק גשר מדיה פיד (chat-p2p-datachannel.js) – request/metadata/complete על sos-chat | HYPER CORE TECH
-      if(m.type==='request'||m.type==='metadata'||m.type==='complete'||m.type==='error'){
-        if(typeof App.handleFeedMediaControlMessage==='function'){
-          const s=getPS(peer.toLowerCase());
-          try{ if(App.handleFeedMediaControlMessage(peer, m, s&&s.dc)) return; }catch(e){ console.warn('[DC] feed control bridge:', e); }
-        }
-        // error/complete/metadata שלא לפיד – לא לצ'אט טקסט
-        if(m.type!=='request') return;
-      }
-      // חלק גשר קבצים (chat-p2p-datachannel.js) – metadata/ACK/chunks על ערוץ הצ'אט | HYPER CORE TECH
-      if(m.type==='file-complete-ack'||m.type==='file-resend-request'||m.type==='file-ready'||m.type==='file-offer'||m.type==='chunk-meta'||m.type==='chunk-ack'||m.type==='ack'||m.type==='resume'){
-        if(typeof App.handleP2PFileControlMessage==='function'){
-          try{ App.handleP2PFileControlMessage(peer, m); }catch(e){ console.warn('[DC] file control bridge:', e); }
-        }
-        return;
-      }
       if(m.type!=='chat-text') return;
       console.log(`[DC] 📩 P2P ← ${peer.slice(0,8)}`);
       notifyIncomingMessage(peer, m);
@@ -328,13 +292,11 @@
     const inStandby=standbyPeers.some(p=>String(p||'').toLowerCase()===k);
     const active=typeof App.getActiveChatPeer==='function'?App.getActiveChatPeer():null;
     const hasMessages=typeof App.getChatMessages==='function'&&(App.getChatMessages(k)||[]).length>0;
-    const pageVisible = !document.hidden;
     if(headless){
       if(!inStandby&&!hasMessages&&!(s&&s.init)) return;
     } else {
-      // בדף גלוי – גם peer פעיל או עם היסטוריית הודעות, או שכבר ניסינו להתחבר | HYPER CORE TECH
-      if(!active&&!hasMessages&&!s.init&&!pageVisible) return;
-      if(active&&active.toLowerCase()!==k&&!hasMessages&&!s.init) return;
+      if(!active&&!hasMessages) return;
+      if(active&&active.toLowerCase()!==k&&!hasMessages) return;
     }
     s.reconnT=setTimeout(()=>{ s.reconnT=null; s.reconnN++; s.status='idle'; connect(k); }, RECONN_MS*(s.reconnN+1));
   }
@@ -375,13 +337,7 @@
     },30000);
     try{
       document.addEventListener('visibilitychange',()=>{
-        if(!document.hidden){
-          if(!sigSub) subscribe();
-          try{
-            const active=typeof App.getActiveChatPeer==='function'?App.getActiveChatPeer():'';
-            resumeStandby(active||'');
-          }catch{}
-        }
+        if(!document.hidden&&!sigSub) subscribe();
         if(isNativeShell()&&!sigSub) subscribe();
       });
       window.addEventListener('sos-native-p2p-warm', (ev)=>{
@@ -452,8 +408,6 @@
 
   // חלק getChatPC (chat-p2p-datachannel.js) – חשיפת PeerConnection לשימוש מערכת הקבצים | HYPER CORE TECH
   function getChatPC(peer) { const s=getPS(peer.toLowerCase()); return (s&&s.pc&&s.status==='connected')?s.pc:null; }
-  // חלק getChatDC (chat-p2p-datachannel.js) – ערוץ sos-chat פתוח להעברת קבצים בלי renegotiation | HYPER CORE TECH
-  function getChatDC(peer) { const s=getPS(peer.toLowerCase()); return (s&&s.dc&&s.dc.readyState==='open')?s.dc:null; }
 
   // חלק forceConnect (chat-p2p-datachannel.js) – חיבור DC בכוח גם כ-responder, לצורך שליחת קבצים | HYPER CORE TECH
   async function forceConnect(peer) {
@@ -469,7 +423,7 @@
     await _sendOffer(k);
   }
 
-  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, _peers:peers };
+  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, subscribeIncomingMessages, _peers:peers };
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט / headless | HYPER CORE TECH
   function setupLazy(){

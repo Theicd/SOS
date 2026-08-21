@@ -40,19 +40,9 @@
   }
 
   async function getServers(){
-    // עריכה מלוח ops-panel דרך localStorage | HYPER CORE TECH
-    let fromStorage = [];
-    try {
-      const raw = window.localStorage.getItem('sos_blossom_servers');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) fromStorage = parsed;
-      }
-    } catch (_) {}
     const fromApp = Array.isArray(App.blossomServers) ? App.blossomServers : [];
-    const list = (fromStorage.length ? fromStorage : fromApp.length ? fromApp : DEFAULT_SERVERS)
-      .map(s => (typeof s === 'string' ? { url: fixUrl(s) } : { url: fixUrl(s.url), pubkey: s.pubkey || '' }))
-      .filter(s => isValidUrl(s.url));
+    const list = (fromApp.length ? fromApp : DEFAULT_SERVERS).map(s=>({ url: fixUrl(s.url), pubkey: s.pubkey||'' }))
+      .filter(s=>isValidUrl(s.url));
     return list.length ? list : DEFAULT_SERVERS;
   }
 

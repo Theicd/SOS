@@ -100,7 +100,7 @@
   const AVATAR_CACHE_TTL_SECONDS = 86400; // חלק צ'אט (chat-service.js) – TTL לקאש תמונות פרופיל | HYPER CORE TECH
   const TORRENT_AUTOSTART_MAX_AGE_SECONDS = 90; // חלק טורנט (chat-service.js) – auto-start רק להודעות חדשות מאוד, לא להיסטוריה ישנה | HYPER CORE TECH
   const CHAT_RETENTION_SECONDS = 90 * 24 * 60 * 60; // חלק צ'אט (chat-service.js) – לא מושכים/מקבלים היסטוריה מעל 90 יום | HYPER CORE TECH
-  const DC_PREFER_WAIT_MS = 3500; // חלק P2P (chat-service.js) – חלון להעדפת DataChannel לפני relay; ICE/סיגנלינג יכולים לקחת יותר מ-2.6s
+  const DC_PREFER_WAIT_MS = 2600; // חלק P2P (chat-service.js) – חלון להעדפת DataChannel לפני relay; 1.2s היו קצרים מדי כש-ICE/סיגנלינג עדיין נסגרים
 
   function getChatRetentionFloorTs(nowSec = Math.floor(Date.now() / 1000)) {
     if (typeof App.getChatRetentionCutoffTs === 'function') {
