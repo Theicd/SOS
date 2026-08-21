@@ -1,9 +1,9 @@
 # תוכנית עבודה: איחוד P2P + Multi-Source + זמינות פיד
 
-**סטטוס:** שלבים A–C (קוד + בדיקות ווב) בוצעו; שלב D (Multi-Source) בקוד מ־2026-08-20 — בדיקות D8/D9 ידניות.  
+**סטטוס:** שלבים A (קוד) + B (קוד) בוצעו ב־2026-08-19 — בדיקות ידניות B5/B6 ו־A4 עדיין פתוחות.  
 **תאריך:** 2026-08-19  
 **רקע מוכח מלוגים:** צ׳אט-DC עובד; פיד-P2P נכשל כשאין answer (במיוחד מובייל/רקע); כשיש answer מ־peer חי — `מ-P2P` מצליח; הורדה היום = peer אחד ברצף, לא swarm.
-**גרסת לקוח נוכחית:** `pwa240` / cache `v561` / `?v=20260820feed6` (Multi כבוי — חזרה ל־P2P סדרתי מהיר; `NostrP2P_MULTI_SOURCE=true` להפעלה)
+**גרסת לקוח אחרי A+B:** `pwa235` / cache `v556` / `?v=20260819feed1`
 
 ---
 
@@ -77,15 +77,11 @@
 **צ׳ק־ליסט:**
 - [x] B1. פרוטוקול מינימלי על DC: reuse של Persistent (`request` / `metadata` / binary / `complete`) על `sos-chat`.  
 - [x] B2. ב־`downloadFromPeer`: אם `App.dataChannel.getChatDC(peer)` פתוח → להשתמש בו לפני יצירת PC חדש.  
-- [x] B2b. לפני הורדה: `ensureChatDcOpen` = `forceConnect` + המתנה קצרה (~2–3ש) לאותו peer מ־`findPeersWithFile`.  
 - [x] B3. בצד המגיש: מאזין על chat DC לבקשות hash מ־`availableFiles` / קאש.  
 - [x] B4. שמירה על fallback: אין DC → Persistent → 30078 file-request.  
-- [x] B5. בדיקה: 2 דפדפנים — נורת צ׳אט דולקת → לוג `download via chat-dc` + `מ-P2P` בלי `לא התקבל answer`.  
-  - אומת 2026-08-20: מחשב↔מחשב + מובייל מגיש (`ede1e7fa` / `e6b68de5` → `98717086`).  
-- [x] B6. בדיקה: צ׳אט טקסט + קובץ צ׳אט לא נשברים בזמן הורדת פיד.  
-  - אומת: תמונה + וידאו ~2MB מובייל→מובייל עם אישור קבלה מלא.  
-- [x] B7. Bump `app-version.json` + `CACHE_NAME` + `?v=` ב־`videos.html` אחרי מיזוג. (`pwa237` / `v558` / `feed3`)
-- [x] B8. חידוד: תור הגשה במקום `Busy` מיידי (`queue serve reason=busy`).
+- [ ] B5. בדיקה: 2 דפדפנים — נורת צ׳אט דולקת → הורדת פוסט = `מ-P2P` בלי `לא התקבל answer`.  
+- [ ] B6. בדיקה: צ׳אט טקסט + קובץ צ׳אט לא נשברים בזמן הורדת פיד.  
+- [x] B7. Bump `app-version.json` + `CACHE_NAME` + `?v=` ב־`videos.html` אחרי מיזוג. (`pwa235` / `v556` / `feed1`)
 
 **קריטריון יציאה:** עם DC פתוח, לפחות 70% מהורדות הפיד בין 2 peers בחזית הן `מ-P2P` (בלי Blossom כששניהם עם הקובץ).
 
@@ -104,15 +100,11 @@
 - `service-worker.js` — תיאום heartbeat
 
 **צ׳ק־ליסט:**
-- [x] C1. כש־`document.hidden` אבל Native Shell / Activity חיה: **לא** להפסיק מאזיני 30078 / media-get.  
-  - בוצע: `ensureP2pSignalSubscription` ב־hidden/freeze/resume; אין early-return על hidden ב־handleFileRequest.  
-- [x] C2. לוג מפורש: `serving while hidden` / `skip serve reason=...`.  
-- [x] C3. מעטפת: `pumpWebViewKeepAlive` בזמן warm ל־peer + `setP2pTransferActiveNative` בהגשה.  
-  - בוצע: `pumpServeAlive` ב־JS; `SosP2pStandby.warmForPeer` מפמפ כש־Activity חיה.  
+- [ ] C1. כש־`document.hidden` אבל Native Shell / Activity חיה: **לא** להפסיק מאזיני 30078 / media-get.  
+- [ ] C2. לוג מפורש: `serving while hidden` / `skip serve reason=...`.  
+- [ ] C3. מעטפת: `pumpWebViewKeepAlive` בזמן warm ל־peer (כבר קיים חלקית — לוודא שמכסה בקשות מדיה).  
 - [ ] C4. בדיקה: מקור במובייל ברקע (לא כבוי לגמרי) + מקבל מוריד → `מ-P2P` או לפחות answer בזמן.  
-  - **חלקי בווב:** `serving while hidden` + serve DONE אומתו; מעטפת APK נדחית ל־F.  
 - [ ] C5. בדיקה: מסך כבוי (best-effort) — לתעד איזה מכשירים עובדים; לא לחסום את שלב D אם חלק נכשלים.
-  - קבצי צ׳אט עם רקע/מסך כבוי דווחו כעובדים בווב; לא חוסם D.
 
 **קריטריון יציאה:** תרחיש “מקור ברקע, מקבל בחזית” מצליח ב־≥1 משני מכשירי אנדרואיד עיקריים.
 
@@ -131,17 +123,13 @@
 - `p2p-debug.js` — כבר מציג fromMultiSource (לחבר לאמת)
 
 **צ׳ק־ליסט:**
-- [x] D1. פיצול blob ל־chunks בגודל קבוע (למשל 256KB–1MB; מובייל קטן יותר).  
-  - `MULTI_SOURCE_PIECE` = 256KB מובייל / 512KB דסקטופ.  
-- [x] D2. בחירת עד 3 peers: DC פתוח > Persistent > רשימת `findPeersWithFile`.  
-  - חימום chat-dc + עד `MULTI_SOURCE_MAX_PEERS`.  
-- [x] D3. בקשות chunk מקבילות + איחוד + בדיקת hash/גודל.  
-  - `request` עם `offset`/`length`/`rangeId` + איחוד Blob.  
-- [x] D4. peer איטי/timeout → החלפת מקור לאותו chunk.  
-- [x] D5. `p2pStats.downloads.fromMultiSource++` כשהורדה השתמשה ב־≥2 peers.  
-- [x] D6. UI סטטיסטיקות: להציג Multi-Source (או תת־שורה תחת SOS).  
-- [x] D7. הגבלת סקייל: לא לפתוח יותר מ־K חיבורים חדשים לקובץ; reuse Session.  
-  - חידוד pwa238: Multi אחד בלבד, פחות הורדות מקבילות, ביטול מפורש ב־timeout (בלי יתום).  
+- [ ] D1. פיצול blob ל־chunks בגודל קבוע (למשל 256KB–1MB; מובייל קטן יותר).  
+- [ ] D2. בחירת עד 3 peers: DC פתוח > Persistent > רשימת `findPeersWithFile`.  
+- [ ] D3. בקשות chunk מקבילות + איחוד + בדיקת hash/גודל.  
+- [ ] D4. peer איטי/timeout → החלפת מקור לאותו chunk.  
+- [ ] D5. `p2pStats.downloads.fromMultiSource++` כשהורדה השתמשה ב־≥2 peers.  
+- [ ] D6. UI סטטיסטיקות: להציג Multi-Source (או תת־שורה תחת SOS).  
+- [ ] D7. הגבלת סקייל: לא לפתוח יותר מ־K חיבורים חדשים לקובץ; reuse Session.  
 - [ ] D8. בדיקה: 1 מקבל + 2 מקורות עם אותו hash → לוג מראה שני peers + `fromMultiSource`.  
 - [ ] D9. בדיקה: מקור אחד נופל באמצע → ההורדה מסתיימת מהשני בלי Blossom אם אפשר.
 
@@ -244,8 +232,7 @@
 
 - [x] לאשר עם הצוות: מתחילים ב־**שלב A** ואז **B**.  
 - [x] ביצוע קוד A1–A3 + B1–B4 + B7 (2026-08-19).  
-- [x] B5 + B6 — אומתו בלוגים 2026-08-20 (צ׳אט-dc פיד + קבצי צ׳אט).  
-- [ ] A4 + D8 + D9 — מדד בסיס / Multi-Source ידני אחרי deploy `pwa237`.  
+- [ ] A4 + B5 + B6 — בדיקות ידניות אחרי deploy.  
 - [ ] אחרי בדיקות: push ל־GitHub (לפי בקשה מפורשת).  
 - [ ] שלב C הבא לפי התוכנית.
 

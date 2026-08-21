@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.21-pwa258-restore",
-  "note": "Restore known-good backup; discard last 24h feed experiments"
+  "version": "2026.08.21-pwa259-restore36h",
+  "note": "Restore backup from about 36h ago; force client update"
 }

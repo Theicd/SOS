@@ -108,7 +108,7 @@
   const CHUNK_SIZE = 16384; // 16KB chunks
   // חלק Chat DC media maps (p2p-video-sharing.js) – הורדה/הגשה על sos-chat בלי לגנוב onmessage | HYPER CORE TECH
   const pendingChatDcDownloads = new Map(); // peerKey -> pending download
-  const chatDcServeChains = new Map(); // peerKey -> Promise chain (תור במקום Busy)
+  const chatDcServeBusy = new Set(); // peerKey currently serving media on chat DC
   // חלק שמות נתיבים (p2p-video-sharing.js) – A1: שפה אחידה בלוגים | HYPER CORE TECH
   const FEED_PATH = {
     CACHE: 'cache',
@@ -128,53 +128,6 @@
       return { hidden: false, visibility: 'unknown' };
     }
   }
-
-  // חלק Native Shell (p2p-video-sharing.js) – זיהוי APK לצורך שמירה ברקע (שלב C) | HYPER CORE TECH
-  function isNativeShellHost() {
-    try {
-      if (window.SOS_NATIVE_SHELL === true) return true;
-      if (document.documentElement?.getAttribute('data-sos-native') === '1') return true;
-      if (typeof App.isNativeShell === 'function') {
-        const v = App.isNativeShell();
-        return v === true || v === 'true';
-      }
-      const b = window.SosNativeShell;
-      if (b && typeof b.isNativeShell === 'function') {
-        const v = b.isNativeShell();
-        return v === true || v === 'true';
-      }
-    } catch (_) {}
-    return false;
-  }
-
-  /** מעיר FGS / WebView בזמן הגשת מדיה או כשהכרטיסייה ברקע ב-APK | HYPER CORE TECH */
-  function pumpServeAlive(reason) {
-    try {
-      if (typeof App.setP2pTransferActiveNative === 'function') {
-        App.setP2pTransferActiveNative(true);
-      }
-      const b = window.SosNativeShell;
-      if (b) {
-        if (typeof b.setP2pTransferActive === 'function' && typeof App.setP2pTransferActiveNative !== 'function') {
-          b.setP2pTransferActive(true);
-        }
-        if (typeof b.keepAlive === 'function') b.keepAlive();
-      }
-      log('info', `[feed-session] pumpServeAlive`, { reason: reason || 'unknown', hidden: !!document.hidden });
-    } catch (_) {}
-  }
-
-  function clearServeAlivePump() {
-    try {
-      if (state.activeUploadCount > 0) return;
-      if (typeof App.setP2pTransferActiveNative === 'function') {
-        App.setP2pTransferActiveNative(false);
-      } else {
-        const b = window.SosNativeShell;
-        if (b && typeof b.setP2pTransferActive === 'function') b.setP2pTransferActive(false);
-      }
-    } catch (_) {}
-  }
   const BLOCKED_RELAY_URLS = new Set((window.NostrP2P_BLOCKED_RELAYS || [
     'wss://nos.lol',
     'wss://nostr-02.uid.ovh',
@@ -183,21 +136,11 @@
   ]));
   // זיהוי מובייל להתאמת משאבים
   const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  // חלק Multi-Source (p2p-video-sharing.js) – D: כבוי כברירת מחדל (חונק תור + מבטל התקדמות) | HYPER CORE TECH
-  // הפעלה ידנית: window.NostrP2P_MULTI_SOURCE = true
-  const MULTI_SOURCE_ENABLED = window.NostrP2P_MULTI_SOURCE === true;
-  const MULTI_SOURCE_MAX_PEERS = 3;
-  const MULTI_SOURCE_PIECE = IS_MOBILE ? 256 * 1024 : 512 * 1024;
-  const MULTI_SOURCE_MIN_BYTES = 256 * 1024;
-  const MULTI_SOURCE_RANGE_TIMEOUT = IS_MOBILE ? 28000 : 20000;
-  const MULTI_SOURCE_OVERALL_TIMEOUT = IS_MOBILE ? 90000 : 75000;
-  const MULTI_SOURCE_WARM_MS = IS_MOBILE ? 4500 : 5000;
-  const MULTI_SOURCE_MAX_ACTIVE = 1;
   
   const MAX_CONCURRENT_P2P_TRANSFERS =
     typeof window.NostrP2P_MAX_CONCURRENT_TRANSFERS === 'number'
       ? window.NostrP2P_MAX_CONCURRENT_TRANSFERS
-      : (IS_MOBILE ? 2 : 3); // חזרה לערכים המהירים מלפני Multi
+      : (IS_MOBILE ? 2 : 3); // מובייל: 2, דסקטופ: 3
   const MAX_PEER_ATTEMPTS_PER_FILE =
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
@@ -279,7 +222,6 @@
     signalTimestamps: [],
     activeTransferSlots: 0,
     pendingTransferResolvers: [],
-    multiSourceActive: 0, // כמה הורדות multi רצות (מגביל עומס) | HYPER CORE TECH
     // חלק Network Tiers (p2p-video-sharing.js) – מצב רשת ומטמון peers | HYPER CORE TECH
     networkTier: 'UNKNOWN',           // BOOTSTRAP | HYBRID | P2P_FULL | UNKNOWN
     lastPeerCount: 0,                 // ספירת peers אחרונה
@@ -451,7 +393,7 @@
     }
   }
   
-  // מעקב אחרי מצב הדף (visible/hidden) — C1: ב-Native לא מפסיקים מאזיני 30078 | HYPER CORE TECH
+  // מעקב אחרי מצב הדף (visible/hidden)
   function setupVisibilityTracking() {
     document.addEventListener('visibilitychange', () => {
       isPageVisible = document.visibilityState === 'visible';
@@ -463,19 +405,14 @@
         if (backgroundWorker) {
           backgroundWorker.postMessage({ type: 'stop' });
         }
-        ensureP2pSignalSubscription('visible');
       } else {
-        // הדף עבר לרקע - נפעיל את ה-worker; ב-APK גם pump + שמירת sub
-        log('info', '🌙 הדף ברקע - מפעיל heartbeat ברקע', { native: isNativeShellHost() });
+        // הדף עבר לרקע - נפעיל את ה-worker
+        log('info', '🌙 הדף ברקע - מפעיל heartbeat ברקע');
         if (!backgroundWorker) {
           backgroundWorker = createBackgroundWorker();
         }
         if (backgroundWorker) {
           backgroundWorker.postMessage({ type: 'start', interval: HEARTBEAT_INTERVAL });
-        }
-        if (isNativeShellHost()) {
-          pumpServeAlive('visibility-hidden');
-          ensureP2pSignalSubscription('hidden-native');
         }
       }
     });
@@ -485,16 +422,11 @@
       document.addEventListener('freeze', () => {
         log('info', '❄️ הדף הוקפא - שולח heartbeat אחרון');
         sendHeartbeat();
-        if (isNativeShellHost()) {
-          pumpServeAlive('page-freeze');
-          ensureP2pSignalSubscription('freeze-native');
-        }
       });
       
       document.addEventListener('resume', () => {
         log('info', '🔥 הדף התעורר - שולח heartbeat');
         sendHeartbeat();
-        ensureP2pSignalSubscription('resume');
       });
     }
   }
@@ -1060,7 +992,7 @@
   // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים ומסודרים | HYPER CORE TECH
   // סטטיסטיקות גלובליות לסיכום
   const p2pStats = {
-    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, fromMultiSource: 0, failed: 0 },
+    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, failed: 0 },
     shares: { total: 0, success: 0, failed: 0 },
     lastSummaryTime: 0
   };
@@ -1119,7 +1051,7 @@
     console.log('%c│           📊 סיכום מערכת P2P                     │', 'color: #673AB7; font-weight: bold');
     console.log('%c├──────────────────────────────────────────────────┤', 'color: #673AB7');
     console.log(`%c│ 📥 הורדות: ${downloads.total} סה"כ                              │`, 'color: #2196F3');
-    console.log(`%c│    └─ Cache: ${downloads.fromCache} | Blossom: ${downloads.fromBlossom} | P2P: ${downloads.fromP2P} | Multi: ${downloads.fromMultiSource || 0} | נכשל: ${downloads.failed}`, 'color: #2196F3');
+    console.log(`%c│    └─ Cache: ${downloads.fromCache} | Blossom: ${downloads.fromBlossom} | P2P: ${downloads.fromP2P} | נכשל: ${downloads.failed}`, 'color: #2196F3');
     console.log(`%c│ 📤 שיתופים: ${shares.total} סה"כ (${shares.success} הצליחו)       │`, 'color: #4CAF50');
     console.log('%c└──────────────────────────────────────────────────┘', 'color: #673AB7; font-weight: bold');
     p2pStats.lastSummaryTime = Date.now();
@@ -1702,52 +1634,14 @@
     return [...connected, ...notConnected];
   }
 
-  // חלק B refine (p2p-video-sharing.js) – חימום chat-dc קצר לפני fallback ל-30078 | HYPER CORE TECH
-  async function ensureChatDcOpen(peerPubkey, waitMs) {
-    const peerKey = String(peerPubkey || '').toLowerCase();
-    const budget = typeof waitMs === 'number' ? waitMs : (IS_MOBILE ? 2200 : 2800);
-    const getDc = () => {
-      try {
-        return (typeof App.dataChannel?.getChatDC === 'function')
-          ? App.dataChannel.getChatDC(peerKey)
-          : null;
-      } catch (_) {
-        return null;
-      }
-    };
-    let dc = getDc();
-    if (dc && dc.readyState === 'open') return dc;
-    if (!App.dataChannel) return null;
-    try {
-      if (typeof App.dataChannel.init === 'function') App.dataChannel.init();
-    } catch (_) {}
-    try {
-      log('info', `[feed-session] warming chat-dc`, { peer: peerKey.slice(0, 8), waitMs: budget });
-      if (typeof App.dataChannel.forceConnect === 'function') {
-        Promise.resolve(App.dataChannel.forceConnect(peerKey)).catch(() => {});
-      } else if (typeof App.dataChannel.connect === 'function') {
-        Promise.resolve(App.dataChannel.connect(peerKey)).catch(() => {});
-      }
-    } catch (_) {}
-    const deadline = Date.now() + budget;
-    while (Date.now() < deadline) {
-      dc = getDc();
-      if (dc && dc.readyState === 'open') {
-        log('success', `[feed-session] chat-dc ready`, { peer: peerKey.slice(0, 8) });
-        return dc;
-      }
-      await sleep(150);
-    }
-    log('info', `[feed-session] chat-dc warm timeout → fallback`, { peer: peerKey.slice(0, 8) });
-    return getDc();
-  }
-
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
   async function downloadFromPeer(peerPubkey, hash) {
     const peerKey = String(peerPubkey || '').toLowerCase();
 
-    // B2 refine – חימום קצר של chat DC לאותו peer לפני Persistent / webrtc-file-request | HYPER CORE TECH
-    const chatDc = await ensureChatDcOpen(peerKey);
+    // B2 – העדפת chat DC פתוח לפני PC חדש / Persistent נפרד | HYPER CORE TECH
+    const chatDc = typeof App.dataChannel?.getChatDC === 'function'
+      ? App.dataChannel.getChatDC(peerKey)
+      : null;
     if (chatDc && chatDc.readyState === 'open') {
       const chatConn = adoptChatDcAsPersistent(peerKey, chatDc);
       if (chatConn && !chatConn.busy) {
@@ -1818,14 +1712,8 @@
   }
 
   // חלק Chat DC download (p2p-video-sharing.js) – בקשת מדיה על sos-chat בלי לגנוב onmessage | HYPER CORE TECH
-  function downloadViaChatDc(peerPubkey, hash, channel, options = {}) {
+  function downloadViaChatDc(peerPubkey, hash, channel) {
     const peerKey = String(peerPubkey || '').toLowerCase();
-    const metaOnly = !!options.metaOnly;
-    const rangeId = options.rangeId != null ? String(options.rangeId) : '';
-    const rangeOffset = typeof options.offset === 'number' ? options.offset : null;
-    const rangeLength = typeof options.length === 'number' ? options.length : null;
-    const timeoutMs = typeof options.timeoutMs === 'number' ? options.timeoutMs : MAX_DOWNLOAD_TIMEOUT;
-
     return new Promise((resolve, reject) => {
       if (pendingChatDcDownloads.has(peerKey)) {
         reject(new Error('Chat DC media download already in progress'));
@@ -1840,11 +1728,7 @@
         chunks: [],
         receivedSize: 0,
         totalSize: 0,
-        expectedLength: rangeLength,
         mimeType: '',
-        metaOnly,
-        rangeId,
-        offset: rangeOffset,
         resolve,
         reject,
         channel,
@@ -1852,24 +1736,13 @@
       entry.timer = setTimeout(() => {
         if (pendingChatDcDownloads.get(peerKey) === entry) {
           pendingChatDcDownloads.delete(peerKey);
-          reject(new Error(metaOnly ? 'Chat DC meta timeout' : 'Chat DC download timeout'));
+          reject(new Error('Chat DC download timeout'));
         }
-      }, timeoutMs);
+      }, MAX_DOWNLOAD_TIMEOUT);
       pendingChatDcDownloads.set(peerKey, entry);
       try {
-        const req = { type: 'request', hash };
-        if (metaOnly) req.metaOnly = true;
-        if (rangeOffset != null) req.offset = rangeOffset;
-        if (rangeLength != null) req.length = rangeLength;
-        if (rangeId) req.rangeId = rangeId;
-        channel.send(JSON.stringify(req));
-        log('request', `📤 [ChatDC] שלחתי בקשה לקובץ`, {
-          path: FEED_PATH.CHAT_DC,
-          hash: (hash || '').slice(0, 12),
-          metaOnly: metaOnly || undefined,
-          offset: rangeOffset != null ? rangeOffset : undefined,
-          length: rangeLength != null ? rangeLength : undefined,
-        });
+        channel.send(JSON.stringify({ type: 'request', hash }));
+        log('request', `📤 [ChatDC] שלחתי בקשה לקובץ`, { path: FEED_PATH.CHAT_DC, hash: (hash || '').slice(0, 12) });
       } catch (err) {
         clearTimeout(entry.timer);
         pendingChatDcDownloads.delete(peerKey);
@@ -1885,12 +1758,7 @@
 
     if (msg.type === 'request' && msg.hash) {
       if (ch && ch.readyState === 'open') {
-        serveMediaBlobOnChannel(ch, msg.hash, peerKey, FEED_PATH.CHAT_DC, {
-          offset: msg.offset,
-          length: msg.length,
-          rangeId: msg.rangeId,
-          metaOnly: !!msg.metaOnly,
-        });
+        serveMediaBlobOnChannel(ch, msg.hash, peerKey, FEED_PATH.CHAT_DC);
         return true;
       }
       log('warn', `[feed-session] media request ignored`, { reason: 'no-open-chat-dc', peer: peerKey.slice(0, 8) });
@@ -1899,46 +1767,19 @@
 
     const pending = pendingChatDcDownloads.get(peerKey);
     if (!pending) return false;
-    if (msg.rangeId && pending.rangeId && String(msg.rangeId) !== String(pending.rangeId)) {
-      return false;
-    }
 
     if (msg.type === 'metadata') {
       pending.totalSize = msg.size || 0;
       pending.mimeType = msg.mimeType || '';
-      if (typeof msg.length === 'number') pending.expectedLength = msg.length;
-      log('info', `📊 [ChatDC] קיבלתי metadata`, {
-        path: FEED_PATH.CHAT_DC,
-        size: pending.totalSize,
-        offset: msg.offset,
-        length: msg.length,
-      });
+      log('info', `📊 [ChatDC] קיבלתי metadata`, { path: FEED_PATH.CHAT_DC, size: pending.totalSize });
       return true;
     }
     if (msg.type === 'complete') {
       clearTimeout(pending.timer);
       pendingChatDcDownloads.delete(peerKey);
-      if (pending.metaOnly || msg.metaOnly) {
-        log('success', `✅ [ChatDC] metadata בלבד`, { path: FEED_PATH.CHAT_DC, size: pending.totalSize || msg.size });
-        pending.resolve({
-          metaOnly: true,
-          size: pending.totalSize || msg.size || 0,
-          mimeType: msg.mimeType || pending.mimeType || 'application/octet-stream',
-        });
-        return true;
-      }
-      if (pending.expectedLength != null && pending.receivedSize < pending.expectedLength) {
-        pending.reject(new Error(`Incomplete range ${pending.receivedSize}/${pending.expectedLength}`));
-        return true;
-      }
       const blob = new Blob(pending.chunks, { type: msg.mimeType || pending.mimeType || 'application/octet-stream' });
       log('success', `✅ [ChatDC] הורדה הושלמה`, { path: FEED_PATH.CHAT_DC, size: pending.receivedSize });
-      pending.resolve({
-        blob,
-        mimeType: msg.mimeType || pending.mimeType || 'application/octet-stream',
-        offset: pending.offset,
-        length: pending.receivedSize,
-      });
+      pending.resolve({ blob, mimeType: msg.mimeType || pending.mimeType || 'application/octet-stream' });
       return true;
     }
     if (msg.type === 'error') {
@@ -1954,12 +1795,11 @@
     const peerKey = String(peerPubkey || '').toLowerCase();
     const pending = pendingChatDcDownloads.get(peerKey);
     if (!pending) return false;
-    if (pending.metaOnly) return true;
     let buf = data;
     if (data && typeof Blob !== 'undefined' && data instanceof Blob) {
       data.arrayBuffer().then((ab) => {
         const p = pendingChatDcDownloads.get(peerKey);
-        if (!p || p.metaOnly) return;
+        if (!p) return;
         p.chunks.push(ab);
         p.receivedSize += ab.byteLength;
       }).catch(() => {});
@@ -1971,248 +1811,6 @@
     pending.chunks.push(buf);
     pending.receivedSize += (buf && buf.byteLength) || 0;
     return true;
-  }
-
-  // חלק Multi-Source (p2p-video-sharing.js) – הורדה מקבילית מ־K≤3 peers על chat-dc | HYPER CORE TECH
-  function canAttemptMultiSource() {
-    if (!MULTI_SOURCE_ENABLED) return false;
-    if (state.multiSourceActive >= MULTI_SOURCE_MAX_ACTIVE) {
-      log('info', `[feed-session] multi-source skip`, {
-        reason: 'multi-already-active',
-        active: state.multiSourceActive,
-      });
-      return false;
-    }
-    return true;
-  }
-
-  async function warmPeersForMulti(peerList, cancelFlag) {
-    const targets = peerList.slice(0, MULTI_SOURCE_MAX_PEERS);
-    log('info', `[feed-session] multi-source warming`, {
-      peers: targets.map((p) => p.slice(0, 8)),
-      waitMs: MULTI_SOURCE_WARM_MS,
-    });
-    // חימום מקבילי — לא אחד אחרי השני | HYPER CORE TECH
-    await Promise.all(targets.map((peer) =>
-      ensureChatDcOpen(peer, MULTI_SOURCE_WARM_MS).catch(() => null)
-    ));
-    if (cancelFlag.cancelled) return [];
-
-    const ready = [];
-    for (const peer of targets) {
-      const dc = typeof App.dataChannel?.getChatDC === 'function'
-        ? App.dataChannel.getChatDC(peer)
-        : null;
-      if (dc && dc.readyState === 'open') {
-        ready.push({ peer, channel: dc });
-      }
-    }
-
-    // סיבוב שני קצר למי שעדיין לא נפתח | HYPER CORE TECH
-    if (ready.length < 2 && !cancelFlag.cancelled) {
-      const missing = targets.filter((p) => !ready.some((r) => r.peer === p));
-      await Promise.all(missing.map((peer) =>
-        ensureChatDcOpen(peer, Math.floor(MULTI_SOURCE_WARM_MS * 0.7)).catch(() => null)
-      ));
-      for (const peer of missing) {
-        const dc = typeof App.dataChannel?.getChatDC === 'function'
-          ? App.dataChannel.getChatDC(peer)
-          : null;
-        if (dc && dc.readyState === 'open') {
-          ready.push({ peer, channel: dc });
-        }
-      }
-    }
-    return ready;
-  }
-
-  async function downloadMultiSource(peerPubkeys, hash, session) {
-    const cancelFlag = session || { cancelled: false };
-    const list = (Array.isArray(peerPubkeys) ? peerPubkeys : [])
-      .map((p) => String(p || '').toLowerCase())
-      .filter(Boolean);
-    if (list.length < 2 || !hash) return null;
-    if (!canAttemptMultiSource()) return null;
-
-    state.multiSourceActive += 1;
-    try {
-      return await downloadMultiSourceInner(list, hash, cancelFlag);
-    } finally {
-      state.multiSourceActive = Math.max(0, state.multiSourceActive - 1);
-    }
-  }
-
-  async function downloadMultiSourceInner(list, hash, cancelFlag) {
-    const ready = await warmPeersForMulti(list, cancelFlag);
-    if (cancelFlag.cancelled) {
-      log('info', `[feed-session] multi-source skip`, { reason: 'cancelled-warm' });
-      return null;
-    }
-    if (ready.length < 2) {
-      log('info', `[feed-session] multi-source skip`, { reason: 'need-2-chat-dc', ready: ready.length });
-      return null;
-    }
-
-    let fileSize = 0;
-    let mimeType = 'application/octet-stream';
-    let metaOk = false;
-    for (let mi = 0; mi < ready.length; mi++) {
-      if (cancelFlag.cancelled) return null;
-      const probePeer = ready[mi];
-      // ממתין עד שהערוץ פנוי ל־meta (לא מדלגים על כל ה-Multi) | HYPER CORE TECH
-      for (let w = 0; w < 20 && pendingChatDcDownloads.has(probePeer.peer); w++) {
-        await sleep(100);
-      }
-      if (pendingChatDcDownloads.has(probePeer.peer)) continue;
-      try {
-        const liveDc = (typeof App.dataChannel?.getChatDC === 'function'
-          ? App.dataChannel.getChatDC(probePeer.peer)
-          : null) || probePeer.channel;
-        const meta = await downloadViaChatDc(probePeer.peer, hash, liveDc, {
-          metaOnly: true,
-          rangeId: 'meta',
-          timeoutMs: Math.min(MULTI_SOURCE_RANGE_TIMEOUT, 12000),
-        });
-        fileSize = meta && meta.size ? meta.size : 0;
-        mimeType = (meta && meta.mimeType) || mimeType;
-        metaOk = true;
-        break;
-      } catch (err) {
-        const msg = String(err && err.message || '');
-        log('info', `[feed-session] multi-source meta failed`, {
-          peer: probePeer.peer.slice(0, 8),
-          error: msg,
-        });
-        if (/busy/i.test(msg)) {
-          await sleep(400);
-          continue;
-        }
-      }
-    }
-    if (!metaOk || !fileSize || fileSize < MULTI_SOURCE_MIN_BYTES) {
-      log('info', `[feed-session] multi-source skip`, {
-        reason: !metaOk ? 'meta-failed' : 'file-too-small',
-        size: fileSize,
-      });
-      return null;
-    }
-
-    const piece = MULTI_SOURCE_PIECE;
-    const ranges = [];
-    for (let offset = 0; offset < fileSize; offset += piece) {
-      ranges.push({
-        id: `r${ranges.length}`,
-        offset,
-        length: Math.min(piece, fileSize - offset),
-        buffer: null,
-        peer: null,
-        preferred: ready[ranges.length % ready.length].peer,
-      });
-    }
-
-    log('download', `[feed-session] multi-source START`, {
-      hash: hash.slice(0, 12),
-      size: fileSize,
-      peers: ready.map((r) => r.peer.slice(0, 8)),
-      ranges: ranges.length,
-      piece,
-    });
-
-    const peersUsed = new Set();
-    const peerByKey = new Map(ready.map((r) => [r.peer, r]));
-
-    async function fetchRangeFromPeer(range, peerKey) {
-      if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
-      const slot = peerByKey.get(peerKey);
-      if (!slot) throw new Error('peer missing');
-      for (let w = 0; w < 40 && pendingChatDcDownloads.has(peerKey); w++) {
-        await sleep(80);
-        if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
-      }
-      const liveDc = (typeof App.dataChannel?.getChatDC === 'function'
-        ? App.dataChannel.getChatDC(peerKey)
-        : null) || slot.channel;
-      if (!liveDc || liveDc.readyState !== 'open') {
-        throw new Error('chat-dc closed');
-      }
-      const result = await downloadViaChatDc(peerKey, hash, liveDc, {
-        offset: range.offset,
-        length: range.length,
-        rangeId: range.id,
-        timeoutMs: MULTI_SOURCE_RANGE_TIMEOUT,
-      });
-      if (!result || !result.blob) throw new Error('empty range');
-      if (cancelFlag.cancelled) throw new Error('multi-source cancelled');
-      range.buffer = result.blob;
-      range.peer = peerKey;
-      peersUsed.add(peerKey);
-      if (result.mimeType) mimeType = result.mimeType;
-      return true;
-    }
-
-    async function fetchRange(range) {
-      const tried = new Set();
-      let lastErr = null;
-      const order = [range.preferred, ...ready.map((r) => r.peer).filter((p) => p !== range.preferred)];
-      for (const peerKey of order) {
-        if (tried.has(peerKey)) continue;
-        tried.add(peerKey);
-        try {
-          await fetchRangeFromPeer(range, peerKey);
-          return true;
-        } catch (err) {
-          lastErr = err;
-          if (cancelFlag.cancelled || /cancelled/i.test(String(err.message || ''))) throw err;
-          log('info', `[feed-session] multi-source range fail → retry`, {
-            rangeId: range.id,
-            peer: peerKey.slice(0, 8),
-            error: err.message,
-          });
-          if (/busy/i.test(String(err.message || ''))) await sleep(200);
-        }
-      }
-      throw lastErr || new Error(`range ${range.id} failed`);
-    }
-
-    // worker לכל peer — חתיכות לפי preferred, בלי שכולם יתחרו על אותו peer | HYPER CORE TECH
-    const queues = ready.map(() => []);
-    ranges.forEach((range, idx) => {
-      queues[idx % ready.length].push(range);
-    });
-    await Promise.all(ready.map(async (slot, qi) => {
-      for (const range of queues[qi]) {
-        if (cancelFlag.cancelled) return;
-        await fetchRange(range);
-      }
-    }));
-
-    if (cancelFlag.cancelled) {
-      log('info', `[feed-session] multi-source skip`, { reason: 'cancelled-after-ranges' });
-      return null;
-    }
-
-    for (const range of ranges) {
-      if (!range.buffer) throw new Error(`missing range ${range.id}`);
-    }
-
-    const blob = new Blob(ranges.map((r) => r.buffer), { type: mimeType });
-    if (blob.size !== fileSize) {
-      throw new Error(`multi-source size mismatch ${blob.size}/${fileSize}`);
-    }
-
-    log('success', `[feed-session] multi-source DONE`, {
-      hash: hash.slice(0, 12),
-      size: blob.size,
-      peers: [...peersUsed].map((p) => p.slice(0, 8)),
-      ranges: ranges.length,
-    });
-
-    return {
-      blob,
-      mimeType,
-      peersUsed: [...peersUsed],
-      multiSource: peersUsed.size >= 2,
-    };
   }
   
   // חלק Persistent Connections (p2p-video-sharing.js) – הורדה דרך חיבור קיים | HYPER CORE TECH
@@ -2666,12 +2264,6 @@
       return;
     }
 
-    // מניעת כפילות sub — C1 | HYPER CORE TECH
-    if (App._p2pSignalsSub) {
-      log('info', `[feed-session] signal sub already active`);
-      return;
-    }
-
     log('info', '👂 מתחיל להאזין לסיגנלי P2P...', { isGuest: keys.isGuest });
 
     const filters = [
@@ -2757,17 +2349,6 @@
     }
   }
 
-  // C1 – חידוש sub אם נעלם (רקע APK / resume) בלי לעצור בגלל hidden | HYPER CORE TECH
-  function ensureP2pSignalSubscription(reason) {
-    try {
-      if (App._p2pSignalsSub) return;
-      log('info', `[feed-session] ensure signal sub`, { reason: reason || 'unknown', hidden: !!document.hidden });
-      listenForP2PSignals();
-    } catch (err) {
-      log('warn', `[feed-session] ensure signal sub failed`, { error: err.message });
-    }
-  }
-
   async function handleFileResponse(peerPubkey, data) {
     try {
       const { answer, connectionId } = data || {};
@@ -2838,121 +2419,56 @@
     return null;
   }
 
-  function enqueueChatDcServe(peerKey, taskFn) {
-    const key = String(peerKey || '').toLowerCase();
-    const prev = chatDcServeChains.get(key) || Promise.resolve();
-    const next = prev.catch(() => {}).then(() => taskFn());
-    chatDcServeChains.set(key, next.catch(() => {}));
-    return next;
-  }
-
-  async function serveMediaBlobOnChannel(channel, hash, peerPubkey, path, rangeOpts) {
-    const peerKey = String(peerPubkey || '').toLowerCase();
-    const useChatLock = path === FEED_PATH.CHAT_DC;
-    const run = () => serveMediaBlobOnChannelInner(channel, hash, peerPubkey, path, rangeOpts || {});
-    if (useChatLock) {
-      if (chatDcServeChains.has(peerKey) && chatDcServeChains.get(peerKey)) {
-        log('info', `[feed-session] queue serve reason=busy`, {
-          path,
-          peer: peerKey.slice(0, 8),
-          hash: (hash || '').slice(0, 12),
-        });
-      }
-      return enqueueChatDcServe(peerKey, run);
-    }
-    return run();
-  }
-
-  async function serveMediaBlobOnChannelInner(channel, hash, peerPubkey, path, rangeOpts) {
+  async function serveMediaBlobOnChannel(channel, hash, peerPubkey, path) {
     const peerKey = String(peerPubkey || '').toLowerCase();
     const vis = pageVisibilityTag();
-    const metaOnly = !!(rangeOpts && rangeOpts.metaOnly);
-    const rangeId = rangeOpts && rangeOpts.rangeId != null ? String(rangeOpts.rangeId) : '';
-    let rangeOffset = typeof rangeOpts?.offset === 'number' && rangeOpts.offset >= 0 ? rangeOpts.offset : null;
-    let rangeLength = typeof rangeOpts?.length === 'number' && rangeOpts.length > 0 ? rangeOpts.length : null;
+    const useChatLock = path === FEED_PATH.CHAT_DC;
+    if (useChatLock) {
+      if (chatDcServeBusy.has(peerKey)) {
+        log('warn', `[feed-session] serve REJECT`, { path, reason: 'busy', peer: peerKey.slice(0, 8), hidden: vis.hidden });
+        try { channel.send(JSON.stringify({ type: 'error', message: 'Busy' })); } catch (_) {}
+        return false;
+      }
+      chatDcServeBusy.add(peerKey);
+    }
 
     const fileData = await resolveMediaFileData(hash);
     if (!fileData || !channel || channel.readyState !== 'open') {
-      log('error', `[feed-session] skip serve reason=${fileData ? 'channel-closed' : 'file-missing'}`, {
+      log('error', `[feed-session] serve REJECT`, {
         path,
+        reason: fileData ? 'channel-closed' : 'file-missing',
         hash: (hash || '').slice(0, 12),
         hidden: vis.hidden,
       });
+      if (useChatLock) chatDcServeBusy.delete(peerKey);
       try {
         if (channel && channel.readyState === 'open') {
-          channel.send(JSON.stringify({ type: 'error', message: 'File not available', rangeId: rangeId || undefined }));
+          channel.send(JSON.stringify({ type: 'error', message: 'File not available' }));
         }
       } catch (_) {}
       return false;
-    }
-
-    if (vis.hidden) {
-      log('upload', `[feed-session] serving while hidden`, {
-        path,
-        peer: peerKey.slice(0, 8),
-        hash: hash.slice(0, 12),
-        native: isNativeShellHost(),
-        rangeId: rangeId || undefined,
-      });
-      if (isNativeShellHost()) pumpServeAlive('serve-media');
-    }
-
-    const fullSize = fileData.size || fileData.blob.size;
-    if (rangeOffset != null) {
-      if (rangeOffset >= fullSize) {
-        try {
-          channel.send(JSON.stringify({ type: 'error', message: 'Range out of bounds', rangeId: rangeId || undefined }));
-        } catch (_) {}
-        return false;
-      }
-      if (rangeLength == null) rangeLength = fullSize - rangeOffset;
-      rangeLength = Math.min(rangeLength, fullSize - rangeOffset);
     }
 
     log('upload', `[feed-session] serve START`, {
       path,
       peer: peerKey.slice(0, 8),
       hash: hash.slice(0, 12),
-      size: fullSize,
+      size: fileData.size,
       hidden: vis.hidden,
-      metaOnly: metaOnly || undefined,
-      offset: rangeOffset != null ? rangeOffset : undefined,
-      length: rangeLength != null ? rangeLength : undefined,
-      rangeId: rangeId || undefined,
     });
 
     try {
       let metadataMsg = {
         type: 'metadata',
-        size: fullSize,
+        size: fileData.size,
         mimeType: fileData.mimeType,
       };
-      if (rangeOffset != null) {
-        metadataMsg.offset = rangeOffset;
-        metadataMsg.length = rangeLength;
-      }
-      if (rangeId) metadataMsg.rangeId = rangeId;
-      if (metaOnly) metadataMsg.metaOnly = true;
       if (App.MetadataTransfer && typeof App.MetadataTransfer.extendMetadataMessage === 'function') {
         metadataMsg = App.MetadataTransfer.extendMetadataMessage(metadataMsg, hash, fileData.eventId);
       }
       channel.send(JSON.stringify(metadataMsg));
 
-      if (metaOnly) {
-        channel.send(JSON.stringify({
-          type: 'complete',
-          mimeType: fileData.mimeType,
-          metaOnly: true,
-          rangeId: rangeId || undefined,
-          size: fullSize,
-        }));
-        log('success', `[feed-session] serve DONE`, { path, metaOnly: true, size: fullSize, hidden: vis.hidden });
-        return true;
-      }
-
-      const blob = (rangeOffset != null)
-        ? fileData.blob.slice(rangeOffset, rangeOffset + rangeLength)
-        : fileData.blob;
+      const blob = fileData.blob;
       let offset = 0;
       let chunkNum = 0;
       const uploadStartTime = Date.now();
@@ -2989,13 +2505,7 @@
       while (channel.bufferedAmount > 0) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
-      channel.send(JSON.stringify({
-        type: 'complete',
-        mimeType: fileData.mimeType,
-        rangeId: rangeId || undefined,
-        offset: rangeOffset != null ? rangeOffset : undefined,
-        length: rangeLength != null ? rangeLength : undefined,
-      }));
+      channel.send(JSON.stringify({ type: 'complete', mimeType: fileData.mimeType }));
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       p2pStats.shares.total++;
@@ -3004,13 +2514,7 @@
       state.activeUploadCount = Math.max(0, state.activeUploadCount - 1);
       if (state.activeUploadCount === 0) state.activeUpload = null;
 
-      log('success', `[feed-session] serve DONE`, {
-        path,
-        chunks: chunkNum,
-        size: blob.size,
-        hidden: vis.hidden,
-        rangeId: rangeId || undefined,
-      });
+      log('success', `[feed-session] serve DONE`, { path, chunks: chunkNum, size: blob.size, hidden: vis.hidden });
       return true;
     } catch (err) {
       p2pStats.shares.total++;
@@ -3020,12 +2524,12 @@
       log('error', `[feed-session] serve FAIL`, { path, error: err.message, hidden: vis.hidden });
       try {
         if (channel && channel.readyState === 'open') {
-          channel.send(JSON.stringify({ type: 'error', message: err.message, rangeId: rangeId || undefined }));
+          channel.send(JSON.stringify({ type: 'error', message: err.message }));
         }
       } catch (_) {}
       return false;
     } finally {
-      clearServeAlivePump();
+      if (useChatLock) chatDcServeBusy.delete(peerKey);
     }
   }
 
@@ -3067,22 +2571,7 @@
         hash: (hash || '').slice(0, 16) + '...',
         hidden: vis.hidden,
       });
-      log('warn', `[feed-session] skip serve reason=file-missing`, {
-        path: FEED_PATH.WEBRTC_NEW,
-        hash: (hash || '').slice(0, 12),
-        hidden: vis.hidden,
-      });
       return;
-    }
-
-    // C1/C3 – לא מדלגים על answer כש-hidden; ב-APK מעירים WebView | HYPER CORE TECH
-    if (vis.hidden) {
-      log('info', `[feed-session] serving while hidden`, {
-        path: FEED_PATH.WEBRTC_NEW,
-        peer: peerPubkey.slice(0, 8),
-        native: isNativeShellHost(),
-      });
-      if (isNativeShellHost()) pumpServeAlive('file-request');
     }
 
     log('success', `[feed-session] file-request ACCEPT`, {
@@ -3434,58 +2923,8 @@
         // חלק Persistent Connections – ניסיון ראשון עם peers מחוברים | HYPER CORE TECH
         // מיון: peers מחוברים קודם
         const sortedPeers = prioritizeConnectedPeers(peers);
-
-        // D refine – Multi-Source בלי Promise.race שמשאיר הורדה יתומה | HYPER CORE TECH
-        if (!isGuest && sortedPeers.length >= 2 && canAttemptMultiSource()) {
-          const multiSession = { cancelled: false };
-          try {
-            const multiPromise = downloadMultiSource(sortedPeers, hash, multiSession);
-            const budget = Math.max(MULTI_SOURCE_OVERALL_TIMEOUT, MULTI_SOURCE_RANGE_TIMEOUT * 2);
-            const multi = await Promise.race([
-              multiPromise,
-              sleep(budget).then(() => {
-                multiSession.cancelled = true;
-                log('info', `[feed-session] multi-source timeout → cancel`, { budgetMs: budget });
-                return null;
-              }),
-            ]);
-            if (multi && multi.blob) {
-              p2pStats.downloads.fromP2P++;
-              if (multi.multiSource) p2pStats.downloads.fromMultiSource++;
-              log('success', `מ-P2P`, {
-                multi: !!multi.multiSource,
-                peers: (multi.peersUsed || []).map((p) => p.slice(0, 8)).join(','),
-                size: Math.round(multi.blob.size / 1024) + 'KB',
-                isGuest,
-              });
-              if (typeof App.cacheMedia === 'function') {
-                await App.cacheMedia(url, hash, multi.blob, multi.mimeType, { pinned: true });
-              }
-              await registerFileAvailability(hash, multi.blob, multi.mimeType);
-              resetConsecutiveFailures();
-              try {
-                const firstPeer = multi.peersUsed && multi.peersUsed[0];
-                if (firstPeer && App.EventSync && typeof App.EventSync.sendInventory === 'function') {
-                  App.EventSync.sendInventory(firstPeer).catch(() => {});
-                }
-              } catch (_) {}
-              return {
-                blob: multi.blob,
-                source: multi.multiSource ? 'p2p-multi' : 'p2p',
-                peer: (multi.peersUsed || [])[0],
-                peers: multi.peersUsed,
-                tier,
-              };
-            }
-            // אם בוטל — לתת ל־promise להסתיים ברקע בלי לחסום (cancelled כבר מוגדר)
-            multiPromise.catch(() => {});
-          } catch (multiErr) {
-            multiSession.cancelled = true;
-            log('info', `[feed-session] multi-source → serial fallback`, { error: multiErr.message });
-          }
-        }
         
-        // ניסיון P2P סדרתי - עם הגבלות לאורחים
+        // ניסיון P2P - עם הגבלות לאורחים
         let attemptCount = 0;
         for (const peer of sortedPeers) {
           if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
@@ -3769,10 +3208,9 @@
     } else if (src === 'blossom') {
       p2pStats.downloads.total++;
       p2pStats.downloads.fromBlossom++;
-    } else if (src === 'p2p' || src === 'p2p-multi' || src === 'p2p-fallback') {
+    } else if (src === 'p2p') {
       p2pStats.downloads.total++;
       p2pStats.downloads.fromP2P++;
-      if (src === 'p2p-multi') p2pStats.downloads.fromMultiSource++;
     } else if (src === 'failed') {
       p2pStats.downloads.failed++;
     } else {
@@ -3789,7 +3227,6 @@
     registerFileAvailability,
     findPeersWithFile,
     downloadFromPeer, // חשיפה לדיבוג
-    downloadMultiSource,
     downloadVideoWithP2P,
     onChatDataChannelOpen,
     onChatDataChannelClosed,

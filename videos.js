@@ -107,15 +107,13 @@ const p2pStatsUI = {
   p2p: 0,
   blossom: 0,
   cache: 0,
-  multi: 0,
   total: 0,
   
   // עדכון הסטטיסטיקות
   update(source) {
-    if (source === 'p2p' || source === 'p2p-multi') this.p2p++;
+    if (source === 'p2p') this.p2p++;
     else if (source === 'blossom') this.blossom++;
     else if (source === 'cache') this.cache++;
-    if (source === 'p2p-multi') this.multi++;
     this.total = this.p2p + this.blossom + this.cache;
     this.render();
   },
@@ -129,7 +127,6 @@ const p2pStatsUI = {
         this.p2p = stats.downloads.fromP2P || 0;
         this.blossom = stats.downloads.fromBlossom || 0;
         this.cache = stats.downloads.fromCache || 0;
-        this.multi = stats.downloads.fromMultiSource || 0;
         this.total = stats.downloads.total || (this.p2p + this.blossom + this.cache);
         this.render();
       }
@@ -166,7 +163,7 @@ const p2pStatsUI = {
     textEl.textContent = this.total;
     
     // עדכון title
-    circle.title = `P2P: ${this.p2p} | Multi: ${this.multi || 0} | Blossom: ${this.blossom} | Cache: ${this.cache}`;
+    circle.title = `P2P: ${this.p2p} | Blossom: ${this.blossom} | Cache: ${this.cache}`;
   },
   
   // יצירת טולטיפ מפורט – נפתח מחוץ לתפריט (fixed) כי העיגול יושב בתפריט הפרופיל | HYPER CORE TECH
@@ -202,12 +199,6 @@ const p2pStatsUI = {
           SOS (WebRTC)
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
-      </div>
-      <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">
-          Multi-Source
-        </span>
-        <span class="p2p-stats-tooltip__value" id="tooltipMultiSource">0</span>
       </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
@@ -320,7 +311,6 @@ const p2pStatsUI = {
   // עדכון הטולטיפ
   updateTooltip() {
     const p2pEl = document.getElementById('tooltipP2P');
-    const multiEl = document.getElementById('tooltipMultiSource');
     const blossomEl = document.getElementById('tooltipBlossom');
     const cacheEl = document.getElementById('tooltipCache');
     const queueEl = document.getElementById('tooltipQueue');
@@ -331,7 +321,6 @@ const p2pStatsUI = {
     const uploadSpeedEl = document.getElementById('tooltipUploadSpeed');
     
     if (p2pEl) p2pEl.textContent = this.p2p;
-    if (multiEl) multiEl.textContent = this.multi || 0;
     if (blossomEl) blossomEl.textContent = this.blossom;
     if (cacheEl) cacheEl.textContent = this.cache;
     
