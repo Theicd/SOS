@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.21-pwa263-restore229",
-  "note": "Full restore to pwa229 era; remove post-229 files; force client update"
+  "version": "2026.08.21-pwa264-restore229",
+  "note": "Re-force clients onto pwa229-era code after desktop cache reports"
 }
