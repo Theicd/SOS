@@ -53,6 +53,16 @@ class SosEmergencyRelayService : Service() {
                 context.startService(intent)
             }
         }
+
+        /** כיבוי ממסר חירום — משחרר FGS שני כדי לא להפריע למעטפת הרגילה | HYPER CORE TECH */
+        fun stop(context: Context) {
+            try {
+                context.stopService(Intent(context, SosEmergencyRelayService::class.java))
+            } catch (_: Exception) {
+            }
+            SosEmergencyState.isRelayRunning = false
+            instance = null
+        }
     }
 
     private val executor = Executors.newCachedThreadPool()

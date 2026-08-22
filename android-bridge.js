@@ -42,30 +42,31 @@
   
   // === אתחול ===
   function init() {
-    state.localIP = AndroidBridge.getLocalIpAddress();
-    state.isOffline = AndroidBridge.isOfflineMode();
-    
-    // בדיקת מצב רשת חירום
+    try {
+      state.localIP = AndroidBridge.getLocalIpAddress();
+    } catch (_) {
+      state.localIP = null;
+    }
+
+    // לא מפעילים ממסר חירום אוטומטית — רק כשהמשתמש נכנס למצב חירום | HYPER CORE TECH
     checkEmergencyNetwork();
+    state.isOffline = !!state.isEmergencyMode;
     
     console.log(`📱 Android Bridge v${BRIDGE_VERSION}`);
     console.log(`📍 Local IP: ${state.localIP}`);
-    console.log(`🔌 Offline mode: ${state.isOffline}`);
+    console.log(`🔌 Offline/emergency mode: ${state.isOffline}`);
     console.log(`🚨 Emergency mode: ${state.isEmergencyMode}`);
-    
-    // הפעל relay מקומי
-    if (AndroidBridge.startLocalRelay()) {
-      console.log('✅ Local relay started');
-    }
     
     // רישום callbacks
     setupCallbacks();
     
-    // החלפת פונקציות Nostr
+    // החלפת pool רק אם חירום באמת פעיל | HYPER CORE TECH
     overrideNostrFunctions();
     
-    // התחל עדכון peers מחזורי
-    startPeerUpdates();
+    // עדכון peers רק במצב חירום פעיל | HYPER CORE TECH
+    if (state.isEmergencyMode) {
+      startPeerUpdates();
+    }
   }
   
   // === בדיקת רשת חירום ===
@@ -292,10 +293,12 @@
       }
     };
     
-    // במצב offline, השתמש ב-pool המקומי
-    if (state.isOffline) {
+    // רק במצב חירום פעיל — אחרת משאירים Nostr/אינטרנט רגיל (כמו וואטסאפ) | HYPER CORE TECH
+    if (state.isEmergencyMode) {
       App.pool = App.localPool;
-      console.log('✅ Using local pool for offline mode');
+      console.log('✅ Using local pool for emergency mode');
+    } else {
+      console.log('🌐 Keeping normal Nostr pool (emergency relay idle)');
     }
   }
   

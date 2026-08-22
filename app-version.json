@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.21-pwa264-restore229",
-  "note": "Re-force clients onto pwa229-era code after desktop cache reports"
+  "version": "2026.08.22-pwa265-emergency-isolate",
+  "note": "Isolate emergency relay from normal WhatsApp-like shell path"
 }

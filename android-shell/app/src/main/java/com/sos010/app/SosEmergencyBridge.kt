@@ -24,8 +24,9 @@ class SosEmergencyBridge(
     private val executor = Executors.newCachedThreadPool()
     private val handler = Handler(Looper.getMainLooper())
 
+    /** true רק כשממסר החירום באמת רץ — לא תמיד, כדי לא לשבור מצב אינטרנט רגיל | HYPER CORE TECH */
     @JavascriptInterface
-    fun isEmergencyMode(): Boolean = true
+    fun isEmergencyMode(): Boolean = SosEmergencyState.isRelayRunning
 
     @JavascriptInterface
     fun isOfflineMode(): Boolean = SosEmergencyState.isRelayRunning
@@ -150,13 +151,14 @@ class SosEmergencyBridge(
     @JavascriptInterface
     fun startLocalRelay(): Boolean {
         SosEmergencyRelayService.start(context.applicationContext)
+        SosDebugLog.i("emergency", "startLocalRelay requested")
         return true
     }
 
     @JavascriptInterface
     fun stopLocalRelay() {
-        // השירות נשאר חי במצב חירום; כיבוי מפורש בעתיד
-        Log.d(tag, "stopLocalRelay requested (no-op – FGS keeps relay)")
+        SosEmergencyRelayService.stop(context.applicationContext)
+        SosDebugLog.i("emergency", "stopLocalRelay requested")
     }
 
     @JavascriptInterface
@@ -191,12 +193,30 @@ class SosEmergencyBridge(
 
     @JavascriptInterface
     fun showCallNotification(callerName: String, isVideo: Boolean) {
-        Log.d(tag, "showCallNotification $callerName video=$isVideo")
+        val name = callerName.ifBlank { "מישהו" }
+        val type = if (isVideo) "video" else "voice"
+        NotificationHelper.showIncomingCall(
+            context.applicationContext,
+            title = if (isVideo) "שיחת וידאו נכנסת" else "שיחה קולית נכנסת",
+            body = "$name מתקשר אליך",
+            openUrl = SosCallUrls.warmPage(),
+            callType = type,
+            peerPubkey = "",
+            callerName = name
+        )
     }
 
     @JavascriptInterface
     fun showMessageNotification(senderName: String, messageText: String) {
-        Log.d(tag, "showMessageNotification $senderName")
+        NotificationHelper.showMessage(
+            context.applicationContext,
+            title = senderName.ifBlank { "SOS" },
+            body = messageText.ifBlank { "הודעה חדשה" },
+            openUrl = null,
+            tag = null,
+            eventId = null,
+            peerKey = null
+        )
     }
 
     private fun trySend(ip: String, message: String) {
