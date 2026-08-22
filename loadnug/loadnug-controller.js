@@ -1,8 +1,8 @@
 /* ============================================================
    SOS · LOADNUG — Controller
-   Real WebGL 3D city fly-through (full page).
-   Big captions + SOS/bar overlaid on top.
-   Always replays on refresh. Canvas2D fallback if WebGL fails.
+   Static cyber-city background (same image as chat desktop).
+   Progress + story beats keep original DURATION timing.
+   No WebGL / Canvas2D animation (lower CPU load).
    ============================================================ */
 
 // זמנים מקוריים מ-LOADNUG – לא לשנות | HYPER CORE TECH
@@ -48,27 +48,75 @@ function cssHref() {
   try { return new URL('loadnug-animation.css', import.meta.url).href; }
   catch (e) { return 'loadnug-animation.css'; }
 }
-function sceneHref() {
-  try { return new URL('loadnug-scene.js', import.meta.url).href; }
-  catch (e) { return 'loadnug-scene.js'; }
-}
-function fallbackHref() {
-  try { return new URL('loadnug-fallback.js', import.meta.url).href; }
-  catch (e) { return 'loadnug-fallback.js'; }
+function bgHref() {
+  try { return new URL('../icons/chat-desktop-cyber-bg.png', import.meta.url).href; }
+  catch (e) { return './icons/chat-desktop-cyber-bg.png'; }
 }
 function queryFlag() {
   try { return new URLSearchParams(location.search).get('loadnug'); }
   catch (e) { return null; }
 }
-function hasWebGL() {
-  try {
-    const c = document.createElement('canvas');
-    return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl')));
-  } catch (e) { return false; }
-}
-function isMobile() {
-  try { return matchMedia('(max-width: 820px), (pointer: coarse)').matches; }
-  catch (e) { return false; }
+
+/** Same progress/phase contract as LoadNugScene, without GPU animation. */
+class StaticLoadTicker {
+  constructor(opts) {
+    this.duration = opts.duration || DURATION;
+    this._onProgress = opts.onProgress || (() => {});
+    this._onPhase = opts.onPhase || (() => {});
+    this._running = false;
+    this._raf = 0;
+    this._resolve = null;
+    this._holdSignaled = false;
+    this._tStart = 0;
+  }
+
+  play() {
+    if (this._running) return Promise.resolve();
+    this._running = true;
+    this._tStart = performance.now();
+    return new Promise((resolve) => {
+      this._resolve = resolve;
+      this._loop();
+    });
+  }
+
+  complete() { this._finish(false); }
+
+  dispose() {
+    this._running = false;
+    cancelAnimationFrame(this._raf);
+    this._raf = 0;
+    this._resolve = null;
+  }
+
+  _finish() {
+    if (!this._running && !this._holdSignaled) return;
+    this._running = false;
+    cancelAnimationFrame(this._raf);
+    this._raf = 0;
+    this._onPhase('done');
+    this._onProgress(1);
+    if (this._resolve) {
+      const r = this._resolve;
+      this._resolve = null;
+      r();
+    }
+  }
+
+  _loop = () => {
+    if (!this._running) return;
+    let t = (performance.now() - this._tStart) / 1000;
+    if (t >= this.duration) t = this.duration;
+    this._onProgress(clamp(t / this.duration, 0, 1));
+    if (t >= this.duration) {
+      if (!this._holdSignaled) {
+        this._holdSignaled = true;
+        this._onPhase('loading');
+      }
+      return;
+    }
+    this._raf = requestAnimationFrame(this._loop);
+  };
 }
 
 export class LoadNugController {
@@ -94,15 +142,16 @@ export class LoadNugController {
   }
 
   _mount() {
+    const bg = bgHref();
     const crit = document.createElement('style');
     crit.id = 'sos-loadnug-critical';
     // דף טעינה מלא מסך מעל הפיד – לא כרטיס ריק בתוך הסטרים | HYPER CORE TECH
     crit.textContent = [
       'body:has(.videos-feed) .top-bar{position:fixed!important;z-index:3000!important;left:0!important;right:0!important;top:0!important;width:100%!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
       'body:has(.videos-feed) .primary-nav{position:fixed!important;z-index:3000!important;display:flex!important;visibility:visible!important;opacity:1!important;transform:none!important;pointer-events:auto!important}',
-      '#sosLoadNugOverlay,#sosLoadNugOverlay.videos-feed__card,#sosLoadNugOverlay.videos-feed__card--loadnug{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:calc(56px + var(--safe-bottom, 0px))!important;inset:auto!important;z-index:2950!important;width:100%!important;height:auto!important;min-height:calc(100dvh - 56px - var(--safe-bottom, 0px))!important;max-width:none!important;margin:0!important;flex-shrink:0!important;overflow:hidden!important;background:#070b19!important;scroll-snap-align:none!important}',
+      `#sosLoadNugOverlay,#sosLoadNugOverlay.videos-feed__card,#sosLoadNugOverlay.videos-feed__card--loadnug{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:calc(56px + var(--safe-bottom, 0px))!important;inset:auto!important;z-index:2950!important;width:100%!important;height:auto!important;min-height:calc(100dvh - 56px - var(--safe-bottom, 0px))!important;max-width:none!important;margin:0!important;flex-shrink:0!important;overflow:hidden!important;background:#070b19 url('${bg}') center / cover no-repeat!important;scroll-snap-align:none!important}`,
       '#sosLoadNugOverlay.sos-loadnug--leaving{opacity:0;pointer-events:none}',
-      '#sosLoadNugCanvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;z-index:1}',
+      '#sosLoadNugBg{position:absolute;inset:0;z-index:1;pointer-events:none;background:transparent}',
     ].join('');
     const oldCrit = document.getElementById('sos-loadnug-critical');
     if (oldCrit) oldCrit.remove();
@@ -123,7 +172,7 @@ export class LoadNugController {
     ov.setAttribute('aria-label', 'SOS loading');
     ov.setAttribute('aria-busy', 'true');
     ov.innerHTML = `
-      <canvas id="sosLoadNugCanvas" aria-hidden="true"></canvas>
+      <div id="sosLoadNugBg" aria-hidden="true"></div>
       <div class="sos-loadnug__loader">
         <div class="sos-loadnug__logo" aria-label="SOS"><span class="ln-s1">S</span><span class="ln-o">O</span><span class="ln-s2">S</span></div>
         <div class="sos-loadnug__loading">Loading</div>
@@ -146,7 +195,7 @@ export class LoadNugController {
     document.body.appendChild(ov);
 
     this.overlay = ov;
-    this.canvas = ov.querySelector('#sosLoadNugCanvas');
+    this.canvas = null;
     this._statusEl = ov.querySelector('.sos-loadnug__status');
     this._storyTitle = ov.querySelector('.sos-loadnug__explain-title');
     this._storySub = ov.querySelector('.sos-loadnug__explain-sub');
@@ -159,17 +208,6 @@ export class LoadNugController {
     return ov;
   }
 
-  _freshCanvas() {
-    const fresh = document.createElement('canvas');
-    fresh.id = 'sosLoadNugCanvas';
-    fresh.setAttribute('aria-hidden', 'true');
-    if (this.canvas && this.canvas.parentNode) {
-      this.canvas.parentNode.replaceChild(fresh, this.canvas);
-    }
-    this.canvas = fresh;
-    return fresh;
-  }
-
   async start() {
     if (this._done) return;
     if (queryFlag() === 'skip' || queryFlag() === '0') return;
@@ -177,12 +215,8 @@ export class LoadNugController {
     this._mount();
     this._wireIntegration();
 
-    const mobile = isMobile();
-    const force = queryFlag();
     const opts = {
-      quality: mobile ? 0.7 : 1.05,
       duration: DURATION,
-      mobile,
       onProgress: (p) => {
         const v = p * 90;
         if (v > this._barVal) this._setBar(v);
@@ -193,46 +227,14 @@ export class LoadNugController {
       },
     };
 
-    let ok = false;
-    if (force !== 'fallback' && hasWebGL()) {
-      try {
-        const { LoadNugScene } = await import(sceneHref());
-        this.renderer = new LoadNugScene(this.canvas, opts);
-        ok = true;
-      } catch (e) {
-        console.warn('[SOS-LOADNUG] 3D failed, using 2D fallback:', e);
-        ok = false;
-      }
-    }
-
-    if (!ok) {
-      this._freshCanvas();
-      const { LoadNugFallback } = await import(fallbackHref());
-      this.renderer = new LoadNugFallback(this.canvas, opts);
-    }
+    this.renderer = new StaticLoadTicker(opts);
 
     if (this._done) { this._disposeOverlay(); return; }
 
-    this._bindResize();
     this.renderer.play().then(() => this._onSceneResolved());
   }
 
-  _bindResize() {
-    this._onResize = () => { if (this.renderer && this.renderer._resize) this.renderer._resize(); };
-    try {
-      window.addEventListener('resize', this._onResize, { passive: true });
-      window.addEventListener('orientationchange', this._onResize, { passive: true });
-      if (window.visualViewport) window.visualViewport.addEventListener('resize', this._onResize, { passive: true });
-    } catch (e) {}
-  }
-
   _unbindResize() {
-    if (!this._onResize) return;
-    try {
-      window.removeEventListener('resize', this._onResize);
-      window.removeEventListener('orientationchange', this._onResize);
-      if (window.visualViewport) window.visualViewport.removeEventListener('resize', this._onResize);
-    } catch (e) {}
     this._onResize = null;
   }
 

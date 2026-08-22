@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v587'; // bump - flush desktop meta clock to bubble left
+  const CACHE_NAME = 'sos-cache-v588'; // bump - static LoadNug cyber bg (no WebGL)
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -24,6 +24,7 @@
     './live-tv/live-tv-catalog.js',
     './loadnug/loadnug-animation.css',
     './loadnug/loadnug-controller.js',
+    './icons/chat-desktop-cyber-bg.png',
     './native-shell-bridge.js',
     './manifest.webmanifest',
   ];

@@ -20,7 +20,7 @@
   min-height: calc(100dvh - 56px - var(--safe-bottom, 0px)) !important;
   margin: 0 !important;
   overflow: hidden !important;
-  background: #070b19 !important;
+  background: #070b19 url('../icons/chat-desktop-cyber-bg.png') center / cover no-repeat !important;
   color: #f4f7ff;
   direction: ltr;
   font-family: 'Assistant', 'Rubik', 'Heebo', system-ui, sans-serif;
@@ -62,7 +62,8 @@ body:has(.videos-feed) .primary-nav {
   pointer-events: none;
 }
 
-/* Full-page 3D canvas */
+/* Static cyber-city background layer (no WebGL canvas) */
+#sosLoadNugBg,
 #sosLoadNugCanvas {
   position: absolute;
   inset: 0;
@@ -70,6 +71,7 @@ body:has(.videos-feed) .primary-nav {
   height: 100% !important;
   display: block;
   z-index: 1;
+  pointer-events: none;
 }
 
 /* Captions removed from top — explanations sit under the progress bar */

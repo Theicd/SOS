@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.22-pwa266-apk69",
-  "note": "Ship APK 1.0.69 emergency-isolate shell + apk-version bump"
+  "version": "2026.08.22-pwa267-loadnug-static-bg",
+  "note": "LoadNug: static chat cyber bg instead of WebGL animation; same progress timing"
 }
