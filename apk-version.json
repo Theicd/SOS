@@ -1,7 +1,7 @@
 {
-  "version": "1.0.68",
-  "versionCode": 69,
-  "file": "SOS-1.0.68.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.68/SOS-1.0.68.apk",
-  "note": "Bump version + versionCode on every Android shell release; APK hosted on GitHub Releases"
+  "version": "1.0.69",
+  "versionCode": 70,
+  "file": "SOS-1.0.69.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.69/SOS-1.0.69.apk",
+  "note": "Isolate emergency relay from normal WhatsApp-like shell alerts"
 }
