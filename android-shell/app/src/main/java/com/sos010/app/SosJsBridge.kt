@@ -428,6 +428,7 @@ class SosJsBridge(
             lower.endsWith(".gif") -> "image/gif"
             lower.endsWith(".webp") -> "image/webp"
             lower.endsWith(".pdf") -> "application/pdf"
+            lower.endsWith(".txt") || lower.endsWith(".log") -> "text/plain"
             else -> "application/octet-stream"
         }
     }

@@ -1509,10 +1509,40 @@
       // יצירת חלון debug צף
       var debugPanel = document.createElement('div');
       debugPanel.id = 'mobileDebugPanel';
-      debugPanel.innerHTML = '<div id="debugHeader">🔧 Debug Console <button type="button" id="debugLogPower">לוג: OFF</button><button type="button" id="debugToggle">▼</button><button type="button" id="debugCopy">📋 העתק</button><button type="button" id="debugClear">🗑️</button></div><div id="debugContent"></div>';
-      
+      debugPanel.innerHTML =
+        '<div id="debugHeader">🔧 Debug Console' +
+        '<button type="button" id="debugLogPower">לוג: OFF</button>' +
+        '<button type="button" id="debugToggle">▼</button>' +
+        '<button type="button" id="debugCopy">📋 העתק</button>' +
+        '<button type="button" id="debugSave">💾 שמור TXT</button>' +
+        '<button type="button" id="debugClear">🗑️</button></div>' +
+        '<div id="debugFilters" aria-label="סינון ייצוא לוג">' +
+        '<div class="debug-filter-actions">' +
+        '<button type="button" id="debugFilterAll">הכל</button>' +
+        '<button type="button" id="debugFilterNone">נקה</button>' +
+        '<span id="debugFilterCount"></span></div>' +
+        '<div class="debug-filter-list" id="debugFilterList"></div></div>' +
+        '<div id="debugContent"></div>';
+
       var style = document.createElement('style');
-      style.textContent = '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:40vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}#mobileDebugPanel.open{display:flex;}#debugHeader{padding:8px;background:#111;display:flex;gap:10px;align-items:center;border-bottom:1px solid #333;}#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:35vh;}.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
+      style.textContent =
+        '#mobileDebugPanel{position:fixed;bottom:80px;left:0;right:0;max-height:55vh;background:rgba(0,0,0,0.95);color:#0f0;font-family:monospace;font-size:11px;z-index:9999;border-top:2px solid #0f0;display:none;flex-direction:column;}' +
+        '#mobileDebugPanel.open{display:flex;}' +
+        '#debugHeader{padding:8px;background:#111;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid #333;}' +
+        '#debugHeader button{background:#333;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:12px;}' +
+        '#debugFilters{padding:6px 8px;background:#0a0a0a;border-bottom:1px solid #333;direction:rtl;}' +
+        '#debugFilters .debug-filter-actions{display:flex;gap:8px;align-items:center;margin-bottom:6px;}' +
+        '#debugFilters .debug-filter-actions button{background:#222;color:#9fe870;border:1px solid #333;padding:3px 8px;border-radius:4px;font-size:11px;}' +
+        '#debugFilterCount{color:#888;font-size:10px;}' +
+        '#debugFilters .debug-filter-list{display:flex;flex-wrap:wrap;gap:6px 10px;}' +
+        '#debugFilters label{display:inline-flex;align-items:center;gap:4px;color:#ccc;font-size:11px;white-space:nowrap;}' +
+        '#debugFilters input{accent-color:#2d88ff;}' +
+        '#debugContent{overflow-y:auto;padding:8px;flex:1;max-height:30vh;}' +
+        '.debug-line{padding:2px 0;border-bottom:1px solid #222;word-break:break-all;}' +
+        '.debug-log{color:#0f0;}.debug-warn{color:#ff0;}.debug-error{color:#f00;}.debug-info{color:#2d88ff;}' +
+        '#debugOpenBtn{position:fixed;bottom:85px;right:10px;width:36px;height:36px;border-radius:50%;background:#111;border:2px solid #0f0;color:#0f0;font-size:14px;z-index:9998;cursor:pointer;display:none;}' +
+        '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}' +
+        '#cacheRefreshBtn:hover{color:#fff;background:rgba(45,136,255,0.2);}';
       
       document.addEventListener('DOMContentLoaded', function() {
         document.head.appendChild(style);
@@ -1643,7 +1673,12 @@
         };
         
         copy.onclick = function() {
-          var text = content.innerText;
+          var text = getFilteredLogText();
+          if (!text) {
+            copy.textContent = 'ריק';
+            setTimeout(function() { copy.textContent = '📋 העתק'; }, 1500);
+            return;
+          }
           navigator.clipboard.writeText(text).then(function() {
             copy.textContent = '✅ הועתק!';
             setTimeout(function() { copy.textContent = '📋 העתק'; }, 2000);
@@ -1665,27 +1700,159 @@
         clear.onclick = function() {
           content.innerHTML = '';
           fullLog = [];
+          updateFilterCount();
         };
 
-        // שמירת לוג כ-TXT
-        var saveBtn = document.createElement('button');
-        saveBtn.textContent = '💾 שמור TXT';
-        saveBtn.id = 'debugSave';
-        saveBtn.onclick = function() {
-          var text = fullLog.join('\n');
-          var blob = new Blob([text], { type: 'text/plain' });
+        // קטגוריות ייצוא – הכל מסומן; מסירים מה שלא רוצים | HYPER CORE TECH
+        var LOG_CATEGORIES = [
+          { id: 'calls', label: 'שיחות / WebRTC' },
+          { id: 'p2p', label: 'P2P / DataChannel' },
+          { id: 'torrent', label: 'טורנט / קבצים' },
+          { id: 'deletions', label: 'מחיקות' },
+          { id: 'feed', label: 'הורדות פיד / וידאו' },
+          { id: 'native', label: 'מעטפת Native' },
+          { id: 'relay', label: 'רשת / Relay' },
+          { id: 'other', label: 'שאר' }
+        ];
+        var filterState = {};
+        LOG_CATEGORIES.forEach(function(c) { filterState[c.id] = true; });
+
+        function classifyLogLine(line) {
+          var msg = String(line || '');
+          if (/DELETE_DEBUG|DELETE_PUBLISH|deletion-recv/i.test(msg)) return 'deletions';
+          if (/\[DC\]|\[CHAT\/P2P\]|dc-offer|dc-answer|dc-candidates|p2p-signal|DataChannel/i.test(msg)) return 'p2p';
+          if (/\[TORRENT\]|WebTorrent|magnet:|torrent-bubble/i.test(msg)) return 'torrent';
+          if (/Call |ICE |Peer connection|Received answer|Received offer|Applying remote|Voice call|Video call|remote track|remote stream|Call connected|Call answer|Sent disconnect|Received disconnect|Sent offer|Sent answer|getUserMedia|Pausing all feed videos for call/i.test(msg)) return 'calls';
+          if (/\[NATIVE-SHELL\]|SosNative|native-shell/i.test(msg)) return 'native';
+          if (/\[REQ-LOG\]|relay-|Heartbeat|Polling peers|ספירת peers|relay-sub|relay-pub|relay-resub/i.test(msg)) return 'relay';
+          if (/\[videos\]|\[VIDEOS\]|cache-hit-video|Media loaded|boot fast-cache|download queue|fetchRecentNotes|loadMoreVideos|iOS-DEBUG|BLOB:|וידאו נטען|cache-hit/i.test(msg)) return 'feed';
+          return 'other';
+        }
+
+        function getFilteredLines() {
+          return fullLog.filter(function(line) {
+            return !!filterState[classifyLogLine(line)];
+          });
+        }
+
+        function getFilteredLogText() {
+          return getFilteredLines().join('\n');
+        }
+
+        function updateFilterCount() {
+          var el = document.getElementById('debugFilterCount');
+          if (!el) return;
+          var n = getFilteredLines().length;
+          el.textContent = n + ' / ' + fullLog.length + ' שורות';
+        }
+
+        function setAllFilters(on) {
+          LOG_CATEGORIES.forEach(function(c) { filterState[c.id] = !!on; });
+          var boxes = document.querySelectorAll('#debugFilterList input[data-cat]');
+          boxes.forEach(function(box) { box.checked = !!on; });
+          updateFilterCount();
+        }
+
+        (function buildFilters() {
+          var list = document.getElementById('debugFilterList');
+          if (!list) return;
+          LOG_CATEGORIES.forEach(function(cat) {
+            var lab = document.createElement('label');
+            var inp = document.createElement('input');
+            inp.type = 'checkbox';
+            inp.checked = true;
+            inp.setAttribute('data-cat', cat.id);
+            inp.onchange = function() {
+              filterState[cat.id] = !!inp.checked;
+              updateFilterCount();
+            };
+            lab.appendChild(inp);
+            lab.appendChild(document.createTextNode(cat.label));
+            list.appendChild(lab);
+          });
+          var allBtn = document.getElementById('debugFilterAll');
+          var noneBtn = document.getElementById('debugFilterNone');
+          if (allBtn) allBtn.onclick = function() { setAllFilters(true); };
+          if (noneBtn) noneBtn.onclick = function() { setAllFilters(false); };
+          updateFilterCount();
+        })();
+
+        function blobToDataUrl(blob) {
+          return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(String(reader.result || '')); };
+            reader.onerror = function() { reject(reader.error || new Error('read-failed')); };
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        function triggerWebDownload(text, fileName) {
+          var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
           var url = URL.createObjectURL(blob);
           var a = document.createElement('a');
           a.href = url;
-          a.download = 'sos-debug-log.txt';
+          a.download = fileName;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
           a.click();
-          URL.revokeObjectURL(url);
+          a.remove();
+          setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+        }
 
-          if (navigator.share) {
-            navigator.share({ title: 'SOS Debug Log', text, files: undefined, url: undefined }).catch(() => {});
-          }
-        };
-        document.getElementById('debugHeader').appendChild(saveBtn);
+        function buildExportFileName() {
+          var now = new Date();
+          var hh = String(now.getHours()).padStart(2, '0');
+          var mm = String(now.getMinutes()).padStart(2, '0');
+          var enabled = LOG_CATEGORIES.filter(function(c) { return filterState[c.id]; }).map(function(c) { return c.id; });
+          var tag = enabled.length === LOG_CATEGORIES.length
+            ? 'all'
+            : (enabled.length ? enabled.slice(0, 3).join('-') : 'empty');
+          return 'sos-debug-' + tag + '-' + hh + mm + '.txt';
+        }
+
+        // שמירת לוג כ-TXT – במעטפת APK דרך SosNativeShell (a[download] נכשל ב־WebView) | HYPER CORE TECH
+        var saveBtn = document.getElementById('debugSave');
+        if (saveBtn) {
+          saveBtn.onclick = async function() {
+            var text = getFilteredLogText();
+            var fileName = buildExportFileName();
+            if (!text) {
+              saveBtn.textContent = 'ריק';
+              setTimeout(function() { saveBtn.textContent = '💾 שמור TXT'; }, 1500);
+              return;
+            }
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'שומר…';
+            try {
+              var nativeShell = window.SosNativeShell;
+              var canNative = !!(nativeShell && typeof nativeShell.saveToDownloads === 'function');
+              if (canNative) {
+                var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+                var dataUrl = await blobToDataUrl(blob);
+                var result = nativeShell.saveToDownloads(dataUrl, fileName, 'text/plain');
+                if (typeof result !== 'string' || result.indexOf('ok:') !== 0) {
+                  throw new Error(String(result || 'native-save-failed'));
+                }
+                saveBtn.textContent = '✅ נשמר';
+              } else {
+                triggerWebDownload(text, fileName);
+                saveBtn.textContent = '✅ הורד';
+              }
+            } catch (err) {
+              console.warn('[DEBUG] save TXT failed', err);
+              try {
+                triggerWebDownload(text, fileName);
+                saveBtn.textContent = '⚠️ הורדה';
+              } catch (e2) {
+                saveBtn.textContent = '❌ נכשל';
+                alert('שמירת הלוג נכשלה. נסה שוב או העתק.');
+              }
+            } finally {
+              saveBtn.disabled = false;
+              setTimeout(function() { saveBtn.textContent = '💾 שמור TXT'; }, 2200);
+            }
+          };
+        }
         
         function addLine(type, args) {
           if (!uiLogEnabled) return;
@@ -1714,7 +1881,9 @@
           content.appendChild(line);
           fullLog.push('[' + time + '] ' + msg);
           if (content.children.length > maxLines) content.removeChild(content.firstChild);
+          if (fullLog.length > maxLines) fullLog.shift();
           content.scrollTop = content.scrollHeight;
+          updateFilterCount();
         }
         
         // Override console methods – לכידה רק כש־uiLogEnabled | HYPER CORE TECH
