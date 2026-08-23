@@ -611,6 +611,12 @@
               console.log('Ignored duplicate offer from', peerPubkey.slice(0,8));
               return;
             }
+            // כבר בשיחה פעילה עם אותו peer – לא לפתוח דיאלוג שני | HYPER CORE TECH
+            if (state.isCallActive && state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase()) {
+              console.log('Ignored offer – already in active call with', peerPubkey.slice(0, 8));
+              if (event.id) markCallEventProcessed(event.id);
+              return;
+            }
             // חלק דה-דופליקציה (chat-voice-call.js) – סימון האירוע כמעובד כדי שלא יופיע שוב אחרי רענון | HYPER CORE TECH
             if (event.id) markCallEventProcessed(event.id);
             console.log('Received valid offer:', offerData);
@@ -625,6 +631,11 @@
             // קיבוע peer עבור שיחה נכנסת כדי שאירוע disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
             if (state.currentPeer && state.currentPeer !== peerPubkey) {
               console.log('Ignored incoming offer while another call context exists');
+              return;
+            }
+            // אותו peer כבר ב־context (מסך ענה פתוח) – לא לפתוח שוב | HYPER CORE TECH
+            if (state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase() && state.isIncoming) {
+              console.log('Ignored offer – already handling incoming from', peerPubkey.slice(0, 8));
               return;
             }
             state.currentPeer = peerPubkey;

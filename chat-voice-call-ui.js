@@ -984,21 +984,28 @@
 
     try {
       const bridge = window.SosNativeShell;
+      // דיכוי peer הוסר – שיחה חדשה תמיד מותרת; נשאר רק לבדיקת תאימות
       if (bridge && typeof bridge.isIncomingCallSuppressed === 'function') {
         if (bridge.isIncomingCallSuppressed(String(peerPubkey || ''))) {
-          console.log('Incoming voice suppressed by native');
+          console.log('Incoming voice suppressed by native (legacy)');
           return;
         }
       }
     } catch (_) {}
 
-    // מסך שיחה נייטיבי פעיל – לא לפתוח דיאלוג ווב כפול | HYPER CORE TECH
+    // כבר בשיחה / דיאלוג פתוח / Accept בתהליך – לא לפתוח חלון שני | HYPER CORE TECH
     try {
-      if (window.__sosNativeInCallUi) {
-        incomingOffer = offer;
-        incomingOfferPeer = peer;
-        persistIncomingOffer(peerPubkey, offer);
-        console.log('Incoming voice kept on native in-call UI');
+      if (window.__sosAcceptInFlight) {
+        console.log('Incoming voice ignored – accept in flight');
+        return;
+      }
+      const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+      if (st && st.isCallActive) {
+        console.log('Incoming voice ignored – call already active');
+        return;
+      }
+      if (callDialog && document.body.contains(callDialog)) {
+        console.log('Incoming voice ignored – call dialog already open');
         return;
       }
     } catch (_) {}

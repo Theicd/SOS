@@ -594,7 +594,7 @@
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.isIncomingCallSuppressed === 'function') {
         if (bridge.isIncomingCallSuppressed(String(peer || ''))) {
-          console.log('Incoming video suppressed by native');
+          console.log('Incoming video suppressed by native (legacy)');
           return;
         }
       }

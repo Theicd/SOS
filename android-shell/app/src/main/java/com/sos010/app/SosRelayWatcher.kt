@@ -276,13 +276,7 @@ class SosRelayWatcher(private val appContext: Context) {
                     Log.i(TAG, "already-handled offer ${eventId.take(8)} from ${author.take(8)}")
                     return
                 }
-                // דיכוי אחרי סיום/דחייה – מונע ghost ring מ־offer ישן | HYPER CORE TECH
-                if (SosIncomingCallSession.isSuppressed(appContext, author)) {
-                    Log.i(TAG, "suppressed offer from ${author.take(8)}")
-                    SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
-                    return
-                }
-                // אותה שיחה כבר מצלצלת – לא לפתוח התראה שוב, אבל מעדכנים raw event
+                // אותה שיחה כבר מצלצלת/בשיחה – לא לפתוח התראה שוב | HYPER CORE TECH
                 val isVideo = signalType == "v-offer"
                 val callType = if (isVideo) "video" else "voice"
                 try {

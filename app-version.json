@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.23-pwa275-call-foreground-answer",
-  "note": "Simplify call answer to foreground MainActivity; keep accept-once + ghost-ring guards"
+  "version": "2026.08.23-pwa276-no-peer-suppress",
+  "releasedAt": "2026-08-23"
 }

@@ -1,7 +1,7 @@
 {
-  "version": "1.0.74",
-  "versionCode": 75,
-  "file": "SOS-1.0.74.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.74/SOS-1.0.74.apk",
-  "note": "Answer opens app in foreground (WebRTC needs visible Activity); warm from ringing screen"
+  "version": "1.0.75",
+  "versionCode": 76,
+  "file": "SOS-1.0.75.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.75/SOS-1.0.75.apk",
+  "releasedAt": "2026-08-23"
 }

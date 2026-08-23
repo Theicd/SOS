@@ -157,18 +157,6 @@
     const autoAccept = !!detail?.autoAccept;
     if (!chat && !incomingCall) return true;
 
-    // דיכוי native אחרי דחייה/ניתוק – לא לפתוח UI שיחה שוב | HYPER CORE TECH
-    try {
-      const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.isIncomingCallSuppressed === 'function' && chat) {
-        if (bridge.isIncomingCallSuppressed(chat)) {
-          console.log('[DEEPLINK] suppressed by native', chat.slice(0, 8));
-          pending = null;
-          return true;
-        }
-      }
-    } catch (_) {}
-
     const key = `${chat}|${incomingCall}|${autoAccept ? '1' : '0'}`;
     const now = Date.now();
     if (key === lastHandledKey && now - lastHandledAt < 1200 && attempt === 0) {
@@ -310,12 +298,6 @@
     }
     const fromUrl = parseFromLocation();
     if (fromUrl.chat || fromUrl.incomingCall) {
-      try {
-        const bridge = window.SosNativeShell;
-        if (bridge && typeof bridge.isIncomingCallSuppressed === 'function' && fromUrl.chat) {
-          if (bridge.isIncomingCallSuppressed(fromUrl.chat)) return;
-        }
-      } catch (_) {}
       handleDeepLink(fromUrl);
     }
   });
