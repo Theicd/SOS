@@ -938,7 +938,7 @@
       }
 
       const currentProfile = App.profile || {};
-      const selectedName = (profileNameInput?.value || '').trim();
+      const selectedName = (profileNameInput?.value || '').trim().slice(0, 15);
       const chosenAvatar = uploadedAvatarDataUrl || currentProfile.picture || '';
       const nextProfile = {
         ...currentProfile,

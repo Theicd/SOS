@@ -1453,7 +1453,7 @@
   }
 
   function openProfileSettings() {
-    document.getElementById('profileNameInput').value = App.profile.name;
+    document.getElementById('profileNameInput').value = String(App.profile.name || '').slice(0, 15);
     document.getElementById('profileBioInput').value = App.profile.bio;
     const headlineInput = document.getElementById('profileHeadlineInput');
     if (headlineInput) headlineInput.value = App.profile.headline || '';
@@ -1485,7 +1485,7 @@
   }
 
   async function saveProfileSettings() {
-    const name = document.getElementById('profileNameInput').value.trim() || 'משתמש אנונימי';
+    const name = (document.getElementById('profileNameInput').value.trim() || 'משתמש אנונימי').slice(0, 15);
     const bio = document.getElementById('profileBioInput').value.trim();
     const headlineInput = document.getElementById('profileHeadlineInput');
     const roleInput = document.getElementById('profileRoleInput');

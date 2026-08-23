@@ -585,7 +585,7 @@
     // הרשמה - שלב שם
     if (btnNameNext) {
       btnNameNext.addEventListener('click', function() {
-        var name = signupNameInput.value.trim();
+        var name = signupNameInput.value.trim().slice(0, 15);
         if (!name) {
           setStatus('nameStatus', 'נא להזין שם', true);
           return;

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v601'; // bump - wait chat restore on notify open; keep real names
+  const CACHE_NAME = 'sos-cache-v602'; // bump - limit display name to 15 chars in chat header
   const PRECACHE_URLS = [
     './',
     './videos.html',
