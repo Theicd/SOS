@@ -13,14 +13,12 @@ import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.Executors
 
 /**
- * מסך שיחה נכנסת מקורי מעל שומר המסך.
- * אחרי «ענה» נשארים כאן (בשיחה) – WebView מקבל accept ברקע בלי לפתוח את האפליקציה בחזית.
+ * מסך שיחה נכנסת מקורי מעל שומר המסך – כמו וואטסאפ (ענה / דחה + שם + תמונה).
  */
 class IncomingCallActivity : AppCompatActivity() {
 
@@ -28,30 +26,14 @@ class IncomingCallActivity : AppCompatActivity() {
     private var callType: String = "voice"
     private var openUrl: String = ""
     private var handled = false
-    private var inCallMode = false
     private var avatarLoadToken = 0
 
     private val dismissReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                ACTION_DISMISS -> {
-                    val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
-                    if (p.isBlank() || p == peer || peer.isBlank()) {
-                        finishAndRemoveTaskSafe()
-                    }
-                }
-                ACTION_CALL_CONNECTED -> {
-                    val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
-                    if (p.isBlank() || p == peer) {
-                        runOnUiThread { showConnectedUi() }
-                    }
-                }
-                ACTION_CALL_ENDED -> {
-                    val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
-                    if (p.isBlank() || p == peer || peer.isBlank()) {
-                        finishAndRemoveTaskSafe()
-                    }
-                }
+            if (intent?.action != ACTION_DISMISS) return
+            val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
+            if (p.isBlank() || p == peer || peer.isBlank()) {
+                finishAndRemoveTaskSafe()
             }
         }
     }
@@ -64,21 +46,13 @@ class IncomingCallActivity : AppCompatActivity() {
         bindFromIntent(intent)
         wireButtons()
         registerDismissReceiver()
-        if (intent?.getBooleanExtra(EXTRA_AUTO_ANSWER, false) == true) {
-            onAnswer()
-        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (!inCallMode) {
-            handled = false
-            bindFromIntent(intent)
-        }
-        if (intent.getBooleanExtra(EXTRA_AUTO_ANSWER, false) && !inCallMode) {
-            onAnswer()
-        }
+        handled = false
+        bindFromIntent(intent)
     }
 
     override fun onDestroy() {
@@ -142,7 +116,6 @@ class IncomingCallActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.incomingCallSub).text =
             getString(R.string.incoming_call_tap_answer)
         bindAvatar(name, pictureUrl)
-        showRingingUi()
     }
 
     private fun bindAvatar(name: String, pictureUrl: String?) {
@@ -183,75 +156,47 @@ class IncomingCallActivity : AppCompatActivity() {
     private fun wireButtons() {
         findViewById<ImageButton>(R.id.btnAnswer).setOnClickListener { onAnswer() }
         findViewById<ImageButton>(R.id.btnDecline).setOnClickListener { onDecline() }
-        findViewById<ImageButton>(R.id.btnHangup).setOnClickListener { onHangup() }
-        findViewById<ImageButton>(R.id.btnOpenChats).setOnClickListener { onOpenChats() }
     }
 
-    private fun showRingingUi() {
-        inCallMode = false
-        findViewById<LinearLayout>(R.id.incomingActionsRinging)?.visibility = View.VISIBLE
-        findViewById<LinearLayout>(R.id.incomingActionsInCall)?.visibility = View.GONE
-    }
-
-    private fun showInCallUi() {
-        inCallMode = true
-        findViewById<LinearLayout>(R.id.incomingActionsRinging)?.visibility = View.GONE
-        findViewById<LinearLayout>(R.id.incomingActionsInCall)?.visibility = View.VISIBLE
-        findViewById<TextView>(R.id.incomingCallSub).text =
-            getString(R.string.incoming_call_connecting)
-        findViewById<TextView>(R.id.incomingCallLabel).text =
-            getString(R.string.incoming_call_connecting)
-    }
-
-    private fun showConnectedUi() {
-        if (!inCallMode) showInCallUi()
-        findViewById<TextView>(R.id.incomingCallSub).text =
-            getString(R.string.incoming_call_in_progress)
-        findViewById<TextView>(R.id.incomingCallLabel).text =
-            getString(R.string.incoming_call_in_progress)
-    }
-
-    /**
-     * ענה – נשארים על מסך Native; WebView מקבל accept ברקע בלי UI בחזית.
-     */
     private fun onAnswer() {
-        if (handled && inCallMode) return
+        if (handled) return
         handled = true
         SosIncomingCallSession.markAnswered(applicationContext, peer)
-        NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
-        CallSoundHelper.stopRingtone()
-        showInCallUi()
-        SosDebugLog.i("call", "native answer stay-on-ui peer=${peer.take(8)}")
-        MainActivity.startBackgroundCallAccept(applicationContext, peer, callType, openUrl)
+        NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false)
+        val launch = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
+            putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
+            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
+            putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
+        }
+        startActivity(launch)
+        finish()
     }
 
     private fun onDecline() {
-        if (handled && inCallMode) return
+        if (handled) return
         handled = true
         SosIncomingCallSession.markDeclined(applicationContext, peer)
         SosPendingCallStore.clear(applicationContext)
-        NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
+        NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true)
         CallSoundHelper.stopAll()
-        MainActivity.startBackgroundCallDecline(applicationContext, peer, callType)
+        val launch = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_DECLINE)
+            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
+            putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
+            putExtra(MainActivity.EXTRA_START_IN_BACKGROUND, true)
+        }
+        try {
+            startActivity(launch)
+        } catch (_: Exception) {
+        }
         finishAndRemoveTaskSafe()
-    }
-
-    private fun onHangup() {
-        SosDebugLog.i("call", "native hangup peer=${peer.take(8)}")
-        NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
-        CallSoundHelper.stopAll()
-        MainActivity.startBackgroundCallHangup(applicationContext, peer, callType)
-        SosIncomingCallSession.markRemoteEnded(applicationContext, peer)
-        SosPendingCallStore.clear(applicationContext)
-        finishAndRemoveTaskSafe()
-    }
-
-    /** פתיחת רשימת שיחות בממשק – רק אם המשתמש בחר | HYPER CORE TECH */
-    private fun onOpenChats() {
-        SosDebugLog.i("call", "open chats from native in-call peer=${peer.take(8)}")
-        MainActivity.bringToFrontChatList(applicationContext, peer)
-        // המסך Native נסגר; השיחה ממשיכה ב־WebView עם UI ווב | HYPER CORE TECH
-        finish()
     }
 
     private fun finishAndRemoveTaskSafe() {
@@ -263,11 +208,7 @@ class IncomingCallActivity : AppCompatActivity() {
     }
 
     private fun registerDismissReceiver() {
-        val filter = IntentFilter().apply {
-            addAction(ACTION_DISMISS)
-            addAction(ACTION_CALL_CONNECTED)
-            addAction(ACTION_CALL_ENDED)
-        }
+        val filter = IntentFilter(ACTION_DISMISS)
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(dismissReceiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
@@ -277,17 +218,14 @@ class IncomingCallActivity : AppCompatActivity() {
     }
 
     companion object {
-        private val avatarExecutor = Executors.newSingleThreadExecutor()
-
-        const val EXTRA_PEER = "incoming_peer"
-        const val EXTRA_CALL_TYPE = "incoming_call_type"
-        const val EXTRA_CALLER_NAME = "incoming_caller_name"
-        const val EXTRA_CALLER_PICTURE = "incoming_caller_picture"
-        const val EXTRA_OPEN_URL = "incoming_open_url"
-        const val EXTRA_AUTO_ANSWER = "incoming_auto_answer"
         const val ACTION_DISMISS = "com.sos010.app.ACTION_DISMISS_INCOMING_CALL"
-        const val ACTION_CALL_CONNECTED = "com.sos010.app.ACTION_NATIVE_CALL_CONNECTED"
-        const val ACTION_CALL_ENDED = "com.sos010.app.ACTION_NATIVE_CALL_ENDED"
+        const val EXTRA_PEER = "call_peer"
+        const val EXTRA_CALL_TYPE = "call_type"
+        const val EXTRA_CALLER_NAME = "caller_name"
+        const val EXTRA_CALLER_PICTURE = "caller_picture"
+        const val EXTRA_OPEN_URL = "open_url"
+
+        private val avatarExecutor = Executors.newSingleThreadExecutor()
 
         fun launch(
             context: Context,
@@ -295,21 +233,22 @@ class IncomingCallActivity : AppCompatActivity() {
             callType: String,
             callerName: String,
             openUrl: String,
-            pictureUrl: String = "",
-            autoAnswer: Boolean = false
+            callerPicture: String = ""
         ) {
             val app = context.applicationContext
+            val picture = callerPicture.trim().ifBlank {
+                SosContactCache.get(app, peer)?.picture.orEmpty()
+            }
             val intent = Intent(app, IncomingCallActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                putExtra(EXTRA_PEER, peer.trim().lowercase())
+                putExtra(EXTRA_PEER, peer)
                 putExtra(EXTRA_CALL_TYPE, callType)
                 putExtra(EXTRA_CALLER_NAME, callerName)
-                putExtra(EXTRA_CALLER_PICTURE, pictureUrl)
+                putExtra(EXTRA_CALLER_PICTURE, picture)
                 putExtra(EXTRA_OPEN_URL, openUrl)
-                putExtra(EXTRA_AUTO_ANSWER, autoAnswer)
             }
             try {
                 app.startActivity(intent)
@@ -318,37 +257,12 @@ class IncomingCallActivity : AppCompatActivity() {
         }
 
         fun dismiss(context: Context, peer: String? = null) {
-            val app = context.applicationContext
             val intent = Intent(ACTION_DISMISS).apply {
-                setPackage(app.packageName)
-                if (!peer.isNullOrBlank()) putExtra(EXTRA_PEER, peer.trim().lowercase())
+                setPackage(context.packageName)
+                if (!peer.isNullOrBlank()) putExtra(EXTRA_PEER, peer)
             }
             try {
-                app.sendBroadcast(intent)
-            } catch (_: Exception) {
-            }
-        }
-
-        fun notifyConnected(context: Context, peer: String?) {
-            val app = context.applicationContext
-            val intent = Intent(ACTION_CALL_CONNECTED).apply {
-                setPackage(app.packageName)
-                if (!peer.isNullOrBlank()) putExtra(EXTRA_PEER, peer.trim().lowercase())
-            }
-            try {
-                app.sendBroadcast(intent)
-            } catch (_: Exception) {
-            }
-        }
-
-        fun notifyEnded(context: Context, peer: String?) {
-            val app = context.applicationContext
-            val intent = Intent(ACTION_CALL_ENDED).apply {
-                setPackage(app.packageName)
-                if (!peer.isNullOrBlank()) putExtra(EXTRA_PEER, peer.trim().lowercase())
-            }
-            try {
-                app.sendBroadcast(intent)
+                context.applicationContext.sendBroadcast(intent)
             } catch (_: Exception) {
             }
         }

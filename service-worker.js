@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v590'; // bump - native in-call stay + voice JS bridge
+  const CACHE_NAME = 'sos-cache-v591'; // bump - restore backup before native in-call / log split
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.23-pwa269-native-incall",
-  "note": "Native answer stays on shell call UI; WebRTC accept in background WebView"
+  "version": "2026.08.23-pwa270-restore-pre-shell",
+  "note": "Restore backup before native in-call and log-filter changes (LoadNug static bg era)"
 }

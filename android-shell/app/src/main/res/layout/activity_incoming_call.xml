@@ -85,7 +85,6 @@
             android:layout_weight="1.2" />
 
         <LinearLayout
-            android:id="@+id/incomingActionsRinging"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
@@ -109,7 +108,6 @@
                     android:src="@drawable/ic_call_decline" />
 
                 <TextView
-                    android:id="@+id/btnDeclineLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
@@ -136,72 +134,10 @@
                     android:src="@drawable/ic_call_answer" />
 
                 <TextView
-                    android:id="@+id/btnAnswerLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="@string/call_answer"
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/incomingActionsInCall"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageButton
-                    android:id="@+id/btnHangup"
-                    android:layout_width="76dp"
-                    android:layout_height="76dp"
-                    android:background="@drawable/bg_call_decline"
-                    android:contentDescription="@string/call_hangup"
-                    android:padding="22dp"
-                    android:scaleType="centerInside"
-                    android:src="@drawable/ic_call_decline" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/call_hangup"
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <ImageButton
-                    android:id="@+id/btnOpenChats"
-                    android:layout_width="76dp"
-                    android:layout_height="76dp"
-                    android:background="@drawable/bg_call_answer"
-                    android:contentDescription="@string/call_open_chats"
-                    android:padding="22dp"
-                    android:scaleType="centerInside"
-                    android:src="@drawable/ic_stat_sos" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/call_open_chats"
                     android:textColor="#FFFFFF"
                     android:textSize="15sp" />
             </LinearLayout>

@@ -11,11 +11,7 @@
     <string name="call_someone">מישהו</string>
     <string name="call_answer">ענה</string>
     <string name="call_decline">דחה</string>
-    <string name="call_hangup">נתק</string>
-    <string name="call_open_chats">שיחות</string>
     <string name="incoming_call_tap_answer">לחץ ענה כדי להתחבר</string>
-    <string name="incoming_call_connecting">מתחבר לשיחה…</string>
-    <string name="incoming_call_in_progress">בשיחה</string>
     <string name="channel_keepalive">SOS ברקע</string>
     <string name="channel_keepalive_desc">שומר את SOS פעיל לקבלת הודעות</string>
     <string name="fg_title">SOS פעיל ברקע</string>

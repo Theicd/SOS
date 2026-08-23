@@ -1,7 +1,7 @@
 {
-  "version": "1.0.70",
-  "versionCode": 71,
-  "file": "SOS-1.0.70.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.70/SOS-1.0.70.apk",
-  "note": "Native in-call UI stays after answer; WebView accept in background"
+  "version": "1.0.71",
+  "versionCode": 72,
+  "file": "SOS-1.0.71.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.71/SOS-1.0.71.apk",
+  "note": "Restore backup before native in-call UI and debug log split; same as 1.0.69/pwa267 era"
 }

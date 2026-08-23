@@ -175,10 +175,6 @@ class MainActivity : AppCompatActivity() {
             injectPendingCallAction()
             injectWarmForCall()
             injectWarmForP2p()
-            if (intent?.getBooleanExtra(EXTRA_OPEN_CHAT_LIST, false) == true) {
-                injectOpenChatList()
-                intent?.putExtra(EXTRA_OPEN_CHAT_LIST, false)
-            }
         } else {
             val url = resolveStartUrl(intent)
             if (this::webView.isInitialized) {
@@ -212,10 +208,6 @@ class MainActivity : AppCompatActivity() {
                     injectPendingCallAction()
                     injectWarmForCall()
                     injectWarmForP2p()
-                    if (intent?.getBooleanExtra(EXTRA_OPEN_CHAT_LIST, false) == true) {
-                        injectOpenChatList()
-                        intent?.putExtra(EXTRA_OPEN_CHAT_LIST, false)
-                    }
                 }
                 injectNativeFilePickScript()
                 injectNativeVideoFixScript()
@@ -265,10 +257,6 @@ class MainActivity : AppCompatActivity() {
                 injectPendingCallAction()
                 injectWarmForCall()
                 injectWarmForP2p()
-                if (intent?.getBooleanExtra(EXTRA_OPEN_CHAT_LIST, false) == true) {
-                    injectOpenChatList()
-                    intent?.putExtra(EXTRA_OPEN_CHAT_LIST, false)
-                }
             }
             injectNativeFilePickScript()
             injectNativeVideoFixScript()
@@ -493,7 +481,7 @@ class MainActivity : AppCompatActivity() {
                 CallActionReceiver.ACTION_DECLINE -> CALL_ACTION_DECLINE
                 else -> null
             }
-        if (action == CALL_ACTION_DECLINE || action == CALL_ACTION_HANGUP) {
+        if (action == CALL_ACTION_DECLINE) {
             mainHandler.postDelayed({
                 try {
                     moveTaskToBack(true)
@@ -553,21 +541,16 @@ class MainActivity : AppCompatActivity() {
         if (action == CALL_ACTION_ANSWER) {
             pendingAutoAccept = true
             openedFromCallIntent = true
-            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false, dismissUi = false)
+            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false)
             // מסתירים loading מיד במענה | HYPER CORE TECH
             if (this::loading.isInitialized) loading.visibility = View.GONE
-        }
-        if (action == CALL_ACTION_HANGUP) {
-            pendingAutoAccept = false
-            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
-            CallSoundHelper.stopAll()
         }
         if (action == CALL_ACTION_DECLINE) {
             pendingAutoAccept = false
             val peer = intent.getStringExtra(EXTRA_CALL_PEER) ?: pendingDeepLinkPeer
             SosIncomingCallSession.markDeclined(applicationContext, peer)
             SosPendingCallStore.clear(applicationContext)
-            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
+            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true)
             CallSoundHelper.stopAll()
         }
     }
@@ -760,16 +743,6 @@ class MainActivity : AppCompatActivity() {
             pendingAutoAccept = false
             return
         }
-        if (action == CALL_ACTION_HANGUP) {
-            val peer = intent?.getStringExtra(EXTRA_CALL_PEER)
-                ?.trim()
-                ?.lowercase()
-                .orEmpty()
-            val type = intent?.getStringExtra(EXTRA_CALL_TYPE)?.lowercase() ?: "voice"
-            injectNativeHangup(peer, type)
-            pendingCallAction = null
-            return
-        }
         if (action != CALL_ACTION_DECLINE) return
         val peer = intent?.getStringExtra(EXTRA_CALL_PEER)
             ?.trim()
@@ -785,11 +758,9 @@ class MainActivity : AppCompatActivity() {
         val peerJs = JSONObject.quote(peer)
         val typeJs = JSONObject.quote(callType)
         val rawEventJs = JSONObject.quote(SosPendingCallStore.getRawEventJson(applicationContext))
-        val nativeUi = intent?.getBooleanExtra(EXTRA_NATIVE_INCALL_UI, false) == true
         val js = """
             (function(){
               try {
-                window.__sosNativeInCallUi = ${if (nativeUi) "true" else "false"};
                 var App = window.NostrApp || {};
                 if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
                 if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
@@ -804,73 +775,7 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
         }
         // retries מהירים – העמוד אמור להיות חם מחימום בזמן צלצול | HYPER CORE TECH
-        listOf(200L, 600L, 1200L, 2500L, 4500L, 8000L, 12000L).forEach { delay ->
-            mainHandler.postDelayed({
-                if (!this::webView.isInitialized) return@postDelayed
-                try {
-                    webView.evaluateJavascript(js, null)
-                } catch (_: Exception) {
-                }
-            }, delay)
-        }
-    }
-
-    private fun injectNativeHangup(peer: String, callType: String) {
-        if (!this::webView.isInitialized) return
-        val peerJs = JSONObject.quote(peer)
-        val typeJs = JSONObject.quote(callType)
-        val js = """
-            (function(){
-              try {
-                window.__sosNativeInCallUi = false;
-                var App = window.NostrApp || {};
-                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
-                if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
-                if ($typeJs === 'video' && typeof App.endVideoCall === 'function') {
-                  App.endVideoCall();
-                } else if (typeof App.endVoiceCall === 'function') {
-                  App.endVoiceCall();
-                } else if (App.voiceCall && typeof App.voiceCall.end === 'function') {
-                  App.voiceCall.end();
-                }
-                window.__sosIncomingCallActive = false;
-              } catch (e) {}
-            })();
-        """.trimIndent()
-        try {
-            webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected hangup peer=${peer.take(8)}")
-        } catch (_: Exception) {
-        }
-        listOf(400L, 1200L, 2500L).forEach { delay ->
-            mainHandler.postDelayed({
-                if (!this::webView.isInitialized) return@postDelayed
-                try {
-                    webView.evaluateJavascript(js, null)
-                } catch (_: Exception) {
-                }
-            }, delay)
-        }
-    }
-
-    private fun injectOpenChatList() {
-        if (!this::webView.isInitialized) return
-        val js = """
-            (function(){
-              try {
-                window.__sosNativeInCallUi = false;
-                var App = window.NostrApp || {};
-                if (typeof App.toggleChatPanel === 'function') {
-                  App.toggleChatPanel(true);
-                }
-              } catch (e) {}
-            })();
-        """.trimIndent()
-        try {
-            webView.evaluateJavascript(js, null)
-        } catch (_: Exception) {
-        }
-        listOf(500L, 1500L, 3000L).forEach { delay ->
+        listOf(200L, 600L, 1200L, 2500L, 4500L).forEach { delay ->
             mainHandler.postDelayed({
                 if (!this::webView.isInitialized) return@postDelayed
                 try {
@@ -1086,10 +991,6 @@ class MainActivity : AppCompatActivity() {
                 injectWarmForP2p()
                 injectPendingDeepLink()
                 injectPendingCallAction()
-                if (intent?.getBooleanExtra(EXTRA_OPEN_CHAT_LIST, false) == true) {
-                    injectOpenChatList()
-                    intent?.putExtra(EXTRA_OPEN_CHAT_LIST, false)
-                }
             }
         }
 
@@ -1758,11 +1659,8 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_CALL_TYPE = "call_type"
         const val EXTRA_WARM_FOR_CALL = "warm_for_call"
         const val EXTRA_WARM_FOR_P2P = "warm_for_p2p"
-        const val EXTRA_NATIVE_INCALL_UI = "native_incall_ui"
-        const val EXTRA_OPEN_CHAT_LIST = "open_chat_list"
         const val CALL_ACTION_ANSWER = "answer"
         const val CALL_ACTION_DECLINE = "decline"
-        const val CALL_ACTION_HANGUP = "hangup"
 
         @JvmField
         @Volatile
@@ -1788,95 +1686,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) {
                 }
-            }
-        }
-
-        /** ענה ברקע – WebView מקבל accept בלי להביא את האפליקציה לחזית | HYPER CORE TECH */
-        fun startBackgroundCallAccept(
-            context: Context,
-            peer: String,
-            callType: String,
-            openUrl: String = SosCallUrls.acceptPage(callType)
-        ) {
-            val app = context.applicationContext
-            val pk = peer.trim().lowercase()
-            val type = when (callType.trim().lowercase()) {
-                "video", "v", "v-offer" -> "video"
-                else -> "voice"
-            }
-            val intent = Intent(app, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                putExtra(EXTRA_START_IN_BACKGROUND, true)
-                putExtra(EXTRA_NATIVE_INCALL_UI, true)
-                putExtra(EXTRA_CALL_ACTION, CALL_ACTION_ANSWER)
-                putExtra(EXTRA_CALL_PEER, pk)
-                putExtra(EXTRA_CALL_TYPE, type)
-                putExtra(EXTRA_OPEN_URL, openUrl.ifBlank { SosCallUrls.acceptPage(type) })
-                putExtra(EXTRA_WARM_FOR_CALL, true)
-            }
-            try {
-                app.startActivity(intent)
-                SosDebugLog.i("call", "bg accept launched peer=${pk.take(8)}")
-            } catch (e: Exception) {
-                SosDebugLog.e("call", "bg accept failed: ${e.message}")
-            }
-        }
-
-        fun startBackgroundCallDecline(context: Context, peer: String, callType: String) {
-            val app = context.applicationContext
-            val intent = Intent(app, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                putExtra(EXTRA_START_IN_BACKGROUND, true)
-                putExtra(EXTRA_CALL_ACTION, CALL_ACTION_DECLINE)
-                putExtra(EXTRA_CALL_PEER, peer.trim().lowercase())
-                putExtra(EXTRA_CALL_TYPE, callType)
-            }
-            try {
-                app.startActivity(intent)
-            } catch (_: Exception) {
-            }
-        }
-
-        fun startBackgroundCallHangup(context: Context, peer: String, callType: String) {
-            val app = context.applicationContext
-            val intent = Intent(app, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                putExtra(EXTRA_START_IN_BACKGROUND, true)
-                putExtra(EXTRA_CALL_ACTION, CALL_ACTION_HANGUP)
-                putExtra(EXTRA_CALL_PEER, peer.trim().lowercase())
-                putExtra(EXTRA_CALL_TYPE, callType)
-            }
-            try {
-                app.startActivity(intent)
-            } catch (_: Exception) {
-            }
-        }
-
-        /** פתיחת רשימת שיחות בחזית בזמן שיחה פעילה | HYPER CORE TECH */
-        fun bringToFrontChatList(context: Context, peer: String?) {
-            val app = context.applicationContext
-            val intent = Intent(app, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                putExtra(EXTRA_OPEN_CHAT_LIST, true)
-                putExtra(EXTRA_START_IN_BACKGROUND, false)
-                if (!peer.isNullOrBlank()) putExtra(EXTRA_CALL_PEER, peer.trim().lowercase())
-                putExtra(EXTRA_OPEN_URL, SosCallUrls.warmPage())
-            }
-            try {
-                app.startActivity(intent)
-            } catch (_: Exception) {
             }
         }
 
