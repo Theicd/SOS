@@ -541,7 +541,7 @@ class MainActivity : AppCompatActivity() {
         if (action == CALL_ACTION_ANSWER) {
             pendingAutoAccept = true
             openedFromCallIntent = true
-            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false, dismissUi = false)
+            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false, dismissUi = true)
             // מסתירים loading מיד במענה | HYPER CORE TECH
             if (this::loading.isInitialized) loading.visibility = View.GONE
         }
@@ -773,7 +773,7 @@ class MainActivity : AppCompatActivity() {
         val js = """
             (function(){
               try {
-                window.__sosNativeInCallUi = true;
+                window.__sosNativeInCallUi = false;
                 if (window.__sosAcceptSucceededPeer === $peerJs) return;
                 if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === $peerJs) return;
                 var App = window.NostrApp || {};

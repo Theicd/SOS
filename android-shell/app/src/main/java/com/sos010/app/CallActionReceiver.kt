@@ -7,6 +7,7 @@ import android.util.Log
 
 /**
  * פעולות ענה/דחה מהתראת שיחה נכנסת (CallStyle).
+ * ענה → MainActivity בחזית (WebRTC דורש Activity גלויה).
  */
 class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -29,26 +30,24 @@ class CallActionReceiver : BroadcastReceiver() {
                 MainActivity.startBackgroundCallDecline(app, peer, callType)
             }
             ACTION_ANSWER -> {
-                // מסך שיחה נייטיבי + מענה ברקע (בלי לגנוב את ה־UI לפיד) | HYPER CORE TECH
+                SosIncomingCallSession.markAnswered(app, peer)
+                NotificationHelper.cancelIncomingCall(app, stopSound = true, dismissUi = true)
                 val openUrl = intent.getStringExtra(MainActivity.EXTRA_OPEN_URL)
                     ?: SosCallUrls.acceptPage(callType)
-                val name = SosContactCache.displayName(app, peer, app.getString(R.string.call_someone))
-                val launch = Intent(app, IncomingCallActivity::class.java).apply {
+                val launch = Intent(app, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                    putExtra(IncomingCallActivity.EXTRA_PEER, peer)
-                    putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType)
-                    putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, name)
-                    putExtra(IncomingCallActivity.EXTRA_OPEN_URL, openUrl)
-                    putExtra(IncomingCallActivity.EXTRA_AUTO_ANSWER, true)
+                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
+                    putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
+                    putExtra(MainActivity.EXTRA_CALL_PEER, peer)
+                    putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
                 }
                 try {
                     app.startActivity(launch)
                 } catch (err: Exception) {
                     Log.w(TAG, "answer launch failed: ${err.message}")
-                    MainActivity.startBackgroundCallAccept(app, peer, callType, openUrl)
                 }
             }
         }

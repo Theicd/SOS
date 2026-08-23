@@ -18,7 +18,8 @@ import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.Executors
 
 /**
- * מסך שיחה נכנסת/בשיחה – נשאר אחרי ענה; WebRTC רץ ב־WebView ברקע.
+ * מסך צלצול נכנס – ענה פותח את MainActivity בחזית (WebRTC/מיקרופון דורשים Activity גלויה).
+ * חימום WebView מתחיל כבר במסך הצלצול (לא כ־start ברקע שמערכת אנדרואיד מעכבת).
  */
 class IncomingCallActivity : AppCompatActivity() {
 
@@ -26,44 +27,15 @@ class IncomingCallActivity : AppCompatActivity() {
     private var callType: String = "voice"
     private var openUrl: String = ""
     private var handled = false
-    private var inCall = false
     private var avatarLoadToken = 0
-    private var callConnectedAt = 0L
-    private val timerHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val timerTick = object : Runnable {
-        override fun run() {
-            if (!inCall || callConnectedAt <= 0L) return
-            val sec = ((System.currentTimeMillis() - callConnectedAt) / 1000L).toInt().coerceAtLeast(0)
-            val mm = sec / 60
-            val ss = sec % 60
-            findViewById<TextView>(R.id.incomingCallSub)?.text =
-                getString(R.string.call_in_progress) + "  " + String.format("%02d:%02d", mm, ss)
-            timerHandler.postDelayed(this, 1000L)
-        }
-    }
+    private var warmed = false
 
     private val dismissReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                ACTION_DISMISS -> {
-                    val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
-                    // בזמן שיחה פעילה לא סוגרים בגלל cancel התראה | HYPER CORE TECH
-                    if (inCall) return
-                    if (p.isBlank() || p == peer || peer.isBlank()) {
-                        finishAndRemoveTaskSafe()
-                    }
-                }
-                ACTION_CALL_CONNECTED -> {
-                    val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
-                    if (p.isBlank() || p == peer) showInCallUi()
-                }
-                ACTION_CALL_ENDED -> {
-                    val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
-                    if (p.isBlank() || p == peer || peer.isBlank()) {
-                        stopNativeCallTimer()
-                        finishAndRemoveTaskSafe()
-                    }
-                }
+            if (intent?.action != ACTION_DISMISS) return
+            val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
+            if (p.isBlank() || p == peer || peer.isBlank()) {
+                finishAndRemoveTaskSafe()
             }
         }
     }
@@ -76,6 +48,8 @@ class IncomingCallActivity : AppCompatActivity() {
         bindFromIntent(intent)
         wireButtons()
         registerDismissReceiver()
+        // חימום מיידי כל עוד מסך הצלצול בחזית – עוקף עיכוב startActivity ברקע | HYPER CORE TECH
+        warmWebViewNow()
         if (intent?.getBooleanExtra(EXTRA_AUTO_ANSWER, false) == true) {
             findViewById<View>(R.id.incomingRoot)?.post { onAnswer() }
         }
@@ -84,15 +58,15 @@ class IncomingCallActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (!inCall) handled = false
+        handled = false
         bindFromIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_AUTO_ANSWER, false) && !inCall) {
+        warmWebViewNow()
+        if (intent.getBooleanExtra(EXTRA_AUTO_ANSWER, false)) {
             findViewById<View>(R.id.incomingRoot)?.post { onAnswer() }
         }
     }
 
     override fun onDestroy() {
-        stopNativeCallTimer()
         try {
             unregisterReceiver(dismissReceiver)
         } catch (_: Exception) {
@@ -150,11 +124,10 @@ class IncomingCallActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.incomingCallLabel).text =
             if (callType == "video") getString(R.string.incoming_video_call)
             else getString(R.string.incoming_voice_call)
-        if (!inCall) {
-            findViewById<TextView>(R.id.incomingCallSub).text =
-                getString(R.string.incoming_call_tap_answer)
-            showRingingActions()
-        }
+        findViewById<TextView>(R.id.incomingCallSub).text =
+            getString(R.string.incoming_call_tap_answer)
+        findViewById<View>(R.id.ringingActions)?.visibility = View.VISIBLE
+        findViewById<View>(R.id.inCallActions)?.visibility = View.GONE
         bindAvatar(name, pictureUrl)
     }
 
@@ -196,66 +169,48 @@ class IncomingCallActivity : AppCompatActivity() {
     private fun wireButtons() {
         findViewById<ImageButton>(R.id.btnAnswer).setOnClickListener { onAnswer() }
         findViewById<ImageButton>(R.id.btnDecline).setOnClickListener { onDecline() }
-        findViewById<ImageButton>(R.id.btnHangup)?.setOnClickListener { onHangup() }
-        findViewById<ImageButton>(R.id.btnOpenChats)?.setOnClickListener { onOpenChats() }
     }
 
-    private fun showRingingActions() {
-        findViewById<View>(R.id.ringingActions)?.visibility = View.VISIBLE
-        findViewById<View>(R.id.inCallActions)?.visibility = View.GONE
-    }
-
-    private fun showConnectingUi() {
-        inCall = true
-        findViewById<TextView>(R.id.incomingCallSub).text = getString(R.string.call_connecting)
-        findViewById<View>(R.id.ringingActions)?.visibility = View.GONE
-        findViewById<View>(R.id.inCallActions)?.visibility = View.VISIBLE
-    }
-
-    private fun showInCallUi() {
-        inCall = true
-        if (callConnectedAt <= 0L) {
-            callConnectedAt = System.currentTimeMillis()
-        }
-        findViewById<View>(R.id.ringingActions)?.visibility = View.GONE
-        findViewById<View>(R.id.inCallActions)?.visibility = View.VISIBLE
-        startNativeCallTimer()
-    }
-
-    private fun startNativeCallTimer() {
-        timerHandler.removeCallbacks(timerTick)
-        timerHandler.post(timerTick)
-    }
-
-    private fun stopNativeCallTimer() {
-        timerHandler.removeCallbacks(timerTick)
-        callConnectedAt = 0L
+    /** מחמם WebView בזמן צלצול – הפעלה מחזית (מסך השיחה) ולא כ־bg start מעוכב | HYPER CORE TECH */
+    private fun warmWebViewNow() {
+        if (warmed || peer.length != 64) return
+        warmed = true
+        SosDebugLog.i("call", "ring UI warm peer=${peer.take(8)}")
+        MainActivity.warmHostForIncomingCall(applicationContext, peer, callType)
     }
 
     private fun onAnswer() {
         if (handled) return
         handled = true
         SosIncomingCallSession.markAnswered(applicationContext, peer)
-        // לא סוגרים את מסך השיחה – רק התראה/צלצול | HYPER CORE TECH
+        rememberPendingOfferHandled()
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopRingtone()
-        showConnectingUi()
-        MainActivity.startBackgroundCallAccept(applicationContext, peer, callType, openUrl)
+        findViewById<TextView>(R.id.incomingCallSub)?.text = getString(R.string.call_connecting)
+
+        // בחזית – Android נותן מיקרופון/WebRTC רק כש־Activity גלויה | HYPER CORE TECH
+        val launch = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
+            putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
+            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
+            putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
+        }
+        try {
+            startActivity(launch)
+        } catch (_: Exception) {
+        }
+        finish()
     }
 
     private fun onDecline() {
-        if (handled && inCall) return
         if (handled) return
         handled = true
         SosIncomingCallSession.markDeclined(applicationContext, peer)
-        try {
-            val raw = SosPendingCallStore.getRawEventJson(applicationContext)
-            if (raw.isNotBlank()) {
-                val id = org.json.JSONObject(raw).optJSONObject("event")?.optString("id")
-                SosIncomingCallSession.rememberHandledOffer(applicationContext, id)
-            }
-        } catch (_: Exception) {
-        }
+        rememberPendingOfferHandled()
         SosPendingCallStore.clear(applicationContext)
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopAll()
@@ -263,17 +218,14 @@ class IncomingCallActivity : AppCompatActivity() {
         finishAndRemoveTaskSafe()
     }
 
-    private fun onHangup() {
-        stopNativeCallTimer()
-        SosIncomingCallSession.markRemoteEnded(applicationContext, peer)
-        SosPendingCallStore.clear(applicationContext)
-        CallSoundHelper.stopAll()
-        MainActivity.startBackgroundCallHangup(applicationContext, peer, callType)
-        finishAndRemoveTaskSafe()
-    }
-
-    private fun onOpenChats() {
-        MainActivity.bringToFrontChatList(applicationContext)
+    private fun rememberPendingOfferHandled() {
+        try {
+            val raw = SosPendingCallStore.getRawEventJson(applicationContext)
+            if (raw.isBlank()) return
+            val id = org.json.JSONObject(raw).optJSONObject("event")?.optString("id")
+            SosIncomingCallSession.rememberHandledOffer(applicationContext, id)
+        } catch (_: Exception) {
+        }
     }
 
     private fun finishAndRemoveTaskSafe() {
@@ -285,11 +237,7 @@ class IncomingCallActivity : AppCompatActivity() {
     }
 
     private fun registerDismissReceiver() {
-        val filter = IntentFilter().apply {
-            addAction(ACTION_DISMISS)
-            addAction(ACTION_CALL_CONNECTED)
-            addAction(ACTION_CALL_ENDED)
-        }
+        val filter = IntentFilter(ACTION_DISMISS)
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(dismissReceiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
@@ -352,25 +300,12 @@ class IncomingCallActivity : AppCompatActivity() {
         }
 
         fun notifyCallConnected(context: Context, peer: String?) {
-            val intent = Intent(ACTION_CALL_CONNECTED).apply {
-                setPackage(context.packageName)
-                if (!peer.isNullOrBlank()) putExtra(EXTRA_PEER, peer.trim().lowercase())
-            }
-            try {
-                context.applicationContext.sendBroadcast(intent)
-            } catch (_: Exception) {
-            }
+            // נשאר לתאימות גשר JS – אחרי פישוט המענה ה־UI הוא הווב בחזית
+            SosDebugLog.i("call", "connected peer=${peer?.take(8)}")
         }
 
         fun notifyCallEnded(context: Context, peer: String?) {
-            val intent = Intent(ACTION_CALL_ENDED).apply {
-                setPackage(context.packageName)
-                if (!peer.isNullOrBlank()) putExtra(EXTRA_PEER, peer.trim().lowercase())
-            }
-            try {
-                context.applicationContext.sendBroadcast(intent)
-            } catch (_: Exception) {
-            }
+            dismiss(context, peer)
         }
     }
 }

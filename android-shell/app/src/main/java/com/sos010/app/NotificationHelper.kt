@@ -300,17 +300,15 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val answerIntent = Intent(app, IncomingCallActivity::class.java).apply {
+        val answerIntent = Intent(app, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                Intent.FLAG_ACTIVITY_NO_USER_ACTION
-            putExtra(IncomingCallActivity.EXTRA_PEER, peer)
-            putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, type)
-            putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, displayName)
-            putExtra(IncomingCallActivity.EXTRA_CALLER_PICTURE, pictureUrl)
-            putExtra(IncomingCallActivity.EXTRA_OPEN_URL, openUrl)
-            putExtra(IncomingCallActivity.EXTRA_AUTO_ANSWER, true)
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            putExtra(MainActivity.EXTRA_OPEN_URL, SosCallUrls.acceptPage(type))
+            putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
+            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
+            putExtra(MainActivity.EXTRA_CALL_TYPE, type)
         }
         val answerPi = PendingIntent.getActivity(
             app,
