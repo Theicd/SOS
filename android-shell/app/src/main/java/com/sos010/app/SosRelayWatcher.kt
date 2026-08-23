@@ -285,6 +285,7 @@ class SosRelayWatcher(private val appContext: Context) {
                     Log.w(TAG, "save raw offer failed: ${err.message}")
                 }
                 if (SosIncomingCallSession.isSameActiveCall(appContext, author)) {
+                    SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
                     Log.i(TAG, "duplicate active offer from ${author.take(8)} (raw refreshed)")
                     return
                 }
@@ -295,7 +296,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 val openUrl = SosCallUrls.acceptPage(callType)
 
                 // גם כשהממשק פתוח – אם המסך כבוי/ברקע isHostAlive=false.
-                // כשהממשק בחזית: Web מציג דיאלוג; עדיין מציגים התראת CallStyle בלי FSI כפול.
+                // כשהממשק בחזית: Web מציג דיאלוג; לא מסמנים handled כאן כדי לא לחסום FSI אם עוברים לרקע בזמן צלצול | HYPER CORE TECH
                 if (MainActivity.isHostAlive) {
                     Log.i(TAG, "host alive – web handles UI, raw offer cached")
                     SosDebugLog.i("relay", "call skip hostAlive from=${author.take(8)}")

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v602'; // bump - limit display name to 15 chars in chat header
+  const CACHE_NAME = 'sos-cache-v603'; // bump - block ghost ringtone during/after active call
   const PRECACHE_URLS = [
     './',
     './videos.html',

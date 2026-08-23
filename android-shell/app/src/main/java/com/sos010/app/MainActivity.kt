@@ -222,13 +222,17 @@ class MainActivity : AppCompatActivity() {
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
         NotificationHelper.clearMessageNotifications(this)
-        val ringingPeer = SosIncomingCallSession.activePeer(this)
+        // רק בשלב צלצול – אחרי markAnswered לא מזריקים שוב incomingCall (מונע מסך ענה באמצע שיחה) | HYPER CORE TECH
+        val ringingPeer = SosIncomingCallSession.ringingPeer(this)
         if (!ringingPeer.isNullOrBlank() && !openedFromCallIntent) {
             // פתיחת מסך בזמן צלצול – מעבירים ל-UI שיחה בלי לעצור את הצלצול | HYPER CORE TECH
             pendingDeepLinkPeer = ringingPeer
             pendingIncomingCall = SosIncomingCallSession.activeCallType(this)
             openedFromCallIntent = true
             suppressCallCancelUntil = System.currentTimeMillis() + 8000L
+        } else if (SosIncomingCallSession.isAnsweredPhase(this) && !openedFromCallIntent) {
+            // בשיחה פעילה – עוצרים צלצול שבור אם נשאר, בלי deeplink של ענה | HYPER CORE TECH
+            CallSoundHelper.stopRingtone()
         } else if (!openedFromCallIntent && System.currentTimeMillis() >= suppressCallCancelUntil) {
             CallSoundHelper.stopAll()
             NotificationHelper.cancelIncomingCall(this)

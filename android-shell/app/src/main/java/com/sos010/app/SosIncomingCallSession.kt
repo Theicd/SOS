@@ -13,7 +13,10 @@ object SosIncomingCallSession {
     private const val KEY_ACTIVE_PEER = "active_peer"
     private const val KEY_ACTIVE_TYPE = "active_type"
     private const val KEY_ACTIVE_AT = "active_at"
+    private const val KEY_ACTIVE_PHASE = "active_phase"
     private const val KEY_HANDLED_OFFERS = "handled_offers_json"
+    private const val PHASE_RINGING = "ringing"
+    private const val PHASE_ANSWERED = "answered"
     /** בזמן שיחה פעילה – לא לפתוח צלצול native כפול לאותו peer | HYPER CORE TECH */
     private const val ACTIVE_TTL_MS = 45 * 60_000L
     private const val HANDLED_OFFER_TTL_MS = 600_000L
@@ -25,10 +28,13 @@ object SosIncomingCallSession {
         val pk = normalizePeer(peer) ?: return
         val type = normalizeType(callType)
         clearLegacySuppress(context)
+        // לא מחזירים ל־ringing אחרי ענה – מונע מסך ענה/צלצול באמצע שיחה | HYPER CORE TECH
+        if (isAnsweredPhase(context) && isSameActiveCall(context, pk)) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_ACTIVE_PEER, pk)
             .putString(KEY_ACTIVE_TYPE, type)
+            .putString(KEY_ACTIVE_PHASE, PHASE_RINGING)
             .putLong(KEY_ACTIVE_AT, System.currentTimeMillis())
             .apply()
     }
@@ -42,6 +48,7 @@ object SosIncomingCallSession {
             .edit()
             .putString(KEY_ACTIVE_PEER, pk)
             .putString(KEY_ACTIVE_TYPE, type)
+            .putString(KEY_ACTIVE_PHASE, PHASE_ANSWERED)
             .putLong(KEY_ACTIVE_AT, System.currentTimeMillis())
             .apply()
     }
@@ -128,6 +135,26 @@ object SosIncomingCallSession {
         return prefs.getString(KEY_ACTIVE_PEER, "")?.lowercase() == pk
     }
 
+    /** רק בשלב צלצול – לא אחרי ענה (מונע reinject של incomingCall ב־onResume) | HYPER CORE TECH */
+    fun isRingingPhase(context: Context): Boolean {
+        if (activePeer(context).isNullOrBlank()) return false
+        val phase = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_ACTIVE_PHASE, PHASE_RINGING)
+        return phase != PHASE_ANSWERED
+    }
+
+    fun isAnsweredPhase(context: Context): Boolean {
+        if (activePeer(context).isNullOrBlank()) return false
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_ACTIVE_PHASE, "") == PHASE_ANSWERED
+    }
+
+    /** peer שמצלצל כרגע – null אם כבר נענתה / אין סשן | HYPER CORE TECH */
+    fun ringingPeer(context: Context): String? {
+        if (!isRingingPhase(context)) return null
+        return activePeer(context)
+    }
+
     fun activePeer(context: Context): String? {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val at = prefs.getLong(KEY_ACTIVE_AT, 0L)
@@ -151,6 +178,7 @@ object SosIncomingCallSession {
             .remove(KEY_ACTIVE_PEER)
             .remove(KEY_ACTIVE_TYPE)
             .remove(KEY_ACTIVE_AT)
+            .remove(KEY_ACTIVE_PHASE)
             .apply()
     }
 

@@ -617,6 +617,18 @@
               if (event.id) markCallEventProcessed(event.id);
               return;
             }
+            // חיבור בתהליך (לפני isCallActive) או accept בתהליך – לא לצלצל שוב | HYPER CORE TECH
+            try {
+              const samePeer = state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase();
+              const pc = state.peerConnection;
+              const cs = pc && String(pc.connectionState || pc.iceConnectionState || '');
+              const acceptBusy = !!(window.__sosAcceptInFlight && String(window.__sosAcceptInFlightPeer || '').toLowerCase() === String(peerPubkey).toLowerCase());
+              if (samePeer && (acceptBusy || cs === 'connected' || cs === 'connecting' || cs === 'checking' || cs === 'completed')) {
+                console.log('Ignored offer – call connecting/connected with', peerPubkey.slice(0, 8), cs || 'accept');
+                if (event.id) markCallEventProcessed(event.id);
+                return;
+              }
+            } catch (_) {}
             // חלק דה-דופליקציה (chat-voice-call.js) – סימון האירוע כמעובד כדי שלא יופיע שוב אחרי רענון | HYPER CORE TECH
             if (event.id) markCallEventProcessed(event.id);
             console.log('Received valid offer:', offerData);

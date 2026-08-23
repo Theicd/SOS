@@ -82,6 +82,26 @@ object SosPendingCallStore {
         }
     }
 
+    /** event נשמר כמחרוזת JSON או כאובייקט – חילוץ id לסימון handled | HYPER CORE TECH */
+    fun extractEventId(context: Context): String? {
+        val raw = getRawEventJson(context)
+        if (raw.isBlank()) return null
+        return try {
+            val meta = JSONObject(raw)
+            val asObj = meta.optJSONObject("event")
+            if (asObj != null) {
+                return asObj.optString("id").trim().takeIf { it.length >= 8 }
+            }
+            val asStr = meta.optString("event").trim()
+            if (asStr.isNotEmpty()) {
+                return JSONObject(asStr).optString("id").trim().takeIf { it.length >= 8 }
+            }
+            null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()

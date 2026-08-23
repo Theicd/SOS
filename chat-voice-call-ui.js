@@ -984,6 +984,36 @@
     }
   }
 
+  // חלק שיחות קול (chat-voice-call-ui.js) – האם כבר בשיחה/חיבור עם אותו peer (גם לפני ICE connected) | HYPER CORE TECH
+  function isAlreadyInVoiceCallWith(peerPubkey) {
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+    if (!peer) return false;
+    try {
+      if (window.__sosAcceptInFlight && String(window.__sosAcceptInFlightPeer || '').toLowerCase() === peer) {
+        return true;
+      }
+      if (String(window.__sosAcceptSucceededPeer || '').toLowerCase() === peer) {
+        return true;
+      }
+      const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+      if (!st) {
+        return !!(window.__sosNativeInCallUi && activePeerPubkey && String(activePeerPubkey).toLowerCase() === peer);
+      }
+      const same = st.currentPeer && String(st.currentPeer).toLowerCase() === peer;
+      if (st.isCallActive && same) return true;
+      if (st.isCallActive && !same) return true;
+      if (same && st.isIncoming && st.peerConnection) {
+        const cs = String(st.peerConnection.connectionState || st.peerConnection.iceConnectionState || '');
+        if (cs === 'connected' || cs === 'connecting' || cs === 'checking' || cs === 'completed') {
+          return true;
+        }
+      }
+      if (window.__sosNativeInCallUi && same) return true;
+      if (callDialog && document.body.contains(callDialog) && same && !st.isIncoming) return true;
+    } catch (_) {}
+    return false;
+  }
+
   // חלק שיחות קול (chat-voice-call-ui.js) – callbacks מהמודול הראשי
   App.onVoiceCallIncoming = function(peerPubkey, offer) {
     console.log('Incoming call from', peerPubkey.slice(0, 8));
@@ -1022,6 +1052,10 @@
     try {
       if (window.__sosAcceptInFlight) {
         console.log('Incoming voice ignored – accept in flight');
+        return;
+      }
+      if (isAlreadyInVoiceCallWith(peer)) {
+        console.log('Incoming voice ignored – already in call with', peer.slice(0, 8));
         return;
       }
       const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
@@ -1341,6 +1375,15 @@
     // קודם מסך ענה – לא פותחים צ'אט שמסתיר את הדיאלוג | HYPER CORE TECH
     const target = incomingOfferPeer || peer;
     if (target) {
+      // כבר בשיחה עם אותו peer – לא צלצול ולא מסך ענה מחדש | HYPER CORE TECH
+      if (isAlreadyInVoiceCallWith(String(target).toLowerCase())) {
+        console.log('Deep link resume skipped – already in call with', String(target).slice(0, 8));
+        stopRingtone();
+        try {
+          if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+        } catch (_) {}
+        return true;
+      }
       const autoAnswering = !!(opts && opts.autoAnswering) || !!(
         window.__sosNativePendingAnswer &&
         window.__sosNativePendingAnswer.peer === String(target).toLowerCase()

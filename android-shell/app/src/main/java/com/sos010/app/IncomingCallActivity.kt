@@ -220,9 +220,7 @@ class IncomingCallActivity : AppCompatActivity() {
 
     private fun rememberPendingOfferHandled() {
         try {
-            val raw = SosPendingCallStore.getRawEventJson(applicationContext)
-            if (raw.isBlank()) return
-            val id = org.json.JSONObject(raw).optJSONObject("event")?.optString("id")
+            val id = SosPendingCallStore.extractEventId(applicationContext)
             SosIncomingCallSession.rememberHandledOffer(applicationContext, id)
         } catch (_: Exception) {
         }

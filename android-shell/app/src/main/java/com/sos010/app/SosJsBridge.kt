@@ -237,9 +237,7 @@ class SosJsBridge(
 
     private fun rememberPendingOfferId() {
         try {
-            val raw = SosPendingCallStore.getRawEventJson(context.applicationContext)
-            if (raw.isBlank()) return
-            val id = org.json.JSONObject(raw).optJSONObject("event")?.optString("id")
+            val id = SosPendingCallStore.extractEventId(context.applicationContext)
             SosIncomingCallSession.rememberHandledOffer(context.applicationContext, id)
         } catch (_: Exception) {
         }
