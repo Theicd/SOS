@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.23-pwa271-debug-txt-native-save",
-  "note": "APK: save UI debug log TXT via SosNativeShell to Downloads (WebView a[download] fails)"
+  "version": "2026.08.23-pwa272-debug-log-categories",
+  "note": "Debug console: category filters for TXT export/copy (all on by default; uncheck deletions/feed/etc.)"
 }

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v592'; // bump - APK native save for UI debug TXT
+  const CACHE_NAME = 'sos-cache-v593'; // bump - debug log category filters for TXT export
   const PRECACHE_URLS = [
     './',
     './videos.html',
