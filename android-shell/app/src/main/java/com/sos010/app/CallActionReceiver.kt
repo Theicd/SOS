@@ -6,7 +6,7 @@ import android.content.Intent
 import android.util.Log
 
 /**
- * פעולות ענה/דחה מהתראת שיחה נכנסת (CallStyle) – בלי להמתין לפתיחת מסך.
+ * פעולות ענה/דחה מהתראת שיחה נכנסת (CallStyle).
  */
 class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -23,44 +23,32 @@ class CallActionReceiver : BroadcastReceiver() {
             ACTION_DECLINE -> {
                 SosIncomingCallSession.markDeclined(app, peer)
                 SosPendingCallStore.clear(app)
-                NotificationHelper.cancelIncomingCall(app, stopSound = true)
+                NotificationHelper.cancelIncomingCall(app, stopSound = true, dismissUi = true)
                 CallSoundHelper.stopAll()
                 IncomingCallActivity.dismiss(app, peer)
-                // מעיר WebView ברקע כדי לשלוח disconnect לצד השני | HYPER CORE TECH
-                val launch = Intent(app, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_DECLINE)
-                    putExtra(MainActivity.EXTRA_CALL_PEER, peer)
-                    putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
-                    putExtra(MainActivity.EXTRA_START_IN_BACKGROUND, true)
-                }
-                try {
-                    app.startActivity(launch)
-                } catch (err: Exception) {
-                    Log.w(TAG, "decline launch failed: ${err.message}")
-                }
+                MainActivity.startBackgroundCallDecline(app, peer, callType)
             }
             ACTION_ANSWER -> {
-                SosIncomingCallSession.markAnswered(app, peer)
-                NotificationHelper.cancelIncomingCall(app, stopSound = false)
-                IncomingCallActivity.dismiss(app, peer)
+                // מסך שיחה נייטיבי + מענה ברקע (בלי לגנוב את ה־UI לפיד) | HYPER CORE TECH
                 val openUrl = intent.getStringExtra(MainActivity.EXTRA_OPEN_URL)
                     ?: SosCallUrls.acceptPage(callType)
-                val launch = Intent(app, MainActivity::class.java).apply {
+                val name = SosContactCache.displayName(app, peer, app.getString(R.string.call_someone))
+                val launch = Intent(app, IncomingCallActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
-                    putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
-                    putExtra(MainActivity.EXTRA_CALL_PEER, peer)
-                    putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
+                        Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                    putExtra(IncomingCallActivity.EXTRA_PEER, peer)
+                    putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType)
+                    putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, name)
+                    putExtra(IncomingCallActivity.EXTRA_OPEN_URL, openUrl)
+                    putExtra(IncomingCallActivity.EXTRA_AUTO_ANSWER, true)
                 }
                 try {
                     app.startActivity(launch)
                 } catch (err: Exception) {
                     Log.w(TAG, "answer launch failed: ${err.message}")
+                    MainActivity.startBackgroundCallAccept(app, peer, callType, openUrl)
                 }
             }
         }

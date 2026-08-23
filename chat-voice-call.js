@@ -575,6 +575,11 @@
         case 'offer':
           // שיחה נכנסת – ולידציה והמרה במקרה הצורך
           try {
+            if (isOfferEventTooOld(event)) {
+              console.log('Ignored stale offer from', peerPubkey.slice(0, 8), 'age>', MAX_OFFER_AGE_SEC, 's');
+              if (event.id) markCallEventProcessed(event.id);
+              return;
+            }
             let offerData = data;
             if (typeof offerData === 'string') {
               offerData = JSON.parse(offerData);
@@ -681,30 +686,52 @@
   let voiceSubscribeStartTime = Date.now();
   
   // חלק דה-דופליקציה (chat-voice-call.js) – מניעת עיבוד כפול של אירועי שיחה אחרי רענון | HYPER CORE TECH
-  const PROCESSED_CALLS_KEY = 'nostr_processed_call_events';
+  const PROCESSED_CALLS_KEY = 'sos_processed_call_events_v2';
   const MAX_PROCESSED_IDS = 100;
-  
-  function getProcessedCallIds() {
+  const PROCESSED_TTL_MS = 10 * 60 * 1000;
+  const MAX_OFFER_AGE_SEC = 60;
+
+  function getProcessedCallEntries() {
     try {
-      const raw = sessionStorage.getItem(PROCESSED_CALLS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
+      const raw = localStorage.getItem(PROCESSED_CALLS_KEY) || sessionStorage.getItem(PROCESSED_CALLS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return [];
+      const now = Date.now();
+      return parsed.filter(function(e) {
+        if (typeof e === 'string') return true;
+        return e && e.id && (!e.at || (now - e.at) < PROCESSED_TTL_MS);
+      }).map(function(e) {
+        return typeof e === 'string' ? { id: e, at: now } : e;
+      });
+    } catch (_) { return []; }
   }
-  
+
+  function getProcessedCallIds() {
+    return getProcessedCallEntries().map(function(e) { return e.id; });
+  }
+
   function markCallEventProcessed(eventId) {
     try {
-      const ids = getProcessedCallIds();
-      if (!ids.includes(eventId)) {
-        ids.push(eventId);
-        // שומרים רק את ה-100 האחרונים
-        while (ids.length > MAX_PROCESSED_IDS) ids.shift();
-        sessionStorage.setItem(PROCESSED_CALLS_KEY, JSON.stringify(ids));
-      }
-    } catch {}
+      if (!eventId) return;
+      const now = Date.now();
+      const entries = getProcessedCallEntries().filter(function(e) { return e.id !== eventId; });
+      entries.push({ id: eventId, at: now });
+      while (entries.length > MAX_PROCESSED_IDS) entries.shift();
+      const raw = JSON.stringify(entries);
+      localStorage.setItem(PROCESSED_CALLS_KEY, raw);
+      sessionStorage.setItem(PROCESSED_CALLS_KEY, raw);
+    } catch (_) {}
   }
-  
+
   function isCallEventProcessed(eventId) {
     return getProcessedCallIds().includes(eventId);
+  }
+
+  function isOfferEventTooOld(event) {
+    const created = Number(event && event.created_at) || 0;
+    if (!created) return false;
+    const age = Math.floor(Date.now() / 1000) - created;
+    return age > MAX_OFFER_AGE_SEC;
   }
 
   // חלק שיחות קול (chat-voice-call.js) – דחייה מ-APK גם בלי offer/UI מוכן | HYPER CORE TECH

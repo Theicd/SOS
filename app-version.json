@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.23-pwa272-debug-log-categories",
-  "note": "Debug console: category filters for TXT export/copy (all on by default; uncheck deletions/feed/etc.)"
+  "version": "2026.08.23-pwa273-call-ghost-fix",
+  "note": "Ignore stale call offers; mark hangup to native; keep native call UI after answer"
 }

@@ -1,9 +1,11 @@
 package com.sos010.app
 
 import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
- * סשן שיחה נכנסת – מונע צלצול חוזר אחרי דחייה/ניתוק מהצד השני.
+ * סשן שיחה נכנסת – מונע צלצול חוזר אחרי דחייה/ניתוק/offer ישן מהריליי.
  */
 object SosIncomingCallSession {
     private const val PREFS = "sos_incoming_call_session"
@@ -12,8 +14,14 @@ object SosIncomingCallSession {
     private const val KEY_ACTIVE_AT = "active_at"
     private const val KEY_SUPPRESS_PEER = "suppress_peer"
     private const val KEY_SUPPRESS_UNTIL = "suppress_until"
-    private const val SUPPRESS_AFTER_END_MS = 8_000L
+    private const val KEY_HANDLED_OFFERS = "handled_offers_json"
+    /** דיכוי אחרי סיום/דחייה – מונע ghost ring מ־offer ישן בריליי | HYPER CORE TECH */
+    private const val SUPPRESS_AFTER_END_MS = 180_000L
     private const val ACTIVE_TTL_MS = 90_000L
+    private const val HANDLED_OFFER_TTL_MS = 600_000L
+    private const val MAX_HANDLED_OFFERS = 80
+    /** offer ישן יותר מזה (שניות) לא מצלצל | HYPER CORE TECH */
+    const val MAX_OFFER_AGE_SEC = 60L
 
     fun markRinging(context: Context, peer: String?, callType: String?) {
         val pk = normalizePeer(peer) ?: return
@@ -28,10 +36,7 @@ object SosIncomingCallSession {
 
     fun markAnswered(context: Context, peer: String?) {
         clearActive(context)
-        // אחרי מענה – לא מדכאים (שיחה חיה), רק מנקים active
-        if (!peer.isNullOrBlank()) {
-            // no-op beyond clearActive
-        }
+        // בזמן שיחה חיה לא מדכאים – דיכוי בסיום (markRemoteEnded / hangup)
     }
 
     fun markDeclined(context: Context, peer: String?) {
@@ -44,6 +49,64 @@ object SosIncomingCallSession {
         val pk = normalizePeer(peer) ?: activePeer(context)
         clearActive(context)
         if (!pk.isNullOrBlank()) suppress(context, pk)
+    }
+
+    fun rememberHandledOffer(context: Context, eventId: String?) {
+        val id = eventId?.trim().orEmpty()
+        if (id.length < 8) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val arr = try {
+            JSONArray(prefs.getString(KEY_HANDLED_OFFERS, "[]"))
+        } catch (_: Exception) {
+            JSONArray()
+        }
+        val next = JSONArray()
+        var found = false
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val eid = o.optString("id")
+            val at = o.optLong("at", 0L)
+            if (at <= 0L || now - at > HANDLED_OFFER_TTL_MS) continue
+            if (eid == id) {
+                found = true
+                next.put(JSONObject().put("id", eid).put("at", now))
+            } else {
+                next.put(o)
+            }
+        }
+        if (!found) {
+            next.put(JSONObject().put("id", id).put("at", now))
+        }
+        while (next.length() > MAX_HANDLED_OFFERS) {
+            next.remove(0)
+        }
+        prefs.edit().putString(KEY_HANDLED_OFFERS, next.toString()).apply()
+    }
+
+    fun isHandledOffer(context: Context, eventId: String?): Boolean {
+        val id = eventId?.trim().orEmpty()
+        if (id.length < 8) return false
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val arr = try {
+            JSONArray(prefs.getString(KEY_HANDLED_OFFERS, "[]"))
+        } catch (_: Exception) {
+            return false
+        }
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("id") != id) continue
+            val at = o.optLong("at", 0L)
+            return at > 0L && now - at <= HANDLED_OFFER_TTL_MS
+        }
+        return false
+    }
+
+    fun isOfferTooOld(createdAtSec: Long): Boolean {
+        if (createdAtSec <= 0L) return false
+        val age = (System.currentTimeMillis() / 1000L) - createdAtSec
+        return age > MAX_OFFER_AGE_SEC
     }
 
     fun isSuppressed(context: Context, peer: String?): Boolean {

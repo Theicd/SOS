@@ -174,7 +174,8 @@ class SosJsBridge(
     @JavascriptInterface
     fun stopCallRingtone() {
         CallSoundHelper.stopRingtone()
-        NotificationHelper.cancelIncomingCall(context.applicationContext)
+        // לא סוגרים מסך שיחה נייטיבי – רק צלצול/התראה | HYPER CORE TECH
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
     }
 
     @JavascriptInterface
@@ -185,23 +186,51 @@ class SosJsBridge(
     @JavascriptInterface
     fun markIncomingCallDeclined(peer: String?) {
         SosIncomingCallSession.markDeclined(context.applicationContext, peer)
+        rememberPendingOfferId()
         SosPendingCallStore.clear(context.applicationContext)
-        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = true)
         CallSoundHelper.stopAll()
+        IncomingCallActivity.notifyCallEnded(context.applicationContext, peer)
     }
 
     @JavascriptInterface
     fun markIncomingCallEnded(peer: String?) {
         SosIncomingCallSession.markRemoteEnded(context.applicationContext, peer)
+        rememberPendingOfferId()
         SosPendingCallStore.clear(context.applicationContext)
-        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopAll()
+        IncomingCallActivity.notifyCallEnded(context.applicationContext, peer)
     }
 
     @JavascriptInterface
     fun markIncomingCallAnswered(peer: String?) {
         SosIncomingCallSession.markAnswered(context.applicationContext, peer)
-        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+        rememberPendingOfferId()
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
+    }
+
+    @JavascriptInterface
+    fun notifyNativeCallConnected(peer: String?) {
+        IncomingCallActivity.notifyCallConnected(context.applicationContext, peer)
+    }
+
+    @JavascriptInterface
+    fun notifyNativeCallEnded(peer: String?) {
+        SosIncomingCallSession.markRemoteEnded(context.applicationContext, peer)
+        rememberPendingOfferId()
+        SosPendingCallStore.clear(context.applicationContext)
+        IncomingCallActivity.notifyCallEnded(context.applicationContext, peer)
+    }
+
+    private fun rememberPendingOfferId() {
+        try {
+            val raw = SosPendingCallStore.getRawEventJson(context.applicationContext)
+            if (raw.isBlank()) return
+            val id = org.json.JSONObject(raw).optJSONObject("event")?.optString("id")
+            SosIncomingCallSession.rememberHandledOffer(context.applicationContext, id)
+        } catch (_: Exception) {
+        }
     }
 
     @JavascriptInterface

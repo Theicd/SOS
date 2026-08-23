@@ -794,9 +794,19 @@
       showRemoteWhenReady();
     }
   };
-  App.onVideoCallEnded = function(){
+  App.onVideoCallEnded = function(peerPubkey){
     closeIncomingVideoNotification();
     closeDialog();
+    try {
+      const bridge = window.SosNativeShell;
+      const peer = String(peerPubkey || '');
+      if (bridge && typeof bridge.markIncomingCallEnded === 'function') {
+        bridge.markIncomingCallEnded(peer);
+      } else if (bridge && typeof bridge.notifyNativeCallEnded === 'function') {
+        bridge.notifyNativeCallEnded(peer);
+      }
+    } catch (_) {}
+    try { window.__sosNativeInCallUi = false; } catch (_) {}
   };
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – רישום שיחה שלא נענתה בהיסטוריית הצ'אט ועדכון מונה לא נקראו | HYPER CORE TECH

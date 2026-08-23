@@ -300,17 +300,17 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val answerIntent = Intent(app, MainActivity::class.java).apply {
-            action = CallActionReceiver.ACTION_ANSWER
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or
+        val answerIntent = Intent(app, IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra(MainActivity.EXTRA_OPEN_URL, SosCallUrls.acceptPage(type))
-            putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
-            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
-            putExtra(MainActivity.EXTRA_CALL_TYPE, type)
-            putExtra(CallActionReceiver.EXTRA_PEER, peer)
-            putExtra(CallActionReceiver.EXTRA_CALL_TYPE, type)
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_NO_USER_ACTION
+            putExtra(IncomingCallActivity.EXTRA_PEER, peer)
+            putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, type)
+            putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, displayName)
+            putExtra(IncomingCallActivity.EXTRA_CALLER_PICTURE, pictureUrl)
+            putExtra(IncomingCallActivity.EXTRA_OPEN_URL, openUrl)
+            putExtra(IncomingCallActivity.EXTRA_AUTO_ANSWER, true)
         }
         val answerPi = PendingIntent.getActivity(
             app,
@@ -410,13 +410,15 @@ object NotificationHelper {
         }
     }
 
-    fun cancelIncomingCall(context: Context, stopSound: Boolean = true) {
+    fun cancelIncomingCall(context: Context, stopSound: Boolean = true, dismissUi: Boolean = true) {
         try {
             NotificationManagerCompat.from(context.applicationContext)
                 .cancel("sos-incoming-call", INCOMING_CALL_ID)
         } catch (_: Exception) {
         }
-        IncomingCallActivity.dismiss(context)
+        if (dismissUi) {
+            IncomingCallActivity.dismiss(context)
+        }
         if (stopSound) {
             CallSoundHelper.stopRingtone()
         }

@@ -265,9 +265,21 @@ class SosRelayWatcher(private val appContext: Context) {
         when (signalType) {
             "offer", "v-offer" -> {
                 val now = System.currentTimeMillis()
-                // דיכוי קצר בלבד (offer כפול מהריליי) – לא חוסם שיחה חדשה אחרי ~8 שנ' | HYPER CORE TECH
+                val eventId = event.optString("id")
+                val createdAt = event.optLong("created_at", 0L)
+                if (SosIncomingCallSession.isOfferTooOld(createdAt)) {
+                    Log.i(TAG, "stale offer from ${author.take(8)} age>${SosIncomingCallSession.MAX_OFFER_AGE_SEC}s")
+                    SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
+                    return
+                }
+                if (SosIncomingCallSession.isHandledOffer(appContext, eventId)) {
+                    Log.i(TAG, "already-handled offer ${eventId.take(8)} from ${author.take(8)}")
+                    return
+                }
+                // דיכוי אחרי סיום/דחייה – מונע ghost ring מ־offer ישן | HYPER CORE TECH
                 if (SosIncomingCallSession.isSuppressed(appContext, author)) {
                     Log.i(TAG, "suppressed offer from ${author.take(8)}")
+                    SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
                     return
                 }
                 // אותה שיחה כבר מצלצלת – לא לפתוח התראה שוב, אבל מעדכנים raw event
@@ -313,6 +325,8 @@ class SosRelayWatcher(private val appContext: Context) {
                 Log.i(TAG, "incoming $callType from ${author.take(8)}")
             }
             "disconnect", "v-disconnect" -> {
+                val eventId = event.optString("id")
+                SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
                 SosIncomingCallSession.markRemoteEnded(appContext, author)
                 SosPendingCallStore.clear(appContext)
                 NotificationHelper.cancelIncomingCall(appContext)

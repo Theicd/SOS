@@ -978,6 +978,17 @@
       }
     } catch (_) {}
 
+    // מסך שיחה נייטיבי פעיל – לא לפתוח דיאלוג ווב כפול | HYPER CORE TECH
+    try {
+      if (window.__sosNativeInCallUi) {
+        incomingOffer = offer;
+        incomingOfferPeer = peer;
+        persistIncomingOffer(peerPubkey, offer);
+        console.log('Incoming voice kept on native in-call UI');
+        return;
+      }
+    } catch (_) {}
+
     // שמירת ה-offer באופן מקומי
     incomingOffer = offer;
     incomingOfferPeer = peer;
@@ -1322,6 +1333,12 @@
     stopRingtone();
     stopDialtone();
     closeIncomingCallNotification();
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifyNativeCallConnected === 'function') {
+        bridge.notifyNativeCallConnected(String(peerPubkey || activePeerPubkey || ''));
+      }
+    } catch (_) {}
   };
 
   App.onVoiceCallRemoteStream = function(stream) {
@@ -1343,6 +1360,15 @@
     stopRingtone();
     stopDialtone();
     closeCallDialog();
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markIncomingCallEnded === 'function') {
+        bridge.markIncomingCallEnded(String(peer || ''));
+      } else if (bridge && typeof bridge.notifyNativeCallEnded === 'function') {
+        bridge.notifyNativeCallEnded(String(peer || ''));
+      }
+    } catch (_) {}
+    try { window.__sosNativeInCallUi = false; } catch (_) {}
   };
 
   // חלק שיחות קול (chat-voice-call-ui.js) – רישום שיחה שלא נענתה בהיסטוריית הצ'אט ועדכון מונה לא נקראו | HYPER CORE TECH

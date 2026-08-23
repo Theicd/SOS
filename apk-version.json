@@ -1,7 +1,7 @@
 {
-  "version": "1.0.71",
-  "versionCode": 72,
-  "file": "SOS-1.0.71.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.71/SOS-1.0.71.apk",
-  "note": "Restore backup before native in-call UI and debug log split; same as 1.0.69/pwa267 era"
+  "version": "1.0.72",
+  "versionCode": 73,
+  "file": "SOS-1.0.72.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.72/SOS-1.0.72.apk",
+  "note": "Native in-call stays after answer; block ghost rings from stale offers"
 }
