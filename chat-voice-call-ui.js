@@ -86,9 +86,20 @@
         doc.body.classList.add('sos-call-active');
         window.__sosIncomingCallActive = true;
       } else {
-        doc.body.classList.remove('sos-call-active');
-        window.__sosIncomingCallActive = false;
+        clearCallOverlayFlags();
       }
+    } catch (_) {}
+  }
+
+  /** ניקוי דגלים שמסתירים את דף השיחות אחרי שיחה | HYPER CORE TECH */
+  function clearCallOverlayFlags() {
+    try {
+      doc.body.classList.remove('sos-call-active', 'sos-deeplink-chat');
+      window.__sosIncomingCallActive = false;
+      document.documentElement.removeAttribute('data-sos-deeplink');
+    } catch (_) {}
+    try {
+      if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
     } catch (_) {}
   }
 
@@ -602,6 +613,13 @@
     userDeclinedCall = false;
     clearPersistedIncomingOffer();
     markCallUiActive(false);
+    try {
+      window.__sosWarmPreparedPeer = '';
+      window.__sosAcceptInFlight = false;
+      window.__sosAcceptInFlightPeer = '';
+      window.__sosAcceptSucceededPeer = '';
+      window.__sosNativePendingAnswer = null;
+    } catch (_) {}
 
     if (callDialog) {
       callDialog.remove();
@@ -624,22 +642,32 @@
 
   // חלק שיחות קול (chat-voice-call-ui.js) – החזרת מצב פאנל הצ'אט לאחר סיום השיחה | HYPER CORE TECH
   function restoreChatPanelState() {
-    console.log('[VOICE] restoreChatPanelState called:', { 
-      chatPanelWasOpen, 
-      contact: chatActiveContactBeforeCall?.slice?.(0, 8) 
+    // קודם מנקים דגלי שיחה – בלי זה #chatPanel נשאר display:none | HYPER CORE TECH
+    clearCallOverlayFlags();
+
+    console.log('[VOICE] restoreChatPanelState called:', {
+      chatPanelWasOpen,
+      contact: chatActiveContactBeforeCall?.slice?.(0, 8)
     });
 
+    // שיחה נכנסת מרקע – לא היה פאנל פתוח; לא לפתוח שיחה ריקה | HYPER CORE TECH
     if (!chatPanelWasOpen && !chatActiveContactBeforeCall) {
       console.log('[VOICE] No chat state to restore');
+      chatPanelWasOpen = false;
+      chatActiveContactBeforeCall = null;
       return;
     }
 
-    // תמיד לנסות לפתוח את פאנל הצ'אט ולחזור לשיחה
-    setTimeout(() => {
-      const chatPanel = doc.getElementById('chatPanel');
-      console.log('[VOICE] Restoring - chatPanel hidden?', chatPanel?.hasAttribute('hidden'));
+    const contactToRestore = chatActiveContactBeforeCall;
+    const wasOpen = chatPanelWasOpen;
+    chatPanelWasOpen = false;
+    chatActiveContactBeforeCall = null;
 
-      // פתיחת פאנל הצ'אט
+    setTimeout(() => {
+      clearCallOverlayFlags();
+      if (!wasOpen && !contactToRestore) return;
+
+      const chatPanel = doc.getElementById('chatPanel');
       if (typeof App.toggleChatPanel === 'function') {
         App.toggleChatPanel(true);
       } else if (chatPanel) {
@@ -647,15 +675,12 @@
         doc.body.classList.add('chat-overlay-open');
       }
 
-      // חזרה לשיחה הפעילה
-      if (chatActiveContactBeforeCall && typeof App.showChatConversation === 'function') {
-        console.log('[VOICE] Showing conversation:', chatActiveContactBeforeCall.slice(0, 8));
-        App.showChatConversation(chatActiveContactBeforeCall);
+      if (contactToRestore && typeof App.showChatConversation === 'function') {
+        console.log('[VOICE] Showing conversation:', contactToRestore.slice(0, 8));
+        App.showChatConversation(contactToRestore);
+      } else if (typeof App.resetChatConversationView === 'function') {
+        App.resetChatConversationView();
       }
-
-      // איפוס המשתנים
-      chatPanelWasOpen = false;
-      chatActiveContactBeforeCall = null;
     }, 150);
   }
 
@@ -1055,7 +1080,7 @@
   App.prepareIncomingCallFromNative = async function prepareIncomingCallFromNative(peerPubkey, callType, pendingRawEvent) {
     if (callType && String(callType).toLowerCase() === 'video') {
       try {
-        if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+        if (typeof App.initVideoCall === 'function') App.initVideoCall({});
       } catch (_) {}
       try {
         if (typeof App.nativeRequestMediaPermissions === 'function') App.nativeRequestMediaPermissions(true);
@@ -1064,13 +1089,19 @@
     }
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : '';
     if (!peer) return false;
+    // חימום פעם אחת לאותו peer – מונע סופת force-init מה־APK | HYPER CORE TECH
+    if (window.__sosWarmPreparedPeer === peer && (Date.now() - (window.__sosWarmPreparedAt || 0)) < 45000) {
+      return true;
+    }
+    window.__sosWarmPreparedPeer = peer;
+    window.__sosWarmPreparedAt = Date.now();
     try {
       document.documentElement.setAttribute('data-sos-deeplink', '1');
       document.body.classList.add('sos-call-active');
     } catch (_) {}
     try {
       if (typeof App.initVoiceCall === 'function') {
-        App.initVoiceCall({ lookbackSec: 45 });
+        App.initVoiceCall({});
       }
     } catch (_) {}
     try {
@@ -1244,10 +1275,11 @@
     window.__sosNativePendingAnswer = null;
     userDeclinedCall = true;
     window.__sosIncomingCallActive = false;
+    try { clearCallOverlayFlags(); } catch (_) {}
 
     try {
       if (typeof App.initVoiceCall === 'function') {
-        App.initVoiceCall({ force: true, lookbackSec: 120 });
+        App.initVoiceCall({});
       }
     } catch (_) {}
 
@@ -1439,6 +1471,9 @@
     stopDialtone();
     closeCallDialog();
     try {
+      clearCallOverlayFlags();
+    } catch (_) {}
+    try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.markIncomingCallEnded === 'function') {
         bridge.markIncomingCallEnded(String(peer || ''));
@@ -1451,6 +1486,7 @@
       window.__sosAcceptSucceededPeer = '';
       window.__sosAcceptInFlight = false;
       window.__sosAcceptInFlightPeer = '';
+      window.__sosWarmPreparedPeer = '';
     } catch (_) {}
   };
 

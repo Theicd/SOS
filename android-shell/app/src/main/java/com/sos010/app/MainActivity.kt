@@ -589,14 +589,16 @@ class MainActivity : AppCompatActivity() {
         val js = """
             (function(){
               try {
+                var peer = $peerJs;
+                if (window.__sosWarmPreparedPeer === peer && (Date.now() - (window.__sosWarmPreparedAt || 0)) < 45000) return;
                 window.__sosIncomingCallActive = true;
                 document.documentElement.setAttribute('data-sos-deeplink', '1');
                 document.body.classList.add('sos-call-active');
                 var App = window.NostrApp || {};
-                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
-                if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+                if (typeof App.initVideoCall === 'function') App.initVideoCall({});
                 if (typeof App.prepareIncomingCallFromNative === 'function') {
-                  App.prepareIncomingCallFromNative($peerJs, $typeJs, $rawEventJs);
+                  App.prepareIncomingCallFromNative(peer, $typeJs, $rawEventJs);
                 } else if (typeof App.nativeRequestMediaPermissions === 'function') {
                   App.nativeRequestMediaPermissions($typeJs === 'video');
                 }
@@ -609,15 +611,14 @@ class MainActivity : AppCompatActivity() {
         } catch (err: Exception) {
             Log.w(TAG, "warm inject failed: ${err.message}")
         }
-        listOf(500L, 1500L, 3500L).forEach { delay ->
-            mainHandler.postDelayed({
-                if (!this::webView.isInitialized) return@postDelayed
-                try {
-                    webView.evaluateJavascript(js, null)
-                } catch (_: Exception) {
-                }
-            }, delay)
-        }
+        // retry אחד בלבד אם ה־WebView עוד לא מוכן | HYPER CORE TECH
+        mainHandler.postDelayed({
+            if (!this::webView.isInitialized) return@postDelayed
+            try {
+                webView.evaluateJavascript(js, null)
+            } catch (_: Exception) {
+            }
+        }, 1200L)
     }
 
     /** חימום WebView לשמירת P2P במצב המתנה – בלי UI | HYPER CORE TECH */
@@ -808,8 +809,8 @@ class MainActivity : AppCompatActivity() {
             (function(){
               try {
                 var App = window.NostrApp || {};
-                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
-                if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+                if (typeof App.initVideoCall === 'function') App.initVideoCall({});
                 if (typeof App.declineIncomingCallFromNative === 'function') {
                   App.declineIncomingCallFromNative($peerJs, $typeJs);
                 } else if ($typeJs === 'video' && typeof App.endVideoCall === 'function') {

@@ -516,8 +516,10 @@
       sessionStorage.removeItem('sos_pending_video_offer');
     } catch (_) {}
     try {
-      doc.body.classList.remove('sos-call-active');
+      doc.body.classList.remove('sos-call-active', 'sos-deeplink-chat');
       window.__sosIncomingCallActive = false;
+      document.documentElement.removeAttribute('data-sos-deeplink');
+      if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
     } catch (_) {}
     if (dialog) { dialog.remove(); dialog = null; }
     remoteVideo = null;

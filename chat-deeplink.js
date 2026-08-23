@@ -169,10 +169,13 @@
     // שיחה נכנסת: קודם מסך ענה, בלי לפתוח צ'אט שמסתיר אותו | HYPER CORE TECH
     if (incomingCall) {
       window.__sosIncomingCallActive = true;
-      try {
-        if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
-        if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
-      } catch (_) {}
+      // init חד־פעמי בלבד – retries של deeplink לא מריצים force שוב | HYPER CORE TECH
+      if (attempt === 0) {
+        try {
+          if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+          if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+        } catch (_) {}
+      }
       // לפני UI – מסמנים pending answer כדי שלא יופיע כפתור ענה שני | HYPER CORE TECH
       if (autoAccept && chat) {
         try {
@@ -193,7 +196,7 @@
         autoAnswering: autoAccept,
       });
       opened = callFocused || !!chat;
-      if (opened && autoAccept) {
+      if (opened && autoAccept && attempt === 0) {
         setTimeout(() => {
           try {
             const App = window.NostrApp || {};
@@ -213,9 +216,9 @@
       lastHandledKey = key;
       lastHandledAt = now;
       pending = null;
-      // מסירים chat= מה-URL אחרי פתיחה – מונע חזרה אוטומטית לשיחה ב־resume/אייקון | HYPER CORE TECH
-      if (incomingCall) stripDeepLinkParams();
-      else stripChatParamFromUrl();
+      // מנקים chat=/incomingCall מה-URL – דגלי שיחה (sos-call-active) נשארים עד סיום שיחה | HYPER CORE TECH
+      stripChatParamFromUrl();
+      if (!incomingCall) clearDeepLinkFlags();
       try {
         const bridge = window.SosNativeShell;
         if (bridge && typeof bridge.rememberWebUrl === 'function') {
