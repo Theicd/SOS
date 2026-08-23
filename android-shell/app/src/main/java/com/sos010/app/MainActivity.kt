@@ -943,6 +943,12 @@ class MainActivity : AppCompatActivity() {
         pendingIncomingCall = null
         pendingCallAction = null
         pendingAutoAccept = false
+        // מונע reload/resolveStartUrl שמחזיר שוב ל־?chat= מהתרעה | HYPER CORE TECH
+        try {
+            intent?.removeExtra(EXTRA_OPEN_URL)
+            intent?.data = null
+        } catch (_: Exception) {
+        }
     }
 
     private fun setupWebView() {

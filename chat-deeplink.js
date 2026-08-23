@@ -116,8 +116,15 @@
     if (typeof App.showChatConversation === 'function') {
       App.showChatConversation(peer);
       suppressLoadingOverChat();
-      // אחרי שהשיחה פתוחה – CSS של #chatPanel מסתיר טעינה; מנקים דגלי deep-link | HYPER CORE TECH
-      setTimeout(clearDeepLinkFlags, 1500);
+      // אחרי פתיחה – מנקים sticky deeplink כדי שלא יקפוץ חזרה לשיחה | HYPER CORE TECH
+      setTimeout(() => {
+        try {
+          if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+          else clearDeepLinkFlags();
+        } catch (_) {
+          clearDeepLinkFlags();
+        }
+      }, 400);
       return true;
     }
     return false;
@@ -149,17 +156,34 @@
     } catch (_) {}
   }
 
+  function stopRetryTimer() {
+    if (retryTimer) {
+      clearInterval(retryTimer);
+      retryTimer = null;
+    }
+  }
+
+  function consumePendingDeepLink() {
+    pending = null;
+    stopRetryTimer();
+  }
+
   function attemptOpen(detail, attempt) {
     const chat = normalizePeer(detail?.chat);
     const incomingCall = normalizeCallType(detail?.incomingCall);
     const pendingOffer = detail?.pendingOffer || null;
     const pendingRawEvent = detail?.pendingRawEvent || null;
     const autoAccept = !!detail?.autoAccept;
-    if (!chat && !incomingCall) return true;
+    if (!chat && !incomingCall) {
+      consumePendingDeepLink();
+      return true;
+    }
 
     const key = `${chat}|${incomingCall}|${autoAccept ? '1' : '0'}`;
     const now = Date.now();
-    if (key === lastHandledKey && now - lastHandledAt < 1200 && attempt === 0) {
+    // כבר טופל לאחרונה – לא לפתוח שוב, וחובה לאפס pending (אחרת resume קופץ חזרה לשיחה) | HYPER CORE TECH
+    if (key === lastHandledKey && now - lastHandledAt < 1200) {
+      consumePendingDeepLink();
       return true;
     }
 
@@ -215,12 +239,24 @@
     if (opened) {
       lastHandledKey = key;
       lastHandledAt = now;
-      pending = null;
-      // מנקים chat=/incomingCall מה-URL – דגלי שיחה (sos-call-active) נשארים עד סיום שיחה | HYPER CORE TECH
+      consumePendingDeepLink();
+      // מנקים chat= מה-URL + pending native – מונע קפיצה חזרה לשיחה אחרי יציאה | HYPER CORE TECH
       stripChatParamFromUrl();
-      if (!incomingCall) clearDeepLinkFlags();
+      if (!incomingCall) {
+        try {
+          if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+          else clearDeepLinkFlags();
+        } catch (_) {
+          clearDeepLinkFlags();
+        }
+      } else {
+        clearDeepLinkFlags();
+      }
       try {
         const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.clearPendingDeepLink === 'function') {
+          bridge.clearPendingDeepLink();
+        }
         if (bridge && typeof bridge.rememberWebUrl === 'function') {
           bridge.rememberWebUrl(String(window.location.href || ''));
         }
@@ -242,10 +278,7 @@
     };
     if (!pending.chat && !pending.incomingCall) return;
 
-    if (retryTimer) {
-      clearInterval(retryTimer);
-      retryTimer = null;
-    }
+    stopRetryTimer();
 
     let attempt = 0;
     const maxAttempts = 40; // ~20s
@@ -254,10 +287,10 @@
     retryTimer = setInterval(() => {
       attempt += 1;
       if (attemptOpen(pending, attempt) || attempt >= maxAttempts) {
-        clearInterval(retryTimer);
-        retryTimer = null;
+        stopRetryTimer();
         if (attempt >= maxAttempts) {
           console.warn('[DEEPLINK] gave up after retries', pending);
+          consumePendingDeepLink();
         }
       }
     }, 500);
@@ -295,14 +328,12 @@
   });
 
   window.addEventListener('sos-native-resume', () => {
+    // רק אם עדיין ממתין לפתיחה ראשונה – לא לפתוח שוב אחרי שהמשתמש יצא מהשיחה | HYPER CORE TECH
     if (pending && (pending.chat || pending.incomingCall)) {
       scheduleRetries(pending);
       return;
     }
-    const fromUrl = parseFromLocation();
-    if (fromUrl.chat || fromUrl.incomingCall) {
-      handleDeepLink(fromUrl);
-    }
+    // לא קוראים handleDeepLink מ־URL ב־resume – chat= כבר נצרך בפתיחה מהתרעה
   });
 
   window.addEventListener('sos-native-ready', () => {
