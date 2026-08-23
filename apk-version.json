@@ -1,7 +1,7 @@
 {
-  "version": "1.0.69",
-  "versionCode": 70,
-  "file": "SOS-1.0.69.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.69/SOS-1.0.69.apk",
-  "note": "Isolate emergency relay from normal WhatsApp-like shell alerts"
+  "version": "1.0.70",
+  "versionCode": 71,
+  "file": "SOS-1.0.70.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.70/SOS-1.0.70.apk",
+  "note": "Native in-call UI stays after answer; WebView accept in background"
 }

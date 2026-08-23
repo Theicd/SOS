@@ -261,6 +261,18 @@
   function createCallDialog(peerPubkey, isIncoming, options) {
     const opts = options && typeof options === 'object' ? options : {};
     const autoAnswering = !!opts.autoAnswering;
+    // מסך Native מנהל UI – בלי דיאלוג ווב מעל (שיחה עדיין רצה ב־WebRTC) | HYPER CORE TECH
+    if (window.__sosNativeInCallUi && autoAnswering) {
+      activePeerPubkey = peerPubkey;
+      markCallUiActive(true);
+      hideChatBehindCall();
+      stopRingtone();
+      try {
+        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
+      console.log('[APK] native in-call UI – skip web call dialog');
+      return;
+    }
     // הסרת דיאלוג קיים
     if (callDialog) {
       callDialog.remove();
@@ -1322,6 +1334,12 @@
     stopRingtone();
     stopDialtone();
     closeIncomingCallNotification();
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifyNativeCallConnected === 'function') {
+        bridge.notifyNativeCallConnected(peerPubkey || activePeerPubkey || '');
+      }
+    } catch (_) {}
   };
 
   App.onVoiceCallRemoteStream = function(stream) {
@@ -1343,6 +1361,13 @@
     stopRingtone();
     stopDialtone();
     closeCallDialog();
+    try {
+      window.__sosNativeInCallUi = false;
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifyNativeCallEnded === 'function') {
+        bridge.notifyNativeCallEnded(peer || '');
+      }
+    } catch (_) {}
   };
 
   // חלק שיחות קול (chat-voice-call-ui.js) – רישום שיחה שלא נענתה בהיסטוריית הצ'אט ועדכון מונה לא נקראו | HYPER CORE TECH

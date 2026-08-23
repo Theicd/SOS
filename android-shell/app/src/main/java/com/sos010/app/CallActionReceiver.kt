@@ -23,45 +23,24 @@ class CallActionReceiver : BroadcastReceiver() {
             ACTION_DECLINE -> {
                 SosIncomingCallSession.markDeclined(app, peer)
                 SosPendingCallStore.clear(app)
-                NotificationHelper.cancelIncomingCall(app, stopSound = true)
+                NotificationHelper.cancelIncomingCall(app, stopSound = true, dismissUi = true)
                 CallSoundHelper.stopAll()
-                IncomingCallActivity.dismiss(app, peer)
                 // מעיר WebView ברקע כדי לשלוח disconnect לצד השני | HYPER CORE TECH
-                val launch = Intent(app, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_DECLINE)
-                    putExtra(MainActivity.EXTRA_CALL_PEER, peer)
-                    putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
-                    putExtra(MainActivity.EXTRA_START_IN_BACKGROUND, true)
-                }
-                try {
-                    app.startActivity(launch)
-                } catch (err: Exception) {
-                    Log.w(TAG, "decline launch failed: ${err.message}")
-                }
+                MainActivity.startBackgroundCallDecline(app, peer, callType)
             }
             ACTION_ANSWER -> {
-                SosIncomingCallSession.markAnswered(app, peer)
-                NotificationHelper.cancelIncomingCall(app, stopSound = false)
-                IncomingCallActivity.dismiss(app, peer)
-                val openUrl = intent.getStringExtra(MainActivity.EXTRA_OPEN_URL)
-                    ?: SosCallUrls.acceptPage(callType)
-                val launch = Intent(app, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
-                    putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
-                    putExtra(MainActivity.EXTRA_CALL_PEER, peer)
-                    putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
-                }
-                try {
-                    app.startActivity(launch)
-                } catch (err: Exception) {
-                    Log.w(TAG, "answer launch failed: ${err.message}")
-                }
+                // נשארים על מסך Native + accept ברקע (לא פותחים MainActivity בחזית) | HYPER CORE TECH
+                val name = SosContactCache.displayName(app, peer, app.getString(R.string.call_someone))
+                val picture = SosContactCache.get(app, peer)?.picture.orEmpty()
+                IncomingCallActivity.launch(
+                    app,
+                    peer,
+                    callType,
+                    name,
+                    SosCallUrls.acceptPage(callType),
+                    picture,
+                    autoAnswer = true
+                )
             }
         }
     }

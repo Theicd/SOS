@@ -194,14 +194,34 @@ class SosJsBridge(
     fun markIncomingCallEnded(peer: String?) {
         SosIncomingCallSession.markRemoteEnded(context.applicationContext, peer)
         SosPendingCallStore.clear(context.applicationContext)
-        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopAll()
+        IncomingCallActivity.notifyEnded(context.applicationContext, peer)
     }
 
     @JavascriptInterface
     fun markIncomingCallAnswered(peer: String?) {
         SosIncomingCallSession.markAnswered(context.applicationContext, peer)
-        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true)
+        // לא סוגרים את מסך Native – הוא נשאר במצב «בשיחה» | HYPER CORE TECH
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
+    }
+
+    /** WebRTC מחובר – מעדכן מסך Native | HYPER CORE TECH */
+    @JavascriptInterface
+    fun notifyNativeCallConnected(peer: String?) {
+        SosDebugLog.i("call", "js connected peer=${peer?.take(8)}")
+        IncomingCallActivity.notifyConnected(context.applicationContext, peer)
+    }
+
+    /** שיחה הסתיימה ב־JS – סוגר מסך Native | HYPER CORE TECH */
+    @JavascriptInterface
+    fun notifyNativeCallEnded(peer: String?) {
+        SosDebugLog.i("call", "js ended peer=${peer?.take(8)}")
+        SosIncomingCallSession.markRemoteEnded(context.applicationContext, peer)
+        SosPendingCallStore.clear(context.applicationContext)
+        NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
+        CallSoundHelper.stopAll()
+        IncomingCallActivity.notifyEnded(context.applicationContext, peer)
     }
 
     @JavascriptInterface
