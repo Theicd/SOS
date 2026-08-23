@@ -1667,22 +1667,77 @@
           fullLog = [];
         };
 
-        // שמירת לוג כ-TXT
-        var saveBtn = document.createElement('button');
-        saveBtn.textContent = '💾 שמור TXT';
-        saveBtn.id = 'debugSave';
-        saveBtn.onclick = function() {
-          var text = fullLog.join('\n');
-          var blob = new Blob([text], { type: 'text/plain' });
+        // שמירת לוג כ-TXT – ב־APK דרך SosNativeShell (a[download]/blob נכשל ב־WebView) | HYPER CORE TECH
+        function blobToDataUrl(blob) {
+          return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(String(reader.result || '')); };
+            reader.onerror = function() { reject(reader.error || new Error('read-failed')); };
+            reader.readAsDataURL(blob);
+          });
+        }
+        function triggerWebDownload(text, fileName) {
+          var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
           var url = URL.createObjectURL(blob);
           var a = document.createElement('a');
           a.href = url;
-          a.download = 'sos-debug-log.txt';
+          a.download = fileName;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
           a.click();
-          URL.revokeObjectURL(url);
-
-          if (navigator.share) {
-            navigator.share({ title: 'SOS Debug Log', text, files: undefined, url: undefined }).catch(() => {});
+          a.remove();
+          setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+        }
+        function buildDebugLogFileName() {
+          var now = new Date();
+          var pad = function(n) { return String(n).padStart(2, '0'); };
+          return 'sos-debug-log-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate())
+            + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds()) + '.txt';
+        }
+        var saveBtn = document.createElement('button');
+        saveBtn.textContent = '💾 שמור TXT';
+        saveBtn.id = 'debugSave';
+        saveBtn.onclick = async function() {
+          var text = fullLog.join('\n');
+          var fileName = buildDebugLogFileName();
+          if (!text) {
+            saveBtn.textContent = 'ריק';
+            setTimeout(function() { saveBtn.textContent = '💾 שמור TXT'; }, 1500);
+            return;
+          }
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'שומר…';
+          try {
+            var nativeShell = window.SosNativeShell;
+            var canNative = !!(nativeShell && typeof nativeShell.saveToDownloads === 'function');
+            if (canNative) {
+              var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+              var dataUrl = await blobToDataUrl(blob);
+              var result = nativeShell.saveToDownloads(dataUrl, fileName, 'text/plain');
+              if (typeof result !== 'string' || result.indexOf('ok:') !== 0) {
+                throw new Error(String(result || 'native-save-failed'));
+              }
+              saveBtn.textContent = '✅ נשמר';
+            } else {
+              triggerWebDownload(text, fileName);
+              saveBtn.textContent = '✅ הורד';
+            }
+          } catch (err) {
+            console.warn('[DEBUG] save TXT failed', err);
+            try {
+              if (!window.SosNativeShell) {
+                triggerWebDownload(text, fileName);
+                saveBtn.textContent = '⚠️ הורדה';
+              } else {
+                throw err;
+              }
+            } catch (e2) {
+              saveBtn.textContent = '❌ נכשל';
+              alert('שמירת הלוג נכשלה. נסה שוב או העתק.');
+            }
+          } finally {
+            saveBtn.disabled = false;
+            setTimeout(function() { saveBtn.textContent = '💾 שמור TXT'; }, 2200);
           }
         };
         document.getElementById('debugHeader').appendChild(saveBtn);

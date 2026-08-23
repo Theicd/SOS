@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.23-pwa270-restore-pre-shell",
-  "note": "Restore backup before native in-call and log-filter changes (LoadNug static bg era)"
+  "version": "2026.08.23-pwa271-debug-txt-native-save",
+  "note": "APK: save UI debug log TXT via SosNativeShell to Downloads (WebView a[download] fails)"
 }
