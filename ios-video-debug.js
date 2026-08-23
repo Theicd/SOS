@@ -1,16 +1,16 @@
 /**
  * חלק דיבוג אייפון (ios-video-debug.js) – מודול דיבוג מעמיק לבעיות וידאו באייפון | HYPER CORE TECH
- * גרסה: 1.0.0
- * 
- * מטרה: לזהות למה וידאו לא מוצג באייפון למרות שהקול מתנגן
+ * גרסה: 1.1.0
+ *
+ * בפרודקשן: כבוי כברירת מחדל מחוץ ל-iOS.
+ * הפעלה ידנית: ?iosDebug=1 או localStorage.sosIosVideoDebug=1 או enableIosVideoDebug()
  */
 
 (function() {
   'use strict';
 
-  const IOS_DEBUG_VERSION = '1.0.0';
-  
-  // בדיקה אם זה iOS
+  const IOS_DEBUG_VERSION = '1.1.0';
+
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const iosVersion = (() => {
@@ -18,8 +18,29 @@
     return match ? { major: parseInt(match[1]), minor: parseInt(match[2]), patch: parseInt(match[3] || 0) } : null;
   })();
 
-  // לוג מיוחד לדיבוג iOS
+  function isDebugForcedOn() {
+    try {
+      if (window.localStorage && window.localStorage.getItem('sosIosVideoDebug') === '1') return true;
+    } catch (_) {}
+    try {
+      const q = new URLSearchParams(window.location.search || '');
+      if (q.get('iosDebug') === '1') return true;
+    } catch (_) {}
+    return false;
+  }
+
+  /** פעיל רק ב-iOS או בהפעלה ידנית – מונע שיטפון קונסול בדסקטופ/אנדרואיד | HYPER CORE TECH */
+  function shouldAutoStart() {
+    return isIOS || isDebugForcedOn();
+  }
+
+  let debugActive = false;
+  let createObjectURLPatched = false;
+  const lastEventLogAt = new WeakMap();
+  const EVENT_LOG_COOLDOWN_MS = 4000;
+
   function iosLog(category, message, data = {}) {
+    if (!debugActive) return;
     const timestamp = new Date().toLocaleTimeString('he-IL');
     const prefix = `[iOS-DEBUG ${timestamp}]`;
     const colors = {
@@ -33,16 +54,15 @@
       'WARNING': '#FF9800',
       'INFO': '#607D8B'
     };
-    
+
     const color = colors[category] || '#607D8B';
-    const dataStr = Object.keys(data).length > 0 
-      ? ' [' + Object.entries(data).map(([k,v]) => `${k}:${String(v).substring(0,30)}`).join(' | ') + ']'
+    const dataStr = Object.keys(data).length > 0
+      ? ' [' + Object.entries(data).map(([k, v]) => `${k}:${String(v).substring(0, 30)}`).join(' | ') + ']'
       : '';
-    
+
     console.log(`%c${prefix} 📱 ${category}: ${message}${dataStr}`, `color: ${color}; font-weight: bold`);
   }
 
-  // בדיקת מידע על המכשיר
   function logDeviceInfo() {
     iosLog('INFO', '=== מידע על המכשיר ===');
     iosLog('INFO', 'User Agent', { ua: navigator.userAgent.substring(0, 100) });
@@ -53,8 +73,6 @@
     }
     iosLog('INFO', 'Screen', { width: screen.width, height: screen.height, pixelRatio: window.devicePixelRatio });
     iosLog('INFO', 'Viewport', { width: window.innerWidth, height: window.innerHeight });
-    
-    // בדיקת תמיכה ב-APIs
     iosLog('INFO', 'APIs Support', {
       indexedDB: !!window.indexedDB,
       webRTC: !!window.RTCPeerConnection,
@@ -63,10 +81,8 @@
     });
   }
 
-  // בדיקת תמיכה בקודקים
   function checkCodecSupport() {
     iosLog('CODEC', '=== בדיקת תמיכה בקודקים ===');
-    
     const video = document.createElement('video');
     const codecs = [
       'video/mp4',
@@ -81,7 +97,6 @@
       'video/ogg',
       'video/quicktime'
     ];
-    
     codecs.forEach(codec => {
       const support = video.canPlayType(codec);
       const status = support === 'probably' ? '✅' : support === 'maybe' ? '⚠️' : '❌';
@@ -89,14 +104,27 @@
     });
   }
 
-  // מעקב אחרי אלמנטי וידאו
+  function shouldLogRoutineEvent(videoEl, eventName) {
+    // canplay/playing בלולאת פיד – לא לוגים חוזרים; רק פעם ראשונה לכל אלמנט | HYPER CORE TECH
+    if (eventName === 'canplay' || eventName === 'playing' || eventName === 'loadeddata') {
+      const key = eventName;
+      const map = videoEl._iosDebugOnceEvents || (videoEl._iosDebugOnceEvents = Object.create(null));
+      if (map[key]) return false;
+      map[key] = true;
+      return true;
+    }
+    const now = Date.now();
+    const prev = lastEventLogAt.get(videoEl) || 0;
+    if (now - prev < EVENT_LOG_COOLDOWN_MS) return false;
+    lastEventLogAt.set(videoEl, now);
+    return true;
+  }
+
   function monitorVideoElement(videoEl, label = 'unknown') {
-    if (!videoEl || videoEl._iosDebugMonitored) return;
+    if (!debugActive || !videoEl || videoEl._iosDebugMonitored) return;
     videoEl._iosDebugMonitored = true;
-    
-    iosLog('VIDEO', `מתחיל מעקב אחרי וידאו`, { label });
-    
-    // לוג מצב התחלתי
+
+    iosLog('VIDEO', 'מתחיל מעקב אחרי וידאו', { label });
     iosLog('VIDEO', 'מצב התחלתי', {
       src: videoEl.src ? videoEl.src.substring(0, 50) : 'none',
       readyState: videoEl.readyState,
@@ -106,8 +134,7 @@
       autoplay: videoEl.autoplay,
       playsInline: videoEl.playsInline
     });
-    
-    // לוג תכונות CSS
+
     const style = window.getComputedStyle(videoEl);
     iosLog('RENDER', 'CSS Properties', {
       display: style.display,
@@ -118,52 +145,60 @@
       objectFit: style.objectFit,
       transform: style.transform.substring(0, 30)
     });
-    
-    // מעקב אחרי אירועים
+
+    // רק אירועים חשובים – בלי timeupdate/progress וכו' | HYPER CORE TECH
     const events = [
-      'loadstart', 'progress', 'suspend', 'abort', 'error', 'emptied', 'stalled',
-      'loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'playing',
-      'waiting', 'seeking', 'seeked', 'ended', 'durationchange', 'timeupdate',
-      'play', 'pause', 'ratechange', 'resize', 'volumechange'
+      'error', 'emptied', 'stalled', 'abort',
+      'loadedmetadata', 'loadeddata', 'canplay', 'playing',
+      'waiting', 'ended', 'pause'
     ];
-    
+
     events.forEach(eventName => {
-      videoEl.addEventListener(eventName, (e) => {
+      videoEl.addEventListener(eventName, () => {
+        if (!debugActive) return;
         const data = {
           readyState: videoEl.readyState,
           networkState: videoEl.networkState,
           currentTime: videoEl.currentTime?.toFixed(2),
           duration: videoEl.duration?.toFixed(2)
         };
-        
+
         if (eventName === 'error') {
           const error = videoEl.error;
           iosLog('ERROR', `אירוע וידאו: ${eventName}`, {
             code: error?.code,
             message: error?.message || 'unknown'
           });
-        } else if (['loadeddata', 'canplay', 'playing', 'error'].includes(eventName)) {
-          iosLog('VIDEO', `אירוע וידאו: ${eventName}`, data);
+          return;
         }
-        
-        // בדיקת videoWidth/videoHeight אחרי loadedmetadata
+
         if (eventName === 'loadedmetadata') {
           iosLog('VIDEO', 'מידע וידאו נטען', {
             videoWidth: videoEl.videoWidth,
             videoHeight: videoEl.videoHeight,
             duration: videoEl.duration?.toFixed(2)
           });
-          
-          // אם videoWidth או videoHeight הם 0 - זו הבעיה!
           if (videoEl.videoWidth === 0 || videoEl.videoHeight === 0) {
             iosLog('ERROR', '⚠️ videoWidth/videoHeight הם 0! זו כנראה הבעיה!');
           }
+          return;
+        }
+
+        if (['loadeddata', 'canplay', 'playing'].includes(eventName)) {
+          if (!shouldLogRoutineEvent(videoEl, eventName)) return;
+          iosLog('VIDEO', `אירוע וידאו: ${eventName}`, data);
+          return;
+        }
+
+        if (['waiting', 'stalled', 'emptied', 'abort'].includes(eventName)) {
+          if (!shouldLogRoutineEvent(videoEl, eventName)) return;
+          iosLog('WARNING', `אירוע וידאו: ${eventName}`, data);
         }
       });
     });
-    
-    // בדיקה אם יש בעיית rendering
+
     setTimeout(() => {
+      if (!debugActive || !videoEl.isConnected) return;
       const rect = videoEl.getBoundingClientRect();
       iosLog('RENDER', 'Bounding Rect', {
         width: rect.width.toFixed(0),
@@ -172,8 +207,6 @@
         left: rect.left.toFixed(0),
         visible: rect.width > 0 && rect.height > 0
       });
-      
-      // בדיקה אם הווידאו מנגן אבל לא נראה
       if (!videoEl.paused && videoEl.currentTime > 0) {
         if (rect.width === 0 || rect.height === 0) {
           iosLog('ERROR', '⚠️ הווידאו מנגן אבל הגודל הוא 0!');
@@ -185,50 +218,44 @@
     }, 2000);
   }
 
-  // מעקב אחרי Blob URLs
-  const originalCreateObjectURL = URL.createObjectURL;
-  URL.createObjectURL = function(blob) {
-    const url = originalCreateObjectURL.call(this, blob);
-    
-    if (blob instanceof Blob) {
-      iosLog('BLOB', 'נוצר Blob URL', {
-        type: blob.type,
-        size: (blob.size / 1024).toFixed(1) + 'KB',
-        url: url.substring(0, 50)
-      });
-      
-      // בדיקה אם ה-MIME type נכון
-      if (blob.type && !blob.type.startsWith('video/')) {
-        iosLog('WARNING', '⚠️ Blob type לא וידאו!', { type: blob.type });
+  function patchCreateObjectURL() {
+    if (createObjectURLPatched) return;
+    createObjectURLPatched = true;
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = function(blob) {
+      const url = originalCreateObjectURL.call(this, blob);
+      if (debugActive && blob instanceof Blob) {
+        iosLog('BLOB', 'נוצר Blob URL', {
+          type: blob.type,
+          size: (blob.size / 1024).toFixed(1) + 'KB',
+          url: url.substring(0, 50)
+        });
+        if (blob.type && !blob.type.startsWith('video/') && !blob.type.startsWith('image/') && !blob.type.startsWith('audio/')) {
+          iosLog('WARNING', '⚠️ Blob type לא מדיה!', { type: blob.type });
+        }
+        if (!blob.type) {
+          iosLog('WARNING', '⚠️ Blob ללא type!');
+        }
       }
-      if (!blob.type) {
-        iosLog('WARNING', '⚠️ Blob ללא type!');
-      }
-    }
-    
-    return url;
-  };
+      return url;
+    };
+  }
 
-  // מעקב אחרי IndexedDB
   function monitorIndexedDB() {
     if (!window.indexedDB) {
       iosLog('ERROR', 'IndexedDB לא נתמך!');
       return;
     }
-    
-    // בדיקת מגבלות אחסון
     if (navigator.storage && navigator.storage.estimate) {
       navigator.storage.estimate().then(estimate => {
         const usedMB = (estimate.usage / 1024 / 1024).toFixed(2);
         const quotaMB = (estimate.quota / 1024 / 1024).toFixed(2);
         const percent = ((estimate.usage / estimate.quota) * 100).toFixed(1);
-        
         iosLog('CACHE', 'מצב אחסון', {
           used: usedMB + 'MB',
           quota: quotaMB + 'MB',
           percent: percent + '%'
         });
-        
         if (estimate.usage / estimate.quota > 0.9) {
           iosLog('WARNING', '⚠️ האחסון כמעט מלא!');
         }
@@ -238,31 +265,34 @@
     }
   }
 
-  // מעקב אחרי שגיאות גלובליות
-  window.addEventListener('error', (e) => {
-    if (e.message && (e.message.includes('video') || e.message.includes('media'))) {
-      iosLog('ERROR', 'שגיאה גלובלית', {
-        message: e.message.substring(0, 100),
-        filename: e.filename?.split('/').pop()
-      });
-    }
-  });
+  function bindGlobalErrorHooks() {
+    if (window.__sosIosDebugErrorsBound) return;
+    window.__sosIosDebugErrorsBound = true;
+    window.addEventListener('error', (e) => {
+      if (!debugActive) return;
+      if (e.message && (e.message.includes('video') || e.message.includes('media'))) {
+        iosLog('ERROR', 'שגיאה גלובלית', {
+          message: e.message.substring(0, 100),
+          filename: e.filename?.split('/').pop()
+        });
+      }
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      if (!debugActive) return;
+      const reason = e.reason?.message || String(e.reason);
+      if (reason.includes('video') || reason.includes('media') || reason.includes('blob')) {
+        iosLog('ERROR', 'Promise rejection', { reason: reason.substring(0, 100) });
+      }
+    });
+  }
 
-  // מעקב אחרי unhandled promise rejections
-  window.addEventListener('unhandledrejection', (e) => {
-    const reason = e.reason?.message || String(e.reason);
-    if (reason.includes('video') || reason.includes('media') || reason.includes('blob')) {
-      iosLog('ERROR', 'Promise rejection', { reason: reason.substring(0, 100) });
-    }
-  });
-
-  // Observer למעקב אחרי וידאו חדשים שנוספים ל-DOM
   function startVideoObserver() {
+    if (window.__sosIosDebugObserver) return;
     const observer = new MutationObserver((mutations) => {
+      if (!debugActive) return;
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeName === 'VIDEO') {
-            iosLog('VIDEO', 'וידאו חדש נוסף ל-DOM');
             monitorVideoElement(node, 'dynamic');
           }
           if (node.querySelectorAll) {
@@ -273,12 +303,11 @@
         });
       });
     });
-    
     observer.observe(document.body, { childList: true, subtree: true });
+    window.__sosIosDebugObserver = observer;
     iosLog('INFO', 'Video Observer הופעל');
   }
 
-  // בדיקת וידאו קיימים
   function checkExistingVideos() {
     const videos = document.querySelectorAll('video');
     iosLog('VIDEO', `נמצאו ${videos.length} אלמנטי וידאו קיימים`);
@@ -287,20 +316,46 @@
     });
   }
 
-  // פונקציה לבדיקה ידנית של וידאו ספציפי
+  function startDebugSession() {
+    if (debugActive) return true;
+    debugActive = true;
+    iosLog('INFO', `=== iOS Video Debug v${IOS_DEBUG_VERSION} ===`);
+    iosLog('INFO', 'מצב', { isIOS, forced: isDebugForcedOn() });
+    logDeviceInfo();
+    checkCodecSupport();
+    monitorIndexedDB();
+    patchCreateObjectURL();
+    bindGlobalErrorHooks();
+
+    const boot = () => {
+      checkExistingVideos();
+      startVideoObserver();
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot, { once: true });
+    } else if (document.body) {
+      boot();
+    } else {
+      document.addEventListener('DOMContentLoaded', boot, { once: true });
+    }
+
+    iosLog('SUCCESS', 'מודול דיבוג iOS הופעל');
+    iosLog('INFO', 'כיבוי: disableIosVideoDebug() | localStorage הסר sosIosVideoDebug');
+    return true;
+  }
+
   window.debugVideo = function(selector) {
-    const video = typeof selector === 'string' 
-      ? document.querySelector(selector) 
+    if (!debugActive) startDebugSession();
+    const video = typeof selector === 'string'
+      ? document.querySelector(selector)
       : selector;
-    
+
     if (!video) {
       iosLog('ERROR', 'וידאו לא נמצא');
       return;
     }
-    
+
     iosLog('INFO', '=== בדיקה ידנית של וידאו ===');
-    
-    // מידע בסיסי
     console.log('Video Element:', video);
     console.log('src:', video.src);
     console.log('currentSrc:', video.currentSrc);
@@ -312,20 +367,15 @@
     console.log('duration:', video.duration);
     console.log('paused:', video.paused);
     console.log('muted:', video.muted);
-    
-    // CSS
+
     const style = window.getComputedStyle(video);
     console.log('CSS display:', style.display);
     console.log('CSS visibility:', style.visibility);
     console.log('CSS opacity:', style.opacity);
     console.log('CSS width:', style.width);
     console.log('CSS height:', style.height);
-    
-    // Bounding rect
-    const rect = video.getBoundingClientRect();
-    console.log('Bounding rect:', rect);
-    
-    // ניסיון לנגן
+    console.log('Bounding rect:', video.getBoundingClientRect());
+
     iosLog('INFO', 'מנסה לנגן...');
     video.play().then(() => {
       iosLog('SUCCESS', 'הווידאו התחיל לנגן');
@@ -341,59 +391,42 @@
     });
   };
 
-  // פונקציה לבדיקת URL ישירות
   window.testVideoURL = function(url) {
-    iosLog('INFO', '=== בדיקת URL וידאו ===', { url: url.substring(0, 50) });
-    
+    if (!debugActive) startDebugSession();
+    iosLog('INFO', '=== בדיקת URL וידאו ===', { url: String(url || '').substring(0, 50) });
+
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
     video.autoplay = false;
     video.preload = 'auto';
     video.style.cssText = 'position:fixed;top:10px;left:10px;width:200px;height:150px;z-index:99999;background:red;';
-    
+
     monitorVideoElement(video, 'test');
-    
     video.src = url;
     document.body.appendChild(video);
-    
     video.load();
-    
     setTimeout(() => {
       video.play().catch(e => iosLog('ERROR', 'Play failed', { error: e.message }));
     }, 1000);
-    
     iosLog('INFO', 'וידאו טסט נוסף לפינה השמאלית העליונה');
-    
     return video;
   };
 
-  // אתחול
-  function init() {
-    iosLog('INFO', `=== iOS Video Debug v${IOS_DEBUG_VERSION} ===`);
-    
-    if (!isIOS) {
-      iosLog('INFO', 'לא iOS - הדיבוג יפעל בכל מקרה');
-    }
-    
-    logDeviceInfo();
-    checkCodecSupport();
-    monitorIndexedDB();
-    
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        checkExistingVideos();
-        startVideoObserver();
-      });
-    } else {
-      checkExistingVideos();
-      startVideoObserver();
-    }
-    
-    iosLog('SUCCESS', 'מודול דיבוג iOS הופעל');
-    iosLog('INFO', 'פקודות זמינות: debugVideo(selector), testVideoURL(url)');
+  window.enableIosVideoDebug = function enableIosVideoDebug() {
+    try { window.localStorage.setItem('sosIosVideoDebug', '1'); } catch (_) {}
+    return startDebugSession();
+  };
+
+  window.disableIosVideoDebug = function disableIosVideoDebug() {
+    debugActive = false;
+    try { window.localStorage.removeItem('sosIosVideoDebug'); } catch (_) {}
+    console.log('[iOS-DEBUG] כבוי – רענון מומלץ לניקוי מאזינים');
+    return true;
+  };
+
+  // אתחול אוטומטי רק ב-iOS (או הפעלה ידנית) – לא בדסקטופ/אנדרואיד | HYPER CORE TECH
+  if (shouldAutoStart()) {
+    startDebugSession();
   }
-
-  init();
-
 })();
