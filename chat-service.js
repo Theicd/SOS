@@ -357,8 +357,12 @@
   }
 
   function normalizeProfileData(profile = {}, pubkey = '') {
-    const safeName = profile.name || `משתמש ${pubkey.slice(0, 8)}`;
-    const initials = profile.initials || (typeof App.getInitials === 'function' ? App.getInitials(safeName) : 'מש');
+    const rawName = String(profile.name || '').trim();
+    // בלי שם מהרשת – לא ממציאים "משתמש xxxx" (כדי לא לדרוס שם שמור) | HYPER CORE TECH
+    const safeName = rawName;
+    const initials = profile.initials
+      || (safeName && typeof App.getInitials === 'function' ? App.getInitials(safeName) : '')
+      || 'מש';
     return {
       name: safeName,
       picture: profile.picture || '',

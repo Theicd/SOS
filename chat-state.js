@@ -522,6 +522,8 @@
     recalculateUnreadTotal();
     notify('contacts', getContactsSnapshot());
     notify('unread', chatState.unreadTotal);
+    // אחרי שחזור – רענון שיחה פתוחה (פתיחה מהתרעה לפני שהקאש היה מוכן) | HYPER CORE TECH
+    notify('restored', { ok: true });
   }
 
   // חלק צ'אט (chat-state.js) – מחשב מחדש את מספור ההודעות הלא נקראות לפי הזמן האחרון שהשיחה נקראה
@@ -549,6 +551,15 @@
   }
 
   // חלק אופטימיזציה (chat-state.js) – מונע notify מיותר אם אין שינוי אמיתי | HYPER CORE TECH
+  function isPlaceholderContactName(name, pubkey) {
+    const n = String(name || '').trim();
+    if (!n || n === 'משתמש') return true;
+    const pk = String(pubkey || '').toLowerCase();
+    if (pk.length >= 8 && n === `משתמש ${pk.slice(0, 8)}`) return true;
+    if (/^משתמש [0-9a-f]{8}$/i.test(n)) return true;
+    return false;
+  }
+
   function ensureContact(pubkey, profile = {}) {
     if (!pubkey) return null;
     const normalized = pubkey.toLowerCase();
@@ -556,9 +567,22 @@
     if (existing) {
       // בדוק אם יש שינוי אמיתי לפני notify
       let hasChange = false;
-      if (profile.name && profile.name !== existing.name) { existing.name = profile.name; hasChange = true; }
+      if (profile.name && profile.name !== existing.name) {
+        // לא לדרוס שם אמיתי ב־fallback "משתמש xxxxxxxx" | HYPER CORE TECH
+        const incomingPlaceholder = isPlaceholderContactName(profile.name, normalized);
+        const existingPlaceholder = isPlaceholderContactName(existing.name, normalized);
+        if (!(incomingPlaceholder && !existingPlaceholder)) {
+          existing.name = profile.name;
+          hasChange = true;
+        }
+      }
       if (profile.picture && profile.picture !== existing.picture) { existing.picture = profile.picture; hasChange = true; }
-      if (profile.initials && profile.initials !== existing.initials) { existing.initials = profile.initials; hasChange = true; }
+      if (profile.initials && profile.initials !== existing.initials) {
+        if (!(isPlaceholderContactName(profile.name, normalized) && !isPlaceholderContactName(existing.name, normalized))) {
+          existing.initials = profile.initials;
+          hasChange = true;
+        }
+      }
       if (profile.profileFetchedAt) existing.profileFetchedAt = profile.profileFetchedAt;
       // רק אם יש שינוי - עדכן UI
       if (hasChange) {
@@ -567,7 +591,9 @@
       }
       return existing;
     }
-    const fallbackName = profile.name || 'משתמש';
+    const fallbackName = (profile.name && !isPlaceholderContactName(profile.name, normalized))
+      ? profile.name
+      : (profile.name || 'משתמש');
     const initials = profile.initials || (typeof App.getInitials === 'function' ? App.getInitials(fallbackName) : 'מש');
     const contact = {
       pubkey: normalized,
@@ -1075,6 +1101,7 @@
     formatDisappearingTimerLabel,
     updateChatMessageStatus: updateMessageStatus,
     replaceOutgoingTempMessage,
+    isPlaceholderContactName,
   });
 
   // חלק המתנה ל-restore (chat-state.js) – Promise שמאפשר ל-chat-service להמתין לטעינת הקאש | HYPER CORE TECH
@@ -1083,7 +1110,29 @@
     _restoreStateResolve = resolve;
   });
 
+  function waitForPublicKey(maxMs = 4000) {
+    return new Promise((resolve) => {
+      if (typeof App.publicKey === 'string' && App.publicKey.length >= 64) {
+        resolve(App.publicKey);
+        return;
+      }
+      const started = Date.now();
+      const timer = setInterval(() => {
+        if (typeof App.publicKey === 'string' && App.publicKey.length >= 64) {
+          clearInterval(timer);
+          resolve(App.publicKey);
+          return;
+        }
+        if (Date.now() - started >= maxMs) {
+          clearInterval(timer);
+          resolve(App.publicKey || '');
+        }
+      }, 100);
+    });
+  }
+
   async function doRestoreAndSignal() {
+    await waitForPublicKey(4000);
     await restoreState();
     try { refreshDisappearingSystemNotices(); } catch (_) {}
     try { pruneExpiredChatHistory(); } catch (_) {}

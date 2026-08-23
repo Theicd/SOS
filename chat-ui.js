@@ -4673,12 +4673,15 @@
         if (!profile) {
           return;
         }
+        const fetchedName = String(profile.name || '').trim();
         const normalizedProfile = {
-          name: profile.name || `משתמש ${normalized.slice(0, 8)}`,
+          // בלי שם מהרשת – לא שולחים fallback שדורס שם שמור | HYPER CORE TECH
+          name: fetchedName,
           picture: profile.picture || '',
           initials:
             profile.initials ||
-            (typeof App.getInitials === 'function' ? App.getInitials(profile.name || '') : 'מש'),
+            (fetchedName && typeof App.getInitials === 'function' ? App.getInitials(fetchedName) : '') ||
+            'מש',
           lastReadTimestamp: contact?.lastReadTimestamp || 0,
         };
         App.ensureChatContact(normalized, normalizedProfile);
@@ -6884,6 +6887,12 @@
       // כשתמונת פרופיל מגיעה אחרי פתיחת השיחה – מרעננים את ההדר | HYPER CORE TECH
       if (state.activeContact) updateActiveConversationHeader(state.activeContact);
     });
+    // אחרי שחזור קאש – מרעננים שיחה שכבר נפתחה מהתרעה | HYPER CORE TECH
+    App.subscribeChat?.('restored', () => {
+      if (!state.activeContact) return;
+      updateActiveConversationHeader(state.activeContact);
+      renderMessages(state.activeContact, { force: true, resetLimit: true });
+    });
     App.subscribeChat?.('message', (payload = {}) => {
       const { peer, message, statusUpdate, replacedTempId, removedMessageId } = payload;
       if (!peer) return;
@@ -7132,14 +7141,23 @@
   App.showChatConversation = function showChatConversationExternal(peerPubkey) {
     if (!peerPubkey) return;
     const normalized = String(peerPubkey).toLowerCase();
-    try {
-      if (typeof App.ensureChatContact === 'function') {
-        App.ensureChatContact(normalized);
-      }
-    } catch (_) {}
-    const contact = App.chatState?.contacts?.get(normalized);
-    togglePanel(true);
-    showConversation(normalized, contact);
+    const openNow = () => {
+      try {
+        if (typeof App.ensureChatContact === 'function') {
+          App.ensureChatContact(normalized);
+        }
+      } catch (_) {}
+      const contact = App.chatState?.contacts?.get(normalized);
+      togglePanel(true);
+      showConversation(normalized, contact);
+    };
+    // מחכים לשחזור IndexedDB – אחרת נפתח בלי היסטוריה/שם | HYPER CORE TECH
+    const ready = App.chatStateReady;
+    if (ready && typeof ready.then === 'function') {
+      Promise.resolve(ready).then(openNow).catch(openNow);
+    } else {
+      openNow();
+    }
   };
 
   // חלק העתקה ללוח (chat-ui.js) – העתקת טקסט הודעה ללוח בלחיצה | HYPER CORE TECH

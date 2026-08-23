@@ -105,29 +105,36 @@
   function openConversation(peer) {
     if (!peer) return false;
     suppressLoadingOverChat();
-    try {
-      if (typeof App.ensureChatContact === 'function') {
-        App.ensureChatContact(peer);
-      } else if (typeof App.addChatContact === 'function') {
-        App.addChatContact(peer);
-      }
-    } catch (_) {}
-
-    if (typeof App.showChatConversation === 'function') {
-      App.showChatConversation(peer);
-      suppressLoadingOverChat();
-      // אחרי פתיחה – מנקים sticky deeplink כדי שלא יקפוץ חזרה לשיחה | HYPER CORE TECH
-      setTimeout(() => {
-        try {
-          if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
-          else clearDeepLinkFlags();
-        } catch (_) {
-          clearDeepLinkFlags();
+    const runOpen = () => {
+      try {
+        if (typeof App.ensureChatContact === 'function') {
+          App.ensureChatContact(peer);
+        } else if (typeof App.addChatContact === 'function') {
+          App.addChatContact(peer);
         }
-      }, 400);
-      return true;
+      } catch (_) {}
+
+      if (typeof App.showChatConversation === 'function') {
+        App.showChatConversation(peer);
+        suppressLoadingOverChat();
+        setTimeout(() => {
+          try {
+            if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+            else clearDeepLinkFlags();
+          } catch (_) {
+            clearDeepLinkFlags();
+          }
+        }, 400);
+      }
+    };
+    // ממתין לקאש צ'אט לפני פתיחה מהתרעה | HYPER CORE TECH
+    const ready = App.chatStateReady;
+    if (ready && typeof ready.then === 'function') {
+      Promise.resolve(ready).then(runOpen).catch(runOpen);
+    } else {
+      runOpen();
     }
-    return false;
+    return typeof App.showChatConversation === 'function';
   }
 
   function focusIncomingCall(peer, callType, pendingOffer, opts) {
