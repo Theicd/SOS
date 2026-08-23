@@ -1,4 +1,4 @@
 {
-  "version": "2026.08.23-pwa273-call-ghost-fix",
-  "note": "Ignore stale call offers; mark hangup to native; keep native call UI after answer"
+  "version": "2026.08.23-pwa274-call-accept-once",
+  "note": "Accept once after Answer; no SDP reset from inject retries; native call timer"
 }

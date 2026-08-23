@@ -28,12 +28,27 @@ class IncomingCallActivity : AppCompatActivity() {
     private var handled = false
     private var inCall = false
     private var avatarLoadToken = 0
+    private var callConnectedAt = 0L
+    private val timerHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val timerTick = object : Runnable {
+        override fun run() {
+            if (!inCall || callConnectedAt <= 0L) return
+            val sec = ((System.currentTimeMillis() - callConnectedAt) / 1000L).toInt().coerceAtLeast(0)
+            val mm = sec / 60
+            val ss = sec % 60
+            findViewById<TextView>(R.id.incomingCallSub)?.text =
+                getString(R.string.call_in_progress) + "  " + String.format("%02d:%02d", mm, ss)
+            timerHandler.postDelayed(this, 1000L)
+        }
+    }
 
     private val dismissReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 ACTION_DISMISS -> {
                     val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
+                    // בזמן שיחה פעילה לא סוגרים בגלל cancel התראה | HYPER CORE TECH
+                    if (inCall) return
                     if (p.isBlank() || p == peer || peer.isBlank()) {
                         finishAndRemoveTaskSafe()
                     }
@@ -45,6 +60,7 @@ class IncomingCallActivity : AppCompatActivity() {
                 ACTION_CALL_ENDED -> {
                     val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
                     if (p.isBlank() || p == peer || peer.isBlank()) {
+                        stopNativeCallTimer()
                         finishAndRemoveTaskSafe()
                     }
                 }
@@ -76,6 +92,7 @@ class IncomingCallActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        stopNativeCallTimer()
         try {
             unregisterReceiver(dismissReceiver)
         } catch (_: Exception) {
@@ -197,9 +214,22 @@ class IncomingCallActivity : AppCompatActivity() {
 
     private fun showInCallUi() {
         inCall = true
-        findViewById<TextView>(R.id.incomingCallSub).text = getString(R.string.call_in_progress)
+        if (callConnectedAt <= 0L) {
+            callConnectedAt = System.currentTimeMillis()
+        }
         findViewById<View>(R.id.ringingActions)?.visibility = View.GONE
         findViewById<View>(R.id.inCallActions)?.visibility = View.VISIBLE
+        startNativeCallTimer()
+    }
+
+    private fun startNativeCallTimer() {
+        timerHandler.removeCallbacks(timerTick)
+        timerHandler.post(timerTick)
+    }
+
+    private fun stopNativeCallTimer() {
+        timerHandler.removeCallbacks(timerTick)
+        callConnectedAt = 0L
     }
 
     private fun onAnswer() {
@@ -234,6 +264,7 @@ class IncomingCallActivity : AppCompatActivity() {
     }
 
     private fun onHangup() {
+        stopNativeCallTimer()
         SosIncomingCallSession.markRemoteEnded(applicationContext, peer)
         SosPendingCallStore.clear(applicationContext)
         CallSoundHelper.stopAll()

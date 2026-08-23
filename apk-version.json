@@ -1,7 +1,7 @@
 {
-  "version": "1.0.72",
-  "versionCode": 73,
-  "file": "SOS-1.0.72.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.72/SOS-1.0.72.apk",
-  "note": "Native in-call stays after answer; block ghost rings from stale offers"
+  "version": "1.0.73",
+  "versionCode": 74,
+  "file": "SOS-1.0.73.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.73/SOS-1.0.73.apk",
+  "note": "Stop re-accept retries after connect; keep native in-call UI + timer"
 }

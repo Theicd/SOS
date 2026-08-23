@@ -371,6 +371,17 @@
       throw new Error('הדפדפן שלך לא תומך בשיחות קוליות');
     }
 
+    // כבר בשיחה פעילה עם אותו peer – לא מאפסים SDP (מונע שבירת retries מ-APK) | HYPER CORE TECH
+    try {
+      const samePeer = state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey || '').toLowerCase();
+      const pc = state.peerConnection;
+      const cs = pc && (pc.connectionState || pc.iceConnectionState);
+      if (samePeer && pc && (state.isCallActive || cs === 'connected' || cs === 'connecting' || cs === 'checking')) {
+        console.log('Accept skipped – already in call with', String(peerPubkey || '').slice(0, 8), cs);
+        return;
+      }
+    } catch (_) {}
+
     let answerSent = false;
     try {
       // חלק שיחות קול (chat-voice-call.js) – הגדרת AudioSession לשיחה לפני בקשת מיקרופון (Best Effort) | HYPER CORE TECH

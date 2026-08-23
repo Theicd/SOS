@@ -858,19 +858,31 @@
   async function handleAcceptCall(peerPubkey, options) {
     const opts = options && typeof options === 'object' ? options : {};
     const silent = !!opts.silent;
+    const peer = String(peerPubkey || '').toLowerCase();
     try {
+      // כבר בשיחה – לא מאפסים | HYPER CORE TECH
+      try {
+        const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+        const same = st && st.currentPeer && String(st.currentPeer).toLowerCase() === peer;
+        const pc = st && st.peerConnection;
+        const cs = pc && (pc.connectionState || pc.iceConnectionState);
+        if (same && (st.isCallActive || cs === 'connected' || cs === 'connecting' || cs === 'checking')) {
+          window.__sosAcceptSucceededPeer = peer;
+          return true;
+        }
+      } catch (_) {}
       closeIncomingCallNotification();
       stopRingtone();
       try {
         if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
       } catch (_) {}
-      markUiAutoAnswering();
+      if (!window.__sosNativeInCallUi) markUiAutoAnswering();
       await ensureMicReady();
       await hydrateOfferFromNativeRawEvent(peerPubkey, opts.pendingRawEvent);
       restoreIncomingOffer(peerPubkey, null);
       const offer = incomingOffer;
       if (!offer || !offer.type || !offer.sdp) {
-        updateCallStatus('ממתין להצעת שיחה...');
+        if (!window.__sosNativeInCallUi) updateCallStatus('ממתין להצעת שיחה...');
         if (!silent) alert('עדיין אין הצעת שיחה תקינה. המתן שנייה ונסה שוב.');
         return false;
       }
@@ -878,11 +890,13 @@
       incomingOffer = null;
       incomingOfferPeer = null;
       clearPersistedIncomingOffer();
-      updateCallStatus('מתחבר...');
-      try {
-        const endBtn = callDialog?.querySelector('[data-action="end"] span');
-        if (endBtn) endBtn.textContent = 'נתק';
-      } catch (_) {}
+      if (!window.__sosNativeInCallUi) {
+        updateCallStatus('מתחבר...');
+        try {
+          const endBtn = callDialog?.querySelector('[data-action="end"] span');
+          if (endBtn) endBtn.textContent = 'נתק';
+        } catch (_) {}
+      }
       return true;
     } catch (err) {
       console.error('Failed to accept call', err);
@@ -1049,7 +1063,7 @@
     } catch (_) {}
     try {
       if (typeof App.initVoiceCall === 'function') {
-        App.initVoiceCall({ force: true, lookbackSec: 120 });
+        App.initVoiceCall({ lookbackSec: 45 });
       }
     } catch (_) {}
     try {
@@ -1073,16 +1087,48 @@
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
     if (!peer) return false;
 
+    // אחרי הצלחה – retries מ-MainActivity לא יריצו accept שוב | HYPER CORE TECH
+    if (window.__sosAcceptSucceededPeer === peer) {
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.notifyNativeCallConnected === 'function') {
+          bridge.notifyNativeCallConnected(peer);
+        }
+      } catch (_) {}
+      return true;
+    }
+
     // מונע הפעלה כפולה מ־inject retries ב-MainActivity | HYPER CORE TECH
     if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === peer) {
       return true;
     }
+
+    // כבר מחוברים – רק מסנכרנים UI נייטיבי | HYPER CORE TECH
+    try {
+      const st = App.voiceCall && typeof App.voiceCall.getState === 'function' ? App.voiceCall.getState() : null;
+      const same = st && st.currentPeer && String(st.currentPeer).toLowerCase() === peer;
+      const pc = st && st.peerConnection;
+      const cs = pc && (pc.connectionState || pc.iceConnectionState);
+      if (same && (st.isCallActive || cs === 'connected' || cs === 'connecting')) {
+        window.__sosAcceptSucceededPeer = peer;
+        window.__sosAcceptInFlight = false;
+        try {
+          const bridge = window.SosNativeShell;
+          if (bridge && typeof bridge.notifyNativeCallConnected === 'function') {
+            bridge.notifyNativeCallConnected(peer);
+          }
+        } catch (_) {}
+        return true;
+      }
+    } catch (_) {}
+
     window.__sosAcceptInFlight = true;
     window.__sosAcceptInFlightPeer = peer;
 
     try {
       if (typeof App.initVoiceCall === 'function') {
-        App.initVoiceCall({ force: true, lookbackSec: 120 });
+        // בלי force/lookback ארוך – מונע replay של offer ישן אחרי חיבור | HYPER CORE TECH
+        App.initVoiceCall({});
       }
     } catch (_) {}
 
@@ -1101,27 +1147,36 @@
       }
     } catch (_) {}
 
-    hideChatBehindCall();
-    saveChatPanelState();
-    if (typeof App.pauseAllFeedVideos === 'function') {
-      try { App.pauseAllFeedVideos(); } catch (_) {}
+    // מסך נייטיבי פעיל – בלי דיאלוג ווב כפול | HYPER CORE TECH
+    const nativeUi = !!window.__sosNativeInCallUi;
+    if (!nativeUi) {
+      hideChatBehindCall();
+      saveChatPanelState();
+      if (typeof App.pauseAllFeedVideos === 'function') {
+        try { App.pauseAllFeedVideos(); } catch (_) {}
+      }
+      createCallDialog(peer, true, { autoAnswering: true });
+      markUiAutoAnswering();
+    } else {
+      if (typeof App.pauseAllFeedVideos === 'function') {
+        try { App.pauseAllFeedVideos(); } catch (_) {}
+      }
     }
-    createCallDialog(peer, true, { autoAnswering: true });
     stopRingtone();
     try {
       if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
     } catch (_) {}
-    markUiAutoAnswering();
 
     let attempts = 0;
-    const maxAttempts = 60; // ~12s בקצב מהיר יותר
+    const maxAttempts = 40;
     const tryAccept = async () => {
       attempts += 1;
       try {
+        if (window.__sosAcceptSucceededPeer === peer) return;
         if (!App.privateKey || !window.NostrTools?.nip04 || !App.pool) {
-          updateCallStatus('מתחבר...');
+          if (!nativeUi) updateCallStatus('מתחבר...');
           if (attempts < maxAttempts) {
-            setTimeout(tryAccept, 200);
+            setTimeout(tryAccept, 250);
             return;
           }
         }
@@ -1133,6 +1188,17 @@
           window.__sosNativePendingAnswer = null;
           window.__sosAcceptInFlight = false;
           window.__sosAcceptInFlightPeer = '';
+          window.__sosAcceptSucceededPeer = peer;
+          try {
+            const bridge = window.SosNativeShell;
+            if (bridge && typeof bridge.notifyNativeCallConnected === 'function') {
+              // חיבור מלא יגיע מ-onVoiceCallConnected; כאן רק אם כבר מחובר
+              const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+              const pc = st && st.peerConnection;
+              const cs = pc && (pc.connectionState || pc.iceConnectionState);
+              if (cs === 'connected') bridge.notifyNativeCallConnected(peer);
+            }
+          } catch (_) {}
           return;
         }
       } catch (err) {
@@ -1143,16 +1209,17 @@
         window.__sosNativePendingAnswer = null;
         window.__sosAcceptInFlight = false;
         window.__sosAcceptInFlightPeer = '';
-        updateCallStatus('לא התקבלה הצעת שיחה – לחץ ענה');
-        // מחזירים כפתור ענה רק אם נכשל לגמרי | HYPER CORE TECH
-        try {
-          if (callDialog && !callDialog.querySelector('[data-action="accept"]')) {
-            createCallDialog(peer, true);
-          }
-        } catch (_) {}
+        if (!nativeUi) {
+          updateCallStatus('לא התקבלה הצעת שיחה – לחץ ענה');
+          try {
+            if (callDialog && !callDialog.querySelector('[data-action="accept"]')) {
+              createCallDialog(peer, true);
+            }
+          } catch (_) {}
+        }
         return;
       }
-      setTimeout(tryAccept, 200);
+      setTimeout(tryAccept, 250);
     };
     tryAccept();
     return true;
@@ -1323,6 +1390,10 @@
 
   App.onVoiceCallConnected = function(peerPubkey) {
     console.log('Call connected');
+    try {
+      const p = String(peerPubkey || activePeerPubkey || '').toLowerCase();
+      if (p) window.__sosAcceptSucceededPeer = p;
+    } catch (_) {}
     
     // חלק שיחות קול (chat-voice-call-ui.js) – הגדרת ברירת מחדל לאפרכסת בעת חיבור השיחה | HYPER CORE TECH
     setDefaultEarpieceOutput();
@@ -1369,6 +1440,11 @@
       }
     } catch (_) {}
     try { window.__sosNativeInCallUi = false; } catch (_) {}
+    try {
+      window.__sosAcceptSucceededPeer = '';
+      window.__sosAcceptInFlight = false;
+      window.__sosAcceptInFlightPeer = '';
+    } catch (_) {}
   };
 
   // חלק שיחות קול (chat-voice-call-ui.js) – רישום שיחה שלא נענתה בהיסטוריית הצ'אט ועדכון מונה לא נקראו | HYPER CORE TECH

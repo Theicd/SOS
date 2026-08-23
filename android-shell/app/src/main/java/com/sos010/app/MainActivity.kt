@@ -774,9 +774,10 @@ class MainActivity : AppCompatActivity() {
             (function(){
               try {
                 window.__sosNativeInCallUi = true;
+                if (window.__sosAcceptSucceededPeer === $peerJs) return;
+                if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === $peerJs) return;
                 var App = window.NostrApp || {};
-                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 45 });
-                if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 45 });
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
                 if (typeof App.acceptIncomingCallFromNative === 'function') {
                   App.acceptIncomingCallFromNative($peerJs, $typeJs, $rawEventJs);
                 }
@@ -787,8 +788,8 @@ class MainActivity : AppCompatActivity() {
             webView.evaluateJavascript(js, null)
         } catch (_: Exception) {
         }
-        // retries – WebView קר עדיין אחרי warm | HYPER CORE TECH
-        listOf(200L, 600L, 1200L, 2500L, 4500L, 8000L, 12000L).forEach { delay ->
+        // retries קצרים בלבד – אחרי הצלחה JS חוסם חזרות | HYPER CORE TECH
+        listOf(400L, 1200L, 3000L).forEach { delay ->
             mainHandler.postDelayed({
                 if (!this::webView.isInitialized) return@postDelayed
                 try {
