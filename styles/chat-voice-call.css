@@ -42,6 +42,14 @@ body.sos-call-active #chatPanel {
   visibility: hidden !important;
   pointer-events: none !important;
 }
+/* אם אין דיאלוג שיחה פתוח – אל תסתירו שיחות/פרופיל (דגל תקוע) | HYPER CORE TECH */
+body.sos-call-active:not(:has(.voice-call-dialog)):not(:has(.video-call-dialog)) #chatPanel,
+body.sos-call-active:not(:has(.voice-call-dialog)):not(:has(.video-call-dialog)) #profilePanel,
+body.sos-call-active:not(:has(.voice-call-dialog)):not(:has(.video-call-dialog)) #publicProfilePanel {
+  display: revert !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
 body.sos-call-active #sosLoadNugOverlay,
 body.sos-call-active .videos-feed__card--loadnug,
 body.sos-call-active #videosLoadingOverlay,

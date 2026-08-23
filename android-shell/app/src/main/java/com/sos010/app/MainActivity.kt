@@ -289,13 +289,36 @@ class MainActivity : AppCompatActivity() {
 
     /** Intent של חימום ברקע – בלי UI מלא ובלי דיכוי התראות | HYPER CORE TECH */
     private fun isBackgroundWarmIntent(intent: Intent?): Boolean {
+        // ענה/דחייה/ניתוק – תמיד חזית; warmForCallPeer לא ישאיר warm לנצח | HYPER CORE TECH
+        if (pendingCallAction == CALL_ACTION_ANSWER ||
+            pendingCallAction == CALL_ACTION_DECLINE ||
+            pendingCallAction == CALL_ACTION_HANGUP ||
+            pendingAutoAccept
+        ) {
+            return false
+        }
         if (intent == null) return false
+        if (intent.getStringExtra(EXTRA_CALL_ACTION) == CALL_ACTION_ANSWER) return false
         if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) return true
         if (intent.getBooleanExtra(EXTRA_WARM_FOR_CALL, false)) return true
         if (intent.getBooleanExtra(EXTRA_WARM_FOR_P2P, false)) return true
-        if (!warmForCallPeer.isNullOrBlank()) return true
         if (warmForP2pPending) return true
+        // warmForCallPeer לבדו לא מספיק אחרי שהמשתמש כבר בחזית בלי extras של warm
         return false
+    }
+
+    /** מנקה מצב חימום שיחה – מונע sos-call-active תקוע ודף שיחות/פרופיל ריק | HYPER CORE TECH */
+    fun clearWarmCallState(reason: String = "") {
+        warmForCallPeer = null
+        warmForCallType = null
+        try {
+            intent?.removeExtra(EXTRA_WARM_FOR_CALL)
+            intent?.putExtra(EXTRA_WARM_FOR_CALL, false)
+            intent?.removeExtra(EXTRA_START_IN_BACKGROUND)
+            intent?.putExtra(EXTRA_START_IN_BACKGROUND, false)
+        } catch (_: Exception) {
+        }
+        SosDebugLog.i("call", "clearWarm reason=${reason.ifBlank { "n/a" }}")
     }
 
     override fun onUserLeaveHint() {
@@ -541,12 +564,15 @@ class MainActivity : AppCompatActivity() {
         if (action == CALL_ACTION_ANSWER) {
             pendingAutoAccept = true
             openedFromCallIntent = true
+            // ענה = חזית אמיתית; מבטלים מצב warm שנשאר ושובר שיחות/פרופיל | HYPER CORE TECH
+            clearWarmCallState("answer")
             NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false, dismissUi = true)
             // מסתירים loading מיד במענה | HYPER CORE TECH
             if (this::loading.isInitialized) loading.visibility = View.GONE
         }
         if (action == CALL_ACTION_DECLINE) {
             pendingAutoAccept = false
+            clearWarmCallState("decline")
             val peer = intent.getStringExtra(EXTRA_CALL_PEER) ?: pendingDeepLinkPeer
             SosIncomingCallSession.markDeclined(applicationContext, peer)
             SosPendingCallStore.clear(applicationContext)
@@ -555,6 +581,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (action == CALL_ACTION_HANGUP) {
             pendingAutoAccept = false
+            clearWarmCallState("hangup")
             NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
             CallSoundHelper.stopAll()
         }
@@ -581,6 +608,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun injectWarmForCall() {
         val peer = warmForCallPeer ?: return
+        // אחרי ענה/ניתוק או בלי צלצול פעיל – לא מזריקים warm (שובר שיחות/פרופיל) | HYPER CORE TECH
+        if (pendingCallAction == CALL_ACTION_ANSWER ||
+            pendingCallAction == CALL_ACTION_HANGUP ||
+            pendingCallAction == CALL_ACTION_DECLINE ||
+            pendingAutoAccept
+        ) {
+            clearWarmCallState("inject-skip-action")
+            return
+        }
+        if (SosIncomingCallSession.activePeer(applicationContext).isNullOrBlank()) {
+            clearWarmCallState("inject-skip-idle")
+            return
+        }
         if (!this::webView.isInitialized) return
         val type = warmForCallType ?: "voice"
         val peerJs = JSONObject.quote(peer)
@@ -590,6 +630,8 @@ class MainActivity : AppCompatActivity() {
             (function(){
               try {
                 var peer = $peerJs;
+                if (window.__sosAcceptSucceededPeer === peer) return;
+                if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === peer) return;
                 if (window.__sosWarmPreparedPeer === peer && (Date.now() - (window.__sosWarmPreparedAt || 0)) < 45000) return;
                 window.__sosIncomingCallActive = true;
                 document.documentElement.setAttribute('data-sos-deeplink', '1');
@@ -611,9 +653,10 @@ class MainActivity : AppCompatActivity() {
         } catch (err: Exception) {
             Log.w(TAG, "warm inject failed: ${err.message}")
         }
-        // retry אחד בלבד אם ה־WebView עוד לא מוכן | HYPER CORE TECH
         mainHandler.postDelayed({
             if (!this::webView.isInitialized) return@postDelayed
+            if (warmForCallPeer.isNullOrBlank()) return@postDelayed
+            if (pendingCallAction == CALL_ACTION_ANSWER || pendingAutoAccept) return@postDelayed
             try {
                 webView.evaluateJavascript(js, null)
             } catch (_: Exception) {
@@ -768,6 +811,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun injectNativeAccept(peer: String, callType: String) {
         if (!this::webView.isInitialized || peer.isBlank()) return
+        clearWarmCallState("accept")
         val peerJs = JSONObject.quote(peer)
         val typeJs = JSONObject.quote(callType)
         val rawEventJs = JSONObject.quote(SosPendingCallStore.getRawEventJson(applicationContext))
@@ -1757,6 +1801,17 @@ class MainActivity : AppCompatActivity() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         act.webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
                     }
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        /** מנקה warm שיחה מה־Activity החי – אחרי ענה/ניתוק | HYPER CORE TECH */
+        fun clearWarmOnHost(reason: String = "bridge") {
+            val act = hostRef?.get() ?: return
+            act.runOnUiThread {
+                try {
+                    act.clearWarmCallState(reason)
                 } catch (_: Exception) {
                 }
             }

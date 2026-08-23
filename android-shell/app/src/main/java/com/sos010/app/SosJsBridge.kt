@@ -191,6 +191,7 @@ class SosJsBridge(
         NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = true)
         CallSoundHelper.stopAll()
         IncomingCallActivity.notifyCallEnded(context.applicationContext, peer)
+        clearHostWarmState()
     }
 
     @JavascriptInterface
@@ -201,6 +202,7 @@ class SosJsBridge(
         NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopAll()
         IncomingCallActivity.notifyCallEnded(context.applicationContext, peer)
+        clearHostWarmState()
     }
 
     @JavascriptInterface
@@ -208,11 +210,13 @@ class SosJsBridge(
         SosIncomingCallSession.markAnswered(context.applicationContext, peer)
         rememberPendingOfferId()
         NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
+        clearHostWarmState()
     }
 
     @JavascriptInterface
     fun notifyNativeCallConnected(peer: String?) {
         IncomingCallActivity.notifyCallConnected(context.applicationContext, peer)
+        clearHostWarmState()
     }
 
     @JavascriptInterface
@@ -221,6 +225,14 @@ class SosJsBridge(
         rememberPendingOfferId()
         SosPendingCallStore.clear(context.applicationContext)
         IncomingCallActivity.notifyCallEnded(context.applicationContext, peer)
+        clearHostWarmState()
+    }
+
+    private fun clearHostWarmState() {
+        try {
+            MainActivity.clearWarmOnHost("js-bridge")
+        } catch (_: Exception) {
+        }
     }
 
     private fun rememberPendingOfferId() {

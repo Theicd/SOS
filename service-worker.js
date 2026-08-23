@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v598'; // bump - call end clears overlay; no force-init storm
+  const CACHE_NAME = 'sos-cache-v599'; // bump - clear warm after answer; unstick chat/profile
   const PRECACHE_URLS = [
     './',
     './videos.html',

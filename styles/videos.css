@@ -2856,6 +2856,14 @@ body.sos-call-active #chatPanel {
   pointer-events: none !important;
   z-index: 0 !important;
 }
+body.sos-call-active:not(:has(.voice-call-dialog)):not(:has(.video-call-dialog)) #chatPanel,
+body.sos-call-active:not(:has(.voice-call-dialog)):not(:has(.video-call-dialog)) #profilePanel,
+body.sos-call-active:not(:has(.voice-call-dialog)):not(:has(.video-call-dialog)) #publicProfilePanel {
+  display: revert !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: auto !important;
+}
 body.sos-call-active #sosLoadNugOverlay,
 body.sos-call-active .videos-feed__card--loadnug,
 body.sos-call-active #videosLoadingOverlay,
