@@ -454,13 +454,26 @@
     if (textEl) textEl.textContent = (label && String(label).trim()) || 'טוען...';
     el.hidden = false;
     el.classList.add('is-visible');
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.showFilePickLoading === 'function') {
+        bridge.showFilePickLoading((label && String(label).trim()) || 'טוען...');
+      }
+    } catch (_) {}
   }
 
   function hideFilePickLoading() {
     const el = $('chatFilePickLoading');
-    if (!el) return;
-    el.classList.remove('is-visible');
-    el.hidden = true;
+    if (el) {
+      el.classList.remove('is-visible');
+      el.hidden = true;
+    }
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.hideFilePickLoading === 'function') {
+        bridge.hideFilePickLoading();
+      }
+    } catch (_) {}
   }
 
   App.showChatFilePickLoading = showFilePickLoading;

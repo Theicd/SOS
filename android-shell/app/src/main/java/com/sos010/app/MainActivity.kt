@@ -29,8 +29,10 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.Toast
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -48,6 +50,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: SosWebView
     private lateinit var loading: ProgressBar
+    private var filePickLoading: FrameLayout? = null
+    private var filePickHideRunnable: Runnable? = null
+    private var filePickShownAt = 0L
+    private val FILE_PICK_MIN_VISIBLE_MS = 1200L
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var pendingWebPermission: PermissionRequest? = null
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -123,6 +129,7 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         loading = findViewById(R.id.loading)
+        filePickLoading = findViewById(R.id.filePickLoading)
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
@@ -1218,17 +1225,46 @@ class MainActivity : AppCompatActivity() {
         return parts.toTypedArray()
     }
 
+    /** חיווי בחירת קובץ נייטיב – מופיע מיד במרכז, לא תלוי ב-WebView | HYPER CORE TECH */
+    fun showNativeFilePickLoading(label: String = "טוען...") {
+        runOnUiThread {
+            filePickHideRunnable?.let { mainHandler.removeCallbacks(it) }
+            filePickHideRunnable = null
+            val overlay = filePickLoading ?: findViewById(R.id.filePickLoading)
+            filePickLoading = overlay
+            overlay?.findViewById<TextView>(R.id.filePickLoadingText)?.text = label
+            overlay?.visibility = View.VISIBLE
+            filePickShownAt = System.currentTimeMillis()
+            showWebFilePickLoading()
+        }
+    }
+
+    fun hideNativeFilePickLoading() {
+        runOnUiThread {
+            val elapsed = System.currentTimeMillis() - filePickShownAt
+            val wait = (FILE_PICK_MIN_VISIBLE_MS - elapsed).coerceAtLeast(0L)
+            filePickHideRunnable?.let { mainHandler.removeCallbacks(it) }
+            val hide = Runnable {
+                filePickLoading?.visibility = View.GONE
+                hideWebFilePickLoading()
+                filePickHideRunnable = null
+            }
+            filePickHideRunnable = hide
+            if (wait == 0L) hide.run() else mainHandler.postDelayed(hide, wait)
+        }
+    }
+
     private fun finishFilePick(uris: Array<Uri>?) {
         val webCallback = filePathCallback
         filePathCallback = null
         val bridgeId = bridgePickRequestId
         bridgePickRequestId = null
 
-        // מיד כשחוזרים מהבורר – לפני כל עיבוד כבד, כדי שלא יישאר מסך שיחה ריק | HYPER CORE TECH
+        // מיד כשחוזרים מהבורר – חיווי נייטיב גדול במרכז (כמו Toast הישן, רק ברור יותר) | HYPER CORE TECH
         if (!uris.isNullOrEmpty()) {
-            showWebFilePickLoading()
+            showNativeFilePickLoading("טוען...")
         } else {
-            hideWebFilePickLoading()
+            hideNativeFilePickLoading()
         }
 
         if (webCallback != null) {
@@ -1344,7 +1380,7 @@ class MainActivity : AppCompatActivity() {
     private fun deliverBridgeFiles(requestId: String, uris: Array<Uri>?) {
         if (!this::webView.isInitialized) return
         if (uris.isNullOrEmpty()) {
-            hideWebFilePickLoading()
+            hideNativeFilePickLoading()
             val payload = JSONObject()
                 .put("requestId", requestId)
                 .put("files", JSONArray())
@@ -1354,7 +1390,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // מחזקים תצוגת טעינה, נותנים ל-WebView לצייר, ורק אז קוראים/מקודדים ברקע | HYPER CORE TECH
-        showWebFilePickLoading()
+        showNativeFilePickLoading("טוען...")
         val uriList = uris.toList()
         mainHandler.postDelayed({
             Thread {
@@ -1373,9 +1409,7 @@ class MainActivity : AppCompatActivity() {
                         val rawMime = contentResolver.getType(uri) ?: ""
                         val mime = guessMime(name, rawMime)
                         val size = querySize(uri)
-                        synchronized(pickedNativeFiles) {
-                            pickedNativeFiles[id] = uri to mime
-                        }
+                        pickedNativeFiles[id] = uri to mime
                         val item = JSONObject()
                             .put("id", id)
                             .put("name", name)
@@ -1417,7 +1451,7 @@ class MainActivity : AppCompatActivity() {
                         webView.evaluateJavascript(js, null)
                     } catch (e: Exception) {
                         Log.e(TAG, "deliverBridgeFiles dispatch failed", e)
-                        hideWebFilePickLoading()
+                        hideNativeFilePickLoading()
                     }
                 }
             }.start()
@@ -1442,6 +1476,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun deliverKeyboardMedia(info: InputContentInfoCompat, mimeHint: String) {
         if (!this::webView.isInitialized) return
+        showNativeFilePickLoading("טוען...")
         val uri = info.contentUri
         val id = UUID.randomUUID().toString()
         val nameGuess = uri.lastPathSegment?.substringAfterLast('/') ?: "keyboard-gif.gif"
