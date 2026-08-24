@@ -357,11 +357,18 @@ class SosJsBridge(
         act.showNativeFilePickLoading(label?.ifBlank { null } ?: "טוען...")
     }
 
-    /** מסתיר חיווי בחירת קובץ (עם מינימום זמן תצוגה) | HYPER CORE TECH */
+    /** מסתיר חיווי בחירת קובץ אחרי 2 שניות (זמן טעינת מדיה בתצוגה מקדימה) | HYPER CORE TECH */
     @JavascriptInterface
     fun hideFilePickLoading() {
         val act = context as? MainActivity ?: return
-        act.hideNativeFilePickLoading()
+        act.hideNativeFilePickLoadingAfterPreview(2000L)
+    }
+
+    /** הסתרה מיידית של חיווי בחירת קובץ | HYPER CORE TECH */
+    @JavascriptInterface
+    fun hideFilePickLoadingNow() {
+        val act = context as? MainActivity ?: return
+        act.hideNativeFilePickLoadingImmediate()
     }
 
     @JavascriptInterface

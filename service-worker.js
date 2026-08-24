@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v614'; // bump - APK 1.0.82 native file-pick loading
+  const CACHE_NAME = 'sos-cache-v615'; // bump - APK 1.0.83 hide loading 2s after preview
   const PRECACHE_URLS = [
     './',
     './videos.html',

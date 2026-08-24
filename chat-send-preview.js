@@ -297,10 +297,10 @@
 
   function openPreview(file) {
     if (!file) return;
-    hideFilePickLoading();
     const el = ensurePreviewEl();
     const root = conversationRoot();
     if (!el || !root) {
+      hideFilePickLoading();
       if (typeof App.sendChatSelectedFile === 'function') {
         App.sendChatSelectedFile(file);
       }
@@ -320,6 +320,8 @@
     setTrashMode();
     showHint();
     bindOnce();
+    // מתחילים ספירת 2 שניות מרגע שהתצוגה המקדימה עלתה (הסתרה ב-bridge) | HYPER CORE TECH
+    hideFilePickLoading();
   }
 
   function forceSendIcon() {

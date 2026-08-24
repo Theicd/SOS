@@ -116,8 +116,7 @@
           finish([]);
           return;
         }
-        // מחזיקים שכבת טעינה בזמן המרה ל-File (base64/fetch) | HYPER CORE TECH
-        showFileLoading('טוען...');
+        // מחזיקים שכבת טעינה בזמן המרה ל-File (base64/fetch) – בלי show חוזר שמבטל הסתרה | HYPER CORE TECH
         var pending = metas.length;
         var out = [];
         function stepDone() {

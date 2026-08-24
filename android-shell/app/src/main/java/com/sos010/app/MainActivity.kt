@@ -53,7 +53,8 @@ class MainActivity : AppCompatActivity() {
     private var filePickLoading: FrameLayout? = null
     private var filePickHideRunnable: Runnable? = null
     private var filePickShownAt = 0L
-    private val FILE_PICK_MIN_VISIBLE_MS = 1200L
+    /** אחרי פתיחת תצוגה מקדימה – משאירים את החיווי עוד 2 שניות לטעינת מדיה | HYPER CORE TECH */
+    private val FILE_PICK_HIDE_AFTER_PREVIEW_MS = 2000L
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var pendingWebPermission: PermissionRequest? = null
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -1239,10 +1240,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun hideNativeFilePickLoading() {
+    /** הסתרה מיידית (ביטול בחירה) | HYPER CORE TECH */
+    fun hideNativeFilePickLoadingImmediate() {
         runOnUiThread {
-            val elapsed = System.currentTimeMillis() - filePickShownAt
-            val wait = (FILE_PICK_MIN_VISIBLE_MS - elapsed).coerceAtLeast(0L)
+            filePickHideRunnable?.let { mainHandler.removeCallbacks(it) }
+            filePickHideRunnable = null
+            filePickLoading?.visibility = View.GONE
+            hideWebFilePickLoading()
+        }
+    }
+
+    /**
+     * אחרי שהתצוגה המקדימה עלתה – מחכים [delayMs] ואז מסתירים,
+     * כדי לתת לתמונה/וידאו זמן להיטען מאחורי החיווי | HYPER CORE TECH
+     */
+    fun hideNativeFilePickLoadingAfterPreview(delayMs: Long = FILE_PICK_HIDE_AFTER_PREVIEW_MS) {
+        runOnUiThread {
             filePickHideRunnable?.let { mainHandler.removeCallbacks(it) }
             val hide = Runnable {
                 filePickLoading?.visibility = View.GONE
@@ -1250,8 +1263,13 @@ class MainActivity : AppCompatActivity() {
                 filePickHideRunnable = null
             }
             filePickHideRunnable = hide
-            if (wait == 0L) hide.run() else mainHandler.postDelayed(hide, wait)
+            mainHandler.postDelayed(hide, delayMs.coerceAtLeast(0L))
         }
+    }
+
+    /** תאימות ל-bridge ישן – מסתיר אחרי 2 שניות (זמן טעינת מדיה בתצוגה מקדימה) | HYPER CORE TECH */
+    fun hideNativeFilePickLoading() {
+        hideNativeFilePickLoadingAfterPreview(FILE_PICK_HIDE_AFTER_PREVIEW_MS)
     }
 
     private fun finishFilePick(uris: Array<Uri>?) {
@@ -1260,11 +1278,11 @@ class MainActivity : AppCompatActivity() {
         val bridgeId = bridgePickRequestId
         bridgePickRequestId = null
 
-        // מיד כשחוזרים מהבורר – חיווי נייטיב גדול במרכז (כמו Toast הישן, רק ברור יותר) | HYPER CORE TECH
+        // מיד כשחוזרים מהבורר – חיווי נייטיב גדול במרכז | HYPER CORE TECH
         if (!uris.isNullOrEmpty()) {
             showNativeFilePickLoading("טוען...")
         } else {
-            hideNativeFilePickLoading()
+            hideNativeFilePickLoadingImmediate()
         }
 
         if (webCallback != null) {
@@ -1380,7 +1398,7 @@ class MainActivity : AppCompatActivity() {
     private fun deliverBridgeFiles(requestId: String, uris: Array<Uri>?) {
         if (!this::webView.isInitialized) return
         if (uris.isNullOrEmpty()) {
-            hideNativeFilePickLoading()
+            hideNativeFilePickLoadingImmediate()
             val payload = JSONObject()
                 .put("requestId", requestId)
                 .put("files", JSONArray())
@@ -1449,9 +1467,36 @@ class MainActivity : AppCompatActivity() {
                 mainHandler.post {
                     try {
                         webView.evaluateJavascript(js, null)
+                        // גיבוי בלי תלות ב-JS מרוחק: מחכים לתצוגה מקדימה ואז מסתירים אחרי 2 שניות | HYPER CORE TECH
+                        webView.evaluateJavascript(
+                            """
+                            (function(){
+                              if (window.__sosFilePickHideWatch) return;
+                              window.__sosFilePickHideWatch = true;
+                              var tries = 0;
+                              var iv = setInterval(function(){
+                                tries++;
+                                var open = !!document.querySelector('.chat-send-preview-open, .chat-conversation.chat-send-preview-open');
+                                if (open || tries > 150) {
+                                  clearInterval(iv);
+                                  window.__sosFilePickHideWatch = false;
+                                  setTimeout(function(){
+                                    try { if (window.SosNativeShell && SosNativeShell.hideFilePickLoadingNow) SosNativeShell.hideFilePickLoadingNow();
+                                    else if (window.SosNativeShell && SosNativeShell.hideFilePickLoading) SosNativeShell.hideFilePickLoading(); } catch (e) {}
+                                    try {
+                                      var el = document.getElementById('chatFilePickLoading');
+                                      if (el) { el.classList.remove('is-visible'); el.hidden = true; }
+                                    } catch (e2) {}
+                                  }, 2000);
+                                }
+                              }, 100);
+                            })();
+                            """.trimIndent().replace('\n', ' '),
+                            null
+                        )
                     } catch (e: Exception) {
                         Log.e(TAG, "deliverBridgeFiles dispatch failed", e)
-                        hideNativeFilePickLoading()
+                        hideNativeFilePickLoadingImmediate()
                     }
                 }
             }.start()
