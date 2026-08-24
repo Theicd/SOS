@@ -503,6 +503,12 @@
       } else if (typeof App.resetChatConversationView === 'function') {
         App.resetChatConversationView();
       }
+
+      // מכינים את הפיד מחדש אחרי שיחת וידאו (LoadNug תקוע / כרטיסים מוסתרים) | HYPER CORE TECH
+      try {
+        if (typeof App.recoverFeedUiAfterCall === 'function') App.recoverFeedUiAfterCall('video-restore');
+        else if (typeof window.recoverFeedUiAfterCall === 'function') window.recoverFeedUiAfterCall('video-restore');
+      } catch (_) {}
     }, 150);
   }
 

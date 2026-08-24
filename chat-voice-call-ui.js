@@ -671,6 +671,12 @@
       } else if (typeof App.resetChatConversationView === 'function') {
         App.resetChatConversationView();
       }
+
+      // מכינים את הפיד מחדש (LoadNug תקוע / כרטיסים מוסתרים) – play בלחיצת בית | HYPER CORE TECH
+      try {
+        if (typeof App.recoverFeedUiAfterCall === 'function') App.recoverFeedUiAfterCall('voice-restore');
+        else if (typeof window.recoverFeedUiAfterCall === 'function') window.recoverFeedUiAfterCall('voice-restore');
+      } catch (_) {}
     }, 150);
   }
 

@@ -672,6 +672,17 @@ function isOnVideosFeedPage() {
 
 // חלק חזרה מ־overlay (videos.js) – ממשיכים את הפוסט שבמרכז המסך, בלי רענון | HYPER CORE TECH
 function resumeCenteredFeedVideo() {
+  // LoadNug שנשאר ב-DOM אחרי שיחה מ־APK מסתיר את כל הכרטיסים (:has) | HYPER CORE TECH
+  try {
+    const stuckNug = document.getElementById('sosLoadNugOverlay');
+    if (stuckNug) {
+      try { stuckNug.remove(); } catch (_) {}
+      try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
+      bootGate.active = false;
+      bootGate.released = true;
+      bootGate.releasePromise = null;
+    }
+  } catch (_) {}
   if (bootGate.active && !bootGate.released) return;
   globalAutoplayEnabled = true;
   updateGlobalStopClass();
@@ -681,6 +692,61 @@ function resumeCenteredFeedVideo() {
   if (mediaDiv) {
     playMedia(mediaDiv, { manual: false, priority: true });
     console.log('[videos] resumed centered feed video', { id: active.getAttribute('data-event-id') });
+  }
+}
+
+/**
+ * אחרי שיחה נכנסת מ־APK האתחול נקטע – מנקים LoadNug/דגלים ומכינים את הפיד מחדש | HYPER CORE TECH
+ */
+function recoverFeedUiAfterCall(reason = 'after-call') {
+  console.log('[videos] recoverFeedUiAfterCall', reason);
+  try {
+    document.body.classList.remove('sos-call-active', 'sos-deeplink-chat', 'videos-boot-loading');
+    document.documentElement.removeAttribute('data-sos-deeplink');
+  } catch (_) {}
+  try {
+    if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+  } catch (_) {}
+  try {
+    bootGate.active = false;
+    bootGate.released = true;
+    bootGate.releasePromise = null;
+    bootGate.holdUntil = 0;
+  } catch (_) {}
+  try {
+    const ov = document.getElementById('sosLoadNugOverlay');
+    if (ov) ov.remove();
+  } catch (_) {}
+  try {
+    if (window.SOSLoadNug && typeof window.SOSLoadNug.signalReady === 'function') {
+      window.SOSLoadNug.signalReady();
+    }
+  } catch (_) {}
+  try {
+    hideLoadingAnimation({ force: true });
+    hideSoftFeedLoading();
+  } catch (_) {}
+
+  globalAutoplayEnabled = true;
+  updateGlobalStopClass();
+
+  try {
+    document.querySelectorAll('.videos-feed__media[data-media-pending="1"]').forEach((mediaDiv) => {
+      const videoEl = mediaDiv.querySelector('video');
+      if (videoEl && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+        revealVideoSurface(mediaDiv, videoEl);
+      }
+    });
+  } catch (_) {}
+
+  // אם דף שיחות פתוח – רק מכינים; ה־play יקרה בלחיצת בית | HYPER CORE TECH
+  let chatOpen = false;
+  try {
+    chatOpen = document.body.classList.contains('chat-overlay-open')
+      || !!(document.getElementById('chatPanel') && !document.getElementById('chatPanel').hasAttribute('hidden'));
+  } catch (_) {}
+  if (!chatOpen) {
+    try { resumeCenteredFeedVideo(); } catch (_) {}
   }
 }
 
@@ -7330,6 +7396,7 @@ window.refreshLiveTvFeed = refreshLiveTvFeed;
 window.getSharedGamePosts = getSharedGamePosts;
 window.softRefreshVideosFeed = softRefreshVideosFeed;
 window.resumeCenteredFeedVideo = resumeCenteredFeedVideo;
+window.recoverFeedUiAfterCall = recoverFeedUiAfterCall;
 window.handleHomeButtonAction = handleHomeButtonAction;
 window.clearHomeRefreshArm = clearHomeRefreshArm;
 window.isOnVideosFeedPage = isOnVideosFeedPage;
@@ -7349,6 +7416,7 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.getSharedGamePosts = getSharedGamePosts;
   AppRef.softRefreshVideosFeed = softRefreshVideosFeed;
   AppRef.resumeCenteredFeedVideo = resumeCenteredFeedVideo;
+  AppRef.recoverFeedUiAfterCall = recoverFeedUiAfterCall;
   AppRef.areFeedOverlaysOpen = areFeedOverlaysOpen;
   AppRef.handleHomeButtonAction = handleHomeButtonAction;
   AppRef.clearHomeRefreshArm = clearHomeRefreshArm;
