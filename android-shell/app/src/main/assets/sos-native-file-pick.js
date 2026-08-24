@@ -164,18 +164,21 @@
     if (typeof App.openChatSendPreview === 'function') {
       try {
         App.openChatSendPreview(file);
+        hideFileLoading();
         return true;
       } catch (err) {
         console.error('[SOS-NATIVE] openChatSendPreview failed', err);
       }
     }
     if (typeof App.handleChatFileSelection === 'function') {
+      hideFileLoading();
       Promise.resolve(App.handleChatFileSelection(file)).catch(function (err) {
         console.error('[SOS-NATIVE] handleChatFileSelection failed', err);
       });
       return true;
     }
     console.warn('[SOS-NATIVE] App.handleChatFileSelection missing');
+    hideFileLoading();
     return false;
   }
 

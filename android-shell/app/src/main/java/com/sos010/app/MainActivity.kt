@@ -53,8 +53,6 @@ class MainActivity : AppCompatActivity() {
     private var filePickLoading: FrameLayout? = null
     private var filePickHideRunnable: Runnable? = null
     private var filePickShownAt = 0L
-    /** אחרי פתיחת תצוגה מקדימה – משאירים את החיווי עוד 2 שניות לטעינת מדיה | HYPER CORE TECH */
-    private val FILE_PICK_HIDE_AFTER_PREVIEW_MS = 2000L
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var pendingWebPermission: PermissionRequest? = null
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -1236,11 +1234,12 @@ class MainActivity : AppCompatActivity() {
             overlay?.findViewById<TextView>(R.id.filePickLoadingText)?.text = label
             overlay?.visibility = View.VISIBLE
             filePickShownAt = System.currentTimeMillis()
-            showWebFilePickLoading()
+            // רק DOM ישיר – בלי App.showChatFilePickLoading (מונע לולאת show↔bridge) | HYPER CORE TECH
+            showWebFilePickLoadingDomOnly(label)
         }
     }
 
-    /** הסתרה מיידית (ביטול בחירה) | HYPER CORE TECH */
+    /** הסתרה מיידית כשהתצוגה המקדימה עלתה / ביטול | HYPER CORE TECH */
     fun hideNativeFilePickLoadingImmediate() {
         runOnUiThread {
             filePickHideRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -1250,26 +1249,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * אחרי שהתצוגה המקדימה עלתה – מחכים [delayMs] ואז מסתירים,
-     * כדי לתת לתמונה/וידאו זמן להיטען מאחורי החיווי | HYPER CORE TECH
-     */
-    fun hideNativeFilePickLoadingAfterPreview(delayMs: Long = FILE_PICK_HIDE_AFTER_PREVIEW_MS) {
-        runOnUiThread {
-            filePickHideRunnable?.let { mainHandler.removeCallbacks(it) }
-            val hide = Runnable {
-                filePickLoading?.visibility = View.GONE
-                hideWebFilePickLoading()
-                filePickHideRunnable = null
-            }
-            filePickHideRunnable = hide
-            mainHandler.postDelayed(hide, delayMs.coerceAtLeast(0L))
-        }
-    }
-
-    /** תאימות ל-bridge ישן – מסתיר אחרי 2 שניות (זמן טעינת מדיה בתצוגה מקדימה) | HYPER CORE TECH */
     fun hideNativeFilePickLoading() {
-        hideNativeFilePickLoadingAfterPreview(FILE_PICK_HIDE_AFTER_PREVIEW_MS)
+        hideNativeFilePickLoadingImmediate()
     }
 
     private fun finishFilePick(uris: Array<Uri>?) {
@@ -1278,7 +1259,6 @@ class MainActivity : AppCompatActivity() {
         val bridgeId = bridgePickRequestId
         bridgePickRequestId = null
 
-        // מיד כשחוזרים מהבורר – חיווי נייטיב גדול במרכז | HYPER CORE TECH
         if (!uris.isNullOrEmpty()) {
             showNativeFilePickLoading("טוען...")
         } else {
@@ -1297,17 +1277,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** מציג שכבת טעינה ב-Web מיד (גם בלי App) – קטן ובמרכז | HYPER CORE TECH */
-    private fun showWebFilePickLoading() {
+    /** עדכון שכבת Web בלי לקרוא חזרה ל-bridge | HYPER CORE TECH */
+    private fun showWebFilePickLoadingDomOnly(label: String = "טוען...") {
         if (!this::webView.isInitialized) return
+        val safe = label.replace("\\", "\\\\").replace("'", "\\'")
         val js = (
-            "(function(){" +
-                "try{var A=window.NostrApp||{};if(typeof A.showChatFilePickLoading==='function'){A.showChatFilePickLoading('טוען...');return;}}catch(e){}" +
-                "try{var el=document.getElementById('chatFilePickLoading');" +
+            "(function(){try{" +
+                "var el=document.getElementById('chatFilePickLoading');" +
                 "if(!el){el=document.createElement('div');el.id='chatFilePickLoading';el.className='chat-file-pick-loading is-visible';el.setAttribute('role','status');" +
-                "el.innerHTML='<div class=\"chat-file-pick-loading__card\"><i class=\"fa-solid fa-spinner fa-spin chat-file-pick-loading__icon\" aria-hidden=\"true\"></i><span class=\"chat-file-pick-loading__text\">טוען...</span></div>';" +
-                "document.body.appendChild(el);}else{el.hidden=false;el.classList.add('is-visible');var t=el.querySelector('.chat-file-pick-loading__text');if(t)t.textContent='טוען...';}" +
-                "}catch(e2){}})();"
+                "el.innerHTML='<div class=\"chat-file-pick-loading__card\"><i class=\"fa-solid fa-spinner fa-spin chat-file-pick-loading__icon\" aria-hidden=\"true\"></i><span class=\"chat-file-pick-loading__text\"></span></div>';" +
+                "document.body.appendChild(el);}" +
+                "el.hidden=false;el.classList.add('is-visible');" +
+                "var t=el.querySelector('.chat-file-pick-loading__text');if(t)t.textContent='$safe';" +
+                "}catch(e){}})();"
             )
         try {
             webView.evaluateJavascript(js, null)
@@ -1315,11 +1297,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** רק DOM – בלי App.hide (מונע לולאת hide↔bridge) | HYPER CORE TECH */
     private fun hideWebFilePickLoading() {
         if (!this::webView.isInitialized) return
         try {
             webView.evaluateJavascript(
-                "(function(){try{var A=window.NostrApp||{};if(typeof A.hideChatFilePickLoading==='function')A.hideChatFilePickLoading();var el=document.getElementById('chatFilePickLoading');if(el){el.classList.remove('is-visible');el.hidden=true;}}catch(e){}})();",
+                "(function(){try{var el=document.getElementById('chatFilePickLoading');if(el){el.classList.remove('is-visible');el.hidden=true;}}catch(e){}})();",
                 null
             )
         } catch (_: Exception) {
@@ -1467,33 +1450,6 @@ class MainActivity : AppCompatActivity() {
                 mainHandler.post {
                     try {
                         webView.evaluateJavascript(js, null)
-                        // גיבוי בלי תלות ב-JS מרוחק: מחכים לתצוגה מקדימה ואז מסתירים אחרי 2 שניות | HYPER CORE TECH
-                        webView.evaluateJavascript(
-                            """
-                            (function(){
-                              if (window.__sosFilePickHideWatch) return;
-                              window.__sosFilePickHideWatch = true;
-                              var tries = 0;
-                              var iv = setInterval(function(){
-                                tries++;
-                                var open = !!document.querySelector('.chat-send-preview-open, .chat-conversation.chat-send-preview-open');
-                                if (open || tries > 150) {
-                                  clearInterval(iv);
-                                  window.__sosFilePickHideWatch = false;
-                                  setTimeout(function(){
-                                    try { if (window.SosNativeShell && SosNativeShell.hideFilePickLoadingNow) SosNativeShell.hideFilePickLoadingNow();
-                                    else if (window.SosNativeShell && SosNativeShell.hideFilePickLoading) SosNativeShell.hideFilePickLoading(); } catch (e) {}
-                                    try {
-                                      var el = document.getElementById('chatFilePickLoading');
-                                      if (el) { el.classList.remove('is-visible'); el.hidden = true; }
-                                    } catch (e2) {}
-                                  }, 2000);
-                                }
-                              }, 100);
-                            })();
-                            """.trimIndent().replace('\n', ' '),
-                            null
-                        )
                     } catch (e: Exception) {
                         Log.e(TAG, "deliverBridgeFiles dispatch failed", e)
                         hideNativeFilePickLoadingImmediate()

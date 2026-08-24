@@ -320,7 +320,7 @@
     setTrashMode();
     showHint();
     bindOnce();
-    // מתחילים ספירת 2 שניות מרגע שהתצוגה המקדימה עלתה (הסתרה ב-bridge) | HYPER CORE TECH
+    // מסתיר טוען ברגע שהתצוגה המקדימה עלתה | HYPER CORE TECH
     hideFilePickLoading();
   }
 
@@ -456,12 +456,7 @@
     if (textEl) textEl.textContent = (label && String(label).trim()) || 'טוען...';
     el.hidden = false;
     el.classList.add('is-visible');
-    try {
-      const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.showFilePickLoading === 'function') {
-        bridge.showFilePickLoading((label && String(label).trim()) || 'טוען...');
-      }
-    } catch (_) {}
+    // לא קוראים ל-bridge.show – מונע לולאה עם MainActivity.showNative | HYPER CORE TECH
   }
 
   function hideFilePickLoading() {
@@ -472,7 +467,9 @@
     }
     try {
       const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.hideFilePickLoading === 'function') {
+      if (bridge && typeof bridge.hideFilePickLoadingNow === 'function') {
+        bridge.hideFilePickLoadingNow();
+      } else if (bridge && typeof bridge.hideFilePickLoading === 'function') {
         bridge.hideFilePickLoading();
       }
     } catch (_) {}
