@@ -5212,18 +5212,14 @@
         setChatStickToBottom(false);
         const prevHeight = elements.messagesContainer.scrollHeight;
         setConversationHistoryLoading(true, 'טוען הודעות ישנות...');
+        try {
+          renderMessages(peerPubkey, { loadOlder: true, force: true });
+        } finally {
+          setConversationHistoryLoading(false);
+        }
         requestAnimationFrame(() => {
-          setTimeout(() => {
-            try {
-              renderMessages(peerPubkey, { loadOlder: true, force: true });
-            } finally {
-              setConversationHistoryLoading(false);
-            }
-            requestAnimationFrame(() => {
-              if (!elements.messagesContainer) return;
-              elements.messagesContainer.scrollTop = Math.max(0, elements.messagesContainer.scrollHeight - prevHeight);
-            });
-          }, 0);
+          if (!elements.messagesContainer) return;
+          elements.messagesContainer.scrollTop = Math.max(0, elements.messagesContainer.scrollHeight - prevHeight);
         });
       });
       fragment.appendChild(loadOlder);
@@ -6413,35 +6409,45 @@
     if (elements.conversationStatus) {
       updateConversationDCStatus(peerPubkey);
     }
-    // ספינר בכותרת עד שרינדור ההיסטוריה מסתיים — ציפיות ברורות למשתמש | HYPER CORE TECH
+    // ספינר כרמז ברקע בלבד — טקסט/מערכת מוצגים מיד; מדיה ממשיכה להופיע כשמוכנה | HYPER CORE TECH
     setConversationHistoryLoading(true, 'טוען היסטוריה...');
-    // רינדור הודעות אחרי פריים אחד — משחרר את המסך/מקלדת ב-WebView | HYPER CORE TECH
     const peerForRender = peerPubkey;
     requestAnimationFrame(() => {
-      setTimeout(() => {
+      if (state.activeContact !== peerForRender) {
+        setConversationHistoryLoading(false);
+        return;
+      }
+      try {
+        renderMessages(peerForRender, { resetLimit: true, force: true });
+      } catch (_) {}
+      const settleCards = () => {
+        if (state.activeContact !== peerForRender) return;
+        try { ensureUnifiedFileCardsVisible(peerForRender); } catch (_) {}
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(settleCards, { timeout: 400 });
+      } else {
+        setTimeout(settleCards, 120);
+      }
+      // הספינר נשאר רק כל עוד יש מדיה ממתינה — בלי להסתיר הודעות שכבר על המסך | HYPER CORE TECH
+      const hideSpinnerWhenReady = () => {
         if (state.activeContact !== peerForRender) {
           setConversationHistoryLoading(false);
           return;
         }
-        try {
-          renderMessages(peerForRender, { resetLimit: true, force: true });
-        } catch (_) {
+        const pending = elements.messagesContainer?.querySelector(
+          '.chat-message--media-pending, .is-media-pending'
+        );
+        if (!pending) {
           setConversationHistoryLoading(false);
+          return;
         }
-        const settleCards = () => {
-          if (state.activeContact !== peerForRender) {
-            setConversationHistoryLoading(false);
-            return;
-          }
-          try { ensureUnifiedFileCardsVisible(peerForRender); } catch (_) {}
-          setConversationHistoryLoading(false);
-        };
-        if (typeof requestIdleCallback === 'function') {
-          requestIdleCallback(settleCards, { timeout: 600 });
-        } else {
-          setTimeout(settleCards, 180);
-        }
-      }, 0);
+        setTimeout(hideSpinnerWhenReady, 280);
+      };
+      setTimeout(hideSpinnerWhenReady, 80);
+      setTimeout(() => {
+        if (state.activeContact === peerForRender) setConversationHistoryLoading(false);
+      }, 4500);
     });
     App.markChatConversationRead(peerPubkey);
     if (typeof App.setChatFileTransferActivePeer === 'function') {
