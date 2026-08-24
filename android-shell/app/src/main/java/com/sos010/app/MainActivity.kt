@@ -1224,6 +1224,13 @@ class MainActivity : AppCompatActivity() {
         val bridgeId = bridgePickRequestId
         bridgePickRequestId = null
 
+        // מיד כשחוזרים מהבורר – לפני כל עיבוד כבד, כדי שלא יישאר מסך שיחה ריק | HYPER CORE TECH
+        if (!uris.isNullOrEmpty()) {
+            showWebFilePickLoading()
+        } else {
+            hideWebFilePickLoading()
+        }
+
         if (webCallback != null) {
             try {
                 webCallback.onReceiveValue(uris)
@@ -1233,6 +1240,35 @@ class MainActivity : AppCompatActivity() {
         }
         if (bridgeId != null) {
             deliverBridgeFiles(bridgeId, uris)
+        }
+    }
+
+    /** מציג שכבת טעינה ב-Web מיד (גם בלי App) – קטן ובמרכז | HYPER CORE TECH */
+    private fun showWebFilePickLoading() {
+        if (!this::webView.isInitialized) return
+        val js = (
+            "(function(){" +
+                "try{var A=window.NostrApp||{};if(typeof A.showChatFilePickLoading==='function'){A.showChatFilePickLoading('טוען...');return;}}catch(e){}" +
+                "try{var el=document.getElementById('chatFilePickLoading');" +
+                "if(!el){el=document.createElement('div');el.id='chatFilePickLoading';el.className='chat-file-pick-loading is-visible';el.setAttribute('role','status');" +
+                "el.innerHTML='<div class=\"chat-file-pick-loading__card\"><i class=\"fa-solid fa-spinner fa-spin chat-file-pick-loading__icon\" aria-hidden=\"true\"></i><span class=\"chat-file-pick-loading__text\">טוען...</span></div>';" +
+                "document.body.appendChild(el);}else{el.hidden=false;el.classList.add('is-visible');var t=el.querySelector('.chat-file-pick-loading__text');if(t)t.textContent='טוען...';}" +
+                "}catch(e2){}})();"
+            )
+        try {
+            webView.evaluateJavascript(js, null)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun hideWebFilePickLoading() {
+        if (!this::webView.isInitialized) return
+        try {
+            webView.evaluateJavascript(
+                "(function(){try{var A=window.NostrApp||{};if(typeof A.hideChatFilePickLoading==='function')A.hideChatFilePickLoading();var el=document.getElementById('chatFilePickLoading');if(el){el.classList.remove('is-visible');el.hidden=true;}}catch(e){}})();",
+                null
+            )
+        } catch (_: Exception) {
         }
     }
 
@@ -1307,78 +1343,85 @@ class MainActivity : AppCompatActivity() {
 
     private fun deliverBridgeFiles(requestId: String, uris: Array<Uri>?) {
         if (!this::webView.isInitialized) return
-        // שכבת טעינה בממשק מיד כשחוזרים מהבורר – לפני קריאת/קידוד הקובץ | HYPER CORE TECH
-        if (!uris.isNullOrEmpty()) {
-            try {
-                webView.evaluateJavascript(
-                    "(function(){try{var A=window.NostrApp||{};if(typeof A.showChatFilePickLoading==='function')A.showChatFilePickLoading('טוען...');}catch(e){}})();",
-                    null
-                )
-            } catch (_: Exception) {
-            }
-        } else {
-            try {
-                webView.evaluateJavascript(
-                    "(function(){try{var A=window.NostrApp||{};if(typeof A.hideChatFilePickLoading==='function')A.hideChatFilePickLoading();}catch(e){}})();",
-                    null
-                )
-            } catch (_: Exception) {
-            }
+        if (uris.isNullOrEmpty()) {
+            hideWebFilePickLoading()
+            val payload = JSONObject()
+                .put("requestId", requestId)
+                .put("files", JSONArray())
+            val js = "window.dispatchEvent(new CustomEvent('sos-native-file-pick',{detail:$payload}));"
+            webView.evaluateJavascript(js, null)
+            return
         }
-        val filesJson = JSONArray()
-        if (uris != null) {
-            for (uri in uris) {
-                try {
+
+        // מחזקים תצוגת טעינה, נותנים ל-WebView לצייר, ורק אז קוראים/מקודדים ברקע | HYPER CORE TECH
+        showWebFilePickLoading()
+        val uriList = uris.toList()
+        mainHandler.postDelayed({
+            Thread {
+                val filesJson = JSONArray()
+                for (uri in uriList) {
                     try {
-                        contentResolver.takePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
-                    } catch (_: SecurityException) {
-                    }
-                    val id = UUID.randomUUID().toString()
-                    val name = queryDisplayName(uri)
-                    val rawMime = contentResolver.getType(uri) ?: ""
-                    val mime = guessMime(name, rawMime)
-                    val size = querySize(uri)
-                    pickedNativeFiles[id] = uri to mime
-                    val item = JSONObject()
-                        .put("id", id)
-                        .put("name", name)
-                        .put("type", mime)
-                        .put("size", size)
-                        .put("url", "https://$NATIVE_FILE_HOST/file/$id")
-
-                    // חלק אמינות (MainActivity.kt) – קבצים עד 16MB גם כ-base64 (fetch חוצה-מקור נכשל בלי CORS) | HYPER CORE TECH
-                    val inlineLimit = 16L * 1024L * 1024L
-                    if (size in 1..inlineLimit) {
                         try {
-                            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                            if (bytes != null && bytes.size <= inlineLimit.toInt()) {
-                                item.put(
-                                    "base64",
-                                    android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                                )
-                                item.put("size", bytes.size)
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "inline base64 failed, will use url fetch", e)
+                            contentResolver.takePersistableUriPermission(
+                                uri,
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            )
+                        } catch (_: SecurityException) {
                         }
-                    }
+                        val id = UUID.randomUUID().toString()
+                        val name = queryDisplayName(uri)
+                        val rawMime = contentResolver.getType(uri) ?: ""
+                        val mime = guessMime(name, rawMime)
+                        val size = querySize(uri)
+                        synchronized(pickedNativeFiles) {
+                            pickedNativeFiles[id] = uri to mime
+                        }
+                        val item = JSONObject()
+                            .put("id", id)
+                            .put("name", name)
+                            .put("type", mime)
+                            .put("size", size)
+                            .put("url", "https://$NATIVE_FILE_HOST/file/$id")
 
-                    filesJson.put(item)
-                } catch (e: Exception) {
-                    Log.e(TAG, "deliverBridgeFiles item failed", e)
+                        // קבצים עד 16MB גם כ-base64 (fetch חוצה-מקור נכשל בלי CORS) | HYPER CORE TECH
+                        val inlineLimit = 16L * 1024L * 1024L
+                        if (size in 1..inlineLimit) {
+                            try {
+                                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                                if (bytes != null && bytes.size <= inlineLimit.toInt()) {
+                                    item.put(
+                                        "base64",
+                                        android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                                    )
+                                    item.put("size", bytes.size)
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "inline base64 failed, will use url fetch", e)
+                            }
+                        }
+                        filesJson.put(item)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "deliverBridgeFiles item failed", e)
+                    }
                 }
-            }
-        }
-        val payload = JSONObject()
-            .put("requestId", requestId)
-            .put("files", filesJson)
-        val js = "window.dispatchEvent(new CustomEvent('sos-native-file-pick',{detail:$payload}));"
-        Log.i(TAG, "deliverBridgeFiles requestId=$requestId count=${filesJson.length()} hasBase64=${filesJson.length() > 0 && filesJson.optJSONObject(0)?.has("base64") == true}")
-        // בלי Toast קצר בתחתית – הממשק מציג שכבת טעינה במרכז עד לתצוגה מקדימה | HYPER CORE TECH
-        webView.evaluateJavascript(js, null)
+                val payload = JSONObject()
+                    .put("requestId", requestId)
+                    .put("files", filesJson)
+                val js = "window.dispatchEvent(new CustomEvent('sos-native-file-pick',{detail:$payload}));"
+                Log.i(
+                    TAG,
+                    "deliverBridgeFiles requestId=$requestId count=${filesJson.length()} hasBase64=${filesJson.length() > 0 && filesJson.optJSONObject(0)?.has("base64") == true}"
+                )
+                mainHandler.post {
+                    try {
+                        webView.evaluateJavascript(js, null)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "deliverBridgeFiles dispatch failed", e)
+                        hideWebFilePickLoading()
+                    }
+                }
+            }.start()
+        }, 60L)
     }
 
     /** GIF/תמונה מהמקלדת המובנית (Commit Content) → צינור קבצי הצ'אט | HYPER CORE TECH */

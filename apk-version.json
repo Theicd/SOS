@@ -1,8 +1,8 @@
 {
-  "version": "1.0.80",
-  "versionCode": 81,
-  "file": "SOS-1.0.80.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.80/SOS-1.0.80.apk",
+  "version": "1.0.81",
+  "versionCode": 82,
+  "file": "SOS-1.0.81.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.81/SOS-1.0.81.apk",
   "releasedAt": "2026-08-24",
-  "note": "Centered file-pick loading overlay; no short native toast"
+  "note": "Show file-pick loading immediately on select; encode off UI thread"
 }
