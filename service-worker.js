@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v606'; // bump - recover feed UI after call (remove stuck LoadNug)
+  const CACHE_NAME = 'sos-cache-v607'; // bump - chat open 20 msgs + header history spinner
   const PRECACHE_URLS = [
     './',
     './videos.html',

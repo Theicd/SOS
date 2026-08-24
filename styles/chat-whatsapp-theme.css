@@ -1269,6 +1269,34 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   font-size: 0.9rem;
 }
 
+/* חלק צ'אט – ספינר טעינת היסטוריה בכותרת השיחה | HYPER CORE TECH */
+.chat-conversation__history-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  max-width: 100%;
+  color: #53bdeb;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.chat-conversation__history-spinner i {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.chat-conversation__history-spinner-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-conversation__header.is-loading-history .chat-conversation__status {
+  display: none;
+}
+
 .chat-conversation__header.is-clearing-chat .chat-conversation__icon--menu {
   opacity: 0.55;
   pointer-events: none;

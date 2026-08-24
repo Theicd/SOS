@@ -2669,6 +2669,35 @@
     if (menuBtn) menuBtn.disabled = !!busy;
   }
 
+  // חלק צ'אט (chat-ui.js) – ספינר בכותרת בזמן טעינת היסטוריה/מדיה מהקאש | HYPER CORE TECH
+  function setConversationHistoryLoading(busy, label) {
+    const header = elements.conversationHeader;
+    if (!header) return;
+    header.classList.toggle('is-loading-history', !!busy);
+    let spin = header.querySelector('.chat-conversation__history-spinner');
+    const text = (label && String(label).trim()) || 'טוען היסטוריה...';
+    if (busy) {
+      if (!spin) {
+        spin = doc.createElement('span');
+        spin.className = 'chat-conversation__history-spinner';
+        spin.setAttribute('role', 'status');
+        spin.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>' +
+          '<span class="chat-conversation__history-spinner-text"></span>';
+        const identity = header.querySelector('.chat-conversation__identity');
+        const meta = header.querySelector('.chat-conversation__meta');
+        if (meta) meta.appendChild(spin);
+        else if (identity) identity.appendChild(spin);
+        else header.appendChild(spin);
+      }
+      spin.setAttribute('aria-label', text);
+      const labelEl = spin.querySelector('.chat-conversation__history-spinner-text');
+      if (labelEl) labelEl.textContent = text;
+    } else if (spin) {
+      spin.remove();
+    }
+  }
+
   function waitMs(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
@@ -5033,7 +5062,7 @@
   let _pendingRenderMsg = null;
   let _renderMessagesDepth = 0;
   const RENDER_MSG_THROTTLE = 180;
-  const INITIAL_VISIBLE_MESSAGES = 100;
+  const INITIAL_VISIBLE_MESSAGES = 20; // חלק צ'אט – חלון פתיחה קל; ישנות בלחיצה | HYPER CORE TECH
   let _visibleMessageLimit = INITIAL_VISIBLE_MESSAGES;
   let _renderMessagesPeer = '';
 
@@ -5182,10 +5211,19 @@
       loadOlder.addEventListener('click', () => {
         setChatStickToBottom(false);
         const prevHeight = elements.messagesContainer.scrollHeight;
-        renderMessages(peerPubkey, { loadOlder: true, force: true });
+        setConversationHistoryLoading(true, 'טוען הודעות ישנות...');
         requestAnimationFrame(() => {
-          if (!elements.messagesContainer) return;
-          elements.messagesContainer.scrollTop = Math.max(0, elements.messagesContainer.scrollHeight - prevHeight);
+          setTimeout(() => {
+            try {
+              renderMessages(peerPubkey, { loadOlder: true, force: true });
+            } finally {
+              setConversationHistoryLoading(false);
+            }
+            requestAnimationFrame(() => {
+              if (!elements.messagesContainer) return;
+              elements.messagesContainer.scrollTop = Math.max(0, elements.messagesContainer.scrollHeight - prevHeight);
+            });
+          }, 0);
         });
       });
       fragment.appendChild(loadOlder);
@@ -6375,20 +6413,35 @@
     if (elements.conversationStatus) {
       updateConversationDCStatus(peerPubkey);
     }
+    // ספינר בכותרת עד שרינדור ההיסטוריה מסתיים — ציפיות ברורות למשתמש | HYPER CORE TECH
+    setConversationHistoryLoading(true, 'טוען היסטוריה...');
     // רינדור הודעות אחרי פריים אחד — משחרר את המסך/מקלדת ב-WebView | HYPER CORE TECH
     const peerForRender = peerPubkey;
     requestAnimationFrame(() => {
-      if (state.activeContact !== peerForRender) return;
-      renderMessages(peerForRender, { resetLimit: true, force: true });
-      const settleCards = () => {
-        if (state.activeContact !== peerForRender) return;
-        ensureUnifiedFileCardsVisible(peerForRender);
-      };
-      if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(settleCards, { timeout: 400 });
-      } else {
-        setTimeout(settleCards, 120);
-      }
+      setTimeout(() => {
+        if (state.activeContact !== peerForRender) {
+          setConversationHistoryLoading(false);
+          return;
+        }
+        try {
+          renderMessages(peerForRender, { resetLimit: true, force: true });
+        } catch (_) {
+          setConversationHistoryLoading(false);
+        }
+        const settleCards = () => {
+          if (state.activeContact !== peerForRender) {
+            setConversationHistoryLoading(false);
+            return;
+          }
+          try { ensureUnifiedFileCardsVisible(peerForRender); } catch (_) {}
+          setConversationHistoryLoading(false);
+        };
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(settleCards, { timeout: 600 });
+        } else {
+          setTimeout(settleCards, 180);
+        }
+      }, 0);
     });
     App.markChatConversationRead(peerPubkey);
     if (typeof App.setChatFileTransferActivePeer === 'function') {
@@ -6456,6 +6509,7 @@
 
   function resetConversationView() {
     state.activeContact = null;
+    try { setConversationHistoryLoading(false); } catch (_) {}
     elements.panel.classList.remove('chat-panel--conversation');
     setFooterMode('contacts');
     elements.conversationHeader?.setAttribute('hidden', '');
