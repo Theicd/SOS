@@ -1,8 +1,8 @@
 {
-  "version": "1.0.84",
-  "versionCode": 85,
-  "file": "SOS-1.0.84.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.84/SOS-1.0.84.apk",
+  "version": "1.0.85",
+  "versionCode": 86,
+  "file": "SOS-1.0.85.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.85/SOS-1.0.85.apk",
   "releasedAt": "2026-08-24",
-  "note": "Hide file-pick loading immediately when send preview opens"
+  "note": "File-pick loading: stronger dim, no card frame"
 }
