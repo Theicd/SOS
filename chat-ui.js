@@ -2669,13 +2669,13 @@
     if (menuBtn) menuBtn.disabled = !!busy;
   }
 
-  // חלק צ'אט (chat-ui.js) – ספינר בשורת הסטטוס: "טוען היסטוריה..." + מד בסוף אותה שורה | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – ספינר בשורת הסטטוס: "טוען..." + מד באותה שורה | HYPER CORE TECH
   function setConversationHistoryLoading(busy, label) {
     const header = elements.conversationHeader;
     const status = elements.conversationStatus || header?.querySelector?.('.chat-conversation__status');
     if (!header || !status) return;
     header.classList.toggle('is-loading-history', !!busy);
-    const text = (label && String(label).trim()) || 'טוען היסטוריה...';
+    const text = (label && String(label).trim()) || 'טוען...';
     if (busy) {
       status.classList.add('chat-conversation__status--loading');
       status.setAttribute('role', 'status');
@@ -5211,7 +5211,7 @@
       loadOlder.addEventListener('click', () => {
         setChatStickToBottom(false);
         const prevHeight = elements.messagesContainer.scrollHeight;
-        setConversationHistoryLoading(true, 'טוען הודעות ישנות...');
+        setConversationHistoryLoading(true, 'טוען...');
         try {
           renderMessages(peerPubkey, { loadOlder: true, force: true });
         } finally {
