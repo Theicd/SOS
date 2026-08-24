@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v604'; // bump - silence ios-video-debug console flood off-iOS
+  const CACHE_NAME = 'sos-cache-v605'; // bump - open chats list after incoming call ends
   const PRECACHE_URLS = [
     './',
     './videos.html',

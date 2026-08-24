@@ -645,27 +645,17 @@
     // קודם מנקים דגלי שיחה – בלי זה #chatPanel נשאר display:none | HYPER CORE TECH
     clearCallOverlayFlags();
 
-    console.log('[VOICE] restoreChatPanelState called:', {
-      chatPanelWasOpen,
-      contact: chatActiveContactBeforeCall?.slice?.(0, 8)
-    });
-
-    // שיחה נכנסת מרקע – לא היה פאנל פתוח; לא לפתוח שיחה ריקה | HYPER CORE TECH
-    if (!chatPanelWasOpen && !chatActiveContactBeforeCall) {
-      console.log('[VOICE] No chat state to restore');
-      chatPanelWasOpen = false;
-      chatActiveContactBeforeCall = null;
-      return;
-    }
-
     const contactToRestore = chatActiveContactBeforeCall;
-    const wasOpen = chatPanelWasOpen;
     chatPanelWasOpen = false;
     chatActiveContactBeforeCall = null;
 
+    console.log('[VOICE] restoreChatPanelState → open chats list', {
+      contact: contactToRestore ? String(contactToRestore).slice(0, 8) : null
+    });
+
+    // תמיד חוזרים לדף שיחות (כמו כפתור שיחות) – מונע מסך ריק אחרי שיחה נכנסת | HYPER CORE TECH
     setTimeout(() => {
       clearCallOverlayFlags();
-      if (!wasOpen && !contactToRestore) return;
 
       const chatPanel = doc.getElementById('chatPanel');
       if (typeof App.toggleChatPanel === 'function') {
@@ -676,7 +666,7 @@
       }
 
       if (contactToRestore && typeof App.showChatConversation === 'function') {
-        console.log('[VOICE] Showing conversation:', contactToRestore.slice(0, 8));
+        console.log('[VOICE] Showing conversation:', String(contactToRestore).slice(0, 8));
         App.showChatConversation(contactToRestore);
       } else if (typeof App.resetChatConversationView === 'function') {
         App.resetChatConversationView();

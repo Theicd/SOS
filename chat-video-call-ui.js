@@ -472,20 +472,24 @@
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – החזרת מצב פאנל הצ'אט לאחר סיום השיחה | HYPER CORE TECH
   function restoreChatPanelState() {
-    console.log('[VIDEO] restoreChatPanelState called:', { 
-      chatPanelWasOpen, 
-      contact: chatActiveContactBeforeCall?.slice?.(0, 8) 
+    const contactToRestore = chatActiveContactBeforeCall;
+    chatPanelWasOpen = false;
+    chatActiveContactBeforeCall = null;
+
+    console.log('[VIDEO] restoreChatPanelState → open chats list', {
+      contact: contactToRestore ? String(contactToRestore).slice(0, 8) : null
     });
 
-    if (!chatPanelWasOpen && !chatActiveContactBeforeCall) {
-      console.log('[VIDEO] No chat state to restore');
-      return;
-    }
-
+    // תמיד חוזרים לדף שיחות – מונע מסך ריק אחרי שיחה נכנסת | HYPER CORE TECH
     setTimeout(() => {
-      const chatPanel = doc.getElementById('chatPanel');
-      console.log('[VIDEO] Restoring - chatPanel hidden?', chatPanel?.hasAttribute('hidden'));
+      try {
+        doc.body.classList.remove('sos-call-active', 'sos-deeplink-chat');
+        window.__sosIncomingCallActive = false;
+        document.documentElement.removeAttribute('data-sos-deeplink');
+        if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+      } catch (_) {}
 
+      const chatPanel = doc.getElementById('chatPanel');
       if (typeof App.toggleChatPanel === 'function') {
         App.toggleChatPanel(true);
       } else if (chatPanel) {
@@ -493,13 +497,12 @@
         doc.body.classList.add('chat-overlay-open');
       }
 
-      if (chatActiveContactBeforeCall && typeof App.showChatConversation === 'function') {
-        console.log('[VIDEO] Showing conversation:', chatActiveContactBeforeCall.slice(0, 8));
-        App.showChatConversation(chatActiveContactBeforeCall);
+      if (contactToRestore && typeof App.showChatConversation === 'function') {
+        console.log('[VIDEO] Showing conversation:', String(contactToRestore).slice(0, 8));
+        App.showChatConversation(contactToRestore);
+      } else if (typeof App.resetChatConversationView === 'function') {
+        App.resetChatConversationView();
       }
-
-      chatPanelWasOpen = false;
-      chatActiveContactBeforeCall = null;
     }, 150);
   }
 
