@@ -1126,19 +1126,22 @@ body.chat-overlay-open::before {
   object-fit: cover;
 }
 
-/* חלק צ'אט – ספינר טעינת היסטוריה בכותרת | HYPER CORE TECH */
-.chat-conversation__history-spinner {
-  display: inline-flex;
+/* חלק צ'אט – טעינת היסטוריה בשורת הסטטוס (טקסט + ספינר באותה שורה) | HYPER CORE TECH */
+.chat-conversation__status--loading {
+  display: inline-flex !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
   color: var(--primary, #2374e1);
   font-size: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-.chat-conversation__history-spinner i {
-  font-size: 0.9rem;
+.chat-conversation__history-spinner-icon {
+  flex-shrink: 0;
+  font-size: 0.85rem;
 }
 
 .chat-conversation__messages {

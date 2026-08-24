@@ -2669,33 +2669,33 @@
     if (menuBtn) menuBtn.disabled = !!busy;
   }
 
-  // חלק צ'אט (chat-ui.js) – ספינר בכותרת בזמן טעינת היסטוריה/מדיה מהקאש | HYPER CORE TECH
+  // חלק צ'אט (chat-ui.js) – ספינר בשורת הסטטוס: "טוען היסטוריה..." + מד בסוף אותה שורה | HYPER CORE TECH
   function setConversationHistoryLoading(busy, label) {
     const header = elements.conversationHeader;
-    if (!header) return;
+    const status = elements.conversationStatus || header?.querySelector?.('.chat-conversation__status');
+    if (!header || !status) return;
     header.classList.toggle('is-loading-history', !!busy);
-    let spin = header.querySelector('.chat-conversation__history-spinner');
     const text = (label && String(label).trim()) || 'טוען היסטוריה...';
     if (busy) {
-      if (!spin) {
-        spin = doc.createElement('span');
-        spin.className = 'chat-conversation__history-spinner';
-        spin.setAttribute('role', 'status');
-        spin.innerHTML =
-          '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>' +
-          '<span class="chat-conversation__history-spinner-text"></span>';
-        const identity = header.querySelector('.chat-conversation__identity');
-        const meta = header.querySelector('.chat-conversation__meta');
-        if (meta) meta.appendChild(spin);
-        else if (identity) identity.appendChild(spin);
-        else header.appendChild(spin);
-      }
-      spin.setAttribute('aria-label', text);
-      const labelEl = spin.querySelector('.chat-conversation__history-spinner-text');
-      if (labelEl) labelEl.textContent = text;
-    } else if (spin) {
-      spin.remove();
+      status.classList.add('chat-conversation__status--loading');
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-label', text);
+      status.innerHTML =
+        `<span class="chat-conversation__history-spinner-text">${text}</span>` +
+        `<i class="fa-solid fa-spinner fa-spin chat-conversation__history-spinner-icon" aria-hidden="true"></i>`;
+    } else {
+      status.classList.remove('chat-conversation__status--loading');
+      status.removeAttribute('role');
+      status.removeAttribute('aria-label');
+      status.innerHTML = '';
+      try {
+        if (state.activeContact) updateConversationDCStatus(state.activeContact);
+      } catch (_) {}
     }
+    // מסירים ספינר ישן אם נשאר מגרסה קודמת | HYPER CORE TECH
+    try {
+      header.querySelectorAll('.chat-conversation__history-spinner').forEach((el) => el.remove());
+    } catch (_) {}
   }
 
   function waitMs(ms) {

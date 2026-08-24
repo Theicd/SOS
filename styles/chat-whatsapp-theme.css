@@ -1269,32 +1269,31 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
   font-size: 0.9rem;
 }
 
-/* חלק צ'אט – ספינר טעינת היסטוריה בכותרת השיחה | HYPER CORE TECH */
-.chat-conversation__history-spinner {
-  display: inline-flex;
+/* חלק צ'אט – טעינת היסטוריה בשורת הסטטוס: טקסט + ספינר באותה שורה | HYPER CORE TECH */
+.chat-conversation__status--loading {
+  display: inline-flex !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
   max-width: 100%;
   color: #53bdeb;
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1.2;
-}
-
-.chat-conversation__history-spinner i {
-  font-size: 0.85rem;
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .chat-conversation__history-spinner-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
-.chat-conversation__header.is-loading-history .chat-conversation__status {
-  display: none;
+.chat-conversation__history-spinner-icon {
+  flex-shrink: 0;
+  font-size: 0.8rem;
 }
 
 .chat-conversation__header.is-clearing-chat .chat-conversation__icon--menu {
