@@ -10,6 +10,24 @@
 
   var inflight = false;
 
+  function showFileLoading(label) {
+    try {
+      var A = window.NostrApp || {};
+      if (typeof A.showChatFilePickLoading === 'function') {
+        A.showChatFilePickLoading(label || 'טוען...');
+      }
+    } catch (_) {}
+  }
+
+  function hideFileLoading() {
+    try {
+      var A = window.NostrApp || {};
+      if (typeof A.hideChatFilePickLoading === 'function') {
+        A.hideChatFilePickLoading();
+      }
+    } catch (_) {}
+  }
+
   function disableHtmlFileInputs() {
     var nodes = document.querySelectorAll('#chatComposerFileInput, #composeMediaInput, input[type="file"]');
     for (var i = 0; i < nodes.length; i++) {
@@ -86,6 +104,7 @@
         done = true;
         inflight = false;
         window.removeEventListener('sos-native-file-pick', onRes);
+        if (!files || !files.length) hideFileLoading();
         resolve(files);
       }
       function onRes(ev) {
@@ -97,6 +116,8 @@
           finish([]);
           return;
         }
+        // מחזיקים שכבת טעינה בזמן המרה ל-File (base64/fetch) | HYPER CORE TECH
+        showFileLoading('טוען...');
         var pending = metas.length;
         var out = [];
         function stepDone() {
@@ -201,6 +222,7 @@
       pick((document.getElementById('chatComposerFileInput') || {}).accept || '*/*').then(function (files) {
         if (!files || !files[0]) {
           console.warn('[SOS-NATIVE] chat pick returned no file');
+          hideFileLoading();
           return;
         }
         deliverToChat(files[0]);
@@ -215,8 +237,10 @@
       pick((document.getElementById('composeMediaInput') || {}).accept || 'image/*,video/*').then(function (files) {
         if (!files || !files[0]) {
           console.warn('[SOS-NATIVE] compose pick returned no file');
+          hideFileLoading();
           return;
         }
+        hideFileLoading();
         deliverToCompose(files[0]);
       });
     }
@@ -246,11 +270,14 @@
       return;
     }
     console.log('[SOS-NATIVE] keyboard media', meta.name, meta.type, meta.size);
+    showFileLoading('טוען...');
     metaToFile(meta).then(function (file) {
       if (!deliverToChat(file)) {
+        hideFileLoading();
         console.warn('[SOS-NATIVE] keyboard GIF not delivered – open a chat first');
       }
     }).catch(function (err) {
+      hideFileLoading();
       console.warn('[SOS-NATIVE] keyboard media load failed', err);
     });
   });

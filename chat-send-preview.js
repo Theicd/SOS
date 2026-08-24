@@ -297,6 +297,7 @@
 
   function openPreview(file) {
     if (!file) return;
+    hideFilePickLoading();
     const el = ensurePreviewEl();
     const root = conversationRoot();
     if (!el || !root) {
@@ -432,4 +433,36 @@
   App.openChatSendPreview = openPreview;
   App.closeChatSendPreview = closePreview;
   App.isChatSendPreviewOpen = isOpen;
+
+  // חלק תצוגה מקדימה – שכבת טעינה במרכז עד שהקובץ מוכן לתצוגה מקדימה | HYPER CORE TECH
+  function showFilePickLoading(label) {
+    let el = $('chatFilePickLoading');
+    if (!el) {
+      el = doc.createElement('div');
+      el.id = 'chatFilePickLoading';
+      el.className = 'chat-file-pick-loading';
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      el.innerHTML =
+        '<div class="chat-file-pick-loading__card">' +
+          '<i class="fa-solid fa-spinner fa-spin chat-file-pick-loading__icon" aria-hidden="true"></i>' +
+          '<span class="chat-file-pick-loading__text"></span>' +
+        '</div>';
+      doc.body.appendChild(el);
+    }
+    const textEl = el.querySelector('.chat-file-pick-loading__text');
+    if (textEl) textEl.textContent = (label && String(label).trim()) || 'טוען...';
+    el.hidden = false;
+    el.classList.add('is-visible');
+  }
+
+  function hideFilePickLoading() {
+    const el = $('chatFilePickLoading');
+    if (!el) return;
+    el.classList.remove('is-visible');
+    el.hidden = true;
+  }
+
+  App.showChatFilePickLoading = showFilePickLoading;
+  App.hideChatFilePickLoading = hideFilePickLoading;
 })(window);

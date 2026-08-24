@@ -163,3 +163,45 @@
   color: #00a884;
   font-size: 0.95rem;
 }
+
+/* חלק בחירת קובץ – שכבת טעינה במרכז המסך עד לתצוגה מקדימה | HYPER CORE TECH */
+.chat-file-pick-loading {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.chat-file-pick-loading.is-visible {
+  display: flex;
+}
+
+.chat-file-pick-loading__card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 148px;
+  padding: 22px 28px;
+  border-radius: 18px;
+  background: rgba(17, 27, 33, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  color: #e9edef;
+}
+
+.chat-file-pick-loading__icon {
+  font-size: 1.85rem;
+  color: #53bdeb;
+}
+
+.chat-file-pick-loading__text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}

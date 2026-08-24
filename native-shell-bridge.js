@@ -416,6 +416,9 @@
         settled = true;
         nativePickInFlight = false;
         window.removeEventListener('sos-native-file-pick', onResult);
+        if (!files || !files.length) {
+          try { App.hideChatFilePickLoading?.(); } catch (_) {}
+        }
         resolve(files);
       };
       const onResult = async (event) => {
@@ -426,20 +429,12 @@
           finish([]);
           return;
         }
+        try { App.showChatFilePickLoading?.('טוען...'); } catch (_) {}
         const files = [];
         for (let i = 0; i < metas.length; i += 1) {
           const meta = metas[i] || {};
-          const url = meta.url || (meta.id ? `https://sos-native.app/file/${meta.id}` : '');
-          if (!url) continue;
           try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`native file fetch ${res.status}`);
-            const blob = await res.blob();
-            files.push(new File(
-              [blob],
-              meta.name || `file-${i + 1}`,
-              { type: meta.type || blob.type || 'application/octet-stream' }
-            ));
+            files.push(await metaToNativeFile(meta));
           } catch (err) {
             console.warn('[NATIVE-SHELL] failed to load picked file', err);
           }
@@ -472,11 +467,17 @@
     if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
     const accept = document.getElementById('chatComposerFileInput')?.getAttribute('accept') || '*/*';
     const files = await nativePickFiles(accept);
-    if (!files || !files.length) return;
+    if (!files || !files.length) {
+      try { App.hideChatFilePickLoading?.(); } catch (_) {}
+      return;
+    }
     if (typeof App.openChatSendPreview === 'function') {
       App.openChatSendPreview(files[0]);
     } else if (typeof App.handleChatFileSelection === 'function') {
+      try { App.hideChatFilePickLoading?.(); } catch (_) {}
       App.handleChatFileSelection(files[0]);
+    } else {
+      try { App.hideChatFilePickLoading?.(); } catch (_) {}
     }
   }
 

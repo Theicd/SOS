@@ -1307,6 +1307,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun deliverBridgeFiles(requestId: String, uris: Array<Uri>?) {
         if (!this::webView.isInitialized) return
+        // שכבת טעינה בממשק מיד כשחוזרים מהבורר – לפני קריאת/קידוד הקובץ | HYPER CORE TECH
+        if (!uris.isNullOrEmpty()) {
+            try {
+                webView.evaluateJavascript(
+                    "(function(){try{var A=window.NostrApp||{};if(typeof A.showChatFilePickLoading==='function')A.showChatFilePickLoading('טוען...');}catch(e){}})();",
+                    null
+                )
+            } catch (_: Exception) {
+            }
+        } else {
+            try {
+                webView.evaluateJavascript(
+                    "(function(){try{var A=window.NostrApp||{};if(typeof A.hideChatFilePickLoading==='function')A.hideChatFilePickLoading();}catch(e){}})();",
+                    null
+                )
+            } catch (_: Exception) {
+            }
+        }
         val filesJson = JSONArray()
         if (uris != null) {
             for (uri in uris) {
@@ -1359,9 +1377,7 @@ class MainActivity : AppCompatActivity() {
             .put("files", filesJson)
         val js = "window.dispatchEvent(new CustomEvent('sos-native-file-pick',{detail:$payload}));"
         Log.i(TAG, "deliverBridgeFiles requestId=$requestId count=${filesJson.length()} hasBase64=${filesJson.length() > 0 && filesJson.optJSONObject(0)?.has("base64") == true}")
-        if (filesJson.length() > 0) {
-            toast("טוען קובץ…")
-        }
+        // בלי Toast קצר בתחתית – הממשק מציג שכבת טעינה במרכז עד לתצוגה מקדימה | HYPER CORE TECH
         webView.evaluateJavascript(js, null)
     }
 
