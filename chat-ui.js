@@ -6463,6 +6463,9 @@
     const el = elements.conversationStatus;
     if (!el) return;
     const update = () => {
+      // לא לדרוס את שורת "טוען היסטוריה..." | HYPER CORE TECH
+      if (elements.conversationHeader?.classList.contains('is-loading-history')) return;
+      if (el.classList.contains('chat-conversation__status--loading')) return;
       const pk = peerPubkey || state.activeContact;
       if (!pk) { el.textContent = 'פעיל ברשת'; return; }
       const dcOn = isPeerP2PConnected(pk);
