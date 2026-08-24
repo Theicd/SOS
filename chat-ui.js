@@ -6410,7 +6410,7 @@
       updateConversationDCStatus(peerPubkey);
     }
     // ספינר כרמז ברקע בלבד — טקסט/מערכת מוצגים מיד; מדיה ממשיכה להופיע כשמוכנה | HYPER CORE TECH
-    setConversationHistoryLoading(true, 'טוען היסטוריה...');
+    setConversationHistoryLoading(true, 'טוען...');
     const peerForRender = peerPubkey;
     requestAnimationFrame(() => {
       if (state.activeContact !== peerForRender) {
@@ -6469,7 +6469,7 @@
     const el = elements.conversationStatus;
     if (!el) return;
     const update = () => {
-      // לא לדרוס את שורת "טוען היסטוריה..." | HYPER CORE TECH
+      // לא לדרוס את שורת "טוען..." | HYPER CORE TECH
       if (elements.conversationHeader?.classList.contains('is-loading-history')) return;
       if (el.classList.contains('chat-conversation__status--loading')) return;
       const pk = peerPubkey || state.activeContact;
