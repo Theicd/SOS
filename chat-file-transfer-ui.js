@@ -608,11 +608,20 @@
 
   function offerFileToUser(file) {
     if (!file) return Promise.resolve();
-    if (typeof App.openChatSendPreview === 'function') {
-      App.openChatSendPreview(file);
-      return Promise.resolve();
+    // שכבת טעינה גם בבחירת קובץ רגילה (ווב) עד לתצוגה מקדימה | HYPER CORE TECH
+    try { App.showChatFilePickLoading?.('טוען...'); } catch (_) {}
+    try {
+      if (typeof App.openChatSendPreview === 'function') {
+        App.openChatSendPreview(file);
+        return Promise.resolve();
+      }
+      return handleFileSelection(file).finally(() => {
+        try { App.hideChatFilePickLoading?.(); } catch (_) {}
+      });
+    } catch (err) {
+      try { App.hideChatFilePickLoading?.(); } catch (_) {}
+      return Promise.reject(err);
     }
-    return handleFileSelection(file);
   }
 
   function onFileInputChange(event) {
