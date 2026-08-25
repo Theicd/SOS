@@ -461,18 +461,59 @@ window.syncP2PStatsUI = () => {
 let videoDownloadQueue = [];
 let isProcessingVideoQueue = false;
 let feedDownloadsPaused = false; // השהיית הורדות פיד בזמן העלאת פוסט | HYPER CORE TECH
+let feedWarmupPaused = false; // השהיית warmup פיד כששיחות פתוחות (מכשירים חלשים) | HYPER CORE TECH
+let loadVideosPendingAfterWarmup = false;
 const BOOTSTRAP_VIDEO_DELAY = 100; // 100ms בין הורדות - מופחת מ-2000ms
 // חלק מניעת כפילויות (videos.js) – מעקב אחרי וידאו שכבר בתור או הורדו | HYPER CORE TECH
 const videoDownloadedOrQueued = new Set();
+
+function isFeedHeavyWorkPaused() {
+  return feedDownloadsPaused || feedWarmupPaused;
+}
+
+function tryResumeFeedHeavyWork(reason = 'resume') {
+  if (isFeedHeavyWorkPaused()) return;
+  console.log('[videos] feed heavy work RESUMED', reason);
+  if (loadVideosPendingAfterWarmup) {
+    loadVideosPendingAfterWarmup = false;
+    loadVideos().catch((err) => {
+      console.warn('[videos] deferred loadVideos after warmup failed', err);
+    });
+  }
+  processVideoDownloadQueue().catch((err) => {
+    console.warn('[videos] resume download queue failed', err);
+  });
+}
 
 function setFeedDownloadsPaused(paused) {
   feedDownloadsPaused = !!paused;
   console.log('[videos] feed downloads', feedDownloadsPaused ? 'PAUSED (upload in progress)' : 'RESUMED');
   if (!feedDownloadsPaused) {
-    processVideoDownloadQueue().catch((err) => {
-      console.warn('[videos] resume download queue failed', err);
-    });
+    tryResumeFeedHeavyWork('upload-done');
   }
+}
+
+// חלק עומס מכשיר (videos.js) – עצירת קריאה מקאש/תור פיד בזמן שיחות | HYPER CORE TECH
+function setFeedWarmupPaused(paused) {
+  const next = !!paused;
+  if (feedWarmupPaused === next) return;
+  feedWarmupPaused = next;
+  console.log('[videos] feed warmup', feedWarmupPaused ? 'PAUSED (chat open)' : 'RESUMED (chat closed)');
+  if (!feedWarmupPaused) {
+    tryResumeFeedHeavyWork('chat-closed');
+  }
+}
+
+async function waitWhileFeedWarmupPaused(label = 'warmup') {
+  if (!feedWarmupPaused) return false;
+  console.log(`[videos] ${label} waiting — chat open`);
+  while (feedWarmupPaused) {
+    await sleepMs(250);
+    if (typeof bootGate !== 'undefined' && bootGate.released && String(label).startsWith('boot')) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // הוספת וידאו לתור ההורדה הסדרתי
@@ -496,8 +537,8 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
 // עיבוד תור ההורדות הסדרתי
 async function processVideoDownloadQueue() {
   if (isProcessingVideoQueue || videoDownloadQueue.length === 0) return;
-  if (feedDownloadsPaused) {
-    console.log('[videos] download queue waiting — upload in progress');
+  if (isFeedHeavyWorkPaused()) {
+    console.log('[videos] download queue waiting —', feedWarmupPaused ? 'chat open' : 'upload in progress');
     return;
   }
   
@@ -527,8 +568,8 @@ async function processVideoDownloadQueue() {
   }
   
   while (videoDownloadQueue.length > 0) {
-    if (feedDownloadsPaused) {
-      console.log('[videos] download queue paused mid-run — upload takes priority');
+    if (isFeedHeavyWorkPaused()) {
+      console.log('[videos] download queue paused mid-run —', feedWarmupPaused ? 'chat open' : 'upload takes priority');
       break;
     }
 
@@ -551,12 +592,12 @@ async function processVideoDownloadQueue() {
     }
     
     // השהייה רק במצב BOOTSTRAP, רק אם לא נטען מ-cache, ואם יש עוד בתור
-    if (useDelay && !loadedFromCache && videoDownloadQueue.length > 0 && !feedDownloadsPaused) {
+    if (useDelay && !loadedFromCache && videoDownloadQueue.length > 0 && !isFeedHeavyWorkPaused()) {
       await new Promise(resolve => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
     }
   }
   
-  if (useDelay && !feedDownloadsPaused) {
+  if (useDelay && !isFeedHeavyWorkPaused()) {
     console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c║  ✅ טעינה סדרתית הושלמה - ${processedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
@@ -1317,6 +1358,7 @@ const App = window.NostrApp || (window.NostrApp = {});
 // חלק שיחות (videos.js) – חשיפת פונקציה לעצירת וידיאו בפיד | HYPER CORE TECH
 App.pauseAllFeedVideos = pauseAllFeedVideos;
 App.setFeedDownloadsPaused = setFeedDownloadsPaused;
+App.setFeedWarmupPaused = setFeedWarmupPaused;
 App.hideLoadingAnimation = hideLoadingAnimation;
 App.showLoadingAnimation = showLoadingAnimation;
 
@@ -2982,21 +3024,34 @@ async function ensureBootFeedReady() {
     setLoadingStatus(`טוען ${posts.length} פוסטים ראשונים מהקאש...`);
     setLoadingProgress(60);
 
-    const mediaResults = await Promise.all(
-      posts.map(async (video, index) => {
-        const ok = await attachBootVideoFromCache(video);
-        setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
-        console.log('[videos] boot media', {
-          id: video.id,
-          ok,
-          type: video.youtubeId ? 'youtube' : (video.videoUrl ? 'file' : 'other'),
-        });
-        return ok;
-      })
-    );
+    // סדרתי + pause כששיחות פתוחות — פחות עומס על מכשירים חלשים | HYPER CORE TECH
+    const mediaResults = [];
+    for (let index = 0; index < posts.length; index++) {
+      const video = posts[index];
+      const aborted = await waitWhileFeedWarmupPaused('boot-media');
+      if (aborted || bootGate.released) {
+        console.log('[videos] boot media skipped — already released / deeplink');
+        break;
+      }
+      const ok = await attachBootVideoFromCache(video);
+      mediaResults.push(ok);
+      setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
+      console.log('[videos] boot media', {
+        id: video.id,
+        ok,
+        type: video.youtubeId ? 'youtube' : (video.videoUrl ? 'file' : 'other'),
+      });
+    }
 
     feedDownloadsPaused = prevPaused;
-    try { processVideoDownloadQueue(); } catch (_) {}
+    try {
+      if (!isFeedHeavyWorkPaused()) processVideoDownloadQueue();
+    } catch (_) {}
+
+    if (bootGate.released) {
+      bootGate.releasePromise = null;
+      return;
+    }
 
     const readyCount = mediaResults.filter(Boolean).length;
     const need = Math.min(BOOT_READY_POST_COUNT, posts.length);
@@ -3008,6 +3063,8 @@ async function ensureBootFeedReady() {
       const deadline = Date.now() + 12000;
       let finalReady = readyCount;
       while (Date.now() < deadline && finalReady < need) {
+        const aborted = await waitWhileFeedWarmupPaused('boot-retry');
+        if (aborted || bootGate.released) break;
         await sleepMs(400);
         const recheck = await Promise.all(posts.map((p) => waitForPostMediaPlayable(p)));
         finalReady = recheck.filter(Boolean).length;
@@ -5260,6 +5317,10 @@ function updateLoadMoreTrigger() {
 
 async function loadMoreVideos() {
   if (isLoadingMore) return;
+  if (isFeedHeavyWorkPaused()) {
+    console.log('[videos] loadMoreVideos deferred —', feedWarmupPaused ? 'chat open' : 'upload in progress');
+    return;
+  }
   // במצב משחקים / LIVE TV / פוסטים שלי לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
   if (state.feedMode === 'games' || state.feedMode === 'live-tv' || state.feedMode === 'own-posts') return;
   isLoadingMore = true;
@@ -5865,6 +5926,11 @@ function registerVideoCommentRecord(app, event, parentId) {
 
 // חלק יאללה וידאו (videos.js) – טעינת סרטונים מהפיד
 async function loadVideos() {
+  if (feedWarmupPaused) {
+    loadVideosPendingAfterWarmup = true;
+    console.log('[videos] loadVideos deferred — chat open');
+    return;
+  }
   if (feedDownloadsPaused) {
     console.log('[videos] loadVideos deferred — upload in progress');
     return;

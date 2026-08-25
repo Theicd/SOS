@@ -4451,7 +4451,10 @@
     }
     state.isOpen = targetState;
     if (state.isOpen) {
-      // עצירת וידאו בפתיחת פאנל הודעות | HYPER CORE TECH
+      // השהיית warmup פיד (קאש→זיכרון) + עצירת ניגון בזמן שיחות | HYPER CORE TECH
+      if (typeof App.setFeedWarmupPaused === 'function') {
+        App.setFeedWarmupPaused(true);
+      }
       if (typeof App.pauseAllFeedVideos === 'function') {
         App.pauseAllFeedVideos();
       }
@@ -4492,6 +4495,10 @@
       clearMobilePanelGeometry();
       unlockVideosFeedBehindChat();
       _kbStableHeight = 0;
+      // ממשיכים טעינת פיד מהקאש אחרי סגירת שיחות | HYPER CORE TECH
+      if (typeof App.setFeedWarmupPaused === 'function') {
+        App.setFeedWarmupPaused(false);
+      }
       try {
         if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
       } catch (_) {}
