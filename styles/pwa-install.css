@@ -241,11 +241,11 @@
   z-index: 100001;
   direction: rtl;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  border: 1px solid rgba(37, 244, 238, 0.28);
+  border: 1px solid rgba(35, 116, 225, 0.32);
   box-shadow:
     0 12px 36px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(254, 44, 85, 0.12),
-    0 0 24px rgba(37, 244, 238, 0.12);
+    0 0 0 1px rgba(35, 116, 225, 0.1),
+    0 0 20px rgba(35, 116, 225, 0.12);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   overflow: hidden;
@@ -328,38 +328,40 @@
 }
 
 .pwa-update-toast__now {
-  background: linear-gradient(135deg, var(--pwa-neon-cyan) 0%, var(--pwa-neon-pink) 100%);
+  background: #2374e1;
   border: none;
-  color: #050508;
+  color: #fff;
   padding: 8px 14px;
   border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
-  transition: filter 0.2s, box-shadow 0.2s, transform 0.2s;
-  box-shadow:
-    0 0 12px rgba(37, 244, 238, 0.3),
-    0 0 16px rgba(254, 44, 85, 0.25);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+  box-shadow: 0 4px 14px rgba(35, 116, 225, 0.35);
 }
 
 .pwa-update-toast__now:hover {
-  filter: brightness(1.08);
+  background: #1b5ecf;
   transform: translateY(-1px);
 }
 
 /* כרטיסיית עדכון APK – אותו מיקום כמו עדכון הווב; תור אחד בכל פעם | HYPER CORE TECH */
 .apk-update-toast {
   z-index: 100002;
-  border-color: rgba(254, 44, 85, 0.35);
+  border-color: rgba(35, 116, 225, 0.35);
   box-shadow:
     0 12px 36px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(37, 244, 238, 0.12),
-    0 0 24px rgba(254, 44, 85, 0.18);
+    0 0 0 1px rgba(35, 116, 225, 0.12),
+    0 0 24px rgba(35, 116, 225, 0.15);
 }
 
 .apk-update-toast .pwa-update-toast__now {
-  background: linear-gradient(135deg, #fe2c55 0%, #25f4ee 100%);
-  color: #0a0a0e;
+  background: #2374e1;
+  color: #fff;
+}
+
+.apk-update-toast .pwa-update-toast__now:hover {
+  background: #1b5ecf;
 }
 
 @media (max-width: 420px) {
