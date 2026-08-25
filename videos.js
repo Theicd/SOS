@@ -461,8 +461,7 @@ window.syncP2PStatsUI = () => {
 let videoDownloadQueue = [];
 let isProcessingVideoQueue = false;
 let feedDownloadsPaused = false; // השהיית הורדות פיד בזמן העלאת פוסט | HYPER CORE TECH
-let feedWarmupPaused = false; // השהיית warmup פיד כששיחות פתוחות (מכשירים חלשים) | HYPER CORE TECH
-let loadVideosPendingAfterWarmup = false;
+let feedWarmupPaused = false; // השהיית תור וידאו בלבד כששיחות פתוחות | HYPER CORE TECH
 const BOOTSTRAP_VIDEO_DELAY = 100; // 100ms בין הורדות - מופחת מ-2000ms
 // חלק מניעת כפילויות (videos.js) – מעקב אחרי וידאו שכבר בתור או הורדו | HYPER CORE TECH
 const videoDownloadedOrQueued = new Set();
@@ -473,13 +472,7 @@ function isFeedHeavyWorkPaused() {
 
 function tryResumeFeedHeavyWork(reason = 'resume') {
   if (isFeedHeavyWorkPaused()) return;
-  console.log('[videos] feed heavy work RESUMED', reason);
-  if (loadVideosPendingAfterWarmup) {
-    loadVideosPendingAfterWarmup = false;
-    loadVideos().catch((err) => {
-      console.warn('[videos] deferred loadVideos after warmup failed', err);
-    });
-  }
+  console.log('[videos] feed video queue RESUMED', reason);
   processVideoDownloadQueue().catch((err) => {
     console.warn('[videos] resume download queue failed', err);
   });
@@ -493,27 +486,15 @@ function setFeedDownloadsPaused(paused) {
   }
 }
 
-// חלק עומס מכשיר (videos.js) – עצירת קריאה מקאש/תור פיד בזמן שיחות | HYPER CORE TECH
+// חלק עומס מכשיר (videos.js) – רק תור פענוח/הורדת וידאו; מיזוג פוסטים ממשיך | HYPER CORE TECH
 function setFeedWarmupPaused(paused) {
   const next = !!paused;
   if (feedWarmupPaused === next) return;
   feedWarmupPaused = next;
-  console.log('[videos] feed warmup', feedWarmupPaused ? 'PAUSED (chat open)' : 'RESUMED (chat closed)');
+  console.log('[videos] feed video queue', feedWarmupPaused ? 'PAUSED (chat open)' : 'RESUMED (chat closed)');
   if (!feedWarmupPaused) {
     tryResumeFeedHeavyWork('chat-closed');
   }
-}
-
-async function waitWhileFeedWarmupPaused(label = 'warmup') {
-  if (!feedWarmupPaused) return false;
-  console.log(`[videos] ${label} waiting — chat open`);
-  while (feedWarmupPaused) {
-    await sleepMs(250);
-    if (typeof bootGate !== 'undefined' && bootGate.released && String(label).startsWith('boot')) {
-      return true;
-    }
-  }
-  return false;
 }
 
 // הוספת וידאו לתור ההורדה הסדרתי
@@ -3024,12 +3005,17 @@ async function ensureBootFeedReady() {
     setLoadingStatus(`טוען ${posts.length} פוסטים ראשונים מהקאש...`);
     setLoadingProgress(60);
 
-    // סדרתי + pause כששיחות פתוחות — פחות עומס על מכשירים חלשים | HYPER CORE TECH
+    // סדרתי — בזמן שיחות מדלגים על attach כבד מהקאש בלי לעצור את שער הבוט | HYPER CORE TECH
     const mediaResults = [];
     for (let index = 0; index < posts.length; index++) {
       const video = posts[index];
-      const aborted = await waitWhileFeedWarmupPaused('boot-media');
-      if (aborted || bootGate.released) {
+      if (feedWarmupPaused) {
+        console.log('[videos] boot media deferred (chat open)', { id: video.id });
+        mediaResults.push(false);
+        setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
+        continue;
+      }
+      if (bootGate.released) {
         console.log('[videos] boot media skipped — already released / deeplink');
         break;
       }
@@ -3063,8 +3049,12 @@ async function ensureBootFeedReady() {
       const deadline = Date.now() + 12000;
       let finalReady = readyCount;
       while (Date.now() < deadline && finalReady < need) {
-        const aborted = await waitWhileFeedWarmupPaused('boot-retry');
-        if (aborted || bootGate.released) break;
+        if (bootGate.released) break;
+        // בזמן שיחות לא מעמיסים attach — ממתינים לסגירה או ל־timeout | HYPER CORE TECH
+        if (feedWarmupPaused) {
+          await sleepMs(400);
+          continue;
+        }
         await sleepMs(400);
         const recheck = await Promise.all(posts.map((p) => waitForPostMediaPlayable(p)));
         finalReady = recheck.filter(Boolean).length;
@@ -5317,8 +5307,9 @@ function updateLoadMoreTrigger() {
 
 async function loadMoreVideos() {
   if (isLoadingMore) return;
-  if (isFeedHeavyWorkPaused()) {
-    console.log('[videos] loadMoreVideos deferred —', feedWarmupPaused ? 'chat open' : 'upload in progress');
+  // upload pause בלבד — שיחות לא דוחות מיזוג/מטא־דאטה של פוסטים | HYPER CORE TECH
+  if (feedDownloadsPaused) {
+    console.log('[videos] loadMoreVideos deferred — upload in progress');
     return;
   }
   // במצב משחקים / LIVE TV / פוסטים שלי לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
@@ -5444,6 +5435,11 @@ function processEventsToVideos(events, currentApp) {
     if (!videoUrl && !youtubeId && !liveUrl && !gameUrl) return;
     
     const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
+    const mirrorsFn =
+      (typeof extractMirrors === 'function' && extractMirrors) ||
+      (typeof window !== 'undefined' && typeof window.NostrApp?.extractMirrorsFromEvent === 'function'
+        && window.NostrApp.extractMirrorsFromEvent) ||
+      null;
     
     videoEvents.push({
       id: event.id,
@@ -5460,7 +5456,7 @@ function processEventsToVideos(events, currentApp) {
       authorPicture: profileData.picture || '',
       authorInitials: profileData.initials || 'AN',
       mediaLinks,
-      mirrors: extractMirrors(event)
+      mirrors: mirrorsFn ? (mirrorsFn(event) || []) : []
     });
   });
   
@@ -5926,11 +5922,7 @@ function registerVideoCommentRecord(app, event, parentId) {
 
 // חלק יאללה וידאו (videos.js) – טעינת סרטונים מהפיד
 async function loadVideos() {
-  if (feedWarmupPaused) {
-    loadVideosPendingAfterWarmup = true;
-    console.log('[videos] loadVideos deferred — chat open');
-    return;
-  }
+  // שיחות משהות רק תור וידאו — מיזוג פוסטים ממשיך ברקע | HYPER CORE TECH
   if (feedDownloadsPaused) {
     console.log('[videos] loadVideos deferred — upload in progress');
     return;
@@ -5949,13 +5941,23 @@ async function loadVideos() {
   const cacheInfo = getCacheInfo();
   const cachedIds = cacheInfo?.cachedIds || new Set();
   const newestCachedTime = cacheInfo?.newestPostTime || 0;
+  // מה שכבר מוצג בפיד — לא רק מה שנשמר בדיסק | HYPER CORE TECH
+  const displayedIds = new Set((state.videos || []).map((v) => v?.id).filter(Boolean));
+  let newestDisplayedTime = 0;
+  (state.videos || []).forEach((v) => {
+    const ts = getVideoCreatedAt(v) || 0;
+    if (ts > newestDisplayedTime) newestDisplayedTime = ts;
+  });
+  const sinceMergeTime = Math.max(newestCachedTime || 0, newestDisplayedTime || 0);
   
   setLoadingProgress(10);
   setLoadingStatus('בודק מטמון מקומי...');
   
   console.log('[videos] loadVideos: cache info', { 
-    cachedCount: cachedIds.size, 
-    newestPostTime: newestCachedTime ? new Date(newestCachedTime * 1000).toLocaleString() : 'none'
+    cachedCount: cachedIds.size,
+    displayedCount: displayedIds.size,
+    newestPostTime: newestCachedTime ? new Date(newestCachedTime * 1000).toLocaleString() : 'none',
+    newestDisplayed: newestDisplayedTime ? new Date(newestDisplayedTime * 1000).toLocaleString() : 'none',
   });
 
   setLoadingProgress(20);
@@ -5963,8 +5965,13 @@ async function loadVideos() {
 
   if (currentApp && currentApp.postsById && currentApp.postsById.size > 0) {
     const fromApp = Array.from(currentApp.postsById.values());
-    // סינון פוסטים שכבר יש במטמון
-    const newFromApp = fromApp.filter(ev => ev && !cachedIds.has(ev.id));
+    // פוסטים שעדיין לא מוצגים בפיד (גם אם חסרים מקאש הדיסק אחרי So-Call) | HYPER CORE TECH
+    const newFromApp = fromApp.filter((ev) => {
+      if (!ev || !ev.id) return false;
+      if (displayedIds.has(ev.id) || cachedIds.has(ev.id)) return false;
+      if (currentApp.deletedEventIds instanceof Set && currentApp.deletedEventIds.has(ev.id)) return false;
+      return true;
+    });
     const filtered = filterEventsByNetwork(newFromApp, networkTag);
     // מיון לפי תאריך (חדש ראשון) והגבלה למספר הפוסטים הראשוני
     filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
@@ -5972,13 +5979,13 @@ async function loadVideos() {
     console.log('[videos] loadVideos: postsById', { total: fromApp.length, new: newFromApp.length, afterFilter: filtered.length, limited: sourceEvents.length });
     setLoadingProgress(40);
   } else {
-    // Fallback: משיכת אירועים חדשים בלבד מהרילאים (since = הפוסט האחרון במטמון)
+    // Fallback: משיכת אירועים חדשים בלבד מהרילאים (since = הפוסט האחרון במטמון/תצוגה)
     setLoadingStatus('מוריד פוסטים מהרשת...');
-    const sinceTime = newestCachedTime > 0 ? newestCachedTime : undefined;
+    const sinceTime = sinceMergeTime > 0 ? sinceMergeTime : undefined;
     const fetched = await fetchRecentNotes(INITIAL_LOAD_LIMIT, sinceTime);
     setLoadingProgress(40);
-    // סינון פוסטים שכבר יש במטמון והגבלה
-    const newFetched = fetched.filter(ev => ev && !cachedIds.has(ev.id));
+    // סינון פוסטים שכבר יש במטמון/תצוגה והגבלה
+    const newFetched = fetched.filter((ev) => ev && !cachedIds.has(ev.id) && !displayedIds.has(ev.id));
     const filtered = filterEventsByNetwork(newFetched, networkTag);
     filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
     sourceEvents = filtered.slice(0, INITIAL_LOAD_LIMIT);
@@ -5993,11 +6000,11 @@ async function loadVideos() {
   if (currentApp?.followingSet && currentApp.followingSet.size) authors.push(...Array.from(currentApp.followingSet));
   if (currentApp?.publicKey) authors.push(currentApp.publicKey);
   if (authors.length) {
-    const sinceTime = newestCachedTime > 0 ? newestCachedTime : undefined;
+    const sinceTime = sinceMergeTime > 0 ? sinceMergeTime : undefined;
     const netNotes = await fetchNetworkNotes(authors.slice(0, 100), LOAD_MORE_BATCH, sinceTime);
     if (Array.isArray(netNotes) && netNotes.length) {
-      // סינון פוסטים שכבר יש במטמון
-      const newNetNotes = netNotes.filter(ev => ev && !cachedIds.has(ev.id));
+      // סינון פוסטים שכבר יש במטמון/תצוגה
+      const newNetNotes = netNotes.filter((ev) => ev && !cachedIds.has(ev.id) && !displayedIds.has(ev.id));
       const filteredNet = filterEventsByNetwork(newNetNotes, networkTag);
       console.log('[videos] loadVideos: network authors', { fetched: netNotes.length, new: newNetNotes.length, afterFilter: filteredNet.length });
       sourceEvents = sourceEvents.concat(filteredNet);
@@ -6274,26 +6281,23 @@ function setupVideoRealtimeSubscription(eventIds = []) {
         registerVideoSourceEvent(event);
         registerVideoEngagementEvent(event);
       } else if (event.kind === 5) {
-        // טיפול במחיקות בזמן אמת
-        console.log('%c[DELETE_DEBUG] videos realtime deletion received', 'color: #FF5722; font-weight: bold', {
-          id: event.id,
-          pubkey: event.pubkey,
-          tags: event.tags
-        });
+        // הסתרה בזמן אמת — מדלגים על ids שכבר מסומנים | HYPER CORE TECH
+        const hideIds = [];
+        if (Array.isArray(event.tags)) {
+          event.tags.forEach((tag) => {
+            if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) hideIds.push(tag[1]);
+          });
+        }
+        const freshIds = hideIds.filter(
+          (id) => !(app.deletedEventIds instanceof Set && app.deletedEventIds.has(id))
+        );
         if (typeof app.registerDeletion === 'function') {
           app.registerDeletion(event);
         }
-        // הסרת הפוסט מהפיד המקומי
-        if (Array.isArray(event.tags)) {
-          event.tags.forEach(tag => {
-            if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) {
-              const deletedId = tag[1];
-              removeVideoFromState(deletedId);
-              removeVideoCard(deletedId);
-              console.log('%c[DELETE_DEBUG] videos removed card', 'color: #FF5722; font-weight: bold', { deletedId });
-            }
-          });
-        }
+        freshIds.forEach((deletedId) => {
+          removeVideoFromState(deletedId);
+          removeVideoCard(deletedId);
+        });
       } else if (event.kind === 7) {
         registerVideoEngagementEvent(event);
       } else if (event.kind === (app.FOLLOW_KIND || 40010)) {

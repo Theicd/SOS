@@ -4451,7 +4451,7 @@
     }
     state.isOpen = targetState;
     if (state.isOpen) {
-      // השהיית warmup פיד (קאש→זיכרון) + עצירת ניגון בזמן שיחות | HYPER CORE TECH
+      // השהיית תור וידאו בלבד + עצירת ניגון בזמן שיחות | HYPER CORE TECH
       if (typeof App.setFeedWarmupPaused === 'function') {
         App.setFeedWarmupPaused(true);
       }

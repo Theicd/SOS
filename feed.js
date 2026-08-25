@@ -2307,8 +2307,11 @@
   }
 
   function applyDeletedEventLocally(eventId) {
-    if (!eventId) return;
-    App.deletedEventIds.add(eventId);
+    if (!eventId) return false;
+    const already = App.deletedEventIds instanceof Set && App.deletedEventIds.has(eventId);
+    if (!already) {
+      App.deletedEventIds.add(eventId);
+    }
     removePostElement(eventId);
     const parentId = removeCommentLocally(eventId);
     if (parentId) {
@@ -2317,6 +2320,7 @@
       } catch (_) {}
       notifyCommentsChanged(parentId);
     }
+    return !already;
   }
 
   function canViewerDeleteComment(comment) {
@@ -2348,16 +2352,15 @@
     const adminKeys = App.adminPublicKeys || new Set();
     const eventPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
     const isAdmin = eventPubkey && adminKeys.has(eventPubkey);
-    logDeletionDebug('incoming deletion event', {
-      id: event.id,
-      from: eventPubkey,
-      isAdmin,
-      tags: event.tags,
-    });
+    let anyNew = false;
     event.tags.forEach((tag) => {
       if (!Array.isArray(tag)) return;
       const [type, value] = tag;
       if ((type === 'e' || type === 'a') && value) {
+        // כבר מוסתר — בלי לוג ובלי עבודה חוזרת | HYPER CORE TECH
+        if (App.deletedEventIds instanceof Set && App.deletedEventIds.has(value)) {
+          return;
+        }
         const author = App.eventAuthorById?.get(value)?.toLowerCase?.();
         // חלק פיד (feed.js) – מאפשר מחיקה אם:
         // 1. המוחק הוא אדמין, או
@@ -2371,16 +2374,25 @@
           });
           return;
         }
-        logDeletionDebug('accepted deletion', {
-          eventId: value,
-          byAdmin: isAdmin,
-          author: author || '(unknown)',
-          reason: isAdmin ? 'admin' : (author ? 'author' : 'unknown-trust'),
-        });
-        // מסיר גם פוסט וגם תגובה מקומית אם קיימים | HYPER CORE TECH
-        applyDeletedEventLocally(value);
+        const isNew = applyDeletedEventLocally(value);
+        if (isNew) {
+          anyNew = true;
+          logDeletionDebug('accepted deletion', {
+            eventId: value,
+            byAdmin: isAdmin,
+            author: author || '(unknown)',
+            reason: isAdmin ? 'admin' : (author ? 'author' : 'unknown-trust'),
+          });
+        }
       }
     });
+    if (anyNew) {
+      logDeletionDebug('incoming deletion event', {
+        id: event.id,
+        from: eventPubkey,
+        isAdmin,
+      });
+    }
   }
 
   function wireShowMore(articleEl, postId) {

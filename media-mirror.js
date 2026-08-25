@@ -332,11 +332,19 @@
     loadMediaWithFallback,
     createMirror,
     extractMirrorsFromEvent,
+    extractMirrors: extractMirrorsFromEvent,
     checkEventMirrors,
     getBestMediaUrl,
     handleFailedUrl,
     checkUrlAvailability,
   });
+
+  // alias גלובלי לתאימות קוד ישן ב־videos.js | HYPER CORE TECH
+  try {
+    if (typeof window.extractMirrors !== 'function') {
+      window.extractMirrors = extractMirrorsFromEvent;
+    }
+  } catch (_) {}
 
   console.log('Media mirror module initialized');
 })(window);

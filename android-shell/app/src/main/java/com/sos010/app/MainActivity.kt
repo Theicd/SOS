@@ -1024,11 +1024,12 @@ class MainActivity : AppCompatActivity() {
                   document.documentElement.setAttribute('data-sos-deeplink', '1');
                   document.body.classList.add('sos-deeplink-chat');
                 } catch (e1) {}
-                if (typeof App.releaseBootForDeepLink === 'function') {
-                  App.releaseBootForDeepLink('apk-so-call');
-                }
+                // משהים רק תור וידאו — מיזוג פוסטים ממשיך ברקע | HYPER CORE TECH
                 if (typeof App.setFeedWarmupPaused === 'function') {
                   App.setFeedWarmupPaused(true);
+                }
+                if (typeof App.releaseBootForDeepLink === 'function') {
+                  App.releaseBootForDeepLink('apk-so-call');
                 }
                 if (typeof App.closeNotificationsPanel === 'function') {
                   try { App.closeNotificationsPanel(); } catch (e2) {}
