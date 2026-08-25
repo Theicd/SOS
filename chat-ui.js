@@ -7171,6 +7171,9 @@
   };
 
   App.toggleChatPanel = togglePanel;
+  App.openChatList = function openChatList() {
+    togglePanel(true);
+  };
   App.resetChatConversationView = resetConversationView;
 
   // חלק התראות (chat-ui.js) – חשיפת פונקציות שליטה בפאנל ההתראות | HYPER CORE TECH

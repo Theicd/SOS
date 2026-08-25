@@ -1,8 +1,8 @@
 {
-  "version": "1.0.85",
-  "versionCode": 86,
-  "file": "SOS-1.0.85.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.85/SOS-1.0.85.apk",
-  "releasedAt": "2026-08-24",
-  "note": "File-pick loading: stronger dim, no card frame"
+  "version": "1.0.86",
+  "versionCode": 87,
+  "file": "SOS-1.0.86.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.86/SOS-1.0.86.apk",
+  "releasedAt": "2026-08-25",
+  "note": "Second launcher icon Sos-Call opens chat list directly"
 }

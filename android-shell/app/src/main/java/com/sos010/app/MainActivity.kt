@@ -69,6 +69,7 @@ class MainActivity : AppCompatActivity() {
     private var warmForCallType: String? = null
     private var warmForP2pPeer: String? = null
     private var warmForP2pPending = false
+    @Volatile private var pendingOpenChatList = false
     private var suppressCallCancelUntil = 0L
     @Volatile private var pendingApkUpdateFile: java.io.File? = null
     @Volatile private var apkUpdateInFlight = false
@@ -141,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         captureCallActionFromIntent(intent)
         captureWarmForCallFromIntent(intent)
         captureWarmForP2pFromIntent(intent)
+        captureOpenChatListFromIntent(intent)
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
@@ -151,13 +153,32 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        // לחיצה על אייקון האפליקציה – תמיד חזרה לפיד הבית, לא לשיחה האחרונה מהתרעה | HYPER CORE TECH
+        // אייקון Sos-Call – פתיחה לרשימת שיחות (לא פיד) | HYPER CORE TECH
+        if (wantsOpenChatList(intent)) {
+            openedFromCallIntent = false
+            pendingDeepLinkPeer = null
+            pendingIncomingCall = null
+            pendingCallAction = null
+            pendingAutoAccept = false
+            CallSoundHelper.stopAll()
+            captureOpenChatListFromIntent(intent)
+            if (webPageReady && isWarmSosPage()) {
+                flushOpenChatList()
+            } else if (this::webView.isInitialized) {
+                webPageReady = false
+                webView.loadUrl(BuildConfig.SOS_START_URL)
+            }
+            return
+        }
+
+        // לחיצה על אייקון SOS – תמיד חזרה לפיד הבית, לא לשיחה האחרונה מהתרעה | HYPER CORE TECH
         if (isLauncherHomeIntent(intent)) {
             openedFromCallIntent = false
             pendingDeepLinkPeer = null
             pendingIncomingCall = null
             pendingCallAction = null
             pendingAutoAccept = false
+            pendingOpenChatList = false
             CallSoundHelper.stopAll()
             SosSessionStore.clearLastUrl(applicationContext)
             SosSessionStore.setLastUrl(applicationContext, BuildConfig.SOS_START_URL)
@@ -172,6 +193,7 @@ class MainActivity : AppCompatActivity() {
         captureCallActionFromIntent(intent)
         captureWarmForCallFromIntent(intent)
         captureWarmForP2pFromIntent(intent)
+        captureOpenChatListFromIntent(intent)
         // שיחה נכנסת – לא עוצרים צלצול מיד; Web יקבל deeplink בלי reload | HYPER CORE TECH
         if (!openedFromCallIntent && pendingCallAction != CALL_ACTION_ANSWER && warmForCallPeer.isNullOrBlank()) {
             CallSoundHelper.stopAll()
@@ -422,6 +444,12 @@ class MainActivity : AppCompatActivity() {
             return openUrl
         }
 
+        // פתיחה מאייקון Sos-Call – דף בית + פתיחת שיחות אחרי טעינה | HYPER CORE TECH
+        if (wantsOpenChatList(intent)) {
+            SosSessionStore.clearLastUrl(applicationContext)
+            return BuildConfig.SOS_START_URL
+        }
+
         // פתיחה מאייקון / MAIN – תמיד דף הבית, בלי sticky chat מהתרעה קודמת | HYPER CORE TECH
         if (isLauncherHomeIntent(intent)) {
             SosSessionStore.clearLastUrl(applicationContext)
@@ -457,6 +485,7 @@ class MainActivity : AppCompatActivity() {
     /** Intent של לחיצה על האייקון (לא התרעה / לא deep-link / לא ענה-דחה) */
     private fun isLauncherHomeIntent(intent: Intent?): Boolean {
         if (intent == null) return true
+        if (wantsOpenChatList(intent)) return false
         val callAction = intent.getStringExtra(EXTRA_CALL_ACTION)
         if (!callAction.isNullOrBlank()) return false
         if (intent.action == CallActionReceiver.ACTION_ANSWER ||
@@ -471,6 +500,33 @@ class MainActivity : AppCompatActivity() {
         if (action == Intent.ACTION_MAIN || action.isNullOrBlank()) return true
         val cats = intent.categories
         return cats != null && cats.contains(Intent.CATEGORY_LAUNCHER)
+    }
+
+    /** אייקון Sos-Call או EXTRA_OPEN_CHAT_LIST | HYPER CORE TECH */
+    private fun wantsOpenChatList(intent: Intent?): Boolean {
+        if (intent == null) return false
+        if (intent.getBooleanExtra(EXTRA_OPEN_CHAT_LIST, false)) return true
+        val cn = intent.component?.className ?: return false
+        return cn.endsWith(".SosCallLauncherAlias") || cn.endsWith("SosCallLauncherAlias")
+    }
+
+    private fun captureOpenChatListFromIntent(intent: Intent?) {
+        if (wantsOpenChatList(intent)) {
+            pendingOpenChatList = true
+            try {
+                intent?.putExtra(EXTRA_OPEN_CHAT_LIST, true)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun flushOpenChatList() {
+        if (!pendingOpenChatList) return
+        if (!this::webView.isInitialized || !webPageReady) return
+        pendingOpenChatList = false
+        listOf(0L, 250L, 700L, 1500L, 2800L).forEach { delay ->
+            mainHandler.postDelayed({ injectOpenChatList() }, delay)
+        }
     }
 
     /** סוגר שיחה/overlays ומחזיר לפיד – בלי לרענן את כל ה-SPA אם כבר חם | HYPER CORE TECH */
@@ -932,9 +988,19 @@ class MainActivity : AppCompatActivity() {
             (function(){
               try {
                 var App = window.NostrApp || {};
-                if (typeof App.openChatList === 'function') App.openChatList();
-                else if (typeof App.showChatList === 'function') App.showChatList();
-                else {
+                if (typeof App.releaseBootForDeepLink === 'function') {
+                  App.releaseBootForDeepLink('apk-sos-call');
+                }
+                if (typeof App.setFeedWarmupPaused === 'function') {
+                  App.setFeedWarmupPaused(true);
+                }
+                if (typeof App.openChatList === 'function') {
+                  App.openChatList();
+                } else if (typeof App.toggleChatPanel === 'function') {
+                  App.toggleChatPanel(true);
+                } else if (typeof App.showChatList === 'function') {
+                  App.showChatList();
+                } else {
                   var btn = document.getElementById('chatToggleBtn');
                   if (btn) btn.click();
                 }
@@ -1099,7 +1165,8 @@ class MainActivity : AppCompatActivity() {
                     !pendingIncomingCall.isNullOrBlank() ||
                     pendingCallAction == CALL_ACTION_ANSWER ||
                     !warmForCallPeer.isNullOrBlank() ||
-                    warmForP2pPending
+                    warmForP2pPending ||
+                    pendingOpenChatList
                 if (quiet) {
                     loading.visibility = View.GONE
                 } else {
@@ -1121,6 +1188,7 @@ class MainActivity : AppCompatActivity() {
                 injectWarmForP2p()
                 injectPendingDeepLink()
                 injectPendingCallAction()
+                flushOpenChatList()
             }
         }
 
