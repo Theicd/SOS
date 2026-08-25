@@ -2937,6 +2937,13 @@ async function attachBootVideoFromCache(video) {
   if (!videoEl) return false;
   removeVideoElFromDownloadQueue(videoEl);
 
+  // deep-link לאורח: URL/Blossom לפני קאש ריק | HYPER CORE TECH
+  const isDeep = !!(video.fromDeepLink || (pendingPostDeepLinkId && video.id === pendingPostDeepLinkId));
+  if (isDeep) {
+    const okDeep = await prioritizeDeepLinkMedia(video);
+    if (okDeep) return true;
+  }
+
   let attached = false;
   if (video.hash && typeof App.getCachedMedia === 'function') {
     try {
@@ -5085,16 +5092,23 @@ async function loadCommentsForPost(eventId) {
   }
 }
 
-// חלק שיתוף פיד (videos.js) – כרטיסיית שיתוף מלמטה + לינק ?post= | HYPER CORE TECH
+// חלק שיתוף פיד (videos.js) – כרטיסיית שיתוף מלמטה + לינק ?post= (+url/h/pk לאורח) | HYPER CORE TECH
 const POST_ID_HEX = /^[0-9a-f]{64}$/i;
 let videosShareToastTimer = null;
 let pendingPostDeepLinkId = '';
 let postDeepLinkHandled = false;
+const pendingPostDeepLinkExtras = { url: '', hash: '', pk: '' };
 
 function capturePostDeepLinkFromLocation() {
   try {
     const params = new URLSearchParams(window.location.search || '');
     const id = String(params.get('post') || '').trim().toLowerCase();
+    const url = String(params.get('url') || params.get('media') || '').trim();
+    const hash = String(params.get('h') || params.get('hash') || '').trim().toLowerCase();
+    const pk = String(params.get('pk') || params.get('author') || '').trim().toLowerCase();
+    if (url && /^https?:\/\//i.test(url)) pendingPostDeepLinkExtras.url = url;
+    if (hash && /^[0-9a-f]{64}$/i.test(hash)) pendingPostDeepLinkExtras.hash = hash;
+    if (pk && POST_ID_HEX.test(pk)) pendingPostDeepLinkExtras.pk = pk;
     if (POST_ID_HEX.test(id)) {
       pendingPostDeepLinkId = id;
       return id;
@@ -5106,13 +5120,147 @@ function capturePostDeepLinkFromLocation() {
 // קליטה מוקדמת — לפני hydrate/loadVideos | HYPER CORE TECH
 try { capturePostDeepLinkFromLocation(); } catch (_) {}
 
+function findVideoForShare(eventId) {
+  const id = String(eventId || '').trim().toLowerCase();
+  if (!id) return null;
+  if (Array.isArray(state.videos)) {
+    const hit = state.videos.find((v) => v && v.id === id);
+    if (hit) return hit;
+  }
+  try {
+    const app = window.NostrApp || {};
+    if (app.postsById instanceof Map && app.postsById.has(id)) {
+      return parseEventToVideoItem(app.postsById.get(id), app);
+    }
+  } catch (_) {}
+  return null;
+}
+
 function buildPostShareUrl(eventId) {
   const id = String(eventId || '').trim().toLowerCase();
   const origin = (typeof window !== 'undefined' && window.location && window.location.origin)
     ? window.location.origin
     : 'https://sos010.com';
-  // videos.html כדי שלא יאבד ?post= במעבר מ־index / PWA | HYPER CORE TECH
-  return `${origin}/videos.html?post=${encodeURIComponent(id)}`;
+  const url = new URL(`${origin}/videos.html`);
+  url.searchParams.set('post', id);
+  const video = findVideoForShare(id);
+  if (video) {
+    const mediaUrl = String(video.videoUrl || '').trim();
+    const hash = String(video.hash || '').trim().toLowerCase();
+    const pk = String(video.pubkey || '').trim().toLowerCase();
+    if (mediaUrl && /^https?:\/\//i.test(mediaUrl)) {
+      url.searchParams.set('url', mediaUrl);
+    } else if (Array.isArray(video.mirrors)) {
+      const mirror = video.mirrors.find((m) => typeof m === 'string' && /^https?:\/\//i.test(m));
+      if (mirror) url.searchParams.set('url', mirror);
+    }
+    if (hash && /^[0-9a-f]{64}$/i.test(hash)) url.searchParams.set('h', hash);
+    if (pk && POST_ID_HEX.test(pk)) url.searchParams.set('pk', pk);
+  }
+  return url.toString();
+}
+
+function buildVideoStubFromDeepLink(postId) {
+  const url = pendingPostDeepLinkExtras.url || '';
+  const hash = pendingPostDeepLinkExtras.hash || '';
+  const pk = pendingPostDeepLinkExtras.pk || '';
+  if (!url && !hash) return null;
+  return {
+    id: postId,
+    pubkey: pk || '',
+    createdAt: Math.floor(Date.now() / 1000),
+    content: '',
+    videoUrl: url || '',
+    hash: hash || '',
+    mirrors: url ? [url] : [],
+    youtubeId: null,
+    liveUrl: null,
+    gameUrl: null,
+    imageUrl: null,
+    authorName: 'SOS',
+    authorPicture: '',
+    authorInitials: 'SO',
+    fromDeepLink: true,
+  };
+}
+
+function mergeDeepLinkExtrasIntoVideo(video) {
+  if (!video || typeof video !== 'object') return video;
+  if (pendingPostDeepLinkExtras.url && !video.videoUrl) {
+    video.videoUrl = pendingPostDeepLinkExtras.url;
+  }
+  if (pendingPostDeepLinkExtras.hash && !video.hash) {
+    video.hash = pendingPostDeepLinkExtras.hash;
+  }
+  if (pendingPostDeepLinkExtras.pk && !video.pubkey) {
+    video.pubkey = pendingPostDeepLinkExtras.pk;
+  }
+  if (pendingPostDeepLinkExtras.url) {
+    const mirrors = Array.isArray(video.mirrors) ? video.mirrors.slice() : [];
+    if (!mirrors.includes(pendingPostDeepLinkExtras.url)) {
+      mirrors.unshift(pendingPostDeepLinkExtras.url);
+    }
+    video.mirrors = mirrors;
+  }
+  video.fromDeepLink = true;
+  return video;
+}
+
+async function prioritizeDeepLinkMedia(video) {
+  if (!video?.id) return false;
+  const App = window.NostrApp || {};
+  const card = await waitForFeedCard(video.id, 15000);
+  if (!card) return false;
+  const mediaDiv = card.querySelector('.videos-feed__media');
+  const videoEl = mediaDiv?.querySelector('video');
+  if (!videoEl) return false;
+  removeVideoElFromDownloadQueue(videoEl);
+
+  const url = video.videoUrl || pendingPostDeepLinkExtras.url || '';
+  const hash = video.hash || pendingPostDeepLinkExtras.hash || '';
+  const mirrors = Array.isArray(video.mirrors) && video.mirrors.length
+    ? video.mirrors
+    : (url ? [url] : []);
+
+  console.log('[videos] deep-link media priority', {
+    id: video.id,
+    hasUrl: !!url,
+    hasHash: !!hash,
+    mirrors: mirrors.length,
+  });
+
+  let ok = false;
+  // 1) Blossom/URL ישיר — קריטי לאורח בלי קאש | HYPER CORE TECH
+  if (url) {
+    try {
+      videoEl.src = url;
+      videoEl.load();
+      ok = await waitForPostMediaPlayable(video);
+      if (ok) {
+        revealBootVideoFrame(video);
+        return true;
+      }
+    } catch (err) {
+      console.warn('[videos] deep-link direct url failed', err);
+    }
+  }
+  // 2) loadVideoWithCache (קאש → P2P → blossom/mirrors) | HYPER CORE TECH
+  if (typeof App.loadVideoWithCache === 'function') {
+    try {
+      const result = await App.loadVideoWithCache(videoEl, url || video.videoUrl || '', hash, mirrors);
+      ok = !!(result && result.success !== false && (videoEl.src || videoEl.currentSrc));
+      if (ok) {
+        const playable = await waitForPostMediaPlayable(video);
+        if (playable) {
+          revealBootVideoFrame(video);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn('[videos] deep-link loadVideoWithCache failed', err);
+    }
+  }
+  return false;
 }
 
 function showVideosShareToast(message) {
@@ -5433,8 +5581,14 @@ function stripPostParamFromUrl() {
   try {
     if (typeof history.replaceState !== 'function') return;
     const url = new URL(window.location.href);
-    if (!url.searchParams.has('post')) return;
-    url.searchParams.delete('post');
+    let changed = false;
+    ['post', 'url', 'media', 'h', 'hash', 'pk', 'author'].forEach((key) => {
+      if (url.searchParams.has(key)) {
+        url.searchParams.delete(key);
+        changed = true;
+      }
+    });
+    if (!changed) return;
     const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : '') + url.hash;
     history.replaceState({}, '', next);
   } catch (_) {}
@@ -5446,7 +5600,12 @@ async function handlePostDeepLink(options = {}) {
   if (!POST_ID_HEX.test(postId)) return false;
   if (postDeepLinkHandled && !force) return true;
 
-  console.log('[videos] post deep link', { id: postId });
+  console.log('[videos] post deep link', {
+    id: postId,
+    hasUrl: !!pendingPostDeepLinkExtras.url,
+    hasHash: !!pendingPostDeepLinkExtras.hash,
+    hasPk: !!pendingPostDeepLinkExtras.pk,
+  });
   const app = window.NostrApp || {};
 
   let video = Array.isArray(state.videos) ? state.videos.find((v) => v && v.id === postId) : null;
@@ -5457,10 +5616,8 @@ async function handlePostDeepLink(options = {}) {
       if (video) {
         try {
           if (typeof app.registerVideoSourceEvent === 'function') app.registerVideoSourceEvent(event);
-          else if (!(app.postsById instanceof Map)) {
-            app.postsById = new Map();
-            app.postsById.set(event.id, event);
-          } else {
+          else {
+            if (!(app.postsById instanceof Map)) app.postsById = new Map();
             app.postsById.set(event.id, event);
           }
         } catch (_) {}
@@ -5468,15 +5625,21 @@ async function handlePostDeepLink(options = {}) {
     }
   }
 
+  // אורח בלי קאש/ריליי: stub מ־url/h/pk בלינק | HYPER CORE TECH
+  if (!video) {
+    video = buildVideoStubFromDeepLink(postId);
+  } else {
+    mergeDeepLinkExtrasIntoVideo(video);
+  }
+
   if (!video) {
     console.warn('[videos] post deep link — post not found yet', { id: postId });
-    // לא מוחקים את pending — ננסה שוב אחרי loadVideos | HYPER CORE TECH
     return false;
   }
 
+  mergeDeepLinkExtrasIntoVideo(video);
   postDeepLinkHandled = true;
   pendingPostDeepLinkId = postId;
-  // הקפצה לראש + הצגה מידית של הפוסט מהלינק | HYPER CORE TECH
   video.boostedAt = Math.max(Number(video.boostedAt) || 0, Math.floor(Date.now() / 1000));
   upsertVideoInState(video, { forceShow: true, immediate: true });
   try {
@@ -5484,6 +5647,16 @@ async function handlePostDeepLink(options = {}) {
     syncFeedDomOrder(getDisplayVideos());
   } catch (_) {}
   stripPostParamFromUrl();
+
+  // טעינת מדיה מיד (Blossom/URL לפני קאש) — קריטי לאורח | HYPER CORE TECH
+  prioritizeDeepLinkMedia(video).then((ok) => {
+    console.log('[videos] deep-link media done', { id: postId, ok: !!ok });
+    if (ok) {
+      try { revealBootVideoFrame(video); } catch (_) {}
+    }
+  }).catch((err) => {
+    console.warn('[videos] deep-link media failed', err);
+  });
 
   const tryScroll = () => {
     const card = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${postId}"]`);
