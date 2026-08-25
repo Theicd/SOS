@@ -5391,7 +5391,7 @@ async function loadMoreVideos() {
       // בפיד הכללי לא מציגים משחקים/ערוצי LIVE גם בטעינת המשך | HYPER CORE TECH
       const toShow = collectedVideos.filter((v) => isGeneralFeedVideo(v));
       if (toShow.length) {
-        renderMoreVideos(toShow);
+        await renderMoreVideos(toShow);
       }
       saveFeedCache(state.videos);
     } else {
@@ -5472,7 +5472,8 @@ function createVideoCard(video) {
   return card;
 }
 
-function renderMoreVideos(videos) {
+// load-more: כרטיסייה לפיד רק אחרי שהווידאו מוכן — בלי כרטיסיות ריקות | HYPER CORE TECH
+async function renderMoreVideos(videos) {
   const stream = document.querySelector('.videos-feed__stream');
   if (!stream || !videos.length) return;
 
@@ -5484,13 +5485,31 @@ function renderMoreVideos(videos) {
         ? []
         : videos.filter((v) => isGeneralFeedVideo(v));
 
-  list.forEach((video) => {
-    const card = createVideoCard(video);
-    if (card) {
-      stream.appendChild(card);
-      observeVideoCard(card);
+  const MEDIA_WAIT_MS = 60000;
+  for (const video of list) {
+    if (!video?.id || isMediaUnavailable(video)) continue;
+    if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) continue;
+    let card = null;
+    try {
+      const rendered = renderVideoCard(video);
+      card = rendered?.card || null;
+      const mediaReadyPromise = rendered?.mediaReadyPromise;
+      if (!card || !mediaReadyPromise) continue;
+      await Promise.race([
+        mediaReadyPromise,
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('media-ready-timeout')), MEDIA_WAIT_MS);
+        }),
+      ]);
+      if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) continue;
+      mountCard(card);
+      markCardMediaReady(card);
+    } catch (err) {
+      if (card) {
+        try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+      }
     }
-  });
+  }
 
   updateLoadMoreTrigger();
 }
@@ -7249,17 +7268,16 @@ function appendLiveTvChannelToFeed(video) {
   if (!selectors.stream) return;
   try {
     const { card, mediaReadyPromise } = renderVideoCard(video);
+    // רק אחרי מדיה מוכנה — בלי כרטיסיית LIVE ריקה | HYPER CORE TECH
     mediaReadyPromise.then(() => {
       if (state.feedMode !== 'live-tv') return;
       if (!card.isConnected) {
-        selectors.stream.appendChild(card);
-        observeVideoCard(card);
+        mountCard(card);
+        markCardMediaReady(card);
       }
-    }).catch(() => {});
-    if (!card.isConnected) {
-      selectors.stream.appendChild(card);
-      observeVideoCard(card);
-    }
+    }).catch((err) => {
+      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+    });
   } catch (err) {
     console.warn('[VIDEOS] appendLiveTvChannelToFeed failed', err);
   }
