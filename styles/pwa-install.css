@@ -328,40 +328,72 @@
 }
 
 .pwa-update-toast__now {
-  background: #2374e1;
-  border: none;
-  color: #fff;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.04) 42%, transparent 55%),
+    linear-gradient(135deg, rgba(28, 78, 160, 0.55) 0%, rgba(18, 52, 110, 0.42) 100%);
+  border: 1px solid rgba(140, 180, 240, 0.35);
+  color: #e8f0ff;
   padding: 8px 14px;
   border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
-  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
-  box-shadow: 0 4px 14px rgba(35, 116, 225, 0.35);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 4px 16px rgba(12, 40, 90, 0.35);
+}
+
+.pwa-update-toast__now::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -20%;
+  width: 55%;
+  height: 180%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 255, 255, 0.38) 48%,
+    rgba(255, 255, 255, 0.08) 62%,
+    transparent 100%
+  );
+  transform: rotate(18deg);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .pwa-update-toast__now:hover {
-  background: #1b5ecf;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.06) 42%, transparent 55%),
+    linear-gradient(135deg, rgba(32, 88, 175, 0.65) 0%, rgba(22, 60, 125, 0.5) 100%);
+  border-color: rgba(160, 195, 245, 0.45);
   transform: translateY(-1px);
 }
 
 /* כרטיסיית עדכון APK – אותו מיקום כמו עדכון הווב; תור אחד בכל פעם | HYPER CORE TECH */
 .apk-update-toast {
   z-index: 100002;
-  border-color: rgba(35, 116, 225, 0.35);
+  border-color: rgba(70, 120, 190, 0.4);
   box-shadow:
     0 12px 36px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(35, 116, 225, 0.12),
-    0 0 24px rgba(35, 116, 225, 0.15);
+    0 0 0 1px rgba(70, 120, 190, 0.12),
+    0 0 20px rgba(40, 80, 140, 0.18);
 }
 
 .apk-update-toast .pwa-update-toast__now {
-  background: #2374e1;
-  color: #fff;
+  color: #e8f0ff;
 }
 
 .apk-update-toast .pwa-update-toast__now:hover {
-  background: #1b5ecf;
+  border-color: rgba(160, 195, 245, 0.45);
 }
 
 @media (max-width: 420px) {
