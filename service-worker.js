@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v627'; // bump - TikTok-like share sheet + ?post=
+  const CACHE_NAME = 'sos-cache-v628'; // bump - post deep link + share count/boost
   const PRECACHE_URLS = [
     './',
     './videos.html',

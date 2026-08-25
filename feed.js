@@ -4,6 +4,8 @@
   App.profileCache = App.profileCache || new Map(); // חלק פיד (feed.js) – מאחסן מטא-דאטה של פרופילים כדי לחסוך שאילתות
   App.eventAuthorById = App.eventAuthorById || new Map(); // חלק פיד (feed.js) – מאפשר לשייך אירועים למחבר שלהם למטרות הרשאות
   App.likesByEventId = App.likesByEventId || new Map(); // חלק פיד (feed.js) – סופר לייקים לכל פוסט לפי מזהה האירוע
+  App.sharesByEventId = App.sharesByEventId || new Map(); // חלק שיתופים (feed.js) – סופר שיתופי kind 6 לכל פוסט | HYPER CORE TECH
+  App.latestShareAtByEventId = App.latestShareAtByEventId || new Map(); // חלק שיתופים (feed.js) – זמן שיתוף אחרון להקפצה לראש | HYPER CORE TECH
   App.commentsByParent = App.commentsByParent || new Map(); // חלק פיד (feed.js) – מרכז את כל תגובות kind 1 לכל פוסט כדי שכל המשתמשים יראו אותן
   App.notifications = Array.isArray(App.notifications) ? App.notifications : []; // חלק התרעות (feed.js) – מאחסן את רשימת ההתרעות לפי סדר יורד
   App.notificationsById = App.notificationsById instanceof Map ? App.notificationsById : new Map(); // חלק התרעות (feed.js) – מאפשר למנוע כפילויות התרעה לפי מזהה האירוע
@@ -4041,6 +4043,7 @@ async function loadFeed() {
   }
 
   async function sharePost(eventId) {
+    if (!eventId) return null;
     const draft = {
       kind: 6,
       pubkey: App.publicKey,
@@ -4053,8 +4056,70 @@ async function loadFeed() {
     try {
       await App.pool.publish(App.relayUrls, event);
       console.log('Shared event');
+      registerShare(event);
+      try {
+        if (typeof App.onFeedPostShared === 'function') {
+          App.onFeedPostShared(eventId, event);
+        }
+      } catch (_) {}
+      try {
+        window.dispatchEvent(new CustomEvent('sos-feed-post-shared', {
+          detail: { eventId, event },
+        }));
+      } catch (_) {}
+      return event;
     } catch (e) {
       console.error('Share publish error', e);
+      return null;
+    }
+  }
+
+  function registerShare(event) {
+    if (!event || event.kind !== 6 || !Array.isArray(event.tags)) {
+      return;
+    }
+    const sharer = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : null;
+    const shareAt = Number(event.created_at) || Math.floor(Date.now() / 1000);
+    const targetIds = new Set();
+    event.tags.forEach((tag) => {
+      if (!Array.isArray(tag)) return;
+      if (tag[0] === 'e' && tag[1]) targetIds.add(tag[1]);
+    });
+    if (!targetIds.size) return;
+
+    if (!(App.sharesByEventId instanceof Map)) App.sharesByEventId = new Map();
+    if (!(App.latestShareAtByEventId instanceof Map)) App.latestShareAtByEventId = new Map();
+
+    targetIds.forEach((id) => {
+      if (!App.sharesByEventId.has(id)) {
+        App.sharesByEventId.set(id, new Set());
+      }
+      const shareSet = App.sharesByEventId.get(id);
+      if (sharer) shareSet.add(sharer);
+      const prev = App.latestShareAtByEventId.get(id) || 0;
+      if (shareAt > prev) App.latestShareAtByEventId.set(id, shareAt);
+      updateShareIndicator(id);
+    });
+  }
+
+  function updateShareIndicator(eventId) {
+    if (!eventId) return;
+    const button = document.querySelector(`button[data-share-button][data-event-id="${eventId}"]`);
+    const shareSet = App.sharesByEventId?.get?.(eventId);
+    const count = shareSet ? shareSet.size : 0;
+    if (button) {
+      const counterEl = button.querySelector('.feed-post__share-count')
+        || button.querySelector('.videos-feed__action-count')
+        || button.querySelector('[data-share-count]');
+      if (counterEl) {
+        if (count > 0) {
+          counterEl.textContent = String(count);
+          counterEl.style.display = '';
+        } else {
+          counterEl.textContent = '';
+          counterEl.style.display = 'none';
+        }
+      }
     }
   }
 
@@ -4592,6 +4657,8 @@ async function loadFeed() {
     publishPost,
     likePost,
     sharePost,
+    registerShare,
+    updateShareIndicator,
     postComment,
     openEditPost,
     deletePost,

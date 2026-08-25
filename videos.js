@@ -1469,6 +1469,21 @@ function getVideoCreatedAt(video) {
   return Math.floor(raw);
 }
 
+// דירוג לפיד: שיתוף אחרון מעלה פוסט לראש כמו טיקטוק | HYPER CORE TECH
+function getVideoRankAt(video) {
+  const created = getVideoCreatedAt(video) || 0;
+  const id = video?.id;
+  let boosted = Number(video?.boostedAt) || 0;
+  try {
+    const app = window.NostrApp;
+    if (id && app?.latestShareAtByEventId instanceof Map) {
+      const fromShares = Number(app.latestShareAtByEventId.get(id)) || 0;
+      if (fromShares > boosted) boosted = fromShares;
+    }
+  } catch (_) {}
+  return Math.max(created, boosted);
+}
+
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
 const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
 const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
@@ -3780,6 +3795,7 @@ function renderVideoCard(video) {
   const likeCount = currentApp.likesByEventId?.get(video.id)?.size || 0;
   const isLiked = currentApp.likesByEventId?.get(video.id)?.has(currentApp.publicKey) || false;
   const commentCount = getVisibleCommentCount(video.id);
+  const shareCount = currentApp.sharesByEventId?.get(video.id)?.size || 0;
 
   actionsDiv.insertAdjacentHTML('beforeend', `
     <button class="videos-feed__action ${isLiked ? 'videos-feed__action--liked' : ''}" data-like-button data-event-id="${video.id}">
@@ -3792,6 +3808,7 @@ function renderVideoCard(video) {
     </button>
     <button class="videos-feed__action" data-share-button data-event-id="${video.id}">
       <i class="fa-solid fa-share"></i>
+      <span class="videos-feed__action-count feed-post__share-count" data-share-count="${video.id}" style="${shareCount > 0 ? '' : 'display:none'}">${shareCount > 0 ? shareCount : ''}</span>
     </button>
   `);
 
@@ -4089,6 +4106,7 @@ function renderVideos() {
   setupIntersectionObserver();
   setupLoadMoreObserver();
   setupLikeUpdateListener();
+  setupShareUpdateListener();
   setupCommentsChangedListener();
   setupCommentsAutoClose();
 
@@ -4356,6 +4374,64 @@ function updateVideoCommentButton(eventId) {
   }
 }
 
+function updateVideoShareButton(eventId) {
+  if (!eventId) return;
+  const button = document.querySelector(`button[data-share-button][data-event-id="${eventId}"]`);
+  if (!button) return;
+  const app = window.NostrApp;
+  const shareSet = app?.sharesByEventId?.get(eventId);
+  const count = shareSet ? shareSet.size : 0;
+  const counterEl = button.querySelector('.feed-post__share-count')
+    || button.querySelector('[data-share-count]')
+    || button.querySelector('.videos-feed__action-count');
+  if (counterEl) {
+    if (count > 0) {
+      counterEl.textContent = String(count);
+      counterEl.style.display = '';
+    } else {
+      counterEl.textContent = '';
+      counterEl.style.display = 'none';
+    }
+  }
+}
+
+function bumpSharedVideoToTop(eventId, shareEvent = null) {
+  const id = String(eventId || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/i.test(id)) return false;
+  const app = window.NostrApp || {};
+  const shareAt = Number(shareEvent?.created_at) || Math.floor(Date.now() / 1000);
+  try {
+    if (!(app.latestShareAtByEventId instanceof Map)) app.latestShareAtByEventId = new Map();
+    const prev = Number(app.latestShareAtByEventId.get(id)) || 0;
+    if (shareAt > prev) app.latestShareAtByEventId.set(id, shareAt);
+  } catch (_) {}
+
+  let video = Array.isArray(state.videos) ? state.videos.find((v) => v && v.id === id) : null;
+  if (!video && app.postsById instanceof Map) {
+    const ev = app.postsById.get(id);
+    if (ev) video = parseEventToVideoItem(ev, app);
+  }
+  if (!video) return false;
+  video.boostedAt = Math.max(Number(video.boostedAt) || 0, shareAt);
+  upsertVideoInState(video, { forceShow: true, immediate: true });
+  updateVideoShareButton(id);
+  try {
+    state.videos = sortVideosByCreatedAtDesc(state.videos);
+    syncFeedDomOrder(getDisplayVideos());
+  } catch (_) {}
+  const tryScroll = () => {
+    const card = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${id}"]`);
+    if (!card) return false;
+    try { card.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (_) {}
+    return true;
+  };
+  if (!tryScroll()) {
+    setTimeout(tryScroll, 300);
+    setTimeout(tryScroll, 900);
+  }
+  return true;
+}
+
 // חלק יאללה וידאו (videos.js) – מאזין לעדכוני לייקים גלובליים
 function setupLikeUpdateListener() {
   const app = window.NostrApp;
@@ -4380,6 +4456,36 @@ function setupLikeUpdateListener() {
     
     return result;
   };
+}
+
+function setupShareUpdateListener() {
+  const app = window.NostrApp || {};
+  if (typeof app.registerShare === 'function' && !app._videosShareHooked) {
+    app._videosShareHooked = true;
+    const original = app.registerShare;
+    app.registerShare = function(event) {
+      const result = original.call(this, event);
+      if (event && Array.isArray(event.tags)) {
+        event.tags.forEach((tag) => {
+          if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) {
+            setTimeout(() => updateVideoShareButton(tag[1]), 40);
+          }
+        });
+      }
+      return result;
+    };
+  }
+  app.onFeedPostShared = function onFeedPostShared(eventId, event) {
+    bumpSharedVideoToTop(eventId, event);
+    updateVideoShareButton(eventId);
+  };
+  if (!window.__sosShareBumpBound) {
+    window.__sosShareBumpBound = true;
+    window.addEventListener('sos-feed-post-shared', (ev) => {
+      const eventId = ev?.detail?.eventId;
+      if (eventId) bumpSharedVideoToTop(eventId, ev.detail?.event || null);
+    });
+  }
 }
 
 // חלק תגובות (videos.js) – רענון פאנל/מונה כשמחיקה או עדכון מגיעים מ-feed.js | HYPER CORE TECH
@@ -4982,12 +5088,30 @@ async function loadCommentsForPost(eventId) {
 // חלק שיתוף פיד (videos.js) – כרטיסיית שיתוף מלמטה + לינק ?post= | HYPER CORE TECH
 const POST_ID_HEX = /^[0-9a-f]{64}$/i;
 let videosShareToastTimer = null;
+let pendingPostDeepLinkId = '';
+let postDeepLinkHandled = false;
+
+function capturePostDeepLinkFromLocation() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const id = String(params.get('post') || '').trim().toLowerCase();
+    if (POST_ID_HEX.test(id)) {
+      pendingPostDeepLinkId = id;
+      return id;
+    }
+  } catch (_) {}
+  return pendingPostDeepLinkId || '';
+}
+
+// קליטה מוקדמת — לפני hydrate/loadVideos | HYPER CORE TECH
+try { capturePostDeepLinkFromLocation(); } catch (_) {}
 
 function buildPostShareUrl(eventId) {
   const id = String(eventId || '').trim().toLowerCase();
   const origin = (typeof window !== 'undefined' && window.location && window.location.origin)
     ? window.location.origin
     : 'https://sos010.com';
+  // videos.html כדי שלא יאבד ?post= במעבר מ־index / PWA | HYPER CORE TECH
   return `${origin}/videos.html?post=${encodeURIComponent(id)}`;
 }
 
@@ -5041,7 +5165,14 @@ async function sharePostToFeed(eventId) {
     return false;
   }
   try {
-    await app.sharePost(eventId);
+    const shared = await app.sharePost(eventId);
+    if (!shared) {
+      showVideosShareToast('שיתוף בפיד נכשל');
+      return false;
+    }
+    // registerShare/onFeedPostShared כבר מעלים לראש; גיבוי מקומי | HYPER CORE TECH
+    bumpSharedVideoToTop(eventId, shared);
+    updateVideoShareButton(eventId);
     showVideosShareToast('שותף בפיד');
     return true;
   } catch (err) {
@@ -5260,8 +5391,11 @@ function openVideosShareSheet(eventId) {
 
 async function fetchNoteById(eventId) {
   const app = window.NostrApp || {};
+  if (app.postsById instanceof Map && app.postsById.has(eventId)) {
+    return app.postsById.get(eventId);
+  }
   if (!app.pool || !Array.isArray(app.relayUrls) || !app.relayUrls.length) return null;
-  const filters = [{ ids: [eventId], kinds: [1], limit: 1 }];
+  const filters = [{ ids: [eventId], limit: 1 }];
   try {
     if (typeof app.pool.list === 'function') {
       const listed = await app.pool.list(app.relayUrls, filters);
@@ -5271,6 +5405,23 @@ async function fetchNoteById(eventId) {
       const res = await app.pool.querySync(app.relayUrls, filters[0]);
       const events = Array.isArray(res) ? res : (Array.isArray(res?.events) ? res.events : []);
       if (events[0]) return events[0];
+    }
+    // fallback קצר עם subscribeMany | HYPER CORE TECH
+    if (typeof app.pool.subscribeMany === 'function') {
+      return await new Promise((resolve) => {
+        let done = false;
+        const finish = (ev) => {
+          if (done) return;
+          done = true;
+          try { sub.close(); } catch (_) {}
+          resolve(ev || null);
+        };
+        const sub = app.pool.subscribeMany(app.relayUrls, filters, {
+          onevent: (ev) => finish(ev),
+          oneose: () => finish(null),
+        });
+        setTimeout(() => finish(null), 3500);
+      });
     }
   } catch (err) {
     console.warn('[videos] fetchNoteById failed', err);
@@ -5289,15 +5440,11 @@ function stripPostParamFromUrl() {
   } catch (_) {}
 }
 
-async function handlePostDeepLink() {
-  let postId = '';
-  try {
-    const params = new URLSearchParams(window.location.search || '');
-    postId = String(params.get('post') || '').trim().toLowerCase();
-  } catch (_) {
-    return;
-  }
-  if (!POST_ID_HEX.test(postId)) return;
+async function handlePostDeepLink(options = {}) {
+  const { force = false } = options;
+  const postId = capturePostDeepLinkFromLocation() || pendingPostDeepLinkId;
+  if (!POST_ID_HEX.test(postId)) return false;
+  if (postDeepLinkHandled && !force) return true;
 
   console.log('[videos] post deep link', { id: postId });
   const app = window.NostrApp || {};
@@ -5310,18 +5457,32 @@ async function handlePostDeepLink() {
       if (video) {
         try {
           if (typeof app.registerVideoSourceEvent === 'function') app.registerVideoSourceEvent(event);
+          else if (!(app.postsById instanceof Map)) {
+            app.postsById = new Map();
+            app.postsById.set(event.id, event);
+          } else {
+            app.postsById.set(event.id, event);
+          }
         } catch (_) {}
       }
     }
   }
 
   if (!video) {
-    showVideosShareToast('הפוסט לא נמצא');
-    stripPostParamFromUrl();
-    return;
+    console.warn('[videos] post deep link — post not found yet', { id: postId });
+    // לא מוחקים את pending — ננסה שוב אחרי loadVideos | HYPER CORE TECH
+    return false;
   }
 
+  postDeepLinkHandled = true;
+  pendingPostDeepLinkId = postId;
+  // הקפצה לראש + הצגה מידית של הפוסט מהלינק | HYPER CORE TECH
+  video.boostedAt = Math.max(Number(video.boostedAt) || 0, Math.floor(Date.now() / 1000));
   upsertVideoInState(video, { forceShow: true, immediate: true });
+  try {
+    state.videos = sortVideosByCreatedAtDesc(state.videos);
+    syncFeedDomOrder(getDisplayVideos());
+  } catch (_) {}
   stripPostParamFromUrl();
 
   const tryScroll = () => {
@@ -5340,11 +5501,14 @@ async function handlePostDeepLink() {
   if (!tryScroll()) {
     setTimeout(tryScroll, 400);
     setTimeout(tryScroll, 1200);
+    setTimeout(tryScroll, 2500);
   }
+  return true;
 }
 
 App.openVideosShareSheet = openVideosShareSheet;
 App.buildPostShareUrl = buildPostShareUrl;
+App.handlePostDeepLink = handlePostDeepLink;
 
 // חלק יאללה וידאו (videos.js) – חיבור כפתורי פעולה
 function wireActions(root = selectors.stream) {
@@ -6113,30 +6277,36 @@ async function loadLikesAndCommentsForVideos(eventIds) {
 
   for (const batch of batches) {
     try {
-      // טעינת לייקים (kind 7)
+      // טעינת לייקים (kind 7) + שיתופים (kind 6) + תגובות | HYPER CORE TECH
       const likesFilter = { kinds: [7], '#e': batch, since };
-      // טעינת תגובות (kind 1 עם תג e)
+      const sharesFilter = { kinds: [6], '#e': batch, since };
       const commentsFilter = { kinds: [1], '#e': batch, since };
 
       let allEvents = [];
 
       if (typeof app.pool.list === 'function') {
-        const results = await app.pool.list(app.relayUrls, [likesFilter, commentsFilter]);
+        const results = await app.pool.list(app.relayUrls, [likesFilter, sharesFilter, commentsFilter]);
         if (Array.isArray(results)) allEvents = results;
       } else if (typeof app.pool.querySync === 'function') {
         const likesRes = await app.pool.querySync(app.relayUrls, likesFilter);
+        const sharesRes = await app.pool.querySync(app.relayUrls, sharesFilter);
         const commentsRes = await app.pool.querySync(app.relayUrls, commentsFilter);
         const likes = Array.isArray(likesRes) ? likesRes : (Array.isArray(likesRes?.events) ? likesRes.events : []);
+        const shares = Array.isArray(sharesRes) ? sharesRes : (Array.isArray(sharesRes?.events) ? sharesRes.events : []);
         const comments = Array.isArray(commentsRes) ? commentsRes : (Array.isArray(commentsRes?.events) ? commentsRes.events : []);
-        allEvents = [...likes, ...comments];
+        allEvents = [...likes, ...shares, ...comments];
       }
 
       totalLoaded += allEvents.length;
 
-      // עיבוד לייקים ותגובות בהתאם ללוגיקת הפיד הראשי | HYPER CORE TECH
+      // עיבוד לייקים/שיתופים/תגובות בהתאם ללוגיקת הפיד הראשי | HYPER CORE TECH
       allEvents.forEach((event) => {
         if (event.kind === 7 && typeof app.registerLike === 'function') {
           app.registerLike(event);
+          return;
+        }
+        if (event.kind === 6 && typeof app.registerShare === 'function') {
+          app.registerShare(event);
           return;
         }
         if (event.kind !== 1 || !Array.isArray(event.tags)) {
@@ -6154,6 +6324,7 @@ async function loadLikesAndCommentsForVideos(eventIds) {
       batch.forEach((id) => {
         updateVideoLikeButton(id);
         updateVideoCommentButton(id);
+        updateVideoShareButton(id);
       });
 
     } catch (err) {
@@ -6162,6 +6333,15 @@ async function loadLikesAndCommentsForVideos(eventIds) {
   }
 
   console.log('[videos] Loaded likes/comments:', { count: totalLoaded });
+  // אחרי שיתופים — סידור מחדש לפי דירוג (שיתוף מעלה לראש) | HYPER CORE TECH
+  try {
+    if (Array.isArray(state.videos) && state.videos.length) {
+      state.videos = sortVideosByCreatedAtDesc(state.videos);
+      if (bootGate.released && state.firstCardRendered) {
+        syncFeedDomOrder(getDisplayVideos());
+      }
+    }
+  } catch (_) {}
 }
 
 // חלק יאללה וידאו (videos.js) – רישום אירועים למפות המשותפות כדי לאפשר התרעות מלאות | HYPER CORE TECH
@@ -6649,6 +6829,7 @@ function setupVideoRealtimeSubscription(eventIds = []) {
   if (Array.isArray(eventIds) && eventIds.length > 0) {
     filters.push({ kinds: [1], '#e': eventIds, limit: 200 });
     filters.push({ kinds: [7], '#e': eventIds, limit: 200 });
+    filters.push({ kinds: [6], '#e': eventIds, limit: 200 });
   }
 
   videoRealtimeSub = app.pool.subscribeMany(app.relayUrls, filters, {
@@ -6677,6 +6858,16 @@ function setupVideoRealtimeSubscription(eventIds = []) {
         });
       } else if (event.kind === 7) {
         registerVideoEngagementEvent(event);
+      } else if (event.kind === 6) {
+        if (typeof app.registerShare === 'function') app.registerShare(event);
+        // שיתוף טרי מהרשת — הקפצה לראש (לא היסטוריה ישנה) | HYPER CORE TECH
+        const ageSec = Math.floor(Date.now() / 1000) - (Number(event.created_at) || 0);
+        if (ageSec >= 0 && ageSec <= 180) {
+          const eTag = Array.isArray(event.tags)
+            ? event.tags.find((t) => Array.isArray(t) && t[0] === 'e' && t[1])
+            : null;
+          if (eTag && eTag[1]) bumpSharedVideoToTop(eTag[1], event);
+        }
       } else if (event.kind === (app.FOLLOW_KIND || 40010)) {
         if (typeof app.handleNotificationForFollow === 'function') {
           app.handleNotificationForFollow(event);
@@ -7097,7 +7288,12 @@ async function init() {
         if (v?.id) updateVideoCommentButton(v.id);
       });
     } catch (_) {}
+    // לינק ישיר לפוסט — מנסים מיד מהקאש לפני boot | HYPER CORE TECH
+    try { await handlePostDeepLink(); } catch (_) {}
     await ensureBootFeedReady();
+    try { await handlePostDeepLink({ force: !postDeepLinkHandled }); } catch (_) {}
+  } else {
+    try { await handlePostDeepLink(); } catch (_) {}
   }
 
   // טעינת תוכן חדש ברקע (גם אם יש מטמון)
@@ -7106,7 +7302,12 @@ async function init() {
       if (!bootGate.released) {
         await ensureBootFeedReady();
       }
-      try { await handlePostDeepLink(); } catch (err) {
+      try {
+        await handlePostDeepLink({ force: !postDeepLinkHandled });
+        if (!postDeepLinkHandled && pendingPostDeepLinkId) {
+          showVideosShareToast('הפוסט לא נמצא');
+        }
+      } catch (err) {
         console.warn('[videos] post deep link failed', err);
       }
     })
@@ -7249,7 +7450,7 @@ function sortVideosByCreatedAtDesc(videos) {
       video.createdAt = getVideoCreatedAt(video);
       return video;
     })
-    .sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
+    .sort((a, b) => getVideoRankAt(b) - getVideoRankAt(a));
 }
 
 // חלק סדר פיד (videos.js) – סנכרון DOM לסדר הכרונולוגי אחרי טעינה דיפרנציאלית / מטמון | HYPER CORE TECH
@@ -7362,6 +7563,7 @@ function forceFullFeedRerender() {
   setupIntersectionObserver();
   setupLoadMoreObserver();
   setupLikeUpdateListener();
+  setupShareUpdateListener();
   setupCommentsChangedListener();
   setupCommentsAutoClose();
 
