@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: SosWebView
     private lateinit var loading: ProgressBar
     private var filePickLoading: FrameLayout? = null
+    private var soCallSplash: FrameLayout? = null
     private var filePickHideRunnable: Runnable? = null
     private var filePickShownAt = 0L
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -130,6 +131,7 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         loading = findViewById(R.id.loading)
         filePickLoading = findViewById(R.id.filePickLoading)
+        soCallSplash = findViewById(R.id.soCallSplash)
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
@@ -143,6 +145,9 @@ class MainActivity : AppCompatActivity() {
         captureWarmForCallFromIntent(intent)
         captureWarmForP2pFromIntent(intent)
         captureOpenChatListFromIntent(intent)
+        if (pendingOpenChatList) {
+            showSoCallSplash()
+        }
         val startUrl = resolveStartUrl(intent)
         webView.loadUrl(startUrl)
 
@@ -153,7 +158,7 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        // אייקון Sos-Call – פתיחה לרשימת שיחות (לא פיד) | HYPER CORE TECH
+        // אייקון So-Call – פתיחה לרשימת שיחות (לא פיד) | HYPER CORE TECH
         if (wantsOpenChatList(intent)) {
             openedFromCallIntent = false
             pendingDeepLinkPeer = null
@@ -162,6 +167,7 @@ class MainActivity : AppCompatActivity() {
             pendingAutoAccept = false
             CallSoundHelper.stopAll()
             captureOpenChatListFromIntent(intent)
+            showSoCallSplash()
             if (webPageReady && isWarmSosPage()) {
                 flushOpenChatList()
             } else if (this::webView.isInitialized) {
@@ -180,6 +186,7 @@ class MainActivity : AppCompatActivity() {
             pendingAutoAccept = false
             pendingOpenChatList = false
             CallSoundHelper.stopAll()
+            hideSoCallSplash(force = true)
             SosSessionStore.clearLastUrl(applicationContext)
             SosSessionStore.setLastUrl(applicationContext, BuildConfig.SOS_START_URL)
             returnToHomeFeed()
@@ -502,7 +509,7 @@ class MainActivity : AppCompatActivity() {
         return cats != null && cats.contains(Intent.CATEGORY_LAUNCHER)
     }
 
-    /** אייקון Sos-Call או EXTRA_OPEN_CHAT_LIST | HYPER CORE TECH */
+    /** אייקון So-Call או EXTRA_OPEN_CHAT_LIST | HYPER CORE TECH */
     private fun wantsOpenChatList(intent: Intent?): Boolean {
         if (intent == null) return false
         if (intent.getBooleanExtra(EXTRA_OPEN_CHAT_LIST, false)) return true
@@ -520,13 +527,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showSoCallSplash() {
+        soCallSplash?.visibility = View.VISIBLE
+        soCallSplash?.bringToFront()
+        if (this::loading.isInitialized) loading.visibility = View.GONE
+    }
+
+    fun hideSoCallSplashFromJs() {
+        pendingOpenChatList = false
+        hideSoCallSplash(force = true)
+    }
+
+    private fun hideSoCallSplash(force: Boolean = false) {
+        val splash = soCallSplash ?: return
+        if (splash.visibility != View.VISIBLE && !force) return
+        splash.visibility = View.GONE
+    }
+
     private fun flushOpenChatList() {
         if (!pendingOpenChatList) return
         if (!this::webView.isInitialized || !webPageReady) return
-        pendingOpenChatList = false
-        listOf(0L, 250L, 700L, 1500L, 2800L).forEach { delay ->
+        // משאירים pending עד notifySoCallReady / timeout – כדי לא לחשוף פיד מוקדם | HYPER CORE TECH
+        showSoCallSplash()
+        listOf(0L, 300L, 800L, 1600L, 2800L, 4500L).forEach { delay ->
             mainHandler.postDelayed({ injectOpenChatList() }, delay)
         }
+        // גיבוי: אם Web לא דיווח מוכן – מסתירים splash אחרי כמה שניות | HYPER CORE TECH
+        mainHandler.postDelayed({
+            if (soCallSplash?.visibility == View.VISIBLE) {
+                hideSoCallSplash(force = true)
+                pendingOpenChatList = false
+            }
+        }, 8000L)
     }
 
     /** סוגר שיחה/overlays ומחזיר לפיד – בלי לרענן את כל ה-SPA אם כבר חם | HYPER CORE TECH */
@@ -988,21 +1020,31 @@ class MainActivity : AppCompatActivity() {
             (function(){
               try {
                 var App = window.NostrApp || {};
+                try {
+                  document.documentElement.setAttribute('data-sos-deeplink', '1');
+                  document.body.classList.add('sos-deeplink-chat');
+                } catch (e1) {}
                 if (typeof App.releaseBootForDeepLink === 'function') {
-                  App.releaseBootForDeepLink('apk-sos-call');
+                  App.releaseBootForDeepLink('apk-so-call');
                 }
                 if (typeof App.setFeedWarmupPaused === 'function') {
                   App.setFeedWarmupPaused(true);
+                }
+                if (typeof App.closeNotificationsPanel === 'function') {
+                  try { App.closeNotificationsPanel(); } catch (e2) {}
                 }
                 if (typeof App.openChatList === 'function') {
                   App.openChatList();
                 } else if (typeof App.toggleChatPanel === 'function') {
                   App.toggleChatPanel(true);
-                } else if (typeof App.showChatList === 'function') {
-                  App.showChatList();
                 } else {
-                  var btn = document.getElementById('chatToggleBtn');
+                  var btn = document.getElementById('messagesToggle');
                   if (btn) btn.click();
+                }
+                var panel = document.getElementById('chatPanel');
+                var ready = !!(panel && !panel.hasAttribute('hidden'));
+                if (ready && window.SosNativeShell && typeof SosNativeShell.notifySoCallReady === 'function') {
+                  SosNativeShell.notifySoCallReady();
                 }
               } catch (e) {}
             })();
@@ -1167,6 +1209,9 @@ class MainActivity : AppCompatActivity() {
                     !warmForCallPeer.isNullOrBlank() ||
                     warmForP2pPending ||
                     pendingOpenChatList
+                if (pendingOpenChatList) {
+                    showSoCallSplash()
+                }
                 if (quiet) {
                     loading.visibility = View.GONE
                 } else {
@@ -1175,7 +1220,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                loading.visibility = View.GONE
+                if (!pendingOpenChatList) {
+                    loading.visibility = View.GONE
+                } else {
+                    loading.visibility = View.GONE
+                    showSoCallSplash()
+                }
                 webPageReady = true
                 if (!url.isNullOrBlank()) {
                     // לא שומרים sticky chat= — רק כתובת בית נקייה | HYPER CORE TECH

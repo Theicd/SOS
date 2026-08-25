@@ -567,4 +567,13 @@ class SosJsBridge(
             act.moveAppToBackgroundFromJs()
         }
     }
+
+    /** So-Call: Web מוכן עם רשימת שיחות – מסתירים splash native | HYPER CORE TECH */
+    @JavascriptInterface
+    fun notifySoCallReady() {
+        val act = context as? MainActivity ?: return
+        act.runOnUiThread {
+            act.hideSoCallSplashFromJs()
+        }
+    }
 }

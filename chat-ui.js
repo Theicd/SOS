@@ -7172,7 +7172,28 @@
 
   App.toggleChatPanel = togglePanel;
   App.openChatList = function openChatList() {
-    togglePanel(true);
+    // תמיד רשימת שיחות — מונע הבזק של טאב התראות (לייקים/תגובות) | HYPER CORE TECH
+    state.activeContact = null;
+    setFooterMode('contacts');
+    elements.notificationsSection?.setAttribute('hidden', '');
+    elements.conversationHeader?.setAttribute('hidden', '');
+    elements.composer?.setAttribute('hidden', '');
+    if (elements.messagesContainer) {
+      elements.messagesContainer.innerHTML = '';
+      elements.messagesContainer.setAttribute('hidden', '');
+    }
+    if (elements.emptyState) {
+      elements.emptyState.removeAttribute('hidden');
+    }
+    updatePanelMode(PANEL_MODES.LIST);
+    if (!state.isOpen) {
+      togglePanel(true);
+    } else {
+      renderContacts(true);
+    }
+    setFooterMode('contacts');
+    elements.notificationsSection?.setAttribute('hidden', '');
+    updatePanelMode(PANEL_MODES.LIST);
   };
   App.resetChatConversationView = resetConversationView;
 

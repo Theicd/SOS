@@ -1,8 +1,8 @@
 {
-  "version": "1.0.86",
-  "versionCode": 87,
-  "file": "SOS-1.0.86.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.86/SOS-1.0.86.apk",
+  "version": "1.0.87",
+  "versionCode": 88,
+  "file": "SOS-1.0.87.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.87/SOS-1.0.87.apk",
   "releasedAt": "2026-08-25",
-  "note": "Second launcher icon Sos-Call opens chat list directly"
+  "note": "So-Call launcher icon + native splash; open contacts list without notifications flash"
 }

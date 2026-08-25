@@ -17,6 +17,42 @@
         android:layout_centerInParent="true"
         android:indeterminate="true" />
 
+    <!-- So-Call cold start: מסך שחור + לוגו + ספינר מעל ה-WebView | HYPER CORE TECH -->
+    <FrameLayout
+        android:id="@+id/soCallSplash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FF000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        android:elevation="20dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <ImageView
+                android:id="@+id/soCallSplashLogo"
+                android:layout_width="280dp"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/app_name_sos_call"
+                android:src="@drawable/so_call_splash_logo" />
+
+            <ProgressBar
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="28dp"
+                android:indeterminate="true"
+                android:indeterminateTint="#53BDEB" />
+        </LinearLayout>
+    </FrameLayout>
+
     <!-- חיווי בחירת קובץ – רקע חזק + ספינר/טקסט בלי מסגרת | HYPER CORE TECH -->
     <FrameLayout
         android:id="@+id/filePickLoading"
