@@ -4979,6 +4979,373 @@ async function loadCommentsForPost(eventId) {
   }
 }
 
+// חלק שיתוף פיד (videos.js) – כרטיסיית שיתוף מלמטה + לינק ?post= | HYPER CORE TECH
+const POST_ID_HEX = /^[0-9a-f]{64}$/i;
+let videosShareToastTimer = null;
+
+function buildPostShareUrl(eventId) {
+  const id = String(eventId || '').trim().toLowerCase();
+  const origin = (typeof window !== 'undefined' && window.location && window.location.origin)
+    ? window.location.origin
+    : 'https://sos010.com';
+  return `${origin}/videos.html?post=${encodeURIComponent(id)}`;
+}
+
+function showVideosShareToast(message) {
+  let toast = document.getElementById('videosShareToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'videosShareToast';
+    toast.className = 'videos-share-sheet__toast';
+    toast.setAttribute('role', 'status');
+    document.body.appendChild(toast);
+  }
+  toast.textContent = String(message || '');
+  toast.classList.add('is-visible');
+  if (videosShareToastTimer) clearTimeout(videosShareToastTimer);
+  videosShareToastTimer = setTimeout(() => {
+    toast.classList.remove('is-visible');
+  }, 2200);
+}
+
+function closeVideosShareSheet() {
+  const sheet = document.getElementById('videosShareSheet');
+  if (!sheet) return;
+  sheet.classList.remove('is-open');
+  document.body.classList.remove('videos-share-sheet-open');
+  setTimeout(() => {
+    try { sheet.remove(); } catch (_) {}
+  }, 280);
+}
+
+function getShareSheetContacts(limit = 18) {
+  const app = window.NostrApp || {};
+  try {
+    const list = typeof app.getChatContacts === 'function' ? app.getChatContacts() : [];
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((c) => c && typeof c.pubkey === 'string' && POST_ID_HEX.test(c.pubkey))
+      .slice(0, limit);
+  } catch (_) {
+    return [];
+  }
+}
+
+async function sharePostToFeed(eventId) {
+  const app = window.NostrApp || {};
+  if (typeof app.requireAuth === 'function') {
+    if (!app.requireAuth('כדי לשתף בפיד צריך להתחבר או להירשם.')) return false;
+  }
+  if (typeof app.sharePost !== 'function') {
+    showVideosShareToast('שיתוף בפיד לא זמין כרגע');
+    return false;
+  }
+  try {
+    await app.sharePost(eventId);
+    showVideosShareToast('שותף בפיד');
+    return true;
+  } catch (err) {
+    console.warn('[videos] share to feed failed', err);
+    showVideosShareToast('שיתוף בפיד נכשל');
+    return false;
+  }
+}
+
+async function sharePostToContact(eventId, peerPubkey) {
+  const app = window.NostrApp || {};
+  if (typeof app.requireAuth === 'function') {
+    if (!app.requireAuth('כדי לשלוח לחבר בצ׳אט צריך להתחבר או להירשם.')) return false;
+  }
+  const peer = String(peerPubkey || '').toLowerCase();
+  if (!POST_ID_HEX.test(peer)) return false;
+  const link = buildPostShareUrl(eventId);
+  const text = `סרטון ב-SOS:\n${link}`;
+  try {
+    if (typeof app.ensureChatContact === 'function') app.ensureChatContact(peer);
+  } catch (_) {}
+  try {
+    if (typeof app.publishChatMessage === 'function') {
+      await app.publishChatMessage(peer, text);
+    }
+  } catch (err) {
+    console.warn('[videos] share to contact message failed', err);
+  }
+  try {
+    if (typeof app.showChatConversation === 'function') {
+      app.showChatConversation(peer);
+    } else if (typeof app.openChatConversation === 'function') {
+      app.openChatConversation(peer);
+    }
+  } catch (_) {}
+  showVideosShareToast('נשלח בצ׳אט');
+  return true;
+}
+
+async function copyPostShareLink(eventId) {
+  const link = buildPostShareUrl(eventId);
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(link);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = link;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    showVideosShareToast('הקישור הועתק');
+    return true;
+  } catch (err) {
+    console.warn('[videos] copy link failed', err);
+    showVideosShareToast('העתקה נכשלה');
+    return false;
+  }
+}
+
+function openExternalShare(eventId, network) {
+  const link = buildPostShareUrl(eventId);
+  const text = `סרטון ב-SOS: ${link}`;
+  let target = '';
+  if (network === 'whatsapp') {
+    target = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  } else if (network === 'telegram') {
+    target = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('סרטון ב-SOS')}`;
+  }
+  if (!target) return;
+  try {
+    window.open(target, '_blank', 'noopener,noreferrer');
+  } catch (_) {
+    window.location.href = target;
+  }
+}
+
+async function openSystemShare(eventId) {
+  const link = buildPostShareUrl(eventId);
+  if (!navigator.share) {
+    await copyPostShareLink(eventId);
+    return;
+  }
+  try {
+    await navigator.share({
+      title: 'SOS',
+      text: 'סרטון ב-SOS',
+      url: link,
+    });
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;
+    await copyPostShareLink(eventId);
+  }
+}
+
+function openVideosShareSheet(eventId) {
+  const id = String(eventId || '').trim().toLowerCase();
+  if (!POST_ID_HEX.test(id)) return;
+
+  closeVideosShareSheet();
+
+  const contacts = getShareSheetContacts();
+  const sheet = document.createElement('div');
+  sheet.id = 'videosShareSheet';
+  sheet.className = 'videos-share-sheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-labelledby', 'videosShareSheetTitle');
+
+  const contactsHtml = contacts.length
+    ? contacts.map((c) => {
+      const name = String(c.name || 'משתמש').trim() || 'משתמש';
+      const initials = String(c.initials || name.slice(0, 2) || 'מ').slice(0, 2);
+      const pic = typeof c.picture === 'string' && c.picture ? c.picture : '';
+      const avatarInner = pic
+        ? `<img src="${pic.replace(/"/g, '')}" alt="">`
+        : `<span class="videos-share-sheet__avatar-fallback">${initials}</span>`;
+      return `<button type="button" class="videos-share-sheet__person" data-share-to-peer="${c.pubkey}">
+        <span class="videos-share-sheet__avatar">${avatarInner}</span>
+        <span class="videos-share-sheet__label">${name.replace(/</g, '&lt;')}</span>
+      </button>`;
+    }).join('')
+    : '<div class="videos-share-sheet__empty">אין אנשי קשר עדיין — אפשר לשתף בקישור למטה</div>';
+
+  sheet.innerHTML = `
+    <div class="videos-share-sheet__backdrop" data-share-close></div>
+    <div class="videos-share-sheet__panel" role="document">
+      <div class="videos-share-sheet__handle" aria-hidden="true"></div>
+      <header class="videos-share-sheet__header">
+        <button type="button" class="videos-share-sheet__icon-btn" data-share-close aria-label="סגור">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <h3 id="videosShareSheetTitle" class="videos-share-sheet__title">שלח אל</h3>
+        <span aria-hidden="true"></span>
+      </header>
+      <div class="videos-share-sheet__body">
+        <div class="videos-share-sheet__row" aria-label="אנשי קשר">${contactsHtml}</div>
+        <div class="videos-share-sheet__divider"></div>
+        <div class="videos-share-sheet__row" aria-label="שיתוף">
+          <button type="button" class="videos-share-sheet__action" data-share-action="feed">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--feed"><i class="fa-solid fa-retweet"></i></span>
+            <span class="videos-share-sheet__label">שתף בפיד</span>
+          </button>
+          <button type="button" class="videos-share-sheet__action" data-share-action="whatsapp">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--whatsapp"><i class="fa-brands fa-whatsapp"></i></span>
+            <span class="videos-share-sheet__label">וואטסאפ</span>
+          </button>
+          <button type="button" class="videos-share-sheet__action" data-share-action="telegram">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--telegram"><i class="fa-brands fa-telegram"></i></span>
+            <span class="videos-share-sheet__label">טלגרם</span>
+          </button>
+          <button type="button" class="videos-share-sheet__action" data-share-action="copy">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--copy"><i class="fa-solid fa-link"></i></span>
+            <span class="videos-share-sheet__label">העתק קישור</span>
+          </button>
+          <button type="button" class="videos-share-sheet__action" data-share-action="more">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--more"><i class="fa-solid fa-ellipsis"></i></span>
+            <span class="videos-share-sheet__label">עוד</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(sheet);
+  document.body.classList.add('videos-share-sheet-open');
+  requestAnimationFrame(() => sheet.classList.add('is-open'));
+
+  sheet.addEventListener('click', async (ev) => {
+    const t = ev.target;
+    if (!(t instanceof Element)) return;
+    if (t.closest('[data-share-close]')) {
+      closeVideosShareSheet();
+      return;
+    }
+    const peerBtn = t.closest('[data-share-to-peer]');
+    if (peerBtn) {
+      const peer = peerBtn.getAttribute('data-share-to-peer');
+      await sharePostToContact(id, peer);
+      closeVideosShareSheet();
+      return;
+    }
+    const actionBtn = t.closest('[data-share-action]');
+    if (!actionBtn) return;
+    const action = actionBtn.getAttribute('data-share-action');
+    if (action === 'feed') {
+      const ok = await sharePostToFeed(id);
+      if (ok) closeVideosShareSheet();
+      return;
+    }
+    if (action === 'whatsapp') {
+      openExternalShare(id, 'whatsapp');
+      closeVideosShareSheet();
+      return;
+    }
+    if (action === 'telegram') {
+      openExternalShare(id, 'telegram');
+      closeVideosShareSheet();
+      return;
+    }
+    if (action === 'copy') {
+      await copyPostShareLink(id);
+      closeVideosShareSheet();
+      return;
+    }
+    if (action === 'more') {
+      await openSystemShare(id);
+      closeVideosShareSheet();
+    }
+  });
+}
+
+async function fetchNoteById(eventId) {
+  const app = window.NostrApp || {};
+  if (!app.pool || !Array.isArray(app.relayUrls) || !app.relayUrls.length) return null;
+  const filters = [{ ids: [eventId], kinds: [1], limit: 1 }];
+  try {
+    if (typeof app.pool.list === 'function') {
+      const listed = await app.pool.list(app.relayUrls, filters);
+      if (Array.isArray(listed) && listed[0]) return listed[0];
+    }
+    if (typeof app.pool.querySync === 'function') {
+      const res = await app.pool.querySync(app.relayUrls, filters[0]);
+      const events = Array.isArray(res) ? res : (Array.isArray(res?.events) ? res.events : []);
+      if (events[0]) return events[0];
+    }
+  } catch (err) {
+    console.warn('[videos] fetchNoteById failed', err);
+  }
+  return null;
+}
+
+function stripPostParamFromUrl() {
+  try {
+    if (typeof history.replaceState !== 'function') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('post')) return;
+    url.searchParams.delete('post');
+    const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : '') + url.hash;
+    history.replaceState({}, '', next);
+  } catch (_) {}
+}
+
+async function handlePostDeepLink() {
+  let postId = '';
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    postId = String(params.get('post') || '').trim().toLowerCase();
+  } catch (_) {
+    return;
+  }
+  if (!POST_ID_HEX.test(postId)) return;
+
+  console.log('[videos] post deep link', { id: postId });
+  const app = window.NostrApp || {};
+
+  let video = Array.isArray(state.videos) ? state.videos.find((v) => v && v.id === postId) : null;
+  if (!video) {
+    const event = await fetchNoteById(postId);
+    if (event) {
+      video = parseEventToVideoItem(event, app);
+      if (video) {
+        try {
+          if (typeof app.registerVideoSourceEvent === 'function') app.registerVideoSourceEvent(event);
+        } catch (_) {}
+      }
+    }
+  }
+
+  if (!video) {
+    showVideosShareToast('הפוסט לא נמצא');
+    stripPostParamFromUrl();
+    return;
+  }
+
+  upsertVideoInState(video, { forceShow: true, immediate: true });
+  stripPostParamFromUrl();
+
+  const tryScroll = () => {
+    const card = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${postId}"]`);
+    if (!card) return false;
+    try {
+      card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    } catch (_) {
+      try {
+        const viewport = document.querySelector('.videos-feed__viewport');
+        if (viewport) viewport.scrollTop = card.offsetTop;
+      } catch (__) {}
+    }
+    return true;
+  };
+  if (!tryScroll()) {
+    setTimeout(tryScroll, 400);
+    setTimeout(tryScroll, 1200);
+  }
+}
+
+App.openVideosShareSheet = openVideosShareSheet;
+App.buildPostShareUrl = buildPostShareUrl;
+
 // חלק יאללה וידאו (videos.js) – חיבור כפתורי פעולה
 function wireActions(root = selectors.stream) {
   const rootEl = root && typeof root.querySelectorAll === 'function' ? root : selectors.stream;
@@ -5026,17 +5393,8 @@ function wireActions(root = selectors.stream) {
     if (button.dataset.listenerAttached === 'true') return;
     button.dataset.listenerAttached = 'true';
     button.addEventListener('click', () => {
-      const app = window.NostrApp;
-      // בדיקת מצב אורח - חסימת שיתוף למשתמשים לא מחוברים | HYPER CORE TECH
-      if (app && typeof app.requireAuth === 'function') {
-        if (!app.requireAuth('כדי לשתף פוסט צריך להתחבר או להירשם.')) {
-          return;
-        }
-      }
       const eventId = button.getAttribute('data-event-id');
-      if (eventId && app && typeof app.sharePost === 'function') {
-        app.sharePost(eventId);
-      }
+      if (eventId) openVideosShareSheet(eventId);
     });
   });
 
@@ -6747,6 +7105,9 @@ async function init() {
     .then(async () => {
       if (!bootGate.released) {
         await ensureBootFeedReady();
+      }
+      try { await handlePostDeepLink(); } catch (err) {
+        console.warn('[videos] post deep link failed', err);
       }
     })
     .catch((err) => console.warn('[videos] loadVideos failed', err));
