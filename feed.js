@@ -2366,13 +2366,20 @@
         const author = App.eventAuthorById?.get(value)?.toLowerCase?.();
         // חלק פיד (feed.js) – מאפשר מחיקה אם:
         // 1. המוחק הוא אדמין, או
-        // 2. המוחק הוא המחבר המקורי, או
-        // 3. לא מכירים את המחבר (הפוסט לא נטען עדיין - נסמוך על הרילי)
+        // 2. המוחק הוא המחבר המקורי
+        // לא סומכים על מחיקה כשהמחבר עדיין לא ידוע (מונע קיצוץ פיד ב־boot) | HYPER CORE TECH
         if (!isAdmin && author && author !== eventPubkey) {
           logDeletionDebug('rejected deletion (not admin/not author)', {
             eventId: value,
             eventPubkey,
             author,
+          });
+          return;
+        }
+        if (!isAdmin && !author) {
+          logDeletionDebug('deferred deletion (unknown author)', {
+            eventId: value,
+            eventPubkey,
           });
           return;
         }
@@ -2383,7 +2390,7 @@
             eventId: value,
             byAdmin: isAdmin,
             author: author || '(unknown)',
-            reason: isAdmin ? 'admin' : (author ? 'author' : 'unknown-trust'),
+            reason: isAdmin ? 'admin' : 'author',
           });
         }
       }
