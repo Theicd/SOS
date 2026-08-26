@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.14.2-record-cache-stats'; // תג לזיהוי האפליקציה
+  const P2P_VERSION = '2.15.0-p2p-first-blossom-watch'; // P2P-first + stall + Blossom משגיח | HYPER CORE TECH
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -118,19 +118,26 @@
     typeof window.NostrP2P_MAX_PEER_ATTEMPTS === 'number'
       ? window.NostrP2P_MAX_PEER_ATTEMPTS
       : 5; // ננסה עד 5 peers לפני fallback
-  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 15000; // 15 שניות - מהיר יותר לעבור ל-fallback | HYPER CORE TECH
+  const MAX_DOWNLOAD_TIMEOUT = window.NostrP2P_DOWNLOAD_TIMEOUT || 45000; // בסיס; מתארך עם progress | HYPER CORE TECH
   const ANSWER_TIMEOUT = window.NostrP2P_ANSWER_TIMEOUT || 4000; // 4 שניות לתשובה - מהיר יותר | HYPER CORE TECH
   const ANSWER_RETRY_LIMIT = window.NostrP2P_ANSWER_RETRY_LIMIT || 1; // ניסיון אחד בלבד - עוברים ל-peer הבא מהר
   const ANSWER_RETRY_DELAY = window.NostrP2P_ANSWER_RETRY_DELAY || 500; // חצי שנייה בין ניסיונות
 
-  // חלק Network Tiers (p2p-video-sharing.js) – אסטרטגיית טעינה מותאמת לפי כמות משתמשים | HYPER CORE TECH
-  const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: כל הפוסטים מ-Blossom, משתמש 2+ (שרואה peer אחד) מנסה P2P
-  const NETWORK_TIER_HYBRID_MAX = 10;     // משתמשים 4-10: 3 אחרונים מ-Blossom, שאר P2P
-  const HYBRID_BLOSSOM_POSTS = 5;         // כמות פוסטים לטעון מ-Blossom במצב Hybrid
-  const INITIAL_LOAD_TIMEOUT = 5000;      // 5 שניות timeout לטעינה ראשונית
-  const AVAILABILITY_PUBLISH_DELAY = 2000; // 2 שניות המתנה בין פרסומי זמינות
-  const PEER_COUNT_CACHE_TTL = 30000;     // 30 שניות cache לספירת peers
-  const CONSECUTIVE_FAILURES_THRESHOLD = 5; // כמות כשלונות ברצף לפני fallback - מאפשר לנסות יותר peers
+  // חלק Network Tiers (p2p-video-sharing.js) – P2P קודם; Blossom = fallback/משגיח | HYPER CORE TECH
+  const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: אין peers → Blossom
+  const NETWORK_TIER_HYBRID_MAX = 10;
+  const HYBRID_BLOSSOM_POSTS = 1;         // first-paint בלבד מ-Blossom — השאר P2P | HYPER CORE TECH
+  const INITIAL_LOAD_TIMEOUT = 12000;     // בסיס לפני progress; עם בתים ממתינים עד hard-cap | HYPER CORE TECH
+  const AVAILABILITY_PUBLISH_DELAY = 2000;
+  const PEER_COUNT_CACHE_TTL = 30000;
+  const PEER_SEARCH_RETRY_MS = 500;       // ניסיון חיפוש שני קצר כש־0 peers | HYPER CORE TECH
+  const CONSECUTIVE_FAILURES_THRESHOLD = 5;
+  const P2P_PROGRESS_STALL_MS = 15000;    // בלי בתים חדשים → timeout | HYPER CORE TECH
+  const P2P_HARD_CAP_MS = 120000;         // תקרת הורדה אחת | HYPER CORE TECH
+  const SLOW_DOWNLOAD_BPS = 50 * 1024;    // מתחת ל־50KB/s → pipeline + Blossom משגיח | HYPER CORE TECH
+  const SLOW_PROBE_MS = 2000;             // חלון מדידת מהירות לפני פתיחת מקור נוסף | HYPER CORE TECH
+  const BLOSSOM_FETCH_TIMEOUT_MS = 45000; // timeout ל-Blossom (AbortController) | HYPER CORE TECH
+  const MAX_PARALLEL_PEERS_PER_FILE = 2;  // עד 2 משתמשים במקביל לאותו קובץ | HYPER CORE TECH
   // חלק Adaptive Heartbeat (p2p-video-sharing.js) – תדירות דינמית לפי גודל רשת | HYPER CORE TECH
   const HEARTBEAT_INTERVALS = {
     BOOTSTRAP: 30000,   // רשת קטנה (1-3 peers): כל 30 שניות - צריך גילוי מהיר
@@ -140,11 +147,11 @@
   let HEARTBEAT_INTERVAL = 60000;         // ברירת מחדל - יתעדכן דינמית
   const HEARTBEAT_LOOKBACK = 180;         // חיפוש heartbeats מ-3 דקות אחורה (מותאם ל-P2P_FULL)
   
-  // חלק Guest P2P (p2p-video-sharing.js) – הגדרות אופטימיזציה לאורחים | HYPER CORE TECH
-  const GUEST_BLOSSOM_FIRST_POSTS = 10;   // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom (חוויה מהירה)
-  const GUEST_P2P_TIMEOUT = 8000;         // timeout ל-P2P לאורחים (8 שניות - מספיק ל-WebRTC handshake)
-  const GUEST_MAX_PEER_SEARCH_TIME = 5000; // זמן מקסימלי לחיפוש peers לאורחים (5 שניות)
-  const GUEST_MAX_PEERS_TO_TRY = 2;       // אורחים ינסו רק 2 peers לפני fallback
+  // חלק Guest P2P (p2p-video-sharing.js) – first-paint בלבד מ-Blossom; שאר P2P | HYPER CORE TECH
+  const GUEST_BLOSSOM_FIRST_POSTS = 1;    // אורחים: פוסט ראשון בלבד מ-Blossom | HYPER CORE TECH
+  const GUEST_P2P_TIMEOUT = 8000;
+  const GUEST_MAX_PEER_SEARCH_TIME = 5000;
+  const GUEST_MAX_PEERS_TO_TRY = 2;
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config עם תמיכה מלאה ב-Safari/iOS | HYPER CORE TECH
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -204,6 +211,10 @@
     activeDownload: null,             // { hash, peers, startTime, bytesReceived, speed }
     activeUpload: null,               // { hash, startTime, bytesSent, speed }
     activeUploadCount: 0,             // כמה העלאות פעילות כרגע
+    peerLoadScores: new Map(),        // peer -> { downloads, bytes, lastUsed } | HYPER CORE TECH
+    peerInflight: new Map(),          // peer -> מספר הורדות פעילות | HYPER CORE TECH
+    pipelineWantMore: false,          // רמז לפיד: לפתוח קובץ נוסף מ-peer אחר | HYPER CORE TECH
+    lastFeedProgressAt: Date.now(),   // משגיח זרימה לפיד | HYPER CORE TECH
     // מעקב העלאות ממתינות לאישור - מנורה מהבהבת עד שמישהו הוריד
     pendingUploads: new Map(),        // hash -> { timestamp, confirmed: false }
     uploadListeners: new Set(),       // callbacks לעדכון UI כשהעלאה אושרה
@@ -933,21 +944,20 @@
     return { registered, failed };
   }
 
-  // חלק Network Tiers (p2p-video-sharing.js) – בדיקה אם להשתמש ב-Blossom לפי מצב הרשת | HYPER CORE TECH
+  // חלק Network Tiers (p2p-video-sharing.js) – Blossom רק first-paint / אין peers | HYPER CORE TECH
   function shouldUseBlossom(postIndex, tier) {
     switch (tier) {
       case 'BOOTSTRAP':
-        // משתמש 1 בלבד: כל הפוסטים מ-Blossom
+        // אין peers ברשת — Blossom לכל הפוסטים
         return true;
       case 'HYBRID':
-        // משתמשים 3-10: 5 פוסטים ראשונים מ-Blossom לחוויה חלקה, השאר P2P
+        // פוסט ראשון בלבד ל־first paint; השאר P2P עם fallback
         return postIndex < HYBRID_BLOSSOM_POSTS;
       case 'P2P_FULL':
-        // משתמש 11+: P2P בלבד (עם fallback אוטומטי)
         return false;
       default:
-        // לא ידוע - נשתמש ב-Blossom לבטיחות
-        return true;
+        // לא ידוע — P2P קודם (לא להציף Blossom)
+        return postIndex < 1;
     }
   }
 
@@ -1538,6 +1548,176 @@
     }
     
     return [...connected, ...notConnected];
+  }
+
+  // חלק פיזור peers (p2p-video-sharing.js) – הוגן לפי עומס + inflight | HYPER CORE TECH
+  function recordPeerDownloadUsage(peer, bytes) {
+    const key = String(peer || '').toLowerCase();
+    if (!key) return;
+    const cur = state.peerLoadScores.get(key) || { downloads: 0, bytes: 0, lastUsed: 0 };
+    cur.downloads += 1;
+    cur.bytes += Math.max(0, Number(bytes) || 0);
+    cur.lastUsed = Date.now();
+    state.peerLoadScores.set(key, cur);
+  }
+
+  function reservePeerInflight(peer) {
+    const key = String(peer || '').toLowerCase();
+    if (!key) return;
+    state.peerInflight.set(key, (state.peerInflight.get(key) || 0) + 1);
+  }
+
+  function releasePeerInflight(peer) {
+    const key = String(peer || '').toLowerCase();
+    if (!key) return;
+    const n = (state.peerInflight.get(key) || 0) - 1;
+    if (n <= 0) state.peerInflight.delete(key);
+    else state.peerInflight.set(key, n);
+  }
+
+  function rankPeersForFairDownload(peers) {
+    if (!Array.isArray(peers) || peers.length <= 1) return Array.isArray(peers) ? [...peers] : [];
+    const scored = peers.map((pubkey) => {
+      const key = String(pubkey || '').toLowerCase();
+      const load = state.peerLoadScores.get(key) || { downloads: 0, bytes: 0 };
+      const inflight = state.peerInflight.get(key) || 0;
+      const connected = state.persistentPeers.has(key) ? 1 : 0;
+      return {
+        pubkey: key,
+        downloads: load.downloads + inflight * 2,
+        bytes: load.bytes,
+        connected,
+        jitter: Math.random(),
+      };
+    });
+    scored.sort((a, b) => {
+      if (a.downloads !== b.downloads) return a.downloads - b.downloads;
+      if (a.bytes !== b.bytes) return a.bytes - b.bytes;
+      if (a.connected !== b.connected) return b.connected - a.connected;
+      return a.jitter - b.jitter;
+    });
+    return scored.map((s) => s.pubkey);
+  }
+
+  function markFeedProgress() {
+    state.lastFeedProgressAt = Date.now();
+    state.pipelineWantMore = false;
+  }
+
+  function refreshPipelineHint() {
+    const ad = state.activeDownload;
+    const speed = Number(ad?.speed) || 0;
+    const bytes = Number(ad?.bytesReceived) || 0;
+    const started = Number(ad?.startTime) || 0;
+    const elapsed = started ? Date.now() - started : 0;
+    const slow = elapsed >= SLOW_PROBE_MS && ((bytes > 0 && speed > 0 && speed < SLOW_DOWNLOAD_BPS) || (bytes === 0 && elapsed >= SLOW_PROBE_MS));
+    state.pipelineWantMore = !!slow;
+    return state.pipelineWantMore;
+  }
+
+  function shouldPipelineNextFeedDownload() {
+    refreshPipelineHint();
+    if (state.pipelineWantMore) return true;
+    // משגיח זרימה: אין התקדמות בפיד → לאפשר קובץ נוסף / Blossom | HYPER CORE TECH
+    if (Date.now() - (state.lastFeedProgressAt || 0) > 10000) return true;
+    return false;
+  }
+
+  function isActiveDownloadSlow() {
+    return refreshPipelineHint();
+  }
+
+  function hardCapForSize(sizeBytes) {
+    if (!sizeBytes || sizeBytes <= 0) return P2P_HARD_CAP_MS;
+    // ~50KB/s מינימום + 15ש׳ רזרבה, עד תקרה | HYPER CORE TECH
+    return Math.min(P2P_HARD_CAP_MS, Math.max(MAX_DOWNLOAD_TIMEOUT, Math.ceil(sizeBytes / SLOW_DOWNLOAD_BPS) * 1000 + 15000));
+  }
+
+  function getDownloadProgressBytes(hash) {
+    const h = String(hash || '').toLowerCase();
+    const ad = state.activeDownload;
+    if (ad && (!h || String(ad.hash || '').toLowerCase() === h) && (ad.bytesReceived || 0) > 0) {
+      return ad.bytesReceived || 0;
+    }
+    return 0;
+  }
+
+  // חלק timeout חכם (p2p-video-sharing.js) – לא בורחים אם זורמים בתים; stall → abort | HYPER CORE TECH
+  async function awaitPeerDownload(peer, hash, baseTimeoutMs) {
+    const downloadPromise = downloadFromPeer(peer, hash);
+    const start = Date.now();
+    const base = Math.max(3000, baseTimeoutMs || INITIAL_LOAD_TIMEOUT);
+    let lastBytes = 0;
+    let lastProgressAt = start;
+    let loggedExtend = false;
+
+    while (true) {
+      const elapsed = Date.now() - start;
+      const hardCap = hardCapForSize(state.activeDownload?.totalSize || 0);
+      if (elapsed >= hardCap) {
+        throw new Error('timeout');
+      }
+
+      const slice = Math.min(1500, hardCap - elapsed);
+      const raced = await Promise.race([
+        downloadPromise.then((r) => ({ done: true, r })).catch((err) => ({ done: true, err })),
+        sleep(Math.max(400, slice)).then(() => ({ done: false })),
+      ]);
+      if (raced.done) {
+        if (raced.err) throw raced.err;
+        markFeedProgress();
+        return raced.r;
+      }
+
+      const bytes = getDownloadProgressBytes(hash);
+      refreshPipelineHint();
+      if (bytes > lastBytes) {
+        lastBytes = bytes;
+        lastProgressAt = Date.now();
+        markFeedProgress();
+        if (!loggedExtend) {
+          loggedExtend = true;
+          log('info', `[feed-session] keep waiting — bytes flowing`, {
+            peer: String(peer).slice(0, 8),
+            hash: String(hash || '').slice(0, 12),
+            bytes,
+          });
+        }
+        continue;
+      }
+
+      if (elapsed < base && bytes === 0) continue;
+      if (bytes > 0 && (Date.now() - lastProgressAt) < P2P_PROGRESS_STALL_MS) continue;
+      if (elapsed >= base && bytes === 0) throw new Error('timeout');
+      if ((Date.now() - lastProgressAt) >= P2P_PROGRESS_STALL_MS) throw new Error('timeout');
+    }
+  }
+
+  // חלק Blossom (p2p-video-sharing.js) – fetch עם AbortController + timeout | HYPER CORE TECH
+  async function fetchBlossomBlob(url, mimeType, signal) {
+    const controller = new AbortController();
+    const onAbort = () => {
+      try { controller.abort(); } catch (_) {}
+    };
+    if (signal) {
+      if (signal.aborted) throw new Error('blossom aborted');
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    const timer = setTimeout(() => controller.abort(), BLOSSOM_FETCH_TIMEOUT_MS);
+    try {
+      try {
+        const response = await fetch(url, { mode: 'cors', signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.blob();
+      } catch (corsErr) {
+        if (controller.signal.aborted) throw corsErr;
+        log('info', `CORS חסום, מנסה video element`, { url: String(url).substring(0, 30) + '...' });
+        return await fetchViaVideoElement(url, mimeType);
+      }
+    } finally {
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener('abort', onAbort);
+    }
   }
 
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
@@ -2503,7 +2683,7 @@
       const keys = getEffectiveKeys();
       const isGuest = keys.isGuest;
       
-      // אורחים: 10 פוסטים ראשונים תמיד מ-Blossom לחוויה מהירה
+      // first-paint בלבד מ-Blossom; השאר P2P קודם | HYPER CORE TECH
       const guestForceBlossom = isGuest && postIndex < GUEST_BLOSSOM_FIRST_POSTS;
       const forceBlossom = guestForceBlossom || shouldUseBlossom(postIndex, tier);
 
@@ -2522,9 +2702,9 @@
           await ensureSlot();
           log('info', `ℹ️ אין hash - הורדה רגילה מהלינק`);
           try {
-            const response = await fetch(url);
-            const blob = await response.blob();
+            const blob = await fetchBlossomBlob(url, mimeType);
             log('success', `✅ הורדה מהלינק הצליחה`, { size: blob.size });
+            markFeedProgress();
             return { blob, source: 'url' };
           } catch (err) {
             log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
@@ -2541,86 +2721,89 @@
             log('success', `מ-Cache`, { hash: hash.slice(0,12), size: Math.round(cached.blob.size/1024)+'KB' });
             scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType);
             resetConsecutiveFailures();
+            markFeedProgress();
             return { blob: cached.blob, source: 'cache' };
           }
         }
 
         await ensureSlot();
 
-        // חלק Network Tiers - אסטרטגיית טעינה לפי מצב הרשת
+        const cacheAndReturn = async (blob, source, peer = null) => {
+          if (typeof App.cacheMedia === 'function') {
+            await App.cacheMedia(url, hash, blob, blob.type || mimeType, { pinned: true });
+          }
+          if (source === 'blossom' || source === 'blossom-fallback' || source === 'url' || source === 'blossom-watch') {
+            scheduleBackgroundRegistration(hash, blob, mimeType);
+            try { await registerFileAvailability(hash, blob, mimeType); } catch (_) {}
+          } else {
+            await registerFileAvailability(hash, blob, mimeType);
+          }
+          markFeedProgress();
+          resetConsecutiveFailures();
+          return { blob, source, peer, tier };
+        };
+
+        // חלק Network Tiers - first-paint / BOOTSTRAP בלבד מ-Blossom | HYPER CORE TECH
         if (forceBlossom) {
           try {
-            // ניסיון ראשון עם fetch רגיל
-            let blob;
-            try {
-              const response = await fetch(url, { mode: 'cors' });
-              blob = await response.blob();
-            } catch (corsErr) {
-              // CORS נכשל - ננסה לטעון דרך video element
-              log('info', `CORS חסום, מנסה video element`, { url: url.substring(0, 30) + '...' });
-              blob = await fetchViaVideoElement(url, mimeType);
-            }
+            const blob = await fetchBlossomBlob(url, mimeType);
             p2pStats.downloads.fromBlossom++;
-            log('success', `מ-Blossom [${tier}]`, { post: postIndex+1, size: Math.round(blob.size/1024)+'KB' });
-            if (typeof App.cacheMedia === 'function') {
-              await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
-            }
-            scheduleBackgroundRegistration(hash, blob, mimeType);
-            resetConsecutiveFailures();
-            return { blob, source: 'blossom', tier };
+            log('success', `מ-Blossom [${tier}]`, { post: postIndex + 1, size: Math.round(blob.size / 1024) + 'KB' });
+            return await cacheAndReturn(blob, 'blossom');
           } catch (blossomErr) {
-            // Blossom נכשל - ננסה P2P כ-fallback
             log('info', `Blossom נכשל, מנסה P2P`, { error: blossomErr.message });
-            
             const fallbackPeers = await findPeersWithFile(hash);
             if (fallbackPeers && fallbackPeers.length > 0) {
-              for (const peer of fallbackPeers.slice(0, MAX_PEER_ATTEMPTS_PER_FILE)) {
+              for (const peer of rankPeersForFairDownload(fallbackPeers).slice(0, MAX_PARALLEL_PEERS_PER_FILE)) {
                 try {
-                  const result = await Promise.race([
-                    downloadFromPeer(peer, hash),
-                    sleep(INITIAL_LOAD_TIMEOUT).then(() => { throw new Error('timeout'); })
-                  ]);
-                  
+                  reservePeerInflight(peer);
+                  const result = await awaitPeerDownload(peer, hash, INITIAL_LOAD_TIMEOUT);
+                  releasePeerInflight(peer);
                   p2pStats.downloads.fromP2P++;
-                  log('success', `מ-P2P (fallback מ-Blossom)`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB' });
-                  
-                  if (typeof App.cacheMedia === 'function') {
-                    await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
-                  }
-                  await registerFileAvailability(hash, result.blob, result.mimeType);
-                  resetConsecutiveFailures();
-                  return { blob: result.blob, source: 'p2p-fallback', peer, tier };
-                } catch (peerErr) {
-                  continue;
+                  recordPeerDownloadUsage(peer, result.blob?.size || 0);
+                  log('success', `מ-P2P (fallback מ-Blossom)`, { peer: peer.slice(0, 8), size: Math.round(result.blob.size / 1024) + 'KB' });
+                  return await cacheAndReturn(result.blob, 'p2p-fallback', peer);
+                } catch (_) {
+                  releasePeerInflight(peer);
                 }
               }
             }
-            
-            // גם P2P נכשל
             p2pStats.downloads.failed++;
             log('error', `Blossom ו-P2P נכשלו`, { error: blossomErr.message });
             throw blossomErr;
           }
         }
 
-        // P2P_FULL או HYBRID - עם אופטימיזציות לאורחים
+        // P2P קודם — עד 2 peers במקביל; Blossom משגיח ברקע אם איטי | HYPER CORE TECH
         const peerSearchTimeout = isGuest ? GUEST_MAX_PEER_SEARCH_TIME : 4000;
-        const maxPeersToTry = isGuest ? GUEST_MAX_PEERS_TO_TRY : MAX_PEER_ATTEMPTS_PER_FILE;
+        const maxPeersToTry = Math.min(
+          isGuest ? GUEST_MAX_PEERS_TO_TRY : MAX_PEER_ATTEMPTS_PER_FILE,
+          MAX_PARALLEL_PEERS_PER_FILE
+        );
         const p2pTimeout = isGuest ? GUEST_P2P_TIMEOUT : INITIAL_LOAD_TIMEOUT;
-        
-        // חיפוש peers עם timeout
+
         let rawPeers = [];
         try {
           rawPeers = await Promise.race([
             findPeersWithFile(hash),
             sleep(peerSearchTimeout).then(() => [])
           ]);
-        } catch (e) {
+        } catch (_) {
           rawPeers = [];
         }
+        if (!Array.isArray(rawPeers) || rawPeers.length === 0) {
+          try {
+            await sleep(PEER_SEARCH_RETRY_MS);
+            rawPeers = await Promise.race([
+              findPeersWithFile(hash),
+              sleep(peerSearchTimeout).then(() => [])
+            ]);
+          } catch (_) {
+            rawPeers = [];
+          }
+        }
         const peers = Array.isArray(rawPeers) ? [...rawPeers] : [];
-        
-        // עדכון מספר מקורות זמינים
+
         state.activeDownload = {
           hash,
           peers: peers.length,
@@ -2629,78 +2812,141 @@
           totalSize: 0,
           speed: 0,
           percent: 0,
+          source: peers.length > 0 ? 'sos' : 'blossom',
         };
 
         if (peers.length === 0) {
           try {
-            const response = await fetch(url);
-            const blob = await response.blob();
+            const blob = await fetchBlossomBlob(url, mimeType);
             p2pStats.downloads.fromBlossom++;
-            log('success', `מ-URL (0 peers)`, { size: Math.round(blob.size/1024)+'KB' });
-            if (typeof App.cacheMedia === 'function') {
-              await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
-            }
-            await registerFileAvailability(hash, blob, mimeType);
-            resetConsecutiveFailures();
-            return { blob, source: 'url' };
+            log('success', `מ-URL (0 peers)`, { size: Math.round(blob.size / 1024) + 'KB' });
+            return await cacheAndReturn(blob, 'url');
           } catch (err) {
             p2pStats.downloads.failed++;
             throw err;
           }
         }
 
-        // חלק Persistent Connections – ניסיון ראשון עם peers מחוברים | HYPER CORE TECH
-        // מיון: peers מחוברים קודם
-        const sortedPeers = prioritizeConnectedPeers(peers);
-        
-        // ניסיון P2P - עם הגבלות לאורחים
-        let attemptCount = 0;
-        for (const peer of sortedPeers) {
-          if (maxPeersToTry > 0 && attemptCount >= maxPeersToTry) break;
-          attemptCount++;
-          
-          // timeout קצר יותר ל-peers מחוברים (כבר יש חיבור)
-          const isConnected = state.persistentPeers.has(peer);
-          const effectiveTimeout = isConnected ? Math.min(p2pTimeout, 5000) : p2pTimeout;
-          
-          try {
-            const downloadPromise = downloadFromPeer(peer, hash);
-            const timeoutPromise = sleep(effectiveTimeout).then(() => {
-              throw new Error('timeout');
-            });
-            const result = await Promise.race([downloadPromise, timeoutPromise]);
+        const sortedPeers = rankPeersForFairDownload(prioritizeConnectedPeers(peers));
+        const blossomAbort = new AbortController();
+        let settled = false;
 
-            p2pStats.downloads.fromP2P++;
-            log('success', `מ-P2P`, { peer: peer.slice(0,8), size: Math.round(result.blob.size/1024)+'KB', isGuest });
+        const outcome = await new Promise((resolve, reject) => {
+          let pendingP2P = 0;
+          let blossomStarted = false;
+          let blossomFailed = false;
+          let p2pFailed = 0;
+          let p2pAttempted = 0;
 
-            if (typeof App.cacheMedia === 'function') {
-              await App.cacheMedia(url, hash, result.blob, result.mimeType, { pinned: true });
+          const finishOk = (value) => {
+            if (settled) return;
+            settled = true;
+            try { blossomAbort.abort(); } catch (_) {}
+            resolve(value);
+          };
+          const maybeFailAll = () => {
+            if (settled) return;
+            if (pendingP2P > 0) return;
+            if (blossomStarted && !blossomFailed) return;
+            if (p2pFailed >= p2pAttempted && (blossomFailed || !blossomStarted)) {
+              if (!blossomStarted) {
+                startBlossom('last-resort');
+                return;
+              }
+              settled = true;
+              reject(new Error('All download sources failed'));
             }
-            await registerFileAvailability(hash, result.blob, result.mimeType);
-            resetConsecutiveFailures();
-            return { blob: result.blob, source: 'p2p', peer, tier };
+          };
 
-          } catch (err) {
-            // ממשיכים לנסות peers נוספים - לא יוצאים מהלולאה
-            continue;
-          }
+          const startPeer = (peer) => {
+            if (!peer || settled) return;
+            p2pAttempted += 1;
+            pendingP2P += 1;
+            reservePeerInflight(peer);
+            log('info', `[feed-session] peer download START`, { peer: peer.slice(0, 8), hash: hash.slice(0, 12) });
+            awaitPeerDownload(peer, hash, p2pTimeout)
+              .then((result) => {
+                pendingP2P -= 1;
+                releasePeerInflight(peer);
+                if (settled) return;
+                finishOk({ type: 'p2p', result, peer });
+              })
+              .catch((err) => {
+                pendingP2P -= 1;
+                releasePeerInflight(peer);
+                p2pFailed += 1;
+                log('info', `[feed-session] peer download FAIL`, {
+                  peer: peer.slice(0, 8),
+                  error: err?.message || String(err),
+                });
+                if (!settled) {
+                  startBlossom('peer-failed');
+                  maybeFailAll();
+                }
+              });
+          };
+
+          const startBlossom = (reason) => {
+            if (blossomStarted || settled) return;
+            blossomStarted = true;
+            state.pipelineWantMore = true;
+            log('info', `[feed-session] Blossom watch START`, { reason, hash: hash.slice(0, 12) });
+            fetchBlossomBlob(url, mimeType, blossomAbort.signal)
+              .then((blob) => {
+                if (settled) return;
+                finishOk({ type: 'blossom', blob, source: reason === 'last-resort' ? 'blossom-fallback' : 'blossom-watch' });
+              })
+              .catch((err) => {
+                blossomFailed = true;
+                log('info', `[feed-session] Blossom watch FAIL`, { error: err?.message || String(err) });
+                maybeFailAll();
+              });
+          };
+
+          // peer ראשון מיד
+          startPeer(sortedPeers[0]);
+
+          // אחרי חלון מדידה: peer שני + Blossom אם איטי / אין בתים | HYPER CORE TECH
+          setTimeout(() => {
+            if (settled) return;
+            const bytes = getDownloadProgressBytes(hash);
+            const slow = refreshPipelineHint() || bytes <= 0;
+            if (slow) {
+              if (sortedPeers[1] && maxPeersToTry >= 2) startPeer(sortedPeers[1]);
+              startBlossom(bytes <= 0 ? 'no-progress' : 'slow-p2p');
+            }
+          }, SLOW_PROBE_MS);
+
+          // משגיח נוסף: אם אחרי timeout בסיסי עדיין אין סיום — Blossom | HYPER CORE TECH
+          setTimeout(() => {
+            if (settled) return;
+            startBlossom('stall-watch');
+          }, Math.max(p2pTimeout, SLOW_PROBE_MS + 2000));
+        });
+
+        if (outcome?.type === 'p2p') {
+          p2pStats.downloads.fromP2P++;
+          recordPeerDownloadUsage(outcome.peer, outcome.result.blob?.size || 0);
+          log('success', `מ-P2P`, {
+            peer: String(outcome.peer).slice(0, 8),
+            size: Math.round(outcome.result.blob.size / 1024) + 'KB',
+            isGuest,
+            sources: sortedPeers.length,
+          });
+          return await cacheAndReturn(outcome.result.blob, 'p2p', outcome.peer);
         }
 
-        // Fallback ל-Blossom
-        try {
-          const response = await fetch(url);
-          const blob = await response.blob();
+        if (outcome?.blob) {
           p2pStats.downloads.fromBlossom++;
-          log('success', `Fallback Blossom`, { size: Math.round(blob.size/1024)+'KB' });
-          if (typeof App.cacheMedia === 'function') {
-            await App.cacheMedia(url, hash, blob, mimeType, { pinned: true });
-          }
-          await registerFileAvailability(hash, blob, mimeType);
-          return { blob, source: 'blossom-fallback', tier };
-        } catch (err) {
-          p2pStats.downloads.failed++;
-          throw err;
+          log('success', `Blossom watch/fallback`, {
+            source: outcome.source,
+            size: Math.round(outcome.blob.size / 1024) + 'KB',
+          });
+          return await cacheAndReturn(outcome.blob, outcome.source || 'blossom-fallback');
         }
+
+        p2pStats.downloads.failed++;
+        throw new Error('All download sources failed');
       } finally {
         // ניקוי state הורדה
         state.activeDownload = null;
@@ -2984,6 +3230,8 @@
     // חלק סטטיסטיקות – API לקבלת סטטיסטיקות P2P | HYPER CORE TECH
     getP2PStats,                         // קבלת כל הסטטיסטיקות לממשק
     recordP2PDownload,                   // רישום cache/blossom/p2p מנתיבים חיצוניים
+    shouldPipelineNextFeedDownload,      // רמז לפיד: לפתוח קובץ נוסף כשאיטי | HYPER CORE TECH
+    isActiveDownloadSlow,                // האם ההורדה הפעילה מתחת ל־50KB/s | HYPER CORE TECH
   });
 
   // אתחול

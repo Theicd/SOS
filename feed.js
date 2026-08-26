@@ -4296,57 +4296,75 @@ async function loadFeed() {
   }
 
   // חלק recheck (פיד) – אתחול טעינת וידאו עם mirrors ורישום ל-recheck
-  // חלק Network Tiers (פיד) – תור טעינה סדרתית במצב BOOTSTRAP | HYPER CORE TECH
+  // חלק Network Tiers (פיד) – תור עם עד 2 במקביל + pipeline כשאיטי | HYPER CORE TECH
   let videoLoadQueue = [];
   let isLoadingSequentially = false;
+  let activeFeedLoads = 0;
 
-  // חלק Network Tiers (פיד) – השהייה בין טעינות במצב BOOTSTRAP | HYPER CORE TECH
-  const BOOTSTRAP_LOAD_DELAY = 2000; // 2 שניות בין טעינות
+  const BOOTSTRAP_LOAD_DELAY = 100;
+  const FEED_MAX_PARALLEL = 2;
 
-  // גרסת קוד לזיהוי עדכונים
-  const FEED_CODE_VERSION = '2.3.1-cache-stats';
+  const FEED_CODE_VERSION = '2.4.0-p2p-pipeline';
   console.log(`%c🔧 Feed.js גרסה: ${FEED_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
   async function processVideoLoadQueue() {
-    if (isLoadingSequentially || videoLoadQueue.length === 0) return;
-    
+    if (isLoadingSequentially) return;
+    if (videoLoadQueue.length === 0) return;
+
     isLoadingSequentially = true;
     const totalVideos = videoLoadQueue.length;
     let loadedCount = 0;
-    
+
     console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
-    console.log(`%c║  🎬 התחלת טעינה סדרתית - ${totalVideos} וידאו      ║`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c║  🎬 תור הורדות (עד ${FEED_MAX_PARALLEL} במקביל) ║`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
-    
-    while (videoLoadQueue.length > 0) {
-      const { video, url, hash, mirrors } = videoLoadQueue.shift();
-      loadedCount++;
-      
-      console.log(`%c┌─ וידאו ${loadedCount}/${totalVideos} ─────────────────────────┐`, 'color: #2196F3');
-      
+
+    const runItem = async (item, n) => {
+      activeFeedLoads += 1;
+      console.log(`%c┌─ וידאו ${n}/${totalVideos} START ──────────────┐`, 'color: #2196F3');
       try {
-        await loadVideoWithCache(video, url, hash, mirrors);
-        console.log(`%c└─ ✅ הושלם ──────────────────────────────┘`, 'color: #4CAF50');
+        await loadVideoWithCache(item.video, item.url, item.hash, item.mirrors);
+        console.log(`%c└─ ✅ ${n} הושלם ──────────────────────────┘`, 'color: #4CAF50');
       } catch (err) {
-        console.log(`%c└─ ❌ נכשל: ${err.message} ─────────────────┘`, 'color: #f44336');
+        console.log(`%c└─ ❌ ${n}: ${err?.message || err} ────────┘`, 'color: #f44336');
+      } finally {
+        activeFeedLoads = Math.max(0, activeFeedLoads - 1);
       }
-      
-      // השהייה של 2 שניות לפני הוידאו הבא (אם יש עוד)
-      if (videoLoadQueue.length > 0) {
-        console.log(`%c   ⏳ ממתין 2 שניות...`, 'color: #9E9E9E; font-style: italic');
-        await new Promise(resolve => setTimeout(resolve, BOOTSTRAP_LOAD_DELAY));
+    };
+
+    const inFlight = new Set();
+
+    while (videoLoadQueue.length > 0 || inFlight.size > 0) {
+      while (videoLoadQueue.length > 0 && inFlight.size < FEED_MAX_PARALLEL) {
+        // פתיחת קובץ נוסף: תמיד עד 2, או מיד כשההורדה איטית | HYPER CORE TECH
+        if (inFlight.size >= 1) {
+          const slow = typeof App.shouldPipelineNextFeedDownload === 'function'
+            && App.shouldPipelineNextFeedDownload();
+          if (!slow && inFlight.size >= FEED_MAX_PARALLEL) break;
+          // גם בלי slow מאפשרים עד FEED_MAX_PARALLEL
+        }
+        const item = videoLoadQueue.shift();
+        loadedCount += 1;
+        const n = loadedCount;
+        const p = runItem(item, n).finally(() => inFlight.delete(p));
+        inFlight.add(p);
+        if (videoLoadQueue.length > 0) {
+          await new Promise((r) => setTimeout(r, BOOTSTRAP_LOAD_DELAY));
+        }
       }
+
+      if (inFlight.size === 0) break;
+      await Promise.race([...inFlight]);
     }
-    
+
     console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
-    console.log(`%c║  ✅ טעינה סדרתית הושלמה - ${loadedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
+    console.log(`%c║  ✅ תור הורדות הושלם - ${loadedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
-    
-    // הדפסת סיכום סטטיסטיקות P2P
+
     if (typeof App.printP2PStats === 'function') {
       App.printP2PStats();
     }
-    
+
     isLoadingSequentially = false;
   }
 
@@ -4355,6 +4373,7 @@ async function loadFeed() {
     globalVideoLoadIndex = 0;
     videoLoadQueue = [];
     isLoadingSequentially = false;
+    activeFeedLoads = 0;
     
     const videoContainers = document.querySelectorAll('[data-video-url]');
     
@@ -4376,7 +4395,7 @@ async function loadFeed() {
       
       console.log(`%c🌐 מצב רשת לטעינה: ${currentTier}`, 'color: #9C27B0; font-weight: bold');
       
-      // במצב BOOTSTRAP - טעינה סדרתית (אחד אחרי השני)
+      // BOOTSTRAP/UNKNOWN: תור עם עד 2 במקביל (P2P-first); HYBRID+: IntersectionObserver | HYPER CORE TECH
       const useSequentialLoading = currentTier === 'BOOTSTRAP' || currentTier === 'UNKNOWN';
       
       // חלק Network Tiers (פיד) – במצב BOOTSTRAP, טוענים את כל הוידאו לתור מראש | HYPER CORE TECH

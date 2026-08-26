@@ -462,7 +462,8 @@ let videoDownloadQueue = [];
 let isProcessingVideoQueue = false;
 let feedDownloadsPaused = false; // השהיית הורדות פיד בזמן העלאת פוסט | HYPER CORE TECH
 let feedWarmupPaused = false; // השהיית תור וידאו בלבד כששיחות פתוחות | HYPER CORE TECH
-const BOOTSTRAP_VIDEO_DELAY = 100; // 100ms בין הורדות - מופחת מ-2000ms
+const BOOTSTRAP_VIDEO_DELAY = 100; // 100ms בין שיגורים | HYPER CORE TECH
+const FEED_VIDEO_MAX_PARALLEL = 2; // עד 2 קבצים במקביל; איטי → pipeline | HYPER CORE TECH
 // חלק מניעת כפילויות (videos.js) – מעקב אחרי וידאו שכבר בתור או הורדו | HYPER CORE TECH
 const videoDownloadedOrQueued = new Set();
 
@@ -537,7 +538,7 @@ async function tryAttachVideoFromLocalCache(videoEl, hash) {
   }
 }
 
-// עיבוד תור — בשיחות: עצירה מלאה; אחרת: קאש מקומי ואז רשת | HYPER CORE TECH
+// עיבוד תור — עד 2 במקביל; כשאיטי פותחים קובץ נוסף (pipeline) | HYPER CORE TECH
 async function processVideoDownloadQueue() {
   if (isProcessingVideoQueue || videoDownloadQueue.length === 0) return;
   if (isFeedHeavyWorkPaused()) {
@@ -547,7 +548,6 @@ async function processVideoDownloadQueue() {
 
   isProcessingVideoQueue = true;
 
-  // בדיקת מצב רשת
   let currentTier = 'BOOTSTRAP';
   if (typeof App.getNetworkTier === 'function') {
     try {
@@ -560,27 +560,15 @@ async function processVideoDownloadQueue() {
     }
   }
 
-  const useDelay = currentTier === 'BOOTSTRAP' || currentTier === 'UNKNOWN';
   const totalInQueue = videoDownloadQueue.length;
   let processedCount = 0;
+  console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
+  console.log(`%c║  🎬 תור וידאו (${FEED_VIDEO_MAX_PARALLEL} במקביל) tier=${currentTier} ║`, 'color: #4CAF50; font-weight: bold');
+  console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
 
-  if (useDelay) {
-    console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
-    console.log(`%c║  🎬 טעינה סדרתית - ${totalInQueue} וידאו בתור      ║`, 'color: #4CAF50; font-weight: bold');
-    console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
-  }
-
-  while (videoDownloadQueue.length > 0) {
-    if (isFeedHeavyWorkPaused()) {
-      console.log('[videos] download queue paused mid-run —', feedWarmupPaused ? 'chat open' : 'upload takes priority');
-      break;
-    }
-
-    const { videoEl, url, hash, mirrors, fallbackFn } = videoDownloadQueue.shift();
-    processedCount++;
-
+  const runOne = async (item) => {
+    const { videoEl, url, hash, mirrors, fallbackFn } = item;
     let loadedFromCache = await tryAttachVideoFromLocalCache(videoEl, hash);
-
     if (!loadedFromCache) {
       try {
         if (typeof App.loadVideoWithCache === 'function') {
@@ -594,19 +582,44 @@ async function processVideoDownloadQueue() {
         if (typeof fallbackFn === 'function') fallbackFn();
       }
     }
+    return loadedFromCache;
+  };
 
-    if (useDelay && !loadedFromCache && videoDownloadQueue.length > 0 && !isFeedHeavyWorkPaused()) {
-      await new Promise((resolve) => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
+  const inFlight = new Set();
+  while ((videoDownloadQueue.length > 0 || inFlight.size > 0) && !isFeedHeavyWorkPaused()) {
+    while (
+      videoDownloadQueue.length > 0 &&
+      inFlight.size < FEED_VIDEO_MAX_PARALLEL &&
+      !isFeedHeavyWorkPaused()
+    ) {
+      const item = videoDownloadQueue.shift();
+      processedCount += 1;
+      const p = runOne(item).finally(() => inFlight.delete(p));
+      inFlight.add(p);
+      if (videoDownloadQueue.length > 0) {
+        await new Promise((resolve) => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
+      }
+      // אם ההורדה איטית — ממשיכים לפתוח את הבא עד המקסימום | HYPER CORE TECH
+      if (
+        inFlight.size >= 1 &&
+        typeof App.shouldPipelineNextFeedDownload === 'function' &&
+        App.shouldPipelineNextFeedDownload()
+      ) {
+        continue;
+      }
     }
+    if (inFlight.size === 0) break;
+    await Promise.race([...inFlight]);
   }
 
-  if (useDelay && !isFeedHeavyWorkPaused()) {
-    console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
-    console.log(`%c║  ✅ טעינה סדרתית הושלמה - ${processedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
-    console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
-  }
+  console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
+  console.log(`%c║  ✅ תור וידאו הושלם - ${processedCount}/${totalInQueue}    ║`, 'color: #4CAF50; font-weight: bold');
+  console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
 
   isProcessingVideoQueue = false;
+  if (!isFeedHeavyWorkPaused() && videoDownloadQueue.length > 0) {
+    processVideoDownloadQueue().catch(() => {});
+  }
 }
 
 // המתנה לטעינת App והפיד
