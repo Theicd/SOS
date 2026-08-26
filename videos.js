@@ -1842,6 +1842,9 @@ function mountCard(card, { prepend = false } = {}) {
 
 function prependVideoCard(video, { forceShow = false } = {}) {
   if (!selectors.stream) return;
+  if (video?.fromDeepLink || (video?.id && video.id === pendingPostDeepLinkId)) {
+    try { enrichVideoMediaSources(video); } catch (_) {}
+  }
   const existing = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`);
   if (existing) {
     existing.remove();
@@ -3384,7 +3387,18 @@ function renderVideoCard(video) {
     mediaDiv.appendChild(playOverlay);
 
     queueMicrotask(markReady);
-  } else if (video.videoUrl) {
+  } else if (video.videoUrl || video.hash || video.fromDeepLink) {
+    if (video.fromDeepLink || (typeof pendingPostDeepLinkId === 'string' && video.id === pendingPostDeepLinkId)) {
+      try { enrichVideoMediaSources(video); } catch (_) {}
+    }
+    if (!video.videoUrl && video.hash) {
+      try { enrichVideoMediaSources(video); } catch (_) {}
+    }
+    if (!video.videoUrl) {
+      // אין מקור מדיה — נכשל מיד | HYPER CORE TECH
+      queueMicrotask(() => failReady(new Error('no-media-url')));
+      mediaDiv.dataset.mediaType = 'file';
+    } else {
     mediaDiv.dataset.mediaType = 'file';
     mediaDiv.dataset.videoUrl = video.videoUrl;
 
@@ -3461,7 +3475,37 @@ function renderVideoCard(video) {
       }
     };
 
+    const deepLinkMode = !!(video.fromDeepLink || (typeof pendingPostDeepLinkId === 'string' && video.id === pendingPostDeepLinkId));
+    const mediaCandidates = deepLinkMode
+      ? getVideoMediaCandidates(video)
+      : [];
+    let candidateIndex = 0;
+
     const onError = (event) => {
+      // deep-link: מנסים mirror הבא לפני כשל סופי | HYPER CORE TECH
+      if (deepLinkMode && candidateIndex < mediaCandidates.length - 1) {
+        candidateIndex += 1;
+        const nextUrl = mediaCandidates[candidateIndex];
+        console.warn('[videos] deep-link mirror failed — trying next', {
+          id: video.id,
+          index: candidateIndex,
+          host: (() => { try { return new URL(nextUrl).host; } catch (_) { return ''; } })(),
+        });
+        try {
+          video.videoUrl = nextUrl;
+          mediaDiv.dataset.videoUrl = nextUrl;
+          videoEl.src = nextUrl;
+          videoEl.load();
+          videoEl.addEventListener('error', onError, { once: true });
+        } catch (_) {
+          cleanup();
+          if (!readySettled) {
+            failReady(event?.error || new Error('video load error'));
+            readySettled = true;
+          }
+        }
+        return;
+      }
       cleanup();
       if (!readySettled) {
         failReady(event?.error || new Error('video load error'));
@@ -3507,8 +3551,21 @@ function renderVideoCard(video) {
       videoEl.load();
     };
 
-    // הוספה לתור הסדרתי במקום טעינה ישירה
-    addToVideoDownloadQueue(videoEl, video.videoUrl, video.hash || '', video.mirrors || [], applyFallbackSrc);
+    if (deepLinkMode && mediaCandidates.length) {
+      // טעינה מיידית על אלמנט מנותק — בלי לחכות ל־mount / תור | HYPER CORE TECH
+      console.log('[videos] deep-link direct candidates', {
+        id: video.id,
+        count: mediaCandidates.length,
+        first: mediaCandidates[0],
+      });
+      video.videoUrl = mediaCandidates[0];
+      mediaDiv.dataset.videoUrl = mediaCandidates[0];
+      videoEl.src = mediaCandidates[0];
+      videoEl.load();
+    } else {
+      // הוספה לתור הסדרתי במקום טעינה ישירה
+      addToVideoDownloadQueue(videoEl, video.videoUrl, video.hash || '', video.mirrors || [], applyFallbackSrc);
+    }
 
     // מוכן רק אחרי loadeddata — לא מציגים כרטיסיה ריקה לפני שהווידאו ירד | HYPER CORE TECH
     // (בעבר היה settleReady מיידי כדי לשמור סדר מול יוטיוב; עכשיו mount ממתין ל־mediaReady בסדר הרשימה)
@@ -3742,6 +3799,7 @@ function renderVideoCard(video) {
     videoEl.addEventListener('seeking', updateProgress);
     videoEl.addEventListener('play', updateProgress);
     videoEl.addEventListener('pause', updateProgress);
+    } // end else has videoUrl
     
   } else if (video.imageUrl) {
     mediaDiv.dataset.mediaType = 'image';
@@ -5097,7 +5155,65 @@ const POST_ID_HEX = /^[0-9a-f]{64}$/i;
 let videosShareToastTimer = null;
 let pendingPostDeepLinkId = '';
 let postDeepLinkHandled = false;
-const pendingPostDeepLinkExtras = { url: '', hash: '', pk: '' };
+const pendingPostDeepLinkExtras = { url: '', hash: '', pk: '', mirrors: [] };
+
+function mediaUrlRank(url) {
+  const u = String(url || '');
+  if (/files\.sovbit\.host/i.test(u)) return 0;
+  if (/blossom\.band/i.test(u)) return 1;
+  if (/nostr\.build/i.test(u)) return 2;
+  if (/primal\.net/i.test(u)) return 9;
+  return 5;
+}
+
+function expandHashMediaUrls(hash, tipUrl = '') {
+  const h = String(hash || '').trim().toLowerCase();
+  const tip = String(tipUrl || '').trim();
+  const urls = [];
+  const push = (u) => {
+    if (typeof u === 'string' && /^https?:\/\//i.test(u) && !urls.includes(u)) urls.push(u);
+  };
+  const tipIsPrimal = /primal\.net/i.test(tip);
+  if (tip && !tipIsPrimal) push(tip);
+  if (/^[0-9a-f]{64}$/.test(h)) {
+    let ext = 'mp4';
+    try {
+      const m = tip.match(/\.([a-z0-9]{2,5})(?:\?|$)/i);
+      if (m && m[1]) ext = m[1].toLowerCase();
+    } catch (_) {}
+    push(`https://files.sovbit.host/${h}.${ext}`);
+    if (ext !== 'mp4') push(`https://files.sovbit.host/${h}.mp4`);
+    if (ext !== 'webm') push(`https://files.sovbit.host/${h}.webm`);
+    push(`https://blossom.band/${h}.${ext}`);
+    push(`https://blossom.nostr.build/${h}.${ext}`);
+  }
+  if (tip && tipIsPrimal) push(tip);
+  return urls;
+}
+
+function getVideoMediaCandidates(video) {
+  if (!video) return [];
+  const list = [];
+  const add = (u) => {
+    if (typeof u === 'string' && /^https?:\/\//i.test(u) && !list.includes(u)) list.push(u);
+  };
+  (Array.isArray(video.mirrors) ? video.mirrors : []).forEach(add);
+  (Array.isArray(pendingPostDeepLinkExtras.mirrors) ? pendingPostDeepLinkExtras.mirrors : []).forEach(add);
+  expandHashMediaUrls(video.hash || pendingPostDeepLinkExtras.hash || '', video.videoUrl || pendingPostDeepLinkExtras.url || '').forEach(add);
+  add(video.videoUrl);
+  add(pendingPostDeepLinkExtras.url);
+  return list.slice().sort((a, b) => mediaUrlRank(a) - mediaUrlRank(b));
+}
+
+function enrichVideoMediaSources(video) {
+  if (!video || typeof video !== 'object') return video;
+  const candidates = getVideoMediaCandidates(video);
+  if (candidates.length) {
+    video.mirrors = candidates;
+    video.videoUrl = candidates[0];
+  }
+  return video;
+}
 
 function capturePostDeepLinkFromLocation() {
   try {
@@ -5106,9 +5222,17 @@ function capturePostDeepLinkFromLocation() {
     const url = String(params.get('url') || params.get('media') || '').trim();
     const hash = String(params.get('h') || params.get('hash') || '').trim().toLowerCase();
     const pk = String(params.get('pk') || params.get('author') || '').trim().toLowerCase();
+    const mirrorsRaw = String(params.get('m') || '').trim();
     if (url && /^https?:\/\//i.test(url)) pendingPostDeepLinkExtras.url = url;
     if (hash && /^[0-9a-f]{64}$/i.test(hash)) pendingPostDeepLinkExtras.hash = hash;
     if (pk && POST_ID_HEX.test(pk)) pendingPostDeepLinkExtras.pk = pk;
+    if (mirrorsRaw) {
+      pendingPostDeepLinkExtras.mirrors = mirrorsRaw
+        .split(',')
+        .map((s) => String(s || '').trim())
+        .filter((s) => /^https?:\/\//i.test(s))
+        .slice(0, 4);
+    }
     if (POST_ID_HEX.test(id)) {
       pendingPostDeepLinkId = id;
       return id;
@@ -5145,17 +5269,19 @@ function buildPostShareUrl(eventId) {
   url.searchParams.set('post', id);
   const video = findVideoForShare(id);
   if (video) {
-    const mediaUrl = String(video.videoUrl || '').trim();
+    enrichVideoMediaSources(video);
+    const candidates = getVideoMediaCandidates(video);
+    const best = candidates[0] || String(video.videoUrl || '').trim();
     const hash = String(video.hash || '').trim().toLowerCase();
     const pk = String(video.pubkey || '').trim().toLowerCase();
-    if (mediaUrl && /^https?:\/\//i.test(mediaUrl)) {
-      url.searchParams.set('url', mediaUrl);
-    } else if (Array.isArray(video.mirrors)) {
-      const mirror = video.mirrors.find((m) => typeof m === 'string' && /^https?:\/\//i.test(m));
-      if (mirror) url.searchParams.set('url', mirror);
-    }
+    if (best && /^https?:\/\//i.test(best)) url.searchParams.set('url', best);
     if (hash && /^[0-9a-f]{64}$/i.test(hash)) url.searchParams.set('h', hash);
     if (pk && POST_ID_HEX.test(pk)) url.searchParams.set('pk', pk);
+    // עד 2 מראות נוספות (לא primal) לגיבוי בלינק | HYPER CORE TECH
+    const extras = candidates
+      .filter((u) => u !== best && !/primal\.net/i.test(u))
+      .slice(0, 2);
+    if (extras.length) url.searchParams.set('m', extras.join(','));
   }
   return url.toString();
 }
@@ -5165,14 +5291,17 @@ function buildVideoStubFromDeepLink(postId) {
   const hash = pendingPostDeepLinkExtras.hash || '';
   const pk = pendingPostDeepLinkExtras.pk || '';
   if (!url && !hash) return null;
-  return {
+  const stub = {
     id: postId,
     pubkey: pk || '',
     createdAt: Math.floor(Date.now() / 1000),
     content: '',
     videoUrl: url || '',
     hash: hash || '',
-    mirrors: url ? [url] : [],
+    mirrors: [
+      ...(url ? [url] : []),
+      ...(Array.isArray(pendingPostDeepLinkExtras.mirrors) ? pendingPostDeepLinkExtras.mirrors : []),
+    ],
     youtubeId: null,
     liveUrl: null,
     gameUrl: null,
@@ -5182,6 +5311,7 @@ function buildVideoStubFromDeepLink(postId) {
     authorInitials: 'SO',
     fromDeepLink: true,
   };
+  return enrichVideoMediaSources(stub);
 }
 
 function mergeDeepLinkExtrasIntoVideo(video) {
@@ -5195,70 +5325,44 @@ function mergeDeepLinkExtrasIntoVideo(video) {
   if (pendingPostDeepLinkExtras.pk && !video.pubkey) {
     video.pubkey = pendingPostDeepLinkExtras.pk;
   }
-  if (pendingPostDeepLinkExtras.url) {
-    const mirrors = Array.isArray(video.mirrors) ? video.mirrors.slice() : [];
-    if (!mirrors.includes(pendingPostDeepLinkExtras.url)) {
-      mirrors.unshift(pendingPostDeepLinkExtras.url);
-    }
-    video.mirrors = mirrors;
+  const mirrors = Array.isArray(video.mirrors) ? video.mirrors.slice() : [];
+  if (pendingPostDeepLinkExtras.url && !mirrors.includes(pendingPostDeepLinkExtras.url)) {
+    mirrors.unshift(pendingPostDeepLinkExtras.url);
   }
+  (pendingPostDeepLinkExtras.mirrors || []).forEach((u) => {
+    if (u && !mirrors.includes(u)) mirrors.push(u);
+  });
+  video.mirrors = mirrors;
   video.fromDeepLink = true;
-  return video;
+  return enrichVideoMediaSources(video);
 }
 
 async function prioritizeDeepLinkMedia(video) {
   if (!video?.id) return false;
-  const App = window.NostrApp || {};
-  const card = await waitForFeedCard(video.id, 15000);
-  if (!card) return false;
-  const mediaDiv = card.querySelector('.videos-feed__media');
-  const videoEl = mediaDiv?.querySelector('video');
-  if (!videoEl) return false;
-  removeVideoElFromDownloadQueue(videoEl);
-
-  const url = video.videoUrl || pendingPostDeepLinkExtras.url || '';
-  const hash = video.hash || pendingPostDeepLinkExtras.hash || '';
-  const mirrors = Array.isArray(video.mirrors) && video.mirrors.length
-    ? video.mirrors
-    : (url ? [url] : []);
-
+  enrichVideoMediaSources(video);
+  const candidates = getVideoMediaCandidates(video);
   console.log('[videos] deep-link media priority', {
     id: video.id,
-    hasUrl: !!url,
-    hasHash: !!hash,
-    mirrors: mirrors.length,
+    candidates: candidates.length,
+    first: candidates[0] || '',
   });
-
-  let ok = false;
-  // 1) Blossom/URL ישיר — קריטי לאורח בלי קאש | HYPER CORE TECH
-  if (url) {
+  // הטעינה האמיתית רצה ב־renderVideoCard על אלמנט מנותק (לפני mount) | HYPER CORE TECH
+  // כאן רק מנסים שוב אם הכרטיס כבר ב־DOM אחרי כשל זמני
+  const card = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`);
+  const videoEl = card?.querySelector('video');
+  if (!videoEl || !candidates.length) return false;
+  removeVideoElFromDownloadQueue(videoEl);
+  for (let i = 0; i < candidates.length; i += 1) {
+    const url = candidates[i];
     try {
       videoEl.src = url;
       videoEl.load();
-      ok = await waitForPostMediaPlayable(video);
+      const ok = await waitForPostMediaPlayable(video);
       if (ok) {
         revealBootVideoFrame(video);
         return true;
       }
-    } catch (err) {
-      console.warn('[videos] deep-link direct url failed', err);
-    }
-  }
-  // 2) loadVideoWithCache (קאש → P2P → blossom/mirrors) | HYPER CORE TECH
-  if (typeof App.loadVideoWithCache === 'function') {
-    try {
-      const result = await App.loadVideoWithCache(videoEl, url || video.videoUrl || '', hash, mirrors);
-      ok = !!(result && result.success !== false && (videoEl.src || videoEl.currentSrc));
-      if (ok) {
-        const playable = await waitForPostMediaPlayable(video);
-        if (playable) {
-          revealBootVideoFrame(video);
-          return true;
-        }
-      }
-    } catch (err) {
-      console.warn('[videos] deep-link loadVideoWithCache failed', err);
-    }
+    } catch (_) {}
   }
   return false;
 }
@@ -5582,7 +5686,7 @@ function stripPostParamFromUrl() {
     if (typeof history.replaceState !== 'function') return;
     const url = new URL(window.location.href);
     let changed = false;
-    ['post', 'url', 'media', 'h', 'hash', 'pk', 'author'].forEach((key) => {
+    ['post', 'url', 'media', 'h', 'hash', 'pk', 'author', 'm'].forEach((key) => {
       if (url.searchParams.has(key)) {
         url.searchParams.delete(key);
         changed = true;
