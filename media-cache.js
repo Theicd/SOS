@@ -12,50 +12,115 @@
   const PIN_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // פינים פגים אחרי 30 יום
 
   let db = null;
-  let dbDisabled = false; // חלק cache (media-cache.js) – דגל משותק כש-IndexedDB אינו זמין | HYPER CORE TECH
+  let dbSoftBlockedUntil = 0; // חסימה רכה עם ניסיון חוזר | HYPER CORE TECH
+  let dbHardDisabled = false; // רק כשאין IndexedDB בכלל | HYPER CORE TECH
+  let dbFailCount = 0;
+  let openInFlight = null;
 
-  // חלק cache (media-cache.js) – פתיחת/יצירת database
+  function isMediaCacheAvailable() {
+    return !dbHardDisabled && typeof indexedDB !== 'undefined';
+  }
+
+  // חלק cache (media-cache.js) – פתיחת/יצירת database עם retry | HYPER CORE TECH
   async function openDB() {
-    if (dbDisabled) {
-      return null;
-    }
-
+    if (dbHardDisabled) return null;
     if (db) return db;
 
     if (typeof indexedDB === 'undefined') {
       console.warn('IndexedDB is not available in this environment – media cache disabled');
-      dbDisabled = true;
+      dbHardDisabled = true;
       return null;
     }
 
-    return new Promise((resolve) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+    if (Date.now() < dbSoftBlockedUntil) {
+      return null;
+    }
 
-      request.onerror = () => {
-        console.error('Failed to open IndexedDB', request.error);
-        dbDisabled = true;
-        resolve(null);
+    if (openInFlight) return openInFlight;
+
+    openInFlight = new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        openInFlight = null;
+        resolve(value);
       };
 
-      request.onsuccess = () => {
-        db = request.result;
-        console.log('Media cache DB opened successfully');
-        resolve(db);
-      };
+      try {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onupgradeneeded = (event) => {
-        const database = event.target.result;
-        
-        // יצירת object store אם לא קיים
-        if (!database.objectStoreNames.contains(STORE_NAME)) {
-          const store = database.createObjectStore(STORE_NAME, { keyPath: 'hash' });
-          store.createIndex('url', 'url', { unique: false });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
-          store.createIndex('size', 'size', { unique: false });
-          console.log('Media cache store created');
-        }
-      };
+        request.onblocked = () => {
+          dbFailCount += 1;
+          dbSoftBlockedUntil = Date.now() + Math.min(30000, 1500 * Math.max(1, dbFailCount));
+          console.warn('[media-cache] IndexedDB open blocked — will retry', {
+            retryInMs: dbSoftBlockedUntil - Date.now(),
+          });
+          finish(null);
+        };
+
+        request.onerror = () => {
+          const err = request.error;
+          const errName = err && err.name ? String(err.name) : '';
+          console.error('Failed to open IndexedDB', err);
+          dbFailCount += 1;
+          dbSoftBlockedUntil = Date.now() + Math.min(30000, 1500 * Math.max(1, dbFailCount));
+          // SecurityError בסביבות מסוימות — לא מוותרים לצמיתות, רק מרחיקים ניסיון | HYPER CORE TECH
+          if (errName === 'InvalidStateError' && typeof indexedDB === 'undefined') {
+            dbHardDisabled = true;
+          }
+          finish(null);
+        };
+
+        request.onsuccess = () => {
+          db = request.result;
+          dbFailCount = 0;
+          dbSoftBlockedUntil = 0;
+          try {
+            db.onclose = () => {
+              db = null;
+            };
+            db.onversionchange = () => {
+              try { db.close(); } catch (_) {}
+              db = null;
+            };
+          } catch (_) {}
+          console.log('Media cache DB opened successfully');
+          finish(db);
+        };
+
+        request.onupgradeneeded = (event) => {
+          const database = event.target.result;
+          if (!database.objectStoreNames.contains(STORE_NAME)) {
+            const store = database.createObjectStore(STORE_NAME, { keyPath: 'hash' });
+            store.createIndex('url', 'url', { unique: false });
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+            store.createIndex('size', 'size', { unique: false });
+            console.log('Media cache store created');
+          }
+        };
+      } catch (err) {
+        console.error('[media-cache] IndexedDB open threw', err);
+        dbFailCount += 1;
+        dbSoftBlockedUntil = Date.now() + Math.min(30000, 1500 * Math.max(1, dbFailCount));
+        finish(null);
+      }
     });
+
+    return openInFlight;
+  }
+
+  async function retryMediaCacheOpen() {
+    dbSoftBlockedUntil = 0;
+    dbFailCount = 0;
+    if (db) {
+      try { db.close(); } catch (_) {}
+      db = null;
+    }
+    openInFlight = null;
+    const database = await openDB();
+    console.log('[media-cache] retry open', { ok: !!database });
+    return database;
   }
 
   // חלק cache (media-cache.js) – שמירת מדיה ב-cache
@@ -127,15 +192,19 @@
 
       return true;
     } catch (err) {
-      console.error('Failed to pin media', err);
+      console.error('Failed to pin cached media', err);
       return false;
     }
   }
 
-  // חלק cache (media-cache.js) – קריאת מדיה מ-cache
+  // חלק cache (media-cache.js) – שליפת מדיה מה-cache
   async function getCachedMedia(hash) {
+    if (!hash) return null;
     try {
-      const database = await openDB();
+      let database = await openDB();
+      if (!database && Date.now() >= dbSoftBlockedUntil) {
+        database = await retryMediaCacheOpen();
+      }
       if (!database) {
         return null;
       }
@@ -144,51 +213,31 @@
 
       const entry = await new Promise((resolve, reject) => {
         const request = store.get(hash);
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => resolve(request.result || null);
         request.onerror = () => reject(request.error);
       });
 
-      if (!entry) {
-        return null;
-      }
-
-      // בדיקת תוקף
-      const age = Date.now() - entry.timestamp;
-      if (age > MAX_CACHE_AGE) {
-        console.log('Cache entry expired:', hash.slice(0, 16));
-        await deleteCachedMedia(hash);
-        return null;
-      }
-
-      console.log('Media loaded from cache:', hash.slice(0, 16));
-      return {
-        blob: entry.blob,
-        url: entry.url,
-        mimeType: entry.mimeType,
-      };
+      if (!entry || !entry.blob) return null;
+      return entry;
     } catch (err) {
       console.error('Failed to get cached media', err);
+      // DB נסגר באמצע — מאפסים לניסיון הבא | HYPER CORE TECH
+      db = null;
       return null;
     }
   }
 
-  // חלק cache (media-cache.js) – מחיקת מדיה מ-cache
   async function deleteCachedMedia(hash) {
     try {
       const database = await openDB();
-      if (!database) {
-        return false;
-      }
+      if (!database) return false;
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-
       await new Promise((resolve, reject) => {
         const request = store.delete(hash);
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
-
-      console.log('Media deleted from cache:', hash.slice(0, 16));
       return true;
     } catch (err) {
       console.error('Failed to delete cached media', err);
@@ -196,109 +245,86 @@
     }
   }
 
-  // חלק cache (media-cache.js) – ניקוי cache ישן
   async function cleanupOldCache() {
     try {
       const database = await openDB();
-      if (!database) {
-        return;
-      }
+      if (!database) return;
+
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      const index = store.index('timestamp');
-
-      // קבלת כל הרשומות
       const entries = await new Promise((resolve, reject) => {
-        const request = index.openCursor();
-        const results = [];
-        request.onsuccess = (event) => {
-          const cursor = event.target.result;
-          if (cursor) {
-            results.push({
-              hash: cursor.value.hash,
-              timestamp: cursor.value.timestamp,
-              size: cursor.value.size,
-              pinned: Boolean(cursor.value.pinned),
-              lastPinnedAt: cursor.value.lastPinnedAt || cursor.value.timestamp,
-            });
-            cursor.continue();
-          } else {
-            resolve(results);
-          }
-        };
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(request.error);
       });
 
-      // מחיקת רשומות ישנות
       const now = Date.now();
-      let totalSize = 0;
-      const toDelete = [];
-
-      // מיון לפי timestamp (ישן לחדש)
-      entries.sort((a, b) => a.timestamp - b.timestamp);
+      let totalSize = entries.reduce((sum, e) => sum + (e.size || 0), 0);
 
       for (const entry of entries) {
-        const age = now - entry.timestamp;
-        const isPinned = Boolean(entry.pinned);
+        const age = now - (entry.timestamp || 0);
+        const pinned = Boolean(entry.pinned);
+        const pinAge = now - (entry.lastPinnedAt || 0);
+        const pinExpired = pinned && pinAge > PIN_MAX_AGE;
+        const tooOld = !pinned && age > MAX_CACHE_AGE;
 
-        if (isPinned) {
-          const pinAge = now - (entry.lastPinnedAt || entry.timestamp);
-          if (pinAge > PIN_MAX_AGE) {
-            toDelete.push(entry.hash);
-            continue;
-          }
-          // פריטים ממודדים לא נמחקים גם אם עוברים את המכסה
-          totalSize += entry.size;
-          continue;
-        }
-
-        // מחיקת רשומות ישנות מדי
-        if (age > MAX_CACHE_AGE) {
-          toDelete.push(entry.hash);
-          continue;
-        }
-
-        totalSize += entry.size;
-
-        // מחיקת רשומות אם חרגנו מהמכסה
-        if (totalSize > MAX_CACHE_SIZE) {
-          toDelete.push(entry.hash);
+        if (tooOld || pinExpired) {
+          await new Promise((resolve, reject) => {
+            const request = store.delete(entry.hash);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+          });
+          totalSize -= entry.size || 0;
         }
       }
 
-      // מחיקה
-      for (const hash of toDelete) {
-        await deleteCachedMedia(hash);
-      }
-
-      if (toDelete.length > 0) {
-        console.log(`Cleaned up ${toDelete.length} old cache entries`);
+      if (totalSize > MAX_CACHE_SIZE) {
+        const unpinned = entries
+          .filter((e) => !e.pinned)
+          .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        for (const entry of unpinned) {
+          if (totalSize <= MAX_CACHE_SIZE * 0.85) break;
+          await new Promise((resolve, reject) => {
+            const request = store.delete(entry.hash);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+          });
+          totalSize -= entry.size || 0;
+        }
       }
     } catch (err) {
-      console.error('Cache cleanup failed', err);
+      console.error('Failed to cleanup cache', err);
     }
   }
 
-  // חלק cache (media-cache.js) – קבלת סטטיסטיקות cache
   async function getCacheStats() {
     try {
       const database = await openDB();
       if (!database) {
-        return null;
+        return {
+          count: 0,
+          totalSize: 0,
+          totalSizeMB: '0.00',
+          maxSizeMB: String(MAX_CACHE_SIZE / (1024 * 1024)),
+          usage: '0.0',
+          pinnedCount: 0,
+          pinnedSize: 0,
+          disabled: dbHardDisabled,
+          softBlocked: Date.now() < dbSoftBlockedUntil,
+        };
       }
       const transaction = database.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
-
       const entries = await new Promise((resolve, reject) => {
         const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => resolve(request.result || []);
         request.onerror = () => reject(request.error);
       });
 
-      const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
       const count = entries.length;
+      const totalSize = entries.reduce((sum, entry) => sum + (entry.size || 0), 0);
       const pinnedCount = entries.filter((entry) => entry.pinned).length;
-      const pinnedSize = entries.filter((entry) => entry.pinned).reduce((sum, entry) => sum + entry.size, 0);
+      const pinnedSize = entries.filter((entry) => entry.pinned).reduce((sum, entry) => sum + (entry.size || 0), 0);
 
       return {
         count,
@@ -308,6 +334,8 @@
         usage: ((totalSize / MAX_CACHE_SIZE) * 100).toFixed(1),
         pinnedCount,
         pinnedSize,
+        disabled: false,
+        softBlocked: false,
       };
     } catch (err) {
       console.error('Failed to get cache stats', err);
@@ -315,7 +343,6 @@
     }
   }
 
-  // חלק cache (media-cache.js) – ניקוי כל ה-cache
   async function clearAllCache() {
     try {
       const database = await openDB();
@@ -339,12 +366,14 @@
     }
   }
 
-  // חלק cache (media-cache.js) – אתחול אוטומטי
   async function init() {
     try {
       const database = await openDB();
       if (!database) {
-        console.warn('Media cache disabled – skipping initialization');
+        console.warn('Media cache unavailable on init — will retry on demand', {
+          hardDisabled: dbHardDisabled,
+          retryAt: dbSoftBlockedUntil || null,
+        });
         return;
       }
       await cleanupOldCache();
@@ -357,7 +386,6 @@
     }
   }
 
-  // חשיפה ל-App
   Object.assign(App, {
     cacheMedia,
     getCachedMedia,
@@ -365,9 +393,10 @@
     getCacheStats,
     pinCachedMedia,
     clearMediaCache: clearAllCache,
+    retryMediaCacheOpen,
+    isMediaCacheAvailable,
   });
 
-  // אתחול
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.11-ready-only-cards';
+const VIDEOS_CODE_VERSION = '2.6.13-feed-cache-persist';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -486,7 +486,7 @@ function setFeedDownloadsPaused(paused) {
   }
 }
 
-// חלק עומס מכשיר (videos.js) – רק תור פענוח/הורדת וידאו; מיזוג פוסטים ממשיך | HYPER CORE TECH
+// חלק עומס מכשיר (videos.js) – השהיית תור פיד/קאש בשיחות; מיזוג פוסטים ממשיך | HYPER CORE TECH
 function setFeedWarmupPaused(paused) {
   const next = !!paused;
   if (feedWarmupPaused === next) return;
@@ -515,39 +515,61 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
   processVideoDownloadQueue();
 }
 
-// עיבוד תור ההורדות הסדרתי
+// חלק קאש מקומי (videos.js) – הצמדה מיידית מ-IndexedDB בלי רשת | HYPER CORE TECH
+async function tryAttachVideoFromLocalCache(videoEl, hash) {
+  if (!videoEl || !hash || typeof App.getCachedMedia !== 'function') return false;
+  try {
+    const cached = await App.getCachedMedia(hash);
+    if (!cached || !cached.blob) return false;
+    videoEl.src = URL.createObjectURL(cached.blob);
+    try { videoEl.load(); } catch (_) {}
+    try {
+      if (typeof App.recordP2PDownload === 'function') {
+        App.recordP2PDownload('cache');
+      } else if (typeof window.updateP2PStatsUI === 'function') {
+        window.updateP2PStatsUI('cache');
+      }
+    } catch (_) {}
+    return true;
+  } catch (err) {
+    console.warn('[videos] local cache attach failed', err);
+    return false;
+  }
+}
+
+// עיבוד תור — בשיחות: עצירה מלאה; אחרת: קאש מקומי ואז רשת | HYPER CORE TECH
 async function processVideoDownloadQueue() {
   if (isProcessingVideoQueue || videoDownloadQueue.length === 0) return;
   if (isFeedHeavyWorkPaused()) {
     console.log('[videos] download queue waiting —', feedWarmupPaused ? 'chat open' : 'upload in progress');
     return;
   }
-  
+
   isProcessingVideoQueue = true;
-  
+
   // בדיקת מצב רשת
   let currentTier = 'BOOTSTRAP';
   if (typeof App.getNetworkTier === 'function') {
     try {
-      const peerCount = typeof App.countActivePeers === 'function' 
-        ? await App.countActivePeers() 
+      const peerCount = typeof App.countActivePeers === 'function'
+        ? await App.countActivePeers()
         : 0;
       currentTier = App.getNetworkTier(peerCount);
     } catch (err) {
       // ברירת מחדל BOOTSTRAP
     }
   }
-  
+
   const useDelay = currentTier === 'BOOTSTRAP' || currentTier === 'UNKNOWN';
   const totalInQueue = videoDownloadQueue.length;
   let processedCount = 0;
-  
+
   if (useDelay) {
     console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c║  🎬 טעינה סדרתית - ${totalInQueue} וידאו בתור      ║`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
   }
-  
+
   while (videoDownloadQueue.length > 0) {
     if (isFeedHeavyWorkPaused()) {
       console.log('[videos] download queue paused mid-run —', feedWarmupPaused ? 'chat open' : 'upload takes priority');
@@ -556,34 +578,34 @@ async function processVideoDownloadQueue() {
 
     const { videoEl, url, hash, mirrors, fallbackFn } = videoDownloadQueue.shift();
     processedCount++;
-    
-    let loadedFromCache = false;
-    
-    try {
-      if (typeof App.loadVideoWithCache === 'function') {
-        const result = await App.loadVideoWithCache(videoEl, url, hash, mirrors);
-        // בדיקה אם נטען מ-cache
-        loadedFromCache = result?.source === 'cache';
-      } else {
-        fallbackFn();
+
+    let loadedFromCache = await tryAttachVideoFromLocalCache(videoEl, hash);
+
+    if (!loadedFromCache) {
+      try {
+        if (typeof App.loadVideoWithCache === 'function') {
+          const result = await App.loadVideoWithCache(videoEl, url, hash, mirrors);
+          loadedFromCache = result?.source === 'cache';
+        } else if (typeof fallbackFn === 'function') {
+          fallbackFn();
+        }
+      } catch (err) {
+        console.warn('Failed to load video with P2P/cache:', err);
+        if (typeof fallbackFn === 'function') fallbackFn();
       }
-    } catch (err) {
-      console.warn('Failed to load video with P2P/cache:', err);
-      fallbackFn();
     }
-    
-    // השהייה רק במצב BOOTSTRAP, רק אם לא נטען מ-cache, ואם יש עוד בתור
+
     if (useDelay && !loadedFromCache && videoDownloadQueue.length > 0 && !isFeedHeavyWorkPaused()) {
-      await new Promise(resolve => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
+      await new Promise((resolve) => setTimeout(resolve, BOOTSTRAP_VIDEO_DELAY));
     }
   }
-  
+
   if (useDelay && !isFeedHeavyWorkPaused()) {
     console.log(`%c╔════════════════════════════════════════╗`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c║  ✅ טעינה סדרתית הושלמה - ${processedCount} וידאו    ║`, 'color: #4CAF50; font-weight: bold');
     console.log(`%c╚════════════════════════════════════════╝`, 'color: #4CAF50; font-weight: bold');
   }
-  
+
   isProcessingVideoQueue = false;
 }
 
@@ -1110,7 +1132,11 @@ function updatePlayToggleIcon(mediaDiv, isPlaying) {
 
 // חלק שיחות (videos.js) – עצירת כל הווידיאו בפיד כשמתחילה שיחת קול/וידיאו | HYPER CORE TECH
 function pauseAllFeedVideos(options = {}) {
-  console.log('[VIDEOS] Pausing all feed videos for call');
+  if (options.disableAutoplay === false) {
+    console.log('[VIDEOS] Pausing feed videos (rerender/hydrate)');
+  } else {
+    console.log('[VIDEOS] Pausing all feed videos for call');
+  }
   
   // עצירת הווידיאו הפעיל אם יש
   if (activeMediaDiv) {
@@ -1384,9 +1410,12 @@ let activeMediaDiv = null;
 let intersectionObserver = null;
 
 const FEED_CACHE_KEY = 'videos_feed_cache_v3';
-const FEED_CACHE_MAX_SIZE = 1024 * 1024 * 1024; // 1GB מקסימום
-const FEED_CACHE_CLEANUP_BATCH = 20; // כמה פוסטים למחוק בכל פעם
-const FEED_CACHE_CLEANUP_THRESHOLD = 0.9; // התחל ניקוי ב-90% מהנפח
+// מגבלת פוסטים במטא־קאש — חובה מוגדרת (בלי זה truncate זורק ושובר שמירה) | HYPER CORE TECH
+const FEED_CACHE_LIMIT = 400;
+const FEED_CACHE_MAX_BYTES = 4 * 1024 * 1024; // ~4MB — מציאותי ל-localStorage | HYPER CORE TECH
+const FEED_CACHE_CLEANUP_BATCH = 40; // כמה פוסטים למחוק בכל ניסיון | HYPER CORE TECH
+const FEED_CACHE_MIN_KEEP = 40; // מינימום לשמור גם אחרי quota | HYPER CORE TECH
+try { window.FEED_CACHE_LIMIT = FEED_CACHE_LIMIT; } catch (_) {}
 
 // פוסטים עם מדיה מתה (404/Blossom) — לא מציגים שוב כרטיסיה ריקה | HYPER CORE TECH
 const FAILED_MEDIA_CACHE_KEY = 'videos_failed_media_v1';
@@ -1527,74 +1556,75 @@ function sanitizeCachedVideo(video) {
   return clone;
 }
 
+function writeFeedCachePayload(videos) {
+  const payload = {
+    timestamp: Date.now(),
+    videos: Array.isArray(videos) ? videos : [],
+  };
+  window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(payload));
+  return payload.videos.length;
+}
+
 function saveFeedCache(videos) {
   try {
-    const trimmed = sortVideosByCreatedAtDesc(
+    let trimmed = sortVideosByCreatedAtDesc(
       (videos || [])
         .map((video) => sanitizeCachedVideo(video))
         .filter(Boolean)
     );
-    const payload = {
-      timestamp: Date.now(),
-      videos: trimmed,
-    };
-    const jsonStr = JSON.stringify(payload);
-    
-    // בדיקת גודל לפני שמירה
-    const sizeBytes = new Blob([jsonStr]).size;
-    if (sizeBytes > FEED_CACHE_MAX_SIZE * FEED_CACHE_CLEANUP_THRESHOLD) {
-      // ניקוי הדרגתי - מחיקת פוסטים ישנים
-      console.log('[videos] cache approaching limit, cleaning old posts', { sizeMB: Math.round(sizeBytes / 1024 / 1024) });
-      const cleaned = cleanupOldPosts(trimmed);
-      payload.videos = cleaned;
-      window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(payload));
-    } else {
-      window.localStorage.setItem(FEED_CACHE_KEY, jsonStr);
+    // תמיד חותכים למגבלה — מונע פיצוץ localStorage אחרי אלפי פוסטים | HYPER CORE TECH
+    if (trimmed.length > FEED_CACHE_LIMIT) {
+      console.log('[videos] feed cache trim to limit', {
+        before: trimmed.length,
+        after: FEED_CACHE_LIMIT,
+      });
+      trimmed = trimmed.slice(0, FEED_CACHE_LIMIT);
+    }
+
+    // הקטנה עד שנכנס בגודל סביר ל-localStorage | HYPER CORE TECH
+    while (trimmed.length > FEED_CACHE_MIN_KEEP) {
+      const sizeBytes = new Blob([JSON.stringify({ timestamp: Date.now(), videos: trimmed })]).size;
+      if (sizeBytes <= FEED_CACHE_MAX_BYTES) break;
+      const nextLen = Math.max(FEED_CACHE_MIN_KEEP, trimmed.length - FEED_CACHE_CLEANUP_BATCH);
+      console.log('[videos] feed cache shrink for size', {
+        sizeMB: Math.round(sizeBytes / 1024 / 1024 * 10) / 10,
+        before: trimmed.length,
+        after: nextLen,
+      });
+      trimmed = trimmed.slice(0, nextLen);
+    }
+
+    try {
+      const kept = writeFeedCachePayload(trimmed);
+      console.log('[videos] feed cache saved', { count: kept });
+      return;
+    } catch (err) {
+      if (err?.name !== 'QuotaExceededError') throw err;
+      console.warn('[videos] storage quota exceeded — shrinking feed cache');
+    }
+
+    // Quota: מצמצמים בהדרגה — בלי למחוק את כל הקאש | HYPER CORE TECH
+    let keep = trimmed;
+    while (keep.length > FEED_CACHE_MIN_KEEP) {
+      keep = keep.slice(0, Math.max(FEED_CACHE_MIN_KEEP, Math.floor(keep.length * 0.6)));
+      try {
+        const kept = writeFeedCachePayload(keep);
+        console.log('[videos] feed cache saved after quota shrink', { count: kept });
+        return;
+      } catch (err2) {
+        if (err2?.name !== 'QuotaExceededError') throw err2;
+      }
+    }
+
+    try {
+      writeFeedCachePayload(keep.slice(0, FEED_CACHE_MIN_KEEP));
+      console.log('[videos] feed cache saved minimal set', { count: Math.min(keep.length, FEED_CACHE_MIN_KEEP) });
+    } catch (err3) {
+      console.warn('[videos] feed cache save failed even minimal — keeping previous cache', err3);
+      // לא מוחקים localStorage — עדיף ישן מאשר כלום | HYPER CORE TECH
     }
   } catch (err) {
-    if (err.name === 'QuotaExceededError') {
-      // אם נגמר המקום - נקה ונסה שוב
-      console.warn('[videos] storage quota exceeded, forcing cleanup');
-      forceCleanupCache();
-    } else {
-      console.warn('[videos] failed saving feed cache', err);
-    }
-  }
-}
-
-// חלק מטמון (videos.js) – ניקוי הדרגתי של פוסטים ישנים | HYPER CORE TECH
-function cleanupOldPosts(videos) {
-  if (!Array.isArray(videos) || videos.length <= FEED_CACHE_CLEANUP_BATCH) {
-    return videos;
-  }
-  // מיון לפי תאריך יצירה (חדש לישן)
-  const sorted = [...videos].sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
-  // הסרת הפוסטים הישנים ביותר
-  const cleaned = sorted.slice(0, sorted.length - FEED_CACHE_CLEANUP_BATCH);
-  console.log('[videos] cleaned old posts', { before: videos.length, after: cleaned.length });
-  return cleaned;
-}
-
-// חלק מטמון (videos.js) – ניקוי כפוי כשנגמר המקום | HYPER CORE TECH
-function forceCleanupCache() {
-  try {
-    const raw = window.localStorage.getItem(FEED_CACHE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.videos)) return;
-    
-    // מחיקת 30% מהפוסטים הישנים
-    const sorted = [...parsed.videos].sort((a, b) => getVideoCreatedAt(b) - getVideoCreatedAt(a));
-    const keepCount = Math.floor(sorted.length * 0.7);
-    const cleaned = sorted.slice(0, keepCount);
-    
-    const payload = { timestamp: Date.now(), videos: cleaned };
-    window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(payload));
-    console.log('[videos] force cleanup done', { before: parsed.videos.length, after: cleaned.length });
-  } catch (err) {
-    // אם גם זה נכשל - מחק הכל ותתחיל מחדש
-    console.warn('[videos] force cleanup failed, clearing cache', err);
-    window.localStorage.removeItem(FEED_CACHE_KEY);
+    console.warn('[videos] failed saving feed cache', err);
   }
 }
 
@@ -2950,19 +2980,9 @@ async function attachBootVideoFromCache(video) {
   let attached = false;
   if (video.hash && typeof App.getCachedMedia === 'function') {
     try {
-      const cached = await App.getCachedMedia(video.hash);
-      if (cached && cached.blob) {
-        videoEl.src = URL.createObjectURL(cached.blob);
-        try { videoEl.load(); } catch (_) {}
-        attached = true;
-        try {
-          if (typeof App.recordP2PDownload === 'function') {
-            App.recordP2PDownload('cache');
-          } else if (typeof window.updateP2PStatsUI === 'function') {
-            window.updateP2PStatsUI('cache');
-          }
-        } catch (_) {}
-        console.log('[videos] boot fast-cache hit', { id: video.id, size: cached.blob.size });
+      attached = await tryAttachVideoFromLocalCache(videoEl, video.hash);
+      if (attached) {
+        console.log('[videos] boot fast-cache hit', { id: video.id });
       }
     } catch (err) {
       console.warn('[videos] boot getCachedMedia failed', err);
@@ -3030,7 +3050,13 @@ async function ensureBootFeedReady() {
     setLoadingStatus(`טוען ${posts.length} פוסטים ראשונים מהקאש...`);
     setLoadingProgress(60);
 
-    // סדרתי — בזמן שיחות מדלגים על attach כבד מהקאש בלי לעצור את שער הבוט | HYPER CORE TECH
+    // בשיחות — עוצרים attach מהקאש לגמרי (עומס מכשיר); loadVideos ממשיך ברקע | HYPER CORE TECH
+    try {
+      if (typeof App.retryMediaCacheOpen === 'function' && !feedWarmupPaused) {
+        await App.retryMediaCacheOpen();
+      }
+    } catch (_) {}
+
     const mediaResults = [];
     for (let index = 0; index < posts.length; index++) {
       const video = posts[index];
@@ -7042,6 +7068,9 @@ async function loadVideos() {
     // אין פוסטים קיימים – השתמש בחדשים
     state.videos = videoEvents;
   }
+
+  // חיתוך זיכרון+קאש לפני שמירה — מונע Quota וריקון ברענון | HYPER CORE TECH
+  truncateFeedLength();
   
   // חלק מד טעינה חכם (videos.js) – שחרור הפיד מוקדם כשיש לפחות 5 פוסטים | HYPER CORE TECH
   const MIN_POSTS_FOR_RELEASE = 5;
@@ -7550,6 +7579,13 @@ async function init() {
   bootGate.holdUntil = 0;
 
   // חלק מטמון (videos.js) – מטא־דאטה מהקאש מיד; מסך נסגר רק אחרי פריים וידאו ראשון | HYPER CORE TECH
+  try {
+    if (typeof App.retryMediaCacheOpen === 'function') {
+      await App.retryMediaCacheOpen();
+    }
+  } catch (err) {
+    console.warn('[videos] media cache retry before hydrate failed', err);
+  }
   const hadCachedContent = hydrateFeedFromCache();
   if (hadCachedContent) {
     if (selectors.status) {
