@@ -493,18 +493,11 @@
       } catch (_) {}
       const stage = progress?.stage || 'compressing';
       const pct = typeof progress?.percent === 'number' ? Math.round(progress.percent) : '';
-      const noticeText = document.querySelector('#processingNotice .processing-notice__text');
-      if (noticeText) {
-        if (stage === 'compressing' || stage === 'loading' || stage === 'analyzing') {
-          noticeText.textContent = `⏳ דוחס וידאו... ${pct}%`;
-        } else if (stage === 'finalizing') {
-          noticeText.textContent = '⏳ מסיים עיבוד וידאו...';
-        } else if (stage === 'uploading') {
-          noticeText.textContent = `⏳ מעלה וידאו... ${pct}%`;
-        } else if (stage === 'complete') {
-          noticeText.textContent = '⏳ מעלה את הפוסט לרשת...';
+      try {
+        if (typeof window.updateProcessingStatus === 'function') {
+          window.updateProcessingStatus(stage, progress?.percent);
         }
-      }
+      } catch (_) {}
       try {
         setStatus(getProgressMessage(stage === 'loading' ? 'analyzing' : stage, pct));
       } catch (_) {}

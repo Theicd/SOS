@@ -2372,6 +2372,108 @@ body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"].is
   transform: translate(-50%, -50%) scale(1);
 }
 
+/* חלק עיבוד פוסט (videos.css) – סטטוס בהדר + רמז מרכז בסגנון הממשק | HYPER CORE TECH */
+.processing-status {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  max-width: min(46vw, 180px);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  direction: rtl;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  z-index: 120;
+}
+
+.processing-status.is-visible {
+  display: inline-flex;
+}
+
+.processing-status__spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  flex: 0 0 auto;
+  animation: processingStatusSpin 0.75s linear infinite;
+}
+
+.processing-status__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes processingStatusSpin {
+  to { transform: rotate(360deg); }
+}
+
+.processing-norefresh-hint {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  z-index: 10040;
+  max-width: min(86%, 320px);
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+  text-align: center;
+  direction: rtl;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -50%) scale(0.96);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+.processing-norefresh-hint.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@media (max-width: 768px) {
+  body:has(.videos-feed) .processing-status {
+    order: 2;
+  }
+
+  body:has(.videos-feed) .top-bar__games-btn {
+    order: 3;
+  }
+
+  body:has(.videos-feed) .top-bar__live-tv-btn {
+    order: 4;
+  }
+}
+
+@media (min-width: 769px) {
+  /* דסקטופ: משמאל לתפריט הימני, למעלה — לא על הווידאו | HYPER CORE TECH */
+  body:has(.videos-feed) .processing-status.is-visible {
+    position: fixed;
+    top: 16px;
+    right: calc(var(--videos-desktop-nav-width, 220px) + 14px);
+    left: auto;
+    max-width: min(280px, calc(100vw - var(--videos-desktop-nav-width, 220px) - 48px));
+    padding: 7px 12px;
+    font-size: 13px;
+    z-index: 200;
+  }
+}
+
 /* חלק בית (videos.css) – רמז במרכז הכרטיס ללחיצה שנייה שתרענן | HYPER CORE TECH */
 .videos-home-refresh-hint {
   position: absolute;

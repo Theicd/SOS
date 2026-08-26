@@ -107,7 +107,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260827desk1">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260827proc1">
     <!-- סייבר אחרי videos.css – כדי שינצח בדסקטופ ובמובייל | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/chat-desktop-sos-cyber.css?v=20260819meta2">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
@@ -412,50 +412,8 @@
         cursor: not-allowed;
       }
 
-      /* ===== הודעת עיבוד ברקע ===== */
-      .processing-notice {
-        position: fixed;
-        top: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: linear-gradient(135deg, #1a1a2e, #16213e);
-        color: #fff;
-        padding: 16px 24px;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        z-index: 20050;
-        display: none;
-        text-align: center;
-        max-width: 90%;
-        border: 1px solid #667eea;
-        pointer-events: none;
-      }
-
-      .processing-notice.is-visible {
-        display: block;
-        animation: slideDown 0.3s ease;
-      }
-
-      @keyframes slideDown {
-        from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
-        to { transform: translateX(-50%) translateY(0); opacity: 1; }
-      }
-
-      .processing-notice__text {
-        margin: 0 0 8px 0;
-        font-size: 15px;
-      }
-
-      .processing-notice__hint {
-        margin: 0;
-        font-size: 13px;
-        color: #aaa;
-      }
-
-      .processing-notice__hint .blink-hint {
-        color: #ff6666;
-        font-weight: bold;
-      }
+      /* ===== עיבוד פוסט – סטטוס בהדר (הכרטיס הישן בוטל) ===== */
+      .processing-notice { display: none !important; }
 
       /* התאמה למובייל */
       @media (max-width: 768px) {
@@ -1962,7 +1920,7 @@
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260731c" defer></script>
+    <script src="./compose.js?v=20260827proc1" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2169,6 +2127,11 @@
               <span>משחק טרוויה SOS</span>
             </button>
           </div>
+        </div>
+        <!-- חלק עיבוד פוסט (videos.html) – סטטוס בשורת ההדר ליד האווטאר | HYPER CORE TECH -->
+        <div class="processing-status" id="processingStatus" hidden aria-live="polite">
+          <span class="processing-status__spinner" aria-hidden="true"></span>
+          <span class="processing-status__label" id="processingStatusLabel">מעבד...</span>
         </div>
         <!-- משחקים + LIVE TV מימין לאווטאר | HYPER CORE TECH -->
         <button type="button" class="top-bar__games-btn" id="gamesToggleTop" title="משחקים" aria-label="פתח פיד משחקים">
@@ -2463,11 +2426,11 @@
       </div>
     </div>
 
-    <!-- הודעת עיבוד ברקע | HYPER CORE TECH -->
-    <div class="processing-notice" id="processingNotice">
-      <p class="processing-notice__text">⏳ הפוסט שלך מעובד ומועלה...</p>
-      <p class="processing-notice__hint">אל תרענן את הדף! הכפתור <span class="blink-hint">המהבהב באדום</span> מציין שהעיבוד פעיל.</p>
+    <!-- חלק עיבוד פוסט (videos.html) – רמז מרכז בסגנון back/home + סטטוס בהדר | HYPER CORE TECH -->
+    <div class="processing-norefresh-hint" id="processingNoRefreshHint" role="status" aria-live="polite">
+      <span>לא לרענן את הדף עד סיום העלאת הפוסט</span>
     </div>
+    <div class="processing-notice" id="processingNotice" hidden aria-hidden="true"></div>
 
     <!-- חלק הקלטת וידאו (videos.html) – חלון בחירת זמן ומצלמה | HYPER CORE TECH -->
     <div class="video-record-modal" id="videoRecordModal" aria-hidden="true">
@@ -2908,14 +2871,8 @@
                 console.warn('[PUBLISH] ensureVideoReadyForPublish missing — using inline fallback');
                 const file = composeState.media.originalFile;
                 const result = await App.compressVideo(file, (progress) => {
-                  const noticeText = document.querySelector('#processingNotice .processing-notice__text');
-                  if (noticeText && progress) {
-                    const pct = typeof progress.percent === 'number' ? Math.round(progress.percent) : '';
-                    if (progress.stage === 'compressing' || progress.stage === 'loading') {
-                      noticeText.textContent = `⏳ דוחס וידאו... ${pct}%`;
-                    } else if (progress.stage === 'finalizing') {
-                      noticeText.textContent = '⏳ מסיים עיבוד וידאו...';
-                    }
+                  if (progress && typeof window.updateProcessingStatus === 'function') {
+                    window.updateProcessingStatus(progress.stage || 'compressing', progress.percent);
                   }
                 });
                 let uploadedUrl = '';
@@ -2953,29 +2910,62 @@
           }
         }
 
-        // פונקציות לאנימציית עיבוד
+        // חלק עיבוד פוסט (videos.html) – סטטוס בהדר + רמז מרכז (בלי כרטיס גדול) | HYPER CORE TECH
+        function formatProcessingStatusLabel(stage, percent) {
+          const pct = (typeof percent === 'number' && Number.isFinite(percent))
+            ? ` ${Math.round(percent)}%`
+            : '';
+          if (stage === 'compressing' || stage === 'loading' || stage === 'analyzing') {
+            return `דוחס...${pct}`;
+          }
+          if (stage === 'finalizing') return 'מסיים עיבוד...';
+          if (stage === 'uploading') return `מעלה...${pct}`;
+          if (stage === 'complete' || stage === 'publishing') return 'מעלה לרשת...';
+          return 'מעבד...';
+        }
+
+        window.updateProcessingStatus = function updateProcessingStatus(stageOrText, percent) {
+          const label = document.getElementById('processingStatusLabel');
+          if (!label) return;
+          const known = {
+            compressing: 1, loading: 1, analyzing: 1, finalizing: 1,
+            uploading: 1, complete: 1, publishing: 1,
+          };
+          if (typeof stageOrText === 'string' && known[stageOrText]) {
+            label.textContent = formatProcessingStatusLabel(stageOrText, percent);
+            return;
+          }
+          if (typeof stageOrText === 'string' && stageOrText.trim()) {
+            label.textContent = stageOrText;
+            return;
+          }
+          label.textContent = formatProcessingStatusLabel('compressing', percent);
+        };
+
         window.startProcessingAnimation = function() {
-          // הבהוב כפתור הפרופיל
           const profileBtn = document.getElementById('topBarProfileButton');
-          if (profileBtn) {
-            profileBtn.classList.add('processing');
+          if (profileBtn) profileBtn.classList.add('processing');
+
+          const status = document.getElementById('processingStatus');
+          if (status) {
+            status.hidden = false;
+            status.classList.add('is-visible');
+          }
+          window.updateProcessingStatus('מעבד...');
+
+          const hint = document.getElementById('processingNoRefreshHint');
+          if (hint) {
+            if (hint._hideTimer) {
+              clearTimeout(hint._hideTimer);
+              hint._hideTimer = null;
+            }
+            hint.classList.add('is-visible');
+            hint._hideTimer = setTimeout(() => {
+              hint.classList.remove('is-visible');
+              hint._hideTimer = null;
+            }, 4500);
           }
 
-          // הצגת הודעת עיבוד — נשארת עד סיום הפרסום (לא נעלמת אחרי 10 שניות)
-          const notice = document.getElementById('processingNotice');
-          if (notice) {
-            if (notice._hideTimer) {
-              clearTimeout(notice._hideTimer);
-              notice._hideTimer = null;
-            }
-            const noticeText = notice.querySelector('.processing-notice__text');
-            if (noticeText) {
-              noticeText.textContent = '⏳ הפוסט שלך מעובד ומועלה...';
-            }
-            notice.classList.add('is-visible');
-          }
-
-          // השהיית הורדות הפיד כדי לפנות רוחב פס להעלאה | HYPER CORE TECH
           const App = window.NostrApp || {};
           if (typeof App.setFeedDownloadsPaused === 'function') {
             App.setFeedDownloadsPaused(true);
@@ -2983,23 +2973,24 @@
         };
 
         window.stopProcessingAnimation = function() {
-          // עצירת הבהוב
           const profileBtn = document.getElementById('topBarProfileButton');
-          if (profileBtn) {
-            profileBtn.classList.remove('processing');
+          if (profileBtn) profileBtn.classList.remove('processing');
+
+          const status = document.getElementById('processingStatus');
+          if (status) {
+            status.classList.remove('is-visible');
+            status.hidden = true;
           }
 
-          // הסתרת הודעת עיבוד
-          const notice = document.getElementById('processingNotice');
-          if (notice) {
-            if (notice._hideTimer) {
-              clearTimeout(notice._hideTimer);
-              notice._hideTimer = null;
+          const hint = document.getElementById('processingNoRefreshHint');
+          if (hint) {
+            if (hint._hideTimer) {
+              clearTimeout(hint._hideTimer);
+              hint._hideTimer = null;
             }
-            notice.classList.remove('is-visible');
+            hint.classList.remove('is-visible');
           }
 
-          // חידוש הורדות הפיד אחרי סיום ההעלאה
           const App = window.NostrApp || {};
           if (typeof App.setFeedDownloadsPaused === 'function') {
             App.setFeedDownloadsPaused(false);
@@ -3010,6 +3001,7 @@
         window.NostrApp = window.NostrApp || {};
         window.NostrApp.startProcessingAnimation = window.startProcessingAnimation;
         window.NostrApp.stopProcessingAnimation = window.stopProcessingAnimation;
+        window.NostrApp.updateProcessingStatus = window.updateProcessingStatus;
       })();
     </script>
 
