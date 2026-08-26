@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.14-feed-warmup-cache-fix';
+const VIDEOS_CODE_VERSION = '2.6.15-desktop-video-ar';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -18,6 +18,33 @@ function centerPlayOverlayButton(playOverlay) {
   playOverlay.style.setProperty('transform', 'translate(-50%, -50%)', 'important');
   playOverlay.style.setProperty('z-index', '1250', 'important');
   return playOverlay;
+}
+
+// חלק דסקטופ (videos.js) – יחס גובה־רוחב אמיתי לכרטיס (CSS משתמש ב־--video-ar רק ב־min-width 769) | HYPER CORE TECH
+function applyDesktopVideoAspect(mediaEl, widthOrVideoEl, heightMaybe) {
+  if (!mediaEl) return;
+  let w = 0;
+  let h = 0;
+  if (widthOrVideoEl && typeof widthOrVideoEl === 'object' && 'videoWidth' in widthOrVideoEl) {
+    w = Number(widthOrVideoEl.videoWidth) || 0;
+    h = Number(widthOrVideoEl.videoHeight) || 0;
+  } else {
+    w = Number(widthOrVideoEl) || 0;
+    h = Number(heightMaybe) || 0;
+  }
+  if (w < 2 || h < 2) return;
+  const ar = w / h;
+  if (!Number.isFinite(ar) || ar <= 0) return;
+  const kind = ar > 1.05 ? 'landscape' : (ar < 0.95 ? 'portrait' : 'square');
+  try {
+    mediaEl.style.setProperty('--video-ar', String(ar));
+    mediaEl.dataset.videoAr = kind;
+    const card = mediaEl.closest?.('.videos-feed__card');
+    if (card) {
+      card.style.setProperty('--video-ar', String(ar));
+      card.dataset.videoAr = kind;
+    }
+  } catch (_) {}
 }
 
 // חלק מצב גלובלי (videos.js) – מצב STOP/PLAY גלובלי לשליטה בהפעלה אוטומטית | HYPER CORE TECH
@@ -2944,7 +2971,10 @@ function removeVideoElFromDownloadQueue(videoEl) {
 function revealVideoSurface(mediaDiv, videoEl) {
   if (!videoEl) return;
   try {
-    if (mediaDiv) mediaDiv.dataset.mediaPending = '0';
+    if (mediaDiv) {
+      mediaDiv.dataset.mediaPending = '0';
+      applyDesktopVideoAspect(mediaDiv, videoEl);
+    }
     videoEl.style.visibility = 'visible';
     videoEl.style.opacity = '1';
     videoEl.style.background = '#000';
@@ -3404,6 +3434,12 @@ function renderVideoCard(video) {
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
 
+    // LIVE בדסקטופ — ברירת מחדל 16:9; מתעדכן כשיש metadata | HYPER CORE TECH
+    try { applyDesktopVideoAspect(mediaDiv, 16, 9); } catch (_) {}
+    videoEl.addEventListener('loadedmetadata', () => {
+      try { applyDesktopVideoAspect(mediaDiv, videoEl); } catch (_) {}
+    });
+
     const AppLive = window.NostrApp || {};
     if (typeof AppLive.ensureLiveBadge === 'function') {
       AppLive.ensureLiveBadge(mediaDiv);
@@ -3499,6 +3535,8 @@ function renderVideoCard(video) {
     centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
 
+    // YouTube בדסקטופ — בדרך כלל 16:9 (מובייל לא מושפע מ־--video-ar) | HYPER CORE TECH
+    try { applyDesktopVideoAspect(mediaDiv, 16, 9); } catch (_) {}
     queueMicrotask(markReady);
   } else if (video.videoUrl || video.hash || video.fromDeepLink) {
     if (video.fromDeepLink || (typeof pendingPostDeepLinkId === 'string' && video.id === pendingPostDeepLinkId)) {
@@ -3549,6 +3587,7 @@ function renderVideoCard(video) {
 
     const cleanup = () => {
       videoEl.removeEventListener('loadeddata', onLoadedData);
+      videoEl.removeEventListener('loadedmetadata', onLoadedMeta);
       videoEl.removeEventListener('error', onError);
     };
 
@@ -3559,9 +3598,14 @@ function renderVideoCard(video) {
       markReady();
     };
 
+    const onLoadedMeta = () => {
+      try { applyDesktopVideoAspect(mediaDiv, videoEl); } catch (_) {}
+    };
+
     const onLoadedData = () => {
       cleanup();
       settleReady();
+      try { applyDesktopVideoAspect(mediaDiv, videoEl); } catch (_) {}
       // לא חושפים משטח ירוק ב־loadeddata — רק ב־playing / פריים אמיתי | HYPER CORE TECH
       const bootActive = document.body.classList.contains('videos-boot-loading')
         || (bootGate.active && !bootGate.released);
@@ -3628,6 +3672,7 @@ function renderVideoCard(video) {
       }
     };
 
+    videoEl.addEventListener('loadedmetadata', onLoadedMeta);
     videoEl.addEventListener('loadeddata', onLoadedData, { once: true });
     videoEl.addEventListener('error', onError, { once: true });
 

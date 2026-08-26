@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v633'; // bump - feed warmup sync + deletions/cache recover
+  const CACHE_NAME = 'sos-cache-v634'; // bump - desktop video aspect ratio (TikTok-like)
   const PRECACHE_URLS = [
     './',
     './videos.html',
