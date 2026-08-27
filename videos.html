@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260827bg2">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827bg3">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -1991,7 +1991,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260827bg2" defer></script>
+    <script src="./video-record.js?v=20260827bg3" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
@@ -2543,15 +2543,12 @@
             <button type="button" class="vr-mode" data-vr-mode="30">30 שנ׳</button>
           </div>
 
-          <div class="vr-shutter-row">
-            <!-- עיגולי רקע מובנים משמאל לכפתור האדום | HYPER CORE TECH -->
-            <div class="vr-bg-rail" aria-label="רקעים מובנים">
-              <div class="vr-bg-strip" id="videoRecordBgStrip"></div>
-            </div>
-            <button type="button" class="record-button" id="recordButton" aria-label="צלם או הקלט">
+          <div class="vr-shutter-row" id="videoRecordShutterRow">
+            <!-- רצועת רקעים LTR שעוברת דרך מרכז הכפתור כמו טיקטוק | HYPER CORE TECH -->
+            <div class="vr-bg-strip" id="videoRecordBgStrip" aria-label="רקעים מובנים"></div>
+            <button type="button" class="record-button is-solid" id="recordButton" aria-label="צלם או הקלט">
               <div class="record-button-inner"></div>
             </button>
-            <div class="vr-shutter-spacer" aria-hidden="true"></div>
           </div>
 
           <div class="vr-footer-bar">

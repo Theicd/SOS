@@ -54,6 +54,8 @@ class VideoRecorder {
     this.nextBtn = document.getElementById('videoRecordNextBtn');
     this.bgStrip = document.getElementById('videoRecordBgStrip');
     this.bgFrame = document.getElementById('videoRecordBgFrame');
+    this.shutterRow = document.getElementById('videoRecordShutterRow');
+    this._bgScrollRaf = 0;
   }
 
   bindEvents() {
@@ -109,15 +111,21 @@ class VideoRecorder {
 
     this.bgStrip?.addEventListener('click', (event) => {
       const thumb = event.target?.closest?.('.vr-bg-thumb');
-      if (!thumb) return;
+      if (!thumb || !this.bgStrip) return;
+      // גלילה למרכז הכפתור + בחירה | HYPER CORE TECH
+      const targetLeft = thumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (thumb.offsetWidth / 2);
+      this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
       const url = thumb.getAttribute('data-bg') || '';
-      if (!url) return;
-      if (this.selectedBgUrl === url) {
-        this.clearBackgroundSelection();
-        return;
-      }
-      this.selectBackground(url, thumb);
+      if (!url) this.clearBackgroundSelection(true);
+      else this.selectBackground(url, thumb);
     });
+
+    this.bgStrip?.addEventListener('scroll', () => {
+      if (this._bgScrollRaf) cancelAnimationFrame(this._bgScrollRaf);
+      this._bgScrollRaf = requestAnimationFrame(() => this.syncBackgroundFromScroll());
+    }, { passive: true });
+
+    this.bgStrip?.addEventListener('scrollend', () => this.syncBackgroundFromScroll(true));
   }
 
   setCaptureMode(mode) {
@@ -133,6 +141,7 @@ class VideoRecorder {
       btn.classList.toggle('is-active', btn.getAttribute('data-vr-mode') === next);
     });
     this.recordButton?.classList.toggle('is-photo', next === 'photo');
+    if (!this.selectedBgUrl) this.setShutterSolid(true);
   }
 
   openModal() {
@@ -359,10 +368,53 @@ class VideoRecorder {
       this.bgStrip.innerHTML = '';
       return;
     }
-    this.bgStrip.innerHTML = urls.map((url) => {
+    const noneBtn = `<button type="button" class="vr-bg-thumb vr-bg-thumb--none is-selected" data-bg="" aria-label="בלי רקע"></button>`;
+    const thumbs = urls.map((url) => {
       const thumb = url.replace('/1080/1080', '/120/120');
       return `<button type="button" class="vr-bg-thumb" data-bg="${url}" style="background-image:url('${thumb}')" aria-label="רקע מובנה"></button>`;
     }).join('');
+    this.bgStrip.innerHTML = noneBtn + thumbs;
+    // התחלה בלי רקע (עיגול ראשון במרכז) | HYPER CORE TECH
+    requestAnimationFrame(() => {
+      try { this.bgStrip.scrollLeft = 0; } catch (_) {}
+      this.clearBackgroundSelection(true);
+      this.syncBackgroundFromScroll(true);
+    });
+  }
+
+  getCenterThumb() {
+    if (!this.bgStrip) return null;
+    const stripRect = this.bgStrip.getBoundingClientRect();
+    const centerX = stripRect.left + stripRect.width / 2;
+    let best = null;
+    let bestDist = Infinity;
+    this.bgStrip.querySelectorAll('.vr-bg-thumb').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      const mid = r.left + r.width / 2;
+      const dist = Math.abs(mid - centerX);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = el;
+      }
+    });
+    return best;
+  }
+
+  syncBackgroundFromScroll(force) {
+    const thumb = this.getCenterThumb();
+    if (!thumb) return;
+    const url = thumb.getAttribute('data-bg') || '';
+    if (!url) {
+      if (force || this.selectedBgUrl) this.clearBackgroundSelection(true);
+      return;
+    }
+    if (url !== this.selectedBgUrl || force) {
+      this.selectBackground(url, thumb);
+    }
+  }
+
+  setShutterSolid(solid) {
+    this.recordButton?.classList.toggle('is-solid', !!solid);
   }
 
   selectBackground(url, thumbEl) {
@@ -375,16 +427,22 @@ class VideoRecorder {
       this.bgFrame.hidden = false;
       this.bgFrame.removeAttribute('hidden');
     }
+    // טבעת שקופה — התמונה נראית דרך מרכז הכפתור | HYPER CORE TECH
+    this.setShutterSolid(false);
   }
 
-  clearBackgroundSelection() {
+  clearBackgroundSelection(keepScrollMark) {
     this.selectedBgUrl = '';
-    this.bgStrip?.querySelectorAll('.vr-bg-thumb').forEach((el) => el.classList.remove('is-selected'));
+    this.bgStrip?.querySelectorAll('.vr-bg-thumb').forEach((el) => {
+      const isNone = !el.getAttribute('data-bg');
+      el.classList.toggle('is-selected', keepScrollMark ? isNone : false);
+    });
     if (this.bgFrame) {
       this.bgFrame.hidden = true;
       this.bgFrame.setAttribute('hidden', '');
       this.bgFrame.removeAttribute('src');
     }
+    this.setShutterSolid(true);
   }
 
   async useSelectedBackground() {
@@ -458,6 +516,7 @@ class VideoRecorder {
       this.isRecording = true;
       this.recordingStartTime = Date.now();
       this.recordButton?.classList.add('recording');
+      this.setShutterSolid(true);
       this.startTimer();
       this.startFloatingTimer();
 
@@ -489,6 +548,7 @@ class VideoRecorder {
     }
     this.floatingTimer?.classList.remove('visible');
     this.recordButton?.classList.remove('recording');
+    this.setShutterSolid(!this.selectedBgUrl);
   }
 
   startTimer() {
