@@ -39,8 +39,8 @@
 .vr-close {
   position: absolute;
   top: calc(10px + var(--safe-top, 0px));
-  right: 10px;
-  left: auto;
+  left: 10px;
+  right: auto;
   z-index: 6;
   width: 36px;
   height: 36px;
@@ -62,12 +62,12 @@
   outline: none;
 }
 
-/* הפוך מצלמה → פלאש → Aa באותה עמודה, מיושר לגובה החזרה | HYPER CORE TECH */
+/* תפריט ימין: הפוך → פלאש → Aa (לא מתחת לחזרה) | HYPER CORE TECH */
 .vr-side-tools {
   position: absolute;
   top: calc(10px + var(--safe-top, 0px));
-  left: 10px;
-  right: auto;
+  right: 10px;
+  left: auto;
   z-index: 6;
   display: flex;
   flex-direction: column;
