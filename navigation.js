@@ -14,6 +14,68 @@
   const navButtons = Array.from(navRoot.querySelectorAll('[data-nav]'));
   console.log('[NAV] Navigation buttons found:', navButtons.length, navButtons.map(b => b.getAttribute('data-nav')));
 
+  // חלק שיתוף (navigation.js) – זיהוי/סגירה של מצלמה+review+קומפוזר | HYPER CORE TECH
+  function isShareFlowOpen() {
+    try {
+      if (document.body.classList.contains('video-record-open')) return true;
+    } catch (_) {}
+    const record = document.getElementById('videoRecordModal');
+    if (record?.classList.contains('is-visible')) return true;
+    const compose = document.getElementById('composeModal');
+    if (compose?.classList.contains('is-visible')) return true;
+    if (compose && compose.getAttribute('aria-hidden') === 'false') return true;
+    return false;
+  }
+
+  function closeShareFlow() {
+    let closed = false;
+    try {
+      const record = document.getElementById('videoRecordModal');
+      if (record?.classList.contains('is-visible') || document.body.classList.contains('video-record-open')) {
+        if (typeof window.closeVideoRecordModal === 'function') {
+          window.closeVideoRecordModal();
+        } else if (window.videoRecorder?.closeModal) {
+          window.videoRecorder.closeModal();
+        }
+        closed = true;
+      }
+    } catch (_) {}
+    try {
+      const compose = document.getElementById('composeModal');
+      if (compose?.classList.contains('is-visible') || compose?.getAttribute('aria-hidden') === 'false') {
+        if (typeof window.closeCompose === 'function') {
+          window.closeCompose();
+        } else if (typeof App.closeCompose === 'function') {
+          App.closeCompose();
+        }
+        closed = true;
+      }
+    } catch (_) {}
+    return closed;
+  }
+
+  function confirmLeaveShareFlow() {
+    if (!isShareFlowOpen()) return true;
+    const ok = window.confirm('לצאת ממסך השיתוף?\nהשינויים שלא פורסמו לא יישמרו.');
+    if (ok) closeShareFlow();
+    return ok;
+  }
+
+  // לחיצה על תפריט הצד בזמן שיתוף — אישור ואז סגירה (כולל שיחות/התראות) | HYPER CORE TECH
+  navRoot.addEventListener('click', (event) => {
+    const item = event.target.closest(
+      '.nav-item, [data-nav], #messagesToggle, #notificationsToggle, #moreOptionsToggle'
+    );
+    if (!item || !navRoot.contains(item)) return;
+    if (item.id === 'navCompose') return;
+    if (!isShareFlowOpen()) return;
+    if (!confirmLeaveShareFlow()) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+
   function updateNavSelection(targetKey) {
     navButtons.forEach((button) => {
       const key = button.getAttribute('data-nav');
@@ -133,6 +195,7 @@
     // תגובות נסגרות תמיד, אבל לא חוסמות ניווט לבד (בניגוד לפרופיל/צ׳אט) | HYPER CORE TECH
     closeCommentsPanelSafe();
     let closed = false;
+    if (closeShareFlow()) closed = true;
     if (closeProfilePanel()) closed = true;
     if (closePublicProfilePanel()) closed = true;
     if (closeGamesPanel()) closed = true;
@@ -152,6 +215,7 @@
   }
 
   function areFeedOverlaysOpen() {
+    if (isShareFlowOpen()) return true;
     if (document.body.classList.contains('chat-overlay-open')) return true;
     if (document.body.classList.contains('videos-comments-open')) return true;
     if (document.querySelector('.videos-comments-overlay')) return true;
@@ -192,6 +256,9 @@
   App.closeAllOverlays = closeAllOverlays;
   App.areFeedOverlaysOpen = areFeedOverlaysOpen;
   App.closeCommentsPanelSafe = closeCommentsPanelSafe;
+  App.isShareFlowOpen = isShareFlowOpen;
+  App.closeShareFlow = closeShareFlow;
+  App.confirmLeaveShareFlow = confirmLeaveShareFlow;
 
   function isOnVideosFeedPage() {
     try {
