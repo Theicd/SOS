@@ -193,8 +193,32 @@ class VideoRecorder {
     if (!this.selectedBgUrl) this.setShutterSolid(true);
   }
 
+  pauseFeedVideos() {
+    try {
+      if (typeof App !== 'undefined' && typeof App.pauseAllFeedVideos === 'function') {
+        App.pauseAllFeedVideos();
+      } else if (typeof window.pauseAllFeedVideos === 'function') {
+        window.pauseAllFeedVideos();
+      }
+    } catch (_) {}
+  }
+
+  resumeFeedIfShareClosed() {
+    try {
+      const composeOpen = document.getElementById('composeModal')?.classList.contains('is-visible');
+      const recordOpen = this.modal?.classList.contains('is-visible');
+      if (composeOpen || recordOpen) return;
+      if (typeof window.resumeCenteredFeedVideo === 'function') {
+        window.resumeCenteredFeedVideo();
+      } else if (typeof App !== 'undefined' && typeof App.resumeCenteredFeedVideo === 'function') {
+        App.resumeCenteredFeedVideo();
+      }
+    } catch (_) {}
+  }
+
   openModal() {
     if (!this.modal) return;
+    this.pauseFeedVideos();
     this.modal.classList.add('is-visible');
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
@@ -211,7 +235,7 @@ class VideoRecorder {
     this.startCamera();
   }
 
-  closeModal() {
+  closeModal(options = {}) {
     if (!this.modal) return;
     this.modal.classList.remove('is-visible');
     this.modal.setAttribute('aria-hidden', 'true');
@@ -224,6 +248,7 @@ class VideoRecorder {
     this.exitNoCameraMode();
     this.resetState();
     this.showCameraStage();
+    if (!options.skipResume) this.resumeFeedIfShareClosed();
   }
 
   resetState() {
@@ -313,7 +338,7 @@ class VideoRecorder {
     if (!this.pendingFile) return;
     const file = this.pendingFile;
     this.clearPendingPreview();
-    this.closeModal();
+    this.closeModal({ skipResume: true });
     this.transferToCompose(file);
   }
 

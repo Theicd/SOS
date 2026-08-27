@@ -1034,6 +1034,14 @@
       showComposeStep('chooser');
     }
 
+    try {
+      if (typeof App !== 'undefined' && typeof App.pauseAllFeedVideos === 'function') {
+        App.pauseAllFeedVideos();
+      } else if (typeof window.pauseAllFeedVideos === 'function') {
+        window.pauseAllFeedVideos();
+      }
+    } catch (_) {}
+
     elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
     elements.modal.setAttribute('aria-hidden', 'false');
@@ -1088,6 +1096,16 @@
       // גם בשימור טיוטה — אל תשאיר את המודאל על editor גלוי ב-DOM attributes | HYPER CORE TECH
       // (המודאל מוסתר; השלב נשאר ב-state לצורך פרסום)
     }
+    try {
+      const recordOpen = document.getElementById('videoRecordModal')?.classList.contains('is-visible');
+      if (!recordOpen) {
+        if (typeof window.resumeCenteredFeedVideo === 'function') {
+          window.resumeCenteredFeedVideo();
+        } else if (typeof App !== 'undefined' && typeof App.resumeCenteredFeedVideo === 'function') {
+          App.resumeCenteredFeedVideo();
+        }
+      }
+    } catch (_) {}
   }
 
   function resetCompose() {
