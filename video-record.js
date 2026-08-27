@@ -426,6 +426,11 @@ class VideoRecorder {
       return `<button type="button" class="vr-bg-thumb" data-bg="${url}" style="background-image:url('${thumb}')" aria-label="רקע מובנה"></button>`;
     }).join('');
     this.bgStrip.innerHTML = noneBtn + thumbs;
+    // תמונה זעירה לגלריה מתוך סט הבחירה | HYPER CORE TECH
+    if (urls[0] && !this.galleryThumbWrap?.classList.contains('has-image')) {
+      const preview = urls[0].replace('/1080/1080', '/120/120');
+      this.setGalleryThumbFromUrl(preview, false);
+    }
     // התחלה בלי רקע (עיגול ראשון במרכז) | HYPER CORE TECH
     requestAnimationFrame(() => {
       try { this.bgStrip.scrollLeft = 0; } catch (_) {}
@@ -470,7 +475,7 @@ class VideoRecorder {
     this.recordButton?.classList.toggle('is-solid', !!solid);
   }
 
-  setGalleryThumbFromUrl(url) {
+  setGalleryThumbFromUrl(url, persist = true) {
     if (!url || !this.galleryThumb) return;
     if (this._galleryThumbUrl && this._galleryThumbUrl.startsWith('blob:')) {
       try { URL.revokeObjectURL(this._galleryThumbUrl); } catch (_) {}
@@ -478,11 +483,13 @@ class VideoRecorder {
     this._galleryThumbUrl = url;
     this.galleryThumb.src = url;
     this.galleryThumbWrap?.classList.add('has-image');
-    try {
-      if (String(url).startsWith('data:')) {
-        sessionStorage.setItem('sos_vr_gallery_thumb', url);
-      }
-    } catch (_) {}
+    if (persist) {
+      try {
+        if (String(url).startsWith('data:')) {
+          sessionStorage.setItem('sos_vr_gallery_thumb', url);
+        }
+      } catch (_) {}
+    }
   }
 
   async setGalleryThumbFromFile(file) {

@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260827sides9">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827foot2">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -1991,7 +1991,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260827sides9" defer></script>
+    <script src="./video-record.js?v=20260827foot2" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
@@ -2570,18 +2570,17 @@
           </div>
 
           <div class="vr-footer-bar">
-            <button type="button" class="vr-footer-btn vr-footer-btn--live" id="videoRecordLiveBtn" title="שידור חי (בקרוב)">
-              <span class="vr-live-badge">
-                <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
-                <span>שידור חי</span>
-              </span>
+            <button type="button" class="vr-footer-btn" id="videoRecordLiveBtn" title="שידור חי (בקרוב)">
+              <span class="vr-live-dot" aria-hidden="true"></span>
+              <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
+              <span>שידור חי</span>
             </button>
             <label class="vr-footer-btn vr-footer-btn--gallery" id="videoRecordGalleryBtn" title="גלריה">
               <span class="vr-gallery-thumb" aria-hidden="true">
                 <img id="videoRecordGalleryThumb" alt="">
                 <i class="fa-solid fa-images vr-gallery-thumb__fallback"></i>
               </span>
-              <span class="vr-gallery-label">גלריה</span>
+              <span>גלריה</span>
               <input type="file" id="videoRecordGalleryInput" accept="image/*,video/*" hidden>
             </label>
           </div>

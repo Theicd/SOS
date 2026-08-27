@@ -121,7 +121,7 @@
   z-index: 5;
   padding: 0;
   margin: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 70%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent 65%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -330,8 +330,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
-  background: #000;
+  padding: 6px 16px max(8px, env(safe-area-inset-bottom, 0px));
+  background: transparent;
   direction: rtl;
   box-sizing: border-box;
   margin: 0;
@@ -347,27 +347,28 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px 2px;
 }
 
 .vr-footer-btn--gallery {
   cursor: pointer;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
 }
 
+/* תמונה זעירה במקום אייקון גלריה | HYPER CORE TECH */
 .vr-gallery-thumb {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   overflow: hidden;
-  border: 2px solid #fff;
-  background: #222;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  background: rgba(0, 0, 0, 0.35);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .vr-gallery-thumb img {
@@ -388,37 +389,24 @@
 }
 
 .vr-gallery-thumb__fallback {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.vr-gallery-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* שידור חי – תג אדום כמו טיקטוק | HYPER CORE TECH */
-.vr-footer-btn--live {
-  padding: 0;
-}
-
-.vr-live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+/* שידור חי רגיל + נקודה אדומה | HYPER CORE TECH */
+.vr-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: #fe2c55;
-  color: #fff;
-  border-radius: 999px;
-  padding: 9px 14px;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  box-shadow: 0 0 0 2px rgba(254, 44, 85, 0.35), 0 4px 14px rgba(254, 44, 85, 0.35);
+  box-shadow: 0 0 0 2px rgba(254, 44, 85, 0.35), 0 0 8px rgba(254, 44, 85, 0.75);
+  flex-shrink: 0;
+  animation: vrLivePulse 1.4s ease-in-out infinite;
 }
 
-.vr-live-badge i {
-  font-size: 13px;
+@keyframes vrLivePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(0.92); }
 }
 
 /* שכבת טקסט על התמונה כמו טיקטוק | HYPER CORE TECH */
