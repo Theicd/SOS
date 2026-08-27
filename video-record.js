@@ -52,6 +52,8 @@ class VideoRecorder {
     this.floatingTimer = document.getElementById('floatingTimer');
     this.modes = document.getElementById('videoRecordModes');
     this.galleryInput = document.getElementById('videoRecordGalleryInput');
+    this.galleryThumb = document.getElementById('videoRecordGalleryThumb');
+    this.galleryThumbWrap = document.querySelector('#videoRecordGalleryBtn .vr-gallery-thumb');
     this.closeBtn = document.getElementById('videoRecordCloseBtn');
     this.reviewBackBtn = document.getElementById('videoRecordReviewBackBtn');
     this.nextBtn = document.getElementById('videoRecordNextBtn');
@@ -66,6 +68,7 @@ class VideoRecorder {
     this.textDone = document.getElementById('videoRecordTextDone');
     this.textLayer = document.getElementById('videoRecordTextLayer');
     this._bgScrollRaf = 0;
+    this._galleryThumbUrl = null;
   }
 
   bindEvents() {
@@ -139,6 +142,7 @@ class VideoRecorder {
     this.galleryInput?.addEventListener('change', (event) => {
       const file = event.target?.files?.[0];
       if (!file) return;
+      this.setGalleryThumbFromFile(file);
       this.clearBackgroundSelection();
       this.showReview(file);
       try { event.target.value = ''; } catch (_) {}
@@ -198,6 +202,7 @@ class VideoRecorder {
     this.showCameraStage();
     this.setCaptureMode(this.captureMode || '10');
     this.loadBackgroundStrip();
+    this.restoreGalleryThumb();
     this.startCamera();
   }
 
@@ -276,6 +281,7 @@ class VideoRecorder {
     this.stopCamera();
     this.clearPendingPreview();
     this.pendingFile = file;
+    this.setGalleryThumbFromFile(file);
     this.pendingObjectUrl = URL.createObjectURL(file);
     const isVideo = String(file.type || '').startsWith('video/');
     if (isVideo && this.reviewVideo) {
@@ -462,6 +468,88 @@ class VideoRecorder {
 
   setShutterSolid(solid) {
     this.recordButton?.classList.toggle('is-solid', !!solid);
+  }
+
+  setGalleryThumbFromUrl(url) {
+    if (!url || !this.galleryThumb) return;
+    if (this._galleryThumbUrl && this._galleryThumbUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(this._galleryThumbUrl); } catch (_) {}
+    }
+    this._galleryThumbUrl = url;
+    this.galleryThumb.src = url;
+    this.galleryThumbWrap?.classList.add('has-image');
+    try {
+      if (String(url).startsWith('data:')) {
+        sessionStorage.setItem('sos_vr_gallery_thumb', url);
+      }
+    } catch (_) {}
+  }
+
+  async setGalleryThumbFromFile(file) {
+    if (!file) return;
+    try {
+      if (String(file.type || '').startsWith('video/')) {
+        const videoUrl = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.src = videoUrl;
+        await new Promise((resolve, reject) => {
+          video.onloadeddata = resolve;
+          video.onerror = reject;
+        });
+        try { video.currentTime = Math.min(0.2, (video.duration || 1) * 0.05); } catch (_) {}
+        await new Promise((resolve) => {
+          video.onseeked = resolve;
+          setTimeout(resolve, 400);
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 120;
+        const ctx = canvas.getContext('2d');
+        const vw = video.videoWidth || 120;
+        const vh = video.videoHeight || 120;
+        const scale = Math.max(120 / vw, 120 / vh);
+        const dw = vw * scale;
+        const dh = vh * scale;
+        ctx.drawImage(video, (120 - dw) / 2, (120 - dh) / 2, dw, dh);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        try { URL.revokeObjectURL(videoUrl); } catch (_) {}
+        this.setGalleryThumbFromUrl(dataUrl);
+        return;
+      }
+      const reader = new FileReader();
+      const dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      // ממוזער קטן ל־sessionStorage | HYPER CORE TECH
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = dataUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = 120;
+      canvas.height = 120;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(120 / img.width, 120 / img.height);
+      const dw = img.width * scale;
+      const dh = img.height * scale;
+      ctx.drawImage(img, (120 - dw) / 2, (120 - dh) / 2, dw, dh);
+      this.setGalleryThumbFromUrl(canvas.toDataURL('image/jpeg', 0.7));
+    } catch (err) {
+      console.warn('[VideoRecorder] gallery thumb failed', err);
+    }
+  }
+
+  restoreGalleryThumb() {
+    try {
+      const saved = sessionStorage.getItem('sos_vr_gallery_thumb');
+      if (saved) this.setGalleryThumbFromUrl(saved);
+    } catch (_) {}
   }
 
   updateBgDismissVisibility() {
