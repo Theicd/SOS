@@ -38,43 +38,78 @@
 
 .vr-close {
   position: absolute;
-  top: calc(12px + var(--safe-top, 0px));
-  right: 14px;
-  z-index: 5;
-  width: 40px;
-  height: 40px;
+  top: calc(10px + var(--safe-top, 0px));
+  right: 10px;
+  z-index: 6;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
+  background: transparent;
   color: #fff;
-  font-size: 18px;
+  font-size: 1.05rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.vr-close:hover,
+.vr-close:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
 }
 
 .vr-side-tools {
   position: absolute;
-  top: calc(64px + var(--safe-top, 0px));
-  left: 12px;
-  z-index: 5;
+  top: calc(10px + var(--safe-top, 0px));
+  z-index: 6;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+.vr-side-tools--left {
+  left: 10px;
+}
+
+.vr-side-tools--right {
+  right: 10px;
+  /* מתחת לכפתור החזרה באותו צד אם יש חפיפה — ב־RTL החזרה בימין והטקסט מתחתיו | HYPER CORE TECH */
+  top: calc(52px + var(--safe-top, 0px));
+}
+
 .vr-tool-btn {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.4);
   color: #fff;
-  font-size: 18px;
+  font-size: 15px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.vr-tool-btn__aa {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 .vr-tool-btn.is-on {
   background: rgba(255, 193, 7, 0.85);
   color: #111;
+}
+
+.vr-tool-btn.is-active {
+  background: rgba(79, 195, 247, 0.9);
+  color: #0a0a0a;
 }
 
 .vr-bottom {
@@ -83,12 +118,13 @@
   right: 0;
   bottom: 0;
   z-index: 5;
-  padding: 0 0 calc(10px + var(--safe-bottom, 0px));
+  padding: 0;
+  margin: 0;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 70%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .vr-modes {
@@ -126,6 +162,35 @@
   min-height: 92px;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.vr-bg-dismiss {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.vr-bg-dismiss.is-visible,
+.vr-bg-dismiss:not([hidden]) {
+  display: inline-flex;
+}
+
+.vr-bg-dismiss[hidden] {
+  display: none !important;
 }
 
 /* גלילה LTR דרך מרכז הכפתור (כמו אפקטים בטיקטוק) | HYPER CORE TECH */
@@ -262,11 +327,13 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 10px;
-  padding: 10px 16px 4px;
-  background: rgba(0, 0, 0, 0.88);
+  padding: 10px 16px max(10px, env(safe-area-inset-bottom, 0px));
+  background: #000;
   direction: rtl;
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .vr-footer-btn {
@@ -283,6 +350,117 @@
 }
 
 .vr-footer-btn--gallery {
+  cursor: pointer;
+}
+
+/* שכבת טקסט על התמונה כמו טיקטוק | HYPER CORE TECH */
+.vr-text-layer {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 4;
+  color: #fff;
+  font-size: clamp(22px, 6vw, 34px);
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.25;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65), 0 0 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  word-break: break-word;
+  direction: rtl;
+}
+
+.vr-text-layer[hidden] {
+  display: none !important;
+}
+
+.vr-text-layer[data-pos="top"] {
+  top: 18%;
+  bottom: auto;
+  transform: none;
+}
+
+.vr-text-layer[data-pos="middle"] {
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.vr-text-layer[data-pos="bottom"] {
+  top: auto;
+  bottom: 28%;
+  transform: none;
+}
+
+.vr-text-editor {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  direction: rtl;
+}
+
+.vr-text-editor[hidden] {
+  display: none !important;
+}
+
+.vr-text-editor__input {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.vr-text-editor__input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.vr-text-positions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.vr-text-pos {
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vr-text-pos.is-active {
+  background: #fff;
+  color: #111;
+  border-color: #fff;
+}
+
+.vr-text-editor__done {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: #4fc3f7;
+  color: #0a0a0a;
+  font-size: 14px;
+  font-weight: 800;
   cursor: pointer;
 }
 

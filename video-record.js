@@ -18,6 +18,9 @@ class VideoRecorder {
     this.pendingObjectUrl = null;
     this.selectedBgUrl = '';
     this.bgUrls = [];
+    this.overlayText = '';
+    this.overlayTextPos = 'middle';
+    this.bgStripScrolled = false;
     this.constraints = {
       video: {
         width: { min: 640, ideal: 1280, max: 1280 },
@@ -55,6 +58,13 @@ class VideoRecorder {
     this.bgStrip = document.getElementById('videoRecordBgStrip');
     this.bgFrame = document.getElementById('videoRecordBgFrame');
     this.shutterRow = document.getElementById('videoRecordShutterRow');
+    this.bgDismiss = document.getElementById('videoRecordBgDismiss');
+    this.liveBtn = document.getElementById('videoRecordLiveBtn');
+    this.textBtn = document.getElementById('videoRecordTextBtn');
+    this.textEditor = document.getElementById('videoRecordTextEditor');
+    this.textInput = document.getElementById('videoRecordTextInput');
+    this.textDone = document.getElementById('videoRecordTextDone');
+    this.textLayer = document.getElementById('videoRecordTextLayer');
     this._bgScrollRaf = 0;
   }
 
@@ -79,12 +89,37 @@ class VideoRecorder {
     this.closeBtn?.addEventListener('click', () => this.closeModal());
     this.reviewBackBtn?.addEventListener('click', () => this.backToCamera());
     this.nextBtn?.addEventListener('click', () => this.confirmPendingFile());
+    this.liveBtn?.addEventListener('click', () => {
+      alert('שידור חי יופיע כאן בקרוב');
+    });
+    this.bgDismiss?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.dismissBackgroundStrip();
+    });
+    this.textBtn?.addEventListener('click', () => this.toggleTextEditor());
+    this.textDone?.addEventListener('click', () => this.commitTextEditor());
+    this.textInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.commitTextEditor();
+      }
+    });
+    this.textInput?.addEventListener('input', () => {
+      this.overlayText = String(this.textInput.value || '').trim();
+      this.renderTextLayer();
+    });
+    this.textEditor?.querySelectorAll('[data-text-pos]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pos = btn.getAttribute('data-text-pos') || 'middle';
+        this.setTextPosition(pos);
+      });
+    });
 
     this.modes?.querySelectorAll('[data-vr-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const mode = btn.getAttribute('data-vr-mode');
         if (mode === 'text') {
-          // אם נבחר רקע מובנה — מעבירים אותו לעורך טקסט | HYPER CORE TECH
           if (this.selectedBgUrl) {
             this.useSelectedBackground();
             return;
@@ -110,22 +145,29 @@ class VideoRecorder {
     });
 
     this.bgStrip?.addEventListener('click', (event) => {
+      if (event.target?.closest?.('.vr-bg-dismiss')) return;
       const thumb = event.target?.closest?.('.vr-bg-thumb');
       if (!thumb || !this.bgStrip) return;
-      // גלילה למרכז הכפתור + בחירה | HYPER CORE TECH
       const targetLeft = thumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (thumb.offsetWidth / 2);
       this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
       const url = thumb.getAttribute('data-bg') || '';
       if (!url) this.clearBackgroundSelection(true);
       else this.selectBackground(url, thumb);
+      this.updateBgDismissVisibility();
     });
 
     this.bgStrip?.addEventListener('scroll', () => {
       if (this._bgScrollRaf) cancelAnimationFrame(this._bgScrollRaf);
-      this._bgScrollRaf = requestAnimationFrame(() => this.syncBackgroundFromScroll());
+      this._bgScrollRaf = requestAnimationFrame(() => {
+        this.syncBackgroundFromScroll();
+        this.updateBgDismissVisibility();
+      });
     }, { passive: true });
 
-    this.bgStrip?.addEventListener('scrollend', () => this.syncBackgroundFromScroll(true));
+    this.bgStrip?.addEventListener('scrollend', () => {
+      this.syncBackgroundFromScroll(true);
+      this.updateBgDismissVisibility();
+    });
   }
 
   setCaptureMode(mode) {
@@ -150,7 +192,9 @@ class VideoRecorder {
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
     this.resetState();
+    this.clearOverlayText();
     this.clearBackgroundSelection();
+    this.hideTextEditor();
     this.showCameraStage();
     this.setCaptureMode(this.captureMode || '10');
     this.loadBackgroundStrip();
@@ -164,7 +208,9 @@ class VideoRecorder {
     document.body.classList.remove('video-record-open');
     this.stopCamera();
     this.clearPendingPreview();
+    this.clearOverlayText();
     this.clearBackgroundSelection();
+    this.hideTextEditor();
     this.resetState();
     this.showCameraStage();
   }
@@ -379,6 +425,7 @@ class VideoRecorder {
       try { this.bgStrip.scrollLeft = 0; } catch (_) {}
       this.clearBackgroundSelection(true);
       this.syncBackgroundFromScroll(true);
+      this.updateBgDismissVisibility();
     });
   }
 
@@ -417,6 +464,148 @@ class VideoRecorder {
     this.recordButton?.classList.toggle('is-solid', !!solid);
   }
 
+  updateBgDismissVisibility() {
+    const scrolled = (this.bgStrip?.scrollLeft || 0) > 8;
+    const show = scrolled || !!this.selectedBgUrl;
+    this.bgStripScrolled = show;
+    if (!this.bgDismiss) return;
+    if (show) {
+      this.bgDismiss.hidden = false;
+      this.bgDismiss.removeAttribute('hidden');
+      this.bgDismiss.classList.add('is-visible');
+    } else {
+      this.bgDismiss.hidden = true;
+      this.bgDismiss.setAttribute('hidden', '');
+      this.bgDismiss.classList.remove('is-visible');
+    }
+  }
+
+  dismissBackgroundStrip() {
+    const noneThumb = this.bgStrip?.querySelector?.('.vr-bg-thumb--none');
+    if (noneThumb && this.bgStrip) {
+      const targetLeft = noneThumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (noneThumb.offsetWidth / 2);
+      this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+    } else if (this.bgStrip) {
+      this.bgStrip.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+    this.clearBackgroundSelection(true);
+    this.updateBgDismissVisibility();
+  }
+
+  toggleTextEditor() {
+    const open = this.textEditor && !this.textEditor.hasAttribute('hidden');
+    if (open) {
+      this.commitTextEditor();
+      return;
+    }
+    this.showTextEditor();
+  }
+
+  showTextEditor() {
+    if (!this.textEditor) return;
+    this.textEditor.hidden = false;
+    this.textEditor.removeAttribute('hidden');
+    this.textBtn?.classList.add('is-active');
+    if (this.textInput) {
+      this.textInput.value = this.overlayText || '';
+      try { this.textInput.focus(); } catch (_) {}
+    }
+    this.setTextPosition(this.overlayTextPos || 'middle');
+    this.renderTextLayer();
+  }
+
+  hideTextEditor() {
+    if (this.textEditor) {
+      this.textEditor.hidden = true;
+      this.textEditor.setAttribute('hidden', '');
+    }
+    this.textBtn?.classList.remove('is-active');
+  }
+
+  commitTextEditor() {
+    this.overlayText = String(this.textInput?.value || '').trim();
+    this.hideTextEditor();
+    this.renderTextLayer();
+  }
+
+  setTextPosition(pos) {
+    const next = ['top', 'middle', 'bottom'].includes(pos) ? pos : 'middle';
+    this.overlayTextPos = next;
+    this.textEditor?.querySelectorAll('[data-text-pos]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.getAttribute('data-text-pos') === next);
+    });
+    if (this.textLayer) this.textLayer.setAttribute('data-pos', next);
+  }
+
+  renderTextLayer() {
+    if (!this.textLayer) return;
+    const text = String(this.overlayText || '').trim();
+    if (!text) {
+      this.textLayer.textContent = '';
+      this.textLayer.hidden = true;
+      this.textLayer.setAttribute('hidden', '');
+      return;
+    }
+    this.textLayer.textContent = text;
+    this.textLayer.setAttribute('data-pos', this.overlayTextPos || 'middle');
+    this.textLayer.hidden = false;
+    this.textLayer.removeAttribute('hidden');
+  }
+
+  clearOverlayText() {
+    this.overlayText = '';
+    this.overlayTextPos = 'middle';
+    if (this.textInput) this.textInput.value = '';
+    this.renderTextLayer();
+    this.hideTextEditor();
+  }
+
+  drawOverlayText(ctx, width, height) {
+    const text = String(this.overlayText || '').trim();
+    if (!text || !ctx) return;
+    const pos = this.overlayTextPos || 'middle';
+    let fontSize = Math.max(28, Math.round(width * 0.07));
+    ctx.save();
+    ctx.direction = 'rtl';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = Math.max(3, Math.round(fontSize * 0.08));
+    ctx.font = `800 ${fontSize}px sans-serif`;
+    const maxWidth = width * 0.86;
+    const words = text.split(/\s+/);
+    const lines = [];
+    let line = '';
+    words.forEach((word) => {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    });
+    if (line) lines.push(line);
+    while (lines.length > 4 && fontSize > 22) {
+      fontSize -= 2;
+      ctx.font = `800 ${fontSize}px sans-serif`;
+    }
+    const lineHeight = fontSize * 1.25;
+    const blockH = lines.length * lineHeight;
+    let y;
+    if (pos === 'top') y = height * 0.18;
+    else if (pos === 'bottom') y = height * 0.72 - blockH / 2;
+    else y = height * 0.5 - blockH / 2 + lineHeight / 2;
+    const x = width / 2;
+    lines.forEach((ln, i) => {
+      const yy = y + i * lineHeight;
+      ctx.strokeText(ln, x, yy);
+      ctx.fillText(ln, x, yy);
+    });
+    ctx.restore();
+  }
+
   selectBackground(url, thumbEl) {
     this.selectedBgUrl = url;
     this.bgStrip?.querySelectorAll('.vr-bg-thumb').forEach((el) => {
@@ -427,8 +616,8 @@ class VideoRecorder {
       this.bgFrame.hidden = false;
       this.bgFrame.removeAttribute('hidden');
     }
-    // טבעת שקופה — התמונה נראית דרך מרכז הכפתור | HYPER CORE TECH
     this.setShutterSolid(false);
+    this.updateBgDismissVisibility();
   }
 
   clearBackgroundSelection(keepScrollMark) {
@@ -443,6 +632,7 @@ class VideoRecorder {
       this.bgFrame.removeAttribute('src');
     }
     this.setShutterSolid(true);
+    this.updateBgDismissVisibility();
   }
 
   async useSelectedBackground() {
@@ -451,7 +641,27 @@ class VideoRecorder {
     try {
       const resp = await fetch(url, { mode: 'cors', cache: 'no-store' });
       const blob = await resp.blob();
-      const file = new File([blob], `bg-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+      const dataUrl = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(blob);
+      });
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = dataUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || 1080;
+      canvas.height = img.naturalHeight || 1080;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      this.drawOverlayText(ctx, canvas.width, canvas.height);
+      const outBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      if (!outBlob) throw new Error('blob');
+      const file = new File([outBlob], `bg-${Date.now()}.jpg`, { type: 'image/jpeg' });
       this.clearBackgroundSelection();
       this.showReview(file);
     } catch (err) {
@@ -478,6 +688,9 @@ class VideoRecorder {
         ctx.scale(-1, 1);
       }
       ctx.drawImage(this.preview, 0, 0, w, h);
+      // אחרי שיקוף — איפוס טרנספורם לפני ציור טקסט | HYPER CORE TECH
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.drawOverlayText(ctx, w, h);
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
       if (!blob) throw new Error('blob');
       const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });

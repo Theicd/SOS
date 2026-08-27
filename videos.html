@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260827bg3">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827ui4">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -1991,7 +1991,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260827bg3" defer></script>
+    <script src="./video-record.js?v=20260827ui4" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
@@ -2521,11 +2521,11 @@
         <video id="videoRecordPreview" autoplay muted playsinline></video>
         <div class="floating-timer" id="floatingTimer">00:00</div>
 
-        <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="סגור">
-          <i class="fa-solid fa-xmark"></i>
+        <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="חזרה">
+          <i class="fa-solid fa-chevron-right"></i>
         </button>
 
-        <aside class="vr-side-tools" aria-label="כלי מצלמה">
+        <aside class="vr-side-tools vr-side-tools--left" aria-label="כלי מצלמה">
           <button type="button" class="vr-tool-btn" id="cameraSwitchButton" aria-label="הפוך מצלמה" title="הפוך מצלמה">
             <i class="fa-solid fa-camera-rotate"></i>
           </button>
@@ -2533,6 +2533,24 @@
             <i class="fa-solid fa-bolt"></i>
           </button>
         </aside>
+
+        <aside class="vr-side-tools vr-side-tools--right" aria-label="עריכת טקסט">
+          <button type="button" class="vr-tool-btn" id="videoRecordTextBtn" aria-label="הוסף טקסט" title="טקסט על התמונה">
+            <span class="vr-tool-btn__aa" aria-hidden="true">Aa</span>
+          </button>
+        </aside>
+
+        <div class="vr-text-layer" id="videoRecordTextLayer" data-pos="middle" hidden></div>
+
+        <div class="vr-text-editor" id="videoRecordTextEditor" hidden>
+          <input type="text" id="videoRecordTextInput" class="vr-text-editor__input" maxlength="80" placeholder="הוסיפו טקסט..." enterkeyhint="done" autocomplete="off">
+          <div class="vr-text-positions" role="group" aria-label="גובה הטקסט">
+            <button type="button" class="vr-text-pos" data-text-pos="top">עליון</button>
+            <button type="button" class="vr-text-pos is-active" data-text-pos="middle">אמצע</button>
+            <button type="button" class="vr-text-pos" data-text-pos="bottom">תחתון</button>
+          </div>
+          <button type="button" class="vr-text-editor__done" id="videoRecordTextDone">סיום</button>
+        </div>
 
         <div class="vr-bottom">
           <div class="vr-modes" id="videoRecordModes" role="tablist" aria-label="מצב צילום">
@@ -2544,6 +2562,9 @@
           </div>
 
           <div class="vr-shutter-row" id="videoRecordShutterRow">
+            <button type="button" class="vr-bg-dismiss" id="videoRecordBgDismiss" hidden aria-label="סגור רקעים">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
             <!-- רצועת רקעים LTR שעוברת דרך מרכז הכפתור כמו טיקטוק | HYPER CORE TECH -->
             <div class="vr-bg-strip" id="videoRecordBgStrip" aria-label="רקעים מובנים"></div>
             <button type="button" class="record-button is-solid" id="recordButton" aria-label="צלם או הקלט">
@@ -2552,6 +2573,10 @@
           </div>
 
           <div class="vr-footer-bar">
+            <button type="button" class="vr-footer-btn" id="videoRecordLiveBtn" title="שידור חי (בקרוב)">
+              <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
+              <span>שידור חי</span>
+            </button>
             <label class="vr-footer-btn vr-footer-btn--gallery" id="videoRecordGalleryBtn" title="גלריה">
               <i class="fa-solid fa-images" aria-hidden="true"></i>
               <span>גלריה</span>
@@ -2567,7 +2592,7 @@
         <video id="videoRecordReviewVideo" playsinline controls></video>
         <img id="videoRecordReviewImage" alt="תצוגה מקדימה" hidden>
         <button type="button" class="vr-close" id="videoRecordReviewBackBtn" aria-label="חזרה">
-          <i class="fa-solid fa-xmark"></i>
+          <i class="fa-solid fa-chevron-right"></i>
         </button>
         <div class="vr-review-actions">
           <button type="button" class="vr-next-btn" id="videoRecordNextBtn">הבא</button>
