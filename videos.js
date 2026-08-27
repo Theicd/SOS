@@ -4778,6 +4778,7 @@ function getCenteredFeedCard(viewport) {
 }
 
 function closeCommentsPanelIfLeftActivePost() {
+  if (Date.now() < (window.__sosCommentsOpenGuardUntil || 0)) return;
   if (!isCommentsPanelOpen()) return;
   const openId = getOpenCommentsEventId();
   if (!openId) {
@@ -4803,6 +4804,7 @@ function setupCommentsAutoClose() {
     let timer = null;
     viewport.addEventListener('scroll', () => {
       if (!isCommentsPanelOpen()) return;
+      if (Date.now() < (window.__sosCommentsOpenGuardUntil || 0)) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
         closeCommentsPanelIfLeftActivePost();
@@ -4884,6 +4886,8 @@ function openCommentsPanel(eventId) {
   try {
     overlay.dataset.eventId = eventId;
   } catch (_) {}
+  // מונע סגירה מיידית בגלל scroll/layout אחרי פתיחה | HYPER CORE TECH
+  try { window.__sosCommentsOpenGuardUntil = Date.now() + 450; } catch (_) {}
   try { document.body.classList.add('videos-comments-open'); } catch (_) {}
   try { setupCommentsAutoClose(); } catch (_) {}
 
