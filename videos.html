@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260827desk2">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827desk3">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -947,7 +947,7 @@
         }
       }
 
-      /* ===== דסקטופ בלבד – קומפוזר בעמודת הפיד השמאלית; תפריט ימין גלוי | HYPER CORE TECH ===== */
+      /* ===== דסקטופ בלבד – מצלמה/קומפוזר ממלאים את כל עמודת הווידאו משמאל | HYPER CORE TECH ===== */
       @media (min-width: 769px) {
         .compose-modal,
         .compose-modal.is-visible {
@@ -958,31 +958,37 @@
           bottom: 0 !important;
           width: auto !important;
           height: 100dvh !important;
-          padding: 16px !important;
-          align-items: center !important;
-          justify-content: center !important;
-          background: rgba(0, 0, 0, 0.72) !important;
+          padding: 0 !important;
+          align-items: stretch !important;
+          justify-content: stretch !important;
+          background: #000 !important;
           z-index: 1900 !important;
         }
 
         .compose-dialog {
-          width: min(520px, calc(100% - 24px));
-          max-height: min(88dvh, 820px);
-          margin: 0;
+          width: 100% !important;
+          max-width: none !important;
+          height: 100% !important;
+          max-height: none !important;
+          min-height: 100dvh !important;
+          margin: 0 !important;
+          border-radius: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
         }
 
         .compose-editor.is-compose-step-active {
-          padding: 16px 18px 12px;
+          padding: 16px 24px 12px;
         }
 
         .compose-media-preview {
-          width: 132px;
-          height: 176px;
+          width: 148px;
+          height: 196px;
         }
 
         .compose-dialog textarea {
-          min-height: 120px;
-          max-height: 200px;
+          min-height: 140px;
+          max-height: 240px;
         }
 
         .compose-dialog__actions .button-primary,
@@ -991,9 +997,8 @@
           font-size: 0.98rem;
         }
 
-        /* מצלמה/review גם בעמודה השמאלית (דריסת inline display:block) | HYPER CORE TECH */
         .video-record-modal.is-visible {
-          display: flex !important;
+          display: block !important;
           inset: auto !important;
           top: 0 !important;
           left: 0 !important;
@@ -1001,9 +1006,17 @@
           bottom: 0 !important;
           width: auto !important;
           height: 100dvh !important;
-          align-items: center !important;
-          justify-content: center !important;
-          background: rgba(0, 0, 0, 0.78) !important;
+          background: #000 !important;
+        }
+
+        .video-record-stage {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          max-width: none !important;
+          max-height: none !important;
+          border-radius: 0 !important;
         }
       }
 
@@ -2051,11 +2064,11 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260827desk2" defer></script>
+    <script src="./video-record.js?v=20260827desk3" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260827desk2" defer></script>
+    <script src="./compose.js?v=20260827desk3" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
