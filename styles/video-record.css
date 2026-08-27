@@ -1,396 +1,316 @@
-/* חלון הקלטת וידאו - עיצוב מודרני בסגנון טיקטוק | HYPER CORE TECH */
+/* חלק מצלמה (video-record.css) – מסך מלא בסגנון טיקטוק | HYPER CORE TECH */
 
 .video-record-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.95);
+  z-index: 10000;
   display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000; /* ערך גבוה מאוד כדי להיות מעל כל המודאלים האחרים */
+  background: #000;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.25s ease;
 }
 
 .video-record-modal.is-visible {
-  display: flex;
+  display: block;
   opacity: 1;
 }
 
-.video-record-backdrop {
+.video-record-stage {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-}
-
-.video-record-panel {
-  position: relative;
-  background: #1a1a1a;
-  border-radius: 20px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-  transform: scale(0.9);
-  transition: transform 0.3s ease;
 }
 
-.video-record-modal.is-visible .video-record-panel {
-  transform: scale(1);
+.video-record-stage[hidden] {
+  display: none !important;
 }
 
-.video-record-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.video-record-header h3 {
-  color: white;
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.video-record-close {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.video-record-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-.video-record-content {
-  padding: 20px;
-}
-
-/* בחירת זמן הקלטה */
-.video-record-timer-selection h4 {
-  color: white;
-  text-align: center;
-  margin: 0 0 20px 0;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.timer-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.timer-option {
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 15px;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.timer-option:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-}
-
-.timer-option:active {
-  transform: translateY(0);
-}
-
-/* כפתור ביטול בבחירת זמן */
-.timer-cancel {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.timer-cancel-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 25px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
-}
-
-.timer-cancel-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-}
-
-.timer-cancel-btn:active {
-  transform: translateY(0);
-}
-
-.timer-cancel-btn i {
-  font-size: 16px;
-}
-
-/* כפתור ביטול בממשק הקלטה */
-.record-cancel {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-  padding-top: 15px;
-}
-
-.record-cancel-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: rgba(244, 67, 54, 0.2);
-  color: #f44336;
-  border: 1px solid rgba(244, 67, 54, 0.3);
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.record-cancel-btn:hover {
-  background: rgba(244, 67, 54, 0.3);
-  border-color: rgba(244, 67, 54, 0.5);
-  transform: translateY(-1px);
-}
-
-.record-cancel-btn:active {
-  transform: translateY(0);
-}
-
-.record-cancel-btn i {
-  font-size: 14px;
-}
-
-/* ממשק הקלטה */
-.video-record-interface {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.video-record-preview {
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  aspect-ratio: 9/16;
-  background: #000;
-  border-radius: 16px;
-  overflow: hidden;
-  margin: 0 auto;
-}
-
-#videoRecordPreview {
+#videoRecordPreview,
+#videoRecordReviewVideo,
+#videoRecordReviewImage {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1); /* היפוך אופקי לתצוגת מראה */
+  background: #000;
 }
 
-.video-record-controls {
+.vr-close {
   position: absolute;
-  bottom: 0;
+  top: calc(12px + var(--safe-top, 0px));
+  right: 14px;
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.vr-side-tools {
+  position: absolute;
+  top: calc(64px + var(--safe-top, 0px));
+  left: 12px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vr-tool-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.vr-tool-btn.is-on {
+  background: rgba(255, 193, 7, 0.85);
+  color: #111;
+}
+
+.vr-bottom {
+  position: absolute;
   left: 0;
   right: 0;
-  padding: 20px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  bottom: 0;
+  z-index: 5;
+  padding: 0 0 calc(10px + var(--safe-bottom, 0px));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 70%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.vr-modes {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 12px;
+  direction: rtl;
 }
 
-.camera-switch {
-  background: rgba(255, 255, 255, 0.2);
+.vr-mode {
   border: none;
-  color: white;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  font-size: 20px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
 }
 
-.camera-switch:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+.vr-mode.is-active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #111;
+}
+
+.vr-shutter-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 84px;
 }
 
 .record-button {
-  background: #ff4444;
-  border: 4px solid white;
-  width: 70px;
-  height: 70px;
+  background: #fe2c55;
+  border: 4px solid #fff;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   cursor: pointer;
   position: relative;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-}
-
-.record-button:hover {
-  transform: scale(1.1);
-  background: #ff3333;
+  padding: 0;
 }
 
 .record-button.recording {
-  background: #ff0000;
-  animation: pulse 1.5s ease-in-out infinite;
+  background: #fe2c55;
 }
 
 .record-button-inner {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #ff4444;
-  transition: all 0.3s ease;
+  background: #fe2c55;
+  transition: all 0.2s ease;
 }
 
 .record-button.recording .record-button-inner {
-  background: white;
+  background: #fff;
   border-radius: 8px;
-  width: 24px;
-  height: 24px;
-  margin: 23px auto;
+  width: 28px;
+  height: 28px;
+  margin: 20px auto;
 }
 
-.record-timer {
-  color: white;
-  font-size: 20px;
+.record-button.is-photo .record-button-inner {
+  background: #fff;
+}
+
+.vr-footer-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px 4px;
+  background: rgba(0, 0, 0, 0.88);
+  direction: rtl;
+}
+
+.vr-footer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
   font-weight: 600;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-  flex-shrink: 0;
+  cursor: pointer;
+  padding: 8px 4px;
 }
 
-@keyframes pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 20px rgba(255, 68, 68, 0);
-  }
+.vr-footer-btn--gallery {
+  cursor: pointer;
 }
 
-/* התאמות למובייל */
-@media (max-width: 768px) {
-  .video-record-panel {
-    width: 100%;
-    height: 100vh;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-  
-  .video-record-content {
-    padding: 15px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .video-record-timer-selection {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-  
-  .timer-options {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-  
-  .timer-option {
-    padding: 20px;
-    font-size: 18px;
-  }
-  
-  .timer-cancel {
-    margin-top: 15px;
-    padding-top: 15px;
-  }
-  
-  .timer-cancel-btn {
-    padding: 10px 20px;
-    font-size: 13px;
-  }
-  
-  .timer-cancel-btn i {
-    font-size: 14px;
-  }
-  
-  .video-record-interface {
-    flex: 1;
-    justify-content: center;
-  }
-  
-  .video-record-preview {
-    max-width: 300px;
-    aspect-ratio: 9/16;
-  }
-  
-  .video-record-controls {
-    padding: 15px;
-  }
-  
-  .record-button {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .record-button.recording .record-button-inner {
-    width: 20px;
-    height: 20px;
-    margin: 20px auto;
-  }
-  
-  .camera-switch {
-    width: 45px;
-    height: 45px;
-    font-size: 18px;
-  }
-  
-  .record-timer {
-    font-size: 18px;
-  }
-  
-  .record-cancel {
-    margin-top: 15px;
-    padding-top: 12px;
-  }
-  
-  .record-cancel-btn {
-    padding: 8px 16px;
-    font-size: 12px;
-  }
-  
-  .record-cancel-btn i {
-    font-size: 12px;
-  }
+.floating-timer {
+  position: absolute;
+  top: calc(18px + var(--safe-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.floating-timer.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.floating-timer.pulse {
+  animation: vrTimerPulse 0.45s ease;
+}
+
+@keyframes vrTimerPulse {
+  0% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.08); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+.video-record-stage--review .vr-review-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(18px + var(--safe-bottom, 0px));
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+}
+
+.vr-next-btn {
+  width: min(100%, 360px);
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* חלק קומפוזר – כפתורי נושא/האשטאג/שידור חי בתצוגה | HYPER CORE TECH */
+.compose-topic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  direction: rtl;
+  margin: 4px 0 2px;
+}
+
+.compose-pill {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compose-pill.is-active {
+  border-color: rgba(254, 44, 85, 0.7);
+  background: rgba(254, 44, 85, 0.18);
+}
+
+.compose-topic-selected {
+  direction: rtl;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.78);
+  margin-bottom: 4px;
+}
+
+.compose-topic-sheet {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 8px;
+  direction: rtl;
+}
+
+.compose-topic-sheet__title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #fff;
+}
+
+.compose-topic-sheet__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.compose-topic-chip {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.compose-topic-chip.is-selected {
+  background: rgba(254, 44, 85, 0.22);
+  border-color: rgba(254, 44, 85, 0.75);
 }

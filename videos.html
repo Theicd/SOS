@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827cam1">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -1283,7 +1283,7 @@
       }
 
       .video-record-modal.is-visible {
-        display: flex !important;
+        display: block !important;
         opacity: 1 !important;
       }
 
@@ -1916,11 +1916,11 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js" defer></script>
+    <script src="./video-record.js?v=20260827cam1" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260827proc1" defer></script>
+    <script src="./compose.js?v=20260827cam1" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2344,6 +2344,34 @@
           <div class="compose-editor__body">
             <textarea id="postText" placeholder="הוסיפו כיתוב... לינק ערוץ חי (.m3u8) או לינק משחק"></textarea>
 
+            <!-- חלק נושא (videos.html) – בחירת קטגוריה + כפתורי עזר בתצוגה | HYPER CORE TECH -->
+            <div class="compose-topic-row" id="composeTopicRow">
+              <button type="button" class="compose-pill" id="composeHashtagsPill" data-compose-pill="hashtags"># האשטאגים</button>
+              <button type="button" class="compose-pill" id="composeTopicPill" data-compose-pill="topic">נושא</button>
+              <button type="button" class="compose-pill" id="composeLivePill" data-compose-pill="live">
+                <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
+                שידור חי
+              </button>
+            </div>
+            <div class="compose-topic-selected" id="composeTopicSelected" hidden></div>
+            <div class="compose-topic-sheet" id="composeTopicSheet" hidden>
+              <div class="compose-topic-sheet__title">בחרו נושא לפוסט</div>
+              <div class="compose-topic-sheet__grid" id="composeTopicGrid" role="listbox" aria-label="קטגוריות">
+                <button type="button" class="compose-topic-chip" data-topic="leisure">פנאי</button>
+                <button type="button" class="compose-topic-chip" data-topic="humor">הומור</button>
+                <button type="button" class="compose-topic-chip" data-topic="documentary">תיעודי</button>
+                <button type="button" class="compose-topic-chip" data-topic="news">חדשות</button>
+                <button type="button" class="compose-topic-chip" data-topic="sports">ספורט</button>
+                <button type="button" class="compose-topic-chip" data-topic="music">מוזיקה</button>
+                <button type="button" class="compose-topic-chip" data-topic="food">אוכל</button>
+                <button type="button" class="compose-topic-chip" data-topic="travel">טיולים</button>
+                <button type="button" class="compose-topic-chip" data-topic="tech">טכנולוגיה</button>
+                <button type="button" class="compose-topic-chip" data-topic="family">משפחה</button>
+                <button type="button" class="compose-topic-chip" data-topic="education">חינוך</button>
+                <button type="button" class="compose-topic-chip" data-topic="other">אחר</button>
+              </div>
+            </div>
+
             <!-- סימון ידני למשחק – ללינקים שלא ברשימת הזיהוי האוטומטי | HYPER CORE TECH -->
             <label class="compose-game-flag" id="composeGameFlagWrap" hidden>
               <input type="checkbox" id="composeMarkAsGame">
@@ -2432,43 +2460,63 @@
     </div>
     <div class="processing-notice" id="processingNotice" hidden aria-hidden="true"></div>
 
-    <!-- חלק הקלטת וידאו (videos.html) – חלון בחירת זמן ומצלמה | HYPER CORE TECH -->
+    <!-- חלק הקלטת וידאו (videos.html) – מסך מצלמה מלא בסגנון טיקטוק | HYPER CORE TECH -->
     <div class="video-record-modal" id="videoRecordModal" aria-hidden="true">
-      <div class="video-record-backdrop" onclick="closeVideoRecordModal()"></div>
-      <div class="video-record-panel" role="dialog" aria-modal="true">
-        <div class="video-record-header">
-          <h3>הקלט וידאו</h3>
-          <button class="video-record-close" type="button" onclick="closeVideoRecordModal()" aria-label="סגור">
-            <i class="fa-solid fa-xmark"></i>
+      <div class="video-record-stage" id="videoRecordStageCamera">
+        <video id="videoRecordPreview" autoplay muted playsinline></video>
+        <div class="floating-timer" id="floatingTimer">00:00</div>
+
+        <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="סגור">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <aside class="vr-side-tools" aria-label="כלי מצלמה">
+          <button type="button" class="vr-tool-btn" id="cameraSwitchButton" aria-label="הפוך מצלמה" title="הפוך מצלמה">
+            <i class="fa-solid fa-camera-rotate"></i>
           </button>
+          <button type="button" class="vr-tool-btn" id="cameraFlashButton" aria-label="פלאש" title="פלאש" aria-pressed="false">
+            <i class="fa-solid fa-bolt"></i>
+          </button>
+        </aside>
+
+        <div class="vr-bottom">
+          <div class="vr-modes" id="videoRecordModes" role="tablist" aria-label="מצב צילום">
+            <button type="button" class="vr-mode" data-vr-mode="text">טקסט</button>
+            <button type="button" class="vr-mode" data-vr-mode="photo">תמונה</button>
+            <button type="button" class="vr-mode is-active" data-vr-mode="10">10 שנ׳</button>
+            <button type="button" class="vr-mode" data-vr-mode="20">20 שנ׳</button>
+            <button type="button" class="vr-mode" data-vr-mode="30">30 שנ׳</button>
+          </div>
+
+          <div class="vr-shutter-row">
+            <button type="button" class="record-button" id="recordButton" aria-label="צלם או הקלט">
+              <div class="record-button-inner"></div>
+            </button>
+          </div>
+
+          <div class="vr-footer-bar">
+            <button type="button" class="vr-footer-btn" id="videoRecordLiveBtn" title="שידור חי (בקרוב)">
+              <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
+              <span>שידור חי</span>
+            </button>
+            <label class="vr-footer-btn vr-footer-btn--gallery" id="videoRecordGalleryBtn" title="גלריה">
+              <i class="fa-solid fa-images" aria-hidden="true"></i>
+              <span>גלריה</span>
+              <input type="file" id="videoRecordGalleryInput" accept="image/*,video/*" hidden>
+            </label>
+          </div>
         </div>
-        
-        <div class="video-record-content">
-  <!-- ממשק הקלטה ישיר -->
-  <div class="video-record-interface" id="videoRecordInterface">
-    <div class="video-record-preview">
-      <video id="videoRecordPreview" autoplay muted playsinline></video>
-      <!-- טיימר צף -->
-      <div class="floating-timer" id="floatingTimer">00:00</div>
-      <div class="video-record-controls">
-        <button class="camera-switch" id="cameraSwitchButton" aria-label="החלף מצלמה">
-          <i class="fa-solid fa-camera-rotate"></i>
-        </button>
-        <button class="record-button" id="recordButton" aria-label="הקלט">
-          <div class="record-button-inner"></div>
-        </button>
-        <div class="record-timer" id="recordTimer">00:00</div>
       </div>
-    </div>
-    <!-- כפתור ביטול בממשק הקלטה -->
-    <div class="record-cancel">
-      <button class="record-cancel-btn" onclick="closeVideoRecordModal()" type="button">
-        <i class="fa-solid fa-xmark"></i>
-        ביטול הקלטה
-      </button>
-    </div>
-  </div>
-</div>
+
+      <div class="video-record-stage video-record-stage--review" id="videoRecordStageReview" hidden>
+        <video id="videoRecordReviewVideo" playsinline controls></video>
+        <img id="videoRecordReviewImage" alt="תצוגה מקדימה" hidden>
+        <button type="button" class="vr-close" id="videoRecordReviewBackBtn" aria-label="חזרה">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="vr-review-actions">
+          <button type="button" class="vr-next-btn" id="videoRecordNextBtn">הבא</button>
+        </div>
       </div>
     </div>
 

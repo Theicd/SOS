@@ -33,6 +33,27 @@
     publishButton: document.getElementById('composePublishButton'),
     markAsGame: document.getElementById('composeMarkAsGame'),
     gameFlagWrap: document.getElementById('composeGameFlagWrap'),
+    topicPill: document.getElementById('composeTopicPill'),
+    topicSheet: document.getElementById('composeTopicSheet'),
+    topicGrid: document.getElementById('composeTopicGrid'),
+    topicSelected: document.getElementById('composeTopicSelected'),
+    hashtagsPill: document.getElementById('composeHashtagsPill'),
+    livePill: document.getElementById('composeLivePill'),
+  };
+
+  const TOPIC_LABELS = {
+    leisure: 'פנאי',
+    humor: 'הומור',
+    documentary: 'תיעודי',
+    news: 'חדשות',
+    sports: 'ספורט',
+    music: 'מוזיקה',
+    food: 'אוכל',
+    travel: 'טיולים',
+    tech: 'טכנולוגיה',
+    family: 'משפחה',
+    education: 'חינוך',
+    other: 'אחר',
   };
 
   const state = {
@@ -42,6 +63,8 @@
     mediaInputBound: false,
     step: 'chooser',
     composeMode: 'text', // camera | upload | text
+    selectedTopic: '',
+    selectedTopicLabel: '',
     // חלק רקעים – שליטה בבורר רקעים חינמי
     backgroundActive: false,
     backgroundChoices: [],
@@ -954,6 +977,17 @@
     const forceEditor = options.step === 'editor' || options.mode === 'editor';
     const requestedStep = forceEditor ? 'editor' : 'chooser';
 
+    // מובייל: + נפתח ישר למצלמה מלאה (בלי כרטיסיית בחירה) | HYPER CORE TECH
+    if (!forceEditor && isMobile() && typeof window.openVideoRecordModal === 'function') {
+      try {
+        if (elements.modal?.classList.contains('is-visible')) {
+          closeCompose({ keepDraft: true });
+        }
+      } catch (_) {}
+      window.openVideoRecordModal();
+      return;
+    }
+
     if (requestedStep === 'chooser') {
       // איפוס מלא לפני הצגה — גם אם נשאר מצב editor אחרי פרסום | HYPER CORE TECH
       if (!options.keepDraft) {
@@ -1085,6 +1119,22 @@
     if (elements.gameFlagWrap) elements.gameFlagWrap.hidden = true;
     setComposeGameMode(false);
     updateTextToolsVisibility();
+    state.selectedTopic = '';
+    state.selectedTopicLabel = '';
+    try {
+      elements.topicSheet?.setAttribute('hidden', '');
+      if (elements.topicSelected) {
+        elements.topicSelected.hidden = true;
+        elements.topicSelected.textContent = '';
+      }
+      if (elements.topicPill) {
+        elements.topicPill.textContent = 'נושא';
+        elements.topicPill.classList.remove('is-active');
+      }
+      elements.topicGrid?.querySelectorAll('.compose-topic-chip').forEach((chip) => {
+        chip.classList.remove('is-selected');
+      });
+    } catch (_) {}
     updateComposeLegalState();
     showComposeStep('chooser');
   }
@@ -1279,6 +1329,56 @@
         if (elements.textarea && !isMobile()) {
           elements.textarea.focus();
         }
+      });
+    }
+
+    // חלק נושא (compose.js) – בחירת קטגוריה בתצוגה בלבד בינתיים | HYPER CORE TECH
+    if (elements.topicPill && !elements.topicPill.dataset.bound) {
+      elements.topicPill.dataset.bound = '1';
+      elements.topicPill.addEventListener('click', () => {
+        const sheet = elements.topicSheet;
+        if (!sheet) return;
+        const open = sheet.hasAttribute('hidden');
+        if (open) sheet.removeAttribute('hidden');
+        else sheet.setAttribute('hidden', '');
+        elements.topicPill.classList.toggle('is-active', open);
+      });
+    }
+    if (elements.topicGrid && !elements.topicGrid.dataset.bound) {
+      elements.topicGrid.dataset.bound = '1';
+      elements.topicGrid.addEventListener('click', (event) => {
+        const chip = event.target?.closest?.('[data-topic]');
+        if (!chip) return;
+        const topic = chip.getAttribute('data-topic') || '';
+        state.selectedTopic = topic;
+        state.selectedTopicLabel = TOPIC_LABELS[topic] || topic;
+        elements.topicGrid.querySelectorAll('.compose-topic-chip').forEach((el) => {
+          el.classList.toggle('is-selected', el === chip);
+        });
+        if (elements.topicSelected) {
+          elements.topicSelected.hidden = false;
+          elements.topicSelected.textContent = `נושא: ${state.selectedTopicLabel}`;
+        }
+        if (elements.topicPill) {
+          elements.topicPill.textContent = state.selectedTopicLabel || 'נושא';
+          elements.topicPill.classList.add('is-active');
+        }
+        elements.topicSheet?.setAttribute('hidden', '');
+      });
+    }
+    if (elements.hashtagsPill && !elements.hashtagsPill.dataset.bound) {
+      elements.hashtagsPill.dataset.bound = '1';
+      elements.hashtagsPill.addEventListener('click', () => {
+        if (!elements.textarea) return;
+        const cur = elements.textarea.value || '';
+        elements.textarea.value = cur + (cur && !/\s$/.test(cur) ? ' ' : '') + '#';
+        elements.textarea.focus();
+      });
+    }
+    if (elements.livePill && !elements.livePill.dataset.bound) {
+      elements.livePill.dataset.bound = '1';
+      elements.livePill.addEventListener('click', () => {
+        alert('שידור חי יופיע כאן בקרוב');
       });
     }
 

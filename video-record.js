@@ -1,258 +1,259 @@
-// חלק הקלטת וידאו (video-record.js) – ממשק הקלטת וידאו עם טיימר ומצלמה קדמית/אחורית | HYPER CORE TECH
+// חלק הקלטת וידאו (video-record.js) – מסך מצלמה מלא בסגנון טיקטוק | HYPER CORE TECH
 
 class VideoRecorder {
   constructor() {
     this.stream = null;
     this.mediaRecorder = null;
     this.recordedChunks = [];
-    this.maxDuration = 60; // מקסימום 60 שניות
+    this.maxDuration = 10;
+    this.captureMode = '10'; // photo | 10 | 20 | 30
     this.isRecording = false;
     this.recordingStartTime = null;
     this.recordingTimer = null;
     this.floatingTimerInterval = null;
-    this.currentCamera = 'environment'; // 'user' for front, 'environment' for back
+    this.autoStopTimer = null;
+    this.currentCamera = 'environment';
+    this.flashOn = false;
+    this.pendingFile = null;
+    this.pendingObjectUrl = null;
     this.constraints = {
       video: {
-        width: { ideal: 1280, max: 1280 },  // 720p מדויק לביצועים
-        height: { ideal: 720, max: 720 },    // 720p מדויק לביצועים
-        facingMode: this.currentCamera,
-        frameRate: { ideal: 30, max: 30 },   // 30fps יציב
-        // התאמה למובייל - העדפות לביצועים
-        aspectRatio: 16/9,
-        // ביטול עיבוד מיותר למהירות
-        resizeMode: 'none',
-        // אופטימיזציה למובייל
         width: { min: 640, ideal: 1280, max: 1280 },
-        height: { min: 480, ideal: 720, max: 720 }
+        height: { min: 480, ideal: 720, max: 720 },
+        facingMode: this.currentCamera,
+        frameRate: { ideal: 30, max: 30 },
       },
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
-        sampleRate: 48000,  // קצב דגימה גבוה יותר לאיכות
-        // הגדרות אופטימליות למובייל
-        channelCount: 2,   // סטריאו לאיכות טובה יותר
-        latency: 0.005     // השהיה נמוכה מאוד
-      }
+      },
     };
-    
+
     this.initializeElements();
     this.bindEvents();
   }
 
   initializeElements() {
     this.modal = document.getElementById('videoRecordModal');
-    this.recordInterface = document.getElementById('videoRecordInterface');
+    this.stageCamera = document.getElementById('videoRecordStageCamera');
+    this.stageReview = document.getElementById('videoRecordStageReview');
     this.preview = document.getElementById('videoRecordPreview');
+    this.reviewVideo = document.getElementById('videoRecordReviewVideo');
+    this.reviewImage = document.getElementById('videoRecordReviewImage');
     this.recordButton = document.getElementById('recordButton');
     this.cameraSwitch = document.getElementById('cameraSwitchButton');
-    this.timerDisplay = document.getElementById('recordTimer');
+    this.flashButton = document.getElementById('cameraFlashButton');
     this.floatingTimer = document.getElementById('floatingTimer');
+    this.modes = document.getElementById('videoRecordModes');
+    this.galleryInput = document.getElementById('videoRecordGalleryInput');
+    this.liveBtn = document.getElementById('videoRecordLiveBtn');
+    this.closeBtn = document.getElementById('videoRecordCloseBtn');
+    this.reviewBackBtn = document.getElementById('videoRecordReviewBackBtn');
+    this.nextBtn = document.getElementById('videoRecordNextBtn');
   }
 
   bindEvents() {
-    // כפתור פתיחת הקלטה בקומפוזר
-    const recordButton = document.getElementById('composeVideoRecordButton');
-    console.log('[VideoRecorder] Looking for composeVideoRecordButton:', recordButton);
-    if (recordButton) {
-      recordButton.addEventListener('click', (e) => {
-        console.log('[VideoRecorder] Record button clicked!');
+    const recordOpenBtn = document.getElementById('composeVideoRecordButton');
+    if (recordOpenBtn && !recordOpenBtn.dataset.vrBound) {
+      recordOpenBtn.dataset.vrBound = '1';
+      recordOpenBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         try {
-          if (window.NostrApp && typeof window.NostrApp.closeCompose === 'function') {
-            window.NostrApp.closeCompose();
-          } else if (typeof window.closeCompose === 'function') {
-            window.closeCompose();
-          }
+          if (window.NostrApp?.closeCompose) window.NostrApp.closeCompose();
+          else if (typeof window.closeCompose === 'function') window.closeCompose();
         } catch (_) {}
         this.openModal();
       });
-      console.log('[VideoRecorder] Event listener attached to record button');
-    } else {
-      console.error('[VideoRecorder] composeVideoRecordButton not found!');
     }
 
-    // כפתור הקלטה
-    this.recordButton.addEventListener('click', () => {
-      console.log('[VideoRecorder] Record button clicked! Current state:', {
-        isRecording: this.isRecording,
-        hasStream: !!this.stream,
-        hasMediaRecorder: !!this.mediaRecorder
-      });
-      
-      if (this.isRecording) {
-        this.stopRecording();
-      } else {
-        this.startRecording();
-      }
+    this.recordButton?.addEventListener('click', () => this.onShutter());
+    this.cameraSwitch?.addEventListener('click', () => this.switchCamera());
+    this.flashButton?.addEventListener('click', () => this.toggleFlash());
+    this.closeBtn?.addEventListener('click', () => this.closeModal());
+    this.reviewBackBtn?.addEventListener('click', () => this.backToCamera());
+    this.nextBtn?.addEventListener('click', () => this.confirmPendingFile());
+    this.liveBtn?.addEventListener('click', () => {
+      alert('שידור חי יופיע כאן בקרוב');
     });
 
-    // החלפת מצלמה
-    this.cameraSwitch.addEventListener('click', () => {
-      this.switchCamera();
+    this.modes?.querySelectorAll('[data-vr-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-vr-mode');
+        if (mode === 'text') {
+          this.closeModal();
+          if (typeof window.openCompose === 'function') {
+            window.openCompose({ step: 'editor', composeMode: 'text' });
+          } else if (window.NostrApp?.openCompose) {
+            window.NostrApp.openCompose({ step: 'editor', composeMode: 'text' });
+          }
+          return;
+        }
+        this.setCaptureMode(mode);
+      });
     });
+
+    this.galleryInput?.addEventListener('change', (event) => {
+      const file = event.target?.files?.[0];
+      if (!file) return;
+      this.showReview(file);
+      try { event.target.value = ''; } catch (_) {}
+    });
+  }
+
+  setCaptureMode(mode) {
+    const next = String(mode || '10');
+    this.captureMode = next;
+    if (next === 'photo') {
+      this.maxDuration = 0;
+    } else {
+      const sec = Number(next) || 10;
+      this.maxDuration = sec;
+    }
+    this.modes?.querySelectorAll('[data-vr-mode]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.getAttribute('data-vr-mode') === next);
+    });
+    this.recordButton?.classList.toggle('is-photo', next === 'photo');
   }
 
   openModal() {
-    console.log('[VideoRecorder] Opening modal...');
-    if (this.modal) {
-      console.log('[VideoRecorder] Modal found, adding classes...');
-      this.modal.classList.add('is-visible');
-      this.modal.setAttribute('aria-hidden', 'false');
-      this.resetState();
-      // הפעלת מצלמה מיד
-      this.startCamera();
-      console.log('[VideoRecorder] Modal opened successfully');
-    } else {
-      console.error('[VideoRecorder] Modal not found!');
-    }
+    if (!this.modal) return;
+    this.modal.classList.add('is-visible');
+    this.modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('video-record-open');
+    this.resetState();
+    this.showCameraStage();
+    this.setCaptureMode(this.captureMode || '10');
+    this.startCamera();
   }
 
   closeModal() {
-    if (this.modal) {
-      this.modal.classList.remove('is-visible');
-      this.modal.setAttribute('aria-hidden', 'true');
-      this.stopCamera();
-      this.resetState();
-    }
+    if (!this.modal) return;
+    this.modal.classList.remove('is-visible');
+    this.modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('video-record-open');
+    this.stopCamera();
+    this.clearPendingPreview();
+    this.resetState();
+    this.showCameraStage();
   }
 
   resetState() {
     this.isRecording = false;
     this.recordedChunks = [];
-    this.currentCamera = 'environment';
-    this.constraints.video.facingMode = this.currentCamera;
-    
-    // הממשק תמיד גלוי
-    if (this.recordInterface) this.recordInterface.style.display = 'block';
+    this.flashOn = false;
+    if (this.flashButton) {
+      this.flashButton.classList.remove('is-on');
+      this.flashButton.setAttribute('aria-pressed', 'false');
+    }
     if (this.recordButton) this.recordButton.classList.remove('recording');
-    if (this.timerDisplay) this.timerDisplay.textContent = '00:00';
     if (this.floatingTimer) {
       this.floatingTimer.textContent = '00:00';
       this.floatingTimer.classList.remove('visible', 'pulse');
     }
-    
     if (this.recordingTimer) {
       clearInterval(this.recordingTimer);
       this.recordingTimer = null;
     }
-    
     if (this.floatingTimerInterval) {
       clearInterval(this.floatingTimerInterval);
       this.floatingTimerInterval = null;
     }
+    if (this.autoStopTimer) {
+      clearTimeout(this.autoStopTimer);
+      this.autoStopTimer = null;
+    }
+  }
+
+  showCameraStage() {
+    if (this.stageCamera) this.stageCamera.hidden = false;
+    if (this.stageReview) this.stageReview.hidden = true;
+  }
+
+  showReviewStage() {
+    if (this.stageCamera) this.stageCamera.hidden = true;
+    if (this.stageReview) this.stageReview.hidden = false;
+  }
+
+  clearPendingPreview() {
+    this.pendingFile = null;
+    if (this.pendingObjectUrl) {
+      try { URL.revokeObjectURL(this.pendingObjectUrl); } catch (_) {}
+      this.pendingObjectUrl = null;
+    }
+    if (this.reviewVideo) {
+      try { this.reviewVideo.pause(); } catch (_) {}
+      this.reviewVideo.removeAttribute('src');
+      this.reviewVideo.load?.();
+      this.reviewVideo.hidden = true;
+    }
+    if (this.reviewImage) {
+      this.reviewImage.removeAttribute('src');
+      this.reviewImage.hidden = true;
+    }
+  }
+
+  showReview(file) {
+    if (!file) return;
+    if (this.isRecording) this.stopRecording();
+    this.stopCamera();
+    this.clearPendingPreview();
+    this.pendingFile = file;
+    this.pendingObjectUrl = URL.createObjectURL(file);
+    const isVideo = String(file.type || '').startsWith('video/');
+    if (isVideo && this.reviewVideo) {
+      this.reviewVideo.hidden = false;
+      if (this.reviewImage) this.reviewImage.hidden = true;
+      this.reviewVideo.src = this.pendingObjectUrl;
+      this.reviewVideo.play?.().catch(() => {});
+    } else if (this.reviewImage) {
+      this.reviewImage.hidden = false;
+      if (this.reviewVideo) this.reviewVideo.hidden = true;
+      this.reviewImage.src = this.pendingObjectUrl;
+    }
+    this.showReviewStage();
+  }
+
+  backToCamera() {
+    this.clearPendingPreview();
+    this.showCameraStage();
+    this.startCamera();
+  }
+
+  confirmPendingFile() {
+    if (!this.pendingFile) return;
+    const file = this.pendingFile;
+    this.clearPendingPreview();
+    this.closeModal();
+    this.transferToCompose(file);
   }
 
   async startCamera() {
     try {
-      // עצירת מצלמה קודמת אם קיימת
       if (this.stream) {
-        this.stream.getTracks().forEach(track => track.stop());
+        this.stream.getTracks().forEach((track) => track.stop());
       }
-
-      // עדכון constraints למצלמה הנוכחית
       this.constraints.video.facingMode = this.currentCamera;
-
-      console.log('[VideoRecorder] Attempting camera with constraints:', this.constraints);
 
       let stream;
       try {
-        // ניסיון ראשון - איכות אופטימלית
         stream = await navigator.mediaDevices.getUserMedia(this.constraints);
-      } catch (primaryError) {
-        console.warn('[VideoRecorder] Primary constraints failed, trying fallback:', primaryError);
-        
-        // פולבאק למובייל - איכות נמוכה יותר אבל עדיין טובה
-        const fallbackConstraints = {
-          video: {
-            width: { ideal: 1280, max: 1280 },   // עדיין 720p
-            height: { ideal: 720, max: 720 },    // עדיין 720p
-            facingMode: this.currentCamera,
-            frameRate: { ideal: 25, max: 30 },    // קצב פריימים טוב
-            aspectRatio: 16/9
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: 44100,  // עדיין איכות טובה
-            channelCount: 2     // סטריאו
-          }
-        };
-        
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
-          console.log('[VideoRecorder] Fallback constraints successful');
-        } catch (fallbackError) {
-          console.error('[VideoRecorder] Fallback also failed:', fallbackError);
-          
-          // פולבאק אחרון - בסיסי מאוד
-          const basicConstraints = {
-            video: {
-              width: { ideal: 480, max: 640 },
-              height: { ideal: 360, max: 480 },
-              facingMode: this.currentCamera,
-              frameRate: { ideal: 15, max: 24 }
-            },
-            audio: true
-          };
-          
-          stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
-          console.log('[VideoRecorder] Basic constraints successful');
-        }
+      } catch (_) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: this.currentCamera },
+          audio: true,
+        });
       }
-      
+
       this.stream = stream;
-      
-      // בדיקת זרמים והגדרות
-      const videoTrack = this.stream.getVideoTracks()[0];
-      const audioTrack = this.stream.getAudioTracks()[0];
-      
-      if (videoTrack) {
-        const settings = videoTrack.getSettings();
-        console.log('[VideoRecorder] Video settings:', {
-          resolution: `${settings.width}x${settings.height}`,
-          frameRate: settings.frameRate,
-          facingMode: settings.facingMode
-        });
-      }
-      
-      if (audioTrack) {
-        const settings = audioTrack.getSettings();
-        console.log('[VideoRecorder] Audio settings:', {
-          sampleRate: settings.sampleRate,
-          channelCount: settings.channelCount,
-          echoCancellation: settings.echoCancellation
-        });
-      }
-      
       if (this.preview) {
         this.preview.srcObject = this.stream;
-        // הגדרות וידיאו אופטימליות למובייל
         this.preview.playsInline = true;
-        this.preview.muted = true; // מניע ריבאונד
-        this.preview.setAttribute('playsinline', '');
-        this.preview.setAttribute('webkit-playsinline', '');
-        
-        // תיקון ייפול מצלמה - חשוב מאוד!
-        // מצלמה קדמית צריכה להתנהג כמו מראה (mirror)
-        // מצלמה אחורית צריכה להתנהג כמו מצלמה רגילה
-        if (this.currentCamera === 'user') {
-          this.preview.style.transform = 'scaleX(-1)'; // היפוך אופקי למצלמה קדמית
-        } else {
-          this.preview.style.transform = 'scaleX(1)';  // לא מפוך למצלמה אחורית
-        }
-        
-        console.log('[VideoRecorder] Camera preview setup:', {
-          facingMode: this.currentCamera,
-          mirror: this.currentCamera === 'user'
-        });
+        this.preview.muted = true;
+        this.preview.style.transform = this.currentCamera === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+        try { await this.preview.play(); } catch (_) {}
       }
-
-      // ממשק הקלטה כבר גלוי - לא צריך להחליף
-      console.log('[VideoRecorder] Camera ready for recording');
-
     } catch (error) {
       console.error('[VideoRecorder] Failed to access camera:', error);
       alert('לא ניתן לגשת למצלמה. אנא בדוק את ההרשאות ונסה שוב.');
@@ -262,114 +263,115 @@ class VideoRecorder {
 
   stopCamera() {
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;
     }
-    
-    if (this.preview) {
-      this.preview.srcObject = null;
-    }
+    if (this.preview) this.preview.srcObject = null;
   }
 
   async switchCamera() {
-    // החלפת בין מצלמה קדמית לאחורית
     this.currentCamera = this.currentCamera === 'user' ? 'environment' : 'user';
-    
-    // אם מקליטים, עוצרים את ההקלטה
-    if (this.isRecording) {
-      this.stopRecording();
+    this.flashOn = false;
+    if (this.flashButton) {
+      this.flashButton.classList.remove('is-on');
+      this.flashButton.setAttribute('aria-pressed', 'false');
     }
-    
-    // הפעלת מצלמה חדשה
+    if (this.isRecording) this.stopRecording();
     await this.startCamera();
   }
 
+  async toggleFlash() {
+    const track = this.stream?.getVideoTracks?.()?.[0];
+    if (!track) return;
+    const caps = (typeof track.getCapabilities === 'function' && track.getCapabilities()) || {};
+    if (!caps.torch) {
+      alert('הפלאש לא נתמך במכשיר זה');
+      return;
+    }
+    this.flashOn = !this.flashOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: this.flashOn }] });
+      this.flashButton?.classList.toggle('is-on', this.flashOn);
+      this.flashButton?.setAttribute('aria-pressed', this.flashOn ? 'true' : 'false');
+    } catch (err) {
+      console.warn('[VideoRecorder] flash failed', err);
+      this.flashOn = false;
+      alert('לא ניתן להפעיל פלאש');
+    }
+  }
+
+  onShutter() {
+    if (this.captureMode === 'photo') {
+      this.capturePhoto();
+      return;
+    }
+    if (this.isRecording) this.stopRecording();
+    else this.startRecording();
+  }
+
+  async capturePhoto() {
+    if (!this.preview || !this.stream) {
+      alert('מצלמה לא מוכנה');
+      return;
+    }
+    try {
+      const w = this.preview.videoWidth || 720;
+      const h = this.preview.videoHeight || 1280;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('canvas');
+      if (this.currentCamera === 'user') {
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(this.preview, 0, 0, w, h);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      if (!blob) throw new Error('blob');
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      this.showReview(file);
+    } catch (err) {
+      console.error('[VideoRecorder] photo failed', err);
+      alert('צילום התמונה נכשל');
+    }
+  }
+
   startRecording() {
-    console.log('[VideoRecorder] startRecording called! Stream:', !!this.stream);
-    
     if (!this.stream) {
-      console.error('[VideoRecorder] No stream available! Cannot start recording.');
       alert('מצלמה לא מוכנה. אנא המתן עד שהמצלמה תיטען.');
       return;
     }
 
     try {
-      // בדיקת תמיכה ב-codecs - עדיפות ל-codecs מהירים יותר
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-        ? 'video/webm;codecs=vp8,opus'
-        : MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
-        ? 'video/webm;codecs=h264,opus'
-        : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-        ? 'video/webm;codecs=vp9,opus'
-        : 'video/webm';
-
-      console.log('[VideoRecorder] Using mimeType:', mimeType);
-
-      // הגדרות MediaRecorder מותאמות למהירות וביצועים
-      const recorderOptions = {
-        mimeType,
-        videoBitsPerSecond: 800000,   // 0.8 Mbps - הפחתה משמעותית לביצועים
-        audioBitsPerSecond: 64000,    // 64 kbps - הפחתה לאיכות סבירה
-      };
-
-      // התאמה דינמית לרזולוציה בפועל - אופטימיזציה לביצועים
-      const videoTrack = this.stream.getVideoTracks()[0];
-      if (videoTrack) {
-        const settings = videoTrack.getSettings();
-        console.log('[VideoRecorder] Video track settings:', settings);
-        
-        // הפחתת bitrate לפי רזולוציה
-        if (settings.width <= 640 || settings.height <= 360) {
-          recorderOptions.videoBitsPerSecond = 400000;  // 0.4 Mbps לרזולוציה נמוכה
-        } else if (settings.width <= 854 || settings.height <= 480) {
-          recorderOptions.videoBitsPerSecond = 600000;  // 0.6 Mbps לרזולוציה בינונית
+      this.recordedChunks = [];
+      let mimeType = 'video/webm;codecs=vp8,opus';
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+          mimeType = 'video/webm;codecs=vp9,opus';
+        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+          mimeType = 'video/mp4';
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+          mimeType = 'video/webm';
         }
       }
 
-      this.mediaRecorder = new MediaRecorder(this.stream, recorderOptions);
-      this.recordedChunks = [];
-
+      this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
       this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          this.recordedChunks.push(event.data);
-        }
+        if (event.data && event.data.size > 0) this.recordedChunks.push(event.data);
       };
-
-      this.mediaRecorder.onstop = () => {
-        console.log('[VideoRecorder] Recording stopped, processing...');
-        this.processRecording();
-      };
-
-      this.mediaRecorder.onerror = (event) => {
-        console.error('[VideoRecorder] MediaRecorder error:', event);
-        alert('שגיאה בהקלטה. נסה שוב.');
-        this.stopRecording();
-      };
-
-      // התחלת הקלטה עם איסוף תכופות יותר לזרימה חלקה
-      this.mediaRecorder.start(200); // איסוף כל 200ms - איזון בין ביצועים לאיכות
+      this.mediaRecorder.onstop = () => this.processRecording();
+      this.mediaRecorder.start(200);
       this.isRecording = true;
       this.recordingStartTime = Date.now();
-
-      // עדכון UI
-      if (this.recordButton) {
-        this.recordButton.classList.add('recording');
-      }
-
-      // הפעלת טיימרים
+      this.recordButton?.classList.add('recording');
       this.startTimer();
       this.startFloatingTimer();
 
-      // עצירה אוטומטית אחרי 60 שניות
-      setTimeout(() => {
-        if (this.isRecording) {
-          console.log('[VideoRecorder] Auto-stopping recording after 60 seconds');
-          this.stopRecording();
-        }
-      }, this.maxDuration * 1000);
-
-      console.log('[VideoRecorder] Recording started with optimized settings:', recorderOptions);
-
+      if (this.autoStopTimer) clearTimeout(this.autoStopTimer);
+      this.autoStopTimer = setTimeout(() => {
+        if (this.isRecording) this.stopRecording();
+      }, Math.max(1, this.maxDuration) * 1000);
     } catch (error) {
       console.error('[VideoRecorder] Failed to start recording:', error);
       alert('לא ניתן להתחיל הקלטה. נסה לרענן את הדף.');
@@ -378,125 +380,66 @@ class VideoRecorder {
 
   stopRecording() {
     if (!this.isRecording || !this.mediaRecorder) return;
-
-    console.log('[VideoRecorder] Stopping recording...');
-    
-    this.mediaRecorder.stop();
+    try { this.mediaRecorder.stop(); } catch (_) {}
     this.isRecording = false;
-
-    // עצירת טיימר רגיל
     if (this.recordingTimer) {
       clearInterval(this.recordingTimer);
       this.recordingTimer = null;
     }
-
-    // עצירת טיימר צף
     if (this.floatingTimerInterval) {
       clearInterval(this.floatingTimerInterval);
       this.floatingTimerInterval = null;
     }
-
-    // הסתרת טיימר צף
-    if (this.floatingTimer) {
-      this.floatingTimer.classList.remove('visible');
+    if (this.autoStopTimer) {
+      clearTimeout(this.autoStopTimer);
+      this.autoStopTimer = null;
     }
-
-    // עדכון UI
-    if (this.recordButton) {
-      this.recordButton.classList.remove('recording');
-    }
+    this.floatingTimer?.classList.remove('visible');
+    this.recordButton?.classList.remove('recording');
   }
 
   startTimer() {
     const updateTimer = () => {
       if (!this.isRecording) return;
-
       const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
       const remaining = Math.max(0, this.maxDuration - elapsed);
-      
-      const minutes = Math.floor(remaining / 60);
-      const seconds = remaining % 60;
-      const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
-      if (this.timerDisplay) {
-        this.timerDisplay.textContent = display;
-      }
-
-      // שינוי צבע אם נשאר פחות מ-3 שניות
-      if (remaining <= 3 && remaining > 0) {
-        this.timerDisplay.style.color = '#ff4444';
-      } else {
-        this.timerDisplay.style.color = 'white';
-      }
+      const display = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
+      if (this.floatingTimer) this.floatingTimer.textContent = display;
     };
-
     updateTimer();
-    this.recordingTimer = setInterval(updateTimer, 100);
+    this.recordingTimer = setInterval(updateTimer, 200);
   }
 
   startFloatingTimer() {
-    // הצגת הטיימר הצף מיד
-    if (this.floatingTimer) {
-      this.floatingTimer.classList.add('visible');
-    }
-
+    this.floatingTimer?.classList.add('visible');
     const updateFloatingTimer = () => {
       if (!this.isRecording) {
-        // הסתרת הטיימר הצף בסוף ההקלטה
-        if (this.floatingTimer) {
-          this.floatingTimer.classList.remove('visible');
-        }
+        this.floatingTimer?.classList.remove('visible');
         return;
       }
-
       const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
-      const display = `${Math.floor(elapsed / 60).toString().padStart(2, '0')}:${(elapsed % 60).toString().padStart(2, '0')}`;
-      
+      const display = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
       if (this.floatingTimer) {
         this.floatingTimer.textContent = display;
-        
-        // אפקט פולס כל 10 שניות
-        if (elapsed % 10 === 0 && elapsed > 0) {
+        if (elapsed > 0 && elapsed % 10 === 0) {
           this.floatingTimer.classList.remove('pulse');
-          void this.floatingTimer.offsetWidth; // Trigger reflow
+          void this.floatingTimer.offsetWidth;
           this.floatingTimer.classList.add('pulse');
         }
       }
     };
-
     updateFloatingTimer();
-    this.floatingTimerInterval = setInterval(updateFloatingTimer, 100);
+    this.floatingTimerInterval = setInterval(updateFloatingTimer, 200);
   }
 
   async processRecording() {
-    if (this.recordedChunks.length === 0) {
-      console.warn('[VideoRecorder] No recorded data');
-      return;
-    }
-
+    if (!this.recordedChunks.length) return;
     try {
-      // יצירת Blob מההקלטה
       const mimeType = this.mediaRecorder?.mimeType || 'video/webm';
       const blob = new Blob(this.recordedChunks, { type: mimeType });
-      
-      // המרה ל-File כדי לדמות קובץ שהועלה
-      const file = new File([blob], `video-${Date.now()}.webm`, { type: mimeType });
-      
-      console.log('[VideoRecorder] Recording completed:', {
-        size: (blob.size / 1024 / 1024).toFixed(2) + 'MB',
-        duration: Math.floor((Date.now() - this.recordingStartTime) / 1000) + 's',
-        type: mimeType,
-        chunkCount: this.recordedChunks.length
-      });
-
-      console.log('[VideoRecorder] Transferring to compose...');
-      
-      // העברת הקובץ לקומפוזר
-      this.transferToCompose(file);
-
-      // סגירת חלון ההקלטה
-      this.closeModal();
-
+      const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const file = new File([blob], `video-${Date.now()}.${ext}`, { type: mimeType });
+      this.showReview(file);
     } catch (error) {
       console.error('[VideoRecorder] Failed to process recording:', error);
       alert('שגיאה בעיבוד ההקלטה. אנא נסה שוב.');
@@ -504,11 +447,10 @@ class VideoRecorder {
   }
 
   transferToCompose(file) {
-    // הפעלת הקומפוזר ישירות במסך העריכה אחרי הקלטה | HYPER CORE TECH
     const openEditor = () => {
       if (typeof window.openCompose === 'function') {
         window.openCompose({ step: 'editor', composeMode: 'camera' });
-      } else if (window.NostrApp && typeof window.NostrApp.openCompose === 'function') {
+      } else if (window.NostrApp?.openCompose) {
         window.NostrApp.openCompose({ step: 'editor', composeMode: 'camera' });
       }
     };
@@ -516,63 +458,38 @@ class VideoRecorder {
     const composeModal = document.getElementById('composeModal');
     if (!composeModal || composeModal.getAttribute('aria-hidden') === 'true') {
       openEditor();
-    } else if (window.NostrApp && typeof window.NostrApp.showComposeStep === 'function') {
-      window.NostrApp.composeState && (window.NostrApp.composeState.composeMode = 'camera');
+    } else if (window.NostrApp?.showComposeStep) {
+      if (window.NostrApp.composeState) window.NostrApp.composeState.composeMode = 'camera';
       window.NostrApp.showComposeStep('editor');
     }
 
-    // המתנה קצרה שהקומפוזר ייפתח והאלמנטים יהיו זמינים
     setTimeout(() => {
-      // העברת הקובץ לפונקציית הטיפול במדיה של הקומפוזר
       if (typeof window.handleMediaInput === 'function') {
         window.handleMediaInput({ target: { files: [file], value: '' } });
-      } else if (typeof handleMediaInput === 'function') {
-        handleMediaInput({ target: { files: [file], value: '' } });
       } else {
         console.error('[VideoRecorder] handleMediaInput function not found!');
-        alert('שגיאה בהעברת הווידיאו לקומפוזר. נסו לבחור קובץ ידנית.');
+        alert('שגיאה בהעברת המדיה לקומפוזר. נסו לבחור קובץ ידנית.');
       }
-    }, 500); // הגדלתי את ההמתנה ל-500ms לוודא שהכל נטען
+    }, 450);
   }
 }
 
-// אתחול המחלקה כשהדף נטען
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('[VideoRecorder] DOM loaded, initializing VideoRecorder...');
-  window.videoRecorder = new VideoRecorder();
-  console.log('[VideoRecorder] VideoRecorder initialized:', window.videoRecorder);
-});
-
-// גם אתחול גיבוי אם DOMContentLoaded כבר קרה
-if (document.readyState === 'loading') {
-  // עדיין טוען
-  console.log('[VideoRecorder] Document still loading, waiting for DOMContentLoaded...');
-} else {
-  // כבר נטען
-  console.log('[VideoRecorder] Document already loaded, initializing immediately...');
-  if (!window.videoRecorder) {
-    window.videoRecorder = new VideoRecorder();
-    console.log('[VideoRecorder] VideoRecorder initialized immediately:', window.videoRecorder);
-  }
-}
-
-// פונקציות גלובליות לשימוש ב-HTML
 function closeVideoRecordModal() {
-  if (window.videoRecorder) {
-    window.videoRecorder.closeModal();
-  }
+  window.videoRecorder?.closeModal();
 }
 
 function openVideoRecordModal() {
-  console.log('[VideoRecorder] Global openVideoRecordModal called');
-  if (window.videoRecorder) {
-    window.videoRecorder.openModal();
-  } else {
-    console.error('[VideoRecorder] VideoRecorder not initialized!');
-    // נסה לאתחל שוב
-    window.videoRecorder = new VideoRecorder();
-    if (window.videoRecorder) {
-      window.videoRecorder.openModal();
-    }
-  }
+  if (!window.videoRecorder) window.videoRecorder = new VideoRecorder();
+  window.videoRecorder.openModal();
+}
+
+window.closeVideoRecordModal = closeVideoRecordModal;
+window.openVideoRecordModal = openVideoRecordModal;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!window.videoRecorder) window.videoRecorder = new VideoRecorder();
+});
+
+if (document.readyState !== 'loading' && !window.videoRecorder) {
+  window.videoRecorder = new VideoRecorder();
 }
