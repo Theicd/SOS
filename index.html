@@ -1,924 +1,1993 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl" data-theme="dark">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8" />
-    <!-- Open Graph קודם לכל – וואטסאפ קורא רק את תחילת ה-head | HYPER CORE TECH -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="SOS" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:title" content="‎SOS - People Are The Network" />
-    <meta property="og:description" content="‎Decentralized social. Direct communication. Real connection." />
-    <meta property="og:url" content="https://sos010.com/" />
-    <meta property="og:image" content="https://sos010.com/icons/sos-og.jpg" />
-    <meta property="og:image:secure_url" content="https://sos010.com/icons/sos-og.jpg" />
-    <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="1200" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="‎SOS - People Are The Network" />
-    <meta name="twitter:description" content="‎Decentralized social. Direct communication. Real connection." />
-    <meta name="twitter:image" content="https://sos010.com/icons/sos-og.jpg" />
-    <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta http-equiv="Permissions-Policy" content="interest-cohort=(), geolocation=(), payment=(), usb=(), bluetooth=()" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="dark light">
-    <title>SOS - People Are The Network</title>
-    <meta name="description" content="‎SOS - People Are The Network. Decentralized social, direct communication, real connection." />
-    <!-- חלק PWA (index.html) – קישור ל-manifest והגדרות iOS | HYPER CORE TECH -->
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="./icons/sos-app-icon-180.png?v=20260726e" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="SOS" />
-    <meta name="theme-color" content="#4a90d9" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png?v=20260726e" />
-    <link rel="icon" type="image/png" sizes="192x192" href="./icons/sos-app-icon-192.png?v=20260726e" />
-    <link rel="icon" type="image/png" href="./icons/WAPICON.png?v=20260726e" />
-    <!-- חלק הפניה ראשית (index.html) – דואג שהאתר ייטען לפיד הווידאו כברירת מחדל | HYPER CORE TECH -->
-    <script>
-      (function redirectToVideosHome() {
-        try {
-          const origin = window.location.origin || '';
-          const pathname = window.location.pathname || '/';
-          const lowerPath = pathname.toLowerCase();
-          const segments = pathname.split('/').filter(Boolean);
-          const lastSegment = segments[segments.length - 1] || '';
-          const lastLower = lastSegment.toLowerCase();
-          const isIndexFile = lastLower === 'index.html';
-          const isVideosFile = lastLower === 'videos.html';
-
-          const isGithubProject = window.location.hostname.endsWith('github.io');
-          const repoSegmentOriginal = isGithubProject ? (segments[0] || '') : '';
-          const hasRepoSegment = !!repoSegmentOriginal;
-          const repoSegmentLower = repoSegmentOriginal.toLowerCase();
-          const rootCandidates = new Set(
-            ['/', `/${repoSegmentLower}`, `/${repoSegmentLower}/`].filter(Boolean)
-          );
-          const isRootPath = hasRepoSegment ? rootCandidates.has(lowerPath) : lowerPath === '/';
-
-          if (!isVideosFile && (isRootPath || isIndexFile)) {
-            const basePath = hasRepoSegment ? `/${repoSegmentOriginal}/` : '/';
-            const search = window.location.search || '';
-            const hash = window.location.hash || '';
-            // שמירת ?invite= ושאר הפרמטרים בהפניה לפיד | HYPER CORE TECH
-            const targetUrl = `${origin}${basePath}videos.html${search}${hash}`;
-            window.location.replace(targetUrl);
-          }
-        } catch (err) {
-          console.warn('[INDEX] Redirect to videos home failed', err);
-        }
-      })();
-    </script>
-    <!-- חלק ראש (index.html) – אייקון לשונית שקוף כמו ברשתות גדולות | HYPER CORE TECH -->
-    <link rel="icon" type="image/png" href="./icons/WAPICON.png?v=20260726e" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <!-- חלק מובייל (index.html) – טוקנים ו-Safe Area | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./styles/tokens.css">
-    <link rel="stylesheet" href="./styles/base.css">
-    <link rel="stylesheet" href="./styles/facebook-theme.css">
-    <link rel="stylesheet" href="./styles/media-overrides.css">
-    <link rel="stylesheet" href="./styles/home-feed.css">
-    <link rel="stylesheet" href="./styles/splash-screen.css">
-    <link rel="stylesheet" href="./styles/market-dashboard.css">
-    <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
-    <link rel="stylesheet" href="./styles/game-trivia.css">
-    <!-- חלק צ'אט (index.html) – טוען את עיצוב מסנג'ר הצ'אט -->
-    <link rel="stylesheet" href="./styles/chat.css">
-    <!-- חלק צ'אט (index.html) – טוען התאמות סגנון בהשראת וואטסאפ לממשק המסנג'ר -->
-    <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css">
-    <!-- חלק צ'אט (index.html) – טוען עיצוב ייעודי לרכיבי העברת קבצים בין משתמשים -->
-    <link rel="stylesheet" href="./styles/chat-file-transfer.css">
-    <link rel="stylesheet" href="./styles/chat-send-preview.css?v=20260813desk1">
-    <!-- חלק דיאלוגים (index.html) – טוען עיצוב תיבות דיאלוג מותאמות לצ'אט -->
-    <link rel="stylesheet" href="./styles/chat-dialog.css">
-    <!-- חלק שיחות קול (index.html) – טוען עיצוב דיאלוג שיחות קוליות -->
-    <link rel="stylesheet" href="./styles/chat-voice-call.css">
-    <!-- חלק שיחות וידאו (index.html) – טוען עיצוב דיאלוג שיחות וידאו -->
-    <link rel="stylesheet" href="./styles/chat-video-call.css">
-    <!-- חלק שידור חי (index.html) – עיצוב דיאלוג שידור חי וכרטיס פיד -->
-    <link rel="stylesheet" href="./styles/live-stream.css">
-    <!-- חלק PWA (index.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./styles/pwa-install.css">
-    <link rel="stylesheet" href="./styles/logo.css">
-    <!-- חלק מובייל (index.html) – תיקון גובה viewport באייפון | HYPER CORE TECH -->
-    <script src="./mobile-viewport-fix.js"></script>
-    <script src="./auth-guard.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>GroVee TV Live</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/hls.js@1.4.12/dist/hls.min.js"></script>
+    <script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js"></script>
     <style>
-      /* חלק רקעים (index.html) – סגנון גלריה ופריטים */
-      .compose-dialog__toolbar { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
-      .compose-backgrounds {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: 10px 0 0;
-        max-height: 220px;
-        overflow-y: auto;
-        overflow-x: hidden;
-      }
-      /* הסתרה קשיחה עם hidden */
-      .compose-backgrounds[hidden] { display: none !important; }
-      .compose-media-preview[hidden] { display: none !important; }
-      @media (max-width: 480px) {
-        .compose-backgrounds { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
-      }
-      .compose-bg__item { flex: 0 0 96px; width: 96px; height: 96px; background-size: cover; background-position: center; border-radius: 12px; border: 2px solid transparent; position: relative; cursor: pointer; }
-      .compose-bg__item.is-selected { border-color: #2d88ff; box-shadow: 0 0 0 2px rgba(45,136,255,.25); }
-
-      /* ===== אפקטים לפוסטים חדשים בלבד (feed) – ממוקד למחלקה feed-post--fx ===== */
-      @keyframes fxZoomOut {
-        0% { transform: scale(1.08); }
-        100% { transform: scale(1); }
-      }
-      @keyframes fxZoomIn {
-        0% { transform: scale(1); }
-        100% { transform: scale(1.15); }
-      }
-      @keyframes fxTextIn {
-        0% { opacity: 0; transform: translateY(10px) rotateX(-8deg); filter: blur(6px); }
-        100% { opacity: 1; transform: none; filter: blur(0); }
-      }
-      .feed-post.feed-post--fx[data-fx="zoomout"] .feed-media img,
-      .feed-post.feed-post--fx[data-fx="zoomout"] .feed-media video {
-        animation: fxZoomOut 1000ms ease-out both;
-        transform-origin: center center;
-        will-change: transform;
-      }
-      /* לא להנפיש שם/תוכן רגיל */
-      /* Zoom-In: תמונה מגדילה, טקסט נכנס אחרי 2 שניות */
-      .feed-post.feed-post--fx .feed-media { overflow: hidden; position: relative; }
-      .feed-post.feed-post--fx[data-fx="zoomin"] .feed-media img,
-      .feed-post.feed-post--fx[data-fx="zoomin"] .feed-media video {
-        animation: fxZoomIn 4000ms ease-in-out infinite both;
-        transform-origin: center center;
-        display: block;
-        will-change: transform;
-        backface-visibility: hidden;
-        transform: translateZ(0);
-      }
-      /* שכבת טקסט על המדיה – רק לפוסטים חדשים עם fx */
-      .feed-post.feed-post--fx .feed-media__overlay-text {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        text-align: center;
-        color: #fff;
-        text-shadow: 0 2px 6px rgba(0,0,0,0.6);
-        pointer-events: none;
-        opacity: 0;
-        animation: fxTextIn 900ms ease-out both;
-        animation-delay: 2s;
-      }
-      .feed-post.feed-post--fx .feed-media__overlay-text > span {
-        display: inline-block;
-        max-width: 90%;
-      }
-      /* לא משפיע על פוסטים ישנים כי אין להם feed-post--fx */
-
-      /* חלק אחסון (index.html) – וודא שכפתור האחסון נראה בכל הגדלים | HYPER CORE TECH */
-      .nav-item[data-nav="storage"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-      }
-
-      /* חלק וידאו (index.html) – סגנון play overlay לוידאו */
-      .feed-media--video {
-        position: relative;
-        cursor: pointer;
-        background: #000;
-      }
-      .feed-media--video video {
-        display: block;
-        width: 100%;
-        height: auto;
-      }
-      .feed-media__play-overlay {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.3);
-        transition: opacity 0.3s ease;
-        pointer-events: none;
-      }
-      .feed-media__play-overlay i {
-        font-size: 64px;
-        color: #fff;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-        background: rgba(0, 0, 0, 0.6);
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding-left: 6px;
-      }
-      @media (max-width: 768px) {
-        .feed-media__play-overlay i {
-          font-size: 48px;
-          width: 64px;
-          height: 64px;
+        :root {
+            --bg: #050505;
+            --card: #111111;
+            --accent: #F59E0B;
+            --accent2: #D97706;
+            --success: #22C55E;
+            --warn: #EAB308;
+            --danger: #EF4444;
+            --glass: rgba(0,0,0,0.55);
+            --text: #fff;
         }
-      }
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Rubik',sans-serif; }
+        button { font:inherit; }
+        
+        #splash { position:fixed; inset:0; z-index:9999; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 20px; transition: opacity .6s ease; overflow:auto; }
+        #splash.hide { opacity:0; pointer-events:none; }
+        .splash-panel {
+            width: min(100%, 420px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .splash-ring { width:56px; height:56px; border:3px solid rgba(245,158,11,0.2); border-top-color:var(--accent); border-radius:50%; animation:spin .9s linear infinite; flex-shrink:0; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .splash-text { margin-top:20px; color:var(--accent); font-size:18px; font-weight:700; }
+        .splash-explain {
+            margin-top:14px;
+            max-width:360px;
+            text-align:center;
+            color:#aaa;
+            font-size:13px;
+            line-height:1.55;
+            font-weight:400;
+        }
+        .splash-sub { color:#666; font-size:12px; margin-top:12px; min-height:18px; text-align:center; }
+        #splash-sources {
+            margin-top:20px;
+            width:100%;
+            max-height:42dvh;
+            overflow-y:auto;
+            display:flex;
+            flex-direction:column;
+            gap:6px;
+            scrollbar-width:thin;
+        }
+        .splash-src-row {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+            padding:8px 12px;
+            border-radius:10px;
+            background:rgba(255,255,255,0.04);
+            border:1px solid rgba(255,255,255,0.06);
+            font-size:12px;
+            opacity:0.35;
+            transition:opacity .25s ease, border-color .25s ease, background .25s ease;
+        }
+        .splash-src-row.active {
+            opacity:1;
+            border-color:rgba(245,158,11,0.45);
+            background:rgba(245,158,11,0.08);
+        }
+        .splash-src-row.done { opacity:0.9; }
+        .splash-src-row.fail { opacity:0.7; border-color:rgba(239,68,68,0.35); }
+        .splash-src-name { font-weight:600; color:#eee; }
+        .splash-src-status { color:#888; font-size:11px; white-space:nowrap; }
+        .splash-src-row.active .splash-src-status { color:var(--accent); }
+        .splash-src-row.done .splash-src-status { color:var(--success); }
+        .splash-src-row.fail .splash-src-status { color:var(--danger); }
+        @media (min-width: 900px) {
+            .splash-panel { width: min(100%, 780px); }
+            .splash-text { font-size: 28px; margin-top: 12px; }
+            .splash-explain { max-width: 560px; font-size: 15px; }
+            #splash-sources {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px 12px;
+                max-height: min(48vh, 360px);
+                margin-top: 28px;
+            }
+            .splash-src-row { padding: 10px 14px; font-size: 13px; }
+        }
+        
+        #scan-progress { position:fixed; top:0; left:0; right:0; height:2px; z-index:150; background:rgba(255,255,255,0.05); opacity:0; transition:opacity .3s ease; }
+        #scan-progress.show { opacity:1; }
+        .scan-progress-bar { height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); width:0%; transition:width .3s ease; }
+        
+        /* Header - שורה אחת עם כל האלמנטים */
+        #top-header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 110;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 10px;
+            padding-top: max(8px, env(safe-area-inset-top));
+            background: rgba(5,5,5,0.92);
+            backdrop-filter: blur(18px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            transition: transform .3s ease, opacity .3s ease;
+        }
+        #top-header.hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+        
+        .header-left { display: flex; align-items: center; gap: 4px; flex-shrink: 0; min-width: 0; }
+        .header-title { font-size: 11px; color: #fff; opacity: 0.85; white-space: nowrap; }
+        
+        /* כרטיס ערוץ מאוחד בתחתית־ימין */
+        #channel-chip {
+            position: fixed;
+            bottom: max(16px, env(safe-area-inset-bottom));
+            right: 12px;
+            left: auto;
+            top: auto;
+            z-index: 90;
+            max-width: min(78%, 320px);
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: rgba(0,0,0,0.82);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255,255,255,0.14);
+            pointer-events: auto;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        #channel-chip-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        #channel-chip-meta {
+            font-size: 10px;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        #channel-chip-epg {
+            font-size: 11px;
+            color: #e5e5e5;
+            line-height: 1.35;
+            display: none;
+        }
+        #channel-chip-epg.show { display: block; }
+        #channel-chip-epg .epg-now-label {
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 9px;
+            letter-spacing: 0.04em;
+            margin-left: 4px;
+        }
+        #channel-chip-source {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 2px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #ddd;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 600;
+            max-width: 100%;
+            align-self: flex-start;
+        }
+        #channel-chip-source i { color: var(--accent); font-size: 10px; }
+        #channel-chip-source:active { background: rgba(245,158,11,0.2); color: var(--accent); }
+        .chip-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: #888;
+        }
+        .chip-live i { font-size: 9px; color: var(--success); }
+        
+        /* כפתור לוח שידורים צף */
+        #epg-fab {
+            position: fixed;
+            bottom: max(150px, calc(env(safe-area-inset-bottom) + 130px));
+            right: 14px;
+            z-index: 95;
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            border: 1px solid rgba(245,158,11,0.45);
+            background: linear-gradient(145deg, rgba(245,158,11,0.95), rgba(217,119,6,0.9));
+            color: #111;
+            font-size: 20px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(245,158,11,0.35);
+            transition: transform .2s ease, opacity .2s ease;
+        }
+        #epg-fab.show { display: flex; }
+        #epg-fab:active { transform: scale(0.94); }
+        #epg-fab .epg-fab-pulse {
+            position: absolute;
+            inset: -4px;
+            border-radius: 18px;
+            border: 2px solid rgba(245,158,11,0.5);
+            animation: epg-pulse 2s ease-out infinite;
+            pointer-events: none;
+        }
+        @keyframes epg-pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(1.25); opacity: 0; }
+        }
+        
+        #cat-bar { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+        #cat-bar::-webkit-scrollbar { display: none; }
+        .cat-pill { flex-shrink: 0; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 500; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all .25s ease; white-space: nowrap; }
+        .cat-pill:hover { background: rgba(255,255,255,0.14); }
+        .cat-pill.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+        
+        .header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .header-pill { padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; background: rgba(255,255,255,0.08); color: #fff; white-space: nowrap; }
+        #auto-scroll-btn { padding: 4px 8px; border: none; border-radius: 12px; background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; font-size: 10px; font-weight: 700; transition: all .25s ease; white-space: nowrap; }
+        #auto-scroll-btn.active { background: var(--accent); color: #000; }
+        .header-settings-btn { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .25s ease; color: #fff; font-size: 13px; flex-shrink: 0; }
+        .header-settings-btn:hover { background: rgba(255,255,255,0.15); transform: scale(1.1); }
+        
+        #scroller { height:100%; height:100dvh; width:100%; overflow-y:scroll; overflow-x:hidden; scroll-snap-type:y mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-top: 0; }
+        #scroller::-webkit-scrollbar { display:none; }
+        .slide { height:100%; min-height:100dvh; min-height:100svh; width:100%; max-width:100%; scroll-snap-align:start; position:relative; overflow:hidden; background:#000; }
+        .slide video { width:100%; height:100%; object-fit:contain; background:#000; }
+        .slide-bg { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(30px) brightness(0.3); transform:scale(1.2); opacity:1; transition:opacity .5s ease; }
+        
+        .overlay-top { position:absolute; top:0; left:0; right:0; padding:12px 16px; padding-top:max(12px, env(safe-area-inset-top)); background:linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%); z-index:10; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+        @media (max-width: 768px) {
+            .header-left { max-width: 56px; }
+            .cat-pill { padding: 4px 10px; font-size: 10px; }
+            .side-actions { bottom: 200px; left: 8px; gap: 14px; }
+            .side-btn { width: 42px; height: 42px; font-size: 17px; }
+            #channel-chip { max-width: calc(100% - 76px); bottom: max(12px, env(safe-area-inset-bottom)); }
+            #epg-fab { bottom: max(130px, calc(env(safe-area-inset-bottom) + 110px)); width: 48px; height: 48px; }
+            .overlay-top { padding-top: max(56px, calc(env(safe-area-inset-top) + 48px)); }
+        }
+        .overlay-bottom { display: none !important; }
+        
+        .side-actions { position:absolute; left:12px; bottom:200px; z-index:12; display:flex; flex-direction:column; gap:20px; align-items:center; opacity:1; transition:opacity .25s ease; }
+        .side-btn { width:48px; height:48px; border-radius:50%; background:var(--glass); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .25s ease; color:#fff; font-size:20px; }
+        .side-btn:hover { background:rgba(255,255,255,0.15); transform:scale(1.1); }
+        .side-btn.active { color:var(--accent); border-color:var(--accent); }
+        .side-btn-label { font-size:10px; color:#aaa; margin-top:2px; text-align:center; direction:ltr; }
+        
+        .health-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+        .health-fast { background:rgba(34,197,94,0.2); color:var(--success); }
+        .health-slow { background:rgba(234,179,8,0.2); color:var(--warn); }
+        .health-dead { background:rgba(239,68,68,0.2); color:var(--danger); }
+        .health-unknown { background:rgba(255,255,255,0.1); color:#888; }
+        .health-dot { width:6px; height:6px; border-radius:50%; }
+        .health-fast .health-dot { background:var(--success); animation:pulse-dot 1.5s infinite; }
+        .health-slow .health-dot { background:var(--warn); }
+        .health-dead .health-dot { background:var(--danger); }
+        .health-unknown .health-dot { background:#666; }
+        @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+        
+        .epg-ticker-wrap { overflow:hidden; white-space:nowrap; direction:ltr; position:relative; mask-image:linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%); -webkit-mask-image:linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%); }
+        .epg-ticker-inner { display:inline-block; animation:scroll-ticker 18s linear infinite; }
+        @keyframes scroll-ticker { 0% { transform:translateX(100%); } 100% { transform:translateX(-100%); } }
+        
+        .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; min-height:100dvh; gap:16px; color:#666; }
+        .empty-state i { font-size:48px; color:#333; }
+        
+        .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px); z-index:200; display:flex; align-items:flex-end; justify-content:center; transition:opacity .3s ease; }
+        .modal-backdrop.hide { opacity:0; pointer-events:none; }
+        .modal-sheet { width:100%; max-width:480px; background:#1a1a1a; border-radius:20px 20px 0 0; padding:24px; max-height:80dvh; overflow-y:auto; transform:translateY(0); transition:transform .35s cubic-bezier(0.32,0.72,0,1); }
+        .modal-backdrop.hide .modal-sheet { transform:translateY(100%); }
+        .modal-handle { width:40px; height:4px; background:#444; border-radius:4px; margin:0 auto 20px; }
+        
+        #toast {
+            position:fixed;
+            top:50%;
+            left:50%;
+            bottom:auto;
+            transform:translate(-50%, -40%) scale(0.96);
+            background:rgba(30,30,30,0.95);
+            backdrop-filter:blur(12px);
+            border:1px solid rgba(255,255,255,0.1);
+            padding:12px 22px;
+            border-radius:14px;
+            font-size:13px;
+            z-index:300;
+            opacity:0;
+            transition:all .3s ease;
+            pointer-events:none;
+            max-width:min(90vw, 340px);
+            text-align:center;
+            box-shadow:0 12px 40px rgba(0,0,0,0.45);
+        }
+        #toast.show { opacity:1; transform:translate(-50%, -50%) scale(1); }
+        
+        .block-toggle { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .toggle-switch { width:44px; height:24px; background:#333; border-radius:12px; position:relative; cursor:pointer; transition:background .25s ease; flex-shrink:0; }
+        .toggle-switch.on { background:var(--accent); }
+        .toggle-switch::after { content:''; position:absolute; top:2px; inset-inline-start:2px; width:20px; height:20px; background:#fff; border-radius:50%; transition:transform .25s ease; }
+        .toggle-switch.on::after { transform:translateX(20px); }
+        [dir="rtl"] .toggle-switch.on::after { transform:translateX(-20px); }
+        
+        .video-loader { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:4; }
+        .video-spinner { width:40px; height:40px; border:3px solid rgba(245,158,11,0.2); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+        
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 13px; color: #888; margin-bottom: 6px; font-weight: 600; }
+        .input-group input, .input-group textarea { width: 100%; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; font-size: 14px; font-family: inherit; }
+        .input-group input:focus, .input-group textarea:focus { outline: none; border-color: var(--accent); }
+        
+        @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; } }
     </style>
-  </head>
+</head>
 <body>
-    <div id="connection-status" class="connection-toast">
-        מתחבר לריליים...
+<div id="splash">
+    <div class="splash-panel">
+        <div class="splash-ring"></div>
+        <div class="splash-text">GroVee TV Live</div>
+        <p class="splash-explain">סורק מאגרים ציבוריים ומציג <b style="color:#ccc;">רק שידורים שעובדים</b>. ערוצים מופיעים ברגע שנמצאו — בלי כרטיסים ריקים.</p>
+        <div id="splash-sources"></div>
+        <div class="splash-sub" id="splash-status">מתחיל סריקת מאגרים...</div>
     </div>
-    <div class="app-shell">
-        <header class="top-bar">
-            <div class="app-logo">
-              <div class="sos-logo">
-                <span class="sos-char sos-s">S</span>
-                <span class="sos-char sos-o">O</span>
-                <span class="sos-char sos-s">S</span>
-              </div>
-              <div class="sos-tagline">רשת קריפטונית מבוזרת</div>
-            </div>
-            <div class="top-bar__actions">
-                <!-- חלק ניווט חדשות (index.html) – אייקון חדשות בסרגל העליון לפתיחת דף החדשות | HYPER CORE TECH -->
-                <button class="circle-button" id="newsToggleTop" aria-label="חדשות">
-                    <i class="fa-solid fa-newspaper"></i>
-                </button>
-                <!-- חלק ניווט הכרויות (index.html) – אייקון לב בסרגל העליון לפתיחת מסך ההכרויות | HYPER CORE TECH -->
-                <button class="circle-button" id="datingToggleTop" aria-label="הכרויות">
-                    <i class="fa-solid fa-heart"></i>
-                </button>
-                <!-- חלק ניווט משחקים (index.html) – אייקון משחקים בסרגל העליון ליד ההכרויות | HYPER CORE TECH -->
-                <button class="circle-button" id="gamesToggleTop" aria-label="משחקים">
-                    <i class="fa-solid fa-gamepad"></i>
-                </button>
-                <button class="circle-button" id="notificationsToggle" aria-label="התראות">
-                    <i class="fa-solid fa-bell"></i>
-                    <span class="notifications-badge" id="notificationsBadge" hidden></span>
-                </button>
-                <button class="circle-button" id="messagesToggle" aria-label="הודעות">
-                    <i class="fa-solid fa-message"></i>
-                    <span class="notifications-badge" id="messagesBadge" hidden></span>
-                </button>
-                <div class="top-bar__profile" id="topBarProfile">
-                    <button class="top-bar__avatar" id="topBarProfileButton" aria-haspopup="true" aria-expanded="false" aria-label="פרופיל משתמש">
-                        <span id="topBarProfileAvatar">?</span>
-                    </button>
-                    <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
-                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileGrowth">
-                            <i class="fa-solid fa-chart-line"></i>
-                            <span>לוח גידול הרשת</span>
-                        </button>
-                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileSelf">
-                            <i class="fa-solid fa-id-card"></i>
-                            <span>הפרופיל שלי</span>
-                        </button>
-                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
-                            <i class="fa-solid fa-key"></i>
-                            <span>הצגת מפתח</span>
-                        </button>
-                        <!-- חלק חוזה חכם (index.html) – כפתור לפתיחת לוח החוזה החכם מתוך תפריט הפרופיל | HYPER CORE TECH -->
-                        <button type="button" class="top-bar__dropdown-item" id="topBarProfileContract">
-                            <i class="fa-solid fa-handshake"></i>
-                            <span>חוזה חכם</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </header>
-        <nav class="primary-nav" aria-label="ניווט ראשי">
-            <button class="nav-item" data-nav="home">
-               <i class="fa-solid fa-house"></i>
-                <span>בית</span>
-            </button>
-            <button class="nav-item" data-nav="videos">
-                <i class="fa-solid fa-clapperboard"></i>
-                <span>וידאו פיד</span>
-            </button>
-            <!-- חלק יצירת פוסט (index.html) – כפתור פלוס בתפריט התחתון לפתיחת קומפוזר -->
-            <button class="nav-item" id="navCompose" type="button" aria-label="פוסט חדש" onclick="openCompose()">
-                <i class="fa-solid fa-plus"></i>
-                <span>פוסט חדש</span>
-            </button>
-            <button class="nav-item" type="button" aria-label="הפרופיל שלי" onclick="window.location.href='./profile.html'">
-                <i class="fa-solid fa-id-card"></i>
-                <span>הפרופיל שלי</span>
-            </button>
-            <!-- חלק אחסון (index.html) – כפתור "האחסון שלי" לפתיחת עמוד האחסון החינמי | HYPER CORE TECH -->
-            <button class="nav-item" data-nav="storage" onclick="console.log('[INDEX] Storage button clicked')">
-                <i class="fa-solid fa-box-archive"></i>
-                <span>האחסון שלי</span>
-            </button>
-            <!-- חלק ניווט משחקים (index.html) – הכפתור הוסר מכאן ועבר לסרגל העליון -->
-            <!-- חלק ניווט הכרויות (index.html) – כפתור המעבר למסך הטינדר החדש -->
-            <!-- חלק ניווט חוזה (index.html) – כפתור "חוזה חכם" בקצה השמאלי להדגשת חוויית ההשקעה -->
-        </nav>
-        <section class="composer-card">
-            <div class="composer-header">
-                <div class="profile-inline">
-                    <div class="profile-avatar" id="profileAvatar">?</div>
-                    <div class="profile-text">
-                        <span class="profile-name" id="profileName">משתמש</span>
-                        <span class="profile-bio" id="profileBio">ברוך הבא ליאללה תקשורת</span>
-                    </div>
-                </div>
-                <!-- חלק ניווט לפרופיל האישי (index.html) – כפתור יחיד במקום עריכה/מחיקה בדף הבית -->
-                <button class="link-button" type="button" onclick="window.location.href='./profile.html'">הפרופיל שלי</button>
-            </div>
-          <div class="composer-body">
-            <button class="composer-trigger" onclick="openCompose()">מה בא לך לשתף?</button>
-          </div>
-        </section>
-        <div class="notifications-panel" id="notificationsPanel" hidden>
-            <header class="notifications-panel__header">
-                <h2>התראות</h2>
-                <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">סמן כנקראו</button>
-            </header>
-            <div class="notifications-panel__body">
-                <p class="notifications-panel__empty" id="notificationsEmpty">אין התרעות חדשות כרגע.</p>
-                <ul class="notifications-panel__list" id="notificationsList"></ul>
-            </div>
-        </div>
-        <!-- חלק צ'אט (index.html) – חלון המסנג'ר הראשי ללא כפתור משגר צף -->
-        <section class="chat-panel" id="chatPanel" hidden aria-label="מסנג'ר פרטי">
-            <div class="chat-panel__body">
-                <aside class="chat-contacts" aria-label="רשימת שיחות">
-                    <div class="chat-contacts__search">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="search" id="chatSearchInput" placeholder="חיפוש בצ'אט" autocomplete="off">
-                        <div class="chat-contacts__actions" role="group" aria-label="פעולות מהירות בצ'אט">
-                            <button type="button" class="chat-panel__icon" aria-label="תפריט הצ'אט">
-                                <i class="fa-solid fa-ellipsis-vertical"></i>
-                            </button>
-                            <button type="button" class="chat-panel__icon" id="chatCloseButton" aria-label="סגירת הצ'אט">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="chat-contacts__list" id="chatContactsList"></div>
-                </aside>
-                <main class="chat-conversation" aria-live="polite">
-                    <section class="chat-notifications" id="chatNotifications" hidden>
-                        <header class="chat-notifications__header">
-                            <div class="chat-notifications__title">
-                                <i class="fa-solid fa-bell"></i>
-                                <div>
-                                    <h2>התראות</h2>
-                                    <p>לייקים ותגובות אחרונים לפוסטים שלך</p>
-                                </div>
-                            </div>
-                            <button type="button" class="chat-notifications__mark" id="chatNotificationsMarkRead">סמן כנקראו</button>
-                        </header>
-                        <div class="chat-notifications__body">
-                            <p class="chat-notifications__empty" id="chatNotificationsEmpty">אין התרעות חדשות כרגע.</p>
-                            <ul class="chat-notifications__list" id="chatNotificationsList"></ul>
-                        </div>
-                    </section>
-                    <div class="chat-conversation__empty" id="chatEmptyState">
-                        <i class="fa-regular fa-comments"></i>
-                        <p>בחר איש קשר כדי להתחיל לשוחח.</p>
-                    </div>
-                    <header class="chat-conversation__header" id="chatConversationHeader" hidden>
-                        <button type="button" class="chat-conversation__back" id="chatConversationBack" aria-label="חזרה לרשימת שיחות">
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </button>
-                        <div class="chat-conversation__avatar" id="chatConversationAvatar">?</div>
-                        <div class="chat-conversation__meta">
-                            <span class="chat-conversation__name" id="chatConversationName">שותף לשיחה</span>
-                            <span class="chat-conversation__status" id="chatConversationStatus">מחובר</span>
-                        </div>
-                        <!-- חלק צ'אט (index.html) – פעולות מהירות בשיחה בסגנון וואטסאפ (אסתטי) -->
-                        <div class="chat-conversation__actions">
-                            <button type="button" class="chat-conversation__icon" aria-label="שיחת קול">
-                                <i class="fa-solid fa-phone"></i>
-                            </button>
-                            <button type="button" class="chat-conversation__icon chat-conversation__icon--back" id="chatConversationActionsBack" aria-label="חזרה לרשימת שיחות">
-                                <i class="fa-solid fa-arrow-right-long"></i>
-                            </button>
-                        </div>
-                    </header>
-                    <div class="chat-conversation__messages" id="chatMessages"></div>
-                    <form class="chat-composer" id="chatComposer" hidden>
-                        <div class="chat-composer__field">
-                            <!-- חלק צ'אט (index.html) – כפתור בחירת קובץ משולב בשורת ההקלדה -->
-                            <button type="button" class="chat-composer__icon chat-composer__icon--file" id="chatComposerFileButton" aria-label="צרף קובץ">
-                                <i class="fa-solid fa-paperclip"></i>
-                            </button>
-                            <textarea id="chatMessageInput" placeholder="כתוב הודעה..." rows="1"></textarea>
-                            <button type="submit" class="chat-composer__icon chat-composer__send" aria-label="שלח הודעה">
-                                <i class="fa-solid fa-paper-plane"></i>
-                            </button>
-                        </div>
-                        <div class="chat-composer__file-preview" id="chatComposerFilePreview" hidden>
-                            <span class="chat-composer__file-name" id="chatComposerFileName">שם קובץ</span>
-                            <button type="button" class="chat-composer__file-remove" id="chatComposerFileRemove" aria-label="הסר קובץ">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                        <input type="file" id="chatComposerFileInput" class="chat-composer__file-input" accept="*/*">
-                    </form>
-                </main>
-            </div>
-            <!-- חלק צ'אט (index.html) – סרגל ניווט תחתון בדומה לוואטסאפ -->
-            <nav class="chat-panel__footer" id="chatPanelFooter" aria-label="ניווט צ'אט">
-                <button type="button" class="chat-footer__item is-active" data-chat-nav="contacts">
-                    <i class="fa-solid fa-comments"></i>
-                    <span>שיחות</span>
-                </button>
-                <button type="button" class="chat-footer__item" data-chat-nav="notifications">
-                    <i class="fa-solid fa-bell"></i>
-                    <span>התראות</span>
-                    <span class="chat-footer__badge" id="chatFooterNotificationsBadge" hidden>0</span>
-                </button>
-                <button type="button" class="chat-footer__item" data-chat-nav="home">
-                    <i class="fa-solid fa-house"></i>
-                    <span>דף הבית</span>
-                </button>
-            </nav>
-        </section>
-        <!-- חלק מעטפת פיד (index.html) – עטיפה חדשה לפיד הראשי בסגנון טיקטוק | שייך ל-HOME FEED -->
-        <main class="home-feed" id="homeFeedWrapper">
-            <section class="home-feed__viewport" aria-live="polite">
-                <div class="home-feed__stream" id="homeFeedStream">
-                    <!-- חלק ברכה ראשונית (index.html) – כרטיס ברכה מהודר שמופיע כפוסט ראשון | שייך ל-WELCOME CARD -->
-                    <div class="home-feed__card home-feed__card--welcome in-view" id="welcomeCard">
-                        <div class="welcome-card">
-                            <div class="welcome-particles">
-                                <div class="welcome-particle"></div>
-                                <div class="welcome-particle"></div>
-                                <div class="welcome-particle"></div>
-                                <div class="welcome-particle"></div>
-                                <div class="welcome-particle"></div>
-                                <div class="welcome-particle"></div>
-                            </div>
-                            <div class="welcome-logo">
-                                <div class="sos-logo">
-                                    <span class="sos-char sos-s" data-char="S">S</span>
-                                    <span class="sos-char sos-o" data-char="O">O</span>
-                                    <span class="sos-char sos-s" data-char="S">S</span>
-                                </div>
-                            </div>
-                            <div class="welcome-content">
-                                <h1 class="welcome-title">ברוכים הבאים לרשת SOS</h1>
-                                <p class="welcome-subtitle">רשת חברתית מבוזרת קהילתית</p>
-                            </div>
-                            <!-- חלק טעינה (index.html) – מד טעינה עם אחוזים לפני הצגת החץ | שייך ל-WELCOME CARD -->
-                            <div class="welcome-loading" id="welcomeLoading">
-                                <div class="welcome-progress">
-                                    <div class="welcome-progress__bar" id="welcomeProgressBar" style="width: 0%"></div>
-                                </div>
-                                <div class="welcome-progress__label"><span id="welcomeProgressPercent">0%</span></div>
-                            </div>
-                            <div class="welcome-scroll">
-                                <span class="welcome-scroll__text">גלול למטה</span>
-                                <div class="welcome-scroll__arrow">
-                                    <i class="fa-solid fa-chevron-down"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="home-feed__status" id="homeFeedStatus" role="status">טוען פוסטים...</div>
-                <!-- חלק infinite scroll (index.html) – אנימציית טעינה בתחתית הפיד כשמטענים פוסטים נוספים -->
-                <div class="home-feed__loading-indicator" id="homeFeedLoadingIndicator" hidden>
-                    <div class="loading-spinner">
-                        <div class="spinner-dot"></div>
-                        <div class="spinner-dot"></div>
-                        <div class="spinner-dot"></div>
-                    </div>
-                    <p class="loading-text">טוען פוסטים נוספים...</p>
-                </div>
-            </section>
-            
-        </main>
-    </div>
-    <div class="compose-modal" id="composeModal" aria-hidden="true">
-        <div class="compose-dialog" role="dialog" aria-modal="true">
-            <div class="profile-inline">
-                <div class="profile-avatar" id="composeProfileAvatar">?</div>
-                <div class="profile-text">
-                    <span class="profile-name" id="composeProfileName">משתמש</span>
-                    <span class="profile-bio" id="composeProfileBio">שתף את המחשבות שלך</span>
-                </div>
-            </div>
-            <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
-          <!-- חלק חלון יצירת פוסט (index.html) – כפתורים משופרים בסגנון רשתות חברתיות -->
-          <div class="compose-dialog__toolbar">
-            <button class="compose-toolbar-btn" type="button" onclick="(function(){var i=document.getElementById('composeMediaInput');if(!i)return;try{i.value='';}catch(e){}try{if(i.showPicker)i.showPicker();else i.click();}catch(e){i.click();}})()" title="הוסף תמונה/וידיאו">
-              <i class="fa-solid fa-photo-video"></i>
-            </button>
-            <!-- חלק הקלטת וידיאו (index.html) – כפתור הקלטה ישירות מהקומפוזר -->
-            <button class="compose-toolbar-btn" type="button" id="composeVideoRecordButton" title="הקלט וידיאו" onclick="document.getElementById('composeVideoCameraInput').click()">
-              <i class="fa-solid fa-video"></i>
-            </button>
-            <!-- חלק שידור חי (index.html) – כפתור לשידור חי ישירות מחלון יצירת פוסט | HYPER CORE TECH -->
-            <button class="compose-toolbar-btn" type="button" id="composeLiveButton" title="שידור חי">
-              <i class="fa-solid fa-tower-broadcast"></i>
-            </button>
-            <!-- חלק רקעים (index.html) – הפעלת מצב רקע טקסט וגלריית רקעים חינמיים -->
-            <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע טקסט">
-              <i class="fa-solid fa-palette"></i>
-            </button>
-            <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
-              <i class="fa-solid fa-eraser"></i>
-            </button>
-            <input id="composeMediaInput" type="file" class="compose-media-input" accept="image/*,video/*">
-            <input id="composeVideoCameraInput" type="file" accept="video/*" capture="environment" hidden onchange="handleVideoInput(event)">
-          </div>
-          <!-- חלק רקעים (index.html) – גלריית רקעים מתחלפים מ-Picsum -->
-          <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
-            <div id="composeMediaPreview" class="compose-media-preview">
-                <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
-                <video id="composeMediaPreviewVideo" controls playsinline></video>
-            </div>
-          <!-- חלק רקעים (index.html) – שליטה אם הטקסט יוצג רק על גבי התמונה | HYPER CORE TECH -->
-          <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
-            <label class="compose-bg__option-toggle">
-              <input type="checkbox" id="composeBgTextOnlyToggle">
-              <span>הצג טקסט רק על התמונה</span>
-            </label>
-            <label class="compose-bg__option-toggle">
-              <input type="checkbox" id="composeBgZoomToggle">
-              <span>הפעל אפקט זום בלופ</span>
-            </label>
-          </div>
-          <div id="composeMediaPreview" class="compose-media-preview">
-            <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
-            <video id="composeMediaPreviewVideo" controls playsinline></video>
-          </div>
-            <div id="composeStatus" class="p2p-status"></div>
-            <div class="compose-dialog__actions">
-                <button class="button-secondary" onclick="closeCompose()">ביטול</button>
-                <button class="button-primary" onclick="publishPost()">פרסם</button>
-            </div>
-        </div>
-    </div>
-    <div class="modal" id="profileModal">
-        <div class="modal-content">
-            <h2>עריכת פרופיל</h2>
-            <label for="profileNameInput">שם משתמש</label>
-            <input id="profileNameInput" type="text" maxlength="15" placeholder="הכנס שם מלא">
-            <label for="profileBioInput">תיאור קצר</label>
-            <textarea id="profileBioInput" rows="3" placeholder="ספר על עצמך"></textarea>
-            <label for="profileImageUrlInput">קישור לתמונת פרופיל</label>
-            <input id="profileImageUrlInput" type="url" placeholder="https://example.com/avatar.jpg">
-            <label for="profileImageFileInput">או העלה תמונה מהמחשב</label>
-            <input id="profileImageFileInput" type="file" accept="image/*">
-            <div class="modal-actions">
-                <button class="icon-button" onclick="closeProfileSettings()">ביטול</button>
-                <button class="icon-button" onclick="saveProfileSettings()">שמירה</button>
-            </div>
-            <div class="p2p-status" id="profileStatus"></div>
-        </div>
-    </div>
-    <div class="modal" id="accountModal">
-        <div class="modal-content account-modal">
-            <h2>גישה ממכשירים נוספים</h2>
-            <section>
-                <h3>ייצוא</h3>
-                <p>שמור את המפתח הפרטי שלך בצורה בטוחה. תצטרך אותו כדי להתחבר ממכשיר אחר.</p>
-                <textarea id="accountExportKey" readonly></textarea>
-                <div class="modal-actions">
-                    <button class="icon-button" id="accountCopyKeyButton">העתק</button>
-                    <button class="icon-button" id="accountDownloadBackupButton">הורדת גיבוי</button>
-                </div>
-            </section>
-            <section>
-                <h3>ייבוא</h3>
-                <p>הדבק כאן מפתח פרטי כדי להתחבר למשתמש קיים.</p>
-                <textarea id="accountImportInput" placeholder="npub / hex / מפתח מגובה"></textarea>
-                <div class="modal-actions">
-                    <button class="button-secondary" onclick="closeAccount()">ביטול</button>
-                    <button class="button-primary" id="accountImportButton">ייבוא</button>
-                </div>
-                <div class="p2p-status" id="accountStatus"></div>
-            </section>
-            <section>
-                <h3>תצוגת מפתח</h3>
-                <p>לחיצה על הכפתור תציג את המפתח שלך לתצוגה בלבד.</p>
-                <div class="modal-actions">
-                    <button class="icon-button" onclick="openKeyViewer()">הצג מפתח</button>
-                </div>
-            </section>
-        </div>
-    </div>
-    <div class="modal" id="keyModal">
-        <div class="modal-content key-modal">
-            <h2>המפתח הפרטי שלך</h2>
-            <textarea id="keyViewerTextarea" readonly></textarea>
-            <div class="modal-actions">
-                <button class="icon-button" onclick="copyKeyViewer()">העתק</button>
-                <button class="button-secondary" onclick="closeKeyViewer()">סגור</button>
-            </div>
-            <div class="modal-actions">
-                <button class="button-secondary" onclick="logoutAndSwitchUser()">התנתק והחלף משתמש</button>
-            </div>
-            <div class="p2p-status" id="keyViewerStatus"></div>
-        </div>
-    </div>
-    <!-- חלק חוזה חכם 2 (index.html) – חלון אימות סיסמה לפני פתיחת החוזה -->
-    <div class="modal contract-password-modal" id="contractPasswordModal" aria-hidden="true" hidden>
-        <div class="modal-content contract-password-modal__content" role="dialog" aria-modal="true" aria-labelledby="contractPasswordTitle">
-            <h2 id="contractPasswordTitle">גישה לחוזה החכם</h2>
-            <p>כדי להמשיך אל מודול החוזה החכם יש להזין את קוד הגישה שנמסר לך.</p>
-            <label class="contract-password-modal__label" for="contractPasswordInput">קוד גישה</label>
-            <input type="password" id="contractPasswordInput" class="contract-password-modal__input" placeholder="הקלד/י את הסיסמה" autocomplete="off" />
-            <div class="contract-password-modal__error" id="contractPasswordError" role="alert" hidden>סיסמה שגויה. נסו שוב.</div>
-            <div class="modal-actions">
-                <button class="button-secondary" type="button" id="contractPasswordCancel">ביטול</button>
-                <button class="button-primary" type="button" id="contractPasswordSubmit">אישור</button>
-            </div>
-        </div>
-    </div>
-    <section class="growth-dashboard" id="growthDashboard" aria-hidden="true">
-        <div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div>
-        <article class="growth-dashboard__panel" role="dialog" aria-modal="true">
-            <header class="growth-dashboard__header">
-                <div class="growth-dashboard__title">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <div>
-                        <h2>מדד גידול הרשת</h2>
-                        <p>מעקב בזמן אמת אחרי בריאות האקו-סיסטם</p>
-                    </div>
-                </div>
-                <button class="growth-dashboard__close" type="button" onclick="closeGrowthDashboard()" aria-label="סגירת לוח הגידול">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </header>
-            <nav class="growth-dashboard__tabs" role="tablist">
-                <button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">סקירה</button>
-                <button class="growth-dashboard__tab" data-tab="activity" role="tab">פעילות זמן אמת</button>
-                <button class="growth-dashboard__tab" data-tab="leaders" role="tab">מובילי רשת</button>
-            </nav>
-            <div class="growth-dashboard__content">
-                <section class="growth-dashboard__section" data-pane="overview">
-                    <div class="growth-metrics" id="growthMetrics"></div>
-                    <div class="growth-chart" id="growthChartContainer">
-                        <div class="growth-chart__ranges" role="group" aria-label="טווח היסטוריה">
-                            <button type="button" class="growth-chart__range-button" data-range="1d">יום</button>
-                            <button type="button" class="growth-chart__range-button" data-range="1w">שבוע</button>
-                            <button type="button" class="growth-chart__range-button is-active" data-range="1m">חודש</button>
-                            <button type="button" class="growth-chart__range-button" data-range="3m">3 חודשים</button>
-                            <button type="button" class="growth-chart__range-button" data-range="1y">שנה</button>
-                        </div>
-                        <canvas id="growthChart" aria-label="גרף מגמת פעילות"></canvas>
-                    </div>
-                </section>
-                <section class="growth-dashboard__section is-hidden" data-pane="activity">
-                    <div class="growth-activity" id="growthActivity"></div>
-                </section>
-                <section class="growth-dashboard__section is-hidden" data-pane="leaders">
-                    <div class="growth-leaders" id="growthLeaders"></div>
-                </section>
-            </div>
-            <footer class="growth-dashboard__footer">
-                <div class="growth-dashboard__status" id="growthStatus">מתחבר למדד...</div>
-                <div class="growth-dashboard__actions">
-                    <label class="growth-dashboard__toggle">
-                        <input type="checkbox" id="growthAutoRefresh">
-                        <span>רענון אוטומטי</span>
-                    </label>
-                    <button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()">
-                        <i class="fa-solid fa-rotate"></i>
-                        רענן כעת
-                    </button>
-                </div>
-            </footer>
-        </article>
-    </section>
-    <!-- חלק חוזה חכם 2 (index.html) – תצוגת השקעה גרפית חדשה המתמקדת בערך הנכס ובצמיחת הפעילות -->
-    <section class="contract-dashboard-v2" id="contractDashboardV2" aria-hidden="true">
-        <div class="contract-dashboard-v2__backdrop" onclick="closeContractDashboardV2()"></div>
-        <article class="contract-dashboard-v2__panel" role="dialog" aria-modal="true">
-            <header class="top-bar top-bar--profile contract-dashboard-v2__header-bar">
-                <!-- חלק חוזה חכם 2 (index.html) – פס עליון מאוחד עם כפתורי רענון/סגירה -->
-                <div class="top-bar__actions top-bar__actions--profile">
-                    <button class="circle-button top-bar__refresh" id="contractV2RefreshButton" type="button" aria-label="רענון נתוני החוזה">
-                        <i class="fa-solid fa-rotate-right"></i>
-                    </button>
-                </div>
-                <div class="top-bar__title">
-                    <span class="top-bar__title-inner">
-                        <i class="fa-solid fa-signal" aria-hidden="true"></i>
-                        <span>חוזה חכם – SPEAR ONE</span>
-                    </span>
-                    <p class="top-bar__subtitle">השקעה בטכנולוגיה המבוזרת שמשנה את האינטרנט</p>
-                </div>
-                <div class="top-bar__actions top-bar__actions--profile">
-                    <button class="circle-button top-bar__home" type="button" onclick="closeContractDashboardV2()" aria-label="סגירת חוזה חכם">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-            </header>
-            <div class="contract-dashboard-v2__body">
-                <!-- חלק פתיח (index.html) – מסר ראשי למשקיעים עם חיווי ערך בסיסי -->
-                <section class="contract-v2-hero" id="contractV2Hero">
-                    <div class="contract-v2-hero__copy">
-                        <h3>טכנולוגיה חדשנית להחזקה ותפעול של פלטפורמות אינטרנטיות ללא שרת מרכזי ועלויות תשתית.</h3>
-                        <p>
-                            SPEAR ONE היא תשתית אחת שמפעילה גם רשת חברתית מבוזרת וגם שכבת שרת סטטית – הדגמה חיה לסטארט-אפ שבונה רשתות שמחזירות את השליטה למשתמש.
-                        </p>
-                        <div class="contract-v2-hero__highlights" id="contractV2Highlights"></div>
-                        <div class="contract-v2-hero__actions">
-                            <button class="contract-v2-hero__cta" type="button" onclick="openOptionPurchase()">
-                                <i class="fa-solid fa-hand-holding-dollar"></i>
-                                רכישת יחידה ב-$50
-                            </button>
-                            <button class="contract-v2-hero__details" type="button" id="contractV2DetailsToggle">
-                                <i class="fa-solid fa-circle-info"></i>
-                                פרטים נוספים
-                            </button>
-                            <button class="contract-v2-hero__details" type="button" data-scroll-target="contractV2Calculator">
-                                <i class="fa-solid fa-calculator"></i>
-                                פתיחת מחשבון השקעה
-                            </button>
-                        </div>
-                    </div>
-                    <aside class="contract-v2-hero__glass">
-                        <div class="contract-v2-glass__metric">
-                            <span class="contract-v2-glass__label">שווי פיתוח מצטבר</span>
-                            <span class="contract-v2-glass__value" id="contractV2DevelopmentValue">₪300,000</span>
-                        </div>
-                        <div class="contract-v2-glass__metric">
-                            <span class="contract-v2-glass__label">שווי יחידה משוער</span>
-                            <span class="contract-v2-glass__value" id="contractV2UnitValue">--</span>
-                        </div>
-                        <div class="contract-v2-glass__metric">
-                            <span class="contract-v2-glass__label">תשואת פעילות רשת</span>
-                            <span class="contract-v2-glass__value" id="contractV2NetworkYield">--</span>
-                        </div>
-                    </aside>
-                </section>
-                <!-- חלק גרף (index.html) – גרף דינמי שמצמיד את ערך הנכס לפעילות הרשת -->
-                <section class="contract-v2-chart">
-                    <header class="contract-v2-chart__header">
-                        <h3>ערך הנכס מול מדד פעילות הרשת</h3>
-                        <p>הגרף מוצג בזמן אמת וממחיש כיצד גידול בפעילות, משתמשים וקרדיטים מעלה את ערך SPEAR ONE.</p>
-                    </header>
-                    <div class="contract-v2-chart__canvas">
-                        <canvas id="contractV2Chart" aria-label="גרף נכס מול פעילות"></canvas>
-                    </div>
-                    <footer class="contract-v2-chart__legend" id="contractV2Legend"></footer>
-                </section>
-                <!-- חלק עומק (index.html) – הצגת תחומי תשתית, שימושים וקהלים -->
-                <section class="contract-v2-infra">
-                    <h3>התשתית שמחזיקה את SPEAR ONE</h3>
-                    <div class="contract-v2-infra__grid" id="contractV2InfraGrid"></div>
-                </section>
-                <!-- חלק סיפורי (index.html) – מסרים שממחישים את ערך השותפות -->
-                <section class="contract-v2-narrative">
-                    <h3>למה להצטרף עכשיו?</h3>
-                    <ul class="contract-v2-narrative__list">
-                        <li>דמיינו שהייתם משקיעים $50 בביטקוין לפני עשור – כך נראית נקודת פתיחה מוקדמת.</li>
-                        <li>רשת חברתית שבה אתם הבעלים, לא המוצר – כל פוסט, Boost ומעורבות מחזירים ערך ישירות אליכם.</li>
-                        <li>פרטיות מלאה ושליטה בנתונים: המידע שלכם נשאר אצלכם, ויחידות הערך מגובות בפעילות מוכחת.</li>
-                    </ul>
-                </section>
-                <!-- חלק פרטים מורחבים (index.html) – תיבה נפתחת עם הסברים אנליטיים -->
-                <section class="contract-v2-details" id="contractV2Details" hidden>
-                    <h3>פירוט אנליטי</h3>
-                    <div class="contract-v2-details__grid">
-                        <article>
-                            <h4>חיבור לגרף לוח גידול הרשת</h4>
-                            <p>הערך הווירטואלי מחושב על בסיס מדד הפעילות (אירועים, לייקים ותגובות) המגיע מהגרף הראשי של לוח הגידול. כל עדכון פעילות מעלה או מוריד את שווי הנכס באופן שקוף.</p>
-                        </article>
-                        <article>
-                            <h4>R&D מושקע ומינוף משתמשים</h4>
-                            <p>הושקעו מעל 300,000 ₪ בפיתוח SPEAR ONE – ערך הבסיס. כל משתמש פעיל, אינטגרציה או Relay חדש משכפל את הערך באמצעות תרחישים פיננסיים konservטיביים.</p>
-                        </article>
-                        <article>
-                            <h4>מודל Units ו-Credits</h4>
-                            <p>Units נרכשים ב-$50 ומציגים ערך דינמי. Buyback מעניק עד 80% מהערך ב-Credits פנימיים לשימוש בקידום, שירותים והעברות בתוך המערכת – ללא רגולציה חיצונית.</p>
-                        </article>
-                    </div>
-                </section>
-                <!-- חלק תנאי חוזה (index.html) – תנאים משפטיים ומבניים | HYPER CORE TECH -->
-                <section class="contract-v2-terms" id="contractV2Terms">
-                    <h3>תנאי החוזה</h3>
-                    <ol class="contract-v2-terms__list" id="contractV2TermsList"></ol>
-                </section>
-                <!-- חלק תחזית (index.html) – גרף תחזית צמיחה מבוסס נתונים | HYPER CORE TECH -->
-                <section class="contract-v2-forecast" id="contractV2Forecast">
-                    <header class="contract-v2-forecast__header">
-                        <div>
-                            <h3>תחזית צמיחה לשנה קדימה</h3>
-                            <p>תרחישים מבוססי פעילות Relay, משתמשים פעילים ושותפויות עתידיות.</p>
-                        </div>
-                        <div class="contract-v2-forecast__legend" id="contractV2ForecastLegend"></div>
-                    </header>
-                    <div class="contract-v2-forecast__chart">
-                        <canvas id="contractV2ForecastChart" aria-label="גרף תחזית פעילות ושווי"></canvas>
-                    </div>
-                    <footer class="contract-v2-forecast__notes" id="contractV2ForecastNotes"></footer>
-                </section>
-                <!-- חלק מחשבון השקעה (index.html) – חישוב יחידות ותשואה | HYPER CORE TECH -->
-                <section class="contract-v2-calculator" id="contractV2Calculator">
-                    <header class="contract-v2-calculator__header">
-                        <h3>מחשבון השקעה מיידי</h3>
-                        <p>הזינו סכום ובדקו את אחוז הזכות בטכנולוגיה ואת Buyback המשוער.</p>
-                    </header>
-                    <div class="contract-v2-calculator__body">
-                        <label class="contract-v2-calculator__label" for="contractV2InvestmentInput">
-                            סכום השקעה בדולר (מינימום $50)
-                        </label>
-                        <div class="contract-v2-calculator__input">
-                            <span class="contract-v2-calculator__currency">$</span>
-                            <input type="number" id="contractV2InvestmentInput" min="50" step="50" value="50" />
-                        </div>
-                        <div class="contract-v2-calculator__summary" id="contractV2CalculatorSummary">
-                            <div class="contract-v2-calculator__item">
-                                <span class="contract-v2-calculator__item-label">אחוז בטכנולוגיה</span>
-                                <strong class="contract-v2-calculator__item-value" id="contractV2Ownership">0%</strong>
-                            </div>
-                            <div class="contract-v2-calculator__item">
-                                <span class="contract-v2-calculator__item-label">Buyback בקרדיטים</span>
-                                <strong class="contract-v2-calculator__item-value" id="contractV2Buyback">$0</strong>
-                            </div>
-                            <div class="contract-v2-calculator__item">
-                                <span class="contract-v2-calculator__item-label">קיבולת משתמשים נתמכת</span>
-                                <strong class="contract-v2-calculator__item-value" id="contractV2CapacityImpact">0</strong>
-                            </div>
-                        </div>
-                        <button class="contract-v2-calculator__cta" type="button" onclick="openOptionPurchase()">
-                            <i class="fa-solid fa-arrow-right-to-bracket"></i>
-                            המשך לתהליך ההשקעה
-                        </button>
-                    </div>
-                </section>
-            </div>
-            <footer class="contract-dashboard-v2__footer">
-                <span class="contract-dashboard-v2__status" id="contractV2Status">ממתין לנתוני רשת...</span>
-                <button class="contract-dashboard-v2__cta" type="button" onclick="openOptionPurchase()">
-                    <i class="fa-solid fa-rocket"></i>
-                    הצטרפות עם יחידה אחת
-                </button>
-            </footer>
-        </article>
-    </section>
-    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
-    <script src="./key-storage.js"></script>
-    <script src="./config.js"></script>
-    <script src="./secure-channel.js"></script>
-    <script src="./key-utils.js"></script>
-    <script src="./utils.js"></script>
-    <script src="./keys.js"></script>
-    <script src="./profile.js"></script>
-    <script src="./account.js"></script>
-    <script src="./key-viewer.js"></script>
-    <script src="./media.js"></script>
-    <script src="./post-actions.js"></script>
-    <!-- חלק צ'אט (index.html) – טוען את לוגיקת מצב, שירות וממשק המסנג'ר -->
-    <script src="./chat-state.js"></script>
-    <script src="./chat-service.js"></script>
-    <!-- חלק צ'אט (index.html) – טוען מודולי לוגיקה להרחבת העברת קבצים בצ'אט -->
-    <script src="./chat-file-transfer-state.js"></script>
-    <script src="./chat-file-transfer-service.js"></script>
-    <script src="./chat-file-transfer-ui.js?v=20260814img1"></script>
-    <script src="./chat-send-preview.js?v=20260813desk1"></script>
-    <!-- חלק קול (index.html) – טעינת לקוח Blossom ושכבות הקול לצ'אט לפני אתחול ממשק הצ'אט -->
-    <script src="./blossom.js"></script>
-    <!-- חלק וידאו (index.html) – טעינת ffmpeg.wasm לדחיסת וידאו בצד הלקוח -->
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
-    <script src="./video-compressor.js?v=20260731c"></script>
-    <!-- חלק cache (index.html) – מערכת cache מקומית לשמירת מדיה ב-IndexedDB -->
-    <script src="./media-cache.js"></script>
-    <!-- חלק mirror (index.html) – מערכת mirrors ו-fallback לוידאו/תמונות -->
-    <script src="./media-mirror.js"></script>
-    <!-- חלק recheck (index.html) – בדיקה תקופתית של זמינות URLs ויצירת mirrors -->
-    <script src="./media-recheck.js"></script>
-    <!-- חלק P2P (index.html) – מערכת שיתוף וידאו P2P בין משתמשים -->
-    <script src="./p2p-video-sharing.js"></script>
-    <script src="./chat-voice-service.js"></script>
-    <script src="./chat-voice-ui.js"></script>
-    <!-- חלק שיחות קול (index.html) – טעינת מודולי WebRTC לשיחות קוליות בזמן אמת -->
-    <script src="./chat-voice-call.js"></script>
-    <script src="./chat-voice-call-ui.js"></script>
-    <!-- חלק שיחות וידאו (index.html) – טעינת מודולי וידאו לאחר הקול -->
-    <script src="./chat-video-call.js"></script>
-    <script src="./chat-video-call-ui.js"></script>
-    <!-- חלק שידור חי (index.html) – טעינת מודולי שידור חי -->
-    <script src="./live-stream.js"></script>
-    <script src="./live-stream-ui.js"></script>
-    <script src="./chat-ui.js?v=20260814img1"></script>
-    <!-- חלק PWA (index.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
-    <script src="./pwa-installer.js"></script>
-    <script src="./push-client.js"></script>
-    <script src="./push-trigger.js"></script>
-    <script src="./navigation.js"></script>
-    <script src="./compose.js"></script>
-    <!-- חלק רקעים (index.html) – מודול בורר רקעים -->
-    <script src="./compose-backgrounds.js"></script>
-    <script src="./follow-service.js"></script>
-    <script src="./feed.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
-    <script src="./market-dashboard.js"></script>
-    <script src="./contract-dashboard-v2.js"></script>
-    <script src="./app.js"></script>
+</div>
+<div id="scan-progress"><div class="scan-progress-bar" id="scan-bar"></div></div>
 
+<div id="top-header">
+    <div class="header-left">
+        <span class="header-title"><span id="header-channel-number">0</span>/<span id="header-channel-total">0</span></span>
+    </div>
+    <div id="cat-bar"></div>
+    <div class="header-actions">
+        <button id="auto-scroll-btn" onclick="toggleAutoScroll()">אוטו</button>
+        <div class="header-pill" id="auto-countdown">כבוי</div>
+        <button class="header-settings-btn" onclick="toggleSettings()" aria-label="הגדרות"><i class="fas fa-gear"></i></button>
+    </div>
+</div>
+
+<div id="channel-chip" aria-live="polite">
+    <div id="channel-chip-name">טעינה...</div>
+    <div id="channel-chip-meta"></div>
+    <div id="channel-chip-epg"></div>
+    <a id="channel-chip-source" class="source-link" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">
+        <i class="fas fa-link"></i>
+        <span id="channel-chip-source-label">מקור</span>
+    </a>
+</div>
+
+<button id="epg-fab" onclick="openEpgSheet()" aria-label="לוח שידורים" title="לוח שידורים">
+    <span class="epg-fab-pulse"></span>
+    <i class="fas fa-calendar-days"></i>
+</button>
+
+<div id="scroller"></div>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop hide" id="settings-modal">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:20px;"><i class="fas fa-sliders" style="color:var(--accent);margin-left:8px;"></i>הגדרות ממיר</h2>
+        
+        <div style="margin-bottom:20px;">
+            <div style="font-size:13px;color:#888;margin-bottom:10px;font-weight:600;">קטגוריות מוצגות <span style="font-weight:400;color:#666;">(כתום = מוצג)</span></div>
+            <div id="block-list"></div>
+        </div>
+        
+        <div style="margin-bottom:20px;">
+            <div style="font-size:13px;color:#888;margin-bottom:10px;font-weight:600;">שפות מוצגות <span style="font-weight:400;color:#666;">(כתום = מוצג)</span></div>
+            <div id="lang-list"></div>
+        </div>
+        
+        <div style="margin-bottom:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+            <div style="font-size:13px;color:var(--accent);margin-bottom:12px;font-weight:700;"><i class="fas fa-plus-circle" style="margin-left:6px;"></i>הוספת ערוצים מותאמים</div>
+            <div class="input-group">
+                <label>שם ערוץ</label>
+                <input type="text" id="custom-channel-name" placeholder="לדוגמה: ערוץ הספורט שלי">
+            </div>
+            <div class="input-group">
+                <label>כתובת זרימה (URL)</label>
+                <input type="text" id="custom-channel-url" placeholder="https://example.com/stream.m3u8">
+            </div>
+            <div class="input-group">
+                <label>לוגו (אופציונלי)</label>
+                <input type="text" id="custom-channel-logo" placeholder="https://example.com/logo.png">
+            </div>
+            <button onclick="addCustomChannel()" style="width:100%;padding:12px;border-radius:12px;background:var(--accent);color:#000;font-weight:700;border:none;cursor:pointer;font-family:inherit;font-size:14px;margin-top:8px;">
+                <i class="fas fa-plus" style="margin-left:6px;"></i>הוסף ערוץ
+            </button>
+        </div>
+        
+        <div style="margin-bottom:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+            <div style="font-size:13px;color:#888;margin-bottom:10px;font-weight:600;">הוספה מרובה (JSON)</div>
+            <div class="input-group">
+                <label>הדבק רשימת ערוצים בפורמט JSON</label>
+                <textarea id="custom-channels-json" rows="4" placeholder='[{"name":"ערוץ 1","url":"https://...","logo":"https://..."}]'></textarea>
+            </div>
+            <button onclick="addCustomChannelsFromJSON()" style="width:100%;padding:12px;border-radius:12px;background:rgba(255,255,255,0.1);color:#fff;font-weight:600;border:none;cursor:pointer;font-family:inherit;font-size:14px;">
+                <i class="fas fa-file-import" style="margin-left:6px;"></i>ייבא ערוצים
+            </button>
+        </div>
+        
+        <div style="margin-bottom:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+            <div style="font-size:13px;color:#888;margin-bottom:10px;font-weight:600;">ייבוא קובץ M3U</div>
+            <input type="file" id="m3u-file-input" accept=".m3u,.m3u8" style="display:none;" onchange="handleM3UFile(event)">
+            <button onclick="document.getElementById('m3u-file-input').click()" style="width:100%;padding:12px;border-radius:12px;background:rgba(255,255,255,0.1);color:#fff;font-weight:600;border:none;cursor:pointer;font-family:inherit;font-size:14px;">
+                <i class="fas fa-upload" style="margin-left:6px;"></i>בחר קובץ M3U
+            </button>
+        </div>
+        
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button onclick="rescanChannels()" style="flex:1;padding:12px;border-radius:12px;background:var(--accent);color:#000;font-weight:700;border:none;cursor:pointer;font-family:inherit;font-size:14px;">
+                <i class="fas fa-rotate" style="margin-left:6px;"></i>סריקה מחדש
+            </button>
+            <button onclick="toggleSettings()" style="flex:1;padding:12px;border-radius:12px;background:rgba(255,255,255,0.1);color:#fff;font-weight:500;border:none;cursor:pointer;font-family:inherit;font-size:14px;">סגור</button>
+        </div>
+    </div>
+</div>
+
+<!-- EPG Sheet -->
+<div class="modal-backdrop hide" id="epg-modal">
+    <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:8px;"><i class="fas fa-calendar-days" style="color:var(--accent);margin-left:8px;"></i>לוח שידורים</h2>
+        <div id="epg-modal-channel" style="font-size:13px;color:#888;margin-bottom:16px;"></div>
+        <div id="epg-modal-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+        <button onclick="closeEpgSheet()" style="width:100%;margin-top:18px;padding:12px;border-radius:12px;background:rgba(255,255,255,0.1);color:#fff;font-weight:500;border:none;cursor:pointer;font-family:inherit;font-size:14px;">סגור</button>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================
+// Configuration
+// ============================================
+const SOURCES = [
+    { id:'il', url:'https://iptv-org.github.io/iptv/countries/il.m3u', label:'ישראל', repo:'https://github.com/iptv-org/iptv/blob/master/streams/il.m3u' },
+    { id:'heb', url:'https://iptv-org.github.io/iptv/languages/heb.m3u', label:'עברית', repo:'https://github.com/iptv-org/iptv' },
+    { id:'rus', url:'https://iptv-org.github.io/iptv/languages/rus.m3u', label:'רוסית', repo:'https://github.com/iptv-org/iptv' },
+    { id:'eng', url:'https://iptv-org.github.io/iptv/languages/eng.m3u', label:'אנגלית', repo:'https://github.com/iptv-org/iptv' },
+    { id:'sport', url:'https://iptv-org.github.io/iptv/categories/sports.m3u', label:'ספורט', repo:'https://github.com/iptv-org/iptv' },
+    { id:'news', url:'https://iptv-org.github.io/iptv/categories/news.m3u', label:'חדשות', repo:'https://github.com/iptv-org/iptv' },
+    { id:'movie', url:'https://iptv-org.github.io/iptv/categories/movies.m3u', label:'סרטים', repo:'https://github.com/iptv-org/iptv' },
+    { id:'music', url:'https://iptv-org.github.io/iptv/categories/music.m3u', label:'מוזיקה', repo:'https://github.com/iptv-org/iptv' },
+    { id:'docu', url:'https://iptv-org.github.io/iptv/categories/documentary.m3u', label:'דוקו', repo:'https://github.com/iptv-org/iptv' },
+    { id:'kids', url:'https://iptv-org.github.io/iptv/categories/kids.m3u', label:'ילדים', repo:'https://github.com/iptv-org/iptv' },
+    { id:'ent', url:'https://iptv-org.github.io/iptv/categories/entertainment.m3u', label:'בידור', repo:'https://github.com/iptv-org/iptv' },
+];
+
+const IPTV_ORG_HOME = 'https://github.com/iptv-org/iptv';
+
+const CATEGORY_RULES = [
+    { id:'sports', icon:'fa-futbol', patterns:[/sport/i,/football/i,/soccer/i,/basketball/i,/nba/i,/fifa/i,/tennis/i,/golf/i,/espn/i,/bein/i,/eurosport/i,/ספורט/i,/спорт/i] },
+    { id:'news', icon:'fa-newspaper', patterns:[/news/i,/cnn/i,/bbc\s/i,/fox news/i,/msnbc/i,/חדשות/i,/новости/i,/ערוץ 14/i,/now 14/i,/euronews/i,/al jazeera/i,/sky news/i,/France 24/i] },
+    { id:'movies', icon:'fa-film', patterns:[/movie/i,/cinema/i,/film/i,/hbo/i,/showtime/i,/סרטים/i,/фильм/i,/paramount/i,/movieSphere/i] },
+    { id:'kids', icon:'fa-child', patterns:[/kids/i,/child/i,/disney/i,/nickelodeon/i,/cartoon/i,/ילדים/i,/детск/i,/baby/i,/tom and jerry/i] },
+    { id:'music', icon:'fa-music', patterns:[/music/i,/mtv/i,/vevo/i,/מוזיקה/i,/музык/i,/deluxe/i,/stingray/i,/jukebox/i] },
+    { id:'documentary', icon:'fa-landmark', patterns:[/documentary/i,/discovery/i,/national geographic/i,/history channel/i,/דוקומנטרי/i,/документальн/i] },
+    { id:'entertainment', icon:'fa-masks-theater', patterns:[/entertainment/i,/comedy/i,/reality/i,/בידור/i,/развлекательн/i,/funny/i,/fail/i] },
+    { id:'series', icon:'fa-tv', patterns:[/series/i,/drama/i,/סדרות/i,/сериал/i,/episode/i] },
+    { id:'religious', icon:'fa-hands-praying', patterns:[/religi/i,/church/i,/christian/i,/islam/i,/jewish/i,/דתי/i,/религи/i,/torah/i,/bible/i,/prayer/i,/hillsong/i,/tbn/i,/daystar/i,/god/i,/faith/i] },
+    { id:'adult', icon:'fa-ban', patterns:[/xxx/i,/adult/i,/porn/i,/erotic/i,/18\+/i,/sex/i] },
+    { id:'shop', icon:'fa-cart-shopping', patterns:[/shop/i,/qvc/i,/hsn/i,/shopping/i,/קניות/i] },
+    { id:'weather', icon:'fa-cloud-sun', patterns:[/weather/i,/מזג/i,/погод/i] },
+];
+
+const ARABIC_PATTERNS = [/arabic/i,/al jazeera/i,/قناة/i,/العربية/i,/mbc/i,/rotana/i,/sabq/i,/alkass/i];
+const SOUTH_AFRICA_PATTERNS = [/south africa/i,/africa/i,/za\b/i,/sabc/i,/dstv/i,/super sport/i,/mzanzi/i,/e\.tv/i,/multi-choice/i];
+const CYRILLIC_RE = /[\u0400-\u04FF]/
+const ARABIC_SCRIPT_RE = /[\u0600-\u06FF]/
+const RUSSIAN_NAME_RE = /russian|russia|\bru\b|росси|русск|москва|ссср|совет|канал\s|нтв|первый\s*канал|россия\s*\d/i;
+const HE_IL_NAME_RE = /israel|\bisrael\b|hebrew|עברית|ישרא|כאן|קשת|רשת|ערוץ\s*\d|now\s*14|\bi24\b|\bkan\b|mako|keshet|reshet|\byes\b|\bhot\b|jewish|judaism|torah|jerusalem|תל\s*אביב|hit\s*tv|ים\s*תיכון|yam\s*tichoni/i;
+const LANG_MAP = { eng:'en', heb:'he', rus:'ru', en:'en', he:'he', ru:'ru', ar:'ar', es:'es', fr:'fr', tr:'tr', de:'de', it:'it', pt:'pt', ja:'ja', ko:'ko', zh:'zh', hi:'hi', ur:'ur', th:'th', vi:'vi', pl:'pl', nl:'nl', sv:'sv', no:'no', da:'da', fi:'fi', cs:'cs', ro:'ro', hu:'hu', el:'el', bg:'bg', uk:'uk', sr:'sr', hr:'hr', sl:'sl', sk:'sk', lt:'lt', lv:'lv', et:'et', id:'id', ms:'ms', fa:'fa', hy:'hy', ka:'ka', az:'az', kk:'kk', bn:'bn', ta:'ta', ku:'ku' };
+const PREFERRED_LANG_CODES = new Set(['en','he']);
+const ALLOWED_LANG_CODES = new Set(['en','he']);
+const STORAGE_KEY = 'groveetv-user-data-v2';
+const CUSTOM_CHANNELS_KEY = 'groveetv-custom-channels-v1';
+const HEALTH_CACHE_KEY = 'groveetv-health-cache-v1';
+const HEALTH_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 שעות
+const IS_FILE_ORIGIN = location.protocol === 'file:';
+const isNarrowViewport = () => window.innerWidth < 820;
+const IS_TOUCH_UA = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const isMobileMode = () => IS_TOUCH_UA || isNarrowViewport();
+const HEALTH_BATCH_SIZE = () => isMobileMode() ? 2 : 6;
+const HEALTH_BATCH_DELAY_MS = () => isMobileMode() ? 700 : 500;
+const HEALTH_CHECK_TIMEOUT_MS = () => isMobileMode() ? 8000 : 10000;
+const FAST_MS_THRESHOLD = 5000;
+const MAX_HEALTH_SCAN = () => isMobileMode() ? 180 : 350;
+const EPG_SOURCES = [
+    'https://iptv-epg.org/files/epg-il.xml',
+];
+
+// ============================================
+// State
+// ============================================
+let allChannels = [];
+let filteredChannels = [];
+let customChannels = [];
+let pinnedFeedChannels = []; // ערוצים שכבר הוצגו — לא מוחקים באמצע סשן
+let feedBootstrapped = false; // כבר הראינו פיד פעם אחת
+let quietScanToasts = false; // לא להציף את המשתמש בספירת רקע
+let currentSlideIndex = 0;
+let hlsPool = {};
+let healthData = {};
+let epgData = {};
+let userFavorites = new Set();
+let blockedCats = new Set(['adult','religious']);
+let activeCat = 'all';
+let isScanning = false;
+let scanQueue = [];
+let scanQueueTotal = 0;
+let healthScanActive = false;
+let autoScrollEnabled = false;
+let autoScrollTick = 10;
+let autoScrollInterval = null;
+let scrollObserver = null;
+let scrollRaf = null;
+let handleScrollerScroll = null;
+let refreshTimers = [];
+let loadedSlides = new Set();
+let overlayTimers = {};
+let topControlsHideTimer = null;
+const channelMuteState = {};
+
+// ============================================
+// M3U Parser
+// ============================================
+function parseM3U(text, sourceId) {
+    const lines = text.split(/\r?\n/);
+    const channels = [];
+    let info = null;
+    for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+        if (line.startsWith('#EXTINF:')) {
+            info = { sourceId };
+            const attr = (key) => {
+                const m = line.match(new RegExp(key + '="([^"]*)"', 'i'));
+                return m ? m[1].trim() : '';
+            };
+            info.tvgId = attr('tvg-id');
+            info.tvgName = attr('tvg-name');
+            info.language = attr('tvg-language');
+            info.logo = attr('tvg-logo');
+            info.group = attr('group-title');
+            info.name = extractExtinfName(line, info);
+        } else if (!line.startsWith('#') && info) {
+            info.url = line;
+            channels.push(info);
+            info = null;
+        }
+    }
+    return channels;
+}
+
+/** חילוץ שם נקי מ־#EXTINF — בלי שאריות group-title / tvg-* */
+function extractExtinfName(line, info) {
+    let rest = line.replace(/^#EXTINF:-?\d+(?:\.\d+)?\s*/i, '');
+    // מסיר את כל attributes מסוג key="value"
+    rest = rest.replace(/[\w-]+="[^"]*"/g, ' ').trim();
+    // מסיר פסיקים עודפים בתחילת/סוף
+    rest = rest.replace(/^,+\s*|,+\s*$/g, '').trim();
+    // אם נשאר זבל של attributes
+    if (/group-title\s*=|tvg-/i.test(rest)) {
+        const parts = rest.split(',');
+        rest = (parts[parts.length - 1] || '').trim();
+    }
+    rest = rest.replace(/^["']+|["']+$/g, '').trim();
+    if (rest && !/^[a-z0-9_-]+\s*=/i.test(rest)) return rest;
+    return info.tvgName || info.group || 'Unknown';
+}
+
+// ============================================
+// Classification & Helpers
+// ============================================
+function classifyChannel(ch) {
+    const text = `${ch.name} ${ch.group || ''} ${ch.tvgName || ''}`;
+    for (const rule of CATEGORY_RULES) {
+        if (rule.patterns.some(p => p.test(text))) return rule.id;
+    }
+    return 'other';
+}
+
+function normLanguage(lang) {
+    if (!lang) return 'und';
+    const l = lang.toString().toLowerCase().trim();
+    if (!l) return 'und';
+    if (LANG_MAP[l]) return LANG_MAP[l];
+    const short = l.slice(0,3);
+    if (LANG_MAP[short]) return LANG_MAP[short];
+    for (const key of Object.keys(LANG_MAP)) {
+        if (l.indexOf(key) === 0 || key.indexOf(l) === 0) return LANG_MAP[key];
+    }
+    return 'und';
+}
+
+function catLabelHe(id) {
+    const map = { sports:'ספורט', news:'חדשות', movies:'סרטים', kids:'ילדים', music:'מוזיקה', documentary:'דוקו', entertainment:'בידור', series:'סדרות', religious:'דת', adult:'18+', shop:'קניות', weather:'מזג אוויר', other:'אחר' };
+    return map[id] || id;
+}
+
+function escapeHtml(text) {
+    return String(text || '').replace(/[&<>"]+/g, (chunk) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[chunk] || chunk);
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getSourceDef(sourceId) {
+    return SOURCES.find(s => s.id === sourceId) || null;
+}
+
+/** מידע מקור לתצוגה + לינק למאגר הציבורי */
+function getChannelSourceInfo(ch) {
+    if (!ch) return { label: 'לא ידוע', href: IPTV_ORG_HOME, catalogUrl: IPTV_ORG_HOME };
+    if (ch.sourceId === 'custom' || ch.sourceId === 'custom-m3u') {
+        return {
+            label: ch.sourceLabel || 'מותאם אישית',
+            href: ch.url || IPTV_ORG_HOME,
+            catalogUrl: ch.url || IPTV_ORG_HOME,
+        };
+    }
+    const def = getSourceDef(ch.sourceId);
+    const catalogUrl = ch.sourceCatalogUrl || def?.url || IPTV_ORG_HOME;
+    const href = def?.repo || catalogUrl || IPTV_ORG_HOME;
+    return {
+        label: ch.sourceLabel || def?.label || ch.sourceId || 'iptv-org',
+        href,
+        catalogUrl,
+    };
+}
+
+function enrichChannelSource(ch, src) {
+    if (!ch || !src) return ch;
+    ch.sourceId = src.id;
+    ch.sourceLabel = src.label;
+    ch.sourceCatalogUrl = src.url;
+    ch.sourceRepoUrl = src.repo || src.url;
+    return ch;
+}
+
+function shuffleArray(arr) {
+    return arr.slice(); // לא מערבבים יותר — נשאר לתאימות
+}
+
+function loadHealthCache() {
+    try {
+        const raw = localStorage.getItem(HEALTH_CACHE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data?.savedAt || Date.now() - data.savedAt > HEALTH_CACHE_TTL_MS) return false;
+        if (!data.health || typeof data.health !== 'object') return false;
+        healthData = data.health;
+        return Object.keys(healthData).length > 0;
+    } catch (e) {
+        return false;
+    }
+}
+
+function saveHealthCache() {
+    try {
+        localStorage.setItem(HEALTH_CACHE_KEY, JSON.stringify({
+            savedAt: Date.now(),
+            health: healthData,
+        }));
+    } catch (e) {
+        console.warn('health cache save failed', e);
+    }
+}
+
+function initSplashSources() {
+    const box = document.getElementById('splash-sources');
+    if (!box) return;
+    box.innerHTML = SOURCES.map(src => `
+        <div class="splash-src-row" id="splash-src-${src.id}" data-id="${src.id}">
+            <span class="splash-src-name">${escapeHtml(src.label)}</span>
+            <span class="splash-src-status" id="splash-src-status-${src.id}">ממתין</span>
+        </div>
+    `).join('');
+}
+
+function setSplashSourceState(id, state, detail = '') {
+    const row = document.getElementById(`splash-src-${id}`);
+    const status = document.getElementById(`splash-src-status-${id}`);
+    if (!row || !status) return;
+    row.classList.remove('active', 'done', 'fail');
+    if (state === 'scanning') {
+        row.classList.add('active');
+        status.textContent = 'סורק...';
+        try { row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+    } else if (state === 'done') {
+        row.classList.add('done');
+        status.textContent = detail || 'מוכן';
+    } else if (state === 'fail') {
+        row.classList.add('fail');
+        status.textContent = detail || 'נכשל';
+    } else {
+        status.textContent = detail || 'ממתין';
+    }
+}
+
+// ============================================
+// Channel Merging
+// ============================================
+function mergeChannels(newChannels) {
+    const byUrl = new Map();
+    allChannels.forEach(ch => { if (ch.url) byUrl.set(ch.url, ch); });
+    newChannels.forEach(ch => {
+        if (!ch || !ch.url) return;
+        const key = ch.url.trim();
+        const existing = byUrl.get(key);
+        if (!existing) {
+            byUrl.set(key, ch);
+            return;
+        }
+        existing.name = existing.name || ch.name;
+        existing.logo = existing.logo || ch.logo;
+        existing.group = existing.group || ch.group;
+        existing.language = existing.language || ch.language;
+        existing.tvgId = existing.tvgId || ch.tvgId;
+        existing.sourceId = existing.sourceId || ch.sourceId;
+        existing.sourceLabel = existing.sourceLabel || ch.sourceLabel;
+        existing.sourceCatalogUrl = existing.sourceCatalogUrl || ch.sourceCatalogUrl;
+        existing.sourceRepoUrl = existing.sourceRepoUrl || ch.sourceRepoUrl;
+    });
+    allChannels = Array.from(byUrl.values());
+    return allChannels;
+}
+
+// ============================================
+// Fetch Sources — אחד אחרי השני (UX סריקה)
+// ============================================
+async function fetchAllSources() {
+    initSplashSources();
+    updateSplash('סורק מאגרי מידע ציבוריים...');
+    let all = [];
+    // לא שולפים rus אם רוסית כבויה בהגדרות
+    const activeSources = SOURCES.filter(src => {
+        if (src.id === 'rus' && !PREFERRED_LANG_CODES.has('ru')) return false;
+        return true;
+    });
+    for (let i = 0; i < activeSources.length; i++) {
+        const src = activeSources[i];
+        setSplashSourceState(src.id, 'scanning');
+        updateSplash(`פונה למאגר: ${src.label}`);
+        updateScanBar(((i) / activeSources.length) * 40);
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 15000);
+        try {
+            const res = await fetch(src.url, { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const text = await res.text();
+            const channels = parseM3U(text, src.id).map(ch => enrichChannelSource(ch, src));
+            all = all.concat(channels);
+            setSplashSourceState(src.id, 'done', `${channels.length} ערוצים`);
+            updateSplash(`${src.label}: נמצאו ${channels.length} ערוצים`);
+        } catch (e) {
+            clearTimeout(tid);
+            console.warn(`Failed ${src.id}:`, e.message);
+            setSplashSourceState(src.id, 'fail', 'שגיאה');
+            updateSplash(`${src.label}: לא זמין`);
+        }
+        updateScanBar(((i + 1) / activeSources.length) * 40);
+        await sleep(320);
+    }
+    // מסמנים מאגרים שלא נסרקו (למשל rus כבוי)
+    SOURCES.forEach(src => {
+        if (!activeSources.includes(src)) setSplashSourceState(src.id, 'done', 'דולג');
+    });
+    updateSplash(`סה״כ ${all.length} רשומות מהמאגרים`);
+    return all;
+}
+
+// ============================================
+// Custom Channels Management
+// ============================================
+function loadCustomChannels() {
+    try {
+        const json = localStorage.getItem(CUSTOM_CHANNELS_KEY);
+        if (!json) return [];
+        const channels = JSON.parse(json);
+        if (!Array.isArray(channels)) return [];
+        return channels.map(ch => {
+            if (ch?.name && /group-title\s*=|tvg-/i.test(ch.name)) {
+                ch.name = extractExtinfName(`#EXTINF:-1 tvg-name="${ch.tvgName || ''}" group-title="${ch.group || ''}",${ch.name}`, ch);
+            }
+            return ch;
+        });
+    } catch (e) {
+        console.warn('Failed to load custom channels', e);
+        return [];
+    }
+}
+
+function saveCustomChannels() {
+    try {
+        localStorage.setItem(CUSTOM_CHANNELS_KEY, JSON.stringify(customChannels));
+    } catch (e) {
+        console.warn('Failed to save custom channels', e);
+    }
+}
+
+function addCustomChannel() {
+    const nameInput = document.getElementById('custom-channel-name');
+    const urlInput = document.getElementById('custom-channel-url');
+    const logoInput = document.getElementById('custom-channel-logo');
+    
+    const name = nameInput.value.trim();
+    const url = urlInput.value.trim();
+    const logo = logoInput.value.trim();
+    
+    if (!name || !url) {
+        showToast('נא להזין שם וכתובת');
+        return;
+    }
+    
+    const newChannel = {
+        name,
+        url,
+        logo: logo || '',
+        group: 'custom',
+        language: 'und',
+        tvgId: '',
+        sourceId: 'custom',
+        sourceLabel: 'מותאם אישית'
+    };
+    
+    customChannels.push(newChannel);
+    saveCustomChannels();
+    
+    // Add to allChannels
+    mergeChannels([newChannel]);
+    filterAndRank();
+    renderSlides();
+    enqueueUnknownChannelsForScan();
+    startHealthScan();
+    
+    // Clear inputs
+    nameInput.value = '';
+    urlInput.value = '';
+    logoInput.value = '';
+    
+    showToast(`הערוץ "${name}" נוסף בהצלחה`);
+}
+
+function addCustomChannelsFromJSON() {
+    const jsonInput = document.getElementById('custom-channels-json');
+    const json = jsonInput.value.trim();
+    
+    if (!json) {
+        showToast('נא להדביק רשימת ערוצים');
+        return;
+    }
+    
+    try {
+        const channels = JSON.parse(json);
+        if (!Array.isArray(channels)) {
+            showToast('פורמט JSON לא תקין');
+            return;
+        }
+        
+        channels.forEach(ch => {
+            if (!ch.name || !ch.url) return;
+            const newChannel = {
+                name: ch.name,
+                url: ch.url,
+                logo: ch.logo || '',
+                group: ch.group || 'custom',
+                language: ch.language || 'und',
+                tvgId: ch.tvgId || '',
+                sourceId: 'custom',
+                sourceLabel: 'מותאם אישית'
+            };
+            customChannels.push(newChannel);
+        });
+        
+        saveCustomChannels();
+        mergeChannels(customChannels);
+        filterAndRank();
+        renderSlides();
+        enqueueUnknownChannelsForScan();
+        startHealthScan();
+        
+        jsonInput.value = '';
+        showToast(`נוספו ${channels.length} ערוצים`);
+    } catch (e) {
+        console.error('JSON parse error:', e);
+        showToast('שגיאה בפענוח JSON');
+    }
+}
+
+function handleM3UFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const text = e.target.result;
+            const channels = parseM3U(text, 'custom-m3u');
+            
+            channels.forEach(ch => {
+                ch.sourceId = 'custom';
+                ch.sourceLabel = 'קובץ מקומי';
+                customChannels.push(ch);
+            });
+            
+            saveCustomChannels();
+            mergeChannels(customChannels);
+            filterAndRank();
+            renderSlides();
+            enqueueUnknownChannelsForScan();
+            startHealthScan();
+            
+            showToast(`נוספו ${channels.length} ערוצים מהקובץ`);
+        } catch (e) {
+            console.error('M3U parse error:', e);
+            showToast('שגיאה בקריאת הקובץ');
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // Reset input
+}
+
+// ============================================
+// Filtering & Ranking
+// ============================================
+function enqueueUnknownChannelsForScan() {
+    const pending = allChannels.filter(ch => {
+        if (!ch || !ch.url) return false;
+        if (!channelPassesContentFilter(ch)) return false;
+        const h = healthData[ch.url];
+        return !h || h.status === 'unknown';
+    });
+    const existing = new Set(scanQueue.map(ch => ch?.url));
+    let toQueue = pending.filter(ch => !existing.has(ch.url));
+    toQueue.sort((a, b) => channelPriorityScore(b) - channelPriorityScore(a));
+    toQueue = toQueue.slice(0, MAX_HEALTH_SCAN());
+    if (toQueue.length) {
+        scanQueue.push(...toQueue);
+        scanQueueTotal = scanQueue.length;
+    }
+    return toQueue.length;
+}
+
+function channelPriorityScore(ch) {
+    let s = 0;
+    if (ch.sourceId === 'il' || ch.sourceId === 'heb') s += 100;
+    if (ch.sourceId === 'eng') s += 40;
+    if (ch.sourceId === 'custom') s += 80;
+    if (normLanguage(ch.language) === 'he') s += 50;
+    if (normLanguage(ch.language) === 'en') s += 25;
+    if (HE_IL_NAME_RE.test(`${ch.name} ${ch.group || ''}`)) s += 35;
+    return s;
+}
+
+/** שפה אפקטיבית: תג + מקור + שם (לא סומכים רק על tvg-language) */
+function detectEffectiveLang(ch) {
+    const raw = (ch.language || '').toString().toLowerCase();
+    const text = `${ch.name || ''} ${ch.group || ''} ${ch.tvgName || ''}`;
+    const mapped = normLanguage(ch.language);
+
+    if (ch.sourceId === 'rus' || mapped === 'ru' || raw.includes('russian') || raw.includes('рус')) return 'ru';
+    if (CYRILLIC_RE.test(text) || RUSSIAN_NAME_RE.test(text)) return 'ru';
+
+    if (ch.sourceId === 'heb' || mapped === 'he' || raw.includes('hebrew') || /עברית/.test(text)) return 'he';
+    if (ch.sourceId === 'il' && (mapped === 'he' || mapped === 'und' || !ch.language)) return 'he';
+
+    if (mapped === 'ar' || ARABIC_SCRIPT_RE.test(text) || ARABIC_PATTERNS.some(p => p.test(text))) return 'ar';
+
+    if (ch.sourceId === 'eng' || mapped === 'en' || raw.startsWith('en') || raw.includes('english')) return 'en';
+
+    if (mapped && mapped !== 'und') return mapped;
+    if (ch.sourceId === 'il' || ch.sourceId === 'heb' || ch.sourceId === 'custom') return 'und';
+    return mapped || 'und';
+}
+
+function channelPassesContentFilter(ch) {
+    const text = `${ch.name || ''} ${ch.group || ''} ${ch.tvgName || ''}`;
+    if (SOUTH_AFRICA_PATTERNS.some(p => p.test(text))) return false;
+
+    const effective = detectEffectiveLang(ch);
+    ch.langCode = effective;
+    ch.effectiveLang = effective;
+
+    // רוסית — רק אם הטוגל רוסית דלוק
+    if (effective === 'ru') return PREFERRED_LANG_CODES.has('ru');
+    // ערבית — תמיד לא (אלא אם יום אחד יתווסף טוגל)
+    if (effective === 'ar') return PREFERRED_LANG_CODES.has('ar');
+
+    // רק שפות שסומנו בהגדרות
+    if (PREFERRED_LANG_CODES.has(effective) || ALLOWED_LANG_CODES.has(effective)) return true;
+
+    // und רק ממקורות ישראל/עברית/מותאם — לא מ־news/sports העולמיים
+    if (effective === 'und' || effective === '') {
+        return ch.sourceId === 'il' || ch.sourceId === 'heb' || ch.sourceId === 'custom';
+    }
+
+    return false;
+}
+
+function filterAndRank(opts = {}) {
+    const rebuild = opts.rebuild === true;
+    const seen = new Set();
+    const unique = [];
+    for (const ch of allChannels) {
+        if (!ch.url || seen.has(ch.url)) continue;
+        seen.add(ch.url);
+        ch.category = classifyChannel(ch);
+        if (!channelPassesContentFilter(ch)) continue;
+        if (blockedCats.has(ch.category)) continue;
+        unique.push(ch);
+    }
+
+    const byUrl = new Map(unique.map(ch => [ch.url, ch]));
+    const fastOnes = unique.filter(ch => healthData[ch.url]?.status === 'fast');
+
+    const stableSort = (arr) => {
+        arr.sort((a, b) => {
+            const fa = userFavorites.has(a.name) ? 1 : 0;
+            const fb = userFavorites.has(b.name) ? 1 : 0;
+            if (fa !== fb) return fb - fa;
+            const pa = channelPriorityScore(a);
+            const pb = channelPriorityScore(b);
+            if (pa !== pb) return pb - pa;
+            return String(a.name || '').localeCompare(String(b.name || ''), 'he');
+        });
+        return arr;
+    };
+
+    // קטגוריה/מועדפים — לא נוגעים ב־pinned של "הכל"
+    if (activeCat === 'favorites') {
+        filteredChannels = stableSort(fastOnes.filter(ch => userFavorites.has(ch.name))).slice(0, 100);
+        return;
+    }
+    if (activeCat !== 'all') {
+        filteredChannels = stableSort(fastOnes.filter(ch => ch.category === activeCat)).slice(0, 100);
+        return;
+    }
+
+    // "הכל": מה שהופיע נשאר לנצח בסשן — רק מוסיפים. rebuild רק בשינוי שפה/חסימה/סריקה מחדש
+    if (rebuild || !pinnedFeedChannels.length) {
+        pinnedFeedChannels = stableSort(fastOnes.slice()).slice(0, 100);
+        filteredChannels = pinnedFeedChannels.slice();
+        return;
+    }
+
+    pinnedFeedChannels = pinnedFeedChannels.map(ch => byUrl.get(ch.url) || ch);
+    const pinnedUrls = new Set(pinnedFeedChannels.map(ch => ch.url));
+    const newcomers = stableSort(fastOnes.filter(ch => !pinnedUrls.has(ch.url)));
+    pinnedFeedChannels = [...pinnedFeedChannels, ...newcomers].slice(0, 100);
+    filteredChannels = pinnedFeedChannels.slice();
+}
+
+// ============================================
+// Rendering
+// ============================================
+function cleanupVideoState() {
+    Object.values(hlsPool).forEach(hls => { try { hls.destroy(); } catch (e) {} });
+    hlsPool = {};
+    loadedSlides.clear();
+    currentSlideIndex = -1;
+    if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
+    Object.values(overlayTimers).forEach(timer => clearTimeout(timer));
+    overlayTimers = {};
+}
+
+function buildCatBar() {
+    const bar = document.getElementById('cat-bar');
+    const cats = [
+        { id:'all', label:'הכל', icon:'fa-globe' },
+        { id:'favorites', label:'מועדפים', icon:'fa-star' },
+        ...CATEGORY_RULES.filter(r => r.id !== 'adult' && r.id !== 'religious').map(r => ({ id:r.id, label:catLabelHe(r.id), icon:r.icon }))
+    ];
+    bar.innerHTML = cats.map(c => `<div class="cat-pill ${c.id === activeCat ? 'active' : ''}" onclick="selectCategory('${c.id}')"><i class="fas ${c.icon}" style="margin-left:4px;font-size:11px;"></i>${c.label}</div>`).join('');
+}
+
+function selectCategory(catId) {
+    activeCat = catId;
+    filterAndRank(); // קטגוריה אחרת לא מוחקת pinned של "הכל"
+    renderSlides(true);
+    buildCatBar();
+    document.getElementById('scroller').scrollTo({ top:0, behavior:'auto' });
+    showToast(`${catId === 'all' ? 'כל הערוצים' : catId === 'favorites' ? 'מועדפים' : catLabelHe(catId)} — ${filteredChannels.length}`);
+}
+
+/** רינדור מלא — רק בפתיחה / החלפת קטגוריה */
+function renderSlides(forceRestart = true) {
+    cleanupVideoState();
+    const scroller = document.getElementById('scroller');
+    if (!filteredChannels.length) {
+        scroller.innerHTML = `<div class="empty-state">
+            <i class="fas fa-satellite-dish"></i>
+            <span>${healthScanActive ? 'מחפש ערוצים שעובדים…' : 'לא נמצאו ערוצים זמינים'}</span>
+        </div>`;
+        return;
+    }
+    scroller.innerHTML = filteredChannels.map((ch, idx) => renderSlideHTML(ch, idx)).join('');
+    setupScrollObserver();
+    setTimeout(() => onSlideVisible(0), 80);
+}
+
+/** רק מוסיף ערוצים חדשים — אף פעם לא מוחק / מרנדר מחדש באמצע צפייה */
+function softUpdateFeed() {
+    const scroller = document.getElementById('scroller');
+    if (!scroller) return;
+    const prevLen = scroller.querySelectorAll('.slide').length;
+
+    filterAndRank(); // append-only ל־pinned
+
+    if (!filteredChannels.length) {
+        if (!prevLen) renderSlides(true);
+        return;
+    }
+
+    if (!prevLen) {
+        document.getElementById('splash')?.classList.add('hide');
+        renderSlides(true);
+        feedBootstrapped = true;
+        quietScanToasts = true;
+        showToast(`${filteredChannels.length} ערוצים מוכנים`);
+        return;
+    }
+
+    // הוספה בסוף בלבד
+    if (filteredChannels.length > prevLen) {
+        for (let i = prevLen; i < filteredChannels.length; i++) {
+            // ודא שה־URL לא כבר קיים ב־DOM
+            const url = filteredChannels[i].url;
+            const exists = Array.from(scroller.querySelectorAll('.slide')).some(
+                el => decodeURIComponent(el.dataset.url || '') === url
+            );
+            if (exists) continue;
+            scroller.insertAdjacentHTML('beforeend', renderSlideHTML(filteredChannels[i], i));
+        }
+        // תיקון data-index לכל הסליידים
+        Array.from(scroller.querySelectorAll('.slide')).forEach((el, i) => {
+            el.dataset.index = String(i);
+        });
+        setupScrollObserver();
+        const tot = document.getElementById('header-channel-total');
+        if (tot) tot.textContent = String(scroller.querySelectorAll('.slide').length);
+        preloadSlide(currentSlideIndex + 1);
+        preloadSlide(currentSlideIndex + 2);
+    }
+    // אם יש פחות — מתעלמים (לא מוחקים מהמסך באמצע סשן)
+}
+
+function renderSlideHTML(ch, idx) {
+    const health = healthData[ch.url] || { status:'unknown', ms:0 };
+    const healthClass = `health-${health.status}`;
+    const healthLabel = health.status === 'fast' ? 'פעיל' : health.status === 'slow' ? 'איטי' : health.status === 'dead' ? 'לא זמין' : 'בבדיקה';
+    const volIcon = channelMuteState[ch.url] ? 'fas fa-volume-xmark' : 'fas fa-volume-high';
+    const catLabel = catLabelHe(ch.category);
+    const catRule = CATEGORY_RULES.find(r => r.id === ch.category);
+    const catIcon = catRule ? catRule.icon : 'fa-circle';
+    return `
+    <div class="slide" data-index="${idx}" data-url="${encodeURIComponent(ch.url)}">
+        <div class="slide-bg" style="background-image:url('${ch.logo || ''}')"></div>
+        <div class="video-loader" id="loader-${idx}"><div class="video-spinner"></div></div>
+        <video id="video-${idx}" playsinline webkit-playsinline muted loop preload="metadata" style="position:absolute;inset:0;z-index:2;"></video>
+        <div class="overlay-top" id="overlay-top-${idx}">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span class="health-badge ${healthClass}"><span class="health-dot"></span>${healthLabel}</span>
+                <span style="font-size:10px;color:#888;background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:6px;"><i class="fas ${catIcon}" style="margin-left:3px;font-size:9px;"></i>${catLabel}</span>
+            </div>
+        </div>
+        <div class="side-actions" id="side-${idx}">
+            <div style="text-align:center;"><button class="side-btn" onclick="toggleChannelAudio(${idx})" aria-label="שמע"><i class="${volIcon}" id="vol-icon-${idx}"></i></button><div class="side-btn-label">שמע</div></div>
+            <div style="text-align:center;"><button class="side-btn" onclick="toggleFavorite(${idx})" aria-label="מועדף"><i class="${userFavorites.has(ch.name) ? 'fas fa-star' : 'far fa-star'}"></i></button><div class="side-btn-label">מועדף</div></div>
+            <div style="text-align:center;"><button class="side-btn" onclick="blockChannel(${idx})" aria-label="חסום"><i class="fas fa-ban"></i></button><div class="side-btn-label">חסום</div></div>
+        </div>
+    </div>`;
+}
+
+// ============================================
+// Scroll Observer
+// ============================================
+function setupScrollObserver() {
+    const scroller = document.getElementById('scroller');
+    if (!scroller) return;
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    if (!slides.length) return;
+    if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
+    const updateFromScroll = () => {
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+        const top = scroller.scrollTop + (viewportHeight / 2);
+        let nearestIndex = 0;
+        let nearestDistance = Infinity;
+        slides.forEach((slide, index) => {
+            const slideTop = slide.offsetTop;
+            const distance = Math.abs(slideTop - top);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestIndex = index;
+            }
+        });
+        if (nearestIndex !== currentSlideIndex) onSlideVisible(nearestIndex);
+    };
+    if (handleScrollerScroll) scroller.removeEventListener('scroll', handleScrollerScroll);
+    handleScrollerScroll = () => {
+        if (scrollRaf) cancelAnimationFrame(scrollRaf);
+        scrollRaf = requestAnimationFrame(updateFromScroll);
+    };
+    scroller.addEventListener('scroll', handleScrollerScroll, { passive:true });
+    updateFromScroll();
+}
+
+function onSlideVisible(idx) {
+    if (idx === currentSlideIndex) return;
+    pauseSlide(currentSlideIndex);
+    currentSlideIndex = idx;
+    loadSlideVideo(idx);
+    preloadSlide(idx + 1);
+    preloadSlide(idx + 2);
+    updateHeaderPanel(idx);
+    if (autoScrollEnabled) resetAutoScrollCountdown();
+}
+
+// ============================================
+// Video Loading
+// ============================================
+function loadSlideVideo(idx) {
+    if (!filteredChannels[idx]) return;
+    const ch = filteredChannels[idx];
+    const video = document.getElementById(`video-${idx}`);
+    const loader = document.getElementById(`loader-${idx}`);
+    const slideBg = document.querySelector(`.slide[data-index="${idx}"] .slide-bg`);
+    if (!video) return;
+    const muted = channelMuteState[ch.url] === true;
+    
+    if (loadedSlides.has(idx)) {
+        if (loader) loader.style.display = 'none';
+        video.muted = muted;
+        video.style.opacity = '1';
+        video.style.zIndex = '3';
+        if (slideBg) slideBg.style.opacity = '0.3';
+        const icon = document.getElementById(`vol-icon-${idx}`);
+        if (icon) icon.className = muted ? 'fas fa-volume-xmark' : 'fas fa-volume-high';
+        if (idx === currentSlideIndex && video.paused) {
+            video.play().catch(e => {
+                video.muted = true;
+                video.play().catch(() => {});
+            });
+        }
+        return;
+    }
+    
+    loadedSlides.add(idx);
+    const start = Date.now();
+    let settled = false;
+    
+    const markReady = () => {
+        if (settled) return;
+        settled = true;
+        const ms = Date.now() - start;
+        const prev = healthData[ch.url];
+        // לא מורידים מ־fast ל־slow אחרי שכבר הוצג
+        if (prev?.status === 'fast') {
+            healthData[ch.url] = { status: 'fast', ms: Math.min(prev.ms || ms, ms), lastCheck: Date.now() };
+        } else {
+            healthData[ch.url] = { status: ms <= FAST_MS_THRESHOLD ? 'fast' : 'slow', ms, lastCheck: Date.now() };
+        }
+        if (loader) loader.style.display = 'none';
+        video.style.opacity = '1';
+        video.style.zIndex = '3';
+        video.style.display = '';
+        if (slideBg) slideBg.style.opacity = '0.3';
+        if (idx === currentSlideIndex) {
+            video.play().catch(e => {
+                video.muted = true;
+                video.play().catch(() => {});
+            });
+        }
+    };
+    
+    const markError = () => {
+        if (settled) return;
+        settled = true;
+        // לא מוחקים ערוץ שכבר הוכתר כ־fast — רק מדלגים לנגן
+        const prev = healthData[ch.url];
+        if (prev?.status !== 'fast') {
+            healthData[ch.url] = { status:'dead', ms:99999, lastCheck: Date.now() };
+        }
+        if (loader) loader.innerHTML = `<div class="empty-state" style="height:auto;min-height:0;"><i class="fas fa-exclamation-triangle"></i><span>מדלג…</span></div>`;
+        video.style.display = 'none';
+        if (slideBg) slideBg.style.opacity = '1';
+        if (idx === currentSlideIndex) {
+            setTimeout(() => skipFailedChannel(idx), 350);
+        }
+    };
+    
+    video.style.opacity = '0';
+    video.style.transition = 'opacity .5s ease';
+    video.style.zIndex = '3';
+    video.muted = muted;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.loop = true;
+    
+    if (Hls.isSupported() && ch.url.includes('.m3u8')) {
+        const hls = new Hls({ 
+            maxBufferLength: isMobileMode() ? 6 : 10, 
+            liveSyncDurationCount: 2, 
+            enableWorker: !isMobileMode(), 
+            lowLatencyMode: !isMobileMode(),
+            startLevel: -1
+        });
+        hls.loadSource(ch.url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.addEventListener('loadeddata', markReady, { once: true });
+            video.addEventListener('canplay', markReady, { once: true });
+            setTimeout(() => {
+                if (!settled && video.readyState >= 2) markReady();
+            }, isMobileMode() ? 5000 : 3000);
+        });
+        hls.on(Hls.Events.ERROR, (event, data) => { 
+            if (data.fatal) markError(); 
+        });
+        hlsPool[idx] = hls;
+        setTimeout(() => { if (!settled) markError(); }, HEALTH_CHECK_TIMEOUT_MS());
+    } else {
+        video.src = ch.url;
+        video.addEventListener('loadeddata', markReady, { once:true });
+        video.addEventListener('canplay', markReady, { once:true });
+        video.addEventListener('error', markError, { once:true });
+        setTimeout(() => { if (!settled) markError(); }, HEALTH_CHECK_TIMEOUT_MS());
+    }
+}
+
+function preloadSlide(idx) {
+    if (idx < 0 || idx >= filteredChannels.length) return;
+    if (!loadedSlides.has(idx)) loadSlideVideo(idx);
+    const video = document.getElementById(`video-${idx}`);
+    if (video && idx !== currentSlideIndex) video.pause();
+}
+
+function pauseSlide(idx) {
+    const video = document.getElementById(`video-${idx}`);
+    if (video) video.pause();
+    const dist = Math.abs(idx - currentSlideIndex);
+    // שומרים preload של ±2
+    if (hlsPool[idx] && dist > 2) {
+        try { hlsPool[idx].destroy(); } catch (e) {}
+        delete hlsPool[idx];
+        loadedSlides.delete(idx);
+    }
+}
+
+/** דילוג לנגן בלבד — בלי למחוק ערוצים מהפיד */
+function skipFailedChannel(failedIdx) {
+    if (!filteredChannels.length) return;
+    const next = Math.min(failedIdx + 1, filteredChannels.length - 1);
+    if (next !== failedIdx) scrollToSlide(next);
+}
+
+// ============================================
+// Channel Actions
+// ============================================
+function toggleChannelAudio(idx) {
+    const ch = filteredChannels[idx];
+    const video = document.getElementById(`video-${idx}`);
+    const icon = document.getElementById(`vol-icon-${idx}`);
+    if (!video || !ch) return;
+    video.muted = !video.muted;
+    channelMuteState[ch.url] = video.muted;
+    if (icon) icon.className = video.muted ? 'fas fa-volume-xmark' : 'fas fa-volume-high';
+    if (idx === currentSlideIndex && !video.muted && video.paused) {
+        video.play().catch(() => showToast('שמע נכשל - משתהה'));
+    }
+    showToast(video.muted ? 'מושתק' : 'שמע פעיל');
+}
+
+function toggleFavorite(idx) {
+    const ch = filteredChannels[idx];
+    if (!ch) return;
+    if (userFavorites.has(ch.name)) {
+        userFavorites.delete(ch.name);
+        showToast(`${ch.name} הוסר מהמועדפים`);
+    } else {
+        userFavorites.add(ch.name);
+        showToast(`${ch.name} נוסף למועדפים`);
+    }
+    saveUserData();
+}
+
+function blockChannel(idx) {
+    const ch = filteredChannels[idx];
+    if (!ch) return;
+    blockedCats.add(ch.category);
+    saveUserData();
+    showToast(`${ch.name} נחסם`);
+    filterAndRank();
+    renderSlides();
+}
+
+// ============================================
+// Auto Scroll
+// ============================================
+function toggleAutoScroll() {
+    autoScrollEnabled = !autoScrollEnabled;
+    updateAutoScrollButton();
+    updateCountdown();
+    if (autoScrollEnabled) startAutoScroll();
+    else stopAutoScroll();
+}
+
+function startAutoScroll() {
+    stopAutoScroll();
+    autoScrollEnabled = true;
+    autoScrollTick = 10;
+    updateCountdown();
+    autoScrollInterval = setInterval(() => {
+        autoScrollTick -= 1;
+        if (autoScrollTick <= 0) {
+            const next = currentSlideIndex + 1 >= filteredChannels.length ? 0 : currentSlideIndex + 1;
+            scrollToSlide(next);
+            autoScrollTick = 10;
+        }
+        updateCountdown();
+    }, 1000);
+}
+
+function resetAutoScrollCountdown() {
+    autoScrollTick = 10;
+    updateCountdown();
+}
+
+function stopAutoScroll() {
+    autoScrollEnabled = false;
+    clearInterval(autoScrollInterval);
+    autoScrollInterval = null;
+    autoScrollTick = 10;
+    updateCountdown();
+    updateAutoScrollButton();
+}
+
+function updateAutoScrollButton() {
+    const btn = document.getElementById('auto-scroll-btn');
+    if (!btn) return;
+    btn.textContent = autoScrollEnabled ? 'עצור' : 'אוטו';
+    btn.classList.toggle('active', autoScrollEnabled);
+}
+
+function updateCountdown() {
+    const countdown = document.getElementById('auto-countdown');
+    if (!countdown) return;
+    countdown.textContent = autoScrollEnabled ? `${autoScrollTick}s` : 'כבוי';
+}
+
+function scrollToSlide(idx) {
+    const slide = document.querySelector(`.slide[data-index="${idx}"]`);
+    if (slide) slide.scrollIntoView({ behavior:'smooth' });
+}
+
+// ============================================
+// Health Scan
+// ============================================
+function startHealthScan() {
+    if (healthScanActive) return;
+    healthScanActive = true;
+    scanQueue = [];
+    const n = enqueueUnknownChannelsForScan();
+    scanQueueTotal = scanQueue.length || 1;
+    if (!quietScanToasts && !feedBootstrapped) updateScanBar(10);
+    softUpdateFeed();
+    if (!n) {
+        healthScanActive = false;
+        document.getElementById('scan-progress').classList.remove('show');
+        return;
+    }
+    if (IS_FILE_ORIGIN && !quietScanToasts) {
+        showToast('אזהרה: file:// חוסם רוב הסטרימים', 3500);
+    }
+    // בלי טוסטים על סריקת רקע — רק ערוצים עולים למסך
+    processHealthQueue();
+}
+
+async function processHealthQueue() {
+    if (!scanQueue.length) {
+        healthScanActive = false;
+        document.getElementById('scan-progress').classList.remove('show');
+        softUpdateFeed();
+        saveHealthCache();
+        return;
+    }
+    const batch = scanQueue.splice(0, HEALTH_BATCH_SIZE());
+    await Promise.all(batch.map(ch => quickHealthCheck(ch)));
+    const completed = scanQueueTotal - scanQueue.length;
+    if (!quietScanToasts && !feedBootstrapped) {
+        updateScanBar(10 + (completed / Math.max(scanQueueTotal, 1)) * 80);
+    } else {
+        document.getElementById('scan-progress')?.classList.remove('show');
+    }
+
+    softUpdateFeed();
+    if (completed % 20 === 0) saveHealthCache();
+
+    updateHeaderPanel(Math.max(0, currentSlideIndex));
+    setTimeout(() => processHealthQueue(), HEALTH_BATCH_DELAY_MS());
+}
+
+async function quickHealthCheck(ch) {
+    if (!ch || !ch.url) return;
+    const existing = healthData[ch.url];
+    // ערוץ שכבר עובד — לא בודקים שוב ולא מורידים ל־dead
+    if (existing?.status === 'fast') return;
+    if (existing && existing.status !== 'unknown' && Date.now() - existing.lastCheck < 5 * 60 * 1000) return;
+    return new Promise((resolve) => {
+        let settled = false;
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        video.preload = 'auto';
+        let hls = null;
+        const cleanup = () => {
+            try { if (hls) hls.destroy(); } catch (e) {}
+            try { video.removeAttribute('src'); video.load(); } catch (e) {}
+            try { video.remove(); } catch (e) {}
+        };
+        const finish = (status, ms = 99999) => {
+            if (settled) return;
+            settled = true;
+            const prev = healthData[ch.url];
+            if (prev?.status === 'fast') {
+                // נעילה: לא מורידים מ־fast
+                healthData[ch.url] = { status: 'fast', ms: prev.ms || ms, lastCheck: Date.now() };
+            } else {
+                healthData[ch.url] = { status, ms, lastCheck: Date.now() };
+            }
+            cleanup();
+            resolve();
+        };
+        const startTime = Date.now();
+        const useHls = window.Hls && Hls.isSupported() && /\.m3u8($|\?)/i.test(ch.url);
+        if (useHls) {
+            hls = new Hls({
+                maxBufferLength: 2,
+                liveSyncDurationCount: 1,
+                enableWorker: false,
+                lowLatencyMode: false,
+                manifestLoadingTimeOut: 8000,
+                levelLoadingTimeOut: 8000,
+            });
+            hls.loadSource(ch.url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                const ms = Date.now() - startTime;
+                finish(ms <= FAST_MS_THRESHOLD ? 'fast' : 'slow', ms);
+            });
+            hls.on(Hls.Events.ERROR, (_e, data) => {
+                if (data?.fatal || data?.type === 'networkError') finish('dead');
+            });
+            setTimeout(() => finish('dead'), HEALTH_CHECK_TIMEOUT_MS());
+        } else {
+            video.src = ch.url;
+            const onReady = () => finish(Date.now() - startTime <= FAST_MS_THRESHOLD ? 'fast' : 'slow', Date.now() - startTime);
+            video.addEventListener('loadeddata', onReady, { once: true });
+            video.addEventListener('canplay', onReady, { once: true });
+            video.addEventListener('error', () => finish('dead'), { once: true });
+            setTimeout(() => finish('dead'), HEALTH_CHECK_TIMEOUT_MS());
+        }
+    });
+}
+
+// ============================================
+// UI Helpers
+// ============================================
+function updateHeaderPanel(idx) {
+    const ch = filteredChannels[idx];
+    if (!ch) return;
+    document.getElementById('header-channel-number').textContent = idx + 1;
+    document.getElementById('header-channel-total').textContent = filteredChannels.length;
+    const status = healthData[ch.url]?.status;
+    const statusLabel = status === 'fast' ? 'פעיל' : status === 'slow' ? 'איטי' : status === 'dead' ? 'לא זמין' : 'בבדיקה';
+    const chipName = document.getElementById('channel-chip-name');
+    const chipMeta = document.getElementById('channel-chip-meta');
+    const chipEpg = document.getElementById('channel-chip-epg');
+    const chipSource = document.getElementById('channel-chip-source');
+    const chipSourceLabel = document.getElementById('channel-chip-source-label');
+    const src = getChannelSourceInfo(ch);
+    const langLabel = ch.effectiveLang === 'he' ? 'עברית' : ch.effectiveLang === 'en' ? 'אנגלית' : ch.effectiveLang === 'ru' ? 'רוסית' : (ch.effectiveLang || '');
+    if (chipName) chipName.textContent = ch.name || 'ערוץ לא ידוע';
+    if (chipMeta) {
+        chipMeta.innerHTML = `
+            <span class="health-badge health-${status || 'unknown'}"><span class="health-dot"></span>${statusLabel}</span>
+            <span class="chip-live"><i class="fas fa-broadcast-tower"></i>שידור חי</span>
+            <span>${catLabelHe(ch.category)}</span>
+            ${langLabel ? `<span>${langLabel}</span>` : ''}
+        `;
+    }
+    const nowProg = getNowAndNext(ch.tvgId).now;
+    if (chipEpg) {
+        if (nowProg) {
+            chipEpg.classList.add('show');
+            chipEpg.innerHTML = `<span class="epg-now-label">עכשיו</span>${escapeHtml(nowProg.title)}`;
+        } else {
+            chipEpg.classList.remove('show');
+            chipEpg.innerHTML = '';
+        }
+    }
+    if (chipSource && chipSourceLabel) {
+        chipSource.href = src.href;
+        chipSource.title = src.catalogUrl || src.href;
+        chipSource.style.display = 'inline-flex';
+        chipSourceLabel.textContent = `מקור: ${src.label} · iptv-org`;
+    }
+    updateEpgFab(ch);
+}
+
+// ============================================
+// EPG (לוח שידורים)
+// ============================================
+function parseXmltvDate(str) {
+    if (!str) return null;
+    const m = String(str).match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
+    if (!m) return null;
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+}
+
+function ingestXmltv(xmlText) {
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    if (doc.querySelector('parsererror')) return 0;
+    let count = 0;
+    doc.querySelectorAll('programme').forEach(p => {
+        const channel = p.getAttribute('channel');
+        if (!channel) return;
+        const start = parseXmltvDate(p.getAttribute('start'));
+        const stop = parseXmltvDate(p.getAttribute('stop'));
+        const title = p.querySelector('title')?.textContent?.trim() || 'תוכנית';
+        const desc = p.querySelector('desc')?.textContent?.trim() || '';
+        if (!start || !stop) return;
+        if (!epgData[channel]) epgData[channel] = [];
+        epgData[channel].push({ start, stop, title, desc });
+        count++;
+    });
+    Object.keys(epgData).forEach(id => {
+        epgData[id].sort((a, b) => a.start - b.start);
+    });
+    return count;
+}
+
+async function fetchEpgSources() {
+    updateSplash('טוען לוח שידורים...');
+    let total = 0;
+    await Promise.allSettled(EPG_SOURCES.map(async (url) => {
+        try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 20000);
+            const res = await fetch(url, { signal: ctrl.signal });
+            clearTimeout(tid);
+            if (!res.ok) return;
+            const text = await res.text();
+            total += ingestXmltv(text);
+        } catch (e) {
+            console.warn('EPG failed', url, e.message);
+        }
+    }));
+    return total;
+}
+
+function getNowAndNext(tvgId) {
+    if (!tvgId || !epgData[tvgId]?.length) return { now: null, next: null, list: [] };
+    const now = Date.now();
+    const list = epgData[tvgId];
+    let current = null;
+    let next = null;
+    for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (p.start.getTime() <= now && p.stop.getTime() > now) {
+            current = p;
+            next = list[i + 1] || null;
+            break;
+        }
+        if (p.start.getTime() > now) {
+            next = p;
+            break;
+        }
+    }
+    const upcoming = list.filter(p => p.stop.getTime() > now).slice(0, 12);
+    return { now: current, next, list: upcoming };
+}
+
+function channelHasEpg(ch) {
+    if (!ch?.tvgId) return false;
+    return !!(epgData[ch.tvgId]?.length);
+}
+
+function updateEpgFab(ch) {
+    const fab = document.getElementById('epg-fab');
+    if (!fab) return;
+    if (channelHasEpg(ch)) fab.classList.add('show');
+    else fab.classList.remove('show');
+}
+
+function formatEpgTime(d) {
+    if (!d) return '';
+    return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+
+function openEpgSheet() {
+    const ch = filteredChannels[currentSlideIndex];
+    if (!ch || !channelHasEpg(ch)) {
+        showToast('אין לוח שידורים לערוץ זה');
+        return;
+    }
+    const { now, list } = getNowAndNext(ch.tvgId);
+    document.getElementById('epg-modal-channel').textContent = ch.name;
+    const listEl = document.getElementById('epg-modal-list');
+    if (!list.length) {
+        listEl.innerHTML = `<div style="color:#888;font-size:13px;">אין תוכניות זמינות כרגע</div>`;
+    } else {
+        listEl.innerHTML = list.map(p => {
+            const isNow = now && p.start.getTime() === now.start.getTime();
+            return `<div style="padding:12px;border-radius:12px;background:${isNow ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)'};border:1px solid ${isNow ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.06)'};">
+                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <span style="font-size:11px;color:var(--accent);font-weight:700;">${formatEpgTime(p.start)} – ${formatEpgTime(p.stop)}</span>
+                    ${isNow ? '<span style="font-size:10px;color:#000;background:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700;">עכשיו</span>' : ''}
+                </div>
+                <div style="font-size:14px;font-weight:600;">${escapeHtml(p.title)}</div>
+                ${p.desc ? `<div style="font-size:12px;color:#888;margin-top:4px;line-height:1.4;">${escapeHtml(p.desc.slice(0, 160))}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+    document.getElementById('epg-modal').classList.remove('hide');
+}
+
+function closeEpgSheet() {
+    document.getElementById('epg-modal').classList.add('hide');
+}
+
+function updateSplash(text) {
+    const el = document.getElementById('splash-status');
+    if (el) el.textContent = text;
+}
+
+function updateScanBar(pct) {
+    if (quietScanToasts || feedBootstrapped) {
+        document.getElementById('scan-progress')?.classList.remove('show');
+        return;
+    }
+    const bar = document.getElementById('scan-bar');
+    if (bar) bar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+    document.getElementById('scan-progress').classList.add('show');
+}
+
+let toastTimer = null;
+function showToast(msg, duration = 2500) {
+    // אחרי שהפיד עלה — לא מציפים בהודעות סריקה
+    if (quietScanToasts && /סריק|מועמדים|ברקע|מהזיכרון|הושלמה/.test(msg)) return;
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function toggleSettings() {
+    document.getElementById('settings-modal').classList.toggle('hide');
+}
+
+function buildSettingsModal() {
+    const blockList = document.getElementById('block-list');
+    // כתום = קטגוריה מוצגת (לא חסומה)
+    blockList.innerHTML = CATEGORY_RULES.filter(c => c.id !== 'adult').map(c => {
+        const isShown = !blockedCats.has(c.id);
+        return `<div class="block-toggle"><span style="font-size:13px;">${catLabelHe(c.id)}</span><div class="toggle-switch ${isShown ? 'on' : ''}" onclick="toggleBlockedCat('${c.id}', this)" role="switch" aria-checked="${isShown}"></div></div>`;
+    }).join('');
+    
+    const langList = document.getElementById('lang-list');
+    const langs = [{ code:'en', label:'אנגלית' }, { code:'he', label:'עברית' }, { code:'ru', label:'רוסית' }];
+    langList.innerHTML = langs.map(l => {
+        const isActive = PREFERRED_LANG_CODES.has(l.code);
+        const fastCount = allChannels.filter(ch => normLanguage(ch.language) === l.code && healthData[ch.url]?.status === 'fast').length;
+        return `<div class="block-toggle">
+            <span style="font-size:13px;">${l.label} <span style="color:#888;font-size:11px;">(${fastCount} מהירים)</span></span>
+            <div class="toggle-switch ${isActive ? 'on' : ''}" onclick="toggleLang('${l.code}', this)" role="switch" aria-checked="${isActive}"></div>
+        </div>`;
+    }).join('');
+}
+
+function toggleBlockedCat(catId, el) {
+    // כתום = מוצג. לחיצה על כתום → חוסם; על אפור → מציג
+    if (blockedCats.has(catId)) {
+        blockedCats.delete(catId);
+        el.classList.add('on');
+        el.setAttribute('aria-checked', 'true');
+    } else {
+        blockedCats.add(catId);
+        el.classList.remove('on');
+        el.setAttribute('aria-checked', 'false');
+    }
+    saveUserData();
+    filterAndRank({ rebuild: true });
+    renderSlides();
+    const fastCount = filteredChannels.filter(ch => healthData[ch.url]?.status === 'fast').length;
+    showToast(`${catLabelHe(catId)} ${blockedCats.has(catId) ? 'הוסתרה' : 'מוצגת'} — ${fastCount} ערוצים מהירים`);
+}
+
+function toggleLang(code, el) {
+    if (PREFERRED_LANG_CODES.has(code)) {
+        if (PREFERRED_LANG_CODES.size <= 1) return;
+        PREFERRED_LANG_CODES.delete(code);
+        el.classList.remove('on');
+    } else {
+        PREFERRED_LANG_CODES.add(code);
+        el.classList.add('on');
+    }
+    ALLOWED_LANG_CODES.clear();
+    PREFERRED_LANG_CODES.forEach(c => ALLOWED_LANG_CODES.add(c));
+    saveUserData();
+    filterAndRank({ rebuild: true });
+    renderSlides();
+    const fastCount = filteredChannels.length;
+    const langName = code === 'en' ? 'אנגלית' : code === 'he' ? 'עברית' : code === 'ru' ? 'רוסית' : code;
+    showToast(`${langName} ${PREFERRED_LANG_CODES.has(code) ? 'הופעלה' : 'נוטרלה'} — ${fastCount} ערוצים`);
+}
+
+function rescanChannels() {
+    toggleSettings();
+    cleanupVideoState();
+    healthData = {};
+    pinnedFeedChannels = [];
+    feedBootstrapped = false;
+    quietScanToasts = false;
+    try { localStorage.removeItem(HEALTH_CACHE_KEY); } catch (e) {}
+    isScanning = false;
+    scanQueue = [];
+    healthScanActive = false;
+    init();
+}
+
+function showTopControls() {
+    document.getElementById('top-header').classList.remove('hidden');
+    scheduleTopControlsHide();
+}
+
+function hideTopControls() {
+    document.getElementById('top-header').classList.add('hidden');
+}
+
+function scheduleTopControlsHide() {
+    clearTimeout(topControlsHideTimer);
+    topControlsHideTimer = setTimeout(hideTopControls, 5000);
+}
+
+// ============================================
+// Data Persistence
+// ============================================
+function saveUserData() {
+    try {
+        const data = {
+            favorites: Array.from(userFavorites),
+            blockedCats: Array.from(blockedCats),
+            preferredLangs: Array.from(PREFERRED_LANG_CODES),
+            activeCat,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.warn('Save settings failed', e);
+    }
+}
+
+function loadUserData() {
+    try {
+        const json = localStorage.getItem(STORAGE_KEY);
+        if (!json) return;
+        const data = JSON.parse(json);
+        if (data.favorites) userFavorites = new Set(data.favorites);
+        if (data.blockedCats) blockedCats = new Set(data.blockedCats);
+        if (data.preferredLangs && Array.isArray(data.preferredLangs) && data.preferredLangs.length) {
+            PREFERRED_LANG_CODES.clear();
+            ALLOWED_LANG_CODES.clear();
+            data.preferredLangs.forEach(code => {
+                PREFERRED_LANG_CODES.add(code);
+                ALLOWED_LANG_CODES.add(code);
+            });
+            // אם נשמרו רק שפות בלי עברית/אנגלית — מחזירים עברית (מצב שבור נפוץ)
+            if (!PREFERRED_LANG_CODES.has('he') && !PREFERRED_LANG_CODES.has('en')) {
+                PREFERRED_LANG_CODES.add('he');
+                ALLOWED_LANG_CODES.add('he');
+            }
+        }
+        if (data.activeCat) activeCat = data.activeCat;
+    } catch (e) {
+        console.warn('Load settings failed', e);
+    }
+}
+
+// ============================================
+// Event Listeners
+// ============================================
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.side-btn') || e.target.closest('.cat-pill') || e.target.closest('.modal-sheet') || e.target.closest('.header-settings-btn') || e.target.closest('#epg-fab') || e.target.closest('#channel-chip-source') || e.target.closest('.source-link')) return;
+    showTopControls();
+});
+
+document.addEventListener('mousemove', showTopControls);
+document.addEventListener('keydown', showTopControls);
+document.addEventListener('wheel', showTopControls, { passive:true });
+document.addEventListener('touchstart', showTopControls, { passive:true });
+
+// ============================================
+// Initialize
+// ============================================
+async function init() {
+    loadUserData();
+    const hadCache = loadHealthCache();
+    customChannels = loadCustomChannels();
+    cleanupVideoState();
+    initSplashSources();
+    updateSplash(hadCache ? 'טוען מאגרים (יש זיכרון סריקה)...' : 'מתחיל סריקת מאגרים...');
+    
+    const epgPromise = fetchEpgSources().catch(() => 0);
+    const sources = await fetchAllSources();
+    await epgPromise;
+    
+    const urls = new Set();
+    const discovered = [...customChannels, ...sources].filter(ch => ch.url && !urls.has(ch.url) ? urls.add(ch.url) : false);
+    discovered.forEach(ch => {
+        if (ch.name && /group-title\s*=|tvg-/i.test(ch.name)) {
+            ch.name = extractExtinfName(`#EXTINF:-1 tvg-name="${ch.tvgName || ''}" group-title="${ch.group || ''}",${ch.name}`, ch);
+        }
+        if (!ch.sourceLabel) {
+            const def = getSourceDef(ch.sourceId);
+            if (def) enrichChannelSource(ch, def);
+        }
+    });
+    mergeChannels(discovered);
+    
+    updateSplash('מכין פיד...');
+    filterAndRank();
+    buildCatBar();
+    buildSettingsModal();
+    updateAutoScrollButton();
+    updateCountdown();
+    showTopControls();
+
+    // אם יש ערוצים מהירים מהזיכרון — מציגים מיד בלי לחכות לסריקה
+    if (filteredChannels.length) {
+        document.getElementById('splash').classList.add('hide');
+        renderSlides(true);
+        updateHeaderPanel(0);
+        feedBootstrapped = true;
+        quietScanToasts = true;
+        showToast(`${filteredChannels.length} ערוצים מוכנים`);
+    } else {
+        document.getElementById('splash').classList.add('hide');
+        renderSlides(true);
+    }
+    
+    setTimeout(() => startHealthScan(), 300);
+
+    window.addEventListener('resize', () => {
+        clearTimeout(window.__groveResizeTimer);
+        window.__groveResizeTimer = setTimeout(() => {
+            filterAndRank();
+            if (!document.querySelector('.slide') && filteredChannels.length) renderSlides(true);
+            updateHeaderPanel(Math.max(0, currentSlideIndex));
+        }, 250);
+    });
+}
+
+init();
+</script>
 </body>
 </html>
