@@ -67,7 +67,7 @@
   outline: none;
 }
 
-/* תפריט 3 כפתורים — תמיד צד שמאל | HYPER CORE TECH */
+/* תפריט 3 כפתורים — שורה אחת בהדר העליון משמאל | HYPER CORE TECH */
 .vr-side-tools {
   position: absolute !important;
   top: calc(10px + var(--safe-top, 0px)) !important;
@@ -77,8 +77,9 @@
   inset-inline-end: auto !important;
   z-index: 6;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 .vr-tool-btn {
