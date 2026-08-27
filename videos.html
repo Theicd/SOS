@@ -949,6 +949,14 @@
 
       /* ===== דסקטופ בלבד – מצלמה/קומפוזר ממלאים את כל עמודת הווידאו משמאל | HYPER CORE TECH ===== */
       @media (min-width: 769px) {
+        /* קפסולת פרופיל/LIVE TV לא תשב מעל מסך השיתוף | HYPER CORE TECH */
+        body:has(#composeModal.is-visible) .top-bar__actions,
+        body.video-record-open .top-bar__actions {
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+
         .compose-modal,
         .compose-modal.is-visible {
           inset: auto !important;
@@ -962,7 +970,8 @@
           align-items: stretch !important;
           justify-content: stretch !important;
           background: #000 !important;
-          z-index: 1900 !important;
+          /* מעל קפסולת top-bar (z≈3000) ובלי לכסות את הסיידבר | HYPER CORE TECH */
+          z-index: 3500 !important;
         }
 
         .compose-dialog {
@@ -978,12 +987,21 @@
         }
 
         .compose-editor.is-compose-step-active {
-          padding: 16px 24px 12px;
+          padding: 20px 28px 12px;
+        }
+
+        .compose-editor__header {
+          margin-bottom: 16px;
+        }
+
+        .compose-editor__body {
+          gap: 14px;
         }
 
         .compose-media-preview {
           width: 148px;
           height: 196px;
+          margin-top: 4px;
         }
 
         .compose-dialog textarea {
@@ -993,19 +1011,19 @@
 
         .compose-dialog__actions {
           justify-content: flex-end !important;
-          gap: 12px !important;
-          padding: 14px 24px max(14px, env(safe-area-inset-bottom, 0px)) !important;
+          gap: 10px !important;
+          padding: 14px 28px max(14px, env(safe-area-inset-bottom, 0px)) !important;
         }
 
         .compose-dialog__actions .button-primary,
         .compose-dialog__actions .button-secondary {
           flex: 0 0 auto !important;
-          width: auto !important;
-          min-width: 120px;
-          max-width: 200px;
-          min-height: 44px;
-          padding: 10px 22px !important;
-          font-size: 0.95rem !important;
+          width: fit-content !important;
+          min-width: 0 !important;
+          max-width: none !important;
+          min-height: 42px;
+          padding: 10px 20px !important;
+          font-size: 0.92rem !important;
         }
 
         .video-record-modal.is-visible {
@@ -1018,6 +1036,7 @@
           width: auto !important;
           height: 100dvh !important;
           background: #000 !important;
+          z-index: 3500 !important;
         }
 
         .video-record-stage {
