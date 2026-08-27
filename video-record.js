@@ -337,9 +337,28 @@ class VideoRecorder {
   confirmPendingFile() {
     if (!this.pendingFile) return;
     const file = this.pendingFile;
+    this.lastShareFile = file;
     this.clearPendingPreview();
     this.closeModal({ skipResume: true });
     this.transferToCompose(file);
+  }
+
+  /** חזרה מעורך הפוסט לתצוגה גדולה של אותו קובץ | HYPER CORE TECH */
+  openReviewWithFile(file) {
+    const target = file || this.lastShareFile;
+    if (!this.modal || !target) return;
+    this.lastShareFile = target;
+    this.pauseFeedVideos();
+    this.modal.classList.add('is-visible');
+    this.modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('video-record-open');
+    this.resetState();
+    this.clearOverlayText();
+    this.clearBackgroundSelection();
+    this.hideTextEditor();
+    this.exitNoCameraMode();
+    this.stopCamera();
+    this.showReview(target);
   }
 
   async startCamera() {
@@ -1036,8 +1055,14 @@ function openVideoRecordModal() {
   window.videoRecorder.openModal();
 }
 
+function openVideoRecordReview(file) {
+  if (!window.videoRecorder) window.videoRecorder = new VideoRecorder();
+  window.videoRecorder.openReviewWithFile(file);
+}
+
 window.closeVideoRecordModal = closeVideoRecordModal;
 window.openVideoRecordModal = openVideoRecordModal;
+window.openVideoRecordReview = openVideoRecordReview;
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!window.videoRecorder) window.videoRecorder = new VideoRecorder();

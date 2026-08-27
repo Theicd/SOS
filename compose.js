@@ -1120,16 +1120,18 @@
       // גם בשימור טיוטה — אל תשאיר את המודאל על editor גלוי ב-DOM attributes | HYPER CORE TECH
       // (המודאל מוסתר; השלב נשאר ב-state לצורך פרסום)
     }
-    try {
-      const recordOpen = document.getElementById('videoRecordModal')?.classList.contains('is-visible');
-      if (!recordOpen) {
-        if (typeof window.resumeCenteredFeedVideo === 'function') {
-          window.resumeCenteredFeedVideo();
-        } else if (typeof App !== 'undefined' && typeof App.resumeCenteredFeedVideo === 'function') {
-          App.resumeCenteredFeedVideo();
+    if (!options.skipResume) {
+      try {
+        const recordOpen = document.getElementById('videoRecordModal')?.classList.contains('is-visible');
+        if (!recordOpen) {
+          if (typeof window.resumeCenteredFeedVideo === 'function') {
+            window.resumeCenteredFeedVideo();
+          } else if (typeof App !== 'undefined' && typeof App.resumeCenteredFeedVideo === 'function') {
+            App.resumeCenteredFeedVideo();
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
   }
 
   function resetCompose() {
@@ -1409,6 +1411,24 @@
     if (elements.backButton) {
       elements.backButton.addEventListener('click', () => {
         resetStatus();
+        // זרימת שיתוף חדשה: חזרה לתצוגה הגדולה, לא ל־chooser הישן | HYPER CORE TECH
+        const fromShareFlow = state.composeMode === 'camera';
+        const shareFile = state.media?.originalFile
+          || window.videoRecorder?.lastShareFile
+          || null;
+
+        if (fromShareFlow && typeof window.openVideoRecordReview === 'function') {
+          if (state.media) clearMediaPreview();
+          if (elements.mediaInput) elements.mediaInput.value = '';
+          closeCompose({ keepDraft: true, skipResume: true });
+          if (shareFile) {
+            window.openVideoRecordReview(shareFile);
+          } else if (typeof window.openVideoRecordModal === 'function') {
+            window.openVideoRecordModal();
+          }
+          return;
+        }
+
         if (state.media) {
           clearMediaPreview();
         }
