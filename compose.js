@@ -284,6 +284,7 @@
     }
     if (elements.previewContainer) {
       elements.previewContainer.classList.remove('is-visible');
+      elements.previewContainer.style.aspectRatio = '';
     }
     if (elements.previewImage) {
       elements.previewImage.style.display = 'none';
@@ -313,19 +314,42 @@
       elements.previewImage.src = media.dataUrl;
       elements.previewImage.style.display = 'block';
       elements.previewImage.alt = 'תצוגה מקדימה';
-      elements.previewImage.style.objectFit = 'cover';
-      elements.previewImage.style.width = '100%';
-      elements.previewImage.style.height = '100%';
+      elements.previewImage.style.objectFit = 'contain';
+      elements.previewImage.style.width = 'auto';
+      elements.previewImage.style.height = 'auto';
+      elements.previewImage.style.maxWidth = '100%';
+      elements.previewImage.style.maxHeight = 'min(48vh, 420px)';
+      const applyImageRatio = () => {
+        try {
+          const w = elements.previewImage.naturalWidth;
+          const h = elements.previewImage.naturalHeight;
+          if (w > 0 && h > 0) {
+            elements.previewContainer.style.aspectRatio = `${w} / ${h}`;
+          }
+        } catch (_) {}
+      };
+      if (elements.previewImage.complete) applyImageRatio();
+      else elements.previewImage.addEventListener('load', applyImageRatio, { once: true });
     } else if (media.type === 'video') {
       elements.previewVideo.src = media.dataUrl;
       elements.previewVideo.style.display = 'block';
+      elements.previewVideo.style.objectFit = 'contain';
+      elements.previewVideo.style.width = 'auto';
+      elements.previewVideo.style.height = 'auto';
+      elements.previewVideo.style.maxWidth = '100%';
+      elements.previewVideo.style.maxHeight = 'min(48vh, 420px)';
       elements.previewVideo.muted = true;
       elements.previewVideo.playsInline = true;
       elements.previewVideo.removeAttribute('controls');
       elements.previewVideo.load();
-      // פריים ראשון לתמונה ממוזערת | HYPER CORE TECH
+      // פריים ראשון + יחס מקורי (16:9 / 9:16 וכו') | HYPER CORE TECH
       const seekPreview = () => {
         try {
+          const w = elements.previewVideo.videoWidth;
+          const h = elements.previewVideo.videoHeight;
+          if (w > 0 && h > 0) {
+            elements.previewContainer.style.aspectRatio = `${w} / ${h}`;
+          }
           if (elements.previewVideo.readyState >= 1) {
             elements.previewVideo.currentTime = Math.min(0.1, elements.previewVideo.duration || 0.1);
           }

@@ -999,9 +999,31 @@
         }
 
         .compose-media-preview {
-          width: 148px;
-          height: 196px;
-          margin-top: 4px;
+          width: fit-content;
+          max-width: min(560px, 62%);
+          height: auto;
+          max-height: min(48vh, 420px);
+          margin-top: 0;
+          align-self: flex-start;
+        }
+
+        .compose-media-preview img,
+        .compose-media-preview video {
+          width: auto !important;
+          height: auto !important;
+          max-width: min(560px, 62vw);
+          max-height: min(48vh, 420px);
+          object-fit: contain !important;
+        }
+
+        .compose-options-list {
+          margin-top: 22px;
+        }
+
+        .compose-option-row,
+        .compose-terms-ack {
+          padding-top: 20px;
+          padding-bottom: 18px;
         }
 
         .compose-dialog textarea {
@@ -2098,7 +2120,7 @@
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260827desk3" defer></script>
+    <script src="./compose.js?v=20260827desk4" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
