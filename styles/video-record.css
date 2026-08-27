@@ -19,6 +19,8 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* LTR פיזי — left/right לא מתהפכים בגלל dir=rtl של העמוד | HYPER CORE TECH */
+  direction: ltr;
 }
 
 .video-record-stage[hidden] {
@@ -36,11 +38,14 @@
   background: #000;
 }
 
+/* חזרה — תמיד פינה ימנית עליונה | HYPER CORE TECH */
 .vr-close {
-  position: absolute;
-  top: calc(10px + var(--safe-top, 0px));
-  right: 10px;
-  left: auto;
+  position: absolute !important;
+  top: calc(10px + var(--safe-top, 0px)) !important;
+  right: 10px !important;
+  left: auto !important;
+  inset-inline-start: auto !important;
+  inset-inline-end: 10px !important;
   z-index: 6;
   width: 36px;
   height: 36px;
@@ -62,12 +67,14 @@
   outline: none;
 }
 
-/* תפריט שמאל: הפוך → פלאש → Aa | HYPER CORE TECH */
+/* תפריט 3 כפתורים — תמיד צד שמאל | HYPER CORE TECH */
 .vr-side-tools {
-  position: absolute;
-  top: calc(10px + var(--safe-top, 0px));
-  left: 10px;
-  right: auto;
+  position: absolute !important;
+  top: calc(10px + var(--safe-top, 0px)) !important;
+  left: 10px !important;
+  right: auto !important;
+  inset-inline-start: 10px !important;
+  inset-inline-end: auto !important;
   z-index: 6;
   display: flex;
   flex-direction: column;
