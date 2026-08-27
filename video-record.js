@@ -16,6 +16,8 @@ class VideoRecorder {
     this.flashOn = false;
     this.pendingFile = null;
     this.pendingObjectUrl = null;
+    this.selectedBgUrl = '';
+    this.bgUrls = [];
     this.constraints = {
       video: {
         width: { min: 640, ideal: 1280, max: 1280 },
@@ -47,10 +49,11 @@ class VideoRecorder {
     this.floatingTimer = document.getElementById('floatingTimer');
     this.modes = document.getElementById('videoRecordModes');
     this.galleryInput = document.getElementById('videoRecordGalleryInput');
-    this.liveBtn = document.getElementById('videoRecordLiveBtn');
     this.closeBtn = document.getElementById('videoRecordCloseBtn');
     this.reviewBackBtn = document.getElementById('videoRecordReviewBackBtn');
     this.nextBtn = document.getElementById('videoRecordNextBtn');
+    this.bgStrip = document.getElementById('videoRecordBgStrip');
+    this.bgFrame = document.getElementById('videoRecordBgFrame');
   }
 
   bindEvents() {
@@ -74,14 +77,16 @@ class VideoRecorder {
     this.closeBtn?.addEventListener('click', () => this.closeModal());
     this.reviewBackBtn?.addEventListener('click', () => this.backToCamera());
     this.nextBtn?.addEventListener('click', () => this.confirmPendingFile());
-    this.liveBtn?.addEventListener('click', () => {
-      alert('שידור חי יופיע כאן בקרוב');
-    });
 
     this.modes?.querySelectorAll('[data-vr-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const mode = btn.getAttribute('data-vr-mode');
         if (mode === 'text') {
+          // אם נבחר רקע מובנה — מעבירים אותו לעורך טקסט | HYPER CORE TECH
+          if (this.selectedBgUrl) {
+            this.useSelectedBackground();
+            return;
+          }
           this.closeModal();
           if (typeof window.openCompose === 'function') {
             window.openCompose({ step: 'editor', composeMode: 'text' });
@@ -97,8 +102,21 @@ class VideoRecorder {
     this.galleryInput?.addEventListener('change', (event) => {
       const file = event.target?.files?.[0];
       if (!file) return;
+      this.clearBackgroundSelection();
       this.showReview(file);
       try { event.target.value = ''; } catch (_) {}
+    });
+
+    this.bgStrip?.addEventListener('click', (event) => {
+      const thumb = event.target?.closest?.('.vr-bg-thumb');
+      if (!thumb) return;
+      const url = thumb.getAttribute('data-bg') || '';
+      if (!url) return;
+      if (this.selectedBgUrl === url) {
+        this.clearBackgroundSelection();
+        return;
+      }
+      this.selectBackground(url, thumb);
     });
   }
 
@@ -123,8 +141,10 @@ class VideoRecorder {
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
     this.resetState();
+    this.clearBackgroundSelection();
     this.showCameraStage();
     this.setCaptureMode(this.captureMode || '10');
+    this.loadBackgroundStrip();
     this.startCamera();
   }
 
@@ -135,6 +155,7 @@ class VideoRecorder {
     document.body.classList.remove('video-record-open');
     this.stopCamera();
     this.clearPendingPreview();
+    this.clearBackgroundSelection();
     this.resetState();
     this.showCameraStage();
   }
@@ -301,12 +322,84 @@ class VideoRecorder {
   }
 
   onShutter() {
+    // רקע מובנה נבחר — לחיצה על הכפתור מאשרת את התמונה | HYPER CORE TECH
+    if (this.selectedBgUrl) {
+      this.useSelectedBackground();
+      return;
+    }
     if (this.captureMode === 'photo') {
       this.capturePhoto();
       return;
     }
     if (this.isRecording) this.stopRecording();
     else this.startRecording();
+  }
+
+  async loadBackgroundStrip() {
+    if (!this.bgStrip) return;
+    this.bgStrip.innerHTML = '';
+    this.bgUrls = [];
+    try {
+      const page = Math.max(1, Math.floor(Math.random() * 50) + 1);
+      const res = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=20`, { cache: 'no-store' });
+      const arr = await res.json();
+      const urls = Array.isArray(arr)
+        ? arr.map((x) => (x && x.id ? `https://picsum.photos/id/${x.id}/1080/1080` : null)).filter(Boolean)
+        : [];
+      this.bgUrls = urls;
+      this.renderBackgroundStrip(urls);
+    } catch (err) {
+      console.warn('[VideoRecorder] Picsum load failed', err);
+    }
+  }
+
+  renderBackgroundStrip(urls) {
+    if (!this.bgStrip) return;
+    if (!urls.length) {
+      this.bgStrip.innerHTML = '';
+      return;
+    }
+    this.bgStrip.innerHTML = urls.map((url) => {
+      const thumb = url.replace('/1080/1080', '/120/120');
+      return `<button type="button" class="vr-bg-thumb" data-bg="${url}" style="background-image:url('${thumb}')" aria-label="רקע מובנה"></button>`;
+    }).join('');
+  }
+
+  selectBackground(url, thumbEl) {
+    this.selectedBgUrl = url;
+    this.bgStrip?.querySelectorAll('.vr-bg-thumb').forEach((el) => {
+      el.classList.toggle('is-selected', el === thumbEl || el.getAttribute('data-bg') === url);
+    });
+    if (this.bgFrame) {
+      this.bgFrame.src = url;
+      this.bgFrame.hidden = false;
+      this.bgFrame.removeAttribute('hidden');
+    }
+  }
+
+  clearBackgroundSelection() {
+    this.selectedBgUrl = '';
+    this.bgStrip?.querySelectorAll('.vr-bg-thumb').forEach((el) => el.classList.remove('is-selected'));
+    if (this.bgFrame) {
+      this.bgFrame.hidden = true;
+      this.bgFrame.setAttribute('hidden', '');
+      this.bgFrame.removeAttribute('src');
+    }
+  }
+
+  async useSelectedBackground() {
+    const url = this.selectedBgUrl;
+    if (!url) return;
+    try {
+      const resp = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      const blob = await resp.blob();
+      const file = new File([blob], `bg-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+      this.clearBackgroundSelection();
+      this.showReview(file);
+    } catch (err) {
+      console.error('[VideoRecorder] background use failed', err);
+      alert('טעינת הרקע נכשלה. נסו תמונה אחרת.');
+    }
   }
 
   async capturePhoto() {

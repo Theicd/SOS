@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260827post1">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827bg2">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -806,11 +806,11 @@
       .compose-terms-ack input {
         margin-top: 2px;
         flex-shrink: 0;
-        accent-color: #fe2c55;
+        accent-color: #4fc3f7;
       }
 
       .compose-terms-ack a {
-        color: #fe2c55;
+        color: #4fc3f7;
       }
 
       .compose-editor__body > .p2p-status {
@@ -855,8 +855,8 @@
       }
 
       .compose-dialog__actions .button-primary {
-        background: #fe2c55;
-        color: #fff;
+        background: #4fc3f7;
+        color: #0a0a0a;
         border: none;
         order: 1;
       }
@@ -1991,11 +1991,11 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260827cam1" defer></script>
+    <script src="./video-record.js?v=20260827bg2" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260827post1" defer></script>
+    <script src="./compose.js?v=20260827bg2" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2445,28 +2445,19 @@
               </span>
             </label>
 
-            <!-- רקע לפוסט טקסט בלבד (מוסתר אחרי מדיה) | HYPER CORE TECH -->
-            <div class="compose-dialog__toolbar" id="composeTextTools" hidden>
-              <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע לטקסט">
-                <i class="fa-solid fa-palette"></i>
-                <span>רקע</span>
-              </button>
-              <button class="compose-toolbar-btn" type="button" id="composeBgClear" hidden title="הסר רקע">
-                <i class="fa-solid fa-eraser"></i>
-                <span>נקה</span>
-              </button>
-            </div>
-
-            <div class="compose-backgrounds" id="composeBackgrounds" aria-label="גלריית רקעים" hidden></div>
+            <!-- אלמנטים מוסתרים לתאימות רקעים ישנה | HYPER CORE TECH -->
+            <div class="compose-dialog__toolbar" id="composeTextTools" hidden></div>
+            <div class="compose-backgrounds" id="composeBackgrounds" hidden></div>
             <div class="compose-backgrounds__options" id="composeBgOptions" hidden>
-              <label class="compose-bg__option-toggle">
-                <input type="checkbox" id="composeBgTextOnlyToggle">
-                <span>הצג טקסט רק על התמונה</span>
-              </label>
-              <label class="compose-bg__option-toggle">
-                <input type="checkbox" id="composeBgZoomToggle">
-                <span>הפעל אפקט זום בלופ</span>
-              </label>
+              <input type="checkbox" id="composeBgTextOnlyToggle" hidden>
+              <input type="checkbox" id="composeBgZoomToggle" hidden>
+            </div>
+            <button type="button" id="composeBgToggle" hidden aria-hidden="true"></button>
+            <button type="button" id="composeBgClear" hidden aria-hidden="true"></button>
+
+            <div class="compose-hashtag-suggest" id="composeHashtagSuggest" hidden>
+              <div class="compose-hashtag-suggest__title">הצעות פופולריות</div>
+              <div class="compose-hashtag-suggest__list" id="composeHashtagSuggestList" role="listbox"></div>
             </div>
 
             <div class="compose-options-list">
@@ -2553,16 +2544,17 @@
           </div>
 
           <div class="vr-shutter-row">
+            <!-- עיגולי רקע מובנים משמאל לכפתור האדום | HYPER CORE TECH -->
+            <div class="vr-bg-rail" aria-label="רקעים מובנים">
+              <div class="vr-bg-strip" id="videoRecordBgStrip"></div>
+            </div>
             <button type="button" class="record-button" id="recordButton" aria-label="צלם או הקלט">
               <div class="record-button-inner"></div>
             </button>
+            <div class="vr-shutter-spacer" aria-hidden="true"></div>
           </div>
 
           <div class="vr-footer-bar">
-            <button type="button" class="vr-footer-btn" id="videoRecordLiveBtn" title="שידור חי (בקרוב)">
-              <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
-              <span>שידור חי</span>
-            </button>
             <label class="vr-footer-btn vr-footer-btn--gallery" id="videoRecordGalleryBtn" title="גלריה">
               <i class="fa-solid fa-images" aria-hidden="true"></i>
               <span>גלריה</span>
@@ -2570,6 +2562,8 @@
             </label>
           </div>
         </div>
+
+        <img id="videoRecordBgFrame" class="vr-bg-frame" alt="" hidden>
       </div>
 
       <div class="video-record-stage video-record-stage--review" id="videoRecordStageReview" hidden>

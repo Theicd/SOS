@@ -34,7 +34,14 @@
     markAsGame: document.getElementById('composeMarkAsGame'),
     gameFlagWrap: document.getElementById('composeGameFlagWrap'),
     hashtagsPill: document.getElementById('composeHashtagsPill'),
+    hashtagSuggest: document.getElementById('composeHashtagSuggest'),
+    hashtagSuggestList: document.getElementById('composeHashtagSuggestList'),
   };
+
+  const POPULAR_HASHTAGS = [
+    'sos', 'חדשות', 'ספורט', 'מוזיקה', 'אוכל', 'טיולים', 'הומור', 'משפחה',
+    'טכנולוגיה', 'חינוך', 'ישראל', 'תלאביב', 'טבע', 'כושר', 'אופנה', 'רגעים',
+  ];
 
   const state = {
     media: null,
@@ -72,21 +79,56 @@
   }
 
   function updateTextToolsVisibility() {
-    // רקע/נקה רק לפוסט טקסט בלי מדיה — לא בדף פרסום אחרי מצלמה/גלריה | HYPER CORE TECH
-    const showTools = state.composeMode === 'text' && !state.media;
-    if (elements.textTools) {
-      if (showTools) {
-        elements.textTools.removeAttribute('hidden');
-      } else {
-        elements.textTools.setAttribute('hidden', '');
-        if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
-        if (elements.bgOptions) elements.bgOptions.setAttribute('hidden', '');
-        if (elements.bgToggle) elements.bgToggle.classList.remove('active');
-        if (elements.bgClear) elements.bgClear.setAttribute('hidden', '');
-      }
+    // רקע/נקה הוסרו מהעורך — רקעים במסך המצלמה | HYPER CORE TECH
+    if (elements.textTools) elements.textTools.setAttribute('hidden', '');
+    if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
+    if (elements.bgOptions) elements.bgOptions.setAttribute('hidden', '');
+    if (elements.bgToggle) {
+      elements.bgToggle.setAttribute('hidden', '');
+      elements.bgToggle.classList.remove('active');
     }
+    if (elements.bgClear) elements.bgClear.setAttribute('hidden', '');
     syncHasMediaClass();
     updateGameFlagVisibility();
+  }
+
+  function hideHashtagSuggest() {
+    if (elements.hashtagSuggest) elements.hashtagSuggest.setAttribute('hidden', '');
+    elements.hashtagsPill?.classList.remove('is-active');
+  }
+
+  function showHashtagSuggest(filterText) {
+    if (!elements.hashtagSuggest || !elements.hashtagSuggestList) return;
+    const q = String(filterText || '').replace(/^#/, '').trim().toLowerCase();
+    const list = POPULAR_HASHTAGS.filter((tag) => !q || tag.toLowerCase().includes(q)).slice(0, 12);
+    elements.hashtagSuggestList.innerHTML = list
+      .map((tag) => `<button type="button" class="compose-hashtag-chip" data-tag="${tag}" role="option">#${tag}</button>`)
+      .join('');
+    if (!list.length) {
+      hideHashtagSuggest();
+      return;
+    }
+    elements.hashtagSuggest.removeAttribute('hidden');
+    elements.hashtagsPill?.classList.add('is-active');
+  }
+
+  function insertHashtag(tag) {
+    if (!elements.textarea || !tag) return;
+    const clean = String(tag).replace(/^#/, '');
+    const cur = elements.textarea.value || '';
+    const needsSpace = cur && !/\s$/.test(cur);
+    // אם כבר מקלידים #חלקי — מחליפים את החלק האחרון | HYPER CORE TECH
+    const replaced = cur.replace(/(^|\s)#([^\s#]*)$/, `$1#${clean} `);
+    if (replaced !== cur) {
+      elements.textarea.value = replaced;
+    } else {
+      elements.textarea.value = cur + (needsSpace ? ' ' : '') + `#${clean} `;
+    }
+    elements.textarea.focus();
+    hideHashtagSuggest();
+    try {
+      elements.textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (_) {}
   }
 
   function syncHasMediaClass() {
@@ -1088,6 +1130,7 @@
     if (elements.gameFlagWrap) elements.gameFlagWrap.hidden = true;
     setComposeGameMode(false);
     updateTextToolsVisibility();
+    hideHashtagSuggest();
     updateComposeLegalState();
     showComposeStep('chooser');
   }
@@ -1285,14 +1328,39 @@
       });
     }
 
-    // חלק האשטאגים (compose.js) – מוסיף # לכיתוב | HYPER CORE TECH
+    // חלק האשטאגים (compose.js) – הצעות פופולריות במבנה בלבד | HYPER CORE TECH
     if (elements.hashtagsPill && !elements.hashtagsPill.dataset.bound) {
       elements.hashtagsPill.dataset.bound = '1';
       elements.hashtagsPill.addEventListener('click', () => {
+        const open = elements.hashtagSuggest && !elements.hashtagSuggest.hasAttribute('hidden');
+        if (open) {
+          hideHashtagSuggest();
+          return;
+        }
         if (!elements.textarea) return;
         const cur = elements.textarea.value || '';
-        elements.textarea.value = cur + (cur && !/\s$/.test(cur) ? ' ' : '') + '#';
+        if (!/(^|\s)#([^\s#]*)$/.test(cur)) {
+          elements.textarea.value = cur + (cur && !/\s$/.test(cur) ? ' ' : '') + '#';
+        }
         elements.textarea.focus();
+        showHashtagSuggest('');
+      });
+    }
+    if (elements.hashtagSuggestList && !elements.hashtagSuggestList.dataset.bound) {
+      elements.hashtagSuggestList.dataset.bound = '1';
+      elements.hashtagSuggestList.addEventListener('click', (event) => {
+        const chip = event.target?.closest?.('[data-tag]');
+        if (!chip) return;
+        insertHashtag(chip.getAttribute('data-tag'));
+      });
+    }
+    if (elements.textarea && !elements.textarea.dataset.hashtagBound) {
+      elements.textarea.dataset.hashtagBound = '1';
+      elements.textarea.addEventListener('input', () => {
+        const cur = elements.textarea.value || '';
+        const match = cur.match(/(^|\s)#([^\s#]*)$/);
+        if (match) showHashtagSuggest(match[2] || '');
+        else hideHashtagSuggest();
       });
     }
 

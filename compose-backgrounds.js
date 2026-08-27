@@ -52,7 +52,7 @@
     async fetchBackgrounds(){
       try{
         const page = Math.max(1, Math.floor(Math.random()*50));
-        const res = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=12`);
+        const res = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=20`);
         const arr = await res.json();
         return Array.isArray(arr) ? arr.map(x=> x && x.id ? `https://picsum.photos/id/${x.id}/1080/1080` : null).filter(Boolean) : [];
       }catch(e){
