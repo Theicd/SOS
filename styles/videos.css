@@ -3284,26 +3284,43 @@ body.global-stop .videos-feed__play-overlay {
     will-change: transform;
   }
 
-  /* כשפאנל תגובות פתוח – מפנים מקום משמאל ומצמצמים את הווידאו (בלי לגעת בתפריט) | HYPER CORE TECH */
+  /* כשפאנל תגובות פתוח – הווידאו ממורכז במרחב הפנוי ליד התגובות | HYPER CORE TECH */
   body.videos-comments-open .videos-feed {
-    padding-left: calc(
-      var(--videos-desktop-comments-left, 84px)
-      + var(--videos-desktop-comments-width, 340px)
-      + 24px
-    );
+    /* ה־viewport ב־absolute מתעלם מ־padding — לכן לא סומכים עליו כאן | HYPER CORE TECH */
+    padding-left: 0;
     --videos-desktop-feed-shift: 0px;
   }
 
+  body.videos-comments-open .videos-feed__viewport {
+    left: calc(
+      var(--videos-desktop-comments-left, 84px)
+      + var(--videos-desktop-comments-width, 340px)
+      + 16px
+    );
+    right: calc(var(--videos-desktop-nav-width, 220px) + var(--videos-desktop-nav-gap, 0px));
+    width: auto;
+    justify-content: center;
+    align-items: center;
+  }
+
+  body.videos-comments-open .videos-feed__stream {
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+
   body.videos-comments-open .videos-feed__card {
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: center;
     --desktop-media-max-w: calc(
       100vw
       - var(--videos-desktop-nav-width, 220px)
       - var(--videos-desktop-comments-left, 84px)
       - var(--videos-desktop-comments-width, 340px)
       - var(--videos-desktop-actions-offset, 70px)
-      - 56px
+      - 48px
     );
-    transition: none;
   }
 
   body.videos-comments-open .videos-feed__media {
