@@ -991,10 +991,21 @@
           max-height: 240px;
         }
 
+        .compose-dialog__actions {
+          justify-content: flex-end !important;
+          gap: 12px !important;
+          padding: 14px 24px max(14px, env(safe-area-inset-bottom, 0px)) !important;
+        }
+
         .compose-dialog__actions .button-primary,
         .compose-dialog__actions .button-secondary {
-          min-height: 46px;
-          font-size: 0.98rem;
+          flex: 0 0 auto !important;
+          width: auto !important;
+          min-width: 120px;
+          max-width: 200px;
+          min-height: 44px;
+          padding: 10px 22px !important;
+          font-size: 0.95rem !important;
         }
 
         .video-record-modal.is-visible {
