@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260827foot2">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827desk1">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -944,6 +944,34 @@
         .compose-modal.keyboard-open .compose-dialog {
           max-height: 100dvh;
           height: 100%;
+        }
+      }
+
+      /* ===== דסקטופ בלבד – עורך פרסום רחב יותר (מובייל לא משתנה) | HYPER CORE TECH ===== */
+      @media (min-width: 769px) {
+        .compose-dialog {
+          width: min(560px, 94vw);
+          max-height: min(88dvh, 820px);
+        }
+
+        .compose-editor.is-compose-step-active {
+          padding: 16px 18px 12px;
+        }
+
+        .compose-media-preview {
+          width: 132px;
+          height: 176px;
+        }
+
+        .compose-dialog textarea {
+          min-height: 120px;
+          max-height: 200px;
+        }
+
+        .compose-dialog__actions .button-primary,
+        .compose-dialog__actions .button-secondary {
+          min-height: 46px;
+          font-size: 0.98rem;
         }
       }
 
@@ -1991,11 +2019,11 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260827foot2" defer></script>
+    <script src="./video-record.js?v=20260827desk1" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260827bg2" defer></script>
+    <script src="./compose.js?v=20260827desk1" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2519,6 +2547,14 @@
     <div class="video-record-modal" id="videoRecordModal" aria-hidden="true">
       <div class="video-record-stage" id="videoRecordStageCamera">
         <video id="videoRecordPreview" autoplay muted playsinline></video>
+        <!-- מצב דסקטופ בלי מצלמה – נשארים במסך, בלי לזרוק אחורה | HYPER CORE TECH -->
+        <div class="vr-no-camera" id="videoRecordNoCamera" hidden>
+          <img class="vr-no-camera__bg" id="videoRecordNoCameraBg" alt="">
+          <div class="vr-no-camera__msg" role="status">
+            <strong>אין מצלמה פעילה</strong>
+            <span>אפשר לבחור קובץ מהגלריה למטה</span>
+          </div>
+        </div>
         <div class="floating-timer" id="floatingTimer">00:00</div>
 
         <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="חזרה" style="right:10px;left:auto;">

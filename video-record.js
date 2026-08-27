@@ -21,6 +21,7 @@ class VideoRecorder {
     this.overlayText = '';
     this.overlayTextPos = 'middle';
     this.bgStripScrolled = false;
+    this.cameraAvailable = true;
     this.constraints = {
       video: {
         width: { min: 640, ideal: 1280, max: 1280 },
@@ -67,6 +68,8 @@ class VideoRecorder {
     this.textInput = document.getElementById('videoRecordTextInput');
     this.textDone = document.getElementById('videoRecordTextDone');
     this.textLayer = document.getElementById('videoRecordTextLayer');
+    this.noCamera = document.getElementById('videoRecordNoCamera');
+    this.noCameraBg = document.getElementById('videoRecordNoCameraBg');
     this._bgScrollRaf = 0;
     this._galleryThumbUrl = null;
   }
@@ -196,9 +199,11 @@ class VideoRecorder {
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
     this.resetState();
+    this.cameraAvailable = true;
     this.clearOverlayText();
     this.clearBackgroundSelection();
     this.hideTextEditor();
+    this.exitNoCameraMode();
     this.showCameraStage();
     this.setCaptureMode(this.captureMode || '10');
     this.loadBackgroundStrip();
@@ -216,6 +221,7 @@ class VideoRecorder {
     this.clearOverlayText();
     this.clearBackgroundSelection();
     this.hideTextEditor();
+    this.exitNoCameraMode();
     this.resetState();
     this.showCameraStage();
   }
@@ -322,13 +328,23 @@ class VideoRecorder {
       try {
         stream = await navigator.mediaDevices.getUserMedia(this.constraints);
       } catch (_) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: this.currentCamera },
-          audio: true,
-        });
+        // ניסיון וידאו בלבד (בלי מיקרופון) – דסקטופ בלי מיק | HYPER CORE TECH
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: this.currentCamera },
+            audio: false,
+          });
+        } catch (__) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
       }
 
       this.stream = stream;
+      this.cameraAvailable = true;
+      this.exitNoCameraMode();
       if (this.preview) {
         this.preview.srcObject = this.stream;
         this.preview.playsInline = true;
@@ -337,10 +353,51 @@ class VideoRecorder {
         try { await this.preview.play(); } catch (_) {}
       }
     } catch (error) {
-      console.error('[VideoRecorder] Failed to access camera:', error);
-      alert('לא ניתן לגשת למצלמה. אנא בדוק את ההרשאות ונסה שוב.');
-      this.closeModal();
+      console.warn('[VideoRecorder] camera unavailable — stay on screen', error);
+      // לא סוגרים ולא זורקים אחורה — מציגים מצב ללא מצלמה | HYPER CORE TECH
+      this.enterNoCameraMode();
     }
+  }
+
+  enterNoCameraMode() {
+    this.cameraAvailable = false;
+    this.stopCamera();
+    if (this.preview) {
+      this.preview.srcObject = null;
+      this.preview.style.opacity = '0';
+    }
+    const bgUrl = this.pickNoCameraBackground();
+    if (this.noCameraBg && bgUrl) {
+      this.noCameraBg.src = bgUrl;
+    }
+    if (this.noCamera) {
+      this.noCamera.hidden = false;
+      this.noCamera.removeAttribute('hidden');
+    }
+    this.modal?.classList.add('is-no-camera');
+    this.cameraSwitch?.setAttribute('disabled', '');
+    this.flashButton?.setAttribute('disabled', '');
+  }
+
+  exitNoCameraMode() {
+    if (this.preview) this.preview.style.opacity = '';
+    if (this.noCamera) {
+      this.noCamera.hidden = true;
+      this.noCamera.setAttribute('hidden', '');
+    }
+    this.modal?.classList.remove('is-no-camera');
+    this.cameraSwitch?.removeAttribute('disabled');
+    this.flashButton?.removeAttribute('disabled');
+  }
+
+  pickNoCameraBackground() {
+    const fromStrip = Array.isArray(this.bgUrls) ? this.bgUrls.filter(Boolean) : [];
+    if (fromStrip.length) {
+      return fromStrip[Math.floor(Math.random() * fromStrip.length)];
+    }
+    const page = Math.max(1, Math.floor(Math.random() * 50) + 1);
+    // fallback מיידי עד ש־Picsum נטען | HYPER CORE TECH
+    return `https://picsum.photos/id/${80 + (page % 40)}/1080/1920`;
   }
 
   stopCamera() {
@@ -352,6 +409,7 @@ class VideoRecorder {
   }
 
   async switchCamera() {
+    if (!this.cameraAvailable) return;
     this.currentCamera = this.currentCamera === 'user' ? 'environment' : 'user';
     this.flashOn = false;
     if (this.flashButton) {
@@ -363,6 +421,7 @@ class VideoRecorder {
   }
 
   async toggleFlash() {
+    if (!this.cameraAvailable) return;
     const track = this.stream?.getVideoTracks?.()?.[0];
     if (!track) return;
     const caps = (typeof track.getCapabilities === 'function' && track.getCapabilities()) || {};
@@ -383,7 +442,11 @@ class VideoRecorder {
   }
 
   onShutter() {
-    // רקע מובנה נבחר — לחיצה על הכפתור מאשרת את התמונה | HYPER CORE TECH
+    // בלי מצלמה — פותחים גלריה במקום הקלטה | HYPER CORE TECH
+    if (!this.cameraAvailable) {
+      try { this.galleryInput?.click(); } catch (_) {}
+      return;
+    }
     if (this.selectedBgUrl) {
       this.useSelectedBackground();
       return;
@@ -409,6 +472,10 @@ class VideoRecorder {
         : [];
       this.bgUrls = urls;
       this.renderBackgroundStrip(urls);
+      if (!this.cameraAvailable) {
+        const bgUrl = this.pickNoCameraBackground();
+        if (this.noCameraBg && bgUrl) this.noCameraBg.src = bgUrl;
+      }
     } catch (err) {
       console.warn('[VideoRecorder] Picsum load failed', err);
     }

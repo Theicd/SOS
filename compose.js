@@ -988,8 +988,8 @@
     const forceEditor = options.step === 'editor' || options.mode === 'editor';
     const requestedStep = forceEditor ? 'editor' : 'chooser';
 
-    // מובייל: + נפתח ישר למצלמה מלאה (בלי כרטיסיית בחירה) | HYPER CORE TECH
-    if (!forceEditor && isMobile() && typeof window.openVideoRecordModal === 'function') {
+    // דסקטופ+מובייל: + נפתח למסך שיתוף/מצלמה (דסקטופ בלי מצלמה נשאר במסך) | HYPER CORE TECH
+    if (!forceEditor && typeof window.openVideoRecordModal === 'function') {
       try {
         if (elements.modal?.classList.contains('is-visible')) {
           closeCompose({ keepDraft: true });
