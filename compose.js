@@ -33,27 +33,7 @@
     publishButton: document.getElementById('composePublishButton'),
     markAsGame: document.getElementById('composeMarkAsGame'),
     gameFlagWrap: document.getElementById('composeGameFlagWrap'),
-    topicPill: document.getElementById('composeTopicPill'),
-    topicSheet: document.getElementById('composeTopicSheet'),
-    topicGrid: document.getElementById('composeTopicGrid'),
-    topicSelected: document.getElementById('composeTopicSelected'),
     hashtagsPill: document.getElementById('composeHashtagsPill'),
-    livePill: document.getElementById('composeLivePill'),
-  };
-
-  const TOPIC_LABELS = {
-    leisure: 'פנאי',
-    humor: 'הומור',
-    documentary: 'תיעודי',
-    news: 'חדשות',
-    sports: 'ספורט',
-    music: 'מוזיקה',
-    food: 'אוכל',
-    travel: 'טיולים',
-    tech: 'טכנולוגיה',
-    family: 'משפחה',
-    education: 'חינוך',
-    other: 'אחר',
   };
 
   const state = {
@@ -63,8 +43,6 @@
     mediaInputBound: false,
     step: 'chooser',
     composeMode: 'text', // camera | upload | text
-    selectedTopic: '',
-    selectedTopicLabel: '',
     // חלק רקעים – שליטה בבורר רקעים חינמי
     backgroundActive: false,
     backgroundChoices: [],
@@ -94,17 +72,27 @@
   }
 
   function updateTextToolsVisibility() {
-    if (!elements.textTools) return;
+    // רקע/נקה רק לפוסט טקסט בלי מדיה — לא בדף פרסום אחרי מצלמה/גלריה | HYPER CORE TECH
     const showTools = state.composeMode === 'text' && !state.media;
-    if (showTools) {
-      elements.textTools.removeAttribute('hidden');
-    } else {
-      elements.textTools.setAttribute('hidden', '');
-      if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
-      if (elements.bgOptions) elements.bgOptions.setAttribute('hidden', '');
-      if (elements.bgToggle) elements.bgToggle.classList.remove('active');
+    if (elements.textTools) {
+      if (showTools) {
+        elements.textTools.removeAttribute('hidden');
+      } else {
+        elements.textTools.setAttribute('hidden', '');
+        if (elements.bgGallery) elements.bgGallery.setAttribute('hidden', '');
+        if (elements.bgOptions) elements.bgOptions.setAttribute('hidden', '');
+        if (elements.bgToggle) elements.bgToggle.classList.remove('active');
+        if (elements.bgClear) elements.bgClear.setAttribute('hidden', '');
+      }
     }
+    syncHasMediaClass();
     updateGameFlagVisibility();
+  }
+
+  function syncHasMediaClass() {
+    const editor = elements.editor || document.getElementById('composeEditor');
+    if (!editor) return;
+    editor.classList.toggle('compose-editor--has-media', !!state.media);
   }
 
   // חלק קומפוזר (compose.js) – הצגת תיבת "זה משחק" כשיש לינק https בטקסט | HYPER CORE TECH
@@ -258,12 +246,15 @@
     if (elements.previewImage) {
       elements.previewImage.style.display = 'none';
       elements.previewImage.src = '';
+      elements.previewImage.removeAttribute('class');
+      elements.previewImage.style.cssText = '';
     }
     if (elements.previewVideo) {
       elements.previewVideo.style.display = 'none';
       elements.previewVideo.removeAttribute('src');
       elements.previewVideo.load();
     }
+    syncHasMediaClass();
     updateTextToolsVisibility();
   }
 
@@ -273,54 +264,32 @@
     elements.previewContainer.removeAttribute('hidden');
     if (elements.previewImage) elements.previewImage.style.display = 'none';
     if (elements.previewVideo) elements.previewVideo.style.display = 'none';
+    syncHasMediaClass();
     updateTextToolsVisibility();
 
     if (media.type === 'image') {
       elements.previewImage.src = media.dataUrl;
       elements.previewImage.style.display = 'block';
-      elements.previewImage.alt = 'תצוגה מקדימה לתמונה';
-      
-      // זיהוי יחס רוחב-גובה והתאמת התצוגה
-      const img = new Image();
-      img.onload = function() {
-        const aspectRatio = this.width / this.height;
-        console.log('[COMPOSE] Image aspect ratio detected:', {
-          width: this.width,
-          height: this.height,
-          aspectRatio: aspectRatio.toFixed(2),
-          orientation: aspectRatio > 1.2 ? 'landscape' : aspectRatio < 0.8 ? 'portrait' : 'square'
-        });
-        
-        // התאמת סגנון התצוגה לפי יחס הרוחב-גובה
-        if (aspectRatio > 1.2) {
-          // תמונה רוחבית - הצג ברוחב מלא
-          elements.previewImage.style.objectFit = 'cover';
-          elements.previewImage.style.maxWidth = '100%';
-          elements.previewImage.style.maxHeight = '300px';
-          elements.previewImage.style.width = '100%';
-          elements.previewImage.className = 'landscape';
-        } else if (aspectRatio < 0.8) {
-          // תמונה אנכית - הגבלה ברוחב וגובה מקסימלי
-          elements.previewImage.style.objectFit = 'contain';
-          elements.previewImage.style.maxWidth = '100%';
-          elements.previewImage.style.maxHeight = '400px';
-          elements.previewImage.style.width = 'auto';
-          elements.previewImage.className = 'portrait';
-        } else {
-          // תמונה ריבועית או קרובה - תצוגה מאוזנת
-          elements.previewImage.style.objectFit = 'cover';
-          elements.previewImage.style.maxWidth = '100%';
-          elements.previewImage.style.maxHeight = '350px';
-          elements.previewImage.style.width = '100%';
-          elements.previewImage.className = 'square';
-        }
-      };
-      img.src = media.dataUrl;
-      
+      elements.previewImage.alt = 'תצוגה מקדימה';
+      elements.previewImage.style.objectFit = 'cover';
+      elements.previewImage.style.width = '100%';
+      elements.previewImage.style.height = '100%';
     } else if (media.type === 'video') {
       elements.previewVideo.src = media.dataUrl;
       elements.previewVideo.style.display = 'block';
+      elements.previewVideo.muted = true;
+      elements.previewVideo.playsInline = true;
+      elements.previewVideo.removeAttribute('controls');
       elements.previewVideo.load();
+      // פריים ראשון לתמונה ממוזערת | HYPER CORE TECH
+      const seekPreview = () => {
+        try {
+          if (elements.previewVideo.readyState >= 1) {
+            elements.previewVideo.currentTime = Math.min(0.1, elements.previewVideo.duration || 0.1);
+          }
+        } catch (_) {}
+      };
+      elements.previewVideo.addEventListener('loadedmetadata', seekPreview, { once: true });
     }
   }
 
@@ -1119,22 +1088,6 @@
     if (elements.gameFlagWrap) elements.gameFlagWrap.hidden = true;
     setComposeGameMode(false);
     updateTextToolsVisibility();
-    state.selectedTopic = '';
-    state.selectedTopicLabel = '';
-    try {
-      elements.topicSheet?.setAttribute('hidden', '');
-      if (elements.topicSelected) {
-        elements.topicSelected.hidden = true;
-        elements.topicSelected.textContent = '';
-      }
-      if (elements.topicPill) {
-        elements.topicPill.textContent = 'נושא';
-        elements.topicPill.classList.remove('is-active');
-      }
-      elements.topicGrid?.querySelectorAll('.compose-topic-chip').forEach((chip) => {
-        chip.classList.remove('is-selected');
-      });
-    } catch (_) {}
     updateComposeLegalState();
     showComposeStep('chooser');
   }
@@ -1332,40 +1285,7 @@
       });
     }
 
-    // חלק נושא (compose.js) – בחירת קטגוריה בתצוגה בלבד בינתיים | HYPER CORE TECH
-    if (elements.topicPill && !elements.topicPill.dataset.bound) {
-      elements.topicPill.dataset.bound = '1';
-      elements.topicPill.addEventListener('click', () => {
-        const sheet = elements.topicSheet;
-        if (!sheet) return;
-        const open = sheet.hasAttribute('hidden');
-        if (open) sheet.removeAttribute('hidden');
-        else sheet.setAttribute('hidden', '');
-        elements.topicPill.classList.toggle('is-active', open);
-      });
-    }
-    if (elements.topicGrid && !elements.topicGrid.dataset.bound) {
-      elements.topicGrid.dataset.bound = '1';
-      elements.topicGrid.addEventListener('click', (event) => {
-        const chip = event.target?.closest?.('[data-topic]');
-        if (!chip) return;
-        const topic = chip.getAttribute('data-topic') || '';
-        state.selectedTopic = topic;
-        state.selectedTopicLabel = TOPIC_LABELS[topic] || topic;
-        elements.topicGrid.querySelectorAll('.compose-topic-chip').forEach((el) => {
-          el.classList.toggle('is-selected', el === chip);
-        });
-        if (elements.topicSelected) {
-          elements.topicSelected.hidden = false;
-          elements.topicSelected.textContent = `נושא: ${state.selectedTopicLabel}`;
-        }
-        if (elements.topicPill) {
-          elements.topicPill.textContent = state.selectedTopicLabel || 'נושא';
-          elements.topicPill.classList.add('is-active');
-        }
-        elements.topicSheet?.setAttribute('hidden', '');
-      });
-    }
+    // חלק האשטאגים (compose.js) – מוסיף # לכיתוב | HYPER CORE TECH
     if (elements.hashtagsPill && !elements.hashtagsPill.dataset.bound) {
       elements.hashtagsPill.dataset.bound = '1';
       elements.hashtagsPill.addEventListener('click', () => {
@@ -1373,12 +1293,6 @@
         const cur = elements.textarea.value || '';
         elements.textarea.value = cur + (cur && !/\s$/.test(cur) ? ' ' : '') + '#';
         elements.textarea.focus();
-      });
-    }
-    if (elements.livePill && !elements.livePill.dataset.bound) {
-      elements.livePill.dataset.bound = '1';
-      elements.livePill.addEventListener('click', () => {
-        alert('שידור חי יופיע כאן בקרוב');
       });
     }
 

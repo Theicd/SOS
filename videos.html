@@ -248,7 +248,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260827cam1">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260827post1">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -439,13 +439,14 @@
         padding: max(8px, env(safe-area-inset-top, 0px)) 10px max(8px, env(safe-area-inset-bottom, 0px));
         box-sizing: border-box;
         overflow: hidden;
+        background: rgba(0, 0, 0, 0.72);
       }
 
       .compose-dialog {
-        background: var(--card);
+        background: #0a0a0a;
         border-radius: 16px;
-        border: 1px solid var(--border);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
         overflow: hidden;
         width: min(420px, 96vw);
         max-height: min(92dvh, 720px);
@@ -453,6 +454,7 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
+        color: #fff;
       }
 
       .compose-chooser,
@@ -536,8 +538,8 @@
         height: 40px;
         border: none;
         border-radius: 50%;
-        background: var(--bg);
-        color: var(--text);
+        background: rgba(255, 255, 255, 0.06);
+        color: #fff;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
@@ -629,38 +631,48 @@
         color: var(--muted);
       }
 
-      .compose-editor__profile {
+      .compose-editor__heading {
+        flex: 1;
+        text-align: center;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text, #fff);
+      }
+
+      .compose-editor__profile[hidden] {
+        display: none !important;
+      }
+
+      /* מבנה טיקטוק: ממוזער + כיתוב | HYPER CORE TECH */
+      .compose-post-hero {
         display: flex;
-        align-items: center;
-        gap: 10px;
+        flex-direction: row-reverse;
+        align-items: stretch;
+        gap: 12px;
+        direction: rtl;
+        flex: 0 0 auto;
+      }
+
+      .compose-post-hero__copy {
+        flex: 1 1 auto;
         min-width: 0;
-      }
-
-      .compose-editor__profile .profile-avatar {
-        width: 36px;
-        height: 36px;
-        font-size: 0.85rem;
-      }
-
-      .compose-editor__profile .profile-name {
-        font-weight: 600;
-        color: var(--text);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
 
       .compose-dialog textarea {
         width: 100%;
-        min-height: 72px;
-        max-height: 120px;
-        flex: 0 0 auto;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 10px 12px;
-        color: var(--text);
+        min-height: 96px;
+        max-height: 160px;
+        flex: 1 1 auto;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 4px 0;
+        color: var(--text, #fff);
         font-size: 16px;
+        line-height: 1.4;
         resize: none;
         box-sizing: border-box;
         margin: 0;
@@ -668,11 +680,10 @@
 
       .compose-dialog textarea:focus {
         outline: none;
-        border-color: var(--primary);
       }
 
       .compose-dialog textarea::placeholder {
-        color: var(--muted);
+        color: var(--muted, rgba(255, 255, 255, 0.45));
       }
 
       .compose-dialog__toolbar {
@@ -699,8 +710,8 @@
 
       .compose-toolbar-btn:hover,
       .compose-toolbar-btn.active {
-        border-color: var(--primary);
-        background: var(--hover);
+        border-color: #fe2c55;
+        background: rgba(254, 44, 85, 0.12);
       }
 
       .compose-toolbar-btn span {
@@ -708,20 +719,45 @@
       }
 
       .compose-media-preview {
+        position: relative;
+        width: 108px;
+        height: 144px;
+        flex: 0 0 auto;
         border-radius: 10px;
         overflow: hidden;
         margin: 0;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        flex: 0 0 auto;
+        background: #111;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        display: none;
+      }
+
+      .compose-media-preview.is-visible {
+        display: block;
       }
 
       .compose-media-preview img,
       .compose-media-preview video {
         width: 100%;
-        max-height: 160px;
+        height: 100%;
+        max-height: none;
         object-fit: cover;
-        display: block;
+        display: none;
+        background: #000;
+      }
+
+      .compose-media-preview__badge {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 4px 6px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #fff;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+        z-index: 1;
       }
 
       .compose-media-preview:has(.compose-live-preview) img,
@@ -731,34 +767,50 @@
         display: none;
       }
 
-      .compose-media-preview .compose-live-preview {
+      .compose-media-preview .compose-live-preview,
+      .compose-media-preview .compose-game-preview {
         border: none;
         margin: 0;
         border-radius: 0;
+        width: 100%;
+        height: 100%;
       }
 
+      .compose-options-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        flex: 0 0 auto;
+      }
+
+      .compose-option-row,
       .compose-terms-ack {
         display: flex;
         align-items: flex-start;
-        gap: 8px;
+        gap: 10px;
         margin: 0;
-        padding: 8px 10px;
-        border-radius: 10px;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        color: var(--muted);
-        font-size: 0.78rem;
-        line-height: 1.35;
+        padding: 14px 2px;
+        border-radius: 0;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 0.82rem;
+        line-height: 1.4;
         flex: 0 0 auto;
+        cursor: pointer;
       }
 
       .compose-terms-ack input {
         margin-top: 2px;
         flex-shrink: 0;
+        accent-color: #fe2c55;
       }
 
       .compose-terms-ack a {
-        color: var(--primary);
+        color: #fe2c55;
       }
 
       .compose-editor__body > .p2p-status {
@@ -767,6 +819,7 @@
         font-size: 0.8rem;
         line-height: 1.3;
         flex: 0 0 auto;
+        color: rgba(255, 255, 255, 0.7);
       }
 
       .compose-editor__body > .p2p-status:empty {
@@ -776,12 +829,12 @@
       .compose-dialog__actions {
         display: flex;
         gap: 10px;
-        justify-content: flex-end;
+        justify-content: stretch;
         margin: 0;
-        padding: 10px 0 0;
-        border-top: 1px solid var(--border);
+        padding: 12px 0 max(10px, env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
         flex: 0 0 auto;
-        background: var(--card);
+        background: #0a0a0a;
         position: sticky;
         bottom: 0;
         z-index: 2;
@@ -789,27 +842,35 @@
 
       .compose-dialog__actions .button-primary,
       .compose-dialog__actions .button-secondary {
+        flex: 1 1 0;
         border-radius: 999px;
-        padding: 10px 20px;
+        padding: 12px 18px;
         font-weight: 700;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 0.95rem;
       }
 
       .compose-dialog__actions .button-primary {
-        background: var(--primary);
-        color: white;
+        background: #fe2c55;
+        color: #fff;
         border: none;
+        order: 1;
       }
 
       .compose-dialog__actions .button-primary:disabled {
-        opacity: 0.5;
+        opacity: 0.45;
         cursor: not-allowed;
       }
 
       .compose-dialog__actions .button-secondary {
-        background: transparent;
-        color: var(--muted);
-        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        order: 2;
       }
 
       /* מצב משחק: קומפקטי בלי כפילויות | HYPER CORE TECH */
@@ -828,7 +889,7 @@
         display: none !important;
       }
 
-      /* ===== התאמה מובייל – נכנס למסך בלי גלילת מודל | HYPER CORE TECH ===== */
+      /* ===== התאמה מובייל – מסך מלא בסגנון טיקטוק | HYPER CORE TECH ===== */
       @media (max-width: 768px) {
         .compose-modal {
           position: fixed !important;
@@ -840,8 +901,9 @@
           max-height: 100dvh !important;
           overflow: hidden !important;
           z-index: 10000 !important;
-          padding: max(6px, env(safe-area-inset-top, 0px)) 8px max(6px, env(safe-area-inset-bottom, 0px)) !important;
+          padding: 0 !important;
           align-items: stretch !important;
+          background: #000 !important;
         }
         
         .compose-dialog {
@@ -849,26 +911,39 @@
           width: 100%;
           max-width: none;
           max-height: 100%;
-          height: min(100%, 100dvh);
-          border-radius: 14px;
+          height: 100%;
+          min-height: 100dvh;
+          border-radius: 0;
+          border: none;
           overflow: hidden;
+          background: #0a0a0a;
+        }
+
+        .compose-editor.is-compose-step-active {
+          padding: max(10px, env(safe-area-inset-top, 0px)) 14px 0;
         }
         
         .compose-dialog textarea {
-          min-height: 64px;
-          max-height: 96px;
+          min-height: 110px;
+          max-height: 180px;
           font-size: 16px; /* מונע זום אוטומטי ב-iOS */
-          line-height: 1.35;
+          line-height: 1.4;
+        }
+
+        .compose-media-preview {
+          width: 112px;
+          height: 150px;
         }
 
         .compose-editor.is-compose-game textarea {
-          min-height: 48px;
-          max-height: 64px;
+          min-height: 72px;
+          max-height: 110px;
         }
         
         /* התאמה כשהמקלדת פתוחה – בלי לדחוף את הדיאלוג מחוץ למסך | HYPER CORE TECH */
         .compose-modal.keyboard-open .compose-dialog {
-          max-height: calc(100dvh - 8px);
+          max-height: 100dvh;
+          height: 100%;
         }
       }
 
@@ -1920,7 +1995,7 @@
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260731c" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260827cam1" defer></script>
+    <script src="./compose.js?v=20260827post1" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2329,46 +2404,34 @@
         <div class="compose-editor" id="composeEditor" hidden>
           <div class="compose-editor__header">
             <button type="button" class="compose-icon-btn" id="composeBackToChooser" aria-label="חזרה">
-              <i class="fa-solid fa-arrow-right"></i>
+              <i class="fa-solid fa-chevron-right"></i>
             </button>
-            <div class="compose-editor__profile">
-              <div class="profile-avatar" id="composeProfileAvatar">?</div>
-              <span class="profile-name" id="composeProfileName">משתמש</span>
-              <span class="profile-bio" id="composeProfileBio" hidden></span>
-            </div>
+            <span class="compose-editor__heading">פוסט חדש</span>
             <button type="button" class="compose-icon-btn" onclick="closeCompose()" aria-label="סגור">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
 
-          <div class="compose-editor__body">
-            <textarea id="postText" placeholder="הוסיפו כיתוב... לינק ערוץ חי (.m3u8) או לינק משחק"></textarea>
+          <!-- פרופיל מוסתר ללוגיקה קיימת | HYPER CORE TECH -->
+          <div class="compose-editor__profile" hidden aria-hidden="true">
+            <div class="profile-avatar" id="composeProfileAvatar">?</div>
+            <span class="profile-name" id="composeProfileName">משתמש</span>
+            <span class="profile-bio" id="composeProfileBio" hidden></span>
+          </div>
 
-            <!-- חלק נושא (videos.html) – בחירת קטגוריה + כפתורי עזר בתצוגה | HYPER CORE TECH -->
-            <div class="compose-topic-row" id="composeTopicRow">
-              <button type="button" class="compose-pill" id="composeHashtagsPill" data-compose-pill="hashtags"># האשטאגים</button>
-              <button type="button" class="compose-pill" id="composeTopicPill" data-compose-pill="topic">נושא</button>
-              <button type="button" class="compose-pill" id="composeLivePill" data-compose-pill="live">
-                <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
-                שידור חי
-              </button>
-            </div>
-            <div class="compose-topic-selected" id="composeTopicSelected" hidden></div>
-            <div class="compose-topic-sheet" id="composeTopicSheet" hidden>
-              <div class="compose-topic-sheet__title">בחרו נושא לפוסט</div>
-              <div class="compose-topic-sheet__grid" id="composeTopicGrid" role="listbox" aria-label="קטגוריות">
-                <button type="button" class="compose-topic-chip" data-topic="leisure">פנאי</button>
-                <button type="button" class="compose-topic-chip" data-topic="humor">הומור</button>
-                <button type="button" class="compose-topic-chip" data-topic="documentary">תיעודי</button>
-                <button type="button" class="compose-topic-chip" data-topic="news">חדשות</button>
-                <button type="button" class="compose-topic-chip" data-topic="sports">ספורט</button>
-                <button type="button" class="compose-topic-chip" data-topic="music">מוזיקה</button>
-                <button type="button" class="compose-topic-chip" data-topic="food">אוכל</button>
-                <button type="button" class="compose-topic-chip" data-topic="travel">טיולים</button>
-                <button type="button" class="compose-topic-chip" data-topic="tech">טכנולוגיה</button>
-                <button type="button" class="compose-topic-chip" data-topic="family">משפחה</button>
-                <button type="button" class="compose-topic-chip" data-topic="education">חינוך</button>
-                <button type="button" class="compose-topic-chip" data-topic="other">אחר</button>
+          <div class="compose-editor__body">
+            <!-- מבנה טיקטוק: תמונה ממוזערת + כיתוב | HYPER CORE TECH -->
+            <div class="compose-post-hero" id="composePostHero">
+              <div id="composeMediaPreview" class="compose-media-preview">
+                <img id="composeMediaPreviewImage" alt="תצוגה מקדימה">
+                <video id="composeMediaPreviewVideo" muted playsinline preload="metadata"></video>
+                <span class="compose-media-preview__badge">תצוגה מקדימה</span>
+              </div>
+              <div class="compose-post-hero__copy">
+                <textarea id="postText" placeholder="הוסיפו תיאור..."></textarea>
+                <div class="compose-topic-row" id="composeTopicRow">
+                  <button type="button" class="compose-pill" id="composeHashtagsPill" data-compose-pill="hashtags"># האשטאגים</button>
+                </div>
               </div>
             </div>
 
@@ -2382,6 +2445,7 @@
               </span>
             </label>
 
+            <!-- רקע לפוסט טקסט בלבד (מוסתר אחרי מדיה) | HYPER CORE TECH -->
             <div class="compose-dialog__toolbar" id="composeTextTools" hidden>
               <button class="compose-toolbar-btn" type="button" id="composeBgToggle" title="רקע לטקסט">
                 <i class="fa-solid fa-palette"></i>
@@ -2405,20 +2469,17 @@
               </label>
             </div>
 
-            <div id="composeMediaPreview" class="compose-media-preview">
-              <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
-              <video id="composeMediaPreviewVideo" controls playsinline></video>
+            <div class="compose-options-list">
+              <label class="compose-option-row compose-terms-ack">
+                <input type="checkbox" id="composeTermsAck">
+                <span>
+                  אני מאשר/ת שזו יצירה שלי או עם רישיון, ושאני מסכים/ה ל
+                  <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a>
+                  ול
+                  <a href="copyright.html" target="_blank" rel="noopener">זכויות יוצרים</a>.
+                </span>
+              </label>
             </div>
-
-            <label class="compose-terms-ack">
-              <input type="checkbox" id="composeTermsAck">
-              <span>
-                אני מאשר/ת שזו יצירה שלי או עם רישיון, ושאני מסכים/ה ל
-                <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a>
-                ול
-                <a href="copyright.html" target="_blank" rel="noopener">זכויות יוצרים</a>.
-              </span>
-            </label>
 
             <input type="hidden" id="composePolicyCheckbox" checked>
             <input type="hidden" id="composeRightsCheckbox" checked>
@@ -2427,7 +2488,10 @@
 
           <div class="compose-dialog__actions">
             <button class="button-secondary" type="button" onclick="closeCompose()">ביטול</button>
-            <button class="button-primary" type="button" id="composePublishButton" disabled>פרסם</button>
+            <button class="button-primary" type="button" id="composePublishButton" disabled>
+              <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+              לפרסם
+            </button>
           </div>
         </div>
       </div>

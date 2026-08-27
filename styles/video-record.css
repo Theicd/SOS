@@ -242,18 +242,18 @@
   cursor: pointer;
 }
 
-/* חלק קומפוזר – כפתורי נושא/האשטאג/שידור חי בתצוגה | HYPER CORE TECH */
+/* חלק קומפוזר – כפתור האשטאגים בסגנון טיקטוק | HYPER CORE TECH */
 .compose-topic-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   direction: rtl;
-  margin: 4px 0 2px;
+  margin: 0;
 }
 
 .compose-pill {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
   border-radius: 999px;
   padding: 7px 12px;
@@ -268,49 +268,4 @@
 .compose-pill.is-active {
   border-color: rgba(254, 44, 85, 0.7);
   background: rgba(254, 44, 85, 0.18);
-}
-
-.compose-topic-selected {
-  direction: rtl;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.78);
-  margin-bottom: 4px;
-}
-
-.compose-topic-sheet {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 8px;
-  direction: rtl;
-}
-
-.compose-topic-sheet__title {
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 10px;
-  color: #fff;
-}
-
-.compose-topic-sheet__grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.compose-topic-chip {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
-  border-radius: 999px;
-  padding: 7px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.compose-topic-chip.is-selected {
-  background: rgba(254, 44, 85, 0.22);
-  border-color: rgba(254, 44, 85, 0.75);
 }
