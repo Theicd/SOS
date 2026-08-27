@@ -412,6 +412,92 @@
         cursor: not-allowed;
       }
 
+      /* ===== כרטיס יציאה ממסך שיתוף (במקום alert דפדפן) | HYPER CORE TECH ===== */
+      .leave-share-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 120000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.72);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        direction: rtl;
+      }
+
+      .leave-share-modal.is-visible {
+        display: flex;
+      }
+
+      .leave-share-modal__card {
+        width: min(380px, 100%);
+        background: linear-gradient(160deg, #12141c 0%, #0a0c12 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        padding: 22px 20px 18px;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+        text-align: center;
+        color: #fff;
+      }
+
+      .leave-share-modal__icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 12px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(79, 195, 247, 0.12);
+        border: 1px solid rgba(79, 195, 247, 0.35);
+        color: #4fc3f7;
+        font-size: 1.15rem;
+      }
+
+      .leave-share-modal__title {
+        margin: 0 0 8px;
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #fff;
+      }
+
+      .leave-share-modal__text {
+        margin: 0 0 18px;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        color: rgba(255, 255, 255, 0.72);
+      }
+
+      .leave-share-modal__actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .leave-share-modal__btn {
+        min-height: 42px;
+        padding: 10px 18px;
+        border-radius: 999px;
+        border: none;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .leave-share-modal__btn--stay {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .leave-share-modal__btn--leave {
+        background: #4fc3f7;
+        color: #0a0a0a;
+      }
+
       /* ===== עיבוד פוסט – סטטוס בהדר (הכרטיס הישן בוטל) ===== */
       .processing-notice { display: none !important; }
 
@@ -2098,7 +2184,7 @@
         App.activeNav = 'videos';
       })();
     </script>
-    <script src="./navigation.js?v=20260828share1" defer></script>
+    <script src="./navigation.js?v=20260828share2" defer></script>
     <script src="./feed.js?v=20260826feedfix1" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
@@ -2630,6 +2716,19 @@
         <div class="terms-modal__actions">
           <button class="terms-modal__cancel" onclick="closeTermsModal()">ביטול</button>
           <button class="terms-modal__publish" id="termsPublishButton" onclick="confirmAndPublish()" disabled>פרסם</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- כרטיס יציאה ממסך שיתוף | HYPER CORE TECH -->
+    <div class="leave-share-modal" id="leaveShareModal" aria-hidden="true">
+      <div class="leave-share-modal__card" role="dialog" aria-modal="true" aria-labelledby="leaveShareTitle">
+        <div class="leave-share-modal__icon" aria-hidden="true"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
+        <h3 class="leave-share-modal__title" id="leaveShareTitle">לצאת ממסך השיתוף?</h3>
+        <p class="leave-share-modal__text">השינויים שלא פורסמו לא יישמרו.</p>
+        <div class="leave-share-modal__actions">
+          <button type="button" class="leave-share-modal__btn leave-share-modal__btn--stay" data-leave-share="stay">המשך לשתף</button>
+          <button type="button" class="leave-share-modal__btn leave-share-modal__btn--leave" data-leave-share="leave">יציאה</button>
         </div>
       </div>
     </div>

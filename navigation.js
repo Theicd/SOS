@@ -54,26 +54,94 @@
     return closed;
   }
 
-  function confirmLeaveShareFlow() {
-    if (!isShareFlowOpen()) return true;
-    const ok = window.confirm('לצאת ממסך השיתוף?\nהשינויים שלא פורסמו לא יישמרו.');
-    if (ok) closeShareFlow();
-    return ok;
+  let leaveSharePendingItem = null;
+  let leaveShareDialogBusy = false;
+
+  function bindLeaveShareModal() {
+    const modal = document.getElementById('leaveShareModal') || ensureLeaveShareModalFallback();
+    if (!modal || modal.dataset.bound === '1') return modal;
+    modal.dataset.bound = '1';
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) {
+        hideLeaveShareModal(false);
+        return;
+      }
+      const btn = event.target.closest('[data-leave-share]');
+      if (!btn) return;
+      hideLeaveShareModal(btn.getAttribute('data-leave-share') === 'leave');
+    });
+    return modal;
   }
 
-  // לחיצה על תפריט הצד בזמן שיתוף — אישור ואז סגירה (כולל שיחות/התראות) | HYPER CORE TECH
+  function ensureLeaveShareModalFallback() {
+    let modal = document.getElementById('leaveShareModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'leaveShareModal';
+    modal.className = 'leave-share-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="leave-share-modal__card" role="dialog" aria-modal="true" aria-labelledby="leaveShareTitle">
+        <div class="leave-share-modal__icon" aria-hidden="true"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
+        <h3 class="leave-share-modal__title" id="leaveShareTitle">לצאת ממסך השיתוף?</h3>
+        <p class="leave-share-modal__text">השינויים שלא פורסמו לא יישמרו.</p>
+        <div class="leave-share-modal__actions">
+          <button type="button" class="leave-share-modal__btn leave-share-modal__btn--stay" data-leave-share="stay">המשך לשתף</button>
+          <button type="button" class="leave-share-modal__btn leave-share-modal__btn--leave" data-leave-share="leave">יציאה</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function hideLeaveShareModal(confirmed) {
+    const modal = document.getElementById('leaveShareModal');
+    if (modal) {
+      modal.classList.remove('is-visible');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    leaveShareDialogBusy = false;
+    const pending = leaveSharePendingItem;
+    leaveSharePendingItem = null;
+    if (confirmed && pending) {
+      closeShareFlow();
+      window.setTimeout(() => {
+        try { pending.click(); } catch (_) {}
+      }, 40);
+    }
+  }
+
+  function openLeaveShareModal(pendingItem) {
+    leaveSharePendingItem = pendingItem || null;
+    leaveShareDialogBusy = true;
+    const modal = bindLeaveShareModal();
+    if (!modal) return;
+    modal.classList.add('is-visible');
+    modal.setAttribute('aria-hidden', 'false');
+    try {
+      modal.querySelector('[data-leave-share="stay"]')?.focus();
+    } catch (_) {}
+  }
+
+  // לחיצה על תפריט הצד בזמן שיתוף — כרטיס אישור מעוצב ואז סגירה | HYPER CORE TECH
   navRoot.addEventListener('click', (event) => {
     const item = event.target.closest(
       '.nav-item, [data-nav], #messagesToggle, #notificationsToggle, #moreOptionsToggle'
     );
     if (!item || !navRoot.contains(item)) return;
     if (item.id === 'navCompose') return;
-    if (!isShareFlowOpen()) return;
-    if (!confirmLeaveShareFlow()) {
+    if (leaveShareDialogBusy) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+      return;
     }
+    if (!isShareFlowOpen()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    openLeaveShareModal(item);
   }, true);
 
   function updateNavSelection(targetKey) {
@@ -258,7 +326,6 @@
   App.closeCommentsPanelSafe = closeCommentsPanelSafe;
   App.isShareFlowOpen = isShareFlowOpen;
   App.closeShareFlow = closeShareFlow;
-  App.confirmLeaveShareFlow = confirmLeaveShareFlow;
 
   function isOnVideosFeedPage() {
     try {
