@@ -4754,14 +4754,32 @@ function clearDesktopCommentsVideoLayout() {
       media.style.removeProperty('max-width');
       media.style.removeProperty('max-height');
       media.style.removeProperty('min-width');
+      media.style.removeProperty('align-self');
+      media.style.removeProperty('transform');
+      media.style.removeProperty('margin-top');
       delete media.dataset.commentsSized;
+    });
+    document.querySelectorAll('.videos-feed__card[data-comments-sized="1"]').forEach((card) => {
+      card.style.removeProperty('align-items');
+      card.style.removeProperty('padding-bottom');
+      delete card.dataset.commentsSized;
+    });
+    document.querySelectorAll('.videos-feed__actions[data-comments-sized="1"]').forEach((actions) => {
+      actions.style.removeProperty('align-self');
+      actions.style.removeProperty('transform');
+      actions.style.removeProperty('padding-top');
+      actions.style.removeProperty('padding-bottom');
+      actions.style.removeProperty('justify-content');
+      actions.style.removeProperty('height');
+      actions.style.removeProperty('margin-top');
+      delete actions.dataset.commentsSized;
     });
     const feed = document.querySelector('.videos-feed');
     feed?.style?.removeProperty('--videos-desktop-feed-shift');
   } catch (_) {}
 }
 
-/** דסקטופ: כופים גודל וידאו למסגרת הפנויה בין תגובות לתפריט | HYPER CORE TECH */
+/** דסקטופ: כופים גודל וידאו למסגרת הפנויה בין תגובות לתפריט + מרכוז אנכי | HYPER CORE TECH */
 function syncDesktopCommentsVideoLayout() {
   try {
     if (typeof window.matchMedia === 'function' && !window.matchMedia('(min-width: 769px)').matches) {
@@ -4782,11 +4800,12 @@ function syncDesktopCommentsVideoLayout() {
     const panelRight = panel ? Math.ceil(panel.getBoundingClientRect().right) : 424;
     const navLeft = nav ? Math.floor(nav.getBoundingClientRect().left) : (window.innerWidth - 220);
     const actions = card.querySelector('.videos-feed__actions');
-    const actionsW = actions ? Math.ceil(actions.getBoundingClientRect().width) + 16 : 70;
-    const gap = 20;
+    // רוחב עמודת פעולות קבוע בדסקטופ (גם אם translateY משנה את ה-rect) | HYPER CORE TECH
+    const actionsW = 76;
+    const gap = 24;
 
     const maxW = Math.max(260, Math.floor(navLeft - panelRight - actionsW - gap));
-    const maxH = Math.max(220, Math.floor(window.innerHeight - 28));
+    const maxH = Math.max(220, Math.floor(window.innerHeight - 32));
 
     let ar = parseFloat(card.style.getPropertyValue('--video-ar'))
       || parseFloat(media.style.getPropertyValue('--video-ar'))
@@ -4806,19 +4825,53 @@ function syncDesktopCommentsVideoLayout() {
     w = Math.max(200, Math.round(w));
     h = Math.max(160, Math.round(h));
 
+    // כפיית מרכוז אנכי בכרטיס (flex-end ברירת מחדל דוחף למטה בווידאו רחב) | HYPER CORE TECH
+    card.style.setProperty('align-items', 'center', 'important');
+    card.style.setProperty('padding-bottom', '0px', 'important');
+    card.dataset.commentsSized = '1';
+
     media.style.setProperty('width', `${w}px`, 'important');
     media.style.setProperty('height', `${h}px`, 'important');
     media.style.setProperty('max-width', `${w}px`, 'important');
     media.style.setProperty('max-height', `${h}px`, 'important');
     media.style.setProperty('min-width', '0px', 'important');
+    media.style.setProperty('align-self', 'center', 'important');
+    media.style.removeProperty('transform');
     media.dataset.commentsSized = '1';
 
-    // מרכוז אופטי במרחב הפנוי בין פאנל התגובות לתפריט | HYPER CORE TECH
+    if (actions) {
+      actions.style.setProperty('align-self', 'center', 'important');
+      actions.style.setProperty('transform', 'none', 'important');
+      actions.style.setProperty('padding-top', '0px', 'important');
+      actions.style.setProperty('padding-bottom', '0px', 'important');
+      actions.style.setProperty('justify-content', 'center', 'important');
+      actions.style.setProperty('height', 'auto', 'important');
+      actions.dataset.commentsSized = '1';
+    }
+
+    // מרכוז אופקי במרחב הפנוי בין פאנל התגובות לתפריט | HYPER CORE TECH
     const freeCenter = (panelRight + navLeft) / 2;
     const viewportCenter = window.innerWidth / 2;
     const shift = Math.round(freeCenter - viewportCenter);
     const feed = document.querySelector('.videos-feed');
     feed?.style?.setProperty('--videos-desktop-feed-shift', `${shift}px`);
+
+    // תיקון אנכי מדויק מול חלון התצוגה (16:9 וכו') | HYPER CORE TECH
+    requestAnimationFrame(() => {
+      try {
+        if (!document.body.classList.contains('videos-comments-open')) return;
+        if (!media.isConnected) return;
+        const rect = media.getBoundingClientRect();
+        const idealTop = (window.innerHeight - rect.height) / 2;
+        const dy = Math.round(idealTop - rect.top);
+        if (Math.abs(dy) > 3) {
+          media.style.setProperty('transform', `translateY(${dy}px)`, 'important');
+          if (actions) {
+            actions.style.setProperty('transform', `translateY(${dy}px)`, 'important');
+          }
+        }
+      } catch (_) {}
+    });
   } catch (_) {}
 }
 

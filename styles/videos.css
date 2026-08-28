@@ -3455,6 +3455,25 @@ body.global-stop .videos-feed__play-overlay {
     order: -1 !important; /* הצב את עמודת הכפתורים משמאל לווידאו בדסקטופ | HYPER CORE TECH */
   }
 
+  /* תגובות פתוחות – ביטול הזזת עמודת פעולות + מרכוז (אחרי כלל הדסקטופ) | HYPER CORE TECH */
+  body.videos-comments-open .videos-feed__card {
+    align-items: center !important;
+    padding-bottom: 0 !important;
+  }
+
+  body.videos-comments-open .videos-feed__actions {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    transform: none !important;
+    justify-content: center !important;
+    align-self: center !important;
+    height: auto !important;
+  }
+
+  body.videos-comments-open .videos-feed__media {
+    align-self: center !important;
+  }
+
   /* כפתורי פעולה עגולים כמו ב-sos010.html | HYPER CORE TECH */
   .videos-feed__actions .videos-feed__action-btn {
     width: 48px !important;
