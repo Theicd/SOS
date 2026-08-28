@@ -3387,7 +3387,7 @@ body.global-stop .videos-feed__play-overlay {
     min-width: min(480px, var(--desktop-media-max-w));
   }
 
-  /* תגובות פתוחות – הווידאו ממלא את המסגרת הפנויה (יחס מקורי) | HYPER CORE TECH */
+  /* תגובות פתוחות – הווידאו ממלא את המסגרת הפנויה וממורכז בגובה | HYPER CORE TECH */
   body.videos-comments-open .videos-feed__card {
     --desktop-media-max-h: calc(100vh - 28px) !important;
     --desktop-media-max-w: calc(
@@ -3398,6 +3398,16 @@ body.global-stop .videos-feed__play-overlay {
       - var(--videos-desktop-actions-offset, 70px)
       - 16px
     ) !important;
+    align-items: center !important;
+    padding-bottom: 0 !important;
+  }
+
+  body.videos-comments-open .videos-feed__actions {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    transform: none !important;
+    justify-content: center !important;
+    align-self: center !important;
   }
 
   body.videos-comments-open .videos-feed__media,
