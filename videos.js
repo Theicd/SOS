@@ -4781,10 +4781,11 @@ function syncDesktopCommentsVideoLayout() {
     const nav = document.querySelector('body:has(.videos-feed) .primary-nav, .primary-nav');
     const panelRight = panel ? Math.ceil(panel.getBoundingClientRect().right) : 424;
     const navLeft = nav ? Math.floor(nav.getBoundingClientRect().left) : (window.innerWidth - 220);
-    /* פעולות בשכבה על הווידאו – לא תופסות רוחב עמודה | HYPER CORE TECH */
+    const actions = card.querySelector('.videos-feed__actions');
+    const actionsW = actions ? Math.ceil(actions.getBoundingClientRect().width) + 16 : 70;
     const gap = 20;
 
-    const maxW = Math.max(260, Math.floor(navLeft - panelRight - gap));
+    const maxW = Math.max(260, Math.floor(navLeft - panelRight - actionsW - gap));
     const maxH = Math.max(220, Math.floor(window.innerHeight - 28));
 
     let ar = parseFloat(card.style.getPropertyValue('--video-ar'))
