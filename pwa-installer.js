@@ -666,6 +666,40 @@
     showUpdateAvailableToast();
   }
 
+  /** לפני ריענון עדכון: סוגר שיחות, מנקה ?chat=, נשאר בפיד | HYPER CORE TECH */
+  function prepareCleanReloadAfterUiUpdate() {
+    try {
+      const App = window.NostrApp;
+      if (typeof App?.closeChatPanel === 'function') App.closeChatPanel();
+      else {
+        document.getElementById('chatPanel')?.setAttribute('hidden', '');
+        document.body.classList.remove('chat-overlay-open');
+      }
+      if (typeof App?.clearSosDeepLinkFlags === 'function') {
+        App.clearSosDeepLinkFlags();
+      }
+    } catch (_) {}
+
+    let nextUrl = window.location.pathname + (window.location.hash || '');
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('chat');
+      url.searchParams.delete('incomingCall');
+      const q = url.searchParams.toString();
+      nextUrl = url.pathname + (q ? `?${q}` : '') + url.hash;
+    } catch (_) {}
+
+    setTimeout(() => {
+      try {
+        const cur = window.location.pathname + window.location.search + window.location.hash;
+        if (cur !== nextUrl) window.location.replace(nextUrl);
+        else window.location.reload();
+      } catch (_) {
+        window.location.reload();
+      }
+    }, 400);
+  }
+
   function showUpdateAvailableToast() {
     if (document.getElementById('pwa-update-toast')) return;
     // במעטפת: קודם APK, אחר כך ווב – לא שתי הודעות יחד | HYPER CORE TECH
@@ -692,13 +726,19 @@
         <button type="button" class="pwa-update-toast__now">עדכן</button>
       </div>
     `;
+
+    toast.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
     
-    toast.querySelector('.pwa-update-toast__later').onclick = () => {
+    toast.querySelector('.pwa-update-toast__later').onclick = (e) => {
+      try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
       toast.classList.remove('pwa-update-toast--visible');
       setTimeout(() => toast.remove(), 300);
     };
     
-    toast.querySelector('.pwa-update-toast__now').onclick = async () => {
+    toast.querySelector('.pwa-update-toast__now').onclick = async (e) => {
+      try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
       try { sessionStorage.setItem('pwa_just_updated', '1'); } catch (_) {}
       if (pendingRemoteAppVersion) {
         try { localStorage.setItem(APP_VERSION_KEY, pendingRemoteAppVersion); } catch (_) {}
@@ -711,7 +751,7 @@
           navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
         }
       } catch (_) {}
-      setTimeout(() => window.location.reload(), 500);
+      prepareCleanReloadAfterUiUpdate();
     };
     
     document.body.appendChild(toast);
@@ -794,12 +834,18 @@
       }, 300);
     };
 
-    toast.querySelector('.pwa-update-toast__later').onclick = () => {
+    toast.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    toast.querySelector('.pwa-update-toast__later').onclick = (e) => {
+      try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
       try { sessionStorage.setItem('apk_update_dismissed', remoteVer); } catch (_) {}
       finishApkToast();
     };
 
-    toast.querySelector('.pwa-update-toast__now').onclick = () => {
+    toast.querySelector('.pwa-update-toast__now').onclick = (e) => {
+      try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
       const url = String(pendingApkRelease?.url || NATIVE_APK_URL);
       const bridge = window.SosNativeShell;
       try {

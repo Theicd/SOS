@@ -382,10 +382,10 @@
   border-color: rgba(160, 195, 245, 0.45);
 }
 
-/* דסקטופ בלבד: כרטיסיית עדכון קומפקטית (פיד + שיחה) – מובייל לא משתנה | HYPER CORE TECH */
+/* דסקטופ בלבד: מיקום אחיד לפיד ולשיחות (בלי קפיצה בין מצבים) | HYPER CORE TECH */
 @media (min-width: 769px) {
   .pwa-update-toast {
-    left: 50%;
+    left: calc((100vw - var(--videos-desktop-nav-width, 260px)) / 2);
     right: auto;
     bottom: 28px;
     width: min(400px, calc(100vw - 48px));
@@ -394,6 +394,7 @@
     padding: 12px 14px;
     border-radius: 16px;
     gap: 10px;
+    z-index: 100050;
     transform: translate(-50%, 120%);
   }
 
@@ -401,38 +402,8 @@
     transform: translate(-50%, 0);
   }
 
-  /* מרכז אזור התוכן ליד תפריט הצד (בלי שיחה פתוחה) | HYPER CORE TECH */
-  body:has(.videos-feed):not(:has(#chatPanel:not([hidden]))) .pwa-update-toast,
-  body.videos-page:not(:has(#chatPanel:not([hidden]))) .pwa-update-toast {
-    left: calc((100vw - var(--videos-desktop-nav-width, 260px)) / 2);
-    transform: translate(-50%, 120%);
-  }
-
-  body:has(.videos-feed):not(:has(#chatPanel:not([hidden]))) .pwa-update-toast.pwa-update-toast--visible,
-  body.videos-page:not(:has(#chatPanel:not([hidden]))) .pwa-update-toast.pwa-update-toast--visible {
-    transform: translate(-50%, 0);
-  }
-
-  /* שיחה פתוחה: כרטיס קצר מעל הקומפוזר, תחושת מובייל | HYPER CORE TECH */
-  body:has(#chatPanel:not([hidden])) .pwa-update-toast {
-    left: 50%;
-    bottom: 88px;
-    width: min(380px, calc(100vw - 64px));
-    max-width: 380px;
-    z-index: 100050;
-    transform: translate(-50%, 120%);
-  }
-
-  body:has(#chatPanel:not([hidden])) .pwa-update-toast.pwa-update-toast--visible {
-    transform: translate(-50%, 0);
-  }
-
-  body:has(#chatPanel:not([hidden]).chat-panel--conversation) .pwa-update-toast {
-    bottom: 96px;
-  }
-
-  body:has(.videos-feed):has(.pwa-install-banner--visible):not(:has(#chatPanel:not([hidden]))) .pwa-update-toast,
-  body.videos-page:has(.pwa-install-banner--visible):not(:has(#chatPanel:not([hidden]))) .pwa-update-toast {
+  body:has(.videos-feed):has(.pwa-install-banner--visible) .pwa-update-toast,
+  body.videos-page:has(.pwa-install-banner--visible) .pwa-update-toast {
     bottom: 96px;
   }
 
