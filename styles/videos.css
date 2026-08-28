@@ -3253,7 +3253,7 @@ body.global-stop .videos-feed__play-overlay {
   body:has(.videos-feed) {
     --videos-desktop-nav-width: 220px;
     --videos-desktop-nav-gap: 0px;
-    --videos-desktop-actions-offset: 70px;
+    --videos-desktop-actions-offset: 0px;
     --videos-desktop-top-offset: calc(0px + var(--safe-top, 0px));
     --videos-desktop-comments-left: 84px;
     --videos-desktop-comments-width: 340px;
@@ -3310,7 +3310,7 @@ body.global-stop .videos-feed__play-overlay {
   .videos-feed__card {
     --video-ar: 0.5625;
     --desktop-media-max-h: calc(100vh - 40px);
-    --desktop-media-max-w: calc(100vw - var(--videos-desktop-nav-width, 220px) - 200px);
+    --desktop-media-max-w: calc(100vw - var(--videos-desktop-nav-width, 220px) - 48px);
     max-width: none;
     width: auto;
     margin: 0 auto;
@@ -3323,14 +3323,14 @@ body.global-stop .videos-feed__play-overlay {
     border: none;
     box-shadow: none;
     background: transparent;
-    /* פריסה אופקית: וידאו במרכז, כפתורי פעולה משמאל | HYPER CORE TECH */
+    /* פריסה: וידאו במרכז, כפתורי פעולה בשכבה עליו משמאל | HYPER CORE TECH */
     display: flex;
     flex-direction: row;
-    column-gap: 8px; /* קירוב האקשן-בר לווידאו יותר | HYPER CORE TECH */
+    column-gap: 0;
     direction: ltr;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 0;
     padding-bottom: 20px;
   }
 
@@ -3422,27 +3422,35 @@ body.global-stop .videos-feed__play-overlay {
     border-radius: 16px;
   }
 
-  /* חלק כפתורי פעולה (videos.css) – צמוד לווידאו מצד שמאל כמו ב-sos010.html | HYPER CORE TECH */
+  /* חלק כפתורי פעולה (videos.css) – שכבה על הווידאו משמאל (כמו מובייל) | HYPER CORE TECH */
   .videos-feed__actions {
     position: relative !important;
     right: auto !important;
     left: auto !important;
     bottom: auto !important;
     top: auto !important;
-    transform: none !important;
     z-index: 100 !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: space-between !important; /* פריסה גבוהה יותר לכל אורך העמודה | HYPER CORE TECH */
-    padding-top: 48px !important; /* מרווח עליון להגביה את העמודה | HYPER CORE TECH */
-    padding-bottom: 120px !important; /* מרווח תחתון להגביה את העמודה | HYPER CORE TECH */
-    transform: translateY(-100px) !important; /* העלאת העמודה בעוד 50px (סה"כ 100px) | HYPER CORE TECH */
-    gap: 16px !important;
-    width: 60px !important;
+    justify-content: center !important;
     align-items: center !important;
-    margin-left: 0 !important;
-    margin-right: -8px !important; /* קירוב נוסף לווידאו | HYPER CORE TECH */
-    order: -1 !important; /* הצב את עמודת הכפתורים משמאל לווידאו בדסקטופ | HYPER CORE TECH */
+    padding: 0 !important;
+    /* רוחב 0 כדי לא לתפוס עמודה – הכפתורים גולשים לתוך הווידאו | HYPER CORE TECH */
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    transform: translateX(12px) !important;
+    gap: 16px !important;
+    align-self: center !important;
+    height: auto !important;
+    max-height: none !important;
+    order: -1 !important;
+    pointer-events: none;
+  }
+
+  .videos-feed__actions > * {
+    pointer-events: auto;
   }
 
   /* כפתורי פעולה עגולים כמו ב-sos010.html | HYPER CORE TECH */
