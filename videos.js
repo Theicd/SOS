@@ -4746,10 +4746,87 @@ function getOpenCommentsEventId() {
   }
 }
 
+function clearDesktopCommentsVideoLayout() {
+  try {
+    document.querySelectorAll('.videos-feed__media[data-comments-sized="1"]').forEach((media) => {
+      media.style.removeProperty('width');
+      media.style.removeProperty('height');
+      media.style.removeProperty('max-width');
+      media.style.removeProperty('max-height');
+      media.style.removeProperty('min-width');
+      delete media.dataset.commentsSized;
+    });
+    const feed = document.querySelector('.videos-feed');
+    feed?.style?.removeProperty('--videos-desktop-feed-shift');
+  } catch (_) {}
+}
+
+/** דסקטופ: כופים גודל וידאו למסגרת הפנויה בין תגובות לתפריט | HYPER CORE TECH */
+function syncDesktopCommentsVideoLayout() {
+  try {
+    if (typeof window.matchMedia === 'function' && !window.matchMedia('(min-width: 769px)').matches) {
+      clearDesktopCommentsVideoLayout();
+      return;
+    }
+    if (!document.body.classList.contains('videos-comments-open')) {
+      clearDesktopCommentsVideoLayout();
+      return;
+    }
+
+    const card = getCenteredFeedCard();
+    const media = card?.querySelector?.('.videos-feed__media');
+    if (!media || !card) return;
+
+    const panel = document.querySelector('.videos-comments-panel');
+    const nav = document.querySelector('body:has(.videos-feed) .primary-nav, .primary-nav');
+    const panelRight = panel ? Math.ceil(panel.getBoundingClientRect().right) : 424;
+    const navLeft = nav ? Math.floor(nav.getBoundingClientRect().left) : (window.innerWidth - 220);
+    const actions = card.querySelector('.videos-feed__actions');
+    const actionsW = actions ? Math.ceil(actions.getBoundingClientRect().width) + 16 : 70;
+    const gap = 20;
+
+    const maxW = Math.max(260, Math.floor(navLeft - panelRight - actionsW - gap));
+    const maxH = Math.max(220, Math.floor(window.innerHeight - 28));
+
+    let ar = parseFloat(card.style.getPropertyValue('--video-ar'))
+      || parseFloat(media.style.getPropertyValue('--video-ar'))
+      || 0;
+    if (!Number.isFinite(ar) || ar <= 0) {
+      const v = media.querySelector('video');
+      if (v && v.videoWidth > 1 && v.videoHeight > 1) ar = v.videoWidth / v.videoHeight;
+      else ar = 16 / 9;
+    }
+
+    let w = maxW;
+    let h = w / ar;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ar;
+    }
+    w = Math.max(200, Math.round(w));
+    h = Math.max(160, Math.round(h));
+
+    media.style.setProperty('width', `${w}px`, 'important');
+    media.style.setProperty('height', `${h}px`, 'important');
+    media.style.setProperty('max-width', `${w}px`, 'important');
+    media.style.setProperty('max-height', `${h}px`, 'important');
+    media.style.setProperty('min-width', '0px', 'important');
+    media.dataset.commentsSized = '1';
+
+    // מרכוז אופטי במרחב הפנוי בין פאנל התגובות לתפריט | HYPER CORE TECH
+    const freeCenter = (panelRight + navLeft) / 2;
+    const viewportCenter = window.innerWidth / 2;
+    const shift = Math.round(freeCenter - viewportCenter);
+    const feed = document.querySelector('.videos-feed');
+    feed?.style?.setProperty('--videos-desktop-feed-shift', `${shift}px`);
+  } catch (_) {}
+}
+
 function closeCommentsPanel(overlay) {
   try {
     document.body.classList.remove('videos-comments-open');
   } catch (_) {}
+  clearDesktopCommentsVideoLayout();
   try {
     if (overlay && overlay.isConnected) overlay.remove();
     else document.querySelector('.videos-comments-overlay')?.remove();
@@ -4836,6 +4913,14 @@ function setupCommentsAutoClose() {
     const obs = new MutationObserver(() => bindViewportScroll());
     obs.observe(document.body, { childList: true, subtree: true });
   } catch (_) {}
+
+  if (!window.__sosCommentsLayoutResizeWired) {
+    window.__sosCommentsLayoutResizeWired = true;
+    window.addEventListener('resize', () => {
+      if (!document.body.classList.contains('videos-comments-open')) return;
+      syncDesktopCommentsVideoLayout();
+    }, { passive: true });
+  }
 }
 
 try {
@@ -4890,6 +4975,14 @@ function openCommentsPanel(eventId) {
   try { window.__sosCommentsOpenGuardUntil = Date.now() + 450; } catch (_) {}
   try { document.body.classList.add('videos-comments-open'); } catch (_) {}
   try { setupCommentsAutoClose(); } catch (_) {}
+  try {
+    requestAnimationFrame(() => {
+      syncDesktopCommentsVideoLayout();
+      requestAnimationFrame(() => syncDesktopCommentsVideoLayout());
+    });
+  } catch (_) {
+    try { syncDesktopCommentsVideoLayout(); } catch (__) {}
+  }
 
   // סגירה: מובייל = לחיצה על רקע כהה; דסקטופ = רק X (רקע שקוף עם pointer-events:none) | HYPER CORE TECH
   overlay.addEventListener('click', (e) => {

@@ -3389,15 +3389,15 @@ body.global-stop .videos-feed__play-overlay {
 
   /* תגובות פתוחות – הווידאו ממלא את המסגרת הפנויה (יחס מקורי) | HYPER CORE TECH */
   body.videos-comments-open .videos-feed__card {
-    --desktop-media-max-h: calc(100vh - 32px);
+    --desktop-media-max-h: calc(100vh - 28px) !important;
     --desktop-media-max-w: calc(
       100vw
       - var(--videos-desktop-nav-width, 220px)
       - var(--videos-desktop-comments-left, 84px)
       - var(--videos-desktop-comments-width, 340px)
       - var(--videos-desktop-actions-offset, 70px)
-      - 20px
-    );
+      - 16px
+    ) !important;
   }
 
   body.videos-comments-open .videos-feed__media,
@@ -3405,13 +3405,13 @@ body.global-stop .videos-feed__play-overlay {
   body.videos-comments-open .videos-feed__media[data-video-ar="landscape"] {
     width: min(
       var(--desktop-media-max-w),
-      calc(var(--desktop-media-max-h) * var(--video-ar, 1.777))
-    );
-    height: auto;
-    max-width: var(--desktop-media-max-w);
-    max-height: var(--desktop-media-max-h);
-    min-width: 0;
-    aspect-ratio: var(--video-ar, 1.777);
+      calc(var(--desktop-media-max-h) * var(--video-ar, 1.777778))
+    ) !important;
+    height: auto !important;
+    max-width: var(--desktop-media-max-w) !important;
+    max-height: var(--desktop-media-max-h) !important;
+    min-width: 0 !important;
+    aspect-ratio: var(--video-ar, 1.777778) !important;
   }
 
   /* וידאו ממלא את המדיה לפי aspect ratio שלו | HYPER CORE TECH */
