@@ -315,12 +315,10 @@
         <div class="modal-content key-modal">
             <h2>המפתח הפרטי שלך</h2>
             <textarea id="keyViewerTextarea" readonly></textarea>
-            <div class="modal-actions">
-                <button class="icon-button" onclick="copyKeyViewer()">העתק</button>
-                <button class="button-secondary" onclick="closeKeyViewer()">סגור</button>
-            </div>
-            <div class="modal-actions">
-                <button class="button-secondary" onclick="logoutAndSwitchUser()">התנתק והחלף משתמש</button>
+            <div class="modal-actions key-modal__actions">
+                <button type="button" class="button-secondary" onclick="closeKeyViewer()">סגור</button>
+                <button type="button" class="icon-button" onclick="copyKeyViewer()">העתק</button>
+                <button type="button" class="button-secondary key-modal__logout" onclick="logoutAndSwitchUser()">התנתק</button>
             </div>
             <div class="p2p-status" id="keyViewerStatus"></div>
         </div>

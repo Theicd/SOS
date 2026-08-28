@@ -1790,6 +1790,41 @@ button[data-profile-link] {
   gap: 8px;
 }
 
+/* כרטיסיית מפתח: סגור / העתק / התנתק בשורה אחת | HYPER CORE TECH */
+.key-modal .key-modal__actions,
+.key-modal__actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.key-modal__actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 10px 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.key-modal__actions .key-modal__logout {
+  color: #ff8a9a;
+  border: 1px solid rgba(254, 44, 85, 0.35);
+  background: rgba(254, 44, 85, 0.12);
+}
+
+.key-modal__actions .key-modal__logout:hover {
+  background: rgba(254, 44, 85, 0.22);
+}
+
 .icon-button {
   background: var(--card-alt);
   color: var(--text);
