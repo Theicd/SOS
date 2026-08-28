@@ -3284,26 +3284,11 @@ body.global-stop .videos-feed__play-overlay {
     will-change: transform;
   }
 
-  /* כשפאנל תגובות פתוח – מצמצמים ומזיזים את הווידאו בלי לגעת בגבולות ה־viewport (מונע קפיצת גלילה) | HYPER CORE TECH */
+  /* כשפאנל תגובות פתוח – הזזה בלבד (גודל המדיה מוגדר אחרי .videos-feed__card) | HYPER CORE TECH */
   body.videos-comments-open .videos-feed {
     --videos-desktop-feed-shift: calc(
       (var(--videos-desktop-comments-left, 84px) + var(--videos-desktop-comments-width, 340px) - 72px) / 2
     );
-  }
-
-  body.videos-comments-open .videos-feed__card {
-    --desktop-media-max-w: calc(
-      100vw
-      - var(--videos-desktop-nav-width, 220px)
-      - var(--videos-desktop-comments-left, 84px)
-      - var(--videos-desktop-comments-width, 340px)
-      - var(--videos-desktop-actions-offset, 70px)
-      - 48px
-    );
-  }
-
-  body.videos-comments-open .videos-feed__media {
-    min-width: 200px;
   }
 
   .videos-feed__viewport {
@@ -3400,6 +3385,33 @@ body.global-stop .videos-feed__play-overlay {
   .videos-feed__card[data-video-ar="landscape"] .videos-feed__media,
   .videos-feed__media[data-video-ar="landscape"] {
     min-width: min(480px, var(--desktop-media-max-w));
+  }
+
+  /* תגובות פתוחות – הווידאו ממלא את המסגרת הפנויה (יחס מקורי) | HYPER CORE TECH */
+  body.videos-comments-open .videos-feed__card {
+    --desktop-media-max-h: calc(100vh - 32px);
+    --desktop-media-max-w: calc(
+      100vw
+      - var(--videos-desktop-nav-width, 220px)
+      - var(--videos-desktop-comments-left, 84px)
+      - var(--videos-desktop-comments-width, 340px)
+      - var(--videos-desktop-actions-offset, 70px)
+      - 20px
+    );
+  }
+
+  body.videos-comments-open .videos-feed__media,
+  body.videos-comments-open .videos-feed__card[data-video-ar="landscape"] .videos-feed__media,
+  body.videos-comments-open .videos-feed__media[data-video-ar="landscape"] {
+    width: min(
+      var(--desktop-media-max-w),
+      calc(var(--desktop-media-max-h) * var(--video-ar, 1.777))
+    );
+    height: auto;
+    max-width: var(--desktop-media-max-w);
+    max-height: var(--desktop-media-max-h);
+    min-width: 0;
+    aspect-ratio: var(--video-ar, 1.777);
   }
 
   /* וידאו ממלא את המדיה לפי aspect ratio שלו | HYPER CORE TECH */
