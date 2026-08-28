@@ -250,7 +250,7 @@
     </style>
     <link rel="stylesheet" href="./styles/video-record.css?v=20260828tools1">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./guest-auth.css">
+    <link rel="stylesheet" href="./guest-auth.css?v=20260829guest1">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/pwa-install.css?v=20260828upd4">
     <!-- חלק WebTorrent (videos.html) – עיצוב העברת קבצים גדולים P2P | HYPER CORE TECH -->
@@ -2848,20 +2848,20 @@
 
     <!-- חלק חלון התחברות / הרשמה לאורח (videos.html) – מודאל מלא כמו בטיקטוק | HYPER CORE TECH -->
     <div id="guestAuthModal" class="modal" style="display:none;">
-      <div class="modal-content" style="max-width: 450px; text-align: center; padding: 30px;">
-        <button class="modal-close" type="button" data-guest-auth-close style="position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 28px; cursor: pointer; color: #666;">&times;</button>
+      <div class="modal-content guest-auth-card">
+        <button class="modal-close" type="button" data-guest-auth-close aria-label="סגור">&times;</button>
         
         <!-- שלב ראשוני: בחירה בין התחברות להרשמה -->
         <div id="authStepInitial" class="auth-step">
-          <h2 style="margin-bottom: 15px; font-size: 24px;">הצטרפו לרשת</h2>
-          <p id="guestAuthModalReason" style="margin-bottom: 30px; color: #666; font-size: 15px;">
-            כדי להמשיך צריך להתחבר או להירשם.
+          <h2>הצטרפו לרשת</h2>
+          <p id="guestAuthModalReason">
+            התחברו או הירשמו כדי ליצור פרופיל אישי, לייקים ותגובות.
           </p>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <button type="button" class="button-primary" id="btnStartSignup" style="width: 100%; padding: 14px; font-size: 16px;">
+          <div class="guest-auth-actions">
+            <button type="button" class="button-primary" id="btnStartSignup">
               פתחו משתמש חדש
             </button>
-            <button type="button" class="button-secondary" id="btnStartLogin" style="width: 100%; padding: 14px; font-size: 16px;">
+            <button type="button" class="button-secondary" id="btnStartLogin">
               יש לי כבר קוד אישי
             </button>
           </div>

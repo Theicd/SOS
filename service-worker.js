@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v670'; // bump - profile menu logout at end with separator
+  const CACHE_NAME = 'sos-cache-v671'; // bump - guest auth modal matches dark cyan UI
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -11,6 +11,8 @@
     './game-embed.js',
     './styles/games.css', // עיצוב פיד משחקים
     './styles/videos.css',
+    './guest-auth.css',
+    './guest-auth.js',
     './auth.html',
     './styles/facebook-theme.css',
     './styles/chat.css',
