@@ -89,7 +89,7 @@
     <!-- חלק מובייל (videos.html) – טוקנים ו-Safe Area | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/tokens.css">
     <link rel="stylesheet" href="./styles/base.css">
-    <link rel="stylesheet" href="./styles/facebook-theme.css?v=20260828key1">
+    <link rel="stylesheet" href="./styles/facebook-theme.css?v=20260828logout1">
     <link rel="stylesheet" href="./styles/media-overrides.css">
     <!-- חלק עיצובים ללוגו ולצ'אט – זהים ל-storage/index | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css">
@@ -1839,7 +1839,18 @@
         };
         
         if (profileMenu) {
-          profileMenu.appendChild(cacheRefreshBtn);
+          var logoutBtn = document.getElementById('topBarProfileKey');
+          var logoutSep = logoutBtn && logoutBtn.previousElementSibling
+            && logoutBtn.previousElementSibling.classList.contains('top-bar__dropdown-sep')
+            ? logoutBtn.previousElementSibling
+            : null;
+          if (logoutSep) {
+            profileMenu.insertBefore(cacheRefreshBtn, logoutSep);
+          } else if (logoutBtn) {
+            profileMenu.insertBefore(cacheRefreshBtn, logoutBtn);
+          } else {
+            profileMenu.appendChild(cacheRefreshBtn);
+          }
         }
         openBtn.style.display = 'none';
         
@@ -2371,10 +2382,6 @@
               <i class="fa-solid fa-mobile-screen-button"></i>
               <span>התקן אפליקציה</span>
             </button>
-            <button type="button" class="top-bar__dropdown-item" id="topBarProfileKey">
-              <i class="fa-solid fa-key"></i>
-              <span>הצגת מפתח</span>
-            </button>
             <!-- סטטיסטיקות הורדה + לוג – בסוף רשימת הגדרות | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--stats" id="topBarP2pStats">
               <span class="p2p-stats-circle" id="p2pStatsCircle" title="סטטיסטיקות הורדה" aria-haspopup="true" aria-expanded="false">
@@ -2411,6 +2418,12 @@
             <button type="button" class="top-bar__dropdown-item" id="videosTriviaLauncher">
               <span style="font-size: 1.2rem;">🎲</span>
               <span>משחק טרוויה SOS</span>
+            </button>
+            <!-- התנתק – אחרון בתפריט, עם פס הפרדה | HYPER CORE TECH -->
+            <div class="top-bar__dropdown-sep" role="separator" aria-hidden="true"></div>
+            <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--logout" id="topBarProfileKey" title="התנתק והצג מפתח">
+              <i class="fa-solid fa-right-from-bracket"></i>
+              <span>התנתק</span>
             </button>
           </div>
         </div>

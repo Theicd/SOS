@@ -348,6 +348,35 @@ button {
   border-bottom: none;
 }
 
+/* פס הפרדה לפני התנתק | HYPER CORE TECH */
+.top-bar__dropdown-sep {
+  height: 1px;
+  margin: 8px 10px 6px;
+  border: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(40, 170, 255, 0.35) 20%,
+    rgba(40, 170, 255, 0.45) 50%,
+    rgba(40, 170, 255, 0.35) 80%,
+    transparent 100%
+  );
+  flex-shrink: 0;
+}
+
+.top-bar__dropdown-item--logout {
+  color: #ffb3be;
+}
+
+.top-bar__dropdown-item--logout i {
+  color: #ff6b81 !important;
+}
+
+.top-bar__dropdown-item--logout:hover,
+.top-bar__dropdown-item--logout:focus-visible {
+  background: rgba(254, 44, 85, 0.14);
+}
+
 /* display:flex למעלה דורס HTML [hidden] – חובה להסתיר פריטים כמו מצב חירום בווב | HYPER CORE TECH */
 .top-bar__dropdown-item[hidden] {
   display: none !important;
