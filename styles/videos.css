@@ -873,6 +873,11 @@ body:has(.videos-feed) .nav-item span {
   margin-top: 0;
 }
 
+/* SVG outline לדסקטופ בלבד – מוסתר במובייל | HYPER CORE TECH */
+body:has(.videos-feed) .nav-item__outline-icon {
+  display: none !important;
+}
+
 /* חלק כפתור הוספה (videos.css) – סגנון TikTok עם גרדיאנט צבעוני | HYPER CORE TECH */
 body:has(.videos-feed) #navCompose {
   padding: 4px !important;
@@ -4005,6 +4010,44 @@ body.global-stop .videos-feed__play-overlay {
 
   body:has(.videos-feed) .nav-item.is-active i {
     color: #fe2c55;
+  }
+
+  /* בית בדסקטופ – אייקון outline + זוהר אדום כמו SO-CALL (בלי לשנות מובייל) | HYPER CORE TECH */
+  body:has(.videos-feed) .nav-item[data-nav="videos"] > i.fa-house {
+    display: none !important;
+  }
+
+  body:has(.videos-feed) .nav-item[data-nav="videos"] .nav-item__outline-icon {
+    display: block !important;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    order: 1;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    color: #ff304f;
+    filter:
+      drop-shadow(0 0 3px rgba(255, 48, 79, 0.95))
+      drop-shadow(0 0 8px rgba(255, 48, 79, 0.75))
+      drop-shadow(0 0 14px rgba(255, 48, 79, 0.4));
+  }
+
+  body:has(.videos-feed) .nav-item[data-nav="videos"]:hover .nav-item__outline-icon {
+    color: #ff5a73;
+    filter:
+      drop-shadow(0 0 4px rgba(255, 48, 79, 1))
+      drop-shadow(0 0 10px rgba(255, 48, 79, 0.85));
+  }
+
+  body:has(.videos-feed) .nav-item[data-nav="videos"].is-active .nav-item__outline-icon {
+    color: #ff304f;
+    filter:
+      drop-shadow(0 0 3px rgba(255, 48, 79, 1))
+      drop-shadow(0 0 9px rgba(255, 48, 79, 0.9))
+      drop-shadow(0 0 16px rgba(255, 48, 79, 0.5));
   }
 
   body:has(.videos-feed) .nav-item span {
