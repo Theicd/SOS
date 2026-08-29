@@ -918,7 +918,8 @@ function markHomeNavActive() {
 /**
  * התנהגות אחידה ללחיצת בית — לעולם בלי location.href / LoadNug בלחיצה 1:
  * - פרופיל / שיחות / התראות פתוחים → סוגר בלבד + ממשיך את אותו פוסט
- * - על הפיד: לחיצה ראשונה = רמז; לחיצה שנייה = soft-refresh חם בלבד
+ * - IPTV / משחקים / פוסטים שלי → יציאה לפיד הראשי בלבד (בלי רמז רענון)
+ * - על הפיד הראשי בלבד: לחיצה ראשונה = רמז; לחיצה שנייה = soft-refresh חם
  */
 function handleHomeButtonAction() {
   const now = Date.now();
@@ -944,18 +945,31 @@ function handleHomeButtonAction() {
     return 'closed-overlay';
   }
 
-  // לחיצה שנייה אחרי הרמז — רק אם עבר מספיק זמן מול double-fire | HYPER CORE TECH
+  // IPTV / משחקים / פוסטים שלי — לחיצה אחת מחזירה לבית, בלי הודעת רענון | HYPER CORE TECH
+  const mode = state && state.feedMode;
+  if (mode === 'live-tv' || mode === 'games' || mode === 'own-posts') {
+    clearHomeRefreshArm();
+    try {
+      if (mode === 'live-tv' && typeof App.exitLiveTvFeedMode === 'function') {
+        App.exitLiveTvFeedMode();
+      } else if (mode === 'games' && typeof App.exitGamesFeedMode === 'function') {
+        App.exitGamesFeedMode();
+      } else if (mode === 'own-posts' && typeof App.exitOwnPostsFeedMode === 'function') {
+        App.exitOwnPostsFeedMode({ reopenProfile: false });
+      }
+    } catch (_) {}
+    try { resumeCenteredFeedVideo(); } catch (_) {}
+    console.log('[videos] Home exited special feed mode — no refresh hint', { mode });
+    return 'closed-feed-mode';
+  }
+
+  // לחיצה שנייה אחרי הרמז — רק בדף הבית (feedMode all) | HYPER CORE TECH
   if (homeRefreshArmedUntil > 0 && now < homeRefreshArmedUntil) {
     if (now - homeRefreshArmedAt < HOME_ARM_GUARD_MS) {
       console.log('[videos] Home second-tap ignored (arm guard)');
       return 'arm-guard';
     }
     clearHomeRefreshArm();
-    try {
-      if (typeof App.exitGamesFeedMode === 'function') App.exitGamesFeedMode();
-      if (typeof App.exitLiveTvFeedMode === 'function') App.exitLiveTvFeedMode();
-      if (typeof App.exitOwnPostsFeedMode === 'function') App.exitOwnPostsFeedMode();
-    } catch (_) {}
     // תמיד warm אם יש תוכן על המסך — לא LoadNug | HYPER CORE TECH
     const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed || softRefreshVideosFeed;
     if (typeof refreshFn === 'function') {
@@ -967,7 +981,7 @@ function handleHomeButtonAction() {
   }
 
   showHomeRefreshHint();
-  console.log('[videos] Home first tap on feed — armed refresh hint', { version: VIDEOS_CODE_VERSION });
+  console.log('[videos] Home first tap on main feed — armed refresh hint', { version: VIDEOS_CODE_VERSION });
   return 'armed';
 }
 
