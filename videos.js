@@ -8484,9 +8484,19 @@ async function enterLiveTvFeedMode() {
   globalAutoplayEnabled = true;
   updateGlobalStopClass();
   state.feedMode = 'live-tv';
+  state.liveTvVideos = [];
   document.body.classList.add('videos-feed-mode-live-tv');
   document.body.classList.remove('videos-feed-mode-own-posts');
   ensureOwnPostsBackButton();
+  // מנקים מיד את פוסטי הבית – אחרת CSS של LIVE משנה את גודלם בזמן הטעינה | HYPER CORE TECH
+  if (selectors.stream) {
+    try {
+      selectors.stream.querySelectorAll('video').forEach((v) => {
+        try { v.pause(); } catch (_) {}
+      });
+    } catch (_) {}
+    selectors.stream.innerHTML = '';
+  }
   if (selectors.status) {
     selectors.status.textContent = 'טוען ערוצים...';
     selectors.status.style.display = 'block';
