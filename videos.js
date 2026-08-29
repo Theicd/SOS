@@ -1131,8 +1131,8 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
 // חלק יאללה וידאו (videos.js) – עצירת מדיה עבור כרטיס נתון
 function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   if (!mediaDiv) return;
-  // לא עוצרים את הערוץ הפתוח במסך מלא (סיבוב מסך / IO) | HYPER CORE TECH
-  if (!manual && (mediaDiv.classList.contains('is-live-fullscreen') || document.body.classList.contains('live-channel-fullscreen'))) {
+  // לא עוצרים רק את הערוץ שבמסך מלא עצמו (סיבוב/IO) – ערוצים אחרים כן נעצרים | HYPER CORE TECH
+  if (!manual && mediaDiv.classList.contains('is-live-fullscreen')) {
     return;
   }
   
@@ -1297,8 +1297,20 @@ async function playHlsLiveMedia(mediaDiv) {
   const videoEl = mediaDiv.querySelector('video');
   if (!videoEl) return;
 
-  if (activeMediaDiv && activeMediaDiv !== mediaDiv && !document.body.classList.contains('live-channel-fullscreen')) {
-    pauseMedia(activeMediaDiv, { resetThumb: false });
+  if (activeMediaDiv && activeMediaDiv !== mediaDiv) {
+    // תמיד עוצרים את הקודם – גם במסך מלא (מונע סאונד כפול בין ערוצים) | HYPER CORE TECH
+    const prev = activeMediaDiv;
+    const prevVideo = prev.querySelector('video');
+    if (prevVideo) {
+      try { prevVideo.pause(); } catch (_) {}
+      try { prevVideo.muted = true; } catch (_) {}
+    }
+    prev.classList.remove('is-live-playing');
+    prev.classList.add('is-paused');
+    prev.dataset.state = 'paused';
+    if (!prev.classList.contains('is-live-fullscreen')) {
+      pauseMedia(prev, { resetThumb: false });
+    }
   }
   activeMediaDiv = mediaDiv;
   mediaDiv.dataset.state = 'playing';
@@ -1443,6 +1455,7 @@ const App = window.NostrApp || (window.NostrApp = {});
 
 // חלק שיחות (videos.js) – חשיפת פונקציה לעצירת וידיאו בפיד | HYPER CORE TECH
 App.pauseAllFeedVideos = pauseAllFeedVideos;
+App.playHlsLiveMedia = playHlsLiveMedia;
 App.setFeedDownloadsPaused = setFeedDownloadsPaused;
 App.setFeedWarmupPaused = setFeedWarmupPaused;
 App.syncFeedWarmupPauseWithChat = syncFeedWarmupPauseWithChat;

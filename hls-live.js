@@ -698,14 +698,43 @@
     vp.style.touchAction = 'none';
   }
 
-  function unlockFeedScrollForLiveFs() {
+  function unlockFeedScrollForLiveFs(options = {}) {
     const vp = document.querySelector('.videos-feed__viewport');
     if (!vp) return;
     vp.style.overflow = '';
     vp.style.touchAction = '';
-    const y = Number(vp.dataset.liveFsScrollTop || 0);
-    try { vp.scrollTop = y; } catch (_) {}
-    delete vp.dataset.liveFsScrollTop;
+    if (!options.skipRestore) {
+      const y = Number(vp.dataset.liveFsScrollTop || 0);
+      try { vp.scrollTop = y; } catch (_) {}
+    }
+    if (!options.keepSaved) {
+      delete vp.dataset.liveFsScrollTop;
+    }
+  }
+
+  function syncLiveFsScrollToMedia(mediaDiv) {
+    const vp = document.querySelector('.videos-feed__viewport');
+    const card = mediaDiv && mediaDiv.closest('.videos-feed__card');
+    if (!vp || !card) return;
+    try {
+      card.scrollIntoView({ behavior: 'auto', block: 'start' });
+      vp.dataset.liveFsScrollTop = String(vp.scrollTop || 0);
+    } catch (_) {}
+  }
+
+  /** עוצר כל ערוצי HLS חוץ מהנוכחי – מונע סאונד/ניגון כפול במסך מלא | HYPER CORE TECH */
+  function silenceOtherLiveChannels(exceptMedia) {
+    document.querySelectorAll('.videos-feed__media[data-media-type="hls-live"]').forEach((el) => {
+      if (exceptMedia && el === exceptMedia) return;
+      const videoEl = el.querySelector('video');
+      if (videoEl) {
+        try { videoEl.pause(); } catch (_) {}
+        try { videoEl.muted = true; } catch (_) {}
+      }
+      el.classList.remove('is-live-playing');
+      el.classList.add('is-paused');
+      el.dataset.state = 'paused';
+    });
   }
 
   function formatLiveCategoryLabel(raw) {
@@ -1017,13 +1046,18 @@
       || nextCard.querySelector('.videos-feed__media');
     if (!nextMedia) return;
 
-    exitLiveFullscreen(fromMedia);
+    // עוצרים את כל הערוצים (כולל הנוכחי) לפני מעבר – בלי להחזיר גלילה לערוץ הראשון | HYPER CORE TECH
+    window._liveFsSwitchingChannel = true;
+    silenceOtherLiveChannels(null);
+    exitLiveFullscreen(fromMedia, { keepScroll: true, switchingChannel: true });
     try {
       nextCard.scrollIntoView({ behavior: 'auto', block: 'start' });
+      viewport.dataset.liveFsScrollTop = String(viewport.scrollTop || 0);
     } catch (_) {}
-    // אחרי יציאת FS של הדפדפן – נכנסים לערוץ הבא | HYPER CORE TECH
     setTimeout(() => {
+      silenceOtherLiveChannels(nextMedia);
       enterLiveFullscreen(nextMedia);
+      window._liveFsSwitchingChannel = false;
     }, 80);
   }
 
@@ -1088,9 +1122,11 @@
   function enterLiveFullscreen(mediaDiv) {
     if (!mediaDiv) return;
     const existing = document.querySelector('.videos-feed__media.is-live-fullscreen');
-    if (existing && existing !== mediaDiv) exitLiveFullscreen(existing);
+    if (existing && existing !== mediaDiv) exitLiveFullscreen(existing, { keepScroll: true, switchingChannel: true });
+    silenceOtherLiveChannels(mediaDiv);
     mediaDiv.classList.add('is-live-fullscreen');
     document.body.classList.add('live-channel-fullscreen');
+    syncLiveFsScrollToMedia(mediaDiv);
     lockFeedScrollForLiveFs();
     const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
     if (fsBtn) fsBtn.hidden = true;
@@ -1121,9 +1157,17 @@
     } catch (_) {}
 
     resumeLiveFullscreenPlayback(mediaDiv);
+    try {
+      const App = window.NostrApp || {};
+      if (typeof App.playHlsLiveMedia === 'function') {
+        App.playHlsLiveMedia(mediaDiv);
+      } else if (typeof window.playHlsLiveMedia === 'function') {
+        window.playHlsLiveMedia(mediaDiv);
+      }
+    } catch (_) {}
   }
 
-  function exitLiveFullscreen(mediaDiv) {
+  function exitLiveFullscreen(mediaDiv, options = {}) {
     if (!mediaDiv) {
       document.body.classList.remove('live-channel-fullscreen');
       unlockFeedScrollForLiveFs();
@@ -1134,7 +1178,13 @@
     removeLiveFsNavArrows(mediaDiv);
     mediaDiv.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
     document.body.classList.remove('live-channel-fullscreen');
-    unlockFeedScrollForLiveFs();
+    if (options.keepScroll) {
+      unlockFeedScrollForLiveFs({ skipRestore: true, keepSaved: true });
+    } else {
+      // יציאה רגילה – נשארים על הערוץ הנוכחי, לא קופצים לראשון | HYPER CORE TECH
+      syncLiveFsScrollToMedia(mediaDiv);
+      unlockFeedScrollForLiveFs();
+    }
     const closeBtn = mediaDiv.querySelector('.videos-live-fs-close');
     const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
     const osd = mediaDiv.querySelector('.videos-live-cable-osd');
@@ -1148,6 +1198,10 @@
       osd.classList.remove('is-fs-chrome-hidden');
     }
 
+    if (!options.switchingChannel) {
+      silenceOtherLiveChannels(mediaDiv);
+    }
+
     try {
       if (document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
@@ -1159,11 +1213,23 @@
 
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement) {
+      // מעבר ערוץ בתוך FS – לא מאפסים גלילה / מצב | HYPER CORE TECH
+      if (window._liveFsSwitchingChannel) {
+        document.querySelectorAll('.videos-feed__media.is-live-fullscreen').forEach((el) => {
+          removeLiveFsNavArrows(el);
+          el.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
+        });
+        document.body.classList.remove('live-channel-fullscreen');
+        unlockFeedScrollForLiveFs({ skipRestore: true, keepSaved: true });
+        return;
+      }
       document.querySelectorAll('.videos-feed__media.is-live-fullscreen').forEach((el) => {
         // יציאה ממסך מלא של הדפדפן – סוגרים OSD אבל לא מחליפים ערוץ | HYPER CORE TECH
         clearFsChromeTimer(el);
         stopCableOsdTimers(el);
         removeLiveFsNavArrows(el);
+        syncLiveFsScrollToMedia(el);
+        silenceOtherLiveChannels(el);
         el.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
         const closeBtn = el.querySelector('.videos-live-fs-close');
         const fsBtn = el.querySelector('.videos-live-fs-btn');

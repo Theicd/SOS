@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v680'; // bump - LIVE TV fullscreen keeps left channel arrows
+  const CACHE_NAME = 'sos-cache-v681'; // bump - LIVE FS: one channel only, keep scroll on current
   const PRECACHE_URLS = [
     './',
     './videos.html',
