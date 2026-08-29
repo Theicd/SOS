@@ -323,6 +323,23 @@
   color: #fff !important;
 }
 
+#guestAuthModal .guest-auth-login-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+}
+
+#guestAuthModal .guest-auth-login-actions > button {
+  flex: 1 1 0;
+  width: auto !important;
+  min-width: 0;
+  padding: 14px 12px !important;
+  font-size: 15px !important;
+  margin: 0 !important;
+}
+
 @media (max-width: 500px) {
   #guestAuthModal .modal-content {
     max-width: 95%;
