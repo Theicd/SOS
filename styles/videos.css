@@ -3455,12 +3455,33 @@ body.global-stop .videos-feed__play-overlay {
     order: -1 !important;
   }
 
-  /* LIVE TV דסקטופ – כמו מובייל: פעולות על הווידאו + שורת ערוץ בתחתית (בלי לגעת במובייל) | HYPER CORE TECH */
+  /* LIVE TV דסקטופ – כמו מובייל: בלי הזזת פיד, פעולות על הווידאו, שורת ערוץ צמודה לתחתית | HYPER CORE TECH */
+  body.videos-feed-mode-live-tv .videos-feed {
+    --videos-desktop-feed-shift: 0px !important;
+    transform: none !important;
+    padding-left: 0 !important;
+    padding-right: calc(var(--videos-desktop-nav-width, 220px) + var(--videos-desktop-nav-gap, 0px)) !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    justify-content: stretch !important;
+    align-items: stretch !important;
+  }
+
   body.videos-feed-mode-live-tv .videos-feed__viewport {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     scroll-padding-top: 0 !important;
     scroll-padding-bottom: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    justify-content: stretch !important;
+  }
+
+  body.videos-feed-mode-live-tv .videos-feed__stream {
+    width: 100% !important;
+    max-width: none !important;
+    align-items: stretch !important;
   }
 
   body.videos-feed-mode-live-tv .videos-feed__card {
@@ -3489,6 +3510,7 @@ body.global-stop .videos-feed__play-overlay {
     border: none !important;
     box-shadow: none !important;
     order: 0 !important;
+    z-index: 1 !important;
   }
 
   body.videos-feed-mode-live-tv .videos-feed__actions {
@@ -3498,7 +3520,7 @@ body.global-stop .videos-feed__play-overlay {
     bottom: 50% !important;
     top: auto !important;
     transform: translateY(50%) !important;
-    z-index: 50 !important;
+    z-index: 60 !important;
     width: auto !important;
     height: auto !important;
     margin: 0 !important;
@@ -3507,23 +3529,40 @@ body.global-stop .videos-feed__play-overlay {
     padding: 0 !important;
     gap: 16px !important;
     pointer-events: none;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
   body.videos-feed-mode-live-tv .videos-feed__actions > * {
     pointer-events: auto;
   }
 
+  /* שורת ערוץ צמודה לתחתית; תג IPTV לא יוצא מגבול שמאל | HYPER CORE TECH */
   body.videos-feed-mode-live-tv .videos-live-topbar {
-    bottom: 24px !important;
-    left: 14px !important;
-    right: 80px !important;
-    max-width: calc(100% - 100px) !important;
-    z-index: 50 !important;
+    bottom: 0 !important;
+    left: 16px !important;
+    right: 72px !important;
+    max-width: calc(100% - 88px) !important;
+    z-index: 55 !important;
+    padding-bottom: 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  body.videos-feed-mode-live-tv .videos-live-badge {
+    flex-shrink: 0 !important;
+    max-width: 100% !important;
   }
 
   body.videos-feed-mode-live-tv .videos-live-fs-btn {
-    bottom: 20px !important;
+    bottom: 12px !important;
     right: 16px !important;
+    z-index: 55 !important;
+  }
+
+  body.videos-feed-mode-live-tv .videos-nav-arrows {
+    left: 12px !important;
+    z-index: 45 !important;
   }
 
   /* תגובות פתוחות – ביטול הזזת עמודת פעולות + מרכוז (אחרי כלל הדסקטופ) | HYPER CORE TECH */
