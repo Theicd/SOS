@@ -3455,6 +3455,77 @@ body.global-stop .videos-feed__play-overlay {
     order: -1 !important;
   }
 
+  /* LIVE TV דסקטופ – כמו מובייל: פעולות על הווידאו + שורת ערוץ בתחתית (בלי לגעת במובייל) | HYPER CORE TECH */
+  body.videos-feed-mode-live-tv .videos-feed__viewport {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    scroll-padding-top: 0 !important;
+    scroll-padding-bottom: 0 !important;
+  }
+
+  body.videos-feed-mode-live-tv .videos-feed__card {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    width: 100% !important;
+    max-width: none !important;
+    position: relative !important;
+    display: block !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.videos-feed-mode-live-tv .videos-feed__media,
+  body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-width: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    order: 0 !important;
+  }
+
+  body.videos-feed-mode-live-tv .videos-feed__actions {
+    position: absolute !important;
+    left: 16px !important;
+    right: auto !important;
+    bottom: 50% !important;
+    top: auto !important;
+    transform: translateY(50%) !important;
+    z-index: 50 !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    order: 0 !important;
+    align-self: auto !important;
+    padding: 0 !important;
+    gap: 16px !important;
+    pointer-events: none;
+  }
+
+  body.videos-feed-mode-live-tv .videos-feed__actions > * {
+    pointer-events: auto;
+  }
+
+  body.videos-feed-mode-live-tv .videos-live-topbar {
+    bottom: 24px !important;
+    left: 14px !important;
+    right: 80px !important;
+    max-width: calc(100% - 100px) !important;
+    z-index: 50 !important;
+  }
+
+  body.videos-feed-mode-live-tv .videos-live-fs-btn {
+    bottom: 20px !important;
+    right: 16px !important;
+  }
+
   /* תגובות פתוחות – ביטול הזזת עמודת פעולות + מרכוז (אחרי כלל הדסקטופ) | HYPER CORE TECH */
   body.videos-comments-open .videos-feed__card {
     align-items: center !important;
