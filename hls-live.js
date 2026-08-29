@@ -961,7 +961,7 @@
 
     const revealChrome = (e) => {
       if (!mediaDiv.classList.contains('is-live-fullscreen')) return;
-      if (e.target && e.target.closest && e.target.closest('.videos-live-fs-close, .videos-live-cable-osd__tool')) return;
+      if (e.target && e.target.closest && e.target.closest('.videos-live-fs-close, .videos-live-cable-osd__tool, .videos-live-fs-nav-arrows')) return;
       e.preventDefault();
       e.stopPropagation();
       showFsChrome(mediaDiv);
@@ -987,6 +987,104 @@
     setTimeout(tryPlay, 250);
   }
 
+  function removeLiveFsNavArrows(mediaDiv) {
+    if (!mediaDiv) return;
+    try {
+      mediaDiv.querySelectorAll('.videos-live-fs-nav-arrows').forEach((el) => el.remove());
+    } catch (_) {}
+  }
+
+  function isDesktopLiveFsNav() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(min-width: 769px)').matches);
+    } catch (_) {
+      return window.innerWidth >= 769;
+    }
+  }
+
+  function navigateLiveFsChannel(fromMedia, direction) {
+    if (!fromMedia) return;
+    const card = fromMedia.closest('.videos-feed__card');
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (!card || !viewport) return;
+    const cards = Array.from(viewport.querySelectorAll('.videos-feed__card'));
+    const idx = cards.indexOf(card);
+    if (idx < 0) return;
+    const nextIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (nextIdx < 0 || nextIdx >= cards.length) return;
+    const nextCard = cards[nextIdx];
+    const nextMedia = nextCard.querySelector('.videos-feed__media[data-media-type="hls-live"]')
+      || nextCard.querySelector('.videos-feed__media');
+    if (!nextMedia) return;
+
+    exitLiveFullscreen(fromMedia);
+    try {
+      nextCard.scrollIntoView({ behavior: 'auto', block: 'start' });
+    } catch (_) {}
+    // אחרי יציאת FS של הדפדפן – נכנסים לערוץ הבא | HYPER CORE TECH
+    setTimeout(() => {
+      enterLiveFullscreen(nextMedia);
+    }, 80);
+  }
+
+  function ensureLiveFsNavArrows(mediaDiv) {
+    if (!mediaDiv || !isDesktopLiveFsNav()) return null;
+    let box = mediaDiv.querySelector('.videos-live-fs-nav-arrows');
+    if (box) {
+      syncLiveFsNavArrowsState(mediaDiv, box);
+      return box;
+    }
+
+    box = document.createElement('div');
+    box.className = 'videos-live-fs-nav-arrows';
+    box.setAttribute('aria-label', 'גלילה בין ערוצים');
+
+    const upBtn = document.createElement('button');
+    upBtn.type = 'button';
+    upBtn.className = 'videos-nav-arrow-btn';
+    upBtn.setAttribute('data-fs-nav', 'up');
+    upBtn.setAttribute('aria-label', 'ערוץ קודם');
+    upBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+
+    const downBtn = document.createElement('button');
+    downBtn.type = 'button';
+    downBtn.className = 'videos-nav-arrow-btn';
+    downBtn.setAttribute('data-fs-nav', 'down');
+    downBtn.setAttribute('aria-label', 'ערוץ הבא');
+    downBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+
+    upBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateLiveFsChannel(mediaDiv, 'up');
+    });
+    downBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateLiveFsChannel(mediaDiv, 'down');
+    });
+
+    box.appendChild(upBtn);
+    box.appendChild(downBtn);
+    mediaDiv.appendChild(box);
+    syncLiveFsNavArrowsState(mediaDiv, box);
+    return box;
+  }
+
+  function syncLiveFsNavArrowsState(mediaDiv, box) {
+    const host = box || (mediaDiv && mediaDiv.querySelector('.videos-live-fs-nav-arrows'));
+    if (!mediaDiv || !host) return;
+    const card = mediaDiv.closest('.videos-feed__card');
+    const viewport = document.querySelector('.videos-feed__viewport');
+    if (!card || !viewport) return;
+    const cards = Array.from(viewport.querySelectorAll('.videos-feed__card'));
+    const idx = cards.indexOf(card);
+    const upBtn = host.querySelector('[data-fs-nav="up"]');
+    const downBtn = host.querySelector('[data-fs-nav="down"]');
+    if (upBtn) upBtn.disabled = idx <= 0;
+    if (downBtn) downBtn.disabled = idx < 0 || idx >= cards.length - 1;
+  }
+
   function enterLiveFullscreen(mediaDiv) {
     if (!mediaDiv) return;
     const existing = document.querySelector('.videos-feed__media.is-live-fullscreen');
@@ -997,6 +1095,7 @@
     const fsBtn = mediaDiv.querySelector('.videos-live-fs-btn');
     if (fsBtn) fsBtn.hidden = true;
     ensureCableOsd(mediaDiv);
+    ensureLiveFsNavArrows(mediaDiv);
     showFsChrome(mediaDiv);
     updateCableOsd(mediaDiv);
     refreshCableOsdWeather(mediaDiv);
@@ -1032,6 +1131,7 @@
     }
     clearFsChromeTimer(mediaDiv);
     stopCableOsdTimers(mediaDiv);
+    removeLiveFsNavArrows(mediaDiv);
     mediaDiv.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
     document.body.classList.remove('live-channel-fullscreen');
     unlockFeedScrollForLiveFs();
@@ -1063,6 +1163,7 @@
         // יציאה ממסך מלא של הדפדפן – סוגרים OSD אבל לא מחליפים ערוץ | HYPER CORE TECH
         clearFsChromeTimer(el);
         stopCableOsdTimers(el);
+        removeLiveFsNavArrows(el);
         el.classList.remove('is-live-fullscreen', 'is-fs-chrome-visible');
         const closeBtn = el.querySelector('.videos-live-fs-close');
         const fsBtn = el.querySelector('.videos-live-fs-btn');

@@ -1673,6 +1673,49 @@ body.videos-feed-mode-live-tv .videos-live-topbar {
   display: none !important;
 }
 
+/* חצי גלילה בין ערוצים במסך מלא – בתוך אלמנט ה-FS, צד שמאל (דסקטופ) | HYPER CORE TECH */
+.videos-live-fs-nav-arrows {
+  display: none;
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+  gap: 12px;
+  z-index: 80;
+  pointer-events: auto;
+}
+
+@media (min-width: 769px) {
+  .videos-feed__media.is-live-fullscreen .videos-live-fs-nav-arrows {
+    display: flex !important;
+  }
+
+  .videos-live-fs-nav-arrows .videos-nav-arrow-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+  }
+
+  .videos-live-fs-nav-arrows .videos-nav-arrow-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .videos-live-fs-nav-arrows .videos-nav-arrow-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
 body.live-channel-fullscreen {
   overflow: hidden;
 }
