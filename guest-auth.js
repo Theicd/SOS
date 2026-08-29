@@ -339,6 +339,7 @@
     // שלב התחברות
     var loginKeyInput = document.getElementById('loginKeyInput');
     var btnLoginSubmit = document.getElementById('btnLoginSubmit');
+    var btnLoginPaste = document.getElementById('btnLoginPaste');
 
     // שלב הרשמה - הזמנה
     var signupInviteCodeInput = document.getElementById('signupInviteCodeInput');
@@ -407,6 +408,31 @@
           }
         } else {
           showStep('authStepEmail');
+        }
+      });
+    }
+
+    // הדבקת מפתח מהלוח – מחשב ומובייל | HYPER CORE TECH
+    if (btnLoginPaste && loginKeyInput) {
+      btnLoginPaste.addEventListener('click', async function() {
+        try {
+          if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+            setStatus('loginStatus', 'הדבקה אוטומטית לא נתמכת – הדביקו ידנית בשדה', true);
+            try { loginKeyInput.focus(); } catch (_) {}
+            return;
+          }
+          var text = await navigator.clipboard.readText();
+          text = String(text || '').trim();
+          if (!text) {
+            setStatus('loginStatus', 'הלוח ריק – העתיקו את המפתח ואז לחצו הדבק', true);
+            return;
+          }
+          loginKeyInput.value = text;
+          try { loginKeyInput.focus(); } catch (_) {}
+          setStatus('loginStatus', 'המפתח הודבק', false);
+        } catch (_) {
+          setStatus('loginStatus', 'לא ניתן לגשת ללוח – הדביקו ידנית בשדה', true);
+          try { loginKeyInput.focus(); } catch (__) {}
         }
       });
     }

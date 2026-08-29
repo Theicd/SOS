@@ -250,7 +250,7 @@
     </style>
     <link rel="stylesheet" href="./styles/video-record.css?v=20260828tools1">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
-    <link rel="stylesheet" href="./guest-auth.css?v=20260829guest1">
+    <link rel="stylesheet" href="./guest-auth.css?v=20260830paste1">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/pwa-install.css?v=20260828upd4">
     <!-- חלק WebTorrent (videos.html) – עיצוב העברת קבצים גדולים P2P | HYPER CORE TECH -->
@@ -2871,7 +2871,10 @@
         <div id="authStepLogin" class="auth-step" style="display:none;">
           <button type="button" id="btnBackFromLogin" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
           <h2 style="margin-bottom: 20px; font-size: 22px;">הדבק את הקוד האישי שלך</h2>
-          <textarea id="loginKeyInput" placeholder="הדבק כאן את המפתח הפרטי שלך (nsec... או hex)" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px;"></textarea>
+          <textarea id="loginKeyInput" placeholder="הדבק כאן את המפתח הפרטי שלך (nsec... או hex)" style="width: 100%; min-height: 120px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 12px;"></textarea>
+          <button type="button" class="button-secondary guest-auth-paste-btn" id="btnLoginPaste" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 12px;">
+            הדבק
+          </button>
           <p id="loginStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
           <button type="button" class="button-primary" id="btnLoginSubmit" style="width: 100%; padding: 14px; font-size: 16px;">
             כניסה
