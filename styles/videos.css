@@ -3455,19 +3455,15 @@ body.global-stop .videos-feed__play-overlay {
     order: -1 !important;
   }
 
-  /* LIVE TV דסקטופ – במדויק משמאל לתפריט הימני, בלי גלישה מתחתיו | HYPER CORE TECH */
+  /* LIVE TV דסקטופ – פעולות על הווידאו, שורת ערוץ צמודה לתחתית (רק כש־body.videos-feed-mode-live-tv) | HYPER CORE TECH */
   body.videos-feed-mode-live-tv .videos-feed {
     --videos-desktop-feed-shift: 0px !important;
-    --live-desktop-stage-w: calc(100vw - var(--videos-desktop-nav-width, 220px) - var(--videos-desktop-nav-gap, 0px));
     transform: none !important;
     padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding-right: calc(var(--videos-desktop-nav-width, 220px) + var(--videos-desktop-nav-gap, 0px)) !important;
     margin: 0 !important;
-    box-sizing: border-box !important;
-    width: var(--live-desktop-stage-w) !important;
-    max-width: var(--live-desktop-stage-w) !important;
-    min-width: 0 !important;
-    overflow: hidden !important;
+    max-width: none !important;
+    width: 100% !important;
     justify-content: stretch !important;
     align-items: stretch !important;
   }
@@ -3478,16 +3474,13 @@ body.global-stop .videos-feed__play-overlay {
     scroll-padding-top: 0 !important;
     scroll-padding-bottom: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
+    max-width: none !important;
     justify-content: stretch !important;
-    overflow: hidden !important;
   }
 
   body.videos-feed-mode-live-tv .videos-feed__stream {
     width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
+    max-width: none !important;
     align-items: stretch !important;
   }
 
@@ -3496,14 +3489,12 @@ body.global-stop .videos-feed__play-overlay {
     min-height: 100vh !important;
     max-height: 100vh !important;
     width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
+    max-width: none !important;
     position: relative !important;
     display: block !important;
     overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
-    box-sizing: border-box !important;
   }
 
   body.videos-feed-mode-live-tv .videos-feed__media,
@@ -3513,8 +3504,8 @@ body.global-stop .videos-feed__play-overlay {
     inset: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    max-width: 100% !important;
-    max-height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
     min-width: 0 !important;
     border-radius: 0 !important;
     border: none !important;
@@ -3522,10 +3513,9 @@ body.global-stop .videos-feed__play-overlay {
     order: 0 !important;
     z-index: 1 !important;
     overflow: hidden !important;
-    box-sizing: border-box !important;
   }
 
-  /* כל פריים הערוץ נכנס למסך – בלי לחתוך ימין/שמאל מתחת לתפריט | HYPER CORE TECH */
+  /* וידאו מעל שורת הערוץ – בלי לחתוך למעלה | HYPER CORE TECH */
   body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] video,
   body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] .videos-feed__media-video {
     position: absolute !important;
@@ -3536,7 +3526,6 @@ body.global-stop .videos-feed__play-overlay {
     inset: 0 0 var(--live-desktop-bar-h, 56px) 0 !important;
     width: 100% !important;
     height: calc(100% - var(--live-desktop-bar-h, 56px)) !important;
-    max-width: 100% !important;
     max-height: calc(100% - var(--live-desktop-bar-h, 56px)) !important;
     object-fit: contain !important;
     object-position: center center !important;

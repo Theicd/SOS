@@ -8470,70 +8470,75 @@ function removeLiveTvCardFromFeed(mediaDivOrId) {
 }
 
 async function enterLiveTvFeedMode() {
-  // יוצאים ממצב משחקים / פוסטים שלי אם פתוח | HYPER CORE TECH
-  if (state.feedMode === 'games') {
-    document.body.classList.remove('videos-feed-mode-games');
-  }
-  if (state.feedMode === 'own-posts') {
-    state.ownPostsVideos = [];
-    state.ownPostsStartId = null;
-    document.body.classList.remove('videos-feed-mode-own-posts');
-    ensureOwnPostsBackButton();
-  }
-  // פיד LIVE תמיד מתחיל ב־PLAY – לפני כל await | HYPER CORE TECH
-  globalAutoplayEnabled = true;
-  updateGlobalStopClass();
-  state.feedMode = 'live-tv';
-  state.liveTvVideos = [];
-  document.body.classList.add('videos-feed-mode-live-tv');
-  document.body.classList.remove('videos-feed-mode-own-posts');
-  ensureOwnPostsBackButton();
-  // מנקים מיד את פוסטי הבית – אחרת CSS של LIVE משנה את גודלם בזמן הטעינה | HYPER CORE TECH
-  if (selectors.stream) {
-    try {
-      selectors.stream.querySelectorAll('video').forEach((v) => {
-        try { v.pause(); } catch (_) {}
-      });
-    } catch (_) {}
-    selectors.stream.innerHTML = '';
-  }
-  if (selectors.status) {
-    selectors.status.textContent = 'טוען ערוצים...';
-    selectors.status.style.display = 'block';
-  }
-  const App = window.NostrApp || {};
+  if (enterLiveTvFeedMode._loading) return true;
+  enterLiveTvFeedMode._loading = true;
   try {
-    // רק ערוצים שעברו בדיקה מוצגים | HYPER CORE TECH
-    if (typeof App.getReadyLiveTvFeedVideos === 'function') {
-      state.liveTvVideos = await App.getReadyLiveTvFeedVideos(10);
-    } else {
-      if (typeof App.warmInitialLiveTvHealth === 'function') {
-        await App.warmInitialLiveTvHealth(16);
-      }
-      if (typeof App.getLiveTvFeedVideos === 'function') {
-        state.liveTvVideos = await App.getLiveTvFeedVideos();
-      } else {
-        state.liveTvVideos = [];
-      }
+    // יוצאים ממצב משחקים / פוסטים שלי אם פתוח – בלי לגעת בפיד הראשי (all) | HYPER CORE TECH
+    if (state.feedMode === 'games') {
+      document.body.classList.remove('videos-feed-mode-games');
     }
-  } catch (err) {
-    console.warn('[VIDEOS] LIVE TV catalog failed', err);
-    state.liveTvVideos = [];
-  }
-  globalAutoplayEnabled = true;
-  updateGlobalStopClass();
-  forceFullFeedRerender();
-  // אחרי רינדור – כופים PLAY שוב (pauseAllFeedVideos הישן שבר את זה) | HYPER CORE TECH
-  globalAutoplayEnabled = true;
-  updateGlobalStopClass();
-  requestAnimationFrame(() => {
+    if (state.feedMode === 'own-posts') {
+      state.ownPostsVideos = [];
+      state.ownPostsStartId = null;
+      document.body.classList.remove('videos-feed-mode-own-posts');
+      ensureOwnPostsBackButton();
+    }
+
+    // פיד LIVE תמיד מתחיל ב־PLAY | HYPER CORE TECH
     globalAutoplayEnabled = true;
     updateGlobalStopClass();
-    const first = selectors.stream && selectors.stream.querySelector('.videos-feed__media[data-media-type="hls-live"]');
-    if (first) playHlsLiveMedia(first);
-  });
-  console.log('[VIDEOS] LIVE TV feed mode ON', { count: getDisplayVideos().length });
-  return true;
+
+    // רק הודעת סטטוס – לא מוסיפים class LIVE ולא מוחקים את פיד הבית עד שהערוצים מוכנים | HYPER CORE TECH
+    if (selectors.status) {
+      selectors.status.textContent = 'טוען ערוצים...';
+      selectors.status.style.display = 'block';
+    }
+
+    let loaded = [];
+    const App = window.NostrApp || {};
+    try {
+      // רק ערוצים שעברו בדיקה מוצגים | HYPER CORE TECH
+      if (typeof App.getReadyLiveTvFeedVideos === 'function') {
+        loaded = await App.getReadyLiveTvFeedVideos(10);
+      } else {
+        if (typeof App.warmInitialLiveTvHealth === 'function') {
+          await App.warmInitialLiveTvHealth(16);
+        }
+        if (typeof App.getLiveTvFeedVideos === 'function') {
+          loaded = await App.getLiveTvFeedVideos();
+        } else {
+          loaded = [];
+        }
+      }
+    } catch (err) {
+      console.warn('[VIDEOS] LIVE TV catalog failed', err);
+      loaded = [];
+    }
+
+    // מעבר ל־IPTV רק עכשיו – class + החלפת DOM ביחד | HYPER CORE TECH
+    state.liveTvVideos = Array.isArray(loaded) ? loaded : [];
+    state.feedMode = 'live-tv';
+    document.body.classList.add('videos-feed-mode-live-tv');
+    document.body.classList.remove('videos-feed-mode-own-posts', 'videos-feed-mode-games');
+    ensureOwnPostsBackButton();
+
+    globalAutoplayEnabled = true;
+    updateGlobalStopClass();
+    forceFullFeedRerender();
+    // אחרי רינדור – כופים PLAY שוב (pauseAllFeedVideos הישן שבר את זה) | HYPER CORE TECH
+    globalAutoplayEnabled = true;
+    updateGlobalStopClass();
+    requestAnimationFrame(() => {
+      globalAutoplayEnabled = true;
+      updateGlobalStopClass();
+      const first = selectors.stream && selectors.stream.querySelector('.videos-feed__media[data-media-type="hls-live"]');
+      if (first) playHlsLiveMedia(first);
+    });
+    console.log('[VIDEOS] LIVE TV feed mode ON', { count: getDisplayVideos().length });
+    return true;
+  } finally {
+    enterLiveTvFeedMode._loading = false;
+  }
 }
 
 function exitLiveTvFeedMode() {
