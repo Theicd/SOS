@@ -3499,6 +3499,7 @@ body.global-stop .videos-feed__play-overlay {
 
   body.videos-feed-mode-live-tv .videos-feed__media,
   body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] {
+    --live-desktop-bar-h: 56px;
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -3513,9 +3514,27 @@ body.global-stop .videos-feed__play-overlay {
     z-index: 1 !important;
   }
 
+  /* הווידאו נעצר מעל שורת הערוץ – לא נכנס מתחתיה | HYPER CORE TECH */
+  body.videos-feed-mode-live-tv .videos-feed__media[data-media-type="hls-live"] video,
+  body.videos-feed-mode-live-tv .videos-feed__media-video {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: var(--live-desktop-bar-h, 56px) !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    inset: auto 0 var(--live-desktop-bar-h, 56px) 0 !important;
+    object-fit: contain !important;
+    object-position: center center !important;
+    background: #000 !important;
+  }
+
+  /* פעולות משמאל – מימין לחצי החצים (לא עליהם) | HYPER CORE TECH */
   body.videos-feed-mode-live-tv .videos-feed__actions {
     position: absolute !important;
-    left: 16px !important;
+    left: 76px !important;
     right: auto !important;
     bottom: 50% !important;
     top: auto !important;
@@ -3538,15 +3557,22 @@ body.global-stop .videos-feed__play-overlay {
     pointer-events: auto;
   }
 
-  /* שורת ערוץ צמודה לתחתית; תג IPTV לא יוצא מגבול שמאל | HYPER CORE TECH */
+  /* שורת ערוץ – פס מלא צמוד לתחתית הדף | HYPER CORE TECH */
   body.videos-feed-mode-live-tv .videos-live-topbar {
     bottom: 0 !important;
-    left: 16px !important;
-    right: 72px !important;
-    max-width: calc(100% - 88px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: var(--live-desktop-bar-h, 56px) !important;
+    height: auto !important;
     z-index: 55 !important;
-    padding-bottom: 12px !important;
+    padding: 10px 16px !important;
     box-sizing: border-box !important;
+    background: #050505 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+    gap: 10px !important;
+    align-items: center !important;
   }
 
   body.videos-feed-mode-live-tv .videos-live-badge {
@@ -3555,9 +3581,9 @@ body.global-stop .videos-feed__play-overlay {
   }
 
   body.videos-feed-mode-live-tv .videos-live-fs-btn {
-    bottom: 12px !important;
+    bottom: calc(var(--live-desktop-bar-h, 56px) + 12px) !important;
     right: 16px !important;
-    z-index: 55 !important;
+    z-index: 56 !important;
   }
 
   body.videos-feed-mode-live-tv .videos-nav-arrows {
