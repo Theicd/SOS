@@ -4172,6 +4172,26 @@ function renderVideoCard(video) {
     </button>
   `);
 
+  // תגובות לשידור חי P2P — נשלחות לחדר החי (המשדר רואה בסטודיו) | HYPER CORE TECH
+  if (video.p2pLive && video.p2pLiveRoomId) {
+    const commentBtn = actionsDiv.querySelector('[data-comment-button]');
+    if (commentBtn) {
+      commentBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const LiveApp = window.NostrApp || {};
+        if (typeof LiveApp.requireAuth === 'function' && !LiveApp.requireAuth('כדי לכתוב בשידור חי צריך להתחבר.')) {
+          return;
+        }
+        const text = window.prompt('כתוב תגובה לשידור החי:');
+        if (!text || !String(text).trim()) return;
+        if (typeof LiveApp.publishLiveChat === 'function') {
+          LiveApp.publishLiveChat(video.p2pLiveRoomId, text);
+        }
+      }, true);
+    }
+  }
+
   const viewerPubkey = typeof currentApp.publicKey === 'string' ? currentApp.publicKey.toLowerCase() : '';
   const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
   const isSelf = viewerPubkey && videoOwnerPubkey ? viewerPubkey === videoOwnerPubkey : video.pubkey === currentApp.publicKey;
