@@ -3634,10 +3634,21 @@ function renderVideoCard(video) {
       const pendingStream = pendingMap && pendingMap.get(video.id);
       if (pendingStream) {
         videoEl.srcObject = pendingStream;
-        videoEl.muted = false;
+        videoEl.muted = true;
         mediaDiv.dataset.p2pLiveJoined = '1';
         mediaDiv.classList.add('videos-feed__media--ready');
-        try { videoEl.play().catch(() => {}); } catch (_) {}
+        try {
+          videoEl.play().then(() => {
+            videoEl.muted = false;
+          }).catch(() => {
+            videoEl.muted = true;
+            videoEl.play().catch(() => {});
+          });
+        } catch (_) {}
+        try {
+          const LiveApp = window.NostrApp || {};
+          LiveApp._p2pLiveActiveMedia = mediaDiv;
+        } catch (_) {}
       }
     } catch (_) {}
 

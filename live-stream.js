@@ -74,12 +74,24 @@
     if(state.localStream){ state.localStream.getTracks().forEach(t=>pc.addTrack(t, state.localStream)); }
     pc.onicecandidate = e => { queueCandidate(peer, e.candidate||null); };
     pc.ontrack = e => {
-      // קבלת סטרים מרוחק כשאנחנו viewer/relay
+      // קבלת סטרים מרוחק — תומך גם כשאין e.streams[0] (Chrome/Safari) | HYPER CORE TECH
       if(!state.incomingRemoteStream) state.incomingRemoteStream = new MediaStream();
-      e.streams[0].getTracks().forEach(t=> state.incomingRemoteStream.addTrack(t));
+      try {
+        if (e.track) {
+          const exists = state.incomingRemoteStream.getTracks().some((t) => t.id === e.track.id);
+          if (!exists) state.incomingRemoteStream.addTrack(e.track);
+        } else if (e.streams && e.streams[0]) {
+          e.streams[0].getTracks().forEach((t) => {
+            if (!state.incomingRemoteStream.getTracks().some((x) => x.id === t.id)) {
+              state.incomingRemoteStream.addTrack(t);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('LIVE ontrack merge failed', err);
+      }
       iceFailRetries = 0;
       if(typeof App.onLiveRemoteStream === 'function') App.onLiveRemoteStream(state.incomingRemoteStream);
-      // אם אנחנו relay – נכין captureStream מהווידאו החבוי ונוכל לשדר לילדים
       if(state.role !== 'broadcaster') ensureRelayCapture();
     };
     pc.onconnectionstatechange = () => {
@@ -237,6 +249,16 @@
     connectingParent = parent;
     state.parentPeer = parent;
     const pc = createPC(parent);
+    // צופה: recvonly — מבטיח מסלולי וידאו/אודיו ב־SDP | HYPER CORE TECH
+    try {
+      if (!state.localStream || state.role === 'viewer') {
+        const hasVideoRecv = pc.getTransceivers().some((t) => t.receiver && t.receiver.track && t.receiver.track.kind === 'video');
+        if (!hasVideoRecv) {
+          pc.addTransceiver('video', { direction: 'recvonly' });
+          pc.addTransceiver('audio', { direction: 'recvonly' });
+        }
+      }
+    } catch (_) {}
     // flush מועמדים מוקדמים אם הגיעו לפני יצירת PC | HYPER CORE TECH
     const early = pendingRemoteIce.get(parent) || [];
     pendingRemoteIce.delete(parent);

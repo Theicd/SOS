@@ -349,19 +349,35 @@
   };
 
   App.onLiveRemoteStream = function(stream) {
-    // אימות שידור לצופה — רק אחרי שיש מדיה אמיתית | HYPER CORE TECH
-    if (verifyRoomId && stream && stream.getTracks && stream.getTracks().length) {
+    if (!stream || typeof stream.getTracks !== 'function') return;
+    const tracks = stream.getTracks();
+    if (!tracks.length) return;
+    // מחכים למסלול וידאו — אחרת כרטיס "מתחבר" בלי תמונה | HYPER CORE TECH
+    const videoTracks = typeof stream.getVideoTracks === 'function' ? stream.getVideoTracks() : [];
+    const hasLiveVideo = videoTracks.some((t) => t && t.readyState !== 'ended');
+
+    if (hasLiveVideo && verifyRoomId) {
       const meta = knownRooms.get(verifyRoomId);
       if (meta) {
         finishVerifySuccess(meta, stream);
       }
     }
+
+    // תמיד מצמידים לכרטיס הקיים לפי roomId (גם אחרי retry / אחרי אימות) | HYPER CORE TECH
+    try {
+      const st = App.live && App.live.getState && App.live.getState();
+      const roomId = (st && st.roomId) || verifyRoomId || null;
+      if (roomId && hasLiveVideo) {
+        attachRemoteStreamToLiveCards(roomId, stream);
+      }
+    } catch (_) {}
+
     try {
       const media = App._p2pLiveActiveMedia;
-      if (!media) return;
+      if (!media || !hasLiveVideo) return;
       const videoEl = media.querySelector('video');
-      if (!videoEl || !stream) return;
-      videoEl.srcObject = stream;
+      if (!videoEl) return;
+      if (videoEl.srcObject !== stream) videoEl.srcObject = stream;
       videoEl.muted = false;
       videoEl.play().catch(() => {
         videoEl.muted = true;
@@ -372,6 +388,38 @@
       if (hint) hint.hidden = true;
     } catch (_) {}
   };
+
+  function attachRemoteStreamToLiveCards(roomId, stream) {
+    if (!roomId || !stream) return;
+    const safeId = `p2plive-${String(roomId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96)}`;
+    App._p2pLivePendingStreams = App._p2pLivePendingStreams || new Map();
+    App._p2pLivePendingStreams.set(safeId, stream);
+
+    doc.querySelectorAll('.videos-feed__media[data-media-type="p2p-live"]').forEach((media) => {
+      if (media.dataset.liveRoomId !== roomId) return;
+      const videoEl = media.querySelector('video');
+      if (!videoEl) return;
+      if (videoEl.srcObject !== stream) videoEl.srcObject = stream;
+      videoEl.setAttribute('playsinline', 'true');
+      videoEl.muted = false;
+      const play = () => videoEl.play().catch(() => {
+        videoEl.muted = true;
+        return videoEl.play().catch(() => {});
+      });
+      play();
+      media.dataset.p2pLiveJoined = '1';
+      media.classList.add('videos-feed__media--ready');
+      media.classList.remove('videos-p2p-live--ended');
+      const hint = media.querySelector('.videos-p2p-live-hint');
+      if (hint) {
+        hint.hidden = true;
+        hint.textContent = 'מתחבר לשידור חי…';
+      }
+      const ended = media.querySelector('.videos-p2p-live-ended');
+      if (ended) ended.remove();
+      App._p2pLiveActiveMedia = media;
+    });
+  }
 
   App.onLiveStarted = function() {
     const timer = studio && studio.querySelector('[data-live-timer]');
@@ -420,7 +468,13 @@
       }
       if (typeof App.live?.retryWatch === 'function') {
         const ok = await App.live.retryWatch();
-        if (ok) return;
+        if (ok) {
+          // אם כבר אומתנו — נשאיר verifying כדי ש־ontrack יעדכן כרטיס | HYPER CORE TECH
+          if (roomId && verifiedRooms.has(roomId)) {
+            verifyRoomId = roomId;
+          }
+          return;
+        }
       }
     } catch (_) {}
     markViewerLiveEnded(roomId, 'החיבור לשידור נכשל');
@@ -915,6 +969,8 @@
           cardId: safeId
         });
       }
+      // אחרי רינדור כרטיס — מצמידים שוב (מונע "מתחבר" בלי וידאו) | HYPER CORE TECH
+      try { attachRemoteStreamToLiveCards(meta.roomId, stream); } catch (_) {}
     };
 
     upsert(meta);
