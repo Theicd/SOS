@@ -217,6 +217,7 @@
           <div class="live-studio__preview-wrap">
             <div class="live-studio__preview-frame">
               <video id="liveStudioCam" class="live-studio__cam" autoplay muted playsinline></video>
+              <div class="live-studio__hearts" id="liveStudioHearts" aria-hidden="true"></div>
             </div>
           </div>
 
@@ -363,6 +364,22 @@
   App.closeLiveWatchHub = function() { return true; };
   App.isLiveWatchHubOpen = function() { return false; };
 
+  function spawnFloatingHeart() {
+    const layer = studio && studio.querySelector('#liveStudioHearts');
+    if (!layer) return;
+    const heart = doc.createElement('span');
+    heart.className = 'live-studio__heart';
+    heart.textContent = '❤';
+    const drift = (Math.random() * 70) - 35;
+    const scale = 0.85 + Math.random() * 0.55;
+    heart.style.setProperty('--hx', `${drift}px`);
+    heart.style.setProperty('--hs', String(scale));
+    layer.appendChild(heart);
+    setTimeout(() => {
+      try { heart.remove(); } catch (_) {}
+    }, 2200);
+  }
+
   function clearChatUi() {
     const list = studio && studio.querySelector('#liveStudioChatList');
     if (!list) return;
@@ -404,9 +421,20 @@
           onevent: (ev) => {
             try {
               const tType = ev.tags.find((t) => t[0] === 'type');
-              if (!tType || tType[1] !== 'live-chat') return;
+              if (!tType) return;
               const tRoom = ev.tags.find((t) => t[0] === 'r');
               if (!tRoom || tRoom[1] !== roomId) return;
+              const kind = tType[1];
+
+              if (kind === 'live-like') {
+                // לא מציגים לייקים של המשדר עצמו כהתפרצות | HYPER CORE TECH
+                if (App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase()) return;
+                spawnFloatingHeart();
+                spawnFloatingHeart();
+                return;
+              }
+
+              if (kind !== 'live-chat') return;
               let payload = {};
               try { payload = JSON.parse(ev.content || '{}'); } catch (_) {}
               const text = payload.text || '';
@@ -446,6 +474,27 @@
       return true;
     } catch (e) {
       console.warn('publishLiveChat failed', e);
+      return false;
+    }
+  };
+
+  App.publishLiveLike = async function(roomId) {
+    const rid = roomId || activeChatRoomId;
+    if (!rid) return false;
+    if (!App.pool || !App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') return false;
+    try {
+      const ev = {
+        kind: 25051,
+        pubkey: App.publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['type', 'live-like'], ['r', rid]],
+        content: JSON.stringify({ roomId: rid, at: Date.now() })
+      };
+      const signed = App.finalizeEvent(ev, App.privateKey);
+      await App.pool.publish(App.relayUrls, signed);
+      return true;
+    } catch (e) {
+      console.warn('publishLiveLike failed', e);
       return false;
     }
   };

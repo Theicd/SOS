@@ -4172,7 +4172,7 @@ function renderVideoCard(video) {
     </button>
   `);
 
-  // תגובות לשידור חי P2P — נשלחות לחדר החי (המשדר רואה בסטודיו) | HYPER CORE TECH
+  // תגובות + לייקים לשידור חי P2P — מגיעים לסטודיו של המשדר | HYPER CORE TECH
   if (video.p2pLive && video.p2pLiveRoomId) {
     const commentBtn = actionsDiv.querySelector('[data-comment-button]');
     if (commentBtn) {
@@ -4187,6 +4187,15 @@ function renderVideoCard(video) {
         if (!text || !String(text).trim()) return;
         if (typeof LiveApp.publishLiveChat === 'function') {
           LiveApp.publishLiveChat(video.p2pLiveRoomId, text);
+        }
+      }, true);
+    }
+    const likeBtn = actionsDiv.querySelector('[data-like-button]');
+    if (likeBtn) {
+      likeBtn.addEventListener('click', () => {
+        const LiveApp = window.NostrApp || {};
+        if (typeof LiveApp.publishLiveLike === 'function') {
+          LiveApp.publishLiveLike(video.p2pLiveRoomId);
         }
       }, true);
     }
