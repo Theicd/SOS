@@ -74,6 +74,14 @@
     confirmOpen = false;
   }
 
+  function silenceHomeFeed() {
+    try {
+      if (typeof App.pauseAllFeedVideos === 'function') {
+        App.pauseAllFeedVideos({ muteFeed: true });
+      }
+    } catch (_) {}
+  }
+
   async function endBroadcastAndClose() {
     try { if (typeof App.live?.end === 'function') await App.live.end(); } catch (_) {}
     stopLiveChatSub();
@@ -165,6 +173,7 @@
 
   async function beginBroadcastFromSetup() {
     if (!studio) return;
+    silenceHomeFeed();
     const titleInput = studio.querySelector('#liveStudioTitle');
     const title = String((titleInput && titleInput.value) || '').trim() || 'שידור חי';
     if (!previewStream) await ensurePreviewCamera();
@@ -172,6 +181,7 @@
       window.alert('שידור חי לא זמין כרגע');
       return;
     }
+    silenceHomeFeed();
     const streamForLive = previewStream;
     previewStream = null;
     await App.live.start({
@@ -180,9 +190,11 @@
       stream: streamForLive,
       facingMode: 'user'
     });
+    silenceHomeFeed();
     const cam = studio.querySelector('#liveStudioCam');
     if (cam && streamForLive) {
       cam.srcObject = streamForLive;
+      cam.muted = true;
       cam.play().catch(() => {});
     }
     const topic = studio.querySelector('[data-live-topic]');
@@ -196,6 +208,7 @@
     closeStudio();
     stopPreviewTracks();
     aspectMode = '9:16';
+    silenceHomeFeed();
 
     studio = doc.createElement('div');
     studio.id = 'liveStudio';
@@ -982,6 +995,177 @@
       console.warn('live discovery event failed', e);
     }
   }
+
+  // צ'אט צופים מעל הווידאו (TikTok-style) — לא דוחף את הווידאו | HYPER CORE TECH
+  const viewerChatByRoom = new Map(); // roomId -> { sub, medias:Set, seen:Set }
+
+  function ensureViewerChatOverlay(mediaDiv) {
+    if (!mediaDiv) return null;
+    let overlay = mediaDiv.querySelector('.videos-p2p-live-overlay');
+    if (overlay) return overlay;
+    overlay = doc.createElement('div');
+    overlay.className = 'videos-p2p-live-overlay';
+    overlay.innerHTML = `
+      <div class="videos-p2p-live-chat-list" data-live-chat-list></div>
+      <div class="videos-p2p-live-hearts" data-live-viewer-hearts aria-hidden="true"></div>
+      <form class="videos-p2p-live-compose" data-live-chat-form autocomplete="off">
+        <input class="videos-p2p-live-compose__input" type="text" maxlength="280" placeholder="הוסף תגובה…" aria-label="תגובה לשידור">
+        <button type="submit" class="videos-p2p-live-compose__send" aria-label="שלח">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>`;
+    mediaDiv.appendChild(overlay);
+    mediaDiv.classList.add('videos-p2p-live--with-chat');
+    return overlay;
+  }
+
+  function appendViewerOverlayMessage(mediaDiv, author, text, picture, self) {
+    const list = mediaDiv && mediaDiv.querySelector('[data-live-chat-list]');
+    if (!list) return;
+    const row = doc.createElement('div');
+    row.className = 'videos-p2p-live-chat-item' + (self ? ' is-self' : '');
+    const av = doc.createElement('span');
+    av.className = 'videos-p2p-live-chat-av';
+    const pic = String(picture || '').trim();
+    if (pic) {
+      const img = doc.createElement('img');
+      img.src = pic;
+      img.alt = '';
+      img.onerror = () => { av.textContent = initialsFromName(author); img.remove(); };
+      av.appendChild(img);
+    } else {
+      av.textContent = initialsFromName(author);
+    }
+    const body = doc.createElement('span');
+    body.className = 'videos-p2p-live-chat-bubble';
+    const who = doc.createElement('strong');
+    who.textContent = String(author || 'צופה').slice(0, 20);
+    const msg = doc.createElement('span');
+    msg.textContent = String(text || '').slice(0, 280);
+    body.appendChild(who);
+    body.appendChild(msg);
+    row.appendChild(av);
+    row.appendChild(body);
+    list.appendChild(row);
+    while (list.children.length > 40) list.firstChild.remove();
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function spawnViewerHeart(mediaDiv) {
+    const layer = mediaDiv && mediaDiv.querySelector('[data-live-viewer-hearts]');
+    if (!layer) return;
+    const heart = doc.createElement('span');
+    heart.className = 'videos-p2p-live-heart';
+    heart.textContent = '❤';
+    heart.style.setProperty('--hx', `${(Math.random() * 60) - 30}px`);
+    layer.appendChild(heart);
+    setTimeout(() => { try { heart.remove(); } catch (_) {} }, 2000);
+  }
+
+  function broadcastOverlayEvent(roomId, handler) {
+    const entry = viewerChatByRoom.get(roomId);
+    if (!entry) return;
+    entry.medias.forEach((media) => {
+      if (media && media.isConnected) handler(media);
+    });
+  }
+
+  function ensureViewerRoomSub(roomId) {
+    if (!roomId || !App.pool || !Array.isArray(App.relayUrls)) return null;
+    let entry = viewerChatByRoom.get(roomId);
+    if (entry && entry.sub) return entry;
+    entry = entry || { sub: null, medias: new Set(), seen: new Set() };
+    viewerChatByRoom.set(roomId, entry);
+    const since = Math.floor(Date.now() / 1000) - 20;
+    try {
+      entry.sub = App.pool.subscribeMany(
+        App.relayUrls,
+        [{ kinds: [25051], '#r': [roomId], since }],
+        {
+          onevent: (ev) => {
+            try {
+              if (!ev || !ev.id || entry.seen.has(ev.id)) return;
+              entry.seen.add(ev.id);
+              if (entry.seen.size > 600) {
+                const first = entry.seen.values().next().value;
+                entry.seen.delete(first);
+              }
+              const tType = ev.tags.find((t) => t[0] === 'type');
+              if (!tType) return;
+              const kind = tType[1];
+              if (kind === 'live-like') {
+                if (App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase()) return;
+                broadcastOverlayEvent(roomId, spawnViewerHeart);
+                return;
+              }
+              if (kind !== 'live-chat') return;
+              let payload = {};
+              try { payload = JSON.parse(ev.content || '{}'); } catch (_) {}
+              const text = payload.text || '';
+              if (!text) return;
+              const cached = lookupProfileSync(ev.pubkey);
+              let author = String(payload.name || '').trim();
+              if (isStubName(author, ev.pubkey)) author = '';
+              author = author || profileDisplayName(cached, ev.pubkey);
+              const picture = String(payload.picture || cached.picture || '').trim();
+              const self = !!(App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase());
+              broadcastOverlayEvent(roomId, (media) => {
+                appendViewerOverlayMessage(media, author, text, picture, self);
+              });
+              if ((isStubName(author, ev.pubkey) || !picture) && typeof App.fetchProfile === 'function') {
+                App.fetchProfile(ev.pubkey).catch(() => null);
+              }
+            } catch (_) {}
+          },
+          oneose: () => {}
+        }
+      );
+    } catch (e) {
+      console.warn('viewer live chat sub failed', e);
+    }
+    return entry;
+  }
+
+  App.attachP2pLiveViewerChat = function(mediaDiv, roomId) {
+    if (!mediaDiv || !roomId) return;
+    const overlay = ensureViewerChatOverlay(mediaDiv);
+    if (!overlay) return;
+    mediaDiv.dataset.liveChatRoom = roomId;
+    const entry = ensureViewerRoomSub(roomId) || { medias: new Set(), seen: new Set(), sub: null };
+    entry.medias.add(mediaDiv);
+    viewerChatByRoom.set(roomId, entry);
+
+    const form = overlay.querySelector('[data-live-chat-form]');
+    if (form && form.dataset.bound !== '1') {
+      form.dataset.bound = '1';
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof App.requireAuth === 'function' && !App.requireAuth('כדי לכתוב בשידור חי צריך להתחבר.')) {
+          return;
+        }
+        const input = form.querySelector('input');
+        const text = String(input && input.value || '').trim();
+        if (!text) return;
+        if (input) input.value = '';
+        const ok = await App.publishLiveChat(roomId, text);
+        if (!ok && input) input.value = text;
+      });
+      // מונע גלילת פיד בזמן הקלדה | HYPER CORE TECH
+      form.addEventListener('pointerdown', (e) => e.stopPropagation());
+      form.addEventListener('click', (e) => e.stopPropagation());
+    }
+  };
+
+  App.focusP2pLiveViewerChat = function(mediaDiv) {
+    if (!mediaDiv) return false;
+    ensureViewerChatOverlay(mediaDiv);
+    const input = mediaDiv.querySelector('.videos-p2p-live-compose__input');
+    if (!input) return false;
+    mediaDiv.classList.add('videos-p2p-live--chat-focus');
+    try { input.focus(); } catch (_) {}
+    return true;
+  };
 
   // ניקוי כרטיסי LIVE ריקים שנתקעו בפיד | HYPER CORE TECH
   function purgeBrokenLiveCards() {

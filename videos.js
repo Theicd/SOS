@@ -1059,6 +1059,11 @@ function resetFeedVideoToStart(videoEl) {
 function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   if (!mediaDiv) return;
 
+  // בזמן סטודיו שידור חי — לא מפעילים וידאו מהפיד ברקע | HYPER CORE TECH
+  if (document.body.classList.contains('live-studio-open')) {
+    return;
+  }
+
   // בזמן דף טעינה – לא מנגנים מאחורי המסך; נתחיל מיד אחרי הסגירה | HYPER CORE TECH
   if (bootGate.active && !bootGate.released && !manual) {
     return;
@@ -1231,13 +1236,17 @@ function pauseAllFeedVideos(options = {}) {
     pauseMedia(activeMediaDiv, { manual: false });
   }
   
-  // עצירת כל הווידיאו בפיד
+  // עצירת כל הווידיאו בפיד (לא כולל מצלמת סטודיו LIVE) | HYPER CORE TECH
   const allVideos = document.querySelectorAll('video');
   allVideos.forEach(video => {
     try {
+      if (video.id === 'liveStudioCam') return;
+      if (video.closest && video.closest('.live-studio')) return;
       if (!video.paused) {
         video.pause();
       }
+      // גם השתקה — מונע שמע מהפיד בזמן שידור | HYPER CORE TECH
+      if (options.muteFeed) video.muted = true;
     } catch (e) {
       console.warn('[VIDEOS] Failed to pause video', e);
     }
@@ -3656,6 +3665,14 @@ function renderVideoCard(video) {
     centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
 
+    // צ'אט TikTok מעל הווידאו (לא דוחף פריסה) | HYPER CORE TECH
+    try {
+      const LiveApp = window.NostrApp || {};
+      if (video.p2pLiveRoomId && typeof LiveApp.attachP2pLiveViewerChat === 'function') {
+        LiveApp.attachP2pLiveViewerChat(mediaDiv, video.p2pLiveRoomId);
+      }
+    } catch (_) {}
+
     queueMicrotask(markReady);
   } else if (video.youtubeId && !video.videoUrl) {
     mediaDiv.dataset.mediaType = 'youtube';
@@ -4182,7 +4199,7 @@ function renderVideoCard(video) {
     </button>
   `);
 
-  // תגובות + לייקים לשידור חי P2P — מגיעים לסטודיו של המשדר | HYPER CORE TECH
+  // תגובות + לייקים לשידור חי P2P — צ'אט מעל הווידאו כמו טיקטוק | HYPER CORE TECH
   if (video.p2pLive && video.p2pLiveRoomId) {
     const commentBtn = actionsDiv.querySelector('[data-comment-button]');
     if (commentBtn) {
@@ -4191,6 +4208,14 @@ function renderVideoCard(video) {
         e.stopPropagation();
         const LiveApp = window.NostrApp || {};
         if (typeof LiveApp.requireAuth === 'function' && !LiveApp.requireAuth('כדי לכתוב בשידור חי צריך להתחבר.')) {
+          return;
+        }
+        const card = commentBtn.closest('.videos-feed__card');
+        const media = card && card.querySelector('.videos-feed__media[data-media-type="p2p-live"]');
+        if (media && typeof LiveApp.attachP2pLiveViewerChat === 'function') {
+          LiveApp.attachP2pLiveViewerChat(media, video.p2pLiveRoomId);
+        }
+        if (media && typeof LiveApp.focusP2pLiveViewerChat === 'function' && LiveApp.focusP2pLiveViewerChat(media)) {
           return;
         }
         const text = window.prompt('כתוב תגובה לשידור החי:');

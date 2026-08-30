@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.30-pwa380-live-studio-chat-polish",
-  "buildTime": "2026-08-30T05:55:00+03:00",
-  "notes": "Dedup live chat, names, broadcaster composer, likes counter, studio polish"
+  "version": "2026.08.30-pwa381-live-viewer-overlay-chat",
+  "buildTime": "2026-08-30T06:10:00+03:00",
+  "notes": "Mute feed on live start; TikTok overlay chat on viewer live video"
 }

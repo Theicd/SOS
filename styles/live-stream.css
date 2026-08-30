@@ -643,6 +643,163 @@ body.live-studio-open {
   pointer-events: none;
 }
 
+/* צ'אט צופים מעל הווידאו — לא משנה גובה/פריסת כרטיס | HYPER CORE TECH */
+.videos-feed__media[data-media-type="p2p-live"] {
+  overflow: hidden;
+}
+
+.videos-p2p-live-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+  max-height: 46%;
+  padding: 10px 12px calc(10px + var(--safe-bottom, 0px));
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 70%);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.videos-p2p-live-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 160px;
+  pointer-events: none;
+  scrollbar-width: none;
+}
+
+.videos-p2p-live-chat-list::-webkit-scrollbar {
+  display: none;
+}
+
+.videos-p2p-live-chat-item {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 88%;
+  animation: live-chat-in 0.22s ease-out;
+}
+
+@keyframes live-chat-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.videos-p2p-live-chat-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 175, 255, 0.35);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.videos-p2p-live-chat-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos-p2p-live-chat-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  text-align: right;
+}
+
+.videos-p2p-live-chat-bubble strong {
+  font-size: 11px;
+  color: #7fd9ff;
+}
+
+.videos-p2p-live-chat-item.is-self .videos-p2p-live-chat-bubble {
+  background: rgba(254, 44, 85, 0.55);
+}
+
+.videos-p2p-live-chat-item.is-self .videos-p2p-live-chat-bubble strong {
+  color: #ffd0da;
+}
+
+.videos-p2p-live-chat-bubble span {
+  font-size: 13px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.videos-p2p-live-compose {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.videos-p2p-live-compose__input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  padding: 0 14px;
+  font-size: 13px;
+  outline: none;
+}
+
+.videos-p2p-live-compose__input:focus {
+  border-color: rgba(254, 44, 85, 0.7);
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.videos-p2p-live-compose__send {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: #fe2c55;
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.videos-p2p-live-hearts {
+  position: absolute;
+  right: 12px;
+  bottom: 56px;
+  width: 70px;
+  height: 160px;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.videos-p2p-live-heart {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  font-size: 22px;
+  transform: translateX(calc(-50% + var(--hx, 0px)));
+  animation: live-heart-float 1.9s ease-out forwards;
+  filter: drop-shadow(0 3px 8px rgba(254, 44, 85, 0.4));
+}
+
 .videos-p2p-live-badge.is-off {
   background: rgba(120, 120, 120, 0.9);
 }
