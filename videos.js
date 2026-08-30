@@ -3605,6 +3605,19 @@ function renderVideoCard(video) {
     videoEl.className = 'videos-feed__media-video';
     mediaDiv.appendChild(videoEl);
 
+    // מצמידים סטרים מאומת מראש — בלי כרטיס ריק | HYPER CORE TECH
+    try {
+      const pendingMap = (window.NostrApp && window.NostrApp._p2pLivePendingStreams) || null;
+      const pendingStream = pendingMap && pendingMap.get(video.id);
+      if (pendingStream) {
+        videoEl.srcObject = pendingStream;
+        videoEl.muted = false;
+        mediaDiv.dataset.p2pLiveJoined = '1';
+        mediaDiv.classList.add('videos-feed__media--ready');
+        try { videoEl.play().catch(() => {}); } catch (_) {}
+      }
+    } catch (_) {}
+
     try { applyDesktopVideoAspect(mediaDiv, 9, 16); } catch (_) {}
 
     const badge = document.createElement('div');
@@ -3615,6 +3628,7 @@ function renderVideoCard(video) {
     const hint = document.createElement('div');
     hint.className = 'videos-p2p-live-hint';
     hint.textContent = 'מתחבר לשידור חי…';
+    if (videoEl.srcObject) hint.hidden = true;
     mediaDiv.appendChild(hint);
 
     const playOverlay = document.createElement('button');
@@ -8781,10 +8795,21 @@ function getSharedGamePosts() {
     }));
 }
 
-// חלק שידור חי P2P (videos.js) – הכנסת כרטיס LIVE לפיד הראשי | HYPER CORE TECH
+// חלק שידור חי P2P (videos.js) – הכנסת כרטיס LIVE לפיד רק אחרי וידאו מאומת | HYPER CORE TECH
 function upsertP2pLiveFeedCard(room) {
   if (!room || !room.roomId || !room.owner) return;
-  const safeId = `p2plive-${String(room.roomId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96)}`;
+  if (!room.streamReady) {
+    console.log('[videos] skip LIVE card — stream not verified', room.roomId);
+    return;
+  }
+  const safeId = room.cardId || `p2plive-${String(room.roomId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96)}`;
+  const pending = (window.NostrApp && window.NostrApp._p2pLivePendingStreams)
+    ? window.NostrApp._p2pLivePendingStreams.get(safeId)
+    : null;
+  if (!pending) {
+    console.log('[videos] skip LIVE card — missing pending MediaStream', safeId);
+    return;
+  }
   const video = {
     id: safeId,
     pubkey: room.owner,
@@ -8797,6 +8822,7 @@ function upsertP2pLiveFeedCard(room) {
     p2pLiveOwner: room.owner,
     p2pLiveSlug: room.slug || 'live',
     p2pLiveRoomId: room.roomId,
+    p2pLiveStreamReady: true,
   };
   upsertVideoInState(video, { forceShow: true, immediate: true });
 }
