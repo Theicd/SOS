@@ -267,6 +267,12 @@
     if (closeProfilePanel()) closed = true;
     if (closePublicProfilePanel()) closed = true;
     if (closeGamesPanel()) closed = true;
+    try {
+      if (typeof App.closeLiveWatchHub === 'function' && App.isLiveWatchHubOpen && App.isLiveWatchHubOpen()) {
+        App.closeLiveWatchHub();
+        closed = true;
+      }
+    } catch (_) {}
     if (closeChatPanel()) closed = true;
     if (closeNotificationsPanel()) closed = true;
     return closed;
@@ -286,9 +292,14 @@
     if (isShareFlowOpen()) return true;
     if (document.body.classList.contains('chat-overlay-open')) return true;
     if (document.body.classList.contains('videos-comments-open')) return true;
+    if (document.body.classList.contains('live-hub-open')) return true;
+    if (document.body.classList.contains('live-modal-open')) return true;
     if (document.querySelector('.videos-comments-overlay')) return true;
     try {
       if (App.chatState && App.chatState.isOpen) return true;
+    } catch (_) {}
+    try {
+      if (typeof App.isLiveWatchHubOpen === 'function' && App.isLiveWatchHubOpen()) return true;
     } catch (_) {}
     const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
     return ids.some((id) => isOverlayElementVisible(document.getElementById(id)));
@@ -364,15 +375,15 @@
       return;
     }
 
-    // שידור חי: מודול live-stream הקיים (P2P WebRTC) | HYPER CORE TECH
+    // שידור חי: מרכז צפייה במשדרים פעילים (לא התחלת שידור) | HYPER CORE TECH
     if (key === 'live') {
       closeAllOverlays();
       updateNavSelection('live');
-      if (typeof App.openLiveBroadcast === 'function') {
-        App.openLiveBroadcast({ slug: 'live' });
+      if (typeof App.openLiveWatchHub === 'function') {
+        App.openLiveWatchHub();
         return;
       }
-      console.warn('[NAV] openLiveBroadcast not available');
+      console.warn('[NAV] openLiveWatchHub not available');
       return;
     }
     

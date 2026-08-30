@@ -1,22 +1,453 @@
-/* חלק שידור חי (live-stream.css) – עיצוב דיאלוג וכרטיס פיד */
-.live-modal { position: fixed; inset: 0; z-index: 11000; display: grid; place-items: center; }
-.live-modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
-.live-modal__content { position: relative; width: min(920px, 96vw); height: min(640px, 86vh); background: #111418; color: #fff; border-radius: 16px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
-.live-modal__header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #0f1317; border-bottom: 1px solid rgba(255,255,255,.08); }
-.live-modal__close { background: transparent; border: none; color: #fff; font-size: 18px; cursor: pointer; }
-.live-modal__body { display: grid; grid-template-rows: 1fr auto; }
-.live-modal__videos { position: relative; background: #000; }
-.live-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
-.live-video--local { position: absolute; right: 12px; bottom: 12px; width: 200px; height: 120px; border-radius: 12px; object-fit: cover; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
-.live-modal__actions { display: flex; justify-content: center; gap: 12px; padding: 12px; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.6)); }
+/* חלק שידור חי (live-stream.css) – במה + מרכז צפייה באאווירת SOS | HYPER CORE TECH */
 
-/* כרטיס פיד לשידור חי */
-.live-card { background: #111418; color: #fff; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px; margin: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
-.live-card__header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.live-card__owner { margin-inline-start: auto; opacity: .75; font-size: 12px; }
-.live-card__body { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+body.live-hub-open,
+body.live-modal-open {
+  overflow: hidden;
+}
 
-@media (max-width: 640px) {
-  .live-modal__content { width: 100vw; height: 100vh; border-radius: 0; }
-  .live-video--local { right: 10px; bottom: 10px; width: 140px; height: 96px; border-radius: 10px; }
+/* ===== דיאלוג שידור / צפייה ===== */
+.live-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: grid;
+  place-items: stretch;
+}
+
+.live-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.live-modal__content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  background: #000;
+  color: #fff;
+  border-radius: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  box-shadow: none;
+}
+
+.live-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-top: calc(12px + var(--safe-top, 0px));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.35));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 2;
+}
+
+.live-modal__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-modal__header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.live-modal__live-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  box-shadow: 0 0 10px rgba(254, 44, 85, 0.45);
+}
+
+.live-modal__live-badge--watch {
+  background: #00afff;
+  box-shadow: 0 0 10px rgba(0, 175, 255, 0.45);
+}
+
+.live-modal__close {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.live-modal__body {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 0;
+}
+
+.live-modal__videos {
+  position: relative;
+  background: #000;
+  min-height: 0;
+}
+
+.live-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.live-video--local {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 132px;
+  height: 176px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.live-modal__stage-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.live-modal__stage-hint.is-live {
+  color: #fe2c55;
+}
+
+.live-modal__actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px calc(14px + var(--safe-bottom, 0px));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.85));
+  z-index: 2;
+}
+
+.live-modal__end-btn {
+  min-width: 160px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+@media (min-width: 769px) {
+  .live-modal {
+    right: var(--videos-desktop-nav-width, 220px);
+  }
+
+  .live-modal__content {
+    border-inline-end: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .live-video--local {
+    width: 180px;
+    height: 240px;
+  }
+}
+
+/* ===== מרכז צפייה (תפריט שידור חי) ===== */
+.live-hub {
+  position: fixed;
+  inset: 0;
+  z-index: 9800;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #fff;
+}
+
+.live-hub[hidden] {
+  display: none !important;
+}
+
+.live-hub__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  padding-top: calc(14px + var(--safe-top, 0px));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000;
+}
+
+.live-hub__back {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.live-hub__titles {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+.live-hub__titles h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.live-hub__titles p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.live-hub__live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fe2c55;
+  box-shadow: 0 0 10px rgba(254, 44, 85, 0.8);
+  animation: live-hub-pulse 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes live-hub-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.live-hub__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: calc(16px + var(--safe-bottom, 0px) + 64px);
+}
+
+.live-hub__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48vh;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.live-hub__empty i {
+  font-size: 36px;
+  color: #00afff;
+  filter: drop-shadow(0 0 10px rgba(0, 175, 255, 0.45));
+  margin-bottom: 8px;
+}
+
+.live-hub__empty p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.live-hub__empty span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 280px;
+}
+
+.live-hub__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.live-hub__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.live-hub__item-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.live-hub__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 175, 255, 0.12);
+  color: #00afff;
+  flex-shrink: 0;
+}
+
+.live-hub__meta {
+  min-width: 0;
+  text-align: right;
+}
+
+.live-hub__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  flex-direction: row-reverse;
+}
+
+.live-hub__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.live-hub__viewers {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.live-hub__watch-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: #00afff;
+  color: #000;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(0, 175, 255, 0.35);
+}
+
+@media (min-width: 769px) {
+  .live-hub {
+    right: var(--videos-desktop-nav-width, 220px);
+    border-inline-end: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .live-hub__body {
+    padding: 20px 24px 32px;
+    max-width: 720px;
+    margin-inline: auto;
+    width: 100%;
+  }
+}
+
+/* toast קצר כשיש שידור חדש בזמן גלילה */
+.live-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(72px + var(--safe-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 12000;
+  max-width: min(92vw, 420px);
+}
+
+.live-toast__inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(12, 12, 14, 0.92);
+  border: 1px solid rgba(0, 175, 255, 0.35);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.live-toast__inner i {
+  color: #00afff;
+}
+
+.live-toast__inner .button-primary {
+  margin-inline-start: auto;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #00afff;
+  color: #000;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (min-width: 769px) {
+  .live-toast {
+    right: calc(var(--videos-desktop-nav-width, 220px) + 24px);
+    left: auto;
+    transform: none;
+    bottom: 28px;
+  }
+}
+
+/* תאימות לאחור – כרטיס ישן אם מופיע */
+.live-card {
+  background: #111418;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px;
+}
+.live-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.live-card__owner {
+  margin-inline-start: auto;
+  opacity: 0.75;
+  font-size: 12px;
+}
+.live-card__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }

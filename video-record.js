@@ -96,7 +96,13 @@ class VideoRecorder {
     this.reviewBackBtn?.addEventListener('click', () => this.backToCamera());
     this.nextBtn?.addEventListener('click', () => this.confirmPendingFile());
     this.liveBtn?.addEventListener('click', () => {
-      alert('שידור חי יופיע כאן בקרוב');
+      try { this.closeModal(); } catch (_) {}
+      const LiveApp = window.NostrApp || {};
+      if (typeof LiveApp.openLiveBroadcast === 'function') {
+        LiveApp.openLiveBroadcast({ slug: 'live' });
+        return;
+      }
+      alert('שידור חי לא זמין כרגע');
     });
     this.bgDismiss?.addEventListener('click', (e) => {
       e.preventDefault();
