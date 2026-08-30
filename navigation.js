@@ -349,6 +349,20 @@
 
     console.log('[NAV] Navigation clicked:', key);
     const previousNav = App.activeNav;
+
+    // LIVE TV: פתיחת פיד IPTV גם אם היה overlay פתוח | HYPER CORE TECH
+    if (key === 'live-tv') {
+      closeAllOverlays();
+      updateNavSelection('live-tv');
+      if (typeof App.openLiveTvFeed === 'function') {
+        App.openLiveTvFeed();
+        return;
+      }
+      if (typeof window.openLiveTvFeed === 'function') {
+        window.openLiveTvFeed();
+      }
+      return;
+    }
     
     // חלק סגירת overlays (navigation.js) – בית מטופל ב־handleHomeButtonAction (בלי רענון בלחיצה 1) | HYPER CORE TECH
     let overlayClosed = false;

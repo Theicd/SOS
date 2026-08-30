@@ -107,7 +107,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260830nofriends1">
+    <link rel="stylesheet" href="./styles/videos.css?v=20260830livetvnav1">
     <!-- סייבר אחרי videos.css – כדי שינצח בדסקטופ ובמובייל | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/chat-desktop-sos-cyber.css?v=20260819meta2">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
@@ -2195,7 +2195,7 @@
         App.activeNav = 'videos';
       })();
     </script>
-    <script src="./navigation.js?v=20260828share2" defer></script>
+    <script src="./navigation.js?v=20260830livetv1" defer></script>
     <script src="./feed.js?v=20260826feedfix1" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
@@ -2523,6 +2523,11 @@
       <button class="nav-item" data-nav="explore" aria-label="סייר">
         <i class="fa-regular fa-compass"></i>
         <span>סייר</span>
+      </button>
+      <!-- חלק LIVE TV (videos.html) – פיד IPTV בדסקטופ בלבד (מתחת לסייר) | HYPER CORE TECH -->
+      <button class="nav-item" id="navLiveTv" type="button" data-nav="live-tv" aria-label="LIVE TV" title="LIVE TV">
+        <i class="fa-solid fa-tv" aria-hidden="true"></i>
+        <span>LIVE TV</span>
       </button>
       <!-- חלק במעקב (videos.html) – כפתור עוקבים בסגנון sos010.html | HYPER CORE TECH -->
       <button class="nav-item" data-nav="following" aria-label="במעקב">

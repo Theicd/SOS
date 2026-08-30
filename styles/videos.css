@@ -957,6 +957,7 @@ body:has(.videos-feed) .nav-section-title,
 body:has(.videos-feed) .nav-users-list,
 body:has(.videos-feed) .nav-footer,
 body:has(.videos-feed) .nav-item[data-nav="explore"],
+body:has(.videos-feed) .nav-item[data-nav="live-tv"],
 body:has(.videos-feed) .nav-item[data-nav="following"],
 body:has(.videos-feed) .nav-item[data-nav="live"],
 body:has(.videos-feed) #moreOptionsToggle {
@@ -4246,10 +4247,17 @@ body.global-stop .videos-feed__play-overlay {
   body:has(.videos-feed) .nav-users-list,
   body:has(.videos-feed) .nav-footer,
   body:has(.videos-feed) .nav-item[data-nav="explore"],
+  body:has(.videos-feed) .nav-item[data-nav="live-tv"],
   body:has(.videos-feed) .nav-item[data-nav="following"],
   body:has(.videos-feed) .nav-item[data-nav="live"],
   body:has(.videos-feed) #moreOptionsToggle {
     display: flex !important;
+  }
+
+  /* דסקטופ: LIVE TV בתפריט הימני — מסתירים את כפתור הטופ־בר | HYPER CORE TECH */
+  body:has(.videos-feed) .top-bar__live-tv-btn,
+  body:has(.videos-feed) #liveTvToggleTop {
+    display: none !important;
   }
 
   /* חלק קו הפרדה בתפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
