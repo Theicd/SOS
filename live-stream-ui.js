@@ -25,6 +25,8 @@
   const bannerShownRooms = new Set();
   let liveBannerEl = null;
   let liveBannerTimer = null;
+  const seenLiveEventIds = new Set();
+  let liveLikeCount = 0;
 
   function formatDuration(ms) {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -187,10 +189,7 @@
     if (topic) topic.textContent = title;
     setStudioPhase('live');
     startTimerUi();
-    try {
-      const st = App.live && App.live.getState && App.live.getState();
-      if (st && st.roomId) startLiveChatSub(st.roomId);
-    } catch (_) {}
+    // צ'אט נפתח ב־onLiveStarted — לא כאן, כדי לא לכפול אירועים | HYPER CORE TECH
   }
 
   function openSetupStudio() {
@@ -246,10 +245,18 @@
 
           <aside class="live-studio__side live-studio__side--live" id="liveStudioLivePanel" hidden style="display:none">
             <div class="live-studio__live-top">
+              <div class="live-studio__host" data-live-host>
+                <div class="live-studio__host-av" data-host-av></div>
+                <div class="live-studio__host-meta">
+                  <strong data-host-name>אני</strong>
+                  <span class="live-studio__host-live">בשידור</span>
+                </div>
+              </div>
               <div class="live-studio__live-stats">
-                <span class="live-studio__pill">LIVE</span>
+                <span class="live-studio__pill live-studio__pill--pulse">LIVE</span>
                 <strong data-live-topic>שידור חי</strong>
                 <span data-live-viewers>1 צופה</span>
+                <span class="live-studio__like-count" data-live-likes title="לייקים">❤ 0</span>
               </div>
               <button type="button" class="live-studio__btn live-studio__btn--danger live-studio__btn--block" data-action="end">
                 סיים שידור
@@ -257,10 +264,16 @@
             </div>
 
             <div class="live-studio__chat" aria-label="תגובות השידור">
-              <div class="live-studio__chat-head">תגובות מהצופים</div>
+              <div class="live-studio__chat-head">צ'אט חי</div>
               <div class="live-studio__chat-list" id="liveStudioChatList" role="log" aria-live="polite">
                 <div class="live-studio__chat-empty" data-chat-empty>עדיין אין תגובות</div>
               </div>
+              <form class="live-studio__chat-compose" id="liveStudioChatForm" autocomplete="off">
+                <input id="liveStudioChatInput" class="live-studio__chat-input" type="text" maxlength="280" placeholder="כתוב תגובה לצופים…" aria-label="תגובה">
+                <button type="submit" class="live-studio__chat-send" aria-label="שלח">
+                  <i class="fa-solid fa-paper-plane"></i>
+                </button>
+              </form>
             </div>
           </aside>
         </div>
@@ -286,6 +299,19 @@
         applyAspectUi(); // CSS בלבד — בלי getUserMedia מחדש
       });
     });
+    const chatForm = studio.querySelector('#liveStudioChatForm');
+    if (chatForm) {
+      chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = studio.querySelector('#liveStudioChatInput');
+        const text = String(input && input.value || '').trim();
+        if (!text) return;
+        if (input) input.value = '';
+        const ok = await App.publishLiveChat(null, text);
+        if (!ok && input) input.value = text;
+      });
+    }
+    fillHostIdentityUi();
 
     ensurePreviewCamera().catch((err) => {
       console.warn('live camera failed', err);
@@ -335,6 +361,7 @@
   App.onLiveStarted = function() {
     const timer = studio && studio.querySelector('[data-live-timer]');
     if (timer) timer.hidden = false;
+    fillHostIdentityUi();
     try {
       const st = App.live && App.live.getState && App.live.getState();
       if (st && st.roomId) startLiveChatSub(st.roomId);
@@ -387,7 +414,8 @@
     if (!layer) return;
     const heart = doc.createElement('span');
     heart.className = 'live-studio__heart';
-    heart.textContent = '❤';
+    const variants = ['❤', '💗', '💖', '💕'];
+    heart.textContent = variants[Math.floor(Math.random() * variants.length)];
     const drift = (Math.random() * 70) - 35;
     const scale = 0.85 + Math.random() * 0.55;
     heart.style.setProperty('--hx', `${drift}px`);
@@ -396,6 +424,16 @@
     setTimeout(() => {
       try { heart.remove(); } catch (_) {}
     }, 2200);
+  }
+
+  function updateLikeCountUi() {
+    const el = studio && studio.querySelector('[data-live-likes]');
+    if (el) el.textContent = `❤ ${liveLikeCount}`;
+  }
+
+  function bumpLikeCount(n) {
+    liveLikeCount = Math.max(0, liveLikeCount + (Number(n) || 1));
+    updateLikeCountUi();
   }
 
   function clearChatUi() {
@@ -412,13 +450,26 @@
       .replace(/"/g, '&quot;');
   }
 
+  function isStubName(name, pubkey) {
+    const n = String(name || '').trim();
+    if (!n) return true;
+    if (/^משתמש\s+[0-9a-f]{6,16}$/i.test(n)) return true;
+    if (/^[0-9a-f]{6,16}$/i.test(n)) return true;
+    if (pubkey) {
+      const pk = String(pubkey).toLowerCase();
+      if (n.toLowerCase() === pk.slice(0, n.length) && n.length >= 6) return true;
+    }
+    return false;
+  }
+
   function resolveLocalIdentity() {
     const prof = App.profile || {};
     const cached = (App.profileCache instanceof Map && App.publicKey)
       ? (App.profileCache.get(App.publicKey) || App.profileCache.get(String(App.publicKey).toLowerCase()) || {})
       : {};
-    const name = String(prof.name || cached.name || '').trim()
-      || (App.publicKey ? `משתמש ${String(App.publicKey).slice(0, 8)}` : 'צופה');
+    let name = String(prof.name || prof.display_name || cached.name || cached.display_name || '').trim();
+    if (isStubName(name, App.publicKey)) name = '';
+    if (!name && App.publicKey) name = `משתמש ${String(App.publicKey).slice(0, 8)}`;
     const picture = String(prof.picture || cached.picture || '').trim();
     return { name: name.slice(0, 48), picture };
   }
@@ -431,21 +482,52 @@
     return App.profileCache.get(key) || App.profileCache.get(low) || {};
   }
 
+  function profileDisplayName(profile, pubkey) {
+    const p = profile || {};
+    let name = String(p.name || p.display_name || '').trim();
+    if (isStubName(name, pubkey)) name = '';
+    return name || (pubkey ? `משתמש ${String(pubkey).slice(0, 8)}` : 'צופה');
+  }
+
   function initialsFromName(name) {
     const s = String(name || '').trim();
     if (!s) return '?';
-    const parts = s.split(/\s+/).filter(Boolean);
+    const cleaned = s.replace(/^משתמש\s+/i, '');
+    const parts = cleaned.split(/\s+/).filter(Boolean);
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return s.slice(0, 2).toUpperCase();
+    return cleaned.slice(0, 2).toUpperCase();
   }
 
-  function appendChatMessage(author, text, picture) {
+  function fillHostIdentityUi() {
+    if (!studio) return;
+    const id = resolveLocalIdentity();
+    const nameEl = studio.querySelector('[data-host-name]');
+    if (nameEl) nameEl.textContent = id.name;
+    const av = studio.querySelector('[data-host-av]');
+    if (!av) return;
+    av.innerHTML = '';
+    if (id.picture) {
+      const img = doc.createElement('img');
+      img.src = id.picture;
+      img.alt = '';
+      img.onerror = () => { av.textContent = initialsFromName(id.name); img.remove(); };
+      av.appendChild(img);
+    } else {
+      av.textContent = initialsFromName(id.name);
+    }
+  }
+
+  function appendChatMessage(author, text, picture, opts) {
     const list = studio && studio.querySelector('#liveStudioChatList');
     if (!list) return;
     const empty = list.querySelector('[data-chat-empty]');
     if (empty) empty.remove();
     const row = doc.createElement('div');
     row.className = 'live-studio__chat-item';
+    if (opts && opts.self) row.classList.add('is-self');
+    if (opts && opts.eventId) row.dataset.eventId = opts.eventId;
+    if (opts && opts.pubkey) row.dataset.pubkey = opts.pubkey;
+
     const av = doc.createElement('div');
     av.className = 'live-studio__chat-avatar';
     const pic = String(picture || '').trim();
@@ -476,15 +558,53 @@
     list.scrollTop = list.scrollHeight;
   }
 
+  function enrichChatRowFromProfile(pubkey, profile) {
+    if (!studio || !pubkey || !profile) return;
+    const name = profileDisplayName(profile, pubkey);
+    const picture = String(profile.picture || '').trim();
+    studio.querySelectorAll(`.live-studio__chat-item[data-pubkey="${pubkey}"]`).forEach((row) => {
+      const who = row.querySelector('strong');
+      if (who && !isStubName(name, pubkey)) who.textContent = name.slice(0, 24);
+      const av = row.querySelector('.live-studio__chat-avatar');
+      if (av && picture && !av.querySelector('img')) {
+        av.textContent = '';
+        const img = doc.createElement('img');
+        img.src = picture;
+        img.alt = '';
+        av.appendChild(img);
+      }
+    });
+  }
+
+  function closeChatSubHandle(sub) {
+    if (!sub) return;
+    try {
+      if (typeof sub.close === 'function') sub.close();
+      else if (typeof sub.unsub === 'function') sub.unsub();
+      else if (typeof sub.unsubscribe === 'function') sub.unsubscribe();
+    } catch (_) {}
+  }
+
   function stopLiveChatSub() {
-    activeChatRoomId = null;
+    closeChatSubHandle(chatSub);
     chatSub = null;
+    activeChatRoomId = null;
+    seenLiveEventIds.clear();
+    liveLikeCount = 0;
+    updateLikeCountUi();
   }
 
   function startLiveChatSub(roomId) {
     if (!roomId || !App.pool || !Array.isArray(App.relayUrls)) return;
+    if (activeChatRoomId === roomId && chatSub) return;
+    closeChatSubHandle(chatSub);
+    chatSub = null;
     activeChatRoomId = roomId;
+    seenLiveEventIds.clear();
+    liveLikeCount = 0;
+    updateLikeCountUi();
     clearChatUi();
+    fillHostIdentityUi();
     const since = Math.floor(Date.now() / 1000) - 30;
     try {
       chatSub = App.pool.subscribeMany(
@@ -493,6 +613,14 @@
         {
           onevent: (ev) => {
             try {
+              if (!ev || !ev.id) return;
+              if (seenLiveEventIds.has(ev.id)) return;
+              seenLiveEventIds.add(ev.id);
+              if (seenLiveEventIds.size > 800) {
+                const first = seenLiveEventIds.values().next().value;
+                seenLiveEventIds.delete(first);
+              }
+
               const tType = ev.tags.find((t) => t[0] === 'type');
               if (!tType) return;
               const tRoom = ev.tags.find((t) => t[0] === 'r');
@@ -501,6 +629,7 @@
 
               if (kind === 'live-like') {
                 if (App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase()) return;
+                bumpLikeCount(1);
                 spawnFloatingHeart();
                 spawnFloatingHeart();
                 return;
@@ -517,12 +646,16 @@
               const text = payload.text || '';
               if (!text) return;
               const cached = lookupProfileSync(ev.pubkey);
-              const author = String(payload.name || cached.name || '').trim()
-                || (ev.pubkey ? `משתמש ${String(ev.pubkey).slice(0, 8)}` : 'צופה');
+              let author = String(payload.name || '').trim();
+              if (isStubName(author, ev.pubkey)) author = '';
+              author = author || profileDisplayName(cached, ev.pubkey);
               const picture = String(payload.picture || cached.picture || '').trim();
-              appendChatMessage(author, text, picture);
-              if (!cached.name && typeof App.fetchProfile === 'function') {
-                App.fetchProfile(ev.pubkey).catch(() => null);
+              const self = !!(App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase());
+              appendChatMessage(author, text, picture, { eventId: ev.id, pubkey: ev.pubkey, self });
+              if ((isStubName(author, ev.pubkey) || !picture) && typeof App.fetchProfile === 'function') {
+                App.fetchProfile(ev.pubkey).then((p) => {
+                  if (p) enrichChatRowFromProfile(ev.pubkey, p);
+                }).catch(() => null);
               }
             } catch (_) {}
           },
@@ -541,10 +674,14 @@
     if (!App.pool || !App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') return false;
     try {
       const id = resolveLocalIdentity();
+      // תמונת data: גדולה לא נשלחת — שם חובה; הצופים משלימים מתמונת פרופיל | HYPER CORE TECH
+      const picture = (id.picture && id.picture.length < 2500 && !id.picture.startsWith('data:'))
+        ? id.picture
+        : (id.picture && id.picture.startsWith('data:') && id.picture.length < 2500 ? id.picture : '');
       const content = JSON.stringify({
         text: msg.slice(0, 280),
         name: id.name,
-        picture: id.picture && id.picture.length < 4000 ? id.picture : '',
+        picture,
         roomId: rid
       });
       const ev = {
@@ -719,12 +856,29 @@
     const safeId = `p2plive-${String(meta.roomId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96)}`;
     App._p2pLivePendingStreams.set(safeId, stream);
 
-    if (typeof App.upsertP2pLiveFeedCard === 'function') {
-      App.upsertP2pLiveFeedCard({
-        ...meta,
-        streamReady: true,
-        cardId: safeId
-      });
+    const upsert = (enriched) => {
+      if (typeof App.upsertP2pLiveFeedCard === 'function') {
+        App.upsertP2pLiveFeedCard({
+          ...enriched,
+          streamReady: true,
+          cardId: safeId
+        });
+      }
+    };
+
+    upsert(meta);
+    if (typeof App.fetchProfile === 'function' && meta.owner) {
+      App.fetchProfile(meta.owner).then((p) => {
+        if (!p) return;
+        const enriched = {
+          ...meta,
+          name: p.name || p.display_name || meta.name || '',
+          picture: p.picture || meta.picture || ''
+        };
+        knownRooms.set(meta.roomId, enriched);
+        verifiedRooms.set(meta.roomId, { ...enriched, verifiedAt: Date.now() });
+        upsert(enriched);
+      }).catch(() => null);
     }
   }
 

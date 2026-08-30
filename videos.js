@@ -8857,7 +8857,7 @@ function upsertP2pLiveFeedCard(room) {
   const profile = (app.profileCache instanceof Map)
     ? (app.profileCache.get(room.owner) || app.profileCache.get(String(room.owner).toLowerCase()) || {})
     : {};
-  const authorName = String(room.name || profile.name || '').trim() || String(room.owner).slice(0, 8);
+  const authorName = String(room.name || profile.name || profile.display_name || '').trim() || String(room.owner).slice(0, 8);
   const authorPicture = String(room.picture || profile.picture || '').trim();
   const video = {
     id: safeId,
@@ -8874,6 +8874,47 @@ function upsertP2pLiveFeedCard(room) {
     p2pLiveStreamReady: true,
   };
   upsertVideoInState(video, { forceShow: true, immediate: true });
+
+    // עדכון אווטאר/שם בכרטיס קיים אחרי fetchProfile | HYPER CORE TECH
+  try {
+    const media = Array.from(document.querySelectorAll('.videos-feed__media[data-live-room-id]'))
+      .find((m) => m.dataset.liveRoomId === room.roomId);
+    const card = media && media.closest('.videos-feed__card');
+    if (card && (authorPicture || authorName)) {
+      const avBtn = card.querySelector('[data-author-button], .videos-feed__author');
+      if (avBtn && authorPicture) {
+        let img = avBtn.querySelector('img');
+        if (!img) {
+          img = document.createElement('img');
+          avBtn.innerHTML = '';
+          avBtn.appendChild(img);
+        }
+        img.src = authorPicture;
+        img.alt = authorName;
+      }
+      const nameEl = card.querySelector('.videos-feed__author-name, [data-author-name]');
+      if (nameEl && authorName) nameEl.textContent = authorName;
+    }
+  } catch (_) {}
+
+  if (room._profileResolved) return;
+
+  if (typeof app.fetchProfile === 'function') {
+    app.fetchProfile(room.owner).then((p) => {
+      if (!p) return;
+      const nextName = String(p.name || p.display_name || room.name || '').trim();
+      const nextPic = String(p.picture || room.picture || '').trim();
+      if (nextName === authorName && nextPic === authorPicture) return;
+      upsertP2pLiveFeedCard({
+        ...room,
+        name: nextName,
+        picture: nextPic,
+        streamReady: true,
+        cardId: safeId,
+        _profileResolved: true
+      });
+    }).catch(() => null);
+  }
 }
 
 function markP2pLiveEnded(roomId, message) {

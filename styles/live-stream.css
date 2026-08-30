@@ -110,7 +110,30 @@ body.live-studio-open {
   background: #111;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  transition: width 0.2s ease, height 0.2s ease, aspect-ratio 0.2s ease;
+  transition: width 0.2s ease, height 0.2s ease, aspect-ratio 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.live-studio[data-phase="live"] .live-studio__preview-frame {
+  border-color: rgba(254, 44, 85, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(254, 44, 85, 0.25),
+    0 0 28px rgba(254, 44, 85, 0.28),
+    0 0 48px rgba(0, 175, 255, 0.12),
+    0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.live-studio[data-phase="live"] .live-studio__preview-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(254, 44, 85, 0.12) 0%, transparent 28%, transparent 72%, rgba(0, 175, 255, 0.1) 100%);
+  z-index: 3;
+}
+
+.live-studio[data-phase="live"] {
+  background: radial-gradient(1200px 600px at 50% 0%, rgba(254, 44, 85, 0.12), transparent 55%), #000;
 }
 
 /* מסגרת תצוגה בלבד — הווידאו object-fit:cover בתוך המסגרת */
@@ -189,6 +212,75 @@ body.live-studio-open {
   flex-direction: column;
   gap: 10px;
   flex-shrink: 0;
+}
+
+.live-studio__host {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(254, 44, 85, 0.16), rgba(0, 175, 255, 0.08));
+  border: 1px solid rgba(254, 44, 85, 0.25);
+}
+
+.live-studio__host-av {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid #fe2c55;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.live-studio__host-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.live-studio__host-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-studio__host-meta strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-studio__host-live {
+  font-size: 11px;
+  color: #fe2c55;
+  font-weight: 700;
+}
+
+.live-studio__pill--pulse {
+  animation: live-pill-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes live-pill-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(254, 44, 85, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(254, 44, 85, 0); }
+}
+
+.live-studio__like-count {
+  margin-inline-start: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(254, 44, 85, 0.18);
+  color: #ff8aa5;
+  font-weight: 800;
+  font-size: 12px;
 }
 
 .live-studio__chat {
@@ -271,11 +363,64 @@ body.live-studio-open {
   color: #00afff;
 }
 
+.live-studio__chat-item.is-self {
+  background: rgba(254, 44, 85, 0.12);
+  border: 1px solid rgba(254, 44, 85, 0.2);
+}
+
+.live-studio__chat-item.is-self strong {
+  color: #ff8aa5;
+}
+
 .live-studio__chat-item span {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.92);
   line-height: 1.35;
   word-break: break-word;
+}
+
+.live-studio__chat-compose {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.live-studio__chat-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 0 14px;
+  font-size: 13px;
+  outline: none;
+}
+
+.live-studio__chat-input:focus {
+  border-color: rgba(0, 175, 255, 0.55);
+}
+
+.live-studio__chat-send {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: #fe2c55;
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.live-studio__chat-send:hover {
+  filter: brightness(1.08);
 }
 
 @media (max-width: 768px) {
@@ -391,6 +536,7 @@ body.live-studio-open {
   border-radius: 12px;
   background: rgba(254, 44, 85, 0.1);
   border: 1px solid rgba(254, 44, 85, 0.28);
+  font-size: 13px;
 }
 
 .live-studio__confirm {

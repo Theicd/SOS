@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.30-pwa379-live-chat-banner-end",
-  "buildTime": "2026-08-30T05:45:00+03:00",
-  "notes": "Live chat name+avatar, go-live top banner, viewer end overlay"
+  "version": "2026.08.30-pwa380-live-studio-chat-polish",
+  "buildTime": "2026-08-30T05:55:00+03:00",
+  "notes": "Dedup live chat, names, broadcaster composer, likes counter, studio polish"
 }
