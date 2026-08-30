@@ -4260,6 +4260,29 @@ body.global-stop .videos-feed__play-overlay {
     display: none !important;
   }
 
+  /* Free IP TV – כחול זוהר כמו אייקון שיחות (#00afff) + פעימה איטית | HYPER CORE TECH */
+  body:has(.videos-feed) .nav-item[data-nav="live-tv"] > i,
+  body:has(.videos-feed) .nav-item[data-nav="live-tv"].is-active > i {
+    color: #00afff !important;
+    animation: free-ip-tv-glow 2.8s ease-in-out infinite;
+  }
+
+  @keyframes free-ip-tv-glow {
+    0%, 100% {
+      filter:
+        drop-shadow(0 0 2px rgba(0, 175, 255, 0.25))
+        drop-shadow(0 0 6px rgba(0, 175, 255, 0.15));
+      opacity: 0.72;
+    }
+    50% {
+      filter:
+        drop-shadow(0 0 3px rgba(0, 175, 255, 0.95))
+        drop-shadow(0 0 8px rgba(0, 175, 255, 0.7))
+        drop-shadow(0 0 14px rgba(0, 175, 255, 0.4));
+      opacity: 1;
+    }
+  }
+
   /* חלק קו הפרדה בתפריט צד (videos.css) – כמו ב-sos010.html | HYPER CORE TECH */
   body:has(.videos-feed) .primary-nav .nav-separator {
     display: block !important;
