@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.30-pwa386-live-multi-viewer-stable",
-  "buildTime": "2026-08-30T18:15:00+03:00",
-  "notes": "Live: filter signals by #p; keep alive PCs; direct-only (no mesh) for multi-viewer"
+  "version": "2026.08.30-pwa387-youtube-bg-stop",
+  "buildTime": "2026-08-30T23:45:00+03:00",
+  "notes": "Hard-stop YouTube iframes on pause; one active card after IO/boot"
 }

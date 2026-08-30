@@ -1100,6 +1100,11 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
 
+  // יוטיוב: לפני ניגון — סוגרים כל iframe אחר שלא יישאר ברקע | HYPER CORE TECH
+  if (mediaType === 'youtube') {
+    stopAllYouTubePlayersExcept(mediaDiv);
+  }
+
   if (mediaType === 'file') {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return;
@@ -1191,16 +1196,8 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
       App.deactivateGameMedia(mediaDiv);
     }
   } else if (mediaType === 'youtube') {
-    const iframe = mediaDiv.querySelector('iframe');
-    if (iframe) {
-      iframe.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":[]}', '*');
-      if (resetThumb) {
-        iframe.remove();
-        restoreYouTubeThumbnail(mediaDiv);
-      }
-    } else if (resetThumb) {
-      restoreYouTubeThumbnail(mediaDiv);
-    }
+    // תמיד הורסים iframe — postMessage pause לא אמין ונשאר סאונד ברקע | HYPER CORE TECH
+    stopYouTubeInMedia(mediaDiv);
   }
 
   mediaDiv.dataset.state = 'paused';
@@ -1221,6 +1218,45 @@ function updatePlayToggleIcon(mediaDiv, isPlaying) {
   if (!toggleBtn) return;
   toggleBtn.innerHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
   toggleBtn.setAttribute('aria-label', isPlaying ? 'Pause video' : 'Play video');
+}
+
+// חלק YouTube (videos.js) – עצירה קשיחה: מחיקת iframe + החזרת thumb | HYPER CORE TECH
+function stopYouTubeInMedia(mediaDiv) {
+  if (!mediaDiv) return;
+  const iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"], iframe[src*="youtu.be"]');
+  if (iframe) {
+    try {
+      iframe.contentWindow?.postMessage('{"event":"command","func":"stopVideo","args":[]}', '*');
+    } catch (_) {}
+    try {
+      iframe.src = 'about:blank';
+    } catch (_) {}
+    try { iframe.remove(); } catch (_) {}
+  }
+  restoreYouTubeThumbnail(mediaDiv);
+  try {
+    const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
+    if (thumb) thumb.style.opacity = '1';
+  } catch (_) {}
+}
+
+function stopAllYouTubePlayersExcept(keepMediaDiv) {
+  document.querySelectorAll('.videos-feed__media[data-media-type="youtube"]').forEach((media) => {
+    if (keepMediaDiv && media === keepMediaDiv) return;
+    const hasIframe = media.querySelector('iframe');
+    if (!hasIframe) return;
+    stopYouTubeInMedia(media);
+    if (media.dataset.state === 'playing') {
+      media.dataset.state = 'paused';
+      updatePlayToggleIcon(media, false);
+      media.classList.remove('is-paused');
+    }
+    if (activeMediaDiv === media) activeMediaDiv = null;
+  });
+}
+
+function stopAllYouTubePlayers() {
+  stopAllYouTubePlayersExcept(null);
 }
 
 // חלק שיחות (videos.js) – עצירת כל הווידיאו בפיד כשמתחילה שיחת קול/וידיאו | HYPER CORE TECH
@@ -1252,15 +1288,8 @@ function pauseAllFeedVideos(options = {}) {
     }
   });
   
-  // עצירת כל ה-YouTube iframes
-  const allIframes = document.querySelectorAll('iframe[src*="youtube"]');
-  allIframes.forEach(iframe => {
-    try {
-      iframe.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":[]}', '*');
-    } catch (e) {
-      console.warn('[VIDEOS] Failed to pause YouTube iframe', e);
-    }
-  });
+  // יוטיוב: הורסים iframes — לא רק pause postMessage | HYPER CORE TECH
+  stopAllYouTubePlayers();
   
   // כיבוי PLAY גלובלי רק כשצריך (שיחה וכו') – לא ברינדור מחדש של LIVE/משחקים | HYPER CORE TECH
   if (options.disableAutoplay !== false) {
@@ -1279,7 +1308,7 @@ function ensureYouTubeIframe(mediaDiv, { autoplay = false } = {}) {
     iframe.className = 'videos-feed__media-iframe';
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     iframe.allowFullscreen = true;
-    iframe.src = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=${autoplay ? 1 : 0}&rel=0`;
+    iframe.src = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=${autoplay ? 1 : 0}&rel=0&playsinline=1`;
     // הסתרת תמונה ממוזערת אם קיימת
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (thumb) thumb.style.opacity = '0';
@@ -2739,8 +2768,9 @@ async function releaseBootLoading(reason = 'ready') {
     const viewport = document.querySelector('.videos-feed__viewport');
     if (viewport) viewport.scrollTop = 0;
   } catch (_) {}
-  // לא pause/seek לכל הווידאו — זה גורם למשטח ירוק ב־Android | HYPER CORE TECH
-  // רק מאפסים את הכרטיס הראשון אם צריך, ואז play | HYPER CORE TECH
+  // לא pause/seek לכל הווידאו קובץ — זה גורם למשטח ירוק ב־Android | HYPER CORE TECH
+  // יוטיוב כן מנוקים לפני play ראשון — מונע כמה iframes אחרי boot | HYPER CORE TECH
+  try { stopAllYouTubePlayers(); } catch (_) {}
   try {
     const firstCard = selectors.stream?.querySelector('.videos-feed__card[data-event-id]');
     const firstVideo = firstCard?.querySelector('.videos-feed__media[data-media-type="file"] video');
@@ -6434,6 +6464,10 @@ function setupIntersectionObserver() {
       // במסך מלא של ערוץ – לא מחליפים/עוצרים בגלל סיבוב או IO | HYPER CORE TECH
       if (document.body.classList.contains('live-channel-fullscreen')) return;
 
+      // יוטיוב/פיד רגיל: רק הכרטיס הכי גלוי (>50%) — מונע כמה autoplay ביחד אחרי boot | HYPER CORE TECH
+      let bestFeedEntry = null;
+      const feedCandidates = [];
+
       entries.forEach((entry) => {
         const card = entry.target;
         const mediaDiv = card.querySelector('.videos-feed__media');
@@ -6453,6 +6487,9 @@ function setupIntersectionObserver() {
         // שידור חי P2P – ניגון כרטיס כמו LIVE TV | HYPER CORE TECH
         if (mediaDiv.dataset.mediaType === 'p2p-live') {
           if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            if (activeMediaDiv && activeMediaDiv !== mediaDiv) {
+              pauseMedia(activeMediaDiv, { resetThumb: false });
+            }
             playP2pLiveMedia(mediaDiv);
           } else if (!entry.isIntersecting) {
             pauseMedia(mediaDiv, { resetThumb: false });
@@ -6480,21 +6517,13 @@ function setupIntersectionObserver() {
           }
           return;
         }
-        
-        // ניגון כשהפוסט מרכזי (50%+ גלוי)
-        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-          playMedia(mediaDiv, { manual: false });
-          prefetchNeighborLiveChannels(card);
-          // גלילה לפוסט אחר — סגירת פאנל תגובות של הפוסט הקודם | HYPER CORE TECH
-          try {
-            const openId = getOpenCommentsEventId();
-            const cardId = card.getAttribute('data-event-id');
-            if (openId && cardId && openId !== cardId) {
-              closeCommentsPanel();
-            }
-          } catch (_) {}
-        } else if (entry.isIntersecting && entry.intersectionRatio > 0) {
-          // מתקרבים לכרטיס — חימום HLS שקט ברקע | HYPER CORE TECH
+
+        // פיד רגיל (קובץ / יוטיוב / תמונה / hls מחוץ ל־live-tv)
+        if (!entry.isIntersecting || entry.intersectionRatio <= 0) {
+          pauseMedia(mediaDiv, { resetThumb: false });
+          return;
+        }
+        if (entry.isIntersecting && entry.intersectionRatio > 0 && entry.intersectionRatio <= 0.5) {
           const App = window.NostrApp || {};
           if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
             if (typeof App.prepareLiveMedia === 'function') {
@@ -6506,10 +6535,33 @@ function setupIntersectionObserver() {
               }).catch(() => {});
             }
           }
-        } else {
-          pauseMedia(mediaDiv, { resetThumb: false });
+          return;
+        }
+        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+          feedCandidates.push({ entry, card, mediaDiv });
         }
       });
+
+      if (!feedCandidates.length) return;
+
+      feedCandidates.sort((a, b) => b.entry.intersectionRatio - a.entry.intersectionRatio);
+      bestFeedEntry = feedCandidates[0];
+
+      // עוצרים מועמדים חלשים באותו באץ' (לא מפעילים כמה יוטיוב) | HYPER CORE TECH
+      feedCandidates.slice(1).forEach(({ mediaDiv }) => {
+        pauseMedia(mediaDiv, { resetThumb: false });
+      });
+
+      const { card, mediaDiv } = bestFeedEntry;
+      playMedia(mediaDiv, { manual: false });
+      prefetchNeighborLiveChannels(card);
+      try {
+        const openId = getOpenCommentsEventId();
+        const cardId = card.getAttribute('data-event-id');
+        if (openId && cardId && openId !== cardId) {
+          closeCommentsPanel();
+        }
+      } catch (_) {}
     },
     {
       root: viewport,
