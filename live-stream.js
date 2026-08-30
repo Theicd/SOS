@@ -24,10 +24,32 @@
     ending: false
   };
 
-  // קונפיג ICE – משתמש בקיים (כולל TURN אם קיים)
+  // קונפיג ICE – כמו P2P (כולל TURN) כדי למנוע מסך שחור מאחורי NAT | HYPER CORE TECH
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
-    ? { iceServers: window.NostrRTC_ICE }
-    : { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    ? { iceServers: window.NostrRTC_ICE, bundlePolicy: 'max-bundle', rtcpMuxPolicy: 'require' }
+    : {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
+        ],
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
+      };
+
+  let signalSub = null;
+  let connectingParent = null;
+  let iceFailRetries = 0;
+  const pendingRemoteIce = new Map(); // peer -> RTCIceCandidateInit[]
 
   // עזר: roomId דטרמיניסטי
   function getRoomId(owner, slug){
@@ -55,33 +77,39 @@
       // קבלת סטרים מרוחק כשאנחנו viewer/relay
       if(!state.incomingRemoteStream) state.incomingRemoteStream = new MediaStream();
       e.streams[0].getTracks().forEach(t=> state.incomingRemoteStream.addTrack(t));
+      iceFailRetries = 0;
       if(typeof App.onLiveRemoteStream === 'function') App.onLiveRemoteStream(state.incomingRemoteStream);
       // אם אנחנו relay – נכין captureStream מהווידאו החבוי ונוכל לשדר לילדים
       if(state.role !== 'broadcaster') ensureRelayCapture();
     };
     pc.onconnectionstatechange = () => {
       const cs = pc.connectionState; console.log('LIVE PC', peer.slice(0,8), cs);
-      // disconnected זמני ב-ICE — לא סוגרים ולא מציגים "הסתיים" | HYPER CORE TECH
+      if (cs === 'connected') {
+        iceFailRetries = 0;
+        connectingParent = null;
+        return;
+      }
+      // disconnected זמני ב-ICE — לא סוגרים מיד | HYPER CORE TECH
       if (cs === 'failed' || cs === 'closed') {
+        const wasParent = peer === state.parentPeer;
         tryEndChild(peer);
-        if (!state.ending && state.role !== 'broadcaster' && peer === state.parentPeer) {
+        if (!state.ending && state.role !== 'broadcaster' && wasParent) {
           try {
-            if (typeof App.onLiveStreamLost === 'function') App.onLiveStreamLost(state.roomId);
+            if (typeof App.onLiveIceFailed === 'function') App.onLiveIceFailed(state.roomId, state.broadcaster);
+            else if (typeof App.onLiveStreamLost === 'function') App.onLiveStreamLost(state.roomId);
           } catch (_) {}
         }
       } else if (cs === 'disconnected') {
-        // המתנה קצרה — אם לא חוזר ל-connected נחשב אובדן | HYPER CORE TECH
         setTimeout(() => {
           try {
             const pc2 = state.pcMap.get(peer);
             if (!pc2 || state.ending) return;
-            if (pc2.connectionState === 'disconnected' || pc2.connectionState === 'failed') {
-              if (state.role !== 'broadcaster' && peer === state.parentPeer) {
-                if (typeof App.onLiveStreamLost === 'function') App.onLiveStreamLost(state.roomId);
-              }
+            if (pc2.connectionState === 'failed' || pc2.connectionState === 'closed') return;
+            if (pc2.connectionState === 'disconnected' && state.role !== 'broadcaster' && peer === state.parentPeer) {
+              if (typeof App.onLiveIceFailed === 'function') App.onLiveIceFailed(state.roomId, state.broadcaster);
             }
           } catch (_) {}
-        }, 8000);
+        }, 10000);
       }
     };
     state.pcMap.set(peer, pc);
@@ -198,17 +226,45 @@
 
   // התחברות ל-parent שנבחר
   async function connectToParent(parentPubkey){
-    state.parentPeer = parentPubkey;
-    const pc = createPC(parentPubkey);
+    const parent = parentPubkey || state.broadcaster;
+    if (!parent) return;
+    if (connectingParent === parent && state.pcMap.has(parent)) return;
+    // ניקוי חיבור קודם לאותו parent | HYPER CORE TECH
+    if (state.pcMap.has(parent)) {
+      try { state.pcMap.get(parent).close(); } catch (_) {}
+      state.pcMap.delete(parent);
+    }
+    connectingParent = parent;
+    state.parentPeer = parent;
+    const pc = createPC(parent);
+    // flush מועמדים מוקדמים אם הגיעו לפני יצירת PC | HYPER CORE TECH
+    const early = pendingRemoteIce.get(parent) || [];
+    pendingRemoteIce.delete(parent);
     const offer = await pc.createOffer({ offerToReceiveAudio:true, offerToReceiveVideo:true });
     await pc.setLocalDescription(offer);
-    await sendSignal(parentPubkey, 'live-offer', offer);
+    await sendSignal(parent, 'live-offer', offer);
+    for (const c of early) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (_) {}
+    }
   }
 
   // parent מקבל offer מצופה/ילד
   async function acceptChildOffer(childPubkey, offer){
+    if (!offer || !offer.type || !offer.sdp) {
+      console.warn('LIVE: invalid offer from', String(childPubkey||'').slice(0,8));
+      return;
+    }
+    if (state.pcMap.has(childPubkey)) {
+      try { state.pcMap.get(childPubkey).close(); } catch (_) {}
+      state.pcMap.delete(childPubkey);
+    }
     const pc = createPC(childPubkey);
     await pc.setRemoteDescription(offer);
+    const early = pendingRemoteIce.get(childPubkey) || [];
+    pendingRemoteIce.delete(childPubkey);
+    for (const c of early) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (_) {}
+    }
     if(state.role === 'broadcaster'){
       // למשדר יש סטרים מקומי מהמצלמה
       if(state.directChildren.size < MAX_DIRECT_CHILDREN){ state.directChildren.add(childPubkey); }
@@ -221,15 +277,29 @@
   }
 
   // קבלת תשובה מה-parent
-  async function setParentAnswer(parent, answer){ const pc = state.pcMap.get(parent); if(pc) await pc.setRemoteDescription(answer); }
+  async function setParentAnswer(parent, answer){
+    const pc = state.pcMap.get(parent);
+    if(!pc || !answer) return;
+    try { await pc.setRemoteDescription(answer); } catch (e) { console.warn('LIVE setRemote answer failed', e); }
+    const early = pendingRemoteIce.get(parent) || [];
+    pendingRemoteIce.delete(parent);
+    for (const c of early) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (_) {}
+    }
+  }
 
   // מועמדי ICE
   async function addCandidates(from, list){
+    if(!Array.isArray(list) || !list.length) return;
     const pc = state.pcMap.get(from);
-    if(pc && Array.isArray(list)){
-      for(const c of list){
-        try{ await pc.addIceCandidate(new RTCIceCandidate(c)); }catch{}
-      }
+    if(!pc || !pc.remoteDescription){
+      const arr = pendingRemoteIce.get(from) || [];
+      list.forEach((c) => { if (c) arr.push(c); });
+      pendingRemoteIce.set(from, arr);
+      return;
+    }
+    for(const c of list){
+      try{ await pc.addIceCandidate(new RTCIceCandidate(c)); }catch{}
     }
   }
 
@@ -267,7 +337,7 @@
     let data = null; if(ev.content){ try{ const dec = await NT.nip04.decrypt(App.privateKey, from, ev.content); data = dec? JSON.parse(dec):null; }catch{} }
     switch(type){
       case 'live-join': if(state.role==='broadcaster' && from!==App.publicKey) await handleJoin(from); break;
-      case 'live-invite': if(from===state.broadcaster){ await connectToParent(data.parent); } break;
+      case 'live-invite': if(from===state.broadcaster){ await connectToParent((data && data.parent) || from); } break;
       case 'live-offer': {
         // ההצעה נשלחת ל-parent המיועד (משדר או ריליי). לכן נקבל תמיד ונחזיר תשובה.
         if(from!==App.publicKey){ await acceptChildOffer(from, data); }
@@ -281,21 +351,51 @@
   // הרשמה
   function subscribe(roomId){
     if(!App.pool || !App.publicKey){ setTimeout(()=>subscribe(roomId), 400); return; }
+    try {
+      if (signalSub) {
+        if (typeof signalSub.close === 'function') signalSub.close();
+        else if (typeof signalSub.unsub === 'function') signalSub.unsub();
+      }
+    } catch (_) {}
     const filters = [ { kinds:[25050,25051], '#r':[roomId], since: Math.floor(Date.now()/1000)-2 } ];
-    App.pool.subscribeMany(App.relayUrls, filters, { onevent:onSignalEvent, oneose:()=>console.log('LIVE: ready', roomId) });
+    signalSub = App.pool.subscribeMany(App.relayUrls, filters, { onevent:onSignalEvent, oneose:()=>console.log('LIVE: ready', roomId) });
   }
 
   // חשיפה ל-App
   App.live = {
     // התחלת שידור: יוצר roomId, מתחיל מצלמה ומפרסם סטטוס (אובייקט או slug) | HYPER CORE TECH
     async start(slugOrOpts){
+      state.ending = false;
+      iceFailRetries = 0;
+      connectingParent = null;
       const opts = (slugOrOpts && typeof slugOrOpts === 'object') ? slugOrOpts : { slug: slugOrOpts || 'live' };
       await startBroadcast(opts);
       subscribe(state.roomId);
       if(typeof App.onLiveStarted==='function') App.onLiveStarted(state.roomId);
     },
     // הצטרפות לצפייה: יבקש parent, יתחבר אליו
-    async watch(ownerPubkey, slug){ subscribe(getRoomId(ownerPubkey, slug)); await joinLive(ownerPubkey, slug); if(typeof App.onLiveWatchStarted==='function') App.onLiveWatchStarted(); },
+    async watch(ownerPubkey, slug){
+      state.ending = false;
+      iceFailRetries = 0;
+      connectingParent = null;
+      subscribe(getRoomId(ownerPubkey, slug));
+      await joinLive(ownerPubkey, slug);
+      if(typeof App.onLiveWatchStarted==='function') App.onLiveWatchStarted();
+    },
+    async retryWatch(){
+      if (!state.broadcaster || state.role === 'broadcaster') return false;
+      if (iceFailRetries >= 2) return false;
+      iceFailRetries += 1;
+      console.log('LIVE: retry watch', iceFailRetries, String(state.broadcaster).slice(0,8));
+      connectingParent = null;
+      state.parentPeer = null;
+      state.pcMap.forEach((pc)=>{ try{pc.close();}catch{} });
+      state.pcMap.clear();
+      pendingRemoteIce.clear();
+      state.incomingRemoteStream = null;
+      await joinLive(state.broadcaster, 'live');
+      return true;
+    },
     // סיום
     async end(){
       state.ending = true;
@@ -316,6 +416,16 @@
           await App.pool.publish(App.relayUrls, signed);
         } catch (_) {}
       }
+      try {
+        if (signalSub) {
+          if (typeof signalSub.close === 'function') signalSub.close();
+          else if (typeof signalSub.unsub === 'function') signalSub.unsub();
+        }
+      } catch (_) {}
+      signalSub = null;
+      connectingParent = null;
+      iceFailRetries = 0;
+      pendingRemoteIce.clear();
       state.pcMap.forEach((pc)=>{ try{pc.close();}catch{} });
       state.pcMap.clear();
       try{ state.localStream?.getTracks().forEach(t=>t.stop()); }catch{}

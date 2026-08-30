@@ -402,6 +402,29 @@
   App.onLiveStreamLost = function(roomId) {
     markViewerLiveEnded(roomId, 'השידור הסתיים');
   };
+
+  App.onLiveIceFailed = async function(roomId) {
+    // ניסיון חיבור מחדש לפני הודעת ניתוק — מהלוג: LIVE PC failed | HYPER CORE TECH
+    try {
+      const media = Array.from(doc.querySelectorAll('.videos-feed__media[data-media-type="p2p-live"]'))
+        .find((m) => m.dataset.liveRoomId === roomId);
+      if (media) {
+        const hint = media.querySelector('.videos-p2p-live-hint');
+        if (hint) {
+          hint.hidden = false;
+          hint.textContent = 'מתחבר מחדש לשידור…';
+        }
+        media.classList.remove('videos-p2p-live--ended');
+        const ended = media.querySelector('.videos-p2p-live-ended');
+        if (ended) ended.remove();
+      }
+      if (typeof App.live?.retryWatch === 'function') {
+        const ok = await App.live.retryWatch();
+        if (ok) return;
+      }
+    } catch (_) {}
+    markViewerLiveEnded(roomId, 'החיבור לשידור נכשל');
+  };
   App.onLiveStatusUpdate = function(info) {
     const el = studio && studio.querySelector('[data-live-viewers]');
     if (!el) return;

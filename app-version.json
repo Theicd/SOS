@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.30-pwa382-ignore-stale-live-end",
-  "buildTime": "2026-08-30T06:20:00+03:00",
-  "notes": "Ignore stale live-end; debounce WebRTC disconnect false ended"
+  "version": "2026.08.30-pwa383-live-ice-retry",
+  "buildTime": "2026-08-30T06:35:00+03:00",
+  "notes": "Fix LIVE ICE fail: TURN, candidate buffer, retry before ended overlay"
 }

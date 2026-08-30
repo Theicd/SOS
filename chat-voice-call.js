@@ -567,6 +567,8 @@
     if (!typeTag) return;
 
     const type = typeTag[1];
+    // אותות שידור חי (live-*) לא שייכים לשיחות קול | HYPER CORE TECH
+    if (String(type || '').startsWith('live-')) return;
     const peerPubkey = event.pubkey;
 
     try {
