@@ -102,18 +102,33 @@
     }
   }
 
-  // התחלת שידור – המשדר
-  async function startBroadcast(slug){
+  // התחלת שידור – המשדר (תומך ב־title / stream קיים / יחס 9:16) | HYPER CORE TECH
+  async function startBroadcast(opts){
+    const options = (opts && typeof opts === 'object') ? opts : { slug: opts };
+    const slug = options.slug || 'live';
+    const title = String(options.title || '').trim() || 'שידור חי';
     state.role = 'broadcaster'; state.broadcaster = App.publicKey; state.roomId = getRoomId(App.publicKey, slug||('room-'+Date.now()));
     state.relays.clear(); state.directChildren.clear();
-    state.localStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:true });
+    if (options.stream && typeof options.stream.getTracks === 'function') {
+      state.localStream = options.stream;
+    } else {
+      state.localStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: {
+          facingMode: options.facingMode || 'user',
+          aspectRatio: { ideal: 9 / 16 },
+          width: { ideal: 720 },
+          height: { ideal: 1280 }
+        }
+      });
+    }
     if(typeof App.onLiveLocalStream === 'function') App.onLiveLocalStream(state.localStream);
     announceStatus();
-    // פרסום 'live-post' כדי שהפיד יצייר פוסט צפייה
+    // פרסום 'live-post' כדי שהפיד יצייר כרטיס צפייה | HYPER CORE TECH
     try {
       if(App.pool && App.publicKey){
-        const content = JSON.stringify({ roomId: state.roomId, owner: App.publicKey, slug });
-        const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-post'], ['r', state.roomId]], content };
+        const content = JSON.stringify({ roomId: state.roomId, owner: App.publicKey, slug, title });
+        const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-post'], ['r', state.roomId], ['title', title.slice(0, 80)]], content };
         const signed = App.finalizeEvent(ev, App.privateKey); await App.pool.publish(App.relayUrls, signed);
       }
     } catch {}
@@ -202,6 +217,16 @@
   // הודעת סטטוס לצופים (רילייז קיימים, עומס)
   async function announceStatus(){
     const payload = { roomId: state.roomId, relays: Array.from(state.relays), direct: Array.from(state.directChildren) };
+    try {
+      if (typeof App.onLiveStatusUpdate === 'function') {
+        App.onLiveStatusUpdate({
+          roomId: state.roomId,
+          direct: payload.direct.length,
+          relays: payload.relays.length,
+          viewersApprox: Math.max(1, payload.direct.length + payload.relays.length)
+        });
+      }
+    } catch (_) {}
     // משודר לציבור – סוג כללי, ללא p ספציפי
     if(!App.pool || !App.publicKey) return;
     const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-status'], ['r', state.roomId]], content: JSON.stringify(payload) };
@@ -237,8 +262,13 @@
 
   // חשיפה ל-App
   App.live = {
-    // התחלת שידור: יוצר roomId, מתחיל מצלמה ומפרסם סטטוס
-    async start(slug){ await startBroadcast(slug||'live'); subscribe(state.roomId); if(typeof App.onLiveStarted==='function') App.onLiveStarted(state.roomId); },
+    // התחלת שידור: יוצר roomId, מתחיל מצלמה ומפרסם סטטוס (אובייקט או slug) | HYPER CORE TECH
+    async start(slugOrOpts){
+      const opts = (slugOrOpts && typeof slugOrOpts === 'object') ? slugOrOpts : { slug: slugOrOpts || 'live' };
+      await startBroadcast(opts);
+      subscribe(state.roomId);
+      if(typeof App.onLiveStarted==='function') App.onLiveStarted(state.roomId);
+    },
     // הצטרפות לצפייה: יבקש parent, יתחבר אליו
     async watch(ownerPubkey, slug){ subscribe(getRoomId(ownerPubkey, slug)); await joinLive(ownerPubkey, slug); if(typeof App.onLiveWatchStarted==='function') App.onLiveWatchStarted(); },
     // סיום

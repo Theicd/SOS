@@ -1071,8 +1071,9 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   }
 
   // פיד LIVE TV תמיד מנגן (כמו משחקים) – לא נתקעים ב־STOP מהפיד הכללי | HYPER CORE TECH
-  const forceLivePlay = mediaDiv.dataset.mediaType === 'hls-live'
-    && (state.feedMode === 'live-tv' || mediaDiv.classList.contains('is-live-fullscreen') || priority);
+  const forceLivePlay = (mediaDiv.dataset.mediaType === 'hls-live'
+      && (state.feedMode === 'live-tv' || mediaDiv.classList.contains('is-live-fullscreen') || priority))
+    || mediaDiv.dataset.mediaType === 'p2p-live';
   if (forceLivePlay && !globalAutoplayEnabled) {
     globalAutoplayEnabled = true;
     updateGlobalStopClass();
@@ -1115,6 +1116,8 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
     });
   } else if (mediaType === 'hls-live') {
     playHlsLiveMedia(mediaDiv);
+  } else if (mediaType === 'p2p-live') {
+    playP2pLiveMedia(mediaDiv);
   } else if (mediaType === 'game-embed') {
     playGameEmbedMedia(mediaDiv);
   } else if (mediaType === 'youtube') {
@@ -1147,7 +1150,7 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
 
-  if (mediaType === 'file' || mediaType === 'hls-live') {
+  if (mediaType === 'file' || mediaType === 'hls-live' || mediaType === 'p2p-live') {
     const videoEl = mediaDiv.querySelector('video');
     if (videoEl) {
       videoEl.pause();
@@ -1167,6 +1170,12 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
         playOverlay.hidden = true;
         playOverlay.style.display = 'none';
       }
+    }
+    if (mediaType === 'p2p-live') {
+      try {
+        const LiveApp = window.NostrApp || {};
+        if (LiveApp._p2pLiveActiveMedia === mediaDiv) LiveApp._p2pLiveActiveMedia = null;
+      } catch (_) {}
     }
   } else if (mediaType === 'game-embed') {
     const App = window.NostrApp || {};
@@ -1287,6 +1296,47 @@ function restoreYouTubeThumbnail(mediaDiv) {
     mediaDiv.insertBefore(thumb, mediaDiv.firstChild);
   } else {
     mediaDiv.querySelector('.videos-feed__media-thumb').style.opacity = '1';
+  }
+}
+
+// חלק שידור חי P2P (videos.js) – ניגון כרטיס LIVE מהמשתמשים בפיד | HYPER CORE TECH
+function playP2pLiveMedia(mediaDiv) {
+  if (!mediaDiv) return;
+  const App = window.NostrApp || {};
+  const videoEl = mediaDiv.querySelector('video');
+  if (!videoEl) return;
+
+  App._p2pLiveActiveMedia = mediaDiv;
+  mediaDiv.classList.add('videos-feed__media--ready');
+  mediaDiv.classList.remove('is-paused');
+  mediaDiv.dataset.state = 'playing';
+  activeMediaDiv = mediaDiv;
+
+  if (videoEl.srcObject) {
+    videoEl.muted = false;
+    videoEl.play().catch(() => {
+      videoEl.muted = true;
+      videoEl.play().catch(() => {});
+    });
+    const hint = mediaDiv.querySelector('.videos-p2p-live-hint');
+    if (hint) hint.hidden = true;
+    return;
+  }
+
+  const owner = mediaDiv.dataset.liveOwner;
+  const slug = mediaDiv.dataset.liveSlug || 'live';
+  if (!owner || typeof App.live?.watch !== 'function') return;
+
+  if (mediaDiv.dataset.p2pLiveJoined !== '1') {
+    mediaDiv.dataset.p2pLiveJoined = '1';
+    Promise.resolve(App.live.watch(owner, slug)).catch((err) => {
+      console.warn('[videos] p2p live watch failed', err);
+      const hint = mediaDiv.querySelector('.videos-p2p-live-hint');
+      if (hint) {
+        hint.hidden = false;
+        hint.textContent = 'לא ניתן להתחבר לשידור';
+      }
+    });
   }
 }
 
@@ -3537,6 +3587,48 @@ function renderVideoCard(video) {
         }).catch(() => {});
       }
     });
+  } else if (video.p2pLive) {
+    // שידור חי P2P מהמשתמשים – כרטיס רגיל בפיד עם אותן פעולות צד | HYPER CORE TECH
+    mediaDiv.dataset.mediaType = 'p2p-live';
+    mediaDiv.dataset.liveOwner = video.p2pLiveOwner || video.pubkey || '';
+    mediaDiv.dataset.liveSlug = video.p2pLiveSlug || 'live';
+    mediaDiv.dataset.liveRoomId = video.p2pLiveRoomId || video.id || '';
+    if (video.content) mediaDiv.dataset.liveTitle = String(video.content);
+
+    const videoEl = document.createElement('video');
+    videoEl.controls = false;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.autoplay = false;
+    videoEl.setAttribute('playsinline', 'true');
+    videoEl.setAttribute('webkit-playsinline', 'true');
+    videoEl.className = 'videos-feed__media-video';
+    mediaDiv.appendChild(videoEl);
+
+    try { applyDesktopVideoAspect(mediaDiv, 9, 16); } catch (_) {}
+
+    const badge = document.createElement('div');
+    badge.className = 'videos-p2p-live-badge';
+    badge.innerHTML = '<span class="videos-p2p-live-badge__dot" aria-hidden="true"></span><span>LIVE</span>';
+    mediaDiv.appendChild(badge);
+
+    const hint = document.createElement('div');
+    hint.className = 'videos-p2p-live-hint';
+    hint.textContent = 'מתחבר לשידור חי…';
+    mediaDiv.appendChild(hint);
+
+    const playOverlay = document.createElement('button');
+    playOverlay.type = 'button';
+    playOverlay.className = 'videos-feed__play-overlay';
+    playOverlay.setAttribute('aria-label', 'Play live');
+    playOverlay.setAttribute('data-play-toggle', '');
+    playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+    playOverlay.hidden = true;
+    playOverlay.style.display = 'none';
+    centerPlayOverlayButton(playOverlay);
+    mediaDiv.appendChild(playOverlay);
+
+    queueMicrotask(markReady);
   } else if (video.youtubeId && !video.videoUrl) {
     mediaDiv.dataset.mediaType = 'youtube';
     mediaDiv.dataset.youtubeId = video.youtubeId;
@@ -6265,6 +6357,16 @@ function setupIntersectionObserver() {
           return;
         }
 
+        // שידור חי P2P – ניגון כרטיס כמו LIVE TV | HYPER CORE TECH
+        if (mediaDiv.dataset.mediaType === 'p2p-live') {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            playP2pLiveMedia(mediaDiv);
+          } else if (!entry.isIntersecting) {
+            pauseMedia(mediaDiv, { resetThumb: false });
+          }
+          return;
+        }
+
         // LIVE TV: ניגון ישיר כמו משחקים | HYPER CORE TECH
         if (mediaDiv.dataset.mediaType === 'hls-live' && state.feedMode === 'live-tv') {
           if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
@@ -8679,6 +8781,44 @@ function getSharedGamePosts() {
     }));
 }
 
+// חלק שידור חי P2P (videos.js) – הכנסת כרטיס LIVE לפיד הראשי | HYPER CORE TECH
+function upsertP2pLiveFeedCard(room) {
+  if (!room || !room.roomId || !room.owner) return;
+  const safeId = `p2plive-${String(room.roomId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96)}`;
+  const video = {
+    id: safeId,
+    pubkey: room.owner,
+    content: room.title || 'שידור חי',
+    authorName: String(room.owner).slice(0, 8),
+    authorInitials: 'LV',
+    authorPicture: '',
+    createdAt: Math.floor(Date.now() / 1000),
+    p2pLive: true,
+    p2pLiveOwner: room.owner,
+    p2pLiveSlug: room.slug || 'live',
+    p2pLiveRoomId: room.roomId,
+  };
+  upsertVideoInState(video, { forceShow: true, immediate: true });
+}
+
+function showTransientFeedHint(message) {
+  const text = String(message || '').trim();
+  if (!text) return;
+  let el = document.getElementById('videosTransientHint');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'videosTransientHint';
+    el.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9500;max-width:min(92vw,420px);padding:10px 14px;border-radius:12px;background:rgba(0,0,0,.88);color:#fff;font-size:13px;font-weight:700;text-align:center;border:1px solid rgba(0,175,255,.35);pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(showTransientFeedHint._t);
+  showTransientFeedHint._t = setTimeout(() => {
+    try { el.hidden = true; } catch (_) {}
+  }, 4200);
+}
+
 // חשיפה גלובלית לפאנל משחקים + LIVE TV | HYPER CORE TECH
 window.closeGamesPanel = closeGamesPanel;
 window.openGamesPanel = openGamesPanel;
@@ -8719,6 +8859,8 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.handleHomeButtonAction = handleHomeButtonAction;
   AppRef.clearHomeRefreshArm = clearHomeRefreshArm;
   AppRef.isOnVideosFeedPage = isOnVideosFeedPage;
+  AppRef.upsertP2pLiveFeedCard = upsertP2pLiveFeedCard;
+  AppRef.showTransientFeedHint = showTransientFeedHint;
 }
 
 // חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH

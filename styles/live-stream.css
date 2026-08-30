@@ -1,66 +1,59 @@
-/* חלק שידור חי (live-stream.css) – במה + מרכז צפייה באאווירת SOS | HYPER CORE TECH */
+/* חלק שידור חי (live-stream.css) – Setup משדר 9:16 + תאימות פיד | HYPER CORE TECH */
 
-body.live-hub-open,
-body.live-modal-open {
+body.live-studio-open {
   overflow: hidden;
 }
 
-/* ===== דיאלוג שידור / צפייה ===== */
-.live-modal {
+.live-studio {
   position: fixed;
   inset: 0;
   z-index: 11000;
   display: grid;
-  place-items: stretch;
-}
-
-.live-modal__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.72);
-}
-
-.live-modal__content {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  margin: 0;
+  grid-template-rows: auto 1fr auto;
   background: #000;
   color: #fff;
-  border-radius: 0;
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  box-shadow: none;
 }
 
-.live-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  padding-top: calc(12px + var(--safe-top, 0px));
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.35));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  z-index: 2;
+@media (min-width: 769px) {
+  .live-studio {
+    right: var(--videos-desktop-nav-width, 220px);
+  }
 }
 
-.live-modal__title-row {
+.live-studio__top {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 12px 14px;
+  padding-top: calc(12px + var(--safe-top, 0px));
+  z-index: 3;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent);
 }
 
-.live-modal__header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+.live-studio__icon-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
 }
 
-.live-modal__live-badge {
+.live-studio__top-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.live-studio__spacer {
+  margin-inline-start: auto;
+  width: 40px;
+}
+
+.live-studio__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -76,35 +69,27 @@ body.live-modal-open {
   box-shadow: 0 0 10px rgba(254, 44, 85, 0.45);
 }
 
-.live-modal__live-badge--watch {
-  background: #00afff;
-  box-shadow: 0 0 10px rgba(0, 175, 255, 0.45);
-}
-
-.live-modal__close {
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
-  color: #fff;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.live-modal__body {
-  display: grid;
-  grid-template-rows: 1fr auto;
-  min-height: 0;
-}
-
-.live-modal__videos {
+.live-studio__stage {
   position: relative;
-  background: #000;
+  display: grid;
+  place-items: center;
   min-height: 0;
+  padding: 8px 16px;
 }
 
-.live-video {
+.live-studio__frame {
+  position: relative;
+  width: min(100%, 420px);
+  aspect-ratio: 9 / 16;
+  max-height: min(72vh, 780px);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(0, 175, 255, 0.15), 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+.live-studio__video {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -113,129 +98,196 @@ body.live-modal-open {
   background: #000;
 }
 
-.live-video--local {
+.live-studio__frame-label {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 132px;
-  height: 176px;
-  border-radius: 12px;
-  object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  left: 10px;
+  bottom: 10px;
   z-index: 2;
-}
-
-.live-modal__stage-hint {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  padding: 10px 16px;
+  padding: 4px 8px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-weight: 700;
   pointer-events: none;
 }
 
-.live-modal__stage-hint.is-live {
-  color: #fe2c55;
-}
-
-.live-modal__actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  padding: 14px 16px calc(14px + var(--safe-bottom, 0px));
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.85));
-  z-index: 2;
-}
-
-.live-modal__end-btn {
-  min-width: 160px;
-  border-radius: 999px;
-  font-weight: 700;
-}
-
-@media (min-width: 769px) {
-  .live-modal {
-    right: var(--videos-desktop-nav-width, 220px);
-  }
-
-  .live-modal__content {
-    border-inline-end: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .live-video--local {
-    width: 180px;
-    height: 240px;
-  }
-}
-
-/* ===== מרכז צפייה (תפריט שידור חי) ===== */
-.live-hub {
-  position: fixed;
-  inset: 0;
-  z-index: 9800;
+.live-studio__panel {
+  z-index: 3;
+  padding: 14px 16px calc(18px + var(--safe-bottom, 0px));
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.92) 28%);
   display: flex;
   flex-direction: column;
-  background: #000;
-  color: #fff;
-}
-
-.live-hub[hidden] {
-  display: none !important;
-}
-
-.live-hub__header {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  padding-top: calc(14px + var(--safe-top, 0px));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: #000;
 }
 
-.live-hub__back {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.live-hub__titles {
-  flex: 1;
-  min-width: 0;
+.live-studio__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   text-align: right;
 }
 
-.live-hub__titles h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
+.live-studio__field span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 700;
 }
 
-.live-hub__titles p {
-  margin: 2px 0 0;
+.live-studio__field input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 12px 14px;
+  font-size: 15px;
+  outline: none;
+}
+
+.live-studio__field input:focus {
+  border-color: rgba(0, 175, 255, 0.65);
+  box-shadow: 0 0 0 3px rgba(0, 175, 255, 0.15);
+}
+
+.live-studio__hint {
+  margin: 0;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
+  text-align: right;
 }
 
-.live-hub__live-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.live-studio__btn {
+  border: none;
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 10px 16px;
+}
+
+.live-studio__btn--xl {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 16px;
+}
+
+.live-studio__btn--primary {
+  background: #00afff;
+  color: #000;
+  box-shadow: 0 0 16px rgba(0, 175, 255, 0.35);
+}
+
+.live-studio__btn--danger {
   background: #fe2c55;
-  box-shadow: 0 0 10px rgba(254, 44, 85, 0.8);
-  animation: live-hub-pulse 1.8s ease-in-out infinite;
-  flex-shrink: 0;
+  color: #fff;
+}
+
+.live-studio__btn--ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.live-studio__live-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  flex-direction: row-reverse;
+}
+
+.live-studio__timer,
+.live-studio__viewers {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+.live-studio__confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 20px;
+}
+
+.live-studio__confirm-card {
+  width: min(100%, 360px);
+  background: #111418;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 18px 16px;
+  text-align: right;
+}
+
+.live-studio__confirm-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.live-studio__confirm-card p {
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.live-studio__confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: stretch;
+}
+
+.live-studio__confirm-actions .live-studio__btn {
+  flex: 1;
+}
+
+/* כרטיס P2P LIVE בפיד */
+.videos-feed__media[data-media-type="p2p-live"] {
+  background: #000;
+}
+
+.videos-p2p-live-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 4px;
+  background: #fe2c55;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 10px rgba(254, 44, 85, 0.45);
+}
+
+.videos-p2p-live-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  animation: live-hub-pulse 1.6s ease-in-out infinite;
+}
+
+.videos-p2p-live-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  font-weight: 700;
+  z-index: 2;
+  pointer-events: none;
 }
 
 @keyframes live-hub-pulse {
@@ -243,211 +295,5 @@ body.live-modal-open {
   50% { opacity: 1; transform: scale(1.08); }
 }
 
-.live-hub__body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px;
-  padding-bottom: calc(16px + var(--safe-bottom, 0px) + 64px);
-}
-
-.live-hub__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 48vh;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.live-hub__empty i {
-  font-size: 36px;
-  color: #00afff;
-  filter: drop-shadow(0 0 10px rgba(0, 175, 255, 0.45));
-  margin-bottom: 8px;
-}
-
-.live-hub__empty p {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.live-hub__empty span {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-  max-width: 280px;
-}
-
-.live-hub__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.live-hub__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.live-hub__item-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.live-hub__avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 175, 255, 0.12);
-  color: #00afff;
-  flex-shrink: 0;
-}
-
-.live-hub__meta {
-  min-width: 0;
-  text-align: right;
-}
-
-.live-hub__name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: flex-start;
-  flex-direction: row-reverse;
-}
-
-.live-hub__badge {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 4px;
-  background: #fe2c55;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-
-.live-hub__viewers {
-  display: block;
-  margin-top: 2px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.live-hub__watch-btn {
-  flex-shrink: 0;
-  border: none;
-  border-radius: 999px;
-  padding: 8px 16px;
-  background: #00afff;
-  color: #000;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 0 12px rgba(0, 175, 255, 0.35);
-}
-
-@media (min-width: 769px) {
-  .live-hub {
-    right: var(--videos-desktop-nav-width, 220px);
-    border-inline-end: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .live-hub__body {
-    padding: 20px 24px 32px;
-    max-width: 720px;
-    margin-inline: auto;
-    width: 100%;
-  }
-}
-
-/* toast קצר כשיש שידור חדש בזמן גלילה */
-.live-toast {
-  position: fixed;
-  left: 50%;
-  bottom: calc(72px + var(--safe-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 12000;
-  max-width: min(92vw, 420px);
-}
-
-.live-toast__inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(12, 12, 14, 0.92);
-  border: 1px solid rgba(0, 175, 255, 0.35);
-  color: #fff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-}
-
-.live-toast__inner i {
-  color: #00afff;
-}
-
-.live-toast__inner .button-primary {
-  margin-inline-start: auto;
-  border: none;
-  border-radius: 999px;
-  padding: 6px 12px;
-  background: #00afff;
-  color: #000;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-@media (min-width: 769px) {
-  .live-toast {
-    right: calc(var(--videos-desktop-nav-width, 220px) + 24px);
-    left: auto;
-    transform: none;
-    bottom: 28px;
-  }
-}
-
-/* תאימות לאחור – כרטיס ישן אם מופיע */
-.live-card {
-  background: #111418;
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 12px;
-  margin: 12px;
-}
-.live-card__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.live-card__owner {
-  margin-inline-start: auto;
-  opacity: 0.75;
-  font-size: 12px;
-}
-.live-card__body {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
+/* תאימות לאחור לטוסט ישן (מוסתר כברירת מחדל מהלוגיקה) */
+.live-toast { display: none !important; }

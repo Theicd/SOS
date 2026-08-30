@@ -274,6 +274,12 @@
       }
     } catch (_) {}
     try {
+      if (document.body.classList.contains('live-studio-open') && typeof App.closeLiveStudio === 'function') {
+        App.closeLiveStudio();
+        closed = true;
+      }
+    } catch (_) {}
+    try {
       if (document.body.classList.contains('live-modal-open') && typeof App.live?.end === 'function') {
         App.live.end();
         closed = true;
@@ -306,6 +312,7 @@
     if (document.body.classList.contains('videos-comments-open')) return true;
     if (document.body.classList.contains('live-hub-open')) return true;
     if (document.body.classList.contains('live-modal-open')) return true;
+    if (document.body.classList.contains('live-studio-open')) return true;
     if (document.querySelector('.videos-comments-overlay')) return true;
     try {
       if (App.chatState && App.chatState.isOpen) return true;
