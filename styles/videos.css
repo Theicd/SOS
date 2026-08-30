@@ -958,7 +958,6 @@ body:has(.videos-feed) .nav-users-list,
 body:has(.videos-feed) .nav-footer,
 body:has(.videos-feed) .nav-item[data-nav="explore"],
 body:has(.videos-feed) .nav-item[data-nav="following"],
-body:has(.videos-feed) .nav-item[data-nav="friends"],
 body:has(.videos-feed) .nav-item[data-nav="live"],
 body:has(.videos-feed) #moreOptionsToggle {
   display: none !important;
@@ -4248,7 +4247,6 @@ body.global-stop .videos-feed__play-overlay {
   body:has(.videos-feed) .nav-footer,
   body:has(.videos-feed) .nav-item[data-nav="explore"],
   body:has(.videos-feed) .nav-item[data-nav="following"],
-  body:has(.videos-feed) .nav-item[data-nav="friends"],
   body:has(.videos-feed) .nav-item[data-nav="live"],
   body:has(.videos-feed) #moreOptionsToggle {
     display: flex !important;

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v687'; // bump - desktop nav 12px gap + clearer compose plus
+  const CACHE_NAME = 'sos-cache-v688'; // bump - remove Friends button from desktop nav
   const PRECACHE_URLS = [
     './',
     './videos.html',
