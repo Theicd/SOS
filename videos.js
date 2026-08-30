@@ -7691,14 +7691,14 @@ function createSidebarFollowersSection() {
     <div class="footer-copyright">© 2026 SOS</div>
   `;
   
-  // הוספה לתפריט הצד
+  // הוספה לתפריט הצד – משחקים לפני חשבונות עוקבים | HYPER CORE TECH
   sidebar.appendChild(separator1);
-  sidebar.appendChild(title);
-  sidebar.appendChild(followersList);
-  sidebar.appendChild(separator2); // קו אחד בין עוקבים למשחקים
   sidebar.appendChild(gamesTitle);
   sidebar.appendChild(gamesList);
-  sidebar.appendChild(gamesSeparatorAfter); // קו אחרי משחקים
+  sidebar.appendChild(separator2); // קו בין משחקים לעוקבים
+  sidebar.appendChild(title);
+  sidebar.appendChild(followersList);
+  sidebar.appendChild(gamesSeparatorAfter); // קו אחרי עוקבים / לפני פוטר
   sidebar.appendChild(footer);
   
   console.log('[videos] Sidebar followers section created');

@@ -98,7 +98,10 @@
       const type = tType[1];
       const meta = JSON.parse(ev.content||'{}');
       const owner = meta.owner || ev.pubkey; const slug = meta.slug || 'live'; const roomId = tRoom[1];
-      const stream = doc.getElementById('homeFeedStream'); if(!stream) return;
+      const stream =
+        doc.getElementById('homeFeedStream') ||
+        doc.getElementById('videosStream');
+      if(!stream) return;
       const cardId = `live-card-${roomId}`;
 
       if (type === 'live-post') {

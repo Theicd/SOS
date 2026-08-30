@@ -4376,7 +4376,7 @@ body.global-stop .videos-feed__play-overlay {
     padding-left: 0 !important;
   }
 
-  /* חלק משחקים בתפריט צד (videos.css) – אחרי חשבונות עוקבים | HYPER CORE TECH */
+  /* חלק משחקים בתפריט צד (videos.css) – לפני חשבונות עוקבים | HYPER CORE TECH */
   body:has(.videos-feed) .sidebar-games-separator {
     height: 1px;
     background-color: rgba(255, 255, 255, 0.12);

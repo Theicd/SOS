@@ -363,6 +363,18 @@
       }
       return;
     }
+
+    // שידור חי: מודול live-stream הקיים (P2P WebRTC) | HYPER CORE TECH
+    if (key === 'live') {
+      closeAllOverlays();
+      updateNavSelection('live');
+      if (typeof App.openLiveBroadcast === 'function') {
+        App.openLiveBroadcast({ slug: 'live' });
+        return;
+      }
+      console.warn('[NAV] openLiveBroadcast not available');
+      return;
+    }
     
     // חלק סגירת overlays (navigation.js) – בית מטופל ב־handleHomeButtonAction (בלי רענון בלחיצה 1) | HYPER CORE TECH
     let overlayClosed = false;
