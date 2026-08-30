@@ -1391,7 +1391,7 @@ function ensureYouTubeIframe(mediaDiv, { autoplay = false, mute = false, revealF
     iframe.className = 'videos-feed__media-iframe';
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     iframe.allowFullscreen = true;
-    iframe.src = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=${autoplay ? 1 : 0}&mute=${wantMute}&rel=0&playsinline=1`;
+    iframe.src = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=${autoplay ? 1 : 0}&mute=${wantMute}&rel=0&playsinline=1&controls=0&fs=0`;
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (autoplay && thumb) thumb.style.opacity = '0';
     mediaDiv.insertBefore(iframe, mediaDiv.firstChild);

@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa389-youtube-warm",
-  "buildTime": "2026-08-31T00:30:00+03:00",
-  "notes": "YouTube warm prepare for first card and next neighbor; soft pause keeps iframe"
+  "version": "2026.08.31-pwa390-yt-controls0",
+  "buildTime": "2026-08-31T00:40:00+03:00",
+  "notes": "YouTube embed: controls=0 and fs=0 to hide chrome"
 }
