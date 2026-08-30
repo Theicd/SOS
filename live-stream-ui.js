@@ -31,24 +31,13 @@
   }
 
   function cameraConstraints() {
-    if (aspectMode === '16:9') {
-      return {
-        audio: true,
-        video: {
-          facingMode: 'user',
-          aspectRatio: { ideal: 16 / 9 },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
-    }
+    // יחס התצוגה הוא מסגרת UI בלבד — לא מחליפים facing/constraints כדי לא להפוך מצלמה במובייל | HYPER CORE TECH
     return {
       audio: true,
       video: {
         facingMode: 'user',
-        aspectRatio: { ideal: 9 / 16 },
-        width: { ideal: 720 },
-        height: { ideal: 1280 }
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
       }
     };
   }
@@ -86,6 +75,13 @@
 
   async function ensurePreviewCamera() {
     const videoEl = studio && studio.querySelector('#liveStudioCam');
+    if (previewStream && previewStream.getTracks().some((t) => t.readyState === 'live')) {
+      if (videoEl) {
+        videoEl.srcObject = previewStream;
+        try { await videoEl.play(); } catch (_) {}
+      }
+      return previewStream;
+    }
     stopPreviewTracks();
     previewStream = await navigator.mediaDevices.getUserMedia(cameraConstraints());
     if (videoEl) {
@@ -99,21 +95,29 @@
     if (!studio) return;
     studio.dataset.aspect = aspectMode === '16:9' ? 'landscape' : 'portrait';
     studio.querySelectorAll('[data-aspect-btn]').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.getAttribute('data-aspect-btn') === aspectMode);
+      const on = btn.getAttribute('data-aspect-btn') === aspectMode;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
-    const label = studio.querySelector('[data-aspect-label]');
-    if (label) label.textContent = aspectMode;
   }
 
   function setStudioPhase(phase) {
     if (!studio) return;
     studio.dataset.phase = phase;
-    const setup = studio.querySelector('[data-panel="setup"]');
-    const live = studio.querySelector('[data-panel="live"]');
-    if (setup) setup.hidden = phase !== 'setup';
-    if (live) live.hidden = phase !== 'live';
-    const prepTitle = studio.querySelector('[data-hud-title]');
-    if (prepTitle) prepTitle.textContent = phase === 'live' ? 'בשידור' : 'הכנת שידור';
+    const setup = studio.querySelector('#liveStudioSetupPanel');
+    const live = studio.querySelector('#liveStudioLivePanel');
+    if (setup) {
+      setup.hidden = phase !== 'setup';
+      setup.style.display = phase === 'setup' ? '' : 'none';
+    }
+    if (live) {
+      live.hidden = phase !== 'live';
+      live.style.display = phase === 'live' ? '' : 'none';
+    }
+    const title = studio.querySelector('[data-hud-title]');
+    if (title) title.textContent = phase === 'live' ? 'בשידור חי' : 'הכנת שידור';
+    const timer = studio.querySelector('[data-live-timer]');
+    if (timer) timer.hidden = phase !== 'live';
   }
 
   function showConfirm(onYes) {
@@ -124,10 +128,10 @@
     overlay.innerHTML = `
       <div class="live-studio__confirm-card" role="dialog" aria-modal="true">
         <h3>להתחיל שידור חי?</h3>
-        <p>השידור יופיע בפיד רק כשהווידאו פעיל ותקין אצל הצופים.</p>
+        <p>השידור יופיע בפיד לצופים רק כשהווידאו פעיל.</p>
         <div class="live-studio__confirm-row">
-          <button type="button" class="live-studio__chip" data-confirm="no">ביטול</button>
-          <button type="button" class="live-studio__chip live-studio__chip--go" data-confirm="yes">התחל לשדר</button>
+          <button type="button" class="live-studio__btn live-studio__btn--ghost" data-confirm="no">ביטול</button>
+          <button type="button" class="live-studio__btn live-studio__btn--primary" data-confirm="yes">כן, התחל</button>
         </div>
       </div>`;
     studio.appendChild(overlay);
@@ -190,41 +194,61 @@
     studio.dataset.phase = 'setup';
     studio.dataset.aspect = 'portrait';
     studio.innerHTML = `
-      <div class="live-studio__canvas">
-        <video id="liveStudioCam" class="live-studio__cam" autoplay muted playsinline></video>
-        <div class="live-studio__vignette" aria-hidden="true"></div>
-
-        <header class="live-studio__hud-top">
-          <button type="button" class="live-studio__round" data-action="close" aria-label="סגור"><i class="fa-solid fa-xmark"></i></button>
-          <div class="live-studio__hud-mid">
-            <span class="live-studio__live-pill">LIVE</span>
-            <span data-hud-title>הכנת שידור</span>
+      <div class="live-studio__shell">
+        <header class="live-studio__header">
+          <button type="button" class="live-studio__close" data-action="close" aria-label="סגור">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          <div class="live-studio__header-text">
+            <span class="live-studio__pill">LIVE</span>
+            <h1 data-hud-title>הכנת שידור</h1>
             <span class="live-studio__timer" data-live-timer hidden>00:00</span>
           </div>
-          <span class="live-studio__round live-studio__round--ghost" aria-hidden="true"></span>
         </header>
 
-        <div class="live-studio__hud-bottom" data-panel="setup">
-          <div class="live-studio__aspect" role="group" aria-label="יחס תצוגה">
-            <button type="button" class="live-studio__aspect-btn is-active" data-aspect-btn="9:16">9:16</button>
-            <button type="button" class="live-studio__aspect-btn" data-aspect-btn="16:9">16:9</button>
+        <div class="live-studio__body">
+          <div class="live-studio__preview-wrap">
+            <div class="live-studio__preview-frame">
+              <video id="liveStudioCam" class="live-studio__cam" autoplay muted playsinline></video>
+            </div>
           </div>
-          <input id="liveStudioTitle" class="live-studio__topic" type="text" maxlength="80" placeholder="נושא השידור" autocomplete="off">
-          <button type="button" class="live-studio__start" data-action="request-start">התחל לשדר</button>
-        </div>
 
-        <div class="live-studio__hud-bottom live-studio__hud-bottom--live" data-panel="live" hidden>
-          <div class="live-studio__live-row">
-            <span class="live-studio__live-pill">LIVE</span>
-            <strong data-live-topic>שידור חי</strong>
-            <span data-live-viewers>1 צופה</span>
-          </div>
-          <button type="button" class="live-studio__end" data-action="end">סיים שידור</button>
+          <aside class="live-studio__side" id="liveStudioSetupPanel">
+            <div class="live-studio__side-block">
+              <label class="live-studio__label" for="liveStudioTitle">נושא השידור</label>
+              <input id="liveStudioTitle" class="live-studio__input" type="text" maxlength="80" placeholder="לדוגמה: שיחה חיה מהאולפן" autocomplete="off">
+            </div>
+
+            <div class="live-studio__side-block">
+              <span class="live-studio__label">יחס תצוגה לצופים</span>
+              <div class="live-studio__seg" role="group" aria-label="יחס תצוגה">
+                <button type="button" class="live-studio__seg-btn is-active" data-aspect-btn="9:16" aria-pressed="true">9:16 מובייל</button>
+                <button type="button" class="live-studio__seg-btn" data-aspect-btn="16:9" aria-pressed="false">16:9 מסך</button>
+              </div>
+              <p class="live-studio__help">מחליף רק את מסגרת התצוגה — לא הופך את המצלמה.</p>
+            </div>
+
+            <button type="button" class="live-studio__btn live-studio__btn--primary live-studio__btn--block" data-action="request-start">
+              התחל לשדר
+            </button>
+          </aside>
+
+          <aside class="live-studio__side live-studio__side--live" id="liveStudioLivePanel" hidden style="display:none">
+            <div class="live-studio__live-stats">
+              <span class="live-studio__pill">LIVE</span>
+              <strong data-live-topic>שידור חי</strong>
+              <span data-live-viewers>1 צופה</span>
+            </div>
+            <button type="button" class="live-studio__btn live-studio__btn--danger live-studio__btn--block" data-action="end">
+              סיים שידור
+            </button>
+          </aside>
         </div>
       </div>`;
 
     doc.body.appendChild(studio);
     doc.body.classList.add('live-studio-open');
+    setStudioPhase('setup');
     applyAspectUi();
 
     studio.querySelector('[data-action="close"]').onclick = async () => {
@@ -236,11 +260,10 @@
     };
     studio.querySelector('[data-action="end"]').onclick = () => endBroadcastAndClose();
     studio.querySelectorAll('[data-aspect-btn]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', () => {
         if (studio.dataset.phase === 'live') return;
         aspectMode = btn.getAttribute('data-aspect-btn') || '9:16';
-        applyAspectUi();
-        try { await ensurePreviewCamera(); } catch (e) { console.warn(e); }
+        applyAspectUi(); // CSS בלבד — בלי getUserMedia מחדש
       });
     });
 

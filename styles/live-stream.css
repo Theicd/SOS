@@ -1,4 +1,4 @@
-/* חלק שידור חי (live-stream.css) – סטודיו בסגנון LIVE מסודר + כרטיס מאומת | HYPER CORE TECH */
+/* חלק שידור חי (live-stream.css) – סטודיו מסודר בסגנון SOS: דסקטופ + מובייל | HYPER CORE TECH */
 
 body.live-studio-open {
   overflow: hidden;
@@ -10,6 +10,7 @@ body.live-studio-open {
   z-index: 11000;
   background: #000;
   color: #fff;
+  direction: rtl;
 }
 
 @media (min-width: 769px) {
@@ -18,12 +19,111 @@ body.live-studio-open {
   }
 }
 
-.live-studio__canvas {
-  position: absolute;
-  inset: 0;
+.live-studio__shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.live-studio__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-top: calc(12px + var(--safe-top, 0px));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000;
+  flex-shrink: 0;
+}
+
+.live-studio__close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
+}
+
+.live-studio__header-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.live-studio__header-text h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.live-studio__pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: #fe2c55;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.live-studio__timer {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.live-studio__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+@media (min-width: 769px) {
+  .live-studio__body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+.live-studio__preview-wrap {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: #050505;
+}
+
+.live-studio__preview-frame {
+  position: relative;
   overflow: hidden;
+  border-radius: 16px;
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  transition: width 0.2s ease, height 0.2s ease, aspect-ratio 0.2s ease;
+}
+
+/* מסגרת תצוגה בלבד — הווידאו object-fit:cover בתוך המסגרת */
+.live-studio[data-aspect="portrait"] .live-studio__preview-frame {
+  width: min(100%, 360px);
+  aspect-ratio: 9 / 16;
+  max-height: min(68vh, 720px);
+}
+
+.live-studio[data-aspect="landscape"] .live-studio__preview-frame {
+  width: min(100%, 720px);
+  aspect-ratio: 16 / 9;
+  max-height: min(58vh, 480px);
 }
 
 .live-studio__cam {
@@ -33,193 +133,133 @@ body.live-studio-open {
   height: 100%;
   object-fit: cover;
   background: #000;
+  transform: none !important;
 }
 
-/* מסגרת במה לפי יחס נבחר – דסקטופ כמו טיקטוק LIVE */
-.live-studio[data-aspect="portrait"] .live-studio__cam {
-  width: min(100%, calc(100vh * 9 / 16));
-  height: 100%;
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  inset: 0 auto 0 50%;
+.live-studio__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  padding-bottom: calc(16px + var(--safe-bottom, 0px));
+  background: #0a0a0a;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.live-studio[data-aspect="landscape"] .live-studio__cam {
-  width: 100%;
-  height: min(100%, calc(100vw * 9 / 16));
-  top: 50%;
-  bottom: auto;
-  transform: translateY(-50%);
-  inset: 50% 0 auto 0;
-}
-
-@media (max-width: 768px) {
-  .live-studio[data-aspect="portrait"] .live-studio__cam,
-  .live-studio[data-aspect="landscape"] .live-studio__cam {
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    transform: none;
-    object-fit: cover;
+@media (min-width: 769px) {
+  .live-studio__side {
+    border-top: none;
+    border-inline-start: 1px solid rgba(255, 255, 255, 0.08);
+    justify-content: center;
   }
 }
 
-.live-studio__vignette {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, transparent 18%, transparent 72%, rgba(0, 0, 0, 0.75) 100%);
-  z-index: 1;
+.live-studio__side[hidden],
+.live-studio__side[style*="display: none"] {
+  display: none !important;
 }
 
-.live-studio__hud-top {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  padding-top: calc(14px + var(--safe-top, 0px));
-}
-
-.live-studio__round {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-
-.live-studio__round--ghost {
-  visibility: hidden;
-}
-
-.live-studio__hud-mid {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.live-studio__live-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 4px;
-  background: #fe2c55;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-
-.live-studio__timer {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.9;
-  font-size: 13px;
-}
-
-.live-studio__hud-bottom {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 3;
+.live-studio__side-block {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  padding-bottom: calc(16px + var(--safe-bottom, 0px));
-  max-width: 520px;
-  margin: 0 auto;
+  gap: 8px;
+}
+
+.live-studio__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.live-studio__input {
   width: 100%;
   box-sizing: border-box;
-}
-
-.live-studio__aspect {
-  display: inline-flex;
-  align-self: center;
-  gap: 4px;
-  padding: 3px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.live-studio__aspect-btn {
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 800;
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.live-studio__aspect-btn.is-active {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-}
-
-.live-studio__topic {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.06);
   color: #fff;
   padding: 12px 14px;
   font-size: 15px;
   outline: none;
 }
 
-.live-studio__topic:focus {
-  border-color: rgba(0, 175, 255, 0.55);
+.live-studio__input:focus {
+  border-color: #00afff;
+  box-shadow: 0 0 0 3px rgba(0, 175, 255, 0.18);
 }
 
-.live-studio__start,
-.live-studio__end {
+.live-studio__help {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.35;
+}
+
+.live-studio__seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.live-studio__seg-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-studio__seg-btn.is-active {
+  background: rgba(0, 175, 255, 0.18);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(0, 175, 255, 0.45);
+}
+
+.live-studio__btn {
   border: none;
   border-radius: 12px;
   padding: 12px 16px;
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
-  width: auto;
-  align-self: stretch;
 }
 
-.live-studio__start {
+.live-studio__btn--block {
+  width: 100%;
+}
+
+.live-studio__btn--primary {
   background: #00afff;
   color: #000;
 }
 
-.live-studio__end {
-  background: rgba(254, 44, 85, 0.95);
+.live-studio__btn--danger {
+  background: #fe2c55;
   color: #fff;
-  max-width: 220px;
-  align-self: center;
 }
 
-.live-studio__live-row {
+.live-studio__btn--ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.live-studio__live-stats {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
   flex-wrap: wrap;
-  font-size: 13px;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(254, 44, 85, 0.1);
+  border: 1px solid rgba(254, 44, 85, 0.28);
 }
 
 .live-studio__confirm {
@@ -228,7 +268,7 @@ body.live-studio-open {
   z-index: 5;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.7);
   padding: 20px;
 }
 
@@ -250,7 +290,6 @@ body.live-studio-open {
   margin: 0 0 14px;
   color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
-  line-height: 1.4;
 }
 
 .live-studio__confirm-row {
@@ -258,20 +297,35 @@ body.live-studio-open {
   gap: 8px;
 }
 
-.live-studio__chip {
+.live-studio__confirm-row .live-studio__btn {
   flex: 1;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-weight: 800;
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
 }
 
-.live-studio__chip--go {
-  background: #00afff;
-  color: #000;
+/* מובייל: תצוגה מקדימה למעלה, פאנל שליטה מסודר מתחת */
+@media (max-width: 768px) {
+  .live-studio__preview-wrap {
+    padding: 10px 12px 0;
+    flex: 1;
+  }
+
+  .live-studio[data-aspect="portrait"] .live-studio__preview-frame {
+    width: min(100%, 320px);
+    max-height: 52vh;
+  }
+
+  .live-studio[data-aspect="landscape"] .live-studio__preview-frame {
+    width: 100%;
+    max-height: 36vh;
+  }
+
+  .live-studio__body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .live-studio__side {
+    flex-shrink: 0;
+  }
 }
 
 /* כרטיס P2P LIVE בפיד */
