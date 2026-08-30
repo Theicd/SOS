@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa388-youtube-shorts",
-  "buildTime": "2026-08-31T00:15:00+03:00",
-  "notes": "Parse YouTube Shorts and non-www youtube.com links in feed/profile"
+  "version": "2026.08.31-pwa389-youtube-warm",
+  "buildTime": "2026-08-31T00:30:00+03:00",
+  "notes": "YouTube warm prepare for first card and next neighbor; soft pause keeps iframe"
 }
