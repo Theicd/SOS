@@ -273,6 +273,18 @@
         closed = true;
       }
     } catch (_) {}
+    try {
+      if (document.body.classList.contains('live-modal-open') && typeof App.live?.end === 'function') {
+        App.live.end();
+        closed = true;
+      }
+      const liveModal = document.querySelector('.live-modal');
+      if (liveModal) {
+        liveModal.remove();
+        document.body.classList.remove('live-modal-open');
+        closed = true;
+      }
+    } catch (_) {}
     if (closeChatPanel()) closed = true;
     if (closeNotificationsPanel()) closed = true;
     return closed;
