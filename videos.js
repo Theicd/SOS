@@ -1320,6 +1320,16 @@ function playP2pLiveMedia(mediaDiv) {
     });
     const hint = mediaDiv.querySelector('.videos-p2p-live-hint');
     if (hint) hint.hidden = true;
+    // הקשה על הכרטיס מנסה להפעיל סאונד (מדיניות autoplay) | HYPER CORE TECH
+    if (!mediaDiv.dataset.p2pAudioBound) {
+      mediaDiv.dataset.p2pAudioBound = '1';
+      mediaDiv.addEventListener('pointerdown', () => {
+        try {
+          videoEl.muted = false;
+          videoEl.play().catch(() => {});
+        } catch (_) {}
+      }, { passive: true });
+    }
     return;
   }
 
