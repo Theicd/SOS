@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.30-pwa387-youtube-bg-stop",
-  "buildTime": "2026-08-30T23:45:00+03:00",
-  "notes": "Hard-stop YouTube iframes on pause; one active card after IO/boot"
+  "version": "2026.08.31-pwa388-youtube-shorts",
+  "buildTime": "2026-08-31T00:15:00+03:00",
+  "notes": "Parse YouTube Shorts and non-www youtube.com links in feed/profile"
 }

@@ -2844,17 +2844,20 @@
 
   function parseYouTube(link) {
     if (!link) return null;
-    const shortMatch = link.match(/^https?:\/\/youtu\.be\/([\w-]{11})(?:\?.*)?$/i);
-    if (shortMatch) {
-      return shortMatch[1];
-    }
-    const longMatch = link.match(/^https?:\/\/www\.youtube\.com\/watch\?v=([\w-]{11})(?:&.*)?$/i);
-    if (longMatch) {
-      return longMatch[1];
-    }
-    const embedMatch = link.match(/^https?:\/\/www\.youtube\.com\/embed\/([\w-]{11})(?:\?.*)?$/i);
-    if (embedMatch) {
-      return embedMatch[1];
+    const raw = String(link).trim();
+    if (!raw || !/youtu\.?be/i.test(raw)) return null;
+    const patterns = [
+      /(?:youtube\.com\/shorts\/)([\w-]{11})/i,
+      /(?:youtu\.be\/)([\w-]{11})/i,
+      /(?:youtube\.com\/embed\/)([\w-]{11})/i,
+      /(?:youtube\.com\/live\/)([\w-]{11})/i,
+      /(?:youtube\.com\/watch\?(?:[^#]*&)?v=)([\w-]{11})/i,
+      /(?:youtube\.com\/watch\?.*[?&]v=)([\w-]{11})/i,
+      /[?&]v=([\w-]{11})/i
+    ];
+    for (const re of patterns) {
+      const m = raw.match(re);
+      if (m && m[1]) return m[1];
     }
     return null;
   }

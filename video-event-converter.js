@@ -27,7 +27,7 @@
     const videoUrl = isVideoLinkFn ? mediaLinks.find(isVideoLinkFn) : null;
     const imageUrl = isImageLinkFn ? mediaLinks.find(isImageLinkFn) : null;
 
-    if (!videoUrl && !imageUrl) return null;
+    if (!videoUrl && !imageUrl && !youtubeId) return null;
 
     let mediaHash = '';
     const mediaMirrors = [];
