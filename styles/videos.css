@@ -3976,7 +3976,7 @@ body.global-stop .videos-feed__play-overlay {
     flex-direction: row !important;
     justify-content: flex-start !important;
     align-items: center !important;
-    gap: 16px; /* מרווח גדול יותר (~2 תווים) בין אייקון לטקסט | HYPER CORE TECH */
+    gap: 20px !important; /* מרווח סביר בין אייקון לטקסט בדסקטופ (דורס gap: 2px של מובייל) | HYPER CORE TECH */
     font-weight: 700;
     font-size: 16px;
     margin: 2px 0; /* מרווח אנכי קטן בין כפתורים למראה אחיד | HYPER CORE TECH */
