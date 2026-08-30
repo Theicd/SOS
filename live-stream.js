@@ -61,14 +61,27 @@
     };
     pc.onconnectionstatechange = () => {
       const cs = pc.connectionState; console.log('LIVE PC', peer.slice(0,8), cs);
-      if(['disconnected','failed','closed'].includes(cs)){
+      // disconnected זמני ב-ICE — לא סוגרים ולא מציגים "הסתיים" | HYPER CORE TECH
+      if (cs === 'failed' || cs === 'closed') {
         tryEndChild(peer);
-        // צופה שאיבד את מקור הווידאו — מסך סיום מסודר במקום שחור | HYPER CORE TECH
         if (!state.ending && state.role !== 'broadcaster' && peer === state.parentPeer) {
           try {
             if (typeof App.onLiveStreamLost === 'function') App.onLiveStreamLost(state.roomId);
           } catch (_) {}
         }
+      } else if (cs === 'disconnected') {
+        // המתנה קצרה — אם לא חוזר ל-connected נחשב אובדן | HYPER CORE TECH
+        setTimeout(() => {
+          try {
+            const pc2 = state.pcMap.get(peer);
+            if (!pc2 || state.ending) return;
+            if (pc2.connectionState === 'disconnected' || pc2.connectionState === 'failed') {
+              if (state.role !== 'broadcaster' && peer === state.parentPeer) {
+                if (typeof App.onLiveStreamLost === 'function') App.onLiveStreamLost(state.roomId);
+              }
+            }
+          } catch (_) {}
+        }, 8000);
       }
     };
     state.pcMap.set(peer, pc);

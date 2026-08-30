@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v702'; // bump - mute feed on live + viewer overlay chat
+  const CACHE_NAME = 'sos-cache-v703'; // bump - ignore stale live-end / false ended overlay
   const PRECACHE_URLS = [
     './',
     './videos.html',

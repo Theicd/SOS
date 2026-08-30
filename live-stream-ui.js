@@ -5,11 +5,13 @@
 
   const DISCOVERY_WINDOW_SEC = 30 * 60; // חיפוש אירועים
   const MAX_POST_AGE_SEC = 3 * 60; // רק שידורים טריים לאימות
+  const MAX_LIVE_END_AGE_SEC = 25; // live-end ישן מאותו roomId לא סוגר שידור חדש
   const VERIFY_TIMEOUT_MS = 14000;
 
   const knownRooms = new Map(); // roomId -> meta
   const verifiedRooms = new Map(); // roomId -> meta + verified
   const verifying = new Set();
+  const roomLivePostAt = new Map(); // roomId -> created_at של live-post האחרון שקיבלנו
 
   let studio = null;
   let previewStream = null;
@@ -649,7 +651,9 @@
               }
 
               if (kind === 'live-end') {
-                markViewerLiveEnded(roomId, 'השידור הסתיים');
+                if (shouldAcceptLiveEnd(roomId, ev)) {
+                  markViewerLiveEnded(roomId, 'השידור הסתיים');
+                }
                 return;
               }
 
@@ -854,6 +858,17 @@
     } catch (_) {}
   }
 
+  function shouldAcceptLiveEnd(roomId, ev) {
+    const created = Number(ev && ev.created_at) || 0;
+    if (!created) return false;
+    const age = Math.floor(Date.now() / 1000) - created;
+    // אירועי סיום ישנים מאותו roomId (שידור קודם) — מתעלמים | HYPER CORE TECH
+    if (age > MAX_LIVE_END_AGE_SEC) return false;
+    const postAt = roomLivePostAt.get(roomId) || 0;
+    if (postAt && created < postAt) return false;
+    return true;
+  }
+
   function clearVerifyTimer() {
     if (verifyTimer) clearTimeout(verifyTimer);
     verifyTimer = null;
@@ -939,6 +954,9 @@
     const age = Math.floor(Date.now() / 1000) - Number(ev.created_at || 0);
     meta._ageSec = age;
     if (age > MAX_POST_AGE_SEC) return;
+    const created = Number(ev.created_at || 0);
+    const prev = roomLivePostAt.get(meta.roomId) || 0;
+    if (created >= prev) roomLivePostAt.set(meta.roomId, created);
     knownRooms.set(meta.roomId, meta);
     showLiveStartedBanner(meta);
     queueVerify(meta);
@@ -989,7 +1007,9 @@
         return;
       }
       if (type === 'live-end') {
-        markViewerLiveEnded(roomId, 'השידור הסתיים');
+        if (shouldAcceptLiveEnd(roomId, ev)) {
+          markViewerLiveEnded(roomId, 'השידור הסתיים');
+        }
       }
     } catch (e) {
       console.warn('live discovery event failed', e);
@@ -1096,6 +1116,12 @@
               if (kind === 'live-like') {
                 if (App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase()) return;
                 broadcastOverlayEvent(roomId, spawnViewerHeart);
+                return;
+              }
+              if (kind === 'live-end') {
+                if (shouldAcceptLiveEnd(roomId, ev)) {
+                  markViewerLiveEnded(roomId, 'השידור הסתיים');
+                }
                 return;
               }
               if (kind !== 'live-chat') return;
