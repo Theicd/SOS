@@ -3976,7 +3976,7 @@ body.global-stop .videos-feed__play-overlay {
     flex-direction: row !important;
     justify-content: flex-start !important;
     align-items: center !important;
-    gap: 20px !important; /* מרווח סביר בין אייקון לטקסט בדסקטופ (דורס gap: 2px של מובייל) | HYPER CORE TECH */
+    gap: 12px !important; /* מרווח אחיד בין אייקון לטקסט בדסקטופ | HYPER CORE TECH */
     font-weight: 700;
     font-size: 16px;
     margin: 2px 0; /* מרווח אנכי קטן בין כפתורים למראה אחיד | HYPER CORE TECH */
@@ -4091,7 +4091,7 @@ body.global-stop .videos-feed__play-overlay {
     box-shadow: none;
   }
 
-  /* כפתור פרסם בסגנון sos010.html - אייקון + עם מסגרת גרדיאנט | HYPER CORE TECH */
+  /* כפתור פרסם בדסקטופ – פלוס ברור + אותו מרווח כמו שאר התפריט | HYPER CORE TECH */
   body:has(.videos-feed) #navCompose {
     order: 0;
     margin-top: 8px;
@@ -4112,20 +4112,43 @@ body.global-stop .videos-feed__play-overlay {
   body:has(.videos-feed) #navCompose i {
     width: 24px !important;
     height: 24px !important;
+    min-width: 24px !important;
     box-sizing: border-box !important;
-    font-size: 16px !important;
+    font-size: 0 !important;
     order: 1;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    position: relative !important;
     background: #000 !important;
     border-radius: 6px !important;
+    color: transparent !important;
+    padding: 0 !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: none !important;
+  }
+
+  body:has(.videos-feed) #navCompose i::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  body:has(.videos-feed) #navCompose i::after {
+    content: '+' !important;
+    position: relative !important;
+    z-index: 1 !important;
     color: #fff !important;
-    padding: 2px !important;
-    border: 1px solid #111 !important;
-    box-shadow:
-      0 0 0 1px #25f4ee,
-      0 0 0 2px #fe2c55;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    font-style: normal !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    line-height: 1 !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    background: none !important;
+    border-radius: 0 !important;
   }
 
   /* פאנלים: התאמה לפריסת דסקטופ ללא תפריט תחתון | HYPER CORE TECH */
