@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v689'; // bump - LIVE TV under Explore in desktop nav
+  const CACHE_NAME = 'sos-cache-v690'; // bump - Free IP TV label + broadcast icon
   const PRECACHE_URLS = [
     './',
     './videos.html',
