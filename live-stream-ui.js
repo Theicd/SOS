@@ -20,6 +20,8 @@
   let confirmOpen = false;
   let verifyTimer = null;
   let verifyRoomId = null;
+  let chatSub = null;
+  let activeChatRoomId = null;
 
   function formatDuration(ms) {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -69,6 +71,7 @@
 
   async function endBroadcastAndClose() {
     try { if (typeof App.live?.end === 'function') await App.live.end(); } catch (_) {}
+    stopLiveChatSub();
     stopPreviewTracks();
     closeStudio();
   }
@@ -181,6 +184,10 @@
     if (topic) topic.textContent = title;
     setStudioPhase('live');
     startTimerUi();
+    try {
+      const st = App.live && App.live.getState && App.live.getState();
+      if (st && st.roomId) startLiveChatSub(st.roomId);
+    } catch (_) {}
   }
 
   function openSetupStudio() {
@@ -234,14 +241,23 @@
           </aside>
 
           <aside class="live-studio__side live-studio__side--live" id="liveStudioLivePanel" hidden style="display:none">
-            <div class="live-studio__live-stats">
-              <span class="live-studio__pill">LIVE</span>
-              <strong data-live-topic>שידור חי</strong>
-              <span data-live-viewers>1 צופה</span>
+            <div class="live-studio__live-top">
+              <div class="live-studio__live-stats">
+                <span class="live-studio__pill">LIVE</span>
+                <strong data-live-topic>שידור חי</strong>
+                <span data-live-viewers>1 צופה</span>
+              </div>
+              <button type="button" class="live-studio__btn live-studio__btn--danger live-studio__btn--block" data-action="end">
+                סיים שידור
+              </button>
             </div>
-            <button type="button" class="live-studio__btn live-studio__btn--danger live-studio__btn--block" data-action="end">
-              סיים שידור
-            </button>
+
+            <div class="live-studio__chat" aria-label="תגובות השידור">
+              <div class="live-studio__chat-head">תגובות מהצופים</div>
+              <div class="live-studio__chat-list" id="liveStudioChatList" role="log" aria-live="polite">
+                <div class="live-studio__chat-empty" data-chat-empty>עדיין אין תגובות</div>
+              </div>
+            </div>
           </aside>
         </div>
       </div>`;
@@ -315,9 +331,14 @@
   App.onLiveStarted = function() {
     const timer = studio && studio.querySelector('[data-live-timer]');
     if (timer) timer.hidden = false;
+    try {
+      const st = App.live && App.live.getState && App.live.getState();
+      if (st && st.roomId) startLiveChatSub(st.roomId);
+    } catch (_) {}
   };
   App.onLiveEnded = function() {
     stopTimer();
+    stopLiveChatSub();
     if (studio && studio.dataset.phase === 'live') closeStudio();
   };
   App.onLiveStatusUpdate = function(info) {
@@ -341,6 +362,102 @@
   };
   App.closeLiveWatchHub = function() { return true; };
   App.isLiveWatchHubOpen = function() { return false; };
+
+  function clearChatUi() {
+    const list = studio && studio.querySelector('#liveStudioChatList');
+    if (!list) return;
+    list.innerHTML = '<div class="live-studio__chat-empty" data-chat-empty>עדיין אין תגובות</div>';
+  }
+
+  function appendChatMessage(author, text) {
+    const list = studio && studio.querySelector('#liveStudioChatList');
+    if (!list) return;
+    const empty = list.querySelector('[data-chat-empty]');
+    if (empty) empty.remove();
+    const row = doc.createElement('div');
+    row.className = 'live-studio__chat-item';
+    const who = doc.createElement('strong');
+    who.textContent = String(author || 'צופה').slice(0, 12);
+    const body = doc.createElement('span');
+    body.textContent = String(text || '').slice(0, 280);
+    row.appendChild(who);
+    row.appendChild(body);
+    list.appendChild(row);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function stopLiveChatSub() {
+    activeChatRoomId = null;
+    chatSub = null;
+  }
+
+  function startLiveChatSub(roomId) {
+    if (!roomId || !App.pool || !Array.isArray(App.relayUrls)) return;
+    activeChatRoomId = roomId;
+    clearChatUi();
+    const since = Math.floor(Date.now() / 1000) - 30;
+    try {
+      chatSub = App.pool.subscribeMany(
+        App.relayUrls,
+        [{ kinds: [25051], '#r': [roomId], since }],
+        {
+          onevent: (ev) => {
+            try {
+              const tType = ev.tags.find((t) => t[0] === 'type');
+              if (!tType || tType[1] !== 'live-chat') return;
+              const tRoom = ev.tags.find((t) => t[0] === 'r');
+              if (!tRoom || tRoom[1] !== roomId) return;
+              let payload = {};
+              try { payload = JSON.parse(ev.content || '{}'); } catch (_) {}
+              const text = payload.text || '';
+              if (!text) return;
+              const author = payload.name || String(ev.pubkey || '').slice(0, 8);
+              appendChatMessage(author, text);
+            } catch (_) {}
+          },
+          oneose: () => {}
+        }
+      );
+    } catch (e) {
+      console.warn('live chat subscribe failed', e);
+    }
+  }
+
+  App.publishLiveChat = async function(roomId, text) {
+    const msg = String(text || '').trim();
+    const rid = roomId || activeChatRoomId;
+    if (!msg || !rid) return false;
+    if (!App.pool || !App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') return false;
+    try {
+      const content = JSON.stringify({
+        text: msg.slice(0, 280),
+        name: String(App.publicKey).slice(0, 8),
+        roomId: rid
+      });
+      const ev = {
+        kind: 25051,
+        pubkey: App.publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['type', 'live-chat'], ['r', rid]],
+        content
+      };
+      const signed = App.finalizeEvent(ev, App.privateKey);
+      await App.pool.publish(App.relayUrls, signed);
+      return true;
+    } catch (e) {
+      console.warn('publishLiveChat failed', e);
+      return false;
+    }
+  };
+
+  App.getActiveLiveRoomId = function() {
+    try {
+      const st = App.live && App.live.getState && App.live.getState();
+      return (st && st.roomId) || activeChatRoomId || null;
+    } catch (_) {
+      return activeChatRoomId;
+    }
+  };
 
   function clearVerifyTimer() {
     if (verifyTimer) clearTimeout(verifyTimer);
