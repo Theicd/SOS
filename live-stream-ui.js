@@ -492,9 +492,16 @@
       try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
       return;
     }
+    // אין כרטיס מאומת — מתחברים רק בלחיצה מפורשת (לא auto) | HYPER CORE TECH
+    let started = false;
+    knownRooms.forEach((meta) => {
+      if (started || !meta || !meta.roomId) return;
+      if (App.publicKey && String(meta.owner).toLowerCase() === String(App.publicKey).toLowerCase()) return;
+      started = App.requestLiveWatch(meta);
+    });
     try {
       if (typeof App.showTransientFeedHint === 'function') {
-        App.showTransientFeedHint('אין שידור חי פעיל ומאומת בפיד כרגע');
+        App.showTransientFeedHint(started ? 'מתחבר לשידור חי…' : 'אין שידור חי פעיל כרגע — לחצו על באנר הצפייה כשמופיע');
       }
     } catch (_) {}
   };
@@ -1037,9 +1044,19 @@
     const prev = roomLivePostAt.get(meta.roomId) || 0;
     if (created >= prev) roomLivePostAt.set(meta.roomId, created);
     knownRooms.set(meta.roomId, meta);
+    // באנר בלבד — בלי WebRTC אוטומטי (שומר על P2P צ'אט/שיחות) | HYPER CORE TECH
     showLiveStartedBanner(meta);
-    queueVerify(meta);
   }
+
+  App.requestLiveWatch = function(metaOrRoom) {
+    const meta = (metaOrRoom && metaOrRoom.roomId)
+      ? metaOrRoom
+      : (typeof metaOrRoom === 'string' ? knownRooms.get(metaOrRoom) : null);
+    if (!meta) return false;
+    knownRooms.set(meta.roomId, meta);
+    queueVerify(meta);
+    return true;
+  };
 
   async function subscribeLivePosts() {
     if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) {

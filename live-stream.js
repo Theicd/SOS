@@ -8,6 +8,8 @@
   // חלק הגדרות – Fanout קטן למשדר, שדרוג דרך רילייז (Tree Mesh)
   const MAX_DIRECT_CHILDREN = 3; // כמה צופים המשדר מחזיק ישירות
   const MAX_RELAY_CHILDREN = 4;  // כמה צופים ריליי יחיד מחזיק
+  // אותות WebRTC לשידור חי — מופרדים משיחות קול (25050) כדי לא לשבור P2P/DC | HYPER CORE TECH
+  const LIVE_SIGNAL_KIND = 25056;
 
   // מצב גלובלי לשידור חי לחדר יחיד בכל פעם (MVP)
   const state = {
@@ -23,6 +25,9 @@
     hiddenVideoEl: null,             // וידאו חבוי ללכידת stream כשאנחנו relay
     ending: false
   };
+
+  // עומס ילדים לכל ריליי (pubkey -> מספר צופים ששויכו אליו) | HYPER CORE TECH
+  const relayLoads = new Map();
 
   // קונפיג ICE – כמו P2P (כולל TURN) כדי למנוע מסך שחור מאחורי NAT | HYPER CORE TECH
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -62,7 +67,7 @@
     if(!App.pool || !App.publicKey || !App.privateKey) return;
     const payload = data ? JSON.stringify(data) : '';
     const content = payload ? await NT.nip04.encrypt(App.privateKey, to, payload) : '';
-    const ev = { kind: 25050, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [ ['type', type], ['p', to], ['r', state.roomId||''] ], content };
+    const ev = { kind: LIVE_SIGNAL_KIND, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [ ['type', type], ['p', to], ['r', state.roomId||''] ], content };
     const signed = App.finalizeEvent(ev, App.privateKey);
     await App.pool.publish(App.relayUrls, signed);
   }
@@ -170,6 +175,7 @@
     const title = String(options.title || '').trim() || 'שידור חי';
     state.role = 'broadcaster'; state.broadcaster = App.publicKey; state.roomId = getRoomId(App.publicKey, slug||('room-'+Date.now()));
     state.relays.clear(); state.directChildren.clear();
+    relayLoads.clear();
     if (options.stream && typeof options.stream.getTracks === 'function') {
       state.localStream = options.stream;
     } else {
@@ -209,12 +215,23 @@
   // המשדר: החלטה היכן לשכן צופה חדש
   async function handleJoin(peer){
     if(state.role !== 'broadcaster') return;
-    // אם יש מקום ישיר – נחבר ישיר; אחרת נבחר ריליי זמין או נקדם את המצטרף לריליי
+    const peerKey = String(peer || '').toLowerCase();
+    if (!peerKey || peerKey === String(App.publicKey || '').toLowerCase()) return;
+    // אם יש מקום ישיר – נחבר ישיר; אחרת ריליי קיים עם מקום / קידום ילד קיים (לא המצטרף עצמו) | HYPER CORE TECH
     if(state.directChildren.size < MAX_DIRECT_CHILDREN){
       await inviteDirect(peer);
     } else {
-      const relay = pickRelayWithCapacity() || promoteToRelay(peer);
-      await inviteViaRelay(peer, relay);
+      let relay = pickRelayWithCapacity();
+      if (!relay) {
+        const existingChild = Array.from(state.directChildren).find((c) => String(c).toLowerCase() !== peerKey);
+        if (existingChild) relay = promoteToRelay(existingChild);
+      }
+      if (relay && String(relay).toLowerCase() !== peerKey) {
+        await inviteViaRelay(peer, relay);
+      } else {
+        // נפילה בטוחה: עדיין ישיר (עדיף על parent=עצמי) | HYPER CORE TECH
+        await inviteDirect(peer);
+      }
     }
     announceStatus();
   }
@@ -225,16 +242,33 @@
   }
 
   function pickRelayWithCapacity(){
-    for(const r of state.relays){ const count = countChildrenOf(r); if(count < MAX_RELAY_CHILDREN) return r; }
+    for(const r of state.relays){
+      if (countChildrenOf(r) < MAX_RELAY_CHILDREN) return r;
+    }
     return null;
   }
-  function countChildrenOf(pubkey){ let n=0; state.pcMap.forEach((pc,k)=>{ if(k.startsWith(pubkey+':child:')) n++; }); return n; }
+  function countChildrenOf(pubkey){
+    const k = String(pubkey || '').toLowerCase();
+    if (!k) return 0;
+    if (k === String(App.publicKey || '').toLowerCase()) return state.directChildren.size;
+    return Number(relayLoads.get(k) || 0);
+  }
 
   // קידום צופה לריליי
-  function promoteToRelay(pubkey){ state.relays.add(pubkey); return pubkey; }
+  function promoteToRelay(pubkey){
+    const k = String(pubkey || '').toLowerCase();
+    if (!k) return pubkey;
+    state.relays.add(pubkey);
+    if (!relayLoads.has(k)) relayLoads.set(k, 0);
+    return pubkey;
+  }
 
   // הזמנה דרך ריליי
-  async function inviteViaRelay(viewer, relay){ await sendSignal(viewer, 'live-invite', { parent: relay, role: 'viewer' }); }
+  async function inviteViaRelay(viewer, relay){
+    const rk = String(relay || '').toLowerCase();
+    if (rk) relayLoads.set(rk, Number(relayLoads.get(rk) || 0) + 1);
+    await sendSignal(viewer, 'live-invite', { parent: relay, role: 'viewer' });
+  }
 
   // התחברות ל-parent שנבחר
   async function connectToParent(parentPubkey){
@@ -379,7 +413,7 @@
         else if (typeof signalSub.unsub === 'function') signalSub.unsub();
       }
     } catch (_) {}
-    const filters = [ { kinds:[25050,25051], '#r':[roomId], since: Math.floor(Date.now()/1000)-2 } ];
+    const filters = [ { kinds:[LIVE_SIGNAL_KIND], '#r':[roomId], since: Math.floor(Date.now()/1000)-2 } ];
     signalSub = App.pool.subscribeMany(App.relayUrls, filters, { onevent:onSignalEvent, oneose:()=>console.log('LIVE: ready', roomId) });
   }
 
@@ -454,6 +488,7 @@
       try{ state.incomingRemoteStream?.getTracks().forEach(t=>t.stop()); }catch{}
       if(state.hiddenVideoEl){ try{state.hiddenVideoEl.remove();}catch{} state.hiddenVideoEl=null; }
       state.role=null; state.roomId=null; state.parentPeer=null; state.directChildren.clear(); state.relays.clear();
+      relayLoads.clear();
       if(typeof App.onLiveEnded==='function') App.onLiveEnded({ roomId: endedRoom, wasBroadcaster });
     },
     getState(){ return { role:state.role, roomId:state.roomId, relays:Array.from(state.relays), direct:Array.from(state.directChildren) }; }
