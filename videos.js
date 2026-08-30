@@ -1685,6 +1685,10 @@ function sanitizeCachedVideo(video) {
   if (!video || typeof video !== 'object') {
     return null;
   }
+  // כרטיסי P2P LIVE לא נשמרים במטמון — בלי MediaStream הם ריקים ותוקעים את הפיד | HYPER CORE TECH
+  if (video.p2pLive || String(video.id || '').startsWith('p2plive-')) {
+    return null;
+  }
   const clone = { ...video };
   clone.mirrors = Array.isArray(video.mirrors) ? video.mirrors.slice(0, 10) : [];
   // נרמול זמן — בלי זה פוסטי וידאו עם created_at / בלי camelCase נזרקים לסוף והיוטיוב עולה ראשון | HYPER CORE TECH
