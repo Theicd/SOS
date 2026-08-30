@@ -4012,7 +4012,7 @@ body.global-stop .videos-feed__play-overlay {
     color: #fe2c55;
   }
 
-  /* בית בדסקטופ – אייקון outline + זוהר אדום כמו SO-CALL (בלי לשנות מובייל) | HYPER CORE TECH */
+  /* בית בדסקטופ – אייקון outline כמו SO-CALL; זוהר אדום רק כש־is-active | HYPER CORE TECH */
   body:has(.videos-feed) .nav-item[data-nav="videos"] > i.fa-house {
     display: none !important;
   }
@@ -4023,23 +4023,19 @@ body.global-stop .videos-feed__play-overlay {
     height: 22px;
     min-width: 22px;
     order: 1;
+    flex-shrink: 0;
     fill: none !important;
     stroke: currentColor !important;
     stroke-width: 1.7;
     stroke-linecap: round;
     stroke-linejoin: round;
-    color: #ff304f;
-    filter:
-      drop-shadow(0 0 3px rgba(255, 48, 79, 0.95))
-      drop-shadow(0 0 8px rgba(255, 48, 79, 0.75))
-      drop-shadow(0 0 14px rgba(255, 48, 79, 0.4));
+    color: rgba(255, 255, 255, 0.85);
+    filter: none;
   }
 
   body:has(.videos-feed) .nav-item[data-nav="videos"]:hover .nav-item__outline-icon {
-    color: #ff5a73;
-    filter:
-      drop-shadow(0 0 4px rgba(255, 48, 79, 1))
-      drop-shadow(0 0 10px rgba(255, 48, 79, 0.85));
+    color: #fff;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.25));
   }
 
   body:has(.videos-feed) .nav-item[data-nav="videos"].is-active .nav-item__outline-icon {
@@ -4055,8 +4051,9 @@ body.global-stop .videos-feed__play-overlay {
     font-weight: 700;
     text-align: right;
     order: 2;
-    flex: 1;
+    flex: 0 1 auto !important; /* בלי stretch – כדי שה־gap בין אייקון לטקסט ייראה | HYPER CORE TECH */
     display: block !important;
+    min-width: 0;
   }
 
   body:has(.videos-feed) .nav-item.is-active span {
