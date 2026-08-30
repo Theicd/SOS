@@ -22,6 +22,9 @@
   let verifyRoomId = null;
   let chatSub = null;
   let activeChatRoomId = null;
+  const bannerShownRooms = new Set();
+  let liveBannerEl = null;
+  let liveBannerTimer = null;
 
   function formatDuration(ms) {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -337,10 +340,25 @@
       if (st && st.roomId) startLiveChatSub(st.roomId);
     } catch (_) {}
   };
-  App.onLiveEnded = function() {
+  App.onLiveEnded = function(info) {
     stopTimer();
     stopLiveChatSub();
     if (studio && studio.dataset.phase === 'live') closeStudio();
+    const roomId = info && info.roomId;
+    // רק סיום אמיתי (או אובדן סטרים) — לא כישלון אימות שקט | HYPER CORE TECH
+    if (roomId && info && info.reason === 'lost') {
+      markViewerLiveEnded(roomId, 'השידור הסתיים');
+      return;
+    }
+    if (roomId && info && info.wasBroadcaster) {
+      try {
+        if (typeof App.markP2pLiveEnded === 'function') App.markP2pLiveEnded(roomId, 'השידור הסתיים');
+      } catch (_) {}
+    }
+  };
+
+  App.onLiveStreamLost = function(roomId) {
+    markViewerLiveEnded(roomId, 'השידור הסתיים');
   };
   App.onLiveStatusUpdate = function(info) {
     const el = studio && studio.querySelector('[data-live-viewers]');
@@ -386,19 +404,74 @@
     list.innerHTML = '<div class="live-studio__chat-empty" data-chat-empty>עדיין אין תגובות</div>';
   }
 
-  function appendChatMessage(author, text) {
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function resolveLocalIdentity() {
+    const prof = App.profile || {};
+    const cached = (App.profileCache instanceof Map && App.publicKey)
+      ? (App.profileCache.get(App.publicKey) || App.profileCache.get(String(App.publicKey).toLowerCase()) || {})
+      : {};
+    const name = String(prof.name || cached.name || '').trim()
+      || (App.publicKey ? `משתמש ${String(App.publicKey).slice(0, 8)}` : 'צופה');
+    const picture = String(prof.picture || cached.picture || '').trim();
+    return { name: name.slice(0, 48), picture };
+  }
+
+  function lookupProfileSync(pubkey) {
+    if (!pubkey) return {};
+    const key = String(pubkey);
+    const low = key.toLowerCase();
+    if (!(App.profileCache instanceof Map)) return {};
+    return App.profileCache.get(key) || App.profileCache.get(low) || {};
+  }
+
+  function initialsFromName(name) {
+    const s = String(name || '').trim();
+    if (!s) return '?';
+    const parts = s.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return s.slice(0, 2).toUpperCase();
+  }
+
+  function appendChatMessage(author, text, picture) {
     const list = studio && studio.querySelector('#liveStudioChatList');
     if (!list) return;
     const empty = list.querySelector('[data-chat-empty]');
     if (empty) empty.remove();
     const row = doc.createElement('div');
     row.className = 'live-studio__chat-item';
+    const av = doc.createElement('div');
+    av.className = 'live-studio__chat-avatar';
+    const pic = String(picture || '').trim();
+    if (pic) {
+      const img = doc.createElement('img');
+      img.src = pic;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.onerror = () => {
+        av.textContent = initialsFromName(author);
+        img.remove();
+      };
+      av.appendChild(img);
+    } else {
+      av.textContent = initialsFromName(author);
+    }
+    const col = doc.createElement('div');
+    col.className = 'live-studio__chat-body';
     const who = doc.createElement('strong');
-    who.textContent = String(author || 'צופה').slice(0, 12);
+    who.textContent = String(author || 'צופה').slice(0, 24);
     const body = doc.createElement('span');
     body.textContent = String(text || '').slice(0, 280);
-    row.appendChild(who);
-    row.appendChild(body);
+    col.appendChild(who);
+    col.appendChild(body);
+    row.appendChild(av);
+    row.appendChild(col);
     list.appendChild(row);
     list.scrollTop = list.scrollHeight;
   }
@@ -427,10 +500,14 @@
               const kind = tType[1];
 
               if (kind === 'live-like') {
-                // לא מציגים לייקים של המשדר עצמו כהתפרצות | HYPER CORE TECH
                 if (App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase()) return;
                 spawnFloatingHeart();
                 spawnFloatingHeart();
+                return;
+              }
+
+              if (kind === 'live-end') {
+                markViewerLiveEnded(roomId, 'השידור הסתיים');
                 return;
               }
 
@@ -439,8 +516,14 @@
               try { payload = JSON.parse(ev.content || '{}'); } catch (_) {}
               const text = payload.text || '';
               if (!text) return;
-              const author = payload.name || String(ev.pubkey || '').slice(0, 8);
-              appendChatMessage(author, text);
+              const cached = lookupProfileSync(ev.pubkey);
+              const author = String(payload.name || cached.name || '').trim()
+                || (ev.pubkey ? `משתמש ${String(ev.pubkey).slice(0, 8)}` : 'צופה');
+              const picture = String(payload.picture || cached.picture || '').trim();
+              appendChatMessage(author, text, picture);
+              if (!cached.name && typeof App.fetchProfile === 'function') {
+                App.fetchProfile(ev.pubkey).catch(() => null);
+              }
             } catch (_) {}
           },
           oneose: () => {}
@@ -457,9 +540,11 @@
     if (!msg || !rid) return false;
     if (!App.pool || !App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') return false;
     try {
+      const id = resolveLocalIdentity();
       const content = JSON.stringify({
         text: msg.slice(0, 280),
-        name: String(App.publicKey).slice(0, 8),
+        name: id.name,
+        picture: id.picture && id.picture.length < 4000 ? id.picture : '',
         roomId: rid
       });
       const ev = {
@@ -507,6 +592,117 @@
       return activeChatRoomId;
     }
   };
+
+  function dismissLiveStartedBanner() {
+    if (liveBannerTimer) {
+      clearTimeout(liveBannerTimer);
+      liveBannerTimer = null;
+    }
+    if (liveBannerEl) {
+      try { liveBannerEl.classList.remove('is-visible'); } catch (_) {}
+      const el = liveBannerEl;
+      liveBannerEl = null;
+      setTimeout(() => { try { el.remove(); } catch (_) {} }, 320);
+    }
+  }
+
+  function showLiveStartedBanner(meta) {
+    if (!meta || !meta.roomId || !meta.owner) return;
+    if (App.publicKey && String(meta.owner).toLowerCase() === String(App.publicKey).toLowerCase()) return;
+    if (bannerShownRooms.has(meta.roomId)) return;
+    // לא מציגים באנר על שידורים ישנים מהחלון הרחב | HYPER CORE TECH
+    if (meta._ageSec != null && meta._ageSec > 90) return;
+    bannerShownRooms.add(meta.roomId);
+
+    const cached = lookupProfileSync(meta.owner);
+    const name = String(meta.name || cached.name || '').trim()
+      || `משתמש ${String(meta.owner).slice(0, 8)}`;
+    let picture = String(meta.picture || cached.picture || '').trim();
+
+    dismissLiveStartedBanner();
+    const el = doc.createElement('button');
+    el.type = 'button';
+    el.className = 'live-go-banner';
+    el.setAttribute('aria-label', `${name} התחיל לשדר`);
+    el.innerHTML = `
+      <span class="live-go-banner__avatar" data-av></span>
+      <span class="live-go-banner__text">
+        <strong>${escapeHtml(name)}</strong>
+        <span>התחיל לשדר</span>
+      </span>
+      <span class="live-go-banner__cta">צפייה</span>`;
+    const av = el.querySelector('[data-av]');
+    if (picture) {
+      const img = doc.createElement('img');
+      img.src = picture;
+      img.alt = '';
+      img.onerror = () => { av.textContent = initialsFromName(name); img.remove(); };
+      av.appendChild(img);
+    } else {
+      av.textContent = initialsFromName(name);
+    }
+
+    el.addEventListener('click', () => {
+      dismissLiveStartedBanner();
+      const media = Array.from(doc.querySelectorAll('.videos-feed__media[data-live-room-id]'))
+        .find((m) => m.dataset.liveRoomId === meta.roomId);
+      const card = media && media.closest('.videos-feed__card');
+      if (card) {
+        try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+        return;
+      }
+      knownRooms.set(meta.roomId, meta);
+      queueVerify(meta);
+      try {
+        if (typeof App.showTransientFeedHint === 'function') {
+          App.showTransientFeedHint('מתחבר לשידור…');
+        }
+      } catch (_) {}
+    });
+
+    doc.body.appendChild(el);
+    liveBannerEl = el;
+    requestAnimationFrame(() => el.classList.add('is-visible'));
+    liveBannerTimer = setTimeout(dismissLiveStartedBanner, 9000);
+
+    if ((!cached.name || !picture) && typeof App.fetchProfile === 'function') {
+      App.fetchProfile(meta.owner).then((p) => {
+        if (!p || !liveBannerEl || liveBannerEl !== el) return;
+        if (p.name) {
+          const strong = el.querySelector('.live-go-banner__text strong');
+          if (strong) strong.textContent = String(p.name).slice(0, 48);
+        }
+        if (p.picture && av && !av.querySelector('img')) {
+          av.textContent = '';
+          const img = doc.createElement('img');
+          img.src = p.picture;
+          img.alt = '';
+          av.appendChild(img);
+        }
+      }).catch(() => null);
+    }
+  }
+
+  function markViewerLiveEnded(roomId, message) {
+    if (!roomId) return;
+    verifiedRooms.delete(roomId);
+    verifying.delete(roomId);
+    if (verifyRoomId === roomId) {
+      clearVerifyTimer();
+      verifyRoomId = null;
+    }
+    try {
+      if (typeof App.markP2pLiveEnded === 'function') {
+        App.markP2pLiveEnded(roomId, message || 'השידור הסתיים');
+      }
+    } catch (_) {}
+    try {
+      const st = App.live && App.live.getState && App.live.getState();
+      if (st && st.role === 'viewer' && st.roomId === roomId) {
+        App.live.end();
+      }
+    } catch (_) {}
+  }
 
   function clearVerifyTimer() {
     if (verifyTimer) clearTimeout(verifyTimer);
@@ -574,8 +770,10 @@
 
   function maybeQueueFromEvent(ev, meta) {
     const age = Math.floor(Date.now() / 1000) - Number(ev.created_at || 0);
+    meta._ageSec = age;
     if (age > MAX_POST_AGE_SEC) return;
     knownRooms.set(meta.roomId, meta);
+    showLiveStartedBanner(meta);
     queueVerify(meta);
   }
 
@@ -610,12 +808,22 @@
       const roomId = tRoom[1];
       const titleTag = ev.tags.find((t) => t[0] === 'title');
       const title = payload.title || (titleTag && titleTag[1]) || 'שידור חי';
-      const meta = { owner, slug, roomId, title };
+      const meta = {
+        owner,
+        slug,
+        roomId,
+        title,
+        name: payload.name || '',
+        picture: payload.picture || ''
+      };
 
       if (type === 'live-post') {
         maybeQueueFromEvent(ev, meta);
+        return;
       }
-      // live-status לבד לא יוצר כרטיס ריק | HYPER CORE TECH
+      if (type === 'live-end') {
+        markViewerLiveEnded(roomId, 'השידור הסתיים');
+      }
     } catch (e) {
       console.warn('live discovery event failed', e);
     }

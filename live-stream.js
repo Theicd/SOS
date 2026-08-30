@@ -61,7 +61,15 @@
     };
     pc.onconnectionstatechange = () => {
       const cs = pc.connectionState; console.log('LIVE PC', peer.slice(0,8), cs);
-      if(['disconnected','failed','closed'].includes(cs)){ tryEndChild(peer); }
+      if(['disconnected','failed','closed'].includes(cs)){
+        tryEndChild(peer);
+        // צופה שאיבד את מקור הווידאו — מסך סיום מסודר במקום שחור | HYPER CORE TECH
+        if (!state.ending && state.role !== 'broadcaster' && peer === state.parentPeer) {
+          try {
+            if (typeof App.onLiveStreamLost === 'function') App.onLiveStreamLost(state.roomId);
+          } catch (_) {}
+        }
+      }
     };
     state.pcMap.set(peer, pc);
     return pc;
@@ -124,10 +132,14 @@
     }
     if(typeof App.onLiveLocalStream === 'function') App.onLiveLocalStream(state.localStream);
     announceStatus();
-    // פרסום 'live-post' כדי שהפיד יצייר כרטיס צפייה | HYPER CORE TECH
+    // פרסום 'live-post' כדי שהפיד יצייר כרטיס צפייה + באנר "התחיל לשדר" | HYPER CORE TECH
     try {
       if(App.pool && App.publicKey){
-        const content = JSON.stringify({ roomId: state.roomId, owner: App.publicKey, slug, title });
+        const prof = App.profile || {};
+        const name = String(prof.name || '').trim().slice(0, 48);
+        const pictureRaw = String(prof.picture || '').trim();
+        const picture = (/^https?:\/\//i.test(pictureRaw) && pictureRaw.length < 500) ? pictureRaw : '';
+        const content = JSON.stringify({ roomId: state.roomId, owner: App.publicKey, slug, title, name, picture });
         const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-post'], ['r', state.roomId], ['title', title.slice(0, 80)]], content };
         const signed = App.finalizeEvent(ev, App.privateKey); await App.pool.publish(App.relayUrls, signed);
       }
@@ -272,7 +284,33 @@
     // הצטרפות לצפייה: יבקש parent, יתחבר אליו
     async watch(ownerPubkey, slug){ subscribe(getRoomId(ownerPubkey, slug)); await joinLive(ownerPubkey, slug); if(typeof App.onLiveWatchStarted==='function') App.onLiveWatchStarted(); },
     // סיום
-    async end(){ state.ending = true; state.pcMap.forEach((pc)=>{ try{pc.close();}catch{} }); state.pcMap.clear(); try{ state.localStream?.getTracks().forEach(t=>t.stop()); }catch{} try{ state.incomingRemoteStream?.getTracks().forEach(t=>t.stop()); }catch{} if(state.hiddenVideoEl){ try{state.hiddenVideoEl.remove();}catch{} state.hiddenVideoEl=null; } state.role=null; state.roomId=null; state.parentPeer=null; state.directChildren.clear(); state.relays.clear(); if(typeof App.onLiveEnded==='function') App.onLiveEnded(); },
+    async end(){
+      state.ending = true;
+      const endedRoom = state.roomId;
+      const wasBroadcaster = state.role === 'broadcaster';
+      // מודיעים לצופים שהשידור נגמר — לפני ניקוי החדר | HYPER CORE TECH
+      if (wasBroadcaster && endedRoom && App.pool && App.publicKey && App.privateKey) {
+        try {
+          const payload = { roomId: endedRoom, ended: true, owner: App.publicKey };
+          const ev = {
+            kind: 25051,
+            pubkey: App.publicKey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [['type', 'live-end'], ['r', endedRoom]],
+            content: JSON.stringify(payload)
+          };
+          const signed = App.finalizeEvent(ev, App.privateKey);
+          await App.pool.publish(App.relayUrls, signed);
+        } catch (_) {}
+      }
+      state.pcMap.forEach((pc)=>{ try{pc.close();}catch{} });
+      state.pcMap.clear();
+      try{ state.localStream?.getTracks().forEach(t=>t.stop()); }catch{}
+      try{ state.incomingRemoteStream?.getTracks().forEach(t=>t.stop()); }catch{}
+      if(state.hiddenVideoEl){ try{state.hiddenVideoEl.remove();}catch{} state.hiddenVideoEl=null; }
+      state.role=null; state.roomId=null; state.parentPeer=null; state.directChildren.clear(); state.relays.clear();
+      if(typeof App.onLiveEnded==='function') App.onLiveEnded({ roomId: endedRoom, wasBroadcaster });
+    },
     getState(){ return { role:state.role, roomId:state.roomId, relays:Array.from(state.relays), direct:Array.from(state.directChildren) }; }
   };
 

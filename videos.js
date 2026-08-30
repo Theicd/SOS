@@ -8853,13 +8853,19 @@ function upsertP2pLiveFeedCard(room) {
     console.log('[videos] skip LIVE card — missing pending MediaStream', safeId);
     return;
   }
+  const app = window.NostrApp || {};
+  const profile = (app.profileCache instanceof Map)
+    ? (app.profileCache.get(room.owner) || app.profileCache.get(String(room.owner).toLowerCase()) || {})
+    : {};
+  const authorName = String(room.name || profile.name || '').trim() || String(room.owner).slice(0, 8);
+  const authorPicture = String(room.picture || profile.picture || '').trim();
   const video = {
     id: safeId,
     pubkey: room.owner,
     content: room.title || 'שידור חי',
-    authorName: String(room.owner).slice(0, 8),
-    authorInitials: 'LV',
-    authorPicture: '',
+    authorName,
+    authorInitials: authorName.slice(0, 2).toUpperCase() || 'LV',
+    authorPicture,
     createdAt: Math.floor(Date.now() / 1000),
     p2pLive: true,
     p2pLiveOwner: room.owner,
@@ -8868,6 +8874,45 @@ function upsertP2pLiveFeedCard(room) {
     p2pLiveStreamReady: true,
   };
   upsertVideoInState(video, { forceShow: true, immediate: true });
+}
+
+function markP2pLiveEnded(roomId, message) {
+  const rid = String(roomId || '');
+  if (!rid) return;
+  const msg = String(message || 'השידור הסתיים');
+  document.querySelectorAll('.videos-feed__media[data-media-type="p2p-live"]').forEach((media) => {
+    if (media.dataset.liveRoomId !== rid) return;
+    const videoEl = media.querySelector('video');
+    if (videoEl) {
+      try { videoEl.pause(); } catch (_) {}
+      try { videoEl.removeAttribute('src'); videoEl.srcObject = null; videoEl.load(); } catch (_) {}
+    }
+    media.classList.add('videos-p2p-live--ended');
+    media.dataset.state = 'ended';
+    let overlay = media.querySelector('.videos-p2p-live-ended');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'videos-p2p-live-ended';
+      overlay.innerHTML = `
+        <div class="videos-p2p-live-ended__card">
+          <i class="fa-solid fa-circle-stop" aria-hidden="true"></i>
+          <strong>${msg}</strong>
+          <span>המשדר סיים את השידור החי</span>
+        </div>`;
+      media.appendChild(overlay);
+    }
+    const hint = media.querySelector('.videos-p2p-live-hint');
+    if (hint) hint.hidden = true;
+    const badge = media.querySelector('.videos-p2p-live-badge');
+    if (badge) badge.classList.add('is-off');
+  });
+  try {
+    const app = window.NostrApp;
+    if (app && app._p2pLivePendingStreams instanceof Map) {
+      const safeId = `p2plive-${rid.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 96)}`;
+      app._p2pLivePendingStreams.delete(safeId);
+    }
+  } catch (_) {}
 }
 
 function showTransientFeedHint(message) {
@@ -8929,6 +8974,7 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.clearHomeRefreshArm = clearHomeRefreshArm;
   AppRef.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.upsertP2pLiveFeedCard = upsertP2pLiveFeedCard;
+  AppRef.markP2pLiveEnded = markP2pLiveEnded;
   AppRef.showTransientFeedHint = showTransientFeedHint;
 }
 
