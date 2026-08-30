@@ -1259,7 +1259,7 @@ function stopYouTubeInMedia(mediaDiv) {
   } catch (_) {}
 }
 
-// pause רך — משאיר iframe חם לשכן הבא | HYPER CORE TECH
+// pause רך — משאיר iframe חם; מאפס להתחלה כמו קובץ בפיד | HYPER CORE TECH
 function softPauseYouTubeInMedia(mediaDiv) {
   if (!mediaDiv) return;
   const iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"], iframe[src*="youtu.be"]');
@@ -1268,6 +1268,7 @@ function softPauseYouTubeInMedia(mediaDiv) {
     return;
   }
   postYouTubeCommand(iframe, 'pauseVideo');
+  postYouTubeCommand(iframe, 'seekTo', [0, true]);
   postYouTubeCommand(iframe, 'mute');
   mediaDiv.dataset.ytPrepared = '1';
   // מציגים פריים של הנגן (כמו קובץ) במקום thumb חיצוני | HYPER CORE TECH
@@ -1319,6 +1320,7 @@ function prepareYouTubeMedia(mediaDiv) {
   const existing = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]');
   if (existing && mediaDiv.dataset.ytPrepared === '1') {
     postYouTubeCommand(existing, 'pauseVideo');
+    postYouTubeCommand(existing, 'seekTo', [0, true]);
     postYouTubeCommand(existing, 'mute');
     return;
   }
@@ -1332,6 +1334,8 @@ function playYouTubeMedia(mediaDiv) {
   if (iframe && mediaDiv.dataset.ytPrepared === '1') {
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (thumb) thumb.style.opacity = '0';
+    // כמו קובץ בפיד: תמיד מההתחלה | HYPER CORE TECH
+    postYouTubeCommand(iframe, 'seekTo', [0, true]);
     postYouTubeCommand(iframe, 'unMute');
     postYouTubeCommand(iframe, 'playVideo');
     mediaDiv.dataset.ytReady = '1';
@@ -1391,7 +1395,7 @@ function ensureYouTubeIframe(mediaDiv, { autoplay = false, mute = false, revealF
     iframe.className = 'videos-feed__media-iframe';
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     iframe.allowFullscreen = true;
-    iframe.src = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=${autoplay ? 1 : 0}&mute=${wantMute}&rel=0&playsinline=1&controls=0&fs=0`;
+    iframe.src = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=${autoplay ? 1 : 0}&mute=${wantMute}&rel=0&playsinline=1&controls=0&fs=0&loop=1&playlist=${encodeURIComponent(youtubeId)}`;
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (autoplay && thumb) thumb.style.opacity = '0';
     mediaDiv.insertBefore(iframe, mediaDiv.firstChild);
@@ -1403,12 +1407,14 @@ function ensureYouTubeIframe(mediaDiv, { autoplay = false, mute = false, revealF
       }
       if (!autoplay) {
         postYouTubeCommand(iframe, 'pauseVideo');
+        postYouTubeCommand(iframe, 'seekTo', [0, true]);
         postYouTubeCommand(iframe, 'mute');
       }
     }, { once: true });
   } else if (autoplay) {
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (thumb) thumb.style.opacity = '0';
+    postYouTubeCommand(iframe, 'seekTo', [0, true]);
     postYouTubeCommand(iframe, 'unMute');
     postYouTubeCommand(iframe, 'playVideo');
   }

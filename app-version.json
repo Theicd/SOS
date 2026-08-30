@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa390-yt-controls0",
-  "buildTime": "2026-08-31T00:40:00+03:00",
-  "notes": "YouTube embed: controls=0 and fs=0 to hide chrome"
+  "version": "2026.08.31-pwa391-yt-loop",
+  "buildTime": "2026-08-31T00:45:00+03:00",
+  "notes": "YouTube loop=1 and always seekTo 0 on play/leave like file videos"
 }
