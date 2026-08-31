@@ -748,8 +748,9 @@ function autoPlayFirstVideo() {
   if (!firstCard) return;
   const mediaDiv = firstCard.querySelector('.videos-feed__media');
   if (!mediaDiv) return;
-  // יוטיוב ראשון: מחממים ואז מנגנים מיד | HYPER CORE TECH
+  // יוטיוב ראשון: play אחד; seek רק בפעם הראשונה (ytNeedsRestart) | HYPER CORE TECH
   if (mediaDiv.dataset.mediaType === 'youtube') {
+    mediaDiv.dataset.ytNeedsRestart = '1';
     prepareYouTubeMedia(mediaDiv);
   }
   playMedia(mediaDiv, { manual: false, priority: true });
