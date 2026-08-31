@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.01-pwa405-live-failover",
-  "buildTime": "2026-09-01T02:30:00+03:00",
-  "notes": "Live tree failover: backup parent + auto reconnect when parent drops"
+  "version": "2026.09.01-pwa406-live-failover2",
+  "buildTime": "2026-09-01T02:40:00+03:00",
+  "notes": "Failover: clear video, 7s timeout to broadcaster, prune dead children"
 }

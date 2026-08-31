@@ -63,6 +63,8 @@
   let signalSub = null;
   let connectingParent = null;
   let iceFailRetries = 0;
+  let failoverWatchTimer = null; // אם גיבוי מת — קופצים למשדר | HYPER CORE TECH
+  const FAILOVER_CONNECT_MS = 7000;
   const pendingRemoteIce = new Map(); // peer -> RTCIceCandidateInit[]
 
   // עזר: roomId דטרמיניסטי
@@ -187,6 +189,7 @@
         connectingParent = null;
         if (normKey(peerKey) === normKey(state.parentPeer)) {
           state._failoverTries = 0;
+          clearFailoverWatch();
           console.log('LIVE parent stable', String(peerKey).slice(0, 8), 'backup', String(state.backupPeer || '').slice(0, 8));
         }
         return;
@@ -304,6 +307,56 @@
     }
   }
 
+  function clearFailoverWatch(){
+    if (failoverWatchTimer) {
+      try { clearTimeout(failoverWatchTimer); } catch (_) {}
+      failoverWatchTimer = null;
+    }
+  }
+
+  // ניקוי וידאו מת — מונע מסך שחור עם tracks ended | HYPER CORE TECH
+  function clearIncomingVideo(){
+    try {
+      state.incomingRemoteStream?.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
+    } catch (_) {}
+    state.incomingRemoteStream = null;
+    try {
+      state.relayOutStream?.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
+    } catch (_) {}
+    state.relayOutStream = null;
+    try {
+      const media = App._p2pLiveActiveMedia;
+      const videoEl = media && media.querySelector('video');
+      if (videoEl) videoEl.srcObject = null;
+    } catch (_) {}
+  }
+
+  // אם אין connected תוך X — קופצים למשדר (גיבוי מת) | HYPER CORE TECH
+  function armFailoverWatch(expectedParent){
+    clearFailoverWatch();
+    const hint = String(expectedParent || '').slice(0, 8);
+    failoverWatchTimer = setTimeout(() => {
+      failoverWatchTimer = null;
+      try {
+        if (state.ending || state.role === 'broadcaster') return;
+        const parent = state.parentPeer;
+        const pc = parent ? getPc(parent) : null;
+        if (pc && isPcAlive(pc) && pc.connectionState === 'connected') return;
+        console.warn('LIVE failover timeout', hint || String(parent || '').slice(0, 8), pc && pc.connectionState);
+        state.backupPeer = state.broadcaster;
+        failoverFromParent(parent || expectedParent).catch(() => {});
+      } catch (_) {}
+    }, FAILOVER_CONNECT_MS);
+  }
+
+  async function requestBroadcasterRejoin(){
+    if (!state.broadcaster) return;
+    state.backupPeer = state.broadcaster;
+    clearFailoverWatch();
+    console.log('LIVE rejoin broadcaster', String(state.broadcaster).slice(0, 8));
+    await sendSignal(state.broadcaster, 'live-join', { roomId: state.roomId, failover: true });
+  }
+
   // מעבר אוטומטי להורה גיבוי / משדר כשההורה הפעיל נופל | HYPER CORE TECH
   async function failoverFromParent(failedParent){
     if (state.ending || state.role === 'broadcaster') return;
@@ -321,6 +374,8 @@
     const failed = normKey(failedParent || state.parentPeer);
     console.log('LIVE failover from', String(failedParent || '').slice(0, 8), 'try', state._failoverTries);
     try {
+      clearFailoverWatch();
+      clearIncomingVideo();
       // סגירת PC של ההורה שנפל (בלי למחוק ילדים שלנו עדיין)
       const pKey = findPcKey(failedParent || state.parentPeer);
       if (pKey) {
@@ -330,39 +385,36 @@
       state.parentPeer = null;
       connectingParent = null;
 
-      let next = state.backupPeer;
-      if (!next || normKey(next) === failed) next = state.broadcaster;
-      if (!next || normKey(next) === failed || normKey(next) === normKey(App.publicKey)) {
-        // אין גיבוי שימושי — בקשת הורה חדש מהמשדר
-        if (state.broadcaster) {
-          state.backupPeer = state.broadcaster;
-          await sendSignal(state.broadcaster, 'live-join', { roomId: state.roomId, failover: true });
-        }
-        return;
-      }
-
       // אם היינו מגשר — הילדים צריכים גם לעבור
       if (state.role === 'relay' && state.directChildren.size) {
         await notifyChildrenParentGone();
         state.directChildren.clear();
         state.role = 'viewer';
-        try {
-          state.relayOutStream?.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
-        } catch (_) {}
-        state.relayOutStream = null;
       }
 
-      // אחרי קפיצה ראשונה — גיבוי אולטימטיבי הוא המשדר
+      let next = state.backupPeer;
+      if (!next || normKey(next) === failed) next = state.broadcaster;
+      // ניסיון 2+ — live-join למשדר (לא offer ישיר; משחרר מקום מילדים מתים) | HYPER CORE TECH
+      if (state._failoverTries >= 2 || !next || normKey(next) === normKey(App.publicKey)) {
+        await requestBroadcasterRejoin();
+        armFailoverWatch(state.broadcaster);
+        return;
+      }
+      if (normKey(next) === failed) {
+        await requestBroadcasterRejoin();
+        armFailoverWatch(state.broadcaster);
+        return;
+      }
+
+      // אחרי קפיצה — גיבוי אולטימטיבי הוא המשדר
       state.backupPeer = state.broadcaster || next;
       console.log('LIVE failover connect →', String(next).slice(0, 8), 'backup', String(state.backupPeer || '').slice(0, 8));
       await connectToParent(next);
+      // אם next הוא לא המשדר — שעון קצר; timeout → ניסיון 2 למשדר | HYPER CORE TECH
+      armFailoverWatch(next);
     } catch (err) {
       console.warn('LIVE failover failed', err);
-      try {
-        if (state.broadcaster) {
-          await sendSignal(state.broadcaster, 'live-join', { roomId: state.roomId, failover: true });
-        }
-      } catch (_) {}
+      try { await requestBroadcasterRejoin(); } catch (_) {}
     } finally {
       state._failoverBusy = false;
     }
@@ -441,6 +493,7 @@
     if(state.role !== 'broadcaster') return;
     const peerKey = normKey(peer);
     if (!peerKey || peerKey === normKey(App.publicKey)) return;
+    pruneStaleChildren();
 
     const existingPc = getPc(peer);
     if (existingPc && isPcAlive(existingPc)) {
@@ -499,6 +552,7 @@
       }
       // disconnected ממושך — נחליף רק אז | HYPER CORE TECH
       if (cs !== 'disconnected') {
+        console.log('LIVE: skip reconnect, PC state', String(parent).slice(0,8), cs);
         state.parentPeer = parent;
         return;
       }
@@ -510,6 +564,7 @@
     }
     connectingParent = parent;
     state.parentPeer = parent;
+    console.log('LIVE connectToParent', String(parent).slice(0, 8));
     const pc = createPC(parent);
     // צופה פותח DC להיסטוריית צ'אט מהמשדר (אחרי חיבור) | HYPER CORE TECH
     try {
@@ -545,6 +600,7 @@
       return;
     }
     // מכסה לפני יצירת PC | HYPER CORE TECH
+    if (state.role === 'broadcaster') pruneStaleChildren();
     let found = false;
     for (const c of state.directChildren) {
       if (normKey(c) === normKey(childPubkey)) { found = true; break; }
@@ -655,6 +711,17 @@
     }
   }
 
+  // משחרר מקומות של ילדים מתים לפני invite חדש | HYPER CORE TECH
+  function pruneStaleChildren(){
+    for (const c of Array.from(state.directChildren)) {
+      const pc = getPc(c);
+      if (!pc || !isPcAlive(pc) || pc.connectionState === 'disconnected') {
+        console.log('LIVE prune stale child', String(c).slice(0, 8), pc && pc.connectionState);
+        tryEndChild(c);
+      }
+    }
+  }
+
   // סטטוס ציבורי (25051) — גילוי לצופים מאוחרים + מונה צופים; לא סיגנל שיחות | HYPER CORE TECH
   async function announceStatus(){
     if (!state.roomId || state.role !== 'broadcaster') return;
@@ -708,8 +775,10 @@
         if (data && data.backup) state.backupPeer = data.backup;
         else state.backupPeer = state.broadcaster || from;
         state._failoverTries = 0;
+        clearFailoverWatch();
         console.log('LIVE invite parent', String((data && data.parent) || from).slice(0,8), 'backup', String(state.backupPeer||'').slice(0,8));
         await connectToParent((data && data.parent) || from);
+        armFailoverWatch((data && data.parent) || from);
       } break;
       case 'live-offer': {
         if(normKey(from)!==normKey(App.publicKey)){ await acceptChildOffer(from, data); }
@@ -786,6 +855,7 @@
     // סיום
     async end(){
       state.ending = true;
+      clearFailoverWatch();
       if (state.role === 'relay' && state.directChildren.size) {
         try { await notifyChildrenParentGone(); } catch (_) {}
       }
