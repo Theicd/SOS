@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.15.1-hb-stage2'; // שלב 2: מרווחי heartbeat מתונים + טיימר דינמי | HYPER CORE TECH
+  const P2P_VERSION = '2.15.2-sub-stage3'; // שלב 3: פחות כפילויות מנויים/ספירת peers | HYPER CORE TECH
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -129,7 +129,7 @@
   const HYBRID_BLOSSOM_POSTS = 1;         // first-paint בלבד מ-Blossom — השאר P2P | HYPER CORE TECH
   const INITIAL_LOAD_TIMEOUT = 12000;     // בסיס לפני progress; עם בתים ממתינים עד hard-cap | HYPER CORE TECH
   const AVAILABILITY_PUBLISH_DELAY = 2000;
-  const PEER_COUNT_CACHE_TTL = 30000;
+  const PEER_COUNT_CACHE_TTL = 55000; // שלב 3: קאש ספירה ~55 שנ׳ מול polling 60 שנ׳ | HYPER CORE TECH
   const PEER_SEARCH_RETRY_MS = 500;       // ניסיון חיפוש שני קצר כש־0 peers | HYPER CORE TECH
   const CONSECUTIVE_FAILURES_THRESHOLD = 5;
   const P2P_PROGRESS_STALL_MS = 15000;    // בלי בתים חדשים → timeout | HYPER CORE TECH
@@ -902,15 +902,15 @@
     return { tier, peerCount };
   }
 
-  // חלק Network Tiers (p2p-video-sharing.js) – Polling לבדיקת peers חדשים | HYPER CORE TECH
-  const PEER_POLLING_INTERVAL = 30000; // בדיקה כל 30 שניות
+  // שלב 3: polling peers מתון יותר — פחות מנויי 30078 זמניים | HYPER CORE TECH
+  const PEER_POLLING_INTERVAL = 60000; // בדיקה כל 60 שניות
   let peerPollingActive = false;
 
   function startPeerPolling() {
     if (peerPollingActive) return;
     peerPollingActive = true;
     
-    log('info', '🔄 מתחיל polling לבדיקת peers חדשים כל 30 שניות');
+    log('info', '🔄 מתחיל polling לבדיקת peers חדשים כל 60 שניות');
     
     // ספירה ראשונה אחרי 3 שניות - נותן לריליים זמן להתחבר
     setTimeout(async () => {
@@ -920,8 +920,11 @@
     }, 3000);
     
     setInterval(async () => {
-      // אפס את ה-cache כדי לקבל ספירה חדשה
-      state.lastPeerCountTime = 0;
+      // לא מאפסים קאש טרי — חוסך subscribeMany כפול | HYPER CORE TECH
+      const cacheAge = Date.now() - (state.lastPeerCountTime || 0);
+      if (cacheAge > 45000) {
+        state.lastPeerCountTime = 0;
+      }
       const { tier, peerCount } = await updateNetworkTier();
       log('info', '🔄 Polling peers', { count: peerCount, tier });
     }, PEER_POLLING_INTERVAL);
@@ -2222,6 +2225,12 @@
     const keys = getEffectiveKeys();
     if (!App.pool || !keys.publicKey) {
       log('error', '❌ לא ניתן להאזין לסיגנלים - חסרים pool או publicKey');
+      return;
+    }
+
+    // שלב 3: לא לפתוח מנוי 30078 נוסף אם כבר פעיל | HYPER CORE TECH
+    if (App._p2pSignalsSub) {
+      log('info', '👂 מנוי סיגנלי P2P כבר פעיל — מדלג על כפילות');
       return;
     }
 

@@ -721,14 +721,21 @@
   }
 
   // חלק צ'אט (chat-service.js) – רענון חיבור לאחר חזרה מפוקוס/רשת או idle | HYPER CORE TECH
-  // חלק debounce (chat-service.js) – מונע re-subscribe אגרסיבי (מינימום 5 שניות בין רענונים) | HYPER CORE TECH
+  // חלק debounce (chat-service.js) – מונע re-subscribe אגרסיבי (שלב 3: 12 שנ׳) | HYPER CORE TECH
   let _lastResubAt = 0;
-  const RESUB_DEBOUNCE_MS = 5000;
+  const RESUB_DEBOUNCE_MS = 12000;
   function forceResubscribeChat(reason) {
     if (!ensurePoolReady()) return;
     try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
     const now = Date.now();
     if (now - _lastResubAt < RESUB_DEBOUNCE_MS) return;
+
+    // שלב 3: בחזרה לטאב — לא סוגרים מנוי בריא | HYPER CORE TECH
+    if (reason === 'visibilitychange' && activeSubscription) {
+      const last = chatLastSignalAt || 0;
+      if (last && (now - last) < 60000) return;
+    }
+
     _lastResubAt = now;
     if (activeSubscription && typeof activeSubscription.close === 'function') {
       try { activeSubscription.close(); } catch {}

@@ -637,10 +637,19 @@
     try { if (typeof navigator !== 'undefined' && navigator.onLine === false) return; } catch {}
 
     const now = Date.now();
-    if (now - (state.signalLastResubscribeAt || 0) < 5000) return;
+    const opts = options && typeof options === 'object' ? options : null;
+    const forced = !!(opts && opts.force);
+    if (!forced && now - (state.signalLastResubscribeAt || 0) < 12000) return;
+
+    // שלב 3: בחזרה לטאב — לא סוגרים מנוי בריא | HYPER CORE TECH
+    const softReasons = reason === 'visibilitychange' || reason === 'focus' || reason === 'pageshow';
+    if (!forced && softReasons && state.signalSubscription) {
+      const last = state.lastSignalReceivedAt || 0;
+      if (last && (now - last) < 60000) return;
+    }
+
     state.signalLastResubscribeAt = now;
 
-    const opts = options && typeof options === 'object' ? options : null;
     const requestedSince = opts && Number.isFinite(Number(opts.since)) ? Number(opts.since) : null;
     const since = requestedSince !== null ? Math.max(0, Math.floor(requestedSince)) : computeResubscribeSince();
     console.log('Video call: re-subscribing signals', reason || '', { since });
@@ -660,8 +669,7 @@
       });
     } catch {}
     try { window.addEventListener('online', () => forceResubscribeSignals('online')); } catch {}
-    try { window.addEventListener('focus', () => forceResubscribeSignals('focus')); } catch {}
-    try { window.addEventListener('pageshow', () => forceResubscribeSignals('pageshow')); } catch {}
+    // שלב 3: בלי focus/pageshow — visibilitychange מספיק (מונע כפילויות) | HYPER CORE TECH
 
     state.signalKeepaliveTimer = setInterval(() => {
       try {

@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa399-hb-stage2",
-  "buildTime": "2026-08-31T23:01:00+03:00",
-  "notes": "Stage 2 relay opt: milder P2P heartbeat intervals + dynamic timer; background services untouched"
+  "version": "2026.08.31-pwa400-sub-stage3",
+  "buildTime": "2026-08-31T23:36:00+03:00",
+  "notes": "Stage 3 relay opt: fewer duplicate subs/resubs/profile fetches; background keep-alive unchanged"
 }

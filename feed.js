@@ -1224,6 +1224,8 @@
   const DATING_LIKE_KIND = 40001; // חלק התרעות הכרויות (feed.js) – מזהה kind ייעודי ללייקים בדף ההכרויות
   const FOLLOW_KIND = (typeof App.FOLLOW_KIND === 'number' ? App.FOLLOW_KIND : 40010);
   App.profileFetchPromises = App.profileFetchPromises instanceof Map ? App.profileFetchPromises : new Map();
+  App.profileFetchedAt = App.profileFetchedAt instanceof Map ? App.profileFetchedAt : new Map();
+  const PROFILE_FRESH_MS = 5 * 60 * 1000; // שלב 3: קאש פרופיל טרי — בלי משיכה חוזרת | HYPER CORE TECH
   // חלק פרופילים – תור מאגד לשאילת מטא-דאטה kind 0 בבאטץ' כדי לצמצם עומס
   App._profileBatchQueue = App._profileBatchQueue instanceof Set ? App._profileBatchQueue : new Set();
   App._profileBatchResolvers = App._profileBatchResolvers instanceof Map ? App._profileBatchResolvers : new Map();
@@ -1357,6 +1359,7 @@
           if (App.profileCache instanceof Map) App.profileCache.set(author, profile);
           if (App.feedAuthorProfiles instanceof Map) App.feedAuthorProfiles.set(author, profile);
           if (App.authorProfiles instanceof Map) App.authorProfiles.set(author, profile);
+          if (App.profileFetchedAt instanceof Map) App.profileFetchedAt.set(author, Date.now());
           updateRenderedAuthorProfile(author, profile);
           const resolvers = App._profileBatchResolvers.get(author) || [];
           resolvers.forEach(({ resolve }) => resolve(profile));
@@ -1466,17 +1469,27 @@
       return normalizedProfile;
     };
 
-    // חלק פרופילים (feed.js) – בדיקת cache אבל תמיד ננסה לעדכן מה-relays
+    // חלק פרופילים (feed.js) – קאש טרי מלא: מחזירים בלי משיכת ריליי (שלב 3) | HYPER CORE TECH
     const cachedProfile =
       (App.profileCache instanceof Map ? App.profileCache.get(normalized) || App.profileCache.get(pubkey) : null) ||
       (App.feedAuthorProfiles instanceof Map ? App.feedAuthorProfiles.get(normalized) : null) ||
       (App.authorProfiles instanceof Map ? App.authorProfiles.get(normalized) : null);
 
+    const stubName = `משתמש ${normalized.slice(0, 8)}`;
+    const cachedIsRich = cachedProfile && (
+      (cachedProfile.name && cachedProfile.name !== stubName && cachedProfile.name !== 'משתמש אנונימי') ||
+      (cachedProfile.picture && String(cachedProfile.picture).trim())
+    );
+    const fetchedAt = App.profileFetchedAt instanceof Map ? (App.profileFetchedAt.get(normalized) || 0) : 0;
+    if (cachedIsRich && fetchedAt && (Date.now() - fetchedAt) < PROFILE_FRESH_MS) {
+      return storeProfile(cachedProfile);
+    }
+
     const fallback = storeProfile({
-      name: `משתמש ${pubkey.slice(0, 8)}`,
-      bio: '',
-      picture: '',
-      initials: typeof App.getInitials === 'function' ? App.getInitials(pubkey) : 'AN',
+      name: cachedProfile?.name || `משתמש ${pubkey.slice(0, 8)}`,
+      bio: cachedProfile?.bio || '',
+      picture: cachedProfile?.picture || '',
+      initials: cachedProfile?.initials || (typeof App.getInitials === 'function' ? App.getInitials(pubkey) : 'AN'),
     });
 
     // אין Pool זמין – מחזירים fallback

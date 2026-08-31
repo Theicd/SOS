@@ -7930,9 +7930,18 @@ async function loadVideos() {
 
 // חלק יאללה וידאו (videos.js) – מנוי נתונים חי לפיד הווידאו לצורך לייקים/תגובות/התראות | HYPER CORE TECH
 let videoRealtimeSub = null;
+let videoRealtimeSubKey = '';
 function setupVideoRealtimeSubscription(eventIds = []) {
   const app = window.NostrApp;
   if (!app || !app.pool || typeof app.pool.subscribeMany !== 'function') {
+    return;
+  }
+  // שלב 3: לא סוגרים/פותחים מחדש אם אותו מפתח מנויים כבר פעיל | HYPER CORE TECH
+  const idsKey = Array.isArray(eventIds)
+    ? eventIds.filter(Boolean).slice(0, 40).sort().join(',')
+    : '';
+  const nextKey = `${typeof app.publicKey === 'string' ? app.publicKey.slice(0, 16) : ''}|${idsKey}`;
+  if (videoRealtimeSub && videoRealtimeSubKey === nextKey) {
     return;
   }
   if (videoRealtimeSub) {
@@ -7947,6 +7956,7 @@ function setupVideoRealtimeSubscription(eventIds = []) {
     filters.push({ kinds: [6], '#e': eventIds, limit: 200 });
   }
 
+  videoRealtimeSubKey = nextKey;
   videoRealtimeSub = app.pool.subscribeMany(app.relayUrls, filters, {
     onevent: (event) => {
       if (!event || !event.kind) return;
