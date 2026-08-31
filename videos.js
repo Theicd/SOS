@@ -1336,7 +1336,7 @@ function softPauseYouTubeInMedia(mediaDiv) {
   postYouTubeCommand(iframe, 'seekTo', [0, true]);
   postYouTubeCommand(iframe, 'mute');
   mediaDiv.dataset.ytPrepared = '1';
-  // משאירים פריים של הנגן מלא; thumb מעל רק אם עדיין לא היה ready | HYPER CORE TECH
+  // בעצירה: תמיד מסתירים thumb אם יש iframe — רואים את הווידאו עצמו, לא תמונת יוטיוב | HYPER CORE TECH
   if (mediaDiv.dataset.ytReady === '1') {
     setYouTubeThumbVisible(mediaDiv, false);
   } else {

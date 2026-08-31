@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v714'; // bump - YT pause fill + epoch cancel + ready gate
+  const CACHE_NAME = 'sos-cache-v715'; // bump - restore YT iframe center (revert abspos)
   const PRECACHE_URLS = [
     './',
     './videos.html',
