@@ -8,13 +8,15 @@
   const MAX_STATUS_AGE_SEC = 2 * 60; // live-status טרי = שידור עדיין חי (heartbeat ~50s)
   const MAX_LIVE_END_AGE_SEC = 25; // live-end ישן מאותו roomId לא סוגר שידור חדש
   const VERIFY_TIMEOUT_MS = 14000;
-  // היסטוריית צ'אט לצופה מאוחר — לא 20 שנ' (מפספסים את השיחה) | HYPER CORE TECH
-  const CHAT_HISTORY_LOOKBACK_SEC = 2 * 60 * 60;
+  // מנוי צ'אט חי קצר — היסטוריה מגיעה ב־P2P מהמשדר, לא מריליי | HYPER CORE TECH
+  const LIVE_CHAT_LIVE_LOOKBACK_SEC = 45;
+  const HOST_CHAT_HISTORY_MAX = 100;
 
   const knownRooms = new Map(); // roomId -> meta
   const verifiedRooms = new Map(); // roomId -> meta + verified
   const verifying = new Set();
   const roomLivePostAt = new Map(); // roomId -> created_at של live-post האחרון שקיבלנו
+  let hostChatHistory = []; // משדר: היסטוריית צ'אט לשליחה לצופים חדשים | HYPER CORE TECH
 
   let studio = null;
   let previewStream = null;
@@ -428,6 +430,7 @@
     const timer = studio && studio.querySelector('[data-live-timer]');
     if (timer) timer.hidden = false;
     fillHostIdentityUi();
+    clearHostChatHistory();
     try {
       const st = App.live && App.live.getState && App.live.getState();
       if (st && st.roomId) startLiveChatSub(st.roomId);
@@ -436,6 +439,7 @@
   App.onLiveEnded = function(info) {
     stopTimer();
     stopLiveChatSub();
+    clearHostChatHistory();
     if (studio && studio.dataset.phase === 'live') closeStudio();
     const roomId = info && info.roomId;
     // רק סיום אמיתי (או אובדן סטרים) — לא כישלון אימות שקט | HYPER CORE TECH
@@ -691,12 +695,69 @@
     } catch (_) {}
   }
 
-  function chatHistorySince(roomId) {
-    const now = Math.floor(Date.now() / 1000);
-    const floor = now - CHAT_HISTORY_LOOKBACK_SEC;
-    const roomStart = roomId ? (Number(roomLivePostAt.get(roomId)) || 0) : 0;
-    if (roomStart > 0) return Math.max(floor, roomStart - 5);
-    return floor;
+  function clearHostChatHistory() {
+    hostChatHistory = [];
+  }
+
+  function recordHostChatMessage({ eventId, pubkey, author, text, picture, createdAt }) {
+    const msg = {
+      id: String(eventId || `${pubkey || ''}-${createdAt || Date.now()}-${String(text || '').slice(0, 12)}`),
+      pubkey: String(pubkey || ''),
+      author: String(author || 'צופה').slice(0, 48),
+      text: String(text || '').slice(0, 280),
+      picture: (() => {
+        const p = String(picture || '').trim();
+        if (!p || p.startsWith('data:') || p.length > 500) return '';
+        return p;
+      })(),
+      createdAt: Number(createdAt) || Math.floor(Date.now() / 1000)
+    };
+    if (!msg.text) return;
+    if (hostChatHistory.some((m) => m.id === msg.id)) return;
+    hostChatHistory.push(msg);
+    if (hostChatHistory.length > HOST_CHAT_HISTORY_MAX) {
+      hostChatHistory = hostChatHistory.slice(-HOST_CHAT_HISTORY_MAX);
+    }
+  }
+
+  App.getLiveChatHistorySnapshot = function() {
+    return hostChatHistory.slice();
+  };
+
+  App.onLiveChatHistoryFromPeer = function(payload) {
+    try {
+      const roomId = payload && payload.roomId;
+      const messages = payload && Array.isArray(payload.messages) ? payload.messages : [];
+      if (!roomId || !messages.length) return;
+      console.log('LIVE: chat history received via DC', messages.length);
+      const entry = viewerChatByRoom.get(roomId) || { sub: null, medias: new Set(), seen: new Set() };
+      if (!viewerChatByRoom.has(roomId)) viewerChatByRoom.set(roomId, entry);
+      messages.forEach((m) => {
+        if (!m || !m.text) return;
+        const id = String(m.id || '');
+        if (id && entry.seen.has(id)) return;
+        if (id) entry.seen.add(id);
+        const author = String(m.author || 'צופה');
+        const picture = String(m.picture || '');
+        const self = !!(App.publicKey && m.pubkey && String(m.pubkey).toLowerCase() === String(App.publicKey).toLowerCase());
+        if (entry.medias && entry.medias.size) {
+          entry.medias.forEach((media) => {
+            if (media && media.isConnected) appendViewerOverlayMessage(media, author, m.text, picture, self);
+          });
+        } else {
+          // עדיין אין overlay — נשמור לרגע ה־attach | HYPER CORE TECH
+          if (!entry.pendingHistory) entry.pendingHistory = [];
+          entry.pendingHistory.push({ author, text: m.text, picture, self, id });
+        }
+      });
+    } catch (e) {
+      console.warn('LIVE: apply chat history failed', e);
+    }
+  };
+
+  function chatHistorySince() {
+    // רק הודעות חדשות דרך ריליי — היסטוריה ב־DC | HYPER CORE TECH
+    return Math.floor(Date.now() / 1000) - LIVE_CHAT_LIVE_LOOKBACK_SEC;
   }
 
   function scrollChatListToBottom(list) {
@@ -731,7 +792,7 @@
     updateLikeCountUi();
     clearChatUi();
     fillHostIdentityUi();
-    const since = chatHistorySince(roomId);
+    const since = chatHistorySince();
     try {
       chatSub = App.pool.subscribeMany(
         App.relayUrls,
@@ -780,6 +841,20 @@
               const picture = String(payload.picture || cached.picture || '').trim();
               const self = !!(App.publicKey && String(ev.pubkey).toLowerCase() === String(App.publicKey).toLowerCase());
               appendChatMessage(author, text, picture, { eventId: ev.id, pubkey: ev.pubkey, self });
+              // משדר שומר היסטוריה מקומית לשליחה ב־P2P | HYPER CORE TECH
+              try {
+                const st = App.live && App.live.getState && App.live.getState();
+                if (st && st.role === 'broadcaster') {
+                  recordHostChatMessage({
+                    eventId: ev.id,
+                    pubkey: ev.pubkey,
+                    author,
+                    text,
+                    picture,
+                    createdAt: ev.created_at
+                  });
+                }
+              } catch (_) {}
               if ((isStubName(author, ev.pubkey) || !picture) && typeof App.fetchProfile === 'function') {
                 App.fetchProfile(ev.pubkey).then((p) => {
                   if (p) enrichChatRowFromProfile(ev.pubkey, p);
@@ -824,6 +899,20 @@
       };
       const signed = App.finalizeEvent(ev, App.privateKey);
       await App.pool.publish(App.relayUrls, signed);
+      // שמירה מקומית אצל משדר לשליחה ב־P2P לצופים חדשים | HYPER CORE TECH
+      try {
+        const st = App.live && App.live.getState && App.live.getState();
+        if (st && st.role === 'broadcaster') {
+          recordHostChatMessage({
+            eventId: signed.id,
+            pubkey: App.publicKey,
+            author: id.name,
+            text: msg.slice(0, 280),
+            picture,
+            createdAt: signed.created_at
+          });
+        }
+      } catch (_) {}
       return true;
     } catch (e) {
       console.warn('publishLiveChat failed', e);
@@ -1252,7 +1341,7 @@
     if (entry && entry.sub) return entry;
     entry = entry || { sub: null, medias: new Set(), seen: new Set() };
     viewerChatByRoom.set(roomId, entry);
-    const since = chatHistorySince(roomId);
+    const since = chatHistorySince();
     try {
       entry.sub = App.pool.subscribeMany(
         App.relayUrls,
@@ -1320,6 +1409,17 @@
     const entry = ensureViewerRoomSub(roomId) || { medias: new Set(), seen: new Set(), sub: null };
     entry.medias.add(mediaDiv);
     viewerChatByRoom.set(roomId, entry);
+    // היסטוריה שכבר הגיעה ב־DC לפני שה־overlay היה מוכן | HYPER CORE TECH
+    if (Array.isArray(entry.pendingHistory) && entry.pendingHistory.length) {
+      entry.pendingHistory.forEach((m) => {
+        if (!m || !m.text) return;
+        if (m.id && entry.seen.has(m.id)) return;
+        if (m.id) entry.seen.add(m.id);
+        appendViewerOverlayMessage(mediaDiv, m.author, m.text, m.picture, m.self);
+      });
+      entry.pendingHistory = [];
+      scrollChatListToBottom(mediaDiv.querySelector('[data-live-chat-list]'));
+    }
 
     const form = overlay.querySelector('[data-live-chat-form]');
     if (form && form.dataset.bound !== '1') {

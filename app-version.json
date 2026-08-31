@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa396-live-chat-hist",
-  "buildTime": "2026-08-31T15:25:00+03:00",
-  "notes": "Live chat: 2h history for late joiners; taller scrollable mobile chat list"
+  "version": "2026.08.31-pwa397-live-p2p-chat",
+  "buildTime": "2026-08-31T16:00:00+03:00",
+  "notes": "Live chat history from broadcaster via WebRTC DataChannel; short Nostr lookback only for live messages"
 }

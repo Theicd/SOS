@@ -32,6 +32,7 @@
   };
 
   let statusHeartbeatTimer = null;
+  const chatDcMap = new Map(); // peer -> RTCDataChannel (היסטוריית צ'אט ב־P2P) | HYPER CORE TECH
 
   // קונפיג ICE – כמו P2P (כולל TURN) כדי למנוע מסך שחור מאחורי NAT | HYPER CORE TECH
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -99,6 +100,43 @@
     return cs !== 'failed' && cs !== 'closed';
   }
 
+  function wireLiveChatDc(peer, dc){
+    if (!peer || !dc) return;
+    const peerKey = peer;
+    chatDcMap.set(peerKey, dc);
+    dc.onopen = () => {
+      if (state.role !== 'broadcaster' || dc.readyState !== 'open') return;
+      try {
+        const messages = (typeof App.getLiveChatHistorySnapshot === 'function')
+          ? (App.getLiveChatHistorySnapshot() || [])
+          : [];
+        if (!messages.length) return;
+        dc.send(JSON.stringify({
+          type: 'live-chat-history',
+          roomId: state.roomId,
+          messages
+        }));
+        console.log('LIVE: chat history sent via DC', String(peerKey).slice(0, 8), messages.length);
+      } catch (err) {
+        console.warn('LIVE: chat history send failed', err);
+      }
+    };
+    dc.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(String(ev.data || ''));
+        if (!data || data.type !== 'live-chat-history') return;
+        if (typeof App.onLiveChatHistoryFromPeer === 'function') {
+          App.onLiveChatHistoryFromPeer(data);
+        }
+      } catch (_) {}
+    };
+    dc.onclose = () => {
+      try {
+        if (chatDcMap.get(peerKey) === dc) chatDcMap.delete(peerKey);
+      } catch (_) {}
+    };
+  }
+
   // יצירת RTCPeerConnection עבור peer מסוים
   function createPC(peer){
     const peerKey = peer;
@@ -106,6 +144,12 @@
     // הוספת מסלולים מקומיים אם קיימים
     if(state.localStream){ state.localStream.getTracks().forEach(t=>pc.addTrack(t, state.localStream)); }
     pc.onicecandidate = e => { queueCandidate(peerKey, e.candidate||null); };
+    // משדר מקבל DC מהצופה — שולח היסטוריית צ'אט ב־P2P (לא ריליי) | HYPER CORE TECH
+    pc.ondatachannel = (e) => {
+      const ch = e && e.channel;
+      if (!ch || ch.label !== 'sos-live-chat') return;
+      wireLiveChatDc(peerKey, ch);
+    };
     pc.ontrack = e => {
       // קבלת סטרים מרוחק — תומך גם כשאין e.streams[0] (Chrome/Safari) | HYPER CORE TECH
       if(!state.incomingRemoteStream) state.incomingRemoteStream = new MediaStream();
@@ -335,6 +379,11 @@
     connectingParent = parent;
     state.parentPeer = parent;
     const pc = createPC(parent);
+    // צופה פותח DC להיסטוריית צ'אט מהמשדר (אחרי חיבור) | HYPER CORE TECH
+    try {
+      const dc = pc.createDataChannel('sos-live-chat');
+      wireLiveChatDc(parent, dc);
+    } catch (_) {}
     // צופה: recvonly — מבטיח מסלולי וידאו/אודיו ב־SDP | HYPER CORE TECH
     try {
       if (!state.localStream || state.role === 'viewer') {
@@ -440,6 +489,19 @@
   function tryEndChild(pubkey){
     const key = findPcKey(pubkey);
     if(key){ try{ state.pcMap.get(key).close(); }catch{} state.pcMap.delete(key); }
+    try {
+      const dcKey = chatDcMap.has(pubkey) ? pubkey : findPcKey(pubkey);
+      if (dcKey && chatDcMap.has(dcKey)) {
+        try { chatDcMap.get(dcKey).close(); } catch (_) {}
+        chatDcMap.delete(dcKey);
+      }
+      for (const k of Array.from(chatDcMap.keys())) {
+        if (normKey(k) === normKey(pubkey)) {
+          try { chatDcMap.get(k).close(); } catch (_) {}
+          chatDcMap.delete(k);
+        }
+      }
+    } catch (_) {}
     const want = normKey(pubkey);
     for (const c of Array.from(state.directChildren)) {
       if (normKey(c) === want) state.directChildren.delete(c);
@@ -545,6 +607,10 @@
       state.parentPeer = null;
       state.pcMap.forEach((pc)=>{ try{pc.close();}catch{} });
       state.pcMap.clear();
+      try {
+        chatDcMap.forEach((dc) => { try { dc.close(); } catch (_) {} });
+        chatDcMap.clear();
+      } catch (_) {}
       pendingRemoteIce.clear();
       state.incomingRemoteStream = null;
       await joinLive(state.broadcaster, 'live');
@@ -581,6 +647,10 @@
       connectingParent = null;
       iceFailRetries = 0;
       pendingRemoteIce.clear();
+      try {
+        chatDcMap.forEach((dc) => { try { dc.close(); } catch (_) {} });
+        chatDcMap.clear();
+      } catch (_) {}
       state.pcMap.forEach((pc)=>{ try{pc.close();}catch{} });
       state.pcMap.clear();
       try{ state.localStream?.getTracks().forEach(t=>t.stop()); }catch{}
