@@ -1212,12 +1212,8 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
       App.deactivateGameMedia(mediaDiv);
     }
   } else if (mediaType === 'youtube') {
-    // גלילה: pause רך (שומר חימום); ידני/קשיח: הורסים iframe | HYPER CORE TECH
-    if (manual) {
-      stopYouTubeInMedia(mediaDiv);
-    } else {
-      softPauseYouTubeInMedia(mediaDiv);
-    }
+    // תמיד soft pause — משאיר iframe מלא (לא thumb קטן למעלה במובייל) | HYPER CORE TECH
+    softPauseYouTubeInMedia(mediaDiv);
   }
 
   mediaDiv.dataset.state = 'paused';
@@ -1250,6 +1246,17 @@ function postYouTubeCommand(iframe, func, args = []) {
   } catch (_) {}
 }
 
+function bumpYouTubeEpoch(mediaDiv) {
+  if (!mediaDiv) return '0';
+  const next = String((Number(mediaDiv.dataset.ytPlayEpoch || 0) || 0) + 1);
+  mediaDiv.dataset.ytPlayEpoch = next;
+  return next;
+}
+
+function isYouTubeEpochCurrent(mediaDiv, epoch) {
+  return !!mediaDiv && String(mediaDiv.dataset.ytPlayEpoch || '0') === String(epoch || '');
+}
+
 function isYouTubeFrontCard(mediaDiv) {
   return !!mediaDiv
     && (mediaDiv.dataset.ytWantPlay === '1'
@@ -1257,9 +1264,47 @@ function isYouTubeFrontCard(mediaDiv) {
       || activeMediaDiv === mediaDiv);
 }
 
+function setYouTubeThumbVisible(mediaDiv, visible) {
+  if (!mediaDiv) return;
+  const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
+  if (!thumb) return;
+  thumb.style.opacity = visible ? '1' : '0';
+  if (visible) delete mediaDiv.dataset.ytFrame;
+  else mediaDiv.dataset.ytFrame = '1';
+}
+
+// בדיקת תקינות לינק יוטיוב לפני הצגה בפיד | HYPER CORE TECH
+async function verifyYouTubeIdAvailable(youtubeId) {
+  const id = String(youtubeId || '').trim();
+  if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) return false;
+  const oembed = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}&format=json`;
+  try {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => { try { ctrl?.abort(); } catch (_) {} }, 8000);
+    const res = await fetch(oembed, { method: 'GET', mode: 'cors', signal: ctrl?.signal });
+    clearTimeout(timer);
+    if (res && res.ok) return true;
+  } catch (_) {}
+  // fallback: תמונה רשמית של יוטיוב | HYPER CORE TECH
+  return await new Promise((resolve) => {
+    const img = new Image();
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      resolve(!!ok);
+    };
+    const t = setTimeout(() => finish(false), 8000);
+    img.onload = () => { clearTimeout(t); finish(img.naturalWidth > 120); };
+    img.onerror = () => { clearTimeout(t); finish(false); };
+    img.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+  });
+}
+
 // חלק YouTube (videos.js) – עצירה קשיחה: מחיקת iframe + החזרת thumb | HYPER CORE TECH
 function stopYouTubeInMedia(mediaDiv) {
   if (!mediaDiv) return;
+  bumpYouTubeEpoch(mediaDiv);
   const iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"], iframe[src*="youtu.be"]');
   if (iframe) {
     postYouTubeCommand(iframe, 'stopVideo');
@@ -1270,39 +1315,40 @@ function stopYouTubeInMedia(mediaDiv) {
   delete mediaDiv.dataset.ytReady;
   delete mediaDiv.dataset.ytWantPlay;
   delete mediaDiv.dataset.ytNeedsRestart;
+  delete mediaDiv.dataset.ytFrame;
   restoreYouTubeThumbnail(mediaDiv);
-  try {
-    const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
-    if (thumb) thumb.style.opacity = '1';
-  } catch (_) {}
+  setYouTubeThumbVisible(mediaDiv, true);
 }
 
-// pause רך — משאיר iframe חם; מאפס להתחלה לחזרה הבאה | HYPER CORE TECH
+// pause רך — מבטל play מתוזמן (epoch) ומשאיר iframe מלא | HYPER CORE TECH
 function softPauseYouTubeInMedia(mediaDiv) {
   if (!mediaDiv) return;
+  bumpYouTubeEpoch(mediaDiv);
   mediaDiv.dataset.ytWantPlay = '';
   mediaDiv.dataset.ytNeedsRestart = '1';
   const iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"], iframe[src*="youtu.be"]');
   if (!iframe) {
     restoreYouTubeThumbnail(mediaDiv);
+    setYouTubeThumbVisible(mediaDiv, true);
     return;
   }
   postYouTubeCommand(iframe, 'pauseVideo');
   postYouTubeCommand(iframe, 'seekTo', [0, true]);
   postYouTubeCommand(iframe, 'mute');
   mediaDiv.dataset.ytPrepared = '1';
-  try {
-    const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
-    if (thumb && mediaDiv.dataset.ytReady === '1') thumb.style.opacity = '0';
-    else if (thumb) thumb.style.opacity = '1';
-  } catch (_) {}
+  // משאירים פריים של הנגן מלא; thumb מעל רק אם עדיין לא היה ready | HYPER CORE TECH
+  if (mediaDiv.dataset.ytReady === '1') {
+    setYouTubeThumbVisible(mediaDiv, false);
+  } else {
+    setYouTubeThumbVisible(mediaDiv, true);
+  }
 }
 
 function hushAllYouTubeExcept(keepMediaDiv) {
   document.querySelectorAll('.videos-feed__media[data-media-type="youtube"]').forEach((media) => {
     if (keepMediaDiv && media === keepMediaDiv) return;
     const hasIframe = media.querySelector('iframe');
-    if (!hasIframe) return;
+    if (!hasIframe && media.dataset.ytWantPlay !== '1') return;
     softPauseYouTubeInMedia(media);
     if (media.dataset.state === 'playing') {
       media.dataset.state = 'paused';
@@ -1317,7 +1363,11 @@ function stopAllYouTubePlayersExcept(keepMediaDiv) {
   document.querySelectorAll('.videos-feed__media[data-media-type="youtube"]').forEach((media) => {
     if (keepMediaDiv && media === keepMediaDiv) return;
     const hasIframe = media.querySelector('iframe');
-    if (!hasIframe) return;
+    if (!hasIframe && media.dataset.ytWantPlay !== '1') {
+      bumpYouTubeEpoch(media);
+      media.dataset.ytWantPlay = '';
+      return;
+    }
     stopYouTubeInMedia(media);
     if (media.dataset.state === 'playing') {
       media.dataset.state = 'paused';
@@ -1338,41 +1388,38 @@ function prepareYouTubeMedia(mediaDiv) {
   if (document.body.classList.contains('live-studio-open')) return;
   if (isYouTubeFrontCard(mediaDiv)) {
     if (!mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]')) {
-      ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: true });
+      ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: false });
       mediaDiv.dataset.ytPrepared = '1';
     }
     return;
   }
   const existing = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]');
   if (existing && mediaDiv.dataset.ytPrepared === '1') {
-    // כבר חם — לא pause/seek חוזרים (זה גרם לעצירה אחרי play) | HYPER CORE TECH
     return;
   }
-  ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: true });
+  ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: false });
   mediaDiv.dataset.ytPrepared = '1';
 }
 
 function playYouTubeMedia(mediaDiv) {
   if (!mediaDiv) return;
+  // לא bump כאן — softPause כבר ביטל דור קודם; bump ב־play שובר load של prepare | HYPER CORE TECH
   mediaDiv.dataset.ytWantPlay = '1';
+  const epoch = String(mediaDiv.dataset.ytPlayEpoch || '0');
   const iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]');
   const needsRestart = mediaDiv.dataset.ytNeedsRestart === '1';
 
   if (iframe && mediaDiv.dataset.ytPrepared === '1') {
-    const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
-    if (thumb) thumb.style.opacity = '0';
-    // seek רק אחרי יציאה מהכרטיס — לא בכל playMedia כפול מ־IO | HYPER CORE TECH
+    if (mediaDiv.dataset.ytReady === '1') setYouTubeThumbVisible(mediaDiv, false);
     if (needsRestart) {
       postYouTubeCommand(iframe, 'seekTo', [0, true]);
       delete mediaDiv.dataset.ytNeedsRestart;
     }
     postYouTubeCommand(iframe, 'unMute');
     postYouTubeCommand(iframe, 'playVideo');
-    mediaDiv.dataset.ytReady = '1';
     return;
   }
-  // אין iframe חם — יוצרים ומנגנים; load יכבד ytWantPlay | HYPER CORE TECH
-  ensureYouTubeIframe(mediaDiv, { autoplay: true, mute: false, revealFrame: true });
+  ensureYouTubeIframe(mediaDiv, { autoplay: true, mute: false, revealFrame: false, playEpoch: epoch });
   mediaDiv.dataset.ytPrepared = '1';
   delete mediaDiv.dataset.ytNeedsRestart;
 }
@@ -1385,12 +1432,10 @@ function pauseAllFeedVideos(options = {}) {
     console.log('[VIDEOS] Pausing all feed videos for call');
   }
   
-  // עצירת הווידיאו הפעיל אם יש
   if (activeMediaDiv) {
     pauseMedia(activeMediaDiv, { manual: false });
   }
   
-  // עצירת כל הווידיאו בפיד (לא כולל מצלמת סטודיו LIVE) | HYPER CORE TECH
   const allVideos = document.querySelectorAll('video');
   allVideos.forEach(video => {
     try {
@@ -1399,17 +1444,14 @@ function pauseAllFeedVideos(options = {}) {
       if (!video.paused) {
         video.pause();
       }
-      // גם השתקה — מונע שמע מהפיד בזמן שידור | HYPER CORE TECH
       if (options.muteFeed) video.muted = true;
     } catch (e) {
       console.warn('[VIDEOS] Failed to pause video', e);
     }
   });
   
-  // יוטיוב: הורסים iframes — שיחה/סטודיו | HYPER CORE TECH
   stopAllYouTubePlayers();
   
-  // כיבוי PLAY גלובלי רק כשצריך (שיחה וכו') – לא ברינדור מחדש של LIVE/משחקים | HYPER CORE TECH
   if (options.disableAutoplay !== false) {
     globalAutoplayEnabled = false;
     updateGlobalStopClass();
@@ -1417,45 +1459,46 @@ function pauseAllFeedVideos(options = {}) {
   }
 }
 
-function ensureYouTubeIframe(mediaDiv, { autoplay = false, mute = false, revealFrame = true } = {}) {
+function ensureYouTubeIframe(mediaDiv, { autoplay = false, mute = false, revealFrame = false, playEpoch = null } = {}) {
   let iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]');
   const youtubeId = mediaDiv.dataset.youtubeId;
   if (!youtubeId) return null;
   const wantMute = mute || !autoplay ? 1 : 0;
+  const epochAtCreate = playEpoch != null ? String(playEpoch) : String(mediaDiv.dataset.ytPlayEpoch || '0');
   if (!iframe) {
     iframe = document.createElement('iframe');
     iframe.className = 'videos-feed__media-iframe';
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     iframe.allowFullscreen = true;
     iframe.src = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=${autoplay ? 1 : 0}&mute=${wantMute}&rel=0&playsinline=1&controls=0&fs=0&loop=1&playlist=${encodeURIComponent(youtubeId)}`;
-    const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
-    if (autoplay && thumb) thumb.style.opacity = '0';
+    // thumb מכסה עד ready — בלי שחור | HYPER CORE TECH
+    setYouTubeThumbVisible(mediaDiv, true);
     mediaDiv.insertBefore(iframe, mediaDiv.firstChild);
     iframe.addEventListener('load', () => {
       mediaDiv.dataset.ytReady = '1';
-      if (revealFrame) {
-        const t = mediaDiv.querySelector('.videos-feed__media-thumb');
-        if (t) t.style.opacity = '0';
-      }
-      // אם כבר ביקשנו play — לא לעצור ב־load (תיקון race) | HYPER CORE TECH
+      // רק ytWantPlay קובע — epoch מבוטל ב־softPause (מונע play ברקע אחרי גלילה) | HYPER CORE TECH
       if (mediaDiv.dataset.ytWantPlay === '1') {
         postYouTubeCommand(iframe, 'unMute');
         postYouTubeCommand(iframe, 'playVideo');
+        setYouTubeThumbVisible(mediaDiv, false);
       } else {
         postYouTubeCommand(iframe, 'pauseVideo');
         postYouTubeCommand(iframe, 'seekTo', [0, true]);
         postYouTubeCommand(iframe, 'mute');
+        setYouTubeThumbVisible(mediaDiv, true);
       }
     }, { once: true });
   } else if (autoplay) {
-    const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
-    if (thumb) thumb.style.opacity = '0';
+    if (mediaDiv.dataset.ytWantPlay !== '1') {
+      return iframe;
+    }
     if (mediaDiv.dataset.ytNeedsRestart === '1') {
       postYouTubeCommand(iframe, 'seekTo', [0, true]);
       delete mediaDiv.dataset.ytNeedsRestart;
     }
     postYouTubeCommand(iframe, 'unMute');
     postYouTubeCommand(iframe, 'playVideo');
+    if (mediaDiv.dataset.ytReady === '1') setYouTubeThumbVisible(mediaDiv, false);
   }
   return iframe;
 }
@@ -1468,7 +1511,6 @@ function restoreYouTubeThumbnail(mediaDiv) {
     thumb.src = `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`;
     thumb.alt = 'YouTube Video';
     thumb.className = 'videos-feed__media-thumb';
-    // fallback לתמונה קטנה יותר אם maxresdefault לא קיים
     thumb.onerror = () => {
       thumb.src = `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
       thumb.onerror = null;
@@ -3874,7 +3916,7 @@ function renderVideoCard(video) {
     thumb.src = `https://i.ytimg.com/vi/${video.youtubeId}/maxresdefault.jpg`;
     thumb.alt = 'YouTube Video';
     thumb.className = 'videos-feed__media-thumb';
-    thumb.loading = 'lazy'; // אופטימיזציה למכשירים חלשים
+    thumb.loading = 'lazy';
     thumb.decoding = 'async';
     thumb.onerror = () => {
       thumb.src = `https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg`;
@@ -3891,9 +3933,25 @@ function renderVideoCard(video) {
     centerPlayOverlayButton(playOverlay);
     mediaDiv.appendChild(playOverlay);
 
-    // YouTube בדסקטופ — בדרך כלל 16:9 (מובייל לא מושפע מ־--video-ar) | HYPER CORE TECH
     try { applyDesktopVideoAspect(mediaDiv, 16, 9); } catch (_) {}
-    queueMicrotask(markReady);
+    // לא נכנסים לפיד עד שאימות לינק + thumb — מונע כרטיסים ריקים | HYPER CORE TECH
+    (async () => {
+      try {
+        const okLink = await verifyYouTubeIdAvailable(video.youtubeId);
+        if (!okLink) {
+          failReady(new Error('youtube-unavailable'));
+          return;
+        }
+        const thumbOk = await waitForMediaElementReady(thumb, { events: ['load'], timeoutMs: 12000 });
+        if (!thumbOk && !(thumb.complete && thumb.naturalWidth > 0)) {
+          failReady(new Error('youtube-thumb-failed'));
+          return;
+        }
+        markReady();
+      } catch (err) {
+        failReady(err || new Error('youtube-ready-failed'));
+      }
+    })();
   } else if (video.videoUrl || video.hash || video.fromDeepLink) {
     if (video.fromDeepLink || (typeof pendingPostDeepLinkId === 'string' && video.id === pendingPostDeepLinkId)) {
       try { enrichVideoMediaSources(video); } catch (_) {}
