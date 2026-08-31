@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.15.0-p2p-first-blossom-watch'; // P2P-first + stall + Blossom משגיח | HYPER CORE TECH
+  const P2P_VERSION = '2.15.1-hb-stage2'; // שלב 2: מרווחי heartbeat מתונים + טיימר דינמי | HYPER CORE TECH
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -139,13 +139,15 @@
   const BLOSSOM_FETCH_TIMEOUT_MS = 45000; // timeout ל-Blossom (AbortController) | HYPER CORE TECH
   const MAX_PARALLEL_PEERS_PER_FILE = 2;  // עד 2 משתמשים במקביל לאותו קובץ | HYPER CORE TECH
   // חלק Adaptive Heartbeat (p2p-video-sharing.js) – תדירות דינמית לפי גודל רשת | HYPER CORE TECH
+  // שלב 2 ייעול ריליי – מרווחים מתונים בחזית; שירותי רקע לא משתנים | HYPER CORE TECH
   const HEARTBEAT_INTERVALS = {
-    BOOTSTRAP: 30000,   // רשת קטנה (1-3 peers): כל 30 שניות - צריך גילוי מהיר
-    HYBRID: 60000,      // רשת בינונית (4-10 peers): כל דקה
-    P2P_FULL: 120000    // רשת גדולה (10+ peers): כל 2 דקות - פחות עומס
+    BOOTSTRAP: 45000,   // רשת קטנה (1-3 peers): כל 45 שניות
+    HYBRID: 90000,      // רשת בינונית (4-10 peers): כל 90 שניות
+    P2P_FULL: 180000    // רשת גדולה (10+ peers): כל 3 דקות
   };
-  let HEARTBEAT_INTERVAL = 60000;         // ברירת מחדל - יתעדכן דינמית
+  let HEARTBEAT_INTERVAL = 90000;         // ברירת מחדל HYBRID - יתעדכן דינמית
   const HEARTBEAT_LOOKBACK = 180;         // חיפוש heartbeats מ-3 דקות אחורה (מותאם ל-P2P_FULL)
+  let heartbeatTimerId = null;            // טיימר דינמי לפי HEARTBEAT_INTERVAL העדכני | HYPER CORE TECH
   
   // חלק Guest P2P (p2p-video-sharing.js) – first-paint בלבד מ-Blossom; שאר P2P | HYPER CORE TECH
   const GUEST_BLOSSOM_FIRST_POSTS = 1;    // אורחים: פוסט ראשון בלבד מ-Blossom | HYPER CORE TECH
@@ -689,6 +691,21 @@
     } catch {}
   }
 
+  // חלק Adaptive Heartbeat (p2p-video-sharing.js) – תזמון חוזר לפי המרווח העדכני (לא setInterval קבוע) | HYPER CORE TECH
+  function scheduleNextHeartbeat() {
+    if (heartbeatTimerId != null) {
+      clearTimeout(heartbeatTimerId);
+      heartbeatTimerId = null;
+    }
+    heartbeatTimerId = setTimeout(() => {
+      Promise.resolve(sendHeartbeat())
+        .catch(() => {})
+        .finally(() => {
+          scheduleNextHeartbeat();
+        });
+    }, HEARTBEAT_INTERVAL);
+  }
+
   // חלק Network Tiers (p2p-video-sharing.js) – שליחת heartbeat להודעה על נוכחות ברשת | HYPER CORE TECH
   async function sendHeartbeat() {
     // רק המנהיג שולח heartbeats לרשת
@@ -870,11 +887,12 @@
     if (prevTier !== tier) {
       log('info', `🌐 מצב רשת השתנה: ${prevTier} → ${tier}`, { peers: peerCount });
       // חלק Adaptive Heartbeat – עדכון תדירות heartbeat לפי הטייר | HYPER CORE TECH
-      const newInterval = HEARTBEAT_INTERVALS[tier] || 60000;
+      const newInterval = HEARTBEAT_INTERVALS[tier] || 90000;
       if (HEARTBEAT_INTERVAL !== newInterval) {
         HEARTBEAT_INTERVAL = newInterval;
         log('info', `💓 תדירות heartbeat עודכנה: ${newInterval / 1000} שניות`, { tier });
-        // עדכון ה-background worker אם פעיל
+        // טיימר חזית מתעדכן למרווח החדש; worker רקע נשאר כמו שהיה (רק מקבל את המרווח העדכני) | HYPER CORE TECH
+        scheduleNextHeartbeat();
         if (backgroundWorker && !isPageVisible) {
           backgroundWorker.postMessage({ type: 'start', interval: HEARTBEAT_INTERVAL });
         }
@@ -3267,9 +3285,9 @@
         
         listenForP2PSignals();
         
-        // שליחת heartbeat ראשון והפעלת interval (רק אם מנהיג)
+        // שליחת heartbeat ראשון + תזמון דינמי (מתעדכן כש־tier משתנה) | HYPER CORE TECH
         sendHeartbeat();
-        setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+        scheduleNextHeartbeat();
         
         // הפעלת polling לבדיקת peers חדשים
         startPeerPolling();

@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa398-delopt1",
-  "buildTime": "2026-08-31T16:41:00+03:00",
-  "notes": "Stage 1 relay opt: deletion dedup, lower kind-5 limits, since after hydrate"
+  "version": "2026.08.31-pwa399-hb-stage2",
+  "buildTime": "2026-08-31T23:01:00+03:00",
+  "notes": "Stage 2 relay opt: milder P2P heartbeat intervals + dynamic timer; background services untouched"
 }
