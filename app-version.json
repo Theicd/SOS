@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa401-mesh-dc",
-  "buildTime": "2026-08-31T23:56:00+03:00",
-  "notes": "Faster peer discovery; DC connect queue + more retries for multi-peer mesh; background services untouched"
+  "version": "2026.09.01-pwa402-dc-calm",
+  "buildTime": "2026-09-01T00:50:00+03:00",
+  "notes": "DC like backup: 3 offer retries, no soft-requeue flood; pre-connect 5; keep staggered queue; reconnect on open chat/send"
 }

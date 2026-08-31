@@ -903,7 +903,7 @@
   }
 
   // גילוי peers בחזית — 35 שנ׳ (בלי לגעת בשירותי רקע) | HYPER CORE TECH
-  const PEER_POLLING_INTERVAL = 35000;
+  const PEER_POLLING_INTERVAL = 30000; // כמו גיבוי — בדיקה כל 30 שניות | HYPER CORE TECH
   let peerPollingActive = false;
 
   function startPeerPolling() {

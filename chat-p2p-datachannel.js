@@ -24,11 +24,10 @@
   const ICE_BATCH_MS = 800;
   const RECONN_MS = 5000;
   const MAX_RECONN = window.__sosP2pHeadless ? 24 : 3;
-  const OFFER_RETRY_MS = 12000; // בסיס retry — עם backoff קל למטה | HYPER CORE TECH
-  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 6; // יותר ניסיונות לריבוי peers | HYPER CORE TECH
+  const OFFER_RETRY_MS = 12000; // retry offer אם לא נענה תוך 12 שניות (סיגנלינג דרך ריליי איטי)
+  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 3; // כמו גיבוי — בלי הצפת ריליי על peers מתים | HYPER CORE TECH
   const CONNECT_STAGGER_MS = 1800; // מרווח בין חיבורי initiator במקביל | HYPER CORE TECH
   const MAX_PARALLEL_CONNECTING = 3; // עד 3 offers פעילים במקביל | HYPER CORE TECH
-  const SOFT_REQUEUE_MS = 45000; // אחרי gave up — ניסיון רך נוסף | HYPER CORE TECH
   // חלק keepalive (chat-p2p-datachannel.js) – ping תקופתי לשמירת DC פתוח מול NAT/firewall timeout | HYPER CORE TECH
   const DC_KEEPALIVE_MS = 30000;
   const SIG_SINCE_SEC = 3600; // חלון since - שעה (סובלני להיסט זמן בין מכשירים)
@@ -267,7 +266,7 @@
     // חלק offerId (chat-p2p-datachannel.js) – מזהה ייחודי לשיוך answer/offer | HYPER CORE TECH
     await sendSig(k, 'dc-offer', { type: offer.type, sdp: offer.sdp, oid: s.offerId });
     console.log(`[DC] 🔄 connecting ${k.slice(0, 8)} (attempt ${s.offerRetryN + 1})...`);
-    const waitMs = Math.min(20000, OFFER_RETRY_MS + s.offerRetryN * 2000);
+    // כמו גיבוי: מרווח קבוע; אחרי MAX retries — עצירה (חיבור מחדש בפתיחת שיחה/שליחה) | HYPER CORE TECH
     s.offerRetryT = setTimeout(() => {
       s.offerRetryT = null;
       if (s.status === 'connected' || s.gotAnswer) return;
@@ -275,26 +274,11 @@
       if (s.offerRetryN >= MAX_OFFER_RETRY) {
         console.warn(`[DC] ❌ gave up on ${k.slice(0, 8)} after ${MAX_OFFER_RETRY} retries`);
         s.status = 'idle';
-        // ניסיון רך נוסף אחרי המתנה — לריבוי peers / ריליי עמוס | HYPER CORE TECH
-        setTimeout(() => {
-          try {
-            if (isConn(k)) return;
-            const st = getPS(k);
-            if (st && (st.status === 'connected' || st.status === 'connecting')) return;
-            if (st) {
-              st.offerRetryN = 0;
-              st.reconnN = Math.min(st.reconnN || 0, 1);
-              st.status = 'idle';
-            }
-            console.log(`[DC] ♻️ soft requeue ${k.slice(0, 8)}`);
-            enqueueConnect(k);
-          } catch {}
-        }, SOFT_REQUEUE_MS);
         return;
       }
       console.log(`[DC] 🔁 retry offer ${k.slice(0, 8)} (#${s.offerRetryN})`);
       _sendOffer(k);
-    }, waitMs);
+    }, OFFER_RETRY_MS);
   }
 
   // חלק offer נכנס (chat-p2p-datachannel.js) – רק responder מטפל ב-offers (אין עוד glare) | HYPER CORE TECH
