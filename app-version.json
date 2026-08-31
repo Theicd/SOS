@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.01-pwa402-dc-calm",
-  "buildTime": "2026-09-01T00:50:00+03:00",
-  "notes": "DC like backup: 3 offer retries, no soft-requeue flood; pre-connect 5; keep staggered queue; reconnect on open chat/send"
+  "version": "2026.09.01-pwa403-live-tree",
+  "buildTime": "2026-09-01T01:55:00+03:00",
+  "notes": "Live tree mesh: broadcaster max 2 direct; overflow via viewer-relays"
 }
