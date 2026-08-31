@@ -9,6 +9,8 @@
   const MAX_DIRECT_CHILDREN = 3; // כמה צופים המשדר מחזיק ישירות
   // אותות WebRTC לשידור חי — מופרדים משיחות קול (25050) כדי לא לשבור P2P/DC | HYPER CORE TECH
   const LIVE_SIGNAL_KIND = 25056;
+  // heartbeat מטא בלבד (25051) — לא 25050/30078, לא נוגע בשיחות/צ'אט/P2P | HYPER CORE TECH
+  const STATUS_HEARTBEAT_MS = 50000;
 
   // מצב גלובלי לשידור חי לחדר יחיד בכל פעם (MVP)
   const state = {
@@ -22,8 +24,14 @@
     localStream: null,               // וידאו+אודיו כשאנחנו משדרים (או captureStream במצב relay)
     incomingRemoteStream: null,      // סטרים שמגיע מהמקור (לריליי/צופה)
     hiddenVideoEl: null,             // וידאו חבוי ללכידת stream כשאנחנו relay
-    ending: false
+    ending: false,
+    slug: 'live',
+    title: '',
+    hostName: '',
+    hostPicture: ''
   };
+
+  let statusHeartbeatTimer = null;
 
   // קונפיג ICE – כמו P2P (כולל TURN) כדי למנוע מסך שחור מאחורי NAT | HYPER CORE TECH
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -194,12 +202,34 @@
     }
   }
 
+  function stopStatusHeartbeat(){
+    if (statusHeartbeatTimer) {
+      try { clearInterval(statusHeartbeatTimer); } catch (_) {}
+      statusHeartbeatTimer = null;
+    }
+  }
+
+  function startStatusHeartbeat(){
+    stopStatusHeartbeat();
+    if (state.role !== 'broadcaster' || !state.roomId) return;
+    statusHeartbeatTimer = setInterval(() => {
+      if (state.ending || state.role !== 'broadcaster' || !state.roomId) {
+        stopStatusHeartbeat();
+        return;
+      }
+      try { if (typeof document !== 'undefined' && document.hidden) return; } catch (_) {}
+      announceStatus().catch(() => {});
+    }, STATUS_HEARTBEAT_MS);
+  }
+
   // התחלת שידור – המשדר (תומך ב־title / stream קיים / יחס 9:16) | HYPER CORE TECH
   async function startBroadcast(opts){
     const options = (opts && typeof opts === 'object') ? opts : { slug: opts };
     const slug = options.slug || 'live';
     const title = String(options.title || '').trim() || 'שידור חי';
     state.role = 'broadcaster'; state.broadcaster = App.publicKey; state.roomId = getRoomId(App.publicKey, slug||('room-'+Date.now()));
+    state.slug = slug;
+    state.title = title;
     state.relays.clear(); state.directChildren.clear();
     if (options.stream && typeof options.stream.getTracks === 'function') {
       state.localStream = options.stream;
@@ -215,7 +245,6 @@
       });
     }
     if(typeof App.onLiveLocalStream === 'function') App.onLiveLocalStream(state.localStream);
-    announceStatus();
     // פרסום 'live-post' כדי שהפיד יצייר כרטיס צפייה + באנר "התחיל לשדר" | HYPER CORE TECH
     try {
       if(App.pool && App.publicKey){
@@ -223,11 +252,15 @@
         const name = String(prof.name || '').trim().slice(0, 48);
         const pictureRaw = String(prof.picture || '').trim();
         const picture = (/^https?:\/\//i.test(pictureRaw) && pictureRaw.length < 500) ? pictureRaw : '';
+        state.hostName = name;
+        state.hostPicture = picture;
         const content = JSON.stringify({ roomId: state.roomId, owner: App.publicKey, slug, title, name, picture });
         const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-post'], ['r', state.roomId], ['title', title.slice(0, 80)]], content };
         const signed = App.finalizeEvent(ev, App.privateKey); await App.pool.publish(App.relayUrls, signed);
       }
     } catch {}
+    await announceStatus();
+    startStatusHeartbeat();
   }
 
   // הצטרפות לצפייה – קובע אם viewer או relay לפי עומס
@@ -413,9 +446,20 @@
     }
   }
 
-  // הודעת סטטוס לצופים (רילייז קיימים, עומס)
+  // סטטוס ציבורי (25051) — גילוי לצופים מאוחרים + מונה צופים; לא סיגנל שיחות | HYPER CORE TECH
   async function announceStatus(){
-    const payload = { roomId: state.roomId, relays: Array.from(state.relays), direct: Array.from(state.directChildren) };
+    if (!state.roomId || state.role !== 'broadcaster') return;
+    const payload = {
+      roomId: state.roomId,
+      owner: App.publicKey,
+      slug: state.slug || 'live',
+      title: state.title || 'שידור חי',
+      name: state.hostName || '',
+      picture: state.hostPicture || '',
+      alive: true,
+      relays: Array.from(state.relays),
+      direct: Array.from(state.directChildren)
+    };
     try {
       if (typeof App.onLiveStatusUpdate === 'function') {
         App.onLiveStatusUpdate({
@@ -426,8 +470,8 @@
         });
       }
     } catch (_) {}
-    // משודר לציבור – סוג כללי, ללא p ספציפי
-    if(!App.pool || !App.publicKey) return;
+    // ללא #p — מטא בלבד; לא 25050 / לא 30078 | HYPER CORE TECH
+    if(!App.pool || !App.publicKey || !App.privateKey) return;
     const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-status'], ['r', state.roomId]], content: JSON.stringify(payload) };
     const signed = App.finalizeEvent(ev, App.privateKey); await App.pool.publish(App.relayUrls, signed);
   }
@@ -509,6 +553,7 @@
     // סיום
     async end(){
       state.ending = true;
+      stopStatusHeartbeat();
       const endedRoom = state.roomId;
       const wasBroadcaster = state.role === 'broadcaster';
       // מודיעים לצופים שהשידור נגמר — לפני ניקוי החדר | HYPER CORE TECH
@@ -542,6 +587,7 @@
       try{ state.incomingRemoteStream?.getTracks().forEach(t=>t.stop()); }catch{}
       if(state.hiddenVideoEl){ try{state.hiddenVideoEl.remove();}catch{} state.hiddenVideoEl=null; }
       state.role=null; state.roomId=null; state.parentPeer=null; state.directChildren.clear(); state.relays.clear();
+      state.slug='live'; state.title=''; state.hostName=''; state.hostPicture='';
       if(typeof App.onLiveEnded==='function') App.onLiveEnded({ roomId: endedRoom, wasBroadcaster });
     },
     getState(){ return { role:state.role, roomId:state.roomId, relays:Array.from(state.relays), direct:Array.from(state.directChildren) }; }

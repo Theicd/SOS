@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa394-yt-center-fix",
-  "buildTime": "2026-08-31T14:25:00+03:00",
-  "notes": "Revert absolute YouTube iframe CSS that broke mobile centering; on pause hide thumb and show paused frame"
+  "version": "2026.08.31-pwa395-live-hb",
+  "buildTime": "2026-08-31T14:55:00+03:00",
+  "notes": "Live discovery heartbeat via 25051 live-status only; no touch to calls/chat/P2P kinds"
 }

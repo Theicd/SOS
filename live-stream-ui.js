@@ -4,7 +4,8 @@
   const doc = window.document;
 
   const DISCOVERY_WINDOW_SEC = 30 * 60; // חיפוש אירועים
-  const MAX_POST_AGE_SEC = 3 * 60; // רק שידורים טריים לאימות
+  const MAX_POST_AGE_SEC = 3 * 60; // live-post ישן — רק באנר ראשוני
+  const MAX_STATUS_AGE_SEC = 2 * 60; // live-status טרי = שידור עדיין חי (heartbeat ~50s)
   const MAX_LIVE_END_AGE_SEC = 25; // live-end ישן מאותו roomId לא סוגר שידור חדש
   const VERIFY_TIMEOUT_MS = 14000;
 
@@ -291,7 +292,7 @@
               </form>
             </div>
           </aside>
-        </div>
+          </div>
       </div>`;
 
     doc.body.appendChild(studio);
@@ -493,10 +494,14 @@
       return;
     }
     // אין כרטיס מאומת — מתחברים רק בלחיצה מפורשת (לא auto) | HYPER CORE TECH
+    const nowSec = Math.floor(Date.now() / 1000);
     let started = false;
     knownRooms.forEach((meta) => {
       if (started || !meta || !meta.roomId) return;
       if (App.publicKey && String(meta.owner).toLowerCase() === String(App.publicKey).toLowerCase()) return;
+      // דילוג על חדרים שסטטוס אחרון שלהם ישן מדי | HYPER CORE TECH
+      const lastAt = roomLivePostAt.get(meta.roomId) || 0;
+      if (lastAt && (nowSec - lastAt) > MAX_STATUS_AGE_SEC) return;
       started = App.requestLiveWatch(meta);
     });
     try {
@@ -925,6 +930,8 @@
     if (!roomId) return;
     verifiedRooms.delete(roomId);
     verifying.delete(roomId);
+    knownRooms.delete(roomId);
+    roomLivePostAt.delete(roomId);
     if (verifyRoomId === roomId) {
       clearVerifyTimer();
       verifyRoomId = null;
@@ -1023,7 +1030,7 @@
 
     if (typeof App.live?.watch !== 'function') {
       finishVerifyFail(meta.roomId);
-      return;
+    return;
     }
 
     Promise.resolve(App.live.watch(meta.owner, meta.slug || 'live')).catch(() => {
@@ -1046,6 +1053,28 @@
     knownRooms.set(meta.roomId, meta);
     // באנר בלבד — בלי WebRTC אוטומטי (שומר על P2P צ'אט/שיחות) | HYPER CORE TECH
     showLiveStartedBanner(meta);
+  }
+
+  // heartbeat live-status — מעדכן knownRooms לצופים מאוחרים; בלי watch אוטומטי | HYPER CORE TECH
+  function maybeQueueFromStatus(ev, meta) {
+    const age = Math.floor(Date.now() / 1000) - Number(ev.created_at || 0);
+    meta._ageSec = age;
+    if (age > MAX_STATUS_AGE_SEC) return;
+    if (!meta.owner || !meta.roomId) return;
+    const created = Number(ev.created_at || 0);
+    const prev = roomLivePostAt.get(meta.roomId) || 0;
+    if (created >= prev) roomLivePostAt.set(meta.roomId, created);
+    const existing = knownRooms.get(meta.roomId) || {};
+    const merged = {
+      ...existing,
+      ...meta,
+      name: meta.name || existing.name || '',
+      picture: meta.picture || existing.picture || '',
+      title: meta.title || existing.title || 'שידור חי',
+      _ageSec: age
+    };
+    knownRooms.set(meta.roomId, merged);
+    showLiveStartedBanner(merged);
   }
 
   App.requestLiveWatch = function(metaOrRoom) {
@@ -1083,6 +1112,8 @@
       const tRoom = ev.tags.find((t) => t[0] === 'r');
       if (!tRoom) return;
       const type = tType[1];
+      // רק מטא גילוי — לא live-chat/like (לא מציפים discovery) | HYPER CORE TECH
+      if (type !== 'live-post' && type !== 'live-status' && type !== 'live-end') return;
       const payload = JSON.parse(ev.content || '{}');
       const owner = payload.owner || ev.pubkey;
       const slug = payload.slug || 'live';
@@ -1100,6 +1131,10 @@
 
       if (type === 'live-post') {
         maybeQueueFromEvent(ev, meta);
+        return;
+      }
+      if (type === 'live-status') {
+        maybeQueueFromStatus(ev, meta);
         return;
       }
       if (type === 'live-end') {
@@ -1264,8 +1299,8 @@
         e.preventDefault();
         e.stopPropagation();
         if (typeof App.requireAuth === 'function' && !App.requireAuth('כדי לכתוב בשידור חי צריך להתחבר.')) {
-          return;
-        }
+        return;
+      }
         const input = form.querySelector('input');
         const text = String(input && input.value || '').trim();
         if (!text) return;
