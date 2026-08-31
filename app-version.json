@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa395-live-hb",
-  "buildTime": "2026-08-31T14:55:00+03:00",
-  "notes": "Live discovery heartbeat via 25051 live-status only; no touch to calls/chat/P2P kinds"
+  "version": "2026.08.31-pwa396-live-chat-hist",
+  "buildTime": "2026-08-31T15:25:00+03:00",
+  "notes": "Live chat: 2h history for late joiners; taller scrollable mobile chat list"
 }

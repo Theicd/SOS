@@ -658,7 +658,7 @@ body.live-studio-open {
   flex-direction: column;
   justify-content: flex-end;
   gap: 8px;
-  max-height: 46%;
+  max-height: 58%;
   padding: 10px 12px calc(10px + var(--safe-bottom, 0px));
   background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 70%);
   pointer-events: none;
@@ -670,13 +670,12 @@ body.live-studio-open {
   flex-direction: column;
   gap: 6px;
   overflow-y: auto;
-  max-height: 160px;
-  pointer-events: none;
-  scrollbar-width: none;
-}
-
-.videos-p2p-live-chat-list::-webkit-scrollbar {
-  display: none;
+  -webkit-overflow-scrolling: touch;
+  max-height: min(42vh, 280px);
+  min-height: 120px;
+  pointer-events: auto;
+  touch-action: pan-y;
+  scrollbar-width: thin;
 }
 
 .videos-p2p-live-chat-item {

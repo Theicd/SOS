@@ -8,6 +8,8 @@
   const MAX_STATUS_AGE_SEC = 2 * 60; // live-status טרי = שידור עדיין חי (heartbeat ~50s)
   const MAX_LIVE_END_AGE_SEC = 25; // live-end ישן מאותו roomId לא סוגר שידור חדש
   const VERIFY_TIMEOUT_MS = 14000;
+  // היסטוריית צ'אט לצופה מאוחר — לא 20 שנ' (מפספסים את השיחה) | HYPER CORE TECH
+  const CHAT_HISTORY_LOOKBACK_SEC = 2 * 60 * 60;
 
   const knownRooms = new Map(); // roomId -> meta
   const verifiedRooms = new Map(); // roomId -> meta + verified
@@ -659,7 +661,7 @@
     row.appendChild(av);
     row.appendChild(col);
     list.appendChild(row);
-    list.scrollTop = list.scrollHeight;
+    scrollChatListToBottom(list);
   }
 
   function enrichChatRowFromProfile(pubkey, profile) {
@@ -689,6 +691,26 @@
     } catch (_) {}
   }
 
+  function chatHistorySince(roomId) {
+    const now = Math.floor(Date.now() / 1000);
+    const floor = now - CHAT_HISTORY_LOOKBACK_SEC;
+    const roomStart = roomId ? (Number(roomLivePostAt.get(roomId)) || 0) : 0;
+    if (roomStart > 0) return Math.max(floor, roomStart - 5);
+    return floor;
+  }
+
+  function scrollChatListToBottom(list) {
+    if (!list) return;
+    const go = () => {
+      try { list.scrollTop = list.scrollHeight; } catch (_) {}
+    };
+    go();
+    requestAnimationFrame(() => {
+      go();
+      setTimeout(go, 50);
+    });
+  }
+
   function stopLiveChatSub() {
     closeChatSubHandle(chatSub);
     chatSub = null;
@@ -709,7 +731,7 @@
     updateLikeCountUi();
     clearChatUi();
     fillHostIdentityUi();
-    const since = Math.floor(Date.now() / 1000) - 30;
+    const since = chatHistorySince(roomId);
     try {
       chatSub = App.pool.subscribeMany(
         App.relayUrls,
@@ -765,7 +787,10 @@
               }
             } catch (_) {}
           },
-          oneose: () => {}
+          oneose: () => {
+            const list = studio && studio.querySelector('#liveStudioChatList');
+            scrollChatListToBottom(list);
+          }
         }
       );
     } catch (e) {
@@ -1199,7 +1224,7 @@
     row.appendChild(body);
     list.appendChild(row);
     while (list.children.length > 40) list.firstChild.remove();
-    list.scrollTop = list.scrollHeight;
+    scrollChatListToBottom(list);
   }
 
   function spawnViewerHeart(mediaDiv) {
@@ -1227,7 +1252,7 @@
     if (entry && entry.sub) return entry;
     entry = entry || { sub: null, medias: new Set(), seen: new Set() };
     viewerChatByRoom.set(roomId, entry);
-    const since = Math.floor(Date.now() / 1000) - 20;
+    const since = chatHistorySince(roomId);
     try {
       entry.sub = App.pool.subscribeMany(
         App.relayUrls,
@@ -1274,7 +1299,11 @@
               }
             } catch (_) {}
           },
-          oneose: () => {}
+          oneose: () => {
+            broadcastOverlayEvent(roomId, (media) => {
+              scrollChatListToBottom(media.querySelector('[data-live-chat-list]'));
+            });
+          }
         }
       );
     } catch (e) {
