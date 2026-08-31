@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa391-yt-loop",
-  "buildTime": "2026-08-31T00:45:00+03:00",
-  "notes": "YouTube loop=1 and always seekTo 0 on play/leave like file videos"
+  "version": "2026.08.31-pwa392-yt-stable",
+  "buildTime": "2026-08-31T13:20:00+03:00",
+  "notes": "Stabilize YouTube: no load-pause after play; idempotent playMedia; prepare skips front card"
 }

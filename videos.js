@@ -1104,6 +1104,14 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   const mediaType = mediaDiv.dataset.mediaType;
   if (!mediaType) return;
 
+  // יוטיוב שכבר מנגן בכרטיס הזה — לא seek/play מחדש (מונע התחלה-עצירה-התחלה) | HYPER CORE TECH
+  if (mediaType === 'youtube'
+      && activeMediaDiv === mediaDiv
+      && mediaDiv.dataset.state === 'playing'
+      && mediaDiv.dataset.ytWantPlay === '1') {
+    return;
+  }
+
   // יוטיוב: לפני ניגון — משתיקים אחרים (רך) בלי להרוס חימום שכן | HYPER CORE TECH
   if (mediaType === 'youtube') {
     hushAllYouTubeExcept(mediaDiv);
@@ -1241,6 +1249,13 @@ function postYouTubeCommand(iframe, func, args = []) {
   } catch (_) {}
 }
 
+function isYouTubeFrontCard(mediaDiv) {
+  return !!mediaDiv
+    && (mediaDiv.dataset.ytWantPlay === '1'
+      || mediaDiv.dataset.state === 'playing'
+      || activeMediaDiv === mediaDiv);
+}
+
 // חלק YouTube (videos.js) – עצירה קשיחה: מחיקת iframe + החזרת thumb | HYPER CORE TECH
 function stopYouTubeInMedia(mediaDiv) {
   if (!mediaDiv) return;
@@ -1252,6 +1267,8 @@ function stopYouTubeInMedia(mediaDiv) {
   }
   delete mediaDiv.dataset.ytPrepared;
   delete mediaDiv.dataset.ytReady;
+  delete mediaDiv.dataset.ytWantPlay;
+  delete mediaDiv.dataset.ytNeedsRestart;
   restoreYouTubeThumbnail(mediaDiv);
   try {
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
@@ -1259,9 +1276,11 @@ function stopYouTubeInMedia(mediaDiv) {
   } catch (_) {}
 }
 
-// pause רך — משאיר iframe חם; מאפס להתחלה כמו קובץ בפיד | HYPER CORE TECH
+// pause רך — משאיר iframe חם; מאפס להתחלה לחזרה הבאה | HYPER CORE TECH
 function softPauseYouTubeInMedia(mediaDiv) {
   if (!mediaDiv) return;
+  mediaDiv.dataset.ytWantPlay = '';
+  mediaDiv.dataset.ytNeedsRestart = '1';
   const iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"], iframe[src*="youtu.be"]');
   if (!iframe) {
     restoreYouTubeThumbnail(mediaDiv);
@@ -1271,7 +1290,6 @@ function softPauseYouTubeInMedia(mediaDiv) {
   postYouTubeCommand(iframe, 'seekTo', [0, true]);
   postYouTubeCommand(iframe, 'mute');
   mediaDiv.dataset.ytPrepared = '1';
-  // מציגים פריים של הנגן (כמו קובץ) במקום thumb חיצוני | HYPER CORE TECH
   try {
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (thumb && mediaDiv.dataset.ytReady === '1') thumb.style.opacity = '0';
@@ -1313,15 +1331,20 @@ function stopAllYouTubePlayers() {
   stopAllYouTubePlayersExcept(null);
 }
 
-// חימום שקט — iframe בלי autoplay, מוכן ל־play מיידי בגלילה | HYPER CORE TECH
+// חימום שקט — לא נוגע בכרטיס שמנגן בפרונט | HYPER CORE TECH
 function prepareYouTubeMedia(mediaDiv) {
   if (!mediaDiv || mediaDiv.dataset.mediaType !== 'youtube') return;
   if (document.body.classList.contains('live-studio-open')) return;
+  if (isYouTubeFrontCard(mediaDiv)) {
+    if (!mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]')) {
+      ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: true });
+      mediaDiv.dataset.ytPrepared = '1';
+    }
+    return;
+  }
   const existing = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]');
   if (existing && mediaDiv.dataset.ytPrepared === '1') {
-    postYouTubeCommand(existing, 'pauseVideo');
-    postYouTubeCommand(existing, 'seekTo', [0, true]);
-    postYouTubeCommand(existing, 'mute');
+    // כבר חם — לא pause/seek חוזרים (זה גרם לעצירה אחרי play) | HYPER CORE TECH
     return;
   }
   ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: true });
@@ -1330,19 +1353,27 @@ function prepareYouTubeMedia(mediaDiv) {
 
 function playYouTubeMedia(mediaDiv) {
   if (!mediaDiv) return;
+  mediaDiv.dataset.ytWantPlay = '1';
   const iframe = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]');
+  const needsRestart = mediaDiv.dataset.ytNeedsRestart === '1';
+
   if (iframe && mediaDiv.dataset.ytPrepared === '1') {
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (thumb) thumb.style.opacity = '0';
-    // כמו קובץ בפיד: תמיד מההתחלה | HYPER CORE TECH
-    postYouTubeCommand(iframe, 'seekTo', [0, true]);
+    // seek רק אחרי יציאה מהכרטיס — לא בכל playMedia כפול מ־IO | HYPER CORE TECH
+    if (needsRestart) {
+      postYouTubeCommand(iframe, 'seekTo', [0, true]);
+      delete mediaDiv.dataset.ytNeedsRestart;
+    }
     postYouTubeCommand(iframe, 'unMute');
     postYouTubeCommand(iframe, 'playVideo');
     mediaDiv.dataset.ytReady = '1';
     return;
   }
+  // אין iframe חם — יוצרים ומנגנים; load יכבד ytWantPlay | HYPER CORE TECH
   ensureYouTubeIframe(mediaDiv, { autoplay: true, mute: false, revealFrame: true });
   mediaDiv.dataset.ytPrepared = '1';
+  delete mediaDiv.dataset.ytNeedsRestart;
 }
 
 // חלק שיחות (videos.js) – עצירת כל הווידיאו בפיד כשמתחילה שיחת קול/וידיאו | HYPER CORE TECH
@@ -1405,7 +1436,11 @@ function ensureYouTubeIframe(mediaDiv, { autoplay = false, mute = false, revealF
         const t = mediaDiv.querySelector('.videos-feed__media-thumb');
         if (t) t.style.opacity = '0';
       }
-      if (!autoplay) {
+      // אם כבר ביקשנו play — לא לעצור ב־load (תיקון race) | HYPER CORE TECH
+      if (mediaDiv.dataset.ytWantPlay === '1') {
+        postYouTubeCommand(iframe, 'unMute');
+        postYouTubeCommand(iframe, 'playVideo');
+      } else {
         postYouTubeCommand(iframe, 'pauseVideo');
         postYouTubeCommand(iframe, 'seekTo', [0, true]);
         postYouTubeCommand(iframe, 'mute');
@@ -1414,7 +1449,10 @@ function ensureYouTubeIframe(mediaDiv, { autoplay = false, mute = false, revealF
   } else if (autoplay) {
     const thumb = mediaDiv.querySelector('.videos-feed__media-thumb');
     if (thumb) thumb.style.opacity = '0';
-    postYouTubeCommand(iframe, 'seekTo', [0, true]);
+    if (mediaDiv.dataset.ytNeedsRestart === '1') {
+      postYouTubeCommand(iframe, 'seekTo', [0, true]);
+      delete mediaDiv.dataset.ytNeedsRestart;
+    }
     postYouTubeCommand(iframe, 'unMute');
     postYouTubeCommand(iframe, 'playVideo');
   }
@@ -6655,7 +6693,8 @@ function setupIntersectionObserver() {
         }
         if (entry.isIntersecting && entry.intersectionRatio > 0 && entry.intersectionRatio <= 0.5) {
           const App = window.NostrApp || {};
-          if (mediaDiv.dataset.mediaType === 'youtube') {
+          // חימום רק לשכן — לא לכרטיס שכבר בפרונט/מנגן | HYPER CORE TECH
+          if (mediaDiv.dataset.mediaType === 'youtube' && !isYouTubeFrontCard(mediaDiv)) {
             prepareYouTubeMedia(mediaDiv);
           }
           if (mediaDiv.dataset.mediaType === 'hls-live' && mediaDiv.dataset.livePrepared !== '1') {
