@@ -2349,7 +2349,17 @@
   function registerDeletion(event) {
     if (!event || !Array.isArray(event.tags)) {
       logDeletionDebug('skip deletion event: missing tags', { event });
-      return;
+      return false;
+    }
+    // dedup לפי מזהה אירוע kind 5 — אותה מחיקה מגיעה מכמה ריליים | HYPER CORE TECH
+    if (!(App._seenDeletionEventIds instanceof Set)) {
+      App._seenDeletionEventIds = new Set();
+    }
+    if (event.id && App._seenDeletionEventIds.has(event.id)) {
+      return false;
+    }
+    if (event.id) {
+      App._seenDeletionEventIds.add(event.id);
     }
     const adminKeys = App.adminPublicKeys || new Set();
     const eventPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
@@ -2377,10 +2387,7 @@
           return;
         }
         if (!isAdmin && !author) {
-          logDeletionDebug('deferred deletion (unknown author)', {
-            eventId: value,
-            eventPubkey,
-          });
+          // בלי לוג חוזר לכל ריליי — מספיק silent defer אחרי seed authors | HYPER CORE TECH
           return;
         }
         const isNew = applyDeletedEventLocally(value);
@@ -2402,6 +2409,7 @@
         isAdmin,
       });
     }
+    return anyNew;
   }
 
   function wireShowMore(articleEl, postId) {
@@ -3483,11 +3491,20 @@ function buildCoreFeedFilters(sinceTimestamp = 0) {
       }
     });
   }
-  // תמיד מביאים מחיקות לפי תגית רשת כדי לקבל מחיקות מכל המשתמשים
-  filters.push({ kinds: [5], '#t': [App.NETWORK_TAG], limit: 200 });
+  // מחיקות: limit נמוך; אחרי hydrate — רק חלון since (שלב 1 ייעול ריליי) | HYPER CORE TECH
+  const delNet = { kinds: [5], '#t': [App.NETWORK_TAG], limit: 80 };
+  const deletionsHydrated = App.deletedEventIds instanceof Set && App.deletedEventIds.size > 0;
+  if (deletionsHydrated) {
+    delNet.since = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
+  }
+  filters.push(delNet);
   // בנוסף, מביאים מחיקות ספציפיות מאדמינים (גם אם אין להם תגית רשת)
   if (deletionAuthors.size > 0) {
-    filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 100 });
+    const delAuthors = { kinds: [5], authors: Array.from(deletionAuthors), limit: 40 };
+    if (deletionsHydrated) {
+      delAuthors.since = delNet.since;
+    }
+    filters.push(delAuthors);
   }
   filters.push({ kinds: [7], '#t': [App.NETWORK_TAG], limit: 500 });
   if (viewerKey) {

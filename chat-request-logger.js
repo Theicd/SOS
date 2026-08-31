@@ -458,12 +458,15 @@
         return result;
       };
     }
-    // מעקב deletion events שמתקבלים — hook ב-registerDeletion אם קיים
+    // מעקב deletion — סופרים רק מחיקה חדשה שאושרה (לא כפילויות/deferred) | HYPER CORE TECH
     if (typeof App.registerDeletion === 'function') {
       const origDel = App.registerDeletion;
       App.registerDeletion = function(event) {
-        logReq('deletion-recv', {id:event?.id?.slice(0,12), from:event?.pubkey?.slice(0,12)});
-        return origDel.apply(this, arguments);
+        const accepted = origDel.apply(this, arguments);
+        if (accepted) {
+          logReq('deletion-recv', {id:event?.id?.slice(0,12), from:event?.pubkey?.slice(0,12)});
+        }
+        return accepted;
       };
     }
   }

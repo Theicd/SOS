@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v718'; // bump - live chat history via P2P DC
+  const CACHE_NAME = 'sos-cache-v719'; // bump - stage1 deletion relay noise
   const PRECACHE_URLS = [
     './',
     './videos.html',

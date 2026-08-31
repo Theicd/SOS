@@ -2709,10 +2709,11 @@ async function loadDeletionsFirst() {
   }
 
   const networkTag = getNetworkTag();
-  const deletionFilters = [{ kinds: [5], '#t': [networkTag], limit: 300 }];
+  // שלב 1: limit נמוך יותר להיסטוריית מחיקות (ריליי מחזיר בדרך כלל את החדשות קודם) | HYPER CORE TECH
+  const deletionFilters = [{ kinds: [5], '#t': [networkTag], limit: 100 }];
   
   if (app.adminPublicKeys instanceof Set && app.adminPublicKeys.size > 0) {
-    deletionFilters.push({ kinds: [5], authors: Array.from(app.adminPublicKeys), limit: 200 });
+    deletionFilters.push({ kinds: [5], authors: Array.from(app.adminPublicKeys), limit: 50 });
   }
 
   try {
@@ -2774,17 +2775,26 @@ function buildVideoFeedFilters() {
       });
     }
 
-    // תמיד מביאים מחיקות לפי תגית רשת כדי לקבל מחיקות מכל המשתמשים
-    filters.push({ kinds: [5], '#t': [networkTag], limit: 200 });
-    // בנוסף, מביאים מחיקות ספציפיות מאדמינים (גם אם אין להם תגית רשת)
-    if (deletionAuthors.size > 0) {
-      filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 100 });
+    // מחיקות: אחרי hydrate — since 2ש׳ + limit נמוך (שלב 1) | HYPER CORE TECH
+    const delNet = { kinds: [5], '#t': [networkTag], limit: 80 };
+    const deletionsHydrated = app.deletedEventIds instanceof Set && app.deletedEventIds.size > 0;
+    if (deletionsHydrated) {
+      delNet.since = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
     }
-    // לוג לבדיקת פילטרי מחיקה
+    filters.push(delNet);
+    if (deletionAuthors.size > 0) {
+      const delAuthors = { kinds: [5], authors: Array.from(deletionAuthors), limit: 40 };
+      if (deletionsHydrated) {
+        delAuthors.since = delNet.since;
+      }
+      filters.push(delAuthors);
+    }
     console.log('%c[DELETE_DEBUG] videos deletion filter', 'color: #FF5722; font-weight: bold', {
       deletionAuthors: Array.from(deletionAuthors),
       adminKeys: app.adminPublicKeys instanceof Set ? Array.from(app.adminPublicKeys) : [],
       viewerKey,
+      since: delNet.since || 0,
+      hydrated: deletionsHydrated,
     });
 
     filters.push({ kinds: [7], '#t': [networkTag], limit: 500 });
@@ -2799,7 +2809,11 @@ function buildVideoFeedFilters() {
     const followKind = typeof app.FOLLOW_KIND === 'number' ? app.FOLLOW_KIND : 40010;
     filters.push({ kinds: [followKind], '#p': [viewerKey], limit: 200 });
   } else {
-    filters.push({ kinds: [5], '#t': [networkTag], limit: 200 });
+    const guestDel = { kinds: [5], '#t': [networkTag], limit: 80 };
+    if (app.deletedEventIds instanceof Set && app.deletedEventIds.size > 0) {
+      guestDel.since = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
+    }
+    filters.push(guestDel);
     filters.push({ kinds: [7], '#t': [networkTag], limit: 500 });
   }
 
