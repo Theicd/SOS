@@ -24,8 +24,11 @@
   const ICE_BATCH_MS = 800;
   const RECONN_MS = 5000;
   const MAX_RECONN = window.__sosP2pHeadless ? 24 : 3;
-  const OFFER_RETRY_MS = 12000; // retry offer אם לא נענה תוך 12 שניות (סיגנלינג דרך ריליי איטי)
-  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 3;
+  const OFFER_RETRY_MS = 12000; // בסיס retry — עם backoff קל למטה | HYPER CORE TECH
+  const MAX_OFFER_RETRY = window.__sosP2pHeadless ? 12 : 6; // יותר ניסיונות לריבוי peers | HYPER CORE TECH
+  const CONNECT_STAGGER_MS = 1800; // מרווח בין חיבורי initiator במקביל | HYPER CORE TECH
+  const MAX_PARALLEL_CONNECTING = 3; // עד 3 offers פעילים במקביל | HYPER CORE TECH
+  const SOFT_REQUEUE_MS = 45000; // אחרי gave up — ניסיון רך נוסף | HYPER CORE TECH
   // חלק keepalive (chat-p2p-datachannel.js) – ping תקופתי לשמירת DC פתוח מול NAT/firewall timeout | HYPER CORE TECH
   const DC_KEEPALIVE_MS = 30000;
   const SIG_SINCE_SEC = 3600; // חלון since - שעה (סובלני להיסט זמן בין מכשירים)
@@ -35,6 +38,9 @@
   const peers = new Map();
   let sigSub = null, keepTimer = null, lastSigAt = 0;
   let subReady = false; // האם ה-subscription פעיל וקיבל eose
+  // חלק תור חיבורים (chat-p2p-datachannel.js) – מדורג ל-10+ peers בלי הצפת סיגנלים | HYPER CORE TECH
+  const connectQueue = [];
+  let connectQueueRunning = false;
   // חלק הודעות נכנסות (chat-p2p-datachannel.js) – מאזינים חיצוניים ללוג/ניטור בלי לשבור את זרימת הצ'אט | HYPER CORE TECH
   const incomingMessageListeners = new Set();
 
@@ -145,42 +151,150 @@
   }
 
   // חלק חיבור (chat-p2p-datachannel.js) – רק initiator שולח offers, responder ממתין ל-offer נכנס | HYPER CORE TECH
+  function countConnecting() {
+    let n = 0;
+    peers.forEach((s) => { if (s && s.status === 'connecting') n += 1; });
+    return n;
+  }
+
+  async function pumpConnectQueue() {
+    if (connectQueueRunning) return;
+    connectQueueRunning = true;
+    try {
+      while (connectQueue.length) {
+        if (countConnecting() >= MAX_PARALLEL_CONNECTING) {
+          await new Promise((r) => setTimeout(r, 400));
+          continue;
+        }
+        const k = connectQueue.shift();
+        if (!k) continue;
+        const ex = getPS(k);
+        if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) continue;
+        try {
+          await connectNow(k);
+        } catch (e) {
+          console.warn('[DC] queue connect fail:', k.slice(0, 8), e);
+        }
+        if (connectQueue.length) {
+          await new Promise((r) => setTimeout(r, CONNECT_STAGGER_MS));
+        }
+      }
+    } finally {
+      connectQueueRunning = false;
+      if (connectQueue.length) pumpConnectQueue();
+    }
+  }
+
+  function enqueueConnect(peer) {
+    const k = String(peer || '').toLowerCase();
+    if (!isValidPeerKey(k)) return;
+    if (connectQueue.includes(k)) return;
+    const ex = getPS(k);
+    if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) return;
+    connectQueue.push(k);
+    pumpConnectQueue();
+  }
+
   async function connect(peer) {
-    if(!isValidPeerKey(peer)) return;
-    const k=peer.toLowerCase();
-    if(!App.pool||!App.publicKey||!App.privateKey) return;
-    const ex=getPS(k); if(ex&&(ex.status==='connected'||ex.status==='connecting'||ex.status==='waiting')) return;
-    if(!amInitiator(k)){ const s=ensPS(k); s.status='waiting'; console.log(`[DC] אני responder, ממתין ל-offer מ ${k.slice(0,8)}`); return; }
-    // וידוא שה-subscription פעיל לפני שליחת offer (ממתין עד 3 שניות)
-    if(!subReady){
-      for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,200));if(subReady) break;}
-      if(!subReady) console.warn('[DC] sub not ready, connecting anyway');
+    if (!isValidPeerKey(peer)) return;
+    const k = peer.toLowerCase();
+    if (!App.pool || !App.publicKey || !App.privateKey) return;
+    const ex = getPS(k);
+    if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) return;
+    if (!amInitiator(k)) {
+      const s = ensPS(k);
+      s.status = 'waiting';
+      console.log(`[DC] אני responder, ממתין ל-offer מ ${k.slice(0, 8)}`);
+      return;
+    }
+    enqueueConnect(k);
+  }
+
+  async function connectNow(k) {
+    const ex = getPS(k);
+    if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) return;
+    if (!amInitiator(k)) {
+      const s = ensPS(k);
+      s.status = 'waiting';
+      return;
+    }
+    // איפוס מונה ניסיונות לחיבור חדש אחרי idle/gave-up | HYPER CORE TECH
+    const s = ensPS(k);
+    if (s.status === 'idle' || s.status === 'closed' || !s.status) {
+      s.offerRetryN = 0;
+    }
+    if (!subReady) {
+      for (let i = 0; i < 15; i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        if (subReady) break;
+      }
+      if (!subReady) console.warn('[DC] sub not ready, connecting anyway');
     }
     await _sendOffer(k);
   }
 
   // חלק offer פנימי (chat-p2p-datachannel.js) – שליחת offer עם timer ל-retry | HYPER CORE TECH
   async function _sendOffer(k) {
-    const s=ensPS(k); s.init=true; s.status='connecting'; s.gotAnswer=false;
-    if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
+    const s = ensPS(k);
+    s.init = true;
+    s.status = 'connecting';
+    s.gotAnswer = false;
+    if (s.offerRetryT) {
+      clearTimeout(s.offerRetryT);
+      s.offerRetryT = null;
+    }
     // חלק ניתוק PC+DC ישן (chat-p2p-datachannel.js) – מנתק handlers לפני סגירה למנוע stale callbacks | HYPER CORE TECH
-    if(s.dc){s.dc.onopen=null;s.dc.onclose=null;s.dc.onerror=null;s.dc.onmessage=null;}
-    if(s.pc){s.pc.onconnectionstatechange=null;s.pc.oniceconnectionstatechange=null;s.pc.ondatachannel=null;try{s.pc.close();}catch{}}
-    const pc=createPC(k); const dc=pc.createDataChannel(DC_LABEL,{ordered:true}); wireDC(k,dc);
-    const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
-    s.offerId=`${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    if (s.dc) {
+      s.dc.onopen = null;
+      s.dc.onclose = null;
+      s.dc.onerror = null;
+      s.dc.onmessage = null;
+    }
+    if (s.pc) {
+      s.pc.onconnectionstatechange = null;
+      s.pc.oniceconnectionstatechange = null;
+      s.pc.ondatachannel = null;
+      try {
+        s.pc.close();
+      } catch {}
+    }
+    const pc = createPC(k);
+    const dc = pc.createDataChannel(DC_LABEL, { ordered: true });
+    wireDC(k, dc);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    s.offerId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     // חלק offerId (chat-p2p-datachannel.js) – מזהה ייחודי לשיוך answer/offer | HYPER CORE TECH
-    await sendSig(k,'dc-offer',{type:offer.type,sdp:offer.sdp,oid:s.offerId});
-    console.log(`[DC] 🔄 connecting ${k.slice(0,8)} (attempt ${s.offerRetryN+1})...`);
-    // retry timer – אם לא התחבר תוך 8 שניות, שלח offer מחדש
-    s.offerRetryT=setTimeout(()=>{
-      s.offerRetryT=null;
-      if(s.status==='connected'||s.gotAnswer) return;
+    await sendSig(k, 'dc-offer', { type: offer.type, sdp: offer.sdp, oid: s.offerId });
+    console.log(`[DC] 🔄 connecting ${k.slice(0, 8)} (attempt ${s.offerRetryN + 1})...`);
+    const waitMs = Math.min(20000, OFFER_RETRY_MS + s.offerRetryN * 2000);
+    s.offerRetryT = setTimeout(() => {
+      s.offerRetryT = null;
+      if (s.status === 'connected' || s.gotAnswer) return;
       s.offerRetryN++;
-      if(s.offerRetryN>=MAX_OFFER_RETRY){console.warn(`[DC] ❌ gave up on ${k.slice(0,8)} after ${MAX_OFFER_RETRY} retries`);s.status='idle';return;}
-      console.log(`[DC] 🔁 retry offer ${k.slice(0,8)} (#${s.offerRetryN})`);
+      if (s.offerRetryN >= MAX_OFFER_RETRY) {
+        console.warn(`[DC] ❌ gave up on ${k.slice(0, 8)} after ${MAX_OFFER_RETRY} retries`);
+        s.status = 'idle';
+        // ניסיון רך נוסף אחרי המתנה — לריבוי peers / ריליי עמוס | HYPER CORE TECH
+        setTimeout(() => {
+          try {
+            if (isConn(k)) return;
+            const st = getPS(k);
+            if (st && (st.status === 'connected' || st.status === 'connecting')) return;
+            if (st) {
+              st.offerRetryN = 0;
+              st.reconnN = Math.min(st.reconnN || 0, 1);
+              st.status = 'idle';
+            }
+            console.log(`[DC] ♻️ soft requeue ${k.slice(0, 8)}`);
+            enqueueConnect(k);
+          } catch {}
+        }, SOFT_REQUEUE_MS);
+        return;
+      }
+      console.log(`[DC] 🔁 retry offer ${k.slice(0, 8)} (#${s.offerRetryN})`);
       _sendOffer(k);
-    },OFFER_RETRY_MS);
+    }, waitMs);
   }
 
   // חלק offer נכנס (chat-p2p-datachannel.js) – רק responder מטפל ב-offers (אין עוד glare) | HYPER CORE TECH
@@ -379,7 +493,7 @@
           // headless: initiator שולח offer; responder ממתין – אם כבר היינו initiator נשלח שוב | HYPER CORE TECH
           if(amInitiator(pk)){
             s.status='idle';
-            connect(pk);
+            enqueueConnect(pk);
           } else {
             s.status='waiting';
             s.init=true;

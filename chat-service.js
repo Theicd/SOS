@@ -980,14 +980,13 @@
     subscribeToChatEvents();
     bootstrapContactsFromFeed();
 
-    // חלק P2P pre-connect (chat-service.js) – 10 שניות אחרי אתחול, מחבר DC ל-5 אנשי קשר אחרונים
-    // כדי שכשהמשתמש יתחיל לדבר, ה-DC כבר יהיה מוכן ורוב ההודעות ילכו P2P | HYPER CORE TECH
+    // חלק P2P pre-connect (chat-service.js) – מחבר DC עד 10 אנשי קשר אחרונים (תור מדורג ב-DC) | HYPER CORE TECH
     setTimeout(() => {
       try {
         if (!App.dataChannel || typeof App.dataChannel.connect !== 'function') return;
         if (App.guestMode) return;
         const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
-        const DC_PRECONNECT_COUNT = 5;
+        const DC_PRECONNECT_COUNT = 10;
         let connected = 0;
         for (let i = 0; i < contacts.length && connected < DC_PRECONNECT_COUNT; i++) {
           const pk = contacts[i]?.pubkey;
