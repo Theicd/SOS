@@ -534,6 +534,7 @@
       for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,200));if(subReady) break;}
     }
     console.log(`[DC] ⚡ forceConnect → ${k.slice(0,8)} (ignoring role)`);
+    const s=ensPS(k); s.offerRetryN=0; s.status='idle';
     await _sendOffer(k);
   }
 

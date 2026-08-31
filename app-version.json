@@ -1,5 +1,5 @@
 {
-  "version": "2026.08.31-pwa400-sub-stage3",
-  "buildTime": "2026-08-31T23:36:00+03:00",
-  "notes": "Stage 3 relay opt: fewer duplicate subs/resubs/profile fetches; background keep-alive unchanged"
+  "version": "2026.08.31-pwa401-mesh-dc",
+  "buildTime": "2026-08-31T23:56:00+03:00",
+  "notes": "Faster peer discovery; DC connect queue + more retries for multi-peer mesh; background services untouched"
 }
