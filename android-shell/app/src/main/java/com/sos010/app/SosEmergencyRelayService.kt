@@ -75,8 +75,11 @@ class SosEmergencyRelayService : Service() {
     private val mySiblings = CopyOnWriteArrayList<String>()
     private var parentIp: String? = null
     private var parentSocket: Socket? = null
+    private var parentWriter: PrintWriter? = null
     private val childWriters = ConcurrentHashMap<String, PrintWriter>()
     private val connectedPeers = CopyOnWriteArrayList<String>()
+    private val helloSeen = ConcurrentHashMap<String, Long>()
+    @Volatile private var lastSentIdentityVersion: Int = -1
 
     override fun onCreate() {
         super.onCreate()
@@ -139,14 +142,7 @@ class SosEmergencyRelayService : Service() {
         if (isListening) return
         isListening = true
 
-        parentIp = null
-        parentSocket = null
-        SosEmergencyState.sharedParentIp = null
-        myChildren.clear()
-        mySiblings.clear()
-        connectedPeers.clear()
-        SosEmergencyState.sharedPeers.clear()
-        childWriters.clear()
+        resetTree("start")
 
         sendLog("INFO", "מתחיל שירות ממסר (מצב מאופס)...")
 
@@ -214,6 +210,85 @@ class SosEmergencyRelayService : Service() {
         }
     }
 
+    private fun resetTree(reason: String) {
+        sendLog("TREE", "איפוס עץ: $reason")
+        try { parentSocket?.close() } catch (_: Exception) {}
+        parentIp = null
+        parentSocket = null
+        parentWriter = null
+        SosEmergencyState.sharedParentIp = null
+        myChildren.clear()
+        mySiblings.clear()
+        connectedPeers.clear()
+        SosEmergencyState.sharedPeers.clear()
+        SosEmergencyState.peerProfiles.clear()
+        childWriters.clear()
+        helloSeen.clear()
+        SosEmergencyState.childCount = 0
+        lastSentIdentityVersion = -1
+    }
+
+    private fun dropParent(reason: String) {
+        sendLog("TREE", "ניתוק הורה: $reason")
+        try { parentSocket?.close() } catch (_: Exception) {}
+        parentIp = null
+        parentSocket = null
+        parentWriter = null
+        SosEmergencyState.sharedParentIp = null
+    }
+
+    private fun identityJson(): String {
+        val o = JSONObject()
+        o.put("ip", SosEmergencyState.myIp ?: getLocalIpAddressInternal() ?: "")
+        o.put("pubkey", SosSessionStore.getPubkey(this))
+        o.put("name", SosEmergencyState.myDisplayName)
+        o.put("picture", SosEmergencyState.myPicture)
+        return o.toString()
+    }
+
+    fun pushIdentity() {
+        val line = "HELLO:${identityJson()}"
+        try { parentWriter?.println(line) } catch (_: Exception) {}
+        childWriters.values.forEach { writer ->
+            try { writer.println(line) } catch (_: Exception) {}
+        }
+    }
+
+    private fun applyHello(json: String, fallbackIp: String): Boolean {
+        return try {
+            val o = JSONObject(json)
+            val ip = o.optString("ip", fallbackIp).ifBlank { fallbackIp }
+            val pubkey = o.optString("pubkey", "")
+            val name = o.optString("name", "")
+            val picture = o.optString("picture", "")
+            if (ip.isBlank()) return false
+            val key = "$ip|$pubkey"
+            val now = System.currentTimeMillis()
+            val prev = helloSeen[key]
+            if (prev != null && now - prev < 8000) return false
+            helloSeen[key] = now
+            SosEmergencyState.upsertPeer(ip, pubkey, name, picture)
+            addPeer(ip)
+            sendLog("HELLO", "$ip ${name.ifBlank { pubkey.take(8) }}")
+            broadcastPeerUpdate()
+            true
+        } catch (e: Exception) {
+            sendLog("ERROR", "hello: ${e.message}")
+            false
+        }
+    }
+
+    private fun relayHello(fromIp: String, line: String) {
+        if (parentIp != null && parentIp != fromIp) {
+            try { parentWriter?.println(line) } catch (_: Exception) {}
+        }
+        childWriters.forEach { (ip, writer) ->
+            if (ip != fromIp) {
+                try { writer.println(line) } catch (_: Exception) {}
+            }
+        }
+    }
+
     private fun handleDiscoveryPacket(packet: DatagramPacket) {
         val message = String(packet.data, 0, packet.length)
         val senderIp = packet.address.hostAddress ?: return
@@ -222,11 +297,28 @@ class SosEmergencyRelayService : Service() {
 
         when {
             message.startsWith("SOS_HERE:") -> {
-                val parts = message.split(":")
+                val parts = message.split(":", limit = 6)
                 val relayIp = parts.getOrNull(1) ?: senderIp
                 val childCount = parts.getOrNull(2)?.toIntOrNull() ?: 0
                 val maxChildCount = parts.getOrNull(3)?.toIntOrNull() ?: SosEmergencyState.MAX_CHILDREN
+                val pubkey = parts.getOrNull(4)?.lowercase().orEmpty()
+                val name = parts.getOrNull(5).orEmpty()
                 sendLog("UDP", "SOS_HERE מ-$relayIp ($childCount/$maxChildCount)")
+
+                if (!isSameSubnet(myIp, relayIp) && !isSameSubnet(myIp, senderIp)) {
+                    if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
+                        dropParent("parent-foreign-lan")
+                    }
+                    return
+                }
+
+                if (pubkey.length == 64) {
+                    SosEmergencyState.upsertPeer(relayIp, pubkey, name)
+                }
+
+                if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
+                    dropParent("parent-left-subnet")
+                }
 
                 if (myChildren.isNotEmpty()) {
                     addPeer(relayIp)
@@ -240,11 +332,6 @@ class SosEmergencyRelayService : Service() {
 
                 if (parentIp == null && childCount < maxChildCount) {
                     joinNetwork(relayIp)
-                } else if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
-                    parentIp = null
-                    parentSocket = null
-                    SosEmergencyState.sharedParentIp = null
-                    if (childCount < maxChildCount) joinNetwork(relayIp)
                 }
             }
             message == "SOS_DISCOVER" -> announcePresence()
@@ -254,8 +341,18 @@ class SosEmergencyRelayService : Service() {
     private fun announcePresence() {
         try {
             val myIp = getLocalIpAddressInternal() ?: return
+            val prev = SosEmergencyState.myIp
+            if (prev != null && prev != myIp) {
+                resetTree("ip-changed $prev -> $myIp")
+            }
             SosEmergencyState.myIp = myIp
-            val msg = "SOS_HERE:$myIp:${myChildren.size}:${SosEmergencyState.MAX_CHILDREN}"
+            val pubkey = SosSessionStore.getPubkey(this)
+            val name = SosEmergencyState.myDisplayName.replace(":", " ").take(40)
+            val msg = if (pubkey.length == 64) {
+                "SOS_HERE:$myIp:${myChildren.size}:${SosEmergencyState.MAX_CHILDREN}:$pubkey:$name"
+            } else {
+                "SOS_HERE:$myIp:${myChildren.size}:${SosEmergencyState.MAX_CHILDREN}"
+            }
             val data = msg.toByteArray()
             val addr = getBroadcastAddressFromIp(myIp)
             DatagramSocket().use { socket ->
@@ -269,12 +366,22 @@ class SosEmergencyRelayService : Service() {
                 )
             }
             sendLog("UDP", "שלחתי SOS_HERE → $addr")
+            if (SosEmergencyState.identityVersion != lastSentIdentityVersion) {
+                lastSentIdentityVersion = SosEmergencyState.identityVersion
+                pushIdentity()
+            }
         } catch (e: Exception) {
             sendLog("ERROR", "announce: ${e.message}")
         }
     }
 
     private fun joinNetwork(relayIp: String) {
+        val myIp = getLocalIpAddressInternal()
+        if (!isSameSubnet(myIp, relayIp)) {
+            sendLog("JOIN", "דילוג על רשת זרה $relayIp")
+            return
+        }
+        if (myChildren.isNotEmpty()) return
         executor.execute {
             try {
                 sendLog("JOIN", "מתחבר ל-$relayIp...")
@@ -288,12 +395,14 @@ class SosEmergencyRelayService : Service() {
                     response.startsWith("ACCEPTED:") -> {
                         parentIp = relayIp
                         parentSocket = socket
+                        parentWriter = writer
                         SosEmergencyState.sharedParentIp = relayIp
                         val siblings = response.substringAfter("ACCEPTED:").split(",").filter { it.isNotEmpty() }
                         mySiblings.clear()
                         mySiblings.addAll(siblings)
                         addPeer(relayIp)
                         siblings.forEach { addPeer(it) }
+                        writer.println("HELLO:${identityJson()}")
                         sendLog("JOIN", "הצטרפתי. הורה=$relayIp אחים=${siblings.size}")
                         broadcastStatus("מחובר לרשת ✓")
                         broadcastPeerUpdate()
@@ -302,7 +411,9 @@ class SosEmergencyRelayService : Service() {
                     response.startsWith("REDIRECT:") -> {
                         socket.close()
                         val next = response.substringAfter("REDIRECT:")
-                        if (next.isNotBlank()) joinNetwork(next)
+                        if (next.isNotBlank() && isSameSubnet(getLocalIpAddressInternal(), next)) {
+                            joinNetwork(next)
+                        }
                     }
                     else -> {
                         socket.close()
@@ -328,6 +439,12 @@ class SosEmergencyRelayService : Service() {
                             mySiblings.addAll(sibs)
                             sibs.forEach { addPeer(it) }
                             broadcastPeerUpdate()
+                        }
+                        line.startsWith("HELLO:") -> {
+                            val from = parentIp ?: ""
+                            if (applyHello(line.substringAfter("HELLO:"), from)) {
+                                relayHello(from, line)
+                            }
                         }
                         line.startsWith("MSG:") -> {
                             val payload = line.substringAfter("MSG:")
@@ -358,10 +475,8 @@ class SosEmergencyRelayService : Service() {
     }
 
     private fun handleParentDisconnect() {
-        parentIp = null
-        parentSocket = null
-        SosEmergencyState.sharedParentIp = null
-        val sibling = mySiblings.firstOrNull()
+        dropParent("parent-disconnect")
+        val sibling = mySiblings.firstOrNull { isSameSubnet(getLocalIpAddressInternal(), it) }
         if (sibling != null) {
             mySiblings.remove(sibling)
             joinNetwork(sibling)
@@ -379,6 +494,11 @@ class SosEmergencyRelayService : Service() {
                 val first = reader.readLine() ?: return@execute
                 when {
                     first == "JOIN" -> handleJoinRequest(socket, ip, reader, writer)
+                    first.startsWith("HELLO:") -> {
+                        if (applyHello(first.substringAfter("HELLO:"), ip)) {
+                            relayHello(ip, first)
+                        }
+                    }
                     first.startsWith("MSG:") -> handleMessage(ip, first.substringAfter("MSG:"), relay = true)
                     else -> handleMessage(ip, first, relay = true)
                 }
@@ -394,12 +514,19 @@ class SosEmergencyRelayService : Service() {
         reader: BufferedReader,
         writer: PrintWriter
     ) {
+        if (!isSameSubnet(getLocalIpAddressInternal(), ip)) {
+            writer.println("REJECT:foreign-subnet")
+            try { socket.close() } catch (_: Exception) {}
+            sendLog("JOIN", "נדחה $ip – רשת זרה")
+            return
+        }
         if (myChildren.size < SosEmergencyState.MAX_CHILDREN) {
             myChildren.add(ip)
             SosEmergencyState.childCount = myChildren.size
             addPeer(ip)
             val siblings = myChildren.filter { it != ip }.joinToString(",")
             writer.println("ACCEPTED:$siblings")
+            writer.println("HELLO:${identityJson()}")
             sendLog("JOIN", "ילד חדש $ip (${myChildren.size}/${SosEmergencyState.MAX_CHILDREN})")
             broadcastStatus("ממסר פעיל ✓ (${myChildren.size} ילדים)")
             notifySiblingsUpdate()
@@ -430,6 +557,11 @@ class SosEmergencyRelayService : Service() {
                     val line = reader.readLine() ?: break
                     when {
                         line == "PING" -> writer.println("PONG")
+                        line.startsWith("HELLO:") -> {
+                            if (applyHello(line.substringAfter("HELLO:"), ip)) {
+                                relayHello(ip, line)
+                            }
+                        }
                         line.startsWith("MSG:") -> handleMessage(ip, line.substringAfter("MSG:"), relay = true)
                         else -> handleMessage(ip, line, relay = true)
                     }
@@ -440,6 +572,7 @@ class SosEmergencyRelayService : Service() {
                 SosEmergencyState.childCount = myChildren.size
                 connectedPeers.remove(ip)
                 SosEmergencyState.sharedPeers.remove(ip)
+                SosEmergencyState.peerProfiles.remove(ip)
                 childWriters.remove(ip)
                 notifySiblingsUpdate()
                 broadcastPeerUpdate()
@@ -472,29 +605,24 @@ class SosEmergencyRelayService : Service() {
     }
 
     private fun deliverToWebView(fromIp: String, message: String) {
-        try {
+        val callback = try {
             val json = JSONObject(message)
-            val type = json.optString("type", "")
-            val callback = when (type) {
+            when (json.optString("type", "")) {
                 "nostr_event" -> "onNostrEvent"
                 "webrtc_signal" -> "onWebRTCSignal"
                 "chat" -> "onChatMessage"
                 else -> "onMessage"
             }
-            val intent = Intent(SosEmergencyState.ACTION_WEBVIEW).apply {
-                putExtra("callback", callback)
-                putExtra("fromIp", fromIp)
-                putExtra("data", message)
-            }
-            sendBroadcast(intent)
         } catch (_: Exception) {
-            val intent = Intent(SosEmergencyState.ACTION_WEBVIEW).apply {
-                putExtra("callback", "onMessage")
-                putExtra("fromIp", fromIp)
-                putExtra("data", message)
-            }
-            sendBroadcast(intent)
+            "onMessage"
         }
+        SosEmergencyState.enqueueInbox(callback, fromIp, message)
+        val intent = Intent(SosEmergencyState.ACTION_WEBVIEW).apply {
+            putExtra("callback", callback)
+            putExtra("fromIp", fromIp)
+            putExtra("data", message)
+        }
+        sendBroadcast(intent)
     }
 
     fun sendToPeer(ip: String, message: String) {
@@ -588,17 +716,6 @@ class SosEmergencyRelayService : Service() {
     }
 
     private fun getBroadcastAddressFromIp(ip: String): String {
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val intf = interfaces.nextElement()
-                if (intf.isLoopback || !intf.isUp) continue
-                for (addr in intf.interfaceAddresses) {
-                    val b = addr.broadcast ?: continue
-                    return b.hostAddress ?: continue
-                }
-            }
-        } catch (_: Exception) {}
         val parts = ip.split(".")
         return if (parts.size == 4) "${parts[0]}.${parts[1]}.${parts[2]}.255" else "255.255.255.255"
     }

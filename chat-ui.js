@@ -4688,6 +4688,9 @@
   }
 
   function maybeFetchContactProfile(pubkey, contact) {
+    if (contact?.emergencyMesh) {
+      return;
+    }
     if (!pubkey || typeof App.fetchProfile !== 'function') {
       return;
     }

@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.01-pwa408-emergency-shell",
-  "buildTime": "2026-09-01T12:50:00+03:00",
-  "notes": "APK 1.0.90: SOS Emergency icon, cache boot only from that icon, copy emergency log"
+  "version": "2026.09.01-pwa409-emergency-chat",
+  "buildTime": "2026-09-01T13:40:00+03:00",
+  "notes": "APK 1.0.91: same-subnet emergency mesh, HELLO identity, emergency chat contacts"
 }

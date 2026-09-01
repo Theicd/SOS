@@ -388,6 +388,232 @@ window.SOSEmergency = (function() {
     setTimeout(setup, 1200);
 })();
 
+// צ'אט רשת חירום – אנשי קשר מחוברים + קבוצה, בלי התראות רגילות | HYPER CORE TECH
+(function wireEmergencyMeshChat() {
+    var GROUP_PK = 'e5e1111111111111111111111111111111111111111111111111111111111111';
+    var meshOnly = new Set();
+    var meshPeerSet = new Set();
+    var seenIds = new Set();
+    var wasActive = false;
+
+    function app() {
+        return window.NostrApp || {};
+    }
+
+    function isRelayOn() {
+        try {
+            return typeof window.AndroidBridge !== 'undefined' &&
+                typeof window.AndroidBridge.isEmergencyMode === 'function' &&
+                !!window.AndroidBridge.isEmergencyMode();
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function localProfile() {
+        var A = app();
+        var pk = String(A.publicKey || '').toLowerCase();
+        var cached = (A.profileCache instanceof Map && (A.profileCache.get(pk) || A.profileCache.get('self'))) || {};
+        var prof = A.profile || {};
+        return {
+            name: String(prof.name || cached.name || cached.display_name || '').trim(),
+            picture: String(prof.picture || cached.picture || '').trim()
+        };
+    }
+
+    function pushProfile() {
+        if (typeof window.AndroidBridge === 'undefined' || typeof window.AndroidBridge.setEmergencyProfile !== 'function') return;
+        var p = localProfile();
+        try {
+            window.AndroidBridge.setEmergencyProfile(p.name, p.picture);
+        } catch (e) {}
+    }
+
+    function ensureGroup() {
+        var A = app();
+        if (typeof A.ensureChatContact !== 'function') return;
+        var c = A.ensureChatContact(GROUP_PK, {
+            name: 'רשת חירום',
+            picture: '',
+            initials: 'רח',
+            emergencyMesh: true
+        });
+        if (c && !c.lastMessage) c.lastMessage = 'קבוצת רשת חירום';
+        meshOnly.add(GROUP_PK);
+        meshPeerSet.add(GROUP_PK);
+    }
+
+    function syncPeers() {
+        var A = app();
+        if (typeof A.ensureChatContact !== 'function') return;
+        var peers = [];
+        try {
+            peers = JSON.parse(window.AndroidBridge.getRelayPeers() || '[]');
+        } catch (e) {
+            peers = [];
+        }
+        if (!Array.isArray(peers)) peers = [];
+        var me = String(A.publicKey || '').toLowerCase();
+        var seen = new Set();
+        ensureGroup();
+        seen.add(GROUP_PK);
+        peers.forEach(function(p) {
+            var pk = String(p && p.pubkey || '').toLowerCase();
+            if (!/^[0-9a-f]{64}$/.test(pk) || pk === me) return;
+            seen.add(pk);
+            meshPeerSet.add(pk);
+            var existing = A.chatState && A.chatState.contacts && A.chatState.contacts.get(pk);
+            var name = String(p.name || '').trim() || (existing && existing.name) || ('משתמש ' + pk.slice(0, 8));
+            var picture = String(p.picture || '').trim() || (existing && existing.picture) || '';
+            var initials = (typeof A.getInitials === 'function' && name) ? A.getInitials(name) : 'מש';
+            if (existing && !existing.emergencyMesh) {
+                A.ensureChatContact(pk, { name: name, picture: picture, initials: initials });
+            } else {
+                A.ensureChatContact(pk, { name: name, picture: picture, initials: initials, emergencyMesh: true });
+                meshOnly.add(pk);
+            }
+        });
+        Array.from(meshOnly).forEach(function(pk) {
+            if (pk === GROUP_PK) return;
+            if (!seen.has(pk)) {
+                meshOnly.delete(pk);
+                meshPeerSet.delete(pk);
+                if (typeof A.removeChatContact === 'function') A.removeChatContact(pk);
+            }
+        });
+    }
+
+    function clearMeshContacts() {
+        var A = app();
+        Array.from(meshOnly).forEach(function(pk) {
+            if (typeof A.removeChatContact === 'function') A.removeChatContact(pk);
+        });
+        meshOnly.clear();
+        meshPeerSet.clear();
+    }
+
+    function ingestChat(fromIp, payload) {
+        var A = app();
+        var msg = payload;
+        if (typeof payload === 'string') {
+            try { msg = JSON.parse(payload); } catch (e) { return; }
+        }
+        if (!msg || msg.type !== 'chat') return;
+        var me = String(A.publicKey || '').toLowerCase();
+        var from = String(msg.from || '').toLowerCase();
+        var to = String(msg.to || '').toLowerCase();
+        if (!from || from === me) return;
+        var isGroup = to === GROUP_PK;
+        var isDirect = to === me;
+        if (!isGroup && !isDirect) return;
+        var id = String(msg.id || ('em-' + fromIp + '-' + (msg.ts || Date.now())));
+        if (seenIds.has(id)) return;
+        seenIds.add(id);
+        if (seenIds.size > 400) {
+            seenIds = new Set(Array.from(seenIds).slice(-200));
+        }
+        var peer = isGroup ? GROUP_PK : from;
+        if (typeof A.ensureChatContact === 'function') {
+            var existing = A.chatState && A.chatState.contacts && A.chatState.contacts.get(peer);
+            if (!existing) {
+                A.ensureChatContact(peer, {
+                    name: isGroup ? 'רשת חירום' : ('משתמש ' + from.slice(0, 8)),
+                    initials: isGroup ? 'רח' : 'מש',
+                    emergencyMesh: true
+                });
+                meshOnly.add(peer);
+                meshPeerSet.add(peer);
+            }
+        }
+        if (typeof A.appendChatMessage === 'function') {
+            A.appendChatMessage({
+                id: id,
+                from: from,
+                to: peer,
+                content: String(msg.text || ''),
+                createdAt: Math.floor(Number(msg.ts || Date.now()) / 1000),
+                direction: 'incoming'
+            });
+        }
+    }
+
+    function drainInbox() {
+        if (typeof window.AndroidBridge === 'undefined' || typeof window.AndroidBridge.drainEmergencyInbox !== 'function') return;
+        var items = [];
+        try {
+            items = JSON.parse(window.AndroidBridge.drainEmergencyInbox() || '[]');
+        } catch (e) {
+            return;
+        }
+        if (!Array.isArray(items)) return;
+        items.forEach(function(item) {
+            var data = item && item.data;
+            var parsed = data;
+            if (typeof data === 'string') {
+                try { parsed = JSON.parse(data); } catch (e) { parsed = data; }
+            }
+            var cb = item && item.callback;
+            if (cb === 'onChatMessage' || (parsed && parsed.type === 'chat')) {
+                ingestChat(item.fromIp, parsed);
+            }
+        });
+    }
+
+    function wrapPublish() {
+        var A = app();
+        if (!A || typeof A.publishChatMessage !== 'function' || A.publishChatMessage._emergencyMesh) return false;
+        var orig = A.publishChatMessage;
+        var wrapped = function(peer, text, options) {
+            var key = String(peer || '').toLowerCase();
+            if (!isRelayOn() || !meshPeerSet.has(key)) {
+                return orig.apply(this, arguments);
+            }
+            if (typeof A.hasChatFileAttachment === 'function' && A.hasChatFileAttachment(peer)) {
+                return orig.apply(this, arguments);
+            }
+            var payload = {
+                type: 'chat',
+                id: (options && options.clientTempId) || ('em-' + Date.now()),
+                from: String(A.publicKey || '').toLowerCase(),
+                to: key,
+                text: String(text || '').trim(),
+                ts: Date.now()
+            };
+            if (!payload.text) return orig.apply(this, arguments);
+            try {
+                window.AndroidBridge.broadcastMessage(JSON.stringify(payload));
+            } catch (e) {
+                return Promise.resolve({ ok: false, error: 'emergency-send-failed' });
+            }
+            return Promise.resolve({ ok: true, messageId: payload.id, emergency: true });
+        };
+        wrapped._emergencyMesh = true;
+        A.publishChatMessage = wrapped;
+        return true;
+    }
+
+    function tick() {
+        var active = isRelayOn();
+        wrapPublish();
+        if (active) {
+            if (!wasActive) pushProfile();
+            pushProfile();
+            syncPeers();
+            drainInbox();
+        } else if (wasActive) {
+            clearMeshContacts();
+        }
+        wasActive = active;
+    }
+
+    setInterval(tick, 3000);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(tick, 800); });
+    } else {
+        setTimeout(tick, 800);
+    }
+})();
+
 // אתחול אוטומטי אם האפליקציה כבר טעונה
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     setTimeout(function() {

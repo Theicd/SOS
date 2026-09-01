@@ -250,11 +250,16 @@ class SosEmergencyActivity : AppCompatActivity() {
     private fun buildSnapshot(): String {
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         val peers = SosEmergencyState.sharedPeers.joinToString(",").ifBlank { "-" }
+        val names = SosEmergencyState.peerProfiles.values.joinToString(";") { p ->
+            val label = p.name.ifBlank { p.pubkey.take(8).ifBlank { "-" } }
+            "${p.ip}:$label"
+        }.ifBlank { "-" }
         return "SNAPSHOT ${timeFmt.format(Date())}" +
             " ip=${SosEmergencyState.myIp ?: "-"}" +
             " parent=${SosEmergencyState.sharedParentIp ?: "-"}" +
             " children=${SosEmergencyState.childCount}" +
             " peers=$peers" +
+            " names=$names" +
             " hotspot=${if (isHotspotActive(wifiManager)) "on" else "off"}" +
             " wifi=${if (isWifiConnected()) "on" else "off"}" +
             " relay=${if (SosEmergencyState.isRelayRunning) "on" else "off"}"

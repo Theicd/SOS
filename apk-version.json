@@ -1,8 +1,8 @@
 {
-  "version": "1.0.90",
-  "versionCode": 91,
-  "file": "SOS-1.0.90.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.90/SOS-1.0.90.apk",
+  "version": "1.0.91",
+  "versionCode": 92,
+  "file": "SOS-1.0.91.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.91/SOS-1.0.91.apk",
   "releasedAt": "2026-09-01",
-  "note": "Emergency launcher icon; offline shell only from SOS Emergency; copyable emergency log"
+  "note": "Same-subnet JOIN; HELLO name/avatar; emergency chat list of connected peers"
 }
