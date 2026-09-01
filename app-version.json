@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.01-pwa406-live-failover2",
-  "buildTime": "2026-09-01T02:40:00+03:00",
-  "notes": "Failover: clear video, 7s timeout to broadcaster, prune dead children"
+  "version": "2026.09.01-pwa407-live-failover3",
+  "buildTime": "2026-09-01T11:20:00+03:00",
+  "notes": "Broadcaster prunes dead children fast; failover live-join to broadcaster; healthy PC checks"
 }

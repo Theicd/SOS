@@ -106,6 +106,15 @@
     return cs !== 'failed' && cs !== 'closed';
   }
 
+  // PC באמת חי עם מדיה — לא "connected" גוסס / connecting תקוע | HYPER CORE TECH
+  function isPcHealthy(pc){
+    if (!pc || !isPcAlive(pc)) return false;
+    const cs = pc.connectionState;
+    const ice = pc.iceConnectionState;
+    if (cs !== 'connected') return false;
+    return ice === 'connected' || ice === 'completed' || ice === 'checking';
+  }
+
   function wireLiveChatDc(peer, dc){
     if (!peer || !dc) return;
     const peerKey = peer;
@@ -194,7 +203,7 @@
         }
         return;
       }
-      // disconnected זמני ב-ICE — לא סוגרים מיד | HYPER CORE TECH
+      // failed/closed — ניקוי מיידי; disconnected — שחרור מקום אצל משדר/מגשר | HYPER CORE TECH
       if (cs === 'failed' || cs === 'closed') {
         const wasParent = normKey(peerKey) === normKey(state.parentPeer);
         tryEndChild(peerKey);
@@ -206,12 +215,20 @@
           try {
             const pc2 = getPc(peerKey);
             if (!pc2 || state.ending) return;
-            if (pc2.connectionState === 'failed' || pc2.connectionState === 'closed') return;
-            if (pc2.connectionState === 'disconnected' && state.role !== 'broadcaster' && normKey(peerKey) === normKey(state.parentPeer)) {
+            const cs2 = pc2.connectionState;
+            if (cs2 === 'connected' || cs2 === 'connecting') return;
+            // משדר/מגשר: משחררים סלוט כדי שצופה 3 יוכל live-join | HYPER CORE TECH
+            if (state.role === 'broadcaster' || state.role === 'relay') {
+              console.log('LIVE child disconnect prune', String(peerKey).slice(0, 8), cs2);
+              tryEndChild(peerKey);
+              try { announceStatus(); } catch (_) {}
+              return;
+            }
+            if (cs2 === 'disconnected' && normKey(peerKey) === normKey(state.parentPeer)) {
               failoverFromParent(peerKey).catch(() => {});
             }
           } catch (_) {}
-        }, 8000);
+        }, 2500);
       }
     };
     // מפתח אחיד — מונע כפילות PC לאותו peer | HYPER CORE TECH
@@ -272,7 +289,8 @@
     const candidates = [];
     for (const pk of state.directChildren) {
       const pc = getPc(pk);
-      if (pc && isPcAlive(pc) && (pc.connectionState === 'connected' || pc.connectionState === 'connecting')) {
+      // רק מגשר healthy — לא connecting גוסס | HYPER CORE TECH
+      if (pc && isPcHealthy(pc)) {
         candidates.push(pk);
       }
     }
@@ -408,6 +426,13 @@
 
       // אחרי קפיצה — גיבוי אולטימטיבי הוא המשדר
       state.backupPeer = state.broadcaster || next;
+      // אם היעד הוא המשדר — live-join אחרי prune עדיף על offer ישיר | HYPER CORE TECH
+      if (state.broadcaster && normKey(next) === normKey(state.broadcaster)) {
+        console.log('LIVE failover → broadcaster via live-join', String(next).slice(0, 8));
+        await requestBroadcasterRejoin();
+        armFailoverWatch(state.broadcaster);
+        return;
+      }
       console.log('LIVE failover connect →', String(next).slice(0, 8), 'backup', String(state.backupPeer || '').slice(0, 8));
       await connectToParent(next);
       // אם next הוא לא המשדר — שעון קצר; timeout → ניסיון 2 למשדר | HYPER CORE TECH
@@ -488,42 +513,45 @@
     await sendSignal(roomOwner, 'live-join', { roomId: state.roomId });
   }
 
-  // המשדר: חיבור ישיר בלבד (mesh/relay כבוי עד ייצוב) | HYPER CORE TECH
-  async function handleJoin(peer){
+  // המשדר: אחרי prune — מקום פנוי / failover מקבלים invite ישיר | HYPER CORE TECH
+  async function handleJoin(peer, data){
     if(state.role !== 'broadcaster') return;
     const peerKey = normKey(peer);
     if (!peerKey || peerKey === normKey(App.publicKey)) return;
     pruneStaleChildren();
+    const isFailover = !!(data && (data.failover || data.retry));
 
     const existingPc = getPc(peer);
-    if (existingPc && isPcAlive(existingPc)) {
-      const cs = existingPc.connectionState;
-      if (cs === 'connected' || cs === 'connecting') {
-        console.log('LIVE: join ignored, already connected', peerKey.slice(0,8), cs);
-        return;
-      }
+    // רק PC בריא באמת — לא מתעלמים מ־join כשה־PC גוסס (מרוץ מהלוגים) | HYPER CORE TECH
+    if (!isFailover && existingPc && isPcHealthy(existingPc)) {
+      console.log('LIVE: join ignored, already connected', peerKey.slice(0,8), existingPc.connectionState);
+      return;
+    }
+    if (existingPc && !isPcHealthy(existingPc)) {
+      console.log('LIVE: join replaces unhealthy PC', peerKey.slice(0,8), existingPc.connectionState);
+      tryEndChild(peer);
     }
 
-    // כבר ברשימת ילדים — שלח invite שוב רק אם אין PC חי (idempotent לצופה) | HYPER CORE TECH
     let alreadyChild = false;
     for (const c of state.directChildren) {
       if (normKey(c) === peerKey) { alreadyChild = true; break; }
     }
-    if (alreadyChild && existingPc && isPcAlive(existingPc)) {
-      console.log('LIVE: join ignored, child PC alive', peerKey.slice(0,8));
-      return;
-    }
 
     if (state.directChildren.size < MAX_DIRECT_CHILDREN || alreadyChild) {
+      console.log('LIVE: invite direct', peerKey.slice(0, 8), isFailover ? 'failover' : 'join');
       await inviteDirect(peer);
     } else {
-      // מלא אצל המשדר — מנתבים לצופה-מגשר קיים (עץ) | HYPER CORE TECH
+      // מלא — מנתבים למגשר חי בלבד; ב־failover בלי מגשר חי → full כדי שהצופה ינסה שוב | HYPER CORE TECH
       const relayParent = pickRelayParent();
-      if (relayParent) {
+      if (relayParent && !isFailover) {
         console.log('LIVE: redirect join via relay', String(relayParent).slice(0, 8), 'for', peerKey.slice(0, 8));
         state.relays.add(relayParent);
-        const backup = pickBackupPeer(relayParent);
-        await sendSignal(peer, 'live-invite', { parent: relayParent, backup: backup, role: 'viewer' });
+        // גיבוי תמיד המשדר — לא אח שעלול ליפול יחד | HYPER CORE TECH
+        await sendSignal(peer, 'live-invite', { parent: relayParent, backup: App.publicKey, role: 'viewer' });
+      } else if (relayParent && isFailover) {
+        // failover: עדיף ישיר אם אפשר; אחרת מגשר עם backup=משדר
+        console.log('LIVE: failover still full, relay', String(relayParent).slice(0, 8), 'for', peerKey.slice(0, 8));
+        await sendSignal(peer, 'live-invite', { parent: relayParent, backup: App.publicKey, role: 'viewer' });
       } else {
         console.warn('LIVE: no relay parent ready, room full', MAX_DIRECT_CHILDREN);
         try { await sendSignal(peer, 'live-full', { max: MAX_DIRECT_CHILDREN }); } catch (_) {}
@@ -599,13 +627,22 @@
       console.warn('LIVE: invalid offer from', String(childPubkey||'').slice(0,8));
       return;
     }
-    // מכסה לפני יצירת PC | HYPER CORE TECH
-    if (state.role === 'broadcaster') pruneStaleChildren();
+    // מכסה לפני יצירת PC — כולל disconnected | HYPER CORE TECH
+    if (state.role === 'broadcaster' || state.role === 'relay') pruneStaleChildren();
     let found = false;
     for (const c of state.directChildren) {
       if (normKey(c) === normKey(childPubkey)) { found = true; break; }
     }
+    const existingEarly = getPc(childPubkey);
+    if (existingEarly && !isPcHealthy(existingEarly)) {
+      console.log('LIVE: offer replaces unhealthy child PC', String(childPubkey).slice(0,8), existingEarly.connectionState);
+      tryEndChild(childPubkey);
+      found = false;
+    }
     const maxKids = state.role === 'broadcaster' ? MAX_DIRECT_CHILDREN : MAX_RELAY_CHILDREN;
+    if (!found && state.directChildren.size >= maxKids) {
+      pruneStaleChildren();
+    }
     if (!found && state.directChildren.size >= maxKids) {
       console.warn('LIVE: relay/broadcaster full, reject child', String(childPubkey).slice(0, 8));
       try { await sendSignal(childPubkey, 'live-full', { max: maxKids }); } catch (_) {}
@@ -627,13 +664,13 @@
     }
 
     const existing = getPc(childPubkey);
+    if (existing && isPcHealthy(existing)) {
+      console.log('LIVE: ignore duplicate offer', String(childPubkey).slice(0,8), existing.connectionState);
+      return;
+    }
     if (existing && isPcAlive(existing)) {
       const cs = existing.connectionState;
-      if (cs === 'connected' || cs === 'connecting') {
-        console.log('LIVE: ignore duplicate offer', String(childPubkey).slice(0,8), cs);
-        return;
-      }
-      if (cs === 'new' && existing.signalingState !== 'stable' && existing.remoteDescription) {
+      if (cs === 'connecting' && existing.remoteDescription) {
         console.log('LIVE: ignore offer, negotiation in progress', String(childPubkey).slice(0,8));
         return;
       }
@@ -770,7 +807,7 @@
     }
     let data = null; if(ev.content){ try{ const dec = await NT.nip04.decrypt(App.privateKey, from, ev.content); data = dec? JSON.parse(dec):null; }catch{} }
     switch(type){
-      case 'live-join': if(state.role==='broadcaster' && normKey(from)!==normKey(App.publicKey)) await handleJoin(from); break;
+      case 'live-join': if(state.role==='broadcaster' && normKey(from)!==normKey(App.publicKey)) await handleJoin(from, data); break;
       case 'live-invite': if(normKey(from)===normKey(state.broadcaster) || (data && data.parent)){
         if (data && data.backup) state.backupPeer = data.backup;
         else state.backupPeer = state.broadcaster || from;
