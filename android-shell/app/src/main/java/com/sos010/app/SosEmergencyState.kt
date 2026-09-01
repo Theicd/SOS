@@ -21,4 +21,22 @@ object SosEmergencyState {
     @Volatile var isRelayRunning: Boolean = false
     @Volatile var myIp: String? = null
     @Volatile var childCount: Int = 0
+
+    /** true רק אחרי לחיצה על אייקון SOS חירום – לא מזיהוי רשת אוטומטי | HYPER CORE TECH */
+    @Volatile var offlineShellRequested: Boolean = false
+
+    private const val MAX_SCREEN_LOG = 16000
+    private val screenLog = StringBuilder()
+    private val logLock = Any()
+
+    fun appendScreenLog(line: String) {
+        synchronized(logLock) {
+            screenLog.append(line).append('\n')
+            if (screenLog.length > MAX_SCREEN_LOG) {
+                screenLog.delete(0, screenLog.length - 10000)
+            }
+        }
+    }
+
+    fun screenLogText(): String = synchronized(logLock) { screenLog.toString() }
 }

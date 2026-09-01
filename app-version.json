@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.01-pwa407-live-failover3",
-  "buildTime": "2026-09-01T11:20:00+03:00",
-  "notes": "Broadcaster prunes dead children fast; failover live-join to broadcaster; healthy PC checks"
+  "version": "2026.09.01-pwa408-emergency-shell",
+  "buildTime": "2026-09-01T12:50:00+03:00",
+  "notes": "APK 1.0.90: SOS Emergency icon, cache boot only from that icon, copy emergency log"
 }

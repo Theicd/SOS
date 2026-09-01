@@ -570,6 +570,7 @@ class SosEmergencyRelayService : Service() {
     private fun sendLog(level: String, message: String) {
         Log.d(TAG, "[$level] $message")
         SosDebugLog.i("emergency", "[$level] $message")
+        SosEmergencyState.appendScreenLog("[$level] $message")
         val intent = Intent(SosEmergencyState.ACTION_LOG).apply {
             putExtra("level", level)
             putExtra("message", message)

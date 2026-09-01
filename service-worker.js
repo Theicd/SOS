@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v728'; // bump - live rejoin after parent drop
+  const CACHE_NAME = 'sos-cache-v729'; // bump - emergency APK 1.0.90
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -1,8 +1,8 @@
 {
-  "version": "1.0.89",
-  "versionCode": 90,
-  "file": "SOS-1.0.89.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.89/SOS-1.0.89.apk",
-  "releasedAt": "2026-08-25",
-  "note": "Narrow chat pause to video queue; fix extractMirrors; quiet repeated deletions; So-Call keeps feed merge"
+  "version": "1.0.90",
+  "versionCode": 91,
+  "file": "SOS-1.0.90.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.90/SOS-1.0.90.apk",
+  "releasedAt": "2026-09-01",
+  "note": "Emergency launcher icon; offline shell only from SOS Emergency; copyable emergency log"
 }

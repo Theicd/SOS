@@ -99,6 +99,21 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- אייקון שלישי: SOS חירום – קאש בלי רשת + מסך חומרה | HYPER CORE TECH -->
+        <activity-alias
+            android:name=".SosEmergencyLauncherAlias"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name_sos_emergency"
+            android:roundIcon="@mipmap/ic_launcher"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <activity
             android:name=".SosDebugLogActivity"
             android:exported="false"
