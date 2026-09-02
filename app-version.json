@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.02-pwa420-boot-display-fallback",
-  "buildTime": "2026-09-02T16:25:00+03:00",
-  "notes": "Fix empty display on boot: file posts with hash stay in general feed; boot fallback from state.videos"
+  "version": "2026.09.02-pwa421-feed-unblock",
+  "buildTime": "2026-09-02T16:40:00+03:00",
+  "notes": "Unblock empty feed: detect sovbit video URLs, never wipe feed cache to empty, warm-start only with posts"
 }

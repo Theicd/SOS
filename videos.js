@@ -1834,8 +1834,17 @@ function isMediaUnavailable(videoOrId) {
   if (typeof videoOrId === 'string') {
     return failedMediaIds.has(videoOrId);
   }
+  // אם יש hash שכבר בקאש המדיה המקומי — לא חוסמים תצוגה בגלל blacklist ישן | HYPER CORE TECH
+  if (videoOrId.hash && failedMediaHashes.has(videoOrId.hash)) {
+    try {
+      const cachedHashes = window.NostrApp?.mediaCacheHashSet;
+      if (cachedHashes && cachedHashes.has(String(videoOrId.hash))) {
+        return false;
+      }
+    } catch (_) {}
+    return true;
+  }
   if (videoOrId.id && failedMediaIds.has(videoOrId.id)) return true;
-  if (videoOrId.hash && failedMediaHashes.has(videoOrId.hash)) return true;
   return false;
 }
 
@@ -2108,8 +2117,8 @@ function hydrateFeedFromCache() {
       youtubeStripped: true,
     });
     state.videos = filtered;
-    // סנכרון דיסק אחרי סינון מחיקות — מונע skip של IDs "בקאש" שלא מוצגים | HYPER CORE TECH
-    if (filtered.length !== cached.length) {
+    // לא שומרים קאש ריק — מוחק את כל מטא־הפיד ומשאיר מסך שחור | HYPER CORE TECH
+    if (filtered.length > 0 && filtered.length !== cached.length) {
       try {
         saveFeedCache(filtered);
         console.log('[videos] feed cache synced after hydrate filter', {
@@ -2117,6 +2126,13 @@ function hydrateFeedFromCache() {
           after: filtered.length,
         });
       } catch (_) {}
+    } else if (!filtered.length && cached.length) {
+      console.warn('[videos] hydrate filter emptied feed — keeping previous disk cache', {
+        before: cached.length,
+      });
+    }
+    if (!filtered.length) {
+      return false;
     }
     // רינדור מלא מהמטמון — בלי DOM ישן / מרוץ מוכנות מדיה | HYPER CORE TECH
     if (typeof forceFullFeedRerender === 'function' && selectors.stream) {
@@ -3661,10 +3677,15 @@ function isVideoLink(link) {
   if (link.startsWith('data:video')) return true;
   if (link.startsWith('blob:')) return true;
   if (/\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(link)) return true;
-  // Blossom / CDN בלי סיומת קובץ — לא לזהות כתמונה
-  if (/^https?:\/\//i.test(link) && !isImageLink(link) &&
-      /blossom|void\.cat|nostr\.build|satellite\.earth|media\.|cdn\./i.test(link)) {
-    return true;
+  // Blossom / CDN / sovbit בלי סיומת — כולל files.sovbit.host/<hash> | HYPER CORE TECH
+  if (/^https?:\/\//i.test(link) && !isImageLink(link)) {
+    if (/sovbit|blossom|void\.cat|nostr\.build|satellite\.earth|media\.|cdn\.|primal\.net/i.test(link)) {
+      return true;
+    }
+    // נתיב hash/blob אופייני ל־Blossom גם בלי שם host מוכר | HYPER CORE TECH
+    if (/\/(blob\/)?[a-f0-9]{64}(\.[a-z0-9]+)?(\?|#|$)/i.test(link)) {
+      return true;
+    }
   }
   return false;
 }
@@ -7772,6 +7793,16 @@ async function loadVideos() {
     if (liveUrl || gameUrl) videoUrl = null;
     const hasMedia = liveUrl || gameUrl || videoUrl || imageUrl;
 
+    if (!hasMedia) {
+      // דיבאג: נוטים בלי מדיה מזוהה (למשל sovbit שלא זוהה בעבר) | HYPER CORE TECH
+      if (mediaLinks.length) {
+        console.log('[videos] note skipped — media links not classified', {
+          id: event.id?.slice?.(0, 12),
+          links: mediaLinks.slice(0, 3).map((l) => String(l).slice(0, 80)),
+        });
+      }
+    }
+
     if (hasMedia) {
       registerVideoSourceEvent(event);
       
@@ -7873,7 +7904,12 @@ async function loadVideos() {
     setLoadingStatus('מחפש תוכן...');
   }
   
-  saveFeedCache(state.videos);
+  // לא שומרים קאש ריק אחרי מיזוג כושל | HYPER CORE TECH
+  if ((state.videos || []).length > 0) {
+    saveFeedCache(state.videos);
+  } else {
+    console.warn('[videos] skip saving empty feed cache after loadVideos');
+  }
 
   // הפעלה חמה: מחממים חדשים ברקע — מוצגים בראש רק בלחיצת בית | HYPER CORE TECH
   const warmUi = bootGate.released && state.firstCardRendered;
@@ -7890,6 +7926,11 @@ async function loadVideos() {
     return;
   }
 
+  console.log('[videos] loadVideos: rendering before boot gate', {
+    total: (state.videos || []).length,
+    display: getDisplayVideos().length,
+    bootReleased: bootGate.released,
+  });
   renderVideos();
 
   // אחרי רינדור מהרשת — מוודאים שהראשון מוכן לפני סגירת LoadNug | HYPER CORE TECH
@@ -8375,11 +8416,11 @@ async function init() {
   // חלק מטמון (videos.js) – מטא־דאטה מהקאש מיד; מסך נסגר רק אחרי פריים וידאו ראשון | HYPER CORE TECH
   // בלי retryMediaCacheOpen לפני hydrate — close+reopen שובר hit בקאש בזמן boot | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();
-  if (hadCachedContent) {
+  if (hadCachedContent && (state.videos || []).length > 0) {
     if (selectors.status) {
       selectors.status.style.display = 'none';
     }
-    state.firstCardRendered = true;
+    // לא מסמנים firstCardRendered לפני שיש כרטיס אמיתי — אחרת warmUi בולע פוסטים | HYPER CORE TECH
     console.log('[videos] warm start from cache — waiting for first video frame');
     setLoadingStatus('טוען את הפוסט הראשון מהקאש...');
     setLoadingProgress(45);

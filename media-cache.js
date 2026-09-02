@@ -382,12 +382,33 @@
       if (stats) {
         console.log('Media cache initialized:', stats);
       }
+      await refreshMediaCacheHashSet();
     } catch (err) {
       console.error('Media cache initialization failed', err);
     }
   }
 
-  Object.assign(App, {
+  
+  async function refreshMediaCacheHashSet() {
+    try {
+      const database = await openDB();
+      if (!database) return;
+      const transaction = database.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const hashes = await new Promise((resolve, reject) => {
+        const req = store.getAllKeys();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+      App.mediaCacheHashSet = new Set((hashes || []).map((h) => String(h)));
+      console.log('[media-cache] hash set ready', { count: App.mediaCacheHashSet.size });
+    } catch (err) {
+      console.warn('[media-cache] hash set failed', err);
+      App.mediaCacheHashSet = App.mediaCacheHashSet || new Set();
+    }
+  }
+
+Object.assign(App, {
     cacheMedia,
     getCachedMedia,
     deleteCachedMedia,
@@ -395,6 +416,7 @@
     pinCachedMedia,
     clearMediaCache: clearAllCache,
     retryMediaCacheOpen,
+    refreshMediaCacheHashSet,
     isMediaCacheAvailable,
   });
 
