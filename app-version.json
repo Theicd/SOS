@@ -1,5 +1,5 @@
-﻿{
-  "version": "2026.09.02-pwa414-keep-cards-visible",
-  "buildTime": "2026-09-02T07:55:00+03:00",
-  "notes": "Phone log: cards dropped on youtube-thumb/timeout; CSS :has(LoadNug) hid feed. Mount cards immediately, soft-fail keeps cards, remove LoadNug hide rule."
+{
+  "version": "2026.09.02-pwa415-media-ready-idb",
+  "buildTime": "2026-09-02T08:30:00+03:00",
+  "notes": "Restore media-ready-before-mount; IDB attach before queue; skip empty cards; boot releases only on real media"
 }

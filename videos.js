@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.19-keep-cards-visible';
+const VIDEOS_CODE_VERSION = '2.6.21-media-ready-idb';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -568,24 +568,37 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
 
 // חלק קאש מקומי (videos.js) – הצמדה מיידית מ-IndexedDB בלי רשת | HYPER CORE TECH
 async function tryAttachVideoFromLocalCache(videoEl, hash) {
-  if (!videoEl || !hash || typeof App.getCachedMedia !== 'function') return false;
-  try {
-    const cached = await App.getCachedMedia(hash);
-    if (!cached || !cached.blob) return false;
-    videoEl.src = URL.createObjectURL(cached.blob);
-    try { videoEl.load(); } catch (_) {}
-    try {
-      if (typeof App.recordP2PDownload === 'function') {
-        App.recordP2PDownload('cache');
-      } else if (typeof window.updateP2PStatsUI === 'function') {
-        window.updateP2PStatsUI('cache');
-      }
-    } catch (_) {}
-    return true;
-  } catch (err) {
-    console.warn('[videos] local cache attach failed', err);
+  const app = window.NostrApp || {};
+  const raw = String(hash || '').trim();
+  if (!videoEl || !raw) return false;
+  if (typeof app.getCachedMedia !== 'function') {
+    console.warn('[videos] local cache attach skip — getCachedMedia missing', { hash: raw.slice(0, 12) });
     return false;
   }
+  // נרמול מפתח — miss נפוץ כש־hash נשמר ב־case שונה | HYPER CORE TECH
+  const candidates = [...new Set([raw, raw.toLowerCase(), raw.toUpperCase()].filter(Boolean))];
+  for (const key of candidates) {
+    try {
+      const cached = await app.getCachedMedia(key);
+      const blob = cached?.blob || cached?.data || null;
+      if (!blob) continue;
+      videoEl.src = URL.createObjectURL(blob);
+      try { videoEl.load(); } catch (_) {}
+      try {
+        if (typeof app.recordP2PDownload === 'function') {
+          app.recordP2PDownload('cache');
+        } else if (typeof window.updateP2PStatsUI === 'function') {
+          window.updateP2PStatsUI('cache');
+        }
+      } catch (_) {}
+      console.log('[videos] local cache hit', { hash: key.slice(0, 12), size: blob.size });
+      return true;
+    } catch (err) {
+      console.warn('[videos] local cache attach failed', { hash: key.slice(0, 12), err });
+    }
+  }
+  console.log('[videos] local cache miss', { hash: raw.slice(0, 16), tried: candidates.length });
+  return false;
 }
 
 // עיבוד תור — עד 2 במקביל; כשאיטי פותחים קובץ נוסף (pipeline) | HYPER CORE TECH
@@ -2164,6 +2177,22 @@ function markCardMediaReady(card) {
   if (!card) return;
   card.dataset.mediaReady = 'ready';
   card.style.removeProperty('display');
+  // אחרי כרטיס מוכן אמיתי — משחררים LoadNug אם boot חיכה בלי מדיה | HYPER CORE TECH
+  try {
+    if (bootGate.active && !bootGate.released && card.isConnected) {
+      const readyN = selectors.stream
+        ? selectors.stream.querySelectorAll('.videos-feed__card[data-event-id][data-media-ready="ready"]').length
+        : 0;
+      let need = BOOT_READY_POST_COUNT || 2;
+      try {
+        const shown = (typeof getDisplayVideos === 'function' ? getDisplayVideos() : []) || [];
+        need = Math.min(need, shown.length || readyN);
+      } catch (_) {}
+      if (readyN >= Math.max(1, need)) {
+        releaseBootLoading('incremental-media-ready ' + readyN + '/' + need);
+      }
+    }
+  } catch (_) {}
 }
 
 function hideCardUntilMediaReady(card) {
@@ -2172,7 +2201,7 @@ function hideCardUntilMediaReady(card) {
   card.style.display = 'none';
 }
 
-// חלק מדיה מתה (videos.js) – מסירים מהפיד רק כשל קובץ סופי; thumb/timeout לא מוחקים כרטיס | HYPER CORE TECH
+// חלק מדיה מתה (videos.js) – כרטיס רק כשמדיה מוכנה; כשל רך = דילוג בלי כרטיס ריק | HYPER CORE TECH
 function handleCardMediaFailure(card, videoId, error) {
   const mediaDiv = card?.querySelector?.('.videos-feed__media') || null;
   const mediaType = mediaDiv?.dataset?.mediaType || '';
@@ -2182,11 +2211,11 @@ function handleCardMediaFailure(card, videoId, error) {
   const isFileMedia = mediaType === 'file'
     || !!(video?.videoUrl && !video?.youtubeId && !video?.liveUrl && !video?.gameUrl);
   const errMsg = String(error?.message || error || '');
-  // כשל רך — משאירים כרטיס שחור/placeholder כדי שהפיד לא יתרוקן | HYPER CORE TECH
+  // כשל רך — לא מציגים כרטיס ריק; מדלגים בלי blacklist (ניסיון חוזר אפשרי) | HYPER CORE TECH
   const softFail = /youtube|thumb|timeout|unavailable|media-ready/i.test(errMsg)
     && !/no-media-url|404|deleted/i.test(errMsg);
 
-  console.warn('[videos] media failed — dropping card', {
+  console.warn('[videos] media failed — skip card', {
     videoId,
     mediaType,
     isFileMedia,
@@ -2196,15 +2225,7 @@ function handleCardMediaFailure(card, videoId, error) {
 
   if (softFail) {
     try {
-      if (card) {
-        markCardMediaReady(card);
-        card.style.removeProperty('display');
-        card.removeAttribute('hidden');
-      }
-      if (mediaDiv) {
-        mediaDiv.dataset.mediaPending = '0';
-        mediaDiv.style.background = '#000';
-      }
+      if (card?.isConnected) card.remove();
     } catch (_) {}
     return;
   }
@@ -2308,21 +2329,20 @@ function prependVideoCard(video, { forceShow = false } = {}) {
   }
   const { card, mediaReadyPromise } = renderVideoCard(video);
 
-  // מרכיבים מיד — מדיה ממשיכה ברקע; כשל רך לא מוחק כרטיס | HYPER CORE TECH
-  mountCard(card, { prepend: true });
-  markCardMediaReady(card);
-  if (forceShow) {
-    try {
-      const viewport = document.querySelector('.videos-feed__viewport');
-      if (viewport) viewport.scrollTop = 0;
-    } catch (_) {}
-    requestAnimationFrame(() => {
-      try { autoPlayFirstVideo(); } catch (__) {}
-    });
-  }
+  // חוק ממשק: כרטיס רק אחרי שהמדיה מוכנה לצפייה | HYPER CORE TECH
   mediaReadyPromise
     .then(() => {
-      try { markCardMediaReady(card); } catch (_) {}
+      mountCard(card, { prepend: true });
+      markCardMediaReady(card);
+      if (forceShow) {
+        try {
+          const viewport = document.querySelector('.videos-feed__viewport');
+          if (viewport) viewport.scrollTop = 0;
+        } catch (_) {}
+        requestAnimationFrame(() => {
+          try { autoPlayFirstVideo(); } catch (__) {}
+        });
+      }
     })
     .catch((err) => {
       handleCardMediaFailure(card, video.id, err);
@@ -3519,9 +3539,8 @@ async function ensureBootFeedReady() {
     await Promise.all(posts.map((p) => waitForFeedCard(p.id, 5000)));
     await sleepMs(30);
 
-    // עוצרים את התור הסדרתי בזמן טעינת 2 הראשונים מהקאש | HYPER CORE TECH
-    const prevPaused = feedDownloadsPaused;
-    feedDownloadsPaused = true;
+    // לא עוצרים את תור ההורדות — חוק media-ready דורש שהתור ימשיך לרוץ | HYPER CORE TECH
+    // רק מוציאים את 2 הראשונים מהתור כדי לתעדף attach מקאש ב־boot | HYPER CORE TECH
     posts.forEach((p) => {
       try {
         const card = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${p.id}"]`);
@@ -3567,7 +3586,6 @@ async function ensureBootFeedReady() {
       );
     }
 
-    feedDownloadsPaused = prevPaused;
     try {
       if (!isFeedHeavyWorkPaused()) processVideoDownloadQueue();
     } catch (_) {}
@@ -3579,13 +3597,18 @@ async function ensureBootFeedReady() {
 
     const readyCount = mediaResults.filter(Boolean).length;
     const need = Math.min(BOOT_READY_POST_COUNT, posts.length);
-    // יש כרטיסים על המסך — משחררים LoadNug גם אם המדיה עדיין מחממת ברקע | HYPER CORE TECH
-    posts.forEach((p) => revealBootVideoFrame(p));
+    // משחררים LoadNug רק כשיש מדיה מוכנה — לא על כרטיסים ריקים | HYPER CORE TECH
     if (readyCount >= need) {
-      await releaseBootLoading(`boot-ready media=${readyCount}/${need}`);
+      posts.forEach((p) => revealBootVideoFrame(p));
+      await releaseBootLoading('boot-ready media=' + readyCount + '/' + need);
+    } else if (readyCount > 0) {
+      posts.forEach((p) => revealBootVideoFrame(p));
+      console.warn('[videos] boot: partial media ready — release', { readyCount, need });
+      await releaseBootLoading('boot-partial media=' + readyCount + '/' + need);
     } else {
-      console.warn('[videos] boot: cards ready — release without full media', { readyCount, need });
-      await releaseBootLoading(`boot-cards media=${readyCount}/${need}`);
+      console.warn('[videos] boot: no playable media yet — wait for incremental media-ready mount');
+      bootGate.releasePromise = null;
+      return;
     }
 
     // burst מקאש לפוסטים הבאים ברקע (סטטיסטיקת Cache) | HYPER CORE TECH
@@ -4171,8 +4194,17 @@ function renderVideoCard(video) {
       videoEl.src = mediaCandidates[0];
       videoEl.load();
     } else {
-      // הוספה לתור הסדרתי במקום טעינה ישירה
-      addToVideoDownloadQueue(videoEl, video.videoUrl, video.hash || '', video.mirrors || [], applyFallbackSrc);
+      // קודם IndexedDB ישירות (בלי תור) — אחרת Cache לא עולה וכרטיס לא מגיע ל־ready | HYPER CORE TECH
+      void (async () => {
+        let fromCache = false;
+        if (video.hash) {
+          try {
+            fromCache = await tryAttachVideoFromLocalCache(videoEl, video.hash);
+          } catch (_) {}
+        }
+        if (fromCache) return;
+        addToVideoDownloadQueue(videoEl, video.videoUrl, video.hash || '', video.mirrors || [], applyFallbackSrc);
+      })();
     }
 
     // מוכן רק אחרי loadeddata — לא מציגים כרטיסיה ריקה לפני שהווידאו ירד | HYPER CORE TECH
@@ -4880,18 +4912,18 @@ function appendNextVideoCard() {
     controller.timer = setTimeout(appendNextVideoCard, 0);
   };
 
-  // מרכיבים מיד — אחרת הפיד שחור בזמן המתנה למדיה / Drop על timeout | HYPER CORE TECH
-  if (!controller.cancelled) {
-    mountCard(card);
-    markCardMediaReady(card);
-  }
+  // חוק ממשק: מרכיבים ל־DOM רק אחרי שהווידאו מוכן לצפייה | HYPER CORE TECH
+  const MEDIA_WAIT_MS = 45000;
   Promise.race([
     mediaReadyPromise,
-    new Promise((resolve) => setTimeout(resolve, 12000)),
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('media-ready-timeout')), MEDIA_WAIT_MS);
+    }),
   ])
     .then(() => {
       if (controller.cancelled) return;
-      try { markCardMediaReady(card); } catch (_) {}
+      mountCard(card);
+      markCardMediaReady(card);
     })
     .catch((err) => {
       handleCardMediaFailure(card, video.id, err);
@@ -7141,14 +7173,16 @@ async function renderMoreVideos(videos) {
       const rendered = renderVideoCard(video);
       card = rendered?.card || null;
       const mediaReadyPromise = rendered?.mediaReadyPromise;
-      if (!card) continue;
+      if (!card || !mediaReadyPromise) continue;
+      try {
+        await mediaReadyPromise;
+      } catch (err) {
+        handleCardMediaFailure(card, video.id, err);
+        continue;
+      }
+      if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) continue;
       mountCard(card);
       markCardMediaReady(card);
-      if (mediaReadyPromise) {
-        mediaReadyPromise.catch((err) => {
-          try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
-        });
-      }
     } catch (err) {
       if (card) {
         try { handleCardMediaFailure(card, video.id, err); } catch (_) {}

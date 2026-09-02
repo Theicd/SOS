@@ -199,7 +199,8 @@
 
   // חלק cache (media-cache.js) – שליפת מדיה מה-cache
   async function getCachedMedia(hash) {
-    if (!hash) return null;
+    const raw = String(hash || '').trim();
+    if (!raw) return null;
     try {
       let database = await openDB();
       if (!database && Date.now() >= dbSoftBlockedUntil) {
@@ -208,17 +209,19 @@
       if (!database) {
         return null;
       }
-      const transaction = database.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-
-      const entry = await new Promise((resolve, reject) => {
-        const request = store.get(hash);
-        request.onsuccess = () => resolve(request.result || null);
-        request.onerror = () => reject(request.error);
-      });
-
-      if (!entry || !entry.blob) return null;
-      return entry;
+      // נרמול מפתח — miss נפוץ על הבדלי case; טרנזקציה חדשה לכל מפתח | HYPER CORE TECH
+      const keys = [...new Set([raw, raw.toLowerCase(), raw.toUpperCase()])];
+      for (const key of keys) {
+        const transaction = database.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const entry = await new Promise((resolve, reject) => {
+          const request = store.get(key);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+        if (entry && entry.blob) return entry;
+      }
+      return null;
     } catch (err) {
       console.error('Failed to get cached media', err);
       // DB נסגר באמצע — מאפסים לניסיון הבא | HYPER CORE TECH
