@@ -2,8 +2,6 @@ package com.sos010.app
 
 import android.Manifest
 import android.content.BroadcastReceiver
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -25,9 +23,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.net.Inet4Address
 import java.net.NetworkInterface
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * מסך מצב חירום – הפעלת ממסר, Hotspot, בדיקות | HYPER CORE TECH
@@ -44,7 +39,7 @@ class SosEmergencyActivity : AppCompatActivity() {
     private lateinit var networkNameView: TextView
     private lateinit var networkPasswordView: TextView
     private val handler = Handler(Looper.getMainLooper())
-    private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    private val logBuffer = StringBuilder()
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -63,7 +58,9 @@ class SosEmergencyActivity : AppCompatActivity() {
     private val logReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
-            runOnUiThread { showLogFromState() }
+            val level = intent.getStringExtra("level") ?: "INFO"
+            val message = intent.getStringExtra("message") ?: return
+            runOnUiThread { appendLog("[$level] $message") }
         }
     }
 
@@ -100,10 +97,8 @@ class SosEmergencyActivity : AppCompatActivity() {
         findViewById<Button>(R.id.serviceLogButton).setOnClickListener {
             startActivity(Intent(this, SosEmergencyLogActivity::class.java))
         }
-        findViewById<Button>(R.id.copyLogButton).setOnClickListener { copyScreenLog() }
 
         ensureLocationPermission()
-        showLogFromState()
         appendLog("מסך חירום מוכן")
         relayStatusView.text = if (SosEmergencyState.isRelayRunning) {
             "ממסר פעיל ✓"
@@ -126,8 +121,6 @@ class SosEmergencyActivity : AppCompatActivity() {
             registerReceiver(logReceiver, filterLog)
         }
         handler.post(statusTicker)
-        refreshNetworkUi()
-        appendLog(buildSnapshot())
     }
 
     override fun onStop() {
@@ -238,41 +231,12 @@ class SosEmergencyActivity : AppCompatActivity() {
         }
     }
 
-    private fun copyScreenLog() {
-        refreshNetworkUi()
-        appendLog(buildSnapshot())
-        val text = SosEmergencyState.screenLogText().ifBlank { logView.text?.toString().orEmpty() }
-        val cm = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText("SOS emergency log", text))
-        Toast.makeText(this, R.string.emergency_log_copied, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun buildSnapshot(): String {
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val peers = SosEmergencyState.sharedPeers.joinToString(",").ifBlank { "-" }
-        val names = SosEmergencyState.peerProfiles.values.joinToString(";") { p ->
-            val label = p.name.ifBlank { p.pubkey.take(8).ifBlank { "-" } }
-            "${p.ip}:$label"
-        }.ifBlank { "-" }
-        return "SNAPSHOT ${timeFmt.format(Date())}" +
-            " ip=${SosEmergencyState.myIp ?: "-"}" +
-            " parent=${SosEmergencyState.sharedParentIp ?: "-"}" +
-            " children=${SosEmergencyState.childCount}" +
-            " peers=$peers" +
-            " names=$names" +
-            " hotspot=${if (isHotspotActive(wifiManager)) "on" else "off"}" +
-            " wifi=${if (isWifiConnected()) "on" else "off"}" +
-            " relay=${if (SosEmergencyState.isRelayRunning) "on" else "off"}"
-    }
-
     private fun appendLog(line: String) {
-        SosEmergencyState.appendScreenLog(line)
-        showLogFromState()
-    }
-
-    private fun showLogFromState() {
-        val text = SosEmergencyState.screenLogText()
-        logView.text = text
+        logBuffer.append(line).append('\n')
+        if (logBuffer.length > 12000) {
+            logBuffer.delete(0, logBuffer.length - 8000)
+        }
+        logView.text = logBuffer.toString()
         logScroll.post { logScroll.fullScroll(ScrollView.FOCUS_DOWN) }
     }
 }

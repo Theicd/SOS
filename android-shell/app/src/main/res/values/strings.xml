@@ -2,8 +2,6 @@
 <resources>
     <string name="app_name">SOS</string>
     <string name="app_name_sos_call">So-Call</string>
-    <string name="app_name_sos_emergency">SOS חירום</string>
-    <string name="emergency_log_copied">לוג החירום הועתק</string>
     <string name="channel_messages">הודעות ושיחות</string>
     <string name="channel_messages_desc">התראות על הודעות, שיחות ועדכונים</string>
     <string name="channel_calls">שיחות נכנסות</string>

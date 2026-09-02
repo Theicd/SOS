@@ -1,8 +1,8 @@
-// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
+﻿// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v732'; // bump - restore IDB cache boot before LoadNug close
+  const CACHE_NAME = 'sos-cache-v733'; // bump - restore pre-emergency backup
   const PRECACHE_URLS = [
     './',
     './videos.html',

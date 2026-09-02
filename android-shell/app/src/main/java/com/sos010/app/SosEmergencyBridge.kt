@@ -79,46 +79,16 @@ class SosEmergencyBridge(
     fun getRelayPeers(): String {
         val peers = JSONArray()
         val myIp = getLocalIpAddress()
-        val seen = HashSet<String>()
-        fun addPeer(ip: String) {
-            if (ip.isBlank() || ip == myIp || !seen.add(ip)) return
-            val profile = SosEmergencyState.peerProfiles[ip]
-            val peer = JSONObject()
-            peer.put("ip", ip)
-            peer.put("type", "relay")
-            peer.put("isParent", ip == SosEmergencyState.sharedParentIp)
-            peer.put("pubkey", profile?.pubkey ?: "")
-            peer.put("name", profile?.name ?: "")
-            peer.put("picture", profile?.picture ?: "")
-            peers.put(peer)
+        SosEmergencyState.sharedPeers.forEach { ip ->
+            if (ip != myIp) {
+                val peer = JSONObject()
+                peer.put("ip", ip)
+                peer.put("type", "relay")
+                peer.put("isParent", ip == SosEmergencyState.sharedParentIp)
+                peers.put(peer)
+            }
         }
-        SosEmergencyState.sharedParentIp?.let { addPeer(it) }
-        SosEmergencyState.sharedPeers.forEach { addPeer(it) }
         return peers.toString()
-    }
-
-    @JavascriptInterface
-    fun setEmergencyProfile(name: String?, picture: String?) {
-        SosEmergencyState.myDisplayName = (name ?: "").trim().take(80)
-        SosEmergencyState.myPicture = (picture ?: "").trim().take(512)
-        SosEmergencyState.identityVersion += 1
-        SosEmergencyRelayService.instance?.pushIdentity()
-    }
-
-    @JavascriptInterface
-    fun drainEmergencyInbox(): String {
-        val arr = JSONArray()
-        var n = 0
-        while (n < 50) {
-            val item = SosEmergencyState.inbox.poll() ?: break
-            val obj = JSONObject()
-            obj.put("callback", item.callback)
-            obj.put("fromIp", item.fromIp)
-            obj.put("data", item.data)
-            arr.put(obj)
-            n++
-        }
-        return arr.toString()
     }
 
     @JavascriptInterface

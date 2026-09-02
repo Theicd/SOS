@@ -1,8 +1,8 @@
-{
-  "version": "1.0.91",
-  "versionCode": 92,
-  "file": "SOS-1.0.91.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.91/SOS-1.0.91.apk",
-  "releasedAt": "2026-09-01",
-  "note": "Same-subnet JOIN; HELLO name/avatar; emergency chat list of connected peers"
+﻿{
+  "version": "1.0.92",
+  "versionCode": 93,
+  "file": "SOS-1.0.92.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.92/SOS-1.0.92.apk",
+  "releasedAt": "2026-09-02",
+  "note": "Pre-emergency-launcher backup restore for empty-feed verification"
 }

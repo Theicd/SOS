@@ -1,5 +1,5 @@
-{
-  "version": "2026.09.02-pwa411-cache-idb-boot",
-  "buildTime": "2026-09-02T06:30:00+03:00",
-  "notes": "Restore IndexedDB media attach via ensureBootFeedReady before closing LoadNug; stats Cache counts again"
+﻿{
+  "version": "2026.09.02-pwa412-restore-pre-emergency",
+  "buildTime": "2026-09-02T06:50:00+03:00",
+  "notes": "Restore pre-emergency-launcher backup to verify empty-feed regression"
 }

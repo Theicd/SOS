@@ -24,7 +24,6 @@ import android.webkit.CookieManager
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -62,9 +61,6 @@ class MainActivity : AppCompatActivity() {
     private val pickedNativeFiles = ConcurrentHashMap<String, Pair<Uri, String>>()
     private val keyboardContentInfo = ConcurrentHashMap<String, InputContentInfoCompat>()
     @Volatile private var webPageReady = false
-    @Volatile private var offlineShellRetryDone = false
-    private var lastMainFrameErrorAt = 0L
-    private var lastShellOffline: Boolean? = null
     @Volatile private var openedFromCallIntent = false
     private var pendingDeepLinkPeer: String? = null
     private var pendingIncomingCall: String? = null
@@ -143,10 +139,6 @@ class MainActivity : AppCompatActivity() {
         maybeRequestBatteryOptimizationExemption()
         startKeepAliveService()
 
-        captureEmergencyLaunchFromIntent(intent)
-        if (isLauncherHomeIntent(intent) || wantsOpenChatList(intent)) {
-            SosEmergencyState.offlineShellRequested = false
-        }
         setupWebView()
         captureDeepLinkFromIntent(intent)
         captureCallActionFromIntent(intent)
@@ -156,11 +148,8 @@ class MainActivity : AppCompatActivity() {
         if (pendingOpenChatList) {
             showSoCallSplash()
         }
-        if (savedInstanceState == null && wantsEmergencyLaunch(intent)) {
-            openEmergencyHardwareScreen()
-        }
         val startUrl = resolveStartUrl(intent)
-        webView.loadUrl(offlineAwareStartUrl(startUrl))
+        webView.loadUrl(startUrl)
 
         maybeDeferBackgroundStart(intent)
     }
@@ -169,21 +158,6 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        // אייקון SOS חירום – קאש מקומי + מסך חומרה, בלי לגעת בזרימת SOS הרגילה | HYPER CORE TECH
-        if (wantsEmergencyLaunch(intent)) {
-            openedFromCallIntent = false
-            pendingOpenChatList = false
-            CallSoundHelper.stopAll()
-            hideSoCallSplash(force = true)
-            captureEmergencyLaunchFromIntent(intent)
-            applyOfflineShellMode()
-            openEmergencyHardwareScreen()
-            if (this::webView.isInitialized && !webPageReady) {
-                webView.loadUrl(offlineAwareStartUrl(BuildConfig.SOS_START_URL))
-            }
-            return
-        }
-
         // אייקון So-Call – פתיחה לרשימת שיחות (לא פיד) | HYPER CORE TECH
         if (wantsOpenChatList(intent)) {
             openedFromCallIntent = false
@@ -191,8 +165,6 @@ class MainActivity : AppCompatActivity() {
             pendingIncomingCall = null
             pendingCallAction = null
             pendingAutoAccept = false
-            SosEmergencyState.offlineShellRequested = false
-            applyOfflineShellMode()
             CallSoundHelper.stopAll()
             captureOpenChatListFromIntent(intent)
             showSoCallSplash()
@@ -200,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                 flushOpenChatList()
             } else if (this::webView.isInitialized) {
                 webPageReady = false
-                webView.loadUrl(offlineAwareStartUrl(BuildConfig.SOS_START_URL))
+                webView.loadUrl(BuildConfig.SOS_START_URL)
             }
             return
         }
@@ -213,8 +185,6 @@ class MainActivity : AppCompatActivity() {
             pendingCallAction = null
             pendingAutoAccept = false
             pendingOpenChatList = false
-            SosEmergencyState.offlineShellRequested = false
-            applyOfflineShellMode()
             CallSoundHelper.stopAll()
             hideSoCallSplash(force = true)
             SosSessionStore.clearLastUrl(applicationContext)
@@ -244,7 +214,7 @@ class MainActivity : AppCompatActivity() {
             val url = resolveStartUrl(intent)
             if (this::webView.isInitialized) {
                 webPageReady = false
-                webView.loadUrl(offlineAwareStartUrl(url))
+                webView.loadUrl(url)
             }
         }
         maybeDeferBackgroundStart(intent)
@@ -329,7 +299,6 @@ class MainActivity : AppCompatActivity() {
             }
             injectNativeFilePickScript()
             injectNativeVideoFixScript()
-            applyOfflineShellMode()
         }
     }
 
@@ -524,7 +493,6 @@ class MainActivity : AppCompatActivity() {
     private fun isLauncherHomeIntent(intent: Intent?): Boolean {
         if (intent == null) return true
         if (wantsOpenChatList(intent)) return false
-        if (wantsEmergencyLaunch(intent)) return false
         val callAction = intent.getStringExtra(EXTRA_CALL_ACTION)
         if (!callAction.isNullOrBlank()) return false
         if (intent.action == CallActionReceiver.ACTION_ANSWER ||
@@ -547,28 +515,6 @@ class MainActivity : AppCompatActivity() {
         if (intent.getBooleanExtra(EXTRA_OPEN_CHAT_LIST, false)) return true
         val cn = intent.component?.className ?: return false
         return cn.endsWith(".SosCallLauncherAlias") || cn.endsWith("SosCallLauncherAlias")
-    }
-
-    /** אייקון SOS חירום או EXTRA_EMERGENCY_LAUNCH | HYPER CORE TECH */
-    private fun wantsEmergencyLaunch(intent: Intent?): Boolean {
-        if (intent == null) return false
-        if (intent.getBooleanExtra(EXTRA_EMERGENCY_LAUNCH, false)) return true
-        val cn = intent.component?.className ?: return false
-        return cn.endsWith(".SosEmergencyLauncherAlias") || cn.endsWith("SosEmergencyLauncherAlias")
-    }
-
-    private fun captureEmergencyLaunchFromIntent(intent: Intent?) {
-        if (wantsEmergencyLaunch(intent)) {
-            SosEmergencyState.offlineShellRequested = true
-            try {
-                intent?.putExtra(EXTRA_EMERGENCY_LAUNCH, true)
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    private fun openEmergencyHardwareScreen() {
-        startActivity(Intent(this, SosEmergencyActivity::class.java))
     }
 
     private fun captureOpenChatListFromIntent(intent: Intent?) {
@@ -644,7 +590,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             webPageReady = false
-            webView.loadUrl(offlineAwareStartUrl(BuildConfig.SOS_START_URL))
+            webView.loadUrl(BuildConfig.SOS_START_URL)
         }
     }
 
@@ -1110,73 +1056,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * מצב קאש בלי רשת – רק אחרי אייקון SOS חירום, לא מזיהוי אינטרנט אוטומטי | HYPER CORE TECH
-     */
-    private fun applyOfflineShellMode(force: Boolean = false) {
-        if (!this::webView.isInitialized) return
-        val offline = force || SosEmergencyState.offlineShellRequested
-        val settings = webView.settings
-        if (offline) {
-            settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-            settings.blockNetworkLoads = true
-        } else {
-            settings.cacheMode = WebSettings.LOAD_DEFAULT
-            settings.blockNetworkLoads = false
-        }
-        if (lastShellOffline != offline) {
-            lastShellOffline = offline
-            SosDebugLog.i(
-                "shell",
-                if (offline) "offline shell: cache + blockNetwork (emergency icon)"
-                else "online shell: network default"
-            )
-        }
-    }
-
-    private fun isChromeErrorUrl(url: String?): Boolean {
-        if (url.isNullOrBlank()) return false
-        val u = url.lowercase()
-        return u.startsWith("chrome-error://") || u.startsWith("about:neterror")
-    }
-
-    private fun handleMainFrameLoadError(view: WebView?, failedUrl: String?, description: String?) {
-        if (view == null) return
-        if (!SosEmergencyState.offlineShellRequested) return
-        val now = System.currentTimeMillis()
-        if (now - lastMainFrameErrorAt < 800L) return
-        lastMainFrameErrorAt = now
-        SosDebugLog.w(
-            "shell",
-            "main-frame error url=$failedUrl desc=$description retryDone=$offlineShellRetryDone"
-        )
-        if (!offlineShellRetryDone) {
-            offlineShellRetryDone = true
-            applyOfflineShellMode(force = true)
-            SosDebugLog.i("shell", "retry start URL from cache")
-            view.loadUrl(offlineAwareStartUrl(BuildConfig.SOS_START_URL, forceOffline = true))
-            return
-        }
-        toast("אין עותק מקומי — פתח פעם אחת עם אינטרנט")
-    }
-
-    /** בלי רשת (רק מאייקון חירום) – videos.html בלי ?shell= כדי לפגוע בקאש/SW | HYPER CORE TECH */
-    private fun offlineAwareStartUrl(url: String, forceOffline: Boolean = false): String {
-        if (!forceOffline && !SosEmergencyState.offlineShellRequested) return url
-        return try {
-            val uri = Uri.parse(url)
-            if (uri.host?.endsWith("sos010.com") != true) return url
-            val path = uri.path.orEmpty()
-            if (path.contains("videos") || path.isBlank() || path == "/") {
-                uri.buildUpon().clearQuery().build().toString()
-            } else {
-                url
-            }
-        } catch (_: Exception) {
-            url
-        }
-    }
-
     /** ניקוי deep-link ממתינים – נקרא מה-Web אחרי סגירת שיחה / חזרה לפיד */
     fun clearPendingDeepLinkFromJs() {
         pendingDeepLinkPeer = null
@@ -1201,7 +1080,7 @@ class MainActivity : AppCompatActivity() {
         settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        applyOfflineShellMode()
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.userAgentString = settings.userAgentString + " SOSNativeShell/${BuildConfig.VERSION_NAME}"
         settings.setSupportMultipleWindows(false)
         settings.javaScriptCanOpenWindowsAutomatically = false
@@ -1322,29 +1201,6 @@ class MainActivity : AppCompatActivity() {
                 return super.shouldInterceptRequest(view, request)
             }
 
-            override fun onReceivedError(
-                view: WebView,
-                request: WebResourceRequest,
-                error: WebResourceError
-            ) {
-                if (!request.isForMainFrame) return
-                handleMainFrameLoadError(
-                    view,
-                    request.url?.toString(),
-                    error.description?.toString()
-                )
-            }
-
-            @Deprecated("Deprecated in Java")
-            override fun onReceivedError(
-                view: WebView?,
-                errorCode: Int,
-                description: String?,
-                failingUrl: String?
-            ) {
-                handleMainFrameLoadError(view, failingUrl, description)
-            }
-
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 webPageReady = false
                 // בנתיב שיחה/חימום – בלי מסך טעינה מעל | HYPER CORE TECH
@@ -1365,11 +1221,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                if (isChromeErrorUrl(url)) {
-                    webPageReady = false
-                    handleMainFrameLoadError(view, url, "chrome-error")
-                    return
-                }
                 if (!pendingOpenChatList) {
                     loading.visibility = View.GONE
                 } else {
@@ -2151,7 +2002,6 @@ class MainActivity : AppCompatActivity() {
         const val CALL_ACTION_HANGUP = "hangup"
         const val EXTRA_NATIVE_INCALL_UI = "native_incall_ui"
         const val EXTRA_OPEN_CHAT_LIST = "open_chat_list"
-        const val EXTRA_EMERGENCY_LAUNCH = "open_emergency"
 
         @JvmField
         @Volatile
