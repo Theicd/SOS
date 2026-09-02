@@ -1,5 +1,5 @@
-{
-  "version": "2026.09.01-pwa409-emergency-chat",
-  "buildTime": "2026-09-01T13:40:00+03:00",
-  "notes": "APK 1.0.91: same-subnet emergency mesh, HELLO identity, emergency chat contacts"
+﻿{
+  "version": "2026.09.02-pwa417-yt-ready-instant",
+  "buildTime": "2026-09-02T14:20:00+03:00",
+  "notes": "Unblock feed: YouTube cards markReady instantly like 21-08 backup (no oEmbed/thumb gate before mount)"
 }

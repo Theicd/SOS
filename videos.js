@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.15-desktop-video-ar';
+const VIDEOS_CODE_VERSION = '2.6.16-yt-ready-instant';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -3948,24 +3948,8 @@ function renderVideoCard(video) {
     mediaDiv.appendChild(playOverlay);
 
     try { applyDesktopVideoAspect(mediaDiv, 16, 9); } catch (_) {}
-    // לא נכנסים לפיד עד שאימות לינק + thumb — מונע כרטיסים ריקים | HYPER CORE TECH
-    (async () => {
-      try {
-        const okLink = await verifyYouTubeIdAvailable(video.youtubeId);
-        if (!okLink) {
-          failReady(new Error('youtube-unavailable'));
-          return;
-        }
-        const thumbOk = await waitForMediaElementReady(thumb, { events: ['load'], timeoutMs: 12000 });
-        if (!thumbOk && !(thumb.complete && thumb.naturalWidth > 0)) {
-          failReady(new Error('youtube-thumb-failed'));
-          return;
-        }
-        markReady();
-      } catch (err) {
-        failReady(err || new Error('youtube-ready-failed'));
-      }
-    })();
+    // כמו גיבוי 21-08: יוטיוב מוכן מיד — בלי oEmbed/thumb לפני mount (חסם את כל הפיד הסדרתי) | HYPER CORE TECH
+    queueMicrotask(markReady);
   } else if (video.videoUrl || video.hash || video.fromDeepLink) {
     if (video.fromDeepLink || (typeof pendingPostDeepLinkId === 'string' && video.id === pendingPostDeepLinkId)) {
       try { enrichVideoMediaSources(video); } catch (_) {}
