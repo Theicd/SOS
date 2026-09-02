@@ -1,11 +1,10 @@
-﻿// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
+// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v745'; // restore backup feed: guest blossom 10 + youtube + CDN order
+  const CACHE_NAME = 'sos-cache-v747'; // feedfix4: no-store html/js — אל תשמור videos.html
   const PRECACHE_URLS = [
     './',
-    './videos.html',
     './games.html', // דף משחקים – פיד משותף כמו הפיד הראשי
     './games.js',   // לוגיקת פיד משחקים + game-embed
     './game-embed.js',
@@ -42,7 +41,7 @@
       } catch (err) {
         console.warn('[SW] Precache failed:', err);
       }
-      // לא קוראים skipWaiting כאן – ממתינים ללחיצת «עדכן» בכרטיסיית העדכון | HYPER CORE TECH
+      await self.skipWaiting();
     })());
   });
 
@@ -83,6 +82,17 @@
     // קובץ גרסה – תמיד מהרשת כדי לזהות דיפלוי חדש | HYPER CORE TECH
     if (url.pathname.endsWith('/app-version.json') || url.pathname.endsWith('app-version.json')) return;
     if (url.pathname.endsWith('/apk-version.json') || url.pathname.endsWith('apk-version.json')) return;
+
+    // HTML/JS של הפיד – תמיד מהרשת, בלי SW cache (אחרת נשארת גרסה ישנה) | HYPER CORE TECH
+    if (
+      url.pathname.endsWith('.html')
+      || url.pathname.endsWith('.js')
+      || url.pathname === '/'
+      || url.pathname.endsWith('/')
+    ) {
+      event.respondWith(fetch(event.request, { cache: 'no-store' }));
+      return;
+    }
 
     // לא לשמור בקאש נתיבים דינמיים
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;

@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.15.3-mesh-fix'; // גילוי peers מהיר יותר + תמיכה ב-mesh DC | HYPER CORE TECH
+  const P2P_VERSION = '2.15.3-mesh-fix-feed9'; // sovbit SSL → blossom.band קודם | HYPER CORE TECH
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -149,8 +149,8 @@
   const HEARTBEAT_LOOKBACK = 180;         // חיפוש heartbeats מ-3 דקות אחורה (מותאם ל-P2P_FULL)
   let heartbeatTimerId = null;            // טיימר דינמי לפי HEARTBEAT_INTERVAL העדכני | HYPER CORE TECH
   
-  // חלק Guest P2P (p2p-video-sharing.js) – כמו בגיבוי: 10 פוסטים ראשונים מ-Blossom | HYPER CORE TECH
-  const GUEST_BLOSSOM_FIRST_POSTS = 10;   // כמו בגיבוי — אורחים: 10 פוסטים ראשונים מ-Blossom | HYPER CORE TECH
+  // חלק Guest P2P (p2p-video-sharing.js) – first-paint בלבד מ-Blossom; שאר P2P | HYPER CORE TECH
+  const GUEST_BLOSSOM_FIRST_POSTS = 10;   // אורחים: 10 פוסטים ראשונים מ-Blossom | HYPER CORE TECH
   const GUEST_P2P_TIMEOUT = 8000;
   const GUEST_MAX_PEER_SEARCH_TIME = 5000;
   const GUEST_MAX_PEERS_TO_TRY = 2;
@@ -999,6 +999,11 @@
     shares: { total: 0, success: 0, failed: 0 },
     lastSummaryTime: 0
   };
+  const downloadSeen = {
+    cache: new Set(),
+    blossom: new Set(),
+    p2p: new Set(),
+  };
 
   function log(type, message, data = null, options = {}) {
     const timestamp = new Date().toLocaleTimeString('he-IL');
@@ -1155,8 +1160,8 @@
   async function registerFileAvailability(hash, blob, mimeType) {
     // רק המנהיג מפרסם קבצים לרשת
     if (!isP2PAllowed()) {
-      // שמירה מקומית בלבד - בלי פרסום לרשת
-      state.availableFiles.set(hash, {
+      if (!blob) return false;
+      state.availableFiles.set(String(hash || '').toLowerCase(), {
         blob, mimeType, size: blob.size, timestamp: Date.now(),
       });
       return true;
@@ -1181,8 +1186,13 @@
     const keys = getEffectiveKeys();
     
     try {
+      if (!blob) {
+        p2pStats.shares.failed++;
+        return { success: false, published: false };
+      }
+      const fileHash = String(hash || '').toLowerCase();
       // שמירה מקומית
-      state.availableFiles.set(hash, {
+      state.availableFiles.set(fileHash, {
         blob, mimeType, size: blob.size, timestamp: Date.now(),
       });
 
@@ -1713,8 +1723,24 @@
     }
   }
 
-  // חלק Blossom (p2p-video-sharing.js) – fetch עם AbortController + timeout | HYPER CORE TECH
-  async function fetchBlossomBlob(url, mimeType, signal) {
+  function blossomCandidateUrls(url) {
+    const list = [];
+    const push = (u) => {
+      if (typeof u === 'string' && /^https?:\/\//i.test(u) && !list.includes(u)) list.push(u);
+    };
+    const raw = String(url || '');
+    push(raw);
+    const m = raw.match(/\/([0-9a-f]{64})(?:\.([a-z0-9]{2,5}))?(?:\?|#|$)/i);
+    if (m && /blossom\.band/i.test(raw)) {
+      const h = m[1].toLowerCase();
+      const ext = (m[2] || 'mp4').toLowerCase();
+      push(`https://blossom.nostr.build/${h}.${ext}`);
+      push(`https://files.sovbit.host/${h}.${ext}`);
+    }
+    return list.length ? list : (raw ? [raw] : []);
+  }
+
+  async function fetchBlossomBlobOnce(url, mimeType, signal) {
     const controller = new AbortController();
     const onAbort = () => {
       try { controller.abort(); } catch (_) {}
@@ -1730,7 +1756,8 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return await response.blob();
       } catch (corsErr) {
-        if (controller.signal.aborted) throw corsErr;
+        const msg = String(corsErr && corsErr.message ? corsErr.message : corsErr);
+        if (controller.signal.aborted || /HTTP 4\d\d/.test(msg)) throw corsErr;
         log('info', `CORS חסום, מנסה video element`, { url: String(url).substring(0, 30) + '...' });
         return await fetchViaVideoElement(url, mimeType);
       }
@@ -1738,6 +1765,21 @@
       clearTimeout(timer);
       if (signal) signal.removeEventListener('abort', onAbort);
     }
+  }
+
+  // חלק Blossom (p2p-video-sharing.js) – fetch עם AbortController + timeout | HYPER CORE TECH
+  async function fetchBlossomBlob(url, mimeType, signal) {
+    const urls = blossomCandidateUrls(url);
+    let lastErr = new Error('blossom-empty-url');
+    for (const candidate of urls) {
+      try {
+        log('info', `Blossom ניסיון`, { url: String(candidate).substring(0, 48) });
+        return await fetchBlossomBlobOnce(candidate, mimeType, signal);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr;
   }
 
   // חלק P2P (p2p-video-sharing.js) – הורדת קובץ מ-peer
@@ -2364,6 +2406,36 @@
     }
   }
 
+  async function resolveAvailableFile(hash) {
+    const raw = String(hash || '').trim();
+    if (!raw) return null;
+    const keys = [...new Set([raw, raw.toLowerCase()])];
+    for (let i = 0; i < keys.length; i++) {
+      const existing = state.availableFiles.get(keys[i]);
+      if (existing && existing.blob) return existing;
+    }
+    if (typeof App.getCachedMedia === 'function') {
+      try {
+        const cached = await App.getCachedMedia(raw);
+        if (cached && cached.blob) {
+          const data = {
+            blob: cached.blob,
+            mimeType: cached.mimeType || cached.blob.type,
+            size: cached.size || cached.blob.size,
+            timestamp: cached.timestamp || Date.now(),
+          };
+          state.availableFiles.set(raw.toLowerCase(), data);
+          return data;
+        }
+      } catch (_) {}
+    }
+    for (let i = 0; i < keys.length; i++) {
+      const existing = state.availableFiles.get(keys[i]);
+      if (existing) return existing;
+    }
+    return null;
+  }
+
   // חלק P2P (p2p-video-sharing.js) – טיפול בבקשת קובץ
   async function handleFileRequest(peerPubkey, data) {
     const { offer, hash, connectionId } = data;
@@ -2374,9 +2446,8 @@
       connectionId
     });
 
-    // בדיקה אם יש לנו את הקובץ
-    const fileData = state.availableFiles.get(hash);
-    if (!fileData) {
+    const fileData = await resolveAvailableFile(hash);
+    if (!fileData || !fileData.blob) {
       log('error', `❌ אין לי את הקובץ הזה`, { hash: hash.slice(0, 16) + '...' });
       return;
     }
@@ -2402,8 +2473,8 @@
         const sendFileToChannel = async (requestedHash) => {
           if (!requestedHash || isSending) return;
           const hash = requestedHash;
-          const fileData = state.availableFiles.get(hash);
-          if (!fileData) {
+          const fileData = await resolveAvailableFile(hash);
+          if (!fileData || !fileData.blob) {
             if (channel && channel.readyState === 'open') {
               try {
                 channel.send(JSON.stringify({ type: 'error', message: 'File not available' }));
@@ -2693,8 +2764,7 @@
         try {
           const cached = await App.getCachedMedia(hash);
           if (cached && cached.blob) {
-            p2pStats.downloads.total++;
-            p2pStats.downloads.fromCache++;
+            recordP2PDownload('cache', hash);
             log('success', `מ-Cache (fast-path)`, { hash: hash.slice(0,12), size: Math.round(cached.blob.size/1024)+'KB' });
             scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType);
             resetConsecutiveFailures();
@@ -2731,6 +2801,7 @@
             const blob = await fetchBlossomBlob(url, mimeType);
             log('success', `✅ הורדה מהלינק הצליחה`, { size: blob.size });
             markFeedProgress();
+            recordP2PDownload('blossom');
             return { blob, source: 'url' };
           } catch (err) {
             log('error', `❌ הורדה מהלינק נכשלה: ${err.message}`);
@@ -2739,11 +2810,10 @@
         }
 
         // בדיקת cache מקומי (גיבוי אם fast-path פספס)
-        p2pStats.downloads.total++;
         if (typeof App.getCachedMedia === 'function') {
           const cached = await App.getCachedMedia(hash);
           if (cached && cached.blob) {
-            p2pStats.downloads.fromCache++;
+            recordP2PDownload('cache', hash);
             log('success', `מ-Cache`, { hash: hash.slice(0,12), size: Math.round(cached.blob.size/1024)+'KB' });
             scheduleBackgroundRegistration(hash, cached.blob, cached.mimeType || mimeType);
             resetConsecutiveFailures();
@@ -2773,7 +2843,7 @@
         if (forceBlossom) {
           try {
             const blob = await fetchBlossomBlob(url, mimeType);
-            p2pStats.downloads.fromBlossom++;
+            recordP2PDownload('blossom', hash);
             log('success', `מ-Blossom [${tier}]`, { post: postIndex + 1, size: Math.round(blob.size / 1024) + 'KB' });
             return await cacheAndReturn(blob, 'blossom');
           } catch (blossomErr) {
@@ -2785,7 +2855,7 @@
                   reservePeerInflight(peer);
                   const result = await awaitPeerDownload(peer, hash, INITIAL_LOAD_TIMEOUT);
                   releasePeerInflight(peer);
-                  p2pStats.downloads.fromP2P++;
+                  recordP2PDownload('p2p', hash);
                   recordPeerDownloadUsage(peer, result.blob?.size || 0);
                   log('success', `מ-P2P (fallback מ-Blossom)`, { peer: peer.slice(0, 8), size: Math.round(result.blob.size / 1024) + 'KB' });
                   return await cacheAndReturn(result.blob, 'p2p-fallback', peer);
@@ -2844,7 +2914,7 @@
         if (peers.length === 0) {
           try {
             const blob = await fetchBlossomBlob(url, mimeType);
-            p2pStats.downloads.fromBlossom++;
+            recordP2PDownload('blossom', hash);
             log('success', `מ-URL (0 peers)`, { size: Math.round(blob.size / 1024) + 'KB' });
             return await cacheAndReturn(blob, 'url');
           } catch (err) {
@@ -2951,7 +3021,7 @@
         });
 
         if (outcome?.type === 'p2p') {
-          p2pStats.downloads.fromP2P++;
+          recordP2PDownload('p2p', hash);
           recordPeerDownloadUsage(outcome.peer, outcome.result.blob?.size || 0);
           log('success', `מ-P2P`, {
             peer: String(outcome.peer).slice(0, 8),
@@ -2963,7 +3033,7 @@
         }
 
         if (outcome?.blob) {
-          p2pStats.downloads.fromBlossom++;
+          recordP2PDownload('blossom', hash);
           log('success', `Blossom watch/fallback`, {
             source: outcome.source,
             size: Math.round(outcome.blob.size / 1024) + 'KB',
@@ -3074,61 +3144,53 @@
   // חלק P2P (p2p-video-sharing.js) – טעינת קבצים זמינים מ-IndexedDB בעת אתחול
   async function loadAvailableFilesFromCache() {
     try {
-      const DB_NAME = 'SOS2MediaCache';
-      const STORE_NAME = 'media';
-
-      return new Promise((resolve) => {
-        const request = indexedDB.open(DB_NAME, 1);
-        
-        request.onerror = () => {
-          log('error', '❌ לא ניתן לפתוח IndexedDB לטעינת קבצים');
-          resolve(0);
-        };
-
-        request.onsuccess = () => {
-          const db = request.result;
-          
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            log('info', 'ℹ️ אין store של מדיה ב-IndexedDB');
-            resolve(0);
-            return;
-          }
-
-          const transaction = db.transaction([STORE_NAME], 'readonly');
-          const store = transaction.objectStore(STORE_NAME);
-          const getAllRequest = store.getAll();
-
-          getAllRequest.onsuccess = () => {
-            const entries = getAllRequest.result || [];
-            let loadedCount = 0;
-
-            entries.forEach((entry) => {
-              if (entry.hash && entry.blob && entry.pinned) {
-                state.availableFiles.set(entry.hash, {
-                  blob: entry.blob,
-                  mimeType: entry.mimeType || entry.blob.type,
-                  size: entry.size || entry.blob.size,
-                  timestamp: entry.timestamp || Date.now(),
-                });
-                loadedCount++;
-              }
-            });
-
-            log('success', `✅ נטענו ${loadedCount} קבצים זמינים מ-cache`, {
-              total: entries.length,
-              pinned: loadedCount
-            });
-            resolve(loadedCount);
+      if (typeof App.whenMediaCacheReady === 'function') {
+        try { await App.whenMediaCacheReady(); } catch (_) {}
+      }
+      let entries = [];
+      if (typeof App.listCachedMediaMeta === 'function') {
+        entries = await App.listCachedMediaMeta();
+      } else {
+        const DB_NAME = 'SOS2MediaCache';
+        const STORE_NAME = 'media';
+        entries = await new Promise((resolve) => {
+          const request = indexedDB.open(DB_NAME, 1);
+          request.onerror = () => resolve([]);
+          request.onsuccess = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+              resolve([]);
+              return;
+            }
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const getAllRequest = store.getAll();
+            getAllRequest.onsuccess = () => resolve(getAllRequest.result || []);
+            getAllRequest.onerror = () => resolve([]);
           };
+        });
+      }
 
-          getAllRequest.onerror = () => {
-            log('error', '❌ שגיאה בטעינת קבצים מ-IndexedDB');
-            resolve(0);
-          };
-        };
+      let loadedCount = 0;
+      (entries || []).forEach((entry) => {
+        const hash = String(entry.hash || '').toLowerCase();
+        if (!hash) return;
+        const existing = state.availableFiles.get(hash);
+        state.availableFiles.set(hash, {
+          blob: existing?.blob || null,
+          mimeType: entry.mimeType || existing?.mimeType || 'video/mp4',
+          size: entry.size || existing?.size || 0,
+          timestamp: entry.timestamp || Date.now(),
+        });
+        loadedCount++;
       });
+
+      log('success', `✅ נרשמו ${loadedCount} קבצים מהקאש לשיתוף`, {
+        total: (entries || []).length,
+      });
+      return loadedCount;
     } catch (err) {
-      log('error', `❌ שגיאה בטעינת קבצים זמינים: ${err.message}`);
+      log('error', `❌ שגיאה בטעינת קבצים מ-IndexedDB: ${err.message}`);
       return 0;
     }
   }
@@ -3181,6 +3243,11 @@
   function getP2PStats() {
     return {
       downloads: { ...p2pStats.downloads },
+      downloadSeen: {
+        cache: Array.from(downloadSeen.cache),
+        blossom: Array.from(downloadSeen.blossom),
+        p2p: Array.from(downloadSeen.p2p),
+      },
       shares: { ...p2pStats.shares },
       peerCount: state.lastPeerCount,
       tier: state.networkTier,
@@ -3194,23 +3261,26 @@
     };
   }
 
-  // רישום הורדה מנתיבים שעוקפים את downloadVideoWithP2P (cache-first ב־feed/boot) | HYPER CORE TECH
-  function recordP2PDownload(source) {
+  // רישום הורדה לפי מקור; hash מונע כפילות לאותו סרטון | HYPER CORE TECH
+  function recordP2PDownload(source, hash) {
     const src = String(source || '').toLowerCase();
-    if (src === 'cache') {
-      p2pStats.downloads.total++;
-      p2pStats.downloads.fromCache++;
-    } else if (src === 'blossom') {
-      p2pStats.downloads.total++;
-      p2pStats.downloads.fromBlossom++;
-    } else if (src === 'p2p') {
-      p2pStats.downloads.total++;
-      p2pStats.downloads.fromP2P++;
-    } else if (src === 'failed') {
+    let bucket = '';
+    if (src === 'cache') bucket = 'cache';
+    else if (src === 'blossom' || src === 'url' || src === 'primary' || src === 'mirror' || src === 'network') bucket = 'blossom';
+    else if (src === 'p2p' || src === 'torrent') bucket = 'p2p';
+    else if (src === 'failed') {
       p2pStats.downloads.failed++;
+      return true;
     } else {
       return false;
     }
+    const key = hash ? String(hash).toLowerCase() : '';
+    if (key && downloadSeen[bucket].has(key)) return false;
+    if (key) downloadSeen[bucket].add(key);
+    p2pStats.downloads.total++;
+    if (bucket === 'cache') p2pStats.downloads.fromCache++;
+    else if (bucket === 'blossom') p2pStats.downloads.fromBlossom++;
+    else p2pStats.downloads.fromP2P++;
     try {
       if (typeof window.syncP2PStatsUI === 'function') window.syncP2PStatsUI();
     } catch (_) {}

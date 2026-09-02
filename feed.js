@@ -4240,6 +4240,17 @@ async function loadFeed() {
     const currentPostIndex = globalVideoLoadIndex++;
     
     try {
+      if (typeof App.whenMediaCacheReady === 'function') {
+        await App.whenMediaCacheReady();
+      }
+      let resolvedHash = String(hash || '').trim().toLowerCase();
+      if (!/^[a-f0-9]{64}$/.test(resolvedHash)) {
+        const src = [url, ...(mirrors || [])].join(' ');
+        const m = src.match(/\/([0-9a-f]{64})(?:\.[a-z0-9]+)?(?:\?|#|$)/i);
+        if (m) resolvedHash = m[1].toLowerCase();
+      }
+      hash = resolvedHash || hash;
+
       // קודם IndexedDB ישירות — בלי P2P/tiers בפתיחה חמה | HYPER CORE TECH
       if (hash && typeof App.getCachedMedia === 'function') {
         try {
@@ -4249,7 +4260,7 @@ async function loadFeed() {
             try { videoElement.load(); } catch (_) {}
             // נתיב ישיר עוקף downloadVideoWithP2P — חייבים לרשום לסטטיסטיקה | HYPER CORE TECH
             if (typeof App.recordP2PDownload === 'function') {
-              App.recordP2PDownload('cache');
+              App.recordP2PDownload('cache', hash);
             } else if (typeof window.updateP2PStatsUI === 'function') {
               window.updateP2PStatsUI('cache');
             }
@@ -4289,10 +4300,22 @@ async function loadFeed() {
           videoElement.src = objectUrl;
           
           console.log(`וידאו נטען מ-${result.source}:`, result.url || url);
+          if (typeof App.recordP2PDownload === 'function') {
+            App.recordP2PDownload(result.source === 'cache' ? 'cache' : 'blossom', hash);
+          }
           return { success: true, source: result.source || 'network' };
         }
         
         console.error('כל ה-URLs נכשלו');
+        if (url && /^https?:\/\//i.test(url)) {
+          videoElement.src = url;
+          try { videoElement.load(); } catch (_) {}
+          console.log('[feed] fallback direct src', String(url).slice(0, 60));
+          if (typeof App.recordP2PDownload === 'function') {
+            App.recordP2PDownload('blossom', hash);
+          }
+          return { success: true, source: 'direct-src' };
+        }
         return { success: false, source: 'none' };
       }
 
@@ -4303,7 +4326,7 @@ async function loadFeed() {
           const objectUrl = URL.createObjectURL(cached.blob);
           videoElement.src = objectUrl;
           if (typeof App.recordP2PDownload === 'function') {
-            App.recordP2PDownload('cache');
+            App.recordP2PDownload('cache', hash);
           } else if (typeof window.updateP2PStatsUI === 'function') {
             window.updateP2PStatsUI('cache');
           }
@@ -4322,12 +4345,15 @@ async function loadFeed() {
       videoElement.src = objectUrl;
 
       if (hash && typeof App.cacheMedia === 'function') {
-        App.cacheMedia(url, hash, blob, blob.type).catch(err => {
+        App.cacheMedia(url, hash, blob, blob.type, { pinned: true }).catch(err => {
           console.warn('Failed to cache video', err);
         });
       }
 
       console.log('וידאו נטען מהרשת:', url);
+      if (typeof App.recordP2PDownload === 'function') {
+        App.recordP2PDownload('blossom', hash);
+      }
       return { success: true, source: 'network' };
     } catch (err) {
       console.error('נכשלה טעינת וידאו:', err);
@@ -4344,7 +4370,7 @@ async function loadFeed() {
   const BOOTSTRAP_LOAD_DELAY = 100;
   const FEED_MAX_PARALLEL = 2;
 
-  const FEED_CODE_VERSION = '2.4.0-p2p-pipeline';
+  const FEED_CODE_VERSION = '2.4.0-p2p-pipeline-feed9';
   console.log(`%c🔧 Feed.js גרסה: ${FEED_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
   async function processVideoLoadQueue() {

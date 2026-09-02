@@ -78,7 +78,10 @@
       return null;
     }
     try {
-      const registration = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      const registration = await navigator.serviceWorker.register('./service-worker.js?v=747', {
+        scope: './',
+        updateViaCache: 'none',
+      });
       console.log('[PWA] Service Worker נרשם בהצלחה', registration.scope);
       
       // אם יש גרסה ממתינה – מציגים כרטיסייה (לא מדלגים אוטומטית) | HYPER CORE TECH

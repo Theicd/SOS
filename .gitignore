@@ -3,3 +3,8 @@
 *.log
 .env
 .env.*
+android-shell/app/build/
+android-shell/.gradle/
+android-shell/local.properties
+android-shell/.idea/
+*.iml

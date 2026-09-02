@@ -11,7 +11,7 @@
     { url: 'https://blossom.nostr.build', pubkey: 'npub1nostrbuild' },
     { url: 'https://nostr.build', pubkey: 'npub1nostrbuild' },
     { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
-    { url: 'https://files.sovbit.host' },  // SSL שבור כרגע — רק fallback אחרון
+    { url: 'https://files.sovbit.host' }, // SSL שבור כרגע — רק fallback אחרון
   ];
 
   function fixUrl(u){

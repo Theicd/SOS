@@ -41,7 +41,7 @@ exit /b 1
 start "" "%URL%"
 echo Starting Python server on port %PORT%...
 echo.
-%PY% -m http.server %PORT% --bind 127.0.0.1
+%PY% serve-local.py %PORT%
 if errorlevel 1 (
   echo.
   echo [ERROR] Could not start server. Port %PORT% may be in use.

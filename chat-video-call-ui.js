@@ -60,7 +60,7 @@
     if (!('serviceWorker' in navigator)) return;
     if (!window.isSecureContext) return;
     try {
-      const p = navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+      const p = navigator.serviceWorker.register('./service-worker.js?v=747', { scope: './', updateViaCache: 'none' });
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch {}
   }

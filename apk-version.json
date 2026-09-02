@@ -3,6 +3,6 @@
   "versionCode": 92,
   "file": "SOS-1.0.91.apk",
   "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.91/SOS-1.0.91.apk",
-  "releasedAt": "2026-09-01",
-  "note": "Same-subnet JOIN; HELLO name/avatar; emergency chat list of connected peers"
+  "releasedAt": "2026-09-02",
+  "note": "Emergency mesh + live stream; APK users get native toast only when versionCode rises; web toast is app-version.json"
 }

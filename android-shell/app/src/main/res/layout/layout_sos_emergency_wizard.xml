@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wizardRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e"
+    android:fillViewport="true"
+    android:visibility="gone">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:text="@string/emergency_wizard_title"
+            android:textColor="#00d4ff"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <ViewFlipper
+            android:id="@+id/wizardFlipper"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/emergency_wizard_ssid_label"
+                    android:textColor="#eeeeee"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/wizardSsidValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="#0d1117"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:padding="16dp"
+                    android:textColor="#4ade80"
+                    android:textSize="28sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/wizardCopySsid"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="20dp"
+                    android:backgroundTint="#00d4ff"
+                    android:text="@string/emergency_wizard_copy"
+                    android:textColor="#000000" />
+
+                <Button
+                    android:id="@+id/wizardContinue"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="#4ade80"
+                    android:enabled="false"
+                    android:text="@string/emergency_wizard_continue"
+                    android:textColor="#000000"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/emergency_wizard_howto_title"
+                    android:textColor="#fbbf24"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:lineSpacingExtra="6dp"
+                    android:text="@string/emergency_wizard_howto_body"
+                    android:textColor="#eeeeee"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/wizardPasswordValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="#0d1117"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:padding="12dp"
+                    android:textColor="#f87171"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/wizardCopyPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="12dp"
+                    android:backgroundTint="#00d4ff"
+                    android:text="@string/emergency_wizard_copy_password"
+                    android:textColor="#000000" />
+
+                <Button
+                    android:id="@+id/wizardOpenHotspot"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="#fbbf24"
+                    android:text="@string/emergency_wizard_open_hotspot"
+                    android:textColor="#000000" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/wizardVerifyTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/emergency_wizard_verify_title"
+                    android:textColor="#00d4ff"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/wizardVerifyStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="monospace"
+                    android:lineSpacingExtra="6dp"
+                    android:textColor="#eeeeee"
+                    android:textSize="14sp" />
+
+                <Button
+                    android:id="@+id/wizardRetry"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="20dp"
+                    android:backgroundTint="#fbbf24"
+                    android:text="@string/emergency_wizard_retry"
+                    android:textColor="#000000"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/wizardEnter"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="#4ade80"
+                    android:text="@string/emergency_wizard_enter"
+                    android:textColor="#000000"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </ViewFlipper>
+    </LinearLayout>
+</ScrollView>

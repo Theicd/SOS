@@ -41,7 +41,7 @@ exit /b 1
 start "" "%URL%"
 echo מפעיל שרת Python על פורט %PORT%...
 echo.
-%PY% -m http.server %PORT% --bind 127.0.0.1
+%PY% serve-local.py %PORT%
 if errorlevel 1 (
   echo.
   echo [שגיאה] לא ניתן להפעיל את השרת. ייתכן שהפורט %PORT% תפוס.

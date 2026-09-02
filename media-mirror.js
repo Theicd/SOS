@@ -5,7 +5,7 @@
 
   // חלק mirror (media-mirror.js) – הגדרות
   const TIMEOUT_MS = 10000; // 10 שניות timeout לכל ניסיון
-  const MAX_RETRIES = 3; // מקסימום ניסיונות לכל URL
+  const MAX_RETRIES = 1; // מקסימום ניסיונות לכל URL
 
   // חלק mirror (media-mirror.js) – רשימת דומיינים מהימנים שתמיד זמינים
   const TRUSTED_DOMAINS = [
@@ -94,17 +94,29 @@
 
   // חלק mirror (media-mirror.js) – טעינת מדיה עם fallback chain
   async function loadMediaWithFallback(primaryUrl, mirrors = [], hash = null) {
-    // רשימת כל ה-URLs לנסות (ראשי + mirrors)
-    const urlsToTry = [primaryUrl, ...mirrors].filter(Boolean);
+    const extraFromHash = [];
+    let h = String(hash || '').trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(h)) {
+      const src = [primaryUrl, ...(mirrors || [])].join(' ');
+      const m = src.match(/\/([0-9a-f]{64})(?:\.[a-z0-9]+)?(?:\?|#|$)/i);
+      if (m) h = m[1].toLowerCase();
+    }
+    if (/^[a-f0-9]{64}$/.test(h)) {
+      extraFromHash.push(
+        `https://blossom.band/${h}.mp4`,
+        `https://blossom.nostr.build/${h}.mp4`
+      );
+    }
+    const urlsToTry = [...new Set([primaryUrl, ...mirrors, ...extraFromHash].filter(Boolean))];
 
     console.log(`Trying to load media with ${urlsToTry.length} URLs...`);
 
     // ניסיון 1: טעינה מ-cache אם יש hash
-    if (hash && typeof App.getCachedMedia === 'function') {
+    if (h && typeof App.getCachedMedia === 'function') {
       try {
-        const cached = await App.getCachedMedia(hash);
+        const cached = await App.getCachedMedia(h);
         if (cached && cached.blob) {
-          console.log('✓ Loaded from cache:', hash.slice(0, 16));
+          console.log('✓ Loaded from cache:', h.slice(0, 16));
           return {
             success: true,
             blob: cached.blob,
@@ -144,11 +156,14 @@
 
           const blob = await response.blob();
 
-          // שמירה ב-cache אם יש hash
-          if (hash && typeof App.cacheMedia === 'function') {
-            App.cacheMedia(url, hash, blob, blob.type).catch(err => {
+          // שמירה ב-cache אם יש hash – pin כדי שלא יימחק אחרי רענון | HYPER CORE TECH
+          if (h && typeof App.cacheMedia === 'function') {
+            App.cacheMedia(url, h, blob, blob.type, { pinned: true }).catch(err => {
               console.warn('Failed to cache media:', err);
             });
+          }
+          if (h && typeof App.registerFileAvailability === 'function') {
+            App.registerFileAvailability(h, blob, blob.type || 'video/mp4').catch(() => {});
           }
 
           console.log(`✓ Loaded from URL ${i + 1}:`, url);

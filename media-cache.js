@@ -7,9 +7,21 @@
   const DB_NAME = 'SOS2MediaCache';
   const DB_VERSION = 1;
   const STORE_NAME = 'media';
-  const MAX_CACHE_SIZE = 300 * 1024 * 1024; // 300MB
+  const MAX_CACHE_SIZE = 1024 * 1024 * 1024; // 1GB – סרטונים גדולים; 300MB מחק אחרי רענון | HYPER CORE TECH
   const MAX_CACHE_AGE = 7 * 24 * 60 * 60 * 1000; // 7 ימים
   const PIN_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // פינים פגים אחרי 30 יום
+  let cleanupTimer = null;
+  let mediaCacheReadyResolve;
+  const mediaCacheReady = new Promise((resolve) => {
+    mediaCacheReadyResolve = resolve;
+    setTimeout(resolve, 6000);
+  });
+
+  function normalizeMediaHash(hash) {
+    const raw = String(hash || '').trim();
+    const lower = raw.toLowerCase();
+    return /^[a-f0-9]{64}$/.test(lower) ? lower : raw;
+  }
 
   let db = null;
   let dbSoftBlockedUntil = 0; // חסימה רכה עם ניסיון חוזר | HYPER CORE TECH
@@ -124,38 +136,97 @@
     return database;
   }
 
+  async function refreshMediaCacheHashSet() {
+    try {
+      const database = await openDB();
+      if (!database) return;
+      const transaction = database.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const hashes = await new Promise((resolve, reject) => {
+        const req = store.getAllKeys();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+      App.mediaCacheHashSet = new Set((hashes || []).map((h) => normalizeMediaHash(h)));
+      console.log('[media-cache] hash set ready', { count: App.mediaCacheHashSet.size });
+    } catch (err) {
+      console.warn('[media-cache] hash set failed', err);
+      App.mediaCacheHashSet = App.mediaCacheHashSet || new Set();
+    }
+  }
+
+  function rememberCachedHash(hash) {
+    try {
+      if (!hash) return;
+      App.mediaCacheHashSet = App.mediaCacheHashSet || new Set();
+      App.mediaCacheHashSet.add(String(hash));
+    } catch (_) {}
+  }
+
+  function forgetCachedHash(hash) {
+    try {
+      if (!hash || !App.mediaCacheHashSet) return;
+      App.mediaCacheHashSet.delete(String(hash));
+      App.mediaCacheHashSet.delete(String(hash).toLowerCase());
+    } catch (_) {}
+  }
+
+  function scheduleCleanup() {
+    if (cleanupTimer) return;
+    cleanupTimer = setTimeout(() => {
+      cleanupTimer = null;
+      cleanupOldCache().catch(() => {});
+    }, 8000);
+  }
+
+  async function putCacheEntry(database, entry) {
+    const transaction = database.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    await new Promise((resolve, reject) => {
+      const request = store.put(entry);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   // חלק cache (media-cache.js) – שמירת מדיה ב-cache
   async function cacheMedia(url, hash, blob, mimeType, options = {}) {
     try {
+      const key = normalizeMediaHash(hash);
+      if (!key || !blob) return false;
       const database = await openDB();
       if (!database) {
         return false;
       }
-      const transaction = database.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-
+      const mime = mimeType || blob.type || '';
+      const isVideo = /^video\//i.test(mime) || /\.(mp4|webm|mov)(\?|#|$)/i.test(String(url || ''));
+      const pinned = options.pinned != null ? Boolean(options.pinned) : isVideo;
       const entry = {
-        hash,
+        hash: key,
         url,
         blob,
-        mimeType: mimeType || blob.type,
+        mimeType: mime,
         size: blob.size,
         timestamp: Date.now(),
-        pinned: Boolean(options.pinned),
-        lastPinnedAt: options.pinned ? Date.now() : 0,
+        pinned,
+        lastPinnedAt: pinned ? Date.now() : 0,
       };
 
-      await new Promise((resolve, reject) => {
-        const request = store.put(entry);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
+      try {
+        await putCacheEntry(database, entry);
+      } catch (putErr) {
+        const name = putErr && putErr.name ? String(putErr.name) : '';
+        if (name === 'QuotaExceededError') {
+          await cleanupOldCache();
+          await putCacheEntry(database, entry);
+        } else {
+          throw putErr;
+        }
+      }
 
-      console.log('Media cached:', { hash: hash.slice(0, 16), size: blob.size });
-      
-      // ניקוי cache ישן אם צריך
-      await cleanupOldCache();
-      
+      console.log('Media cached:', { hash: key.slice(0, 16), size: blob.size, pinned });
+      rememberCachedHash(key);
+      scheduleCleanup();
       return true;
     } catch (err) {
       console.error('Failed to cache media', err);
@@ -163,34 +234,36 @@
     }
   }
 
+  async function getByHashKey(database, key) {
+    const transaction = database.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   async function pinCachedMedia(hash, pinned = true) {
     try {
+      const key = normalizeMediaHash(hash);
       const database = await openDB();
       if (!database) {
         return false;
       }
-      const transaction = database.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-
-      const entry = await new Promise((resolve, reject) => {
-        const request = store.get(hash);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-
+      let entry = await getByHashKey(database, key);
+      if (!entry && key !== hash) {
+        entry = await getByHashKey(database, hash);
+      }
       if (!entry) {
         return false;
       }
 
       entry.pinned = Boolean(pinned);
       entry.lastPinnedAt = entry.pinned ? Date.now() : (entry.lastPinnedAt || 0);
+      if (entry.hash !== key) entry.hash = key;
 
-      await new Promise((resolve, reject) => {
-        const request = store.put(entry);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-
+      await putCacheEntry(database, entry);
       return true;
     } catch (err) {
       console.error('Failed to pin cached media', err);
@@ -209,20 +282,27 @@
       if (!database) {
         return null;
       }
-      const transaction = database.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-
-      const entry = await new Promise((resolve, reject) => {
-        const request = store.get(hash);
-        request.onsuccess = () => resolve(request.result || null);
-        request.onerror = () => reject(request.error);
-      });
-
-      if (!entry || !entry.blob) return null;
-      return entry;
+      const key = normalizeMediaHash(hash);
+      const keysToTry = [...new Set([key, String(hash).trim()].filter(Boolean))];
+      for (let i = 0; i < keysToTry.length; i++) {
+        const entry = await getByHashKey(database, keysToTry[i]);
+        if (entry && entry.blob) return entry;
+      }
+      try {
+        const cached = App.mediaCacheHashSet;
+        if (cached && cached.size) {
+          const want = key.toLowerCase();
+          for (const existing of cached) {
+            if (String(existing).toLowerCase() === want) {
+              const entry = await getByHashKey(database, existing);
+              if (entry && entry.blob) return entry;
+            }
+          }
+        }
+      } catch (_) {}
+      return null;
     } catch (err) {
       console.error('Failed to get cached media', err);
-      // DB נסגר באמצע — מאפסים לניסיון הבא | HYPER CORE TECH
       db = null;
       return null;
     }
@@ -232,13 +312,17 @@
     try {
       const database = await openDB();
       if (!database) return false;
+      const keys = [...new Set([normalizeMediaHash(hash), String(hash || '').trim()].filter(Boolean))];
       const transaction = database.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      await new Promise((resolve, reject) => {
-        const request = store.delete(hash);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
+      for (let i = 0; i < keys.length; i++) {
+        await new Promise((resolve, reject) => {
+          const request = store.delete(keys[i]);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+        forgetCachedHash(keys[i]);
+      }
       return true;
     } catch (err) {
       console.error('Failed to delete cached media', err);
@@ -275,6 +359,7 @@
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
           });
+          forgetCachedHash(entry.hash);
           totalSize -= entry.size || 0;
         }
       }
@@ -290,6 +375,22 @@
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
           });
+          forgetCachedHash(entry.hash);
+          totalSize -= entry.size || 0;
+        }
+      }
+      if (totalSize > MAX_CACHE_SIZE) {
+        const pinnedOldest = entries
+          .filter((e) => e.pinned)
+          .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        for (const entry of pinnedOldest) {
+          if (totalSize <= MAX_CACHE_SIZE * 0.85) break;
+          await new Promise((resolve, reject) => {
+            const request = store.delete(entry.hash);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+          });
+          forgetCachedHash(entry.hash);
           totalSize -= entry.size || 0;
         }
       }
@@ -367,6 +468,32 @@
     }
   }
 
+  async function listCachedMediaMeta() {
+    try {
+      const database = await openDB();
+      if (!database) return [];
+      const transaction = database.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const entries = await new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      });
+      return (entries || [])
+        .filter((e) => e && e.hash)
+        .map((e) => ({
+          hash: normalizeMediaHash(e.hash),
+          mimeType: e.mimeType || '',
+          size: e.size || 0,
+          timestamp: e.timestamp || 0,
+          pinned: Boolean(e.pinned),
+        }));
+    } catch (err) {
+      console.error('Failed to list cached media', err);
+      return [];
+    }
+  }
+
   async function init() {
     try {
       const database = await openDB();
@@ -385,39 +512,24 @@
       await refreshMediaCacheHashSet();
     } catch (err) {
       console.error('Media cache initialization failed', err);
+    } finally {
+      try { mediaCacheReadyResolve(); } catch (_) {}
     }
   }
 
-  
-  async function refreshMediaCacheHashSet() {
-    try {
-      const database = await openDB();
-      if (!database) return;
-      const transaction = database.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const hashes = await new Promise((resolve, reject) => {
-        const req = store.getAllKeys();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
-      });
-      App.mediaCacheHashSet = new Set((hashes || []).map((h) => String(h).toLowerCase()));
-      console.log('[media-cache] hash set ready', { count: App.mediaCacheHashSet.size });
-    } catch (err) {
-      console.warn('[media-cache] hash set failed', err);
-      App.mediaCacheHashSet = App.mediaCacheHashSet || new Set();
-    }
-  }
-
-Object.assign(App, {
+  Object.assign(App, {
     cacheMedia,
     getCachedMedia,
     deleteCachedMedia,
     getCacheStats,
     pinCachedMedia,
+    listCachedMediaMeta,
     clearMediaCache: clearAllCache,
     retryMediaCacheOpen,
     refreshMediaCacheHashSet,
     isMediaCacheAvailable,
+    whenMediaCacheReady: () => mediaCacheReady,
+    normalizeMediaHash,
   });
 
   if (document.readyState === 'loading') {

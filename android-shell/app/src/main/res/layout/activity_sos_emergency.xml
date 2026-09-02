@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1a1a2e"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="#1a1a2e">
+
+    <LinearLayout
+        android:id="@+id/stationRoot"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="16dp">
 
     <Button
         android:id="@+id/backToNetworkButton"
@@ -133,10 +138,18 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/hotspotHintSsid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingTop="4dp"
-            android:text="שם רשת: SOS12345"
+            android:textColor="#f87171"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/hotspotHintPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:textColor="#f87171"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -144,16 +157,8 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="סיסמה: SOS12345"
-            android:textColor="#f87171"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
             android:paddingTop="4dp"
-            android:text="⚠️ הגדר Hotspot עם הפרטים למעלה על כל המכשירים"
+            android:text="העתק את השם בהגדרה הראשונה. אחר כך רק מדליקים."
             android:textColor="#aaaaaa"
             android:textSize="12sp" />
     </LinearLayout>
@@ -256,4 +261,7 @@
             android:textIsSelectable="true"
             android:textSize="11sp" />
     </ScrollView>
-</LinearLayout>
+    </LinearLayout>
+
+    <include layout="@layout/layout_sos_emergency_wizard" />
+</FrameLayout>
