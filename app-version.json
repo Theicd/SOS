@@ -1,5 +1,5 @@
 ﻿{
-  "version": "2026.09.02-pwa413-boot-cache-unblock",
-  "buildTime": "2026-09-02T07:40:00+03:00",
-  "notes": "Fix empty hydrate false-warm-start; release LoadNug on cards; short IDB attach without P2P hang"
+  "version": "2026.09.02-pwa414-keep-cards-visible",
+  "buildTime": "2026-09-02T07:55:00+03:00",
+  "notes": "Phone log: cards dropped on youtube-thumb/timeout; CSS :has(LoadNug) hid feed. Mount cards immediately, soft-fail keeps cards, remove LoadNug hide rule."
 }
