@@ -400,7 +400,7 @@
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
       });
-      App.mediaCacheHashSet = new Set((hashes || []).map((h) => String(h)));
+      App.mediaCacheHashSet = new Set((hashes || []).map((h) => String(h).toLowerCase()));
       console.log('[media-cache] hash set ready', { count: App.mediaCacheHashSet.size });
     } catch (err) {
       console.warn('[media-cache] hash set failed', err);

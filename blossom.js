@@ -5,12 +5,13 @@
   // מבוסס רעיונית על yakbak/src/lib/blossom.ts אך מותאם JS פשוט וללא תלות חיצונית
 
   // חלק העלאות (blossom.js) – שרתי Blossom עם תמיכה ב-CORS
+  // files.sovbit.host ירד לסוף — ERR_CERT_DATE_INVALID שובר אורחים | HYPER CORE TECH
   const DEFAULT_SERVERS = [
-    { url: 'https://files.sovbit.host' },  // עובד! תומך CORS - נבדק
-    { url: 'https://blossom.band', pubkey: 'npub1blossomserver' },  // 56ms - דורש auth
-    { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
+    { url: 'https://blossom.band', pubkey: 'npub1blossomserver' },
     { url: 'https://blossom.nostr.build', pubkey: 'npub1nostrbuild' },
     { url: 'https://nostr.build', pubkey: 'npub1nostrbuild' },
+    { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
+    { url: 'https://files.sovbit.host' },  // SSL שבור כרגע — רק fallback אחרון
   ];
 
   function fixUrl(u){

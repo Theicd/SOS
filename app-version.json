@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.02-pwa421-feed-unblock",
-  "buildTime": "2026-09-02T16:40:00+03:00",
-  "notes": "Unblock empty feed: detect sovbit video URLs, never wipe feed cache to empty, warm-start only with posts"
+  "version": "2026.09.02-pwa424-restore-backup-feed",
+  "buildTime": "2026-09-02T17:15:00+03:00",
+  "notes": "Restore guest Blossom 10 + hybrid 5; allow YouTube in feed/cache like backup; demote broken files.sovbit.host SSL"
 }

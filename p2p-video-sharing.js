@@ -126,7 +126,7 @@
   // חלק Network Tiers (p2p-video-sharing.js) – P2P קודם; Blossom = fallback/משגיח | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: אין peers → Blossom
   const NETWORK_TIER_HYBRID_MAX = 10;
-  const HYBRID_BLOSSOM_POSTS = 1;         // first-paint בלבד מ-Blossom — השאר P2P | HYPER CORE TECH
+  const HYBRID_BLOSSOM_POSTS = 5;         // כמו בגיבוי העובד — כמות פוסטים מ-Blossom ב-Hybrid | HYPER CORE TECH
   const INITIAL_LOAD_TIMEOUT = 12000;     // בסיס לפני progress; עם בתים ממתינים עד hard-cap | HYPER CORE TECH
   const AVAILABILITY_PUBLISH_DELAY = 2000;
   const PEER_COUNT_CACHE_TTL = 30000; // גילוי מהיר יותר אחרי תיקון mesh DC | HYPER CORE TECH
@@ -149,8 +149,8 @@
   const HEARTBEAT_LOOKBACK = 180;         // חיפוש heartbeats מ-3 דקות אחורה (מותאם ל-P2P_FULL)
   let heartbeatTimerId = null;            // טיימר דינמי לפי HEARTBEAT_INTERVAL העדכני | HYPER CORE TECH
   
-  // חלק Guest P2P (p2p-video-sharing.js) – first-paint בלבד מ-Blossom; שאר P2P | HYPER CORE TECH
-  const GUEST_BLOSSOM_FIRST_POSTS = 1;    // אורחים: פוסט ראשון בלבד מ-Blossom | HYPER CORE TECH
+  // חלק Guest P2P (p2p-video-sharing.js) – כמו בגיבוי: 10 פוסטים ראשונים מ-Blossom | HYPER CORE TECH
+  const GUEST_BLOSSOM_FIRST_POSTS = 10;   // כמו בגיבוי — אורחים: 10 פוסטים ראשונים מ-Blossom | HYPER CORE TECH
   const GUEST_P2P_TIMEOUT = 8000;
   const GUEST_MAX_PEER_SEARCH_TIME = 5000;
   const GUEST_MAX_PEERS_TO_TRY = 2;
