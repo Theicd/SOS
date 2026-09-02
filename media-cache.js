@@ -199,8 +199,7 @@
 
   // חלק cache (media-cache.js) – שליפת מדיה מה-cache
   async function getCachedMedia(hash) {
-    const raw = String(hash || '').trim();
-    if (!raw) return null;
+    if (!hash) return null;
     try {
       let database = await openDB();
       if (!database && Date.now() >= dbSoftBlockedUntil) {
@@ -209,53 +208,20 @@
       if (!database) {
         return null;
       }
-      // נרמול מפתח — miss נפוץ על הבדלי case; טרנזקציה חדשה לכל מפתח | HYPER CORE TECH
-      const keys = [...new Set([raw, raw.toLowerCase(), raw.toUpperCase()])];
-      for (const key of keys) {
-        const transaction = database.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const entry = await new Promise((resolve, reject) => {
-          const request = store.get(key);
-          request.onsuccess = () => resolve(request.result || null);
-          request.onerror = () => reject(request.error);
-        });
-        if (entry && entry.blob) return entry;
-      }
-      return null;
+      const transaction = database.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+
+      const entry = await new Promise((resolve, reject) => {
+        const request = store.get(hash);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+
+      if (!entry || !entry.blob) return null;
+      return entry;
     } catch (err) {
       console.error('Failed to get cached media', err);
       // DB נסגר באמצע — מאפסים לניסיון הבא | HYPER CORE TECH
-      db = null;
-      return null;
-    }
-  }
-
-  async function getCachedMediaByUrl(url) {
-    const raw = String(url || '').trim();
-    if (!raw) return null;
-    try {
-      let database = await openDB();
-      if (!database && Date.now() >= dbSoftBlockedUntil) {
-        database = await retryMediaCacheOpen();
-      }
-      if (!database) return null;
-      if (!database.objectStoreNames.contains(STORE_NAME)) return null;
-      const candidates = [...new Set([raw, raw.split('?')[0], raw.split('#')[0]])].filter(Boolean);
-      for (const key of candidates) {
-        const transaction = database.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        if (!store.indexNames.contains('url')) break;
-        const index = store.index('url');
-        const entry = await new Promise((resolve, reject) => {
-          const request = index.get(key);
-          request.onsuccess = () => resolve(request.result || null);
-          request.onerror = () => reject(request.error);
-        });
-        if (entry && entry.blob) return entry;
-      }
-      return null;
-    } catch (err) {
-      console.error('Failed to get cached media by url', err);
       db = null;
       return null;
     }
@@ -423,7 +389,6 @@
   Object.assign(App, {
     cacheMedia,
     getCachedMedia,
-    getCachedMediaByUrl,
     deleteCachedMedia,
     getCacheStats,
     pinCachedMedia,

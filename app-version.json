@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.02-pwa416-cache-dom-decode",
-  "buildTime": "2026-09-02T08:45:00+03:00",
-  "notes": "Unblock IDB video: hidden stage-mount for WebView decode; hash-from-URL + url index; 12s miss timeout"
+  "version": "2026.09.01-pwa409-emergency-chat",
+  "buildTime": "2026-09-01T13:40:00+03:00",
+  "notes": "APK 1.0.91: same-subnet emergency mesh, HELLO identity, emergency chat contacts"
 }

@@ -1,8 +1,8 @@
-﻿// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
+// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v737'; // bump - cache DOM decode unblock
+  const CACHE_NAME = 'sos-cache-v730'; // bump - emergency APK 1.0.91
   const PRECACHE_URLS = [
     './',
     './videos.html',

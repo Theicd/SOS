@@ -341,6 +341,7 @@
     
     const contactsArray = [];
     chatState.contacts.forEach((contact) => {
+      if (contact?.emergencyMesh) return;
       contactsArray.push({
         pubkey: contact.pubkey,
         name: contact.name,
@@ -356,6 +357,8 @@
     });
     const conversationsArray = [];
     chatState.conversations.forEach((info, key) => {
+      const peer = String(info?.peer || '').toLowerCase();
+      if (chatState.contacts.get(peer)?.emergencyMesh) return;
       conversationsArray.push({
         key,
         peer: info.peer,
@@ -451,7 +454,7 @@
       if (!parsed || typeof parsed !== 'object') return;
       if (Array.isArray(parsed.contacts)) {
         parsed.contacts.forEach((contact) => {
-          if (!contact || !contact.pubkey) {
+          if (!contact || !contact.pubkey || contact.emergencyMesh) {
             return;
           }
           const key = contact.pubkey.toLowerCase();
@@ -584,6 +587,9 @@
         }
       }
       if (profile.profileFetchedAt) existing.profileFetchedAt = profile.profileFetchedAt;
+      if (profile.emergencyMesh) {
+        existing.emergencyMesh = true;
+      }
       // רק אם יש שינוי - עדכן UI
       if (hasChange) {
         debouncedNotifyContacts();
@@ -606,6 +612,7 @@
       lastReadTimestamp: profile.lastReadTimestamp || 0,
       profileFetchedAt: profile.profileFetchedAt || Math.floor(Date.now() / 1000),
       archived: false,
+      emergencyMesh: !!profile.emergencyMesh,
     };
     chatState.contacts.set(normalized, contact);
     debouncedNotifyContacts();
