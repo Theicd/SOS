@@ -1,5 +1,5 @@
 ﻿{
-  "version": "2026.09.02-pwa412-restore-pre-emergency",
-  "buildTime": "2026-09-02T06:50:00+03:00",
-  "notes": "Restore pre-emergency-launcher backup to verify empty-feed regression"
+  "version": "2026.09.02-pwa413-boot-cache-unblock",
+  "buildTime": "2026-09-02T07:40:00+03:00",
+  "notes": "Fix empty hydrate false-warm-start; release LoadNug on cards; short IDB attach without P2P hang"
 }

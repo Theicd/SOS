@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.15-desktop-video-ar';
+const VIDEOS_CODE_VERSION = '2.6.18-boot-cache-unblock';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1775,7 +1775,8 @@ const MIN_DOWNLOAD_BYTES = 20 * 1024 * 1024; // 20MB מינימום
 // כמה פוסטים ראשונים חייבים להיות מוכנים לצפייה לפני סגירת LoadNug | HYPER CORE TECH
 const BOOT_READY_POST_COUNT = 2;
 const BOOT_MEDIA_TIMEOUT_MS = 20000;
-const BOOT_SAFETY_TIMEOUT_MS = 45000;
+const BOOT_SAFETY_TIMEOUT_MS = 16000; // לא לחכות 45ש׳ — שחרור מסך אם מדיה תקועה | HYPER CORE TECH
+const BOOT_ATTACH_TIMEOUT_MS = 4500; // attach מקאש בלי P2P ארוך בזמן LoadNug | HYPER CORE TECH
 
 const bootGate = {
   active: true,
@@ -2089,8 +2090,14 @@ function hydrateFeedFromCache() {
       firstCreatedAt: filtered[0] ? getVideoCreatedAt(filtered[0]) : 0,
       firstIsYouTube: !!(filtered[0]?.youtubeId && !filtered[0]?.videoUrl),
     });
+    // לא מחזירים true על 0 פוסטים — זה תלה את LoadNug על boot-gate ריק | HYPER CORE TECH
+    if (!filtered.length) {
+      console.warn('[videos] hydrate produced 0 display posts — keeping disk cache, waiting for network');
+      state.videos = [];
+      return false;
+    }
     state.videos = filtered;
-    // סנכרון דיסק אחרי סינון מחיקות — מונע skip של IDs "בקאש" שלא מוצגים | HYPER CORE TECH
+    // סנכרון דיסק רק כשנשארו פוסטים — לא לרוקן את הקאש ל־[] | HYPER CORE TECH
     if (filtered.length !== cached.length) {
       try {
         saveFeedCache(filtered);
@@ -2117,7 +2124,7 @@ function hydrateFeedFromCache() {
         });
       }).catch(err => console.warn('[videos] Failed to load likes for cached videos', err));
     }
-    return true;
+    return getDisplayVideos().length > 0;
   }
   return false;
 }
@@ -3214,23 +3221,24 @@ function waitForMediaElementReady(el, { timeoutMs = BOOT_MEDIA_TIMEOUT_MS, event
   });
 }
 
-async function waitForPostMediaPlayable(video) {
+async function waitForPostMediaPlayable(video, timeoutMs = BOOT_MEDIA_TIMEOUT_MS) {
   if (!video?.id) return false;
-  const card = await waitForFeedCard(video.id);
+  const card = await waitForFeedCard(video.id, Math.min(timeoutMs, 8000));
   if (!card) return false;
   const mediaDiv = card.querySelector('.videos-feed__media');
   if (!mediaDiv) return false;
   const type = mediaDiv.dataset.mediaType || '';
+  const mediaWait = Math.min(timeoutMs, 12000);
 
   if (type === 'youtube') {
     const thumb = mediaDiv.querySelector('img.videos-feed__media-thumb, img');
     if (!thumb) return true;
-    return waitForMediaElementReady(thumb, { events: ['load'], timeoutMs: 12000 });
+    return waitForMediaElementReady(thumb, { events: ['load'], timeoutMs: mediaWait });
   }
   if (type === 'image') {
     const img = mediaDiv.querySelector('img');
     if (!img) return true;
-    return waitForMediaElementReady(img, { events: ['load'], timeoutMs: 12000 });
+    return waitForMediaElementReady(img, { events: ['load'], timeoutMs: mediaWait });
   }
   if (type === 'file') {
     const videoEl = mediaDiv.querySelector('video');
@@ -3259,7 +3267,7 @@ async function waitForPostMediaPlayable(video) {
           done(true);
         }
       }, 100);
-      const timer = setTimeout(() => done(false), BOOT_MEDIA_TIMEOUT_MS);
+      const timer = setTimeout(() => done(false), timeoutMs);
       videoEl.addEventListener('loadeddata', onOk, { once: true });
       videoEl.addEventListener('canplay', onOk, { once: true });
       videoEl.addEventListener('loadedmetadata', onOk, { once: true });
@@ -3394,36 +3402,53 @@ async function loadBootMetaForPosts(posts) {
 }
 
 /**
- * טעינה מהירה לבוט: קודם IndexedDB בלבד (בלי P2P/tiers), במקביל ל־2 הפוסטים הראשונים | HYPER CORE TECH
+ * טעינה מהירה לבוט: IndexedDB קצר בלבד — בלי P2P ארוך שתוקע LoadNug | HYPER CORE TECH
  */
 async function attachBootVideoFromCache(video) {
   if (!video?.id) return false;
   const App = window.NostrApp || {};
-  const card = await waitForFeedCard(video.id, 12000);
+  const card = await waitForFeedCard(video.id, 4000);
   if (!card) return false;
   const mediaDiv = card.querySelector('.videos-feed__media');
   if (!mediaDiv) return false;
   const type = mediaDiv.dataset.mediaType || '';
 
   if (type !== 'file') {
-    return waitForPostMediaPlayable(video);
+    const ok = await waitForPostMediaPlayable(video, BOOT_ATTACH_TIMEOUT_MS);
+    if (ok) revealBootVideoFrame(video);
+    else revealBootVideoFrame(video);
+    return ok;
   }
 
   const videoEl = mediaDiv.querySelector('video');
-  if (!videoEl) return false;
+  if (!videoEl) {
+    revealBootVideoFrame(video);
+    return false;
+  }
   removeVideoElFromDownloadQueue(videoEl);
 
   // deep-link לאורח: URL/Blossom לפני קאש ריק | HYPER CORE TECH
   const isDeep = !!(video.fromDeepLink || (pendingPostDeepLinkId && video.id === pendingPostDeepLinkId));
   if (isDeep) {
-    const okDeep = await prioritizeDeepLinkMedia(video);
-    if (okDeep) return true;
+    try {
+      const okDeep = await Promise.race([
+        prioritizeDeepLinkMedia(video),
+        sleepMs(BOOT_ATTACH_TIMEOUT_MS).then(() => false),
+      ]);
+      if (okDeep) {
+        revealBootVideoFrame(video);
+        return true;
+      }
+    } catch (_) {}
   }
 
   let attached = false;
-  if (video.hash && typeof App.getCachedMedia === 'function') {
+  if (video.hash) {
     try {
-      attached = await tryAttachVideoFromLocalCache(videoEl, video.hash);
+      attached = await Promise.race([
+        tryAttachVideoFromLocalCache(videoEl, video.hash),
+        sleepMs(2500).then(() => false),
+      ]);
       if (attached) {
         console.log('[videos] boot fast-cache hit', { id: video.id });
       }
@@ -3432,20 +3457,7 @@ async function attachBootVideoFromCache(video) {
     }
   }
 
-  if (!attached && typeof App.loadVideoWithCache === 'function') {
-    try {
-      const result = await App.loadVideoWithCache(
-        videoEl,
-        video.videoUrl,
-        video.hash || '',
-        video.mirrors || []
-      );
-      attached = !!(result && result.success !== false && (videoEl.src || videoEl.currentSrc));
-    } catch (err) {
-      console.warn('[videos] boot loadVideoWithCache failed', err);
-    }
-  }
-
+  // בזמן LoadNug לא נכנסים ל־P2P/tiers — רק URL ישיר קצר אם אין קאש | HYPER CORE TECH
   if (!attached && video.videoUrl) {
     try {
       videoEl.src = video.videoUrl;
@@ -3454,12 +3466,12 @@ async function attachBootVideoFromCache(video) {
     } catch (_) {}
   }
 
-  const ok = await waitForPostMediaPlayable(video);
-  if (ok) revealBootVideoFrame(video);
+  const ok = await waitForPostMediaPlayable(video, BOOT_ATTACH_TIMEOUT_MS);
+  revealBootVideoFrame(video);
   return ok;
 }
 
-// חלק טעינה (videos.js) – סגירת LoadNug רק אחרי ש־2 פוסטים מוכנים לצפייה | HYPER CORE TECH
+// חלק טעינה (videos.js) – סגירת LoadNug כשיש כרטיסים; מדיה מקאש במקביל בלי תקיעה | HYPER CORE TECH
 async function ensureBootFeedReady() {
   // בית בלי שיחות — לא מדלגים על attach מקאש בגלל pause תקוע | HYPER CORE TECH
   syncFeedWarmupPauseWithChat('boot');
@@ -3478,7 +3490,7 @@ async function ensureBootFeedReady() {
       return;
     }
 
-    await Promise.all(posts.map((p) => waitForFeedCard(p.id, 15000)));
+    await Promise.all(posts.map((p) => waitForFeedCard(p.id, 5000)));
     await sleepMs(30);
 
     // עוצרים את התור הסדרתי בזמן טעינת 2 הראשונים מהקאש | HYPER CORE TECH
@@ -3495,34 +3507,38 @@ async function ensureBootFeedReady() {
     setLoadingStatus(`טוען ${posts.length} פוסטים ראשונים מהקאש...`);
     setLoadingProgress(60);
 
-    // בשיחות — עוצרים attach מהקאש לגמרי (עומס מכשיר); loadVideos ממשיך ברקע | HYPER CORE TECH
     try {
       if (typeof App.retryMediaCacheOpen === 'function' && !feedWarmupPaused) {
-        await App.retryMediaCacheOpen();
+        await Promise.race([
+          App.retryMediaCacheOpen(),
+          sleepMs(1500),
+        ]);
       }
     } catch (_) {}
 
-    const mediaResults = [];
-    for (let index = 0; index < posts.length; index++) {
-      const video = posts[index];
-      if (feedWarmupPaused) {
-        console.log('[videos] boot media deferred (chat open)', { id: video.id });
-        mediaResults.push(false);
-        setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
-        continue;
-      }
-      if (bootGate.released) {
-        console.log('[videos] boot media skipped — already released / deeplink');
-        break;
-      }
-      const ok = await attachBootVideoFromCache(video);
-      mediaResults.push(ok);
-      setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
-      console.log('[videos] boot media', {
-        id: video.id,
-        ok,
-        type: video.youtubeId ? 'youtube' : (video.videoUrl ? 'file' : 'other'),
-      });
+    let mediaResults = [];
+    if (feedWarmupPaused) {
+      console.log('[videos] boot media deferred (chat open)');
+      mediaResults = posts.map(() => false);
+      posts.forEach((p) => revealBootVideoFrame(p));
+    } else if (!bootGate.released) {
+      // attach במקביל + תקרת זמן — לא לתקוע על P2P/0 peers | HYPER CORE TECH
+      mediaResults = await Promise.all(
+        posts.map(async (video, index) => {
+          const ok = await Promise.race([
+            attachBootVideoFromCache(video),
+            sleepMs(BOOT_ATTACH_TIMEOUT_MS + 1500).then(() => false),
+          ]);
+          setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
+          console.log('[videos] boot media', {
+            id: video.id,
+            ok,
+            type: video.youtubeId ? 'youtube' : (video.videoUrl ? 'file' : 'other'),
+          });
+          revealBootVideoFrame(video);
+          return ok;
+        })
+      );
     }
 
     feedDownloadsPaused = prevPaused;
@@ -3537,34 +3553,24 @@ async function ensureBootFeedReady() {
 
     const readyCount = mediaResults.filter(Boolean).length;
     const need = Math.min(BOOT_READY_POST_COUNT, posts.length);
-    // לא משחררים על פוסט אחד — רק כשיש 2 מוכנים (או כל מה שיש אם פחות מ־2) | HYPER CORE TECH
+    // יש כרטיסים על המסך — משחררים LoadNug גם אם המדיה עדיין מחממת ברקע | HYPER CORE TECH
+    posts.forEach((p) => revealBootVideoFrame(p));
     if (readyCount >= need) {
       await releaseBootLoading(`boot-ready media=${readyCount}/${need}`);
     } else {
-      console.warn('[videos] boot: waiting longer for 2 ready posts', { readyCount, need });
-      const deadline = Date.now() + 12000;
-      let finalReady = readyCount;
-      while (Date.now() < deadline && finalReady < need) {
-        if (bootGate.released) break;
-        // בזמן שיחות לא מעמיסים attach — ממתינים לסגירה או ל־timeout | HYPER CORE TECH
-        if (feedWarmupPaused) {
-          await sleepMs(400);
-          continue;
-        }
-        await sleepMs(400);
-        const recheck = await Promise.all(posts.map((p) => waitForPostMediaPlayable(p)));
-        finalReady = recheck.filter(Boolean).length;
-        if (finalReady >= need) break;
-      }
-      if (finalReady >= need) {
-        posts.forEach((p) => revealBootVideoFrame(p));
-        await releaseBootLoading(`boot-ready-retry media=${finalReady}/${need}`);
-      } else {
-        console.warn('[videos] boot: still short — safety release', { finalReady, need });
-        posts.forEach((p) => revealBootVideoFrame(p));
-        await releaseBootLoading(`boot-safety media=${finalReady}/${need}`);
-      }
+      console.warn('[videos] boot: cards ready — release without full media', { readyCount, need });
+      await releaseBootLoading(`boot-cards media=${readyCount}/${need}`);
     }
+
+    // burst מקאש לפוסטים הבאים ברקע (סטטיסטיקת Cache) | HYPER CORE TECH
+    const more = getDisplayVideos().slice(0, 12);
+    more.forEach((v) => {
+      if (!v?.id || !v?.hash) return;
+      const card = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${v.id}"]`);
+      const el = card?.querySelector('video');
+      if (!el) return;
+      tryAttachVideoFromLocalCache(el, v.hash).catch(() => {});
+    });
 
     loadBootMetaForPosts(posts).catch((err) => {
       console.warn('[videos] boot meta after release failed', err);
@@ -8388,8 +8394,11 @@ async function init() {
     }
   }
 
-  // טעינת מחיקות לפני הצגת המטמון כדי לסנן פוסטים מחוקים
-  await loadDeletionsFirst();
+  // מחיקות מקומיות קודם; רשת לא חוסמת hydrate (timeout קצר) | HYPER CORE TECH
+  await Promise.race([
+    loadDeletionsFirst(),
+    sleepMs(2000),
+  ]);
   // בית בלי שיחות — מוודאים ש־pause שיחות לא תקוע אחרי רענון | HYPER CORE TECH
   syncFeedWarmupPauseWithChat('boot-init');
 
@@ -8399,10 +8408,13 @@ async function init() {
   try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
   bootGate.holdUntil = 0;
 
-  // חלק מטמון (videos.js) – מטא־דאטה מהקאש מיד; מסך נסגר רק אחרי פריים וידאו ראשון | HYPER CORE TECH
+  // חלק מטמון (videos.js) – מטא־דאטה מהקאש מיד; מסך נסגר אחרי כרטיסים / attach קצר | HYPER CORE TECH
   try {
     if (typeof App.retryMediaCacheOpen === 'function') {
-      await App.retryMediaCacheOpen();
+      await Promise.race([
+        App.retryMediaCacheOpen(),
+        sleepMs(1500),
+      ]);
     }
   } catch (err) {
     console.warn('[videos] media cache retry before hydrate failed', err);
