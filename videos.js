@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.16-cache-first-boot';
+const VIDEOS_CODE_VERSION = '2.6.17-cache-idb-boot';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -2154,9 +2154,12 @@ function hydrateFeedFromCache() {
         });
       } catch (_) {}
     }
-    // כרטיסים מהקאש מיד — בלי לחכות לפריים וידאו / ריליי | HYPER CORE TECH
-    mountFeedCardsFromCacheNow(CACHE_BOOT_MOUNT_COUNT);
-    renderVideos();
+    // רינדור מלא מהמטמון — attach מדיה מ־IDB יקרה ב־ensureBootFeedReady | HYPER CORE TECH
+    if (typeof forceFullFeedRerender === 'function' && selectors.stream) {
+      forceFullFeedRerender();
+    } else {
+      renderVideos();
+    }
     // חלק לייקים מהקאש (videos.js) – טעינת לייקים ותגובות ברקע לפוסטים מהמטמון | HYPER CORE TECH
     const eventIds = filtered.map(v => v.id);
     if (eventIds.length > 0) {
@@ -2168,7 +2171,8 @@ function hydrateFeedFromCache() {
         });
       }).catch(err => console.warn('[videos] Failed to load likes for cached videos', err));
     }
-    return true;
+    // רק אם נשארו פוסטים אחרי סינון — אחרת לא לסגור LoadNug כ־cache hit | HYPER CORE TECH
+    return filtered.length > 0;
   }
   return false;
 }
@@ -8445,37 +8449,6 @@ async function init() {
     }
   }, BOOT_SAFETY_TIMEOUT_MS);
 
-  applyLocalDeletionsFromCache();
-  try {
-    const earlyApp = window.NostrApp;
-    if (earlyApp && typeof earlyApp.restoreCommentsFromStorage === 'function' && !earlyApp.commentsRestored) {
-      earlyApp.restoreCommentsFromStorage();
-      earlyApp.commentsRestored = true;
-    }
-  } catch (err) {
-    console.warn('[videos] restoreCommentsFromStorage (cache-first) failed', err);
-  }
-
-  const hadCachedContent = hydrateFeedFromCache();
-  if (hadCachedContent) {
-    if (selectors.status) {
-      selectors.status.style.display = 'none';
-    }
-    console.log('[videos] warm start from cache — showing posts immediately');
-    setLoadingStatus('מציג מהקאש...');
-    setLoadingProgress(80);
-    await releaseBootLoading('cache-hydrate');
-    warmupCachedFeedMedia();
-    try { handlePostDeepLink(); } catch (_) {}
-  } else {
-    showLoadingAnimation();
-    setLoadingStatus('טוען פוסטים...');
-    setLoadingProgress(20);
-    try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
-    bootGate.holdUntil = 0;
-    try { await handlePostDeepLink(); } catch (_) {}
-  }
-
   await waitForApp();
   const app = window.NostrApp || {};
   if (typeof app.buildCoreFeedFilters !== 'function') {
@@ -8492,23 +8465,45 @@ async function init() {
     }
   }
 
-  // מחיקות מהרשת לא חוסמות את הקאש שכבר על המסך | HYPER CORE TECH
-  if (hadCachedContent) {
-    loadDeletionsFirst().catch((err) => console.warn('[videos] loadDeletionsFirst failed', err));
-  } else {
-    await loadDeletionsFirst();
-  }
+  // טעינת מחיקות לפני הצגת המטמון כדי לסנן פוסטים מחוקים
+  await loadDeletionsFirst();
   // בית בלי שיחות — מוודאים ש־pause שיחות לא תקוע אחרי רענון | HYPER CORE TECH
   syncFeedWarmupPauseWithChat('boot-init');
 
-  if (!hadCachedContent) {
-    try {
-      if (typeof App.retryMediaCacheOpen === 'function') {
-        await App.retryMediaCacheOpen();
-      }
-    } catch (err) {
-      console.warn('[videos] media cache retry before hydrate failed', err);
+  showLoadingAnimation();
+  setLoadingStatus('טוען פוסטים...');
+  setLoadingProgress(20);
+  try { document.body.classList.add('videos-boot-loading'); } catch (_) {}
+  bootGate.holdUntil = 0;
+
+  // חלק מטמון (videos.js) – מטא־דאטה מהקאש מיד; מסך נסגר רק אחרי פריים וידאו ראשון | HYPER CORE TECH
+  try {
+    if (typeof App.retryMediaCacheOpen === 'function') {
+      await App.retryMediaCacheOpen();
     }
+  } catch (err) {
+    console.warn('[videos] media cache retry before hydrate failed', err);
+  }
+  const hadCachedContent = hydrateFeedFromCache();
+  if (hadCachedContent) {
+    if (selectors.status) {
+      selectors.status.style.display = 'none';
+    }
+    state.firstCardRendered = true;
+    console.log('[videos] warm start from cache — waiting for first video frame');
+    setLoadingStatus('טוען את הפוסט הראשון מהקאש...');
+    setLoadingProgress(45);
+    try {
+      (state.videos || []).forEach((v) => {
+        if (v?.id) updateVideoCommentButton(v.id);
+      });
+    } catch (_) {}
+    try { await handlePostDeepLink(); } catch (_) {}
+    // קריאת מדיה מ־IndexedDB (מעלה Cache בסטטיסטיקה) לפני סגירת LoadNug | HYPER CORE TECH
+    await ensureBootFeedReady();
+    try { await handlePostDeepLink({ force: !postDeepLinkHandled }); } catch (_) {}
+  } else {
+    try { await handlePostDeepLink(); } catch (_) {}
   }
 
   // טעינת תוכן חדש ברקע (גם אם יש מטמון)

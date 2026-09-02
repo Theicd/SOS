@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v731'; // bump - cache-first feed boot
+  const CACHE_NAME = 'sos-cache-v732'; // bump - restore IDB cache boot before LoadNug close
   const PRECACHE_URLS = [
     './',
     './videos.html',

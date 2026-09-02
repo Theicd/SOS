@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.02-pwa410-cache-first",
-  "buildTime": "2026-09-02T05:30:00+03:00",
-  "notes": "Show cached feed posts immediately; network refresh stays in background"
+  "version": "2026.09.02-pwa411-cache-idb-boot",
+  "buildTime": "2026-09-02T06:30:00+03:00",
+  "notes": "Restore IndexedDB media attach via ensureBootFeedReady before closing LoadNug; stats Cache counts again"
 }
