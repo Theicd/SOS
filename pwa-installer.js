@@ -821,7 +821,7 @@
       <img src="./icons/sos-logo-mobile.png?v=20260802ac" alt="SOS" class="pwa-update-toast__logo">
       <div class="pwa-update-toast__content">
         <span class="pwa-update-toast__title">עדכון אפליקציה זמין</span>
-        <span class="pwa-update-toast__subtitle">גרסת APK חדשה (${remoteVer}) – עדכון מעל הקיים, בלי הסרה</span>
+        <span class="pwa-update-toast__subtitle">גרסה ${remoteVer}. אם כתוב שהחבילה מתנגשת — הסירו את SOS ואז התקינו שוב.</span>
       </div>
       <div class="pwa-update-toast__actions">
         <button type="button" class="pwa-update-toast__later">אח״כ</button>

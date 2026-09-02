@@ -22,6 +22,24 @@ android {
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
     }
 
+    signingConfigs {
+        create("upload") {
+            storeFile = file("keystore/sos-upload.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("upload")
+        }
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("upload")
+            isMinifyEnabled = false
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
