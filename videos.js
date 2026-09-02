@@ -2094,7 +2094,8 @@ function hydrateFeedFromCache() {
         .filter((video) => video?.id
           && !deletedIds.has(video.id)
           && !isMediaUnavailable(video)
-          && !isYouTubeOnlyFeedItem(video))
+          && !isYouTubeOnlyFeedItem(video)
+          && (isGeneralFeedVideo(video) || isPlayableFileFeedVideo(video)))
         .map((video) => stripYouTubeFields(video))
         .filter(Boolean)
     );
@@ -3489,7 +3490,22 @@ async function ensureBootFeedReady() {
     setLoadingStatus('מכין את הפוסטים הראשונים...');
     setLoadingProgress(50);
 
-    const posts = getDisplayVideos().slice(0, BOOT_READY_POST_COUNT);
+    let posts = getDisplayVideos().slice(0, BOOT_READY_POST_COUNT);
+    if (!posts.length) {
+      const all = Array.isArray(state.videos) ? state.videos : [];
+      const fallback = sortVideosByCreatedAtDesc(
+        all.filter((v) => isPlayableFileFeedVideo(v) || isGeneralFeedVideo(v))
+      ).slice(0, BOOT_READY_POST_COUNT);
+      console.warn('[videos] boot gate display empty — trying fallback', {
+        feedMode: state.feedMode,
+        stateCount: all.length,
+        liveCount: all.filter((v) => isLiveFeedVideo(v)).length,
+        gameCount: all.filter((v) => isGameFeedVideo(v)).length,
+        playableCount: all.filter((v) => isPlayableFileFeedVideo(v)).length,
+        fallbackCount: fallback.length,
+      });
+      posts = fallback;
+    }
     if (!posts.length) {
       console.log('[videos] boot gate: no posts yet');
       bootGate.releasePromise = null;
@@ -8513,13 +8529,22 @@ function buildGamesFeedVideos() {
 }
 
 function isGameFeedVideo(video) {
-  // פוסט משחק = יש gameUrl / סומן כמשחק לכפיית embed | HYPER CORE TECH
-  return !!(video && (video.gameUrl || video.gameForced));
+  // פוסט משחק = יש gameUrl / סומן כמשחק — לא כשיש קובץ וידאו עם hash | HYPER CORE TECH
+  if (!video) return false;
+  if (video.hash || (video.videoUrl && !isPlayableGameLink(video.videoUrl))) return false;
+  return !!(video.gameUrl || video.gameForced);
 }
 
 function isLiveFeedVideo(video) {
-  // ערוץ טלוויזיה / IPTV – מוצג רק במצב LIVE TV | HYPER CORE TECH
-  return !!(video && (video.liveUrl || video.liveCatalog));
+  // ערוץ טלוויזיה / IPTV — לא כשיש קובץ וידאו עם hash | HYPER CORE TECH
+  if (!video) return false;
+  if (video.hash || (video.videoUrl && !isHlsLiveLink(video.videoUrl))) return false;
+  return !!(video.liveUrl || video.liveCatalog);
+}
+
+function isPlayableFileFeedVideo(video) {
+  return !!(video && video.id && (video.hash || video.videoUrl)
+    && !isYouTubeOnlyFeedItem(video) && !isMediaUnavailable(video));
 }
 
 function isGeneralFeedVideo(video) {

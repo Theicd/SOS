@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.02-pwa419-boot-cache-parallel",
-  "buildTime": "2026-09-02T16:15:00+03:00",
-  "notes": "Restore parallel boot cache attach; skip IDB close/reopen before hydrate so local media hits work again"
+  "version": "2026.09.02-pwa420-boot-display-fallback",
+  "buildTime": "2026-09-02T16:25:00+03:00",
+  "notes": "Fix empty display on boot: file posts with hash stay in general feed; boot fallback from state.videos"
 }

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v740'; // bump - boot cache parallel attach / no IDB reopen
+  const CACHE_NAME = 'sos-cache-v741'; // bump - boot cache parallel attach / no IDB reopen
   const PRECACHE_URLS = [
     './',
     './videos.html',
