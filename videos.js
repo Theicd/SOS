@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.21-media-ready-idb';
+const VIDEOS_CODE_VERSION = '2.6.22-cache-dom-decode';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -567,17 +567,30 @@ function addToVideoDownloadQueue(videoEl, url, hash, mirrors, fallbackFn) {
 }
 
 // חלק קאש מקומי (videos.js) – הצמדה מיידית מ-IndexedDB בלי רשת | HYPER CORE TECH
-async function tryAttachVideoFromLocalCache(videoEl, hash) {
+async function tryAttachVideoFromLocalCache(videoEl, hash, url = '') {
   const app = window.NostrApp || {};
-  const raw = String(hash || '').trim();
-  if (!videoEl || !raw) return false;
+  const rawHash = String(hash || '').trim();
+  const rawUrl = String(url || '').trim();
+  if (!videoEl) return false;
   if (typeof app.getCachedMedia !== 'function') {
-    console.warn('[videos] local cache attach skip — getCachedMedia missing', { hash: raw.slice(0, 12) });
+    console.warn('[videos] local cache attach skip — getCachedMedia missing', {
+      hash: rawHash.slice(0, 12),
+    });
     return false;
   }
-  // נרמול מפתח — miss נפוץ כש־hash נשמר ב־case שונה | HYPER CORE TECH
-  const candidates = [...new Set([raw, raw.toLowerCase(), raw.toUpperCase()].filter(Boolean))];
-  for (const key of candidates) {
+
+  const hashFromUrl = (() => {
+    const m = rawUrl.match(/([a-f0-9]{64})/i);
+    return m ? m[1].toLowerCase() : '';
+  })();
+
+  const hashCandidates = [...new Set(
+    [rawHash, rawHash.toLowerCase(), rawHash.toUpperCase(), hashFromUrl]
+      .map((h) => String(h || '').trim())
+      .filter(Boolean)
+  )];
+
+  for (const key of hashCandidates) {
     try {
       const cached = await app.getCachedMedia(key);
       const blob = cached?.blob || cached?.data || null;
@@ -585,11 +598,8 @@ async function tryAttachVideoFromLocalCache(videoEl, hash) {
       videoEl.src = URL.createObjectURL(blob);
       try { videoEl.load(); } catch (_) {}
       try {
-        if (typeof app.recordP2PDownload === 'function') {
-          app.recordP2PDownload('cache');
-        } else if (typeof window.updateP2PStatsUI === 'function') {
-          window.updateP2PStatsUI('cache');
-        }
+        if (typeof app.recordP2PDownload === 'function') app.recordP2PDownload('cache');
+        else if (typeof window.updateP2PStatsUI === 'function') window.updateP2PStatsUI('cache');
       } catch (_) {}
       console.log('[videos] local cache hit', { hash: key.slice(0, 12), size: blob.size });
       return true;
@@ -597,9 +607,35 @@ async function tryAttachVideoFromLocalCache(videoEl, hash) {
       console.warn('[videos] local cache attach failed', { hash: key.slice(0, 12), err });
     }
   }
-  console.log('[videos] local cache miss', { hash: raw.slice(0, 16), tried: candidates.length });
+
+  if (rawUrl && typeof app.getCachedMediaByUrl === 'function') {
+    try {
+      const cached = await app.getCachedMediaByUrl(rawUrl);
+      const blob = cached?.blob || cached?.data || null;
+      if (blob) {
+        videoEl.src = URL.createObjectURL(blob);
+        try { videoEl.load(); } catch (_) {}
+        try {
+          if (typeof app.recordP2PDownload === 'function') app.recordP2PDownload('cache');
+          else if (typeof window.updateP2PStatsUI === 'function') window.updateP2PStatsUI('cache');
+        } catch (_) {}
+        console.log('[videos] local cache hit by url', { url: rawUrl.slice(0, 48), size: blob.size });
+        return true;
+      }
+    } catch (err) {
+      console.warn('[videos] local cache url lookup failed', err);
+    }
+  }
+
+  console.log('[videos] local cache miss', {
+    hash: rawHash.slice(0, 16) || null,
+    urlHash: hashFromUrl.slice(0, 16) || null,
+    hasUrl: !!rawUrl,
+    tried: hashCandidates.length,
+  });
   return false;
 }
+
 
 // עיבוד תור — עד 2 במקביל; כשאיטי פותחים קובץ נוסף (pipeline) | HYPER CORE TECH
 async function processVideoDownloadQueue() {
@@ -633,7 +669,7 @@ async function processVideoDownloadQueue() {
 
   const runOne = async (item) => {
     const { videoEl, url, hash, mirrors, fallbackFn } = item;
-    let loadedFromCache = await tryAttachVideoFromLocalCache(videoEl, hash);
+    let loadedFromCache = await tryAttachVideoFromLocalCache(videoEl, hash, url);
     if (!loadedFromCache) {
       try {
         if (typeof App.loadVideoWithCache === 'function') {
@@ -2277,6 +2313,25 @@ function handleCardMediaFailure(card, videoId, error) {
   } catch (_) {}
 }
 
+function stageMountCardHidden(card) {
+  if (!card) return;
+  // visibility/opacity — לא display:none — כדי שווידאו מקאש יוכל לפענח ב־WebView | HYPER CORE TECH
+  card.style.visibility = 'hidden';
+  card.style.opacity = '0';
+  card.style.pointerEvents = 'none';
+  card.dataset.mediaStage = '1';
+  mountCard(card);
+}
+
+function revealStagedCard(card) {
+  if (!card) return;
+  card.style.removeProperty('visibility');
+  card.style.removeProperty('opacity');
+  card.style.removeProperty('pointer-events');
+  delete card.dataset.mediaStage;
+  markCardMediaReady(card);
+}
+
 function mountCard(card, { prepend = false } = {}) {
   if (!selectors.stream || !card) return;
   if (card.isConnected) {
@@ -3492,7 +3547,7 @@ async function attachBootVideoFromCache(video) {
   if (video.hash) {
     try {
       attached = await Promise.race([
-        tryAttachVideoFromLocalCache(videoEl, video.hash),
+        tryAttachVideoFromLocalCache(videoEl, video.hash, video.videoUrl || ''),
         sleepMs(2500).then(() => false),
       ]);
       if (attached) {
@@ -3618,7 +3673,7 @@ async function ensureBootFeedReady() {
       const card = selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${v.id}"]`);
       const el = card?.querySelector('video');
       if (!el) return;
-      tryAttachVideoFromLocalCache(el, v.hash).catch(() => {});
+      tryAttachVideoFromLocalCache(el, v.hash, v.videoUrl || '').catch(() => {});
     });
 
     loadBootMetaForPosts(posts).catch((err) => {
@@ -4197,12 +4252,34 @@ function renderVideoCard(video) {
       // קודם IndexedDB ישירות (בלי תור) — אחרת Cache לא עולה וכרטיס לא מגיע ל־ready | HYPER CORE TECH
       void (async () => {
         let fromCache = false;
-        if (video.hash) {
-          try {
-            fromCache = await tryAttachVideoFromLocalCache(videoEl, video.hash);
-          } catch (_) {}
+        try {
+          fromCache = await tryAttachVideoFromLocalCache(
+            videoEl,
+            video.hash || '',
+            video.videoUrl || ''
+          );
+        } catch (_) {}
+        if (fromCache) {
+          // Blob ב־WebView לפעמים בלי loadeddata על אלמנט מוסתר — דוחפים settle | HYPER CORE TECH
+          const bumpReady = () => {
+            if (readySettled) return;
+            if (videoEl.readyState >= 2 || (videoEl.videoWidth > 0 && videoEl.readyState >= 1)) {
+              settleReady();
+            }
+          };
+          bumpReady();
+          videoEl.addEventListener('loadeddata', bumpReady, { once: true });
+          videoEl.addEventListener('loadedmetadata', bumpReady, { once: true });
+          videoEl.addEventListener('canplay', bumpReady, { once: true });
+          setTimeout(bumpReady, 250);
+          setTimeout(() => {
+            if (!readySettled && String(videoEl.src || '').startsWith('blob:')) {
+              console.log('[videos] cache blob settle fallback', { id: video.id });
+              settleReady();
+            }
+          }, 1000);
+          return;
         }
-        if (fromCache) return;
         addToVideoDownloadQueue(videoEl, video.videoUrl, video.hash || '', video.mirrors || [], applyFallbackSrc);
       })();
     }
@@ -4912,8 +4989,11 @@ function appendNextVideoCard() {
     controller.timer = setTimeout(appendNextVideoCard, 0);
   };
 
-  // חוק ממשק: מרכיבים ל־DOM רק אחרי שהווידאו מוכן לצפייה | HYPER CORE TECH
-  const MEDIA_WAIT_MS = 45000;
+  // חוק ממשק: מעלים מוסתר לפענוח מקאש ב־DOM, חושפים רק כשמוכן | HYPER CORE TECH
+  if (!controller.cancelled) {
+    stageMountCardHidden(card);
+  }
+  const MEDIA_WAIT_MS = 12000;
   Promise.race([
     mediaReadyPromise,
     new Promise((_, reject) => {
@@ -4922,10 +5002,10 @@ function appendNextVideoCard() {
   ])
     .then(() => {
       if (controller.cancelled) return;
-      mountCard(card);
-      markCardMediaReady(card);
+      revealStagedCard(card);
     })
     .catch((err) => {
+      try { if (card?.isConnected) card.remove(); } catch (_) {}
       handleCardMediaFailure(card, video.id, err);
     })
     .finally(() => {

@@ -230,6 +230,37 @@
     }
   }
 
+  async function getCachedMediaByUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return null;
+    try {
+      let database = await openDB();
+      if (!database && Date.now() >= dbSoftBlockedUntil) {
+        database = await retryMediaCacheOpen();
+      }
+      if (!database) return null;
+      if (!database.objectStoreNames.contains(STORE_NAME)) return null;
+      const candidates = [...new Set([raw, raw.split('?')[0], raw.split('#')[0]])].filter(Boolean);
+      for (const key of candidates) {
+        const transaction = database.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        if (!store.indexNames.contains('url')) break;
+        const index = store.index('url');
+        const entry = await new Promise((resolve, reject) => {
+          const request = index.get(key);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+        if (entry && entry.blob) return entry;
+      }
+      return null;
+    } catch (err) {
+      console.error('Failed to get cached media by url', err);
+      db = null;
+      return null;
+    }
+  }
+
   async function deleteCachedMedia(hash) {
     try {
       const database = await openDB();
@@ -392,6 +423,7 @@
   Object.assign(App, {
     cacheMedia,
     getCachedMedia,
+    getCachedMediaByUrl,
     deleteCachedMedia,
     getCacheStats,
     pinCachedMedia,
