@@ -3513,39 +3513,24 @@ async function ensureBootFeedReady() {
     setLoadingStatus(`טוען ${posts.length} פוסטים ראשונים מהקאש...`);
     setLoadingProgress(60);
 
-    // בשיחות — עוצרים attach מהקאש לגמרי (עומס מכשיר); loadVideos ממשיך ברקע | HYPER CORE TECH
-    try {
-      if (typeof App.retryMediaCacheOpen === 'function' && !feedWarmupPaused) {
-        await App.retryMediaCacheOpen();
-      }
-    } catch (_) {}
-
-    const mediaResults = [];
-    for (let index = 0; index < posts.length; index++) {
-      const video = posts[index];
-      if (feedWarmupPaused) {
-        console.log('[videos] boot media deferred (chat open)', { id: video.id });
-        mediaResults.push(false);
+    // Attach מקאש במקביל כמו בגיבוי העובד — בלי לסגור IDB ובלי לדלג בגלל warmup | HYPER CORE TECH
+    const mediaResults = await Promise.all(
+      posts.map(async (video, index) => {
+        if (bootGate.released) return false;
+        const ok = await attachBootVideoFromCache(video);
         setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
-        continue;
-      }
-      if (bootGate.released) {
-        console.log('[videos] boot media skipped — already released / deeplink');
-        break;
-      }
-      const ok = await attachBootVideoFromCache(video);
-      mediaResults.push(ok);
-      setLoadingProgress(60 + ((index + 1) / posts.length) * 30);
-      console.log('[videos] boot media', {
-        id: video.id,
-        ok,
-        type: video.youtubeId ? 'youtube' : (video.videoUrl ? 'file' : 'other'),
-      });
-    }
+        console.log('[videos] boot media', {
+          id: video.id,
+          ok,
+          type: video.youtubeId ? 'youtube' : (video.videoUrl ? 'file' : 'other'),
+        });
+        return ok;
+      })
+    );
 
     feedDownloadsPaused = prevPaused;
     try {
-      if (!isFeedHeavyWorkPaused()) processVideoDownloadQueue();
+      processVideoDownloadQueue();
     } catch (_) {}
 
     if (bootGate.released) {
@@ -3564,11 +3549,6 @@ async function ensureBootFeedReady() {
       let finalReady = readyCount;
       while (Date.now() < deadline && finalReady < need) {
         if (bootGate.released) break;
-        // בזמן שיחות לא מעמיסים attach — ממתינים לסגירה או ל־timeout | HYPER CORE TECH
-        if (feedWarmupPaused) {
-          await sleepMs(400);
-          continue;
-        }
         await sleepMs(400);
         const recheck = await Promise.all(posts.map((p) => waitForPostMediaPlayable(p)));
         finalReady = recheck.filter(Boolean).length;
@@ -8377,13 +8357,7 @@ async function init() {
   bootGate.holdUntil = 0;
 
   // חלק מטמון (videos.js) – מטא־דאטה מהקאש מיד; מסך נסגר רק אחרי פריים וידאו ראשון | HYPER CORE TECH
-  try {
-    if (typeof App.retryMediaCacheOpen === 'function') {
-      await App.retryMediaCacheOpen();
-    }
-  } catch (err) {
-    console.warn('[videos] media cache retry before hydrate failed', err);
-  }
+  // בלי retryMediaCacheOpen לפני hydrate — close+reopen שובר hit בקאש בזמן boot | HYPER CORE TECH
   const hadCachedContent = hydrateFeedFromCache();
   if (hadCachedContent) {
     if (selectors.status) {

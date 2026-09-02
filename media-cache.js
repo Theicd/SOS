@@ -113,9 +113,10 @@
   async function retryMediaCacheOpen() {
     dbSoftBlockedUntil = 0;
     dbFailCount = 0;
+    // אם ה-DB כבר פתוח — לא סוגרים (close באמצע boot שובר getCachedMedia) | HYPER CORE TECH
     if (db) {
-      try { db.close(); } catch (_) {}
-      db = null;
+      console.log('[media-cache] retry open skipped — already open');
+      return db;
     }
     openInFlight = null;
     const database = await openDB();

@@ -1,5 +1,5 @@
-﻿{
-  "version": "2026.09.02-pwa418-no-youtube-feed",
-  "buildTime": "2026-09-02T14:40:00+03:00",
-  "notes": "Remove YouTube from videos feed: skip YT-only posts, strip from cache/display, no ytimg/embed prefetch"
+{
+  "version": "2026.09.02-pwa419-boot-cache-parallel",
+  "buildTime": "2026-09-02T16:15:00+03:00",
+  "notes": "Restore parallel boot cache attach; skip IDB close/reopen before hydrate so local media hits work again"
 }
