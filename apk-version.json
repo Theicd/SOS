@@ -1,8 +1,8 @@
 {
-  "version": "1.0.91",
-  "versionCode": 92,
-  "file": "SOS-1.0.91.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.91/SOS-1.0.91.apk",
+  "version": "1.0.92",
+  "versionCode": 93,
+  "file": "SOS-1.0.92.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.92/SOS-1.0.92.apk",
   "releasedAt": "2026-09-02",
-  "note": "Emergency mesh + live stream; APK users get native toast only when versionCode rises; web toast is app-version.json"
+  "note": "Hotspot setup wizard (staged). APK toast uses this file on sos010.com/apk-version.json"
 }
