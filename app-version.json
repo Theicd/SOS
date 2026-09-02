@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.01-pwa409-emergency-chat",
-  "buildTime": "2026-09-01T13:40:00+03:00",
-  "notes": "APK 1.0.91: same-subnet emergency mesh, HELLO identity, emergency chat contacts"
+  "version": "2026.09.02-pwa410-cache-first",
+  "buildTime": "2026-09-02T05:30:00+03:00",
+  "notes": "Show cached feed posts immediately; network refresh stays in background"
 }
