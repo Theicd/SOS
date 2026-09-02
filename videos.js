@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.16-yt-ready-instant';
+const VIDEOS_CODE_VERSION = '2.6.17-no-youtube-feed';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1384,24 +1384,13 @@ function stopAllYouTubePlayers() {
 
 // חימום שקט — לא נוגע בכרטיס שמנגן בפרונט | HYPER CORE TECH
 function prepareYouTubeMedia(mediaDiv) {
-  if (!mediaDiv || mediaDiv.dataset.mediaType !== 'youtube') return;
-  if (document.body.classList.contains('live-studio-open')) return;
-  if (isYouTubeFrontCard(mediaDiv)) {
-    if (!mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]')) {
-      ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: false });
-      mediaDiv.dataset.ytPrepared = '1';
-    }
-    return;
-  }
-  const existing = mediaDiv.querySelector('iframe.videos-feed__media-iframe, iframe[src*="youtube"]');
-  if (existing && mediaDiv.dataset.ytPrepared === '1') {
-    return;
-  }
-  ensureYouTubeIframe(mediaDiv, { autoplay: false, mute: true, revealFrame: false });
-  mediaDiv.dataset.ytPrepared = '1';
+  // יוטיוב מושבת בפיד — לא מכינים iframe/ytimg | HYPER CORE TECH
+  return;
 }
 
 function playYouTubeMedia(mediaDiv) {
+  // יוטיוב מושבת בפיד — לא מנגנים embed | HYPER CORE TECH
+  return;
   if (!mediaDiv) return;
   // לא bump כאן — softPause כבר ביטל דור קודם; bump ב־play שובר load של prepare | HYPER CORE TECH
   mediaDiv.dataset.ytWantPlay = '1';
@@ -1850,6 +1839,26 @@ function isMediaUnavailable(videoOrId) {
   return false;
 }
 
+/** פוסט שהוא רק יוטיוב — לא נכנס לפיד (בלי קובץ/לייב/משחק/תמונה) | HYPER CORE TECH */
+function isYouTubeOnlyFeedItem(video) {
+  if (!video || typeof video !== 'object') return false;
+  const yt = video.youtubeId || video.youtube_id || null;
+  if (!yt) return false;
+  if (video.videoUrl || video.hash || video.liveUrl || video.gameUrl || video.imageUrl) return false;
+  if (video.p2pLive || String(video.id || '').startsWith('p2plive-')) return false;
+  return true;
+}
+
+/** מסיר שדות יוטיוב — הפיד לא מציג ולא prefetch ל־ytimg/embed | HYPER CORE TECH */
+function stripYouTubeFields(video) {
+  if (!video || typeof video !== 'object') return video;
+  if (video.youtubeId == null && video.youtube_id == null) return video;
+  const next = { ...video };
+  delete next.youtubeId;
+  delete next.youtube_id;
+  return next;
+}
+
 function markMediaUnavailable(videoId, hash = null) {
   let changed = false;
   if (videoId && !failedMediaIds.has(videoId)) {
@@ -1943,6 +1952,10 @@ function sanitizeCachedVideo(video) {
       clone.gameForced = false;
     }
   }
+  // פיד בלי יוטיוב — רק־יוטיוב נזרק; אחרת מנקים youtubeId כדי שלא ירוץ embed/prefetch | HYPER CORE TECH
+  if (isYouTubeOnlyFeedItem(clone)) return null;
+  delete clone.youtubeId;
+  delete clone.youtube_id;
   return clone;
 }
 
@@ -2077,9 +2090,13 @@ function hydrateFeedFromCache() {
     const app = window.NostrApp;
     const deletedIds = app?.deletedEventIds || new Set();
     const filtered = sortVideosByCreatedAtDesc(
-      cached.filter((video) => video?.id
-        && !deletedIds.has(video.id)
-        && !isMediaUnavailable(video))
+      cached
+        .filter((video) => video?.id
+          && !deletedIds.has(video.id)
+          && !isMediaUnavailable(video)
+          && !isYouTubeOnlyFeedItem(video))
+        .map((video) => stripYouTubeFields(video))
+        .filter(Boolean)
     );
     console.log('[videos] hydrate feed from cache', { 
       total: cached.length, 
@@ -2087,7 +2104,7 @@ function hydrateFeedFromCache() {
       deletedCount: cached.length - filtered.length,
       firstId: filtered[0]?.id || null,
       firstCreatedAt: filtered[0] ? getVideoCreatedAt(filtered[0]) : 0,
-      firstIsYouTube: !!(filtered[0]?.youtubeId && !filtered[0]?.videoUrl),
+      youtubeStripped: true,
     });
     state.videos = filtered;
     // סנכרון דיסק אחרי סינון מחיקות — מונע skip של IDs "בקאש" שלא מוצגים | HYPER CORE TECH
@@ -2497,7 +2514,8 @@ function parseEventToVideoItem(event, currentApp) {
     }
   });
 
-  let youtubeId = mediaLinks.map(parseYouTube).find(Boolean) || null;
+  // יוטיוב מושבת בפיד — לא נכנס כרטיס ולא רשת חיצונית | HYPER CORE TECH
+  let youtubeId = null;
   let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
   let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
   let gameForced = false;
@@ -2553,8 +2571,8 @@ function parseEventToVideoItem(event, currentApp) {
   }
 
   // קישור http בלי סיומת וללא תמונה — נחשב וידאו (Blossom)
-  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl && !gameUrl) {
-    const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isImageLink(l));
+  if (!videoUrl && !imageUrl && !liveUrl && !gameUrl) {
+    const httpLink = mediaLinks.find((l) => /^https?:\/\//i.test(l) && !isImageLink(l) && !parseYouTube(l));
     if (httpLink) {
       if (isHlsLiveLink(httpLink)) liveUrl = httpLink;
       else if (isPlayableGameLink(httpLink)) gameUrl = httpLink;
@@ -2562,14 +2580,14 @@ function parseEventToVideoItem(event, currentApp) {
     }
   }
 
-  if (!videoUrl && !imageUrl && !youtubeId && !liveUrl && !gameUrl) return null;
+  if (!videoUrl && !imageUrl && !liveUrl && !gameUrl) return null;
 
   const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
   return {
     id: event.id,
     pubkey: event.pubkey,
     content: textLines.join(' '),
-    youtubeId,
+    youtubeId: null,
     liveUrl,
     gameUrl,
     gameForced: !!(gameUrl && gameForced),
@@ -3641,6 +3659,7 @@ function canEmbedGameLink(link) {
 
 function isVideoLink(link) {
   if (!link) return false;
+  if (/youtube\.com|youtu\.be/i.test(link) || parseYouTube(link)) return false;
   if (isHlsLiveLink(link)) return false;
   if (isPlayableGameLink(link)) return false;
   if (link.startsWith('data:video')) return true;
@@ -3923,33 +3942,9 @@ function renderVideoCard(video) {
 
     queueMicrotask(markReady);
   } else if (video.youtubeId && !video.videoUrl) {
+    // יוטיוב הוסר מהפיד — לא מרנדרים ולא טוענים ytimg/embed | HYPER CORE TECH
     mediaDiv.dataset.mediaType = 'youtube';
-    mediaDiv.dataset.youtubeId = video.youtubeId;
-
-    const thumb = document.createElement('img');
-    thumb.src = `https://i.ytimg.com/vi/${video.youtubeId}/maxresdefault.jpg`;
-    thumb.alt = 'YouTube Video';
-    thumb.className = 'videos-feed__media-thumb';
-    thumb.loading = 'lazy';
-    thumb.decoding = 'async';
-    thumb.onerror = () => {
-      thumb.src = `https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg`;
-      thumb.onerror = null;
-    };
-    mediaDiv.appendChild(thumb);
-
-    const playOverlay = document.createElement('button');
-    playOverlay.type = 'button';
-    playOverlay.className = 'videos-feed__play-overlay';
-    playOverlay.setAttribute('aria-label', 'Play video');
-    playOverlay.setAttribute('data-play-toggle', '');
-    playOverlay.innerHTML = '<i class="fa-solid fa-play"></i>';
-    centerPlayOverlayButton(playOverlay);
-    mediaDiv.appendChild(playOverlay);
-
-    try { applyDesktopVideoAspect(mediaDiv, 16, 9); } catch (_) {}
-    // כמו גיבוי 21-08: יוטיוב מוכן מיד — בלי oEmbed/thumb לפני mount (חסם את כל הפיד הסדרתי) | HYPER CORE TECH
-    queueMicrotask(markReady);
+    queueMicrotask(() => failReady(new Error('youtube-disabled')));
   } else if (video.videoUrl || video.hash || video.fromDeepLink) {
     if (video.fromDeepLink || (typeof pendingPostDeepLinkId === 'string' && video.id === pendingPostDeepLinkId)) {
       try { enrichVideoMediaSources(video); } catch (_) {}
@@ -4821,7 +4816,7 @@ function appendNextVideoCard() {
   const video = videos[controller.nextIndex];
   controller.nextIndex += 1;
 
-  if (!video?.id || isMediaUnavailable(video)) {
+  if (!video?.id || isMediaUnavailable(video) || isYouTubeOnlyFeedItem(video)) {
     if (controller.nextIndex >= videos.length) {
       finalizeIncrementalRender();
       return;
@@ -4969,16 +4964,12 @@ function preloadNextMedia(video) {
     return;
   }
 
-  if (video.youtubeId) {
-    const nextCard = document.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`);
-    const mediaDiv = nextCard && nextCard.querySelector('.videos-feed__media[data-media-type="youtube"]');
-    if (mediaDiv) prepareYouTubeMedia(mediaDiv);
+  // יוטיוב מושבת — אין prefetch ל־ytimg/iframe | HYPER CORE TECH
+  if (video.youtubeId && !video.videoUrl) {
     return;
   }
 
-  const previewUrl = video.imageUrl
-    ? video.imageUrl
-    : (video.youtubeId ? `https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg` : '');
+  const previewUrl = video.imageUrl ? video.imageUrl : '';
 
   if (previewUrl) {
     const img = new Image();
@@ -7037,12 +7028,13 @@ function processEventsToVideos(events, currentApp) {
       }
     });
     
-    const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
+    // יוטיוב מושבת בפיד | HYPER CORE TECH
+    const youtubeId = null;
     const liveUrl = mediaLinks.find(isHlsLiveLink) || null;
     const gameUrl = mediaLinks.find(isPlayableGameLink) || null;
     const videoUrl = mediaLinks.find(isVideoLink);
     
-    if (!videoUrl && !youtubeId && !liveUrl && !gameUrl) return;
+    if (!videoUrl && !liveUrl && !gameUrl) return;
     
     const profileData = currentApp?.profileCache?.get(event.pubkey) || {};
     const mirrorsFn =
@@ -7058,7 +7050,7 @@ function processEventsToVideos(events, currentApp) {
       liveUrl: liveUrl || null,
       gameUrl: gameUrl || null,
       videoUrl: (liveUrl || gameUrl) ? null : (videoUrl || null),
-      youtubeId: youtubeId || null,
+      youtubeId: null,
       text: textLines.join('\n'),
       likes: 0,
       comments: 0,
@@ -7735,7 +7727,8 @@ async function loadVideos() {
       }
     });
 
-    const youtubeId = mediaLinks.map(parseYouTube).find(Boolean);
+    // יוטיוב מושבת בפיד | HYPER CORE TECH
+    const youtubeId = null;
     let liveUrl = mediaLinks.find(isHlsLiveLink) || null;
     let gameUrl = mediaLinks.find(isPlayableGameLink) || null;
     let gameForced = false;
@@ -7781,7 +7774,7 @@ async function loadVideos() {
     }
 
     if (liveUrl || gameUrl) videoUrl = null;
-    const hasMedia = liveUrl || gameUrl || videoUrl || imageUrl || youtubeId;
+    const hasMedia = liveUrl || gameUrl || videoUrl || imageUrl;
 
     if (hasMedia) {
       registerVideoSourceEvent(event);
@@ -7790,7 +7783,7 @@ async function loadVideos() {
         id: event.id,
         pubkey: event.pubkey,
         content: textLines.join(' '),
-        youtubeId: youtubeId || null,
+        youtubeId: null,
         liveUrl: liveUrl || null,
         gameUrl: gameUrl || null,
         gameForced: !!(gameUrl && gameForced),
@@ -8607,7 +8600,10 @@ function getDisplayVideos() {
   }
   const all = Array.isArray(state.videos) ? state.videos : [];
   return sortVideosByCreatedAtDesc(
-    all.filter((v) => isGeneralFeedVideo(v) && !isMediaUnavailable(v))
+    all
+      .filter((v) => isGeneralFeedVideo(v) && !isMediaUnavailable(v) && !isYouTubeOnlyFeedItem(v))
+      .map((v) => stripYouTubeFields(v))
+      .filter(Boolean)
   );
 }
 

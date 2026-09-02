@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v738'; // bump - YouTube ready instant (unblock serial feed)
+  const CACHE_NAME = 'sos-cache-v739'; // bump - strip YouTube from videos feed
   const PRECACHE_URLS = [
     './',
     './videos.html',
