@@ -25,7 +25,9 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_FROM_WIZARD = "from_wizard"
-        private const val SCAN_INTERVAL_MS = 10_000L
+        private const val TICK_MS = 3_000L
+        private const val RADIO_SCAN_MS = 10_000L
+        private const val FAIL_COOLDOWN_MS = 8_000L
         private const val PERMISSION_REQUEST = 2202
     }
 
@@ -40,13 +42,18 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
     private lateinit var adapter: SosNetworkListAdapter
     private var scanning = false
     private var connecting = false
+    private var lastRadioScanMs = 0L
+    private var lastFailSsid: String? = null
+    private var lastFailMs = 0L
+    private var wasLinked = false
 
     private val scanTicker = object : Runnable {
         override fun run() {
             if (!connecting) {
-                runScan(showToast = false)
+                val radio = System.currentTimeMillis() - lastRadioScanMs >= RADIO_SCAN_MS
+                runScan(showToast = false, radioScan = radio)
             }
-            handler.postDelayed(this, SCAN_INTERVAL_MS)
+            handler.postDelayed(this, TICK_MS)
         }
     }
 
@@ -79,6 +86,7 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
 
         ensurePermissions()
         refreshStatusLine()
+        wasLinked = SosWifiBootstrap.isLinkedToSos(this)
         if (SosWifiBootstrap.isHotspotActive(this) && !SosEmergencyState.isRelayRunning) {
             SosEmergencyRelayService.start(this)
             SosEmergencyState.isRelayRunning = true
@@ -96,7 +104,7 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
         super.onStop()
     }
 
-    private fun runScan(showToast: Boolean) {
+    private fun runScan(showToast: Boolean, radioScan: Boolean = true) {
         if (scanning) return
         if (!SosWifiBootstrap.hasScanPermission(this)) {
             ensurePermissions()
@@ -105,9 +113,12 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
             return
         }
         scanning = true
+        if (radioScan) lastRadioScanMs = System.currentTimeMillis()
         rescanButton.isEnabled = false
-        scanHint.text = getString(R.string.emergency_scanning)
-        SosWifiBootstrap.scanAvailableNetworks(this) { report ->
+        if (radioScan) {
+            scanHint.text = getString(R.string.emergency_scanning)
+        }
+        SosWifiBootstrap.scanAvailableNetworks(this, radioScan) { report ->
             runOnUiThread {
                 scanning = false
                 rescanButton.isEnabled = !connecting
@@ -116,18 +127,11 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
                 listView.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
                 emptyText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
                 locationButton.visibility = if (report.locationOn) View.GONE else View.VISIBLE
+                val linked = SosWifiBootstrap.isLinkedToSos(this)
                 scanHint.text = when (report.blockedReason) {
                     "location" -> getString(R.string.emergency_connect_blocked_location)
                     "permission" -> getString(R.string.emergency_connect_need_permission)
-                    else -> {
-                        val hidden = SosWifiBootstrap.hiddenChildSsids().size
-                        if (hidden > 0) {
-                            getString(R.string.emergency_connect_scan_hint_hidden, hidden)
-                        } else {
-                            getString(R.string.emergency_connect_scan_hint) +
-                                " · נמצאו ${report.rawCount} רשתות במכשיר"
-                        }
-                    }
+                    else -> hintForScan(report, linked)
                 }
                 if (!report.hotspotOn) {
                     scanHint.text = getString(R.string.emergency_need_hotspot)
@@ -140,18 +144,58 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
                     }
                     Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
                 }
+                if (!connecting && report.blockedReason == null) {
+                    maybeAutoConnect(items)
+                }
             }
         }
     }
 
-    private fun connectTo(item: SosWifiBootstrap.SosNetworkItem) {
+    private fun hintForScan(report: SosWifiBootstrap.ScanReport, linked: Boolean): String {
+        if (linked) {
+            val hidden = SosWifiBootstrap.hiddenChildSsids().size
+            return if (hidden > 0) {
+                getString(R.string.emergency_connect_scan_hint_hidden, hidden)
+            } else {
+                getString(R.string.emergency_connect_scan_hint) +
+                    " · נמצאו ${report.rawCount} רשתות במכשיר"
+            }
+        }
+        return getString(R.string.emergency_connect_auto_hint)
+    }
+
+    private fun maybeAutoConnect(items: List<SosWifiBootstrap.SosNetworkItem>) {
+        if (connecting) return
+        if (SosWifiBootstrap.isLinkedToSos(this)) {
+            wasLinked = true
+            return
+        }
+        if (wasLinked) {
+            wasLinked = false
+            SosDebugLog.i("emergency", "orphan: resume auto-connect")
+        }
+        val target = SosWifiBootstrap.pickAutoConnectTarget(items) ?: return
+        if (target.ssid == lastFailSsid &&
+            System.currentTimeMillis() - lastFailMs < FAIL_COOLDOWN_MS
+        ) {
+            return
+        }
+        SosDebugLog.i("emergency", "auto-connect -> ${target.ssid} rssi=${target.signalDbm}")
+        connectTo(target, auto = true)
+    }
+
+    private fun connectTo(item: SosWifiBootstrap.SosNetworkItem, auto: Boolean = false) {
         if (connecting) return
         connecting = true
         adapter.connectingSsid = item.ssid
         adapter.notifyDataSetChanged()
         rescanButton.isEnabled = false
         continueRootButton.isEnabled = false
-        scanHint.text = getString(R.string.emergency_connecting_to, item.ssid)
+        scanHint.text = if (auto) {
+            getString(R.string.emergency_connect_auto_to, item.ssid)
+        } else {
+            getString(R.string.emergency_connecting_to, item.ssid)
+        }
 
         SosWifiBootstrap.connectToNetwork(this, item.ssid) { result ->
             runOnUiThread {
@@ -162,16 +206,22 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
                 when (result) {
                     SosWifiBootstrap.Result.JOINED,
                     SosWifiBootstrap.Result.ALREADY_LINKED -> {
+                        wasLinked = true
+                        lastFailSsid = null
                         Toast.makeText(this, R.string.emergency_connect_success, Toast.LENGTH_SHORT).show()
                         refreshStatusLine()
-                        runScan(showToast = false)
+                        runScan(showToast = false, radioScan = false)
                     }
                     SosWifiBootstrap.Result.CONNECT_FAILED -> {
+                        lastFailSsid = item.ssid
+                        lastFailMs = System.currentTimeMillis()
                         Toast.makeText(this, R.string.emergency_connect_failed, Toast.LENGTH_LONG).show()
-                        scanHint.text = getString(R.string.emergency_connect_scan_hint)
+                        scanHint.text = getString(R.string.emergency_connect_auto_hint)
                         adapter.notifyDataSetChanged()
                     }
                     else -> {
+                        lastFailSsid = item.ssid
+                        lastFailMs = System.currentTimeMillis()
                         Toast.makeText(this, R.string.emergency_connect_failed, Toast.LENGTH_LONG).show()
                         adapter.notifyDataSetChanged()
                     }

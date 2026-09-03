@@ -28,6 +28,8 @@
     <string name="emergency_connect_list_title">רשתות SOS שנמצאו</string>
     <string name="emergency_connect_rescan">סרוק שוב</string>
     <string name="emergency_connect_scan_hint">רק נקודות פנויות. מי שכבר מחובר אליך לא מופיע.</string>
+    <string name="emergency_connect_auto_hint">מתחבר אוטומטית לרשת SOS הפנויה החזקה ביותר…</string>
+    <string name="emergency_connect_auto_to">מתחבר אוטומטית ל-%1$s…</string>
     <string name="emergency_connect_scan_hint_hidden">מוסתרות %1$d רשתות (ילדים מחוברים). רשתות מלאות לא מוצגות.</string>
     <string name="emergency_connect_empty">לא נמצאו רשתות SOS.\nודא: נקודה חמה דלוקה, מיקום דלוק, והמכשיר השני משדר SOS.</string>
     <string name="emergency_connect_continue_root">סיום</string>

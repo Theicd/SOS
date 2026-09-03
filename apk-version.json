@@ -1,8 +1,8 @@
 {
-  "version": "1.0.96",
-  "versionCode": 97,
-  "file": "SOS-1.0.96.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.96/SOS-1.0.96.apk",
+  "version": "1.0.97",
+  "versionCode": 98,
+  "file": "SOS-1.0.97.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.97/SOS-1.0.97.apk",
   "releasedAt": "2026-09-04",
-  "note": "Fix crash: locationButton findViewById in emergency scan screen"
+  "note": "Auto-connect SOS mesh: keep scanning and join strongest free hotspot"
 }

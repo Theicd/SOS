@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.04-emergency-fix96",
-  "buildTime": "2026-09-04T00:08:00+03:00",
-  "notes": "APK 1.0.96: fix emergency scan crash (locationButton not initialized)"
+  "version": "2026.09.04-emergency-auto97",
+  "buildTime": "2026-09-04T01:20:00+03:00",
+  "notes": "APK 1.0.97: auto-connect to strongest free SOS hotspot"
 }

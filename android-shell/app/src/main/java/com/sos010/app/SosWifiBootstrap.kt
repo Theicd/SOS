@@ -57,6 +57,7 @@ object SosWifiBootstrap {
     )
 
     private const val DISCOVERY_STALE_MS = 30_000L
+    const val MIN_CONNECT_DBM = -80
 
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var heldCallback: ConnectivityManager.NetworkCallback? = null
@@ -127,6 +128,10 @@ object SosWifiBootstrap {
      * לא מכבה נקודה חמה. | HYPER CORE TECH
      */
     fun scanAvailableNetworks(context: Context, onDone: (ScanReport) -> Unit) {
+        scanAvailableNetworks(context, radioScan = true, onDone)
+    }
+
+    fun scanAvailableNetworks(context: Context, radioScan: Boolean, onDone: (ScanReport) -> Unit) {
         val app = context.applicationContext
         val own = SosEmergencySetup.stationSsid(app)
         val current = currentSsid(app)
@@ -170,7 +175,7 @@ object SosWifiBootstrap {
             return
         }
         tryEnableWifi(app)
-        scanSosAsync(app, own, hidden) { results, startOk, rawCount ->
+        scanSosAsync(app, own, hidden, radioScan) { results, startOk, rawCount ->
             val fromWifi = results.mapNotNull { result ->
                 toNetworkItem(cleanSsid(result.SSID), result.level, current, own, hidden)
             }
@@ -193,6 +198,20 @@ object SosWifiBootstrap {
                 )
             )
         }
+    }
+
+    /** נקודה להתחברות אוטומטית: עץ קיים קודם, אחר כך האות החזק | HYPER CORE TECH */
+    fun pickAutoConnectTarget(items: List<SosNetworkItem>, minDbm: Int = MIN_CONNECT_DBM): SosNetworkItem? {
+        val candidates = items.filter { item ->
+            item.available &&
+                !item.isCurrentConnection &&
+                item.signalDbm >= minDbm &&
+                !isBlockedTarget(item.ssid)
+        }
+        if (candidates.isEmpty()) return null
+        val inTree = candidates.filter { (it.childCount ?: 0) > 0 }
+        val pool = if (inTree.isNotEmpty()) inTree else candidates
+        return pool.maxByOrNull { it.signalDbm }
     }
 
     /** חיבור ידני ממסך הסריקה — לא משפיע על prepareForRelay | HYPER CORE TECH */
@@ -225,11 +244,12 @@ object SosWifiBootstrap {
         context: Context,
         own: String,
         hidden: Set<String> = hiddenChildSsids(),
+        radioScan: Boolean = true,
         onResults: (List<ScanResult>, Boolean, Int) -> Unit
     ) {
         val cached = readSosResults(context, own, hidden)
         val cachedRaw = rawScanCount(context)
-        if (!hasScanPermission(context)) {
+        if (!radioScan || !hasScanPermission(context)) {
             mainHandler.post { onResults(cached, false, cachedRaw) }
             return
         }
