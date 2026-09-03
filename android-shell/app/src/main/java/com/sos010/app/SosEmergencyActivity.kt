@@ -36,6 +36,10 @@ import java.util.Locale
  */
 class SosEmergencyActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_SHOW_STATION = "show_station"
+    }
+
     private lateinit var stationRoot: View
     private lateinit var wizardRoot: View
     private lateinit var wizardFlipper: ViewFlipper
@@ -123,6 +127,7 @@ class SosEmergencyActivity : AppCompatActivity() {
         refreshStationLabels()
 
         findViewById<Button>(R.id.backToNetworkButton).setOnClickListener { finish() }
+        findViewById<Button>(R.id.openConnectButton).setOnClickListener { openConnectScreen() }
         findViewById<Button>(R.id.openHotspotSettingsButton).setOnClickListener { openHotspotSettings() }
         findViewById<Button>(R.id.startRelayButton).setOnClickListener { startRelay() }
         findViewById<Button>(R.id.runTestsButton).setOnClickListener {
@@ -142,13 +147,23 @@ class SosEmergencyActivity : AppCompatActivity() {
             "ממסר לא פעיל - לחץ להפעלה"
         }
 
-        if (SosEmergencySetup.isComplete(this) || SosWifiBootstrap.isLinkedToSos(this)) {
+        if (intent.getBooleanExtra(EXTRA_SHOW_STATION, false)) {
+            showStation()
+        } else if (SosEmergencySetup.isComplete(this) || SosWifiBootstrap.isLinkedToSos(this)) {
             if (SosWifiBootstrap.isLinkedToSos(this)) {
                 SosEmergencySetup.markComplete(this)
             }
             showStation()
         } else {
             showWizard()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_SHOW_STATION, false)) {
+            showStation()
         }
     }
 
@@ -211,7 +226,7 @@ class SosEmergencyActivity : AppCompatActivity() {
             awaitingHotspotReturn = true
             openHotspotSettings()
         }
-        wizardEnter.setOnClickListener { showStation() }
+        wizardEnter.setOnClickListener { openConnectScreen(fromWizard = true) }
     }
 
     private fun showWizard() {
@@ -320,6 +335,12 @@ class SosEmergencyActivity : AppCompatActivity() {
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 2201)
         }
+    }
+
+    private fun openConnectScreen(fromWizard: Boolean = false) {
+        startActivity(Intent(this, SosEmergencyConnectActivity::class.java).apply {
+            putExtra(SosEmergencyConnectActivity.EXTRA_FROM_WIZARD, fromWizard)
+        })
     }
 
     private fun openHotspotSettings() {

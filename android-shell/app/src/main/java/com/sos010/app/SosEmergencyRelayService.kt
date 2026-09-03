@@ -225,6 +225,8 @@ class SosEmergencyRelayService : Service() {
         childWriters.clear()
         helloSeen.clear()
         SosEmergencyState.childCount = 0
+        SosEmergencyState.relayChildIps.clear()
+        SosEmergencyState.hiddenChildSsids.clear()
         lastSentIdentityVersion = -1
     }
 
@@ -314,6 +316,15 @@ class SosEmergencyRelayService : Service() {
 
                 if (pubkey.length == 64) {
                     SosEmergencyState.upsertPeer(relayIp, pubkey, name)
+                    SosEmergencySetup.ssidFromPubkey(pubkey)?.let { ssid ->
+                        SosEmergencyState.discoveryBySsid[ssid] = SosEmergencyState.SosDiscoveryEntry(
+                            ssid = ssid,
+                            ip = relayIp,
+                            childCount = childCount,
+                            maxChildren = maxChildCount,
+                            lastSeenMs = System.currentTimeMillis()
+                        )
+                    }
                 }
 
                 if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
@@ -352,6 +363,17 @@ class SosEmergencyRelayService : Service() {
                 "SOS_HERE:$myIp:${myChildren.size}:${SosEmergencyState.MAX_CHILDREN}:$pubkey:$name"
             } else {
                 "SOS_HERE:$myIp:${myChildren.size}:${SosEmergencyState.MAX_CHILDREN}"
+            }
+            if (pubkey.length == 64) {
+                SosEmergencySetup.ssidFromPubkey(pubkey)?.let { ssid ->
+                    SosEmergencyState.discoveryBySsid[ssid] = SosEmergencyState.SosDiscoveryEntry(
+                        ssid = ssid,
+                        ip = myIp,
+                        childCount = myChildren.size,
+                        maxChildren = SosEmergencyState.MAX_CHILDREN,
+                        lastSeenMs = System.currentTimeMillis()
+                    )
+                }
             }
             val data = msg.toByteArray()
             val addr = getBroadcastAddressFromIp(myIp)
@@ -529,6 +551,7 @@ class SosEmergencyRelayService : Service() {
             writer.println("HELLO:${identityJson()}")
             sendLog("JOIN", "ילד חדש $ip (${myChildren.size}/${SosEmergencyState.MAX_CHILDREN})")
             broadcastStatus("ממסר פעיל ✓ (${myChildren.size} ילדים)")
+            syncRelayChildrenState()
             notifySiblingsUpdate()
             broadcastPeerUpdate()
             keepChildConnection(socket, ip, reader, writer)
@@ -559,6 +582,7 @@ class SosEmergencyRelayService : Service() {
                         line == "PING" -> writer.println("PONG")
                         line.startsWith("HELLO:") -> {
                             if (applyHello(line.substringAfter("HELLO:"), ip)) {
+                                syncRelayChildrenState()
                                 relayHello(ip, line)
                             }
                         }
@@ -574,10 +598,23 @@ class SosEmergencyRelayService : Service() {
                 SosEmergencyState.sharedPeers.remove(ip)
                 SosEmergencyState.peerProfiles.remove(ip)
                 childWriters.remove(ip)
+                syncRelayChildrenState()
                 notifySiblingsUpdate()
                 broadcastPeerUpdate()
             }
         }
+    }
+
+    /** מיפוי ילדים → SSID להסתרה מסריקת ההורה | HYPER CORE TECH */
+    private fun syncRelayChildrenState() {
+        SosEmergencyState.relayChildIps.clear()
+        SosEmergencyState.relayChildIps.addAll(myChildren)
+        SosEmergencyState.hiddenChildSsids.clear()
+        for (childIp in myChildren) {
+            val pk = SosEmergencyState.peerProfiles[childIp]?.pubkey.orEmpty()
+            SosEmergencySetup.ssidFromPubkey(pk)?.let { SosEmergencyState.hiddenChildSsids.add(it) }
+        }
+        SosEmergencyState.childCount = myChildren.size
     }
 
     private fun notifySiblingsUpdate() {

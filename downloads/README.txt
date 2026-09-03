@@ -1,6 +1,8 @@
 ﻿SOS Android APK downloads
 
-Canonical download (GitHub Releases):
-https://github.com/Theicd/SOS/releases/download/apk-1.0.57/SOS-1.0.57.apk
+Latest: SOS-1.0.93.apk (emergency in-app WiFi scan/connect)
 
-Mirror branch binaries keeps only the latest APK file.
+GitHub Release:
+https://github.com/Theicd/SOS/releases/download/apk-1.0.93/SOS-1.0.93.apk
+
+Previous: https://github.com/Theicd/SOS/releases/download/apk-1.0.92/SOS-1.0.92.apk

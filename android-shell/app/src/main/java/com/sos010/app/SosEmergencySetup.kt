@@ -19,6 +19,14 @@ object SosEmergencySetup {
         return SosEmergencyState.NETWORK_NAME
     }
 
+    /** SSID מ-pubkey — אותו כלל כמו stationSsid | HYPER CORE TECH */
+    fun ssidFromPubkey(pubkey: String): String? {
+        if (pubkey.length >= 4) {
+            return SSID_PREFIX + pubkey.take(4).uppercase()
+        }
+        return null
+    }
+
     fun isSosSsid(ssid: String?): Boolean {
         val s = ssid?.trim()?.removeSurrounding("\"")?.trim().orEmpty()
         if (s.isEmpty()) return false

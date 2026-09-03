@@ -32,6 +32,19 @@ object SosWifiBootstrap {
         YIELD_NEEDED
     }
 
+    /** רשת SOS לתצוגה במסך החיבור | HYPER CORE TECH */
+    data class SosNetworkItem(
+        val ssid: String,
+        val signalDbm: Int,
+        val signalBars: Int,
+        val childCount: Int?,
+        val maxChildren: Int,
+        val available: Boolean,
+        val isCurrentConnection: Boolean
+    )
+
+    private const val DISCOVERY_STALE_MS = 30_000L
+
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var heldCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var heldCm: ConnectivityManager? = null
@@ -74,7 +87,59 @@ object SosWifiBootstrap {
 
     fun scanSosNetworks(context: Context): List<ScanResult> {
         val own = SosEmergencySetup.stationSsid(context)
-        return readSosResults(context, own)
+        return readSosResults(context, own, hiddenChildSsids())
+    }
+
+    /**
+     * סריקה + סינון לרשימת UI: לא שלי, לא ילדים, לא מלא.
+     * לא משנה את prepareForRelay — בטוח לקריאה תקופתית | HYPER CORE TECH
+     */
+    fun scanAvailableNetworks(context: Context, onDone: (List<SosNetworkItem>) -> Unit) {
+        val own = SosEmergencySetup.stationSsid(context)
+        val current = currentSsid(context)
+        val hidden = hiddenChildSsids()
+        scanSosAsync(context, own, hidden) { results ->
+            val items = results.mapNotNull { result ->
+                val ssid = cleanSsid(result.SSID) ?: return@mapNotNull null
+                if (ssid.equals(own, ignoreCase = true)) return@mapNotNull null
+                if (hidden.any { it.equals(ssid, ignoreCase = true) }) return@mapNotNull null
+                val discovery = discoveryForSsid(ssid)
+                val max = discovery?.maxChildren ?: SosEmergencyState.MAX_CHILDREN
+                val count = discovery?.childCount
+                val full = count != null && count >= max
+                if (full) return@mapNotNull null
+                val bars = signalBars(result.level)
+                SosNetworkItem(
+                    ssid = ssid,
+                    signalDbm = result.level,
+                    signalBars = bars,
+                    childCount = count,
+                    maxChildren = max,
+                    available = true,
+                    isCurrentConnection = ssid.equals(current, ignoreCase = true)
+                )
+            }.sortedWith(
+                compareByDescending<SosNetworkItem> { it.isCurrentConnection }
+                    .thenByDescending { it.signalDbm }
+            )
+            completeNetworkList(onDone, items)
+        }
+    }
+
+    /** חיבור ידני ממסך הסריקה — לא משפיע על prepareForRelay | HYPER CORE TECH */
+    fun connectToNetwork(context: Context, ssid: String, onDone: (Result) -> Unit) {
+        val own = SosEmergencySetup.stationSsid(context)
+        if (ssid.equals(own, ignoreCase = true)) {
+            complete(onDone, Result.ALREADY_LINKED)
+            return
+        }
+        if (isForeignSos(currentSsid(context), own) &&
+            ssid.equals(currentSsid(context), ignoreCase = true)
+        ) {
+            complete(onDone, Result.ALREADY_LINKED)
+            return
+        }
+        connectToSos(context, ssid, SosEmergencyState.NETWORK_PASSWORD, onDone)
     }
 
     fun prepareForRelay(context: Context, onDone: (Result) -> Unit) {
@@ -135,8 +200,13 @@ object SosWifiBootstrap {
         complete(onDone, Result.NONE_FOUND)
     }
 
-    private fun scanSosAsync(context: Context, own: String, onResults: (List<ScanResult>) -> Unit) {
-        val cached = readSosResults(context, own)
+    private fun scanSosAsync(
+        context: Context,
+        own: String,
+        hidden: Set<String> = hiddenChildSsids(),
+        onResults: (List<ScanResult>) -> Unit
+    ) {
+        val cached = readSosResults(context, own, hidden)
         if (!hasScanPermission(context)) {
             completeList(onResults, cached)
             return
@@ -157,7 +227,7 @@ object SosWifiBootstrap {
                     app.unregisterReceiver(this)
                 } catch (_: Exception) {
                 }
-                completeList(onResults, readSosResults(app, own))
+                completeList(onResults, readSosResults(app, own, hidden))
             }
         }
         timeout = Runnable { receiver.finishScan() }
@@ -188,7 +258,7 @@ object SosWifiBootstrap {
         }
     }
 
-    private fun readSosResults(context: Context, own: String): List<ScanResult> {
+    private fun readSosResults(context: Context, own: String, hidden: Set<String>): List<ScanResult> {
         val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         return try {
             @Suppress("DEPRECATION")
@@ -196,11 +266,38 @@ object SosWifiBootstrap {
                 .orEmpty()
                 .filter { result ->
                     val ssid = cleanSsid(result.SSID) ?: return@filter false
-                    SosEmergencySetup.isSosSsid(ssid) && !ssid.equals(own, ignoreCase = true)
+                    SosEmergencySetup.isSosSsid(ssid) &&
+                        !ssid.equals(own, ignoreCase = true) &&
+                        hidden.none { it.equals(ssid, ignoreCase = true) }
                 }
                 .sortedByDescending { it.level }
         } catch (_: Exception) {
             emptyList()
+        }
+    }
+
+    fun hiddenChildSsids(): Set<String> {
+        val hidden = linkedSetOf<String>()
+        hidden.addAll(SosEmergencyState.hiddenChildSsids)
+        for (ip in SosEmergencyState.relayChildIps) {
+            val pk = SosEmergencyState.peerProfiles[ip]?.pubkey.orEmpty()
+            SosEmergencySetup.ssidFromPubkey(pk)?.let { hidden.add(it) }
+        }
+        return hidden
+    }
+
+    private fun discoveryForSsid(ssid: String): SosEmergencyState.SosDiscoveryEntry? {
+        val entry = SosEmergencyState.discoveryBySsid[ssid] ?: return null
+        if (System.currentTimeMillis() - entry.lastSeenMs > DISCOVERY_STALE_MS) return null
+        return entry
+    }
+
+    private fun signalBars(level: Int): Int {
+        return when {
+            level >= -50 -> 4
+            level >= -60 -> 3
+            level >= -70 -> 2
+            else -> 1
         }
     }
 
@@ -325,6 +422,10 @@ object SosWifiBootstrap {
 
     private fun completeList(onResults: (List<ScanResult>) -> Unit, results: List<ScanResult>) {
         mainHandler.post { onResults(results) }
+    }
+
+    private fun completeNetworkList(onDone: (List<SosNetworkItem>) -> Unit, items: List<SosNetworkItem>) {
+        mainHandler.post { onDone(items) }
     }
 
     private fun clearPending() {

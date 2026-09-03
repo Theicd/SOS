@@ -16,8 +16,8 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 93
-        versionName = "1.0.92"
+        versionCode = 94
+        versionName = "1.0.93"
         buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=96\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
     }
@@ -57,6 +57,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.activity:activity-ktx:1.9.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

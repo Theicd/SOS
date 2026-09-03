@@ -12,7 +12,7 @@ object SosEmergencyState {
     const val NETWORK_PASSWORD = "SOS12345"
     const val SERVER_PORT = 9000
     const val DISCOVERY_PORT = 9001
-    const val MAX_CHILDREN = 5
+    const val MAX_CHILDREN = 3
 
     const val ACTION_STATUS = "com.sos010.app.EMERGENCY_STATUS_UPDATE"
     const val ACTION_LOG = "com.sos010.app.EMERGENCY_SERVICE_LOG"
@@ -24,6 +24,20 @@ object SosEmergencyState {
         val name: String = "",
         val picture: String = ""
     )
+
+    /** מ-SOS_HERE UDP — לסינון רשתות מלאות בסריקה | HYPER CORE TECH */
+    data class SosDiscoveryEntry(
+        val ssid: String,
+        val ip: String,
+        val childCount: Int,
+        val maxChildren: Int,
+        val lastSeenMs: Long
+    )
+
+    /** ילדים TCP ישירים — להסתרת hotspot שלהם מהסריקה של ההורה */
+    val relayChildIps = CopyOnWriteArrayList<String>()
+    val hiddenChildSsids = CopyOnWriteArrayList<String>()
+    val discoveryBySsid = ConcurrentHashMap<String, SosDiscoveryEntry>()
 
     data class EmergencyInboxItem(
         val callback: String,

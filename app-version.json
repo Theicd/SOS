@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.02-pwa412-apk-sign",
-  "buildTime": "2026-09-02T22:45:00+03:00",
-  "notes": "APK 1.0.92 signed with project upload key; toast explains package conflict uninstall-once"
+  "version": "2026.09.03-emergency-connect93",
+  "buildTime": "2026-09-03T18:30:00+03:00",
+  "notes": "APK 1.0.93: in-app emergency SOS network scan and connect screen"
 }

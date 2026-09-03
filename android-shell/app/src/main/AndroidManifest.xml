@@ -122,8 +122,15 @@
             android:theme="@style/Theme.SosShell" />
 
         <activity
+            android:name=".SosEmergencyConnectActivity"
+            android:exported="false"
+            android:label="@string/emergency_connect_title"
+            android:theme="@style/Theme.SosShell" />
+
+        <activity
             android:name=".SosEmergencyActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:label="מצב חירום"
             android:theme="@style/Theme.SosShell" />
 
