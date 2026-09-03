@@ -1,8 +1,8 @@
 {
-  "version": "1.0.95",
-  "versionCode": 96,
-  "file": "SOS-1.0.95.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.95/SOS-1.0.95.apk",
-  "releasedAt": "2026-09-03",
-  "note": "Simple SOS hotspot scan. Location required. Hide child hotspots. No yield/stop hotspot."
+  "version": "1.0.96",
+  "versionCode": 97,
+  "file": "SOS-1.0.96.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.96/SOS-1.0.96.apk",
+  "releasedAt": "2026-09-04",
+  "note": "Fix crash: locationButton findViewById in emergency scan screen"
 }

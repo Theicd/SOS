@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.03-emergency-scan95",
-  "buildTime": "2026-09-03T23:50:00+03:00",
-  "notes": "APK 1.0.95: simple nearby SOS hotspot scan, keep hotspot on, hide already-connected children"
+  "version": "2026.09.04-emergency-fix96",
+  "buildTime": "2026-09-04T00:08:00+03:00",
+  "notes": "APK 1.0.96: fix emergency scan crash (locationButton not initialized)"
 }

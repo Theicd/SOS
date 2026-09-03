@@ -59,6 +59,7 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
         emptyText = findViewById(R.id.connectEmptyText)
         listView = findViewById(R.id.connectNetworkList)
         rescanButton = findViewById(R.id.connectRescanButton)
+        locationButton = findViewById(R.id.connectLocationButton)
         continueRootButton = findViewById(R.id.connectContinueRootButton)
 
         adapter = SosNetworkListAdapter { item -> connectTo(item) }
