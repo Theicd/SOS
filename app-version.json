@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.03-emergency-connect93",
-  "buildTime": "2026-09-03T18:30:00+03:00",
-  "notes": "APK 1.0.93: in-app emergency SOS network scan and connect screen"
+  "version": "2026.09.03-emergency-scan95",
+  "buildTime": "2026-09-03T23:50:00+03:00",
+  "notes": "APK 1.0.95: simple nearby SOS hotspot scan, keep hotspot on, hide already-connected children"
 }

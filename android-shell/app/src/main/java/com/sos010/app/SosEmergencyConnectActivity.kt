@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -34,6 +35,7 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
     private lateinit var emptyText: TextView
     private lateinit var listView: RecyclerView
     private lateinit var rescanButton: Button
+    private lateinit var locationButton: Button
     private lateinit var continueRootButton: Button
     private lateinit var adapter: SosNetworkListAdapter
     private var scanning = false
@@ -65,10 +67,21 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.connectBackButton).setOnClickListener { finish() }
         rescanButton.setOnClickListener { runScan(showToast = true) }
+        locationButton.setOnClickListener {
+            try {
+                startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+            } catch (_: Exception) {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            }
+        }
         continueRootButton.setOnClickListener { openStation() }
 
         ensurePermissions()
         refreshStatusLine()
+        if (SosWifiBootstrap.isHotspotActive(this) && !SosEmergencyState.isRelayRunning) {
+            SosEmergencyRelayService.start(this)
+            SosEmergencyState.isRelayRunning = true
+        }
     }
 
     override fun onStart() {
@@ -87,31 +100,44 @@ class SosEmergencyConnectActivity : AppCompatActivity() {
         if (!SosWifiBootstrap.hasScanPermission(this)) {
             ensurePermissions()
             scanHint.text = getString(R.string.emergency_connect_need_permission)
+            locationButton.visibility = View.GONE
             return
         }
         scanning = true
         rescanButton.isEnabled = false
         scanHint.text = getString(R.string.emergency_scanning)
-        SosWifiBootstrap.scanAvailableNetworks(this) { items ->
+        SosWifiBootstrap.scanAvailableNetworks(this) { report ->
             runOnUiThread {
                 scanning = false
                 rescanButton.isEnabled = !connecting
+                val items = report.items
                 adapter.submitList(items)
                 listView.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
                 emptyText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
-                val hidden = SosWifiBootstrap.hiddenChildSsids().size
-                scanHint.text = if (hidden > 0) {
-                    getString(R.string.emergency_connect_scan_hint_hidden, hidden)
-                } else {
-                    getString(R.string.emergency_connect_scan_hint)
+                locationButton.visibility = if (report.locationOn) View.GONE else View.VISIBLE
+                scanHint.text = when (report.blockedReason) {
+                    "location" -> getString(R.string.emergency_connect_blocked_location)
+                    "permission" -> getString(R.string.emergency_connect_need_permission)
+                    else -> {
+                        val hidden = SosWifiBootstrap.hiddenChildSsids().size
+                        if (hidden > 0) {
+                            getString(R.string.emergency_connect_scan_hint_hidden, hidden)
+                        } else {
+                            getString(R.string.emergency_connect_scan_hint) +
+                                " · נמצאו ${report.rawCount} רשתות במכשיר"
+                        }
+                    }
+                }
+                if (!report.hotspotOn) {
+                    scanHint.text = getString(R.string.emergency_need_hotspot)
                 }
                 refreshStatusLine()
                 if (showToast) {
-                    Toast.makeText(
-                        this,
-                        getString(R.string.emergency_connect_found, items.size),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    val msg = when (report.blockedReason) {
+                        "location" -> getString(R.string.emergency_need_location)
+                        else -> getString(R.string.emergency_connect_found, items.size)
+                    }
+                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
                 }
             }
         }

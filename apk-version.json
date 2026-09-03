@@ -1,8 +1,8 @@
 {
-  "version": "1.0.93",
-  "versionCode": 94,
-  "file": "SOS-1.0.93.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.93/SOS-1.0.93.apk",
+  "version": "1.0.95",
+  "versionCode": 96,
+  "file": "SOS-1.0.95.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.95/SOS-1.0.95.apk",
   "releasedAt": "2026-09-03",
-  "note": "Emergency connect screen: in-app SOS WiFi scan, filter child/full hotspots, MAX_CHILDREN=3"
+  "note": "Simple SOS hotspot scan. Location required. Hide child hotspots. No yield/stop hotspot."
 }

@@ -49,6 +49,16 @@
             android:textStyle="bold" />
 
         <Button
+            android:id="@+id/connectLocationButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginEnd="6dp"
+            android:backgroundTint="#fbbf24"
+            android:text="@string/emergency_connect_open_location"
+            android:textColor="#000000"
+            android:visibility="gone" />
+
+        <Button
             android:id="@+id/connectRescanButton"
             android:layout_width="wrap_content"
             android:layout_height="40dp"

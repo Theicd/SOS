@@ -14,9 +14,11 @@ import android.net.wifi.ScanResult
 import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
+import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import androidx.core.content.ContextCompat
 
 /**
@@ -41,6 +43,17 @@ object SosWifiBootstrap {
         val maxChildren: Int,
         val available: Boolean,
         val isCurrentConnection: Boolean
+    )
+
+    data class ScanReport(
+        val items: List<SosNetworkItem>,
+        val locationOn: Boolean,
+        val permissionOk: Boolean,
+        val wifiOn: Boolean,
+        val hotspotOn: Boolean,
+        val startScanOk: Boolean,
+        val rawCount: Int,
+        val blockedReason: String?
     )
 
     private const val DISCOVERY_STALE_MS = 30_000L
@@ -80,9 +93,28 @@ object SosWifiBootstrap {
         }
     }
 
+    fun isLocationEnabled(context: Context): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                lm.isLocationEnabled
+            } else {
+                @Suppress("DEPRECATION")
+                Settings.Secure.getInt(
+                    context.contentResolver,
+                    Settings.Secure.LOCATION_MODE,
+                    Settings.Secure.LOCATION_MODE_OFF
+                ) != Settings.Secure.LOCATION_MODE_OFF
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** מחובר לרשת SOS זרה — לא נקודה חמה שלי | HYPER CORE TECH */
     fun isLinkedToSos(context: Context): Boolean {
-        if (isHotspotActive(context)) return true
-        return SosEmergencySetup.isSosSsid(currentSsid(context))
+        val own = SosEmergencySetup.stationSsid(context)
+        return isForeignSos(currentSsid(context), own)
     }
 
     fun scanSosNetworks(context: Context): List<ScanResult> {
@@ -91,38 +123,75 @@ object SosWifiBootstrap {
     }
 
     /**
-     * סריקה + סינון לרשימת UI: לא שלי, לא ילדים, לא מלא.
-     * לא משנה את prepareForRelay — בטוח לקריאה תקופתית | HYPER CORE TECH
+     * סריקה + סינון: לא שלי, לא ילדים שכבר מחוברים אלי, לא מלא.
+     * לא מכבה נקודה חמה. | HYPER CORE TECH
      */
-    fun scanAvailableNetworks(context: Context, onDone: (List<SosNetworkItem>) -> Unit) {
-        val own = SosEmergencySetup.stationSsid(context)
-        val current = currentSsid(context)
+    fun scanAvailableNetworks(context: Context, onDone: (ScanReport) -> Unit) {
+        val app = context.applicationContext
+        val own = SosEmergencySetup.stationSsid(app)
+        val current = currentSsid(app)
         val hidden = hiddenChildSsids()
-        scanSosAsync(context, own, hidden) { results ->
-            val items = results.mapNotNull { result ->
-                val ssid = cleanSsid(result.SSID) ?: return@mapNotNull null
-                if (ssid.equals(own, ignoreCase = true)) return@mapNotNull null
-                if (hidden.any { it.equals(ssid, ignoreCase = true) }) return@mapNotNull null
-                val discovery = discoveryForSsid(ssid)
-                val max = discovery?.maxChildren ?: SosEmergencyState.MAX_CHILDREN
-                val count = discovery?.childCount
-                val full = count != null && count >= max
-                if (full) return@mapNotNull null
-                val bars = signalBars(result.level)
-                SosNetworkItem(
-                    ssid = ssid,
-                    signalDbm = result.level,
-                    signalBars = bars,
-                    childCount = count,
-                    maxChildren = max,
-                    available = true,
-                    isCurrentConnection = ssid.equals(current, ignoreCase = true)
+        val locationOn = isLocationEnabled(app)
+        val permissionOk = hasScanPermission(app)
+        val hotspotOn = isHotspotActive(app)
+        val wm = app.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiOn = try { wm.isWifiEnabled } catch (_: Exception) { false }
+        if (!locationOn) {
+            SosDebugLog.w("emergency", "scan blocked: location off")
+            completeReport(
+                onDone,
+                ScanReport(
+                    items = mergeDiscoveryItems(emptyList(), own, current, hidden),
+                    locationOn = false,
+                    permissionOk = permissionOk,
+                    wifiOn = wifiOn,
+                    hotspotOn = hotspotOn,
+                    startScanOk = false,
+                    rawCount = 0,
+                    blockedReason = "location"
                 )
-            }.sortedWith(
-                compareByDescending<SosNetworkItem> { it.isCurrentConnection }
-                    .thenByDescending { it.signalDbm }
             )
-            completeNetworkList(onDone, items)
+            return
+        }
+        if (!permissionOk) {
+            completeReport(
+                onDone,
+                ScanReport(
+                    items = emptyList(),
+                    locationOn = true,
+                    permissionOk = false,
+                    wifiOn = wifiOn,
+                    hotspotOn = hotspotOn,
+                    startScanOk = false,
+                    rawCount = 0,
+                    blockedReason = "permission"
+                )
+            )
+            return
+        }
+        tryEnableWifi(app)
+        scanSosAsync(app, own, hidden) { results, startOk, rawCount ->
+            val fromWifi = results.mapNotNull { result ->
+                toNetworkItem(cleanSsid(result.SSID), result.level, current, own, hidden)
+            }
+            val items = mergeDiscoveryItems(fromWifi, own, current, hidden)
+            SosDebugLog.i(
+                "emergency",
+                "scan raw=$rawCount sos=${items.size} start=$startOk hotspot=$hotspotOn"
+            )
+            completeReport(
+                onDone,
+                ScanReport(
+                    items = items,
+                    locationOn = true,
+                    permissionOk = true,
+                    wifiOn = wifiOn,
+                    hotspotOn = hotspotOn,
+                    startScanOk = startOk,
+                    rawCount = rawCount,
+                    blockedReason = null
+                )
+            )
         }
     }
 
@@ -131,6 +200,11 @@ object SosWifiBootstrap {
         val own = SosEmergencySetup.stationSsid(context)
         if (ssid.equals(own, ignoreCase = true)) {
             complete(onDone, Result.ALREADY_LINKED)
+            return
+        }
+        if (isBlockedTarget(ssid)) {
+            SosDebugLog.w("emergency", "block connect to $ssid — already on our hotspot")
+            complete(onDone, Result.CONNECT_FAILED)
             return
         }
         if (isForeignSos(currentSsid(context), own) &&
@@ -142,78 +216,27 @@ object SosWifiBootstrap {
         connectToSos(context, ssid, SosEmergencyState.NETWORK_PASSWORD, onDone)
     }
 
+    /** ממסר בלבד — לא מכבה נקודה חמה ולא מחפש רשת כתחליף | HYPER CORE TECH */
     fun prepareForRelay(context: Context, onDone: (Result) -> Unit) {
-        val app = context.applicationContext
-        val own = SosEmergencySetup.stationSsid(app)
-        if (isForeignSos(currentSsid(app), own)) {
-            complete(onDone, Result.ALREADY_LINKED)
-            return
-        }
-        scanSosAsync(app, own) { others ->
-            decide(app, own, others, allowRescan = true, onDone)
-        }
-    }
-
-    private fun decide(
-        app: Context,
-        own: String,
-        others: List<ScanResult>,
-        allowRescan: Boolean,
-        onDone: (Result) -> Unit
-    ) {
-        val best = others.firstOrNull()
-        val hotspot = isHotspotActive(app)
-        if (best != null) {
-            val other = cleanSsid(best.SSID).orEmpty()
-            if (other.isEmpty()) {
-                complete(onDone, if (hotspot) Result.ALREADY_LINKED else Result.NONE_FOUND)
-                return
-            }
-            if (hotspot) {
-                if (shouldYield(other, own)) {
-                    if (tryStopHotspot(app)) {
-                        tryEnableWifi(app)
-                        connectToSos(app, other, SosEmergencyState.NETWORK_PASSWORD, onDone)
-                    } else {
-                        complete(onDone, Result.YIELD_NEEDED)
-                    }
-                } else {
-                    complete(onDone, Result.ALREADY_LINKED)
-                }
-                return
-            }
-            connectToSos(app, other, SosEmergencyState.NETWORK_PASSWORD, onDone)
-            return
-        }
-        if (hotspot) {
-            complete(onDone, Result.ALREADY_LINKED)
-            return
-        }
-        if (allowRescan) {
-            mainHandler.postDelayed({
-                scanSosAsync(app, own) { round2 ->
-                    decide(app, own, round2, allowRescan = false, onDone)
-                }
-            }, 4000L)
-            return
-        }
-        complete(onDone, Result.NONE_FOUND)
+        complete(onDone, Result.ALREADY_LINKED)
     }
 
     private fun scanSosAsync(
         context: Context,
         own: String,
         hidden: Set<String> = hiddenChildSsids(),
-        onResults: (List<ScanResult>) -> Unit
+        onResults: (List<ScanResult>, Boolean, Int) -> Unit
     ) {
         val cached = readSosResults(context, own, hidden)
+        val cachedRaw = rawScanCount(context)
         if (!hasScanPermission(context)) {
-            completeList(onResults, cached)
+            mainHandler.post { onResults(cached, false, cachedRaw) }
             return
         }
         val app = context.applicationContext
         val wm = app.getSystemService(Context.WIFI_SERVICE) as WifiManager
         var finished = false
+        var startOk = false
         lateinit var timeout: Runnable
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
@@ -227,7 +250,9 @@ object SosWifiBootstrap {
                     app.unregisterReceiver(this)
                 } catch (_: Exception) {
                 }
-                completeList(onResults, readSosResults(app, own, hidden))
+                mainHandler.post {
+                    onResults(readSosResults(app, own, hidden), startOk, rawScanCount(app))
+                }
             }
         }
         timeout = Runnable { receiver.finishScan() }
@@ -243,17 +268,20 @@ object SosWifiBootstrap {
                 app.registerReceiver(receiver, IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION))
             }
         } catch (_: Exception) {
-            completeList(onResults, cached)
+            mainHandler.post { onResults(cached, false, cachedRaw) }
             return
         }
         mainHandler.postDelayed(timeout, 5000L)
-        val started = try {
+        startOk = try {
             @Suppress("DEPRECATION")
             wm.startScan()
+        } catch (e: SecurityException) {
+            SosDebugLog.w("emergency", "startScan denied: ${e.message}")
+            false
         } catch (_: Exception) {
             false
         }
-        if (!started) {
+        if (!startOk) {
             mainHandler.postDelayed({ receiver.finishScan() }, 800L)
         }
     }
@@ -283,7 +311,55 @@ object SosWifiBootstrap {
             val pk = SosEmergencyState.peerProfiles[ip]?.pubkey.orEmpty()
             SosEmergencySetup.ssidFromPubkey(pk)?.let { hidden.add(it) }
         }
+        for (entry in SosEmergencyState.discoveryBySsid.values) {
+            if (isClientOnMyHotspot(entry.ip) || SosEmergencyState.relayChildIps.contains(entry.ip)) {
+                hidden.add(entry.ssid)
+                SosEmergencyState.rememberDownstreamSsid(entry.ssid)
+            }
+        }
         return hidden
+    }
+
+    fun isBlockedTarget(ssid: String): Boolean {
+        return hiddenChildSsids().any { it.equals(ssid, ignoreCase = true) }
+    }
+
+    /** IP על רשת הנקודה החמה שלי = כבר מחובר אלי — לא מתחברים חזרה | HYPER CORE TECH */
+    fun isClientOnMyHotspot(ip: String?): Boolean {
+        if (ip.isNullOrBlank()) return false
+        val ap = hotspotIpv4() ?: return false
+        return sameSlash24(ap, ip)
+    }
+
+    fun hotspotIpv4(): String? {
+        return try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return null
+            while (interfaces.hasMoreElements()) {
+                val intf = interfaces.nextElement()
+                if (!intf.isUp || intf.isLoopback) continue
+                val name = intf.name.lowercase()
+                val looksAp = name.contains("ap") || name.contains("swlan") ||
+                    name.contains("softap") || name == "wlan1"
+                if (!looksAp) continue
+                val addrs = intf.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val addr = addrs.nextElement()
+                    if (addr is java.net.Inet4Address) {
+                        return addr.hostAddress
+                    }
+                }
+            }
+            null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun sameSlash24(a: String, b: String): Boolean {
+        val pa = a.split('.')
+        val pb = b.split('.')
+        if (pa.size != 4 || pb.size != 4) return false
+        return pa[0] == pb[0] && pa[1] == pb[1] && pa[2] == pb[2]
     }
 
     private fun discoveryForSsid(ssid: String): SosEmergencyState.SosDiscoveryEntry? {
@@ -299,6 +375,67 @@ object SosWifiBootstrap {
             level >= -70 -> 2
             else -> 1
         }
+    }
+
+    private fun rawScanCount(context: Context): Int {
+        return try {
+            val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
+            wm.scanResults.orEmpty().size
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    private fun toNetworkItem(
+        ssid: String?,
+        level: Int,
+        current: String?,
+        own: String,
+        hidden: Set<String>
+    ): SosNetworkItem? {
+        if (ssid.isNullOrBlank()) return null
+        if (ssid.equals(own, ignoreCase = true)) return null
+        if (hidden.any { it.equals(ssid, ignoreCase = true) }) return null
+        if (!SosEmergencySetup.isSosSsid(ssid)) return null
+        val discovery = discoveryForSsid(ssid)
+        val max = discovery?.maxChildren ?: SosEmergencyState.MAX_CHILDREN
+        val count = discovery?.childCount
+        if (count != null && count >= max) return null
+        return SosNetworkItem(
+            ssid = ssid,
+            signalDbm = level,
+            signalBars = signalBars(level),
+            childCount = count,
+            maxChildren = max,
+            available = true,
+            isCurrentConnection = ssid.equals(current, ignoreCase = true)
+        )
+    }
+
+    private fun mergeDiscoveryItems(
+        fromWifi: List<SosNetworkItem>,
+        own: String,
+        current: String?,
+        hidden: Set<String>
+    ): List<SosNetworkItem> {
+        val bySsid = linkedMapOf<String, SosNetworkItem>()
+        fromWifi.forEach { bySsid[it.ssid.uppercase()] = it }
+        val now = System.currentTimeMillis()
+        for (entry in SosEmergencyState.discoveryBySsid.values) {
+            if (now - entry.lastSeenMs > DISCOVERY_STALE_MS) continue
+            val key = entry.ssid.uppercase()
+            if (bySsid.containsKey(key)) continue
+            toNetworkItem(entry.ssid, -65, current, own, hidden)?.let { bySsid[key] = it }
+        }
+        return bySsid.values.sortedWith(
+            compareByDescending<SosNetworkItem> { it.isCurrentConnection }
+                .thenByDescending { it.signalDbm }
+        )
+    }
+
+    private fun completeReport(onDone: (ScanReport) -> Unit, report: ScanReport) {
+        mainHandler.post { onDone(report) }
     }
 
     private fun connectToSos(

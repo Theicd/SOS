@@ -65,6 +65,19 @@ object SosEmergencyState {
     private val screenLog = StringBuilder()
     private val logLock = Any()
 
+    /** נקודה חמה של מי שכבר מחובר אלינו — אסור שתופיע בסריקה או שנתחבר אליה | HYPER CORE TECH */
+    fun rememberDownstreamSsid(ssid: String) {
+        val clean = ssid.trim()
+        if (clean.isEmpty()) return
+        if (hiddenChildSsids.none { it.equals(clean, ignoreCase = true) }) {
+            hiddenChildSsids.add(clean)
+        }
+    }
+
+    fun isDownstreamSsid(ssid: String): Boolean {
+        return hiddenChildSsids.any { it.equals(ssid, ignoreCase = true) }
+    }
+
     fun upsertPeer(ip: String, pubkey: String = "", name: String = "", picture: String = "") {
         if (ip.isBlank()) return
         val prev = peerProfiles[ip]

@@ -59,6 +59,7 @@ class SosEmergencyActivity : AppCompatActivity() {
     private lateinit var usersStatusView: TextView
     private lateinit var wifiStatusView: TextView
     private lateinit var hotspotStatusView: TextView
+    private lateinit var locationStatusView: TextView
     private lateinit var ipAddressView: TextView
     private lateinit var networkNameView: TextView
     private lateinit var networkPasswordView: TextView
@@ -119,6 +120,7 @@ class SosEmergencyActivity : AppCompatActivity() {
         usersStatusView = findViewById(R.id.usersStatus)
         wifiStatusView = findViewById(R.id.wifiStatus)
         hotspotStatusView = findViewById(R.id.hotspotStatus)
+        locationStatusView = findViewById(R.id.locationStatus)
         ipAddressView = findViewById(R.id.ipAddress)
         networkNameView = findViewById(R.id.networkName)
         networkPasswordView = findViewById(R.id.networkPassword)
@@ -129,7 +131,7 @@ class SosEmergencyActivity : AppCompatActivity() {
         findViewById<Button>(R.id.backToNetworkButton).setOnClickListener { finish() }
         findViewById<Button>(R.id.openConnectButton).setOnClickListener { openConnectScreen() }
         findViewById<Button>(R.id.openHotspotSettingsButton).setOnClickListener { openHotspotSettings() }
-        findViewById<Button>(R.id.startRelayButton).setOnClickListener { startRelay() }
+        findViewById<Button>(R.id.startRelayButton).setOnClickListener { openConnectScreen() }
         findViewById<Button>(R.id.runTestsButton).setOnClickListener {
             startActivity(Intent(this, SosEmergencyTestActivity::class.java))
         }
@@ -193,7 +195,6 @@ class SosEmergencyActivity : AppCompatActivity() {
             runWizardVerify()
         } else if (retryRelayOnResume && wizardRoot.visibility != View.VISIBLE) {
             retryRelayOnResume = false
-            startRelay()
         }
     }
 
@@ -239,6 +240,9 @@ class SosEmergencyActivity : AppCompatActivity() {
         wizardRoot.visibility = View.GONE
         stationRoot.visibility = View.VISIBLE
         refreshStationLabels()
+        if (SosWifiBootstrap.isHotspotActive(this) && !SosEmergencyState.isRelayRunning) {
+            launchRelay()
+        }
     }
 
     private fun refreshStationLabels() {
@@ -255,7 +259,7 @@ class SosEmergencyActivity : AppCompatActivity() {
         val wifiOn = (applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager).isWifiEnabled
         val hotspot = SosWifiBootstrap.isHotspotActive(this)
         val onSos = SosEmergencySetup.isSosSsid(SosWifiBootstrap.currentSsid(this))
-        val linked = hotspot || onSos
+        val linked = hotspot
         val lines = buildString {
             append(if (wifiOn || hotspot) "כרטיס רשת: תקין" else "כרטיס רשת: כבוי")
             append('\n')
@@ -279,37 +283,19 @@ class SosEmergencyActivity : AppCompatActivity() {
 
     private fun startRelay() {
         if (relayArming) return
-        ensureLocationPermission()
-        relayArming = true
-        relayStatusView.text = getString(R.string.emergency_scanning)
-        appendLog("סורק רשתות SOS...")
-        SosWifiBootstrap.prepareForRelay(this) { result ->
-            runOnUiThread {
-                relayArming = false
-                when (result) {
-                    SosWifiBootstrap.Result.ALREADY_LINKED -> {
-                        appendLog("החלטה: נשארים על הרשת / נקודה חמה")
-                        launchRelay()
-                    }
-                    SosWifiBootstrap.Result.JOINED -> {
-                        appendLog("החלטה: התחברתי לרשת SOS")
-                        launchRelay()
-                    }
-                    SosWifiBootstrap.Result.YIELD_NEEDED -> {
-                        appendLog("יש רשת SOS קרובה — כבה נקודה חמה וחזור")
-                        Toast.makeText(this, R.string.emergency_yield_hotspot, Toast.LENGTH_LONG).show()
-                        retryRelayOnResume = true
-                        openHotspotSettings()
-                    }
-                    SosWifiBootstrap.Result.NONE_FOUND,
-                    SosWifiBootstrap.Result.CONNECT_FAILED -> {
-                        appendLog("אין רשת SOS — מדליקים נקודה חמה")
-                        openHotspotSettings()
-                        launchRelay()
-                    }
-                }
-            }
+        if (!SosWifiBootstrap.isHotspotActive(this)) {
+            appendLog("נקודה חמה כבויה — מדליקים קודם")
+            Toast.makeText(this, R.string.emergency_need_hotspot, Toast.LENGTH_LONG).show()
+            openHotspotSettings()
+            return
         }
+        ensureLocationPermission()
+        if (!SosWifiBootstrap.isLocationEnabled(this)) {
+            appendLog("מיקום כבוי — סריקה תיחסם")
+            Toast.makeText(this, R.string.emergency_need_location, Toast.LENGTH_LONG).show()
+        }
+        launchRelay()
+        openConnectScreen()
     }
 
     private fun launchRelay() {
@@ -338,6 +324,17 @@ class SosEmergencyActivity : AppCompatActivity() {
     }
 
     private fun openConnectScreen(fromWizard: Boolean = false) {
+        if (!SosWifiBootstrap.isHotspotActive(this)) {
+            Toast.makeText(this, R.string.emergency_need_hotspot, Toast.LENGTH_LONG).show()
+            openHotspotSettings()
+            return
+        }
+        if (!SosWifiBootstrap.isLocationEnabled(this)) {
+            Toast.makeText(this, R.string.emergency_need_location, Toast.LENGTH_LONG).show()
+        }
+        if (!SosEmergencyState.isRelayRunning) {
+            launchRelay()
+        }
         startActivity(Intent(this, SosEmergencyConnectActivity::class.java).apply {
             putExtra(SosEmergencyConnectActivity.EXTRA_FROM_WIZARD, fromWizard)
         })
@@ -377,6 +374,9 @@ class SosEmergencyActivity : AppCompatActivity() {
 
         val hotspot = SosWifiBootstrap.isHotspotActive(this)
         hotspotStatusView.text = if (hotspot) "✅ נקודה חמה פעילה" else "❌ נקודה חמה כבויה"
+
+        val locationOn = SosWifiBootstrap.isLocationEnabled(this)
+        locationStatusView.text = if (locationOn) "✅ מיקום דלוק" else "❌ מיקום כבוי — בלי זה אין סריקה"
 
         val ip = getLocalIp()
         SosEmergencyState.myIp = ip

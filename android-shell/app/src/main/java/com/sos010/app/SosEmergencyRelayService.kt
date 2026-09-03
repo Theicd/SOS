@@ -271,6 +271,17 @@ class SosEmergencyRelayService : Service() {
             helloSeen[key] = now
             SosEmergencyState.upsertPeer(ip, pubkey, name, picture)
             addPeer(ip)
+            val ssid = SosEmergencySetup.ssidFromPubkey(pubkey)
+            if (ssid != null && (
+                    myChildren.contains(ip) ||
+                    myChildren.contains(fallbackIp) ||
+                    SosWifiBootstrap.isClientOnMyHotspot(ip) ||
+                    SosWifiBootstrap.isClientOnMyHotspot(fallbackIp)
+                )
+            ) {
+                SosEmergencyState.rememberDownstreamSsid(ssid)
+                sendLog("SCAN", "מסתיר $ssid אחרי HELLO")
+            }
             sendLog("HELLO", "$ip ${name.ifBlank { pubkey.take(8) }}")
             broadcastPeerUpdate()
             true
@@ -324,6 +335,12 @@ class SosEmergencyRelayService : Service() {
                             maxChildren = maxChildCount,
                             lastSeenMs = System.currentTimeMillis()
                         )
+                        val onMyAp = SosWifiBootstrap.isClientOnMyHotspot(relayIp) ||
+                            SosWifiBootstrap.isClientOnMyHotspot(senderIp)
+                        if (onMyAp || myChildren.contains(relayIp) || myChildren.contains(senderIp)) {
+                            SosEmergencyState.rememberDownstreamSsid(ssid)
+                            sendLog("SCAN", "מסתיר $ssid — כבר מחובר לנקודה החמה שלי")
+                        }
                     }
                 }
 
