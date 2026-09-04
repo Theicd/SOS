@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity() {
             applyOfflineShellMode()
             openEmergencyHardwareScreen()
             if (this::webView.isInitialized && !webPageReady) {
-                webView.loadUrl(offlineAwareStartUrl(BuildConfig.SOS_START_URL))
+                webView.loadUrl(emergencySiteUrl())
             }
             return
         }
@@ -330,6 +330,7 @@ class MainActivity : AppCompatActivity() {
             injectNativeFilePickScript()
             injectNativeVideoFixScript()
             applyOfflineShellMode()
+            recoverEmergencyShellIfDead()
         }
     }
 
@@ -1112,17 +1113,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * קאש רק באייקון חירום כשאין אינטרנט מאומת.
-     * SOS / So-Call נשארים אונליין. | HYPER CORE TECH
+     * אייקון חירום בלבד: אין אינטרנט → כל האתר מהקאש.
+     * יש אינטרנט → טעינה רגילה. SOS / So-Call לא נכנסים לכאן. | HYPER CORE TECH
      */
     private fun applyOfflineShellMode(force: Boolean = false) {
         if (!this::webView.isInitialized) return
-        val emergency = force || SosEmergencyState.offlineShellRequested
-        val useCache = emergency && (force || !SosNetProbe.hasExternalInternet(this))
+        val emergency = SosEmergencyState.offlineShellRequested
+        val noInternet = force || !SosNetProbe.hasExternalInternet(this)
+        val useCache = emergency && noInternet
         val settings = webView.settings
         if (useCache) {
             settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-            settings.blockNetworkLoads = false
+            settings.blockNetworkLoads = true
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.blockNetworkLoads = false
@@ -1131,10 +1133,22 @@ class MainActivity : AppCompatActivity() {
             lastShellOffline = useCache
             SosDebugLog.i(
                 "shell",
-                if (useCache) "emergency shell: cache (no validated internet)"
+                if (useCache) "emergency shell: full site from cache"
                 else "online shell: network default"
             )
         }
+    }
+
+    /** חזרה ממסך החומרה — אם ה-WebView מת, טוענים שוב את אותה כתובת מהקאש | HYPER CORE TECH */
+    private fun recoverEmergencyShellIfDead() {
+        if (!SosEmergencyState.offlineShellRequested) return
+        if (!this::webView.isInitialized) return
+        if (webPageReady) return
+        if (!isChromeErrorUrl(webView.url)) return
+        applyOfflineShellMode(force = true)
+        offlineShellRetryDone = false
+        SosDebugLog.i("shell", "resume: reload emergency UI from cache")
+        webView.loadUrl(emergencySiteUrl())
     }
 
     private fun isChromeErrorUrl(url: String?): Boolean {
@@ -1156,28 +1170,25 @@ class MainActivity : AppCompatActivity() {
         if (!offlineShellRetryDone) {
             offlineShellRetryDone = true
             applyOfflineShellMode(force = true)
-            SosDebugLog.i("shell", "retry start URL from cache")
-            view.loadUrl(offlineAwareStartUrl(BuildConfig.SOS_START_URL, forceOffline = true))
+            SosDebugLog.i("shell", "retry same start URL from cache")
+            view.loadUrl(emergencySiteUrl())
             return
         }
-        SosDebugLog.w("shell", "no local copy – stay on emergency hardware UI")
+        SosDebugLog.w("shell", "cache miss for emergency site")
     }
 
-    /** בלי רשת (רק מאייקון חירום) – videos.html בלי ?shell= כדי לפגוע בקאש/SW | HYPER CORE TECH */
-    private fun offlineAwareStartUrl(url: String, forceOffline: Boolean = false): String {
-        if (!forceOffline && !SosEmergencyState.offlineShellRequested) return url
-        return try {
-            val uri = Uri.parse(url)
-            if (uri.host?.endsWith("sos010.com") != true) return url
-            val path = uri.path.orEmpty()
-            if (path.contains("videos") || path.isBlank() || path == "/") {
-                uri.buildUpon().clearQuery().build().toString()
-            } else {
-                url
-            }
-        } catch (_: Exception) {
-            url
+    /** הכתובת שכבר בקאש — לא כתובת חדשה עם ?shell= אחר | HYPER CORE TECH */
+    private fun emergencySiteUrl(): String {
+        val remembered = SosSessionStore.getLastUrl(this)
+        return if (remembered.contains("sos010.com") && remembered.contains("videos")) {
+            remembered
+        } else {
+            BuildConfig.SOS_START_URL
         }
+    }
+
+    private fun offlineAwareStartUrl(url: String): String {
+        return url
     }
 
     /** ניקוי deep-link ממתינים – נקרא מה-Web אחרי סגירת שיחה / חזרה לפיד */

@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.04-emergency-net98",
-  "buildTime": "2026-09-04T12:55:00+03:00",
-  "notes": "APK 1.0.98: emergency shell detects internet; mesh joins client LAN"
+  "version": "2026.09.04-emergency-cache99",
+  "buildTime": "2026-09-04T13:36:00+03:00",
+  "notes": "APK 1.0.99: emergency loads full site from cache when offline"
 }

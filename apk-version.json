@@ -1,8 +1,8 @@
 {
-  "version": "1.0.98",
-  "versionCode": 99,
-  "file": "SOS-1.0.98.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.98/SOS-1.0.98.apk",
+  "version": "1.0.99",
+  "versionCode": 100,
+  "file": "SOS-1.0.99.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.99/SOS-1.0.99.apk",
   "releasedAt": "2026-09-04",
-  "note": "Emergency shell internet probe; join parent on client Wi-Fi, not own hotspot child"
+  "note": "Emergency icon loads full cached site when offline; SOS/So-Call unchanged"
 }
