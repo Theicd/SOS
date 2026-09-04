@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.04-sw-cache748",
-  "buildTime": "2026-09-04T14:15:00+03:00",
-  "notes": "SW v748: HTML/JS/CSS cached network-first; emergency offline UI"
+  "version": "2026.09.04-mesh-v2",
+  "buildTime": "2026-09-04T22:00:00+03:00",
+  "notes": "Emergency Mesh V2: sendMeshChat, targeted WebRTC, inbox drain"
 }

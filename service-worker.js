@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v748'; // חירום: HTML/JS/CSS בקאש, רשת קודם
+  const CACHE_NAME = 'sos-cache-v749'; // חירום: Mesh V2 chat + WebRTC target
   const PRECACHE_URLS = [
     './',
     './videos.html',

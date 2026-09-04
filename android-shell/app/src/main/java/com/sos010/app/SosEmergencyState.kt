@@ -48,6 +48,14 @@ object SosEmergencyState {
     val sharedPeers = CopyOnWriteArrayList<String>()
     val peerProfiles = ConcurrentHashMap<String, EmergencyPeerProfile>()
     val inbox = ConcurrentLinkedQueue<EmergencyInboxItem>()
+    @Volatile var inboxDrainer: (() -> Unit)? = null
+
+    fun requestInboxDrain() {
+        try {
+            inboxDrainer?.invoke()
+        } catch (_: Exception) {
+        }
+    }
 
     @Volatile var sharedParentIp: String? = null
     @Volatile var isRelayRunning: Boolean = false
@@ -60,6 +68,25 @@ object SosEmergencyState {
 
     /** true רק אחרי לחיצה על אייקון SOS חירום – לא מזיהוי רשת אוטומטי | HYPER CORE TECH */
     @Volatile var offlineShellRequested: Boolean = false
+
+    /** Mesh V2 — זהות + טופולוגיה קנונית (V2-A). הרשימות הישנות נשארות תאימות. | HYPER CORE TECH */
+    val mesh = EmergencyMeshStore()
+    val meshSeen = EmergencyMeshSeenCache()
+    val meshDelivery = ConcurrentHashMap<String, String>()
+    @Volatile var meshBootId: String = ""
+
+    fun trackDelivery(messageId: String, status: String) {
+        if (messageId.isBlank()) return
+        meshDelivery[messageId] = status
+        while (meshDelivery.size > 400) {
+            val first = meshDelivery.keys.firstOrNull() ?: break
+            meshDelivery.remove(first)
+        }
+    }
+
+    fun deliveryStatus(messageId: String): String {
+        return meshDelivery[messageId].orEmpty()
+    }
 
     private const val MAX_SCREEN_LOG = 16000
     private val screenLog = StringBuilder()

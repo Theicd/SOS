@@ -24,6 +24,17 @@ class SosEmergencyBridge(
     private val executor = Executors.newCachedThreadPool()
     private val handler = Handler(Looper.getMainLooper())
 
+    init {
+        SosEmergencyState.inboxDrainer = {
+            handler.post {
+                webView?.evaluateJavascript(
+                    "window.SOSEmergency&&window.SOSEmergency.drainNow&&window.SOSEmergency.drainNow()",
+                    null
+                )
+            }
+        }
+    }
+
     /** true רק כשממסר החירום באמת רץ — לא תמיד, כדי לא לשבור מצב אינטרנט רגיל | HYPER CORE TECH */
     @JavascriptInterface
     fun isEmergencyMode(): Boolean = SosEmergencyState.isRelayRunning
@@ -61,40 +72,43 @@ class SosEmergencyBridge(
 
     @JavascriptInterface
     fun isRelayNetworkActive(): Boolean {
-        return SosEmergencyState.isRelayRunning && SosEmergencyState.sharedPeers.isNotEmpty()
+        return SosEmergencyState.isRelayRunning && SosEmergencyState.mesh.connectedCount() > 0
     }
 
     @JavascriptInterface
     fun getEmergencyNetworkStatus(): String {
+        val mesh = SosEmergencyState.mesh
+        val myIp = getLocalIpAddress()
         val status = JSONObject()
         status.put("isActive", SosEmergencyState.isRelayRunning)
-        status.put("peerCount", SosEmergencyState.sharedPeers.size)
+        status.put("peerCount", mesh.connectedCount())
         status.put("parentIp", SosEmergencyState.sharedParentIp ?: "")
-        status.put("myIp", getLocalIpAddress())
-        status.put("peers", JSONArray(SosEmergencyState.sharedPeers))
+        status.put("parentNodeId", mesh.parentNodeId() ?: "")
+        status.put("myIp", myIp)
+        status.put("myNodeId", mesh.identity?.nodeId ?: "")
+        status.put("peers", EmergencyMeshPeers.connectedIps(mesh, myIp))
         return status.toString()
     }
 
     @JavascriptInterface
     fun getRelayPeers(): String {
-        val peers = JSONArray()
-        val myIp = getLocalIpAddress()
-        val seen = HashSet<String>()
-        fun addPeer(ip: String) {
-            if (ip.isBlank() || ip == myIp || !seen.add(ip)) return
+        val mesh = SosEmergencyState.mesh
+        val selfId = mesh.identity?.nodeId.orEmpty()
+        val live = SosEmergencyRelayService.instance?.liveNodeIds().orEmpty()
+        val arr = EmergencyMeshPeers.listJson(mesh, live, selfId)
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("name").isNotBlank()) continue
+            val ip = o.optString("ip")
             val profile = SosEmergencyState.peerProfiles[ip]
-            val peer = JSONObject()
-            peer.put("ip", ip)
-            peer.put("type", "relay")
-            peer.put("isParent", ip == SosEmergencyState.sharedParentIp)
-            peer.put("pubkey", profile?.pubkey ?: "")
-            peer.put("name", profile?.name ?: "")
-            peer.put("picture", profile?.picture ?: "")
-            peers.put(peer)
+            if (profile != null) {
+                if (o.optString("name").isBlank()) o.put("name", profile.name)
+                if (o.optString("picture").isBlank()) o.put("picture", profile.picture)
+                if (o.optString("pubkey").isBlank()) o.put("pubkey", profile.pubkey)
+            }
         }
-        SosEmergencyState.sharedParentIp?.let { addPeer(it) }
-        SosEmergencyState.sharedPeers.forEach { addPeer(it) }
-        return peers.toString()
+        if (arr.length() > 0) return arr.toString()
+        return legacyRelayPeers()
     }
 
     @JavascriptInterface
@@ -126,7 +140,7 @@ class SosEmergencyBridge(
         Log.d(tag, "broadcast ${message.take(80)}")
         val svc = SosEmergencyRelayService.instance
         if (svc != null) {
-            svc.injectAndRelay(message)
+            svc.originatePayload(message, TARGET_BROADCAST)
         } else {
             executor.execute {
                 SosEmergencyState.sharedPeers.forEach { ip ->
@@ -138,10 +152,57 @@ class SosEmergencyBridge(
 
     @JavascriptInterface
     fun sendToPeer(peerIp: String, message: String): Boolean {
+        val key = peerIp.trim()
         executor.execute {
-            SosEmergencyRelayService.instance?.sendToPeer(peerIp, message) ?: trySend(peerIp, message)
+            if (key.length == 64 && key.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
+                sendToPubkeyInternal(key.lowercase(), message)
+            } else {
+                SosEmergencyRelayService.instance?.sendToPeer(key, message) ?: trySend(key, message)
+            }
         }
         return true
+    }
+
+    @JavascriptInterface
+    fun sendToPubkey(pubkey: String, message: String): Boolean {
+        executor.execute { sendToPubkeyInternal(pubkey, message) }
+        return true
+    }
+
+    @JavascriptInterface
+    fun sendMeshChat(messageJson: String): String {
+        return try {
+            val message = JSONObject(messageJson)
+            if (!message.has("from")) message.put("from", getLocalIpAddress())
+            if (!message.has("timestamp")) message.put("timestamp", System.currentTimeMillis())
+            val to = message.optString("to")
+            val (targetNodeId, targetPubkey) = EmergencyMeshPeers.resolveTarget(to, SosEmergencyState.mesh)
+            val chatId = message.optString("id")
+            val svc = SosEmergencyRelayService.instance
+                ?: return JSONObject().put("ok", false).put("error", "no-relay").toString()
+            val mid = svc.originatePayload(message.toString(), targetNodeId, targetPubkey)
+            if (mid.isBlank()) {
+                return JSONObject().put("ok", false).put("error", "no-identity").toString()
+            }
+            if (chatId.isNotBlank() && chatId != mid) {
+                SosEmergencyState.trackDelivery(chatId, SosEmergencyState.deliveryStatus(mid))
+            }
+            JSONObject()
+                .put("ok", true)
+                .put("messageId", mid)
+                .put("chatId", chatId)
+                .put("status", SosEmergencyState.deliveryStatus(mid).ifBlank { MeshAckStatus.SENT.name })
+                .put("target", targetNodeId)
+                .toString()
+        } catch (e: Exception) {
+            Log.e(tag, "sendMeshChat: ${e.message}")
+            JSONObject().put("ok", false).put("error", e.message ?: "bad-json").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun getMeshDeliveryStatus(messageId: String): String {
+        return SosEmergencyState.deliveryStatus(messageId)
     }
 
     @JavascriptInterface
@@ -150,7 +211,12 @@ class SosEmergencyBridge(
             val message = JSONObject(messageJson)
             message.put("from", getLocalIpAddress())
             message.put("timestamp", System.currentTimeMillis())
-            broadcastMessage(message.toString())
+            val to = message.optString("to")
+            if (to.isNotBlank() && !EmergencyMeshPeers.isGroupTarget(to)) {
+                sendToPubkeyInternal(to, message.toString())
+            } else {
+                broadcastMessage(message.toString())
+            }
             true
         } catch (e: Exception) {
             Log.e(tag, "sendP2PMessage: ${e.message}")
@@ -169,12 +235,23 @@ class SosEmergencyBridge(
 
     @JavascriptInterface
     fun sendWebRTCSignal(targetPubkey: String, signalJson: String): Boolean {
-        val wrapped = JSONObject()
-        wrapped.put("type", "webrtc_signal")
-        wrapped.put("target", targetPubkey)
-        wrapped.put("signal", JSONObject(signalJson))
-        wrapped.put("from", getLocalIpAddress())
-        broadcastMessage(wrapped.toString())
+        val route = EmergencyMeshSignal.routeTarget(targetPubkey, SosEmergencyState.mesh)
+            ?: return false
+        val fromPk = SosSessionStore.getPubkey(context)
+        val wrapped = EmergencyMeshSignal.wrap(
+            targetPubkey = route.second.ifBlank { targetPubkey },
+            signalJson = signalJson,
+            fromPubkey = fromPk,
+            fromIp = getLocalIpAddress()
+        ) ?: return false
+        val svc = SosEmergencyRelayService.instance
+        if (svc != null) {
+            val mid = svc.originatePayload(wrapped, route.first, route.second)
+            return mid.isNotBlank()
+        }
+        val ip = SosEmergencyState.mesh.findByPubkey(route.second)?.currentIp.orEmpty()
+        if (ip.isBlank()) return false
+        executor.execute { trySend(ip, wrapped) }
         return true
     }
 
@@ -247,6 +324,42 @@ class SosEmergencyBridge(
             eventId = null,
             peerKey = null
         )
+    }
+
+    private fun legacyRelayPeers(): String {
+        val peers = JSONArray()
+        val myIp = getLocalIpAddress()
+        val seen = HashSet<String>()
+        fun addPeer(ip: String) {
+            if (ip.isBlank() || ip == myIp || !seen.add(ip)) return
+            val profile = SosEmergencyState.peerProfiles[ip]
+            val peer = JSONObject()
+            peer.put("ip", ip)
+            peer.put("nodeId", "")
+            peer.put("type", "relay")
+            peer.put("reachable", true)
+            peer.put("hops", 1)
+            peer.put("isParent", ip == SosEmergencyState.sharedParentIp)
+            peer.put("pubkey", profile?.pubkey ?: "")
+            peer.put("name", profile?.name ?: "")
+            peer.put("picture", profile?.picture ?: "")
+            peer.put("relation", if (ip == SosEmergencyState.sharedParentIp) "DIRECT_PARENT" else "DIRECT_CHILD")
+            peers.put(peer)
+        }
+        SosEmergencyState.sharedParentIp?.let { addPeer(it) }
+        SosEmergencyState.sharedPeers.forEach { addPeer(it) }
+        return peers.toString()
+    }
+
+    private fun sendToPubkeyInternal(pubkey: String, message: String) {
+        val (nodeId, pk) = EmergencyMeshPeers.resolveTarget(pubkey, SosEmergencyState.mesh)
+        val svc = SosEmergencyRelayService.instance
+        if (svc != null) {
+            svc.originatePayload(message, nodeId, pk)
+            return
+        }
+        val ip = SosEmergencyState.mesh.findByPubkey(pk)?.currentIp.orEmpty()
+        if (ip.isNotBlank()) trySend(ip, message)
     }
 
     private fun trySend(ip: String, message: String) {

@@ -75,6 +75,7 @@ class SosEmergencyRelayService : Service() {
     private var parentSocket: Socket? = null
     private var parentWriter: PrintWriter? = null
     private val childWriters = ConcurrentHashMap<String, PrintWriter>()
+    private val meshLinks = EmergencyMeshLinkTable()
     private val connectedPeers = CopyOnWriteArrayList<String>()
     private val helloSeen = ConcurrentHashMap<String, Long>()
     @Volatile private var lastSentIdentityVersion: Int = -1
@@ -101,6 +102,7 @@ class SosEmergencyRelayService : Service() {
         try { serverSocket?.close() } catch (_: Exception) {}
         try { discoverySocket?.close() } catch (_: Exception) {}
         try { parentSocket?.close() } catch (_: Exception) {}
+        meshLinks.closeAll()
         instance = null
         super.onDestroy()
     }
@@ -141,6 +143,7 @@ class SosEmergencyRelayService : Service() {
         isListening = true
 
         resetTree("start")
+        ensureMeshIdentity()
 
         sendLog("INFO", "מתחיל שירות ממסר (מצב מאופס)...")
 
@@ -172,7 +175,7 @@ class SosEmergencyRelayService : Service() {
                     broadcast = true
                 }
                 sendLog("UDP", "UDP Discovery על פורט ${SosEmergencyState.DISCOVERY_PORT}")
-                val buffer = ByteArray(1024)
+                val buffer = ByteArray(4096)
                 while (isListening) {
                     try {
                         val packet = DatagramPacket(buffer, buffer.size)
@@ -221,11 +224,29 @@ class SosEmergencyRelayService : Service() {
         SosEmergencyState.sharedPeers.clear()
         SosEmergencyState.peerProfiles.clear()
         childWriters.clear()
+        meshLinks.closeAll()
         helloSeen.clear()
+        SosEmergencyState.meshSeen.clear()
+        SosEmergencyState.meshDelivery.clear()
         SosEmergencyState.childCount = 0
         SosEmergencyState.relayChildIps.clear()
         SosEmergencyState.hiddenChildSsids.clear()
         lastSentIdentityVersion = -1
+        val boot = SosEmergencyState.meshBootId.ifBlank { EmergencyMeshIdentity.newBootId() }
+        SosEmergencyState.meshBootId = boot
+        SosEmergencyState.mesh.reset(boot)
+    }
+
+    private fun ensureMeshIdentity() {
+        if (SosEmergencyState.meshBootId.isBlank()) {
+            SosEmergencyState.meshBootId = EmergencyMeshIdentity.newBootId()
+        }
+        val id = SosEmergencySetup.currentIdentity(this, SosEmergencyState.meshBootId)
+        SosEmergencyState.mesh.applyIdentity(id)
+    }
+
+    private fun meshStaAp(): CapabilityState {
+        return SosWifiBootstrap.snapshotCapabilities(this).staApConcurrency
     }
 
     private fun dropParent(reason: String) {
@@ -235,6 +256,36 @@ class SosEmergencyRelayService : Service() {
         parentSocket = null
         parentWriter = null
         SosEmergencyState.sharedParentIp = null
+        meshLinks.parent()?.close()
+        SosEmergencyState.mesh.parentNodeId()?.let { SosEmergencyState.mesh.removeLink(it) }
+        SosEmergencyState.mesh.clearJoin()
+    }
+
+    private fun attachMeshLink(
+        nodeId: String,
+        bootId: String,
+        relation: MeshPeerRelation,
+        ip: String,
+        writer: PrintWriter,
+        socket: Socket
+    ): EmergencyMeshLink {
+        val link = EmergencyMeshLink(
+            remoteNodeId = nodeId,
+            remoteBootId = bootId,
+            relation = relation,
+            currentIp = ip,
+            writer = writer,
+            socket = socket,
+            onClosed = { meshLinks.detachIfCurrent(it) }
+        )
+        return meshLinks.attach(link)
+    }
+
+    private fun sendOnDirectOrFallback(ip: String, message: String) {
+        val nodeId = SosEmergencyState.mesh.findByIp(ip)?.nodeId
+        val link = meshLinks.findLive(ip, nodeId)
+        if (link != null && link.send(message)) return
+        sendRawFallback(ip, message)
     }
 
     private fun identityJson(): String {
@@ -248,10 +299,7 @@ class SosEmergencyRelayService : Service() {
 
     fun pushIdentity() {
         val line = "HELLO:${identityJson()}"
-        try { parentWriter?.println(line) } catch (_: Exception) {}
-        childWriters.values.forEach { writer ->
-            try { writer.println(line) } catch (_: Exception) {}
-        }
+        meshLinks.live().forEach { it.send(line) }
     }
 
     private fun applyHello(json: String, fallbackIp: String): Boolean {
@@ -290,13 +338,8 @@ class SosEmergencyRelayService : Service() {
     }
 
     private fun relayHello(fromIp: String, line: String) {
-        if (parentIp != null && parentIp != fromIp) {
-            try { parentWriter?.println(line) } catch (_: Exception) {}
-        }
-        childWriters.forEach { (ip, writer) ->
-            if (ip != fromIp) {
-                try { writer.println(line) } catch (_: Exception) {}
-            }
+        meshLinks.live().forEach { link ->
+            if (link.currentIp != fromIp) link.send(line)
         }
     }
 
@@ -306,96 +349,138 @@ class SosEmergencyRelayService : Service() {
         val myIp = getLocalIpAddressInternal()
         if (senderIp == myIp) return
 
-        when {
-            message.startsWith("SOS_HERE:") -> {
-                val parts = message.split(":", limit = 6)
-                val relayIp = parts.getOrNull(1) ?: senderIp
-                val childCount = parts.getOrNull(2)?.toIntOrNull() ?: 0
-                val maxChildCount = parts.getOrNull(3)?.toIntOrNull() ?: SosEmergencyState.MAX_CHILDREN
-                val pubkey = parts.getOrNull(4)?.lowercase().orEmpty()
-                val name = parts.getOrNull(5).orEmpty()
-                sendLog("UDP", "SOS_HERE מ-$relayIp ($childCount/$maxChildCount)")
-
-                if (!isSameSubnet(myIp, relayIp) && !isSameSubnet(myIp, senderIp)) {
-                    if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
-                        dropParent("parent-foreign-lan")
-                    }
-                    return
-                }
-
-                if (pubkey.length == 64) {
-                    SosEmergencyState.upsertPeer(relayIp, pubkey, name)
-                    SosEmergencySetup.ssidFromPubkey(pubkey)?.let { ssid ->
-                        SosEmergencyState.discoveryBySsid[ssid] = SosEmergencyState.SosDiscoveryEntry(
-                            ssid = ssid,
-                            ip = relayIp,
-                            childCount = childCount,
-                            maxChildren = maxChildCount,
-                            lastSeenMs = System.currentTimeMillis()
-                        )
-                        val onMyAp = SosWifiBootstrap.isClientOnMyHotspot(relayIp) ||
-                            SosWifiBootstrap.isClientOnMyHotspot(senderIp)
-                        if (onMyAp || myChildren.contains(relayIp) || myChildren.contains(senderIp)) {
-                            SosEmergencyState.rememberDownstreamSsid(ssid)
-                            sendLog("SCAN", "מסתיר $ssid — כבר מחובר לנקודה החמה שלי")
-                        }
-                    }
-                }
-
-                val onMyAp = SosWifiBootstrap.isClientOnMyHotspot(relayIp) ||
-                    SosWifiBootstrap.isClientOnMyHotspot(senderIp)
-                if (onMyAp) {
-                    addPeer(relayIp)
-                    return
-                }
-
-                if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
-                    dropParent("parent-left-subnet")
-                }
-
-                if (myChildren.isNotEmpty()) {
-                    addPeer(relayIp)
-                    return
-                }
-                if (myChildren.contains(relayIp) || mySiblings.contains(relayIp) || parentIp == relayIp) {
-                    addPeer(relayIp)
-                    return
-                }
-                if (connectedPeers.contains(relayIp)) return
-
-                if (parentIp == null && childCount < maxChildCount) {
-                    joinNetwork(relayIp)
-                }
-            }
-            message == "SOS_DISCOVER" -> announcePresence()
+        val v2 = EmergencyMeshProtocol.parse(message)
+        if (v2 != null && v2.type == EmergencyMeshProtocol.DISCOVERY) {
+            onV2Discovery(v2, senderIp, myIp)
+            return
         }
+        if (EmergencyMeshProtocol.parseV1Here(message) != null) {
+            sendLog("UDP", "V1 SOS_HERE מ-$senderIp — לא מצטרפים (לא תואם V2)")
+            return
+        }
+        if (message.trim() == "SOS_DISCOVER") announcePresence()
+    }
+
+    private fun onV2Discovery(frame: EmergencyMeshProtocol.Frame, senderIp: String, myIp: String?) {
+        if (frame.nodeId.isBlank()) return
+        val self = SosEmergencyState.mesh.identity ?: return
+        if (frame.nodeId == self.nodeId) return
+        val relayIp = frame.ip.ifBlank { senderIp }
+        sendLog("DISCOVERY", "node=${frame.nodeId.take(8)} ip=$relayIp kids=${frame.childCount}")
+
+        if (!isSameSubnet(myIp, relayIp) && !isSameSubnet(myIp, senderIp)) {
+            if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
+                dropParent("parent-foreign-lan")
+            }
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        SosEmergencyState.mesh.expireStale(now)
+        SosEmergencyState.mesh.upsertDiscovery(
+            MeshPeerRecord(
+                nodeId = frame.nodeId,
+                pubkey = frame.pubkey,
+                bootId = frame.bootId,
+                ssid = frame.ssid,
+                currentIp = relayIp,
+                rootNodeId = frame.rootNodeId,
+                depth = frame.depth,
+                childCount = frame.childCount,
+                maxChildren = frame.maxChildren,
+                staAp = frame.staAp,
+                name = frame.name
+            ),
+            now
+        )
+        if (frame.pubkey.length == 64) {
+            SosEmergencyState.upsertPeer(relayIp, frame.pubkey, frame.name)
+            SosEmergencySetup.ssidFromPubkey(frame.pubkey)?.let { ssid ->
+                SosEmergencyState.discoveryBySsid[ssid] = SosEmergencyState.SosDiscoveryEntry(
+                    ssid = ssid,
+                    ip = relayIp,
+                    childCount = frame.childCount,
+                    maxChildren = frame.maxChildren,
+                    lastSeenMs = now
+                )
+            }
+        }
+
+        val onMyAp = SosWifiBootstrap.isClientOnMyHotspot(relayIp) ||
+            SosWifiBootstrap.isClientOnMyHotspot(senderIp)
+        if (onMyAp || SosEmergencyState.mesh.childNodeIds().contains(frame.nodeId)) {
+            frame.ssid.takeIf { it.isNotBlank() }?.let { SosEmergencyState.rememberDownstreamSsid(it) }
+            addPeer(relayIp)
+            return
+        }
+        if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
+            dropParent("parent-left-subnet")
+        }
+        maybeJoinBestParent()
+    }
+
+    private fun maybeJoinBestParent() {
+        val mesh = SosEmergencyState.mesh
+        val self = mesh.identity ?: return
+        val staAp = meshStaAp()
+        val candidates = mesh.allPeers()
+            .filter { EmergencyMeshDecision.isDiscoveryFresh(it.lastSeenMs, System.currentTimeMillis()) }
+            .map {
+                MeshParentCandidate(
+                    nodeId = it.nodeId,
+                    relation = it.relation,
+                    childCount = it.childCount,
+                    maxChildren = it.maxChildren,
+                    depth = it.depth,
+                    signalDbm = it.signalDbm,
+                    staAp = it.staAp,
+                    inExistingTree = it.childCount > 0 || it.rootNodeId.isNotBlank()
+                )
+            }
+        val pick = EmergencyMeshDecision.pickBestParent(
+            selfId = self.nodeId,
+            childIds = mesh.childNodeIds(),
+            descendantIds = mesh.descendantIds(),
+            parentId = mesh.parentNodeId(),
+            hasChildren = mesh.childNodeIds().isNotEmpty(),
+            staAp = staAp,
+            candidates = candidates
+        ) ?: return
+        val ip = mesh.get(pick.nodeId)?.currentIp.orEmpty()
+        if (ip.isBlank()) return
+        joinParent(pick.nodeId, ip)
     }
 
     private fun announcePresence() {
         try {
+            ensureMeshIdentity()
             val myIp = getLocalIpAddressInternal() ?: return
             val prev = SosEmergencyState.myIp
             if (prev != null && prev != myIp) {
                 resetTree("ip-changed $prev -> $myIp")
+                ensureMeshIdentity()
             }
             SosEmergencyState.myIp = myIp
-            val pubkey = SosSessionStore.getPubkey(this)
+            val mesh = SosEmergencyState.mesh
+            val identity = mesh.identity ?: return
             val name = SosEmergencyState.myDisplayName.replace(":", " ").take(40)
-            val msg = if (pubkey.length == 64) {
-                "SOS_HERE:$myIp:${myChildren.size}:${SosEmergencyState.MAX_CHILDREN}:$pubkey:$name"
-            } else {
-                "SOS_HERE:$myIp:${myChildren.size}:${SosEmergencyState.MAX_CHILDREN}"
-            }
-            if (pubkey.length == 64) {
-                SosEmergencySetup.ssidFromPubkey(pubkey)?.let { ssid ->
-                    SosEmergencyState.discoveryBySsid[ssid] = SosEmergencyState.SosDiscoveryEntry(
-                        ssid = ssid,
-                        ip = myIp,
-                        childCount = myChildren.size,
-                        maxChildren = SosEmergencyState.MAX_CHILDREN,
-                        lastSeenMs = System.currentTimeMillis()
-                    )
-                }
+            val msg = EmergencyMeshProtocol.discovery(
+                identity = identity,
+                ip = myIp,
+                rootNodeId = mesh.rootNodeId,
+                depth = mesh.depth,
+                childCount = mesh.childNodeIds().size,
+                staAp = meshStaAp(),
+                name = name
+            )
+            identity.stationSsid.takeIf { it.isNotBlank() }?.let { ssid ->
+                SosEmergencyState.discoveryBySsid[ssid] = SosEmergencyState.SosDiscoveryEntry(
+                    ssid = ssid,
+                    ip = myIp,
+                    childCount = mesh.childNodeIds().size,
+                    maxChildren = SosEmergencyState.MAX_CHILDREN,
+                    lastSeenMs = System.currentTimeMillis()
+                )
             }
             val data = msg.toByteArray()
             val addr = getBroadcastAddressFromIp(myIp)
@@ -409,7 +494,7 @@ class SosEmergencyRelayService : Service() {
                     )
                 )
             }
-            sendLog("UDP", "שלחתי SOS_HERE → $addr")
+            sendLog("UDP", "שלחתי DISCOVERY → $addr")
             if (SosEmergencyState.identityVersion != lastSentIdentityVersion) {
                 lastSentIdentityVersion = SosEmergencyState.identityVersion
                 pushIdentity()
@@ -419,7 +504,9 @@ class SosEmergencyRelayService : Service() {
         }
     }
 
-    private fun joinNetwork(relayIp: String) {
+    private fun joinParent(parentNodeId: String, relayIp: String) {
+        val mesh = SosEmergencyState.mesh
+        val self = mesh.identity ?: return
         val myIp = getLocalIpAddressInternal()
         if (!isSameSubnet(myIp, relayIp)) {
             sendLog("JOIN", "דילוג על רשת זרה $relayIp")
@@ -429,58 +516,80 @@ class SosEmergencyRelayService : Service() {
             sendLog("JOIN", "דילוג — $relayIp על הנקודה החמה שלי")
             return
         }
-        if (myChildren.isNotEmpty()) return
+        if (mesh.parentNodeId() != null) return
+        if (!EmergencyMeshDecision.shouldInitiateJoin(self.nodeId, parentNodeId)) return
+        if (!mesh.tryBeginJoin(parentNodeId)) {
+            sendLog("JOIN", "כבר בתהליך הצטרפות")
+            return
+        }
         executor.execute {
             try {
-                sendLog("JOIN", "מתחבר ל-$relayIp...")
+                sendLog("JOIN", "JOIN_REQUEST → ${parentNodeId.take(8)} $relayIp")
                 val socket = Socket()
                 socket.connect(InetSocketAddress(relayIp, SosEmergencyState.SERVER_PORT), 5000)
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
                 val writer = PrintWriter(socket.getOutputStream(), true)
-                writer.println("JOIN")
-                val response = reader.readLine() ?: return@execute
-                when {
-                    response.startsWith("ACCEPTED:") -> {
+                val path = mesh.ancestorIds().toList() + self.nodeId
+                writer.println(
+                    EmergencyMeshProtocol.joinRequest(
+                        identity = self,
+                        ip = myIp ?: "",
+                        rootNodeId = mesh.rootNodeId,
+                        path = path,
+                        staAp = meshStaAp()
+                    )
+                )
+                val response = reader.readLine()
+                val frame = response?.let { EmergencyMeshProtocol.parse(it) }
+                when (frame?.type) {
+                    EmergencyMeshProtocol.JOIN_ACCEPT -> {
                         parentIp = relayIp
                         parentSocket = socket
                         parentWriter = writer
                         SosEmergencyState.sharedParentIp = relayIp
-                        val siblings = response.substringAfter("ACCEPTED:").split(",").filter { it.isNotEmpty() }
-                        mySiblings.clear()
-                        mySiblings.addAll(siblings)
+                        mesh.setParent(parentNodeId)
                         addPeer(relayIp)
-                        siblings.forEach { addPeer(it) }
-                        writer.println("HELLO:${identityJson()}")
-                        sendLog("JOIN", "הצטרפתי. הורה=$relayIp אחים=${siblings.size}")
+                        val link = attachMeshLink(
+                            nodeId = parentNodeId,
+                            bootId = frame.bootId,
+                            relation = MeshPeerRelation.DIRECT_PARENT,
+                            ip = relayIp,
+                            writer = writer,
+                            socket = socket
+                        )
+                        link.send("HELLO:${identityJson()}")
+                        sendLog("JOIN", "הצטרפתי. הורה=${parentNodeId.take(8)}")
                         broadcastStatus("מחובר לרשת ✓")
                         broadcastPeerUpdate()
-                        listenToParent(socket, reader)
+                        listenToParent(socket, reader, link)
                     }
-                    response.startsWith("REDIRECT:") -> {
+                    EmergencyMeshProtocol.JOIN_REJECT -> {
+                        mesh.clearJoin()
                         socket.close()
-                        val next = response.substringAfter("REDIRECT:")
-                        if (next.isNotBlank() && isSameSubnet(getLocalIpAddressInternal(), next)) {
-                            joinNetwork(next)
-                        }
+                        sendLog("JOIN", "נדחה: ${frame.reason}")
                     }
                     else -> {
+                        mesh.clearJoin()
                         socket.close()
-                        sendLog("JOIN", "נדחה: $response")
+                        sendLog("JOIN", "תשובה לא תואמת: ${response?.take(40)}")
                     }
                 }
             } catch (e: Exception) {
+                mesh.clearJoin()
                 sendLog("ERROR", "join: ${e.message}")
             }
         }
     }
 
-    private fun listenToParent(socket: Socket, reader: BufferedReader) {
+    private fun listenToParent(socket: Socket, reader: BufferedReader, link: EmergencyMeshLink) {
         executor.execute {
             try {
-                while (socket.isConnected && isListening && parentIp != null) {
+                while (socket.isConnected && isListening && parentIp != null && link.isLive()) {
                     val line = reader.readLine() ?: break
+                    link.markRx()
                     when {
                         line == "PONG" -> {}
+                        line == "PING" -> link.send("PONG")
                         line.startsWith("SIBLING_UPDATE:") -> {
                             val sibs = line.substringAfter("SIBLING_UPDATE:").split(",").filter { it.isNotEmpty() }
                             mySiblings.clear()
@@ -509,17 +618,18 @@ class SosEmergencyRelayService : Service() {
     }
 
     private fun checkParentConnection() {
-        val parent = parentIp ?: return
+        val link = meshLinks.parent()
         val socket = parentSocket
-        if (socket == null || socket.isClosed || !socket.isConnected) {
+        if (link == null || !link.isLive() || socket == null || socket.isClosed || !socket.isConnected) {
+            if (parentIp != null) handleParentDisconnect()
+            return
+        }
+        if (link.isRxStale(System.currentTimeMillis())) {
+            link.markDegraded()
             handleParentDisconnect()
             return
         }
-        try {
-            PrintWriter(socket.getOutputStream(), true).println("PING")
-        } catch (_: Exception) {
-            handleParentDisconnect()
-        }
+        if (!link.send("PING")) handleParentDisconnect()
     }
 
     private fun handleParentDisconnect() {
@@ -527,8 +637,9 @@ class SosEmergencyRelayService : Service() {
         val sibling = mySiblings.firstOrNull { isSameSubnet(getLocalIpAddressInternal(), it) }
         if (sibling != null) {
             mySiblings.remove(sibling)
-            joinNetwork(sibling)
-        } else {
+        }
+        maybeJoinBestParent()
+        if (SosEmergencyState.mesh.parentNodeId() == null) {
             broadcastStatus("מחפש רשת...")
         }
     }
@@ -540,8 +651,16 @@ class SosEmergencyRelayService : Service() {
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
                 val writer = PrintWriter(socket.getOutputStream(), true)
                 val first = reader.readLine() ?: return@execute
+                val v2 = EmergencyMeshProtocol.parse(first)
                 when {
-                    first == "JOIN" -> handleJoinRequest(socket, ip, reader, writer)
+                    v2?.type == EmergencyMeshProtocol.JOIN_REQUEST -> {
+                        handleV2JoinRequest(socket, ip, v2, reader, writer)
+                    }
+                    first == "JOIN" -> {
+                        writer.println(EmergencyMeshProtocol.joinReject(JoinRejectReason.UNSUPPORTED_VERSION))
+                        try { socket.close() } catch (_: Exception) {}
+                        sendLog("JOIN", "V1 JOIN מ-$ip — נדחה")
+                    }
                     first.startsWith("HELLO:") -> {
                         if (applyHello(first.substringAfter("HELLO:"), ip)) {
                             relayHello(ip, first)
@@ -556,56 +675,100 @@ class SosEmergencyRelayService : Service() {
         }
     }
 
-    private fun handleJoinRequest(
+    private fun handleV2JoinRequest(
         socket: Socket,
         ip: String,
+        frame: EmergencyMeshProtocol.Frame,
         reader: BufferedReader,
         writer: PrintWriter
     ) {
+        val mesh = SosEmergencyState.mesh
+        val self = mesh.identity
+        if (self == null || frame.nodeId.isBlank()) {
+            writer.println(EmergencyMeshProtocol.joinReject(JoinRejectReason.STALE_SESSION))
+            try { socket.close() } catch (_: Exception) {}
+            return
+        }
         if (!isSameSubnet(getLocalIpAddressInternal(), ip)) {
-            writer.println("REJECT:foreign-subnet")
+            writer.println(EmergencyMeshProtocol.joinReject(JoinRejectReason.STALE_SESSION))
             try { socket.close() } catch (_: Exception) {}
             sendLog("JOIN", "נדחה $ip – רשת זרה")
             return
         }
-        if (myChildren.size < SosEmergencyState.MAX_CHILDREN) {
-            myChildren.add(ip)
-            SosEmergencyState.childCount = myChildren.size
-            addPeer(ip)
-            val siblings = myChildren.filter { it != ip }.joinToString(",")
-            writer.println("ACCEPTED:$siblings")
-            writer.println("HELLO:${identityJson()}")
-            sendLog("JOIN", "ילד חדש $ip (${myChildren.size}/${SosEmergencyState.MAX_CHILDREN})")
-            broadcastStatus("ממסר פעיל ✓ (${myChildren.size} ילדים)")
-            syncRelayChildrenState()
-            notifySiblingsUpdate()
-            broadcastPeerUpdate()
-            keepChildConnection(socket, ip, reader, writer)
-        } else {
-            val redirect = myChildren.randomOrNull()
-            if (redirect != null) {
-                writer.println("REDIRECT:$redirect")
-                sendLog("JOIN", "REDIRECT $ip → $redirect")
-            } else {
-                writer.println("FULL")
-            }
+        val reject = EmergencyMeshDecision.rejectIncomingJoin(
+            selfId = self.nodeId,
+            selfParentId = mesh.parentNodeId(),
+            childIds = mesh.childNodeIds(),
+            ancestorIds = mesh.ancestorIds(),
+            descendantIds = mesh.descendantIds(),
+            childCount = mesh.childNodeIds().size,
+            maxChildren = SosEmergencyState.MAX_CHILDREN,
+            joiningUpstreamId = mesh.joiningUpstreamId,
+            remoteId = frame.nodeId,
+            remoteAncestorIds = frame.path,
+            staAp = meshStaAp()
+        )
+        if (reject != null) {
+            writer.println(EmergencyMeshProtocol.joinReject(reject))
             try { socket.close() } catch (_: Exception) {}
+            sendLog("JOIN", "נדחה ${frame.nodeId.take(8)}: $reject")
+            return
         }
+        val now = System.currentTimeMillis()
+        mesh.upsertDiscovery(
+            MeshPeerRecord(
+                nodeId = frame.nodeId,
+                pubkey = frame.pubkey,
+                bootId = frame.bootId,
+                ssid = frame.ssid,
+                currentIp = frame.ip.ifBlank { ip },
+                rootNodeId = frame.rootNodeId,
+                staAp = frame.staAp,
+                name = frame.name
+            ),
+            now
+        )
+        mesh.addChild(frame.nodeId)
+        val childIp = frame.ip.ifBlank { ip }
+        if (!myChildren.contains(childIp)) myChildren.add(childIp)
+        SosEmergencyState.childCount = myChildren.size
+        addPeer(childIp)
+        frame.ssid.takeIf { it.isNotBlank() }?.let { SosEmergencyState.rememberDownstreamSsid(it) }
+        writer.println(EmergencyMeshProtocol.joinAccept(self, mesh.childNodeIds().filter { it != frame.nodeId }))
+        val link = attachMeshLink(
+            nodeId = frame.nodeId,
+            bootId = frame.bootId,
+            relation = MeshPeerRelation.DIRECT_CHILD,
+            ip = childIp,
+            writer = writer,
+            socket = socket
+        )
+        childWriters[childIp] = writer
+        link.send("HELLO:${identityJson()}")
+        sendLog("JOIN", "ילד ${frame.nodeId.take(8)} $childIp (${myChildren.size}/${SosEmergencyState.MAX_CHILDREN})")
+        broadcastStatus("ממסר פעיל ✓ (${myChildren.size} ילדים)")
+        syncRelayChildrenState()
+        notifySiblingsUpdate()
+        broadcastPeerUpdate()
+        keepChildConnection(socket, childIp, reader, writer, link)
     }
 
     private fun keepChildConnection(
         socket: Socket,
         ip: String,
         reader: BufferedReader,
-        writer: PrintWriter
+        writer: PrintWriter,
+        link: EmergencyMeshLink
     ) {
         childWriters[ip] = writer
         executor.execute {
             try {
-                while (socket.isConnected && isListening) {
+                while (socket.isConnected && isListening && link.isLive()) {
                     val line = reader.readLine() ?: break
+                    link.markRx()
                     when {
-                        line == "PING" -> writer.println("PONG")
+                        line == "PING" -> link.send("PONG")
+                        line == "PONG" -> {}
                         line.startsWith("HELLO:") -> {
                             if (applyHello(line.substringAfter("HELLO:"), ip)) {
                                 syncRelayChildrenState()
@@ -624,6 +787,9 @@ class SosEmergencyRelayService : Service() {
                 SosEmergencyState.sharedPeers.remove(ip)
                 SosEmergencyState.peerProfiles.remove(ip)
                 childWriters.remove(ip)
+                link.close()
+                meshLinks.detachIfCurrent(link)
+                SosEmergencyState.mesh.findByIp(ip)?.nodeId?.let { SosEmergencyState.mesh.removeLink(it) }
                 syncRelayChildrenState()
                 notifySiblingsUpdate()
                 broadcastPeerUpdate()
@@ -645,26 +811,148 @@ class SosEmergencyRelayService : Service() {
 
     private fun notifySiblingsUpdate() {
         val all = myChildren.toList()
-        childWriters.forEach { (childIp, writer) ->
-            try {
-                val sibs = all.filter { it != childIp }.joinToString(",")
-                writer.println("SIBLING_UPDATE:$sibs")
-            } catch (_: Exception) {}
+        meshLinks.children().forEach { link ->
+            val sibs = all.filter { it != link.currentIp }.joinToString(",")
+            link.send("SIBLING_UPDATE:$sibs")
         }
     }
 
     /**
-     * טיפול בהודעה + ריליי בעץ (הורה/ילדים/אחים) כמו MainActivity הישן | HYPER CORE TECH
+     * טיפול בהודעה + ריליי בעץ — מעטפת V2 עם messageId/TTL/dedup | HYPER CORE TECH
      */
     private fun handleMessage(fromIp: String, message: String, relay: Boolean) {
         sendLog("MSG", "מ-$fromIp: ${message.take(80)}")
-        deliverToWebView(fromIp, message)
+        val raw = if (message.startsWith("MSG:")) message.substringAfter("MSG:") else message
+        val envLine = when {
+            EmergencyMeshEnvelopeCodec.parse(raw) != null -> raw
+            EmergencyMeshEnvelopeCodec.parse(message) != null -> message
+            else -> null
+        }
+        if (envLine != null) {
+            applyEnvelopeResult(fromIp, ingestEnvelope(fromIp, envLine))
+            return
+        }
+        if (!relay) {
+            deliverToWebView(fromIp, raw)
+            return
+        }
+        val mesh = SosEmergencyState.mesh
+        if (mesh.identity == null) {
+            deliverToWebView(fromIp, raw)
+            return
+        }
+        val fromId = resolveNodeId(fromIp) ?: fromIp
+        val wrapped = EmergencyMeshEnvelopeCodec.encode(
+            EmergencyMeshEnvelopeCodec.data(
+                originNodeId = fromId,
+                targetNodeId = TARGET_BROADCAST,
+                payload = raw,
+                messageId = EmergencyMeshEnvelopeCodec.legacyMessageId(raw)
+            )
+        )
+        applyEnvelopeResult(fromIp, ingestEnvelope(fromIp, wrapped))
+    }
 
-        if (!relay) return
-        val wire = if (message.startsWith("MSG:")) message else "MSG:$message"
-        parentIp?.takeIf { it != fromIp }?.let { sendRaw(it, wire) }
-        myChildren.filter { it != fromIp }.forEach { sendRaw(it, wire) }
-        mySiblings.filter { it != fromIp }.forEach { sendRaw(it, wire) }
+    private fun ingestEnvelope(fromIp: String, line: String): EmergencyMeshEngine.Result {
+        val mesh = SosEmergencyState.mesh
+        val self = mesh.identity ?: return EmergencyMeshEngine.Result(dropped = true)
+        val fromId = resolveNodeId(fromIp) ?: fromIp
+        return EmergencyMeshEngine.ingest(
+            selfId = self.nodeId,
+            selfPubkey = self.pubkey,
+            store = mesh,
+            seen = SosEmergencyState.meshSeen,
+            fromNodeId = fromId,
+            line = line
+        )
+    }
+
+    private fun applyEnvelopeResult(fromIp: String, result: EmergencyMeshEngine.Result) {
+        if (result.dropped) return
+        result.deliveredPayload?.let { deliverToWebView(fromIp, it) }
+        result.receivedAck?.let {
+            sendLog("ACK", "${it.status} ref=${it.refMessageId.take(8)}")
+            if (it.refMessageId.isNotBlank()) {
+                SosEmergencyState.trackDelivery(it.refMessageId, it.status.ifBlank { MeshAckStatus.DELIVERED.name })
+            }
+        }
+        dispatchForwards(fromIp, result)
+        result.ack?.let { ack ->
+            val self = SosEmergencyState.mesh.identity ?: return
+            val ackLine = EmergencyMeshEnvelopeCodec.encode(ack)
+            val ackRes = EmergencyMeshEngine.ingest(
+                selfId = self.nodeId,
+                selfPubkey = self.pubkey,
+                store = SosEmergencyState.mesh,
+                seen = SosEmergencyState.meshSeen,
+                fromNodeId = self.nodeId,
+                line = ackLine
+            )
+            dispatchForwards(fromIp, ackRes)
+        }
+    }
+
+    private fun dispatchForwards(fromIp: String, result: EmergencyMeshEngine.Result) {
+        val wire = result.wire ?: return
+        val fromId = resolveNodeId(fromIp)
+        when (result.forwardMode) {
+            EmergencyMeshEngine.ForwardMode.FLOOD -> {
+                meshLinks.live().forEach { link ->
+                    if (link.currentIp != fromIp && link.remoteNodeId != fromId) {
+                        link.send(wire)
+                    }
+                }
+                mySiblings.filter { it != fromIp && meshLinks.findByIp(it) == null }.forEach {
+                    sendRawFallback(it, wire)
+                }
+            }
+            EmergencyMeshEngine.ForwardMode.UNICAST -> {
+                val hop = result.nextHopId ?: return
+                sendToNodeId(hop, wire)
+            }
+            EmergencyMeshEngine.ForwardMode.NONE -> {}
+        }
+    }
+
+    private fun sendToNodeId(nodeId: String, line: String) {
+        val link = meshLinks.get(nodeId)
+        if (link != null && link.isLive() && link.send(line)) return
+        val ip = SosEmergencyState.mesh.get(nodeId)?.currentIp.orEmpty()
+        if (ip.isNotBlank()) sendOnDirectOrFallback(ip, line)
+    }
+
+    private fun resolveNodeId(ip: String): String? {
+        if (ip.isBlank()) return null
+        meshLinks.findByIp(ip)?.remoteNodeId?.let { return it }
+        return SosEmergencyState.mesh.findByIp(ip)?.nodeId
+    }
+
+    fun liveNodeIds(): Set<String> {
+        return meshLinks.live().map { it.remoteNodeId }.toSet()
+    }
+
+    fun originatePayload(payload: String, targetNodeId: String, targetPubkey: String = ""): String {
+        val mesh = SosEmergencyState.mesh
+        val self = mesh.identity ?: return ""
+        val result = EmergencyMeshEngine.originate(
+            selfId = self.nodeId,
+            selfPubkey = self.pubkey,
+            store = mesh,
+            seen = SosEmergencyState.meshSeen,
+            payload = payload,
+            targetNodeId = targetNodeId,
+            targetPubkey = targetPubkey
+        )
+        if (result.messageId.isNotBlank()) {
+            val status = when {
+                result.dropped -> MeshAckStatus.FAILED.name
+                result.forwardMode != EmergencyMeshEngine.ForwardMode.NONE -> MeshAckStatus.SENT.name
+                else -> MeshAckStatus.QUEUED.name
+            }
+            SosEmergencyState.trackDelivery(result.messageId, status)
+        }
+        applyEnvelopeResult(SosEmergencyState.myIp ?: "", result)
+        return result.messageId
     }
 
     private fun deliverToWebView(fromIp: String, message: String) {
@@ -679,7 +967,15 @@ class SosEmergencyRelayService : Service() {
         } catch (_: Exception) {
             "onMessage"
         }
+        if (callback == "onWebRTCSignal") {
+            val selfPk = SosEmergencyState.mesh.identity?.pubkey
+                ?.ifBlank { SosSessionStore.getPubkey(this) }
+                .orEmpty()
+                .ifBlank { SosSessionStore.getPubkey(this) }
+            if (selfPk.isNotBlank() && !EmergencyMeshSignal.shouldDeliverToSelf(selfPk, message)) return
+        }
         SosEmergencyState.enqueueInbox(callback, fromIp, message)
+        SosEmergencyState.requestInboxDrain()
         val intent = Intent(SosEmergencyState.ACTION_WEBVIEW).apply {
             putExtra("callback", callback)
             putExtra("fromIp", fromIp)
@@ -689,27 +985,23 @@ class SosEmergencyRelayService : Service() {
     }
 
     fun sendToPeer(ip: String, message: String) {
-        executor.execute { sendRaw(ip, message) }
+        executor.execute {
+            val nodeId = resolveNodeId(ip)
+            if (nodeId != null) originatePayload(message, nodeId)
+            else sendOnDirectOrFallback(ip, message)
+        }
     }
 
     fun broadcast(message: String) {
-        val all = linkedSetOf<String>()
-        all.addAll(SosEmergencyState.sharedPeers)
-        all.addAll(connectedPeers)
-        all.addAll(myChildren)
-        all.addAll(mySiblings)
-        parentIp?.let { all.add(it) }
-        val myIp = getLocalIpAddressInternal()
-        all.filter { it != myIp }.forEach { sendToPeer(it, message) }
+        originatePayload(message, TARGET_BROADCAST)
     }
 
     /** שידור עם ריליי עץ מקומי */
     fun injectAndRelay(message: String) {
-        val myIp = getLocalIpAddressInternal() ?: "0.0.0.0"
-        handleMessage(myIp, message, relay = true)
+        originatePayload(message, TARGET_BROADCAST)
     }
 
-    private fun sendRaw(ip: String, message: String) {
+    private fun sendRawFallback(ip: String, message: String) {
         try {
             Socket().use { socket ->
                 socket.soTimeout = 5000
@@ -743,10 +1035,12 @@ class SosEmergencyRelayService : Service() {
         SosEmergencyState.childCount = myChildren.size
         val peersJson = JSONObject().apply {
             put("isActive", SosEmergencyState.isRelayRunning)
-            put("peerCount", SosEmergencyState.sharedPeers.size)
+            put("peerCount", SosEmergencyState.mesh.connectedCount())
             put("parentIp", SosEmergencyState.sharedParentIp ?: "")
+            put("parentNodeId", SosEmergencyState.mesh.parentNodeId() ?: "")
             put("myIp", getLocalIpAddressInternal() ?: "")
-            put("peers", JSONArray(SosEmergencyState.sharedPeers))
+            put("myNodeId", SosEmergencyState.mesh.identity?.nodeId ?: "")
+            put("peers", EmergencyMeshPeers.connectedIps(SosEmergencyState.mesh, getLocalIpAddressInternal() ?: ""))
         }
         val intent = Intent(SosEmergencyState.ACTION_WEBVIEW).apply {
             putExtra("callback", "onNetworkUpdate")

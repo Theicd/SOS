@@ -16,9 +16,9 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 101
-        versionName = "1.0.100"
-        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=100\"")
+        versionCode = 102
+        versionName = "1.0.101"
+        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=101\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
     }
 
@@ -70,4 +70,7 @@ dependencies {
     // FCM תמיד בקומפילציה; בלי google-services.json ההתראות מגיעות דרך Foreground + bridge
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-messaging-ktx")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

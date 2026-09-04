@@ -83,6 +83,24 @@ object SosWifiBootstrap {
         return cleanSsid(info.ssid)
     }
 
+    /** STA+AP: API 30+ רשמי; ישן = UNKNOWN, לא SUPPORTED. | HYPER CORE TECH */
+    fun snapshotCapabilities(context: Context): WifiMeshCapabilities {
+        val hotspotOn = isHotspotActive(context)
+        val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiOn = try { wm.isWifiEnabled } catch (_: Exception) { false }
+        val staAp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                if (wm.isStaApConcurrencySupported) CapabilityState.SUPPORTED
+                else CapabilityState.UNSUPPORTED
+            } catch (_: Exception) {
+                CapabilityState.UNKNOWN
+            }
+        } else {
+            CapabilityState.UNKNOWN
+        }
+        return WifiMeshCapabilities(staAp, hotspotOn, wifiOn)
+    }
+
     fun isHotspotActive(context: Context): Boolean {
         val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         return try {

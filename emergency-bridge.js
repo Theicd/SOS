@@ -281,7 +281,8 @@ window.SOSEmergency = (function() {
         sendToPeer: sendToPeer,
         publishNostrEvent: publishNostrEvent,
         sendWebRTCSignal: sendWebRTCSignal,
-        openSettings: openSettings
+        openSettings: openSettings,
+        drainNow: function() {}
     };
 })();
 
@@ -394,6 +395,7 @@ window.SOSEmergency = (function() {
     var meshOnly = new Set();
     var meshPeerSet = new Set();
     var seenIds = new Set();
+    var pendingDelivery = {};
     var wasActive = false;
 
     function app() {
@@ -553,11 +555,27 @@ window.SOSEmergency = (function() {
                 try { parsed = JSON.parse(data); } catch (e) { parsed = data; }
             }
             var cb = item && item.callback;
+            var fromIp = item && item.fromIp;
             if (cb === 'onChatMessage' || (parsed && parsed.type === 'chat')) {
-                ingestChat(item.fromIp, parsed);
+                ingestChat(fromIp, parsed);
+            } else if (cb === 'onWebRTCSignal' || (parsed && parsed.type === 'webrtc_signal')) {
+                var signal = parsed && parsed.signal ? parsed.signal : parsed;
+                if (window.SOSBridge && typeof window.SOSBridge.onWebRTCSignal === 'function') {
+                    window.SOSBridge.onWebRTCSignal(fromIp, signal);
+                }
+            } else if (cb === 'onNostrEvent' || (parsed && parsed.type === 'nostr_event')) {
+                var ev = parsed && parsed.event ? parsed.event : parsed;
+                if (window.SOSBridge && typeof window.SOSBridge.onNostrEvent === 'function') {
+                    window.SOSBridge.onNostrEvent(ev);
+                }
             }
         });
     }
+
+    function drainNow() {
+        drainInbox();
+    }
+    if (window.SOSEmergency) window.SOSEmergency.drainNow = drainNow;
 
     function wrapPublish() {
         var A = app();
@@ -581,6 +599,23 @@ window.SOSEmergency = (function() {
             };
             if (!payload.text) return orig.apply(this, arguments);
             try {
+                if (typeof window.AndroidBridge.sendMeshChat === 'function') {
+                    var raw = window.AndroidBridge.sendMeshChat(JSON.stringify(payload));
+                    var result = {};
+                    try { result = JSON.parse(raw || '{}'); } catch (e2) { result = {}; }
+                    if (result && result.ok) {
+                        var mid = result.messageId || payload.id;
+                        if (mid) pendingDelivery[mid] = payload.id;
+                        if (payload.id && payload.id !== mid) pendingDelivery[payload.id] = payload.id;
+                        return Promise.resolve({
+                            ok: true,
+                            messageId: payload.id || mid,
+                            emergency: true,
+                            status: result.status || 'SENT'
+                        });
+                    }
+                    return Promise.resolve({ ok: false, error: (result && result.error) || 'emergency-send-failed' });
+                }
                 window.AndroidBridge.broadcastMessage(JSON.stringify(payload));
             } catch (e) {
                 return Promise.resolve({ ok: false, error: 'emergency-send-failed' });
@@ -592,6 +627,24 @@ window.SOSEmergency = (function() {
         return true;
     }
 
+    function applyDeliveries() {
+        var A = app();
+        if (typeof A.updateMessageStatus !== 'function') return;
+        if (typeof window.AndroidBridge === 'undefined' || typeof window.AndroidBridge.getMeshDeliveryStatus !== 'function') return;
+        Object.keys(pendingDelivery).forEach(function(mid) {
+            var st = '';
+            try { st = String(window.AndroidBridge.getMeshDeliveryStatus(mid) || ''); } catch (e) { return; }
+            var chatId = pendingDelivery[mid] || mid;
+            if (st === 'DELIVERED') {
+                A.updateMessageStatus(chatId, 'sent');
+                delete pendingDelivery[mid];
+            } else if (st === 'FAILED') {
+                A.updateMessageStatus(chatId, 'failed');
+                delete pendingDelivery[mid];
+            }
+        });
+    }
+
     function tick() {
         var active = isRelayOn();
         wrapPublish();
@@ -600,6 +653,7 @@ window.SOSEmergency = (function() {
             pushProfile();
             syncPeers();
             drainInbox();
+            applyDeliveries();
         } else if (wasActive) {
             clearMeshContacts();
         }
@@ -607,6 +661,7 @@ window.SOSEmergency = (function() {
     }
 
     setInterval(tick, 3000);
+    window.addEventListener('sos-native-resume', drainNow);
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() { setTimeout(tick, 800); });
     } else {

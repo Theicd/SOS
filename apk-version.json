@@ -1,8 +1,8 @@
 {
-  "version": "1.0.100",
-  "versionCode": 101,
-  "file": "SOS-1.0.100.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.100/SOS-1.0.100.apk",
+  "version": "1.0.101",
+  "versionCode": 102,
+  "file": "SOS-1.0.101.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.101/SOS-1.0.101.apk",
   "releasedAt": "2026-09-04",
-  "note": "Cache full site in SW; emergency loads from cache when offline"
+  "note": "Emergency Mesh V2: targeted chat/WebRTC, loop-safe tree"
 }

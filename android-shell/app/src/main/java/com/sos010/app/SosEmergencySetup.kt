@@ -8,6 +8,7 @@ import android.content.Context
 object SosEmergencySetup {
     private const val PREFS = "sos_emergency_setup"
     private const val KEY_READY = "station_ready"
+    private const val KEY_INSTALL_NODE = "install_node_id"
 
     const val SSID_PREFIX = "SOS-"
 
@@ -43,5 +44,25 @@ object SosEmergencySetup {
             .edit()
             .putBoolean(KEY_READY, true)
             .apply()
+    }
+
+    fun installNodeId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val existing = prefs.getString(KEY_INSTALL_NODE, "")?.trim().orEmpty()
+        if (existing.isNotBlank()) return existing
+        val created = EmergencyMeshIdentity.newInstallId()
+        prefs.edit().putString(KEY_INSTALL_NODE, created).apply()
+        return created
+    }
+
+    fun currentIdentity(context: Context, bootId: String): EmergencyNodeIdentity {
+        val pubkey = SosSessionStore.getPubkey(context)
+        val nodeId = EmergencyMeshIdentity.nodeIdFrom(pubkey, installNodeId(context))
+        return EmergencyNodeIdentity(
+            nodeId = nodeId,
+            pubkey = if (EmergencyMeshIdentity.isValidPubkey(pubkey)) pubkey else "",
+            bootId = bootId,
+            stationSsid = stationSsid(context)
+        )
     }
 }
