@@ -20,10 +20,8 @@ import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
@@ -344,6 +342,13 @@ class SosEmergencyRelayService : Service() {
                     }
                 }
 
+                val onMyAp = SosWifiBootstrap.isClientOnMyHotspot(relayIp) ||
+                    SosWifiBootstrap.isClientOnMyHotspot(senderIp)
+                if (onMyAp) {
+                    addPeer(relayIp)
+                    return
+                }
+
                 if (parentIp != null && !isSameSubnet(myIp, parentIp)) {
                     dropParent("parent-left-subnet")
                 }
@@ -418,6 +423,10 @@ class SosEmergencyRelayService : Service() {
         val myIp = getLocalIpAddressInternal()
         if (!isSameSubnet(myIp, relayIp)) {
             sendLog("JOIN", "דילוג על רשת זרה $relayIp")
+            return
+        }
+        if (SosWifiBootstrap.isClientOnMyHotspot(relayIp)) {
+            sendLog("JOIN", "דילוג — $relayIp על הנקודה החמה שלי")
             return
         }
         if (myChildren.isNotEmpty()) return
@@ -775,28 +784,6 @@ class SosEmergencyRelayService : Service() {
     }
 
     fun getLocalIpAddressInternal(): String? {
-        return try {
-            var fallback: String? = null
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val intf = interfaces.nextElement()
-                val name = intf.name.lowercase()
-                if (intf.isLoopback || !intf.isUp) continue
-                val addrs = intf.inetAddresses
-                while (addrs.hasMoreElements()) {
-                    val addr = addrs.nextElement()
-                    if (addr is Inet4Address) {
-                        val ip = addr.hostAddress ?: continue
-                        if (name.contains("wlan") || name.contains("ap") || name.contains("swlan")) {
-                            return ip
-                        }
-                        if (fallback == null) fallback = ip
-                    }
-                }
-            }
-            fallback
-        } catch (_: Exception) {
-            null
-        }
+        return SosWifiBootstrap.preferredMeshIpv4()
     }
 }

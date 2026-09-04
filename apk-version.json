@@ -1,8 +1,8 @@
 {
-  "version": "1.0.97",
-  "versionCode": 98,
-  "file": "SOS-1.0.97.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.97/SOS-1.0.97.apk",
+  "version": "1.0.98",
+  "versionCode": 99,
+  "file": "SOS-1.0.98.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.98/SOS-1.0.98.apk",
   "releasedAt": "2026-09-04",
-  "note": "Auto-connect SOS mesh: keep scanning and join strongest free hotspot"
+  "note": "Emergency shell internet probe; join parent on client Wi-Fi, not own hotspot child"
 }

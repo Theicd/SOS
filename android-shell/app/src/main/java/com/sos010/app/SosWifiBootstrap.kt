@@ -351,6 +351,37 @@ object SosWifiBootstrap {
         return sameSlash24(ap, ip)
     }
 
+    /** כרטיס לקוח (wlan0) קודם — לא כתובת הנקודה החמה | HYPER CORE TECH */
+    fun preferredMeshIpv4(): String? {
+        var station: String? = null
+        var ap: String? = null
+        var fallback: String? = null
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return null
+            while (interfaces.hasMoreElements()) {
+                val intf = interfaces.nextElement()
+                if (!intf.isUp || intf.isLoopback) continue
+                val name = intf.name.lowercase()
+                val looksAp = name.contains("ap") || name.contains("swlan") ||
+                    name.contains("softap") || name == "wlan1"
+                val addrs = intf.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val addr = addrs.nextElement()
+                    if (addr !is java.net.Inet4Address) continue
+                    val ip = addr.hostAddress ?: continue
+                    val looksStation = name == "wlan0" || (name.contains("wlan") && !looksAp)
+                    when {
+                        looksAp -> if (ap == null) ap = ip
+                        looksStation -> if (station == null) station = ip
+                        fallback == null -> fallback = ip
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return station ?: ap ?: fallback
+    }
+
     fun hotspotIpv4(): String? {
         return try {
             val interfaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return null

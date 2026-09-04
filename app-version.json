@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.04-emergency-auto97",
-  "buildTime": "2026-09-04T01:20:00+03:00",
-  "notes": "APK 1.0.97: auto-connect to strongest free SOS hotspot"
+  "version": "2026.09.04-emergency-net98",
+  "buildTime": "2026-09-04T12:55:00+03:00",
+  "notes": "APK 1.0.98: emergency shell detects internet; mesh joins client LAN"
 }

@@ -560,6 +560,7 @@ class MainActivity : AppCompatActivity() {
     private fun captureEmergencyLaunchFromIntent(intent: Intent?) {
         if (wantsEmergencyLaunch(intent)) {
             SosEmergencyState.offlineShellRequested = true
+            SosNetProbe.refreshAsync(this)
             try {
                 intent?.putExtra(EXTRA_EMERGENCY_LAUNCH, true)
             } catch (_: Exception) {
@@ -1111,24 +1112,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * מצב קאש בלי רשת – רק אחרי אייקון SOS חירום, לא מזיהוי אינטרנט אוטומטי | HYPER CORE TECH
+     * קאש רק באייקון חירום כשאין אינטרנט מאומת.
+     * SOS / So-Call נשארים אונליין. | HYPER CORE TECH
      */
     private fun applyOfflineShellMode(force: Boolean = false) {
         if (!this::webView.isInitialized) return
-        val offline = force || SosEmergencyState.offlineShellRequested
+        val emergency = force || SosEmergencyState.offlineShellRequested
+        val useCache = emergency && (force || !SosNetProbe.hasExternalInternet(this))
         val settings = webView.settings
-        if (offline) {
+        if (useCache) {
             settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-            settings.blockNetworkLoads = true
+            settings.blockNetworkLoads = false
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.blockNetworkLoads = false
         }
-        if (lastShellOffline != offline) {
-            lastShellOffline = offline
+        if (lastShellOffline != useCache) {
+            lastShellOffline = useCache
             SosDebugLog.i(
                 "shell",
-                if (offline) "offline shell: cache + blockNetwork (emergency icon)"
+                if (useCache) "emergency shell: cache (no validated internet)"
                 else "online shell: network default"
             )
         }
@@ -1157,7 +1160,7 @@ class MainActivity : AppCompatActivity() {
             view.loadUrl(offlineAwareStartUrl(BuildConfig.SOS_START_URL, forceOffline = true))
             return
         }
-        toast("אין עותק מקומי — פתח פעם אחת עם אינטרנט")
+        SosDebugLog.w("shell", "no local copy – stay on emergency hardware UI")
     }
 
     /** בלי רשת (רק מאייקון חירום) – videos.html בלי ?shell= כדי לפגוע בקאש/SW | HYPER CORE TECH */
