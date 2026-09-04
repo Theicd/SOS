@@ -30,6 +30,12 @@ object EmergencyMeshSignal {
         return store.nextHopChildFor(rec.nodeId) != null
     }
 
+    fun shouldAttemptMeshSend(targetPubkey: String, store: EmergencyMeshStore): Boolean {
+        val route = routeTarget(targetPubkey, store) ?: return false
+        val rec = store.findByPubkey(route.second) ?: store.get(route.first) ?: return false
+        return rec.nodeId != store.identity?.nodeId
+    }
+
     fun wrap(
         targetPubkey: String,
         signalJson: String,

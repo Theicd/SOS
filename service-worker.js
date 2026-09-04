@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v750'; // חירום: P0 mesh routes + local P2P
+  const CACHE_NAME = 'sos-cache-v751'; // חירום: P0 reattach + MESH affinity + persist
   const PRECACHE_URLS = [
     './',
     './videos.html',

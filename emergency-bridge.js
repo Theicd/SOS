@@ -445,7 +445,9 @@ window.SOSEmergency = (function() {
             name: 'רשת חירום',
             picture: '',
             initials: 'רח',
-            emergencyMesh: true
+            emergencyMesh: true,
+            meshReachable: true,
+            meshRelation: 'GROUP'
         });
         if (c && !c.lastMessage) c.lastMessage = 'קבוצת רשת חירום';
         meshOnly.add(GROUP_PK);
@@ -475,10 +477,11 @@ window.SOSEmergency = (function() {
             var name = String(p.name || '').trim() || (existing && existing.name) || ('משתמש ' + pk.slice(0, 8));
             var picture = String(p.picture || '').trim() || (existing && existing.picture) || '';
             var initials = (typeof A.getInitials === 'function' && name) ? A.getInitials(name) : 'מש';
+            var relation = String(p.relation || p.type || '');
             if (existing && !existing.emergencyMesh) {
-                A.ensureChatContact(pk, { name: name, picture: picture, initials: initials });
+                A.ensureChatContact(pk, { name: name, picture: picture, initials: initials, meshReachable: true, meshRelation: relation });
             } else {
-                A.ensureChatContact(pk, { name: name, picture: picture, initials: initials, emergencyMesh: true });
+                A.ensureChatContact(pk, { name: name, picture: picture, initials: initials, emergencyMesh: true, meshReachable: true, meshRelation: relation });
                 meshOnly.add(pk);
             }
         });
@@ -487,15 +490,43 @@ window.SOSEmergency = (function() {
             if (!seen.has(pk)) {
                 meshOnly.delete(pk);
                 meshPeerSet.delete(pk);
-                if (typeof A.removeChatContact === 'function') A.removeChatContact(pk);
+                markMeshGone(A, pk);
             }
         });
+    }
+
+    function hasChatHistory(A, pk) {
+        if (!A || !pk) return false;
+        var c = A.chatState && A.chatState.contacts && A.chatState.contacts.get(pk);
+        if (c && c.lastMessage) return true;
+        if (typeof A.getChatMessages === 'function') {
+            var msgs = A.getChatMessages(pk) || [];
+            return msgs.length > 0;
+        }
+        return false;
+    }
+
+    function markMeshGone(A, pk) {
+        if (!A || typeof A.ensureChatContact !== 'function') return;
+        var existing = A.chatState && A.chatState.contacts && A.chatState.contacts.get(pk);
+        if (existing) {
+            A.ensureChatContact(pk, { meshReachable: false, meshRelation: existing.meshRelation || '' });
+        }
+        if (existing && existing.emergencyMesh && !hasChatHistory(A, pk) && pk !== GROUP_PK) {
+            return;
+        }
     }
 
     function clearMeshContacts() {
         var A = app();
         Array.from(meshOnly).forEach(function(pk) {
-            if (typeof A.removeChatContact === 'function') A.removeChatContact(pk);
+            if (pk === GROUP_PK) {
+                if (A && typeof A.ensureChatContact === 'function') {
+                    A.ensureChatContact(pk, { meshReachable: false, meshRelation: 'GROUP' });
+                }
+                return;
+            }
+            markMeshGone(A, pk);
         });
         meshOnly.clear();
         meshPeerSet.clear();

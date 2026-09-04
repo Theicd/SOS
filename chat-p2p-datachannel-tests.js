@@ -25,6 +25,7 @@
   test('dataChannel.isConnected הוא function', () => typeof App.dataChannel?.isConnected === 'function');
   test('dataChannel.getStatus הוא function', () => typeof App.dataChannel?.getStatus === 'function');
   test('dataChannel.init הוא function', () => typeof App.dataChannel?.init === 'function');
+  test('dataChannel.ingestSignal הוא function', () => typeof App.dataChannel?.ingestSignal === 'function');
 
   // --- בדיקה 3: getActiveChatPeer חשוף ---
   test('App.getActiveChatPeer קיים', () => typeof App.getActiveChatPeer === 'function');

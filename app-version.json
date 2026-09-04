@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.05-mesh-p0",
-  "buildTime": "2026-09-05T01:38:00+03:00",
-  "notes": "P0: STA/AP split, TOPOLOGY_UPDATE, mesh-first WebRTC signaling"
+  "version": "2026.09.05-p0-recover",
+  "buildTime": "2026-09-05T02:55:00+03:00",
+  "notes": "P0 recover: reattach, MESH affinity, emergency chat persistence"
 }

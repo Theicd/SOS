@@ -341,7 +341,6 @@
     
     const contactsArray = [];
     chatState.contacts.forEach((contact) => {
-      if (contact?.emergencyMesh) return;
       contactsArray.push({
         pubkey: contact.pubkey,
         name: contact.name,
@@ -353,12 +352,13 @@
         lastReadTimestamp: contact.lastReadTimestamp || 0,
         profileFetchedAt: contact.profileFetchedAt || 0,
         archived: !!contact.archived,
+        emergencyMesh: !!contact.emergencyMesh,
+        meshReachable: !!contact.meshReachable,
+        meshRelation: contact.meshRelation || '',
       });
     });
     const conversationsArray = [];
     chatState.conversations.forEach((info, key) => {
-      const peer = String(info?.peer || '').toLowerCase();
-      if (chatState.contacts.get(peer)?.emergencyMesh) return;
       conversationsArray.push({
         key,
         peer: info.peer,
@@ -454,7 +454,7 @@
       if (!parsed || typeof parsed !== 'object') return;
       if (Array.isArray(parsed.contacts)) {
         parsed.contacts.forEach((contact) => {
-          if (!contact || !contact.pubkey || contact.emergencyMesh) {
+          if (!contact || !contact.pubkey) {
             return;
           }
           const key = contact.pubkey.toLowerCase();
@@ -470,6 +470,9 @@
             lastReadTimestamp: typeof contact.lastReadTimestamp === 'number' ? contact.lastReadTimestamp : 0,
             profileFetchedAt: typeof contact.profileFetchedAt === 'number' ? contact.profileFetchedAt : 0,
             archived: !!contact.archived,
+            emergencyMesh: !!contact.emergencyMesh,
+            meshReachable: !!contact.meshReachable,
+            meshRelation: contact.meshRelation || '',
           };
           chatState.contacts.set(key, restoredContact);
         });
@@ -590,6 +593,14 @@
       if (profile.emergencyMesh) {
         existing.emergencyMesh = true;
       }
+      if (profile.meshReachable !== undefined) {
+        existing.meshReachable = !!profile.meshReachable;
+        hasChange = true;
+      }
+      if (profile.meshRelation) {
+        existing.meshRelation = profile.meshRelation;
+        hasChange = true;
+      }
       // רק אם יש שינוי - עדכן UI
       if (hasChange) {
         debouncedNotifyContacts();
@@ -613,6 +624,8 @@
       profileFetchedAt: profile.profileFetchedAt || Math.floor(Date.now() / 1000),
       archived: false,
       emergencyMesh: !!profile.emergencyMesh,
+      meshReachable: profile.meshReachable !== undefined ? !!profile.meshReachable : !!profile.emergencyMesh,
+      meshRelation: profile.meshRelation || '',
     };
     chatState.contacts.set(normalized, contact);
     debouncedNotifyContacts();

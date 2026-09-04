@@ -1,8 +1,8 @@
 {
-  "version": "1.0.102",
-  "versionCode": 103,
-  "file": "SOS-1.0.102.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.102/SOS-1.0.102.apk",
+  "version": "1.0.103",
+  "versionCode": 104,
+  "file": "SOS-1.0.103.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.103/SOS-1.0.103.apk",
   "releasedAt": "2026-09-05",
-  "note": "P0: STA/AP roles, topology routes, local mesh P2P signaling"
+  "note": "P0 recover: stale child reattach, MESH signaling affinity, persist emergency chat"
 }

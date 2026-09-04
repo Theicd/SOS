@@ -46,12 +46,14 @@ object EmergencyMeshDecision {
         joiningUpstreamId: String?,
         remoteId: String,
         remoteAncestorIds: List<String>,
-        staAp: CapabilityState
+        staAp: CapabilityState,
+        childLinkHealthy: Boolean = true
     ): JoinRejectReason? {
         if (remoteId.isBlank() || remoteId == selfId) return JoinRejectReason.SELF
         if (remoteId == selfParentId) return JoinRejectReason.ALREADY_PARENT
-        if (childIds.contains(remoteId)) return JoinRejectReason.ALREADY_CHILD
-        if (ancestorIds.contains(remoteId) || descendantIds.contains(remoteId)) {
+        val existingChild = childIds.contains(remoteId)
+        if (existingChild && childLinkHealthy) return JoinRejectReason.ALREADY_CHILD
+        if (!existingChild && (ancestorIds.contains(remoteId) || descendantIds.contains(remoteId))) {
             return JoinRejectReason.CYCLE
         }
         if (remoteAncestorIds.any { it == selfId }) return JoinRejectReason.CYCLE

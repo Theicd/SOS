@@ -124,7 +124,6 @@ class SosJsBridge(
     @JavascriptInterface
     fun notifyWebViewP2pReady() {
         SosP2pOwner.markWebViewReady()
-        SosNativeP2pEngine.releaseForWebView()
     }
 
     /** הפעלת/כיבוי שמירת P2P במצב המתנה (ברירת מחדל: דלוק) | HYPER CORE TECH */

@@ -538,7 +538,8 @@ class SosEmergencyRelayService : Service() {
             sendLog("JOIN", "דילוג — $relayIp על הנקודה החמה שלי")
             return
         }
-        if (mesh.parentNodeId() != null) return
+        val existingParent = mesh.parentNodeId()
+        if (existingParent != null && meshLinks.parent()?.isHealthy() == true) return
         if (!EmergencyMeshDecision.shouldInitiateJoin(self.nodeId, parentNodeId)) return
         if (!mesh.tryBeginJoin(parentNodeId)) {
             sendLog("JOIN", "כבר בתהליך הצטרפות")
@@ -728,6 +729,13 @@ class SosEmergencyRelayService : Service() {
             sendLog("JOIN", "נדחה $ip – רשת זרה")
             return
         }
+        val existingLink = meshLinks.get(frame.nodeId)
+        val sameBoot = frame.bootId.isBlank() ||
+            existingLink?.remoteBootId.isNullOrBlank() ||
+            existingLink?.remoteBootId == frame.bootId
+        val childLinkHealthy = mesh.childNodeIds().contains(frame.nodeId) &&
+            existingLink?.isHealthy() == true &&
+            sameBoot
         val reject = EmergencyMeshDecision.rejectIncomingJoin(
             selfId = self.nodeId,
             selfParentId = mesh.parentNodeId(),
@@ -739,7 +747,8 @@ class SosEmergencyRelayService : Service() {
             joiningUpstreamId = mesh.joiningUpstreamId,
             remoteId = frame.nodeId,
             remoteAncestorIds = frame.path,
-            staAp = meshStaAp()
+            staAp = meshStaAp(),
+            childLinkHealthy = childLinkHealthy
         )
         if (reject != null) {
             writer.println(EmergencyMeshProtocol.joinReject(reject))
@@ -761,8 +770,12 @@ class SosEmergencyRelayService : Service() {
             ),
             now
         )
+        val reattach = mesh.childNodeIds().contains(frame.nodeId) && !childLinkHealthy
         mesh.addChild(frame.nodeId)
         val childIp = frame.ip.ifBlank { ip }
+        if (reattach) {
+            sendLog("JOIN", "REATTACH ${frame.nodeId.take(8)} $childIp")
+        }
         if (!myChildren.contains(childIp)) myChildren.add(childIp)
         SosEmergencyState.childCount = myChildren.size
         addPeer(childIp)
@@ -815,6 +828,16 @@ class SosEmergencyRelayService : Service() {
                 }
             } catch (_: Exception) {
             } finally {
+                val replacement = meshLinks.get(link.remoteNodeId)
+                val replaced = replacement != null && replacement !== link && replacement.isLive()
+                meshLinks.detachIfCurrent(link)
+                if (replaced) {
+                    if (replacement!!.currentIp != ip) {
+                        myChildren.remove(ip)
+                        childWriters.remove(ip)
+                    }
+                    return@execute
+                }
                 myChildren.remove(ip)
                 SosEmergencyState.childCount = myChildren.size
                 connectedPeers.remove(ip)
@@ -822,7 +845,6 @@ class SosEmergencyRelayService : Service() {
                 SosEmergencyState.peerProfiles.remove(ip)
                 childWriters.remove(ip)
                 link.close()
-                meshLinks.detachIfCurrent(link)
                 SosEmergencyState.mesh.findByIp(ip)?.nodeId?.let { SosEmergencyState.mesh.removeLink(it) }
                 syncRelayChildrenState()
                 notifySiblingsUpdate()

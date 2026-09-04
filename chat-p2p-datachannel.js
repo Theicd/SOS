@@ -62,7 +62,7 @@
   }
 
   // חלק מצב (chat-p2p-datachannel.js) – remoteCandsBuf: באפר ICE, gotAnswer: התקבלה תשובה, offerId/lastOfferId למניעת תשובות ישנות | HYPER CORE TECH
-  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null }; }
+  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null, sigTransport:'' }; }
   function getPS(k) { return peers.get(k.toLowerCase())||null; }
   function ensPS(k) { k=k.toLowerCase(); if(!peers.has(k)) peers.set(k,newPS()); return peers.get(k); }
   function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
@@ -110,10 +110,14 @@
   function sendMeshSig(p, type, data) {
     try {
       const b = window.AndroidBridge;
-      if (!b || typeof b.sendWebRTCSignal !== 'function' || !canUseMesh(p)) return false;
+      if (!b || typeof b.sendWebRTCSignal !== 'function') return false;
+      const affinity = getPS(p)?.sigTransport === 'MESH';
+      if (!affinity && !canUseMesh(p)) return false;
       const signal = { type: type, data: data, fromPubkey: String(App.publicKey || '').toLowerCase() };
       const sent = b.sendWebRTCSignal(p, JSON.stringify(signal));
       if (sent === true || sent === 'true') {
+        const s = ensPS(p);
+        s.sigTransport = 'MESH';
         console.log(`[P2P-SIG] SEND type=${type} peer=${String(p).slice(0,8)} transport=MESH`);
         return true;
       }
@@ -579,6 +583,7 @@
       const peer = String(fromPubkey || sig.fromPubkey || '').toLowerCase();
       if (!isValidPeerKey(peer)) return;
       const data = sig.data !== undefined ? sig.data : (sig.payload !== undefined ? sig.payload : null);
+      ensPS(peer).sigTransport = 'MESH';
       console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=MESH`);
       if (type === 'dc-offer' && data && data.type && data.sdp) onOffer(peer, data);
       else if (type === 'dc-answer' && data && data.type && data.sdp) onAnswer(peer, data);

@@ -243,14 +243,12 @@ class SosEmergencyBridge(
     @JavascriptInterface
     fun notifyWebViewP2pReady() {
         SosP2pOwner.markWebViewReady()
-        SosNativeP2pEngine.releaseForWebView()
     }
 
     @JavascriptInterface
     fun sendWebRTCSignal(targetPubkey: String, signalJson: String): Boolean {
         if (!SosEmergencyState.isRelayRunning) return false
-        val live = SosEmergencyRelayService.instance?.liveNodeIds() ?: emptySet()
-        if (!EmergencyMeshSignal.isMeshSignalTarget(targetPubkey, SosEmergencyState.mesh, live)) {
+        if (!EmergencyMeshSignal.shouldAttemptMeshSend(targetPubkey, SosEmergencyState.mesh)) {
             return false
         }
         val route = EmergencyMeshSignal.routeTarget(targetPubkey, SosEmergencyState.mesh)

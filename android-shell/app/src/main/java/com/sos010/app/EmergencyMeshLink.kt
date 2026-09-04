@@ -33,6 +33,12 @@ class EmergencyMeshLink(
             state == MeshLinkState.CONNECTING
     }
 
+    fun isHealthy(): Boolean {
+        if (state != MeshLinkState.ACTIVE) return false
+        val s = socket ?: return true
+        return !s.isClosed && s.isConnected
+    }
+
     fun markRx(nowMs: Long = System.currentTimeMillis()) {
         lastRxMs = nowMs
         if (state == MeshLinkState.DEGRADED) {

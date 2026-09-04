@@ -58,6 +58,7 @@ object SosNativeP2pEngine {
         var handshakeRunnable: Runnable? = null,
         var lastActiveAt: Long = System.currentTimeMillis(),
         var lastPcAt: Long = 0L,
+        var meshAffinity: Boolean = false,
     )
 
     fun ensureStarted(context: Context) {
@@ -642,8 +643,8 @@ object SosNativeP2pEngine {
 
     private fun tryPublishMesh(self: String, peer: String, type: String, rawJson: String): Boolean {
         if (!SosEmergencyState.isRelayRunning) return false
-        val live = SosEmergencyRelayService.instance?.liveNodeIds() ?: emptySet()
-        if (!EmergencyMeshSignal.isMeshSignalTarget(peer, SosEmergencyState.mesh, live)) return false
+        val affinity = peers[peer]?.meshAffinity == true
+        if (!affinity && !EmergencyMeshSignal.shouldAttemptMeshSend(peer, SosEmergencyState.mesh)) return false
         val data: Any = when {
             rawJson.isBlank() -> JSONObject()
             rawJson.trim().startsWith("[") -> JSONArray(rawJson)
