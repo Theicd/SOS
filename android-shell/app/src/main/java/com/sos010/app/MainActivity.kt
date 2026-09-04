@@ -1124,7 +1124,7 @@ class MainActivity : AppCompatActivity() {
         val settings = webView.settings
         if (useCache) {
             settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-            settings.blockNetworkLoads = true
+            settings.blockNetworkLoads = false
         } else {
             settings.cacheMode = WebSettings.LOAD_DEFAULT
             settings.blockNetworkLoads = false
@@ -1139,15 +1139,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** חזרה ממסך החומרה — אם ה-WebView מת, טוענים שוב את אותה כתובת מהקאש | HYPER CORE TECH */
+    /** חזרה ממסך החומרה — טוענים את האתר מהקאש אם עדיין לא עלה | HYPER CORE TECH */
     private fun recoverEmergencyShellIfDead() {
         if (!SosEmergencyState.offlineShellRequested) return
         if (!this::webView.isInitialized) return
-        if (webPageReady) return
-        if (!isChromeErrorUrl(webView.url)) return
+        if (webPageReady && !isChromeErrorUrl(webView.url)) return
         applyOfflineShellMode(force = true)
         offlineShellRetryDone = false
-        SosDebugLog.i("shell", "resume: reload emergency UI from cache")
+        SosDebugLog.i("shell", "resume: load emergency UI from cache")
         webView.loadUrl(emergencySiteUrl())
     }
 

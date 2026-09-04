@@ -2,14 +2,26 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v747'; // feedfix4: no-store html/js — אל תשמור videos.html
+  const CACHE_NAME = 'sos-cache-v748'; // חירום: HTML/JS/CSS בקאש, רשת קודם
   const PRECACHE_URLS = [
     './',
-    './games.html', // דף משחקים – פיד משותף כמו הפיד הראשי
-    './games.js',   // לוגיקת פיד משחקים + game-embed
+    './videos.html',
+    './videos.js',
+    './feed.js',
+    './app.js',
+    './chat-ui.js',
+    './chat-state.js',
+    './chat-service.js',
+    './android-bridge.js',
+    './emergency-bridge.js',
+    './emergency-wrapper.js',
+    './games.html',
+    './games.js',
     './game-embed.js',
-    './styles/games.css', // עיצוב פיד משחקים
+    './styles/games.css',
     './styles/videos.css',
+    './styles/base.css',
+    './styles/tokens.css',
     './guest-auth.css',
     './guest-auth.js',
     './auth.html',
@@ -29,6 +41,32 @@
     './native-shell-bridge.js',
     './manifest.webmanifest',
   ];
+
+  async function networkFirstThenCache(request, isNavigate) {
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse && networkResponse.ok) {
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(request, networkResponse.clone()).catch(() => {});
+        try {
+          const u = new URL(request.url);
+          if (u.search) {
+            cache.put(new Request(u.origin + u.pathname), networkResponse.clone()).catch(() => {});
+          }
+        } catch (_e) {}
+      }
+      return networkResponse;
+    } catch (_err) {
+      const cached = await caches.match(request)
+        || await caches.match(request, { ignoreSearch: true });
+      if (cached) return cached;
+      if (isNavigate) {
+        const home = await caches.match('./') || await caches.match('./videos.html');
+        if (home) return home;
+      }
+      return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+    }
+  }
 
   // חלק Install (service-worker.js) – התקנה ושמירת קבצים ב-cache | HYPER CORE TECH
   self.addEventListener('install', (event) => {
@@ -83,39 +121,12 @@
     if (url.pathname.endsWith('/app-version.json') || url.pathname.endsWith('app-version.json')) return;
     if (url.pathname.endsWith('/apk-version.json') || url.pathname.endsWith('apk-version.json')) return;
 
-    // HTML/JS של הפיד – תמיד מהרשת, בלי SW cache (אחרת נשארת גרסה ישנה) | HYPER CORE TECH
-    if (
-      url.pathname.endsWith('.html')
-      || url.pathname.endsWith('.js')
-      || url.pathname === '/'
-      || url.pathname.endsWith('/')
-    ) {
-      event.respondWith(fetch(event.request, { cache: 'no-store' }));
-      return;
-    }
-
     // לא לשמור בקאש נתיבים דינמיים
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;
-    
-    event.respondWith((async () => {
-      try {
-        const networkResponse = await fetch(event.request);
-        if (networkResponse.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(event.request, networkResponse.clone()).catch(() => {});
-        }
-        return networkResponse;
-      } catch (err) {
-        const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) return cachedResponse;
-        if (event.request.mode === 'navigate') {
-          const home = await caches.match('./');
-          if (home) return home;
-          return caches.match('./videos.html');
-        }
-        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-      }
-    })());
+
+    event.respondWith(
+      networkFirstThenCache(event.request, event.request.mode === 'navigate')
+    );
   });
 
   // חלק Push (service-worker.js) – קבלת התראות Push מהשרת | HYPER CORE TECH

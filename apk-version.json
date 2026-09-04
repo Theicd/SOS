@@ -1,8 +1,8 @@
 {
-  "version": "1.0.99",
-  "versionCode": 100,
-  "file": "SOS-1.0.99.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.99/SOS-1.0.99.apk",
+  "version": "1.0.100",
+  "versionCode": 101,
+  "file": "SOS-1.0.100.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.100/SOS-1.0.100.apk",
   "releasedAt": "2026-09-04",
-  "note": "Emergency icon loads full cached site when offline; SOS/So-Call unchanged"
+  "note": "Cache full site in SW; emergency loads from cache when offline"
 }
