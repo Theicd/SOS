@@ -234,7 +234,25 @@ class SosEmergencyBridge(
     }
 
     @JavascriptInterface
+    fun isEmergencyPeerReachable(pubkey: String): Boolean {
+        if (!SosEmergencyState.isRelayRunning) return false
+        val live = SosEmergencyRelayService.instance?.liveNodeIds() ?: emptySet()
+        return EmergencyMeshSignal.isMeshSignalTarget(pubkey, SosEmergencyState.mesh, live)
+    }
+
+    @JavascriptInterface
+    fun notifyWebViewP2pReady() {
+        SosP2pOwner.markWebViewReady()
+        SosNativeP2pEngine.releaseForWebView()
+    }
+
+    @JavascriptInterface
     fun sendWebRTCSignal(targetPubkey: String, signalJson: String): Boolean {
+        if (!SosEmergencyState.isRelayRunning) return false
+        val live = SosEmergencyRelayService.instance?.liveNodeIds() ?: emptySet()
+        if (!EmergencyMeshSignal.isMeshSignalTarget(targetPubkey, SosEmergencyState.mesh, live)) {
+            return false
+        }
         val route = EmergencyMeshSignal.routeTarget(targetPubkey, SosEmergencyState.mesh)
             ?: return false
         val fromPk = SosSessionStore.getPubkey(context)
@@ -247,6 +265,9 @@ class SosEmergencyBridge(
         val svc = SosEmergencyRelayService.instance
         if (svc != null) {
             val mid = svc.originatePayload(wrapped, route.first, route.second)
+            if (mid.isNotBlank()) {
+                SosDebugLog.i("p2p", "[P2P-SIG] SEND peer=${route.second.take(8)} transport=MESH")
+            }
             return mid.isNotBlank()
         }
         val ip = SosEmergencyState.mesh.findByPubkey(route.second)?.currentIp.orEmpty()

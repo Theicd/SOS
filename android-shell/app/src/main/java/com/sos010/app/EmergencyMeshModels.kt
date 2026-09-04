@@ -93,6 +93,11 @@ data class MeshPeerRecord(
     val picture: String = ""
 )
 
+data class MeshReachable(
+    val nodeId: String,
+    val pubkey: String = ""
+)
+
 data class MeshParentCandidate(
     val nodeId: String,
     val relation: MeshPeerRelation,

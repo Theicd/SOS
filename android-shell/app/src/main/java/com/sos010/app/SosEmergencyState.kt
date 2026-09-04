@@ -60,6 +60,18 @@ object SosEmergencyState {
     @Volatile var sharedParentIp: String? = null
     @Volatile var isRelayRunning: Boolean = false
     @Volatile var myIp: String? = null
+    @Volatile var stationIp: String = ""
+    @Volatile var hotspotIp: String = ""
+
+    fun applyNetRoles(snap: EmergencyNetRoleSnapshot) {
+        stationIp = snap.stationIp
+        hotspotIp = snap.hotspotIp
+        myIp = snap.primary().ifBlank { myIp }
+    }
+
+    fun netRoles(): EmergencyNetRoleSnapshot {
+        return EmergencyNetRoleSnapshot(stationIp = stationIp, hotspotIp = hotspotIp)
+    }
     @Volatile var childCount: Int = 0
 
     @Volatile var myDisplayName: String = ""

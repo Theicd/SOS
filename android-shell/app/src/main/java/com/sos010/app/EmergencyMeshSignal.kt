@@ -22,6 +22,14 @@ object EmergencyMeshSignal {
         return EmergencyMeshPeers.resolveTarget(pk, store)
     }
 
+    fun isMeshSignalTarget(targetPubkey: String, store: EmergencyMeshStore, liveIds: Set<String> = emptySet()): Boolean {
+        val route = routeTarget(targetPubkey, store) ?: return false
+        val rec = store.findByPubkey(route.second) ?: store.get(route.first) ?: return false
+        if (rec.nodeId == store.identity?.nodeId) return false
+        if (EmergencyMeshPeers.isReachable(rec, liveIds)) return true
+        return store.nextHopChildFor(rec.nodeId) != null
+    }
+
     fun wrap(
         targetPubkey: String,
         signalJson: String,

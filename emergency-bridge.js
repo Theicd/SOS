@@ -194,9 +194,16 @@ window.SOSEmergency = (function() {
             }
         };
         
-        // קבלת WebRTC signal
-        window.SOSBridge.onWebRTCSignal = function(from, signal) {
-            console.log('SOSEmergency: WebRTC signal from', from);
+        // קבלת WebRTC signal — אותו handler כמו DataChannel, בלי כפילות offer/answer | HYPER CORE TECH
+        window.SOSBridge.onWebRTCSignal = function(from, signal, fromPubkey) {
+            console.log('[P2P-SIG] RX peer=' + String(fromPubkey || from || '').slice(0, 8) + ' transport=MESH');
+            try {
+                if (window.NostrApp && window.NostrApp.dataChannel && typeof window.NostrApp.dataChannel.ingestSignal === 'function') {
+                    window.NostrApp.dataChannel.ingestSignal(from, signal, fromPubkey);
+                }
+            } catch (e) {
+                console.warn('SOSEmergency: ingestSignal failed', e);
+            }
             if (onMessageReceived) {
                 onMessageReceived(from, { type: 'webrtc_signal', signal: signal });
             }
@@ -560,8 +567,9 @@ window.SOSEmergency = (function() {
                 ingestChat(fromIp, parsed);
             } else if (cb === 'onWebRTCSignal' || (parsed && parsed.type === 'webrtc_signal')) {
                 var signal = parsed && parsed.signal ? parsed.signal : parsed;
+                var fromPubkey = parsed && parsed.fromPubkey ? parsed.fromPubkey : '';
                 if (window.SOSBridge && typeof window.SOSBridge.onWebRTCSignal === 'function') {
-                    window.SOSBridge.onWebRTCSignal(fromIp, signal);
+                    window.SOSBridge.onWebRTCSignal(fromIp, signal, fromPubkey);
                 }
             } else if (cb === 'onNostrEvent' || (parsed && parsed.type === 'nostr_event')) {
                 var ev = parsed && parsed.event ? parsed.event : parsed;

@@ -82,9 +82,14 @@ object SosNativeP2pEngine {
         }
     }
 
-    /** הממשק בחזית – משחררים Native | HYPER CORE TECH */
+    /** הממשק בחזית – לא סוגרים Native עד ש-WebView מוכן | HYPER CORE TECH */
     fun onUiActive() {
-        worker.execute { closeAll("ui-active") }
+        SosP2pOwner.onUiForeground()
+    }
+
+    fun releaseForWebView() {
+        if (!started.get() && peers.isEmpty()) return
+        worker.execute { closeAll("webview-ready") }
     }
 
     fun onCardClosed(context: Context) {
@@ -93,7 +98,8 @@ object SosNativeP2pEngine {
 
     /** חיבור Native ל-peer אחד (initiator שולח offer) | HYPER CORE TECH */
     fun connectPeer(context: Context, peer: String) {
-        if (MainActivity.isActivityAlive) return
+        if (!SosP2pOwner.nativeMayHandle()) return
+        if (!SosP2pOwner.claim(peer, SosP2pOwnerKind.NATIVE)) return
         val pk = peer.trim().lowercase()
         if (!pk.matches(Regex("^[0-9a-f]{64}$"))) return
         appRef = context.applicationContext
@@ -115,8 +121,30 @@ object SosNativeP2pEngine {
     fun onHostForeground() = onUiActive()
     fun onHostBackground(context: Context) = onCardClosed(context)
 
+    fun onMeshSignal(context: Context, payload: String) {
+        if (!SosP2pOwner.nativeMayHandle()) return
+        try {
+            val o = JSONObject(payload)
+            val from = o.optString("fromPubkey").trim().lowercase()
+            val signal = o.optJSONObject("signal") ?: return
+            val type = signal.optString("type")
+            if (!type.startsWith("dc-") || from.length != 64) return
+            val data = signal.opt("data")
+            val event = JSONObject()
+            when (data) {
+                is JSONObject -> event.put("content", data.toString())
+                is org.json.JSONArray -> event.put("content", data.toString())
+                is String -> event.put("content", data)
+                else -> if (signal.has("sdp")) event.put("content", signal.toString())
+            }
+            handlePlainSignal(context, from, type, event.optString("content"))
+        } catch (e: Exception) {
+            SosDebugLog.w("p2p", "mesh signal fail: ${e.message}")
+        }
+    }
+
     fun onSignalEvent(context: Context, author: String, signalType: String, event: JSONObject) {
-        if (MainActivity.isActivityAlive) return
+        if (!SosP2pOwner.nativeMayHandle()) return
         if (!signalType.startsWith("dc-")) return
         appRef = context.applicationContext
         val priv = SosSessionStore.getPrivkey(context)
@@ -126,24 +154,30 @@ object SosNativeP2pEngine {
         }
         ensureStarted(context)
         val pk = author.trim().lowercase()
+        val enc = event.optString("content")
+        val plain = if (enc.isBlank()) {
+            SosDebugLog.w("p2p", "signal $signalType empty content from=${pk.take(8)}")
+            null
+        } else {
+            SosNostrCrypto.nip04Decrypt(priv, pk, enc)
+        }
+        if (plain.isNullOrBlank() && enc.isNotBlank()) {
+            SosDebugLog.w(
+                "p2p",
+                "nip04 decrypt fail type=$signalType from=${pk.take(8)} encLen=${enc.length}"
+            )
+        }
+        handlePlainSignal(context, pk, signalType, plain)
+    }
+
+    private fun handlePlainSignal(context: Context, pk: String, signalType: String, plain: String?) {
+        if (!SosP2pOwner.claim(pk, SosP2pOwnerKind.NATIVE)) return
+        SosDebugLog.i("p2p", "[P2P-SIG] RX type=$signalType peer=${pk.take(8)} transport=NATIVE")
         worker.execute {
             try {
                 if (!factoryReady.get()) initFactory(context.applicationContext)
                 if (!factoryReady.get()) return@execute
                 trimPeersIfNeeded(pk)
-                val enc = event.optString("content")
-                val plain = if (enc.isBlank()) {
-                    SosDebugLog.w("p2p", "signal $signalType empty content from=${pk.take(8)}")
-                    null
-                } else {
-                    SosNostrCrypto.nip04Decrypt(priv, pk, enc)
-                }
-                if (plain.isNullOrBlank() && enc.isNotBlank()) {
-                    SosDebugLog.w(
-                        "p2p",
-                        "nip04 decrypt fail type=$signalType from=${pk.take(8)} encLen=${enc.length}"
-                    )
-                }
                 when (signalType) {
                     "dc-offer" -> {
                         val data = if (plain.isNullOrBlank()) null else JSONObject(plain)
@@ -246,7 +280,7 @@ object SosNativeP2pEngine {
     }
 
     private fun amInitiator(self: String, peer: String): Boolean =
-        self.lowercase() < peer.lowercase()
+        SosP2pOwner.amInitiator(self, peer)
 
     private fun initFactory(context: Context) {
         if (factoryReady.get()) return
@@ -278,7 +312,7 @@ object SosNativeP2pEngine {
     )
 
     private fun connect(peer: String) {
-        if (MainActivity.isActivityAlive) return
+        if (!SosP2pOwner.nativeMayHandle()) return
         val app = appRef ?: return
         val self = SosSessionStore.getPubkey(app)
         if (!amInitiator(self, peer)) {
@@ -587,7 +621,9 @@ object SosNativeP2pEngine {
         val app = appRef ?: return
         val priv = SosSessionStore.getPrivkey(app)
         val self = SosSessionStore.getPubkey(app)
-        if (priv.length != 64 || self.length != 64) return
+        if (self.length != 64) return
+        if (tryPublishMesh(self, peer, type, rawJson)) return
+        if (priv.length != 64) return
         worker.execute {
             try {
                 val enc = if (rawJson.isBlank()) "" else SosNostrCrypto.nip04Encrypt(priv, peer, rawJson)
@@ -597,10 +633,33 @@ object SosNativeP2pEngine {
                     .put(JSONArray().put("r").put(roomId(self, peer)))
                 val event = SosNostrCrypto.signEvent(priv, SIG_KIND, tags, enc)
                 SosRelayWatcher.publishEvent(app, event)
+                SosDebugLog.i("p2p", "[P2P-SIG] SEND type=$type peer=${peer.take(8)} transport=NOSTR")
             } catch (err: Exception) {
                 Log.w(TAG, "publishSig fail: ${err.message}")
             }
         }
+    }
+
+    private fun tryPublishMesh(self: String, peer: String, type: String, rawJson: String): Boolean {
+        if (!SosEmergencyState.isRelayRunning) return false
+        val live = SosEmergencyRelayService.instance?.liveNodeIds() ?: emptySet()
+        if (!EmergencyMeshSignal.isMeshSignalTarget(peer, SosEmergencyState.mesh, live)) return false
+        val data: Any = when {
+            rawJson.isBlank() -> JSONObject()
+            rawJson.trim().startsWith("[") -> JSONArray(rawJson)
+            else -> JSONObject(rawJson)
+        }
+        val signal = JSONObject()
+            .put("type", type)
+            .put("data", data)
+            .put("fromPubkey", self)
+        val wrapped = EmergencyMeshSignal.wrap(peer, signal.toString(), self, "") ?: return false
+        val route = EmergencyMeshSignal.routeTarget(peer, SosEmergencyState.mesh) ?: return false
+        val svc = SosEmergencyRelayService.instance ?: return false
+        val mid = svc.originatePayload(wrapped, route.first, route.second)
+        if (mid.isBlank()) return false
+        SosDebugLog.i("p2p", "[P2P-SIG] SEND type=$type peer=${peer.take(8)} transport=MESH")
+        return true
     }
 
     private fun roomId(a: String, b: String): String {

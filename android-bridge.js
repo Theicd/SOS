@@ -144,8 +144,15 @@
     };
     
     // קבלת WebRTC signal
-    window.SOSBridge.onWebRTCSignal = function(fromIp, signal) {
-      console.log('📡 Received WebRTC signal from:', fromIp);
+    window.SOSBridge.onWebRTCSignal = function(fromIp, signal, fromPubkey) {
+      console.log('[P2P-SIG] RX peer=' + String(fromPubkey || fromIp || '').slice(0, 8) + ' transport=MESH');
+      try {
+        if (App.dataChannel && typeof App.dataChannel.ingestSignal === 'function') {
+          App.dataChannel.ingestSignal(fromIp, signal, fromPubkey);
+        }
+      } catch (e) {
+        console.warn('ingestSignal failed', e);
+      }
       handleWebRTCSignal(fromIp, signal);
     };
     

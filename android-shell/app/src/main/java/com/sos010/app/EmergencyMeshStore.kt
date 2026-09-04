@@ -23,6 +23,7 @@ class EmergencyMeshStore {
         rootNodeId = identity?.nodeId.orEmpty()
         depth = 0
         peers.clear()
+        viaChild.clear()
     }
 
     fun applyIdentity(next: EmergencyNodeIdentity) {
@@ -70,6 +71,7 @@ class EmergencyMeshStore {
         while (it.hasNext()) {
             val e = it.next()
             if (EmergencyMeshDecision.isConnectedRelation(e.value.relation)) continue
+            if (viaChild.containsKey(e.key)) continue
             if (!EmergencyMeshDecision.isDiscoveryFresh(e.value.lastSeenMs, nowMs, ttlMs)) {
                 it.remove()
             }
@@ -114,11 +116,17 @@ class EmergencyMeshStore {
 
     fun removeLink(nodeId: String) {
         updateRelation(nodeId, MeshPeerRelation.UNREACHABLE, MeshLinkState.CLOSED)
+        val dropped = ArrayList<String>()
         val it = viaChild.entries.iterator()
         while (it.hasNext()) {
             val e = it.next()
-            if (e.key == nodeId || e.value == nodeId) it.remove()
+            if (e.key == nodeId || e.value == nodeId) {
+                dropped.add(e.key)
+                it.remove()
+            }
         }
+        dropped.forEach { forgetTransitiveIfOrphan(it) }
+        forgetTransitiveIfOrphan(nodeId)
         if (parentNodeId() == null && nodeState == MeshNodeState.CONNECTED) {
             nodeState = MeshNodeState.ROOT
             rootNodeId = identity?.nodeId.orEmpty()
@@ -132,6 +140,51 @@ class EmergencyMeshStore {
         if (!childNodeIds().contains(viaChildId)) return
         if (parentNodeId() == destNodeId) return
         viaChild[destNodeId] = viaChildId
+    }
+
+    fun applySubtree(viaChildId: String, dests: Collection<MeshReachable>): Boolean {
+        if (viaChildId.isBlank() || !childNodeIds().contains(viaChildId)) return false
+        val self = identity?.nodeId.orEmpty()
+        val parent = parentNodeId()
+        val allowed = LinkedHashMap<String, MeshReachable>()
+        dests.forEach { raw ->
+            val id = raw.nodeId.trim()
+            if (id.isBlank() || id == self || id == viaChildId || id == parent) return@forEach
+            if (childNodeIds().contains(id)) return@forEach
+            allowed[id] = MeshReachable(id, raw.pubkey.trim().lowercase())
+        }
+        var changed = false
+        val it = viaChild.entries.iterator()
+        while (it.hasNext()) {
+            val e = it.next()
+            if (e.value != viaChildId) continue
+            if (!allowed.containsKey(e.key)) {
+                it.remove()
+                forgetTransitiveIfOrphan(e.key)
+                changed = true
+            }
+        }
+        allowed.values.forEach { rec ->
+            if (viaChild[rec.nodeId] != viaChildId) {
+                viaChild[rec.nodeId] = viaChildId
+                changed = true
+            }
+            rememberTransitive(rec)
+        }
+        return changed
+    }
+
+    fun reachableAdvertisement(): List<MeshReachable> {
+        val out = LinkedHashMap<String, MeshReachable>()
+        childNodeIds().forEach { id ->
+            out[id] = MeshReachable(id, peers[id]?.pubkey.orEmpty())
+        }
+        viaChild.keys.forEach { dest ->
+            if (!out.containsKey(dest)) {
+                out[dest] = MeshReachable(dest, peers[dest]?.pubkey.orEmpty())
+            }
+        }
+        return out.values.toList()
     }
 
     fun nextHopChildFor(destNodeId: String): String? {
@@ -180,6 +233,24 @@ class EmergencyMeshStore {
 
     fun discoveredCount(): Int {
         return peers.values.count { it.relation == MeshPeerRelation.DISCOVERED }
+    }
+
+    private fun rememberTransitive(rec: MeshReachable) {
+        val prev = peers[rec.nodeId]
+        if (prev != null && EmergencyMeshDecision.isConnectedRelation(prev.relation)) return
+        peers[rec.nodeId] = (prev ?: MeshPeerRecord(nodeId = rec.nodeId)).copy(
+            pubkey = rec.pubkey.ifBlank { prev?.pubkey.orEmpty() },
+            relation = MeshPeerRelation.TRANSITIVE,
+            linkState = MeshLinkState.ACTIVE,
+            lastSeenMs = System.currentTimeMillis()
+        )
+    }
+
+    private fun forgetTransitiveIfOrphan(nodeId: String) {
+        val prev = peers[nodeId] ?: return
+        if (prev.relation != MeshPeerRelation.TRANSITIVE) return
+        if (viaChild.containsKey(nodeId)) return
+        peers[nodeId] = prev.copy(relation = MeshPeerRelation.UNREACHABLE, linkState = MeshLinkState.CLOSED)
     }
 
     private fun updateRelation(nodeId: String, relation: MeshPeerRelation, link: MeshLinkState) {

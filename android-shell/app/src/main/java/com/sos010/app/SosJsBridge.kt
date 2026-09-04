@@ -121,6 +121,12 @@ class SosJsBridge(
         SosSessionStore.setPrivkey(context.applicationContext, privkey)
     }
 
+    @JavascriptInterface
+    fun notifyWebViewP2pReady() {
+        SosP2pOwner.markWebViewReady()
+        SosNativeP2pEngine.releaseForWebView()
+    }
+
     /** הפעלת/כיבוי שמירת P2P במצב המתנה (ברירת מחדל: דלוק) | HYPER CORE TECH */
     @JavascriptInterface
     fun setP2pStandbyEnabled(enabled: Boolean) {

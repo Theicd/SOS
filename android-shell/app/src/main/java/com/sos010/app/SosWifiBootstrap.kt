@@ -369,13 +369,12 @@ object SosWifiBootstrap {
         return sameSlash24(ap, ip)
     }
 
-    /** כרטיס לקוח (wlan0) קודם — לא כתובת הנקודה החמה | HYPER CORE TECH */
-    fun preferredMeshIpv4(): String? {
-        var station: String? = null
-        var ap: String? = null
-        var fallback: String? = null
+    fun snapshotNetRoles(): EmergencyNetRoleSnapshot {
+        var station = ""
+        var ap = ""
+        var fallback = ""
         try {
-            val interfaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return null
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return EmergencyNetRoleSnapshot()
             while (interfaces.hasMoreElements()) {
                 val intf = interfaces.nextElement()
                 if (!intf.isUp || intf.isLoopback) continue
@@ -389,15 +388,23 @@ object SosWifiBootstrap {
                     val ip = addr.hostAddress ?: continue
                     val looksStation = name == "wlan0" || (name.contains("wlan") && !looksAp)
                     when {
-                        looksAp -> if (ap == null) ap = ip
-                        looksStation -> if (station == null) station = ip
-                        fallback == null -> fallback = ip
+                        looksAp -> if (ap.isBlank()) ap = ip
+                        looksStation -> if (station.isBlank()) station = ip
+                        fallback.isBlank() -> fallback = ip
                     }
                 }
             }
         } catch (_: Exception) {
         }
-        return station ?: ap ?: fallback
+        if (station.isBlank() && ap.isBlank()) {
+            return EmergencyNetRoleSnapshot(stationIp = fallback, hotspotIp = "")
+        }
+        return EmergencyNetRoleSnapshot(stationIp = station, hotspotIp = ap)
+    }
+
+    /** כרטיס לקוח (wlan0) קודם — לא כתובת הנקודה החמה | HYPER CORE TECH */
+    fun preferredMeshIpv4(): String? {
+        return snapshotNetRoles().primary().ifBlank { null }
     }
 
     fun hotspotIpv4(): String? {

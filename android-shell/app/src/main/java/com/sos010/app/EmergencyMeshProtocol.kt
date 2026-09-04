@@ -19,6 +19,8 @@ object EmergencyMeshProtocol {
     const val JOIN_REJECT = "JOIN_REJECT"
     const val DATA = "DATA"
     const val ACK = "ACK"
+    const val TOPOLOGY_UPDATE = "TOPOLOGY_UPDATE"
+    const val MAX_REACHABLE = 32
 
     data class Frame(
         val type: String,
@@ -33,6 +35,8 @@ object EmergencyMeshProtocol {
         val maxChildren: Int = SosEmergencyState.MAX_CHILDREN,
         val staAp: CapabilityState = CapabilityState.UNKNOWN,
         val path: List<String> = emptyList(),
+        val reachable: List<String> = emptyList(),
+        val reachablePubkeys: List<String> = emptyList(),
         val reason: String = "",
         val name: String = ""
     )
@@ -56,6 +60,8 @@ object EmergencyMeshProtocol {
             if (nodeId.length > MAX_NODE_ID) return null
             val path = parsePath(o.optJSONArray("path"))
             if (path.size > MAX_PATH) return null
+            val reachable = parsePath(o.optJSONArray("reachable")).take(MAX_REACHABLE)
+            val reachablePubkeys = parsePath(o.optJSONArray("reachablePubkeys")).take(MAX_REACHABLE)
             val depth = o.optInt("depth", 0)
             val childCount = o.optInt("childCount", 0)
             val maxChildren = o.optInt("maxChildren", SosEmergencyState.MAX_CHILDREN)
@@ -73,6 +79,8 @@ object EmergencyMeshProtocol {
                 maxChildren = maxChildren,
                 staAp = parseStaAp(o.optString("staAp")),
                 path = path,
+                reachable = reachable,
+                reachablePubkeys = reachablePubkeys,
                 reason = o.optString("reason").trim().take(40),
                 name = o.optString("name").trim().take(40)
             )
@@ -160,6 +168,20 @@ object EmergencyMeshProtocol {
 
     fun joinReject(reason: JoinRejectReason): String {
         return encode(JOIN_REJECT, mapOf("reason" to reason.name, "nodeId" to ""))
+    }
+
+    fun topologyUpdate(identity: EmergencyNodeIdentity, reachable: List<MeshReachable>): String {
+        val dests = reachable.take(MAX_REACHABLE)
+        return encode(
+            TOPOLOGY_UPDATE,
+            mapOf(
+                "nodeId" to identity.nodeId,
+                "bootId" to identity.bootId,
+                "pubkey" to identity.pubkey,
+                "reachable" to dests.map { it.nodeId },
+                "reachablePubkeys" to dests.map { it.pubkey }
+            )
+        )
     }
 
     fun parseV1Here(line: String): Triple<String, Int, String>? {

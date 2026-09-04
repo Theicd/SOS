@@ -68,7 +68,31 @@
   function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
 
   // חלק תפקידים (chat-p2p-datachannel.js) – pubkey נמוך = initiator (שולח offers), גבוה = responder (רק עונה) | HYPER CORE TECH
-  function amInitiator(peer) { return (App.publicKey||'').toLowerCase() < peer.toLowerCase(); }
+  function amInitiator(peer) { return (App.publicKey||'').toLowerCase() < String(peer||'').toLowerCase(); }
+
+  function canUseMesh(p) {
+    try {
+      const b = window.AndroidBridge;
+      if (!b || typeof b.isEmergencyPeerReachable !== 'function') return false;
+      const v = b.isEmergencyPeerReachable(p);
+      return v === true || v === 'true';
+    } catch (_) { return false; }
+  }
+
+  function canSignal(p) {
+    return canUseMesh(p) || !!(App.pool && App.publicKey && App.privateKey);
+  }
+
+  function notifyWebViewP2pReady() {
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.notifyWebViewP2pReady === 'function') {
+        window.AndroidBridge.notifyWebViewP2pReady();
+      } else if (window.SosNativeShell && typeof window.SosNativeShell.notifyWebViewP2pReady === 'function') {
+        window.SosNativeShell.notifyWebViewP2pReady();
+      }
+      console.log('[P2P-OWNER] peer=* owner=WEBVIEW');
+    } catch (_) {}
+  }
 
   // חלק ניקוי (chat-p2p-datachannel.js) – סגירת חיבור | HYPER CORE TECH
   function cleanup(k) {
@@ -83,9 +107,24 @@
   // חלק signaling (chat-p2p-datachannel.js) – שליחת אותות דרך ריליי | HYPER CORE TECH
   function roomId(p) { const a=(App.publicKey||'').toLowerCase(),b=(p||'').toLowerCase(); return a<b?`dc:${a}:${b}`:`dc:${b}:${a}`; }
 
+  function sendMeshSig(p, type, data) {
+    try {
+      const b = window.AndroidBridge;
+      if (!b || typeof b.sendWebRTCSignal !== 'function' || !canUseMesh(p)) return false;
+      const signal = { type: type, data: data, fromPubkey: String(App.publicKey || '').toLowerCase() };
+      const sent = b.sendWebRTCSignal(p, JSON.stringify(signal));
+      if (sent === true || sent === 'true') {
+        console.log(`[P2P-SIG] SEND type=${type} peer=${String(p).slice(0,8)} transport=MESH`);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   async function sendSig(p, type, data) {
-    if(!App.pool||!App.publicKey||!App.privateKey) return;
     if(!isValidPeerKey(p)) return;
+    if (sendMeshSig(p, type, data)) return;
+    if(!App.pool||!App.publicKey||!App.privateKey) return;
     try {
       const raw=data?JSON.stringify(data):'';
       const enc=raw?await NostrTools.nip04.encrypt(App.privateKey,p,raw):'';
@@ -94,7 +133,7 @@
       await new Promise(r=>setTimeout(r,80));
       const pub=App.pool.publish(App.relayUrls,signed);
       if(Array.isArray(pub)) Promise.allSettled(pub).catch(()=>{});
-      console.log(`[DC] sent ${type} → ${p.slice(0,8)}`);
+      console.log(`[P2P-SIG] SEND type=${type} peer=${p.slice(0,8)} transport=NOSTR`);
     } catch(e){ console.warn('[DC] sendSig:',e); }
   }
 
@@ -108,7 +147,7 @@
     dc.onopen=()=>{
       if(s.dc!==dc) return; s.status='connected'; s.reconnN=0; s.offerRetryN=0;
       if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
-      console.log(`[DC] ✅ OPEN ${k.slice(0,8)}`);
+      console.log(`[P2P-DC] peer=${k.slice(0,8)} OPEN`);
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'open');
       try{
         if(window.SosNativeShell&&typeof window.SosNativeShell.syncP2pPeers==='function'){
@@ -129,7 +168,7 @@
       if(s.dc!==dc) return; s.dc=null; s.status='closed';
       // חלק keepalive stop (chat-p2p-datachannel.js) – עצירת ping כשהערוץ נסגר | HYPER CORE TECH
       if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
-      console.log(`[DC] ❌ CLOSED ${k.slice(0,8)}`);
+      console.log(`[P2P-DC] peer=${k.slice(0,8)} CLOSED reason=onclose`);
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'closed');
       maybeReconn(k);
     };
@@ -144,8 +183,8 @@
     pc.onicecandidate=(ev)=>{ if(s.pc!==pc) return; qICE(k,ev.candidate||null); };
     // חלק ניתוב ערוצים (chat-p2p-datachannel.js) – ערוץ file-transfer מנותב למערכת קבצים, sos-chat לצ'אט | HYPER CORE TECH
     pc.ondatachannel=(ev)=>{ if(s.pc!==pc) return; const ch=ev.channel; if(ch.label==='file-transfer'){console.log(`[DC] 📥 file DC from ${k.slice(0,8)}`);if(typeof App.onFileDataChannel==='function')App.onFileDataChannel(k,ch);return;} console.log(`[DC] 📥 chat DC ${k.slice(0,8)}`); wireDC(k,ch); };
-    pc.oniceconnectionstatechange=()=>{ if(s.pc!==pc) return; if(['disconnected','failed','closed'].includes(pc.iceConnectionState)){cleanup(k);maybeReconn(k);} };
-    pc.onconnectionstatechange=()=>{ if(s.pc!==pc) return; if(['disconnected','failed','closed'].includes(pc.connectionState)){cleanup(k);maybeReconn(k);} };
+    pc.oniceconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-ICE] peer=${k.slice(0,8)} state=${pc.iceConnectionState}`); if(['disconnected','failed','closed'].includes(pc.iceConnectionState)){cleanup(k);maybeReconn(k);} };
+    pc.onconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-PC] peer=${k.slice(0,8)} state=${pc.connectionState}`); if(['disconnected','failed','closed'].includes(pc.connectionState)){cleanup(k);maybeReconn(k);} };
     return pc;
   }
 
@@ -197,7 +236,7 @@
   async function connect(peer) {
     if (!isValidPeerKey(peer)) return;
     const k = peer.toLowerCase();
-    if (!App.pool || !App.publicKey || !App.privateKey) return;
+    if (!App.publicKey || !canSignal(k)) return;
     const ex = getPS(k);
     if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) return;
     if (!amInitiator(k)) {
@@ -222,7 +261,7 @@
     if (s.status === 'idle' || s.status === 'closed' || !s.status) {
       s.offerRetryN = 0;
     }
-    if (!subReady) {
+    if (!subReady && !canUseMesh(k)) {
       for (let i = 0; i < 15; i++) {
         await new Promise((r) => setTimeout(r, 200));
         if (subReady) break;
@@ -348,6 +387,7 @@
     if(evAge>SIG_MAX_AGE_SEC) return;
     let data=null;
     if(event.content){ try{ const d=await NostrTools.nip04.decrypt(App.privateKey,peer,event.content); data=d?JSON.parse(d):null; }catch(e){return;} }
+    console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=NOSTR`);
     if(type==='dc-offer'&&data?.type&&data?.sdp) await onOffer(peer,data);
     else if(type==='dc-answer'&&data?.type&&data?.sdp) await onAnswer(peer,data);
     else if(type==='dc-candidates'&&Array.isArray(data)) await onCands(peer,data);
@@ -495,13 +535,13 @@
   function status(p){ const s=getPS(p.toLowerCase()); return s?s.status:'idle'; }
 
   let initDone=false;
-  function init(){ if(initDone||App.guestMode||!App.pool||!App.publicKey) return; initDone=true; subscribe(); startKeep(); console.log('[DC] ✅ initialized'); }
+  function init(){ if(initDone||App.guestMode||!App.publicKey) return; initDone=true; if(App.pool) subscribe(); startKeep(); hookMeshReceiver(); notifyWebViewP2pReady(); console.log('[DC] ✅ initialized'); }
 
   let lazyDone=false;
   function lazyInit(){
     if(lazyDone) return; lazyDone=true;
-    if(App.pool&&App.publicKey&&!App.guestMode){ init(); }
-    else { const c=setInterval(()=>{ if(App.pool&&App.publicKey&&!App.guestMode){clearInterval(c);init();} },2000); }
+    if(App.publicKey&&!App.guestMode){ init(); }
+    else { const c=setInterval(()=>{ if(App.publicKey&&!App.guestMode){clearInterval(c);init();} },2000); }
   }
 
   // חלק getChatPC (chat-p2p-datachannel.js) – חשיפת PeerConnection לשימוש מערכת הקבצים | HYPER CORE TECH
@@ -511,18 +551,59 @@
   async function forceConnect(peer) {
     if(!isValidPeerKey(peer)) return;
     const k=peer.toLowerCase();
-    if(!App.pool||!App.publicKey||!App.privateKey) return;
-    const ex=getPS(k); if(ex&&(ex.status==='connected')) return;
-    if(!subReady){
+    if(!App.publicKey || !canSignal(k)) return;
+    const ex=getPS(k);
+    if(ex && (ex.status==='connected' || ex.status==='connecting')) return;
+    if(amInitiator(k)){
+      init();
+      enqueueConnect(k);
+      return;
+    }
+    if(!subReady && App.pool){
       init();
       for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,200));if(subReady) break;}
+    } else {
+      init();
     }
-    console.log(`[DC] ⚡ forceConnect → ${k.slice(0,8)} (ignoring role)`);
+    console.log(`[DC] ⚡ forceConnect → ${k.slice(0,8)} (renegotiate)`);
     const s=ensPS(k); s.offerRetryN=0; s.status='idle';
     await _sendOffer(k);
   }
 
-  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, subscribeIncomingMessages, _peers:peers };
+  function ingestLocalSignal(fromIp, signal, fromPubkey) {
+    try {
+      const sig = typeof signal === 'string' ? JSON.parse(signal) : signal;
+      if (!sig) return;
+      const type = String(sig.type || '');
+      if (!type.startsWith('dc-')) return;
+      const peer = String(fromPubkey || sig.fromPubkey || '').toLowerCase();
+      if (!isValidPeerKey(peer)) return;
+      const data = sig.data !== undefined ? sig.data : (sig.payload !== undefined ? sig.payload : null);
+      console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=MESH`);
+      if (type === 'dc-offer' && data && data.type && data.sdp) onOffer(peer, data);
+      else if (type === 'dc-answer' && data && data.type && data.sdp) onAnswer(peer, data);
+      else if (type === 'dc-candidates' && Array.isArray(data)) onCands(peer, data);
+    } catch (e) {
+      console.warn('[DC] mesh sig:', e);
+    }
+  }
+
+  function hookMeshReceiver() {
+    window.SOSBridge = window.SOSBridge || {};
+    const prev = window.SOSBridge.onWebRTCSignal;
+    if (prev && prev.__sosDcHook) return;
+    const next = function(fromIp, signal, fromPubkey) {
+      ingestLocalSignal(fromIp, signal, fromPubkey);
+      if (typeof prev === 'function') {
+        try { prev(fromIp, signal, fromPubkey); } catch (_) {}
+      }
+    };
+    next.__sosDcHook = true;
+    window.SOSBridge.onWebRTCSignal = next;
+  }
+
+  App.dataChannel={ connect, forceConnect, send, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers };
+  hookMeshReceiver();
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט / headless | HYPER CORE TECH
   function setupLazy(){

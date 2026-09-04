@@ -378,9 +378,9 @@ class SosEmergencyActivity : AppCompatActivity() {
         val locationOn = SosWifiBootstrap.isLocationEnabled(this)
         locationStatusView.text = if (locationOn) "✅ מיקום דלוק" else "❌ מיקום כבוי — בלי זה אין סריקה"
 
-        val ip = getLocalIp()
-        SosEmergencyState.myIp = ip
-        ipAddressView.text = "כתובת IP: ${ip ?: "לא זמין"}"
+        val roles = SosWifiBootstrap.snapshotNetRoles()
+        SosEmergencyState.applyNetRoles(roles)
+        ipAddressView.text = "STA: ${roles.stationIp.ifBlank { "-" }} | AP: ${roles.hotspotIp.ifBlank { "-" }}"
         usersStatusView.text =
             "👥 peers: ${SosEmergencyState.sharedPeers.size} | ילדים: ${SosEmergencyState.childCount}" +
                 if (SosEmergencyState.sharedParentIp != null) " | הורה: ✓" else " | שורש/ממתין"

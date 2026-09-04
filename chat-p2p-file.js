@@ -26,6 +26,10 @@
   const MAX_RESEND_ATTEMPTS = 2; // מקסימום ניסיונות resend
 
   // חלק Toast שקט (chat-p2p-file.js) – סטטוס העברה רק בבועה, בלי התראות בראש המסך | HYPER CORE TECH
+  function logFileTransport(peer, transport) {
+    try { console.log('[P2P-FILE] peer=' + String(peer || '').slice(0, 8) + ' transport=' + transport); } catch (_) {}
+  }
+
   function quietTransferLog(...args) {
     try { console.log('[CHAT/P2P]', ...args); } catch (_) {}
   }
@@ -242,6 +246,7 @@
       type: file?.type
     });
     
+    logFileTransport(peerKey, 'seed-local');
     const fileId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const key = await generateFileKey();
     const keyStr = await exportFileKey(key);
@@ -464,10 +469,12 @@
       activeTransfers.delete(fileId);
       if (onProgress) onProgress({ fileId, progress: 1, status: 'complete', direction: 'send', name: file.name, size: file.size, peerPubkey: peerKey });
       notifyProgress({ fileId, progress: 1, status: 'complete', direction: 'send', name: file.name, size: file.size, peerPubkey: peerKey });
+      logFileTransport(peerKey, 'p2p-transfer-complete');
       return;
     }
     
     // חלק DataChannel (chat-p2p-file.js) – חיפוש ערוץ פתוח: קודם transfer.channel, ואז cache כללי | HYPER CORE TECH
+    if (transfer.currentChunk === 0) logFileTransport(peerKey, 'p2p-transfer-start');
     let channel = transfer.channel && transfer.channel.readyState === 'open'
       ? transfer.channel
       : dataChannels.get(peerKey);
@@ -570,6 +577,7 @@
         return;
       }
       console.warn('[CHAT/P2P] ⚠️ DataChannel not ready after 5 retries, fallback to Blossom');
+      logFileTransport(peerKey, 'url-fallback');
       // חלק התראה (chat-p2p-file.js) – Push לפיר לא מחובר + Toast לשולח | HYPER CORE TECH
       if (typeof App.triggerOutgoingMessagePush === 'function') {
         App.triggerOutgoingMessagePush(peerKey, null, { type: 'file', name: transfer.file?.name, size: transfer.file?.size });
@@ -1352,6 +1360,7 @@
       if (!isBlossomSupported(mime)) {
         mediaDebugLog('fallback-to-torrent', { fileId: transfer.fileId, name: fileName, size: fileSize, mime });
         console.log('[CHAT/P2P] 🧲 קובץ לא-נתמך Blossom, מעביר דרך WebTorrent P2P', { name: fileName, type: mime });
+        logFileTransport(transfer.peerPubkey, 'relay-fallback');
         await fallbackToTorrent(transfer, onProgress);
         return;
       }
