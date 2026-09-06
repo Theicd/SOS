@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.06-del-sync",
-  "buildTime": "2026-09-06T04:04:00+03:00",
-  "notes": "Durable post deletion, pubkey sync idempotency, emergency persist"
+  "version": "2026.09.06-p2p-feed",
+  "buildTime": "2026-09-06T15:05:00+03:00",
+  "notes": "Feed P2P over open chat DC, inventory paging, non-blocking load-more"
 }
