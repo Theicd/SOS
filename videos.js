@@ -187,12 +187,11 @@ function countFeedSourceBreakdown() {
   let cache = 0;
   let blossom = 0;
   let p2p = 0;
-  let torrent = 0;
   let pending = 0;
   for (let i = 0; i < videos.length; i++) {
     const h = videoMediaHash(videos[i]);
-    if (h && hashInSet(h, torrentSet)) { torrent++; continue; }
-    if (h && hashInSet(h, p2pSet)) { p2p++; continue; }
+    // טורנט = אותה רשת משתמשים | HYPER CORE TECH
+    if (h && (hashInSet(h, torrentSet) || hashInSet(h, p2pSet))) { p2p++; continue; }
     if (h && hashInSet(h, blossomSet)) { blossom++; continue; }
     if (h && hashInSet(h, cacheSet)) { cache++; continue; }
     if (h && hashInSet(h, cached)) { cache++; continue; }
@@ -204,17 +203,15 @@ function countFeedSourceBreakdown() {
     cache,
     blossom,
     p2p,
-    torrent,
     pending,
     sentToPeers,
   };
 }
 
-// חלק עיגול סטטיסטיקות (videos.js) – עיגול = סרטונים בפיד; חלון = Blossom / SOS / טורנט / קאש | HYPER CORE TECH
+// חלק עיגול סטטיסטיקות (videos.js) – עיגול = סרטונים בפיד; חלון = Blossom / SOS / קאש | HYPER CORE TECH
 const p2pStatsUI = {
   p2p: 0,
   blossom: 0,
-  torrent: 0,
   cache: 0,
   pending: 0,
   feedCount: 0,
@@ -223,8 +220,7 @@ const p2pStatsUI = {
   
   // עדכון הסטטיסטיקות
   update(source) {
-    if (source === 'p2p') this.p2p++;
-    else if (source === 'torrent' || source === 'webtorrent') this.torrent++;
+    if (source === 'p2p' || source === 'torrent' || source === 'webtorrent') this.p2p++;
     else if (source === 'blossom') this.blossom++;
     else if (source === 'cache') this.cache++;
     this.sync();
@@ -237,7 +233,6 @@ const p2pStatsUI = {
     this.cache = breakdown.cache;
     this.blossom = breakdown.blossom;
     this.p2p = breakdown.p2p;
-    this.torrent = breakdown.torrent || 0;
     this.pending = breakdown.pending;
     this.sentToPeers = breakdown.sentToPeers || 0;
     this.total = this.feedCount;
@@ -256,8 +251,8 @@ const p2pStatsUI = {
     if (!p2pCircle || !blossomCircle) return;
     
     // חישוב אחוזים
-    const pieTotal = Math.max(1, this.p2p + this.blossom + this.torrent + this.cache);
-    const p2pPercent = ((this.p2p + this.torrent) / pieTotal) * 100;
+    const pieTotal = Math.max(1, this.p2p + this.blossom + this.cache);
+    const p2pPercent = (this.p2p / pieTotal) * 100;
     const blossomPercent = (this.blossom / pieTotal) * 100;
     
     // עדכון ה-SVG - עיגול עוגה
@@ -273,7 +268,7 @@ const p2pStatsUI = {
     textEl.textContent = this.feedCount || this.total || 0;
     
     // עדכון title
-    circle.title = `בפיד: ${this.feedCount} | Blossom: ${this.blossom} | SOS: ${this.p2p} | טורנט: ${this.torrent || 0} | קאש: ${this.cache} | נשלחו: ${this.sentToPeers || 0}`;
+    circle.title = `בפיד: ${this.feedCount} | Blossom: ${this.blossom} | SOS (טורנט): ${this.p2p} | קאש: ${this.cache} | נשלחו: ${this.sentToPeers || 0}`;
   },
   
   // יצירת טולטיפ מפורט – נפתח מחוץ לתפריט (fixed) כי העיגול יושב בתפריט הפרופיל | HYPER CORE TECH
@@ -314,16 +309,9 @@ const p2pStatsUI = {
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
-          SOS (משתמשים)
+          SOS (טורנט)
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
-      </div>
-      <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">
-          <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--torrent"></span>
-          טורנט
-        </span>
-        <span class="p2p-stats-tooltip__value" id="tooltipTorrent">0</span>
       </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
@@ -441,7 +429,6 @@ const p2pStatsUI = {
   updateTooltip() {
     const p2pEl = document.getElementById('tooltipP2P');
     const blossomEl = document.getElementById('tooltipBlossom');
-    const torrentEl = document.getElementById('tooltipTorrent');
     const cacheEl = document.getElementById('tooltipCache');
     const feedEl = document.getElementById('tooltipFeedCount');
     const pendingEl = document.getElementById('tooltipPending');
@@ -455,7 +442,6 @@ const p2pStatsUI = {
     
     if (p2pEl) p2pEl.textContent = this.p2p;
     if (blossomEl) blossomEl.textContent = this.blossom;
-    if (torrentEl) torrentEl.textContent = this.torrent || 0;
     if (cacheEl) cacheEl.textContent = this.cache;
     if (feedEl) feedEl.textContent = this.feedCount;
     if (pendingEl) pendingEl.textContent = this.pending || 0;

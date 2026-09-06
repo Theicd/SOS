@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.06-stats1",
-  "buildTime": "2026-09-06T19:30:00+03:00",
-  "notes": "Feed source stats (Blossom / SOS / torrent / sent) and one-shot UI update toast"
+  "version": "2026.09.06-stats2",
+  "buildTime": "2026-09-06T19:56:00+03:00",
+  "notes": "Merge torrent and users into one SOS torrent stats row"
 }
