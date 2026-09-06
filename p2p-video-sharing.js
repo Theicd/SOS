@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.15.4-chatdc-p2p1'; // reuse sos-chat DC for feed media | HYPER CORE TECH
+  const P2P_VERSION = '2.15.5-chatdc-roles1';
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -1954,9 +1954,7 @@
     } catch (_) {}
     try {
       log('info', `[feed-session] warming chat-dc`, { peer: peerKey.slice(0, 8), waitMs: budget });
-      if (typeof App.dataChannel.forceConnect === 'function') {
-        Promise.resolve(App.dataChannel.forceConnect(peerKey)).catch(() => {});
-      } else if (typeof App.dataChannel.connect === 'function') {
+      if (typeof App.dataChannel.connect === 'function') {
         Promise.resolve(App.dataChannel.connect(peerKey)).catch(() => {});
       }
     } catch (_) {}

@@ -269,7 +269,7 @@
       console.log('[CHAT/P2P] ⚡ מנסה לחבר chat DataChannel לפני שליחה (forceConnect)...');
       try {
         App.dataChannel.init?.();
-        // forceConnect עוקף את הלוגיקת initiator/responder — שולח offer בכוח
+        // initiator שולח offer; responder רק מבקש offer — בלי לשבור תפקידים
         if (typeof App.dataChannel.forceConnect === 'function') {
           await App.dataChannel.forceConnect(peerKey);
         } else {

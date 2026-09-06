@@ -259,6 +259,15 @@ const path = require('path');
       && /\[FEED-BOOT\]/.test(videosSrc);
   });
 
+  test('feed warm uses connect; responder asks initiator for offer', () => {
+    return /dc-need-offer/.test(chatSrc)
+      && /function requestOfferFromInitiator/.test(chatSrc)
+      && /function nudgeInitiator/.test(chatSrc)
+      && /warming chat-dc[\s\S]{0,500}dataChannel\.connect/.test(videoShareSrc)
+      && !/warming chat-dc[\s\S]{0,500}forceConnect/.test(videoShareSrc)
+      && /async function forceConnect[\s\S]{0,120}await connect\(peer\)/.test(chatSrc);
+  });
+
   test('HYBRID_BLOSSOM_POSTS is 1 and guest stays 10', () => {
     return /HYBRID_BLOSSOM_POSTS = 1/.test(videoShareSrc)
       && /GUEST_BLOSSOM_FIRST_POSTS = 10/.test(videoShareSrc);

@@ -3,7 +3,7 @@
 (function initChatP2PDataChannel(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const NostrTools = window.NostrTools;
-  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260906p2p1'); } catch (_) {}
+  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260906p2p2'); } catch (_) {}
   try {
     if (/(?:^|[?&])p2pHeadless=1(?:&|$)/.test(String(window.location.search || ''))) {
       window.__sosP2pHeadless = true;
@@ -63,7 +63,7 @@
   }
 
   // חלק מצב (chat-p2p-datachannel.js) – remoteCandsBuf: באפר ICE, gotAnswer: התקבלה תשובה, offerId/lastOfferId למניעת תשובות ישנות | HYPER CORE TECH
-  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, offerId:null, lastOfferId:null, sigTransport:'' }; }
+  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, lastNeedOfferAt:0, offerId:null, lastOfferId:null, sigTransport:'', urgent:false }; }
   function getPS(k) { return peers.get(k.toLowerCase())||null; }
   function ensPS(k) { k=k.toLowerCase(); if(!peers.has(k)) peers.set(k,newPS()); return peers.get(k); }
   function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
@@ -203,7 +203,8 @@
     return pc;
   }
 
-  // חלק חיבור (chat-p2p-datachannel.js) – רק initiator שולח offers, responder ממתין ל-offer נכנס | HYPER CORE TECH
+  // חלק חיבור (chat-p2p-datachannel.js) – רק initiator שולח offers, responder ממתין / מבקש offer | HYPER CORE TECH
+  const urgentConnect = new Set();
   function countConnecting() {
     let n = 0;
     peers.forEach((s) => { if (s && s.status === 'connecting') n += 1; });
@@ -215,21 +216,26 @@
     connectQueueRunning = true;
     try {
       while (connectQueue.length) {
-        if (countConnecting() >= MAX_PARALLEL_CONNECTING) {
+        const next = connectQueue[0];
+        const urgent = urgentConnect.has(next);
+        const cap = urgent ? MAX_PARALLEL_CONNECTING + 2 : MAX_PARALLEL_CONNECTING;
+        if (countConnecting() >= cap) {
           await new Promise((r) => setTimeout(r, 400));
           continue;
         }
         const k = connectQueue.shift();
+        urgentConnect.delete(k);
         if (!k) continue;
         const ex = getPS(k);
-        if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) continue;
+        if (ex && (ex.status === 'connected' || ex.status === 'connecting')) continue;
+        if (ex && ex.status === 'waiting') continue;
         try {
           await connectNow(k);
         } catch (e) {
           console.warn('[DC] queue connect fail:', k.slice(0, 8), e);
         }
         if (connectQueue.length) {
-          await new Promise((r) => setTimeout(r, CONNECT_STAGGER_MS));
+          await new Promise((r) => setTimeout(r, urgent ? 200 : CONNECT_STAGGER_MS));
         }
       }
     } finally {
@@ -238,29 +244,63 @@
     }
   }
 
-  function enqueueConnect(peer) {
+  function enqueueConnect(peer, urgent) {
     const k = String(peer || '').toLowerCase();
     if (!isValidPeerKey(k)) return;
-    if (connectQueue.includes(k)) return;
     const ex = getPS(k);
-    if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) return;
-    connectQueue.push(k);
+    if (ex && (ex.status === 'connected' || ex.status === 'connecting')) return;
+    if (ex && ex.status === 'waiting') return;
+    if (urgent) {
+      urgentConnect.add(k);
+      const idx = connectQueue.indexOf(k);
+      if (idx > 0) connectQueue.splice(idx, 1);
+      if (idx !== 0) connectQueue.unshift(k);
+    } else if (!connectQueue.includes(k)) {
+      connectQueue.push(k);
+    }
     pumpConnectQueue();
+  }
+
+  async function requestOfferFromInitiator(k) {
+    const s = ensPS(k);
+    const now = Date.now();
+    if (s.lastNeedOfferAt && (now - s.lastNeedOfferAt) < 8000) return;
+    s.lastNeedOfferAt = now;
+    console.log(`[DC] 📨 מבקש offer מ-initiator ${k.slice(0, 8)}`);
+    await sendSig(k, 'dc-need-offer', { ts: now });
+  }
+
+  function nudgeInitiator(peer) {
+    const k = String(peer || '').toLowerCase();
+    if (!isValidPeerKey(k) || !amInitiator(k)) return;
+    const s = ensPS(k);
+    if (s.status === 'connected' && s.dc && s.dc.readyState === 'open') return;
+    if (s.status === 'connecting') return;
+    s.offerRetryN = 0;
+    s.reconnN = 0;
+    s.status = 'idle';
+    enqueueConnect(k, true);
   }
 
   async function connect(peer) {
     if (!isValidPeerKey(peer)) return;
     const k = peer.toLowerCase();
     if (!App.publicKey || !canSignal(k)) return;
+    init();
     const ex = getPS(k);
-    if (ex && (ex.status === 'connected' || ex.status === 'connecting' || ex.status === 'waiting')) return;
+    if (ex && ex.status === 'connected' && ex.dc && ex.dc.readyState === 'open') return;
     if (!amInitiator(k)) {
       const s = ensPS(k);
+      if (s.offerRetryT) { clearTimeout(s.offerRetryT); s.offerRetryT = null; }
       s.status = 'waiting';
+      s.offerRetryN = 0;
       console.log(`[DC] אני responder, ממתין ל-offer מ ${k.slice(0, 8)}`);
+      await requestOfferFromInitiator(k);
       return;
     }
-    enqueueConnect(k);
+    if (ex && ex.status === 'connecting') return;
+    if (ex) { ex.offerRetryN = 0; ex.reconnN = 0; }
+    enqueueConnect(k, true);
   }
 
   async function connectNow(k) {
@@ -339,15 +379,18 @@
   async function onOffer(peer,offer) {
     const k=peer.toLowerCase(), s=ensPS(k);
     if(s.status==='connected'&&s.dc&&s.dc.readyState==='open') return;
-    if(amInitiator(k)) return; // אני initiator, לא עונה ל-offers
-    // חלק סינון offers כפולים (chat-p2p-datachannel.js) – אם יש כבר חיבור/הצעה טרייה, מתעלם | HYPER CORE TECH
+    if(amInitiator(k)) {
+      // APK ישן / פיד שלח offer כ-responder — לא לענות, לבקש שה-initiator ישלח | HYPER CORE TECH
+      console.log(`[DC] ↩️ ignore offer (I am initiator) ${k.slice(0,8)} — nudge`);
+      nudgeInitiator(k);
+      return;
+    }
     const now=Date.now();
     if(s.status==='connecting'&&s.lastOfferAt&&(now-s.lastOfferAt)<8000) return;
     s.lastOfferAt=now;
     const oid=offer?.oid||offer?._oid||null;
-    if(oid&&s.lastOfferId===oid) return; // כבר ענינו ל-offer הזה
+    if(oid&&s.lastOfferId===oid) return;
     s.lastOfferId=oid||s.lastOfferId;
-    // ניקוי PC+DC קודם ללא להפעיל maybeReconn
     if(s.dc){s.dc.onopen=null;s.dc.onclose=null;s.dc.onerror=null;s.dc.onmessage=null;}
     if(s.pc){s.pc.onconnectionstatechange=null;s.pc.oniceconnectionstatechange=null;try{s.pc.close();}catch{}}
     s.init=false; s.remoteCandsBuf=[]; const pc=createPC(k);
@@ -403,6 +446,7 @@
     let data=null;
     if(event.content){ try{ const d=await NostrTools.nip04.decrypt(App.privateKey,peer,event.content); data=d?JSON.parse(d):null; }catch(e){return;} }
     console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=NOSTR`);
+    if(type==='dc-need-offer') { nudgeInitiator(peer); return; }
     if(type==='dc-offer'&&data?.type&&data?.sdp) await onOffer(peer,data);
     else if(type==='dc-answer'&&data?.type&&data?.sdp) await onAnswer(peer,data);
     else if(type==='dc-candidates'&&Array.isArray(data)) await onCands(peer,data);
@@ -599,10 +643,11 @@
           // headless: initiator שולח offer; responder ממתין – אם כבר היינו initiator נשלח שוב | HYPER CORE TECH
           if(amInitiator(pk)){
             s.status='idle';
-            enqueueConnect(pk);
+            enqueueConnect(pk, true);
           } else {
             s.status='waiting';
             s.init=true;
+            requestOfferFromInitiator(pk);
           }
         }catch{}
       });
@@ -634,27 +679,9 @@
     return (s && s.dc && s.dc.readyState === 'open') ? s.dc : null;
   }
 
-  // חלק forceConnect (chat-p2p-datachannel.js) – חיבור DC בכוח גם כ-responder, לצורך שליחת קבצים | HYPER CORE TECH
+  // חלק forceConnect (chat-p2p-datachannel.js) – לא שובר initiator/responder; מגיב רק מבקש offer | HYPER CORE TECH
   async function forceConnect(peer) {
-    if(!isValidPeerKey(peer)) return;
-    const k=peer.toLowerCase();
-    if(!App.publicKey || !canSignal(k)) return;
-    const ex=getPS(k);
-    if(ex && (ex.status==='connected' || ex.status==='connecting')) return;
-    if(amInitiator(k)){
-      init();
-      enqueueConnect(k);
-      return;
-    }
-    if(!subReady && App.pool){
-      init();
-      for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,200));if(subReady) break;}
-    } else {
-      init();
-    }
-    console.log(`[DC] ⚡ forceConnect → ${k.slice(0,8)} (renegotiate)`);
-    const s=ensPS(k); s.offerRetryN=0; s.status='idle';
-    await _sendOffer(k);
+    await connect(peer);
   }
 
   function ingestLocalSignal(fromIp, signal, fromPubkey) {
@@ -668,7 +695,8 @@
       const data = sig.data !== undefined ? sig.data : (sig.payload !== undefined ? sig.payload : null);
       ensPS(peer).sigTransport = 'MESH';
       console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=MESH`);
-      if (type === 'dc-offer' && data && data.type && data.sdp) onOffer(peer, data);
+      if (type === 'dc-need-offer') nudgeInitiator(peer);
+      else if (type === 'dc-offer' && data && data.type && data.sdp) onOffer(peer, data);
       else if (type === 'dc-answer' && data && data.type && data.sdp) onAnswer(peer, data);
       else if (type === 'dc-candidates' && Array.isArray(data)) onCands(peer, data);
     } catch (e) {
