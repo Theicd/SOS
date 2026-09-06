@@ -78,7 +78,7 @@
       return null;
     }
     try {
-      const registration = await navigator.serviceWorker.register('./service-worker.js?v=755', {
+      const registration = await navigator.serviceWorker.register('./service-worker.js?v=756', {
         scope: './',
         updateViaCache: 'none',
       });
@@ -86,10 +86,10 @@
       
       // אם יש גרסה ממתינה – מציגים כרטיסייה (לא מדלגים אוטומטית) | HYPER CORE TECH
       if (registration.waiting) {
-        if (navigator.serviceWorker.controller) {
+        if (navigator.serviceWorker.controller && !shouldSuppressWebUpdateToast()) {
           console.log('[PWA] נמצא SW ממתין אחרי רישום');
           showUpdateAvailableToast();
-        } else {
+        } else if (!navigator.serviceWorker.controller) {
           // התקנה ראשונה – מפעילים בלי כרטיסיית «גרסה חדשה» | HYPER CORE TECH
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
@@ -101,6 +101,7 @@
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (shouldSuppressWebUpdateToast()) return;
               console.log('[PWA] גרסה חדשה זמינה');
               showUpdateAvailableToast();
             }
@@ -651,11 +652,53 @@
   // חלק עדכון גרסה (pwa-installer.js) – הצגת הודעה כשיש גרסה חדשה | HYPER CORE TECH
   const APP_VERSION_KEY = 'sos_app_version';
   const APP_VERSION_URL = './app-version.json';
+  const JUST_UPDATED_KEY = 'pwa_just_updated';
+  const UPDATE_LATER_KEY = 'pwa_update_later';
   let pendingRemoteAppVersion = null;
   let pendingApkRelease = null;
   let webUpdateToastQueued = false;
 
+  function readSessionFlag(key) {
+    try { return sessionStorage.getItem(key) || ''; } catch (_) { return ''; }
+  }
+
+  function writeSessionFlag(key, value) {
+    try { sessionStorage.setItem(key, value); } catch (_) {}
+  }
+
+  function clearSessionFlag(key) {
+    try { sessionStorage.removeItem(key); } catch (_) {}
+  }
+
+  function readStoredAppVersion() {
+    try { return localStorage.getItem(APP_VERSION_KEY) || ''; } catch (_) { return ''; }
+  }
+
+  function writeStoredAppVersion(version) {
+    const v = String(version || '').trim();
+    if (!v) return;
+    try { localStorage.setItem(APP_VERSION_KEY, v); } catch (_) {}
+  }
+
+  async function fetchRemoteAppVersion() {
+    const res = await fetch(`${APP_VERSION_URL}?_=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return '';
+    const data = await res.json();
+    return String(data?.version || '').trim();
+  }
+
+  function shouldSuppressWebUpdateToast(remoteHint) {
+    if (readSessionFlag(JUST_UPDATED_KEY) === '1') return true;
+    const later = readSessionFlag(UPDATE_LATER_KEY);
+    const remote = String(remoteHint || pendingRemoteAppVersion || '').trim();
+    if (later === '*' || (later && (!remote || later === remote))) return true;
+    const local = readStoredAppVersion();
+    if (remote && local && local === remote) return true;
+    return false;
+  }
+
   function queueOrShowWebUpdateToast() {
+    if (shouldSuppressWebUpdateToast(pendingRemoteAppVersion)) return;
     if (document.getElementById('apk-update-toast')) {
       webUpdateToastQueued = true;
       return;
@@ -710,10 +753,7 @@
       webUpdateToastQueued = true;
       return;
     }
-    // אחרי לחיצה על «עדכן» – לא להציג שוב בטעינה הבאה | HYPER CORE TECH
-    try {
-      if (sessionStorage.getItem('pwa_just_updated') === '1') return;
-    } catch (_) {}
+    if (shouldSuppressWebUpdateToast(pendingRemoteAppVersion)) return;
     
     const toast = document.createElement('div');
     toast.id = 'pwa-update-toast';
@@ -736,15 +776,23 @@
     
     toast.querySelector('.pwa-update-toast__later').onclick = (e) => {
       try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+      writeSessionFlag(UPDATE_LATER_KEY, pendingRemoteAppVersion || '*');
       toast.classList.remove('pwa-update-toast--visible');
       setTimeout(() => toast.remove(), 300);
     };
     
     toast.querySelector('.pwa-update-toast__now').onclick = async (e) => {
       try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
-      try { sessionStorage.setItem('pwa_just_updated', '1'); } catch (_) {}
-      if (pendingRemoteAppVersion) {
-        try { localStorage.setItem(APP_VERSION_KEY, pendingRemoteAppVersion); } catch (_) {}
+      writeSessionFlag(JUST_UPDATED_KEY, '1');
+      clearSessionFlag(UPDATE_LATER_KEY);
+      let version = pendingRemoteAppVersion;
+      try {
+        const fetched = await fetchRemoteAppVersion();
+        if (fetched) version = fetched;
+      } catch (_) {}
+      if (version) {
+        writeStoredAppVersion(version);
+        pendingRemoteAppVersion = null;
       }
       try {
         const reg = await navigator.serviceWorker.getRegistration();
@@ -918,22 +966,27 @@
   // חלק עדכון גרסה (pwa-installer.js) – בדיקת app-version.json לזיהוי דיפלוי גם בלי שינוי SW | HYPER CORE TECH
   async function checkAppReleaseVersion() {
     try {
-      const res = await fetch(`${APP_VERSION_URL}?_=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      const remote = String(data?.version || '').trim();
+      const remote = await fetchRemoteAppVersion();
       if (!remote) return;
-      let local = '';
-      try { local = localStorage.getItem(APP_VERSION_KEY) || ''; } catch (_) {}
-      if (!local) {
-        try { localStorage.setItem(APP_VERSION_KEY, remote); } catch (_) {}
+      if (readSessionFlag(JUST_UPDATED_KEY) === '1') {
+        writeStoredAppVersion(remote);
+        pendingRemoteAppVersion = null;
         return;
       }
-      if (local !== remote) {
-        pendingRemoteAppVersion = remote;
-        console.log('[PWA] גרסת app-version חדשה', { local, remote });
-        queueOrShowWebUpdateToast();
+      const later = readSessionFlag(UPDATE_LATER_KEY);
+      if (later === '*' || later === remote) return;
+      let local = readStoredAppVersion();
+      if (!local) {
+        writeStoredAppVersion(remote);
+        return;
       }
+      if (local === remote) {
+        pendingRemoteAppVersion = null;
+        return;
+      }
+      pendingRemoteAppVersion = remote;
+      console.log('[PWA] גרסת app-version חדשה', { local, remote });
+      queueOrShowWebUpdateToast();
     } catch (err) {
       console.warn('[PWA] בדיקת app-version נכשלה:', err);
     }
@@ -955,14 +1008,6 @@
     const hadControllerAtLoad = !!navigator.serviceWorker.controller;
     let ignoredFirstControllerClaim = false;
 
-    try {
-      if (sessionStorage.getItem('pwa_just_updated') === '1') {
-        setTimeout(() => {
-          try { sessionStorage.removeItem('pwa_just_updated'); } catch (_) {}
-        }, 4000);
-      }
-    } catch (_) {}
-    
     // בדיקה מיידית + תקופתית כל דקה | HYPER CORE TECH
     async function checkForUpdates() {
       try {
@@ -975,6 +1020,7 @@
           // worker ממתין = עדכון אמיתי רק אם כבר הייתה שליטה / אחרי claim ראשון | HYPER CORE TECH
           const canPromptUpdate = hadControllerAtLoad || ignoredFirstControllerClaim;
           if (reg.waiting && canPromptUpdate && navigator.serviceWorker.controller) {
+            if (shouldSuppressWebUpdateToast(pendingRemoteAppVersion)) return;
             console.log('[PWA] נמצא עדכון ממתין!');
             showUpdateAvailableToast();
           }
@@ -996,6 +1042,10 @@
         console.log('[PWA] Service Worker קיבל שליטה לראשונה – בלי הודעת עדכון');
         return;
       }
+      if (shouldSuppressWebUpdateToast(pendingRemoteAppVersion)) {
+        console.log('[PWA] Service Worker הוחלף – בלי הודעת עדכון חוזרת');
+        return;
+      }
       console.log('[PWA] Service Worker הוחלף – מציגים הודעת עדכון');
       showUpdateAvailableToast();
     });
@@ -1004,15 +1054,20 @@
     navigator.serviceWorker.addEventListener('message', (event) => {
       // Push מכוון לעדכון אפליקציה – תמיד רלוונטי | HYPER CORE TECH
       if (event.data?.type === 'app-update-available') {
+        if (shouldSuppressWebUpdateToast(event.data.version || pendingRemoteAppVersion)) return;
         console.log('[PWA] התקבלה הודעת עדכון מה-SW', event.data.version);
         showUpdateAvailableToast();
         return;
       }
       
-      // activate: בכניסה ראשונה מתעלמים; בעדכון אמיתי מציגים | HYPER CORE TECH
+      // activate: בכניסה ראשונה / אחרי עדכון שכבר אושר – לא מציגים שוב | HYPER CORE TECH
       if (event.data?.type === 'NEW_VERSION_ACTIVATED') {
         if (!hadControllerAtLoad) {
           console.log('[PWA] מדלגים על NEW_VERSION_ACTIVATED (אין controller בטעינה)');
+          return;
+        }
+        if (shouldSuppressWebUpdateToast(pendingRemoteAppVersion)) {
+          console.log('[PWA] מדלגים על NEW_VERSION_ACTIVATED (עדכון כבר אושר)');
           return;
         }
         console.log('[PWA] גרסה חדשה הופעלה');

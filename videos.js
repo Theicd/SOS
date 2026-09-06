@@ -168,76 +168,63 @@ function hashInSet(hash, setLike) {
 function countFeedSourceBreakdown() {
   const videos = uniqueFeedFileVideos();
   const App = window.NostrApp || {};
-  const cached = App.mediaCacheHashSet;
-  let blossomSeen = null;
-  let p2pSeen = null;
+  let seen = {};
+  let sentToPeers = 0;
   try {
     if (typeof App.getP2PStats === 'function') {
-      const stats = App.getP2PStats();
-      const seen = stats && stats.downloadSeen;
-      if (seen) {
-        blossomSeen = new Set(seen.blossom || []);
-        p2pSeen = new Set(seen.p2p || []);
-      }
+      const stats = App.getP2PStats() || {};
+      seen = stats.downloadSeen || {};
+      sentToPeers = Number(stats.sentToPeers || stats.shares?.sentToPeers || 0) || 0;
     }
   } catch (_) {}
+
+  const torrentSet = new Set(seen.torrent || []);
+  const p2pSet = new Set(seen.p2p || []);
+  const blossomSet = new Set(seen.blossom || []);
+  const cacheSet = new Set(seen.cache || []);
+  const cached = App.mediaCacheHashSet;
 
   let cache = 0;
   let blossom = 0;
   let p2p = 0;
+  let torrent = 0;
   let pending = 0;
   for (let i = 0; i < videos.length; i++) {
-    const v = videos[i];
-    const h = videoMediaHash(v);
-    if (h && hashInSet(h, cached)) {
-      cache++;
-      continue;
-    }
-    if (h && hashInSet(h, p2pSeen)) {
-      p2p++;
-      continue;
-    }
-    if (h && hashInSet(h, blossomSeen)) {
-      blossom++;
-      continue;
-    }
-    let src = '';
-    try {
-      const card = document.querySelector(`.videos-feed__card[data-event-id="${v.id}"]`);
-      const el = card && card.querySelector('video');
-      src = String((el && (el.currentSrc || el.src)) || '');
-    } catch (_) {}
-    if (src.indexOf('blob:') === 0) {
-      cache++;
-      continue;
-    }
-    if (/^https?:\/\//i.test(src)) {
-      blossom++;
-      continue;
-    }
+    const h = videoMediaHash(videos[i]);
+    if (h && hashInSet(h, torrentSet)) { torrent++; continue; }
+    if (h && hashInSet(h, p2pSet)) { p2p++; continue; }
+    if (h && hashInSet(h, blossomSet)) { blossom++; continue; }
+    if (h && hashInSet(h, cacheSet)) { cache++; continue; }
+    if (h && hashInSet(h, cached)) { cache++; continue; }
     pending++;
   }
+
   return {
     feed: videos.length,
     cache,
     blossom,
     p2p,
+    torrent,
     pending,
+    sentToPeers,
   };
 }
 
-// חלק עיגול סטטיסטיקות (videos.js) – עיגול = סרטונים בפיד; חלון = קאש / Blossom / טורנט | HYPER CORE TECH
+// חלק עיגול סטטיסטיקות (videos.js) – עיגול = סרטונים בפיד; חלון = Blossom / SOS / טורנט / קאש | HYPER CORE TECH
 const p2pStatsUI = {
   p2p: 0,
   blossom: 0,
+  torrent: 0,
   cache: 0,
   pending: 0,
   feedCount: 0,
+  sentToPeers: 0,
   total: 0,
   
   // עדכון הסטטיסטיקות
   update(source) {
-    if (source === 'p2p' || source === 'torrent') this.p2p++;
+    if (source === 'p2p') this.p2p++;
+    else if (source === 'torrent' || source === 'webtorrent') this.torrent++;
     else if (source === 'blossom') this.blossom++;
     else if (source === 'cache') this.cache++;
     this.sync();
@@ -250,7 +237,9 @@ const p2pStatsUI = {
     this.cache = breakdown.cache;
     this.blossom = breakdown.blossom;
     this.p2p = breakdown.p2p;
+    this.torrent = breakdown.torrent || 0;
     this.pending = breakdown.pending;
+    this.sentToPeers = breakdown.sentToPeers || 0;
     this.total = this.feedCount;
     this.render();
   },
@@ -267,8 +256,8 @@ const p2pStatsUI = {
     if (!p2pCircle || !blossomCircle) return;
     
     // חישוב אחוזים
-    const pieTotal = Math.max(1, this.p2p + this.blossom + this.cache);
-    const p2pPercent = (this.p2p / pieTotal) * 100;
+    const pieTotal = Math.max(1, this.p2p + this.blossom + this.torrent + this.cache);
+    const p2pPercent = ((this.p2p + this.torrent) / pieTotal) * 100;
     const blossomPercent = (this.blossom / pieTotal) * 100;
     
     // עדכון ה-SVG - עיגול עוגה
@@ -284,7 +273,7 @@ const p2pStatsUI = {
     textEl.textContent = this.feedCount || this.total || 0;
     
     // עדכון title
-    circle.title = `בפיד: ${this.feedCount} | קאש: ${this.cache} | Blossom: ${this.blossom} | טורנט: ${this.p2p} | ממתינים: ${this.pending || 0}`;
+    circle.title = `בפיד: ${this.feedCount} | Blossom: ${this.blossom} | SOS: ${this.p2p} | טורנט: ${this.torrent || 0} | קאש: ${this.cache} | נשלחו: ${this.sentToPeers || 0}`;
   },
   
   // יצירת טולטיפ מפורט – נפתח מחוץ לתפריט (fixed) כי העיגול יושב בתפריט הפרופיל | HYPER CORE TECH
@@ -310,17 +299,10 @@ const p2pStatsUI = {
         <button type="button" class="p2p-stats-tooltip__close" id="p2pStatsTooltipClose" aria-label="סגור סטטיסטיקות">✕</button>
         <div class="p2p-stats-tooltip__title">📊 סטטיסטיקות SOS</div>
       </div>
-      <div class="p2p-stats-tooltip__section">📥 הורדות</div>
+      <div class="p2p-stats-tooltip__section">📥 הורדות בסשן</div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">בפיד (סה״כ)</span>
         <span class="p2p-stats-tooltip__value" id="tooltipFeedCount">0</span>
-      </div>
-      <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">
-          <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
-          SOS (טורנט)
-        </span>
-        <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
       </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
@@ -331,8 +313,22 @@ const p2pStatsUI = {
       </div>
       <div class="p2p-stats-tooltip__row">
         <span class="p2p-stats-tooltip__label">
+          <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--p2p"></span>
+          SOS (משתמשים)
+        </span>
+        <span class="p2p-stats-tooltip__value" id="tooltipP2P">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">
+          <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--torrent"></span>
+          טורנט
+        </span>
+        <span class="p2p-stats-tooltip__value" id="tooltipTorrent">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">
           <span class="p2p-stats-tooltip__dot p2p-stats-tooltip__dot--cache"></span>
-          Cache (מקומי)
+          כבר במכשיר
         </span>
         <span class="p2p-stats-tooltip__value" id="tooltipCache">0</span>
       </div>
@@ -356,9 +352,13 @@ const p2pStatsUI = {
         <span class="p2p-stats-tooltip__label">מהירות</span>
         <span class="p2p-stats-tooltip__value" id="tooltipDownloadSpeed">-</span>
       </div>
-      <div class="p2p-stats-tooltip__section">⬆️ העלאה פעילה</div>
+      <div class="p2p-stats-tooltip__section">⬆️ נשלחו למשתמשים</div>
       <div class="p2p-stats-tooltip__row">
-        <span class="p2p-stats-tooltip__label">קבצים</span>
+        <span class="p2p-stats-tooltip__label">קבצים שנמסרו</span>
+        <span class="p2p-stats-tooltip__value" id="tooltipSentToPeers">0</span>
+      </div>
+      <div class="p2p-stats-tooltip__row">
+        <span class="p2p-stats-tooltip__label">שולחים עכשיו</span>
         <span class="p2p-stats-tooltip__value" id="tooltipUploadFiles">0</span>
       </div>
       <div class="p2p-stats-tooltip__row">
@@ -441,9 +441,11 @@ const p2pStatsUI = {
   updateTooltip() {
     const p2pEl = document.getElementById('tooltipP2P');
     const blossomEl = document.getElementById('tooltipBlossom');
+    const torrentEl = document.getElementById('tooltipTorrent');
     const cacheEl = document.getElementById('tooltipCache');
     const feedEl = document.getElementById('tooltipFeedCount');
     const pendingEl = document.getElementById('tooltipPending');
+    const sentEl = document.getElementById('tooltipSentToPeers');
     const queueEl = document.getElementById('tooltipQueue');
     const peersEl = document.getElementById('tooltipPeers');
     const downloadPeersEl = document.getElementById('tooltipDownloadPeers');
@@ -453,9 +455,11 @@ const p2pStatsUI = {
     
     if (p2pEl) p2pEl.textContent = this.p2p;
     if (blossomEl) blossomEl.textContent = this.blossom;
+    if (torrentEl) torrentEl.textContent = this.torrent || 0;
     if (cacheEl) cacheEl.textContent = this.cache;
     if (feedEl) feedEl.textContent = this.feedCount;
     if (pendingEl) pendingEl.textContent = this.pending || 0;
+    if (sentEl) sentEl.textContent = this.sentToPeers || 0;
     
     // קבלת נתונים נוספים מ-App
     const App = window.NostrApp || {};
@@ -479,9 +483,9 @@ const p2pStatsUI = {
           downloadSpeedEl.textContent = speed ? this.formatSpeed(speed) : '-';
         }
         
-        // העלאות פעילות
+        // שולחים עכשיו — לא סה״כ שנמסר
         if (uploadFilesEl) {
-          uploadFilesEl.textContent = stats.activeTransfers || 0;
+          uploadFilesEl.textContent = stats.activeUploadCount || stats.activeTransfers || 0;
         }
         if (uploadSpeedEl) {
           const speed = stats.activeUpload?.speed;

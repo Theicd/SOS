@@ -1006,14 +1006,15 @@
   // חלק P2P (p2p-video-sharing.js) – לוגים צבעוניים ומסודרים | HYPER CORE TECH
   // סטטיסטיקות גלובליות לסיכום
   const p2pStats = {
-    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, failed: 0 },
-    shares: { total: 0, success: 0, failed: 0 },
+    downloads: { total: 0, fromCache: 0, fromBlossom: 0, fromP2P: 0, fromTorrent: 0, failed: 0 },
+    shares: { total: 0, success: 0, failed: 0, sentToPeers: 0 },
     lastSummaryTime: 0
   };
   const downloadSeen = {
     cache: new Set(),
     blossom: new Set(),
     p2p: new Set(),
+    torrent: new Set(),
   };
 
   function log(type, message, data = null, options = {}) {
@@ -1070,8 +1071,8 @@
     console.log('%c│           📊 סיכום מערכת P2P                     │', 'color: #673AB7; font-weight: bold');
     console.log('%c├──────────────────────────────────────────────────┤', 'color: #673AB7');
     console.log(`%c│ 📥 הורדות: ${downloads.total} סה"כ                              │`, 'color: #2196F3');
-    console.log(`%c│    └─ Cache: ${downloads.fromCache} | Blossom: ${downloads.fromBlossom} | P2P: ${downloads.fromP2P} | נכשל: ${downloads.failed}`, 'color: #2196F3');
-    console.log(`%c│ 📤 שיתופים: ${shares.total} סה"כ (${shares.success} הצליחו)       │`, 'color: #4CAF50');
+    console.log(`%c│    └─ קאש: ${downloads.fromCache} | Blossom: ${downloads.fromBlossom} | SOS: ${downloads.fromP2P} | טורנט: ${downloads.fromTorrent || 0}`, 'color: #2196F3');
+    console.log(`%c│ 📤 נשלחו לעמיתים: ${shares.sentToPeers || 0}                     │`, 'color: #4CAF50');
     console.log('%c└──────────────────────────────────────────────────┘', 'color: #673AB7; font-weight: bold');
     p2pStats.lastSummaryTime = Date.now();
   }
@@ -2277,6 +2278,7 @@
         mimeType: fileData.mimeType,
       }));
       confirmUpload(hash);
+      recordPeerSend(hash);
       p2pStats.shares.total++;
       p2pStats.shares.success++;
       log('success', `[feed-session] serve DONE`, { path, size: fullSize, chunks: chunkNum });
@@ -3064,6 +3066,7 @@
             // עדכון סטטיסטיקות העלאות
             p2pStats.shares.total++;
             p2pStats.shares.success++;
+            recordPeerSend(hash);
             
             // אישור שהקובץ הועבר למשתמש אחר - מכבה את המנורה המהבהבת
             confirmUpload(hash);
@@ -3734,27 +3737,39 @@
         cache: Array.from(downloadSeen.cache),
         blossom: Array.from(downloadSeen.blossom),
         p2p: Array.from(downloadSeen.p2p),
+        torrent: Array.from(downloadSeen.torrent),
       },
       shares: { ...p2pStats.shares },
+      sentToPeers: p2pStats.shares.sentToPeers || 0,
       peerCount: state.lastPeerCount,
       tier: state.networkTier,
+      networkTier: state.networkTier,
       activeTransfers: state.activeUploadCount,
+      activeUploadCount: state.activeUploadCount,
       activeDownload: state.activeDownload ? { ...state.activeDownload } : null,
       activeUpload: state.activeUpload ? { ...state.activeUpload } : null,
-      shareQueueLength: state.pendingTransferResolvers.length,
+      shareQueueLength: shareQueue.length,
       availableFiles: state.availableFiles.size,
       isLeader: state.isLeader,
       isGuest: isGuestMode(),
     };
   }
 
-  // רישום הורדה לפי מקור; hash מונע כפילות לאותו סרטון | HYPER CORE TECH
+  function recordPeerSend(hash) {
+    p2pStats.shares.sentToPeers = (p2pStats.shares.sentToPeers || 0) + 1;
+    try {
+      if (typeof window.syncP2PStatsUI === 'function') window.syncP2PStatsUI();
+    } catch (_) {}
+  }
+
+  // רישום הורדה לפי מקור; hash מונע כפילות לאותו סרטון. קאש לא דורס Blossom/SOS/טורנט | HYPER CORE TECH
   function recordP2PDownload(source, hash) {
     const src = String(source || '').toLowerCase();
     let bucket = '';
     if (src === 'cache') bucket = 'cache';
-    else if (src === 'blossom' || src === 'url' || src === 'primary' || src === 'mirror' || src === 'network') bucket = 'blossom';
-    else if (src === 'p2p' || src === 'torrent') bucket = 'p2p';
+    else if (src === 'blossom' || src === 'url' || src === 'primary' || src === 'mirror' || src === 'network' || src === 'blossom-watch' || src === 'blossom-fallback') bucket = 'blossom';
+    else if (src === 'torrent' || src === 'webtorrent') bucket = 'torrent';
+    else if (src === 'p2p' || src === 'p2p-fallback' || src === 'chat-dc' || src === 'sos') bucket = 'p2p';
     else if (src === 'failed') {
       p2pStats.downloads.failed++;
       return true;
@@ -3762,11 +3777,17 @@
       return false;
     }
     const key = hash ? String(hash).toLowerCase() : '';
-    if (key && downloadSeen[bucket].has(key)) return false;
-    if (key) downloadSeen[bucket].add(key);
+    if (bucket === 'cache' && key) {
+      if (downloadSeen.blossom.has(key) || downloadSeen.p2p.has(key) || downloadSeen.torrent.has(key)) {
+        return false;
+      }
+    }
+    if (key && downloadSeen[bucket] && downloadSeen[bucket].has(key)) return false;
+    if (key && downloadSeen[bucket]) downloadSeen[bucket].add(key);
     p2pStats.downloads.total++;
     if (bucket === 'cache') p2pStats.downloads.fromCache++;
     else if (bucket === 'blossom') p2pStats.downloads.fromBlossom++;
+    else if (bucket === 'torrent') p2pStats.downloads.fromTorrent++;
     else p2pStats.downloads.fromP2P++;
     try {
       if (typeof window.syncP2PStatsUI === 'function') window.syncP2PStatsUI();
@@ -4011,21 +4032,6 @@
     onChatDataChannelOpen,
     onChatDataChannelClosed,
     isPeerMediaConnected,
-    // חלק Network Tiers - API לסטטיסטיקות | HYPER CORE TECH
-    getP2PStats: () => ({ 
-      ...p2pStats,
-      shareQueueLength: shareQueue.length,
-      peerCount: state.lastPeerCount,
-      networkTier: state.networkTier,
-      availableFiles: state.availableFiles.size,
-      activeTransfers: state.activeTransferSlots,
-      activeUploadCount: state.activeUploadCount,
-      activeDownload: state.activeDownload ? { ...state.activeDownload } : null,
-      activeUpload: state.activeUpload ? { ...state.activeUpload } : null,
-      // חלק Peer Exchange – סטטיסטיקות נוספות | HYPER CORE TECH
-      peerExchange: App.PeerExchange ? App.PeerExchange.getStats() : null,
-      metadataTransfer: App.MetadataTransfer ? App.MetadataTransfer.getStats() : null,
-    }),
     printP2PStats,
   });
 

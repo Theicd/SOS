@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.06-p2p-feed",
-  "buildTime": "2026-09-06T15:05:00+03:00",
-  "notes": "Feed P2P over open chat DC, inventory paging, non-blocking load-more"
+  "version": "2026.09.06-stats1",
+  "buildTime": "2026-09-06T19:30:00+03:00",
+  "notes": "Feed source stats (Blossom / SOS / torrent / sent) and one-shot UI update toast"
 }
