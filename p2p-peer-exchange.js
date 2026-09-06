@@ -31,7 +31,8 @@
     MAX_KNOWN_PEERS: 50,           // מקסימום peers לשמור בזיכרון
     PEER_TTL: 5 * 60 * 1000,       // 5 דקות - אחרי זה peer נחשב לא פעיל
     EXCHANGE_INTERVAL: 30 * 1000,  // כל 30 שניות לבקש עדכון מ-peers מחוברים
-    MAX_FILES_TO_SHARE: 100,       // מקסימום קבצים לשתף ברשימה
+    MAX_FILES_TO_SHARE: 300,       // רשת מקומית: לא להסתפק ב-100 | HYPER CORE TECH
+    FILES_PAGE_SIZE: 150,          // paging כדי לא לחנוק DC | HYPER CORE TECH
     MAX_PEERS_TO_SHARE: 20,        // מקסימום peers לשתף ברשימה
     CLEANUP_INTERVAL: 60 * 1000,   // ניקוי כל דקה
   };
@@ -135,13 +136,15 @@
     // עדכון קבצים
     if (Array.isArray(files)) {
       files.forEach(hash => {
-        existing.files.add(hash);
+        const h = String(hash || '').trim().toLowerCase();
+        if (!h) return;
+        existing.files.add(h);
         
         // עדכון fileLocations
-        if (!state.fileLocations.has(hash)) {
-          state.fileLocations.set(hash, new Set());
+        if (!state.fileLocations.has(h)) {
+          state.fileLocations.set(h, new Set());
         }
-        state.fileLocations.get(hash).add(pubkey);
+        state.fileLocations.get(h).add(pubkey);
       });
     }
     
@@ -260,6 +263,7 @@
       channel.send(JSON.stringify({
         type: MESSAGE_TYPES.PEER_EXCHANGE_REQUEST,
         timestamp: Date.now(),
+        page: 0,
       }));
       
       state.stats.exchangesSent++;
@@ -272,24 +276,38 @@
   /**
    * טיפול בבקשת Peer Exchange - שליחת תשובה
    */
-  function handlePeerExchangeRequest(channel, senderPubkey) {
-    if (!channel || channel.readyState !== 'open') return;
-    
-    // אוסף את הקבצים שיש לנו
-    const myFiles = [];
-    if (App.getAvailableFiles) {
-      const files = App.getAvailableFiles();
-      if (files && typeof files.keys === 'function') {
-        myFiles.push(...Array.from(files.keys()).slice(0, CONFIG.MAX_FILES_TO_SHARE));
+  function collectMyRecentFileHashes() {
+    const entries = [];
+    if (!App.getAvailableFiles) return entries;
+    const files = App.getAvailableFiles();
+    if (!files) return entries;
+    if (typeof files.forEach === 'function') {
+      files.forEach((data, hash) => {
+        const h = String(hash || '').trim().toLowerCase();
+        if (!h) return;
+        entries.push({ hash: h, ts: (data && data.timestamp) || 0 });
+      });
+    } else if (typeof files.keys === 'function') {
+      for (const hash of files.keys()) {
+        const h = String(hash || '').trim().toLowerCase();
+        if (h) entries.push({ hash: h, ts: 0 });
       }
     }
-    
-    // אוסף peers שאנחנו מכירים (לא כולל השולח)
+    entries.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return entries.slice(0, CONFIG.MAX_FILES_TO_SHARE).map((e) => e.hash);
+  }
+
+  function sendInventoryPage(channel, senderPubkey, page) {
+    if (!channel || channel.readyState !== 'open') return false;
+    const all = collectMyRecentFileHashes();
+    const pageSize = CONFIG.FILES_PAGE_SIZE || 150;
+    const pageNum = Math.max(0, Number(page) || 0);
+    const start = pageNum * pageSize;
+    const slice = all.slice(start, start + pageSize);
     const myPeers = [];
     state.knownPeers.forEach((data, pubkey) => {
       if (pubkey === senderPubkey) return;
       if (Date.now() - data.lastSeen > CONFIG.PEER_TTL) return;
-      
       if (myPeers.length < CONFIG.MAX_PEERS_TO_SHARE) {
         myPeers.push({
           pubkey,
@@ -298,28 +316,45 @@
         });
       }
     });
-    
     try {
       channel.send(JSON.stringify({
         type: MESSAGE_TYPES.PEER_EXCHANGE_RESPONSE,
-        files: myFiles,
-        knownPeers: myPeers,
+        files: slice,
+        knownPeers: pageNum === 0 ? myPeers : [],
         timestamp: Date.now(),
+        page: pageNum,
+        total: all.length,
+        hasMore: start + slice.length < all.length,
       }));
-      
-      log('exchange', 'שלחתי תשובת Exchange', { 
-        files: myFiles.length, 
-        peers: myPeers.length 
-      });
+      try {
+        console.log('[P2P-INVENTORY] SEND', {
+          peer: String(senderPubkey || '').slice(0, 8),
+          count: slice.length,
+          page: pageNum,
+          total: all.length,
+        });
+      } catch (_) {}
+      return true;
     } catch (err) {
       log('error', 'שגיאה בשליחת Exchange response', { error: err.message });
+      return false;
     }
+  }
+
+  function pushFileInventory(channel, peerPubkey) {
+    return sendInventoryPage(channel, peerPubkey, 0);
+  }
+
+  function handlePeerExchangeRequest(channel, senderPubkey, msg) {
+    if (!channel || channel.readyState !== 'open') return;
+    const page = (msg && typeof msg.page === 'number') ? msg.page : 0;
+    sendInventoryPage(channel, senderPubkey, page);
   }
 
   /**
    * עיבוד תשובת Peer Exchange
    */
-  function handlePeerExchangeResponse(msg, senderPubkey) {
+  function handlePeerExchangeResponse(msg, senderPubkey, channel) {
     const { files, knownPeers, timestamp } = msg;
     
     state.stats.exchangesReceived++;
@@ -345,6 +380,16 @@
         }
       });
     }
+
+    try {
+      console.log('[P2P-INVENTORY] RECEIVE', {
+        peer: String(senderPubkey || '').slice(0, 8),
+        learned: Array.isArray(files) ? files.length : 0,
+        totalLocations: state.fileLocations.size,
+        page: typeof msg.page === 'number' ? msg.page : 0,
+        total: msg.total,
+      });
+    } catch (_) {}
     
     log('exchange', 'עיבדתי תשובת Exchange', {
       filesLearned: files?.length || 0,
@@ -352,6 +397,17 @@
       totalKnownPeers: state.knownPeers.size,
       totalFileLocations: state.fileLocations.size,
     });
+
+    if (msg.hasMore && channel && channel.readyState === 'open') {
+      const nextPage = (typeof msg.page === 'number' ? msg.page : 0) + 1;
+      try {
+        channel.send(JSON.stringify({
+          type: MESSAGE_TYPES.PEER_EXCHANGE_REQUEST,
+          timestamp: Date.now(),
+          page: nextPage,
+        }));
+      } catch (_) {}
+    }
   }
 
   /**
@@ -362,11 +418,11 @@
     
     switch (msg.type) {
       case MESSAGE_TYPES.PEER_EXCHANGE_REQUEST:
-        handlePeerExchangeRequest(channel, senderPubkey);
+        handlePeerExchangeRequest(channel, senderPubkey, msg);
         return true;
         
       case MESSAGE_TYPES.PEER_EXCHANGE_RESPONSE:
-        handlePeerExchangeResponse(msg, senderPubkey);
+        handlePeerExchangeResponse(msg, senderPubkey, channel);
         return true;
       
       // חלק Signal Relay (p2p-peer-exchange.js) – טיפול בהודעות relay | HYPER CORE TECH
@@ -586,8 +642,9 @@
    */
   function findPeersWithFileLocally(hash) {
     if (!hash) return [];
-    
-    const locations = state.fileLocations.get(hash);
+    const h = String(hash || '').trim().toLowerCase();
+
+    const locations = state.fileLocations.get(h) || state.fileLocations.get(hash);
     if (!locations || locations.size === 0) return [];
     
     // מחזיר רק peers פעילים, ממוינים לפי lastSeen
@@ -614,7 +671,9 @@
    * בדיקה אם יש לנו מידע על קובץ
    */
   function hasFileInfo(hash) {
-    return state.fileLocations.has(hash) && state.fileLocations.get(hash).size > 0;
+    const h = String(hash || '').trim().toLowerCase();
+    const loc = state.fileLocations.get(h) || state.fileLocations.get(hash);
+    return !!(loc && loc.size > 0);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -739,6 +798,7 @@
     
     // Peer Exchange
     sendPeerExchangeRequest,
+    pushFileInventory,
     handleIncomingMessage,
     broadcastExchangeRequest,
     

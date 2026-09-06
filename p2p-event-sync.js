@@ -148,7 +148,12 @@
       return false;
     }
 
-    return putEvent(event, meta.source || 'unknown');
+    return putEvent(event, meta.source || 'unknown').then((storedOk) => {
+      if (!storedOk) {
+        log('warn', 'IDB put failed — event still accepted for live feed', { id: event.id?.slice?.(0, 12) });
+      }
+      return true;
+    });
   }
 
   async function cleanupExpired(limit = 500) {
@@ -355,6 +360,34 @@
           App.registerComment(comment, eTag[1]);
         }
       });
+    }
+
+    if (newPosts.length > 0) {
+      try {
+        console.log('[EVENT-SYNC]', {
+          from: String(senderPubkey || '').slice(0, 8),
+          posts: newPosts.length,
+          independentOfMedia: true,
+        });
+      } catch (_) {}
+      if (!App.postsById) App.postsById = new Map();
+      newPosts.forEach((ev) => {
+        if (ev?.id) App.postsById.set(ev.id, ev);
+      });
+      const convert = (typeof processEventsToVideos === 'function')
+        ? processEventsToVideos
+        : App.processEventsToVideos;
+      const upsert = (typeof upsertVideoInState === 'function')
+        ? upsertVideoInState
+        : App.upsertVideoInState;
+      if (typeof convert === 'function' && typeof upsert === 'function') {
+        try {
+          const videos = convert(newPosts, App) || [];
+          videos.forEach((video) => upsert(video));
+        } catch (err) {
+          log('warn', 'feed ingest from EventSync failed', err?.message || String(err));
+        }
+      }
     }
 
     log('info', '📥 RES received', { from: senderPubkey.slice(0, 8), events: msg.events.length, stored, newPosts: newPosts.length, newLikes: newLikes.length });

@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.15-desktop-video-ar-del1';
+const VIDEOS_CODE_VERSION = '2.6.16-p2p-chatdc1';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -2363,15 +2363,27 @@ function handleCardMediaFailure(card, videoId, error) {
   const isFileMedia = mediaType === 'file'
     || !!(video?.videoUrl && !video?.youtubeId && !video?.liveUrl && !video?.gameUrl);
 
-  console.warn('[videos] media failed — dropping card', {
+  const errMsg = String(error?.message || error || '');
+  const isTimeout = /timeout/i.test(errMsg) || /media-ready-timeout/i.test(errMsg);
+
+  console.warn('[videos] media failed — hide card, keep post', {
     videoId,
     mediaType,
     isFileMedia,
-    error: error?.message || error,
+    retryable: isTimeout,
+    error: errMsg,
   });
 
-  // רק קבצי וידאו מתים נכנסים ל־blacklist (לא יוטיוב/LIVE זמני) | HYPER CORE TECH
-  if (isFileMedia && videoId && !/timeout/i.test(String(error?.message || error || ''))) {
+  try {
+    console.log('[MEDIA-STATE]', {
+      eventId: videoId,
+      mediaState: isTimeout ? 'pending' : 'unavailable',
+      retryable: !!isTimeout,
+    });
+  } catch (_) {}
+
+  // timeout לא משחית פוסט; 404 רק מסמן מדיה, לא מוחק אירוע | HYPER CORE TECH
+  if (isFileMedia && videoId && !isTimeout) {
     markMediaUnavailable(videoId, video?.hash || null);
   }
 
@@ -2386,7 +2398,6 @@ function handleCardMediaFailure(card, videoId, error) {
   }
   if (videoId) {
     removeVideoCard(videoId);
-    removeVideoFromState(videoId);
   }
 
   // ממשיכים לכרטיס הבא אם נפל הכרטיס שבמרכז | HYPER CORE TECH
@@ -7216,12 +7227,12 @@ async function loadMoreVideos() {
     if (collectedVideos.length > 0) {
       state.videos = [...state.videos, ...collectedVideos];
       console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
+      saveFeedCache(state.videos);
       // בפיד הכללי לא מציגים משחקים/ערוצי LIVE גם בטעינת המשך | HYPER CORE TECH
       const toShow = collectedVideos.filter((v) => isGeneralFeedVideo(v));
       if (toShow.length) {
-        await renderMoreVideos(toShow);
+        renderMoreVideos(toShow);
       }
-      saveFeedCache(state.videos);
     } else {
       console.log('[videos] loadMoreVideos: no more videos available');
     }
@@ -7230,6 +7241,20 @@ async function loadMoreVideos() {
   } finally {
     isLoadingMore = false;
     updateLoadMoreTrigger();
+    try {
+      const stream = selectors.stream;
+      const net = (typeof window.NostrApp?.p2pGetNetworkState === 'function')
+        ? window.NostrApp.p2pGetNetworkState()
+        : null;
+      console.log('[FEED-BOOT]', {
+        stateVideos: Array.isArray(state.videos) ? state.videos.length : 0,
+        domCards: stream ? stream.querySelectorAll('.videos-feed__card[data-event-id]').length : 0,
+        pendingMedia: (typeof pendingWarmCards !== 'undefined' && pendingWarmCards && pendingWarmCards.size) || 0,
+        loadingMore: isLoadingMore,
+        activePeers: net && net.peerCount,
+        connectedDc: (typeof window.NostrApp?.dataChannel?.getChatDC === 'function') ? 'ready' : 'no',
+      });
+    } catch (_) {}
   }
 }
 
@@ -7294,6 +7319,12 @@ function processEventsToVideos(events, currentApp) {
   return videoEvents;
 }
 
+try {
+  const _appFeed = window.NostrApp || (window.NostrApp = {});
+  _appFeed.processEventsToVideos = processEventsToVideos;
+  _appFeed.upsertVideoInState = upsertVideoInState;
+} catch (_) {}
+
 function createVideoCard(video) {
   const result = renderVideoCard(video);
   const card = result && result.card ? result.card : result;
@@ -7303,8 +7334,35 @@ function createVideoCard(video) {
   return card;
 }
 
-// load-more: כרטיסייה לפיד רק אחרי שהווידאו מוכן — בלי כרטיסיות ריקות | HYPER CORE TECH
-async function renderMoreVideos(videos) {
+// load-more: חימום מקבילי מחוץ ל-DOM; כרטיס נכנס רק כשהמדיה מוכנה | HYPER CORE TECH
+const MEDIA_WARM_CONCURRENCY = 3;
+
+async function warmAndMountFeedCard(video, stream) {
+  if (!video?.id || isMediaUnavailable(video)) return;
+  if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
+  let card = null;
+  try {
+    const rendered = renderVideoCard(video);
+    card = rendered?.card || null;
+    const mediaReadyPromise = rendered?.mediaReadyPromise;
+    if (!card || !mediaReadyPromise) return;
+    await Promise.race([
+      mediaReadyPromise,
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('media-ready-timeout')), 20000);
+      }),
+    ]);
+    if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
+    mountCard(card);
+    markCardMediaReady(card);
+  } catch (err) {
+    if (card) {
+      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+    }
+  }
+}
+
+function renderMoreVideos(videos) {
   const stream = document.querySelector('.videos-feed__stream');
   if (!stream || !videos.length) return;
 
@@ -7316,29 +7374,17 @@ async function renderMoreVideos(videos) {
         ? []
         : videos.filter((v) => isGeneralFeedVideo(v));
 
-  for (const video of list) {
-    if (!video?.id || isMediaUnavailable(video)) continue;
-    if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) continue;
-    let card = null;
-    try {
-      const rendered = renderVideoCard(video);
-      card = rendered?.card || null;
-      const mediaReadyPromise = rendered?.mediaReadyPromise;
-      if (!card || !mediaReadyPromise) continue;
-      await Promise.race([
-        mediaReadyPromise,
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('media-ready-timeout')), 20000);
-        }),
-      ]);
-      if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) continue;
-      mountCard(card);
-      markCardMediaReady(card);
-    } catch (err) {
-      if (card) {
-        try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
-      }
+  let cursor = 0;
+  const workers = Math.min(MEDIA_WARM_CONCURRENCY, list.length);
+  const runWorker = async () => {
+    while (cursor < list.length) {
+      const video = list[cursor];
+      cursor += 1;
+      await warmAndMountFeedCard(video, stream);
     }
+  };
+  for (let i = 0; i < workers; i++) {
+    runWorker().catch(() => {});
   }
 
   updateLoadMoreTrigger();

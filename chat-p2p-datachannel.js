@@ -3,7 +3,7 @@
 (function initChatP2PDataChannel(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const NostrTools = window.NostrTools;
-  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260905p1'); } catch (_) {}
+  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260906p2p1'); } catch (_) {}
   try {
     if (/(?:^|[?&])p2pHeadless=1(?:&|$)/.test(String(window.location.search || ''))) {
       window.__sosP2pHeadless = true;
@@ -149,6 +149,7 @@
   // חלק DataChannel (chat-p2p-datachannel.js) – חיבור אירועים לערוץ + בדיקת stale למניעת לולאת reconnect | HYPER CORE TECH
   function wireDC(k,dc) {
     k=k.toLowerCase(); const s=ensPS(k); s.dc=dc;
+    try { dc.binaryType = 'arraybuffer'; } catch (_) {}
     dc.onopen=()=>{
       if(s.dc!==dc) return; s.status='connected'; s.reconnN=0; s.offerRetryN=0;
       if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
@@ -169,6 +170,7 @@
       }catch{}
       try { if (typeof App.drainPendingReadReceipts === 'function') App.drainPendingReadReceipts(k); } catch {}
       try { if (window.SOSEmergency && typeof window.SOSEmergency.drainMeshOutbox === 'function') window.SOSEmergency.drainMeshOutbox(); } catch {}
+      try { if (typeof App.onChatDataChannelOpen === 'function') App.onChatDataChannelOpen(k, dc); } catch {}
       // חלק keepalive start (chat-p2p-datachannel.js) – שליחת ping תקופתי לשמירת DC פתוח | HYPER CORE TECH
       if(s._keepAliveT) clearInterval(s._keepAliveT);
       s._keepAliveT=setInterval(()=>{
@@ -182,6 +184,7 @@
       if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
       console.log(`[P2P-DC] peer=${k.slice(0,8)} CLOSED reason=onclose`);
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'closed');
+      try { if (typeof App.onChatDataChannelClosed === 'function') App.onChatDataChannelClosed(k); } catch {}
       maybeReconn(k);
     };
     dc.onerror=(e)=>{ if(s.dc!==dc) return; console.warn(`[DC] ERR ${k.slice(0,8)}:`,e); };
@@ -406,14 +409,55 @@
   }
 
   // חלק הודעות P2P (chat-p2p-datachannel.js) – קבלה ושליחה + keepalive ping/pong | HYPER CORE TECH
+  const CHAT_FILE_TYPES = ['file-complete-ack','file-resend-request','file-ready','file-offer','chunk-meta','chunk-ack','ack','file-resend-failed'];
+
   function onMsg(peer,raw) {
     try {
+      if (raw instanceof ArrayBuffer || (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView && ArrayBuffer.isView(raw)) || (typeof Blob !== 'undefined' && raw instanceof Blob)) {
+        const s = getPS(peer.toLowerCase());
+        const payload = (raw instanceof ArrayBuffer || (typeof Blob !== 'undefined' && raw instanceof Blob)) ? raw : (raw.buffer || raw);
+        if (typeof App.handleFeedMediaBinary === 'function') {
+          try { if (App.handleFeedMediaBinary(peer, payload)) return; } catch (e) { console.warn('[DC] feed binary bridge:', e); }
+        }
+        if (typeof App.handleP2PFileMessage === 'function') {
+          try { App.handleP2PFileMessage(peer, payload, s && s.dc); } catch (e) { console.warn('[DC] file binary bridge:', e); }
+        }
+        return;
+      }
       const m=JSON.parse(raw);
       // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
       if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
       if(m.type==='pong') return;
       if(m.type==='chat_read_receipt'){
         if(typeof App.handleIncomingReadReceipt==='function') App.handleIncomingReadReceipt(m);
+        return;
+      }
+      if (m.type === 'request' || m.type === 'metadata' || m.type === 'complete' || m.type === 'error') {
+        if (typeof App.handleFeedMediaControlMessage === 'function') {
+          const s = getPS(peer.toLowerCase());
+          try { if (App.handleFeedMediaControlMessage(peer, m, s && s.dc)) return; } catch (e) { console.warn('[DC] feed control bridge:', e); }
+        }
+        if (m.type !== 'request') return;
+      }
+      if (m.type === 'peer-exchange-request' || m.type === 'peer-exchange-response' || m.type === 'relay-signal' || m.type === 'relay-signal-forward') {
+        if (App.PeerExchange && typeof App.PeerExchange.handleIncomingMessage === 'function') {
+          const s = getPS(peer.toLowerCase());
+          try { if (App.PeerExchange.handleIncomingMessage(m, peer, s && s.dc)) return; } catch (e) { console.warn('[DC] peer-exchange bridge:', e); }
+        }
+        return;
+      }
+      if (m.type === 'p2p-event-inv' || m.type === 'p2p-event-req' || m.type === 'p2p-event-res') {
+        if (App.EventSync && typeof App.EventSync.handleIncomingMessage === 'function') {
+          const s = getPS(peer.toLowerCase());
+          try { App.EventSync.handleIncomingMessage(m, peer, s && s.dc); } catch (e) { console.warn('[DC] event-sync bridge:', e); }
+        }
+        return;
+      }
+      if (m.type && CHAT_FILE_TYPES.indexOf(m.type) >= 0) {
+        if (typeof App.handleP2PFileMessage === 'function') {
+          const s = getPS(peer.toLowerCase());
+          try { App.handleP2PFileMessage(peer, raw, s && s.dc); } catch (e) { console.warn('[DC] file control bridge:', e); }
+        }
         return;
       }
       if(m.type!=='chat-text') return;
@@ -584,6 +628,11 @@
 
   // חלק getChatPC (chat-p2p-datachannel.js) – חשיפת PeerConnection לשימוש מערכת הקבצים | HYPER CORE TECH
   function getChatPC(peer) { const s=getPS(peer.toLowerCase()); return (s&&s.pc&&s.status==='connected')?s.pc:null; }
+  function getChatDC(peer) {
+    if (!peer) return null;
+    const s = getPS(String(peer).toLowerCase());
+    return (s && s.dc && s.dc.readyState === 'open') ? s.dc : null;
+  }
 
   // חלק forceConnect (chat-p2p-datachannel.js) – חיבור DC בכוח גם כ-responder, לצורך שליחת קבצים | HYPER CORE TECH
   async function forceConnect(peer) {
@@ -641,7 +690,7 @@
     window.SOSBridge.onWebRTCSignal = next;
   }
 
-  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers };
+  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers };
   hookMeshReceiver();
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט / headless | HYPER CORE TECH
