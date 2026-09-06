@@ -79,6 +79,14 @@ class SosEmergencyRelayService : Service() {
     private val connectedPeers = CopyOnWriteArrayList<String>()
     private val helloSeen = ConcurrentHashMap<String, Long>()
     @Volatile private var lastSentIdentityVersion: Int = -1
+    @Volatile private var lastGoodParent: LastGoodParent? = null
+    @Volatile private var parentDegradedSinceMs: Long = 0L
+    @Volatile private var lastParentSwitchMs: Long = 0L
+    @Volatile private var mobilityPhase: MeshMobilityPhase = MeshMobilityPhase.CONNECTED
+    @Volatile private var fastReattachTried: Boolean = false
+    @Volatile private var lastHotspotOn: Boolean? = null
+    @Volatile private var routeLostAtMs: Long = 0L
+    @Volatile private var lastMobilityEvent: String = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -232,6 +240,11 @@ class SosEmergencyRelayService : Service() {
         SosEmergencyState.relayChildIps.clear()
         SosEmergencyState.hiddenChildSsids.clear()
         lastSentIdentityVersion = -1
+        lastGoodParent = null
+        parentDegradedSinceMs = 0L
+        fastReattachTried = false
+        mobilityPhase = MeshMobilityPhase.SEARCHING_ALTERNATIVE
+        routeLostAtMs = System.currentTimeMillis()
         val boot = SosEmergencyState.meshBootId.ifBlank { EmergencyMeshIdentity.newBootId() }
         SosEmergencyState.meshBootId = boot
         SosEmergencyState.mesh.reset(boot)
@@ -247,6 +260,52 @@ class SosEmergencyRelayService : Service() {
 
     private fun meshStaAp(): CapabilityState {
         return SosWifiBootstrap.snapshotCapabilities(this).staApConcurrency
+    }
+
+    private fun mobilityLog(event: String, extra: String = "") {
+        val key = "$event|$extra"
+        if (key == lastMobilityEvent && event != "ALT_CANDIDATES") return
+        lastMobilityEvent = key
+        val line = if (extra.isBlank()) event else "$event $extra"
+        Log.i(TAG, "[MOBILITY] $line")
+        SosDebugLog.i("mobility", line)
+        sendLog("MOBILITY", line)
+    }
+
+    private fun rememberCurrentParent(nowMs: Long = System.currentTimeMillis()) {
+        val mesh = SosEmergencyState.mesh
+        val parentId = mesh.parentNodeId() ?: return
+        val rec = mesh.get(parentId)
+        val ip = parentIp ?: rec?.currentIp.orEmpty()
+        if (parentId.isBlank() || ip.isBlank()) return
+        lastGoodParent = EmergencyMeshMobility.rememberLastGood(
+            nodeId = parentId,
+            pubkey = rec?.pubkey.orEmpty(),
+            ssid = rec?.ssid.orEmpty(),
+            ip = ip,
+            rssi = rec?.signalDbm ?: -100,
+            bootId = rec?.bootId.orEmpty(),
+            nowMs = nowMs
+        )
+    }
+
+    private fun closeParentSockets() {
+        try { parentSocket?.close() } catch (_: Exception) {}
+        parentSocket = null
+        parentWriter = null
+        meshLinks.parent()?.close()
+    }
+
+    private fun markParentHealthy() {
+        parentDegradedSinceMs = 0L
+        fastReattachTried = false
+        if (routeLostAtMs > 0L) {
+            val duration = System.currentTimeMillis() - routeLostAtMs
+            mobilityLog("ROUTE_RESTORED", "durationMs=$duration")
+            routeLostAtMs = 0L
+        }
+        mobilityPhase = MeshMobilityPhase.CONNECTED
+        rememberCurrentParent()
     }
 
     private fun dropParent(reason: String) {
@@ -381,7 +440,7 @@ class SosEmergencyRelayService : Service() {
         }
 
         val now = System.currentTimeMillis()
-        SosEmergencyState.mesh.expireStale(now)
+        SosEmergencyState.mesh.expireStale(now, EmergencyMeshMobility.CANDIDATE_TTL_MS)
         SosEmergencyState.mesh.upsertDiscovery(
             MeshPeerRecord(
                 nodeId = frame.nodeId,
@@ -428,8 +487,14 @@ class SosEmergencyRelayService : Service() {
         val mesh = SosEmergencyState.mesh
         val self = mesh.identity ?: return
         val staAp = meshStaAp()
+        val recovering = mobilityPhase == MeshMobilityPhase.DEGRADED ||
+            mobilityPhase == MeshMobilityPhase.FAST_REATTACH ||
+            mobilityPhase == MeshMobilityPhase.SEARCHING_ALTERNATIVE ||
+            mobilityPhase == MeshMobilityPhase.REJOINING
+        val ttl = EmergencyMeshMobility.candidateTtl(recovering)
+        val now = System.currentTimeMillis()
         val candidates = mesh.allPeers()
-            .filter { EmergencyMeshDecision.isDiscoveryFresh(it.lastSeenMs, System.currentTimeMillis()) }
+            .filter { EmergencyMeshDecision.isDiscoveryFresh(it.lastSeenMs, now, ttl) }
             .map {
                 MeshParentCandidate(
                     nodeId = it.nodeId,
@@ -442,14 +507,25 @@ class SosEmergencyRelayService : Service() {
                     inExistingTree = it.childCount > 0 || it.rootNodeId.isNotBlank()
                 )
             }
-        val pick = EmergencyMeshDecision.pickBestParent(
+        if (recovering) {
+            mobilityLog("ALT_CANDIDATES", "count=${candidates.size}")
+        }
+        val healthyParent = meshLinks.parent()?.takeIf { it.isHealthy() }?.remoteNodeId
+        val stickyParent = when (mobilityPhase) {
+            MeshMobilityPhase.DEGRADED, MeshMobilityPhase.FAST_REATTACH -> mesh.parentNodeId()
+            else -> healthyParent
+        }
+        val pick = EmergencyMeshMobility.pickRecoveryParent(
             selfId = self.nodeId,
             childIds = mesh.childNodeIds(),
             descendantIds = mesh.descendantIds(),
-            parentId = mesh.parentNodeId(),
             hasChildren = mesh.childNodeIds().isNotEmpty(),
             staAp = staAp,
-            candidates = candidates
+            candidates = candidates,
+            lastGoodNodeId = lastGoodParent?.takeIf { it.retryAfterMs <= now }?.nodeId,
+            lastSwitchMs = lastParentSwitchMs,
+            nowMs = now,
+            currentHealthyParentId = stickyParent
         ) ?: return
         val ip = mesh.get(pick.nodeId)?.currentIp.orEmpty()
         if (ip.isBlank()) return
@@ -475,6 +551,11 @@ class SosEmergencyRelayService : Service() {
             if (roles.hotspotIp.isNotBlank()) announceIps.add(roles.hotspotIp)
             if (announceIps.isEmpty()) return
             val parentOk = EmergencyMeshNetRole.parentStillValid(parentIp, roles.stationIp)
+            val caps = SosWifiBootstrap.snapshotCapabilities(this)
+            val hotspotOn = caps.hotspotActive
+            if (lastHotspotOn == true && !hotspotOn) mobilityLog("AP_LOST")
+            if (lastHotspotOn == false && hotspotOn) mobilityLog("AP_RESTORED")
+            lastHotspotOn = hotspotOn
             sendLog(
                 "NETROLE",
                 "stationIp=${roles.stationIp.ifBlank { "-" }} hotspotIp=${roles.hotspotIp.ifBlank { "-" }} " +
@@ -566,6 +647,7 @@ class SosEmergencyRelayService : Service() {
                 val frame = response?.let { EmergencyMeshProtocol.parse(it) }
                 when (frame?.type) {
                     EmergencyMeshProtocol.JOIN_ACCEPT -> {
+                        val oldParentId = lastGoodParent?.nodeId
                         parentIp = relayIp
                         parentSocket = socket
                         parentWriter = writer
@@ -583,6 +665,14 @@ class SosEmergencyRelayService : Service() {
                         link.send("HELLO:${identityJson()}")
                         pushTopologyUpstream()
                         sendLog("JOIN", "הצטרפתי. הורה=${parentNodeId.take(8)}")
+                        if (mobilityPhase == MeshMobilityPhase.FAST_REATTACH && (oldParentId == null || oldParentId == parentNodeId)) {
+                            mobilityLog("FAST_REATTACH_OK")
+                        } else if (oldParentId != null && oldParentId != parentNodeId) {
+                            lastParentSwitchMs = System.currentTimeMillis()
+                            mobilityPhase = MeshMobilityPhase.CONNECTED_NEW_PARENT
+                            mobilityLog("SWITCH_PARENT", "old=${oldParentId.take(8)} new=${parentNodeId.take(8)} reason=join")
+                        }
+                        markParentHealthy()
                         broadcastStatus("מחובר לרשת ✓")
                         broadcastPeerUpdate()
                         listenToParent(socket, reader, link)
@@ -591,16 +681,19 @@ class SosEmergencyRelayService : Service() {
                         mesh.clearJoin()
                         socket.close()
                         sendLog("JOIN", "נדחה: ${frame.reason}")
+                        onJoinFailed()
                     }
                     else -> {
                         mesh.clearJoin()
                         socket.close()
                         sendLog("JOIN", "תשובה לא תואמת: ${response?.take(40)}")
+                        onJoinFailed()
                     }
                 }
             } catch (e: Exception) {
                 mesh.clearJoin()
                 sendLog("ERROR", "join: ${e.message}")
+                onJoinFailed()
             }
         }
     }
@@ -636,7 +729,7 @@ class SosEmergencyRelayService : Service() {
                 }
             } catch (_: Exception) {
             } finally {
-                if (parentIp != null) handleParentDisconnect()
+                if (parentIp != null) onParentUnhealthy("parent-socket-eof")
             }
         }
     }
@@ -645,19 +738,67 @@ class SosEmergencyRelayService : Service() {
         val link = meshLinks.parent()
         val socket = parentSocket
         if (link == null || !link.isLive() || socket == null || socket.isClosed || !socket.isConnected) {
-            if (parentIp != null) handleParentDisconnect()
+            if (parentIp != null || SosEmergencyState.mesh.parentNodeId() != null) {
+                onParentUnhealthy("parent-socket-dead")
+            }
             return
         }
         if (link.isRxStale(System.currentTimeMillis())) {
             link.markDegraded()
-            handleParentDisconnect()
+            onParentUnhealthy("rx-stale")
             return
         }
-        if (!link.send("PING")) handleParentDisconnect()
+        if (!link.send("PING")) onParentUnhealthy("ping-fail")
+        else if (parentDegradedSinceMs != 0L) {
+            markParentHealthy()
+        }
     }
 
-    private fun handleParentDisconnect() {
+    private fun onParentUnhealthy(reason: String) {
+        val now = System.currentTimeMillis()
+        rememberCurrentParent(now)
+        if (routeLostAtMs == 0L) routeLostAtMs = now
+        if (parentDegradedSinceMs == 0L) {
+            parentDegradedSinceMs = now
+            mobilityPhase = MeshMobilityPhase.DEGRADED
+            mobilityLog("PARENT_DEGRADED", "reason=$reason")
+        }
+        val roles = SosEmergencyState.netRoles()
+        val parentLan = parentIp ?: lastGoodParent?.lastIp.orEmpty()
+        val onLan = EmergencyMeshMobility.stationStillOnParentLan(roles.stationIp, parentLan)
+        if (EmergencyMeshMobility.shouldFastReattach(onLan, lastGoodParent, now, fastReattachTried)) {
+            fastReattachTried = true
+            mobilityPhase = MeshMobilityPhase.FAST_REATTACH
+            mobilityLog("FAST_REATTACH_START")
+            closeParentSockets()
+            val lg = lastGoodParent
+            if (lg != null) joinParent(lg.nodeId, lg.lastIp)
+            handler.postDelayed({
+                if (mobilityPhase == MeshMobilityPhase.FAST_REATTACH && meshLinks.parent()?.isHealthy() != true) {
+                    onJoinFailed()
+                }
+            }, 6_000L)
+            return
+        }
+        if (!fastReattachTried && !EmergencyMeshMobility.shouldDropAfterGrace(parentDegradedSinceMs, now)) {
+            return
+        }
+        searchAlternativeParent()
+    }
+
+    private fun onJoinFailed() {
+        if (mobilityPhase == MeshMobilityPhase.FAST_REATTACH) {
+            mobilityLog("FAST_REATTACH_FAIL")
+            lastGoodParent = EmergencyMeshMobility.noteFailure(lastGoodParent, System.currentTimeMillis())
+            searchAlternativeParent()
+        }
+    }
+
+    private fun searchAlternativeParent() {
+        rememberCurrentParent()
         dropParent("parent-disconnect")
+        parentDegradedSinceMs = 0L
+        mobilityPhase = MeshMobilityPhase.SEARCHING_ALTERNATIVE
         val roles = SosEmergencyState.netRoles()
         val sibling = mySiblings.firstOrNull {
             EmergencyMeshNetRole.sameSlash24(roles.stationIp, it) ||
@@ -671,6 +812,10 @@ class SosEmergencyRelayService : Service() {
         if (SosEmergencyState.mesh.parentNodeId() == null) {
             broadcastStatus("מחפש רשת...")
         }
+    }
+
+    private fun handleParentDisconnect() {
+        onParentUnhealthy("parent-disconnect")
     }
 
     private fun handleClient(socket: Socket) {
@@ -1039,6 +1184,7 @@ class SosEmergencyRelayService : Service() {
                 "nostr_event" -> "onNostrEvent"
                 "webrtc_signal" -> "onWebRTCSignal"
                 "chat" -> "onChatMessage"
+                "chat_read_receipt" -> "onChatReadReceipt"
                 else -> "onMessage"
             }
         } catch (_: Exception) {

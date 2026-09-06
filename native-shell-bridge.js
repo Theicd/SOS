@@ -272,15 +272,25 @@
     App.showLocalNotification.__sosNativePatched = true;
   }
 
-  function syncPubkeyToNative() {
+  function syncPubkeyToNative(options) {
     if (!isNativeShell()) return;
     const bridge = getBridge();
     const pubkey = (App.publicKey || localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey') || '').trim();
     if (!pubkey || pubkey.length !== 64) return;
+    const normalized = pubkey.toLowerCase();
+    const force = !!(options && options.force);
     try {
       if (bridge && typeof bridge.setUserPubkey === 'function') {
-        bridge.setUserPubkey(pubkey);
-        console.log('[NATIVE-SHELL] pubkey synced to background watcher');
+        if (!force && App._nativeSyncedPubkey === normalized) {
+          App._nativeSyncSkipped = (App._nativeSyncSkipped || 0) + 1;
+          if (App._nativeSyncSkipped === 1 || App._nativeSyncSkipped % 30 === 0) {
+            console.log('[NATIVE-SHELL] SYNC_SKIPPED_SAME', { n: App._nativeSyncSkipped });
+          }
+        } else {
+          bridge.setUserPubkey(pubkey);
+          App._nativeSyncedPubkey = normalized;
+          console.log('[NATIVE-SHELL] SYNC_APPLIED', { pubkey: normalized.slice(0, 8) });
+        }
       }
       // מפתח פרטי ל-P2P Native אחרי סגירת כרטיסייה | HYPER CORE TECH
       let priv = '';
@@ -293,7 +303,11 @@
         try { priv = String(localStorage.getItem('nostr_private_key') || App.privateKey || '').trim(); } catch (_) {}
       }
       if (priv && /^[0-9a-fA-F]{64}$/.test(priv) && bridge && typeof bridge.setUserPrivkey === 'function') {
-        bridge.setUserPrivkey(priv.toLowerCase());
+        const privNorm = priv.toLowerCase();
+        if (force || App._nativeSyncedPrivkey !== privNorm) {
+          bridge.setUserPrivkey(privNorm);
+          App._nativeSyncedPrivkey = privNorm;
+        }
       }
       if (bridge && typeof bridge.setP2pStandbyEnabled === 'function') {
         bridge.setP2pStandbyEnabled(true);
@@ -574,10 +588,14 @@
     window.addEventListener('sos-native-ready', () => {
       patchLocalNotifications();
       wireNativeFilePickers();
-      tryRegister();
+      syncPubkeyToNative({ force: true });
+      const pubkey = App.publicKey || localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey');
+      if (pubkey) registerFcmToken(pubkey);
     });
     window.addEventListener('sos-native-resume', () => {
-      tryRegister();
+      syncPubkeyToNative({ force: true });
+      const pubkey = App.publicKey || localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey');
+      if (pubkey) registerFcmToken(pubkey);
       wireNativeFilePickers();
       syncContactsToNative();
       syncP2pPeersToNative();

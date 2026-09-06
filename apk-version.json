@@ -1,8 +1,8 @@
 {
-  "version": "1.0.103",
-  "versionCode": 104,
-  "file": "SOS-1.0.103.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.103/SOS-1.0.103.apk",
-  "releasedAt": "2026-09-05",
-  "note": "P0 recover: stale child reattach, MESH signaling affinity, persist emergency chat"
+  "version": "1.0.104",
+  "versionCode": 105,
+  "file": "SOS-1.0.104.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.104/SOS-1.0.104.apk",
+  "releasedAt": "2026-09-06",
+  "note": "Durable post deletion tombstones, pubkey watcher sync idempotency, emergency chat persist"
 }

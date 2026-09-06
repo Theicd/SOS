@@ -16,6 +16,16 @@ object SosSessionStore {
     private const val KEY_P2P_PEERS = "p2p_peers_csv"
     private const val LAST_URL_TTL_MS = 7L * 24 * 60 * 60 * 1000
 
+    fun normalizeHexPubkey(pubkey: String?): String {
+        val n = pubkey?.trim()?.lowercase().orEmpty()
+        return if (n.matches(Regex("^[0-9a-f]{64}$"))) n else ""
+    }
+
+    fun shouldPersistPubkey(existing: String, incoming: String?): Boolean {
+        val n = normalizeHexPubkey(incoming)
+        return n.isNotEmpty() && n != existing.trim().lowercase()
+    }
+
     fun setPubkey(context: Context, pubkey: String?) {
         val normalized = pubkey?.trim()?.lowercase().orEmpty()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

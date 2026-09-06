@@ -79,6 +79,7 @@ class SosRelayWatcher(private val appContext: Context) {
         val ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 sockets[url] = webSocket
+                failCounts[url] = 0
                 val since = (System.currentTimeMillis() / 1000L) - 30
                 val filterYala = JSONObject()
                     .put("kinds", JSONArray().put(CHAT_KIND))
@@ -129,13 +130,20 @@ class SosRelayWatcher(private val appContext: Context) {
         sockets[url] = ws
     }
 
+    private val failCounts = ConcurrentHashMap<String, Int>()
+    private val BACKOFF_MS = longArrayOf(2_000L, 5_000L, 15_000L, 30_000L, 60_000L)
+
     private fun scheduleReconnect(url: String, pubkey: String) {
         if (!running.get()) return
+        val n = failCounts.getOrDefault(url, 0)
+        val base = BACKOFF_MS[n.coerceAtMost(BACKOFF_MS.lastIndex)]
+        val jitter = (Math.random() * 400).toLong()
+        failCounts[url] = n + 1
         mainHandler.postDelayed({
             if (running.get() && !sockets.containsKey(url)) {
                 connectRelay(url, pubkey)
             }
-        }, 5_000L)
+        }, base + jitter)
     }
 
     private fun handleMessage(text: String, selfPubkey: String) {

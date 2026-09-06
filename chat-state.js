@@ -3,6 +3,9 @@
 
   // חלק צ'אט (chat-state.js) – מבנה נתונים מרכזי לצ'אט
   App.deletedChatMessageIds = App.deletedChatMessageIds || new Set();
+  const CHAT_PERSIST_MODULE = '20260905p1';
+  App.CHAT_PERSIST_MODULE = CHAT_PERSIST_MODULE;
+  try { console.log('[CHAT/PERSIST] MODULE chat-state.js v=' + CHAT_PERSIST_MODULE); } catch (_) {}
 
   const chatState = {
     contacts: new Map(),
@@ -15,6 +18,16 @@
     },
     messageIndex: new Map(), // חלק צ'אט (chat-state.js) – שומר מפה מהירה מהודעה לשיחה לצורך מחיקה וניקוי כפילויות
     lastSyncTs: 0, // חלק צ'אט (chat-state.js) – חותמת סנכרון אחרונה כדי לצמצם משיכה מריליי | HYPER CORE TECH
+    pendingReadReceipts: new Map(),
+  };
+
+  const MESSAGE_STATUS_RANK = {
+    failed: 0,
+    queued: 1,
+    sending: 1,
+    sent: 2,
+    delivered: 2,
+    read: 3,
   };
 
   const MAX_MESSAGES_PER_THREAD = 500; // חלק צ'אט (chat-state.js) – מגביל היסטוריה בזיכרון/שמירה לביצועים | HYPER CORE TECH
@@ -306,6 +319,29 @@
     return left < right ? `${left}:${right}` : `${right}:${left}`;
   }
 
+  function inferMessageTransport(message) {
+    if (!message) return 'LOCAL';
+    if (message.p2p || String(message.id || '').startsWith('p2p-')) return 'DC';
+    if (message.emergency || String(message.id || '').startsWith('em-')) return 'MESH';
+    if (String(message.id || '').startsWith('temp-')) return 'LOCAL';
+    if (message.source) return String(message.source).toUpperCase();
+    return 'NOSTR';
+  }
+
+  function persistLog(event, extra) {
+    try {
+      console.log('[CHAT/PERSIST] ' + event + (extra ? ' ' + extra : ''));
+    } catch (_) {}
+  }
+
+  function countStoredMessages() {
+    let total = 0;
+    chatState.conversations.forEach((info) => {
+      total += Array.isArray(info?.messages) ? info.messages.length : 0;
+    });
+    return total;
+  }
+
   function getStorageKey() {
     const pubkey = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
     if (!pubkey) return null;
@@ -369,6 +405,17 @@
     chatState.disappearingTimers.forEach((seconds, peer) => {
       disappearingTimers.push({ peer, seconds: Number(seconds) || 0 });
     });
+    const pendingReadReceipts = [];
+    chatState.pendingReadReceipts.forEach((row, peer) => {
+      if (!peer || !row) return;
+      pendingReadReceipts.push({
+        peer,
+        receiptId: row.receiptId || '',
+        lastReadAt: Number(row.lastReadAt) || 0,
+        lastReadMessageId: row.lastReadMessageId || '',
+        queuedAt: Number(row.queuedAt) || 0,
+      });
+    });
     const payload = {
       id: storageKey,
       contacts: contactsArray,
@@ -377,8 +424,14 @@
       lastSyncTs: chatState.lastSyncTs || 0,
       disappearingTimers,
       defaultDisappearingSec: chatState.defaultDisappearingSec,
+      pendingReadReceipts,
     };
-    
+    persistLog(
+      'WRITE_START',
+      'storageKey=' + storageKey +
+        ' conversationCount=' + conversationsArray.length +
+        ' totalMessageCount=' + countStoredMessages()
+    );
     try {
       const db = await openDatabase();
       const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -388,12 +441,16 @@
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
       });
+      persistLog('WRITE_OK', 'storageKey=' + storageKey + ' source=indexeddb');
     } catch (err) {
+      persistLog('WRITE_FAIL', (err && (err.name || err.message)) ? (String(err.name || '') + ' ' + String(err.message || '')) : 'indexeddb');
       // Fallback to localStorage if IndexedDB fails
       try {
         const smallPayload = JSON.stringify(payload);
         window.localStorage.setItem(storageKey, smallPayload);
+        persistLog('WRITE_OK', 'storageKey=' + storageKey + ' source=localStorage');
       } catch (lsErr) {
+        persistLog('WRITE_FAIL', (lsErr && lsErr.message) ? String(lsErr.message) : 'localStorage');
         console.warn('Failed to persist chat state to both IndexedDB and localStorage', lsErr);
       }
     }
@@ -402,11 +459,20 @@
   // חלק debounce (chat-state.js) – מונע שמירות רבות מדי בזמן קצר | HYPER CORE TECH
   let persistTimeout = null;
   function persistState() {
+    persistLog('SCHEDULE', 'conversationCount=' + chatState.conversations.size + ' totalMessageCount=' + countStoredMessages());
     if (persistTimeout) return;
     persistTimeout = setTimeout(() => {
       persistTimeout = null;
       persistStateToIndexedDB();
     }, 500);
+  }
+
+  function flushChatPersist() {
+    if (persistTimeout) {
+      clearTimeout(persistTimeout);
+      persistTimeout = null;
+    }
+    return persistStateToIndexedDB();
   }
 
   // חלק שחזור IndexedDB (chat-state.js) – שחזור מ-IndexedDB עם fallback ל-localStorage | HYPER CORE TECH
@@ -521,7 +587,27 @@
       if (typeof parsed.lastSyncTs === 'number') {
         chatState.lastSyncTs = parsed.lastSyncTs;
       }
+      chatState.pendingReadReceipts.clear();
+      if (Array.isArray(parsed.pendingReadReceipts)) {
+        parsed.pendingReadReceipts.forEach((row) => {
+          const peer = typeof row?.peer === 'string' ? row.peer.toLowerCase() : '';
+          if (!peer) return;
+          chatState.pendingReadReceipts.set(peer, {
+            receiptId: row.receiptId || '',
+            lastReadAt: Number(row.lastReadAt) || 0,
+            lastReadMessageId: row.lastReadMessageId || '',
+            queuedAt: Number(row.queuedAt) || 0,
+          });
+        });
+      }
+      persistLog(
+        'RESTORE',
+        'storageKey=' + storageKey +
+          ' conversationCount=' + chatState.conversations.size +
+          ' totalMessageCount=' + countStoredMessages()
+      );
     } catch (err) {
+      persistLog('RESTORE', 'FAIL ' + (err && err.message ? String(err.message) : 'parse'));
       console.warn('Failed to restore chat state', err);
     }
     recomputeUnreadCounts();
@@ -673,6 +759,20 @@
     if (!from || !to || (!hasText && !hasAttachment)) return;
     const key = getConversationKey(from, to);
     if (!key) return;
+    const self = (App.publicKey || '').toLowerCase();
+    const peerPrefix = (from.toLowerCase() === self ? String(to) : String(from)).toLowerCase().slice(0, 8);
+    const messagesBefore = chatState.conversations.get(key)?.messages?.length || 0;
+    persistLog(
+      'APPEND',
+      'messageId=' + String(message.id || '') +
+        ' peer=' + peerPrefix +
+        ' direction=' + String(message.direction || '') +
+        ' source=' + inferMessageTransport(message) +
+        ' conversationKey=' + key +
+        ' contentLength=' + (hasText ? String(content).trim().length : 0) +
+        ' hasAttachment=' + (hasAttachment ? '1' : '0') +
+        ' messagesBefore=' + messagesBefore
+    );
     let entry = chatState.conversations.get(key);
     if (!entry) {
       const peer = from.toLowerCase() === (App.publicKey || '').toLowerCase() ? to.toLowerCase() : from.toLowerCase();
@@ -763,6 +863,12 @@
       incrementUnread: message.direction === 'incoming',
     });
     recalculateUnreadTotal();
+    persistLog(
+      'APPEND',
+      'messageId=' + String(message.id || '') +
+        ' peer=' + String(entry.peer || '').slice(0, 8) +
+        ' messagesAfter=' + entry.messages.length
+    );
     persistState();
     notify('message', { peer: entry.peer, message });
   }
@@ -936,7 +1042,7 @@
       contact.lastReadTimestamp = lastReadTs;
       // חלק אישורי קריאה (chat-state.js) – שליחת אישור קריאה לצד השני | HYPER CORE TECH
       if (typeof App.sendReadReceipt === 'function') {
-        App.sendReadReceipt(normalized, lastReadTs);
+        App.sendReadReceipt(normalized, lastReadTs, latestMessage?.id || '');
       }
     }
     const hadUnread = contact.unreadCount || 0;
@@ -993,10 +1099,55 @@
     if (!entry || !Array.isArray(entry.messages)) return false;
     const message = entry.messages.find(m => m.id === messageId);
     if (!message) return false;
+    const current = String(message.status || '');
+    if (current === 'read' && newStatus !== 'read') return false;
+    if (newStatus !== 'failed') {
+      const prevRank = MESSAGE_STATUS_RANK[current];
+      const nextRank = MESSAGE_STATUS_RANK[newStatus];
+      if (typeof prevRank === 'number' && typeof nextRank === 'number' && nextRank < prevRank) {
+        return false;
+      }
+    }
+    if (current === newStatus) return true;
     message.status = newStatus;
     persistState();
     notify('message', { peer: indexEntry.peer, message, statusUpdate: true });
     return true;
+  }
+
+  function queuePendingReadReceipt(peerPubkey, receipt) {
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (!peer || !receipt) return false;
+    const nextAt = Number(receipt.lastReadAt) || 0;
+    const prev = chatState.pendingReadReceipts.get(peer);
+    if (prev && Number(prev.lastReadAt) > nextAt) return false;
+    chatState.pendingReadReceipts.set(peer, {
+      receiptId: receipt.receiptId || '',
+      lastReadAt: nextAt,
+      lastReadMessageId: receipt.lastReadMessageId || '',
+      queuedAt: Date.now(),
+    });
+    persistState();
+    return true;
+  }
+
+  function takePendingReadReceipt(peerPubkey) {
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (!peer) return null;
+    const row = chatState.pendingReadReceipts.get(peer) || null;
+    if (row) {
+      chatState.pendingReadReceipts.delete(peer);
+      persistState();
+    }
+    return row;
+  }
+
+  function getPendingReadReceipts() {
+    const out = [];
+    chatState.pendingReadReceipts.forEach((row, peer) => {
+      out.push({ peer, ...row });
+    });
+    return out;
   }
 
   // חלק החלפת temp (chat-state.js) – מחליף הודעת optimistic ב-ID אמיתי בלי כפילות ב-UI | HYPER CORE TECH
@@ -1093,6 +1244,7 @@
     getConversationKey,
     restoreChatState: restoreChatModuleState,
     persistChatState: persistState,
+    flushChatPersist,
     ensureChatContact: ensureContact,
     appendChatMessage: appendMessageToConversation,
     removeChatMessage: removeMessageFromConversation,
@@ -1122,6 +1274,9 @@
     updateChatMessageStatus: updateMessageStatus,
     replaceOutgoingTempMessage,
     isPlaceholderContactName,
+    queuePendingReadReceipt,
+    takePendingReadReceipt,
+    getPendingReadReceipts,
   });
 
   // חלק המתנה ל-restore (chat-state.js) – Promise שמאפשר ל-chat-service להמתין לטעינת הקאש | HYPER CORE TECH

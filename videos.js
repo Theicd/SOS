@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.15-desktop-video-ar-feedfix9';
+const VIDEOS_CODE_VERSION = '2.6.15-desktop-video-ar-del1';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -2307,9 +2307,31 @@ function removeVideoCard(eventId) {
   if (!eventId || !selectors.stream) return;
   const card = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${eventId}"]`);
   if (card) {
+    try {
+      const mediaDiv = card.querySelector('.videos-feed__media');
+      if (typeof activeMediaDiv !== 'undefined' && activeMediaDiv && mediaDiv && activeMediaDiv === mediaDiv) {
+        activeMediaDiv = null;
+      }
+    } catch (_) {}
     card.remove();
   }
 }
+
+function purgeDeletedVideo(eventId) {
+  if (!eventId) return;
+  try { pendingWarmCards.delete(eventId); } catch (_) {}
+  try { pendingNewVideoIds.delete(eventId); } catch (_) {}
+  removeVideoFromState(eventId);
+  removeVideoCard(eventId);
+  try {
+    if (typeof autoPlayFirstVideo === 'function') autoPlayFirstVideo();
+  } catch (_) {}
+}
+
+try {
+  const _app = window.NostrApp || (window.NostrApp = {});
+  _app.purgeDeletedVideo = purgeDeletedVideo;
+} catch (_) {}
 
 function truncateFeedLength() {
   if (state.videos.length <= FEED_CACHE_LIMIT) {
@@ -2472,6 +2494,7 @@ const pendingWarmCards = new Map();
 
 function queueNewPostForHomeReveal(video) {
   if (!video?.id) return;
+  if (window.NostrApp?.deletedEventIds?.has?.(video.id)) return;
   if (selectors.stream?.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) {
     return;
   }
@@ -2556,6 +2579,11 @@ function prependNewFeedCardQuietly(video, options = {}) {
 
 function upsertVideoInState(video, options = {}) {
   if (!video || !video.id) return;
+  const app = window.NostrApp;
+  if (app?.deletedEventIds?.has?.(video.id)) {
+    try { console.log('[DELETE-LIFECYCLE] FILTER_BLOCK', { id: video.id, source: 'upsertVideoInState' }); } catch (_) {}
+    return;
+  }
   if (isMediaUnavailable(video)) {
     console.log('[videos] skip unavailable media post', { id: video.id });
     return;
@@ -2814,8 +2842,7 @@ function loadDeletionsFromCache() {
   try {
     const cached = localStorage.getItem(DELETIONS_CACHE_KEY);
     if (!cached) return null;
-    const { ids, timestamp } = JSON.parse(cached);
-    if (Date.now() - timestamp > DELETIONS_CACHE_TTL) return null;
+    const { ids } = JSON.parse(cached);
     return Array.isArray(ids) ? ids : null;
   } catch { return null; }
 }
@@ -2851,25 +2878,33 @@ function seedEventAuthorsFromFeedCache() {
 
 async function loadDeletionsFirst() {
   const app = window.NostrApp;
-  
-  // אם כבר נטענו מחיקות בסשן הזה - דלג
-  if (deletionsLoadedOnce && app?.deletedEventIds?.size > 0) {
-    console.log('[videos] deletions already loaded, skipping');
-    return;
+
+  seedEventAuthorsFromFeedCache();
+  if (typeof app?.restoreDeletionTombstones === 'function') {
+    try { app.restoreDeletionTombstones(); } catch (_) {}
   }
 
-  seedEventAuthorsFromFeedCache(); 
+  // אם כבר נטענו מחיקות בסשן הזה - דלג על רשת, אחרי שחזור tombstones
+  if (deletionsLoadedOnce && app?.deletedEventIds?.size > 0) {
+    console.log('[videos] deletions already loaded, skipping');
+    if (typeof app.retryPendingDeletionPublishes === 'function') {
+      try { app.retryPendingDeletionPublishes(); } catch (_) {}
+    }
+    return;
+  } 
   // ניסיון לטעון מקאש מקומי קודם
   const cachedIds = loadDeletionsFromCache();
   if (cachedIds && cachedIds.length > 0) {
     if (!app.deletedEventIds) app.deletedEventIds = new Set();
-    cachedIds.forEach(id => app.deletedEventIds.add(id));
-    deletionsLoadedOnce = true;
-    console.log('[videos] deletions loaded from cache:', cachedIds.length);
-    return;
+    cachedIds.forEach((id) => app.deletedEventIds.add(id));
+    console.log('[videos] deletions merged from cache:', cachedIds.length);
   }
-  
+  if (typeof app.retryPendingDeletionPublishes === 'function') {
+    try { app.retryPendingDeletionPublishes(); } catch (_) {}
+  }
+
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
+    deletionsLoadedOnce = app?.deletedEventIds?.size > 0;
     return;
   }
 
@@ -6651,6 +6686,10 @@ async function handlePostDeepLink(options = {}) {
   const app = window.NostrApp || {};
 
   let video = Array.isArray(state.videos) ? state.videos.find((v) => v && v.id === postId) : null;
+  if (app?.deletedEventIds?.has?.(postId)) {
+    try { console.log('[DELETE-LIFECYCLE] FILTER_BLOCK', { id: postId, source: 'deep-link' }); } catch (_) {}
+    return false;
+  }
   if (!video) {
     const event = await fetchNoteById(postId);
     if (event) {
@@ -7199,7 +7238,10 @@ function processEventsToVideos(events, currentApp) {
   
   events.forEach((event) => {
     if (!event || event.kind !== 1) return;
-    if (currentApp?.deletedEventIds?.has(event.id)) return;
+    if (currentApp?.deletedEventIds?.has(event.id)) {
+      try { console.log('[DELETE-LIFECYCLE] FILTER_BLOCK', { id: event.id, source: 'processEventsToVideos' }); } catch (_) {}
+      return;
+    }
     if (isMediaUnavailable(event.id)) return;
     
     const lines = String(event.content || '').split('\n');
@@ -7615,6 +7657,10 @@ function registerVideoSourceEvent(event) {
   if (!event || !event.id) return;
   const app = window.NostrApp;
   if (!app) return;
+  if (app.deletedEventIds instanceof Set && app.deletedEventIds.has(event.id)) {
+    try { console.log('[DELETE-LIFECYCLE] FILTER_BLOCK', { id: event.id, source: 'registerVideoSourceEvent' }); } catch (_) {}
+    return;
+  }
 
   if (!(app.eventAuthorById instanceof Map)) {
     app.eventAuthorById = new Map();
@@ -8136,23 +8182,9 @@ function setupVideoRealtimeSubscription(eventIds = []) {
         registerVideoSourceEvent(event);
         registerVideoEngagementEvent(event);
       } else if (event.kind === 5) {
-        // הסתרה בזמן אמת — רק אחרי registerDeletion מאושר | HYPER CORE TECH
         if (typeof app.registerDeletion === 'function') {
           app.registerDeletion(event);
         }
-        const hideIds = [];
-        if (Array.isArray(event.tags)) {
-          event.tags.forEach((tag) => {
-            if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) hideIds.push(tag[1]);
-          });
-        }
-        hideIds.forEach((deletedId) => {
-          if (!(app.deletedEventIds instanceof Set) || !app.deletedEventIds.has(deletedId)) {
-            return;
-          }
-          removeVideoFromState(deletedId);
-          removeVideoCard(deletedId);
-        });
       } else if (event.kind === 7) {
         registerVideoEngagementEvent(event);
       } else if (event.kind === 6) {

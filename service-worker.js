@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v751'; // חירום: P0 reattach + MESH affinity + persist
+  const CACHE_NAME = 'sos-cache-v754'; // APK 1.0.104: durable deletion + pubkey sync + emergency persist
   const PRECACHE_URLS = [
     './',
     './videos.html',

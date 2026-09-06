@@ -75,7 +75,8 @@ object EmergencyMeshDecision {
         parentId: String?,
         hasChildren: Boolean,
         staAp: CapabilityState,
-        candidates: List<MeshParentCandidate>
+        candidates: List<MeshParentCandidate>,
+        lastGoodNodeId: String? = null
     ): MeshParentCandidate? {
         if (parentId != null) return null
         if (!canJoinUpstream(hasChildren, staAp)) return null
@@ -90,7 +91,8 @@ object EmergencyMeshDecision {
                     shouldInitiateJoin(selfId, c.nodeId)
             }
             .minWithOrNull(
-                compareBy<MeshParentCandidate> { if (it.inExistingTree) 0 else 1 }
+                compareBy<MeshParentCandidate> { if (it.nodeId == lastGoodNodeId) 0 else 1 }
+                    .thenBy { if (it.inExistingTree) 0 else 1 }
                     .thenBy { it.depth }
                     .thenByDescending { it.signalDbm }
                     .thenBy { it.nodeId }

@@ -404,6 +404,10 @@ window.SOSEmergency = (function() {
     var seenIds = new Set();
     var pendingDelivery = {};
     var wasActive = false;
+    var pendingMeshOut = [];
+    var MESH_OUTBOX_MAX = 40;
+    var MESH_OUTBOX_TTL_MS = 24 * 60 * 60 * 1000;
+    try { console.log('[CHAT/PERSIST] MODULE emergency-bridge.js v=20260905p1'); } catch (e0) {}
 
     function app() {
         return window.NostrApp || {};
@@ -470,7 +474,8 @@ window.SOSEmergency = (function() {
         seen.add(GROUP_PK);
         peers.forEach(function(p) {
             var pk = String(p && p.pubkey || '').toLowerCase();
-            if (!/^[0-9a-f]{64}$/.test(pk) || pk === me) return;
+            if (/^[0-9a-f]{64}$/.test(pk) === false || pk === me) return;
+            var wasReachable = meshPeerSet.has(pk);
             seen.add(pk);
             meshPeerSet.add(pk);
             var existing = A.chatState && A.chatState.contacts && A.chatState.contacts.get(pk);
@@ -483,6 +488,12 @@ window.SOSEmergency = (function() {
             } else {
                 A.ensureChatContact(pk, { name: name, picture: picture, initials: initials, emergencyMesh: true, meshReachable: true, meshRelation: relation });
                 meshOnly.add(pk);
+            }
+            if (!wasReachable) {
+                try {
+                    if (A.dataChannel && typeof A.dataChannel.connect === 'function') A.dataChannel.connect(pk);
+                    if (typeof A.drainPendingReadReceipts === 'function') A.drainPendingReadReceipts(pk);
+                } catch (e4) {}
             }
         });
         Array.from(meshOnly).forEach(function(pk) {
@@ -553,6 +564,7 @@ window.SOSEmergency = (function() {
             seenIds = new Set(Array.from(seenIds).slice(-200));
         }
         var peer = isGroup ? GROUP_PK : from;
+        var dest = isGroup ? GROUP_PK : me;
         if (typeof A.ensureChatContact === 'function') {
             var existing = A.chatState && A.chatState.contacts && A.chatState.contacts.get(peer);
             if (!existing) {
@@ -569,11 +581,25 @@ window.SOSEmergency = (function() {
             A.appendChatMessage({
                 id: id,
                 from: from,
-                to: peer,
+                to: dest,
                 content: String(msg.text || ''),
                 createdAt: Math.floor(Number(msg.ts || Date.now()) / 1000),
-                direction: 'incoming'
+                direction: 'incoming',
+                emergency: true,
+                source: 'MESH'
             });
+        }
+    }
+
+    function ingestReadReceipt(payload) {
+        var A = app();
+        var msg = payload;
+        if (typeof payload === 'string') {
+            try { msg = JSON.parse(payload); } catch (e) { return; }
+        }
+        if (!msg || msg.type !== 'chat_read_receipt') return;
+        if (typeof A.handleIncomingReadReceipt === 'function') {
+            A.handleIncomingReadReceipt(msg);
         }
     }
 
@@ -596,6 +622,8 @@ window.SOSEmergency = (function() {
             var fromIp = item && item.fromIp;
             if (cb === 'onChatMessage' || (parsed && parsed.type === 'chat')) {
                 ingestChat(fromIp, parsed);
+            } else if (cb === 'onChatReadReceipt' || (parsed && parsed.type === 'chat_read_receipt')) {
+                ingestReadReceipt(parsed);
             } else if (cb === 'onWebRTCSignal' || (parsed && parsed.type === 'webrtc_signal')) {
                 var signal = parsed && parsed.signal ? parsed.signal : parsed;
                 var fromPubkey = parsed && parsed.fromPubkey ? parsed.fromPubkey : '';
@@ -615,6 +643,81 @@ window.SOSEmergency = (function() {
         drainInbox();
     }
     if (window.SOSEmergency) window.SOSEmergency.drainNow = drainNow;
+
+    function rememberOutgoingMesh(payload, options) {
+        pendingMeshOut = pendingMeshOut.filter(function(item) {
+            return item && item.payload && item.payload.id !== payload.id && (Date.now() - (item.queuedAt || 0) < MESH_OUTBOX_TTL_MS);
+        });
+        pendingMeshOut.push({
+            peer: payload.to,
+            text: payload.text,
+            options: options || {},
+            payload: payload,
+            queuedAt: Date.now()
+        });
+        if (pendingMeshOut.length > MESH_OUTBOX_MAX) {
+            pendingMeshOut = pendingMeshOut.slice(-MESH_OUTBOX_MAX);
+        }
+    }
+
+    function persistOutgoingMesh(A, payload, options, status) {
+        var outgoing = {
+            id: payload.id,
+            from: payload.from,
+            to: payload.to,
+            content: payload.text,
+            createdAt: Math.floor(Number(payload.ts || Date.now()) / 1000),
+            direction: 'outgoing',
+            status: status || 'sent',
+            emergency: true,
+            source: 'MESH'
+        };
+        var tempId = options && options.clientTempId;
+        if (tempId && tempId === payload.id && typeof A.updateChatMessageStatus === 'function') {
+            A.updateChatMessageStatus(payload.id, outgoing.status);
+            return;
+        }
+        if (tempId && typeof A.replaceOutgoingTempMessage === 'function') {
+            A.replaceOutgoingTempMessage(tempId, outgoing);
+            return;
+        }
+        if (typeof A.appendChatMessage === 'function') {
+            A.appendChatMessage(outgoing);
+        }
+    }
+
+    function trySendMeshPayload(payload) {
+        if (typeof window.AndroidBridge === 'undefined' || typeof window.AndroidBridge.sendMeshChat !== 'function') {
+            return { ok: false, error: 'no-bridge' };
+        }
+        try {
+            var raw = window.AndroidBridge.sendMeshChat(JSON.stringify(payload));
+            var result = {};
+            try { result = JSON.parse(raw || '{}'); } catch (e2) { result = {}; }
+            return result && result.ok ? result : { ok: false, error: (result && result.error) || 'emergency-send-failed' };
+        } catch (e) {
+            return { ok: false, error: 'emergency-send-failed' };
+        }
+    }
+
+    function drainMeshOutbox() {
+        if (!isRelayOn() || !pendingMeshOut.length) return;
+        var left = [];
+        pendingMeshOut.forEach(function(item) {
+            if (!item || !item.payload) return;
+            if (Date.now() - (item.queuedAt || 0) > MESH_OUTBOX_TTL_MS) return;
+            var result = trySendMeshPayload(item.payload);
+            if (result && result.ok) {
+                var A = app();
+                var mid = result.messageId || item.payload.id;
+                if (mid) pendingDelivery[mid] = item.payload.id;
+                persistOutgoingMesh(A, item.payload, item.options, result.status === 'QUEUED' ? 'queued' : 'sent');
+            } else {
+                left.push(item);
+            }
+        });
+        pendingMeshOut = left;
+    }
 
     function wrapPublish() {
         var A = app();
@@ -637,29 +740,28 @@ window.SOSEmergency = (function() {
                 ts: Date.now()
             };
             if (!payload.text) return orig.apply(this, arguments);
-            try {
-                if (typeof window.AndroidBridge.sendMeshChat === 'function') {
-                    var raw = window.AndroidBridge.sendMeshChat(JSON.stringify(payload));
-                    var result = {};
-                    try { result = JSON.parse(raw || '{}'); } catch (e2) { result = {}; }
-                    if (result && result.ok) {
-                        var mid = result.messageId || payload.id;
-                        if (mid) pendingDelivery[mid] = payload.id;
-                        if (payload.id && payload.id !== mid) pendingDelivery[payload.id] = payload.id;
-                        return Promise.resolve({
-                            ok: true,
-                            messageId: payload.id || mid,
-                            emergency: true,
-                            status: result.status || 'SENT'
-                        });
-                    }
-                    return Promise.resolve({ ok: false, error: (result && result.error) || 'emergency-send-failed' });
-                }
-                window.AndroidBridge.broadcastMessage(JSON.stringify(payload));
-            } catch (e) {
-                return Promise.resolve({ ok: false, error: 'emergency-send-failed' });
+            var result = trySendMeshPayload(payload);
+            if (result && result.ok) {
+                var mid = result.messageId || payload.id;
+                if (mid) pendingDelivery[mid] = payload.id;
+                if (payload.id && payload.id !== mid) pendingDelivery[payload.id] = payload.id;
+                persistOutgoingMesh(A, payload, options, result.status === 'QUEUED' ? 'queued' : 'sent');
+                return Promise.resolve({
+                    ok: true,
+                    messageId: payload.id || mid,
+                    emergency: true,
+                    status: result.status || 'SENT'
+                });
             }
-            return Promise.resolve({ ok: true, messageId: payload.id, emergency: true });
+            rememberOutgoingMesh(payload, options);
+            persistOutgoingMesh(A, payload, options, 'queued');
+            return Promise.resolve({
+                ok: true,
+                messageId: payload.id,
+                emergency: true,
+                queued: true,
+                status: 'QUEUED'
+            });
         };
         wrapped._emergencyMesh = true;
         A.publishChatMessage = wrapped;
@@ -668,20 +770,26 @@ window.SOSEmergency = (function() {
 
     function applyDeliveries() {
         var A = app();
-        if (typeof A.updateMessageStatus !== 'function') return;
+        if (typeof A.updateChatMessageStatus !== 'function') return;
         if (typeof window.AndroidBridge === 'undefined' || typeof window.AndroidBridge.getMeshDeliveryStatus !== 'function') return;
         Object.keys(pendingDelivery).forEach(function(mid) {
             var st = '';
             try { st = String(window.AndroidBridge.getMeshDeliveryStatus(mid) || ''); } catch (e) { return; }
             var chatId = pendingDelivery[mid] || mid;
             if (st === 'DELIVERED') {
-                A.updateMessageStatus(chatId, 'sent');
+                A.updateChatMessageStatus(chatId, 'sent');
                 delete pendingDelivery[mid];
             } else if (st === 'FAILED') {
-                A.updateMessageStatus(chatId, 'failed');
+                A.updateChatMessageStatus(chatId, 'failed');
                 delete pendingDelivery[mid];
             }
         });
+    }
+
+    function sendMeshReadReceipt(receipt) {
+        if (!receipt || !isRelayOn()) return false;
+        var result = trySendMeshPayload(receipt);
+        return !!(result && result.ok);
     }
 
     function tick() {
@@ -692,7 +800,11 @@ window.SOSEmergency = (function() {
             pushProfile();
             syncPeers();
             drainInbox();
+            drainMeshOutbox();
             applyDeliveries();
+            if (typeof app().drainPendingReadReceipts === 'function') {
+                try { app().drainPendingReadReceipts(); } catch (e3) {}
+            }
         } else if (wasActive) {
             clearMeshContacts();
         }
@@ -701,6 +813,13 @@ window.SOSEmergency = (function() {
 
     setInterval(tick, 3000);
     window.addEventListener('sos-native-resume', drainNow);
+    if (window.SOSEmergency) {
+        window.SOSEmergency.sendMeshReadReceipt = sendMeshReadReceipt;
+        window.SOSEmergency.drainMeshOutbox = drainMeshOutbox;
+        window.SOSEmergency.isMeshPeer = function(pk) {
+            return meshPeerSet.has(String(pk || '').toLowerCase());
+        };
+    }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() { setTimeout(tick, 800); });
     } else {

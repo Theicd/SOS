@@ -135,6 +135,10 @@
   async function ingestEvent(event, meta = {}) {
     if (!isEventLike(event)) return false;
     if (event.kind === 30078) return false;
+    if (event.kind !== 5 && App.deletedEventIds instanceof Set && event.id && App.deletedEventIds.has(event.id)) {
+      try { console.log('[DELETE-LIFECYCLE] FILTER_BLOCK', { id: event.id, source: 'p2p-event-sync' }); } catch (_) {}
+      return false;
+    }
 
     state.stats.ingested++;
 
@@ -334,6 +338,8 @@
           }
         } else if (ev.kind === 7) {
           newLikes.push(ev);
+        } else if (ev.kind === 5 && typeof App.registerDeletion === 'function') {
+          App.registerDeletion(ev);
         }
       }
     }
@@ -410,6 +416,10 @@
         }
         const rec = cursor.value;
         if (rec && kindsSet.has(rec.kind) && rec.created_at >= since) {
+          if (App.deletedEventIds instanceof Set && rec.id && App.deletedEventIds.has(rec.id)) {
+            cursor.continue();
+            return;
+          }
           results.push({
             id: rec.id,
             pubkey: rec.pubkey,

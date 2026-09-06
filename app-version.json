@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.05-p0-recover",
-  "buildTime": "2026-09-05T02:55:00+03:00",
-  "notes": "P0 recover: reattach, MESH affinity, emergency chat persistence"
+  "version": "2026.09.06-del-sync",
+  "buildTime": "2026-09-06T04:04:00+03:00",
+  "notes": "Durable post deletion, pubkey sync idempotency, emergency persist"
 }

@@ -109,16 +109,28 @@ class SosJsBridge(
     /** שמירת pubkey לשירות הרקע – חובה לקבלת הודעות כשהממשק סגור | HYPER CORE TECH */
     @JavascriptInterface
     fun setUserPubkey(pubkey: String?) {
-        SosSessionStore.setPubkey(context.applicationContext, pubkey)
-        SosForegroundService.start(context.applicationContext)
-        SosRelayWatcher.ensureStarted(context.applicationContext)
-        SosP2pStandby.ensureStarted(context.applicationContext)
+        val appCtx = context.applicationContext
+        val incoming = SosSessionStore.normalizeHexPubkey(pubkey)
+        if (incoming.isEmpty()) return
+        if (!SosSessionStore.shouldPersistPubkey(SosSessionStore.getPubkey(appCtx), incoming)) {
+            SosRelayWatcher.ensureStarted(appCtx)
+            SosP2pStandby.ensureStarted(appCtx)
+            return
+        }
+        SosSessionStore.setPubkey(appCtx, incoming)
+        SosForegroundService.start(appCtx)
+        SosRelayWatcher.ensureStarted(appCtx)
+        SosP2pStandby.ensureStarted(appCtx)
     }
 
     /** מפתח פרטי ל-P2P Native ברקע (אחרי סגירת כרטיסייה) | HYPER CORE TECH */
     @JavascriptInterface
     fun setUserPrivkey(privkey: String?) {
-        SosSessionStore.setPrivkey(context.applicationContext, privkey)
+        val appCtx = context.applicationContext
+        val incoming = SosSessionStore.normalizeHexPubkey(privkey)
+        if (incoming.isEmpty()) return
+        if (incoming == SosSessionStore.getPrivkey(appCtx)) return
+        SosSessionStore.setPrivkey(appCtx, incoming)
     }
 
     @JavascriptInterface

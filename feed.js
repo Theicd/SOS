@@ -1,6 +1,8 @@
 ;(function initFeed(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   App.deletedEventIds = App.deletedEventIds || new Set(); // חלק פיד (feed.js) – שומר מזהים של פוסטים שנמחקו כדי שלא להציגם
+  App.deletionTombstones = App.deletionTombstones instanceof Map ? App.deletionTombstones : new Map();
+  let allFeedEvents = [];
   App.profileCache = App.profileCache || new Map(); // חלק פיד (feed.js) – מאחסן מטא-דאטה של פרופילים כדי לחסוך שאילתות
   App.eventAuthorById = App.eventAuthorById || new Map(); // חלק פיד (feed.js) – מאפשר לשייך אירועים למחבר שלהם למטרות הרשאות
   App.likesByEventId = App.likesByEventId || new Map(); // חלק פיד (feed.js) – סופר לייקים לכל פוסט לפי מזהה האירוע
@@ -2321,21 +2323,161 @@
     } catch (_) {}
   }
 
-  function applyDeletedEventLocally(eventId) {
-    if (!eventId) return false;
-    const already = App.deletedEventIds instanceof Set && App.deletedEventIds.has(eventId);
-    if (!already) {
-      App.deletedEventIds.add(eventId);
+  const TOMBSTONE_STORE_PREFIX = 'nostr_deleted_tombstones_v1_';
+  const TOMBSTONE_MAX = 2000;
+  const LEGACY_DELETIONS_CACHE_KEY = 'videos_deletions_cache_v2';
+  const deletionPublishRetryTimers = new Map();
+
+  function logDeleteLifecycle(action, extra) {
+    try {
+      console.log('[DELETE-LIFECYCLE] ' + action, extra || {});
+    } catch (_) {}
+  }
+
+  function getTombstoneStorageKey() {
+    let pk = '';
+    try {
+      pk = String(
+        App.publicKey ||
+        (typeof localStorage !== 'undefined' && (localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey'))) ||
+        ''
+      ).trim().toLowerCase();
+    } catch (_) {}
+    return TOMBSTONE_STORE_PREFIX + (pk || 'local');
+  }
+
+  function persistDeletionTombstones() {
+    if (!(App.deletionTombstones instanceof Map)) return;
+    const rows = [];
+    App.deletionTombstones.forEach((meta, id) => {
+      if (!id) return;
+      rows.push({
+        targetEventId: id,
+        deletionEventId: meta?.deletionEventId || '',
+        deleter: meta?.deleter || '',
+        createdAt: Number(meta?.createdAt) || 0,
+        publishState: meta?.publishState || 'confirmed',
+      });
+    });
+    rows.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const kept = rows.slice(0, TOMBSTONE_MAX);
+    try {
+      localStorage.setItem(getTombstoneStorageKey(), JSON.stringify({
+        tombstones: kept,
+        updatedAt: Date.now(),
+      }));
+    } catch (err) {
+      console.warn('[DELETE-LIFECYCLE] persist failed', err);
     }
+    try {
+      localStorage.setItem(LEGACY_DELETIONS_CACHE_KEY, JSON.stringify({
+        ids: kept.map((row) => row.targetEventId),
+        timestamp: Date.now(),
+      }));
+    } catch (_) {}
+  }
+
+  function restoreDeletionTombstones() {
+    if (!(App.deletedEventIds instanceof Set)) App.deletedEventIds = new Set();
+    if (!(App.deletionTombstones instanceof Map)) App.deletionTombstones = new Map();
+    const ids = [];
+    try {
+      const raw = localStorage.getItem(getTombstoneStorageKey());
+      const parsed = raw ? JSON.parse(raw) : null;
+      const rows = Array.isArray(parsed?.tombstones) ? parsed.tombstones : [];
+      rows.forEach((row) => {
+        const id = row?.targetEventId || row?.id;
+        if (!id) return;
+        App.deletedEventIds.add(id);
+        App.deletionTombstones.set(id, {
+          deletionEventId: row.deletionEventId || '',
+          deleter: row.deleter || '',
+          createdAt: Number(row.createdAt) || 0,
+          publishState: row.publishState || 'confirmed',
+        });
+        ids.push(id);
+      });
+    } catch (err) {
+      console.warn('[DELETE-LIFECYCLE] restore failed', err);
+    }
+    try {
+      const legacyRaw = localStorage.getItem(LEGACY_DELETIONS_CACHE_KEY);
+      if (legacyRaw) {
+        const legacy = JSON.parse(legacyRaw);
+        const legacyIds = Array.isArray(legacy?.ids) ? legacy.ids : [];
+        legacyIds.forEach((id) => {
+          if (!id || App.deletedEventIds.has(id)) return;
+          App.deletedEventIds.add(id);
+          App.deletionTombstones.set(id, {
+            deletionEventId: '',
+            deleter: '',
+            createdAt: 0,
+            publishState: 'confirmed',
+          });
+          ids.push(id);
+        });
+      }
+    } catch (_) {}
+    if (ids.length) persistDeletionTombstones();
+    logDeleteLifecycle('RESTORE_TOMBSTONES', { count: App.deletedEventIds.size });
+    return App.deletedEventIds.size;
+  }
+
+  function purgeCanonicalPostState(eventId) {
+    if (!eventId) return;
     removePostElement(eventId);
     const parentId = removeCommentLocally(eventId);
     if (parentId) {
-      try {
-        updateCommentsForParent(parentId);
-      } catch (_) {}
+      try { updateCommentsForParent(parentId); } catch (_) {}
       notifyCommentsChanged(parentId);
     }
+    if (App.postsById instanceof Map) App.postsById.delete(eventId);
+    if (Array.isArray(allFeedEvents)) {
+      allFeedEvents = allFeedEvents.filter((ev) => ev && ev.id !== eventId);
+    }
+    if (Array.isArray(window._allFeedEvents)) {
+      window._allFeedEvents = window._allFeedEvents.filter((ev) => ev && ev.id !== eventId);
+    }
+    if (Array.isArray(App.pendingNotificationQueue)) {
+      App.pendingNotificationQueue = App.pendingNotificationQueue.filter((item) => {
+        const nid = item?.id || item?.eventId || item?.event?.id;
+        return nid !== eventId;
+      });
+    }
+    if (App.pendingNotificationSet instanceof Set) App.pendingNotificationSet.delete(eventId);
+    try {
+      if (typeof App.purgeDeletedVideo === 'function') App.purgeDeletedVideo(eventId);
+    } catch (_) {}
+    logDeleteLifecycle('STATE_REMOVED', { id: eventId });
+    logDeleteLifecycle('CACHE_REMOVED', { id: eventId });
+  }
+
+  function applyDeletion(targetEventId, deletionMetadata) {
+    if (!targetEventId) return false;
+    const meta = deletionMetadata && typeof deletionMetadata === 'object' ? deletionMetadata : {};
+    if (!(App.deletedEventIds instanceof Set)) App.deletedEventIds = new Set();
+    if (!(App.deletionTombstones instanceof Map)) App.deletionTombstones = new Map();
+    const already = App.deletedEventIds.has(targetEventId);
+    const prev = App.deletionTombstones.get(targetEventId) || {};
+    App.deletedEventIds.add(targetEventId);
+    App.deletionTombstones.set(targetEventId, {
+      deletionEventId: meta.deletionEventId || prev.deletionEventId || '',
+      deleter: meta.deleter || prev.deleter || App.publicKey || '',
+      createdAt: Number(meta.createdAt) || prev.createdAt || Math.floor(Date.now() / 1000),
+      publishState: meta.publishState || prev.publishState || 'confirmed',
+    });
+    persistDeletionTombstones();
+    logDeleteLifecycle('TOMBSTONE_APPLIED', {
+      id: targetEventId,
+      source: meta.source || 'unknown',
+      already: already,
+    });
+    purgeCanonicalPostState(targetEventId);
     return !already;
+  }
+
+  function applyDeletedEventLocally(eventId) {
+    return applyDeletion(eventId, { source: 'local', deleter: App.publicKey || '', publishState: 'pending' });
   }
 
   function canViewerDeleteComment(comment) {
@@ -2382,10 +2524,6 @@
       if (!Array.isArray(tag)) return;
       const [type, value] = tag;
       if ((type === 'e' || type === 'a') && value) {
-        // כבר מוסתר — בלי לוג ובלי עבודה חוזרת | HYPER CORE TECH
-        if (App.deletedEventIds instanceof Set && App.deletedEventIds.has(value)) {
-          return;
-        }
         const author = App.eventAuthorById?.get(value)?.toLowerCase?.();
         // חלק פיד (feed.js) – מאפשר מחיקה אם:
         // 1. המוחק הוא אדמין, או
@@ -2403,7 +2541,13 @@
           // בלי לוג חוזר לכל ריליי — מספיק silent defer אחרי seed authors | HYPER CORE TECH
           return;
         }
-        const isNew = applyDeletedEventLocally(value);
+        const isNew = applyDeletion(value, {
+          source: 'incoming',
+          deletionEventId: event.id || '',
+          deleter: eventPubkey,
+          createdAt: event.created_at,
+          publishState: 'confirmed',
+        });
         if (isNew) {
           anyNew = true;
           logDeletionDebug('accepted deletion', {
@@ -2957,7 +3101,7 @@
   }
 
   // חלק infinite scroll (feed.js) – משתנים גלובליים לניהול טעינה הדרגתית
-  let allFeedEvents = [];
+  allFeedEvents = Array.isArray(allFeedEvents) ? allFeedEvents : [];
   let displayedPostsCount = 0;
   const POSTS_PER_LOAD = 10;
   let isLoadingMore = false;
@@ -2991,8 +3135,19 @@
     const eventsToUse = append ? allFeedEvents : events;
 
     const deletions = App.deletedEventIds || new Set();
+    if (!(App._loggedFilterBlock instanceof Set)) App._loggedFilterBlock = new Set();
     // חלק infinite scroll (feed.js) – סינון מחיקות מהרשימה הנכונה (allFeedEvents בעת append, events בפעם הראשונה)
-    const visibleEvents = eventsToUse.filter((event) => !deletions.has(event.id));
+    const visibleEvents = eventsToUse.filter((event) => {
+      if (!event?.id) return false;
+      if (deletions.has(event.id)) {
+        if (!App._loggedFilterBlock.has(event.id)) {
+          App._loggedFilterBlock.add(event.id);
+          logDeleteLifecycle('FILTER_BLOCK', { id: event.id, source: append ? 'displayPosts-append' : 'displayPosts' });
+        }
+        return false;
+      }
+      return true;
+    });
 
     if (!visibleEvents.length) {
       // חלק ברכה (feed.js) – אם אין פוסטים, רק מסתירים את הסטטוס, הברכה כבר קיימת
@@ -3621,7 +3776,6 @@ async function loadFeed() {
     }
     // חלק שמירת state (feed.js) – אל תאפס את הנתונים אם חוזרים לפיד
     if (!isReturningToFeed) {
-      App.deletedEventIds = new Set();
       App.likesByEventId = new Map();
       App.commentsByParent = new Map();
       // אחרי איפוס — משחזרים תגובות מהקאש המקומי | HYPER CORE TECH
@@ -3630,6 +3784,7 @@ async function loadFeed() {
         App.commentsRestored = true;
       }
     }
+    restoreDeletionTombstones();
 
     // חלק חזרה לפיד (feed.js) – אם יש state שמור, רנדר מיד את הפוסטים ושחרר את מסך הברכה
     if (isReturningToFeed && Array.isArray(window._allFeedEvents) && window._allFeedEvents.length > 0) {
@@ -3661,7 +3816,7 @@ async function loadFeed() {
     if (!App._homeFeedFirstBatchShown && App.EventSync?.loadCachedEvents) {
       try {
         const cachedPosts = await App.EventSync.loadCachedEvents({ kinds: [1], limit: 30 });
-        const validPosts = cachedPosts.filter(e => !extractParentId(e));
+        const validPosts = cachedPosts.filter((e) => !extractParentId(e) && !App.deletedEventIds.has(e.id));
         if (validPosts.length >= 5) {
           console.log('[FEED CACHE] First paint from cache:', validPosts.length, 'posts');
           setWelcomeLoading(50);
@@ -3715,6 +3870,10 @@ async function loadFeed() {
               return;
             }
             seenEventIds.add(event.id);
+            if (event.kind === 1 && App.deletedEventIds instanceof Set && App.deletedEventIds.has(event.id)) {
+              logDeleteLifecycle('FILTER_BLOCK', { id: event.id, source: 'feed-initial' });
+              return;
+            }
             // חלק cache (feed.js) – שמירת אירועים ב-EventSync לשימוש חוזר | HYPER CORE TECH
             if (App.EventSync?.ingestEvent) {
               App.EventSync.ingestEvent(event, { source: 'feed-initial' });
@@ -3734,6 +3893,8 @@ async function loadFeed() {
                   // תגובה רגילה
                   registerComment(event, parentId);
                 }
+              } else if (App.deletedEventIds instanceof Set && App.deletedEventIds.has(event.id)) {
+                logDeleteLifecycle('FILTER_BLOCK', { id: event.id, source: 'feed-initial' });
               } else {
                 events.push(event);
               }
@@ -3807,6 +3968,10 @@ async function loadFeed() {
           return;
         }
         seenEventIds.add(event.id);
+        if (event.kind === 1 && App.deletedEventIds instanceof Set && App.deletedEventIds.has(event.id)) {
+          logDeleteLifecycle('FILTER_BLOCK', { id: event.id, source: 'feed-subscription' });
+          return;
+        }
         // חלק cache (feed.js) – שמירת אירועים מ-subscription ב-EventSync | HYPER CORE TECH
         if (App.EventSync?.ingestEvent) {
           App.EventSync.ingestEvent(event, { source: 'feed-subscription' });
@@ -4169,13 +4334,46 @@ async function loadFeed() {
     } catch (err) {}
   }
 
-  async function deletePostQuiet(eventId) {
-    // חלק מחיקה שקטה (feed.js) – מוחק פוסט בלי אישור/הודעות UI לשמירה על יציבות
-    if (!eventId) {
-      return;
+  function markDeletionPublishState(eventId, publishState, deletionEventId) {
+    if (!eventId || !(App.deletionTombstones instanceof Map)) return;
+    const prev = App.deletionTombstones.get(eventId) || {};
+    App.deletionTombstones.set(eventId, {
+      deletionEventId: deletionEventId || prev.deletionEventId || '',
+      deleter: prev.deleter || App.publicKey || '',
+      createdAt: prev.createdAt || Math.floor(Date.now() / 1000),
+      publishState,
+    });
+    persistDeletionTombstones();
+  }
+
+  function scheduleDeletionPublishRetry(eventId) {
+    if (!eventId || deletionPublishRetryTimers.has(eventId)) return;
+    const meta = App.deletionTombstones.get(eventId) || {};
+    const n = Number(meta.retryCount) || 0;
+    if (n >= 3) return;
+    const delay = [5000, 15000, 30000][n] || 30000;
+    const timer = setTimeout(() => {
+      deletionPublishRetryTimers.delete(eventId);
+      const next = App.deletionTombstones.get(eventId) || meta;
+      next.retryCount = n + 1;
+      App.deletionTombstones.set(eventId, next);
+      publishDeletionEvent(eventId, { quiet: true }).catch(() => {});
+    }, delay);
+    deletionPublishRetryTimers.set(eventId, timer);
+  }
+
+  async function publishDeletionEvent(eventId, options = {}) {
+    const quiet = !!(options && options.quiet);
+    if (!eventId) return false;
+    const meta = App.deletionTombstones.get(eventId);
+    if (meta && meta.publishState === 'confirmed' && !(options && options.force)) {
+      return true;
     }
-    if (!App.pool || typeof App.finalizeEvent !== 'function') {
-      return;
+    if (!App.pool || typeof App.finalizeEvent !== 'function' || !App.publicKey || !App.privateKey) {
+      logDeleteLifecycle('PUBLISH_FAIL', { id: eventId, reason: 'no-pool-or-keys' });
+      markDeletionPublishState(eventId, 'failed');
+      scheduleDeletionPublishRetry(eventId);
+      return false;
     }
     const draft = {
       kind: 5,
@@ -4187,23 +4385,58 @@ async function loadFeed() {
       ],
       content: '',
     };
-    const event = App.finalizeEvent(draft, App.privateKey);
+    let event;
     try {
-      logDeletionPublish('publishing delete (quiet)', { eventId, relays: App.relayUrls });
-      await App.pool.publish(App.relayUrls, event);
-      App.deletedEventIds.add(eventId);
-      removePostElement(eventId);
-      // אם זה היה id של תגובה (או במקרה נדיר) – מנקים גם מהמאגר | HYPER CORE TECH
-      const parentId = removeCommentLocally(eventId);
-      if (parentId) {
-        try { updateCommentsForParent(parentId); } catch (_) {}
-        notifyCommentsChanged(parentId);
-      }
-      logDeletionPublish('delete published (quiet)', { eventId });
-    } catch (e) {
-      // מחיקה שקטה – לא מפוצצים UI
-      console.warn('Quiet delete publish error', e);
+      event = App.finalizeEvent(draft, App.privateKey);
+    } catch (err) {
+      logDeleteLifecycle('PUBLISH_FAIL', { id: eventId, reason: 'finalize' });
+      markDeletionPublishState(eventId, 'failed');
+      scheduleDeletionPublishRetry(eventId);
+      return false;
     }
+    logDeleteLifecycle('PUBLISH_START', { id: eventId, deletionEventId: event.id });
+    if (quiet) logDeletionPublish('publishing delete (quiet)', { eventId, relays: App.relayUrls });
+    else logDeletionPublish('publishing delete', { eventId, relays: App.relayUrls, pubkey: event.pubkey });
+    try {
+      await App.pool.publish(App.relayUrls, event);
+      markDeletionPublishState(eventId, 'confirmed', event.id);
+      logDeleteLifecycle('PUBLISH_OK', { id: eventId, deletionEventId: event.id });
+      logDeletionPublish(quiet ? 'delete published (quiet)' : 'delete published successfully', {
+        eventId,
+        deletionEventId: event.id,
+      });
+      return true;
+    } catch (err) {
+      markDeletionPublishState(eventId, 'failed', event.id);
+      logDeleteLifecycle('PUBLISH_FAIL', { id: eventId, reason: err?.message || 'publish' });
+      if (!quiet) logDeletionPublish('delete publish FAILED', { eventId, error: err?.message });
+      else console.warn('Quiet delete publish error', err);
+      scheduleDeletionPublishRetry(eventId);
+      return false;
+    }
+  }
+
+  async function retryPendingDeletionPublishes() {
+    if (!(App.deletionTombstones instanceof Map)) return;
+    const pending = [];
+    App.deletionTombstones.forEach((meta, id) => {
+      const state = meta?.publishState;
+      if (state === 'pending' || state === 'failed') pending.push(id);
+    });
+    for (let i = 0; i < pending.length; i++) {
+      await publishDeletionEvent(pending[i], { quiet: true });
+    }
+  }
+
+  async function deletePostQuiet(eventId) {
+    // חלק מחיקה שקטה (feed.js) – מוחק פוסט בלי אישור/הודעות UI לשמירה על יציבות
+    if (!eventId) return;
+    applyDeletion(eventId, {
+      source: 'local',
+      deleter: App.publicKey || '',
+      publishState: 'pending',
+    });
+    await publishDeletionEvent(eventId, { quiet: true });
   }
 
   function openEditPost(eventId) {
@@ -4572,53 +4805,25 @@ async function loadFeed() {
     if (!eventId) {
       return;
     }
-    if (!App.pool || typeof App.finalizeEvent !== 'function') {
-      console.warn('Pool or finalizeEvent unavailable for deletion');
-      return;
-    }
+    logDeleteLifecycle('CLICK', { id: eventId });
 
     const confirmed = window.confirm('למחוק את הפוסט? פעולה זו אינה ניתנת לשחזור.');
     if (!confirmed) {
       return;
     }
 
-    const draft = {
-      kind: 5,
-      pubkey: App.publicKey,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [
-        ['e', eventId],
-        ['t', App.NETWORK_TAG],
-      ],
-      content: '',
-    };
-    const event = App.finalizeEvent(draft, App.privateKey);
-
-    try {
-      logDeletionPublish('publishing delete', { 
-        eventId, 
-        relays: App.relayUrls,
-        fullEvent: event,
-        tags: event.tags,
-        pubkey: event.pubkey
-      });
-      await App.pool.publish(App.relayUrls, event);
-      console.log('Deleted event published to relays:', App.relayUrls);
-      applyDeletedEventLocally(eventId);
-      logDeletionPublish('delete published successfully', { eventId, deletionEventId: event.id });
-    } catch (e) {
-      console.error('Delete publish error', e);
-      logDeletionPublish('delete publish FAILED', { eventId, error: e.message });
-    }
+    applyDeletion(eventId, {
+      source: 'local',
+      deleter: App.publicKey || '',
+      createdAt: Math.floor(Date.now() / 1000),
+      publishState: 'pending',
+    });
+    await publishDeletionEvent(eventId);
   }
 
   async function deleteComment(commentId, parentId) {
     // חלק מחיקת תגובות (feed.js) – NIP-09 kind 5 לתגובה; מחבר או מנהל בלבד | HYPER CORE TECH
     if (!commentId) {
-      return;
-    }
-    if (!App.pool || typeof App.finalizeEvent !== 'function') {
-      console.warn('Pool or finalizeEvent unavailable for comment deletion');
       return;
     }
     if (!App.publicKey || !App.privateKey) {
@@ -4655,36 +4860,14 @@ async function loadFeed() {
       return;
     }
 
-    const draft = {
-      kind: 5,
-      pubkey: App.publicKey,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [
-        ['e', commentId],
-        ['t', App.NETWORK_TAG],
-      ],
-      content: '',
-    };
-    const event = App.finalizeEvent(draft, App.privateKey);
-
-    try {
-      logDeletionPublish('publishing comment delete', {
-        commentId,
-        parentId: resolvedParent,
-        relays: App.relayUrls,
-        pubkey: event.pubkey,
-      });
-      await App.pool.publish(App.relayUrls, event);
-      applyDeletedEventLocally(commentId);
-      logDeletionPublish('comment delete published successfully', {
-        commentId,
-        parentId: resolvedParent,
-        deletionEventId: event.id,
-      });
-    } catch (e) {
-      console.error('Comment delete publish error', e);
-      logDeletionPublish('comment delete publish FAILED', { commentId, error: e.message });
-    }
+    logDeleteLifecycle('CLICK', { id: commentId, source: 'comment' });
+    applyDeletion(commentId, {
+      source: 'local',
+      deleter: App.publicKey || '',
+      createdAt: Math.floor(Date.now() / 1000),
+      publishState: 'pending',
+    });
+    await publishDeletionEvent(commentId);
   }
 
   // חלק עדכון בזמן אמת (feed.js) – פונקציה להוספת פוסט חדש לפיד מיד אחרי פרסום | HYPER CORE TECH
@@ -4749,6 +4932,9 @@ async function loadFeed() {
     deletePost,
     deletePostQuiet,
     deleteComment,
+    applyDeletion,
+    restoreDeletionTombstones,
+    retryPendingDeletionPublishes,
     registerComment,
     updateCommentsForParent,
     listVisibleComments,
@@ -4771,6 +4957,8 @@ async function loadFeed() {
   });
 
   // חלק וידאו/תמונות (feed.js) – אתחול טיפול בוידאו ו-Lightbox לתמונות
+  try { restoreDeletionTombstones(); } catch (_) {}
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initVideoPlayHandlers();

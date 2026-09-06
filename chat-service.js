@@ -91,6 +91,7 @@
 
 (function initChatService(window) {
   const App = window.NostrApp || (window.NostrApp = {});
+  try { console.log('[CHAT/PERSIST] MODULE chat-service.js v=20260905p1'); } catch (_) {}
 
   // חלק צ'אט (chat-service.js) – קבועים לזיהוי אירועי שיחה
   const CHAT_KIND = 1050;
@@ -979,6 +980,7 @@
     ensureChatKeepaliveStarted();
     subscribeToChatEvents();
     bootstrapContactsFromFeed();
+    try { drainPendingReadReceipts(); } catch (_) {}
 
     // חלק P2P pre-connect (chat-service.js) – 10 שניות אחרי אתחול, מחבר DC ל-5 אנשי קשר אחרונים | HYPER CORE TECH
     setTimeout(() => {
@@ -1021,63 +1023,152 @@
 
   // חלק אישורי קריאה (chat-service.js) – שליחת אישור קריאה לצד השני כשפותחים שיחה | HYPER CORE TECH
   const READ_RECEIPT_KIND = 1051; // kind מיוחד לאישורי קריאה
-  
-  async function sendReadReceipt(peerPubkey, lastReadTs) {
+  const lastAppliedReadAt = new Map();
+  const inFlightReceiptIds = new Set();
+
+  function buildReadReceipt(peerPubkey, lastReadTs, lastReadMessageId) {
+    const self = String(App.publicKey || '').toLowerCase();
+    const to = String(peerPubkey || '').toLowerCase();
+    const lastReadAt = lastReadTs || Math.floor(Date.now() / 1000);
+    return {
+      type: 'chat_read_receipt',
+      receiptId: 'rr-' + self.slice(0, 12) + '-' + to.slice(0, 12) + '-' + lastReadAt,
+      from: self,
+      to,
+      lastReadAt,
+      lastReadMessageId: lastReadMessageId || '',
+    };
+  }
+
+  function canUseNostrPool() {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    } catch (_) {}
     const pool = ensurePoolReady();
-    if (!pool || !peerPubkey || App.guestMode) return;
-    if (typeof App.finalizeEvent !== 'function' || !App.privateKey) return;
-    
-    const normalizedPeer = peerPubkey.toLowerCase();
-    const content = JSON.stringify({ lastReadAt: lastReadTs || Math.floor(Date.now() / 1000) });
-    
+    return !!(pool && App.privateKey && typeof App.finalizeEvent === 'function');
+  }
+
+  function sendReceiptOverDc(receipt) {
+    if (!receipt || !App.dataChannel) return false;
+    if (typeof App.dataChannel.isConnected === 'function' && !App.dataChannel.isConnected(receipt.to)) return false;
+    if (typeof App.dataChannel.sendJson === 'function') {
+      return !!App.dataChannel.sendJson(receipt.to, receipt);
+    }
+    if (typeof App.dataChannel.send === 'function') {
+      return !!App.dataChannel.send(receipt.to, receipt);
+    }
+    return false;
+  }
+
+  function sendReceiptOverMesh(receipt) {
+    try {
+      if (window.SOSEmergency && typeof window.SOSEmergency.sendMeshReadReceipt === 'function') {
+        return !!window.SOSEmergency.sendMeshReadReceipt(receipt);
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  async function sendReceiptOverNostr(receipt) {
+    const pool = ensurePoolReady();
+    if (!pool || !receipt || App.guestMode) return false;
+    if (typeof App.finalizeEvent !== 'function' || !App.privateKey) return false;
     const tags = [
-      ['p', normalizedPeer],
+      ['p', receipt.to],
       ['t', CHAT_TAG],
     ];
-    if (App.NETWORK_TAG) {
-      tags.push(['t', App.NETWORK_TAG]);
-    }
-    
-    const event = {
-      kind: READ_RECEIPT_KIND,
-      pubkey: App.publicKey,
-      created_at: Math.floor(Date.now() / 1000),
-      tags,
-      content,
-    };
-    
-    // חלק אישורי קריאה (chat-service.js) – pool.publish מחזיר promise לכל ריליי, עוטפים ב-allSettled למניעת Uncaught rejection | HYPER CORE TECH
+    if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
     try {
-      const signed = App.finalizeEvent(event, App.privateKey);
+      const signed = App.finalizeEvent({
+        kind: READ_RECEIPT_KIND,
+        pubkey: App.publicKey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: JSON.stringify({
+          type: 'chat_read_receipt',
+          receiptId: receipt.receiptId,
+          lastReadAt: receipt.lastReadAt,
+          lastReadMessageId: receipt.lastReadMessageId || '',
+        }),
+      }, App.privateKey);
       const results = pool.publish(App.relayUrls, signed);
       await Promise.allSettled(results);
-    } catch (err) {
-      // שגיאה ב-finalize או בשליחה — שקט, לא קריטי
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function transmitReadReceipt(receipt) {
+    if (!receipt || !receipt.to) return false;
+    if (sendReceiptOverDc(receipt)) return true;
+    if (sendReceiptOverMesh(receipt)) return true;
+    if (canUseNostrPool() && await sendReceiptOverNostr(receipt)) return true;
+    return false;
+  }
+
+  async function sendReadReceipt(peerPubkey, lastReadTs, lastReadMessageId) {
+    if (!peerPubkey || App.guestMode) return;
+    const receipt = buildReadReceipt(peerPubkey, lastReadTs, lastReadMessageId);
+    if (inFlightReceiptIds.has(receipt.receiptId)) return;
+    inFlightReceiptIds.add(receipt.receiptId);
+    try {
+      const sent = await transmitReadReceipt(receipt);
+      if (!sent && typeof App.queuePendingReadReceipt === 'function') {
+        App.queuePendingReadReceipt(receipt.to, receipt);
+      }
+    } finally {
+      inFlightReceiptIds.delete(receipt.receiptId);
+    }
+  }
+
+  async function drainPendingReadReceipts(peerPubkey) {
+    const rows = typeof App.getPendingReadReceipts === 'function' ? App.getPendingReadReceipts() : [];
+    const target = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      if (!row || (target && row.peer !== target)) continue;
+      const receipt = buildReadReceipt(row.peer, row.lastReadAt, row.lastReadMessageId);
+      receipt.receiptId = row.receiptId || receipt.receiptId;
+      const sent = await transmitReadReceipt(receipt);
+      if (sent && typeof App.takePendingReadReceipt === 'function') {
+        App.takePendingReadReceipt(row.peer);
+      }
     }
   }
   
   // חלק אישורי קריאה (chat-service.js) – טיפול באישור קריאה נכנס - מעדכן סטטוס הודעות ל"נקרא" | HYPER CORE TECH
   function handleIncomingReadReceipt(event) {
-    if (!event || event.kind !== READ_RECEIPT_KIND) return;
-    
-    const sender = event.pubkey?.toLowerCase?.();
+    if (!event) return;
     const self = App.publicKey?.toLowerCase?.() || '';
-    if (sender === self) return; // התעלם מאישורים שלנו
-    
-    // בדוק שהאישור מיועד אלינו
-    const pTag = event.tags?.find?.(t => Array.isArray(t) && t[0] === 'p');
-    const recipient = pTag?.[1]?.toLowerCase?.();
-    if (recipient !== self) return;
-    
+    let sender = '';
+    let recipient = '';
     let lastReadAt = 0;
-    try {
-      const data = JSON.parse(event.content || '{}');
-      lastReadAt = data.lastReadAt || 0;
-    } catch {}
-    
+    let receiptId = '';
+    if (event.type === 'chat_read_receipt' || (!event.kind && event.lastReadAt)) {
+      sender = String(event.from || '').toLowerCase();
+      recipient = String(event.to || '').toLowerCase();
+      lastReadAt = Number(event.lastReadAt) || 0;
+      receiptId = String(event.receiptId || '');
+    } else if (event.kind === READ_RECEIPT_KIND) {
+      sender = event.pubkey?.toLowerCase?.() || '';
+      const pTag = event.tags?.find?.(t => Array.isArray(t) && t[0] === 'p');
+      recipient = pTag?.[1]?.toLowerCase?.() || '';
+      try {
+        const data = JSON.parse(event.content || '{}');
+        lastReadAt = Number(data.lastReadAt) || 0;
+        receiptId = String(data.receiptId || '');
+      } catch {}
+    } else {
+      return;
+    }
+    if (!sender || sender === self) return;
+    if (recipient && recipient !== self) return;
     if (!lastReadAt) return;
+    const prevApplied = lastAppliedReadAt.get(sender) || 0;
+    if (lastReadAt < prevApplied) return;
+    lastAppliedReadAt.set(sender, lastReadAt);
     
-    // עדכן כל ההודעות היוצאות לאותו peer עם createdAt <= lastReadAt לסטטוס "read"
     const messages = typeof App.getChatMessages === 'function' ? App.getChatMessages(sender) : [];
     messages.forEach(msg => {
       if (msg.direction === 'outgoing' && msg.createdAt <= lastReadAt && msg.status !== 'read') {
@@ -1092,6 +1183,7 @@
     handleIncomingReadReceipt._count++;
     if (handleIncomingReadReceipt._count <= 5 || handleIncomingReadReceipt._count % 20 === 0) {
       console.log('[CHAT] Read receipt received from', sender.slice(0, 8), 'up to', lastReadAt,
+        receiptId ? ('id=' + receiptId) : '',
         handleIncomingReadReceipt._count > 5 ? `(total: ${handleIncomingReadReceipt._count})` : '');
     }
   }
@@ -1130,6 +1222,8 @@
     searchProfilesByName,
     syncChatHistory,
     sendReadReceipt,
+    handleIncomingReadReceipt,
+    drainPendingReadReceipts,
   });
 
   if (!App._chatServiceBootstrapped) {

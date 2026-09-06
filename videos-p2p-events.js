@@ -51,17 +51,6 @@
       if (typeof app.registerDeletion === 'function') {
         app.registerDeletion(event);
       }
-      if (Array.isArray(event.tags)) {
-        event.tags.forEach((tag) => {
-          if (Array.isArray(tag) && tag[0] === 'e' && tag[1]) {
-            const deletedId = tag[1];
-            if (app?.deletedEventIds?.has?.(deletedId) || typeof app.registerDeletion !== 'function') {
-              removeVideoFromState(deletedId);
-              removeVideoCard(deletedId);
-            }
-          }
-        });
-      }
       return;
     }
 

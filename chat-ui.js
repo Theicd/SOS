@@ -14,6 +14,7 @@
   const mediaDebugLog = App.mediaDebugLog;
   // חלק אימות גרסה (chat-ui.js) – לוג לוידוא שהקוד החדש נטען | HYPER CORE TECH
   console.log('%c[CHAT-UI] VERSION: WA-FILE-STABLE-v2 (2026-07-30)', 'color: lime; font-size: 14px; font-weight: bold;');
+  try { console.log('[CHAT/PERSIST] MODULE chat-ui.js v=20260905p1'); } catch (_) {}
   // חלק צ'אט (chat-ui.js) – צליל והתרעות להודעות נכנסות | HYPER CORE TECH
   const CHAT_MESSAGE_SOUND_URL = 'https://npub1jqzsts0fz6ufkgxdhna99rqwnn0ptrg9tvmy62m7ytffy4w0ncnsm7rac0.blossom.band/f0a73d1b6550d6a140a63fa91ec906f89dcbc2fdece317dbaa81e5093a319629.mp3';
   let chatMessageAudio = null;
@@ -6385,6 +6386,11 @@
     clearChatContactsSearch();
     state.activeContact = peerPubkey;
     elements.panel.classList.add('chat-panel--conversation');
+    try {
+      const key = typeof App.getConversationKey === 'function' ? App.getConversationKey(peerPubkey, App.publicKey || '') : '';
+      const count = typeof App.getChatMessages === 'function' ? (App.getChatMessages(peerPubkey) || []).length : 0;
+      console.log('[CHAT/PERSIST] OPEN_THREAD peer=' + String(peerPubkey || '').slice(0, 8) + ' conversationKey=' + key + ' messageCount=' + count);
+    } catch (_) {}
     updatePanelMode(PANEL_MODES.CONVERSATION);
     setFooterMode('contacts');
     elements.notificationsSection?.setAttribute('hidden', '');
@@ -6527,6 +6533,14 @@
   }
 
   function resetConversationView() {
+    const prevPeer = state.activeContact;
+    if (prevPeer) {
+      try {
+        const count = typeof App.getChatMessages === 'function' ? (App.getChatMessages(prevPeer) || []).length : 0;
+        console.log('[CHAT/PERSIST] CLOSE_THREAD peer=' + String(prevPeer).slice(0, 8) + ' messageCount=' + count);
+        if (typeof App.flushChatPersist === 'function') App.flushChatPersist();
+      } catch (_) {}
+    }
     state.activeContact = null;
     try { setConversationHistoryLoading(false); } catch (_) {}
     elements.panel.classList.remove('chat-panel--conversation');
