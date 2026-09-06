@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v757'; // UI: one SOS torrent row, not torrent+users
+  const CACHE_NAME = 'sos-cache-v759'; // UI: update toast shows once per version
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -79,7 +79,7 @@
       } catch (err) {
         console.warn('[SW] Precache failed:', err);
       }
-      await self.skipWaiting();
+      // לא skipWaiting כאן — המשתמש לוחץ «עדכן» בכרטיסייה | HYPER CORE TECH
     })());
   });
 

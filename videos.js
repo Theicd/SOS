@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.16-p2p-chatdc1';
+const VIDEOS_CODE_VERSION = '2.6.17-feed-backfill1';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -674,7 +674,24 @@ async function tryAttachVideoFromLocalCache(videoEl, hash) {
     }
     const cached = await App.getCachedMedia(hash);
     if (!cached || !cached.blob) return false;
+    const key = String(hash || '').trim().toLowerCase();
+    const alreadyPlaying = !videoEl.paused && isFinite(videoEl.currentTime) && videoEl.currentTime > 0.25;
+    if (key && videoEl.dataset.attachedHash === key && videoEl.src && alreadyPlaying) {
+      return true;
+    }
+    const resumeAt = alreadyPlaying ? videoEl.currentTime : 0;
     videoEl.src = URL.createObjectURL(cached.blob);
+    if (key) videoEl.dataset.attachedHash = key;
+    if (alreadyPlaying && resumeAt > 0.25) {
+      videoEl.addEventListener('loadedmetadata', () => {
+        try {
+          if (isFinite(videoEl.duration) && resumeAt < videoEl.duration) {
+            videoEl.currentTime = resumeAt;
+          }
+          videoEl.play().catch(() => {});
+        } catch (_) {}
+      }, { once: true });
+    }
     try { videoEl.load(); } catch (_) {}
     try {
       if (typeof App.recordP2PDownload === 'function') {
@@ -1228,10 +1245,11 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
     const videoEl = mediaDiv.querySelector('video');
     if (!videoEl) return;
     mediaDiv.classList.add('videos-feed__media--ready');
-    // בגלילה תמיד מההתחלה; Pause/Play ידני ממשיך מאותה נקודה | HYPER CORE TECH
-    if (!manual) {
+    // איפוס רק במעבר לכרטיס אחר — לא אחרי הבהוב IO על אותו כרטיס | HYPER CORE TECH
+    if (!manual && lastPlayedFileMediaDiv !== mediaDiv) {
       resetFeedVideoToStart(videoEl);
     }
+    lastPlayedFileMediaDiv = mediaDiv;
     
     // ניסיון להפעיל עם צליל
     videoEl.muted = false;
@@ -1283,10 +1301,6 @@ function pauseMedia(mediaDiv, { resetThumb = false, manual = false } = {}) {
     const videoEl = mediaDiv.querySelector('video');
     if (videoEl) {
       videoEl.pause();
-      // בגלילה: מאפסים מיד כדי שבחזרה לפוסט לא יהיה seek כבד | HYPER CORE TECH
-      if (!manual && mediaType === 'file') {
-        resetFeedVideoToStart(videoEl);
-      }
     }
     if (mediaType === 'hls-live') {
       mediaDiv.classList.remove('is-live-playing');
@@ -1812,10 +1826,13 @@ async function fetchNetworkNotes(authors = [], limit = 100, sinceOverride = unde
   const app = window.NostrApp;
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) return [];
   if (!Array.isArray(authors) || authors.length === 0) return [];
-  // אם יש sinceOverride (מהמטמון) - נשתמש בו, אחרת 30 יום
-  const since = sinceOverride || Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
+  // אם יש sinceOverride חיובי (מהמטמון) - נשתמש בו; 0 = בלי since (שחזור) | HYPER CORE TECH
+  const since = (sinceOverride != null && Number(sinceOverride) > 0)
+    ? Number(sinceOverride)
+    : (sinceOverride === 0 ? undefined : Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30);
   const networkTag = getNetworkTag();
-  const filters = [{ kinds: [1], authors, since, limit, '#t': [networkTag] }];
+  const filters = [{ kinds: [1], authors, limit, '#t': [networkTag] }];
+  if (since) filters[0].since = since;
   try {
     if (typeof app.pool.list === 'function') {
       const r = await app.pool.list(app.relayUrls, filters);
@@ -1896,6 +1913,7 @@ const selectors = {
 };
 
 let activeMediaDiv = null;
+let lastPlayedFileMediaDiv = null;
 let intersectionObserver = null;
 
 const FEED_CACHE_KEY = 'videos_feed_cache_v3';
@@ -2036,7 +2054,9 @@ function getVideoRankAt(video) {
 }
 
 // חלק הגבלת טעינה (videos.js) – מניעת טעינת יותר מדי פוסטים בהתחלה | HYPER CORE TECH
-const INITIAL_LOAD_LIMIT = 50; // מספר פוסטים מקסימלי בטעינה ראשונית
+const INITIAL_LOAD_LIMIT = 50; // מנת רענון כשהפיד כבר מלא
+const RECOVER_FETCH_LIMIT = 200; // שחזור פיד דל / מחורר
+const FEED_HEALTHY_MIN = 180; // מתחת לזה — ממשיכים לחפש, לא נעצרים על 50
 const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
 let isLoadingMore = false; // מונע טעינות כפולות
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
@@ -4164,6 +4184,8 @@ function renderVideoCard(video) {
     mediaDiv.dataset.videoUrl = video.videoUrl;
 
     const videoEl = document.createElement('video');
+    const mediaHashKey = String(video.hash || '').trim().toLowerCase();
+    if (mediaHashKey) videoEl.dataset.mediaHash = mediaHashKey;
     videoEl.controls = false;
     videoEl.controlsList = 'nodownload nofullscreen noremoteplayback';
     videoEl.disablePictureInPicture = true;
@@ -7133,6 +7155,27 @@ function updateLoadMoreTrigger() {
   }
 }
 
+let feedBackfillTimer = null;
+function maybeScheduleFeedBackfill() {
+  if (state.feedMode && state.feedMode !== 'all') return;
+  if ((state.videos || []).length >= FEED_HEALTHY_MIN) return;
+  if (feedBackfillTimer) return;
+  feedBackfillTimer = setTimeout(() => {
+    feedBackfillTimer = null;
+    if (state.feedMode && state.feedMode !== 'all') return;
+    if ((state.videos || []).length >= FEED_HEALTHY_MIN) return;
+    if (bootGate.active && !bootGate.released) {
+      maybeScheduleFeedBackfill();
+      return;
+    }
+    const before = (state.videos || []).length;
+    console.log('[videos] backfill still needed', { have: before, want: FEED_HEALTHY_MIN });
+    Promise.resolve(loadMoreVideos()).then(() => {
+      if ((state.videos || []).length > before) maybeScheduleFeedBackfill();
+    }).catch(() => {});
+  }, 800);
+}
+
 async function loadMoreVideos() {
   if (bootGate.active && !bootGate.released) return;
   if (isLoadingMore) return;
@@ -7190,6 +7233,17 @@ async function loadMoreVideos() {
         filtered = filterEventsByNetwork(olderEvents, networkTag);
         filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
         moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
+      }
+
+      if (moreEvents.length === 0 && (state.videos || []).length < FEED_HEALTHY_MIN) {
+        const gapFetched = await fetchRecentNotes(RECOVER_FETCH_LIMIT, 0);
+        const gapNew = (gapFetched || []).filter((ev) => ev && ev.id && !existingIds.has(ev.id));
+        filtered = filterEventsByNetwork(gapNew, networkTag);
+        filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
+        if (moreEvents.length) {
+          console.log('[videos] loadMoreVideos: gap fill', { added: moreEvents.length, have: state.videos.length });
+        }
       }
 
       if (moreEvents.length === 0) {
@@ -7507,9 +7561,12 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined, untilOve
   const networkTag = getNetworkTag();
   const filters = [{ kinds: [1], limit, '#t': [networkTag] }];
   // until = פוסטים ישנים יותר (load-more); since = פוסטים חדשים יותר | HYPER CORE TECH
+  // sinceOverride === 0 → שחזור בלי חלון 30 יום | HYPER CORE TECH
   if (untilOverride != null && Number.isFinite(Number(untilOverride))) {
     filters[0].until = Number(untilOverride);
-  } else if (sinceOverride != null && Number.isFinite(Number(sinceOverride))) {
+  } else if (sinceOverride === 0) {
+    // unbounded recover
+  } else if (sinceOverride != null && Number.isFinite(Number(sinceOverride)) && Number(sinceOverride) > 0) {
     filters[0].since = Number(sinceOverride);
   } else {
     filters[0].since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30;
@@ -7855,11 +7912,12 @@ async function loadVideos() {
   });
   // דילוג רק על מה שמוצג בפועל — לא על IDs "רפאים" בדיסק אחרי סינון | HYPER CORE TECH
   const skipIds = displayedIds;
-  // פיד דל אחרי קיצוץ — מושכים מחדש בלי since כדי לשחזר | HYPER CORE TECH
-  const FEED_RECOVER_MIN = 40;
-  const sinceMergeTime = (displayedIds.size >= FEED_RECOVER_MIN)
-    ? Math.max(newestCachedTime || 0, newestDisplayedTime || 0)
-    : 0;
+  // פיד דל / מחורר — מושכים בלי since ובלי תקרת 50 | HYPER CORE TECH
+  const recoverMode = displayedIds.size < FEED_HEALTHY_MIN;
+  const sinceMergeTime = recoverMode
+    ? 0
+    : Math.max(newestCachedTime || 0, newestDisplayedTime || 0);
+  const fetchLimit = recoverMode ? RECOVER_FETCH_LIMIT : INITIAL_LOAD_LIMIT;
   
   setLoadingProgress(10);
   setLoadingStatus('בודק מטמון מקומי...');
@@ -7868,7 +7926,8 @@ async function loadVideos() {
     cachedCount: cachedIds.size,
     displayedCount: displayedIds.size,
     skipCount: skipIds.size,
-    recoverMode: displayedIds.size < FEED_RECOVER_MIN,
+    recoverMode,
+    fetchLimit,
     newestPostTime: newestCachedTime ? new Date(newestCachedTime * 1000).toLocaleString() : 'none',
     newestDisplayed: newestDisplayedTime ? new Date(newestDisplayedTime * 1000).toLocaleString() : 'none',
   });
@@ -7888,21 +7947,23 @@ async function loadVideos() {
     const filtered = filterEventsByNetwork(newFromApp, networkTag);
     // מיון לפי תאריך (חדש ראשון) והגבלה למספר הפוסטים הראשוני
     filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-    sourceEvents = filtered.slice(0, INITIAL_LOAD_LIMIT);
-    console.log('[videos] loadVideos: postsById', { total: fromApp.length, new: newFromApp.length, afterFilter: filtered.length, limited: sourceEvents.length });
+    sourceEvents = filtered.slice(0, fetchLimit);
+    console.log('[videos] loadVideos: postsById', { total: fromApp.length, new: newFromApp.length, afterFilter: filtered.length, limited: sourceEvents.length, recoverMode });
     setLoadingProgress(40);
-  } else {
-    // Fallback: משיכת אירועים חדשים בלבד מהרילאים (since = הפוסט האחרון במטמון/תצוגה)
+  }
+
+  // פיד דל: גם אם postsById כבר מלא — מושכים מהריליי בלי since (אחרת נתקעים על 50/70) | HYPER CORE TECH
+  if (!sourceEvents.length || recoverMode) {
     setLoadingStatus('מוריד פוסטים מהרשת...');
-    const sinceTime = sinceMergeTime > 0 ? sinceMergeTime : undefined;
-    const fetched = await fetchRecentNotes(INITIAL_LOAD_LIMIT, sinceTime);
+    const sinceTime = recoverMode ? 0 : (sinceMergeTime > 0 ? sinceMergeTime : undefined);
+    const fetched = await fetchRecentNotes(fetchLimit, sinceTime);
     setLoadingProgress(40);
-    // סינון פוסטים שכבר יש בתצוגה והגבלה
-    const newFetched = fetched.filter((ev) => ev && !skipIds.has(ev.id));
+    const seenSrc = new Set(sourceEvents.map((ev) => ev && ev.id).filter(Boolean));
+    const newFetched = (fetched || []).filter((ev) => ev && ev.id && !skipIds.has(ev.id) && !seenSrc.has(ev.id));
     const filtered = filterEventsByNetwork(newFetched, networkTag);
     filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-    sourceEvents = filtered.slice(0, INITIAL_LOAD_LIMIT);
-    console.log('[videos] loadVideos: relays fallback', { fetched: fetched.length || 0, new: newFetched.length, afterFilter: sourceEvents.length, since: sinceTime });
+    sourceEvents = sourceEvents.concat(filtered).slice(0, fetchLimit);
+    console.log('[videos] loadVideos: relays', { fetched: fetched.length || 0, new: newFetched.length, afterFilter: sourceEvents.length, since: sinceTime, recoverMode });
   }
 
   setLoadingProgress(50);
@@ -7913,8 +7974,8 @@ async function loadVideos() {
   if (currentApp?.followingSet && currentApp.followingSet.size) authors.push(...Array.from(currentApp.followingSet));
   if (currentApp?.publicKey) authors.push(currentApp.publicKey);
   if (authors.length) {
-    const sinceTime = sinceMergeTime > 0 ? sinceMergeTime : undefined;
-    const netNotes = await fetchNetworkNotes(authors.slice(0, 100), LOAD_MORE_BATCH, sinceTime);
+    const sinceTime = recoverMode ? 0 : (sinceMergeTime > 0 ? sinceMergeTime : undefined);
+    const netNotes = await fetchNetworkNotes(authors.slice(0, 100), recoverMode ? RECOVER_FETCH_LIMIT : LOAD_MORE_BATCH, sinceTime);
     if (Array.isArray(netNotes) && netNotes.length) {
       // סינון פוסטים שכבר יש בתצוגה
       const newNetNotes = netNotes.filter((ev) => ev && !skipIds.has(ev.id));
@@ -7935,8 +7996,8 @@ async function loadVideos() {
     sourceEvents = sourceEvents.filter(ev => { if (!ev || !ev.id) return false; if (seen.has(ev.id)) return false; seen.add(ev.id); return true; });
     // מיון לפי תאריך והגבלה למספר הפוסטים המקסימלי
     sourceEvents.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-    sourceEvents = sourceEvents.slice(0, INITIAL_LOAD_LIMIT);
-    console.log('[videos] loadVideos: final limited to', sourceEvents.length);
+    sourceEvents = sourceEvents.slice(0, fetchLimit);
+    console.log('[videos] loadVideos: final limited to', sourceEvents.length, { recoverMode });
   }
 
   // אם אין פוסטים חדשים ויש כבר תוכן מהמטמון - סיים
@@ -7960,6 +8021,7 @@ async function loadVideos() {
     } else {
       await ensureBootFeedReady();
     }
+    maybeScheduleFeedBackfill();
     return;
   }
 
@@ -8163,6 +8225,7 @@ async function loadVideos() {
     }
     setLoadingProgress(100);
     hideLoadingAnimation();
+    maybeScheduleFeedBackfill();
     return;
   }
 
@@ -8180,6 +8243,7 @@ async function loadVideos() {
     setLoadingProgress(100);
     hideLoadingAnimation();
   }
+  maybeScheduleFeedBackfill();
 }
 
 // חלק יאללה וידאו (videos.js) – מנוי נתונים חי לפיד הווידאו לצורך לייקים/תגובות/התראות | HYPER CORE TECH

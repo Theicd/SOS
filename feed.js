@@ -4471,6 +4471,27 @@ async function loadFeed() {
   async function loadVideoWithCache(videoElement, url, hash, mirrors = []) {
     // חלק Network Tiers (פיד) – קבלת אינדקס פוסט נוכחי | HYPER CORE TECH
     const currentPostIndex = globalVideoLoadIndex++;
+
+    const applyVideoObjectUrl = (objectUrl) => {
+      if (!videoElement || !objectUrl) return;
+      const key = String(hash || '').trim().toLowerCase();
+      const playing = !videoElement.paused && isFinite(videoElement.currentTime) && videoElement.currentTime > 0.25;
+      if (key && videoElement.dataset.attachedHash === key && videoElement.src && playing) return;
+      const resumeAt = playing ? videoElement.currentTime : 0;
+      videoElement.src = objectUrl;
+      if (key) videoElement.dataset.attachedHash = key;
+      if (playing && resumeAt > 0.25) {
+        videoElement.addEventListener('loadedmetadata', () => {
+          try {
+            if (isFinite(videoElement.duration) && resumeAt < videoElement.duration) {
+              videoElement.currentTime = resumeAt;
+            }
+            videoElement.play().catch(() => {});
+          } catch (_) {}
+        }, { once: true });
+      }
+      try { videoElement.load(); } catch (_) {}
+    };
     
     try {
       if (typeof App.whenMediaCacheReady === 'function') {
@@ -4489,8 +4510,7 @@ async function loadFeed() {
         try {
           const cached = await App.getCachedMedia(hash);
           if (cached && cached.blob) {
-            videoElement.src = URL.createObjectURL(cached.blob);
-            try { videoElement.load(); } catch (_) {}
+            applyVideoObjectUrl(URL.createObjectURL(cached.blob));
             // נתיב ישיר עוקף downloadVideoWithP2P — חייבים לרשום לסטטיסטיקה | HYPER CORE TECH
             if (typeof App.recordP2PDownload === 'function') {
               App.recordP2PDownload('cache', hash);
@@ -4511,10 +4531,9 @@ async function loadFeed() {
           if (p2pResult && p2pResult.blob) {
             // אם זה URL ישיר (עקיפת CORS), נשתמש בו ישירות
             if (p2pResult.blob._directUrl) {
-              videoElement.src = p2pResult.blob._directUrl;
+              applyVideoObjectUrl(p2pResult.blob._directUrl);
             } else {
-              const objectUrl = URL.createObjectURL(p2pResult.blob);
-              videoElement.src = objectUrl;
+              applyVideoObjectUrl(URL.createObjectURL(p2pResult.blob));
             }
             // מחזיר אובייקט עם source כדי שהקורא ידע אם נטען מ-cache
             return { success: true, source: p2pResult.source || 'network' };
@@ -4529,8 +4548,7 @@ async function loadFeed() {
         const result = await App.loadMediaWithFallback(url, mirrors, hash);
         
         if (result.success && result.blob) {
-          const objectUrl = URL.createObjectURL(result.blob);
-          videoElement.src = objectUrl;
+          applyVideoObjectUrl(URL.createObjectURL(result.blob));
           
           console.log(`וידאו נטען מ-${result.source}:`, result.url || url);
           if (typeof App.recordP2PDownload === 'function') {
@@ -4541,8 +4559,7 @@ async function loadFeed() {
         
         console.error('כל ה-URLs נכשלו');
         if (url && /^https?:\/\//i.test(url)) {
-          videoElement.src = url;
-          try { videoElement.load(); } catch (_) {}
+          applyVideoObjectUrl(url);
           console.log('[feed] fallback direct src', String(url).slice(0, 60));
           if (typeof App.recordP2PDownload === 'function') {
             App.recordP2PDownload('blossom', hash);
@@ -4556,8 +4573,7 @@ async function loadFeed() {
       if (hash && typeof App.getCachedMedia === 'function') {
         const cached = await App.getCachedMedia(hash);
         if (cached && cached.blob) {
-          const objectUrl = URL.createObjectURL(cached.blob);
-          videoElement.src = objectUrl;
+          applyVideoObjectUrl(URL.createObjectURL(cached.blob));
           if (typeof App.recordP2PDownload === 'function') {
             App.recordP2PDownload('cache', hash);
           } else if (typeof window.updateP2PStatsUI === 'function') {
@@ -4574,8 +4590,7 @@ async function loadFeed() {
       }
 
       const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      videoElement.src = objectUrl;
+      applyVideoObjectUrl(URL.createObjectURL(blob));
 
       if (hash && typeof App.cacheMedia === 'function') {
         App.cacheMedia(url, hash, blob, blob.type, { pinned: true }).catch(err => {
@@ -4603,7 +4618,7 @@ async function loadFeed() {
   const BOOTSTRAP_LOAD_DELAY = 100;
   const FEED_MAX_PARALLEL = 2;
 
-  const FEED_CODE_VERSION = '2.4.0-p2p-pipeline-feed9';
+  const FEED_CODE_VERSION = '2.4.1-feed-src-resume';
   console.log(`%c🔧 Feed.js גרסה: ${FEED_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
   async function processVideoLoadQueue() {

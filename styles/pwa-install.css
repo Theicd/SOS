@@ -224,7 +224,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  z-index: 100001;
+  z-index: 2147483000;
+  pointer-events: auto;
   direction: rtl;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   border: 1px solid rgba(35, 116, 225, 0.32);
@@ -366,7 +367,7 @@
 
 /* כרטיסיית עדכון APK – אותו מיקום כמו עדכון הווב; תור אחד בכל פעם | HYPER CORE TECH */
 .apk-update-toast {
-  z-index: 100002;
+  z-index: 2147483001;
   border-color: rgba(70, 120, 190, 0.4);
   box-shadow:
     0 12px 36px rgba(0, 0, 0, 0.6),
@@ -394,7 +395,7 @@
     padding: 12px 14px;
     border-radius: 16px;
     gap: 10px;
-    z-index: 100050;
+    z-index: 2147483000;
     transform: translate(-50%, 120%);
   }
 

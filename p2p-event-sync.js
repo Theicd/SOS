@@ -30,6 +30,10 @@
     },
   };
 
+  function isDeletedId(id) {
+    return !!(id && App.deletedEventIds instanceof Set && App.deletedEventIds.has(id));
+  }
+
   function log(level, message, data) {
     const color = level === 'error' ? '#F44336' : level === 'warn' ? '#FF9800' : '#607D8B';
     if (data !== undefined) {
@@ -135,7 +139,7 @@
   async function ingestEvent(event, meta = {}) {
     if (!isEventLike(event)) return false;
     if (event.kind === 30078) return false;
-    if (event.kind !== 5 && App.deletedEventIds instanceof Set && event.id && App.deletedEventIds.has(event.id)) {
+    if (event.kind !== 5 && isDeletedId(event.id)) {
       try { console.log('[DELETE-LIFECYCLE] FILTER_BLOCK', { id: event.id, source: 'p2p-event-sync' }); } catch (_) {}
       return false;
     }
@@ -201,7 +205,13 @@
           resolve(ids);
           return;
         }
-        if (cursor.value?.id) ids.push(cursor.value.id);
+        if (cursor.value?.id) {
+          if (isDeletedId(cursor.value.id)) {
+            cursor.continue();
+            return;
+          }
+          ids.push(cursor.value.id);
+        }
         cursor.continue();
       };
       request.onerror = () => resolve(ids);
@@ -278,7 +288,7 @@
     const database = await openDB();
     if (!database) return true;
 
-    const missing = await missingIds(database, msg.ids);
+    const missing = (await missingIds(database, msg.ids)).filter((id) => !isDeletedId(id));
     if (!missing.length) return true;
 
     const reqIds = missing.slice(0, MAX_IDS_PER_REQ);
@@ -298,7 +308,11 @@
     const database = await openDB();
     if (!database) return true;
 
-    const records = await loadRecords(database, msg.ids);
+    const records = (await loadRecords(database, msg.ids)).filter((r) => {
+      if (!r) return false;
+      if (r.kind === 5) return true;
+      return !isDeletedId(r.id);
+    });
     if (!records.length) return true;
 
     for (let i = 0; i < records.length; i += MAX_EVENTS_PER_RES) {
@@ -449,7 +463,7 @@
         }
         const rec = cursor.value;
         if (rec && kindsSet.has(rec.kind) && rec.created_at >= since) {
-          if (App.deletedEventIds instanceof Set && rec.id && App.deletedEventIds.has(rec.id)) {
+          if (isDeletedId(rec.id)) {
             cursor.continue();
             return;
           }
