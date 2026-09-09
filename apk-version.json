@@ -1,8 +1,8 @@
 {
-  "version": "1.0.104",
-  "versionCode": 105,
-  "file": "SOS-1.0.104.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.104/SOS-1.0.104.apk",
-  "releasedAt": "2026-09-06",
-  "note": "Durable post deletion tombstones, pubkey watcher sync idempotency, emergency chat persist"
+  "version": "1.0.105",
+  "versionCode": 106,
+  "file": "SOS-1.0.105.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.105/SOS-1.0.105.apk",
+  "releasedAt": "2026-09-09",
+  "note": "Stop native shell from re-ringing a voice call after hangup"
 }
