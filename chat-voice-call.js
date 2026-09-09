@@ -15,6 +15,7 @@
                 { urls: 'stun:stun1.l.google.com:19302' },
               ]))
   };
+  const ICE_DISCONNECT_GRACE_MS = 4000;
   const CALL_METRIC_KIND = 25060; // חלק שיחות קול (chat-voice-call.js) – kind למדדי שיחות כלליות | HYPER CORE TECH
 
   /** SDP מהסיגנלינג / JSON — תמיד מחזיר {type,sdp} או null */
@@ -37,6 +38,10 @@
     callStartTime: null,
     candidateQueue: [],
     candidateTimer: null,
+    // חלק שיחות קול (chat-voice-call.js) – באפר ל-ICE candidates נכנסים לפני PC / setRemoteDescription | HYPER CORE TECH
+    pendingRemoteCandidates: Object.create(null),
+    callAnswered: false,
+    iceDisconnectTimer: null,
     lastOfferFrom: {},
     waitingOffer: null,
     lastSignalReceivedAt: 0,
@@ -246,6 +251,78 @@
     sendSignal(peerPubkey, 'candidate', candidate);
   }
 
+  function peerPubkeyOrEmpty(pk) {
+    return String(pk || '').toLowerCase();
+  }
+
+  function clearIceDisconnectTimer() {
+    if (state.iceDisconnectTimer) {
+      clearTimeout(state.iceDisconnectTimer);
+      state.iceDisconnectTimer = null;
+    }
+  }
+
+  function isSameCallPeer(peerPubkey) {
+    return !!(state.currentPeer && peerPubkeyOrEmpty(state.currentPeer) === peerPubkeyOrEmpty(peerPubkey));
+  }
+
+  function bufferRemoteCandidates(peerPubkey, candidates) {
+    if (!peerPubkey || !Array.isArray(candidates) || candidates.length === 0) return;
+    if (state.currentPeer && !isSameCallPeer(peerPubkey)) return;
+    const pk = peerPubkeyOrEmpty(peerPubkey);
+    const list = state.pendingRemoteCandidates[pk] || (state.pendingRemoteCandidates[pk] = []);
+    for (const c of candidates) {
+      if (c) list.push(c);
+    }
+    if (list.length > 200) {
+      list.splice(0, list.length - 200);
+    }
+  }
+
+  async function flushRemoteCandidates(peerPubkey) {
+    if (!peerPubkey) return;
+    const pk = peerPubkeyOrEmpty(peerPubkey);
+    const list = state.pendingRemoteCandidates[pk];
+    if (!list || list.length === 0) return;
+    const pc = state.peerConnection;
+    if (!pc || !isSameCallPeer(peerPubkey) || !pc.remoteDescription) return;
+
+    const batch = list.splice(0);
+    let applied = 0;
+    for (const c of batch) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
+        applied += 1;
+      } catch (err) {
+        console.warn('Failed to apply remote ICE (voice)', err);
+      }
+    }
+    if (!list.length) {
+      try { delete state.pendingRemoteCandidates[pk]; } catch {}
+    }
+    if (applied) {
+      console.log('Applied buffered ICE candidates', applied);
+    }
+  }
+
+  async function addOrBufferRemoteCandidates(peerPubkey, candidates) {
+    const list = Array.isArray(candidates) ? candidates.filter(Boolean) : (candidates ? [candidates] : []);
+    if (!list.length) return;
+    const pc = state.peerConnection;
+    const canApply = !!(pc && isSameCallPeer(peerPubkey) && pc.remoteDescription);
+    if (canApply) {
+      for (const c of list) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(c));
+        } catch (err) {
+          console.warn('Failed to apply remote ICE (voice)', err);
+        }
+      }
+      return;
+    }
+    bufferRemoteCandidates(peerPubkey, list);
+  }
+
   // חלק שיחות קול (chat-voice-call.js) – יצירת חיבור WebRTC חדש
   function createPeerConnection(peerPubkey) {
     const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -287,9 +364,12 @@
 
     // חלק שיחות קול (chat-voice-call.js) – מעקב אחר מצב החיבור
     pc.oniceconnectionstatechange = () => {
-      console.log('ICE connection state:', pc.iceConnectionState);
-      
-      if (pc.iceConnectionState === 'connected') {
+      if (state.peerConnection !== pc) return;
+      const ice = pc.iceConnectionState;
+      console.log('ICE connection state:', ice);
+
+      if (ice === 'connected' || ice === 'completed') {
+        clearIceDisconnectTimer();
         state.isCallActive = true;
         // חלק שיחות קול (chat-voice-call.js) – מסנכרן זמן התחלת שיחה עבור UI (callStartTime) וגם עבור מדדים (callStartTimestamp) | HYPER CORE TECH
         state.callStartTimestamp = Date.now();
@@ -297,11 +377,19 @@
         if (typeof App.onVoiceCallConnected === 'function') {
           App.onVoiceCallConnected(peerPubkey);
         }
-      } else if (
-        pc.iceConnectionState === 'disconnected' ||
-        pc.iceConnectionState === 'failed' ||
-        pc.iceConnectionState === 'closed'
-      ) {
+      } else if (ice === 'disconnected') {
+        if (state.iceDisconnectTimer || state.ending) return;
+        state.iceDisconnectTimer = setTimeout(() => {
+          state.iceDisconnectTimer = null;
+          if (state.ending || state.peerConnection !== pc) return;
+          const still = pc.iceConnectionState;
+          if (still === 'disconnected' || still === 'failed' || still === 'closed') {
+            console.log('ICE disconnected persisted, closing call');
+            endCall();
+          }
+        }, ICE_DISCONNECT_GRACE_MS);
+      } else if (ice === 'failed' || ice === 'closed') {
+        clearIceDisconnectTimer();
         console.log('ICE state ended, closing call');
         if (!state.ending) endCall();
       }
@@ -309,9 +397,13 @@
 
     // חלק שיחות קול (chat-voice-call.js) – ניטור מצב כלל החיבור
     pc.onconnectionstatechange = () => {
+      if (state.peerConnection !== pc) return;
       const cs = pc.connectionState;
       console.log('Peer connection state:', cs);
-      if (cs === 'disconnected' || cs === 'failed' || cs === 'closed') {
+      if (cs === 'connected') {
+        clearIceDisconnectTimer();
+      } else if (cs === 'failed' || cs === 'closed') {
+        clearIceDisconnectTimer();
         if (!state.ending) endCall();
       }
     };
@@ -341,6 +433,9 @@
       // חלק שיחות קול (chat-voice-call.js) – איפוס זמן התחלה עד לחיבור בפועל (connected)
       state.callStartTimestamp = null;
       state.callStartTime = null;
+      state.callAnswered = false;
+      clearIceDisconnectTimer();
+      try { delete state.pendingRemoteCandidates[peerPubkeyOrEmpty(peerPubkey)]; } catch {}
 
       // יצירת offer
       const offer = await state.peerConnection.createOffer();
@@ -395,7 +490,9 @@
       // חלק שיחות קול (chat-voice-call.js) – איפוס זמן התחלה עד לחיבור בפועל (connected)
       state.callStartTimestamp = null;
       state.callStartTime = null;
+      state.callAnswered = false;
       state.isIncoming = true;
+      clearIceDisconnectTimer();
 
       // קבלת offer (אימות + נרמול {type,sdp} אחרי סריאליזציה מ-Nostr/QA)
       const offerNorm = normalizeSessionDescription(offer);
@@ -405,14 +502,17 @@
       }
       console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
       await state.peerConnection.setRemoteDescription(offerNorm);
+      await flushRemoteCandidates(peerPubkey);
 
       // יצירת answer
       const answer = await state.peerConnection.createAnswer();
       await state.peerConnection.setLocalDescription(answer);
+      await flushRemoteCandidates(peerPubkey);
 
       // שליחת answer
       await sendSignal(peerPubkey, 'answer', answer);
       answerSent = true;
+      state.callAnswered = true;
 
       console.log('Call accepted from', peerPubkey.slice(0, 8));
 
@@ -465,7 +565,7 @@
 
     // חלק שיחות קול (chat-voice-call.js) – זיהוי שיחה נכנסת שלא נענתה (לפני איפוס state) | HYPER CORE TECH
     const wasIncoming = state.isIncoming;
-    const wasAnswered = !!startMs;
+    const wasAnswered = !!startMs || !!state.callAnswered;
     const peer = state.currentPeer;
 
     // סגירת חיבור
@@ -491,12 +591,15 @@
       clearTimeout(state.candidateTimer);
       state.candidateTimer = null;
     }
+    state.pendingRemoteCandidates = Object.create(null);
+    clearIceDisconnectTimer();
 
     // איפוס מצב
     state.currentPeer = null;
     state.isCallActive = false;
     state.isIncoming = false;
     state.isMuted = false;
+    state.callAnswered = false;
     state.callStartTimestamp = null;
     state.callStartTime = null;
     // חלק שיחות קול (chat-voice-call.js) – שחזור AudioSession לסוג שהיה לפני השיחה | HYPER CORE TECH
@@ -680,6 +783,8 @@
             }
             console.log('Applying remote answer', { type: data.type, sdpLen: data.sdp?.length });
             await state.peerConnection.setRemoteDescription(data);
+            await flushRemoteCandidates(peerPubkey);
+            state.callAnswered = true;
             // עוצרים חיוג מיד כשמגיע answer – לא מחכים ל-ICE | HYPER CORE TECH
             if (typeof App.onVoiceCallAnswerReceived === 'function') {
               App.onVoiceCallAnswerReceived(peerPubkey);
@@ -689,20 +794,12 @@
 
         case 'candidate':
           // ICE candidate בודד (תאימות לאחור)
-          if (state.peerConnection && state.currentPeer === peerPubkey && data) {
-            await state.peerConnection.addIceCandidate(new RTCIceCandidate(data));
-          }
+          await addOrBufferRemoteCandidates(peerPubkey, data);
           break;
 
         case 'candidates':
           // ICE candidates מרובים (batch)
-          if (state.peerConnection && state.currentPeer === peerPubkey && Array.isArray(data)) {
-            for (const candidate of data) {
-              if (candidate) {
-                await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-              }
-            }
-          }
+          await addOrBufferRemoteCandidates(peerPubkey, data);
           break;
 
         case 'disconnect':
