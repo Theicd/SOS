@@ -42,6 +42,7 @@
     pendingRemoteCandidates: Object.create(null),
     callAnswered: false,
     iceDisconnectTimer: null,
+    lastEndedAt: Object.create(null),
     lastOfferFrom: {},
     waitingOffer: null,
     lastSignalReceivedAt: 0,
@@ -249,6 +250,43 @@
 
     // trickle מיידי – לא מחכים ל-batch של שנייה+ | HYPER CORE TECH
     sendSignal(peerPubkey, 'candidate', candidate);
+  }
+
+  function loadEndedCallMap() {
+    try {
+      const raw = localStorage.getItem('sos_voice_ended_v1');
+      const o = raw ? JSON.parse(raw) : null;
+      if (!o || typeof o !== 'object') return;
+      const now = Date.now();
+      Object.keys(o).forEach((k) => {
+        const at = Number(o[k]);
+        if (at > 0 && now - at < 120000) state.lastEndedAt[k] = at;
+      });
+    } catch (_) {}
+  }
+
+  function noteCallEnded(peerPubkey) {
+    const pk = peerPubkeyOrEmpty(peerPubkey);
+    if (!pk) return;
+    state.lastEndedAt[pk] = Date.now();
+    try {
+      const now = Date.now();
+      const next = {};
+      Object.keys(state.lastEndedAt).forEach((k) => {
+        const at = Number(state.lastEndedAt[k]);
+        if (at > 0 && now - at < 120000) next[k] = at;
+      });
+      localStorage.setItem('sos_voice_ended_v1', JSON.stringify(next));
+    } catch (_) {}
+  }
+
+  function isOfferReplayAfterHangup(peerPubkey, createdAtSec) {
+    const pk = peerPubkeyOrEmpty(peerPubkey);
+    const at = Number(state.lastEndedAt[pk]) || 0;
+    if (!at || Date.now() - at > 120000) return false;
+    const created = Number(createdAtSec) || 0;
+    if (!created) return false;
+    return created * 1000 <= at + 2000;
   }
 
   function peerPubkeyOrEmpty(pk) {
@@ -567,6 +605,7 @@
     const wasIncoming = state.isIncoming;
     const wasAnswered = !!startMs || !!state.callAnswered;
     const peer = state.currentPeer;
+    if (peer) noteCallEnded(peer);
 
     // סגירת חיבור
     if (state.peerConnection) {
@@ -693,6 +732,11 @@
           try {
             if (isOfferEventTooOld(event)) {
               console.log('Ignored stale offer from', peerPubkey.slice(0, 8), 'age>', MAX_OFFER_AGE_SEC, 's');
+              if (event.id) markCallEventProcessed(event.id);
+              return;
+            }
+            if (isOfferReplayAfterHangup(peerPubkey, event.created_at)) {
+              console.log('Ignored offer – replay after hangup from', peerPubkey.slice(0, 8));
               if (event.id) markCallEventProcessed(event.id);
               return;
             }
@@ -1031,7 +1075,8 @@
       rejectIncoming,
       toggleMute,
       getState: () => ({ ...state }),
-      subscribe: subscribeToSignals
+      subscribe: subscribeToSignals,
+      markEventProcessed: markCallEventProcessed
     }
   });
 
@@ -1095,4 +1140,5 @@
   App.initVoiceCall = lazyInitVoiceCall;
 
   console.log('Voice call module loaded (lazy init)');
+  loadEndedCallMap();
 })(window);

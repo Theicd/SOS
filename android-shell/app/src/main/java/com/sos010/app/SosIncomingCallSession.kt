@@ -15,12 +15,16 @@ object SosIncomingCallSession {
     private const val KEY_ACTIVE_AT = "active_at"
     private const val KEY_ACTIVE_PHASE = "active_phase"
     private const val KEY_HANDLED_OFFERS = "handled_offers_json"
+    private const val KEY_ENDED_JSON = "ended_calls_json"
     private const val PHASE_RINGING = "ringing"
     private const val PHASE_ANSWERED = "answered"
     /** בזמן שיחה פעילה – לא לפתוח צלצול native כפול לאותו peer | HYPER CORE TECH */
     private const val ACTIVE_TTL_MS = 45 * 60_000L
     private const val HANDLED_OFFER_TTL_MS = 600_000L
     private const val MAX_HANDLED_OFFERS = 80
+    /** אחרי ניתוק – חוסמים replay של offer ישן (לא שיחה חדשה) | HYPER CORE TECH */
+    private const val ENDED_TTL_MS = 120_000L
+    private const val MAX_ENDED_CALLS = 40
     /** offer ישן יותר מזה (שניות) = ghost מהריליי, לא שיחה חדשה | HYPER CORE TECH */
     const val MAX_OFFER_AGE_SEC = 90L
 
@@ -55,12 +59,61 @@ object SosIncomingCallSession {
 
     fun markDeclined(context: Context, peer: String?) {
         clearLegacySuppress(context)
+        noteEnded(context, peer)
         clearActive(context)
     }
 
     fun markRemoteEnded(context: Context, peer: String?) {
         clearLegacySuppress(context)
+        noteEnded(context, peer)
         clearActive(context)
+    }
+
+    /** offer שנוצר לפני הניתוק – ghost מהריליי, לא שיחה חדשה | HYPER CORE TECH */
+    fun isReplayOfEndedCall(context: Context, peer: String?, createdAtSec: Long): Boolean {
+        val pk = normalizePeer(peer) ?: return false
+        if (createdAtSec <= 0L) return false
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val arr = try {
+            JSONArray(prefs.getString(KEY_ENDED_JSON, "[]"))
+        } catch (_: Exception) {
+            return false
+        }
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("peer") != pk) continue
+            val at = o.optLong("at", 0L)
+            if (at <= 0L || now - at > ENDED_TTL_MS) continue
+            val offerMs = createdAtSec * 1000L
+            return offerMs <= at + 2000L
+        }
+        return false
+    }
+
+    private fun noteEnded(context: Context, peer: String?) {
+        val pk = normalizePeer(peer) ?: return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val arr = try {
+            JSONArray(prefs.getString(KEY_ENDED_JSON, "[]"))
+        } catch (_: Exception) {
+            JSONArray()
+        }
+        val next = JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val at = o.optLong("at", 0L)
+            val p = o.optString("peer")
+            if (at <= 0L || now - at > ENDED_TTL_MS) continue
+            if (p == pk) continue
+            next.put(o)
+        }
+        next.put(JSONObject().put("peer", pk).put("at", now))
+        while (next.length() > MAX_ENDED_CALLS) {
+            next.remove(0)
+        }
+        prefs.edit().putString(KEY_ENDED_JSON, next.toString()).apply()
     }
 
     fun rememberHandledOffer(context: Context, eventId: String?) {

@@ -284,6 +284,12 @@ class SosRelayWatcher(private val appContext: Context) {
                     Log.i(TAG, "already-handled offer ${eventId.take(8)} from ${author.take(8)}")
                     return
                 }
+                if (SosIncomingCallSession.isReplayOfEndedCall(appContext, author, createdAt)) {
+                    SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
+                    Log.i(TAG, "replay after hangup ${eventId.take(8)} from ${author.take(8)}")
+                    SosDebugLog.i("relay", "call skip ended-replay from=${author.take(8)}")
+                    return
+                }
                 // אותה שיחה כבר מצלצלת/בשיחה – לא לפתוח התראה שוב | HYPER CORE TECH
                 val isVideo = signalType == "v-offer"
                 val callType = if (isVideo) "video" else "voice"
@@ -311,6 +317,9 @@ class SosRelayWatcher(private val appContext: Context) {
                     return
                 }
 
+                // מסמנים את ה-offer כדי שריליי/reconnect אחרי ניתוק לא יצלצלו שוב | HYPER CORE TECH
+                SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
+
                 // מחממים WebView ברקע בזמן צלצול – ענה יהיה מהיר | HYPER CORE TECH
                 SosDebugLog.i("relay", "incoming $callType from=${author.take(8)} → notify+warm")
                 MainActivity.warmHostForIncomingCall(appContext, author, callType)
@@ -328,8 +337,8 @@ class SosRelayWatcher(private val appContext: Context) {
                 Log.i(TAG, "incoming $callType from ${author.take(8)}")
             }
             "disconnect", "v-disconnect" -> {
-                val eventId = event.optString("id")
-                SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
+                val offerId = SosPendingCallStore.extractEventId(appContext)
+                SosIncomingCallSession.rememberHandledOffer(appContext, offerId)
                 SosIncomingCallSession.markRemoteEnded(appContext, author)
                 SosPendingCallStore.clear(appContext)
                 NotificationHelper.cancelIncomingCall(appContext)

@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.09-voiceice1",
-  "buildTime": "2026-09-09T19:45:00+03:00",
-  "notes": "Voice calls buffer remote ICE candidates until answer; ICE disconnect grace; no missed-call after accept"
+  "version": "2026.09.09-callghost1",
+  "buildTime": "2026-09-09T20:30:00+03:00",
+  "notes": "Ignore replayed voice offers after hangup; native shell will not re-ring ended calls"
 }

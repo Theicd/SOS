@@ -187,6 +187,11 @@
         incomingOfferPeer = peer || peerWanted || incomingOfferPeer;
         persistIncomingOffer(incomingOfferPeer, offer);
         console.log('[APK] hydrated offer from native raw event', peer.slice(0, 8));
+        try {
+          if (eventObj.id && App.voiceCall && typeof App.voiceCall.markEventProcessed === 'function') {
+            App.voiceCall.markEventProcessed(eventObj.id);
+          }
+        } catch (_) {}
         return offer;
       } catch (err) {
         console.warn('[APK] decrypt raw event failed', err);

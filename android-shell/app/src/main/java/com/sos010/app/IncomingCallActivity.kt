@@ -266,6 +266,13 @@ class IncomingCallActivity : AppCompatActivity() {
             callerPicture: String = ""
         ) {
             val app = context.applicationContext
+            val pk = peer.trim().lowercase()
+            if (!SosIncomingCallSession.isRingingPhase(app) ||
+                SosIncomingCallSession.ringingPeer(app) != pk
+            ) {
+                SosDebugLog.i("call", "skip launch not-ringing peer=${pk.take(8)}")
+                return
+            }
             val picture = callerPicture.trim().ifBlank {
                 SosContactCache.get(app, peer)?.picture.orEmpty()
             }
