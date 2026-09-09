@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.09-apk105",
-  "buildTime": "2026-09-09T20:40:00+03:00",
-  "notes": "APK 1.0.105: stop native shell from re-ringing a voice call after hangup"
+  "version": "2026.09.09-vidghost1",
+  "buildTime": "2026-09-09T21:30:00+03:00",
+  "notes": "Ignore replayed video offers after hangup or decline"
 }

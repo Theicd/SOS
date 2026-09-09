@@ -20,7 +20,7 @@
     return { type, sdp };
   }
   const SIGNAL_LOOKBACK_SEC = 180;
-  const MAX_OFFER_AGE_SEC = SIGNAL_LOOKBACK_SEC;
+  const MAX_OFFER_AGE_SEC = 60;
 
   // חלק שיחות וידאו – מצב השיחה הנוכחי
   const state = {
@@ -53,6 +53,7 @@
     candidateTimer: null,
     ending: false,
     lastOfferFrom: {},
+    lastEndedAt: Object.create(null),
     callStartTimestamp: null
   };
 
@@ -226,6 +227,47 @@
   }
   function clearTimer(){ if (state.candidateTimer){ clearTimeout(state.candidateTimer); state.candidateTimer=null; } }
 
+  function peerPubkeyOrEmpty(pk) {
+    return String(pk || '').toLowerCase();
+  }
+
+  function loadEndedCallMap() {
+    try {
+      const raw = localStorage.getItem('sos_video_ended_v1');
+      const o = raw ? JSON.parse(raw) : null;
+      if (!o || typeof o !== 'object') return;
+      const now = Date.now();
+      Object.keys(o).forEach((k) => {
+        const at = Number(o[k]);
+        if (at > 0 && now - at < 120000) state.lastEndedAt[k] = at;
+      });
+    } catch (_) {}
+  }
+
+  function noteCallEnded(peerPubkey) {
+    const pk = peerPubkeyOrEmpty(peerPubkey);
+    if (!pk) return;
+    state.lastEndedAt[pk] = Date.now();
+    try {
+      const now = Date.now();
+      const next = {};
+      Object.keys(state.lastEndedAt).forEach((k) => {
+        const at = Number(state.lastEndedAt[k]);
+        if (at > 0 && now - at < 120000) next[k] = at;
+      });
+      localStorage.setItem('sos_video_ended_v1', JSON.stringify(next));
+    } catch (_) {}
+  }
+
+  function isOfferReplayAfterHangup(peerPubkey, createdAtSec) {
+    const pk = peerPubkeyOrEmpty(peerPubkey);
+    const at = Number(state.lastEndedAt[pk]) || 0;
+    if (!at || Date.now() - at > 120000) return false;
+    const created = Number(createdAtSec) || 0;
+    if (!created) return false;
+    return created * 1000 <= at + 2000;
+  }
+
   // חלק שיחות וידאו (chat-video-call.js) – דה-דופליקציה לאירועי סיגנלים לפי event.id כדי למנוע טריגרים כפולים אחרי re-subscribe | HYPER CORE TECH
   function rememberProcessedSignalId(eventId) {
     if (!eventId) return false;
@@ -354,6 +396,7 @@
     const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
     const wasIncoming = state.isIncoming;
     const wasAnswered = !!startMs;
+    if (peer) noteCallEnded(peer);
     if (peer) {
       try {
         await sendSignal(peer, 'v-disconnect', null);
@@ -531,6 +574,10 @@
           const createdAt = Number(event.created_at) || 0;
           if (createdAt && (nowSec - createdAt) > MAX_OFFER_AGE_SEC) {
             console.log('Ignored old video offer from', peer.slice(0,8));
+            return;
+          }
+          if (isOfferReplayAfterHangup(peer, createdAt)) {
+            console.log('Ignored video offer – replay after hangup from', peer.slice(0, 8));
             return;
           }
         } catch {}
@@ -841,4 +888,5 @@
 
   App.initVideoCall = lazyInitVideoCall;
   console.log('Video call module loaded (lazy init)');
+  loadEndedCallMap();
 })(window);

@@ -647,7 +647,7 @@
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
     if (!peer) return false;
     try {
-      if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({});
     } catch (_) {}
     window.__sosNativePendingAnswer = { peer, callType: 'video', until: Date.now() + 45000 };
     window.__sosNativePendingDecline = null;
@@ -686,7 +686,7 @@
     userDeclinedVideoCall = true;
     window.__sosIncomingCallActive = false;
     try {
-      if (typeof App.initVideoCall === 'function') App.initVideoCall({ force: true, lookbackSec: 120 });
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({});
     } catch (_) {}
     try {
       const bridge = window.SosNativeShell;

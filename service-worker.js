@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v764'; // UI: APK 1.0.105 ghost-ring fix
+  const CACHE_NAME = 'sos-cache-v765'; // UI: ignore replayed video offers after hangup
   const PRECACHE_URLS = [
     './',
     './videos.html',
