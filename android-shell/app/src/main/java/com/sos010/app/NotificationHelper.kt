@@ -25,10 +25,7 @@ object NotificationHelper {
     /** ערוץ חדש – מאפשר צליל גם בעדכון כרטיס אגרגציה | HYPER CORE TECH */
     const val CHANNEL_MESSAGES = "sos_messages_v5"
     /** ערוץ שיחות חדש – CallStyle + heads-up על מסך נעול | HYPER CORE TECH */
-    /** ערוץ שיחות חדש – CallStyle + heads-up על מסך נעול | HYPER CORE TECH */
     const val CHANNEL_CALLS = "sos_calls_v3"
-    /** ערוץ שקט – מסך שיחה מלא כשהמסך דולק, בלי כרטיסיית CallStyle | HYPER CORE TECH */
-    const val CHANNEL_CALLS_QUIET = "sos_calls_quiet_v1"
     const val CHANNEL_KEEPALIVE = "sos_keepalive"
     const val KEEPALIVE_ID = 1001
     const val INCOMING_CALL_ID = 2002
@@ -105,23 +102,6 @@ object NotificationHelper {
                     lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                     // חשוב ללשונית עליונה / מסך נעול | HYPER CORE TECH
                     setBypassDnd(true)
-                }
-            )
-        }
-
-        if (nm.getNotificationChannel(CHANNEL_CALLS_QUIET) == null) {
-            nm.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_CALLS_QUIET,
-                    context.getString(R.string.channel_calls_quiet),
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    description = context.getString(R.string.channel_calls_quiet_desc)
-                    enableVibration(false)
-                    enableLights(false)
-                    setShowBadge(false)
-                    setSound(null, null)
-                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
             )
         }
@@ -301,13 +281,7 @@ object NotificationHelper {
         val callBody = app.getString(R.string.incoming_call_from, displayName)
 
         SosIncomingCallSession.markRinging(app, peer, type)
-        val overlayOk = IncomingCallActivity.canDrawOverApps(app)
-        val screenOn = IncomingCallActivity.isScreenInteractive(app)
-        val showHeadsUpBanner = !overlayOk && screenOn
-        SosDebugLog.i(
-            "notify",
-            "showIncomingCall type=$type peer=${peer.take(8)} overlay=$overlayOk screenOn=$screenOn headsUp=$showHeadsUpBanner"
-        )
+        SosDebugLog.i("notify", "showIncomingCall type=$type peer=${peer.take(8)}")
 
         val fullScreenIntent = IncomingCallActivity.answerIntent(
             app, peer, type, displayName, openUrl, pictureUrl
@@ -354,37 +328,26 @@ object NotificationHelper {
         }
         val caller = callerBuilder.build()
 
-        val channelId = if (overlayOk && screenOn) CHANNEL_CALLS_QUIET else CHANNEL_CALLS
-        val builder = NotificationCompat.Builder(app, channelId)
+        val builder = NotificationCompat.Builder(app, CHANNEL_CALLS)
             .setSmallIcon(R.drawable.ic_stat_sos)
             .setLargeIcon(largeIcon)
             .setContentTitle(callTitle)
             .setContentText(callBody)
             .setContentIntent(fullScreenPi)
+            .setFullScreenIntent(fullScreenPi, true)
+            .setStyle(
+                NotificationCompat.CallStyle.forIncomingCall(caller, declinePi, answerPi)
+                    .setIsVideo(type == "video")
+            )
             .addPerson(caller)
             .setAutoCancel(false)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
             .setTimeoutAfter(60_000L)
             .setUsesChronometer(false)
-
-        if (showHeadsUpBanner) {
-            builder.setFullScreenIntent(fullScreenPi, true)
-                .setStyle(
-                    NotificationCompat.CallStyle.forIncomingCall(caller, declinePi, answerPi)
-                        .setIsVideo(type == "video")
-                )
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
-        } else if (!screenOn) {
-            builder.setFullScreenIntent(fullScreenPi, true)
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
-        } else {
-            builder.setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setSilent(true)
-        }
 
         if (title.isNotBlank()) {
             builder.setContentTitle(callTitle.ifBlank { title })

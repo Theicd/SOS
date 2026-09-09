@@ -57,9 +57,6 @@
     <string name="channel_messages_desc">התראות על הודעות, שיחות ועדכונים</string>
     <string name="channel_calls">שיחות נכנסות</string>
     <string name="channel_calls_desc">לשונית שיחה עם ענה/דחה גם כשהמסך כבוי</string>
-    <string name="channel_calls_quiet">שיחה נכנסת (מסך מלא)</string>
-    <string name="channel_calls_quiet_desc">מסך שיחה מלא בלי כרטיסייה עליונה</string>
-    <string name="overlay_permission_toast">אפשר ל-SOS הצגה מעל אפליקציות – כדי לפתוח שיחה נכנסת במסך מלא</string>
     <string name="incoming_voice_call">שיחה קולית נכנסת</string>
     <string name="incoming_video_call">שיחת וידאו נכנסת</string>
     <string name="incoming_call_from">%1$s מתקשר אליך</string>

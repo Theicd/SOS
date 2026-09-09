@@ -140,11 +140,8 @@ class MainActivity : AppCompatActivity() {
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
-        if (!isBackgroundWarmIntent(intent)) {
-            maybeRequestOverlayPermission()
-            maybeRequestFullScreenIntentPermission()
-            maybeRequestBatteryOptimizationExemption()
-        }
+        maybeRequestFullScreenIntentPermission()
+        maybeRequestBatteryOptimizationExemption()
         startKeepAliveService()
 
         captureEmergencyLaunchFromIntent(intent)
@@ -2029,25 +2026,6 @@ class MainActivity : AppCompatActivity() {
                 return@runOnUiThread
             }
             permissionLauncher.launch(needed.toTypedArray())
-        }
-    }
-
-    private fun maybeRequestOverlayPermission() {
-        try {
-            val prefs = getSharedPreferences("sos_native_session", MODE_PRIVATE)
-            if (prefs.getBoolean("overlay_prompted_v1", false)) return
-            if (IncomingCallActivity.canDrawOverApps(this)) {
-                prefs.edit().putBoolean("overlay_prompted_v1", true).apply()
-                return
-            }
-            prefs.edit().putBoolean("overlay_prompted_v1", true).apply()
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
-            startActivity(intent)
-            Toast.makeText(this, getString(R.string.overlay_permission_toast), Toast.LENGTH_LONG).show()
-        } catch (_: Exception) {
         }
     }
 
