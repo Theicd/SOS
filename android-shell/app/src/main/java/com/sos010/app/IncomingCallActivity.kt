@@ -6,11 +6,14 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.PixelFormat
 import android.graphics.Outline
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
@@ -287,10 +290,64 @@ class IncomingCallActivity : AppCompatActivity() {
                 SosContactCache.get(app, peer)?.picture.orEmpty()
             }
             val intent = ringIntent(app, pk, callType, callerName, openUrl, picture, autoAnswer = false)
+            Handler(Looper.getMainLooper()).post {
+                startIncomingUi(app, intent, pk)
+            }
+        }
+
+        fun canDrawOverApps(context: Context): Boolean {
+            return try {
+                Settings.canDrawOverlays(context.applicationContext)
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        fun isScreenInteractive(context: Context): Boolean {
+            return try {
+                val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+                pm.isInteractive
+            } catch (_: Exception) {
+                true
+            }
+        }
+
+        private fun startIncomingUi(app: Context, intent: Intent, peer: String) {
+            val opts = backgroundStartOptions()
+            if (canDrawOverApps(app)) {
+                try {
+                    val wm = app.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                    val token = View(app)
+                    val lp = WindowManager.LayoutParams(
+                        1,
+                        1,
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                        PixelFormat.TRANSLUCENT
+                    )
+                    wm.addView(token, lp)
+                    SosDebugLog.i("call", "overlay token peer=${peer.take(8)}")
+                    try {
+                        if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
+                        SosDebugLog.i("call", "launch IncomingCall overlay peer=${peer.take(8)}")
+                    } finally {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            try {
+                                wm.removeView(token)
+                            } catch (_: Exception) {
+                            }
+                        }, 2500L)
+                    }
+                    return
+                } catch (err: Exception) {
+                    SosDebugLog.i("call", "overlay launch fail ${err.message}")
+                }
+            }
             try {
-                val opts = backgroundStartOptions()
                 if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
-                SosDebugLog.i("call", "launch IncomingCall peer=${pk.take(8)}")
+                SosDebugLog.i("call", "launch IncomingCall peer=${peer.take(8)}")
             } catch (err: Exception) {
                 SosDebugLog.i("call", "launch IncomingCall fail ${err.message}")
             }

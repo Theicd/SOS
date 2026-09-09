@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.09-headsup1",
-  "buildTime": "2026-09-09T22:20:00+03:00",
-  "notes": "Restore live-call UI after answering from the heads-up banner"
+  "version": "2026.09.09-fullscreen1",
+  "buildTime": "2026-09-09T23:40:00+03:00",
+  "notes": "Full incoming-call screen when the display is on (APK overlay)"
 }

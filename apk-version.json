@@ -1,8 +1,8 @@
 {
-  "version": "1.0.106",
-  "versionCode": 107,
-  "file": "SOS-1.0.106.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.106/SOS-1.0.106.apk",
+  "version": "1.0.107",
+  "versionCode": 108,
+  "file": "SOS-1.0.107.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.107/SOS-1.0.107.apk",
   "releasedAt": "2026-09-09",
-  "note": "Answer from home-screen heads-up opens the live call page"
+  "note": "Incoming call opens the full call screen when the display is on"
 }
