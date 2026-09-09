@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.10-banner1",
-  "buildTime": "2026-09-10T01:44:00+03:00",
-  "notes": "Restore working heads-up incoming-call UI"
+  "version": "2026.09.10-lock1",
+  "buildTime": "2026-09-10T02:53:00+03:00",
+  "notes": "APK 1.0.108: lock-screen incoming call page restored"
 }
