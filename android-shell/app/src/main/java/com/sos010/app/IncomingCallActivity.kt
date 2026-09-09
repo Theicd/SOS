@@ -1,5 +1,6 @@
 package com.sos010.app
 
+import android.app.ActivityOptions
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -8,6 +9,8 @@ import android.content.IntentFilter
 import android.graphics.Outline
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
@@ -35,7 +38,8 @@ class IncomingCallActivity : AppCompatActivity() {
             if (intent?.action != ACTION_DISMISS) return
             val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
             if (p.isBlank() || p == peer || peer.isBlank()) {
-                finishAndRemoveTaskSafe()
+                if (handled) return
+                finish()
             }
         }
     }
@@ -187,6 +191,7 @@ class IncomingCallActivity : AppCompatActivity() {
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopRingtone()
         findViewById<TextView>(R.id.incomingCallSub)?.text = getString(R.string.call_connecting)
+        SosDebugLog.i("call", "answer → MainActivity peer=${peer.take(8)} type=$callType")
 
         // בחזית – Android נותן מיקרופון/WebRTC רק כש־Activity גלויה | HYPER CORE TECH
         val launch = Intent(this, MainActivity::class.java).apply {
@@ -201,9 +206,14 @@ class IncomingCallActivity : AppCompatActivity() {
         }
         try {
             startActivity(launch)
-        } catch (_: Exception) {
+        } catch (err: Exception) {
+            SosDebugLog.i("call", "answer start Main failed ${err.message}")
         }
-        finish()
+        MainActivity.bringHostToFront(applicationContext, peer, callType, openUrl)
+        // לא finish מיד – בשיאומי כרטיסיית CallStyle מחזירה לשולחן אם המסך נעלם מהר | HYPER CORE TECH
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!isFinishing) finish()
+        }, 900L)
     }
 
     private fun onDecline() {
@@ -215,7 +225,7 @@ class IncomingCallActivity : AppCompatActivity() {
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopAll()
         MainActivity.startBackgroundCallDecline(applicationContext, peer, callType)
-        finishAndRemoveTaskSafe()
+        finish()
     }
 
     private fun rememberPendingOfferHandled() {
@@ -276,20 +286,66 @@ class IncomingCallActivity : AppCompatActivity() {
             val picture = callerPicture.trim().ifBlank {
                 SosContactCache.get(app, peer)?.picture.orEmpty()
             }
-            val intent = Intent(app, IncomingCallActivity::class.java).apply {
+            val intent = ringIntent(app, pk, callType, callerName, openUrl, picture, autoAnswer = false)
+            try {
+                val opts = backgroundStartOptions()
+                if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
+                SosDebugLog.i("call", "launch IncomingCall peer=${pk.take(8)}")
+            } catch (err: Exception) {
+                SosDebugLog.i("call", "launch IncomingCall fail ${err.message}")
+            }
+        }
+
+        fun answerIntent(
+            context: Context,
+            peer: String,
+            callType: String,
+            callerName: String,
+            openUrl: String,
+            callerPicture: String = ""
+        ): Intent {
+            return ringIntent(
+                context.applicationContext,
+                peer,
+                callType,
+                callerName,
+                openUrl,
+                callerPicture,
+                autoAnswer = true
+            )
+        }
+
+        private fun ringIntent(
+            app: Context,
+            peer: String,
+            callType: String,
+            callerName: String,
+            openUrl: String,
+            callerPicture: String,
+            autoAnswer: Boolean
+        ): Intent {
+            return Intent(app, IncomingCallActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra(EXTRA_PEER, peer)
                 putExtra(EXTRA_CALL_TYPE, callType)
                 putExtra(EXTRA_CALLER_NAME, callerName)
-                putExtra(EXTRA_CALLER_PICTURE, picture)
-                putExtra(EXTRA_OPEN_URL, openUrl)
+                putExtra(EXTRA_CALLER_PICTURE, callerPicture)
+                putExtra(EXTRA_OPEN_URL, openUrl.ifBlank { SosCallUrls.acceptPage(callType) })
+                if (autoAnswer) putExtra(EXTRA_AUTO_ANSWER, true)
             }
-            try {
-                app.startActivity(intent)
+        }
+
+        fun backgroundStartOptions(): android.os.Bundle? {
+            if (Build.VERSION.SDK_INT < 34) return null
+            return try {
+                ActivityOptions.makeBasic().apply {
+                    pendingIntentBackgroundActivityStartMode =
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                }.toBundle()
             } catch (_: Exception) {
+                null
             }
         }
 

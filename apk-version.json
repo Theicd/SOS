@@ -1,8 +1,8 @@
 {
-  "version": "1.0.105",
-  "versionCode": 106,
-  "file": "SOS-1.0.105.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.105/SOS-1.0.105.apk",
+  "version": "1.0.106",
+  "versionCode": 107,
+  "file": "SOS-1.0.106.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.106/SOS-1.0.106.apk",
   "releasedAt": "2026-09-09",
-  "note": "Stop native shell from re-ringing a voice call after hangup"
+  "note": "Answer from home-screen heads-up opens the live call page"
 }

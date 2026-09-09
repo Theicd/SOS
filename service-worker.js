@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v765'; // UI: ignore replayed video offers after hangup
+  const CACHE_NAME = 'sos-cache-v766'; // UI: live-call UI after heads-up answer
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.util.ArrayDeque
@@ -282,40 +283,17 @@ object NotificationHelper {
         SosIncomingCallSession.markRinging(app, peer, type)
         SosDebugLog.i("notify", "showIncomingCall type=$type peer=${peer.take(8)}")
 
-        val fullScreenIntent = Intent(app, IncomingCallActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                Intent.FLAG_ACTIVITY_NO_USER_ACTION
-            putExtra(IncomingCallActivity.EXTRA_PEER, peer)
-            putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, type)
-            putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, displayName)
-            putExtra(IncomingCallActivity.EXTRA_CALLER_PICTURE, pictureUrl)
-            putExtra(IncomingCallActivity.EXTRA_OPEN_URL, openUrl)
+        val fullScreenIntent = IncomingCallActivity.answerIntent(
+            app, peer, type, displayName, openUrl, pictureUrl
+        ).apply {
+            putExtra(IncomingCallActivity.EXTRA_AUTO_ANSWER, false)
         }
-        val fullScreenPi = PendingIntent.getActivity(
-            app,
-            INCOMING_CALL_ID,
-            fullScreenIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val fullScreenPi = activityPendingIntent(app, INCOMING_CALL_ID, fullScreenIntent)
 
-        val answerIntent = Intent(app, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-            putExtra(MainActivity.EXTRA_OPEN_URL, SosCallUrls.acceptPage(type))
-            putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
-            putExtra(MainActivity.EXTRA_CALL_PEER, peer)
-            putExtra(MainActivity.EXTRA_CALL_TYPE, type)
-        }
-        val answerPi = PendingIntent.getActivity(
-            app,
-            INCOMING_CALL_ID + 1,
-            answerIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val answerIntent = IncomingCallActivity.answerIntent(
+            app, peer, type, displayName, SosCallUrls.acceptPage(type), pictureUrl
         )
+        val answerPi = activityPendingIntent(app, INCOMING_CALL_ID + 1, answerIntent)
 
         val declineIntent = Intent(app, CallActionReceiver::class.java).apply {
             this.action = CallActionReceiver.ACTION_DECLINE
@@ -419,6 +397,17 @@ object NotificationHelper {
         }
         if (stopSound) {
             CallSoundHelper.stopRingtone()
+        }
+    }
+
+    /** PendingIntent לפתיחת Activity גם מכרטיסיית CallStyle (API 34+) | HYPER CORE TECH */
+    private fun activityPendingIntent(app: Context, requestCode: Int, intent: Intent): PendingIntent {
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val opts: Bundle? = IncomingCallActivity.backgroundStartOptions()
+        return if (opts != null) {
+            PendingIntent.getActivity(app, requestCode, intent, flags, opts)
+        } else {
+            PendingIntent.getActivity(app, requestCode, intent, flags)
         }
     }
 

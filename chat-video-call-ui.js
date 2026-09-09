@@ -877,7 +877,23 @@
   }
 
   // חלק שיחות וידאו – אתחול
-  function init(){ initVideoButton(); console.log('Video call UI initialized'); }
+  function init(){
+    initVideoButton();
+    const ensureLiveVideoUiVisible = () => {
+      try {
+        if (document.hidden) return;
+        const st = App.videoCall && App.videoCall.getState ? App.videoCall.getState() : null;
+        const peer = (st && st.currentPeer) || App.__videoIncomingPeer || '';
+        if (!peer || !st || !st.isActive) return;
+        if (dialog && document.body.contains(dialog)) return;
+        saveChatPanelState();
+        createDialog(peer, false);
+      } catch (_) {}
+    };
+    document.addEventListener('visibilitychange', ensureLiveVideoUiVisible);
+    window.addEventListener('sos-native-resume', ensureLiveVideoUiVisible);
+    console.log('Video call UI initialized');
+  }
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
 
   // חשיפה מוגבלת

@@ -1,5 +1,6 @@
 package com.sos010.app
 
+import android.app.ActivityManager
 import android.app.NotificationManager
 import android.Manifest
 import android.annotation.SuppressLint
@@ -283,6 +284,12 @@ class MainActivity : AppCompatActivity() {
         isHostAlive = true
         SosDebugLog.i("life", "onResume foreground")
         SosDebugLog.snapshotFlags("onResume")
+        if (openedFromCallIntent ||
+            pendingCallAction == CALL_ACTION_ANSWER ||
+            SosIncomingCallSession.isAnsweredPhase(this)
+        ) {
+            pulseKeepCallInFront("onResume")
+        }
         SosP2pStandby.onHostForeground()
         // חוסם צליל חוזר כשה-WebView מתעורר ומקבל אירועים ישנים | HYPER CORE TECH
         NotificationHelper.suppressAlertsFor(3000L)
@@ -355,6 +362,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
         startKeepAliveService()
+        if (openedFromCallIntent ||
+            pendingCallAction == CALL_ACTION_ANSWER ||
+            SosIncomingCallSession.isAnsweredPhase(this)
+        ) {
+            mainHandler.postDelayed({
+                if (isFinishing) return@postDelayed
+                if (!isHostAlive && SosIncomingCallSession.isAnsweredPhase(this)) {
+                    pulseKeepCallInFront("onPause-reclaim")
+                }
+            }, 200L)
+        }
         super.onPause()
     }
 
@@ -650,8 +668,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** מחזיר את משימת SOS לחזית אחרי מענה מכרטיסיית CallStyle (שיאומי מחזיר לשולחן) | HYPER CORE TECH */
+    fun pulseKeepCallInFront(reason: String) {
+        keepCallTaskInFront(reason)
+        listOf(250L, 700L, 1600L).forEach { delay ->
+            mainHandler.postDelayed({
+                if (isFinishing) return@postDelayed
+                if (!openedFromCallIntent &&
+                    pendingCallAction != CALL_ACTION_ANSWER &&
+                    !SosIncomingCallSession.isAnsweredPhase(this)
+                ) return@postDelayed
+                keepCallTaskInFront("$reason-$delay")
+            }, delay)
+        }
+    }
+
+    private fun keepCallTaskInFront(reason: String) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            }
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            am.moveTaskToFront(taskId, ActivityManager.MOVE_TASK_NO_USER_ACTION)
+            SosDebugLog.i("call", "keepFront $reason task=$taskId")
+        } catch (err: Exception) {
+            SosDebugLog.i("call", "keepFront fail $reason ${err.message}")
+        }
+    }
+
     /** בדחייה – משאירים את ה-WebView פעיל כמה שניות כדי לשלוח disconnect | HYPER CORE TECH */
     private fun maybeDeferBackgroundStart(intent: Intent?) {
+        if (pendingCallAction == CALL_ACTION_ANSWER || pendingAutoAccept) return
+        if (SosIncomingCallSession.isAnsweredPhase(this)) return
         if (intent?.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false) != true) return
         val action = intent.getStringExtra(EXTRA_CALL_ACTION)
             ?: when (intent.action) {
@@ -720,9 +769,10 @@ class MainActivity : AppCompatActivity() {
             openedFromCallIntent = true
             // ענה = חזית אמיתית; מבטלים מצב warm שנשאר ושובר שיחות/פרופיל | HYPER CORE TECH
             clearWarmCallState("answer")
-            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false, dismissUi = true)
+            NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false, dismissUi = false)
             // מסתירים loading מיד במענה | HYPER CORE TECH
             if (this::loading.isInitialized) loading.visibility = View.GONE
+            pulseKeepCallInFront("intent-answer")
         }
         if (action == CALL_ACTION_DECLINE) {
             pendingAutoAccept = false
@@ -2190,6 +2240,40 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) {
                 }
+            }
+        }
+
+        /** פותח את ה-WebView בחזית אחרי מענה מכרטיסיית CallStyle | HYPER CORE TECH */
+        fun bringHostToFront(
+            context: Context,
+            peer: String,
+            callType: String,
+            openUrl: String? = null
+        ) {
+            val app = context.applicationContext
+            val pk = peer.trim().lowercase()
+            val type = when (callType.trim().lowercase()) {
+                "video", "v", "v-offer" -> "video"
+                else -> "voice"
+            }
+            val intent = Intent(app, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                putExtra(EXTRA_OPEN_URL, openUrl?.ifBlank { null } ?: SosCallUrls.acceptPage(type))
+                putExtra(EXTRA_CALL_ACTION, CALL_ACTION_ANSWER)
+                putExtra(EXTRA_CALL_PEER, pk)
+                putExtra(EXTRA_CALL_TYPE, type)
+            }
+            try {
+                val opts = IncomingCallActivity.backgroundStartOptions()
+                if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
+            } catch (err: Exception) {
+                SosDebugLog.i("call", "bringHost start fail ${err.message}")
+            }
+            hostRef?.get()?.runOnUiThread {
+                hostRef?.get()?.pulseKeepCallInFront("bringHost")
             }
         }
 

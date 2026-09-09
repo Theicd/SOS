@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.09-vidghost1",
-  "buildTime": "2026-09-09T21:30:00+03:00",
-  "notes": "Ignore replayed video offers after hangup or decline"
+  "version": "2026.09.09-headsup1",
+  "buildTime": "2026-09-09T22:20:00+03:00",
+  "notes": "Restore live-call UI after answering from the heads-up banner"
 }

@@ -1771,6 +1771,28 @@
       stopDialtone();
       closeCallDialog();
     });
+    const ensureLiveCallUiVisible = () => {
+      try {
+        if (document.hidden) return;
+        const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+        const peer = (st && st.currentPeer) || activePeerPubkey || window.__sosAcceptSucceededPeer || '';
+        if (!peer) return;
+        const pc = st && st.peerConnection;
+        const cs = pc && String(pc.connectionState || pc.iceConnectionState || '');
+        const inCall = !!(st && (st.isCallActive || cs === 'connected' || cs === 'connecting' || cs === 'checking'));
+        if (!inCall) return;
+        if (callDialog && document.body.contains(callDialog)) return;
+        window.__sosNativeInCallUi = false;
+        hideChatBehindCall();
+        createCallDialog(peer, false);
+        updateCallStatus('מחובר');
+        showMuteButton();
+        showSpeakerButton();
+        startCallTimer();
+      } catch (_) {}
+    };
+    document.addEventListener('visibilitychange', ensureLiveCallUiVisible);
+    window.addEventListener('sos-native-resume', ensureLiveCallUiVisible);
   }
 
   // אתחול כשהדף נטען

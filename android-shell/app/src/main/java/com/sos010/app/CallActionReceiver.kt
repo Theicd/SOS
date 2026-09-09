@@ -7,7 +7,7 @@ import android.util.Log
 
 /**
  * פעולות ענה/דחה מהתראת שיחה נכנסת (CallStyle).
- * ענה → MainActivity בחזית (WebRTC דורש Activity גלויה).
+ * ענה → IncomingCallActivity ואז MainActivity בחזית.
  */
 class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -31,23 +31,18 @@ class CallActionReceiver : BroadcastReceiver() {
             }
             ACTION_ANSWER -> {
                 SosIncomingCallSession.markAnswered(app, peer)
-                NotificationHelper.cancelIncomingCall(app, stopSound = true, dismissUi = true)
+                NotificationHelper.cancelIncomingCall(app, stopSound = true, dismissUi = false)
                 val openUrl = intent.getStringExtra(MainActivity.EXTRA_OPEN_URL)
                     ?: SosCallUrls.acceptPage(callType)
-                val launch = Intent(app, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    putExtra(MainActivity.EXTRA_OPEN_URL, openUrl)
-                    putExtra(MainActivity.EXTRA_CALL_ACTION, MainActivity.CALL_ACTION_ANSWER)
-                    putExtra(MainActivity.EXTRA_CALL_PEER, peer)
-                    putExtra(MainActivity.EXTRA_CALL_TYPE, callType)
-                }
+                val callerName = SosContactCache.displayName(app, peer, app.getString(R.string.call_someone))
+                val picture = SosContactCache.get(app, peer)?.picture.orEmpty()
+                val launch = IncomingCallActivity.answerIntent(app, peer, callType, callerName, openUrl, picture)
                 try {
-                    app.startActivity(launch)
+                    val opts = IncomingCallActivity.backgroundStartOptions()
+                    if (opts != null) app.startActivity(launch, opts) else app.startActivity(launch)
                 } catch (err: Exception) {
                     Log.w(TAG, "answer launch failed: ${err.message}")
+                    MainActivity.bringHostToFront(app, peer, callType, openUrl)
                 }
             }
         }
