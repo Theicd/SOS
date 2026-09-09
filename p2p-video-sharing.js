@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.15.5-chatdc-roles1';
+  const P2P_VERSION = '2.15.6-chatqos1';
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -165,6 +165,68 @@
   const pendingChatDcDownloads = new Map(); // peerKey -> pending download
   const chatDcDownloadChains = new Map();   // peerKey -> Promise queue
   const chatDcServeChains = new Map();      // peerKey -> Promise queue
+  const liveFeedAborts = new Set();
+  let feedServePaused = false;
+
+  function isChatUiOpen() {
+    try {
+      if (App.chatState && typeof App.chatState.isOpen === 'boolean') return !!App.chatState.isOpen;
+    } catch (_) {}
+    try {
+      const panel = document.getElementById('chatPanel');
+      if (panel && !panel.hasAttribute('hidden')) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  function hasChatFileTransfer(peerKey) {
+    try {
+      const t = App.activeP2PTransfers;
+      if (!(t instanceof Map) || t.size === 0) return false;
+      if (!peerKey) return true;
+      const pk = String(peerKey).toLowerCase();
+      for (const tr of t.values()) {
+        if (String(tr.peerPubkey || '').toLowerCase() === pk) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function shouldDeferFeedMedia(peerKey) {
+    if (feedServePaused) return true;
+    try {
+      if (typeof App.isFeedHeavyWorkPaused === 'function' && App.isFeedHeavyWorkPaused()) return true;
+    } catch (_) {}
+    if (isChatUiOpen()) return true;
+    if (hasChatFileTransfer(peerKey)) return true;
+    return false;
+  }
+
+  function abortFeedChatDcForPeer(peerKey, reason) {
+    const key = String(peerKey || '').toLowerCase();
+    const pending = pendingChatDcDownloads.get(key);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    pendingChatDcDownloads.delete(key);
+    try { pending.reject(new Error(reason || 'chat-priority')); } catch (_) {}
+  }
+
+  function pauseFeedMediaForChat(reason) {
+    feedServePaused = true;
+    log('info', `[feed-session] pause for chat`, { reason: reason || 'chat' });
+    pendingChatDcDownloads.forEach((_pending, key) => {
+      abortFeedChatDcForPeer(key, 'chat-priority');
+    });
+    liveFeedAborts.forEach((ac) => {
+      try { ac.abort(); } catch (_) {}
+    });
+    liveFeedAborts.clear();
+  }
+
+  function resumeFeedMediaAfterChat() {
+    feedServePaused = false;
+    log('info', `[feed-session] resume after chat`);
+  }
 
   // חלק P2P (p2p-video-sharing.js) – WebRTC config עם תמיכה מלאה ב-Safari/iOS | HYPER CORE TECH
   const RTC_CONFIG = Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
@@ -1960,6 +2022,7 @@
     } catch (_) {}
     const deadline = Date.now() + budget;
     while (Date.now() < deadline) {
+      if (shouldDeferFeedMedia(peerKey)) return getDc();
       await sleep(200);
       dc = getDc();
       if (dc && dc.readyState === 'open') return dc;
@@ -2051,6 +2114,10 @@
 
   function downloadViaChatDcNow(peerKey, hash, channel) {
     return new Promise((resolve, reject) => {
+      if (shouldDeferFeedMedia(peerKey)) {
+        reject(new Error('chat-priority'));
+        return;
+      }
       if (!channel || channel.readyState !== 'open') {
         reject(new Error('Chat DC not open'));
         return;
@@ -2099,6 +2166,10 @@
     const ch = channel || (typeof App.dataChannel?.getChatDC === 'function' ? App.dataChannel.getChatDC(peerKey) : null);
 
     if (msg.type === 'request' && msg.hash) {
+      if (shouldDeferFeedMedia(peerKey)) {
+        log('info', `[feed-session] media request deferred`, { reason: 'chat-priority', peer: peerKey.slice(0, 8) });
+        return true;
+      }
       if (ch && ch.readyState === 'open') {
         serveMediaBlobOnChannel(ch, msg.hash, peerKey, FEED_PATH.CHAT_DC);
         return true;
@@ -2231,6 +2302,11 @@
       return false;
     }
 
+    if (shouldDeferFeedMedia(peerKey)) {
+      log('info', `[feed-session] serve skipped`, { reason: 'chat-priority', peer: peerKey.slice(0, 8) });
+      return false;
+    }
+
     const fullSize = fileData.size || fileData.blob.size;
     log('upload', `[feed-session] serve START`, {
       path,
@@ -2254,9 +2330,11 @@
       let offset = 0;
       let chunkNum = 0;
       while (offset < blob.size) {
+        if (shouldDeferFeedMedia(peerKey)) throw new Error('chat-priority');
         if (!channel || channel.readyState !== 'open') throw new Error('channel closed');
         while (channel.bufferedAmount > CHUNK_SIZE * 8) {
           await sleep(20);
+          if (shouldDeferFeedMedia(peerKey)) throw new Error('chat-priority');
           if (!channel || channel.readyState !== 'open') throw new Error('channel closed');
         }
         const end = Math.min(offset + CHUNK_SIZE, blob.size);
@@ -3250,6 +3328,10 @@
         } catch (_) {}
       }
 
+      if (shouldDeferFeedMedia()) {
+        throw new Error('chat-priority');
+      }
+
       // חלק Network Tiers (p2p-video-sharing.js) – קבלת מצב רשת ואינדקס פוסט | HYPER CORE TECH
       const postIndex = typeof options.postIndex === 'number' ? options.postIndex : 0;
       const { tier } = await updateNetworkTier();
@@ -3318,12 +3400,16 @@
 
         // חלק Network Tiers - first-paint / BOOTSTRAP בלבד מ-Blossom | HYPER CORE TECH
         if (forceBlossom) {
+          const blossomCtl = new AbortController();
+          liveFeedAborts.add(blossomCtl);
           try {
-            const blob = await fetchBlossomBlob(url, mimeType);
+            if (shouldDeferFeedMedia()) throw new Error('chat-priority');
+            const blob = await fetchBlossomBlob(url, mimeType, blossomCtl.signal);
             recordP2PDownload('blossom', hash);
             log('success', `מ-Blossom [${tier}]`, { post: postIndex + 1, size: Math.round(blob.size / 1024) + 'KB' });
             return await cacheAndReturn(blob, 'blossom');
           } catch (blossomErr) {
+            if (/chat-priority/i.test(String(blossomErr?.message || ''))) throw blossomErr;
             log('info', `Blossom נכשל, מנסה P2P`, { error: blossomErr.message });
             const fallbackPeers = await findPeersWithFile(hash);
             if (fallbackPeers && fallbackPeers.length > 0) {
@@ -3344,6 +3430,8 @@
             p2pStats.downloads.failed++;
             log('error', `Blossom ו-P2P נכשלו`, { error: blossomErr.message });
             throw blossomErr;
+          } finally {
+            liveFeedAborts.delete(blossomCtl);
           }
         }
 
@@ -3389,19 +3477,25 @@
         };
 
         if (peers.length === 0) {
+          const zeroPeerAbort = new AbortController();
+          liveFeedAborts.add(zeroPeerAbort);
           try {
-            const blob = await fetchBlossomBlob(url, mimeType);
+            if (shouldDeferFeedMedia()) throw new Error('chat-priority');
+            const blob = await fetchBlossomBlob(url, mimeType, zeroPeerAbort.signal);
             recordP2PDownload('blossom', hash);
             log('success', `מ-URL (0 peers)`, { size: Math.round(blob.size / 1024) + 'KB' });
             return await cacheAndReturn(blob, 'url');
           } catch (err) {
             p2pStats.downloads.failed++;
             throw err;
+          } finally {
+            liveFeedAborts.delete(zeroPeerAbort);
           }
         }
 
         const sortedPeers = rankPeersForFairDownload(prioritizeConnectedPeers(peers));
         const blossomAbort = new AbortController();
+        liveFeedAborts.add(blossomAbort);
         let settled = false;
 
         const outcome = await new Promise((resolve, reject) => {
@@ -3433,6 +3527,10 @@
 
           const startPeer = (peer) => {
             if (!peer || settled) return;
+            if (shouldDeferFeedMedia(peer)) {
+              p2pFailed += 1;
+              return;
+            }
             p2pAttempted += 1;
             pendingP2P += 1;
             reservePeerInflight(peer);
@@ -3507,6 +3605,7 @@
             startBlossom('stall-watch');
           }, Math.max(p2pTimeout, SLOW_PROBE_MS + 2000));
         });
+        liveFeedAborts.delete(blossomAbort);
 
         if (outcome?.type === 'p2p') {
           recordP2PDownload('p2p', hash);
@@ -3839,6 +3938,9 @@
     onChatDataChannelOpen,
     onChatDataChannelClosed,
     isPeerMediaConnected,
+    pauseFeedMediaForChat,
+    resumeFeedMediaAfterChat,
+    shouldDeferFeedMedia,
   });
 
   // אתחול
@@ -4030,6 +4132,8 @@
     onChatDataChannelOpen,
     onChatDataChannelClosed,
     isPeerMediaConnected,
+    pauseFeedMediaForChat,
+    resumeFeedMediaAfterChat,
     printP2PStats,
   });
 

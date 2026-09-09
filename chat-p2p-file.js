@@ -39,6 +39,29 @@
   const progressListeners = new Set(); // UI listeners for progress
   // חלק שמירת קבצים (chat-p2p-file.js) – שומר קובץ 3 דקות אחרי סיום לצורך resend אם המקבל איחר | HYPER CORE TECH
   const recentCompletedFiles = new Map(); // fileId -> { file, keyStr, peerPubkey, completedAt }
+  const recentIncomingFileOffers = new Map(); // peerKey -> ts
+
+  function isReceivingChatFile(peerPubkey) {
+    const peerKey = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+    for (const t of activeTransfers.values()) {
+      if (t.direction !== 'receive') continue;
+      if (!peerKey) return true;
+      if (String(t.peerPubkey || '').toLowerCase() === peerKey) return true;
+    }
+    if (!peerKey) return false;
+    const ts = recentIncomingFileOffers.get(peerKey);
+    return !!(ts && (Date.now() - ts < 30000));
+  }
+
+  function hasActiveChatFileTransfer(peerPubkey) {
+    if (!(activeTransfers instanceof Map) || activeTransfers.size === 0) return false;
+    if (!peerPubkey) return true;
+    const peerKey = String(peerPubkey).toLowerCase();
+    for (const t of activeTransfers.values()) {
+      if (String(t.peerPubkey || '').toLowerCase() === peerKey) return true;
+    }
+    return false;
+  }
 
   function notifyProgress(payload) {
     try {
@@ -46,8 +69,13 @@
       if (typeof App.setP2pTransferActiveNative === 'function') {
         if (st === 'starting' || st === 'sending' || st === 'receiving' || st === 'waiting-peer' || st === 'resending' || st === 'requesting-resend' || st === 'stalled-requesting-resend') {
           App.setP2pTransferActiveNative(true);
-        } else if (st === 'complete' || st === 'failed') {
+        } else if (st === 'complete' || st === 'failed' || st === 'cancelled' || st === 'complete-blossom' || st === 'verified') {
           App.setP2pTransferActiveNative(false);
+          try {
+            if (activeTransfers.size === 0 && typeof App.maybeResumeFeedAfterChat === 'function') {
+              App.maybeResumeFeedAfterChat();
+            }
+          } catch (_) {}
         }
       }
     } catch (_) {}
@@ -247,6 +275,10 @@
     });
     
     logFileTransport(peerKey, 'seed-local');
+    try {
+      if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);
+      if (typeof App.pauseFeedMediaForChat === 'function') App.pauseFeedMediaForChat('chat-file');
+    } catch (_) {}
     const fileId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const key = await generateFileKey();
     const keyStr = await exportFileKey(key);
@@ -893,7 +925,11 @@
         return; // מצאנו transfer מתאים — יציאה
       }
     }
-    // חלק buffer chunks (chat-p2p-file.js) – אם אין transfer מתאים, שומרים chunk ב-buffer (race condition fix) | HYPER CORE TECH
+    // חלק buffer chunks (chat-p2p-file.js) – רק אם באמת מחכים לקובץ שיחה, לא בינארי של פיד | HYPER CORE TECH
+    if (!isReceivingChatFile(peerKey)) {
+      mediaDebugLog('drop binary (not a chat file receive)', peerKey.slice(0, 8), encryptedData?.byteLength);
+      return;
+    }
     if (!pendingChunks.has(peerKey)) pendingChunks.set(peerKey, []);
     pendingChunks.get(peerKey).push(encryptedData);
     console.log('[CHAT/P2P] 📦 Chunk buffered (ממתין ל-file-offer)', peerKey.slice(0,8), 'buffered:', pendingChunks.get(peerKey).length);
@@ -976,6 +1012,11 @@
         size,
         totalChunks
       });
+      recentIncomingFileOffers.set(senderKey, Date.now());
+      try {
+        if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);
+        if (typeof App.pauseFeedMediaForChat === 'function') App.pauseFeedMediaForChat('chat-file-recv');
+      } catch (_) {}
       
       if (!fileId || !keyStr) {
         console.warn('[CHAT/P2P] ⚠️ file-offer חסר fileId או keyStr');
@@ -1742,6 +1783,8 @@
     handleP2PFileMessage: handleP2PFileMessage,
     diagnoseP2PFile: diagnoseP2PFile,
     recentCompletedFiles: recentCompletedFiles,
+    hasActiveChatFileTransfer,
+    isReceivingChatFile,
     subscribeP2PFileProgress: (cb) => {
       if (typeof cb === 'function') {
         progressListeners.add(cb);

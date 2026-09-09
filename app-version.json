@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.06-p2pdc1",
-  "buildTime": "2026-09-06T22:35:00+03:00",
-  "notes": "Feed must not break chat P2P initiator/responder roles"
+  "version": "2026.09.09-feedchat1",
+  "buildTime": "2026-09-09T16:30:00+03:00",
+  "notes": "Feed keeps cards after media timeout; chat files pause in-flight feed on the same DC"
 }

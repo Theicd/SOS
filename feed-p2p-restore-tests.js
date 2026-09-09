@@ -123,6 +123,7 @@ const path = require('path');
   const exchangeSrc = read('p2p-peer-exchange.js');
   const eventSyncSrc = read('p2p-event-sync.js');
   const videosSrc = read('videos.js');
+  const chatFileSrc = read('chat-p2p-file.js');
 
   test('getChatDC returns only OPEN channel', () => {
     const store = new Map();
@@ -244,11 +245,17 @@ const path = require('path');
       && out.retryable === true;
   });
 
-  test('source media timeout does not call removeVideoFromState', () => {
+  test('source media timeout parks card instead of destroying it', () => {
     const fn = videosSrc.match(/function handleCardMediaFailure[\s\S]*?\nfunction mountCard/);
-    return !!(fn && fn[0] && !/removeVideoFromState\(videoId\)/.test(fn[0])
+    return !!(fn && fn[0]
       && /keep post/.test(fn[0])
-      && /\[MEDIA-STATE\]/.test(fn[0]));
+      && /\[MEDIA-STATE\]/.test(fn[0])
+      && !/removeVideoFromState\(videoId\)/.test(fn[0])
+      && /if \(isTimeout\) \{/.test(fn[0])
+      && /hideCardUntilMediaReady\(card\)/.test(fn[0])
+      && /parkFeedCardUntilMediaReady/.test(videosSrc)
+      && /revealReadyFeedPosts/.test(videosSrc)
+      && /enqueueWarmAndMount/.test(videosSrc));
   });
 
   test('source scheduler is concurrent and loadMore does not await media', () => {
@@ -256,7 +263,8 @@ const path = require('path');
       && /warmAndMountFeedCard/.test(videosSrc)
       && /renderMoreVideos\(toShow\);/.test(videosSrc)
       && !/await renderMoreVideos\(toShow\)/.test(videosSrc)
-      && /\[FEED-BOOT\]/.test(videosSrc);
+      && /\[FEED-BOOT\]/.test(videosSrc)
+      && /function pumpFeedWarmQueue/.test(videosSrc);
   });
 
   test('feed warm uses connect; responder asks initiator for offer', () => {
@@ -271,6 +279,15 @@ const path = require('path');
   test('HYBRID_BLOSSOM_POSTS is 1 and guest stays 10', () => {
     return /HYBRID_BLOSSOM_POSTS = 1/.test(videoShareSrc)
       && /GUEST_BLOSSOM_FIRST_POSTS = 10/.test(videoShareSrc);
+  });
+
+  test('chat file has DC priority over feed media', () => {
+    return /function pauseFeedMediaForChat/.test(videoShareSrc)
+      && /chat-priority/.test(videoShareSrc)
+      && /function isReceivingChatFile/.test(chatFileSrc)
+      && /drop binary \(not a chat file receive\)/.test(chatFileSrc)
+      && /receivingFile && typeof App\.handleP2PFileMessage/.test(chatSrc.replace(/\s+/g, ' '))
+      && /function maybeResumeFeedAfterChat/.test(videosSrc);
   });
 
   test('Multi-Source is not enabled by default', () => {

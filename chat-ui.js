@@ -4456,6 +4456,9 @@
       if (typeof App.setFeedWarmupPaused === 'function') {
         App.setFeedWarmupPaused(true);
       }
+      if (typeof App.pauseFeedMediaForChat === 'function') {
+        App.pauseFeedMediaForChat('chat-open');
+      }
       if (typeof App.pauseAllFeedVideos === 'function') {
         App.pauseAllFeedVideos();
       }
@@ -4498,7 +4501,11 @@
       _kbStableHeight = 0;
       // ממשיכים טעינת פיד מהקאש אחרי סגירת שיחות | HYPER CORE TECH
       if (typeof App.setFeedWarmupPaused === 'function') {
-        App.setFeedWarmupPaused(false);
+        if (typeof App.maybeResumeFeedAfterChat === 'function') {
+          App.maybeResumeFeedAfterChat();
+        } else {
+          App.setFeedWarmupPaused(false);
+        }
       }
       try {
         if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();

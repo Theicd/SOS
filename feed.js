@@ -4539,6 +4539,9 @@ async function loadFeed() {
             return { success: true, source: p2pResult.source || 'network' };
           }
         } catch (p2pErr) {
+          if (/chat-priority/i.test(String(p2pErr && p2pErr.message ? p2pErr.message : p2pErr))) {
+            return { success: false, source: 'paused' };
+          }
           // fallback יטופל למטה
         }
       }

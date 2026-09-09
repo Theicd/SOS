@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.17-feed-backfill1';
+const VIDEOS_CODE_VERSION = '2.6.18-feed-chatqos1';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -600,9 +600,25 @@ function isFeedHeavyWorkPaused() {
 function tryResumeFeedHeavyWork(reason = 'resume') {
   if (isFeedHeavyWorkPaused()) return;
   console.log('[videos] feed video queue RESUMED', reason);
+  try { pumpFeedWarmQueue(); } catch (_) {}
   processVideoDownloadQueue().catch((err) => {
     console.warn('[videos] resume download queue failed', err);
   });
+}
+
+function hasActiveChatFileTransfer() {
+  try {
+    const t = window.NostrApp && window.NostrApp.activeP2PTransfers;
+    return t instanceof Map && t.size > 0;
+  } catch (_) {
+    return false;
+  }
+}
+
+function maybeResumeFeedAfterChat() {
+  if (isChatFeedWarmupActive()) return;
+  if (hasActiveChatFileTransfer()) return;
+  setFeedWarmupPaused(false);
 }
 
 function setFeedDownloadsPaused(paused) {
@@ -639,10 +655,26 @@ function syncFeedWarmupPauseWithChat(reason = 'sync') {
 // חלק עומס מכשיר (videos.js) – השהיית תור פיד/קאש בשיחות; מיזוג פוסטים ממשיך | HYPER CORE TECH
 function setFeedWarmupPaused(paused) {
   const next = !!paused;
+  if (!next && (isChatFeedWarmupActive() || hasActiveChatFileTransfer())) {
+    feedWarmupPaused = true;
+    console.log('[videos] feed video queue stays PAUSED (chat/file busy)');
+    return;
+  }
   if (feedWarmupPaused === next) return;
   feedWarmupPaused = next;
   console.log('[videos] feed video queue', feedWarmupPaused ? 'PAUSED (chat open)' : 'RESUMED (chat closed)');
-  if (!feedWarmupPaused) {
+  if (feedWarmupPaused) {
+    try {
+      if (typeof window.NostrApp?.pauseFeedMediaForChat === 'function') {
+        window.NostrApp.pauseFeedMediaForChat('chat-open');
+      }
+    } catch (_) {}
+  } else {
+    try {
+      if (typeof window.NostrApp?.resumeFeedMediaAfterChat === 'function') {
+        window.NostrApp.resumeFeedMediaAfterChat();
+      }
+    } catch (_) {}
     tryResumeFeedHeavyWork('chat-closed');
   }
 }
@@ -745,24 +777,47 @@ async function processVideoDownloadQueue() {
         if (typeof App.loadVideoWithCache === 'function') {
           const result = await App.loadVideoWithCache(videoEl, url, hash, mirrors);
           loadedFromCache = result?.source === 'cache';
+          if (result?.source === 'paused') {
+            markPaused(item);
+            return false;
+          }
           if (!result?.success && typeof fallbackFn === 'function') fallbackFn();
         } else if (typeof fallbackFn === 'function') {
           fallbackFn();
         }
       } catch (err) {
+        const paused = /chat-priority/i.test(String(err?.message || err || ''));
+        if (paused) {
+          markPaused(item);
+          return false;
+        }
         console.warn('Failed to load video with P2P/cache:', err);
         if (typeof fallbackFn === 'function') fallbackFn();
       }
     }
+    try {
+      const card = videoEl && typeof videoEl.closest === 'function'
+        ? videoEl.closest('.videos-feed__card[data-event-id]')
+        : null;
+      const id = card && card.getAttribute('data-event-id');
+      if (id) mountParkedFeedCard(id);
+    } catch (_) {}
     return loadedFromCache;
   };
 
   const inFlight = new Set();
-  while ((videoDownloadQueue.length > 0 || inFlight.size > 0) && !isFeedHeavyWorkPaused()) {
+  let pausedOut = false;
+  const markPaused = (item) => {
+    pausedOut = true;
+    videoDownloadQueue.unshift(item);
+  };
+
+  while ((videoDownloadQueue.length > 0 || inFlight.size > 0) && !isFeedHeavyWorkPaused() && !pausedOut) {
     while (
       videoDownloadQueue.length > 0 &&
       inFlight.size < FEED_VIDEO_MAX_PARALLEL &&
-      !isFeedHeavyWorkPaused()
+      !isFeedHeavyWorkPaused() &&
+      !pausedOut
     ) {
       const item = videoDownloadQueue.shift();
       processedCount += 1;
@@ -1861,6 +1916,8 @@ App.playHlsLiveMedia = playHlsLiveMedia;
 App.setFeedDownloadsPaused = setFeedDownloadsPaused;
 App.setFeedWarmupPaused = setFeedWarmupPaused;
 App.syncFeedWarmupPauseWithChat = syncFeedWarmupPauseWithChat;
+App.isFeedHeavyWorkPaused = isFeedHeavyWorkPaused;
+App.maybeResumeFeedAfterChat = maybeResumeFeedAfterChat;
 App.hideLoadingAnimation = hideLoadingAnimation;
 App.showLoadingAnimation = showLoadingAnimation;
 
@@ -2363,6 +2420,87 @@ function hideCardUntilMediaReady(card) {
   card.style.display = 'none';
 }
 
+const deferredFeedCards = new Map();
+const FEED_VISIBLE_FILL_MIN = 12;
+
+function parkFeedCardUntilMediaReady(card, video, mediaReadyPromise) {
+  if (!video?.id || !card) return;
+  hideCardUntilMediaReady(card);
+  deferredFeedCards.set(video.id, { card, video, mediaReadyPromise });
+  if (mediaReadyPromise && card.dataset.parkedListen !== '1') {
+    card.dataset.parkedListen = '1';
+    mediaReadyPromise.then(() => {
+      mountParkedFeedCard(video.id, true);
+    }).catch((err) => {
+      deferredFeedCards.delete(video.id);
+      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+    });
+  }
+  console.log('[videos] parked card until media ready', { id: video.id });
+}
+
+function mountParkedFeedCard(videoId, force = false) {
+  if (!videoId || !selectors.stream) return false;
+  const parked = deferredFeedCards.get(videoId);
+  if (!parked || !parked.card) return false;
+  if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${videoId}"]`)) {
+    deferredFeedCards.delete(videoId);
+    return false;
+  }
+  const videoEl = parked.card.querySelector && parked.card.querySelector('video');
+  const hasSrc = !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash));
+  const playable = !videoEl || videoEl.readyState >= 2 || hasSrc;
+  if (!force && !playable) return false;
+  mountCard(parked.card);
+  markCardMediaReady(parked.card);
+  deferredFeedCards.delete(videoId);
+  try { syncFeedDomOrder(getDisplayVideos()); } catch (_) {}
+  console.log('[videos] mounted parked card', { id: videoId });
+  return true;
+}
+
+function isVideoHashCached(video) {
+  const hash = String(video?.hash || '').trim().toLowerCase();
+  if (!hash) return false;
+  try {
+    const set = window.NostrApp && window.NostrApp.mediaCacheHashSet;
+    return !!(set && (set.has(hash) || set.has(String(video.hash))));
+  } catch (_) {
+    return false;
+  }
+}
+
+function revealReadyFeedPosts() {
+  if (!selectors.stream) return 0;
+  let added = 0;
+  deferredFeedCards.forEach((parked, id) => {
+    if (mountParkedFeedCard(id)) added += 1;
+  });
+  const list = typeof getDisplayVideos === 'function' ? getDisplayVideos() : (state.videos || []);
+  list.forEach((video) => {
+    if (!video?.id) return;
+    if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
+    if (deferredFeedCards.has(video.id)) return;
+    if (isVideoHashCached(video)) {
+      enqueueWarmAndMount(video);
+    }
+  });
+  if (added) {
+    console.log('[videos] revealed ready parked posts', { added });
+  }
+  return added;
+}
+
+function feedDomCardCount() {
+  try {
+    return selectors.stream
+      ? selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]').length
+      : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
 // חלק מדיה מתה (videos.js) – הסרת כרטיסיה לגמרי כשהקובץ לא זמין (404) | HYPER CORE TECH
 function handleCardMediaFailure(card, videoId, error) {
   const mediaDiv = card?.querySelector?.('.videos-feed__media') || null;
@@ -2374,7 +2512,7 @@ function handleCardMediaFailure(card, videoId, error) {
     || !!(video?.videoUrl && !video?.youtubeId && !video?.liveUrl && !video?.gameUrl);
 
   const errMsg = String(error?.message || error || '');
-  const isTimeout = /timeout/i.test(errMsg) || /media-ready-timeout/i.test(errMsg);
+  const isTimeout = /timeout/i.test(errMsg) || /media-ready-timeout/i.test(errMsg) || /pending-media-timeout/i.test(errMsg);
 
   console.warn('[videos] media failed — hide card, keep post', {
     videoId,
@@ -2403,6 +2541,15 @@ function handleCardMediaFailure(card, videoId, error) {
     }
   } catch (_) {}
 
+  // timeout: הכרטיס נשאר מוסתר/בפארק; ההורדה ממשיכה ואז מרכיבים | HYPER CORE TECH
+  if (isTimeout) {
+    hideCardUntilMediaReady(card);
+    return;
+  }
+
+  if (videoId) {
+    try { deferredFeedCards.delete(videoId); } catch (_) {}
+  }
   if (card) {
     try { card.remove(); } catch (_) {}
   }
@@ -2524,7 +2671,17 @@ function queueNewPostForHomeReveal(video) {
   try {
     const { card, mediaReadyPromise } = renderVideoCard(video);
     pendingWarmCards.set(video.id, { card, mediaReadyPromise, video });
-    mediaReadyPromise.catch((err) => {
+    mediaReadyPromise.then(() => {
+      if (feedDomCardCount() < FEED_VISIBLE_FILL_MIN) {
+        const warm = pendingWarmCards.get(video.id);
+        pendingWarmCards.delete(video.id);
+        pendingNewVideoIds.delete(video.id);
+        if (warm?.card && selectors.stream && !selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) {
+          mountCard(warm.card, { prepend: true });
+          markCardMediaReady(warm.card);
+        }
+      }
+    }).catch((err) => {
       pendingWarmCards.delete(video.id);
       pendingNewVideoIds.delete(video.id);
       try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
@@ -2667,8 +2824,10 @@ async function applyPendingNewPostsToDom() {
     }
     const warm = pendingWarmCards.get(video.id);
     pendingWarmCards.delete(video.id);
+    const rendered = warm || renderVideoCard(video);
+    const card = rendered?.card;
+    const mediaReadyPromise = rendered?.mediaReadyPromise;
     try {
-      const { card, mediaReadyPromise } = warm || renderVideoCard(video);
       await Promise.race([
         mediaReadyPromise,
         new Promise((_, reject) => setTimeout(() => reject(new Error('pending-media-timeout')), 45000)),
@@ -2679,9 +2838,14 @@ async function applyPendingNewPostsToDom() {
         added += 1;
       }
     } catch (err) {
-      console.warn('[videos] pending post skipped (media not ready)', { id: video.id, err: err?.message || err });
-      if (warm?.card) {
-        try { handleCardMediaFailure(warm.card, video.id, err); } catch (_) {}
+      const isTimeout = /timeout/i.test(String(err?.message || err || ''));
+      if (isTimeout && card) {
+        parkFeedCardUntilMediaReady(card, video, mediaReadyPromise);
+      } else {
+        console.warn('[videos] pending post skipped (media not ready)', { id: video.id, err: err?.message || err });
+        if (card) {
+          try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+        }
       }
     }
   }
@@ -3297,6 +3461,9 @@ async function softRefreshVideosFeed(options = {}) {
     // גיבוי נדיר אם נשארו pending ישנים — רק כרטיסים עם מדיה מוכנה | HYPER CORE TECH
     try {
       await applyPendingNewPostsToDom();
+    } catch (_) {}
+    try {
+      revealReadyFeedPosts();
     } catch (_) {}
 
     try {
@@ -5083,7 +5250,12 @@ function appendNextVideoCard() {
       continueNext();
     })
     .catch((err) => {
-      handleCardMediaFailure(card, video.id, err);
+      const isTimeout = /timeout/i.test(String(err?.message || err || ''));
+      if (isTimeout) {
+        parkFeedCardUntilMediaReady(card, video, mediaReadyPromise);
+      } else {
+        handleCardMediaFailure(card, video.id, err);
+      }
       continueNext();
     });
 }
@@ -7293,7 +7465,8 @@ async function loadMoreVideos() {
       console.log('[FEED-BOOT]', {
         stateVideos: Array.isArray(state.videos) ? state.videos.length : 0,
         domCards: stream ? stream.querySelectorAll('.videos-feed__card[data-event-id]').length : 0,
-        pendingMedia: (typeof pendingWarmCards !== 'undefined' && pendingWarmCards && pendingWarmCards.size) || 0,
+        pendingMedia: ((typeof pendingWarmCards !== 'undefined' && pendingWarmCards && pendingWarmCards.size) || 0)
+          + ((typeof deferredFeedCards !== 'undefined' && deferredFeedCards && deferredFeedCards.size) || 0),
         loadingMore: isLoadingMore,
         activePeers: net && net.peerCount,
         connectedDc: (typeof window.NostrApp?.dataChannel?.getChatDC === 'function') ? 'ready' : 'no',
@@ -7380,28 +7553,68 @@ function createVideoCard(video) {
 
 // load-more: חימום מקבילי מחוץ ל-DOM; כרטיס נכנס רק כשהמדיה מוכנה | HYPER CORE TECH
 const MEDIA_WARM_CONCURRENCY = 3;
+let feedWarmActive = 0;
+const feedWarmQueue = [];
+const feedWarmQueuedIds = new Set();
+
+function enqueueWarmAndMount(video) {
+  if (!video?.id || isMediaUnavailable(video)) return;
+  if (feedWarmQueuedIds.has(video.id)) return;
+  if (deferredFeedCards.has(video.id)) return;
+  if (selectors.stream && selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
+  feedWarmQueuedIds.add(video.id);
+  feedWarmQueue.push(video);
+  pumpFeedWarmQueue();
+}
+
+function pumpFeedWarmQueue() {
+  if (isFeedHeavyWorkPaused()) return;
+  const stream = selectors.stream;
+  if (!stream) return;
+  while (feedWarmActive < MEDIA_WARM_CONCURRENCY && feedWarmQueue.length) {
+    const video = feedWarmQueue.shift();
+    feedWarmActive += 1;
+    Promise.resolve(warmAndMountFeedCard(video, stream))
+      .catch(() => {})
+      .finally(() => {
+        feedWarmQueuedIds.delete(video.id);
+        feedWarmActive -= 1;
+        pumpFeedWarmQueue();
+      });
+  }
+}
 
 async function warmAndMountFeedCard(video, stream) {
   if (!video?.id || isMediaUnavailable(video)) return;
-  if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
+  if (stream && stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
   let card = null;
+  let mediaReadyPromise = null;
   try {
     const rendered = renderVideoCard(video);
     card = rendered?.card || null;
-    const mediaReadyPromise = rendered?.mediaReadyPromise;
+    mediaReadyPromise = rendered?.mediaReadyPromise;
     if (!card || !mediaReadyPromise) return;
-    await Promise.race([
-      mediaReadyPromise,
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('media-ready-timeout')), 20000);
+    const outcome = await Promise.race([
+      mediaReadyPromise.then(() => 'ready'),
+      new Promise((resolve) => {
+        setTimeout(() => resolve('timeout'), 20000);
       }),
     ]);
-    if (stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
-    mountCard(card);
-    markCardMediaReady(card);
+    if (stream && stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
+    if (outcome === 'ready') {
+      mountCard(card);
+      markCardMediaReady(card);
+      return;
+    }
+    parkFeedCardUntilMediaReady(card, video, mediaReadyPromise);
   } catch (err) {
     if (card) {
-      try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+      const isTimeout = /timeout/i.test(String(err?.message || err || ''));
+      if (isTimeout) {
+        parkFeedCardUntilMediaReady(card, video, mediaReadyPromise);
+      } else {
+        try { handleCardMediaFailure(card, video.id, err); } catch (_) {}
+      }
     }
   }
 }
@@ -7418,19 +7631,7 @@ function renderMoreVideos(videos) {
         ? []
         : videos.filter((v) => isGeneralFeedVideo(v));
 
-  let cursor = 0;
-  const workers = Math.min(MEDIA_WARM_CONCURRENCY, list.length);
-  const runWorker = async () => {
-    while (cursor < list.length) {
-      const video = list[cursor];
-      cursor += 1;
-      await warmAndMountFeedCard(video, stream);
-    }
-  };
-  for (let i = 0; i < workers; i++) {
-    runWorker().catch(() => {});
-  }
-
+  list.forEach((video) => enqueueWarmAndMount(video));
   updateLoadMoreTrigger();
 }
 

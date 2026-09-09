@@ -3,7 +3,7 @@
 (function initChatP2PDataChannel(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const NostrTools = window.NostrTools;
-  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260906p2p2'); } catch (_) {}
+  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260909chatqos1'); } catch (_) {}
   try {
     if (/(?:^|[?&])p2pHeadless=1(?:&|$)/.test(String(window.location.search || ''))) {
       window.__sosP2pHeadless = true;
@@ -460,6 +460,11 @@
       if (raw instanceof ArrayBuffer || (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView && ArrayBuffer.isView(raw)) || (typeof Blob !== 'undefined' && raw instanceof Blob)) {
         const s = getPS(peer.toLowerCase());
         const payload = (raw instanceof ArrayBuffer || (typeof Blob !== 'undefined' && raw instanceof Blob)) ? raw : (raw.buffer || raw);
+        const receivingFile = typeof App.isReceivingChatFile === 'function' && App.isReceivingChatFile(peer);
+        if (receivingFile && typeof App.handleP2PFileMessage === 'function') {
+          try { App.handleP2PFileMessage(peer, payload, s && s.dc); } catch (e) { console.warn('[DC] file binary bridge:', e); }
+          return;
+        }
         if (typeof App.handleFeedMediaBinary === 'function') {
           try { if (App.handleFeedMediaBinary(peer, payload)) return; } catch (e) { console.warn('[DC] feed binary bridge:', e); }
         }
