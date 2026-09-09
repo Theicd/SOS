@@ -283,11 +283,9 @@ object NotificationHelper {
         SosIncomingCallSession.markRinging(app, peer, type)
         SosDebugLog.i("notify", "showIncomingCall type=$type peer=${peer.take(8)}")
 
-        val fullScreenIntent = IncomingCallActivity.answerIntent(
+        val fullScreenIntent = IncomingCallActivity.lockScreenIntent(
             app, peer, type, displayName, openUrl, pictureUrl
-        ).apply {
-            putExtra(IncomingCallActivity.EXTRA_AUTO_ANSWER, false)
-        }
+        )
         val fullScreenPi = activityPendingIntent(app, INCOMING_CALL_ID, fullScreenIntent)
 
         val answerIntent = IncomingCallActivity.answerIntent(

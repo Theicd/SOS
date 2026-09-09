@@ -61,7 +61,8 @@
             android:launchMode="singleTop"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
-            android:theme="@style/Theme.SosIncomingCall" />
+            android:theme="@style/Theme.SosIncomingCall"
+            android:taskAffinity="" />
 
         <activity
             android:name=".MainActivity"

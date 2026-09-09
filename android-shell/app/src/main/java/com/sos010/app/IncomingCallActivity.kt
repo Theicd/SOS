@@ -39,7 +39,7 @@ class IncomingCallActivity : AppCompatActivity() {
             val p = intent.getStringExtra(EXTRA_PEER)?.lowercase().orEmpty()
             if (p.isBlank() || p == peer || peer.isBlank()) {
                 if (handled) return
-                finish()
+                finishAndRemoveTaskSafe()
             }
         }
     }
@@ -212,7 +212,7 @@ class IncomingCallActivity : AppCompatActivity() {
         MainActivity.bringHostToFront(applicationContext, peer, callType, openUrl)
         // לא finish מיד – בשיאומי כרטיסיית CallStyle מחזירה לשולחן אם המסך נעלם מהר | HYPER CORE TECH
         Handler(Looper.getMainLooper()).postDelayed({
-            if (!isFinishing) finish()
+            if (!isFinishing) finishAndRemoveTaskSafe()
         }, 900L)
     }
 
@@ -225,7 +225,7 @@ class IncomingCallActivity : AppCompatActivity() {
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopAll()
         MainActivity.startBackgroundCallDecline(applicationContext, peer, callType)
-        finish()
+        finishAndRemoveTaskSafe()
     }
 
     private fun rememberPendingOfferHandled() {
@@ -277,16 +277,14 @@ class IncomingCallActivity : AppCompatActivity() {
         ) {
             val app = context.applicationContext
             val pk = peer.trim().lowercase()
-            if (!SosIncomingCallSession.isRingingPhase(app) ||
-                SosIncomingCallSession.ringingPeer(app) != pk
-            ) {
-                SosDebugLog.i("call", "skip launch not-ringing peer=${pk.take(8)}")
-                return
-            }
             val picture = callerPicture.trim().ifBlank {
                 SosContactCache.get(app, peer)?.picture.orEmpty()
             }
-            val intent = ringIntent(app, pk, callType, callerName, openUrl, picture, autoAnswer = false)
+            val intent = ringIntent(
+                app, pk, callType, callerName, openUrl, picture,
+                autoAnswer = false,
+                noUserAction = true
+            )
             try {
                 val opts = backgroundStartOptions()
                 if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
@@ -294,6 +292,26 @@ class IncomingCallActivity : AppCompatActivity() {
             } catch (err: Exception) {
                 SosDebugLog.i("call", "launch IncomingCall fail ${err.message}")
             }
+        }
+
+        fun lockScreenIntent(
+            context: Context,
+            peer: String,
+            callType: String,
+            callerName: String,
+            openUrl: String,
+            callerPicture: String = ""
+        ): Intent {
+            return ringIntent(
+                context.applicationContext,
+                peer,
+                callType,
+                callerName,
+                openUrl,
+                callerPicture,
+                autoAnswer = false,
+                noUserAction = true
+            )
         }
 
         fun answerIntent(
@@ -311,7 +329,8 @@ class IncomingCallActivity : AppCompatActivity() {
                 callerName,
                 openUrl,
                 callerPicture,
-                autoAnswer = true
+                autoAnswer = true,
+                noUserAction = false
             )
         }
 
@@ -322,12 +341,14 @@ class IncomingCallActivity : AppCompatActivity() {
             callerName: String,
             openUrl: String,
             callerPicture: String,
-            autoAnswer: Boolean
+            autoAnswer: Boolean,
+            noUserAction: Boolean = false
         ): Intent {
             return Intent(app, IncomingCallActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP
+                if (noUserAction) addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION)
                 putExtra(EXTRA_PEER, peer)
                 putExtra(EXTRA_CALL_TYPE, callType)
                 putExtra(EXTRA_CALLER_NAME, callerName)
