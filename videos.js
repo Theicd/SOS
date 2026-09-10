@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.20-socall-home-unhide';
+const VIDEOS_CODE_VERSION = '2.6.21-chat-home-refresh';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1097,7 +1097,8 @@ function markHomeNavActive() {
 
 /**
  * התנהגות אחידה ללחיצת בית — לעולם בלי location.href / LoadNug בלחיצה 1:
- * - פרופיל / שיחות / התראות פתוחים → סוגר בלבד + ממשיך את אותו פוסט
+ * - פרופיל / התראות פתוחים → סוגר בלבד + ממשיך את אותו פוסט
+ * - שיחות פתוחות → סוגר + soft-refresh כמו לחיצה שנייה על בית
  * - IPTV / משחקים / פוסטים שלי → יציאה לפיד הראשי בלבד (בלי רמז רענון)
  * - על הפיד הראשי בלבד: לחיצה ראשונה = רמז; לחיצה שנייה = soft-refresh חם
  */
@@ -1116,25 +1117,27 @@ function handleHomeButtonAction() {
 
   const hadOverlay = areFeedOverlaysOpen();
   if (hadOverlay) {
-    clearHomeRefreshArm();
-    let fromSoCallChat = false;
+    let fromChat = false;
     try {
-      fromSoCallChat = !!(
+      fromChat = !!(
         document.body.classList.contains('chat-overlay-open')
-        || document.body.classList.contains('sos-deeplink-chat')
-        || document.documentElement.getAttribute('data-sos-deeplink') === '1'
         || (App.chatState && App.chatState.isOpen)
         || (document.getElementById('chatPanel') && !document.getElementById('chatPanel').hasAttribute('hidden'))
       );
     } catch (_) {}
+    clearHomeRefreshArm();
     try {
       if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
     } catch (_) {}
-    if (fromSoCallChat) {
-      revealFeedAfterSoCallHome();
-    } else {
-      resumeCenteredFeedVideo();
+    if (fromChat) {
+      const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed || softRefreshVideosFeed;
+      if (typeof refreshFn === 'function') {
+        console.log('[videos] Home from chat — soft refresh (same as second tap)');
+        refreshFn({ preferWarm: true, fromHome: true });
+        return 'closed-overlay-refresh';
+      }
     }
+    resumeCenteredFeedVideo();
     console.log('[videos] Home closed overlay — no refresh');
     return 'closed-overlay';
   }
@@ -2503,67 +2506,6 @@ function revealReadyFeedPosts() {
     console.log('[videos] revealed ready parked posts', { added });
   }
   return added;
-}
-
-function unhidePlayingFeedVideos() {
-  try {
-    document.querySelectorAll('.videos-feed__media video').forEach((videoEl) => {
-      const playing = !videoEl.paused || videoEl.readyState >= 2;
-      if (!playing) return;
-      const mediaDiv = videoEl.closest('.videos-feed__media');
-      if (mediaDiv) revealVideoSurface(mediaDiv, videoEl);
-    });
-  } catch (_) {}
-}
-
-/**
- * רק מעבר שיחות (So-Call) → בית: מסירים LoadNug/:has ו-boot-loading שמסתירים תמונה
- * בזמן שהסאונד כבר מנגן. לא נוגעים בטעינת הפיד הראשי ולא בלחיצה כפולה. | HYPER CORE TECH
- */
-function revealFeedAfterSoCallHome() {
-  try {
-    document.body.classList.remove('sos-deeplink-chat', 'videos-boot-loading');
-    document.documentElement.removeAttribute('data-sos-deeplink');
-  } catch (_) {}
-  try {
-    document.getElementById('sosLoadNugOverlay')?.remove();
-  } catch (_) {}
-  try {
-    if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
-  } catch (_) {}
-  try {
-    bootGate.active = false;
-    bootGate.released = true;
-    bootGate.releasePromise = null;
-  } catch (_) {}
-
-  try {
-    selectors.stream?.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
-      if (card.id === 'sosLoadNugOverlay' || card.classList.contains('videos-feed__card--loadnug')) return;
-      const videoEl = card.querySelector('video');
-      const playable = !videoEl || videoEl.readyState >= 2 || !videoEl.paused
-        || !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash));
-      if (playable && (card.style.display === 'none' || card.dataset.mediaReady === 'pending')) {
-        markCardMediaReady(card);
-      }
-    });
-  } catch (_) {}
-
-  try {
-    Array.from(deferredFeedCards.keys()).forEach((id) => {
-      const parked = deferredFeedCards.get(id);
-      const videoEl = parked?.card?.querySelector?.('video');
-      const playable = !videoEl || videoEl.readyState >= 2 || !!(videoEl && !videoEl.paused)
-        || !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash));
-      if (playable) mountParkedFeedCard(id, true);
-    });
-  } catch (_) {}
-
-  unhidePlayingFeedVideos();
-  resumeCenteredFeedVideo();
-  requestAnimationFrame(unhidePlayingFeedVideos);
-  setTimeout(unhidePlayingFeedVideos, 350);
-  console.log('[videos] Home from So-Call — unhid playable feed');
 }
 
 function feedDomCardCount() {

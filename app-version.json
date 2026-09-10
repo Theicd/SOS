@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.11-socall-home1",
-  "buildTime": "2026-09-11T00:10:00+03:00",
-  "notes": "Restore home feed boot; unhide video after So-Call Home tap"
+  "version": "2026.09.11-chathome1",
+  "buildTime": "2026-09-11T00:23:00+03:00",
+  "notes": "Home after chats runs the same warm refresh as second Home tap"
 }

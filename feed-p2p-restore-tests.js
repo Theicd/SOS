@@ -281,6 +281,12 @@ const path = require('path');
       && /GUEST_BLOSSOM_FIRST_POSTS = 10/.test(videoShareSrc);
   });
 
+  test('Home from chat runs the same warm soft-refresh as second tap', () => {
+    return /Home from chat — soft refresh \(same as second tap\)/.test(videosSrc)
+      && /Home closed overlay — no refresh/.test(videosSrc)
+      && /Home second tap — soft refresh \(prefer warm\)/.test(videosSrc);
+  });
+
   test('chat file has DC priority over feed media', () => {
     return /function pauseFeedMediaForChat/.test(videoShareSrc)
       && /chat-priority/.test(videoShareSrc)
@@ -288,15 +294,6 @@ const path = require('path');
       && /drop binary \(not a chat file receive\)/.test(chatFileSrc)
       && /receivingFile && typeof App\.handleP2PFileMessage/.test(chatSrc.replace(/\s+/g, ' '))
       && /function maybeResumeFeedAfterChat/.test(videosSrc);
-  });
-
-  test('home from So-Call unhides playing feed video without changing boot mount', () => {
-    return /function revealFeedAfterSoCallHome/.test(videosSrc)
-      && /fromSoCallChat/.test(videosSrc)
-      && /Home closed overlay — no refresh/.test(videosSrc)
-      && !/function showFeedAfterLeavingChat/.test(videosSrc)
-      && !/function canShowParkedFeedCard/.test(videosSrc)
-      && /function maybeResumeFeedAfterChat[\s\S]{0,220}setFeedWarmupPaused\(false\);[\s\S]{0,40}\n\}/.test(videosSrc);
   });
 
   test('Multi-Source is not enabled by default', () => {
