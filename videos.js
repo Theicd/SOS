@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.21-chat-home-refresh';
+const VIDEOS_CODE_VERSION = '2.6.22-chat-home-dbltap';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -1098,7 +1098,7 @@ function markHomeNavActive() {
 /**
  * התנהגות אחידה ללחיצת בית — לעולם בלי location.href / LoadNug בלחיצה 1:
  * - פרופיל / התראות פתוחים → סוגר בלבד + ממשיך את אותו פוסט
- * - שיחות פתוחות → סוגר + soft-refresh כמו לחיצה שנייה על בית
+ * - שיחות פתוחות → סוגר (לחיצה 1) ואז אותו soft-refresh של לחיצה 2, בלי LoadNug
  * - IPTV / משחקים / פוסטים שלי → יציאה לפיד הראשי בלבד (בלי רמז רענון)
  * - על הפיד הראשי בלבד: לחיצה ראשונה = רמז; לחיצה שנייה = soft-refresh חם
  */
@@ -1129,15 +1129,15 @@ function handleHomeButtonAction() {
     try {
       if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
     } catch (_) {}
+    resumeCenteredFeedVideo();
     if (fromChat) {
       const refreshFn = App.softRefreshVideosFeed || window.softRefreshVideosFeed || softRefreshVideosFeed;
       if (typeof refreshFn === 'function') {
-        console.log('[videos] Home from chat — soft refresh (same as second tap)');
-        refreshFn({ preferWarm: true, fromHome: true });
+        console.log('[videos] Home from chat — same as second Home tap');
+        refreshFn({ preferWarm: true, fromHome: true, fromChatHome: true });
         return 'closed-overlay-refresh';
       }
     }
-    resumeCenteredFeedVideo();
     console.log('[videos] Home closed overlay — no refresh');
     return 'closed-overlay';
   }
@@ -3449,7 +3449,8 @@ async function softRefreshVideosFeed(options = {}) {
   }
   lastHomeSoftRefreshAt = now;
   const preferWarm = !!(options && (options.preferWarm || options.fromHome));
-  console.log('[videos] softRefreshVideosFeed start', { preferWarm, version: VIDEOS_CODE_VERSION });
+  const fromChatHome = !!(options && options.fromChatHome);
+  console.log('[videos] softRefreshVideosFeed start', { preferWarm, fromChatHome, version: VIDEOS_CODE_VERSION });
   try {
     if (typeof pauseAllFeedVideos === 'function') {
       pauseAllFeedVideos({ disableAutoplay: false });
@@ -3470,7 +3471,9 @@ async function softRefreshVideosFeed(options = {}) {
       document.body.classList.remove('videos-boot-loading');
     } catch (_) {}
     hideSoftFeedLoading();
-    hideLoadingAnimation({ force: true });
+    if (!fromChatHome) {
+      hideLoadingAnimation({ force: true });
+    }
     bootGate.active = false;
     bootGate.released = true;
     bootGate.releasePromise = null;
@@ -3492,8 +3495,10 @@ async function softRefreshVideosFeed(options = {}) {
       autoPlayFirstVideo();
     });
 
-    // חיפוש עדכונים ברקע — בלי לחסום / לקפוץ באמצע צפייה | HYPER CORE TECH
-    loadVideos().catch((err) => console.warn('[videos] warm Home loadVideos failed', err));
+    // משיחות: בלי loadVideos — שם firstCardRendered עדיין false וזה פותח LoadNug | HYPER CORE TECH
+    if (!fromChatHome) {
+      loadVideos().catch((err) => console.warn('[videos] warm Home loadVideos failed', err));
+    }
     return;
   }
 

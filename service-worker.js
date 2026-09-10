@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v777'; // Home after chats: same warm refresh as second tap
+  const CACHE_NAME = 'sos-cache-v778'; // one Home after chats = two taps, no LoadNug
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -281,8 +281,9 @@ const path = require('path');
       && /GUEST_BLOSSOM_FIRST_POSTS = 10/.test(videoShareSrc);
   });
 
-  test('Home from chat runs the same warm soft-refresh as second tap', () => {
-    return /Home from chat — soft refresh \(same as second tap\)/.test(videosSrc)
+  test('Home from chat runs second Home tap without cold LoadNug', () => {
+    return /Home from chat — same as second Home tap/.test(videosSrc)
+      && /fromChatHome/.test(videosSrc)
       && /Home closed overlay — no refresh/.test(videosSrc)
       && /Home second tap — soft refresh \(prefer warm\)/.test(videosSrc);
   });
