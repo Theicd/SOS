@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v774'; // APK 1.0.113: So-Call splash logo height
+  const CACHE_NAME = 'sos-cache-v775'; // home from So-Call reveals feed cards
   const PRECACHE_URLS = [
     './',
     './videos.html',

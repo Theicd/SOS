@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.10-socall5",
-  "buildTime": "2026-09-10T23:08:00+03:00",
-  "notes": "APK 1.0.113: So-Call splash logo at SOS loading height"
+  "version": "2026.09.10-homechat1",
+  "buildTime": "2026-09-10T23:48:00+03:00",
+  "notes": "Home from So-Call shows cached feed cards on first tap"
 }

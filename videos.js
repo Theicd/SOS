@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.18-feed-chatqos1';
+const VIDEOS_CODE_VERSION = '2.6.19-home-from-chat';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -619,6 +619,7 @@ function maybeResumeFeedAfterChat() {
   if (isChatFeedWarmupActive()) return;
   if (hasActiveChatFileTransfer()) return;
   setFeedWarmupPaused(false);
+  try { showFeedAfterLeavingChat('chat-closed'); } catch (_) {}
 }
 
 function setFeedDownloadsPaused(paused) {
@@ -1035,7 +1036,7 @@ function recoverFeedUiAfterCall(reason = 'after-call') {
       || !!(document.getElementById('chatPanel') && !document.getElementById('chatPanel').hasAttribute('hidden'));
   } catch (_) {}
   if (!chatOpen) {
-    try { resumeCenteredFeedVideo(); } catch (_) {}
+    try { showFeedAfterLeavingChat('after-call'); } catch (_) {}
   }
 }
 
@@ -1120,8 +1121,9 @@ function handleHomeButtonAction() {
     try {
       if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
     } catch (_) {}
-    resumeCenteredFeedVideo();
-    console.log('[videos] Home closed overlay — no refresh');
+    // אחרי So-Call/שיחות: מציגים כרטיסיות מוכנות. בלי soft-refresh (לחיצה כפולה נשארת לפיד) | HYPER CORE TECH
+    try { showFeedAfterLeavingChat('home-from-overlay'); } catch (_) {}
+    console.log('[videos] Home closed overlay — revealed feed');
     return 'closed-overlay';
   }
 
@@ -1918,6 +1920,7 @@ App.setFeedWarmupPaused = setFeedWarmupPaused;
 App.syncFeedWarmupPauseWithChat = syncFeedWarmupPauseWithChat;
 App.isFeedHeavyWorkPaused = isFeedHeavyWorkPaused;
 App.maybeResumeFeedAfterChat = maybeResumeFeedAfterChat;
+App.showFeedAfterLeavingChat = showFeedAfterLeavingChat;
 App.hideLoadingAnimation = hideLoadingAnimation;
 App.showLoadingAnimation = showLoadingAnimation;
 
@@ -2439,18 +2442,34 @@ function parkFeedCardUntilMediaReady(card, video, mediaReadyPromise) {
   console.log('[videos] parked card until media ready', { id: video.id });
 }
 
+function canShowParkedFeedCard(video, card) {
+  if (!video) return false;
+  if (video.youtubeId || video.liveUrl || video.liveCatalog || video.gameUrl) return true;
+  if (isVideoHashCached(video)) return true;
+  const videoEl = card && card.querySelector && card.querySelector('video');
+  return !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash || videoEl.readyState >= 2));
+}
+
 function mountParkedFeedCard(videoId, force = false) {
   if (!videoId || !selectors.stream) return false;
   const parked = deferredFeedCards.get(videoId);
-  if (!parked || !parked.card) return false;
-  if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${videoId}"]`)) {
+  const existing = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${videoId}"]`);
+  if (existing) {
+    const hidden = existing.style.display === 'none' || existing.dataset.mediaReady === 'pending';
+    if (hidden && (force || canShowParkedFeedCard(parked?.video, existing))) {
+      markCardMediaReady(existing);
+      deferredFeedCards.delete(videoId);
+      console.log('[videos] unhid parked in-stream card', { id: videoId });
+      return true;
+    }
     deferredFeedCards.delete(videoId);
     return false;
   }
+  if (!parked || !parked.card) return false;
   const videoEl = parked.card.querySelector && parked.card.querySelector('video');
   const hasSrc = !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash));
   const playable = !videoEl || videoEl.readyState >= 2 || hasSrc;
-  if (!force && !playable) return false;
+  if (!force && !playable && !canShowParkedFeedCard(parked.video, parked.card)) return false;
   mountCard(parked.card);
   markCardMediaReady(parked.card);
   deferredFeedCards.delete(videoId);
@@ -2474,14 +2493,15 @@ function revealReadyFeedPosts() {
   if (!selectors.stream) return 0;
   let added = 0;
   deferredFeedCards.forEach((parked, id) => {
-    if (mountParkedFeedCard(id)) added += 1;
+    const force = canShowParkedFeedCard(parked?.video, parked?.card);
+    if (mountParkedFeedCard(id, force)) added += 1;
   });
   const list = typeof getDisplayVideos === 'function' ? getDisplayVideos() : (state.videos || []);
   list.forEach((video) => {
     if (!video?.id) return;
     if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
     if (deferredFeedCards.has(video.id)) return;
-    if (isVideoHashCached(video)) {
+    if (isVideoHashCached(video) || video.youtubeId || video.liveUrl || video.gameUrl) {
       enqueueWarmAndMount(video);
     }
   });
@@ -2489,6 +2509,71 @@ function revealReadyFeedPosts() {
     console.log('[videos] revealed ready parked posts', { added });
   }
   return added;
+}
+
+function visibleFeedCardCount() {
+  try {
+    if (!selectors.stream) return 0;
+    return Array.from(selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]'))
+      .filter((card) => {
+        if (card.id === 'sosLoadNugOverlay' || card.classList.contains('videos-feed__card--loadnug')) return false;
+        if (card.style.display === 'none' || card.dataset.mediaReady === 'pending') return false;
+        return true;
+      }).length;
+  } catch (_) {
+    return 0;
+  }
+}
+
+/**
+ * אחרי סגירת שיחות (So-Call / בית): מורידים LoadNug ומציגים כרטיסיות מוכנות.
+ * לא soft-refresh — לחיצה כפולה על בית בפיד נשארת לרענון לפוסט האחרון. | HYPER CORE TECH
+ */
+function showFeedAfterLeavingChat(reason = 'chat-closed') {
+  try {
+    document.body.classList.remove('sos-call-active', 'sos-deeplink-chat', 'videos-boot-loading');
+    document.documentElement.removeAttribute('data-sos-deeplink');
+  } catch (_) {}
+  try {
+    const ov = document.getElementById('sosLoadNugOverlay');
+    if (ov) ov.remove();
+  } catch (_) {}
+  try {
+    if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
+  } catch (_) {}
+  try {
+    bootGate.active = false;
+    bootGate.released = true;
+    bootGate.releasePromise = null;
+    bootGate.holdUntil = 0;
+  } catch (_) {}
+  try {
+    hideLoadingAnimation({ force: true });
+    hideSoftFeedLoading();
+  } catch (_) {}
+  globalAutoplayEnabled = true;
+  try { updateGlobalStopClass(); } catch (_) {}
+  try { revealReadyFeedPosts(); } catch (_) {}
+  if (visibleFeedCardCount() < FEED_VISIBLE_FILL_MIN) {
+    const list = typeof getDisplayVideos === 'function' ? getDisplayVideos() : (state.videos || []);
+    for (let i = 0; i < list.length; i += 1) {
+      if (visibleFeedCardCount() >= FEED_VISIBLE_FILL_MIN) break;
+      const video = list[i];
+      if (!video?.id) continue;
+      if (!canShowParkedFeedCard(video, null) && !isVideoHashCached(video)) continue;
+      try { enqueueWarmAndMount(video); } catch (_) {}
+    }
+  }
+  requestAnimationFrame(() => {
+    try { resumeCenteredFeedVideo(); } catch (_) {}
+    try { autoPlayFirstVideo(); } catch (_) {}
+  });
+  console.log('[videos] show feed after leaving chat', {
+    reason,
+    visible: visibleFeedCardCount(),
+    parked: deferredFeedCards.size,
+    videos: Array.isArray(state.videos) ? state.videos.length : 0,
+  });
 }
 
 function feedDomCardCount() {
@@ -3338,8 +3423,15 @@ async function releaseBootLoading(reason = 'ready') {
   const revealFeed = () => {
     try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
   };
-  const skipLoadNugWait = reason === 'deeplink' || reason === 'url-deeplink' || hasCommunicationDeepLink();
-  if (document.getElementById('sosLoadNugOverlay') && !skipLoadNugWait) {
+  const skipLoadNugWait = reason === 'deeplink'
+    || reason === 'url-deeplink'
+    || reason === 'apk-so-call'
+    || reason === 'incoming-call'
+    || hasCommunicationDeepLink();
+  if (skipLoadNugWait) {
+    try { document.getElementById('sosLoadNugOverlay')?.remove(); } catch (_) {}
+    revealFeed();
+  } else if (document.getElementById('sosLoadNugOverlay')) {
     setTimeout(revealFeed, 800);
   } else {
     revealFeed();

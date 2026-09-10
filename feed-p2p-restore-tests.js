@@ -290,6 +290,13 @@ const path = require('path');
       && /function maybeResumeFeedAfterChat/.test(videosSrc);
   });
 
+  test('home from So-Call reveals parked feed cards without double-tap refresh', () => {
+    return /function showFeedAfterLeavingChat/.test(videosSrc)
+      && /Home closed overlay — revealed feed/.test(videosSrc)
+      && /function canShowParkedFeedCard/.test(videosSrc)
+      && /apk-so-call/.test(videosSrc);
+  });
+
   test('Multi-Source is not enabled by default', () => {
     return !/NostrP2P_MULTI_SOURCE/.test(videoShareSrc)
       && !/MULTI_SOURCE_ENABLED/.test(videoShareSrc);
