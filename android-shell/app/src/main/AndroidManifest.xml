@@ -101,10 +101,10 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- אייקון שלישי: SOS חירום – קאש בלי רשת + מסך חומרה | HYPER CORE TECH -->
+        <!-- אייקון חירום הוסר מהמסך הבית – נשאר כפתור החירום בממשק | HYPER CORE TECH -->
         <activity-alias
             android:name=".SosEmergencyLauncherAlias"
-            android:enabled="true"
+            android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:label="@string/app_name_sos_emergency"

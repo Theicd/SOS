@@ -1,8 +1,8 @@
 ﻿SOS Android APK downloads
 
-Latest: SOS-1.0.108.apk (lock-screen incoming call page + heads-up answer)
+Latest: SOS-1.0.109.apk (So-Call splash like WhatsApp; no emergency home icon)
 
 GitHub Release:
-https://github.com/Theicd/SOS/releases/download/apk-1.0.108/SOS-1.0.108.apk
+https://github.com/Theicd/SOS/releases/download/apk-1.0.109/SOS-1.0.109.apk
 
-Previous: https://github.com/Theicd/SOS/releases/download/apk-1.0.106/SOS-1.0.106.apk
+Previous: https://github.com/Theicd/SOS/releases/download/apk-1.0.108/SOS-1.0.108.apk

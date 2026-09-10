@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">SOS</string>
     <string name="app_name_sos_call">So-Call</string>
+    <string name="so_call_splash_from">from</string>
+    <string name="so_call_splash_htc">HTC</string>
     <string name="app_name_sos_emergency">SOS חירום</string>
     <string name="emergency_log_copied">לוג החירום הועתק</string>
     <string name="emergency_ssid_copied">שם התחנה הועתק</string>

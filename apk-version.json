@@ -1,8 +1,8 @@
 {
-  "version": "1.0.108",
-  "versionCode": 109,
-  "file": "SOS-1.0.108.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.108/SOS-1.0.108.apk",
+  "version": "1.0.109",
+  "versionCode": 110,
+  "file": "SOS-1.0.109.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.109/SOS-1.0.109.apk",
   "releasedAt": "2026-09-10",
-  "note": "Lock-screen incoming call page plus heads-up answer"
+  "note": "So-Call splash like WhatsApp; hide emergency home icon"
 }

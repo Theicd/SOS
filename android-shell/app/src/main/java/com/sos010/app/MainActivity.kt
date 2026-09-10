@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: SosWebView
     private lateinit var loading: ProgressBar
     private var filePickLoading: FrameLayout? = null
-    private var soCallSplash: FrameLayout? = null
+    private var soCallSplash: View? = null
     private var filePickHideRunnable: Runnable? = null
     private var filePickShownAt = 0L
     private val mainHandler = Handler(Looper.getMainLooper())
