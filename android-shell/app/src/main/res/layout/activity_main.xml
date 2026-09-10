@@ -17,12 +17,12 @@
         android:layout_centerInParent="true"
         android:indeterminate="true" />
 
-    <!-- So-Call: לוגו קטן חצי־שקוף + from HTC כמו וואטסאפ | HYPER CORE TECH -->
+    <!-- So-Call: לוגו So-Call 010 במרכז + from HTC בשורה אחת LTR | HYPER CORE TECH -->
     <RelativeLayout
         android:id="@+id/soCallSplash"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#FF0B141A"
+        android:background="#FF000000"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone"
@@ -30,12 +30,11 @@
 
         <ImageView
             android:id="@+id/soCallSplashLogo"
-            android:layout_width="104dp"
-            android:layout_height="104dp"
-            android:layout_above="@id/soCallSplashFooter"
-            android:layout_centerHorizontal="true"
-            android:layout_marginBottom="96dp"
-            android:alpha="0.22"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_marginStart="28dp"
+            android:layout_marginEnd="28dp"
             android:adjustViewBounds="true"
             android:contentDescription="@string/app_name_sos_call"
             android:scaleType="fitCenter"
@@ -47,32 +46,37 @@
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true"
-            android:layout_marginBottom="48dp"
+            android:layout_marginBottom="40dp"
             android:gravity="center_vertical"
+            android:layoutDirection="ltr"
             android:orientation="horizontal">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:includeFontPadding="false"
+                android:maxLines="1"
                 android:text="@string/so_call_splash_from"
-                android:textColor="#8696A0"
-                android:textSize="12sp" />
+                android:textColor="#C5CDD3"
+                android:textSize="14sp" />
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="12dp"
-                android:layout_marginStart="7dp"
-                android:layout_marginEnd="6dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
                 android:contentDescription="@string/so_call_splash_htc"
                 android:src="@drawable/ic_htc_mark" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:letterSpacing="0.04"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.06"
+                android:maxLines="1"
                 android:text="@string/so_call_splash_htc"
-                android:textColor="#8696A0"
-                android:textSize="15sp"
+                android:textColor="#C5CDD3"
+                android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </RelativeLayout>

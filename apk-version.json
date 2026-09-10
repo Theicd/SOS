@@ -1,8 +1,8 @@
 {
-  "version": "1.0.109",
-  "versionCode": 110,
-  "file": "SOS-1.0.109.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.109/SOS-1.0.109.apk",
+  "version": "1.0.110",
+  "versionCode": 111,
+  "file": "SOS-1.0.110.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.110/SOS-1.0.110.apk",
   "releasedAt": "2026-09-10",
-  "note": "So-Call splash like WhatsApp; hide emergency home icon"
+  "note": "So-Call splash: centered So-Call 010 wordmark, one-line from HTC"
 }

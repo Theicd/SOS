@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="20dp"
-    android:height="12dp"
+    android:width="16dp"
+    android:height="16dp"
     android:viewportWidth="24"
-    android:viewportHeight="14">
+    android:viewportHeight="24">
+    <!-- Original hex-core mark for HTC — not a third-party brand icon | HYPER CORE TECH -->
     <path
-        android:fillColor="#8696A0"
-        android:pathData="M6.2,7c0-2.1,1.7-3.5,3.8-2.1L12,6.7l2-1.8C16.1,3.5,17.8,4.9,17.8,7s-1.7,3.5-3.8,2.1L12,7.3l-2,1.8C8,10.5,6.2,9.1,6.2,7zM4.4,7c0,3.1,2.7,4.9,5.6,2.6L12,7.8l2,1.8C16.9,11.9,19.6,11.1,19.6,7s-2.7-4.9-5.6-2.6L12,6.2l-2-1.8C7.1,2.1,4.4,2.9,4.4,7z" />
+        android:fillColor="#00000000"
+        android:pathData="M12,2.3L20.2,7.05V16.95L12,21.7L3.8,16.95V7.05Z"
+        android:strokeWidth="1.7"
+        android:strokeColor="#C5CDD3"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#C5CDD3"
+        android:pathData="M12,8.15L16.15,10.55V15.45L12,17.85L7.85,15.45V10.55Z" />
 </vector>
