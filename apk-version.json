@@ -1,8 +1,8 @@
 {
-  "version": "1.0.112",
-  "versionCode": 113,
-  "file": "SOS-1.0.112.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.112/SOS-1.0.112.apk",
+  "version": "1.0.113",
+  "versionCode": 114,
+  "file": "SOS-1.0.113.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.113/SOS-1.0.113.apk",
   "releasedAt": "2026-09-10",
-  "note": "So-Call splash: no glow, logo 20% smaller"
+  "note": "So-Call splash logo lowered to match SOS loading height"
 }

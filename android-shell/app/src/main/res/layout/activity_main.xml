@@ -17,7 +17,7 @@
         android:layout_centerInParent="true"
         android:indeterminate="true" />
 
-    <!-- So-Call: לוגו בשליש העליון + from HTC | HYPER CORE TECH -->
+    <!-- So-Call: לוגו בגובה מסך הטעינה של SOS + from HTC | HYPER CORE TECH -->
     <RelativeLayout
         android:id="@+id/soCallSplash"
         android:layout_width="match_parent"
@@ -33,29 +33,28 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <FrameLayout
+            <View
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="1">
+                android:layout_weight="5" />
 
-                <ImageView
-                    android:id="@+id/soCallSplashLogo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:layout_marginStart="80dp"
-                    android:layout_marginEnd="80dp"
-                    android:adjustViewBounds="true"
-                    android:alpha="0.84"
-                    android:contentDescription="@string/app_name_sos_call"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/so_call_splash_logo" />
-            </FrameLayout>
+            <ImageView
+                android:id="@+id/soCallSplashLogo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginStart="80dp"
+                android:layout_marginEnd="80dp"
+                android:adjustViewBounds="true"
+                android:alpha="0.84"
+                android:contentDescription="@string/app_name_sos_call"
+                android:scaleType="fitCenter"
+                android:src="@drawable/so_call_splash_logo" />
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="2" />
+                android:layout_weight="8" />
         </LinearLayout>
 
         <LinearLayout
