@@ -290,11 +290,13 @@ const path = require('path');
       && /function maybeResumeFeedAfterChat/.test(videosSrc);
   });
 
-  test('home from So-Call reveals parked feed cards without double-tap refresh', () => {
-    return /function showFeedAfterLeavingChat/.test(videosSrc)
-      && /Home closed overlay — revealed feed/.test(videosSrc)
-      && /function canShowParkedFeedCard/.test(videosSrc)
-      && /apk-so-call/.test(videosSrc);
+  test('home from So-Call unhides playing feed video without changing boot mount', () => {
+    return /function revealFeedAfterSoCallHome/.test(videosSrc)
+      && /fromSoCallChat/.test(videosSrc)
+      && /Home closed overlay — no refresh/.test(videosSrc)
+      && !/function showFeedAfterLeavingChat/.test(videosSrc)
+      && !/function canShowParkedFeedCard/.test(videosSrc)
+      && /function maybeResumeFeedAfterChat[\s\S]{0,220}setFeedWarmupPaused\(false\);[\s\S]{0,40}\n\}/.test(videosSrc);
   });
 
   test('Multi-Source is not enabled by default', () => {

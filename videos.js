@@ -2,7 +2,7 @@
 
 // גרסת קוד לזיהוי עדכונים
 // גרסת קוד לזיהוי עדכונים
-const VIDEOS_CODE_VERSION = '2.6.19-home-from-chat';
+const VIDEOS_CODE_VERSION = '2.6.20-socall-home-unhide';
 console.log(`%c🔧 Videos.js גרסה: ${VIDEOS_CODE_VERSION}`, 'color: #FF5722; font-weight: bold; font-size: 14px');
 
 // חלק מרכוז פליי (videos.js) – אינליין חזק; בלי inset shorthand שמאפס top/left | HYPER CORE TECH
@@ -619,7 +619,6 @@ function maybeResumeFeedAfterChat() {
   if (isChatFeedWarmupActive()) return;
   if (hasActiveChatFileTransfer()) return;
   setFeedWarmupPaused(false);
-  try { showFeedAfterLeavingChat('chat-closed'); } catch (_) {}
 }
 
 function setFeedDownloadsPaused(paused) {
@@ -1036,7 +1035,7 @@ function recoverFeedUiAfterCall(reason = 'after-call') {
       || !!(document.getElementById('chatPanel') && !document.getElementById('chatPanel').hasAttribute('hidden'));
   } catch (_) {}
   if (!chatOpen) {
-    try { showFeedAfterLeavingChat('after-call'); } catch (_) {}
+    try { resumeCenteredFeedVideo(); } catch (_) {}
   }
 }
 
@@ -1118,12 +1117,25 @@ function handleHomeButtonAction() {
   const hadOverlay = areFeedOverlaysOpen();
   if (hadOverlay) {
     clearHomeRefreshArm();
+    let fromSoCallChat = false;
+    try {
+      fromSoCallChat = !!(
+        document.body.classList.contains('chat-overlay-open')
+        || document.body.classList.contains('sos-deeplink-chat')
+        || document.documentElement.getAttribute('data-sos-deeplink') === '1'
+        || (App.chatState && App.chatState.isOpen)
+        || (document.getElementById('chatPanel') && !document.getElementById('chatPanel').hasAttribute('hidden'))
+      );
+    } catch (_) {}
     try {
       if (typeof App.closeAllOverlays === 'function') App.closeAllOverlays();
     } catch (_) {}
-    // אחרי So-Call/שיחות: מציגים כרטיסיות מוכנות. בלי soft-refresh (לחיצה כפולה נשארת לפיד) | HYPER CORE TECH
-    try { showFeedAfterLeavingChat('home-from-overlay'); } catch (_) {}
-    console.log('[videos] Home closed overlay — revealed feed');
+    if (fromSoCallChat) {
+      revealFeedAfterSoCallHome();
+    } else {
+      resumeCenteredFeedVideo();
+    }
+    console.log('[videos] Home closed overlay — no refresh');
     return 'closed-overlay';
   }
 
@@ -1920,7 +1932,6 @@ App.setFeedWarmupPaused = setFeedWarmupPaused;
 App.syncFeedWarmupPauseWithChat = syncFeedWarmupPauseWithChat;
 App.isFeedHeavyWorkPaused = isFeedHeavyWorkPaused;
 App.maybeResumeFeedAfterChat = maybeResumeFeedAfterChat;
-App.showFeedAfterLeavingChat = showFeedAfterLeavingChat;
 App.hideLoadingAnimation = hideLoadingAnimation;
 App.showLoadingAnimation = showLoadingAnimation;
 
@@ -2442,34 +2453,18 @@ function parkFeedCardUntilMediaReady(card, video, mediaReadyPromise) {
   console.log('[videos] parked card until media ready', { id: video.id });
 }
 
-function canShowParkedFeedCard(video, card) {
-  if (!video) return false;
-  if (video.youtubeId || video.liveUrl || video.liveCatalog || video.gameUrl) return true;
-  if (isVideoHashCached(video)) return true;
-  const videoEl = card && card.querySelector && card.querySelector('video');
-  return !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash || videoEl.readyState >= 2));
-}
-
 function mountParkedFeedCard(videoId, force = false) {
   if (!videoId || !selectors.stream) return false;
   const parked = deferredFeedCards.get(videoId);
-  const existing = selectors.stream.querySelector(`.videos-feed__card[data-event-id="${videoId}"]`);
-  if (existing) {
-    const hidden = existing.style.display === 'none' || existing.dataset.mediaReady === 'pending';
-    if (hidden && (force || canShowParkedFeedCard(parked?.video, existing))) {
-      markCardMediaReady(existing);
-      deferredFeedCards.delete(videoId);
-      console.log('[videos] unhid parked in-stream card', { id: videoId });
-      return true;
-    }
+  if (!parked || !parked.card) return false;
+  if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${videoId}"]`)) {
     deferredFeedCards.delete(videoId);
     return false;
   }
-  if (!parked || !parked.card) return false;
   const videoEl = parked.card.querySelector && parked.card.querySelector('video');
   const hasSrc = !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash));
   const playable = !videoEl || videoEl.readyState >= 2 || hasSrc;
-  if (!force && !playable && !canShowParkedFeedCard(parked.video, parked.card)) return false;
+  if (!force && !playable) return false;
   mountCard(parked.card);
   markCardMediaReady(parked.card);
   deferredFeedCards.delete(videoId);
@@ -2493,15 +2488,14 @@ function revealReadyFeedPosts() {
   if (!selectors.stream) return 0;
   let added = 0;
   deferredFeedCards.forEach((parked, id) => {
-    const force = canShowParkedFeedCard(parked?.video, parked?.card);
-    if (mountParkedFeedCard(id, force)) added += 1;
+    if (mountParkedFeedCard(id)) added += 1;
   });
   const list = typeof getDisplayVideos === 'function' ? getDisplayVideos() : (state.videos || []);
   list.forEach((video) => {
     if (!video?.id) return;
     if (selectors.stream.querySelector(`.videos-feed__card[data-event-id="${video.id}"]`)) return;
     if (deferredFeedCards.has(video.id)) return;
-    if (isVideoHashCached(video) || video.youtubeId || video.liveUrl || video.gameUrl) {
+    if (isVideoHashCached(video)) {
       enqueueWarmAndMount(video);
     }
   });
@@ -2511,32 +2505,28 @@ function revealReadyFeedPosts() {
   return added;
 }
 
-function visibleFeedCardCount() {
+function unhidePlayingFeedVideos() {
   try {
-    if (!selectors.stream) return 0;
-    return Array.from(selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]'))
-      .filter((card) => {
-        if (card.id === 'sosLoadNugOverlay' || card.classList.contains('videos-feed__card--loadnug')) return false;
-        if (card.style.display === 'none' || card.dataset.mediaReady === 'pending') return false;
-        return true;
-      }).length;
-  } catch (_) {
-    return 0;
-  }
+    document.querySelectorAll('.videos-feed__media video').forEach((videoEl) => {
+      const playing = !videoEl.paused || videoEl.readyState >= 2;
+      if (!playing) return;
+      const mediaDiv = videoEl.closest('.videos-feed__media');
+      if (mediaDiv) revealVideoSurface(mediaDiv, videoEl);
+    });
+  } catch (_) {}
 }
 
 /**
- * אחרי סגירת שיחות (So-Call / בית): מורידים LoadNug ומציגים כרטיסיות מוכנות.
- * לא soft-refresh — לחיצה כפולה על בית בפיד נשארת לרענון לפוסט האחרון. | HYPER CORE TECH
+ * רק מעבר שיחות (So-Call) → בית: מסירים LoadNug/:has ו-boot-loading שמסתירים תמונה
+ * בזמן שהסאונד כבר מנגן. לא נוגעים בטעינת הפיד הראשי ולא בלחיצה כפולה. | HYPER CORE TECH
  */
-function showFeedAfterLeavingChat(reason = 'chat-closed') {
+function revealFeedAfterSoCallHome() {
   try {
-    document.body.classList.remove('sos-call-active', 'sos-deeplink-chat', 'videos-boot-loading');
+    document.body.classList.remove('sos-deeplink-chat', 'videos-boot-loading');
     document.documentElement.removeAttribute('data-sos-deeplink');
   } catch (_) {}
   try {
-    const ov = document.getElementById('sosLoadNugOverlay');
-    if (ov) ov.remove();
+    document.getElementById('sosLoadNugOverlay')?.remove();
   } catch (_) {}
   try {
     if (typeof App.clearSosDeepLinkFlags === 'function') App.clearSosDeepLinkFlags();
@@ -2545,35 +2535,35 @@ function showFeedAfterLeavingChat(reason = 'chat-closed') {
     bootGate.active = false;
     bootGate.released = true;
     bootGate.releasePromise = null;
-    bootGate.holdUntil = 0;
   } catch (_) {}
+
   try {
-    hideLoadingAnimation({ force: true });
-    hideSoftFeedLoading();
+    selectors.stream?.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
+      if (card.id === 'sosLoadNugOverlay' || card.classList.contains('videos-feed__card--loadnug')) return;
+      const videoEl = card.querySelector('video');
+      const playable = !videoEl || videoEl.readyState >= 2 || !videoEl.paused
+        || !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash));
+      if (playable && (card.style.display === 'none' || card.dataset.mediaReady === 'pending')) {
+        markCardMediaReady(card);
+      }
+    });
   } catch (_) {}
-  globalAutoplayEnabled = true;
-  try { updateGlobalStopClass(); } catch (_) {}
-  try { revealReadyFeedPosts(); } catch (_) {}
-  if (visibleFeedCardCount() < FEED_VISIBLE_FILL_MIN) {
-    const list = typeof getDisplayVideos === 'function' ? getDisplayVideos() : (state.videos || []);
-    for (let i = 0; i < list.length; i += 1) {
-      if (visibleFeedCardCount() >= FEED_VISIBLE_FILL_MIN) break;
-      const video = list[i];
-      if (!video?.id) continue;
-      if (!canShowParkedFeedCard(video, null) && !isVideoHashCached(video)) continue;
-      try { enqueueWarmAndMount(video); } catch (_) {}
-    }
-  }
-  requestAnimationFrame(() => {
-    try { resumeCenteredFeedVideo(); } catch (_) {}
-    try { autoPlayFirstVideo(); } catch (_) {}
-  });
-  console.log('[videos] show feed after leaving chat', {
-    reason,
-    visible: visibleFeedCardCount(),
-    parked: deferredFeedCards.size,
-    videos: Array.isArray(state.videos) ? state.videos.length : 0,
-  });
+
+  try {
+    Array.from(deferredFeedCards.keys()).forEach((id) => {
+      const parked = deferredFeedCards.get(id);
+      const videoEl = parked?.card?.querySelector?.('video');
+      const playable = !videoEl || videoEl.readyState >= 2 || !!(videoEl && !videoEl.paused)
+        || !!(videoEl && (videoEl.src || videoEl.dataset.attachedHash));
+      if (playable) mountParkedFeedCard(id, true);
+    });
+  } catch (_) {}
+
+  unhidePlayingFeedVideos();
+  resumeCenteredFeedVideo();
+  requestAnimationFrame(unhidePlayingFeedVideos);
+  setTimeout(unhidePlayingFeedVideos, 350);
+  console.log('[videos] Home from So-Call — unhid playable feed');
 }
 
 function feedDomCardCount() {
@@ -3423,15 +3413,8 @@ async function releaseBootLoading(reason = 'ready') {
   const revealFeed = () => {
     try { document.body.classList.remove('videos-boot-loading'); } catch (_) {}
   };
-  const skipLoadNugWait = reason === 'deeplink'
-    || reason === 'url-deeplink'
-    || reason === 'apk-so-call'
-    || reason === 'incoming-call'
-    || hasCommunicationDeepLink();
-  if (skipLoadNugWait) {
-    try { document.getElementById('sosLoadNugOverlay')?.remove(); } catch (_) {}
-    revealFeed();
-  } else if (document.getElementById('sosLoadNugOverlay')) {
+  const skipLoadNugWait = reason === 'deeplink' || reason === 'url-deeplink' || hasCommunicationDeepLink();
+  if (document.getElementById('sosLoadNugOverlay') && !skipLoadNugWait) {
     setTimeout(revealFeed, 800);
   } else {
     revealFeed();

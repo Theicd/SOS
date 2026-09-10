@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.10-homechat1",
-  "buildTime": "2026-09-10T23:48:00+03:00",
-  "notes": "Home from So-Call shows cached feed cards on first tap"
+  "version": "2026.09.11-socall-home1",
+  "buildTime": "2026-09-11T00:10:00+03:00",
+  "notes": "Restore home feed boot; unhide video after So-Call Home tap"
 }

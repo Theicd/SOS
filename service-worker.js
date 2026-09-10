@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v775'; // home from So-Call reveals feed cards
+  const CACHE_NAME = 'sos-cache-v776'; // restore home boot; So-Call Home unhides video
   const PRECACHE_URLS = [
     './',
     './videos.html',
