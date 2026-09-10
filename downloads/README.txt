@@ -1,8 +1,8 @@
 ﻿SOS Android APK downloads
 
-Latest: SOS-1.0.111.apk (So-Call splash: upper-third logo, glow, 20% smaller)
+Latest: SOS-1.0.112.apk (So-Call splash: no glow, logo smaller)
 
 GitHub Release:
-https://github.com/Theicd/SOS/releases/download/apk-1.0.111/SOS-1.0.111.apk
+https://github.com/Theicd/SOS/releases/download/apk-1.0.112/SOS-1.0.112.apk
 
-Previous: https://github.com/Theicd/SOS/releases/download/apk-1.0.110/SOS-1.0.110.apk
+Previous: https://github.com/Theicd/SOS/releases/download/apk-1.0.111/SOS-1.0.111.apk

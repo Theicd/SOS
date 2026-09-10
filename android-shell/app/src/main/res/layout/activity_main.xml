@@ -17,14 +17,13 @@
         android:layout_centerInParent="true"
         android:indeterminate="true" />
 
-    <!-- So-Call: לוגו בשליש העליון + זוהר מאחור + from HTC | HYPER CORE TECH -->
+    <!-- So-Call: לוגו בשליש העליון + from HTC | HYPER CORE TECH -->
     <RelativeLayout
         android:id="@+id/soCallSplash"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#FF000000"
         android:clickable="true"
-        android:clipChildren="false"
         android:elevation="20dp"
         android:focusable="true"
         android:visibility="gone">
@@ -32,37 +31,20 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:clipChildren="false"
             android:orientation="vertical">
 
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="1"
-                android:clipChildren="false"
-                android:clipToPadding="false">
-
-                <View
-                    android:id="@+id/soCallSplashGlowBlue"
-                    android:layout_width="300dp"
-                    android:layout_height="150dp"
-                    android:layout_gravity="center"
-                    android:background="@drawable/so_call_splash_glow_blue" />
-
-                <View
-                    android:id="@+id/soCallSplashGlowRed"
-                    android:layout_width="260dp"
-                    android:layout_height="130dp"
-                    android:layout_gravity="center"
-                    android:background="@drawable/so_call_splash_glow_red" />
+                android:layout_weight="1">
 
                 <ImageView
                     android:id="@+id/soCallSplashLogo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:layout_marginStart="56dp"
-                    android:layout_marginEnd="56dp"
+                    android:layout_marginStart="80dp"
+                    android:layout_marginEnd="80dp"
                     android:adjustViewBounds="true"
                     android:alpha="0.84"
                     android:contentDescription="@string/app_name_sos_call"

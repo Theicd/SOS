@@ -1,8 +1,5 @@
 package com.sos010.app
 
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.app.ActivityManager
 import android.app.NotificationManager
 import android.Manifest
@@ -23,8 +20,6 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
 import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
-import android.view.animation.LinearInterpolator
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
@@ -59,9 +54,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loading: ProgressBar
     private var filePickLoading: FrameLayout? = null
     private var soCallSplash: View? = null
-    private var soCallGlowBlue: View? = null
-    private var soCallGlowRed: View? = null
-    private var soCallGlowAnimators: MutableList<android.animation.Animator> = mutableListOf()
     private var filePickHideRunnable: Runnable? = null
     private var filePickShownAt = 0L
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -145,8 +137,6 @@ class MainActivity : AppCompatActivity() {
         loading = findViewById(R.id.loading)
         filePickLoading = findViewById(R.id.filePickLoading)
         soCallSplash = findViewById(R.id.soCallSplash)
-        soCallGlowBlue = findViewById(R.id.soCallSplashGlowBlue)
-        soCallGlowRed = findViewById(R.id.soCallSplashGlowRed)
 
         NotificationHelper.ensureChannels(this)
         requestRuntimePermissions()
@@ -428,7 +418,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         isHostAlive = false
         isActivityAlive = false
-        stopSoCallSplashGlow()
         SosDebugLog.i("life", "onDestroy")
         SosDebugLog.snapshotFlags("onDestroy")
         if (hostRef?.get() === this) hostRef = null
@@ -616,7 +605,6 @@ class MainActivity : AppCompatActivity() {
         soCallSplash?.visibility = View.VISIBLE
         soCallSplash?.bringToFront()
         if (this::loading.isInitialized) loading.visibility = View.GONE
-        startSoCallSplashGlow()
     }
 
     fun hideSoCallSplashFromJs() {
@@ -627,53 +615,7 @@ class MainActivity : AppCompatActivity() {
     private fun hideSoCallSplash(force: Boolean = false) {
         val splash = soCallSplash ?: return
         if (splash.visibility != View.VISIBLE && !force) return
-        stopSoCallSplashGlow()
         splash.visibility = View.GONE
-    }
-
-    private fun startSoCallSplashGlow() {
-        val blue = soCallGlowBlue ?: return
-        val red = soCallGlowRed ?: return
-        stopSoCallSplashGlow()
-        soCallGlowAnimators = mutableListOf(
-            pulseView(blue, 0.92f, 1.2f, 0.22f, 0.72f, 1700L),
-            pulseView(red, 1.16f, 0.9f, 0.62f, 0.2f, 1900L),
-            ObjectAnimator.ofFloat(blue, View.ROTATION, 0f, 360f).apply {
-                duration = 22000L
-                repeatCount = ValueAnimator.INFINITE
-                interpolator = LinearInterpolator()
-            }
-        )
-        soCallGlowAnimators.forEach { it.start() }
-    }
-
-    private fun pulseView(
-        target: View,
-        scaleFrom: Float,
-        scaleTo: Float,
-        alphaFrom: Float,
-        alphaTo: Float,
-        duration: Long
-    ): AnimatorSet {
-        fun oa(property: android.util.Property<View, Float>, from: Float, to: Float) =
-            ObjectAnimator.ofFloat(target, property, from, to).apply {
-                this.duration = duration
-                repeatCount = ValueAnimator.INFINITE
-                repeatMode = ValueAnimator.REVERSE
-                interpolator = AccelerateDecelerateInterpolator()
-            }
-        return AnimatorSet().apply {
-            playTogether(
-                oa(View.SCALE_X, scaleFrom, scaleTo),
-                oa(View.SCALE_Y, scaleFrom, scaleTo),
-                oa(View.ALPHA, alphaFrom, alphaTo)
-            )
-        }
-    }
-
-    private fun stopSoCallSplashGlow() {
-        soCallGlowAnimators.forEach { it.cancel() }
-        soCallGlowAnimators.clear()
     }
 
     private fun flushOpenChatList() {
