@@ -17,28 +17,64 @@
         android:layout_centerInParent="true"
         android:indeterminate="true" />
 
-    <!-- So-Call: לוגו So-Call 010 במרכז + from HTC בשורה אחת LTR | HYPER CORE TECH -->
+    <!-- So-Call: לוגו בשליש העליון + זוהר מאחור + from HTC | HYPER CORE TECH -->
     <RelativeLayout
         android:id="@+id/soCallSplash"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#FF000000"
         android:clickable="true"
+        android:clipChildren="false"
+        android:elevation="20dp"
         android:focusable="true"
-        android:visibility="gone"
-        android:elevation="20dp">
+        android:visibility="gone">
 
-        <ImageView
-            android:id="@+id/soCallSplashLogo"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:layout_marginStart="28dp"
-            android:layout_marginEnd="28dp"
-            android:adjustViewBounds="true"
-            android:contentDescription="@string/app_name_sos_call"
-            android:scaleType="fitCenter"
-            android:src="@drawable/so_call_splash_logo" />
+            android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:clipChildren="false"
+                android:clipToPadding="false">
+
+                <View
+                    android:id="@+id/soCallSplashGlowBlue"
+                    android:layout_width="300dp"
+                    android:layout_height="150dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/so_call_splash_glow_blue" />
+
+                <View
+                    android:id="@+id/soCallSplashGlowRed"
+                    android:layout_width="260dp"
+                    android:layout_height="130dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/so_call_splash_glow_red" />
+
+                <ImageView
+                    android:id="@+id/soCallSplashLogo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginStart="56dp"
+                    android:layout_marginEnd="56dp"
+                    android:adjustViewBounds="true"
+                    android:alpha="0.84"
+                    android:contentDescription="@string/app_name_sos_call"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/so_call_splash_logo" />
+            </FrameLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="2" />
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/soCallSplashFooter"
