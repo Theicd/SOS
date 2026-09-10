@@ -47,7 +47,12 @@
     // חלק Signal Relay (p2p-peer-exchange.js) – הודעות להעברת signals דרך peers | HYPER CORE TECH
     RELAY_SIGNAL: 'relay-signal',
     RELAY_SIGNAL_FORWARD: 'relay-signal-forward',
+    // חלק Have-File (p2p-peer-exchange.js) – שאלה/תשובה/הודעה מיידית על hash ב-DC | HYPER CORE TECH
+    HAVE_FILE_ASK: 'have-file-ask',
+    HAVE_FILE_REPLY: 'have-file-reply',
+    HAVE_FILE_ANNOUNCE: 'have-file-announce',
   };
+  const HAVE_ASK_TIMEOUT_MS = 600;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // State
@@ -433,6 +438,18 @@
       case MESSAGE_TYPES.RELAY_SIGNAL_FORWARD:
         handleRelaySignalForward(msg, senderPubkey);
         return true;
+
+      case MESSAGE_TYPES.HAVE_FILE_ASK:
+        handleHaveFileAsk(msg, senderPubkey, channel);
+        return true;
+
+      case MESSAGE_TYPES.HAVE_FILE_REPLY:
+        handleHaveFileReply(msg, senderPubkey);
+        return true;
+
+      case MESSAGE_TYPES.HAVE_FILE_ANNOUNCE:
+        handleHaveFileAnnounce(msg, senderPubkey);
+        return true;
         
       default:
         return false; // לא טיפלנו - תן ל-handler אחר
@@ -636,6 +653,167 @@
   // ═══════════════════════════════════════════════════════════════════════════
   // חיפוש קבצים
   // ═══════════════════════════════════════════════════════════════════════════
+
+  const pendingHaveAsks = new Map(); // askId -> { hash, holders, remaining, resolve, timer }
+  const announcedHaveHashes = new Set();
+
+  function myPubkeyLower() {
+    try {
+      return String(App.publicKey || App.getEffectiveKeys?.()?.publicKey || '').toLowerCase();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function sendOnOpenChannel(channel, obj) {
+    if (!channel || channel.readyState !== 'open' || !obj) return false;
+    try {
+      channel.send(JSON.stringify(obj));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function listOpenChannels() {
+    const out = [];
+    const seen = new Set();
+    const self = myPubkeyLower();
+    const add = (pubkey, channel) => {
+      const k = String(pubkey || '').toLowerCase();
+      if (!k || k === self || seen.has(k)) return;
+      if (!channel || channel.readyState !== 'open') return;
+      seen.add(k);
+      out.push({ pubkey: k, channel });
+    };
+    state.activeChannels.forEach((ch, pk) => add(pk, ch));
+    try {
+      const peers = App.dataChannel && App.dataChannel._peers;
+      if (peers && typeof peers.forEach === 'function') {
+        peers.forEach((s, pk) => {
+          if (s && s.dc) add(pk, s.dc);
+        });
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  function iHaveHash(hash) {
+    const h = String(hash || '').trim().toLowerCase();
+    if (!h) return false;
+    try {
+      const files = (typeof App.getAvailableFiles === 'function' && App.getAvailableFiles())
+        || (typeof App.p2pGetAvailableFiles === 'function' && App.p2pGetAvailableFiles());
+      if (files && typeof files.has === 'function' && (files.has(h) || files.has(hash))) return true;
+    } catch (_) {}
+    try {
+      const set = App.mediaCacheHashSet;
+      if (set && (set.has(h) || set.has(hash))) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  function recordPeerHasFile(pubkey, hash) {
+    const k = String(pubkey || '').toLowerCase();
+    const h = String(hash || '').trim().toLowerCase();
+    if (!k || !h) return;
+    registerPeer(k, [h], Date.now());
+    const peer = state.knownPeers.get(k);
+    if (peer) peer.isConnected = true;
+  }
+
+  function finishHaveAsk(askId) {
+    const pending = pendingHaveAsks.get(askId);
+    if (!pending) return;
+    pendingHaveAsks.delete(askId);
+    try { clearTimeout(pending.timer); } catch (_) {}
+    const list = [...pending.holders];
+    try {
+      console.log('[P2P-HAVE] REPLY', { hash: pending.hash.slice(0, 12), have: list.length });
+    } catch (_) {}
+    pending.resolve(list);
+  }
+
+  function handleHaveFileAsk(msg, senderPubkey, channel) {
+    const hash = String(msg.hash || '').trim().toLowerCase();
+    const askId = msg.askId;
+    sendOnOpenChannel(channel, {
+      type: MESSAGE_TYPES.HAVE_FILE_REPLY,
+      hash,
+      askId,
+      have: iHaveHash(hash),
+    });
+  }
+
+  function handleHaveFileReply(msg, senderPubkey) {
+    const askId = msg.askId;
+    const pending = pendingHaveAsks.get(askId);
+    if (!pending) return;
+    if (msg.have) {
+      const k = String(senderPubkey || '').toLowerCase();
+      pending.holders.add(k);
+      recordPeerHasFile(k, pending.hash);
+    }
+    pending.remaining -= 1;
+    if (pending.remaining <= 0) finishHaveAsk(askId);
+  }
+
+  function handleHaveFileAnnounce(msg, senderPubkey) {
+    const hash = String(msg.hash || '').trim().toLowerCase();
+    const k = String(senderPubkey || '').toLowerCase();
+    if (!hash || !k) return;
+    recordPeerHasFile(k, hash);
+    try {
+      console.log('[P2P-HAVE] LEARN', { peer: k.slice(0, 8), hash: hash.slice(0, 12) });
+    } catch (_) {}
+  }
+
+  function announceHaveFile(hash) {
+    const h = String(hash || '').trim().toLowerCase();
+    if (!h || announcedHaveHashes.has(h)) return 0;
+    announcedHaveHashes.add(h);
+    const payload = { type: MESSAGE_TYPES.HAVE_FILE_ANNOUNCE, hash: h, ts: Date.now() };
+    const channels = listOpenChannels();
+    let sent = 0;
+    for (const { channel } of channels) {
+      if (sendOnOpenChannel(channel, payload)) sent += 1;
+    }
+    try {
+      console.log('[P2P-HAVE] ANNOUNCE', { hash: h.slice(0, 12), peers: sent });
+    } catch (_) {}
+    return sent;
+  }
+
+  function askConnectedPeersForHash(hash, timeoutMs) {
+    const h = String(hash || '').trim().toLowerCase();
+    if (!h) return Promise.resolve([]);
+    const channels = listOpenChannels();
+    if (channels.length === 0) return Promise.resolve([]);
+    const askId = 'hf-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    return new Promise((resolve) => {
+      const holders = new Set();
+      const timer = setTimeout(() => finishHaveAsk(askId), timeoutMs || HAVE_ASK_TIMEOUT_MS);
+      pendingHaveAsks.set(askId, {
+        hash: h,
+        holders,
+        remaining: channels.length,
+        resolve,
+        timer,
+      });
+      const payload = { type: MESSAGE_TYPES.HAVE_FILE_ASK, hash: h, askId };
+      for (const { channel } of channels) {
+        if (!sendOnOpenChannel(channel, payload)) {
+          const pending = pendingHaveAsks.get(askId);
+          if (pending) pending.remaining -= 1;
+        }
+      }
+      const pending = pendingHaveAsks.get(askId);
+      if (pending && pending.remaining <= 0) finishHaveAsk(askId);
+      try {
+        console.log('[P2P-HAVE] ASK', { hash: h.slice(0, 12), peers: channels.length });
+      } catch (_) {}
+    });
+  }
   
   /**
    * חיפוש peers שיש להם קובץ מסוים (ללא פנייה ל-Relay)
@@ -810,6 +988,8 @@
     // חיפוש
     findPeersWithFileLocally,
     hasFileInfo,
+    askConnectedPeersForHash,
+    announceHaveFile,
     
     // סטטיסטיקות
     getStats,

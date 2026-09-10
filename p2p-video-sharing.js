@@ -92,7 +92,7 @@
   const FILE_AVAILABILITY_KIND = 30078; // kind לפרסום זמינות קבצים (NIP-78)
   const FILE_REQUEST_KIND = 30078; // kind לבקשת קובץ (NIP-78)
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
-  const P2P_VERSION = '2.15.6-chatqos1';
+  const P2P_VERSION = '2.15.7-havefile1';
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
   const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
@@ -126,7 +126,7 @@
   // חלק Network Tiers (p2p-video-sharing.js) – P2P קודם; Blossom = fallback/משגיח | HYPER CORE TECH
   const NETWORK_TIER_BOOTSTRAP_MAX = 1;   // משתמשים 1: אין peers → Blossom
   const NETWORK_TIER_HYBRID_MAX = 10;
-  const HYBRID_BLOSSOM_POSTS = 1;         // מאומת + peers: first-paint אחד מ-Blossom, אחר כך P2P | HYPER CORE TECH
+  const HYBRID_BLOSSOM_POSTS = 1;         // first-paint מ-Blossom רק אם אין peer מחובר עם הקובץ | HYPER CORE TECH
   const INITIAL_LOAD_TIMEOUT = 12000;     // בסיס לפני progress; עם בתים ממתינים עד hard-cap | HYPER CORE TECH
   const AVAILABILITY_PUBLISH_DELAY = 2000;
   const PEER_COUNT_CACHE_TTL = 30000; // גילוי מהיר יותר אחרי תיקון mesh DC | HYPER CORE TECH
@@ -134,7 +134,7 @@
   const CONSECUTIVE_FAILURES_THRESHOLD = 5;
   const P2P_PROGRESS_STALL_MS = 15000;    // בלי בתים חדשים → timeout | HYPER CORE TECH
   const P2P_HARD_CAP_MS = 120000;         // תקרת הורדה אחת | HYPER CORE TECH
-  const SLOW_DOWNLOAD_BPS = 50 * 1024;    // מתחת ל־50KB/s → pipeline + Blossom משגיח | HYPER CORE TECH
+  const SLOW_DOWNLOAD_BPS = 20 * 1024;    // מתחת ל־20KB/s → הכרטיס הזה מ-Blossom; התור ממשיך | HYPER CORE TECH
   const SLOW_PROBE_MS = 2000;             // חלון מדידת מהירות לפני פתיחת מקור נוסף | HYPER CORE TECH
   const BLOSSOM_FETCH_TIMEOUT_MS = 45000; // timeout ל-Blossom (AbortController) | HYPER CORE TECH
   const MAX_PARALLEL_PEERS_PER_FILE = 2;  // עד 2 משתמשים במקביל לאותו קובץ | HYPER CORE TECH
@@ -1232,13 +1232,16 @@
   }
 
   async function registerFileAvailability(hash, blob, mimeType) {
-    // רק המנהיג מפרסם קבצים לרשת
-    if (!isP2PAllowed()) {
-      if (!blob) return false;
-      state.availableFiles.set(String(hash || '').toLowerCase(), {
+    const fileHash = String(hash || '').toLowerCase();
+    if (blob && fileHash) {
+      state.availableFiles.set(fileHash, {
         blob, mimeType, size: blob.size, timestamp: Date.now(),
       });
-      return true;
+    }
+
+    // רק המנהיג מפרסם קבצים לרשת
+    if (!isP2PAllowed()) {
+      return !!blob;
     }
     
     // הגבלת גודל תור השיתופים - מותאם למכשיר
@@ -1378,8 +1381,36 @@
     }
   }
 
+  async function askLiveHolders(hash) {
+    if (!hash || !App.PeerExchange || typeof App.PeerExchange.askConnectedPeersForHash !== 'function') {
+      return [];
+    }
+    try {
+      const live = await App.PeerExchange.askConnectedPeersForHash(hash);
+      return Array.isArray(live) ? live : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function announceHaveFileNow(hash) {
+    try {
+      if (hash && App.PeerExchange && typeof App.PeerExchange.announceHaveFile === 'function') {
+        App.PeerExchange.announceHaveFile(hash);
+      }
+    } catch (_) {}
+  }
+
   // חלק P2P (p2p-video-sharing.js) – חיפוש peers עם קובץ (עם סינון לפי heartbeat) | HYPER CORE TECH
-  async function findPeersWithFile(hash) {
+  async function findPeersWithFile(hash, options = {}) {
+    if (!options.skipAsk) {
+      const live = await askLiveHolders(hash);
+      if (live.length > 0) {
+        log('info', `🔗 נמצאו peers מחוברים עם הקובץ`, { count: live.length, hash: String(hash).slice(0, 12) });
+        return live;
+      }
+    }
+
     // חלק Persistent Connections – בדיקה אם יש חיבור קיים לפני חיפוש ב-Relay | HYPER CORE TECH
     const connectedPeers = getConnectedPeersWithFile(hash);
     if (connectedPeers.length > 0) {
@@ -3340,7 +3371,7 @@
       
       // first-paint בלבד מ-Blossom; השאר P2P קודם | HYPER CORE TECH
       const guestForceBlossom = isGuest && postIndex < GUEST_BLOSSOM_FIRST_POSTS;
-      const forceBlossom = guestForceBlossom || shouldUseBlossom(postIndex, tier);
+      let forceBlossom = guestForceBlossom || shouldUseBlossom(postIndex, tier);
 
       log('download', `🎬 מתחיל הורדת וידאו`, {
         url: url.slice(0, 50) + '...',
@@ -3393,10 +3424,24 @@
           } else {
             await registerFileAvailability(hash, blob, mimeType);
           }
+          announceHaveFileNow(hash);
           markFeedProgress();
           resetConsecutiveFailures();
           return { blob, source, peer, tier };
         };
+
+        let liveHolders = [];
+        if (hash) {
+          liveHolders = await askLiveHolders(hash);
+          if (liveHolders.length > 0) {
+            forceBlossom = false;
+            log('info', `🔗 נמצאו peers מחוברים עם הקובץ`, {
+              count: liveHolders.length,
+              hash: hash.slice(0, 12),
+              forceBlossom,
+            });
+          }
+        }
 
         // חלק Network Tiers - first-paint / BOOTSTRAP בלבד מ-Blossom | HYPER CORE TECH
         if (forceBlossom) {
@@ -3443,20 +3488,22 @@
         );
         const p2pTimeout = isGuest ? GUEST_P2P_TIMEOUT : INITIAL_LOAD_TIMEOUT;
 
-        let rawPeers = [];
-        try {
-          rawPeers = await Promise.race([
-            findPeersWithFile(hash),
-            sleep(peerSearchTimeout).then(() => [])
-          ]);
-        } catch (_) {
-          rawPeers = [];
+        let rawPeers = Array.isArray(liveHolders) ? [...liveHolders] : [];
+        if (!Array.isArray(rawPeers) || rawPeers.length === 0) {
+          try {
+            rawPeers = await Promise.race([
+              findPeersWithFile(hash, { skipAsk: true }),
+              sleep(peerSearchTimeout).then(() => [])
+            ]);
+          } catch (_) {
+            rawPeers = [];
+          }
         }
         if (!Array.isArray(rawPeers) || rawPeers.length === 0) {
           try {
             await sleep(PEER_SEARCH_RETRY_MS);
             rawPeers = await Promise.race([
-              findPeersWithFile(hash),
+              findPeersWithFile(hash, { skipAsk: true }),
               sleep(peerSearchTimeout).then(() => [])
             ]);
           } catch (_) {
