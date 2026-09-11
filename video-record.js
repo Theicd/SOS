@@ -167,6 +167,9 @@ class VideoRecorder {
       this.showReview(file);
       try { event.target.value = ''; } catch (_) {}
     });
+    this.reviewVideo?.addEventListener('loadeddata', () => this.hideShellFilePickLoading());
+    this.reviewVideo?.addEventListener('canplay', () => this.hideShellFilePickLoading());
+    this.reviewImage?.addEventListener('load', () => this.hideShellFilePickLoading());
 
     this.bgStrip?.addEventListener('click', (event) => {
       if (event.target?.closest?.('.vr-bg-dismiss')) return;
@@ -327,6 +330,37 @@ class VideoRecorder {
     }
   }
 
+  hideShellFilePickLoading() {
+    try {
+      const AppNs = window.NostrApp || {};
+      if (typeof AppNs.hideChatFilePickLoading === 'function') {
+        AppNs.hideChatFilePickLoading();
+      }
+    } catch (_) {}
+    try {
+      const el = document.getElementById('chatFilePickLoading');
+      if (el) {
+        el.classList.remove('is-visible');
+        el.hidden = true;
+      }
+    } catch (_) {}
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.hideFilePickLoadingNow === 'function') {
+        bridge.hideFilePickLoadingNow();
+      } else if (bridge && typeof bridge.hideFilePickLoading === 'function') {
+        bridge.hideFilePickLoading();
+      }
+    } catch (_) {}
+  }
+
+  scheduleHideShellFilePickLoading() {
+    this.hideShellFilePickLoading();
+    [80, 250, 700].forEach((ms) => {
+      setTimeout(() => this.hideShellFilePickLoading(), ms);
+    });
+  }
+
   showReview(file) {
     if (!file) return;
     if (this.isRecording) this.stopRecording();
@@ -349,6 +383,7 @@ class VideoRecorder {
     }
     this.renderTextLayer();
     this.showReviewStage();
+    this.scheduleHideShellFilePickLoading();
   }
 
   backToCamera() {

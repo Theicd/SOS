@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.11-camopt3",
-  "buildTime": "2026-09-11T05:10:00+03:00",
-  "notes": "Smaller camera clips plus countdown, on-video text, and grid"
+  "version": "2026.09.11-camopt4",
+  "buildTime": "2026-09-11T05:45:00+03:00",
+  "notes": "Hide the shell file-pick loader once the camera review video is ready"
 }
