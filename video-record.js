@@ -218,11 +218,89 @@ class VideoRecorder {
     } catch (_) {}
   }
 
+  ensureFeedFreezeHook() {
+    if (VideoRecorder._feedHooked) return;
+    VideoRecorder._feedHooked = true;
+    const wrap = (fn) => {
+      if (typeof fn !== 'function' || fn.__vrUnfreezeWrapped) return fn;
+      const wrapped = function wrappedResume() {
+        try { window.videoRecorder?.unfreezeFeedForCamera(); } catch (_) {}
+        return fn.apply(this, arguments);
+      };
+      wrapped.__vrUnfreezeWrapped = true;
+      return wrapped;
+    };
+    if (typeof window.resumeCenteredFeedVideo === 'function') {
+      window.resumeCenteredFeedVideo = wrap(window.resumeCenteredFeedVideo);
+    }
+    const AppRef = window.NostrApp;
+    if (AppRef && typeof AppRef.resumeCenteredFeedVideo === 'function') {
+      AppRef.resumeCenteredFeedVideo = wrap(AppRef.resumeCenteredFeedVideo);
+    }
+  }
+
+  freezeFeedForCamera() {
+    this.pauseFeedVideos();
+    this.ensureFeedFreezeHook();
+    if (this._feedFrozen?.length) return;
+    this._feedFrozen = [];
+    try {
+      document.querySelectorAll('.videos-feed video').forEach((video) => {
+        if (!video || video.closest?.('.video-record-modal')) return;
+        const type = video.closest?.('.videos-feed__media')?.dataset?.mediaType || '';
+        if (type === 'hls-live' || type === 'p2p-live') {
+          try { video.pause(); } catch (_) {}
+          return;
+        }
+        const rec = {
+          el: video,
+          src: video.getAttribute('src') || '',
+          srcObject: video.srcObject || null,
+          time: video.currentTime || 0,
+        };
+        try { video.pause(); } catch (_) {}
+        try { video.srcObject = null; } catch (_) {}
+        if (rec.src || rec.srcObject) {
+          try { video.removeAttribute('src'); } catch (_) {}
+          try { video.load(); } catch (_) {}
+        }
+        this._feedFrozen.push(rec);
+      });
+      document.querySelectorAll('.videos-feed iframe').forEach((iframe) => {
+        if (!iframe) return;
+        const src = iframe.getAttribute('src') || '';
+        if (!src || src === 'about:blank') return;
+        this._feedFrozen.push({ el: iframe, src, isIframe: true });
+        try { iframe.src = 'about:blank'; } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  unfreezeFeedForCamera() {
+    const list = this._feedFrozen;
+    this._feedFrozen = [];
+    if (!list?.length) return;
+    list.forEach((rec) => {
+      try {
+        if (rec.isIframe) {
+          if (rec.src) rec.el.src = rec.src;
+          return;
+        }
+        const video = rec.el;
+        if (!video) return;
+        if (rec.srcObject) video.srcObject = rec.srcObject;
+        else if (rec.src) video.src = rec.src;
+        try { if (rec.time) video.currentTime = rec.time; } catch (_) {}
+      } catch (_) {}
+    });
+  }
+
   resumeFeedIfShareClosed() {
     try {
       const composeOpen = document.getElementById('composeModal')?.classList.contains('is-visible');
       const recordOpen = this.modal?.classList.contains('is-visible');
       if (composeOpen || recordOpen) return;
+      this.unfreezeFeedForCamera();
       if (typeof window.resumeCenteredFeedVideo === 'function') {
         window.resumeCenteredFeedVideo();
       } else if (typeof App !== 'undefined' && typeof App.resumeCenteredFeedVideo === 'function') {
@@ -233,7 +311,7 @@ class VideoRecorder {
 
   openModal() {
     if (!this.modal) return;
-    this.pauseFeedVideos();
+    this.freezeFeedForCamera();
     this.modal.classList.add('is-visible');
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
@@ -402,7 +480,7 @@ class VideoRecorder {
     const target = file || this.lastShareFile;
     if (!this.modal || !target) return;
     this.lastShareFile = target;
-    this.pauseFeedVideos();
+    this.freezeFeedForCamera();
     this.modal.classList.add('is-visible');
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
@@ -416,19 +494,28 @@ class VideoRecorder {
   }
 
   pickRecorderMime() {
+    const picked = this.listRecorderMimes();
+    return picked[0] || '';
+  }
+
+  listRecorderMimes() {
     const canCheck = typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function';
     const candidates = [
       'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1.4D401E,mp4a.40.2',
       'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=avc1',
       'video/mp4',
+      'video/webm;codecs=h264,opus',
+      'video/webm;codecs=avc1.42E01E,opus',
+      'video/webm;codecs=h264',
       'video/webm;codecs=vp8,opus',
       'video/webm',
     ];
-    if (!canCheck) return 'video/webm';
-    for (let i = 0; i < candidates.length; i += 1) {
-      if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
-    }
-    return '';
+    if (!canCheck) return ['video/webm'];
+    return candidates.filter((mime) => {
+      try { return MediaRecorder.isTypeSupported(mime); } catch (_) { return false; }
+    });
   }
 
   applyPreviewMirror() {
@@ -1090,6 +1177,49 @@ class VideoRecorder {
     }
   }
 
+  bindMediaRecorder(recorder) {
+    this.mediaRecorder = recorder;
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) this.recordedChunks.push(event.data);
+    };
+    this.mediaRecorder.onstop = () => this.processRecording();
+    this.mediaRecorder.onerror = () => this.fallbackRecorderIfNeeded();
+  }
+
+  createMediaRecorder(mimeType) {
+    const opts = {
+      videoBitsPerSecond: 1_500_000,
+      audioBitsPerSecond: 96_000,
+    };
+    if (mimeType) opts.mimeType = mimeType;
+    try {
+      return new MediaRecorder(this.stream, opts);
+    } catch (_) {
+      if (mimeType) {
+        try { return new MediaRecorder(this.stream, { mimeType }); } catch (__) {}
+      }
+      return new MediaRecorder(this.stream);
+    }
+  }
+
+  fallbackRecorderIfNeeded() {
+    if (this._recorderFallback || this.recordedChunks.length) return;
+    this._recorderFallback = true;
+    try {
+      this.mediaRecorder.onstop = null;
+      this.mediaRecorder.onerror = null;
+    } catch (_) {}
+    try { this.mediaRecorder.stop(); } catch (_) {}
+    try {
+      const recorder = this.createMediaRecorder('video/webm;codecs=vp8,opus');
+      this.recordedChunks = [];
+      this.bindMediaRecorder(recorder);
+      this.mediaRecorder.start(1000);
+    } catch (err) {
+      console.warn('[VideoRecorder] recorder fallback failed', err);
+    }
+  }
+
   async startRecording() {
     if (!this.stream) {
       alert('מצלמה לא מוכנה. אנא המתן עד שהמצלמה תיטען.');
@@ -1099,24 +1229,17 @@ class VideoRecorder {
     try {
       await this.ensureMicForRecording();
       this.recordedChunks = [];
-      const mimeType = this.pickRecorderMime();
-      const recorderOpts = {
-        videoBitsPerSecond: 1_500_000,
-        audioBitsPerSecond: 96_000,
-      };
-      if (mimeType) recorderOpts.mimeType = mimeType;
-
-      try {
-        this.mediaRecorder = new MediaRecorder(this.stream, recorderOpts);
-      } catch (_) {
-        this.mediaRecorder = mimeType
-          ? new MediaRecorder(this.stream, { mimeType })
-          : new MediaRecorder(this.stream);
+      this._recorderFallback = false;
+      const mimes = this.listRecorderMimes();
+      let recorder = null;
+      for (let i = 0; i < mimes.length; i += 1) {
+        try {
+          recorder = this.createMediaRecorder(mimes[i]);
+          if (recorder) break;
+        } catch (_) {}
       }
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) this.recordedChunks.push(event.data);
-      };
-      this.mediaRecorder.onstop = () => this.processRecording();
+      if (!recorder) recorder = this.createMediaRecorder('');
+      this.bindMediaRecorder(recorder);
       this.mediaRecorder.start(1000);
       this.isRecording = true;
       this.recordingStartTime = Date.now();

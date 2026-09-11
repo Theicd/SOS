@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.11-camopt5",
-  "buildTime": "2026-09-11T15:20:00+03:00",
-  "notes": "Faster live camera preview: no EIS, video-only until record"
+  "version": "2026.09.11-camopt6",
+  "buildTime": "2026-09-11T19:30:00+03:00",
+  "notes": "Prefer H.264 recording and freeze feed decoders while the camera is open"
 }

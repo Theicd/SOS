@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v783'; // faster live camera preview, no EIS
+  const CACHE_NAME = 'sos-cache-v784'; // H.264 record + freeze feed behind camera
   const PRECACHE_URLS = [
     './',
     './videos.html',
