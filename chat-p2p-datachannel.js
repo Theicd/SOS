@@ -488,7 +488,7 @@
         }
         if (m.type !== 'request') return;
       }
-      if (m.type === 'peer-exchange-request' || m.type === 'peer-exchange-response' || m.type === 'relay-signal' || m.type === 'relay-signal-forward' || m.type === 'have-file-ask' || m.type === 'have-file-reply' || m.type === 'have-file-announce') {
+      if (m.type === 'peer-exchange-request' || m.type === 'peer-exchange-response' || m.type === 'relay-signal' || m.type === 'relay-signal-forward') {
         if (App.PeerExchange && typeof App.PeerExchange.handleIncomingMessage === 'function') {
           const s = getPS(peer.toLowerCase());
           try { if (App.PeerExchange.handleIncomingMessage(m, peer, s && s.dc)) return; } catch (e) { console.warn('[DC] peer-exchange bridge:', e); }

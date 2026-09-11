@@ -28,10 +28,6 @@
   let dbHardDisabled = false; // רק כשאין IndexedDB בכלל | HYPER CORE TECH
   let dbFailCount = 0;
   let openInFlight = null;
-  const pendingCacheWrites = new Map(); // hash -> { url, blob, mimeType, options }
-  let pendingFlushTimer = null;
-  const MAX_PENDING_CACHE_WRITES = 30;
-  const MAX_PENDING_CACHE_BYTES = 250 * 1024 * 1024;
 
   function isMediaCacheAvailable() {
     return !dbHardDisabled && typeof indexedDB !== 'undefined';
@@ -193,67 +189,13 @@
     });
   }
 
-  function pendingCacheBytes() {
-    let total = 0;
-    pendingCacheWrites.forEach((item) => {
-      total += Number(item.blob && item.blob.size) || 0;
-    });
-    return total;
-  }
-
-  function enqueuePendingCacheWrite(url, hash, blob, mimeType, options) {
-    const key = normalizeMediaHash(hash);
-    if (!key || !blob) return;
-    pendingCacheWrites.set(key, { url, hash: key, blob, mimeType, options: options || {} });
-    while (pendingCacheWrites.size > MAX_PENDING_CACHE_WRITES || pendingCacheBytes() > MAX_PENDING_CACHE_BYTES) {
-      const oldest = pendingCacheWrites.keys().next().value;
-      if (!oldest) break;
-      pendingCacheWrites.delete(oldest);
-    }
-    if (!pendingFlushTimer) {
-      pendingFlushTimer = setTimeout(() => {
-        pendingFlushTimer = null;
-        flushPendingCacheWrites().catch(() => {});
-      }, 2000);
-    }
-  }
-
-  async function flushPendingCacheWrites() {
-    if (pendingCacheWrites.size === 0) return;
-    const items = [...pendingCacheWrites.values()];
-    for (const item of items) {
-      const ok = await cacheMedia(item.url, item.hash, item.blob, item.mimeType, {
-        ...(item.options || {}),
-        _fromQueue: true,
-      });
-      if (ok) pendingCacheWrites.delete(item.hash);
-    }
-    if (pendingCacheWrites.size > 0 && !pendingFlushTimer) {
-      pendingFlushTimer = setTimeout(() => {
-        pendingFlushTimer = null;
-        flushPendingCacheWrites().catch(() => {});
-      }, 4000);
-    }
-  }
-
   // חלק cache (media-cache.js) – שמירת מדיה ב-cache
   async function cacheMedia(url, hash, blob, mimeType, options = {}) {
     try {
       const key = normalizeMediaHash(hash);
-      if (!key || !blob) {
-        console.warn('[media-cache] persist skip — missing hash/blob', { hasHash: !!key, hasBlob: !!blob });
-        return false;
-      }
-      let database = await openDB();
+      if (!key || !blob) return false;
+      const database = await openDB();
       if (!database) {
-        database = await retryMediaCacheOpen();
-      }
-      if (!database) {
-        console.warn('[media-cache] persist FAIL — IndexedDB closed', {
-          hash: key.slice(0, 16),
-          size: blob.size,
-        });
-        if (!options._fromQueue) enqueuePendingCacheWrite(url, key, blob, mimeType, options);
         return false;
       }
       const mime = mimeType || blob.type || '';
@@ -288,8 +230,6 @@
       return true;
     } catch (err) {
       console.error('Failed to cache media', err);
-      db = null;
-      if (!options._fromQueue) enqueuePendingCacheWrite(url, hash, blob, mimeType, options);
       return false;
     }
   }
@@ -570,7 +510,6 @@
         console.log('Media cache initialized:', stats);
       }
       await refreshMediaCacheHashSet();
-      await flushPendingCacheWrites();
     } catch (err) {
       console.error('Media cache initialization failed', err);
     } finally {

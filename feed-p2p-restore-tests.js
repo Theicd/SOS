@@ -50,7 +50,7 @@ const path = require('path');
     if (type === 'ping' || type === 'pong') return 'keepalive';
     if (type === 'chat_read_receipt') return 'receipt';
     if (type === 'request' || type === 'metadata' || type === 'complete' || type === 'error') return 'feed';
-    if (type === 'peer-exchange-request' || type === 'peer-exchange-response' || type === 'relay-signal' || type === 'relay-signal-forward' || type === 'have-file-ask' || type === 'have-file-reply' || type === 'have-file-announce') return 'exchange';
+    if (type === 'peer-exchange-request' || type === 'peer-exchange-response' || type === 'relay-signal' || type === 'relay-signal-forward') return 'exchange';
     if (type === 'p2p-event-inv' || type === 'p2p-event-req' || type === 'p2p-event-res') return 'events';
     if (type === 'chat-text') return 'chat';
     return 'ignore';
@@ -124,9 +124,6 @@ const path = require('path');
   const eventSyncSrc = read('p2p-event-sync.js');
   const videosSrc = read('videos.js');
   const chatFileSrc = read('chat-p2p-file.js');
-  const composeSrc = read('compose.js');
-  const mediaCacheSrc = read('media-cache.js');
-  const feedSrc = read('feed.js');
 
   test('getChatDC returns only OPEN channel', () => {
     const store = new Map();
@@ -150,15 +147,12 @@ const path = require('path');
       && routeMessageType('request') === 'feed'
       && routeMessageType('metadata') === 'feed'
       && routeMessageType('peer-exchange-request') === 'exchange'
-      && routeMessageType('have-file-ask') === 'exchange'
-      && routeMessageType('have-file-announce') === 'exchange'
       && routeMessageType('p2p-event-res') === 'events'
       && routeMessageType('totally-unknown') === 'ignore';
   });
 
   test('source routes feed/exchange/events without stealing chat-text', () => {
     return /handleFeedMediaControlMessage/.test(chatSrc)
-      && /have-file-ask/.test(chatSrc)
       && /peer-exchange-request/.test(chatSrc)
       && /p2p-event-inv/.test(chatSrc)
       && /m\.type!=='chat-text'/.test(chatSrc.replace(/\s+/g, ''));
@@ -285,27 +279,6 @@ const path = require('path');
   test('HYBRID_BLOSSOM_POSTS is 1 and guest stays 10', () => {
     return /HYBRID_BLOSSOM_POSTS = 1/.test(videoShareSrc)
       && /GUEST_BLOSSOM_FIRST_POSTS = 10/.test(videoShareSrc);
-  });
-
-  test('connected DC have-file ask skips Blossom; announce after download; slow card 20KB/s', () => {
-    return /HAVE_FILE_ASK/.test(exchangeSrc)
-      && /askConnectedPeersForHash/.test(exchangeSrc)
-      && /announceHaveFile/.test(exchangeSrc)
-      && /have-file-ask/.test(chatSrc)
-      && /askLiveHolders/.test(videoShareSrc)
-      && /liveHolders\.length > 0/.test(videoShareSrc)
-      && /announceHaveFileNow/.test(videoShareSrc)
-      && /SLOW_DOWNLOAD_BPS = 20 \* 1024/.test(videoShareSrc)
-      && /announceHaveFile/.test(composeSrc);
-  });
-
-  test('P2P blob is persisted to media cache with retry, not silent skip', () => {
-    return /persist FAIL — IndexedDB closed/.test(mediaCacheSrc)
-      && /enqueuePendingCacheWrite/.test(mediaCacheSrc)
-      && /flushPendingCacheWrites/.test(mediaCacheSrc)
-      && /cache after P2P failed/.test(feedSrc)
-      && /p2pResult\.blob/.test(feedSrc)
-      && /קובץ לא נשמר לקאש/.test(videoShareSrc);
   });
 
   test('Home from chat runs second Home tap without cold LoadNug', () => {

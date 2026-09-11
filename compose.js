@@ -619,11 +619,6 @@
       try {
         await App.registerFileAvailability(result.hash, result.blob, result.type || 'video/mp4');
         console.log('[COMPOSE] וידאו נרשם ב-P2P:', result.hash);
-        try {
-          if (App.PeerExchange && typeof App.PeerExchange.announceHaveFile === 'function') {
-            App.PeerExchange.announceHaveFile(result.hash);
-          }
-        } catch (_) {}
       } catch (err) {
         console.warn('[COMPOSE] רישום P2P נכשל:', err);
       }
