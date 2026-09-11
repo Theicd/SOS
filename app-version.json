@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.11-chathome2",
-  "buildTime": "2026-09-11T00:34:00+03:00",
-  "notes": "One Home tap after chats runs the same two Home taps, without LoadNug"
+  "version": "2026.09.11-camopt1",
+  "buildTime": "2026-09-11T04:30:00+03:00",
+  "notes": "Smooth mobile camera preview and recording without VP9"
 }

@@ -100,9 +100,6 @@
     }
 
     if (!(isIOS || isSafari)) {
-      if (canCheck && MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-        return { mimeType: 'video/webm;codecs=vp9,opus', container: 'webm' };
-      }
       if (canCheck && MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
         return { mimeType: 'video/webm;codecs=vp8,opus', container: 'webm' };
       }
@@ -187,7 +184,8 @@
       type.includes('mp4') ||
       type.includes('quicktime') ||
       type.includes('m4v') ||
-      /\.(mp4|m4v|mov)$/i.test(name)
+      type.includes('webm') ||
+      /\.(mp4|m4v|mov|webm)$/i.test(name)
     );
   }
 
@@ -512,7 +510,7 @@
     try {
       video.currentTime = 0;
       await new Promise((r) => setTimeout(r, 40));
-      recorder.start(250);
+      recorder.start(1000);
       await video.play();
 
       await new Promise((resolve) => {
@@ -726,7 +724,7 @@
       }
     } catch (_) {}
 
-    recorder.start(250);
+      recorder.start(1000);
     await video.play();
     startDrawing();
 

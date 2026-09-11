@@ -1629,7 +1629,8 @@ function pauseAllFeedVideos(options = {}) {
   allVideos.forEach(video => {
     try {
       if (video.id === 'liveStudioCam') return;
-      if (video.closest && video.closest('.live-studio')) return;
+      if (video.id === 'videoRecordPreview' || video.id === 'videoRecordReviewVideo') return;
+      if (video.closest && (video.closest('.live-studio') || video.closest('.video-record-modal'))) return;
       if (!video.paused) {
         video.pause();
       }

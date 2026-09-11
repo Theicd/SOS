@@ -9,25 +9,44 @@
   let recordingTimer = null;
   let currentFacingMode = 'user'; // 'user' = קדמית, 'environment' = אחורית
 
-  // חלק מצלמה – קבלת stream מהמצלמה עם constraints מתקדמים
+  function pickRecorderMime() {
+    const canCheck = typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function';
+    const candidates = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ];
+    if (!canCheck) return 'video/webm';
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+    }
+    return '';
+  }
+
+  // חלק מצלמה – קבלת stream מהמצלמה עם constraints קלים למובייל
   async function getCameraStream(facingMode = 'user') {
     const constraints = {
       video: {
         facingMode: { ideal: facingMode },
-        width: { ideal: 1280, max: 1920 },
-        height: { ideal: 720, max: 1080 },
+        width: { ideal: 720, max: 1280 },
+        height: { ideal: 720, max: 1280 },
         frameRate: { ideal: 30, max: 30 }
       },
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 48000
+        autoGainControl: true
       }
     };
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        try { track.contentHint = 'motion'; } catch (_) {}
+      }
       return stream;
     } catch (err) {
       console.error('Failed to get camera stream:', err);
@@ -69,25 +88,26 @@
 
     recordedChunks = [];
 
-    // בחירת codec הטוב ביותר
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-      ? 'video/webm;codecs=vp9,opus'
-      : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-      ? 'video/webm;codecs=vp8,opus'
-      : MediaRecorder.isTypeSupported('video/webm')
-      ? 'video/webm'
-      : '';
+    // בחירת codec קל למובייל (H.264 / VP8, לא VP9)
+    const mimeType = pickRecorderMime();
 
-    if (!mimeType) {
+    if (!mimeType && typeof MediaRecorder === 'undefined') {
       throw new Error('הדפדפן לא תומך בהקלטת וידאו');
     }
 
     try {
-      mediaRecorder = new MediaRecorder(currentStream, {
-        mimeType,
-        videoBitsPerSecond: 2500000, // 2.5 Mbps
-        audioBitsPerSecond: 128000   // 128 kbps
-      });
+      const recorderOpts = {
+        videoBitsPerSecond: 1500000,
+        audioBitsPerSecond: 96000
+      };
+      if (mimeType) recorderOpts.mimeType = mimeType;
+      try {
+        mediaRecorder = new MediaRecorder(currentStream, recorderOpts);
+      } catch (_) {
+        mediaRecorder = mimeType
+          ? new MediaRecorder(currentStream, { mimeType })
+          : new MediaRecorder(currentStream);
+      }
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -108,7 +128,7 @@
       // טיימר לעדכון progress
       let elapsed = 0;
       recordingTimer = setInterval(() => {
-        elapsed += 0.1;
+        elapsed += 1;
         const progress = Math.min(100, (elapsed / durationSeconds) * 100);
         
         if (typeof onProgress === 'function') {
@@ -122,7 +142,7 @@
         if (elapsed >= durationSeconds) {
           stopRecording();
         }
-      }, 100);
+      }, 1000);
 
       return true;
     } catch (err) {

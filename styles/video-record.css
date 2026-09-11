@@ -27,6 +27,18 @@
   display: none !important;
 }
 
+.vr-preview-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.vr-preview-wrap.is-front {
+  transform: translateZ(0) scaleX(-1);
+}
+
 #videoRecordPreview,
 #videoRecordReviewVideo,
 #videoRecordReviewImage {
@@ -36,6 +48,24 @@
   height: 100%;
   object-fit: cover;
   background: #000;
+  transform: translateZ(0);
+}
+
+body.video-record-open .videos-feed video,
+body.video-record-open .videos-feed iframe {
+  visibility: hidden;
+}
+
+.video-record-modal.is-recording .vr-bg-strip,
+.video-record-modal.is-recording .vr-bg-dismiss,
+.video-record-modal.is-recording .vr-live-dot {
+  visibility: hidden;
+  pointer-events: none;
+  animation: none;
+}
+
+.video-record-modal.is-recording .floating-timer {
+  animation: none;
 }
 
 /* חזרה — תמיד פינה ימנית עליונה | HYPER CORE TECH */

@@ -22,11 +22,12 @@ class VideoRecorder {
     this.overlayTextPos = 'middle';
     this.bgStripScrolled = false;
     this.cameraAvailable = true;
+    this._bgLoadTimer = 0;
     this.constraints = {
       video: {
-        width: { min: 640, ideal: 1280, max: 1280 },
-        height: { min: 480, ideal: 720, max: 720 },
         facingMode: this.currentCamera,
+        width: { ideal: 720, max: 1280 },
+        height: { ideal: 720, max: 1280 },
         frameRate: { ideal: 30, max: 30 },
       },
       audio: {
@@ -44,6 +45,7 @@ class VideoRecorder {
     this.modal = document.getElementById('videoRecordModal');
     this.stageCamera = document.getElementById('videoRecordStageCamera');
     this.stageReview = document.getElementById('videoRecordStageReview');
+    this.previewWrap = document.getElementById('videoRecordPreviewWrap');
     this.preview = document.getElementById('videoRecordPreview');
     this.reviewVideo = document.getElementById('videoRecordReviewVideo');
     this.reviewImage = document.getElementById('videoRecordReviewImage');
@@ -236,9 +238,9 @@ class VideoRecorder {
     this.exitNoCameraMode();
     this.showCameraStage();
     this.setCaptureMode(this.captureMode || '10');
-    this.loadBackgroundStrip();
     this.restoreGalleryThumb();
     this.startCamera();
+    this.scheduleBackgroundStrip();
   }
 
   closeModal(options = {}) {
@@ -246,6 +248,7 @@ class VideoRecorder {
     this.modal.classList.remove('is-visible');
     this.modal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('video-record-open');
+    this.cancelBackgroundStripLoad();
     this.stopCamera();
     this.clearPendingPreview();
     this.clearOverlayText();
@@ -266,6 +269,7 @@ class VideoRecorder {
       this.flashButton.setAttribute('aria-pressed', 'false');
     }
     if (this.recordButton) this.recordButton.classList.remove('recording');
+    this.modal?.classList.remove('is-recording');
     if (this.floatingTimer) {
       this.floatingTimer.textContent = '00:00';
       this.floatingTimer.classList.remove('visible', 'pulse');
@@ -367,6 +371,45 @@ class VideoRecorder {
     this.showReview(target);
   }
 
+  pickRecorderMime() {
+    const canCheck = typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function';
+    const candidates = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ];
+    if (!canCheck) return 'video/webm';
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+    }
+    return '';
+  }
+
+  applyPreviewMirror() {
+    this.previewWrap?.classList.toggle('is-front', this.currentCamera === 'user');
+    if (this.preview) this.preview.style.transform = '';
+  }
+
+  async softenCameraTrack(stream) {
+    const track = stream?.getVideoTracks?.()?.[0];
+    if (!track) return;
+    try { track.contentHint = 'motion'; } catch (_) {}
+    try {
+      const settings = typeof track.getSettings === 'function' ? track.getSettings() : {};
+      const tooWide = (settings.width || 0) > 1280;
+      const tooTall = (settings.height || 0) > 1280;
+      if (tooWide || tooTall) {
+        await track.applyConstraints({
+          width: { max: 1280 },
+          height: { max: 1280 },
+          frameRate: { max: 30 },
+        });
+      }
+    } catch (_) {}
+  }
+
   async startCamera() {
     try {
       if (this.stream) {
@@ -381,7 +424,7 @@ class VideoRecorder {
         // ניסיון וידאו בלבד (בלי מיקרופון) – דסקטופ בלי מיק | HYPER CORE TECH
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: this.currentCamera },
+            video: { facingMode: this.currentCamera, frameRate: { ideal: 30, max: 30 } },
             audio: false,
           });
         } catch (__) {
@@ -393,13 +436,16 @@ class VideoRecorder {
       }
 
       this.stream = stream;
+      await this.softenCameraTrack(stream);
       this.cameraAvailable = true;
       this.exitNoCameraMode();
       if (this.preview) {
         this.preview.srcObject = this.stream;
         this.preview.playsInline = true;
         this.preview.muted = true;
-        this.preview.style.transform = this.currentCamera === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+        this.preview.setAttribute('playsinline', '');
+        this.preview.setAttribute('webkit-playsinline', '');
+        this.applyPreviewMirror();
         try { await this.preview.play(); } catch (_) {}
       }
     } catch (error) {
@@ -447,7 +493,7 @@ class VideoRecorder {
     }
     const page = Math.max(1, Math.floor(Math.random() * 50) + 1);
     // fallback מיידי עד ש־Picsum נטען | HYPER CORE TECH
-    return `https://picsum.photos/id/${80 + (page % 40)}/1080/1920`;
+    return `https://picsum.photos/id/${80 + (page % 40)}/720/1280`;
   }
 
   stopCamera() {
@@ -509,6 +555,22 @@ class VideoRecorder {
     else this.startRecording();
   }
 
+  cancelBackgroundStripLoad() {
+    if (this._bgLoadTimer) {
+      clearTimeout(this._bgLoadTimer);
+      this._bgLoadTimer = 0;
+    }
+  }
+
+  scheduleBackgroundStrip() {
+    this.cancelBackgroundStripLoad();
+    this._bgLoadTimer = setTimeout(() => {
+      this._bgLoadTimer = 0;
+      if (!this.modal?.classList.contains('is-visible') || this.isRecording) return;
+      this.loadBackgroundStrip();
+    }, 700);
+  }
+
   async loadBackgroundStrip() {
     if (!this.bgStrip) return;
     this.bgStrip.innerHTML = '';
@@ -518,7 +580,7 @@ class VideoRecorder {
       const res = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=20`, { cache: 'no-store' });
       const arr = await res.json();
       const urls = Array.isArray(arr)
-        ? arr.map((x) => (x && x.id ? `https://picsum.photos/id/${x.id}/1080/1080` : null)).filter(Boolean)
+        ? arr.map((x) => (x && x.id ? `https://picsum.photos/id/${x.id}/720/720` : null)).filter(Boolean)
         : [];
       this.bgUrls = urls;
       this.renderBackgroundStrip(urls);
@@ -539,13 +601,13 @@ class VideoRecorder {
     }
     const noneBtn = `<button type="button" class="vr-bg-thumb vr-bg-thumb--none is-selected" data-bg="" aria-label="בלי רקע"></button>`;
     const thumbs = urls.map((url) => {
-      const thumb = url.replace('/1080/1080', '/120/120');
+      const thumb = url.replace('/720/720', '/120/120').replace('/1080/1080', '/120/120');
       return `<button type="button" class="vr-bg-thumb" data-bg="${url}" style="background-image:url('${thumb}')" aria-label="רקע מובנה"></button>`;
     }).join('');
     this.bgStrip.innerHTML = noneBtn + thumbs;
     // תמונה זעירה לגלריה מתוך סט הבחירה | HYPER CORE TECH
     if (urls[0] && !this.galleryThumbWrap?.classList.contains('has-image')) {
-      const preview = urls[0].replace('/1080/1080', '/120/120');
+      const preview = urls[0].replace('/720/720', '/120/120').replace('/1080/1080', '/120/120');
       this.setGalleryThumbFromUrl(preview, false);
     }
     // התחלה בלי רקע (עיגול ראשון במרכז) | HYPER CORE TECH
@@ -921,28 +983,30 @@ class VideoRecorder {
 
     try {
       this.recordedChunks = [];
-      let mimeType = 'video/webm;codecs=vp8,opus';
-      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-          mimeType = 'video/webm;codecs=vp9,opus';
-        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-          mimeType = 'video/mp4';
-        } else if (MediaRecorder.isTypeSupported('video/webm')) {
-          mimeType = 'video/webm';
-        }
-      }
+      const mimeType = this.pickRecorderMime();
+      const recorderOpts = {
+        videoBitsPerSecond: 1_500_000,
+        audioBitsPerSecond: 96_000,
+      };
+      if (mimeType) recorderOpts.mimeType = mimeType;
 
-      this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
+      try {
+        this.mediaRecorder = new MediaRecorder(this.stream, recorderOpts);
+      } catch (_) {
+        this.mediaRecorder = mimeType
+          ? new MediaRecorder(this.stream, { mimeType })
+          : new MediaRecorder(this.stream);
+      }
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) this.recordedChunks.push(event.data);
       };
       this.mediaRecorder.onstop = () => this.processRecording();
-      this.mediaRecorder.start(200);
+      this.mediaRecorder.start(1000);
       this.isRecording = true;
       this.recordingStartTime = Date.now();
       this.recordButton?.classList.add('recording');
+      this.modal?.classList.add('is-recording');
       this.setShutterSolid(true);
-      this.startTimer();
       this.startFloatingTimer();
 
       if (this.autoStopTimer) clearTimeout(this.autoStopTimer);
@@ -973,23 +1037,25 @@ class VideoRecorder {
     }
     this.floatingTimer?.classList.remove('visible');
     this.recordButton?.classList.remove('recording');
+    this.modal?.classList.remove('is-recording');
     this.setShutterSolid(!this.selectedBgUrl);
   }
 
   startTimer() {
-    const updateTimer = () => {
-      if (!this.isRecording) return;
-      const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
-      const remaining = Math.max(0, this.maxDuration - elapsed);
-      const display = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
-      if (this.floatingTimer) this.floatingTimer.textContent = display;
-    };
-    updateTimer();
-    this.recordingTimer = setInterval(updateTimer, 200);
+    this.startFloatingTimer();
   }
 
   startFloatingTimer() {
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+      this.recordingTimer = null;
+    }
+    if (this.floatingTimerInterval) {
+      clearInterval(this.floatingTimerInterval);
+      this.floatingTimerInterval = null;
+    }
     this.floatingTimer?.classList.add('visible');
+    this.floatingTimer?.classList.remove('pulse');
     const updateFloatingTimer = () => {
       if (!this.isRecording) {
         this.floatingTimer?.classList.remove('visible');
@@ -997,17 +1063,10 @@ class VideoRecorder {
       }
       const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
       const display = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
-      if (this.floatingTimer) {
-        this.floatingTimer.textContent = display;
-        if (elapsed > 0 && elapsed % 10 === 0) {
-          this.floatingTimer.classList.remove('pulse');
-          void this.floatingTimer.offsetWidth;
-          this.floatingTimer.classList.add('pulse');
-        }
-      }
+      if (this.floatingTimer) this.floatingTimer.textContent = display;
     };
     updateFloatingTimer();
-    this.floatingTimerInterval = setInterval(updateFloatingTimer, 200);
+    this.floatingTimerInterval = setInterval(updateFloatingTimer, 1000);
   }
 
   async processRecording() {
