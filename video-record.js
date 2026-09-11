@@ -30,14 +30,9 @@ class VideoRecorder {
     this.constraints = {
       video: {
         facingMode: this.currentCamera,
-        width: { ideal: 720, max: 1280 },
-        height: { ideal: 720, max: 1280 },
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 480, max: 720 },
         frameRate: { ideal: 30, max: 30 },
-      },
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
       },
     };
 
@@ -445,28 +440,6 @@ class VideoRecorder {
     const track = stream?.getVideoTracks?.()?.[0];
     if (!track) return;
     try { track.contentHint = 'motion'; } catch (_) {}
-    try {
-      const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
-      const modes = caps.videoStabilizationMode;
-      if (Array.isArray(modes) && modes.length) {
-        const mode = modes.includes('on') ? 'on' : (modes.includes('standard') ? 'standard' : modes[0]);
-        if (mode && mode !== 'off') {
-          await track.applyConstraints({ advanced: [{ videoStabilizationMode: mode }] });
-        }
-      }
-    } catch (_) {}
-    try {
-      const settings = typeof track.getSettings === 'function' ? track.getSettings() : {};
-      const tooWide = (settings.width || 0) > 1280;
-      const tooTall = (settings.height || 0) > 1280;
-      if (tooWide || tooTall) {
-        await track.applyConstraints({
-          width: { max: 1280 },
-          height: { max: 1280 },
-          frameRate: { max: 30 },
-        });
-      }
-    } catch (_) {}
   }
 
   async startCamera() {
@@ -478,12 +451,14 @@ class VideoRecorder {
 
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia(this.constraints);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: this.constraints.video,
+          audio: false,
+        });
       } catch (_) {
-        // ניסיון וידאו בלבד (בלי מיקרופון) – דסקטופ בלי מיק | HYPER CORE TECH
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: this.currentCamera, frameRate: { ideal: 30, max: 30 } },
+            video: { facingMode: this.currentCamera },
             audio: false,
           });
         } catch (__) {
@@ -687,7 +662,7 @@ class VideoRecorder {
       this._bgLoadTimer = 0;
       if (!this.modal?.classList.contains('is-visible') || this.isRecording) return;
       this.loadBackgroundStrip();
-    }, 700);
+    }, 3500);
   }
 
   async loadBackgroundStrip() {
@@ -1101,18 +1076,33 @@ class VideoRecorder {
     }
   }
 
-  startRecording() {
+  async ensureMicForRecording() {
+    if (!this.stream) return;
+    const liveMic = this.stream.getAudioTracks().some((track) => track.readyState === 'live');
+    if (liveMic) return;
+    try {
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      mic.getAudioTracks().forEach((track) => {
+        try { this.stream.addTrack(track); } catch (_) {}
+      });
+    } catch (err) {
+      console.warn('[VideoRecorder] mic for recording failed', err);
+    }
+  }
+
+  async startRecording() {
     if (!this.stream) {
       alert('מצלמה לא מוכנה. אנא המתן עד שהמצלמה תיטען.');
       return;
     }
 
     try {
+      await this.ensureMicForRecording();
       this.recordedChunks = [];
       const mimeType = this.pickRecorderMime();
       const recorderOpts = {
-        videoBitsPerSecond: 900_000,
-        audioBitsPerSecond: 64_000,
+        videoBitsPerSecond: 1_500_000,
+        audioBitsPerSecond: 96_000,
       };
       if (mimeType) recorderOpts.mimeType = mimeType;
 
