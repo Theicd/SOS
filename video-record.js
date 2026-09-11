@@ -23,6 +23,10 @@ class VideoRecorder {
     this.bgStripScrolled = false;
     this.cameraAvailable = true;
     this._bgLoadTimer = 0;
+    this.countdownTimer = null;
+    this.gridOn = false;
+    this._overlayBurnedInFile = false;
+    this._composeOverlayText = '';
     this.constraints = {
       video: {
         facingMode: this.currentCamera,
@@ -52,6 +56,10 @@ class VideoRecorder {
     this.recordButton = document.getElementById('recordButton');
     this.cameraSwitch = document.getElementById('cameraSwitchButton');
     this.flashButton = document.getElementById('cameraFlashButton');
+    this.gridButton = document.getElementById('videoRecordGridBtn');
+    this.gridEl = document.getElementById('videoRecordGrid');
+    this.countdownEl = document.getElementById('videoRecordCountdown');
+    this.reviewTextLayer = document.getElementById('videoRecordReviewTextLayer');
     this.floatingTimer = document.getElementById('floatingTimer');
     this.modes = document.getElementById('videoRecordModes');
     this.galleryInput = document.getElementById('videoRecordGalleryInput');
@@ -94,6 +102,7 @@ class VideoRecorder {
     this.recordButton?.addEventListener('click', () => this.onShutter());
     this.cameraSwitch?.addEventListener('click', () => this.switchCamera());
     this.flashButton?.addEventListener('click', () => this.toggleFlash());
+    this.gridButton?.addEventListener('click', () => this.toggleGrid());
     this.closeBtn?.addEventListener('click', () => this.closeModal());
     this.reviewBackBtn?.addEventListener('click', () => this.backToCamera());
     this.nextBtn?.addEventListener('click', () => this.confirmPendingFile());
@@ -232,6 +241,7 @@ class VideoRecorder {
     document.body.classList.add('video-record-open');
     this.resetState();
     this.cameraAvailable = true;
+    this.cancelCountdown();
     this.clearOverlayText();
     this.clearBackgroundSelection();
     this.hideTextEditor();
@@ -248,6 +258,7 @@ class VideoRecorder {
     this.modal.classList.remove('is-visible');
     this.modal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('video-record-open');
+    this.cancelCountdown();
     this.cancelBackgroundStripLoad();
     this.stopCamera();
     this.clearPendingPreview();
@@ -286,6 +297,7 @@ class VideoRecorder {
       clearTimeout(this.autoStopTimer);
       this.autoStopTimer = null;
     }
+    this.cancelCountdown();
   }
 
   showCameraStage() {
@@ -325,6 +337,7 @@ class VideoRecorder {
     this.setGalleryThumbFromFile(file);
     this.pendingObjectUrl = URL.createObjectURL(file);
     const isVideo = String(file.type || '').startsWith('video/');
+    this._overlayBurnedInFile = !isVideo;
     if (isVideo && this.reviewVideo) {
       this.reviewVideo.hidden = false;
       if (this.reviewImage) this.reviewImage.hidden = true;
@@ -335,6 +348,7 @@ class VideoRecorder {
       if (this.reviewVideo) this.reviewVideo.hidden = true;
       this.reviewImage.src = this.pendingObjectUrl;
     }
+    this.renderTextLayer();
     this.showReviewStage();
   }
 
@@ -347,6 +361,7 @@ class VideoRecorder {
   confirmPendingFile() {
     if (!this.pendingFile) return;
     const file = this.pendingFile;
+    this._composeOverlayText = String(this.overlayText || '').trim();
     this.lastShareFile = file;
     this.clearPendingPreview();
     this.closeModal({ skipResume: true });
@@ -396,6 +411,16 @@ class VideoRecorder {
     const track = stream?.getVideoTracks?.()?.[0];
     if (!track) return;
     try { track.contentHint = 'motion'; } catch (_) {}
+    try {
+      const caps = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+      const modes = caps.videoStabilizationMode;
+      if (Array.isArray(modes) && modes.length) {
+        const mode = modes.includes('on') ? 'on' : (modes.includes('standard') ? 'standard' : modes[0]);
+        if (mode && mode !== 'off') {
+          await track.applyConstraints({ advanced: [{ videoStabilizationMode: mode }] });
+        }
+      }
+    } catch (_) {}
     try {
       const settings = typeof track.getSettings === 'function' ? track.getSettings() : {};
       const tooWide = (settings.width || 0) > 1280;
@@ -513,6 +538,7 @@ class VideoRecorder {
       this.flashButton.setAttribute('aria-pressed', 'false');
     }
     if (this.isRecording) this.stopRecording();
+    this.cancelCountdown();
     await this.startCamera();
   }
 
@@ -532,15 +558,70 @@ class VideoRecorder {
       this.flashButton?.setAttribute('aria-pressed', this.flashOn ? 'true' : 'false');
     } catch (err) {
       console.warn('[VideoRecorder] flash failed', err);
-      this.flashOn = false;
+    this.flashOn = false;
       alert('לא ניתן להפעיל פלאש');
     }
+  }
+
+  toggleGrid() {
+    this.gridOn = !this.gridOn;
+    this.gridButton?.classList.toggle('is-on', this.gridOn);
+    this.gridButton?.setAttribute('aria-pressed', this.gridOn ? 'true' : 'false');
+    if (this.gridEl) {
+      this.gridEl.hidden = !this.gridOn;
+      if (this.gridOn) this.gridEl.removeAttribute('hidden');
+      else this.gridEl.setAttribute('hidden', '');
+    }
+  }
+
+  cancelCountdown() {
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+    this.modal?.classList.remove('is-countdown');
+    if (this.countdownEl) {
+      this.countdownEl.hidden = true;
+      this.countdownEl.setAttribute('hidden', '');
+      this.countdownEl.textContent = '';
+      this.countdownEl.classList.remove('is-pop');
+    }
+  }
+
+  showCountdownNumber(n) {
+    if (!this.countdownEl) return;
+    this.countdownEl.hidden = false;
+    this.countdownEl.removeAttribute('hidden');
+    this.countdownEl.textContent = String(n);
+    this.countdownEl.classList.remove('is-pop');
+    void this.countdownEl.offsetWidth;
+    this.countdownEl.classList.add('is-pop');
+  }
+
+  startCountdown(onDone) {
+    this.cancelCountdown();
+    this.modal?.classList.add('is-countdown');
+    let n = 3;
+    this.showCountdownNumber(n);
+    this.countdownTimer = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        this.cancelCountdown();
+        if (typeof onDone === 'function') onDone();
+        return;
+      }
+      this.showCountdownNumber(n);
+    }, 1000);
   }
 
   onShutter() {
     // בלי מצלמה — פותחים גלריה במקום הקלטה | HYPER CORE TECH
     if (!this.cameraAvailable) {
       try { this.galleryInput?.click(); } catch (_) {}
+      return;
+    }
+    if (this.countdownTimer) {
+      this.cancelCountdown();
       return;
     }
     if (this.selectedBgUrl) {
@@ -552,7 +633,7 @@ class VideoRecorder {
       return;
     }
     if (this.isRecording) this.stopRecording();
-    else this.startRecording();
+    else this.startCountdown(() => this.startRecording());
   }
 
   cancelBackgroundStripLoad() {
@@ -809,21 +890,27 @@ class VideoRecorder {
       btn.classList.toggle('is-active', btn.getAttribute('data-text-pos') === next);
     });
     if (this.textLayer) this.textLayer.setAttribute('data-pos', next);
+    if (this.reviewTextLayer) this.reviewTextLayer.setAttribute('data-pos', next);
+    this.renderTextLayer();
+
+  applyTextToLayer(layer, forceHide) {
+    if (!layer) return;
+    const text = String(this.overlayText || '').trim();
+    if (forceHide || !text) {
+      layer.textContent = '';
+      layer.hidden = true;
+      layer.setAttribute('hidden', '');
+      return;
+    }
+    layer.textContent = text;
+    layer.setAttribute('data-pos', this.overlayTextPos || 'middle');
+    layer.hidden = false;
+    layer.removeAttribute('hidden');
   }
 
   renderTextLayer() {
-    if (!this.textLayer) return;
-    const text = String(this.overlayText || '').trim();
-    if (!text) {
-      this.textLayer.textContent = '';
-      this.textLayer.hidden = true;
-      this.textLayer.setAttribute('hidden', '');
-      return;
-    }
-    this.textLayer.textContent = text;
-    this.textLayer.setAttribute('data-pos', this.overlayTextPos || 'middle');
-    this.textLayer.hidden = false;
-    this.textLayer.removeAttribute('hidden');
+    this.applyTextToLayer(this.textLayer);
+    this.applyTextToLayer(this.reviewTextLayer, this._overlayBurnedInFile);
   }
 
   clearOverlayText() {
@@ -985,8 +1072,8 @@ class VideoRecorder {
       this.recordedChunks = [];
       const mimeType = this.pickRecorderMime();
       const recorderOpts = {
-        videoBitsPerSecond: 1_500_000,
-        audioBitsPerSecond: 96_000,
+        videoBitsPerSecond: 900_000,
+        audioBitsPerSecond: 64_000,
       };
       if (mimeType) recorderOpts.mimeType = mimeType;
 
@@ -1100,12 +1187,26 @@ class VideoRecorder {
       window.NostrApp.showComposeStep('editor');
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
       if (typeof window.handleMediaInput === 'function') {
-        window.handleMediaInput({ target: { files: [file], value: '' } });
+        try {
+          await window.handleMediaInput({ target: { files: [file], value: '' } });
+        } catch (err) {
+          console.error('[VideoRecorder] handleMediaInput failed', err);
+          alert('שגיאה בהעברת המדיה לקומפוזר. נסו לבחור קובץ ידנית.');
+          return;
+        }
       } else {
         console.error('[VideoRecorder] handleMediaInput function not found!');
         alert('שגיאה בהעברת המדיה לקומפוזר. נסו לבחור קובץ ידנית.');
+        return;
+      }
+      const overlay = String(this._composeOverlayText || '').trim();
+      this._composeOverlayText = '';
+      const ta = document.getElementById('postText');
+      if (overlay && ta && !String(ta.value || '').trim()) {
+        ta.value = overlay;
+        try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
       }
     }, 450);
   }

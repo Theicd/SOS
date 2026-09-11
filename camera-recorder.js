@@ -97,8 +97,8 @@
 
     try {
       const recorderOpts = {
-        videoBitsPerSecond: 1500000,
-        audioBitsPerSecond: 96000
+        videoBitsPerSecond: 900000,
+        audioBitsPerSecond: 64000
       };
       if (mimeType) recorderOpts.mimeType = mimeType;
       try {

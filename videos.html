@@ -252,7 +252,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260911camopt1">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260911camopt2">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -2224,7 +2224,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260911camopt1" defer></script>
+    <script src="./video-record.js?v=20260911camopt2" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
@@ -2284,7 +2284,7 @@
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=5" defer></script>
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
-    <script src="./pwa-installer.js?v=20260911camopt1" defer></script>
+    <script src="./pwa-installer.js?v=20260911camopt2" defer></script>
     <script src="./pwa-install-chooser.js?v=20260805a" defer></script>
     <script src="./push-client.js?v=20260803o" defer></script>
     <script src="./push-trigger.js?v=20260810p2pAlert1" defer></script>
@@ -2770,6 +2770,8 @@
         <div class="vr-preview-wrap" id="videoRecordPreviewWrap">
           <video id="videoRecordPreview" autoplay muted playsinline webkit-playsinline></video>
         </div>
+        <div class="vr-grid" id="videoRecordGrid" hidden></div>
+        <div class="vr-countdown" id="videoRecordCountdown" hidden></div>
         <!-- מצב דסקטופ בלי מצלמה – נשארים במסך, בלי לזרוק אחורה | HYPER CORE TECH -->
         <div class="vr-no-camera" id="videoRecordNoCamera" hidden>
           <img class="vr-no-camera__bg" id="videoRecordNoCameraBg" alt="">
@@ -2791,7 +2793,10 @@
           <button type="button" class="vr-tool-btn" id="cameraFlashButton" aria-label="פלאש" title="פלאש" aria-pressed="false">
             <i class="fa-solid fa-bolt"></i>
           </button>
-          <button type="button" class="vr-tool-btn" id="videoRecordTextBtn" aria-label="הוסף טקסט" title="טקסט על התמונה">
+          <button type="button" class="vr-tool-btn" id="videoRecordGridBtn" aria-label="רשת יישור" title="רשת יישור" aria-pressed="false">
+            <i class="fa-solid fa-table-cells"></i>
+          </button>
+          <button type="button" class="vr-tool-btn" id="videoRecordTextBtn" aria-label="הוסף טקסט" title="טקסט על הווידאו">
             <span class="vr-tool-btn__aa" aria-hidden="true">Aa</span>
           </button>
         </aside>
@@ -2851,6 +2856,7 @@
       <div class="video-record-stage video-record-stage--review" id="videoRecordStageReview" hidden>
         <video id="videoRecordReviewVideo" playsinline controls></video>
         <img id="videoRecordReviewImage" alt="תצוגה מקדימה" hidden>
+        <div class="vr-text-layer" id="videoRecordReviewTextLayer" data-pos="middle" hidden></div>
         <button type="button" class="vr-close" id="videoRecordReviewBackBtn" aria-label="חזרה" style="right:10px;left:auto;">
           <i class="fa-solid fa-chevron-right"></i>
         </button>
