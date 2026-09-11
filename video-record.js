@@ -241,7 +241,6 @@ class VideoRecorder {
     document.body.classList.add('video-record-open');
     this.resetState();
     this.cameraAvailable = true;
-    this.cancelCountdown();
     this.clearOverlayText();
     this.clearBackgroundSelection();
     this.hideTextEditor();
@@ -558,7 +557,7 @@ class VideoRecorder {
       this.flashButton?.setAttribute('aria-pressed', this.flashOn ? 'true' : 'false');
     } catch (err) {
       console.warn('[VideoRecorder] flash failed', err);
-    this.flashOn = false;
+      this.flashOn = false;
       alert('לא ניתן להפעיל פלאש');
     }
   }
@@ -607,7 +606,11 @@ class VideoRecorder {
       n -= 1;
       if (n <= 0) {
         this.cancelCountdown();
-        if (typeof onDone === 'function') onDone();
+        try {
+          if (typeof onDone === 'function') onDone();
+        } catch (err) {
+          console.error('[VideoRecorder] countdown start failed', err);
+        }
         return;
       }
       this.showCountdownNumber(n);
@@ -892,6 +895,7 @@ class VideoRecorder {
     if (this.textLayer) this.textLayer.setAttribute('data-pos', next);
     if (this.reviewTextLayer) this.reviewTextLayer.setAttribute('data-pos', next);
     this.renderTextLayer();
+  }
 
   applyTextToLayer(layer, forceHide) {
     if (!layer) return;
@@ -1187,27 +1191,25 @@ class VideoRecorder {
       window.NostrApp.showComposeStep('editor');
     }
 
-    setTimeout(async () => {
-      if (typeof window.handleMediaInput === 'function') {
-        try {
-          await window.handleMediaInput({ target: { files: [file], value: '' } });
-        } catch (err) {
-          console.error('[VideoRecorder] handleMediaInput failed', err);
-          alert('שגיאה בהעברת המדיה לקומפוזר. נסו לבחור קובץ ידנית.');
-          return;
-        }
-      } else {
+    setTimeout(() => {
+      const overlay = String(this._composeOverlayText || '').trim();
+      this._composeOverlayText = '';
+      if (typeof window.handleMediaInput !== 'function') {
         console.error('[VideoRecorder] handleMediaInput function not found!');
         alert('שגיאה בהעברת המדיה לקומפוזר. נסו לבחור קובץ ידנית.');
         return;
       }
-      const overlay = String(this._composeOverlayText || '').trim();
-      this._composeOverlayText = '';
-      const ta = document.getElementById('postText');
-      if (overlay && ta && !String(ta.value || '').trim()) {
-        ta.value = overlay;
-        try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
-      }
+      Promise.resolve(window.handleMediaInput({ target: { files: [file], value: '' } }))
+        .catch((err) => {
+          console.error('[VideoRecorder] handleMediaInput failed', err);
+        })
+        .then(() => {
+          const ta = document.getElementById('postText');
+          if (overlay && ta && !String(ta.value || '').trim()) {
+            ta.value = overlay;
+            try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+          }
+        });
     }, 450);
   }
 }
