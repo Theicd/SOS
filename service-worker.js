@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v779'; // P2P have-file ask before Blossom
+  const CACHE_NAME = 'sos-cache-v780'; // persist P2P blobs to IndexedDB with retry
   const PRECACHE_URLS = [
     './',
     './videos.html',

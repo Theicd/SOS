@@ -3416,7 +3416,15 @@
 
         const cacheAndReturn = async (blob, source, peer = null) => {
           if (typeof App.cacheMedia === 'function') {
-            await App.cacheMedia(url, hash, blob, blob.type || mimeType, { pinned: true });
+            let saved = false;
+            try {
+              saved = await App.cacheMedia(url, hash, blob, blob.type || mimeType, { pinned: true });
+            } catch (cacheErr) {
+              log('warn', `קובץ לא נשמר לקאש`, { hash: String(hash || '').slice(0, 12), error: cacheErr?.message || String(cacheErr) });
+            }
+            if (!saved) {
+              log('warn', `קובץ לא נשמר לקאש`, { hash: String(hash || '').slice(0, 12), source });
+            }
           }
           if (source === 'blossom' || source === 'blossom-fallback' || source === 'url' || source === 'blossom-watch') {
             scheduleBackgroundRegistration(hash, blob, mimeType);

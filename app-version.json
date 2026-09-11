@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.11-p2phave1",
-  "buildTime": "2026-09-11T02:30:00+03:00",
-  "notes": "Ask connected peers for the file hash before Blossom; announce after download"
+  "version": "2026.09.11-mediacache1",
+  "buildTime": "2026-09-11T03:10:00+03:00",
+  "notes": "Persist P2P downloads to media cache; retry IndexedDB instead of silent skip"
 }

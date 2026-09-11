@@ -125,6 +125,8 @@ const path = require('path');
   const videosSrc = read('videos.js');
   const chatFileSrc = read('chat-p2p-file.js');
   const composeSrc = read('compose.js');
+  const mediaCacheSrc = read('media-cache.js');
+  const feedSrc = read('feed.js');
 
   test('getChatDC returns only OPEN channel', () => {
     const store = new Map();
@@ -295,6 +297,15 @@ const path = require('path');
       && /announceHaveFileNow/.test(videoShareSrc)
       && /SLOW_DOWNLOAD_BPS = 20 \* 1024/.test(videoShareSrc)
       && /announceHaveFile/.test(composeSrc);
+  });
+
+  test('P2P blob is persisted to media cache with retry, not silent skip', () => {
+    return /persist FAIL — IndexedDB closed/.test(mediaCacheSrc)
+      && /enqueuePendingCacheWrite/.test(mediaCacheSrc)
+      && /flushPendingCacheWrites/.test(mediaCacheSrc)
+      && /cache after P2P failed/.test(feedSrc)
+      && /p2pResult\.blob/.test(feedSrc)
+      && /קובץ לא נשמר לקאש/.test(videoShareSrc);
   });
 
   test('Home from chat runs second Home tap without cold LoadNug', () => {

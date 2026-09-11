@@ -4535,6 +4535,11 @@ async function loadFeed() {
             } else {
               applyVideoObjectUrl(URL.createObjectURL(p2pResult.blob));
             }
+            if (p2pResult.source !== 'cache' && hash && typeof App.cacheMedia === 'function' && !p2pResult.blob._directUrl) {
+              App.cacheMedia(url, hash, p2pResult.blob, p2pResult.blob.type || 'video/webm', { pinned: true }).catch((err) => {
+                console.warn('[feed] cache after P2P failed', err);
+              });
+            }
             // מחזיר אובייקט עם source כדי שהקורא ידע אם נטען מ-cache
             return { success: true, source: p2pResult.source || 'network' };
           }
