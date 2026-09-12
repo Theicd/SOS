@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.11-camopt6",
-  "buildTime": "2026-09-11T19:30:00+03:00",
-  "notes": "Prefer H.264 recording and freeze feed decoders while the camera is open"
+  "version": "2026.09.13-chatsig1",
+  "buildTime": "2026-09-13T02:08:00+03:00",
+  "notes": "Web relay chat signature verification for kinds 1050, 5, and 1051"
 }

@@ -665,6 +665,33 @@
     }
   }
 
+  // חלק אבטחה (chat-service.js) – אימות חתימת Nostr מקומי באירועי ריליי לפני כל handler | HYPER CORE TECH
+  function verifyIncomingChatRelayEvent(event) {
+    let kindLabel = '';
+    let idLabel = '';
+    try {
+      kindLabel = event && event.kind != null ? event.kind : '';
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      if (!event || typeof event !== 'object') {
+        console.warn('[SO-CALL SECURITY] rejected invalid signed event kind=' + kindLabel + ' id=' + idLabel);
+        return false;
+      }
+      const tools = window.NostrTools;
+      if (!tools || typeof tools.verifyEvent !== 'function') {
+        console.warn('[SO-CALL SECURITY] rejected invalid signed event kind=' + kindLabel + ' id=' + idLabel);
+        return false;
+      }
+      if (tools.verifyEvent(event) !== true) {
+        console.warn('[SO-CALL SECURITY] rejected invalid signed event kind=' + kindLabel + ' id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected invalid signed event kind=' + kindLabel + ' id=' + idLabel);
+      return false;
+    }
+  }
+
   function subscribeToChatEvents() {
     if (activeSubscription || !ensurePoolReady()) {
       return;
@@ -707,6 +734,9 @@
 
     activeSubscription = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
+        if (!verifyIncomingChatRelayEvent(event)) {
+          return;
+        }
         chatLastSignalAt = Date.now();
         // חלק אישורי קריאה (chat-service.js) – טיפול באישורי קריאה נכנסים | HYPER CORE TECH
         if (event.kind === READ_RECEIPT_KIND) {

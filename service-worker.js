@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v784'; // H.264 record + freeze feed behind camera
+  const CACHE_NAME = 'sos-cache-v785'; // web chat signature gate (kinds 1050/5/1051)
   const PRECACHE_URLS = [
     './',
     './videos.html',
