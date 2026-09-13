@@ -956,6 +956,43 @@
     }
   }
 
+  // חלק אבטחה (chat-voice-call.js) – אימות נמען מקומי לאירועי ריליי שאינם של המשתמש הנוכחי | HYPER CORE TECH
+  function getIncomingVoiceRelayRecipient(event) {
+    const tags = event && Array.isArray(event.tags) ? event.tags : [];
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (Array.isArray(tag) && tag[0] === 'p') {
+        return typeof tag[1] === 'string' ? tag[1].toLowerCase() : '';
+      }
+    }
+    return '';
+  }
+
+  function verifyIncomingVoiceRelayRecipient(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      const self = (App.publicKey || '').toLowerCase();
+      const sender = event && typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+      if (!self || !sender) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=25050 id=' + idLabel);
+        return false;
+      }
+      if (sender === self) {
+        return true;
+      }
+      const recipient = getIncomingVoiceRelayRecipient(event);
+      if (!recipient || recipient !== self) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=25050 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=25050 id=' + idLabel);
+      return false;
+    }
+  }
+
   // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון עם since מורחב | HYPER CORE TECH
   function subscribeToSignals(options) {
     options = options || {};
@@ -995,6 +1032,7 @@
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
         onevent: (ev) => {
           if (!verifyIncomingVoiceRelayEvent(ev)) return;
+          if (!verifyIncomingVoiceRelayRecipient(ev)) return;
           state.lastSignalReceivedAt = Date.now();
           handleSignalEvent(ev);
         },
@@ -1103,7 +1141,8 @@
       getState: () => ({ ...state }),
       subscribe: subscribeToSignals,
       markEventProcessed: markCallEventProcessed,
-      verifyIncomingRelayEvent: verifyIncomingVoiceRelayEvent
+      verifyIncomingRelayEvent: verifyIncomingVoiceRelayEvent,
+      verifyIncomingRelayRecipient: verifyIncomingVoiceRelayRecipient
     }
   });
 
