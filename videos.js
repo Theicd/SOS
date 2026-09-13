@@ -2135,6 +2135,181 @@ const FEED_HEALTHY_MIN = 180; // מתחת לזה — ממשיכים לחפש, ל
 const LOAD_MORE_BATCH = 20; // מספר פוסטים בכל טעינה נוספת
 let isLoadingMore = false; // מונע טעינות כפולות
 let loadMoreObserver = null; // observer לזיהוי סוף הפיד
+let feedOlderSeenIds = new Set(); // IDs שכבר נבדקו בטעינת-ישנים (כולל tombstones)
+
+// SOS-FEED-OLDER-PAGINATION-POLICY-START
+function createFeedOlderPaginationState() {
+  return {
+    exhausted: false,
+    scopeKey: '',
+    oldestBound: 0,
+    untilCursor: 0,
+    gapFillUntil: 0,
+  };
+}
+
+function applyFeedOlderPaginationDecision(state, action) {
+  const s = {
+    exhausted: !!(state && state.exhausted),
+    scopeKey: String((state && state.scopeKey) || ''),
+    oldestBound: Number((state && state.oldestBound) || 0) || 0,
+    untilCursor: Number((state && state.untilCursor) || 0) || 0,
+    gapFillUntil: Number((state && state.gapFillUntil) || 0) || 0,
+  };
+  const type = action && action.type;
+  if (type === 'sync') {
+    const scopeKey = String(action.scopeKey || '');
+    const oldestBound = Number(action.oldestBound) || 0;
+    const videoCount = Number(action.videoCount) || 0;
+    const untilTime = Number(action.untilTime) || s.untilCursor || oldestBound;
+    if (videoCount <= 0) {
+      s.exhausted = false;
+      s.untilCursor = 0;
+      s.gapFillUntil = 0;
+      s.oldestBound = 0;
+      if (scopeKey) s.scopeKey = scopeKey;
+      s.allowLoadMore = false;
+      s.allowGapFill = false;
+      s.resetReason = 'empty-feed';
+      return s;
+    }
+    if (scopeKey && s.scopeKey && scopeKey !== s.scopeKey) {
+      s.exhausted = false;
+      s.scopeKey = scopeKey;
+      s.untilCursor = 0;
+      s.gapFillUntil = 0;
+      s.oldestBound = oldestBound;
+      s.allowLoadMore = true;
+      s.allowGapFill = true;
+      s.resetReason = 'scope-change';
+      return s;
+    }
+    if (scopeKey && !s.scopeKey) s.scopeKey = scopeKey;
+    if (oldestBound && s.oldestBound && oldestBound < s.oldestBound) {
+      s.exhausted = false;
+      s.untilCursor = 0;
+      s.gapFillUntil = 0;
+      s.oldestBound = oldestBound;
+      s.allowLoadMore = true;
+      s.allowGapFill = true;
+      s.resetReason = 'older-bound-moved';
+      return s;
+    }
+    if (oldestBound && !s.oldestBound) s.oldestBound = oldestBound;
+    s.allowLoadMore = !s.exhausted;
+    s.allowGapFill = !s.exhausted && s.gapFillUntil !== untilTime;
+    s.resetReason = '';
+    return s;
+  }
+  if (type === 'success') {
+    s.exhausted = false;
+    s.untilCursor = 0;
+    s.gapFillUntil = 0;
+    if (action.oldestBound) s.oldestBound = Number(action.oldestBound) || s.oldestBound;
+    s.allowLoadMore = true;
+    s.allowGapFill = true;
+    s.resetReason = 'appended-older';
+    return s;
+  }
+  if (type === 'no-progress') {
+    const untilStart = Number(action.untilStart) || 0;
+    const untilEnd = Number(action.untilEnd) || untilStart;
+    const usableCount = Number(action.usableCount) || 0;
+    const untilMoved = untilEnd > 0 && untilStart > 0 && untilEnd < untilStart;
+    s.untilCursor = untilEnd || untilStart || s.untilCursor;
+    if (action.gapFilled && untilStart) s.gapFillUntil = untilStart;
+    if (!untilMoved && usableCount === 0) {
+      s.exhausted = true;
+      s.allowLoadMore = false;
+      s.allowGapFill = false;
+      s.resetReason = '';
+      return s;
+    }
+    s.exhausted = false;
+    s.allowLoadMore = true;
+    s.allowGapFill = s.gapFillUntil !== s.untilCursor;
+    s.resetReason = '';
+    return s;
+  }
+  if (type === 'mark-gap-fill') {
+    s.gapFillUntil = Number(action.untilTime) || s.untilCursor;
+    s.allowGapFill = false;
+    s.allowLoadMore = !s.exhausted;
+    s.resetReason = '';
+    return s;
+  }
+  s.allowLoadMore = !s.exhausted;
+  s.allowGapFill = !s.exhausted;
+  s.resetReason = '';
+  return s;
+}
+// SOS-FEED-OLDER-PAGINATION-POLICY-END
+
+let feedOlderPag = createFeedOlderPaginationState();
+
+function getDisplayedOldestCreatedAt() {
+  const list = state.videos || [];
+  if (!list.length) return 0;
+  return list.reduce((min, v) => {
+    const ts = getVideoCreatedAt(v) || 0;
+    if (!ts) return min;
+    return min ? Math.min(min, ts) : ts;
+  }, 0);
+}
+
+function getFeedOlderScopeKey() {
+  const app = window.NostrApp || {};
+  return String(app.publicKey || '') + '|' + getNetworkTag();
+}
+
+function syncFeedOlderPagination(untilHint) {
+  feedOlderPag = applyFeedOlderPaginationDecision(feedOlderPag, {
+    type: 'sync',
+    scopeKey: getFeedOlderScopeKey(),
+    oldestBound: getDisplayedOldestCreatedAt(),
+    videoCount: (state.videos || []).length,
+    untilTime: untilHint || feedOlderPag.untilCursor || getDisplayedOldestCreatedAt(),
+  });
+  if (
+    feedOlderPag.resetReason === 'scope-change' ||
+    feedOlderPag.resetReason === 'older-bound-moved' ||
+    feedOlderPag.resetReason === 'empty-feed'
+  ) {
+    feedOlderSeenIds.clear();
+  }
+  return feedOlderPag;
+}
+
+function canStartOlderPagination() {
+  syncFeedOlderPagination();
+  return !!feedOlderPag.allowLoadMore;
+}
+
+function isKnownDeletedEventId(id, app) {
+  return !!(id && app && app.deletedEventIds instanceof Set && app.deletedEventIds.has(id));
+}
+
+function dropKnownDeletedAndSeen(events, existingIds, app) {
+  const kept = [];
+  (events || []).forEach((ev) => {
+    if (!ev || !ev.id) return;
+    if (existingIds.has(ev.id) || feedOlderSeenIds.has(ev.id) || isKnownDeletedEventId(ev.id, app)) {
+      feedOlderSeenIds.add(ev.id);
+      return;
+    }
+    kept.push(ev);
+  });
+  return kept;
+}
+
+try {
+  const _pagApp = window.NostrApp || (window.NostrApp = {});
+  _pagApp._feedOlderPagination = {
+    getState: () => Object.assign({}, feedOlderPag, { seen: feedOlderSeenIds.size }),
+    apply: applyFeedOlderPaginationDecision,
+    create: createFeedOlderPaginationState,
+  };
+} catch (_) {}
 
 function getNetworkTag() {
   const app = window.NostrApp;
@@ -7289,6 +7464,7 @@ function setupLoadMoreObserver() {
       entries.forEach((entry) => {
         if (entry.isIntersecting && !isLoadingMore) {
           if (bootGate.active && !bootGate.released) return;
+          if (!canStartOlderPagination()) return;
           console.log('[videos] Near end of feed, loading more...');
           loadMoreVideos();
         }
@@ -7307,13 +7483,14 @@ function setupLoadMoreObserver() {
     let scrollTicking = false;
     viewport.addEventListener('scroll', () => {
       if (scrollTicking || isLoadingMore) return;
+      if (!canStartOlderPagination()) return;
       scrollTicking = true;
       requestAnimationFrame(() => {
         scrollTicking = false;
+        if (!canStartOlderPagination() || isLoadingMore) return;
         const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
         if (remaining < viewport.clientHeight * 1.75) {
           if (bootGate.active && !bootGate.released) {
-            scrollTicking = false;
             return;
           }
           loadMoreVideos();
@@ -7354,11 +7531,13 @@ let feedBackfillTimer = null;
 function maybeScheduleFeedBackfill() {
   if (state.feedMode && state.feedMode !== 'all') return;
   if ((state.videos || []).length >= FEED_HEALTHY_MIN) return;
+  if (!canStartOlderPagination()) return;
   if (feedBackfillTimer) return;
   feedBackfillTimer = setTimeout(() => {
     feedBackfillTimer = null;
     if (state.feedMode && state.feedMode !== 'all') return;
     if ((state.videos || []).length >= FEED_HEALTHY_MIN) return;
+    if (!canStartOlderPagination()) return;
     if (bootGate.active && !bootGate.released) {
       maybeScheduleFeedBackfill();
       return;
@@ -7381,6 +7560,7 @@ async function loadMoreVideos() {
   }
   // במצב משחקים / LIVE TV / פוסטים שלי לא טוענים עוד וידאו כללי לתוך התצוגה | HYPER CORE TECH
   if (state.feedMode === 'games' || state.feedMode === 'live-tv' || state.feedMode === 'own-posts') return;
+  if (!canStartOlderPagination()) return;
   isLoadingMore = true;
   
   const currentApp = window.NostrApp;
@@ -7393,10 +7573,17 @@ async function loadMoreVideos() {
   
   if (!oldestVideo) {
     isLoadingMore = false;
+    syncFeedOlderPagination();
     return;
   }
   
   let untilTime = getVideoCreatedAt(oldestVideo);
+  if (feedOlderPag.untilCursor > 0 && feedOlderPag.untilCursor < untilTime) {
+    untilTime = feedOlderPag.untilCursor;
+  }
+  const untilStart = untilTime;
+  let usableCount = 0;
+  let gapFilled = false;
   console.log('[videos] loadMoreVideos: loading older than', new Date(untilTime * 1000).toLocaleString());
   
   try {
@@ -7409,33 +7596,42 @@ async function loadMoreVideos() {
 
       // קודם until מהריליי – לא since (שזה רק החדשים ביותר) | HYPER CORE TECH
       const fetched = await fetchRecentNotes(LOAD_MORE_BATCH, undefined, untilTime);
-      const olderFromRelay = fetched.filter(ev =>
+      const olderFromRelay = (fetched || []).filter(ev =>
         ev &&
-        !existingIds.has(ev.id) &&
+        ev.id &&
         (ev.created_at || 0) < untilTime
       );
       let filtered = filterEventsByNetwork(olderFromRelay, networkTag);
       filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-      moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
+      moreEvents = dropKnownDeletedAndSeen(filtered, existingIds, currentApp).slice(0, LOAD_MORE_BATCH);
 
       if (moreEvents.length === 0 && currentApp?.postsById?.size > 0) {
         const fromApp = Array.from(currentApp.postsById.values());
         const olderEvents = fromApp.filter(ev =>
           ev &&
-          !existingIds.has(ev.id) &&
+          ev.id &&
           (ev.created_at || 0) < untilTime
         );
         filtered = filterEventsByNetwork(olderEvents, networkTag);
         filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-        moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
+        moreEvents = dropKnownDeletedAndSeen(filtered, existingIds, currentApp).slice(0, LOAD_MORE_BATCH);
       }
 
-      if (moreEvents.length === 0 && (state.videos || []).length < FEED_HEALTHY_MIN) {
+      const gapSync = applyFeedOlderPaginationDecision(feedOlderPag, {
+        type: 'sync',
+        scopeKey: getFeedOlderScopeKey(),
+        oldestBound: getDisplayedOldestCreatedAt(),
+        videoCount: (state.videos || []).length,
+        untilTime,
+      });
+      if (moreEvents.length === 0 && (state.videos || []).length < FEED_HEALTHY_MIN && gapSync.allowGapFill) {
+        feedOlderPag = applyFeedOlderPaginationDecision(feedOlderPag, { type: 'mark-gap-fill', untilTime });
+        gapFilled = true;
         const gapFetched = await fetchRecentNotes(RECOVER_FETCH_LIMIT, 0);
-        const gapNew = (gapFetched || []).filter((ev) => ev && ev.id && !existingIds.has(ev.id));
+        const gapNew = (gapFetched || []).filter((ev) => ev && ev.id && (ev.created_at || 0) < untilTime);
         filtered = filterEventsByNetwork(gapNew, networkTag);
         filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-        moreEvents = filtered.slice(0, LOAD_MORE_BATCH);
+        moreEvents = dropKnownDeletedAndSeen(filtered, existingIds, currentApp).slice(0, LOAD_MORE_BATCH);
         if (moreEvents.length) {
           console.log('[videos] loadMoreVideos: gap fill', { added: moreEvents.length, have: state.videos.length });
         }
@@ -7446,8 +7642,12 @@ async function loadMoreVideos() {
         break;
       }
 
+      usableCount += moreEvents.length;
       moreEvents.forEach((ev) => {
-        if (ev?.id) existingIds.add(ev.id);
+        if (ev?.id) {
+          existingIds.add(ev.id);
+          feedOlderSeenIds.add(ev.id);
+        }
       });
       const oldestFetched = moreEvents.reduce(
         (min, ev) => Math.min(min, ev.created_at || untilTime),
@@ -7467,13 +7667,29 @@ async function loadMoreVideos() {
       state.videos = [...state.videos, ...collectedVideos];
       console.log('[videos] loadMoreVideos: added', collectedVideos.length, 'videos, total:', state.videos.length);
       saveFeedCache(state.videos);
+      feedOlderPag = applyFeedOlderPaginationDecision(feedOlderPag, {
+        type: 'success',
+        oldestBound: getDisplayedOldestCreatedAt(),
+      });
       // בפיד הכללי לא מציגים משחקים/ערוצי LIVE גם בטעינת המשך | HYPER CORE TECH
       const toShow = collectedVideos.filter((v) => isGeneralFeedVideo(v));
       if (toShow.length) {
         renderMoreVideos(toShow);
       }
     } else {
-      console.log('[videos] loadMoreVideos: no more videos available');
+      feedOlderPag = applyFeedOlderPaginationDecision(feedOlderPag, {
+        type: 'no-progress',
+        untilStart,
+        untilEnd: untilTime,
+        usableCount,
+        gapFilled,
+      });
+      console.log('[videos] loadMoreVideos: no more videos available', {
+        exhausted: feedOlderPag.exhausted,
+        untilStart,
+        untilEnd: untilTime,
+        usableCount,
+      });
     }
   } catch (err) {
     console.warn('[videos] loadMoreVideos failed', err);
