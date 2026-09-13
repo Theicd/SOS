@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v787'; // web P2P signaling signature check (kind 25055)
+  const CACHE_NAME = 'sos-cache-v788'; // web voice-call signaling signature check (kind 25050)
   const PRECACHE_URLS = [
     './',
     './videos.html',

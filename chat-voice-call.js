@@ -931,6 +931,31 @@
     }
   }
 
+  // חלק אבטחה (chat-voice-call.js) – אימות חתימת Nostr לסיגנל ריליי 25050 לפני כל שינוי מצב | HYPER CORE TECH
+  function verifyIncomingVoiceRelayEvent(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      if (!event || typeof event !== 'object') {
+        console.warn('[SO-CALL SECURITY] rejected invalid voice-call signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      const tools = window.NostrTools;
+      if (!tools || typeof tools.verifyEvent !== 'function') {
+        console.warn('[SO-CALL SECURITY] rejected invalid voice-call signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      if (tools.verifyEvent(event) !== true) {
+        console.warn('[SO-CALL SECURITY] rejected invalid voice-call signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected invalid voice-call signal kind=25050 id=' + idLabel);
+      return false;
+    }
+  }
+
   // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון עם since מורחב | HYPER CORE TECH
   function subscribeToSignals(options) {
     options = options || {};
@@ -969,6 +994,7 @@
       console.log('Voice call: subscribing to events for', App.publicKey.slice(0,8), 'since', since);
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
         onevent: (ev) => {
+          if (!verifyIncomingVoiceRelayEvent(ev)) return;
           state.lastSignalReceivedAt = Date.now();
           handleSignalEvent(ev);
         },
@@ -1076,7 +1102,8 @@
       toggleMute,
       getState: () => ({ ...state }),
       subscribe: subscribeToSignals,
-      markEventProcessed: markCallEventProcessed
+      markEventProcessed: markCallEventProcessed,
+      verifyIncomingRelayEvent: verifyIncomingVoiceRelayEvent
     }
   });
 

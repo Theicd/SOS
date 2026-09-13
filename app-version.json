@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.13-p2psig1",
-  "buildTime": "2026-09-13T21:00:00+03:00",
-  "notes": "Web P2P DataChannel signaling signature check for kind 25055"
+  "version": "2026.09.13-voicesig1",
+  "buildTime": "2026-09-13T21:35:00+03:00",
+  "notes": "Web voice-call signaling signature check for kind 25050"
 }
