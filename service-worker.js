@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v791'; // web video-call recipient check (kind 25050)
+  const CACHE_NAME = 'sos-cache-v792'; // web receive-side hardening phases 6-9
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -376,6 +376,10 @@
       console.warn('[TORRENT] ❌ Request missing magnetURI, cannot auto-download');
       return false;
     }
+    if (!extractInfoHashFromMagnet(request.magnetURI)) {
+      console.warn('[SO-CALL SECURITY] rejected malformed torrent magnet');
+      return false;
+    }
 
     if (shouldSkipIncomingMagnet(request.magnetURI, fromPeer)) {
       console.log('[TORRENT] ⏭️ Incoming magnet ignored by cooldown guard');

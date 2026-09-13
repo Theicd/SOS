@@ -126,7 +126,17 @@
           hasAttachment: false,
         };
       }
-      const attachment = payload.a || null;
+      const attachment = payload.a && typeof payload.a === 'object' && !Array.isArray(payload.a) ? payload.a : null;
+      if (attachment && typeof App.verifyIncomingChatAttachment === 'function' && !App.verifyIncomingChatAttachment(attachment)) {
+        return {
+          displayText: payload.t || '',
+          attachment: null,
+          hasAttachment: false,
+        };
+      }
+      if (attachment && typeof App.sanitizeIncomingChatFileName === 'function' && attachment.name) {
+        attachment.name = App.sanitizeIncomingChatFileName(attachment.name);
+      }
       // חלק תיקון קול (chat-file-transfer-service.js) – זיהוי הודעות קוליות בדסריאליזציה והצגת טקסט מתאים | HYPER CORE TECH
       let displayText = payload.t || '';
       if (!displayText && attachment) {

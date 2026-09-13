@@ -462,15 +462,25 @@
     const type=tag[1]; if(!type||!type.startsWith('dc-')) return;
     const peer=event.pubkey.toLowerCase();
     if(!isValidPeerKey(peer)) return;
+    const evAge=Math.floor(Date.now()/1000)-(Number(event.created_at)||0);
+    if(evAge>SIG_MAX_AGE_SEC) {
+      console.warn('[SO-CALL SECURITY] rejected stale or replayed live signal kind=25055 id=' + (event && event.id ? String(event.id).slice(0, 8) : ''));
+      return;
+    }
+    let data=null;
+    if(event.content){
+      if(typeof event.content==='string' && event.content.length>524288) return;
+      try{ const d=await NostrTools.nip04.decrypt(App.privateKey,peer,event.content); data=d?JSON.parse(d):null; }catch(e){return;}
+    }
+    if(type==='dc-offer'||type==='dc-answer'){
+      if(!(data && typeof data==='object' && typeof data.type==='string' && typeof data.sdp==='string' && data.sdp.length>0 && data.sdp.length<=65536)) return;
+    } else if(type==='dc-candidates'){
+      if(!(Array.isArray(data) && data.length<=256)) return;
+    }
     const s=ensPS(peer);
     if(event.id&&s.seen.has(event.id)) return;
     if(event.id){s.seen.add(event.id); if(s.seen.size>200){const a=[...s.seen];s.seen=new Set(a.slice(-100));}}
     lastSigAt=Date.now();
-    // חלק סינון גיל (chat-p2p-datachannel.js) – התעלם מסיגנלים ישנים מ-30 שניות | HYPER CORE TECH
-    const evAge=Math.floor(Date.now()/1000)-(event.created_at||0);
-    if(evAge>SIG_MAX_AGE_SEC) return;
-    let data=null;
-    if(event.content){ try{ const d=await NostrTools.nip04.decrypt(App.privateKey,peer,event.content); data=d?JSON.parse(d):null; }catch(e){return;} }
     console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=NOSTR`);
     if(type==='dc-need-offer') { nudgeInitiator(peer); return; }
     if(type==='dc-offer'&&data?.type&&data?.sdp) await onOffer(peer,data);

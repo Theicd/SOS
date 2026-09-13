@@ -11,16 +11,42 @@
   const CALL_METRIC_KIND = 25060; // חלק שיחות וידאו (chat-video-call.js) – kind יעודי לרישום מדדי שיחה | HYPER CORE TECH
 
   function normalizeVideoSessionDescription(raw) {
-    if (!raw || typeof raw !== 'object') return null;
+    if (!raw) return null;
     let o = raw;
+    if (typeof o === 'string') {
+      try { o = JSON.parse(o); } catch (_err) { return null; }
+    }
+    if (!o || typeof o !== 'object') return null;
     if (o.offer && typeof o.offer === 'object' && !o.type && !o.sdp) o = o.offer;
+    if (o.answer && typeof o.answer === 'object' && !o.type && !o.sdp) o = o.answer;
     const type = o.type;
     const sdp = typeof o.sdp === 'string' ? o.sdp : '';
-    if (!type || !sdp) return null;
+    if (typeof type !== 'string' || !type || !sdp) return null;
+    if (sdp.length > MAX_SIGNAL_SDP_CHARS) return null;
     return { type, sdp };
+  }
+
+  function isValidIncomingVideoCandidateList(raw) {
+    if (!Array.isArray(raw)) return false;
+    if (raw.length > MAX_SIGNAL_CANDIDATES) return false;
+    for (let i = 0; i < raw.length; i++) {
+      const c = raw[i];
+      if (c == null) continue;
+      if (typeof c === 'string') {
+        if (c.length > MAX_CANDIDATE_FIELD_CHARS) return false;
+        continue;
+      }
+      if (typeof c !== 'object') return false;
+      const cand = c.candidate;
+      if (typeof cand === 'string' && cand.length > MAX_CANDIDATE_FIELD_CHARS) return false;
+    }
+    return true;
   }
   const SIGNAL_LOOKBACK_SEC = 180;
   const MAX_OFFER_AGE_SEC = 60;
+  const MAX_SIGNAL_SDP_CHARS = 64 * 1024;
+  const MAX_SIGNAL_CANDIDATES = 256;
+  const MAX_CANDIDATE_FIELD_CHARS = 4096;
 
   // חלק שיחות וידאו – מצב השיחה הנוכחי
   const state = {
@@ -598,6 +624,39 @@
     }
   }
 
+  function getIncomingVideoRelayType(event) {
+    const tags = event && Array.isArray(event.tags) ? event.tags : [];
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (Array.isArray(tag) && tag[0] === 'type') {
+        return typeof tag[1] === 'string' ? tag[1] : '';
+      }
+    }
+    return '';
+  }
+
+  // חלק אבטחה (chat-video-call.js) – רעננות/anti-replay לסיגנל וידאו חי אחרי חתימה ונמען | HYPER CORE TECH
+  function verifyIncomingVideoRelayFreshness(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      const created = Number(event && event.created_at) || 0;
+      if (!created) return true;
+      const age = Math.floor(Date.now() / 1000) - created;
+      if (age < 0) return true;
+      const type = getIncomingVideoRelayType(event);
+      const maxAge = type === 'v-offer' ? MAX_OFFER_AGE_SEC : SIGNAL_LOOKBACK_SEC;
+      if (age > maxAge) {
+        console.warn('[SO-CALL SECURITY] rejected stale or replayed live signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected stale or replayed live signal kind=25050 id=' + idLabel);
+      return false;
+    }
+  }
+
   // חלק שיחות וידאו – טיפול באירועי אותות נכנסים
   async function handleSignalEvent(event) {
     if (event.pubkey === App.publicKey) return;
@@ -618,6 +677,7 @@
     const peer = event.pubkey;
     let data = null;
     if (event.content) {
+      if (typeof event.content === 'string' && event.content.length > 524288) return;
       try {
         const dec = await NostrTools.nip04.decrypt(App.privateKey, peer, event.content);
         data = dec ? JSON.parse(dec) : null;
@@ -644,14 +704,8 @@
           }
         } catch {}
 
-        let offerData = data;
-        if (typeof offerData === 'string') {
-          try { offerData = JSON.parse(offerData); } catch {}
-        }
-        if (offerData && offerData.offer && !offerData.type && !offerData.sdp) {
-          offerData = offerData.offer;
-        }
-        if (!offerData || !offerData.type || !offerData.sdp) {
+        let offerData = normalizeVideoSessionDescription(data);
+        if (!offerData) {
           console.error('Invalid video offer received', offerData);
           return;
         }
@@ -682,14 +736,8 @@
       }
       case 'v-answer': {
         if (!state.pc || state.currentPeer !== peer) break;
-        let answerData = data;
-        if (typeof answerData === 'string') {
-          try { answerData = JSON.parse(answerData); } catch {}
-        }
-        if (answerData && answerData.answer && !answerData.type && !answerData.sdp) {
-          answerData = answerData.answer;
-        }
-        if (answerData && answerData.type && answerData.sdp) {
+        const answerData = normalizeVideoSessionDescription(data);
+        if (answerData) {
           await state.pc.setRemoteDescription(answerData);
           await flushRemoteCandidates(peer);
         } else {
@@ -702,7 +750,7 @@
         if (typeof candidatesData === 'string') {
           try { candidatesData = JSON.parse(candidatesData); } catch {}
         }
-        if (Array.isArray(candidatesData)) {
+        if (Array.isArray(candidatesData) && isValidIncomingVideoCandidateList(candidatesData)) {
           if (state.pc && state.currentPeer === peer && state.pc.remoteDescription) {
             for (const c of candidatesData) {
               if (!c) continue;
@@ -827,6 +875,7 @@
         onevent: (ev) => {
           if (!verifyIncomingVideoRelayEvent(ev)) return;
           if (!verifyIncomingVideoRelayRecipient(ev)) return;
+          if (!verifyIncomingVideoRelayFreshness(ev)) return;
           handleSignalEvent(ev);
         },
         oneose: () => {
@@ -896,7 +945,8 @@
       remoteStream: state.remoteStream
     }),
     verifyIncomingRelayEvent: verifyIncomingVideoRelayEvent,
-    verifyIncomingRelayRecipient: verifyIncomingVideoRelayRecipient
+    verifyIncomingRelayRecipient: verifyIncomingVideoRelayRecipient,
+    verifyIncomingRelayFreshness: verifyIncomingVideoRelayFreshness
   };
 
   // אתחול מודול

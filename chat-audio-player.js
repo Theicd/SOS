@@ -25,7 +25,8 @@
   
   // חלק עיצוב (chat-audio-player.js) – HTML משודרג לנגן אודיו בסגנון וואטסאפ | HYPER CORE TECH
   function createEnhancedAudioPlayer(attachment) {
-    const src = attachment.url || attachment.dataUrl || '';
+    const srcRaw = attachment.url || attachment.dataUrl || '';
+    const src = (typeof App.isSafeIncomingChatResource === 'function' && srcRaw && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
     const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
     const mm = dur !== null ? Math.floor(dur / 60) : null;
     const ss = dur !== null ? String(dur % 60).padStart(2, '0') : null;
@@ -56,7 +57,8 @@
     // חלק שעה וסטטוס (chat-audio-player.js) – מקום לשעה וסטטוס בתוך הנגן | HYPER CORE TECH
     // חלק תמונת פרופיל (chat-audio-player.js) – מקום לתמונת פרופיל בתוך הנגן | HYPER CORE TECH
     // חלק P2P קול (chat-audio-player.js) – שמירת magnetURI כ-data attribute לטעינת P2P | HYPER CORE TECH
-    const magnetUri = attachment.magnetURI || '';
+    const magnetUriRaw = attachment.magnetURI || '';
+    const magnetUri = (magnetUriRaw && typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(magnetUriRaw)) ? '' : magnetUriRaw;
     const fallbackSrc = src;
     const safeSrc = escapeAttr(src);
     const safeMagnet = escapeAttr(magnetUri);

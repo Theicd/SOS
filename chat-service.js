@@ -102,12 +102,184 @@
   const TORRENT_AUTOSTART_MAX_AGE_SECONDS = 90; // חלק טורנט (chat-service.js) – auto-start רק להודעות חדשות מאוד, לא להיסטוריה ישנה | HYPER CORE TECH
   const CHAT_RETENTION_SECONDS = 90 * 24 * 60 * 60; // חלק צ'אט (chat-service.js) – לא מושכים/מקבלים היסטוריה מעל 90 יום | HYPER CORE TECH
   const DC_PREFER_WAIT_MS = 2600; // חלק P2P (chat-service.js) – חלון להעדפת DataChannel לפני relay; 1.2s היו קצרים מדי כש-ICE/סיגנלינג עדיין נסגרים
+  const MAX_CHAT_EVENT_CONTENT_CHARS = 512 * 1024;
+  const MAX_CHAT_TEXT_CHARS = 16000;
+  const MAX_CHAT_JSON_DEPTH = 8;
+  const MAX_CHAT_JSON_KEYS = 48;
+  const MAX_CHAT_JSON_ARRAY = 64;
+  const MAX_ATTACH_NAME_CHARS = 1024;
+  const MAX_ATTACH_URL_CHARS = 4096;
+  const MAX_ATTACH_DATAURL_CHARS = 400 * 1024;
+  const MAX_ATTACH_MAGNET_CHARS = 4096;
+  const MAX_ATTACH_MIME_CHARS = 200;
+  const MAX_ATTACH_ID_CHARS = 256;
+  const MAX_ATTACH_DURATION_SEC = 172800;
+  const MAX_ATTACH_FILE_SIZE = 50 * 1024 * 1024 * 1024;
 
   function getChatRetentionFloorTs(nowSec = Math.floor(Date.now() / 1000)) {
     if (typeof App.getChatRetentionCutoffTs === 'function') {
       return App.getChatRetentionCutoffTs(nowSec);
     }
     return nowSec - CHAT_RETENTION_SECONDS;
+  }
+
+  function incomingJsonWithinLimits(value, depth) {
+    if (depth > MAX_CHAT_JSON_DEPTH) return false;
+    if (value == null) return true;
+    const valueType = typeof value;
+    if (valueType === 'string') return value.length <= MAX_CHAT_EVENT_CONTENT_CHARS;
+    if (valueType === 'number' || valueType === 'boolean') return true;
+    if (valueType !== 'object') return false;
+    if (Array.isArray(value)) {
+      if (value.length > MAX_CHAT_JSON_ARRAY) return false;
+      for (let i = 0; i < value.length; i++) {
+        if (!incomingJsonWithinLimits(value[i], depth + 1)) return false;
+      }
+      return true;
+    }
+    const keys = Object.keys(value);
+    if (keys.length > MAX_CHAT_JSON_KEYS) return false;
+    for (let i = 0; i < keys.length; i++) {
+      if (!incomingJsonWithinLimits(value[keys[i]], depth + 1)) return false;
+    }
+    return true;
+  }
+
+  function sanitizeIncomingChatFileName(name) {
+    let value = String(name == null ? '' : name);
+    value = value.replace(/[\u0000-\u001f\u007f]/g, '');
+    value = value.replace(/\\/g, '/');
+    const parts = value.split('/').filter((part) => part && part !== '.' && part !== '..');
+    value = parts.length ? parts[parts.length - 1] : 'file';
+    if (!value || value === '.' || value === '..') value = 'file';
+    if (value.length > 180) {
+      const lastDot = value.lastIndexOf('.');
+      const ext = lastDot > 0 && (value.length - lastDot) <= 8 ? value.slice(lastDot) : '';
+      value = value.slice(0, Math.max(8, 180 - ext.length)) + ext;
+    }
+    return value;
+  }
+
+  function isValidIncomingMagnetURI(value) {
+    if (typeof value !== 'string' || !value || value.length > MAX_ATTACH_MAGNET_CHARS) return false;
+    const trimmed = value.trim();
+    if (!/^magnet:\?/i.test(trimmed)) return false;
+    return /[?&]xt=urn:btih:([a-fA-F0-9]{40}|[a-zA-Z2-7]{32})(?:&|$)/i.test(trimmed);
+  }
+
+  function isSafeIncomingChatResource(value) {
+    if (value == null || value === '') return true;
+    if (typeof value !== 'string' || value.length > MAX_ATTACH_DATAURL_CHARS) return false;
+    const trimmed = value.trim();
+    const lower = trimmed.toLowerCase();
+    if (/^(javascript|vbscript|file|about):/i.test(lower) || /[\u0000-\u001f]/.test(trimmed.slice(0, 32))) {
+      return false;
+    }
+    if (lower.startsWith('magnet:')) return isValidIncomingMagnetURI(trimmed);
+    if (lower.startsWith('https:') || lower.startsWith('http:') || lower.startsWith('blob:')) {
+      if (trimmed.length > MAX_ATTACH_URL_CHARS) return false;
+      try {
+        const parsed = new URL(trimmed);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'blob:';
+      } catch (_err) {
+        return false;
+      }
+    }
+    if (lower.startsWith('data:')) {
+      if (/data:.*(?:javascript|vbscript|text\/html|image\/svg)/i.test(lower)) return false;
+      return /^data:(image\/(?!svg)[a-z0-9.+-]+|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+|application\/(pdf|octet-stream|ogg))(;|,)/i.test(trimmed);
+    }
+    return false;
+  }
+
+  function verifyIncomingChatAttachment(raw) {
+    if (raw == null) return true;
+    if (typeof raw !== 'object' || Array.isArray(raw)) return false;
+    if (Object.keys(raw).length > 24) return false;
+    if (raw.name != null && (typeof raw.name !== 'string' || raw.name.length > MAX_ATTACH_NAME_CHARS)) return false;
+    if (raw.type != null && raw.type !== '') {
+      if (typeof raw.type !== 'string' || raw.type.length > MAX_ATTACH_MIME_CHARS) return false;
+      if (!/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(raw.type)) return false;
+    }
+    if (raw.url != null && raw.url !== '' && (typeof raw.url !== 'string' || raw.url.length > MAX_ATTACH_URL_CHARS)) return false;
+    if (raw.dataUrl != null && raw.dataUrl !== '' && (typeof raw.dataUrl !== 'string' || raw.dataUrl.length > MAX_ATTACH_DATAURL_CHARS)) return false;
+    if (raw.magnetURI != null && raw.magnetURI !== '' && (typeof raw.magnetURI !== 'string' || raw.magnetURI.length > MAX_ATTACH_MAGNET_CHARS)) return false;
+    if (raw.infoHash != null && raw.infoHash !== '' && (typeof raw.infoHash !== 'string' || raw.infoHash.length > 64)) return false;
+    if (raw.fileId != null && raw.fileId !== '' && (typeof raw.fileId !== 'string' || raw.fileId.length > MAX_ATTACH_ID_CHARS)) return false;
+    if (raw.id != null && raw.id !== '' && (typeof raw.id !== 'string' || raw.id.length > MAX_ATTACH_ID_CHARS)) return false;
+    if (raw.isTorrent != null && typeof raw.isTorrent !== 'boolean') return false;
+    if (raw.size != null && (typeof raw.size !== 'number' || !Number.isFinite(raw.size) || raw.size < 0 || raw.size > MAX_ATTACH_FILE_SIZE)) return false;
+    if (raw.duration != null && (typeof raw.duration !== 'number' || !Number.isFinite(raw.duration) || raw.duration < 0 || raw.duration > MAX_ATTACH_DURATION_SEC)) return false;
+    if (raw.url && !isSafeIncomingChatResource(raw.url)) return false;
+    if (raw.dataUrl && !isSafeIncomingChatResource(raw.dataUrl)) return false;
+    if (raw.magnetURI && !isValidIncomingMagnetURI(raw.magnetURI)) return false;
+    if (raw.infoHash && !/^(?:[a-fA-F0-9]{40}|[a-zA-Z2-7]{32})$/.test(raw.infoHash)) return false;
+    if (raw.isTorrent === true && !(raw.magnetURI || raw.infoHash)) return false;
+    return true;
+  }
+
+  function verifyIncomingChatRelayPayload(rawContent) {
+    try {
+      if (rawContent == null || rawContent === '') return true;
+      if (typeof rawContent !== 'string') return false;
+      if (rawContent.length > MAX_CHAT_EVENT_CONTENT_CHARS) {
+        console.warn('[SO-CALL SECURITY] rejected oversized chat payload');
+        return false;
+      }
+      const trimmed = rawContent.trim();
+      if (!trimmed) return true;
+      if (trimmed.charAt(0) !== '{' && trimmed.charAt(0) !== '[') {
+        return true;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(rawContent);
+      } catch (_err) {
+        console.warn('[SO-CALL SECURITY] rejected malformed chat JSON');
+        return false;
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        console.warn('[SO-CALL SECURITY] rejected malformed chat JSON');
+        return false;
+      }
+      if (!incomingJsonWithinLimits(parsed, 0)) {
+        console.warn('[SO-CALL SECURITY] rejected oversized chat payload');
+        return false;
+      }
+      if (parsed.t != null && typeof parsed.t !== 'string') {
+        console.warn('[SO-CALL SECURITY] rejected malformed chat JSON');
+        return false;
+      }
+      if (parsed.t && parsed.t.length > MAX_CHAT_TEXT_CHARS && parsed.t.indexOf('torrent-transfer-request') < 0) {
+        console.warn('[SO-CALL SECURITY] rejected oversized chat payload');
+        return false;
+      }
+      if (parsed.a != null && (typeof parsed.a !== 'object' || Array.isArray(parsed.a))) {
+        console.warn('[SO-CALL SECURITY] rejected malformed chat attachment');
+        return false;
+      }
+      if (parsed.a != null && !verifyIncomingChatAttachment(parsed.a)) {
+        console.warn('[SO-CALL SECURITY] rejected malformed chat attachment');
+        return false;
+      }
+      if (typeof parsed.magnetURI === 'string' && parsed.magnetURI && !isValidIncomingMagnetURI(parsed.magnetURI)) {
+        console.warn('[SO-CALL SECURITY] rejected malformed torrent magnet');
+        return false;
+      }
+      if (typeof parsed.t === 'string' && parsed.t.indexOf('torrent-transfer-request') >= 0) {
+        try {
+          const inner = JSON.parse(parsed.t);
+          if (inner && typeof inner.magnetURI === 'string' && inner.magnetURI && !isValidIncomingMagnetURI(inner.magnetURI)) {
+            console.warn('[SO-CALL SECURITY] rejected malformed torrent magnet');
+            return false;
+          }
+        } catch (_err) {}
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected malformed chat JSON');
+      return false;
+    }
   }
 
   let poolReadyWarningShown = false;
@@ -438,6 +610,9 @@
     if (event.kind !== CHAT_KIND || !event.content) {
       return;
     }
+    if (!verifyIncomingChatRelayPayload(event.content)) {
+      return;
+    }
     // חלק שמירה 90 יום (chat-service.js) – מתעלמים מהודעות ישנות מהריליי | HYPER CORE TECH
     if (eventTs < getChatRetentionFloorTs(nowSec)) {
       return;
@@ -487,6 +662,12 @@
           torrentData = parsed;
         }
         
+        if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
+          if (typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(torrentData.magnetURI)) {
+            console.warn('[SO-CALL SECURITY] rejected malformed torrent magnet');
+            torrentData = null;
+          }
+        }
         if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
           console.log('[CHAT/TORRENT] ✅ Valid WebTorrent request from:', sender.slice(0, 8));
           console.log('[CHAT/TORRENT] 📁 File:', torrentData.fileName);
@@ -539,6 +720,15 @@
             attachment: null,
             hasAttachment: false,
           };
+
+    if (parsedPayload.attachment) {
+      if (!verifyIncomingChatAttachment(parsedPayload.attachment)) {
+        parsedPayload.attachment = null;
+        parsedPayload.hasAttachment = false;
+      } else if (parsedPayload.attachment.name) {
+        parsedPayload.attachment.name = sanitizeIncomingChatFileName(parsedPayload.attachment.name);
+      }
+    }
 
     // חלק Auto-download טורנט (chat-service.js) – גם הודעת attachment עם magnetURI מפעילה הורדה אוטומטית ללא לחיצה | HYPER CORE TECH
     if (!isSelfMessage && isRecentAutoStartEvent && parsedPayload?.attachment?.isTorrent && parsedPayload?.attachment?.magnetURI && typeof App.torrentTransfer?.handleIncomingRequest === 'function') {
@@ -1296,6 +1486,11 @@
     sendReadReceipt,
     handleIncomingReadReceipt,
     drainPendingReadReceipts,
+    verifyIncomingChatRelayPayload,
+    verifyIncomingChatAttachment,
+    sanitizeIncomingChatFileName,
+    isSafeIncomingChatResource,
+    isValidIncomingMagnetURI,
   });
 
   if (!App._chatServiceBootstrapped) {

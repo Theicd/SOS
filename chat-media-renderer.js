@@ -140,8 +140,11 @@
   // חלק שחזור מקור (chat-media-renderer.js) – blob מת אחרי restart → טעינה לפי fileId/cacheKey | HYPER CORE TECH
   async function resolveChatMediaSrc(attachment) {
     if (!attachment) return '';
-    const src = String(attachment.url || attachment.dataUrl || '').trim();
+    let src = String(attachment.url || attachment.dataUrl || '').trim();
     const cacheKey = chatP2PCacheKey(attachment);
+    if (src && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(src)) {
+      src = '';
+    }
 
     const fromDurable = async () => {
       if (!cacheKey) return '';
@@ -519,7 +522,8 @@
     if (!attachment) return '';
     const name = attachment.name || 'קובץ';
     const magnetURI = attachment.magnetURI || '';
-    const src = attachment.dataUrl || attachment.url || '';
+    const srcRaw = attachment.dataUrl || attachment.url || '';
+    const src = (srcRaw && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
     const cls = className || 'chat-file-bubble__download';
     const meta = {
       fileId: attachment.fileId || '',
@@ -530,6 +534,8 @@
       return buildMediaDownloadButton(src, name, cls, meta);
     }
     if (magnetURI) {
+      const magnetOk = typeof App.isValidIncomingMagnetURI !== 'function' || App.isValidIncomingMagnetURI(magnetURI);
+      if (!magnetOk) return '';
       const blob = typeof App.getTorrentBlob === 'function' ? App.getTorrentBlob(magnetURI) : null;
       if (blob?.url) {
         return buildMediaDownloadButton(blob.url, blob.name || name, cls, meta);
@@ -543,7 +549,8 @@
 
   // חלק רינדור תמונה (chat-media-renderer.js) – חשיפה רק אחרי טעינה מלאה (בלי שלד/שם קובץ) | HYPER CORE TECH
   function renderImageAttachment(attachment) {
-    const src = attachment.url || attachment.dataUrl || '';
+    const srcRaw = attachment.url || attachment.dataUrl || '';
+    const src = (srcRaw && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
     const name = attachment.name || 'תמונה';
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'img-' + Math.random().toString(36).substr(2, 9);
@@ -655,9 +662,10 @@
 
   function isUsablePosterDataUrl(dataUrl) {
     return typeof dataUrl === 'string'
-      && dataUrl.startsWith('data:image/')
+      && /^data:image\/(jpeg|jpg|png|webp|gif)/i.test(dataUrl)
       && dataUrl.length > 200
-      && dataUrl !== CHAT_VIDEO_BLACK_POSTER;
+      && dataUrl !== CHAT_VIDEO_BLACK_POSTER
+      && (typeof App.isSafeIncomingChatResource !== 'function' || App.isSafeIncomingChatResource(dataUrl));
   }
 
   function needsAndroidVideoPlaceholder() {
@@ -1291,7 +1299,8 @@
   }
 
   function renderVideoAttachment(attachment) {
-    const src = attachment.url || attachment.dataUrl || '';
+    const srcRaw = attachment.url || attachment.dataUrl || '';
+    const src = (srcRaw && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
     const type = attachment.type || 'video/mp4';
     const name = attachment.name || 'וידאו';
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
@@ -3124,7 +3133,10 @@
 
   // חלק שם קובץ לתצוגה (chat-media-renderer.js) – קיצור קבוע כדי לא להרחיב את הצ'אט במובייל | HYPER CORE TECH
   function formatChatFileDisplayName(name) {
-    const full = String(name || '').trim() || 'קובץ';
+    const sanitized = typeof App.sanitizeIncomingChatFileName === 'function'
+      ? App.sanitizeIncomingChatFileName(name)
+      : String(name || '').trim();
+    const full = sanitized || 'קובץ';
     let maxChars = 40;
     try {
       if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {

@@ -17,16 +17,42 @@
   };
   const ICE_DISCONNECT_GRACE_MS = 4000;
   const CALL_METRIC_KIND = 25060; // חלק שיחות קול (chat-voice-call.js) – kind למדדי שיחות כלליות | HYPER CORE TECH
+  const MAX_SIGNAL_SDP_CHARS = 64 * 1024;
+  const MAX_SIGNAL_CANDIDATES = 256;
+  const MAX_CANDIDATE_FIELD_CHARS = 4096;
 
   /** SDP מהסיגנלינג / JSON — תמיד מחזיר {type,sdp} או null */
   function normalizeSessionDescription(raw) {
-    if (!raw || typeof raw !== 'object') return null;
+    if (!raw) return null;
     let o = raw;
+    if (typeof o === 'string') {
+      try { o = JSON.parse(o); } catch (_err) { return null; }
+    }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
     if (o.offer && typeof o.offer === 'object' && !o.type && !o.sdp) o = o.offer;
+    if (o.answer && typeof o.answer === 'object' && !o.type && !o.sdp) o = o.answer;
     const type = o.type;
     const sdp = typeof o.sdp === 'string' ? o.sdp : '';
-    if (!type || !sdp) return null;
+    if (typeof type !== 'string' || !type || !sdp) return null;
+    if (sdp.length > MAX_SIGNAL_SDP_CHARS) return null;
     return { type, sdp };
+  }
+
+  function isValidIncomingCandidateList(raw) {
+    const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    if (list.length > MAX_SIGNAL_CANDIDATES) return false;
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      if (c == null) continue;
+      if (typeof c === 'string') {
+        if (c.length > MAX_CANDIDATE_FIELD_CHARS) return false;
+        continue;
+      }
+      if (typeof c !== 'object') return false;
+      const cand = c.candidate;
+      if (typeof cand === 'string' && cand.length > MAX_CANDIDATE_FIELD_CHARS) return false;
+    }
+    return true;
   }
   let state = {
     currentPeer: null,
@@ -714,6 +740,9 @@
     const peerPubkey = event.pubkey;
 
     try {
+      if (event.content && typeof event.content === 'string' && event.content.length > 524288) {
+        return;
+      }
       let data = null;
       if (event.content) {
         const decrypted = await window.NostrTools.nip04.decrypt(
@@ -740,15 +769,8 @@
               if (event.id) markCallEventProcessed(event.id);
               return;
             }
-            let offerData = data;
-            if (typeof offerData === 'string') {
-              offerData = JSON.parse(offerData);
-            }
-            // יש מימושים שמחזירים { offer: {type,sdp} }
-            if (offerData && offerData.offer && !offerData.type && !offerData.sdp) {
-              offerData = offerData.offer;
-            }
-            if (!offerData || !offerData.type || !offerData.sdp) {
+            let offerData = normalizeSessionDescription(data);
+            if (!offerData) {
               console.error('Invalid offer payload received', offerData);
               return;
             }
@@ -821,12 +843,13 @@
         case 'answer':
           // תשובה לשיחה יוצאת
           if (state.peerConnection && state.currentPeer === peerPubkey) {
-            if (!data || !data.type || !data.sdp) {
+            const answerData = normalizeSessionDescription(data);
+            if (!answerData) {
               console.error('Invalid answer received', data);
               return;
             }
-            console.log('Applying remote answer', { type: data.type, sdpLen: data.sdp?.length });
-            await state.peerConnection.setRemoteDescription(data);
+            console.log('Applying remote answer', { type: answerData.type, sdpLen: answerData.sdp?.length });
+            await state.peerConnection.setRemoteDescription(answerData);
             await flushRemoteCandidates(peerPubkey);
             state.callAnswered = true;
             // עוצרים חיוג מיד כשמגיע answer – לא מחכים ל-ICE | HYPER CORE TECH
@@ -838,11 +861,13 @@
 
         case 'candidate':
           // ICE candidate בודד (תאימות לאחור)
+          if (!isValidIncomingCandidateList(data)) return;
           await addOrBufferRemoteCandidates(peerPubkey, data);
           break;
 
         case 'candidates':
           // ICE candidates מרובים (batch)
+          if (!isValidIncomingCandidateList(data)) return;
           await addOrBufferRemoteCandidates(peerPubkey, data);
           break;
 
@@ -867,6 +892,7 @@
   const MAX_PROCESSED_IDS = 100;
   const PROCESSED_TTL_MS = 10 * 60 * 1000;
   const MAX_OFFER_AGE_SEC = 60;
+  const VOICE_SIGNAL_MAX_AGE_SEC = 180;
 
   function getProcessedCallEntries() {
     try {
@@ -993,6 +1019,53 @@
     }
   }
 
+  function getIncomingVoiceRelayType(event) {
+    const tags = event && Array.isArray(event.tags) ? event.tags : [];
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (Array.isArray(tag) && tag[0] === 'type') {
+        return typeof tag[1] === 'string' ? tag[1] : '';
+      }
+    }
+    return '';
+  }
+
+  function isNativePendingVoiceReplay(event) {
+    try {
+      const peer = String(event && event.pubkey || '').toLowerCase();
+      if (!peer) return false;
+      const pending = window.__sosNativePendingAnswer;
+      const pendingDecline = window.__sosNativePendingDecline;
+      return ((pending && pending.peer === peer && Date.now() < (pending.until || 0))
+        || (pendingDecline && pendingDecline.peer === peer && Date.now() < (pendingDecline.until || 0)));
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  // חלק אבטחה (chat-voice-call.js) – רעננות/anti-replay לסיגנל חי אחרי חתימה ונמען | HYPER CORE TECH
+  function verifyIncomingVoiceRelayFreshness(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      if (isNativePendingVoiceReplay(event)) return true;
+      const created = Number(event && event.created_at) || 0;
+      if (!created) return true;
+      const age = Math.floor(Date.now() / 1000) - created;
+      if (age < 0) return true;
+      const type = getIncomingVoiceRelayType(event);
+      const maxAge = type === 'offer' ? MAX_OFFER_AGE_SEC : VOICE_SIGNAL_MAX_AGE_SEC;
+      if (age > maxAge) {
+        console.warn('[SO-CALL SECURITY] rejected stale or replayed live signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected stale or replayed live signal kind=25050 id=' + idLabel);
+      return false;
+    }
+  }
+
   // חלק שיחות קול (chat-voice-call.js) – הרשמה לאירועי סינכרון עם since מורחב | HYPER CORE TECH
   function subscribeToSignals(options) {
     options = options || {};
@@ -1033,6 +1106,7 @@
         onevent: (ev) => {
           if (!verifyIncomingVoiceRelayEvent(ev)) return;
           if (!verifyIncomingVoiceRelayRecipient(ev)) return;
+          if (!verifyIncomingVoiceRelayFreshness(ev)) return;
           state.lastSignalReceivedAt = Date.now();
           handleSignalEvent(ev);
         },
@@ -1142,7 +1216,8 @@
       subscribe: subscribeToSignals,
       markEventProcessed: markCallEventProcessed,
       verifyIncomingRelayEvent: verifyIncomingVoiceRelayEvent,
-      verifyIncomingRelayRecipient: verifyIncomingVoiceRelayRecipient
+      verifyIncomingRelayRecipient: verifyIncomingVoiceRelayRecipient,
+      verifyIncomingRelayFreshness: verifyIncomingVoiceRelayFreshness
     }
   });
 

@@ -661,6 +661,44 @@
     }
   }
 
+  // חלק אבטחה (p2p-video-sharing.js) – אימות נמען לסיגנלי 30078 פרטיים לפני פענוח | HYPER CORE TECH
+  function getIncomingFileSignalRecipient(event) {
+    const tags = event && Array.isArray(event.tags) ? event.tags : [];
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (Array.isArray(tag) && tag[0] === 'p') {
+        return typeof tag[1] === 'string' ? tag[1].toLowerCase() : '';
+      }
+    }
+    return '';
+  }
+
+  function verifyIncomingFileSignalRecipient(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      const keys = getEffectiveKeys();
+      const self = (keys && keys.publicKey ? String(keys.publicKey) : '').toLowerCase();
+      const sender = event && typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+      if (!self || !sender) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=30078 id=' + idLabel);
+        return false;
+      }
+      if (sender === self) {
+        return true;
+      }
+      const recipient = getIncomingFileSignalRecipient(event);
+      if (!recipient || recipient !== self) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=30078 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=30078 id=' + idLabel);
+      return false;
+    }
+  }
+
   async function throttleSignals() {
     while (true) {
       const now = Date.now();
@@ -2852,6 +2890,7 @@
     try {
       const sub = App.pool.subscribeMany(relays, filters, {
         onevent: async (event) => {
+          if (!verifyIncomingFileSignalRecipient(event)) return;
           log('request', `📬 התקבל סיגנל`, {
             kind: event.kind,
             from: event.pubkey.slice(0, 16) + '...',
@@ -4135,6 +4174,7 @@
     pauseFeedMediaForChat,
     resumeFeedMediaAfterChat,
     printP2PStats,
+    verifyIncomingFileSignalRecipient,
   });
 
 })(window);
