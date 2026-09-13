@@ -561,6 +561,43 @@
     }
   }
 
+  // חלק אבטחה (chat-video-call.js) – אימות נמען מקומי לאירועי ריליי וידאו שאינם של המשתמש הנוכחי | HYPER CORE TECH
+  function getIncomingVideoRelayRecipient(event) {
+    const tags = event && Array.isArray(event.tags) ? event.tags : [];
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (Array.isArray(tag) && tag[0] === 'p') {
+        return typeof tag[1] === 'string' ? tag[1].toLowerCase() : '';
+      }
+    }
+    return '';
+  }
+
+  function verifyIncomingVideoRelayRecipient(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      const self = (App.publicKey || '').toLowerCase();
+      const sender = event && typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+      if (!self || !sender) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=25050 id=' + idLabel);
+        return false;
+      }
+      if (sender === self) {
+        return true;
+      }
+      const recipient = getIncomingVideoRelayRecipient(event);
+      if (!recipient || recipient !== self) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=25050 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=25050 id=' + idLabel);
+      return false;
+    }
+  }
+
   // חלק שיחות וידאו – טיפול באירועי אותות נכנסים
   async function handleSignalEvent(event) {
     if (event.pubkey === App.publicKey) return;
@@ -789,6 +826,7 @@
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
         onevent: (ev) => {
           if (!verifyIncomingVideoRelayEvent(ev)) return;
+          if (!verifyIncomingVideoRelayRecipient(ev)) return;
           handleSignalEvent(ev);
         },
         oneose: () => {
@@ -857,7 +895,8 @@
       localStream: state.localStream,
       remoteStream: state.remoteStream
     }),
-    verifyIncomingRelayEvent: verifyIncomingVideoRelayEvent
+    verifyIncomingRelayEvent: verifyIncomingVideoRelayEvent,
+    verifyIncomingRelayRecipient: verifyIncomingVideoRelayRecipient
   };
 
   // אתחול מודול
