@@ -24,13 +24,56 @@
   // חלק מעקב מהירות (chat-transfer-monitor.js) — חישוב bytes/sec להעברות פעילות | HYPER CORE TECH
   const activeTransfers = new Map();
 
-  function loadFromStorage() { try { const r = localStorage.getItem(STORAGE_KEY); if (r) events = JSON.parse(r); } catch { events = []; } evtN = events.length; }
+  function sanitizeDetails(details) {
+    const src = details && typeof details === 'object' ? details : {};
+    const out = {};
+    if (src.peer) out.peer = String(src.peer).slice(0, 8);
+    if (src.size != null) out.size = src.size;
+    if (src.mimeType) out.attachmentType = String(src.mimeType).split(';')[0];
+    if (src.attachmentType) out.attachmentType = String(src.attachmentType).split(';')[0];
+    if (src.contentLength != null) out.contentLength = src.contentLength;
+    if (src.hasAttachment != null) out.hasAttachment = !!src.hasAttachment;
+    if (src.progress != null) out.progress = src.progress;
+    if (src.progressRaw != null) out.progressRaw = src.progressRaw;
+    if (src.speed != null) out.speed = src.speed;
+    if (src.speedLabel) out.speedLabel = src.speedLabel;
+    if (src.bytesTransferred != null) out.bytesTransferred = src.bytesTransferred;
+    if (src.duration != null) out.duration = src.duration;
+    if (src.transferMs != null) out.transferMs = src.transferMs;
+    if (src.transferLabel) out.transferLabel = src.transferLabel;
+    if (src.avgSpeed != null) out.avgSpeed = src.avgSpeed;
+    if (src.avgSpeedLabel) out.avgSpeedLabel = src.avgSpeedLabel;
+    if (src.displayedMs != null) out.displayedMs = src.displayedMs;
+    if (src.displayedLabel) out.displayedLabel = src.displayedLabel;
+    if (src.startTs != null) out.startTs = src.startTs;
+    if (src.state) out.state = src.state;
+    if (src.e2e) out.e2e = src.e2e;
+    if (src.error) out.error = String(src.error).slice(0, 80);
+    return out;
+  }
+
+  function sanitizeStoredEvents(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map((evt) => {
+      if (!evt || typeof evt !== 'object') return evt;
+      return Object.assign({}, evt, { details: sanitizeDetails(evt.details) });
+    });
+  }
+
+  function loadFromStorage() {
+    try {
+      const r = localStorage.getItem(STORAGE_KEY);
+      events = r ? sanitizeStoredEvents(JSON.parse(r)) : [];
+    } catch { events = []; }
+    evtN = events.length;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); } catch {}
+  }
   function saveToStorage() { try { const cut = Date.now() - ONE_HOUR_MS; const recent = events.filter(e => e.ts >= cut); if (recent.length !== events.length) events = recent; localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); } catch {} }
   loadFromStorage();
 
   function addEvt(cat, dir, status, method, details) {
     const id = 'tm-'+(++evtN);
-    const evt = { id, ts:Date.now(), category:cat, direction:dir, status, method:method||'unknown', details:details||{}, elapsed:null };
+    const evt = { id, ts:Date.now(), category:cat, direction:dir, status, method:method||'unknown', details:sanitizeDetails(details), elapsed:null };
     events.push(evt);
     if (events.length > MAX_EVENTS) events.shift();
     console.log(`[MONITOR/${cat.toUpperCase()}] ${dir} via ${method||'unknown'}`, evt.details);
@@ -42,7 +85,9 @@
   function updateEvt(id, upd) {
     const evt = events.find(e => e.id === id);
     if (!evt) return;
-    Object.assign(evt, upd);
+    const next = Object.assign({}, upd);
+    if (next.details) next.details = sanitizeDetails(Object.assign({}, evt.details, next.details));
+    Object.assign(evt, next);
     if (evt.ts) evt.elapsed = Date.now() - evt.ts;
     saveToStorage();
     broadcast('evt-update', evt);
@@ -82,8 +127,11 @@
     const orig = App.publishChatMessage;
     if (typeof orig !== 'function') return;
     App.publishChatMessage = async function(peer, text) {
-      const preview = (typeof text==='string'?text:'').slice(0,60);
-      const evt = addEvt('text','send','started','unknown',{ peer:peer?.slice(0,8), preview });
+      const evt = addEvt('text','send','started','unknown',{
+        peer: peer?.slice(0,8),
+        contentLength: typeof text === 'string' ? text.length : 0,
+        hasAttachment: false
+      });
       try {
         const r = await orig.apply(this, arguments);
         if (r?.p2p) updateEvt(evt.id,{ status:'success', method:'p2p-dc' });
@@ -137,7 +185,6 @@
       const speedLabel = fmtSpeed(speed);
 
       const details = {
-        name: p.name,
         size: p.size,
         peer: p.peerPubkey?.slice(0,8),
         progress: progressPct + '%',
@@ -145,7 +192,9 @@
         speed: speed,
         speedLabel: speedLabel,
         bytesTransferred: currentBytes,
-        mimeType: p.mimeType || ''
+        attachmentType: p.mimeType || '',
+        mimeType: p.mimeType || '',
+        hasAttachment: true
       };
       if (p.error) details.error = p.error;
 
@@ -175,7 +224,7 @@
       // חלק עדכון מיידי (chat-transfer-monitor.js) — שולח עדכון progress ישיר ל-monitor UI | HYPER CORE TECH
       broadcast('file-progress', {
         fileId: fid, direction: p.direction||'send', status, method,
-        name: p.name, size: p.size, progress: p.progress||0,
+        attachmentType: p.mimeType || '', size: p.size, progress: p.progress||0,
         progressPct, speed, speedLabel, peer: p.peerPubkey?.slice(0,8)
       });
 
@@ -190,7 +239,7 @@
         if (recvEvtId) {
           updateEvt(recvEvtId, { status:'verified', details: Object.assign({}, events.find(e => e.id === recvEvtId)?.details||{}, { e2e:'✅ אומת — הקובץ התקבל בהצלחה' }) });
         }
-        broadcast('file-verified', { fileId: fid, name: p.name, peer: p.peerPubkey?.slice(0,8) });
+        broadcast('file-verified', { fileId: fid, attachmentType: p.mimeType || '', peer: p.peerPubkey?.slice(0,8) });
       }
     });
   }
@@ -215,8 +264,17 @@
         const hasVoice = msg.attachment?.type?.startsWith('audio/');
         const hasFile = msg.attachment && !hasVoice;
         const cat = hasVoice?'voice':hasFile?'file':'text';
-        const preview = hasVoice?'🎤 הודעה קולית':hasFile?('📎 '+(msg.attachment?.name||'קובץ')):(msg.content||'').slice(0,60);
-        addEvt(cat,'receive','success',method,{ peer:(msg.from||'').slice(0,8), preview });
+        addEvt(cat,'receive','success',method,{
+          peer: (msg.from||'').slice(0,8),
+          contentLength: typeof msg.content === 'string' ? msg.content.length : 0,
+          hasAttachment: !!(hasVoice || hasFile),
+          attachmentType: hasVoice
+            ? (msg.attachment?.type || 'audio')
+            : hasFile
+              ? (msg.attachment?.type || 'file')
+              : undefined,
+          size: hasFile || hasVoice ? (msg.attachment?.size || 0) : undefined
+        });
         // חלק תצוגה מקבל (chat-transfer-monitor.js) — רישום זמן הצגה מקומית של קובץ שהתקבל | HYPER CORE TECH
         if (hasFile && msg.attachment?.fileId) {
           const fid = msg.attachment.fileId;
@@ -238,7 +296,7 @@
     const text = String(message || '');
     // חלק סינון (chat-transfer-monitor.js) – לא מציגים בראש המסך הודעות resend/העברה שגורמות לקפיצות | HYPER CORE TECH
     if (/שולח מחדש|ממתין לקובץ|ממתין לצד|העברת "|מסלול חלופי|chunk |נתקעה|לא התקבל|Blossom|הורד בהצלחה בצד השני|בקש שליחה|מבקש שליחה/i.test(text)) {
-      console.log('[MONITOR/toast-suppressed]', text);
+      console.log('[MONITOR/toast-suppressed]');
       return;
     }
     let el = document.getElementById('tm-toast');

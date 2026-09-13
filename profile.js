@@ -1222,7 +1222,7 @@
       : [];
 
     if (!name && !about && !headline && !role && !company && !location && !website && !picture && !cover && gallery.length === 0) {
-      console.log(`Profile metadata: ${sourceLabel} missing relevant fields`, metadata);
+      console.log(`Profile metadata: ${sourceLabel} missing relevant fields`, typeof App.diagProfileLog === 'function' ? App.diagProfileLog(App.publicKey, metadata) : { profileUpdated: false, fieldCount: 0, pubkey: String(App.publicKey || '').slice(0, 8) });
       return false;
     }
 
@@ -1626,10 +1626,10 @@
 
     try {
       // חלק פרופיל (profile.js) – מושך נתוני פרופיל מהריליים עבור המשתמש הנוכחי
-      console.log('Profile metadata: requesting own metadata for pubkey', App.publicKey);
+      console.log('Profile metadata: requesting own metadata for pubkey', String(App.publicKey || '').slice(0, 8));
       const event = await App.pool.get(App.relayUrls, { kinds: [0], authors: [App.publicKey] });
       if (!event?.content) {
-        console.log('Profile metadata: no metadata event received for', App.publicKey);
+        console.log('Profile metadata: no metadata event received for', String(App.publicKey || '').slice(0, 8));
         return;
       }
 
@@ -1649,7 +1649,7 @@
         return;
       }
       if (applyMetadataToProfile(parsed, 'initial load', eventTimestamp)) {
-        console.log('Profile metadata: updated local profile for', App.publicKey, App.profile);
+        console.log('Profile metadata: updated local profile for', typeof App.diagProfileLog === 'function' ? App.diagProfileLog(App.publicKey, App.profile) : { profileUpdated: true, pubkey: String(App.publicKey || '').slice(0, 8) });
       }
     } catch (err) {
       console.warn('Failed to load own profile metadata', err);
@@ -1681,7 +1681,7 @@
         try {
           const parsed = JSON.parse(event.content);
           if (applyMetadataToProfile(parsed, 'subscription', eventTimestamp)) {
-            console.log('Profile metadata: subscription update applied', parsed);
+            console.log('Profile metadata: subscription update applied', typeof App.diagProfileLog === 'function' ? App.diagProfileLog(App.publicKey, parsed) : { profileUpdated: true, pubkey: String(App.publicKey || '').slice(0, 8) });
           }
         } catch (err) {
           console.warn('Profile metadata: failed parsing subscription event', err);

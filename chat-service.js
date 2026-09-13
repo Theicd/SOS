@@ -670,9 +670,8 @@
         }
         if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
           console.log('[CHAT/TORRENT] ✅ Valid WebTorrent request from:', sender.slice(0, 8));
-          console.log('[CHAT/TORRENT] 📁 File:', torrentData.fileName);
           console.log('[CHAT/TORRENT] 📊 Size:', torrentData.fileSize, 'bytes');
-          console.log('[CHAT/TORRENT] 🧲 Magnet:', torrentData.magnetURI?.slice(0, 60) + '...');
+          console.log('[CHAT/TORRENT] 🧲 Magnet:', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(torrentData.magnetURI) : { magnetLength: String(torrentData.magnetURI || '').length });
           
           // שמירת ההודעה בצ'אט כפי שהיא (וואטסאפ סטייל) – ההודעה תירנדר ע"י chat-ui.js | HYPER CORE TECH
           const normalizedTorrentPayload = {
@@ -690,7 +689,7 @@
 
           if (typeof App.torrentTransfer?.handleIncomingRequest === 'function') {
             if (!isRecentAutoStartEvent) {
-              console.log('[CHAT/TORRENT] ⏭️ Skipping auto-start for historical message', { ageSec: messageAgeSec, fileName: torrentData.fileName });
+              console.log('[CHAT/TORRENT] ⏭️ Skipping auto-start for historical message', { ageSec: messageAgeSec, size: torrentData.fileSize });
             } else {
               if (!App._autoStartedTorrentMagnets) {
                 App._autoStartedTorrentMagnets = new Set();
@@ -753,7 +752,7 @@
           };
           console.log('[CHAT/TORRENT] ⚡ Auto-start from attachment magnetURI', {
             from: sender.slice(0, 8),
-            fileName: autoTorrentRequest.fileName,
+            size: autoTorrentRequest.fileSize,
           });
           App.torrentTransfer.handleIncomingRequest(sender, autoTorrentRequest);
         }

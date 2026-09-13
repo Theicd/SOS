@@ -2800,7 +2800,8 @@
         log('info', `[P2P-FILE] 📥 התקבל file-offer מ-Relay`, {
           from: senderPubkey?.slice?.(0, 12) + '...',
           fileId: msg.data?.fileId || msg.fileId,
-          name: msg.data?.name || msg.name
+          attachmentType: msg.data?.mimeType || msg.mimeType || 'unknown',
+          size: msg.data?.size || msg.size
         });
         if (typeof App.handleP2PFileOffer === 'function') {
           await App.handleP2PFileOffer(senderPubkey, msg.data || msg);
@@ -2918,7 +2919,8 @@
               log('info', `[P2P-FILE] 📥 התקבל file-offer מ-Nostr subscribe`, {
                 from: event.pubkey?.slice?.(0, 12) + '...',
                 fileId: message.data?.fileId || message.fileId,
-                name: message.data?.name || message.name
+                attachmentType: message.data?.mimeType || message.mimeType || 'unknown',
+                size: message.data?.size || message.size
               });
               if (typeof App.handleP2PFileOffer === 'function') {
                 await App.handleP2PFileOffer(event.pubkey, message.data || message);

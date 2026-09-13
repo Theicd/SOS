@@ -130,7 +130,7 @@
       console.log(`\n${'='.repeat(60)}`);
       console.log(message);
       console.log(`Post ID: ${eventId.slice(0, 16)}...`);
-      console.log(`URL: ${record.url || 'unknown'}`);
+      console.log(`URL: ${typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(record.url) : '[url]'}`);
       console.log(`Hash: ${record.hash?.slice(0, 16) || 'unknown'}`);
       console.log(`${'='.repeat(60)}\n`);
 

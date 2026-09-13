@@ -6,7 +6,8 @@
     App.mediaDebugLog = (...args) => {
       try {
         if (localStorage.getItem('sos_debug_media') === '1') {
-          console.log('[MEDIA-DEBUG]', ...args);
+          const safe = args.map((a) => (typeof App.diagRedactForLog === 'function' ? App.diagRedactForLog(a) : a));
+          console.log('[MEDIA-DEBUG]', ...safe);
         }
       } catch (_) {}
     };
@@ -5355,7 +5356,7 @@
           torrentData = JSON.parse(rawMessageContent);
           if (torrentData?.type === 'torrent-transfer-request' || (torrentData?.magnetURI && torrentData?.infoHash)) {
             isTorrentMessage = true;
-            console.log('[CHAT/UI] 🧲 Detected torrent message:', torrentData.fileName, 'isOutgoing:', isOutgoing);
+            console.log('[CHAT/UI] 🧲 Detected torrent message, size:', torrentData.fileSize, 'isOutgoing:', isOutgoing);
           }
         }
       } catch (e) { /* not JSON */ }
@@ -5744,7 +5745,7 @@
             const mimeType = mimeMap[ext] || 'audio/mpeg';
             const fileName = decodeURIComponent(url.split('/').pop()?.split('?')[0] || 'קובץ שמע');
             const fakeAttachment = { url: url, type: mimeType, name: fileName };
-            console.log('[AUDIO] Creating player for URL:', { url, ext, mimeType, fileName });
+            console.log('[AUDIO] Creating player for URL:', { url: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]', ext, mimeType });
             mediaItems.push(typeof App.createEnhancedAudioPlayer === 'function'
               ? App.createEnhancedAudioPlayer(fakeAttachment)
               : `<div class="chat-message__audio" data-audio data-src="${url}"><audio preload="auto" class="chat-message__audio-el" src="${url}" type="${mimeType}"></audio></div>`);

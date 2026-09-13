@@ -6,7 +6,8 @@
     App.mediaDebugLog = (...args) => {
       try {
         if (localStorage.getItem('sos_debug_media') === '1') {
-          console.log('[MEDIA-DEBUG]', ...args);
+          const safe = args.map((a) => (typeof App.diagRedactForLog === 'function' ? App.diagRedactForLog(a) : a));
+          console.log('[MEDIA-DEBUG]', ...safe);
         }
       } catch (_) {}
     };
@@ -268,10 +269,9 @@
   async function sendFile(peerPubkey, file, onProgress) {
     const peerKey = toPeerKey(peerPubkey);
     console.log('[CHAT/P2P] 📤 sendFile start', {
-      peer: peerPubkey?.slice?.(0, 12) + '...',
-      name: file?.name,
-      size: file?.size,
-      type: file?.type
+      peer: peerPubkey?.slice?.(0, 8),
+      attachmentType: file?.type || 'unknown',
+      size: file?.size
     });
     
     logFileTransport(peerKey, 'seed-local');
@@ -347,7 +347,8 @@
     if (typeof App.sendP2PSignal === 'function') {
       console.log('[CHAT/P2P] 📡 שולח file-offer metadata', {
         fileId,
-        name: metadata.name,
+        attachmentType: metadata.mimeType || file?.type || 'unknown',
+        size: file?.size,
         totalChunks: metadata.totalChunks
       });
       await App.sendP2PSignal(peerKey, metadata);
@@ -714,7 +715,7 @@
         const msg = JSON.parse(data);
         if (msg.type === 'file-offer') {
           // חלק file-offer via DC (chat-p2p-file.js) – קבלת metadata דרך DC (fast path, לפני chunks) | HYPER CORE TECH
-          console.log('[CHAT/P2P] ⚡ file-offer התקבל דרך DC!', msg.fileId, msg.name);
+          console.log('[CHAT/P2P] ⚡ file-offer התקבל דרך DC!', msg.fileId, msg.mimeType || 'unknown', msg.size || 0);
           handleP2PFileOffer(peerKey, msg);
         } else if (msg.type === 'chunk-meta') {
           const transfer = activeTransfers.get(msg.fileId);
@@ -726,7 +727,7 @@
           }
         } else if (msg.type === 'file-complete-ack') {
           // חלק ACK סיום (chat-p2p-file.js) — הצד השני אישר שהקובץ הורד בהצלחה e2e | HYPER CORE TECH
-          console.log('[CHAT/P2P] ✅✅ אישור קבלה מלאה מהצד השני!', msg.fileId, msg.name);
+          console.log('[CHAT/P2P] ✅✅ אישור קבלה מלאה מהצד השני!', msg.fileId, msg.size || 0);
           notifyProgress({
             fileId: msg.fileId, progress: 1, status: 'verified', direction: 'send',
             name: msg.name, size: msg.size, peerPubkey: peerKey
@@ -975,8 +976,8 @@
       return;
     }
     const fromChunk = Math.max(0, parseInt(msg.fromChunk) || 0);
-    console.log('[CHAT/P2P] 🔄 מתחיל resend עבור:', fileId, cached.file?.name, 'fromChunk:', fromChunk);
-    quietTransferLog('resend-start', cached.file?.name, 'fromChunk', fromChunk);
+    console.log('[CHAT/P2P] 🔄 מתחיל resend עבור:', fileId, 'fromChunk:', fromChunk);
+    quietTransferLog('resend-start', fileId, 'fromChunk', fromChunk);
     // שליחה מחדש — שימוש חוזר באותו fileId ומפתח הצפנה, מתחיל מ-fromChunk
     const peerKey = toPeerKey(requesterPubkey);
     const file = cached.file;
@@ -1006,9 +1007,9 @@
       const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt, caption: offerCaption } = offerData || {};
       
       console.log('[CHAT/P2P] 📥 handleP2PFileOffer', {
-        from: senderKey?.slice?.(0, 12) + '...',
+        from: senderKey?.slice?.(0, 8),
         fileId,
-        name,
+        attachmentType: mimeType || 'unknown',
         size,
         totalChunks
       });
@@ -1057,7 +1058,8 @@
       
       console.log('[CHAT/P2P] ✅ transfer state נוצר לקבלה', {
         fileId,
-        name,
+        attachmentType: mimeType || 'unknown',
+        size,
         totalChunks: transfer.totalChunks
       });
       
@@ -1172,7 +1174,7 @@
         const t = activeTransfers.get(fileId);
         if (!t || t.direction !== 'receive') return;
         if (t.receivedChunks > 0) return; // chunks הגיעו — הכל תקין
-        console.warn('[CHAT/P2P] ⏱️ לא הגיעו chunks תוך', initialWaitMs, 'ms עבור:', fileId, name);
+        console.warn('[CHAT/P2P] ⏱️ לא הגיעו chunks תוך', initialWaitMs, 'ms עבור:', fileId);
         const now = Date.now();
         if (t._lastResendRequestAt && (now - t._lastResendRequestAt) < RESEND_COOLDOWN_MS) return;
         t._lastResendRequestAt = now;
@@ -1243,7 +1245,7 @@
     try {
       console.log('[CHAT/P2P] 🎉 מסיים קבלת קובץ', {
         fileId,
-        name: transfer.name,
+        attachmentType: transfer.mimeType || 'unknown',
         chunks: transfer.chunks.length,
         totalSize: transfer.size
       });
@@ -1294,7 +1296,7 @@
       // הסרת ההעברה מהרשימה הפעילה
       activeTransfers.delete(fileId);
       
-      console.log('[CHAT/P2P] ✅ קבלת קובץ הושלמה בהצלחה!', { fileId, name: transfer.name });
+      console.log('[CHAT/P2P] ✅ קבלת קובץ הושלמה בהצלחה!', { fileId, attachmentType: transfer.mimeType || 'unknown', size: transfer.size });
 
       // חלק הודעת צ'אט למקבל (chat-p2p-file.js) — blob לsession + cacheKey לשחזור אחרי restart | HYPER CORE TECH
       try {
@@ -1400,7 +1402,7 @@
       // חלק ניתוב ל-WebTorrent (chat-p2p-file.js) – קבצים שלא נתמכים ע"י Blossom מועברים דרך WebTorrent | HYPER CORE TECH
       if (!isBlossomSupported(mime)) {
         mediaDebugLog('fallback-to-torrent', { fileId: transfer.fileId, name: fileName, size: fileSize, mime });
-        console.log('[CHAT/P2P] 🧲 קובץ לא-נתמך Blossom, מעביר דרך WebTorrent P2P', { name: fileName, type: mime });
+        console.log('[CHAT/P2P] 🧲 קובץ לא-נתמך Blossom, מעביר דרך WebTorrent P2P', { attachmentType: mime, size: fileSize });
         logFileTransport(transfer.peerPubkey, 'relay-fallback');
         await fallbackToTorrent(transfer, onProgress);
         return;
@@ -1408,7 +1410,7 @@
 
       console.log('[CHAT/P2P] 🔄 Fallback to Blossom upload', {
         fileId: transfer.fileId,
-        name: fileName,
+        attachmentType: mime,
         size: fileSize
       });
       
@@ -1438,18 +1440,18 @@
       let resultUrl;
       try {
         resultUrl = await App.uploadToBlossom(transfer.file);
-        console.log('[CHAT/P2P] 📤 תוצאת העלאה:', resultUrl);
+        console.log('[CHAT/P2P] 📤 תוצאת העלאה:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(resultUrl) : '[url]');
       } catch (uploadErr) {
         // חלק שגיאות Blossom (chat-p2p-file.js) – הודעה מפורטת למשתמש עם סיבת כשל ושם קובץ | HYPER CORE TECH
         const reason = uploadErr?.message || 'שגיאה לא ידועה';
         console.warn('[CHAT/P2P] ⚠️ Blossom נכשל, מנסה WebTorrent...', reason);
-        quietTransferLog('blossom-failed → torrent', fileName, reason);
+        quietTransferLog('blossom-failed → torrent', transfer.fileId, reason);
         await fallbackToTorrent(transfer, onProgress);
         return;
       }
       
       if (resultUrl && typeof resultUrl === 'string') {
-        console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { url: resultUrl });
+        console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { url: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(resultUrl) : '[url]' });
         mediaDebugLog('blossom-upload-success', { fileId: transfer.fileId, name: fileName, size: fileSize, mime, url: resultUrl });
         
         // חלק fallback (chat-p2p-file.js) – שליחת הודעת צ'אט עם קישור Blossom | HYPER CORE TECH
@@ -1481,7 +1483,7 @@
             const messageText = captionText || (isVisualMedia ? '' : `📎 ${fileName}`);
             const publishResult = await App.publishChatMessage(transfer.peerPubkey, messageText);
             if (publishResult?.ok) {
-              console.log('[CHAT/P2P] 📨 הודעת צ\'אט עם attachment נשלחה', { peer: transfer.peerPubkey?.slice(0, 8), url: resultUrl });
+              console.log('[CHAT/P2P] 📨 הודעת צ\'אט עם attachment נשלחה', { peer: transfer.peerPubkey?.slice(0, 8), url: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(resultUrl) : '[url]' });
               mediaDebugLog('blossom-message-sent', { fileId: transfer.fileId, peer: transfer.peerPubkey, messageId: publishResult.messageId || null });
             } else {
               console.warn('[CHAT/P2P] ⚠️ שליחת הודעה נכשלה:', publishResult?.error);
@@ -1564,7 +1566,7 @@
         if (onProgress) onProgress(seedingPayload);
         notifyProgress(seedingPayload);
 
-        console.log(`[CHAT/P2P] 🧲 Seeding${attemptLabel}...`, { name: fileName, size: fileSize });
+        console.log(`[CHAT/P2P] 🧲 Seeding${attemptLabel}...`, { attachmentType: mime, size: fileSize });
         const seedResult = await App.torrentTransfer.seedOnly(transfer.file, transfer.peerPubkey);
 
         if (!seedResult || !seedResult.success || !seedResult.magnetURI) {
@@ -1586,7 +1588,7 @@
         }
 
         // חלק הצלחת seeding (chat-p2p-file.js) – Seed הצליח, שולחים הודעת צ'אט עם magnetURI | HYPER CORE TECH
-        console.log('[CHAT/P2P] ✅ Seed הצליח, magnetURI:', seedResult.magnetURI.slice(0, 60) + '...');
+        console.log('[CHAT/P2P] ✅ Seed הצליח', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(seedResult.magnetURI) : { magnetLength: String(seedResult.magnetURI || '').length });
         mediaDebugLog('torrent-seed-success', { fileId: transfer.fileId, infoHash: seedResult.infoHash || null, magnetPreview: seedResult.magnetURI.slice(0, 60) });
 
         transfer.torrentTransferId = seedResult.transferId;
@@ -1626,7 +1628,7 @@
           const result = await App.publishChatMessage(transfer.peerPubkey, displayText);
           if (result?.ok) {
             messageSent = true;
-            console.log('[CHAT/P2P] 📨 הודעת טורנט נשלחה בהצלחה', { peer: transfer.peerPubkey?.slice(0, 8), name: fileName });
+            console.log('[CHAT/P2P] 📨 הודעת טורנט נשלחה בהצלחה', { peer: transfer.peerPubkey?.slice(0, 8), attachmentType: mime, size: fileSize });
           } else {
             console.warn('[CHAT/P2P] ⚠️ שליחת הודעת טורנט נכשלה:', result?.error);
           }
@@ -1722,7 +1724,7 @@
     // 2. active transfers
     console.log(`📦 Active transfers: ${activeTransfers.size}`);
     for (const [fid, t] of activeTransfers) {
-      console.log(`  ${t.direction} ${fid.slice(0,20)} "${t.name}" — chunk ${t.direction === 'send' ? t.currentChunk : t.receivedChunks}/${t.totalChunks}, channel: ${t.channel?.readyState || 'null'}`);
+      console.log(`  ${t.direction} ${fid.slice(0,20)} type=${t.mimeType || t.file?.type || 'unknown'} size=${t.size || t.file?.size || 0} — chunk ${t.direction === 'send' ? t.currentChunk : t.receivedChunks}/${t.totalChunks}, channel: ${t.channel?.readyState || 'null'}`);
     }
     // 3. recent completed
     console.log(`💾 Recent completed files (resend cache): ${recentCompletedFiles.size}`);

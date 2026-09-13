@@ -706,7 +706,7 @@
 
         let offerData = normalizeVideoSessionDescription(data);
         if (!offerData) {
-          console.error('Invalid video offer received', offerData);
+          console.error('Invalid video offer received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : 0 });
           return;
         }
 
@@ -741,7 +741,7 @@
           await state.pc.setRemoteDescription(answerData);
           await flushRemoteCandidates(peer);
         } else {
-          console.error('Invalid video answer received', answerData);
+          console.error('Invalid video answer received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : 0 });
         }
         break;
       }
@@ -764,7 +764,11 @@
             bufferRemoteCandidates(peer, candidatesData);
           }
         } else if (candidatesData) {
-          console.error('Invalid video candidates received', candidatesData);
+          console.error('Invalid video candidates received', {
+            reason: 'invalid-candidates',
+            type: typeof candidatesData,
+            candidateCount: Array.isArray(candidatesData) ? candidatesData.length : 0
+          });
         }
         break;
       }

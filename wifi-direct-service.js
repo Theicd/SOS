@@ -102,7 +102,7 @@
     }
     
     // הדמיית שליחת הודעה
-    console.log(`שולח הודעה למכשיר ${device.name}: ${message}`);
+    console.log(`שולח הודעה למכשיר ${device.id || 'peer'}`, { contentLength: typeof message === 'string' ? message.length : 0 });
     return true;
   }
 
@@ -114,7 +114,7 @@
     }
     
     // הדמיית שידור
-    console.log(`משדר הודעה ל-${peers.length} מכשירים: ${message}`);
+    console.log(`משדר הודעה ל-${peers.length} מכשירים`, { contentLength: typeof message === 'string' ? message.length : 0 });
     return true;
   }
 

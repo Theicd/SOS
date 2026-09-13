@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.14-feedpag1",
-  "buildTime": "2026-09-14T01:56:00+03:00",
-  "notes": "Stop runaway older-feed pagination when no usable posts remain"
+  "version": "2026.09.14-logpriv2",
+  "buildTime": "2026-09-14T02:25:00+03:00",
+  "notes": "Stage 2 log privacy: redact chat preview, filenames, SDP, profile images, signed URLs, push payloads"
 }

@@ -279,7 +279,7 @@
       });
       
       const data = await response.json();
-      console.log('[PUSH] 📥 תגובת שרת subscribe:', data);
+      console.log('[PUSH] 📥 תגובת שרת subscribe:', { ok: !!data?.ok, status: data?.status, version: data?.version });
       
       if (data.ok) {
         console.log('[PUSH] ✅ מנוי נשמר בשרת, ID:', data.subscriptionId, 'pubkey:', pubkey?.slice(0, 8));
@@ -441,7 +441,7 @@
       };
       
       await registration.showNotification(title, notificationOptions);
-      console.log('[PUSH] התראה הוצגה:', title);
+      console.log('[PUSH] התראה הוצגה:', options && options.type ? options.type : 'notification');
       return true;
     } catch (err) {
       console.error('[PUSH] שגיאה בהצגת התראה:', err);

@@ -47,6 +47,17 @@
     return list.length ? list : DEFAULT_SERVERS;
   }
 
+  function diagUrl(u) {
+    try {
+      if (typeof App.diagSafeUrl === 'function') return App.diagSafeUrl(u);
+      const parsed = new URL(String(u || ''));
+      const last = (parsed.pathname.split('/').filter(Boolean).pop() || '').slice(0, 12);
+      return parsed.hostname + (last ? '/' + last : '');
+    } catch (_) {
+      return '[url]';
+    }
+  }
+
   // חלק העלאות (blossom.js) – ניסיון העלאה לכמה שרתים עד הצלחה
   async function uploadToBlossom(blob){
     console.log('[BLOSSOM] uploadToBlossom called:', {
@@ -62,7 +73,7 @@
       throw new Error('missing-publicKey');
     }
     if (!App.privateKey) {
-      console.error('[BLOSSOM] ❌ חסר privateKey');
+      console.error('[BLOSSOM] missing signer');
       throw new Error('missing-privateKey');
     }
     if (typeof App.finalizeEvent !== 'function') {
@@ -108,7 +119,7 @@
       for(const path of uploadPaths){
         try{
           const url = new URL(path, s.url).toString();
-          console.log('[BLOSSOM] Trying:', url);
+          console.log('[BLOSSOM] Trying:', diagUrl(url));
           
           // ניסיון עם PUT ואז POST
           for (const method of ['PUT', 'POST']) {
@@ -126,18 +137,18 @@
               });
               
               if(!res.ok){
-                const errText = await res.text().catch(() => '');
-                console.log('[BLOSSOM] Failed:', method, res.status, errText.slice(0, 100));
+                await res.text().catch(() => '');
+                console.log('[BLOSSOM] Failed:', method, res.status);
                 continue;
               }
               
               const data = await res.json();
-              console.log('[BLOSSOM] Response:', data);
+              console.log('[BLOSSOM] Response:', { ok: true, hasUrl: !!(data?.url || data?.data?.url) });
               
               // תמיכה בפורמטים שונים של תשובה
               const resultUrl = data?.url || data?.data?.url || data?.nip94_event?.tags?.find(t => t[0] === 'url')?.[1];
               if(resultUrl){
-                console.log('[BLOSSOM] Success! URL:', resultUrl);
+                console.log('[BLOSSOM] Success! URL:', diagUrl(resultUrl));
                 return fixUrl(resultUrl);
               }
             } catch(fetchErr) {

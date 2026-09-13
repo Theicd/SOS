@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v793'; // older-feed pagination exhaust guard
+  const CACHE_NAME = 'sos-cache-v794'; // stage 2 log privacy
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -218,7 +218,12 @@
 
   // חלק עדכון גרסה (service-worker.js) – טיפול בעדכון אפליקציה | HYPER CORE TECH
   async function handleAppUpdatePush(payload) {
-    console.log('[SW] App Update Push received', payload);
+    console.log('[SW] App Update Push received', {
+      type: payload && payload.type,
+      action: payload && payload.action,
+      version: payload && payload.version,
+      status: payload && payload.status
+    });
     
     // הודעת הקליינטים על עדכון זמין
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -242,7 +247,12 @@
 
   // חלק P2P Wake-up (service-worker.js) – טיפול בסנכרון P2P שקט | HYPER CORE TECH
   async function handleP2PSyncPush(payload) {
-    console.log('[SW] P2P Sync Push received', payload);
+    console.log('[SW] P2P Sync Push received', {
+      type: payload && payload.type,
+      action: payload && payload.action,
+      version: payload && payload.version,
+      status: payload && payload.status
+    });
     
     // עדכון timestamp של סנכרון אחרון
     p2pCoordinator.lastSyncTime = Date.now();

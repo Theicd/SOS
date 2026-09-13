@@ -44,7 +44,7 @@
     try {
       // אם זה דומיין מהימן, נחזיר true מיד בלי לבדוק
       if (isTrustedDomain(url)) {
-        console.log('Trusted domain, skipping check:', url.slice(0, 50));
+        console.log('Trusted domain, skipping check:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
         return true;
       }
       // הימנעות מבדיקות fetch לדומיינים שיודעים שחוסמים CORS
@@ -87,7 +87,7 @@
       clearTimeout(timeoutId2);
       return response.ok || response.status === 206; // 206 = Partial Content
     } catch (err) {
-      console.warn('URL not available:', url, err.message);
+      console.warn('URL not available:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]', err.message);
       return false;
     }
   }
@@ -132,9 +132,9 @@
     // ניסיון 2: נסה כל URL ברשימה
     for (let i = 0; i < urlsToTry.length; i++) {
       const url = urlsToTry[i];
-      console.log(`Trying URL ${i + 1}/${urlsToTry.length}:`, url);
+      console.log(`Trying URL ${i + 1}/${urlsToTry.length}:`, typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
       if (isCorsBlockedHost(url)) {
-        console.warn('Skipping CORS-blocked fetch host:', url);
+        console.warn('Skipping CORS-blocked fetch host:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
         continue;
       }
 
@@ -166,7 +166,7 @@
             App.registerFileAvailability(h, blob, blob.type || 'video/mp4').catch(() => {});
           }
 
-          console.log(`✓ Loaded from URL ${i + 1}:`, url);
+          console.log(`✓ Loaded from URL ${i + 1}:`, typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
           return {
             success: true,
             blob,
@@ -175,7 +175,7 @@
             mirrorIndex: i,
           };
         } catch (err) {
-          console.warn(`Attempt ${retry + 1}/${MAX_RETRIES} failed for ${url}:`, err.message);
+          console.warn(`Attempt ${retry + 1}/${MAX_RETRIES} failed for`, typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]', err.message);
           
           if (retry < MAX_RETRIES - 1) {
             // המתנה קצרה לפני ניסיון נוסף
@@ -205,7 +205,7 @@
       const result = await App.uploadToBlossom(blob, hash);
 
       if (result && result.url) {
-        console.log('✓ Mirror created:', result.url);
+        console.log('✓ Mirror created:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(result.url) : '[url]');
         return result.url;
       }
 
@@ -222,8 +222,8 @@
       // זה ידרוש הרחבה של compose.js או feed.js
       // כרגע רק נדפיס log
       console.log('TODO: Publish mirror tag for event', eventId, {
-        mirror: mirrorUrl,
-        hash,
+        mirror: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(mirrorUrl) : '[url]',
+        hash: String(hash || '').slice(0, 12),
       });
 
       // בעתיד: נשלח kind 1 event עם תגית:
@@ -238,7 +238,7 @@
 
   // חלק mirror (media-mirror.js) – טיפול באירוע שבו URL נפל
   async function handleFailedUrl(primaryUrl, hash, eventId = null) {
-    console.log('Handling failed URL:', primaryUrl);
+    console.log('Handling failed URL:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(primaryUrl) : '[url]');
 
     // ניסיון לטעון מ-cache
     if (hash && typeof App.getCachedMedia === 'function') {
@@ -332,7 +332,7 @@
       const available = await checkUrlAvailability(url);
       
       if (available) {
-        console.log('Using mirror instead of primary:', url);
+        console.log('Using mirror instead of primary:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
         return url;
       }
     }

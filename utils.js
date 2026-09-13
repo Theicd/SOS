@@ -223,4 +223,87 @@
       console.warn('registerMediaFetchSuccess: invalid URL', err);
     }
   };
+
+  // SOS-LOG-PRIVACY-START
+  App.diagShortId = function diagShortId(value, len) {
+    return String(value || '').slice(0, len || 8);
+  };
+
+  App.diagSafeMagnet = function diagSafeMagnet(value) {
+    const s = String(value || '');
+    const m = s.match(/btih:([a-zA-Z0-9]+)/i);
+    return { infoHash: m ? String(m[1]).slice(0, 12) : '', magnetLength: s.length };
+  };
+
+  App.diagSafeUrl = function diagSafeUrl(value) {
+    try {
+      const raw = String(value || '');
+      if (!raw) return '';
+      if (/^data:/i.test(raw)) {
+        const mime = (raw.match(/^data:([^;,]+)/i) || [])[1] || 'omitted';
+        return 'data:' + mime + ';[omitted]';
+      }
+      if (/^blob:/i.test(raw)) return 'blob:[omitted]';
+      if (/^magnet:/i.test(raw)) {
+        const mag = App.diagSafeMagnet(raw);
+        return 'magnet:' + (mag.infoHash || '[omitted]');
+      }
+      const parsed = new URL(raw);
+      const last = (parsed.pathname.split('/').filter(Boolean).pop() || '').replace(/\.[a-z0-9]+$/i, '');
+      const hash = last.length > 16 ? last.slice(0, 12) : last;
+      return parsed.hostname + (hash ? '/' + hash : '');
+    } catch (_) {
+      return '[url]';
+    }
+  };
+
+  App.diagProfileLog = function diagProfileLog(pubkey, obj) {
+    const src = obj && typeof obj === 'object' ? obj : {};
+    const picture = src.picture || src.cover || src.banner || '';
+    return {
+      profileUpdated: true,
+      hasPicture: !!(picture && String(picture).trim()),
+      fieldCount: Object.keys(src).length,
+      pubkey: App.diagShortId(pubkey, 8),
+    };
+  };
+
+  App.diagSdpMeta = function diagSdpMeta(value) {
+    if (value == null || value === '') return { reason: 'invalid', type: 'empty', sdpLength: 0 };
+    if (typeof value === 'string') return { type: 'string', sdpLength: value.length };
+    return {
+      type: value.type || typeof value,
+      sdpLength: value.sdp ? String(value.sdp).length : 0,
+    };
+  };
+
+  App.diagRedactForLog = function diagRedactForLog(value, depth) {
+    const d = depth || 0;
+    if (d > 4) return '[omitted]';
+    if (value == null || typeof value === 'number' || typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      if (/^data:/i.test(value) || /ice-pwd|ice-ufrag|candidate:/i.test(value)) return '[redacted]';
+      if (/^magnet:/i.test(value) || /^https?:/i.test(value) || /^blob:/i.test(value)) return App.diagSafeUrl(value);
+      return value;
+    }
+    if (typeof value !== 'object') return String(value);
+    if (Array.isArray(value)) return value.slice(0, 8).map((item) => App.diagRedactForLog(item, d + 1));
+    const drop = /^(name|fileName|filename|preview|content|text|sdp|candidate|candidates|keyStr|nsec|privateKey|authorization|picture|dataUrl|cover|banner|magnetURI|magnetPreview|src)$/i;
+    const out = {};
+    Object.keys(value).forEach((key) => {
+      if (drop.test(key)) {
+        if (key === 'magnetURI') out[key] = App.diagSafeUrl(value[key]);
+        else if (key === 'picture' || key === 'dataUrl' || key === 'cover' || key === 'banner') out[key] = value[key] ? '[omitted]' : '';
+        else if (key === 'sdp' || key === 'candidate' || key === 'candidates') out[key] = '[omitted]';
+        return;
+      }
+      if (key === 'url') {
+        out.url = App.diagSafeUrl(value.url);
+        return;
+      }
+      out[key] = App.diagRedactForLog(value[key], d + 1);
+    });
+    return out;
+  };
+  // SOS-LOG-PRIVACY-END
 })(window);

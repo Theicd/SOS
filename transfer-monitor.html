@@ -324,8 +324,9 @@
       var d=e.details||{};
       var detail=[];
       if(d.peer) detail.push('peer:'+d.peer);
-      if(d.preview) detail.push('"'+esc(d.preview)+'"');
-      if(d.name) detail.push(d.name);
+      if(d.attachmentType) detail.push(d.attachmentType);
+      if(d.hasAttachment) detail.push('attachment');
+      if(d.contentLength!=null) detail.push(d.contentLength+'ch');
       if(d.size) detail.push(fmtSize(d.size));
       if(d.duration) detail.push(d.duration+'s');
       // מהירות ומשך העברה

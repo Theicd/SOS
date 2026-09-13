@@ -6,7 +6,8 @@
     App.mediaDebugLog = (...args) => {
       try {
         if (localStorage.getItem('sos_debug_media') === '1') {
-          console.log('[MEDIA-DEBUG]', ...args);
+          const safe = args.map((a) => (typeof App.diagRedactForLog === 'function' ? App.diagRedactForLog(a) : a));
+          console.log('[MEDIA-DEBUG]', ...safe);
         }
       } catch (_) {}
     };

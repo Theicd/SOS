@@ -194,7 +194,7 @@
     return new Promise((resolve) => {
       const transferId = `send_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      console.log('[TORRENT] 📤 Starting to seed file:', file.name, 'size:', formatFileSize(file.size));
+      console.log('[TORRENT] 📤 Starting to seed file size:', formatFileSize(file.size), 'type:', file.type || 'unknown');
       console.log('[TORRENT] 🔗 Using trackers:', CONFIG.trackers);
 
       try {
@@ -203,7 +203,7 @@
           announce: CONFIG.trackers
         }, (torrent) => {
           console.log('[TORRENT] ✅ Torrent created!');
-          console.log('[TORRENT] 🧲 Magnet URI:', torrent.magnetURI);
+          console.log('[TORRENT] 🧲 Magnet URI:', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(torrent.magnetURI) : { infoHash: String(torrent.infoHash || '').slice(0, 12) });
           console.log('[TORRENT] 🔑 InfoHash:', torrent.infoHash);
 
           // לוגים על trackers
@@ -432,8 +432,8 @@
     // סימון הבקשה כמטופלת ושמירה ב-localStorage
     saveProcessedRequest(requestKey);
     console.log('[TORRENT] ✅ New transfer request received!');
-    console.log('[TORRENT] 📁 File:', request.fileName, '- Size:', formatFileSize(request.fileSize));
-    console.log('[TORRENT] 🧲 Magnet:', request.magnetURI?.slice(0, 60) + '...');
+    console.log('[TORRENT] 📁 File size:', formatFileSize(request.fileSize));
+    console.log('[TORRENT] 🧲 Magnet:', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(request.magnetURI) : { magnetLength: String(request.magnetURI || '').length });
 
     const transferId = `recv_${normalizedInfoHash || 'nohash'}_${Date.now()}`;
     
@@ -574,10 +574,9 @@
     }
 
     console.log('[TORRENT] 📋 Pending transfer details:');
-    console.log('[TORRENT]   - File:', pending.fileName);
     console.log('[TORRENT]   - Size:', formatFileSize(pending.fileSize));
     console.log('[TORRENT]   - From:', pending.fromPeer?.slice(0, 8));
-    console.log('[TORRENT]   - Magnet:', pending.magnetURI?.slice(0, 60) + '...');
+    console.log('[TORRENT]   - Magnet:', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(pending.magnetURI) : { magnetLength: String(pending.magnetURI || '').length });
 
     const existingMagnetTransferId = findActiveTransferByMagnet(pending.magnetURI);
     if (existingMagnetTransferId) {
@@ -602,7 +601,7 @@
         announce: CONFIG.trackers
       }, (torrent) => {
         console.log('[TORRENT] ✅ Torrent added successfully!');
-        console.log('[TORRENT] 📥 Starting download:', pending.fileName);
+        console.log('[TORRENT] 📥 Starting download, size:', formatFileSize(pending.fileSize));
         console.log('[TORRENT] 🔑 InfoHash:', torrent.infoHash);
 
         // לוגים על trackers וחיבורים
@@ -655,7 +654,7 @@
         });
 
         torrent.on('done', () => {
-          console.log('[TORRENT] 🎉 Download complete:', pending.fileName);
+          console.log('[TORRENT] 🎉 Download complete, size:', formatFileSize(pending.fileSize));
           const transfer = activeTransfers.get(transferId);
           if (transfer) transfer.status = 'completed';
 
@@ -787,7 +786,7 @@
   function showTransferApprovalDialog(transferId, fileName, fileSize, fromPeer) {
     console.log('[TORRENT] 🔔 showTransferApprovalDialog called!');
     console.log('[TORRENT]   - transferId:', transferId);
-    console.log('[TORRENT]   - fileName:', fileName);
+    console.log('[TORRENT]   - fileSize:', formatFileSize(fileSize));
     console.log('[TORRENT]   - fileSize:', formatFileSize(fileSize));
     console.log('[TORRENT]   - fromPeer:', fromPeer?.slice(0, 8));
     
@@ -1561,7 +1560,7 @@
     }
 
     const attemptLabel = DL_MAX_RETRIES > 1 ? ` (${attempt}/${DL_MAX_RETRIES})` : '';
-    console.log(`[TORRENT] 📥 הורדה${attemptLabel}:`, magnetURI.slice(0, 60) + '...');
+    console.log(`[TORRENT] 📥 הורדה${attemptLabel}:`, typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(magnetURI) : { magnetLength: String(magnetURI || '').length });
 
     const transferId = 'download_' + Date.now() + '_' + attempt;
 

@@ -418,7 +418,7 @@
 
     const entry = { status: 'loading', waiters: new Set([{ audioEl, playBtn, container, fallbackSrc }]) };
     _p2pCache.set(magnetUri, entry);
-    console.log('[AUDIO/P2P] 🔄 מנסה טעינת אודיו מטורנט P2P... magnetURI:', magnetUri.slice(0, 50));
+    console.log('[AUDIO/P2P] 🔄 מנסה טעינת אודיו מטורנט P2P', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(magnetUri) : { magnetLength: String(magnetUri || '').length });
     // לא מחליפים ל-spinner אם יש fallback – המשתמש יכול לנגן מיד | HYPER CORE TECH
     if (fallbackSrc) {
       applyAudioSource(audioEl, playBtn, fallbackSrc, { markPlay: true });

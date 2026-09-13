@@ -561,7 +561,7 @@
       // קבלת offer (אימות + נרמול {type,sdp} אחרי סריאליזציה מ-Nostr/QA)
       const offerNorm = normalizeSessionDescription(offer);
       if (!offerNorm) {
-        console.error('Invalid offer received', offer);
+        console.error('Invalid offer received', { reason: 'invalid-sdp', type: typeof offer, sdpLength: offer && offer.sdp ? String(offer.sdp).length : 0 });
         throw new Error('ה-offer שהתקבל אינו תקין');
       }
       console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
@@ -771,7 +771,7 @@
             }
             let offerData = normalizeSessionDescription(data);
             if (!offerData) {
-              console.error('Invalid offer payload received', offerData);
+              console.error('Invalid offer payload received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : 0 });
               return;
             }
             // דה-דופליקציה: מתעלם מהצעות כפולות מאותו peer בחלון קצר
@@ -802,7 +802,7 @@
             } catch (_) {}
             // חלק דה-דופליקציה (chat-voice-call.js) – סימון האירוע כמעובד כדי שלא יופיע שוב אחרי רענון | HYPER CORE TECH
             if (event.id) markCallEventProcessed(event.id);
-            console.log('Received valid offer:', offerData);
+            console.log('Received valid offer:', { type: offerData.type, sdpLength: offerData.sdp?.length || 0 });
             // חלק שיחות קול (chat-voice-call.js) – שיחה ממתינה: אם יש שיחה פעילה מפיר אחר, לא מצלצלים אלא מתריעים בלבד | HYPER CORE TECH
             if (state.isCallActive && state.currentPeer && state.currentPeer !== peerPubkey) {
               state.waitingOffer = { peer: peerPubkey, offer: offerData, ts: now };
@@ -831,7 +831,7 @@
               App.onVoiceCallIncoming(peerPubkey, offerData);
             }
           } catch (e) {
-            console.error('Failed to parse offer payload', e, data);
+            console.error('Failed to parse offer payload', e && e.message);
           }
           break;
 
@@ -845,7 +845,7 @@
           if (state.peerConnection && state.currentPeer === peerPubkey) {
             const answerData = normalizeSessionDescription(data);
             if (!answerData) {
-              console.error('Invalid answer received', data);
+              console.error('Invalid answer received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : (data && data.sdp ? String(data.sdp).length : 0) });
               return;
             }
             console.log('Applying remote answer', { type: answerData.type, sdpLen: answerData.sdp?.length });

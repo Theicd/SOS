@@ -4553,7 +4553,7 @@ async function loadFeed() {
         if (result.success && result.blob) {
           applyVideoObjectUrl(URL.createObjectURL(result.blob));
           
-          console.log(`וידאו נטען מ-${result.source}:`, result.url || url);
+          console.log(`וידאו נטען מ-${result.source}:`, typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(result.url || url) : '[url]');
           if (typeof App.recordP2PDownload === 'function') {
             App.recordP2PDownload(result.source === 'cache' ? 'cache' : 'blossom', hash);
           }
@@ -4563,7 +4563,7 @@ async function loadFeed() {
         console.error('כל ה-URLs נכשלו');
         if (url && /^https?:\/\//i.test(url)) {
           applyVideoObjectUrl(url);
-          console.log('[feed] fallback direct src', String(url).slice(0, 60));
+          console.log('[feed] fallback direct src', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
           if (typeof App.recordP2PDownload === 'function') {
             App.recordP2PDownload('blossom', hash);
           }
@@ -4601,7 +4601,7 @@ async function loadFeed() {
         });
       }
 
-      console.log('וידאו נטען מהרשת:', url);
+      console.log('וידאו נטען מהרשת:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
       if (typeof App.recordP2PDownload === 'function') {
         App.recordP2PDownload('blossom', hash);
       }

@@ -109,7 +109,7 @@
       if(typeof App.uploadToBlossom !== 'function') throw new Error('blossom-missing');
       // חלק העלאה (chat-voice-service.js) – העלאה עם MIME type נכון | HYPER CORE TECH
       const url = await App.uploadToBlossom(new Blob([blob], { type: finalMime }));
-      console.log('[VOICE] Uploaded to Blossom:', url);
+      console.log('[VOICE] Uploaded to Blossom:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
       return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration };
     }catch(err){
       console.error('[VOICE] Blossom upload failed:', err);
@@ -141,12 +141,12 @@
             announce: ['wss://tracker.openwebtorrent.com', 'wss://tracker.webtorrent.dev']
           }, (torrent) => {
             clearTimeout(timer);
-            console.log('[VOICE/P2P] ✅ Voice seeded, magnetURI:', torrent.magnetURI.slice(0, 50));
+            console.log('[VOICE/P2P] ✅ Voice seeded', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(torrent.magnetURI) : { infoHash: String(torrent.infoHash || '').slice(0, 12) });
 
             // חלק P2P קול (chat-voice-service.js) – לוגים למעקב אחרי הורדת הצד השני | HYPER CORE TECH
             let totalUploaded = 0;
             torrent.on('wire', (wire) => {
-              console.log('[VOICE/P2P] 🔗 Peer התחבר לטורנט הקולי! peer:', wire.remoteAddress || 'WebRTC');
+              console.log('[VOICE/P2P] 🔗 Peer התחבר לטורנט הקולי');
             });
             torrent.on('upload', (bytes) => {
               totalUploaded += bytes;

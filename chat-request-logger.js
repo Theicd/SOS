@@ -265,10 +265,10 @@
       App.fetchAndCacheChatMedia = async function(url) {
         const cached = typeof App.getChatMediaFromCache === 'function' ? await App.getChatMediaFromCache(url) : null;
         if (cached) {
-          logReq('cache-hit-media', {url:url?.slice(0,60)});
+          logReq('cache-hit-media', { url: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]' });
           return URL.createObjectURL(cached);
         }
-        logReq('blossom-fetch', {url:url?.slice(0,60)});
+        logReq('blossom-fetch', { url: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]' });
         return origFetch.apply(this, arguments);
       };
     }
@@ -296,7 +296,7 @@
           const p = JSON.parse(val);
           if (p?.dataUrl && p?.ts) {
             const age = Math.floor(Date.now()/1000) - p.ts;
-            if (age < 86400) { logReq('cache-hit-avatar', {key:key.slice(0,30), ageSec:age}); }
+            if (age < 86400) { logReq('cache-hit-avatar', { hit: true, ageSec:age }); }
           }
         } catch {}
       }
