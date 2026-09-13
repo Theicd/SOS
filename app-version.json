@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.13-chatsig1",
-  "buildTime": "2026-09-13T02:08:00+03:00",
-  "notes": "Web relay chat signature verification for kinds 1050, 5, and 1051"
+  "version": "2026.09.13-chatsig2",
+  "buildTime": "2026-09-13T03:00:00+03:00",
+  "notes": "Web relay chat recipient check for kinds 1050, 5, and 1051"
 }

@@ -692,6 +692,45 @@
     }
   }
 
+  // חלק אבטחה (chat-service.js) – אימות נמען מקומי לאירועי ריליי שאינם של המשתמש הנוכחי | HYPER CORE TECH
+  function getIncomingChatRelayRecipient(event) {
+    const tags = event && Array.isArray(event.tags) ? event.tags : [];
+    for (let i = 0; i < tags.length; i++) {
+      const tag = tags[i];
+      if (Array.isArray(tag) && tag[0] === 'p') {
+        return typeof tag[1] === 'string' ? tag[1].toLowerCase() : '';
+      }
+    }
+    return '';
+  }
+
+  function verifyIncomingChatRelayRecipient(event) {
+    let kindLabel = '';
+    let idLabel = '';
+    try {
+      kindLabel = event && event.kind != null ? event.kind : '';
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      const self = App.publicKey?.toLowerCase?.() || '';
+      const sender = event && typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+      if (!self || !sender) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=' + kindLabel + ' id=' + idLabel);
+        return false;
+      }
+      if (sender === self) {
+        return true;
+      }
+      const recipient = getIncomingChatRelayRecipient(event);
+      if (!recipient || recipient !== self) {
+        console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=' + kindLabel + ' id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=' + kindLabel + ' id=' + idLabel);
+      return false;
+    }
+  }
+
   function subscribeToChatEvents() {
     if (activeSubscription || !ensurePoolReady()) {
       return;
@@ -735,6 +774,9 @@
     activeSubscription = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
         if (!verifyIncomingChatRelayEvent(event)) {
+          return;
+        }
+        if (!verifyIncomingChatRelayRecipient(event)) {
           return;
         }
         chatLastSignalAt = Date.now();
