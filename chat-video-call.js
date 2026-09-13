@@ -536,6 +536,31 @@
     if (typeof App.onVideoCallLocalStreamChanged === 'function') App.onVideoCallLocalStreamChanged(state.localStream);
   }
 
+  // חלק אבטחה (chat-video-call.js) – אימות חתימת Nostr לסיגנל ריליי 25050 לפני כל שינוי מצב וידאו | HYPER CORE TECH
+  function verifyIncomingVideoRelayEvent(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      if (!event || typeof event !== 'object') {
+        console.warn('[SO-CALL SECURITY] rejected invalid video-call signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      const tools = window.NostrTools;
+      if (!tools || typeof tools.verifyEvent !== 'function') {
+        console.warn('[SO-CALL SECURITY] rejected invalid video-call signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      if (tools.verifyEvent(event) !== true) {
+        console.warn('[SO-CALL SECURITY] rejected invalid video-call signal kind=25050 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected invalid video-call signal kind=25050 id=' + idLabel);
+      return false;
+    }
+  }
+
   // חלק שיחות וידאו – טיפול באירועי אותות נכנסים
   async function handleSignalEvent(event) {
     if (event.pubkey === App.publicKey) return;
@@ -762,7 +787,10 @@
     console.log('Video call: subscribing to events for', App.publicKey.slice(0, 8), 'since', since);
     try {
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
-        onevent: handleSignalEvent,
+        onevent: (ev) => {
+          if (!verifyIncomingVideoRelayEvent(ev)) return;
+          handleSignalEvent(ev);
+        },
         oneose: () => {
           state.lastSignalReceivedAt = Date.now();
           console.log('Video call subscription ready');
@@ -828,7 +856,8 @@
       isCameraOff: state.isCameraOff,
       localStream: state.localStream,
       remoteStream: state.remoteStream
-    })
+    }),
+    verifyIncomingRelayEvent: verifyIncomingVideoRelayEvent
   };
 
   // אתחול מודול

@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.13-voicesig2",
-  "buildTime": "2026-09-13T21:55:00+03:00",
-  "notes": "Web voice-call recipient check for kind 25050"
+  "version": "2026.09.13-videosig1",
+  "buildTime": "2026-09-13T22:10:00+03:00",
+  "notes": "Web video-call signaling signature check for kind 25050"
 }
