@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.13-websec1",
-  "buildTime": "2026-09-13T23:20:00+03:00",
-  "notes": "Web receive-side hardening: private recipient audit, live-signal freshness, schema caps, attachment checks"
+  "version": "2026.09.14-feedpag1",
+  "buildTime": "2026-09-14T01:56:00+03:00",
+  "notes": "Stop runaway older-feed pagination when no usable posts remain"
 }

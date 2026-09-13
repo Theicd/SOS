@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v792'; // web receive-side hardening phases 6-9
+  const CACHE_NAME = 'sos-cache-v793'; // older-feed pagination exhaust guard
   const PRECACHE_URLS = [
     './',
     './videos.html',
