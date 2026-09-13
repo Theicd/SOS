@@ -3,7 +3,7 @@
 (function initChatP2PDataChannel(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   const NostrTools = window.NostrTools;
-  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260909chatqos1'); } catch (_) {}
+  try { console.log('[CHAT/PERSIST] MODULE chat-p2p-datachannel.js v=20260913p3'); } catch (_) {}
   try {
     if (/(?:^|[?&])p2pHeadless=1(?:&|$)/.test(String(window.location.search || ''))) {
       window.__sosP2pHeadless = true;
@@ -426,8 +426,34 @@
     for(const c of buf){ try{await s.pc.addIceCandidate(new RTCIceCandidate(c));}catch{} }
   }
 
+  // חלק אבטחה (chat-p2p-datachannel.js) – אימות חתימת Nostr לסיגנל ריליי 25055 לפני כל שינוי מצב | HYPER CORE TECH
+  function verifyIncomingP2pRelayEvent(event) {
+    let idLabel = '';
+    try {
+      idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
+      if (!event || typeof event !== 'object') {
+        console.warn('[SO-CALL SECURITY] rejected invalid P2P signal kind=25055 id=' + idLabel);
+        return false;
+      }
+      const tools = window.NostrTools;
+      if (!tools || typeof tools.verifyEvent !== 'function') {
+        console.warn('[SO-CALL SECURITY] rejected invalid P2P signal kind=25055 id=' + idLabel);
+        return false;
+      }
+      if (tools.verifyEvent(event) !== true) {
+        console.warn('[SO-CALL SECURITY] rejected invalid P2P signal kind=25055 id=' + idLabel);
+        return false;
+      }
+      return true;
+    } catch (_err) {
+      console.warn('[SO-CALL SECURITY] rejected invalid P2P signal kind=25055 id=' + idLabel);
+      return false;
+    }
+  }
+
   // חלק signal handler (chat-p2p-datachannel.js) – טיפול באירועי signaling | HYPER CORE TECH
   async function handleSig(event) {
+    if (!verifyIncomingP2pRelayEvent(event)) return;
     if(!event||event.pubkey===App.publicKey) return;
     const selfKey=(App.publicKey||'').toLowerCase();
     const pTag=event.tags.find(t=>t[0]==='p'&&t[1]);
@@ -723,7 +749,7 @@
     window.SOSBridge.onWebRTCSignal = next;
   }
 
-  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers };
+  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers, verifyIncomingRelayEvent: verifyIncomingP2pRelayEvent };
   hookMeshReceiver();
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט / headless | HYPER CORE TECH
