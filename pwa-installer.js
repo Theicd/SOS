@@ -78,7 +78,7 @@
       return null;
     }
     try {
-      const registration = await navigator.serviceWorker.register('./service-worker.js?v=802', {
+      const registration = await navigator.serviceWorker.register('./service-worker.js?v=803', {
         scope: './',
         updateViaCache: 'none',
       });

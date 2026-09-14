@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-vidans2",
-  "buildTime": "2026-09-15T00:50:00+03:00",
-  "notes": "Ignore stale video-call signals from the previous call so standby answer can ICE"
+  "version": "2026.09.15-vidans3",
+  "buildTime": "2026-09-15T01:10:00+03:00",
+  "notes": "Standby video answer subscribes with lookback so ICE candidates from the ring are not missed"
 }

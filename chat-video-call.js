@@ -704,7 +704,7 @@
 
   // חלק שיחות וידאו – טיפול באירועי אותות נכנסים
   async function handleSignalEvent(event) {
-    if (event.pubkey === App.publicKey) return;
+    if (event.pubkey && String(event.pubkey).toLowerCase() === String(App.publicKey || '').toLowerCase()) return;
     const typeTag = event.tags.find(t => t[0] === 'type');
     if (!typeTag) return;
     const type = typeTag[1];
@@ -719,7 +719,7 @@
       if (createdAt > state.lastSignalCreatedAt) state.lastSignalCreatedAt = createdAt;
     } catch {}
 
-    const peer = event.pubkey;
+    const peer = String(event.pubkey || '').toLowerCase();
     let data = null;
     if (event.content) {
       if (typeof event.content === 'string' && event.content.length > 524288) return;
@@ -1054,24 +1054,28 @@
   let lazyInitDone = false;
   function lazyInitVideoCall(options) {
     const opts = options && typeof options === 'object' ? options : {};
-    if (lazyInitDone && !opts.force) {
+    const lookback = Number(opts.lookbackSec) || 0;
+    const wantLookback = !!(opts.force || lookback);
+    if (lazyInitDone && !wantLookback) {
       autoSubscribeSignals();
       return;
     }
     lazyInitDone = true;
-    autoSubscribeSignals();
-    if (opts.force || opts.lookbackSec) {
+    if (wantLookback) {
       try {
-        const lookback = Number(opts.lookbackSec) || 120;
-        // force new sub by clearing first
+        const sec = lookback > 0 ? lookback : 90;
         try {
           if (state.signalSubscription) {
             closeSubscriptionSafely(state.signalSubscription);
             state.signalSubscription = null;
           }
         } catch (_) {}
-        subscribeToSignals({ since: Math.floor(Date.now() / 1000) - lookback });
-      } catch (_) {}
+        subscribeToSignals({ since: Math.floor(Date.now() / 1000) - sec });
+      } catch (_) {
+        autoSubscribeSignals();
+      }
+    } else {
+      autoSubscribeSignals();
     }
     console.log('Video call: lazy init completed', opts);
   }

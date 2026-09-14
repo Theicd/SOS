@@ -204,7 +204,9 @@
       if (attempt === 0) {
         try {
           if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
-          if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+          if (typeof App.initVideoCall === 'function') {
+            App.initVideoCall(incomingCall === 'video' ? { lookbackSec: 90 } : {});
+          }
         } catch (_) {}
       }
       // לפני UI – מסמנים pending answer כדי שלא יופיע כפתור ענה שני | HYPER CORE TECH

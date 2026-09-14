@@ -801,7 +801,7 @@
     }
 
     try {
-      if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({ lookbackSec: 90 });
     } catch (_) {}
     try {
       if (typeof App.nativeRequestMediaPermissions === 'function') App.nativeRequestMediaPermissions(true);
