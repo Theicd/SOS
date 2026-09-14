@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.14-logpriv2",
-  "buildTime": "2026-09-14T02:25:00+03:00",
-  "notes": "Stage 2 log privacy: redact chat preview, filenames, SDP, profile images, signed URLs, push payloads"
+  "version": "2026.09.14-p2pfile1",
+  "buildTime": "2026-09-14T03:10:00+03:00",
+  "notes": "P2P file transfer ACK/send/completion idempotency. No protocol or 30078 change."
 }

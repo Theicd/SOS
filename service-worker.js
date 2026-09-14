@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v794'; // stage 2 log privacy
+  const CACHE_NAME = 'sos-cache-v795'; // p2p file ACK/completion idempotency
   const PRECACHE_URLS = [
     './',
     './videos.html',
