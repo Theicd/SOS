@@ -1036,9 +1036,6 @@ function recoverFeedUiAfterCall(reason = 'after-call') {
     hideSoftFeedLoading();
   } catch (_) {}
 
-  globalAutoplayEnabled = true;
-  updateGlobalStopClass();
-
   try {
     document.querySelectorAll('.videos-feed__media[data-media-pending="1"]').forEach((mediaDiv) => {
       const videoEl = mediaDiv.querySelector('video');
@@ -1048,15 +1045,17 @@ function recoverFeedUiAfterCall(reason = 'after-call') {
     });
   } catch (_) {}
 
-  // אם דף שיחות פתוח – רק מכינים; ה־play יקרה בלחיצת בית | HYPER CORE TECH
+  // אם דף שיחות פתוח – רק מכינים; בלי autoplay מאחורי השיחות | HYPER CORE TECH
   let chatOpen = false;
   try {
     chatOpen = document.body.classList.contains('chat-overlay-open')
       || !!(document.getElementById('chatPanel') && !document.getElementById('chatPanel').hasAttribute('hidden'));
   } catch (_) {}
-  if (!chatOpen) {
-    try { resumeCenteredFeedVideo(); } catch (_) {}
-  }
+  if (chatOpen) return;
+
+  globalAutoplayEnabled = true;
+  updateGlobalStopClass();
+  try { resumeCenteredFeedVideo(); } catch (_) {}
 }
 
 // חלק בית (videos.js) – לחיצה 1: סגירת overlay / רמז; לחיצה 2: רענון חם בלבד | HYPER CORE TECH
@@ -1279,6 +1278,13 @@ function playMedia(mediaDiv, { manual = false, priority = false } = {}) {
   // בזמן סטודיו שידור חי — לא מפעילים וידאו מהפיד ברקע | HYPER CORE TECH
   if (document.body.classList.contains('live-studio-open')) {
     return;
+  }
+
+  // דף שיחות/overlay פתוח — לא מנגנים פיד ברקע (גם אחרי פוסט חדש) | HYPER CORE TECH
+  if (!manual) {
+    try {
+      if (typeof areFeedOverlaysOpen === 'function' && areFeedOverlaysOpen()) return;
+    } catch (_) {}
   }
 
   // בזמן דף טעינה – לא מנגנים מאחורי המסך; נתחיל מיד אחרי הסגירה | HYPER CORE TECH
