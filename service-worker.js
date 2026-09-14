@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v806'; // Do not autoplay feed behind open chats
+  const CACHE_NAME = 'sos-cache-v807'; // Solid chat-page background instead of spinning grid
   const PRECACHE_URLS = [
     './',
     './videos.html',

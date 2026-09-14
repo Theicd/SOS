@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-vidans6",
-  "buildTime": "2026-09-15T02:10:00+03:00",
-  "notes": "Do not autoplay the feed while the chats page is open after a call"
+  "version": "2026.09.15-chatbg1",
+  "buildTime": "2026-09-15T02:22:00+03:00",
+  "notes": "Replace spinning chat/call grid backgrounds with the solid chats-page color"
 }

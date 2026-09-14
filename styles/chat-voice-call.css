@@ -26,15 +26,15 @@
 .voice-call-dialog--auto-answer {
   animation: none !important;
   opacity: 1 !important;
-  background: #0B1220;
+  background: #111b21;
 }
 .voice-call-dialog--auto-answer .voice-call-dialog__backdrop {
-  background: #0B1220 !important;
+  background: #111b21 !important;
   backdrop-filter: none !important;
 }
 .voice-call-dialog--auto-answer .voice-call-dialog__backdrop::before,
 .voice-call-dialog--auto-answer .voice-call-dialog__backdrop::after {
-  opacity: 0.35;
+  display: none;
 }
 
 body.sos-call-active #chatPanel {
@@ -64,48 +64,15 @@ body.sos-call-active.videos-boot-loading #sosLoadNugOverlay {
 .voice-call-dialog__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  background: #111b21;
   overflow: hidden;
 }
 
-/* חלק שיחות קול (chat-voice-call.css) – רקע דינמי לשיחת קול בהשראת שיחות הווידיאו | HYPER CORE TECH */
-.voice-call-dialog__backdrop::before {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  background:
-    radial-gradient(closest-side at 50% 50%, rgba(34, 211, 238, .25), rgba(0,0,0,0) 65%),
-    radial-gradient(closest-side at 20% 35%, rgba(168, 85, 247, .18), rgba(0,0,0,0) 60%),
-    radial-gradient(closest-side at 75% 70%, rgba(34, 197, 94, .14), rgba(0,0,0,0) 60%);
-  filter: blur(0px) saturate(1.25);
-  opacity: .95;
-  transform: translate3d(0,0,0) rotate(0deg);
-  animation: vcallFxOrb 7s linear infinite;
-}
-
+/* חלק שיחות קול (chat-voice-call.css) – רקע דף שיחות, בלי רשת/סיבוב | HYPER CORE TECH */
+.voice-call-dialog__backdrop::before,
 .voice-call-dialog__backdrop::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0, rgba(255,255,255,.10) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 8px),
-    repeating-linear-gradient(90deg, rgba(34, 211, 238, .10) 0, rgba(34, 211, 238, .10) 1px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 14px);
-  mix-blend-mode: screen;
-  opacity: .18;
-  animation: vcallFxScan 3.6s linear infinite;
-}
-
-/* חלק שיחות קול (chat-voice-call.css) – אנימציות רקע דינמי (orb+scan) בהשראת שיחות וידאו | HYPER CORE TECH */
-@keyframes vcallFxOrb {
-  0% { transform: translate3d(2%, -1%, 0) rotate(0deg) scale(1); }
-  50% { transform: translate3d(-2%, 2%, 0) rotate(180deg) scale(1.03); }
-  100% { transform: translate3d(2%, -1%, 0) rotate(360deg) scale(1); }
-}
-
-@keyframes vcallFxScan {
-  0% { background-position: 0 0, 0 0; }
-  100% { background-position: 0 160px, 220px 0; }
+  content: none;
+  display: none;
 }
 
 /* חלק שיחות קול (chat-voice-call.css) – עיצוב מסך מלא כמו שיחת וידיאו | HYPER CORE TECH */
@@ -144,32 +111,30 @@ body.sos-call-active.videos-boot-loading #sosLoadNugOverlay {
   width: max-content;
   max-width: calc(100% - 32px);
   text-align: center;
-  padding: 18px 22px;
-  border-radius: 16px;
-  border: 1px solid rgba(34, 211, 238, .25);
-  background: rgba(0,0,0,.35);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 24px 80px rgba(0,0,0,.65);
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #202c33;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .voice-call-dialog__topbar-title {
-  font-weight: 800;
-  font-size: 22px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0;
+  text-transform: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: rgba(34, 211, 238, .95);
-  text-shadow: 0 0 18px rgba(34, 211, 238, .35);
+  color: #e9edef;
   margin: 0;
 }
 
 .voice-call-dialog__topbar-sub {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 14px;
   opacity: .9;
-  color: rgba(255,255,255,.85);
+  color: #8696a0;
 }
 
 .voice-call-dialog__topbar[hidden] {
