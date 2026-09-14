@@ -619,7 +619,6 @@ class VideoRecorder {
 
   stopCamera() {
     if (this.isRecording) this.stopRecording();
-    else this.teardownLoopback();
     if (this.stream) {
       this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;
@@ -700,8 +699,7 @@ class VideoRecorder {
     this.cancelCountdown();
     this.modal?.classList.add('is-countdown');
     this.ensureMicForRecording()
-      .then(() => this.startLoopbackStream(this.stream))
-      .catch((err) => console.warn('[VideoRecorder] loopback warmup failed', err));
+      .catch((err) => console.warn('[VideoRecorder] mic for recording failed', err));
     let n = 3;
     this.showCountdownNumber(n);
     this.countdownTimer = setInterval(() => {
@@ -727,7 +725,6 @@ class VideoRecorder {
     }
     if (this.countdownTimer) {
       this.cancelCountdown();
-      if (!this.isRecording) this.teardownLoopback();
       return;
     }
     if (this.selectedBgUrl) {
@@ -1183,108 +1180,8 @@ class VideoRecorder {
     }
   }
 
-  teardownLoopback() {
-    if (this._loopTeardownTimer) {
-      clearTimeout(this._loopTeardownTimer);
-      this._loopTeardownTimer = 0;
-    }
-    try { this._loopPc1?.close(); } catch (_) {}
-    try { this._loopPc2?.close(); } catch (_) {}
-    this._loopPc1 = null;
-    this._loopPc2 = null;
-    this._recordStream = null;
-  }
-
-  preferLoopbackH264(pc) {
-    try {
-      const caps = RTCRtpSender.getCapabilities && RTCRtpSender.getCapabilities('video');
-      const codecs = caps?.codecs || [];
-      if (!codecs.length) return;
-      const h264 = codecs.filter((c) => /H264|AVC/i.test(c.mimeType || ''));
-      if (!h264.length) return;
-      const rest = codecs.filter((c) => !/H264|AVC/i.test(c.mimeType || ''));
-      pc.getTransceivers().forEach((tr) => {
-        if (tr.sender?.track?.kind === 'video' && typeof tr.setCodecPreferences === 'function') {
-          tr.setCodecPreferences(h264.concat(rest));
-        }
-      });
-    } catch (_) {}
-  }
-
-  async startLoopbackStream(localStream) {
-    if (this._recordStream?.getVideoTracks?.().some((t) => t.readyState === 'live')) {
-      return this._recordStream;
-    }
-    if (this._loopStarting) return this._loopStarting;
-    this._loopStarting = this._connectLoopback(localStream);
-    try {
-      return await this._loopStarting;
-    } finally {
-      this._loopStarting = null;
-    }
-  }
-
-  async _connectLoopback(localStream) {
-    this.teardownLoopback();
-    if (!localStream || typeof RTCPeerConnection !== 'function') return localStream;
-
-    const pc1 = new RTCPeerConnection({ iceServers: [] });
-    const pc2 = new RTCPeerConnection({ iceServers: [] });
-    this._loopPc1 = pc1;
-    this._loopPc2 = pc2;
-
-    pc1.onicecandidate = (ev) => {
-      if (ev.candidate) pc2.addIceCandidate(ev.candidate).catch(() => {});
-    };
-    pc2.onicecandidate = (ev) => {
-      if (ev.candidate) pc1.addIceCandidate(ev.candidate).catch(() => {});
-    };
-
-    const remote = new MediaStream();
-    const gotVideo = new Promise((resolve) => {
-      const timer = setTimeout(() => resolve(false), 1800);
-      pc2.ontrack = (ev) => {
-        const track = ev.track;
-        if (!track) return;
-        if (!remote.getTracks().some((t) => t.id === track.id)) {
-          try { remote.addTrack(track); } catch (_) {}
-        }
-        if (track.kind === 'video') {
-          clearTimeout(timer);
-          resolve(true);
-        }
-      };
-    });
-
-    try {
-      localStream.getTracks().forEach((track) => {
-        try { pc1.addTrack(track, localStream); } catch (_) {}
-      });
-      this.preferLoopbackH264(pc1);
-      const offer = await pc1.createOffer();
-      await pc1.setLocalDescription(offer);
-      await pc2.setRemoteDescription(offer);
-      const answer = await pc2.createAnswer();
-      await pc2.setLocalDescription(answer);
-      await pc1.setRemoteDescription(answer);
-    } catch (err) {
-      console.warn('[VideoRecorder] loopback failed', err);
-      this.teardownLoopback();
-      return localStream;
-    }
-
-    const ok = await gotVideo;
-    if (!ok && !remote.getVideoTracks().length) {
-      this.teardownLoopback();
-      return localStream;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 120));
-    this._recordStream = remote;
-    return remote;
-  }
-
   recordStream() {
-    return this._recordStream || this.stream;
+    return this.stream;
   }
 
   bindMediaRecorder(recorder) {
@@ -1339,7 +1236,6 @@ class VideoRecorder {
 
     try {
       await this.ensureMicForRecording();
-      await this.startLoopbackStream(this.stream);
       this.recordedChunks = [];
       this._recorderFallback = false;
       const mimes = this.listRecorderMimes();
@@ -1390,7 +1286,6 @@ class VideoRecorder {
     this.recordButton?.classList.remove('recording');
     this.modal?.classList.remove('is-recording');
     this.setShutterSolid(!this.selectedBgUrl);
-    this._loopTeardownTimer = setTimeout(() => this.teardownLoopback(), 800);
   }
 
   startTimer() {
@@ -1434,7 +1329,6 @@ class VideoRecorder {
       console.error('[VideoRecorder] Failed to process recording:', error);
       alert('שגיאה בעיבוד ההקלטה. אנא נסה שוב.');
     }
-    this.teardownLoopback();
   }
 
   transferToCompose(file) {

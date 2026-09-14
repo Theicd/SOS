@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-chatbg1",
-  "buildTime": "2026-09-15T02:22:00+03:00",
-  "notes": "Replace spinning chat/call grid backgrounds with the solid chats-page color"
+  "version": "2026.09.15-camrec1",
+  "buildTime": "2026-09-15T02:36:00+03:00",
+  "notes": "Record post clips from the camera stream so 10-second clips keep their full length"
 }
