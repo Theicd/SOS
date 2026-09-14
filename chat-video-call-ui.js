@@ -12,6 +12,8 @@
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – דגל: דחייה ידנית של שיחה נכנסת כדי למנוע רישום missed | HYPER CORE TECH
   let userDeclinedVideoCall = false;
+  // חלק APK (chat-video-call-ui.js) – מונע accept כפול מ־inject retries | HYPER CORE TECH
+  let videoAcceptStarted = false;
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה כדי להחזיר אותו בסיום | HYPER CORE TECH
   let chatPanelWasOpen = false;
@@ -520,6 +522,7 @@
     App.__videoIncomingOffer = null;
     App.__videoIncomingPeer = null;
     userDeclinedVideoCall = false;
+    videoAcceptStarted = false;
     try {
       if (typeof App.nativeClearIncomingCallOffer === 'function') App.nativeClearIncomingCallOffer();
       sessionStorage.removeItem('sos_pending_video_offer');
@@ -537,10 +540,128 @@
     restoreChatPanelState();
   }
 
+  // חלק APK (chat-video-call-ui.js) – פענוח EVENT גולמי שנשמר במעטפת כשהמסך היה כבוי | HYPER CORE TECH
+  function unwrapNativeRawEvent(raw) {
+    if (!raw) return null;
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (parsed?.event) {
+        const ev = typeof parsed.event === 'string' ? JSON.parse(parsed.event) : parsed.event;
+        return { meta: parsed, event: ev };
+      }
+      if (parsed?.pubkey && parsed?.content) return { meta: null, event: parsed };
+    } catch (_) {}
+    return null;
+  }
+
+  function restoreVideoOfferFromParsed(parsed, peerWanted) {
+    if (!parsed) return false;
+    try {
+      const callType = String(parsed.callType || '').toLowerCase();
+      if (callType && callType !== 'video' && callType !== 'v' && callType !== 'v-offer') return false;
+      const offerRaw = parsed.offer != null ? parsed.offer : parsed;
+      let offer = typeof offerRaw === 'string' ? JSON.parse(offerRaw) : offerRaw;
+      if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
+      if (!offer?.type || !offer?.sdp) return false;
+      const p = String(parsed.peer || peerWanted || '').toLowerCase();
+      if (peerWanted && p && p !== peerWanted) return false;
+      App.__videoIncomingOffer = { type: offer.type, sdp: offer.sdp };
+      App.__videoIncomingPeer = p || peerWanted || App.__videoIncomingPeer;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function hydrateVideoOfferFromNative(peerPubkey, pendingRawEventDetail) {
+    const peerWanted = String(peerPubkey || '').toLowerCase();
+    if (App.__videoIncomingOffer?.type && App.__videoIncomingOffer?.sdp) {
+      return App.__videoIncomingOffer;
+    }
+
+    try {
+      if (typeof App.nativeGetIncomingCallOffer === 'function') {
+        if (restoreVideoOfferFromParsed(App.nativeGetIncomingCallOffer(), peerWanted)) {
+          return App.__videoIncomingOffer;
+        }
+      }
+    } catch (_) {}
+
+    const tryDecryptEvent = async (eventObj) => {
+      if (!eventObj || typeof eventObj !== 'object') return null;
+      const peer = String(eventObj.pubkey || '').toLowerCase();
+      if (peerWanted && peer && peer !== peerWanted) return null;
+      const typeTag = Array.isArray(eventObj.tags) ? eventObj.tags.find((t) => t && t[0] === 'type') : null;
+      const sigType = typeTag && typeTag[1] ? String(typeTag[1]) : '';
+      if (sigType && sigType !== 'v-offer') return null;
+      if (!eventObj.content || !App.privateKey || !window.NostrTools?.nip04) return null;
+      try {
+        const decrypted = await window.NostrTools.nip04.decrypt(App.privateKey, peer, eventObj.content);
+        let offer = decrypted ? JSON.parse(decrypted) : null;
+        if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
+        if (!offer?.type || !offer?.sdp) return null;
+        App.__videoIncomingOffer = { type: offer.type, sdp: offer.sdp };
+        App.__videoIncomingPeer = peer || peerWanted || App.__videoIncomingPeer;
+        try {
+          sessionStorage.setItem('sos_pending_video_offer', JSON.stringify({
+            peer: App.__videoIncomingPeer, callType: 'video', offer: App.__videoIncomingOffer, savedAt: Date.now()
+          }));
+        } catch (_) {}
+        try {
+          if (eventObj.id && App.videoCall && typeof App.videoCall.markEventProcessed === 'function') {
+            App.videoCall.markEventProcessed(eventObj.id);
+          }
+        } catch (_) {}
+        console.log('[APK] hydrated video offer from native raw event', String(peer || '').slice(0, 8));
+        return App.__videoIncomingOffer;
+      } catch (err) {
+        console.warn('[APK] decrypt video raw event failed', err);
+        return null;
+      }
+    };
+
+    try {
+      if (pendingRawEventDetail) {
+        const pack = unwrapNativeRawEvent(pendingRawEventDetail);
+        if (pack) {
+          const ok = await tryDecryptEvent(pack.event);
+          if (ok) return ok;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      let pack = null;
+      if (typeof App.nativeGetIncomingCallRawEvent === 'function') {
+        pack = unwrapNativeRawEvent(App.nativeGetIncomingCallRawEvent());
+      } else {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
+          pack = unwrapNativeRawEvent(bridge.getIncomingCallRawEvent());
+        }
+      }
+      if (pack) {
+        const ok = await tryDecryptEvent(pack.event);
+        if (ok) return ok;
+      }
+    } catch (_) {}
+
+    try {
+      const raw = sessionStorage.getItem('sos_pending_video_offer');
+      if (raw && restoreVideoOfferFromParsed(JSON.parse(raw), peerWanted)) {
+        return App.__videoIncomingOffer;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
   // חלק שיחות וידאו – פעולות כפתורים
   async function handleStart(peer){ try { startToneWithPolicy(playDialtone); await App.videoCall.start(peer); } catch(e){ console.error(e); alert(e.message||'שגיאת וידאו'); closeDialog(); } }
-  async function handleAccept(peer){
+  async function handleAccept(peer, opts){
+    const silent = !!(opts && opts.silent);
     try {
+      if (videoAcceptStarted) return true;
       stopRingtone();
       invalidateToneSession();
       hideIncomingFx();
@@ -551,15 +672,27 @@
         acceptBtn.setAttribute('hidden', '');
       }
       const offer = App.__videoIncomingOffer || null;
-      if (!offer) {
-        alert('הצעת וידאו חסרה');
-        closeDialog();
-        return;
+      if (!offer || !offer.type || !offer.sdp) {
+        if (!silent) {
+          alert('הצעת וידאו חסרה');
+          closeDialog();
+        }
+        return false;
       }
+      videoAcceptStarted = true;
       await App.videoCall.accept(peer, offer);
       App.__videoIncomingOffer = null;
       setStatus('מתחבר...');
-    } catch(e){ console.error(e); alert(e.message||'שגיאה בקבלת וידאו'); closeDialog(); }
+      return true;
+    } catch(e){
+      videoAcceptStarted = false;
+      console.error(e);
+      if (!silent) {
+        alert(e.message||'שגיאה בקבלת וידאו');
+        closeDialog();
+      }
+      return false;
+    }
   }
   function handleEnd(){
     // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת סימון דחייה ידנית גם אחרי closeDialog (שמאפס דגלים) | HYPER CORE TECH
@@ -625,9 +758,10 @@
       if (pendingAnswer && pendingAnswer.peer === peerNorm && pendingAnswer.callType === 'video' && Date.now() < (pendingAnswer.until || 0)) {
         saveChatPanelState();
         if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
-        createDialog(peer, true);
+        if (!dialog) createDialog(peer, true);
+        if (window.__sosAcceptInFlight) return;
         window.__sosNativePendingAnswer = null;
-        setTimeout(() => handleAccept(peerNorm), 120);
+        setTimeout(() => handleAccept(peerNorm, { silent: true }), 120);
         return;
       }
     } catch (_) {}
@@ -643,13 +777,38 @@
     } catch (_) {}
   };
 
-  App.acceptIncomingVideoCallFromNative = function acceptIncomingVideoCallFromNative(peerPubkey) {
+  App.acceptIncomingVideoCallFromNative = function acceptIncomingVideoCallFromNative(peerPubkey, pendingRawEvent) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
     if (!peer) return false;
+
+    if (window.__sosAcceptSucceededPeer === peer) {
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.notifyNativeCallConnected === 'function') {
+          bridge.notifyNativeCallConnected(peer);
+        }
+      } catch (_) {}
+      return true;
+    }
+    if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === peer) {
+      return true;
+    }
+
     try {
       if (typeof App.initVideoCall === 'function') App.initVideoCall({});
     } catch (_) {}
-    window.__sosNativePendingAnswer = { peer, callType: 'video', until: Date.now() + 45000 };
+    try {
+      if (typeof App.nativeRequestMediaPermissions === 'function') App.nativeRequestMediaPermissions(true);
+    } catch (_) {}
+
+    window.__sosAcceptInFlight = true;
+    window.__sosAcceptInFlightPeer = peer;
+    window.__sosNativePendingAnswer = {
+      peer,
+      callType: 'video',
+      until: Date.now() + 60000,
+      pendingRawEvent: pendingRawEvent || null,
+    };
     window.__sosNativePendingDecline = null;
     try {
       const bridge = window.SosNativeShell;
@@ -661,19 +820,51 @@
       saveChatPanelState();
       createDialog(peer, true);
     }
+    try {
+      const acceptBtn = dialog && dialog.querySelector('[data-action="accept"]');
+      if (acceptBtn) acceptBtn.setAttribute('hidden', '');
+    } catch (_) {}
+    try {
+      if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+    } catch (_) {}
+
     let attempts = 0;
-    const tryAccept = () => {
+    const maxAttempts = 50;
+    const tryAccept = async () => {
       attempts += 1;
-      if (App.__videoIncomingOffer && App.__videoIncomingOffer.type && App.__videoIncomingOffer.sdp) {
+      try {
+        if (window.__sosAcceptSucceededPeer === peer) return;
+        if (!App.privateKey || !window.NostrTools?.nip04) {
+          if (attempts < maxAttempts) {
+            setTimeout(tryAccept, 250);
+            return;
+          }
+        }
+        await hydrateVideoOfferFromNative(
+          peer,
+          pendingRawEvent || window.__sosNativePendingAnswer?.pendingRawEvent
+        );
+        if (App.__videoIncomingOffer && App.__videoIncomingOffer.type && App.__videoIncomingOffer.sdp) {
+          const ok = await handleAccept(peer, { silent: true });
+          if (ok) {
+            window.__sosNativePendingAnswer = null;
+            window.__sosAcceptInFlight = false;
+            window.__sosAcceptInFlightPeer = '';
+            window.__sosAcceptSucceededPeer = peer;
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[APK] video accept attempt failed', err);
+      }
+      if (attempts >= maxAttempts) {
+        console.warn('[APK] video accept timed out waiting for offer');
         window.__sosNativePendingAnswer = null;
-        handleAccept(peer);
+        window.__sosAcceptInFlight = false;
+        window.__sosAcceptInFlightPeer = '';
         return;
       }
-      if (attempts >= 50) {
-        window.__sosNativePendingAnswer = null;
-        return;
-      }
-      setTimeout(tryAccept, 400);
+      setTimeout(tryAccept, 250);
     };
     tryAccept();
     return true;
@@ -744,6 +935,16 @@
       window.__sosNativePendingAnswer &&
       window.__sosNativePendingAnswer.peer === String(target).toLowerCase()
     );
+    try {
+      if (opts && opts.pendingRawEvent) {
+        window.__sosNativePendingAnswer = window.__sosNativePendingAnswer || {
+          peer: target,
+          callType: 'video',
+          until: Date.now() + 60000,
+        };
+        window.__sosNativePendingAnswer.pendingRawEvent = opts.pendingRawEvent;
+      }
+    } catch (_) {}
     // קודם מסך ענה – בלי לפתוח צ'אט מעליו | HYPER CORE TECH
     saveChatPanelState();
     createDialog(target, true);
@@ -793,6 +994,14 @@
     setStatus('מחובר');
     showControls();
     startTimer();
+    try {
+      const p = String(peer || App.__videoIncomingPeer || '').toLowerCase();
+      if (p) window.__sosAcceptSucceededPeer = p;
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifyNativeCallConnected === 'function') {
+        bridge.notifyNativeCallConnected(p);
+      }
+    } catch (_) {}
   };
   App.onVideoCallRemoteStream = function(stream){ if (!remoteVideo) return; remoteVideo.srcObject = stream; hideIncomingFx(); showRemoteWhenReady(); };
   App.onVideoCallLocalStreamChanged = function(stream){

@@ -401,6 +401,7 @@
     clearTimer();
     try { subscribeToSignals(); } catch {}
     state.currentPeer = peerPubkey;
+    try { state.lastOfferFrom[peerPubkey] = Date.now(); } catch (_) {}
     createPC(peerPubkey);
     const offerNorm = normalizeVideoSessionDescription(offer);
     if (!offerNorm) throw new Error('offer וידאו אינו תקין');
@@ -721,6 +722,10 @@
 
         console.log('Received valid video offer:', { type: offerData.type, sdpLen: offerData.sdp?.length });
         // חלק שיחות וידאו (chat-video-call.js) – קיבוע peer עבור שיחה נכנסת כדי שאירוע v-disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
+        if (state.pc && state.currentPeer === peer) {
+          console.log('Ignored video offer – already in call with', peer.slice(0, 8));
+          return;
+        }
         if (state.currentPeer && state.currentPeer !== peer) {
           console.log('Ignored incoming video offer while another call context exists');
           return;
@@ -950,7 +955,8 @@
     }),
     verifyIncomingRelayEvent: verifyIncomingVideoRelayEvent,
     verifyIncomingRelayRecipient: verifyIncomingVideoRelayRecipient,
-    verifyIncomingRelayFreshness: verifyIncomingVideoRelayFreshness
+    verifyIncomingRelayFreshness: verifyIncomingVideoRelayFreshness,
+    markEventProcessed: rememberProcessedSignalId
   };
 
   // אתחול מודול

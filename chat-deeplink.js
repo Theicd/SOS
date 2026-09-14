@@ -225,6 +225,7 @@
       }
       const callFocused = focusIncomingCall(chat, incomingCall, pendingOffer, {
         autoAnswering: autoAccept,
+        pendingRawEvent,
       });
       opened = callFocused || !!chat;
       if (opened && autoAccept && attempt === 0) {
