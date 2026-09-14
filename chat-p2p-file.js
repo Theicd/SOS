@@ -16,7 +16,9 @@
   
   const CHUNK_SIZE = 64 * 1024; // 64KB — בטוח ל-WebRTC במובייל (256KB נחסם/נופל ב-SCTP)
   const MAX_BUFFERED_AMOUNT = 512 * 1024; // 512KB buffer limit
-  const MAX_IN_FLIGHT = 4; // חלון שליחה: עד 4 צ'אנקים לא מאושרים
+  const MAX_IN_FLIGHT = 4; // חלון רשת: עד 4 צ'אנקים שנשלחו ולא אושרו
+  const MAX_PREPARE_CONCURRENCY = 4; // כמה FileReader+AES במקביל
+  const PREFETCH_TARGET = 8; // מקסימום preparing+prepared (לא כולל inFlight)
   const PROGRESS_UI_MIN_MS = 250; // throttle ל-UI בלבד, לא לפרוטוקול
   const ACK_INTERVAL = 10; // Send ACK every 10 chunks
   const TRANSFER_TIMEOUT = 30000; // 30s timeout for stalled transfers
@@ -214,16 +216,33 @@
     if (!transfer) return;
     if (!(transfer.ackedChunks instanceof Set)) transfer.ackedChunks = new Set();
     if (!(transfer.inFlightChunks instanceof Set)) transfer.inFlightChunks = new Set();
+    if (!(transfer.preparingChunks instanceof Map)) transfer.preparingChunks = new Map();
+    if (!(transfer.preparedChunks instanceof Map)) transfer.preparedChunks = new Map();
     if (typeof transfer.nextChunkToSend !== 'number') {
       transfer.nextChunkToSend = typeof transfer.currentChunk === 'number' ? transfer.currentChunk : 0;
     }
+    if (typeof transfer.nextChunkToPrepare !== 'number') {
+      transfer.nextChunkToPrepare = transfer.nextChunkToSend;
+    }
     if (typeof transfer.sendGeneration !== 'number') transfer.sendGeneration = 0;
     if (typeof transfer.maxInFlightSeen !== 'number') transfer.maxInFlightSeen = 0;
+    if (typeof transfer.maxPreparingSeen !== 'number') transfer.maxPreparingSeen = 0;
+    if (typeof transfer.maxPreparedSeen !== 'number') transfer.maxPreparedSeen = 0;
+    if (typeof transfer.inFlightSampleSum !== 'number') transfer.inFlightSampleSum = 0;
+    if (typeof transfer.inFlightSampleCount !== 'number') transfer.inFlightSampleCount = 0;
+    if (typeof transfer.totalReadMs !== 'number') transfer.totalReadMs = 0;
+    if (typeof transfer.totalAesMs !== 'number') transfer.totalAesMs = 0;
+    if (typeof transfer.totalPrepareMs !== 'number') transfer.totalPrepareMs = 0;
     transfer.currentChunk = transfer.nextChunkToSend;
   }
 
   function inFlightCount(transfer) {
     return transfer && transfer.inFlightChunks ? transfer.inFlightChunks.size : 0;
+  }
+
+  function prepOccupancy(transfer) {
+    return (transfer.preparingChunks ? transfer.preparingChunks.size : 0)
+      + (transfer.preparedChunks ? transfer.preparedChunks.size : 0);
   }
 
   function allSendChunksAcked(transfer) {
@@ -239,10 +258,94 @@
     qaNote('in-flight', { fileId: transfer.fileId, count: n, max: transfer.maxInFlightSeen });
   }
 
+  function sampleInFlight(transfer) {
+    const n = inFlightCount(transfer);
+    transfer.inFlightSampleSum = (transfer.inFlightSampleSum || 0) + n;
+    transfer.inFlightSampleCount = (transfer.inFlightSampleCount || 0) + 1;
+    noteMaxInFlight(transfer);
+  }
+
+  function notePrepStats(transfer) {
+    const preparing = transfer.preparingChunks ? transfer.preparingChunks.size : 0;
+    const prepared = transfer.preparedChunks ? transfer.preparedChunks.size : 0;
+    if (preparing > (transfer.maxPreparingSeen || 0)) transfer.maxPreparingSeen = preparing;
+    if (prepared > (transfer.maxPreparedSeen || 0)) transfer.maxPreparedSeen = prepared;
+    qaNote('prepare-stats', {
+      fileId: transfer.fileId,
+      preparing,
+      prepared,
+      occupancy: preparing + prepared,
+      maxPreparing: transfer.maxPreparingSeen,
+      maxPrepared: transfer.maxPreparedSeen,
+    });
+  }
+
+  function releasePreparingSlot(transfer, chunkIndex, generation) {
+    if (!transfer || !transfer.preparingChunks) return;
+    if (transfer.preparingChunks.get(chunkIndex) === generation) {
+      transfer.preparingChunks.delete(chunkIndex);
+    }
+  }
+
+  function isPrepStale(transfer, chunkIndex, generation) {
+    if (!transfer || transfer.completed || transfer.paused) return true;
+    if (transfer.sendGeneration !== generation) return true;
+    if (!transfer.preparingChunks || !transfer.preparingChunks.has(chunkIndex)) return true;
+    if (transfer.preparingChunks.get(chunkIndex) !== generation) return true;
+    if (transfer.ackedChunks.has(chunkIndex) || transfer.inFlightChunks.has(chunkIndex)) return true;
+    return false;
+  }
+
+  function discardPrepFrom(transfer, fromChunk) {
+    const from = Math.max(0, fromChunk);
+    if (transfer.preparingChunks) {
+      for (const idx of [...transfer.preparingChunks.keys()]) {
+        if (idx >= from) transfer.preparingChunks.delete(idx);
+      }
+    }
+    if (transfer.preparedChunks) {
+      for (const idx of [...transfer.preparedChunks.keys()]) {
+        if (idx >= from) transfer.preparedChunks.delete(idx);
+      }
+    }
+  }
+
+  function clearAllPrep(transfer) {
+    if (!transfer) return;
+    if (transfer.preparingChunks) transfer.preparingChunks.clear();
+    if (transfer.preparedChunks) transfer.preparedChunks.clear();
+  }
+
+  function logSendTelemetry(transfer) {
+    if (!transfer) return;
+    const durationMs = Math.max(0, Date.now() - (transfer.startTime || Date.now()));
+    const size = transfer.file?.size || transfer.size || 0;
+    const avgInFlight = transfer.inFlightSampleCount
+      ? transfer.inFlightSampleSum / transfer.inFlightSampleCount
+      : 0;
+    const mbps = durationMs > 0 ? (size * 8) / durationMs / 1000 : 0;
+    const stats = {
+      fileId: transfer.fileId,
+      chunks: transfer.totalChunks,
+      durationMs,
+      maxInFlight: transfer.maxInFlightSeen || 0,
+      avgInFlight: Math.round(avgInFlight * 100) / 100,
+      maxPreparing: transfer.maxPreparingSeen || 0,
+      maxPrepared: transfer.maxPreparedSeen || 0,
+      readMs: transfer.totalReadMs || 0,
+      aesMs: transfer.totalAesMs || 0,
+      prepareMs: transfer.totalPrepareMs || 0,
+      mbps: Math.round(mbps * 100) / 100,
+    };
+    qaNote('send-stats', stats);
+    console.log('[CHAT/P2P] send-stats', stats);
+  }
+
   function applySendRewind(transfer, fromChunk) {
     const from = Math.max(0, fromChunk);
     transfer.sendGeneration = (transfer.sendGeneration || 0) + 1;
     transfer.nextChunkToSend = from;
+    transfer.nextChunkToPrepare = from;
     transfer.currentChunk = from;
     transfer.lastAckedChunk = from - 1;
     if (transfer.inFlightChunks) transfer.inFlightChunks.clear();
@@ -252,11 +355,112 @@
       }
       for (let i = 0; i < from; i++) transfer.ackedChunks.add(i);
     }
+    discardPrepFrom(transfer, from);
     if (transfer._ackTimeout) {
       clearTimeout(transfer._ackTimeout);
       transfer._ackTimeout = null;
     }
     qaNote('send-generation', { fileId: transfer.fileId, generation: transfer.sendGeneration, fromChunk: from });
+  }
+
+  function takePrepareIndex(transfer) {
+    ensureSendWindowState(transfer);
+    const total = transfer.totalChunks || 0;
+    while (transfer.nextChunkToPrepare < total) {
+      if (transfer.preparingChunks.size >= MAX_PREPARE_CONCURRENCY) return -1;
+      if (prepOccupancy(transfer) >= PREFETCH_TARGET) return -1;
+      const idx = transfer.nextChunkToPrepare;
+      transfer.nextChunkToPrepare = idx + 1;
+      if (transfer.ackedChunks.has(idx) || transfer.inFlightChunks.has(idx)) continue;
+      if (transfer.preparingChunks.has(idx) || transfer.preparedChunks.has(idx)) continue;
+      transfer.preparingChunks.set(idx, transfer.sendGeneration);
+      notePrepStats(transfer);
+      return idx;
+    }
+    return -1;
+  }
+
+  function pumpPrepare(fileId) {
+    const transfer = activeTransfers.get(fileId);
+    if (!transfer || transfer.direction !== 'send' || transfer.completed || transfer.paused) return;
+    ensureSendWindowState(transfer);
+    while (true) {
+      const idx = takePrepareIndex(transfer);
+      if (idx < 0) break;
+      const gen = transfer.sendGeneration;
+      qaNote('prepare-start', {
+        fileId,
+        chunkIndex: idx,
+        generation: gen,
+        preparing: transfer.preparingChunks.size,
+      });
+      prepareChunk(fileId, idx, gen);
+    }
+  }
+
+  async function prepareChunk(fileId, chunkIndex, generation) {
+    const transfer = activeTransfers.get(fileId);
+    if (!transfer || isPrepStale(transfer, chunkIndex, generation)) {
+      releasePreparingSlot(transfer, chunkIndex, generation);
+      qaNote('prepare-abandoned', { fileId, chunkIndex, generation, reason: 'stale-start' });
+      return;
+    }
+    const { file, key } = transfer;
+    const t0 = Date.now();
+    try {
+      const start = chunkIndex * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const holdRead = qaHold('before-read', { fileId, chunkIndex, generation });
+      if (holdRead && typeof holdRead.then === 'function') await holdRead;
+      if (isPrepStale(transfer, chunkIndex, generation)) {
+        releasePreparingSlot(transfer, chunkIndex, generation);
+        qaNote('prepare-stale', { fileId, chunkIndex, generation, phase: 'before-read' });
+        return;
+      }
+      const readStart = Date.now();
+      const raw = await readSliceAsArrayBuffer(file, start, end);
+      transfer.totalReadMs = (transfer.totalReadMs || 0) + (Date.now() - readStart);
+      const holdEnc = qaHold('before-encrypt', { fileId, chunkIndex, generation });
+      if (holdEnc && typeof holdEnc.then === 'function') await holdEnc;
+      if (isPrepStale(transfer, chunkIndex, generation)) {
+        releasePreparingSlot(transfer, chunkIndex, generation);
+        qaNote('prepare-stale', { fileId, chunkIndex, generation, phase: 'before-encrypt' });
+        return;
+      }
+      const aesStart = Date.now();
+      const encrypted = await encryptChunk(new Uint8Array(raw), key);
+      transfer.totalAesMs = (transfer.totalAesMs || 0) + (Date.now() - aesStart);
+      if (!encrypted) {
+        releasePreparingSlot(transfer, chunkIndex, generation);
+        console.error('[CHAT/P2P] Encryption failed for chunk', chunkIndex);
+        return;
+      }
+      if (isPrepStale(transfer, chunkIndex, generation)) {
+        releasePreparingSlot(transfer, chunkIndex, generation);
+        qaNote('prepare-stale', { fileId, chunkIndex, generation, phase: 'after-encrypt' });
+        return;
+      }
+      releasePreparingSlot(transfer, chunkIndex, generation);
+      if (transfer.ackedChunks.has(chunkIndex) || transfer.inFlightChunks.has(chunkIndex) || transfer.preparedChunks.has(chunkIndex)) {
+        qaNote('prepare-discard-dup', { fileId, chunkIndex, generation });
+        return;
+      }
+      transfer.preparedChunks.set(chunkIndex, { payload: encrypted, generation });
+      transfer.totalPrepareMs = (transfer.totalPrepareMs || 0) + (Date.now() - t0);
+      notePrepStats(transfer);
+      qaNote('prepare-ready', {
+        fileId,
+        chunkIndex,
+        generation,
+        prepared: transfer.preparedChunks.size,
+        preparing: transfer.preparingChunks.size,
+      });
+      pumpSend(fileId, transfer._onProgress);
+      pumpPrepare(fileId);
+    } catch (err) {
+      releasePreparingSlot(transfer, chunkIndex, generation);
+      console.warn('[CHAT/P2P] prepareChunk failed', chunkIndex, err);
+    }
   }
 
   function armAckTimeout(fileId, transfer, peerKey) {
@@ -542,10 +746,20 @@
       _sendQueued: false,
       _dcOfferSent: false,
       nextChunkToSend: 0,
+      nextChunkToPrepare: 0,
       inFlightChunks: new Set(),
       ackedChunks: new Set(),
+      preparingChunks: new Map(),
+      preparedChunks: new Map(),
       sendGeneration: 0,
       maxInFlightSeen: 0,
+      maxPreparingSeen: 0,
+      maxPreparedSeen: 0,
+      inFlightSampleSum: 0,
+      inFlightSampleCount: 0,
+      totalReadMs: 0,
+      totalAesMs: 0,
+      totalPrepareMs: 0,
     };
     
     activeTransfers.set(fileId, transfer);
@@ -579,7 +793,14 @@
     }
     transfer.completed = true;
     sendCompletedFileIds.add(fileId);
+    transfer.sendGeneration = (transfer.sendGeneration || 0) + 1;
+    clearAllPrep(transfer);
     if (transfer._ackTimeout) { clearTimeout(transfer._ackTimeout); transfer._ackTimeout = null; }
+    if (transfer._progressUiTimer) {
+      clearTimeout(transfer._progressUiTimer);
+      transfer._progressUiTimer = null;
+    }
+    logSendTelemetry(transfer);
 
     const file = transfer.file;
     const peerKey = toPeerKey(transfer.peerPubkey);
@@ -690,8 +911,17 @@
   async function sendNextChunk(fileId, onProgress) {
     const transfer = activeTransfers.get(fileId);
     if (!transfer || transfer.paused || transfer.completed) return;
+    if (onProgress) transfer._onProgress = onProgress;
+    ensureSendWindowState(transfer);
+    pumpPrepare(fileId);
+    await pumpSend(fileId, transfer._onProgress);
+  }
 
-    const { file, key, peerPubkey, totalChunks } = transfer;
+  async function pumpSend(fileId, onProgress) {
+    const transfer = activeTransfers.get(fileId);
+    if (!transfer || transfer.paused || transfer.completed) return;
+
+    const { file, peerPubkey, totalChunks } = transfer;
     const peerKey = toPeerKey(peerPubkey);
     if (onProgress) transfer._onProgress = onProgress;
     ensureSendWindowState(transfer);
@@ -701,6 +931,7 @@
       return;
     }
 
+    // מנעול סשדולר בלבד — לא עוטף FileReader/AES | HYPER CORE TECH
     if (transfer._sendInFlight) {
       transfer._sendQueued = true;
       qaNote('send-busy', { fileId, currentChunk: transfer.nextChunkToSend, inFlight: inFlightCount(transfer) });
@@ -828,50 +1059,36 @@
         inFlightCount(transfer) < MAX_IN_FLIGHT
       ) {
         if (channel.bufferedAmount > MAX_BUFFERED_AMOUNT) {
-          qaNote('buffer-pause', { fileId, bufferedAmount: channel.bufferedAmount, inFlight: inFlightCount(transfer) });
+          qaNote('buffer-pause', { fileId, bufferedAmount: channel.bufferedAmount, inFlight: inFlightCount(transfer), prepared: transfer.preparedChunks.size, preparing: transfer.preparingChunks.size });
           scheduledRetry = true;
           setTimeout(() => sendNextChunk(fileId, onProgress), 100);
           break;
         }
 
         const chunkIndex = transfer.nextChunkToSend;
-        const gen = transfer.sendGeneration;
         if (transfer.ackedChunks.has(chunkIndex) || transfer.inFlightChunks.has(chunkIndex)) {
           transfer.nextChunkToSend = chunkIndex + 1;
           transfer.currentChunk = transfer.nextChunkToSend;
           continue;
         }
 
-        const start = chunkIndex * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const raw = await readSliceAsArrayBuffer(file, start, end);
-        const hold = qaHold('before-encrypt', { fileId, chunkIndex });
-        if (hold && typeof hold.then === 'function') await hold;
-        if (transfer.completed || transfer.paused) break;
-        if (transfer.sendGeneration !== gen || transfer.nextChunkToSend !== chunkIndex) {
-          qaNote('send-aborted-rewind', { fileId, captured: chunkIndex, current: transfer.nextChunkToSend });
-          break;
-        }
-
-        const encrypted = await encryptChunk(new Uint8Array(raw), key);
-        if (!encrypted) {
-          console.error('[CHAT/P2P] Encryption failed for chunk', chunkIndex);
-          break;
-        }
-        if (transfer.completed || transfer.paused) break;
-        if (transfer.sendGeneration !== gen || transfer.nextChunkToSend !== chunkIndex) {
-          qaNote('send-aborted-rewind', { fileId, captured: chunkIndex, current: transfer.nextChunkToSend });
-          break;
+        const prepared = transfer.preparedChunks.get(chunkIndex);
+        if (!prepared) break;
+        if (prepared.generation !== transfer.sendGeneration) {
+          transfer.preparedChunks.delete(chunkIndex);
+          qaNote('prepare-stale', { fileId, chunkIndex, generation: prepared.generation, phase: 'send' });
+          continue;
         }
 
         try {
           channel.send(JSON.stringify({ type: 'chunk-meta', fileId, index: chunkIndex }));
-          channel.send(encrypted);
+          channel.send(prepared.payload);
+          transfer.preparedChunks.delete(chunkIndex);
           transfer.inFlightChunks.add(chunkIndex);
           transfer.nextChunkToSend = chunkIndex + 1;
           transfer.currentChunk = transfer.nextChunkToSend;
           transfer.dcWaitAttempts = 0;
-          noteMaxInFlight(transfer);
+          sampleInFlight(transfer);
           qaNote('chunk-sent', { fileId, chunkIndex, inFlight: inFlightCount(transfer) });
 
           emitTransferProgress(transfer, onProgress, {
@@ -894,19 +1111,21 @@
         }
       }
 
+      pumpPrepare(fileId);
+
       if (allSendChunksAcked(transfer)) {
         await completeSendOnce(fileId, transfer, onProgress);
       } else {
         armAckTimeout(fileId, transfer, peerKey);
       }
     } catch (err) {
-      console.warn('[CHAT/P2P] sendNextChunk failed', err);
+      console.warn('[CHAT/P2P] pumpSend failed', err);
     } finally {
       transfer._sendInFlight = false;
       const queued = transfer._sendQueued;
       transfer._sendQueued = false;
       if (queued && !scheduledRetry && !transfer.completed && !transfer.paused) {
-        sendNextChunk(fileId, transfer._onProgress);
+        pumpSend(fileId, transfer._onProgress);
       }
     }
   }
@@ -969,6 +1188,7 @@
               transfer.lastAckedChunk += 1;
             }
             preferDataChannel(peerKey, sourceChannel);
+            sampleInFlight(transfer);
             qaNote('chunk-ack-accepted', { fileId: msg.fileId, index: ackIndex, inFlight: inFlightCount(transfer), acked: transfer.ackedChunks.size });
             if (ackIndex === 0 || ackIndex + 1 === transfer.totalChunks || ackIndex % 10 === 0) {
               console.log(`[CHAT/P2P] ✅ chunk-ack ${ackIndex} → inFlight ${inFlightCount(transfer)}/${MAX_IN_FLIGHT} acked ${transfer.ackedChunks.size}/${transfer.totalChunks}`);
@@ -978,7 +1198,8 @@
               return;
             }
             armAckTimeout(msg.fileId, transfer, peerKey);
-            sendNextChunk(msg.fileId, transfer._onProgress);
+            pumpPrepare(msg.fileId);
+            pumpSend(msg.fileId, transfer._onProgress);
           }
         } else if (msg.type === 'ack') {
           const transfer = activeTransfers.get(msg.fileId);
@@ -1235,10 +1456,20 @@
       _sendQueued: false,
       _dcOfferSent: fromChunk > 0,
       nextChunkToSend: fromChunk,
+      nextChunkToPrepare: fromChunk,
       inFlightChunks: new Set(),
       ackedChunks: new Set(Array.from({ length: fromChunk }, (_, i) => i)),
+      preparingChunks: new Map(),
+      preparedChunks: new Map(),
       sendGeneration: 1,
       maxInFlightSeen: 0,
+      maxPreparingSeen: 0,
+      maxPreparedSeen: 0,
+      inFlightSampleSum: 0,
+      inFlightSampleCount: 0,
+      totalReadMs: 0,
+      totalAesMs: 0,
+      totalPrepareMs: 0,
     };
     activeTransfers.set(fileId, transfer);
     notifyProgress({ fileId, progress: fromChunk / totalChunks, status: 'resending', direction: 'send', name: file.name, size: file.size, mimeType: file.type, peerPubkey: peerKey });
@@ -1986,7 +2217,7 @@
     // 2. active transfers
     console.log(`📦 Active transfers: ${activeTransfers.size}`);
     for (const [fid, t] of activeTransfers) {
-      console.log(`  ${t.direction} ${fid.slice(0,20)} type=${t.mimeType || t.file?.type || 'unknown'} size=${t.size || t.file?.size || 0} — chunk ${t.direction === 'send' ? (t.ackedChunks ? t.ackedChunks.size : t.currentChunk) : t.receivedChunks}/${t.totalChunks} inFlight=${t.inFlightChunks ? t.inFlightChunks.size : 0}, channel: ${t.channel?.readyState || 'null'}`);
+      console.log(`  ${t.direction} ${fid.slice(0,20)} type=${t.mimeType || t.file?.type || 'unknown'} size=${t.size || t.file?.size || 0} — chunk ${t.direction === 'send' ? (t.ackedChunks ? t.ackedChunks.size : t.currentChunk) : t.receivedChunks}/${t.totalChunks} inFlight=${t.inFlightChunks ? t.inFlightChunks.size : 0} preparing=${t.preparingChunks ? t.preparingChunks.size : 0} prepared=${t.preparedChunks ? t.preparedChunks.size : 0}, channel: ${t.channel?.readyState || 'null'}`);
     }
     // 3. recent completed
     console.log(`💾 Recent completed files (resend cache): ${recentCompletedFiles.size}`);
@@ -2002,6 +2233,8 @@
 
     try {
       transfer.paused = true;
+      transfer.sendGeneration = (transfer.sendGeneration || 0) + 1;
+      clearAllPrep(transfer);
       if (transfer._ackTimeout) {
         clearTimeout(transfer._ackTimeout);
         transfer._ackTimeout = null;
@@ -2048,6 +2281,8 @@
     cancelP2PFile,
     P2P_FILE_CHUNK_SIZE: CHUNK_SIZE,
     P2P_FILE_MAX_IN_FLIGHT: MAX_IN_FLIGHT,
+    P2P_FILE_MAX_PREPARE_CONCURRENCY: MAX_PREPARE_CONCURRENCY,
+    P2P_FILE_PREFETCH_TARGET: PREFETCH_TARGET,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
     onFileDataChannel,
     activeP2PTransfers: activeTransfers,
@@ -2060,10 +2295,14 @@
     isReceivingChatFile,
     _p2pFileQa: {
       sendNextChunk,
+      pumpSend,
+      pumpPrepare,
       handleIncomingMessage,
       attachCanonicalFileHandler,
       completeSendOnce,
       MAX_IN_FLIGHT,
+      MAX_PREPARE_CONCURRENCY,
+      PREFETCH_TARGET,
     },
     subscribeP2PFileProgress: (cb) => {
       if (typeof cb === 'function') {

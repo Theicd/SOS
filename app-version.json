@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.14-p2pwin4",
-  "buildTime": "2026-09-14T04:20:00+03:00",
-  "notes": "P2P file send window=4. No protocol or 30078 change."
+  "version": "2026.09.14-p2pprep1",
+  "buildTime": "2026-09-14T04:50:00+03:00",
+  "notes": "P2P file send prefetch pipeline. Window=4 unchanged. No protocol or 30078 change."
 }
