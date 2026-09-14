@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.14-chatvid1",
-  "buildTime": "2026-09-14T14:36:00+03:00",
-  "notes": "Chat video sends original file. Feed/post compression unchanged."
+  "version": "2026.09.14-webrtc1",
+  "buildTime": "2026-09-14T23:45:00+03:00",
+  "notes": "Record post clips through a local WebRTC loop so pan motion matches video calls"
 }

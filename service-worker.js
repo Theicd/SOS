@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v799'; // chat video original file, no chat compress
+  const CACHE_NAME = 'sos-cache-v800'; // WebRTC loopback for post camera recording
   const PRECACHE_URLS = [
     './',
     './videos.html',
