@@ -1115,7 +1115,7 @@
   App.prepareIncomingCallFromNative = async function prepareIncomingCallFromNative(peerPubkey, callType, pendingRawEvent) {
     if (callType && String(callType).toLowerCase() === 'video') {
       try {
-        if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+        if (typeof App.initVideoCall === 'function') App.initVideoCall({ lookbackSec: 90 });
       } catch (_) {}
       try {
         if (typeof App.nativeRequestMediaPermissions === 'function') App.nativeRequestMediaPermissions(true);

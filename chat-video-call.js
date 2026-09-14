@@ -83,7 +83,8 @@
     callStartTimestamp: null,
     sessionOfferCreatedAt: 0,
     answeredLocally: false,
-    outboundStarting: false
+    outboundStarting: false,
+    videoLookbackUntil: 0
   };
 
   // חלק שיחות וידאו (chat-video-call.js) – בניית אילוצי וידאו ברירת מחדל עם אפשרות דריסה | HYPER CORE TECH
@@ -234,7 +235,9 @@
       content
     };
     const signed = App.finalizeEvent(event, App.privateKey);
-    await new Promise(r => setTimeout(r, 80));
+    if (type !== 'v-candidates' && type !== 'v-answer') {
+      await new Promise(r => setTimeout(r, 80));
+    }
     await App.pool.publish(App.relayUrls, signed);
     console.log(`Sent ${type} (video) to ${peer.slice(0,8)}`);
   }
@@ -252,7 +255,7 @@
       const batch = state.candidateQueue.splice(0);
       if (batch.length) sendSignal(peer, 'v-candidates', batch);
       clearTimer();
-    }, 1000);
+    }, 200);
   }
   function clearTimer(){ if (state.candidateTimer){ clearTimeout(state.candidateTimer); state.candidateTimer=null; } }
 
@@ -1056,6 +1059,11 @@
     const opts = options && typeof options === 'object' ? options : {};
     const lookback = Number(opts.lookbackSec) || 0;
     const wantLookback = !!(opts.force || lookback);
+    if (wantLookback && !opts.force && state.signalSubscription && (Number(state.videoLookbackUntil) || 0) > Date.now()) {
+      lazyInitDone = true;
+      console.log('Video call: keep existing lookback sub');
+      return;
+    }
     if (lazyInitDone && !wantLookback) {
       autoSubscribeSignals();
       return;
@@ -1071,6 +1079,9 @@
           }
         } catch (_) {}
         subscribeToSignals({ since: Math.floor(Date.now() / 1000) - sec });
+        if (state.signalSubscription) {
+          state.videoLookbackUntil = Date.now() + 60000;
+        }
       } catch (_) {
         autoSubscribeSignals();
       }
