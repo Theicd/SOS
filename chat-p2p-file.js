@@ -16,6 +16,8 @@
   
   const CHUNK_SIZE = 64 * 1024; // 64KB — בטוח ל-WebRTC במובייל (256KB נחסם/נופל ב-SCTP)
   const MAX_BUFFERED_AMOUNT = 512 * 1024; // 512KB buffer limit
+  const MAX_IN_FLIGHT = 4; // חלון שליחה: עד 4 צ'אנקים לא מאושרים
+  const PROGRESS_UI_MIN_MS = 250; // throttle ל-UI בלבד, לא לפרוטוקול
   const ACK_INTERVAL = 10; // Send ACK every 10 chunks
   const TRANSFER_TIMEOUT = 30000; // 30s timeout for stalled transfers
   // לא אותו דבר כמו "זמן חיבור WebRTC" — אלה חלונות לזיהוי תקיעה לפני resend (מפחית false-positive על רשת איטית / סיגנלינג איטי)
@@ -87,6 +89,33 @@
         console.warn('P2P progress listener failed', err);
       }
     });
+  }
+
+  function emitTransferProgress(transfer, onProgress, payload) {
+    const st = payload && payload.status;
+    const terminal = st === 'complete' || st === 'failed' || st === 'cancelled' || st === 'verified' || st === 'complete-blossom';
+    const now = Date.now();
+    if (!terminal && transfer && (st === 'sending' || st === 'receiving')) {
+      if (transfer._lastProgressUiAt && (now - transfer._lastProgressUiAt) < PROGRESS_UI_MIN_MS) {
+        transfer._pendingProgressUi = { onProgress, payload };
+        if (!transfer._progressUiTimer) {
+          transfer._progressUiTimer = setTimeout(() => {
+            transfer._progressUiTimer = null;
+            const pending = transfer._pendingProgressUi;
+            transfer._pendingProgressUi = null;
+            if (!pending || !transfer || transfer.completed || transfer.paused) return;
+            emitTransferProgress(transfer, pending.onProgress, pending.payload);
+          }, PROGRESS_UI_MIN_MS);
+        }
+        return;
+      }
+    }
+    if (transfer) {
+      transfer._lastProgressUiAt = now;
+      transfer._pendingProgressUi = null;
+    }
+    if (typeof onProgress === 'function') onProgress(payload);
+    notifyProgress(payload);
   }
   const dataChannels = new Map(); // peerPubkey -> RTCDataChannel
   // חלק buffer chunks (chat-p2p-file.js) – שמירת chunks שמגיעים לפני ה-file-offer (race condition fix) | HYPER CORE TECH
@@ -180,6 +209,82 @@
   }
 
   const sendCompletedFileIds = new Set();
+
+  function ensureSendWindowState(transfer) {
+    if (!transfer) return;
+    if (!(transfer.ackedChunks instanceof Set)) transfer.ackedChunks = new Set();
+    if (!(transfer.inFlightChunks instanceof Set)) transfer.inFlightChunks = new Set();
+    if (typeof transfer.nextChunkToSend !== 'number') {
+      transfer.nextChunkToSend = typeof transfer.currentChunk === 'number' ? transfer.currentChunk : 0;
+    }
+    if (typeof transfer.sendGeneration !== 'number') transfer.sendGeneration = 0;
+    if (typeof transfer.maxInFlightSeen !== 'number') transfer.maxInFlightSeen = 0;
+    transfer.currentChunk = transfer.nextChunkToSend;
+  }
+
+  function inFlightCount(transfer) {
+    return transfer && transfer.inFlightChunks ? transfer.inFlightChunks.size : 0;
+  }
+
+  function allSendChunksAcked(transfer) {
+    if (!transfer || !transfer.ackedChunks) return false;
+    return transfer.ackedChunks.size >= transfer.totalChunks
+      && transfer.nextChunkToSend >= transfer.totalChunks
+      && inFlightCount(transfer) === 0;
+  }
+
+  function noteMaxInFlight(transfer) {
+    const n = inFlightCount(transfer);
+    if (n > (transfer.maxInFlightSeen || 0)) transfer.maxInFlightSeen = n;
+    qaNote('in-flight', { fileId: transfer.fileId, count: n, max: transfer.maxInFlightSeen });
+  }
+
+  function applySendRewind(transfer, fromChunk) {
+    const from = Math.max(0, fromChunk);
+    transfer.sendGeneration = (transfer.sendGeneration || 0) + 1;
+    transfer.nextChunkToSend = from;
+    transfer.currentChunk = from;
+    transfer.lastAckedChunk = from - 1;
+    if (transfer.inFlightChunks) transfer.inFlightChunks.clear();
+    if (transfer.ackedChunks) {
+      for (const idx of [...transfer.ackedChunks]) {
+        if (idx >= from) transfer.ackedChunks.delete(idx);
+      }
+      for (let i = 0; i < from; i++) transfer.ackedChunks.add(i);
+    }
+    if (transfer._ackTimeout) {
+      clearTimeout(transfer._ackTimeout);
+      transfer._ackTimeout = null;
+    }
+    qaNote('send-generation', { fileId: transfer.fileId, generation: transfer.sendGeneration, fromChunk: from });
+  }
+
+  function armAckTimeout(fileId, transfer, peerKey) {
+    if (transfer._ackTimeout) {
+      clearTimeout(transfer._ackTimeout);
+      transfer._ackTimeout = null;
+    }
+    if (transfer.completed || inFlightCount(transfer) === 0) return;
+    transfer._ackTimeout = setTimeout(() => {
+      const t = activeTransfers.get(fileId);
+      if (!t || t.direction !== 'send' || t.completed) return;
+      if (!t.inFlightChunks || t.inFlightChunks.size === 0) return;
+      const oldest = Math.min(...t.inFlightChunks);
+      console.warn(`[CHAT/P2P] ⏱️ chunk-ack timeout (chunk ${oldest}), שולח שוב...`);
+      applySendRewind(t, oldest);
+      notifyProgress({
+        fileId,
+        progress: Math.max(0, t.nextChunkToSend / t.totalChunks),
+        status: 'resending',
+        direction: 'send',
+        name: t.file?.name,
+        size: t.file?.size,
+        mimeType: t.file?.type,
+        peerPubkey: peerKey
+      });
+      sendNextChunk(fileId, t._onProgress);
+    }, Math.max(15000, CHUNK_STALL_WAIT_SEC * 1000 + 4000));
+  }
 
   // חלק MIME קבצים (chat-p2p-file.js) – השלמת MIME לפי שם קובץ כדי שתצוגת מדיה ב-P2P תעבוד כמו Blossom | HYPER CORE TECH
   function resolveMimeType(mimeType, fileName) {
@@ -436,6 +541,11 @@
       _sendInFlight: false,
       _sendQueued: false,
       _dcOfferSent: false,
+      nextChunkToSend: 0,
+      inFlightChunks: new Set(),
+      ackedChunks: new Set(),
+      sendGeneration: 0,
+      maxInFlightSeen: 0,
     };
     
     activeTransfers.set(fileId, transfer);
@@ -584,29 +694,25 @@
     const { file, key, peerPubkey, totalChunks } = transfer;
     const peerKey = toPeerKey(peerPubkey);
     if (onProgress) transfer._onProgress = onProgress;
+    ensureSendWindowState(transfer);
 
-    if (transfer.currentChunk >= totalChunks) {
+    if (allSendChunksAcked(transfer)) {
       await completeSendOnce(fileId, transfer, onProgress);
       return;
     }
 
     if (transfer._sendInFlight) {
       transfer._sendQueued = true;
-      qaNote('send-busy', { fileId, currentChunk: transfer.currentChunk });
+      qaNote('send-busy', { fileId, currentChunk: transfer.nextChunkToSend, inFlight: inFlightCount(transfer) });
       return;
     }
 
     transfer._sendInFlight = true;
-    let sentThisInvocation = false;
     let scheduledRetry = false;
-    const chunkIndex = transfer.currentChunk;
     try {
-      if (chunkIndex >= totalChunks) {
-        await completeSendOnce(fileId, transfer, onProgress);
-        return;
+      if (transfer.nextChunkToSend === 0 && inFlightCount(transfer) === 0) {
+        logFileTransport(peerKey, 'p2p-transfer-start');
       }
-
-      if (chunkIndex === 0) logFileTransport(peerKey, 'p2p-transfer-start');
       let channel = transfer.channel && transfer.channel.readyState === 'open'
         ? transfer.channel
         : dataChannels.get(peerKey);
@@ -664,9 +770,9 @@
       if (!channel || channel.readyState !== 'open') {
         if (transfer.dcWaitAttempts < 5) {
           transfer.dcWaitAttempts += 1;
-          const chunkInfo = transfer.currentChunk > 0 ? ` (chunk ${transfer.currentChunk}/${totalChunks})` : '';
+          const chunkInfo = transfer.nextChunkToSend > 0 ? ` (chunk ${transfer.nextChunkToSend}/${totalChunks})` : '';
           console.log(`[CHAT/P2P] ⏳ DC לא פתוח${chunkInfo}, ניסיון ${transfer.dcWaitAttempts}/5...`);
-          if (transfer.currentChunk > 0 && transfer.dcWaitAttempts === 1) {
+          if (transfer.nextChunkToSend > 0 && transfer.dcWaitAttempts === 1) {
             transfer.channel = null;
             try {
               const chatPC = App.dataChannel?.getChatPC?.(peerKey);
@@ -683,7 +789,7 @@
           }
           notifyProgress({
             fileId,
-            progress: transfer.currentChunk / totalChunks,
+            progress: transfer.ackedChunks.size / totalChunks,
             status: 'waiting-peer',
             direction: 'send',
             name: file?.name,
@@ -706,7 +812,7 @@
         return;
       }
 
-      if (chunkIndex === 0 && !transfer._dcOfferSent) {
+      if (transfer.nextChunkToSend === 0 && !transfer._dcOfferSent) {
         try {
           const dcOffer = JSON.stringify({ type: 'file-offer', fileId, name: file.name, size: file.size, mimeType: file.type, keyStr: transfer.keyStr, totalChunks, createdAt: Math.floor((transfer.startTime || Date.now()) / 1000), caption: transfer.caption || undefined });
           channel.send(dcOffer);
@@ -715,94 +821,83 @@
         } catch (e) { console.warn('[CHAT/P2P] file-offer via DC failed:', e.message); }
       }
 
-      if (channel.bufferedAmount > MAX_BUFFERED_AMOUNT) {
-        scheduledRetry = true;
-        setTimeout(() => sendNextChunk(fileId, onProgress), 100);
-        return;
-      }
-
-      if (transfer.currentChunk !== chunkIndex || transfer.completed) {
-        qaNote('send-aborted-rewind', { fileId, captured: chunkIndex, current: transfer.currentChunk });
-        return;
-      }
-
-      const start = chunkIndex * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const raw = await readSliceAsArrayBuffer(file, start, end);
-      const hold = qaHold('before-encrypt', { fileId, chunkIndex });
-      if (hold && typeof hold.then === 'function') await hold;
-      if (transfer.completed || transfer.paused) return;
-      if (transfer.currentChunk !== chunkIndex) {
-        qaNote('send-aborted-rewind', { fileId, captured: chunkIndex, current: transfer.currentChunk });
-        return;
-      }
-
-      const encrypted = await encryptChunk(new Uint8Array(raw), key);
-      if (!encrypted) {
-        console.error('[CHAT/P2P] Encryption failed for chunk', chunkIndex);
-        return;
-      }
-      if (transfer.completed || transfer.paused) return;
-      if (transfer.currentChunk !== chunkIndex) {
-        qaNote('send-aborted-rewind', { fileId, captured: chunkIndex, current: transfer.currentChunk });
-        return;
-      }
-
-      try {
-        channel.send(JSON.stringify({ type: 'chunk-meta', fileId, index: chunkIndex }));
-        channel.send(encrypted);
-        sentThisInvocation = true;
-        qaNote('chunk-sent', { fileId, chunkIndex });
-
-        if (transfer.currentChunk === chunkIndex) {
-          transfer.currentChunk = chunkIndex + 1;
+      while (
+        !transfer.completed &&
+        !transfer.paused &&
+        transfer.nextChunkToSend < totalChunks &&
+        inFlightCount(transfer) < MAX_IN_FLIGHT
+      ) {
+        if (channel.bufferedAmount > MAX_BUFFERED_AMOUNT) {
+          qaNote('buffer-pause', { fileId, bufferedAmount: channel.bufferedAmount, inFlight: inFlightCount(transfer) });
+          scheduledRetry = true;
+          setTimeout(() => sendNextChunk(fileId, onProgress), 100);
+          break;
         }
-        transfer.dcWaitAttempts = 0;
 
-        const progressPayload = {
-          fileId,
-          progress: transfer.currentChunk / totalChunks,
-          status: 'sending',
-          direction: 'send',
-          name: transfer.file?.name,
-          size: transfer.file?.size,
-          mimeType: transfer.file?.type,
-          peerPubkey: peerKey
-        };
-        if (onProgress) {
-          onProgress(progressPayload);
+        const chunkIndex = transfer.nextChunkToSend;
+        const gen = transfer.sendGeneration;
+        if (transfer.ackedChunks.has(chunkIndex) || transfer.inFlightChunks.has(chunkIndex)) {
+          transfer.nextChunkToSend = chunkIndex + 1;
+          transfer.currentChunk = transfer.nextChunkToSend;
+          continue;
         }
-        notifyProgress(progressPayload);
-        if (transfer.currentChunk >= totalChunks) {
-          await completeSendOnce(fileId, transfer, onProgress);
-        } else {
-          transfer._ackTimeout = setTimeout(() => {
-            const t = activeTransfers.get(fileId);
-            if (!t || t.direction !== 'send' || t.completed) return;
-            if (t._sendInFlight) return;
-            const unacked = t.currentChunk - 1;
-            if (unacked < 0 || unacked <= t.lastAckedChunk) return;
-            console.warn(`[CHAT/P2P] ⏱️ chunk-ack timeout (chunk ${unacked}), שולח שוב...`);
-            t.currentChunk = unacked;
-            notifyProgress({
-              fileId,
-              progress: Math.max(0, t.currentChunk / t.totalChunks),
-              status: 'resending',
-              direction: 'send',
-              name: t.file?.name,
-              size: t.file?.size,
-              mimeType: t.file?.type,
-              peerPubkey: peerKey
-            });
-            sendNextChunk(fileId, t._onProgress);
-          }, Math.max(15000, CHUNK_STALL_WAIT_SEC * 1000 + 4000));
+
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const raw = await readSliceAsArrayBuffer(file, start, end);
+        const hold = qaHold('before-encrypt', { fileId, chunkIndex });
+        if (hold && typeof hold.then === 'function') await hold;
+        if (transfer.completed || transfer.paused) break;
+        if (transfer.sendGeneration !== gen || transfer.nextChunkToSend !== chunkIndex) {
+          qaNote('send-aborted-rewind', { fileId, captured: chunkIndex, current: transfer.nextChunkToSend });
+          break;
         }
-      } catch (err) {
-        console.warn('[CHAT/P2P] ⚠️ channel.send נכשל, מאפס channel ומנסה שוב:', err.message);
-        transfer.channel = null;
-        if (dataChannels.get(peerKey) === channel) dataChannels.delete(peerKey);
-        scheduledRetry = true;
-        setTimeout(() => sendNextChunk(fileId, onProgress), 100);
+
+        const encrypted = await encryptChunk(new Uint8Array(raw), key);
+        if (!encrypted) {
+          console.error('[CHAT/P2P] Encryption failed for chunk', chunkIndex);
+          break;
+        }
+        if (transfer.completed || transfer.paused) break;
+        if (transfer.sendGeneration !== gen || transfer.nextChunkToSend !== chunkIndex) {
+          qaNote('send-aborted-rewind', { fileId, captured: chunkIndex, current: transfer.nextChunkToSend });
+          break;
+        }
+
+        try {
+          channel.send(JSON.stringify({ type: 'chunk-meta', fileId, index: chunkIndex }));
+          channel.send(encrypted);
+          transfer.inFlightChunks.add(chunkIndex);
+          transfer.nextChunkToSend = chunkIndex + 1;
+          transfer.currentChunk = transfer.nextChunkToSend;
+          transfer.dcWaitAttempts = 0;
+          noteMaxInFlight(transfer);
+          qaNote('chunk-sent', { fileId, chunkIndex, inFlight: inFlightCount(transfer) });
+
+          emitTransferProgress(transfer, onProgress, {
+            fileId,
+            progress: transfer.ackedChunks.size / totalChunks,
+            status: 'sending',
+            direction: 'send',
+            name: transfer.file?.name,
+            size: transfer.file?.size,
+            mimeType: transfer.file?.type,
+            peerPubkey: peerKey
+          });
+        } catch (err) {
+          console.warn('[CHAT/P2P] ⚠️ channel.send נכשל, מאפס channel ומנסה שוב:', err.message);
+          transfer.channel = null;
+          if (dataChannels.get(peerKey) === channel) dataChannels.delete(peerKey);
+          scheduledRetry = true;
+          setTimeout(() => sendNextChunk(fileId, onProgress), 100);
+          break;
+        }
+      }
+
+      if (allSendChunksAcked(transfer)) {
+        await completeSendOnce(fileId, transfer, onProgress);
+      } else {
+        armAckTimeout(fileId, transfer, peerKey);
       }
     } catch (err) {
       console.warn('[CHAT/P2P] sendNextChunk failed', err);
@@ -810,7 +905,7 @@
       transfer._sendInFlight = false;
       const queued = transfer._sendQueued;
       transfer._sendQueued = false;
-      if (queued && !sentThisInvocation && !scheduledRetry && !transfer.completed && !transfer.paused) {
+      if (queued && !scheduledRetry && !transfer.completed && !transfer.paused) {
         sendNextChunk(fileId, transfer._onProgress);
       }
     }
@@ -847,35 +942,42 @@
             name: msg.name, size: msg.size, peerPubkey: peerKey
           });
         } else if (msg.type === 'chunk-ack') {
-          // חלק chunk-ack handler (chat-p2p-file.js) — ACK אידמפוטנטי: index מתקדם פעם אחת בלבד | HYPER CORE TECH
           const transfer = activeTransfers.get(msg.fileId);
           if (transfer && transfer.direction === 'send') {
             if (transfer.completed) {
               qaNote('chunk-ack-ignored', { fileId: msg.fileId, index: msg.index, reason: 'completed' });
               return;
             }
+            ensureSendWindowState(transfer);
             const ackIndex = typeof msg.index === 'number' ? msg.index : parseInt(msg.index, 10);
             if (!Number.isFinite(ackIndex)) {
               qaNote('chunk-ack-ignored', { fileId: msg.fileId, index: msg.index, reason: 'invalid' });
               return;
             }
-            if (typeof transfer.lastAckedChunk !== 'number') transfer.lastAckedChunk = -1;
-            if (ackIndex <= transfer.lastAckedChunk) {
+            if (transfer.ackedChunks.has(ackIndex)) {
               qaNote('chunk-ack-ignored', { fileId: msg.fileId, index: ackIndex, reason: 'duplicate-or-stale' });
-              mediaDebugLog('chunk-ack stale/ignore', { fileId: msg.fileId, got: ackIndex, lastAcked: transfer.lastAckedChunk, cur: transfer.currentChunk });
               return;
             }
-            const expected = transfer.currentChunk - 1;
-            if (ackIndex !== expected) {
-              qaNote('chunk-ack-ignored', { fileId: msg.fileId, index: ackIndex, reason: 'not-expected', expected });
-              mediaDebugLog('chunk-ack stale/ignore', { fileId: msg.fileId, got: ackIndex, expected, cur: transfer.currentChunk });
+            if (!transfer.inFlightChunks.has(ackIndex)) {
+              qaNote('chunk-ack-ignored', { fileId: msg.fileId, index: ackIndex, reason: 'not-in-flight' });
+              mediaDebugLog('chunk-ack stale/ignore', { fileId: msg.fileId, got: ackIndex, inFlight: [...transfer.inFlightChunks], next: transfer.nextChunkToSend });
               return;
             }
-            transfer.lastAckedChunk = ackIndex;
-            if (transfer._ackTimeout) { clearTimeout(transfer._ackTimeout); transfer._ackTimeout = null; }
+            transfer.inFlightChunks.delete(ackIndex);
+            transfer.ackedChunks.add(ackIndex);
+            while (transfer.ackedChunks.has(transfer.lastAckedChunk + 1)) {
+              transfer.lastAckedChunk += 1;
+            }
             preferDataChannel(peerKey, sourceChannel);
-            qaNote('chunk-ack-accepted', { fileId: msg.fileId, index: ackIndex });
-            console.log(`[CHAT/P2P] ✅ chunk-ack ${ackIndex} → שולח chunk ${transfer.currentChunk}/${transfer.totalChunks}`);
+            qaNote('chunk-ack-accepted', { fileId: msg.fileId, index: ackIndex, inFlight: inFlightCount(transfer), acked: transfer.ackedChunks.size });
+            if (ackIndex === 0 || ackIndex + 1 === transfer.totalChunks || ackIndex % 10 === 0) {
+              console.log(`[CHAT/P2P] ✅ chunk-ack ${ackIndex} → inFlight ${inFlightCount(transfer)}/${MAX_IN_FLIGHT} acked ${transfer.ackedChunks.size}/${transfer.totalChunks}`);
+            }
+            if (allSendChunksAcked(transfer)) {
+              completeSendOnce(msg.fileId, transfer, transfer._onProgress);
+              return;
+            }
+            armAckTimeout(msg.fileId, transfer, peerKey);
             sendNextChunk(msg.fileId, transfer._onProgress);
           }
         } else if (msg.type === 'ack') {
@@ -1016,7 +1118,7 @@
         }
 
         // התקדמות לקבלה
-        notifyProgress({
+        emitTransferProgress(transfer, null, {
           fileId,
           progress: transfer.receivedChunks / transfer.totalChunks,
           status: 'receiving',
@@ -1075,19 +1177,14 @@
           qaNote('resend-ignored-completed', { fileId });
           return;
         }
+        ensureSendWindowState(t);
         const hasFrom = msg.fromChunk !== undefined && msg.fromChunk !== null && msg.type === 'file-resend-request';
         const fromChunk = hasFrom ? Math.max(0, parseInt(msg.fromChunk, 10) || 0) : null;
-        if (hasFrom && fromChunk !== null && fromChunk < t.currentChunk) {
-          if (t._ackTimeout) { clearTimeout(t._ackTimeout); t._ackTimeout = null; }
-          t.currentChunk = fromChunk;
-          t.lastAckedChunk = fromChunk - 1;
+        if (hasFrom && fromChunk !== null && fromChunk < t.nextChunkToSend) {
+          applySendRewind(t, fromChunk);
           t.dcWaitAttempts = 0;
-          qaNote('resend-rewind', { fileId, fromChunk });
+          qaNote('resend-rewind', { fileId, fromChunk, generation: t.sendGeneration });
           console.log('[CHAT/P2P] 🔄 resend באמצע שליחה — חוזרים ל-chunk', fromChunk, fileId);
-          if (t._sendInFlight) {
-            t._sendQueued = true;
-            return;
-          }
           sendNextChunk(fileId, t._onProgress);
           return;
         }
@@ -1137,6 +1234,11 @@
       _sendInFlight: false,
       _sendQueued: false,
       _dcOfferSent: fromChunk > 0,
+      nextChunkToSend: fromChunk,
+      inFlightChunks: new Set(),
+      ackedChunks: new Set(Array.from({ length: fromChunk }, (_, i) => i)),
+      sendGeneration: 1,
+      maxInFlightSeen: 0,
     };
     activeTransfers.set(fileId, transfer);
     notifyProgress({ fileId, progress: fromChunk / totalChunks, status: 'resending', direction: 'send', name: file.name, size: file.size, mimeType: file.type, peerPubkey: peerKey });
@@ -1367,7 +1469,10 @@
     try {
       // בדיקה אם יש SOS2MediaCache זמין
       if (typeof App.SOS2MediaCache === 'undefined' || !App.SOS2MediaCache) {
-        console.log('[CHAT/P2P] IndexedDB cache לא זמין, דילוג על שמירה');
+        if (!transfer._idbSkipLogged) {
+          transfer._idbSkipLogged = true;
+          console.log('[CHAT/P2P] IndexedDB cache לא זמין, דילוג על שמירה');
+        }
         return;
       }
       
@@ -1881,7 +1986,7 @@
     // 2. active transfers
     console.log(`📦 Active transfers: ${activeTransfers.size}`);
     for (const [fid, t] of activeTransfers) {
-      console.log(`  ${t.direction} ${fid.slice(0,20)} type=${t.mimeType || t.file?.type || 'unknown'} size=${t.size || t.file?.size || 0} — chunk ${t.direction === 'send' ? t.currentChunk : t.receivedChunks}/${t.totalChunks}, channel: ${t.channel?.readyState || 'null'}`);
+      console.log(`  ${t.direction} ${fid.slice(0,20)} type=${t.mimeType || t.file?.type || 'unknown'} size=${t.size || t.file?.size || 0} — chunk ${t.direction === 'send' ? (t.ackedChunks ? t.ackedChunks.size : t.currentChunk) : t.receivedChunks}/${t.totalChunks} inFlight=${t.inFlightChunks ? t.inFlightChunks.size : 0}, channel: ${t.channel?.readyState || 'null'}`);
     }
     // 3. recent completed
     console.log(`💾 Recent completed files (resend cache): ${recentCompletedFiles.size}`);
@@ -1905,9 +2010,9 @@
         clearTimeout(transfer._resendTimer);
         transfer._resendTimer = null;
       }
-      if (transfer._resendTimer2) {
-        clearTimeout(transfer._resendTimer2);
-        transfer._resendTimer2 = null;
+      if (transfer._progressUiTimer) {
+        clearTimeout(transfer._progressUiTimer);
+        transfer._progressUiTimer = null;
       }
       const name = transfer.name || transfer.file?.name || 'קובץ';
       const size = transfer.size || transfer.file?.size || 0;
@@ -1942,6 +2047,7 @@
     sendP2PFile: sendFile,
     cancelP2PFile,
     P2P_FILE_CHUNK_SIZE: CHUNK_SIZE,
+    P2P_FILE_MAX_IN_FLIGHT: MAX_IN_FLIGHT,
     getOrCreateFileDataChannel: getOrCreateDataChannel,
     onFileDataChannel,
     activeP2PTransfers: activeTransfers,
@@ -1957,6 +2063,7 @@
       handleIncomingMessage,
       attachCanonicalFileHandler,
       completeSendOnce,
+      MAX_IN_FLIGHT,
     },
     subscribeP2PFileProgress: (cb) => {
       if (typeof cb === 'function') {

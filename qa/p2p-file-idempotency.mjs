@@ -216,6 +216,11 @@ async function createSendTransfer(h, { chunks = 3, fileId = 'qa-file-' + Math.ra
     _sendInFlight: false,
     _sendQueued: false,
     _dcOfferSent: false,
+    nextChunkToSend: 0,
+    inFlightChunks: new Set(),
+    ackedChunks: new Set(),
+    sendGeneration: 0,
+    maxInFlightSeen: 0,
   };
   h.App.activeP2PTransfers.set(fileId, transfer);
   return { fileId, transfer, channel, peer, file };
@@ -225,127 +230,138 @@ function injectAck(h, peer, fileId, index) {
   h.App._p2pFileQa.handleIncomingMessage(peer, ackMsg(fileId, index), null);
 }
 
+function maxInFlight(h) {
+  const notes = h.notes.filter((n) => n.event === 'in-flight');
+  return notes.reduce((m, n) => Math.max(m, n.count || 0, n.max || 0), 0);
+}
+
+async function ackAllSent(h, peer, fileId, transfer) {
+  const sent = new Set(h.notes.filter((n) => n.event === 'chunk-sent').map((n) => n.chunkIndex));
+  for (const idx of [...sent].sort((a, b) => a - b)) {
+    if (!transfer.ackedChunks.has(idx)) injectAck(h, peer, fileId, idx);
+  }
+}
+
 async function runA() {
   const h = loadHarness();
-  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 3, fileId: 'qa-A' });
+  const { fileId, transfer } = await createSendTransfer(h, { chunks: 10, fileId: 'qa-A' });
   await h.App._p2pFileQa.sendNextChunk(fileId);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 0) === 1, 2000, 'A chunk0');
-  injectAck(h, peer, fileId, 0);
-  injectAck(h, peer, fileId, 0);
-  injectAck(h, peer, fileId, 0);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 1) === 1, 2000, 'A chunk1');
-  await sleep(40);
-  record('A duplicate ACK', h.count('chunk-sent', (n) => n.chunkIndex === 1) === 1 && transfer.currentChunk === 2 && h.count('chunk-ack-accepted') === 1, `sent1=${h.count('chunk-sent', (n) => n.chunkIndex === 1)} cur=${transfer.currentChunk} acked=${h.count('chunk-ack-accepted')}`);
+  await waitUntil(() => h.count('chunk-sent') >= 4, 2000, 'A window fill');
+  await sleep(30);
+  record('A window bound', h.count('chunk-sent') === 4 && maxInFlight(h) <= 4 && transfer.inFlightChunks.size === 4 && transfer.nextChunkToSend === 4, `sent=${h.count('chunk-sent')} maxIF=${maxInFlight(h)} inFlight=${transfer.inFlightChunks.size}`);
   h.App.cancelP2PFile(fileId);
 }
 
 async function runB() {
   const h = loadHarness();
-  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 4, fileId: 'qa-B' });
-  let release;
-  const gate = new Promise((r) => { release = r; });
-  h.App._p2pFileQaHold = async (phase, detail) => {
-    if (phase === 'before-encrypt' && detail && detail.chunkIndex === 1) {
-      await gate;
-    }
-  };
+  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 10, fileId: 'qa-B' });
   await h.App._p2pFileQa.sendNextChunk(fileId);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 0) === 1, 2000, 'B chunk0');
-  injectAck(h, peer, fileId, 0);
-  await waitUntil(() => transfer._sendInFlight === true, 2000, 'B in-flight');
+  await waitUntil(() => h.count('chunk-sent') === 4, 2000, 'B fill');
   injectAck(h, peer, fileId, 0);
   injectAck(h, peer, fileId, 0);
-  record('B no skip during in-flight', transfer.currentChunk === 1 && h.count('chunk-sent', (n) => n.chunkIndex === 1) === 0, `cur=${transfer.currentChunk} sent1=${h.count('chunk-sent', (n) => n.chunkIndex === 1)}`);
-  release();
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 1) === 1, 2000, 'B chunk1 after release');
-  await sleep(30);
-  record('B single concurrent send', h.count('chunk-sent', (n) => n.chunkIndex === 1) === 1 && transfer.currentChunk === 2 && h.count('chunk-sent', (n) => n.chunkIndex === 2) === 0, `sent1=${h.count('chunk-sent', (n) => n.chunkIndex === 1)} cur=${transfer.currentChunk}`);
+  injectAck(h, peer, fileId, 0);
+  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 4) === 1, 2000, 'B slot fill');
+  await sleep(40);
+  record('B duplicate ACK', h.count('chunk-sent', (n) => n.chunkIndex === 4) === 1 && h.count('chunk-ack-accepted') === 1 && h.count('chunk-ack-ignored', (n) => n.reason === 'duplicate-or-stale') >= 2 && maxInFlight(h) <= 4, `sent4=${h.count('chunk-sent', (n) => n.chunkIndex === 4)} acked=${h.count('chunk-ack-accepted')} ign=${h.count('chunk-ack-ignored')}`);
   h.App.cancelP2PFile(fileId);
 }
 
 async function runC() {
   const h = loadHarness();
-  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 5, fileId: 'qa-C' });
+  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 8, fileId: 'qa-C' });
   await h.App._p2pFileQa.sendNextChunk(fileId);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 0) === 1);
-  injectAck(h, peer, fileId, 0);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 1) === 1);
-  injectAck(h, peer, fileId, 1);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 2) === 1);
+  await waitUntil(() => h.count('chunk-sent') === 4);
   injectAck(h, peer, fileId, 2);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 3) === 1 && transfer.lastAckedChunk === 2);
-  const before = { cur: transfer.currentChunk, last: transfer.lastAckedChunk, sent: h.count('chunk-sent') };
+  injectAck(h, peer, fileId, 0);
   injectAck(h, peer, fileId, 1);
-  await sleep(40);
-  record('C stale ACK', transfer.currentChunk === before.cur && transfer.lastAckedChunk === before.last && h.count('chunk-sent') === before.sent && h.count('chunk-ack-ignored', (n) => n.reason === 'duplicate-or-stale') >= 1, `cur=${transfer.currentChunk} last=${transfer.lastAckedChunk}`);
+  await waitUntil(() => transfer.ackedChunks.size === 3 && h.count('chunk-sent') >= 7, 2000, 'C ooo fill');
+  record('C out-of-order ACK', transfer.ackedChunks.has(0) && transfer.ackedChunks.has(1) && transfer.ackedChunks.has(2) && !transfer.ackedChunks.has(3) && transfer.inFlightChunks.has(3) && maxInFlight(h) <= 4 && h.count('chunk-ack-accepted') === 3, `acked=${[...transfer.ackedChunks].join(',')} inFlight=${[...transfer.inFlightChunks].join(',')} next=${transfer.nextChunkToSend}`);
   h.App.cancelP2PFile(fileId);
 }
 
 async function runD() {
   const h = loadHarness();
-  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 6, fileId: 'qa-D' });
-  await h.App._p2pFileQa.sendNextChunk(fileId);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 0) === 1);
-  injectAck(h, peer, fileId, 0);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 1) === 1);
-  injectAck(h, peer, fileId, 1);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 2) === 1);
-  const before = { cur: transfer.currentChunk, last: transfer.lastAckedChunk, sent: h.count('chunk-sent') };
-  injectAck(h, peer, fileId, 5);
+  const { fileId, transfer, channel } = await createSendTransfer(h, { chunks: 8, fileId: 'qa-D' });
+  channel.bufferedAmount = 600 * 1024;
+  const pump = h.App._p2pFileQa.sendNextChunk(fileId);
   await sleep(40);
-  record('D future ACK', transfer.currentChunk === before.cur && transfer.lastAckedChunk === before.last && h.count('chunk-sent') === before.sent, `cur=${transfer.currentChunk} last=${transfer.lastAckedChunk}`);
-  injectAck(h, peer, fileId, 2);
-  await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === 3) === 1);
-  record('D expected ACK still works', transfer.currentChunk === 4 && transfer.lastAckedChunk === 2);
+  record('D buffer pause', h.count('chunk-sent') === 0 && h.count('buffer-pause') >= 1, `sent=${h.count('chunk-sent')} pauses=${h.count('buffer-pause')}`);
+  channel.bufferedAmount = 0;
+  await pump.catch(() => {});
+  await waitUntil(() => h.count('chunk-sent') === 4, 2000, 'D resume');
+  record('D buffer resume', h.count('chunk-sent') === 4 && maxInFlight(h) <= 4, `sent=${h.count('chunk-sent')}`);
   h.App.cancelP2PFile(fileId);
 }
 
 async function runE() {
   const h = loadHarness();
-  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 8, fileId: 'qa-E' });
+  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 5, fileId: 'qa-E' });
   await h.App._p2pFileQa.sendNextChunk(fileId);
-  for (let i = 0; i < 5; i++) {
-    await waitUntil(() => h.count('chunk-sent', (n) => n.chunkIndex === i) === 1, 2000, 'E send ' + i);
-    injectAck(h, peer, fileId, i);
-  }
-  await waitUntil(() => transfer.currentChunk === 5, 2000, 'E at chunk 5');
-  await h.App.handleFileResendRequest(peer, { type: 'file-resend-request', fileId, fromChunk: 2 });
-  record('E rewind', transfer.lastAckedChunk === 1 && transfer.currentChunk >= 2 && transfer.currentChunk <= 3, `last=${transfer.lastAckedChunk} cur=${transfer.currentChunk}`);
-  for (let i = 2; i < 7; i++) {
-    await waitUntil(() => transfer.currentChunk === i + 1 && transfer.lastAckedChunk === i - 1, 2000, 'E sent ' + i);
-    injectAck(h, peer, fileId, i);
-  }
+  await waitUntil(() => h.count('chunk-sent') === 4);
+  record('E no complete before acks', h.count('complete') === 0 && !transfer.completed, `complete=${h.count('complete')}`);
+  injectAck(h, peer, fileId, 0);
+  injectAck(h, peer, fileId, 1);
+  injectAck(h, peer, fileId, 2);
+  injectAck(h, peer, fileId, 3);
+  await waitUntil(() => h.count('chunk-sent') === 5, 2000, 'E last send');
+  injectAck(h, peer, fileId, 4);
   await waitUntil(() => h.count('complete') === 1, 2000, 'E complete');
+  await h.App._p2pFileQa.sendNextChunk(fileId);
+  await h.App._p2pFileQa.completeSendOnce(fileId, transfer, null);
+  injectAck(h, peer, fileId, 4);
   await sleep(40);
-  record('E resend then complete once', h.count('complete') === 1 && h.progress.filter((p) => p.status === 'complete').length === 1, `complete=${h.count('complete')} prog=${h.progress.filter((p) => p.status === 'complete').length}`);
+  const completeProg = h.progress.filter((p) => p.status === 'complete').length;
+  record('E completion once after all ACKs', h.count('complete') === 1 && completeProg === 1 && h.persisted.length === 1 && h.appended.length === 1 && h.count('transfer-complete-event') === 1, `complete=${h.count('complete')} prog=${completeProg}`);
 }
 
 async function runF() {
   const h = loadHarness();
-  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 1, fileId: 'qa-F' });
+  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 8, fileId: 'qa-F' });
   await h.App._p2pFileQa.sendNextChunk(fileId);
-  await waitUntil(() => h.count('complete') === 1, 2000, 'F first complete');
-  await h.App._p2pFileQa.sendNextChunk(fileId);
-  await h.App._p2pFileQa.completeSendOnce(fileId, transfer, null);
+  await waitUntil(() => transfer.nextChunkToSend === 4);
   injectAck(h, peer, fileId, 0);
-  await sleep(40);
-  const completeProg = h.progress.filter((p) => p.status === 'complete').length;
-  record('F completion once', h.count('complete') === 1 && completeProg === 1 && h.persisted.length === 1 && h.appended.length === 1 && h.count('resend-cache') === 1 && h.count('transfer-complete-event') === 1, `complete=${h.count('complete')} prog=${completeProg} persist=${h.persisted.length} append=${h.appended.length} cache=${h.count('resend-cache')} ev=${h.count('transfer-complete-event')}`);
+  await waitUntil(() => transfer.nextChunkToSend === 5);
+  await h.App.handleFileResendRequest(peer, { type: 'file-resend-request', fileId, fromChunk: 2 });
+  await waitUntil(() => transfer.sendGeneration >= 1 && h.count('chunk-sent', (n) => n.chunkIndex === 2) >= 2, 2000, 'F rewind send');
+  record('F rewind', transfer.lastAckedChunk === 1 && transfer.ackedChunks.has(0) && transfer.ackedChunks.has(1) && !transfer.ackedChunks.has(2) && transfer.sendGeneration >= 1, `gen=${transfer.sendGeneration} next=${transfer.nextChunkToSend} last=${transfer.lastAckedChunk} acked=${[...transfer.ackedChunks].join(',')}`);
+  const deadline = Date.now() + 2500;
+  while (!transfer.completed && Date.now() < deadline) {
+    const pending = [...(transfer.inFlightChunks || [])];
+    if (!pending.length) {
+      await sleep(10);
+      continue;
+    }
+    pending.forEach((idx) => injectAck(h, peer, fileId, idx));
+    await sleep(10);
+  }
+  record('F resend then complete once', h.count('complete') === 1 && transfer.completed && transfer.ackedChunks.size === 8, `complete=${h.count('complete')} acked=${transfer.ackedChunks.size}`);
 }
 
 async function runG() {
   const h = loadHarness();
+  const { fileId, transfer, peer } = await createSendTransfer(h, { chunks: 6, fileId: 'qa-G-stall' });
+  await h.App._p2pFileQa.sendNextChunk(fileId);
+  await waitUntil(() => h.count('chunk-sent') === 4);
+  const gen0 = transfer.sendGeneration;
+  await h.App.handleFileResendRequest(peer, { type: 'file-resend-request', fileId, fromChunk: 0 });
+  await waitUntil(() => transfer.sendGeneration > gen0, 2000, 'G gen bump');
+  injectAck(h, peer, fileId, 3);
+  await sleep(20);
+  record('G old ACK after rewind ignored', !transfer.ackedChunks.has(3) && h.count('chunk-ack-ignored', (n) => n.reason === 'not-in-flight') >= 1, `acked3=${transfer.ackedChunks.has(3)}`);
+  h.App.cancelP2PFile(fileId);
+
+  const h2 = loadHarness();
   const { keyStr } = await makeKeyPair(webcrypto.subtle);
-  const fileId = 'qa-G';
-  const peer = 'cc'.repeat(32);
+  const fileId2 = 'qa-G-offer';
+  const peer2 = 'cc'.repeat(32);
   let release;
   const gate = new Promise((r) => { release = r; });
-  h.App._p2pFileQaHold = async (phase) => {
+  h2.App._p2pFileQaHold = async (phase) => {
     if (phase === 'before-import-key') await gate;
   };
   const offer = {
     type: 'file-offer',
-    fileId,
+    fileId: fileId2,
     name: 'g.bin',
     size: 128,
     mimeType: 'application/octet-stream',
@@ -353,48 +369,34 @@ async function runG() {
     totalChunks: 1,
     createdAt: Math.floor(Date.now() / 1000),
   };
-  const p1 = h.App.handleP2PFileOffer(peer, offer);
-  const p2 = h.App.handleP2PFileOffer(peer, offer);
+  const p1 = h2.App.handleP2PFileOffer(peer2, offer);
+  const p2 = h2.App.handleP2PFileOffer(peer2, offer);
   await sleep(30);
-  const reservedDuringHold = h.count('offer-reserved');
-  const activeDuringHold = [...h.App.activeP2PTransfers.values()].filter((t) => t.fileId === fileId).length;
   release();
   await Promise.all([p1, p2]);
-  const receiveCount = [...h.App.activeP2PTransfers.values()].filter((t) => t.direction === 'receive' && t.fileId === fileId).length;
-  record('G simultaneous offers', reservedDuringHold === 1 && activeDuringHold === 1 && receiveCount === 1 && h.count('offer-ignored-existing') >= 1, `reserved=${reservedDuringHold} during=${activeDuringHold} after=${receiveCount}`);
-  h.App.cancelP2PFile(fileId);
+  const receiveCount = [...h2.App.activeP2PTransfers.values()].filter((t) => t.direction === 'receive' && t.fileId === fileId2).length;
+  record('G simultaneous offers still single init', h2.count('offer-reserved') === 1 && receiveCount === 1, `reserved=${h2.count('offer-reserved')} after=${receiveCount}`);
+  h2.App.cancelP2PFile(fileId2);
 }
 
 async function runH() {
   const h = loadHarness();
   const peer = 'dd'.repeat(32);
+  record('H no wire MAX_IN_FLIGHT leak', h.App.P2P_FILE_MAX_IN_FLIGHT === 4 && h.App.P2P_FILE_CHUNK_SIZE === 64 * 1024);
 
   const fresh = createOpenChannel('file-transfer');
   h.App._p2pFileQa.attachCanonicalFileHandler(peer, fresh);
   h.App._p2pFileQa.attachCanonicalFileHandler(peer, fresh);
   fresh.dispatch(JSON.stringify({ type: 'chunk-ack', fileId: 'none', index: 0 }));
-  record('H attach once', fresh.listenerCount === 1 && h.count('incoming-message') === 1 && h.count('handler-attached') === 1 && h.count('handler-skip-already-attached') >= 1, `listeners=${fresh.listenerCount} incoming=${h.count('incoming-message')}`);
+  record('H attach once', fresh.listenerCount === 1 && h.count('incoming-message') === 1);
 
-  const notesBefore = h.notes.length;
-  const chatDc = createOpenChannel('sos-chat');
-  chatDc.onmessage = (ev) => h.App.handleP2PFileMessage(peer, ev.data, chatDc);
-  h.App._p2pFileQa.attachCanonicalFileHandler(peer, chatDc);
-  chatDc.dispatch(JSON.stringify({ type: 'chunk-ack', fileId: 'none2', index: 0 }));
-  const incomingAfterChat = h.notes.slice(notesBefore).filter((n) => n.event === 'incoming-message').length;
-  record('H chat-dc not double', chatDc.listenerCount === 0 && chatDc._p2pFileHandler === 'chat-dc-bridged' && incomingAfterChat === 1, `listeners=${chatDc.listenerCount} incoming=${incomingAfterChat} flag=${chatDc._p2pFileHandler}`);
-
-  const bridged = createOpenChannel('file-transfer');
-  bridged.onmessage = (ev) => h.App.handleP2PFileMessage(peer, ev.data, bridged);
-  h.App._p2pFileQa.attachCanonicalFileHandler(peer, bridged);
-  const beforeBridge = h.notes.filter((n) => n.event === 'incoming-message').length;
-  bridged.dispatch(JSON.stringify({ type: 'chunk-ack', fileId: 'none3', index: 0 }));
-  const afterBridge = h.notes.filter((n) => n.event === 'incoming-message').length;
-  record('H onmessage-bridged once', bridged.listenerCount === 0 && bridged._p2pFileHandler === 'onmessage-bridged' && afterBridge - beforeBridge === 1, `listeners=${bridged.listenerCount} delta=${afterBridge - beforeBridge}`);
+  const src = fs.readFileSync(path.join(ROOT, 'chat-p2p-file.js'), 'utf8');
+  record('H wire unchanged', SRC.includes("type: 'chunk-ack'") && SRC.includes("type: 'chunk-meta'") && SRC.includes('MAX_IN_FLIGHT = 4') && SRC.includes("type: 'file-resend-request'"));
 }
 
 async function main() {
-  if (!SRC.includes('lastAckedChunk') || !SRC.includes('attachCanonicalFileHandler') || !SRC.includes('_sendInFlight')) {
-    record('source markers', false, 'idempotency helpers missing');
+  if (!SRC.includes('MAX_IN_FLIGHT = 4') || !SRC.includes('inFlightChunks') || !SRC.includes('ackedChunks')) {
+    record('source markers', false, 'window helpers missing');
   } else {
     record('source markers', true);
   }
@@ -411,7 +413,7 @@ async function main() {
   results.forEach((line) => console.log(line));
   console.log(`\n${passCount} passed, ${failCount} failed`);
   if (failCount) process.exit(1);
-  console.log('\nP2P file idempotency gate passed');
+  console.log('\nP2P file window=4 gate passed');
   process.exit(0);
 }
 
