@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v797'; // p2p file prepare pipeline
+  const CACHE_NAME = 'sos-cache-v798'; // opt-in video compression benchmark
   const PRECACHE_URLS = [
     './',
     './videos.html',

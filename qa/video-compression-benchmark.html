@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOS video compression benchmark (QA only)</title>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #eee; margin: 16px; }
+    h1 { font-size: 18px; }
+    label, button, select { font-size: 14px; }
+    button, select, input { margin: 4px 0; }
+    pre, table { background: #1c1c1c; padding: 8px; overflow: auto; font-size: 12px; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #333; padding: 4px 6px; text-align: right; }
+    video { max-width: 100%; max-height: 240px; background: #000; }
+    .row { margin: 8px 0; }
+    .ok { color: #7d7; }
+    .bad { color: #f66; }
+    .warn { color: #fc6; }
+  </style>
+</head>
+<body>
+  <h1>SOS — Video compression benchmark (QA only, not chat)</h1>
+  <p>לא משנה את צינור הצ'אט. FFmpeg-ST מבודד. WebCodecs = probe בלבד.</p>
+  <div class="row">
+    <input id="file" type="file" accept="video/*" />
+  </div>
+  <div class="row">
+    <label>מנוע
+      <select id="engine">
+        <option value="ffmpeg-st">FFmpeg-ST</option>
+        <option value="direct">DirectRecorder reference</option>
+        <option value="canvas">Canvas reference</option>
+      </select>
+    </label>
+    <label>preset
+      <select id="preset">
+        <option value="ultrafast">ultrafast</option>
+        <option value="superfast">superfast</option>
+        <option value="veryfast" selected>veryfast</option>
+      </select>
+    </label>
+  </div>
+  <div class="row">
+    <button id="caps">Capability</button>
+    <button id="wc">WebCodecs status</button>
+    <button id="gate">FFmpeg-ST gate</button>
+    <button id="start">Start Benchmark</button>
+    <button id="stop">Abort</button>
+  </div>
+  <div class="row">
+    <div>Audio: <span id="audioMark">—</span> · Playable: <span id="playMark">—</span></div>
+    <video id="preview" controls playsinline></video>
+  </div>
+  <h2>Metadata</h2>
+  <pre id="meta">אין קובץ</pre>
+  <h2>Capability</h2>
+  <pre id="capsOut">—</pre>
+  <h2>Results</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>engine</th><th>preset</th><th>input</th><th>duration</th>
+        <th>encode sec</th><th>speed</th><th>output</th><th>saving</th>
+        <th>audio</th><th>seek</th><th>playable</th><th>band</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <h2>Raw</h2>
+  <pre id="raw">—</pre>
+
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <script src="../video-compressor.js"></script>
+  <script src="../video-compression-capability.js?v=20260914vbench2"></script>
+  <script src="../video-compression-benchmark.js?v=20260914vbench2"></script>
+  <script>
+    const App = window.NostrApp || {};
+    const fileEl = document.getElementById('file');
+    const metaEl = document.getElementById('meta');
+    const capsOut = document.getElementById('capsOut');
+    const rawEl = document.getElementById('raw');
+    const rows = document.getElementById('rows');
+    const preview = document.getElementById('preview');
+    const audioMark = document.getElementById('audioMark');
+    const playMark = document.getElementById('playMark');
+    let currentFile = null;
+    let previewUrl = '';
+
+    function fmtBytes(n) {
+      if (!n) return '0';
+      if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + ' MB';
+      return (n / 1024).toFixed(1) + ' KB';
+    }
+
+    fileEl.addEventListener('change', async () => {
+      currentFile = fileEl.files && fileEl.files[0];
+      if (!currentFile) { metaEl.textContent = 'אין קובץ'; return; }
+      try {
+        const probe = App.__videoCompressionInternals && App.__videoCompressionInternals.probeVideo;
+        const meta = probe ? await probe(currentFile) : {};
+        const geo = App.computeVideoBenchmarkGeometry(meta.width, meta.height);
+        metaEl.textContent = JSON.stringify({
+          name: currentFile.name,
+          bytes: currentFile.size,
+          type: currentFile.type,
+          duration: meta.duration,
+          width: meta.width,
+          height: meta.height,
+          estimatedMbps: meta.estimatedBps ? (meta.estimatedBps / 1e6).toFixed(2) : null,
+          geometry: geo,
+        }, null, 2);
+      } catch (err) {
+        metaEl.textContent = String(err && err.message || err);
+      }
+    });
+
+    document.getElementById('caps').onclick = () => {
+      const r = App.probeVideoCompressionCapabilities();
+      capsOut.textContent = JSON.stringify(r, null, 2);
+    };
+    document.getElementById('wc').onclick = async () => {
+      const r = await App.benchmarkWebCodecsAvailability();
+      capsOut.textContent = JSON.stringify(r, null, 2);
+    };
+    document.getElementById('gate').onclick = async () => {
+      rawEl.textContent = 'running FFmpeg-ST gate...';
+      const r = await App.proveFFmpegStCompatibility();
+      rawEl.textContent = JSON.stringify(r, null, 2);
+    };
+    document.getElementById('stop').onclick = () => {
+      App.abortVideoCompressionBenchmark();
+    };
+    document.getElementById('start').onclick = async () => {
+      if (!currentFile) { rawEl.textContent = 'choose a file'; return; }
+      rawEl.textContent = 'running...';
+      try {
+        const report = await App.benchmarkVideoCompression(currentFile, {
+          engine: document.getElementById('engine').value,
+          preset: document.getElementById('preset').value,
+          motion: true,
+        });
+        const copy = Object.assign({}, report);
+        delete copy.blob;
+        rawEl.textContent = JSON.stringify(copy, null, 2);
+        const tr = document.createElement('tr');
+        tr.innerHTML = [
+          report.engine,
+          report.preset || '-',
+          fmtBytes(report.source.bytes),
+          (report.source.duration || 0).toFixed(2) + 's',
+          ((report.times.encodeMs || 0) / 1000).toFixed(2),
+          report.speedRatio + 'x',
+          fmtBytes(report.output.bytes),
+          report.savingPct + '%',
+          report.output.audio,
+          report.output.seek,
+          report.output.playable ? 'yes' : 'no',
+          report.performanceBand,
+        ].map((v) => '<td>' + v + '</td>').join('');
+        rows.appendChild(tr);
+        audioMark.textContent = report.output.audio;
+        audioMark.className = report.output.audio === 'PRESENT' ? 'ok' : 'warn';
+        playMark.textContent = report.output.playable ? 'yes' : 'no';
+        playMark.className = report.output.playable ? 'ok' : 'bad';
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        if (report.blob) {
+          previewUrl = URL.createObjectURL(report.blob);
+          preview.src = previewUrl;
+        }
+      } catch (err) {
+        rawEl.textContent = String(err && err.message || err);
+      }
+    };
+  </script>
+</body>
+</html>

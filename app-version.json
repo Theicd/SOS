@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.14-p2pprep1",
-  "buildTime": "2026-09-14T04:50:00+03:00",
-  "notes": "P2P file send prefetch pipeline. Window=4 unchanged. No protocol or 30078 change."
+  "version": "2026.09.14-vbench1",
+  "buildTime": "2026-09-14T06:27:00+03:00",
+  "notes": "Opt-in video compression benchmark only (?videobench=1). Live chat compressor unchanged."
 }

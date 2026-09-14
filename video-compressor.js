@@ -898,6 +898,19 @@
     isVideoCompressionSupported: isSupported,
     loadVideoCompressor: loadFFmpeg,
     normalizeVideoFile,
+    __videoCompressionInternals: {
+      probeVideo,
+      getAdaptiveBitrates,
+      compressWithDirectRecorder,
+      compressWithCanvas,
+      compressWithFFmpeg,
+      shouldPassthrough,
+      isDesktopCaptureSupported,
+      getDeviceInfo,
+      isNativeShell,
+      calculateHash,
+      computeCanvasSize,
+    },
   });
 
   console.log('[COMPRESS] Video compressor module initialized (smart passthrough + shell-safe)');
