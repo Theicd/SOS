@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v798'; // opt-in video compression benchmark
+  const CACHE_NAME = 'sos-cache-v799'; // chat video original file, no chat compress
   const PRECACHE_URLS = [
     './',
     './videos.html',
