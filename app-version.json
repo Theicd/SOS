@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.14-vbench1",
-  "buildTime": "2026-09-14T06:27:00+03:00",
-  "notes": "Opt-in video compression benchmark only (?videobench=1). Live chat compressor unchanged."
+  "version": "2026.09.14-chatvid1",
+  "buildTime": "2026-09-14T14:36:00+03:00",
+  "notes": "Chat video sends original file. Feed/post compression unchanged."
 }

@@ -123,88 +123,17 @@
     return /\.(mp4|m4v|mov|webm|mkv|avi|3gp)$/i.test(file.name || '');
   }
 
-  function reportCompressProgress(peer, compressId, file, stage, percent, previewUrl, caption) {
-    const pct = typeof percent === 'number' ? percent : 0;
-    // לא 'complete' — מונע בועת "נשלח" נפרדת לפני תחילת P2P | HYPER CORE TECH
-    const status =
-      stage === 'failed' ? 'failed'
-      : stage === 'complete' ? 'starting'
-      : 'compressing';
-    if (caption) App.setChatTransferCaption?.(compressId, caption);
-    App.handleP2PProgressUpdate?.({
-      fileId: compressId,
-      progress: Math.max(0, Math.min(1, pct / 100)),
-      status,
-      direction: 'send',
-      name: file?.name || 'video',
-      size: file?.size || 0,
-      mimeType: file?.type || 'video/mp4',
-      previewUrl: previewUrl || undefined,
-      peerPubkey: peer,
-      compressStage: stage,
-      caption: caption || undefined,
-      error: stage === 'failed' ? 'דחיסה נכשלה — שולח מקור' : undefined,
-    });
-  }
-
-  // חלק דחיסה (chat-file-transfer-ui.js) – וידאו בצ'אט עובר compressVideo לפני P2P/Torrent עם בועת התקדמות | HYPER CORE TECH
-  async function maybeCompressVideoForChat(peer, file, previewUrl, caption) {
-    if (!looksLikeVideoFile(file)) return { file, compressId: null };
-    if (typeof App.compressVideo !== 'function') {
-      log('compressVideo לא זמין — שולח מקור');
+  // חלק צ'אט (chat-file-transfer-ui.js) – וידאו פרטי נשלח כקובץ מקור; דחיסה נשארת רק לפיד/קומפוזר | HYPER CORE TECH
+  async function maybeCompressVideoForChat(peer, file) {
+    if (!looksLikeVideoFile(file)) {
       return { file, compressId: null };
     }
-
-    const compressId = `compress-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    registerTransferPreview(compressId, file, previewUrl);
-    if (caption) App.setChatTransferCaption?.(compressId, caption);
-    reportCompressProgress(peer, compressId, file, 'compressing', 2, previewUrl, caption);
-    log('מתחיל דחיסת וידאו לצ׳אט', {
-      name: file.name,
-      sizeMB: (file.size / (1024 * 1024)).toFixed(2),
-      type: file.type,
+    log('וידאו בצ׳אט נשלח כמקור — ללא דחיסה', {
+      name: file && file.name,
+      size: file && file.size,
+      type: file && file.type,
     });
-
-    try {
-      const result = await App.compressVideo(file, (progress) => {
-        reportCompressProgress(
-          peer,
-          compressId,
-          file,
-          progress?.stage === 'finalizing' ? 'compressing' : (progress?.stage || 'compressing'),
-          progress?.percent || 0,
-          previewUrl,
-          caption
-        );
-      });
-
-      reportCompressProgress(peer, compressId, file, 'complete', 99, previewUrl, caption);
-
-      if (!result?.blob) {
-        log('דחיסה ללא blob — שולח מקור');
-        return { file, compressId };
-      }
-
-      const ext = /webm/i.test(result.type || '') ? '.webm' : '.mp4';
-      const base = String(file.name || 'video').replace(/\.[^.]+$/, '');
-      const compressedFile = new File([result.blob], `${base}${ext}`, {
-        type: result.type || 'video/mp4',
-        lastModified: Date.now(),
-      });
-
-      log('דחיסת וידאו לצ׳אט הסתיימה', {
-        method: result.method || 'unknown',
-        reason: result.reason || null,
-        originalMB: (file.size / (1024 * 1024)).toFixed(2),
-        compressedMB: (compressedFile.size / (1024 * 1024)).toFixed(2),
-        ratio: result.compressionRatio,
-      });
-      return { file: compressedFile, compressId };
-    } catch (err) {
-      log('דחיסת וידאו נכשלה — ממשיכים עם מקור', err?.message || err);
-      reportCompressProgress(peer, compressId, file, 'failed', 0, previewUrl, caption);
-      return { file, compressId };
-    }
+    return { file, compressId: null };
   }
 
   async function handleFileSelection(file) {
@@ -227,7 +156,7 @@
     }
     log('בחר קובץ', { name: file.name, size: file.size, type: file.type, hasCaption: !!caption });
 
-    // חלק תצוגה מקומית (chat-file-transfer-ui.js) – blob URL מיידי לתמונה/וידאו (לפני דחיסה/העלאה) | HYPER CORE TECH
+    // חלק תצוגה מקומית (chat-file-transfer-ui.js) – blob URL מיידי לתמונה/וידאו (לפני שליחה) | HYPER CORE TECH
     const isVisualMedia =
       /^image\//i.test(file.type || '') ||
       looksLikeVideoFile(file);
@@ -273,20 +202,38 @@
       });
     }
 
-    // לכידת תקציר מוקדמת מהקובץ המקומי — לפני/במקביל לדחיסה (קריטי לשולח בווב) | HYPER CORE TECH
+    // לכידת תקציר מהקובץ המקומי — לא דחיסה | HYPER CORE TECH
     let earlyPosterPromise = Promise.resolve('');
     if (looksLikeVideoFile(file) && typeof App.capturePosterFromBlob === 'function') {
       earlyPosterPromise = App.capturePosterFromBlob(file, file.type || 'video/mp4').catch(() => '');
     }
 
-    // דחיסת וידאו לפני כל מסלול שליחה (P2P / Torrent / inline)
+    let pipelineVideoId = null;
+    if (looksLikeVideoFile(file)) {
+      pipelineVideoId = `local-video-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      registerTransferPreview(pipelineVideoId, file, localPreviewUrl);
+      if (caption) App.setChatTransferCaption?.(pipelineVideoId, caption);
+      App.handleP2PProgressUpdate?.({
+        fileId: pipelineVideoId,
+        progress: 0.02,
+        status: 'starting',
+        direction: 'send',
+        name: file.name || 'video',
+        size: file.size || 0,
+        mimeType: file.type || 'video/mp4',
+        previewUrl: localPreviewUrl || undefined,
+        peerPubkey: peer,
+        caption: caption || undefined,
+        isFileCard: false,
+      });
+    }
+
+    const originalFile = file;
     const compressResult = await maybeCompressVideoForChat(peer, file, localPreviewUrl, caption);
     file = compressResult?.file || file;
-    let pipelineCompressId = compressResult?.compressId || null;
-
-    // אם אחרי דחיסה יש קובץ חדש — לכוד ממנו (עדיף על המקור) | HYPER CORE TECH
-    if (looksLikeVideoFile(file) && typeof App.capturePosterFromBlob === 'function') {
-      earlyPosterPromise = App.capturePosterFromBlob(file, file.type || 'video/mp4').catch(() => '');
+    if (file !== originalFile) {
+      log('וידאו בצ׳אט הוחלף בניגוד למדיניות — מחזירים מקור');
+      file = originalFile;
     }
 
     const attachPosterToFileId = async (fileId, previewUrl) => {
@@ -306,12 +253,12 @@
       return posterDataUrl || '';
     };
 
-    const adoptCompressBubble = (realFileId) => {
+    const adoptOutgoingBubble = (realFileId) => {
       if (!realFileId) return;
       if (caption) App.setChatTransferCaption?.(realFileId, caption);
-      if (pipelineCompressId && pipelineCompressId !== realFileId) {
-        App.adoptChatTransferBubble?.(pipelineCompressId, realFileId);
-        pipelineCompressId = null;
+      if (pipelineVideoId && pipelineVideoId !== realFileId) {
+        App.adoptChatTransferBubble?.(pipelineVideoId, realFileId);
+        pipelineVideoId = null;
       }
       if (pipelineImageId && pipelineImageId !== realFileId) {
         App.adoptChatTransferBubble?.(pipelineImageId, realFileId);
@@ -321,7 +268,6 @@
         App.adoptChatTransferBubble?.(optimisticFileId, realFileId);
         optimisticFileId = null;
       }
-      // ניקוי שאריות compress שלא אומצו | HYPER CORE TECH
       App.cleanupOrphanCompressTransferBubbles?.();
     };
     
@@ -344,7 +290,7 @@
           });
         }
         const onProgress = (evt) => {
-          if (evt?.fileId) adoptCompressBubble(evt.fileId);
+          if (evt?.fileId) adoptOutgoingBubble(evt.fileId);
           const enriched = {
             ...(evt || {}),
             previewUrl: evt?.previewUrl || previewUrl || undefined,
@@ -367,7 +313,7 @@
         if (!fileId) {
           throw new Error('p2p-send-returned-empty-id');
         }
-        adoptCompressBubble(fileId);
+        adoptOutgoingBubble(fileId);
         const posterDataUrl = await attachPosterToFileId(fileId, previewUrl);
         log('שולח P2P', { peer, fileId, name: file.name, size: file.size, hasPoster: !!posterDataUrl, hasCaption: !!caption });
         // לא מוחקים כיתוב כאן — sendP2PFile / Blossom קוראים אותו בפרסום | HYPER CORE TECH
@@ -391,7 +337,6 @@
         try {
           log('P2P לא זמין לקובץ גדול, עובר ל-WebTorrent', { name: file.name, size: file.size });
           App.cleanupOrphanCompressTransferBubbles?.();
-          pipelineCompressId = null;
           if (caption) {
             App.setChatFileAttachment?.(peer, {
               id: `pending-caption-${Date.now()}`,
@@ -417,6 +362,10 @@
             if (optimisticFileId && tid && optimisticFileId !== tid) {
               App.adoptChatTransferBubble?.(optimisticFileId, tid);
               optimisticFileId = null;
+            }
+            if (pipelineVideoId && tid && pipelineVideoId !== tid) {
+              App.adoptChatTransferBubble?.(pipelineVideoId, tid);
+              pipelineVideoId = null;
             }
             log('torrent fallback ok', { name: file.name, transferId: tid || null });
             return;
@@ -462,10 +411,14 @@
     reader.onload = async () => {
       const inlinePreview = localPreviewUrl || (typeof reader.result === 'string' ? reader.result : '');
       // תמונה: שומרים את id של בועת המדיה המוקדמת כדי ש-settle לא ייכשל | HYPER CORE TECH
-      const attachmentId = optimisticFileId || pipelineImageId || `${peer}-${Date.now()}`;
+      const attachmentId = optimisticFileId || pipelineImageId || pipelineVideoId || `${peer}-${Date.now()}`;
       if (pipelineImageId && pipelineImageId !== attachmentId) {
         App.adoptChatTransferBubble?.(pipelineImageId, attachmentId);
         pipelineImageId = null;
+      }
+      if (pipelineVideoId && pipelineVideoId !== attachmentId) {
+        App.adoptChatTransferBubble?.(pipelineVideoId, attachmentId);
+        pipelineVideoId = null;
       }
       if (optimisticFileId) {
         App.ensureOutgoingFileCardTransferBubble?.({
@@ -479,7 +432,7 @@
           caption: caption || undefined,
         });
       }
-      if (pipelineImageId || /^image\//i.test(file.type || '')) {
+      if (pipelineImageId || pipelineVideoId || /^image\//i.test(file.type || '') || looksLikeVideoFile(file)) {
         App.handleP2PProgressUpdate?.({
           fileId: attachmentId,
           progress: 0.85,
