@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v801'; // Answer standby video from native cached offer
+  const CACHE_NAME = 'sos-cache-v802'; // Ignore stale video signals after standby answer
   const PRECACHE_URLS = [
     './',
     './videos.html',

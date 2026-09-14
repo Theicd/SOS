@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-vidans1",
-  "buildTime": "2026-09-15T00:25:00+03:00",
-  "notes": "Answer standby video from the native cached offer without waiting for relay replay"
+  "version": "2026.09.15-vidans2",
+  "buildTime": "2026-09-15T00:50:00+03:00",
+  "notes": "Ignore stale video-call signals from the previous call so standby answer can ICE"
 }

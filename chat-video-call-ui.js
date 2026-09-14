@@ -602,6 +602,7 @@
         if (!offer?.type || !offer?.sdp) return null;
         App.__videoIncomingOffer = { type: offer.type, sdp: offer.sdp };
         App.__videoIncomingPeer = peer || peerWanted || App.__videoIncomingPeer;
+        App.__videoIncomingOfferCreatedAt = Number(eventObj.created_at) || 0;
         try {
           sessionStorage.setItem('sos_pending_video_offer', JSON.stringify({
             peer: App.__videoIncomingPeer, callType: 'video', offer: App.__videoIncomingOffer, savedAt: Date.now()
@@ -610,6 +611,11 @@
         try {
           if (eventObj.id && App.videoCall && typeof App.videoCall.markEventProcessed === 'function') {
             App.videoCall.markEventProcessed(eventObj.id);
+          }
+        } catch (_) {}
+        try {
+          if (App.videoCall && typeof App.videoCall.noteIncomingOffer === 'function') {
+            App.videoCall.noteIncomingOffer(App.__videoIncomingPeer, eventObj.created_at);
           }
         } catch (_) {}
         console.log('[APK] hydrated video offer from native raw event', String(peer || '').slice(0, 8));
@@ -680,7 +686,7 @@
         return false;
       }
       videoAcceptStarted = true;
-      await App.videoCall.accept(peer, offer);
+      await App.videoCall.accept(peer, offer, { createdAt: App.__videoIncomingOfferCreatedAt });
       App.__videoIncomingOffer = null;
       setStatus('מתחבר...');
       return true;

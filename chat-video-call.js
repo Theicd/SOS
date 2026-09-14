@@ -80,7 +80,10 @@
     ending: false,
     lastOfferFrom: {},
     lastEndedAt: Object.create(null),
-    callStartTimestamp: null
+    callStartTimestamp: null,
+    sessionOfferCreatedAt: 0,
+    answeredLocally: false,
+    outboundStarting: false
   };
 
   // חלק שיחות וידאו (chat-video-call.js) – בניית אילוצי וידאו ברירת מחדל עם אפשרות דריסה | HYPER CORE TECH
@@ -294,6 +297,22 @@
     return created * 1000 <= at + 2000;
   }
 
+  // חלק שיחות וידאו (chat-video-call.js) – סינון אותות ישנים מהשיחה הקודמת אחרי ענה ממצב המתנה | HYPER CORE TECH
+  function noteSessionOffer(createdAtSec) {
+    const created = Number(createdAtSec) || 0;
+    if (created > (Number(state.sessionOfferCreatedAt) || 0)) {
+      state.sessionOfferCreatedAt = created;
+    }
+  }
+
+  function isStaleForCurrentSession(createdAtSec, peerPubkey) {
+    const created = Number(createdAtSec) || 0;
+    if (!created) return false;
+    const offerAt = Number(state.sessionOfferCreatedAt) || 0;
+    if (offerAt && created + 1 < offerAt) return true;
+    return isOfferReplayAfterHangup(peerPubkey, created);
+  }
+
   // חלק שיחות וידאו (chat-video-call.js) – דה-דופליקציה לאירועי סיגנלים לפי event.id כדי למנוע טריגרים כפולים אחרי re-subscribe | HYPER CORE TECH
   function rememberProcessedSignalId(eventId) {
     if (!eventId) return false;
@@ -335,11 +354,12 @@
   }
 
   // חלק שיחות וידאו (chat-video-call.js) – באפר ל-ICE candidates נכנסים לפני שה-PC מוכן/לפני setRemoteDescription | HYPER CORE TECH
-  function bufferRemoteCandidates(peerPubkey, candidates) {
+  function bufferRemoteCandidates(peerPubkey, candidates, createdAtSec) {
     if (!peerPubkey || !Array.isArray(candidates) || candidates.length === 0) return;
+    const created = Number(createdAtSec) || 0;
     const list = state.pendingRemoteCandidates[peerPubkey] || (state.pendingRemoteCandidates[peerPubkey] = []);
     for (const c of candidates) {
-      if (c) list.push(c);
+      if (c) list.push({ candidate: c, createdAt: created });
     }
     if (list.length > 200) {
       list.splice(0, list.length - 200);
@@ -355,7 +375,12 @@
     if (!state.pc.remoteDescription) return;
 
     const batch = list.splice(0);
-    for (const c of batch) {
+    const offerAt = Number(state.sessionOfferCreatedAt) || 0;
+    for (const item of batch) {
+      const c = item && item.candidate !== undefined ? item.candidate : item;
+      const at = item && item.createdAt !== undefined ? Number(item.createdAt) : 0;
+      if (offerAt && at && at + 1 < offerAt) continue;
+      if (!c) continue;
       try {
         await state.pc.addIceCandidate(new RTCIceCandidate(c));
       } catch (err) {
@@ -370,27 +395,42 @@
   // חלק שיחות וידאו – התחלת שיחה יוצאת
   async function start(peerPubkey, opts) {
     if (!isSupported()) throw new Error('הדפדפן לא תומך בוידאו');
-    await getLocalStream(opts && opts.video);
-    // חלק שיחות וידאו (chat-video-call.js) – איפוס מצב לפני שיחה יוצאת כדי למנוע שאריות ICE/Stream משיחות קודמות | HYPER CORE TECH
+    state.outboundStarting = true;
+    state.answeredLocally = false;
     state.isIncoming = false;
-    state.isActive = false;
-    state.callStartTimestamp = null;
-    state.remoteStream = null;
-    state.candidateQueue = [];
-    clearTimer();
-    try { delete state.pendingRemoteCandidates[peerPubkey]; } catch {}
-    try { subscribeToSignals(); } catch {}
-    state.currentPeer = peerPubkey;
-    createPC(peerPubkey);
-    const offer = await state.pc.createOffer();
-    await state.pc.setLocalDescription(offer);
-    await sendSignal(peerPubkey, 'v-offer', offer);
-    if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, false);
+    noteSessionOffer(Math.floor(Date.now() / 1000));
+    try {
+      await getLocalStream(opts && opts.video);
+      // חלק שיחות וידאו (chat-video-call.js) – איפוס מצב לפני שיחה יוצאת כדי למנוע שאריות ICE/Stream משיחות קודמות | HYPER CORE TECH
+      state.isIncoming = false;
+      state.isActive = false;
+      state.callStartTimestamp = null;
+      state.remoteStream = null;
+      state.candidateQueue = [];
+      clearTimer();
+      try { delete state.pendingRemoteCandidates[peerPubkey]; } catch {}
+      try { subscribeToSignals(); } catch {}
+      state.currentPeer = peerPubkey;
+      createPC(peerPubkey);
+      const offer = await state.pc.createOffer();
+      await state.pc.setLocalDescription(offer);
+      await sendSignal(peerPubkey, 'v-offer', offer);
+      state.outboundStarting = false;
+      state.answeredLocally = true;
+      if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, false);
+    } catch (err) {
+      state.outboundStarting = false;
+      throw err;
+    }
   }
 
   // חלק שיחות וידאו – קבלת שיחה
-  async function accept(peerPubkey, offer) {
+  async function accept(peerPubkey, offer, meta) {
     if (!isSupported()) throw new Error('הדפדפן לא תומך בוידאו');
+    const createdAt = Number(meta && meta.createdAt) || Number(App.__videoIncomingOfferCreatedAt) || 0;
+    if (createdAt) noteSessionOffer(createdAt);
+    state.isIncoming = true;
+    state.answeredLocally = false;
     await getLocalStream();
     // חלק שיחות וידאו (chat-video-call.js) – איפוס מצב לפני קבלה כדי להתמודד עם candidates שמגיעים לפני accept במובייל | HYPER CORE TECH
     state.isIncoming = true;
@@ -411,6 +451,7 @@
     await state.pc.setLocalDescription(answer);
     await flushRemoteCandidates(peerPubkey);
     await sendSignal(peerPubkey, 'v-answer', answer);
+    state.answeredLocally = true;
     if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, true);
   }
 
@@ -422,7 +463,7 @@
     const startMs = state.callStartTimestamp;
     const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
     const wasIncoming = state.isIncoming;
-    const wasAnswered = !!startMs;
+    const wasAnswered = !!startMs || !!state.answeredLocally;
     if (peer) noteCallEnded(peer);
     if (peer) {
       try {
@@ -441,6 +482,9 @@
     clearTimer();
     state.pendingRemoteCandidates = Object.create(null);
     state.currentPeer = null; state.isIncoming = false; state.isActive = false; state.isMuted = false; state.isCameraOff = false;
+    state.sessionOfferCreatedAt = 0;
+    state.answeredLocally = false;
+    state.outboundStarting = false;
     if (durationSeconds > 0) {
       publishCallMetric(durationSeconds, peer);
     }
@@ -689,12 +733,16 @@
     }
 
     console.log(`Received ${type} from ${peer.slice(0,8)}`);
+    const createdAt = Number(event.created_at) || 0;
+    if (type !== 'v-offer' && isStaleForCurrentSession(createdAt, peer)) {
+      console.log('Ignored stale video signal', type, 'from', peer.slice(0, 8));
+      return;
+    }
     switch (type) {
       case 'v-offer': {
         // חלק שיחות וידאו (chat-video-call.js) – הגנה מפני offer ישן אחרי re-subscribe | HYPER CORE TECH
         try {
           const nowSec = Math.floor(Date.now() / 1000);
-          const createdAt = Number(event.created_at) || 0;
           if (createdAt && (nowSec - createdAt) > MAX_OFFER_AGE_SEC) {
             console.log('Ignored old video offer from', peer.slice(0,8));
             return;
@@ -721,6 +769,17 @@
         }
 
         console.log('Received valid video offer:', { type: offerData.type, sdpLen: offerData.sdp?.length });
+        if (state.outboundStarting || (state.pc && !state.isIncoming)) {
+          console.log('Ignored video offer – already calling');
+          return;
+        }
+        try {
+          if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === String(peer).toLowerCase()) {
+            noteSessionOffer(createdAt);
+            console.log('Ignored video offer – native accept already in flight');
+            return;
+          }
+        } catch (_) {}
         // חלק שיחות וידאו (chat-video-call.js) – קיבוע peer עבור שיחה נכנסת כדי שאירוע v-disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
         if (state.pc && state.currentPeer === peer) {
           console.log('Ignored video offer – already in call with', peer.slice(0, 8));
@@ -730,6 +789,7 @@
           console.log('Ignored incoming video offer while another call context exists');
           return;
         }
+        noteSessionOffer(createdAt);
         state.currentPeer = peer;
         state.isIncoming = true;
         // חלק Push (chat-video-call.js) – שליחת התראת Push על שיחת וידאו נכנסת | HYPER CORE TECH
@@ -741,6 +801,10 @@
       }
       case 'v-answer': {
         if (!state.pc || state.currentPeer !== peer) break;
+        if (state.isIncoming) {
+          console.log('Ignored video answer – local side is callee');
+          break;
+        }
         const answerData = normalizeVideoSessionDescription(data);
         if (answerData) {
           await state.pc.setRemoteDescription(answerData);
@@ -766,7 +830,7 @@
               }
             }
           } else {
-            bufferRemoteCandidates(peer, candidatesData);
+            bufferRemoteCandidates(peer, candidatesData, createdAt);
           }
         } else if (candidatesData) {
           console.error('Invalid video candidates received', {
@@ -778,10 +842,23 @@
         break;
       }
       case 'v-disconnect': {
-        if (state.currentPeer === peer) end();
+        if (state.currentPeer !== peer) break;
+        if (state.outboundStarting && !state.pc) {
+          console.log('Ignored video disconnect – outbound still starting');
+          break;
+        }
+        end();
         break;
       }
     }
+  }
+
+  // חלק שיחות וידאו (chat-video-call.js) – תור אותות כדי שלא ירוצו במקביל אחרי decrypt | HYPER CORE TECH
+  let signalChain = Promise.resolve();
+  function enqueueVideoSignalEvent(ev) {
+    signalChain = signalChain.then(() => handleSignalEvent(ev)).catch((err) => {
+      console.warn('video signal handler failed', err);
+    });
   }
 
   // חלק שיחות וידאו – הרשמה לאירועים
@@ -885,7 +962,7 @@
           if (!verifyIncomingVideoRelayEvent(ev)) return;
           if (!verifyIncomingVideoRelayRecipient(ev)) return;
           if (!verifyIncomingVideoRelayFreshness(ev)) return;
-          handleSignalEvent(ev);
+          enqueueVideoSignalEvent(ev);
         },
         oneose: () => {
           state.lastSignalReceivedAt = Date.now();
@@ -956,7 +1033,10 @@
     verifyIncomingRelayEvent: verifyIncomingVideoRelayEvent,
     verifyIncomingRelayRecipient: verifyIncomingVideoRelayRecipient,
     verifyIncomingRelayFreshness: verifyIncomingVideoRelayFreshness,
-    markEventProcessed: rememberProcessedSignalId
+    markEventProcessed: rememberProcessedSignalId,
+    noteIncomingOffer: function noteIncomingOffer(_peerPubkey, createdAtSec) {
+      noteSessionOffer(createdAtSec);
+    }
   };
 
   // אתחול מודול
