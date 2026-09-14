@@ -629,8 +629,24 @@ function setFeedDownloadsPaused(paused) {
   }
 }
 
+// חלק שיחות (videos.js) – שיחה פעילה נחשבת כמו פאנל שיחות פתוח | HYPER CORE TECH
+function isIncomingCallFeedHoldActive() {
+  try {
+    if (window.__sosIncomingCallActive) return true;
+  } catch (_) {}
+  try {
+    if (document.body && document.body.classList.contains('sos-call-active')) return true;
+  } catch (_) {}
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    if (String(params.get('incomingCall') || '').trim()) return true;
+  } catch (_) {}
+  return false;
+}
+
 // חלק שיחות (videos.js) – האם פאנל שיחות באמת פתוח (לא רק דגל ישן) | HYPER CORE TECH
 function isChatFeedWarmupActive() {
+  if (isIncomingCallFeedHoldActive()) return true;
   try {
     const app = window.NostrApp || {};
     if (app.chatState && typeof app.chatState.isOpen === 'boolean') {
@@ -644,9 +660,13 @@ function isChatFeedWarmupActive() {
   return false;
 }
 
-// חלק עומס מכשיר (videos.js) – מוחק pause תקוע כשלא בשיחות; לא מבטל עצירה בשיחות | HYPER CORE TECH
+// חלק עומס מכשיר (videos.js) – עצירה כשיחות/שיחה פעילה; חזרה רק כששניהם לא פעילים | HYPER CORE TECH
 function syncFeedWarmupPauseWithChat(reason = 'sync') {
-  if (feedWarmupPaused && !isChatFeedWarmupActive()) {
+  if (isChatFeedWarmupActive() || hasActiveChatFileTransfer()) {
+    if (!feedWarmupPaused) setFeedWarmupPaused(true);
+    return;
+  }
+  if (feedWarmupPaused) {
     console.log('[videos] clearing stale feedWarmupPaused — chat not open', { reason });
     setFeedWarmupPaused(false);
   }

@@ -19,6 +19,12 @@
   let chatPanelWasOpen = false;
   let chatActiveContactBeforeCall = null;
 
+  function pauseFeedQueueLikeChat() {
+    try {
+      if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);
+    } catch (_) {}
+  }
+
   // חלק שיחות וידאו (chat-video-call-ui.js) – מצב תצוגה: מציגים מקומי במסך מלא עד שמגיע וידאו מרוחק | HYPER CORE TECH
   function setLocalOnlyMode(enabled) {
     if (!dialog) return;
@@ -379,6 +385,7 @@
       doc.body.classList.add('sos-call-active');
       window.__sosIncomingCallActive = true;
     } catch (_) {}
+    pauseFeedQueueLikeChat();
     // חלק שיחות וידאו (chat-video-call-ui.js) – שליפת פרטי איש קשר כמו בשיחת קול
     const contact = App.chatState?.contacts?.get(peer.toLowerCase());
     const name = contact?.name || `משתמש ${peer.slice(0, 8)}`;
@@ -800,6 +807,12 @@
       return true;
     }
 
+    pauseFeedQueueLikeChat();
+    try {
+      window.__sosIncomingCallActive = true;
+      doc.body.classList.add('sos-call-active');
+    } catch (_) {}
+
     try {
       if (typeof App.initVideoCall === 'function') App.initVideoCall({ lookbackSec: 90 });
     } catch (_) {}
@@ -907,6 +920,7 @@
   App.resumeIncomingVideoCallFromDeepLink = function resumeIncomingVideoCallFromDeepLink(peerPubkey, pendingOfferDetail, opts) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
     window.__sosIncomingCallActive = true;
+    pauseFeedQueueLikeChat();
     const restore = (parsed) => {
       if (!parsed) return false;
       try {

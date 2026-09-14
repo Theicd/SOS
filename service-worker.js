@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v804'; // Keep one lookback sub; send video ICE faster
+  const CACHE_NAME = 'sos-cache-v805'; // Pause feed video queue during incoming call like chat
   const PRECACHE_URLS = [
     './',
     './videos.html',

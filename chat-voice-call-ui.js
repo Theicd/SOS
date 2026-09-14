@@ -85,6 +85,7 @@
       if (active) {
         doc.body.classList.add('sos-call-active');
         window.__sosIncomingCallActive = true;
+        pauseFeedQueueLikeChat();
       } else {
         clearCallOverlayFlags();
       }
@@ -257,14 +258,22 @@
     await new Promise((r) => setTimeout(r, 40));
   }
 
-  function hideChatBehindCall() {
+  function pauseFeedQueueLikeChat() {
     try {
-      if (typeof App.closeChatPanel === 'function') App.closeChatPanel();
+      if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);
     } catch (_) {}
+  }
+
+  function hideChatBehindCall() {
     try {
       document.documentElement.setAttribute('data-sos-deeplink', '1');
       document.body.classList.add('sos-call-active');
+      window.__sosIncomingCallActive = true;
       document.body.classList.remove('videos-boot-loading', 'sos-deeplink-chat');
+    } catch (_) {}
+    pauseFeedQueueLikeChat();
+    try {
+      if (typeof App.closeChatPanel === 'function') App.closeChatPanel();
     } catch (_) {}
     try {
       if (typeof App.releaseBootForDeepLink === 'function') {
@@ -1114,6 +1123,7 @@
   // חלק APK (chat-voice-call-ui.js) – חימום בזמן צלצול: מפתח/offer/מיקרופון בלי UI | HYPER CORE TECH
   App.prepareIncomingCallFromNative = async function prepareIncomingCallFromNative(peerPubkey, callType, pendingRawEvent) {
     if (callType && String(callType).toLowerCase() === 'video') {
+      pauseFeedQueueLikeChat();
       try {
         if (typeof App.initVideoCall === 'function') App.initVideoCall({ lookbackSec: 90 });
       } catch (_) {}
@@ -1133,7 +1143,9 @@
     try {
       document.documentElement.setAttribute('data-sos-deeplink', '1');
       document.body.classList.add('sos-call-active');
+      window.__sosIncomingCallActive = true;
     } catch (_) {}
+    pauseFeedQueueLikeChat();
     try {
       if (typeof App.initVoiceCall === 'function') {
         App.initVoiceCall({});
@@ -1175,6 +1187,12 @@
     if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === peer) {
       return true;
     }
+
+    pauseFeedQueueLikeChat();
+    try {
+      window.__sosIncomingCallActive = true;
+      doc.body.classList.add('sos-call-active');
+    } catch (_) {}
 
     // כבר מחוברים – רק מסנכרנים UI נייטיבי | HYPER CORE TECH
     try {
@@ -1372,6 +1390,7 @@
   App.resumeIncomingVoiceCallFromDeepLink = function resumeIncomingVoiceCallFromDeepLink(peerPubkey, pendingOfferDetail, opts) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
     window.__sosIncomingCallActive = true;
+    pauseFeedQueueLikeChat();
     restoreIncomingOffer(peer, pendingOfferDetail);
     // קודם מסך ענה – לא פותחים צ'אט שמסתיר את הדיאלוג | HYPER CORE TECH
     const target = incomingOfferPeer || peer;

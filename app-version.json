@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-vidans4",
-  "buildTime": "2026-09-15T01:25:00+03:00",
-  "notes": "Keep one video lookback subscription and send ICE candidates without a 1s wait"
+  "version": "2026.09.15-vidans5",
+  "buildTime": "2026-09-15T01:40:00+03:00",
+  "notes": "Pause the feed video queue during an incoming call with the same chat pause/resume logic"
 }

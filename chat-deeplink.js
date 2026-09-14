@@ -200,6 +200,10 @@
     // שיחה נכנסת: קודם מסך ענה, בלי לפתוח צ'אט שמסתיר אותו | HYPER CORE TECH
     if (incomingCall) {
       window.__sosIncomingCallActive = true;
+      try {
+        document.body.classList.add('sos-call-active');
+        if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);
+      } catch (_) {}
       // init חד־פעמי בלבד – retries של deeplink לא מריצים force שוב | HYPER CORE TECH
       if (attempt === 0) {
         try {
