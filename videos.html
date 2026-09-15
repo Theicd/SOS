@@ -252,7 +252,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260911camopt3">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260915camrec3">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -1699,60 +1699,6 @@
         }
       }
 
-      /* ===== טיימר צף במהלך הקלטה ===== */
-      .floating-timer {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: 600;
-        font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        z-index: 10;
-        opacity: 0;
-        transform: translateY(-10px);
-        transition: all 0.3s ease;
-        pointer-events: none;
-      }
-
-      .floating-timer.visible {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      .floating-timer.pulse {
-        animation: floatingPulse 0.5s ease-out;
-      }
-
-      @keyframes floatingPulse {
-        0% {
-          transform: scale(1);
-          background: rgba(0, 0, 0, 0.8);
-        }
-        50% {
-          transform: scale(1.1);
-          background: rgba(244, 67, 54, 0.9);
-        }
-        100% {
-          transform: scale(1);
-          background: rgba(0, 0, 0, 0.8);
-        }
-      }
-
-      /* התאמה למובייל */
-      @media (max-width: 768px) {
-        .floating-timer {
-          top: 15px;
-          right: 15px;
-          padding: 6px 12px;
-          font-size: 12px;
-        }
-      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
     
@@ -2224,7 +2170,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260915camrec1" defer></script>
+    <script src="./video-record.js?v=20260915camrec3" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2243,7 +2189,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260828back1" defer></script>
+    <script src="./compose.js?v=20260915camrec2" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2261,7 +2207,7 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260915vidans6" defer></script>
+    <script src="./videos.js?v=20260915camrec2" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
@@ -2299,7 +2245,7 @@
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
     <script src="./chat-transfer-monitor.js?v=20260914logpriv2" defer></script>
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
-    <script src="./pwa-installer.js?v=20260915camrec1" defer></script>
+    <script src="./pwa-installer.js?v=20260915camrec3" defer></script>
     <script src="./pwa-install-chooser.js?v=20260805a" defer></script>
     <script src="./push-client.js?v=20260914logpriv2" defer></script>
     <script src="./push-trigger.js?v=20260810p2pAlert1" defer></script>
@@ -2795,8 +2741,6 @@
             <span>אפשר לבחור קובץ מהגלריה למטה</span>
           </div>
         </div>
-        <div class="floating-timer" id="floatingTimer">00:00</div>
-
         <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="חזרה" style="right:10px;left:auto;">
           <i class="fa-solid fa-chevron-right"></i>
         </button>
@@ -2847,6 +2791,7 @@
               <div class="record-button-inner"></div>
             </button>
           </div>
+          <div class="floating-timer" id="floatingTimer">0:00</div>
 
           <div class="vr-footer-bar">
             <button type="button" class="vr-footer-btn" id="videoRecordLiveBtn" title="התחל שידור חי">

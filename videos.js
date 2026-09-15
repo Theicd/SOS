@@ -618,6 +618,7 @@ function hasActiveChatFileTransfer() {
 function maybeResumeFeedAfterChat() {
   if (isChatFeedWarmupActive()) return;
   if (hasActiveChatFileTransfer()) return;
+  if (feedDownloadsPaused) return;
   setFeedWarmupPaused(false);
 }
 
@@ -625,8 +626,25 @@ function setFeedDownloadsPaused(paused) {
   feedDownloadsPaused = !!paused;
   console.log('[videos] feed downloads', feedDownloadsPaused ? 'PAUSED (upload in progress)' : 'RESUMED');
   if (!feedDownloadsPaused) {
+    maybeResumeFeedAfterChat();
     tryResumeFeedHeavyWork('upload-done');
   }
+}
+
+// חלק שיתוף (videos.js) – מצלמה/עורך פוסט פתוחים נחשבים כמו שיחות לצורך עצירת תור | HYPER CORE TECH
+function isCameraOrComposeFeedHoldActive() {
+  try {
+    if (document.body && document.body.classList.contains('video-record-open')) return true;
+  } catch (_) {}
+  try {
+    const rec = document.getElementById('videoRecordModal');
+    if (rec && rec.classList.contains('is-visible')) return true;
+  } catch (_) {}
+  try {
+    const compose = document.getElementById('composeModal');
+    if (compose && compose.classList.contains('is-visible')) return true;
+  } catch (_) {}
+  return false;
 }
 
 // חלק שיחות (videos.js) – שיחה פעילה נחשבת כמו פאנל שיחות פתוח | HYPER CORE TECH
@@ -647,6 +665,7 @@ function isIncomingCallFeedHoldActive() {
 // חלק שיחות (videos.js) – האם פאנל שיחות באמת פתוח (לא רק דגל ישן) | HYPER CORE TECH
 function isChatFeedWarmupActive() {
   if (isIncomingCallFeedHoldActive()) return true;
+  if (isCameraOrComposeFeedHoldActive()) return true;
   try {
     const app = window.NostrApp || {};
     if (app.chatState && typeof app.chatState.isOpen === 'boolean') {
@@ -666,6 +685,7 @@ function syncFeedWarmupPauseWithChat(reason = 'sync') {
     if (!feedWarmupPaused) setFeedWarmupPaused(true);
     return;
   }
+  if (feedDownloadsPaused) return;
   if (feedWarmupPaused) {
     console.log('[videos] clearing stale feedWarmupPaused — chat not open', { reason });
     setFeedWarmupPaused(false);
@@ -675,9 +695,9 @@ function syncFeedWarmupPauseWithChat(reason = 'sync') {
 // חלק עומס מכשיר (videos.js) – השהיית תור פיד/קאש בשיחות; מיזוג פוסטים ממשיך | HYPER CORE TECH
 function setFeedWarmupPaused(paused) {
   const next = !!paused;
-  if (!next && (isChatFeedWarmupActive() || hasActiveChatFileTransfer())) {
+  if (!next && (isChatFeedWarmupActive() || hasActiveChatFileTransfer() || feedDownloadsPaused)) {
     feedWarmupPaused = true;
-    console.log('[videos] feed video queue stays PAUSED (chat/file busy)');
+    console.log('[videos] feed video queue stays PAUSED (chat/file/camera/upload busy)');
     return;
   }
   if (feedWarmupPaused === next) return;

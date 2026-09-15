@@ -594,26 +594,37 @@ body.video-record-open .videos-feed iframe {
   cursor: pointer;
 }
 
+/* מד זמן — מתחת לכפתור האדום, לא בהדר | HYPER CORE TECH */
 .floating-timer {
-  position: absolute;
-  top: calc(18px + var(--safe-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: 6;
   color: #fff;
   font-weight: 700;
-  font-size: 16px;
-  padding: 6px 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  padding: 0;
+  margin: 0;
+  border: none;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
   opacity: 0;
   visibility: hidden;
+  height: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
 .floating-timer.visible {
   opacity: 1;
   visibility: visible;
+  height: auto;
+  overflow: visible;
+  padding: 2px 8px;
+  margin-top: -2px;
 }
 
 .floating-timer.pulse {
@@ -621,9 +632,9 @@ body.video-record-open .videos-feed iframe {
 }
 
 @keyframes vrTimerPulse {
-  0% { transform: translateX(-50%) scale(1); }
-  50% { transform: translateX(-50%) scale(1.08); }
-  100% { transform: translateX(-50%) scale(1); }
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
 /* כפתור הבא – למעלה משמאל, גודל לפי הטקסט, לא מכסה כתוביות למטה | HYPER CORE TECH */

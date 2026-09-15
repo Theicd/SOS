@@ -24,6 +24,7 @@ class VideoRecorder {
     this.cameraAvailable = true;
     this._bgLoadTimer = 0;
     this.countdownTimer = null;
+    this._beepCtx = null;
     this.gridOn = false;
     this._overlayBurnedInFile = false;
     this._composeOverlayText = '';
@@ -242,6 +243,10 @@ class VideoRecorder {
   freezeFeedForCamera() {
     this.pauseFeedVideos();
     this.ensureFeedFreezeHook();
+    try {
+      const FeedApp = window.NostrApp || {};
+      if (typeof FeedApp.setFeedWarmupPaused === 'function') FeedApp.setFeedWarmupPaused(true);
+    } catch (_) {}
     if (this._feedFrozen?.length) return;
     this._feedFrozen = [];
     try {
@@ -301,20 +306,26 @@ class VideoRecorder {
       const recordOpen = this.modal?.classList.contains('is-visible');
       if (composeOpen || recordOpen) return;
       this.unfreezeFeedForCamera();
+      const FeedApp = window.NostrApp || {};
+      if (typeof FeedApp.maybeResumeFeedAfterChat === 'function') {
+        FeedApp.maybeResumeFeedAfterChat();
+      } else if (typeof FeedApp.setFeedWarmupPaused === 'function') {
+        FeedApp.setFeedWarmupPaused(false);
+      }
       if (typeof window.resumeCenteredFeedVideo === 'function') {
         window.resumeCenteredFeedVideo();
-      } else if (typeof App !== 'undefined' && typeof App.resumeCenteredFeedVideo === 'function') {
-        App.resumeCenteredFeedVideo();
+      } else if (typeof FeedApp.resumeCenteredFeedVideo === 'function') {
+        FeedApp.resumeCenteredFeedVideo();
       }
     } catch (_) {}
   }
 
   openModal() {
     if (!this.modal) return;
-    this.freezeFeedForCamera();
     this.modal.classList.add('is-visible');
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
+    this.freezeFeedForCamera();
     this.resetState();
     this.cameraAvailable = true;
     this.clearOverlayText();
@@ -357,7 +368,7 @@ class VideoRecorder {
     if (this.recordButton) this.recordButton.classList.remove('recording');
     this.modal?.classList.remove('is-recording');
     if (this.floatingTimer) {
-      this.floatingTimer.textContent = '00:00';
+      this.floatingTimer.textContent = '0:00';
       this.floatingTimer.classList.remove('visible', 'pulse');
     }
     if (this.recordingTimer) {
@@ -471,8 +482,8 @@ class VideoRecorder {
     this._composeOverlayText = String(this.overlayText || '').trim();
     this.lastShareFile = file;
     this.clearPendingPreview();
-    this.closeModal({ skipResume: true });
     this.transferToCompose(file);
+    this.closeModal({ skipResume: true });
   }
 
   /** חזרה מעורך הפוסט לתצוגה גדולה של אותו קובץ | HYPER CORE TECH */
@@ -480,10 +491,10 @@ class VideoRecorder {
     const target = file || this.lastShareFile;
     if (!this.modal || !target) return;
     this.lastShareFile = target;
-    this.freezeFeedForCamera();
     this.modal.classList.add('is-visible');
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
+    this.freezeFeedForCamera();
     this.resetState();
     this.clearOverlayText();
     this.clearBackgroundSelection();
@@ -671,6 +682,37 @@ class VideoRecorder {
     }
   }
 
+  playCountdownBeep(isGo = false) {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      if (!this._beepCtx) this._beepCtx = new Ctx();
+      const ctx = this._beepCtx;
+      if (ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime;
+      if (isGo) {
+        osc.frequency.setValueAtTime(1320, t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.16, t + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+        osc.start(t);
+        osc.stop(t + 0.24);
+      } else {
+        osc.frequency.setValueAtTime(980, t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.14, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+        osc.start(t);
+        osc.stop(t + 0.13);
+      }
+    } catch (_) {}
+  }
+
   cancelCountdown() {
     if (this.countdownTimer) {
       clearInterval(this.countdownTimer);
@@ -693,6 +735,7 @@ class VideoRecorder {
     this.countdownEl.classList.remove('is-pop');
     void this.countdownEl.offsetWidth;
     this.countdownEl.classList.add('is-pop');
+    this.playCountdownBeep(false);
   }
 
   startCountdown(onDone) {
@@ -705,6 +748,7 @@ class VideoRecorder {
     this.countdownTimer = setInterval(() => {
       n -= 1;
       if (n <= 0) {
+        this.playCountdownBeep(true);
         this.cancelCountdown();
         try {
           if (typeof onDone === 'function') onDone();
@@ -1309,7 +1353,7 @@ class VideoRecorder {
         return;
       }
       const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
-      const display = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+      const display = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
       if (this.floatingTimer) this.floatingTimer.textContent = display;
     };
     updateFloatingTimer();

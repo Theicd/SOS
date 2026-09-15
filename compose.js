@@ -1016,7 +1016,7 @@
     if (!forceEditor && typeof window.openVideoRecordModal === 'function') {
       try {
         if (elements.modal?.classList.contains('is-visible')) {
-          closeCompose({ keepDraft: true });
+          closeCompose({ keepDraft: true, skipResume: true });
         }
       } catch (_) {}
       window.openVideoRecordModal();
@@ -1124,6 +1124,9 @@
       try {
         const recordOpen = document.getElementById('videoRecordModal')?.classList.contains('is-visible');
         if (!recordOpen) {
+          if (typeof App.maybeResumeFeedAfterChat === 'function') {
+            App.maybeResumeFeedAfterChat();
+          }
           if (typeof window.resumeCenteredFeedVideo === 'function') {
             window.resumeCenteredFeedVideo();
           } else if (typeof App !== 'undefined' && typeof App.resumeCenteredFeedVideo === 'function') {
