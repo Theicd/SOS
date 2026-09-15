@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-camrec3",
-  "buildTime": "2026-09-15T03:25:00+03:00",
-  "notes": "Move recording timer under the shutter and play a countdown beep before capture"
+  "version": "2026.09.15-camrec4",
+  "buildTime": "2026-09-15T03:42:00+03:00",
+  "notes": "Enlarge the recording timer and show a blinking red camcorder lamp while recording"
 }

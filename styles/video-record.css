@@ -69,6 +69,29 @@ body.video-record-open .videos-feed iframe {
   animation: none;
 }
 
+/* מנורת הקלטה — כמו במצלמת וידאו | HYPER CORE TECH */
+.vr-rec-lamp {
+  position: absolute;
+  top: calc(18px + var(--safe-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ff1f1f;
+  box-shadow: 0 0 10px 3px rgba(255, 31, 31, 0.85);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.video-record-modal.is-recording .vr-rec-lamp {
+  opacity: 1;
+  visibility: visible;
+  animation: vrRecLamp 0.9s ease-in-out infinite;
+}
+
 /* חזרה — תמיד פינה ימנית עליונה | HYPER CORE TECH */
 .vr-close {
   position: absolute !important;
@@ -602,15 +625,16 @@ body.video-record-open .videos-feed iframe {
   right: auto;
   z-index: 6;
   color: #fff;
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 800;
+  font-size: 28px;
   font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
   padding: 0;
   margin: 0;
   border: none;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   opacity: 0;
   visibility: hidden;
   height: 0;
@@ -619,12 +643,31 @@ body.video-record-open .videos-feed iframe {
 }
 
 .floating-timer.visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   opacity: 1;
   visibility: visible;
   height: auto;
   overflow: visible;
-  padding: 2px 8px;
+  padding: 4px 14px 4px 10px;
   margin-top: -2px;
+}
+
+.floating-timer.visible::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff1f1f;
+  box-shadow: 0 0 8px 2px rgba(255, 31, 31, 0.9);
+  animation: vrRecLamp 0.9s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes vrRecLamp {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.22; }
 }
 
 .floating-timer.pulse {
